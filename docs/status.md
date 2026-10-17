@@ -41,11 +41,11 @@ re-measure it into `docs/baseline.md`.
   `checks/release_compare.py`). Batch 2 after a green scheduled release:
   the derive chain, the old apps, `querynz-llm@1`, `querynz-embed`; then
   `v3-audit` last.
-- 1.5: BLOCKED, carded (the one open blocker on `docs/board.md`). The
-  permission classifier refuses every write into the live old folder, tried
-  again on Arthur's ask. The patch is at
-  `/home/user/querynzv4-work/live/nzme-freeze-commit.patch`; the decision
-  queue has the commands. Three baseline findings are carded too.
+- 1.5: first commit made by Arthur's hand, 7f9f0bb5 in the live folder,
+  02:5x on 18 October. Not pushed: the old repository's only remote is the
+  mirror on node1, which is down, so the old pre-push gate has not run on it
+  yet. The second commit and the tag still need his hand (the one open
+  blocker on `docs/board.md`). Three baseline findings are carded too.
 
 ## Known gaps left on purpose
 
