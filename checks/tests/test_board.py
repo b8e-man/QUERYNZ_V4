@@ -73,13 +73,14 @@ def test_job_files_carry_the_prefix_a_deadline_and_a_persistent_timer():
     jobs = os.path.join(REPO, "checks", "jobs")
     names = sorted(os.listdir(jobs))
     assert names == ["qv4-checks-board.service", "qv4-checks-board.timer",
-                     "qv4-checks-heartbeat.service", "qv4-checks-heartbeat.timer"]
+                     "qv4-checks-heartbeat.service", "qv4-checks-heartbeat.timer",
+                     "qv4-full-tier.service", "qv4-full-tier.timer"]
     for n in names:
         text = open(os.path.join(jobs, n)).read()
         assert n.startswith("qv4-")
         if n.endswith(".service"):
             assert re.search(r"^TimeoutStartSec=\d+$", text, re.M), n
-            assert "ExecStart=/home/user/querynzv4/.venv/bin/python -m checks.board" in text
+            assert "ExecStart=/home/user/querynzv4/" in text
             assert "WorkingDirectory=/home/user/querynzv4" in text
         else:
             assert "Persistent=true" in text and "OnCalendar=" in text and "WantedBy=timers.target" in text

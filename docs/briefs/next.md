@@ -4,6 +4,14 @@ Kept current by the integrator (by the founding session during step 1).
 Arthur starts sessions from here. `bin/start-session` prints the section
 headed with the session's name as the brief.
 
+## ask
+
+A question session (step 1b's proof). On node2, in `/home/user/querynzv4`:
+`bin/ask`. Change into the folder it prints, start Claude there in the mode
+that accepts file edits without asking, and ask it anything about the
+estate. There is no brief. Its two lines land in
+`/home/user/querynzv4-work/times/session-times.jsonl`.
+
 ## founding
 
 Launcher, on node2 in `/home/user/querynzv4`: `bin/start-session --main founding`
@@ -19,6 +27,8 @@ the index, then the files it names for a build session on step 1,
 then docs/status.md, and continue where it stops. Do step 1 only, in
 this order: 1.1, 1.2, 1.3, 1.6, the first commit of 1.5, 1.4, the
 rest of 1.5, 1.7 to 1.10, step 1b (stop when it is built), then 1.11.
+Step 1b is built: 1.11 is next, then 1.4's remaining batches (each
+after a green scheduled release), then 1.5 as the decision queue says.
 Work alone. The only changes you may make to the old estate are
 stopping old jobs outside the carve-out, with proof (1.4), and the
 freeze commits (1.5), and never in a session that started without

@@ -23,14 +23,14 @@ import sys
 
 from support import alarm, jobrun
 
-from checks import frozen_product, session_times
+from checks import frozen_product, full_tier, session_times
 
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 STATE_DIR = os.path.join(LIVE, "checks")
 BOARD = os.path.join(STATE_DIR, "board.json")
 WINDOW_HOURS = 26
 JOB = "qv4-checks-board"
-REGISTRY = [frozen_product.check, session_times.check]
+REGISTRY = [frozen_product.check, full_tier.check, session_times.check]
 
 
 def run_board(checks=None, *, now: dt.datetime = None, board_path: str = None, send=alarm.send,

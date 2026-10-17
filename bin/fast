@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""The fast tier (plan 1b.7; core: "Two tiers of checks").
+
+  bin/fast                 the whole repository
+  bin/fast keys            one module (a folder: keys, links, support/alarm, registers/gazette, …)
+  bin/fast --no-fill       skip filling the sample (no database here)
+
+Fills this working copy's sample schema in the sample database from every
+module's sample.list (through this branch's own code; skipped where the
+repository's environment or the credential file is absent), then runs the
+tests not marked slow with the five-second rule on, calling no model and
+no network, and records its own time to <work>/times/fast-tier.jsonl. The
+targets: 60 s for one module, five minutes for the whole repository; it
+fails outright at three times the target. Stdlib only."""
+import datetime as dt
+import json
+import os
+import subprocess
+import sys
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _session as S  # noqa: E402
+
+TARGET_MODULE_S, TARGET_ALL_S = 60, 300
+HARD = 3
+
+
+def session_name(repo: str) -> str:
+    return S.read_scope(os.path.join(repo, ".scope")).get("name") or "nobody"
+
+
+def fill(repo: str) -> str:
+    py = os.path.join(repo, ".venv", "bin", "python")
+    if not os.path.exists(py):
+        py = os.path.join(S.MAIN, ".venv", "bin", "python")
+    cred = os.path.join(os.environ.get("QV4_CRED_DIR") or os.path.expanduser("~/.querynz"), "v4.env")
+    if not os.path.exists(py) or not os.path.exists(cred) or os.environ.get("QV4_NO_DB"):
+        return "sample: not filled (no database environment here)"
+    p = subprocess.run([py, os.path.join(repo, "bin", "fill-sample"), "--session"], cwd=repo, capture_output=True, text=True)
+    if p.returncode:
+        return "sample: fill FAILED\n" + (p.stderr or p.stdout)[-800:]
+    return (p.stdout.strip().splitlines() or ["sample: filled"])[-1]
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    no_fill = "--no-fill" in args
+    args = [a for a in args if a != "--no-fill"]
+    repo = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    if not os.path.isfile(os.path.join(repo, "pytest.ini")):
+        repo = S.MAIN
+    module = args[0].strip("/") if args else ""
+    if module and not os.path.isdir(os.path.join(repo, module)):
+        S.die("fast", f"{module} is not a folder here")
+    t0 = time.monotonic()
+    filled = "sample: skipped (--no-fill)" if no_fill else fill(repo)
+    print(filled)
+    py = os.path.join(repo, ".venv", "bin", "python")
+    if not os.path.exists(py):
+        py = sys.executable
+    target = [module] if module else []
+    cmd = [py, "-m", "pytest", "-p", "no:cacheprovider", "-q", "-m", "not slow", *target]
+    env = {**os.environ, "QV4_FAST": "1", "CLAUDE_PROJECT_DIR": repo}
+    p = subprocess.run(cmd, cwd=repo, env=env)
+    seconds = round(time.monotonic() - t0, 1)
+    target_s = TARGET_MODULE_S if module else TARGET_ALL_S
+    verdict = "green" if p.returncode == 0 else "RED"
+    if p.returncode == 0 and seconds > HARD * target_s:
+        verdict = "RED (too slow)"
+    rec = {"at": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "session": session_name(repo),
+           "scope": module or "all", "seconds": seconds, "target": target_s, "result": verdict, "fill": filled.split("\n")[0]}
+    path = os.path.join(S.WORK, "times", "fast-tier.jsonl")
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec) + "\n")
+    except OSError:
+        pass
+    late = f"; target {target_s} s MISSED (recorded)" if seconds > target_s else ""
+    print(f"fast tier: {verdict} in {seconds} s{late}")
+    return 0 if verdict == "green" else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
