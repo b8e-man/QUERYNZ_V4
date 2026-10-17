@@ -132,3 +132,27 @@ The site versions (`var/pi-snapshot/v/`): 70 kept, 5.8 GB, newest `2026-10-17T23
 10. No `querynz-vip` unit exists on node2; the floating address is simply configured on its interface.
 11. The old `querynz-api` unit file carries a database connection string with its password in an `Environment=` line, visible to anyone who can read the unit. It is not in the credential folder. Noted for track H; not repeated here.
 12. The reader-mail file has had nobody reading it since 4 October, as the plan expected; it holds only a test entry.
+
+## What normally changes between two releases
+
+Measured with `checks/release_compare.py` on the scheduled releases of 16 and
+17 October (`2026-10-16T0616` to `2026-10-17T0616`, 12,011 to 12,013 files),
+before any old job was stopped. This is the yardstick for step 1.4: a
+difference outside this shape means a stopped job was needed.
+
+| Kind of page data | Files | Changes every day | Why |
+| --- | --- | --- | --- |
+| root (`SNAPSHOT.json` and four others) | 6 | 5 | the stamp, `at`, `written`, `files`, `bytes` |
+| `assets/` | 2 | the bundle is renamed by its hash | a rebuilt bundle |
+| `data/board-member/` | 106 | all | `generated_at`, `history`, `press` |
+| `data/cite/` | 8,773 | about 3,280 added and 3,280 removed | citation files carry the row id, and the old derive chain renumbers rows nightly |
+| `data/donor/` | 2,033 | all | `generated_at`, `history` |
+| `data/subject/` | 960 | all | `coverage`, `coverage_note`, `freshness`, `party_window`, `donations_received`, `anchored` |
+| `data/size-bands/` | 17 | 8 | `bands` |
+| `home.json`, `parties.json`, `pickers.json`, `search-index.json`, `political-donations` | 1 each | all | the day's figures and stamp |
+| `data/electorate/`, `data/electorates/`, `fonts/`, `ATTRIBUTION.md`, the geojson | 111 | none | static |
+
+So "nothing changed but new data" reads as: the same kinds change, by the same
+keys, and no kind that is static moves. When the derive chain stops (batch 2),
+the cite renumbering should stop too, which is the ruling's intent: the
+totals freeze as they stand while declarations keep arriving.

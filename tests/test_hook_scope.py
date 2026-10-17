@@ -128,6 +128,7 @@ def test_founding_may_write_the_stop_list_and_the_freeze_paths_only(fake_repo):
     assert run(fake_repo, write("/home/user/querynzv4-work/live/stop-list.md"))[0] == 0
     assert run(fake_repo, write(f"{OLD}/ingestion/newsscrapers/registry.py"))[0] == 0
     assert run(fake_repo, write(f"{OLD}/ops/systemd/MANIFEST.json"))[0] == 0
+    assert run(fake_repo, write(f"{OLD}/ingestion/SOURCES.md"))[0] == 0
     assert run(fake_repo, write(f"{OLD}/data-layer/docs/ledger/2026-10-daylogs.md"))[0] == 0
     rc, err = run(fake_repo, write(f"{OLD}/ingestion/fetchgate.py"))
     assert rc == 2 and "freeze" in err

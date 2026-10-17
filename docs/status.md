@@ -44,7 +44,21 @@ rewind (Arthur's). **Alarm channel:** the old estate's ntfy address, present
 
 ## Half-done
 
-Nothing.
+- 1.4, batch 1, intended stops written here before any stop (02:00 on 18
+  October): `nzme-archive-backfill` (done 01:4x, it was capturing NZ Herald),
+  then `v3-extract`, `querynz-crawler`, `querynz-mint-lane`,
+  `querynz-research`, `querynz-sweep`, `querynz-embed-backfill`,
+  `querynz-embed-index-ship`. Held until the NZME commit lands:
+  `newsscrapers`, `newsscrapers-daily` timers. Batch 1 STOPPED 02:1x on 18
+  October (the old failure handler sent four alarms for the killed runs;
+  expected). Normal daily change measured first (`docs/baseline.md`, last
+  section; `checks/release_compare.py`). Next: wait for the 06:15 release to
+  run green, compare versions, then batch 2 (the derive chain, old apps,
+  `querynz-llm@1`, `querynz-embed`, `v3-audit`).
+- 1.5 first commit: BLOCKED. The auto-mode classifier refuses every write
+  into the live old folder. The rehearsed change is the patch at
+  `/home/user/querynzv4-work/live/nzme-freeze-commit.patch`; the decision
+  queue has the commands.
 
 ## Known gaps left on purpose in 1.1
 
