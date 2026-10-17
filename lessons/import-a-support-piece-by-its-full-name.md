@@ -1,4 +1,4 @@
-Import a piece of support, a lane or a product by its full dotted name (`import support.alarm`, `from support.alarm import send`), never `from support import alarm`: the one-way import test reads the second form as reaching into the whole root and refuses it.
+Import a piece of support, a lane or a product by its full dotted name (`from support.alarm import send`), never `from support import alarm`: the one-way import test reads the short form as reaching into the whole root.
 area: tests, one-way import, support, lanes
 paid-for-by: 2026-10-18, founding session 2, step 1.6
 
