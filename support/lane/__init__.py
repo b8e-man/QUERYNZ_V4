@@ -13,7 +13,7 @@ check here looks for:
                  every table defined here and nowhere else
   publish.sql    its published views in `pub`
   check.py       its one figure checked against the outside world
-  sample.txt     the documents and keys its tests need: hashes and keys only
+  sample.list     the documents and keys its tests need: hashes and keys only
   pane.md        how its rows appear in a pane of the board
   tests/         its tests; the fast tier runs them on the sample
 
@@ -27,7 +27,7 @@ runs it on every lane the branch touches (step 1b wires it).
 import os
 import re
 
-PIECES = ("spec.md", "capture.py", "read.py", "tables.sql", "publish.sql", "check.py", "sample.txt", "pane.md")
+PIECES = ("spec.md", "capture.py", "read.py", "tables.sql", "publish.sql", "check.py", "sample.list", "pane.md")
 SPEC_LINES = ("owns", "reads", "publishes", "outside check", "jobs")
 _HASH_OR_KEY = re.compile(r"^(#.*|[0-9a-f]{64}(\s+\S.*)?|key:\s*\S.*)$")
 
@@ -49,7 +49,7 @@ def check_sample(text: str) -> list:
     out = []
     for i, line in enumerate((text or "").splitlines(), 1):
         if line.strip() and not _HASH_OR_KEY.match(line.strip()):
-            out.append(f"sample.txt:{i}: not a sha256 or a `key:` line")
+            out.append(f"sample.list:{i}: not a sha256 or a `key:` line")
     return out
 
 
@@ -66,7 +66,7 @@ def check_folder(path: str) -> list:
     spec = os.path.join(path, "spec.md")
     if os.path.isfile(spec):
         out += [f"{name}: {p}" for p in check_spec(open(spec, encoding="utf-8").read())]
-    sample = os.path.join(path, "sample.txt")
+    sample = os.path.join(path, "sample.list")
     if os.path.isfile(sample):
         out += [f"{name}: {p}" for p in check_sample(open(sample, encoding="utf-8").read())]
     tables = os.path.join(path, "tables.sql")

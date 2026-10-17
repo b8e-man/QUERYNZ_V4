@@ -16,7 +16,7 @@ same name and its `_private` twin. A lane has:
 | `tables.sql` | Every table it owns, in its own schema or its private twin, defined here and nowhere else |
 | `publish.sql` | Its published views in `pub`: the only thing a later module reads |
 | `check.py` | Its one figure checked against the outside world (the source's own total, count or list) |
-| `sample.txt` | The documents and keys its tests need: sha256 hashes and `key:` lines only, never bytes or rows |
+| `sample.list` | The documents and keys its tests need: sha256 hashes and `key:` lines only, never bytes or rows |
 | `pane.md` | How its rows appear in a pane of the board |
 | `tests/` | Its tests, run by the fast tier on the sample |
 

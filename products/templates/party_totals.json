@@ -1,0 +1,20 @@
+{
+  "name": "party-totals",
+  "shape": "published-site",
+  "use_case": 1,
+  "reads": [
+    {"table": "pub.party_return_totals",
+     "licence": "Party donation returns filed under the Electoral Act 1993 and published by the Electoral Commission: public records",
+     "attribution": "Electoral Commission",
+     "refresh": "on-change"}
+  ],
+  "sections": ["Declared party donations by year"],
+  "rules": [
+    "a party-year with more than one return held is shown with every return and none is chosen",
+    "a figure read from pixels is marked as weaker evidence"
+  ],
+  "known_limits": "Only returns with a text layer are read; scanned returns wait for the page reader. Only the declaration page is read, so there are no donor rows. A figure is the party's own declared total as printed; a return whose total could not be reconciled with its own parts is left out and counted as set aside. Nothing before 2017.",
+  "owner": "founding",
+  "version": 1,
+  "settings": {"window_from": 2017}
+}
