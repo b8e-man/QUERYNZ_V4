@@ -41,9 +41,15 @@ and the integrator starts.
   `querynz-sweep`, `querynz-embed-backfill`, `querynz-embed-index-ship`).
   The `newsscrapers` timers are back since 09:06 on 18 October; the first run
   skipped NZME by ruling. Normal daily change measured (`docs/baseline.md`,
-  last section; `checks/release_compare.py`). Batch 2 after a green scheduled
-  release: the derive chain, the old apps, `querynz-llm@1`, `querynz-embed`;
-  then `v3-audit` last.
+  last section; `checks/release_compare.py`). The 18 October release ran green
+  after it. Batch 2, INTENDED 11:3x on 18 October, node2 only (node1 is down;
+  its half when it returns), written here and in the stop list before any
+  stop: `gazette-derive`, `feed-parties`, `mp-tenure-derive`,
+  `hansard-reprocess`, `hansard-register`, `companies-office-derive`,
+  `querynz-pi-web`, `querynz-api`, `querynz-serving-precompute`,
+  `querynz-feed-filters`, `querynz-paper-images`, `querynz-ec-results`,
+  `robots-audit`, the four `querynz-ref-*` downloads, `querynz-llm@1`,
+  `querynz-embed`. Then `v3-audit` last, after the next green release.
 - 1.5: first commit made by Arthur's hand, 7f9f0bb5 in the live folder,
   02:5x on 18 October. Not pushed: the old repository's only remote is the
   mirror on node1, which is down. The second commit and the tag still need
