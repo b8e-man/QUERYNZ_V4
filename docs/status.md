@@ -30,11 +30,16 @@ rewind (Arthur's). **Alarm channel:** the old estate's ntfy address, present
   tests) and its hook tests pass there. The fence lets a founding session
   write under the reference copy. Run old tests there only without a DSN:
   node2's localhost is the primary now (`lessons/old-tests-can-write-live-now.md`).
+- 1.3, merged: `docs/baseline.md`, node2 measured in full, node1 down and
+  marked "not measured" throughout; twelve differences from the plan listed
+  there, two for Arthur (archive_mode off on the promoted primary; a password
+  in the old `querynz-api` unit file, for track H).
 
 ## Next
 
-1.3 (`docs/baseline.md`), then 1.6, the first commit of 1.5, 1.4, the rest
-of 1.5, 1.7–1.10, step 1b, 1.11 — the order in the step 1 brief. Start with `bin/start-session --main founding` in
+1.6 (the watcher and the first checks board), then the first commit of
+1.5, 1.4, the rest of 1.5, 1.7–1.10, step 1b, 1.11 — the order in the step
+1 brief. When node1 returns, re-measure it into `docs/baseline.md`. Start with `bin/start-session --main founding` in
 `/home/user/querynzv4`; the brief is in `docs/briefs/next.md`.
 
 ## Half-done
