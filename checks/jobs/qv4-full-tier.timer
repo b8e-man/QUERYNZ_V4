@@ -1,0 +1,10 @@
+[Unit]
+Description=QueryNZV4 full tier, nightly at 04:30, before the checks board at 07:30
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

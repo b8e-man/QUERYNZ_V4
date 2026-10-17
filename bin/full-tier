@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+"""The full tier, run nightly (plan 1b.7; core: "Two tiers of checks").
+
+  bin/full-tier            every test, the slow ones included, against the real environment
+
+Runs the whole suite with the slow marker allowed (the outside checks,
+product checks and comparisons join it as lanes and products land), writes
+`<live>/checks/full-tier-last.json` (when, how long, passed or failed, the
+tail of the output) and a run record, and exits red on a failure. The
+checks board reads the record (checks/full_tier.py): a failure raises a
+card or an alarm there; it never blocks a merge. Stdlib only."""
+import datetime as dt
+import json
+import os
+import subprocess
+import sys
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _session as S  # noqa: E402
+
+LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
+RECORD = os.path.join(LIVE, "checks", "full-tier-last.json")
+JOB = "qv4-full-tier"
+
+
+def main() -> int:
+    repo = S.MAIN
+    py = os.path.join(repo, ".venv", "bin", "python")
+    if not os.path.exists(py):
+        py = sys.executable
+    started = dt.datetime.now().astimezone()
+    t0 = time.monotonic()
+    p = subprocess.run([py, "-m", "pytest", "-p", "no:cacheprovider"], cwd=repo, capture_output=True, text=True,
+                       env={**os.environ, "CLAUDE_PROJECT_DIR": repo})
+    seconds = round(time.monotonic() - t0, 1)
+    out = (p.stdout + p.stderr).strip().splitlines()
+    summary = next((l for l in reversed(out) if "passed" in l or "failed" in l or "error" in l), out[-1] if out else "")
+    rec = {"at": started.isoformat(timespec="seconds"), "seconds": seconds, "ok": p.returncode == 0,
+           "summary": summary, "tail": out[-30:], "host": os.uname().nodename}
+    os.makedirs(os.path.dirname(RECORD), exist_ok=True)
+    tmp = RECORD + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(rec, f, indent=1)
+    os.replace(tmp, RECORD)
+    try:
+        sys.path.insert(0, repo)
+        from support import jobrun
+        jobrun.record(JOB, rec["ok"], f"{summary} in {seconds} s", started, {"seconds": seconds})
+    except Exception:  # noqa: BLE001 — the record file above is the record
+        pass
+    print(f"full tier: {'GREEN' if rec['ok'] else 'RED'} in {seconds} s: {summary}")
+    return 0 if rec["ok"] else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -9,8 +9,10 @@ failure. On a pass it merges the branch into main in the main checkout with
 a merge commit; with --no-merge it only reports. The run's output is kept
 at <work>/gate/<branch>.log. Exit 0 = merged (or would merge), 1 = refused.
 
-Until step 1b adds the full tier, this is the whole gate. It must be run
-from a clean main checkout on the main branch. Stdlib only."""
+The full tier at a merge (1b.7): every test, the slow ones included, then
+the staging load of the modules the branch touches that carry a load.py
+(support/staging). It must be run from a clean main checkout on the main
+branch. Stdlib only."""
 import os
 import re
 import shutil
@@ -35,6 +37,19 @@ def git(repo, *args, check=True) -> str:
 def python_for(repo: str) -> str:
     venv = os.path.join(repo, ".venv", "bin", "python")
     return venv if os.path.exists(venv) else sys.executable
+
+
+def load_touched(repo: str, branch: str):
+    """The full tier's loading step (1b.7): the modules the branch touches
+    that carry a load.py go into a staging schema of the real database and
+    are published on success. Skipped, saying so, where the repository's
+    environment or the owner's credential file is absent. Returns the
+    completed process, or None when skipped."""
+    py = os.path.join(repo, ".venv", "bin", "python")
+    cred_dir = os.environ.get("QV4_CRED_DIR") or os.path.join(os.path.expanduser("~"), ".querynz")
+    if not os.path.exists(py) or not os.path.exists(os.path.join(cred_dir, "v4.env")) or os.environ.get("QV4_NO_DB"):
+        return None
+    return subprocess.run([py, "-m", "support.staging", branch], cwd=repo, capture_output=True, text=True)
 
 
 def main() -> int:
@@ -77,11 +92,16 @@ def main() -> int:
     if p.returncode:
         print(f"REFUSED {branch}: tests failed (full output: {log})\n{tail}")
         return 1
+    staging = load_touched(repo, branch)
+    if staging is not None and staging.returncode:
+        print(f"REFUSED {branch}: tests passed but the staging load failed\n{staging.stdout[-1500:]}{staging.stderr[-1500:]}")
+        return 1
+    note = (staging.stdout or "").strip() if staging is not None else "staging: skipped (no database environment here)"
     if not merge:
-        print(f"GREEN {branch}: every test passed; not merged (--no-merge)\n{tail}")
+        print(f"GREEN {branch}: every test passed; not merged (--no-merge)\n{tail}\n{note}")
         return 0
     git(repo, "merge", "--no-ff", "--no-edit", "-m", f"merge {branch}: gate green", branch)
-    print(f"MERGED {branch} into main: every test passed\n{tail}")
+    print(f"MERGED {branch} into main: every test passed\n{tail}\n{note}")
     return 0
 
 
