@@ -154,7 +154,7 @@ Then tag the second commit as the frozen version, record the tag in `docs/baseli
 
 ### Done when
 
-- [ ] An edit outside a session's scope is refused, and a branch with a failing test is refused by the merge gate.
+- [x] An edit outside a session's scope is refused, and a branch with a failing test is refused by the merge gate. DONE 18 October (1.1 merged, 5c1e5f2).
 - [ ] `docs/baseline.md` exists and its differences from this plan are listed.
 - [ ] The carve-out is named and watched, every other old job is either still collecting or stopped with proof, a new declaration has reached the public site with only the carve-out running, and the daily release has run green since.
 - [ ] The old repository is tagged, with NZME out of its news capture.
@@ -163,7 +163,7 @@ Then tag the second commit as the frozen version, record the tag in `docs/baseli
 - [ ] The thin slice matches the frozen site's totals for the same returns, or each difference has a card.
 - [ ] The reference material is in place and the lessons index builds.
 
-* [ ] The plan is split, its pieces rejoin to the original, and every file is within its limit.
+* [x] The plan is split, its pieces rejoin to the original, and every file is within its limit. DONE 18 October.
 * [ ] Step 1b is closed.
 
 ### Brief to paste
