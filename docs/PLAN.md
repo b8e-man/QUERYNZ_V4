@@ -605,8 +605,8 @@ Step 1 is done by one session at a time. When it closes, the integrator role beg
 
 None of this can be done by a session. Arthur has said the hardware items will be done before the build. Nothing in steps 1 and 2 depends on them technically; step 3 needs the disk, and track A needs the third machine.
 
-- [ ] **Create an empty private repository named QueryNZV4** on the GitHub account, clone it on node2 to `/home/user/querynzv4`, and give node2 push access.
-- [ ] **Save this plan as `/home/user/querynzv4/docs/PLAN.md`.**
+- [x] **Create an empty private repository named QueryNZV4** on the GitHub account, clone it on node2 to `/home/user/querynzv4`, and give node2 push access. DONE 18 October: the repository is `git@github.com:b8e-man/QUERYNZ_V4.git` (that spelling), the local clone is `/home/user/querynzv4`, node2's key pushes.
+- [x] **Save this plan as `/home/user/querynzv4/docs/PLAN.md`.** DONE 18 October, with DESIGN.md, DISCUSSION_RECORD.md and RISK_REGISTER.md beside it. From here the copy in the new repository is the plan; the old repository's `V4_ideation/` is the record of how it was drafted.
 - [ ] **Create the database logins for the new estate** and put their connection details in `~/.querynz/v4.env` on both boxes. The first owns one database, which Arthur creates, `querynz_v4`, on the existing server, with a cap of 20 connections and a five-minute limit on any query. The second can only read the three old databases, and its address is the standby's. Two more logins and a second, small database, added by ruling 54, are in the table under this list.
 - [x] **Check the alarm address exists:** the file `ops/config/alert-channel.env` in the live old folder, which sends a phone notification when a job fails. Present (checked 17 October). The watcher that guards the frozen site through the election depends on it.
 - [ ] **Mount node2's second 4 TB hard disk.** The Papers Past archive, its index files and the model files need the room.
