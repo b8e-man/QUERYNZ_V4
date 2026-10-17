@@ -24,3 +24,7 @@ and applies cleanly. Closes when Arthur runs the commands in
 `docs/decisions/queue/the-session-cannot-write-the-old-folder.md` on node2,
 or adds a permission rule for the live folder's freeze paths and a founding
 session commits.
+
+18 October 02:5x: Arthur made the first commit by hand (7f9f0bb5). The push
+to the mirror waits for node1; the old pre-push gate runs then. Still open
+for the second commit and the tag.
