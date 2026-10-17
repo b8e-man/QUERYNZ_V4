@@ -161,7 +161,7 @@ Then tag the second commit as the frozen version, record the tag in `docs/baseli
 - [ ] The watcher for the frozen product is running and has raised a test alarm that reached Arthur.
 - [ ] Every contract has a document and a passing test, and the shared machinery in `support/` passes its carried tests.
 - [ ] The thin slice matches the frozen site's totals for the same returns, or each difference has a card.
-- [ ] The reference material is in place and the lessons index builds.
+- [x] The reference material is in place and the lessons index builds. DONE 18 October (corrections kept outside git until they have a private home).
 
 * [x] The plan is split, its pieces rejoin to the original, and every file is within its limit. DONE 18 October.
 * [ ] Step 1b is closed.
