@@ -36,8 +36,12 @@ class DocumentReading:
 
 
 def read_document(data: bytes, sha256: str, *, profile: str, profile_version: int, store: rd.Store,
-                  page_reader: bool = False, post=None, max_pages: int = None, dpi: int = None) -> DocumentReading:
-    texts = pages.text_pages(data, max_pages)
+                  page_reader: bool = False, post=None, max_pages: int = None, dpi: int = None,
+                  texts: dict = None) -> DocumentReading:
+    """`texts` is the page → text-layer map when the caller has already
+    measured it (a lane recognises a document by shape before it reads it);
+    left out, it is extracted here."""
+    texts = texts if texts is not None else pages.text_pages(data, max_pages)
     how = pages.read_from(data, texts)
     out = DocumentReading(sha256, how)
     thin = set(pages.thin_pages(texts))

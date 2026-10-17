@@ -28,7 +28,7 @@ import time
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 WORK = os.environ.get("QV4_WORK") or "/home/user/querynzv4-work"
 ROOTS = ("keys", "support", "registers", "links", "products", "checks")
-_ITEM = re.compile(r"^([0-9a-f]{64}|key:\s*\S.*)$")
+_ITEM = re.compile(r"^(?:([0-9a-f]{64})(?:\s+\S.*)?|(key:\s*\S.*))$")   # a hash may carry a comment after it
 SCHEMA = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 
 
@@ -40,9 +40,10 @@ def read_list(path: str) -> list:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-            if not _ITEM.match(line):
+            m = _ITEM.match(line)
+            if not m:
                 raise ValueError(f"{path}:{i}: not a sha256 or a `key:` line (no bytes or rows in a sample list)")
-            items.append(line)
+            items.append(m.group(1) or m.group(2))
     return items
 
 

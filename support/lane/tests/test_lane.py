@@ -14,7 +14,7 @@ def make_lane(root, name="gazette", spec=SPEC, sample="# the sample\n" + "a" * 6
     os.makedirs(os.path.join(d, "tests"))
     for p in lane.PIECES:
         with open(os.path.join(d, p), "w") as f:
-            f.write({"spec.md": spec, "sample.txt": sample, "tables.sql": tables}.get(p, "# " + p + "\n"))
+            f.write({"spec.md": spec, "sample.list": sample, "tables.sql": tables}.get(p, "# " + p + "\n"))
     return d
 
 
@@ -39,7 +39,7 @@ def test_the_spec_has_five_lines():
 
 def test_the_sample_is_hashes_and_keys_only(tmp_path):
     d = make_lane(str(tmp_path), sample="b" * 64 + "\nkey: x1\n12 Example Street, Karori\n")
-    assert lane.check_folder(d) == ["gazette: sample.txt:3: not a sha256 or a `key:` line"]
+    assert lane.check_folder(d) == ["gazette: sample.list:3: not a sha256 or a `key:` line"]
 
 
 def test_tables_stay_in_the_lanes_own_schema(tmp_path):

@@ -1,0 +1,26 @@
+# registers/party_returns/sample.list (plan 1b.6): hashes only, never bytes or rows.
+# The text-layer returns of the seven front-page parties, 2017 to 2025, as the frozen site named them on 18 October 2026,
+# and one mixed return (Green 2023, six image pages) to prove the set-aside path. Comments say party and year only.
+765c53fbeb2801555b8b01d8ee280412dcf79444518b23911377f96560433ba2 The New Zealand National Party 2023
+24c6c12725cabb17f053ff03047997b1eeda085ee0a47cb3ab76783dd5058d6c ACT New Zealand 2019
+e4cd85fa01c83c424c6a1ec5e4c800d6917b31284fb0fad53d017ebb054a3dca ACT New Zealand 2022
+96de3eff41d0cf0d0e808124aae7f24a4cb5a731aeca55e18b91fae6d801a3aa ACT New Zealand 2023
+5d2a41e280335068eeb7dfb09e9ab2868eb7334533c006d4074c1837873b528c ACT New Zealand 2024
+97453c193faa4d9e7fc9dd93ac9a58779ed2acbd61f7acc1c1e46cde7b60b830 ACT New Zealand 2025
+e1a70f052afd547075837b3c0c1e40f4275eb05a8403327e4f26b76d0ca376d3 New Zealand Labour Party 2019
+99eca98dc92d25d7fffdeb0d93e8826a26efcaaf3d1db80cc75efc768bac8ec9 New Zealand Labour Party 2021
+9c1efe25937100d1d37a6601ef6a9c3f93c8fbeb2bc0424db9731a01750cf08d New Zealand Labour Party 2023
+ceafc2c4f9f4fdc62825455fc94f2a59d6c5bee6b9364f520a7dfb231890307b New Zealand Labour Party 2024
+4989413ad0a668387287d80a51eb547ff84c8f160ee279ad23ba8c087537a907 The Green Party of Aotearoa New Zealand 2019
+0f079493cce3617711dcca4e60dd26d34af85ff4c2f486fdd86b1ee6758d45e0 The Green Party of Aotearoa New Zealand 2020
+e5c7f64c836f3a8f264446cee0f76797ca6dd5f7b314d0f10474011594682c9a The Green Party of Aotearoa New Zealand 2021
+fa8eb985bf23130fe4d81e1b40c4ec3682e554404433713b03d9f44a5f1f2e8c The Green Party of Aotearoa New Zealand 2022
+c207394543138a322f75c28241b44096e0d718775499a19189a00de24134437f The Green Party of Aotearoa New Zealand 2023 (mixed: set aside)
+37a89439018e923668e06d8df282dd195888d3e04497ac763cc4fc7bd74ac67f The Green Party of Aotearoa New Zealand 2025
+eb228b7b3bbd8f936c6313c0486d3b5d9abe5d9a1c7e2afac2acbe04c96ef68b New Zealand First Party 2021
+a460ac4dac8e6f3fac07939b10e189cb2ab15171a73b9ee711cdf74f7a3b12a0 New Zealand First Party 2022
+0685d83c8f2e9d5b844875eae92d3d090e25176baae8b0a06b68e74484999510 New Zealand First Party 2023
+530996f9f24c3834a907e5d94a8c372a3b2701a3ec5b7473a6ec6656f32bbcef Opportunity Party 2018
+910d9beb708781dff59f24813737400c7e5bb647728ea0ab5e808b1388991202 Opportunity Party 2019
+df933eeddb1d5d62a97f991c8e18e8f2a9f301df5a96fa9b38ea578cc143487f Opportunity Party 2020
+d4ad6c2d3159db32b28ee32ca8c2fd5286ddf9eee6c3417aa6a1c877c5f41ff9 Opportunity Party 2022
