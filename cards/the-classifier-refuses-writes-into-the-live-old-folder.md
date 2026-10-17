@@ -26,5 +26,6 @@ or adds a permission rule for the live folder's freeze paths and a founding
 session commits.
 
 18 October 02:5x: Arthur made the first commit by hand (7f9f0bb5). The push
-to the mirror waits for node1; the old pre-push gate runs then. Still open
-for the second commit and the tag.
+to the mirror waits for node1. Arthur ran the old gate by hand and started
+the two news timers at 09:06; the first daily run skipped NZME by ruling.
+Still open for the second commit and the tag.
