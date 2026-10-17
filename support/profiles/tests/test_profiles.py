@@ -1,0 +1,49 @@
+"""A profile is never edited: a new version is a new line, one higher; the
+newest version is current by version not position; the shipped file holds
+the 22 profiles with no street address in it."""
+import json
+import os
+import re
+
+import pytest
+
+import support.profiles as pr
+
+
+def test_the_shipped_profiles_load_and_carry_no_address():
+    cur = pr.current()
+    assert len(cur) == 22 and "ec-party-return-text" in cur
+    assert cur["ec-party-return-scan"]["version"] == 4
+    hist = pr.history("ec-party-return-scan")
+    assert [h["version"] for h in hist] == [1, 2, 3, 4]
+    text = open(pr.PROFILES, encoding="utf-8").read()
+    assert not re.search(r"\d+ [A-Z][a-z]+ (Road|Street|Avenue)", text)
+
+
+def test_add_version_appends_and_never_edits(tmp_path):
+    p = str(tmp_path / "profiles.jsonl")
+    v1 = pr.add_version("ec-test-form", {"title": "a test form", "recognise": {"pages": 2}}, by="founding-2", path=p)
+    v2 = pr.add_version("ec-test-form", {"title": "a test form, revised"}, by="founding-2", path=p)
+    assert (v1["version"], v2["version"]) == (1, 2)
+    lines = [json.loads(l) for l in open(p)]
+    assert len(lines) == 2 and lines[0]["title"] == "a test form"      # the first line is untouched
+    assert pr.profile("ec-test-form", p)["version"] == 2
+    assert set(pr.FIELDS) <= set(lines[1])
+
+
+def test_current_is_by_version_not_by_position(tmp_path):
+    p = str(tmp_path / "profiles.jsonl")
+    with open(p, "w") as f:
+        f.write(json.dumps({"kind": "document-profile", "slug": "x", "version": 3, "title": "three"}) + "\n")
+        f.write(json.dumps({"kind": "document-profile", "slug": "x", "version": 2, "title": "two"}) + "\n")
+    assert pr.profile("x", p)["title"] == "three"
+    assert pr.add_version("x", {"title": "four"}, "t", path=p)["version"] == 4
+
+
+def test_refusals(tmp_path):
+    p = str(tmp_path / "p.jsonl")
+    with pytest.raises(ValueError):
+        pr.add_version("Bad Slug", {}, "t", path=p)
+    with pytest.raises(ValueError):
+        pr.add_version("ok-slug", {}, "", path=p)
+    assert not os.path.exists(p)
