@@ -58,3 +58,19 @@ def test_a_call_names_its_model_and_an_error_is_recorded(tmp_path):
         mc.chat(URL, lane="x", model="m", messages=MSGS, post=down, ledger=ledger)
     rec = json.loads(open(ledger).read().splitlines()[-1])
     assert rec["error"].startswith("ConnectionError")
+
+
+@pytest.mark.parametrize("url", [
+    "http://localhost:x@evil/v1/chat", "http://127.0.0.1:x@evil.example/v1", "http://10.0.0.2:x@203.0.113.9/v1",
+    "http://evil.example/localhost", "http://localhost.evil.example/v1", "ftp://localhost/v1", "http://[::1]:x@evil/v1",
+])
+def test_the_host_is_parsed_never_pattern_matched(url):
+    assert mc.endpoint_refusal(url)
+
+
+@pytest.mark.parametrize("url", [
+    "http://localhost:11434/v1/chat", "http://127.0.0.1:8000/v1", "http://[::1]:8000/v1", "https://10.0.0.1:8000/v1",
+    "http://10.0.0.2/v1", "http://10.0.0.10:8090/v1/chat/completions",
+])
+def test_loopback_and_the_twin_lan_forms_pass(url):
+    assert mc.endpoint_refusal(url) == ""

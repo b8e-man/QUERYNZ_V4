@@ -39,10 +39,15 @@ class WrongModel(RuntimeError):
 
 
 def endpoint_refusal(url: str) -> str:
+    """The host is PARSED, never pattern-matched: `http://localhost:x@evil/`
+    has host `evil`. Only http and https reach a model server."""
     try:
-        host = urllib.parse.urlsplit(url).hostname or ""
+        parts = urllib.parse.urlsplit(url)
+        host = parts.hostname or ""
     except ValueError:
         return f"not a URL: {url!r}"
+    if parts.scheme not in ("http", "https"):
+        return f"{parts.scheme!r} is not a scheme a model server answers on"
     if host not in LOCAL_HOSTS:
         return f"{host!r} is not a local model address (hard limit 10)"
     return ""

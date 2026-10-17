@@ -159,7 +159,7 @@ Then tag the second commit as the frozen version, record the tag in `docs/baseli
 - [ ] The carve-out is named and watched, every other old job is either still collecting or stopped with proof, a new declaration has reached the public site with only the carve-out running, and the daily release has run green since.
 - [ ] The old repository is tagged, with NZME out of its news capture.
 - [ ] The watcher for the frozen product is running and has raised a test alarm that reached Arthur.
-- [ ] Every contract has a document and a passing test, and the shared machinery in `support/` passes its carried tests.
+- [x] Every contract has a document and a passing test, and the shared machinery in `support/` passes its carried tests. DONE 18 October (eleven contracts in docs/contracts/; fetch gate, landing, reader and model client in support/ with 599 tests green).
 - [ ] The thin slice matches the frozen site's totals for the same returns, or each difference has a card.
 - [x] The reference material is in place and the lessons index builds. DONE 18 October (corrections kept outside git until they have a private home).
 
