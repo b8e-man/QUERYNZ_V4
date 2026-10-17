@@ -35,6 +35,11 @@ REPO = os.path.abspath(REPO)
 SCOPE_FILE = os.path.join(REPO, ".scope")
 WORK = os.environ.get("QV4_WORK") or "/home/user/querynzv4-work"
 INBOX = os.path.join(WORK, "inbox")
+CARDS_INBOX = os.path.join(INBOX, "cards")               # notes from question sessions (1b.5)
+MERGE_INBOX = os.path.join(INBOX, "merge-requests")
+TIMES = os.path.join(WORK, "times", "session-times.jsonl")  # the timer (1b.9)
+#: the only credential file a question session may name (1b.1): the session reader's
+QUESTION_CRED_FILE = "v4-read.env"
 STOP_LIST = os.environ.get("QV4_STOP_LIST") or os.path.join(WORK, "live", "stop-list.md")
 # the live old folder: the frozen product runs from it (hard limits 19-22)
 OLD_LIVE = os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3"

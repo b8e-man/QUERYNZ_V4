@@ -258,3 +258,34 @@ def test_no_scope_file_means_no_weight_and_the_old_folder_is_closed(tmp_path):
     repo.mkdir()
     rc, _ = run({"tool_name": "Edit", "tool_input": {"file_path": f"{OLD}/ops/systemd/MANIFEST.json"}}, str(repo))
     assert rc == 2
+
+
+# ── step 1b.1: a question session ────────────────────────────────────────────
+
+def test_a_question_session_cannot_commit_push_merge_install_or_control_a_job(fake_repo):
+    repo = fake_repo("question")
+    for cmd in ("git commit -m x", "git push origin main", "git merge founding/x", "git add -A", "git worktree add x",
+                "systemctl --user stop qv4-checks-board.timer", "systemctl --user start qv4-checks-board.service",
+                "systemctl --user daemon-reload", "bin/install-jobs", ".venv/bin/python -m support.installer"):
+        rc, err = run(bash(cmd), repo)
+        assert rc == 2 and "question session" in err, cmd
+    for cmd in ("git status", "git log --oneline -3", "git diff", "systemctl --user list-timers", "bin/q 'select 1'"):
+        assert run(bash(cmd), repo)[0] == 0, cmd
+
+
+def test_a_question_session_may_name_only_the_session_readers_credential_file(fake_repo):
+    repo = fake_repo("question")
+    ok = "U=$(grep '^QV4_READ_URL=' ~/.querynz/v4-read.env | cut -d= -f2-); psql \"$U\" -c 'select 1'"
+    assert run(bash(ok), repo)[0] == 0
+    bad = "U=$(grep '^QV4_OWNER_URL=' ~/.querynz/v4.env | cut -d= -f2-); psql \"$U\" -c 'select 1'"
+    rc, err = run(bash(bad), repo)
+    assert rc == 2 and "v4-read.env" in err
+    assert run(bash("ls ~/.querynz/offsite.env"), repo)[0] == 2
+    assert run(bash(bad), fake_repo("build"))[0] == 0      # a build session keeps the sanctioned shape
+
+
+def test_a_question_session_cannot_edit_the_repository_through_the_file_tools(fake_repo):
+    repo = fake_repo("question")
+    rc, err = run({"tool_name": "Write", "tool_input": {"file_path": os.path.join(repo, "keys", "x.py")}}, repo)
+    assert rc == 2 and "changes nothing" in err
+    assert run({"tool_name": "Write", "tool_input": {"file_path": "/home/user/querynzv4-work/inbox/cards/n.md"}}, repo)[0] == 0

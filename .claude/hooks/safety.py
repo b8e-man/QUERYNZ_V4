@@ -32,6 +32,9 @@ Added for the new estate (plan step 1.1):
      the step 1.5 freeze paths; any mutating git command there except by a
      founding session; any python or pytest run from inside it, except
      `pi_release.py --dry-run` by a founding session
+  9. for a question session (step 1b.1): any commit, push, merge, installer
+     run or job control, any edit inside the repository, and any credential
+     file but the session reader's
 
 Seen through: sudo, doas, env, nohup, nice, ionice, chrt, setsid, stdbuf,
 timeout, time, systemd-run, xargs, eval; an absolute-path binary; a program
@@ -343,6 +346,37 @@ def check_job_control(seg: str, toks: list) -> None:
         block(f"`{name}` has no qv4- prefix and is not on the stop list {fence.STOP_LIST} ({seg.strip()!r})")
 
 
+QUESTION_GIT = {"add", "commit", "tag", "push", "merge", "rebase", "pull", "cherry-pick", "revert", "am", "apply",
+                "worktree", "reset", "stash", "rm", "mv", "clean"}
+QUESTION_JOB = {"start", "stop", "restart", "enable", "disable", "mask", "unmask", "kill", "reload", "reload-or-restart",
+                "try-restart", "reset-failed", "daemon-reload"}
+INSTALLERS = ("install-jobs", "installer", "support.installer")
+CRED_FILE_NAME = re.compile(r"\.querynz/([A-Za-z0-9_.*?\[\]-]+)")
+
+
+def check_question(seg: str, toks: list, weight: str) -> None:
+    """A question session (1b.1) may not commit, push, merge, run the
+    installer, control a job, or name a credential file other than the
+    session reader's."""
+    if weight != "question" or not toks:
+        return
+    hd = _base(toks[0])
+    if hd == "git":
+        sub = next((t for t in toks[1:] if not t.startswith("-")), "")
+        if sub in QUESTION_GIT:
+            block(f"a question session changes nothing: git {sub} ({seg.strip()!r})")
+    if hd == "systemctl":
+        sub = next((t for t in toks[1:] if not t.startswith("-")), "")
+        if sub in QUESTION_JOB:
+            block(f"a question session controls no job: systemctl {sub} ({seg.strip()!r})")
+    if _program(toks) in INSTALLERS or any(_base(t) in INSTALLERS for t in toks):
+        block(f"a question session never runs the installer ({seg.strip()!r})")
+    if CRED_DIR.search(seg):
+        for m in CRED_FILE_NAME.finditer(seg):
+            if m.group(1) != fence.QUESTION_CRED_FILE:
+                block(f"a question session may name only {fence.QUESTION_CRED_FILE} ({seg.strip()!r})")
+
+
 def check_old_live(seg: str, toks: list, cwd: str, weight: str) -> None:
     """Mutating git in the live old folder, and any python run from it."""
     if not toks:
@@ -402,6 +436,7 @@ def judge(cmd: str, cwd: str, weight: str, depth: int = 0) -> None:
         check_push(seg, toks)
         check_release_and_deploy(seg, toks)
         check_job_control(seg, toks)
+        check_question(seg, toks, weight)
         check_old_live(seg, toks, seg_cwd, weight)
         if inner:
             for prog in inner:
@@ -426,6 +461,9 @@ def main() -> None:
         for p in (path, pat):
             if p and (CRED_DIR.search(p) or PROC_ENV.search(p) or "/.querynz/" in os.path.realpath(os.path.expanduser(p)) + "/"):
                 block(f"credential file: {p}")
+        if path and name in ("Edit", "Write", "MultiEdit", "NotebookEdit") and weight_of_session() == "question":
+            if fence.rel(os.path.abspath(os.path.expanduser(path))) is not None:
+                block(f"a question session changes nothing inside the repository: {path}")
         if name in ("Edit", "Write", "MultiEdit", "NotebookEdit") and path:
             p = os.path.abspath(os.path.expanduser(path))
             if fence.under(p, fence.OLD_LIVE):

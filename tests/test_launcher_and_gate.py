@@ -33,6 +33,7 @@ def toy():
         os.makedirs(os.path.join(repo, sub))
     shutil.copy(LAUNCHER, os.path.join(repo, "bin", "start-session"))
     shutil.copy(GATE, os.path.join(repo, "bin", "merge-gate"))
+    shutil.copy(os.path.join(REPO, "bin", "_session.py"), os.path.join(repo, "bin", "_session.py"))
     with open(os.path.join(repo, "tests", "test_ok.py"), "w") as f:
         f.write("def test_ok():\n    assert True\n")
     with open(os.path.join(repo, "pytest.ini"), "w") as f:
