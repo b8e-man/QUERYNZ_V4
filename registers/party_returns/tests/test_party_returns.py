@@ -188,3 +188,33 @@ def test_the_published_view_builds_on_the_lane_s_table(filled):
     n = conn.execute(f"SELECT count(*) FROM {schema}.party_return_totals").fetchone()[0]
     conn.rollback()
     assert n == len(filled["rows"])
+
+
+def test_nil_at_step_two_above_the_parts_is_not_a_part_s_figure():
+    page = ("   the year ending 31 December 2021\n1.   Party name:\n      Example Party\n"
+            "2.   TOTAL PARTY DONATIONS\n"
+            "                                                                            Nil              step 3 on this page\n"
+            "     Part A: Party donations of more than $15,000                                  $ 0.00\n"
+            "     Part C: Anonymous party donations of more than $1,500                         $ 0.00\n"
+            "     Part D: Overseas party donations of more than $50                             $ 0.00\n"
+            "     Part F: Donations protected from disclosure                                            entered at step 2 and/or step 3\n"
+            "                                                                                    $ 0.00\n"
+            "     Part G: Other party donations up to $15,000                                   $ 0.00   the return\n"
+            "                                              Total (A + C + D + F + G)             $ 0.00   documentation supplied\n")
+    d = declaration.read(page)
+    assert d.parts == {"A": 0.0, "C": 0.0, "D": 0.0, "F": 0.0, "G": 0.0} and d.total == 0.0 and d.problems() == []
+
+
+def test_an_ocr_layer_s_mangled_label_words_still_name_the_part():
+    page = ("           TE KAITIAKI TAKE KOWHIRI            the year ending 31 December 2020\n1. Party name:\n     Example Party\n"
+            "     Part At Party donations of more than $15,000                              $ 769,786.92\n"
+            "     Part G! Anoiiymous party donations of more than $1,500                       $0.00\n"
+            "     Part D! Overseas party donations of more than $50                            $0.00\n"
+            "     Part F: Donations protected from disclosure                                  $0.00       tho return\n"
+            "     Part Os Other party donations up to $15,000                                              All relevant supporting\n"
+            "                                                                               $ 730,520.63\n"
+            "                                                                              $1,500,307.55   Auditor stamped\n"
+            "                                              Total(A+C+D+F+G) I\n3. TOTAL PAFiTY LOANS\n")
+    d = declaration.read(page)
+    assert d.parts == {"A": 769786.92, "C": 0.0, "D": 0.0, "F": 0.0, "G": 730520.63}
+    assert d.total == 1500307.55 and d.problems() == []
