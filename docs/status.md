@@ -45,10 +45,9 @@ node1 returns, re-measure it and stop its halves. Then step 1 closes.
   green and compared with `2026-10-18T0617` against `docs/baseline.md`; then
   batch 3, `v3-audit` alone. Node1's half of each batch waits for node1. The
   positive half waits for the next declaration the Commission lists.
-- 1.5: first commit made by Arthur's hand, 7f9f0bb5 in the live folder,
-  02:5x on 18 October. Not pushed: the old repository's only remote is the
-  mirror on node1, which is down. The second commit and the tag still need
-  his hand (the one open blocker on `docs/board.md`).
+- 1.5: first commit made by Arthur's hand, 7f9f0bb5 in the live folder, on
+  18 October; not pushed while node1 (the only remote) is down. The second
+  commit and the tag still need his hand (the open blocker on the board).
 
 ## Known gaps left on purpose
 
