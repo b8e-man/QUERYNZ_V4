@@ -29,10 +29,10 @@ by the watcher's test alarm on 18 October.
 
 ## Next
 
-A founding session: 1.4 batches 2 to 4 (each after a green scheduled
-release; 18 October's was green). 1.5 waits on Arthur (the queue). When
-node1 returns, re-measure it into `docs/baseline.md`. Then step 1 closes
-and the integrator starts.
+A founding session on 19 October: compare that morning's release with
+`2026-10-18T0617` (`checks/release_compare.py`); if green and within the
+yardstick, stop batch 3 (`v3-audit`). 1.5 waits on Arthur (the queue). When
+node1 returns, re-measure it and stop its halves. Then step 1 closes.
 
 ## Half-done
 
