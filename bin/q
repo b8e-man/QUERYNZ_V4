@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""Look at data (plan 1b.4; core: "Three weights of session").
+
+  bin/q "select …"             the session reader on querynz_v4: 30 s, 200 rows
+  bin/q --sample "select …"    the same on querynz_v4_sample
+  bin/q --long "select …"      ten minutes, one at a time across all sessions;
+                               the full result goes to the session's scratch
+                               folder and the first 200 rows are shown
+  bin/q --old "select …"       fix and build sessions only: the old databases
+                               through the old-estate reader, same limits;
+                               --old DBNAME selects which (default nzbn_canonical)
+  bin/q -f FILE                the query from a file
+
+The session reader is never granted the tables that hold a person's home
+address, or the seal (hard limit 11); a question session has no route to
+the old databases, which hold home addresses. The login is read from the
+credential file here and never printed. Runs psql; stdlib only."""
+import datetime as dt
+import fcntl
+import os
+import re
+import subprocess
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _session as S  # noqa: E402
+
+CRED_DIR = os.environ.get("QV4_CRED_DIR") or os.path.expanduser("~/.querynz")
+ROWS = 200
+SHORT_S, LONG_S = 30, 600
+LOCK = os.path.join(S.WORK, "q-long.lock")
+
+
+def url(key: str, filename: str, database: str = None) -> str:
+    path = os.path.join(CRED_DIR, filename)
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith(key + "="):
+                    val = line.split("=", 1)[1].strip().strip("\"'")
+                    if database:
+                        val = re.sub(r"/[A-Za-z0-9_]+(\?.*)?$", lambda m: "/" + database + (m.group(1) or ""), val)
+                    return val
+    except OSError:
+        S.die("q", f"no credential file {filename} on this box")
+    S.die("q", f"{key} is not set in {filename}")
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    long = "--long" in args
+    sample = "--sample" in args
+    old = "--old" in args
+    args = [a for a in args if a not in ("--long", "--sample", "--old")]
+    scope = S.read_scope(os.path.join(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd(), ".scope")) or {}
+    weight = scope.get("weight", "")
+    if old and weight == "question":
+        S.die("q", "a question session has no route to the old databases: they hold home addresses (hard limit 11)")
+    if old and not weight:
+        S.die("q", "--old needs a session scope file (a fix or build session)")
+    database = None
+    if old and args and re.fullmatch(r"[a-z_]+", args[0]) and args[0] in ("nzbn_canonical", "incoming_news", "extractions"):
+        database = args.pop(0)
+    if args and args[0] == "-f":
+        try:
+            query = open(args[1], encoding="utf-8").read()
+        except (IndexError, OSError):
+            S.die("q", "-f needs a readable file")
+    else:
+        query = " ".join(args).strip()
+    if not query:
+        S.die("q", "usage: bin/q [--sample|--old [DB]] [--long] \"select …\"  |  bin/q -f FILE")
+    if re.search(r"\b(insert|update|delete|drop|truncate|alter|create|grant|copy)\b", query, re.I):
+        S.die("q", "bin/q only looks; a change goes through a lane's own code")
+    if old:
+        dsn = url("QV4_OLD_READ_URL", "v4.env", database or "nzbn_canonical")
+    else:
+        dsn = url("QV4_READ_URL", "v4-read.env", "querynz_v4_sample" if sample else "querynz_v4")
+    timeout = LONG_S if long else SHORT_S
+    env = {**os.environ, "PGOPTIONS": f"-c statement_timeout={timeout * 1000}", "PGCONNECT_TIMEOUT": "10"}
+    body = query.rstrip().rstrip(";")
+    limited = f"select * from ({body}) as q limit {ROWS + 1}" if re.match(r"\s*(select|with|table|values)\b", body, re.I) else body
+    cmd = ["psql", dsn, "-X", "-v", "ON_ERROR_STOP=1", "-P", "pager=off", "--no-psqlrc"]
+    if not long:
+        p = subprocess.run(cmd + ["-c", limited], capture_output=True, text=True, env=env, timeout=timeout + 15)
+        out = p.stdout
+        if p.returncode:
+            print(p.stderr.strip().replace(dsn, "<url>"), file=sys.stderr)
+            return 1
+        lines = out.rstrip("\n").split("\n")
+        shown = lines[:ROWS + 2]
+        print("\n".join(shown))
+        if len(lines) > ROWS + 2:
+            print(f"… more than {ROWS} rows: use --long for the full result")
+        return 0
+    os.makedirs(S.WORK, exist_ok=True)
+    scratch = scope.get("scratch") or os.path.join(S.WORK, "scratch", "q")
+    os.makedirs(scratch, exist_ok=True)
+    out_path = os.path.join(scratch, f"q-{dt.datetime.now().strftime('%Y%m%d-%H%M%S')}.txt")
+    with open(LOCK, "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            S.die("q", "another --long query is running; one at a time across all sessions")
+        with open(out_path, "w", encoding="utf-8") as f:
+            p = subprocess.run(cmd + ["-c", body], stdout=f, stderr=subprocess.PIPE, text=True, env=env, timeout=timeout + 15)
+        fcntl.flock(lock, fcntl.LOCK_UN)
+    if p.returncode:
+        print(p.stderr.strip().replace(dsn, "<url>"), file=sys.stderr)
+        return 1
+    with open(out_path, encoding="utf-8") as f:
+        lines = f.read().rstrip("\n").split("\n")
+    print("\n".join(lines[:ROWS + 2]))
+    print(f"full result ({max(0, len(lines) - 2)} rows): {out_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
