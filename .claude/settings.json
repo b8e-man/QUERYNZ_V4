@@ -138,6 +138,28 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-/home/user/querynzv4}/.claude/hooks/timer.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-/home/user/querynzv4}/.claude/hooks/timer.py\"",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

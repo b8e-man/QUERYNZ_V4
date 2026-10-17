@@ -51,3 +51,9 @@ def test_remote_and_fetch_commands_ask():
     ask = set(_settings()["permissions"]["ask"])
     for rule in ("Bash(ssh *)", "Bash(curl *)", "Bash(wget *)", "Bash(sudo *)"):
         assert rule in ask, rule
+
+
+def test_the_timer_is_registered_on_prompt_and_stop():
+    hooks = _settings()["hooks"]
+    for ev in ("UserPromptSubmit", "Stop"):
+        assert any("timer.py" in h.get("command", "") for g in hooks.get(ev, []) for h in g["hooks"]), ev

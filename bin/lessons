@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""The lessons search (plan 1b.10; core: "Lessons").
+
+  bin/lessons <words…>              the few closest rules, at most eight
+  bin/lessons --paths a/b.py …      words from the paths you are about to touch, too
+  bin/lessons --selftest            recall on the eight pairs the old tool was measured on
+
+It reads the first line of every file in `lessons/` in the main checkout
+(the rule, one sentence) and the old estate's one-line index brought
+across in 1.7 (`reference/lessons-old/INDEX.md`, 525 rules), scores each
+rule by the words it shares with the query (rare words count more, a path's
+own words count), and prints at most eight, one line each, with the file to
+open. It never prints a section. A thin result means search again in your
+own words, never "there is no lesson". Stdlib only."""
+import math
+import os
+import re
+import sys
+from collections import Counter
+
+MAIN = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+NEW = os.path.join(MAIN, "lessons")
+OLD_INDEX = os.path.join(MAIN, "reference", "lessons-old", "INDEX.md")
+TOP = 8
+STOP = set("""a an the and or of to in on for with by at from as is are was were be been it its this that these those not no
+never one two into over under about than then when where which who what how do does did done has have had may must
+only every each all any some same other more most less each per via""".split())
+_OLD_LINE = re.compile(r'^- "?(?P<claim>.+?)"?\s+—\s+`(?P<file>[^`:]+):(?P<line>\d+)`')
+_WORD = re.compile(r"[a-z0-9][a-z0-9'-]+")
+
+
+def words(text: str) -> list:
+    out = []
+    for w in _WORD.findall((text or "").lower()):
+        w = w.strip("'-")
+        if len(w) > 2 and w not in STOP:
+            out.append(stem(w))
+    return out
+
+
+def stem(w: str) -> str:
+    for suf in ("ings", "ing", "ies", "ers", "ed", "es", "s"):
+        if w.endswith(suf) and len(w) - len(suf) >= 3:
+            return w[: -len(suf)] + ("y" if suf == "ies" else "")
+    return w
+
+
+def path_terms(path: str) -> list:
+    return words(re.sub(r"[/_.\-]+", " ", path))
+
+
+def rules(main: str = MAIN) -> list:
+    """(rule, where) for every lesson, new ones first."""
+    out = []
+    new = os.path.join(main, "lessons")
+    if os.path.isdir(new):
+        for n in sorted(os.listdir(new)):
+            if n.endswith(".md") and n not in ("INDEX.md", "README.md"):
+                try:
+                    with open(os.path.join(new, n), encoding="utf-8") as f:
+                        first = f.readline().strip()
+                except OSError:
+                    continue
+                if first:
+                    out.append((first, f"lessons/{n}"))
+    old = os.path.join(main, "reference", "lessons-old", "INDEX.md")
+    if os.path.isfile(old):
+        with open(old, encoding="utf-8") as f:
+            for line in f:
+                m = _OLD_LINE.match(line.strip())
+                if m:
+                    out.append((m.group("claim").strip(), f"reference/lessons-old/{m.group('file')}:{m.group('line')}"))
+    return out
+
+
+def rank(query_terms: list, corpus: list, top: int = TOP) -> list:
+    docs = [(Counter(words(rule)), rule, where) for rule, where in corpus]
+    df = Counter()
+    for c, _, _ in docs:
+        df.update(set(c))
+    n = max(1, len(docs))
+    q = Counter(query_terms)
+    scored = []
+    for c, rule, where in docs:
+        s = 0.0
+        for t, qn in q.items():
+            if t in c:
+                s += (1 + math.log(1 + c[t])) * math.log((n + 1) / (1 + df[t])) * min(qn, 2)
+        if s > 0:
+            scored.append((s / math.sqrt(1 + len(c)) ** 0.5, rule, where))
+    scored.sort(key=lambda x: -x[0])
+    return scored[:top]
+
+
+SELFTEST = (
+    ("C037", "the embed backfill runs at two a second, five hours a pass, tune the rate", ["ops/embed_articles.py"],
+     "must not report an empty document"),
+    ("C501", "the hansard lane reports an empty house and exits clean", ["ingestion/hansard/scraper.py", "ingestion/hansard/forward.py"],
+     "must not report an empty document"),
+    ("C457", "fold the alias keys, a set-based migration over seventy-eight million rows",
+     ["ops/alias_refold.py", "data-layer/claim_graph/claim_graph/normalise.py"], "bounded, audited and reversible"),
+    ("C059", "the nightly offsite push stopped and nothing restarted it", ["ops/systemd/offsite-push.service"], "restart policy and a watcher"),
+    ("C061", "the health endpoint should say which database answered", ["data-layer/estate-dsn/estate_dsn.py"], "postgres's own traps"),
+    ("C008", "how wide may the extraction fleet be, how many shards", ["ops/extract_fleet.py"], "spend the serving tier"),
+    ("C500", "the coverage scan calls a quiet day sparse", ["ops/coverage_scan.py"], "cannot see a weekday"),
+    ("C510", "the release checks the public url after the flip", ["ops/pi_release.py"], "read a published thing back more than once"),
+)
+
+
+def selftest(main: str = MAIN, top: int = TOP):
+    """Recall at eight (what the command shows) and at twenty (what the old
+    tool was measured at: 5 of 8). Both are printed; the misses are named."""
+    corpus = rules(main)
+    hits, hits20, lines = 0, 0, []
+    for cid, text, paths, expect in SELFTEST:
+        got = rank(words(text) + [t for p in paths for t in path_terms(p)], corpus, 20)
+        where = next((i for i, (_, rule, _) in enumerate(got, 1) if expect in rule.lower()), None)
+        hits += where is not None and where <= top
+        hits20 += where is not None
+        lines.append(f"  {cid:5} {('#' + str(where)) if where else 'MISS':>5}  {expect!r}")
+    lines.append(f"  recall@{top}: {hits}/{len(SELFTEST)}   recall@20: {hits20}/{len(SELFTEST)}   (the old tool: 5/8 at 20)")
+    return hits, "\n".join(lines)
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    if "--selftest" in args:
+        hits, text = selftest()
+        print(text)
+        return 0
+    paths = []
+    if "--paths" in args:
+        i = args.index("--paths")
+        paths = [a for a in args[i + 1:] if not a.startswith("--")]
+        args = args[:i]
+    query = words(" ".join(args)) + [t for p in paths for t in path_terms(p)]
+    if not query:
+        print("usage: bin/lessons <words…> [--paths file …] | bin/lessons --selftest")
+        return 2
+    got = rank(query, rules())
+    if not got:
+        print("no rule shares a word with that; search again in your own words")
+        return 0
+    for _, rule, where in got:
+        print(f"- {rule}\n    {where}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
