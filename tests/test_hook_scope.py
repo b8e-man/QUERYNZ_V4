@@ -16,6 +16,7 @@ import pytest
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(REPO, ".claude", "hooks", "scope.py")
 OLD = "/home/user/Git Repos/QueryNZ_V3"
+REF = "/home/user/qnz3-ref"
 SESSION = "11111111-2222-3333-4444-555555555555"
 
 
@@ -131,6 +132,17 @@ def test_founding_may_write_the_stop_list_and_the_freeze_paths_only(fake_repo):
     rc, err = run(fake_repo, write(f"{OLD}/ingestion/fetchgate.py"))
     assert rc == 2 and "freeze" in err
     assert run(fake_repo, write("/tmp/elsewhere.md"))[0] == 2
+
+
+def test_founding_may_write_the_reference_copy_and_a_build_session_may_not(fake_repo):
+    # step 1.2: the founding session clones the old repository to the reference
+    # copy, installs its environment there and later moves it to the frozen tag
+    set_scope(fake_repo, scope_text(weight="founding", folders=()))
+    assert run(fake_repo, write(f"{REF}/.venv/pyvenv.cfg"))[0] == 0
+    assert run(fake_repo, bash(f"cd {REF} && .venv/bin/python -m pip install -e ./data-layer/testkit"))[0] == 0
+    set_scope(fake_repo, scope_text())
+    rc, err = run(fake_repo, write(f"{REF}/ops/x.py"))
+    assert rc == 2 and "outside the repository" in err
 
 
 def test_build_session_cannot_touch_the_stop_list_or_the_old_folder(fake_repo):

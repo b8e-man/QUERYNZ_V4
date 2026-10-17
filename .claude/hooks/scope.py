@@ -18,7 +18,8 @@ and judges every write the tools would make:
                                 one the scope file names, or this session's
                                 own harness scratchpad), the inbox's
                                 merge-requests/, and for a founding session
-                                the stop list and the step 1.5 freeze paths in
+                                the stop list, the reference copy of the old
+                                repository and the step 1.5 freeze paths in
                                 the live old folder; an integrator may also
                                 tidy the working copies under querynzv4-work
 
@@ -76,6 +77,8 @@ def judge(target: str, scope: dict, session_id: str) -> str:
         return ""
     if weight == "founding":
         if fence.under(path, os.path.dirname(fence.STOP_LIST)):
+            return ""
+        if fence.under(path, fence.REF_COPY):
             return ""
         if fence.under(path, fence.OLD_LIVE):
             old_rel = fence.rel(path, fence.OLD_LIVE)
