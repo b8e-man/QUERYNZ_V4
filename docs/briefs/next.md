@@ -27,8 +27,8 @@ the index, then the files it names for a build session on step 1,
 then docs/status.md, and continue where it stops. Do step 1 only, in
 this order: 1.1, 1.2, 1.3, 1.6, the first commit of 1.5, 1.4, the
 rest of 1.5, 1.7 to 1.10, step 1b (stop when it is built), then 1.11.
-Step 1b is built: 1.11 is next, then 1.4's remaining batches (each
-after a green scheduled release), then 1.5 as the decision queue says.
+1.11 is done: 1.4's remaining batches are next (each after a green
+scheduled release), then 1.5 as the decision queue says.
 Work alone. The only changes you may make to the old estate are
 stopping old jobs outside the carve-out, with proof (1.4), and the
 freeze commits (1.5), and never in a session that started without

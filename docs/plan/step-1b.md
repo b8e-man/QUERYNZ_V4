@@ -36,6 +36,6 @@
 - [x] Two fills of the sample from different branches, run at the same time, do not disturb each other. DONE 18 October (tests/test_sample_and_tiers.py; each session's own scratch schema, a lock per schema).
 - [x] A test not marked slow that sleeps for six seconds fails the fast tier. DONE 18 October (conftest.py's rule under bin/fast).
 - [x] The reading-limit check fails on a file made one byte too long. DONE 18 October (tests/test_reading_limits.py).
-- [ ] The thin slice's tests pass in the fast tier, and the checks board shows the first timings.
+- [x] The thin slice's tests pass in the fast tier, and the checks board shows the first timings. DONE 18 October (registers/party_returns: 14 s for the whole repository, 6 s for the lane; the board's `session-times` check).
 - [x] The lessons search returns at most eight rules, and its recall on the eight pairs is recorded. DONE 18 October: 3 of 8 at eight, 4 of 8 at twenty (the old tool 5 of 8 at twenty); tests/test_lessons_search.py.
 
