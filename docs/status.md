@@ -11,9 +11,9 @@ by the watcher's test alarm on 18 October.
 ## Done
 
 - Step 0 (all but the third machine). 1.1 fences. 1.2 the reference copy.
-  1.3 `docs/baseline.md` (node1 not measured). 1.6 the watcher. 1.7 reference,
-  profiles. 1.8 `support/db`, `qv4-offsite-dump`. 1.9 eleven contracts. 1.10
-  fetch gate, landing, the carried reader, the model client, `docs/legal/`.
+  1.3 the baseline (node1 not measured). 1.6 the watcher. 1.7 reference,
+  profiles. 1.8 `support/db`, the off-site dump. 1.9 eleven contracts. 1.10
+  fetch gate, landing, the carried reader, the model client, legal.
 - Step 1b, closed: the question and fix weights and their launchers, `bin/q`,
   the sample and the two tiers, the reading-limit check, the timer hook,
   `qv4-full-tier` 04:30. Proof: a question session in 69 s; the slice's
