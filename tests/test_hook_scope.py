@@ -145,6 +145,19 @@ def test_founding_may_write_the_reference_copy_and_a_build_session_may_not(fake_
     assert rc == 2 and "outside the repository" in err
 
 
+def test_only_a_main_session_may_place_a_qv4_job_file_and_never_another(fake_repo):
+    unit_dir = os.path.expanduser("~/.config/systemd/user")
+    for w in ("founding", "integrator"):
+        set_scope(fake_repo, scope_text(weight=w, folders=()))
+        assert run(fake_repo, write(f"{unit_dir}/qv4-checks-board.service"))[0] == 0, w
+        assert run(fake_repo, bash(f"cp checks/jobs/qv4-checks-board.timer {unit_dir}/qv4-checks-board.timer"))[0] == 0, w
+        rc, err = run(fake_repo, write(f"{unit_dir}/ftm-release.service"))
+        assert rc == 2 and "qv4-" in err, w
+        assert run(fake_repo, write(f"{unit_dir}/qv4-x.service.d/override.conf"))[0] == 2, w
+    set_scope(fake_repo, scope_text())
+    assert run(fake_repo, write(f"{unit_dir}/qv4-checks-board.service"))[0] == 2
+
+
 def test_build_session_cannot_touch_the_stop_list_or_the_old_folder(fake_repo):
     assert run(fake_repo, write("/home/user/querynzv4-work/live/stop-list.md"))[0] == 2
     rc, err = run(fake_repo, write(f"{OLD}/ops/systemd/MANIFEST.json"))

@@ -20,7 +20,9 @@ and judges every write the tools would make:
                                 merge-requests/, and for a founding session
                                 the stop list, the reference copy of the old
                                 repository and the step 1.5 freeze paths in
-                                the live old folder; an integrator may also
+                                the live old folder; for a founding or
+                                integrator session a `qv4-` job file in the
+                                user unit folder; an integrator may also
                                 tidy the working copies under querynzv4-work
 
 Edit/Write/MultiEdit/NotebookEdit are judged by file_path; Bash by the write
@@ -75,6 +77,10 @@ def judge(target: str, scope: dict, session_id: str) -> str:
         return ""
     if fence.under(path, os.path.join(fence.INBOX, "merge-requests")):
         return ""
+    if main and os.path.dirname(os.path.abspath(path)) == os.path.abspath(fence.UNIT_DIR):
+        if os.path.basename(path).startswith("qv4-"):
+            return ""
+        return f"`{path}` is a job file without the qv4- prefix: the new estate never touches one (hard limit 23)"
     if weight == "founding":
         if fence.under(path, os.path.dirname(fence.STOP_LIST)):
             return ""

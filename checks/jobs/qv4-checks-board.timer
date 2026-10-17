@@ -1,0 +1,10 @@
+[Unit]
+Description=QueryNZV4 checks board, daily after the old release (06:15) and the old board (06:40) have had time to finish
+
+[Timer]
+OnCalendar=*-*-* 07:30:00
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target
