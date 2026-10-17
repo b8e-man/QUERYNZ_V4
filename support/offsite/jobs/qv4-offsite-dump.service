@@ -1,0 +1,10 @@
+[Unit]
+Description=QueryNZV4 nightly off-site copy of querynz_v4 — dump, encrypt, send (plan step 1.8, until track B)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/user/querynzv4
+ExecStart=/home/user/querynzv4/.venv/bin/python -m support.offsite
+TimeoutStartSec=3600
+Environment=PYTHONUNBUFFERED=1
+Nice=10

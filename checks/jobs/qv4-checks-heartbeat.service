@@ -5,5 +5,5 @@ Description=QueryNZV4 checks board heartbeat — alarms if the board itself has 
 Type=oneshot
 WorkingDirectory=/home/user/querynzv4
 ExecStart=/home/user/querynzv4/.venv/bin/python -m checks.board --heartbeat
-RuntimeMaxSec=300
+TimeoutStartSec=300
 Environment=PYTHONUNBUFFERED=1

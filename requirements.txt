@@ -1,0 +1,6 @@
+# The new estate's Python environment: /home/user/querynzv4/.venv (Python 3.14).
+# Pinned to the old estate's lock where the package is shared. Step 2's installer
+# builds the same environment on both boxes from this file.
+pytest>=8
+psycopg[binary]==3.3.4
+boto3==1.43.78
