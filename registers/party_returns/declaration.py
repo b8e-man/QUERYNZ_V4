@@ -29,6 +29,7 @@ of the parts read. A page that cannot be reconciled is reported, never
 published as a number (contract: the reader, rule 6). Pure functions; no
 file, no database.
 """
+import difflib
 import re
 from dataclasses import dataclass, field
 
@@ -40,9 +41,14 @@ PART_WORDS = (                                 # C and D before A: their labels 
     ("D", re.compile(r"overseas party donations", re.I)),
     ("F", re.compile(r"donations protected from disclosure", re.I)),
     ("G", re.compile(r"other party donations up to", re.I)),
-    ("A", re.compile(r"[:.]?\s*party donations of more than", re.I)),
+    ("A", re.compile(r"^\s*P\w{1,3}\s*[A-Za-z0-9]{1,2}\s*[:.!]?\s+party donations of more than", re.I)),   # right after the marker
 )
-PART_LINE = re.compile(r"^\s*P\w{1,3}\s*[A-Za-z0-9]{1,2}\s*[:.]?\s", re.I)   # `Port Fi` is an OCR layer's `Part F:`
+#: the labels as the form prints them, for an OCR layer that mangles a word (`Anoiiymous party donations`)
+PART_LABELS = (("A", "party donations of more than"), ("C", "anonymous party donations of more than"),
+               ("D", "overseas party donations of more than"), ("F", "donations protected from disclosure"),
+               ("G", "other party donations up to"))
+FUZZY_MIN = 0.8
+PART_LINE = re.compile(r"^\s*P\w{1,3}\s*[A-Za-z0-9]{1,2}\s*[:.!]?\s", re.I)   # `Port Fi`, `Part G!` are an OCR layer's `Part F:`, `Part C:`
 TOTAL_LINE = re.compile(r"\bTotal\b[^(\n]{0,30}\(\s*(?P<letters>A\s*(?:\+\s*[A-Z0-9]\s*)+)\)", re.I)
 LOANS = re.compile(r"TOTAL\s*PART[A-Za-z/]*\s*LOANS|Part\s+H\s*:", re.I)
 YEAR = re.compile(r"year\s+end(?:ing|ed)\s+31\s+December,?\s+(\d{4})", re.I)
@@ -126,30 +132,47 @@ def figure_alone(line: str):
 
 
 def part_of(line: str):
-    """The part a label line names, by its words."""
-    if not PART_LINE.match(line):
+    """The part a label line names, by its words; by the closest label
+    when an OCR layer has mangled a word, never by the letter."""
+    m = PART_LINE.match(line)
+    if not m:
         return None
     left = line[:LEFT_COLUMN + 30]
     for letter, words in PART_WORDS:
         if words.search(left):
             return letter
-    return None
+    label = re.split(r"\s{2,}|\$\s*\d", left[m.end():].strip())[0].lower()
+    label = re.sub(r"\s*\$?\s*[\d,]+\s*$", "", label).strip()
+    best = max(((difflib.SequenceMatcher(None, label, want).ratio(), letter) for letter, want in PART_LABELS), default=(0, None))
+    return best[1] if best[0] >= FUZZY_MIN else None
 
 
 def label_end(line: str, part: str) -> int:
+    """Where the label's text ends, the threshold it prints included
+    (`of more than $15,000` is the form's text, never the filed figure)."""
+    m = None
     for letter, words in PART_WORDS:
         if letter == part:
             m = words.search(line)
-            # the label runs on past its words ("of more than $15,000"): skip that threshold
-            after = re.compile(r"\$\s*\d[\d,]*").search(line, m.end())
-            return after.end() if after and after.start() - m.end() < 6 else m.end()
-    return 0
+    if m:
+        end = m.end()
+    else:                                   # a mangled label: it runs to the first gap of two spaces
+        pm = PART_LINE.match(line)
+        start = pm.end() if pm else 0
+        gap = re.search(r"\S\s{2,}", line[start:])
+        end = start + gap.start() + 1 if gap else len(line)
+    threshold = re.compile(r"\$\s*\d[\d,]*").search(line, end)
+    if threshold and threshold.start() - end < 6:
+        return threshold.end()
+    return end
 
 
 def read(text: str) -> Declaration:
     d = Declaration()
     lines = (text or "").splitlines()
     pending_labels, pending_figures = [], []
+    step2 = []                      # figures standing alone before the first part label: the step-2 cell
+    seen_part = False
 
     def pair():
         while pending_labels and pending_figures:
@@ -180,6 +203,7 @@ def read(text: str) -> Declaration:
             continue
         part = part_of(line)
         if part:
+            seen_part = True
             fig = figure_after(line, label_end(line, part))
             if fig is None:
                 pending_labels.append(part)
@@ -202,7 +226,17 @@ def read(text: str) -> Declaration:
             break                       # the monetary / non-monetary split below the total is not read
         fa = figure_alone(line)
         if fa is not None:
-            pending_figures.append((fa, bool(MONEY.match(line.lstrip()).group("nil"))))
+            is_nil = bool(MONEY.match(line.lstrip()).group("nil"))
+            if not seen_part:
+                step2.append((fa, is_nil))      # `NIL` or the total typed at step 2, above the parts
+                continue
+            pending_figures.append((fa, is_nil))
             pair()
     d.unpaired = [f for f, _ in pending_figures]
+    if d.total is None and len(step2) == 1:
+        d.total, d.total_is_nil = step2[0]
+    elif d.total is not None:
+        for fig, is_nil in step2:
+            if not is_nil and abs(fig - d.total) > 0.011:
+                d.unpaired.append(fig)          # a step-2 figure that is not the total is unexplained
     return d
