@@ -28,17 +28,23 @@ and proven (the watcher's test alarm, 01:08 on 18 October).
 - 1.7: `reference/` (old lessons, rulebook, cards, use cases, rulings;
   read-only) and `support/profiles/profiles.jsonl`. The corrections quote
   donor street addresses and stay outside git at
-  `/home/user/querynzv4-work/live/reference/corrections.jsonl` until 1.8/1.10.
+  `/home/user/querynzv4-work/live/reference/corrections.jsonl` until 1.10.
+- 1.8: `support/db/` (the schema plan: pub, links, 16 lanes each with a
+  `_private` twin, five product shapes, docs, sealed; grants with defaults;
+  `bin/db-setup plan|apply|check|scratch`) applied to `querynz_v4` and the
+  sample; the one-way test's query half filled from it. `support/offsite/`:
+  `qv4-offsite-dump` 03:05 nightly on node2 (pg_dump, gpg, the old bucket
+  under `querynz_v4/<stamp>/`, local copies on `/mnt/hdd2/qv4-dumps`); first
+  run sent 01:29 on 18 October. `requirements.txt` pins the environment.
 
 ## Next
 
 1.4 batch 2 after the 06:15 release on 18 October runs green, then batches
-3 and 4; 1.5 waits on Arthur (the queue); then 1.8, 1.9, 1.10, step 1b,
-1.11. When node1 returns, re-measure it into `docs/baseline.md`.
+3 and 4; 1.5 waits on Arthur (the queue); then 1.9, 1.10, step 1b, 1.11. When node1 returns, re-measure it into `docs/baseline.md`.
 
 ## Half-done
 
-- 1.4: batch 1 stopped and disabled 02:1x on 18 October (`nzme-archive-backfill`,
+- 1.4: batch 1 stopped and disabled 01:1x on 18 October (`nzme-archive-backfill`,
   `v3-extract`, `querynz-crawler`, `querynz-mint-lane`, `querynz-research`,
   `querynz-sweep`, `querynz-embed-backfill`, `querynz-embed-index-ship`; the
   old failure handler sent four alarms for the killed runs, expected). Held
