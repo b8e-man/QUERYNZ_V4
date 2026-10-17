@@ -1,0 +1,12 @@
+### Track D: the rulebook and the rule-learning loop
+
+**Starts** after step 1. **Model:** Opus for rules, Fable to review them.
+
+- **Arthur's ruling 46:** "Just as we automatically build document profiles, we also built rules for understanding the press graph and errors we encountered via the healer. We should maintain this process and also capture the existing extraction lessons and rules too."
+- **Captured** in step 1 under `reference/rulebook/`. Parked, searchable, not running.
+- **The loop in the new estate:** the catch logs and the review agent's splits supply the cases. An error seen often is named as a class and carded with examples. A build session writes a rule for it with a test against real rows. The rule applies to new readings and to rows read before it existed.
+- **The doctrine worth keeping:** a rule that cannot decide leaves the row alone; every action is reversible and written down with the rule's name; no rule decides on the shape of a name alone.
+- **Profiles for new kinds of document are proposed automatically.** Four lessons bind that: ask which profile a reading belongs to before writing a reader; a profile written after its reader is a description until it is pinned to the code both ways; a profile that claims a document it will not read is worse than none; an unassigned document may only mean a misspelt marker.
+
+**D.2 The name-resolution experiment** (Arthur, 16 October: *"instead of the deterministic extraction using a large register of names, I would like to experiment with ModernBERT-base for name resolution. I am also interested in other things it can do"*). An experiment, not a lane: a session fine-tunes ModernBERT-base (local, so hard limit 10 holds) to tag names in text and resolve them to register rows, with the joined registers as the answer key — a name that matches exactly one row by the shared reading is a labelled example, and the test pairs of step 4.3 give the hard cases. It is scored against the old deterministic path (the name index and the register-of-names lookup) on the same documents, and the result is written up as `docs/trials/name-resolution.md` with a second page listing what else the model is good for here (classification of notices by type, the Papers Past name index of 7.5, document-profile recognition). It runs on the scheduler like any model job, touches no product, and publishes nothing; it earns a step only by the measurement. **Starts** when the first lanes and the shared reading exist (step 4). **Model:** Fable to design the key and the scoring; Opus to run it.
+

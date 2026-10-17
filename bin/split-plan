@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+"""Split the plan into the files "What to read, and how much" lays out
+(plan step 1.1). It changes no words.
+
+  bin/split-plan [--source docs/PLAN.md] [--out docs/plan] [--commit SHA]
+
+The TABLE below names every heading of the plan, in order, and the file it
+goes to. The script walks the document and refuses a heading it does not
+know or one out of order. A piece is a heading line and everything up to
+the next heading; the title lines above the first heading are the first
+piece and go to the index. A second-level heading and the text under it
+before the first third-level heading go with the first piece of that
+section — in the reference folders, to a file named 00-intro.md. The two
+diagram placeholders stay where they are. Files are the concatenation of
+their pieces in document order, which is not always adjacent in the
+document (core.md, map.md).
+
+It writes <out>/manifest.json — the source commit and, in document order,
+each piece's file and line count — so the original can be rejoined exactly
+(tests/test_plan_split.py does), and <out>/headings.md: every heading and
+step number with its file. The index is written over the source file when
+--out is the repository's docs/plan. Stdlib only."""
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+
+INDEX = "PLAN.md"          # written beside docs/plan/, as docs/PLAN.md
+R1 = "reference/old-estate/"
+R2 = "reference/registers-and-use-cases/"
+R3 = "reference/facts-and-traps/"
+R4 = "reference/dated-jobs-open-decisions-rulings/"
+
+# (level, heading text, file). "" for the level marks the title piece.
+TABLE = [
+    ("", "", INDEX),
+    ("##", "Read this first", "core.md"),
+    ("###", "Who you are", "core.md"),
+    ("###", "What to read, and how much", INDEX),
+    ("###", "Who Arthur is", "core.md"),
+    ("###", "What you may decide, and what you may not", "core.md"),
+    ("###", "Where everything is", "map.md"),
+    ("###", "Words used in this plan", "map.md"),
+    ("##", "Hard limits", "limits.md"),
+    ("##", "What we are building", "design.md"),
+    ("###", "1 and 2. Registers: copied and built", "design.md"),
+    ("###", "3. Links", "design.md"),
+    ("###", "4. Products: four shapes", "design.md"),
+    ("###", "The Follow the Money template's own settings", "design.md"),
+    ("###", "5. Checking", "design.md"),
+    ("###", "How the code is laid out", "design.md"),
+    ("###", "Deliberately not built", "design.md"),
+    ("##", "How the work runs", "core.md"),
+    ("###", "Keeping the work quick", "core.md"),
+    ("###", "Starting a session", "core.md"),
+    ("###", "Three weights of session", "core.md"),
+    ("###", "Picking up where another session stopped", "core.md"),
+    ("###", "Merging", "core.md"),
+    ("###", "Two tiers of checks", "core.md"),
+    ("###", "What is live, and who may touch it", "core.md"),
+    ("###", "Shared things on the boxes", "core.md"),
+    ("###", "One short spec per module", "core.md"),
+    ("###", "Cards", "core.md"),
+    ("###", "Lessons", "core.md"),
+    ("###", "Closing a piece of work", "core.md"),
+    ("###", "Checkpoints", "core.md"),
+    ("###", "The decision queue and the rulings", "core.md"),
+    ("###", "Reusing the old code", "reuse.md"),
+    ("###", "Which model does what", "map.md"),
+    ("###", "Size, and what each step asks of Arthur", "map.md"),
+    ("##", "The order of work", "map.md"),
+    ("##", "Step 0: what Arthur does before building starts", "step-0.md"),
+    ("##", "Step 1: set up, freeze, and fix the seams", "step-1.md"),
+    ("###", "Do", "step-1.md"),
+    ("###", "Done when", "step-1.md"),
+    ("###", "Brief to paste", "step-1.md"),
+    ("##", "Step 1b: the quick-work tools", "step-1b.md"),
+    ("###", "Do", "step-1b.md"),
+    ("###", "Done when", "step-1b.md"),
+    ("##", "Step 2: the scheduler, first build", "step-2.md"),
+    ("###", "What Arthur asked for", "step-2.md"),
+    ("###", "What exists to build on", "step-2.md"),
+    ("###", "Do", "step-2.md"),
+    ("###", "The nine rules for sharing the graphics cards", "step-2.md"),
+    ("###", "Traps the old estate paid for", "step-2.md"),
+    ("###", "Done when", "step-2.md"),
+    ("###", "Brief to paste", "step-2.md"),
+    ("##", "Step 3: the page-reader trial over the election documents", "step-3.md"),
+    ("###", "The models", "step-3.md"),
+    ("###", "Three conditions from Arthur", "step-3.md"),
+    ("###", "Do", "step-3.md"),
+    ("###", "What the run proves about the scheduler", "step-3.md"),
+    ("###", "Done when", "step-3.md"),
+    ("###", "Brief to paste", "step-3.md"),
+    ("##", "Step 4: Follow the Money rebuilt", "step-4.md"),
+    ("###", "What the frozen site is", "step-4.md"),
+    ("###", "Do", "step-4.md"),
+    ("###", "Done when", "step-4.md"),
+    ("###", "Briefs to paste", "step-4.md"),
+    ("##", "Step 5: subject reports, legal documents and company monitoring", "step-5.md"),
+    ("###", "Do", "step-5.md"),
+    ("###", "Done when", "step-5.md"),
+    ("###", "Briefs to paste", "step-5.md"),
+    ("##", "Step 6: register scans", "step-6.md"),
+    ("###", "Do", "step-6.md"),
+    ("###", "Done when", "step-6.md"),
+    ("###", "Brief to paste", "step-6.md"),
+    ("##", "Step 7: archive search", "step-7.md"),
+    ("###", "What is held", "step-7.md"),
+    ("###", "Do", "step-7.md"),
+    ("###", "Done when", "step-7.md"),
+    ("###", "Brief to paste", "step-7.md"),
+    ("##", "Tracks alongside", "tracks.md"),
+    ("###", "Track A: automatic takeover", "track-a.md"),
+    ("###", "Track B: the off-site copy", "track-b.md"),
+    ("###", "Track C: the review agent", "track-c.md"),
+    ("###", "Track D: the rulebook and the rule-learning loop", "track-d.md"),
+    ("###", "Track E: capture the windowed sources now", "track-e.md"),
+    ("###", "Track F: consuming and retiring the old data", "track-f.md"),
+    ("###", "Track G: the before-selling list", "track-g.md"),
+    ("###", "Track H: security hardening, and rotating every password and key", "track-h.md"),
+    ("##", "Reference: the old estate", R1 + "00-intro.md"),
+    ("###", "Names, addresses and capture", R1 + "names-addresses-and-capture.md"),
+    ("###", "Reading documents", R1 + "reading-documents.md"),
+    ("###", "Links and products", R1 + "links-and-products.md"),
+    ("###", "Machinery", R1 + "machinery.md"),
+    ("###", "Old databases", R1 + "old-databases.md"),
+    ("###", "The boxes, as last recorded", R1 + "the-boxes-as-last-recorded.md"),
+    ("###", "Parts that stay dead", R1 + "parts-that-stay-dead.md"),
+    ("###", "Parked and retired work to draw on", R1 + "parked-and-retired-work-to-draw-on.md"),
+    ("##", "Reference: registers and use cases", R2 + "00-intro.md"),
+    ("###", "Held: registers that are copied", R2 + "held-registers-that-are-copied.md"),
+    ("###", "Held: registers that are built", R2 + "held-registers-that-are-built.md"),
+    ("###", "Not held", R2 + "not-held.md"),
+    ("###", "The sixteen use cases", R2 + "the-sixteen-use-cases.md"),
+    ("##", "Reference: facts and traps the old cards paid for", R3 + "00-intro.md"),
+    ("###", "Electoral Commission forms", R3 + "electoral-commission-forms.md"),
+    ("###", "Capture", R3 + "capture.md"),
+    ("###", "Names and matching", R3 + "names-and-matching.md"),
+    ("###", "Databases and jobs", R3 + "databases-and-jobs.md"),
+    ("###", "Measuring", R3 + "measuring.md"),
+    ("##", "Reference: dated jobs, open decisions, rulings", R4 + "00-intro.md"),
+    ("###", "Dated jobs", R4 + "dated-jobs.md"),
+    ("###", "Decisions waiting on Arthur", R4 + "decisions-waiting-on-arthur.md"),
+    ("###", "Rulings in force from the October discussion", R4 + "rulings-in-force-from-the-october-discussion.md"),
+    ("###", "What this changes in the old terminal document", R4 + "what-this-changes-in-the-old-terminal-document.md"),
+    ("###", "Notes from Arthur, 16 October 2026", R4 + "notes-from-arthur-16-october-2026.md"),
+    ("###", "Notes from Arthur, 17 October 2026", R4 + "notes-from-arthur-17-october-2026.md"),
+    ("###", "The later list", R4 + "the-later-list.md"),
+]
+HEADING = re.compile(r"^(#{2,3}) (.*?)\s*$")
+STEP_NUMBER = re.compile(r"^\*\*((?:\d+[ab]?\.\d+)|(?:[A-H]\.\d+))\b")
+
+
+def split(text: str) -> list:
+    """[(file, heading, [lines])] in document order; every line of the
+    source in exactly one piece."""
+    lines = text.splitlines(keepends=True)
+    pieces = []
+    cur = []
+    expect = 0
+    file = TABLE[0][2]
+    heading = ""
+    for ln in lines:
+        m = HEADING.match(ln)
+        if m:
+            pieces.append((file, heading, cur))
+            expect += 1
+            if expect >= len(TABLE):
+                raise SystemExit(f"split-plan: heading not in the table: {ln.strip()!r}")
+            level, want, file = TABLE[expect]
+            if (m.group(1), m.group(2)) != (level, want):
+                raise SystemExit(f"split-plan: expected {level} {want!r}, found {ln.strip()!r}")
+            heading = ln.strip()
+            cur = [ln]
+        else:
+            cur.append(ln)
+    pieces.append((file, heading, cur))
+    if expect != len(TABLE) - 1:
+        raise SystemExit(f"split-plan: the document ended after {expect + 1} of {len(TABLE)} headings")
+    return pieces
+
+
+def rejoin(manifest: dict, read) -> str:
+    """The original from the pieces: `read(file)` gives a file's text."""
+    cursors: dict = {}
+    out = []
+    for p in manifest["pieces"]:
+        lines = cursors.setdefault(p["file"], read(p["file"]).splitlines(keepends=True))
+        n = p["lines"]
+        out.extend(lines[:n])
+        cursors[p["file"]] = lines[n:]
+    return "".join(out)
+
+
+def headings_md(pieces: list) -> str:
+    out = ["# Every heading and step number of the plan, with its file", "",
+           "Generated by `bin/split-plan`. Search it to follow a cross-reference such as \"see step 1.10\".", ""]
+    for file, heading, body in pieces:
+        if heading:
+            out.append(f"- {heading} → `{file}`")
+        for ln in body:
+            m = STEP_NUMBER.match(ln)
+            if m:
+                out.append(f"    - {m.group(1)} → `{file}`")
+    return "\n".join(out) + "\n"
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    source = os.path.join(repo, "docs", "PLAN.md")
+    out = os.path.join(repo, "docs", "plan")
+    commit = ""
+    i = 0
+    while i < len(args):
+        if args[i] == "--source":
+            source = os.path.abspath(args[i + 1]); i += 2
+        elif args[i] == "--out":
+            out = os.path.abspath(args[i + 1]); i += 2
+        elif args[i] == "--commit":
+            commit = args[i + 1]; i += 2
+        else:
+            raise SystemExit("usage: bin/split-plan [--source FILE] [--out DIR] [--commit SHA]")
+    text = open(source, encoding="utf-8").read()
+    if not commit:
+        dirty = subprocess.run(["git", "status", "--porcelain", "--", source], cwd=repo, capture_output=True, text=True).stdout
+        if dirty.strip():
+            raise SystemExit("split-plan: commit the source first, so the manifest can name the commit it was split from")
+        commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True).stdout.strip()
+    pieces = split(text)
+    files: dict = {}
+    for file, heading, body in pieces:
+        files.setdefault(file, []).extend(body)
+    for file, body in files.items():
+        path = os.path.join(os.path.dirname(out), file) if file == INDEX else os.path.join(out, file)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("".join(body))
+    manifest = {"source_commit": commit, "source_path": os.path.relpath(source, repo),
+                "source_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                "pieces": [{"file": f, "heading": h, "lines": len(b)} for f, h, b in pieces]}
+    with open(os.path.join(out, "manifest.json"), "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=1)
+        f.write("\n")
+    with open(os.path.join(out, "headings.md"), "w", encoding="utf-8") as f:
+        f.write(headings_md(pieces))
+    print(f"split-plan: {len(pieces)} pieces into {len(files)} files under {out}; source {commit[:9]}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
