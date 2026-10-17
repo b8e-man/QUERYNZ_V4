@@ -38,6 +38,10 @@ INBOX = os.path.join(WORK, "inbox")
 STOP_LIST = os.environ.get("QV4_STOP_LIST") or os.path.join(WORK, "live", "stop-list.md")
 # the live old folder: the frozen product runs from it (hard limits 19-22)
 OLD_LIVE = os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3"
+# the reference copy of the old repository (step 1.2): a founding session makes
+# it, installs its environment and moves it to the frozen tag; every session
+# reads old code and runs old tests there, never in the live folder
+REF_COPY = os.environ.get("QV4_REF_COPY") or "/home/user/qnz3-ref"
 # the only paths in the live old folder a founding session may write: the two
 # freeze commits of step 1.5 and what the old pre-push gate asks for with them
 OLD_LIVE_FREEZE = [
