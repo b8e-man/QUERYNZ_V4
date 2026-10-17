@@ -1,0 +1,10 @@
+[project]
+name = "querynz-healer"
+version = "0.1.0"
+description = "The Healer service — evidence-gated claim rewrites with a replayable audit table. Created 2026-08-22 (plan B0) as the service home B4 fills with mint_lane/crawler/repair."
+requires-python = ">=3.11"
+dependencies = ["psycopg[binary]>=3.1", "querynz-claim-graph>=0.1", "querynz-reviewer>=0.1", "querynz-research>=0.1"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: querynz-healer
+Version: 0.1.0
+Summary: The Healer service — evidence-gated claim rewrites with a replayable audit table. Created 2026-08-22 (plan B0) as the service home B4 fills with mint_lane/crawler/repair.
+Requires-Python: >=3.11
+Requires-Dist: psycopg[binary]>=3.1
+Requires-Dist: querynz-claim-graph>=0.1
+Requires-Dist: querynz-reviewer>=0.1
+Requires-Dist: querynz-research>=0.1
