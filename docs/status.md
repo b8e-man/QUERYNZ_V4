@@ -6,7 +6,7 @@ lessons and the commit messages.
 **Date:** 2026-10-18. **Step:** 1. **Boxes:** node2 is the primary since the
 17 October failover; node1 is down and rejoins as the standby after a
 rewind (Arthur's). **Alarm channel:** the old estate's ntfy address, proven
-by the watcher's test alarm at 01:08 on 18 October.
+by the watcher's test alarm on 18 October.
 
 ## Done
 
@@ -36,14 +36,15 @@ and the integrator starts.
 
 ## Half-done
 
-- 1.4: batch 1 stopped and disabled 01:1x on 18 October (`nzme-archive-backfill`,
-  `v3-extract`, `querynz-crawler`, `querynz-mint-lane`, `querynz-research`,
-  `querynz-sweep`, `querynz-embed-backfill`, `querynz-embed-index-ship`).
-  The `newsscrapers` timers are back since 09:06 on 18 October; the first run
-  skipped NZME by ruling. Normal daily change measured (`docs/baseline.md`,
-  last section; `checks/release_compare.py`). Batch 2 after a green scheduled
-  release: the derive chain, the old apps, `querynz-llm@1`, `querynz-embed`;
-  then `v3-audit` last.
+- 1.4: batch 1 (press graph, meaning index, `nzme-archive-backfill`) stopped
+  01:1x on 18 October; the 06:17 release ran green after it. Batch 2 STOPPED
+  AND DISABLED 11:35 on 18 October on node2: the 19 units in the stop list
+  (derive chain and feeds, old apps and helpers, reference downloads,
+  `querynz-llm@1`, `querynz-embed`); the gateway routes the chat model to
+  `:8020` alone; the carve-out is up. Proof owed: the 19 October release
+  green and compared with `2026-10-18T0617` against `docs/baseline.md`; then
+  batch 3, `v3-audit` alone. Node1's half of each batch waits for node1. The
+  positive half waits for the next declaration the Commission lists.
 - 1.5: first commit made by Arthur's hand, 7f9f0bb5 in the live folder,
   02:5x on 18 October. Not pushed: the old repository's only remote is the
   mirror on node1, which is down. The second commit and the tag still need
@@ -52,5 +53,4 @@ and the integrator starts.
 ## Known gaps left on purpose
 
 - Until step 2 exists, `ssh` asks and node1 gets no job files. The party
-  returns lane has no `qv4-` job yet (the gate loads it at each merge), no
-  donor rows and no page reader.
+  returns lane has no `qv4-` job yet, no donor rows and no page reader.
