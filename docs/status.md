@@ -41,10 +41,11 @@ re-measure it into `docs/baseline.md`.
   `checks/release_compare.py`). Batch 2 after a green scheduled release:
   the derive chain, the old apps, `querynz-llm@1`, `querynz-embed`; then
   `v3-audit` last.
-- 1.5: BLOCKED. The session's permission mode refuses every write into the
-  live old folder. The patch is at
+- 1.5: BLOCKED, carded (the one open blocker on `docs/board.md`). The
+  permission classifier refuses every write into the live old folder, tried
+  again on Arthur's ask. The patch is at
   `/home/user/querynzv4-work/live/nzme-freeze-commit.patch`; the decision
-  queue has the commands.
+  queue has the commands. Three baseline findings are carded too.
 
 ## Known gaps left on purpose
 
