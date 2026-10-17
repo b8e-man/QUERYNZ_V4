@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""A question session (plan 1b.2; core: "Three weights of session").
+
+  bin/ask
+
+makes a throwaway working copy of the main line at
+/home/user/querynzv4-work/ask-<time>, detached (no branch), with a scope
+file of weight `question` and a scratch folder beside it; removes `ask-*`
+copies more than a day old that no session is sitting in; and prints the
+folder to start in and the rules for a question session. There is no
+brief: Arthur asks. The hooks then refuse every edit inside the repository
+and every command that commits, pushes, merges, installs or controls a
+job; the only database login it may name is the session reader's.
+Stdlib only."""
+import datetime as dt
+import os
+import sys
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _session as S  # noqa: E402
+
+TOOL = "ask"
+MAX_AGE_S = 24 * 3600
+
+
+def prune(now: float = None) -> list:
+    now = now or time.time()
+    gone = []
+    try:
+        names = sorted(os.listdir(S.WORK))
+    except OSError:
+        return gone
+    for n in names:
+        folder = os.path.join(S.WORK, n)
+        if not n.startswith("ask-") or not os.path.isdir(folder):
+            continue
+        try:
+            age = now - os.stat(folder).st_mtime
+        except OSError:
+            continue
+        if age > MAX_AGE_S and not S.in_use(folder):
+            S.remove_copy(folder, TOOL)
+            scratch = os.path.join(S.WORK, "scratch", n)
+            if os.path.isdir(scratch) and not S.in_use(scratch):
+                import shutil
+                shutil.rmtree(scratch, ignore_errors=True)
+            gone.append(folder)
+    return gone
+
+
+def main() -> int:
+    if sys.argv[1:]:
+        S.die(TOOL, "usage: bin/ask (no arguments; Arthur asks the session)")
+    prune()
+    name = "ask-" + dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    folder = os.path.join(S.WORK, name)
+    if os.path.exists(folder):
+        S.die(TOOL, f"{folder} exists; try again in a second")
+    os.makedirs(S.WORK, exist_ok=True)
+    S.git("worktree", "add", "--detach", folder, "main", tool=TOOL)
+    scratch = os.path.join(S.WORK, "scratch", name)
+    os.makedirs(scratch, exist_ok=True)
+    with open(os.path.join(folder, ".scope"), "w", encoding="utf-8") as f:
+        f.write(S.scope_text(name, "question", scratch, []))
+    S.link_inbox(folder)
+    rules = S.question_rules() or "Answer from what is published; change nothing."
+    print(f"Start in: {folder}\nWeight: question (a throwaway copy of main; removed after a day)\n"
+          f"Scratch: {scratch}\nNotes for the integrator go in: {S.INBOX_CARDS}\n\nThe rules:\n\n{rules}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

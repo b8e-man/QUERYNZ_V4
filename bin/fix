@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""A fix session (plan 1b.3; core: "Three weights of session").
+
+  bin/fix <module folder>
+
+accepts only a module folder: keys/, links/, or one folder under support/,
+registers/, products/ or checks/. It refuses a folder a build session
+holds (one named in the scope file of a working copy bin/start-session made
+and the integrator has not yet removed): that fix goes to the session
+holding it. It reopens an existing copy whose merge request was refused.
+Otherwise it makes the working copy /home/user/querynzv4-work/fix-<module>-<n>
+on the branch fix/<module>-<n>, its scope file (weight fix), a scratch
+folder and a scratch schema in the sample database, links the inbox, and
+prints the folder to start in. The brief is Arthur's own sentence. A fix
+that grows past one module stops and becomes a card. Stdlib only; the
+scratch schema is made through the repository's own environment when it
+is there."""
+import os
+import re
+import subprocess
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _session as S  # noqa: E402
+
+TOOL = "fix"
+
+
+def slug_of(folder: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", folder.strip("/").lower()).strip("-")
+
+
+def refused_copy(slug: str):
+    """An existing fix copy for this module whose request was refused."""
+    try:
+        names = sorted(os.listdir(S.WORK))
+    except OSError:
+        return None
+    for n in names:
+        if not re.fullmatch(rf"fix-{re.escape(slug)}-\d+", n):
+            continue
+        req = os.path.join(S.INBOX_MERGE, n + ".md")
+        try:
+            text = open(req, encoding="utf-8").read()
+        except OSError:
+            continue
+        if re.search(r"^(result|verdict):\s*refused", text, re.I | re.M) or "REFUSED" in text:
+            return os.path.join(S.WORK, n)
+    return None
+
+
+def next_number(slug: str) -> int:
+    n = 0
+    try:
+        for name in os.listdir(S.WORK):
+            m = re.fullmatch(rf"fix-{re.escape(slug)}-(\d+)", name)
+            if m:
+                n = max(n, int(m.group(1)))
+    except OSError:
+        pass
+    return n + 1
+
+
+def scratch_schema(name: str) -> str:
+    """Best effort: the repository's environment makes scratch_<name> in the
+    sample database; without one (a toy repository, QV4_NO_DB set) it says so."""
+    py = os.path.join(S.MAIN, ".venv", "bin", "python")
+    if os.environ.get("QV4_NO_DB") or not os.path.exists(py):
+        return "scratch schema: not made (no database environment here)"
+    p = subprocess.run([py, "-m", "support.db", "scratch", name], cwd=S.MAIN, capture_output=True, text=True)
+    return (p.stdout or p.stderr).strip().splitlines()[-1] if (p.stdout or p.stderr).strip() else "scratch schema: made"
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    if len(args) != 1:
+        S.die(TOOL, "usage: bin/fix <module folder>   (keys/, links/, or one folder under support/, registers/, products/, checks/)")
+    folder = args[0].strip("/")
+    if not S.is_module_folder(folder):
+        S.die(TOOL, f"{folder} is not a module folder: keys/, links/, or one folder under support/, registers/, products/ or checks/")
+    held = S.held_folders()
+    for h, copy in held.items():
+        if folder == h or folder.startswith(h + "/") or h.startswith(folder + "/"):
+            S.die(TOOL, f"{folder} is held by the build session in {copy}; that fix goes to the session holding it")
+    slug = slug_of(folder)
+    reopen = refused_copy(slug)
+    if reopen:
+        print(f"Start in: {reopen}\nReopened: its merge request was refused; read {S.INBOX_MERGE}/{os.path.basename(reopen)}.md first\n"
+              f"Scope: {folder}/ (weight fix)\n\nBrief: Arthur's own sentence.")
+        return 0
+    n = next_number(slug)
+    name = f"fix-{slug}-{n}"
+    copy = os.path.join(S.WORK, name)
+    branch = f"fix/{slug}-{n}"
+    if S.git("branch", "--list", branch, tool=TOOL):
+        S.die(TOOL, f"branch {branch} exists")
+    os.makedirs(S.WORK, exist_ok=True)
+    S.git("worktree", "add", "-b", branch, copy, "main", tool=TOOL)
+    scratch = os.path.join(S.WORK, "scratch", name)
+    os.makedirs(scratch, exist_ok=True)
+    with open(os.path.join(copy, ".scope"), "w", encoding="utf-8") as f:
+        f.write(S.scope_text(name, "fix", scratch, [folder + "/"]))
+    S.link_inbox(copy)
+    schema = scratch_schema(name)
+    print(f"Start in: {copy}\nBranch: {branch}\nScope: {folder}/ (weight fix)\nScratch: {scratch}\n{schema}\n\n"
+          f"Brief: Arthur's own sentence. Search the lessons first; run the fast tier; push {branch} and raise "
+          f"{S.INBOX_MERGE}/{name}.md. A fix that grows past {folder}/ stops and becomes a card.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

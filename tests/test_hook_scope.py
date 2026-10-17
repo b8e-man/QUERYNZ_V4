@@ -314,3 +314,30 @@ def test_a_body_that_only_reads_names_no_target(fake_repo):
     assert run(fake_repo, bash(f"python3 - <<'EOF'\nprint(open('{out}').read())\nEOF"))[0] == 0
     assert run(fake_repo, bash(f"python3 -c \"print(open('{out}').read())\""))[0] == 0
     assert run(fake_repo, bash(f"perl -ne 'print' {out}"))[0] == 0
+
+
+# ── step 1b.1: the question and fix weights ──────────────────────────────────
+
+def test_a_question_session_changes_nothing_inside_the_repository(fake_repo):
+    set_scope(fake_repo, scope_text(weight="question", folders=()))
+    for p in ("keys/names.py", "cards/x.md", "lessons/x.md", "docs/status/t.md", "docs/decisions/queue/q.md", "README.md"):
+        rc, err = run(fake_repo, edit(fake_repo, p))
+        assert rc == 2 and "changes nothing" in err, p
+    assert run(fake_repo, bash(f"echo x > {fake_repo}/keys/notes.txt"))[0] == 2
+    assert run(fake_repo, write("/tmp/qv4-test-scratch/working.md"))[0] == 0
+    assert run(fake_repo, write("/home/user/querynzv4-work/inbox/cards/a-fault.md"))[0] == 0
+    assert run(fake_repo, write("/home/user/querynzv4-work/inbox/merge-requests/t.md"))[0] == 2
+    assert run(fake_repo, write("/home/user/querynzv4-work/live/stop-list.md"))[0] == 2
+    assert run(fake_repo, write(f"{OLD}/ingestion/newsscrapers/registry.py"))[0] == 2
+
+
+def test_a_fix_session_is_fenced_like_a_build_session(fake_repo):
+    set_scope(fake_repo, scope_text(weight="fix", folders=("support/scheduler/",)))
+    assert run(fake_repo, edit(fake_repo, "support/scheduler/queue.py"))[0] == 0
+    assert run(fake_repo, edit(fake_repo, "support/profiles/x.py"))[0] == 2
+    assert run(fake_repo, edit(fake_repo, "lessons/x.md"))[0] == 0
+    for p in (".claude/hooks/scope.py", "bin/fix", "docs/plan/core.md", "CLAUDE.md", ".scope"):
+        rc, err = run(fake_repo, edit(fake_repo, p))
+        assert rc == 2 and "founding or integrator" in err, p
+    assert run(fake_repo, write("/home/user/querynzv4-work/inbox/merge-requests/t.md"))[0] == 0
+    assert run(fake_repo, write("/home/user/querynzv4-work/inbox/cards/t.md"))[0] == 2

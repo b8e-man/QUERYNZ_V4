@@ -20,11 +20,8 @@ import re
 import subprocess
 import sys
 
-MAIN = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WORK = os.environ.get("QV4_WORK") or "/home/user/querynzv4-work"
-INBOX = os.path.join(WORK, "inbox", "merge-requests")
-MODULE_ROOTS = ("keys", "support", "registers", "links", "products", "checks", "docs", "tests")
-NAME = re.compile(r"^[a-z][a-z0-9-]{1,40}$")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _session import MAIN, MODULE_ROOTS, NAME, WORK, link_inbox, scope_text  # noqa: E402
 
 BUILD_BRIEF = """You are a build session for QueryNZV4 on node2, in the working copy the
 launcher made for you ({folder}). Read docs/PLAN.md, then docs/status.md
@@ -47,11 +44,6 @@ def git(*args, cwd=MAIN, check=True) -> str:
     if check and p.returncode:
         die(f"git {' '.join(args)}: {p.stderr.strip()}")
     return p.stdout.strip()
-
-
-def scope_text(name: str, weight: str, scratch: str, folders) -> str:
-    out = f"name: {name}\nweight: {weight}\nscratch: {scratch}\nfolders:\n"
-    return out + "".join(f"  {f}\n" for f in folders)
 
 
 def brief_from_next(name: str) -> str:
@@ -83,13 +75,6 @@ def main_brief(weight: str) -> str:
                 or fenced_block_after(os.path.join(MAIN, "docs", "PLAN.md"), "## Step 1:"))
     return (fenced_block_after(os.path.join(plan, "core.md"), "The integrator's brief:")
             or fenced_block_after(os.path.join(MAIN, "docs", "PLAN.md"), "The integrator's brief:"))
-
-
-def link_inbox(folder: str) -> None:
-    os.makedirs(INBOX, exist_ok=True)
-    link = os.path.join(folder, "merge-requests")
-    if not os.path.lexists(link):
-        os.symlink(INBOX, link)
 
 
 def start_main(weight: str) -> None:

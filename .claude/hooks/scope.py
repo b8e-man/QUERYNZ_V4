@@ -6,6 +6,8 @@ It reads the scope file `.scope` in the working copy (CLAUDE_PROJECT_DIR)
 and judges every write the tools would make:
 
   no scope file               → refuse every write, inside the repository or out
+  weight question             → no edit inside the repository at all; outside,
+                                only its scratch folder and inbox/cards/ (1b.1)
   inside the repository       → allowed under a folder the scope file names,
                                 or under an always-allowed path (cards/,
                                 lessons/, docs/status/, docs/decisions/queue/,
@@ -63,6 +65,15 @@ def judge(target: str, scope: dict, session_id: str) -> str:
     r = fence.rel(path)
     weight = scope["weight"]
     main = weight in fence.MAIN_WEIGHTS
+    if weight == "question":
+        # a question session changes nothing (1b.1): no edit inside the repository,
+        # the always-allowed paths included; outside, its scratch and a note in inbox/cards/
+        if r is not None:
+            return f"`{r}`: a question session changes nothing inside the repository; a fault goes as a note into {fence.CARDS_INBOX}"
+        if (scope["scratch"] and fence.under(path, scope["scratch"])) or harness_scratchpad(session_id, path) \
+                or fence.under(path, fence.CARDS_INBOX):
+            return ""
+        return f"`{path}`: a question session writes only its scratch folder and {fence.CARDS_INBOX}"
     if r is not None:
         if not main and fence.matches(r, fence.GENERATED):
             return f"`{r}` is generated at the merge and edited by nobody"
