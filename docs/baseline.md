@@ -156,3 +156,15 @@ So "nothing changed but new data" reads as: the same kinds change, by the same
 keys, and no kind that is static moves. When the derive chain stops (batch 2),
 the cite renumbering should stop too, which is the ruling's intent: the
 totals freeze as they stand while declarations keep arriving.
+
+**Addendum, 18 October, before batch 2.** The site's window widened to 2017
+on 17 October (ruling 364), so the 16-to-17 October yardstick above
+understates a day's shape: the 17 October 06:16 to 18 October 06:17
+comparison adds 2,457 files (donors, subjects, electorates, citations). The
+yardstick for 1.4 from here is the 17 October 23:25 to 18 October 06:17
+comparison, one day with the window already widened and node1 down: the same
+kinds change by the same keys (`generated_at`, `history`, `freshness`,
+`bands`); `data/cite` still renumbers (3,921 added, 3,921 removed) with
+node1 down, so that churn comes from node2's side or the carve-out's own
+derive; nothing static moved. Batch 2 was stopped at 11:35 on 18 October;
+the 19 October release is compared against `2026-10-18T0617`.
