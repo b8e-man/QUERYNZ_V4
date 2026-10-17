@@ -39,17 +39,20 @@ def python_for(repo: str) -> str:
     return venv if os.path.exists(venv) else sys.executable
 
 
-def load_touched(repo: str, branch: str):
+def load_touched(repo: str, branch: str, gate_dir: str):
     """The full tier's loading step (1b.7): the modules the branch touches
     that carry a load.py go into a staging schema of the real database and
-    are published on success. Skipped, saying so, where the repository's
+    are published on success. It runs INSIDE the gate's working copy, so
+    the branch's own loader is the code that loads (the main checkout does
+    not have it yet). Skipped, saying so, where the repository's
     environment or the owner's credential file is absent. Returns the
     completed process, or None when skipped."""
     py = os.path.join(repo, ".venv", "bin", "python")
     cred_dir = os.environ.get("QV4_CRED_DIR") or os.path.join(os.path.expanduser("~"), ".querynz")
     if not os.path.exists(py) or not os.path.exists(os.path.join(cred_dir, "v4.env")) or os.environ.get("QV4_NO_DB"):
         return None
-    return subprocess.run([py, "-m", "support.staging", branch], cwd=repo, capture_output=True, text=True)
+    return subprocess.run([py, "-m", "support.staging", branch], cwd=gate_dir, capture_output=True, text=True,
+                          env={**os.environ, "CLAUDE_PROJECT_DIR": gate_dir})
 
 
 def main() -> int:
@@ -79,12 +82,18 @@ def main() -> int:
         git(repo, "worktree", "remove", "--force", gate_dir, check=False)
         shutil.rmtree(gate_dir, ignore_errors=True)
     git(repo, "worktree", "add", "--detach", gate_dir, branch)
+    staging = None
     try:
         p = subprocess.run([python_for(repo), "-m", "pytest", "-p", "no:cacheprovider", "-q"],
                            cwd=gate_dir, capture_output=True, text=True,
                            env={**os.environ, "CLAUDE_PROJECT_DIR": gate_dir})
         with open(log, "w", encoding="utf-8") as f:
             f.write(p.stdout + p.stderr)
+        if p.returncode == 0:
+            staging = load_touched(repo, branch, gate_dir)
+            if staging is not None:
+                with open(log, "a", encoding="utf-8") as f:
+                    f.write("\n--- staging ---\n" + staging.stdout + staging.stderr)
     finally:
         git(repo, "worktree", "remove", "--force", gate_dir, check=False)
         git(repo, "worktree", "prune", check=False)
@@ -92,7 +101,6 @@ def main() -> int:
     if p.returncode:
         print(f"REFUSED {branch}: tests failed (full output: {log})\n{tail}")
         return 1
-    staging = load_touched(repo, branch)
     if staging is not None and staging.returncode:
         print(f"REFUSED {branch}: tests passed but the staging load failed\n{staging.stdout[-1500:]}{staging.stderr[-1500:]}")
         return 1
