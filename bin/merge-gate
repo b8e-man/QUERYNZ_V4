@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""The merge gate (plan: "Merging", "Two tiers of checks").
+
+  bin/merge-gate <branch> [--no-merge] [--repo PATH]
+
+One command: it checks the branch out into a gate working copy, runs every
+test there (the one-way import test among them), and refuses on any
+failure. On a pass it merges the branch into main in the main checkout with
+a merge commit; with --no-merge it only reports. The run's output is kept
+at <work>/gate/<branch>.log. Exit 0 = merged (or would merge), 1 = refused.
+
+Until step 1b adds the full tier, this is the whole gate. It must be run
+from a clean main checkout on the main branch. Stdlib only."""
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+WORK = os.environ.get("QV4_WORK") or "/home/user/querynzv4-work"
+
+
+def die(msg: str) -> None:
+    print(f"merge-gate: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def git(repo, *args, check=True) -> str:
+    p = subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True)
+    if check and p.returncode:
+        die(f"git {' '.join(args)}: {p.stderr.strip()}")
+    return p.stdout.strip()
+
+
+def python_for(repo: str) -> str:
+    venv = os.path.join(repo, ".venv", "bin", "python")
+    return venv if os.path.exists(venv) else sys.executable
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if "--repo" in args:
+        i = args.index("--repo")
+        repo = os.path.abspath(args[i + 1])
+        del args[i:i + 2]
+    merge = "--no-merge" not in args
+    args = [a for a in args if a != "--no-merge"]
+    if len(args) != 1:
+        die("usage: bin/merge-gate <branch> [--no-merge] [--repo PATH]")
+    branch = args[0]
+    if not git(repo, "rev-parse", "--verify", "--quiet", branch, check=False):
+        die(f"no branch {branch}")
+    if merge:
+        if git(repo, "rev-parse", "--abbrev-ref", "HEAD") != "main":
+            die("the main checkout must be on main to merge")
+        if git(repo, "status", "--porcelain", "--untracked-files=no"):
+            die("the main checkout has uncommitted changes")
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", branch).strip("-")
+    gate_dir = os.path.join(WORK, "gate", slug)
+    log = gate_dir + ".log"
+    os.makedirs(os.path.dirname(gate_dir), exist_ok=True)
+    if os.path.exists(gate_dir):
+        git(repo, "worktree", "remove", "--force", gate_dir, check=False)
+        shutil.rmtree(gate_dir, ignore_errors=True)
+    git(repo, "worktree", "add", "--detach", gate_dir, branch)
+    try:
+        p = subprocess.run([python_for(repo), "-m", "pytest", "-p", "no:cacheprovider", "-q"],
+                           cwd=gate_dir, capture_output=True, text=True,
+                           env={**os.environ, "CLAUDE_PROJECT_DIR": gate_dir})
+        with open(log, "w", encoding="utf-8") as f:
+            f.write(p.stdout + p.stderr)
+    finally:
+        git(repo, "worktree", "remove", "--force", gate_dir, check=False)
+        git(repo, "worktree", "prune", check=False)
+    tail = "\n".join((p.stdout + p.stderr).strip().split("\n")[-15:])
+    if p.returncode:
+        print(f"REFUSED {branch}: tests failed (full output: {log})\n{tail}")
+        return 1
+    if not merge:
+        print(f"GREEN {branch}: every test passed; not merged (--no-merge)\n{tail}")
+        return 0
+    git(repo, "merge", "--no-ff", "--no-edit", "-m", f"merge {branch}: gate green", branch)
+    print(f"MERGED {branch} into main: every test passed\n{tail}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

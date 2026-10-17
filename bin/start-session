@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+"""The launcher (plan: "Starting a session").
+
+  bin/start-session <name> <folder> [more folders]
+      makes the working copy /home/user/querynzv4-work/<name> on the branch
+      session/<name>, writes its scope file naming those folders, makes its
+      scratch folder, links the shared merge-requests/ inbox into it, and
+      prints the folder to start in and the brief to paste.
+
+  bin/start-session --main founding | --main integrator
+      writes the whole-repository scope file in the main checkout. Nothing
+      else may.
+
+Arthur runs it, changes into the folder it prints, and starts Claude there.
+The brief comes from docs/briefs/next.md when it has a section headed with
+the session's name; otherwise the plan's own brief for that weight.
+Stdlib only; refuses rather than guesses."""
+import os
+import re
+import subprocess
+import sys
+
+MAIN = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+WORK = os.environ.get("QV4_WORK") or "/home/user/querynzv4-work"
+INBOX = os.path.join(WORK, "inbox", "merge-requests")
+MODULE_ROOTS = ("keys", "support", "registers", "links", "products", "checks", "docs", "tests")
+NAME = re.compile(r"^[a-z][a-z0-9-]{1,40}$")
+
+BUILD_BRIEF = """You are a build session for QueryNZV4 on node2, in the working copy the
+launcher made for you ({folder}). Read docs/PLAN.md, then docs/status.md
+and your own status file docs/status/{name}.md, and continue where it
+stops. Your scope is: {folders}. Search the lessons before writing
+anything. Work in your scratch schema; edit nothing outside your folders;
+never touch the old estate's jobs, folders or primary database. Push your
+branch session/{name} and raise a merge request in merge-requests/.
+Update your status file at every close. Finish by telling Arthur what
+closed, what is carded, and what waits on him."""
+
+
+def die(msg: str) -> None:
+    print(f"start-session: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def git(*args, cwd=MAIN, check=True) -> str:
+    p = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+    if check and p.returncode:
+        die(f"git {' '.join(args)}: {p.stderr.strip()}")
+    return p.stdout.strip()
+
+
+def scope_text(name: str, weight: str, scratch: str, folders) -> str:
+    out = f"name: {name}\nweight: {weight}\nscratch: {scratch}\nfolders:\n"
+    return out + "".join(f"  {f}\n" for f in folders)
+
+
+def brief_from_next(name: str) -> str:
+    """The section of docs/briefs/next.md headed `## <name>`, if there is one."""
+    path = os.path.join(MAIN, "docs", "briefs", "next.md")
+    if not os.path.isfile(path):
+        return ""
+    text = open(path, encoding="utf-8").read()
+    m = re.search(rf"^## {re.escape(name)}\s*$(.*?)(?=^## |\Z)", text, re.S | re.M)
+    return m.group(1).strip() if m else ""
+
+
+def fenced_block_after(path: str, marker: str) -> str:
+    """The first ```text block after `marker` in the file at `path`."""
+    if not os.path.isfile(path):
+        return ""
+    text = open(path, encoding="utf-8").read()
+    i = text.find(marker)
+    if i < 0:
+        return ""
+    m = re.search(r"```text\n(.*?)```", text[i:], re.S)
+    return m.group(1).strip() if m else ""
+
+
+def main_brief(weight: str) -> str:
+    plan = os.path.join(MAIN, "docs", "plan")
+    if weight == "founding":
+        return (fenced_block_after(os.path.join(plan, "step-1.md"), "### Brief to paste")
+                or fenced_block_after(os.path.join(MAIN, "docs", "PLAN.md"), "## Step 1:"))
+    return (fenced_block_after(os.path.join(plan, "core.md"), "The integrator's brief:")
+            or fenced_block_after(os.path.join(MAIN, "docs", "PLAN.md"), "The integrator's brief:"))
+
+
+def link_inbox(folder: str) -> None:
+    os.makedirs(INBOX, exist_ok=True)
+    link = os.path.join(folder, "merge-requests")
+    if not os.path.lexists(link):
+        os.symlink(INBOX, link)
+
+
+def start_main(weight: str) -> None:
+    if weight not in ("founding", "integrator"):
+        die("--main takes founding or integrator")
+    name = f"{weight}-{git('rev-parse', '--short', 'HEAD')}"
+    scratch = os.path.join(WORK, "scratch", name)
+    os.makedirs(scratch, exist_ok=True)
+    with open(os.path.join(MAIN, ".scope"), "w", encoding="utf-8") as f:
+        f.write(scope_text(name, weight, scratch, ["."]))
+    link_inbox(MAIN)
+    print(f"Start in: {MAIN}\nScope: the whole repository, weight {weight}\n\nBrief to paste:\n\n{main_brief(weight)}")
+
+
+def start_build(name: str, folders) -> None:
+    if not NAME.match(name):
+        die("a session name is lower-case letters, digits and hyphens")
+    folder = os.path.join(WORK, name)
+    branch = f"session/{name}"
+    if os.path.exists(folder):
+        die(f"{folder} exists; a name is used once, and the integrator removes a copy after its last merge")
+    if git("branch", "--list", branch):
+        die(f"branch {branch} exists")
+    for f in folders:
+        f = f.rstrip("/")
+        if f.split("/")[0] not in MODULE_ROOTS or not os.path.isdir(os.path.join(MAIN, f)):
+            die(f"{f} is not a folder in the repository under one of: {', '.join(MODULE_ROOTS)}")
+    folders = [f.rstrip("/") + "/" for f in folders]
+    os.makedirs(WORK, exist_ok=True)
+    git("worktree", "add", "-b", branch, folder, "main")
+    scratch = os.path.join(WORK, "scratch", name)
+    os.makedirs(scratch, exist_ok=True)
+    with open(os.path.join(folder, ".scope"), "w", encoding="utf-8") as f:
+        f.write(scope_text(name, "build", scratch, folders))
+    link_inbox(folder)
+    brief = brief_from_next(name) or BUILD_BRIEF.format(folder=folder, name=name, folders=", ".join(folders))
+    print(f"Start in: {folder}\nBranch: {branch}\nScope: {', '.join(folders)}\nScratch: {scratch}\n\nBrief to paste:\n\n{brief}")
+
+
+if __name__ == "__main__":
+    args = sys.argv[1:]
+    if len(args) == 2 and args[0] == "--main":
+        start_main(args[1])
+    elif len(args) >= 2 and not args[0].startswith("-"):
+        start_build(args[0], args[1:])
+    else:
+        die("usage: bin/start-session <name> <folder> [more folders] | bin/start-session --main founding|integrator")

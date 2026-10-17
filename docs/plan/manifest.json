@@ -1,0 +1,577 @@
+{
+ "source_commit": "c94e1ded2daca7e1efa0454b07306d96c2e379c2",
+ "source_path": "docs/PLAN.md",
+ "source_sha256": "8a7a9600e1214ea7f31447922d45d47db14e135f6bd1259db59400eb031607cb",
+ "pieces": [
+  {
+   "file": "PLAN.md",
+   "heading": "",
+   "lines": 6
+  },
+  {
+   "file": "core.md",
+   "heading": "## Read this first",
+   "lines": 2
+  },
+  {
+   "file": "core.md",
+   "heading": "### Who you are",
+   "lines": 8
+  },
+  {
+   "file": "PLAN.md",
+   "heading": "### What to read, and how much",
+   "lines": 33
+  },
+  {
+   "file": "core.md",
+   "heading": "### Who Arthur is",
+   "lines": 9
+  },
+  {
+   "file": "core.md",
+   "heading": "### What you may decide, and what you may not",
+   "lines": 14
+  },
+  {
+   "file": "map.md",
+   "heading": "### Where everything is",
+   "lines": 23
+  },
+  {
+   "file": "map.md",
+   "heading": "### Words used in this plan",
+   "lines": 20
+  },
+  {
+   "file": "limits.md",
+   "heading": "## Hard limits",
+   "lines": 57
+  },
+  {
+   "file": "design.md",
+   "heading": "## What we are building",
+   "lines": 8
+  },
+  {
+   "file": "design.md",
+   "heading": "### 1 and 2. Registers: copied and built",
+   "lines": 21
+  },
+  {
+   "file": "design.md",
+   "heading": "### 3. Links",
+   "lines": 33
+  },
+  {
+   "file": "design.md",
+   "heading": "### 4. Products: four shapes",
+   "lines": 40
+  },
+  {
+   "file": "design.md",
+   "heading": "### The Follow the Money template's own settings",
+   "lines": 20
+  },
+  {
+   "file": "design.md",
+   "heading": "### 5. Checking",
+   "lines": 13
+  },
+  {
+   "file": "design.md",
+   "heading": "### How the code is laid out",
+   "lines": 16
+  },
+  {
+   "file": "design.md",
+   "heading": "### Deliberately not built",
+   "lines": 8
+  },
+  {
+   "file": "core.md",
+   "heading": "## How the work runs",
+   "lines": 4
+  },
+  {
+   "file": "core.md",
+   "heading": "### Keeping the work quick",
+   "lines": 27
+  },
+  {
+   "file": "core.md",
+   "heading": "### Starting a session",
+   "lines": 12
+  },
+  {
+   "file": "core.md",
+   "heading": "### Three weights of session",
+   "lines": 18
+  },
+  {
+   "file": "core.md",
+   "heading": "### Picking up where another session stopped",
+   "lines": 12
+  },
+  {
+   "file": "core.md",
+   "heading": "### Merging",
+   "lines": 28
+  },
+  {
+   "file": "core.md",
+   "heading": "### Two tiers of checks",
+   "lines": 17
+  },
+  {
+   "file": "core.md",
+   "heading": "### What is live, and who may touch it",
+   "lines": 13
+  },
+  {
+   "file": "core.md",
+   "heading": "### Shared things on the boxes",
+   "lines": 10
+  },
+  {
+   "file": "core.md",
+   "heading": "### One short spec per module",
+   "lines": 10
+  },
+  {
+   "file": "core.md",
+   "heading": "### Cards",
+   "lines": 14
+  },
+  {
+   "file": "core.md",
+   "heading": "### Lessons",
+   "lines": 10
+  },
+  {
+   "file": "core.md",
+   "heading": "### Closing a piece of work",
+   "lines": 6
+  },
+  {
+   "file": "core.md",
+   "heading": "### Checkpoints",
+   "lines": 4
+  },
+  {
+   "file": "core.md",
+   "heading": "### The decision queue and the rulings",
+   "lines": 6
+  },
+  {
+   "file": "reuse.md",
+   "heading": "### Reusing the old code",
+   "lines": 23
+  },
+  {
+   "file": "map.md",
+   "heading": "### Which model does what",
+   "lines": 17
+  },
+  {
+   "file": "map.md",
+   "heading": "### Size, and what each step asks of Arthur",
+   "lines": 16
+  },
+  {
+   "file": "map.md",
+   "heading": "## The order of work",
+   "lines": 25
+  },
+  {
+   "file": "step-0.md",
+   "heading": "## Step 0: what Arthur does before building starts",
+   "lines": 29
+  },
+  {
+   "file": "step-1.md",
+   "heading": "## Step 1: set up, freeze, and fix the seams",
+   "lines": 8
+  },
+  {
+   "file": "step-1.md",
+   "heading": "### Do",
+   "lines": 146
+  },
+  {
+   "file": "step-1.md",
+   "heading": "### Done when",
+   "lines": 14
+  },
+  {
+   "file": "step-1.md",
+   "heading": "### Brief to paste",
+   "lines": 21
+  },
+  {
+   "file": "step-1b.md",
+   "heading": "## Step 1b: the quick-work tools",
+   "lines": 6
+  },
+  {
+   "file": "step-1b.md",
+   "heading": "### Do",
+   "lines": 24
+  },
+  {
+   "file": "step-1b.md",
+   "heading": "### Done when",
+   "lines": 11
+  },
+  {
+   "file": "step-2.md",
+   "heading": "## Step 2: the scheduler, first build",
+   "lines": 8
+  },
+  {
+   "file": "step-2.md",
+   "heading": "### What Arthur asked for",
+   "lines": 9
+  },
+  {
+   "file": "step-2.md",
+   "heading": "### What exists to build on",
+   "lines": 14
+  },
+  {
+   "file": "step-2.md",
+   "heading": "### Do",
+   "lines": 39
+  },
+  {
+   "file": "step-2.md",
+   "heading": "### The nine rules for sharing the graphics cards",
+   "lines": 18
+  },
+  {
+   "file": "step-2.md",
+   "heading": "### Traps the old estate paid for",
+   "lines": 10
+  },
+  {
+   "file": "step-2.md",
+   "heading": "### Done when",
+   "lines": 15
+  },
+  {
+   "file": "step-2.md",
+   "heading": "### Brief to paste",
+   "lines": 18
+  },
+  {
+   "file": "step-3.md",
+   "heading": "## Step 3: the page-reader trial over the election documents",
+   "lines": 8
+  },
+  {
+   "file": "step-3.md",
+   "heading": "### The models",
+   "lines": 16
+  },
+  {
+   "file": "step-3.md",
+   "heading": "### Three conditions from Arthur",
+   "lines": 6
+  },
+  {
+   "file": "step-3.md",
+   "heading": "### Do",
+   "lines": 42
+  },
+  {
+   "file": "step-3.md",
+   "heading": "### What the run proves about the scheduler",
+   "lines": 13
+  },
+  {
+   "file": "step-3.md",
+   "heading": "### Done when",
+   "lines": 8
+  },
+  {
+   "file": "step-3.md",
+   "heading": "### Brief to paste",
+   "lines": 20
+  },
+  {
+   "file": "step-4.md",
+   "heading": "## Step 4: Follow the Money rebuilt",
+   "lines": 8
+  },
+  {
+   "file": "step-4.md",
+   "heading": "### What the frozen site is",
+   "lines": 14
+  },
+  {
+   "file": "step-4.md",
+   "heading": "### Do",
+   "lines": 99
+  },
+  {
+   "file": "step-4.md",
+   "heading": "### Done when",
+   "lines": 9
+  },
+  {
+   "file": "step-4.md",
+   "heading": "### Briefs to paste",
+   "lines": 40
+  },
+  {
+   "file": "step-5.md",
+   "heading": "## Step 5: subject reports, legal documents and company monitoring",
+   "lines": 8
+  },
+  {
+   "file": "step-5.md",
+   "heading": "### Do",
+   "lines": 81
+  },
+  {
+   "file": "step-5.md",
+   "heading": "### Done when",
+   "lines": 8
+  },
+  {
+   "file": "step-5.md",
+   "heading": "### Briefs to paste",
+   "lines": 18
+  },
+  {
+   "file": "step-6.md",
+   "heading": "## Step 6: register scans",
+   "lines": 8
+  },
+  {
+   "file": "step-6.md",
+   "heading": "### Do",
+   "lines": 22
+  },
+  {
+   "file": "step-6.md",
+   "heading": "### Done when",
+   "lines": 6
+  },
+  {
+   "file": "step-6.md",
+   "heading": "### Brief to paste",
+   "lines": 16
+  },
+  {
+   "file": "step-7.md",
+   "heading": "## Step 7: archive search",
+   "lines": 8
+  },
+  {
+   "file": "step-7.md",
+   "heading": "### What is held",
+   "lines": 6
+  },
+  {
+   "file": "step-7.md",
+   "heading": "### Do",
+   "lines": 59
+  },
+  {
+   "file": "step-7.md",
+   "heading": "### Done when",
+   "lines": 9
+  },
+  {
+   "file": "step-7.md",
+   "heading": "### Brief to paste",
+   "lines": 17
+  },
+  {
+   "file": "tracks.md",
+   "heading": "## Tracks alongside",
+   "lines": 4
+  },
+  {
+   "file": "track-a.md",
+   "heading": "### Track A: automatic takeover",
+   "lines": 17
+  },
+  {
+   "file": "track-b.md",
+   "heading": "### Track B: the off-site copy",
+   "lines": 12
+  },
+  {
+   "file": "track-c.md",
+   "heading": "### Track C: the review agent",
+   "lines": 12
+  },
+  {
+   "file": "track-d.md",
+   "heading": "### Track D: the rulebook and the rule-learning loop",
+   "lines": 12
+  },
+  {
+   "file": "track-e.md",
+   "heading": "### Track E: capture the windowed sources now",
+   "lines": 6
+  },
+  {
+   "file": "track-f.md",
+   "heading": "### Track F: consuming and retiring the old data",
+   "lines": 6
+  },
+  {
+   "file": "track-g.md",
+   "heading": "### Track G: the before-selling list",
+   "lines": 12
+  },
+  {
+   "file": "track-h.md",
+   "heading": "### Track H: security hardening, and rotating every password and key",
+   "lines": 68
+  },
+  {
+   "file": "reference/old-estate/00-intro.md",
+   "heading": "## Reference: the old estate",
+   "lines": 6
+  },
+  {
+   "file": "reference/old-estate/names-addresses-and-capture.md",
+   "heading": "### Names, addresses and capture",
+   "lines": 19
+  },
+  {
+   "file": "reference/old-estate/reading-documents.md",
+   "heading": "### Reading documents",
+   "lines": 12
+  },
+  {
+   "file": "reference/old-estate/links-and-products.md",
+   "heading": "### Links and products",
+   "lines": 20
+  },
+  {
+   "file": "reference/old-estate/machinery.md",
+   "heading": "### Machinery",
+   "lines": 17
+  },
+  {
+   "file": "reference/old-estate/old-databases.md",
+   "heading": "### Old databases",
+   "lines": 8
+  },
+  {
+   "file": "reference/old-estate/the-boxes-as-last-recorded.md",
+   "heading": "### The boxes, as last recorded",
+   "lines": 17
+  },
+  {
+   "file": "reference/old-estate/parts-that-stay-dead.md",
+   "heading": "### Parts that stay dead",
+   "lines": 7
+  },
+  {
+   "file": "reference/old-estate/parked-and-retired-work-to-draw-on.md",
+   "heading": "### Parked and retired work to draw on",
+   "lines": 18
+  },
+  {
+   "file": "reference/registers-and-use-cases/00-intro.md",
+   "heading": "## Reference: registers and use cases",
+   "lines": 4
+  },
+  {
+   "file": "reference/registers-and-use-cases/held-registers-that-are-copied.md",
+   "heading": "### Held: registers that are copied",
+   "lines": 13
+  },
+  {
+   "file": "reference/registers-and-use-cases/held-registers-that-are-built.md",
+   "heading": "### Held: registers that are built",
+   "lines": 12
+  },
+  {
+   "file": "reference/registers-and-use-cases/not-held.md",
+   "heading": "### Not held",
+   "lines": 23
+  },
+  {
+   "file": "reference/registers-and-use-cases/the-sixteen-use-cases.md",
+   "heading": "### The sixteen use cases",
+   "lines": 26
+  },
+  {
+   "file": "reference/facts-and-traps/00-intro.md",
+   "heading": "## Reference: facts and traps the old cards paid for",
+   "lines": 4
+  },
+  {
+   "file": "reference/facts-and-traps/electoral-commission-forms.md",
+   "heading": "### Electoral Commission forms",
+   "lines": 26
+  },
+  {
+   "file": "reference/facts-and-traps/capture.md",
+   "heading": "### Capture",
+   "lines": 14
+  },
+  {
+   "file": "reference/facts-and-traps/names-and-matching.md",
+   "heading": "### Names and matching",
+   "lines": 11
+  },
+  {
+   "file": "reference/facts-and-traps/databases-and-jobs.md",
+   "heading": "### Databases and jobs",
+   "lines": 18
+  },
+  {
+   "file": "reference/facts-and-traps/measuring.md",
+   "heading": "### Measuring",
+   "lines": 9
+  },
+  {
+   "file": "reference/dated-jobs-open-decisions-rulings/00-intro.md",
+   "heading": "## Reference: dated jobs, open decisions, rulings",
+   "lines": 2
+  },
+  {
+   "file": "reference/dated-jobs-open-decisions-rulings/dated-jobs.md",
+   "heading": "### Dated jobs",
+   "lines": 13
+  },
+  {
+   "file": "reference/dated-jobs-open-decisions-rulings/decisions-waiting-on-arthur.md",
+   "heading": "### Decisions waiting on Arthur",
+   "lines": 29
+  },
+  {
+   "file": "reference/dated-jobs-open-decisions-rulings/rulings-in-force-from-the-october-discussion.md",
+   "heading": "### Rulings in force from the October discussion",
+   "lines": 78
+  },
+  {
+   "file": "reference/dated-jobs-open-decisions-rulings/what-this-changes-in-the-old-terminal-document.md",
+   "heading": "### What this changes in the old terminal document",
+   "lines": 12
+  },
+  {
+   "file": "reference/dated-jobs-open-decisions-rulings/notes-from-arthur-16-october-2026.md",
+   "heading": "### Notes from Arthur, 16 October 2026",
+   "lines": 8
+  },
+  {
+   "file": "reference/dated-jobs-open-decisions-rulings/notes-from-arthur-17-october-2026.md",
+   "heading": "### Notes from Arthur, 17 October 2026",
+   "lines": 8
+  },
+  {
+   "file": "reference/dated-jobs-open-decisions-rulings/the-later-list.md",
+   "heading": "### The later list",
+   "lines": 3
+  }
+ ]
+}
