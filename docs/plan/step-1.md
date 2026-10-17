@@ -160,11 +160,11 @@ Then tag the second commit as the frozen version, record the tag in `docs/baseli
 - [ ] The old repository is tagged, with NZME out of its news capture.
 - [ ] The watcher for the frozen product is running and has raised a test alarm that reached Arthur.
 - [x] Every contract has a document and a passing test, and the shared machinery in `support/` passes its carried tests. DONE 18 October (eleven contracts in docs/contracts/; fetch gate, landing, reader and model client in support/ with 599 tests green).
-- [ ] The thin slice matches the frozen site's totals for the same returns, or each difference has a card.
+- [x] The thin slice matches the frozen site's totals for the same returns, or each difference has a card. DONE 18 October (22 of 22 sample returns equal; on the full load 23 party-years equal and the one difference, Labour 2020 original against amendment, is carded).
 - [x] The reference material is in place and the lessons index builds. DONE 18 October (corrections kept outside git until they have a private home).
 
 * [x] The plan is split, its pieces rejoin to the original, and every file is within its limit. DONE 18 October.
-* [ ] Step 1b is closed.
+* [x] Step 1b is closed. DONE 18 October (its last item closed with 1.11).
 
 ### Brief to paste
 
