@@ -26,9 +26,9 @@ by the watcher's test alarm at 01:08 on 18 October.
 
 ## Next
 
-Arthur starts one question session with `bin/ask` (1b's proof). Then a
-founding session: 1.11, then 1.4 batches 2 to 4 (each after a green
-scheduled release). 1.5 waits on Arthur (the queue). When node1 returns,
+1b's proof is in (one question session, 69 s, clean). Next a founding
+session: 1.11, then 1.4 batches 2 to 4 (each after a green scheduled
+release; 18 October's was green). 1.5 waits on Arthur (the queue). When node1 returns,
 re-measure it into `docs/baseline.md`.
 
 ## Half-done

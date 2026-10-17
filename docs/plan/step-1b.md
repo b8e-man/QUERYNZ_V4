@@ -30,7 +30,7 @@
 
 ### Done when
 
-- [ ] The question session Arthur started gave its answer, and its two lines are in the times file.
+- [x] The question session Arthur started gave its answer, and its two lines are in the times file. DONE 18 October: `ask-20261018-092800`, prompt 09:30:25, stop 09:31:34 (69 s; the target is 120 s); its copy was left clean.
 - [x] The hooks, run against a question scope file, refuse an edit, a commit and the owner's credential file, and allow a note in `inbox/cards/`. DONE 18 October (tests/test_hook_scope.py, test_hook_safety.py).
 - [x] `bin/fix` refuses `.claude/hooks`, and refuses a folder a build session holds. DONE 18 October (tests/test_quick_launchers.py).
 - [x] Two fills of the sample from different branches, run at the same time, do not disturb each other. DONE 18 October (tests/test_sample_and_tiers.py; each session's own scratch schema, a lock per schema).
