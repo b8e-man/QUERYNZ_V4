@@ -41,11 +41,20 @@ and proven (the watcher's test alarm, 01:08 on 18 October).
   `support/docstore`, `rowcontract`, `lane`, `reader`, `modelclient`,
   `profiles`, `jobspec`, `links/` (three tables, append-only decisions,
   applied to the sample), `products/templates`.
+- 1.10: `support/fetchgate` (robots read for a crawl delay only; refusals
+  by name, no position on file, a publisher's stop, a challenge; one UA;
+  per-host pacing), `support/docstore/landing` (bytes by hash on
+  `/mnt/hdd2/qv4-docs`, `docs` tables in both databases), `support/docread`
+  (the old reader carried with 203 tests; `read.py` is the contract's door:
+  text layer first, page reader for thin pages, stored and replayed),
+  `support/modelclient` with the old client's parsed-host cases.
+  `docs/legal/positions/` (empty: nothing captures yet) and
+  `docs/legal/before-selling.md`. Fast tier: 599 tests in 19 s.
 
 ## Next
 
 1.4 batch 2 after the 06:15 release on 18 October runs green, then batches
-3 and 4; 1.5 waits on Arthur (the queue); then 1.10, step 1b, 1.11. When node1 returns, re-measure it into `docs/baseline.md`.
+3 and 4; 1.5 waits on Arthur (the queue); then step 1b, 1.11. When node1 returns, re-measure it into `docs/baseline.md`.
 
 ## Half-done
 
