@@ -7,65 +7,55 @@ step 1; by the integrator after.
 **Date:** 2026-10-18. **Step:** 1. **Boxes:** node2 is the primary since the
 17 October failover; node1 is down and rejoins as the standby after a
 rewind (Arthur's). **Alarm channel:** the old estate's ntfy address, present
-(step 0).
+and proven (the watcher's test alarm, 01:08 on 18 October).
 
 ## Done
 
 - Step 0: all but the third machine, which is held with track A.
-- 1.1, merged: the folder layout; the two hooks (`.claude/hooks/safety.py`,
-  `scope.py`, shared `fence.py`) with their carried tests; the allowed-command
-  list; `bin/start-session` (build and `--main`); `bin/merge-gate` (proven on
-  a failing branch); the one-way import test; card, lesson and decision
-  formats with `bin/board`, `bin/lessons-index`, `bin/decisions`; the plan
-  split into `docs/plan/` with `manifest.json` and `headings.md`, proven to
-  rejoin; `CLAUDE.md`; the stop list at
-  `/home/user/querynzv4-work/live/stop-list.md` (empty); the inbox at
-  `/home/user/querynzv4-work/inbox/`.
-- 1.2, merged: the reference copy at `/home/user/qnz3-ref`, a clone of the
-  live old folder at its commit `29f0412a` (no tag exists yet; 1.5 moves it
-  to the frozen tag), remote `live`. Its own Python 3.12 environment at
-  `/home/user/qnz3-ref/.venv`, built from `ops/requirements-factory.lock`
-  and all 24 editable packages; the installed list matches the live one.
-  Imports resolve to the reference copy; the old root suite collects (1,127
-  tests) and its hook tests pass there. The fence lets a founding session
-  write under the reference copy. Run old tests there only without a DSN:
-  node2's localhost is the primary now (`lessons/old-tests-can-write-live-now.md`).
-- 1.3, merged: `docs/baseline.md`, node2 measured in full, node1 down and
-  marked "not measured" throughout; twelve differences from the plan listed
-  there, two for Arthur (archive_mode off on the promoted primary; a password
-  in the old `querynz-api` unit file, for track H).
+- 1.1: the fences, launcher, merge gate, record formats, the plan split,
+  `CLAUDE.md`, the stop list, the inbox.
+- 1.2: the reference copy at `/home/user/qnz3-ref` (commit `29f0412a`,
+  remote `live`) with its own Python 3.12 environment matching the live one.
+  Run old tests there only with no DSN set: node2's localhost is the primary.
+- 1.3: `docs/baseline.md`; node1 down, marked "not measured"; twelve
+  differences from the plan, two for Arthur (archive_mode off on the
+  promoted primary; a password in the old `querynz-api` unit file).
+- 1.6: the watcher (`checks/frozen_product.py`, `checks/board.py`,
+  `support/alarm/`, `support/jobrun/`); `qv4-checks-board` 07:30 daily and
+  `qv4-checks-heartbeat` 09:00/21:00 installed on node2; first run green;
+  listing of 57,765 staged files written; test alarm sent. node1 gets the
+  same files from step 2's installer.
+- 1.7: `reference/` (old lessons, rulebook, cards, use cases, rulings;
+  read-only) and `support/profiles/profiles.jsonl`. The corrections quote
+  donor street addresses and stay outside git at
+  `/home/user/querynzv4-work/live/reference/corrections.jsonl` until 1.8/1.10.
 
 ## Next
 
-1.6 (the watcher and the first checks board), then the first commit of
-1.5, 1.4, the rest of 1.5, 1.7–1.10, step 1b, 1.11 — the order in the step
-1 brief. When node1 returns, re-measure it into `docs/baseline.md`. Start with `bin/start-session --main founding` in
-`/home/user/querynzv4`; the brief is in `docs/briefs/next.md`.
+1.4 batch 2 after the 06:15 release on 18 October runs green, then batches
+3 and 4; 1.5 waits on Arthur (the queue); then 1.8, 1.9, 1.10, step 1b,
+1.11. When node1 returns, re-measure it into `docs/baseline.md`.
 
 ## Half-done
 
-- 1.4, batch 1, intended stops written here before any stop (02:00 on 18
-  October): `nzme-archive-backfill` (done 01:4x, it was capturing NZ Herald),
-  then `v3-extract`, `querynz-crawler`, `querynz-mint-lane`,
-  `querynz-research`, `querynz-sweep`, `querynz-embed-backfill`,
-  `querynz-embed-index-ship`. Held until the NZME commit lands:
-  `newsscrapers`, `newsscrapers-daily` timers. Batch 1 STOPPED 02:1x on 18
-  October (the old failure handler sent four alarms for the killed runs;
-  expected). Normal daily change measured first (`docs/baseline.md`, last
-  section; `checks/release_compare.py`). Next: wait for the 06:15 release to
-  run green, compare versions, then batch 2 (the derive chain, old apps,
-  `querynz-llm@1`, `querynz-embed`, `v3-audit`).
-- 1.5 first commit: BLOCKED. The auto-mode classifier refuses every write
-  into the live old folder. The rehearsed change is the patch at
+- 1.4: batch 1 stopped and disabled 02:1x on 18 October (`nzme-archive-backfill`,
+  `v3-extract`, `querynz-crawler`, `querynz-mint-lane`, `querynz-research`,
+  `querynz-sweep`, `querynz-embed-backfill`, `querynz-embed-index-ship`; the
+  old failure handler sent four alarms for the killed runs, expected). Held
+  until the NZME commit lands: `newsscrapers`, `newsscrapers-daily` timers.
+  Normal daily change is measured (`docs/baseline.md`, last section;
+  `checks/release_compare.py`). Batch 2 waits for a green scheduled release:
+  the derive chain, the old apps, `querynz-llm@1`, `querynz-embed`, then
+  `v3-audit` last.
+- 1.5: BLOCKED. The session's permission mode refuses every write into the
+  live old folder. The rehearsed NZME change is the patch at
   `/home/user/querynzv4-work/live/nzme-freeze-commit.patch`; the decision
   queue has the commands.
 
-## Known gaps left on purpose in 1.1
+## Known gaps left on purpose
 
-- The query half of the one-way test (`tests/test_imports_one_way.py`,
-  `SCHEMA_OWNER`) is filled when the schemas exist, in 1.8.
+- The query half of the one-way test (`SCHEMA_OWNER`) is filled in 1.8.
 - The hooks know the weights `founding`, `integrator`, `build`; `fix` and
-  `question` get their rules in 1b.1.
-- The merge gate is one tier until 1b.7.
+  `question` get their rules in 1b.1. The merge gate is one tier until 1b.7.
 - The installer and the probe (step 2) are the only remote route; until they
   exist `ssh` asks.
