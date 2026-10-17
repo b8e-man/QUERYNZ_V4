@@ -36,11 +36,16 @@ and proven (the watcher's test alarm, 01:08 on 18 October).
   `qv4-offsite-dump` 03:05 nightly on node2 (pg_dump, gpg, the old bucket
   under `querynz_v4/<stamp>/`, local copies on `/mnt/hdd2/qv4-dumps`); first
   run sent 01:29 on 18 October. `requirements.txt` pins the environment.
+- 1.9: eleven contracts, each a document in `docs/contracts/` and a test:
+  `keys/` (names, parties, addresses, numbers, dates; 61 old cases carried),
+  `support/docstore`, `rowcontract`, `lane`, `reader`, `modelclient`,
+  `profiles`, `jobspec`, `links/` (three tables, append-only decisions,
+  applied to the sample), `products/templates`.
 
 ## Next
 
 1.4 batch 2 after the 06:15 release on 18 October runs green, then batches
-3 and 4; 1.5 waits on Arthur (the queue); then 1.9, 1.10, step 1b, 1.11. When node1 returns, re-measure it into `docs/baseline.md`.
+3 and 4; 1.5 waits on Arthur (the queue); then 1.10, step 1b, 1.11. When node1 returns, re-measure it into `docs/baseline.md`.
 
 ## Half-done
 
