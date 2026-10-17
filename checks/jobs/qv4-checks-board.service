@@ -1,0 +1,11 @@
+[Unit]
+Description=QueryNZV4 checks board — watches the frozen product each day (plan step 1.6)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/user/querynzv4
+ExecStart=/home/user/querynzv4/.venv/bin/python -m checks.board
+# the deadline (plan: every job has one); no database, so no query time limit yet
+RuntimeMaxSec=3600
+Environment=PYTHONUNBUFFERED=1
+Nice=10

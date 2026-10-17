@@ -42,6 +42,10 @@ OLD_LIVE = os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3"
 # it, installs its environment and moves it to the frozen tag; every session
 # reads old code and runs old tests there, never in the live folder
 REF_COPY = os.environ.get("QV4_REF_COPY") or "/home/user/qnz3-ref"
+# the user unit folder: a founding or integrator session may place a job file
+# there only under the `qv4-` prefix (hard limit 23); step 2's installer takes
+# over once it exists
+UNIT_DIR = os.environ.get("QV4_UNIT_DIR") or os.path.expanduser("~/.config/systemd/user")
 # the only paths in the live old folder a founding session may write: the two
 # freeze commits of step 1.5 and what the old pre-push gate asks for with them
 OLD_LIVE_FREEZE = [
