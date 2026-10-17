@@ -36,8 +36,8 @@ re-measure it into `docs/baseline.md`.
 - 1.4: batch 1 stopped and disabled 01:1x on 18 October (`nzme-archive-backfill`,
   `v3-extract`, `querynz-crawler`, `querynz-mint-lane`, `querynz-research`,
   `querynz-sweep`, `querynz-embed-backfill`, `querynz-embed-index-ship`).
-  Held until the NZME commit lands: `newsscrapers`, `newsscrapers-daily`
-  timers. Normal daily change measured (`docs/baseline.md`, last section;
+  The `newsscrapers` and `newsscrapers-daily` timers are back since 09:06
+  on 18 October; the first run skipped NZME by ruling. Normal daily change measured (`docs/baseline.md`, last section;
   `checks/release_compare.py`). Batch 2 after a green scheduled release:
   the derive chain, the old apps, `querynz-llm@1`, `querynz-embed`; then
   `v3-audit` last.
