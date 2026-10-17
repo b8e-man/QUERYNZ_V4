@@ -50,6 +50,7 @@ UNIT_DIR = os.environ.get("QV4_UNIT_DIR") or os.path.expanduser("~/.config/syste
 # freeze commits of step 1.5 and what the old pre-push gate asks for with them
 OLD_LIVE_FREEZE = [
     "ingestion/newsscrapers/registry.py",
+    "ingestion/SOURCES.md",          # its generated status section, which the old gate checks
     "ops/systemd/MANIFEST.json",
     "data-layer/docs/ledger/",
     "data-layer/docs/FLEET.md",
