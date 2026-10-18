@@ -1,0 +1,5 @@
+# Whether the patched model server built for TeleOCR becomes the estate's own `built` server or stays beside it
+default: Beside it: `<live>/llama/built-teleocr/`, chosen per profile once the scheduler can name a server per profile (card `teleocr-needs-a-patched-server-the-scheduler-cannot-choose`). The estate's `built` and `copy` servers stay the unpatched b10276. Built on this default tonight.
+blocks: The TeleOCR arm of step 3.6 until the scheduler change lands (a fix session on `support/scheduler`, about twenty lines).
+recommendation: The default. The four hunks are guarded and a stock Qwen2.5-VL still loads, so making the patched build the estate's server would also work and needs no scheduler change; but it would change the program every profile loads on the strength of one community conversion's notes, and the text reader and the embedding profile are live. A server per profile is the shape the plan wants anyway (hard limit 23: a new build installed beside the old one).
+raised: 2026-10-18 by trial

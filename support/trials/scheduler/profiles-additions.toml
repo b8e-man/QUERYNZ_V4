@@ -1,0 +1,110 @@
+# THE TRIAL'S MODEL PROFILES (plan step 3.2): one per page reader and
+# compression level, appended to support/scheduler/profiles.toml by the
+# integrator (the trial's fence does not reach that file; the merge request
+# carries the patch). Weights are absolute paths on the second hard disk
+# (/mnt/hdd2/qv4-models, step 3.1); `page-reader` in profiles.toml already
+# serves the incumbent GLM-OCR Q8_0 from the models folder.
+#
+# memory_gb is null until a swap measures it (rule 9; the run fills it).
+# Every reader: one slot (a page image is the whole request), temperature 0,
+# 32k context per request. The Qwen 3.5 bases think unless told not to, so
+# their profiles carry the same template flag the text reader does.
+
+[profiles.trial-glm-ocr-f16]
+model = "glm-ocr-f16"
+weights = ["/mnt/hdd2/qv4-models/glm-ocr/GLM-OCR-f16.gguf", "/mnt/hdd2/qv4-models/glm-ocr/mmproj-GLM-OCR-Q8_0.gguf"]
+slots = 1
+context = 32768
+temperature = 0.0
+max_tokens = 8000
+flags = ["--jinja"]
+dpi = 300
+used_for = "Step 3: the incumbent at its second compression level"
+
+[profiles.trial-teleocr]
+model = "teleocr"
+weights = ["/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-Q8_0.gguf", "/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-mmproj-q8_0.gguf"]
+slots = 1
+context = 32768
+temperature = 0.0
+max_tokens = 8000
+flags = ["--jinja"]
+dpi = 300
+used_for = "Step 3 challenger: TeleOCR (community conversion as NaviDC-OCR); needs the patched server build"
+
+[profiles.trial-teleocr-f16]
+model = "teleocr-f16"
+weights = ["/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-f16.gguf", "/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-mmproj-f16.gguf"]
+slots = 1
+context = 32768
+temperature = 0.0
+max_tokens = 8000
+flags = ["--jinja"]
+dpi = 300
+used_for = "Step 3: TeleOCR at its second compression level"
+
+[profiles.trial-ovisocr2]
+model = "ovisocr2"
+weights = ["/mnt/hdd2/qv4-models/ovisocr2/OvisOCR2-Q8_0.gguf", "/mnt/hdd2/qv4-models/ovisocr2/mmproj-F16.gguf"]
+slots = 1
+context = 32768
+temperature = 0.0
+max_tokens = 8000
+flags = ["--jinja", "--reasoning-format", "none", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
+dpi = 300
+used_for = "Step 3 challenger: OvisOCR2"
+
+[profiles.trial-ovisocr2-f16]
+model = "ovisocr2-f16"
+weights = ["/mnt/hdd2/qv4-models/ovisocr2/OvisOCR2-F16.gguf", "/mnt/hdd2/qv4-models/ovisocr2/mmproj-F32.gguf"]
+slots = 1
+context = 32768
+temperature = 0.0
+max_tokens = 8000
+flags = ["--jinja", "--reasoning-format", "none", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
+dpi = 300
+used_for = "Step 3: OvisOCR2 at its second compression level"
+
+[profiles.trial-chandra]
+model = "chandra-ocr-2"
+weights = ["/mnt/hdd2/qv4-models/chandra-ocr-2/chandra-ocr-2.Q8_0.gguf", "/mnt/hdd2/qv4-models/chandra-ocr-2/chandra-ocr-2.mmproj-f16.gguf"]
+slots = 1
+context = 32768
+temperature = 0.0
+max_tokens = 12000
+flags = ["--jinja", "--reasoning-format", "none", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
+dpi = 300
+used_for = "Step 3 challenger: Chandra OCR 2 (ruling 49; its licence is on the before-selling legal list)"
+
+[profiles.trial-chandra-q4]
+model = "chandra-ocr-2-q4"
+weights = ["/mnt/hdd2/qv4-models/chandra-ocr-2/chandra-ocr-2.Q4_K_M.gguf", "/mnt/hdd2/qv4-models/chandra-ocr-2/chandra-ocr-2.mmproj-Q8_0.gguf"]
+slots = 1
+context = 32768
+temperature = 0.0
+max_tokens = 12000
+flags = ["--jinja", "--reasoning-format", "none", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
+dpi = 300
+used_for = "Step 3: Chandra OCR 2 at its second compression level"
+
+[profiles.trial-infinity-q4]
+model = "infinity-parser2-pro"
+weights = ["/mnt/hdd2/qv4-models/infinity-parser2-pro/Infinity-Parser2-Pro-Q4_K_M.gguf", "/mnt/hdd2/qv4-models/infinity-parser2-pro/Infinity-Parser2-Pro-mmproj-bf16.gguf"]
+slots = 1
+context = 32768
+temperature = 0.0
+max_tokens = 8000
+flags = ["--jinja", "--reasoning-format", "none", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
+dpi = 300
+used_for = "Step 3 challenger: Infinity-Parser2-Pro (35B mixture) at Q4_K_M, made here from the hub's Q8_0 so it fits one card"
+
+[profiles.trial-infinity-q8]
+model = "infinity-parser2-pro-q8"
+weights = ["/mnt/hdd2/qv4-models/infinity-parser2-pro/Infinity-Parser2-Pro-Q8_0.gguf", "/mnt/hdd2/qv4-models/infinity-parser2-pro/Infinity-Parser2-Pro-mmproj-bf16.gguf"]
+slots = 1
+context = 32768
+temperature = 0.0
+max_tokens = 8000
+flags = ["--jinja", "--reasoning-format", "none", "--chat-template-kwargs", "{\"enable_thinking\": false}", "--cpu-moe"]
+dpi = 300
+used_for = "Step 3: Infinity-Parser2-Pro at the hub's Q8_0 with the experts on the processor; the comparison level for the Q4_K_M (3.1), slow"
