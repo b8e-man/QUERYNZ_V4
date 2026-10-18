@@ -57,14 +57,33 @@ finished.
 ## offsite
 
 Track B, the off-site copy. Model: Opus, reviewed by the integrator.
-Launcher, on node2 in `/home/user/querynzv4`:
-`bin/start-session offsite support/offsite`
+Session 1 (18-19 October, an agent of the founding session) wrote nothing:
+it was fenced as the main checkout (`docs/merges/offsite-1-not-started.md`).
+Its read-only measurements, for session 2: nothing writes the press graph
+(`extractions`, 276 GB; counters equal 21:24 to 06:59); the old push ran
+19 October 01:39, green, 83 minutes at 3.5 MB/s, after the writers stopped,
+so that run is a valid last full copy (the bucket keeps 45 days);
+`querynz_v4` is small; `/mnt/hdd2/qv4-docs` 641 MB; `nzbn_canonical`
+27.5 GB of which about 12 GB is public reference data that can be fetched
+again; `incoming_news` 67 GB, its 38 GB vectors stay out with a second
+local copy; `extractions`' 120 GB `candidates.*` can be rebuilt, the rest
+cannot; old `var/staging` 27 GB. Its design: one piece per database (table
+by table) and per file tree; a full copy weekly, nightly only tables whose
+write counters moved and files whose size, time or checksum changed; the
+press graph frozen with a fresh full copy every 28 days; checksum and row
+count per table and file, checked exactly after a restore into a scratch
+server on `/mnt/hdd2`; run before 01:38 so it never shares the link with
+the old push. Three of its decisions are in the queue with defaults.
+The working copy exists; start session 2 in it, on node2:
+`cd /home/user/querynzv4-work/offsite && git pull && claude --model opus --permission-mode acceptEdits`
 
 ```text
 You are a build session for QueryNZV4, running as Opus on node2, in
-the working copy the launcher made for you. Read docs/PLAN.md, then
-docs/plan/tracks.md and docs/plan/track-b.md, docs/status.md and your
-own status file docs/status/offsite.md, and continue where it stops.
+your working copy /home/user/querynzv4-work/offsite (session 2). Read
+docs/PLAN.md, then docs/plan/tracks.md and docs/plan/track-b.md,
+docs/status.md, your own status file docs/status/offsite.md, and the
+## offsite section of docs/briefs/next.md, which holds session 1's
+measurements and design; continue from them.
 Do track B: the off-site copy, in support/offsite (step 1.8's nightly
 dump of querynz_v4 is there already; its job qv4-offsite-dump runs on
 the scheduler's clock, support/scheduler/jobs.toml). Build the new
