@@ -5,6 +5,8 @@ holds the trial's job types. A session queues; the scheduler places.
     python -m support.trials.queue two [READER …]      pass two: the challengers (and the incumbent at 300 dpi) as bulk jobs
     python -m support.trials.queue twenty READER       the twenty-page compression comparison for one reader
     python -m support.trials.queue urgent              one small `waiting`-class page job, injected part-way (3.6)
+    python -m support.trials.queue variant [READER]    a prompt variant over the page set (glm-ocr-textrec: the model card's prompt)
+    python -m support.trials.queue repeat              pass one's differing documents read again, keyed apart (the determinism try)
     python -m support.trials.queue rows                the text-reader rows pass over every document with readings
     python -m support.trials.queue status              the trial's rows in the queue
 
@@ -62,6 +64,22 @@ def main(argv=None) -> int:
         qid = enqueue(JOB_FOR[n], list(by_doc), {"pass": "twenty", "pages": "selected", "twenty": {s: ps for s, ps in by_doc.items()},
                                                  "pageset": pageset.identity()})
         print(f"queued twenty-page comparison: {JOB_FOR[n]} #{qid}, {len(by_doc)} pieces")
+        return 0
+    if cmd == "variant":
+        name = argv[1] if len(argv) > 1 else "glm-ocr-textrec"
+        base = readers.READERS[name].variant_of
+        qid = enqueue(JOB_FOR[base], hashes, {"pass": "variant", "pages": "selected", "reader": name, "pageset": pageset.identity()})
+        print(f"queued the prompt variant {name}: {JOB_FOR[base]} #{qid}, {len(hashes)} pieces")
+        return 0
+    if cmd == "repeat":
+        import support.db as db
+        from support.scheduler import SCHEMA
+        conn = _conn()
+        docs_ = [r[0] for r in conn.execute("SELECT DISTINCT document FROM scratch_trial.page_reads WHERE pass = 'one' "
+                                            "AND old_cache = 'hit' AND NOT old_equal")]
+        qid = enqueue(JOB_FOR["glm-ocr"], docs_, {"pass": "repeat", "dpi": 200, "old_cache": True, "pages": "selected", "repeat": 1,
+                                                  "pageset": pageset.identity()})
+        print(f"queued the repeat of pass one's differing documents: {JOB_FOR['glm-ocr']} #{qid}, {len(docs_)} pieces")
         return 0
     if cmd == "urgent":
         sha, page = pageset.twenty()[0]

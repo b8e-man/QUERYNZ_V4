@@ -1,53 +1,41 @@
 # trial: where step 3 stands
 
-Session 1 (Fable), 18 October 2026 night, node2, branch `session/trial`.
+Session 2 (Fable), 19 October 2026, node2, branch `session/trial`.
 Scope `support/trials`, `support/profiles`, `docs/trials`.
 
 ## Done
 
-- 3.1 models on `/mnt/hdd2/qv4-models/` (ledger `downloads.jsonl`, every
-  file hash-equal to the hub's): OvisOCR2 Q8_0+F16 with projectors;
-  TeleOCR as NaviDC-OCR Q8_0+f16 with projectors; GLM-OCR f16 (the Q8_0 in
-  the models folder is hash-equal to the hub's); Chandra OCR 2 Q8_0+Q4_K_M
-  with projectors; Infinity-Parser2-Pro Q8_0 (36.9 GB, larger than a card)
-  with projectors; its Q4_K_M (21.2 GB) made here by `models quantise`
-  in 507 s (`--allow-requantize`; the ledger line says twice-quantised).
-  `models check` is green on every file; 74 GB used on the disk. A patched
-  server for TeleOCR built beside the others: `<live>/llama/built-teleocr/`
-  (PATCH.json). Every conversion's architecture and projector type is one
-  the b10276 server knows (read from the files' metadata).
-- 3.2 the profiles and job types, as additions beside the trial's code
-  (`support/trials/scheduler/`), checked on the merged catalogue; the
-  patch is in merge request `trial-1`. The readers' own prompts and
-  settings: `support/trials/readers.py`.
-- 3.3 the page set: `support/trials/pageset.jsonl`, 255 distinct documents
-  (from 1,522 files, 2019 on), 2,698 pages: 2,243 scan pages, 455 text
-  pages as free keys; every kind and shape; the four named cases whole.
-- 3.4 the keys: `support/trials/keys.jsonl`: declaration totals (35), the
-  Commission's table (89, the two wrong 2020 figures marked), the frozen
-  site (59), the old page-read records (155), confirmed gold cells (32
-  documents, read at scoring time, never copied).
-- 3.5 begun through the scheduler: `qv4-reread-pages`, 115 scan returns'
-  declaration pages by GLM-OCR at 300 dpi (queue 52, 123 runs ok, peak
-  1,044 MB, 6.5 s a piece, the swap and release in the ledger).
-- 3.7 the scoring (`score.py`, tested) and the rows pass (`rows.py`).
+- 3.1 to 3.4 (session 1, merged as trial-1): models on `/mnt/hdd2/qv4-models`,
+  profiles and job types in the catalogue, the page set (255 documents,
+  2,698 pages), the keys.
+- 3.5 pass one: `qv4-trial-read-glm-ocr` #54 done, 2,698 pages, 0 unread.
+  Joined to the old cache by image hash: 2,013 of 2,124 equal; the 111
+  differences carded with their cause (`pass-one-differs-from-the-old-readings-on-111-pages`).
+- 3.7 scoring rewritten after the free key failed on first use: key
+  quality (form fields, OCR layers, images, garbage), two orderings, a
+  bag-of-words rule, cross-family support, within-line loops, names-only
+  examples, a pairwise agreement table. 31 tests green. Pass one scored.
+- Cards: the 111 differences; the worker's lease lapse under short pieces
+  (scheduler, fix session); GLM-OCR's loops on empty expense tables.
 
-## Half-done
+## Running
 
-- Pass one proper (every page, 200 dpi, joined to the old estate's cache
-  by image hash) and pass two cannot be queued until the catalogue patch
-  is applied on main: card `the-trial-s-profiles-and-job-types-live-outside-its-fence`.
-- TeleOCR's arm waits on a per-profile server binary in the scheduler:
-  card `teleocr-needs-a-patched-server-the-scheduler-cannot-choose`.
-- The scheduler proofs: swap recorded, peak memory recorded, pieces that
-  record progress: shown on queue 52. The other three wait for the passes
-  (small job not starved; a worker stopped mid-run; the probe hiding a box
-  without a program).
+- Pass two, queued 07:16 on card 1: #66 OvisOCR2 (5.2 s a page), #67
+  Chandra, #68 Infinity Q4_K_M, #69 GLM-OCR at 300 dpi; twenty-page
+  comparisons #70 to #73; #74 TeleOCR one piece (unclaimable, the probe
+  proof). The worker runs main's code: anything in `piece.py` or `rows.py`
+  takes effect after a merge.
 
 ## Next
 
-After the merge: `python -m support.scheduler enqueue qv4-trial-read-glm-ocr
---pieces <the page set's hashes> --args '{"pass":"one","dpi":200}'` (pass
-one), score it, card the differences; then the challengers and
-`qv4-trial-urgent-page` injected part-way; `qv4-trial-rows`; the
-twenty-page compression comparisons; then 3.8.
+1. Inject `python -m support.trials.queue urgent` while #68 (the 35B) holds
+   the card; record the swap there and back (proof: a small job never
+   waits for ever). Rehearse `--hide-program` for the probe proof.
+2. After the reads: `python -m support.trials.queue rows`; then the rows
+   stage of the scoring (amounts against the printed total, rows only one
+   family produces, example names in donor rows).
+3. The repeat job of the 111 pages (needs trial-2 merged); the GLM-OCR
+   "Text Recognition:" prompt variant (queue item, default: run after pass
+   two).
+4. 3.8: decide, write the verdict at the top of `docs/trials/page-readers.md`,
+   version the profiles (`support/profiles`), file the lessons.

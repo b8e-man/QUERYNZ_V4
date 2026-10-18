@@ -12,7 +12,12 @@ def test_every_reader_is_documented_and_served():
     for r in readers.READERS.values():
         assert r.prompt and r.prompt_from and r.profile and r.model and len(r.weights) == 2
         assert r.family in ("zhipu", "qwen")
-        assert readers.by_profile(r.profile) is r
+        if r.variant_of:
+            assert readers.by_profile(r.profile, r.name) is r and readers.READERS[r.variant_of].profile == r.profile
+            assert readers.by_profile(r.profile) is readers.READERS[r.variant_of]
+        else:
+            assert readers.by_profile(r.profile) is r
+    assert readers.by_profile("page-reader", "ovisocr2") is None       # a variant must be served by the same profile
     assert readers.READERS["glm-ocr"].prompt == "OCR"
     assert set(readers.CHALLENGERS) <= set(readers.READERS)
     fams = {readers.READERS[c].family for c in readers.CHALLENGERS}

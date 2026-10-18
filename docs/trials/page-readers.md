@@ -8,9 +8,8 @@ the page reader swapped (condition 1), and decides text or scan per page
 
 ## Verdict
 
-Not yet. Pass one and pass two have not run over the page set: the job
-types that run them wait on the integrator (the catalogue patch in merge
-request `trial-1`). The incumbent stays alone until then.
+Not yet. Pass one has run and is scored; pass two is on the card (queued
+19 October 07:16). The incumbent stays alone until the decision.
 
 ## The models, as served
 
@@ -73,33 +72,57 @@ amendment: the table and the file are different filings).
 
 ## Pass one (3.5)
 
-Begun through the scheduler with the catalogue as it stands:
-`qv4-reread-pages` over the 115 scan returns in the document store (queue
-52): GLM-OCR Q8_0 on the built server, 300 dpi, page 1 only, 123 runs all
-ok, peak 1,044 MB against 1,536 declared, 6.5 s a piece; card 1 loaded in
-2.0 s, drained and released when the queue emptied; nothing on card 0.
-Scored (`score --pass reread`, 92 pages in the set): no loops, no example
-names; 4 text pages with a key, 2 of them flagged for invented runs,
-under investigation (each has one ten-word run with four words not on the
-page at all, on a declaration page: a stamp or a signature block the text
-layer lacks, or an invention; decided when pass one has every page). The
-full pass (every page, 200 dpi, joined to the old cache by image hash)
-waits on the patch. The join itself is proven: 80 of 80 scan pages from
-40 returns, rendered at 200 dpi, hash to a reading in the old estate's
-cache; at 300 dpi none do (`python -m support.trials oldcache`, and a
-test).
+Rehearsed first on `qv4-reread-pages` (queue 52: 115 scan returns'
+declaration pages at 300 dpi, 123 runs ok, peak 1,044 MB, 6.5 s a piece).
+Then the pass proper, `qv4-trial-read-glm-ocr` #54, queued by the
+integrator on 18 October at 22:47 and done at 02:34: 255 documents, 2,698
+pages at the old estate's 200 dpi, 264 runs (6 killed by a lease lapse and
+re-run: card `the-worker-s-lease-lapses-under-a-run-of-short-pieces`), 0
+pages unread, 5.0 s a page, peak 676 MB a piece. Joined to the old estate's
+cache by the rendered image's hash: 2,124 hits, 2,013 equal after
+whitespace (94.8%), 111 different on 70 documents, 574 never read by the
+old estate (405 scan pages, mostly financial statements and expense
+returns, and 169 text pages). The 111 are carded with their likely cause
+(`pass-one-differs-from-the-old-readings-on-111-pages`): the same build,
+weights, prompt, resolution and token limit as the frozen server, one flag
+apart (`--jinja`), and a measured floor of run-to-run drift on the card (2
+of 97 page images read twice inside the pass came back different). The
+second try, a repeat reading of the 111 under the same settings, runs once
+`piece.py`'s `repeat` argument is merged.
 
-## Pass two (3.6), scores (3.7), decision (3.8)
+## Scores (3.7)
 
-Not run. See `docs/status/trial.md` for the queue commands.
+`python -m support.trials score` scores every stored reading of the page
+set and writes `scratch_trial.page_scores` (one row per reading per page)
+and `scratch_trial.page_agreement` (every pair of readers on a page). The
+free key needed a quality test before it could be used (lesson
+`a-text-layer-is-a-partial-key-on-most-form-pages`): 298 of the 455 text
+keys are partial (form fields 226, text over an image 44, scanner OCR
+layers, garbage), and a run on a partial key is undecided until another
+family has read the page. Under the measures as now written, GLM-OCR at 200
+dpi on the 161 complete keys: 4 pages fail the invented-text rule (the
+form's printed instructions and an auditor's paragraph the layer lacks;
+decided by pass two), 139 exact to the cent, 0 loops. On the 2,243 scan
+pages: 27 loop failures (card `glm-ocr-loops-on-empty-expense-tables`:
+seven pages repeat a line 650 to 1,324 times, one loops sideways, the old
+readings carry the same loops), 0 lone amounts (no other reader yet).
+
+## Pass two (3.6) and the decision (3.8)
+
+Queued 19 October 07:16 on card 1, in the scheduler's own order:
+OvisOCR2 (#66, 5.2 s a page), Chandra OCR 2 (#67), Infinity-Parser2-Pro
+Q4_K_M (#68), GLM-OCR at 300 dpi (#69), then the twenty-page compression
+comparisons (#70 to #73) and a one-piece TeleOCR job (#74) that no box
+can claim (its program is missing: the probe proof). The urgent page is
+injected while the 35B holds the card. Not decided yet.
 
 ## What the run proves about the scheduler
 
 | Proof | Shown? |
 | --- | --- |
-| One model per card at a time, every swap recorded | Partly: load, drain, release of `page-reader` on card 1 for queue 52 in `scheduler.swaps`; card 0 untouched |
-| A swap pays for itself; a small job never waits for ever | Not yet: needs the bulk passes and the injected `qv4-trial-urgent-page` |
-| Long work is cut into pieces that record progress | Shown: 115 pieces, `pieces_done` advancing per piece |
+| One model per card at a time, every swap recorded | Shown: `scheduler.swaps` rows 84 to 89 (load, handover, drain, release of `page-reader` for queues 52 and 54) and the unload/load to `trial-ovisocr2` at 07:16; card 0 untouched throughout |
+| A swap pays for itself; a small job never waits for ever | Not yet: `qv4-trial-urgent-page` is injected while the 35B holds the card |
+| Long work is cut into pieces that record progress | Shown: 255 pieces, `pieces_done` advancing per piece; six pieces killed by a lease lapse lost one page each and re-ran |
 | Either box can take the work | Owed on node1 (rulings 55 to 57) |
-| The profile is probed, not typed | Partly: the TeleOCR job types require a program the probe lacks and are never claimed; the full proof with the hidden program waits for the passes |
-| Peak memory is recorded | Shown: `peak_mb` on every run of queue 52 |
+| The profile is probed, not typed | Partly: queue row 74 (`qv4-trial-read-teleocr`, requires `qv4-llama-server-teleocr`) sits unclaimed with no log noise; the rehearsal with `--hide-program` is owed |
+| Peak memory is recorded | Shown: `peak_mb` on every run of queues 52 and 54 (676 MB a piece against 1,536 declared) |
