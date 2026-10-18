@@ -3,8 +3,8 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-19, 07:15. **Step:** 2 closed on one box; 3 pass one done;
-tracks B, E restart from their working copies. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-19, 07:50. **Step:** 2 closed on one box; 3 pass one done;
+track E capturing nightly; track B restarted. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
@@ -31,11 +31,13 @@ address (test alarm 18 October).
 
 - Trial session 2: pass one (GLM-OCR alone, job 54, 255 of 255 ok, 22:50 to
   ~03:00) waits to be scored; then the challengers.
-- Track E session 2 in its working copy: session 1's tree (both legal
-  positions, both lanes, 32 tests) is in scratch, unmerged, because an agent
-  of the founding session is fenced as the main checkout; 456 Tribunal
-  orders and 52 Authority decisions are held by hash
-  (`docs/merges/windowed-1-not-yet.md`).
+- Track E merged (`docs/merges/windowed-1`, `-2`): two legal positions, two
+  capture lanes, 621 documents landed, the two `qv4-*-capture` jobs nightly
+  from 22:30 NZDT, both hosts floored at 5 s, the lane checks on the board
+  (red until the capture catches up: eleven nights for the Tribunal). Rulings
+  58 and 59 (orders kept and never shown; no letter to the Authority yet).
+  Session 2 runs the first capture by hand. Open: the gate's redirect and
+  gzip card (`support/fetchgate`).
 - Track B session 2 in its working copy: session 1 wrote nothing (same
   fence); its measurements and design are in the brief, three decisions
   queued (`docs/merges/offsite-1-not-started.md`).
