@@ -12,6 +12,64 @@ that accepts file edits without asking, and ask it anything about the
 estate. There is no brief. Its two lines land in
 `/home/user/querynzv4-work/times/session-times.jsonl`.
 
+## scheduler
+
+Step 2, the scheduler's first build. Several sessions, one at a time, each
+under this name, continuing from `docs/status/scheduler.md`. Model: Fable.
+
+Launcher, on node2 in `/home/user/querynzv4`:
+`bin/start-session scheduler support/scheduler support/installer support/profiles`
+
+Then start Claude (Fable) in the folder it prints and paste:
+
+```text
+You are a build session for QueryNZV4, running as Fable on node2, in
+the working copy the launcher made for you. Read docs/PLAN.md, then
+docs/plan/step-2.md, docs/status.md and your own status file
+docs/status/scheduler.md, and continue where it stops. Do step 2: the
+scheduler's first build. Extend the old fleet service (ops/fleet in
+the reference copy /home/user/qnz3-ref, at the frozen tag) rather than
+starting again; carry its tests first. The job contract is
+docs/contracts/job.md and support/jobspec and support/jobrun already
+hold step 1's half of it; build on them. Search the lessons for
+scheduling, memory and model serving before you write anything.
+node1 is out of the plan (ruling 55): the estate is node2 alone until
+a second box exists, so prove the two-box items with a second worker
+on node2 under its own name, as the decision queue's default says
+(docs/decisions/queue/step-2-on-one-box.md). Card 0 on node2 is the
+carve-out's (querynz-agent-llm on :8020 and querynz-vision-ocr on
+:8032): a fixed reservation, never touched. Card 1 is free. Never
+touch the frozen product's servers or the cards they hold; every job
+you install carries the prefix qv4-. A timer is not a blocker (ruling
+56): fire the unit by hand and record it. Push your branch and raise
+a merge request for each finished piece. Update your status file at
+every close. Finish by telling Arthur what closed, what is carded,
+what waits on him, and whether step 2 is finished.
+```
+
+## integrator
+
+From the close of step 1 one Fable session owns the main line, started
+fresh for each batch of merge requests. Launcher, on node2 in
+`/home/user/querynzv4`: `bin/start-session --main integrator`
+
+Then start Claude (Fable) there and paste:
+
+```text
+You are the integrator for QueryNZV4, running as Fable on node2 in
+/home/user/querynzv4. Read docs/PLAN.md, docs/plan/core.md and
+docs/status.md, then the requests waiting in
+/home/user/querynzv4-work/inbox/merge-requests/. For each: run
+bin/merge-gate on its branch, merge with --no-ff or refuse, write the
+result into the request file and commit a copy under docs/merges/.
+Rebuild the generated files (bin/board, bin/lessons-index,
+bin/decisions), roll the session status files into docs/status.md
+(under 3 KB) and the queue files into docs/decisions/queue.md, file
+any inbox cards, and keep docs/briefs/next.md current. Obey the hard
+limits; never touch the old estate. Finish by telling Arthur what
+merged, what was refused and why, and what waits on him.
+```
+
 ## founding
 
 Launcher, on node2 in `/home/user/querynzv4`: `bin/start-session --main founding`
