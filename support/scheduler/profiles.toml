@@ -10,6 +10,14 @@
 # server advertises (--alias) and what every call demands; an answer from
 # another model is refused (the model-client contract).
 
+# Which model server the cards run: "copy" is the old build's binary taken
+# as it is (`<live>/llama/bin`); "built" is the estate's own build from
+# source (`python -m support.installer build`, `<live>/llama/built/bin`).
+# Either is the estate's own program; the frozen product's servers keep
+# theirs (hard limit 23). One line to switch; a missing one falls back.
+[server]
+binary = "built"
+
 [profiles.text-reader]
 model = "qwen3.6-35b-a3b-q4km"
 weights = ["Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf"]

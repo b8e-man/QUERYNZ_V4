@@ -108,7 +108,8 @@ class JobType:
     command: tuple[str, ...]        # argv; a pieces job gets the piece key appended
     requires: tuple[str, ...]       # programs the box must have (step 2.3)
     every_s: int                    # timetable: run this often (0 = on demand)
-    at_utc: str | None              # timetable: daily at HH:MM UTC (store and compare in UTC)
+    at_utc: tuple[str, ...]         # timetable: daily at these HH:MM UTC (store and compare in UTC); () = none
+    nice: int                       # the child's niceness (the founding units ran at Nice=10 to spare the carve-out)
     wanted: int                     # standing service: how many copies should run (0 = not standing)
     pieces: bool                    # cut into pieces, each recording progress (rule 7)
     item_seconds: float | None      # measured seconds per item; a guess until the run records say
@@ -181,6 +182,19 @@ def profiles(path: pathlib.Path | None = None) -> dict[str, Profile]:
     return out
 
 
+SERVER_BINARIES = ("copy", "built")
+
+
+def server_binary_setting(path: pathlib.Path | None = None) -> str:
+    """Which model server the cards run (profiles.toml `[server] binary`):
+    "copy", the old build's binary taken as it is, or "built", the estate's
+    own build from source. A setting, so the switch is one line."""
+    v = str((_raw(path or PROFILES).get("server") or {}).get("binary") or "copy")
+    if v not in SERVER_BINARIES:
+        raise ValueError(f"profiles.toml [server] binary is one of {SERVER_BINARIES}, not {v!r}")
+    return v
+
+
 def load(path: pathlib.Path | None = None) -> dict[str, JobType]:
     out: dict[str, JobType] = {}
     for name, b in (_raw(path or JOBS).get("jobs") or {}).items():
@@ -194,7 +208,8 @@ def load(path: pathlib.Path | None = None) -> dict[str, JobType]:
         out[name] = JobType(
             needs=needs, description=(b.get("description") or "").strip(), priority=int(b.get("priority", 99)),
             cls=str(b.get("class") or "whenever"), command=tuple([cmd] if isinstance(cmd, str) else cmd),
-            requires=tuple(b.get("requires") or ()), every_s=int(b.get("every_s", 0)), at_utc=b.get("at_utc"),
+            requires=tuple(b.get("requires") or ()), every_s=int(b.get("every_s", 0)), at_utc=_times(b.get("at_utc")),
+            nice=int(b.get("nice", 0)),
             wanted=int(b.get("wanted", 0)), pieces=bool(b.get("pieces", False)),
             item_seconds=None if b.get("item_seconds") is None else float(b["item_seconds"]),
             enabled=bool(b.get("enabled", True)))
@@ -231,8 +246,13 @@ def problems(path: pathlib.Path | None = None, profiles_path: pathlib.Path | Non
             out.append(f"{jt.name}: names profile {jt.profile!r}, which profiles.toml does not hold")
         if not jt.command:
             out.append(f"{jt.name}: has no command")
-        if jt.at_utc and not _hhmm(jt.at_utc):
-            out.append(f"{jt.name}: at_utc {jt.at_utc!r} is not HH:MM")
+        for t in jt.at_utc:
+            if not _hhmm(t):
+                out.append(f"{jt.name}: at_utc {t!r} is not HH:MM")
+        if len(set(jt.at_utc)) != len(jt.at_utc):
+            out.append(f"{jt.name}: at_utc names a time twice")
+        if not 0 <= jt.nice <= 19:
+            out.append(f"{jt.name}: nice is 0 to 19")
         if jt.every_s and jt.at_utc:
             out.append(f"{jt.name}: a timetable is every_s or at_utc, not both")
         if jt.wanted and (jt.every_s or jt.at_utc):
@@ -293,6 +313,15 @@ def switch_cost(frm: Profile | None, to: Profile | None, same_job: bool = False)
     if frm.name == to.name:
         return "none" if same_job else "handover"
     return "load"
+
+
+def _times(v) -> tuple[str, ...]:
+    """`at_utc` is one HH:MM or a list of them (the heartbeat runs twice a day)."""
+    if v is None or v == "":
+        return ()
+    if isinstance(v, str):
+        return (v,)
+    return tuple(str(x) for x in v)
 
 
 def _hhmm(s: str) -> bool:

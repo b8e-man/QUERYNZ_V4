@@ -74,3 +74,70 @@ def test_the_host_is_parsed_never_pattern_matched(url):
 ])
 def test_loopback_and_the_twin_lan_forms_pass(url):
     assert mc.endpoint_refusal(url) == ""
+
+
+EURL = "http://127.0.0.1:8111/v1/embeddings"
+TEXTS = ["the secret first text", "the secret second text"]
+
+
+def vectors(n=2):
+    """An embeddings answer the way llama-server gives it: `model` is the
+    REQUEST'S model echoed back, whatever is loaded."""
+    def post(url, body, timeout):
+        assert body["input"] == TEXTS[:n]
+        return {"model": body["model"], "data": [{"index": i, "embedding": [float(i), 1.0]} for i in reversed(range(n))],
+                "usage": {"prompt_tokens": 9}}
+    return post
+
+
+def holds(model="bge-m3-q8"):
+    def get(url, timeout):
+        assert url == "http://127.0.0.1:8111/v1/models", url
+        return {"data": [{"id": model, "object": "model"}]}
+    return get
+
+
+def test_an_embedding_call_returns_vectors_in_order_and_is_recorded_without_the_texts(tmp_path):
+    ledger = str(tmp_path / "calls.jsonl")
+    out = mc.embed(EURL, lane="search", model="bge-m3-q8", texts=TEXTS, post=vectors(), get=holds(), ledger=ledger)
+    assert out == [[0.0, 1.0], [1.0, 1.0]], "in the texts' order, whatever order the server answers in"
+    rec = json.loads(open(ledger).read().splitlines()[-1])
+    assert rec["ok"] and rec["kind"] == "embed" and rec["n"] == 2 and rec["dims"] == 2 and rec["served_model"] == "bge-m3-q8"
+    assert "secret" not in open(ledger).read()
+    assert mc.embed(EURL, lane="search", model="bge-m3-q8", texts=[], post=vectors(), get=holds(), ledger=ledger) == []
+
+
+def test_the_served_model_is_read_back_not_taken_from_the_answer(tmp_path):
+    """llama-server echoes the request's model in an embeddings answer, so a
+    card holding the wrong model would pass a check on the answer. The
+    model list is what the card holds."""
+    ledger = str(tmp_path / "calls.jsonl")
+    with pytest.raises(mc.WrongModel) as e:
+        mc.embed(EURL, lane="search", model="bge-m3-q8", texts=TEXTS, post=vectors(), get=holds("nomic-embed"), ledger=ledger)
+    assert e.value.served == "nomic-embed"
+    rec = json.loads(open(ledger).read().splitlines()[-1])
+    assert rec["model_mismatch"] is True and rec["ok"] is False and rec["answer_model"] == "bge-m3-q8"
+    assert mc.served_model(EURL, get=holds("x")) == "x"
+    assert mc.served_model(EURL, get=lambda u, t: {"data": []}) is None
+
+
+def test_a_cloud_address_is_never_reached_and_a_call_names_its_model(tmp_path):
+    ledger = str(tmp_path / "calls.jsonl")
+    sent = []
+    with pytest.raises(mc.Refused):
+        mc.embed("https://api.example.com/v1/embeddings", lane="search", model="m", texts=TEXTS,
+                 post=lambda *a: sent.append(1), get=lambda *a: sent.append(1), ledger=ledger)
+    assert sent == []
+    with pytest.raises(mc.Refused):
+        mc.embed(EURL, lane="search", model="", texts=TEXTS, post=vectors(), get=holds(), ledger=ledger)
+
+
+def test_a_short_answer_is_an_error_not_a_silent_gap(tmp_path):
+    ledger = str(tmp_path / "calls.jsonl")
+
+    def one_short(url, body, timeout):
+        return {"model": "bge-m3-q8", "data": [{"index": 0, "embedding": [1.0]}]}
+    with pytest.raises(RuntimeError, match="1 vectors for 2 texts"):
+        mc.embed(EURL, lane="search", model="bge-m3-q8", texts=TEXTS, post=one_short, get=holds(), ledger=ledger)
+    rec = json.loads(open(ledger).read().splitlines()[-1])
+    assert rec["ok"] is False

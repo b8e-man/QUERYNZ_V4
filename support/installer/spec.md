@@ -1,5 +1,5 @@
-owns: `<live>/llama/bin` (the estate's own copy of the model server, with `VERSION.json`); the placing of `qv4-*` unit files in the user unit folder
-reads: the repository's unit files (`checks/jobs/`, `support/*/units/`), `requirements.txt`, the profiles' weights list, the old build at `/home/user/llama.cpp/build/bin` (read only), the credential folder's file names (never their contents)
+owns: `<live>/llama/bin` (the estate's copy of the old build's model server) and `<live>/llama/{src,build,built}` (its own build from source, `VERSION.json` in each bin); the placing of `qv4-*` unit files in the user unit folder, and the superseding of a timer whose job is on the queue's clock
+reads: the repository's unit files (`checks/jobs/`, `support/*/units/`, `support/*/jobs/`), the job catalogue's timetables, `requirements.txt`, the profiles' weights list, the old build at `/home/user/llama.cpp/build/bin` and its source checkout (both read only), rocminfo for the card architecture, the credential folder's file names (never their contents)
 publishes: nothing; `python -m support.installer check` prints the parity report
-outside check: the unit files on the box hash-equal the repository's; the model server copy hash-equal its source; every profile's weights present
+outside check: the unit files on the box hash-equal the repository's and no superseded timer is enabled; the model server copy hash-equal its source and the built one self-contained (`$ORIGIN`); every profile's weights present
 jobs: none of its own; it installs the others'

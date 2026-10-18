@@ -200,3 +200,33 @@ def test_profile_weights_resolve_under_the_models_folder():
     pr = reg.profiles()["page-reader"]
     paths = pr.weight_paths("/m")
     assert paths == ["/m/vision-glm-ocr/GLM-OCR-Q8_0.gguf", "/m/vision-glm-ocr/mmproj-GLM-OCR-Q8_0.gguf"]
+
+
+def test_a_daily_timetable_may_name_several_times_and_each_is_checked(tmp_path):
+    j, p = files(tmp_path, job(needs="processor", extra='at_utc = ["20:00", "08:00"]\nnice = 10'), profile())
+    jt = reg.load(j)["qv4-a"]
+    assert jt.at_utc == ("20:00", "08:00") and jt.nice == 10
+    assert not [x for x in reg.problems(j, p) if "qv4-a" in x]
+    j, p = files(tmp_path, job(needs="processor", extra='at_utc = ["20:00", "20:00"]'), profile())
+    assert any("names a time twice" in x for x in reg.problems(j, p))
+    j, p = files(tmp_path, job(needs="processor", extra='at_utc = ["20:00", "24:00"]'), profile())
+    assert any("is not HH:MM" in x for x in reg.problems(j, p))
+    j, p = files(tmp_path, job(needs="processor", extra='nice = 30'), profile())
+    assert any("nice is 0 to 19" in x for x in reg.problems(j, p))
+    j, p = files(tmp_path, job(needs="processor"), profile())
+    assert reg.load(j)["qv4-a"].at_utc == () and reg.load(j)["qv4-a"].nice == 0
+
+
+def test_the_four_founding_jobs_are_on_the_queues_clock_in_utc():
+    """Step 2.12: the founding timers' jobs, with the deadlines their units
+    carried, a query limit under each, and their times in UTC (the units
+    held NZDT: 07:30, 09:00/21:00, 04:30, 03:05)."""
+    cat = reg.load()
+    want = {"qv4-checks-board": (("18:30",), 3600), "qv4-checks-heartbeat": (("20:00", "08:00"), 300),
+            "qv4-full-tier": (("15:30",), 7200), "qv4-offsite-dump": (("14:05",), 3600)}
+    for name, (times, deadline) in want.items():
+        jt = cat[name]
+        assert jt.at_utc == times and jt.needs.deadline_s == deadline and jt.cls == "due" and jt.enabled, name
+        assert 0 < jt.needs.query_timeout_s < jt.needs.deadline_s, name
+        assert jt.needs.needs == "processor" and not jt.every_s and not jt.wanted, name
+    assert cat["qv4-offsite-dump"].requires == ("pg_dump", "gpg"), "node1 once lacked a program and nobody knew"

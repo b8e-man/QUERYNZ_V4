@@ -8,11 +8,15 @@ Six steps, each a plan before it is an action:
                 another box pulls the same commit (git), never a copy by hand
   venv          `.venv` from requirements.txt, the same Python on every box
   units         every `qv4-*.service` and `qv4-*.timer` the repository ships
-                (`checks/jobs/`, `support/*/units/`) into the user unit
+                (`checks/jobs/`, `support/*/units/`, `support/*/jobs/`) into the user unit
                 folder. ONLY THE PREFIX: a file without `qv4-` is refused as
                 a source and never touched as a target (hard limit 23). A
                 stale `qv4-` unit the repository no longer ships is reported,
-                not removed. The worker instance for this box is enabled.
+                not removed. A timer whose job is timetabled in the catalogue
+                is SUPERSEDED (step 2.12: the clock is the queue's): disabled,
+                removed, and the slot it served handed over so nothing runs
+                twice; its service unit stays for a hand run. The worker
+                instance for this box is enabled.
   model-server  the estate's own copy of the model server, beside the old
                 build and never over it (`<live>/llama/bin`), with its
                 version and hash recorded; the frozen product's two servers
@@ -45,7 +49,8 @@ OLD_LLAMA_DIR = "/home/user/llama.cpp/build/bin"
 QV4_LLAMA_DIR = os.environ.get("QV4_LLAMA_DIR") or os.path.join(LIVE, "llama", "bin")
 MODELS_DIR = os.environ.get("QV4_MODELS") or "/home/user/models"
 CRED_DIR = os.environ.get("QV4_CRED_DIR") or os.path.expanduser("~/.querynz")
-UNIT_GLOBS = ("checks/jobs/qv4-*.service", "checks/jobs/qv4-*.timer", "support/*/units/qv4-*.service", "support/*/units/qv4-*.timer")
+UNIT_GLOBS = ("checks/jobs/qv4-*.service", "checks/jobs/qv4-*.timer", "support/*/units/qv4-*.service", "support/*/units/qv4-*.timer",
+              "support/*/jobs/qv4-*.service", "support/*/jobs/qv4-*.timer")     # support/offsite/jobs/ (the founding session's)
 
 
 def sha256_file(path: str) -> str:
@@ -74,7 +79,7 @@ def unit_sources(repo: str = REPO) -> dict[str, str]:
         for p in sorted(glob.glob(os.path.join(repo, pattern))):
             out[os.path.basename(p)] = p
     bad = []
-    for folder in ("checks/jobs", *glob.glob(os.path.join(repo, "support", "*", "units"))):
+    for folder in ("checks/jobs", *glob.glob(os.path.join(repo, "support", "*", "units")), *glob.glob(os.path.join(repo, "support", "*", "jobs"))):
         d = folder if os.path.isabs(folder) else os.path.join(repo, folder)
         for n in os.listdir(d) if os.path.isdir(d) else []:
             if (n.endswith(".service") or n.endswith(".timer")) and not n.startswith(PREFIX):
@@ -84,14 +89,30 @@ def unit_sources(repo: str = REPO) -> dict[str, str]:
     return out
 
 
+def timetabled_jobs(repo: str = REPO) -> set[str]:
+    """The jobs whose clock is the queue's (step 2.12): a timer for one of
+    these is superseded."""
+    from support.scheduler import registry as reg
+    path = os.path.join(repo, "support", "scheduler", "jobs.toml")
+    if not os.path.exists(path):
+        return set()
+    import pathlib
+    return {jt.name for jt in reg.load(pathlib.Path(path)).values() if jt.every_s or jt.at_utc}
+
+
 def plan_units(repo: str = REPO, unit_dir: str = UNIT_DIR) -> list[dict]:
-    """What installing would do: install, update, same, or stale (on the
-    box, not in the repository; reported, never removed)."""
+    """What installing would do: install, update, same, stale (on the box,
+    not in the repository; reported, never removed) or superseded (a timer
+    whose job runs on the queue's clock: disabled and removed, its service
+    unit kept for a hand run)."""
     src = unit_sources(repo)
+    timetabled = timetabled_jobs(repo)
     out = []
     for name, path in src.items():
         target = os.path.join(unit_dir, name)
-        if not os.path.exists(target):
+        if name.endswith(".timer") and name[:-len(".timer")] in timetabled:
+            out.append({"unit": name, "action": "superseded", "present": os.path.exists(target), "job": name[:-len(".timer")]})
+        elif not os.path.exists(target):
             out.append({"unit": name, "action": "install"})
         elif sha256_file(target) != sha256_file(path):
             out.append({"unit": name, "action": "update"})
@@ -119,18 +140,42 @@ def unit_text(path: str, repo: str = REPO) -> str:
     return text
 
 
+def handover_clock(job: str, timer: str):
+    """Mark the slot the timer served so the queue's first run is the next
+    one (support.scheduler.queue.handover, on the live queue)."""
+    import support.db as db
+    from support.scheduler import SCHEMA
+    from support.scheduler import queue as q
+    conn = db.connect(db.OWNER_KEY, "querynz_v4", autocommit=True)
+    try:
+        return q.handover(conn, SCHEMA, job, by=f"installer: {timer} superseded")
+    finally:
+        conn.close()
+
+
 def install_units(repo: str = REPO, unit_dir: str = UNIT_DIR, box: str = None, sh=None, enable: bool = True,
-                  only: tuple = ()) -> list[dict]:
+                  only: tuple = (), handover=None) -> list[dict]:
     """Copy the shipped units in, reload, enable the timers and this box's
     worker. Touches nothing without the prefix. `only` restricts the
     install to the named units (a rehearsal places one unit, not all)."""
     sh = sh or _sh
+    handover = handover or handover_clock
     done = []
+    superseded = set()
     for step in plan_units(repo, unit_dir):
         name = step["unit"]
         if not name.startswith(PREFIX) or step["action"] == "stale":   # never a foreign unit; a stale one is reported only
             continue
         if only and name not in only:
+            continue
+        if step["action"] == "superseded":
+            # the job's clock is the queue's now: the timer goes, the service unit stays for a hand run
+            superseded.add(name)
+            if step["present"]:
+                sh(["systemctl", "--user", "disable", "--now", name])
+                os.unlink(os.path.join(unit_dir, name))
+                slot = handover(step["job"], name)
+                done.append({"unit": name, "action": "superseded", "job": step["job"], "handed_over_slot": str(slot) if slot else None})
             continue
         target = os.path.join(unit_dir, name)
         text = unit_text(unit_sources(repo)[name], repo)
@@ -143,7 +188,7 @@ def install_units(repo: str = REPO, unit_dir: str = UNIT_DIR, box: str = None, s
         sh(["systemctl", "--user", "daemon-reload"])
     if enable:
         for name in unit_sources(repo):
-            if name.endswith(".timer") and (not only or name in only):
+            if name.endswith(".timer") and name not in superseded and (not only or name in only):
                 sh(["systemctl", "--user", "enable", "--now", name])
         if "qv4-worker@.service" in unit_sources(repo) and (not only or "qv4-worker@.service" in only):
             inst = f"qv4-worker@{box or os.uname().nodename}.service"
@@ -167,7 +212,8 @@ def plan_model_server(src_dir: str = OLD_LLAMA_DIR, dst_dir: str = QV4_LLAMA_DIR
     if not os.path.exists(src):
         return {"action": "none", "why": f"no source build at {src}"}
     if os.path.exists(dst) and sha256_file(dst) == sha256_file(src):
-        return {"action": "same", "version": llama_version(dst), "at": dst}
+        return {"action": "same", "version": llama_version(dst), "at": dst, "self_contained": self_contained(dst),
+                "runpath": runpath(dst)}
     return {"action": "install" if not os.path.exists(dst) else "update", "from": src, "to": dst, "version": llama_version(src)}
 
 
@@ -278,3 +324,141 @@ def check(profiles: dict, repo: str = REPO, unit_dir: str = UNIT_DIR, box: str =
 def cred_dir_state(cred_dir: str = CRED_DIR) -> dict:
     files = sorted(glob.glob(os.path.join(cred_dir, "*.env")))
     return {"present": len(files), "mode_ok": all((os.stat(f).st_mode & 0o077) == 0 for f in files)}
+
+
+# ── the model server built from source, beside the copy ─────────────────────
+# The copy above is the old build's binary, taken as it is. The build here is
+# the estate's own, from a clone of the source the old build came from (read,
+# never written), at a recorded commit, for the card architecture the box
+# reports. Which of the two a card runs is a setting (profiles.toml,
+# `[server] binary`), so the choice is a line and not a rewrite.
+
+OLD_LLAMA_SRC = "/home/user/llama.cpp"
+QV4_LLAMA_SRC = os.path.join(LIVE, "llama", "src")
+QV4_LLAMA_BUILD = os.path.join(LIVE, "llama", "build")
+QV4_LLAMA_BUILT_DIR = os.environ.get("QV4_LLAMA_BUILT_DIR") or os.path.join(LIVE, "llama", "built", "bin")
+DEFAULT_ARCH = "gfx1201"      # the two R9700s; probed below, this is the fallback the record names as such
+
+
+def card_arch(sh=None) -> tuple[str, str]:
+    """(architecture, how it was found). rocminfo first; then the old build's
+    cache (a record of what ran); then the default, named as a guess."""
+    sh = sh or _sh
+    rc, out = sh(["/opt/rocm/bin/rocminfo"], timeout=30)
+    if rc == 0:
+        import re
+        found = sorted({m.group(1) for m in re.finditer(r"Name:\s+(gfx[0-9a-f]+)", out)})
+        if found:
+            return found[0], "rocminfo"
+    cache = os.path.join(OLD_LLAMA_SRC, "build", "CMakeCache.txt")
+    if os.path.exists(cache):
+        for line in open(cache, encoding="utf-8", errors="replace"):
+            if line.startswith("CMAKE_HIP_ARCHITECTURES:STRING="):
+                arch = line.split("=", 1)[1].strip().split(";")[0]
+                if arch:
+                    return arch, "the old build's CMakeCache"
+    return DEFAULT_ARCH, "default (unprobed)"
+
+
+def cmake_flags(arch: str) -> list[str]:
+    """The old build's flags that matter (its CMakeCache, 18 October),
+    minus examples and tests: HIP for the one architecture, shared ggml,
+    release, native."""
+    return ["-DCMAKE_BUILD_TYPE=Release", "-DGGML_HIP=ON", f"-DCMAKE_HIP_ARCHITECTURES={arch}",
+            "-DCMAKE_HIP_COMPILER=/opt/rocm/lib/llvm/bin/clang++", "-DBUILD_SHARED_LIBS=ON", "-DGGML_NATIVE=ON",
+            "-DLLAMA_BUILD_SERVER=ON", "-DLLAMA_BUILD_TOOLS=ON", "-DLLAMA_BUILD_EXAMPLES=OFF", "-DLLAMA_BUILD_TESTS=OFF",
+            "-DLLAMA_CURL=OFF",
+            # the binary finds its libraries beside itself ($ORIGIN), so the folder is whole on its own; the copy of
+            # the old build carries the old build tree's path and the card manager covers it with LD_LIBRARY_PATH
+            "-DCMAKE_BUILD_RPATH_USE_ORIGIN=ON"]
+
+
+def runpath(binary: str) -> str | None:
+    """The library search path baked into a binary (RUNPATH), or None."""
+    rc, out = _sh(["readelf", "-d", binary], timeout=30)
+    if rc:
+        return None
+    import re
+    m = re.search(r"\((?:RUNPATH|RPATH)\)\s+Library r(?:un)?path:\s+\[([^\]]*)\]", out)
+    return m.group(1) if m else ""
+
+
+def self_contained(binary: str) -> bool:
+    """True when the binary looks for its libraries beside itself and
+    nowhere in another build tree."""
+    rp = runpath(binary)
+    if rp is None:
+        return False
+    parts = [p for p in rp.split(":") if p]
+    return any(p.startswith("$ORIGIN") for p in parts) and not any("/build/bin" in p for p in parts)
+
+
+def plan_source_build(src_dir: str = QV4_LLAMA_SRC, built_dir: str = QV4_LLAMA_BUILT_DIR, source_repo: str = OLD_LLAMA_SRC) -> dict:
+    out = {"source_repo": source_repo, "source_present": os.path.isdir(os.path.join(source_repo, ".git")),
+           "clone": os.path.isdir(os.path.join(src_dir, ".git")), "built": os.path.exists(os.path.join(built_dir, "llama-server"))}
+    rec = os.path.join(built_dir, "VERSION.json")
+    if os.path.exists(rec):
+        with open(rec, encoding="utf-8") as f:
+            out["record"] = json.load(f)
+    if out["clone"]:
+        rc, head = _sh(["git", "-C", src_dir, "rev-parse", "HEAD"])
+        out["clone_commit"] = head[:12] if rc == 0 else None
+    out["action"] = "none" if not out["source_present"] else ("same" if out["built"] else "build")
+    return out
+
+
+def build_model_server(source_repo: str = OLD_LLAMA_SRC, ref: str = None, *, src_dir: str = QV4_LLAMA_SRC,
+                       build_dir: str = QV4_LLAMA_BUILD, built_dir: str = QV4_LLAMA_BUILT_DIR, jobs: int = None,
+                       sh=None, log=print) -> dict:
+    """Clone (locally, read-only on the source), configure, build the
+    server target, copy the binary and its libraries into `built_dir`
+    beside the copy, and record what was built. Returns the record."""
+    sh = sh or _sh
+    jobs = jobs or max(2, (os.cpu_count() or 4) - 4)
+    if not os.path.isdir(os.path.join(source_repo, ".git")):
+        return {"action": "none", "why": f"no source checkout at {source_repo}"}
+    os.makedirs(os.path.dirname(src_dir), exist_ok=True)
+    if not os.path.isdir(os.path.join(src_dir, ".git")):
+        log(f"installer: cloning {source_repo} into {src_dir}")
+        rc, out = sh(["git", "clone", "--quiet", source_repo, src_dir], timeout=1800)
+        if rc:
+            return {"action": "failed", "step": "clone", "detail": out[-400:]}
+    if ref:
+        rc, out = sh(["git", "-C", src_dir, "checkout", "--quiet", ref])
+        if rc:
+            return {"action": "failed", "step": "checkout", "detail": out[-400:]}
+    rc, commit = sh(["git", "-C", src_dir, "rev-parse", "HEAD"])
+    rc2, describe = sh(["git", "-C", src_dir, "describe", "--tags", "--always"])
+    arch, arch_how = card_arch(sh)
+    flags = cmake_flags(arch)
+    log(f"installer: configuring for {arch} ({arch_how}) in {build_dir}")
+    rc, out = sh(["cmake", "-S", src_dir, "-B", build_dir, *flags], timeout=1800)
+    if rc:
+        return {"action": "failed", "step": "configure", "detail": out[-1200:]}
+    log(f"installer: building llama-server with {jobs} jobs (this takes a while)")
+    rc, out = sh(["cmake", "--build", build_dir, "--target", "llama-server", "-j", str(jobs)], timeout=7200)
+    if rc:
+        return {"action": "failed", "step": "build", "detail": out[-1200:]}
+    src_bin = os.path.join(build_dir, "bin")
+    os.makedirs(built_dir, exist_ok=True)
+    copied = []
+    for n in sorted(os.listdir(src_bin)):
+        p = os.path.join(src_bin, n)
+        if n == "llama-server" or (n.startswith("lib") and ".so" in n):
+            q = os.path.join(built_dir, n)
+            if os.path.islink(p):
+                if os.path.lexists(q):
+                    os.unlink(q)
+                os.symlink(os.readlink(p), q)
+            else:
+                shutil.copy2(p, q)
+            copied.append(n)
+    dst = os.path.join(built_dir, "llama-server")
+    rec = {"version": llama_version(dst), "sha256": sha256_file(dst), "from": "source", "source_repo": source_repo,
+           "commit": commit.strip(), "describe": describe.strip(), "arch": arch, "arch_from": arch_how, "flags": flags,
+           "copied": len(copied), "runpath": runpath(dst), "self_contained": self_contained(dst),
+           "at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
+    with open(os.path.join(built_dir, "VERSION.json"), "w", encoding="utf-8") as f:
+        json.dump(rec, f, indent=1)
+    log(f"installer: built {rec['version']} at {dst}")
+    return {"action": "build", **rec, "to": dst}

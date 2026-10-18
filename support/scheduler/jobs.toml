@@ -10,8 +10,9 @@
 # (someone is waiting), "due" (by a time), "whenever" (bulk).
 # `requires` names the programs the box must have: node1 once lacked the page
 # reader and blanked the totals for 17 days with the board green.
-# A timetable is `every_s` or `at_utc` (HH:MM, UTC; both clocks hold local
-# time): it lives here, in the queue, not in a timer on one box (step 2.12).
+# A timetable is `every_s` or `at_utc` (HH:MM UTC, one or a list; both
+# clocks hold local time): it lives here, in the queue, not in a timer on
+# one box (step 2.12). `nice` is the child's niceness.
 # `wanted` makes a standing service (step 2.13). `pieces` cuts a job into
 # pieces that each record progress (rule 7); the command then takes the
 # piece key as its last argument.
@@ -41,6 +42,62 @@ box = "node2"
 card = 0
 holder = "querynz-agent-llm, querynz-vision-ocr"
 why = "the carve-out's chat model and page reader (step 2.9); a fixed reservation, never touched"
+
+# ── the founding jobs, on the queue's clock (step 2.12) ─────────────────────
+# Installed by the founding session as systemd timers on node2 (local time,
+# NZDT = UTC+13 until 5 April 2027); here in UTC, with the deadlines the
+# units carried and a query limit under each. The installer supersedes the
+# timers: a `.timer` whose job is timetabled here is disabled, and the clock
+# is handed over so nothing runs twice. When the clocks change, these times
+# move with them or they drift an hour against the old estate's jobs.
+
+[jobs.qv4-checks-board]
+description = "The checks board (plan 1.6): every registered check, the board written, alarms on red. Daily at 07:30 NZDT, after the old release (06:15) and the old board (06:40)."
+needs = "processor"
+memory_gb = 1.0
+deadline_s = 3600
+query_timeout_s = 600
+class = "due"
+priority = 11
+command = ["python", "-m", "checks.board"]
+at_utc = "18:30"
+nice = 10
+
+[jobs.qv4-checks-heartbeat]
+description = "The checks board heartbeat: alarms if the board has not run in 26 hours. Twice daily, 09:00 and 21:00 NZDT."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 300
+query_timeout_s = 60
+class = "due"
+priority = 12
+command = ["python", "-m", "checks.board", "--heartbeat"]
+at_utc = ["20:00", "08:00"]
+
+[jobs.qv4-full-tier]
+description = "The full tier (plan 1b.7): every test, the slow ones included, against the real environment. Nightly at 04:30 NZDT, before the board."
+needs = "processor"
+memory_gb = 6.0
+deadline_s = 7200
+query_timeout_s = 1800
+class = "due"
+priority = 13
+command = ["python", "bin/full-tier"]
+at_utc = "15:30"
+nice = 10
+
+[jobs.qv4-offsite-dump]
+description = "The nightly off-site copy of querynz_v4 (plan 1.8, until track B): dump, encrypt, send. 03:05 NZDT, after the old estate's push (01:38) is well under way."
+needs = "processor"
+memory_gb = 1.5
+deadline_s = 3600
+query_timeout_s = 1800
+class = "due"
+priority = 14
+command = ["python", "-m", "support.offsite"]
+requires = ["pg_dump", "gpg"]
+at_utc = "14:05"
+nice = 10
 
 # ── the scheduler's own jobs ─────────────────────────────────────────────────
 
@@ -86,7 +143,7 @@ can_share = false
 concurrency = 1
 
 [jobs.qv4-embed]
-description = "Bulk embedding for search through the embedding profile; one search query embeds on the processor and needs no card."
+description = "Bulk embedding for search through the embedding profile: one piece per document, the vectors stored as a reading in the reader store (ruling 50). One search query embeds on the processor and needs no card."
 needs = "model-profile"
 profile = "embedding"
 memory_gb = 1.0
@@ -95,10 +152,10 @@ query_timeout_s = 600
 class = "whenever"
 priority = 30
 command = ["python", "-m", "support.scheduler", "embed-piece"]
+requires = ["pdftotext"]
 pieces = true
 can_share = true
 concurrency = 4
-enabled = false
 
 [jobs.qv4-questions]
 description = "Holds the review-and-questions profile on one card while a product is served (ruling 22's default: no card kept empty; part of the slots kept for live questions). Standing; enabled when a product is served."

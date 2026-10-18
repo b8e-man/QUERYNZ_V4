@@ -65,3 +65,15 @@ def test_the_query_time_limit_rides_in_pgoptions_and_the_env_is_passed():
 def test_the_ceiling_is_the_declared_memory_plus_a_margin():
     assert runner.ceiling_for(1.5) == 1920
     assert runner.tree_mb(99999999) == 0
+
+
+def test_a_job_runs_at_the_niceness_it_declares():
+    """The founding units carried Nice=10 to spare the carve-out; the
+    catalogue's `nice` does the same through the runner."""
+    import os as _os
+    import sys as _sys
+    base = _os.nice(0)
+    res = runner.run([_sys.executable, "-c", "import os, sys; sys.exit(os.nice(0))"], deadline_s=20, ceiling_mb=None, nice=7)
+    assert res.code == min(19, base + 7), "19 is the floor (under the worker's own Nice=5 and a job's 10 it is reached)"
+    res = runner.run([_sys.executable, "-c", "import os, sys; sys.exit(os.nice(0))"], deadline_s=20, ceiling_mb=None)
+    assert res.code == base

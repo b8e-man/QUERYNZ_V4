@@ -32,10 +32,11 @@ import urllib.request
 
 # The programs jobs depend on (docs/baseline.md "Programs the jobs depend on"),
 # plus the new estate's own model server (installed beside the old one).
-PROGRAMS = ("pdftotext", "pdftoppm", "pdfinfo", "tesseract", "xvfb-run", "google-chrome", "psql", "rocm-smi",
-            "llama-server", "qv4-llama-server")
+PROGRAMS = ("pdftotext", "pdftoppm", "pdfinfo", "tesseract", "xvfb-run", "google-chrome", "psql", "pg_dump", "gpg",
+            "rocm-smi", "llama-server", "qv4-llama-server", "qv4-llama-server-built")
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 QV4_LLAMA = os.environ.get("QV4_LLAMA_SERVER") or os.path.join(LIVE, "llama", "bin", "llama-server")
+QV4_LLAMA_BUILT = os.environ.get("QV4_LLAMA_SERVER_BUILT") or os.path.join(LIVE, "llama", "built", "bin", "llama-server")
 OLD_LLAMA = "/home/user/llama.cpp/build/bin/llama-server"      # the frozen product's build (baseline); never touched
 REAL_FS = {"ext4", "xfs", "btrfs", "ntfs3", "fuseblk", "vfat", "exfat", "f2fs"}
 
@@ -149,6 +150,8 @@ def programs(names=PROGRAMS, which=None) -> dict:
     for n in names:
         if n == "qv4-llama-server":
             out[n] = QV4_LLAMA if os.path.exists(QV4_LLAMA) else None
+        elif n == "qv4-llama-server-built":
+            out[n] = QV4_LLAMA_BUILT if os.path.exists(QV4_LLAMA_BUILT) else None
         elif n == "llama-server":
             out[n] = which(n) or (OLD_LLAMA if os.path.exists(OLD_LLAMA) else None)
         else:

@@ -253,3 +253,36 @@ def test_swaps_are_recorded_and_load_times_measured(conn, s):
     assert cs[0]["reserved"] and cs[1]["profile"] == "text-reader" and cs[1]["holder"] == "doc"
     st = q.status(conn, s)
     assert st["cards"][0]["reserved"] and len(st["swaps"]) == 3
+
+
+def test_a_twice_daily_slot_is_the_latest_time_passed_or_yesterdays_last(tmp_path):
+    jobs = fx.JOBS + '\n[jobs.twice]\nneeds = "processor"\nmemory_gb = 0.1\ndeadline_s = 60\nquery_timeout_s = 10\n' \
+                     'priority = 52\ncommand = ["true"]\nat_utc = ["20:00", "08:00"]\n'
+    j, _ = fx.write(tmp_path, jobs=jobs)
+    jt = reg.load(j)["twice"]
+    day = dt.datetime(2026, 10, 18, tzinfo=dt.timezone.utc)
+    assert q.slot_for(jt, day.replace(hour=7, minute=59)) == day.replace(hour=20) - dt.timedelta(days=1)
+    assert q.slot_for(jt, day.replace(hour=8)) == day.replace(hour=8)
+    assert q.slot_for(jt, day.replace(hour=19, minute=59)) == day.replace(hour=8)
+    assert q.slot_for(jt, day.replace(hour=20)) == day.replace(hour=20)
+    assert q.slot_for(jt, day.replace(hour=23, minute=59)) == day.replace(hour=20)
+
+
+def test_a_handover_marks_the_timers_slot_served_so_the_queue_runs_the_next_one(conn, s, tmp_path):
+    """Step 2.12 at the switch: the timer served today's slot; the queue
+    must not run it again, and must run tomorrow's."""
+    jobs = fx.JOBS + '\n[jobs.daily]\nneeds = "processor"\nmemory_gb = 0.1\ndeadline_s = 60\nquery_timeout_s = 10\n' \
+                     'priority = 51\ncommand = ["true"]\nat_utc = "03:30"\n'
+    j, _ = fx.write(tmp_path, jobs=jobs)
+    cat = reg.load(j)
+    day = dt.datetime(2026, 10, 18, tzinfo=dt.timezone.utc)
+    slot = q.handover(conn, s, "daily", registry=cat, now=day.replace(hour=9), by="installer: x.timer superseded")
+    assert slot == day.replace(hour=3, minute=30)
+    assert q.enqueue_due(conn, s, cat, now=day.replace(hour=9, minute=1), created_by="node2") == [], "the timer served today's"
+    assert q.enqueue_due(conn, s, cat, now=day.replace(hour=23), created_by="node2") == []
+    nxt = q.enqueue_due(conn, s, cat, now=(day + dt.timedelta(days=1)).replace(hour=3, minute=30), created_by="node2")
+    assert len(nxt) == 1, "tomorrow's slot is the queue's"
+    assert q.handover(conn, s, "daily", registry=cat, now=day.replace(hour=9)) == day.replace(hour=3, minute=30)
+    row = conn.execute(f"SELECT last_slot FROM {s}.timetable WHERE job = 'daily'").fetchone()
+    assert row[0] == (day + dt.timedelta(days=1)).replace(hour=3, minute=30), "a handover never moves the clock back"
+    assert q.handover(conn, s, "doc", registry=cat, now=day) is None, "a job with no timetable has no clock to hand over"
