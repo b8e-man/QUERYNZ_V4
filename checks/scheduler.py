@@ -44,11 +44,13 @@ def check(now: dt.datetime = None, path: str = None) -> dict:
     else:
         items.append({"name": "report", "ok": True, "detail": f"written {age:.1f} h ago; queue: {depth}"})
 
-    running = [w for w in rec.get("workers") or [] if (w.get("state") or "running") == "running"]
+    # worker states (support/scheduler/queue.py): 'up', 'silent' (the other worker
+    # marked it so), 'stopped' (it said goodbye). A stopped worker is not counted.
+    running = [w for w in rec.get("workers") or [] if w.get("state") != "stopped"]
     silent = []
     for w in running:
         seen = _when(w.get("last_seen"), now.tzinfo)
-        if seen is None or (written - seen).total_seconds() > SILENT_MINUTES * 60:
+        if w.get("state") == "silent" or seen is None or (written - seen).total_seconds() > SILENT_MINUTES * 60:
             silent.append(w.get("name") or "?")
     names = ", ".join(w.get("name") or "?" for w in running) or "none"
     if not running:

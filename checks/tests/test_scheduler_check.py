@@ -12,7 +12,7 @@ def record(**over):
     rec = {
         "written": written.astimezone(dt.timezone.utc).isoformat(timespec="seconds"),
         "queue": {"done": 38, "leased": 1},
-        "workers": [{"name": "node2", "box": "node2", "state": "running",
+        "workers": [{"name": "node2", "box": "node2", "state": "up",
                      "last_seen": (written - dt.timedelta(seconds=20)).isoformat(sep=" ")}],
         "cards": [{"box": "node2", "card": 0, "reserved": True, "profile": None, "holder": None},
                   {"box": "node2", "card": 1, "reserved": False, "profile": "text-reader", "holder": "qv4-reread"}],
@@ -52,11 +52,14 @@ def test_a_stale_report_is_red(tmp_path):
 
 def test_a_worker_silent_at_the_report_is_red_and_a_stopped_one_is_not_counted(tmp_path):
     written = NOW - dt.timedelta(minutes=30)
-    workers = [{"name": "node2", "state": "running", "last_seen": (written - dt.timedelta(minutes=40)).isoformat(sep=" ")},
+    workers = [{"name": "node2", "state": "up", "last_seen": (written - dt.timedelta(minutes=40)).isoformat(sep=" ")},
                {"name": "node2-b", "state": "stopped", "last_seen": (written - dt.timedelta(hours=9)).isoformat(sep=" ")}]
     r = sc.check(now=NOW, path=write(tmp_path, record(workers=workers)))
     assert not items(r)["workers"]["ok"]
     assert "node2" in items(r)["workers"]["detail"] and "node2-b" not in items(r)["workers"]["detail"]
+    marked = [{"name": "node1", "state": "silent", "last_seen": (written - dt.timedelta(seconds=5)).isoformat(sep=" ")}]
+    r = sc.check(now=NOW, path=write(tmp_path, record(workers=marked)))
+    assert not items(r)["workers"]["ok"] and "node1" in items(r)["workers"]["detail"]
 
 
 def test_no_running_worker_is_red(tmp_path):
