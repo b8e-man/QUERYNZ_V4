@@ -27,9 +27,11 @@ alarm 18 October).
 
 ## Next
 
-Started 18 October night, headless (ruling 56): `trial` (step 3, Fable),
-`offsite` (track B, Opus), `windowed` (track E, Opus); briefs in
-`docs/briefs/next.md`. The integrator merges their requests. The node1
+Started 18 October ~22:00 while Arthur slept (ruling 56): `trial` (step 3,
+Fable, headless in its working copy); `offsite` (track B) and `windowed`
+(track E) as Opus agents of the founding session in their working copies,
+because the classifier refused their headless start; the gate judges all
+three the same way. Briefs in `docs/briefs/next.md`. The node1
 setup card (ruling 57) when Arthur powers node1. The positive half of 1.4
 waits for a new declaration.
 
