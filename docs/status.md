@@ -3,8 +3,8 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-19, 08:05. **Step:** 2 closed on one box; 3 pass one done;
-track E capturing nightly; track B restarted. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-19, 08:20. **Step:** 2 closed on one box; 3 pass two
+running; tracks B and E on the queue's clock. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
@@ -40,9 +40,10 @@ address (test alarm 18 October).
   58 and 59 (orders kept and never shown; no letter to the Authority yet).
   Session 2 runs the first capture by hand. Open: the gate's redirect and
   gzip card (`support/fetchgate`).
-- Track B session 2 in its working copy: session 1 wrote nothing (same
-  fence); its measurements and design are in the brief, three decisions
-  queued (`docs/merges/offsite-1-not-started.md`).
+- Track B session 2 running: the copy and its restore merged
+  (`docs/merges/offsite-2a`: `qv4-offsite-copy` nightly 21:00 NZDT beside
+  the 1.8 dump, `qv4-offsite-rehearsal` every 28 days); the full copy and
+  the bucket rehearsal follow as offsite-2b, then the dump is retired.
 - The node1 setup card when Arthur powers node1. The positive half of 1.4
   waits for a new declaration. A fix session on `support/scheduler` for a
   per-profile server binary (TeleOCR's patched build).
