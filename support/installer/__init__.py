@@ -126,7 +126,7 @@ def install_units(repo: str = REPO, unit_dir: str = UNIT_DIR, box: str = None, s
     done = []
     for step in plan_units(repo, unit_dir):
         name = step["unit"]
-        if not name.startswith(PREFIX):          # belt and braces: never a foreign unit
+        if not name.startswith(PREFIX) or step["action"] == "stale":   # never a foreign unit; a stale one is reported only
             continue
         target = os.path.join(unit_dir, name)
         text = unit_text(unit_sources(repo)[name], repo)
