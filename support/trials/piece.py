@@ -7,12 +7,14 @@ trial's ledger and its scratch table. Nothing here publishes.
 
     python -m support.trials piece SHA256        run by the scheduler (QV4_MODEL_URL, QV4_MODEL, QV4_PROFILE, QV4_ARGS)
 
-QV4_ARGS (the job's args, JSON): `pass` ("one" | "two" | "twenty"),
+QV4_ARGS (the job's args, JSON): `pass` ("one" | "two" | "twenty" | "repeat"),
 `dpi` (an override; the document profile's otherwise), `pages`
-("selected", the page set's choice, or "all"), `old_cache` (compare a
-GLM-OCR reading at 200 dpi with the old estate's cached page text, keyed
+("selected", the page set's choice, a list, or "all"), `old_cache` (compare
+a GLM-OCR reading at 200 dpi with the old estate's cached page text, keyed
 by the rendered page's own bytes, which is how pass one matches the
-readings the old estate holds by hash and page).
+readings the old estate holds by hash and page), `repeat` (an integer: a
+deliberate second reading under the same settings, keyed apart by it, for
+the determinism check of 3.5).
 
 No page text, no donor and no address is printed: hashes, counts and
 seconds only (hard limits 11, 15). The reading itself goes to the reader
@@ -181,6 +183,9 @@ def run(sha256: str, *, reader: readers.Reader, url: str, args: dict = None, sto
         pages = [p["page"] for p in doc["selected_pages"]]
     data = pageset.read_bytes(sha256)
     settings = readers.settings(reader, dpi, server_build)
+    if args.get("repeat"):
+        # a deliberate second reading under the same settings (the determinism check of 3.5): keyed apart, replayed never
+        settings["repeat"] = int(args["repeat"])
     tally = {"document": sha256, "reader": reader.name, "pages": len(pages), "read": 0, "replayed": 0, "failed": 0,
              "old_hits": 0, "old_equal": 0, "seconds": 0.0}
     with tempfile.TemporaryDirectory() as td:
