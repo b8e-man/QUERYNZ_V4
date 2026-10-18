@@ -159,7 +159,7 @@ Then tag the second commit as the frozen version, record the tag in `docs/baseli
 - [x] `docs/baseline.md` exists and its differences from this plan are listed. DONE 18 October (node1 down: its half re-measured when it returns).
 - [ ] The carve-out is named and watched, every other old job is either still collecting or stopped with proof, a new declaration has reached the public site with only the carve-out running, and the daily release has run green since.
 - [ ] The old repository is tagged, with NZME out of its news capture.
-- [ ] The watcher for the frozen product is running and has raised a test alarm that reached Arthur.
+- [x] The watcher for the frozen product is running and has raised a test alarm that reached Arthur. DONE 18 October: `qv4-checks-board` 07:30 and `qv4-checks-heartbeat` 09:00/21:00 on node2; the test alarm sent again at 14:1x on 18 October reached Arthur, confirmed in session.
 - [x] Every contract has a document and a passing test, and the shared machinery in `support/` passes its carried tests. DONE 18 October (eleven contracts in docs/contracts/; fetch gate, landing, reader and model client in support/ with 599 tests green).
 - [x] The thin slice matches the frozen site's totals for the same returns, or each difference has a card. DONE 18 October (22 of 22 sample returns equal; on the full load 23 party-years equal and the one difference, Labour 2020 original against amendment, is carded).
 - [x] The reference material is in place and the lessons index builds. DONE 18 October (corrections kept outside git until they have a private home).
