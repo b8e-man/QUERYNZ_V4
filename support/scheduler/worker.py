@@ -288,7 +288,7 @@ class Worker:
 
         res = runner.run(self._argv(jt, [piece["key"]] if piece else []), deadline_s=jt.needs.deadline_s,
                          ceiling_mb=runner.ceiling_for(jt.memory_gb), query_timeout_s=jt.needs.query_timeout_s,
-                         env=self._env(r, run_id, piece), cwd=REPO, tick=tick, log=self.log)
+                         env=self._env(r, run_id, piece), cwd=REPO, tick=tick, log=self.log, nice=jt.nice)
         runs.finish(run_id, outcome=res.outcome, error=res.error, peak_mb=res.peak_mb, declared_mb=int(jt.memory_gb * 1024),
                     note=res.stopped_for)
         q.run_end(conn, self.schema, run_id, outcome=res.outcome, exit_code=res.code, error=res.error, detail=res.stopped_for,

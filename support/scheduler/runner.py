@@ -105,7 +105,7 @@ def _stop(child: subprocess.Popen, grace: float = KILL_GRACE_S) -> None:
 
 def run(argv: list[str], *, deadline_s: float, ceiling_mb: int | None, query_timeout_s: int | None = None,
         env: dict | None = None, cwd: str | None = None, tick=None, popen=None, poll_s: float = POLL_S,
-        grace_s: float = KILL_GRACE_S, log=None) -> Result:
+        grace_s: float = KILL_GRACE_S, log=None, nice: int = 0) -> Result:
     """Run `argv` under the limits. `tick()` is called every poll and may
     return False to stop the child (the lease was lost, the worker is
     stopping)."""
@@ -117,7 +117,8 @@ def run(argv: list[str], *, deadline_s: float, ceiling_mb: int | None, query_tim
         full_env["PGOPTIONS"] = f"-c statement_timeout={int(query_timeout_s) * 1000}"
     t0 = time.monotonic()
     try:
-        child = (popen or subprocess.Popen)(argv, env=full_env, cwd=cwd)
+        kw = {"preexec_fn": (lambda: os.nice(nice))} if nice and popen is None else {}
+        child = (popen or subprocess.Popen)(argv, env=full_env, cwd=cwd, **kw)
     except (OSError, ValueError) as e:
         return Result(None, 0.0, 0, "failed", f"{type(e).__name__}: {str(e)[:300]}", None)
 

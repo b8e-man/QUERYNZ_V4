@@ -41,10 +41,17 @@ STOP_GRACE_S = 20             # the server hangs ~45 s after TERM; 20 s then KIL
 LOGS = os.path.join(LIVE, "scheduler", "servers")
 
 
-def server_binary(profile_programs: dict) -> str | None:
-    """The estate's own build first; the old build read-only until the
-    installer has put one beside it."""
-    return profile_programs.get("qv4-llama-server") or profile_programs.get("llama-server")
+def server_binary(profile_programs: dict, prefer: str = None) -> str | None:
+    """The estate's own program, as profiles.toml `[server] binary` says:
+    the build from source ("built"), or the copy of the old build ("copy").
+    One that is missing falls back to the other; the old build itself,
+    read-only, only until the installer has put either beside it."""
+    prefer = prefer or reg.server_binary_setting()
+    order = ("qv4-llama-server-built", "qv4-llama-server") if prefer == "built" else ("qv4-llama-server", "qv4-llama-server-built")
+    for name in order:
+        if profile_programs.get(name):
+            return profile_programs[name]
+    return profile_programs.get("llama-server")
 
 
 def server_argv(binary: str, prof: reg.Profile, card: int, port: int, models_dir: str = None) -> list[str]:
@@ -227,6 +234,7 @@ class Manager:
         logf = open(os.path.join(LOGS, f"{worker.box}-card{card}.log"), "ab")
         # the copied binary's RUNPATH still names the old build's folder; LD_LIBRARY_PATH
         # is searched first, so the estate's own libraries beside the binary are the ones loaded
+        # (the build from source carries $ORIGIN and needs no such help; `[server] binary` chooses)
         # ONE device filter only: HIP_VISIBLE_DEVICES and ROCR_VISIBLE_DEVICES set together filter
         # twice (index 1 of a one-card list is nothing) and the server falls back to the processor
         env = dict(os.environ, HIP_VISIBLE_DEVICES=str(card),
@@ -256,8 +264,8 @@ class Manager:
                       worker=worker.name)
         q.record_swap(worker.conn, worker.schema, worker.box, card, "load", d.why, from_profile=was.prof.name if was else None,
                       to_profile=prof.name, job=d.job_type, by_worker=worker.name, load_seconds=seconds, served_model=served,
-                      ok=True)
-        self.log(f"card {card}: {prof.name} ready in {seconds:.0f}s, serving {served!r}")
+                      ok=True, detail=f"server {binary}")
+        self.log(f"card {card}: {prof.name} ready in {seconds:.0f}s, serving {served!r} from {binary}")
         return True
 
     def _wait_ready(self, proc, port: int, prof: reg.Profile, timeout: float = LOAD_TIMEOUT_S) -> tuple[str | None, float]:

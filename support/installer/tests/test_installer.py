@@ -82,3 +82,34 @@ def test_the_profiles_weights_are_planned_by_file():
 def test_the_shipped_units_all_carry_the_prefix():
     src = inst.unit_sources()
     assert "qv4-worker@.service" in src and all(n.startswith("qv4-") for n in src)
+
+
+def test_a_timer_whose_job_is_on_the_queues_clock_is_superseded_not_enabled(tmp_path):
+    """Step 2.12: the founding timers move into the catalogue; the installer
+    disables and removes the timer, hands the clock over, keeps the service
+    unit for a hand run, and never enables that timer again."""
+    repo = fake_repo(tmp_path)
+    (tmp_path / "repo" / "checks" / "jobs" / "qv4-b.service").write_text("[Service]\nExecStart=/bin/true\n")
+    (tmp_path / "repo" / "checks" / "jobs" / "qv4-b.timer").write_text("[Timer]\nOnCalendar=daily\n")
+    sched = tmp_path / "repo" / "support" / "scheduler"
+    (sched / "jobs.toml").write_text('version = 1\n[jobs.qv4-b]\nneeds = "processor"\nmemory_gb = 0.1\ndeadline_s = 60\n'
+                                     'query_timeout_s = 10\npriority = 1\ncommand = ["true"]\nat_utc = "18:30"\n')
+    unit_dir = tmp_path / "units"
+    unit_dir.mkdir()
+    (unit_dir / "qv4-b.timer").write_text("[Timer]\nOnCalendar=daily\n")      # the founding session's timer, live
+    assert inst.timetabled_jobs(repo) == {"qv4-b"}
+    plan = {p["unit"]: p["action"] for p in inst.plan_units(repo, str(unit_dir))}
+    assert plan["qv4-b.timer"] == "superseded" and plan["qv4-b.service"] == "install" and plan["qv4-a.timer"] == "install"
+    calls, handed = [], []
+    done = inst.install_units(repo, str(unit_dir), box="node2", sh=lambda c, **k: (calls.append(c), (0, ""))[1],
+                              handover=lambda job, timer: (handed.append((job, timer)), "2026-10-18 18:30+00")[1])
+    assert ["systemctl", "--user", "disable", "--now", "qv4-b.timer"] in calls
+    assert not (unit_dir / "qv4-b.timer").exists() and (unit_dir / "qv4-b.service").exists()
+    assert handed == [("qv4-b", "qv4-b.timer")]
+    assert [c[-1] for c in calls if c[2] == "enable"] == ["qv4-a.timer", "qv4-worker@node2.service"]
+    assert {d["unit"]: d["action"] for d in done}["qv4-b.timer"] == "superseded"
+    # a second install: nothing to disable, nothing to hand over, still never enabled
+    calls.clear(); handed.clear()
+    inst.install_units(repo, str(unit_dir), box="node2", sh=lambda c, **k: (calls.append(c), (0, ""))[1],
+                       handover=lambda job, timer: handed.append((job, timer)))
+    assert handed == [] and "qv4-b.timer" not in [c[-1] for c in calls]

@@ -1,31 +1,43 @@
 # scheduler: where step 2 stands
 
-Session 1 closed 18 October 2026 ~19:10 NZDT on node2. Branch
-`session/scheduler`, merge request `scheduler-1` raised. Scope
-`support/scheduler`, `support/installer`, `support/profiles` (untouched).
+Session 2 open, 18 October 2026, on node2 from the working copy
+`/home/user/querynzv4-work/scheduler` (branch `session/scheduler`, at origin/main
+18f1897 plus this session). Scope `support/scheduler`, `support/installer`,
+`support/profiles` (untouched).
 
-## Done (proven on node2, card 1 only; card 0 and the carve-out never touched)
+## Done this session (code, tests green on the fast tier)
 
-- Old fleet planner, registry, run ledger carried with their tests; rules 6–9; the catalogue (`jobs.toml`) and the four profiles (`profiles.toml`).
-- The queue in `querynz_v4.scheduler` (7 tables, readable by the session reader): leases, fencing tokens, pieces, the timetable in the queue, standing counts, demands, swaps, runs.
-- The probe, the runner (PSS ceiling, deadline, query limit, peak), the worker, the card manager, the installer, the re-read job type. 139 tests (33 slow, on the sample database).
-- Live record, 18 Oct 18:47–19:00: `qv4-worker@node2` and `@node2-b` registered probed profiles; text-reader, embedding, page-reader and review loaded on card 1 (2–4 s each), every swap ledgered with the served model read back; ten published returns re-read by the text-reader, all ten EQUAL to the published totals; a frozen worker's lease lapsed and the other finished the job (3+7 pieces), the silence alarm reached ntfy once; a deliberate stop handed a job over with no alarm; the two-minute timetable ran on the survivor; the memory ceiling, the program gate and the peak flag proven on the sample database.
+- The model server built from source beside the copy: `python -m support.installer build`
+  clones `/home/user/llama.cpp` (read only) into `<live>/llama/src`, builds
+  `llama-server` for the probed card architecture (gfx1201, rocminfo) with the
+  old build's flags, and puts it with its libraries in `<live>/llama/built/bin`
+  with `VERSION.json` (commit, flags, hash, runpath). Built 18 Oct: 10276
+  (6ea215d17), self-contained (`$ORIGIN`); the copy is not (it loads the old
+  build tree's libraries; the card manager's LD_LIBRARY_PATH covers it). Which
+  one the cards run is `profiles.toml [server] binary` ("copy" for now).
+- The four founding timers in the catalogue (`qv4-checks-board` 18:30 UTC,
+  `qv4-checks-heartbeat` 20:00 and 08:00, `qv4-full-tier` 15:30, `qv4-offsite-dump`
+  14:05), with their units' deadlines, a query limit each, `nice = 10`, and
+  `requires` for the dump. `at_utc` takes a list; the queue has `handover()`;
+  the installer supersedes a timer whose job is timetabled (disable, remove,
+  hand the clock over, keep the service unit for a hand run).
 
-## Done-when, step 2
+## Live changes intended (ticked when done)
 
-Every item ticked on the one-box rehearsal except: the real two-box proof (owed when a second box exists, the queue's default); "the text-reader reproduces a reading the old estate holds" is proven against the published totals (10 of 10), not the old estate's stored model readings.
+- [ ] On node2, from this working copy: supersede the four timers through
+      the installer (`apply --units --repo <wc> --only` the four `.timer`
+      names), which hands each clock over so nothing runs twice.
+- [ ] Place `qv4-worker@.service` from this working copy and restart
+      `qv4-worker@node2` (the rehearsal pattern; the merge's install restores
+      the shipped unit).
+- [ ] Hand-run the four jobs through the queue (ruling 56) and read their
+      run records: outcome, peak against declared.
+- [ ] `[server] binary = "built"`, then the embedding profile loaded on card
+      1 by the rehearsal job, served model read back, the ledger naming the
+      built server.
 
-## Half-done / not built
+## Not yet / next
 
-- `qv4-embed` has no piece command: the model client lacks `embed()` (carded). `qv4-questions` (ruling 22's default hold) is in the catalogue, disabled until a product is served.
-- The four founding timers still run on systemd's clock (carded).
-- The worker unit on node2 was placed from THIS working copy (rehearsal); the merge's `python -m support.installer apply --units` restores the shipped unit, then `systemctl --user restart qv4-worker@node2.service`.
-
-## Live changes made (all ticked)
-
-- [x] schema `scheduler` in `querynz_v4`; [x] model server copied to `<live>/llama/bin` (old build read only); [x] `qv4-worker@.service` placed, `qv4-worker@node2` enabled and running; `qv4-worker@node2-b` stopped at the close (queue item: a second worker on node2).
-- Two alarms reached the phone: `qv4-reread failed` at 18:41 (a server I had stopped under a run; not a fault of the estate) and `worker node2-b silent` at 18:55 (the proof).
-
-## Next
-
-Session 2, if any: the founding timers into the queue; `embed()` then `qv4-embed`; the questions hold when a product is served; the model server built from source beside the copy.
+- `embed()` in the model client (a contract change, the integrator's) and
+  `qv4-embed`'s piece command.
+- Merge requests, lessons, cards, the end-of-session note.

@@ -312,10 +312,33 @@ def slot_for(jt: reg.JobType, now: dt.datetime) -> dt.datetime | None:
         epoch = int(now.timestamp()) // jt.every_s * jt.every_s
         return dt.datetime.fromtimestamp(epoch, dt.timezone.utc)
     if jt.at_utc:
-        h, m = (int(x) for x in jt.at_utc.split(":"))
-        today = now.replace(hour=h, minute=m, second=0, microsecond=0)
-        return today if now >= today else today - dt.timedelta(days=1)
+        # the latest of the day's times the clock has passed; before the first, yesterday's last
+        times = sorted(tuple(int(x) for x in t.split(":")) for t in jt.at_utc)
+        passed = [now.replace(hour=h, minute=m, second=0, microsecond=0) for h, m in times
+                  if now >= now.replace(hour=h, minute=m, second=0, microsecond=0)]
+        if passed:
+            return passed[-1]
+        h, m = times[-1]
+        return now.replace(hour=h, minute=m, second=0, microsecond=0) - dt.timedelta(days=1)
     return None
+
+
+def handover(conn, schema: str, job: str, *, registry: dict = None, now=None, by: str = "handover") -> dt.datetime | None:
+    """A job moving from a timer on one box onto the queue's clock (2.12):
+    the slot due at `now` is marked served, because the timer served it, so
+    the queue's first instance is the NEXT slot and nothing runs twice at
+    the handover. Returns the slot marked, None for a job with no timetable."""
+    registry = registry if registry is not None else reg.load()
+    jt = registry.get(job)
+    if jt is None:
+        return None
+    slot = slot_for(jt, _now(now))
+    if slot is None:
+        return None
+    conn.execute(f"INSERT INTO {schema}.timetable (job, last_slot, last_by) VALUES (%s, %s, %s) "
+                 f"ON CONFLICT (job) DO UPDATE SET last_slot = GREATEST({schema}.timetable.last_slot, EXCLUDED.last_slot), "
+                 f"last_by = EXCLUDED.last_by", (job, slot, by))
+    return slot
 
 
 def enqueue_due(conn, schema: str, registry: dict = None, *, now=None, created_by: str = "timetable") -> list[int]:
