@@ -1,4 +1,4 @@
-A model's own GGUF is not always the one that loads: read the conversion's card before downloading, because TeleOCR's says "not for llama.cpp", the loadable conversion sits under the model's former name, and that one needs a patched server whose patch lives in a shared library, not the server binary.
+A model's own GGUF is not always the one that loads: read the conversion's card, because TeleOCR's says "not for llama.cpp", the loadable one sits under the model's former name, and it needs a server patched in a shared library.
 area: models, the model server, the trial, the installer
 paid-for-by: 2026-10-18, trial session, step 3.1
 

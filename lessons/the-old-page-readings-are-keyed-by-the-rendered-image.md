@@ -1,4 +1,4 @@
-The old estate's page readings are keyed by the sha256 of the rendered page image, not the document: render the same bytes with the same renderer at the same dots per inch (200) and the old reading joins by hash and page; a reading keyed by file name joins nothing.
+The old estate's page readings are keyed by the sha256 of the rendered page image, not the document: render the same bytes with the same renderer at 200 dots per inch and the old reading joins by hash and page; a file name joins nothing.
 area: reading documents, page readers, the trial, re-reads
 paid-for-by: 2026-10-18, trial session, step 3.5
 

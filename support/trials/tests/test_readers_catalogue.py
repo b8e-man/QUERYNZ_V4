@@ -39,9 +39,14 @@ def test_messages_follow_each_models_own_example():
 
 def test_the_merged_catalogue_passes():
     assert catalogue.problems() == []
-    p = catalogue.patch()
-    assert "+[profiles.trial-ovisocr2]" in p and "+[jobs.qv4-trial-read-glm-ocr]" in p
-    assert "qv4-trial-urgent-page" in p and 'class = "waiting"' in p
+    jp, pp = catalogue.merged()
+    j, p = open(jp, encoding="utf-8").read(), open(pp, encoding="utf-8").read()
+    assert "[profiles.trial-ovisocr2]" in p and "[jobs.qv4-trial-read-glm-ocr]" in j
+    assert "qv4-trial-urgent-page" in j and 'class = "waiting"' in j
+    # Before the integrator applies the additions the patch carries them; once
+    # the shipped catalogue holds them (18 October) the patch is empty.
+    patch = catalogue.patch()
+    assert patch == "" or "+[profiles.trial-ovisocr2]" in patch
 
 
 def test_a_piece_stores_a_reading_by_hash_page_model_settings_and_profile(tmp_path, monkeypatch):

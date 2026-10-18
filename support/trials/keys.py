@@ -171,7 +171,7 @@ def gold_confirmed(sha256: str, names: list = None) -> list[dict]:
 def declaration_key(data: bytes, chars: dict) -> dict | None:
     """The return's own printed total and parts from its text layer, where
     page 1 has one (the lane's declaration reader)."""
-    from registers.party_returns import declaration
+    from support.docread import declaration
     from support.docread import pages as pg
     if int(chars.get("1", chars.get(1, 0)) or 0) < pg.PAGE_TEXT_MIN:
         return None
