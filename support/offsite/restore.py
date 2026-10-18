@@ -198,22 +198,25 @@ def restore_database(database: str, man: dict, src: Source, passphrase: str, roo
                 rec["skipped"].append(f"{piece}: kept on the box only, not in the bucket")
                 continue
             schema, table = piece.split(":", 1)[1].split(".", 1)
-            gpg, zstd = C.opened(src.fetch(v["stamp"], v["object"]), passphrase)
-            h, rows, n = hashlib.sha256(), 0, 0
+            if v.get("plain_bytes", 0) > 100e6:
+                log(f"    {piece}: {v['plain_bytes'] / 1e6:,.0f} MB")
             with conn.cursor().copy(f"COPY {C.qident(schema)}.{C.qident(table)} FROM STDIN") as cp:
-                for chunk in iter(lambda: zstd.stdout.read(C.CHUNK), b""):
-                    h.update(chunk)
-                    rows += chunk.count(b"\n")
-                    n += len(chunk)
-                    cp.write(chunk)
-            if zstd.wait() or gpg.wait():
-                raise RuntimeError(f"{piece}: object does not open")
-            if h.hexdigest() != v["sha256"] or rows != v["rows"]:
-                rec["in_bad"].append(piece)
+                for seg in segments(v):          # a big table's ranges, in order
+                    gpg, zstd = C.opened(src.fetch(seg["stamp"], seg["object"]), passphrase)
+                    h, rows, n = hashlib.sha256(), 0, 0
+                    for chunk in iter(lambda: zstd.stdout.read(C.CHUNK), b""):
+                        h.update(chunk)
+                        rows += chunk.count(b"\n")
+                        n += len(chunk)
+                        cp.write(chunk)
+                    if zstd.wait() or gpg.wait():
+                        raise RuntimeError(f"{piece}: object does not open")
+                    if h.hexdigest() != seg["sha256"] or rows != seg["rows"]:
+                        rec["in_bad"].append(piece)
+                    rec["rows"] += rows
+                    rec["plain_bytes"] += n
             loaded[piece] = (schema, table)
             rec["tables"] += 1
-            rec["rows"] += rows
-            rec["plain_bytes"] += n
     rec["seconds"]["rows_in"] = round(time.monotonic() - t, 1)
 
     t = time.monotonic()
@@ -230,17 +233,59 @@ def restore_database(database: str, man: dict, src: Source, passphrase: str, roo
         for stmt in C.SESSION_SQL.split("; "):
             cur.execute(stmt)
         for piece, (schema, table) in sorted(loaded.items()):
-            h, rows = hashlib.sha256(), 0
+            split = Split(segments(mine[piece]))
             with cur.copy(f"COPY {C.qident(schema)}.{C.qident(table)} TO STDOUT") as cp:
                 for chunk in cp:
-                    h.update(chunk)
-                    rows += bytes(chunk).count(b"\n")
-            if h.hexdigest() != mine[piece]["sha256"] or rows != mine[piece]["rows"]:
+                    split.feed(bytes(chunk))
+            if not split.equal():
                 rec["out_bad"].append(piece)
     rec["seconds"]["check"] = round(time.monotonic() - t, 1)
     rec["equal"] = rec["tables"] - len(set(rec["in_bad"]) | set(rec["out_bad"]))
     log(f"  {database}: {rec['tables']} tables, {rec['rows']:,} rows, {rec['equal']} equal; {rec['seconds']}")
     return rec
+
+
+def segments(entry: dict) -> list:
+    """The objects that hold one table, in load order: its page ranges, or itself."""
+    return entry.get("chunks") or [entry]
+
+
+class Split:
+    """Reads a table's text back and checks it segment by segment: each
+    segment is the next `rows` lines, and must have the recorded sha256. A
+    table copied whole is one segment."""
+
+    def __init__(self, segs: list):
+        self.segs, self.k, self.h, self.left, self.bad, self.extra = segs, 0, hashlib.sha256(), None, 0, 0
+        self._start()
+
+    def _start(self):
+        while self.k < len(self.segs) and self.segs[self.k]["rows"] == 0:
+            self.bad += hashlib.sha256().hexdigest() != self.segs[self.k]["sha256"]
+            self.k += 1
+        self.h, self.left = hashlib.sha256(), (self.segs[self.k]["rows"] if self.k < len(self.segs) else None)
+
+    def feed(self, b: bytes) -> None:
+        while b:
+            if self.left is None:
+                self.extra += b.count(b"\n")
+                return
+            lines = b.count(b"\n")
+            if lines < self.left:
+                self.left -= lines
+                self.h.update(b)
+                return
+            i = -1
+            for _ in range(self.left):
+                i = b.find(b"\n", i + 1)
+            self.h.update(b[:i + 1])
+            self.bad += self.h.hexdigest() != self.segs[self.k]["sha256"]
+            self.k += 1
+            self._start()
+            b = b[i + 1:]
+
+    def equal(self) -> bool:
+        return self.bad == 0 and self.extra == 0 and self.k == len(self.segs)
 
 
 OWNED_SEQUENCES_SQL = """
@@ -324,20 +369,25 @@ def rehearse(source: str = "bucket", databases=None, trees=None, keep: bool = Fa
     t = time.monotonic()
     start_server(root)
     rec["server_s"] = round(time.monotonic() - t, 1)
+    failed = False
     try:
         for database in (list(man["databases"]) if databases is None else databases):
             rec["databases"][database] = restore_database(database, man, src, passphrase, root, jobs, log)
         for tree in (list(man["trees"]) if trees is None else trees):
             rec["trees"][tree] = restore_tree(tree, man["trees"][tree], src, passphrase, root, log)
+    except Exception as exc:
+        failed = True
+        rec["why"] = f"{type(exc).__name__}: {exc}"[:500]
+        raise
     finally:
         rec["seconds"] = round(time.monotonic() - started, 1)
         rec["fetched_bytes"], rec["fetch_s"] = src.fetched_bytes, round(src.fetch_s, 1)
         dbs, trs = rec["databases"].values(), rec["trees"].values()
-        rec["equal"] = (bool(dbs) or bool(trs)) and all(
-            d["equal"] == d["tables"] and not d["skipped"] for d in dbs) and all(t["bad"] == 0 for t in trs)
+        rec["equal"] = not failed and (bool(dbs) or bool(trs)) and all(
+            d["equal"] == d["tables"] for d in dbs) and all(t["bad"] == 0 for t in trs)
         rec["finished"] = dt.datetime.now().astimezone().isoformat(timespec="seconds")
         C.write_json(RECORD, rec)
-        if not keep:
+        if not keep and not failed:     # a failed rehearsal keeps its server, log and downloads for the next look
             stop_server()
             for sub in ("pgdata", "trees", "work", "sock"):
                 path = os.path.join(root, sub)

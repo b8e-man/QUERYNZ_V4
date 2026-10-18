@@ -165,3 +165,80 @@ def test_restore_tree_refuses_paths_outside(tmp_path, path):
     src = R.Source("local", str(tmp_path / "w"), spool=str(spool))
     rec = R.restore_tree("t", {"files": {path: [1, 0, "x", "S"]}}, src, "pw", str(tmp_path / "b"), log=lambda *a: None)
     assert rec["bad"] == 1 and not (tmp_path / "escape.txt").exists()
+
+
+class PagedTable:
+    """A fake cursor over one table: `pages[p]` is the text of heap page p,
+    served for `COPY (SELECT ... WHERE ctid >= '(lo,0)' [AND ctid < '(hi,0)']) TO STDOUT`."""
+
+    def __init__(self, pages):
+        self.pages, self.reads = pages, []
+
+    def copy(self, sql):
+        import contextlib
+        import re
+        lo = int(re.search(r"ctid >= '\((\d+),0\)'", sql).group(1))
+        m = re.search(r"ctid < '\((\d+),0\)'", sql)
+        hi = int(m.group(1)) if m else len(self.pages)
+        self.reads.append((lo, hi))
+        return contextlib.nullcontext(iter([b"".join(self.pages[lo:hi])]))
+
+
+def chunk_run(tmp_path, now, prev, full=False):
+    r = C.Run.__new__(C.Run)
+    r.now, r.prev, r.spool, r.env, r.log = now, prev, str(tmp_path), ENV, (lambda *a: None)
+    r.man = {"stamp": now.strftime("%Y%m%dT%H%M%S"), "kind": "full" if full else "nightly"}
+    return r
+
+
+def test_a_big_table_sends_only_the_ranges_that_changed(tmp_path, monkeypatch):
+    monkeypatch.setattr(C, "CHUNK_TARGET", 10)        # 2 pages of 5 bytes per range
+    monkeypatch.setattr(C, "CHUNK_MIN_PAGES", 1)
+    pages = [f"r{p}\tx\n".encode() for p in range(5)]
+    first = chunk_run(tmp_path, MONDAY, None).copy_chunked(PagedTable(pages), "d:s.t", "s", "t", 5, 25, "first copy")
+    assert [(c["lo"], c["hi"]) for c in first["chunks"]] == [(0, 2), (2, 4), (4, None)]
+    assert first["sent_chunks"] == 3 and first["rows"] == 5
+
+    pages[4] = b"r4\tchanged\n"
+    pages.append(b"r5\tnew\n")                        # the table grew a page
+    prev = {"pieces": {"d:s.t": first}}
+    night = chunk_run(tmp_path, MONDAY + dt.timedelta(days=1), prev)
+    second = night.copy_chunked(PagedTable(pages), "d:s.t", "s", "t", 6, 30, "changed")
+    assert second["sent_chunks"] == 1 and second["rows"] == 6
+    assert [c["stamp"] for c in second["chunks"]] == [first["chunks"][0]["stamp"]] * 2 + [night.stamp]
+    assert C.objects_of(second, night.stamp) == [second["chunks"][2]["object"]]
+
+    # the restore's check: the table read back in load order, range by range
+    split = R.Split(R.segments(second))
+    split.feed(b"".join(pages)[:7])
+    split.feed(b"".join(pages)[7:])
+    assert split.equal()
+    bad = R.Split(R.segments(second))
+    bad.feed(b"".join(pages).replace(b"new", b"NEW"))
+    assert not bad.equal()
+    short = R.Split(R.segments(second))
+    short.feed(b"".join(pages[:-1]))
+    assert not short.equal()
+
+
+def test_a_full_copy_sends_every_range(tmp_path, monkeypatch):
+    monkeypatch.setattr(C, "CHUNK_TARGET", 10)
+    monkeypatch.setattr(C, "CHUNK_MIN_PAGES", 1)
+    pages = [f"r{p}\tx\n".encode() for p in range(4)]
+    first = chunk_run(tmp_path, MONDAY, None).copy_chunked(PagedTable(pages), "d:s.t", "s", "t", 4, 20, "first copy")
+    full = chunk_run(tmp_path, SUNDAY + dt.timedelta(days=7), {"pieces": {"d:s.t": first}}, full=True)
+    again = full.copy_chunked(PagedTable(pages), "d:s.t", "s", "t", 4, 20, "weekly full")
+    assert again["sent_chunks"] == len(again["chunks"]) == 2 and again["sha256"] == first["sha256"]
+
+
+def test_split_handles_empty_ranges_and_a_whole_table():
+    import hashlib
+    e = hashlib.sha256().hexdigest()
+    a = hashlib.sha256(b"1\n2\n").hexdigest()
+    s = R.Split([{"rows": 0, "sha256": e}, {"rows": 2, "sha256": a}, {"rows": 0, "sha256": e}])
+    s.feed(b"1\n2\n")
+    assert s.equal()
+    whole = R.Split(R.segments({"rows": 2, "sha256": a}))
+    whole.feed(b"1\n")
+    whole.feed(b"2\n")
+    assert whole.equal()

@@ -12,7 +12,9 @@ scanned in load order), so equality is one hash per table, exact.
 
 Nightly, a table is copied only if its write counters or its file node
 moved since the copy the newest manifest names; a tree sends only files
-whose size or time changed. Each run writes a complete manifest: for every
+whose size or time changed. A table over 1 GB is kept as ranges of heap
+pages (`copy_chunked`), and a night sends only the ranges whose text hash
+changed. Each run writes a complete manifest: for every
 piece, the stamp whose object holds its current copy. A restore needs the
 newest manifest and nothing else; there is no chain to replay.
 
@@ -49,6 +51,13 @@ RESUME_HOURS = 20
 STATEMENT_S = 7200
 CHUNK = 1 << 20
 REPEATABLE_READ = 3   # psycopg.IsolationLevel.REPEATABLE_READ, without importing the driver here
+# A table bigger than this on disk is cut into ranges of heap pages, each
+# about CHUNK_TARGET of text, and a night sends only the ranges whose text
+# changed: the news backlog's 20 GB of articles gains a few thousand rows a
+# day, and as one piece it went out whole every night (7 GB sealed).
+CHUNK_MIN_BYTES = 1_000_000_000
+CHUNK_TARGET = 256_000_000
+CHUNK_MIN_PAGES = 1024
 
 # Both ends of a table's text must render values the same way.
 SESSION_SQL = ("SET TimeZone = 'UTC'; SET DateStyle = 'ISO, YMD'; SET IntervalStyle = 'postgres'; "
@@ -58,7 +67,8 @@ SESSION_SQL = ("SET TimeZone = 'UTC'; SET DateStyle = 'ISO, YMD'; SET IntervalSt
 TABLES_SQL = """
 SELECT n.nspname, c.relname, c.relfilenode::text,
        coalesce(s.n_tup_ins, -1), coalesce(s.n_tup_upd, -1), coalesce(s.n_tup_del, -1),
-       pg_table_size(c.oid)
+       pg_table_size(c.oid), pg_relation_size(c.oid) / 8192,
+       EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attgenerated <> '')
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   LEFT JOIN pg_stat_all_tables s ON s.relid = c.oid
  WHERE c.relkind = 'r' AND n.nspname NOT IN ('pg_catalog', 'information_schema')
@@ -245,7 +255,7 @@ class Run:
                 cur.execute(stmt)
             if "statement_timeout" not in os.environ.get("PGOPTIONS", ""):
                 cur.execute(f"SET statement_timeout = '{STATEMENT_S}s'")
-            for schema, table, node, ins, upd, dele, size in tables:
+            for schema, table, node, ins, upd, dele, size, pages, generated in tables:
                 piece = P.table_piece(database, schema, table)
                 if piece in done and done[piece].get("stamp") == self.stamp:
                     continue
@@ -258,19 +268,25 @@ class Run:
                 if not reason:
                     done[piece] = dict(self.prev["pieces"][piece], sig=sig)
                     continue
-                name = object_name(piece) + ".copy.zst.gpg"
                 t0 = time.monotonic()
-                out = Sealed(self.object_path(self.stamp, name), self.env["OFFSITE_PASSPHRASE"])
-                try:
-                    with cur.copy(f"COPY {qident(schema)}.{qident(table)} TO STDOUT") as cp:
-                        for chunk in cp:
-                            out.write(chunk)
-                finally:
-                    meta = out.close()
-                done[piece] = {"fate": fate, "sig": sig, "stamp": self.stamp, "object": name, "why": reason,
-                               "seconds": round(time.monotonic() - t0, 1), **meta}
-                self.log(f"  {piece}: {meta['rows']:,} rows, {meta['plain_bytes'] / 1e6:,.1f} MB -> "
-                         f"{meta['bytes'] / 1e6:,.1f} MB ({reason})")
+                if size >= CHUNK_MIN_BYTES and not conf["frozen"] and not generated:
+                    entry = self.copy_chunked(cur, piece, schema, table, pages, size, reason)
+                else:
+                    name = object_name(piece) + ".copy.zst.gpg"
+                    out = Sealed(self.object_path(self.stamp, name), self.env["OFFSITE_PASSPHRASE"])
+                    try:
+                        with cur.copy(f"COPY {qident(schema)}.{qident(table)} TO STDOUT") as cp:
+                            for chunk in cp:
+                                out.write(chunk)
+                    finally:
+                        meta = out.close()
+                    entry = {"object": name, **meta}
+                done[piece] = {"fate": fate, "sig": sig, "stamp": self.stamp, "why": reason,
+                               "seconds": round(time.monotonic() - t0, 1), **entry}
+                e = done[piece]
+                self.log(f"  {piece}: {e['rows']:,} rows, {e['plain_bytes'] / 1e6:,.1f} MB -> "
+                         f"{e['bytes'] / 1e6:,.1f} MB ({reason}" +
+                         (f", {e['sent_chunks']} of {len(e['chunks'])} ranges)" if "chunks" in e else ")"))
                 self.save_progress()
             seqs = self.sequences(cur)
             conn.commit()
@@ -280,11 +296,62 @@ class Run:
         self.dump_schema(database, login, schema_name)
         for piece, v in sorted(done.items()):
             if piece.startswith(database + ":") and v.get("stamp") == self.stamp and v["fate"] == P.SEND:
-                self.send(v["object"])
+                for obj in objects_of(v, self.stamp):
+                    self.send(obj)
         self.send(schema_name)
         self.man["databases"][database] = {"epoch": epoch, "frozen": conf["frozen"], "schema": schema_name,
                                            "sequences": seqs, "done": True, "stamp": self.stamp}
         self.save_progress()
+
+    def copy_chunked(self, cur, piece: str, schema: str, table: str, pages: int, size: int, reason: str) -> dict:
+        """A big table as ranges of heap pages. Each range's text is hashed
+        first; only a range whose hash or bounds differ from the previous
+        copy's (or every range, at a full, first or restarted copy) is read
+        again and sealed. The ranges in order are the whole table's text, so
+        the whole-table hash is the hash of their concatenation, and a
+        restore that loads them in order reads back the same bytes."""
+        old = (self.prev or {}).get("pieces", {}).get(piece, {})
+        old_chunks = old.get("chunks") or []
+        ppc = old.get("pages_per_chunk") or 0
+        if not ppc:
+            per_page = max(1, old.get("plain_bytes") or size) / max(1, pages)
+            ppc = max(CHUNK_MIN_PAGES, int(CHUNK_TARGET / per_page))
+        n = max(1, -(-pages // ppc))
+        resend_all = reason != "changed" or not old_chunks
+        whole, rows, plain, sealed_bytes, sent, chunks = hashlib.sha256(), 0, 0, 0, 0, []
+        base = f"COPY (SELECT * FROM {qident(schema)}.{qident(table)} WHERE ctid >= '({{lo}},0)'::tid{{hi}}) TO STDOUT"
+        for k in range(n):
+            lo, hi = k * ppc, ((k + 1) * ppc if k < n - 1 else None)
+            sql = base.format(lo=lo, hi="" if hi is None else f" AND ctid < '({hi},0)'::tid")
+            prev = old_chunks[k] if k < len(old_chunks) else None
+            if not resend_all and prev and prev["lo"] == lo and prev["hi"] == hi:
+                h, r, b = hashlib.sha256(), 0, 0
+                with cur.copy(sql) as cp:
+                    for part in cp:
+                        part = bytes(part)
+                        h.update(part)
+                        r += part.count(b"\n")
+                        b += len(part)
+                if h.hexdigest() == prev["sha256"]:
+                    chunks.append(prev)
+                    whole.update(h.digest())
+                    rows, plain = rows + r, plain + b
+                    continue
+            name = object_name(piece) + f".r{k:04d}.copy.zst.gpg"
+            out = Sealed(self.object_path(self.stamp, name), self.env["OFFSITE_PASSPHRASE"])
+            try:
+                with cur.copy(sql) as cp:
+                    for part in cp:
+                        out.write(part)
+            finally:
+                meta = out.close()
+            chunks.append({"lo": lo, "hi": hi, "stamp": self.stamp, "object": name, **meta})
+            whole.update(bytes.fromhex(meta["sha256"]))
+            rows, plain, sealed_bytes, sent = rows + meta["rows"], plain + meta["plain_bytes"], sealed_bytes + meta["bytes"], sent + 1
+        # the whole-table hash is over the ranges' hashes in order (a
+        # restore recomputes it the same way from the table it loaded)
+        return {"chunks": chunks, "pages_per_chunk": ppc, "sha256": whole.hexdigest(), "rows": rows,
+                "plain_bytes": plain, "bytes": sealed_bytes, "sent_chunks": sent}
 
     def sequences(self, cur) -> dict:
         """Each sequence's value where the login may read it, else None (a
@@ -371,6 +438,13 @@ class Run:
 
 # ── helpers ─────────────────────────────────────────────────────────────
 
+def objects_of(entry: dict, stamp: str) -> list:
+    """The objects of one table piece written by run `stamp`."""
+    if "chunks" in entry:
+        return [c["object"] for c in entry["chunks"] if c["stamp"] == stamp]
+    return [entry["object"]] if entry.get("stamp") == stamp and entry.get("object") else []
+
+
 def stamp_time(stamp: str) -> dt.datetime:
     return dt.datetime.strptime(stamp, "%Y%m%dT%H%M%S").astimezone()
 
@@ -453,7 +527,7 @@ def plan(prev_path: str = None, log=print) -> int:
         with db.connect(conf["login"], database) as conn:
             rows = conn.execute(TABLES_SQL).fetchall()
         fates = {}
-        for schema, table, node, ins, upd, dele, size in rows:
+        for schema, table, node, ins, upd, dele, size, _pages, _gen in rows:
             piece = P.table_piece(database, schema, table)
             fate, _ = P.fate(database, schema, table)
             old = prev.get("pieces", {}).get(piece, {})
