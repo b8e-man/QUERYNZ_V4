@@ -32,8 +32,9 @@ alarm 18 October).
 ## Next
 
 Step 1 is closed, bar the positive half of 1.4 (a new declaration listed,
-then watched through the carve-out). The next founding session reads
-`docs/PLAN.md` for what follows step 1.
+then watched through the carve-out). Step 2, the scheduler, starts from the
+`scheduler` brief in `docs/briefs/next.md` (one box: the queue's default);
+the integrator role begins (its brief is there too).
 
 ## Half-done
 
