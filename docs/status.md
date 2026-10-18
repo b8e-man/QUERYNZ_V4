@@ -3,8 +3,8 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-18, 23:00. **Step:** 2 closed on one box; 3 running (pass one
-on card 1); tracks B, E begun. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-19, 07:15. **Step:** 2 closed on one box; 3 pass one done;
+tracks B, E restart from their working copies. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
@@ -27,19 +27,18 @@ address (test alarm 18 October).
   `qv4-trial-*` job types, GLM-OCR through the scheduler on 115 pages. The
   declaration reader moved to `support/docread` (imports run one way).
 
-## Running
+## Next (all three from `docs/briefs/next.md`)
 
-Pass one (GLM-OCR alone, job 54, 255 pieces, card 1) queued 22:50 by the
-integrator; the next trial session scores it (`docs/briefs/next.md`).
-
-## Next
-
+- Trial session 2: pass one (GLM-OCR alone, job 54, 255 of 255 ok, 22:50 to
+  ~03:00) waits to be scored; then the challengers.
 - Track E session 2 in its working copy: session 1's tree (both legal
   positions, both lanes, 32 tests) is in scratch, unmerged, because an agent
   of the founding session is fenced as the main checkout; 456 Tribunal
   orders and 52 Authority decisions are held by hash
   (`docs/merges/windowed-1-not-yet.md`).
-- Track B (offsite): running tonight as an agent; result pending.
+- Track B session 2 in its working copy: session 1 wrote nothing (same
+  fence); its measurements and design are in the brief, three decisions
+  queued (`docs/merges/offsite-1-not-started.md`).
 - The node1 setup card when Arthur powers node1. The positive half of 1.4
   waits for a new declaration. A fix session on `support/scheduler` for a
   per-profile server binary (TeleOCR's patched build).
