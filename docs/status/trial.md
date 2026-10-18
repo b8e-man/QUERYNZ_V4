@@ -10,9 +10,12 @@ Scope `support/trials`, `support/profiles`, `docs/trials`.
   TeleOCR as NaviDC-OCR Q8_0+f16 with projectors; GLM-OCR f16 (the Q8_0 in
   the models folder is hash-equal to the hub's); Chandra OCR 2 Q8_0+Q4_K_M
   with projectors; Infinity-Parser2-Pro Q8_0 (36.9 GB, larger than a card)
-  with projectors, its Q4_K_M made here by `models quantise` (see the
-  ledger for whether it has run). A patched server for TeleOCR built beside
-  the others: `<live>/llama/built-teleocr/` (PATCH.json).
+  with projectors (`models check` green on every file); its Q4_K_M made
+  here by `models quantise` (`--allow-requantize`; the ledger line says
+  twice-quantised; see the ledger for whether it finished). A patched
+  server for TeleOCR built beside the others: `<live>/llama/built-teleocr/`
+  (PATCH.json). Every conversion's architecture and projector type is one
+  the b10276 server knows (read from the files' metadata).
 - 3.2 the profiles and job types, as additions beside the trial's code
   (`support/trials/scheduler/`), checked on the merged catalogue; the
   patch is in merge request `trial-1`. The readers' own prompts and

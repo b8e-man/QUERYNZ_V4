@@ -267,7 +267,8 @@ def make_q4(src: str = INFINITY_Q8, dst: str = INFINITY_Q4, kind: str = "Q4_K_M"
         return {"path": dst, "ok": False, "why": f"source missing: {src}"}
     t0 = time.monotonic()
     log(f"models: quantising {os.path.basename(src)} → {kind} (from Q8_0; twice-quantised)")
-    r = subprocess.run([quantiser, src, dst + ".part", kind], capture_output=True, text=True, timeout=14400)
+    # the quantiser refuses to requantise a Q8_0 unless told to; the ledger says this file is twice-quantised
+    r = subprocess.run([quantiser, "--allow-requantize", src, dst + ".part", kind], capture_output=True, text=True, timeout=14400)
     ok = r.returncode == 0 and os.path.exists(dst + ".part")
     if ok:
         os.replace(dst + ".part", dst)
@@ -288,7 +289,7 @@ def check(root: str = None) -> list[str]:
             out.append(r["error"])
         elif not r["held"]:
             out.append(f"{r['model']}: {r['file']} missing")
-        elif r["role"] != "held" and not r["verified"]:
+        elif r["role"] not in ("held", "notes") and not r["verified"]:      # a notes file has no LFS hash on the hub
             out.append(f"{r['model']}: {r['file']} held but not verified against the hub")
     return out
 
