@@ -81,8 +81,9 @@ Every essential unit carries `OnFailure=querynz-failed@%n`, whose handler (`ops/
 
 ## The old repository
 
-- Live folder `/home/user/Git Repos/QueryNZ_V3` at `29f0412a` (17 October 23:56), working tree clean at measurement, GitHub `origin/main` at the same commit, no tags. The plan's `2d3874e` is 13 commits behind it. node1's mirror: not measured.
-- Reference copy `/home/user/qnz3-ref` at the same commit (1.2); it moves to the freeze tag in 1.5.
+- Live folder `/home/user/Git Repos/QueryNZ_V3` at `29f0412a` (17 October 23:56) at measurement, GitHub `origin/main` at the same commit, no tags. The plan's `2d3874e` is 13 commits behind it. node1's mirror: not measured.
+- **Frozen at `v3-frozen-2026-10-18` = `8c5d1637`** (18 October, 1.5's second commit, Arthur's hand; the first is `7f9f0bb5`). The folder's only remote is node1's mirror, not confirmed (ruling 55). The one tracked file a kept job rewrites daily stays modified in the working tree.
+- Reference copy `/home/user/qnz3-ref` at the tag (1.5).
 
 ## Captured documents (`var/staging/` in the live folder)
 
