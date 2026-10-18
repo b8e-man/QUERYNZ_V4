@@ -29,10 +29,8 @@ alarm 18 October).
 
 ## Next
 
-Compare the next release (fired by hand, ruling 56, or 06:15) with
-`2026-10-18T1334` (`checks/release_compare.py`): the first with every batch
-off. 1.5 waits on Arthur (the queue). Then step 1 closes, bar the positive
-half.
+1.5's second commit and tag, by Arthur's hand (the queue). Then step 1
+closes, bar the positive half of 1.4.
 
 ## Half-done
 
@@ -45,9 +43,11 @@ half.
   `querynz-pi-web` is back on and in the carve-out (carded). The 13:34
   release: green, inside the yardstick against `2026-10-18T0617`. Batch 3
   (`v3-audit`) stopped and disabled 16:04 18 October on Arthur's word, on
-  that release not a scheduled one; the board green after. Owed: the 19 October
-  release green against `2026-10-18T1334`. The positive half waits for the
-  next declaration listed. `querynz-verdict-sync` stopped under the queue.
+  that release not a scheduled one; the board green after. The 16:17 release
+  (Arthur's hand, ruling 56), the first with every batch off: green, inside
+  the yardstick against `2026-10-18T1334` (stamps only; `data/cite` 10,569
+  same). The negative half is done. The positive half waits for the next
+  declaration listed. `querynz-verdict-sync` stopped under the queue.
 - 1.5: first commit by Arthur's hand (7f9f0bb5, 18 October), no remote to
   push to; the second commit and the tag need his hand (the board's open
   blocker).

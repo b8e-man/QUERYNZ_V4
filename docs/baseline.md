@@ -174,3 +174,12 @@ measured" column above stays as it is and is not owed; the estate is node2.
 Batch 3 (`v3-audit`) was stopped at 16:04 on 18 October on the 13:34 release
 run by hand (ruling 56: a timer is not a blocker); the comparison of that
 release with `2026-10-18T0617` is the one described in the addendum above.
+
+**Addendum, 18 October, the first release with every batch off.** Arthur
+started the release by hand at 16:17 (ruling 56); it ran green and published
+`2026-10-18T1617`. Against `2026-10-18T1334`: 14,470 files each side, nothing
+added or removed; only `at`, `stamp` and `generated_at` changed; `data/cite`
+10,569 same, 0 changed; nothing static moved. Fewer keys change than the
+yardstick measured, never more: the nightly citation renumbering came from the
+old derive chain, stopped in batch 2. 1.4 item 7 does not apply. The scheduled
+06:15 releases from 19 October are watched by `checks/frozen_product.py`.
