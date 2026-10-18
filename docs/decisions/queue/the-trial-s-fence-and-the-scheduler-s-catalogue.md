@@ -1,0 +1,5 @@
+# Whether the trial session's scope should name the scheduler's two catalogue files
+default: No: the fence stays as the launcher wrote it. The trial keeps its profiles and job types beside its code (`support/trials/scheduler/`) with the registry's checks run on the merged catalogue, and the integrator applies the trial's patch at each merge of `session/trial`. Built on this default tonight.
+blocks: Nothing tonight; each trial pass waits one merge for its job types to reach the worker's catalogue.
+recommendation: Add `support/scheduler/profiles.toml` and `support/scheduler/jobs.toml` to the trial's scope for the rest of step 3 (one line in `.scope`, written by the launcher or the integrator), because the plan's table says the trial session changes model profiles through the scheduler, and a day's merge round-trip for every profile tweak (a measured memory figure, a flag) is the slowness ruling 54 is about. The scope hook already refuses everything else in the module.
+raised: 2026-10-18 by trial
