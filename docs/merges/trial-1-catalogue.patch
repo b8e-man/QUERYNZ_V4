@@ -1,0 +1,312 @@
+--- a/support/scheduler/jobs.toml
++++ b/support/scheduler/jobs.toml
+@@ -278,3 +278,192 @@
+ priority = 98
+ command = ["python", "-m", "support.scheduler", "rehearse", "page"]
+ requires = ["pdftoppm"]
++
++# THE TRIAL'S JOB TYPES (plan steps 3.5 to 3.7), appended to
++# support/scheduler/jobs.toml by the integrator (the merge request carries
++# the patch). One bulk job type per reader, cut into pieces of one document
++# each (rule 7: a worker stopped mid-run loses at most one piece); a small
++# `waiting`-class job to inject part-way (3.6: a small job never waits for
++# ever); and the text-reader pass that turns each reader's page text into
++# rows for scoring (3.7). memory_gb is per piece, the child process only
++# (the model server is the card manager's). Priorities 40 to 52 are the
++# trial's; the pass-one job (GLM-OCR) goes first.
++
++[jobs.qv4-trial-read-glm-ocr]
++description = "Step 3: one page-set document, every selected page rendered and read by the incumbent GLM-OCR (profile page-reader); pass one reproduces the old estate's readings by hash and page."
++needs = "model-profile"
++profile = "page-reader"
++memory_gb = 1.5
++deadline_s = 3600
++query_timeout_s = 60
++class = "whenever"
++priority = 40
++command = ["python", "-m", "support.trials", "piece"]
++requires = ["pdftoppm"]
++pieces = true
++can_share = false
++concurrency = 1
++
++[jobs.qv4-trial-read-glm-ocr-f16]
++description = "Step 3: the incumbent at f16 (the compression comparison, 3.1)."
++needs = "model-profile"
++profile = "trial-glm-ocr-f16"
++memory_gb = 1.5
++deadline_s = 3600
++query_timeout_s = 60
++class = "whenever"
++priority = 41
++command = ["python", "-m", "support.trials", "piece"]
++requires = ["pdftoppm"]
++pieces = true
++can_share = false
++concurrency = 1
++
++[jobs.qv4-trial-read-teleocr]
++description = "Step 3 challenger: TeleOCR. Requires the patched model server build (the conversion's PATCHES.md); never claimed on a box without it."
++needs = "model-profile"
++profile = "trial-teleocr"
++memory_gb = 1.5
++deadline_s = 3600
++query_timeout_s = 60
++class = "whenever"
++priority = 42
++command = ["python", "-m", "support.trials", "piece"]
++requires = ["pdftoppm", "qv4-llama-server-teleocr"]
++pieces = true
++can_share = false
++concurrency = 1
++
++[jobs.qv4-trial-read-teleocr-f16]
++description = "Step 3: TeleOCR at f16 (the compression comparison)."
++needs = "model-profile"
++profile = "trial-teleocr-f16"
++memory_gb = 1.5
++deadline_s = 3600
++query_timeout_s = 60
++class = "whenever"
++priority = 43
++command = ["python", "-m", "support.trials", "piece"]
++requires = ["pdftoppm", "qv4-llama-server-teleocr"]
++pieces = true
++can_share = false
++concurrency = 1
++
++[jobs.qv4-trial-read-ovisocr2]
++description = "Step 3 challenger: OvisOCR2."
++needs = "model-profile"
++profile = "trial-ovisocr2"
++memory_gb = 1.5
++deadline_s = 3600
++query_timeout_s = 60
++class = "whenever"
++priority = 44
++command = ["python", "-m", "support.trials", "piece"]
++requires = ["pdftoppm"]
++pieces = true
++can_share = false
++concurrency = 1
++
++[jobs.qv4-trial-read-ovisocr2-f16]
++description = "Step 3: OvisOCR2 at f16 (the compression comparison)."
++needs = "model-profile"
++profile = "trial-ovisocr2-f16"
++memory_gb = 1.5
++deadline_s = 3600
++query_timeout_s = 60
++class = "whenever"
++priority = 45
++command = ["python", "-m", "support.trials", "piece"]
++requires = ["pdftoppm"]
++pieces = true
++can_share = false
++concurrency = 1
++
++[jobs.qv4-trial-read-chandra]
++description = "Step 3 challenger: Chandra OCR 2 at Q8_0."
++needs = "model-profile"
++profile = "trial-chandra"
++memory_gb = 1.5
++deadline_s = 3600
++query_timeout_s = 60
++class = "whenever"
++priority = 46
++command = ["python", "-m", "support.trials", "piece"]
++requires = ["pdftoppm"]
++pieces = true
++can_share = false
++concurrency = 1
++
++[jobs.qv4-trial-read-chandra-q4]
++description = "Step 3: Chandra OCR 2 at Q4_K_M (the compression comparison)."
++needs = "model-profile"
++profile = "trial-chandra-q4"
++memory_gb = 1.5
++deadline_s = 3600
++query_timeout_s = 60
++class = "whenever"
++priority = 47
++command = ["python", "-m", "support.trials", "piece"]
++requires = ["pdftoppm"]
++pieces = true
++can_share = false
++concurrency = 1
++
++[jobs.qv4-trial-read-infinity]
++description = "Step 3 challenger: Infinity-Parser2-Pro (35B mixture) at Q4_K_M. The large one the small jobs must not starve behind (rules 5 and 6)."
++needs = "model-profile"
++profile = "trial-infinity-q4"
++memory_gb = 1.5
++deadline_s = 7200
++query_timeout_s = 60
++class = "whenever"
++priority = 48
++command = ["python", "-m", "support.trials", "piece"]
++requires = ["pdftoppm"]
++pieces = true
++can_share = false
++concurrency = 1
++
++[jobs.qv4-trial-read-infinity-q8]
++description = "Step 3: Infinity-Parser2-Pro at the hub's Q8_0 with the experts on the processor (the compression comparison, twenty pages only)."
++needs = "model-profile"
++profile = "trial-infinity-q8"
++memory_gb = 1.5
++deadline_s = 7200
++query_timeout_s = 60
++class = "whenever"
++priority = 49
++command = ["python", "-m", "support.trials", "piece"]
++requires = ["pdftoppm"]
++pieces = true
++can_share = false
++concurrency = 1
++
++[jobs.qv4-trial-urgent-page]
++description = "Step 3.6: one page through the incumbent, class waiting, injected part-way through the bulk passes to show a small job never waits for ever (piece key sha256:page)."
++needs = "model-profile"
++profile = "page-reader"
++memory_gb = 1.0
++deadline_s = 600
++query_timeout_s = 30
++class = "waiting"
++priority = 6
++command = ["python", "-m", "support.trials", "urgent"]
++requires = ["pdftoppm"]
++pieces = true
++can_share = false
++concurrency = 1
++
++[jobs.qv4-trial-rows]
++description = "Step 3.7: one document's stored page readings, from every reader, turned into rows by the text reader under the text-reader profile (the same for every page reader), stored beside the readings for scoring (piece key sha256)."
++needs = "model-profile"
++profile = "text-reader"
++memory_gb = 1.5
++deadline_s = 3600
++query_timeout_s = 120
++class = "whenever"
++priority = 50
++command = ["python", "-m", "support.trials", "rows"]
++pieces = true
++can_share = true
++concurrency = 2
+--- a/support/scheduler/profiles.toml
++++ b/support/scheduler/profiles.toml
+@@ -68,3 +68,114 @@
+ flags = ["--jinja"]
+ dpi = 300
+ used_for = "Image pages: GLM-OCR, then whatever step 3 chooses"
++
++# THE TRIAL'S MODEL PROFILES (plan step 3.2): one per page reader and
++# compression level, appended to support/scheduler/profiles.toml by the
++# integrator (the trial's fence does not reach that file; the merge request
++# carries the patch). Weights are absolute paths on the second hard disk
++# (/mnt/hdd2/qv4-models, step 3.1); `page-reader` in profiles.toml already
++# serves the incumbent GLM-OCR Q8_0 from the models folder.
++#
++# memory_gb is null until a swap measures it (rule 9; the run fills it).
++# Every reader: one slot (a page image is the whole request), temperature 0,
++# 32k context per request. The Qwen 3.5 bases think unless told not to, so
++# their profiles carry the same template flag the text reader does.
++
++[profiles.trial-glm-ocr-f16]
++model = "glm-ocr-f16"
++weights = ["/mnt/hdd2/qv4-models/glm-ocr/GLM-OCR-f16.gguf", "/mnt/hdd2/qv4-models/glm-ocr/mmproj-GLM-OCR-Q8_0.gguf"]
++slots = 1
++context = 32768
++temperature = 0.0
++max_tokens = 8000
++flags = ["--jinja"]
++dpi = 300
++used_for = "Step 3: the incumbent at its second compression level"
++
++[profiles.trial-teleocr]
++model = "teleocr"
++weights = ["/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-Q8_0.gguf", "/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-mmproj-q8_0.gguf"]
++slots = 1
++context = 32768
++temperature = 0.0
++max_tokens = 8000
++flags = ["--jinja"]
++dpi = 300
++used_for = "Step 3 challenger: TeleOCR (community conversion as NaviDC-OCR); needs the patched server build"
++
++[profiles.trial-teleocr-f16]
++model = "teleocr-f16"
++weights = ["/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-f16.gguf", "/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-mmproj-f16.gguf"]
++slots = 1
++context = 32768
++temperature = 0.0
++max_tokens = 8000
++flags = ["--jinja"]
++dpi = 300
++used_for = "Step 3: TeleOCR at its second compression level"
++
++[profiles.trial-ovisocr2]
++model = "ovisocr2"
++weights = ["/mnt/hdd2/qv4-models/ovisocr2/OvisOCR2-Q8_0.gguf", "/mnt/hdd2/qv4-models/ovisocr2/mmproj-F16.gguf"]
++slots = 1
++context = 32768
++temperature = 0.0
++max_tokens = 8000
++flags = ["--jinja", "--reasoning-format", "none", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
++dpi = 300
++used_for = "Step 3 challenger: OvisOCR2"
++
++[profiles.trial-ovisocr2-f16]
++model = "ovisocr2-f16"
++weights = ["/mnt/hdd2/qv4-models/ovisocr2/OvisOCR2-F16.gguf", "/mnt/hdd2/qv4-models/ovisocr2/mmproj-F32.gguf"]
++slots = 1
++context = 32768
++temperature = 0.0
++max_tokens = 8000
++flags = ["--jinja", "--reasoning-format", "none", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
++dpi = 300
++used_for = "Step 3: OvisOCR2 at its second compression level"
++
++[profiles.trial-chandra]
++model = "chandra-ocr-2"
++weights = ["/mnt/hdd2/qv4-models/chandra-ocr-2/chandra-ocr-2.Q8_0.gguf", "/mnt/hdd2/qv4-models/chandra-ocr-2/chandra-ocr-2.mmproj-f16.gguf"]
++slots = 1
++context = 32768
++temperature = 0.0
++max_tokens = 12000
++flags = ["--jinja", "--reasoning-format", "none", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
++dpi = 300
++used_for = "Step 3 challenger: Chandra OCR 2 (ruling 49; its licence is on the before-selling legal list)"
++
++[profiles.trial-chandra-q4]
++model = "chandra-ocr-2-q4"
++weights = ["/mnt/hdd2/qv4-models/chandra-ocr-2/chandra-ocr-2.Q4_K_M.gguf", "/mnt/hdd2/qv4-models/chandra-ocr-2/chandra-ocr-2.mmproj-Q8_0.gguf"]
++slots = 1
++context = 32768
++temperature = 0.0
++max_tokens = 12000
++flags = ["--jinja", "--reasoning-format", "none", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
++dpi = 300
++used_for = "Step 3: Chandra OCR 2 at its second compression level"
++
++[profiles.trial-infinity-q4]
++model = "infinity-parser2-pro"
++weights = ["/mnt/hdd2/qv4-models/infinity-parser2-pro/Infinity-Parser2-Pro-Q4_K_M.gguf", "/mnt/hdd2/qv4-models/infinity-parser2-pro/Infinity-Parser2-Pro-mmproj-bf16.gguf"]
++slots = 1
++context = 32768
++temperature = 0.0
++max_tokens = 8000
++flags = ["--jinja", "--reasoning-format", "none", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
++dpi = 300
++used_for = "Step 3 challenger: Infinity-Parser2-Pro (35B mixture) at Q4_K_M, made here from the hub's Q8_0 so it fits one card"
++
++[profiles.trial-infinity-q8]
++model = "infinity-parser2-pro-q8"
++weights = ["/mnt/hdd2/qv4-models/infinity-parser2-pro/Infinity-Parser2-Pro-Q8_0.gguf", "/mnt/hdd2/qv4-models/infinity-parser2-pro/Infinity-Parser2-Pro-mmproj-bf16.gguf"]
++slots = 1
++context = 32768
++temperature = 0.0
++max_tokens = 8000
++flags = ["--jinja", "--reasoning-format", "none", "--chat-template-kwargs", "{\"enable_thinking\": false}", "--cpu-moe"]
++dpi = 300
++used_for = "Step 3: Infinity-Parser2-Pro at the hub's Q8_0 with the experts on the processor; the comparison level for the Q4_K_M (3.1), slow"
