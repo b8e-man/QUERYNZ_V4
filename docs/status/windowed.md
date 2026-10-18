@@ -12,16 +12,19 @@ windowed scope).
   the cards, the lesson, two queue questions. Fast tier: both lanes green;
   the one red is the generated card board, rebuilt at the merge.
 
+- Landed 19 October through `support.docstore.landing.land` (fetch times
+  of 18 October kept, every hash re-verified): 621 documents. Tribunal: 2
+  listings, 1,307 orders listed, 456 held (every order leaving through
+  1 November). Authority: 9 listing pages (2023), 84 cases listed, 52
+  Committee decisions held (52 abstracts, 102 PDFs). Rows in the lane
+  tables in `querynz_v4`, so the nightly run never fetches them again.
+
 ## Half-done
 
-- Landing the bytes preserved on 18 October
-  (`/home/user/querynzv4-work/scratch/founding-f05585e/windowed/held/`:
-  Tribunal 456 orders leaving by 1 November, Authority 52 Committee
-  decisions) through `support.docstore.landing.land`, and their rows into
-  the lane tables.
+- Nothing.
 
 ## Next
 
-1. Land held/; raise `windowed-1` on the pushed branch.
-2. The integrator adds the two catalogue lines; the nightly capture takes
-   the rest.
+1. `windowed-1` raised on `session/windowed`; the integrator merges it and
+   adds the two catalogue lines; the nightly capture takes the rest (about
+   eleven nights for the Tribunal, three or four for the Authority).
