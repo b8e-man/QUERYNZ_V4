@@ -45,6 +45,7 @@ LANES = (
     "charities", "companies", "parties", "party_returns", "candidate_returns", "disclosures",
     "party_finance", "house", "mp_interests", "expenses", "gazette", "societies",
     "hansard", "linz", "tenders", "papers_past",
+    "tenancy_tribunal", "real_estate_authority",   # track E, the windowed sources (18 October 2026)
 )
 PRODUCTS = ("ftm", "subject_report", "register_scan", "archive_search", "board")
 FIXED = ("pub", "links", "links_private", "docs", "sealed", "scheduler")

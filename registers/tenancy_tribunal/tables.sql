@@ -1,0 +1,1 @@
+-- registers/tenancy_tribunal: the tables this lane owns, in its own schema. Empty until the windowed session builds the capture.

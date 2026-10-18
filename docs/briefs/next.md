@@ -14,25 +14,106 @@ estate. There is no brief. Its two lines land in
 
 ## scheduler
 
-Step 2, session 2. The first build is merged (`docs/merges/scheduler-1.md`).
-Model: Fable. The working copy `/home/user/querynzv4-work/scheduler` is
-kept; start Claude there (`claude --model fable --permission-mode acceptEdits`)
-and paste:
+Step 2 is closed on one box (sessions 1 and 2 merged: `docs/merges/`). What
+is left waits on node1 (`cards/node1-setup-as-the-second-box.md`, ruling
+57). No scheduler session is owed until node1 is powered.
+
+## trial
+
+Step 3, the page-reader trial. Model: Fable (then Opus for the second
+pass). Launcher, on node2 in `/home/user/querynzv4`:
+`bin/start-session trial support/trials support/profiles docs/trials`
 
 ```text
-You are the scheduler build session for QueryNZV4, session 2, running
-as Fable on node2 in /home/user/querynzv4-work/scheduler. First merge
-origin/main into session/scheduler (the first build is merged there).
-Read docs/PLAN.md, docs/plan/step-2.md, docs/status.md and
-docs/status/scheduler.md, and continue where it stops: the four
-founding timers into the scheduler's clock (their card), embed() in the
-model client then qv4-embed (their card), the model server built from
-source beside the copy. Rulings 55 to 57 stand: node1 is set up as the
-second box only by its card, each node1 line on Arthur's word. Card 0
-is the carve-out's, never touched. Push the branch, raise a merge
-request per finished piece, update your status file at every close,
-and finish by telling Arthur what closed, what is carded, what waits
-on him, and whether step 2 is finished.
+You are a build session for QueryNZV4, running as Fable on node2, in
+the working copy the launcher made for you. Read docs/PLAN.md, then
+docs/plan/step-3.md, docs/status.md and your own status file
+docs/status/trial.md, and continue where it stops. Do step 3: the
+page-reader trial over the election documents, as the scheduler's
+first real job (support/scheduler: the queue, jobs.toml, profiles.toml;
+python -m support.scheduler --help). Search the lessons for reading
+documents, document profiles and page readers first. The models go
+on /mnt/hdd2 (3.4 TB free); download each once, politely, and card
+one that cannot be served within the time the plan gives. Key every
+reading to the file's hash and page, never its name. Decide text or
+scan per page. Run GLM-OCR alone before adding the challengers. Card 0
+on node2 is the carve-out's (querynz-agent-llm :8020, querynz-vision-ocr
+:8032): a fixed reservation, never touched; card 1 is the trial's.
+node1 is out until its setup card is worked (rulings 55 to 57): the
+two-box proofs in the plan's table are owed, not faked. Write only to
+scratch tables; put nothing on the public site; leave the frozen
+product's servers alone. A timer is not a blocker (ruling 56). Push
+your branch and raise a merge request for each finished piece. Update
+your status file at every close. Finish by telling Arthur which reader
+won, which is the second reader, what is carded, and whether step 3 is
+finished.
+```
+
+## offsite
+
+Track B, the off-site copy. Model: Opus, reviewed by the integrator.
+Launcher, on node2 in `/home/user/querynzv4`:
+`bin/start-session offsite support/offsite`
+
+```text
+You are a build session for QueryNZV4, running as Opus on node2, in
+the working copy the launcher made for you. Read docs/PLAN.md, then
+docs/plan/tracks.md and docs/plan/track-b.md, docs/status.md and your
+own status file docs/status/offsite.md, and continue where it stops.
+Do track B: the off-site copy, in support/offsite (step 1.8's nightly
+dump of querynz_v4 is there already; its job qv4-offsite-dump runs on
+the scheduler's clock, support/scheduler/jobs.toml). Build the new
+copy as qv4- jobs beside the old nightly job, which keeps running
+untouched: changes nightly with a weekly full checkpoint (ruling 21);
+sorted by the delete rule (what cannot be regenerated first and
+always; what can be regenerated stays out unless rebuilding costs more
+than storing); the press graph stays in until its last writers are
+proven stopped (they are stopped since 18 October; take one last full
+copy then, and card the removal for Arthur). Rehearse a restore to
+equality on /mnt/hdd2 and record the time. Credentials are read from
+the old estate's off-site credential file at the moment of use and
+never printed (hard limit 1); never read the credential folder. Never
+touch the old estate's jobs, folders or databases; the old nightly job
+is retired only on Arthur's word after the election. A timer is not a
+blocker (ruling 56). Push your branch and raise a merge request for
+each finished piece. Update your status file at every close. Finish by
+telling Arthur what closed, what is carded, what waits on him, and
+whether track B is finished.
+```
+
+## windowed
+
+Track E, the windowed sources. Model: Opus. Launcher, on node2 in
+`/home/user/querynzv4`:
+`bin/start-session windowed registers/tenancy_tribunal registers/real_estate_authority docs/legal`
+
+```text
+You are a build session for QueryNZV4, running as Opus on node2, in
+the working copy the launcher made for you. Read docs/PLAN.md, then
+docs/plan/tracks.md and docs/plan/track-e.md, docs/contracts/lane.md,
+docs/status.md and your own status file docs/status/windowed.md, and
+continue where it stops. Do track E: capture the Tenancy Tribunal's
+and the Real Estate Authority's published decisions now and hold
+them; the reading comes in step 5. Two lanes, registers/tenancy_tribunal
+and registers/real_estate_authority (their folders, schemas and five-line
+specs exist; registers/party_returns is the model lane). First, for
+each class of source, write its one-page legal position in
+docs/legal/positions/<class>.md from the four questions (hard limits
+4 and 9; the README there gives the shape, and the fetch gate refuses
+a host no position names). Then capture through support/fetchgate and
+the landing wrapper only: politely, slow, low concurrency, off-peak,
+cached; honour a stated crawl delay; never solve a challenge or get
+around a block (a challenged read is a failed read, logged). Store
+each document by its sha256 and never print a person's home address
+or a suppressed name into the session, a card or a log. Capture jobs
+carry the qv4- prefix and go on the scheduler's clock
+(support/scheduler/jobs.toml is the catalogue; card the catalogue
+line for the integrator, it is outside your fence). A timer is not a
+blocker (ruling 56). Push your branch and raise a merge request for
+each finished piece. Update your status file at every close. Finish
+by telling Arthur what closed, how many decisions are held per
+source, what is carded, what waits on him, and whether track E is
+finished.
 ```
 
 ## integrator
