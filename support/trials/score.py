@@ -2,7 +2,9 @@
 over every stored reading of the page set that writes the scores to the
 trial's scratch tables and prints the table per reader and shape.
 
-    python -m support.trials score [--pass P] [--reader R]
+    python -m support.trials score [--pass P] [--reader R]     the page stage (below)
+    python -m support.trials score --rows                      the rows stage: amounts and tables after the text reader
+    python -m support.trials score --levels                    the twenty-page comparison of two compression levels
 
 The measures, as the plan states them, and what pass one taught about
 the free key (a text page's own layer):
@@ -520,9 +522,276 @@ def _settings_hash(settings: dict) -> str:
     return settings_hash(settings)
 
 
+# ── the rows stage (3.7: amounts and tables after the text reader) ───────────
+
+def cents(x) -> int | None:
+    try:
+        return int(round(float(x) * 100))
+    except (TypeError, ValueError):
+        return None
+
+
+def rows_by_part(rows: list[dict]) -> dict:
+    """part letter → list of cents, donation lines only (printed totals out)."""
+    out = defaultdict(list)
+    for r in rows or []:
+        c = cents(r.get("amount"))
+        if c is None or r.get("is_total"):
+            continue
+        out[(r.get("part") or "?").upper()[:1]].append(c)
+    return out
+
+
+def example_rows(rows: list[dict]) -> int:
+    """Donation lines whose donor is one of the form's own printed examples."""
+    n = 0
+    for r in rows or []:
+        d = " ".join(words(str(r.get("donor") or "")))
+        if any(e in d for e in EXAMPLE_NAMES) and not r.get("is_total"):
+            n += 1
+    return n
+
+
+def key_total(rec: dict) -> tuple:
+    """(total in cents, source) for a page-set document from keys.jsonl: the
+    return's own declaration first, the frozen site, then the Commission's
+    table where it is not excepted; (None, None) without one."""
+    if not rec:
+        return None, None
+    d = rec.get("declaration") or {}
+    if d.get("total") is not None:
+        return cents(d["total"]), "declaration"
+    if d.get("nil"):
+        return 0, "declaration"
+    f = rec.get("frozen") or {}
+    if f.get("total") is not None:
+        return cents(f["total"]), "frozen"
+    e = rec.get("ec_table") or {}
+    if e.get("total_donations") is not None and not e.get("excepted"):
+        return cents(e["total_donations"]), "commission"
+    return None, None
+
+
+def document_score(by_reader: dict, rec: dict, gold: list[dict] = None) -> list[dict]:
+    """One document: `by_reader` maps a reader's (name, level, dpi, pass) to
+    {"family", "pages": [{page, parts_named, declared_total, rows, unparsed}]}.
+    Returns one score per reader. Pure."""
+    kt, ksrc = key_total(rec)
+    kparts = {k.upper()[:1]: cents(v) for k, v in ((rec or {}).get("declaration") or {}).get("parts", {}).items() if cents(v) is not None}
+    gold_cells = {(g.get("part"), cents(g.get("value"))) for g in (gold or []) if g.get("field") == "amount" and cents(g.get("value")) is not None}
+    fam_pairs = defaultdict(set)
+    per = {}
+    for who, d in by_reader.items():
+        parts = defaultdict(list)
+        named, declared, unparsed, rows_n, totals_n, ex = set(), None, 0, 0, 0, 0
+        for p in d["pages"]:
+            named |= set(p.get("parts_named") or [])
+            if declared is None and p.get("declared_total") is not None:
+                declared = cents(p["declared_total"])
+            unparsed += int(bool(p.get("unparsed")))
+            for k, v in rows_by_part(p.get("rows")).items():
+                parts[k].extend(v)
+            rows_n += sum(1 for r in p.get("rows") or [] if not r.get("is_total"))
+            totals_n += sum(1 for r in p.get("rows") or [] if r.get("is_total"))
+            ex += example_rows(p.get("rows"))
+        pairs = {(k, c) for k, cs in parts.items() for c in cs}
+        fam_pairs[d["family"]] |= pairs
+        per[who] = {"family": d["family"], "parts": parts, "named": named, "declared": declared, "unparsed": unparsed,
+                    "rows_n": rows_n, "totals_n": totals_n, "example_rows": ex, "pairs": pairs}
+    out = []
+    for who, s in per.items():
+        others = set()
+        for f, ps in fam_pairs.items():
+            if f != s["family"]:
+                others |= ps
+        other_families = sum(1 for f in fam_pairs if f != s["family"])
+        lone = {pr for pr in s["pairs"] if pr not in others} if other_families else set()
+        compared = exact = breaking = 0
+        for k, kc in kparts.items():
+            mine = sum(s["parts"].get(k, []))
+            compared += 1
+            if mine == kc:
+                exact += 1
+            else:
+                lone_here = sum(c for (pk, c) in lone if pk == k)
+                if lone_here and mine - lone_here == kc:
+                    breaking += sum(1 for (pk, c) in lone if pk == k)
+        hits = sum(1 for g in gold_cells if g[1] in s["parts"].get(g[0], []))
+        name, level, dpi, pass_name = who
+        out.append({"reader": name, "level": level, "dpi": dpi, "pass": pass_name, "family": s["family"],
+                    "pages": len(by_reader[who]["pages"]), "unparsed_pages": s["unparsed"], "rows": s["rows_n"],
+                    "total_rows": s["totals_n"], "parts_named": "".join(sorted(s["named"])),
+                    "declared_read": s["declared"], "key_total": kt, "key_source": ksrc,
+                    "declared_match": (s["declared"] == kt) if (kt is not None and s["declared"] is not None) else None,
+                    "parts_compared": compared, "parts_exact": exact,
+                    "lone_rows": len(lone) if other_families else None, "lone_breaking": breaking if other_families else None,
+                    "example_rows": s["example_rows"], "gold_cells": len(gold_cells), "gold_hits": hits if gold_cells else None})
+    return out
+
+
+ROWS_TABLE = """
+CREATE SCHEMA IF NOT EXISTS scratch_trial;
+DROP TABLE IF EXISTS scratch_trial.document_scores;
+CREATE TABLE scratch_trial.document_scores (
+    document text, kind text, shape text, reader text, level text, dpi int, pass text, family text,
+    pages int, unparsed_pages int, rows int, total_rows int, parts_named text, declared_read bigint, key_total bigint,
+    key_source text, declared_match boolean, parts_compared int, parts_exact int, lone_rows int, lone_breaking int,
+    example_rows int, gold_cells int, gold_hits int, at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (document, reader, level, dpi, pass)
+);
+DROP TABLE IF EXISTS scratch_trial.page_rows;
+CREATE TABLE scratch_trial.page_rows (
+    document text, page int, reader text, level text, dpi int, pass text, rows int, total_rows int, parts text,
+    unparsed boolean, at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (document, page, reader, level, dpi, pass)
+);
+GRANT USAGE ON SCHEMA scratch_trial TO qv4_read;
+GRANT SELECT ON ALL TABLES IN SCHEMA scratch_trial TO qv4_read;
+"""
+ROWS_COLS = ["document", "kind", "shape", "reader", "level", "dpi", "pass", "family", "pages", "unparsed_pages", "rows", "total_rows",
+             "parts_named", "declared_read", "key_total", "key_source", "declared_match", "parts_compared", "parts_exact", "lone_rows",
+             "lone_breaking", "example_rows", "gold_cells", "gold_hits"]
+
+
+def run_rows(conn=None, log=print) -> list[dict]:
+    """Every document with rows readings (the text reader's, `rows.py`):
+    the rows stage of the scoring. Donor names stay in the store."""
+    from support.trials import keys, pageset
+    krec = keys.load()
+    out, page_rows = [], []
+    tally = defaultdict(Counter)
+    for doc in pageset.load():
+        rs = stored_readings(doc["sha256"])
+        pixels = {r.get("key") or _key_of(r): r for r in rs if r.get("read_from") == "pixels"}
+        by_reader = {}
+        for r in rs:
+            if not str(r.get("reader", "")).startswith("support.trials.rows"):
+                continue
+            px = pixels.get((r.get("checks") or {}).get("of_key"))
+            if px is None:
+                continue
+            rd_ = _reader_of(px)
+            who = (rd_.name if rd_ else px["model"], (px.get("settings") or {}).get("level"), (px.get("settings") or {}).get("dpi"),
+                   (px.get("checks") or {}).get("trial_pass"))
+            try:
+                head = json.loads(r.get("text") or "{}")
+            except ValueError:
+                head = {"unparsed": True}
+            page = {"page": r["page"], "parts_named": head.get("parts_named") or [], "declared_total": head.get("declared_total"),
+                    "rows": r.get("rows") or [], "unparsed": bool(head.get("unparsed"))}
+            by_reader.setdefault(who, {"family": rd_.family if rd_ else px["model"], "pages": []})["pages"].append(page)
+            page_rows.append({"document": doc["sha256"], "page": r["page"], "reader": who[0], "level": who[1], "dpi": who[2],
+                              "pass": who[3], "rows": sum(1 for x in page["rows"] if not x.get("is_total")),
+                              "total_rows": sum(1 for x in page["rows"] if x.get("is_total")),
+                              "parts": "".join(sorted(set(page["parts_named"]))), "unparsed": page["unparsed"]})
+        if not by_reader:
+            continue
+        gold = keys.gold_confirmed(doc["sha256"], doc.get("names")) if (krec.get(doc["sha256"]) or {}).get("gold_confirmed") else []
+        for s in document_score(by_reader, krec.get(doc["sha256"]), gold):
+            s.update(document=doc["sha256"], kind=doc["kind"], shape=doc["shape"])
+            out.append(s)
+            t = tally[s["reader"]]
+            t["documents"] += 1
+            t["declared_match"] += int(bool(s["declared_match"]))
+            t["declared_compared"] += int(s["declared_match"] is not None)
+            t["parts_exact"] += s["parts_exact"]
+            t["parts_compared"] += s["parts_compared"]
+            t["lone_rows"] += s["lone_rows"] or 0
+            t["lone_breaking"] += s["lone_breaking"] or 0
+            t["example_rows"] += s["example_rows"]
+            t["gold_hits"] += s["gold_hits"] or 0
+            t["gold_cells"] += s["gold_cells"] if s["gold_hits"] is not None else 0
+            t["unparsed"] += s["unparsed_pages"]
+    if conn is not None:
+        conn.execute(ROWS_TABLE)
+        for s in out:
+            conn.execute(f"INSERT INTO scratch_trial.document_scores ({', '.join(ROWS_COLS)}) VALUES ({', '.join(['%s'] * len(ROWS_COLS))}) "
+                         f"ON CONFLICT DO NOTHING", [s.get(c) for c in ROWS_COLS])
+        pc = ["document", "page", "reader", "level", "dpi", "pass", "rows", "total_rows", "parts", "unparsed"]
+        for p in page_rows:
+            conn.execute(f"INSERT INTO scratch_trial.page_rows ({', '.join(pc)}) VALUES ({', '.join(['%s'] * len(pc))}) ON CONFLICT DO NOTHING",
+                         [p.get(c) for c in pc])
+    log(f"{'reader':24s} {'docs':>4s} {'declared=key':>12s} {'parts exact':>11s} {'lone':>5s} {'breaking':>8s} {'example':>7s} {'gold':>9s} {'unparsed':>8s}")
+    for reader, t in sorted(tally.items()):
+        log(f"{reader:24s} {t['documents']:4d} {t['declared_match']:5d}/{t['declared_compared']:<6d} {t['parts_exact']:5d}/{t['parts_compared']:<5d} "
+            f"{t['lone_rows']:5d} {t['lone_breaking']:8d} {t['example_rows']:7d} {t['gold_hits']:4d}/{t['gold_cells']:<4d} {t['unparsed']:8d}")
+    return out
+
+
+def _key_of(r: dict) -> str:
+    from support.reader import reading_key
+    return reading_key(r["document"], r["page"], r["model"], r.get("settings") or {}, r["profile"], r.get("profile_version") or 0)
+
+
+# ── the compression comparison (3.1: twenty pages at two levels) ─────────────
+
+LEVEL_PAIRS = (("glm-ocr", "glm-ocr-f16"), ("ovisocr2", "ovisocr2-f16"), ("chandra-ocr-2", "chandra-ocr-2-q4"),
+               ("infinity-parser2-pro", "infinity-parser2-pro-q8"))
+
+
+def compare_texts(a: str, b: str) -> tuple[bool, float]:
+    import difflib
+    na, nb = " ".join((a or "").split()), " ".join((b or "").split())
+    if na == nb:
+        return True, 1.0
+    return False, round(difflib.SequenceMatcher(None, na, nb, autojunk=False).ratio(), 4)
+
+
+LEVELS_TABLE = """
+CREATE SCHEMA IF NOT EXISTS scratch_trial;
+DROP TABLE IF EXISTS scratch_trial.level_pairs;
+CREATE TABLE scratch_trial.level_pairs (
+    reader_a text, reader_b text, document text, page int, dpi int, equal boolean, ratio real, amounts_agree boolean,
+    chars_a int, chars_b int, at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (reader_a, reader_b, document, page, dpi)
+);
+GRANT USAGE ON SCHEMA scratch_trial TO qv4_read;
+GRANT SELECT ON ALL TABLES IN SCHEMA scratch_trial TO qv4_read;
+"""
+
+
+def run_levels(conn=None, log=print) -> list[dict]:
+    """The same page read at two compression levels of one model, at the
+    same resolution: equal, how near, and whether the amounts agree."""
+    from support.trials import pageset
+    out = []
+    tally = defaultdict(Counter)
+    for doc in pageset.load():
+        by = {}
+        for r in stored_readings(doc["sha256"]):
+            if r.get("read_from") != "pixels" or not str(r.get("reader", "")).startswith("support.trials"):
+                continue
+            rd_ = _reader_of(r)
+            if rd_:
+                by.setdefault((rd_.name, r["page"], (r.get("settings") or {}).get("dpi")), r.get("text") or "")
+        for a, b in LEVEL_PAIRS:
+            for (name, page, dpi), ta in list(by.items()):
+                if name != a or (b, page, dpi) not in by:
+                    continue
+                tb = by[(b, page, dpi)]
+                eq, ratio = compare_texts(ta, tb)
+                agree = amounts(ta) == amounts(tb)
+                out.append({"reader_a": a, "reader_b": b, "document": doc["sha256"], "page": page, "dpi": dpi, "equal": eq, "ratio": ratio,
+                            "amounts_agree": agree, "chars_a": len(ta), "chars_b": len(tb)})
+                t = tally[(a, b)]
+                t["pages"] += 1
+                t["equal"] += int(eq)
+                t["ratio"] += ratio
+                t["amounts_agree"] += int(agree)
+    if conn is not None:
+        conn.execute(LEVELS_TABLE)
+        cols = ["reader_a", "reader_b", "document", "page", "dpi", "equal", "ratio", "amounts_agree", "chars_a", "chars_b"]
+        for s in out:
+            conn.execute(f"INSERT INTO scratch_trial.level_pairs ({', '.join(cols)}) VALUES ({', '.join(['%s'] * len(cols))}) ON CONFLICT DO NOTHING",
+                         [s.get(c) for c in cols])
+    log(f"{'levels':44s} {'pages':>5s} {'equal':>5s} {'mean ratio':>10s} {'amounts agree':>13s}")
+    for (a, b), t in sorted(tally.items()):
+        log(f"{a + ' vs ' + b:44s} {t['pages']:5d} {t['equal']:5d} {t['ratio'] / t['pages']:10.4f} {t['amounts_agree']:13d}")
+    return out
+
+
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     pass_name = reader_name = None
+    stages = set()
     i = 0
     while i < len(argv):
         if argv[i] == "--pass":
@@ -531,16 +800,27 @@ def main(argv=None) -> int:
         elif argv[i] == "--reader":
             reader_name = argv[i + 1]
             i += 2
+        elif argv[i] in ("--rows", "--levels", "--pages"):
+            stages.add(argv[i][2:])
+            i += 1
         else:
             i += 1
+    stages = stages or {"pages"}
     conn = None
     try:
         import support.db as db
         conn = db.connect(db.OWNER_KEY, "querynz_v4", autocommit=True)
     except Exception as e:  # noqa: BLE001
         print(f"score: no database ({type(e).__name__}); printing only", file=sys.stderr)
-    rows = run(pass_name, reader_name, conn=conn)
-    print(f"score: {len(rows)} page readings scored")
+    if "pages" in stages:
+        rows = run(pass_name, reader_name, conn=conn)
+        print(f"score: {len(rows)} page readings scored")
+    if "rows" in stages:
+        ds = run_rows(conn=conn)
+        print(f"score: {len(ds)} document scores from the rows stage")
+    if "levels" in stages:
+        ls = run_levels(conn=conn)
+        print(f"score: {len(ls)} page pairs across compression levels")
     return 0
 
 

@@ -274,17 +274,17 @@ def main(argv=None) -> int:
     if not url or not profile:
         print("trial: no card: QV4_MODEL_URL and QV4_PROFILE come from the worker", file=sys.stderr)
         return 3
-    reader = readers.by_profile(profile)
-    if reader is None:
-        print(f"trial: no reader is served by profile {profile!r}", file=sys.stderr)
-        return 3
-    if os.environ.get("QV4_MODEL") and os.environ["QV4_MODEL"] != reader.model:
-        print(f"trial: the card holds {os.environ['QV4_MODEL']!r}, the reader wants {reader.model!r}", file=sys.stderr)
-        return 3
     try:
         args = json.loads(os.environ.get("QV4_ARGS") or "{}")
     except ValueError:
         args = {}
+    reader = readers.by_profile(profile, args.get("reader"))
+    if reader is None:
+        print(f"trial: no reader {args.get('reader') or ''!r} is served by profile {profile!r}", file=sys.stderr)
+        return 3
+    if os.environ.get("QV4_MODEL") and os.environ["QV4_MODEL"] != reader.model:
+        print(f"trial: the card holds {os.environ['QV4_MODEL']!r}, the reader wants {reader.model!r}", file=sys.stderr)
+        return 3
     conn = None
     try:
         conn = _conn()
