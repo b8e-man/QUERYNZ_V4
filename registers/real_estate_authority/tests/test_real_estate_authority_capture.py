@@ -263,3 +263,34 @@ def test_the_check_names_short_years_and_withdrawn_ones():
     assert [r["year"] for r in out["equal"]] == [2015]
     assert [r["year"] for r in out["short"]] == [2023]
     assert [r["year"] for r in out["withdrawn"]] == [2026]
+
+
+def test_a_redirect_to_another_host_stops_the_run_and_lands_nothing():
+    site = FakeSite({2015: cases(2000, 1)})
+
+    def moved(url, timeout=60, **kw):
+        f = site(url, timeout)
+        return fg.Fetched(url, f.status, f.body, "https://elsewhere.example/x") if "abstract.aspx" in url else f
+    r, t, store = run(moved)
+    out = r.run(TODAY)
+    assert out["stopped"] == "stopped: redirected to elsewhere.example: not landed, and the run stops"
+    assert not any("abstract.aspx" in n for n, *_ in store.names) and not t.cases[2000]["captured"]
+
+
+class FakeConn:
+    def __init__(self, held):
+        self.held, self.sql = held, []
+
+    def execute(self, sql, params=()):
+        self.sql.append((sql, params))
+        return self
+
+    def fetchone(self):
+        return (not self.held,)
+
+
+def test_one_run_of_the_lane_at_a_time():
+    for held in (False, True):
+        conn = FakeConn(held)
+        assert C.Tables(conn).try_lock() is (not held)
+        assert conn.sql == [("SELECT pg_try_advisory_lock(hashtext(%s))", (C.JOB,))]

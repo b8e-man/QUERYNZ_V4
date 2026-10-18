@@ -20,3 +20,8 @@ Found building track E's capture. Two things in `support.fetchgate.open_url`:
    document and not its transfer encoding.
 
 The two windowed hosts did not redirect on any page read on 18 October.
+
+19 October (windowed session 2): both windowed lanes now stop on an answer
+from another host and land nothing from it (`Run.get`, tested). That keeps
+such a page out of the store but not out of the read: the gate fix above is
+still the one that keeps a held host from being read at all.

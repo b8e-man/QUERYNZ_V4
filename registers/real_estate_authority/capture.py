@@ -143,6 +143,12 @@ class Tables:
     def create(self):
         self.conn.execute(tables_sql(self.s))
 
+    def try_lock(self) -> bool:
+        """One run of the lane at a time, whoever started it (the scheduler or a
+        hand run): a session advisory lock, which holds no row and no snapshot
+        and is let go with the connection."""
+        return bool(self.conn.execute("SELECT pg_try_advisory_lock(hashtext(%s))", (JOB,)).fetchone()[0])
+
     def listed_years(self) -> set:
         return {r[0] for r in self.conn.execute(f"SELECT DISTINCT year FROM {self.s}.listings")}
 
@@ -234,6 +240,12 @@ class Run:
         if f.blocked:
             self.aside(url, "fetch", f.blocked)
             raise Stop(f.blocked)
+        elsewhere = fg.host_of(f.final_url or url)
+        if elsewhere != HOST:
+            # the gate judged the URL asked, not the one answered: nothing from another host is landed
+            why = f"redirected to {elsewhere}: not landed, and the run stops"
+            self.aside(url, "fetch", why)
+            raise Stop(why)
         return f
 
     def land(self, f, kind):
@@ -345,6 +357,10 @@ def main(argv=None) -> int:
         conn.execute("SET statement_timeout = '60s'")
         t = Tables(conn, a.schema)
         t.create()
+        if not t.try_lock():
+            print(f"{SOURCE}: another run holds the lane; this one asks for nothing")
+            jobrun.record(JOB, True, "skipped: another run holds the lane", started, {})
+            return 0
         out = Run(t, land_fn=landing(conn), budget_s=a.budget_s, max_items=a.max_items,
                   anytime=a.anytime).run(dt.date.today(), list_only=a.list_only)
     ok = not out["stopped"].startswith("stopped:")
