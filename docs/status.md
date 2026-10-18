@@ -52,7 +52,3 @@ address (test alarm 18 October).
 - 1.4: three batches stopped on node2 (18 October); the 16:17 release green
   inside the yardstick. The positive half waits for the next declaration.
 - Step 2: `qv4-questions` held (ruling 22); node1 setup carded (ruling 57).
-
-## Known gaps left on purpose
-
-- The party returns lane has no `qv4-` job, donor rows or page reader.
