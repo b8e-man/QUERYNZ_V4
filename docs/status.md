@@ -3,15 +3,14 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-18. **Step:** 1. **Boxes:** node2 is the primary since the
-17 October failover; node1 is down and rejoins as the standby after a
-rewind (Arthur's). **Alarm channel:** the old estate's ntfy address (test
+**Date:** 2026-10-18. **Step:** 1. **Boxes:** node2 is the estate; node1 is out of
+the plan (ruling 55, 18 October). **Alarm channel:** the old estate's ntfy address (test
 alarm 18 October).
 
 ## Done
 
 - Step 0 (all but the third machine). 1.1 fences. 1.2 the reference copy.
-  1.3 the baseline (node1 not measured). 1.6 the watcher. 1.7 reference,
+  1.3 the baseline (node2). 1.6 the watcher. 1.7 reference,
   profiles. 1.8 `support/db`, the off-site dump. 1.9 eleven contracts. 1.10
   fetch gate, landing, the carried reader, the model client, legal.
 - Step 1b, closed: the question and fix weights and their launchers, `bin/q`,
@@ -30,10 +29,10 @@ alarm 18 October).
 
 ## Next
 
-A founding session on 19 October: compare that morning's release with
-`2026-10-18T1334` (`checks/release_compare.py`), the first scheduled run
-with every batch off. 1.5 waits on Arthur (the queue). When node1 returns, re-measure it and stop its halves. Then step 1
-closes.
+Compare the next release (fired by hand, ruling 56, or 06:15) with
+`2026-10-18T1334` (`checks/release_compare.py`): the first with every batch
+off. 1.5 waits on Arthur (the queue). Then step 1 closes, bar the positive
+half.
 
 ## Half-done
 
@@ -47,13 +46,13 @@ closes.
   release: green, inside the yardstick against `2026-10-18T0617`. Batch 3
   (`v3-audit`) stopped and disabled 16:04 18 October on Arthur's word, on
   that release not a scheduled one; the board green after. Owed: the 19 October
-  release green against `2026-10-18T1334`. Node1's half waits for node1;
-  the positive half for the next declaration listed.
-- 1.5: first commit by Arthur's hand (7f9f0bb5, 18 October), unpushed while
-  node1 is down; the second commit and the tag need his hand (the board's
-  open blocker).
+  release green against `2026-10-18T1334`. The positive half waits for the
+  next declaration listed. `querynz-verdict-sync` stopped under the queue.
+- 1.5: first commit by Arthur's hand (7f9f0bb5, 18 October), no remote to
+  push to; the second commit and the tag need his hand (the board's open
+  blocker).
 
 ## Known gaps left on purpose
 
-- Until step 2: `ssh` asks, node1 gets no job files; the party returns lane
-  has no `qv4-` job, donor rows or page reader.
+- Until step 2: the party returns lane has no `qv4-` job, donor rows or
+  page reader.

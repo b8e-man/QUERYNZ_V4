@@ -78,3 +78,9 @@ Each answer from Arthur, with the date and his words. Rulings 1 to 54 are from t
 
 ## From 55
 
+
+**18 October**
+
+55. Node1 is out of the plan. "Forget about node 1 and everything we need it to do." Nothing waits for it: no re-measurement, no second half of a batch, no mirror, no standby, no push to it. Node2 is the estate. If node1 is ever brought back, that is a new decision, not a resumption.
+
+56. A timer is an artificial blocker. "Anytime there is an artificial blocker like a timer, just fire the service or unit or module and keep things moving." Where the next step waits only on a clock (a release, a feed, a board run, a nightly load), start the unit by hand, use its result and record that it was a hand run. The plan's "wait for one scheduled release between batches" is read this way from here. A real blocker (Arthur's hand, a hard limit, a source that has not published) is not a timer. Said after batch 3 was stopped at 16:04 on the strength of the 13:34 release run by hand.
