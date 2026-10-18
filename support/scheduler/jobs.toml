@@ -1,0 +1,223 @@
+# THE JOB CATALOGUE — every `qv4-` job type the scheduler may run, and the
+# rules for sharing the graphics cards (plan step 2.4, "The nine rules").
+#
+# A job declares what it needs (docs/contracts/job.md): `needs` is
+# "model-profile" with a `profile` from profiles.toml, or "processor";
+# `memory_gb` is per parallel worker, MEASURED from run records, never
+# computed; `deadline_s` is longer than its work and shorter than its
+# interval; `query_timeout_s` sits under the deadline so a job killed at its
+# deadline does not leave its query running. `class` is rule 8: "waiting"
+# (someone is waiting), "due" (by a time), "whenever" (bulk).
+# `requires` names the programs the box must have: node1 once lacked the page
+# reader and blanked the totals for 17 days with the board green.
+# A timetable is `every_s` or `at_utc` (HH:MM, UTC; both clocks hold local
+# time): it lives here, in the queue, not in a timer on one box (step 2.12).
+# `wanted` makes a standing service (step 2.13). `pieces` cuts a job into
+# pieces that each record progress (rule 7); the command then takes the
+# piece key as its last argument.
+#
+# Hard limit 23: every name carries qv4-. `python -m support.scheduler check`
+# refuses a catalogue that breaks a rule.
+
+version = 1
+
+[queueing]
+slice_seconds = 3600          # rule 2: a job keeps its card for up to an hour while it has work
+drain_not_kill = true         # rule 3
+min_queue_to_evict = 8        # rule 5's floor until the profile's load time is measured
+max_wait_seconds = 1800       # rule 6: a small job gets its card after 30 minutes regardless
+piece_seconds = 300           # rule 7: a piece is a few minutes
+due_horizon_seconds = 7200    # rule 8: a due job goes ahead of bulk work this close to its time
+memory_reserve_gb = 24        # step 2.5: kept for the database and the standing services
+lease_seconds = 90            # step 2.8: a running job renews its lease well inside this
+policy = "priority-ordered-round-robin"
+
+# Step 2.9: the cards the carve-out holds. The planner never evicts these.
+# The baseline (docs/baseline.md): node2 card 0 holds querynz-agent-llm
+# (:8020, 2x50k) and querynz-vision-ocr (:8032). Card 1 is free since
+# querynz-llm@1 was stopped in 1.4 batch 2. node1 is out (ruling 55).
+[[reservations]]
+box = "node2"
+card = 0
+holder = "querynz-agent-llm, querynz-vision-ocr"
+why = "the carve-out's chat model and page reader (step 2.9); a fixed reservation, never touched"
+
+# ── the scheduler's own jobs ─────────────────────────────────────────────────
+
+[jobs.qv4-scheduler-report]
+description = "Writes <live>/checks/scheduler.json: queue depth, workers, cards, the last swaps, for the checks board. The first job on a timetable in the queue (step 2.12)."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 300
+query_timeout_s = 60
+class = "due"
+priority = 10
+command = ["python", "-m", "support.scheduler", "report"]
+every_s = 3600
+
+[jobs.qv4-reread]
+description = "Re-read a set of documents after a reader, a profile or a rule changes (step 2.14): one piece per document, each compared with the reading it would replace before it lands. Queued by a session or a lane, never fired by hand (ruling 45)."
+needs = "model-profile"
+profile = "text-reader"
+memory_gb = 1.5
+deadline_s = 900
+query_timeout_s = 300
+class = "whenever"
+priority = 20
+command = ["python", "-m", "support.scheduler", "reread-piece"]
+requires = ["pdftotext", "pdftoppm"]
+pieces = true
+can_share = true
+concurrency = 2
+
+[jobs.qv4-reread-pages]
+description = "The page-reader half of a re-read: documents whose pages have no usable text layer, through the page-reader profile."
+needs = "model-profile"
+profile = "page-reader"
+memory_gb = 1.5
+deadline_s = 1800
+query_timeout_s = 300
+class = "whenever"
+priority = 21
+command = ["python", "-m", "support.scheduler", "reread-piece", "--pixels"]
+requires = ["pdftoppm"]
+pieces = true
+can_share = false
+concurrency = 1
+
+[jobs.qv4-embed]
+description = "Bulk embedding for search through the embedding profile; one search query embeds on the processor and needs no card."
+needs = "model-profile"
+profile = "embedding"
+memory_gb = 1.0
+deadline_s = 1800
+query_timeout_s = 600
+class = "whenever"
+priority = 30
+command = ["python", "-m", "support.scheduler", "embed-piece"]
+pieces = true
+can_share = true
+concurrency = 4
+enabled = false
+
+[jobs.qv4-questions]
+description = "Holds the review-and-questions profile on one card while a product is served (ruling 22's default: no card kept empty; part of the slots kept for live questions). Standing; enabled when a product is served."
+needs = "model-profile"
+profile = "review"
+memory_gb = 0.5
+deadline_s = 86400
+query_timeout_s = 30
+class = "waiting"
+priority = 5
+command = ["python", "-m", "support.scheduler", "hold-profile"]
+wanted = 1
+can_share = true
+enabled = false
+
+# ── rehearsal jobs ───────────────────────────────────────────────────────────
+# Cheap jobs that prove the machinery on a real box (step 2's done-when list,
+# proven with two workers on node2 under the queue's default). They run only
+# when queued; nothing queues them but a session or a test.
+
+[jobs.qv4-rehearsal-sleep]
+description = "Sleeps a few seconds on the processor. Proves claim, lease, run record, completion."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 120
+query_timeout_s = 30
+class = "whenever"
+priority = 90
+command = ["python", "-m", "support.scheduler", "rehearse", "sleep", "--seconds", "3"]
+concurrency = 2
+
+[jobs.qv4-rehearsal-pieces]
+description = "Ten pieces of a few seconds each. Proves pieces, progress, and that a stopped worker loses at most one piece while the other finishes."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 120
+query_timeout_s = 30
+class = "whenever"
+priority = 91
+command = ["python", "-m", "support.scheduler", "rehearse", "sleep", "--seconds", "4"]
+pieces = true
+
+[jobs.qv4-rehearsal-burn]
+description = "Allocates more memory than it declares. Proves the ceiling: the job is stopped, the box is not, the peak is recorded and flagged."
+needs = "processor"
+memory_gb = 0.1
+deadline_s = 120
+query_timeout_s = 30
+class = "whenever"
+priority = 92
+command = ["python", "-m", "support.scheduler", "rehearse", "burn", "--mb", "600", "--seconds", "30"]
+
+[jobs.qv4-rehearsal-needs-program]
+description = "Requires the headed browser. Proves a job needing a program only one box has is never given to the other (the second worker hides it)."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 120
+query_timeout_s = 30
+class = "whenever"
+priority = 93
+command = ["python", "-m", "support.scheduler", "rehearse", "sleep", "--seconds", "2"]
+requires = ["google-chrome"]
+
+[jobs.qv4-rehearsal-tick]
+description = "A two-minute timetable for the rehearsal: proves a timetabled job runs on the surviving worker with no hand step. Disabled when not rehearsing."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 100
+query_timeout_s = 30
+class = "due"
+priority = 94
+command = ["python", "-m", "support.scheduler", "rehearse", "sleep", "--seconds", "1"]
+every_s = 120
+enabled = false
+
+[jobs.qv4-rehearsal-text-reader]
+description = "One real call through the text-reader profile. Proves a swap for a real job and that the card answers with the model the profile names."
+needs = "model-profile"
+profile = "text-reader"
+memory_gb = 0.2
+deadline_s = 300
+query_timeout_s = 30
+class = "whenever"
+priority = 95
+command = ["python", "-m", "support.scheduler", "rehearse", "model"]
+can_share = true
+
+[jobs.qv4-rehearsal-review]
+description = "One real call through the review-and-questions profile."
+needs = "model-profile"
+profile = "review"
+memory_gb = 0.2
+deadline_s = 300
+query_timeout_s = 30
+class = "whenever"
+priority = 96
+command = ["python", "-m", "support.scheduler", "rehearse", "model"]
+can_share = true
+
+[jobs.qv4-rehearsal-embedding]
+description = "The embedding profile loads and advertises bge-m3 (read back from the card)."
+needs = "model-profile"
+profile = "embedding"
+memory_gb = 0.2
+deadline_s = 300
+query_timeout_s = 30
+class = "whenever"
+priority = 97
+command = ["python", "-m", "support.scheduler", "rehearse", "served"]
+can_share = true
+
+[jobs.qv4-rehearsal-page-reader]
+description = "One scanned page through the page-reader profile on a card that is not reserved (args: sha256)."
+needs = "model-profile"
+profile = "page-reader"
+memory_gb = 0.5
+deadline_s = 600
+query_timeout_s = 30
+class = "whenever"
+priority = 98
+command = ["python", "-m", "support.scheduler", "rehearse", "page"]
+requires = ["pdftoppm"]

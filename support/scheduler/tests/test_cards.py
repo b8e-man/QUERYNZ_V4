@@ -1,0 +1,226 @@
+"""The card manager acts on the planner's decisions reversibly and never on
+a reserved card: a load starts the estate's own server with the profile's
+derived geometry, reads back the model it serves and refuses a wrong one, a
+busy port is refused, a swap is in the ledger before and after, and a
+worker's stop unloads what it loaded. Everything injected; no card here."""
+from __future__ import annotations
+
+import os
+import subprocess
+
+import pytest
+
+from support.scheduler import cards, policy
+from support.scheduler import registry as reg
+from support.scheduler.tests import fixtures as fx
+
+
+class FakeProc:
+    def __init__(self, argv, **kw):
+        self.argv, self.kw, self.returncode, self.pid = argv, kw, None, 4242
+        self.signals = []
+
+    def poll(self):
+        return self.returncode
+
+    def send_signal(self, s):
+        self.signals.append(s)
+        self.returncode = -int(s)
+
+    def wait(self, timeout=None):
+        if self.returncode is None:
+            raise subprocess.TimeoutExpired("x", timeout)
+        return self.returncode
+
+
+class FakeConn:
+    """Enough of psycopg for queue.upsert_card / record_swap / cards."""
+    def __init__(self):
+        self.sql = []
+        self.rows = {}
+
+    def transaction(self):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def execute(self, sql, params=()):
+        self.sql.append((sql, params))
+        return self
+
+    def fetchone(self):
+        return (1,)
+
+    def fetchall(self):
+        return self.rows.get("all", [])
+
+
+class FakeWorker:
+    def __init__(self, tmp_path, profiles, registry, rules):
+        self.conn, self.schema, self.box, self.name = FakeConn(), "s", "n", "w"
+        self.profiles, self.registry, self.rules = profiles, registry, rules
+        self.profile = {"programs": {"qv4-llama-server": str(tmp_path / "llama-server"), "llama-server": None},
+                        "cards": [{"index": 9, "memory_total_gb": 31.9, "memory_used_gb": 26.0}, {"index": 1, "memory_total_gb": 31.9, "memory_used_gb": 1.8}]}
+        self.running = {}
+        import threading
+        self.lock = threading.Lock()
+        self.logs = []
+        self.log = self.logs.append
+
+
+@pytest.fixture
+def kit(tmp_path, monkeypatch):
+    registry, profiles, rules = fx.catalogue(tmp_path)
+    (tmp_path / "llama-server").write_text("#!/bin/sh\n")
+    for w in ("m.gguf", "b.gguf"):
+        (tmp_path / w).write_text("weights")
+    monkeypatch.setattr(cards, "LOGS", str(tmp_path / "logs"))
+    monkeypatch.setattr(cards.runs, "LEDGER", tmp_path / "runs.jsonl")
+    answers = {"served": None, "healthy": False}
+    procs = []
+
+    def popen(argv, **kw):
+        p = FakeProc(argv, **kw)
+        procs.append(p)
+        answers.update(served=answers.get("will_serve"), healthy=True)
+        return p
+
+    def ask(port):
+        return {"port": port, "served": answers["served"], "free": 2, "total": 2, "healthy": answers["healthy"]}
+
+    m = cards.Manager(popen=popen, ask=ask, models_dir=str(tmp_path), reservations=[reg.Reservation("n", 9, "the-carve-out", "test")])
+    w = FakeWorker(tmp_path, profiles, registry, rules)
+    m.start(w)
+    return m, w, answers, procs
+
+
+def swaps(w):
+    return [(p[3], p[4], p[5], p[11]) for s, p in w.conn.sql if "INSERT INTO s.swaps" in s]   # action, from, to, ok
+
+
+def test_the_server_command_derives_its_geometry_from_the_profile(tmp_path):
+    _, profiles, _ = fx.catalogue(tmp_path)
+    argv = cards.server_argv("/bin/llama-server", profiles["qwen-50k"], 1, 8111, "/m")
+    assert argv[:3] == ["/bin/llama-server", "-m", "/m/m.gguf"]
+    assert "-c" in argv and argv[argv.index("-c") + 1] == "100000" and argv[argv.index("-np") + 1] == "2"
+    assert "--alias" in argv and argv[argv.index("--alias") + 1] == "M" and "--port" in argv
+
+
+def test_a_load_starts_the_server_on_its_card_reads_the_model_back_and_ledgers_it(kit):
+    m, w, answers, procs = kit
+    answers["will_serve"] = "M"
+    d = policy.Decision("n:1", policy.LOAD, "doc", "doc takes this card", "qwen-50k")
+    assert m.load(w, 1, d, 0.0) is True
+    p, = procs
+    assert p.kw["env"]["HIP_VISIBLE_DEVICES"] == "1" and "ROCR_VISIBLE_DEVICES" not in p.kw["env"]
+    assert p.kw["env"]["LD_LIBRARY_PATH"].split(":")[0] == os.path.dirname(w.profile["programs"]["qv4-llama-server"])
+    assert 1 in m.servers and m.servers[1].prof.name == "qwen-50k"
+    assert swaps(w)[-1] == ("load", None, "qwen-50k", True)
+    assert any("INSERT INTO s.cards" in s and "profile" in s for s, _ in w.conn.sql)
+
+
+def test_a_card_answering_with_the_wrong_model_is_not_ready(kit):
+    """The 13.8%: the server is started, says it serves another model, and
+    is stopped; the swap is in the ledger as failed with what it answered."""
+    m, w, answers, procs = kit
+    answers["will_serve"] = "OTHER"
+    d = policy.Decision("n:1", policy.LOAD, "doc", "test", "qwen-50k")
+    assert m.load(w, 1, d, 0.0) is False
+    assert procs[0].signals, "the wrong server was stopped"
+    action, _, to, ok = swaps(w)[-1]
+    assert (action, to, ok) == ("failed", "qwen-50k", False) and 1 not in m.servers
+
+
+def test_a_busy_port_is_refused_before_anything_starts(kit):
+    m, w, answers, procs = kit
+    answers.update(served="STRAY", healthy=True)
+    d = policy.Decision("n:1", policy.LOAD, "doc", "test", "qwen-50k")
+    assert m.load(w, 1, d, 0.0) is False and procs == []
+    assert swaps(w)[-1][0] == "failed" and "stray" in w.logs[-1]
+
+
+def test_a_second_load_unloads_the_first_and_measures_the_swap(kit):
+    m, w, answers, procs = kit
+    answers["will_serve"] = "M"
+    m.load(w, 1, policy.Decision("n:1", policy.LOAD, "doc", "first", "qwen-50k"), 0.0)
+    first = procs[0]
+    answers["will_serve"] = "B"
+    first.returncode = 0              # it stops when told
+    answers.update(healthy=False)
+    assert m.load(w, 1, policy.Decision("n:1", policy.LOAD, "emb", "second", "bge"), 10.0) is True
+    assert first.signals, "the first server was told to stop"
+    acts = [s[0] for s in swaps(w)]
+    assert acts[-2:] == ["unload", "load"] and swaps(w)[-1][1:3] == ("qwen-50k", "bge")
+    assert m.servers[1].prof.name == "bge"
+
+
+def test_bookkeeping_decisions_change_the_card_row_not_the_server(kit):
+    m, w, answers, procs = kit
+    for action in (policy.DRAIN, policy.RELEASE, policy.HANDOVER):
+        m.apply(w, policy.Decision("n:1", action, "doc", "why", "qwen-50k"), 5.0)
+    assert procs == [] and [s[0] for s in swaps(w)] == ["drain", "release", "handover"]
+    assert m.holder_since.get(1) == 5.0
+
+
+def test_a_reserved_card_is_registered_reserved_and_a_keep_does_nothing(kit):
+    m, w, answers, procs = kit
+    reserved = [p for s, p in w.conn.sql if "INSERT INTO s.cards" in s and p[1] == 9 and True in p]
+    assert reserved, "card 9 (the fixture's reservation) is written reserved"
+    n = len(w.conn.sql)
+    m.apply(w, policy.Decision("n:9", policy.KEEP, None, "reserved", None), 0.0)
+    assert len(w.conn.sql) == n
+
+
+def test_stop_all_unloads_every_server_this_worker_started(kit):
+    m, w, answers, procs = kit
+    answers["will_serve"] = "M"
+    m.load(w, 1, policy.Decision("n:1", policy.LOAD, "doc", "x", "qwen-50k"), 0.0)
+    procs[0].returncode = 0
+    m.stop_all(w)
+    assert m.servers == {} and swaps(w)[-1][0] == "unload"
+
+
+def test_a_server_that_died_leaves_the_card_cold_and_a_ledger_line(kit):
+    m, w, answers, procs = kit
+    answers["will_serve"] = "M"
+    m.load(w, 1, policy.Decision("n:1", policy.LOAD, "doc", "x", "qwen-50k"), 0.0)
+    procs[0].returncode = 1
+    m._reap_dead_servers(w)
+    assert m.servers == {} and swaps(w)[-1][0] == "died"
+
+
+def test_a_running_job_keeps_its_card_in_flight(kit):
+    """A job this worker runs against the card's profile counts as in
+    flight, so the planner drains rather than swaps under it."""
+    m, w, answers, procs = kit
+
+    class R:
+        jt = w.registry["doc"]
+
+    w.running[1] = R()
+    m.servers[1] = cards.Server(FakeProc([]), w.profiles["qwen-50k"], 1, 8111, 0.0)
+    w.conn.fetchall = lambda: [("n", 1, False, None, 31.9, 1.8, None, "qwen-50k", 8111, 1, None, "doc", None, False, 2, 0, "w", None),
+                               ("n", 9, True, "carve-out", 31.9, 26.0, None, None, None, None, None, None, None, False, None, None, "w", None)]
+    held = {h.card: h for h in m.held(w, 100.0)}
+    assert held["n:1"].in_flight == 1 and held["n:1"].loaded == "qwen-50k" and held["n:1"].job_type == "doc"
+    assert held["n:9"].reserved
+
+
+def test_a_card_another_live_worker_manages_is_left_alone(kit, monkeypatch):
+    """Two workers on one box: the second neither registers nor plans the
+    first's card; it still runs jobs on the profile the row shows."""
+    m, w, answers, procs = kit
+    monkeypatch.setattr(cards.q, "workers", lambda conn, schema: [{"name": "other", "state": "up", "last_seen": cards.q.utcnow()}])
+    monkeypatch.setattr(cards.q, "cards", lambda conn, schema, box=None: [
+        {"box": "n", "card": 1, "reserved": False, "worker": "other", "profile": "qwen-50k", "port": 8111, "holder": "doc",
+         "draining": False, "memory_total_gb": 31.9, "memory_used_gb": 25.0}])
+    w.alarm_after_s = 300
+    n = len(w.conn.sql)
+    m.register_cards(w)
+    written = [p[1] for s_, p in w.conn.sql[n:] if "INSERT INTO s.cards" in s_]
+    assert 1 not in written and "managed by other" in " ".join(w.logs)
+    assert [h.card for h in m.held(w, 0.0)] == [], "nothing of the other worker's is planned"

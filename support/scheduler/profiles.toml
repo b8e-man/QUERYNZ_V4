@@ -1,0 +1,62 @@
+# THE MODEL PROFILES (plan step 2.15): a model plus its settings on a card.
+#
+# A card holds one profile at a time (hard limit 25); jobs naming the loaded
+# profile run together up to its `slots`. `context` is PER REQUEST; the
+# server's `-c` is derived (context x slots). `memory_gb` is measured with
+# rocm-smi against the running server and `measured_geometry` says at which
+# geometry; `load_seconds` is the measured load time (rule 9) and is written
+# back by the first swap that measures it. Weights are relative to the models
+# folder (/home/user/models, or QV4_MODELS). The model name is what the
+# server advertises (--alias) and what every call demands; an answer from
+# another model is refused (the model-client contract).
+
+[profiles.text-reader]
+model = "qwen3.6-35b-a3b-q4km"
+weights = ["Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf"]
+slots = 2
+context = 50000
+temperature = 0.0
+max_tokens = 16000
+memory_gb = 25.2
+measured_geometry = "50000x2"      # node2 card 0, rocm-smi 2026-09-22 (the old document-read job type)
+# no thinking for a reader: the budget flag alone still thought (measured 18 Oct: 200 tokens of reasoning, empty content)
+flags = ["-fa", "on", "--jinja", "--reasoning-format", "auto", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
+used_for = "Turning text into rows; the old job type was document-read"
+
+[profiles.review]
+model = "qwen3.6-35b-a3b-q4km"
+weights = ["Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf"]
+slots = 2
+context = 50000
+temperature = 0.2
+max_tokens = 6144
+memory_gb = 25.2
+measured_geometry = "50000x2"      # the old reasoning settings ran at this geometry on :8020
+flags = ["-fa", "on", "--jinja", "--reasoning-format", "auto", "--reasoning-budget", "2048"]
+used_for = "The review agent; answering questions in products"
+
+[profiles.embedding]
+model = "bge-m3-q8"
+weights = ["bge-m3-Q8_0.gguf"]
+slots = 8
+context = 8192
+temperature = 0.0
+max_tokens = 0
+memory_gb = 0.7
+measured_geometry = "16384x8"      # the old node1 burst servers; re-measure at 8192x8
+flags = ["--embedding", "--pooling", "cls", "-ub", "8192", "--no-cache-prompt"]
+embedding = true
+used_for = "Search: prompt cache off, many copies per card"
+
+[profiles.page-reader]
+model = "glm-ocr"
+weights = ["vision-glm-ocr/GLM-OCR-Q8_0.gguf", "vision-glm-ocr/mmproj-GLM-OCR-Q8_0.gguf"]
+slots = 1
+context = 32768
+temperature = 0.0
+max_tokens = 8000
+memory_gb = 4.8
+measured_geometry = "32768x1"      # node1 card 1, rocm-smi 2026-09-22
+flags = ["--jinja"]
+dpi = 300
+used_for = "Image pages: GLM-OCR, then whatever step 3 chooses"
