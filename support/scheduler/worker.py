@@ -175,8 +175,9 @@ class Worker:
                      f"lost {r['pieces_lost']}")
         for w in q.silent_workers(self.conn, self.schema, after_s=self.alarm_after_s, me=self.name, now=now):
             self.log(f"ALARM: worker {w['name']} on {w['box']} silent since {w['last_seen']}")
+            seen = w["last_seen"].astimezone(dt.timezone.utc) if w["last_seen"].tzinfo else w["last_seen"]
             self.alarm(f"qv4 {self.box}: worker {w['name']} silent",
-                       f"no heartbeat from {w['name']} ({w['box']}) since {w['last_seen']:%Y-%m-%d %H:%M UTC}; "
+                       f"no heartbeat from {w['name']} ({w['box']}) since {seen:%Y-%m-%d %H:%M} UTC; "
                        f"its leases lapse and {self.name} takes them over")
         for qid in q.enqueue_due(self.conn, self.schema, self.registry, now=now, created_by=self.name):
             self.log(f"timetable: queued row {qid}")

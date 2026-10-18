@@ -69,10 +69,11 @@ class Manager:
     """One per worker. Pure decisions come from `policy.plan`; this performs
     them on this box's cards and keeps the `cards` table true."""
 
-    def __init__(self, *, popen=None, ask=None, models_dir: str = None, log=None):
+    def __init__(self, *, popen=None, ask=None, models_dir: str = None, log=None, reservations: list = None):
         self.popen = popen or subprocess.Popen
         self.ask = ask or pb.ask_server
         self.models_dir = models_dir
+        self.reservations = reservations if reservations is not None else reg.reservations()
         self.servers: dict[int, Server] = {}
         self.round_done: frozenset = frozenset()
         self.holder_since: dict[int, float] = {}
@@ -90,9 +91,19 @@ class Manager:
         """This box's cards, from the probe. A card this worker did not load
         is cold to it: a server left by an earlier worker is a stray (it
         answers on the card's port) and is reported, never adopted."""
-        reserved = {r.key: r for r in reg.reservations()}
+        reserved = {r.key: r for r in self.reservations}
+        live_others = {w["name"] for w in q.workers(worker.conn, worker.schema)
+                       if w["name"] != worker.name and w["state"] == "up"
+                       and (q.utcnow() - w["last_seen"]).total_seconds() < worker.alarm_after_s}
+        owned_by_other = {c["card"]: c["worker"] for c in q.cards(worker.conn, worker.schema, worker.box)
+                          if c["worker"] in live_others and not c["reserved"]}
         for c in worker.profile.get("cards") or []:
             key = f"{worker.box}:{c['index']}"
+            if c["index"] in owned_by_other:
+                # two workers on one box (the rehearsal): the first to register manages the card; the
+                # other runs jobs on its profile but never loads or unloads there
+                self.log(f"card {c['index']}: managed by {owned_by_other[c['index']]}; this worker runs jobs on it but does not place")
+                continue
             fields = dict(memory_total_gb=c["memory_total_gb"], memory_used_gb=c["memory_used_gb"], product=c.get("product"),
                           worker=worker.name, profile=None, port=None, pid=None, holder=None, holder_since=None, draining=False,
                           slots=None, slots_busy=None)
@@ -112,6 +123,8 @@ class Manager:
     def held(self, worker, now_s: float) -> list[policy.Held]:
         out = []
         for c in q.cards(worker.conn, worker.schema, worker.box):
+            if c["worker"] != worker.name and not c["reserved"]:
+                continue                      # another worker's card on this box
             if c["reserved"]:
                 out.append(policy.Held(f"{worker.box}:{c['card']}", None, reserved=True, loaded=None))
                 continue
