@@ -19,9 +19,16 @@ windowed scope).
   Committee decisions held (52 abstracts, 102 PDFs). Rows in the lane
   tables in `querynz_v4`, so the nightly run never fetches them again.
 
+- One run of a lane at a time (advisory lock) and an answer from another
+  host stops the run: `windowed-2`, pushed (70ff303).
+
 ## Half-done
 
-- Nothing.
+- Tonight's capture, by hand (ruling 56; the catalogue lines wait on the
+  merge): at 22:00 NZDT 19 October, from this working copy, both lanes at
+  once with the catalogue's commands and budgets under `nice 10`; output
+  to `/home/user/querynzv4-work/scratch/windowed/capture-2026-10-19/`.
+  [ ] tenancy_tribunal  [ ] real_estate_authority
 
 ## Next
 
