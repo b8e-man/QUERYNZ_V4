@@ -66,6 +66,9 @@ OLD_LIVE_FREEZE = [
 CARVE_OUT = {
     "ec-disclosures", "querynz-gpu-gateway", "querynz-agent-llm", "querynz-vision-ocr",
     "querynz-pi-publisher", "ftm-release", "ftm-feedback-drain",
+    # 18 October: the release's search gate (ops/pi_search_gate.py) reads the
+    # product's own instance on :8300; stopped in batch 2, the release ran red
+    "querynz-pi-web",
     "offsite-push", "wal-archive-mirror", "wal-archive-prune",
     "querynz-deploy-node1", "querynz-residue-mirror",
     "querynz-vip", "querynz-vip-bridge",

@@ -27,9 +27,11 @@ the index, then the files it names for a build session on step 1,
 then docs/status.md, and continue where it stops. Do step 1 only, in
 this order: 1.1, 1.2, 1.3, 1.6, the first commit of 1.5, 1.4, the
 rest of 1.5, 1.7 to 1.10, step 1b (stop when it is built), then 1.11.
-1.11 is done and 1.4's batch 2 was stopped at 11:35 on 18 October.
+1.11 is done and 1.4's batch 2 was stopped at 11:35 on 18 October;
+querynz-pi-web went back on and into the carve-out (the release's
+search gate reads it), and a release by hand at 13:34 ran green.
 Next: once the 19 October release has run, compare it with
-2026-10-18T0617 (python -m checks.release_compare); if it is green
+2026-10-18T1334 (python -m checks.release_compare); if it is green
 and within the yardstick in docs/baseline.md, stop batch 3, v3-audit
 alone; then 1.5 as the decision queue says.
 Work alone. The only changes you may make to the old estate are

@@ -67,6 +67,7 @@
 | `ec-disclosures`, daily at 03:30 on node2 | The declared-donations feed. With a headed browser on the desktop it collects the Commission's declarations of donations over $20,000, reads the new files, and rebuilds the donation registers. In the same sitting it fetches again any annual or candidate return that arrived cut short |
 | `querynz-gpu-gateway`, `querynz-agent-llm`, `querynz-vision-ocr` | The readers that feed calls: the gateway on port 8090, the chat model behind it, and the page reader for declarations filed as images |
 | `querynz-pi-publisher`, `ftm-release` at 06:15, `ftm-feedback-drain` hourly | Builds each day's version of the site, checks it, publishes it, and collects what readers send through the site's form |
+| `querynz-pi-web`, the product's own instance on port 8300 | The release's search gate (`ops/pi_search_gate.py`) compares the snapshot's browser search with what this instance finds; without it the release ran red (18 October, found by a release run by hand after batch 2). The same program as the publisher, bound to the box's network |
 | The database, its standby and floating address; `offsite-push`; the change-log archive jobs; `querynz-deploy-node1`; `querynz-residue-mirror` | What the above stand on, and the copies of them |
 
 **Still collecting, for the new estate.** These only capture. They do not touch the site. Each keeps running until the new lane for its source takes over capture, because a gap in collecting cannot always be filled later.
@@ -80,7 +81,7 @@
 | The press graph | `v3-extract`, `querynz-extract-fleet`, `querynz-crawler`, `querynz-mint-lane`, `querynz-research`, `querynz-sweep`, the `querynz-llm@` instances, `nzme-archive-backfill` |
 | The news meaning index | `querynz-embed-backfill`, `querynz-embed-burst`, `querynz-embed-index`, `querynz-embed-index-ship`, `querynz-embed` |
 | Rebuilds and feeds the declarations do not pass through | The nightly chain on node1 (`gazette-derive`, `registers-derive`, `gazette-feed`), `feed-parties`, `mp-tenure-derive`, `hansard-register`, `hansard-reprocess`, `companies-office-derive` |
-| Old apps and their helpers | `querynz-pi-web` (the local copy of the product), `querynz-api`, `querynz-serving-precompute`, `querynz-feed-filters`, `querynz-paper-images`, `querynz-ec-results`, `robots-audit`, the reference downloads |
+| Old apps and their helpers | `querynz-api`, `querynz-serving-precompute`, `querynz-feed-filters`, `querynz-paper-images`, `querynz-ec-results`, `robots-audit`, the reference downloads |
 | The old checks board | `v3-audit`, once the watcher of 1.6 covers the carve-out |
 
 **Two cautions on that list.** The sweep is the only thing that checks the old checks board ran, which is why the watcher comes first. And `registers-derive` also rebuilds the return totals the site shows: stopping it freezes those totals as they stand, which is what the ruling intends, but prove that the declarations still reach the site without it before leaving it off.
