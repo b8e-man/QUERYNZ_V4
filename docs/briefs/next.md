@@ -14,37 +14,25 @@ estate. There is no brief. Its two lines land in
 
 ## scheduler
 
-Step 2, the scheduler's first build. Several sessions, one at a time, each
-under this name, continuing from `docs/status/scheduler.md`. Model: Fable.
-
-Launcher, on node2 in `/home/user/querynzv4`:
-`bin/start-session scheduler support/scheduler support/installer support/profiles`
-
-Then start Claude (Fable) in the folder it prints and paste:
+Step 2, session 2. The first build is merged (`docs/merges/scheduler-1.md`).
+Model: Fable. The working copy `/home/user/querynzv4-work/scheduler` is
+kept; start Claude there (`claude --model fable --permission-mode acceptEdits`)
+and paste:
 
 ```text
-You are a build session for QueryNZV4, running as Fable on node2, in
-the working copy the launcher made for you. Read docs/PLAN.md, then
-docs/plan/step-2.md, docs/status.md and your own status file
-docs/status/scheduler.md, and continue where it stops. Do step 2: the
-scheduler's first build. Extend the old fleet service (ops/fleet in
-the reference copy /home/user/qnz3-ref, at the frozen tag) rather than
-starting again; carry its tests first. The job contract is
-docs/contracts/job.md and support/jobspec and support/jobrun already
-hold step 1's half of it; build on them. Search the lessons for
-scheduling, memory and model serving before you write anything.
-node1 is out of the plan (ruling 55): the estate is node2 alone until
-a second box exists, so prove the two-box items with a second worker
-on node2 under its own name, as the decision queue's default says
-(docs/decisions/queue/step-2-on-one-box.md). Card 0 on node2 is the
-carve-out's (querynz-agent-llm on :8020 and querynz-vision-ocr on
-:8032): a fixed reservation, never touched. Card 1 is free. Never
-touch the frozen product's servers or the cards they hold; every job
-you install carries the prefix qv4-. A timer is not a blocker (ruling
-56): fire the unit by hand and record it. Push your branch and raise
-a merge request for each finished piece. Update your status file at
-every close. Finish by telling Arthur what closed, what is carded,
-what waits on him, and whether step 2 is finished.
+You are the scheduler build session for QueryNZV4, session 2, running
+as Fable on node2 in /home/user/querynzv4-work/scheduler. First merge
+origin/main into session/scheduler (the first build is merged there).
+Read docs/PLAN.md, docs/plan/step-2.md, docs/status.md and
+docs/status/scheduler.md, and continue where it stops: the four
+founding timers into the scheduler's clock (their card), embed() in the
+model client then qv4-embed (their card), the model server built from
+source beside the copy. Rulings 55 to 57 stand: node1 is set up as the
+second box only by its card, each node1 line on Arthur's word. Card 0
+is the carve-out's, never touched. Push the branch, raise a merge
+request per finished piece, update your status file at every close,
+and finish by telling Arthur what closed, what is carded, what waits
+on him, and whether step 2 is finished.
 ```
 
 ## integrator
