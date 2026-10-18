@@ -87,13 +87,24 @@ class Manager:
         self.register_cards(worker)
 
     def register_cards(self, worker) -> None:
+        """This box's cards, from the probe. A card this worker did not load
+        is cold to it: a server left by an earlier worker is a stray (it
+        answers on the card's port) and is reported, never adopted."""
         reserved = {r.key: r for r in reg.reservations()}
         for c in worker.profile.get("cards") or []:
             key = f"{worker.box}:{c['index']}"
             fields = dict(memory_total_gb=c["memory_total_gb"], memory_used_gb=c["memory_used_gb"], product=c.get("product"),
-                          worker=worker.name)
+                          worker=worker.name, profile=None, port=None, pid=None, holder=None, holder_since=None, draining=False,
+                          slots=None, slots_busy=None)
             if key in reserved:
-                fields.update(reserved=True, reserved_why=reserved[key].why, profile=None, port=None, holder=None)
+                fields.update(reserved=True, reserved_why=reserved[key].why)
+            elif c["index"] not in self.servers:
+                stray = self.ask(PORT_BASE + c["index"])
+                if stray["healthy"]:
+                    self.log(f"card {c['index']}: a stray server answers on :{PORT_BASE + c['index']} ({stray['served']!r}); "
+                             f"not adopted, this worker will not use that port until it is gone")
+                    q.record_swap(worker.conn, worker.schema, worker.box, c["index"], "stray", "a server this worker did not start "
+                                  "answers on the card's port", served_model=stray["served"], by_worker=worker.name, ok=False)
             q.upsert_card(worker.conn, worker.schema, worker.box, c["index"], **fields)
 
     # ── the tick ─────────────────────────────────────────────────────────────
@@ -109,6 +120,11 @@ class Manager:
                 a = self.ask(c["port"])
                 if a["total"]:
                     in_flight = a["total"] - max(a["free"], 0)
+            # a job this worker is running against the card's profile is in flight whether or not
+            # it has a request open at this instant: the card is not swapped under it
+            with worker.lock:
+                busy_jobs = sum(1 for r in worker.running.values() if r.jt.profile and r.jt.profile == c["profile"])
+            in_flight = max(in_flight, busy_jobs)
             out.append(policy.Held(f"{worker.box}:{c['card']}", c["holder"], since=self.holder_since.get(c["card"], now_s),
                                    draining=bool(c["draining"]), in_flight=in_flight, loaded=c["profile"]))
         return out
@@ -184,10 +200,24 @@ class Manager:
             self.log(f"card {card}: cannot load {prof.name}: weights missing {missing}")
             return False
         port = PORT_BASE + card
+        busy = self.ask(port)
+        if busy["healthy"]:
+            # a server this worker did not start answers on the card's port: starting another would fail to
+            # bind, and reading the stray's answer as our own would call the wrong model ready
+            detail = f"port {port} is busy: a stray server answers with {busy['served']!r}; not started"
+            self.log(f"card {card}: cannot load {prof.name}: {detail}")
+            q.record_swap(worker.conn, worker.schema, worker.box, card, "failed", d.why, to_profile=prof.name, job=d.job_type,
+                          by_worker=worker.name, served_model=busy["served"], ok=False, detail=detail)
+            return False
         argv = server_argv(binary, prof, card, port, self.models_dir)
         os.makedirs(LOGS, exist_ok=True)
         logf = open(os.path.join(LOGS, f"{worker.box}-card{card}.log"), "ab")
-        env = dict(os.environ, HIP_VISIBLE_DEVICES=str(card), ROCR_VISIBLE_DEVICES=str(card))
+        # the copied binary's RUNPATH still names the old build's folder; LD_LIBRARY_PATH
+        # is searched first, so the estate's own libraries beside the binary are the ones loaded
+        # ONE device filter only: HIP_VISIBLE_DEVICES and ROCR_VISIBLE_DEVICES set together filter
+        # twice (index 1 of a one-card list is nothing) and the server falls back to the processor
+        env = dict(os.environ, HIP_VISIBLE_DEVICES=str(card),
+                   LD_LIBRARY_PATH=os.path.dirname(binary) + (":" + os.environ["LD_LIBRARY_PATH"] if os.environ.get("LD_LIBRARY_PATH") else ""))
         t0 = time.monotonic()
         self.log(f"card {card}: loading {prof.name} ({prof.model}, {prof.geometry}) on :{port}: {d.why}")
         try:

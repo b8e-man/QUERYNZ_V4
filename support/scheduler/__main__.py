@@ -157,10 +157,12 @@ def main(argv=None) -> int:
             from support import modelclient
             out = modelclient.chat(os.environ["QV4_MODEL_URL"], lane="rehearsal", model=os.environ["QV4_MODEL"],
                                    messages=[{"role": "user", "content": "Reply with the single word READY."}],
-                                   extra={"temperature": 0.0, "max_tokens": 20}, timeout=300)
-            print(f"rehearsal: {out.get('model')} answered {len((out['choices'][0]['message']['content'] or '').strip())} chars "
-                  f"on card {os.environ.get('QV4_CARD')}")
-            return 0
+                                   extra={"temperature": 0.0, "max_tokens": 300}, timeout=300)
+            msg = out["choices"][0]["message"]
+            content, thought = (msg.get("content") or "").strip(), (msg.get("reasoning_content") or "").strip()
+            print(f"rehearsal: {out.get('model')} answered {len(content)} chars of content and {len(thought)} of reasoning "
+                  f"on card {os.environ.get('QV4_CARD')} ({os.environ.get('QV4_PROFILE')})")
+            return 0 if (content or thought) else 4
         if a.what == "served":
             # the profile is loaded and advertises the model the catalogue names (read back, never assumed)
             from support.scheduler import probe

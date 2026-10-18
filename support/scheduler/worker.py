@@ -197,6 +197,8 @@ class Worker:
             threads = [r.thread for r in self.running.values() if r.thread]
         for t in threads:
             t.join(timeout=runner.KILL_GRACE_S + 10)
+        if self.cards_manager:
+            self.cards_manager.stop_all(self, "worker stopping")
         released = q.stop_worker(self.conn, self.schema, self.name)
         self.log(f"stopped; {released} lease(s) given back")
 
@@ -241,6 +243,10 @@ class Worker:
 
     def _run_one(self, conn, r: Running, piece: dict | None) -> runner.Result:
         jt, claim = r.jt, r.claim
+        if jt.profile and not self._env(r, "", piece).get("QV4_MODEL_URL"):
+            # the card that held the profile when the job was claimed no longer does: do not run a
+            # doomed child; the job goes back and is claimed again when a card holds it
+            return runner.Result(None, 0.0, 0, "failed", f"no card on {self.box} holds profile {jt.profile} now", "lease")
         run_id = runs.begin(jt.name, box=self.box, queue_id=claim["id"], card=None,
                             requested_model=self.profiles[jt.profile].model if jt.profile else None,
                             args={"piece": piece["key"] if piece else None, "worker": self.name})
@@ -276,13 +282,15 @@ class Worker:
             conn = self._connect()
             jt, claim = r.jt, r.claim
             if jt.pieces:
-                failed, last = 0, None
+                failed, in_a_row = 0, 0
                 while True:
+                    if self.stopping:
+                        q.requeue(conn, self.schema, claim["id"], claim["token"], detail="worker stopping")
+                        return
                     piece = q.next_piece(conn, self.schema, claim["id"], claim["token"], self.name)
                     if piece is None:
                         break
                     res = self._run_one(conn, r, piece)
-                    last = res
                     if res.stopped_for in ("lease",):
                         q.requeue(conn, self.schema, claim["id"], claim["token"], detail="worker stopping or lease lost")
                         return
@@ -290,6 +298,18 @@ class Worker:
                                    seconds=res.seconds, detail=res.error or "")
                     if res.outcome != "ok":
                         failed += 1
+                        in_a_row += 1
+                        if in_a_row >= 2:
+                            # two pieces failing back to back is the environment (a server gone, a disk full),
+                            # not two bad pieces: give the job back for later rather than burn every piece's attempts
+                            q.requeue(conn, self.schema, claim["id"], claim["token"],
+                                      detail=f"{in_a_row} pieces failed in a row ({res.error}); retried in 2 minutes",
+                                      not_before=q.utcnow() + dt.timedelta(seconds=120))
+                            self.log(f"row {claim['id']} ({jt.name}): {in_a_row} pieces failed in a row; given back for 2 minutes")
+                            return
+                        time.sleep(5)
+                    else:
+                        in_a_row = 0
                 left = q.pieces_left(conn, self.schema, claim["id"])
                 ok = left["failed"] == 0 and left["todo"] == 0
                 q.complete(conn, self.schema, claim["id"], claim["token"], outcome="ok" if ok else "failed",

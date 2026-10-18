@@ -19,7 +19,8 @@ temperature = 0.0
 max_tokens = 16000
 memory_gb = 25.2
 measured_geometry = "50000x2"      # node2 card 0, rocm-smi 2026-09-22 (the old document-read job type)
-flags = ["-fa", "on", "--jinja", "--reasoning-format", "auto", "--reasoning-budget", "0"]
+# no thinking for a reader: the budget flag alone still thought (measured 18 Oct: 200 tokens of reasoning, empty content)
+flags = ["-fa", "on", "--jinja", "--reasoning-format", "auto", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
 used_for = "Turning text into rows; the old job type was document-read"
 
 [profiles.review]

@@ -27,8 +27,8 @@ E: `cards.py` written, not yet proven on card 1.
 
 ## Intended changes to live things
 
-- [ ] Copy the old model server build beside itself into `<live>/llama/bin` (installer; the old build is read only).
-- [ ] Start worker processes `node2` and `node2-b` from this working copy (background processes, not units: unit placement is the integrator's), which load profiles on card 1 only; card 0 untouched.
+- [x] Copy the old model server build beside itself into `<live>/llama/bin` (installer; the old build is read only). Done 18 Oct 18:38.
+- [x] Start worker processes `node2` and `node2-b` from this working copy (background processes; the unit goes in at the merge), which load profiles on card 1 only; card 0 untouched. Started 18 Oct 18:38; found the session's sandbox hides card 1's render node (one `/dev/dri/renderD*` visible, `rocminfo` empty), so the worker is restarted outside the sandbox (allowed-command list and hooks still on; not bypass-permissions mode).
 - [x] Create schema `scheduler` and its tables in `querynz_v4` (`python -m support.scheduler tables`), 18 Oct ~19:40.
 
 ## Next
