@@ -25,6 +25,12 @@ def main(argv=None) -> int:
         page = int(page or (rest[1] if len(rest) > 1 else 1))
         os.environ["QV4_ARGS"] = json.dumps({**json.loads(os.environ.get("QV4_ARGS") or "{}"), "pages": [page], "pass": "urgent"})
         return piece.main([sha])
+    if cmd == "oldcache":
+        from support.trials import piece
+        n = int(rest[0]) if rest else 40
+        dpi = int(rest[1]) if len(rest) > 1 else piece.OLD_DPI
+        piece.old_cache_check(n, dpi=dpi)
+        return 0
     if cmd == "rows":
         from support.trials import rows
         return rows.main(rest)

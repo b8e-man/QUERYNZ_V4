@@ -28,6 +28,14 @@ Qwen 3.5 bases with thinking off. The settings stamped on each reading are
 in `support/trials/readers.py`; the scheduler profiles in
 `support/trials/scheduler/profiles-additions.toml`.
 
+Read from each file's own metadata (18 October): OvisOCR2 and Chandra
+OCR 2 are `qwen35` with a `qwen3vl_merger` projector, TeleOCR `qwen2vl`
+with `qwen2.5vl_merger`, GLM-OCR f16 `glm4`; every one an architecture
+and projector the b10276 server build knows. The 35B is `qwen35moe` per
+its converter, converted at a later commit than the box's server (its
+loader metadata was adjusted for compatibility; whether b10276 loads it
+is found at the first swap).
+
 TeleOCR loads only on a server patched as its conversion's PATCHES.md
 says; built beside the estate's servers at `<live>/llama/built-teleocr/`
 (the patch is in `libllama.so`; the server binary is byte-identical). The
@@ -72,8 +80,14 @@ ok, peak 1,044 MB against 1,536 declared, 6.5 s a piece; card 1 loaded in
 2.0 s, drained and released when the queue emptied; nothing on card 0.
 Scored (`score --pass reread`, 92 pages in the set): no loops, no example
 names; 4 text pages with a key, 2 of them flagged for invented runs,
-under investigation. The full pass (every page, 200 dpi, joined to the old
-cache by image hash) waits on the patch.
+under investigation (each has one ten-word run with four words not on the
+page at all, on a declaration page: a stamp or a signature block the text
+layer lacks, or an invention; decided when pass one has every page). The
+full pass (every page, 200 dpi, joined to the old cache by image hash)
+waits on the patch. The join itself is proven: 80 of 80 scan pages from
+40 returns, rendered at 200 dpi, hash to a reading in the old estate's
+cache; at 300 dpi none do (`python -m support.trials oldcache`, and a
+test).
 
 ## Pass two (3.6), scores (3.7), decision (3.8)
 

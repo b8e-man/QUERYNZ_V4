@@ -234,6 +234,27 @@ def run(sha256: str, *, reader: readers.Reader, url: str, args: dict = None, sto
     return tally
 
 
+def old_cache_check(n_docs: int = 40, pages_per_doc: int = 2, dpi: int = OLD_DPI, log=print) -> dict:
+    """Does the join to the old estate's page cache work on real pages?
+    Render scan pages at the old dots per inch, hash the image, look for
+    the old text. Counts only; nothing is read by a model."""
+    from collections import Counter
+    docs = [d for d in pageset.load() if d["kind"] == "party-return" and d["shape"] in ("scan", "mixed")]
+    c = Counter()
+    with tempfile.TemporaryDirectory() as td:
+        for d in docs[:n_docs]:
+            data = pageset.read_bytes(d["sha256"])
+            for p in [p["page"] for p in d["selected_pages"] if p["read_from"] == "pixels"][:pages_per_doc]:
+                png = pagereader.render(data, p, td, dpi)
+                if not png:
+                    c["render-failed"] += 1
+                    continue
+                c["hit" if old_cached_text(png) is not None else "miss"] += 1
+                os.remove(png)
+    log(f"old cache at {dpi} dpi: {dict(c)} over {sum(c.values())} pages of {min(n_docs, len(docs))} documents")
+    return dict(c)
+
+
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv:
