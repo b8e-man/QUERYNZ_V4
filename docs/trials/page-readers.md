@@ -20,7 +20,7 @@ request `trial-1`). The incumbent stays alone until then.
 | TeleOCR | Qwen 2.5-VL (Qwen3-style decoder) | `teleocr/NaviDC-OCR-*` from nandraj (the model's former name; its own GGUF is not for llama.cpp) | Q8_0, f16 | Apache-2.0 | `Please output the text content from the image.` with the card's system line; tables come as OTSL under the table prompt |
 | OvisOCR2 | Qwen 3.5 (0.8B) | `ovisocr2/` from Abiray | Q8_0, F16 | Apache-2.0 | the card's Markdown instruction |
 | Chandra OCR 2 | Qwen 3.5 (mid) | `chandra-ocr-2/` from mradermacher (base named as the mirror vasu-12) | Q8_0, Q4_K_M | modified OpenRAIL-M (on the legal list, ruling 49) | the package's `OCR_LAYOUT_PROMPT` |
-| Infinity-Parser2-Pro | Qwen 3.5 (35B mixture) | `infinity-parser2-pro/` Q8_0 from glebkudr (36.9 GB, larger than a card); Q4_K_M made here | Q4_K_M (card), Q8_0 (experts on the processor) | Apache-2.0 | the package's `PROMPT_DOC2MD` |
+| Infinity-Parser2-Pro | Qwen 3.5 (35B mixture, `qwen35moe`, 256 experts, 8 used) | `infinity-parser2-pro/` Q8_0 from glebkudr (36.9 GB, larger than a card); Q4_K_M (21.2 GB) made here from it in 507 s, twice-quantised | Q4_K_M (card), Q8_0 (experts on the processor) | Apache-2.0 | the package's `PROMPT_DOC2MD` |
 
 Every reader: temperature 0, one slot, 32k context, the document
 profile's dots per inch (300; pass one at the old estate's 200), the

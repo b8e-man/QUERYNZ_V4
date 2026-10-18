@@ -10,9 +10,9 @@ Scope `support/trials`, `support/profiles`, `docs/trials`.
   TeleOCR as NaviDC-OCR Q8_0+f16 with projectors; GLM-OCR f16 (the Q8_0 in
   the models folder is hash-equal to the hub's); Chandra OCR 2 Q8_0+Q4_K_M
   with projectors; Infinity-Parser2-Pro Q8_0 (36.9 GB, larger than a card)
-  with projectors (`models check` green on every file); its Q4_K_M made
-  here by `models quantise` (`--allow-requantize`; the ledger line says
-  twice-quantised; see the ledger for whether it finished). A patched
+  with projectors; its Q4_K_M (21.2 GB) made here by `models quantise`
+  in 507 s (`--allow-requantize`; the ledger line says twice-quantised).
+  `models check` is green on every file; 74 GB used on the disk. A patched
   server for TeleOCR built beside the others: `<live>/llama/built-teleocr/`
   (PATCH.json). Every conversion's architecture and projector type is one
   the b10276 server knows (read from the files' metadata).
