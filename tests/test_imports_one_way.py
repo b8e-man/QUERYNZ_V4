@@ -103,7 +103,8 @@ def schema_owners() -> dict:
     may read (pub). A lane owns its schema and its private twin; links owns
     both of its; a product shape owns its own; the document store and the
     seal are support's."""
-    own = {"pub": None, "links": "links", "links_private": "links", "docs": "support.docstore", "sealed": "support.seal"}
+    own = {"pub": None, "links": "links", "links_private": "links", "docs": "support.docstore", "sealed": "support.seal",
+           "scheduler": "support.scheduler"}
     for lane in _db.LANES:
         own[lane] = own[lane + _db.PRIVATE_SUFFIX] = f"registers.{lane}"
     for p in _db.PRODUCTS:

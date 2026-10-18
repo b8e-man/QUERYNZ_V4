@@ -47,7 +47,7 @@ LANES = (
     "hansard", "linz", "tenders", "papers_past",
 )
 PRODUCTS = ("ftm", "subject_report", "register_scan", "archive_search", "board")
-FIXED = ("pub", "links", "links_private", "docs", "sealed")
+FIXED = ("pub", "links", "links_private", "docs", "sealed", "scheduler")
 PRIVATE_SUFFIX = "_private"
 SCRATCH_PREFIX = "scratch_"
 NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
