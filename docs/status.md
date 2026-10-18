@@ -23,14 +23,17 @@ alarm 18 October).
   the old folder by hash; 32 read to a row, 120 set aside with a reason (115
   no text layer, 5 carded). Against the frozen site: 23 party-years equal,
   1 differs (Labour 2020, carded).
-- 1.6 widened: the watcher's `carve-out` item asks systemd for every
-  carve-out unit (red when one the release needs is down, or one seen running
-  here stops) and reads the stop list, so `v3-audit`'s silence is not red.
+- 1.6 widened: the watcher's `carve-out` item watches every carve-out unit
+  and reads the stop list, so `v3-audit`'s silence is not red.
+- 1.5: both freeze commits by Arthur's hand (7f9f0bb5, 8c5d1637), tag
+  `v3-frozen-2026-10-18`, 18 October; the reference copy is at the tag. The
+  old repository takes no commit from here without Arthur's word.
 
 ## Next
 
-1.5's second commit and tag, by Arthur's hand (the queue). Then record the
-tag, move the reference copy; step 1 closes, bar the positive half of 1.4.
+Step 1 is closed, bar the positive half of 1.4 (a new declaration listed,
+then watched through the carve-out). The next founding session reads
+`docs/PLAN.md` for what follows step 1.
 
 ## Half-done
 
@@ -48,9 +51,7 @@ tag, move the reference copy; step 1 closes, bar the positive half of 1.4.
   the yardstick against `2026-10-18T1334` (stamps only; `data/cite` 10,569
   same). The negative half is done. The positive half waits for the next
   declaration listed. `querynz-verdict-sync` stopped under the queue.
-- 1.5: first commit by Arthur's hand (7f9f0bb5). The second (27 units
-  marked disabled, two tables regenerated) is a rehearsed patch under
-  `querynzv4-work/live/`; commands and tag name in the queue. His hand.
+
 
 ## Known gaps left on purpose
 

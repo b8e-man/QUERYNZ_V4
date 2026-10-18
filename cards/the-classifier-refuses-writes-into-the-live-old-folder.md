@@ -1,9 +1,10 @@
 # The permission classifier refuses every write into the live old folder, so 1.5 waits on Arthur's hand
 kind: blocker
-state: open
+state: closed
 use-case: -
 session: founding-2
 opened: 2026-10-18
+closed: 2026-10-18
 
 Claude Code's auto-mode classifier sits above the hooks and refuses a copy
 or an edit into `/home/user/Git Repos/QueryNZ_V3`, though the hooks allow
@@ -29,3 +30,12 @@ session commits.
 to the mirror waits for node1. Arthur ran the old gate by hand and started
 the two news timers at 09:06; the first daily run skipped NZME by ruling.
 Still open for the second commit and the tag.
+
+18 October 18:0x: Arthur made the second commit by hand (8c5d1637: 27 units
+marked disabled in the manifest, FLEET.md and SOURCES.md regenerated, from
+`manifest-freeze-commit.patch`, rehearsed in a scratch copy because the
+classifier refuses the reference copy too) and tagged it
+`v3-frozen-2026-10-18`. The live old folder has no remote but node1's mirror
+(ruling 55: not confirmed). The reference copy is at the tag. Closed: both
+freeze commits and the tag are in; the old repository takes no commit from
+here without Arthur's word (hard limit 19).

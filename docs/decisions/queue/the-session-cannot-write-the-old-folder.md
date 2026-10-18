@@ -1,6 +1,6 @@
 # The session's permission mode refuses every write into the live old folder, so the 1.5 freeze commits need your hand or a permission rule
 default: none
-blocks: Step 1.5's second commit and the tag (the first commit landed by Arthur's hand on 18 October, 7f9f0bb5, and the two news timers are back on)
+blocks: Nothing. Both commits (7f9f0bb5, 8c5d1637) and the tag v3-frozen-2026-10-18 landed by Arthur's hand on 18 October; the item stays as the record
 recommendation: Apply the rehearsed patch yourself (two commands below, on node2), or add a permission rule that lets a founding session edit the four freeze paths; the patch is the quicker
 raised: 2026-10-18 by founding-2 (step 1.5, first commit)
 
