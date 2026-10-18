@@ -1,0 +1,5 @@
+An embeddings answer's `model` field is the request echoed back, so a check on it passes whatever the card holds; read the served model from the server's model list (`/v1/models`), as the card manager does at every load.
+area: model client, model serving, scheduler, search
+paid-for-by: 18 October 2026, the scheduler session's live proof of embed()
+
+Seen 18 October 2026: the first draft of `embed()` checked `out["model"]` the way `chat()` does, and a call naming a model that was not loaded was ACCEPTED. llama-server (b10276, `tools/server/server-common.cpp`) fills an embeddings answer with `json_value(request, "model", model_name)`: the caller's word, and the alias only when the caller gave none. A chat answer is different: `oaicompat_model = meta->model_name`, the server's own name, so `chat()`'s check is real. The fix: `served_model(url)` asks `/v1/models` on the same host and port before the call and the refusal compares against that. The old client's `embed()` never checked at all. A test now fakes a parroting server with the wrong model loaded and expects `WrongModel`.
