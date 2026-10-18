@@ -156,7 +156,7 @@ Then tag the second commit as the frozen version, record the tag in `docs/baseli
 ### Done when
 
 - [x] An edit outside a session's scope is refused, and a branch with a failing test is refused by the merge gate. DONE 18 October (1.1 merged, 5c1e5f2).
-- [x] `docs/baseline.md` exists and its differences from this plan are listed. DONE 18 October (node1 down: its half re-measured when it returns).
+- [x] `docs/baseline.md` exists and its differences from this plan are listed. DONE 18 October (node2 only; node1 is out of the plan by ruling 55).
 - [ ] The carve-out is named and watched, every other old job is either still collecting or stopped with proof, a new declaration has reached the public site with only the carve-out running, and the daily release has run green since.
 - [ ] The old repository is tagged, with NZME out of its news capture.
 - [x] The watcher for the frozen product is running and has raised a test alarm that reached Arthur. DONE 18 October: `qv4-checks-board` 07:30 and `qv4-checks-heartbeat` 09:00/21:00 on node2; the test alarm sent again at 14:1x on 18 October reached Arthur, confirmed in session.

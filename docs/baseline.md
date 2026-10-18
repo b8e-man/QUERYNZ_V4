@@ -168,3 +168,9 @@ kinds change by the same keys (`generated_at`, `history`, `freshness`,
 node1 down, so that churn comes from node2's side or the carve-out's own
 derive; nothing static moved. Batch 2 was stopped at 11:35 on 18 October;
 the 19 October release is compared against `2026-10-18T0617`.
+
+**Addendum, 18 October, ruling 55.** Node1 is out of the plan. The "not
+measured" column above stays as it is and is not owed; the estate is node2.
+Batch 3 (`v3-audit`) was stopped at 16:04 on 18 October on the 13:34 release
+run by hand (ruling 56: a timer is not a blocker); the comparison of that
+release with `2026-10-18T0617` is the one described in the addendum above.
