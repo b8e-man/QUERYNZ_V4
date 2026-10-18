@@ -1,4 +1,4 @@
-A text page's layer is a partial key on most Commission form pages (pdftotext prints a field's label, never its typed value; a scanner's OCR layer is itself a reading; a logo's words are an image): test the key before calling a run invented.
+A text layer is a partial key on most Commission form pages (pdftotext prints a field's label, never its typed value; a scanner's OCR layer is itself a reading; a logo's words are an image): test the key before calling a run invented.
 area: reading documents, page readers, scoring, EC returns
 paid-for-by: 2026-10-19, trial session, step 3.7
 

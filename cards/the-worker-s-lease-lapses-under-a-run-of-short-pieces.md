@@ -1,9 +1,10 @@
 # The worker's lease lapses under a run of short pieces
 kind: finding
-state: open
+state: closed
 use-case: the scheduler (step 2.8, leases; seen on step 3's pass one)
 session: trial
 opened: 2026-10-19
+closed: 2026-10-19
 
 During pass one (`qv4-trial-read-glm-ocr` #54, 264 runs over 3.8 hours)
 the worker on node2 reaped its own row six times: "reaped queue row 54:
@@ -29,3 +30,11 @@ will not see it.
 
 Blocks: nothing. The proof "a worker stopped mid-run loses at most one
 piece" was shown by accident six times.
+
+**Closed 19 October (integrator, at the merge of trial-2):** the renewal
+clock now lives on the claim (`Running.last_renew`), not on the piece, so it
+renews every `lease_seconds / 3` of wall time whatever the pieces' length.
+Test `test_a_run_of_short_pieces_keeps_the_lease` (ten 4 s pieces under a
+24 s lease, the reaper ticking throughout): red before the fix, green after.
+The running worker picks the change up at its next restart; pass two's small
+readers pay one killed piece per lapse until then.
