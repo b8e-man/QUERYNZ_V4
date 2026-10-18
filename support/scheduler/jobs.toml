@@ -113,3 +113,63 @@ command = ["python", "-m", "support.scheduler", "hold-profile"]
 wanted = 1
 can_share = true
 enabled = false
+
+# ── rehearsal jobs ───────────────────────────────────────────────────────────
+# Cheap jobs that prove the machinery on a real box (step 2's done-when list,
+# proven with two workers on node2 under the queue's default). They run only
+# when queued; nothing queues them but a session or a test.
+
+[jobs.qv4-rehearsal-sleep]
+description = "Sleeps a few seconds on the processor. Proves claim, lease, run record, completion."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 120
+query_timeout_s = 30
+class = "whenever"
+priority = 90
+command = ["python", "-m", "support.scheduler", "rehearse", "sleep", "--seconds", "3"]
+concurrency = 2
+
+[jobs.qv4-rehearsal-pieces]
+description = "Ten pieces of a few seconds each. Proves pieces, progress, and that a stopped worker loses at most one piece while the other finishes."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 120
+query_timeout_s = 30
+class = "whenever"
+priority = 91
+command = ["python", "-m", "support.scheduler", "rehearse", "sleep", "--seconds", "4"]
+pieces = true
+
+[jobs.qv4-rehearsal-burn]
+description = "Allocates more memory than it declares. Proves the ceiling: the job is stopped, the box is not, the peak is recorded and flagged."
+needs = "processor"
+memory_gb = 0.1
+deadline_s = 120
+query_timeout_s = 30
+class = "whenever"
+priority = 92
+command = ["python", "-m", "support.scheduler", "rehearse", "burn", "--mb", "600", "--seconds", "30"]
+
+[jobs.qv4-rehearsal-needs-program]
+description = "Requires the headed browser. Proves a job needing a program only one box has is never given to the other (the second worker hides it)."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 120
+query_timeout_s = 30
+class = "whenever"
+priority = 93
+command = ["python", "-m", "support.scheduler", "rehearse", "sleep", "--seconds", "2"]
+requires = ["google-chrome"]
+
+[jobs.qv4-rehearsal-tick]
+description = "A two-minute timetable for the rehearsal: proves a timetabled job runs on the surviving worker with no hand step. Disabled when not rehearsing."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 100
+query_timeout_s = 30
+class = "due"
+priority = 94
+command = ["python", "-m", "support.scheduler", "rehearse", "sleep", "--seconds", "1"]
+every_s = 120
+enabled = false

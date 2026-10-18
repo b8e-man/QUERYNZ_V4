@@ -16,16 +16,19 @@ Overwritten at every close; under 3 KB. Session 1 began 18 October 2026
 
 ## Done
 
-Nothing yet.
+- A: `registry.py`, `policy.py` (nine rules), `runs.py` carried with tests; `jobs.toml`, `profiles.toml`.
+- B: `tables.sql`, `queue.py` (leases, tokens, pieces, timetable, standing, demands, runs, cards, swaps); 13 tests on the sample database.
+- C: `probe.py` (cores, memory, pressure, cards, disks, programs; the carried server parsers).
+- D: `runner.py` (ceiling, deadline, query limit, peak), `worker.py`, the CLI; 6 worker proofs on the sample database. Real tables in `querynz_v4.scheduler`.
 
 ## Half-done
 
-A: starting.
+E: `cards.py` written, not yet proven on card 1.
 
 ## Intended changes to live things
 
-- [ ] Create schema `scheduler` and its tables in `querynz_v4` (`python -m support.scheduler tables`), 18 Oct ~19:40.
+- [x] Create schema `scheduler` and its tables in `querynz_v4` (`python -m support.scheduler tables`), 18 Oct ~19:40.
 
 ## Next
 
-A.
+E: load the text-reader profile on card 1 for a real job; then F, G.
