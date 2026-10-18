@@ -214,6 +214,9 @@ CREATE TABLE IF NOT EXISTS scratch_trial.page_scores (
     loops int, loop_fail boolean, amounts_key int, amounts_found int, amounts_missing int, amounts_extra int,
     amounts_exact boolean, amounts_lone int, at timestamptz NOT NULL DEFAULT now()
 );
+GRANT USAGE ON SCHEMA scratch_trial TO qv4_read;
+GRANT SELECT ON ALL TABLES IN SCHEMA scratch_trial TO qv4_read;
+ALTER DEFAULT PRIVILEGES IN SCHEMA scratch_trial GRANT SELECT ON TABLES TO qv4_read;
 """
 
 
