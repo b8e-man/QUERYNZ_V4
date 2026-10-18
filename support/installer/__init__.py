@@ -103,6 +103,22 @@ def plan_units(repo: str = REPO, unit_dir: str = UNIT_DIR) -> list[dict]:
     return out
 
 
+MAIN_CHECKOUT = "/home/user/querynzv4"
+
+
+def unit_text(path: str, repo: str = REPO) -> str:
+    """A shipped unit names the main checkout. Installed from a working
+    copy (a rehearsal before the merge) the paths are rewritten to it, and
+    the next install from the main checkout puts the shipped text back:
+    the hash differs, so it is an `update`."""
+    text = open(path, encoding="utf-8").read()
+    if os.path.realpath(repo) != os.path.realpath(MAIN_CHECKOUT):
+        text = text.replace(f"WorkingDirectory={MAIN_CHECKOUT}", f"WorkingDirectory={os.path.realpath(repo)}")
+        text = text.replace("[Service]", f"[Service]\n# REHEARSAL: installed from the working copy {os.path.realpath(repo)}; "
+                                         f"the merge's install replaces this with the shipped unit", 1)
+    return text
+
+
 def install_units(repo: str = REPO, unit_dir: str = UNIT_DIR, box: str = None, sh=None, enable: bool = True) -> list[dict]:
     """Copy the shipped units in, reload, enable the timers and this box's
     worker. Touches nothing without the prefix."""
@@ -112,10 +128,13 @@ def install_units(repo: str = REPO, unit_dir: str = UNIT_DIR, box: str = None, s
         name = step["unit"]
         if not name.startswith(PREFIX):          # belt and braces: never a foreign unit
             continue
-        if step["action"] in ("install", "update"):
+        target = os.path.join(unit_dir, name)
+        text = unit_text(unit_sources(repo)[name], repo)
+        if step["action"] in ("install", "update") or (os.path.exists(target) and open(target, encoding="utf-8").read() != text):
             os.makedirs(unit_dir, exist_ok=True)
-            shutil.copyfile(unit_sources(repo)[name], os.path.join(unit_dir, name))
-            done.append(step)
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(text)
+            done.append({"unit": name, "action": step["action"] if step["action"] != "same" else "update"})
     if done:
         sh(["systemctl", "--user", "daemon-reload"])
     if enable:

@@ -29,6 +29,7 @@ E: `cards.py` written, not yet proven on card 1.
 
 - [x] Copy the old model server build beside itself into `<live>/llama/bin` (installer; the old build is read only). Done 18 Oct 18:38.
 - [x] Start worker processes `node2` and `node2-b` from this working copy (background processes; the unit goes in at the merge), which load profiles on card 1 only; card 0 untouched. Started 18 Oct 18:38; found the session's sandbox hides card 1's render node (one `/dev/dri/renderD*` visible, `rocminfo` empty), so the worker is restarted outside the sandbox (allowed-command list and hooks still on; not bypass-permissions mode).
+- [ ] Place `qv4-worker@.service` in the user unit folder through the installer, from THIS working copy (the sandbox bypass was refused; a unit runs outside it), enable and start `qv4-worker@node2`. The merge's installer run replaces the unit with the shipped one (main checkout). 18 Oct ~18:55.
 - [x] Create schema `scheduler` and its tables in `querynz_v4` (`python -m support.scheduler tables`), 18 Oct ~19:40.
 
 ## Next
