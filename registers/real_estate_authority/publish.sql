@@ -1,1 +1,3 @@
--- registers/real_estate_authority: nothing published yet (capture and hold; the reading comes in step 5).
+-- registers/real_estate_authority: nothing published (track E: capture and hold; the reading comes in step 5).
+-- The Authority's terms allow reproduction for in-house use only (docs/legal/positions/real-estate-authority-decisions.md):
+-- no view is made until a reading exists, the lawyer has read the position, and Arthur rules on what may be shown.

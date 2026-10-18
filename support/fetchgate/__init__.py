@@ -77,6 +77,10 @@ FLOORS = {
     "greaterauckland.org.nz": 30.0,
     "farmersweekly.co.nz": 5.0,
     "publicdata.co.nz": 5.0,
+    # track E, the windowed sources: the floor each legal position states
+    # (docs/legal/positions/tenancy-tribunal-decisions.md, real-estate-authority-decisions.md)
+    "forms.justice.govt.nz": 5.0,
+    "decisions.dotnous.com": 5.0,
 }
 
 
