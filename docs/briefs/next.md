@@ -20,21 +20,26 @@ is left waits on node1 (`cards/node1-setup-as-the-second-box.md`, ruling
 
 ## trial
 
-Step 3, the page-reader trial. Model: Fable (then Opus for the second
-pass). Launcher, on node2 in `/home/user/querynzv4`:
-`bin/start-session trial support/trials support/profiles docs/trials`
+Step 3, the page-reader trial. Model: Fable. Session 1 is merged
+(`docs/merges/trial-1.md`): page set, keys, readers, scoring, the five
+models on the second disk, the catalogue. Pass one (GLM-OCR alone, 255
+documents, queue job 54) was queued by the integrator on 18 October at
+22:50 and runs on card 1. The working copy exists; on node2:
+`cd /home/user/querynzv4-work/trial && git pull && claude --model fable --permission-mode acceptEdits`
 
 ```text
 You are a build session for QueryNZV4, running as Fable on node2, in
-the working copy the launcher made for you. Read docs/PLAN.md, then
-docs/plan/step-3.md, docs/status.md and your own status file
-docs/status/trial.md, and continue where it stops. Do step 3: the
-page-reader trial over the election documents, as the scheduler's
-first real job (support/scheduler: the queue, jobs.toml, profiles.toml;
-python -m support.scheduler --help). Search the lessons for reading
-documents, document profiles and page readers first. The models go
-on /mnt/hdd2 (3.4 TB free); download each once, politely, and card
-one that cannot be served within the time the plan gives. Key every
+your working copy /home/user/querynzv4-work/trial (session 2). Read
+docs/PLAN.md, then docs/plan/step-3.md, docs/status.md, your own status
+file docs/status/trial.md and docs/trials/page-readers.md, and continue
+where session 1 stopped. Pass one (qv4-trial-read-glm-ocr, job 54) is
+queued or done: python -m support.trials.queue status. Score it against
+the keys (3.7), card every difference from the old readings, then queue
+the challengers (python -m support.trials.queue two), the compression
+comparisons (twenty), the small waiting-class job part-way (urgent, 3.6)
+and the rows pass; score; choose the reader and the second reader. The
+scheduler proofs still owed are in docs/status/trial.md. The models are
+on /mnt/hdd2/qv4-models; download nothing twice. Key every
 reading to the file's hash and page, never its name. Decide text or
 scan per page. Run GLM-OCR alone before adding the challengers. Card 0
 on node2 is the carve-out's (querynz-agent-llm :8020, querynz-vision-ocr
@@ -83,16 +88,27 @@ whether track B is finished.
 
 ## windowed
 
-Track E, the windowed sources. Model: Opus. Launcher, on node2 in
-`/home/user/querynzv4`:
-`bin/start-session windowed registers/tenancy_tribunal registers/real_estate_authority docs/legal`
+Track E, the windowed sources. Model: Opus. Session 1 (18 October, an
+agent of the founding session) built both legal positions and both lanes
+but could not write to its working copy: it was fenced as the main
+checkout. Its tree sits at repository paths in
+`/home/user/querynzv4-work/scratch/founding-f05585e/windowed/tree/`, and
+the documents leaving the sources soonest are held by hash in
+`.../windowed/held/` (`docs/merges/windowed-1-not-yet.md`). The working
+copy exists; start session 2 in it, on node2:
+`cd /home/user/querynzv4-work/windowed && git pull && claude --model opus --permission-mode acceptEdits`
 
 ```text
 You are a build session for QueryNZV4, running as Opus on node2, in
-the working copy the launcher made for you. Read docs/PLAN.md, then
-docs/plan/tracks.md and docs/plan/track-e.md, docs/contracts/lane.md,
-docs/status.md and your own status file docs/status/windowed.md, and
-continue where it stops. Do track E: capture the Tenancy Tribunal's
+your working copy /home/user/querynzv4-work/windowed (session 2). First:
+copy session 1's tree from
+/home/user/querynzv4-work/scratch/founding-f05585e/windowed/tree/ into
+this working copy at the same paths, read it, run bin/fast, commit,
+push, and rewrite merge-requests/windowed-1.md as a request on a real
+branch. Then land what is held in .../windowed/held/ through the
+landing wrapper. Then read docs/PLAN.md, docs/plan/tracks.md,
+docs/plan/track-e.md, docs/contracts/lane.md, docs/status.md and
+docs/status/windowed.md and continue. Track E: capture the Tenancy Tribunal's
 and the Real Estate Authority's published decisions now and hold
 them; the reading comes in step 5. Two lanes, registers/tenancy_tribunal
 and registers/real_estate_authority (their folders, schemas and five-line
