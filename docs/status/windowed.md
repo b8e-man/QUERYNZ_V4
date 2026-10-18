@@ -24,14 +24,16 @@ windowed scope).
 
 ## Half-done
 
-- Tonight's capture, by hand (ruling 56; the catalogue lines wait on the
-  merge): at 22:00 NZDT 19 October, from this working copy, both lanes at
-  once with the catalogue's commands and budgets under `nice 10`; output
-  to `/home/user/querynzv4-work/scratch/windowed/capture-2026-10-19/`.
+- The first capture runs BY DAY, on Arthur's word (19 October, "run the
+  capture now, not at 22:00. Use --anytime"): started 19 October by hand
+  from the main checkout (merged code, 82b169d), both lanes at once with
+  `--anytime` and the catalogue's budgets under `nice 10`; 5 s floor in the
+  lane and the gate, one run per lane (advisory lock: tonight's scheduled
+  run skips while it holds). Output:
+  `/home/user/querynzv4-work/scratch/windowed/capture-2026-10-19/`.
   [ ] tenancy_tribunal  [ ] real_estate_authority
 
 ## Next
 
-1. `windowed-1` raised on `session/windowed`; the integrator merges it and
-   adds the two catalogue lines; the nightly capture takes the rest (about
+1. `windowed-1` and `-2` merged (82b169d), catalogue lines in; the nightly capture takes the rest (about
    eleven nights for the Tribunal, three or four for the Authority).
