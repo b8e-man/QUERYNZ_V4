@@ -173,3 +173,51 @@ priority = 94
 command = ["python", "-m", "support.scheduler", "rehearse", "sleep", "--seconds", "1"]
 every_s = 120
 enabled = false
+
+[jobs.qv4-rehearsal-text-reader]
+description = "One real call through the text-reader profile. Proves a swap for a real job and that the card answers with the model the profile names."
+needs = "model-profile"
+profile = "text-reader"
+memory_gb = 0.2
+deadline_s = 300
+query_timeout_s = 30
+class = "whenever"
+priority = 95
+command = ["python", "-m", "support.scheduler", "rehearse", "model"]
+can_share = true
+
+[jobs.qv4-rehearsal-review]
+description = "One real call through the review-and-questions profile."
+needs = "model-profile"
+profile = "review"
+memory_gb = 0.2
+deadline_s = 300
+query_timeout_s = 30
+class = "whenever"
+priority = 96
+command = ["python", "-m", "support.scheduler", "rehearse", "model"]
+can_share = true
+
+[jobs.qv4-rehearsal-embedding]
+description = "The embedding profile loads and advertises bge-m3 (read back from the card)."
+needs = "model-profile"
+profile = "embedding"
+memory_gb = 0.2
+deadline_s = 300
+query_timeout_s = 30
+class = "whenever"
+priority = 97
+command = ["python", "-m", "support.scheduler", "rehearse", "served"]
+can_share = true
+
+[jobs.qv4-rehearsal-page-reader]
+description = "One scanned page through the page-reader profile on a card that is not reserved (args: sha256)."
+needs = "model-profile"
+profile = "page-reader"
+memory_gb = 0.5
+deadline_s = 600
+query_timeout_s = 30
+class = "whenever"
+priority = 98
+command = ["python", "-m", "support.scheduler", "rehearse", "page"]
+requires = ["pdftoppm"]

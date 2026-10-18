@@ -67,10 +67,15 @@ def main(argv=None) -> int:
     p.add_argument("--no-cards", action="store_true", help="do not manage this box's cards")
     sub.add_parser("hold-profile")
     p = sub.add_parser("rehearse")
-    p.add_argument("what", choices=("sleep", "burn", "fail"))
+    p.add_argument("what", choices=("sleep", "burn", "fail", "model", "served", "page"))
     p.add_argument("--seconds", type=float, default=5.0)
     p.add_argument("--mb", type=int, default=50)
     p.add_argument("key", nargs="?")
+    p = sub.add_parser("reread-piece")
+    p.add_argument("key", help="the document's sha256")
+    p.add_argument("--pixels", action="store_true")
+    p.add_argument("--database", default="querynz_v4")
+    p = sub.add_parser("rereads")
     a = ap.parse_args(argv)
 
     if a.cmd == "check":
@@ -146,7 +151,47 @@ def main(argv=None) -> int:
             block[::4096] = b"1" * len(block[::4096])
             time.sleep(a.seconds)
             return 0
+        if a.what == "model":
+            # one real call through the model client to the card the worker gave us;
+            # the client refuses an answer from any model but the profile's
+            from support import modelclient
+            out = modelclient.chat(os.environ["QV4_MODEL_URL"], lane="rehearsal", model=os.environ["QV4_MODEL"],
+                                   messages=[{"role": "user", "content": "Reply with the single word READY."}],
+                                   extra={"temperature": 0.0, "max_tokens": 20}, timeout=300)
+            print(f"rehearsal: {out.get('model')} answered {len((out['choices'][0]['message']['content'] or '').strip())} chars "
+                  f"on card {os.environ.get('QV4_CARD')}")
+            return 0
+        if a.what == "served":
+            # the profile is loaded and advertises the model the catalogue names (read back, never assumed)
+            from support.scheduler import probe
+            got = probe.ask_server(int(os.environ["QV4_MODEL_PORT"]))
+            print(f"rehearsal: card {os.environ.get('QV4_CARD')} serves {got['served']!r}, {got['total']} slot(s)")
+            return 0 if got["served"] == os.environ["QV4_MODEL"] else 4
+        if a.what == "page":
+            # one scanned page through the page-reader profile on our card: counts only, never the text
+            import tempfile
+            from support.docread import pagereader
+            from support.docstore import landing
+            sha = json.loads(os.environ.get("QV4_ARGS") or "{}").get("sha256") or a.key
+            data = landing.read_bytes(sha)
+            with tempfile.TemporaryDirectory() as td:
+                png = pagereader.render(data, 1, td, 300)
+                text = pagereader.read_page(png, url=os.environ["QV4_MODEL_URL"], model=os.environ["QV4_MODEL"])
+            print(f"rehearsal: page 1 of {sha[:12]} read to {len(text)} characters by {os.environ['QV4_MODEL']} on card "
+                  f"{os.environ.get('QV4_CARD')}")
+            return 0 if text.strip() else 4
         return 3
+    if a.cmd == "reread-piece":
+        from support.scheduler import reread
+        line = reread.piece(a.key, conn=_conn(a.database), url=os.environ["QV4_MODEL_URL"], model=os.environ["QV4_MODEL"],
+                            pixels=a.pixels, run_id=os.environ.get("QV4_RUN_ID", ""))
+        print(f"reread: {line['document'][:12]} {line['party'] or '?'} {line['year'] or '?'}: published {line['published']}, "
+              f"new {line['new']}, {'EQUAL' if line['equal'] else 'DIFFERENT'} ({line['model']}, {line['read_from']})")
+        return 0
+    if a.cmd == "rereads":
+        from support.scheduler import reread
+        print(json.dumps(reread.summary(), indent=1))
+        return 0
     return 2
 
 

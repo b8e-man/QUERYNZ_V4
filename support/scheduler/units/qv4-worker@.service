@@ -1,0 +1,20 @@
+[Unit]
+Description=QueryNZV4 scheduler worker %i — places and runs every qv4- job on this box (plan step 2.2)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/user/querynzv4
+ExecStart=/home/user/querynzv4/.venv/bin/python -m support.scheduler worker --name %i
+Environment=PYTHONUNBUFFERED=1
+# a stop tells the worker (TERM to the main process); it tells its children,
+# gives its leases back and raises no alarm. Anything left after 90 s is killed.
+KillMode=mixed
+TimeoutStopSec=90
+Restart=on-failure
+RestartSec=15
+Nice=5
+
+[Install]
+WantedBy=default.target
