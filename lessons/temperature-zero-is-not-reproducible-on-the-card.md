@@ -1,4 +1,4 @@
-Temperature 0 on the card is not reproducible: the same server, weights, prompt and page image read twice gave different text on 2 of 97 pages, so a reading is compared with a tolerance class (equal, near, far), never by equality alone, and a replay is the stored reading, not a re-read.
+Temperature 0 on the card is not reproducible: the same server, weights, prompt and page read twice differed on 2 of 97 pages, so readings are compared by a tolerance class (equal, near, far), and a replay is the stored reading.
 area: page readers, scheduler, scoring, stored readings
 paid-for-by: 2026-10-19, trial session, step 3.5
 
