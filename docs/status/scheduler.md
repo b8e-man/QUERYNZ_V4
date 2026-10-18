@@ -24,7 +24,7 @@ A: starting.
 
 ## Intended changes to live things
 
-None yet. (Written here before they are made; ticked after.)
+- [ ] Create schema `scheduler` and its tables in `querynz_v4` (`python -m support.scheduler tables`), 18 Oct ~19:40.
 
 ## Next
 
