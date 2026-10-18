@@ -22,10 +22,9 @@ address (test alarm 18 October).
   model server built from source beside the copy, the scheduler on the
   checks board. The two-box proofs are owed on node1 (ruling 57).
 - Step 3, session 1 merged (`docs/merges/trial-1`): page set of 255
-  documents and 2,698 pages keyed by hash, the answer keys, the scoring,
-  five models on `/mnt/hdd2/qv4-models`, ten profiles and twelve
-  `qv4-trial-*` job types, GLM-OCR through the scheduler on 115 pages. The
-  declaration reader moved to `support/docread` (imports run one way).
+  documents keyed by hash, keys, scoring, five models on the second disk,
+  the trial's profiles and job types; the declaration reader moved to
+  `support/docread`.
 
 ## Next (all three from `docs/briefs/next.md`)
 
