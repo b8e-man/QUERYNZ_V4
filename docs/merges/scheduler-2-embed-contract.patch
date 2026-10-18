@@ -1,0 +1,177 @@
+diff -ruN a/docs/contracts/model-client.md b/docs/contracts/model-client.md
+--- a/docs/contracts/model-client.md	2026-10-18 20:39:41.339796857 +1300
++++ b/docs/contracts/model-client.md	2026-10-18 20:43:51.415979027 +1300
+@@ -6,12 +6,18 @@
+ (it recorded a wrong model in 13.8% of one lane's calls and carried on).
+ 
+ 1. **Every call names its model,** and an answer from a different model is
+-   refused and discarded, for every lane. There is no lenient lane.
++   refused and discarded, for every lane. There is no lenient lane. This
++   holds for `chat` and for `embed` alike (the old client's embedding call
++   never checked). What answered is READ BACK from the server's model list
++   where the answer cannot say: an embeddings answer's `model` field is the
++   request echoed, a chat answer's is the server's own name.
+ 2. **Local addresses only:** the loopback, the two boxes and the floating
+    address. Any other host is refused before a byte leaves (hard limit 10).
+ 3. **Every call is recorded** in the calls ledger: the lane, the model
+    asked for and served, the address, token counts, seconds, and any
+-   refusal or error. The ledger never holds the prompt or the answer.
++   refusal or error. The ledger never holds the prompt, the texts or the
++   answer. An embedding call records how many texts and their characters;
++   a short answer (fewer vectors than texts) is an error, never a gap.
+ 4. **After step 2, every call goes through the scheduler,** which places it
+    on a model profile; the client is what the scheduler's workers use.
+ 5. **The review agent's web search** (track C) is not a model call and has
+diff -ruN a/support/modelclient/__init__.py b/support/modelclient/__init__.py
+--- a/support/modelclient/__init__.py	2026-10-18 20:39:41.338749326 +1300
++++ b/support/modelclient/__init__.py	2026-10-18 20:43:51.408070551 +1300
+@@ -96,3 +96,72 @@
+         raise WrongModel(model, served, lane)
+     _record(entry, ledger)
+     return out
++
++
++def _get(url: str, timeout: float) -> dict:
++    req = urllib.request.Request(url, method="GET", headers={"User-Agent": "querynz-v4"})
++    with urllib.request.urlopen(req, timeout=timeout) as r:
++        return json.load(r)
++
++
++def served_model(url: str, timeout: float = 10.0, get=None) -> str | None:
++    """What the server at `url`'s host and port actually holds, from its
++    model list (`/v1/models`). This is the read-back; an embeddings
++    answer's `model` field is the request echoed and is not evidence."""
++    parts = urllib.parse.urlsplit(url)
++    base = f"{parts.scheme}://{parts.netloc}"
++    out = (get or _get)(base + "/v1/models", timeout)
++    ids = [d.get("id") for d in (out.get("data") or []) if d.get("id")]
++    return ids[0] if ids else None
++
++
++def embed(url: str, *, lane: str, model: str, texts: list, timeout: float = 120.0, post=None, get=None,
++          ledger: str = None) -> list:
++    """Vectors for `texts`, in their order, through an embedding profile
++    (`/v1/embeddings`):
++
++        vectors = embed("http://127.0.0.1:8111/v1/embeddings", lane="search",
++                        model="bge-m3-q8", texts=["..."])
++
++    The same three rules as `chat`: the call names its model, goes only to a
++    local address, and is refused when another model answers. The served
++    model is READ BACK from the server's model list, because an embeddings
++    answer's `model` field is the request echoed (llama-server
++    `server-common.cpp`: `json_value(request, "model", model_name)`; a chat
++    answer carries the server's own name). The ledger holds the count and
++    the characters, never the texts. Fewer vectors than texts is an error."""
++    if not model:
++        raise Refused(f"{lane}: every call names its model")
++    if not texts:
++        return []
++    entry = {"at": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "lane": lane, "model": model,
++             "url": url, "kind": "embed", "n": len(texts), "prompt_chars": sum(len(str(t)) for t in texts)}
++    why = endpoint_refusal(url)
++    if why:
++        entry.update(ok=False, refused=why)
++        _record(entry, ledger)
++        raise Refused(f"{lane}: {why}")
++    body = {"model": model, "input": list(texts)}
++    t0 = time.monotonic()
++    try:
++        served = served_model(url, min(timeout, 10.0), get)
++        out = (post or _post)(url, body, timeout)
++    except Exception as exc:  # noqa: BLE001 — recorded, then re-raised
++        entry.update(ok=False, error=f"{type(exc).__name__}: {str(exc)[:200]}", seconds=round(time.monotonic() - t0, 1))
++        _record(entry, ledger)
++        raise
++    usage = out.get("usage") or {}
++    entry.update(ok=True, served_model=served, answer_model=out.get("model"), seconds=round(time.monotonic() - t0, 1),
++                 prompt_tokens=usage.get("prompt_tokens"))
++    if not served or served.strip() != model.strip():
++        entry.update(ok=False, model_mismatch=True)
++        _record(entry, ledger)
++        raise WrongModel(model, served, lane)
++    data = out.get("data") or []
++    if len(data) != len(texts):
++        entry.update(ok=False, error=f"{len(data)} vectors for {len(texts)} texts")
++        _record(entry, ledger)
++        raise RuntimeError(f"{lane}: {len(data)} vectors for {len(texts)} texts")
++    entry["dims"] = len(data[0].get("embedding") or []) if data else 0
++    _record(entry, ledger)
++    return [d["embedding"] for d in sorted(data, key=lambda d: d.get("index", 0))]
+Binary files a/support/modelclient/__pycache__/__init__.cpython-314.pyc and b/support/modelclient/__pycache__/__init__.cpython-314.pyc differ
+Binary files a/support/modelclient/tests/__pycache__/test_modelclient.cpython-314-pytest-9.1.1.pyc and b/support/modelclient/tests/__pycache__/test_modelclient.cpython-314-pytest-9.1.1.pyc differ
+diff -ruN a/support/modelclient/tests/test_modelclient.py b/support/modelclient/tests/test_modelclient.py
+--- a/support/modelclient/tests/test_modelclient.py	2026-10-18 20:39:41.339280325 +1300
++++ b/support/modelclient/tests/test_modelclient.py	2026-10-18 20:43:51.408960725 +1300
+@@ -74,3 +74,70 @@
+ ])
+ def test_loopback_and_the_twin_lan_forms_pass(url):
+     assert mc.endpoint_refusal(url) == ""
++
++
++EURL = "http://127.0.0.1:8111/v1/embeddings"
++TEXTS = ["the secret first text", "the secret second text"]
++
++
++def vectors(n=2):
++    """An embeddings answer the way llama-server gives it: `model` is the
++    REQUEST'S model echoed back, whatever is loaded."""
++    def post(url, body, timeout):
++        assert body["input"] == TEXTS[:n]
++        return {"model": body["model"], "data": [{"index": i, "embedding": [float(i), 1.0]} for i in reversed(range(n))],
++                "usage": {"prompt_tokens": 9}}
++    return post
++
++
++def holds(model="bge-m3-q8"):
++    def get(url, timeout):
++        assert url == "http://127.0.0.1:8111/v1/models", url
++        return {"data": [{"id": model, "object": "model"}]}
++    return get
++
++
++def test_an_embedding_call_returns_vectors_in_order_and_is_recorded_without_the_texts(tmp_path):
++    ledger = str(tmp_path / "calls.jsonl")
++    out = mc.embed(EURL, lane="search", model="bge-m3-q8", texts=TEXTS, post=vectors(), get=holds(), ledger=ledger)
++    assert out == [[0.0, 1.0], [1.0, 1.0]], "in the texts' order, whatever order the server answers in"
++    rec = json.loads(open(ledger).read().splitlines()[-1])
++    assert rec["ok"] and rec["kind"] == "embed" and rec["n"] == 2 and rec["dims"] == 2 and rec["served_model"] == "bge-m3-q8"
++    assert "secret" not in open(ledger).read()
++    assert mc.embed(EURL, lane="search", model="bge-m3-q8", texts=[], post=vectors(), get=holds(), ledger=ledger) == []
++
++
++def test_the_served_model_is_read_back_not_taken_from_the_answer(tmp_path):
++    """llama-server echoes the request's model in an embeddings answer, so a
++    card holding the wrong model would pass a check on the answer. The
++    model list is what the card holds."""
++    ledger = str(tmp_path / "calls.jsonl")
++    with pytest.raises(mc.WrongModel) as e:
++        mc.embed(EURL, lane="search", model="bge-m3-q8", texts=TEXTS, post=vectors(), get=holds("nomic-embed"), ledger=ledger)
++    assert e.value.served == "nomic-embed"
++    rec = json.loads(open(ledger).read().splitlines()[-1])
++    assert rec["model_mismatch"] is True and rec["ok"] is False and rec["answer_model"] == "bge-m3-q8"
++    assert mc.served_model(EURL, get=holds("x")) == "x"
++    assert mc.served_model(EURL, get=lambda u, t: {"data": []}) is None
++
++
++def test_a_cloud_address_is_never_reached_and_a_call_names_its_model(tmp_path):
++    ledger = str(tmp_path / "calls.jsonl")
++    sent = []
++    with pytest.raises(mc.Refused):
++        mc.embed("https://api.example.com/v1/embeddings", lane="search", model="m", texts=TEXTS,
++                 post=lambda *a: sent.append(1), get=lambda *a: sent.append(1), ledger=ledger)
++    assert sent == []
++    with pytest.raises(mc.Refused):
++        mc.embed(EURL, lane="search", model="", texts=TEXTS, post=vectors(), get=holds(), ledger=ledger)
++
++
++def test_a_short_answer_is_an_error_not_a_silent_gap(tmp_path):
++    ledger = str(tmp_path / "calls.jsonl")
++
++    def one_short(url, body, timeout):
++        return {"model": "bge-m3-q8", "data": [{"index": 0, "embedding": [1.0]}]}
++    with pytest.raises(RuntimeError, match="1 vectors for 2 texts"):
++        mc.embed(EURL, lane="search", model="bge-m3-q8", texts=TEXTS, post=one_short, get=holds(), ledger=ledger)
++    rec = json.loads(open(ledger).read().splitlines()[-1])
++    assert rec["ok"] is False
+Binary files a/support/__pycache__/__init__.cpython-314.pyc and b/support/__pycache__/__init__.cpython-314.pyc differ

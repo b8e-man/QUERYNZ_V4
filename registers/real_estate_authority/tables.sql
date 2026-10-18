@@ -1,0 +1,1 @@
+-- registers/real_estate_authority: the tables this lane owns, in its own schema. Empty until the windowed session builds the capture.

@@ -1,0 +1,1 @@
+-- registers/real_estate_authority: nothing published yet (capture and hold; the reading comes in step 5).
