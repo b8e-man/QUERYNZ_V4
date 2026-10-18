@@ -29,8 +29,8 @@ alarm 18 October).
 
 ## Next
 
-1.5's second commit and tag, by Arthur's hand (the queue). Then step 1
-closes, bar the positive half of 1.4.
+1.5's second commit and tag, by Arthur's hand (the queue). Then record the
+tag, move the reference copy; step 1 closes, bar the positive half of 1.4.
 
 ## Half-done
 
@@ -48,9 +48,9 @@ closes, bar the positive half of 1.4.
   the yardstick against `2026-10-18T1334` (stamps only; `data/cite` 10,569
   same). The negative half is done. The positive half waits for the next
   declaration listed. `querynz-verdict-sync` stopped under the queue.
-- 1.5: first commit by Arthur's hand (7f9f0bb5, 18 October), no remote to
-  push to; the second commit and the tag need his hand (the board's open
-  blocker).
+- 1.5: first commit by Arthur's hand (7f9f0bb5). The second (27 units
+  marked disabled, two tables regenerated) is a rehearsed patch under
+  `querynzv4-work/live/`; commands and tag name in the queue. His hand.
 
 ## Known gaps left on purpose
 
