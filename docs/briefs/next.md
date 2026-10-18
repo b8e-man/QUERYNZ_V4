@@ -30,8 +30,11 @@ rest of 1.5, 1.7 to 1.10, step 1b (stop when it is built), then 1.11.
 1.11 is done; 1.4's negative half is done: the three batches are
 stopped on node2 and the 16:17 release of 18 October, the first with
 every batch off, ran green inside the yardstick (docs/baseline.md).
-querynz-pi-web is in the carve-out. Next: 1.5 as the decision queue
-says; the positive half of 1.4 waits for a new declaration.
+querynz-pi-web is in the carve-out. 1.5's second commit is a patch
+waiting on Arthur's hand (the queue item names the commands and the
+tag). Once it lands: record the tag in docs/baseline.md, move the
+reference copy to it. The positive half of 1.4 waits for a new
+declaration.
 Work alone. The only changes you may make to the old estate are
 stopping old jobs outside the carve-out, with proof (1.4), and the
 freeze commits (1.5), and never in a session that started without
