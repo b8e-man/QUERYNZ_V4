@@ -3,7 +3,7 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-19, 07:50. **Step:** 2 closed on one box; 3 pass one done;
+**Date:** 2026-10-19, 08:05. **Step:** 2 closed on one box; 3 pass one done;
 track E capturing nightly; track B restarted. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
@@ -29,8 +29,10 @@ address (test alarm 18 October).
 
 ## Next (all three from `docs/briefs/next.md`)
 
-- Trial session 2: pass one (GLM-OCR alone, job 54, 255 of 255 ok, 22:50 to
-  ~03:00) waits to be scored; then the challengers.
+- Trial session 2 running: pass one scored (`docs/merges/trial-2`: 2,013 of
+  2,124 pages equal to the old readings, 111 carded), pass two (the
+  challengers, jobs 66 to 74) on card 1. The worker's lease fix is in and
+  the worker restarted.
 - Track E merged (`docs/merges/windowed-1`, `-2`): two legal positions, two
   capture lanes, 621 documents landed, the two `qv4-*-capture` jobs nightly
   from 22:30 NZDT, both hosts floored at 5 s, the lane checks on the board
@@ -50,7 +52,3 @@ address (test alarm 18 October).
 - 1.4: three batches stopped on node2 (18 October); the 16:17 release green
   inside the yardstick. The positive half waits for the next declaration.
 - Step 2: `qv4-questions` held (ruling 22); node1 setup carded (ruling 57).
-
-## Known gaps left on purpose
-
-- The party returns lane has no `qv4-` job, donor rows or page reader.
