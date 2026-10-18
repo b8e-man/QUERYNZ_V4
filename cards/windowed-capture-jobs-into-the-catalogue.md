@@ -1,9 +1,10 @@
 # The two track E capture jobs go into the job catalogue
 kind: blocker
-state: open
+state: closed
 use-case: -
 session: windowed
 opened: 2026-10-18
+closed: 2026-10-19
 
 `support/scheduler/jobs.toml` is outside the windowed fence. After the merge
 of `windowed-1`, the integrator adds these two entries (below the founding
@@ -46,3 +47,11 @@ about eleven nights, the Authority's database three or four. The clocks are
 NZDT (UTC+13) until 5 April 2027; move them with the founding jobs.
 Also register `python -m registers.tenancy_tribunal.check` and
 `python -m registers.real_estate_authority.check` on the checks board.
+
+**Closed 19 October (integrator, at the merge of windowed-1):** both entries
+are in `support/scheduler/jobs.toml` as written; `python -m support.scheduler
+check` green; the worker reloads the catalogue on its own clock, nothing to
+install. The two lane checks are on the board through `checks/windowed.py`,
+which runs each as a command (checks never import a lane).
+One change from the card's text: the Tribunal job's priority is 33, not 30,
+which `qv4-embed` already held (priorities must be unique).
