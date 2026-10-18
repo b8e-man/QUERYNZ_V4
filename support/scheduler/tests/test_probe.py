@@ -63,6 +63,16 @@ def test_programs_are_recorded_present_or_absent_and_matched_against_requires():
     assert probe.missing_programs({"programs": got}, ("pdftotext", "ghost", "other")) == ["ghost", "other"]
 
 
+def test_every_program_the_catalogue_requires_is_one_the_probe_looks_for():
+    """A requirement the probe never looks for reads as missing, so the job
+    is never eligible and the worker says nothing (19 October: `zstd` held
+    the off-site copy and its rehearsal on the queue). The per-profile model
+    servers (`qv4-llama-server-<profile>`) are the open scheduler card."""
+    from support.scheduler import registry as reg
+    required = {r for jt in reg.load().values() for r in jt.requires if not r.startswith("qv4-llama-server-")}
+    assert required <= set(probe.PROGRAMS), sorted(required - set(probe.PROGRAMS))
+
+
 # ── a model server, asked (carried) ──────────────────────────────────────────
 
 def test_the_served_model_is_read_from_the_servers_own_answer():
