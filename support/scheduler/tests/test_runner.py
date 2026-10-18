@@ -74,6 +74,6 @@ def test_a_job_runs_at_the_niceness_it_declares():
     import sys as _sys
     base = _os.nice(0)
     res = runner.run([_sys.executable, "-c", "import os, sys; sys.exit(os.nice(0))"], deadline_s=20, ceiling_mb=None, nice=7)
-    assert res.code == base + 7
+    assert res.code == min(19, base + 7), "19 is the floor (under the worker's own Nice=5 and a job's 10 it is reached)"
     res = runner.run([_sys.executable, "-c", "import os, sys; sys.exit(os.nice(0))"], deadline_s=20, ceiling_mb=None)
     assert res.code == base

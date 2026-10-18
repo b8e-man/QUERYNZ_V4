@@ -16,7 +16,7 @@
 # Either is the estate's own program; the frozen product's servers keep
 # theirs (hard limit 23). One line to switch; a missing one falls back.
 [server]
-binary = "copy"
+binary = "built"
 
 [profiles.text-reader]
 model = "qwen3.6-35b-a3b-q4km"

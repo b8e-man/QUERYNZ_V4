@@ -10,6 +10,8 @@
   python -m support.scheduler report                the qv4-scheduler-report job
   python -m support.scheduler hold-profile          the standing job that keeps a profile on a card
   python -m support.scheduler rehearse ...          the rehearsal jobs (sleep, burn memory)
+  python -m support.scheduler reread-piece SHA      one document of a re-read (qv4-reread)
+  python -m support.scheduler embed-piece SHA       one document of a bulk embedding (qv4-embed)
 """
 from __future__ import annotations
 
@@ -75,6 +77,8 @@ def main(argv=None) -> int:
     p.add_argument("key", help="the document's sha256")
     p.add_argument("--pixels", action="store_true")
     p.add_argument("--database", default="querynz_v4")
+    p = sub.add_parser("embed-piece")
+    p.add_argument("key", help="the document's sha256")
     p = sub.add_parser("rereads")
     a = ap.parse_args(argv)
 
@@ -189,6 +193,13 @@ def main(argv=None) -> int:
                             pixels=a.pixels, run_id=os.environ.get("QV4_RUN_ID", ""))
         print(f"reread: {line['document'][:12]} {line['party'] or '?'} {line['year'] or '?'}: published {line['published']}, "
               f"new {line['new']}, {'EQUAL' if line['equal'] else 'DIFFERENT'} ({line['model']}, {line['read_from']})")
+        return 0
+    if a.cmd == "embed-piece":
+        from support.scheduler import embed
+        line = embed.piece(a.key, url=os.environ["QV4_MODEL_URL"].replace("/chat/completions", "/embeddings"),
+                           model=os.environ["QV4_MODEL"], run_id=os.environ.get("QV4_RUN_ID", ""))
+        print(f"embed: {line['document'][:12]}: {line['embedded']} page(s) embedded, {line['replayed']} already stored, "
+              f"{line['thin']} with no text layer ({line['model']}, {line['dims']} dims)")
         return 0
     if a.cmd == "rereads":
         from support.scheduler import reread

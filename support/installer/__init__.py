@@ -8,7 +8,7 @@ Six steps, each a plan before it is an action:
                 another box pulls the same commit (git), never a copy by hand
   venv          `.venv` from requirements.txt, the same Python on every box
   units         every `qv4-*.service` and `qv4-*.timer` the repository ships
-                (`checks/jobs/`, `support/*/units/`) into the user unit
+                (`checks/jobs/`, `support/*/units/`, `support/*/jobs/`) into the user unit
                 folder. ONLY THE PREFIX: a file without `qv4-` is refused as
                 a source and never touched as a target (hard limit 23). A
                 stale `qv4-` unit the repository no longer ships is reported,
@@ -49,7 +49,8 @@ OLD_LLAMA_DIR = "/home/user/llama.cpp/build/bin"
 QV4_LLAMA_DIR = os.environ.get("QV4_LLAMA_DIR") or os.path.join(LIVE, "llama", "bin")
 MODELS_DIR = os.environ.get("QV4_MODELS") or "/home/user/models"
 CRED_DIR = os.environ.get("QV4_CRED_DIR") or os.path.expanduser("~/.querynz")
-UNIT_GLOBS = ("checks/jobs/qv4-*.service", "checks/jobs/qv4-*.timer", "support/*/units/qv4-*.service", "support/*/units/qv4-*.timer")
+UNIT_GLOBS = ("checks/jobs/qv4-*.service", "checks/jobs/qv4-*.timer", "support/*/units/qv4-*.service", "support/*/units/qv4-*.timer",
+              "support/*/jobs/qv4-*.service", "support/*/jobs/qv4-*.timer")     # support/offsite/jobs/ (the founding session's)
 
 
 def sha256_file(path: str) -> str:
@@ -78,7 +79,7 @@ def unit_sources(repo: str = REPO) -> dict[str, str]:
         for p in sorted(glob.glob(os.path.join(repo, pattern))):
             out[os.path.basename(p)] = p
     bad = []
-    for folder in ("checks/jobs", *glob.glob(os.path.join(repo, "support", "*", "units"))):
+    for folder in ("checks/jobs", *glob.glob(os.path.join(repo, "support", "*", "units")), *glob.glob(os.path.join(repo, "support", "*", "jobs"))):
         d = folder if os.path.isabs(folder) else os.path.join(repo, folder)
         for n in os.listdir(d) if os.path.isdir(d) else []:
             if (n.endswith(".service") or n.endswith(".timer")) and not n.startswith(PREFIX):

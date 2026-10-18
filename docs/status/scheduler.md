@@ -24,15 +24,15 @@ Session 2 open, 18 October 2026, on node2 from the working copy
 
 ## Live changes intended (ticked when done)
 
-- [ ] On node2, from this working copy: supersede the four timers through
+- [x] 20:36 On node2, from this working copy: supersede the four timers through
       the installer (`apply --units --repo <wc> --only` the four `.timer`
       names), which hands each clock over so nothing runs twice.
-- [ ] Place `qv4-worker@.service` from this working copy and restart
+- [x] 20:37 Place `qv4-worker@.service` from this working copy and restart
       `qv4-worker@node2` (the rehearsal pattern; the merge's install restores
       the shipped unit).
-- [ ] Hand-run the four jobs through the queue (ruling 56) and read their
+- [x] 20:37–20:39 Hand-run the four jobs through the queue (ruling 56) and read their
       run records: outcome, peak against declared.
-- [ ] `[server] binary = "built"`, then the embedding profile loaded on card
+- [x] 20:40 `[server] binary = "built"`, then the embedding profile loaded on card
       1 by the rehearsal job, served model read back, the ledger naming the
       built server.
 
