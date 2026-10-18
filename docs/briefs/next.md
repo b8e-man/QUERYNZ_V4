@@ -27,13 +27,11 @@ the index, then the files it names for a build session on step 1,
 then docs/status.md, and continue where it stops. Do step 1 only, in
 this order: 1.1, 1.2, 1.3, 1.6, the first commit of 1.5, 1.4, the
 rest of 1.5, 1.7 to 1.10, step 1b (stop when it is built), then 1.11.
-1.11 is done; 1.4's three batches are stopped on node2 (the last,
-v3-audit, at 16:04 on 18 October on Arthur's word); querynz-pi-web is
-in the carve-out. Next: once the 19 October release has run, compare
-it with 2026-10-18T1334 (python -m checks.release_compare) against the
-yardstick in docs/baseline.md and record the result in docs/status.md;
-if it is not green or not within the yardstick, 1.4 item 7 applies.
-Then 1.5 as the decision queue says.
+1.11 is done; 1.4's negative half is done: the three batches are
+stopped on node2 and the 16:17 release of 18 October, the first with
+every batch off, ran green inside the yardstick (docs/baseline.md).
+querynz-pi-web is in the carve-out. Next: 1.5 as the decision queue
+says; the positive half of 1.4 waits for a new declaration.
 Work alone. The only changes you may make to the old estate are
 stopping old jobs outside the carve-out, with proof (1.4), and the
 freeze commits (1.5), and never in a session that started without
