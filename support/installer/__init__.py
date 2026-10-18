@@ -119,14 +119,18 @@ def unit_text(path: str, repo: str = REPO) -> str:
     return text
 
 
-def install_units(repo: str = REPO, unit_dir: str = UNIT_DIR, box: str = None, sh=None, enable: bool = True) -> list[dict]:
+def install_units(repo: str = REPO, unit_dir: str = UNIT_DIR, box: str = None, sh=None, enable: bool = True,
+                  only: tuple = ()) -> list[dict]:
     """Copy the shipped units in, reload, enable the timers and this box's
-    worker. Touches nothing without the prefix."""
+    worker. Touches nothing without the prefix. `only` restricts the
+    install to the named units (a rehearsal places one unit, not all)."""
     sh = sh or _sh
     done = []
     for step in plan_units(repo, unit_dir):
         name = step["unit"]
         if not name.startswith(PREFIX) or step["action"] == "stale":   # never a foreign unit; a stale one is reported only
+            continue
+        if only and name not in only:
             continue
         target = os.path.join(unit_dir, name)
         text = unit_text(unit_sources(repo)[name], repo)
@@ -139,9 +143,9 @@ def install_units(repo: str = REPO, unit_dir: str = UNIT_DIR, box: str = None, s
         sh(["systemctl", "--user", "daemon-reload"])
     if enable:
         for name in unit_sources(repo):
-            if name.endswith(".timer"):
+            if name.endswith(".timer") and (not only or name in only):
                 sh(["systemctl", "--user", "enable", "--now", name])
-        if "qv4-worker@.service" in unit_sources(repo):
+        if "qv4-worker@.service" in unit_sources(repo) and (not only or "qv4-worker@.service" in only):
             inst = f"qv4-worker@{box or os.uname().nodename}.service"
             sh(["systemctl", "--user", "enable", "--now", inst])
             done.append({"unit": inst, "action": "enabled"})

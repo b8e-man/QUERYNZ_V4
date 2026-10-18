@@ -65,6 +65,7 @@ class Worker:
                  log=None, connect=None, alarm=None, cards_manager=None):
         self.name, self.box = name, box or pb.profile().get("host")
         self.database, self.schema = database, schema
+        self._reload = registry is None and profiles is None     # a test's own catalogue is never replaced
         self.registry = registry if registry is not None else reg.load()
         self.profiles = profiles if profiles is not None else reg.profiles()
         self.rules = rules or reg.queueing()
@@ -93,6 +94,25 @@ class Worker:
         p["worker"] = self.name
         self.profile, self.probed_at = p, time.monotonic()
         return p
+
+    def reload_catalogue(self) -> None:
+        """The catalogue and the profiles are re-read on the probe's clock,
+        so a change lands within that interval without a restart. A file
+        that no longer parses is logged and the last good one kept."""
+        if not self._reload:
+            return
+        try:
+            registry, profiles, rules = reg.load(), reg.profiles(), reg.queueing()
+            probs = reg.problems()
+        except Exception as exc:  # noqa: BLE001
+            self.log(f"catalogue not reloaded: {type(exc).__name__}: {exc}")
+            return
+        if probs:
+            self.log(f"catalogue not reloaded: {len(probs)} problem(s), first: {probs[0]}")
+            return
+        if set(registry) != set(self.registry) or any(registry[n] != self.registry.get(n) for n in registry):
+            self.log(f"catalogue reloaded: {len(registry)} job types, {len(profiles)} profiles")
+        self.registry, self.profiles, self.rules = registry, profiles, rules
 
     def available_gb(self) -> float:
         m = pb.meminfo()
@@ -146,6 +166,7 @@ class Worker:
         now = q.utcnow()
         if time.monotonic() - self.probed_at >= self.probe_every_s:
             self.probe()
+            self.reload_catalogue()
             q.heartbeat(self.conn, self.schema, self.name, now, profile=self.profile)
         else:
             q.heartbeat(self.conn, self.schema, self.name, now)

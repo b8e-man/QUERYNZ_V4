@@ -172,7 +172,7 @@ class = "due"
 priority = 94
 command = ["python", "-m", "support.scheduler", "rehearse", "sleep", "--seconds", "1"]
 every_s = 120
-enabled = false
+enabled = true   # on for the 18 October rehearsal; off again at its close
 
 [jobs.qv4-rehearsal-text-reader]
 description = "One real call through the text-reader profile. Proves a swap for a real job and that the card answers with the model the profile names."

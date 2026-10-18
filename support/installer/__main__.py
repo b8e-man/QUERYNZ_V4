@@ -21,6 +21,7 @@ def main(argv=None) -> int:
     ap.add_argument("--box")
     ap.add_argument("--units", action="store_true")
     ap.add_argument("--repo", default=inst.REPO, help="install from this checkout (a working copy for a rehearsal)")
+    ap.add_argument("--only", nargs="*", default=(), help="units: place only these")
     a = ap.parse_args(argv)
     profiles = reg.profiles()
     if a.cmd in ("plan", "check"):
@@ -28,7 +29,7 @@ def main(argv=None) -> int:
         return 0
     out = {"model_server": inst.install_model_server(), "venv": inst.install_venv(), "models": inst.plan_models(profiles)}
     if a.units:
-        out["units"] = inst.install_units(repo=a.repo, box=a.box)
+        out["units"] = inst.install_units(repo=a.repo, box=a.box, only=tuple(a.only))
     if a.box:
         out["code"] = inst.plan_code(box=a.box)
         out["models_copied"] = inst.copy_models(profiles, a.box)
