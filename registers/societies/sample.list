@@ -1,1 +1,29 @@
-# registers/societies/sample.list: hashes and key: lines only. Empty until the lane lands its first documents.
+# registers/societies/sample.list: hashes and key: lines only.
+# the three export parts (capture.EXPORTS)
+1a9e66b9fa6c4e17f739bfa71f075f8d2a98e7e53a3a93a7f2f37cfa6f3b67af societies
+64692937c7250987e62be7c22d9ee2886ccba745287a8e1573eb4552b48c4ffe officers
+0fab67839978da402f17e5cbac7ad38040271737f6787f5c09630ef3fc978c92 asks
+# the five proved answers (capture.PROOF), the party societies
+46067c2c2e5954b01f28eced678a05e0fecf06811d9a02e678d33bcfce87e40e
+f59a0239d36ae1c2837af2265d631366736176d29a220ae406dd3a112cdf0361
+8fd4a0722b1862b97e28928d5bef5d0f64f97f1c6f4d62ae025a96df435dd54d
+bb5fa3a63fa59a3d411acbd0d6873aa10c4f854ae2bdc0e2fa238535421ed7a6
+0ec3ad217377ecdb8142449699c63968d223d93231cefc3ae7319e476dc5ac32
+# the party societies (answered and exported alike)
+key: 9429042857310
+key: 9429043384211
+key: 9429047844483
+key: 9429053326102
+key: 9429053605498
+# its last ask gave none; officers kept from an earlier ask
+key: 9429053619754
+# an earlier state in the July file (GS1's own NZBN)
+key: 9429000000000
+# officers that share names and start (suffixed keys)
+key: 9429042577980
+# an officer with no start date
+key: 9429047444997
+# asked, answered with no officers
+key: 9429042586500
+# dissolved, no ask
+key: 9429000032179

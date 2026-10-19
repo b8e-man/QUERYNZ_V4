@@ -200,6 +200,23 @@ command = ["python", "-m", "registers.charities.capture", "--budget-s", "14400"]
 at_utc = "10:30"
 nice = 10
 
+# ── step 4.1, incorporated-society officers (the NZBN register's entity detail) ──
+# One ask per society, 5 s apart, party societies first, then the stalest
+# seventh (about 3,300 a night, about 4.6 hours). The lane checks off-peak
+# itself: 01:00 to 06:00 NZ time, never the API's Wednesday 21:00 to 23:00
+# maintenance window. A 403, 429, 5xx or challenge stops the night (exit 1).
+[jobs.qv4-societies-capture]
+description = "Step 4.1: incorporated-society officers, the NZBN API's entity detail, one gated ask per society with our own key, party societies first then the stalest seventh. Nightly at 01:00 NZDT, at most 4h50."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 18000
+query_timeout_s = 60
+class = "due"
+priority = 35
+command = ["python", "-m", "registers.societies.capture", "--night", "--budget-s", "17400"]
+at_utc = "12:00"
+nice = 10
+
 [jobs.qv4-disclosures-read]
 description = "The disclosures lane's page readings (step 4.1): one piece per scanned large-donation declaration with no stored reading, every page as an image through the page-reader profile; the lane's next load picks the readings up. Queued by the integrator after a merge, then on the lane's rebuild for a scan with no reading."
 needs = "model-profile"
