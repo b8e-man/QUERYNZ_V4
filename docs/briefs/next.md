@@ -46,8 +46,8 @@ docs/briefs/next.md, one commit each; the worker is live, so restart
 
 Session 1 merged (`docs/merges/disclosures-1`): 520 declarations from the
 Commission's table, 2023-on total equal to the cent, 15 of 16 party-years
-equal. The 246 scans' page readings run as queue row 97. Session 2 is
-short: once row 97 is done (`python -m support.scheduler status`), load
+equal. The 246 scans' page readings run as queue row 97. Row 97 is done (20 October). Session 2 is
+short: load
 the lane again so `form_check` fills, card any `differs`, and close. On
 node2: `cd /home/user/querynzv4-work/disclosures && git fetch origin && git merge --ff-only origin/main && claude --model opus --permission-mode acceptEdits`
 
@@ -56,34 +56,37 @@ You are the disclosures session, session 2, in your working copy. Read
 docs/PLAN.md, docs/plan/step-4.md, docs/status.md and
 docs/status/disclosures.md. Row 97 (qv4-disclosures-read) has read the
 scans; load the lane again in your scratch schema so form_check fills,
-card every row that differs from the Commission's table, update the
-status file, push and raise disclosures-2. Fetch nothing; take over no
-feed. Then stop.
+card every row that differs from the Commission's table. Then close card
+the-disclosures-read-job-reads-through-the-carve-out-s-server: read_scan
+and main in read.py must pass the worker's QV4_MODEL_URL and QV4_MODEL
+to read_document (it takes url and model now), so the job reads on the
+card the worker holds, never port 8032. Update the status file, push and
+raise disclosures-2. Fetch nothing; take over no feed. Then stop.
 ```
 
 ## party-returns
 
-Session 1 merged (`docs/merges/party-returns-1`): 99 rows, 49 party-years
-equal, 0 differing. The 41 unread returns' page readings run as queue rows
-95 and 96. Session 2 is tranche 2 of the lane's own plan
-(`docs/status/party-returns.md`): Part A donor rows from the stored
-readings, reconciled to each part's printed total; donor addresses into
-`party_returns_private` only (hard limit 15); then loans, then
-amendments as the Commission states them. On node2:
-`cd /home/user/querynzv4-work/party-returns && git fetch origin && git merge --ff-only origin/main && claude --model opus --permission-mode acceptEdits`
+Session 2 merged (`docs/merges/party-returns-2`): Part A donors on 22
+returns (476 rows), loans on 6, 14 returns replaced by amendments; 99
+rows, 49 party-years equal, 0 differing. `qv4-read-pages` (new, the
+scheduler's) reads the 41 unread returns' image pages as queue rows 110
+and 111. Session 3, when a slot frees and both rows are done
+(`python -m support.scheduler status`): the lane's own next items
+(`docs/status/party-returns.md`): reload so the 41 read; Part A's refused
+pages (column-by-column, page breaks, schedules outside the heading); the
+outside check against the Commission's by-year table. On node2:
+`cd /home/user/querynzv4-work/party-returns && git checkout -- docs/board.md docs/decisions/queue.md lessons/INDEX.md && git fetch origin && git merge --ff-only origin/main && claude --model opus --permission-mode acceptEdits`
 
 ```text
-You are the party-returns session, session 2, in your working copy. Read
+You are the party-returns session, session 3, in your working copy. Read
 docs/PLAN.md, docs/plan/step-4.md, docs/status.md and
-docs/status/party-returns.md, and do tranche 2 as your status file
-plans it: Part A donor rows from the stored page readings, each
-reconciled to its part's printed total; a donor's address into
-party_returns_private only, never a published table (hard limit 15);
-then loans (Part H); then amendments, replacing only what the Commission
-says is replaced. Rows 95 and 96 have read the 41 returns' image pages;
-load picks them up. Work in your scratch schema, edit nothing outside
-your folder, push and raise party-returns-2. Finish by telling Arthur
-what closed and what is carded.
+docs/status/party-returns.md. Queue rows 110 and 111 (qv4-read-pages)
+have read every image page of the 41 returns set aside at stage read;
+load the lane again in your scratch schema so they read, then do your
+status file's next two items: Part A's refused pages, and the outside
+check against the Commission's by-year table. Edit nothing outside your
+folder, push and raise party-returns-3. Finish by telling Arthur what
+closed and what is carded.
 ```
 
 ## parties

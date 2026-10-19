@@ -25,6 +25,7 @@ OLD_LIVE = os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3"
 FOLDER = os.path.join(OLD_LIVE, "var", "staging", "ec-donations")
 ARCHIVE = re.compile(r"^(Party-donations-and-loans__(2018|2019|2020|2021)-returns__|2021-annual-returns-__).*\.pdf$", re.I)
 SOURCE = "party_returns"
+FIRST_YEAR = 2017                   # ruling 364: the returns for calendar 2017 onward
 
 
 def candidate_files(folder: str = None) -> list:

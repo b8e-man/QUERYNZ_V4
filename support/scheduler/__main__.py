@@ -11,6 +11,7 @@
   python -m support.scheduler hold-profile          the standing job that keeps a profile on a card
   python -m support.scheduler rehearse ...          the rehearsal jobs (sleep, burn memory)
   python -m support.scheduler reread-piece SHA      one document of a re-read (qv4-reread)
+  python -m support.scheduler read-pages SHA --profile SLUG   every image page of one document (qv4-read-pages)
   python -m support.scheduler embed-piece SHA       one document of a bulk embedding (qv4-embed)
 """
 from __future__ import annotations
@@ -77,6 +78,10 @@ def main(argv=None) -> int:
     p.add_argument("key", help="the document's sha256")
     p.add_argument("--pixels", action="store_true")
     p.add_argument("--database", default="querynz_v4")
+    p = sub.add_parser("read-pages")
+    p.add_argument("key", help="the document's sha256")
+    p.add_argument("--profile", required=True, help="the document profile the readings are stored under")
+    p.add_argument("--dpi", type=int, default=300)
     p = sub.add_parser("embed-piece")
     p.add_argument("key", help="the document's sha256")
     p = sub.add_parser("rereads")
@@ -194,6 +199,13 @@ def main(argv=None) -> int:
         print(f"reread: {line['document'][:12]} {line['party'] or '?'} {line['year'] or '?'}: published {line['published']}, "
               f"new {line['new']}, {'EQUAL' if line['equal'] else 'DIFFERENT'} ({line['model']}, {line['read_from']})")
         return 0
+    if a.cmd == "read-pages":
+        from support.scheduler import reread
+        line = reread.read_pages(a.key, profile=a.profile, url=os.environ["QV4_MODEL_URL"], model=os.environ["QV4_MODEL"],
+                                 dpi=a.dpi, run_id=os.environ.get("QV4_RUN_ID", ""))
+        print(f"read-pages: {line['document'][:12]} {line['profile']}: {line['pages']} page(s), {line['images']} image(s), "
+              f"{line['read_now']} read now, {line['replayed']} replayed, unread {line['unread']} ({line['model']} at {os.environ.get('QV4_MODEL_PORT')})")
+        return 1 if line["unread"] else 0
     if a.cmd == "embed-piece":
         from support.scheduler import embed
         line = embed.piece(a.key, url=os.environ["QV4_MODEL_URL"].replace("/chat/completions", "/embeddings"),

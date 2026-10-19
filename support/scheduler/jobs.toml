@@ -171,6 +171,21 @@ pieces = true
 can_share = false
 concurrency = 1
 
+[jobs.qv4-read-pages]
+description = "Every image page of one document through the page-reader profile, stored under the reader contract's stamp and the profile named in the command (qv4-reread-pages reads one page per document). One piece per document; the lane that set the document aside at stage `read` picks the readings up on its next load. Queued by the integrator after a merge."
+needs = "model-profile"
+profile = "page-reader"
+memory_gb = 1.5
+deadline_s = 1800
+query_timeout_s = 300
+class = "whenever"
+priority = 23
+command = ["python", "-m", "support.scheduler", "read-pages", "--profile", "ec-party-return-text"]
+requires = ["pdftoppm"]
+pieces = true
+can_share = false
+concurrency = 1
+
 [jobs.qv4-disclosures-read]
 description = "The disclosures lane's page readings (step 4.1): one piece per scanned large-donation declaration with no stored reading, every page as an image through the page-reader profile; the lane's next load picks the readings up. Queued by the integrator after a merge, then on the lane's rebuild for a scan with no reading."
 needs = "model-profile"
