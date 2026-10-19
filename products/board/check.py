@@ -44,7 +44,7 @@ def problems(conn, term: str = None) -> list:
         for c in cols:
             if ADDRESS_WORDS.search(c) and v.name != "company_addresses":
                 out.append(f"{v.name}: carries `{c}`, an address-shaped column outside the registered-office view: rule on it before showing")
-    for name in held - {v.name for v in cat.VIEWS}:
+    for name in held - {v.name for v in cat.VIEWS} - cat.LINKS_PUBLISHED:
         out.append(f"pub.{name} is published but the board has no entry for it: add it to the catalogue from the lane's pane.md")
     # 2. not held
     for register, _ in cat.NOT_HELD:

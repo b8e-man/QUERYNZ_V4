@@ -1,0 +1,1 @@
+"""The lane's one figure against the outside world: the Commission's own spreadsheet of candidate totals for an election against the lane's rows, joined on year, electorate and surname. Built by the candidate-returns session."""

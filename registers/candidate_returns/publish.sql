@@ -1,0 +1,1 @@
+-- registers/candidate_returns: `pub.candidate_return_totals` and `pub.candidate_return_donors`, with citations. Empty until the lane reads.

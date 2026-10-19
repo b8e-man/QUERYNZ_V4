@@ -1,0 +1,1 @@
+-- registers/candidate_returns: the tables this lane owns, in `candidate_returns` and `candidate_returns_private`. Empty until the session builds the lane.

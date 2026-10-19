@@ -111,43 +111,105 @@ what is carded.
 
 ## links
 
-Step 4.2 and 4.3, in `links/`: the two confirming rules and the ledger
-from the old estate (not the hand-set weights), the old decisions copied
-untouched and mapped beside, the six first measurements, and the test
-pairs drawn from the registers. Fable. Launched headless by the
-integrator.
+Session 1 merged (`docs/merges/links-1`): rows from nine registers under
+the shared reading (2.75 M person rows), the two confirming rules
+(1.26 M and 0.94 M confirmed), number and identifier links, the watch,
+669,863 groups, the old ledgers copied exactly (77,179) and 5,355
+decisions promoted, 573 test pairs (three kinds unsupplied, carded), the
+six measurements in `links/measurements.md`. Two queue questions for
+Arthur (a company name alone confirming a donor; one company's office as
+a shared address). `qv4-links-build` rebuilds after lane loads;
+`qv4-links-review` waits for track C. No session 2 now.
+
+## gazette
+
+Sessions 1 and 2 merged (`docs/merges/gazette-1`, `-2`): 207,133
+notices typed; celebrant lists, director prohibitions and liquidator
+appointments read, addresses private. Session 3, Opus, launched headless
+by the integrator.
+
+```text
+You are the gazette session, session 3, in your working copy. Read
+docs/PLAN.md, docs/status.md and docs/status/gazette.md. Do your status
+file's next items: the other insolvency, bankruptcy and appointment
+notices, each its own document profile proposed for the integrator, each
+measured on every notice of its type; the printed tables by the
+organisation vocabulary; and the liquidations check against
+pub.companies now that lane is published (a liquidated company that the
+register does not hold is a catch-log line, never a guess). Mask every
+sample before printing it (the two gazette lessons). Addresses go to
+gazette_private only. Edit nothing outside your folder, push and raise
+gazette-3. Finish by telling Arthur what closed and what is carded.
+```
+
+## candidate-returns
+
+Step 4.1, built: candidate donation and expense returns, held after all
+under the old estate's `var/staging/ec-donations/` (its README: 2011,
+2014, 2017, 2020 as 610 per-candidate PDFs, 2023). Totals come from the
+Commission's own spreadsheet, joined on year, electorate and surname;
+amended returns are republished under a different file-name pattern.
+Opus. Launched headless by the integrator.
+
+```text
+You are a build session for QueryNZV4 on node2, running as Opus, in the
+working copy the launcher made for you. Read docs/PLAN.md, then
+docs/status.md and your own status file docs/status/candidate-returns.md
+(make it), the lane contract, the row contract,
+docs/plan/reference/facts-and-traps/electoral-commission-forms.md and
+registers/party_returns/ for how a Commission return is read from the
+page reader's stored readings (replay only; never call a model here).
+Build one lane only: candidate-returns, in registers/candidate_returns/.
+Its documents are held under the old estate's var/staging/ec-donations
+(read its README first): take them by hash, read-only; fetch nothing.
+Profiles before readers: assign or propose a document profile for each
+form kind before reading it. Totals from the Commission's own
+spreadsheet where held, joined on year, electorate and surname; an
+amended return replaces its original only where the Commission says so.
+A donor's address goes to candidate_returns_private and nowhere else;
+never print one into your session; view pages only through a masking
+tool as the party-returns lane's replay does. Give every row a stable
+key and a citation. Keep a catch log that reconciles. Build in small
+tranches, each measured on every real file. Work in your scratch schema;
+edit nothing outside your folder; never touch the old estate's jobs,
+folders or primary database. Push your branch and raise
+candidate-returns-1. Finish by telling Arthur what closed and what is
+carded.
+```
+
+## site
+
+Step 4.4, the published-site shape and the Follow the Money template,
+in `products/published_site/` and `products/templates/ftm/`: the release pipeline
+behind the new contract with its gates, without its last steps. Fable.
+Launched headless by the integrator.
 
 ```text
 You are a build session for QueryNZV4, running as Fable on node2, in
 the working copy the launcher made for you. Read docs/PLAN.md, then
-docs/plan/step-4.md (4.2 and 4.3), docs/status.md, links/README.md and
-your own status file docs/status/links.md (make it), the lane contract
-and the row contract, and the card how-links-names-a-register-row (the
-board assumes register, colon, key). Do the part of step 4 named here:
-links, in links/. Take the ledger and the two confirming rules from the
-old estate's data-layer/registers/registers/ (donor_anchors.py,
-roster_folds.py, person_identity.py, folds.py in /home/user/qnz3-ref),
-not the hand-set weights; the two rules are exact and are not yours to
-change. Copy the old decisions across exactly as they are into their
-own table, never edited; map each to the new stable keys of its two rows
-by content, and card what cannot be mapped (the old "hold" is
-"contested"). Read only pub views, never a lane's inside. Build the test
-pairs of 4.3 from the registers (two directors with one name on one
-company at once; two candidates with one name in different electorates;
-the same role across monthly company files; the same charity officer
-across returns once charities publishes; a candidate across an original
-and an amended return), at least 200 of each kind per name band where
-the band can supply them, drawn at random. Record the six measurements
-in your status file, the error rate by name band; the review agent's
-reading of 100 confirmed links is reported as an agent's judgment and
-the agent searches the web only for evidence that two rows differ, a
-name and public role at most. Publish pub.links, pub.groups and
-pub.decisions as the board expects (confirmed first, near after, each
-with its rule and reason); never a home address. Build in small
-tranches, each measured on the real published tables. Work in your
-scratch schema; edit nothing outside links/; push your branch and raise
-links-1. Finish by telling Arthur what closed, what is carded and what
-waits on him.
+docs/plan/step-4.md (4.4 and 4.5), docs/plan/design.md, docs/status.md,
+products/published_site/spec.md and products/templates/ftm/README.md
+(the thin slice of 1.11 lives in products/published_site/ and grows into
+the shape here; a folder named site clashes with Python's own) and your
+own status file
+docs/status/site.md (make it). Do the part of step 4 named here: the
+published-site shape and the Follow the Money template, in
+products/published_site/ and products/templates/ftm/. Move the old release
+pipeline's shape behind the new contract with its gates, without its
+last steps: the new pipeline reads only pub views and the template,
+writes a version folder of the ten kinds of published file and stops;
+it has no deploy step, holds no deploy token, never drains the live
+site's feedback, serves its preview on a port other than 8300 and 8301
+on the local network only, and never touches the frozen product's
+publisher job or its ports. The template applies the 2019 window
+(ruling 347) and the rules for what may be shown (no home address, a
+suppressed name suppressed, the money stays). Build from a frozen
+release's recorded listing of the captured-document folders so the
+comparison in checks/ (4.5) can run on the same inputs. Build in small
+tranches, each with a check that can fail against the real published
+tables. Edit nothing outside your two folders; push your branch and
+raise site-1. Finish by telling Arthur what closed, what is carded, how
+to see the preview, and what waits on him.
 ```
 
 ## gazette
