@@ -3,8 +3,8 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-19, 15:00. **Step:** 2 closed on one box; 3 pass two
-running; tracks B and E on the queue's clock. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-19, 19:00. **Step:** 2 closed on one box; 3 halted
+(ruling 60); tracks B and E on the queue's clock. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
@@ -27,10 +27,10 @@ address (test alarm 18 October).
 
 ## Next (all three from `docs/briefs/next.md`)
 
-- Trial session 2 running: pass one scored (`docs/merges/trial-2`: 2,013 of
-  2,124 pages equal to the old readings, 111 carded), pass two (the
-  challengers, jobs 66 to 74) on card 1. The worker's lease fix is in and
-  the worker restarted.
+- Trial halted (ruling 60): pass one scored (`docs/merges/trial-2`: 2,013
+  of 2,124 pages equal, 111 carded); pass two cancelled part-way, its pages
+  kept. Session 2 closes step 3 with GLM-OCR primary and the second reader
+  from the partial scores; the trial resumes after the plan.
 - Track E merged (`docs/merges/windowed-1`, `-2`): two legal positions, two
   capture lanes, 621 documents landed, the two `qv4-*-capture` jobs nightly
   from 22:30 NZDT, both hosts floored at 5 s, the lane checks on the board
@@ -45,8 +45,7 @@ address (test alarm 18 October).
   day (27 pieces, 8.3 GB) after the probe learnt `zstd`; 2b follows, then
   the dump is retired.
 - The node1 setup card when Arthur powers node1. The positive half of 1.4
-  waits for a new declaration. A fix session on `support/scheduler` for a
-  per-profile server binary (TeleOCR's patched build).
+  waits for a new declaration.
 
 ## Half-done
 
