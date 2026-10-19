@@ -16,7 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "gazette"
 PRIVATE = "gazette_private"
 TABLES = ("notices", "celebrants", "prohibitions", "liquidations", "liquidators", "company_notices", "practitioners",
-          "bankruptcies", "files", "set_aside")
+          "bankruptcies", "appointments", "files", "set_aside")
 PRIVATE_TABLES = ("celebrant_addresses", "prohibition_addresses", "bankruptcy_addresses")
 COLUMNS = {
     "notices": ("key", "notice", "year", "section", "number", "family", "format", "status", "records", "supersedes", "title",
@@ -41,6 +41,9 @@ COLUMNS = {
                         "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
 }
 COLUMNS["practitioners"] = COLUMNS["liquidators"]
+COLUMNS["appointments"] = ("key", "notice", "published_on", "body", "name", "role", "statute", "by_whom", "starts_on",
+                           "ends_on", "dated_on", "corrigendum", "ordinal", "document", "page", "place", "read_from", "reader",
+                           "profile", "profile_version", "loaded_at")
 COLUMNS["bankruptcies"] = ("key", "notice", "published_on", "kind", "shape", "surname", "given_names", "also_known_as",
                            "occupation", "event_on", "event_at", "court", "statute", "dated_on", "withheld_by", "ordinal",
                            "document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at")
@@ -99,7 +102,7 @@ def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool
     for t, rows in (("notices", res.notices), ("celebrants", res.celebrants), ("prohibitions", res.prohibitions),
                     ("liquidations", res.liquidations), ("liquidators", res.liquidators),
                     ("company_notices", res.company_notices), ("practitioners", res.practitioners),
-                    ("bankruptcies", res.bankruptcies)):
+                    ("bankruptcies", res.bankruptcies), ("appointments", res.appointments)):
         _copy(conn, table(schema, t, shared), COLUMNS[t], _flat(COLUMNS[t], rows))
     _copy(conn, table(private_of(schema), "celebrant_addresses", shared), ("key", "address"), res.addresses)
     _copy(conn, table(private_of(schema), "prohibition_addresses", shared), ("key", "address", "formerly"),

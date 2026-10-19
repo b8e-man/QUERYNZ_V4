@@ -35,8 +35,8 @@ from dataclasses import dataclass, field
 
 from keys.dates import filed_date
 from support import profiles
-from registers.gazette import (bankruptcies, capture, celebrants, creditors, liquidations, notices, prohibitions, receiverships,
-                               removals, windingup)
+from registers.gazette import (appointments, bankruptcies, capture, celebrants, creditors, liquidations, notices, prohibitions,
+                               receiverships, removals, windingup)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -49,6 +49,8 @@ READER_CELEBRANTS = "registers.gazette.celebrants 1"
 READER_PROHIBITIONS = "registers.gazette.prohibitions 1"
 READER_LIQUIDATIONS = "registers.gazette.liquidations 2"
 READER_BANKRUPTCIES = "registers.gazette.bankruptcies 1"
+APPOINTMENT_PROFILE = "gazette-public-appointment"
+READER_APPOINTMENTS = "registers.gazette.appointments 1"
 #: the company-notice readers: (module, profile, reader stamp, kind), tried in this order
 COMPANY_READERS = (
     (removals, "gazette-removal-notice", "registers.gazette.removals 1", "removal"),
@@ -73,6 +75,7 @@ class Result:
     practitioners: list = field(default_factory=list)
     bankruptcies: list = field(default_factory=list)
     bankruptcy_addresses: list = field(default_factory=list)   # (bankruptcy key, address, formerly)
+    appointments: list = field(default_factory=list)
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
     counts: dict = field(default_factory=dict)
 
@@ -140,6 +143,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
     cv_of = {p: profile_version(p) for _, p, _, _ in COMPANY_READERS}
     bv_of = {p: profile_version(p) for p in (bankruptcies.LIST, bankruptcies.NAP, bankruptcies.NOTICE)}
     bankrupt = defaultdict(lambda: [0, 0, 0])           # profile → [recognised, read, set aside]
+    appointed = [0, 0, 0]                               # recognised, read, set aside
+    av = profile_version(APPOINTMENT_PROFILE)
     for nid in sorted(by):
         line, others = notices.pick(by[nid])
         for o, why in others:
@@ -216,6 +221,38 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                 status = "set aside"
                 if not got.unread:
                     out.set_aside.append((f"{export_sha}/notice {nid}", "liquidations", "recognised, and no company read"))
+        elif celebrants.recognise(line["title"], line["text"]):     # before the readers by section: a list filed under ar is still a list
+            recognised += 1
+            fmt, reader, profile, version = CELEBRANT_PROFILE, READER_CELEBRANTS, CELEBRANT_PROFILE, cv
+            got = celebrants.read(line["text"])
+            for place, why in got.unread:
+                out.set_aside.append((f"{export_sha}/notice {nid} {place}", "celebrants", why))
+            taken = got.records if got.action else []
+            seen = defaultdict(int)
+            for rec in taken:
+                k = f"gazette/{nid}/celebrant/{_short(_name_key(rec.surname, rec.given_names))}"
+                seen[k] += 1
+                key = k if seen[k] == 1 else f"{k}/{seen[k]}"
+                out.celebrants.append({
+                    "key": key, **base, "place": f"notice {nid} record {rec.ordinal}",
+                    "reader": READER_CELEBRANTS, "profile": CELEBRANT_PROFILE, "profile_version": cv,
+                    "filed": {"notice": nid, "published_on": line["published_on"], "action": got.action,
+                              "statute": got.statute, "period_from": _iso(got.period_from),
+                              "period_to": _iso(got.period_to), "surname": rec.surname,
+                              "given_names": rec.given_names, "organisation": rec.organisation,
+                              "list_shape": got.mode, "marks": rec.marks, "split": rec.split, "ordinal": rec.ordinal},
+                })
+                if rec.address:
+                    out.addresses.append((key, rec.address))
+            records = len(taken)
+            if records:
+                with_records += 1
+                status = "read, part set aside" if got.unread else "read"
+            else:
+                wholly_aside += 1
+                status = "set aside"
+                if not got.unread:
+                    out.set_aside.append((f"{export_sha}/notice {nid}", "celebrants", "recognised, and no record read"))
         elif (hit := next((x for x in COMPANY_READERS if x[0].recognise(code, line["title"], line["text"])), None)):
             mod, profile, reader, kind = hit
             fmt, version = profile, cv_of[profile]
@@ -278,38 +315,24 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                 status = "set aside"
                 if not got.unread:
                     out.set_aside.append((f"{export_sha}/notice {nid}", "bankruptcies", "recognised, and no person read"))
-        elif celebrants.recognise(line["title"], line["text"]):
-            recognised += 1
-            fmt, reader, profile, version = CELEBRANT_PROFILE, READER_CELEBRANTS, CELEBRANT_PROFILE, cv
-            got = celebrants.read(line["text"])
+        elif appointments.recognise(code, line["title"], line["text"]):
+            fmt, reader, profile, version = APPOINTMENT_PROFILE, READER_APPOINTMENTS, APPOINTMENT_PROFILE, av
+            appointed[0] += 1
+            got = appointments.read(line["title"], line["text"])
             for place, why in got.unread:
-                out.set_aside.append((f"{export_sha}/notice {nid} {place}", "celebrants", why))
-            taken = got.records if got.action else []
-            seen = defaultdict(int)
-            for rec in taken:
-                k = f"gazette/{nid}/celebrant/{_short(_name_key(rec.surname, rec.given_names))}"
-                seen[k] += 1
-                key = k if seen[k] == 1 else f"{k}/{seen[k]}"
-                out.celebrants.append({
-                    "key": key, **base, "place": f"notice {nid} record {rec.ordinal}",
-                    "reader": READER_CELEBRANTS, "profile": CELEBRANT_PROFILE, "profile_version": cv,
-                    "filed": {"notice": nid, "published_on": line["published_on"], "action": got.action,
-                              "statute": got.statute, "period_from": _iso(got.period_from),
-                              "period_to": _iso(got.period_to), "surname": rec.surname,
-                              "given_names": rec.given_names, "organisation": rec.organisation,
-                              "list_shape": got.mode, "marks": rec.marks, "split": rec.split, "ordinal": rec.ordinal},
+                out.set_aside.append((f"{export_sha}/notice {nid} {place}", "appointments", why))
+            for x in got.people:
+                out.appointments.append({
+                    "key": f"gazette/{nid}/appointee/{x.ordinal}", **base, "place": f"notice {nid} appointee {x.ordinal}",
+                    "reader": READER_APPOINTMENTS, "profile": APPOINTMENT_PROFILE, "profile_version": av,
+                    "filed": {"notice": nid, "published_on": line["published_on"], "body": got.body, "name": x.name,
+                              "role": x.role, "statute": got.statute, "by_whom": got.by_whom, "starts_on": got.starts_on,
+                              "ends_on": got.ends_on, "dated_on": got.dated_on, "corrigendum": got.corrigendum,
+                              "ordinal": x.ordinal},
                 })
-                if rec.address:
-                    out.addresses.append((key, rec.address))
-            records = len(taken)
-            if records:
-                with_records += 1
-                status = "read, part set aside" if got.unread else "read"
-            else:
-                wholly_aside += 1
-                status = "set aside"
-                if not got.unread:
-                    out.set_aside.append((f"{export_sha}/notice {nid}", "celebrants", "recognised, and no record read"))
+            records = len(got.people)
+            appointed[1 if records else 2] += 1
+            status = ("read, part set aside" if len(got.unread) else "read") if records else "set aside"
         out.notices.append({
             "key": f"gazette/{nid}", **base, "place": f"notice {nid}",
             "reader": reader, "profile": profile, "profile_version": version,
@@ -347,6 +370,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
         if not f["withheld_by"]:
             later = sorted(a for a in annulled.get(_person_key(f), []) if (f["event_on"] or f["published_on"] or "") <= a[0])
             f["withheld_by"] = later[0][1] if later else None
+    if appointed[1] + appointed[2] != appointed[0]:
+        raise AssertionError(f"the appointment notices do not reconcile: {appointed}")
     for slug, (n, ok, aside) in bankrupt.items():
         if ok + aside != n:
             raise AssertionError(f"the {slug} notices do not reconcile: {n} recognised, {ok} read, {aside} set aside")
@@ -373,6 +398,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                      for i, s in enumerate(("", "_read", "_set_aside"))},
                   "bankruptcies": len(out.bankruptcies), "bankruptcy_addresses": len(out.bankruptcy_addresses),
                   "bankruptcies_withheld": sum(1 for b in out.bankruptcies if b["filed"]["withheld_by"]),
+                  "appointment_notices": appointed[0], "appointment_notices_read": appointed[1],
+                  "appointment_notices_set_aside": appointed[2], "appointments": len(out.appointments),
                   "set_aside": len(out.set_aside),
                   "not_read": sum(1 for r in out.notices if r["filed"]["format"] == NOT_READ)}
     return out

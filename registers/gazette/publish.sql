@@ -56,3 +56,9 @@ SELECT key, notice, published_on, kind, shape,
        event_on, event_at, court, statute, dated_on, withheld_by, ordinal, document, page, place, read_from, reader,
        profile, profile_version, loaded_at
 FROM gazette.bankruptcies;
+
+-- appointments to public office: the person by name as printed, the office, who appointed and the term
+CREATE OR REPLACE VIEW pub.gazette_appointments AS
+SELECT key, notice, published_on, body, name, role, statute, by_whom, starts_on, ends_on, dated_on, corrigendum, ordinal,
+       document, page, place, read_from, reader, profile, profile_version, loaded_at
+FROM gazette.appointments;

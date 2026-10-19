@@ -70,6 +70,10 @@ COMPANY = {"removal": ("ds", "gazette-removal-notice", 0.95),
            "administration": ("aa", "gazette-administration", 0.88)}                # measured 91.9%
 #: every notice in section ba is taken by one of these
 BANKRUPTCY = ("gazette-bankruptcy-list", "gazette-no-asset-procedure-list", "gazette-bankruptcy-notice")
+APPOINTMENT = "gazette-public-appointment"
+#: an appointee styled "The Honourable", not a judge, in a notice from MEMBERS_FROM on, should be a Member of Parliament
+#: (the house lane's pub.members) by surname: measured 20 October 2026 at 93% (125 of 134; by full name 101)
+MEMBERS_FROM, MEMBERS_FLOOR = "2021", 0.85
 
 
 def _register(joined: dict) -> dict:
@@ -91,7 +95,33 @@ def _register_fails(what: str, r: dict, floor: float, number_floor: float = None
     return why
 
 
-def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulled_shown=0) -> dict:
+def _words(s: str) -> list:
+    return re.sub(r"[^a-z ]", "", (s or "").lower().replace("-", " ")).split()
+
+
+def members_check(appointees, members) -> dict:
+    """appointees: [(notice, name, role)]; members: [name] from pub.members ("Surname, Given" or natural order)."""
+    surnames = set()
+    for m in members:
+        if "," in (m or ""):
+            sur, given = m.split(",", 1)
+            m = f"{given} {sur}"
+        w = _words(m)
+        if len(w) >= 2:
+            surnames.add(w[-1])
+    seen = held = 0
+    for notice, name, role in appointees:
+        if notice[:4] < MEMBERS_FROM or not re.match(r"(?:The\s+)?(?:Right\s+)?Hon", name or "") \
+                or re.search(r"Judge|Justice|Court", f"{name} {role or ''}"):
+            continue
+        w = _words(re.sub(r"\s*\([^)]*\)", "", re.sub(r"^(?:(?:The|Right|Honourable|Hon\.?|Dr|Sir|Dame)\s+)+", "", name)))
+        if len(w) >= 2:
+            seen += 1
+            held += w[-1] in surnames
+    return {"honourable": seen, "members": held, "members_known": len(surnames)}
+
+
+def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulled_shown=0, appointees=None, members=None) -> dict:
     """rows: [(notice, title, format)] from the lane's published notices;
     acted: [(notice, supersedes)] for the notices that act on others; marked:
     the notices whose prohibition rows carry what superseded them."""
@@ -128,14 +158,20 @@ def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulle
     company = {}
     for kind, (code, profile, floor) in COMPANY.items():
         filed = [(n, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] == code]
-        company[kind] = {"code": code, "filed": len(filed), "not_read": sorted(n for n, f in filed if f != profile)}
+        company[kind] = {"code": code, "filed": len(filed), "not_read": sorted(n for n, f in filed if f not in (profile, CELEBRANT))}
         if company_joined is not None:
             company[kind]["register"] = _register(company_joined.get(kind, {}))
     ba = [(n, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] == "ba"]
     bank = {"filed": len(ba), "by": {p: sum(1 for n, f in ba if f == p) for p in BANKRUPTCY},
             "not_read": sorted(n for n, f in ba if f not in BANKRUPTCY), "annulled_shown": annulled_shown}
+    titled = [(n, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] in ("go", "vr", "au", "ps", "gn")
+              and re.match(r"^\s*(?:Corrigendum\W*)?(?:Notice\s+of\s+)?(?:Re-?)?Appointments?\b", t or "", re.I)]
+    app = {"titled": len(titled), "not_read": sorted(n for n, f in titled if f not in (APPOINTMENT, CELEBRANT)),
+           "read": sum(1 for n, f in titled if f == APPOINTMENT)}
+    if appointees is not None and members is not None:
+        app["members"] = members_check(appointees, members)
     return {"numbering": numbering, "celebrants": cel, "prohibitions": pro, "liquidations": liq, "company": company,
-            "bankruptcies": bank}
+            "bankruptcies": bank, "appointments": app}
 
 
 def failed(f: dict) -> list:
@@ -178,6 +214,17 @@ def failed(f: dict) -> list:
             why.append(f"{n}: filed by the Gazette under ba and not taken by a bankruptcy profile")
         if b["annulled_shown"]:
             why.append(f"{b['annulled_shown']} people an annulment names are published by name")
+    a = f.get("appointments")
+    if a is not None:
+        for n in a["not_read"][:20]:
+            why.append(f"{n}: titled an appointment and not taken by the appointment profile")
+        m = a.get("members")
+        if m is not None:
+            if not m["members_known"]:
+                why.append("the house lane's pub.members holds no member: the appointments' outside check cannot run")
+            elif m["honourable"] and m["members"] < MEMBERS_FLOOR * m["honourable"]:
+                why.append(f"{m['members']} of {m['honourable']} 'Honourable' appointees since {MEMBERS_FROM} are Members of "
+                           f"Parliament by surname, below {MEMBERS_FLOOR:.0%}")
     years = set(f["numbering"])
     for y in range(CLOSED_FROM, CLOSED_TO + 1):
         if y not in years:
@@ -204,9 +251,14 @@ def main(argv=None) -> int:
         for kind, match, n in conn.execute(
                 f"SELECT kind, register_match, count(*) FROM {table(schema, 'company_notices', shared)} GROUP BY 1, 2"):
             company_joined[kind][match] = n
+        appointees = conn.execute(f"SELECT notice, name, role FROM {table(schema, 'appointments', shared)}").fetchall()
         annulled_shown = conn.execute(f"SELECT count(*) FROM {table(schema, 'bankruptcies', shared)} "
                                       f"WHERE kind = 'annulment' AND withheld_by IS NULL").fetchone()[0]
-    f = figures(rows, acted, marked, joined, company_joined, annulled_shown)
+    with db.connect(db.READ_KEY, "querynz_v4") as conn:       # the house lane's members, always from the published estate
+        conn.execute("SET statement_timeout = '60s'")
+        members = ([n for (n,) in conn.execute("SELECT name FROM pub.members")]
+                   if conn.execute("SELECT to_regclass('pub.members') IS NOT NULL").fetchone()[0] else [])
+    f = figures(rows, acted, marked, joined, company_joined, annulled_shown, appointees, members)
     print(f"{len(rows)} notices published. The Gazette's own numbering, closed years "
           f"({CLOSED_FROM}-{CLOSED_TO}): highest number against numbers held")
     for y, (top, held) in f["numbering"].items():
@@ -239,6 +291,13 @@ def main(argv=None) -> int:
     print(f"Bankruptcies: {b['filed']:,} notices the Gazette files under ba, "
           f"{b['filed'] - len(b['not_read']):,} taken by a profile ("
           + ", ".join(f"{p.split('gazette-')[1]} {v:,}" for p, v in b["by"].items()) + ")")
+    a = f["appointments"]
+    print(f"Appointments: {a['titled']:,} notices titled 'Appointment…' in the government sections, {a['read']:,} taken by "
+          f"the appointment profile, the rest celebrant lists")
+    m = a.get("members")
+    if m:
+        print(f"  against the house lane's members: {m['members']} of {m['honourable']} 'Honourable' appointees (not judges) "
+              f"since {MEMBERS_FROM} are Members of Parliament by surname")
     why = failed(f)
     for w in why:
         print("FAILS " + w)

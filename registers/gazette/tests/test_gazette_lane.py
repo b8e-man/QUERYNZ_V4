@@ -10,6 +10,7 @@ import os
 import pytest
 
 from support import db, lane, rowcontract, sample
+from registers.gazette import appointments as AP
 from registers.gazette import bankruptcies as BK
 from registers.gazette import celebrants as K
 from registers.gazette import creditors as CR
@@ -547,6 +548,40 @@ def test_an_annulment_names_its_person_and_the_reading_withholds_them_on_every_e
     assert "Sample Street" not in json.dumps([b["filed"] for b in res.bankruptcies])
 
 
+# --- appointments (every name invented) -----------------------------------------------
+
+def test_an_appointment_reads_body_term_and_each_appointee_and_never_where_they_live():
+    t = ("Pursuant to section 28 of the Example Act 2004, Her Excellency the Governor-General, acting on the advice of the "
+         "Minister, has been pleased to appoint Ann Bea Example, of Exampletown, as a member and Deputy Chairperson; Dr Bob "
+         "Sample, of Town, as a member; and The Honourable Cara Dee Example as Chairperson, for a term commencing on 1 July "
+         "2016 and expiring on 30 June 2019. Dated at Wellington this 3rd day of June 2016.")
+    assert AP.recognise("go", "Appointment of Members to the Example Board", t) and not AP.recognise("al", "Appointment of Members", t)
+    r = AP.read("Appointment of Members to the Example Board", t)
+    assert (r.body, r.by_whom, r.statute, r.starts_on, r.ends_on) == (
+        "Example Board", "Governor-General", "Example Act 2004 s 28", "2016-07-01", "2019-06-30")
+    assert [(p.name, p.role) for p in r.people] == [("Ann Bea Example", "a member and Deputy Chairperson"),
+                                                    ("Dr Bob Sample", "a member"), ("The Honourable Cara Dee Example", "Chairperson")]
+    assert "Exampletown" not in repr(r.people) and r.unread == []
+    first = AP.read("Appointment to the Example Authority", "Pursuant to section 9 of the Example Act 2000, the Minister has "
+                    "appointed to the Example Authority Board Ann Example and Bob Sample as members for a term of three years.")
+    assert [p.name for p in first.people] == ["Ann Example", "Bob Sample"] and first.by_whom == "a Minister"
+    role = AP.read("Appointment to the Example Board", "The Minister hereby appoints a commissioner for the Example Board.")
+    assert role.people == [] and [w for p, w in role.unread] == ["the notice names no appointee the reader can take"]
+
+
+def test_the_appointments_outside_check_wants_honourable_appointees_to_be_members():
+    rows = _closed_years() + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
+                              ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION),
+                              ("2022-go8", "Appointment to the Example Board", check.APPOINTMENT)]
+    members = ["Example, Ann", "Bob Sample"]
+    ok = [("2022-go8", "The Honourable Ann Example", "Minister"), ("2022-go9", "The Honourable Bob Sample", None),
+          ("2022-go9", "The Honourable Cy Judge", "a Judge of the High Court"), ("2019-go9", "The Honourable Di Other", None)]
+    assert check.failed(check.figures(rows, appointees=ok, members=members)) == []
+    bad = ok + [("2022-go7", "The Honourable Di Other", None)]
+    assert any("Members of Parliament" in w for w in check.failed(check.figures(rows, appointees=bad, members=members)))
+    assert any("2022-go3" in w for w in check.failed(check.figures(rows + [("2022-go3", "Appointment of a Member", "not read")])))
+
+
 # --- the filled sample ---------------------------------------------------------------
 
 def _schema() -> str:
@@ -582,6 +617,7 @@ def filled():
                "liquidators": q(f"SELECT * FROM {schema}.gazette_liquidators ORDER BY key"),
                "company_notices": q(f"SELECT * FROM {schema}.gazette_company_notices ORDER BY key"),
                "bankruptcies": q(f"SELECT * FROM {schema}.gazette_bankruptcies ORDER BY key"),
+               "appointments": q(f"SELECT * FROM {schema}.gazette_appointments ORDER BY key"),
                "bankruptcy_private": q(f"SELECT key, address IS NOT NULL AS a, formerly IS NOT NULL AS f "
                                        f"FROM {schema}_private.gazette_bankruptcy_addresses")}
 
@@ -607,7 +643,8 @@ def test_each_case_reads_as_its_comment_says(filled):
     assert {c["action"] for c in filled["celebrants"] if c["notice"] == "2013-go541"} == {"annual list"}
     for n in by.values():
         assert n["records"] == sum(1 for c in filled["celebrants"] + filled["prohibitions"] + filled["liquidations"]
-                                   + filled["company_notices"] + filled["bankruptcies"] if c["notice"] == n["notice"])
+                                   + filled["company_notices"] + filled["bankruptcies"] + filled["appointments"]
+                                   if c["notice"] == n["notice"])
 
 
 def test_an_address_is_private_and_no_published_row_carries_one(filled):
@@ -771,6 +808,20 @@ def test_each_bankruptcy_case_reads_as_its_comment_says_and_no_address_is_publis
     assert private[ppl["2000-ba5071"][0]["key"]]["f"]
     assert not set(filled["bankruptcies"][0]) & {"address", "formerly", "text"}
     with filled["conn"].cursor() as cur:
-        cur.execute(f"CREATE TEMP VIEW pub_b AS {open(os.path.join(REPO, 'registers/gazette/publish.sql')).read().split('CREATE OR REPLACE VIEW pub.gazette_bankruptcies AS')[1].replace('gazette.bankruptcies', filled['schema'] + '.gazette_bankruptcies').rstrip().rstrip(';')}")
+        cur.execute(f"CREATE TEMP VIEW pub_b AS {open(os.path.join(REPO, 'registers/gazette/publish.sql')).read().split('CREATE OR REPLACE VIEW pub.gazette_bankruptcies AS')[1].split(';')[0].replace('gazette.bankruptcies', filled['schema'] + '.gazette_bankruptcies')}")
         cur.execute("SELECT surname, given_names FROM pub_b WHERE notice = '2002-ba3634'")
         assert cur.fetchall() == [(None, None)]
+
+
+def test_each_appointment_case_reads_as_its_comment_says(filled):
+    notice = {n["notice"]: n for n in filled["notices"]}
+    ppl = {}
+    for a in filled["appointments"]:
+        ppl.setdefault(a["notice"], []).append(a)
+    one = ppl["2013-go3998"][0]
+    assert one["by_whom"] == "Governor-General" and one["starts_on"] and one["ends_on"] and one["body"]
+    assert ppl["2025-go1725"][0]["by_whom"] == "a Minister" and ppl["2001-vr3940"]
+    assert notice["2020-vr2940"]["status"] == "read, part set aside" and len(ppl["2018-go3750"]) == 3
+    assert ppl["2023-vr1151"][0]["name"].startswith("The Honourable")
+    assert notice["2011-go3789"]["status"] == "set aside" and "2011-go3789" not in ppl
+    assert not set(filled["appointments"][0]) & {"address", "place_of_residence", "text"}

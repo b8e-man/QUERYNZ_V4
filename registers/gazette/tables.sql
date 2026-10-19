@@ -224,6 +224,31 @@ CREATE TABLE IF NOT EXISTS gazette.bankruptcies (
     loaded_at        timestamptz NOT NULL
 );
 
+-- one row per person an appointment to public office names: the office as the notice states it, never where they live
+CREATE TABLE IF NOT EXISTS gazette.appointments (
+    key              text PRIMARY KEY,                      -- gazette/<notice>/appointee/<ordinal>
+    notice           text NOT NULL,
+    published_on     date,
+    body             text,                                  -- from the title: the board, court or office
+    name             text NOT NULL,                         -- as printed, with any honorific ("The Honourable", "Dr")
+    role             text,                                  -- as printed: "a member and Deputy Chairperson", "a Judge of …"
+    statute          text,
+    by_whom          text,                                  -- Governor-General | the Sovereign | a Minister | a Chief Justice or Chief Judge
+    starts_on        date,
+    ends_on          date,
+    dated_on         date,
+    corrigendum      boolean NOT NULL,
+    ordinal          integer NOT NULL,
+    document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page             integer NOT NULL DEFAULT 1,
+    place            text NOT NULL,                         -- notice <number> appointee <ordinal>
+    read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL
+);
+
 -- every document the lane took, and what it did with it
 CREATE TABLE IF NOT EXISTS gazette.files (
     document   text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
