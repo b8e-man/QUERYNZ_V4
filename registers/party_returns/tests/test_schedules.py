@@ -121,6 +121,87 @@ DECLARATION = """3. TOTAL PARTY LOANS
 """
 
 
+INLINE = """PART A: PARTY DONATIONS OF MORE THAN $15,000
+TOTAL FOR PART A
+$ 41,000.00
+Donor's name and street address
+1 Example Donor 12 Sample Road Exampleton 1010 01/02/2017 No $ 20,000.00
+2 Sample Holdings Ltd, Floor 3, 4 Model Street, Wellington 03/04/2017 No $ 21,000.00
+3
+4
+"""
+
+TWO_LINE = """PART A: PARTY DONATIONS OF MORE THAN $15,000
+TOTAL FOR PART A
+$ 30,000.00
+Donor's name and street address
+Example Donor 12 Sample Road 01/02/2023 - 03/04/2023
+05/06/2023 - 07/08/2023
+No $ 18,000.00
+Ann Example 4 Model Street 09/10/2023
+No $ 12,000.00
+"""
+
+#: the reader dropped the second donor's name: its date column ("26 x Monthly Payments") sits where a cell would
+NAME_DROPPED = """PART A: PARTY DONATIONS OF MORE THAN $15,000
+TOTAL FOR PART A
+$ 68,000.00
+Donor's name and street address
+Example Donor
+Sample Retirement Village, 55 Sample Road
+Exampleton 1010
+9/4/18 no $ 50,000.00
+26 x Monthly Payments no $ 18,000.00
+"""
+
+NUMBERED_COLUMNS = """PART A: PARTY DONATIONS OF MORE THAN $15,000
+Donor's name and street address
+1 Example Donor, 12 Sample Road, Exampleton
+2 Ann Example, 4 Model Street, Wellington
+1 $ 20,000.00
+2 $ 16,000.00
+"""
+
+
+def test_a_row_read_on_one_line_pairs_its_cell_with_the_figure_that_ends_it():
+    rows, printed, problems = _rows(INLINE, "pixels")
+    assert problems == [] and printed == 41000.0
+    assert [(r.n, r.amount, r.yes_no, r.paired_by) for r in rows] == [(1, 20000.0, "No", "inline"), (2, 21000.0, "No", "inline")]
+    part = donors.read({2: INLINE}, {2: "pixels"}, 41000.0)
+    assert part.check == "parts-sum" and [r["name"] for r in part.rows] == ["Example Donor", "Sample Holdings Ltd"]
+    assert [r["dates"] for r in part.rows] == ["01/02/2017", "03/04/2017"]
+
+
+def test_a_figure_on_its_own_line_after_the_cell_closes_the_row_and_its_dates_run_on():
+    rows, _, problems = _rows(TWO_LINE, "pixels")
+    assert problems == [] and [(r.amount, r.yes_no) for r in rows] == [(18000.0, "No"), (12000.0, "No")]
+    assert "05/06/2023" in rows[0].dates and "09/10/2023" in rows[1].dates
+    part = donors.read({2: TWO_LINE}, {2: "pixels"}, 30000.0)
+    assert [r["name"] for r in part.rows] == ["Example Donor", "Ann Example"]
+
+
+def test_a_dropped_name_or_numbered_columns_refuse_the_page_even_when_the_sum_holds():
+    for text in (NAME_DROPPED, NUMBERED_COLUMNS):
+        rows, _, problems = _rows(text, "pixels")
+        assert rows == [] and problems and "do not pair" in problems[0], text[:60]
+
+
+def test_a_cell_over_several_lines_takes_its_name_from_the_first_line_only():
+    assert donors.split("Example Donor QC\nSample Retirement Village, 55 Sample Road\nExampleton") == \
+        ("Example Donor QC", "Sample Retirement Village, 55 Sample Road Exampleton")
+    assert donors.split("Sample Holdings Ltd, Floor 3, 4 Model Street")[0] == "Sample Holdings Ltd"
+    assert donors.split("Sample Ltd, Shed 2, 9 Model Road")[0] == "Sample Ltd"
+
+
+def test_a_row_pointing_at_an_attachment_is_not_a_donor():
+    page = INLINE.replace("1 Example Donor 12 Sample Road Exampleton 1010 01/02/2017 No $ 20,000.00\n", "") \
+        .replace("2 Sample Holdings Ltd, Floor 3, 4 Model Street, Wellington 03/04/2017 No $ 21,000.00",
+                 "1 See attachment for full listing $ 41,000.00")
+    rows, _, _ = _rows(page, "pixels")
+    assert rows == []
+    assert donors.read({2: page}, {2: "pixels"}, 41000.0).check == ""
+
+
 def test_the_declared_loans_cut_the_thresholds_and_check_their_own_sum():
     got = loans.declared(DECLARATION)
     assert (got.h, got.i, got.total, got.problems) == (119000.0, 0.0, 119000.0, [])

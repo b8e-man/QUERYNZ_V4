@@ -65,7 +65,7 @@ ROW_NUMBER = re.compile(r"^\s{0,3}(\d{1,3})(?=\s|$)")     # the form prints it a
 NUMBERED = re.compile(r"^\s*(\d{1,3})\.\s+(.*)$")
 DATE_HEAD = re.compile(r"Date\s+donation|aggregated\s+donations|dd/mm/yyyy|Date\s+(?:of\s+)?(?:the\s+)?loan", re.I)
 #: a row that points at an attached schedule carries the schedule's total, not a donor
-POINTER = re.compile(r"\bsee\s+(?:the\s+)?(?:attached|schedule|appendix|over|list|separate)", re.I)
+POINTER = re.compile(r"\bsee\s+(?:the\s+)?(?:attach(?:ed|ment)|schedule|appendix|over|list|separate)", re.I)
 CENT = 0.005
 FULL_DATE = re.compile(r"\b\d{1,2}/\d{1,2}/(?:\d{4}|\d{2})\b,?")    # with its year: a flat number `3/12` has none
 RULE = re.compile(r"^[Il|!]$")    # a table rule the text layer kept as a letter
@@ -201,7 +201,7 @@ def _stacked(lines, page):
                 continue
             if not pending["cell"]:
                 return None
-            out.append(Row(page, " ".join(pending["cell"]), money(s), " ".join(pending["dates"]), pending["yes_no"],
+            out.append(Row(page, "\n".join(pending["cell"]), money(s), " ".join(pending["dates"]), pending["yes_no"],
                            None, "stacked"))
             pending = {"cell": [], "dates": [], "yes_no": ""}
         elif YESNO.match(s):
@@ -213,6 +213,75 @@ def _stacked(lines, page):
     if not out:                                 # an auditor's stamp, a stray mark: no money, no row
         return []
     return None if pending["cell"] else out
+
+
+def _closer(s: str):
+    """(text before the figure, amount) when a line ends in its one money
+    figure, else None."""
+    ms = list(MONEY.finditer(s))
+    if len(ms) != 1 or s[ms[0].end():].strip(" |"):
+        return None
+    return s[:ms[0].start()].rstrip(" $|"), money(ms[0].group(0))
+
+
+def _inline(lines, page):
+    """The page reader's lines with no markup where a row's figure ends a
+    line that may carry the rest of the row (`1 name, address 3/4/2025 No
+    $ 5,000.00`). Every such line closes a row, its own text and the lines
+    since the last row being the row's cell, dates and Yes/No. A closing
+    line that carries a cell after lines that also carry one is refused
+    (None): which row a stray line belongs to is a guess. So are a figure
+    with no cell, two numbered cells waiting for one figure (the reader went
+    down the columns), and text left after the last figure. A bare row
+    number is an empty row of the form."""
+    out, pending = [], []
+    for line in lines:
+        s = line.strip()
+        if not s or _furniture(s) or re.fullmatch(r"\d{1,3}\.?", s):
+            continue
+        got = _closer(s)
+        if got is None:
+            if out and not pending and not _cell_words(s):
+                out[-1].dates = " ".join([out[-1].dates] + [d.group(0) for d in DATE.finditer(s)]).strip()
+            else:
+                pending.append(s)
+            continue
+        text, amount = got
+        if not amount:
+            continue
+        yes_no, n = "", None
+        yn = re.search(r"(?:^|\s)(yes|no)\s*$", text, re.I)
+        if yn:
+            yes_no, text = yn.group(1), text[:yn.start()]
+        m = re.match(r"^\s*(\d{1,3})\.?(?:\s+|$)", text)
+        if m and not _cell_words(text[m.end():]):
+            n, text = int(m.group(1)), text[m.end():]
+        waiting = [p for p in pending if _cell_words(p)]
+        numbers = [int(m.group(1)) for p in waiting if (m := re.match(r"^(\d{1,3})\.?\s+[A-Za-z]", p))]
+        if (_cell_words(text) and waiting) or any(b == a + 1 for a, b in zip(numbers, numbers[1:])):
+            return None
+        cell = [w for w in (_cell_words(p) for p in pending + [text]) if w]
+        if not cell:
+            return None
+        m = re.match(r"^(\d{1,3})\.?\s+(?=[A-Za-z])", cell[0])
+        if m:
+            if n is not None and int(m.group(1)) != n:
+                return None
+            n, cell[0] = int(m.group(1)), cell[0][m.end():]
+        dates = [d.group(0) for p in pending + [text] for d in DATE.finditer(p)]
+        out.append(Row(page, "\n".join(cell), amount, " ".join(dates), yes_no, n, "inline"))
+        pending = []
+    if any(_cell_words(p) for p in pending):
+        return None
+    ns = [r.n for r in out]
+    if any(x is not None for x in ns) and (None in ns or any(b != a + 1 for a, b in zip(ns, ns[1:]))):
+        return None                             # a figure paired with the wrong row number: a name went missing
+    return out
+
+
+def _cell_words(s: str) -> str:
+    """A line's text with its dates (and the dashes between them) taken out."""
+    return " ".join(re.sub(r"(?:^|\s)[-–](?=\s|$)", " ", DATE.sub(" ", s)).split()).strip(" ,-–")
 
 
 def _row_numbers(lines: list) -> set:
@@ -330,6 +399,8 @@ def page_rows(lines: list, page: int, src: str) -> list:
         got = _table(body, page)
     elif sum(1 for l in body if NUMBERED.match(l)) >= 2:
         got = _numbered(body, page)
+    elif any((c := _closer(l.strip())) and c[0].strip() and not MONEY_ONLY.match(l) for l in body if not _furniture(l)):
+        got = _inline(body, page)
     else:
         got = _stacked(body, page)
     if got is None:

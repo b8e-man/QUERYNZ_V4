@@ -1,35 +1,44 @@
 # party-returns: where it stands
 
-**Date:** 2026-10-19. **Step:** 4.1, the party donation and loan returns
-lane, `registers/party_returns/`. **Merge request:** `party-returns-2`.
+**Date:** 2026-10-20. **Step:** 4.1, the party donation and loan returns
+lane, `registers/party_returns/`. **Merge request:** `party-returns-3`.
 
 ## Done
 
-- Tranche 1: the declaration from pixels (`party-returns-1`, merged).
-- Tranche 2 (`party-returns-2`), measured over the 152 landed returns,
-  replay only: Part A donors published whole on 22 returns (476 rows), nil
-  on 44, set aside on 33; Part H loans on 6 (9 rows), nil on 87, set aside
-  on 6; 14 returns replaced by amendments, as the Commission's listing
-  states them. Addresses only in `party_returns_private.addresses`.
-  New: `schedule.py`, `donors.py`, `loans.py`, `amendments.py`,
-  `private.sql`; tables `donors`, `loans`, `amendments`; views
-  `pub.party_return_donors`, `pub.party_return_loans`; `returns` gains
-  five columns, the totals view gains them and `replaced_by` at its end.
+- Tranches 1 and 2 merged (`party-returns-1`, `-2`).
+- Session 3 (`party-returns-3`), on the live load of 20 October after
+  `qv4-read-pages` (queue rows 110, 111): 137 rows, none at stage `read`.
+  - **Frozen site, re-measured:** 71 party-years equal (was 49), 1 differs
+    (Labour 2017: the lane is wrong, a handwritten correction the page
+    reader drops), 56 returns of parties not on the frozen site, 3 replaced
+    originals beside an equal amendment.
+  - **The Commission's by-year table** (`commission.py`, new): 117
+    party-years equal to the cent, 5 differ (Labour 2017 the lane's; four
+    the table's, each page read by eye), loans 0 differ; 11 rows whose
+    returns are set aside at the declaration, 1 not tied.
+  - **Part A's refused pages**, replay over all 152: published on 30
+    returns (679 rows; was 25, 580), nil 62, set aside 45 (was 50). New
+    route `schedule._inline`; guards: row numbers must climb, a cell's name
+    is its first line, "see attachment" is a pointer, floor/shed/building
+    open an address.
 
 ## Set aside, carded
 
-- 41 returns at stage `read`: rows 95/96 read page 1 only; 645 image
-  pages still owed (`cards/forty-one-party-returns-…`, updated).
-- Part A on 33 returns (`cards/part-a-is-set-aside-…`); loans on 6
-  (`cards/loans-are-set-aside-…`); ALCP 2025's amendment not held.
-- 7 pixel returns at the declaration; 27 unresolved party labels.
+- Part A on 45 (`cards/part-a-is-set-aside-…`, updated): 22 column-order or
+  page-break pages (a cell-scale re-read is the scheduler's job), 14 with
+  no rows found (attachments), 4 name-above cells, 4 sums, 1 nothing.
+- Labour 2017 (`cards/labour-2017-…`); the Commission's four
+  (`cards/the-commission-s-table-differs-…`).
+- Loans on 4 and Part H on 6 (`cards/loans-are-set-aside-…`, not re-counted);
+  ALCP 2025's amendment not held; 15 returns at the declaration; party labels.
 - Queued for Arthur: National 2022, two returns, one listed (default:
   neither replaced).
 
 ## Next
 
-1. The page-reader job over all image pages of the 41 (scheduler module).
-2. Part A's refused pages: a cell-scale re-read of column-by-column pages,
-   rows across a page break, schedules outside the Part A heading.
-3. The outside check against the Commission's by-year table: the listing
-   is now landed by hash and carries each party-year's totals.
+1. Part A rows across a page break (text layer: ACT 2019, Labour 2020,
+   2023, 2024, NZ First 2023), lane code.
+2. Schedules outside the Part A heading: find an attachment by its own
+   heading or total (National 2024, NZ First 2021, 2022).
+3. Ask the scheduler for a cell-scale re-read of the column-order pages and
+   of Labour 2017's declaration cells; the lane replays it.
