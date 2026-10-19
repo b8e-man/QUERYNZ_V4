@@ -1,4 +1,4 @@
-Mask every Gazette sample before printing it into a session: an independent celebrant's list (Marriage Act s 10 and 11, the Civil Union Act) prints each celebrant's street address as the record's third field, so a "list of names" can be a list of home addresses.
+Mask every Gazette sample before printing it into a session: an independent celebrant's list (Marriage Act, Civil Union Act) prints each celebrant's street address as its third field, so a list of names can be a list of home addresses.
 area: Gazette notices, celebrants, reading documents, hard limit 11, hard limit 15, sampling text into a session
 paid-for-by: 2026-10-20, gazette session 1, step 4.1
 
