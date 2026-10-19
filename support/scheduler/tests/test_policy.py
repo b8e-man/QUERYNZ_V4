@@ -221,6 +221,29 @@ def test_a_small_queue_gets_its_card_after_the_maximum_wait(cat):
     assert d.action == LOAD and "rule 6" in d.why
 
 
+def test_a_starved_job_this_box_cannot_claim_is_never_the_pick(cat):
+    """Card the-card-manager-loads-a-profile-for-a-job-no-box-can-claim: row 74
+    required a program the probe did not list, so the worker never claimed it;
+    rule 6 still picked it as the starved small job three times on 19 October
+    and discarded a working profile for a load that failed. The planner sees
+    only the demand of job types this box can claim."""
+    held = [Held("n:0", "rev", since=0)]
+    queues = {"rev": 0, "emb": Demand(3, waiting_since=10_000 - 1800)}
+    ds, done = plan(cat, now=10_000, held=held, queues=queues, eligible={"rev", "doc", "reason"})
+    assert not any(d.action == LOAD for d in ds), [(d.action, d.why) for d in ds]
+    assert not any(d.job_type == "emb" for d in ds) and "emb" not in done
+    assert one(ds).action == RELEASE, "rev's queue is empty: the card is released, and no ineligible demand holds it"
+    ds, _ = plan(cat, now=10_000, held=held, queues=queues, eligible={"rev", "emb"})
+    assert any(d.action == LOAD and d.job_type == "emb" for d in ds), "eligible here: rule 6 stands"
+
+
+def test_an_ineligible_job_type_does_not_make_a_slice_expire_either(cat):
+    """The same invisibility under rule 3: a job type this box cannot run is
+    not 'another job type waiting', so the resident slice is kept."""
+    ds, _ = plan(cat, now=5000, held=[Held("n:0", "rev", since=0)], queues={"rev": 40, "doc": 20}, eligible={"rev"})
+    assert one(ds).action == KEEP and "nobody" in one(ds).why
+
+
 # ── rule 8: three classes ────────────────────────────────────────────────────
 
 def test_someone_waiting_goes_first_whatever_the_round_says(cat):

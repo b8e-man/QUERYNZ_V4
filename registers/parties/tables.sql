@@ -1,0 +1,1 @@
+-- registers/parties: the tables this lane owns, in `parties` and `parties_private`. Empty until the parties session builds the lane.

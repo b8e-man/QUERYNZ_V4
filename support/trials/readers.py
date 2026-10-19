@@ -125,6 +125,7 @@ class Reader:
     max_tokens: int = 8000
     image_first: bool = False    # the model's own example puts the image before the text
     notes: str = ""
+    variant_of: str = None       # a prompt variant of another reader, served by that reader's profile; chosen by the job's args
 
     @property
     def prompt_sha(self) -> str:
@@ -141,6 +142,11 @@ READERS: dict[str, Reader] = {
         (os.path.join(OLD_MODELS, "GLM-OCR-Q8_0.gguf"), os.path.join(OLD_MODELS, "mmproj-GLM-OCR-Q8_0.gguf")),
         PROMPT_GLM_OCR, "ggml-org's GLM-OCR guide, as the old estate's ec_pageread.vision_ocr ran it", "markdown",
         notes="the incumbent and the reference: the same weights, build and prompt the old estate's readings were made with"),
+    "glm-ocr-textrec": Reader(
+        "glm-ocr-textrec", "glm-ocr", "page-reader", "zhipu", "q8_0",
+        (os.path.join(OLD_MODELS, "GLM-OCR-Q8_0.gguf"), os.path.join(OLD_MODELS, "mmproj-GLM-OCR-Q8_0.gguf")),
+        PROMPT_GLM_OCR_CARD, "zai-org/GLM-OCR model card: the document-parsing prompt", "markdown", variant_of="glm-ocr",
+        notes="the incumbent under its model card's own prompt (the queue item's default: run after pass two, keyed apart by prompt)"),
     "glm-ocr-f16": Reader(
         "glm-ocr-f16", "glm-ocr-f16", "trial-glm-ocr-f16", "zhipu", "f16",
         _p("glm-ocr", "GLM-OCR-f16.gguf", "mmproj-GLM-OCR-Q8_0.gguf"),
@@ -190,9 +196,14 @@ CHALLENGERS = ("teleocr", "ovisocr2", "chandra-ocr-2", "infinity-parser2-pro")
 INCUMBENT = "glm-ocr"
 
 
-def by_profile(profile: str) -> Reader | None:
+def by_profile(profile: str, name: str = None) -> Reader | None:
+    """The reader a profile serves; `name` picks a variant of it (the job's
+    args), which must be served by the same profile."""
+    if name:
+        r = READERS.get(name)
+        return r if r and r.profile == profile else None
     for r in READERS.values():
-        if r.profile == profile:
+        if r.profile == profile and not r.variant_of:
             return r
     return None
 

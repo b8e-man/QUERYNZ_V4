@@ -63,6 +63,31 @@ def test_programs_are_recorded_present_or_absent_and_matched_against_requires():
     assert probe.missing_programs({"programs": got}, ("pdftotext", "ghost", "other")) == ["ghost", "other"]
 
 
+def test_every_program_the_catalogue_requires_is_one_the_probe_looks_for():
+    """A requirement the probe never looks for reads as missing, so the job
+    is never eligible and the worker says nothing (19 October: `zstd` held
+    the off-site copy and its rehearsal on the queue; TeleOCR's two jobs
+    required a server no probe listed). A profile's own `binary` is held to
+    the same rule."""
+    from support.scheduler import registry as reg
+    required = {r for jt in reg.load().values() for r in jt.requires}
+    required |= {p.binary for p in reg.profiles().values() if p.binary}
+    assert required <= set(probe.PROGRAMS), sorted(required - set(probe.PROGRAMS))
+
+
+def test_the_estates_own_servers_are_looked_for_at_their_fixed_places(monkeypatch, tmp_path):
+    """Not on the PATH: the copy, the build from source, and the build
+    patched for TeleOCR (flat in its own folder, no bin/)."""
+    teleocr = tmp_path / "built-teleocr" / "llama-server"
+    teleocr.parent.mkdir()
+    teleocr.write_text("")
+    monkeypatch.setitem(probe.FIXED, "qv4-llama-server-teleocr", str(teleocr))
+    monkeypatch.setitem(probe.FIXED, "qv4-llama-server-built", str(tmp_path / "absent"))
+    got = probe.programs(("qv4-llama-server-teleocr", "qv4-llama-server-built"), which=lambda n: "/usr/bin/" + n)
+    assert got == {"qv4-llama-server-teleocr": str(teleocr), "qv4-llama-server-built": None}
+    assert probe.QV4_LLAMA_TELEOCR.endswith("/llama/built-teleocr/llama-server")
+
+
 # ── a model server, asked (carried) ──────────────────────────────────────────
 
 def test_the_served_model_is_read_from_the_servers_own_answer():

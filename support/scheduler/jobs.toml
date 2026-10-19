@@ -99,6 +99,35 @@ requires = ["pg_dump", "gpg"]
 at_utc = "14:05"
 nice = 10
 
+# Track B (merge request offsite-2a). The copy replaces the step 1.8 dump
+# above once offsite-2b has restored a copy from the bucket to equality;
+# until then both run (the integrator kept the dump at the merge, 19 October).
+[jobs.qv4-offsite-copy]
+description = "The off-site copy (track B, ruling 21): every table and file tree the delete rule keeps, changes nightly and a full checkpoint on Sunday; the press graph frozen (sent when it moves, or every 28 days). Replaces the step 1.8 dump of querynz_v4 once its restore from the bucket is proven. 21:00 NZDT, finished before the old estate's push (01:38) takes the link; a run cut off at its deadline resumes the next night."
+needs = "processor"
+memory_gb = 1.5
+deadline_s = 16200
+query_timeout_s = 7200
+class = "due"
+priority = 16
+command = ["python", "-m", "support.offsite", "copy"]
+requires = ["pg_dump", "gpg", "zstd"]
+at_utc = "08:00"
+nice = 10
+
+[jobs.qv4-offsite-rehearsal]
+description = "The off-site restore rehearsal (track B): the newest copy fetched from the bucket through the read-only key, restored into a scratch server on /mnt/hdd2, every table and file checked equal to the manifest, the time recorded. Every 28 days; the restored copy is removed after."
+needs = "processor"
+memory_gb = 3.0
+deadline_s = 43200
+query_timeout_s = 7200
+class = "whenever"
+priority = 15
+command = ["python", "-m", "support.offsite", "restore"]
+requires = ["pg_restore", "initdb", "gpg", "zstd"]
+every_s = 2419200
+nice = 10
+
 # ── the scheduler's own jobs ─────────────────────────────────────────────────
 
 [jobs.qv4-scheduler-report]
@@ -137,6 +166,21 @@ query_timeout_s = 300
 class = "whenever"
 priority = 21
 command = ["python", "-m", "support.scheduler", "reread-piece", "--pixels"]
+requires = ["pdftoppm"]
+pieces = true
+can_share = false
+concurrency = 1
+
+[jobs.qv4-disclosures-read]
+description = "The disclosures lane's page readings (step 4.1): one piece per scanned large-donation declaration with no stored reading, every page as an image through the page-reader profile; the lane's next load picks the readings up. Queued by the integrator after a merge, then on the lane's rebuild for a scan with no reading."
+needs = "model-profile"
+profile = "page-reader"
+memory_gb = 1.5
+deadline_s = 1800
+query_timeout_s = 300
+class = "whenever"
+priority = 22
+command = ["python", "-m", "registers.disclosures.read", "--scan"]
 requires = ["pdftoppm"]
 pieces = true
 can_share = false
@@ -467,3 +511,35 @@ command = ["python", "-m", "support.trials", "rows"]
 pieces = true
 can_share = true
 concurrency = 2
+
+# ── track E, the windowed sources (capture and hold; read in step 5) ─────────
+# Added by the integrator at the merge of windowed-1 (card
+# windowed-capture-jobs-into-the-catalogue). Each night spends at most its
+# budget, five seconds between requests, one at a time, and stops at 06:00 NZ
+# time whatever is left (the lane checks off-peak itself). memory_gb is a
+# ceiling until the first run record measures it. The clocks are NZDT
+# (UTC+13) until 5 April 2027; move them with the founding jobs.
+
+[jobs.qv4-tenancy-tribunal-capture]
+description = "Track E: the Tenancy Tribunal's published orders (public for three years, then taken down), through the fetch gate, soonest to leave first, each fetched once. Nightly at 22:30 NZDT, at most 4.5 hours."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 21600
+query_timeout_s = 60
+class = "due"
+priority = 33
+command = ["python", "-m", "registers.tenancy_tribunal.capture", "--budget-s", "16200"]
+at_utc = "09:30"
+nice = 10
+
+[jobs.qv4-real-estate-authority-capture]
+description = "Track E: the Real Estate Authority's decisions database (Committee decisions leave after three years), through the fetch gate, the Committee's oldest first, each page fetched once. Nightly at 23:00 NZDT, at most 4 hours."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 18000
+query_timeout_s = 60
+class = "due"
+priority = 31
+command = ["python", "-m", "registers.real_estate_authority.capture", "--budget-s", "14400"]
+at_utc = "10:00"
+nice = 10

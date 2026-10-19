@@ -15,6 +15,10 @@
 # source (`python -m support.installer build`, `<live>/llama/built/bin`).
 # Either is the estate's own program; the frozen product's servers keep
 # theirs (hard limit 23). One line to switch; a missing one falls back.
+# A profile may name its own server instead (`binary = "<probe name>"`):
+# then it loads only where the probe lists that program, and never falls
+# back. TeleOCR's conversion needs the patched build beside the others,
+# `qv4-llama-server-teleocr` at <live>/llama/built-teleocr/.
 [server]
 binary = "built"
 
@@ -94,6 +98,7 @@ used_for = "Step 3: the incumbent at its second compression level"
 
 [profiles.trial-teleocr]
 model = "teleocr"
+binary = "qv4-llama-server-teleocr"
 weights = ["/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-Q8_0.gguf", "/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-mmproj-q8_0.gguf"]
 slots = 1
 context = 32768
@@ -105,6 +110,7 @@ used_for = "Step 3 challenger: TeleOCR (community conversion as NaviDC-OCR); nee
 
 [profiles.trial-teleocr-f16]
 model = "teleocr-f16"
+binary = "qv4-llama-server-teleocr"
 weights = ["/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-f16.gguf", "/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-mmproj-f16.gguf"]
 slots = 1
 context = 32768
