@@ -1,6 +1,6 @@
 """The published-site shape's commands (plan 4.4).
 
-  python -m products.published_site build [--listing STAMP] [--out DIR] [--stamp STAMP]
+  python -m products.published_site build [--listing STAMP] [--out DIR] [--stamp STAMP] [--allow-drop]
         read the template's pub views, pinned to a frozen release's listing (the newest when none is named),
         write a version folder of the ten kinds, run the gates, record it, stop. No deploy.
   python -m products.published_site preview [--version STAMP] [--out DIR] [--port N] [--bind ADDR]
@@ -34,14 +34,22 @@ def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     cmd = argv[0] if argv else "build"
     if cmd == "build":
-        ok, stamp, _ = B.build(arg(argv, "--listing"), arg(argv, "--out"), stamp=arg(argv, "--stamp"))
+        ok, stamp, _ = B.build(arg(argv, "--listing"), arg(argv, "--out"), stamp=arg(argv, "--stamp"), allow_drop="--allow-drop" in argv)
         return 0 if ok else 1
     if cmd == "preview":
         preview.serve(version_dir(argv), arg(argv, "--bind", preview.BIND), int(arg(argv, "--port", preview.PORT)))
         return 0
     if cmd == "gates":
+        from products.published_site import read
         ok = True
-        for name, g_ok, line in gates.run_all(version_dir(argv)):
+        d = version_dir(argv)
+        m = version.manifest_of(d)
+        with read.product_connect() as conn:
+            ctx = {"conn": conn, "years": list(range(m["window"]["from"], m["window"]["to"] + 1)),
+                   "previous": os.path.join(os.path.dirname(d), m["previous"]) if m.get("previous") else None,
+                   "allow_drop": "--allow-drop" in argv, "suppressed_forms": []}
+            results = gates.run_all(d, ctx=ctx)
+        for name, g_ok, line in results:
             print(f"  {'PASS' if g_ok else 'FAIL'}  {name:<12} {line}")
             ok = ok and g_ok
         return 0 if ok else 1

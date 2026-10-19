@@ -43,6 +43,8 @@ def slug(s: str) -> str:
 def path(read: str, *key: str) -> str:
     if read not in KINDS and read not in EXTRA:
         raise KeyError(f"{read!r} is not one of the ten kinds of published file; it has no path")
+    if any(not isinstance(k, str) or not k for k in key):
+        raise ValueError(f"a path's key parts are non-empty strings: {key!r}")
     parts = [ROOT, KINDS.get(read, read)]
     for k in key[:-1]:
         parts.append(slug(k))

@@ -92,9 +92,18 @@ class FakeTables:
         return view in self.data
 
 
+#: what the Commission's table says for the fixture rows (the gate reads it again by SQL)
+COMMISSION_TABLE = [("ACT New Zealand", 2023, 40000.0, 1), ("ACT New Zealand", 2026, 25000.0, 1)]
+
+
 class NoConn:
+    """A connection that answers the one SQL the commission gate runs and nothing else."""
+
     def __enter__(self):
         return self
 
     def __exit__(self, *a):
         return False
+
+    def execute(self, sql, params=()):
+        return iter(COMMISSION_TABLE)

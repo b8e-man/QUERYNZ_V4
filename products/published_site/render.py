@@ -201,3 +201,123 @@ def donor_pages(ctx: Context) -> dict:
                     "totals": t, "ownership": {"notes": ["ownership is a note and never adds to an owner's total (ruling 253)"], "companies": not_held("owned companies", "the links' groups are not yet read into donor pages")},
                     "basis": "returns plus disclosures in years no return covers"}
     return out
+
+
+def pickers(ctx: Context) -> dict:
+    s = ctx.s
+    running = {}
+    for c in ctx.tables.get("pub.candidates"):
+        if c.get("election") == "ge-2026" and c.get("name_key"):
+            running.setdefault(c["name_key"], []).append(c)
+    mps = []
+    for m in ctx.tables.get("pub.members"):
+        if m.get("to_by") or m.get("ended_on"):
+            continue
+        k = ctx.idx.key(m.get("party_registered") or m.get("party"))
+        runs = running.get(m.get("name_key") or "", [])
+        nm = m.get("display_name") or m.get("name") or ""
+        mps.append({"name": nm or "(unreadable)", "name_key": m.get("name_key"), "party": ctx.idx.name(k) or m.get("party"),
+                    "party_key": k, "seat": {"election": m.get("election"), "electorate": m.get("electorate"), "route": m.get("route"),
+                                             "from": m.get("from_on"), "basis": m.get("from_basis")},
+                    "running": {"year": 2026, "electorate": runs[0].get("electorate"), "list_place": runs[0].get("list_place"),
+                                "party": ctx.idx.name(ctx.idx.key(runs[0].get("party_registered"))) or runs[0].get("party"),
+                                "namesakes": len(runs) - 1, "basis": "the Commission's 2026 candidate list, joined on the shared reading of the name"}
+                    if runs else None,
+                    "page": paths.path("subject", "person", nm) if nm else None,
+                    "cite": ctx.cite(m.get("document"), m.get("page"), m.get("place"))})
+    mps.sort(key=lambda x: (x["name_key"] or "", x["name"]))
+    ranked = sorted(((F.donor_totals(d), d) for d in ctx.donors.values()), key=lambda td: (-td[0]["total"], td[1].name))
+    ranked = [(t, d) for t, d in ranked if t["total"] > 0]
+    cut = int(s.get("donor_list_cut") or 1500)
+    donors = [{"name": d.name, "name_key": d.name_key, "kind": d.kind, "total": t["total"], "returns": t["returns"],
+               "open_year_disclosures": t["open_year_disclosures"], "spellings": sorted(d.spellings),
+               "parties": sorted(t["by_receiver"]), "page": paths.path("donor", d.name)} for t, d in ranked[:cut]]
+    return {"generated_at": ctx.generated_at, "mps": mps, "mps_basis": "members sitting now from the house lane (no end date); former members are on the search index",
+            "donors": donors, "donors_listed": len(donors), "donor_population": len(ranked), "donors_not_shown": max(0, len(ranked) - cut),
+            "donors_cut_at": cut, "donors_cut_basis": "the list is cut after folding, so a donor past the line keeps its page and is found by search; only its row here is absent",
+            "donor_total_basis": f"money that counts since {s['window_from']}: Part A rows plus disclosures in years no return covers"}
+
+
+def size_bands(ctx: Context) -> dict:
+    s = ctx.s
+    line = float(s["line"])
+    th = s.get("itemisation_threshold", {"to_2022": 15000, "from_2023": 5000})
+    out = {}
+    for k, S in ctx.series.items():
+        name = ctx.idx.name(k)
+        if not name or not any(S.returns_by_year.values()):
+            continue
+        over, under, unknown = [], [], []
+        g_by_year, aside_by_year = {}, {"anonymous": {}, "overseas": {}, "protected": {}}
+        years = []
+        for y in ctx.years:
+            held = S.returns_by_year.get(y, [])
+            if len(held) != 1:
+                continue
+            r = held[0]
+            g = float(r.get("part_g") or 0)
+            g_by_year[str(y)] = F.money(g)
+            for part, key in (("part_c", "anonymous"), ("part_d", "overseas"), ("part_f", "protected")):
+                if r.get(part) is not None and float(r[part]) != 0:
+                    aside_by_year[key][str(y)] = F.money(r[part])
+            rows_ = [x for x in S.counted_named_rows() if x["year"] == y]
+            named = sum(float(x["amount"] or 0) for x in rows_)
+            placed = named + g + sum(float(r.get(p) or 0) for p in ("part_c", "part_d", "part_f"))
+            years.append({"year": y, "threshold": th["from_2023"] if y >= 2023 else th["to_2022"], "line": s["line"],
+                          "declared_total": F.money(r["declared_total"]), "part_a": F.money(r.get("part_a")), "part_g": F.money(g),
+                          "named_rows": len(rows_), "named": F.money(named), "placed": F.money(placed),
+                          "reconciles": abs(placed - float(r["declared_total"] or 0)) < 0.01 if rows_ or (r.get("part_a") or 0) == 0 else None,
+                          "basis": "the declaration's own parts; named rows are Part A as read" + ("" if rows_ else "; Part A rows not read, so nothing is placed from them")})
+            for x in rows_:
+                row = {"ref": f"party_returns:{x['key']}", "year": y, "donor": x.get("donor"), "amount": F.money(x["amount"]),
+                       "cite": ctx.cite(x["document"], x.get("page"), x.get("ordinal"))}
+                (over if float(x["amount"] or 0) > line else under).append(row)
+        bands = [{"key": "over_15k", "label": f"more than ${line:,.0f}: named in the return, every year", "rows": over, "n": len(over),
+                  "total": F.money(sum(x["amount"] for x in over)), "basis": "named rows (Part A), each cited"},
+                 {"key": "under_15k", "label": f"${line:,.0f} or less", "rows": under, "n": len(under),
+                  "named": F.money(sum(x["amount"] for x in under)), "part_g": F.money(sum(g_by_year.values())), "part_g_by_year": g_by_year,
+                  "total": F.money(sum(x["amount"] for x in under) + sum(g_by_year.values())),
+                  "basis": "named rows at or under the line plus Part G, the return's one total for everything under its itemisation threshold, which carries no names"},
+                 {"key": "unknown", "label": "size unknown: filed as a sum with no amounts", "rows": unknown, "n": 0,
+                  "total": F.money(sum(sum(v.values()) for v in aside_by_year.values())),
+                  "by_kind": {kk: F.money(sum(v.values())) for kk, v in aside_by_year.items()}, "by_year": aside_by_year,
+                  "basis": "anonymous, overseas and protected money (Parts C, D, F): a size we do not have, not a size of zero"}]
+        out[paths.path("size-bands", name)] = {
+            "party": name, "key": k, "generated_at": ctx.generated_at, "window": [ctx.years[0], ctx.years[-1]], "line": s["line"],
+            "bands": bands, "years": years, "years_covered": [y["year"] for y in years],
+            "declared_total": F.money(sum(y["declared_total"] for y in years)),
+            "statute": {"pre_2023": {"threshold": th["to_2022"], "disclosure_cut": 30000}, "from_2023": {"threshold": th["from_2023"], "disclosure_cut": 20000},
+                        "why_line": f"to 2022 the return names a donation of more than ${th['to_2022']:,}; from 2023 more than ${th['from_2023']:,}; "
+                                    f"so more than ${line:,.0f} is named in every year and is the one cut that means the same thing across the window"},
+            "basis": "three bands split at the line that holds in every year; disclosures are not here (the same money appears in the return)"}
+    return out
+
+
+def cites(ctx: Context) -> dict:
+    out = {}
+
+    def put(ref, document, page, place, register, href=None, read_from=None, text=""):
+        if not document:
+            return
+        c = ctx.cite(document, page, place, href)
+        c.update({"ref": ref, "register": register, "read_from": read_from, "evidence_text": text,
+                  "tier": "register-asserted", "source_url_how": "the Commission's link as the lane read it" if href else "none held"})
+        out[paths.path("cite", ref)] = c
+
+    for S in ctx.series.values():
+        pn = ctx.idx.name(S.key)
+        for y, held in S.returns_by_year.items():
+            for r in held:
+                put(f"party_returns:{r['key']}", r["document"], r.get("page"), r.get("place"), "EC party donation return (declaration)",
+                    read_from=r.get("read_from"), text=f"{pn} {y}: declared total ${float(r['declared_total'] or 0):,.2f}")
+        for r in S.named_rows:
+            put(f"party_returns:{r['key']}", r["document"], r.get("page"), r.get("ordinal"), "EC party donation return (Part A)",
+                read_from=r.get("read_from"), text=f"{r.get('donor')}: ${float(r['amount'] or 0):,.2f} to {pn} ({r['year']})")
+        for d in S.disclosures:
+            put(f"disclosures:{d['key']}", d["document"], d.get("page"), d.get("place"), "EC large-donation disclosures (the Commission's table)",
+                href=d.get("href"), read_from=d.get("read_from"),
+                text=f"{d.get('donor_name')}: ${float(d['amount'] or 0):,.2f} to {pn} ({F.disclosure_year(d)})")
+    return out
+
+
+MORE_KINDS = [("pickers", lambda ctx: {paths.path("pickers"): pickers(ctx)}), ("size-bands", size_bands), ("cite", cites)]
