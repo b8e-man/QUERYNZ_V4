@@ -75,7 +75,7 @@ def test_withheld_text_reads_withheld():
 def test_the_search_pane_says_none_found_and_not_held():
     held = {"companies", "directors", "parties"}       # parties held with no hit: none found; the rest: not held
     html = panes.search_pane("doe", {"companies": [(cat.BY_NAME["directors"], 3, [director()])]}, held)
-    assert html.count("none found") == 1 and html.count(">not held<") == 7 + len(cat.NOT_HELD)
+    assert html.count("none found") == 1 and html.count(">not held<") == len(cat.REGISTERS) - 2 + len(cat.NOT_HELD)   # two registers held
     assert '<span class="count">3</span>' in html and "Jane" in html
     assert "Charities register and officers" in html
     assert panes.search_pane("", {}, held).count("none found") == 0
