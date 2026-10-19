@@ -1,0 +1,1 @@
+-- registers/gazette: `pub.gazette_notices`, `pub.gazette_appointments`, `pub.gazette_insolvencies` and `pub.gazette_prohibitions`, with citations. Empty until the lane reads.

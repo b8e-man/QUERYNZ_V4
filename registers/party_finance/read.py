@@ -1,0 +1,1 @@
+"""The reading: each kind of document through the reader contract from its own document profile (profiles before readers); a text layer where there is one, the page reader's stored readings where there is not. Built by the party-finance session."""

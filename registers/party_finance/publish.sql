@@ -1,0 +1,1 @@
+-- registers/party_finance: `pub.party_expenses`, `pub.party_financial_statements`, `pub.broadcasting_allocations` and `pub.promoters`, with citations. Empty until the lane reads.

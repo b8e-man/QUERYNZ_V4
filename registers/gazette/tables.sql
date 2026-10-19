@@ -1,0 +1,1 @@
+-- registers/gazette: the tables this lane owns, in `gazette` and `gazette_private`. Empty until the session builds the lane.

@@ -1,0 +1,1 @@
+"""Step 1.10 case two: text rows in the old news database, no file. This lane exports the Gazette notices the old estate holds once, to one dated file landed by hash (the way registers/parties/capture.py exported the register's notices), read-only, and fetches nothing (step 4.1). Built by the gazette session."""
