@@ -20,39 +20,26 @@ is left waits on node1 (`cards/node1-setup-as-the-second-box.md`, ruling
 
 ## trial
 
-Step 3, the page-reader trial. Model: Fable. Session 1 is merged
-(`docs/merges/trial-1.md`): page set, keys, readers, scoring, the five
-models on the second disk, the catalogue. Pass one (GLM-OCR alone, 255
-documents, queue job 54) was queued by the integrator on 18 October at
-22:50 and runs on card 1. The working copy exists; on node2:
-`cd /home/user/querynzv4-work/trial && git pull && claude --model fable --permission-mode acceptEdits`
+Step 3 halts under ruling 60 (19 October): Arthur prefers the trial to
+stop with the results in hand and resume once the plan is complete. The
+unfinished pass-two rows are cancelled; the stored readings keep every
+page read. Session 2 is running in its working copy; this is the line for
+its window, not a new start:
 
 ```text
-You are a build session for QueryNZV4, running as Fable on node2, in
-your working copy /home/user/querynzv4-work/trial (session 2). Read
-docs/PLAN.md, then docs/plan/step-3.md, docs/status.md, your own status
-file docs/status/trial.md and docs/trials/page-readers.md, and continue
-where session 1 stopped. Pass one (qv4-trial-read-glm-ocr, job 54) is
-queued or done: python -m support.trials.queue status. Score it against
-the keys (3.7), card every difference from the old readings, then queue
-the challengers (python -m support.trials.queue two), the compression
-comparisons (twenty), the small waiting-class job part-way (urgent, 3.6)
-and the rows pass; score; choose the reader and the second reader. The
-scheduler proofs still owed are in docs/status/trial.md. The models are
-on /mnt/hdd2/qv4-models; download nothing twice. Key every
-reading to the file's hash and page, never its name. Decide text or
-scan per page. Run GLM-OCR alone before adding the challengers. Card 0
-on node2 is the carve-out's (querynz-agent-llm :8020, querynz-vision-ocr
-:8032): a fixed reservation, never touched; card 1 is the trial's.
-node1 is out until its setup card is worked (rulings 55 to 57): the
-two-box proofs in the plan's table are owed, not faked. Write only to
-scratch tables; put nothing on the public site; leave the frozen
-product's servers alone. A timer is not a blocker (ruling 56). Push
-your branch and raise a merge request for each finished piece. Update
-your status file at every close. Finish by telling Arthur which reader
-won, which is the second reader, what is carded, and whether step 3 is
-finished.
+Arthur: ruling 60. Halt the trial with the results you have (rows 66 to 69
+and 74 are cancelled; what was read is kept). Close step 3 now: score what
+pass two read, choose GLM-OCR as the primary reader and the second reader
+from the partial scores or card it as open, write both into the profiles,
+write docs/trials/page-readers.md with what ran and what did not, file the
+lessons, update your status file, push and raise trial-3. Then stop.
 ```
+
+If the session has to be started afresh instead, on node2:
+`cd /home/user/querynzv4-work/trial && git fetch origin && git merge origin/main && claude --model fable --permission-mode acceptEdits`
+and paste the same text with "You are the trial session, session 3, in
+your working copy. Read docs/PLAN.md, docs/plan/step-3.md, docs/status.md
+and docs/status/trial.md first." in front of it.
 
 ## offsite
 
