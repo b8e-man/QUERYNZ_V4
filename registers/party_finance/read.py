@@ -15,13 +15,14 @@ wins once it holds the slug.
     expense_return_row(result, link, at)              the register row, or None
     allocation_rows(data, sha, at)                    -> (rows, totals, set_aside)
     promoter_rows(data, sha, at)                      -> (promoters, people, private contacts, set_aside)
+    statement_rows(data, sha, by_url, at)             -> (rows, links, set_aside)
 """
 import datetime as dt
 import os
 
 from keys import parties
 from support import profiles
-from registers.party_finance import broadcasting, expenses, listing, promoters
+from registers.party_finance import broadcasting, expenses, financials, listing, promoters
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -165,3 +166,32 @@ def promoter_rows(data: bytes, sha256: str, loaded_at: str = None) -> tuple:
         for label in p.unknown:
             aside.append((key, "promoter", f"{p.name}: a field labelled {label!r} the reader has not met; held private"))
     return out, ppl, contacts, aside
+
+
+def statement_rows(data: bytes, sha256: str, by_url: dict, loaded_at: str = None) -> tuple:
+    """The Commission's roster page → (rows, links, set_aside). Every table
+    row is a roster row or a catch-log line; every link a held statement or
+    a catch-log line."""
+    loaded_at = loaded_at or now()
+    prof = profile(financials.PROFILE)
+    reading = financials.read(data)
+    aside = [(f"{sha256}/{y}/row/{n}", "statement", why) for y, n, why in reading.skipped]
+    rows, out_links = [], []
+    for r in reading.rows:
+        key = f"{sha256}/{r.filed_year}/row/{r.ordinal}"
+        party, basis = parties.party_name(r.label)
+        rows.append({"key": key, "document": sha256, "page": 1, "place": f"{r.filed_year} table, row {r.ordinal}",
+                     "filed_year": r.filed_year, "party_label": r.label, "party": party, "party_basis": basis,
+                     "note": r.note or None, "mark": r.mark or None, "balance_date": r.dates["balance_date"],
+                     "deadline": r.dates["deadline"], "date_filed": r.dates["date_filed"],
+                     "balance_printed": r.printed["balance_date"], "deadline_printed": r.printed["deadline"],
+                     "filed_printed": r.printed["date_filed"], "audit_requirement": r.printed["audit_requirement"],
+                     "reader": f"{financials.READER}: {financials.MODEL}", "profile": prof["slug"],
+                     "profile_version": int(prof["version"]), "read_from": "text", "loaded_at": loaded_at})
+        for i, ln in enumerate(r.links, 1):
+            doc = by_url.get(ln.url)
+            out_links.append({"row_key": key, "ordinal": i, "link_text": ln.text, "url": ln.url, "amended": ln.amended,
+                              "document": doc})
+            if doc is None:
+                aside.append((key, "link", f"{r.label} {r.filed_year}: the Commission links {ln.url}, which the lane does not hold"))
+    return rows, out_links, aside

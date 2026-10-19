@@ -301,3 +301,33 @@ def test_no_published_promoter_value_carries_a_contact_line(filled):
     assert bad == 0
     held = conn.execute(f"SELECT count(*) FROM {schema}_private.party_finance_promoter_contacts").fetchone()[0]
     assert held >= 37 + 32
+
+
+ROSTER = """<p><strong>2025 Financial Statements</strong></p><table>
+<tr><td>Party</td><td>Financial statements balance date</td><td>Deadline for filing financial statements</td>
+<td>Date filed</td><td>Audit requirement</td></tr>
+<tr><td><a href="/assets/f/Example-2025-audited.pdf">Example Party (audited)</a> [PDF, 681KB]<br>
+<a href="/assets/f/Example-2025.pdf">Example Party</a> [PDF, 781KB]</td><td>31/12/24</td><td>30/06/25</td>
+<td>Statement 30/06/25, amended statement and audit report 18/08/25</td><td>Financial statements must be audited</td></tr>
+<tr><td><a href="/assets/f/TOP-2025.pdf">The Example Party (TOP)</a> [PDF, 459KB]</td><td>31/12/24</td><td>30/06/25</td>
+<td>09/04/25</td><td>No audit required</td></tr>
+<tr><td>Late Party *</td><td>31/3/25</td><td>30/9/25**</td><td></td><td>No audit required</td></tr></table>""".encode()
+
+
+def test_the_roster_keeps_free_text_filings_as_printed_and_the_name_s_own_brackets():
+    rows, out_links, aside = read.statement_rows(ROSTER, "d" * 64, {"https://elections.nz/assets/f/TOP-2025.pdf": "e" * 64})
+    assert [(r["party_label"], r["note"], r["mark"]) for r in rows] == [
+        ("Example Party", "audited", None), ("The Example Party (TOP)", None, None), ("Late Party", None, "*")]
+    assert rows[0]["date_filed"] is None and rows[0]["filed_printed"].startswith("Statement 30/06/25")
+    assert rows[1]["balance_date"] == "2024-12-31" and rows[1]["date_filed"] == "2025-04-09"
+    assert rows[2]["deadline"] == "2025-09-30" and rows[2]["date_filed"] is None
+    assert [x["document"] for x in out_links] == [None, None, "e" * 64]
+    assert [a[1] for a in aside] == ["link", "link"], "a link the lane does not hold is a catch-log line"
+
+
+def test_the_roster_links_every_held_statement(filled):
+    conn, schema = filled["conn"], filled["schema"]
+    n = conn.execute(f"SELECT count(*) FROM {schema}.party_finance_financial_statements").fetchone()[0]
+    years = [r[0] for r in conn.execute(f"SELECT DISTINCT filed_year FROM {schema}.party_finance_financial_statements ORDER BY 1")]
+    assert n == 47 and years == [2024, 2025, 2026]
+    assert not [a for a in filled["set_aside"] if a["stage"] == "statement"]

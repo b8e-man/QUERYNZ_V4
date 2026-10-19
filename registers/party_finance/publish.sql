@@ -45,3 +45,14 @@ CREATE OR REPLACE VIEW pub.promoter_people AS
 SELECT p.key, p.promoter_key, p.document, p.page, p.place, r.year, r.promoter, p.role, p.name, p.reader, p.profile,
        p.profile_version, p.read_from, p.loaded_at
 FROM party_finance.promoter_people p JOIN party_finance.promoters r ON r.key = p.promoter_key;
+
+-- the roster of party financial statements, with the statements each row links (the first, then any amended or
+-- audited one); a party listed with no link has not filed yet
+CREATE OR REPLACE VIEW pub.party_financial_statements AS
+SELECT f.key, f.document, f.page, f.place, f.filed_year, f.party, f.party_label, f.party_basis, f.note, f.mark,
+       f.balance_date, f.deadline, f.date_filed, f.balance_printed, f.deadline_printed, f.filed_printed,
+       f.audit_requirement,
+       ARRAY(SELECT k.document FROM party_finance.listing_links k WHERE k.row_key = f.key ORDER BY k.ordinal)
+           AS statements,
+       f.reader, f.profile, f.profile_version, f.read_from, f.loaded_at
+FROM party_finance.financial_statements f;

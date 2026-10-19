@@ -182,3 +182,30 @@ CREATE TABLE IF NOT EXISTS party_finance_private.promoter_contacts (
     value         text NOT NULL,                        -- the lines, newline between
     PRIMARY KEY (promoter_key, label)
 );
+
+-- the Commission's roster of party financial statements: one row per party per year of filing, as printed.
+-- The page prints no figures; the statements it links are held, and their figures are not read yet.
+CREATE TABLE IF NOT EXISTS party_finance.financial_statements (
+    key                text PRIMARY KEY,                -- <page sha256>/<filed year>/row/<n>
+    document           text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page               integer NOT NULL DEFAULT 1,
+    place              text NOT NULL,                   -- <filed year> table, row <n>
+    filed_year         integer NOT NULL,                -- the year the Commission's table is headed with
+    party_label        text NOT NULL,
+    party              text,
+    party_basis        text NOT NULL,
+    note               text,                            -- 'audited', 'amended': the Commission's bracketed note
+    mark               text,                            -- the page's footnote mark, as printed
+    balance_date       date,                            -- as filed; NULL where keys.dates does not read the shape
+    deadline           date,
+    date_filed         date,                            -- NULL where the cell is free text or blank
+    balance_printed    text NOT NULL,
+    deadline_printed   text NOT NULL,
+    filed_printed      text NOT NULL,                   -- verbatim: 'Statement 30/06/25, amended statement and audit…'
+    audit_requirement  text NOT NULL,
+    reader             text NOT NULL,
+    profile            text NOT NULL,
+    profile_version    integer NOT NULL,
+    read_from          text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    loaded_at          timestamptz NOT NULL
+);

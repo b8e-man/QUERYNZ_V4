@@ -41,6 +41,10 @@ COLUMNS_OF = {
                   "reader", "profile", "profile_version", "read_from", "loaded_at"),
     "promoter_people": ("key", "promoter_key", "document", "page", "place", "role", "name", "reader", "profile",
                         "profile_version", "read_from", "loaded_at"),
+    "financial_statements": ("key", "document", "page", "place", "filed_year", "party_label", "party", "party_basis",
+                             "note", "mark", "balance_date", "deadline", "date_filed", "balance_printed",
+                             "deadline_printed", "filed_printed", "audit_requirement", "reader", "profile",
+                             "profile_version", "read_from", "loaded_at"),
     "expense_returns": ("key", "document", "page", "place", "listing_row", "year", "party_label", "party",
                         "party_basis", "current", "total", "total_check", "part_a", "part_b", "part_c", "expense_limit",
                         "read_from", "reader", "profile", "profile_version", "loaded_at"),
@@ -97,7 +101,8 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
     counts = {"accounted": 0, "documents": 0, "listing_rows": 0, "listing_aside": 0, "links": 0, "links_unheld": 0,
               "returns_linked": 0, "returns_read": 0, "returns_aside": 0, "capture_lines": len(capture_lines),
               "allocation_pages": 0, "allocation_rows": 0, "allocation_aside": 0, "unread": 0,
-              "register_pages": 0, "promoters": 0, "promoter_people": 0, "promoter_aside": 0}
+              "register_pages": 0, "promoters": 0, "promoter_people": 0, "promoter_aside": 0,
+              "roster_rows": 0, "roster_aside": 0, "statements_linked": 0}
     for item, why in capture_lines:
         aside(conn, schema, item, "capture", why, shared)
     by_url, files, linked = {}, {}, set()
@@ -175,13 +180,30 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
         counts["promoters"] += len(rows)
         counts["promoter_people"] += len(ppl)
         counts["promoter_aside"] += sum(1 for _, s, _ in lines if s == "promoter")
+    for kind, sha, path, url, captured in held:
+        if kind != "financials-listing":
+            continue
+        rows, out_links, lines = read.statement_rows(read_bytes(sha), sha, by_url, at)
+        for r in rows:
+            insert(conn, schema, "financial_statements", r, shared)
+        for x in out_links:
+            insert(conn, schema, "listing_links", x, shared)
+            if x["document"]:
+                linked.add(x["document"])
+        for item, stage, why in lines:
+            aside(conn, schema, item, stage, why, shared)
+        counts["roster_rows"] += len(rows)
+        counts["roster_aside"] += sum(1 for _, s, _ in lines if s == "statement")
+        counts["links"] += len(out_links)
+        counts["links_unheld"] += sum(1 for x in out_links if x["document"] is None)
+        counts["statements_linked"] = len({x["document"] for x in out_links if x["document"]})
     for sha, kind in files.items():
         if kind in UNREAD:
             aside(conn, schema, sha, "unread", UNREAD[kind], shared)
             counts["unread"] += 1
     for sha, kind in files.items():
-        if kind == "expense-return" and sha not in linked:
-            aside(conn, schema, sha, "unread", "held; no row of the Commission's expense tables links it", shared)
+        if kind in ("expense-return", "financial-statements") and sha not in linked:
+            aside(conn, schema, sha, "unread", "held; no row of the Commission's own tables links it", shared)
             counts["unread"] += 1
     counts["accounted"] = sum(1 for k in files.values() if k in READ_KINDS) + counts["unread"] + len(linked)
     return counts
@@ -190,12 +212,10 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
 #: kinds the lane holds and does not read yet: a catch-log line each, so every held document is accounted for
 UNREAD = {
     "allocation-decision": "held; the allocation page carries the decision's figures, and the decision itself is not read",
-    "financial-statements": "held; not read yet (tranche 6 reads the Commission's filing roster first)",
-    "financials-listing": "held; not read yet (tranche 6)",
     "promoter-return": "held; its figure is the Commission's promoter table's, and the return itself is not read yet",
 }
 #: kinds read whole by the build: a listing or a page is accounted for by being read
-READ_KINDS = ("expenses-listing", "promoter-expenses-listing", "allocation-page", "promoter-register")
+READ_KINDS = ("expenses-listing", "promoter-expenses-listing", "allocation-page", "promoter-register", "financials-listing")
 
 
 def reconcile(c: dict) -> list:
