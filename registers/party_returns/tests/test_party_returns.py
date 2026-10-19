@@ -144,11 +144,18 @@ def _items():
     return [i for i in sample.read_list(os.path.join(LANE, "sample.list")) if not i.startswith("key:")]
 
 
+DOCUMENT_STAGES = ("recognise", "read", "declaration")
+
+
 def test_every_sample_document_is_a_row_or_set_aside_and_never_both(filled):
+    """A document is a row or a catch-log line at a document stage; a row's
+    part that could not be published whole is a line beside the row."""
     rows = {r["document"] for r in filled["rows"]}
-    aside = {a[0] for a in filled["aside"]}
+    aside = {a[0] for a in filled["aside"] if a[1] in DOCUMENT_STAGES}
+    parts = {a[0] for a in filled["aside"] if a[1] in ("part-a", "loans", "part-h")}
     assert rows | aside == set(_items())
     assert not (rows & aside)
+    assert parts <= rows
     assert len(rows) >= 28, "the lane reads the text-layer and the stored-reading returns; fewer means the reader broke"
 
 

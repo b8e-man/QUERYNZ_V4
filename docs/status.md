@@ -3,7 +3,7 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-19, 20:45. **Step:** 3 closed under ruling 60; 4.1 running; tracks B and E on the queue's clock. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-20, 04:15. **Step:** 3 closed under ruling 60; 4.1 running; tracks B and E on the queue's clock. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
@@ -12,38 +12,38 @@ address (test alarm 18 October).
 - Step 0 (all but the third machine). Step 1 closed: fences, reference
   copy, baseline, watcher, 1.7 to 1.10, step 1b, the thin slice, both
   freeze commits by Arthur's hand (tag `v3-frozen-2026-10-18`).
-- Step 2, closed on one box (`docs/merges/scheduler-1`, `-2a/b/c`): queue,
-  probe, runner, worker, cards, installer, re-read, `embed()`, the model
-  server built beside the copy. Two-box proofs owed on node1 (ruling 57).
+- Step 2, closed on one box (`docs/merges/scheduler-1`, `-2a/b/c`,
+  `fix-support-scheduler-1`): queue, probe, runner, worker, cards,
+  installer, re-read, `embed()`, the model server built beside the copy.
+  Two-box proofs owed on node1 (ruling 57).
 - Step 3, closed under ruling 60 (`docs/merges/trial-1` to `-3`): 255
   documents keyed by hash, keys, scoring; pass one 2,013 of 2,124 pages
-  equal to the old readings; pass two scored as far as it ran. GLM-OCR
-  Q8_0 under "OCR" is the page reader alone, no second reader (carded);
-  the trial resumes after the plan.
+  equal to the old readings. GLM-OCR Q8_0 under "OCR" is the page reader
+  alone, no second reader (carded); the trial resumes after the plan.
 
-## Next (all three from `docs/briefs/next.md`)
+## Next (all from `docs/briefs/next.md`)
 
-- Step 4.1, two lanes running: disclosures (`docs/merges/disclosures-1`:
-  520 declarations from the Commission's table, 2023-on total equal to the
-  cent, 15 of 16 party-years equal; National 2023 is the old estate's
-  double count, queued for Arthur) and party returns (`party-returns-1`:
-  99 rows, 49 party-years equal, 0 differing). Page readings for 41
-  returns and 246 declaration scans queued (rows 95 to 97). Scheduler fix
-  merged (`fix-support-scheduler-1`): the lease, rule 6, a server per
-  profile.
-- Track E merged (`docs/merges/windowed-1`, `-2`): two legal positions, two
-  capture lanes, 621 documents landed, the two `qv4-*-capture` jobs nightly
-  from 22:30 NZDT, both hosts floored at 5 s, the lane checks on the board
-  (red until the capture catches up). Rulings 58 and 59 (orders kept and
-  never shown; no letter to the Authority yet).
-  First capture run by day on Arthur's word (3,578 Tribunal, 1,226
-  Authority held); `windowed-3` relists a year cut short. Open: the gate's
-  redirect and gzip card (`support/fetchgate`).
+- Step 4.1, three lanes merged: disclosures (`docs/merges/disclosures-1`,
+  `-2`: 520 declarations from the Commission's table, 2023-on total equal
+  to the cent, 15 of 16 party-years equal, National 2023 queued for Arthur;
+  246 scans read, form check 223 equal, 3 differ, carded); party returns (`party-returns-2`: 99 rows, 49
+  party-years equal, 0 differing; Part A donors on 22 returns, 476 rows;
+  loans on 6; 14 amendments; `qv4-read-pages` reads the 41 unread
+  returns' image pages, rows 110 done and 111 running; session 3 reloads,
+  then Part A's refused pages and the outside check); parties
+  (`parties-1`: 78 registrations, 149 names with windows, every rename
+  read, 17 on the register). Blocker: `keys.parties` must read
+  `pub.party_names` by date (fix session briefed).
+- Track E merged (`docs/merges/windowed-1` to `-3`): two legal positions,
+  two capture lanes, the two `qv4-*-capture` jobs nightly from 22:30 NZDT
+  (first nightly run 20 October, both done), both hosts floored at 5 s,
+  the lane checks on the board. Rulings 58 and 59 (orders kept and never
+  shown; no letter to the Authority yet). Open: the gate's redirect and
+  gzip card (`support/fetchgate`).
 - Track B session 2 running: the copy and its restore merged
   (`docs/merges/offsite-2a`: `qv4-offsite-copy` nightly 21:00 NZDT beside
-  the 1.8 dump, `qv4-offsite-rehearsal` every 28 days); first copy run by
-  day (27 pieces, 8.3 GB) after the probe learnt `zstd`; 2b follows, then
-  the dump is retired.
+  the 1.8 dump, first nightly run 19 October; `qv4-offsite-rehearsal`
+  every 28 days); 2b follows, then the dump is retired.
 - The node1 setup card when Arthur powers node1. The positive half of 1.4
   waits for a new declaration.
 
