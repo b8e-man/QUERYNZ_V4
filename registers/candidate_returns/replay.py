@@ -9,7 +9,8 @@ to a folder of the caller's, never the shared reader store. No database.
     python -m registers.candidate_returns.replay shape SHA_PREFIX [PAGE ...]
 
 `run` writes one entry per document (its names, placement, status, the
-declared figures, the set-aside lines) and prints the catch log's
+declared figures, Part A's amounts and pages (never a donor's name), the
+set-aside lines) and prints the catch log's
 reconciliation and the outside check (check.py). `compare` prints every
 document whose figures, route or set-aside stages changed. `shape` prints a
 return's pages as the reading sees them (text layer, or the stored page
@@ -88,7 +89,8 @@ def run(out_path: str, store_dir: str) -> dict:
             "names": f["names"], "placed_by": f["placed_by"], "status": f["status"], "year": f["year"],
             "route": res.route, "page": r["page"] if r else None,
             "row": {k: r[k] for k in ("donations", "expenses", "loans", "donations_check", "expenses_check",
-                                      "loans_check", "read_from")} if r else None,
+                                      "loans_check", "read_from", "donors_check")} if r else None,
+            "donors": [[d["amount"], d["page"]] for d in res.donors],
             "set_aside": [(s, why) for d, s, why in b.set_aside if d == f["document"]]}
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(out, fh, indent=1, ensure_ascii=False)
@@ -105,6 +107,8 @@ def compare(a: dict, b: dict) -> list:
         if x is None or y is None:
             out.append(f"{s[:12]}: only in {'after' if x is None else 'before'}")
             continue
+        if x.get("donors") != y.get("donors"):
+            out.append(f"{s[:12]} {y['year']}: Part A rows {len(x.get('donors') or [])} -> {len(y.get('donors') or [])}")
         if x["row"] != y["row"]:
             out.append(f"{s[:12]} {y['year']}: {x['row']} -> {y['row']}")
         if [t for t, _ in x["set_aside"]] != [t for t, _ in y["set_aside"]]:

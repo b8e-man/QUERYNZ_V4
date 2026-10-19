@@ -11,7 +11,7 @@ return's stage (recognise | read | declaration | join), never both, and
 name a Commission file or row the lane could not use or could not answer.
 
     statements(conn=None)     the listing rows and the newest spreadsheet per year, with their catch lines
-    build(landed, store, ...) the join and every reading: a Build
+    build(landed, store, ...) every reading, then the join (a path with no year takes the form's title's): a Build
     load(conn, schema)        all of it into `schema`
     publish(conn, staging)    the staged tables into the lane's own, in one transaction
 """
@@ -35,15 +35,15 @@ FILE_COLUMNS = ("document", "names", "placed_by", "year", "surname", "given_name
 RETURN_COLUMNS = ("key", "document", "page", "place", "donations", "part_a", "part_c", "part_d", "donations_check",
                   "expenses", "part_f", "part_g", "expenses_check", "loans", "loans_check", "signed", "year_as_printed",
                   "candidate_as_printed", "party_as_printed", "electorate_as_printed", "read_from", "reader", "profile",
-                  "profile_version", "loaded_at")
+                  "profile_version", "loaded_at", "donors_check")
 COMMISSION_COLUMNS = ("key", "source", "file", "file_name", "year", "surname", "given_names", "electorate", "party",
                       "donations", "expenses", "loans", "received", "link", "problems")
-DONOR_COLUMNS = ("key", "return_key", "document", "page", "ordinal", "donor", "amount", "dates", "contributions",
+DONOR_COLUMNS = ("key", "return_key", "document", "page", "place", "ordinal", "donor", "amount", "dates", "contributions",
                  "read_from", "reader", "profile", "profile_version", "loaded_at")
 COLUMNS_OF = {"files": FILE_COLUMNS, "returns": RETURN_COLUMNS, "commission": COMMISSION_COLUMNS,
               "set_aside": ("document", "stage", "reason", "at"), "donors": DONOR_COLUMNS,
               "addresses": ("key", "document", "address", "cell")}
-RETURN_STAGES = ("recognise", "read", "declaration", "join")
+RETURN_STAGES = ("recognise", "read", "declaration", "join")          # `part-a` is a part's stage: its row stands
 
 
 @dataclass
@@ -57,6 +57,7 @@ class Statements:
 class Build:
     files: list = field(default_factory=list)          # dicts under FILE_COLUMNS
     returns: list = field(default_factory=list)        # dicts under RETURN_COLUMNS
+    donors: list = field(default_factory=list)         # dicts under DONOR_COLUMNS, with the address beside (private)
     commission: list = field(default_factory=list)     # dicts under COMMISSION_COLUMNS
     set_aside: list = field(default_factory=list)      # (document, stage, reason)
     results: dict = field(default_factory=dict)        # sha256 → read.Result
@@ -116,7 +117,12 @@ def build(landed: dict, st: Statements, store: rd.Store, data_of, loaded_at: str
     """`landed` is {sha256: [old path, ...]}; `data_of(sha256)` gives a return's bytes."""
     out = Build()
     held = {s: sorted({capture.held_name(p) for p in ps}) for s, ps in landed.items()}
+    results = {s: read.read_return(data_of(s), s, store, loaded_at=loaded_at) for s in sorted(landed)}
+    out.results = results
     years = {s: year_of(ps) for s, ps in landed.items()}
+    for s, r in results.items():                     # a path with no year (`Uploads__…`): the form's own title, where read
+        if years[s] is None and r.declaration is not None and r.declaration.year:
+            years[s] = r.declaration.year
     sheet = {y: rows for y, (_, _, rows) in st.sheets.items()}
     j = join.join(held, [r for r, _, _ in st.listing], sheet, years)
     out.joined = j
@@ -159,8 +165,7 @@ def build(landed: dict, st: Statements, store: rd.Store, data_of, loaded_at: str
                         "stated": p.stated, "listing": listing_key[id(p.listing)][0] if p.listing is not None else None,
                         "sheet_key": sheet_key.get(id(p.sheet)) if p.sheet is not None else None})
         out.files.append(row)
-        result = read.read_return(data_of(sha), sha, store, loaded_at=loaded_at)
-        out.results[sha] = result
+        result = results[sha]
         for stage, reason in result.set_aside:
             out.set_aside.append((sha, stage, reason))
         if result.row is None:
@@ -172,6 +177,7 @@ def build(landed: dict, st: Statements, store: rd.Store, data_of, loaded_at: str
         out.returns.append({**{c: result.row.get(c) for c in ("key", "document", "page", "place", "read_from", "reader",
                                                                "profile", "profile_version", "loaded_at")},
                             **{c: f.get(c) for c in RETURN_COLUMNS if c in f}})
+        out.donors += [{**d, "donor": d["name"], "contributions": d["yes_no"]} for d in result.donors]
     return out
 
 
@@ -182,7 +188,8 @@ def counts(b: Build) -> dict:
     docs = {f["document"] for f in b.files}
     return {"returns": len(docs), "rows": len(rows), "set_aside": len(aside), "both": len(rows & aside),
             "neither": len(docs - rows - aside), "reconciles": len(docs) == len(rows) + len(aside) and not rows & aside,
-            "commission_lines": sum(1 for _, s, _ in b.set_aside if s == "commission")}
+            "commission_lines": sum(1 for _, s, _ in b.set_aside if s == "commission"),
+            "donor_rows": len(b.donors), "part_a_set_aside": sum(1 for _, s, _ in b.set_aside if s == "part-a")}
 
 
 # ---------------------------------------------------------------- the database
@@ -191,40 +198,51 @@ def private_of(schema: str) -> str:
     return PRIVATE if schema == SCHEMA else f"{schema[:55]}_private"
 
 
-def sql(name: str, schema: str = SCHEMA) -> str:
+def table(schema: str, t: str, shared: bool = False) -> str:
+    """Every module fills one shared scratch schema for the sample, so there this lane's tables carry its name."""
+    return f"{schema}.{SCHEMA}_{t}" if shared else f"{schema}.{t}"
+
+
+def sql(name: str, schema: str = SCHEMA, shared: bool = False) -> str:
     with open(os.path.join(HERE, name), encoding="utf-8") as f:
         text = f.read()
-    return text.replace(f"{PRIVATE}.", f"{private_of(schema)}.").replace(f"{SCHEMA}.", f"{schema}.")
+    pre = f"{SCHEMA}_" if shared else ""
+    return re.sub(r"\bcandidate_returns(_private)?\.",
+                  lambda m: f"{private_of(schema) if m.group(1) else schema}.{pre}", text)
 
 
-def create_tables(conn, schema: str) -> None:
+def create_tables(conn, schema: str, shared: bool = False) -> None:
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {private_of(schema)}")
-    conn.execute(sql("tables.sql", schema))
-    conn.execute(sql("private.sql", schema))
+    conn.execute(sql("tables.sql", schema, shared))
+    conn.execute(sql("private.sql", schema, shared))
 
 
-def wipe(conn, schema: str) -> None:
+def wipe(conn, schema: str, shared: bool = False) -> None:
     for t in TABLES:
-        conn.execute(f"DELETE FROM {schema}.{t}")
+        conn.execute(f"DELETE FROM {table(schema, t, shared)}")
     for t in PRIVATE_TABLES:
-        conn.execute(f"DELETE FROM {private_of(schema)}.{t}")
+        conn.execute(f"DELETE FROM {table(private_of(schema), t, shared)}")
 
 
-def _insert(conn, table: str, columns: tuple, row: dict) -> None:
-    conn.execute(f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(columns))}) "
+def _insert(conn, name: str, columns: tuple, row: dict) -> None:
+    conn.execute(f"INSERT INTO {name} ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(columns))}) "
                  "ON CONFLICT DO NOTHING", tuple(row.get(c) for c in columns))
 
 
-def insert(conn, schema: str, b: Build) -> None:
+def insert(conn, schema: str, b: Build, shared: bool = False) -> None:
+    t = lambda name: table(schema, name, shared)
     for r in b.files:
-        _insert(conn, f"{schema}.files", FILE_COLUMNS, r)
+        _insert(conn, t("files"), FILE_COLUMNS, r)
     for r in b.returns:
-        _insert(conn, f"{schema}.returns", RETURN_COLUMNS, r)
+        _insert(conn, t("returns"), RETURN_COLUMNS, r)
     for r in b.commission:
-        _insert(conn, f"{schema}.commission", COMMISSION_COLUMNS, r)
+        _insert(conn, t("commission"), COMMISSION_COLUMNS, r)
+    for d in b.donors:
+        _insert(conn, t("donors"), DONOR_COLUMNS, d)
+        _insert(conn, table(private_of(schema), "addresses", shared), COLUMNS_OF["addresses"], d)
     for d, stage, reason in b.set_aside:
-        conn.execute(f"INSERT INTO {schema}.set_aside (document, stage, reason) VALUES (%s, %s, %s)", (d, stage, reason))
+        conn.execute(f"INSERT INTO {t('set_aside')} (document, stage, reason) VALUES (%s, %s, %s)", (d, stage, reason))
 
 
 def load(conn, schema: str, log=print) -> int:

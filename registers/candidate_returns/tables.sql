@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS candidate_returns.returns (
     reader                 text NOT NULL,
     profile                text NOT NULL,
     profile_version        integer NOT NULL,
-    loaded_at              timestamptz NOT NULL
+    loaded_at              timestamptz NOT NULL,
+    donors_check           text                     -- Part A: parts-sum | declared-nil | NULL: set aside or not read
 );
 
 -- the Commission's own statements: each spreadsheet row and each listing row, by the file it was read from
@@ -69,7 +70,8 @@ CREATE TABLE IF NOT EXISTS candidate_returns.commission (
 );
 
 -- the catch log: one line for every item the lane could not take to a row, with the stage and the reason
--- (recognise | read | declaration | join for a return; commission for a Commission file or row)
+-- (recognise | read | declaration | join for a return; part-a for a published return's Part A, the row standing;
+-- commission for a Commission file or row)
 CREATE TABLE IF NOT EXISTS candidate_returns.set_aside (
     document   text NOT NULL,
     stage      text NOT NULL,
@@ -77,21 +79,26 @@ CREATE TABLE IF NOT EXISTS candidate_returns.set_aside (
     at         timestamptz NOT NULL DEFAULT now()
 );
 
--- Part A: one row per line of the donors' table; published only when the part reconciles with its printed total.
--- Not read yet (card: candidate-return-donors-are-not-read); defined here so the published view's shape is fixed.
+-- Part A: one row per line of the donors' table (the form's example row dropped), from the text layer; published only
+-- when the rows add to the page's TOTAL FOR PART A and the declaration's Part A (donors.py)
 CREATE TABLE IF NOT EXISTS candidate_returns.donors (
     key              text PRIMARY KEY,               -- <document sha256>/A/<ordinal>
     return_key       text NOT NULL,
     document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
     page             integer NOT NULL,
+    place            text NOT NULL,                  -- A/<ordinal>: the row's place in the part, as read
     ordinal          integer NOT NULL,
     donor            text NOT NULL,                  -- the name, cut from the address
     amount           numeric(14,2) NOT NULL,
     dates            text,
-    contributions    text,
+    contributions    text,                           -- the Yes/No column as printed
     read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
     reader           text NOT NULL,
     profile          text NOT NULL,
     profile_version  integer NOT NULL,
     loaded_at        timestamptz NOT NULL
 );
+
+-- tranche 3: Part A read; a table made before it gains the columns (rows are named by column)
+ALTER TABLE candidate_returns.returns ADD COLUMN IF NOT EXISTS donors_check text;
+ALTER TABLE candidate_returns.donors ADD COLUMN IF NOT EXISTS place text;

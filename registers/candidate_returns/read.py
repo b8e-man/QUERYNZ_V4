@@ -22,13 +22,18 @@ them):
 
 A return is published when each section it declares reads under the page's
 own arithmetic (`declaration.Declaration.problems`); otherwise it is set
-aside whole at stage `declaration`. The candidate, year, electorate and
+aside whole at stage `declaration`. A published return then has its Part A
+read from its text-layer pages (`donors.py`): published whole when the rows
+add to the page's own total and the declaration's Part A, otherwise set
+aside whole beside the row (stage `part-a`, which is not a return's stage:
+the row stands). Part A on image pages is not read yet (stage `part-a`). The candidate, year, electorate and
 party come from the Commission (`join.py`), never from the file name; the
 page's own words for them are kept as filed beside.
 
     result = read_return(data, sha256, store)
     result.row          the register row (a dict under the row contract), or None
     result.declaration  the Declaration read, or None
+    result.donors       Part A rows, each with its key, name and amount; the address beside it is private
     result.set_aside    [(stage, reason)]
 """
 import datetime as dt
@@ -41,7 +46,7 @@ from support import profiles
 from support import reader as rd
 from support.docread import pages
 from support.docread.read import read_document
-from registers.candidate_returns import declaration
+from registers.candidate_returns import declaration, donors
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -62,6 +67,7 @@ class Result:
     set_aside: list = field(default_factory=list)
     pages: int = 0
     route: str = None
+    donors: list = field(default_factory=list)       # Part A rows, published only when the part reconciled
 
 
 def profile_version(slug: str) -> int:
@@ -139,6 +145,40 @@ def _publish_or_set_aside(out: Result, decl, page: int, reading, loaded_at) -> R
     return out
 
 
+def _part_a(out: Result, data: bytes, texts: dict, store) -> None:
+    """Part A from the text-layer pages, stamped with each page's own reading."""
+    f = out.row["filed"]
+    declared = f.get("part_a")
+    if declared is None:
+        declared = 0.0 if f.get("donations") == 0 else None
+    if out.route != "text":
+        f["donors_check"] = None
+        if declared:
+            out.set_aside.append(("part-a", "Part A is on image pages: not read from pixels yet"))
+        else:
+            f["donors_check"] = "declared-nil"
+        return
+    thick = {p: t for p, t in texts.items() if p not in set(pages.thin_pages(texts))}
+    part = donors.read(thick, declared)
+    f["donors_check"] = part.check or None
+    if part.problems:
+        thin_a = [p for p in pages.thin_pages(texts) if p > out.row["page"]]
+        extra = f" ({len(thin_a)} later pages are images)" if thin_a and declared else ""
+        out.set_aside.append(("part-a", "; ".join(part.problems)[:1800] + extra))
+        return
+    if not part.rows:
+        return
+    reading = read_document(data, out.document, profile=TEXT, profile_version=profile_version(TEXT), store=store,
+                            texts={p: thick[p] for p in sorted({r["page"] for r in part.rows})})
+    by_page = {r.page: r for r in reading.readings}
+    for k, r in enumerate(part.rows, 1):
+        rd_ = by_page[r["page"]]
+        out.donors.append({**r, "key": f"{out.document}/A/{k}", "place": f"A/{k}", "ordinal": k, "document": out.document,
+                           "return_key": out.row["key"], "reader": f"{rd_.reader}: {rd_.model}", "profile": rd_.profile,
+                           "profile_version": int(rd_.profile_version), "read_from": rd_.read_from,
+                           "loaded_at": out.row["loaded_at"]})
+
+
 def read_return(data: bytes, sha256: str, store: rd.Store = None, loaded_at: str = None) -> Result:
     store = store or rd.Store()
     texts = pages.text_pages(data)
@@ -156,7 +196,10 @@ def read_return(data: bytes, sha256: str, store: rd.Store = None, loaded_at: str
         reading = read_document(data, sha256, profile=TEXT, profile_version=profile_version(TEXT), store=store,
                                 texts={page: texts[page]})
         r = reading.readings[0]
-        return _publish_or_set_aside(out, declaration.read(r.text), page, r, loaded_at)
+        _publish_or_set_aside(out, declaration.read(r.text), page, r, loaded_at)
+        if out.row:
+            _part_a(out, data, texts, store)
+        return out
     out.route = "scan"
     missing = []
     for p in sorted(texts):                           # an image page, or a scanner's own OCR layer that lost the heading
@@ -165,7 +208,10 @@ def read_return(data: bytes, sha256: str, store: rd.Store = None, loaded_at: str
             missing.append(p)
             continue
         if has_heading(r.text):
-            return _publish_or_set_aside(out, declaration.read(r.text, layout=False), p, r, loaded_at)
+            _publish_or_set_aside(out, declaration.read(r.text, layout=False), p, r, loaded_at)
+            if out.row:
+                _part_a(out, data, texts, store)
+            return out
     if missing:
         kind = "images" if set(missing) <= thin else "images or carry a scanner's own OCR layer without the heading"
         shown = ", ".join(map(str, missing[:12])) + (" …" if len(missing) > 12 else "")

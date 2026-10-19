@@ -6,6 +6,9 @@ old folder by the old folder's manifests and its hash checked on landing;
 one the manifests misname is found by hashing every in-window file; one
 found nowhere fails naming the hash, so the session can ask for a capture.
 No model is called; stored page readings are replayed.
+
+Every module fills one shared scratch schema, so this lane's tables there
+carry its name (`candidate_returns_files`, …; `load.table`).
 """
 import os
 import sys
@@ -30,8 +33,8 @@ def _land(paths: list, sha: str, conn) -> list:
 
 
 def fill(conn, schema: str, items: list) -> int:
-    load.create_tables(conn, schema)
-    load.wipe(conn, schema)
+    load.create_tables(conn, schema, shared=True)
+    load.wipe(conn, schema, shared=True)
     shas = [i.split()[0] for i in items if i.strip() and not i.startswith("key:")]
     manifest, everything = capture.manifest_index(), None
     landed = {}
@@ -45,7 +48,7 @@ def fill(conn, schema: str, items: list) -> int:
                               f"in-window returns: ask for a capture")
         landed[sha] = paths
     b = load.build(landed, load.statements(conn), rd.Store(), read_bytes)
-    load.insert(conn, schema, b)
+    load.insert(conn, schema, b, shared=True)
     c = load.counts(b)
     if not c["reconciles"]:
         raise RuntimeError(f"candidate_returns: the sample's catch log does not reconcile: {c}")

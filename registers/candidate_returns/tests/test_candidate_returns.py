@@ -228,10 +228,11 @@ def filled():
     schema = _schema()
     with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
         S.fill(conn, schema, sample.read_list(os.path.join(LANE, "sample.list")))
+        conn.commit()
         q = lambda sql: [dict(zip([d[0] for d in c.description], r)) for c in [conn.execute(sql)] for r in c.fetchall()]
-        yield {"schema": schema, "conn": conn, "files": q(f"SELECT * FROM {schema}.files"),
-               "returns": q(f"SELECT * FROM {schema}.returns"), "aside": q(f"SELECT * FROM {schema}.set_aside"),
-               "commission": q(f"SELECT * FROM {schema}.commission")}
+        yield {"schema": schema, "conn": conn, "files": q(f"SELECT * FROM {schema}.candidate_returns_files"),
+               "returns": q(f"SELECT * FROM {schema}.candidate_returns_returns"), "aside": q(f"SELECT * FROM {schema}.candidate_returns_set_aside"),
+               "commission": q(f"SELECT * FROM {schema}.candidate_returns_commission")}
 
 
 def test_every_sample_return_is_a_row_or_set_aside_and_never_both(filled):
@@ -260,7 +261,8 @@ def test_the_sample_s_cases_land_where_the_list_says(filled):
     assert rows[c["the figure typed in the step cell, the form's $0.00 left in the parts"]]["expenses_check"] == "step-cell"
     assert stages[c["set aside: the expenses parts do not sum to the printed total"]] == ["declaration"]
     assert stages[c["scan with no stored page reading: set aside for a re-read"]] == ["read"]
-    assert "join" in stages[c["no year in the path, two elections answer: abstains"]]
+    no_year = files[c["no year in the path: the form's own title names the election"]]
+    assert no_year["year"] == 2023 and no_year["placed_by"] == "spreadsheet name"
     rep, amd = c["replaced: the listing links the amendment"], c["the amendment that replaces it"]
     assert files[rep]["status"] == "replaced" and files[rep]["replaced_by"] == amd and files[amd]["status"] == "current"
     assert files[c["the 2022 Tauranga by-election, placed by its file name"]]["placed_by"] == "file name"
@@ -276,13 +278,12 @@ def test_the_outside_check_runs_on_the_sample(filled):
 def test_the_published_views_build_on_the_lane_s_tables(filled):
     from registers.candidate_returns import load
     conn, schema = filled["conn"], filled["schema"]
-    view = load.sql("publish.sql", schema).replace("pub.", f"{schema}.pub_")
+    view = load.sql("publish.sql", schema, shared=True).replace("pub.", f"{schema}.pub_")
     conn.execute(view)
     n = conn.execute(f"SELECT count(*) FROM {schema}.pub_candidate_return_totals").fetchone()[0]
     assert n == len(filled["returns"])
     cols = [d[0] for d in conn.execute(f"SELECT * FROM {schema}.pub_candidate_return_totals LIMIT 0").description]
     assert not any("address" in c for c in cols)
-    conn.rollback()
 
 
 def test_the_scan_route_never_calls_a_model(monkeypatch):
@@ -290,3 +291,72 @@ def test_the_scan_route_never_calls_a_model(monkeypatch):
     monkeypatch.setattr(pagereader, "ocr_pages", lambda *a, **k: (_ for _ in ()).throw(AssertionError("a model was called")))
     r = read.read_return(b"%PDF-1.4 not really", "0" * 64)
     assert r.row is None and r.set_aside
+
+
+# ---------------------------------------------------------------- Part A
+
+PART_A = """    PART A: CANDIDATE DONATIONS OF MORE THAN $1,500
+    OTHER THAN ANONYMOUS OR OVERSEAS DONATIONS
+                                        WRITE 'NIL' IF YOU HAVE NO DONATIONS TO DECLARE
+                                                                                                 TOTAL FOR PART A                 $ 9,500.00
+                                                                                                 Does the donation
+                                                                       Date donation or         contain contributions      Amount of donation or total
+                                                                     aggregated donations       from another person          aggregated donations
+                Donor's name and street address
+                                                                           received             of more than $1,500            (including GST)
+                                                                            dd/mm/yyyy            Enter YES or NO                    $0.00
+                                                                                                If YES complete Part B
+    Sample Form Person
+    1 Sample Street, Sampletown                                      2/06/2020- 14/07/2020               Yes                      $5,000.00
+    Sampleshire
+    Jane Example                                                         18/8/2020
+                                                                                                         No                       $ 7,000.00
+    12 Example Road, Exampletown
+    Example Holdings Limited, Exampleville                               1/09/2020
+    PO Box 1, Exampletown                                                                                No                       $ 2,500.00
+PART A                                                                                                                                          Page: 2
+"""
+
+
+def test_part_a_drops_the_form_s_example_and_keeps_every_address_private(monkeypatch):
+    from registers.candidate_returns import donors
+    example = "Sample Form Person 1 Sample Street, Sampletown Sampleshire"
+    monkeypatch.setattr(donors, "EXAMPLE_CELL", donors._fold_hash(example))
+    part = donors.read({2: PART_A}, 9500.0)
+    assert part.problems == [] and part.check == "parts-sum" and part.examples == 1
+    assert [(r["name"], r["amount"]) for r in part.rows] == [("Jane Example", 7000.0), ("Example Holdings Limited", 2500.0)]
+    assert "Example Road" in part.rows[0]["address"] and "Exampleville" in part.rows[1]["address"]
+    assert all(not any(ch.isdigit() for ch in r["name"]) for r in part.rows)
+
+
+def test_part_a_that_does_not_add_up_is_set_aside_whole(monkeypatch):
+    from registers.candidate_returns import donors
+    monkeypatch.setattr(donors, "EXAMPLE_CELL", donors._fold_hash("Sample Form Person 1 Sample Street, Sampletown Sampleshire"))
+    part = donors.read({2: PART_A}, 10000.0)
+    assert part.rows == [] and any("add to 9,500.00" in p for p in part.problems)
+
+
+def test_a_name_ends_at_its_comma_and_a_long_one_line_name_is_not_vouched_for():
+    from registers.candidate_returns import donors
+    assert donors.trim("Jane Example, Exampleville", False)[:2] == ("Jane Example", "Exampleville")
+    assert donors.trim("Example, Jane", False)[0] == "Example, Jane"
+    assert donors.trim("Jane Mary Example Exampleville Exampleshire", True)[2]
+    assert donors.trim("The Example Electorate Committee Of Somewhere", True)[2] == ""
+
+
+def test_published_donors_keep_the_row_contract_and_their_addresses_stay_private(filled):
+    conn, schema = filled["conn"], filled["schema"]
+    cur = conn.execute(f"SELECT * FROM {schema}.candidate_returns_donors")
+    cols = [d[0] for d in cur.description]
+    rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+    assert rows, "the sample holds returns whose Part A reconciles"
+    assert not any("address" in c for c in cols)
+    private = {r[0] for r in conn.execute(f"SELECT key FROM {schema}_private.candidate_returns_addresses")}
+    for r in rows:
+        assert rowcontract.validate({**r, "loaded_at": str(r["loaded_at"])}) == [], r["key"]
+        assert r["key"] in private and not any(ch.isdigit() for ch in r["donor"])
+    by_return = {}
+    for r in rows:
+        by_return[r["return_key"]] = round(by_return.get(r["return_key"], 0) + float(r["amount"]), 2)
+    parts = {r["key"]: float(r["part_a"] or 0) for r in filled["returns"]}
+    assert all(abs(by_return[k] - parts[k]) < 0.005 for k in by_return)

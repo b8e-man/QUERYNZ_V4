@@ -10,14 +10,14 @@ SELECT r.key, r.document, r.page, r.place, f.year, f.surname, f.given_names, f.e
        r.expenses, r.part_f, r.part_g, r.expenses_check, r.loans, r.loans_check, r.signed,
        c.donations AS commission_donations, c.expenses AS commission_expenses, c.loans AS commission_loans,
        c.file AS commission_file, c.key AS commission_key,
-       r.read_from, r.reader, r.profile, r.profile_version, r.loaded_at
+       r.read_from, r.reader, r.profile, r.profile_version, r.loaded_at, r.donors_check
 FROM candidate_returns.returns r
 JOIN candidate_returns.files f ON f.document = r.document
 LEFT JOIN candidate_returns.commission c ON c.key = f.sheet_key;
 
--- Part A's donors: the name and the money, never the address. Empty until Part A is read.
+-- Part A's donors: the name and the money, never the address; only parts that reconciled.
 CREATE OR REPLACE VIEW pub.candidate_return_donors AS
 SELECT d.key, d.return_key, d.document, d.page, d.ordinal, f.year, f.surname, f.given_names, f.electorate, f.party,
        f.status, f.replaced_by, d.donor, d.amount, d.dates, d.contributions, d.read_from, d.reader, d.profile,
-       d.profile_version, d.loaded_at
+       d.profile_version, d.loaded_at, d.place      -- place and what follows last: a view gains columns only at its end
 FROM candidate_returns.donors d JOIN candidate_returns.files f ON f.document = d.document;
