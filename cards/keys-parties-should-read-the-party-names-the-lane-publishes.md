@@ -1,9 +1,10 @@
 # keys.parties should resolve labels against pub.party_names, by date
 kind: blocker
-state: open
+state: closed
 use-case: 1
 session: parties
 opened: 2026-10-19
+closed: 2026-10-20
 
 `keys.parties.REGISTERED` is the 18 October snapshot of today's 17
 parties, so a return or declaration filed by a deregistered or renamed
@@ -23,3 +24,5 @@ Zealand`, which are the fuzzy arms' work. Proposed for a fix session on
 windows, returns the registration's key with the basis, and keeps every
 rule it has (a fuzzy match never joins two parties). `keys/` is outside
 the parties session's fence. On node2: `cd /home/user/querynzv4 && bin/fix keys`.
+
+Closed at the merge of `fix-keys-1`: `party_name(label, rows, on=date)` resolves against the registrations live on the day from `pub.party_names`; on the published tables 38 of 42 unresolved return labels and 53 of 53 disclosure labels resolve, every old rule kept. Switching each lane to the new call is that lane's own work (party-returns, disclosures, and the parties lane's `lifecycle.name_key`).
