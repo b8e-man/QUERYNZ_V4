@@ -64,7 +64,7 @@ These are never traded for convenience, speed or a passing test. If a step in th
 6. **Never solve a challenge or CAPTCHA, never use a login that is not ours, never get around a block.** A headed browser that is shown no challenge may read a page; shown one, it stops. A challenged read is a failed read. Log it and move on.
 7. **Be polite:** slow, low-concurrency, off-peak, cached so nothing is fetched twice. A publisher's direct request to stop is honoured.
 8. **Two sources are out by name:** fyi.org.nz (old ruling 321) and every NZME masthead, the NZ Herald included (ruling 12). Neither is captured, indexed or read.
-9. **Before a new class of source is captured, write its one-page legal position** from the four questions. A lawyer reviews those pages before anything is sold.
+9. **Every new class of source gets a one-page legal position** from the four questions, written before the product that shows it (ruling 61: before product, not before capture; the capture is judged on the four questions as it goes). A lawyer reviews those pages before anything is sold.
 
 **What may leave the boxes**
 
