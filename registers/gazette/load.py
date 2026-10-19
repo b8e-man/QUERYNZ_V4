@@ -15,9 +15,9 @@ from registers.gazette import capture, read, register
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "gazette"
 PRIVATE = "gazette_private"
-TABLES = ("notices", "celebrants", "prohibitions", "liquidations", "liquidators", "company_notices", "receivers", "files",
-          "set_aside")
-PRIVATE_TABLES = ("celebrant_addresses", "prohibition_addresses")
+TABLES = ("notices", "celebrants", "prohibitions", "liquidations", "liquidators", "company_notices", "receivers",
+          "bankruptcies", "files", "set_aside")
+PRIVATE_TABLES = ("celebrant_addresses", "prohibition_addresses", "bankruptcy_addresses")
 COLUMNS = {
     "notices": ("key", "notice", "year", "section", "number", "family", "format", "status", "records", "supersedes", "title",
                 "published_on", "url", "old_type", "article", "source_note", "document", "page", "place",
@@ -41,6 +41,9 @@ COLUMNS = {
                         "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
 }
 COLUMNS["receivers"] = COLUMNS["liquidators"]
+COLUMNS["bankruptcies"] = ("key", "notice", "published_on", "kind", "shape", "surname", "given_names", "also_known_as",
+                           "occupation", "event_on", "event_at", "court", "statute", "dated_on", "withheld_by", "ordinal",
+                           "document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at")
 
 
 def private_of(schema: str) -> str:
@@ -95,11 +98,14 @@ def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool
           [(i, "capture", w) for i, w in aside] + list(res.set_aside))
     for t, rows in (("notices", res.notices), ("celebrants", res.celebrants), ("prohibitions", res.prohibitions),
                     ("liquidations", res.liquidations), ("liquidators", res.liquidators),
-                    ("company_notices", res.company_notices), ("receivers", res.receivers)):
+                    ("company_notices", res.company_notices), ("receivers", res.receivers),
+                    ("bankruptcies", res.bankruptcies)):
         _copy(conn, table(schema, t, shared), COLUMNS[t], _flat(COLUMNS[t], rows))
     _copy(conn, table(private_of(schema), "celebrant_addresses", shared), ("key", "address"), res.addresses)
     _copy(conn, table(private_of(schema), "prohibition_addresses", shared), ("key", "address", "formerly"),
           res.prohibition_addresses)
+    _copy(conn, table(private_of(schema), "bankruptcy_addresses", shared), ("key", "address", "formerly"),
+          res.bankruptcy_addresses)
     conn.execute(f"INSERT INTO {table(schema, 'files', shared)} VALUES (%s, %s, 'notices', 'read')", export)
     return {**res.counts, **joined, "not_held": len(aside)}
 

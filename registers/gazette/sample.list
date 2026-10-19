@@ -19,7 +19,7 @@ key: 2004-go1177 celebrants, a printed table: set aside whole
 key: 2014-go6947 celebrants named, no list: set aside whole
 key: 2025-pn6944 captured twice: one kept, one set aside
 key: 2025-al4914 a liquidator's appointment: one company from the title, read
-key: 2018-ba414 a bankruptcy: typed, not read (its text prints an address and is never published)
+key: 2018-ba414 bankruptcy: an annulment whose person the reader cannot find: set aside (prints an address, never published)
 key: 2002-is8379 an incorporated society whose notice names celebrants: not a celebrant list
 key: 2001-ot2248 prohibition: the Registrar's template, fields run together
 key: 2001-ot4091 prohibition: two whole notices captured as one text, both read
@@ -71,3 +71,11 @@ key: 2000-ar2556 receivership: a bare title; the company named in the body
 key: 2013-ar2626 receivership: an appointment and a ceasing to act in one notice
 key: 2015-ar86 receivership: a subject with no legal suffix, perhaps a person's property: set aside
 key: 2007-ar826 receivership: appointed by the court
+key: 2000-ba5071 bankruptcy: the older list, an occupation and a formerly-of address (both addresses private)
+key: 2000-ba5451 bankruptcy: the older list, three people under their day
+key: 2000-ba5766 bankruptcy: an annulment naming its person in natural order ("of Ann Example, of …")
+key: 2002-ba3634 bankruptcy: an annulment: its person withheld from the published view
+key: 2015-ba2664 bankruptcy: a discharge
+key: 2014-ba250 bankruptcy: the newer list, "– <day>." endings
+key: 2008-ba1160 bankruptcy: the no asset procedure list
+key: 2018-ba2005 bankruptcy: a no asset procedure list with no head

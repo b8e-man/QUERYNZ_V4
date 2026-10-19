@@ -66,6 +66,8 @@ JOINED_FLOOR, NUMBER_FLOOR = 0.97, 0.98
 COMPANY = {"removal": ("ds", "gazette-removal-notice", 0.95),
            "winding-up application": ("aw", "gazette-winding-up-application", 0.95),
            "receivership": ("ar", "gazette-receivership", 0.88)}
+#: every notice in section ba is taken by one of these
+BANKRUPTCY = ("gazette-bankruptcy-list", "gazette-no-asset-procedure-list", "gazette-bankruptcy-notice")
 
 
 def _register(joined: dict) -> dict:
@@ -87,7 +89,7 @@ def _register_fails(what: str, r: dict, floor: float, number_floor: float = None
     return why
 
 
-def figures(rows, acted=(), marked=(), joined=None, company_joined=None) -> dict:
+def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulled_shown=0) -> dict:
     """rows: [(notice, title, format)] from the lane's published notices;
     acted: [(notice, supersedes)] for the notices that act on others; marked:
     the notices whose prohibition rows carry what superseded them."""
@@ -127,7 +129,11 @@ def figures(rows, acted=(), marked=(), joined=None, company_joined=None) -> dict
         company[kind] = {"code": code, "filed": len(filed), "not_read": sorted(n for n, f in filed if f != profile)}
         if company_joined is not None:
             company[kind]["register"] = _register(company_joined.get(kind, {}))
-    return {"numbering": numbering, "celebrants": cel, "prohibitions": pro, "liquidations": liq, "company": company}
+    ba = [(n, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] == "ba"]
+    bank = {"filed": len(ba), "by": {p: sum(1 for n, f in ba if f == p) for p in BANKRUPTCY},
+            "not_read": sorted(n for n, f in ba if f not in BANKRUPTCY), "annulled_shown": annulled_shown}
+    return {"numbering": numbering, "celebrants": cel, "prohibitions": pro, "liquidations": liq, "company": company,
+            "bankruptcies": bank}
 
 
 def failed(f: dict) -> list:
@@ -162,6 +168,14 @@ def failed(f: dict) -> list:
             why.append(f"{n}: filed by the Gazette under {c['code']} and not taken by the {kind} profile")
         if c.get("register") is not None:
             why += _register_fails(kind, c["register"], COMPANY[kind][2])
+    b = f.get("bankruptcies")
+    if b is not None:
+        if not b["filed"]:
+            why.append("no notice under section ba is published")
+        for n in b["not_read"][:20]:
+            why.append(f"{n}: filed by the Gazette under ba and not taken by a bankruptcy profile")
+        if b["annulled_shown"]:
+            why.append(f"{b['annulled_shown']} people an annulment names are published by name")
     years = set(f["numbering"])
     for y in range(CLOSED_FROM, CLOSED_TO + 1):
         if y not in years:
@@ -188,7 +202,9 @@ def main(argv=None) -> int:
         for kind, match, n in conn.execute(
                 f"SELECT kind, register_match, count(*) FROM {table(schema, 'company_notices', shared)} GROUP BY 1, 2"):
             company_joined[kind][match] = n
-    f = figures(rows, acted, marked, joined, company_joined)
+        annulled_shown = conn.execute(f"SELECT count(*) FROM {table(schema, 'bankruptcies', shared)} "
+                                      f"WHERE kind = 'annulment' AND withheld_by IS NULL").fetchone()[0]
+    f = figures(rows, acted, marked, joined, company_joined, annulled_shown)
     print(f"{len(rows)} notices published. The Gazette's own numbering, closed years "
           f"({CLOSED_FROM}-{CLOSED_TO}): highest number against numbers held")
     for y, (top, held) in f["numbering"].items():
@@ -216,6 +232,10 @@ def main(argv=None) -> int:
                   f"({100 * r['joined'] / r['rows']:.1f}%); {r['number_agrees']:,} of {r['numbered']:,} held printed numbers agree by name")
             for k, v in sorted(r["by"].items(), key=lambda kv: -kv[1]):
                 print(f"    {k or 'not joined'}: {v:,}")
+    b = f["bankruptcies"]
+    print(f"Bankruptcies: {b['filed']:,} notices the Gazette files under ba, "
+          f"{b['filed'] - len(b['not_read']):,} taken by a profile ("
+          + ", ".join(f"{p.split('gazette-')[1]} {v:,}" for p, v in b["by"].items()) + ")")
     why = failed(f)
     for w in why:
         print("FAILS " + w)

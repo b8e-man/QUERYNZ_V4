@@ -192,6 +192,35 @@ CREATE TABLE IF NOT EXISTS gazette.receivers (
     loaded_at        timestamptz NOT NULL
 );
 
+-- one row per person a bankruptcy notice names: the Official Assignee's adjudication and no-asset-procedure lists,
+-- and single notices (annulment, discharge, adjudication, meeting, dividend). The address is in gazette_private only
+CREATE TABLE IF NOT EXISTS gazette.bankruptcies (
+    key              text PRIMARY KEY,                      -- gazette/<notice>/person/<ordinal>
+    notice           text NOT NULL,
+    published_on     date,
+    kind             text NOT NULL,                         -- adjudication | no asset procedure | annulment | discharge | meeting | dividend | other
+    shape            text NOT NULL CHECK (shape IN ('notice', 'list')),
+    surname          text NOT NULL,
+    given_names      text NOT NULL,
+    also_known_as    text,
+    occupation       text,                                  -- as printed (the older lists)
+    event_on         date,                                  -- the adjudication or procedure's day; a single notice's first date after the name
+    event_at         text,                                  -- the time printed with it
+    court            text,
+    statute          text,
+    dated_on         date,
+    withheld_by      text,                                  -- the annulment notice that names this person: the published view withholds the name
+    ordinal          integer NOT NULL,
+    document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page             integer NOT NULL DEFAULT 1,
+    place            text NOT NULL,                         -- notice <number> person <ordinal>
+    read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL
+);
+
 -- every document the lane took, and what it did with it
 CREATE TABLE IF NOT EXISTS gazette.files (
     document   text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
@@ -220,4 +249,11 @@ CREATE TABLE IF NOT EXISTS gazette_private.prohibition_addresses (
     key        text PRIMARY KEY,                            -- the prohibition row's key
     address    text NOT NULL,
     formerly   boolean NOT NULL                             -- printed "Formerly of:"
+);
+
+-- a bankrupt's address as printed, and a "formerly of" address: never published, never granted to the session reader
+CREATE TABLE IF NOT EXISTS gazette_private.bankruptcy_addresses (
+    key        text PRIMARY KEY,                            -- the bankruptcy row's key
+    address    text,
+    formerly   text
 );

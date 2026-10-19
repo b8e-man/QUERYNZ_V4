@@ -10,6 +10,9 @@ model, so the fast tier runs the same code.
                address goes to the private schema only, like a celebrant's
   liquidations one per company a liquidator's appointment names, and liquidators
                one per liquidator it names (liquidations.py); no address is read
+  bankruptcies one per person a bankruptcy notice names (bankruptcies.py); the
+               address to the private schema only, and a person an annulment names
+               marked so the published view withholds the name
   company_notices  one per company a removal notice (removals.py), a winding-up
                application (windingup.py) or a receivership (receiverships.py) names,
                and receivers one per receiver a receivership names; no address is read
@@ -32,7 +35,8 @@ from dataclasses import dataclass, field
 
 from keys.dates import filed_date
 from support import profiles
-from registers.gazette import capture, celebrants, liquidations, notices, prohibitions, receiverships, removals, windingup
+from registers.gazette import (bankruptcies, capture, celebrants, liquidations, notices, prohibitions, receiverships, removals,
+                               windingup)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -44,6 +48,7 @@ READER_NOTICES = "registers.gazette.notices 1"
 READER_CELEBRANTS = "registers.gazette.celebrants 1"
 READER_PROHIBITIONS = "registers.gazette.prohibitions 1"
 READER_LIQUIDATIONS = "registers.gazette.liquidations 2"
+READER_BANKRUPTCIES = "registers.gazette.bankruptcies 1"
 #: the company-notice readers: (module, profile, reader stamp, kind), tried in this order
 COMPANY_READERS = (
     (removals, "gazette-removal-notice", "registers.gazette.removals 1", "removal"),
@@ -64,6 +69,8 @@ class Result:
     liquidators: list = field(default_factory=list)
     company_notices: list = field(default_factory=list)
     receivers: list = field(default_factory=list)
+    bankruptcies: list = field(default_factory=list)
+    bankruptcy_addresses: list = field(default_factory=list)   # (bankruptcy key, address, formerly)
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
     counts: dict = field(default_factory=dict)
 
@@ -88,6 +95,10 @@ def _name_key(surname: str, given: str) -> str:
 def _iso(text):
     d = filed_date(text) if text else None
     return d.isoformat() if d else None
+
+
+def _person_key(f: dict) -> tuple:
+    return tuple(re.sub(r"[^a-z]", "", (f[k] or "").lower()) for k in ("surname", "given_names"))
 
 
 def lines_of(data: bytes, only=None) -> list:
@@ -125,6 +136,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
     liquidated = liquidated_read = liquidated_aside = 0
     company = defaultdict(lambda: [0, 0, 0])            # kind → [recognised, read, set aside]
     cv_of = {p: profile_version(p) for _, p, _, _ in COMPANY_READERS}
+    bv_of = {p: profile_version(p) for p in (bankruptcies.LIST, bankruptcies.NAP, bankruptcies.NOTICE)}
+    bankrupt = defaultdict(lambda: [0, 0, 0])           # profile → [recognised, read, set aside]
     for nid in sorted(by):
         line, others = notices.pick(by[nid])
         for o, why in others:
@@ -235,6 +248,34 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                 status = "set aside"
                 if not got.unread:
                     out.set_aside.append((f"{export_sha}/notice {nid}", kind, "recognised, and no company read"))
+        elif (slug := bankruptcies.kind_of(code, line["title"], line["text"])):
+            fmt, reader, profile, version = slug, READER_BANKRUPTCIES, slug, bv_of[slug]
+            bankrupt[slug][0] += 1
+            got = bankruptcies.read(slug, line["title"], line["text"])
+            for place, why in got.unread:
+                out.set_aside.append((f"{export_sha}/notice {nid} {place}", "bankruptcies", why))
+            for x in got.persons:
+                key = f"gazette/{nid}/person/{x.ordinal}"
+                out.bankruptcies.append({
+                    "key": key, **base, "place": f"notice {nid} person {x.ordinal}",
+                    "reader": READER_BANKRUPTCIES, "profile": slug, "profile_version": version,
+                    "filed": {"notice": nid, "published_on": line["published_on"], "kind": got.kind, "shape": got.shape,
+                              "surname": x.surname, "given_names": x.given_names, "also_known_as": x.also_known_as,
+                              "occupation": x.occupation, "event_on": x.event_on, "event_at": x.event_at,
+                              "court": got.court, "statute": got.statute, "dated_on": got.dated_on,
+                              "withheld_by": nid if got.kind == "annulment" else None, "ordinal": x.ordinal},
+                })
+                if x.address or x.formerly:
+                    out.bankruptcy_addresses.append((key, x.address, x.formerly))
+            records = len(got.persons)
+            if records:
+                bankrupt[slug][1] += 1
+                status = "read, part set aside" if got.unread else "read"
+            else:
+                bankrupt[slug][2] += 1
+                status = "set aside"
+                if not got.unread:
+                    out.set_aside.append((f"{export_sha}/notice {nid}", "bankruptcies", "recognised, and no person read"))
         elif celebrants.recognise(line["title"], line["text"]):
             recognised += 1
             fmt, reader, profile, version = CELEBRANT_PROFILE, READER_CELEBRANTS, CELEBRANT_PROFILE, cv
@@ -293,6 +334,20 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
         raise AssertionError(f"the celebrant lists do not reconcile: {recognised} recognised, {with_records} read, {wholly_aside} set aside")
     if prohibited_read + prohibited_aside != prohibited:
         raise AssertionError(f"the prohibitions do not reconcile: {prohibited} recognised, {prohibited_read} read, {prohibited_aside} set aside")
+    # a person an annulment names is withheld on every row that names them as bankrupt before it (the same
+    # surname and given names, adjudicated on or before the annulment's notice): withholding never publishes
+    annulled = defaultdict(list)
+    for b in out.bankruptcies:
+        if b["filed"]["withheld_by"]:
+            annulled[_person_key(b["filed"])].append((b["filed"]["published_on"] or "9999", b["filed"]["notice"]))
+    for b in out.bankruptcies:
+        f = b["filed"]
+        if not f["withheld_by"]:
+            later = sorted(a for a in annulled.get(_person_key(f), []) if (f["event_on"] or f["published_on"] or "") <= a[0])
+            f["withheld_by"] = later[0][1] if later else None
+    for slug, (n, ok, aside) in bankrupt.items():
+        if ok + aside != n:
+            raise AssertionError(f"the {slug} notices do not reconcile: {n} recognised, {ok} read, {aside} set aside")
     if liquidated_read + liquidated_aside != liquidated:
         raise AssertionError(f"the liquidations do not reconcile: {liquidated} recognised, {liquidated_read} read, {liquidated_aside} set aside")
     for kind, (n, ok, aside) in company.items():
@@ -312,6 +367,10 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                   **{f"{k.replace(' ', '_').replace('-', '_')}_notices{s}": v[i] for k, v in sorted(company.items())
                      for i, s in enumerate(("", "_read", "_set_aside"))},
                   "company_notices": len(out.company_notices), "receivers": len(out.receivers),
+                  **{f"{k.split('gazette-')[1].replace('-', '_')}{s}": v[i] for k, v in sorted(bankrupt.items())
+                     for i, s in enumerate(("", "_read", "_set_aside"))},
+                  "bankruptcies": len(out.bankruptcies), "bankruptcy_addresses": len(out.bankruptcy_addresses),
+                  "bankruptcies_withheld": sum(1 for b in out.bankruptcies if b["filed"]["withheld_by"]),
                   "set_aside": len(out.set_aside),
                   "not_read": sum(1 for r in out.notices if r["filed"]["format"] == NOT_READ)}
     return out

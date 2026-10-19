@@ -10,6 +10,7 @@ import os
 import pytest
 
 from support import db, lane, rowcontract, sample
+from registers.gazette import bankruptcies as BK
 from registers.gazette import celebrants as K
 from registers.gazette import check, notices, read
 from registers.gazette import liquidations as LQ
@@ -180,7 +181,8 @@ def test_the_reading_reconciles_and_keys_are_stable_across_reads():
 def _closed_years() -> list:
     """A notice for every closed year, and one under each company-notice section, each read by its profile."""
     rows = [(f"{y}-al1", "Example Limited", check.LIQUIDATION) for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
-    return rows + [(f"2016-{code}7", "Example Limited", profile) for code, profile, floor in check.COMPANY.values()]
+    return rows + [(f"2016-{code}7", "Example Limited", profile) for code, profile, floor in check.COMPANY.values()] + [
+        ("2016-ba7", "Bankruptcies", check.BANKRUPTCY[0])]
 
 
 def test_the_check_fails_on_a_numbered_celebrant_notice_the_lane_did_not_read():
@@ -473,8 +475,59 @@ def test_the_check_fails_on_a_ds_or_aw_notice_not_taken_by_its_profile():
                               ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
     assert check.failed(check.figures(rows)) == []
     assert any("2016-ds9" in w for w in check.failed(check.figures(rows + [("2016-ds9", "X Limited", "not read")])))
+    assert any("2016-ba9" in w for w in check.failed(check.figures(rows + [("2016-ba9", "In Bankruptcy", "not read")])))
+    assert any("annulment" in w for w in check.failed(check.figures(rows, annulled_shown=1)))
     joined = {"removal": {RG.NAME: 90, RG.NOT_HELD: 10}, "winding-up application": {RG.NAME: 99, RG.NOT_HELD: 1}}
     assert [w for w in check.failed(check.figures(rows, company_joined=joined)) if "removal" in w]
+
+
+# --- bankruptcies (every name and address invented) ----------------------------------
+
+def test_the_older_adjudication_list_reads_people_by_day_and_keeps_every_address_apart():
+    t = ("The following persons were adjudicated bankrupt on the dates and times below:9 May 2004EXAMPLE, Ann Bea, sales "
+         "assistant, of 12 Sample Street, Exampletown, formerly of 3 Other Road, Town, at 10.30 a.m.SAMPLE, Bob and SAMPLE, "
+         "Cara, farmers, of R.D. 2, Exampletown, at 11.00 a.m.10 May 2004LANE, Dee, of 4 Sample Avenue, Town")
+    assert BK.kind_of("ba", "In Bankruptcy", t) == BK.LIST and BK.kind_of("al", "In Bankruptcy", t) is None
+    r = BK.read(BK.LIST, "In Bankruptcy", t)
+    got = [(p.surname, p.given_names, p.occupation, p.event_on, p.event_at) for p in r.persons]
+    assert got == [("EXAMPLE", "Ann Bea", "sales assistant", "2004-05-09", "10.30 a.m"),
+                   ("SAMPLE", "Bob", "farmers", "2004-05-09", "11.00 a.m"), ("SAMPLE", "Cara", "farmers", "2004-05-09", "11.00 a.m"),
+                   ("LANE", "Dee", None, "2004-05-10", None)]
+    assert r.persons[0].address == "12 Sample Street, Exampletown" and r.persons[0].formerly == "3 Other Road, Town"
+    assert r.unread == []
+
+
+def test_the_newer_lists_cut_between_endings_and_a_name_that_reads_as_an_address_is_set_aside():
+    t = ("The Official Assignee advises the following no asset procedures:Example, Ann (also known as Sample, Ann), 12 "
+         "Sample Street, Town – 9 May 2012.Sample, Bob – 3 Other Road, Town – 10 May 2012.Sample Street, Exampletown, "
+         "Town – 11 May 2012.Lane, Cara Dee, 4 Sample Avenue, Town – 12 May 2012.")
+    assert BK.kind_of("ba", "No Asset Procedures", t) == BK.NAP
+    r = BK.read(BK.NAP, "No Asset Procedures", t)
+    assert [(p.surname, p.given_names, p.also_known_as, p.event_on) for p in r.persons] == [
+        ("Example", "Ann", "Sample, Ann", "2012-05-09"), ("Sample", "Bob", None, "2012-05-10"), ("Lane", "Cara Dee", None, "2012-05-12")]
+    assert r.persons[1].address == "3 Other Road, Town" and r.kind == "no asset procedure"
+    assert [w for p, w in r.unread] == [BK.ADDRESSY]
+
+
+def test_an_annulment_names_its_person_and_the_reading_withholds_them_on_every_earlier_row():
+    t = ("Notice of Annulment of Adjudication Pursuant to section 309(1)(a) of the Insolvency Act 2006 The adjudication of "
+         "bankruptcy, made on 9 May 2010, of EXAMPLE, Ann Bea, of 12 Sample Street, Exampletown, was annulled by order of "
+         "the High Court at Auckland on 3 June 2011.")
+    assert BK.kind_of("ba", "Notice of Annulment of Adjudication", t) == BK.NOTICE
+    r = BK.read(BK.NOTICE, "Notice of Annulment of Adjudication", t)
+    assert r.kind == "annulment" and [(p.surname, p.given_names) for p in r.persons] == [("EXAMPLE", "Ann Bea")]
+    assert r.persons[0].address == "12 Sample Street, Exampletown" and r.court == "High Court at Auckland"
+    lines = [{"article": "a1", "notice": "2010-ba5", "title": "Bankruptcies", "published_on": "2010-05-20", "url": "u",
+              "text": "The Official Assignee advises the following bankruptcies:Example, Ann Bea, 12 Sample Street, Town – 9 May "
+                      "2010.Sample, Bob, 3 Other Road, Town – 9 May 2010."},
+             {"article": "a2", "notice": "2011-ba7", "title": "Notice of Annulment of Adjudication", "published_on": "2011-06-10",
+              "url": "u", "text": t}]
+    data = "\n".join(json.dumps(l) for l in lines).encode()
+    res = read.read(data, "0" * 64)
+    by = {(b["filed"]["notice"], b["filed"]["surname"]): b["filed"]["withheld_by"] for b in res.bankruptcies}
+    assert by == {("2010-ba5", "Example"): "2011-ba7", ("2010-ba5", "Sample"): None, ("2011-ba7", "EXAMPLE"): "2011-ba7"}
+    assert {k for k, a, f in res.bankruptcy_addresses} == {b["key"] for b in res.bankruptcies}
+    assert "Sample Street" not in json.dumps([b["filed"] for b in res.bankruptcies])
 
 
 # --- the filled sample ---------------------------------------------------------------
@@ -510,7 +563,10 @@ def filled():
                "prohibition_private": q(f"SELECT key, formerly FROM {schema}_private.gazette_prohibition_addresses"),
                "liquidations": q(f"SELECT * FROM {schema}.gazette_liquidations ORDER BY key"),
                "liquidators": q(f"SELECT * FROM {schema}.gazette_liquidators ORDER BY key"),
-               "company_notices": q(f"SELECT * FROM {schema}.gazette_company_notices ORDER BY key")}
+               "company_notices": q(f"SELECT * FROM {schema}.gazette_company_notices ORDER BY key"),
+               "bankruptcies": q(f"SELECT * FROM {schema}.gazette_bankruptcies ORDER BY key"),
+               "bankruptcy_private": q(f"SELECT key, address IS NOT NULL AS a, formerly IS NOT NULL AS f "
+                                       f"FROM {schema}_private.gazette_bankruptcy_addresses")}
 
 
 def test_every_listed_notice_is_held_once_and_the_second_capture_is_a_catch_log_line(filled):
@@ -523,7 +579,7 @@ def test_every_listed_notice_is_held_once_and_the_second_capture_is_a_catch_log_
 def test_each_case_reads_as_its_comment_says(filled):
     by = {n["notice"]: n for n in filled["notices"]}
     assert by["2004-go1177"]["status"] == "set aside" and by["2014-go6947"]["status"] == "set aside"
-    assert by["2018-ba414"]["format"] == by["2002-is8379"]["format"] == "not read"
+    assert by["2018-ba414"]["format"] == check.BANKRUPTCY[2] and by["2002-is8379"]["format"] == "not read"
     assert by["2025-al4914"]["format"] == check.LIQUIDATION
     assert by["2003-go5183"]["format"] == "not read"
     shapes = {}
@@ -534,7 +590,7 @@ def test_each_case_reads_as_its_comment_says(filled):
     assert {c["action"] for c in filled["celebrants"] if c["notice"] == "2013-go541"} == {"annual list"}
     for n in by.values():
         assert n["records"] == sum(1 for c in filled["celebrants"] + filled["prohibitions"] + filled["liquidations"]
-                                   + filled["company_notices"] if c["notice"] == n["notice"])
+                                   + filled["company_notices"] + filled["bankruptcies"] if c["notice"] == n["notice"])
 
 
 def test_an_address_is_private_and_no_published_row_carries_one(filled):
@@ -672,3 +728,27 @@ def test_each_removal_and_winding_up_case_reads_as_its_comment_says(filled):
     assert cos["2000-ar2556"] and cos["2013-ar2626"][0]["action"] == "appointment; ceased to act"
     assert notice["2015-ar86"]["status"] == "set aside" and "2015-ar86" not in cos
     assert cos["2007-ar826"][0]["by_whom"] == "court"
+
+
+def test_each_bankruptcy_case_reads_as_its_comment_says_and_no_address_is_published(filled):
+    notice = {n["notice"]: n for n in filled["notices"]}
+    ppl = {}
+    for b in filled["bankruptcies"]:
+        ppl.setdefault(b["notice"], []).append(b)
+    assert all(notice[n]["format"] in check.BANKRUPTCY for n in notice if "-ba" in n)
+    assert notice["2018-ba414"]["status"] == "set aside"
+    assert ppl["2000-ba5766"][0]["withheld_by"] == "2000-ba5766" and ppl["2000-ba5766"][0]["kind"] == "annulment"
+    assert ppl["2000-ba5071"][0]["occupation"] and len(ppl["2000-ba5451"]) == 3
+    assert {b["kind"] for b in ppl["2014-ba250"]} == {"adjudication"} and len(ppl["2014-ba250"]) >= 3
+    assert {b["kind"] for b in ppl["2008-ba1160"] + ppl["2018-ba2005"]} == {"no asset procedure"}
+    assert all(b["event_on"] for b in ppl["2014-ba250"] + ppl["2008-ba1160"] + ppl["2018-ba2005"])
+    annul = ppl["2002-ba3634"][0]
+    assert annul["kind"] == "annulment" and annul["withheld_by"] == "2002-ba3634"
+    assert ppl["2015-ba2664"][0]["kind"] == "discharge"
+    private = {p["key"]: p for p in filled["bankruptcy_private"]}
+    assert private[ppl["2000-ba5071"][0]["key"]]["f"]
+    assert not set(filled["bankruptcies"][0]) & {"address", "formerly", "text"}
+    with filled["conn"].cursor() as cur:
+        cur.execute(f"CREATE TEMP VIEW pub_b AS {open(os.path.join(REPO, 'registers/gazette/publish.sql')).read().split('CREATE OR REPLACE VIEW pub.gazette_bankruptcies AS')[1].replace('gazette.bankruptcies', filled['schema'] + '.gazette_bankruptcies').rstrip().rstrip(';')}")
+        cur.execute("SELECT surname, given_names FROM pub_b WHERE notice = '2002-ba3634'")
+        assert cur.fetchall() == [(None, None)]

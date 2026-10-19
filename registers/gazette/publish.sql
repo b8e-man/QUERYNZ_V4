@@ -44,3 +44,15 @@ CREATE OR REPLACE VIEW pub.gazette_receivers AS
 SELECT key, notice, published_on, name, role, named_in_body, companies, ordinal, document, page, place, read_from, reader,
        profile, profile_version, loaded_at
 FROM gazette.receivers;
+
+-- a bankrupt by name, the kind of notice and its day; never an address (gazette_private). A person an annulment names
+-- is withheld on every row that names them as bankrupt before it: the row stays, with the annulment's number
+CREATE OR REPLACE VIEW pub.gazette_bankruptcies AS
+SELECT key, notice, published_on, kind, shape,
+       CASE WHEN withheld_by IS NULL THEN surname END AS surname,
+       CASE WHEN withheld_by IS NULL THEN given_names END AS given_names,
+       CASE WHEN withheld_by IS NULL THEN also_known_as END AS also_known_as,
+       CASE WHEN withheld_by IS NULL THEN occupation END AS occupation,
+       event_on, event_at, court, statute, dated_on, withheld_by, ordinal, document, page, place, read_from, reader,
+       profile, profile_version, loaded_at
+FROM gazette.bankruptcies;
