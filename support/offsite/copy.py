@@ -6,9 +6,9 @@ A table travels as its own `COPY ... TO STDOUT` text, read inside one
 repeatable-read transaction per database, so every table of a database
 copied the same night is from one moment. On the way out the stream is
 hashed (sha256) and its rows counted, then compressed (zstd) and sealed
-(gpg, AES256, the passphrase on a pipe). A restored table read back the
-same way gives the same bytes in the same order (a table loaded by COPY is
-scanned in load order), so equality is one hash per table, exact.
+(gpg, AES256, the passphrase on a pipe). The restore checks each object
+against that hash on the way in, and the restored table read back against
+the same rows in any order (`restore.Multiset`).
 
 Nightly, a table is copied only if its write counters or its file node
 moved since the copy the newest manifest names; a tree sends only files
@@ -348,8 +348,7 @@ class Run:
             chunks.append({"lo": lo, "hi": hi, "stamp": self.stamp, "object": name, **meta})
             whole.update(bytes.fromhex(meta["sha256"]))
             rows, plain, sealed_bytes, sent = rows + meta["rows"], plain + meta["plain_bytes"], sealed_bytes + meta["bytes"], sent + 1
-        # the whole-table hash is over the ranges' hashes in order (a
-        # restore recomputes it the same way from the table it loaded)
+        # the table's identity: the hash of its ranges' hashes in order
         return {"chunks": chunks, "pages_per_chunk": ppc, "sha256": whole.hexdigest(), "rows": rows,
                 "plain_bytes": plain, "bytes": sealed_bytes, "sent_chunks": sent}
 

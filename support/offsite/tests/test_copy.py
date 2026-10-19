@@ -208,17 +208,13 @@ def test_a_big_table_sends_only_the_ranges_that_changed(tmp_path, monkeypatch):
     assert [c["stamp"] for c in second["chunks"]] == [first["chunks"][0]["stamp"]] * 2 + [night.stamp]
     assert C.objects_of(second, night.stamp) == [second["chunks"][2]["object"]]
 
-    # the restore's check: the table read back in load order, range by range
-    split = R.Split(R.segments(second))
-    split.feed(b"".join(pages)[:7])
-    split.feed(b"".join(pages)[7:])
-    assert split.equal()
-    bad = R.Split(R.segments(second))
-    bad.feed(b"".join(pages).replace(b"new", b"NEW"))
-    assert not bad.equal()
-    short = R.Split(R.segments(second))
-    short.feed(b"".join(pages[:-1]))
-    assert not short.equal()
+    # the restore's check: the rows read back in any order
+    want = R.Multiset()
+    for c in second["chunks"]:
+        want.feed(b"".join(pages[c["lo"]:c["hi"]]))
+    back = R.Multiset()
+    back.feed(b"".join(reversed(pages)))
+    assert back.digest() == want.digest() == (want.digest()[0], 6)
 
 
 def test_a_full_copy_sends_every_range(tmp_path, monkeypatch):
@@ -231,17 +227,17 @@ def test_a_full_copy_sends_every_range(tmp_path, monkeypatch):
     assert again["sent_chunks"] == len(again["chunks"]) == 2 and again["sha256"] == first["sha256"]
 
 
-def test_split_handles_empty_ranges_and_a_whole_table():
-    import hashlib
-    e = hashlib.sha256().hexdigest()
-    a = hashlib.sha256(b"1\n2\n").hexdigest()
-    s = R.Split([{"rows": 0, "sha256": e}, {"rows": 2, "sha256": a}, {"rows": 0, "sha256": e}])
-    s.feed(b"1\n2\n")
-    assert s.equal()
-    whole = R.Split(R.segments({"rows": 2, "sha256": a}))
-    whole.feed(b"1\n")
-    whole.feed(b"2\n")
-    assert whole.equal()
+def test_the_multiset_check_ignores_order_and_nothing_else():
+    def digest(*blocks):
+        m = R.Multiset()
+        for b in blocks:
+            m.feed(b)
+        return m.digest()
+    assert digest(b"a\t1\nb\t2\n") == digest(b"b\t2\na", b"\t1\n")
+    assert digest(b"a\t1\nb\t2\n") != digest(b"a\t1\nb\t3\n")
+    assert digest(b"a\t1\n") != digest(b"a\t1\na\t1\n")
+    with pytest.raises(ValueError):
+        digest(b"a\t1")
 
 
 def test_two_runs_never_share_a_spool(tmp_path):
@@ -251,3 +247,16 @@ def test_two_runs_never_share_a_spool(tmp_path):
         fcntl.flock(held, fcntl.LOCK_EX)
         with pytest.raises(RuntimeError, match="another copy is running"):
             tree_run(str(tmp_path), MONDAY).run(databases={}, trees={})
+
+
+def test_objects_needed_follow_the_restore_order():
+    man = {"databases": {"b": {"stamp": "S2", "schema": "b--_schema.dump.gpg"},
+                         "a": {"stamp": "S1", "schema": "a--_schema.dump.gpg"}},
+           "pieces": {"a:s.t": {"fate": "send", "stamp": "S1", "object": "a--s.t.copy.zst.gpg"},
+                      "a:s.big": {"fate": "send", "chunks": [{"stamp": "S1", "object": "r0"}, {"stamp": "S2", "object": "r1"}]},
+                      "a:s.vec": {"fate": "local", "stamp": "S1", "object": "v"},
+                      "b:s.gone": {"fate": "out"}},
+           "trees": {"t": {"files": {"x": [1, 0, "h", "S2"], "y": [1, 0, "h", "S1"]}}}}
+    assert R.objects_needed(man) == [
+        ("S1", "a--_schema.dump.gpg"), ("S1", "r0"), ("S2", "r1"), ("S1", "a--s.t.copy.zst.gpg"),
+        ("S2", "b--_schema.dump.gpg"), ("S1", "tree--t.tar.zst.gpg"), ("S2", "tree--t.tar.zst.gpg")]
