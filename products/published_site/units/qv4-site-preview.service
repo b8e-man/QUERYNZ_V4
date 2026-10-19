@@ -1,0 +1,16 @@
+[Unit]
+Description=QueryNZV4 published-site preview — the newest Follow the Money version folder, on the local network only (plan 4.4); never the frozen product's ports
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/user/querynzv4
+ExecStart=/home/user/querynzv4/.venv/bin/python -m products.published_site preview
+# the port is never 8300 or 8301 (the code refuses them); the version folder lives under the live folder's site/
+Environment=PYTHONUNBUFFERED=1 QV4_SITE_PORT=8430 QV4_SITE_BIND=0.0.0.0 QV4_SITE_OUT=/home/user/querynzv4-work/live/site
+Restart=on-failure
+RestartSec=10
+Nice=5
+
+[Install]
+WantedBy=default.target
