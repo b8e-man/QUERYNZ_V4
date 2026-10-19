@@ -165,3 +165,98 @@ def test_restore_tree_refuses_paths_outside(tmp_path, path):
     src = R.Source("local", str(tmp_path / "w"), spool=str(spool))
     rec = R.restore_tree("t", {"files": {path: [1, 0, "x", "S"]}}, src, "pw", str(tmp_path / "b"), log=lambda *a: None)
     assert rec["bad"] == 1 and not (tmp_path / "escape.txt").exists()
+
+
+class PagedTable:
+    """A fake cursor over one table: `pages[p]` is the text of heap page p,
+    served for `COPY (SELECT ... WHERE ctid >= '(lo,0)' [AND ctid < '(hi,0)']) TO STDOUT`."""
+
+    def __init__(self, pages):
+        self.pages, self.reads = pages, []
+
+    def copy(self, sql):
+        import contextlib
+        import re
+        lo = int(re.search(r"ctid >= '\((\d+),0\)'", sql).group(1))
+        m = re.search(r"ctid < '\((\d+),0\)'", sql)
+        hi = int(m.group(1)) if m else len(self.pages)
+        self.reads.append((lo, hi))
+        return contextlib.nullcontext(iter([b"".join(self.pages[lo:hi])]))
+
+
+def chunk_run(tmp_path, now, prev, full=False):
+    r = C.Run.__new__(C.Run)
+    r.now, r.prev, r.spool, r.env, r.log = now, prev, str(tmp_path), ENV, (lambda *a: None)
+    r.man = {"stamp": now.strftime("%Y%m%dT%H%M%S"), "kind": "full" if full else "nightly"}
+    return r
+
+
+def test_a_big_table_sends_only_the_ranges_that_changed(tmp_path, monkeypatch):
+    monkeypatch.setattr(C, "CHUNK_TARGET", 10)        # 2 pages of 5 bytes per range
+    monkeypatch.setattr(C, "CHUNK_MIN_PAGES", 1)
+    pages = [f"r{p}\tx\n".encode() for p in range(5)]
+    first = chunk_run(tmp_path, MONDAY, None).copy_chunked(PagedTable(pages), "d:s.t", "s", "t", 5, 25, "first copy")
+    assert [(c["lo"], c["hi"]) for c in first["chunks"]] == [(0, 2), (2, 4), (4, None)]
+    assert first["sent_chunks"] == 3 and first["rows"] == 5
+
+    pages[4] = b"r4\tchanged\n"
+    pages.append(b"r5\tnew\n")                        # the table grew a page
+    prev = {"pieces": {"d:s.t": first}}
+    night = chunk_run(tmp_path, MONDAY + dt.timedelta(days=1), prev)
+    second = night.copy_chunked(PagedTable(pages), "d:s.t", "s", "t", 6, 30, "changed")
+    assert second["sent_chunks"] == 1 and second["rows"] == 6
+    assert [c["stamp"] for c in second["chunks"]] == [first["chunks"][0]["stamp"]] * 2 + [night.stamp]
+    assert C.objects_of(second, night.stamp) == [second["chunks"][2]["object"]]
+
+    # the restore's check: the rows read back in any order
+    want = R.Multiset()
+    for c in second["chunks"]:
+        want.feed(b"".join(pages[c["lo"]:c["hi"]]))
+    back = R.Multiset()
+    back.feed(b"".join(reversed(pages)))
+    assert back.digest() == want.digest() == (want.digest()[0], 6)
+
+
+def test_a_full_copy_sends_every_range(tmp_path, monkeypatch):
+    monkeypatch.setattr(C, "CHUNK_TARGET", 10)
+    monkeypatch.setattr(C, "CHUNK_MIN_PAGES", 1)
+    pages = [f"r{p}\tx\n".encode() for p in range(4)]
+    first = chunk_run(tmp_path, MONDAY, None).copy_chunked(PagedTable(pages), "d:s.t", "s", "t", 4, 20, "first copy")
+    full = chunk_run(tmp_path, SUNDAY + dt.timedelta(days=7), {"pieces": {"d:s.t": first}}, full=True)
+    again = full.copy_chunked(PagedTable(pages), "d:s.t", "s", "t", 4, 20, "weekly full")
+    assert again["sent_chunks"] == len(again["chunks"]) == 2 and again["sha256"] == first["sha256"]
+
+
+def test_the_multiset_check_ignores_order_and_nothing_else():
+    def digest(*blocks):
+        m = R.Multiset()
+        for b in blocks:
+            m.feed(b)
+        return m.digest()
+    assert digest(b"a\t1\nb\t2\n") == digest(b"b\t2\na", b"\t1\n")
+    assert digest(b"a\t1\nb\t2\n") != digest(b"a\t1\nb\t3\n")
+    assert digest(b"a\t1\n") != digest(b"a\t1\na\t1\n")
+    with pytest.raises(ValueError):
+        digest(b"a\t1")
+
+
+def test_two_runs_never_share_a_spool(tmp_path):
+    import fcntl
+    os.makedirs(tmp_path, exist_ok=True)
+    with open(tmp_path / "lock", "w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)
+        with pytest.raises(RuntimeError, match="another copy is running"):
+            tree_run(str(tmp_path), MONDAY).run(databases={}, trees={})
+
+
+def test_objects_needed_follow_the_restore_order():
+    man = {"databases": {"b": {"stamp": "S2", "schema": "b--_schema.dump.gpg"},
+                         "a": {"stamp": "S1", "schema": "a--_schema.dump.gpg"}},
+           "pieces": {"a:s.t": {"fate": "send", "stamp": "S1", "object": "a--s.t.copy.zst.gpg"},
+                      "a:s.big": {"fate": "send", "chunks": [{"stamp": "S1", "object": "r0"}, {"stamp": "S2", "object": "r1"}]},
+                      "a:s.vec": {"fate": "local", "stamp": "S1", "object": "v"},
+                      "b:s.gone": {"fate": "out"}},
+           "trees": {"t": {"files": {"x": [1, 0, "h", "S2"], "y": [1, 0, "h", "S1"]}}}}
+    assert R.objects_needed(man) == [
+        ("S1", "a--_schema.dump.gpg"), ("S1", "r0"), ("S2", "r1"), ("S1", "a--s.t.copy.zst.gpg"),
+        ("S2", "b--_schema.dump.gpg"), ("S1", "tree--t.tar.zst.gpg"), ("S2", "tree--t.tar.zst.gpg")]

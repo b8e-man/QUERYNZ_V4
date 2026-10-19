@@ -1,37 +1,32 @@
 # offsite (track B, session 2)
 
-**Updated:** 2026-10-19 07:50 NZDT. Overwritten at every close.
+**Updated:** 2026-10-20 04:10 NZDT. Overwritten at every close.
 
 ## Done
 
-- The copy and the rehearsal, in `support/offsite/` (`pieces.py` the
-  delete rule, `copy.py`, `restore.py`, `spec.md`): one piece per table
-  (its `COPY` text, sha256 and rows, zstd, gpg) and per file tree; nightly
-  only what moved, full on Sunday, the press graph frozen (sent when it
-  moves or every 28 days); every manifest complete, so a restore needs the
-  newest one only. Proven on `querynz_v4` and the inbox: a nightly restored
-  to equality from objects of two stamps; a tampered hash fails the check.
-  Fast tier green.
-- Card `the-press-graph-leaves-the-old-nightly-push`; lesson
-  `an-empty-selection-is-not-no-selection`.
-
-## Under way
-
-- The first full copy, unit `qv4-offsite-copy-first` (user unit, started
-  07:45), log `/home/user/querynzv4-work/scratch/offsite/first-full.log`,
-  local copy `/mnt/hdd2/qv4-offsite`. It is the press graph's last full
-  copy. If it dies, rerun `python -m support.offsite copy --full` from this
-  working copy: it resumes the same stamp within 20 hours.
+- offsite-2a merged (fe236e1): the copy, the delete rule, the rehearsal;
+  `qv4-offsite-copy` on the queue's clock at 21:00 NZDT. It ran 19 October
+  10:33 (catch-up) and 21:00, both green.
+- First full copy 19 October 07:45 (1 h 59 min, 24 GB sent; 34.5 GB of
+  vectors kept on /mnt/hdd2): the press graph's last full copy.
+- **Restore from the bucket to equality, 19 October 19:40 to 21:30: 1 h 50
+  min**, copy 20261019T193457 (objects of four runs): 269 of 269 tables, 530
+  million rows, and 90,123 of 90,123 files equal; 24.5 GB fetched in 41 min.
+  The vectors table is kept on the box, never sent (by design); from the
+  local copy it restored too: incoming_news 23/23 with the vectors, 62 min.
+- offsite-2b raised (branch at the commit that carries this file): ranges
+  for tables over 1 GB, the spool lock, the multiset check, prefetch, and
+  the step 1.8 dump retired (code and units here; the scheduler's three
+  files by patch).
 
 ## Next
 
-1. When it finishes: `python -m support.offsite restore` (from the bucket)
-   on `/mnt/hdd2/qv4-restore`, record the time, raise merge request 2.
-2. The integrator applies the catalogue patch in merge request 1
-   (`qv4-offsite-copy` replaces `qv4-offsite-dump`, `qv4-offsite-rehearsal`).
+- Nothing in track B's brief is left. After 2b merges, a normal night sends
+  only changed ranges; the first Sunday full (25 October) and the first
+  28-day rehearsal are the next measurements.
 
 ## Waiting on Arthur
 
-- 32 GB of copies sealed under the test passphrase in
-  `/tmp/pytest-of-user/pytest-{251,253,256,261,263}` (outside the fence).
-- The old read login points at the primary (no standby while node1 is down).
+- Card `the-press-graph-leaves-the-old-nightly-push` (after the election).
+- The old read login points at db-primary: with node1 down there is no
+  standby, so the copy reads the old databases on the primary (read only).

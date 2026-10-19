@@ -2,11 +2,14 @@
 into a scratch database server on /mnt/hdd2 and checked to equality, every
 step timed.
 
-Equality is exact, not "90% of the primary": every table read back from the
-scratch server with the same `COPY ... TO STDOUT` the copy used gives the
-same sha256 and row count the manifest recorded, and every file of every
-tree gives its recorded sha256. A table is also checked on the way in, so a
-damaged object is told apart from a bad load.
+Equality is exact, not "90% of the primary", and holds two ways. On the
+way in, every object's text has the sha256 the copy recorded as it left the
+source, so the loaded rows are the source's rows. On the way out, the table
+read back with the same `COPY ... TO STDOUT` holds the same rows: the same
+count and the same order-free sum of each row's hash (a multiset hash).
+Order cannot be compared: a table loaded by COPY does not read back in load
+order (PostgreSQL 18's bulk insert, measured 19 October). Every file of
+every tree gives its recorded sha256.
 
 The order of a restore: the schema before data (pg_restore
 --section=pre-data), every table's rows, the sequences (a value the copy
@@ -92,10 +95,33 @@ class Source:
             raise RuntimeError("no complete copy in the bucket")
         return max(stamps)
 
+    def prefetch(self, wanted: list) -> None:
+        """Download `wanted` [(stamp, name)] in order on a thread, so the
+        link and the load overlap; `fetch` then waits for its object."""
+        import threading
+        if self.kind == "local":
+            return
+        self._lock = getattr(self, "_lock", None) or threading.Lock()
+
+        def run():
+            for stamp, name in wanted:
+                try:
+                    self.fetch(stamp, name)
+                except Exception:  # noqa: BLE001 — fetch() retries in the caller and raises there
+                    return
+        threading.Thread(target=run, daemon=True).start()
+
     def fetch(self, stamp: str, name: str) -> str:
         if self.kind == "local":
             return os.path.join(self.spool, "objects", stamp, name)
         path = os.path.join(self.work, "objects", stamp, name)
+        lock = getattr(self, "_lock", None)
+        if lock is None or os.path.exists(path):
+            return self._download(stamp, name, path)
+        with lock:          # one download at a time; the loader waits its turn
+            return self._download(stamp, name, path)
+
+    def _download(self, stamp: str, name: str, path: str) -> str:
         if not os.path.exists(path):
             os.makedirs(os.path.dirname(path), exist_ok=True)
             t0 = time.monotonic()
@@ -104,6 +130,21 @@ class Source:
             self.fetch_s += time.monotonic() - t0
             self.fetched_bytes += os.path.getsize(path)
         return path
+
+
+def objects_needed(man: dict, databases=None, trees=None) -> list:
+    """Every object a restore of `man` reads, in the order it reads them."""
+    out = []
+    for database in (sorted(man["databases"]) if databases is None else databases):
+        dbm = man["databases"][database]
+        out.append((dbm["stamp"], dbm["schema"]))
+        for piece, v in sorted(man["pieces"].items()):
+            if piece.startswith(database + ":") and v["fate"] == "send":
+                out += [(seg["stamp"], seg["object"]) for seg in segments(v)]
+    for tree in (sorted(man["trees"]) if trees is None else trees):
+        name = C.object_name(f"tree:{tree}") + ".tar.zst.gpg"
+        out += [(st, name) for st in sorted({f[3] for f in man["trees"][tree]["files"].values()})]
+    return out
 
 
 def read_manifest(src: Source, stamp: str, passphrase: str) -> dict:
@@ -198,22 +239,27 @@ def restore_database(database: str, man: dict, src: Source, passphrase: str, roo
                 rec["skipped"].append(f"{piece}: kept on the box only, not in the bucket")
                 continue
             schema, table = piece.split(":", 1)[1].split(".", 1)
-            gpg, zstd = C.opened(src.fetch(v["stamp"], v["object"]), passphrase)
-            h, rows, n = hashlib.sha256(), 0, 0
+            if v.get("plain_bytes", 0) > 100e6:
+                log(f"    {piece}: {v['plain_bytes'] / 1e6:,.0f} MB")
+            rows_in = Multiset()
             with conn.cursor().copy(f"COPY {C.qident(schema)}.{C.qident(table)} FROM STDIN") as cp:
-                for chunk in iter(lambda: zstd.stdout.read(C.CHUNK), b""):
-                    h.update(chunk)
-                    rows += chunk.count(b"\n")
-                    n += len(chunk)
-                    cp.write(chunk)
-            if zstd.wait() or gpg.wait():
-                raise RuntimeError(f"{piece}: object does not open")
-            if h.hexdigest() != v["sha256"] or rows != v["rows"]:
-                rec["in_bad"].append(piece)
-            loaded[piece] = (schema, table)
+                for seg in segments(v):          # a big table's ranges
+                    gpg, zstd = C.opened(src.fetch(seg["stamp"], seg["object"]), passphrase)
+                    h, rows, n = hashlib.sha256(), 0, 0
+                    for chunk in iter(lambda: zstd.stdout.read(C.CHUNK), b""):
+                        h.update(chunk)
+                        rows += chunk.count(b"\n")
+                        n += len(chunk)
+                        rows_in.feed(chunk)
+                        cp.write(chunk)
+                    if zstd.wait() or gpg.wait():
+                        raise RuntimeError(f"{piece}: object does not open")
+                    if h.hexdigest() != seg["sha256"] or rows != seg["rows"]:
+                        rec["in_bad"].append(piece)
+                    rec["rows"] += rows
+                    rec["plain_bytes"] += n
+            loaded[piece] = (schema, table, rows_in.digest())
             rec["tables"] += 1
-            rec["rows"] += rows
-            rec["plain_bytes"] += n
     rec["seconds"]["rows_in"] = round(time.monotonic() - t, 1)
 
     t = time.monotonic()
@@ -229,18 +275,43 @@ def restore_database(database: str, man: dict, src: Source, passphrase: str, roo
         cur = conn.cursor()
         for stmt in C.SESSION_SQL.split("; "):
             cur.execute(stmt)
-        for piece, (schema, table) in sorted(loaded.items()):
-            h, rows = hashlib.sha256(), 0
+        for piece, (schema, table, want) in sorted(loaded.items()):
+            back = Multiset()
             with cur.copy(f"COPY {C.qident(schema)}.{C.qident(table)} TO STDOUT") as cp:
                 for chunk in cp:
-                    h.update(chunk)
-                    rows += bytes(chunk).count(b"\n")
-            if h.hexdigest() != mine[piece]["sha256"] or rows != mine[piece]["rows"]:
+                    back.feed(bytes(chunk))
+            if back.digest() != want or want[1] != mine[piece]["rows"]:
                 rec["out_bad"].append(piece)
     rec["seconds"]["check"] = round(time.monotonic() - t, 1)
     rec["equal"] = rec["tables"] - len(set(rec["in_bad"]) | set(rec["out_bad"]))
     log(f"  {database}: {rec['tables']} tables, {rec['rows']:,} rows, {rec['equal']} equal; {rec['seconds']}")
     return rec
+
+
+def segments(entry: dict) -> list:
+    """The objects that hold one table: its page ranges, or itself."""
+    return entry.get("chunks") or [entry]
+
+
+class Multiset:
+    """An order-free hash of a table's text: the number of rows and the sum,
+    modulo 2**128, of each row's 128-bit BLAKE2b. Two tables with the same
+    rows in any order give the same digest."""
+
+    def __init__(self):
+        self.acc, self.rows, self.tail = 0, 0, b""
+
+    def feed(self, b: bytes) -> None:
+        lines = (self.tail + b).split(b"\n")
+        self.tail = lines.pop()
+        self.rows += len(lines)
+        h = hashlib.blake2b
+        self.acc += sum(int.from_bytes(h(ln, digest_size=16).digest(), "little") for ln in lines)
+
+    def digest(self) -> tuple:
+        if self.tail:
+            raise ValueError("a table's text ends mid-row")
+        return f"{self.acc % (1 << 128):032x}", self.rows
 
 
 OWNED_SEQUENCES_SQL = """
@@ -318,26 +389,32 @@ def rehearse(source: str = "bucket", databases=None, trees=None, keep: bool = Fa
     passphrase = read_env(ENV_FILE)["OFFSITE_PASSPHRASE"]
     stamp = stamp or src.newest_stamp()
     man = read_manifest(src, stamp, passphrase)
+    src.prefetch(objects_needed(man, databases, trees))
     log(f"restore rehearsal from the {source}: copy {stamp} ({man['kind']})")
     rec = {"stamp": stamp, "kind": man["kind"], "source": source,
            "started": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "databases": {}, "trees": {}}
     t = time.monotonic()
     start_server(root)
     rec["server_s"] = round(time.monotonic() - t, 1)
+    failed = False
     try:
         for database in (list(man["databases"]) if databases is None else databases):
             rec["databases"][database] = restore_database(database, man, src, passphrase, root, jobs, log)
         for tree in (list(man["trees"]) if trees is None else trees):
             rec["trees"][tree] = restore_tree(tree, man["trees"][tree], src, passphrase, root, log)
+    except Exception as exc:
+        failed = True
+        rec["why"] = f"{type(exc).__name__}: {exc}"[:500]
+        raise
     finally:
         rec["seconds"] = round(time.monotonic() - started, 1)
         rec["fetched_bytes"], rec["fetch_s"] = src.fetched_bytes, round(src.fetch_s, 1)
         dbs, trs = rec["databases"].values(), rec["trees"].values()
-        rec["equal"] = (bool(dbs) or bool(trs)) and all(
-            d["equal"] == d["tables"] and not d["skipped"] for d in dbs) and all(t["bad"] == 0 for t in trs)
+        rec["equal"] = not failed and (bool(dbs) or bool(trs)) and all(
+            d["equal"] == d["tables"] for d in dbs) and all(t["bad"] == 0 for t in trs)
         rec["finished"] = dt.datetime.now().astimezone().isoformat(timespec="seconds")
         C.write_json(RECORD, rec)
-        if not keep:
+        if not keep and not failed:     # a failed rehearsal keeps its server, log and downloads for the next look
             stop_server()
             for sub in ("pgdata", "trees", "work", "sock"):
                 path = os.path.join(root, sub)

@@ -132,8 +132,12 @@ def test_parts_that_miss_the_total_publish_nothing():
     assert out.set_aside[0][0] == "declaration" and "parts sum to" in out.set_aside[0][1]
 
 
-def test_an_image_page_with_no_stored_reading_names_the_document():
-    out = _read("no stored page reading")
+def test_an_image_page_with_no_stored_reading_names_the_document(tmp_path):
+    # an empty reader store: the live one has held this return's pages since queue rows 110 and 111 (20 October)
+    sha = _sample("no stored page reading")
+    if not os.path.exists(path_for(sha)):
+        pytest.skip(f"document {sha[:12]} is not in the document store here")
+    out = read.read_return(read_bytes(sha), sha, rd.Store(str(tmp_path / "empty")), loaded_at="2026-10-19T20:00:00+13:00")
     assert out.row is None
     stage, why = out.set_aside[0]
     assert stage == "read" and "ask for a re-read of " + _sample("no stored page reading") in why
