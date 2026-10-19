@@ -1,4 +1,4 @@
-Mask a Gazette sample by vocabulary, not by case: masking capitals and digits still printed an email's local part (a person's given name) and lowercase web addresses; show only lowercase words common to thousands of notices of that type, and mask everything else.
+Mask a Gazette sample by vocabulary, not by case: masking capitals and digits still printed an email's local part and lowercase web addresses; show only lowercase words common to thousands of notices of that type, and mask the rest.
 area: Gazette notices, liquidators, insolvency, reading documents, masking samples, hard limit 11
 paid-for-by: 2026-10-20, gazette session 2, step 4.1
 
