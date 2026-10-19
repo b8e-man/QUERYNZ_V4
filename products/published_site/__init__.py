@@ -1,8 +1,13 @@
-"""The published-site shape, begun (plan 1.11): one plain page from one
-published table. The template says what it reads and what it cannot see;
-the shape renders. Rules for everything a product shows (contract: a
-template): every figure names its document; a blank says why; a total
-states what it leaves out; a figure read from pixels is marked.
+"""The published-site shape (plan 4.4). The release pipeline behind the new
+contract: `build.py` reads the Follow the Money template's pub views,
+pinned to a frozen release's listing of the captured documents, writes a
+version folder of the ten kinds of published file by the frozen site's
+path rule, runs six gates and stops. See spec.md for the pieces. No deploy
+step, no deploy token, no feedback, no publisher unit, never ports 8300 or
+8301.
+
+What is left here from 1.11 is the plain page: one page from one published
+table, kept as the first proof of the shape.
 
     render_party_totals(rows, template) -> str
 """
