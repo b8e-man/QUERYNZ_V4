@@ -24,8 +24,17 @@ export it misses a fourth and mis-reads a fifth:
              letters (`M`, `CU`, or both) under the printed key "CU = Civil
              Union Celebrant M = Independent Marriage Celebrant"; the letters
              cut every chunk exactly, and are kept as the row's `marks`
-  table      `Name of Celebrant Name of Organisation` printed as a table, with
-             nothing between the given names and the organisation: set aside
+  table      `Name of Celebrant Name of Organisation` printed as a table (2000
+             to 2014): `Surname, Given Names Organisation` with nothing
+             between the given names and the organisation, nor between it
+             and the next surname, so each chunk between commas is `given
+             names, organisation, next surname`. The organisation is cut out
+             by the vocabulary the delimited lists print (`organisations`):
+             the longest one that leaves one to five given names before it
+             and a surname after it; a chunk where none fits, or two different
+             ones of that length do, is a catch-log line, and so is the record
+             whose surname it would have given. Without a vocabulary the
+             table is set aside whole
   none       a notice that names celebrants but prints no list (a correction, a
              one-line notice): typed, read as no records
 
@@ -40,6 +49,7 @@ catch-log line.
     read(text)              Reading(action, statute, period, mode, records, unread)
 """
 import re
+from collections import defaultdict
 from dataclasses import dataclass, field
 
 SUBJECT = re.compile(r"celebrant", re.I)
@@ -337,14 +347,95 @@ def _marked(seg: str) -> tuple:
     return out, bad
 
 
-def read(text: str) -> Reading:
+#: an organisation the vocabulary takes: printed in two records or more, of two words or more (a one-word
+#: organisation could be a given name)
+VOCABULARY_MIN_RECORDS, VOCABULARY_MIN_WORDS = 2, 2
+
+
+def organisations(fields) -> list:
+    """The vocabulary from the delimited lists' organisation fields (never an address field)."""
+    n = defaultdict(int)
+    for f in fields:
+        if f and not _DIGIT.search(f):
+            n[_clean(f)] += 1
+    return sorted(o for o, c in n.items() if c >= VOCABULARY_MIN_RECORDS and len(o.split()) >= VOCABULARY_MIN_WORDS)
+
+
+def is_table(text: str) -> bool:
+    return bool(TABLE_HEADER.search(text or ""))
+
+
+def _table(seg: str, orgs: list) -> tuple:
+    """[(surname, given, organisation)], [why] for a printed table."""
+    protect = {o: o.replace(",", "\x00") for o in orgs if "," in o}
+    for o, p in protect.items():
+        seg = seg.replace(o, p)
+    # the capture glued each organisation to the next surname ("… of New ZealandSmith, John"): part them
+    known = re.compile("(" + "|".join(re.escape(o.replace(",", "\x00")) for o in sorted(orgs, key=len, reverse=True)) + r")(?=[A-Z’'À-ÞĀĒĪŌŪ])")
+    seg = known.sub(r"\1 ", seg)
+    by_first = defaultdict(list)
+    for o in orgs:
+        w = o.replace(",", "\x00").split()
+        by_first[w[0]].append(w)
+    chunks = [_clean(c) for c in seg.split(",")]
+    chunks = [c for c in chunks if c]
+    if len(chunks) < 2 or not SURNAME.match(chunks[0]):
+        return [], [f"the table does not open with a surname ({len(chunks)} chunks)"]
+
+    def bare_surname(j):
+        return j < len(chunks) and len(chunks[j].split()) <= 3 and bool(SURNAME.match(chunks[j]))
+
+    out, bad, surname, i = [], [], chunks[0], 1
+    while i < len(chunks):
+        words, last = chunks[i].split(), i == len(chunks) - 1
+        fits = []
+        for at in range(1, min(6, len(words)) + 1):
+            for w in by_first.get(words[at] if at < len(words) else "", []):
+                end = at + len(w)
+                if words[at:end] != w:
+                    continue
+                given, nxt = " ".join(words[:at]), " ".join(words[end:])
+                # the organisation ends the chunk and the next chunk is the surname, or the next surname follows it
+                if GIVEN.match(given) and ((not nxt and (last or bare_surname(i + 1))) or
+                                           (nxt and not last and len(words) - end <= 4 and SURNAME.match(nxt))):
+                    fits.append((len(w), at, given, " ".join(w).replace("\x00", ","), nxt))
+        best = [f for f in fits if f[0] == max((f[0] for f in fits), default=0)]
+        if len({(f[1], f[3], f[4]) for f in best}) != 1:
+            bad.append(f"record {len(out) + len(bad) + 1}: " + ("no known organisation fits the chunk" if not best
+                                                                 else "two organisations fit the chunk"))
+            if bare_surname(i + 1) and i + 2 < len(chunks):
+                surname, i = chunks[i + 1], i + 2       # the next record starts at its own surname
+            else:
+                surname, i = None, i + 1                # the next record's surname is lost with this chunk
+            continue
+        _, _, given, org, nxt = best[0]
+        if surname is None:
+            bad.append(f"record {len(out) + len(bad) + 1}: its surname was in a chunk the reader could not cut")
+        else:
+            out.append((surname, given, org))
+        if nxt:
+            surname, i = nxt, i + 1
+        else:
+            surname, i = (chunks[i + 1] if i + 1 < len(chunks) else None), i + 2
+    return out, bad
+
+
+def read(text: str, orgs: list = None) -> Reading:
+    """orgs: the organisation vocabulary, for a printed table (read.py reads the tables last, with it)."""
     text = text or ""
     r = Reading(action=action(text), statute=statute(text))
     r.period_from, r.period_to = period(text)
-    if TABLE_HEADER.search(text):
+    if is_table(text):
         r.mode = "table"
-        r.unread.append(("list", "a printed table: nothing delimits the given names from the organisation"))
-        return r
+        if not orgs:
+            r.unread.append(("list", "a printed table: nothing delimits the given names from the organisation"))
+            return r
+        h = TABLE_HEADER.search(text)
+        d = _DATED.search(text, h.end())
+        recs, bad = _table(text[h.end():d.start() if d else len(text)], orgs)
+        r.records = [Record(i, s, g, organisation=o) for i, (s, g, o) in enumerate(recs, 1)]
+        r.unread += [tuple(b.split(": ", 1)) if b.startswith("record ") else ("list", b) for b in bad]
+        return _no_action(r, text)
     legend = _LEGEND.search(text[:SUBJECT_HEAD])
     if legend:
         d = _DATED.search(text, legend.end())

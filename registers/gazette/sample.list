@@ -19,7 +19,7 @@ key: 2004-go1177 celebrants, a printed table: set aside whole
 key: 2014-go6947 celebrants named, no list: set aside whole
 key: 2025-pn6944 captured twice: one kept, one set aside
 key: 2025-al4914 a liquidator's appointment: one company from the title, read
-key: 2018-ba414 a bankruptcy: typed, not read (its text prints an address and is never published)
+key: 2018-ba414 bankruptcy: an annulment whose person the reader cannot find: set aside (prints an address, never published)
 key: 2002-is8379 an incorporated society whose notice names celebrants: not a celebrant list
 key: 2001-ot2248 prohibition: the Registrar's template, fields run together
 key: 2001-ot4091 prohibition: two whole notices captured as one text, both read
@@ -51,4 +51,46 @@ key: 2009-al6197 liquidation: appointed by the court
 key: 2022-al3874 liquidation: appointed by the board
 key: 2023-al647 liquidation: the company number printed for its one company
 key: 2004-al5366 liquidation: a title part with no legal suffix: a catch-log line
-key: 2008-al1658 liquidation: no company the reader can find: set aside
+key: 2008-al1658 liquidation: the older list, a name then its former name in brackets (set aside until gazette 3)
+key: 2009-ds4850 removal: a liquidator's notice that two liquidations are complete
+key: 2020-ds1992 removal: a director's application, the company's number printed
+key: 2000-ds5347 removal: a shareholder's application, the company ceased business
+key: 2026-ds1418 removal: the Registrar's notice whose list the capture does not hold: set aside
+key: 2025-ds6436 removal: a liquidator's notice for many companies, a title part with no suffix set aside
+key: 2018-ds3187 removal: a restoration
+key: 2017-ds5980 removal: the Registrar's list with no numbers, names run together
+key: 2018-ds2319 removal: the Registrar's list with each company's number after its name
+key: 2004-aw5582 winding-up application: the older form, "Take notice that on the …"
+key: 2008-aw1458 winding-up application: "winding up of" the company
+key: 2008-aw1889 winding-up application: a plaintiff whose name runs into an address: not read
+key: 2021-aw801 winding-up application: the newer form, "This document notifies you that:"
+key: 2008-ar2467 receivership: receivers ceasing to act for two companies
+key: 2000-ar1621 receivership: appointed by a named secured creditor
+key: 2000-ar4936 receivership: two receivers appointed under a security agreement
+key: 2000-ar2556 receivership: a bare title; the company named in the body
+key: 2013-ar2626 receivership: an appointment and a ceasing to act in one notice
+key: 2015-ar86 receivership: a subject with no legal suffix, perhaps a person's property: set aside
+key: 2007-ar826 receivership: appointed by the court
+key: 2000-ba5071 bankruptcy: the older list, an occupation and a formerly-of address (both addresses private)
+key: 2000-ba5451 bankruptcy: the older list, three people under their day
+key: 2000-ba5766 bankruptcy: an annulment naming its person in natural order ("of Ann Example, of …")
+key: 2002-ba3634 bankruptcy: an annulment: its person withheld from the published view
+key: 2015-ba2664 bankruptcy: a discharge
+key: 2014-ba250 bankruptcy: the newer list, "– <day>." endings
+key: 2008-ba1160 bankruptcy: the no asset procedure list
+key: 2018-ba2005 bankruptcy: a no asset procedure list with no head
+key: 2002-md818 notice to creditors: to prove their claims by a day
+key: 2004-md5626 notice to creditors: a meeting, with its time
+key: 2008-md2017 notice to creditors: a watershed meeting
+key: 2009-md4962 notice to creditors: a dividend
+key: 2010-aa6416 administration: the administrators' appointment, signed
+key: 2022-aa13 administration: two administrators appointed
+key: 2013-aa1428 administration: a watershed meeting
+key: 2024-aa2898 administration: a deed of company arrangement
+key: 2013-go3998 appointment: one appointee by the Governor-General, the term's start and end
+key: 2025-go1725 appointment: by a Minister
+key: 2001-vr3940 appointment: "appointed to the <BODY>" before the name
+key: 2020-vr2940 appointment: an appointee read and one the reader cannot take
+key: 2018-go3750 appointment: three appointees
+key: 2023-vr1151 appointment: "The Honourable", a Member of Parliament
+key: 2011-go3789 appointment: an office filled by role, no appointee named: set aside

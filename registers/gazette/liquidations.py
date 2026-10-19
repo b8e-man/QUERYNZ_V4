@@ -43,7 +43,10 @@ from keys.dates import filed_date
 CODE = "al"
 _SUFFIX = r"(?:LIMITED|LTD|Limited|Ltd|INCORPORATED|Incorporated|PARTNERSHIP|Partnership|TRUST|Trust)"
 _ENDS = re.compile(rf"(?:\b{_SUFFIX}|\(N\.?Z\.?\)\s+{_SUFFIX})\.?$")
-_PAREN = re.compile(r"\s*\([^()]*\)")
+#: a bracket that is not part of the name: a status, a former name, a number, a defined term ("(in liquidation)",
+#: "(formerly …)", '("the company")');
+#: "(2019)", "(NZ)" and "(BAY OF ISLANDS)" are the name's own and stay
+_PAREN = re.compile(r"\s*\((?:\s*[a-z\"“'‘]|\s*(?i:in|formerly|previously|now|company|nzbn|receivers?|all|both|trading|subject|also)\b)[^()]*(?:\([^()]*\)[^()]*)*\)")
 _CORRIGENDUM = re.compile(r"^\s*Corrigendum\s*[—–\-:]*\s*", re.I)
 _BARE = re.compile(r"^\s*(?:Notice\s+of\s+)?(?:Appointment\s+of\s+)?Liquidat(?:or|ors|ion|ions)\b|^\s*The\s+Companies\s+Act", re.I)
 _LIST_HEAD = re.compile(r"following\s+liquidations?\s*:", re.I)
@@ -63,7 +66,7 @@ _SIGNED = re.compile(r"(?P<names>(?<![A-Za-z])[A-Z](?:[^.:;|]|(?<=\b[A-Z])\.){1,
 _PERSON = re.compile(r"^(?:[A-Z](?:\.\s?|\s)){0,3}[A-Z][\w’'\-]+(?:\s+(?:[A-Z]\.?|[A-Z][\w’'\-]+|van|de|der|von|du|le|la|te|ter|di|da)){0,4}$")
 #: a post-nominal ("C.A.", "FCA"); a signature printed in capitals ("ANN EXAMPLE") is a name, not this
 _QUALIFICATION = re.compile(r"^(?:[A-Z]{1,4}\.\s?){1,5}$|^(?:CA|FCA|ACA|CPA|FCPA|CAANZ|CA ANZ|ACIS|LLB|BCom|MBA|QSM|JP|MInstD)$")
-_NOT_NAME = re.compile(r"\b(?:Limited|LIMITED|Ltd|Company|Liquidator|Liquidators|Notice|Dated|Insolvency|Assignee|"
+_NOT_NAME = re.compile(r"\b(?:Limited|LIMITED|Ltd|Company|Liquidator|Liquidators|Receivers?|Managers?|Notice|Dated|Insolvency|Assignee|"
                        r"Chartered|Accountants?|Partners?|Associates|Court|Official|Contact|Phone|Telephone|Email)\b")
 
 
@@ -149,8 +152,10 @@ def _title_head(title: str, text: str) -> str:
     return t
 
 
-def _liquidators(text: str) -> tuple:
-    sig = list(_SIGNED.finditer(text))
+def _liquidators(text: str, signed=_SIGNED) -> tuple:
+    """The signature's names; `signed` is the pattern of a signature and its
+    role (a receivership passes its own)."""
+    sig = list(signed.finditer(text))
     if not sig:
         return [], None
     m = sig[-1]
@@ -170,7 +175,10 @@ def _liquidators(text: str) -> tuple:
     return [Liquidator(i, n, role, seen(n)) for i, n in enumerate(out, 1)], None
 
 
-_LIST_NAME = re.compile(rf"\s*(?P<name>[A-Z0-9][^|]*?\b{_SUFFIX})\.?(?=\s*(?:[A-Z0-9]|$))")
+#: a list's name ends at its suffix; TRUST ends a name only as a word with no LIMITED, BOARD or COMPANY after it
+#: ("ABLE TRUSTEES LIMITED" and "ABLE TRUST LIMITED" are one name each)
+_LIST_SUFFIX = r"(?:\b(?:LIMITED|LTD|Limited|Ltd|INCORPORATED|Incorporated)(?!\s+(?:PARTNERSHIP|Partnership)\b)|\b(?:TRUST|Trust|PARTNERSHIP|Partnership)\b(?!\s*(?:LIMITED|Limited|LTD|Ltd|INCORPORATED|Incorporated|BOARD|Board|COMPANY|Company)\b))"
+_LIST_NAME = re.compile(rf"\s*(?P<name>[A-Z0-9][^|]*?{_LIST_SUFFIX})(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))*\.?(?=\s*(?:[A-Z0-9]|$))")
 
 
 def _list(text: str, r: Reading) -> Reading:

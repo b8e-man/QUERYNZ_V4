@@ -23,11 +23,42 @@ FROM gazette.prohibitions;
 
 CREATE OR REPLACE VIEW pub.gazette_liquidations AS
 SELECT key, notice, published_on, company, company_number, shape, appointed_by, statute, appointed_on, appointed_at,
-       date_basis, dated_on, corrigendum, liquidators, ordinal, document, page, place, read_from, reader, profile,
-       profile_version, loaded_at
+       date_basis, dated_on, corrigendum, liquidators, register_key, register_match, ordinal, document, page, place,
+       read_from, reader, profile, profile_version, loaded_at
 FROM gazette.liquidations;
 
 CREATE OR REPLACE VIEW pub.gazette_liquidators AS
 SELECT key, notice, published_on, name, role, named_in_body, companies, ordinal, document, page, place, read_from, reader,
        profile, profile_version, loaded_at
 FROM gazette.liquidators;
+
+-- removals (ds), winding-up applications (aw), receiverships (ar), notices to creditors (md) and administrations (aa): one row per company named, with the register's
+-- entity; a plaintiff by name only, never its address for service
+CREATE OR REPLACE VIEW pub.gazette_company_notices AS
+SELECT key, notice, published_on, kind, action, company, company_number, shape, statute, ground, by_whom, party, event_on,
+       event_at, event_basis, filed_on, court, reference, dated_on, corrigendum, people, register_key, register_match, ordinal,
+       document, page, place, read_from, reader, profile, profile_version, loaded_at
+FROM gazette.company_notices;
+
+CREATE OR REPLACE VIEW pub.gazette_practitioners AS
+SELECT key, notice, published_on, name, role, named_in_body, companies, ordinal, document, page, place, read_from, reader,
+       profile, profile_version, loaded_at
+FROM gazette.practitioners;
+
+-- a bankrupt by name, the kind of notice and its day; never an address (gazette_private). A person an annulment names
+-- is withheld on every row that names them as bankrupt before it: the row stays, with the annulment's number
+CREATE OR REPLACE VIEW pub.gazette_bankruptcies AS
+SELECT key, notice, published_on, kind, shape,
+       CASE WHEN withheld_by IS NULL THEN surname END AS surname,
+       CASE WHEN withheld_by IS NULL THEN given_names END AS given_names,
+       CASE WHEN withheld_by IS NULL THEN also_known_as END AS also_known_as,
+       CASE WHEN withheld_by IS NULL THEN occupation END AS occupation,
+       event_on, event_at, court, statute, dated_on, withheld_by, ordinal, document, page, place, read_from, reader,
+       profile, profile_version, loaded_at
+FROM gazette.bankruptcies;
+
+-- appointments to public office: the person by name as printed, the office, who appointed and the term
+CREATE OR REPLACE VIEW pub.gazette_appointments AS
+SELECT key, notice, published_on, body, name, role, statute, by_whom, starts_on, ends_on, dated_on, corrigendum, ordinal,
+       document, page, place, read_from, reader, profile, profile_version, loaded_at
+FROM gazette.appointments;
