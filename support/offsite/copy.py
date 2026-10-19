@@ -418,6 +418,18 @@ class Run:
 
     # ── the whole run ───────────────────────────────────────────────────
     def run(self, databases=None, trees=None) -> dict:
+        """One run at a time per spool: the scheduler's run and a hand run
+        would otherwise both write `current.json` and the manifest."""
+        import fcntl
+        os.makedirs(self.spool, exist_ok=True)
+        with open(os.path.join(self.spool, "lock"), "w") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise RuntimeError(f"another copy is running on {self.spool}") from None
+            return self._run(databases, trees)
+
+    def _run(self, databases=None, trees=None) -> dict:
         self.log(f"offsite copy {self.stamp}: {self.man['kind']}{' (local only)' if self.local_only else ''}")
         for database, conf in (P.DATABASES if databases is None else databases).items():
             self.copy_database(database, conf)

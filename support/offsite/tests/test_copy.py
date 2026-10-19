@@ -242,3 +242,12 @@ def test_split_handles_empty_ranges_and_a_whole_table():
     whole.feed(b"1\n")
     whole.feed(b"2\n")
     assert whole.equal()
+
+
+def test_two_runs_never_share_a_spool(tmp_path):
+    import fcntl
+    os.makedirs(tmp_path, exist_ok=True)
+    with open(tmp_path / "lock", "w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)
+        with pytest.raises(RuntimeError, match="another copy is running"):
+            tree_run(str(tmp_path), MONDAY).run(databases={}, trees={})
