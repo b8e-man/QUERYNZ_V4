@@ -71,7 +71,7 @@ WHOLE_EVERY_DAYS = 7
 OVERLAP = dt.timedelta(days=1)   # a changes pass starts a day before the last pass began
 NZ = ZoneInfo("Pacific/Auckland")
 HERE = os.path.dirname(os.path.abspath(__file__))
-POSITIONS = os.path.join(HERE, "position")   # the draft position (ruling 61) until it moves to docs/legal/positions/
+POSITIONS = None   # the position is in docs/legal/positions/ (moved at the merge of charities-capture-1); None is the gate's default
 
 #: the keyed sets, in the order a run walks them: (name, key, whether it carries ModifiedOn). A set with
 #: no ModifiedOn cannot be asked for its changes, so it is copied whole, weekly. Activities, Beneficiaries,

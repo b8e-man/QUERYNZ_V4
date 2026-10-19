@@ -1,9 +1,10 @@
 # The charities capture job goes into the job catalogue
 kind: blocker
-state: open
+state: closed
 use-case: -
 session: charities-capture
 opened: 2026-10-20
+closed: 2026-10-20
 
 `support/scheduler/jobs.toml` is outside the charities-capture fence. After
 the merge of `charities-capture-1`, the integrator adds this entry and runs
@@ -30,3 +31,5 @@ night is a few dozen requests. The clocks are NZDT (UTC+13) until 5 April 2027.
 After the first night, run `python -m registers.charities.capture --measure`
 (the held copy against the register's count of registered charities) and put
 it on the checks board as the lane's capture check.
+
+Closed at the merge of `charities-capture-1`: `qv4-charities-capture` is in the catalogue at priority 34, 23:30 NZDT nightly, four hours at most; `python -m support.scheduler check` green.

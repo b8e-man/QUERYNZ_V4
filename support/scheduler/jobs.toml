@@ -188,6 +188,18 @@ pieces = true
 can_share = false
 concurrency = 1
 
+[jobs.qv4-charities-capture]
+description = "Step 4.1: the Charities Register's open data feed, verbatim pages of 1,000 by key through the fetch gate; a full copy, then changes by ModifiedOn, a full copy again every 28 days. Nightly at 23:30 NZDT, at most 4 hours."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 18000
+query_timeout_s = 60
+class = "due"
+priority = 34
+command = ["python", "-m", "registers.charities.capture", "--budget-s", "14400"]
+at_utc = "10:30"
+nice = 10
+
 [jobs.qv4-disclosures-read]
 description = "The disclosures lane's page readings (step 4.1): one piece per scanned large-donation declaration with no stored reading, every page as an image through the page-reader profile; the lane's next load picks the readings up. Queued by the integrator after a merge, then on the lane's rebuild for a scan with no reading."
 needs = "model-profile"
