@@ -1,10 +1,11 @@
 # Forty-one party returns have image pages with no stored page reading
 kind: finding
-state: open
+state: closed
 use-case: 1
 session: party-returns
 opened: 2026-10-19
 updated: 2026-10-19 (party-returns session 2)
+closed: 2026-10-20 (party-returns session 3)
 
 The lane reads a scanned return by replaying the page reader's stored
 readings (GLM-OCR Q8_0, 300 dots, `OCR`) and never calls the model. 41 of
@@ -28,3 +29,10 @@ Fix: a page-reader job that reads every image page of a document
 is a change to the re-read job type or a new one: the scheduler's module,
 not this lane. The lane picks the readings up on its next load with no
 change. `party_returns.set_aside` lists the hashes (`stage = 'read'`).
+
+**Closed, 20 October.** `qv4-read-pages` (the scheduler's, queue rows 110
+and 111) read every image page of the 41 under the stamp the lane replays.
+The live load holds no return at stage `read`: 137 rows, 15 set aside at
+the declaration. The frozen-site comparison went from 49 party-years equal
+to 71, with one difference (Labour 2017, the lane's: card
+`labour-2017-the-page-reader-drops-a-handwritten-correction`).

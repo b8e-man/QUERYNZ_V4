@@ -36,7 +36,7 @@ from registers.party_returns import schedule
 HEADING = re.compile(r"PART\s*A\s*[:.\-–]?\s*PARTY\s+DONATIONS?\s+OF\s+MORE\s+THAN", re.I)
 END = re.compile(r"instructions?\s+for\s+part\s+[B-I]\b|^\W*part\s*[B-I]\s*[:.\-–]|total\s+for\s+part\s+[B-I]\b", re.I)
 #: where the address begins: a figure, or a word that opens an address
-ADDRESS_START = re.compile(r"\d|\bc\s*/\s*[-o](?!\w)|\b(?:care\s+of|level|lvl|flat|unit|apt|apartment|suite|"
+ADDRESS_START = re.compile(r"\d|\bc\s*/\s*[-o](?!\w)|\b(?:care\s+of|level|lvl|floor|flat|unit|apt|apartment|suite|shed|building|bldg|"
                            r"p\.?\s*o\.?\s*box|private\s+bag|rd\s*\d)\b", re.I)
 STREET = re.compile(r"\b(?:street|st|road|rd|avenue|ave|lane|place|pl|terrace|tce|drive|dr|crescent|cres|parade|pde|"
                     r"highway|hwy|quay|way|close|grove|court|esplanade|rise|mews|boulevard|line|valley|heights)\b\.?", re.I)
@@ -55,7 +55,13 @@ class Part:
 
 def split(cell: str):
     """(name, address) from one name-and-address cell; name None when
-    nothing before the address is a name."""
+    nothing before the address is a name. A cell read over several lines
+    takes its name from the first line only: the lines below it are the
+    address."""
+    if "\n" in (cell or "").strip():
+        first, rest = cell.strip().split("\n", 1)
+        name, address = split(first)
+        return (None, " ".join(cell.split())) if name is None else (name, " ".join(f"{address} {rest}".split()))
     cell = " ".join((cell or "").split()).strip(" ,;")
     m = ADDRESS_START.search(cell)
     head, rest = (cell[:m.start()], cell[m.start():]) if m else (cell, "")
@@ -81,7 +87,7 @@ def _row(r: schedule.Row) -> dict:
         n, cell = int(m.group(1)), cell[m.end():]
     name, address = split(cell)
     dates = ", ".join(m.group(0).strip(" ,") for m in schedule.DATE.finditer(r.dates or ""))   # the dates, never what sat beside them
-    return {"n": n, "name": name, "address": address, "cell": cell, "amount": round(r.amount, 2), "dates": dates,
+    return {"n": n, "name": name, "address": address, "cell": " ".join(cell.split()), "amount": round(r.amount, 2), "dates": dates,
             "yes_no": r.yes_no, "page": r.page, "paired_by": r.paired_by, "read_from": r.read_from}
 
 
