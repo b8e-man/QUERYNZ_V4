@@ -95,9 +95,28 @@ def aside(conn, schema: str, item: str, stage: str, reason: str, shared: bool = 
     insert(conn, schema, "set_aside", {"item": item, "stage": stage, "reason": reason}, shared)
 
 
+def party_rows(conn, schema: str = None, shared: bool = False) -> list:
+    """The parties lane's published names with their registration's window (`pub.party_names` joined to
+    `pub.parties`), as `keys.parties.party_name(label, rows, on=…)` takes them. In a session's sample the
+    published tables are that lane's own in the shared schema (`parties_names`, `parties_registrations`).
+    None found is an error, never a fall back to the 18 October snapshot."""
+    where = [(f"{schema}.parties_names", f"{schema}.parties_registrations")] if shared and schema else []
+    where.append(("pub.party_names", "pub.parties"))
+    for names, regs in where:
+        if conn.execute("SELECT to_regclass(%s) IS NOT NULL AND to_regclass(%s) IS NOT NULL", (names, regs)).fetchone()[0]:
+            cur = conn.execute(f"SELECT n.party, n.name, n.kind, n.from_on, n.to_on, p.registered_on, p.cancelled_on "
+                               f"FROM {names} n JOIN {regs} p ON p.key = n.party")
+            rows = [dict(zip([d[0] for d in cur.description], r)) for r in cur]
+            if rows:
+                return rows
+    raise LookupError("party_finance: the parties lane's published names are not in this database "
+                      f"(looked for {', '.join(n for n, _ in where)}): fill the parties lane first")
+
+
 def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = (), shared: bool = False) -> dict:
     """held: [(kind, sha256, old path, Commission URL or None, captured_at)] for documents already in the
     store. Wipes and refills this lane's tables under `schema`; returns the counts."""
+    names = party_rows(conn, schema, shared)
     create_tables(conn, schema, shared)
     wipe(conn, schema, shared)
     at = read.now()
@@ -125,7 +144,7 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
         if kind not in read.PROFILE_OF:
             continue
         _, year = listing_years[os.path.basename(path)]
-        rows, links, lines = read.listing_rows(kind, read_bytes(sha), sha, year, by_url, at)
+        rows, links, lines = read.listing_rows(kind, read_bytes(sha), sha, year, by_url, at, names)
         t = "expense_listing" if kind == "expenses-listing" else "promoter_listing"
         for r in rows:
             insert(conn, schema, t, r, shared)
@@ -173,7 +192,7 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
     for kind, sha, path, url, captured in held:
         if kind != "allocation-page":
             continue
-        rows, totals, lines = read.allocation_rows(read_bytes(sha), sha, at)
+        rows, totals, lines = read.allocation_rows(read_bytes(sha), sha, at, names)
         for r in rows:
             insert(conn, schema, "allocations", r, shared)
         for x in totals:
@@ -202,7 +221,7 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
     for kind, sha, path, url, captured in held:
         if kind != "financials-listing":
             continue
-        rows, out_links, lines = read.statement_rows(read_bytes(sha), sha, by_url, at)
+        rows, out_links, lines = read.statement_rows(read_bytes(sha), sha, by_url, at, names)
         for r in rows:
             insert(conn, schema, "financial_statements", r, shared)
         for x in out_links:

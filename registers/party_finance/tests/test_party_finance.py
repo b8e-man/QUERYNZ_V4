@@ -137,6 +137,24 @@ def test_a_whole_number_with_more_on_its_line_is_not_a_figure():
     assert expenses.figures({1: "Total (A + B + C)\n2023 General Election\n"})["total"] is None
 
 
+PARTY_ROWS = [
+    {"party": "ec-party/2020-07-09/cb4e", "name": "ONE Party", "kind": "name", "from_on": "2020-07-09",
+     "to_on": "2023-08-16", "registered_on": "2020-07-09", "cancelled_on": "2026-03-30"},
+    {"party": "ec-party/2020-07-09/cb4e", "name": "NewZeal", "kind": "name", "from_on": "2023-08-16",
+     "to_on": "2026-03-30", "registered_on": "2020-07-09", "cancelled_on": "2026-03-30"},
+    {"party": "ec-party/2014-05-13/3b0f", "name": "Internet Party", "kind": "name", "from_on": "2014-05-13",
+     "to_on": "2018-06-11", "registered_on": "2014-05-13", "cancelled_on": "2018-06-11"},
+]
+
+
+def test_a_party_label_is_the_registration_live_on_polling_day():
+    assert read.party_of("ONE Party", PARTY_ROWS, 2020) == ("ec-party/2020-07-09/cb4e", "exact")
+    assert read.party_of("NewZeal", PARTY_ROWS, "2024-12-31")[0] == "ec-party/2020-07-09/cb4e"
+    assert read.party_of("ONE Party (currently applying to change its party name to NewZeal)", PARTY_ROWS, 2023) == (
+        "ec-party/2020-07-09/cb4e", "exact, before its bracket")
+    assert read.party_of("Internet Party", PARTY_ROWS, 2020) == (None, "unresolved"), "cancelled before polling day"
+
+
 def test_compare_names_equal_part_a_only_differing_and_unread():
     listing_rows = [{"key": k, "year": 2020, "party_label": p, "total_expenses": t}
                     for k, p, t in (("a", "A", 10.0), ("b", "B", 5.0), ("c", "C", 7.0), ("d", "D", 1.0))]
@@ -180,6 +198,10 @@ def filled():
     with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
         conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
         conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}_private")
+        if not conn.execute(f"SELECT to_regclass('{schema}.parties_names') IS NOT NULL").fetchone()[0]:
+            # the party labels resolve against the parties lane's published names: its sample first
+            parties = os.path.join(REPO, "registers", "parties")
+            sample.filler(REPO, "registers/parties")(conn, schema, sample.read_list(os.path.join(parties, "sample.list")))
         S.fill(conn, schema, sample.read_list(os.path.join(LANE, "sample.list")))
         conn.commit()
 
@@ -218,6 +240,13 @@ def test_the_sample_returns_agree_with_the_commission_or_are_explained(filled):
     assert out["differ"] == [], out["differ"]
     assert len(out["equal"]) >= 6
     assert [d["party"] for d in out["part_a_only"]] == ["Advance NZ"]
+
+
+def test_every_sample_party_label_resolves_to_a_registration_or_says_unresolved(filled):
+    rows = filled["expense_listing"] + filled["expense_returns"]
+    assert all(r["party"] is None or r["party"].startswith("ec-party/") for r in rows)
+    assert all((r["party"] is None) == (r["party_basis"] == "unresolved") for r in rows)
+    assert sum(r["party"] is not None for r in filled["expense_listing"]) >= 35
 
 
 def test_the_superseded_original_is_never_current(filled):
