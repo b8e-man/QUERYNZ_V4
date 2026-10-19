@@ -26,10 +26,20 @@ prohibition, and every notice a revocation, substitution or variation names
 by its number must be held and read as one (its rows then carry what
 superseded them).
 
+The liquidations are checked against the Companies Office register (the
+companies lane's `pub.companies`, joined at load by register.py): a share
+of the company rows the register holds, and of the printed company numbers
+whose register name agrees, below its floor fails, and so does a load that
+did not join the register at all. The rows the register does not hold are
+catch-log lines and are counted here, never failed one by one: the
+register's own gaps (a company renamed after its liquidation, a name it
+never held) are not the reading's.
+
 The old lane's gate recorded a failure and still exited 0. This one exits 1.
 
-    figures(rows, acted, marked)  the counts from [(notice, title, format)],
-                        [(notice, supersedes)] and the notices whose rows say what superseded them
+    figures(rows, acted, marked, joined)  the counts from [(notice, title, format)],
+                        [(notice, supersedes)], the notices whose rows say what superseded them,
+                        and {register_match: rows} over the liquidation rows
     failed(f)           the reasons the check fails, empty when it passes
     python -m registers.gazette.check [--schema gazette | scratch_<session>] [--database querynz_v4]
 
@@ -40,6 +50,7 @@ import sys
 from collections import defaultdict
 
 from registers.gazette import notices
+from registers.gazette import register as R
 
 CELEBRANT = "gazette-celebrant-list"
 PROHIBITION = "gazette-director-prohibition"
@@ -47,9 +58,11 @@ LIQUIDATION = "gazette-liquidator-appointment"
 PROHIBITION_TITLE = re.compile(r"^\s*Notice\s+Prohibiting\s+(?:a\s+)?Persons?\b", re.I)
 SERIES = re.compile(r"^\s*(Marriage|Civil Union) Celebrants? for (\d{4})\s+Notice No\.?\s*(\d+)", re.I)
 CLOSED_FROM, CLOSED_TO = 2000, 2025
+#: measured 20 October 2026 on every row: 98.0% joined, 98.8% of held printed numbers agreeing by name
+JOINED_FLOOR, NUMBER_FLOOR = 0.97, 0.98
 
 
-def figures(rows, acted=(), marked=()) -> dict:
+def figures(rows, acted=(), marked=(), joined=None) -> dict:
     """rows: [(notice, title, format)] from the lane's published notices;
     acted: [(notice, supersedes)] for the notices that act on others; marked:
     the notices whose prohibition rows carry what superseded them."""
@@ -81,6 +94,12 @@ def figures(rows, acted=(), marked=()) -> dict:
            "named_not_marked": sorted(t for t in named if t not in set(marked))}
     al = [(n, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] == "al"]
     liq = {"filed": len(al), "not_read": sorted(n for n, f in al if f != LIQUIDATION)}
+    if joined is not None:
+        total = sum(joined.values())
+        numbered = joined.get(R.NUMBER, 0) + joined.get(R.NUMBER_NAME_DIFFERS, 0)
+        liq["register"] = {"rows": total, "by": dict(joined), "not_joined": joined.get(None, 0),
+                           "joined": sum(v for k, v in joined.items() if k and k not in R.UNMATCHED),
+                           "numbered": numbered, "number_agrees": joined.get(R.NUMBER, 0)}
     return {"numbering": numbering, "celebrants": cel, "prohibitions": pro, "liquidations": liq}
 
 
@@ -107,6 +126,14 @@ def failed(f: dict) -> list:
             why.append("no notice under section al is published")
         for n in q["not_read"][:20]:
             why.append(f"{n}: filed by the Gazette under al and not read as a liquidator's appointment")
+        r = q.get("register")
+        if r is not None:
+            if r["not_joined"] or not r["rows"]:
+                why.append(f"{r['not_joined']:,} liquidation rows were never joined to the companies register (not in the database at load)")
+            elif r["joined"] < JOINED_FLOOR * r["rows"]:
+                why.append(f"the companies register holds {r['joined']:,} of {r['rows']:,} liquidated companies, below {JOINED_FLOOR:.0%}")
+            if r["numbered"] and r["number_agrees"] < NUMBER_FLOOR * r["numbered"]:
+                why.append(f"{r['number_agrees']:,} of {r['numbered']:,} printed company numbers carry the register's name, below {NUMBER_FLOOR:.0%}")
     years = set(f["numbering"])
     for y in range(CLOSED_FROM, CLOSED_TO + 1):
         if y not in years:
@@ -128,7 +155,8 @@ def main(argv=None) -> int:
         acted = conn.execute(f"SELECT notice, supersedes FROM {table(schema, 'notices', shared)} WHERE supersedes IS NOT NULL").fetchall()
         marked = [n for (n,) in conn.execute(
             f"SELECT DISTINCT notice FROM {table(schema, 'prohibitions', shared)} WHERE superseded_by IS NOT NULL")]
-    f = figures(rows, acted, marked)
+        joined = dict(conn.execute(f"SELECT register_match, count(*) FROM {table(schema, 'liquidations', shared)} GROUP BY 1").fetchall())
+    f = figures(rows, acted, marked, joined)
     print(f"{len(rows)} notices published. The Gazette's own numbering, closed years "
           f"({CLOSED_FROM}-{CLOSED_TO}): highest number against numbers held")
     for y, (top, held) in f["numbering"].items():
@@ -146,6 +174,12 @@ def main(argv=None) -> int:
     q = f["liquidations"]
     print(f"Liquidator's appointments: {q['filed']:,} notices the Gazette files under al, "
           f"{q['filed'] - len(q['not_read']):,} taken by its profile (read, or set aside with a reason)")
+    r = q.get("register")
+    if r and r["rows"]:
+        print(f"  against the companies register: {r['joined']:,} of {r['rows']:,} company rows joined "
+              f"({100 * r['joined'] / r['rows']:.1f}%); {r['number_agrees']:,} of {r['numbered']:,} held printed numbers agree by name")
+        for k, v in sorted(r["by"].items(), key=lambda kv: -kv[1]):
+            print(f"    {k or 'not joined'}: {v:,}")
     why = failed(f)
     for w in why:
         print("FAILS " + w)

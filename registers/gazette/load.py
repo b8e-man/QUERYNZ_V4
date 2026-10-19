@@ -10,7 +10,7 @@ import os
 
 from support import jobrun
 from support.docstore.landing import read_bytes
-from registers.gazette import capture, read
+from registers.gazette import capture, read, register
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "gazette"
@@ -29,7 +29,8 @@ COLUMNS = {
                      "superseded_by", "superseded_how", "ordinal", "document", "page", "place", "read_from", "reader",
                      "profile", "profile_version", "loaded_at"),
     "liquidations": ("key", "notice", "published_on", "company", "company_number", "shape", "appointed_by", "statute",
-                     "appointed_on", "appointed_at", "date_basis", "dated_on", "corrigendum", "liquidators", "ordinal",
+                     "appointed_on", "appointed_at", "date_basis", "dated_on", "corrigendum", "liquidators", "register_key",
+                     "register_match", "ordinal",
                      "document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
     "liquidators": ("key", "notice", "published_on", "name", "role", "named_in_body", "companies", "ordinal", "document",
                     "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
@@ -83,6 +84,7 @@ def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool
     `schema`; returns the counts."""
     create_tables(conn, schema, shared)
     res = read.read(read_bytes(export[0]), export[0], only=only)
+    joined = join_register(conn, res, schema, shared)
     _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason"),
           [(i, "capture", w) for i, w in aside] + list(res.set_aside))
     for t, rows in (("notices", res.notices), ("celebrants", res.celebrants), ("prohibitions", res.prohibitions),
@@ -92,7 +94,25 @@ def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool
     _copy(conn, table(private_of(schema), "prohibition_addresses", shared), ("key", "address", "formerly"),
           res.prohibition_addresses)
     conn.execute(f"INSERT INTO {table(schema, 'files', shared)} VALUES (%s, %s, 'notices', 'read')", export)
-    return {**res.counts, "not_held": len(aside)}
+    return {**res.counts, **joined, "not_held": len(aside)}
+
+
+def join_register(conn, res, schema: str, shared: bool = False) -> dict:
+    """Each liquidation row given the companies lane's entity it names
+    (register.py); a row the register does not hold, or holds more than
+    once alive that day, is a catch-log line and carries no entity."""
+    rows = register.rows_from(conn, schema, shared)
+    if rows is None:
+        return {"register": "not in this database"}
+    idx, n = register.Index(rows), {}
+    for r in res.liquidations:
+        f = r["filed"]
+        f["register_key"], f["register_match"] = idx.match(f["company"], f["company_number"],
+                                                           f["appointed_on"] or f["published_on"], int(f["notice"][:4]))
+        n[f["register_match"]] = n.get(f["register_match"], 0) + 1
+        if f["register_match"] in register.UNMATCHED:
+            res.set_aside.append((f"{r['document']}/{r['place']}", "register", f"the companies register: {f['register_match']}"))
+    return {f"register_{register.COUNT[k]}": v for k, v in n.items()}
 
 
 def load(conn, schema: str, log=print) -> int:

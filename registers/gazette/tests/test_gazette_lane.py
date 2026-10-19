@@ -14,6 +14,7 @@ from registers.gazette import celebrants as K
 from registers.gazette import check, notices, read
 from registers.gazette import liquidations as LQ
 from registers.gazette import prohibitions as PR
+from registers.gazette import register as RG
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 LANE = os.path.join(REPO, "registers", "gazette")
@@ -297,6 +298,38 @@ def test_a_title_is_cut_only_where_every_part_ends_in_a_suffix():
     assert LQ.split_names("ABLE LIMITED (in receivership and") == (["ABLE LIMITED"], [])
 
 
+def test_a_bracket_that_is_the_name_s_own_stays_and_a_status_or_defined_term_goes():
+    assert LQ.split_names("ABLE (2019) LIMITED and BAKER (N.Z.) LIMITED (in liquidation)") == (
+        ["ABLE (2019) LIMITED", "BAKER (N.Z.) LIMITED"], [])
+    assert LQ.split_names('Able Holdings Limited ("the company")') == (["Able Holdings Limited"], [])
+    assert LQ.split_names("ABLE LIMITED (formerly ABLE (NORTH) LIMITED) (In Receivership)") == (["ABLE LIMITED"], [])
+    stop = ("The Official Assignee is administering the following liquidations:1 May 2014ABLE LIMITED (in receivership)."
+            "BAKER LIMITED (formerly CARTER (2001) LIMITED).DELTA LIMITED.")
+    assert [c.name for c in LQ.read("Liquidations", stop).companies] == ["ABLE LIMITED", "BAKER LIMITED", "DELTA LIMITED"]
+
+
+def test_the_register_joins_by_printed_number_else_by_a_name_alive_that_day_and_never_by_a_near_one():
+    d = dt.date
+    idx = RG.Index([("c/1", "companies", "0001234", "ABLE LIMITED", d(2001, 1, 1), d(2012, 1, 1)),
+                    ("c/2", "companies", "2222", "BAKER & SONS LTD", d(2005, 1, 1), None),
+                    ("c/3", "companies", "3333", "CARTER LIMITED", d(1990, 1, 1), d(1999, 1, 1)),
+                    ("c/4", "companies", "4444", "CARTER LIMITED", d(2003, 1, 1), None),
+                    ("c/5", "companies", "5555", "DELTA LIMITED", d(2000, 1, 1), None),
+                    ("c/6", "companies", "6666", "DELTA LIMITED", d(2001, 1, 1), None),
+                    ("s/7", "other_incorporated", "7777", "RĀKETE TENNIS CLUB INCORPORATED", d(1980, 1, 1), None)])
+    assert idx.match("ABLE LIMITED", "1234", "2010-05-01") == ("c/1", RG.NUMBER)
+    assert idx.match("ABLE (NORTH) LIMITED", "1234", "2010-05-01") == ("c/1", RG.NUMBER_NAME_DIFFERS)
+    assert idx.match('Baker and Sons Limited ("the company")', None, "2010-05-01") == ("c/2", RG.NAME)
+    assert idx.match("CARTER LIMITED", None, "2010-05-01") == ("c/4", RG.NAME)
+    assert idx.match("CARTER LIMITED", "9999", "1995-05-01") == ("c/3", RG.NAME_NUMBER_NOT_HELD)
+    assert idx.match("CARTER LIMITED", None, "2001-05-01") == (None, RG.NOT_ALIVE)
+    assert idx.match("DELTA LIMITED", None, "2010-05-01") == (None, RG.SEVERAL)
+    assert idx.match("DELTA LIMITED", None, None, 2000) == ("c/5", RG.NAME)
+    assert idx.match("ABLE LIMITED", None, None, 2013) == (None, RG.NOT_ALIVE)
+    assert idx.match("ABEL LIMITED", None, "2010-05-01") == (None, RG.NOT_HELD)
+    assert idx.match("Rakete Tennis Club Inc", "7777", "2010-05-01") == ("s/7", RG.NAME_NUMBER_NOT_HELD)
+
+
 def test_the_dates_below_go_to_each_company_and_a_bare_title_takes_its_companies_from_them():
     t = ("Notice of Appointment of Liquidator Ann Example was appointed liquidator of the following companies on the dates and "
          "times below:9 May 2016ABLE LIMITED (in liquidation) at 10.30am.BAKER LIMITED (in liquidation) at 11.00am.10 May "
@@ -338,6 +371,17 @@ def test_the_check_fails_on_an_al_notice_not_read_as_an_appointment():
              ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
     assert check.failed(check.figures(rows)) == []
     assert any("2016-al9" in w for w in check.failed(check.figures(rows + [("2016-al9", "X Limited", "not read")])))
+
+
+def test_the_check_fails_below_the_register_s_floors_and_when_the_register_was_never_joined():
+    rows = [(f"{y}-al1", "Example Limited", check.LIQUIDATION) for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
+    rows += [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
+             ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
+    good = {RG.NAME: 900, RG.NUMBER: 99, RG.NUMBER_NAME_DIFFERS: 1, RG.NOT_HELD: 20}
+    assert check.failed(check.figures(rows, joined=good)) == []
+    assert any("below 97%" in w for w in check.failed(check.figures(rows, joined={**good, RG.NOT_HELD: 40})))
+    assert any("printed company numbers" in w for w in check.failed(check.figures(rows, joined={**good, RG.NUMBER_NAME_DIFFERS: 5})))
+    assert any("never joined" in w for w in check.failed(check.figures(rows, joined={None: 1020})))
 
 
 # --- the filled sample ---------------------------------------------------------------
@@ -482,7 +526,7 @@ def test_each_liquidation_case_reads_as_its_comment_says(filled):
         lqs.setdefault(x["notice"], []).append(x)
     al = [n for n in notice if "-al" in n]
     assert len(al) == 17 and all(notice[n]["format"] == check.LIQUIDATION for n in al)
-    assert notice["2008-al1658"]["status"] == "set aside" and "2008-al1658" not in cos
+    assert notice["2008-al1658"]["status"] == "read" and len(cos["2008-al1658"]) == 1 and "(" not in cos["2008-al1658"][0]["company"]
     assert notice["2023-al2971"]["status"] == notice["2004-al5366"]["status"] == "read, part set aside"
     assert {c["shape"] for c in cos["2021-al1462"] + cos["2014-al776"]} == {"list"}
     assert all(c["date_basis"] == "list date" for c in cos["2021-al1462"] + cos["2014-al776"])

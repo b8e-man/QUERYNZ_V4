@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS gazette.liquidations (
     key              text PRIMARY KEY,                      -- gazette/<notice>/company/<ordinal>
     notice           text NOT NULL,
     published_on     date,
-    company          text NOT NULL,                         -- as printed, brackets ("in liquidation") taken out
+    company          text NOT NULL,                         -- as printed, a status or former name in brackets taken out
     company_number   text,                                  -- where the notice prints one for its one company
     shape            text NOT NULL CHECK (shape IN ('notice', 'list')),
     appointed_by     text CHECK (appointed_by IN ('shareholders', 'board', 'court', 'creditors')),
@@ -103,6 +103,8 @@ CREATE TABLE IF NOT EXISTS gazette.liquidations (
     dated_on         date,
     corrigendum      boolean NOT NULL,
     liquidators      integer NOT NULL,                      -- how many the notice names
+    register_key     text,                                  -- the companies lane's entity (pub.companies.key); none where unmatched
+    register_match   text,                                  -- how (register.py); NULL where the register was not in the database
     ordinal          integer NOT NULL,
     document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
     page             integer NOT NULL DEFAULT 1,
@@ -146,7 +148,7 @@ CREATE TABLE IF NOT EXISTS gazette.files (
 -- the catch log: one line for every item the lane could not take to a row
 CREATE TABLE IF NOT EXISTS gazette.set_aside (
     item       text NOT NULL,                               -- <export sha>/notice <number>[ <place>]
-    stage      text NOT NULL,                               -- capture | notices | celebrants | prohibitions | liquidations
+    stage      text NOT NULL,                               -- capture | notices | celebrants | prohibitions | liquidations | register | …
     reason     text NOT NULL,
     at         timestamptz NOT NULL DEFAULT now()
 );

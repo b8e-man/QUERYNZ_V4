@@ -23,8 +23,8 @@ FROM gazette.prohibitions;
 
 CREATE OR REPLACE VIEW pub.gazette_liquidations AS
 SELECT key, notice, published_on, company, company_number, shape, appointed_by, statute, appointed_on, appointed_at,
-       date_basis, dated_on, corrigendum, liquidators, ordinal, document, page, place, read_from, reader, profile,
-       profile_version, loaded_at
+       date_basis, dated_on, corrigendum, liquidators, register_key, register_match, ordinal, document, page, place,
+       read_from, reader, profile, profile_version, loaded_at
 FROM gazette.liquidations;
 
 CREATE OR REPLACE VIEW pub.gazette_liquidators AS

@@ -43,7 +43,10 @@ from keys.dates import filed_date
 CODE = "al"
 _SUFFIX = r"(?:LIMITED|LTD|Limited|Ltd|INCORPORATED|Incorporated|PARTNERSHIP|Partnership|TRUST|Trust)"
 _ENDS = re.compile(rf"(?:\b{_SUFFIX}|\(N\.?Z\.?\)\s+{_SUFFIX})\.?$")
-_PAREN = re.compile(r"\s*\([^()]*\)")
+#: a bracket that is not part of the name: a status, a former name, a number, a defined term ("(in liquidation)",
+#: "(formerly …)", '("the company")');
+#: "(2019)", "(NZ)" and "(BAY OF ISLANDS)" are the name's own and stay
+_PAREN = re.compile(r"\s*\((?:\s*[a-z\"“'‘]|\s*(?i:in|formerly|previously|now|company|nzbn|receivers?|all|both|trading|subject|also)\b)[^()]*(?:\([^()]*\)[^()]*)*\)")
 _CORRIGENDUM = re.compile(r"^\s*Corrigendum\s*[—–\-:]*\s*", re.I)
 _BARE = re.compile(r"^\s*(?:Notice\s+of\s+)?(?:Appointment\s+of\s+)?Liquidat(?:or|ors|ion|ions)\b|^\s*The\s+Companies\s+Act", re.I)
 _LIST_HEAD = re.compile(r"following\s+liquidations?\s*:", re.I)
@@ -170,7 +173,7 @@ def _liquidators(text: str) -> tuple:
     return [Liquidator(i, n, role, seen(n)) for i, n in enumerate(out, 1)], None
 
 
-_LIST_NAME = re.compile(rf"\s*(?P<name>[A-Z0-9][^|]*?\b{_SUFFIX})\.?(?=\s*(?:[A-Z0-9]|$))")
+_LIST_NAME = re.compile(rf"\s*(?P<name>[A-Z0-9][^|]*?\b{_SUFFIX})(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))*\.?(?=\s*(?:[A-Z0-9]|$))")
 
 
 def _list(text: str, r: Reading) -> Reading:

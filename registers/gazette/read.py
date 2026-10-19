@@ -40,7 +40,7 @@ LIQUIDATION_PROFILE = "gazette-liquidator-appointment"
 READER_NOTICES = "registers.gazette.notices 1"
 READER_CELEBRANTS = "registers.gazette.celebrants 1"
 READER_PROHIBITIONS = "registers.gazette.prohibitions 1"
-READER_LIQUIDATIONS = "registers.gazette.liquidations 1"
+READER_LIQUIDATIONS = "registers.gazette.liquidations 2"
 NOT_READ = "not read"
 
 
