@@ -1,0 +1,1 @@
+-- registers/disclosures: the tables this lane owns, in `disclosures` and `disclosures_private`. Empty until the disclosures session builds the lane.
