@@ -1,4 +1,4 @@
-A session's fence is the `.scope` of the folder Claude was started in, not the folder its brief names: started in the main checkout, a build session is judged by the integrator's scope and every write to its own working copy is refused, so check the first write's verdict before building anything.
+A session's fence is the `.scope` of the folder Claude was started in, not the folder its brief names: started in the main checkout, a build session is refused its own working copy, so check the first write before building.
 area: fences, sessions, launcher, hooks
 paid-for-by: 2026-10-18, windowed session (track E)
 

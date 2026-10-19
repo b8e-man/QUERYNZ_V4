@@ -12,7 +12,12 @@ def test_every_reader_is_documented_and_served():
     for r in readers.READERS.values():
         assert r.prompt and r.prompt_from and r.profile and r.model and len(r.weights) == 2
         assert r.family in ("zhipu", "qwen")
-        assert readers.by_profile(r.profile) is r
+        if r.variant_of:
+            assert readers.by_profile(r.profile, r.name) is r and readers.READERS[r.variant_of].profile == r.profile
+            assert readers.by_profile(r.profile) is readers.READERS[r.variant_of]
+        else:
+            assert readers.by_profile(r.profile) is r
+    assert readers.by_profile("page-reader", "ovisocr2") is None       # a variant must be served by the same profile
     assert readers.READERS["glm-ocr"].prompt == "OCR"
     assert set(readers.CHALLENGERS) <= set(readers.READERS)
     fams = {readers.READERS[c].family for c in readers.CHALLENGERS}
@@ -66,9 +71,11 @@ def test_a_piece_stores_a_reading_by_hash_page_model_settings_and_profile(tmp_pa
                   store=store, post=post, ledger=str(tmp_path / "pages.jsonl"), log=lambda *_: None, doc=doc)
     assert t["read"] == 2 and t["failed"] == 0 and len(calls) == 2
     assert calls[0]["temperature"] == 0.0 and calls[0]["model"] == "glm-ocr"
-    key = rd.reading_key(doc["sha256"], 1, "glm-ocr", readers.settings(r, 200), "ec-party-return-scan", 4)
+    from support import profiles as doc_profiles
+    scan_version = int(doc_profiles.profile("ec-party-return-scan")["version"])
+    key = rd.reading_key(doc["sha256"], 1, "glm-ocr", readers.settings(r, 200), "ec-party-return-scan", scan_version)
     got = store.get(key)
-    assert got.read_from == "pixels" and got.profile_version == 4 and got.checks["trial_pass"] == "one"
+    assert got.read_from == "pixels" and got.profile_version == scan_version and got.checks["trial_pass"] == "one"
     # a second run replays and asks nothing
     t2 = piece.run(doc["sha256"], reader=r, url="http://127.0.0.1:8111/v1/chat/completions", args={"pages": [1, 2], "dpi": 200},
                    store=store, post=post, ledger=str(tmp_path / "pages.jsonl"), log=lambda *_: None, doc=doc)

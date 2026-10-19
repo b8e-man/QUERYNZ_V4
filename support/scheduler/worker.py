@@ -54,6 +54,7 @@ class Running:
     def __init__(self, claim: dict, jt: reg.JobType):
         self.claim, self.jt = claim, jt
         self.started = time.monotonic()
+        self.last_renew = time.monotonic()    # across every piece of the claim, so short pieces still renew
         self.thread: threading.Thread | None = None
         self.outcome: str | None = None
 
@@ -274,13 +275,14 @@ class Worker:
                             args={"piece": piece["key"] if piece else None, "worker": self.name})
         q.run_begin(conn, self.schema, run_id, job=jt.name, worker=self.name, box=self.box, qid=claim["id"],
                     piece=piece["piece"] if piece else None, declared_mb=int(jt.memory_gb * 1024))
-        last_renew = [time.monotonic()]
-
+        # The renewal clock lives on the claim (`r.last_renew`), not on the piece: a run of
+        # pieces each shorter than lease_seconds / 3 used to never renew, and the 90 s lease
+        # lapsed under pass one of the trial (card the-worker-s-lease-lapses-under-a-run-of-short-pieces).
         def tick() -> bool:
             if self.stopping:
                 return False
-            if time.monotonic() - last_renew[0] >= self.rules.lease_seconds / 3:
-                last_renew[0] = time.monotonic()
+            if time.monotonic() - r.last_renew >= self.rules.lease_seconds / 3:
+                r.last_renew = time.monotonic()
                 if not q.renew(conn, self.schema, claim["id"], claim["token"], lease_s=self.rules.lease_seconds):
                     self.log(f"row {claim['id']}: lease lost; stopping the child")
                     return False

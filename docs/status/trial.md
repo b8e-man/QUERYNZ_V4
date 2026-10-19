@@ -1,53 +1,45 @@
 # trial: where step 3 stands
 
-Session 1 (Fable), 18 October 2026 night, node2, branch `session/trial`.
+Session 2 (Fable), 19 October 2026, node2, branch `session/trial`.
 Scope `support/trials`, `support/profiles`, `docs/trials`.
+
+**Halted under ruling 60** (19 October 18:48): the trial stops with the
+results in hand and resumes once the plan is complete. Step 3 is not
+finished. The verdict is at the top of `docs/trials/page-readers.md`.
 
 ## Done
 
-- 3.1 models on `/mnt/hdd2/qv4-models/` (ledger `downloads.jsonl`, every
-  file hash-equal to the hub's): OvisOCR2 Q8_0+F16 with projectors;
-  TeleOCR as NaviDC-OCR Q8_0+f16 with projectors; GLM-OCR f16 (the Q8_0 in
-  the models folder is hash-equal to the hub's); Chandra OCR 2 Q8_0+Q4_K_M
-  with projectors; Infinity-Parser2-Pro Q8_0 (36.9 GB, larger than a card)
-  with projectors; its Q4_K_M (21.2 GB) made here by `models quantise`
-  in 507 s (`--allow-requantize`; the ledger line says twice-quantised).
-  `models check` is green on every file; 74 GB used on the disk. A patched
-  server for TeleOCR built beside the others: `<live>/llama/built-teleocr/`
-  (PATCH.json). Every conversion's architecture and projector type is one
-  the b10276 server knows (read from the files' metadata).
-- 3.2 the profiles and job types, as additions beside the trial's code
-  (`support/trials/scheduler/`), checked on the merged catalogue; the
-  patch is in merge request `trial-1`. The readers' own prompts and
-  settings: `support/trials/readers.py`.
-- 3.3 the page set: `support/trials/pageset.jsonl`, 255 distinct documents
-  (from 1,522 files, 2019 on), 2,698 pages: 2,243 scan pages, 455 text
-  pages as free keys; every kind and shape; the four named cases whole.
-- 3.4 the keys: `support/trials/keys.jsonl`: declaration totals (35), the
-  Commission's table (89, the two wrong 2020 figures marked), the frozen
-  site (59), the old page-read records (155), confirmed gold cells (32
-  documents, read at scoring time, never copied).
-- 3.5 begun through the scheduler: `qv4-reread-pages`, 115 scan returns'
-  declaration pages by GLM-OCR at 300 dpi (queue 52, 123 runs ok, peak
-  1,044 MB, 6.5 s a piece, the swap and release in the ledger).
-- 3.7 the scoring (`score.py`, tested) and the rows pass (`rows.py`).
+- 3.1 to 3.4 (session 1, merged as trial-1): models on `/mnt/hdd2/qv4-models`,
+  profiles and job types in the catalogue, the page set (255 documents,
+  2,698 pages), the keys.
+- 3.5 pass one: `qv4-trial-read-glm-ocr` #54, 2,698 pages, 0 unread;
+  2,013 of 2,124 old readings reproduced, the 111 differences carded.
+- 3.6 pass two, part-run (queue 66 to 73, cancelled at the halt): OvisOCR2
+  2,327 pages, Chandra 191, Infinity-Parser2-Pro Q4_K_M 445, GLM-OCR at
+  300 dpi 2,063, the four twenty-page compression comparisons whole.
+- 3.7 scores of everything read (`scratch_trial.page_scores`,
+  `page_agreement`, `level_pairs`); 37 tests green.
+- 3.8 verdict: GLM-OCR Q8_0 stays the reader, alone; no second reader
+  (card `no-second-reader-qualifies-under-the-trial-s-rules`); eleven
+  profiles versioned (`support/profiles/profiles.jsonl`, 56 lines).
+- Cards this session: the 111 differences; GLM-OCR's loops on empty
+  expense tables; no second reader; the lease lapses while a large model
+  loads (scheduler); the card manager loads a profile for a job no box can
+  claim (scheduler). Lessons: the partial key; temperature zero on the
+  card; a measure judged against another reading.
 
-## Half-done
+## Running
 
-- Pass one proper (every page, 200 dpi, joined to the old estate's cache
-  by image hash) and pass two cannot be queued until the catalogue patch
-  is applied on main: card `the-trial-s-profiles-and-job-types-live-outside-its-fence`.
-- TeleOCR's arm waits on a per-profile server binary in the scheduler:
-  card `teleocr-needs-a-patched-server-the-scheduler-cannot-choose`.
-- The scheduler proofs: swap recorded, peak memory recorded, pieces that
-  record progress: shown on queue 52. The other three wait for the passes
-  (small job not starved; a worker stopped mid-run; the probe hiding a box
-  without a program).
+Nothing. Card 1 is released (`scheduler.swaps` 327).
 
-## Next
+## Next (when the trial resumes, after the plan)
 
-After the merge: `python -m support.scheduler enqueue qv4-trial-read-glm-ocr
---pieces <the page set's hashes> --args '{"pass":"one","dpi":200}'` (pass
-one), score it, card the differences; then the challengers and
-`qv4-trial-urgent-page` injected part-way; `qv4-trial-rows`; the
-twenty-page compression comparisons; then 3.8.
+1. A profile that names its server (fix session on `support/scheduler`,
+   with the two scheduler cards above), then the TeleOCR arm.
+2. `python -m support.trials.queue two` again for the unread pages (stored
+   readings replay; only the rest is read), `rows`, `repeat`, `variant`,
+   `urgent` while the 35B holds the card; the `--hide-program` rehearsal;
+   the two-box proofs on node1.
+3. The loop measure counting cells, not lines; the invention measure with
+   the page's letterhead in its bag; then `score --pages --rows --levels`
+   and the second-reader card closes either way.

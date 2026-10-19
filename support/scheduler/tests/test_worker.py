@@ -173,3 +173,26 @@ def test_a_timetabled_job_runs_on_whichever_worker_is_up(conn, s, tmp_path):
     qid = conn.execute(f"SELECT id FROM {s}.queue WHERE job = 'qv4-rehearsal-tick'").fetchone()[0]
     assert row(conn, s, qid)["lease_owner"] == "node2-b"
     assert wait_for(lambda: row(conn, s, qid)["state"] == "done", 30)
+
+
+def test_a_run_of_short_pieces_keeps_the_lease(conn, s):
+    """Card the-worker-s-lease-lapses-under-a-run-of-short-pieces: pieces of about
+    four seconds under a 24 s lease (renewal due every 8 s) must renew between
+    pieces, so the worker's own reaper never takes the row and no piece is
+    killed for a lost lease. Before the fix the clock restarted with every
+    piece and the lease lapsed after three of them."""
+    import dataclasses
+    rules = dataclasses.replace(reg.queueing(), lease_seconds=24)
+    w = worker("node2", s, rules=rules)
+    qid = q.enqueue(conn, s, "qv4-rehearsal-pieces", pieces=[f"p{i}" for i in range(1, 11)], registry=w.registry)
+    w.tick()
+    assert row(conn, s, qid)["lease_owner"] == "node2"
+    t0 = time.monotonic()
+    while row(conn, s, qid)["state"] != "done" and time.monotonic() - t0 < 120:
+        w.tick()                      # the reaper runs here: a lapsed lease would be taken back
+        time.sleep(1)
+    w.stop()
+    assert row(conn, s, qid)["state"] == "done" and row(conn, s, qid)["pieces_done"] == 10
+    runs_ = conn.execute(f"SELECT outcome, detail FROM {s}.runs WHERE queue_id = %s", (qid,)).fetchall()
+    assert len(runs_) == 10 and all(o == "ok" for o, _ in runs_), runs_
+    assert not any(d == "lease" for _, d in runs_)

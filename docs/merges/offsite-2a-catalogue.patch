@@ -1,0 +1,40 @@
+--- a/support/scheduler/jobs.toml
++++ b/support/scheduler/jobs.toml
+@@ -86,17 +86,30 @@
+ at_utc = "15:30"
+ nice = 10
+ 
+-[jobs.qv4-offsite-dump]
+-description = "The nightly off-site copy of querynz_v4 (plan 1.8, until track B): dump, encrypt, send. 03:05 NZDT, after the old estate's push (01:38) is well under way."
++[jobs.qv4-offsite-copy]
++description = "The off-site copy (track B, ruling 21): every table and file tree the delete rule keeps, changes nightly and a full checkpoint on Sunday; the press graph frozen (sent when it moves, or every 28 days). Replaces the step 1.8 dump of querynz_v4. 21:00 NZDT, finished before the old estate's push (01:38) takes the link; a run cut off at its deadline resumes the next night."
+ needs = "processor"
+ memory_gb = 1.5
+-deadline_s = 3600
+-query_timeout_s = 1800
++deadline_s = 16200
++query_timeout_s = 7200
+ class = "due"
+ priority = 14
+-command = ["python", "-m", "support.offsite"]
+-requires = ["pg_dump", "gpg"]
+-at_utc = "14:05"
++command = ["python", "-m", "support.offsite", "copy"]
++requires = ["pg_dump", "gpg", "zstd"]
++at_utc = "08:00"
++nice = 10
++
++[jobs.qv4-offsite-rehearsal]
++description = "The off-site restore rehearsal (track B): the newest copy fetched from the bucket through the read-only key, restored into a scratch server on /mnt/hdd2, every table and file checked equal to the manifest, the time recorded. Every 28 days; the restored copy is removed after."
++needs = "processor"
++memory_gb = 3.0
++deadline_s = 43200
++query_timeout_s = 7200
++class = "whenever"
++priority = 15
++command = ["python", "-m", "support.offsite", "restore"]
++requires = ["pg_restore", "initdb", "gpg", "zstd"]
++every_s = 2419200
+ nice = 10
+ 
+ # ── the scheduler's own jobs ─────────────────────────────────────────────────
