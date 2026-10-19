@@ -107,6 +107,36 @@ def test_a_figure_belongs_to_the_label_on_its_own_line():
     assert expenses.figures({1: page})["total"] is None
 
 
+BOXES = """3. TOTAL PARTY ELECTION EXPENSES
+Part A: Party advertisements promoted solely by the party
+986
+
+Part B: Party advertisements shared with candidates or other parties
+0
+
+Part C: Authorised party advertisements promoted by third parties
+0
+
+Total (A + B + C)
+986
+
+Part D: Party only allocation expenses
+68511.51
+"""
+
+
+def test_a_figure_alone_below_its_label_and_whole_dollars_are_read():
+    f = expenses.figures({1: BOXES})
+    assert f["parts"] == {"A": 986.0, "B": 0.0, "C": 0.0, "D": 68511.51} and f["total"] == 986.0
+    assert expenses.judge(f) == (986.0, "parts-sum", "")
+    assert expenses.figures({1: "TOTAL FOR PART A 986\nTotal (A + B + C) 986\n"})["total"] == 986.0
+
+
+def test_a_whole_number_with_more_on_its_line_is_not_a_figure():
+    assert expenses.figures({1: "Total (A + B + C) 986 Page 3\n"})["total"] is None
+    assert expenses.figures({1: "Total (A + B + C)\n2023 General Election\n"})["total"] is None
+
+
 def test_compare_names_equal_part_a_only_differing_and_unread():
     listing_rows = [{"key": k, "year": 2020, "party_label": p, "total_expenses": t}
                     for k, p, t in (("a", "A", 10.0), ("b", "B", 5.0), ("c", "C", 7.0), ("d", "D", 1.0))]
