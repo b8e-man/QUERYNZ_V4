@@ -189,7 +189,11 @@ class Worker:
         self._reap_threads()
         if not self.stopping:
             elig = self.eligible()
-            claim = q.claim(self.conn, self.schema, self.name, elig, lease_s=self.rules.lease_seconds, now=now)
+            # The clock is read again here, not reused from the top of the tick: the card manager
+            # may have spent minutes loading a profile in between, and a lease stamped from the
+            # tick's start had already lapsed when the 35B model took 124 s (card
+            # the-lease-lapses-while-a-large-model-loads: the row was reaped by its own worker).
+            claim = q.claim(self.conn, self.schema, self.name, elig, lease_s=self.rules.lease_seconds, now=q.utcnow())
             if claim:
                 self._launch(claim)
 

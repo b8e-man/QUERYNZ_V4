@@ -1,9 +1,10 @@
 # The lease lapses while a large model loads
 kind: finding
-state: open
+state: closed
 use-case: the scheduler (step 2; the trial's pass two, 19 October)
 session: trial
 opened: 2026-10-19
+closed: 2026-10-19
 
 The worker takes a queue row's lease (90 s) at the claim and then asks the
 card manager for the row's profile. A load longer than the lease lapses
@@ -33,3 +34,14 @@ Fix (a fix session on `support/scheduler`): renew the lease inside the
 wait for the card (the same `tick()` the pieces use), or claim after the
 profile is ready. A slow test: a fake card manager that takes two leases
 to load, one claim, zero reaps.
+
+**Closed 19 October (fix session fix-support-scheduler-1):** the cause was
+not a missing renewal but a stale clock. `Worker.tick()` read `now` once at
+its start; the card manager's load then blocked for the whole 124 s, and the
+claim stamped its lease from that `now`, so the lease had already lapsed when
+the row was claimed and the worker's own reaper took it on the next tick.
+The claim now reads the clock again (`q.claim(..., now=q.utcnow())`). The
+slow test `test_a_lease_taken_after_a_long_load_is_stamped_from_the_clock_at_the_claim`
+(a fake card manager that takes two leases to load; one claim, a live lease,
+zero reaps, one attempt) fails without the change and passes with it. The
+renewal clock from the earlier card was right and is untouched.
