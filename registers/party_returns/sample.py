@@ -1,7 +1,9 @@
 """The sample filler (plan 1b.6): `fill(conn, schema, items)` loads the
 documents named in sample.list into `schema` of the sample database
 through this branch's own code, with the Commission's statements of which
-return an amendment replaces. A document not yet in the store is copied
+return an amendment replaces. A label resolves against the parties lane's
+names where the sample's `pub` holds them, otherwise against the snapshot
+(read.py, "The party"). A document not yet in the store is copied
 by hash from the old folder; one found in neither fails naming the hash,
 so the session can ask for a capture. No model is called.
 """
@@ -23,6 +25,9 @@ def fill(conn, schema: str, items: list) -> int:
     store = rd.Store()
     index = None
     rows = 0
+    names = None
+    if conn.execute("SELECT to_regclass('pub.party_names') IS NOT NULL AND to_regclass('pub.parties') IS NOT NULL").fetchone()[0]:
+        names = read.party_rows(conn) or None
     for item in items:
         if item.startswith("key:"):
             continue
@@ -37,6 +42,6 @@ def fill(conn, schema: str, items: list) -> int:
                                   f"nor in the old folder: ask for a capture")
             ref, _ = copy_from_old(index[sha], capture.SOURCE, conn)
             data = read_bytes(ref)
-        rows += L.insert(conn, schema, read.read_return(data, sha, store))
+        rows += L.insert(conn, schema, read.read_return(data, sha, store, parties=names))
     L.insert_amendments(conn, schema, index if index is not None else capture.old_index())
     return rows

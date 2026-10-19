@@ -240,3 +240,19 @@ def test_an_ocr_layer_s_mangled_label_words_still_name_the_part():
     d = declaration.read(page)
     assert d.parts == {"A": 769786.92, "C": 0.0, "D": 0.0, "F": 0.0, "G": 730520.63}
     assert d.total == 1500307.55 and d.problems() == []
+
+
+def test_a_filed_label_resolves_to_the_registration_live_in_the_return_s_year():
+    """keys.parties' live path (fix-keys-1), over made-up name rows shaped like pub.party_names joined to pub.parties."""
+    from registers.party_returns import read
+    reg = dict(registered_on=dt.date(2000, 1, 1), cancelled_on=None, registered_name="Example Party of New Zealand")
+    rows = [dict(party="ec-party/2000-01-01/ex", name="Example Party of New Zealand", kind="name", from_on=dt.date(2020, 6, 1),
+                 to_on=None, **reg),
+            dict(party="ec-party/2000-01-01/ex", name="New Example", kind="name", from_on=dt.date(2000, 1, 1),
+                 to_on=dt.date(2020, 5, 31), **reg),
+            dict(party="ec-party/2001-01-01/ot", name="Other Party", kind="name", from_on=dt.date(2001, 1, 1),
+                 to_on=None, registered_on=dt.date(2001, 1, 1), cancelled_on=dt.date(2015, 1, 1), registered_name="Other Party")]
+    assert read.resolve_party("NEW EXAMPLE", 2019, rows) == ("ec-party/2000-01-01/ex", "Example Party of New Zealand", "exact")
+    assert read.resolve_party("Other Party", 2019, rows) == (None, None, "unresolved")    # cancelled before the year
+    assert read.resolve_party("Nobody Party", 2019, rows) == (None, None, "unresolved")
+    assert read.resolve_party("New Zealand Labour Party", 2019)[:2] == (None, "New Zealand Labour Party")    # the snapshot

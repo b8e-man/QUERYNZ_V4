@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS party_returns.returns (
     document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
     page             integer NOT NULL DEFAULT 1,
     place            text NOT NULL DEFAULT 'declaration',
-    party            text,                                   -- the registered party (keys.parties); NULL when unresolved
+    party            text,                                   -- the registration's registered name (pub.parties.name); NULL when unresolved
     party_label      text NOT NULL,                          -- the party name as filed on the declaration page
     party_basis      text NOT NULL,                          -- exact | variant | core | fuzzy:<ratio> | unresolved
     year             integer NOT NULL,                       -- the calendar year the return covers, as printed
@@ -36,6 +36,10 @@ ALTER TABLE party_returns.returns ADD COLUMN IF NOT EXISTS loans_i numeric(14,2)
 ALTER TABLE party_returns.returns ADD COLUMN IF NOT EXISTS loans_total numeric(14,2);    -- Total (H + I) as printed
 ALTER TABLE party_returns.returns ADD COLUMN IF NOT EXISTS donors_check text;            -- parts-sum | declared-nil | NULL: Part A set aside
 ALTER TABLE party_returns.returns ADD COLUMN IF NOT EXISTS loans_check text;             -- parts-sum | declared-nil | NULL: Part H set aside
+
+-- session 4: the party as the parties lane's registration (keys.parties.party_name(label, rows, on=year)); `party` is
+-- then that registration's registered name
+ALTER TABLE party_returns.returns ADD COLUMN IF NOT EXISTS party_key text;              -- pub.parties.key; NULL when unresolved
 
 -- the catch log: one line for every document the lane could not take to a row (recognise | read | declaration),
 -- and one for every part of a published return that could not be published whole (part-a | loans | part-h),
