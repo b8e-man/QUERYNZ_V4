@@ -73,6 +73,7 @@ STOP_REQUESTS = {}
 #: stated floors (seconds between requests), one table, one home
 FLOORS = {
     "web.archive.org": 1.0,
+    "www.odata.charities.govt.nz": 5.0,   # the Charities Register's feed (charities-capture-1, 20 October)
     "ideas.repec.org": 5.0,
     "greaterauckland.org.nz": 30.0,
     "farmersweekly.co.nz": 5.0,

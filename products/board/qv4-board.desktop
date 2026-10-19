@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=QueryNZ board
+GenericName=Register search
+Comment=One search across every register of the new estate, shown as panes left to right
+Icon=system-search
+Exec=/home/user/querynzv4/products/board/open
+Terminal=false
+Categories=Utility;
+Keywords=QueryNZ;registers;board;search;
+StartupNotify=false
