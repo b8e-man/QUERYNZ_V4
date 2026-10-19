@@ -1,6 +1,7 @@
 """The sample filler (plan 1b.6): `fill(conn, schema, items)` loads the
 documents named in sample.list into `schema` of the sample database
-through this branch's own code. A document not yet in the store is copied
+through this branch's own code, with the Commission's statements of which
+return an amendment replaces. A document not yet in the store is copied
 by hash from the old folder; one found in neither fails naming the hash,
 so the session can ask for a capture. No model is called.
 """
@@ -37,4 +38,5 @@ def fill(conn, schema: str, items: list) -> int:
             ref, _ = copy_from_old(index[sha], capture.SOURCE, conn)
             data = read_bytes(ref)
         rows += L.insert(conn, schema, read.read_return(data, sha, store))
+    L.insert_amendments(conn, schema, index if index is not None else capture.old_index())
     return rows
