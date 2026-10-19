@@ -12,7 +12,7 @@ import support.profiles as pr
 
 def test_the_shipped_profiles_load_and_carry_no_address():
     cur = pr.current()
-    assert len(cur) == 25 and "ec-party-return-text" in cur and "gazette-party-register-notices" in cur   # 25: the parties lane's two profiles, 20 October
+    assert len(cur) == 30 and "ec-party-return-text" in cur and "ec-broadcasting-allocation-page" in cur   # 30: the party-finance lane's five profiles, 20 October
     assert cur["ec-party-return-scan"]["version"] == 5 and cur["ec-party-return-scan"]["ocr"]["trial"]["ruling"] == 60   # the trial verdict, 19 October
     hist = pr.history("ec-party-return-scan")
     assert [h["version"] for h in hist] == [1, 2, 3, 4, 5]
