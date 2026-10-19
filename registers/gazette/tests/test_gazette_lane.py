@@ -127,6 +127,24 @@ def test_a_printed_table_is_set_aside_whole():
     assert r.mode == "table" and r.records == [] and r.unread
 
 
+def test_a_printed_table_is_cut_by_the_organisations_the_delimited_lists_print():
+    orgs = K.organisations(["Anglican Church in Aotearoa", "Anglican Church in Aotearoa", "Example Church of New Zealand",
+                            "Example Church of New Zealand", "Lone Org Name", "Catholic"] + ["Catholic"] * 3)
+    assert orgs == ["Anglican Church in Aotearoa", "Example Church of New Zealand"]      # one record or one word: not taken
+    head = "Name of Celebrant Name of Organisation"
+    glued = (head + "Example, Ann Bea Anglican Church in AotearoaSample, Bob Example Church of New ZealandLane, Cy Dee "
+             "Unknown Fellowship Trust Other, Di Anglican Church in Aotearoa")
+    r = K.read(glued, orgs)
+    assert r.mode == "table" and [(x.surname, x.given_names, x.organisation) for x in r.records] == [
+        ("Example", "Ann Bea", "Anglican Church in Aotearoa"), ("Sample", "Bob", "Example Church of New Zealand")]
+    assert [w for p, w in r.unread if p != "action"] == ["no known organisation fits the chunk",
+                                                         "its surname was in a chunk the reader could not cut"]
+    apart = head + "Example, Ann Bea Anglican Church in Aotearoa, Sample, Bob Example Church of New Zealand"
+    assert [(x.surname, x.organisation) for x in K.read(apart, orgs).records] == [
+        ("Example", "Anglican Church in Aotearoa"), ("Sample", "Example Church of New Zealand")]
+    assert K.read(glued).records == [] and K.read(glued).mode == "table"
+
+
 def test_an_address_list_with_no_stops_is_set_aside_not_guessed():
     t = (PUB_S8 + " Able, Ann, 12 Example Street, Town Baker, Ben, 3 Test Road, Town " + SIG)
     r = K.read(t)
@@ -580,6 +598,8 @@ def test_the_appointments_outside_check_wants_honourable_appointees_to_be_member
     bad = ok + [("2022-go7", "The Honourable Di Other", None)]
     assert any("Members of Parliament" in w for w in check.failed(check.figures(rows, appointees=bad, members=members)))
     assert any("2022-go3" in w for w in check.failed(check.figures(rows + [("2022-go3", "Appointment of a Member", "not read")])))
+    assert check.failed(check.figures(rows, tables={"rows": 10, "named_elsewhere": 8})) == []
+    assert any("printed celebrant tables" in w for w in check.failed(check.figures(rows, tables={"rows": 10, "named_elsewhere": 6})))
 
 
 # --- the filled sample ---------------------------------------------------------------

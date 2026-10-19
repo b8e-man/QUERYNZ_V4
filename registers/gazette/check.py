@@ -74,6 +74,8 @@ APPOINTMENT = "gazette-public-appointment"
 #: an appointee styled "The Honourable", not a judge, in a notice from MEMBERS_FROM on, should be a Member of Parliament
 #: (the house lane's pub.members) by surname: measured 20 October 2026 at 93% (125 of 134; by full name 101)
 MEMBERS_FROM, MEMBERS_FLOOR = "2021", 0.85
+#: a printed celebrant table's person should be named by a delimited list too: measured 20 October 2026 at 79.7%
+TABLE_FLOOR = 0.70
 
 
 def _register(joined: dict) -> dict:
@@ -121,7 +123,8 @@ def members_check(appointees, members) -> dict:
     return {"honourable": seen, "members": held, "members_known": len(surnames)}
 
 
-def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulled_shown=0, appointees=None, members=None) -> dict:
+def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulled_shown=0, appointees=None, members=None,
+            tables=None) -> dict:
     """rows: [(notice, title, format)] from the lane's published notices;
     acted: [(notice, supersedes)] for the notices that act on others; marked:
     the notices whose prohibition rows carry what superseded them."""
@@ -170,8 +173,11 @@ def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulle
            "read": sum(1 for n, f in titled if f == APPOINTMENT)}
     if appointees is not None and members is not None:
         app["members"] = members_check(appointees, members)
-    return {"numbering": numbering, "celebrants": cel, "prohibitions": pro, "liquidations": liq, "company": company,
-            "bankruptcies": bank, "appointments": app}
+    out = {"numbering": numbering, "celebrants": cel, "prohibitions": pro, "liquidations": liq, "company": company,
+           "bankruptcies": bank, "appointments": app}
+    if tables is not None:
+        out["tables"] = dict(tables)                    # {"rows": n, "named_elsewhere": n}
+    return out
 
 
 def failed(f: dict) -> list:
@@ -225,6 +231,10 @@ def failed(f: dict) -> list:
             elif m["honourable"] and m["members"] < MEMBERS_FLOOR * m["honourable"]:
                 why.append(f"{m['members']} of {m['honourable']} 'Honourable' appointees since {MEMBERS_FROM} are Members of "
                            f"Parliament by surname, below {MEMBERS_FLOOR:.0%}")
+    t = f.get("tables")
+    if t and t["rows"] and t["named_elsewhere"] < TABLE_FLOOR * t["rows"]:
+        why.append(f"{t['named_elsewhere']:,} of {t['rows']:,} people the printed celebrant tables name are named by a "
+                   f"delimited list too, below {TABLE_FLOOR:.0%}")
     years = set(f["numbering"])
     for y in range(CLOSED_FROM, CLOSED_TO + 1):
         if y not in years:
@@ -251,6 +261,11 @@ def main(argv=None) -> int:
         for kind, match, n in conn.execute(
                 f"SELECT kind, register_match, count(*) FROM {table(schema, 'company_notices', shared)} GROUP BY 1, 2"):
             company_joined[kind][match] = n
+        cel = table(schema, "celebrants", shared)
+        tables = dict(zip(("rows", "named_elsewhere"), conn.execute(
+            f"WITH o AS (SELECT DISTINCT lower(surname) AS s, lower(given_names) AS g FROM {cel} WHERE list_shape <> 'table') "
+            f"SELECT count(*), count(o.s) FROM {cel} t LEFT JOIN o ON o.s = lower(t.surname) AND o.g = lower(t.given_names) "
+            f"WHERE t.list_shape = 'table'").fetchone()))
         appointees = conn.execute(f"SELECT notice, name, role FROM {table(schema, 'appointments', shared)}").fetchall()
         annulled_shown = conn.execute(f"SELECT count(*) FROM {table(schema, 'bankruptcies', shared)} "
                                       f"WHERE kind = 'annulment' AND withheld_by IS NULL").fetchone()[0]
@@ -258,7 +273,7 @@ def main(argv=None) -> int:
         conn.execute("SET statement_timeout = '60s'")
         members = ([n for (n,) in conn.execute("SELECT name FROM pub.members")]
                    if conn.execute("SELECT to_regclass('pub.members') IS NOT NULL").fetchone()[0] else [])
-    f = figures(rows, acted, marked, joined, company_joined, annulled_shown, appointees, members)
+    f = figures(rows, acted, marked, joined, company_joined, annulled_shown, appointees, members, tables)
     print(f"{len(rows)} notices published. The Gazette's own numbering, closed years "
           f"({CLOSED_FROM}-{CLOSED_TO}): highest number against numbers held")
     for y, (top, held) in f["numbering"].items():
@@ -291,6 +306,10 @@ def main(argv=None) -> int:
     print(f"Bankruptcies: {b['filed']:,} notices the Gazette files under ba, "
           f"{b['filed'] - len(b['not_read']):,} taken by a profile ("
           + ", ".join(f"{p.split('gazette-')[1]} {v:,}" for p, v in b["by"].items()) + ")")
+    t = f.get("tables")
+    if t and t["rows"]:
+        print(f"Printed celebrant tables: {t['rows']:,} people read, {t['named_elsewhere']:,} "
+              f"({100 * t['named_elsewhere'] / t['rows']:.1f}%) named by a delimited list too")
     a = f["appointments"]
     print(f"Appointments: {a['titled']:,} notices titled 'Appointment…' in the government sections, {a['read']:,} taken by "
           f"the appointment profile, the rest celebrant lists")

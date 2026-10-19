@@ -45,7 +45,7 @@ CELEBRANT_PROFILE = "gazette-celebrant-list"
 PROHIBITION_PROFILE = "gazette-director-prohibition"
 LIQUIDATION_PROFILE = "gazette-liquidator-appointment"
 READER_NOTICES = "registers.gazette.notices 1"
-READER_CELEBRANTS = "registers.gazette.celebrants 1"
+READER_CELEBRANTS = "registers.gazette.celebrants 2"
 READER_PROHIBITIONS = "registers.gazette.prohibitions 1"
 READER_LIQUIDATIONS = "registers.gazette.liquidations 2"
 READER_BANKRUPTCIES = "registers.gazette.bankruptcies 1"
@@ -145,7 +145,9 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
     bankrupt = defaultdict(lambda: [0, 0, 0])           # profile → [recognised, read, set aside]
     appointed = [0, 0, 0]                               # recognised, read, set aside
     av = profile_version(APPOINTMENT_PROFILE)
-    for nid in sorted(by):
+    orgs = None                                         # the celebrant organisation vocabulary, made before the first table
+    # the printed celebrant tables last: they are cut by the organisations every other list prints
+    for nid in sorted(by, key=lambda n: (any(celebrants.is_table(l["text"]) for l in by[n]), n)):
         line, others = notices.pick(by[nid])
         for o, why in others:
             twice += 1
@@ -224,7 +226,9 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
         elif celebrants.recognise(line["title"], line["text"]):     # before the readers by section: a list filed under ar is still a list
             recognised += 1
             fmt, reader, profile, version = CELEBRANT_PROFILE, READER_CELEBRANTS, CELEBRANT_PROFILE, cv
-            got = celebrants.read(line["text"])
+            if celebrants.is_table(line["text"]) and orgs is None:
+                orgs = celebrants.organisations(c["filed"]["organisation"] for c in out.celebrants)
+            got = celebrants.read(line["text"], orgs if celebrants.is_table(line["text"]) else None)
             for place, why in got.unread:
                 out.set_aside.append((f"{export_sha}/notice {nid} {place}", "celebrants", why))
             taken = got.records if got.action else []
