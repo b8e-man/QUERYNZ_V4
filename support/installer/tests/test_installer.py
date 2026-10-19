@@ -117,3 +117,20 @@ def test_a_timer_whose_job_is_on_the_queues_clock_is_superseded_not_enabled(tmp_
     inst.install_units(repo, str(unit_dir), box="node2", sh=lambda c, **k: (calls.append(c), (0, ""))[1],
                        handover=lambda job, timer: handed.append((job, timer)))
     assert handed == [] and "qv4-b.timer" not in [c[-1] for c in calls]
+
+
+def test_a_products_unit_folder_is_reached_and_its_prefix_is_enforced(tmp_path):
+    """board-1: a product's surface ships its standing unit under products/<shape>/units/."""
+    from support import installer
+    repo = tmp_path / "repo"
+    (repo / "products" / "board" / "units").mkdir(parents=True)
+    (repo / "products" / "board" / "units" / "qv4-board.service").write_text("[Service]\nExecStart=/bin/true\n")
+    assert "qv4-board.service" in installer.unit_sources(str(repo))
+    (repo / "products" / "board" / "units" / "board.service").write_text("no prefix\n")
+    try:
+        installer.unit_sources(str(repo))
+    except ValueError as e:
+        assert "hard limit 23" in str(e)
+    else:
+        raise AssertionError("an unprefixed unit in a product folder must be refused")
+
