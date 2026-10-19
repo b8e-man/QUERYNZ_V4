@@ -3,23 +3,22 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-20, 05:00. **Step:** 3 closed under ruling 60; 4.1 running, no session open; tracks B and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-20, 06:20. **Step:** 3 closed under ruling 60; 4.1 running, three sessions open; tracks B and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
 ## Done
 
 - Step 0 (all but the third machine). Step 1 closed: fences, reference
-  copy, baseline, watcher, 1.7 to 1.10, step 1b, the thin slice, both
-  freeze commits by Arthur's hand (tag `v3-frozen-2026-10-18`).
+  copy, baseline, watcher, 1.7 to 1.10, 1b, the thin slice, the freeze
+  (tag `v3-frozen-2026-10-18`).
 - Step 2, closed on one box (`docs/merges/scheduler-1`, `-2a/b/c`,
   `fix-support-scheduler-1`): queue, probe, runner, worker, cards,
   installer, re-read, `embed()`, the model server built beside the copy.
-  Two-box proofs owed on node1 (ruling 57).
 - Step 3, closed under ruling 60 (`docs/merges/trial-1` to `-3`): 255
   documents keyed by hash, keys, scoring; pass one 2,013 of 2,124 pages
   equal to the old readings. GLM-OCR Q8_0 under "OCR" is the page reader
-  alone, no second reader (carded); the trial resumes after the plan.
+  alone (second reader carded); the trial resumes after the plan.
 
 ## Next (all from `docs/briefs/next.md`)
 
@@ -31,8 +30,9 @@ address (test alarm 18 October).
   110 and 111; now 137 rows, 15 set aside; session 3 re-measures, then
   Part A's refused pages and the outside check); parties
   (`parties-1`: 78 registrations, 149 names with windows, every rename
-  read, 17 on the register). Blocker: `keys.parties` must read
-  `pub.party_names` by date (fix session briefed).
+  read, 17 on the register). `keys.parties` resolves labels by
+  date from `pub.party_names` (`fix-keys-1`); each lane switches in its
+  next session. Running: party-returns 3, party-finance 1, gazette 1.
 - Track E merged (`docs/merges/windowed-1` to `-3`): two legal positions,
   two capture lanes, the two `qv4-*-capture` jobs nightly from 22:30 NZDT
   (first nightly run 20 October, both done), both hosts floored at 5 s,
@@ -48,6 +48,6 @@ address (test alarm 18 October).
 
 ## Half-done
 
-- 1.4: three batches stopped on node2 (18 October); the 16:17 release green
-  inside the yardstick. The positive half waits for the next declaration.
+- 1.4: three batches stopped on node2 (18 October); release green inside
+  the yardstick. The positive half waits for the next declaration.
 - Step 2: `qv4-questions` held (ruling 22); node1 setup carded (ruling 57).
