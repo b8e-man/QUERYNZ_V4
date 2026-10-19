@@ -21,3 +21,18 @@ key: 2025-pn6944 captured twice: one kept, one set aside
 key: 2025-al4914 a liquidator's appointment: typed, not read
 key: 2018-ba414 a bankruptcy: typed, not read (its text prints an address and is never published)
 key: 2002-is8379 an incorporated society whose notice names celebrants: not a celebrant list
+key: 2001-ot2248 prohibition: the Registrar's template, fields run together
+key: 2001-ot4091 prohibition: two whole notices captured as one text, both read
+key: 2003-ot2411 prohibition: "the date ofthis notice" glued; the start is the notice's date
+key: 2009-ot3019 prohibition: "Dated … this 23rd of" with no "day"
+key: 2012-ot2496 prohibition: "Formerly of:" is an address too, and private
+key: 2007-ot3193 prohibition: an alias in brackets kept apart from the name
+key: 2020-ot2060 prohibition: a court's order, permanent
+key: 2025-ot2761 prohibition: a banning order under the FMC Act naming two people
+key: 2018-ot756 prohibition: revoked and replaced by 2018-ot1357
+key: 2018-ot1357 prohibition: a substitution naming the notice it revokes
+key: 2021-ot4635 prohibition: varied by 2024-ot3010
+key: 2024-ot3010 prohibition: a court's variation naming the notice it varies
+key: 2026-ot41 prohibition: revoked as published in error; its person is not published
+key: 2026-ot144 prohibition: the revocation; names nobody to prohibit
+key: 2003-go5183 "hereby prohibit" under another Act: not a director prohibition

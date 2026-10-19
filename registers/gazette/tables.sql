@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS gazette.notices (
     format           text NOT NULL,                         -- the profile a reader recognised, or 'not read'
     status           text NOT NULL,                         -- read | read, part set aside | set aside | not read
     records          integer NOT NULL DEFAULT 0,            -- rows read from it
+    supersedes       text,                                  -- the notices it revokes, replaces or varies, by number
     title            text NOT NULL,
     published_on     date,                                  -- as the old classifier held it; NULL where it held none
     url              text NOT NULL,
@@ -56,6 +57,36 @@ CREATE TABLE IF NOT EXISTS gazette.celebrants (
     loaded_at        timestamptz NOT NULL
 );
 
+-- one row per person a notice prohibits from managing companies (profile gazette-director-prohibition)
+CREATE TABLE IF NOT EXISTS gazette.prohibitions (
+    key              text PRIMARY KEY,                      -- gazette/<notice>/prohibition/<ordinal>
+    notice           text NOT NULL,
+    published_on     date,
+    action           text NOT NULL CHECK (action IN ('prohibition', 'court order', 'banning order', 'substitution', 'variation')),
+    name             text NOT NULL,                         -- the `To:` field, aliases taken out
+    also_known_as    text,                                  -- the bracketed aliases as printed, '; ' between
+    named_twice      boolean NOT NULL,                      -- the operative sentence names the same person
+    statute          text,                                  -- the Act and the most specific section cited
+    months           integer,                               -- the term; NULL when permanent
+    permanent        boolean NOT NULL,
+    starts_on        date,
+    starts_basis     text CHECK (starts_basis IN ('stated', 'date of the notice')),
+    ends_on          date,                                  -- starts_on plus the term; NULL when permanent or unknown
+    dated_on         date,                                  -- the notice's own "Dated … this …"
+    supersedes       text,                                  -- the notice(s) this one revokes and replaces, or varies
+    superseded_by    text,                                  -- a later notice that revokes, replaces or varies this one
+    superseded_how   text CHECK (superseded_how IN ('revoked', 'revoked and replaced', 'varied')),
+    ordinal          integer NOT NULL,                      -- the person's place in the notice
+    document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page             integer NOT NULL DEFAULT 1,
+    place            text NOT NULL,                         -- notice <number> person <ordinal>
+    read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL
+);
+
 -- every document the lane took, and what it did with it
 CREATE TABLE IF NOT EXISTS gazette.files (
     document   text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
@@ -68,7 +99,7 @@ CREATE TABLE IF NOT EXISTS gazette.files (
 -- the catch log: one line for every item the lane could not take to a row
 CREATE TABLE IF NOT EXISTS gazette.set_aside (
     item       text NOT NULL,                               -- <export sha>/notice <number>[ <place>]
-    stage      text NOT NULL,                               -- capture | notices | celebrants
+    stage      text NOT NULL,                               -- capture | notices | celebrants | prohibitions | liquidations
     reason     text NOT NULL,
     at         timestamptz NOT NULL DEFAULT now()
 );
@@ -77,4 +108,11 @@ CREATE TABLE IF NOT EXISTS gazette.set_aside (
 CREATE TABLE IF NOT EXISTS gazette_private.celebrant_addresses (
     key        text PRIMARY KEY,                            -- the celebrant row's key
     address    text NOT NULL
+);
+
+-- a prohibited person's address as the notice prints it (`Of:`, often a home): never published (hard limit 15)
+CREATE TABLE IF NOT EXISTS gazette_private.prohibition_addresses (
+    key        text PRIMARY KEY,                            -- the prohibition row's key
+    address    text NOT NULL,
+    formerly   boolean NOT NULL                             -- printed "Formerly of:"
 );
