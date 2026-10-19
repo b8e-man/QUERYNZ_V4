@@ -122,6 +122,17 @@ def off_peak(now_local: dt.datetime) -> bool:
     return now_local.hour >= start or now_local.hour < end
 
 
+def complete_years(rows) -> set:
+    """The years whose every listing page has been read, from (year, page,
+    pages) rows. A year cut short (a page that failed) is not listed: the
+    next run lists it again from page one."""
+    seen, pages = {}, {}
+    for year, page, n in rows:
+        seen.setdefault(year, set()).add(page)
+        pages[year] = max(pages.get(year, 0), n)
+    return {y for y in seen if len(seen[y]) >= pages[y]}
+
+
 def years_to_list(today: dt.date, listed: set) -> list:
     years = list(range(FIRST_YEAR, today.year + 1))
     return [y for y in years[:-2] if y not in listed] + years[-2:]
@@ -150,7 +161,7 @@ class Tables:
         return bool(self.conn.execute("SELECT pg_try_advisory_lock(hashtext(%s))", (JOB,)).fetchone()[0])
 
     def listed_years(self) -> set:
-        return {r[0] for r in self.conn.execute(f"SELECT DISTINCT year FROM {self.s}.listings")}
+        return complete_years(self.conn.execute(f"SELECT year, page, pages FROM {self.s}.listings"))
 
     def add_listing(self, year, page, num_found, pages, sha, url):
         self.conn.execute(f"INSERT INTO {self.s}.listings (year, page, num_found, pages, listing, url) "
