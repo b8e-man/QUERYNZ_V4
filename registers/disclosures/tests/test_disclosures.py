@@ -177,6 +177,27 @@ def test_the_form_check_names_what_it_could_not_compare():
     assert read.form_check(1.0, None, forms)["form_check"] == "no scan held"
 
 
+def test_the_read_job_reads_on_the_worker_s_card_and_never_the_default(monkeypatch, capsys):
+    """Card the-disclosures-read-job-reads-through-the-carve-out-s-server:
+    the piece hands the worker's server to the reader, and without one it
+    refuses rather than fall back to the carve-out's."""
+    seen = []
+
+    class Got:
+        readings, replayed, unread = [], 0, []
+
+    monkeypatch.setattr(read, "read_document", lambda *a, **k: seen.append(k) or Got())
+    monkeypatch.setattr("support.docstore.landing.read_bytes", lambda sha: b"not a pdf")
+    monkeypatch.delenv("QV4_MODEL_URL", raising=False)
+    monkeypatch.delenv("QV4_MODEL", raising=False)
+    assert read.main(["--scan", "a" * 64]) == 2 and not seen, "no worker's card: refused, nothing read"
+    monkeypatch.setenv("QV4_MODEL_URL", "http://127.0.0.1:8101/v1/chat/completions")
+    monkeypatch.setenv("QV4_MODEL", "glm-ocr")
+    assert read.main(["--scan", "a" * 64]) == 0
+    assert (seen[0]["url"], seen[0]["model"]) == ("http://127.0.0.1:8101/v1/chat/completions", "glm-ocr")
+    assert seen[0]["page_reader"] is True
+
+
 def test_compare_buckets_by_the_day_the_party_received_the_gift():
     rows = [{"party": "Example Party", "party_label": "Example Party", "regime": check.COMPARED, "amount": 30000, "given_on": dt.date(2023, 12, 30)},
             {"party": "Example Party", "party_label": "Example Party", "regime": check.COMPARED, "amount": 25000, "given_on": dt.date(2024, 1, 2)},
