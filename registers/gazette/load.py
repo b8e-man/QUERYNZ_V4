@@ -15,15 +15,24 @@ from registers.gazette import capture, read
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "gazette"
 PRIVATE = "gazette_private"
-TABLES = ("notices", "celebrants", "files", "set_aside")
-PRIVATE_TABLES = ("celebrant_addresses",)
+TABLES = ("notices", "celebrants", "prohibitions", "liquidations", "liquidators", "files", "set_aside")
+PRIVATE_TABLES = ("celebrant_addresses", "prohibition_addresses")
 COLUMNS = {
-    "notices": ("key", "notice", "year", "section", "number", "family", "format", "status", "records", "title",
+    "notices": ("key", "notice", "year", "section", "number", "family", "format", "status", "records", "supersedes", "title",
                 "published_on", "url", "old_type", "article", "source_note", "document", "page", "place",
                 "read_from", "reader", "profile", "profile_version", "loaded_at"),
     "celebrants": ("key", "notice", "published_on", "action", "statute", "period_from", "period_to", "surname",
                    "given_names", "organisation", "list_shape", "marks", "split", "ordinal", "document", "page", "place",
                    "read_from", "reader", "profile", "profile_version", "loaded_at"),
+    "prohibitions": ("key", "notice", "published_on", "action", "name", "also_known_as", "named_twice", "statute",
+                     "months", "permanent", "starts_on", "starts_basis", "ends_on", "dated_on", "supersedes",
+                     "superseded_by", "superseded_how", "ordinal", "document", "page", "place", "read_from", "reader",
+                     "profile", "profile_version", "loaded_at"),
+    "liquidations": ("key", "notice", "published_on", "company", "company_number", "shape", "appointed_by", "statute",
+                     "appointed_on", "appointed_at", "date_basis", "dated_on", "corrigendum", "liquidators", "ordinal",
+                     "document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
+    "liquidators": ("key", "notice", "published_on", "name", "role", "named_in_body", "companies", "ordinal", "document",
+                    "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
 }
 
 
@@ -76,9 +85,12 @@ def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool
     res = read.read(read_bytes(export[0]), export[0], only=only)
     _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason"),
           [(i, "capture", w) for i, w in aside] + list(res.set_aside))
-    for t, rows in (("notices", res.notices), ("celebrants", res.celebrants)):
+    for t, rows in (("notices", res.notices), ("celebrants", res.celebrants), ("prohibitions", res.prohibitions),
+                    ("liquidations", res.liquidations), ("liquidators", res.liquidators)):
         _copy(conn, table(schema, t, shared), COLUMNS[t], _flat(COLUMNS[t], rows))
     _copy(conn, table(private_of(schema), "celebrant_addresses", shared), ("key", "address"), res.addresses)
+    _copy(conn, table(private_of(schema), "prohibition_addresses", shared), ("key", "address", "formerly"),
+          res.prohibition_addresses)
     conn.execute(f"INSERT INTO {table(schema, 'files', shared)} VALUES (%s, %s, 'notices', 'read')", export)
     return {**res.counts, "not_held": len(aside)}
 
