@@ -24,6 +24,16 @@ code.
   read by `pixels.read` when it came from pixels; the year, which the page
   reader drops from that page, comes from `pixels.return_year`.
 
+**The party.** The label as filed resolves through
+`keys.parties.party_name(label, rows, on=year)` against the parties lane's
+names (`pub.party_names`, with each registration's window from
+`pub.parties`): the row carries the registration's key (`party_key`), its
+registered name (`party`) and the basis. A label two registrations live in
+the return's year both answer to, or none does, stays unresolved and the
+row publishes with the label as filed. Without the lane's rows (the
+sample, before its `pub` holds them) the label resolves against the
+snapshot of today's register and `party_key` is empty.
+
 A return the profile does not recognise, or whose declaration page cannot
 be reconciled with its own total, publishes nothing: it is set aside with
 the stage and the reason. A return that publishes its row then has its
@@ -31,7 +41,7 @@ schedules read (`donors.py`, Part A; `loans.py`, Part H): each part is
 published whole when it reconciles with the return's own figures, or set
 aside whole beside the row (stages `part-a`, `loans`, `part-h`).
 
-    result = read_return(data, sha256, store)
+    result = read_return(data, sha256, store, parties=party_rows(conn))
     result.row          the register row (a dict under the row contract), or None
     result.donors       Part A rows, each with its key, name and amount; the address beside it is private
     result.loans        Part H rows, likewise
@@ -111,8 +121,32 @@ def stored_page(store: rd.Store, sha256: str, page: int):
     return None
 
 
-def _row(sha256, page, decl, reading, year_from, loaded_at) -> dict:
-    party, basis = parties.party_name(decl.party_label)
+PARTY_ROWS = """SELECT n.party, n.name, n.kind, n.from_on, n.to_on, p.registered_on, p.cancelled_on, p.name AS registered_name
+FROM pub.party_names n JOIN pub.parties p ON p.key = n.party"""
+
+
+def party_rows(conn) -> list:
+    """The parties lane's names with each registration's window, for
+    `keys.parties.party_name(label, rows, on=year)`."""
+    cur = conn.execute(PARTY_ROWS)
+    cols = [d[0] for d in cur.description]
+    return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+
+def resolve_party(label: str, year, rows=None):
+    """(registration key | None, registered name | None, basis). With the
+    lane's rows, the registration live in the return's year; without them,
+    today's register (and no key)."""
+    if rows is None:
+        name, basis = parties.party_name(label)
+        return None, name, basis
+    key, basis = parties.party_name(label, rows, on=year)
+    name = next((r["registered_name"] for r in rows if r["party"] == key), None) if key else None
+    return key, name, basis
+
+
+def _row(sha256, page, decl, reading, year_from, loaded_at, party_rows_=None) -> dict:
+    key, party, basis = resolve_party(decl.party_label, decl.year, party_rows_)
     return {
         "key": f"{sha256}/declaration",
         "document": sha256,
@@ -125,6 +159,7 @@ def _row(sha256, page, decl, reading, year_from, loaded_at) -> dict:
         "loaded_at": loaded_at or dt.datetime.now().astimezone().isoformat(timespec="seconds"),
         "filed": {
             "party": party,
+            "party_key": key,
             "party_label": decl.party_label,
             "party_basis": basis,
             "year": decl.year,
@@ -184,7 +219,7 @@ def _publish_or_set_aside(out: Result, decl, extra: list = ()) -> bool:
     return True
 
 
-def read_text(data, sha256, texts, store, out, loaded_at) -> Result:
+def read_text(data, sha256, texts, store, out, loaded_at, party_rows_=None) -> Result:
     prof = current_profile()
     why = recognise(texts, prof)
     if why:
@@ -193,12 +228,12 @@ def read_text(data, sha256, texts, store, out, loaded_at) -> Result:
     reading = read_document(data, sha256, profile=PROFILE, profile_version=int(prof["version"]), store=store, texts=texts)
     decl = declaration.read(reading.texts.get(1, ""))
     if _publish_or_set_aside(out, decl):
-        out.row = _row(sha256, 1, decl, reading.readings[0], "declaration page", loaded_at)
+        out.row = _row(sha256, 1, decl, reading.readings[0], "declaration page", loaded_at, party_rows_)
         _schedules(out, sha256, reading.texts, {r.page: r for r in reading.readings}, reading.texts.get(1, ""))
     return out
 
 
-def read_pixels(data, sha256, texts, how, store, out, loaded_at) -> Result:
+def read_pixels(data, sha256, texts, how, store, out, loaded_at, party_rows_=None) -> Result:
     slug = SCAN if how == "pixels" else IMAGE_DECLARATION
     reading = read_document(data, sha256, profile=slug, profile_version=int(current_profile(slug)["version"]),
                             store=store, texts=texts)
@@ -228,12 +263,12 @@ def read_pixels(data, sha256, texts, how, store, out, loaded_at) -> Result:
         if decl.year is None:
             extra = [year_from]
     if _publish_or_set_aside(out, decl, extra):
-        out.row = _row(sha256, page, decl, r, year_from, loaded_at)
+        out.row = _row(sha256, page, decl, r, year_from, loaded_at, party_rows_)
         _schedules(out, sha256, full, by_page, r.text)
     return out
 
 
-def read_return(data: bytes, sha256: str, store: rd.Store = None, loaded_at: str = None) -> Result:
+def read_return(data: bytes, sha256: str, store: rd.Store = None, loaded_at: str = None, parties: list = None) -> Result:
     store = store or rd.Store()
     texts = pages.text_pages(data)
     out = Result(sha256, pages=len(texts))
@@ -242,5 +277,5 @@ def read_return(data: bytes, sha256: str, store: rd.Store = None, loaded_at: str
         return out
     how = pages.read_from(b"%PDF", texts)
     if how == "text":
-        return read_text(data, sha256, texts, store, out, loaded_at)
-    return read_pixels(data, sha256, texts, how, store, out, loaded_at)
+        return read_text(data, sha256, texts, store, out, loaded_at, parties)
+    return read_pixels(data, sha256, texts, how, store, out, loaded_at, parties)

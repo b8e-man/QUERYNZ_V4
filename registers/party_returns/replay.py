@@ -5,11 +5,13 @@ candidate file is read from the old folder, read-only, through
 and any reading the run stores goes to a folder of the caller's, never the
 shared reader store.
 
-    python -m registers.party_returns.replay run OUT.json [--store DIR]
+    python -m registers.party_returns.replay run OUT.json [--store DIR] [--snapshot]
     python -m registers.party_returns.replay compare BEFORE.json AFTER.json
     python -m registers.party_returns.replay shape SHA_PREFIX [PAGE ...]
 
-`run` writes one entry per document: the row's party, label, year and
+`run` resolves each label against the parties lane's names in the real
+database, through the read-only login (`--snapshot`: today's register, as
+the sample does without them), and writes one entry per document: the row's party, label, year and
 totals, its Part A and Part H rows (name, amount, page, route) and its
 set-aside lines; never an address. `compare` prints the Part A counts of
 each and every return whose rows, set-aside stages or party changed.
@@ -54,18 +56,24 @@ class Overlay(rd.Store):
         return super().get(key) if super().has(key) else self.shared.get(key)
 
 
-def run(out_path: str, store_dir: str, files=None) -> dict:
+def published_parties() -> list:
+    from support import db
+    with db.connect(db.READ_KEY, "querynz_v4") as conn:
+        return read.party_rows(conn)
+
+
+def run(out_path: str, store_dir: str, files=None, parties=None) -> dict:
     store = Overlay(store_dir)
     out = {}
     for path in files or capture.candidate_files():
         with open(path, "rb") as f:
             data = f.read()
         sha = hashlib.sha256(data).hexdigest()
-        r = read.read_return(data, sha, store, loaded_at="replay")
+        r = read.read_return(data, sha, store, loaded_at="replay", parties=parties)
         row = None
         if r.row:
             f_ = r.row["filed"]
-            row = {k: f_.get(k) for k in ("party", "party_label", "party_basis", "year", "declared_total", "part_a",
+            row = {k: f_.get(k) for k in ("party", "party_key", "party_label", "party_basis", "year", "declared_total", "part_a",
                                           "donors_check", "loans_check")}
         out[sha] = {"path": os.path.relpath(path, capture.FOLDER), "row": row,
                     "donors": [[d["name"], d["amount"], d["page"], d["paired_by"]] for d in r.donors],
@@ -143,7 +151,7 @@ def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     if argv[:1] == ["run"] and len(argv) >= 2:
         store = argv[argv.index("--store") + 1] if "--store" in argv else os.path.join(os.path.dirname(argv[1]), "store")
-        d = run(argv[1], store)
+        d = run(argv[1], store, parties=None if "--snapshot" in argv else published_parties())
         print(f"{len(d)} documents: {counts(d)}")
         return 0
     if argv[:1] == ["compare"] and len(argv) == 3:

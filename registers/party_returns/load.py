@@ -25,7 +25,8 @@ TABLES = ("returns", "set_aside", "donors", "loans", "amendments")
 PRIVATE_TABLES = ("addresses",)
 COLUMNS = ("key", "document", "page", "place", "party", "party_label", "party_basis", "year", "year_from", "declared_total",
            "part_a", "part_c", "part_d", "part_f", "part_g", "declared_parts", "total_check", "read_from", "reader",
-           "profile", "profile_version", "loaded_at", "loans_h", "loans_i", "loans_total", "donors_check", "loans_check")
+           "profile", "profile_version", "loaded_at", "loans_h", "loans_i", "loans_total", "donors_check", "loans_check",
+           "party_key")
 DONOR_COLUMNS = ("key", "return_key", "document", "page", "ordinal", "n", "donor", "amount", "dates", "contributions",
                  "paired_by", "read_from", "reader", "profile", "profile_version", "loaded_at")
 LOAN_COLUMNS = ("key", "return_key", "document", "page", "ordinal", "lender", "amount", "dates", "interest", "read_from",
@@ -109,9 +110,12 @@ def load(conn, schema: str, log=print) -> int:
     wipe(conn, schema)
     store = rd.Store()
     rows = aside = donors = loans = 0
+    names = read.party_rows(conn)
+    if not names:
+        raise RuntimeError("pub.party_names is empty: the parties lane's names are what a filed label resolves against")
     landed = capture.copy_all(conn)
     for ref, path, new in landed:
-        result = read.read_return(read_bytes(ref), ref.sha256, store)
+        result = read.read_return(read_bytes(ref), ref.sha256, store, parties=names)
         n = insert(conn, schema, result)
         rows += n
         aside += 0 if n else 1

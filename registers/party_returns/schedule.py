@@ -60,7 +60,7 @@ FURNITURE = re.compile(
     r"balance\s+of|repayment|terms\s+of\s+(?:the\s+)?loan|security\s+(?:given|for)|amount\s+of\s+the\s+loan|"
     r"instructions?\s+for|^\s*\|?\s*:?-{3,}|^\W*nil\W*$", re.I)
 PRINTED_TOTAL = re.compile(r"TOTAL\s+FOR\s+PART\s+([A-I])\b", re.I)
-TABLE_START = re.compile(r"^\s*\|?\s*(?:donor.?s?\s+name|name\s+and\s+(?:street\s+)?address\s+of|lender.?s?\s+name)", re.I)
+TABLE_START = re.compile(r"^\s*(?:\|\s*)*(?:donor.?s?\s+name|name\s+and\s+(?:street\s+)?address\s+of|lender.?s?\s+name)", re.I)
 ROW_NUMBER = re.compile(r"^\s{0,3}(\d{1,3})(?=\s|$)")     # the form prints it at the margin; a wrapped address is indented further
 NUMBERED = re.compile(r"^\s*(\d{1,3})\.\s+(.*)$")
 DATE_HEAD = re.compile(r"Date\s+donation|aggregated\s+donations|dd/mm/yyyy|Date\s+(?:of\s+)?(?:the\s+)?loan", re.I)
@@ -336,7 +336,7 @@ def _row_numbers(lines: list) -> set:
     best = set()
     for edge in (1, 2):                         # numbers set flush left, or right-aligned (`9` under `10`)
         for x in {f[edge] for f in found}:
-            at = [(f[0], f[3]) for f in found if f[edge] == x]
+            at = [(f[0], f[3]) for f in found if x <= f[edge] <= x + 1]      # a column's width of drift (` 1` over `2`)
             for keep in (at, [a for a in at if not BARE_NUMBER.match(lines[a[0]])]):
                 ns = [n for _, n in keep]
                 if all(b > a for a, b in zip(ns, ns[1:])):
@@ -531,9 +531,10 @@ def rows(texts: dict, src: dict, heading, end, letter: str):
                                               "does not meet its figure")
             carry = []
             continue
-        out += got
-        carry = tail
         if tail and (i + 1 == len(pages_) or pages_[i + 1] != p + 1):
             problems.append(f"page {p}: the cells and the figures do not pair (a row left unfinished, or the page read column by column)")
             carry = []
+            continue
+        out += got
+        carry = tail
     return out, total, problems

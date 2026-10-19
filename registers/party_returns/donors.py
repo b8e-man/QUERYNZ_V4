@@ -36,7 +36,7 @@ from registers.party_returns import schedule
 HEADING = re.compile(r"PART\s*A\s*[:.\-–]?\s*PARTY\s+DONATIONS?\s+OF\s+MORE\s+THAN", re.I)
 END = re.compile(r"instructions?\s+for\s+part\s+[B-I]\b|^\W*part\s*[B-I]\s*[:.\-–]|total\s+for\s+part\s+[B-I]\b", re.I)
 #: where the address begins: a figure (not one run into a word: `3Sixty Ltd`, `1st Floor`), or a word that opens an address
-ADDRESS_START = re.compile(r"\d(?![a-z]{2})|\bc\s*/\s*[-o](?!\w)|\b(?:care\s+of|level|lvl|floor|flat|unit|apt|apartment|suite|shed|building|bldg|"
+ADDRESS_START = re.compile(r"\d(?![a-z]{2})|\bc\s*/\s*[-o](?!\w)|\b(?:care\s+of|(?:late|formerly)\s+of|level|lvl|floor|flat|unit|apt|apartment|suite|shed|building|bldg|"
                            r"p\.?\s*o\.?\s*box|private\s+bag|rd\s*\d)(?![a-z])", re.I)    # `Suite1`: the number may follow at once
 STREET = re.compile(r"\b(?:street|st|road|rd|avenue|ave|lane|place|pl|terrace|tce|drive|dr|crescent|cres|parade|pde|"
                     r"highway|hwy|quay|way|close|grove|court|esplanade|rise|mews|boulevard|line|valley|heights|park)\b\.?", re.I)
