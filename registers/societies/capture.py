@@ -85,7 +85,7 @@ KEY_HEADER = "Ocp-Apim-Subscription-Key"
 HERE = os.path.dirname(os.path.abspath(__file__))
 #: the draft one-page position (ruling 61: written before product; the
 #: integrator moves it to docs/legal/positions/ at the merge)
-POSITIONS = os.environ.get("QV4_SOCIETIES_POSITIONS") or os.path.join(HERE, "position")
+POSITIONS = None   # the position is in docs/legal/positions/ (moved at the merge of societies-1); None is the gate's default
 #: the party societies: the old product's own shape (PARTY_SOCIETY_SQL), kept as one expression here
 PARTY_NAME = re.compile(r"party of (aotearoa|new zealand)|(labour|green|m[aā]ori) party|te p[aā]ti m[aā]ori"
                         r"|^(the )?opportunit(y|ies) party", re.I)

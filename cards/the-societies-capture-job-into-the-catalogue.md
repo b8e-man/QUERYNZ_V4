@@ -1,9 +1,10 @@
 # The societies capture job, its position and its floor go in at the merge
 kind: blocker
-state: open
+state: closed
 use-case: -
 session: societies
 opened: 2026-10-20
+closed: 2026-10-20
 
 Three edits outside the societies fence, for the integrator at the merge of
 `societies-1`:
@@ -42,3 +43,5 @@ for the lane's first real load. Register `python -m registers.societies.check`
 on the checks board. Each night's answers are read by the next
 `qv4-societies-load` (the merge gate's load, then a nightly load once a
 product asks for it).
+
+Closed at the merge of `societies-1`: the position is `docs/legal/positions/nzbn-register-entities.md` and `POSITIONS` is the gate's default; `api.business.govt.nz` is floored at 5 s; `qv4-societies-capture` is in the catalogue at priority 35 (34 went to the charities capture the same morning), 01:00 NZDT nightly.

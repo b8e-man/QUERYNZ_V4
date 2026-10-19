@@ -1,4 +1,4 @@
-A lane's tables in a session's scratch schema must carry the lane's prefix (load.table with shared=True), even for a one-off full build: an unprefixed `set_aside` or `files` collides with another module's table of that name and breaks the whole sample fill.
+A lane's tables in a session's scratch schema carry the lane's prefix (load.table with shared=True), even for a one-off full build: an unprefixed set_aside or files collides with another module's table and breaks the whole sample fill.
 area: sample, scratch schema, load, measuring
 paid-for-by: 2026-10-20, societies session, step 4.1
 

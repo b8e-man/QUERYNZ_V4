@@ -74,6 +74,7 @@ STOP_REQUESTS = {}
 FLOORS = {
     "web.archive.org": 1.0,
     "www.odata.charities.govt.nz": 5.0,   # the Charities Register's feed (charities-capture-1, 20 October)
+    "api.business.govt.nz": 5.0,          # the NZBN register's entity detail (societies-1, 20 October)
     "ideas.repec.org": 5.0,
     "greaterauckland.org.nz": 30.0,
     "farmersweekly.co.nz": 5.0,
