@@ -3,7 +3,7 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-20, 07:35 NZDT. **Step:** 3 closed under ruling 60; 4.1 running, three sessions open; tracks B and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-20, 08:35 NZDT. **Step:** 3 closed under ruling 60; 4.1 running, three sessions open; tracks B and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
@@ -22,17 +22,18 @@ address (test alarm 18 October).
 
 ## Next (all from `docs/briefs/next.md`)
 
-- Step 4.1, nine lanes merged (`docs/merges/`): disclosures (520
-  declarations, 15 of 16 party-years equal; 3 scans differ, carded);
-  party returns (137 rows, 71 equal, 1 differing; Commission's table 117
-  equal, 5 carded; Part A 679 rows); parties (78 registrations, 149
+- Step 4.1, eleven lanes merged (`docs/merges/`): disclosures (520
+  declarations, 15 of 16 party-years equal; 3 scans carded);
+  party returns (137 rows, 71 equal, 1 differing; Part A 679 rows); parties (78 registrations, 149
   names); party finance (116 documents, 30 of 37 totals equal); gazette
   (207,133 notices typed, celebrant lists read); house (1,611
   candidacies, 243 seats); companies (1.92 M entities, 1.19 M directors,
   1.58 M shareholdings); expenses (6,206 lines) and MPs' interests
-  (24,931 declarations); gazette 2 (prohibitions, liquidations); keys
-  resolves labels by date. Running: the board (Fable), the charities
-  capture, societies. Ruling 61: legal positions before product.
+  (24,931 declarations); gazette 2 (prohibitions, liquidations);
+  societies (53,271, 133,080 officers); the charities capture (feed,
+  first full copy tonight); keys by date. The board is live on
+  10.0.0.2:8420 (`board-1`). Running: links (Fable), party-returns 4,
+  party-finance 2. Ruling 61: legal positions before product.
 - Track E merged (`docs/merges/windowed-1` to `-3`): two legal positions,
   two capture lanes, the two `qv4-*-capture` jobs nightly from 22:30 NZDT
   (first nightly run 20 October, both done), both hosts floored at 5 s,

@@ -58,12 +58,23 @@ Arthur's word for the feed (step 4.8).
 
 Sessions 1 to 3 merged (`docs/merges/party-returns-1` to `-3`): 137
 rows, 71 party-years equal to the frozen site, 1 differing (Labour 2017,
-carded); the Commission's by-year table 117 equal, 5 differing, each
-carded; Part A on 30 returns (679 rows), loans on 6, 14 amendments. No
-session 4 now; its items (`docs/status/party-returns.md`): rows across a
-page break, schedules outside the Part A heading, the cell-scale re-read
-of column-order pages (the scheduler's, carded), and the switch to
-`keys.parties.party_name(label, rows, on=date)`.
+carded); the Commission's table 117 equal, 5 carded; Part A on 30
+returns (679 rows). Session 4, Opus, launched headless by the integrator.
+
+```text
+You are the party-returns session, session 4, in your working copy. Read
+docs/PLAN.md, docs/plan/step-4.md, docs/status.md and
+docs/status/party-returns.md. Do your status file's next items: Part A
+rows across a page break (ACT 2019, Labour 2020, 2023, 2024, NZ First
+2023); schedules outside the Part A heading found by their own heading
+or total (National 2024, NZ First 2021, 2022); and switch the lane's
+party labels to keys.parties.party_name(label, rows, on=date) from
+pub.party_names (fix-keys-1), measuring how many of the 27 unresolved
+labels now resolve. The cell-scale re-read of column-order pages is the
+scheduler's: leave its card. Measure every change on all 152 returns,
+replay only. Edit nothing outside your folder, push and raise
+party-returns-4. Finish by telling Arthur what closed and what is carded.
+```
 
 ## parties
 
@@ -76,14 +87,68 @@ Its blocker is a fix on `keys` (next section).
 
 ## party-finance
 
-Session 1 merged (`docs/merges/party-finance-1`): 116 documents; party
-expense tables (58 rows), 34 returns' own totals read (30 equal the
-Commission, 2 explained, 5 unread), broadcasting allocations (89 rows, to
-the dollar), 69 promoters and 303 people (contacts private), the
-financial-statements roster (47). `qv4-read-pages-expenses` reads the
-three unread returns' image pages (queued after the merge). No session 2
-now; its items (`docs/status/party-finance.md`): statement figures,
-promoter returns' totals, the five unread once the readings land.
+Session 1 merged (`docs/merges/party-finance-1`): 116 documents, 30 of
+37 expense totals equal the Commission, broadcasting to the dollar, 69
+promoters, the financial-statements roster. Row 115 read the three
+unread returns' image pages. Session 2, Opus, launched headless by the
+integrator.
+
+```text
+You are the party-finance session, session 2, in your working copy.
+Read docs/PLAN.md, docs/status.md and docs/status/party-finance.md. Do
+your status file's next items: the financial statements' figures (card),
+text-layer statements first, each figure checked against the
+statement's own printed totals; the promoter returns' own totals against
+the Commission's table (card); and the five unread expense returns now
+that queue row 115 has stored every image page of three of them (the
+lane replays the reader contract's stamp {"dpi": 300, "prompt": "OCR"},
+added at the merge). Switch party labels to
+keys.parties.party_name(label, rows, on=date) where the lane resolves a
+party. Measure on every real file. Edit nothing outside your folder,
+push and raise party-finance-2. Finish by telling Arthur what closed and
+what is carded.
+```
+
+## links
+
+Step 4.2 and 4.3, in `links/`: the two confirming rules and the ledger
+from the old estate (not the hand-set weights), the old decisions copied
+untouched and mapped beside, the six first measurements, and the test
+pairs drawn from the registers. Fable. Launched headless by the
+integrator.
+
+```text
+You are a build session for QueryNZV4, running as Fable on node2, in
+the working copy the launcher made for you. Read docs/PLAN.md, then
+docs/plan/step-4.md (4.2 and 4.3), docs/status.md, links/README.md and
+your own status file docs/status/links.md (make it), the lane contract
+and the row contract, and the card how-links-names-a-register-row (the
+board assumes register, colon, key). Do the part of step 4 named here:
+links, in links/. Take the ledger and the two confirming rules from the
+old estate's data-layer/registers/registers/ (donor_anchors.py,
+roster_folds.py, person_identity.py, folds.py in /home/user/qnz3-ref),
+not the hand-set weights; the two rules are exact and are not yours to
+change. Copy the old decisions across exactly as they are into their
+own table, never edited; map each to the new stable keys of its two rows
+by content, and card what cannot be mapped (the old "hold" is
+"contested"). Read only pub views, never a lane's inside. Build the test
+pairs of 4.3 from the registers (two directors with one name on one
+company at once; two candidates with one name in different electorates;
+the same role across monthly company files; the same charity officer
+across returns once charities publishes; a candidate across an original
+and an amended return), at least 200 of each kind per name band where
+the band can supply them, drawn at random. Record the six measurements
+in your status file, the error rate by name band; the review agent's
+reading of 100 confirmed links is reported as an agent's judgment and
+the agent searches the web only for evidence that two rows differ, a
+name and public role at most. Publish pub.links, pub.groups and
+pub.decisions as the board expects (confirmed first, near after, each
+with its rule and reason); never a home address. Build in small
+tranches, each measured on the real published tables. Work in your
+scratch schema; edit nothing outside links/; push your branch and raise
+links-1. Finish by telling Arthur what closed, what is carded and what
+waits on him.
+```
 
 ## gazette
 
