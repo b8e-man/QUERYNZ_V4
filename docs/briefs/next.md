@@ -120,8 +120,8 @@ check, a copy restored from the bucket to equality in 1 h 50 min; the
 step 1.8 dump retired. Next measurements, no session: the Sunday full on
 25 October and the first 28-day rehearsal (`qv4-offsite-rehearsal`).
 Waiting on Arthur: card `the-press-graph-leaves-the-old-nightly-push`
-(after the election); `/mnt/hdd2/qv4-dumps`, 14 regenerable files,
-removable at leisure.
+(after the election). The dump's local folder is gone (five files, not
+14: the session quoted the job's keep limit; Arthur removed them 20 October).
 
 ## windowed
 
