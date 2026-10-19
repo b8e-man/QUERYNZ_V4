@@ -1,0 +1,1 @@
+-- registers/societies: `pub.societies` and `pub.society_officers`, with citations. Empty until the lane reads.

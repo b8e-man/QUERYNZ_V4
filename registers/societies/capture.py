@@ -1,0 +1,1 @@
+"""Step 1.10: the old estate's society and officer rows exported once by hash; then the register's per-entity pages, a seventh of the societies each night, the party societies first, through the fetch gate, politely (step 4.1, copied through the per-entity interface). Built by the societies session."""

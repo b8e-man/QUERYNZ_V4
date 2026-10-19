@@ -1,0 +1,1 @@
+"""The reading of the captured feed: charities, officers and annual returns. Built twice, in registers/charities_a (Fable) and registers/charities_b (Opus), against the same tests; the one kept moves here."""
