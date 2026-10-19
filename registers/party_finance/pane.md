@@ -11,9 +11,14 @@ One pane per party per election, and one per promoter.
   alone, show both figures and say so. A figure read from pixels says so.
 - **A party's financial statements.** Each year's filing from the
   Commission's roster: balance date, date filed as printed, audit
-  requirement, and the statement itself. No figure from inside a statement
-  yet.
+  requirement, and the statement itself. Beside it, the statement's own
+  income, expenditure and surplus, and its assets, liabilities and net
+  assets, each linked to its page; a pair whose arithmetic did not hold
+  says "not read". A statement in thousands is shown in dollars and says
+  so; an audited or amended statement stands over the one it replaces.
 - **A promoter.** Its registration (the day, what for), the people the
   register names in its public roles, and its expenses as the Commission's
   table states them, election and referendum spending side by side and
-  never added. Never an email or an address.
+  never added; beside each, the figure the promoter's own return states,
+  linked to its page, and whether the two agree ("not read" where it was
+  not). Never an email or an address.
