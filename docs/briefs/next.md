@@ -44,25 +44,15 @@ docs/briefs/next.md, one commit each; the worker is live, so restart
 
 ## disclosures
 
-Session 1 merged (`docs/merges/disclosures-1`): 520 declarations from the
-Commission's table, 2023-on total equal to the cent, 15 of 16 party-years
-equal. The 246 scans' page readings run as queue row 97. Row 97 is done (20 October). Session 2 is
-short: load
-the lane again so `form_check` fills, card any `differs`, and close. On
-node2: `cd /home/user/querynzv4-work/disclosures && git fetch origin && git merge --ff-only origin/main && claude --model opus --permission-mode acceptEdits`
-
-```text
-You are the disclosures session, session 2, in your working copy. Read
-docs/PLAN.md, docs/plan/step-4.md, docs/status.md and
-docs/status/disclosures.md. Row 97 (qv4-disclosures-read) has read the
-scans; load the lane again in your scratch schema so form_check fills,
-card every row that differs from the Commission's table. Then close card
-the-disclosures-read-job-reads-through-the-carve-out-s-server: read_scan
-and main in read.py must pass the worker's QV4_MODEL_URL and QV4_MODEL
-to read_document (it takes url and model now), so the job reads on the
-card the worker holds, never port 8032. Update the status file, push and
-raise disclosures-2. Fetch nothing; take over no feed. Then stop.
-```
+Sessions 1 and 2 merged (`docs/merges/disclosures-1`, `-2`): 520
+declarations from the Commission's table, 2023-on total equal to the
+cent, 15 of 16 party-years equal (National 2023 is the old estate's
+double count, queued for Arthur); the 246 scans read; form check 223
+equal, 3 differ (carded: a handwritten total, a struck-out total, a link
+to the wrong month's scan, all the Commission's to say), 50 no total read.
+The read job reads on the worker's card. No session 3 now: the lane's
+next items (`docs/status/disclosures.md`) wait on the cards and on
+Arthur's word for the feed (step 4.8).
 
 ## party-returns
 
@@ -91,16 +81,34 @@ closed and what is carded.
 
 ## parties
 
-Step 4.1, the Register of Political Parties and party lifecycle (copied
-and built). Small, and the party returns and disclosures lanes need it:
-44 party-return rows have no frozen party-year because their party labels
-are unresolved. Model: Opus. Folder `registers/parties/` is open on main.
-On node2: `cd /home/user/querynzv4 && bin/start-session parties
-registers/parties`, then in the folder it prints:
-`claude --model opus --permission-mode acceptEdits`, and paste the lane
-brief from `docs/plan/step-4.md` with `<lane>` = parties, adding: "A
-renamed party is the same party: four renames are known (step 4.1's
-table). Renames come from registration windows."
+Session 1 merged (`docs/merges/parties-1`): 78 registrations from the
+Commission's page and 136 Gazette notices (exported once from the old
+estate's text), 149 names with windows, every stated rename read, 17 on
+the register, 6 off it with no cancellation held (carded). No session 2
+now: the lane takes the Gazette lane's notices when that lane exists.
+Its blocker is a fix on `keys` (next section).
+
+## keys-fix
+
+Card `keys-parties-should-read-the-party-names-the-lane-publishes`:
+`keys.parties` holds an 18 October snapshot of 17 parties, so returns and
+declarations by a renamed or deregistered party resolve to nothing. The
+parties lane publishes `pub.party_names` with windows; 31 of 34 and 46 of
+53 unresolved labels resolve by name and filing year alone. A fix
+session, Opus, does not count against the three. On node2:
+`cd /home/user/querynzv4 && bin/fix keys`, then `cd` into the folder it
+prints and `claude --model opus --permission-mode acceptEdits`.
+
+```text
+You are a fix session on keys, in your working copy. Read CLAUDE.md,
+docs/PLAN.md, docs/plan/core.md, keys/README.md and the card
+keys-parties-should-read-the-party-names-the-lane-publishes. Give
+keys.parties a party_name(label, on=date) that resolves a label against
+pub.party_names by name key and the registration's window, returning the
+registration's key and the basis; keep every rule it has (a fuzzy match
+never joins two parties). Measure on the unresolved labels the card
+counts. Edit nothing outside keys/, push and raise fix-keys-1. Then stop.
+```
 
 ## offsite
 
