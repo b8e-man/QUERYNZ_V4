@@ -26,10 +26,15 @@ code.
 
 A return the profile does not recognise, or whose declaration page cannot
 be reconciled with its own total, publishes nothing: it is set aside with
-the stage and the reason.
+the stage and the reason. A return that publishes its row then has its
+schedules read (`donors.py`, Part A; `loans.py`, Part H): each part is
+published whole when it reconciles with the return's own figures, or set
+aside whole beside the row (stages `part-a`, `loans`, `part-h`).
 
     result = read_return(data, sha256, store)
     result.row          the register row (a dict under the row contract), or None
+    result.donors       Part A rows, each with its key, name and amount; the address beside it is private
+    result.loans        Part H rows, likewise
     result.set_aside    [(stage, reason)]
 """
 import datetime as dt
@@ -40,7 +45,7 @@ from support import profiles
 from support import reader as rd
 from support.docread import pages
 from support.docread.read import read_document
-from registers.party_returns import declaration, pixels
+from registers.party_returns import declaration, donors, loans, pixels
 
 PROFILE = "ec-party-return-text"
 SCAN = "ec-party-return-scan"
@@ -65,6 +70,8 @@ class Result:
     set_aside: list = field(default_factory=list)
     declaration: declaration.Declaration = None
     pages: int = 0
+    donors: list = field(default_factory=list)       # Part A rows, published only when the part reconciled
+    loans: list = field(default_factory=list)        # Part H rows, likewise
 
 
 def current_profile(slug: str = PROFILE) -> dict:
@@ -131,6 +138,41 @@ def _row(sha256, page, decl, reading, year_from, loaded_at) -> dict:
     }
 
 
+def _stamp(rows: list, part: str, sha256: str, readings: dict, loaded_at: str) -> list:
+    """Each schedule row keyed by its place (`<sha>/A/3`: the third row of
+    Part A in reading order) and stamped with the reading of its own page."""
+    out = []
+    for k, r in enumerate(rows, 1):
+        rd_ = readings[r["page"]]
+        out.append({**r, "key": f"{sha256}/{part}/{k}", "ordinal": k, "part": part, "document": sha256,
+                    "reader": f"{rd_.reader}: {rd_.model}", "profile": rd_.profile, "profile_version": rd_.profile_version,
+                    "read_from": rd_.read_from, "loaded_at": loaded_at})
+    return out
+
+
+def _schedules(out: Result, sha256: str, texts: dict, readings: dict, page_text: str) -> None:
+    """Part A's donors and Part H's loans, each part published whole or set
+    aside whole with its reason (stages `part-a`, `loans`, `part-h`)."""
+    src = {p: r.read_from for p, r in readings.items()}
+    filed, loaded_at = out.row["filed"], out.row["loaded_at"]
+    a = donors.read(texts, src, filed["part_a"])
+    filed["donors_check"] = a.check or None
+    if a.problems:
+        out.set_aside.append(("part-a", "; ".join(a.problems)[:2000]))
+    out.donors = _stamp(a.rows, "A", sha256, readings, loaded_at)
+    owed = loans.declared(page_text)
+    filed["loans_h"], filed["loans_i"], filed["loans_total"], filed["loans_check"] = None, None, None, None
+    if owed.problems:
+        out.set_aside.append(("loans", "; ".join(owed.problems)))
+        return
+    filed["loans_h"], filed["loans_i"], filed["loans_total"] = owed.h, owed.i, owed.total
+    h = loans.read(texts, src, owed.h)
+    filed["loans_check"] = h.check or None
+    if h.problems:
+        out.set_aside.append(("part-h", "; ".join(h.problems)[:2000]))
+    out.loans = _stamp(h.rows, "H", sha256, readings, loaded_at)
+
+
 def _publish_or_set_aside(out: Result, decl, extra: list = ()) -> bool:
     out.declaration = decl
     problems = decl.problems() + list(extra)
@@ -152,6 +194,7 @@ def read_text(data, sha256, texts, store, out, loaded_at) -> Result:
     decl = declaration.read(reading.texts.get(1, ""))
     if _publish_or_set_aside(out, decl):
         out.row = _row(sha256, 1, decl, reading.readings[0], "declaration page", loaded_at)
+        _schedules(out, sha256, reading.texts, {r.page: r for r in reading.readings}, reading.texts.get(1, ""))
     return out
 
 
@@ -186,6 +229,7 @@ def read_pixels(data, sha256, texts, how, store, out, loaded_at) -> Result:
             extra = [year_from]
     if _publish_or_set_aside(out, decl, extra):
         out.row = _row(sha256, page, decl, r, year_from, loaded_at)
+        _schedules(out, sha256, full, by_page, r.text)
     return out
 
 
