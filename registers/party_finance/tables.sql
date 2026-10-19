@@ -139,3 +139,46 @@ CREATE TABLE IF NOT EXISTS party_finance.allocation_totals (
     rows_sum     integer NOT NULL,                      -- the round's rows, added
     printed      text NOT NULL
 );
+
+-- the register of promoters: one row per promoter per election, as the Commission's page prints it
+CREATE TABLE IF NOT EXISTS party_finance.promoters (
+    key               text PRIMARY KEY,                 -- <page sha256>/block/<n>
+    document          text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page              integer NOT NULL DEFAULT 1,
+    place             text NOT NULL,                    -- block <n>
+    year              integer NOT NULL,                 -- the general election
+    promoter          text NOT NULL,                    -- as the register names it
+    registered_on     date NOT NULL,                    -- as filed
+    registered_for    text,                             -- 2020: the election and the referendums, as printed
+    statement         text,                             -- a people cell that is the register's statement, not a name
+    reader            text NOT NULL,
+    profile           text NOT NULL,
+    profile_version   integer NOT NULL,
+    read_from         text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    loaded_at         timestamptz NOT NULL
+);
+
+-- the people the register names for each promoter, in its own public roles
+CREATE TABLE IF NOT EXISTS party_finance.promoter_people (
+    key               text PRIMARY KEY,                 -- <page sha256>/block/<n>/<role>/<i>
+    promoter_key      text NOT NULL,                    -- party_finance.promoters.key
+    document          text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page              integer NOT NULL DEFAULT 1,
+    place             text NOT NULL,
+    role              text NOT NULL CHECK (role IN ('authorised representative', 'comparable with director', 'trustee')),
+    name              text NOT NULL,                    -- as printed
+    reader            text NOT NULL,
+    profile           text NOT NULL,
+    profile_version   integer NOT NULL,
+    read_from         text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    loaded_at         timestamptz NOT NULL
+);
+
+-- what may never be published (hard limit 15): a promoter's email and address, and any field the reader has not
+-- met, keyed by the promoter's row. A promoter can be one person and its address a home. Never granted to a reader.
+CREATE TABLE IF NOT EXISTS party_finance_private.promoter_contacts (
+    promoter_key  text NOT NULL,
+    label         text NOT NULL,                        -- email | address | the unmet label
+    value         text NOT NULL,                        -- the lines, newline between
+    PRIMARY KEY (promoter_key, label)
+);

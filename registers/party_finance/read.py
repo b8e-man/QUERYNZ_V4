@@ -14,13 +14,14 @@ wins once it holds the slug.
     listing_rows(kind, data, sha, year, by_url, at)   -> (rows, links, set_aside)
     expense_return_row(result, link, at)              the register row, or None
     allocation_rows(data, sha, at)                    -> (rows, totals, set_aside)
+    promoter_rows(data, sha, at)                      -> (promoters, people, private contacts, set_aside)
 """
 import datetime as dt
 import os
 
 from keys import parties
 from support import profiles
-from registers.party_finance import broadcasting, expenses, listing
+from registers.party_finance import broadcasting, expenses, listing, promoters
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -127,3 +128,40 @@ def allocation_rows(data: bytes, sha256: str, loaded_at: str = None) -> tuple:
                          "reader": f"{broadcasting.READER}: {broadcasting.MODEL}", "profile": prof["slug"],
                          "profile_version": int(prof["version"]), "read_from": "text", "loaded_at": loaded_at})
     return rows, totals, aside
+
+
+ROLE = {"authorised_representative": "authorised representative", "comparable_with_director": "comparable with director",
+        "trustees": "trustee"}
+
+
+def promoter_rows(data: bytes, sha256: str, loaded_at: str = None) -> tuple:
+    """One register page → (promoters, people, contacts, set_aside). The
+    contacts are private rows; nothing of them reaches a published table."""
+    loaded_at = loaded_at or now()
+    prof = profile(promoters.PROFILE)
+    year = broadcasting.election_year(data)
+    if year is None:
+        return [], [], [], [(sha256, "promoter", "the page states no general election in its breadcrumb")]
+    reading = promoters.read(data)
+    stamp = {"page": 1, "reader": f"{promoters.READER}: {promoters.MODEL}", "profile": prof["slug"],
+             "profile_version": int(prof["version"]), "read_from": "text", "loaded_at": loaded_at}
+    out, ppl, contacts = [], [], []
+    aside = [(f"{sha256}/block/{n}", "promoter", why) for n, why in reading.skipped]
+    for p in reading.promoters:
+        key = f"{sha256}/block/{p.ordinal}"
+        said = []
+        for field_, role in ROLE.items():
+            names, statements = promoters.people(p.public.get(field_, []))
+            said += statements
+            for i, name in enumerate(names, 1):
+                tag = role.replace(" ", "-")
+                ppl.append({"key": f"{key}/{tag}/{i}", "promoter_key": key, "document": sha256,
+                            "place": f"block {p.ordinal}, {role} {i}", "role": role, "name": name, **stamp})
+        out.append({"key": key, "document": sha256, "place": f"block {p.ordinal}", "year": year, "promoter": p.name,
+                    "registered_on": p.registered_on, "registered_for": " / ".join(p.public.get("registered_for", [])) or None,
+                    "statement": " / ".join(said) or None, **stamp})
+        for label, vals in p.private.items():
+            contacts.append({"promoter_key": key, "label": label, "value": "\n".join(vals)})
+        for label in p.unknown:
+            aside.append((key, "promoter", f"{p.name}: a field labelled {label!r} the reader has not met; held private"))
+    return out, ppl, contacts, aside

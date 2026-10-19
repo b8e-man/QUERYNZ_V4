@@ -34,3 +34,14 @@ CREATE OR REPLACE VIEW pub.broadcasting_allocations AS
 SELECT key, document, page, place, year, round, round_label, final, party, party_label, party_basis, mark, eligible,
        amount, printed, reader, profile, profile_version, read_from, loaded_at
 FROM party_finance.allocations;
+
+-- the register of promoters and the people it names in its public roles; never an email or an address
+CREATE OR REPLACE VIEW pub.promoters AS
+SELECT key, document, page, place, year, promoter, registered_on, registered_for, statement, reader, profile,
+       profile_version, read_from, loaded_at
+FROM party_finance.promoters;
+
+CREATE OR REPLACE VIEW pub.promoter_people AS
+SELECT p.key, p.promoter_key, p.document, p.page, p.place, r.year, r.promoter, p.role, p.name, p.reader, p.profile,
+       p.profile_version, p.read_from, p.loaded_at
+FROM party_finance.promoter_people p JOIN party_finance.promoters r ON r.key = p.promoter_key;

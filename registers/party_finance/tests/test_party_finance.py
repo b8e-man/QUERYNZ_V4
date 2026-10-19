@@ -246,3 +246,58 @@ def test_the_allocation_pages_reconcile_and_every_document_is_accounted_for(fill
                         "loaded_at"), r))
         row["loaded_at"] = row["loaded_at"].isoformat()
         assert rowcontract.validate(row) == [], row["key"]
+
+
+REGISTER_2023 = """<html><body><ol><li>Past elections</li><li>2023 General Election</li></ol>
+<div class="page__accordion accordion"><button class="accordion__title" id="t1">  Example Trust  </button>
+<div class="accordion__content" id="c1"><p><strong>Email: </strong><a href="mailto:someone@example.org">someone@example.org</a></p>
+<p><strong>Address:</strong><br>1 Example Street<br>Exampletown 9999</p>
+<p><strong>Authorised representative: </strong>Alex Example</p>
+<p><strong>People in a position comparable with director:</strong>&nbsp;Alex Example</p>
+<p><strong>Trustees:<br></strong>Sam Sample<br>Kim Sample</p><p><strong>Registered on:&nbsp;</strong>16 August 2023</p></div></div>
+<div class="page__accordion accordion"><button class="accordion__title" id="t2">Example Union</button>
+<div class="accordion__content" id="c2"><p><strong>Address:</strong><br>PO Box 1</p><p><br>PO Box 2</p>
+<p><strong>Favourite colour:</strong> blue</p><p><strong>Registered on: </strong>1 May 2023</p></div></div>
+</body></html>""".encode()
+
+REGISTER_2020 = """<ol><li>Past elections</li><li>2020 General Election</li></ol><button class="accordion__title">Example Society</button>
+<div class="accordion__content"><div class="promoter">
+<div class="promoter__field"><div class="promoter__field__label">Address</div><div class="promoter__field__value">PO Box 3</div></div>
+<div class="promoter__field"><div class="promoter__field__label">People in a position comparable with director</div>
+<div class="promoter__field__value">Pat Example, Lee Example</div></div>
+<div class="promoter__field"><div class="promoter__field__label">Trustees</div><div class="promoter__field__value">12 trustees (please contact the Commission for details)</div></div>
+<div class="promoter__field"><div class="promoter__field__label">Registered as a promoter for</div><div class="promoter__field__value">2020 General Election<br>End of Life Choice referendum</div></div>
+<div class="promoter__field"><div class="promoter__field__label">Registered on</div><div class="promoter__field__value">3 June 2020</div></div>
+</div></div>""".encode()
+
+
+def test_the_register_publishes_roles_and_holds_every_contact_line_private():
+    rows, ppl, contacts, aside = read.promoter_rows(REGISTER_2023, "b" * 64)
+    assert [(r["promoter"], r["registered_on"], r["year"]) for r in rows] == [
+        ("Example Trust", "2023-08-16", 2023), ("Example Union", "2023-05-01", 2023)]
+    assert [(p["role"], p["name"]) for p in ppl] == [("authorised representative", "Alex Example"),
+                                                    ("comparable with director", "Alex Example"),
+                                                    ("trustee", "Sam Sample"), ("trustee", "Kim Sample")]
+    published = " ".join(str(v) for r in rows + ppl for v in r.values())
+    assert "@" not in published and "Example Street" not in published and "PO Box" not in published
+    held = {(c["promoter_key"][-7:], c["label"]): c["value"] for c in contacts}
+    assert held[("block/2", "address")] == "PO Box 1\nPO Box 2", "an unlabelled paragraph continues the field before"
+    assert held[("block/2", "favourite colour")] == "blue" and "not met" in aside[0][2]
+
+
+def test_the_2020_register_splits_comma_lists_and_keeps_a_statement_apart():
+    rows, ppl, contacts, aside = read.promoter_rows(REGISTER_2020, "c" * 64)
+    assert [p["name"] for p in ppl] == ["Pat Example", "Lee Example"]
+    assert rows[0]["statement"] == "12 trustees (please contact the Commission for details)"
+    assert rows[0]["registered_for"] == "2020 General Election / End of Life Choice referendum" and aside == []
+
+
+def test_no_published_promoter_value_carries_a_contact_line(filled):
+    conn, schema = filled["conn"], filled["schema"]
+    n = conn.execute(f"SELECT count(*) FROM {schema}.party_finance_promoters").fetchone()[0]
+    assert n == 37 + 32
+    bad = conn.execute(f"SELECT count(*) FROM {schema}.party_finance_promoter_people "
+                       f"WHERE name ~ '[0-9@]' OR name ~* '\\m(po box|private bag)\\M'").fetchone()[0]
+    assert bad == 0
+    held = conn.execute(f"SELECT count(*) FROM {schema}_private.party_finance_promoter_contacts").fetchone()[0]
+    assert held >= 37 + 32

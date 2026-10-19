@@ -37,11 +37,17 @@ COLUMNS_OF = {
                     "read_from", "loaded_at"),
     "allocation_totals": ("key", "document", "year", "round", "round_label", "allocated", "available", "rows_sum",
                           "printed"),
+    "promoters": ("key", "document", "page", "place", "year", "promoter", "registered_on", "registered_for", "statement",
+                  "reader", "profile", "profile_version", "read_from", "loaded_at"),
+    "promoter_people": ("key", "promoter_key", "document", "page", "place", "role", "name", "reader", "profile",
+                        "profile_version", "read_from", "loaded_at"),
     "expense_returns": ("key", "document", "page", "place", "listing_row", "year", "party_label", "party",
                         "party_basis", "current", "total", "total_check", "part_a", "part_b", "part_c", "expense_limit",
                         "read_from", "reader", "profile", "profile_version", "loaded_at"),
 }
 TABLES = tuple(COLUMNS_OF)
+#: the private twin's tables (hard limit 15): never published, never granted to a reader
+PRIVATE_COLUMNS_OF = {"promoter_contacts": ("promoter_key", "label", "value")}
 
 
 def private_of(schema: str) -> str:
@@ -68,10 +74,12 @@ def create_tables(conn, schema: str, shared: bool = False) -> None:
 def wipe(conn, schema: str, shared: bool = False) -> None:
     for t in TABLES:
         conn.execute(f"DELETE FROM {table(schema, t, shared)}")
+    for t in PRIVATE_COLUMNS_OF:
+        conn.execute(f"DELETE FROM {table(private_of(schema), t, shared)}")
 
 
 def insert(conn, schema: str, t: str, row: dict, shared: bool = False) -> None:
-    cols = COLUMNS_OF[t]
+    cols = COLUMNS_OF.get(t) or PRIVATE_COLUMNS_OF[t]
     conn.execute(f"INSERT INTO {table(schema, t, shared)} ({', '.join(cols)}) VALUES ({', '.join(['%s'] * len(cols))})",
                  tuple(row.get(c) for c in cols))
 
@@ -88,7 +96,8 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
     at = read.now()
     counts = {"accounted": 0, "documents": 0, "listing_rows": 0, "listing_aside": 0, "links": 0, "links_unheld": 0,
               "returns_linked": 0, "returns_read": 0, "returns_aside": 0, "capture_lines": len(capture_lines),
-              "allocation_pages": 0, "allocation_rows": 0, "allocation_aside": 0, "unread": 0}
+              "allocation_pages": 0, "allocation_rows": 0, "allocation_aside": 0, "unread": 0,
+              "register_pages": 0, "promoters": 0, "promoter_people": 0, "promoter_aside": 0}
     for item, why in capture_lines:
         aside(conn, schema, item, "capture", why, shared)
     by_url, files, linked = {}, {}, set()
@@ -150,6 +159,22 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
         counts["allocation_pages"] += 1
         counts["allocation_rows"] += len(rows)
         counts["allocation_aside"] += 0 if rows else 1
+    for kind, sha, path, url, captured in held:
+        if kind != "promoter-register":
+            continue
+        rows, ppl, contacts, lines = read.promoter_rows(read_bytes(sha), sha, at)
+        for r in rows:
+            insert(conn, schema, "promoters", r, shared)
+        for r in ppl:
+            insert(conn, schema, "promoter_people", r, shared)
+        for r in contacts:
+            insert(conn, private_of(schema), "promoter_contacts", r, shared)
+        for item, stage, why in lines:
+            aside(conn, schema, item, stage, why, shared)
+        counts["register_pages"] += 1
+        counts["promoters"] += len(rows)
+        counts["promoter_people"] += len(ppl)
+        counts["promoter_aside"] += sum(1 for _, s, _ in lines if s == "promoter")
     for sha, kind in files.items():
         if kind in UNREAD:
             aside(conn, schema, sha, "unread", UNREAD[kind], shared)
@@ -167,11 +192,10 @@ UNREAD = {
     "allocation-decision": "held; the allocation page carries the decision's figures, and the decision itself is not read",
     "financial-statements": "held; not read yet (tranche 6 reads the Commission's filing roster first)",
     "financials-listing": "held; not read yet (tranche 6)",
-    "promoter-register": "held; not read yet (tranche 5)",
     "promoter-return": "held; its figure is the Commission's promoter table's, and the return itself is not read yet",
 }
 #: kinds read whole by the build: a listing or a page is accounted for by being read
-READ_KINDS = ("expenses-listing", "promoter-expenses-listing", "allocation-page")
+READ_KINDS = ("expenses-listing", "promoter-expenses-listing", "allocation-page", "promoter-register")
 
 
 def reconcile(c: dict) -> list:
@@ -222,4 +246,7 @@ def publish(conn, staging: str) -> None:
         for t in TABLES:
             cols = ", ".join(COLUMNS_OF[t])
             conn.execute(f"INSERT INTO {SCHEMA}.{t} ({cols}) SELECT {cols} FROM {staging}.{t}")
+        for t, cols in PRIVATE_COLUMNS_OF.items():
+            cols = ", ".join(cols)
+            conn.execute(f"INSERT INTO {PRIVATE}.{t} ({cols}) SELECT {cols} FROM {private_of(staging)}.{t}")
         conn.execute(sql("publish.sql"))
