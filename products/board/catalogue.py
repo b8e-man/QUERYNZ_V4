@@ -1,0 +1,382 @@
+"""What the board knows about each published view: which register it
+belongs to, how a row is titled, which columns are searched, which are
+shown, which are dates, which cite the document, and which other rows of
+the same register it points at. Written from each lane's `pane.md`; the
+board reads only `pub.*` (the one-way test). Pure data and pure functions:
+no database here.
+
+A register the plan names but no lane has published yet is listed under
+NOT_HELD so the first pane can say "not held" rather than nothing.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+MACRONS = ("āēīōūĀĒĪŌŪ", "aeiouAEIOU")   # the fold the SQL applies before matching
+
+
+@dataclass(frozen=True)
+class Join:
+    """Rows of another view, in the same register, that belong under this
+    one: `view.column = this row's <key_column>`."""
+    label: str
+    view: str
+    column: str
+    key_column: str = "key"
+    order: str = "key"
+
+
+@dataclass(frozen=True)
+class View:
+    name: str                       # the pub view
+    register: str                   # the lane it belongs to (its folder name under registers/)
+    kind: str                       # what a row is: person, organisation, document, event, place, figure
+    title: tuple                    # columns joined with ' · ' for the pane's title
+    search: tuple                   # text columns a search term is matched against
+    numbers: tuple = ()             # columns an official number is matched against exactly
+    fields: tuple = ()              # (label, column) shown in the pane, in order
+    dates: tuple = ()               # columns shown as dates, with their names
+    urls: tuple = ()                # columns that hold the source's own address
+    names: tuple = ()               # the name columns a person pane and "same name elsewhere" use
+    suppressed: str = ""            # a column that, when true, hides every name column
+    hide_names: tuple = ()          # (column, regex): name columns hidden, and never matched, when the column's value matches
+    withheld: str = ""              # a column that, when true, hides `text`
+    joins: tuple = ()               # Join
+    parent: tuple = ()              # (label, view, this row's column holding the parent's key)
+    note: str = ""                  # a line every pane of this view carries
+    default_order: str = "key"
+    key_col: str = "key"             # the stable key (one view, expense_release_totals, has none and uses its release)
+
+
+DOC = (("document", "document"), ("page", "page"), ("place", "place"), ("read from", "read_from"),
+       ("reader", "reader"), ("profile", "profile"))
+
+VIEWS: tuple[View, ...] = (
+    # ── companies (copied; pane.md: companies) ──────────────────────────────
+    View("companies", "companies", "organisation", ("name",),
+         search=("name",), numbers=("nzbn", "number"),
+         fields=(("type", "entity_type"), ("status", "status"), ("NZBN", "nzbn"), ("number", "number"),
+                 ("register", "register"), ("in the latest file", "in_latest"), ("first file", "first_file"),
+                 ("last file", "last_file"), ("more", "extra")),
+         dates=(("registered on", "registered_on"), ("removed on", "removed_on")),
+         names=("name",),
+         joins=(Join("Directors", "directors", "entity_key", order="appointed_on"),
+                Join("Shareholders", "shareholders", "entity_key", order="name"),
+                Join("Registered office", "company_addresses", "entity_key", order="started_on"),
+                Join("Earlier states", "company_states", "entity_key", order="file")),
+         note="taken from the old estate's tables; original not held"),
+    View("directors", "companies", "person", ("full_name",),
+         search=("full_name", "last_name"),
+         fields=(("role", "role_type"), ("company", "entity_key"), ("NZBN", "nzbn"), ("company number", "company_number"),
+                 ("in the latest file", "in_latest"), ("in the files from", "first_file"), ("to", "last_file")),
+         dates=(("appointed on", "appointed_on"), ("ended on", "ended_on")),
+         names=("full_name",), suppressed="suppressed",
+         parent=("Company", "companies", "entity_key"),
+         note="a role that has left the latest file carries no end date: the file states none"),
+    View("shareholders", "companies", "person", ("name",),
+         search=("name",), numbers=("holder_nzbn",),
+         fields=(("holder type", "shareholder_type"), ("shares", "shares"), ("allocation", "allocation_status"),
+                 ("holder's NZBN", "holder_nzbn"), ("company", "entity_key"), ("in the latest file", "in_latest"),
+                 ("in the files from", "first_file"), ("to", "last_file")),
+         names=("name",), suppressed="suppressed",
+         parent=("Company", "companies", "entity_key")),
+    View("company_addresses", "companies", "place", ("line_1", "line_2", "line_3", "line_4"),
+         search=("line_1", "line_2", "line_3", "line_4", "postcode"),
+         fields=(("kind", "kind"), ("care of", "care_of"), ("postcode", "postcode"), ("country", "country"),
+                 ("in the latest file", "in_latest"), ("last file", "last_file")),
+         dates=(("from", "started_on"),),
+         parent=("Company", "companies", "entity_key"),
+         note="a company's registered office; no residential address is held in any published table"),
+    View("company_states", "companies", "event", ("file", "status"),
+         search=("name",),
+         fields=(("name in that file", "name"), ("type", "entity_type"), ("status", "status")),
+         dates=(("registered on", "registered_on"), ("removed on", "removed_on")),
+         parent=("Company", "companies", "entity_key")),
+    # ── disclosures (built; pane.md: disclosures) ──────────────────────────
+    View("disclosures", "disclosures", "figure", ("donor_name", "party"),
+         search=("donor_name", "party", "party_label"),
+         fields=(("amount", "amount"), ("amount before amendment", "amount_original"), ("party", "party"),
+                 ("party as printed", "party_label"), ("regime", "regime"), ("floor", "threshold"), ("section", "section"),
+                 ("amendment", "amendment"), ("Commission's note", "commission_note"), ("amount note", "amount_note"),
+                 ("items sum", "items_sum"), ("items check", "items_check"), ("at or under threshold", "at_or_under_threshold"),
+                 ("form total", "form_total"), ("form check", "form_check"), ("declaration document", "declaration_document")),
+         dates=(("received by the party", "given_on"), ("received by the Commission", "received_on"),
+                ("amended on", "amended_on"), ("withdrawn on", "withdrawn_on"), ("returned on", "returned_on")),
+         urls=("href",), names=("donor_name",),
+         joins=(Join("Itemised gifts", "disclosure_items", "declaration", order="ordinal"),),
+         note="an amended declaration is one row with the amended figures; never summed with its original",
+         default_order="received_on"),
+    View("disclosure_items", "disclosures", "figure", ("contributor", "amount"),
+         search=("contributor", "text"),
+         fields=(("amount", "amount"), ("contributor", "contributor"), ("as printed", "text"), ("ordinal", "ordinal")),
+         dates=(("first date", "first_date"),), names=("contributor",),
+         parent=("Declaration", "disclosures", "declaration")),
+    # ── expenses (copied from published files; pane.md: expenses) ─────────
+    View("mp_expenses", "expenses", "figure", ("name", "category"),
+         search=("name", "member", "party", "party_label"),
+         fields=(("member", "member"), ("party", "party"), ("party as printed", "party_label"), ("category", "category"),
+                 ("role", "role"), ("figure", "figure"), ("as printed", "printed"), ("line check", "line_check"),
+                 ("line", "line"), ("marks", "marks"), ("release", "release"), ("period basis", "period_basis")),
+         dates=(("period from", "period_start"), ("period to", "period_end")),
+         urls=("url",), names=("name",),
+         note="money outside the total is shown beside it and never added in",
+         default_order="period_start"),
+    View("minister_expenses", "expenses", "figure", ("name", "category"),
+         search=("name", "member", "party", "party_label"),
+         fields=(("member", "member"), ("party", "party"), ("party as printed", "party_label"), ("category", "category"),
+                 ("role", "role"), ("figure", "figure"), ("as printed", "printed"), ("line check", "line_check"),
+                 ("line", "line"), ("marks", "marks"), ("release", "release"), ("period basis", "period_basis")),
+         dates=(("period from", "period_start"), ("period to", "period_end")),
+         urls=("url",), names=("name",), default_order="period_start"),
+    View("expense_release_totals", "expenses", "figure", ("release", "label"),
+         search=("release", "label", "heading", "publisher"),
+         fields=(("publisher", "publisher"), ("heading", "heading"), ("total role", "total_role"),
+                 ("printed", "printed"), ("sum of the lane's rows", "rows_sum"), ("equal", "equal")),
+         dates=(("period from", "period_start"), ("period to", "period_end")),
+         note="the publisher's own grand total beside the sum of the lane's lines", default_order="release", key_col="release"),
+    # ── gazette (built; pane.md: gazette) ──────────────────────────────────
+    View("gazette_notices", "gazette", "document", ("notice", "title"),
+         search=("title", "notice"),
+         fields=(("section", "section"), ("family", "family"), ("format", "format"), ("status", "status"),
+                 ("records", "records"), ("year", "year"), ("number", "number")),
+         dates=(("published on", "published_on"),),
+         urls=("url",),
+         joins=(Join("Celebrants named", "gazette_celebrants", "notice", key_column="notice", order="ordinal"),),
+         note="the notice text is never shown: some notices print home addresses", default_order="published_on"),
+    View("gazette_celebrants", "gazette", "person", ("surname", "given_names"),
+         search=("surname", "given_names", "organisation"),
+         fields=(("organisation", "organisation"), ("action", "action"), ("statute", "statute"), ("list shape", "list_shape"),
+                 ("how the name was cut", "split"), ("marks", "marks"), ("ordinal", "ordinal")),
+         dates=(("published on", "published_on"), ("period from", "period_from"), ("period to", "period_to")),
+         names=("surname", "given_names"),
+         parent=("Notice", "gazette_notices", "notice"),
+         note="a row from an address list says only that its address is held privately", default_order="published_on"),
+    View("gazette_prohibitions", "gazette", "person", ("name", "action"),
+         search=("name", "also_known_as"),
+         fields=(("also known as", "also_known_as"), ("action", "action"), ("Act and section", "statute"), ("months", "months"),
+                 ("permanent", "permanent"), ("start basis", "starts_basis"), ("supersedes", "supersedes"),
+                 ("superseded by", "superseded_by"), ("how", "superseded_how"), ("named twice", "named_twice"), ("ordinal", "ordinal")),
+         dates=(("published on", "published_on"), ("starts on", "starts_on"), ("ends on", "ends_on"), ("dated", "dated_on")),
+         names=("name", "also_known_as"), hide_names=("superseded_how", "^revoked"),
+         parent=("Notice", "gazette_notices", "notice"),
+         note="the address the notice prints is never shown; a person a later notice revoked is not shown either", default_order="published_on"),
+    View("gazette_liquidations", "gazette", "organisation", ("company",),
+         search=("company",), numbers=("company_number",),
+         fields=(("company number", "company_number"), ("shape", "shape"), ("appointed by", "appointed_by"), ("section", "statute"),
+                 ("appointed at", "appointed_at"), ("date basis", "date_basis"), ("corrigendum", "corrigendum"),
+                 ("liquidators named", "liquidators"), ("ordinal", "ordinal")),
+         dates=(("published on", "published_on"), ("appointed on", "appointed_on"), ("dated", "dated_on")),
+         names=("company",),
+         joins=(Join("Liquidators named in the notice", "gazette_liquidators", "notice", key_column="notice", order="ordinal"),),
+         parent=("Notice", "gazette_notices", "notice"),
+         note="no address, telephone or email is shown or held", default_order="published_on"),
+    View("gazette_liquidators", "gazette", "person", ("name", "role"),
+         search=("name",),
+         fields=(("role", "role"), ("how the name was read", "named_in_body"), ("companies in the notice", "companies"), ("ordinal", "ordinal")),
+         dates=(("published on", "published_on"),),
+         names=("name",),
+         joins=(Join("Companies in the notice", "gazette_liquidations", "notice", key_column="notice", order="ordinal"),),
+         parent=("Notice", "gazette_notices", "notice"), default_order="published_on"),
+    # ── house (built; pane.md: house) ──────────────────────────────────────
+    View("candidates", "house", "person", ("display_name", "election"),
+         search=("name", "display_name", "party", "party_registered", "electorate"),
+         fields=(("as printed", "name"), ("party as printed", "party"), ("party as registered", "party_registered"),
+                 ("party basis", "party_basis"), ("electorate", "electorate"), ("list place", "list_place"),
+                 ("list place cited at", "list_place_cite"), ("votes at the official count", "votes"),
+                 ("poll cancelled", "poll_cancelled"), ("how the 2026 row was joined", "joined_basis")),
+         names=("display_name", "name"),
+         parent=("Electorate", "electorates", "electorate"),
+         note="the party as printed on the page, and as registered where the label resolves", default_order="election"),
+    View("members", "house", "person", ("display_name", "route"),
+         search=("name", "display_name", "party", "party_registered", "electorate"),
+         fields=(("as printed", "name"), ("party", "party"), ("party as registered", "party_registered"), ("route", "route"),
+                 ("electorate", "electorate"), ("candidacy", "candidate"), ("from basis", "from_basis"), ("to basis", "to_basis")),
+         dates=(("seat from", "from_on"), ("to, at the latest", "to_by"), ("ended on", "ended_on")),
+         names=("display_name", "name"),
+         parent=("Candidacy", "candidates", "candidate"),
+         note="the day a seat actually ended is in no file this lane holds", default_order="from_on"),
+    View("electorates", "house", "place", ("name", "election"),
+         search=("name", "statsnz_name"),
+         fields=(("number", "number"), ("Stats NZ name", "statsnz_name"), ("Stats NZ code", "statsnz_code"), ("layer", "layer"),
+                 ("join basis", "join_basis"), ("votes counted", "votes_counted"), ("candidate votes", "candidate_total"),
+                 ("candidate informals", "candidate_informals"), ("party votes", "party_total"), ("party informals", "party_informals"),
+                 ("poll cancelled", "poll_cancelled"), ("result held", "result_held")),
+         joins=(Join("Candidates", "candidates", "electorate", order="votes"),),
+         parent=("Election", "elections", "election"), default_order="election"),
+    View("elections", "house", "event", ("name",),
+         search=("name", "electorate"),
+         fields=(("kind", "kind"), ("electorate", "electorate"), ("polling day basis", "polled_basis")),
+         dates=(("polling day", "polled_on"),), urls=("results_href",),
+         joins=(Join("Electorates", "electorates", "election", order="name"),
+                Join("Seats", "members", "election", order="display_name")), default_order="polled_on"),
+    # ── mp_interests (copied from published files; pane.md: mp_interests) ──
+    View("mp_interest_returns", "mp_interests", "person", ("name", "as_at"),
+         search=("name", "member", "party", "party_label", "electorate"),
+         fields=(("member as printed", "member"), ("party", "party"), ("party as printed", "party_label"),
+                 ("electorate", "electorate"), ("statement", "statement"), ("declarations", "declarations"),
+                 ("as at, printed", "printed")),
+         dates=(("as at", "as_at"),), names=("name",),
+         joins=(Join("Declarations", "mp_interests", "member_return", order="key"),),
+         parent=("Edition", "mp_interest_editions", "document"), default_order="as_at"),
+    View("mp_interests", "mp_interests", "figure", ("heading", "name"),
+         search=("text", "name", "heading"),
+         fields=(("member", "member"), ("party", "party"), ("electorate", "electorate"), ("category (the heading)", "heading"),
+                 ("number as printed", "number_printed"), ("declared", "text")),
+         dates=(("as at", "as_at"),), names=("name",), withheld="withheld",
+         parent=("Member's return", "mp_interest_returns", "member_return"),
+         note="the category is the heading, never the number: the register renumbered in 2018"),
+    View("mp_interest_editions", "mp_interests", "document", ("as_at_printed",),
+         search=("as_at_printed", "categories"),
+         fields=(("categories", "categories"), ("members", "members"), ("declarations", "declarations"),
+                 ("numbering agrees", "numbering_agrees")),
+         dates=(("as at", "as_at"),),
+         joins=(Join("Members' returns", "mp_interest_returns", "document", order="name"),), default_order="as_at"),
+    # ── parties (copied and built; pane.md: parties) ───────────────────────
+    View("parties", "parties", "organisation", ("name",),
+         search=("name", "first_name", "abbreviation", "secretary"),
+         fields=(("status", "status"), ("on the register", "on_register"), ("first name", "first_name"),
+                 ("registered basis", "registered_basis"), ("page basis", "page_basis"), ("window", "window"),
+                 ("abbreviation", "abbreviation"), ("abbreviation on the ballot", "abbreviation_on_ballot"),
+                 ("component parties", "components"), ("statement deadline", "statement_deadline"), ("audit", "audit"),
+                 ("website", "website"), ("party rules", "rules_title"), ("secretary", "secretary"),
+                 ("register document", "register_document"), ("cancellation document", "cancelled_document")),
+         dates=(("registered on", "registered_on"), ("notice's day", "notice_registered_on"), ("registered by", "registered_by"),
+                ("cancelled on", "cancelled_on"), ("register seen on", "register_seen_on"), ("off the register by", "off_register_by"),
+                ("logo registered on", "logo_registered_on")),
+         urls=("rules_href", "website"), names=("name",),
+         joins=(Join("Names carried", "party_names", "party", order="from_on"),
+                Join("Gazette events", "party_events", "party", order="published_on"),
+                Join("Donation returns", "party_return_totals", "party", key_column="name", order="year"),
+                Join("Large-donation disclosures", "disclosures", "party", key_column="name", order="received_on"),
+                Join("Election expenses", "party_expenses", "party", key_column="name", order="year"),
+                Join("Expense returns", "party_expense_returns", "party", key_column="name", order="year"),
+                Join("Financial statements", "party_financial_statements", "party", key_column="name", order="filed_year"),
+                Join("Broadcasting allocations", "broadcasting_allocations", "party", key_column="name", order="year"),
+                Join("Candidates standing for it", "candidates", "party_registered", key_column="name", order="election"),
+                Join("Members sitting for it", "members", "party_registered", key_column="name", order="from_on")),
+         note="never the secretary's contact lines"),
+    View("party_names", "parties", "event", ("name", "kind"),
+         search=("name",),
+         fields=(("kind", "kind"), ("basis", "basis")),
+         dates=(("from", "from_on"), ("to", "to_on")),
+         parent=("Registration", "parties", "party")),
+    View("party_events", "parties", "event", ("kind", "party_label"),
+         search=("party_label", "new_name", "title"),
+         fields=(("party as printed", "party_label"), ("new name", "new_name"), ("abbreviation", "abbreviation"),
+                 ("old abbreviation", "old_abbreviation"), ("reference", "ref"), ("notice", "notice"), ("title", "title")),
+         dates=(("published on", "published_on"), ("decided on", "decided_on")),
+         urls=("url",), parent=("Registration", "parties", "party"), default_order="published_on"),
+    # ── party_finance (built; pane.md: party_finance) ──────────────────────
+    View("party_expenses", "party_finance", "figure", ("party", "year"),
+         search=("party", "party_label"),
+         fields=(("party as printed", "party_label"), ("Commission's figure for election expenses", "total_expenses"),
+                 ("limit", "expense_limit"), ("broadcasting allocation", "allocation"), ("allocation spent", "allocation_spent"),
+                 ("audited", "audited"), ("as printed", "printed"), ("the return's own total", "return_total"),
+                 ("return check", "return_check"), ("return read from", "return_read_from"), ("the two agree", "agrees"),
+                 ("return document", "return_document"), ("return page", "return_page"), ("note", "note")),
+         note="where the return was not read the pane says not read, never agrees", default_order="year"),
+    View("party_expense_returns", "party_finance", "figure", ("party", "year"),
+         search=("party", "party_label"),
+         fields=(("party as printed", "party_label"), ("current", "current"), ("total", "total"), ("total check", "total_check"),
+                 ("Part A", "part_a"), ("Part B", "part_b"), ("Part C", "part_c"), ("limit", "expense_limit"),
+                 ("listing row", "listing_row")), default_order="year"),
+    View("party_financial_statements", "party_finance", "document", ("party", "filed_year"),
+         search=("party", "party_label"),
+         fields=(("party as printed", "party_label"), ("audit requirement", "audit_requirement"), ("balance date as printed", "balance_printed"),
+                 ("deadline as printed", "deadline_printed"), ("filed as printed", "filed_printed"), ("statements", "statements"),
+                 ("mark", "mark"), ("note", "note")),
+         dates=(("balance date", "balance_date"), ("deadline", "deadline"), ("date filed", "date_filed")),
+         note="no figure from inside a statement yet", default_order="filed_year"),
+    View("broadcasting_allocations", "party_finance", "figure", ("party", "year"),
+         search=("party", "party_label"),
+         fields=(("party as printed", "party_label"), ("round", "round_label"), ("final", "final"), ("eligible", "eligible"),
+                 ("amount", "amount"), ("as printed", "printed"), ("mark", "mark")), default_order="year"),
+    View("promoters", "party_finance", "organisation", ("promoter", "year"),
+         search=("promoter",),
+         fields=(("registered for", "registered_for"), ("statement", "statement")),
+         dates=(("registered on", "registered_on"),), names=("promoter",),
+         joins=(Join("People named in public roles", "promoter_people", "promoter_key", order="role"),
+                Join("Expenses", "promoter_expenses", "promoter", key_column="promoter", order="year")),
+         note="never an email or an address", default_order="year"),
+    View("promoter_people", "party_finance", "person", ("name", "role"),
+         search=("name", "promoter"),
+         fields=(("promoter", "promoter"), ("role", "role"), ("year", "year")),
+         names=("name",), parent=("Promoter", "promoters", "promoter_key")),
+    View("promoter_expenses", "party_finance", "figure", ("promoter", "year"),
+         search=("promoter",),
+         fields=(("election expenses", "election_expenses"), ("cannabis referendum expenses", "cannabis_referendum_expenses"),
+                 ("end of life referendum expenses", "end_of_life_referendum_expenses"), ("as printed", "printed"),
+                 ("return document", "return_document"), ("note", "note")),
+         note="election and referendum spending side by side and never added", default_order="year"),
+    # ── party_returns (built; pane.md: party_returns) ──────────────────────
+    View("party_return_totals", "party_returns", "figure", ("party", "year"),
+         search=("party", "party_label"),
+         fields=(("party as printed", "party_label"), ("declared total", "declared_total"), ("parts declared", "declared_parts"),
+                 ("total check", "total_check"), ("Part A", "part_a"), ("Part C", "part_c"), ("Part D", "part_d"),
+                 ("Part F", "part_f"), ("Part G", "part_g"), ("loans H", "loans_h"), ("loans I", "loans_i"),
+                 ("loans total", "loans_total"), ("donors check", "donors_check"), ("loans check", "loans_check"),
+                 ("year from", "year_from"), ("replaced by", "replaced_by")),
+         joins=(Join("Donors (Part A)", "party_return_donors", "return_key", order="ordinal"),
+                Join("Lenders", "party_return_loans", "return_key", order="ordinal")),
+         note="an amendment the Commission lists replaces a return; the two are never summed", default_order="year"),
+    View("party_return_donors", "party_returns", "figure", ("donor", "amount"),
+         search=("donor",),
+         fields=(("party", "party"), ("year", "year"), ("amount", "amount"), ("dates as printed", "dates"),
+                 ("contributions", "contributions"), ("how the row was paired", "paired_by"), ("ordinal", "ordinal"),
+                 ("replaced by", "replaced_by")),
+         names=("donor",), parent=("Return", "party_return_totals", "return_key"), default_order="ordinal"),
+    View("party_return_loans", "party_returns", "figure", ("lender", "amount"),
+         search=("lender",),
+         fields=(("party", "party"), ("year", "year"), ("amount", "amount"), ("dates as printed", "dates"),
+                 ("interest", "interest"), ("ordinal", "ordinal"), ("replaced by", "replaced_by")),
+         names=("lender",), parent=("Return", "party_return_totals", "return_key"), default_order="ordinal"),
+)
+
+BY_NAME = {v.name: v for v in VIEWS}
+
+#: the register folders in the order the first pane lists them, with a plain name each
+REGISTERS = (
+    ("party_returns", "Party donation and loan returns"),
+    ("disclosures", "Large-donation disclosures"),
+    ("parties", "Registered political parties"),
+    ("party_finance", "Party finance: expenses, statements, promoters, broadcasting"),
+    ("house", "Candidates, electorates and the House"),
+    ("mp_interests", "MPs' declared interests"),
+    ("expenses", "MPs' and ministers' expenses"),
+    ("companies", "Companies, directors and shareholders"),
+    ("gazette", "Gazette notices"),
+)
+
+#: registers the plan names that no lane has published yet (plan step 4.1 and later steps)
+NOT_HELD = (
+    ("charities", "Charities register and officers"),
+    ("candidate_returns", "Candidate returns"),
+    ("societies", "Incorporated-society officers"),
+    ("hansard", "Hansard"),
+    ("linz", "LINZ titles"),
+    ("tenders", "Tenders and awards"),
+    ("papers_past", "Papers Past"),
+    ("tenancy_tribunal", "Tenancy Tribunal orders (held, nothing published: ruling 58)"),
+    ("real_estate_authority", "Real Estate Authority decisions (held, nothing published: ruling 59)"),
+)
+
+#: the links views the board reads once links/ publishes them (plan step 4.9: a search table published by links)
+LINKS_VIEWS = {"links": "pub.links", "groups": "pub.groups", "decisions": "pub.decisions"}
+
+
+def views_of(register: str) -> list:
+    return [v for v in VIEWS if v.register == register]
+
+
+def columns_shown(v: View) -> set:
+    """Every column a pane of this view reads; the citation's document, page
+    and place are read when present and are not demanded here (a child row
+    may cite through its parent)."""
+    return set(v.title) | {c for _, c in v.fields} | {c for _, c in v.dates} | set(v.urls) | set(v.names)
+
+
+def fold_term(term: str) -> str:
+    """The same fold the SQL applies: lower case, macrons dropped, runs of
+    space collapsed."""
+    out = term.strip().lower().translate(str.maketrans(MACRONS[0], MACRONS[1]))
+    return " ".join(out.split())

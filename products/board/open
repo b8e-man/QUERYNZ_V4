@@ -1,0 +1,16 @@
+#!/bin/sh
+# Open the board in the default browser, starting its unit first if it is not
+# running (the desktop launcher's Exec). If the unit is not installed on this
+# box yet, the board is started from the main checkout instead, in the
+# background, so the launcher still works the day the folder is merged.
+PORT="${QV4_BOARD_PORT:-8420}"
+URL="http://127.0.0.1:${PORT}/"
+if ! systemctl --user is-active --quiet qv4-board.service; then
+    systemctl --user start qv4-board.service 2>/dev/null \
+        || ( cd /home/user/querynzv4 && QV4_BOARD_PORT="$PORT" setsid -f .venv/bin/python -m products.board serve >/dev/null 2>&1 )
+fi
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if curl -fs --max-time 1 "${URL}health" >/dev/null 2>&1; then break; fi
+    sleep 0.5
+done
+exec xdg-open "$URL"
