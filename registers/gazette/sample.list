@@ -1,1 +1,23 @@
-# registers/gazette/sample.list: hashes and key: lines only. Empty until the lane lands its first documents.
+# registers/gazette/sample.list (plan 1b.6): hashes and notice numbers only, never bytes or rows.
+# The once-only export of every Gazette notice the old estate holds as text (20 October 2026, 04:49).
+47de7e0963b32e1e54d3a5ca4bea6a54af6e3f57dae8611354aa56ae58b73a95 notices export: 208,461 lines, 207,133 notices 2000-2026
+# The notices the tests read (a comment says what case each proves, never whose it is).
+key: 2016-go3394 celebrants, stops: Surname, Given, Organisation. run together; publication
+key: 2016-go2522 celebrants, stops: Surname, Given. a removal list
+key: 2016-go4037 celebrants, stops, an appointment with a record the reader cannot cut
+key: 2007-go3988 celebrants, address list: the addresses go to the private schema only
+key: 2008-go2959 celebrants, address list, a removal with a record set aside
+key: 2024-go4242 celebrants, chain: no stops, the next surname is the last word
+key: 2021-go82 celebrants, chain glued without spaces
+key: 2023-go2376 celebrants, chain with glue and a doubtful split set aside
+key: 2025-go767 celebrants, chain removal with a record set aside
+key: 2013-go541 celebrants, the Civil Union annual list: addresses, appointed and published
+key: 2022-go134 celebrants, the organisational annual list glued under a printed header
+key: 2025-go486 celebrants, the combined list marked M and CU, letters split by a comma
+key: 2015-go7367 celebrants, a marked list that prints addresses: set aside whole
+key: 2004-go1177 celebrants, a printed table: set aside whole
+key: 2014-go6947 celebrants named, no list: set aside whole
+key: 2025-pn6944 captured twice: one kept, one set aside
+key: 2025-al4914 a liquidator's appointment: typed, not read
+key: 2018-ba414 a bankruptcy: typed, not read (its text prints an address and is never published)
+key: 2002-is8379 an incorporated society whose notice names celebrants: not a celebrant list
