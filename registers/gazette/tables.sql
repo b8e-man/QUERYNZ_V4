@@ -136,6 +136,62 @@ CREATE TABLE IF NOT EXISTS gazette.liquidators (
     loaded_at        timestamptz NOT NULL
 );
 
+-- one row per company a removal notice (ds), a winding-up application (aw) or a receivership (ar) names
+CREATE TABLE IF NOT EXISTS gazette.company_notices (
+    key              text PRIMARY KEY,                      -- gazette/<notice>/company/<ordinal>
+    notice           text NOT NULL,
+    published_on     date,
+    kind             text NOT NULL CHECK (kind IN ('removal', 'winding-up application', 'receivership')),
+    action           text,                                  -- the notice's own words: intention to remove, application to put into liquidation, …
+    company          text NOT NULL,                         -- as printed, a status or former name in brackets taken out
+    company_number   text,                                  -- where printed for this company
+    shape            text NOT NULL CHECK (shape IN ('notice', 'list')),
+    statute          text,                                  -- the first Act and section cited
+    ground           text,                                  -- removal: liquidation completed | ceased business
+    by_whom          text,                                  -- who gives notice or appointed: liquidator, Registrar, director, …
+    party            text,                                  -- the plaintiff (aw) as printed; never its address
+    event_on         date,                                  -- what event_basis says: objections by, hearing, appointment, ceased to act
+    event_at         text,                                  -- the time printed with it
+    event_basis      text,
+    filed_on         date,                                  -- the application's filing (aw)
+    court            text,                                  -- High Court at <place> (aw)
+    reference        text,                                  -- the court's file number (aw)
+    dated_on         date,
+    corrigendum      boolean NOT NULL,
+    people           integer NOT NULL,                      -- receivers the notice names (ar)
+    register_key     text,                                  -- the companies lane's entity (pub.companies.key); none where unmatched
+    register_match   text,                                  -- how (register.py); NULL where the register was not in the database
+    ordinal          integer NOT NULL,
+    document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page             integer NOT NULL DEFAULT 1,
+    place            text NOT NULL,                         -- notice <number> company <ordinal>
+    read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL
+);
+
+-- one row per receiver a receivership names (from its signature, else its operative sentence)
+CREATE TABLE IF NOT EXISTS gazette.receivers (
+    key              text PRIMARY KEY,                      -- gazette/<notice>/receiver/<ordinal>
+    notice           text NOT NULL,
+    published_on     date,
+    name             text NOT NULL,                         -- as signed; no address, telephone or email is read
+    role             text NOT NULL,
+    named_in_body    text NOT NULL CHECK (named_in_body IN ('full', 'surname', 'no')),
+    companies        integer NOT NULL,
+    ordinal          integer NOT NULL,
+    document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page             integer NOT NULL DEFAULT 1,
+    place            text NOT NULL,
+    read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL
+);
+
 -- every document the lane took, and what it did with it
 CREATE TABLE IF NOT EXISTS gazette.files (
     document   text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),

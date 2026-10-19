@@ -58,11 +58,34 @@ LIQUIDATION = "gazette-liquidator-appointment"
 PROHIBITION_TITLE = re.compile(r"^\s*Notice\s+Prohibiting\s+(?:a\s+)?Persons?\b", re.I)
 SERIES = re.compile(r"^\s*(Marriage|Civil Union) Celebrants? for (\d{4})\s+Notice No\.?\s*(\d+)", re.I)
 CLOSED_FROM, CLOSED_TO = 2000, 2025
-#: measured 20 October 2026 on every row: 98.0% joined, 98.8% of held printed numbers agreeing by name
+#: measured 20 October 2026 on every row: 98.1% joined, 98.8% of held printed numbers agreeing by name
 JOINED_FLOOR, NUMBER_FLOOR = 0.97, 0.98
+#: the company-notice profiles: the Gazette's section, the profile every notice in it must be taken by, and the
+#: floor of its company rows the register must hold (measured 20 October 2026: removals 96.7%, applications 96.1%)
+COMPANY = {"removal": ("ds", "gazette-removal-notice", 0.95),
+           "winding-up application": ("aw", "gazette-winding-up-application", 0.95)}
 
 
-def figures(rows, acted=(), marked=(), joined=None) -> dict:
+def _register(joined: dict) -> dict:
+    total = sum(joined.values())
+    numbered = joined.get(R.NUMBER, 0) + joined.get(R.NUMBER_NAME_DIFFERS, 0)
+    return {"rows": total, "by": dict(joined), "not_joined": joined.get(None, 0),
+            "joined": sum(v for k, v in joined.items() if k and k not in R.UNMATCHED),
+            "numbered": numbered, "number_agrees": joined.get(R.NUMBER, 0)}
+
+
+def _register_fails(what: str, r: dict, floor: float, number_floor: float = None) -> list:
+    if r["not_joined"] or not r["rows"]:
+        return [f"{r['not_joined']:,} {what} rows were never joined to the companies register (not in the database at load)"]
+    why = []
+    if r["joined"] < floor * r["rows"]:
+        why.append(f"the companies register holds {r['joined']:,} of {r['rows']:,} {what} companies, below {floor:.0%}")
+    if number_floor and r["numbered"] and r["number_agrees"] < number_floor * r["numbered"]:
+        why.append(f"{r['number_agrees']:,} of {r['numbered']:,} printed company numbers carry the register's name, below {number_floor:.0%}")
+    return why
+
+
+def figures(rows, acted=(), marked=(), joined=None, company_joined=None) -> dict:
     """rows: [(notice, title, format)] from the lane's published notices;
     acted: [(notice, supersedes)] for the notices that act on others; marked:
     the notices whose prohibition rows carry what superseded them."""
@@ -95,12 +118,14 @@ def figures(rows, acted=(), marked=(), joined=None) -> dict:
     al = [(n, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] == "al"]
     liq = {"filed": len(al), "not_read": sorted(n for n, f in al if f != LIQUIDATION)}
     if joined is not None:
-        total = sum(joined.values())
-        numbered = joined.get(R.NUMBER, 0) + joined.get(R.NUMBER_NAME_DIFFERS, 0)
-        liq["register"] = {"rows": total, "by": dict(joined), "not_joined": joined.get(None, 0),
-                           "joined": sum(v for k, v in joined.items() if k and k not in R.UNMATCHED),
-                           "numbered": numbered, "number_agrees": joined.get(R.NUMBER, 0)}
-    return {"numbering": numbering, "celebrants": cel, "prohibitions": pro, "liquidations": liq}
+        liq["register"] = _register(joined)
+    company = {}
+    for kind, (code, profile, floor) in COMPANY.items():
+        filed = [(n, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] == code]
+        company[kind] = {"code": code, "filed": len(filed), "not_read": sorted(n for n, f in filed if f != profile)}
+        if company_joined is not None:
+            company[kind]["register"] = _register(company_joined.get(kind, {}))
+    return {"numbering": numbering, "celebrants": cel, "prohibitions": pro, "liquidations": liq, "company": company}
 
 
 def failed(f: dict) -> list:
@@ -126,14 +151,15 @@ def failed(f: dict) -> list:
             why.append("no notice under section al is published")
         for n in q["not_read"][:20]:
             why.append(f"{n}: filed by the Gazette under al and not read as a liquidator's appointment")
-        r = q.get("register")
-        if r is not None:
-            if r["not_joined"] or not r["rows"]:
-                why.append(f"{r['not_joined']:,} liquidation rows were never joined to the companies register (not in the database at load)")
-            elif r["joined"] < JOINED_FLOOR * r["rows"]:
-                why.append(f"the companies register holds {r['joined']:,} of {r['rows']:,} liquidated companies, below {JOINED_FLOOR:.0%}")
-            if r["numbered"] and r["number_agrees"] < NUMBER_FLOOR * r["numbered"]:
-                why.append(f"{r['number_agrees']:,} of {r['numbered']:,} printed company numbers carry the register's name, below {NUMBER_FLOOR:.0%}")
+        if q.get("register") is not None:
+            why += _register_fails("liquidation", q["register"], JOINED_FLOOR, NUMBER_FLOOR)
+    for kind, c in f.get("company", {}).items():
+        if not c["filed"]:
+            why.append(f"no notice under section {c['code']} is published")
+        for n in c["not_read"][:20]:
+            why.append(f"{n}: filed by the Gazette under {c['code']} and not taken by the {kind} profile")
+        if c.get("register") is not None:
+            why += _register_fails(kind, c["register"], COMPANY[kind][2])
     years = set(f["numbering"])
     for y in range(CLOSED_FROM, CLOSED_TO + 1):
         if y not in years:
@@ -156,7 +182,11 @@ def main(argv=None) -> int:
         marked = [n for (n,) in conn.execute(
             f"SELECT DISTINCT notice FROM {table(schema, 'prohibitions', shared)} WHERE superseded_by IS NOT NULL")]
         joined = dict(conn.execute(f"SELECT register_match, count(*) FROM {table(schema, 'liquidations', shared)} GROUP BY 1").fetchall())
-    f = figures(rows, acted, marked, joined)
+        company_joined = defaultdict(dict)
+        for kind, match, n in conn.execute(
+                f"SELECT kind, register_match, count(*) FROM {table(schema, 'company_notices', shared)} GROUP BY 1, 2"):
+            company_joined[kind][match] = n
+    f = figures(rows, acted, marked, joined, company_joined)
     print(f"{len(rows)} notices published. The Gazette's own numbering, closed years "
           f"({CLOSED_FROM}-{CLOSED_TO}): highest number against numbers held")
     for y, (top, held) in f["numbering"].items():
@@ -174,12 +204,16 @@ def main(argv=None) -> int:
     q = f["liquidations"]
     print(f"Liquidator's appointments: {q['filed']:,} notices the Gazette files under al, "
           f"{q['filed'] - len(q['not_read']):,} taken by its profile (read, or set aside with a reason)")
-    r = q.get("register")
-    if r and r["rows"]:
-        print(f"  against the companies register: {r['joined']:,} of {r['rows']:,} company rows joined "
-              f"({100 * r['joined'] / r['rows']:.1f}%); {r['number_agrees']:,} of {r['numbered']:,} held printed numbers agree by name")
-        for k, v in sorted(r["by"].items(), key=lambda kv: -kv[1]):
-            print(f"    {k or 'not joined'}: {v:,}")
+    for what, c in [("liquidation", q)] + list(f["company"].items()):
+        if what != "liquidation":
+            print(f"{what.capitalize()}s: {c['filed']:,} notices the Gazette files under {c['code']}, "
+                  f"{c['filed'] - len(c['not_read']):,} taken by its profile (read, or set aside with a reason)")
+        r = c.get("register")
+        if r and r["rows"]:
+            print(f"  against the companies register: {r['joined']:,} of {r['rows']:,} company rows joined "
+                  f"({100 * r['joined'] / r['rows']:.1f}%); {r['number_agrees']:,} of {r['numbered']:,} held printed numbers agree by name")
+            for k, v in sorted(r["by"].items(), key=lambda kv: -kv[1]):
+                print(f"    {k or 'not joined'}: {v:,}")
     why = failed(f)
     for w in why:
         print("FAILS " + w)

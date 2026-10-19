@@ -15,6 +15,8 @@ from registers.gazette import check, notices, read
 from registers.gazette import liquidations as LQ
 from registers.gazette import prohibitions as PR
 from registers.gazette import register as RG
+from registers.gazette import removals as RM
+from registers.gazette import windingup as WU
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 LANE = os.path.join(REPO, "registers", "gazette")
@@ -174,8 +176,14 @@ def test_the_reading_reconciles_and_keys_are_stable_across_reads():
 
 # --- the outside check -------------------------------------------------------------
 
-def test_the_check_fails_on_a_numbered_celebrant_notice_the_lane_did_not_read():
+def _closed_years() -> list:
+    """A notice for every closed year, and one under each company-notice section, each read by its profile."""
     rows = [(f"{y}-al1", "Example Limited", check.LIQUIDATION) for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
+    return rows + [(f"2016-{code}7", "Example Limited", profile) for code, profile, floor in check.COMPANY.values()]
+
+
+def test_the_check_fails_on_a_numbered_celebrant_notice_the_lane_did_not_read():
+    rows = _closed_years()
     good = rows + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
                    ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
     assert check.failed(check.figures(good)) == []
@@ -260,7 +268,7 @@ def test_two_notices_captured_as_one_text_are_both_read():
 
 
 def test_the_check_fails_on_a_titled_prohibition_not_read_and_an_unmarked_revocation():
-    rows = [(f"{y}-al1", "Example Limited", check.LIQUIDATION) for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
+    rows = _closed_years()
     rows += [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
              ("2026-ot41", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION),
              ("2026-ot144", "Revocation of Notice", check.PROHIBITION)]
@@ -366,7 +374,7 @@ def test_an_unsigned_notice_names_its_liquidator_from_the_operative_sentence_and
 
 
 def test_the_check_fails_on_an_al_notice_not_read_as_an_appointment():
-    rows = [(f"{y}-al1", "Example Limited", check.LIQUIDATION) for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
+    rows = _closed_years()
     rows += [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
              ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
     assert check.failed(check.figures(rows)) == []
@@ -374,7 +382,7 @@ def test_the_check_fails_on_an_al_notice_not_read_as_an_appointment():
 
 
 def test_the_check_fails_below_the_register_s_floors_and_when_the_register_was_never_joined():
-    rows = [(f"{y}-al1", "Example Limited", check.LIQUIDATION) for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
+    rows = _closed_years()
     rows += [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
              ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
     good = {RG.NAME: 900, RG.NUMBER: 99, RG.NUMBER_NAME_DIFFERS: 1, RG.NOT_HELD: 20}
@@ -382,6 +390,67 @@ def test_the_check_fails_below_the_register_s_floors_and_when_the_register_was_n
     assert any("below 97%" in w for w in check.failed(check.figures(rows, joined={**good, RG.NOT_HELD: 40})))
     assert any("printed company numbers" in w for w in check.failed(check.figures(rows, joined={**good, RG.NUMBER_NAME_DIFFERS: 5})))
     assert any("never joined" in w for w in check.failed(check.figures(rows, joined={None: 1020})))
+
+
+# --- removals and winding-up applications (every name and address invented) -----------
+
+def test_a_liquidator_s_removal_notice_reads_its_companies_ground_and_objection_date():
+    t = ("Notice of Intention to Remove Companies From the Register Pursuant to Section 320 of the Companies Act 1993 Ann "
+         "Example, liquidator of the companies, hereby gives notice that, pursuant to section 318(1)(e) of the Companies Act "
+         "1993 and having filed with the Registrar the final report on the liquidation, it is intended to remove the "
+         "companies from the New Zealand Register. Any objection to the removal must be delivered to the Registrar by 9 "
+         "June 2023. Dated this 1st day of May 2023. Ann Example, Liquidator.")
+    r = RM.read("ABLE (2019) LIMITED and BAKER LIMITED (both in liquidation)", t)
+    assert (r.shape, [c.name for c in r.companies]) == ("notice", ["ABLE (2019) LIMITED", "BAKER LIMITED"])
+    assert (r.action, r.ground, r.by_whom) == ("intention to remove", "liquidation completed", "liquidator")
+    assert (r.event_on, r.event_basis, r.dated_on) == ("2023-06-09", "objections by", "2023-05-01")
+    assert RM.recognise("ds", "", "") and not RM.recognise("al", "", "")
+
+
+def test_the_registrar_s_list_is_cut_at_each_suffix_and_one_bad_row_costs_only_itself():
+    head = ("I intend to remove the following companies from the Register under section 318(1)(d) of the Companies Act "
+            "1993.I am satisfied that the companies have ceased to carry on business.")
+    tail = (" Unless, under section 321 of the Companies Act 1993, written objection is delivered to the Registrar by 9 June "
+            "2023, the Registrar may remove the companies. Dated this 2nd day of May 2023. Cy Officer, Registrar of Companies.")
+    title = "Notice of Intention to Remove Companies From the Register"
+    r = RM.read(title, head + "(THE) DESIGN LIMITED.ABLE TRUSTEES LIMITED.BAKER TRUST LIMITED.CARTER HOLDINGS TRUST.A stray "
+                "line of words LIMITED.DELTA LIMITED PARTNERSHIP.EPSILON (NZ) LIMITED 6306902 LIMITED" + tail)
+    assert r.shape == "list" and [(c.name, c.number) for c in r.companies] == [
+        ("(THE) DESIGN LIMITED", None), ("ABLE TRUSTEES LIMITED", None), ("BAKER TRUST LIMITED", None),
+        ("CARTER HOLDINGS TRUST", None), ("DELTA LIMITED PARTNERSHIP", None), ("EPSILON (NZ) LIMITED", None),
+        ("6306902 LIMITED", None)]
+    assert (r.by_whom, r.ground) == ("Registrar", "ceased business")
+    assert [w for p, w in r.unread] == ["a list row that is not a company name"]
+    numbered = RM.read(title, head + "ABLE LIMITED 1234567 BAKER (NZ) LIMITED 7654321 CARTER LIMITED PARTNERSHIP 2345678" + tail)
+    assert [(c.name, c.number) for c in numbered.companies] == [
+        ("ABLE LIMITED", "1234567"), ("BAKER (NZ) LIMITED", "7654321"), ("CARTER LIMITED PARTNERSHIP", "2345678")]
+    words = RM.read(title, "I intend to remove the companies listed below. Dated this 2nd day of May 2023. Cy Officer, "
+                    "Registrar of Companies.")
+    assert words.companies == [] and [w for p, w in words.unread] == ["the capture holds the notice's words and not its list"]
+
+
+def test_a_winding_up_application_reads_court_reference_hearing_and_plaintiff_and_never_its_address():
+    t = ("This document notifies you that: On 3 March 2014, an application for putting ABLE (2019) LIMITED into liquidation "
+         "was filed in the High Court at Auckland. Its reference number is CIV-2014-404-123. The application is to be heard "
+         "by the High Court at Auckland on Monday 21 April 2014 at 10.00am. The plaintiff is Commissioner of Inland "
+         "Revenue, whose address for service is 12 Sample Street, Exampletown.")
+    r = WU.read("Advertisement of Application for Putting Company into Liquidation", t)
+    assert [c.name for c in r.companies] == ["ABLE (2019) LIMITED"] and r.action == "application to put into liquidation"
+    assert (r.filed_on, r.court, r.reference) == ("2014-03-03", "High Court at Auckland", "CIV-2014-404-123")
+    assert (r.event_on, r.event_at, r.event_basis, r.party) == ("2014-04-21", "10.00am", "hearing", "Commissioner of Inland Revenue")
+    assert "Sample" not in repr(r)
+    old = WU.read("Advertisement", "Take notice that on the 9th day of August 2004, an application for putting into "
+                  "liquidation C.G.S Limited by the High Court was filed in the High Court at Auckland.")
+    assert [c.name for c in old.companies] == ["C.G.S Limited"] and old.filed_on == "2004-08-09"
+
+
+def test_the_check_fails_on_a_ds_or_aw_notice_not_taken_by_its_profile():
+    rows = _closed_years() + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
+                              ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
+    assert check.failed(check.figures(rows)) == []
+    assert any("2016-ds9" in w for w in check.failed(check.figures(rows + [("2016-ds9", "X Limited", "not read")])))
+    joined = {"removal": {RG.NAME: 90, RG.NOT_HELD: 10}, "winding-up application": {RG.NAME: 99, RG.NOT_HELD: 1}}
+    assert [w for w in check.failed(check.figures(rows, company_joined=joined)) if "removal" in w]
 
 
 # --- the filled sample ---------------------------------------------------------------
@@ -416,7 +485,8 @@ def filled():
                "prohibitions": q(f"SELECT * FROM {schema}.gazette_prohibitions ORDER BY key"),
                "prohibition_private": q(f"SELECT key, formerly FROM {schema}_private.gazette_prohibition_addresses"),
                "liquidations": q(f"SELECT * FROM {schema}.gazette_liquidations ORDER BY key"),
-               "liquidators": q(f"SELECT * FROM {schema}.gazette_liquidators ORDER BY key")}
+               "liquidators": q(f"SELECT * FROM {schema}.gazette_liquidators ORDER BY key"),
+               "company_notices": q(f"SELECT * FROM {schema}.gazette_company_notices ORDER BY key")}
 
 
 def test_every_listed_notice_is_held_once_and_the_second_capture_is_a_catch_log_line(filled):
@@ -440,7 +510,7 @@ def test_each_case_reads_as_its_comment_says(filled):
     assert {c["action"] for c in filled["celebrants"] if c["notice"] == "2013-go541"} == {"annual list"}
     for n in by.values():
         assert n["records"] == sum(1 for c in filled["celebrants"] + filled["prohibitions"] + filled["liquidations"]
-                                   if c["notice"] == n["notice"])
+                                   + filled["company_notices"] if c["notice"] == n["notice"])
 
 
 def test_an_address_is_private_and_no_published_row_carries_one(filled):
@@ -545,3 +615,30 @@ def test_no_liquidation_row_carries_an_address_and_the_check_passes_on_the_sampl
     assert not set(filled["liquidators"][0]) & {"address", "text", "phone", "email"}
     f = check.figures([(n["notice"], n["title"], n["format"]) for n in filled["notices"]])
     assert f["liquidations"]["filed"] == 17 and f["liquidations"]["not_read"] == []
+
+
+def test_each_removal_and_winding_up_case_reads_as_its_comment_says(filled):
+    notice = {n["notice"]: n for n in filled["notices"]}
+    cos = {}
+    for c in filled["company_notices"]:
+        cos.setdefault(c["notice"], []).append(c)
+    for code, (sec, profile, floor) in ((c, v) for c, v in check.COMPANY.items()):
+        held = [n for n in notice if f"-{sec}" in n]
+        assert held and all(notice[n]["format"] == profile for n in held)
+    assert [c["action"] for c in cos["2009-ds4850"]] == ["liquidation completed"] * 2
+    assert cos["2009-ds4850"][0]["ground"] == "liquidation completed" and cos["2009-ds4850"][0]["by_whom"] == "liquidator"
+    assert cos["2020-ds1992"][0]["by_whom"] == "director" and cos["2020-ds1992"][0]["company_number"]
+    assert (cos["2000-ds5347"][0]["by_whom"], cos["2000-ds5347"][0]["ground"]) == ("shareholder", "ceased business")
+    assert notice["2026-ds1418"]["status"] == "set aside" and "2026-ds1418" not in cos
+    assert notice["2025-ds6436"]["status"] == "read, part set aside" and len(cos["2025-ds6436"]) > 10
+    assert cos["2018-ds3187"][0]["action"] == "restoration"
+    assert {c["shape"] for c in cos["2017-ds5980"]} == {"list"} and not any(c["company_number"] for c in cos["2017-ds5980"])
+    assert len(cos["2018-ds2319"]) > 3 and all(c["company_number"] for c in cos["2018-ds2319"])
+    assert all(c["event_basis"] == "objections by" and c["event_on"] for c in cos["2017-ds5980"] + cos["2018-ds2319"])
+    for n in ("2004-aw5582", "2008-aw1458", "2021-aw801"):
+        c = cos[n][0]
+        assert c["kind"] == "winding-up application" and c["court"] and c["filed_on"] and c["event_basis"] == "hearing"
+        assert c["party"]
+    assert cos["2008-aw1889"][0]["party"] is None
+    assert any(a["stage"] == "winding-up application" and "2008-aw1889" in a["item"] for a in filled["aside"])
+    assert not set(filled["company_notices"][0]) & {"address", "text", "phone", "email"}

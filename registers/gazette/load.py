@@ -15,7 +15,8 @@ from registers.gazette import capture, read, register
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "gazette"
 PRIVATE = "gazette_private"
-TABLES = ("notices", "celebrants", "prohibitions", "liquidations", "liquidators", "files", "set_aside")
+TABLES = ("notices", "celebrants", "prohibitions", "liquidations", "liquidators", "company_notices", "receivers", "files",
+          "set_aside")
 PRIVATE_TABLES = ("celebrant_addresses", "prohibition_addresses")
 COLUMNS = {
     "notices": ("key", "notice", "year", "section", "number", "family", "format", "status", "records", "supersedes", "title",
@@ -34,7 +35,12 @@ COLUMNS = {
                      "document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
     "liquidators": ("key", "notice", "published_on", "name", "role", "named_in_body", "companies", "ordinal", "document",
                     "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
+    "company_notices": ("key", "notice", "published_on", "kind", "action", "company", "company_number", "shape", "statute",
+                        "ground", "by_whom", "party", "event_on", "event_at", "event_basis", "filed_on", "court", "reference",
+                        "dated_on", "corrigendum", "people", "register_key", "register_match", "ordinal", "document", "page",
+                        "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
 }
+COLUMNS["receivers"] = COLUMNS["liquidators"]
 
 
 def private_of(schema: str) -> str:
@@ -88,7 +94,8 @@ def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool
     _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason"),
           [(i, "capture", w) for i, w in aside] + list(res.set_aside))
     for t, rows in (("notices", res.notices), ("celebrants", res.celebrants), ("prohibitions", res.prohibitions),
-                    ("liquidations", res.liquidations), ("liquidators", res.liquidators)):
+                    ("liquidations", res.liquidations), ("liquidators", res.liquidators),
+                    ("company_notices", res.company_notices), ("receivers", res.receivers)):
         _copy(conn, table(schema, t, shared), COLUMNS[t], _flat(COLUMNS[t], rows))
     _copy(conn, table(private_of(schema), "celebrant_addresses", shared), ("key", "address"), res.addresses)
     _copy(conn, table(private_of(schema), "prohibition_addresses", shared), ("key", "address", "formerly"),
@@ -98,17 +105,21 @@ def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool
 
 
 def join_register(conn, res, schema: str, shared: bool = False) -> dict:
-    """Each liquidation row given the companies lane's entity it names
-    (register.py); a row the register does not hold, or holds more than
-    once alive that day, is a catch-log line and carries no entity."""
+    """Each company row (a liquidation, a removal, a winding-up
+    application, a receivership) given the companies lane's entity it
+    names (register.py), alive on the notice's own date for it: the
+    appointment, the filing, else the Dated or published day. A row the
+    register does not hold, or holds more than once alive that day, is a
+    catch-log line and carries no entity."""
     rows = register.rows_from(conn, schema, shared)
     if rows is None:
         return {"register": "not in this database"}
     idx, n = register.Index(rows), {}
-    for r in res.liquidations:
+    for r in res.liquidations + res.company_notices:
         f = r["filed"]
-        f["register_key"], f["register_match"] = idx.match(f["company"], f["company_number"],
-                                                           f["appointed_on"] or f["published_on"], int(f["notice"][:4]))
+        on = f.get("appointed_on") or (f.get("event_on") if f.get("event_basis") == "appointment" else None) \
+            or f.get("filed_on") or f.get("dated_on") or f["published_on"]
+        f["register_key"], f["register_match"] = idx.match(f["company"], f["company_number"], on, int(f["notice"][:4]))
         n[f["register_match"]] = n.get(f["register_match"], 0) + 1
         if f["register_match"] in register.UNMATCHED:
             res.set_aside.append((f"{r['document']}/{r['place']}", "register", f"the companies register: {f['register_match']}"))

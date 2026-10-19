@@ -173,7 +173,10 @@ def _liquidators(text: str) -> tuple:
     return [Liquidator(i, n, role, seen(n)) for i, n in enumerate(out, 1)], None
 
 
-_LIST_NAME = re.compile(rf"\s*(?P<name>[A-Z0-9][^|]*?\b{_SUFFIX})(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))*\.?(?=\s*(?:[A-Z0-9]|$))")
+#: a list's name ends at its suffix; TRUST ends a name only as a word with no LIMITED, BOARD or COMPANY after it
+#: ("ABLE TRUSTEES LIMITED" and "ABLE TRUST LIMITED" are one name each)
+_LIST_SUFFIX = r"(?:\b(?:LIMITED|LTD|Limited|Ltd|INCORPORATED|Incorporated)(?!\s+(?:PARTNERSHIP|Partnership)\b)|\b(?:TRUST|Trust|PARTNERSHIP|Partnership)\b(?!\s*(?:LIMITED|Limited|LTD|Ltd|INCORPORATED|Incorporated|BOARD|Board|COMPANY|Company)\b))"
+_LIST_NAME = re.compile(rf"\s*(?P<name>[A-Z0-9][^|]*?{_LIST_SUFFIX})(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))*\.?(?=\s*(?:[A-Z0-9]|$))")
 
 
 def _list(text: str, r: Reading) -> Reading:
