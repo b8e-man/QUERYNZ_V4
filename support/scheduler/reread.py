@@ -32,6 +32,7 @@ from support import modelclient
 from support import profiles as doc_profiles
 from support import reader as rd
 from support.docread import pagereader, pages
+from support.docread.read import read_document
 from support.docstore import landing
 from support.scheduler import LIVE
 
@@ -150,6 +151,32 @@ def piece(sha256: str, *, conn, url: str, model: str, profile: str = PROFILE, pi
     return line
 
 
+def read_pages(sha256: str, *, profile: str, url: str, model: str, store: rd.Store = None, dpi: int = 300, post=None,
+               ledger: str = None, run_id: str = "") -> dict:
+    """One piece of `qv4-read-pages`: every image page of one document
+    through the page reader on the card the worker holds, stored under the
+    reader contract's stamp (`{"dpi", "prompt"}`, the lane's own) and the
+    document profile's current version; pages with a text layer are stored
+    from it. A stored page is never read twice (replayed). Unlike `piece`,
+    nothing is compared: the lane picks the readings up on its next load.
+    Counts and the hash only: no page text is printed or logged."""
+    store = store or rd.Store()
+    version = int((doc_profiles.profile(profile) or {}).get("version") or 0)
+    data = landing.read_bytes(sha256)
+    got = read_document(data, sha256, profile=profile, profile_version=version, store=store, page_reader=True,
+                        dpi=dpi, url=url, model=model, post=post)
+    images = [r for r in got.readings if r.read_from == "pixels"]
+    line = {"at": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "run_id": run_id, "document": sha256,
+            "profile": f"{profile}@{version}", "model": model, "read_from": "pages", "pages": len(got.readings) + len(got.unread),
+            "images": len(images), "read_now": len(got.readings) - got.replayed, "replayed": got.replayed, "unread": list(got.unread),
+            "settings": {"dpi": dpi, "prompt": pagereader.PROMPT}}
+    ledger = ledger or LEDGER
+    os.makedirs(os.path.dirname(ledger), exist_ok=True)
+    with open(ledger, "a", encoding="utf-8") as f:
+        f.write(json.dumps(line) + "\n")
+    return line
+
+
 def summary(ledger: str = None) -> dict:
     """What the re-reads found: per model, equal and different counts."""
     out: dict[str, dict] = {}
@@ -161,7 +188,9 @@ def summary(ledger: str = None) -> dict:
                 except ValueError:
                     continue
                 s = out.setdefault(r.get("model") or "?", {"equal": 0, "different": 0, "unpublished": 0})
-                if r.get("published") is None:
+                if r.get("read_from") == "pages":
+                    s["pages"] = s.get("pages", 0) + int(r.get("read_now") or 0)
+                elif r.get("published") is None:
                     s["unpublished"] += 1
                 elif r.get("equal"):
                     s["equal"] += 1

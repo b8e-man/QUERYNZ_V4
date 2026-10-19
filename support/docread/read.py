@@ -37,10 +37,13 @@ class DocumentReading:
 
 def read_document(data: bytes, sha256: str, *, profile: str, profile_version: int, store: rd.Store,
                   page_reader: bool = False, post=None, max_pages: int = None, dpi: int = None,
-                  texts: dict = None) -> DocumentReading:
+                  texts: dict = None, url: str = None, model: str = None) -> DocumentReading:
     """`texts` is the page → text-layer map when the caller has already
     measured it (a lane recognises a document by shape before it reads it);
-    left out, it is extracted here."""
+    left out, it is extracted here. `url` and `model` name the page reader's
+    server: a scheduler piece passes the one on the card its worker holds
+    (`QV4_MODEL_URL`, `QV4_MODEL`); left out, the page reader's default,
+    which on node2 is the carve-out's own server (card 0)."""
     texts = texts if texts is not None else pages.text_pages(data, max_pages)
     how = pages.read_from(data, texts)
     out = DocumentReading(sha256, how)
@@ -70,7 +73,7 @@ def read_document(data: bytes, sha256: str, *, profile: str, profile_version: in
         else:
             need.append(p)
     if need and page_reader:
-        got = pagereader.ocr_pages(data, need, dpi=dpi, post=post)
+        got = pagereader.ocr_pages(data, need, dpi=dpi, post=post, url=url, model=model)
         for p in need:
             if p in got:
                 r = rd.Reading(sha256, p, READER, pagereader.MODEL, pixel_settings, profile, profile_version, "pixels",
