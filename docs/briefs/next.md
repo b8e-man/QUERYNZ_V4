@@ -92,8 +92,7 @@ Gazette's own section code; the celebrant lists read (2,941 of 2,975;
 123,187 rows; 8,943 addresses private). Session 2, when a slot frees
 (`docs/status/gazette.md`): director prohibitions, then liquidator
 appointments (43,587 notices), each its own profile; then the printed
-tables. On node2 the integrator launches it:
-`bin/start-session gazette registers/gazette`, Opus.
+tables. Launched headless by the integrator 20 October 08:45, Opus.
 
 ```text
 You are the gazette session, session 2, in your working copy. Read
@@ -141,30 +140,13 @@ what closed and what is carded.
 
 ## house
 
-Step 4.1, built: candidates, electorates, results and who sits in the
-House, from the Commission's files held under `var/staging/ec-candidate-list/`,
-`ec-results/` and `ec-byelections/`. Opus. The integrator launches it:
-`bin/start-session house registers/house`.
-
-```text
-You are a build session for QueryNZV4 on node2, running as Opus, in the
-working copy the launcher made for you. Read docs/PLAN.md, then
-docs/status.md and your own status file docs/status/house.md (make it),
-the lane contract and the row contract. Build one lane only: house, in
-registers/house/, from the files held under the old estate's
-var/staging/ec-candidate-list, ec-results and ec-byelections, by hash,
-read-only; fetch nothing. Candidates per election and by-election,
-electorates joined to Stats NZ's names (72 of 72), and who sat in the
-House with a window per seat, from results, list order and
-by-elections. Boundary shapes need a key that is Arthur's to place: card
-it, do not fetch. Profiles before readers. Give every row a stable key
-and a citation. Keep a catch log that reconciles. Find one figure from
-the Commission itself to check against. Build in small tranches, each
-measured on the real files. Work in your scratch schema; edit nothing
-outside your folder; never touch the old estate's jobs, folders or
-primary database. Push your branch and raise house-1. Finish by telling
-Arthur what closed and what is carded.
-```
+Session 1 merged (`docs/merges/house-1`): 28 elections, 216 electorates
+(2020 and 2023 joined to Stats NZ 72 of 72), 1,611 candidacies, 243
+seats, the Commission's own figures 82 of 82. Waiting on Arthur: the
+Stats NZ key for the 2025 boundaries (card); whether to ask the
+Commission about reading its results site (card: three by-elections and
+two 2020 pages not held). Mid-term changes come from the Gazette lane
+(card). No session 2 now.
 
 ## companies
 
