@@ -109,34 +109,14 @@ closed and what is carded.
 
 ## interests-expenses
 
-Step 4.1, copied from published files: MPs' and ministers' expenses
-(held under `var/staging/mp-expenses/` and `minister-expenses/`) and the
-Register of Pecuniary Interests (where held is for the baseline to say).
-Two folders, one session, Opus: `registers/mp_interests/`,
-`registers/expenses/`. The integrator launches it:
-`bin/start-session interests-expenses registers/mp_interests registers/expenses`.
-
-```text
-You are a build session for QueryNZV4 on node2, running as Opus, in the
-working copy the launcher made for you. Read docs/PLAN.md, then
-docs/status.md and your own status file docs/status/interests-expenses.md
-(make it), the lane contract and the row contract. Build two lanes:
-expenses, in registers/expenses/, from the releases held under the old
-estate's var/staging/mp-expenses and minister-expenses, by hash,
-read-only; and mp_interests, in registers/mp_interests/, from the
-published register editions: first find in docs/baseline.md and the old
-folder whether the editions are held; if they are not, card it with
-where they are published and build the expenses lane alone. Key the
-interests on the category heading, never its number (renumbered 2018);
-every edition reprints the rules after the last member. Profiles before
-readers. Fetch nothing. Give every row a stable key and a citation. Keep
-a catch log that reconciles. Find one figure from each source itself to
-check against. Build in small tranches, each measured on the real files.
-Work in your scratch schema; edit nothing outside your two folders;
-never touch the old estate's jobs, folders or primary database. Push
-your branch and raise interests-expenses-1. Finish by telling Arthur
-what closed and what is carded.
-```
+Session 1 merged (`docs/merges/interests-expenses-1`): expenses, 100
+workbooks read with a standard-library reader proven cell for cell
+against LibreOffice, 6,206 lines published, 12 listed workbooks not held
+(11 on parliament.nz, one overwritten in the old folder; cards);
+interests, 21 editions, 2,526 returns, 24,931 declarations, real
+property withheld by default (queue item for Arthur). Waiting on Arthur:
+the ten releases whose printed totals are the publisher's own slips
+(accept onto the known-limits page, or a skip list). No session 2 now.
 
 ## house
 
@@ -150,33 +130,59 @@ two 2020 pages not held). Mid-term changes come from the Gazette lane
 
 ## companies
 
-Step 4.1, copied: companies and the other entity types, directors,
-shareholders, addresses, from the Companies Office's monthly file Arthur
-downloads by hand (never raised as outstanding). Opus. The integrator
-launches it: `bin/start-session companies registers/companies`.
+Session 1 merged (`docs/merges/companies-1`): no raw monthly file
+survives, so the old estate's loaded tables of the July and August 2026
+files were exported once by hash; 1,920,468 entities, 1,185,805 director
+roles, 1,581,955 shareholdings, 867,277 registered offices; the
+Companies Office's own statistics equal within 0.02%. Residential
+addresses private. Cards: the old loader folded shareholdings and kept
+no role numbers; no monthly file is held for the 18 November step; the
+statistics page's legal position (ruling 61: before product). Queue:
+the package carries sole traders. No session 2 now.
+
+## board
+
+Step 4, the board, in `products/board/`: one search across every
+published register, panes chaining left to right, local network only;
+a desktop launcher file ships with it (Arthur, 20 October). Fable.
+Launched headless by the integrator.
 
 ```text
-You are a build session for QueryNZV4 on node2, running as Opus, in the
-working copy the launcher made for you. Read docs/PLAN.md, then
-docs/status.md and your own status file docs/status/companies.md (make
-it), the lane contract and the row contract, and docs/baseline.md for
-the old estate's nzbn_canonical tables. Build one lane only: companies,
-in registers/companies/. First find where the raw monthly files are
-kept; if only the loaded tables survive, export them once from the old
-database by hash, read-only, the way registers/gazette/capture.py did
-(the old read-only login, a statement timeout, a server-side cursor),
-and never run the export at load. Entities, directors and shareholders
-under the source's own identifiers, with windows; a company's registered
-address is published, a person's residential address goes to
-companies_private and nowhere else; never print one into your session.
-The monthly file is Arthur's to download and is never raised as
-outstanding. Give every row a stable key and a citation. Keep a catch
-log that reconciles. Find one figure from the Companies Office itself to
-check against. Build in small tranches, each measured on the real rows.
-Work in your scratch schema; edit nothing outside your folder; never
-touch the old estate's jobs, folders or primary database. Push your
-branch and raise companies-1. Finish by telling Arthur what closed and
-what is carded.
+You are a build session for QueryNZV4, running as Fable on node2, in
+the working copy the launcher made for you. Read docs/PLAN.md, then
+docs/plan/step-4.md (the board, under "Do"), docs/plan/design.md ("How
+the code is laid out"), docs/status.md and your own status file
+docs/status/board.md (make it). Do the part of step 4 named here: the
+board, in products/board/. One search across every published register
+at once: the first pane lists results grouped by register with a count
+each, a register not held says "not held"; clicking a result opens a
+pane to its right with the row, its fields, its source document and its
+links grouped by register (confirmed first, near after, each with its
+rule and reason; the links tables may be empty until links/ is built,
+and the board must show that plainly); clicking a link opens the next
+pane, the row of panes being the path walked; a person pane shows the
+group with namesakes apart; a pane can be pinned and a path saved. Each
+lane's pane.md says how its rows appear: read them, and read only the
+pub schema, never a lane's inside (the one-way test enforces this). Take
+the mechanics from the earlier boards named in step 4 (React and
+TypeScript panels in /home/user/qnz3-ref) as ideas, not code; the estate
+has no npm build step, so prefer a server-rendered page with the least
+machinery that works. The surface listens on the local network only, on
+a port you record in your spec, under a qv4- unit if it needs one; it
+never opens to strangers and never touches the frozen product's
+publisher or its ports. Never show a home address or a suppressed name:
+only pub views carry what may be shown. Build in small tranches, each
+with a check that can fail against the real published tables. Work in
+your scratch schema if you need one; edit nothing outside your folder;
+push your branch and raise board-1. Finish by telling Arthur what
+closed, what is carded, how to open the board, and what waits on him.
+Arthur wants a launcher on his desktop that opens the board. Ship it in
+your folder as a freedesktop .desktop file (Name, Icon, Exec opening the
+board's address in the default browser, starting the board's unit first
+if it is not running), with a test that the file parses; no session may
+write outside the repository, so also print, in your closing report, the
+one line Arthur runs on node2 to copy it onto his desktop and mark it
+trusted.
 ```
 
 ## keys-fix

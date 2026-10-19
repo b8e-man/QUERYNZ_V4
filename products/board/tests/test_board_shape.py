@@ -1,0 +1,11 @@
+"""The board's folder exists on main with its spec (plan step 4, the board); the build fills it."""
+import os
+
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def test_the_board_folder_carries_its_spec():
+    spec = open(os.path.join(HERE, "spec.md"), encoding="utf-8").read()
+    for line in ("owns:", "reads:", "publishes:", "outside check:", "jobs:"):
+        assert line in spec, line
+    assert "local network only" in spec
