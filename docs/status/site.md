@@ -24,7 +24,7 @@ the Money template, `products/published_site/` and `products/templates/ftm/`.
   gate green; 46 party-years of disclosures equal the Commission's table
   to the cent; 86 of 125 front-page party-year figures equal the frozen
   home file (the rest are the lanes' carded differences and Part A rows
-  not yet read). 45 tests, each gate shown failing on a planted defect.
+  not yet read). 52 tests, each gate shown failing on a planted defect.
 - Cards: the suppressed-names list has no owner; what the rebuilt site
   cannot show yet; a party-year with two returns is chosen by nobody.
   Queue: the window, 2017 or 2019 (default 2017). Lesson: "none chosen"
