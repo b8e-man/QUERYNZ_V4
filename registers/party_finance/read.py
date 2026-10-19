@@ -13,13 +13,14 @@ wins once it holds the slug.
     profile(slug)                                     the current version, shared ledger first
     listing_rows(kind, data, sha, year, by_url, at)   -> (rows, links, set_aside)
     expense_return_row(result, link, at)              the register row, or None
+    allocation_rows(data, sha, at)                    -> (rows, totals, set_aside)
 """
 import datetime as dt
 import os
 
 from keys import parties
 from support import profiles
-from registers.party_finance import expenses, listing
+from registers.party_finance import broadcasting, expenses, listing
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -92,3 +93,37 @@ def expense_return_row(result: expenses.Result, listing_row: dict, link: dict, c
             "reader": ("support.docread 1: text-layer" if result.read_from == "text" else f"{expenses.PAGE_MODEL} (stored reading)"),
             "profile": result.reading_profile, "profile_version": result.reading_version,
             "loaded_at": loaded_at or now()}
+
+
+def allocation_rows(data: bytes, sha256: str, loaded_at: str = None) -> tuple:
+    """One allocation page → (rows, totals, set_aside). A page whose rounds do
+    not each add to its own printed total publishes no row."""
+    loaded_at = loaded_at or now()
+    prof = profile(broadcasting.PROFILE)
+    year = broadcasting.election_year(data)
+    if year is None:
+        return [], [], [(sha256, "allocation", "the page states no general election in its breadcrumb")]
+    b = broadcasting.read(data)
+    aside = [(f"{sha256}/{where}", "allocation", why) for where, why in b.skipped]
+    totals = []
+    for i, label in enumerate(b.rounds):
+        totals.append({"key": f"{sha256}/round/{i + 1}", "document": sha256, "year": year, "round": i + 1,
+                       "round_label": label, "allocated": (b.totals.get("allocated") or [None] * len(b.rounds))[i],
+                       "available": (b.totals.get("available") or [None] * len(b.rounds))[i],
+                       "rows_sum": sum(r.amounts[i] or 0 for r in b.rows),
+                       "printed": " | ".join(f"{k}: {v[i] if i < len(v) else ''}" for k, v in b.printed_totals.items())})
+    if b.failed_rounds:
+        bad = ", ".join(f"round {i + 1} rows {totals[i]['rows_sum']} against {totals[i]['allocated']}" for i in b.failed_rounds)
+        return [], totals, aside + [(sha256, "allocation", f"{year}: the rounds do not add to the page's own totals ({bad}); "
+                                    "nothing from the page is published")]
+    rows = []
+    for r in b.rows:
+        party, basis = parties.party_name(r.label)
+        for i, label in enumerate(b.rounds):
+            rows.append({"key": f"{sha256}/row/{r.ordinal}/round/{i + 1}", "document": sha256, "page": 1,
+                         "place": f"row {r.ordinal}, round {i + 1}", "year": year, "round": i + 1, "round_label": label,
+                         "final": i == len(b.rounds) - 1, "party_label": r.label, "party": party, "party_basis": basis,
+                         "mark": r.mark or None, "eligible": r.eligible, "amount": r.amounts[i], "printed": r.printed[i],
+                         "reader": f"{broadcasting.READER}: {broadcasting.MODEL}", "profile": prof["slug"],
+                         "profile_version": int(prof["version"]), "read_from": "text", "loaded_at": loaded_at})
+    return rows, totals, aside

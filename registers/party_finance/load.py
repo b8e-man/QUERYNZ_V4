@@ -32,6 +32,11 @@ COLUMNS_OF = {
                          "cannabis_referendum_expenses", "end_of_life_referendum_expenses", "printed", "reader",
                          "profile", "profile_version", "read_from", "loaded_at"),
     "listing_links": ("row_key", "ordinal", "link_text", "url", "amended", "document"),
+    "allocations": ("key", "document", "page", "place", "year", "round", "round_label", "final", "party_label", "party",
+                    "party_basis", "mark", "eligible", "amount", "printed", "reader", "profile", "profile_version",
+                    "read_from", "loaded_at"),
+    "allocation_totals": ("key", "document", "year", "round", "round_label", "allocated", "available", "rows_sum",
+                          "printed"),
     "expense_returns": ("key", "document", "page", "place", "listing_row", "year", "party_label", "party",
                         "party_basis", "current", "total", "total_check", "part_a", "part_b", "part_c", "expense_limit",
                         "read_from", "reader", "profile", "profile_version", "loaded_at"),
@@ -81,11 +86,12 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
     create_tables(conn, schema, shared)
     wipe(conn, schema, shared)
     at = read.now()
-    counts = {"documents": 0, "listing_rows": 0, "listing_aside": 0, "links": 0, "links_unheld": 0,
-              "returns_linked": 0, "returns_read": 0, "returns_aside": 0, "capture_lines": len(capture_lines)}
+    counts = {"accounted": 0, "documents": 0, "listing_rows": 0, "listing_aside": 0, "links": 0, "links_unheld": 0,
+              "returns_linked": 0, "returns_read": 0, "returns_aside": 0, "capture_lines": len(capture_lines),
+              "allocation_pages": 0, "allocation_rows": 0, "allocation_aside": 0, "unread": 0}
     for item, why in capture_lines:
         aside(conn, schema, item, "capture", why, shared)
-    by_url, files = {}, {}
+    by_url, files, linked = {}, {}, set()
     for kind, sha, path, url, captured in held:
         if sha in files:
             continue
@@ -121,6 +127,7 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
                 if x["document"] is None:
                     continue
                 counts["returns_linked"] += 1
+                linked.add(x["document"])
                 res = expenses.read_return(read_bytes(x["document"]), x["document"], store)
                 row = read.expense_return_row(res, r, x, read.is_current(x, mine), at)
                 if row:
@@ -130,12 +137,48 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
                     for stage, why in res.set_aside:
                         aside(conn, schema, x["document"], stage, f"{r['party_label']} {r['year']}: {why}", shared)
                     counts["returns_aside"] += 1
+    for kind, sha, path, url, captured in held:
+        if kind != "allocation-page":
+            continue
+        rows, totals, lines = read.allocation_rows(read_bytes(sha), sha, at)
+        for r in rows:
+            insert(conn, schema, "allocations", r, shared)
+        for x in totals:
+            insert(conn, schema, "allocation_totals", x, shared)
+        for item, stage, why in lines:
+            aside(conn, schema, item, stage, why, shared)
+        counts["allocation_pages"] += 1
+        counts["allocation_rows"] += len(rows)
+        counts["allocation_aside"] += 0 if rows else 1
+    for sha, kind in files.items():
+        if kind in UNREAD:
+            aside(conn, schema, sha, "unread", UNREAD[kind], shared)
+            counts["unread"] += 1
+    for sha, kind in files.items():
+        if kind == "expense-return" and sha not in linked:
+            aside(conn, schema, sha, "unread", "held; no row of the Commission's expense tables links it", shared)
+            counts["unread"] += 1
+    counts["accounted"] = sum(1 for k in files.values() if k in READ_KINDS) + counts["unread"] + len(linked)
     return counts
+
+
+#: kinds the lane holds and does not read yet: a catch-log line each, so every held document is accounted for
+UNREAD = {
+    "allocation-decision": "held; the allocation page carries the decision's figures, and the decision itself is not read",
+    "financial-statements": "held; not read yet (tranche 6 reads the Commission's filing roster first)",
+    "financials-listing": "held; not read yet (tranche 6)",
+    "promoter-register": "held; not read yet (tranche 5)",
+    "promoter-return": "held; its figure is the Commission's promoter table's, and the return itself is not read yet",
+}
+#: kinds read whole by the build: a listing or a page is accounted for by being read
+READ_KINDS = ("expenses-listing", "promoter-expenses-listing", "allocation-page")
 
 
 def reconcile(c: dict) -> list:
     """The catch log's sums, as lines that must all be empty: items in equal items out plus items set aside."""
     bad = []
+    if c["documents"] != c["accounted"]:
+        bad.append(f"documents: {c['documents']} held, {c['accounted']} read, a row's source or a catch-log line")
     if c["returns_linked"] != c["returns_read"] + c["returns_aside"]:
         bad.append(f"returns: {c['returns_linked']} linked, {c['returns_read']} read + {c['returns_aside']} set aside")
     return bad

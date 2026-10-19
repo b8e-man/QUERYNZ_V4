@@ -28,3 +28,9 @@ SELECT l.key, l.document, l.page, l.place, l.year, l.promoter, l.note, l.electio
            AS return_document,
        l.reader, l.profile, l.profile_version, l.read_from, l.loaded_at
 FROM party_finance.promoter_listing l;
+
+-- the broadcasting allocation, every round; `final` marks the allocation that stood at the election
+CREATE OR REPLACE VIEW pub.broadcasting_allocations AS
+SELECT key, document, page, place, year, round, round_label, final, party, party_label, party_basis, mark, eligible,
+       amount, printed, reader, profile, profile_version, read_from, loaded_at
+FROM party_finance.allocations;

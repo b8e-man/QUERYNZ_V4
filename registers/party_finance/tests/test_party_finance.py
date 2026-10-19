@@ -203,3 +203,46 @@ def test_the_published_views_build_on_the_lane_s_tables(filled):
     agree = conn.execute(f"SELECT count(*) FROM {schema}.party_finance_pub_party_expenses WHERE agrees").fetchone()[0]
     conn.rollback()
     assert n == len(filled["expense_listing"]) and agree >= 6
+
+
+ALLOCATION = """<html><body><ol><li>Past elections</li><li>2023 General Election</li></ol>
+<table><tfoot><tr><td>TOTAL allocated</td><td>$300</td><td>$4,000</td></tr>
+<tr><td>TOTAL available</td><td>$4,000</td><td>$4000</td></tr></tfoot>
+<thead><tr><td>Political Party</td><td>Original allocation<br>12 May</td><td>First variation<br>1 August</td></tr></thead>
+<tbody><tr><td colspan="3"><strong>Parties eligible for share of broadcasting allocation</strong></td></tr>
+<tr><td>Example Party</td><td>$200</td><td>$3,000</td></tr>
+<tr><td>Other Party</td><td>$100</td><td>$1,000</td></tr>
+<tr><td colspan="3"><strong>Parties not eligible for allocation</strong></td></tr>
+<tr><td>Late Party*</td><td>$0</td></tr>
+</tbody></table></body></html>""".encode()
+
+
+def test_each_round_is_scored_against_the_page_s_own_total():
+    from registers.party_finance import broadcasting
+    b = broadcasting.read(ALLOCATION)
+    assert b.rounds == ["Original allocation 12 May", "First variation 1 August"]
+    assert [(r.label, r.mark, r.eligible, r.amounts) for r in b.rows] == [
+        ("Example Party", "", True, [200, 3000]), ("Other Party", "", True, [100, 1000]), ("Late Party", "*", False, [0, None])]
+    assert b.failed_rounds == [] and b.totals["available"] == [4000, 4000]
+    assert broadcasting.election_year(ALLOCATION) == 2023
+
+
+def test_a_round_that_does_not_add_up_publishes_nothing():
+    rows, totals, aside = read.allocation_rows(ALLOCATION.replace(b"$3,000", b"$3,001"), "a" * 64)
+    assert rows == [] and totals[1]["rows_sum"] == 4001 and "do not add" in aside[-1][2]
+    rows, totals, aside = read.allocation_rows(ALLOCATION, "a" * 64)
+    assert len(rows) == 6 and aside == [] and [r["final"] for r in rows[:2]] == [False, True]
+
+
+def test_the_allocation_pages_reconcile_and_every_document_is_accounted_for(filled):
+    assert len([a for a in filled["set_aside"] if a["stage"] == "allocation"]) == 0
+    conn, schema = filled["conn"], filled["schema"]
+    n = conn.execute(f"SELECT count(*) FROM {schema}.party_finance_allocations").fetchone()[0]
+    bad = conn.execute(f"SELECT count(*) FROM {schema}.party_finance_allocation_totals WHERE rows_sum <> allocated").fetchone()[0]
+    assert n == 19 * 2 + 17 * 3 and bad == 0
+    for r in conn.execute(f"SELECT key, document, page, place, reader, profile, profile_version, read_from, loaded_at "
+                          f"FROM {schema}.party_finance_allocations"):
+        row = dict(zip(("key", "document", "page", "place", "reader", "profile", "profile_version", "read_from",
+                        "loaded_at"), r))
+        row["loaded_at"] = row["loaded_at"].isoformat()
+        assert rowcontract.validate(row) == [], row["key"]

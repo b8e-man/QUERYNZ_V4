@@ -102,3 +102,40 @@ CREATE TABLE IF NOT EXISTS party_finance.expense_returns (
     profile_version   integer NOT NULL,
     loaded_at         timestamptz NOT NULL
 );
+
+-- the broadcasting allocation: one row per party per round, as the Commission's page prints it
+CREATE TABLE IF NOT EXISTS party_finance.allocations (
+    key               text PRIMARY KEY,                 -- <page sha256>/row/<n>/round/<r>
+    document          text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page              integer NOT NULL DEFAULT 1,
+    place             text NOT NULL,                    -- row <n>, round <r>
+    year              integer NOT NULL,                 -- the general election
+    round             integer NOT NULL,                 -- 1 the original allocation, then each variation in order
+    round_label       text NOT NULL,                    -- the column's heading, as printed
+    final             boolean NOT NULL,                 -- the last round the page prints
+    party_label       text NOT NULL,                    -- as printed, the footnote mark off
+    party             text,
+    party_basis       text NOT NULL,
+    mark              text,                             -- the page's footnote mark (* or **), as printed
+    eligible          boolean NOT NULL,                 -- under 'Parties eligible…' or 'Parties not eligible…'
+    amount            integer,                          -- whole dollars incl. GST; NULL where the cell is blank
+    printed           text NOT NULL,
+    reader            text NOT NULL,
+    profile           text NOT NULL,
+    profile_version   integer NOT NULL,
+    read_from         text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    loaded_at         timestamptz NOT NULL
+);
+
+-- each round's own printed totals; a round whose rows do not add to `allocated` publishes no rows
+CREATE TABLE IF NOT EXISTS party_finance.allocation_totals (
+    key          text PRIMARY KEY,                      -- <page sha256>/round/<r>
+    document     text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    year         integer NOT NULL,
+    round        integer NOT NULL,
+    round_label  text NOT NULL,
+    allocated    integer,                               -- 'TOTAL allocated', as printed
+    available    integer,                               -- 'TOTAL available', as printed
+    rows_sum     integer NOT NULL,                      -- the round's rows, added
+    printed      text NOT NULL
+);

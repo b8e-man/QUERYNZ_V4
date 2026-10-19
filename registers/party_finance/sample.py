@@ -41,4 +41,4 @@ def fill(conn, schema: str, items: list) -> int:
         m = man.get(sha) or {}
         held.append((kind, sha, path, m.get("source"), m.get("fetched_at")))
     c = L.build(conn, schema, held, rd.Store(), shared=True)
-    return c["listing_rows"] + c["returns_read"]
+    return c["listing_rows"] + c["returns_read"] + c["allocation_rows"]
