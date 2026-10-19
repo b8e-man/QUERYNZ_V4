@@ -59,10 +59,12 @@ Arthur's word for the feed (step 4.8).
 Session 2 merged (`docs/merges/party-returns-2`): Part A donors on 22
 returns (476 rows), loans on 6, 14 returns replaced by amendments; 99
 rows, 49 party-years equal, 0 differing. `qv4-read-pages` (new, the
-scheduler's) reads the 41 unread returns' image pages as queue rows 110
-and 111. Session 3, when a slot frees and both rows are done
-(`python -m support.scheduler status`): the lane's own next items
-(`docs/status/party-returns.md`): reload so the 41 read; Part A's refused
+scheduler's) read the 41 unread returns' image pages (queue rows 110 and
+111, done 20 October); the gate's reload at offsite-2b published 137
+rows, 15 set aside. Session 3, when Arthur wants it: the lane's own next
+items (`docs/status/party-returns.md`): re-measure against the frozen
+site; the sample label `no stored page reading` now tests from an empty
+store (`tests/test_pixels.py`, integrator); Part A's refused
 pages (column-by-column, page breaks, schedules outside the heading); the
 outside check against the Commission's by-year table. On node2:
 `cd /home/user/querynzv4-work/party-returns && git checkout -- docs/board.md docs/decisions/queue.md lessons/INDEX.md && git fetch origin && git merge --ff-only origin/main && claude --model opus --permission-mode acceptEdits`
@@ -71,9 +73,9 @@ outside check against the Commission's by-year table. On node2:
 You are the party-returns session, session 3, in your working copy. Read
 docs/PLAN.md, docs/plan/step-4.md, docs/status.md and
 docs/status/party-returns.md. Queue rows 110 and 111 (qv4-read-pages)
-have read every image page of the 41 returns set aside at stage read;
-load the lane again in your scratch schema so they read, then do your
-status file's next two items: Part A's refused pages, and the outside
+have read every image page of the 41 returns set aside at stage read,
+and the live load holds 137 rows. Re-measure the frozen-site comparison
+and update the status file, then do your status file's next two items: Part A's refused pages, and the outside
 check against the Commission's by-year table. Edit nothing outside your
 folder, push and raise party-returns-3. Finish by telling Arthur what
 closed and what is carded.
@@ -112,54 +114,14 @@ counts. Edit nothing outside keys/, push and raise fix-keys-1. Then stop.
 
 ## offsite
 
-Track B, the off-site copy. Model: Opus, reviewed by the integrator.
-Session 1 (18-19 October, an agent of the founding session) wrote nothing:
-it was fenced as the main checkout (`docs/merges/offsite-1-not-started.md`).
-Its read-only measurements, for session 2: nothing writes the press graph
-(`extractions`, 276 GB; counters equal 21:24 to 06:59); the old push ran
-19 October 01:39, green, 83 minutes at 3.5 MB/s, after the writers stopped,
-so that run is a valid last full copy (the bucket keeps 45 days);
-`querynz_v4` is small; `/mnt/hdd2/qv4-docs` 641 MB; `nzbn_canonical`
-27.5 GB of which about 12 GB is public reference data that can be fetched
-again; `incoming_news` 67 GB, its 38 GB vectors stay out with a second
-local copy; `extractions`' 120 GB `candidates.*` can be rebuilt, the rest
-cannot; old `var/staging` 27 GB. Its design: one piece per database (table
-by table) and per file tree; a full copy weekly, nightly only tables whose
-write counters moved and files whose size, time or checksum changed; the
-press graph frozen with a fresh full copy every 28 days; checksum and row
-count per table and file, checked exactly after a restore into a scratch
-server on `/mnt/hdd2`; run before 01:38 so it never shares the link with
-the old push. Three of its decisions are in the queue with defaults.
-The working copy exists; start session 2 in it, on node2:
-`cd /home/user/querynzv4-work/offsite && git pull && claude --model opus --permission-mode acceptEdits`
-
-```text
-You are a build session for QueryNZV4, running as Opus on node2, in
-your working copy /home/user/querynzv4-work/offsite (session 2). Read
-docs/PLAN.md, then docs/plan/tracks.md and docs/plan/track-b.md,
-docs/status.md, your own status file docs/status/offsite.md, and the
-## offsite section of docs/briefs/next.md, which holds session 1's
-measurements and design; continue from them.
-Do track B: the off-site copy, in support/offsite (step 1.8's nightly
-dump of querynz_v4 is there already; its job qv4-offsite-dump runs on
-the scheduler's clock, support/scheduler/jobs.toml). Build the new
-copy as qv4- jobs beside the old nightly job, which keeps running
-untouched: changes nightly with a weekly full checkpoint (ruling 21);
-sorted by the delete rule (what cannot be regenerated first and
-always; what can be regenerated stays out unless rebuilding costs more
-than storing); the press graph stays in until its last writers are
-proven stopped (they are stopped since 18 October; take one last full
-copy then, and card the removal for Arthur). Rehearse a restore to
-equality on /mnt/hdd2 and record the time. Credentials are read from
-the old estate's off-site credential file at the moment of use and
-never printed (hard limit 1); never read the credential folder. Never
-touch the old estate's jobs, folders or databases; the old nightly job
-is retired only on Arthur's word after the election. A timer is not a
-blocker (ruling 56). Push your branch and raise a merge request for
-each finished piece. Update your status file at every close. Finish by
-telling Arthur what closed, what is carded, what waits on him, and
-whether track B is finished.
-```
+Track B closed (`docs/merges/offsite-2a`, `-2b`): `qv4-offsite-copy`
+nightly 21:00 NZDT, tables over 1 GB as ranges, an order-free restore
+check, a copy restored from the bucket to equality in 1 h 50 min; the
+step 1.8 dump retired. Next measurements, no session: the Sunday full on
+25 October and the first 28-day rehearsal (`qv4-offsite-rehearsal`).
+Waiting on Arthur: card `the-press-graph-leaves-the-old-nightly-push`
+(after the election); `/mnt/hdd2/qv4-dumps`, 14 regenerable files,
+removable at leisure.
 
 ## windowed
 
