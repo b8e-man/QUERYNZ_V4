@@ -1,0 +1,1 @@
+"""The reading: each release's rows by member or minister, period and category, from its own document profile; a text layer where there is one, the page reader's stored readings where there is not. Built by the interests-expenses session."""

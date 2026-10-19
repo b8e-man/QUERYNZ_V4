@@ -1,0 +1,1 @@
+"""Step 1.10 case one: documents already held. This lane takes the candidate lists, results and by-election files as the old estate holds them under its staging folders by hash, read-only, and fetches nothing (step 4.1). Built by the house session."""

@@ -1,0 +1,1 @@
+"""Step 1.10: the published register editions, as files by hash. The baseline says where the old estate holds them, if it does; nothing is fetched until Arthur says so. Built by the interests-expenses session."""

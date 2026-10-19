@@ -1,0 +1,1 @@
+"""The reading: candidates, electorates and results from each file by its own document profile; who sits in the House from the results, the list order and the by-elections, with a window per seat. Built by the house session."""

@@ -1,0 +1,1 @@
+-- registers/companies: the tables this lane owns, in `companies` and `companies_private`. Empty until the session builds the lane.

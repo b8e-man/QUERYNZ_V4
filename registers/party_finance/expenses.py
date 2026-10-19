@@ -43,7 +43,8 @@ PAGE_MODEL = "glm-ocr"
 PAGE_SETTINGS = tuple(
     {"dpi": dpi, "prompt": "OCR", "prompt_sha": "5e5bea5354e3f22e", "system": None, "level": "q8_0",
      "temperature": 0.0, "max_tokens": 8000, "thinking": "default", "server_build": None,
-     "weights": ["GLM-OCR-Q8_0.gguf", "mmproj-GLM-OCR-Q8_0.gguf"]} for dpi in (300, 200))
+     "weights": ["GLM-OCR-Q8_0.gguf", "mmproj-GLM-OCR-Q8_0.gguf"]} for dpi in (300, 200)) + (
+    {"dpi": 300, "prompt": "OCR"},)   # the reader contract's own stamp: what qv4-read-pages stores (integrator, 20 October)
 EXPENSE_PARTS = ("A", "B", "C")
 TOLERANCE = 0.011
 

@@ -1,0 +1,1 @@
+"""The lane's one figure against the outside world: the Commission's own count of candidates at an election against the lane's rows, and the 72 electorate names against Stats NZ's. Built by the house session."""
