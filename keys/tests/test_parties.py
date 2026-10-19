@@ -77,3 +77,66 @@ def test_a_caller_may_pass_its_own_register():
     reg = (("Example Party", "EP"),)
     assert p.party_name("example party", reg) == ("Example Party", "exact")
     assert p.party_name("National Party", reg)[0] is None
+
+
+# the parties lane's rows (pub.party_names joined to pub.parties), in small
+ROWS = [
+    {"party": "ec-party/2023-08-28/1daf", "name": "New Zealand Loyal", "kind": "name",
+     "from_on": "2023-08-28", "to_on": "2024-07-26", "registered_on": "2023-08-28", "cancelled_on": "2024-07-26"},
+    {"party": "ec-party/2026-08-05/1daf", "name": "New Zealand Loyal", "kind": "name",
+     "from_on": "2026-08-05", "to_on": None, "registered_on": "2026-08-05", "cancelled_on": None},
+    {"party": "ec-party/2026-08-05/1daf", "name": "NZ Loyal", "kind": "abbreviation",
+     "from_on": "2026-08-05", "to_on": None, "registered_on": "2026-08-05", "cancelled_on": None},
+    {"party": "ec-party/2004-07-09/2565", "name": "Maori Party", "kind": "name", "from_on": "2004-07-09",
+     "to_on": "2023-07-12", "registered_on": "2004-06-24", "cancelled_on": None},
+    {"party": "ec-party/2004-07-09/2565", "name": "Te Pāti Māori", "kind": "name", "from_on": "2023-07-12",
+     "to_on": None, "registered_on": "2004-06-24", "cancelled_on": None},
+    {"party": "ec-party/2020-07-09/cb4e", "name": "ONE Party", "kind": "name", "from_on": "2020-07-09",
+     "to_on": "2022-11-01", "registered_on": "2020-07-09", "cancelled_on": "2026-03-30"},
+    {"party": "ec-party/2020-07-09/cb4e", "name": "NewZeal", "kind": "name", "from_on": "2022-11-01",
+     "to_on": "2026-03-30", "registered_on": "2020-07-09", "cancelled_on": "2026-03-30"},
+    {"party": "ec-party/1995-02-17/2027", "name": "New Zealand Labour Party", "kind": "name",
+     "from_on": "1995-02-17", "to_on": None, "registered_on": "1995-02-17", "cancelled_on": None},
+    {"party": "ec-party/1994-12-02/af36", "name": "The New Zealand National Party", "kind": "name",
+     "from_on": "1994-12-02", "to_on": None, "registered_on": "1994-12-02", "cancelled_on": None},
+]
+
+
+def test_the_lane_s_name_key():
+    assert p.name_key("The Kiwi Party") == p.name_key("Kiwi Party") == "kiwi"
+    assert p.name_key("New Conservative") != p.name_key("Conservative Party NZ")
+
+
+def test_a_label_resolves_to_the_registration_live_on_the_day():
+    assert p.party_name("New Zealand Loyal", ROWS, on="2024-03-01") == ("ec-party/2023-08-28/1daf", "exact")
+    assert p.party_name("NZ Loyal", ROWS, on="2026-09-01")[0] == "ec-party/2026-08-05/1daf"
+    assert p.party_name("New Zealand Loyal", ROWS, on=2026)[0] == "ec-party/2026-08-05/1daf"
+    assert p.party_name("New Zealand Loyal", ROWS, on="2025-06-01") == (None, "unresolved")
+
+
+def test_two_live_registrations_are_never_guessed_between():
+    assert p.party_name("New Zealand Loyal", ROWS) == (None, "unresolved")
+
+
+def test_every_name_a_registration_carried_is_the_party():
+    assert p.party_name("ONE PARTY amended", ROWS, on=2021)[0] == "ec-party/2020-07-09/cb4e"
+    assert p.party_name("NewZeal", ROWS, on=2024)[0] == "ec-party/2020-07-09/cb4e"
+    assert p.party_name("Maori Party", ROWS, on=2019)[0] == "ec-party/2004-07-09/2565"
+    assert p.party_name("Te Pati Maori", ROWS, on=2025)[0] == "ec-party/2004-07-09/2565"
+
+
+def test_the_rules_hold_against_the_lane_s_rows():
+    assert p.party_name("Labour", ROWS, on=2023) == ("ec-party/1995-02-17/2027", "variant")
+    assert p.party_name("The N.Z. National Party", ROWS, on=2023) == ("ec-party/1994-12-02/af36", "core")
+    name, basis = p.party_name("NEO ZEALAND NATIONAL PARTY", ROWS, on=2023)
+    assert name == "ec-party/1994-12-02/af36" and basis.startswith("fuzzy:")
+    for label in ("New Labour Party", "NZNP Amended", "Hon Pete Hodgson", "Northland"):
+        assert p.party_name(label, ROWS, on=2023)[0] is None, label
+
+
+def test_windows_from_the_names_alone():
+    rows = [{k: v for k, v in r.items() if k not in ("registered_on", "cancelled_on")} for r in ROWS]
+    w = p.windows(rows)
+    assert w["ec-party/2023-08-28/1daf"] == ("2023-08-28", "2024-07-26")
+    assert w["ec-party/2004-07-09/2565"] == ("2004-07-09", None)
+    assert p.party_name("New Zealand Loyal", rows, on=2024)[0] == "ec-party/2023-08-28/1daf"

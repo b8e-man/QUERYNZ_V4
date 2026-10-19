@@ -19,11 +19,23 @@ never joins two parties: "New Labour" is not Labour, "NZNP" is not National
 disagreed on 6 of 78 labels; this is the one.
 
 `REGISTERED` is the Register of Political Parties as held on 18 October
-2026 (nzbn_canonical parties.register); the parties lane replaces it with
-the live register when it exists, and callers may pass their own list.
+2026 (nzbn_canonical parties.register): today's 17 parties, so a label
+filed by a party since cancelled or renamed resolves to nothing against it.
+
+The parties lane publishes every registration the documents reach and every
+name, abbreviation and printing each carried (`pub.party_names`). Passed
+those rows, `party_name(label, rows, on=date)` resolves against the
+registrations live `on` the day (or within the year, given a year) and
+returns the registration's key instead of a name, by the same arms and the
+same rules. A row is a mapping with `party`, `name`, `kind`, `from_on` and
+`to_on`; `registered_on` and `cancelled_on` (from `pub.parties`) set the
+registration's window when present, otherwise its names' windows do. A
+label two live registrations both answer to is unresolved, whatever the arm.
 """
+import datetime as dt
 import difflib
 import re
+from collections.abc import Mapping
 
 from keys.names import fold_diacritics, organisation_key, squash
 
@@ -109,10 +121,22 @@ def _token_present(token: str, text: str, min_ratio: float = 0.85) -> bool:
     return best >= min_ratio
 
 
-def party_name(label: str, registered=REGISTERED):
-    """(registered name | None, basis). See the module's head."""
+def name_key(name: str) -> str:
+    """The parties lane's comparison key (`pub.party_names.name_key`): the
+    core of the organisation fold with a trailing "party" off. "The Kiwi
+    Party" and "Kiwi Party" are one key; "New Conservative" and
+    "Conservative Party NZ" are two."""
+    k = core(organisation_key(name or ""))
+    return k[:-5] if k.endswith("party") and len(k) > 8 else k
+
+
+def party_name(label: str, registered=REGISTERED, on=None):
+    """(registered name | None, basis), or, given the lane's name rows,
+    (registration key | None, basis). See the module's head."""
     if not label or not label.strip():
         return None, "unresolved"
+    if registered and isinstance(next(iter(registered)), Mapping):
+        return _by_registration(label, registered, on)
     label = without_amendment(label) or label
     names = [r[0] for r in registered]
     f = organisation_key(label)
@@ -151,4 +175,108 @@ def party_name(label: str, registered=REGISTERED):
         rivals = [s for s in scored[1:] if s[0] >= FUZZY_MIN and by_core[s[1]] != by_core[best[1]]]
         if not rivals and _token_present(distinctive(by_core[best[1]]), c):
             return by_core[best[1]], f"fuzzy:{best[0]:.2f}"
+    return None, "unresolved"
+
+
+def _span(on):
+    """`on` as (first day, last day), ISO strings; a year is its whole span."""
+    if on is None:
+        return None
+    if isinstance(on, int) or (isinstance(on, str) and re.fullmatch(r"\d{4}", on)):
+        return f"{int(on):04d}-01-01", f"{int(on):04d}-12-31"
+    d = on.isoformat() if isinstance(on, (dt.date, dt.datetime)) else str(on)
+    return d[:10], d[:10]
+
+
+def _iso(v):
+    return v.isoformat() if isinstance(v, (dt.date, dt.datetime)) else v
+
+
+def windows(rows) -> dict:
+    """registration key → (first day | None, last day | None), None open.
+    `registered_on` / `cancelled_on` when the rows carry them; otherwise the
+    earliest name's start and the latest name's end, open if any name is."""
+    by = {}
+    for r in rows:
+        by.setdefault(r["party"], []).append(r)
+    out = {}
+    for party, rs in by.items():
+        names = [r for r in rs if r.get("kind", "name") == "name"] or rs
+        if "registered_on" in rs[0]:
+            start = _iso(rs[0]["registered_on"])
+        else:
+            starts = [_iso(r.get("from_on")) for r in names]
+            start = None if None in starts else min(starts)
+        if "cancelled_on" in rs[0]:
+            end = _iso(rs[0]["cancelled_on"])
+        else:
+            ends = [_iso(r.get("to_on")) for r in names]
+            end = None if None in ends else max(ends)
+        out[party] = (start, end)
+    return out
+
+
+def _live(rows, on):
+    span = _span(on)
+    if span is None:
+        return list(rows)
+    w = windows(rows)
+    return [r for r in rows if (w[r["party"]][0] is None or w[r["party"]][0] <= span[1])
+            and (w[r["party"]][1] is None or w[r["party"]][1] >= span[0])]
+
+
+def _one(parties):
+    parties = set(parties)
+    return next(iter(parties)) if len(parties) == 1 else None
+
+
+def _by_registration(label: str, rows, on):
+    """The arms of `party_name` over the registrations live `on`."""
+    label = without_amendment(label) or label
+    live = _live(rows, on)
+    if not live:
+        return None, "unresolved"
+    full = [r for r in live if r.get("kind", "name") in ("name", "printed")]
+    f = organisation_key(label)
+    fd = fold_diacritics(f).lower()
+    hits = {r["party"] for r in full if organisation_key(r["name"]) in (f, fd)
+            or fold_diacritics(organisation_key(r["name"])).lower() in (f, fd)}
+    if hits:
+        return (_one(hits), "exact") if _one(hits) else (None, "unresolved")
+    for v in (VARIANTS.get(f), VARIANTS.get(fd)):
+        if v:
+            hits = {r["party"] for r in full if name_key(r["name"]) == name_key(v)}
+            if hits:
+                return (_one(hits), "variant") if _one(hits) else (None, "unresolved")
+    c = core(label)
+    if not c:
+        return None, "unresolved"
+    by_core = {}
+    for r in live:
+        k = core(r["name"])
+        if r.get("kind", "name") == "abbreviation" and len(k) < 3:
+            continue
+        by_core.setdefault(k, set()).add(r["party"])
+        by_core.setdefault(name_key(r["name"]), set()).add(r["party"])
+    for v_fold, v_name in VARIANTS.items():
+        vp = {r["party"] for r in full if name_key(r["name"]) == name_key(v_name)}
+        if vp:
+            by_core.setdefault(core(v_fold), set()).update(vp)
+    for cc in (c, "newzealand" + c[2:] if c.startswith("nz") else c, name_key(label)):
+        if cc in by_core:
+            return (_one(by_core[cc]), "core") if _one(by_core[cc]) else (None, "unresolved")
+    if len(c) < FUZZY_MIN_LEN:
+        return None, "unresolved"
+    # the pixel-read arm, as above: one clear winner of about the same length,
+    # no other registration close behind, and its distinctive word readable
+    scored = sorted(((difflib.SequenceMatcher(None, c, k).ratio(), k) for k in by_core
+                     if len(k) >= FUZZY_MIN_LEN and LENGTH_WINDOW[0] <= len(c) / len(k) <= LENGTH_WINDOW[1]),
+                    reverse=True)
+    if scored and scored[0][0] >= FUZZY_MIN:
+        best = scored[0]
+        party = _one(by_core[best[1]])
+        rivals = [s for s in scored[1:] if s[0] >= FUZZY_MIN and by_core[s[1]] != {party}]
+        if party and not rivals and any(_token_present(distinctive(r["name"]), c)
+                                        for r in full if r["party"] == party):
+            return party, f"fuzzy:{best[0]:.2f}"
     return None, "unresolved"
