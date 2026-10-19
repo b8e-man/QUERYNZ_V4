@@ -15,7 +15,7 @@ from collections import defaultdict
 
 from products.published_site import figures as F
 from products.published_site import paths
-from products.templates import ftm
+from products.published_site import site_template as ftm
 
 
 class Context:

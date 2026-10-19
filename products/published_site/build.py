@@ -18,7 +18,7 @@ import sys
 
 from products.published_site import figures as F
 from products.published_site import gates, pin, read, redact, render, version
-from products.templates import ftm
+from products.published_site import site_template as ftm
 
 OUT = os.environ.get("QV4_SITE_OUT") or os.path.join(os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live", "site")
 #: the views whose rows carry the money: a row citing a document the listing does not hold is left out

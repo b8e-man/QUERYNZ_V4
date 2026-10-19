@@ -3,7 +3,7 @@ import datetime as dt
 
 from products.published_site import figures as F
 from products.published_site.tests import fixtures as X
-from products.templates import ftm
+from products.published_site import site_template as ftm
 
 YEARS = list(range(2017, 2027))
 
