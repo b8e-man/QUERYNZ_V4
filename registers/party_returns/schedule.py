@@ -69,6 +69,10 @@ POINTER = re.compile(r"\bsee\s+(?:the\s+)?(?:attach(?:ed|ment)|schedule|appendix
 CENT = 0.005
 FULL_DATE = re.compile(r"\b\d{1,2}/\d{1,2}/(?:\d{4}|\d{2})\b,?")    # with its year: a flat number `3/12` has none
 RULE = re.compile(r"^[Il|!]$")    # a table rule the text layer kept as a letter
+#: a figure printed with no cents (`150000`, `$ 12,500`): an amount only where the amount column puts it
+WHOLE = re.compile(r"^\$?\s*(\d{1,3}(?:,\d{3})+|\d{3,7})$")
+AMOUNT_HEAD = re.compile(r"\$0\.00|\(including\s+gst\)", re.I)
+BARE_NUMBER = re.compile(r"^\s*\d{1,3}\s*$")
 DONOR_COLUMN = 60          # the name cell ends about here when the page prints no column heading
 
 
@@ -90,6 +94,12 @@ def money(s: str):
         return None
     m = ms[-1]
     return float(m.group(1).replace(",", "") + "." + m.group(2))
+
+
+def whole(s: str):
+    """A figure with no cents as an amount, or None."""
+    m = WHOLE.match((s or "").strip())
+    return float(m.group(1).replace(",", "")) if m else None
 
 
 def region(texts: dict, heading, end) -> list:
@@ -142,7 +152,7 @@ def _table(lines, page) -> list:
         if s.count("|") < 3 or _furniture(s):
             continue
         cells = [c.strip() for c in s.strip("|").split("|")]
-        amount = money(cells[-1]) if cells else None
+        amount = (money(cells[-1]) if money(cells[-1]) is not None else whole(cells[-1])) if cells else None
         if amount is None or len(cells) < 3:
             continue
         cell, rest = cells[0], cells[1:-1]
@@ -196,12 +206,13 @@ def _stacked(lines, page):
         s = line.strip()
         if not s or _furniture(s):
             continue
-        if MONEY_ONLY.match(s):
-            if not money(s):
+        figure = money(s) if MONEY_ONLY.match(s) else (whole(s) if pending["yes_no"] else None)
+        if MONEY_ONLY.match(s) or figure is not None:
+            if not figure:
                 continue
             if not pending["cell"]:
                 return None
-            out.append(Row(page, "\n".join(pending["cell"]), money(s), " ".join(pending["dates"]), pending["yes_no"],
+            out.append(Row(page, "\n".join(pending["cell"]), figure, " ".join(pending["dates"]), pending["yes_no"],
                            None, "stacked"))
             pending = {"cell": [], "dates": [], "yes_no": ""}
         elif YESNO.match(s):
@@ -288,30 +299,42 @@ def _row_numbers(lines: list) -> set:
     """The lines that open with the form's printed row number: the numbers
     at the page's leftmost margin, taken only when they climb in order. A
     wrapped address that starts with its house number sits at a margin too,
-    and its numbers do not climb."""
+    and its numbers do not climb. A number standing alone on its line is an
+    empty row of the form, or a number printed beside its cell; where a
+    scanner's text layer misread one (`64` between `53` and `56`) the
+    margin is measured without them, and the alone numbers are then no row's."""
     found = [(k, m.start(1), m.end(1), int(m.group(1))) for k, l in enumerate(lines) if (m := ROW_NUMBER.match(l))]
     best = set()
     for edge in (1, 2):                         # numbers set flush left, or right-aligned (`9` under `10`)
         for x in {f[edge] for f in found}:
             at = [(f[0], f[3]) for f in found if f[edge] == x]
-            ns = [n for _, n in at]
-            if len(at) > len(best) and all(b > a for a, b in zip(ns, ns[1:])):
-                best = {k for k, _ in at}
+            for keep in (at, [a for a in at if not BARE_NUMBER.match(lines[a[0]])]):
+                ns = [n for _, n in keep]
+                if all(b > a for a, b in zip(ns, ns[1:])):
+                    if len(keep) > len(best):
+                        best = {k for k, _ in keep}
+                    break
     return best
 
 
-def _layout(lines, page) -> list:
-    """The text layer, `pdftotext -layout`."""
-    date_x = None
+def _items(lines, page) -> list:
+    """One page of the text layer as items: per line, its printed row
+    number, the name-and-address text, the dates, Yes/No and the amount."""
+    date_x = amount_x = None
     for line in lines:
         m = DATE_HEAD.search(line)
         if m and (date_x is None or m.start() < date_x):
             date_x = m.start()
+        m = AMOUNT_HEAD.search(line)
+        if m and (amount_x is None or m.start() > amount_x):
+            amount_x = m.start()
     edge = (date_x - 10) if date_x and date_x > 40 else DONOR_COLUMN    # the dates sit a little left of their heading
     lines = [l for l in lines if l.strip() and not _furniture(l)]
     numbered = _row_numbers(lines)
     items = []
     for k, line in enumerate(lines):
+        if k not in numbered and BARE_NUMBER.match(line):
+            continue                            # an empty row whose printed number the text layer misread
         n = None
         body = line
         m = ROW_NUMBER.match(line) if k in numbered else None
@@ -325,6 +348,8 @@ def _layout(lines, page) -> list:
                 continue
             if MONEY_ONLY.match(t) and seg.start() >= edge:
                 amount = money(t)
+            elif amount_x is not None and seg.start() >= max(edge, amount_x - 10) and whole(t) is not None:
+                amount = whole(t)               # a figure with no cents, in the amount column
             elif YESNO.match(t):
                 yes_no = t
             elif seg.start() < edge and not DATE.fullmatch(t):
@@ -335,13 +360,52 @@ def _layout(lines, page) -> list:
                     name.append(rest)
             elif DATE.search(t) or seg.start() >= edge:
                 dates.append(t)
-        items.append({"n": n, "name": " ".join(name), "dates": " ".join(dates), "yes_no": yes_no, "amount": amount})
+        items.append({"n": n, "name": " ".join(name), "dates": " ".join(dates), "yes_no": yes_no, "amount": amount,
+                      "page": page})
+    return items
+
+
+def _opener(items, j):
+    """The line a row opens on, given the line with its printed number: the
+    line above when the number stands alone in the middle of its cell, the
+    name over it and the address under it."""
+    def text_only(i):
+        return 0 <= i < len(items) and items[i]["name"] and items[i]["n"] is None \
+            and not items[i]["dates"] and not items[i]["amount"]
+    if not items[j]["name"] and text_only(j - 1) and text_only(j + 1):
+        return j - 1
+    return j
+
+
+def _layout(lines, page, carry=()):
+    """The text layer, `pdftotext -layout`: (rows | None, tail). `tail` is
+    the items of a row whose figure is not on this page (the row runs over
+    the page break), for the next page to finish; `carry` is the tail the
+    page before left. A carried row is finished only by a page whose lines
+    above its first figure name nobody: a second name there would leave
+    one of the two rows without its figure."""
+    own = _items(lines, page)
+    items = list(carry) + own
     anchors = [i for i, it in enumerate(items) if it["amount"]]
+    if carry and (not anchors or any(it["name"] for it in items[len(carry):anchors[0]])):
+        return None, []
     if not anchors:
-        return []
+        return [], []
     if len(anchors) > 2 and items[anchors[-1]]["n"] is None and \
             abs(items[anchors[-1]]["amount"] - sum(items[a]["amount"] for a in anchors[:-1])) < CENT:
         anchors = anchors[:-1]          # the filer's page subtotal under the table: it owns no line
+    last = anchors[-1]
+    # after the page's last figure only the end of that row's address; a numbered line, or a name
+    # further down, opens a row whose figure is not on this page
+    tail_at = next((j for j in range(last + 1, len(items)) if items[j]["n"] is not None), None)
+    if tail_at is not None:
+        tail_at = _opener(items, tail_at)
+    else:
+        tail_at = next((j for j in range(last + 3, len(items)) if items[j]["name"]), None)
+    tail = []
+    if tail_at is not None and any(it["name"] for it in items[tail_at:]):
+        tail = items[tail_at:]
+        items = items[:tail_at]
     owner = [None] * len(items)
     for k, a in enumerate(anchors):
         owner[a] = k
@@ -354,11 +418,6 @@ def _layout(lines, page) -> list:
             owner[i] = after
             continue
         if after is None:
-            # after the page's last figure only the end of that row's address; a numbered line
-            # with a name there, or a name further down, is a row whose figure is not on this page
-            tail = range(anchors[before] + 1, i + 1)
-            if items[i]["name"] and (i - anchors[before] > 2 or any(items[j]["n"] is not None for j in tail)):
-                return None
             owner[i] = before
             continue
         gap = range(anchors[before] + 1, anchors[after])
@@ -376,12 +435,13 @@ def _layout(lines, page) -> list:
         out.append(Row(page, " ".join(it["name"] for it in mine if it["name"]), items[a]["amount"],
                        " ".join(it["dates"] for it in mine if it["dates"]),
                        next((it["yes_no"] for it in mine if it["yes_no"]), ""), n, "layout"))
-    return out
+    return out, tail
 
 
-def page_rows(lines: list, page: int, src: str) -> list:
-    """One page's rows by the route its shape calls for; None when its
-    cells and figures do not pair."""
+def page_rows(lines: list, page: int, src: str, carry=()):
+    """One page's rows by the route its shape calls for: (rows | None,
+    tail). None when its cells and figures do not pair; `tail` is a text
+    page's unfinished last row (see `_layout`)."""
     body, after_total = [], False
     for l in lines:
         if PRINTED_TOTAL.search(l):
@@ -393,8 +453,9 @@ def page_rows(lines: list, page: int, src: str) -> list:
         if l.strip():
             body.append(l)
             after_total = False
+    tail = []
     if src == "text":
-        got = _layout(body, page)
+        got, tail = _layout(body, page, carry)
     elif sum(1 for l in body if l.count("|") >= 3 and MONEY.search(l)) >= 1:
         got = _table(body, page)
     elif sum(1 for l in body if NUMBERED.match(l)) >= 2:
@@ -404,7 +465,7 @@ def page_rows(lines: list, page: int, src: str) -> list:
     else:
         got = _stacked(body, page)
     if got is None:
-        return None
+        return None, []
     got = [r for r in got if r.amount and not POINTER.search(r.cell)]
     # a last figure with no cell that equals the page's rows above it is the filer's page subtotal
     if len(got) > 1 and not got[-1].cell.strip() and abs(got[-1].amount - sum(r.amount for r in got[:-1])) < CENT:
@@ -417,18 +478,33 @@ def page_rows(lines: list, page: int, src: str) -> list:
                 continue                        # nobody above it on this page: the part's total refuses the loss
             r.cell, r.n = out[-1].cell, out[-1].n
         out.append(r)
-    return out
+    return out, tail
 
 
 def rows(texts: dict, src: dict, heading, end, letter: str):
-    """(rows, printed_total, problems) for one part of a return."""
+    """(rows, printed_total, problems) for one part of a return. A text
+    page's row whose figure is on the next page is carried there (the next
+    page of the part, read from text too); one left unfinished is a problem."""
     lines = region(texts, heading, end)
     total = printed_total(lines, letter)
     out, problems = [], []
-    for p in sorted({p for p, _ in lines}):
-        got = page_rows([l for q, l in lines if q == p], p, src.get(p, "pixels"))
+    pages_ = sorted({p for p, _ in lines})
+    carry = []
+    for i, p in enumerate(pages_):
+        how = src.get(p, "pixels")
+        if carry and how != "text":
+            problems.append(f"page {pages_[i - 1]}: a row runs over the page break onto a page not read from text")
+            carry = []
+        got, tail = page_rows([l for q, l in lines if q == p], p, how, carry)
         if got is None:
-            problems.append(f"page {p}: the cells and the figures do not pair (a row left unfinished, or the page read column by column)")
+            problems.append(f"page {p}: the cells and the figures do not pair (a row left unfinished, or the page read column by column)"
+                            if not carry else f"page {p}: a row carried over the page break from page {pages_[i - 1]} "
+                                              "does not meet its figure")
+            carry = []
             continue
         out += got
+        carry = tail
+        if tail and (i + 1 == len(pages_) or pages_[i + 1] != p + 1):
+            problems.append(f"page {p}: the cells and the figures do not pair (a row left unfinished, or the page read column by column)")
+            carry = []
     return out, total, problems
