@@ -20,26 +20,42 @@ is left waits on node1 (`cards/node1-setup-as-the-second-box.md`, ruling
 
 ## trial
 
-Step 3 halts under ruling 60 (19 October): Arthur prefers the trial to
-stop with the results in hand and resume once the plan is complete. The
-unfinished pass-two rows are cancelled; the stored readings keep every
-page read. Session 2 is running in its working copy; this is the line for
-its window, not a new start:
+Closed. Step 3 halted under ruling 60 and merged as `trial-3` (7608be8):
+GLM-OCR Q8_0 under "OCR" is the page reader alone; no second reader
+(`cards/no-second-reader-qualifies-under-the-trial-s-rules`). The trial
+resumes after the plan: TeleOCR's patched server, the prompt variant, the
+rows pass, the 111-page repeat, two scheduler proofs
+(`docs/trials/page-readers.md`). Nothing to start.
 
-```text
-Arthur: ruling 60. Halt the trial with the results you have (rows 66 to 69
-and 74 are cancelled; what was read is kept). Close step 3 now: score what
-pass two read, choose GLM-OCR as the primary reader and the second reader
-from the partial scores or card it as open, write both into the profiles,
-write docs/trials/page-readers.md with what ran and what did not, file the
-lessons, update your status file, push and raise trial-3. Then stop.
-```
+## scheduler-fix
 
-If the session has to be started afresh instead, on node2:
-`cd /home/user/querynzv4-work/trial && git fetch origin && git merge origin/main && claude --model fable --permission-mode acceptEdits`
-and paste the same text with "You are the trial session, session 3, in
-your working copy. Read docs/PLAN.md, docs/plan/step-3.md, docs/status.md
-and docs/status/trial.md first." in front of it.
+A fix session on `support/scheduler` for three cards the trial raised:
+`the-lease-lapses-while-a-large-model-loads` (renew the claim's lease
+while a card loads a profile), `the-card-manager-loads-a-profile-for-a-
+job-no-box-can-claim` (rule 6 must not load a profile for a row no worker
+is eligible for), and `teleocr-needs-a-patched-server-the-scheduler-cannot-
+choose` (a server binary named per profile; `<live>/llama/built-teleocr/`).
+About twenty lines each, with a test that fails without the change. On
+node2: `cd /home/user/querynzv4 && bin/fix support/scheduler`, then start
+Claude as Fable in the folder it prints and paste its brief, adding:
+"Work the three cards named under `## scheduler-fix` in
+docs/briefs/next.md, one commit each; the worker is live, so restart
+`qv4-worker@node2` only after the merge, from the main checkout."
+
+## disclosures
+
+Step 4.1, the first lane: large-donation disclosures (over $20,000), the
+one feed the frozen site still depends on. Model: Opus. Builds in
+`registers/disclosures/` from the files the old estate already holds
+under `var/staging/` by hash, read-only; fetches nothing (the old
+`ec-disclosures` job stays the only fetcher until the switch). Read
+`docs/plan/reference/facts-and-traps/electoral-commission-forms.md` before
+a line of code; the Commission states which declaration an amendment
+replaces, never infer it. The reader is GLM-OCR through the profiles
+(ruling 60). On node2: `cd /home/user/querynzv4 && bin/start-session
+disclosures registers/disclosures`, then start Claude as Opus in the
+folder it prints and paste the lane brief from `docs/plan/step-4.md`
+with `<lane>` = disclosures.
 
 ## offsite
 
@@ -94,49 +110,12 @@ whether track B is finished.
 
 ## windowed
 
-Track E, the windowed sources. Model: Opus. Session 1 (18 October, an
-agent of the founding session) built both legal positions and both lanes
-but could not write to its working copy: it was fenced as the main
-checkout. Its tree sits at repository paths in
-`/home/user/querynzv4-work/scratch/founding-f05585e/windowed/tree/`, and
-the documents leaving the sources soonest are held by hash in
-`.../windowed/held/` (`docs/merges/windowed-1-not-yet.md`). The working
-copy exists; start session 2 in it, on node2:
-`cd /home/user/querynzv4-work/windowed && git pull && claude --model opus --permission-mode acceptEdits`
-
-```text
-You are a build session for QueryNZV4, running as Opus on node2, in
-your working copy /home/user/querynzv4-work/windowed (session 2). First:
-copy session 1's tree from
-/home/user/querynzv4-work/scratch/founding-f05585e/windowed/tree/ into
-this working copy at the same paths, read it, run bin/fast, commit,
-push, and rewrite merge-requests/windowed-1.md as a request on a real
-branch. Then land what is held in .../windowed/held/ through the
-landing wrapper. Then read docs/PLAN.md, docs/plan/tracks.md,
-docs/plan/track-e.md, docs/contracts/lane.md, docs/status.md and
-docs/status/windowed.md and continue. Track E: capture the Tenancy Tribunal's
-and the Real Estate Authority's published decisions now and hold
-them; the reading comes in step 5. Two lanes, registers/tenancy_tribunal
-and registers/real_estate_authority (their folders, schemas and five-line
-specs exist; registers/party_returns is the model lane). First, for
-each class of source, write its one-page legal position in
-docs/legal/positions/<class>.md from the four questions (hard limits
-4 and 9; the README there gives the shape, and the fetch gate refuses
-a host no position names). Then capture through support/fetchgate and
-the landing wrapper only: politely, slow, low concurrency, off-peak,
-cached; honour a stated crawl delay; never solve a challenge or get
-around a block (a challenged read is a failed read, logged). Store
-each document by its sha256 and never print a person's home address
-or a suppressed name into the session, a card or a log. Capture jobs
-carry the qv4- prefix and go on the scheduler's clock
-(support/scheduler/jobs.toml is the catalogue; card the catalogue
-line for the integrator, it is outside your fence). A timer is not a
-blocker (ruling 56). Push your branch and raise a merge request for
-each finished piece. Update your status file at every close. Finish
-by telling Arthur what closed, how many decisions are held per
-source, what is carded, what waits on him, and whether track E is
-finished.
-```
+Track E is built and merged (`windowed-1`, `-2`, `-3`); the nightly capture
+takes the rest on the queue's clock. Session 2 has nothing more carded.
+The line for its window: "Arthur: windowed-3 is merged (ae1481b). Nothing
+more is carded for track E. Update your status file, push, and stop."
+The open fetch-gate card (redirect to another host, gzip) is a fix
+session on `support/fetchgate` when wanted, not this session's.
 
 ## integrator
 
