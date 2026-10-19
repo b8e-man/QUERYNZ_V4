@@ -102,13 +102,37 @@ def whole(s: str):
     return float(m.group(1).replace(",", "")) if m else None
 
 
+#: the form's own column heading, as a table of the reader's carries it
+FORM_HEAD = re.compile(r"donor.?s?\s+name\s+and\s+(?:street\s+)?address|name\s+and\s+(?:street\s+)?address\s+of|"
+                       r"lender.?s?\s+name\s+and", re.I)
+TR = re.compile(r"<tr\b[^>]*>(.*?)</tr>", re.S | re.I)
+CELL = re.compile(r"<t[dh]\b[^>]*>(.*?)</t[dh]>", re.S | re.I)
+
+
+def unhtml(text: str) -> str:
+    """A page the reader returned as an HTML table, as lines: one
+    `| cell | … |` line per table row (the markdown table's shape), the
+    text around the table kept as it is. Only a table under the form's own
+    column heading is the form's: a filer's own breakdown (one line per
+    dated payment beside a donor's total) restates rows the form already
+    has, and is left as the one line it was. A page with no table is
+    unchanged."""
+    if not re.search(r"<tr\b", text or "", re.I):
+        return text
+    def row(m):
+        cells = [" ".join(re.sub(r"<[^>]+>", " ", c).split()) for c in CELL.findall(m.group(1))]
+        return "\n| " + " | ".join(cells) + " |\n"
+    out = "\n".join(re.sub(r"</?(?:table|thead|tbody|tfoot)\b[^>]*>", "\n", TR.sub(row, text), flags=re.I).splitlines())
+    return out if FORM_HEAD.search(out) else text
+
+
 def region(texts: dict, heading, end) -> list:
     """The lines of one part's table, in page order: [(page, line)]. The
     form's instructions between a heading and the table's column headings
     are dropped, its printed total kept."""
     out, state = [], "off"
     for p in sorted(texts):
-        lines = (texts[p] or "").splitlines()
+        lines = unhtml(texts[p] or "").splitlines()
         if any(DECLARATION.search(l) for l in lines):
             state = "off"
             continue
@@ -152,6 +176,8 @@ def _table(lines, page) -> list:
         if s.count("|") < 3 or _furniture(s):
             continue
         cells = [c.strip() for c in s.strip("|").split("|")]
+        while len(cells) > 1 and not cells[-1]:           # an empty column after the figure
+            cells.pop()
         amount = (money(cells[-1]) if money(cells[-1]) is not None else whole(cells[-1])) if cells else None
         if amount is None or len(cells) < 3:
             continue
@@ -206,6 +232,9 @@ def _stacked(lines, page):
         s = line.strip()
         if not s or _furniture(s):
             continue
+        yn = re.match(r"^(yes|no)\s+(\S.*)$", s, re.I)          # `No 35000`: the Yes/No and the figure on one line
+        if yn and (MONEY_ONLY.match(yn.group(2)) or whole(yn.group(2)) is not None):
+            pending["yes_no"], s = yn.group(1), yn.group(2)
         figure = money(s) if MONEY_ONLY.match(s) else (whole(s) if pending["yes_no"] else None)
         if MONEY_ONLY.match(s) or figure is not None:
             if not figure:
