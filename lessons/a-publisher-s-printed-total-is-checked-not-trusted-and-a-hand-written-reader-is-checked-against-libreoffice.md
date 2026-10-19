@@ -1,4 +1,4 @@
-A release that disagrees with its own printed total is the publisher's slip only once the reader is proven: check a hand-written workbook reader cell for cell against LibreOffice's conversion of the same files, then report every printed total that differs from its rows, by column.
+A release that disagrees with its own printed total is the publisher's slip only once the reader is proven: check a hand-written workbook reader cell for cell against LibreOffice, then report each printed total that differs from its rows.
 area: reading workbooks, expenses, xlsx, xls, outside checks
 paid-for-by: 2026-10-20, interests-expenses session, step 4.1
 
