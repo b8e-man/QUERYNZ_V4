@@ -1,1 +1,94 @@
-"""The reading: each kind of document through the reader contract from its own document profile (profiles before readers); a text layer where there is one, the page reader's stored readings where there is not. Built by the party-finance session."""
+"""The reading: each kind of document through the reader contract from its
+own document profile (profiles before readers), turned into register rows
+under the row contract, or catch-log lines saying why not. No model is
+called anywhere here: the Commission's pages are read as HTML
+(`listing.py`), and a return's pages come from its text layer or the page
+reader's stored readings (`expenses.py`), so the fast tier runs the same
+code.
+
+A profile this lane proposes (`profile-proposed.jsonl`) is read from there
+until the integrator appends it to `support/profiles`; the shared ledger
+wins once it holds the slug.
+
+    profile(slug)                                     the current version, shared ledger first
+    listing_rows(kind, data, sha, year, by_url, at)   -> (rows, links, set_aside)
+    expense_return_row(result, link, at)              the register row, or None
+"""
+import datetime as dt
+import os
+
+from keys import parties
+from support import profiles
+from registers.party_finance import expenses, listing
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
+PROFILE_OF = {"expenses-listing": listing.EXPENSES_PROFILE, "promoter-expenses-listing": listing.PROMOTERS_PROFILE}
+
+
+def profile(slug: str) -> dict:
+    p = profiles.profile(slug) or profiles.profile(slug, PROPOSED)
+    if p is None:
+        raise LookupError(f"no document profile {slug}: profiles come before readers")
+    return p
+
+
+def now() -> str:
+    return dt.datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def listing_rows(kind: str, data: bytes, sha256: str, year: int, by_url: dict, loaded_at: str = None) -> tuple:
+    """One Commission listing page → (rows, links, set_aside). `by_url` is
+    the Commission URL → held document hash. Rows seen equal rows read plus
+    rows set aside; every link is a held document or a catch-log line."""
+    loaded_at = loaded_at or now()
+    prof = profile(PROFILE_OF[kind])
+    reading = (listing.read_expenses if kind == "expenses-listing" else listing.read_promoters)(data, year)
+    rows, links, aside = [], [], []
+    for n, why in reading.skipped:
+        aside.append((f"{sha256}/row/{n}", "listing", why))
+    for r in reading.rows:
+        key = f"{sha256}/row/{r.ordinal}"
+        row = {"key": key, "document": sha256, "page": 1, "place": f"row {r.ordinal}", "year": year, "note": r.note or None,
+               "printed": " | ".join(r.printed), "reader": f"{listing.READER}: {listing.MODEL}", "profile": prof["slug"],
+               "profile_version": int(prof["version"]), "read_from": "text", "loaded_at": loaded_at, **r.figures}
+        if kind == "expenses-listing":
+            party, basis = parties.party_name(r.label)
+            row.update(party_label=r.label, party=party, party_basis=basis)
+        else:
+            row.update(promoter=r.label)
+        rows.append(row)
+        for i, ln in enumerate(r.links, 1):
+            doc = by_url.get(ln.url)
+            links.append({"row_key": key, "ordinal": i, "link_text": ln.text, "url": ln.url, "amended": ln.amended,
+                          "document": doc})
+            if doc is None:
+                aside.append((key, "link", f"{r.label} {year}: the Commission links {ln.url}, which the lane does not hold"))
+    return rows, links, aside
+
+
+def is_current(link: dict, row_links: list) -> bool:
+    """The Commission's figure for a row belongs to the amendment where the
+    row names one, else to the row's only link."""
+    amended = [x for x in row_links if x["amended"]]
+    if amended:
+        return link["ordinal"] == amended[0]["ordinal"]
+    return len(row_links) == 1
+
+
+PLACE = {"form": "Total (A + B + C)", "auditor": "Total Party Election Expenses (the auditor's report)",
+         "parts": "TOTAL FOR PART A, B and C", "nil": "Total (A + B + C): NIL"}
+
+
+def expense_return_row(result: expenses.Result, listing_row: dict, link: dict, current: bool, loaded_at: str = None):
+    if result.total is None:
+        return None
+    return {"key": f"{result.document}/declaration", "document": result.document, "page": result.page,
+            "place": PLACE[result.basis], "listing_row": listing_row["key"], "year": listing_row["year"],
+            "party_label": listing_row["party_label"], "party": listing_row["party"],
+            "party_basis": listing_row["party_basis"], "current": current, "total": result.total,
+            "total_check": result.total_check, "part_a": result.parts.get("A"), "part_b": result.parts.get("B"),
+            "part_c": result.parts.get("C"), "expense_limit": result.limit, "read_from": result.read_from,
+            "reader": ("support.docread 1: text-layer" if result.read_from == "text" else f"{expenses.PAGE_MODEL} (stored reading)"),
+            "profile": result.reading_profile, "profile_version": result.reading_version,
+            "loaded_at": loaded_at or now()}

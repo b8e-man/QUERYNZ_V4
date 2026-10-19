@@ -1,1 +1,16 @@
-# registers/party_finance/sample.list: hashes and key: lines only. Empty until the lane lands its first documents.
+# registers/party_finance/sample.list (plan 1b.6): hashes only, never bytes or rows. Comments say party, year and the case.
+# The Commission's party-expenses tables, both shapes, and its 2023 promoter-expenses table (one return it links is not held).
+584d396b7cc215135cd536c29c1284b59919d2ff9cce4b62951de5b8e785c078 party-expenses listing 2020 (link in a last cell; ACT's misplaced comma; N/A)
+5be04f3650d87f7f5784b6b0f165279071d2777efea9ef74ded6c399e81ac9ab party-expenses listing 2023 (amended rows link two returns; NIL)
+dd2e4344055e3c4c6c8b185b5edd43ff7943e3ae79f3966999cf5738fc0cc86d promoter-expenses listing 2023 (Better NZ Trust's return not held)
+# Expense returns, their hard cases named.
+2bb3bf16a3f04cce739aaba97f62c82b2c965c59757209a7fd233d62fe95a5dc ACT New Zealand 2020: pixels, the form's total, parts not all read
+d4c354668c050f857cfcafc2d2a817da1d77487de737c90262602739bbcdf837 Advance NZ 2020: the Commission printed Part A alone
+cda721810fb94e8ef597e25ac0d2daaeb0873088d9c356138bb00426ab5cf828 Labour Party 2020: no printed total, summed from Parts A to C
+df84f6d4ec031c5d682f25ad40056b369bb20f5ae6ae0e1312d3e153564908a3 Green Party 2023: the auditor's total
+ef943a1c589a9f8fc997b3e3854ca57840b83c06323c706f3bbd49f7df1da63e Leighton Baker Party 2023 original: total and parts disagree, set aside
+440f94805d746be3eca82528c316c1326339d5bc633b8a720d00187d7545a403 Leighton Baker Party 2023 amendment: current
+3790d0dd53446c607094b22a00b178e1d628eecdcb7a4a4e42f1cf4e22060379 The Opportunities Party 2023 amendment: the form, not the stale audit report
+063e003ca5ea4b096f13abb685a4949bdedb689870900892aee90c1eb813cced The Opportunities Party 2023 original: superseded
+072c63d80730c7e3d0d27159fa5e409d280a0f80b6158116661739e553920453 New Zealand First Party 2023: no stored page reading, set aside
+4069979de7c71f5f0211a7dd0dd2e2f9454fa5017b36f330da6ed90089c6b7ac Women's Rights Party 2023: text layer, parts reconcile
