@@ -1,0 +1,1 @@
+"""The reading: each return's declaration through the reader contract from its own document profile (profiles before readers; the page reader's stored readings where there is no text layer), the schedules where they reconcile to the declared parts, amendments as the Commission states them. Built by the candidate-returns session."""

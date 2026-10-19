@@ -404,6 +404,8 @@ NOT_HELD = (
 
 #: the links views the board reads once links/ publishes them (plan step 4.9: a search table published by links)
 LINKS_VIEWS = {"links": "pub.links", "groups": "pub.groups", "decisions": "pub.decisions"}
+#: every view the links module publishes: read through LINKS_VIEWS and the search table, never catalogued as a register view
+LINKS_PUBLISHED = frozenset({"links", "groups", "decisions", "names", "old_decisions"})
 
 
 def views_of(register: str) -> list:

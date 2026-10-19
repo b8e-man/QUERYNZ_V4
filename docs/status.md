@@ -3,7 +3,7 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-20, 08:35 NZDT. **Step:** 3 closed under ruling 60; 4.1 running, three sessions open; tracks B and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-20, 10:20 NZDT. **Step:** 3 closed under ruling 60; 4.1 running, three sessions open; tracks B and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
@@ -24,7 +24,7 @@ address (test alarm 18 October).
 
 - Step 4.1, eleven lanes merged (`docs/merges/`): disclosures (520
   declarations, 15 of 16 party-years equal; 3 scans carded);
-  party returns (137 rows, 71 equal, 1 differing; Part A 679 rows); parties (78 registrations, 149
+  party returns (137 rows, 72 equal, 1 differing; Part A 843 rows); parties (78 registrations, 149
   names); party finance (116 documents, 30 of 37 totals equal); gazette
   (207,133 notices typed, celebrant lists read); house (1,611
   candidacies, 243 seats); companies (1.92 M entities, 1.19 M directors,
@@ -32,14 +32,13 @@ address (test alarm 18 October).
   (24,931 declarations); gazette 2 (prohibitions, liquidations);
   societies (53,271, 133,080 officers); the charities capture (feed,
   first full copy tonight); keys by date. The board is live on
-  10.0.0.2:8420 (`board-1`). Running: links (Fable), party-returns 4,
-  party-finance 2. Ruling 61: legal positions before product.
+  10.0.0.2:8420 (`board-1`). Links merged (`links-1`: two rules,
+  669,863 groups, the old ledgers, test pairs, measurements). Running:
+  site shape (Fable), gazette 3, candidate-returns. Ruling 61.
 - Track E merged (`docs/merges/windowed-1` to `-3`): two legal positions,
-  two capture lanes, the two `qv4-*-capture` jobs nightly from 22:30 NZDT
-  (first nightly run 20 October, both done), both hosts floored at 5 s,
-  the lane checks on the board. Rulings 58 and 59 (orders kept and never
-  shown; no letter to the Authority yet). Open: the gate's redirect and
-  gzip card (`support/fetchgate`).
+  two capture lanes, the two `qv4-*-capture` jobs nightly from 22:30 NZDT,
+  both hosts floored at 5 s, the lane checks on the board. Rulings 58 and 59 (orders kept and never
+  shown; no letter to the Authority yet).
 - Track B closed (`docs/merges/offsite-2a`, `-2b`): `qv4-offsite-copy`
   nightly 21:00 NZDT, ranges for big tables, order-free restore check, a
   bucket restore to equality in 1 h 50 min; the step 1.8 dump retired.
