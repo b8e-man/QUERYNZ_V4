@@ -1,0 +1,1 @@
+"""The lane's one figure against the outside world: the Gazette's own count of notices under one type for one month against the lane's rows. The old lane's gate recorded a failure and still exited clean; this one does not. Built by the gazette session."""

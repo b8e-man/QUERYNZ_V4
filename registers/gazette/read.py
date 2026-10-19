@@ -1,0 +1,1 @@
+"""The reading: each notice typed and read from its text by the notice's own format (90.8% of the 35,938 the old lane never read are one celebrant format); appointments, insolvencies and prohibitions as rows with the notice as citation. Built by the gazette session."""

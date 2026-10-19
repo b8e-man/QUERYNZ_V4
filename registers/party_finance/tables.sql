@@ -1,0 +1,1 @@
+-- registers/party_finance: the tables this lane owns, in `party_finance` and `party_finance_private`. Empty until the session builds the lane.

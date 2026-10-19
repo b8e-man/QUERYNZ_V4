@@ -67,7 +67,7 @@ site; the sample label `no stored page reading` now tests from an empty
 store (`tests/test_pixels.py`, integrator); Part A's refused
 pages (column-by-column, page breaks, schedules outside the heading); the
 outside check against the Commission's by-year table. On node2:
-`cd /home/user/querynzv4-work/party-returns && git checkout -- docs/board.md docs/decisions/queue.md lessons/INDEX.md && git fetch origin && git merge --ff-only origin/main && claude --model opus --permission-mode acceptEdits`
+`cd /home/user/querynzv4 && bin/start-session party-returns registers/party_returns`, then in the folder it prints: `claude --model opus --permission-mode acceptEdits`
 
 ```text
 You are the party-returns session, session 3, in your working copy. Read
@@ -89,6 +89,68 @@ estate's text), 149 names with windows, every stated rename read, 17 on
 the register, 6 off it with no cancellation held (carded). No session 2
 now: the lane takes the Gazette lane's notices when that lane exists.
 Its blocker is a fix on `keys` (next section).
+
+## party-finance
+
+Step 4.1, built: party expense returns, broadcasting allocations, party
+financial statements, promoters and party rules, from the files the old
+estate holds under `var/staging/ec-expenses/`, `ec-financials/`,
+`ec-broadcasting/` and `ec-promoters/`. Each kind has a document profile
+(`support/profiles`; propose what is missing in a `profile-proposed.jsonl`
+for the integrator). Model: Opus. On node2:
+`cd /home/user/querynzv4 && bin/start-session party-finance registers/party_finance`, then in the folder it prints: `claude --model opus --permission-mode acceptEdits`
+
+```text
+You are a build session for QueryNZV4 on node2, running as Opus, in the
+working copy the launcher made for you. Read docs/PLAN.md, then
+docs/status.md and your own status file docs/status/party-finance.md
+(make it), the lane contract and the row contract, and
+docs/plan/reference/facts-and-traps/electoral-commission-forms.md. Build
+one lane only: party-finance, in registers/party_finance/. Its documents
+are held under the old estate's var/staging/ec-expenses, ec-financials,
+ec-broadcasting and ec-promoters: take them by hash, read-only; fetch
+nothing. Profiles before readers: assign or propose a document profile
+for each kind before reading it. Search the lessons and the reference
+notes for this source before writing anything. Give every row a stable
+key and a citation. Keep a catch log that reconciles. Find one figure
+from the Commission itself to check against. Build in small tranches,
+each measured against the real files. Work in your scratch schema; edit
+nothing outside your folder; never touch the old estate's jobs, folders
+or primary database. Push your branch and raise party-finance-1. Finish
+by telling Arthur what closed and what is carded.
+```
+
+## gazette
+
+Step 4.1, built: Gazette notices (party events, public appointments,
+insolvency, prohibitions) from the text rows the old news database
+holds; exported once, by hash, the way `registers/parties/capture.py`
+exported the register's notices (the old read-only login, two small
+reads, search path set to the old schema). The parties lane takes this
+lane's notices when it exists. Model: Opus. On node2:
+`cd /home/user/querynzv4 && bin/start-session gazette registers/gazette`, then in the folder it prints: `claude --model opus --permission-mode acceptEdits`
+
+```text
+You are a build session for QueryNZV4 on node2, running as Opus, in the
+working copy the launcher made for you. Read docs/PLAN.md, then
+docs/status.md and your own status file docs/status/gazette.md (make
+it), the lane contract and the row contract, and
+registers/parties/capture.py for how a once-only export from the old
+news database is done and landed by hash. Build one lane only: gazette,
+in registers/gazette/. Export the notices once (read-only, the old
+read-only login, a statement timeout); never run the export at load.
+Type each notice by its own format and read it: 90.8% of the 35,938 the
+old lane never read are one celebrant format, so measure the formats
+first and read the largest. The old lane's gate recorded a failure and
+still exited clean; do not carry that. Search the lessons and the
+reference notes for this source before writing anything. Give every
+row a stable key and a citation. Keep a catch log that reconciles. Find
+one figure from the Gazette itself to check against. Build in small
+tranches, each measured against the real rows. Work in your scratch
+schema; edit nothing outside your folder; never touch the old estate's
+jobs, folders or primary database. Push your branch and raise gazette-1.
+Finish by telling Arthur what closed and what is carded.
+```
 
 ## keys-fix
 
