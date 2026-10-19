@@ -41,11 +41,16 @@ STOP_GRACE_S = 20             # the server hangs ~45 s after TERM; 20 s then KIL
 LOGS = os.path.join(LIVE, "scheduler", "servers")
 
 
-def server_binary(profile_programs: dict, prefer: str = None) -> str | None:
+def server_binary(profile_programs: dict, prefer: str = None, profile: reg.Profile = None) -> str | None:
     """The estate's own program, as profiles.toml `[server] binary` says:
     the build from source ("built"), or the copy of the old build ("copy").
     One that is missing falls back to the other; the old build itself,
-    read-only, only until the installer has put either beside it."""
+    read-only, only until the installer has put either beside it. A profile
+    that names its own `binary` gets that program or nothing: TeleOCR's
+    conversion loads only on the patched server, and the unpatched one
+    standing in for it was the 19 October failure."""
+    if profile is not None and profile.binary:
+        return profile_programs.get(profile.binary)
     prefer = prefer or reg.server_binary_setting()
     order = ("qv4-llama-server-built", "qv4-llama-server") if prefer == "built" else ("qv4-llama-server", "qv4-llama-server-built")
     for name in order:
@@ -162,12 +167,16 @@ class Manager:
         demand, so rule 6 never discards a working profile for a row nobody
         here may take (19 October: three swaps for TeleOCR's row 74)."""
         key = self._programs_key(worker)
+        progs = worker.profile.get("programs") or {}
         out = set()
         for jt in worker.registry.values():
             if not jt.enabled or pb.missing_programs(worker.profile, jt.requires):
                 continue
             if jt.profile and self.failed_loads.get(jt.profile) == key:
                 continue
+            prof = worker.profiles.get(jt.profile) if jt.profile else None
+            if prof is not None and prof.binary and not progs.get(prof.binary):
+                continue                  # its profile's own server is not on this box
             out.add(jt.name)
         return out
 
@@ -242,9 +251,10 @@ class Manager:
         was = self.servers.get(card)
         # what can be known without touching the card is checked BEFORE the resident profile is
         # discarded (19 October: a working page-reader was unloaded three times for a load that failed)
-        binary = server_binary(worker.profile.get("programs") or {})
+        binary = server_binary(worker.profile.get("programs") or {}, profile=prof)
         if not binary:
-            return self._failed(worker, card, prof, d, "no model server program on this box")
+            return self._failed(worker, card, prof, d, f"no model server program {prof.binary!r} on this box" if prof.binary
+                                else "no model server program on this box")
         missing = [w for w in prof.weight_paths(self.models_dir) if not os.path.exists(w)]
         if missing:
             return self._failed(worker, card, prof, d, f"weights missing: {missing}")

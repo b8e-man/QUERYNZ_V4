@@ -266,3 +266,27 @@ def test_what_can_be_checked_without_the_card_is_checked_before_the_resident_pro
     assert m.load(w, 1, policy.Decision("n:1", policy.LOAD, "emb", "second", "bge"), 10.0) is False
     assert m.servers[1].prof.name == "qwen-50k" and not procs[0].signals, "the resident profile was kept"
     assert swaps(w)[-1][0] == "failed" and "weights missing" in w.logs[-1]
+
+
+def test_a_profile_naming_its_own_server_loads_with_it_and_never_with_another(kit, tmp_path):
+    """Card teleocr-needs-a-patched-server-the-scheduler-cannot-choose: the
+    conversion loads only on the patched build. A profile with `binary` gets
+    that program; where the box lacks it the load is refused (no fall back to
+    the [server] setting) and the planner never sees the job's demand here."""
+    m, w, answers, procs = kit
+    teleocr = dataclasses.replace(w.profiles["bge"], name="tele", binary="qv4-llama-server-teleocr")
+    w.profiles["tele"] = teleocr
+    w.registry["ocr"] = dataclasses.replace(w.registry["emb"], needs=dataclasses.replace(w.registry["emb"].needs, name="ocr", model_profile="tele"))
+    programs = w.profile["programs"]
+    assert cards.server_binary(programs, "copy", teleocr) is None and "ocr" not in m.claimable(w)
+    answers["will_serve"] = "B"
+    assert m.load(w, 1, policy.Decision("n:1", policy.LOAD, "ocr", "test", "tele"), 0.0) is False and procs == []
+    assert "'qv4-llama-server-teleocr'" in w.logs[-1] and swaps(w)[-1][0] == "failed"
+    patched = tmp_path / "built-teleocr" / "llama-server"
+    patched.parent.mkdir()
+    patched.write_text("#!/bin/sh\n")
+    programs["qv4-llama-server-teleocr"] = str(patched)
+    assert cards.server_binary(programs, "copy", teleocr) == str(patched) and "ocr" in m.claimable(w), "the probe changed"
+    assert m.load(w, 1, policy.Decision("n:1", policy.LOAD, "ocr", "test", "tele"), 0.0) is True
+    assert procs[0].argv[0] == str(patched) and procs[0].kw["env"]["LD_LIBRARY_PATH"].split(":")[0] == str(patched.parent)
+    assert cards.server_binary(programs, "copy", w.profiles["bge"]) == programs["qv4-llama-server"], "a profile without one keeps the setting"

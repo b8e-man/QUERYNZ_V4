@@ -144,6 +144,17 @@ def test_a_profile_with_no_model_is_refused(tmp_path):
 
 # ── measurement provenance ───────────────────────────────────────────────────
 
+def test_a_profile_naming_a_server_the_probe_does_not_know_is_refused(tmp_path):
+    """A `binary` the probe never looks for would make the profile loadable
+    nowhere, silently (the TeleOCR shape, card
+    teleocr-needs-a-patched-server-the-scheduler-cannot-choose)."""
+    j, p = files(tmp_path, job(), profile() + 'binary = "qv4-llama-server-ghost"\n')
+    assert any("binary 'qv4-llama-server-ghost' is not a program the probe looks for" in x for x in reg.problems(j, p))
+    j, p = files(tmp_path, job(), profile() + 'binary = "qv4-llama-server-teleocr"\n')
+    assert reg.problems(j, p) == [] and reg.profiles(p)["p"].binary == "qv4-llama-server-teleocr"
+    assert reg.profiles(fx.write(tmp_path)[1])["bge"].binary is None
+
+
 def test_a_memory_figure_measured_at_another_geometry_is_a_warning(tmp_path):
     """A footprint measured at 2x50k says nothing about 6x32k — the KV cache
     is most of the difference. Carried across a geometry change it is not

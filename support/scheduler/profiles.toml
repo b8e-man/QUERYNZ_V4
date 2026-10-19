@@ -15,6 +15,10 @@
 # source (`python -m support.installer build`, `<live>/llama/built/bin`).
 # Either is the estate's own program; the frozen product's servers keep
 # theirs (hard limit 23). One line to switch; a missing one falls back.
+# A profile may name its own server instead (`binary = "<probe name>"`):
+# then it loads only where the probe lists that program, and never falls
+# back. TeleOCR's conversion needs the patched build beside the others,
+# `qv4-llama-server-teleocr` at <live>/llama/built-teleocr/.
 [server]
 binary = "built"
 

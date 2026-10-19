@@ -40,6 +40,7 @@ import pathlib
 import tomllib
 
 from support.jobspec import JobNeeds, validate
+from support.scheduler import probe
 
 HERE = pathlib.Path(__file__).resolve().parent
 JOBS = HERE / "jobs.toml"
@@ -67,6 +68,7 @@ class Profile:
     embedding: bool
     dpi: int | None                 # page readers: dots per inch the pages are rendered at
     used_for: str
+    binary: str | None = None       # the model server program this profile needs, by the probe's name; None = the [server] setting
 
     @property
     def total_context(self) -> int:
@@ -178,7 +180,8 @@ def profiles(path: pathlib.Path | None = None) -> dict[str, Profile]:
             measured_geometry=b.get("measured_geometry"),
             load_seconds=None if b.get("load_seconds") is None else float(b["load_seconds"]),
             flags=tuple(b.get("flags") or ()), embedding=bool(b.get("embedding", False)),
-            dpi=None if b.get("dpi") is None else int(b["dpi"]), used_for=(b.get("used_for") or "").strip())
+            dpi=None if b.get("dpi") is None else int(b["dpi"]), used_for=(b.get("used_for") or "").strip(),
+            binary=str(b["binary"]) if b.get("binary") else None)
     return out
 
 
@@ -275,6 +278,8 @@ def problems(path: pathlib.Path | None = None, profiles_path: pathlib.Path | Non
                        f"{p.context:,} leaves {p.headroom:,} tokens for the prompt")
         if p.slots < 1 or p.context < 1:
             out.append(f"profile {p.name}: slots and context from 1")
+        if p.binary and p.binary not in probe.PROGRAMS:
+            out.append(f"profile {p.name}: binary {p.binary!r} is not a program the probe looks for, so no box would ever load it")
     return out
 
 

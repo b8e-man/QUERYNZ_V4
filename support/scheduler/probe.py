@@ -34,10 +34,15 @@ import urllib.request
 # plus the new estate's own model server (installed beside the old one).
 PROGRAMS = ("pdftotext", "pdftoppm", "pdfinfo", "tesseract", "xvfb-run", "google-chrome", "psql", "pg_dump", "gpg",
             "pg_restore", "initdb", "zstd",
-            "rocm-smi", "llama-server", "qv4-llama-server", "qv4-llama-server-built")
+            "rocm-smi", "llama-server", "qv4-llama-server", "qv4-llama-server-built", "qv4-llama-server-teleocr")
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 QV4_LLAMA = os.environ.get("QV4_LLAMA_SERVER") or os.path.join(LIVE, "llama", "bin", "llama-server")
 QV4_LLAMA_BUILT = os.environ.get("QV4_LLAMA_SERVER_BUILT") or os.path.join(LIVE, "llama", "built", "bin", "llama-server")
+# the server patched for TeleOCR's conversion (card teleocr-needs-a-patched-server-the-scheduler-cannot-choose):
+# built beside the others, flat in its own folder; a profile names it with `binary`
+QV4_LLAMA_TELEOCR = os.environ.get("QV4_LLAMA_SERVER_TELEOCR") or os.path.join(LIVE, "llama", "built-teleocr", "llama-server")
+# the estate's own model servers, at fixed places, not on the PATH
+FIXED = {"qv4-llama-server": QV4_LLAMA, "qv4-llama-server-built": QV4_LLAMA_BUILT, "qv4-llama-server-teleocr": QV4_LLAMA_TELEOCR}
 OLD_LLAMA = "/home/user/llama.cpp/build/bin/llama-server"      # the frozen product's build (baseline); never touched
 REAL_FS = {"ext4", "xfs", "btrfs", "ntfs3", "fuseblk", "vfat", "exfat", "f2fs"}
 
@@ -144,15 +149,14 @@ def disks(mounts_text: str = None, usage=None) -> list[dict]:
 
 
 def programs(names=PROGRAMS, which=None) -> dict:
-    """name → path, or None when absent. `qv4-llama-server` is the new
-    estate's own model server at its fixed place, not on the PATH."""
+    """name → path, or None when absent. The `qv4-llama-server*` names are
+    the new estate's own model servers at their fixed places (`FIXED`), not
+    on the PATH."""
     which = which or shutil.which
     out = {}
     for n in names:
-        if n == "qv4-llama-server":
-            out[n] = QV4_LLAMA if os.path.exists(QV4_LLAMA) else None
-        elif n == "qv4-llama-server-built":
-            out[n] = QV4_LLAMA_BUILT if os.path.exists(QV4_LLAMA_BUILT) else None
+        if n in FIXED:
+            out[n] = FIXED[n] if os.path.exists(FIXED[n]) else None
         elif n == "llama-server":
             out[n] = which(n) or (OLD_LLAMA if os.path.exists(OLD_LLAMA) else None)
         else:
