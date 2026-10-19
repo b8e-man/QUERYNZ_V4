@@ -154,25 +154,13 @@ Finish by telling Arthur what closed and what is carded.
 
 ## keys-fix
 
-Card `keys-parties-should-read-the-party-names-the-lane-publishes`:
-`keys.parties` holds an 18 October snapshot of 17 parties, so returns and
-declarations by a renamed or deregistered party resolve to nothing. The
-parties lane publishes `pub.party_names` with windows; 31 of 34 and 46 of
-53 unresolved labels resolve by name and filing year alone. A fix
-session, Opus, does not count against the three. On node2:
-`cd /home/user/querynzv4 && bin/fix keys`, then `cd` into the folder it
-prints and `claude --model opus --permission-mode acceptEdits`.
-
-```text
-You are a fix session on keys, in your working copy. Read CLAUDE.md,
-docs/PLAN.md, docs/plan/core.md, keys/README.md and the card
-keys-parties-should-read-the-party-names-the-lane-publishes. Give
-keys.parties a party_name(label, on=date) that resolves a label against
-pub.party_names by name key and the registration's window, returning the
-registration's key and the basis; keep every rule it has (a fuzzy match
-never joins two parties). Measure on the unresolved labels the card
-counts. Edit nothing outside keys/, push and raise fix-keys-1. Then stop.
-```
+Merged (`docs/merges/fix-keys-1`): `keys.parties.party_name(label, rows,
+on=date)` resolves a label against `pub.party_names` by name key and
+the registration's window; 38 of 42 unresolved return labels and 53 of
+53 disclosure labels resolve on the published tables, every old rule
+kept. Each lane switches to the new call in its own next session
+(party-returns 3 may do it now; disclosures and parties when they next
+open); the parties lane's `lifecycle` takes `keys.parties.name_key`.
 
 ## offsite
 
