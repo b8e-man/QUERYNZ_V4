@@ -3,7 +3,7 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-20, 03:30. **Step:** 3 closed under ruling 60; 4.1 running; tracks B and E on the queue's clock. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-20, 04:15. **Step:** 3 closed under ruling 60; 4.1 running; tracks B and E on the queue's clock. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
@@ -23,16 +23,17 @@ address (test alarm 18 October).
 
 ## Next (all from `docs/briefs/next.md`)
 
-- Step 4.1, two lanes: disclosures (`docs/merges/disclosures-1`: 520
-  declarations from the Commission's table, 2023-on total equal to the
-  cent, 15 of 16 party-years equal; National 2023 is the old estate's
-  double count, queued for Arthur; the 246 scans read, row 97; session 2
-  reloads and fixes the read job's server, carded) and party returns
-  (`party-returns-2`: 99 rows, 49 party-years equal, 0 differing; Part A
-  donors on 22 returns, 476 rows; loans on 6; 14 amendments). New job
-  `qv4-read-pages` reads every image page of the 41 unread returns (rows
-  110, 111 running); session 3 reloads, then Part A's refused pages and
-  the outside check. Parties lane running (session 1).
+- Step 4.1, three lanes merged: disclosures (`docs/merges/disclosures-1`,
+  `-2`: 520 declarations from the Commission's table, 2023-on total equal
+  to the cent, 15 of 16 party-years equal, National 2023 queued for Arthur;
+  246 scans read, form check 223 equal, 3 differ, carded); party returns (`party-returns-2`: 99 rows, 49
+  party-years equal, 0 differing; Part A donors on 22 returns, 476 rows;
+  loans on 6; 14 amendments; `qv4-read-pages` reads the 41 unread
+  returns' image pages, rows 110 done and 111 running; session 3 reloads,
+  then Part A's refused pages and the outside check); parties
+  (`parties-1`: 78 registrations, 149 names with windows, every rename
+  read, 17 on the register). Blocker: `keys.parties` must read
+  `pub.party_names` by date (fix session briefed).
 - Track E merged (`docs/merges/windowed-1` to `-3`): two legal positions,
   two capture lanes, the two `qv4-*-capture` jobs nightly from 22:30 NZDT
   (first nightly run 20 October, both done), both hosts floored at 5 s,
