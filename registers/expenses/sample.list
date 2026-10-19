@@ -1,1 +1,17 @@
-# registers/expenses/sample.list: hashes and key: lines only. Empty until the lane lands its first documents.
+# registers/expenses/sample.list (plan 1b.6): hashes only, never bytes or rows. Comments say the release and the case.
+# Parliamentary Service's members' workbooks.
+c2fc5d76a7b8f287b852d18ae66d6840264e9c83b8bf6b085a1542ca1761e77d MPs 2017: the catalogue says Jan-Mar, the title Oct-Dec; "Subtotal Parliamentary Service"; dashes are nil
+22e7631e366bfc231b7ea207f8517c1f3a376e6856263f717179493b9509197a MPs Oct-Dec 2022: the printed IPO grand total leaves out Labour's $165,368
+f40f8f5c344c34e2c91ded0cc2cc23910b2109ac929447967e6423e82e4a645b MPs Oct-Dec 2025: hidden cost-centre columns; party on every row; $516.19 moved between accommodation totals
+61bc10b33daf4fbc936cef4e9f4faea47338ccc4b18e8efabf7dd3affb330df4 MPs Jul-Sep 2025: International and Domestic travel; independents before the first party total
+# Internal Affairs' members of the Executive workbooks.
+f1bc3388d43b4fa5df5466fa179e8d1f4eb1bb6362ca71a8e14a75663dcb9c2a Executive Oct-Dec 2023: two governments, two tables on one sheet, a sheet total after the notes
+f9c0be89335d0930bf58a237867b66a5553c6c1aecc00c1743421df2a6dc5e89 Executive 2018-19: three quarters, one sheet each
+3f04d9ccf6e9635e61735155063b7649ba277d57ae6e754b7d2f0c02f04d2295 Executive Apr-Jun 2014 (xls): MPs with international travel alone, named in the party column
+9be0852e6348dedaf746bc899f260e373a47aa86e07737dbb14d3f3726e4a36d Executive Oct-Dec 2009 (xls): working sheets with figures and no release table
+576558dd56dc43cab4f880af81b53e177de68ec049278ca294927498da555480 Executive Oct-Dec 2012 (xls): a sub total that is not its categories' sum, set aside
+e0e29abb974bc1911bb34568bc130e403e8c7b8edd21b6455fb4d44b663b98c2 Executive Apr-Jun 2016: words in figure cells ("Allocated Crown Owned Property", "N/A")
+129dcfd3612256b0db0c6ff830ee207ec12f1d9c284dc591e19d52f0eb5e7cc4 Executive Apr-Jun 2026: the newest; a footnote letter in its own column
+500a520cb2d32159c7f671017c963c66b21c5586d67ca164bb4b5aaaea76280d Executive Jan-Mar 2018: footnoted figures as text ("1,391 (D)", "(6,904) (B)"); its name was reused for Apr-Jun 2018
+# Internal Affairs' recent-disclosures listing (four workbooks, one in this sample).
+e4ffaee346cf78b49497e94309f4386ca2810f89e6a5254336eebcb275404e41 DIA recent-disclosures listing page

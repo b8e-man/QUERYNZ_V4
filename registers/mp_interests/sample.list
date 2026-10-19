@@ -1,1 +1,8 @@
-# registers/mp_interests/sample.list: hashes and key: lines only. Empty until the lane lands its first documents.
+# registers/mp_interests/sample.list (plan 1b.6): hashes only, never bytes or rows. Comments say the edition and the case.
+4d6e8f4c3bc33b0a7b2ccc61504fac75f9d2207c7beeac7b7ef955f259a9859c 2006: corrected version; a heading wrapped over two lines; the Progressive and United Future members the old parser missed
+be1dc1e0fdf63d5095510c16092b0fb452634fa8485adcad4ad42491d7707c92 2011: two returns not received by the due date
+34d1d9551b04c6f9e8f019af3dd85c9581aa861d96b86b71f0d4c1f97bddd968 2015: a nickname in the header; a footnote mark on its own line; a wrap that closes a bracket ("2015)")
+155e419766254da2827d37ef90ef2b2ad2b2a31afe4bbe885baea6654e3e1fb6 2017: the last thirteen-category edition (9 is Creditors)
+59d1d004bf360eb53ff9612aac7e51bb7fbe352bd9f8ab08c4f5e3a60712da43 2018: the first fourteen-category edition (9 is Debtors, 10 Creditors)
+9d370fee4b338c8f9ab8983be19235ad6e35d32157f98e813d72c93bab62bf5b 2019: an independent printed with his electorate alone
+036fa95048411ffd51f4f86706cbcf516a5667ad1f5865ba819095ec993b5886 2026: two independents, one with a footnote mark; the rules headed "STANDING ORDERS—APPENDIX B"
