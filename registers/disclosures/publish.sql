@@ -1,0 +1,1 @@
+-- registers/disclosures: `pub.disclosures`, one row per declared donation with its citation. Empty until the lane reads.
