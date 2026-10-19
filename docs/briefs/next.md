@@ -217,6 +217,16 @@ limits; never touch the old estate. Finish by telling Arthur what
 merged, what was refused and why, and what waits on him.
 ```
 
+Launching (Arthur, 20 October): the integrator launches build and fix
+sessions itself, headless, after `bin/start-session` has made the copy:
+from that folder, `claude -p --model <opus|fable> --permission-mode auto
+"<brief>"` in the background, output to a log under the scratch folder;
+it relays from the log when the session raises its request or stops to
+ask. Auto is the classifier mode, not bypass (hard limit 3). An agent of
+the integrator's own does not work: the scope hook fences it to the main
+checkout (`docs/merges/offsite-1-not-started.md`). Start lines are handed
+to Arthur only when he asks for a window.
+
 ## founding
 
 Launcher, on node2 in `/home/user/querynzv4`: `bin/start-session --main founding`
