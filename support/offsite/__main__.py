@@ -10,7 +10,5 @@ if argv[:1] == ["plan"]:
 if argv[:1] == ["restore"]:
     from support.offsite.restore import main as restore_main
     sys.exit(restore_main(argv[1:]))
-
-from support.offsite import main  # noqa: E402 — the step 1.8 dump, until the catalogue moves to `copy`
-
-sys.exit(main())
+print("usage: python -m support.offsite copy [--full] [--local] | plan | restore [--source local] [--keep]")
+sys.exit(2)
