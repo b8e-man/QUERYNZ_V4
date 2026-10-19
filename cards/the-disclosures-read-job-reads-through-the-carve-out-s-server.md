@@ -1,9 +1,10 @@
 # The disclosures read job reads through the carve-out's server
 kind: finding
-state: open
+state: closed
 use-case: 1
 session: founding
 opened: 2026-10-20
+closed: 2026-10-20
 
 `qv4-disclosures-read` (queue row 97, 246 pieces, 19 October 21:18 to
 21:20) held the page-reader profile on card 1, but its pieces sent every
@@ -23,3 +24,11 @@ Fix: `read_document` now takes `url` and `model` (founding, 20 October);
 `qv4-read-pages` passes the worker's. The disclosures lane's `read_scan`
 and `main` should do the same (session 2's brief). Until then the job is
 not queued again.
+
+Closed (disclosures session 2, 20 October): `read_scan` takes `url` and
+`model` and passes them to `read_document`; `main` reads `QV4_MODEL_URL`
+and `QV4_MODEL` from the worker and refuses (exit 2) without them, so a
+piece never falls back to port 8032. Test
+`test_the_read_job_reads_on_the_worker_s_card_and_never_the_default`
+fails on the old `read.py` and passes on the new. The job may be queued
+again; nothing is queued by this session.

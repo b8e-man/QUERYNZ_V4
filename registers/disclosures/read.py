@@ -145,17 +145,19 @@ def form_check(amount: float, document: str, forms: dict) -> dict:
     return {"form_total": f["total"], "form_check": "equal" if same else "differs", "form_reading": f["stamp"]}
 
 
-def read_scan(data: bytes, sha256: str, store: rd.Store = None, page_reader: bool = False):
+def read_scan(data: bytes, sha256: str, store: rd.Store = None, page_reader: bool = False,
+              url: str = None, model: str = None):
     """Every page of one scanned declaration read by the page reader, as
     the profile's `page_image` lane says (the form's text layer holds the
-    labels, never the typed values). For the scheduler's job; the fast tier
+    labels, never the typed values). For the scheduler's job, which passes
+    the server on the card its worker holds (`url`, `model`); the fast tier
     calls it with `page_reader=False` and gets the unread pages named."""
     prof = profiles.profile(form.PROFILE)
     n = pagereader.page_total(data) if pagereader.is_pdf(data) else 1
     blank = {p: "" for p in range(1, n + 1)}
     return read_document(data, sha256, profile=form.PROFILE, profile_version=int(prof["version"]),
                          store=store or rd.Store(), page_reader=page_reader, texts=blank,
-                         dpi=int((prof.get("ocr") or {}).get("dpi") or 200))
+                         dpi=int((prof.get("ocr") or {}).get("dpi") or 200), url=url, model=model)
 
 
 def join(rows: list, held: list) -> tuple:
@@ -195,15 +197,22 @@ def main(argv=None) -> int:
     declaration read by the page reader, every page, and stored; the piece
     of the `qv4-disclosures-read` job, run by a scheduler worker that holds
     the GLM-OCR profile (never by hand: core, "Shared things on the
-    boxes"). Prints the hash, the pages read and unread, never the text."""
+    boxes"). It reads on the worker's card (`QV4_MODEL_URL`, `QV4_MODEL`)
+    and refuses to run without them, so it never falls back to the page
+    reader's default server, the carve-out's. Prints the hash, the pages
+    read and unread, never the text."""
     import sys
     from support.docstore.landing import read_bytes
     argv = argv if argv is not None else sys.argv[1:]
     if "--scan" not in argv:
         print("usage: python -m registers.disclosures.read --scan SHA256")
         return 2
+    url, model = os.environ.get("QV4_MODEL_URL"), os.environ.get("QV4_MODEL")
+    if not url or not model:
+        print("refused: no QV4_MODEL_URL and QV4_MODEL; run as a scheduler piece on the worker's card")
+        return 2
     sha = argv[argv.index("--scan") + 1]
-    got = read_scan(read_bytes(sha), sha, page_reader=True)
+    got = read_scan(read_bytes(sha), sha, page_reader=True, url=url, model=model)
     print(f"{sha} read {len(got.readings)} page(s), replayed {got.replayed}, unread {got.unread}")
     return 1 if got.unread else 0
 
