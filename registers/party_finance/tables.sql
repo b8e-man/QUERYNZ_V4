@@ -229,3 +229,28 @@ CREATE TABLE IF NOT EXISTS party_finance.promoter_returns (
     profile_version   integer NOT NULL,
     loaded_at         timestamptz NOT NULL
 );
+CREATE TABLE IF NOT EXISTS party_finance.statement_figures (
+    key               text PRIMARY KEY,                 -- <document sha256>/<figure>
+    document          text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page              integer NOT NULL,
+    place             text NOT NULL,                    -- the line's own label
+    roster_row        text NOT NULL,                    -- the Commission's roster row that links the statement
+    filed_year        integer NOT NULL,
+    balance_date      date,                             -- from that row
+    party_label       text NOT NULL,
+    party             text,                             -- the registration's key
+    party_basis       text NOT NULL,
+    current           boolean NOT NULL,                 -- the amended or audited statement where the row links two
+    figure            text NOT NULL CHECK (figure IN ('income', 'expenditure', 'surplus', 'assets', 'liabilities',
+                                                      'net_assets')),
+    amount            numeric(16,2) NOT NULL,           -- the reported year, in dollars (a $000 statement scaled)
+    prior_amount      numeric(16,2),                    -- the prior year's column on the same line, when printed
+    scale             integer NOT NULL,                 -- 1, or 1000 where the page states thousands
+    figure_check      text NOT NULL CHECK (figure_check IN ('income-less-expenditure', 'assets-less-liabilities')),
+    printed           text NOT NULL,
+    read_from         text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader            text NOT NULL,
+    profile           text NOT NULL,
+    profile_version   integer NOT NULL,
+    loaded_at         timestamptz NOT NULL
+);

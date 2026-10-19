@@ -16,7 +16,7 @@ import os
 from support import jobrun
 from support import reader as rd
 from support.docstore.landing import read_bytes
-from registers.party_finance import capture, expenses, promoter_returns, read
+from registers.party_finance import capture, expenses, promoter_returns, read, statements
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "party_finance"
@@ -48,6 +48,9 @@ COLUMNS_OF = {
     "expense_returns": ("key", "document", "page", "place", "listing_row", "year", "party_label", "party",
                         "party_basis", "current", "total", "total_check", "part_a", "part_b", "part_c", "expense_limit",
                         "read_from", "reader", "profile", "profile_version", "loaded_at"),
+    "statement_figures": ("key", "document", "page", "place", "roster_row", "filed_year", "balance_date", "party_label",
+                          "party", "party_basis", "current", "figure", "amount", "prior_amount", "scale", "figure_check",
+                          "printed", "read_from", "reader", "profile", "profile_version", "loaded_at"),
     "promoter_returns": ("key", "document", "page", "place", "listing_row", "year", "promoter", "part", "spending",
                          "figure", "figure_check", "declared", "schedule", "read_from", "reader", "profile",
                          "profile_version", "loaded_at"),
@@ -125,6 +128,7 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
               "allocation_pages": 0, "allocation_rows": 0, "allocation_aside": 0, "unread": 0,
               "register_pages": 0, "promoters": 0, "promoter_people": 0, "promoter_aside": 0,
               "roster_rows": 0, "roster_aside": 0, "statements_linked": 0,
+              "statements_read": 0, "statement_pairs": 0, "statement_pairs_read": 0, "statement_pairs_aside": 0,
               "promoter_returns_linked": 0, "promoter_parts": 0, "promoter_parts_read": 0, "promoter_parts_aside": 0}
     for item, why in capture_lines:
         aside(conn, schema, item, "capture", why, shared)
@@ -235,6 +239,23 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
         counts["links"] += len(out_links)
         counts["links_unheld"] += sum(1 for x in out_links if x["document"] is None)
         counts["statements_linked"] = len({x["document"] for x in out_links if x["document"]})
+        by_row = {r["key"]: r for r in rows}
+        seen = set()
+        for x in out_links:
+            if x["document"] is None or x["document"] in seen:
+                continue
+            seen.add(x["document"])
+            mine = [y for y in out_links if y["row_key"] == x["row_key"]]
+            res = statements.read_statement(read_bytes(x["document"]), x["document"])
+            figs, lines = read.statement_figure_rows(res, by_row[x["row_key"]], read.statement_is_current(x, mine), at)
+            for f in figs:
+                insert(conn, schema, "statement_figures", f, shared)
+            for item, stage, why in lines:
+                aside(conn, schema, item, stage, why, shared)
+            counts["statements_read"] += 1
+            counts["statement_pairs"] += len(statements.PAIRS)
+            counts["statement_pairs_read"] += len(figs) // 3
+            counts["statement_pairs_aside"] += len(lines)
     for sha, kind in files.items():
         if kind in UNREAD:
             aside(conn, schema, sha, "unread", UNREAD[kind], shared)
@@ -262,6 +283,9 @@ def reconcile(c: dict) -> list:
         bad.append(f"documents: {c['documents']} held, {c['accounted']} read, a row's source or a catch-log line")
     if c["returns_linked"] != c["returns_read"] + c["returns_aside"]:
         bad.append(f"returns: {c['returns_linked']} linked, {c['returns_read']} read + {c['returns_aside']} set aside")
+    if c["statement_pairs"] != c["statement_pairs_read"] + c["statement_pairs_aside"]:
+        bad.append(f"statement pairs: {c['statement_pairs']} looked for, {c['statement_pairs_read']} read + "
+                   f"{c['statement_pairs_aside']} set aside")
     if c["promoter_parts"] != c["promoter_parts_read"] + c["promoter_parts_aside"]:
         bad.append(f"promoter parts: {c['promoter_parts']} on the forms, {c['promoter_parts_read']} read + "
                    f"{c['promoter_parts_aside']} set aside")

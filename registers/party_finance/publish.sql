@@ -71,3 +71,11 @@ SELECT f.key, f.document, f.page, f.place, f.filed_year, f.party, f.party_label,
            AS statements,
        f.reader, f.profile, f.profile_version, f.read_from, f.loaded_at
 FROM party_finance.financial_statements f;
+
+-- the headline figures inside a party's financial statements, each pair published only where the statement's own
+-- arithmetic holds (income less expenditure is its printed surplus; assets less liabilities its printed net assets)
+CREATE OR REPLACE VIEW pub.party_statement_figures AS
+SELECT key, document, page, place, roster_row, filed_year, balance_date, party, party_label, party_basis, current,
+       figure, amount, prior_amount, scale, figure_check, printed, read_from, reader, profile, profile_version,
+       loaded_at
+FROM party_finance.statement_figures;

@@ -30,3 +30,13 @@ f8e417b5af8269ef0545b74df24bd634d9ede2d047e9f08406cdec8fbf0b8531 register of pro
 82ec8f72060bdf89f871a9b8f34d140d34a23241036cc17a969c058308da854a register of promoters 2023 (a field continued in an unlabelled paragraph)
 # The Commission's roster of financial statements (three years of filing; amended and audited links; free-text dates).
 7074b33fa61d31f46229a587701fd87b059876bff6f83e319ff0f7f0b3f9fb37 financial statements roster
+# Financial statements, text layer: the shapes the statement reader meets, and one whose own arithmetic does not hold.
+d6b6e4f0eab2e12a70490e6a8f45aa208320340909d56808b446ea72e68345d0 statements Animal Justice 2024: the reported year in the later column
+cd91e5433b08106a977b5b6462dc0c72e6ab2e2b76d869d7e7cf65e74860a983 statements Labour 2025 audited: in $000, current over the unaudited one
+117cf58b0358086be7b4fd25f59752b2061f1a98a25da37d7f598ea3f2875c5d statements Labour 2025 unaudited: superseded by the audited one
+b0536d4d85e0dccc53cefaeb6540be144cea3e307924ac0c08d96b653d9ec2fb statements Labour 2024: a scanner's text layer (`1 ,953,865`), the gross deficit line
+559b2a79a9cccbe92c51ce9f852ee62a31a105577cfc3755684a89262d56a55b statements TOP 2024: a dash in a column of its own is nil
+f6c1f5e6d651b5c45d2012581641780b28ffa217403fd9279192aa87a4129f43 statements NewZeal 2025: a dash set off from its figure is its minus
+1231d82021fbb8c2063f93fdc7fd88161931449651b0d6c0ee8567f8644ec0b3 statements NewZeal 2026: a two-digit figure in the figure column is not a note
+556bdf102b8ce5baa8d07eebee6e880cf46aeab157612cd4f8510b7b7b7fb775 statements New Conservatives 2024: income and expenditure on facing pages
+2e5615ea042f37c119ab0a4218c70f15a621cb88201e914ae7d3ae3bc80fc4ea statements Aotearoa Legalise Cannabis 2024: its surplus is 21 cents off its own lines, set aside

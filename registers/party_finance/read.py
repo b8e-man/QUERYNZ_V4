@@ -19,6 +19,7 @@ wins once it holds the slug.
     promoter_return_rows(result, listing_row, at)     -> (rows, set_aside), one row per part read
     promoter_rows(data, sha, at)                      -> (promoters, people, private contacts, set_aside)
     statement_rows(data, sha, by_url, at)             -> (rows, links, set_aside)
+    statement_figure_rows(result, row, current, at)   -> (rows, set_aside), three rows per pair that holds
 """
 import datetime as dt
 import os
@@ -26,7 +27,8 @@ import re
 
 from keys import parties
 from support import profiles
-from registers.party_finance import broadcasting, expenses, financials, listing, promoter_returns, promoters
+from registers.party_finance import (broadcasting, expenses, financials, listing, promoter_returns, promoters,
+                                     statements)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -242,3 +244,32 @@ def statement_rows(data: bytes, sha256: str, by_url: dict, loaded_at: str = None
             if doc is None:
                 aside.append((key, "link", f"{r.label} {r.filed_year}: the Commission links {ln.url}, which the lane does not hold"))
     return rows, out_links, aside
+
+
+def statement_is_current(link: dict, row_links: list) -> bool:
+    """A roster row's statement: the amended one where it names one, else the audited one, else its only link."""
+    for mark in ("amended", "audited"):
+        marked = [x for x in row_links if mark in (x["link_text"] or "").lower()]
+        if marked:
+            return link["ordinal"] == marked[0]["ordinal"]
+    return len(row_links) == 1
+
+
+def statement_figure_rows(result: statements.Result, row: dict, current: bool, loaded_at: str = None) -> tuple:
+    """A statement → (three rows for each pair whose arithmetic holds, a catch-log line for each that does not)."""
+    loaded_at = loaded_at or now()
+    out = []
+    for name in statements.FIGURES:
+        f = result.figures.get(name)
+        if f is None:
+            continue
+        out.append({"key": f"{result.document}/{name}", "document": result.document, "page": f.page, "place": f.place,
+                    "roster_row": row["key"], "filed_year": row["filed_year"], "balance_date": row["balance_date"],
+                    "party_label": row["party_label"], "party": row["party"], "party_basis": row["party_basis"],
+                    "current": current, "figure": name, "amount": f.amount, "prior_amount": f.prior, "scale": f.scale,
+                    "figure_check": f.check, "printed": f.printed, "read_from": "text",
+                    "reader": f"{statements.READER}: {statements.MODEL}", "profile": statements.PROFILE,
+                    "profile_version": statements.profile_version(), "loaded_at": loaded_at})
+    aside = [(f"{result.document}/{pair}", "statement-figures", f"{row['party_label']} {row['filed_year']}: {why}")
+             for pair, why in result.set_aside]
+    return out, aside
