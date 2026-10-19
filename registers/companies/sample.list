@@ -1,1 +1,27 @@
-# registers/companies/sample.list: hashes and key: lines only. Empty until the lane lands its first documents.
+# registers/companies/sample.list (plan 1b.6): hashes and register numbers only, never bytes or rows.
+# The once-only export of the old estate's loaded monthly files (20 October 2026, 05:56), in four parts.
+736d1f817d126badb8cb8ec20ae6095d985e6fc68b2669b220f0c72c581dad04 entities: 1,920,468 entities, five registers
+62d0a8e1bb11ce04523c94e7edef471dd2cc82aaaead6263b59df0ae9ee444bb directors: 1,185,822 role lines
+a466343dcf9e305b7bc08daf4fd577a99d2e02430b184a5227a913ea3838af60 shareholders: 1,581,955 holding lines
+e3f3cf09b7bf275bd857fbe531a83522ca4d14c3dbf515486e205f34d23fcdba addresses: 868,687 registered office lines
+# The entities the tests read, by NZBN or register number (a comment says what case each proves, never whose it is).
+key: 9429046854308 a registered company in both files, two directors, two shareholders, one registered office
+key: 9429039628022 a company the August file changed: its July state is an entity_states row
+key: 9429052986758 a company in the July file only
+key: 9429052976568 a director left by August and one new in August: windows by file, no end date
+key: 9429053782670 a company new in the August file
+key: 9429032000856 a company registered in the 1800s: the date kept
+key: 9429050568871 an other incorporated body (society) with its registered office
+key: 9429053474087 a charitable trust board with its registered office
+key: 9429041902967 a public sector entity: no address in the file
+key: 2634153 a retirement village: no NZBN, keyed by its register number
+key: 9429033434155 a company whose registered office changed: the old one kept, not in the latest
+key: 9429049224986 a removed company with its removal date as filed
+key: 9429041764886 a company in liquidation
+key: 9429031413916 an overseas (ASIC) company
+key: 9429033082783 a company held by another company
+key: 9429051738563 a shareholding that changed shares: the old holding leaves, the new one starts
+key: 9429053756381 shareholders whose company the entity file does not name
+key: 9429039555410 a registered office line with nothing in it: set aside
+key: 9429036809608 a director line with no name: set aside
+key: 9429036965915 director rows from the NZBN API, not the file: set aside
