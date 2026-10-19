@@ -11,18 +11,24 @@ until the integrator appends it to `support/profiles`; the shared ledger
 wins once it holds the slug.
 
     profile(slug)                                     the current version, shared ledger first
+    party_of(label, rows, on)                         (registration key | None, basis): keys.parties over the
+                                                      parties lane's published names, live on the day
     listing_rows(kind, data, sha, year, by_url, at)   -> (rows, links, set_aside)
     expense_return_row(result, link, at)              the register row, or None
     allocation_rows(data, sha, at)                    -> (rows, totals, set_aside)
+    promoter_return_rows(result, listing_row, at)     -> (rows, set_aside), one row per part read
     promoter_rows(data, sha, at)                      -> (promoters, people, private contacts, set_aside)
     statement_rows(data, sha, by_url, at)             -> (rows, links, set_aside)
+    statement_figure_rows(result, row, current, at)   -> (rows, set_aside), three rows per pair that holds
 """
 import datetime as dt
 import os
+import re
 
 from keys import parties
 from support import profiles
-from registers.party_finance import broadcasting, expenses, financials, listing, promoters
+from registers.party_finance import (broadcasting, expenses, financials, listing, promoter_returns, promoters,
+                                     statements)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -36,11 +42,30 @@ def profile(slug: str) -> dict:
     return p
 
 
+#: polling day of each general election the lane holds: a party is the registration live that day
+ELECTION_DAY = {2020: "2020-10-17", 2023: "2023-10-14"}
+#: a remark the Commission prints after a party's name, `ONE Party (currently applying to change its party name …)`
+BRACKET = re.compile(r"^(.*?\S)\s*\([^()]*\)\s*$")
+
+
+def party_of(label: str, rows, on) -> tuple:
+    """(registration key | None, basis) through `keys.parties.party_name(label, rows, on=…)`; an election year is
+    its polling day. A label unresolved with a trailing bracket is tried once without it."""
+    on = ELECTION_DAY.get(on, on)
+    key, basis = parties.party_name(label, rows, on=on)
+    m = BRACKET.match(label or "")
+    if key is None and m:
+        key, basis = parties.party_name(m.group(1), rows, on=on)
+        basis = f"{basis}, before its bracket" if key else basis
+    return key, basis
+
+
 def now() -> str:
     return dt.datetime.now().astimezone().isoformat(timespec="seconds")
 
 
-def listing_rows(kind: str, data: bytes, sha256: str, year: int, by_url: dict, loaded_at: str = None) -> tuple:
+def listing_rows(kind: str, data: bytes, sha256: str, year: int, by_url: dict, loaded_at: str = None,
+                 party_rows=()) -> tuple:
     """One Commission listing page → (rows, links, set_aside). `by_url` is
     the Commission URL → held document hash. Rows seen equal rows read plus
     rows set aside; every link is a held document or a catch-log line."""
@@ -56,7 +81,7 @@ def listing_rows(kind: str, data: bytes, sha256: str, year: int, by_url: dict, l
                "printed": " | ".join(r.printed), "reader": f"{listing.READER}: {listing.MODEL}", "profile": prof["slug"],
                "profile_version": int(prof["version"]), "read_from": "text", "loaded_at": loaded_at, **r.figures}
         if kind == "expenses-listing":
-            party, basis = parties.party_name(r.label)
+            party, basis = party_of(r.label, party_rows, year)
             row.update(party_label=r.label, party=party, party_basis=basis)
         else:
             row.update(promoter=r.label)
@@ -97,7 +122,7 @@ def expense_return_row(result: expenses.Result, listing_row: dict, link: dict, c
             "loaded_at": loaded_at or now()}
 
 
-def allocation_rows(data: bytes, sha256: str, loaded_at: str = None) -> tuple:
+def allocation_rows(data: bytes, sha256: str, loaded_at: str = None, party_rows=()) -> tuple:
     """One allocation page → (rows, totals, set_aside). A page whose rounds do
     not each add to its own printed total publishes no row."""
     loaded_at = loaded_at or now()
@@ -120,7 +145,7 @@ def allocation_rows(data: bytes, sha256: str, loaded_at: str = None) -> tuple:
                                     "nothing from the page is published")]
     rows = []
     for r in b.rows:
-        party, basis = parties.party_name(r.label)
+        party, basis = party_of(r.label, party_rows, year)
         for i, label in enumerate(b.rounds):
             rows.append({"key": f"{sha256}/row/{r.ordinal}/round/{i + 1}", "document": sha256, "page": 1,
                          "place": f"row {r.ordinal}, round {i + 1}", "year": year, "round": i + 1, "round_label": label,
@@ -129,6 +154,30 @@ def allocation_rows(data: bytes, sha256: str, loaded_at: str = None) -> tuple:
                          "reader": f"{broadcasting.READER}: {broadcasting.MODEL}", "profile": prof["slug"],
                          "profile_version": int(prof["version"]), "read_from": "text", "loaded_at": loaded_at})
     return rows, totals, aside
+
+
+def promoter_return_rows(result: promoter_returns.Result, listing_row: dict, loaded_at: str = None) -> tuple:
+    """A promoter's return → (one row per part read, set_aside); every part the year's form has is one or the other."""
+    loaded_at = loaded_at or now()
+    rows, aside = [], []
+    whys = dict(result.set_aside)
+    for letter, spending in promoter_returns.COLUMNS.get(result.year, {}).items():
+        part = result.parts.get(letter)
+        if part is None or part.figure is None:
+            why = whys.get(letter) or whys.get("") or f"Part {letter}: not read"
+            aside.append((f"{result.document}/part/{letter}", "promoter-return",
+                          f"{listing_row['promoter']} {result.year}: {why}"))
+            continue
+        how, prof, version = result.pages[part.page]
+        rows.append({"key": f"{result.document}/part/{letter}", "document": result.document, "page": part.page,
+                     "place": promoter_returns.PLACE[part.check].format(letter), "listing_row": listing_row["key"],
+                     "year": result.year, "promoter": listing_row["promoter"], "part": letter, "spending": spending,
+                     "figure": part.figure, "figure_check": part.check, "declared": part.declared,
+                     "schedule": part.schedule, "read_from": how,
+                     "reader": ("support.docread 1: text-layer" if how == "text"
+                                else f"{expenses.PAGE_MODEL} (stored reading)"),
+                     "profile": prof, "profile_version": version, "loaded_at": loaded_at})
+    return rows, aside
 
 
 ROLE = {"authorised_representative": "authorised representative", "comparable_with_director": "comparable with director",
@@ -168,7 +217,7 @@ def promoter_rows(data: bytes, sha256: str, loaded_at: str = None) -> tuple:
     return out, ppl, contacts, aside
 
 
-def statement_rows(data: bytes, sha256: str, by_url: dict, loaded_at: str = None) -> tuple:
+def statement_rows(data: bytes, sha256: str, by_url: dict, loaded_at: str = None, party_rows=()) -> tuple:
     """The Commission's roster page → (rows, links, set_aside). Every table
     row is a roster row or a catch-log line; every link a held statement or
     a catch-log line."""
@@ -179,7 +228,7 @@ def statement_rows(data: bytes, sha256: str, by_url: dict, loaded_at: str = None
     rows, out_links = [], []
     for r in reading.rows:
         key = f"{sha256}/{r.filed_year}/row/{r.ordinal}"
-        party, basis = parties.party_name(r.label)
+        party, basis = party_of(r.label, party_rows, r.dates["balance_date"] or r.filed_year)
         rows.append({"key": key, "document": sha256, "page": 1, "place": f"{r.filed_year} table, row {r.ordinal}",
                      "filed_year": r.filed_year, "party_label": r.label, "party": party, "party_basis": basis,
                      "note": r.note or None, "mark": r.mark or None, "balance_date": r.dates["balance_date"],
@@ -195,3 +244,32 @@ def statement_rows(data: bytes, sha256: str, by_url: dict, loaded_at: str = None
             if doc is None:
                 aside.append((key, "link", f"{r.label} {r.filed_year}: the Commission links {ln.url}, which the lane does not hold"))
     return rows, out_links, aside
+
+
+def statement_is_current(link: dict, row_links: list) -> bool:
+    """A roster row's statement: the amended one where it names one, else the audited one, else its only link."""
+    for mark in ("amended", "audited"):
+        marked = [x for x in row_links if mark in (x["link_text"] or "").lower()]
+        if marked:
+            return link["ordinal"] == marked[0]["ordinal"]
+    return len(row_links) == 1
+
+
+def statement_figure_rows(result: statements.Result, row: dict, current: bool, loaded_at: str = None) -> tuple:
+    """A statement → (three rows for each pair whose arithmetic holds, a catch-log line for each that does not)."""
+    loaded_at = loaded_at or now()
+    out = []
+    for name in statements.FIGURES:
+        f = result.figures.get(name)
+        if f is None:
+            continue
+        out.append({"key": f"{result.document}/{name}", "document": result.document, "page": f.page, "place": f.place,
+                    "roster_row": row["key"], "filed_year": row["filed_year"], "balance_date": row["balance_date"],
+                    "party_label": row["party_label"], "party": row["party"], "party_basis": row["party_basis"],
+                    "current": current, "figure": name, "amount": f.amount, "prior_amount": f.prior, "scale": f.scale,
+                    "figure_check": f.check, "printed": f.printed, "read_from": "text",
+                    "reader": f"{statements.READER}: {statements.MODEL}", "profile": statements.PROFILE,
+                    "profile_version": statements.profile_version(), "loaded_at": loaded_at})
+    aside = [(f"{result.document}/{pair}", "statement-figures", f"{row['party_label']} {row['filed_year']}: {why}")
+             for pair, why in result.set_aside]
+    return out, aside

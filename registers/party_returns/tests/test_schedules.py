@@ -355,3 +355,94 @@ def test_the_session_reader_cannot_see_the_private_twin(filled):  # noqa: F811
 def test_a_return_with_no_part_a_page_reconciles_only_when_nil(text):
     assert donors.read({2: text}, {2: "text"}, 0.0).check == "declared-nil"
     assert donors.read({2: text}, {2: "text"}, 10.0).check == ""
+
+
+# --- session 4: a row over a page break, misread empty rows, figures with no cents, HTML tables --------------------
+
+def _line(n="", cell="", date="", yes_no="", amount=""):
+    """One text-layer line with the form's columns where pdftotext puts them."""
+    return f"{n:<4}{cell:<62}{date:<28}{yes_no:<17}{amount}".rstrip()
+
+
+HEAD = "\n".join([
+    "    PART A: PARTY DONATIONS OF MORE THAN $15,000",
+    " " * 90 + "TOTAL FOR PART A        $ 188,000.00",
+    " " * 17 + "Donor's name and street address" + " " * 18 + "Date donation or",
+    " " * 66 + "aggregated donations     Enter YES or NO        $0.00"])
+HEAD_NEXT = HEAD.split("\n", 2)[2]                    # a continuation sheet: the column headings, no part heading
+
+
+def test_a_row_whose_figure_is_on_the_next_page_is_carried_there():
+    page2 = "\n".join([HEAD,
+                       _line("", "    Example Donor via Example Trust, 31 Sample Drive,"),
+                       _line(" 1"), _line("", "    Exampleton, 1071"),
+                       _line("", "", "03/01/2019", "NO"),
+                       _line("2", "", "01/02/2019", "NO", "$ 28,000.00"),
+                       _line("", "    Sample Holder, via Model Trust, 21 Sample Street, Exampleton"),
+                       _line("3"), _line("", "    0622"),
+                       _line("", "", "16/01/2019", "NO"),
+                       _line("4", "", "18/02/2019", "NO"),
+                       " PART A" + " " * 120 + "Page: 2"])
+    page3 = "\n".join([HEAD_NEXT, _line("5", "", "17/06/2019", "NO"),
+                       _line("6", "", "16/12/2019", "NO", "$ 160,000.00"), _line("7"), _line("8"),
+                       " PART A" + " " * 120 + "Page: 3"])
+    rows, printed, problems = schedule.rows({2: page2, 3: page3}, {2: "text", 3: "text"}, donors.HEADING, donors.END, "A")
+    assert problems == [] and printed == 188000.0
+    assert [(r.page, r.n, r.amount) for r in rows] == [(2, 1, 28000.0), (3, 3, 160000.0)]
+    assert rows[1].cell.startswith("Sample Holder") and "Example Donor" not in rows[1].cell
+    part = donors.read({2: page2, 3: page3}, {2: "text", 3: "text"}, 188000.0)
+    assert part.check == "parts-sum" and [r["name"] for r in part.rows] == ["Example Donor via Example Trust",
+                                                                            "Sample Holder, via Model Trust"]
+    # a page that names somebody above its first figure leaves the carried row without one: refused, never paired
+    crowded = page3.replace(_line("5", "", "17/06/2019", "NO"), _line("5", "Other Donor, 4 Model Road") + "\n" +
+                            _line("", "", "17/06/2019", "NO"))
+    rows, _, problems = schedule.rows({2: page2, 3: crowded}, {2: "text", 3: "text"}, donors.HEADING, donors.END, "A")
+    assert any("does not meet its figure" in p for p in problems)
+
+
+def test_an_empty_row_number_the_text_layer_misread_is_neither_a_name_nor_a_row():
+    page = "\n".join([HEAD,
+                      _line("1", "Example Donor, 12 Sample Road, Exampleton", "01/02/2023", "No", "$ 100,000.00"),
+                      _line("2", "Sample Holdings Ltd, 4 Model Street, Wellington", "03/04/2023", "No", "$ 88,000.00"),
+                      _line("3"), _line("4"), _line("9"), _line("6"), _line("7"),     # `9`: a misread 5
+                      " PART A" + " " * 120 + "Page: 2"])
+    rows, _, problems = _rows(page)
+    assert problems == [] and [(r.n, r.amount) for r in rows] == [(1, 100000.0), (2, 88000.0)]
+
+
+def test_a_figure_with_no_cents_is_an_amount_only_in_the_amount_column():
+    page = "\n".join([HEAD,
+                      _line("1", "Example Donor, 12 Sample Road, Exampleton", "01/02/2023", "No", "150000"),
+                      _line("2", "Sample Holdings Ltd, 4 Model Street, Wellington", "03/04/2023", "No", "38,000"),
+                      " PART A" + " " * 120 + "Page: 2"])
+    rows, _, problems = _rows(page)
+    assert problems == [] and [r.amount for r in rows] == [150000.0, 38000.0]
+    assert all("12" not in str(r.amount) for r in rows)                  # a house number is never an amount
+    stacked = "PART A: PARTY DONATIONS OF MORE THAN $15,000\nTOTAL FOR PART A 35000\nDonor's name and street address\n" \
+              "1 Example Donor 12 Sample Road Exampleton\n22/12/21\nno 35000\n"
+    rows, _, problems = _rows(stacked, "pixels")
+    assert problems == [] and [(r.amount, r.yes_no) for r in rows] == [(35000.0, "no")]
+
+
+def test_the_reader_s_html_table_is_read_only_under_the_form_s_own_heading():
+    form = ("PART A: PARTY DONATIONS OF MORE THAN $15,000\n<table><thead><tr><td></td><td>TOTAL FOR PART A</td>"
+            "<td>$26,000.00</td></tr><tr><th></th><th>Donor's name and street address</th><th>Date</th><th>Enter YES or NO</th>"
+            "<th>Amount</th><th></th></tr></thead><tr><td>1</td><td>Example Donor<br>12 Sample Road, Exampleton</td>"
+            "<td>01/02/2024</td><td>No</td><td>$16,000.00</td><td></td></tr><tr><td>2</td><td>3Example Ltd, 4 Model Street"
+            "</td><td>03/04/2024</td><td>No</td><td>$10,000.00</td><td></td></tr></table>")
+    rows, printed, problems = _rows(form, "pixels")
+    assert problems == [] and printed == 26000.0 and [(r.n, r.amount) for r in rows] == [(1, 16000.0), (2, 10000.0)]
+    part = donors.read({2: form}, {2: "pixels"}, 26000.0)
+    assert part.check == "parts-sum" and [r["name"] for r in part.rows] == ["Example Donor", "3Example Ltd"]
+    breakdown = "<table><tr><td>Part A</td><td>Donor Name</td><td>Donor Total</td></tr><tr><td>19/08/2024</td>" \
+                "<td>Example Donor</td><td>4,000.00</td><td>$10,275.58</td></tr></table>"
+    assert schedule.unhtml(breakdown) == breakdown                       # a filer's own breakdown is not the form's table
+
+
+def test_an_address_word_run_into_its_number_or_a_park_never_stays_in_a_name():
+    assert donors.split("Example Donor, Suite1, 2 Sample Street, Exampleton")[0] == "Example Donor"
+    assert donors.split("Example Finance Limited, Sample business Park, 6 Model Road")[0] == "Example Finance Limited"
+    assert donors.split("Model Network Limited, Vodafone on The Park, Level 1")[0] == "Model Network Limited"
+    assert donors.split("3Example Developments Ltd - 12 Sample Grove, Exampleton")[0] == "3Example Developments Ltd"
+    assert donors.split("Park, Jane, 4 Sample Road")[0] == "Park, Jane"
+    assert donors.split("Estate of Example Donor formerly of 12 Sample Road, Exampleton")[0] == "Estate of Example Donor"

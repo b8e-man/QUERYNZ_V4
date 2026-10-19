@@ -4,7 +4,8 @@ a person; the registers not held are not also held."""
 from products.board import catalogue as cat
 
 PUBLISHED_AT_20_OCTOBER = {
-    "societies", "society_officers", "society_states",   # societies-1, merged after the board (20 October)   # pub.* on 20 October 2026; the outside check compares with the live list
+    "societies", "society_officers", "society_states",   # societies-1, merged after the board (20 October)
+    "promoter_expense_returns", "party_statement_figures",   # party-finance-2 (20 October)   # pub.* on 20 October 2026; the outside check compares with the live list
     "broadcasting_allocations", "candidates", "companies", "company_addresses", "company_states", "directors",
     "disclosure_items", "disclosures", "elections", "electorates", "gazette_celebrants", "gazette_liquidations",
     "gazette_liquidators", "gazette_notices", "gazette_prohibitions", "members", "minister_expenses", "mp_expenses",
