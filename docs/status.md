@@ -3,8 +3,7 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-19, 19:00. **Step:** 2 closed on one box; 3 halted
-(ruling 60); tracks B and E on the queue's clock. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-19, 19:40. **Step:** 3 closed under ruling 60; 4 open; tracks B and E on the queue's clock. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
@@ -21,16 +20,18 @@ address (test alarm 18 October).
   re-read, `embed()`, the four founding jobs on the queue's clock, the
   model server built from source beside the copy, the scheduler on the
   checks board. The two-box proofs are owed on node1 (ruling 57).
-- Step 3, session 1 merged (`docs/merges/trial-1`): page set of 255
-  documents keyed by hash, keys, scoring, five models, the trial's profiles
-  and job types; the declaration reader moved to `support/docread`.
+- Step 3, closed under ruling 60 (`docs/merges/trial-1` to `-3`): 255
+  documents keyed by hash, keys, scoring; pass one 2,013 of 2,124 pages
+  equal to the old readings; pass two scored as far as it ran. GLM-OCR
+  Q8_0 under "OCR" is the page reader alone, no second reader (carded);
+  the trial resumes after the plan.
 
 ## Next (all three from `docs/briefs/next.md`)
 
-- Trial halted (ruling 60): pass one scored (`docs/merges/trial-2`: 2,013
-  of 2,124 pages equal, 111 carded); pass two cancelled part-way, its pages
-  kept. Session 2 closes step 3 with GLM-OCR primary and the second reader
-  from the partial scores; the trial resumes after the plan.
+- Step 4 opens: the disclosures lane first (`docs/briefs/next.md`,
+  `## disclosures`), then the other lanes, three sessions at once. A fix
+  session on `support/scheduler` for the trial's two cards and TeleOCR
+  (`## scheduler-fix`).
 - Track E merged (`docs/merges/windowed-1`, `-2`): two legal positions, two
   capture lanes, 621 documents landed, the two `qv4-*-capture` jobs nightly
   from 22:30 NZDT, both hosts floored at 5 s, the lane checks on the board
