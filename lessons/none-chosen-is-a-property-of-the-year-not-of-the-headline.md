@@ -1,4 +1,4 @@
-"None chosen" for a party-year with two unreplaced returns is a property of the year, not of the headline figure: every surface that sums rows (named totals, races, size bands, donor pages) must skip that year's rows too, or the headline says nothing while the rows count twice.
+"None chosen" for a party-year with two unreplaced returns belongs to the year, not the headline: every surface that sums rows skips that year too, or the headline is silent while the rows count twice.
 area: products, the published-site shape, figures that sum rows across returns
 paid-for-by: 2026-10-20, site session, step 4.4
 

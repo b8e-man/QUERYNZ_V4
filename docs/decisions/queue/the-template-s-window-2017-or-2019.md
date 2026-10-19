@@ -1,8 +1,8 @@
 # The Follow the Money template's window: 2017, as the frozen site stands, or 2019 (ruling 347)?
-session: site
-opened: 2026-10-20
+raised: 2026-10-20 by the site session (site-1)
 blocks: nothing (a setting)
 default: 2017
+recommendation: Keep 2017, which the comparison in 4.5 needs; rule 2019 only if ruling 347 is meant to override 364
 
 The site brief says the template applies the 2019 window (ruling 347).
 `docs/plan/design.md` ("The Follow the Money template's own settings")

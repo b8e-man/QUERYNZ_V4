@@ -241,6 +241,19 @@ priority = 60
 command = ["python", "-m", "links.review", "--run", "/home/user/querynzv4-work/scratch/links/review-sample-7.jsonl"]
 can_share = true
 
+# ── step 4.4, the Follow the Money version folder (site-1); the job's class is due, daily at 08:00 NZDT ──
+[jobs.qv4-site-build]
+description = "Step 4.4: build the Follow the Money version folder from the pub views and the template, pinned to the newest frozen release listing; the gates run; nothing is deployed and nothing flipped. Daily after the frozen release's listing is written (the watcher lists it at the board's run), so the comparison in checks/ reads the two sides from the same inputs."
+needs = "processor"
+memory_gb = 1
+deadline_s = 1800
+query_timeout_s = 120
+class = "due"
+priority = 51
+command = ["python", "-m", "products.published_site", "build"]
+at_utc = "19:00"
+nice = 10
+
 [jobs.qv4-disclosures-read]
 description = "The disclosures lane's page readings (step 4.1): one piece per scanned large-donation declaration with no stored reading, every page as an image through the page-reader profile; the lane's next load picks the readings up. Queued by the integrator after a merge, then on the lane's rebuild for a scan with no reading."
 needs = "model-profile"
