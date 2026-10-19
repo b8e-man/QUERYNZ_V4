@@ -217,6 +217,30 @@ command = ["python", "-m", "registers.societies.capture", "--night", "--budget-s
 at_utc = "12:00"
 nice = 10
 
+# ── step 4.2, the links (links-1) ──────────────────────────────────────────
+[jobs.qv4-links-build]
+description = "Step 4.2: rebuild the links from the published registers: rows under the shared reading, the two confirming rules, the number links, groups, the watch, the test pairs and the six measurements. After each lane load; register rule 10 (rebuild what changed) is the next tranche."
+needs = "processor"
+memory_gb = 4
+deadline_s = 7200
+query_timeout_s = 3600
+class = "whenever"
+priority = 36
+command = ["python", "-m", "links.build_all"]
+nice = 10
+
+[jobs.qv4-links-review]
+description = "Step 4.2 / track C: the review agent reads a sample of confirmed links through the review profile and records its verdicts (links.readings); nothing is applied until track C passes it on the test pairs."
+needs = "model-profile"
+profile = "review"
+memory_gb = 0.5
+deadline_s = 3600
+query_timeout_s = 60
+class = "whenever"
+priority = 60
+command = ["python", "-m", "links.review", "--run", "/home/user/querynzv4-work/scratch/links/review-sample-7.jsonl"]
+can_share = true
+
 [jobs.qv4-disclosures-read]
 description = "The disclosures lane's page readings (step 4.1): one piece per scanned large-donation declaration with no stored reading, every page as an image through the page-reader profile; the lane's next load picks the readings up. Queued by the integrator after a merge, then on the lane's rebuild for a scan with no reading."
 needs = "model-profile"
