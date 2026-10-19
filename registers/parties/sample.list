@@ -1,1 +1,6 @@
-# registers/parties/sample.list: hashes and key: lines only. Empty until the lane lands its first documents.
+# registers/parties/sample.list (plan 1b.6): hashes only, never bytes or rows. Comments say what case a file proves.
+# The lane's whole input: the register page and its applications page as the old ec-disclosures job held them
+# on 19 October 2026 (03:33), and the once-only export of the Commission's Gazette notices on the register.
+0f035fb38fee1c544681b8f591ca948851bb55f2de47e711936a113f42279337 register page: 17 parties, two field layouts, the secretary's lines private
+603de469ea532a495e6587a00332f1c94fed27f675bc0b9650aceaa761d071f3 applications page: held, not read
+dc19fb7f12fe3a0d78574df9f2673c97c5c559e8f2ce9e42f8e765997cd7855d notices export: 136 notices 2000-2026, a corrigendum, the 2008 year's list
