@@ -1,4 +1,4 @@
-A Commission form's box can come back from the page reader on the line below its label and in whole dollars (`986`, `0`): take a lone figure under its label, and a whole number only with nothing after it on its line, and let the form's own sum gate both.
+A Commission form's box can come back from the page reader on the line below its label and in whole dollars: take a lone figure under its label, a whole number only with nothing after it on its line, and let the form's own sum gate both.
 area: reading documents, EC party expense returns, page reader, OCR
 paid-for-by: 2026-10-20, party-finance session 2, the five unread expense returns
 

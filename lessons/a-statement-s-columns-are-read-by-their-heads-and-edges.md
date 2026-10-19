@@ -1,4 +1,4 @@
-A party's financial statement is read column by column from its own page: the reported year is the later column head (not always the first), a `$000` head scales every figure, and a dash is a nil column where the page's figure columns end and a minus anywhere else.
+A party's financial statement is read column by column from its own page: the reported year is the later column head (not always the first), a $000 head scales every figure, and a dash is nil where the figure columns end, a minus elsewhere.
 area: reading documents, party financial statements, text layer, accounts
 paid-for-by: 2026-10-20, party-finance session 2, the statement figures
 
