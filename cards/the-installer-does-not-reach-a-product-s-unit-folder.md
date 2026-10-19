@@ -1,10 +1,10 @@
 # The installer does not reach a product's unit folder
 kind: blocker
-state: open
+state: closed
 use-case: -
 session: board
 opened: 2026-10-20
-closed:
+closed: 2026-10-20
 
 `support/installer` places every `qv4-*.service` and `.timer` the repository
 ships, but its `UNIT_GLOBS` name `checks/jobs/` and `support/*/units|jobs/`
@@ -27,3 +27,5 @@ then runs `python -m support.installer units` on node2 and
 answers on `http://10.0.0.2:8420/` (and `127.0.0.1:8420` on the box). Until
 the unit is placed the desktop launcher still works: its `open` script falls
 back to starting the board from the main checkout in the background.
+
+Closed at the merge of `board-1`: the two product globs are in `support/installer`'s `UNIT_GLOBS`, the unprefixed-unit scan reaches `products/*/units/` too, and a test holds both.
