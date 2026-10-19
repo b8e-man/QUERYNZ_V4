@@ -8,7 +8,7 @@ import os
 import pytest
 
 from support import db, lane, rowcontract, sample
-from registers.party_finance import check, expenses, listing, read
+from registers.party_finance import check, expenses, listing, promoter_returns, read, statements
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 LANE = os.path.join(REPO, "registers", "party_finance")
@@ -107,6 +107,108 @@ def test_a_figure_belongs_to_the_label_on_its_own_line():
     assert expenses.figures({1: page})["total"] is None
 
 
+BOXES = """3. TOTAL PARTY ELECTION EXPENSES
+Part A: Party advertisements promoted solely by the party
+986
+
+Part B: Party advertisements shared with candidates or other parties
+0
+
+Part C: Authorised party advertisements promoted by third parties
+0
+
+Total (A + B + C)
+986
+
+Part D: Party only allocation expenses
+68511.51
+"""
+
+
+def test_a_figure_alone_below_its_label_and_whole_dollars_are_read():
+    f = expenses.figures({1: BOXES})
+    assert f["parts"] == {"A": 986.0, "B": 0.0, "C": 0.0, "D": 68511.51} and f["total"] == 986.0
+    assert expenses.judge(f) == (986.0, "parts-sum", "")
+    assert expenses.figures({1: "TOTAL FOR PART A 986\nTotal (A + B + C) 986\n"})["total"] == 986.0
+
+
+def test_a_whole_number_with_more_on_its_line_is_not_a_figure():
+    assert expenses.figures({1: "Total (A + B + C) 986 Page 3\n"})["total"] is None
+    assert expenses.figures({1: "Total (A + B + C)\n2023 General Election\n"})["total"] is None
+
+
+PARTY_ROWS = [
+    {"party": "ec-party/2020-07-09/cb4e", "name": "ONE Party", "kind": "name", "from_on": "2020-07-09",
+     "to_on": "2023-08-16", "registered_on": "2020-07-09", "cancelled_on": "2026-03-30"},
+    {"party": "ec-party/2020-07-09/cb4e", "name": "NewZeal", "kind": "name", "from_on": "2023-08-16",
+     "to_on": "2026-03-30", "registered_on": "2020-07-09", "cancelled_on": "2026-03-30"},
+    {"party": "ec-party/2014-05-13/3b0f", "name": "Internet Party", "kind": "name", "from_on": "2014-05-13",
+     "to_on": "2018-06-11", "registered_on": "2014-05-13", "cancelled_on": "2018-06-11"},
+]
+
+
+def test_a_party_label_is_the_registration_live_on_polling_day():
+    assert read.party_of("ONE Party", PARTY_ROWS, 2020) == ("ec-party/2020-07-09/cb4e", "exact")
+    assert read.party_of("NewZeal", PARTY_ROWS, "2024-12-31")[0] == "ec-party/2020-07-09/cb4e"
+    assert read.party_of("ONE Party (currently applying to change its party name to NewZeal)", PARTY_ROWS, 2023) == (
+        "ec-party/2020-07-09/cb4e", "exact, before its bracket")
+    assert read.party_of("Internet Party", PARTY_ROWS, 2020) == (None, "unresolved"), "cancelled before polling day"
+
+
+STATEMENT = """Statement of Financial Performance
+                                              Note        2025          2024
+                                                            $             $
+Total Revenue                                   4         17,288       211,147
+Total expenses                                            17,627       207,740
+Surplus/(Deficit) for the year              -            339             3,407
+"""
+POSITION = """                                                          2025          2024
+Total assets                                               5,870         3,234
+Total Liabilities                                             83           166
+Total assets less total liabilities (net assets)           5,787         3,068
+"""
+
+
+def test_a_statement_s_pairs_publish_only_where_its_own_arithmetic_holds():
+    ls = statements.lines({3: STATEMENT, 4: POSITION})
+    figs, why = statements.operating(ls)
+    assert why == "" and figs["surplus"].amount == -339 and figs["income"].amount == 17288
+    assert figs["income"].prior == 211147, "a note number is not a figure"
+    figs, why = statements.position(ls)
+    assert why == "" and figs["liabilities"].amount == 83, "a small figure in the figure column is not a note"
+    figs, why = statements.operating(statements.lines({3: STATEMENT.replace("17,627", "17,600")}))
+    assert figs == {} and "no surplus or deficit line prints it" in why
+
+
+def test_a_dash_in_a_column_of_its_own_is_nil():
+    page = """Total Assets                       32,951            62,320
+Total Liabilities                       -           12,143
+Net Assets                         32,951            50,177
+"""
+    figs, why = statements.position(statements.lines({8: page}))
+    assert why == "" and figs["liabilities"].amount == 0 and figs["liabilities"].prior == 12143
+
+
+def test_the_reported_year_is_the_later_column_head():
+    page = """Revenue                       2023          2024
+Total Revenues               5,355        82,021
+Total Expenses               2,852        83,746
+Net Income                   2,503        (1,725)
+"""
+    figs, why = statements.operating(statements.lines({1: page}))
+    assert why == "" and (figs["income"].amount, figs["income"].prior, figs["surplus"].amount) == (82021, 5355, -1725)
+
+
+def test_a_statement_in_thousands_is_scaled_and_rounds_at_its_own_precision():
+    page = """                                                     $000
+Total Operating Income                                     2,667.7
+Total Operating Expenses                                   1,999.8
+Surplus/(deficit)                                            667.9
+"""
+    figs, why = statements.operating(statements.lines({7: page}))
+    assert why == "" and figs["income"].amount == 2667700 and figs["income"].scale == 1000
+
+
 def test_compare_names_equal_part_a_only_differing_and_unread():
     listing_rows = [{"key": k, "year": 2020, "party_label": p, "total_expenses": t}
                     for k, p, t in (("a", "A", 10.0), ("b", "B", 5.0), ("c", "C", 7.0), ("d", "D", 1.0))]
@@ -150,6 +252,10 @@ def filled():
     with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
         conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
         conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}_private")
+        if not conn.execute(f"SELECT to_regclass('{schema}.parties_names') IS NOT NULL").fetchone()[0]:
+            # the party labels resolve against the parties lane's published names: its sample first
+            parties = os.path.join(REPO, "registers", "parties")
+            sample.filler(REPO, "registers/parties")(conn, schema, sample.read_list(os.path.join(parties, "sample.list")))
         S.fill(conn, schema, sample.read_list(os.path.join(LANE, "sample.list")))
         conn.commit()
 
@@ -157,7 +263,8 @@ def filled():
             cur = conn.execute(f"SELECT * FROM {schema}.party_finance_{t}")
             return [dict(zip([d[0] for d in cur.description], r)) for r in cur]
         yield {"schema": schema, "conn": conn, **{t: q(t) for t in ("files", "set_aside", "expense_listing",
-                                                                     "promoter_listing", "listing_links", "expense_returns")}}
+                                                                     "promoter_listing", "listing_links", "expense_returns",
+                                                                     "promoter_returns")}}
 
 
 def test_every_row_keeps_the_row_contract(filled):
@@ -178,7 +285,7 @@ def test_every_sample_return_is_a_row_or_a_catch_log_line_and_never_both(filled)
 
 
 def test_the_listings_read_every_row(filled):
-    assert len(filled["expense_listing"]) == 37 and len(filled["promoter_listing"]) == 7
+    assert len(filled["expense_listing"]) == 37 and len(filled["promoter_listing"]) == 21
     assert not [a for a in filled["set_aside"] if a["stage"] == "listing"]
 
 
@@ -187,6 +294,30 @@ def test_the_sample_returns_agree_with_the_commission_or_are_explained(filled):
     assert out["differ"] == [], out["differ"]
     assert len(out["equal"]) >= 6
     assert [d["party"] for d in out["part_a_only"]] == ["Advance NZ"]
+
+
+def test_every_sample_party_label_resolves_to_a_registration_or_says_unresolved(filled):
+    rows = filled["expense_listing"] + filled["expense_returns"]
+    assert all(r["party"] is None or r["party"].startswith("ec-party/") for r in rows)
+    assert all((r["party"] is None) == (r["party_basis"] == "unresolved") for r in rows)
+    assert sum(r["party"] is not None for r in filled["expense_listing"]) >= 35
+
+
+def test_every_sample_statement_pair_is_three_figures_or_a_catch_log_line(filled):
+    conn, schema = filled["conn"], filled["schema"]
+    figs = [dict(zip(("document", "figure", "figure_check", "amount"), r)) for r in conn.execute(
+        f"SELECT document, figure, figure_check, amount FROM {schema}.party_finance_statement_figures")]
+    aside = {a["item"] for a in filled["set_aside"] if a["stage"] == "statement-figures"}
+    linked = {x["document"] for x in filled["listing_links"] if x["document"]} & {
+        f["document"] for f in filled["files"] if f["kind"] == "financial-statements"}
+    for d in linked:
+        for pair, names in statements.PAIRS.items():
+            got = {f["figure"] for f in figs if f["document"] == d and f["figure"] in names}
+            assert (got == set(names)) != (f"{d}/{pair}" in aside), (d, pair)
+    assert len(figs) >= 18
+    by = {(f["document"], f["figure"]): float(f["amount"]) for f in figs}
+    for d in {f["document"] for f in figs if f["figure"] == "income"}:
+        assert abs(by[d, "income"] - by[d, "expenditure"] - by[d, "surplus"]) <= 1000
 
 
 def test_the_superseded_original_is_never_current(filled):
@@ -203,6 +334,64 @@ def test_the_published_views_build_on_the_lane_s_tables(filled):
     agree = conn.execute(f"SELECT count(*) FROM {schema}.party_finance_pub_party_expenses WHERE agrees").fetchone()[0]
     conn.rollback()
     assert n == len(filled["expense_listing"]) and agree >= 6
+    conn.execute(L.sql("publish.sql", schema, shared=True).replace("pub.", f"{schema}.party_finance_pub_"))
+    n = conn.execute(f"SELECT count(*) FROM {schema}.party_finance_pub_promoter_expenses").fetchone()[0]
+    agree = conn.execute(f"SELECT count(*) FROM {schema}.party_finance_pub_promoter_expenses "
+                         "WHERE election_agrees AND cannabis_referendum_agrees").fetchone()[0]
+    conn.rollback()
+    assert n == len(filled["promoter_listing"]) and agree >= 1
+
+
+PROMOTER_DECLARATION = """2. TOTAL ELECTION EXPENSES
+   Part A: Election advertising $ 141,224.34
+3. TOTAL REFERENDUM EXPENSES FOR THE CANNABIS REFERENDUM
+   Part B: Referendum advertising for the Cannabis Referendum
+   $ 141,224.34
+   Part C: Referendum advertising for the End of Life Choice Act Referendum
+
+   $ 0.00
+"""
+
+
+def test_each_promoter_part_is_its_own_figure_checked_by_the_return_s_two_statements():
+    parts = promoter_returns.scan({1: PROMOTER_DECLARATION, 2: "TOTAL FOR PART A $ 141,224.34\n",
+                                   4: "TOTAL FOR PART B\n$141,224.34\n"}, "ABC")
+    assert [promoter_returns.judge(parts[k]) for k in "ABC"] == ["", "", ""]
+    assert [(parts[k].figure, parts[k].check) for k in "ABC"] == [
+        (141224.34, "declared-and-schedule"), (141224.34, "declared-and-schedule"), (0.0, "declared-only")]
+    assert parts["B"].schedule_page == 4 and parts["C"].page == 1
+
+
+def test_a_promoter_part_its_two_statements_contradict_or_neither_states_is_not_read():
+    parts = promoter_returns.scan({1: PROMOTER_DECLARATION, 2: "TOTAL FOR PART A $ 141,224.00\n"}, "AB")
+    assert "not the schedule's total" in promoter_returns.judge(parts["A"])
+    parts = promoter_returns.scan({1: "Part A: Election advertising\nWrite 'N/A' if you have none\nN/A\n"}, "A")
+    assert parts["A"].declared is None and "no figure read" in promoter_returns.judge(parts["A"])
+
+
+def test_compare_promoters_never_adds_a_referendum_column_to_the_election_one():
+    listing_rows = [{"key": "r", "year": 2020, "promoter": "P", "election_expenses": 5.0,
+                     "cannabis_referendum_expenses": 5.0, "end_of_life_referendum_expenses": 0.0},
+                    {"key": "s", "year": 2023, "promoter": "Q", "election_expenses": 7.0,
+                     "cannabis_referendum_expenses": None, "end_of_life_referendum_expenses": None}]
+    returns = [{"listing_row": "r", "spending": "election_expenses", "figure": 5.0, "document": "x"},
+               {"listing_row": "r", "spending": "cannabis_referendum_expenses", "figure": 4.0, "document": "x"}]
+    out = check.compare_promoters(listing_rows, returns)
+    assert [(d["promoter"], d["spending"]) for d in out["equal"]] == [("P", "election_expenses")]
+    assert [d["spending"] for d in out["differ"]] == ["cannabis_referendum_expenses"]
+    assert [(d["promoter"], d["spending"]) for d in out["unread"]] == [
+        ("P", "end_of_life_referendum_expenses"), ("Q", "election_expenses")]
+
+
+def test_every_sample_promoter_part_is_a_row_or_a_catch_log_line_and_agrees_with_the_commission(filled):
+    rows = {r["key"] for r in filled["promoter_returns"]}
+    aside = {a["item"] for a in filled["set_aside"] if a["stage"] == "promoter-return"}
+    assert rows and not (rows & aside)
+    out = check.compare_promoters(filled["promoter_listing"], filled["promoter_returns"])
+    assert out["differ"] == [] and len(out["equal"]) >= 4, out
+    today = dt.date.today()
+    for r in filled["promoter_returns"]:
+        assert rowcontract.validate({**r, "loaded_at": r["loaded_at"].isoformat()}, today) == [], r["key"]
 
 
 ALLOCATION = """<html><body><ol><li>Past elections</li><li>2023 General Election</li></ol>

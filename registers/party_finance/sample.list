@@ -3,6 +3,7 @@
 584d396b7cc215135cd536c29c1284b59919d2ff9cce4b62951de5b8e785c078 party-expenses listing 2020 (link in a last cell; ACT's misplaced comma; N/A)
 5be04f3650d87f7f5784b6b0f165279071d2777efea9ef74ded6c399e81ac9ab party-expenses listing 2023 (amended rows link two returns; NIL)
 dd2e4344055e3c4c6c8b185b5edd43ff7943e3ae79f3966999cf5738fc0cc86d promoter-expenses listing 2023 (Better NZ Trust's return not held)
+af8ecf70bba5e459a01a8bf38f7234fb3d0a9f6a6540e9f76c0d08b68726348f promoter-expenses listing 2020 (three columns: election and two referendums)
 # Expense returns, their hard cases named.
 2bb3bf16a3f04cce739aaba97f62c82b2c965c59757209a7fd233d62fe95a5dc ACT New Zealand 2020: pixels, the form's total, parts not all read
 d4c354668c050f857cfcafc2d2a817da1d77487de737c90262602739bbcdf837 Advance NZ 2020: the Commission printed Part A alone
@@ -12,8 +13,15 @@ ef943a1c589a9f8fc997b3e3854ca57840b83c06323c706f3bbd49f7df1da63e Leighton Baker 
 440f94805d746be3eca82528c316c1326339d5bc633b8a720d00187d7545a403 Leighton Baker Party 2023 amendment: current
 3790d0dd53446c607094b22a00b178e1d628eecdcb7a4a4e42f1cf4e22060379 The Opportunities Party 2023 amendment: the form, not the stale audit report
 063e003ca5ea4b096f13abb685a4949bdedb689870900892aee90c1eb813cced The Opportunities Party 2023 original: superseded
-072c63d80730c7e3d0d27159fa5e409d280a0f80b6158116661739e553920453 New Zealand First Party 2023: no stored page reading, set aside
+072c63d80730c7e3d0d27159fa5e409d280a0f80b6158116661739e553920453 New Zealand First Party 2023: every image page read by the page-reader job (the contract's stamp)
 4069979de7c71f5f0211a7dd0dd2e2f9454fa5017b36f330da6ed90089c6b7ac Women's Rights Party 2023: text layer, parts reconcile
+cc6f2ef26b692da88bcc1d10c21f69368ab25321ea3f0a053e13b44f33f383d5 Democratic Alliance 2023: every box 0, each figure below its label (the Commission's NIL)
+34b97a436d6c6867706ca899a6137af62526389c107ca651ca2a8daa0d6b5349 Aotearoa Legalise Cannabis Party 2023: whole dollars, no cents
+919d4fef5edbac5e7a3d7b04bf2735026c59d539e27df934006934b4d06c2640 Vision New Zealand 2020 correction: a faint scan, Part B's total read only from the declaration
+# Promoter returns: the 2020 three-part form and the 2023 one-part form.
+b1f09183fa9d9e0b8e995e0fcdbc08130c5ab4b4315ec6c172b9dcd83e9f9fe1 promoter return 2020 Family First NZ: one figure in all three parts, declaration and schedules agree
+a3d55222c5b85d01067caefcf5627d65b06a11fba7a2c50090fd4c35fa31b815 promoter return 2020 Make It Legal: Part B's figure written in the N/A box, set aside
+9e7adf4de1b35345bd85442b2a4319cd4cfa55f24fad2fe519b2ce1a6be2a2dc promoter return 2023 Vote for Better: pixels, the schedule's total below its label
 # The broadcasting allocation pages: two rounds (2020, a row the page closes early) and three (2023, footnote marks).
 f300220f1c71911ae816d9a98904eab58c88ff6c9ab6301979ae0991fa3e533c broadcasting allocation 2020
 53480efffffdfb6825fd36dd240b203cc1ec1e75f50653b57835d29edaddffe7 broadcasting allocation 2023
@@ -22,3 +30,13 @@ f8e417b5af8269ef0545b74df24bd634d9ede2d047e9f08406cdec8fbf0b8531 register of pro
 82ec8f72060bdf89f871a9b8f34d140d34a23241036cc17a969c058308da854a register of promoters 2023 (a field continued in an unlabelled paragraph)
 # The Commission's roster of financial statements (three years of filing; amended and audited links; free-text dates).
 7074b33fa61d31f46229a587701fd87b059876bff6f83e319ff0f7f0b3f9fb37 financial statements roster
+# Financial statements, text layer: the shapes the statement reader meets, and one whose own arithmetic does not hold.
+d6b6e4f0eab2e12a70490e6a8f45aa208320340909d56808b446ea72e68345d0 statements Animal Justice 2024: the reported year in the later column
+cd91e5433b08106a977b5b6462dc0c72e6ab2e2b76d869d7e7cf65e74860a983 statements Labour 2025 audited: in $000, current over the unaudited one
+117cf58b0358086be7b4fd25f59752b2061f1a98a25da37d7f598ea3f2875c5d statements Labour 2025 unaudited: superseded by the audited one
+b0536d4d85e0dccc53cefaeb6540be144cea3e307924ac0c08d96b653d9ec2fb statements Labour 2024: a scanner's text layer (`1 ,953,865`), the gross deficit line
+559b2a79a9cccbe92c51ce9f852ee62a31a105577cfc3755684a89262d56a55b statements TOP 2024: a dash in a column of its own is nil
+f6c1f5e6d651b5c45d2012581641780b28ffa217403fd9279192aa87a4129f43 statements NewZeal 2025: a dash set off from its figure is its minus
+1231d82021fbb8c2063f93fdc7fd88161931449651b0d6c0ee8567f8644ec0b3 statements NewZeal 2026: a two-digit figure in the figure column is not a note
+556bdf102b8ce5baa8d07eebee6e880cf46aeab157612cd4f8510b7b7b7fb775 statements New Conservatives 2024: income and expenditure on facing pages
+2e5615ea042f37c119ab0a4218c70f15a621cb88201e914ae7d3ae3bc80fc4ea statements Aotearoa Legalise Cannabis 2024: its surplus is 21 cents off its own lines, set aside

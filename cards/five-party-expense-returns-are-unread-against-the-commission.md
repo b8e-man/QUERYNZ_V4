@@ -1,9 +1,10 @@
 # Five party expense returns are unread against the Commission's figure
 kind: finding
-state: open
+state: closed
 use-case: 1
 session: party-finance
 opened: 2026-10-20
+closed: 2026-10-20
 
 The party-finance lane reads each current expense return's own total
 (`Total (A + B + C)`) and checks it against the Commission's table. Of the
@@ -35,3 +36,17 @@ current and blocks nothing.
 `party_finance.set_aside` lists them (`stage = 'declaration'`).
 Blocks: nothing. `pub.party_expenses` carries the Commission's figure for
 these five with `agrees` NULL.
+
+**Closed, 2026-10-20 (party-finance session 2).** All five read, each
+equal to the Commission to the cent. NZ First and New Conservatives 2023
+replay the page-reader job's readings (row 115) under the contract's
+stamp with no change. The other three showed two shapes the reader had
+not met, and the reader now takes both: the figure alone on the line
+below its label (Democratic Alliance 2023, every box 0; Vision New
+Zealand 2020's faint scan, Part B's total read only on the declaration)
+and whole dollars with no cents (Aotearoa Legalise Cannabis Party 2023,
+$986). A whole number counts only with nothing after it on its line, and
+A + B + C = total still gates every one. Six returns read before moved to
+that full check with the same totals. On every real file: 35 of 37
+equal, 2 explained (Part A alone), 0 differ, 0 unread. Leighton Baker
+Party's superseded original stays set aside (8 cents).
