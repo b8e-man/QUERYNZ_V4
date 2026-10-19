@@ -1,0 +1,13 @@
+# Proposed for support/scheduler/jobs.toml (the integrator's; a build session does not queue live jobs).
+# At the merge: append, run the catalogue's check, delete this file (as links-1 did).
+
+[jobs.qv4-site-build]
+description = "Step 4.4: build the Follow the Money version folder from the pub views and the template, pinned to the newest frozen release listing; the gates run; nothing is deployed and nothing flipped. Daily after the frozen release's listing is written (the watcher lists it at the board's run), so the comparison in checks/ reads the two sides from the same inputs."
+needs = "processor"
+memory_gb = 1
+deadline_s = 1800
+query_timeout_s = 120
+class = "daily"
+priority = 50
+command = ["python", "-m", "products.published_site", "build"]
+nice = 10

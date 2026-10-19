@@ -16,13 +16,24 @@ import os
 import re
 import shutil
 
-STAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{4}")
+STAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{4}(?:-\d+)?")
 MANIFEST = "SNAPSHOT.json"
 
 
 def stamp_now(now: dt.datetime = None) -> str:
     now = now or dt.datetime.now().astimezone()
     return f"{now:%Y-%m-%dT%H%M}"
+
+
+def free_stamp(out: str, stamp: str) -> str:
+    """The stamp itself, or the first `<stamp>-n` not yet written: a refused
+    version stays on disk, so a second build in the same minute needs a name."""
+    n = 1
+    s = stamp
+    while os.path.exists(os.path.join(versions_root(out), s)):
+        n += 1
+        s = f"{stamp}-{n}"
+    return s
 
 
 def versions_root(out: str) -> str:
@@ -33,7 +44,7 @@ def write(out: str, stamp: str, files: dict, manifest: dict) -> str:
     """files: {relative path: JSON-able object}. Writes into a temporary
     folder and renames, so a half-written version never exists."""
     if not STAMP.fullmatch(stamp):
-        raise ValueError(f"a version is named YYYY-MM-DDTHHMM, not {stamp!r}")
+        raise ValueError(f"a version is named YYYY-MM-DDTHHMM (or -n for a second build in the minute), not {stamp!r}")
     root = versions_root(out)
     final = os.path.join(root, stamp)
     if os.path.exists(final):
@@ -71,6 +82,26 @@ def record(out: str, stamp: str, ok: bool, note: str, gates: list) -> None:
            "version": stamp, "note": note, "gates": gates}
     with open(os.path.join(out, "RELEASES.jsonl"), "a", encoding="utf-8") as f:
         f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def last_built(out: str):
+    """The newest version the record says was built (gates green): the baseline the compare gate reads.
+    A refused version stays on disk and is never a baseline."""
+    best = None
+    try:
+        with open(os.path.join(out, "RELEASES.jsonl"), encoding="utf-8") as f:
+            for line in f:
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                if row.get("action") == "built" and row.get("version"):
+                    d = os.path.join(versions_root(out), row["version"])
+                    if os.path.isfile(os.path.join(d, MANIFEST)):
+                        best = d
+    except OSError:
+        return None
+    return best
 
 
 def manifest_of(version_dir: str) -> dict:

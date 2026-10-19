@@ -4,9 +4,11 @@
         read the template's pub views, pinned to a frozen release's listing (the newest when none is named),
         write a version folder of the ten kinds, run the gates, record it, stop. No deploy.
   python -m products.published_site preview [--version STAMP] [--out DIR] [--port N] [--bind ADDR]
-        serve one version (the newest when none is named) on the local network; never 8300 or 8301
+        serve one version (the newest built when none is named) on the local network; never 8300 or 8301
   python -m products.published_site gates [--version STAMP] [--out DIR]
         run the gates again on a written version
+  python -m products.published_site check [--out DIR]
+        the outside check: a build from the newest listing into a scratch folder, every kind, every gate
   python -m products.published_site plain [--sample SCHEMA]
         the plain page of plan 1.11, from pub.party_return_totals
 """
@@ -24,7 +26,7 @@ def arg(argv, name, default=None):
 def version_dir(argv) -> str:
     out = arg(argv, "--out", B.OUT)
     stamp = arg(argv, "--version")
-    d = os.path.join(version.versions_root(out), stamp) if stamp else version.latest(out)
+    d = os.path.join(version.versions_root(out), stamp) if stamp else (version.last_built(out) or version.latest(out))
     if not d or not os.path.isdir(d):
         raise SystemExit(f"no version {'named ' + stamp if stamp else 'built yet'} under {out}")
     return d
@@ -53,6 +55,9 @@ def main(argv=None) -> int:
             print(f"  {'PASS' if g_ok else 'FAIL'}  {name:<12} {line}")
             ok = ok and g_ok
         return 0 if ok else 1
+    if cmd == "check":
+        from products.published_site import check
+        return check.main(argv[1:])
     if cmd == "plain":
         from support import db
         from products.published_site import render_party_totals, template

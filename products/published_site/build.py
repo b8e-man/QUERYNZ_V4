@@ -59,10 +59,10 @@ def build(listing_version: str = None, out: str = None, template_path: str = Non
         return False, None, lines
     say(f"  listing {listing.version}: {listing.files} captured files in {len(listing.folders)} folders")
     years = F.window_years(s, today)
-    stamp = stamp or version.stamp_now()
+    stamp = version.free_stamp(out, stamp or version.stamp_now())
     generated_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
 
-    previous = version.latest(out)
+    previous = version.last_built(out)
     try:
         conn = read.product_connect()
     except Exception as exc:  # noqa: BLE001 — a plain line, then stop
@@ -91,7 +91,8 @@ def build(listing_version: str = None, out: str = None, template_path: str = Non
         for view in PINNED_VIEWS:
             hashes.update(r.get("document") for r in tables.get(view))
         hashes.update(p.get("document") for p in tables.get("pub.parties"))
-        hashes.update(m.get("document") for m in tables.get("pub.members"))
+        for view in ("pub.members", "pub.candidates", "pub.electorates", "pub.elections"):
+            hashes.update(m.get("document") for m in tables.get(view))
         try:
             with read.read_connect() as rconn:
                 doc_names = read.document_names(rconn, hashes)
@@ -117,10 +118,12 @@ def build(listing_version: str = None, out: str = None, template_path: str = Non
                 redacted += n
             say(f"  {len(forms)} suppressed name(s) in force: {redacted} string(s) suppressed; the rows and the money stay")
         built_kinds = {render.paths.kind_of(k) for k in files} - {""}
-        not_built = {k: "not built yet by this pipeline" for k in render.paths.KINDS if k not in built_kinds}
+        not_held = getattr(render, "NOT_HELD_KINDS", {})
+        not_built = {k: not_held.get(k, "not built yet by this pipeline") for k in render.paths.KINDS if k not in built_kinds}
         manifest = {"template": t.name, "template_version": t.version, "listing": {"version": listing.version, "files": listing.files,
                                                                                   "listed_at": listing.listed_at, "folders": listing.folders},
-                    "pinned": left, "kinds_not_built": not_built, "window": {"from": years[0], "to": years[-1]},
+                    "pinned": left, "kinds_not_built": {k: v for k, v in not_built.items() if k not in not_held},
+                    "kinds_not_held": {k: v for k, v in not_built.items() if k in not_held}, "window": {"from": years[0], "to": years[-1]},
                     "generated_at": generated_at, "views_read": tables.counts, "documents_cited": len(doc_names), "documents_unnamed": unnamed,
                     "suppressed_forms": len(forms), "strings_suppressed": redacted, "previous": os.path.basename(previous) if previous else None}
         try:

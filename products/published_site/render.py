@@ -321,3 +321,148 @@ def cites(ctx: Context) -> dict:
 
 
 MORE_KINDS = [("pickers", lambda ctx: {paths.path("pickers"): pickers(ctx)}), ("size-bands", size_bands), ("cite", cites)]
+
+
+# ── electorates, electorate pages, people, board members ─────────────────────
+
+def _elections(ctx: Context) -> dict:
+    """{election key: row} for the elections in the window (polling day in or after window_from, or not yet polled)."""
+    out = {}
+    for e in ctx.tables.get("pub.elections"):
+        y = F.year_of(e.get("polled_on"))
+        if (y and y >= ctx.years[0]) or (not y and e.get("kind") == "general"):
+            out[e["key"]] = e
+    return out
+
+
+def _candidate_row(ctx: Context, c: dict, sitting: set) -> dict:
+    k = ctx.idx.key(c.get("party_registered"))
+    return {"candidate": c.get("name"), "display": c.get("display_name") or c.get("name"), "name_key": c.get("name_key"),
+            "party": ctx.idx.name(k) or None, "party_filed": c.get("party"), "party_registered": bool(k),
+            "list_place": c.get("list_place"), "votes": c.get("votes"), "poll_cancelled": bool(c.get("poll_cancelled")),
+            "elected": None, "sitting_mp": (c.get("name_key") or "") in sitting,
+            "declared": not_held("candidate donations", "candidate returns are not published yet"),
+            "expenses": not_held("candidate expenses", "candidate returns are not published yet"),
+            "page": paths.path("subject", "person", c.get("display_name") or c.get("name")) if (c.get("display_name") or c.get("name")) else None,
+            "cite": ctx.cite(c.get("document"), c.get("page"), c.get("place")), "tier": "register-asserted"}
+
+
+def electorates_and_pages(ctx: Context) -> dict:
+    elections = _elections(ctx)
+    sitting = {m.get("name_key") for m in ctx.tables.get("pub.members") if not (m.get("to_by") or m.get("ended_on"))}
+    winners = {}
+    for m in ctx.tables.get("pub.members"):
+        if m.get("route") in ("electorate", "by-election") and m.get("electorate") and m.get("candidate"):
+            winners[m["candidate"]] = m
+    by_seat = defaultdict(list)
+    for c in ctx.tables.get("pub.candidates"):
+        if c.get("election") in elections and c.get("electorate"):
+            by_seat[c["electorate"]].append(c)
+    rows = {e["key"]: e for e in ctx.tables.get("pub.electorates") if e.get("election") in elections}
+    names = defaultdict(dict)        # electorate name -> {election key: electorate row}
+    for key, e in rows.items():
+        names[e["name"]][e["election"]] = e
+    files = {}
+    per_year = defaultdict(list)
+    for name in sorted(names):
+        races = []
+        for ek, e in sorted(names[name].items(), key=lambda kv: elections[kv[0]].get("polled_on") or "9999"):
+            el = elections[ek]
+            cands = [_candidate_row(ctx, c, sitting) for c in by_seat.get(e["key"], [])]
+            for c, raw in zip(cands, by_seat.get(e["key"], [])):
+                w = winners.get(raw["key"])
+                c["elected"] = True if w else (False if e.get("result_held") else None)
+            cands.sort(key=lambda c: (-(c["votes"] or 0), c["display"] or ""))
+            parties = defaultdict(lambda: {"candidates": 0, "votes": 0})
+            for c in cands:
+                p = parties[c["party"] or c["party_filed"] or "no party listed"]
+                p["candidates"] += 1
+                p["votes"] += c["votes"] or 0
+            year = F.year_of(el.get("polled_on")) or 2026
+            race = {"year": year, "election": ek, "election_name": el.get("name"), "kind": el.get("kind"), "polled_on": el.get("polled_on"),
+                    "result_held": bool(e.get("result_held")), "poll_cancelled": bool(e.get("poll_cancelled")),
+                    "votes_counted": e.get("votes_counted"), "candidate_total": e.get("candidate_total"), "party_total": e.get("party_total"),
+                    "candidates": cands, "candidates_n": len(cands),
+                    "elected": next((c["display"] for c in cands if c["elected"]), None),
+                    "parties": [{"party": p, **v} for p, v in sorted(parties.items(), key=lambda kv: -kv[1]["votes"])],
+                    "declared_total": not_held("candidate donations", "candidate returns are not published yet (step 4.1, candidate-returns)"),
+                    "expenses_total": not_held("candidate expenses", "candidate returns are not published yet"),
+                    "donors": not_held("per-donor lines", "candidate returns are not published yet"),
+                    "cite": ctx.cite(e.get("document"), e.get("page"), e.get("place")),
+                    "statsnz": {"code": e.get("statsnz_code"), "name": e.get("statsnz_name"), "layer": e.get("layer"), "join": e.get("join_basis")}}
+            races.append(race)
+            per_year[year].append({"electorate": name, "key": e["key"], "candidates": len(cands), "result_held": race["result_held"],
+                                   "elected": race["elected"], "votes_counted": e.get("votes_counted")})
+        files[paths.path("electorate", name)] = {
+            "electorate": name, "key": paths.slug(name), "found": True, "generated_at": ctx.generated_at, "elections": [r["year"] for r in races],
+            "races": races, "money": not_held("electorate money", "candidate returns are not published yet; candidates and results are held"),
+            "basis": "one electorate, every election in the window: the candidates as the Commission's results and lists print them, the winner from the house lane's seats; "
+                     "money waits on the candidate-returns lane"}
+    for year in sorted(per_year):
+        files[paths.path("electorates", str(year))] = {
+            "year": year, "generated_at": ctx.generated_at, "electorates": sorted(per_year[year], key=lambda r: r["electorate"]),
+            "contests": len(per_year[year]), "with_result": sum(1 for r in per_year[year] if r["result_held"]),
+            "candidates": sum(r["candidates"] for r in per_year[year]),
+            "money": not_held("candidate money", "candidate returns are not published yet"),
+            "basis": "every electorate contested in the year's elections, from the house lane"}
+    files[paths.path("electorates", "all")] = {
+        "generated_at": ctx.generated_at, "years": sorted(per_year), "electorates": [
+            {"electorate": name, "key": paths.slug(name), "elections": sorted(F.year_of(elections[ek].get("polled_on")) or 2026 for ek in names[name]),
+             "page": paths.path("electorate", name)} for name in sorted(names)],
+        "n": len(names), "money": not_held("candidate money", "candidate returns are not published yet"),
+        "basis": "every electorate with a contest in the window; the per-year files list each year's contests"}
+    return files
+
+
+def subject_people(ctx: Context) -> dict:
+    elections = _elections(ctx)
+    people = {}
+
+    def P(name_key, display):
+        if not name_key or not display:
+            return None
+        if name_key not in people:
+            people[name_key] = {"subject": display, "kind": "person", "name_key": name_key, "generated_at": ctx.generated_at,
+                                "name_forms": set(), "seats": [], "candidacies": [], "party_boards": not_held("party board roles", "no lane publishes party boards"),
+                                "donations_made": not_held("donations made", "a person is joined to a donor row only by the links' confirmed rules, which the template does not yet read; namesakes are never joined by name alone"),
+                                "interests": not_held("declared interests", "pub.mp_interests is not in this template yet"),
+                                "expenses": not_held("MPs' and ministers' expenses", "pub.mp_expenses is not in this template yet"),
+                                "basis": "a person as the house lane holds them: seats and candidacies under the shared reading of the name; nothing else is joined here"}
+        people[name_key]["name_forms"].add(display)
+        return people[name_key]
+
+    for m in ctx.tables.get("pub.members"):
+        p = P(m.get("name_key"), m.get("display_name") or m.get("name"))
+        if not p:
+            continue
+        k = ctx.idx.key(m.get("party_registered") or m.get("party"))
+        p["seats"].append({"election": m.get("election"), "route": m.get("route"), "electorate": m.get("electorate"), "party": ctx.idx.name(k) or m.get("party"),
+                           "from": m.get("from_on"), "to_by": m.get("to_by"), "ended_on": m.get("ended_on"), "sitting": not (m.get("to_by") or m.get("ended_on")),
+                           "cite": ctx.cite(m.get("document"), m.get("page"), m.get("place"))})
+    for c in ctx.tables.get("pub.candidates"):
+        if c.get("election") not in elections:
+            continue
+        p = P(c.get("name_key"), c.get("display_name") or c.get("name"))
+        if not p:
+            continue
+        k = ctx.idx.key(c.get("party_registered"))
+        p["candidacies"].append({"election": c.get("election"), "electorate": c.get("electorate"), "party": ctx.idx.name(k) or c.get("party"),
+                                 "party_filed": c.get("party"), "list_place": c.get("list_place"), "votes": c.get("votes"),
+                                 "cite": ctx.cite(c.get("document"), c.get("page"), c.get("place"))})
+    out = {}
+    for p in people.values():
+        p["name_forms"] = sorted(p["name_forms"])
+        p["sitting_mp"] = any(s["sitting"] for s in p["seats"])
+        p["namesakes_note"] = "one page per shared reading of the name; two people with one name would share it, so every row cites its own document"
+        rel = paths.path("subject", "person", p["subject"])
+        out[rel] = p
+    return out
+
+
+def board_members(ctx: Context) -> dict:
+    """No lane publishes party boards: no file is written and the manifest says why (kinds_not_held)."""
+    return {}
+
+
+MORE_KINDS += [("electorates", electorates_and_pages), ("subject-person", subject_people), ("board-member", board_members)]
+NOT_HELD_KINDS = {"board-member": "no lane publishes party boards; the frozen site read them from party websites (not captured here)"}

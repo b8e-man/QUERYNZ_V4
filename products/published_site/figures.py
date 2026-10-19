@@ -291,10 +291,12 @@ def donors(tables, settings: dict, idx: PartyIndex, series: dict, years: list) -
         if not k or r["year"] not in years:
             continue
         d = D(f"party_returns:{r['key']}", r.get("donor"))
+        ambiguous = bool(series.get(k)) and r["year"] in series[k].ambiguous_years()
         d.rows.append({"ref": f"party_returns:{r['key']}", "source": "return", "year": r["year"], "party": k, "party_name": idx.name(k),
                        "party_filed": r.get("party_label"), "donor_filed": r.get("donor"), "amount": money(r["amount"]),
                        "dates": r.get("dates"), "document": r["document"], "page": r.get("page"), "read_from": r.get("read_from"),
-                       "counts": True, "basis": "Part A of the party's return"})
+                       "counts": not ambiguous,
+                       "basis": "two returns held for this year and none replaced; the row is shown and not counted" if ambiguous else "Part A of the party's return"})
     for x in live_disclosures(tables.get("pub.disclosures")):
         k = idx.key(x.get("party"))
         y = disclosure_year(x)
@@ -313,14 +315,15 @@ def donors(tables, settings: dict, idx: PartyIndex, series: dict, years: list) -
 
 def donor_totals(d: Donor) -> dict:
     by_year, by_receiver = defaultdict(float), defaultdict(float)
-    returns = sum(r["amount"] for r in d.rows if r["source"] == "return")
+    returns = sum(r["amount"] for r in d.rows if r["source"] == "return" and r["counts"])
+    uncounted = sum(r["amount"] for r in d.rows if r["source"] == "return" and not r["counts"])
     open_disc = sum(r["amount"] for r in d.rows if r["source"] == "disclosure" and r["counts"])
     sighted = sum(r["amount"] for r in d.rows if r["source"] == "disclosure" and not r["counts"])
     for r in d.rows:
         if r["counts"]:
             by_year[str(r["year"])] += r["amount"]
             by_receiver[r["party_name"]] += r["amount"]
-    return {"returns": money(returns), "open_year_disclosures": money(open_disc), "disclosures_sighted": money(sighted),
+    return {"returns": money(returns), "returns_not_counted": money(uncounted), "open_year_disclosures": money(open_disc), "disclosures_sighted": money(sighted),
             "total": money(returns + open_disc),
             "by_year": {k: money(v) for k, v in sorted(by_year.items())},
             "by_receiver": {k: money(v) for k, v in sorted(by_receiver.items())},
