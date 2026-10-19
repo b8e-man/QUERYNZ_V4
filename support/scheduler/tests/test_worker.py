@@ -196,3 +196,39 @@ def test_a_run_of_short_pieces_keeps_the_lease(conn, s):
     runs_ = conn.execute(f"SELECT outcome, detail FROM {s}.runs WHERE queue_id = %s", (qid,)).fetchall()
     assert len(runs_) == 10 and all(o == "ok" for o, _ in runs_), runs_
     assert not any(d == "lease" for _, d in runs_)
+
+
+def test_a_lease_taken_after_a_long_load_is_stamped_from_the_clock_at_the_claim(conn, s):
+    """Card the-lease-lapses-while-a-large-model-loads: the tick read its clock once,
+    the card manager then spent 124 s loading the 35B model, and the claim stamped
+    its lease from that stale clock, so the lease had lapsed before the first piece
+    started and the next tick's reaper took the row (twice on 19 October). A fake
+    card manager takes two leases to load; one claim, a live lease, zero reaps."""
+    import dataclasses
+    rules = dataclasses.replace(reg.queueing(), lease_seconds=3)
+
+    class SlowCards:
+        loads = 0
+
+        def start(self, worker):
+            pass
+
+        def tick(self, worker, now):
+            if not self.loads:                      # the one long load, then nothing
+                self.loads += 1
+                time.sleep(2 * rules.lease_seconds + 1)
+
+        def stop_all(self, worker, why=""):
+            pass
+
+    w = worker("node2", s, rules=rules, cards_manager=SlowCards())
+    qid = q.enqueue(conn, s, "qv4-rehearsal-sleep", registry=w.registry)
+    w.tick()                                        # the load, then the claim
+    r = conn.execute(f"SELECT lease_owner, lease_until, attempts FROM {s}.queue WHERE id = %s", (qid,)).fetchone()
+    assert r[0] == "node2" and r[2] == 1
+    assert r[1] > q.utcnow(), f"the lease was stamped from a clock {q.utcnow() - r[1]} stale"
+    w.tick()                                        # the reaper runs here
+    assert row(conn, s, qid)["lease_owner"] == "node2", "reaped by its own worker"
+    assert wait_for(lambda: row(conn, s, qid)["state"] == "done", 30)
+    assert row(conn, s, qid)["detail"] in (None, "") or "lease lapsed" not in row(conn, s, qid)["detail"]
+    assert conn.execute(f"SELECT attempts FROM {s}.queue WHERE id = %s", (qid,)).fetchone()[0] == 1

@@ -150,17 +150,23 @@ def plan(*, now: float, held: list[Held], queues: dict,
          profiles: dict[str, reg.Profile] | None = None,
          rules: reg.Queueing | None = None,
          round_done: frozenset[str] = frozenset(),
+         eligible: set[str] | None = None,
          ) -> tuple[list[Decision], frozenset[str]]:
     """What should happen to each card, and the round state after it.
 
     One decision per card, a `keep` with its reason included, so the
     ledger records why every card did what it did at every tick.
     `queues` maps a job type to its depth (an int) or a `Demand`.
+    `eligible` is the job types this box can claim at all (the probe's
+    programs, step 2.3); demand from any other is invisible here, so rule 6
+    never loads a profile for a row no worker on this box may take (card
+    the-card-manager-loads-a-profile-for-a-job-no-box-can-claim). None
+    means every job type.
     """
     registry = registry if registry is not None else reg.load()
     profiles = profiles if profiles is not None else reg.profiles()
     rules = rules or reg.queueing()
-    demands = {n: _demand(v) for n, v in queues.items()}
+    demands = {n: _demand(v) for n, v in queues.items() if eligible is None or n in eligible}
     out: list[Decision] = []
 
     def prof_of(jt: str | None) -> str | None:

@@ -1,9 +1,10 @@
 # The card manager loads a profile for a job no box can claim
 kind: finding
-state: open
+state: closed
 use-case: the scheduler (step 2, rule 6 and the probe; the trial's TeleOCR row 74)
 session: trial
 opened: 2026-10-19
+closed: 2026-10-19
 
 Queue row 74 (`qv4-trial-read-teleocr`, one piece) requires the program
 `qv4-llama-server-teleocr`, which the probe does not list, so the worker
@@ -35,3 +36,20 @@ chooses only among rows this box can claim (the probe's eligibility), and
 a profile whose load fails on a box is not tried again on it until the
 probe changes. A policy test: a starved row whose requirement the box
 lacks is never the pick.
+
+**Closed 19 October (fix session fix-support-scheduler-1):** `policy.plan`
+takes `eligible`, the job types this box can claim at all, and sees no other
+demand, so rule 6 (and rule 3's "others waiting") never act for a row no
+worker here may take; the card manager passes `Manager.claimable(worker)`:
+enabled, every required program present (the probe's test the claim already
+applies), and not on a profile whose load failed here while the box's
+programs have been as they are now (`failed_loads`, keyed by the probe's
+programs; a stray on the port is not held against the profile). The binary
+and weights checks now run before the resident profile is unloaded, so a
+load that cannot start no longer discards a working profile. Tests:
+`test_a_starved_job_this_box_cannot_claim_is_never_the_pick` (policy),
+`test_a_profile_whose_load_failed_here_is_not_tried_again_until_the_programs_change`,
+`test_a_stray_on_the_port_is_not_held_against_the_profile` and
+`test_what_can_be_checked_without_the_card_is_checked_before_the_resident_profile_goes`
+(cards); each fails without its change. The profile-names-its-server half is
+card `teleocr-needs-a-patched-server-the-scheduler-cannot-choose`.

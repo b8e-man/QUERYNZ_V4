@@ -1,9 +1,10 @@
 # TeleOCR needs a patched model server, and the scheduler cannot choose a server per profile
 kind: blocker
-state: open
+state: closed
 use-case: Follow the Money (step 3, the page-reader trial: the TeleOCR arm)
 session: trial
 opened: 2026-10-18
+closed: 2026-10-19
 
 TeleOCR's own GGUF (rleo/TeleOCR-GGUF) says on its card it is not for
 llama.cpp (a Qwen3-style decoder with head_dim 128 behind a Qwen2.5-VL
@@ -33,3 +34,23 @@ the two TeleOCR profiles say `binary = "qv4-llama-server-teleocr"` and the
 making the patched build the estate's `built` server, is possible but
 changes what every profile loads; the decision queue carries it with the
 default "beside, never over".
+
+**Progress 19 October (fix session fix-support-scheduler-1):** the scheduler
+can now choose a server per profile. A profile may carry `binary = "<probe
+name>"` (`registry.Profile.binary`; a name the probe does not look for is a
+catalogue problem); `probe.PROGRAMS` has `qv4-llama-server-teleocr` at
+`<live>/llama/built-teleocr/llama-server` (listed on node2 now, read from the
+real probe); `cards.server_binary` gives a profile that names its server that
+program or nothing, never the `[server]` setting; the planner's eligible set
+leaves out a job whose profile's server this box lacks. Tests in test_probe,
+test_cards and test_registry fail without the change. Not done here, because
+the trial's merged-catalogue check (`support.trials.catalogue.merged`) wants
+`support/trials/scheduler/profiles-additions.toml` verbatim inside the shipped
+file, and that file is outside this fence: the two lines
+`binary = "qv4-llama-server-teleocr"` on `[profiles.trial-teleocr]` and
+`[profiles.trial-teleocr-f16]` go into BOTH files in one commit (the merge
+request carries them). The `requires` line stays: the probe now lists the
+program, so it is satisfied wherever the profile is loadable, and it mirrors
+the additions file. The card closes when those two lines land.
+
+Closed at the merge of `fix-support-scheduler-1`: a profile may name its own server binary (`binary = "<probe name>"`), the probe lists `qv4-llama-server-teleocr`, and both TeleOCR profiles carry the line in `support/scheduler/profiles.toml` and the trial's additions file alike. The TeleOCR arm itself waits for the trial's resumption (ruling 60).
