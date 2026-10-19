@@ -3,7 +3,7 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-20, 06:55 NZDT. **Step:** 3 closed under ruling 60; 4.1 running, three sessions open; tracks B and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-20, 07:35 NZDT. **Step:** 3 closed under ruling 60; 4.1 running, three sessions open; tracks B and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
@@ -30,8 +30,9 @@ address (test alarm 18 October).
   (207,133 notices typed, celebrant lists read); house (1,611
   candidacies, 243 seats); companies (1.92 M entities, 1.19 M directors,
   1.58 M shareholdings); expenses (6,206 lines) and MPs' interests
-  (24,931 declarations); keys resolves labels by date. Running: gazette
-  2, the board (Fable). Ruling 61: legal positions before product.
+  (24,931 declarations); gazette 2 (prohibitions, liquidations); keys
+  resolves labels by date. Running: the board (Fable), the charities
+  capture, societies. Ruling 61: legal positions before product.
 - Track E merged (`docs/merges/windowed-1` to `-3`): two legal positions,
   two capture lanes, the two `qv4-*-capture` jobs nightly from 22:30 NZDT
   (first nightly run 20 October, both done), both hosts floored at 5 s,

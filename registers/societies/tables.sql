@@ -1,0 +1,1 @@
+-- registers/societies: the tables this lane owns, in `societies` and `societies_private`. Empty until the session builds the lane.
