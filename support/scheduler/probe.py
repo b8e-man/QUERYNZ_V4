@@ -33,6 +33,7 @@ import urllib.request
 # The programs jobs depend on (docs/baseline.md "Programs the jobs depend on"),
 # plus the new estate's own model server (installed beside the old one).
 PROGRAMS = ("pdftotext", "pdftoppm", "pdfinfo", "tesseract", "xvfb-run", "google-chrome", "psql", "pg_dump", "gpg",
+            "pg_restore", "initdb", "zstd",
             "rocm-smi", "llama-server", "qv4-llama-server", "qv4-llama-server-built")
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 QV4_LLAMA = os.environ.get("QV4_LLAMA_SERVER") or os.path.join(LIVE, "llama", "bin", "llama-server")

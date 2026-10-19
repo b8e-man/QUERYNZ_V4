@@ -1,9 +1,10 @@
 # The fetch gate's floor table should carry the two windowed hosts at five seconds
 kind: finding
-state: open
+state: closed
 use-case: -
 session: windowed
 opened: 2026-10-18
+closed: 2026-10-19
 
 Both positions (`docs/legal/positions/tenancy-tribunal-decisions.md`,
 `real-estate-authority-decisions.md`) set a floor of 5 s. `support/fetchgate`
@@ -16,3 +17,6 @@ for a stated floor is `FLOORS` in the gate. Fix: add
 `"forms.justice.govt.nz": 5.0` and `"decisions.dotnous.com": 5.0` to
 `support.fetchgate.FLOORS`, so the floor holds for any caller, not only these
 lanes.
+
+**Closed 19 October (integrator, at the merge of windowed-1):** both hosts
+are in `support.fetchgate.FLOORS` at 5.0 s.

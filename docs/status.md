@@ -3,8 +3,8 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-19, 07:15. **Step:** 2 closed on one box; 3 pass one done;
-tracks B, E restart from their working copies. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-19, 08:20. **Step:** 2 closed on one box; 3 pass two
+running; tracks B and E on the queue's clock. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
@@ -22,23 +22,27 @@ address (test alarm 18 October).
   model server built from source beside the copy, the scheduler on the
   checks board. The two-box proofs are owed on node1 (ruling 57).
 - Step 3, session 1 merged (`docs/merges/trial-1`): page set of 255
-  documents and 2,698 pages keyed by hash, the answer keys, the scoring,
-  five models on `/mnt/hdd2/qv4-models`, ten profiles and twelve
-  `qv4-trial-*` job types, GLM-OCR through the scheduler on 115 pages. The
-  declaration reader moved to `support/docread` (imports run one way).
+  documents keyed by hash, keys, scoring, five models on the second disk,
+  the trial's profiles and job types; the declaration reader moved to
+  `support/docread`.
 
 ## Next (all three from `docs/briefs/next.md`)
 
-- Trial session 2: pass one (GLM-OCR alone, job 54, 255 of 255 ok, 22:50 to
-  ~03:00) waits to be scored; then the challengers.
-- Track E session 2 in its working copy: session 1's tree (both legal
-  positions, both lanes, 32 tests) is in scratch, unmerged, because an agent
-  of the founding session is fenced as the main checkout; 456 Tribunal
-  orders and 52 Authority decisions are held by hash
-  (`docs/merges/windowed-1-not-yet.md`).
-- Track B session 2 in its working copy: session 1 wrote nothing (same
-  fence); its measurements and design are in the brief, three decisions
-  queued (`docs/merges/offsite-1-not-started.md`).
+- Trial session 2 running: pass one scored (`docs/merges/trial-2`: 2,013 of
+  2,124 pages equal to the old readings, 111 carded), pass two (the
+  challengers, jobs 66 to 74) on card 1. The worker's lease fix is in and
+  the worker restarted.
+- Track E merged (`docs/merges/windowed-1`, `-2`): two legal positions, two
+  capture lanes, 621 documents landed, the two `qv4-*-capture` jobs nightly
+  from 22:30 NZDT, both hosts floored at 5 s, the lane checks on the board
+  (red until the capture catches up: eleven nights for the Tribunal). Rulings
+  58 and 59 (orders kept and never shown; no letter to the Authority yet).
+  Session 2 runs the first capture by hand. Open: the gate's redirect and
+  gzip card (`support/fetchgate`).
+- Track B session 2 running: the copy and its restore merged
+  (`docs/merges/offsite-2a`: `qv4-offsite-copy` nightly 21:00 NZDT beside
+  the 1.8 dump, `qv4-offsite-rehearsal` every 28 days); the full copy and
+  the bucket rehearsal follow as offsite-2b, then the dump is retired.
 - The node1 setup card when Arthur powers node1. The positive half of 1.4
   waits for a new declaration. A fix session on `support/scheduler` for a
   per-profile server binary (TeleOCR's patched build).
@@ -48,7 +52,3 @@ address (test alarm 18 October).
 - 1.4: three batches stopped on node2 (18 October); the 16:17 release green
   inside the yardstick. The positive half waits for the next declaration.
 - Step 2: `qv4-questions` held (ruling 22); node1 setup carded (ruling 57).
-
-## Known gaps left on purpose
-
-- The party returns lane has no `qv4-` job, donor rows or page reader.
