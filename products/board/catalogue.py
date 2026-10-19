@@ -134,6 +134,24 @@ VIEWS: tuple[View, ...] = (
          parent=("Party", "parties", "party"),
          note="a pair publishes only where the statement's own arithmetic holds",
          default_order="filed_year"),
+    # ── candidate returns (built; pane.md: candidate_returns; added at candidate-returns-1) ──
+    View("candidate_return_totals", "candidate_returns", "figure", ("surname", "given_names", "electorate", "year"),
+         search=("surname", "given_names", "electorate", "party"),
+         fields=(("party", "party"), ("status", "status"), ("replaced by", "replaced_by"), ("placed by", "placed_by"),
+                 ("donations", "donations"), ("Part A", "part_a"), ("Part C", "part_c"), ("Part D", "part_d"),
+                 ("donations check", "donations_check"), ("expenses", "expenses"), ("Part F", "part_f"), ("Part G", "part_g"),
+                 ("expenses check", "expenses_check"), ("loans", "loans"), ("loans check", "loans_check"), ("signed", "signed")),
+         names=("surname", "given_names"),
+         joins=(Join("Donors", "candidate_return_donors", "return_key", order="ordinal"),),
+         note="a replaced return shows the amendment the Commission links in its place and is never summed",
+         default_order="year"),
+    View("candidate_return_donors", "candidate_returns", "figure", ("donor", "amount"),
+         search=("donor", "surname", "electorate"),
+         fields=(("amount", "amount"), ("dates", "dates"), ("contributions", "contributions"), ("candidate", "surname"),
+                 ("electorate", "electorate"), ("party", "party"), ("year", "year")),
+         names=("donor",),
+         parent=("Return", "candidate_return_totals", "return_key"),
+         note="no donor's address is held in any published table", default_order="ordinal"),
     # ── disclosures (built; pane.md: disclosures) ──────────────────────────
     View("disclosures", "disclosures", "figure", ("donor_name", "party"),
          search=("donor_name", "party", "party_label"),
@@ -387,13 +405,13 @@ REGISTERS = (
     ("expenses", "MPs' and ministers' expenses"),
     ("companies", "Companies, directors and shareholders"),
     ("societies", "Incorporated societies and their officers"),
+    ("candidate_returns", "Candidate donation and expense returns"),
     ("gazette", "Gazette notices"),
 )
 
 #: registers the plan names that no lane has published yet (plan step 4.1 and later steps)
 NOT_HELD = (
     ("charities", "Charities register and officers"),
-    ("candidate_returns", "Candidate returns"),
     ("hansard", "Hansard"),
     ("linz", "LINZ titles"),
     ("tenders", "Tenders and awards"),
