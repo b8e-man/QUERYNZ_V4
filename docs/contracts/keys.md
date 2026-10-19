@@ -29,12 +29,15 @@ existing copy promoted.
 ## Parties (`keys/parties.py`)
 
 7. `party_name(label, registered)` → (registered name or None, basis) with
-   basis exact, variant, core, fuzzy:0.NN or unresolved. Amendment markers,
-   months and years are removed first. A renamed party is the same party.
-   The fuzzy arm needs one clear winner and the party's distinctive word
+   basis exact, variant, core, fuzzy:0.NN or unresolved; or, given the
+   parties lane's name rows and `on`, (registration key or None, basis)
+   among the registrations live that day (a year: live at any point in
+   it); two live registrations is unresolved. Amendment markers, months
+   and years are removed first. A renamed party is the same party. The
+   fuzzy arm needs one clear winner and the party's distinctive word
    readable in the label; it never joins two parties. Unresolved is never
-   guessed. The register list defaults to the snapshot of 18 October 2026
-   until the parties lane serves the live one.
+   guessed. Without the lane's rows the register list is the snapshot of
+   18 October 2026; the live path is beside it (fix-keys-1, 20 October).
 
 ## Addresses (`keys/addresses.py`)
 
