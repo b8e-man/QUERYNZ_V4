@@ -12,6 +12,7 @@ import pytest
 from support import db, lane, rowcontract, sample
 from registers.gazette import bankruptcies as BK
 from registers.gazette import celebrants as K
+from registers.gazette import creditors as CR
 from registers.gazette import check, notices, read
 from registers.gazette import liquidations as LQ
 from registers.gazette import prohibitions as PR
@@ -470,6 +471,22 @@ def test_a_receivership_reads_action_date_appointer_and_receivers_and_never_publ
     assert [c.name for c in person.companies] == ["ANN BEA EXAMPLE and CARTER LIMITED"]   # as printed: an "and" name is the notice's
 
 
+def test_notices_to_creditors_and_administrations_read_their_action_and_its_own_date():
+    md = CR.CreditorsNotice.read("ABLE (2019) LIMITED (in liquidation)", "Notice to Creditors to Prove Debts or Claims. The "
+                                 "liquidator fixes 9 June 2016 as the day on or before which the creditors are to prove their "
+                                 "debts or claims. Dated this 1st day of May 2016. Ann Example, Liquidator.")
+    assert ([c.name for c in md.companies], md.action, md.event_on, md.event_basis) == (
+        ["ABLE (2019) LIMITED"], "creditors to prove", "2016-06-09", "claims by")
+    assert md.people == [] and CR.CreditorsNotice.recognise("md", "", "") and not CR.Administration.recognise("md", "", "")
+    aa = CR.Administration.read("BAKER LIMITED (administrators appointed)", "Notice of Appointment of Administrators. Notice is "
+                                "given that on 3 March 2020, pursuant to section 239I of the Companies Act 1993, Ann Example and "
+                                "Bob Sample were appointed administrators of the company. Ann Example and Bob Sample, "
+                                "Administrators. Telephone: 09 123 4567.")
+    assert (aa.action, aa.event_on, aa.statute) == ("appointment of administrators", "2020-03-03", "Companies Act 1993 s 239I")
+    assert [(x.name, x.role) for x in aa.people] == [("Ann Example", "Administrators"), ("Bob Sample", "Administrators")]
+    assert "4567" not in repr(aa)
+
+
 def test_the_check_fails_on_a_ds_or_aw_notice_not_taken_by_its_profile():
     rows = _closed_years() + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
                               ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
@@ -728,6 +745,11 @@ def test_each_removal_and_winding_up_case_reads_as_its_comment_says(filled):
     assert cos["2000-ar2556"] and cos["2013-ar2626"][0]["action"] == "appointment; ceased to act"
     assert notice["2015-ar86"]["status"] == "set aside" and "2015-ar86" not in cos
     assert cos["2007-ar826"][0]["by_whom"] == "court"
+    assert [cos[n][0]["action"] for n in ("2002-md818", "2004-md5626", "2008-md2017", "2009-md4962")] == [
+        "creditors to prove", "meeting of creditors", "watershed meeting", "dividend"]
+    assert cos["2002-md818"][0]["event_basis"] == "claims by" and cos["2004-md5626"][0]["event_at"]
+    assert cos["2010-aa6416"][0]["action"] == "appointment of administrators" and cos["2022-aa13"][0]["people"] == 2
+    assert cos["2013-aa1428"][0]["action"] == "watershed meeting" and cos["2024-aa2898"][0]["action"] == "deed of company arrangement"
 
 
 def test_each_bankruptcy_case_reads_as_its_comment_says_and_no_address_is_published(filled):

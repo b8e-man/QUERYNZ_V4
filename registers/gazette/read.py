@@ -15,7 +15,7 @@ model, so the fast tier runs the same code.
                marked so the published view withholds the name
   company_notices  one per company a removal notice (removals.py), a winding-up
                application (windingup.py) or a receivership (receiverships.py) names,
-               and receivers one per receiver a receivership names; no address is read
+               and practitioners one per receiver or administrator named; no address is read
 
 Items in equal items out plus items set aside, three times over: every
 export line is a notice or a second capture set aside; every notice
@@ -35,8 +35,8 @@ from dataclasses import dataclass, field
 
 from keys.dates import filed_date
 from support import profiles
-from registers.gazette import (bankruptcies, capture, celebrants, liquidations, notices, prohibitions, receiverships, removals,
-                               windingup)
+from registers.gazette import (bankruptcies, capture, celebrants, creditors, liquidations, notices, prohibitions, receiverships,
+                               removals, windingup)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -54,6 +54,8 @@ COMPANY_READERS = (
     (removals, "gazette-removal-notice", "registers.gazette.removals 1", "removal"),
     (windingup, "gazette-winding-up-application", "registers.gazette.windingup 1", "winding-up application"),
     (receiverships, "gazette-receivership", "registers.gazette.receiverships 1", "receivership"),
+    (creditors.CreditorsNotice, "gazette-creditors-notice", "registers.gazette.creditors 1", "notice to creditors"),
+    (creditors.Administration, "gazette-administration", "registers.gazette.creditors 1", "administration"),
 )
 NOT_READ = "not read"
 
@@ -68,7 +70,7 @@ class Result:
     liquidations: list = field(default_factory=list)
     liquidators: list = field(default_factory=list)
     company_notices: list = field(default_factory=list)
-    receivers: list = field(default_factory=list)
+    practitioners: list = field(default_factory=list)
     bankruptcies: list = field(default_factory=list)
     bankruptcy_addresses: list = field(default_factory=list)   # (bankruptcy key, address, formerly)
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
@@ -234,8 +236,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                               "people": len(got.people), "ordinal": c.ordinal},
                 })
             for x in got.people:
-                out.receivers.append({
-                    "key": f"gazette/{nid}/receiver/{x.ordinal}", **stamp, "place": f"notice {nid} receiver {x.ordinal}",
+                out.practitioners.append({
+                    "key": f"gazette/{nid}/practitioner/{x.ordinal}", **stamp, "place": f"notice {nid} practitioner {x.ordinal}",
                     "filed": {"notice": nid, "published_on": line["published_on"], "name": x.name, "role": x.role,
                               "named_in_body": x.named_in_body, "companies": len(got.companies), "ordinal": x.ordinal},
                 })
@@ -366,7 +368,7 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                   "liquidators": len(out.liquidators),
                   **{f"{k.replace(' ', '_').replace('-', '_')}_notices{s}": v[i] for k, v in sorted(company.items())
                      for i, s in enumerate(("", "_read", "_set_aside"))},
-                  "company_notices": len(out.company_notices), "receivers": len(out.receivers),
+                  "company_notices": len(out.company_notices), "practitioners": len(out.practitioners),
                   **{f"{k.split('gazette-')[1].replace('-', '_')}{s}": v[i] for k, v in sorted(bankrupt.items())
                      for i, s in enumerate(("", "_read", "_set_aside"))},
                   "bankruptcies": len(out.bankruptcies), "bankruptcy_addresses": len(out.bankruptcy_addresses),

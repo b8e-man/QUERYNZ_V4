@@ -32,5 +32,5 @@ class Reading:
     reference: str = None         # the court's file number: CIV-2014-404-1234
     dated_on: str = None
     corrigendum: bool = False
-    people: list = field(default_factory=list)      # receivers (receiverships.py): liquidations.Liquidator
+    people: list = field(default_factory=list)      # receivers or administrators: liquidations.Liquidator
     unread: list = field(default_factory=list)      # (place, why)

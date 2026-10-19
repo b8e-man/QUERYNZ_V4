@@ -32,7 +32,7 @@ SELECT key, notice, published_on, name, role, named_in_body, companies, ordinal,
        profile, profile_version, loaded_at
 FROM gazette.liquidators;
 
--- removals (ds), winding-up applications (aw) and receiverships (ar): one row per company named, with the register's
+-- removals (ds), winding-up applications (aw), receiverships (ar), notices to creditors (md) and administrations (aa): one row per company named, with the register's
 -- entity; a plaintiff by name only, never its address for service
 CREATE OR REPLACE VIEW pub.gazette_company_notices AS
 SELECT key, notice, published_on, kind, action, company, company_number, shape, statute, ground, by_whom, party, event_on,
@@ -40,10 +40,10 @@ SELECT key, notice, published_on, kind, action, company, company_number, shape, 
        document, page, place, read_from, reader, profile, profile_version, loaded_at
 FROM gazette.company_notices;
 
-CREATE OR REPLACE VIEW pub.gazette_receivers AS
+CREATE OR REPLACE VIEW pub.gazette_practitioners AS
 SELECT key, notice, published_on, name, role, named_in_body, companies, ordinal, document, page, place, read_from, reader,
        profile, profile_version, loaded_at
-FROM gazette.receivers;
+FROM gazette.practitioners;
 
 -- a bankrupt by name, the kind of notice and its day; never an address (gazette_private). A person an annulment names
 -- is withheld on every row that names them as bankrupt before it: the row stays, with the annulment's number

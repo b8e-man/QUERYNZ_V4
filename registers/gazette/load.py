@@ -15,7 +15,7 @@ from registers.gazette import capture, read, register
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "gazette"
 PRIVATE = "gazette_private"
-TABLES = ("notices", "celebrants", "prohibitions", "liquidations", "liquidators", "company_notices", "receivers",
+TABLES = ("notices", "celebrants", "prohibitions", "liquidations", "liquidators", "company_notices", "practitioners",
           "bankruptcies", "files", "set_aside")
 PRIVATE_TABLES = ("celebrant_addresses", "prohibition_addresses", "bankruptcy_addresses")
 COLUMNS = {
@@ -40,7 +40,7 @@ COLUMNS = {
                         "dated_on", "corrigendum", "people", "register_key", "register_match", "ordinal", "document", "page",
                         "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
 }
-COLUMNS["receivers"] = COLUMNS["liquidators"]
+COLUMNS["practitioners"] = COLUMNS["liquidators"]
 COLUMNS["bankruptcies"] = ("key", "notice", "published_on", "kind", "shape", "surname", "given_names", "also_known_as",
                            "occupation", "event_on", "event_at", "court", "statute", "dated_on", "withheld_by", "ordinal",
                            "document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at")
@@ -98,7 +98,7 @@ def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool
           [(i, "capture", w) for i, w in aside] + list(res.set_aside))
     for t, rows in (("notices", res.notices), ("celebrants", res.celebrants), ("prohibitions", res.prohibitions),
                     ("liquidations", res.liquidations), ("liquidators", res.liquidators),
-                    ("company_notices", res.company_notices), ("receivers", res.receivers),
+                    ("company_notices", res.company_notices), ("practitioners", res.practitioners),
                     ("bankruptcies", res.bankruptcies)):
         _copy(conn, table(schema, t, shared), COLUMNS[t], _flat(COLUMNS[t], rows))
     _copy(conn, table(private_of(schema), "celebrant_addresses", shared), ("key", "address"), res.addresses)

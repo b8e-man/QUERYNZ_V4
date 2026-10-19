@@ -136,12 +136,14 @@ CREATE TABLE IF NOT EXISTS gazette.liquidators (
     loaded_at        timestamptz NOT NULL
 );
 
--- one row per company a removal notice (ds), a winding-up application (aw) or a receivership (ar) names
+-- one row per company a removal notice (ds), a winding-up application (aw), a receivership (ar), a notice to creditors (md)
+-- or an administration (aa) names
 CREATE TABLE IF NOT EXISTS gazette.company_notices (
     key              text PRIMARY KEY,                      -- gazette/<notice>/company/<ordinal>
     notice           text NOT NULL,
     published_on     date,
-    kind             text NOT NULL CHECK (kind IN ('removal', 'winding-up application', 'receivership')),
+    kind             text NOT NULL CHECK (kind IN ('removal', 'winding-up application', 'receivership', 'notice to creditors',
+                                                     'administration')),
     action           text,                                  -- the notice's own words: intention to remove, application to put into liquidation, …
     company          text NOT NULL,                         -- as printed, a status or former name in brackets taken out
     company_number   text,                                  -- where printed for this company
@@ -158,7 +160,7 @@ CREATE TABLE IF NOT EXISTS gazette.company_notices (
     reference        text,                                  -- the court's file number (aw)
     dated_on         date,
     corrigendum      boolean NOT NULL,
-    people           integer NOT NULL,                      -- receivers the notice names (ar)
+    people           integer NOT NULL,                      -- receivers or administrators the notice names (ar, aa)
     register_key     text,                                  -- the companies lane's entity (pub.companies.key); none where unmatched
     register_match   text,                                  -- how (register.py); NULL where the register was not in the database
     ordinal          integer NOT NULL,
@@ -172,9 +174,10 @@ CREATE TABLE IF NOT EXISTS gazette.company_notices (
     loaded_at        timestamptz NOT NULL
 );
 
--- one row per receiver a receivership names (from its signature, else its operative sentence)
-CREATE TABLE IF NOT EXISTS gazette.receivers (
-    key              text PRIMARY KEY,                      -- gazette/<notice>/receiver/<ordinal>
+-- one row per receiver or administrator a receivership or administration names (from its signature, else its
+-- operative sentence)
+CREATE TABLE IF NOT EXISTS gazette.practitioners (
+    key              text PRIMARY KEY,                      -- gazette/<notice>/practitioner/<ordinal>
     notice           text NOT NULL,
     published_on     date,
     name             text NOT NULL,                         -- as signed; no address, telephone or email is read

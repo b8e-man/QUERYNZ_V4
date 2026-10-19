@@ -65,7 +65,9 @@ JOINED_FLOOR, NUMBER_FLOOR = 0.97, 0.98
 #: receiverships 90.9%: a company sold out of receivership is often renamed, and the register holds the latest name)
 COMPANY = {"removal": ("ds", "gazette-removal-notice", 0.95),
            "winding-up application": ("aw", "gazette-winding-up-application", 0.95),
-           "receivership": ("ar", "gazette-receivership", 0.88)}
+           "receivership": ("ar", "gazette-receivership", 0.88),
+           "notice to creditors": ("md", "gazette-creditors-notice", 0.90),          # measured 93.8%
+           "administration": ("aa", "gazette-administration", 0.88)}                # measured 91.9%
 #: every notice in section ba is taken by one of these
 BANKRUPTCY = ("gazette-bankruptcy-list", "gazette-no-asset-procedure-list", "gazette-bankruptcy-notice")
 
@@ -224,7 +226,8 @@ def main(argv=None) -> int:
           f"{q['filed'] - len(q['not_read']):,} taken by its profile (read, or set aside with a reason)")
     for what, c in [("liquidation", q)] + list(f["company"].items()):
         if what != "liquidation":
-            print(f"{what.capitalize()}s: {c['filed']:,} notices the Gazette files under {c['code']}, "
+            plural = "Notices to creditors" if what == "notice to creditors" else f"{what.capitalize()}s"
+            print(f"{plural}: {c['filed']:,} notices the Gazette files under {c['code']}, "
                   f"{c['filed'] - len(c['not_read']):,} taken by its profile (read, or set aside with a reason)")
         r = c.get("register")
         if r and r["rows"]:

@@ -21,11 +21,12 @@ import re
 _NUMBER = re.compile(r"^(?P<year>\d{4})-(?P<code>[a-z]+)(?P<n>\d+)$")
 
 #: The Gazette's section codes, named after what the old estate measured each
-#: to hold (`data-layer/gazette_register/parse.py`, CODE_TYPE).
+#: to hold (`data-layer/gazette_register/parse.py`, CODE_TYPE); `md` corrected by
+#: reading every notice in it (gazette 3): notices to creditors, not administrations.
 FAMILY = {
     "al": "insolvency: liquidator appointed", "ar": "insolvency: receivership",
     "aw": "insolvency: winding-up application", "ds": "insolvency: liquidation and removal",
-    "md": "insolvency: administration", "aa": "insolvency: administration",
+    "md": "insolvency: notice to creditors", "aa": "insolvency: administration",
     "ba": "bankruptcy", "cb": "overseas company", "pn": "partnership", "ot": "companies: other",
     "is": "incorporated society", "ct": "charitable trust", "fs": "friendly society",
     "gn": "general", "go": "government", "au": "authority", "sl": "secondary legislation",
