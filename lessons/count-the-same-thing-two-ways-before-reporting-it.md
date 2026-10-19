@@ -1,4 +1,4 @@
-Measure a built table against the rule that built it before reporting either: a union-find that never entered its roots left every group's anchor out of links.groups, and only the disagreement between the direct rule count and the as-built count showed it.
+Measure a built table against the rule that built it before reporting either: a union-find that never entered its roots left every group's anchor out of links.groups, and only the gap between the rule's count and the built count showed it.
 area: links, groups, any table derived by a walk over another
 paid-for-by: 2026-10-20, links session, step 4.2 measurement 3
 
