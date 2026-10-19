@@ -1,0 +1,1 @@
+-- registers/house: the tables this lane owns, in `house` and `house_private`. Empty until the session builds the lane.

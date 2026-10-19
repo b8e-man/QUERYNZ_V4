@@ -1,0 +1,1 @@
+"""The reading: entities, directors, shareholders and addresses from the file by its own document profile, under the source's own role identifiers; a residential address goes to the private twin and nowhere else. Built by the companies session."""

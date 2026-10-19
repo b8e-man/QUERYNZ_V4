@@ -1,0 +1,1 @@
+"""Step 1.10: the Companies Office's monthly file as Arthur downloads it (find where the raw files are kept), else the old estate's loaded tables exported once by hash, read-only; nothing is fetched (step 4.1, copied). Built by the companies session."""

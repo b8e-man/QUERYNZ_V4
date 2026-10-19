@@ -56,30 +56,14 @@ Arthur's word for the feed (step 4.8).
 
 ## party-returns
 
-Session 2 merged (`docs/merges/party-returns-2`): Part A donors on 22
-returns (476 rows), loans on 6, 14 returns replaced by amendments; 99
-rows, 49 party-years equal, 0 differing. `qv4-read-pages` (new, the
-scheduler's) read the 41 unread returns' image pages (queue rows 110 and
-111, done 20 October); the gate's reload at offsite-2b published 137
-rows, 15 set aside. Session 3, when Arthur wants it: the lane's own next
-items (`docs/status/party-returns.md`): re-measure against the frozen
-site; the sample label `no stored page reading` now tests from an empty
-store (`tests/test_pixels.py`, integrator); Part A's refused
-pages (column-by-column, page breaks, schedules outside the heading); the
-outside check against the Commission's by-year table. On node2:
-`cd /home/user/querynzv4 && bin/start-session party-returns registers/party_returns`, then in the folder it prints: `claude --model opus --permission-mode acceptEdits`
-
-```text
-You are the party-returns session, session 3, in your working copy. Read
-docs/PLAN.md, docs/plan/step-4.md, docs/status.md and
-docs/status/party-returns.md. Queue rows 110 and 111 (qv4-read-pages)
-have read every image page of the 41 returns set aside at stage read,
-and the live load holds 137 rows. Re-measure the frozen-site comparison
-and update the status file, then do your status file's next two items: Part A's refused pages, and the outside
-check against the Commission's by-year table. Edit nothing outside your
-folder, push and raise party-returns-3. Finish by telling Arthur what
-closed and what is carded.
-```
+Sessions 1 to 3 merged (`docs/merges/party-returns-1` to `-3`): 137
+rows, 71 party-years equal to the frozen site, 1 differing (Labour 2017,
+carded); the Commission's by-year table 117 equal, 5 differing, each
+carded; Part A on 30 returns (679 rows), loans on 6, 14 amendments. No
+session 4 now; its items (`docs/status/party-returns.md`): rows across a
+page break, schedules outside the Part A heading, the cell-scale re-read
+of column-order pages (the scheduler's, carded), and the switch to
+`keys.parties.party_name(label, rows, on=date)`.
 
 ## parties
 
@@ -92,64 +76,125 @@ Its blocker is a fix on `keys` (next section).
 
 ## party-finance
 
-Step 4.1, built: party expense returns, broadcasting allocations, party
-financial statements, promoters and party rules, from the files the old
-estate holds under `var/staging/ec-expenses/`, `ec-financials/`,
-`ec-broadcasting/` and `ec-promoters/`. Each kind has a document profile
-(`support/profiles`; propose what is missing in a `profile-proposed.jsonl`
-for the integrator). Model: Opus. On node2:
-`cd /home/user/querynzv4 && bin/start-session party-finance registers/party_finance`, then in the folder it prints: `claude --model opus --permission-mode acceptEdits`
-
-```text
-You are a build session for QueryNZV4 on node2, running as Opus, in the
-working copy the launcher made for you. Read docs/PLAN.md, then
-docs/status.md and your own status file docs/status/party-finance.md
-(make it), the lane contract and the row contract, and
-docs/plan/reference/facts-and-traps/electoral-commission-forms.md. Build
-one lane only: party-finance, in registers/party_finance/. Its documents
-are held under the old estate's var/staging/ec-expenses, ec-financials,
-ec-broadcasting and ec-promoters: take them by hash, read-only; fetch
-nothing. Profiles before readers: assign or propose a document profile
-for each kind before reading it. Search the lessons and the reference
-notes for this source before writing anything. Give every row a stable
-key and a citation. Keep a catch log that reconciles. Find one figure
-from the Commission itself to check against. Build in small tranches,
-each measured against the real files. Work in your scratch schema; edit
-nothing outside your folder; never touch the old estate's jobs, folders
-or primary database. Push your branch and raise party-finance-1. Finish
-by telling Arthur what closed and what is carded.
-```
+Session 1 merged (`docs/merges/party-finance-1`): 116 documents; party
+expense tables (58 rows), 34 returns' own totals read (30 equal the
+Commission, 2 explained, 5 unread), broadcasting allocations (89 rows, to
+the dollar), 69 promoters and 303 people (contacts private), the
+financial-statements roster (47). `qv4-read-pages-expenses` reads the
+three unread returns' image pages (queued after the merge). No session 2
+now; its items (`docs/status/party-finance.md`): statement figures,
+promoter returns' totals, the five unread once the readings land.
 
 ## gazette
 
-Step 4.1, built: Gazette notices (party events, public appointments,
-insolvency, prohibitions) from the text rows the old news database
-holds; exported once, by hash, the way `registers/parties/capture.py`
-exported the register's notices (the old read-only login, two small
-reads, search path set to the old schema). The parties lane takes this
-lane's notices when it exists. Model: Opus. On node2:
-`cd /home/user/querynzv4 && bin/start-session gazette registers/gazette`, then in the folder it prints: `claude --model opus --permission-mode acceptEdits`
+Session 1 merged (`docs/merges/gazette-1`): 207,133 notices typed by the
+Gazette's own section code; the celebrant lists read (2,941 of 2,975;
+123,187 rows; 8,943 addresses private). Session 2, when a slot frees
+(`docs/status/gazette.md`): director prohibitions, then liquidator
+appointments (43,587 notices), each its own profile; then the printed
+tables. On node2 the integrator launches it:
+`bin/start-session gazette registers/gazette`, Opus.
+
+```text
+You are the gazette session, session 2, in your working copy. Read
+docs/PLAN.md, docs/status.md and docs/status/gazette.md. The export and
+the celebrant lists are merged; do your status file's next two items:
+director prohibitions (one template; addresses private), then liquidator
+appointments, each with its own document profile proposed for the
+integrator; measure each on every notice of its type, not the sample.
+Mask every sample before printing it (lesson
+a-gazette-celebrant-list-can-print-home-addresses). Edit nothing outside
+your folder, push and raise gazette-2. Finish by telling Arthur what
+closed and what is carded.
+```
+
+## interests-expenses
+
+Step 4.1, copied from published files: MPs' and ministers' expenses
+(held under `var/staging/mp-expenses/` and `minister-expenses/`) and the
+Register of Pecuniary Interests (where held is for the baseline to say).
+Two folders, one session, Opus: `registers/mp_interests/`,
+`registers/expenses/`. The integrator launches it:
+`bin/start-session interests-expenses registers/mp_interests registers/expenses`.
 
 ```text
 You are a build session for QueryNZV4 on node2, running as Opus, in the
 working copy the launcher made for you. Read docs/PLAN.md, then
-docs/status.md and your own status file docs/status/gazette.md (make
-it), the lane contract and the row contract, and
-registers/parties/capture.py for how a once-only export from the old
-news database is done and landed by hash. Build one lane only: gazette,
-in registers/gazette/. Export the notices once (read-only, the old
-read-only login, a statement timeout); never run the export at load.
-Type each notice by its own format and read it: 90.8% of the 35,938 the
-old lane never read are one celebrant format, so measure the formats
-first and read the largest. The old lane's gate recorded a failure and
-still exited clean; do not carry that. Search the lessons and the
-reference notes for this source before writing anything. Give every
-row a stable key and a citation. Keep a catch log that reconciles. Find
-one figure from the Gazette itself to check against. Build in small
-tranches, each measured against the real rows. Work in your scratch
-schema; edit nothing outside your folder; never touch the old estate's
-jobs, folders or primary database. Push your branch and raise gazette-1.
-Finish by telling Arthur what closed and what is carded.
+docs/status.md and your own status file docs/status/interests-expenses.md
+(make it), the lane contract and the row contract. Build two lanes:
+expenses, in registers/expenses/, from the releases held under the old
+estate's var/staging/mp-expenses and minister-expenses, by hash,
+read-only; and mp_interests, in registers/mp_interests/, from the
+published register editions: first find in docs/baseline.md and the old
+folder whether the editions are held; if they are not, card it with
+where they are published and build the expenses lane alone. Key the
+interests on the category heading, never its number (renumbered 2018);
+every edition reprints the rules after the last member. Profiles before
+readers. Fetch nothing. Give every row a stable key and a citation. Keep
+a catch log that reconciles. Find one figure from each source itself to
+check against. Build in small tranches, each measured on the real files.
+Work in your scratch schema; edit nothing outside your two folders;
+never touch the old estate's jobs, folders or primary database. Push
+your branch and raise interests-expenses-1. Finish by telling Arthur
+what closed and what is carded.
+```
+
+## house
+
+Step 4.1, built: candidates, electorates, results and who sits in the
+House, from the Commission's files held under `var/staging/ec-candidate-list/`,
+`ec-results/` and `ec-byelections/`. Opus. The integrator launches it:
+`bin/start-session house registers/house`.
+
+```text
+You are a build session for QueryNZV4 on node2, running as Opus, in the
+working copy the launcher made for you. Read docs/PLAN.md, then
+docs/status.md and your own status file docs/status/house.md (make it),
+the lane contract and the row contract. Build one lane only: house, in
+registers/house/, from the files held under the old estate's
+var/staging/ec-candidate-list, ec-results and ec-byelections, by hash,
+read-only; fetch nothing. Candidates per election and by-election,
+electorates joined to Stats NZ's names (72 of 72), and who sat in the
+House with a window per seat, from results, list order and
+by-elections. Boundary shapes need a key that is Arthur's to place: card
+it, do not fetch. Profiles before readers. Give every row a stable key
+and a citation. Keep a catch log that reconciles. Find one figure from
+the Commission itself to check against. Build in small tranches, each
+measured on the real files. Work in your scratch schema; edit nothing
+outside your folder; never touch the old estate's jobs, folders or
+primary database. Push your branch and raise house-1. Finish by telling
+Arthur what closed and what is carded.
+```
+
+## companies
+
+Step 4.1, copied: companies and the other entity types, directors,
+shareholders, addresses, from the Companies Office's monthly file Arthur
+downloads by hand (never raised as outstanding). Opus. The integrator
+launches it: `bin/start-session companies registers/companies`.
+
+```text
+You are a build session for QueryNZV4 on node2, running as Opus, in the
+working copy the launcher made for you. Read docs/PLAN.md, then
+docs/status.md and your own status file docs/status/companies.md (make
+it), the lane contract and the row contract, and docs/baseline.md for
+the old estate's nzbn_canonical tables. Build one lane only: companies,
+in registers/companies/. First find where the raw monthly files are
+kept; if only the loaded tables survive, export them once from the old
+database by hash, read-only, the way registers/gazette/capture.py did
+(the old read-only login, a statement timeout, a server-side cursor),
+and never run the export at load. Entities, directors and shareholders
+under the source's own identifiers, with windows; a company's registered
+address is published, a person's residential address goes to
+companies_private and nowhere else; never print one into your session.
+The monthly file is Arthur's to download and is never raised as
+outstanding. Give every row a stable key and a citation. Keep a catch
+log that reconciles. Find one figure from the Companies Office itself to
+check against. Build in small tranches, each measured on the real rows.
+Work in your scratch schema; edit nothing outside your folder; never
+touch the old estate's jobs, folders or primary database. Push your
+branch and raise companies-1. Finish by telling Arthur what closed and
+what is carded.
 ```
 
 ## keys-fix

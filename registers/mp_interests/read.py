@@ -1,0 +1,1 @@
+"""The reading: each edition's members and their declared interests by category heading (the register renumbered its categories in 2018: key on the heading, not the number); every edition reprints the rules after the last member, which are not a member. Built by the interests-expenses session."""

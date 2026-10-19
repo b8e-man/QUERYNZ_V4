@@ -1,0 +1,1 @@
+-- registers/expenses: the tables this lane owns, in `expenses` and `expenses_private`. Empty until the session builds the lane.

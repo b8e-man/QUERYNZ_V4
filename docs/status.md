@@ -3,7 +3,7 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-20, 06:20. **Step:** 3 closed under ruling 60; 4.1 running, three sessions open; tracks B and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-20, 07:45. **Step:** 3 closed under ruling 60; 4.1 running, three sessions open; tracks B and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
@@ -22,17 +22,14 @@ address (test alarm 18 October).
 
 ## Next (all from `docs/briefs/next.md`)
 
-- Step 4.1, three lanes merged: disclosures (`docs/merges/disclosures-1`,
-  `-2`: 520 declarations from the Commission's table, 2023-on total equal
-  to the cent, 15 of 16 party-years equal, National 2023 queued for Arthur;
-  246 scans read, form check 223 equal, 3 differ, carded); party returns (`party-returns-2`: Part A donors, loans,
-  amendments; `qv4-read-pages` read the 41 unread returns' pages, rows
-  110 and 111; now 137 rows, 15 set aside; session 3 re-measures, then
-  Part A's refused pages and the outside check); parties
-  (`parties-1`: 78 registrations, 149 names with windows, every rename
-  read, 17 on the register). `keys.parties` resolves labels by
-  date from `pub.party_names` (`fix-keys-1`); each lane switches in its
-  next session. Running: party-returns 3, party-finance 1, gazette 1.
+- Step 4.1, six lanes merged (`docs/merges/`): disclosures (520
+  declarations, 15 of 16 party-years equal; 3 scans differ, carded);
+  party returns (137 rows, 71 equal, 1 differing; Commission's table 117
+  equal, 5 carded; Part A 679 rows); parties (78 registrations, 149
+  names); party finance (116 documents, 30 of 37 totals equal, 89
+  allocations, 69 promoters); gazette (207,133 notices typed, celebrant
+  lists read); keys resolves labels by date (`fix-keys-1`). Running:
+  interests-expenses, house, companies; gazette 2 next.
 - Track E merged (`docs/merges/windowed-1` to `-3`): two legal positions,
   two capture lanes, the two `qv4-*-capture` jobs nightly from 22:30 NZDT
   (first nightly run 20 October, both done), both hosts floored at 5 s,
