@@ -5,6 +5,7 @@ busy port is refused, a swap is in the ledger before and after, and a
 worker's stop unloads what it loaded. Everything injected; no card here."""
 from __future__ import annotations
 
+import dataclasses
 import os
 import subprocess
 
@@ -224,3 +225,44 @@ def test_a_card_another_live_worker_manages_is_left_alone(kit, monkeypatch):
     written = [p[1] for s_, p in w.conn.sql[n:] if "INSERT INTO s.cards" in s_]
     assert 1 not in written and "managed by other" in " ".join(w.logs)
     assert [h.card for h in m.held(w, 0.0)] == [], "nothing of the other worker's is planned"
+
+
+def test_a_profile_whose_load_failed_here_is_not_tried_again_until_the_programs_change(kit):
+    """Card the-card-manager-loads-a-profile-for-a-job-no-box-can-claim: the
+    unpatched server was started for TeleOCR three times in a day. After a
+    failed load the job types on that profile leave the planner's eligible
+    set, and come back when the probe's programs change (a program installed
+    or removed), not before."""
+    m, w, answers, procs = kit
+    assert {"doc", "rev", "reason", "emb"} <= m.claimable(w)
+    answers["will_serve"] = "OTHER"
+    assert m.load(w, 1, policy.Decision("n:1", policy.LOAD, "doc", "test", "qwen-50k"), 0.0) is False
+    assert m.failed_loads == {"qwen-50k": m._programs_key(w)}
+    assert m.claimable(w) == {"rev", "emb", "cpu"}, "doc and reason both name the failed profile"
+    w.profile["programs"]["qv4-llama-server-built"] = "/elsewhere/llama-server"
+    assert {"doc", "reason"} <= m.claimable(w), "the probe changed: tried again"
+
+
+def test_a_stray_on_the_port_is_not_held_against_the_profile(kit):
+    m, w, answers, procs = kit
+    answers.update(served="STRAY", healthy=True)
+    assert m.load(w, 1, policy.Decision("n:1", policy.LOAD, "doc", "test", "qwen-50k"), 0.0) is False
+    assert m.failed_loads == {} and "doc" in m.claimable(w)
+
+
+def test_a_job_whose_program_this_box_lacks_is_not_claimable_here(kit):
+    m, w, answers, procs = kit
+    w.registry["doc"] = dataclasses.replace(w.registry["doc"], requires=("ghost-program",))
+    assert "doc" not in m.claimable(w) and "reason" in m.claimable(w)
+
+
+def test_what_can_be_checked_without_the_card_is_checked_before_the_resident_profile_goes(kit):
+    """Three times on 19 October a working page-reader was unloaded for a load
+    whose weights or server could have been checked first."""
+    m, w, answers, procs = kit
+    answers["will_serve"] = "M"
+    m.load(w, 1, policy.Decision("n:1", policy.LOAD, "doc", "first", "qwen-50k"), 0.0)
+    os.remove(os.path.join(m.models_dir, "b.gguf"))
+    assert m.load(w, 1, policy.Decision("n:1", policy.LOAD, "emb", "second", "bge"), 10.0) is False
+    assert m.servers[1].prof.name == "qwen-50k" and not procs[0].signals, "the resident profile was kept"
+    assert swaps(w)[-1][0] == "failed" and "weights missing" in w.logs[-1]

@@ -84,6 +84,7 @@ class Manager:
         self.servers: dict[int, Server] = {}
         self.round_done: frozenset = frozenset()
         self.holder_since: dict[int, float] = {}
+        self.failed_loads: dict[str, tuple] = {}     # profile → the box's programs when its load failed here
         self.log = log
         self.worker = None
 
@@ -149,6 +150,27 @@ class Manager:
                                    draining=bool(c["draining"]), in_flight=in_flight, loaded=c["profile"]))
         return out
 
+    @staticmethod
+    def _programs_key(worker) -> tuple:
+        return tuple(sorted((k, v or None) for k, v in (worker.profile.get("programs") or {}).items()))
+
+    def claimable(self, worker) -> set[str]:
+        """The job types this box could ever claim: enabled, every required
+        program present (the probe's eligibility, the same test the worker's
+        claim applies), and not on a profile whose load failed here while the
+        box's programs have been as they are now. The planner sees no other
+        demand, so rule 6 never discards a working profile for a row nobody
+        here may take (19 October: three swaps for TeleOCR's row 74)."""
+        key = self._programs_key(worker)
+        out = set()
+        for jt in worker.registry.values():
+            if not jt.enabled or pb.missing_programs(worker.profile, jt.requires):
+                continue
+            if jt.profile and self.failed_loads.get(jt.profile) == key:
+                continue
+            out.add(jt.name)
+        return out
+
     def tick(self, worker, now) -> None:
         now_s = now.timestamp()
         self._reap_dead_servers(worker)
@@ -160,7 +182,8 @@ class Manager:
         if not held:
             return
         decisions, self.round_done = policy.plan(now=now_s, held=held, queues=demands, registry=worker.registry,
-                                                 profiles=profiles, rules=worker.rules, round_done=self.round_done)
+                                                 profiles=profiles, rules=worker.rules, round_done=self.round_done,
+                                                 eligible=self.claimable(worker))
         for d in decisions:
             self.apply(worker, d, now_s)
 
@@ -202,33 +225,38 @@ class Manager:
         if d.action == policy.LOAD:
             self.load(worker, card, d, now_s)
 
+    def _failed(self, worker, card: int, prof: reg.Profile, d: policy.Decision, detail: str, remember: bool = True, **more) -> bool:
+        """A load that did not happen or did not come up: ledgered, logged,
+        and (unless the fault is a stray on the port, which goes away on its
+        own) remembered so the profile is not tried again on this box until
+        the probe's programs change."""
+        self.log(f"card {card}: load of {prof.name} FAILED: {detail}")
+        q.record_swap(worker.conn, worker.schema, worker.box, card, "failed", d.why, to_profile=prof.name, job=d.job_type,
+                      by_worker=worker.name, ok=False, detail=detail, **more)
+        if remember:
+            self.failed_loads[prof.name] = self._programs_key(worker)
+        return False
+
     def load(self, worker, card: int, d: policy.Decision, now_s: float) -> bool:
         prof = worker.profiles[d.profile]
         was = self.servers.get(card)
-        if was is not None:
-            self.unload(worker, card, f"making room for {prof.name}: {d.why}")
+        # what can be known without touching the card is checked BEFORE the resident profile is
+        # discarded (19 October: a working page-reader was unloaded three times for a load that failed)
         binary = server_binary(worker.profile.get("programs") or {})
         if not binary:
-            q.record_swap(worker.conn, worker.schema, worker.box, card, "failed", d.why, to_profile=prof.name, job=d.job_type,
-                          by_worker=worker.name, ok=False, detail="no model server program on this box")
-            self.log(f"card {card}: cannot load {prof.name}: no model server program")
-            return False
+            return self._failed(worker, card, prof, d, "no model server program on this box")
         missing = [w for w in prof.weight_paths(self.models_dir) if not os.path.exists(w)]
         if missing:
-            q.record_swap(worker.conn, worker.schema, worker.box, card, "failed", d.why, to_profile=prof.name, job=d.job_type,
-                          by_worker=worker.name, ok=False, detail=f"weights missing: {missing}")
-            self.log(f"card {card}: cannot load {prof.name}: weights missing {missing}")
-            return False
+            return self._failed(worker, card, prof, d, f"weights missing: {missing}")
+        if was is not None:
+            self.unload(worker, card, f"making room for {prof.name}: {d.why}")
         port = PORT_BASE + card
         busy = self.ask(port)
         if busy["healthy"]:
             # a server this worker did not start answers on the card's port: starting another would fail to
             # bind, and reading the stray's answer as our own would call the wrong model ready
-            detail = f"port {port} is busy: a stray server answers with {busy['served']!r}; not started"
-            self.log(f"card {card}: cannot load {prof.name}: {detail}")
-            q.record_swap(worker.conn, worker.schema, worker.box, card, "failed", d.why, to_profile=prof.name, job=d.job_type,
-                          by_worker=worker.name, served_model=busy["served"], ok=False, detail=detail)
-            return False
+            return self._failed(worker, card, prof, d, f"port {port} is busy: a stray server answers with {busy['served']!r}; "
+                                f"not started", remember=False, served_model=busy["served"])
         argv = server_argv(binary, prof, card, port, self.models_dir)
         os.makedirs(LOGS, exist_ok=True)
         logf = open(os.path.join(LOGS, f"{worker.box}-card{card}.log"), "ab")
@@ -244,19 +272,14 @@ class Manager:
         try:
             proc = self.popen(argv, env=env, stdout=logf, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
         except OSError as e:
-            q.record_swap(worker.conn, worker.schema, worker.box, card, "failed", d.why, to_profile=prof.name, job=d.job_type,
-                          by_worker=worker.name, ok=False, detail=f"{type(e).__name__}: {e}")
-            return False
+            return self._failed(worker, card, prof, d, f"{type(e).__name__}: {e}")
         served, seconds = self._wait_ready(proc, port, prof)
         if served != prof.model:
             detail = f"after {seconds:.0f}s the card answered with {served!r}, not {prof.model!r}" if served else \
                      f"not healthy after {seconds:.0f}s"
-            self.log(f"card {card}: load of {prof.name} FAILED: {detail}")
             self._stop(proc)
-            q.record_swap(worker.conn, worker.schema, worker.box, card, "failed", d.why, to_profile=prof.name, job=d.job_type,
-                          by_worker=worker.name, load_seconds=seconds, served_model=served, ok=False, detail=detail)
             q.upsert_card(worker.conn, worker.schema, worker.box, card, profile=None, port=None, pid=None, holder=None)
-            return False
+            return self._failed(worker, card, prof, d, detail, load_seconds=seconds, served_model=served)
         self.servers[card] = Server(proc, prof, card, port, t0)
         self.holder_since[card] = now_s
         q.upsert_card(worker.conn, worker.schema, worker.box, card, profile=prof.name, port=port, pid=proc.pid,
