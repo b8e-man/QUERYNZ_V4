@@ -100,12 +100,12 @@ def figure(m) -> str:
     return next((g for g in reversed(m.groups()) if g is not None), None)
 
 
-def stored_page(store: rd.Store, sha256: str, page: int):
+def stored_page(store: rd.Store, sha256: str, page: int, profile: str = PROFILE):
     """The page reader's stored reading of one page, or None: the newest
     profile version first, the profile's own dots first."""
-    for version in sorted((int(h["version"]) for h in profiles.history(PROFILE)), reverse=True):
+    for version in sorted((int(h["version"]) for h in profiles.history(profile)), reverse=True):
         for settings in PAGE_SETTINGS:
-            key = rd.reading_key(sha256, page, PAGE_MODEL, settings, PROFILE, version)
+            key = rd.reading_key(sha256, page, PAGE_MODEL, settings, profile, version)
             if store.has(key):
                 return store.get(key)
     return None
@@ -158,10 +158,10 @@ def judge(f: dict) -> tuple:
     return None, None, "no total and no parts read"
 
 
-def _texts(data, sha256, store, prof_version, all_pixels: bool):
+def page_texts(data, sha256, store, prof_version, all_pixels: bool, profile: str = PROFILE):
     """page → (text, read_from, profile, version); and the pages with neither."""
     layer = pages.text_pages(data)
-    reading = read_document(data, sha256, profile=PROFILE, profile_version=prof_version, store=store, texts=layer)
+    reading = read_document(data, sha256, profile=profile, profile_version=prof_version, store=store, texts=layer)
     out = {}
     for r in reading.readings:
         if r.read_from == "text":
@@ -170,7 +170,7 @@ def _texts(data, sha256, store, prof_version, all_pixels: bool):
     for p in sorted(layer):
         if p in out and not all_pixels:
             continue
-        s = stored_page(store, sha256, p)
+        s = stored_page(store, sha256, p, profile)
         if s is not None:
             out[p] = (s.text, "pixels", s.profile, s.profile_version)
         elif p not in out:
@@ -188,7 +188,7 @@ def read_return(data: bytes, sha256: str, store: rd.Store) -> Result:
         return res
     why = ""
     for pass_name, all_pixels in (("first", False), ("pixels", True)):
-        texts, unread = _texts(data, sha256, store, res.profile_version, all_pixels)
+        texts, unread = page_texts(data, sha256, store, res.profile_version, all_pixels)
         f = figures({p: t for p, (t, *_) in texts.items()})
         total, check, why = judge(f)
         if total is not None:

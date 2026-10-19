@@ -3,6 +3,7 @@
 584d396b7cc215135cd536c29c1284b59919d2ff9cce4b62951de5b8e785c078 party-expenses listing 2020 (link in a last cell; ACT's misplaced comma; N/A)
 5be04f3650d87f7f5784b6b0f165279071d2777efea9ef74ded6c399e81ac9ab party-expenses listing 2023 (amended rows link two returns; NIL)
 dd2e4344055e3c4c6c8b185b5edd43ff7943e3ae79f3966999cf5738fc0cc86d promoter-expenses listing 2023 (Better NZ Trust's return not held)
+af8ecf70bba5e459a01a8bf38f7234fb3d0a9f6a6540e9f76c0d08b68726348f promoter-expenses listing 2020 (three columns: election and two referendums)
 # Expense returns, their hard cases named.
 2bb3bf16a3f04cce739aaba97f62c82b2c965c59757209a7fd233d62fe95a5dc ACT New Zealand 2020: pixels, the form's total, parts not all read
 d4c354668c050f857cfcafc2d2a817da1d77487de737c90262602739bbcdf837 Advance NZ 2020: the Commission printed Part A alone
@@ -17,6 +18,10 @@ ef943a1c589a9f8fc997b3e3854ca57840b83c06323c706f3bbd49f7df1da63e Leighton Baker 
 cc6f2ef26b692da88bcc1d10c21f69368ab25321ea3f0a053e13b44f33f383d5 Democratic Alliance 2023: every box 0, each figure below its label (the Commission's NIL)
 34b97a436d6c6867706ca899a6137af62526389c107ca651ca2a8daa0d6b5349 Aotearoa Legalise Cannabis Party 2023: whole dollars, no cents
 919d4fef5edbac5e7a3d7b04bf2735026c59d539e27df934006934b4d06c2640 Vision New Zealand 2020 correction: a faint scan, Part B's total read only from the declaration
+# Promoter returns: the 2020 three-part form and the 2023 one-part form.
+b1f09183fa9d9e0b8e995e0fcdbc08130c5ab4b4315ec6c172b9dcd83e9f9fe1 promoter return 2020 Family First NZ: one figure in all three parts, declaration and schedules agree
+a3d55222c5b85d01067caefcf5627d65b06a11fba7a2c50090fd4c35fa31b815 promoter return 2020 Make It Legal: Part B's figure written in the N/A box, set aside
+9e7adf4de1b35345bd85442b2a4319cd4cfa55f24fad2fe519b2ce1a6be2a2dc promoter return 2023 Vote for Better: pixels, the schedule's total below its label
 # The broadcasting allocation pages: two rounds (2020, a row the page closes early) and three (2023, footnote marks).
 f300220f1c71911ae816d9a98904eab58c88ff6c9ab6301979ae0991fa3e533c broadcasting allocation 2020
 53480efffffdfb6825fd36dd240b203cc1ec1e75f50653b57835d29edaddffe7 broadcasting allocation 2023

@@ -12,6 +12,8 @@ A to the cent. Every other difference fails the check, and a party whose
 return was not read is listed as unread, never as agreeing.
 
     compare(listing, returns)   {"equal", "part_a_only", "differ", "unread"}
+    compare_promoters(listing, returns)   {"equal", "differ", "unread"}: each promoter's column against its return's part,
+                                          the Commission's referendum columns never added to its election one
     python -m registers.party_finance.check [--schema party_finance] [--database querynz_v4] [--shared]
 """
 import sys
@@ -45,6 +47,29 @@ def compare(listing: list, returns: list) -> dict:
     return out
 
 
+SPENDING = ("election_expenses", "cannabis_referendum_expenses", "end_of_life_referendum_expenses")
+
+
+def compare_promoters(listing: list, returns: list) -> dict:
+    """listing: promoter_listing dicts (key, year, promoter and the three columns); returns: promoter_returns
+    dicts (listing_row, spending, figure, document). A column the Commission leaves empty is not compared."""
+    by = {(r["listing_row"], r["spending"]): r for r in returns}
+    out = {"equal": [], "differ": [], "unread": []}
+    for row in sorted(listing, key=lambda r: (r["year"], r["promoter"])):
+        for col in SPENDING:
+            ec = row.get(col)
+            if ec is None:
+                continue
+            r = by.get((row["key"], col))
+            item = {"year": row["year"], "promoter": row["promoter"], "spending": col, "commission": float(ec)}
+            if r is None:
+                out["unread"].append(item)
+                continue
+            item.update(ours=float(r["figure"]), document=r["document"])
+            out["equal" if _eq(r["figure"], ec) else "differ"].append(item)
+    return out
+
+
 def rows(conn, schema: str, shared: bool = False) -> tuple:
     pre = "party_finance_" if shared else ""
 
@@ -52,7 +77,9 @@ def rows(conn, schema: str, shared: bool = False) -> tuple:
         cur = conn.execute(sql)
         return [dict(zip([d[0] for d in cur.description], r)) for r in cur]
     return (q(f"SELECT key, year, party_label, total_expenses FROM {schema}.{pre}expense_listing"),
-            q(f"SELECT listing_row, current, total, total_check, part_a, document FROM {schema}.{pre}expense_returns"))
+            q(f"SELECT listing_row, current, total, total_check, part_a, document FROM {schema}.{pre}expense_returns"),
+            q(f"SELECT key, year, promoter, {', '.join(SPENDING)} FROM {schema}.{pre}promoter_listing"),
+            q(f"SELECT listing_row, spending, figure, document FROM {schema}.{pre}promoter_returns"))
 
 
 def main(argv=None) -> int:
@@ -61,7 +88,8 @@ def main(argv=None) -> int:
     database = argv[argv.index("--database") + 1] if "--database" in argv else "querynz_v4"
     from support import db
     with db.connect(db.READ_KEY if database == "querynz_v4" else db.OWNER_KEY, database) as conn:
-        out = compare(*rows(conn, schema, "--shared" in argv))
+        listing, returns, p_listing, p_returns = rows(conn, schema, "--shared" in argv)
+    out, pro = compare(listing, returns), compare_promoters(p_listing, p_returns)
     for k in ("equal", "part_a_only", "differ", "unread"):
         print(f"{k}: {len(out[k])}")
     for d in out["part_a_only"]:
@@ -71,7 +99,15 @@ def main(argv=None) -> int:
         print(f"  DIFFERS {d['party']} {d['year']}: ours {d['ours']:.2f}, Commission {d['commission']}, document {d['document']}")
     for d in out["unread"]:
         print(f"  unread: {d['party']} {d['year']} (Commission {d['commission']})")
-    return 1 if out["differ"] else 0
+    print("promoters, each column against its return's part:")
+    for k in ("equal", "differ", "unread"):
+        print(f"{k}: {len(pro[k])}")
+    for d in pro["differ"]:
+        print(f"  DIFFERS {d['promoter']} {d['year']} {d['spending']}: ours {d['ours']:.2f}, Commission "
+              f"{d['commission']:.2f}, document {d['document']}")
+    for d in pro["unread"]:
+        print(f"  unread: {d['promoter']} {d['year']} {d['spending']} (Commission {d['commission']:.2f})")
+    return 1 if out["differ"] or pro["differ"] else 0
 
 
 if __name__ == "__main__":

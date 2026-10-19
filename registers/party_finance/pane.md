@@ -16,4 +16,6 @@ One pane per party per election, and one per promoter.
 - **A promoter.** Its registration (the day, what for), the people the
   register names in its public roles, and its expenses as the Commission's
   table states them, election and referendum spending side by side and
-  never added. Never an email or an address.
+  never added; beside each, the figure the promoter's own return states,
+  linked to its page, and whether the two agree ("not read" where it was
+  not). Never an email or an address.

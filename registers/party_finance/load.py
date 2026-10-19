@@ -16,7 +16,7 @@ import os
 from support import jobrun
 from support import reader as rd
 from support.docstore.landing import read_bytes
-from registers.party_finance import capture, expenses, read
+from registers.party_finance import capture, expenses, promoter_returns, read
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "party_finance"
@@ -48,6 +48,9 @@ COLUMNS_OF = {
     "expense_returns": ("key", "document", "page", "place", "listing_row", "year", "party_label", "party",
                         "party_basis", "current", "total", "total_check", "part_a", "part_b", "part_c", "expense_limit",
                         "read_from", "reader", "profile", "profile_version", "loaded_at"),
+    "promoter_returns": ("key", "document", "page", "place", "listing_row", "year", "promoter", "part", "spending",
+                         "figure", "figure_check", "declared", "schedule", "read_from", "reader", "profile",
+                         "profile_version", "loaded_at"),
 }
 TABLES = tuple(COLUMNS_OF)
 #: the private twin's tables (hard limit 15): never published, never granted to a reader
@@ -102,7 +105,8 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
               "returns_linked": 0, "returns_read": 0, "returns_aside": 0, "capture_lines": len(capture_lines),
               "allocation_pages": 0, "allocation_rows": 0, "allocation_aside": 0, "unread": 0,
               "register_pages": 0, "promoters": 0, "promoter_people": 0, "promoter_aside": 0,
-              "roster_rows": 0, "roster_aside": 0, "statements_linked": 0}
+              "roster_rows": 0, "roster_aside": 0, "statements_linked": 0,
+              "promoter_returns_linked": 0, "promoter_parts": 0, "promoter_parts_read": 0, "promoter_parts_aside": 0}
     for item, why in capture_lines:
         aside(conn, schema, item, "capture", why, shared)
     by_url, files, linked = {}, {}, set()
@@ -134,6 +138,21 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
         counts["links"] += len(links)
         counts["links_unheld"] += sum(1 for x in links if x["document"] is None)
         if kind != "expenses-listing":
+            for r in rows:
+                for x in links:
+                    if x["row_key"] != r["key"] or x["document"] is None:
+                        continue
+                    counts["promoter_returns_linked"] += 1
+                    linked.add(x["document"])
+                    res = promoter_returns.read_return(read_bytes(x["document"]), x["document"], store, r["year"])
+                    out, lines = read.promoter_return_rows(res, r, at)
+                    for row in out:
+                        insert(conn, schema, "promoter_returns", row, shared)
+                    for item, stage, why in lines:
+                        aside(conn, schema, item, stage, why, shared)
+                    counts["promoter_parts"] += len(promoter_returns.COLUMNS.get(r["year"], {}))
+                    counts["promoter_parts_read"] += len(out)
+                    counts["promoter_parts_aside"] += len(lines)
             continue
         for r in rows:
             mine = [x for x in links if x["row_key"] == r["key"]]
@@ -202,7 +221,7 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
             aside(conn, schema, sha, "unread", UNREAD[kind], shared)
             counts["unread"] += 1
     for sha, kind in files.items():
-        if kind in ("expense-return", "financial-statements") and sha not in linked:
+        if kind in ("expense-return", "financial-statements", "promoter-return") and sha not in linked:
             aside(conn, schema, sha, "unread", "held; no row of the Commission's own tables links it", shared)
             counts["unread"] += 1
     counts["accounted"] = sum(1 for k in files.values() if k in READ_KINDS) + counts["unread"] + len(linked)
@@ -212,7 +231,6 @@ def build(conn, schema: str, held: list, store: rd.Store, capture_lines: list = 
 #: kinds the lane holds and does not read yet: a catch-log line each, so every held document is accounted for
 UNREAD = {
     "allocation-decision": "held; the allocation page carries the decision's figures, and the decision itself is not read",
-    "promoter-return": "held; its figure is the Commission's promoter table's, and the return itself is not read yet",
 }
 #: kinds read whole by the build: a listing or a page is accounted for by being read
 READ_KINDS = ("expenses-listing", "promoter-expenses-listing", "allocation-page", "promoter-register", "financials-listing")
@@ -225,6 +243,9 @@ def reconcile(c: dict) -> list:
         bad.append(f"documents: {c['documents']} held, {c['accounted']} read, a row's source or a catch-log line")
     if c["returns_linked"] != c["returns_read"] + c["returns_aside"]:
         bad.append(f"returns: {c['returns_linked']} linked, {c['returns_read']} read + {c['returns_aside']} set aside")
+    if c["promoter_parts"] != c["promoter_parts_read"] + c["promoter_parts_aside"]:
+        bad.append(f"promoter parts: {c['promoter_parts']} on the forms, {c['promoter_parts_read']} read + "
+                   f"{c['promoter_parts_aside']} set aside")
     return bad
 
 

@@ -209,3 +209,23 @@ CREATE TABLE IF NOT EXISTS party_finance.financial_statements (
     read_from          text NOT NULL CHECK (read_from IN ('text', 'pixels')),
     loaded_at          timestamptz NOT NULL
 );
+CREATE TABLE IF NOT EXISTS party_finance.promoter_returns (
+    key               text PRIMARY KEY,                 -- <document sha256>/part/<letter>
+    document          text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page              integer NOT NULL,                 -- the page the figure was read on (the declaration's first)
+    place             text NOT NULL,
+    listing_row       text NOT NULL,                    -- the Commission's row that links this return
+    year              integer NOT NULL,
+    promoter          text NOT NULL,                    -- as the Commission's table names it
+    part              text NOT NULL CHECK (part IN ('A', 'B', 'C')),
+    spending          text NOT NULL,                    -- the Commission's column: election_expenses | cannabis_… | end_of_life_…
+    figure            numeric(14,2) NOT NULL,           -- the part's own figure; parts are never added
+    figure_check      text NOT NULL CHECK (figure_check IN ('declared-and-schedule', 'declared-only', 'schedule-only')),
+    declared          numeric(14,2),                    -- the declaration's box, when read
+    schedule          numeric(14,2),                    -- TOTAL FOR PART <letter>, when read
+    read_from         text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader            text NOT NULL,
+    profile           text NOT NULL,
+    profile_version   integer NOT NULL,
+    loaded_at         timestamptz NOT NULL
+);

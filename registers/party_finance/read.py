@@ -14,6 +14,7 @@ wins once it holds the slug.
     listing_rows(kind, data, sha, year, by_url, at)   -> (rows, links, set_aside)
     expense_return_row(result, link, at)              the register row, or None
     allocation_rows(data, sha, at)                    -> (rows, totals, set_aside)
+    promoter_return_rows(result, listing_row, at)     -> (rows, set_aside), one row per part read
     promoter_rows(data, sha, at)                      -> (promoters, people, private contacts, set_aside)
     statement_rows(data, sha, by_url, at)             -> (rows, links, set_aside)
 """
@@ -22,7 +23,7 @@ import os
 
 from keys import parties
 from support import profiles
-from registers.party_finance import broadcasting, expenses, financials, listing, promoters
+from registers.party_finance import broadcasting, expenses, financials, listing, promoter_returns, promoters
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -129,6 +130,30 @@ def allocation_rows(data: bytes, sha256: str, loaded_at: str = None) -> tuple:
                          "reader": f"{broadcasting.READER}: {broadcasting.MODEL}", "profile": prof["slug"],
                          "profile_version": int(prof["version"]), "read_from": "text", "loaded_at": loaded_at})
     return rows, totals, aside
+
+
+def promoter_return_rows(result: promoter_returns.Result, listing_row: dict, loaded_at: str = None) -> tuple:
+    """A promoter's return → (one row per part read, set_aside); every part the year's form has is one or the other."""
+    loaded_at = loaded_at or now()
+    rows, aside = [], []
+    whys = dict(result.set_aside)
+    for letter, spending in promoter_returns.COLUMNS.get(result.year, {}).items():
+        part = result.parts.get(letter)
+        if part is None or part.figure is None:
+            why = whys.get(letter) or whys.get("") or f"Part {letter}: not read"
+            aside.append((f"{result.document}/part/{letter}", "promoter-return",
+                          f"{listing_row['promoter']} {result.year}: {why}"))
+            continue
+        how, prof, version = result.pages[part.page]
+        rows.append({"key": f"{result.document}/part/{letter}", "document": result.document, "page": part.page,
+                     "place": promoter_returns.PLACE[part.check].format(letter), "listing_row": listing_row["key"],
+                     "year": result.year, "promoter": listing_row["promoter"], "part": letter, "spending": spending,
+                     "figure": part.figure, "figure_check": part.check, "declared": part.declared,
+                     "schedule": part.schedule, "read_from": how,
+                     "reader": ("support.docread 1: text-layer" if how == "text"
+                                else f"{expenses.PAGE_MODEL} (stored reading)"),
+                     "profile": prof, "profile_version": version, "loaded_at": loaded_at})
+    return rows, aside
 
 
 ROLE = {"authorised_representative": "authorised representative", "comparable_with_director": "comparable with director",

@@ -8,7 +8,7 @@ import os
 import pytest
 
 from support import db, lane, rowcontract, sample
-from registers.party_finance import check, expenses, listing, read
+from registers.party_finance import check, expenses, listing, promoter_returns, read
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 LANE = os.path.join(REPO, "registers", "party_finance")
@@ -187,7 +187,8 @@ def filled():
             cur = conn.execute(f"SELECT * FROM {schema}.party_finance_{t}")
             return [dict(zip([d[0] for d in cur.description], r)) for r in cur]
         yield {"schema": schema, "conn": conn, **{t: q(t) for t in ("files", "set_aside", "expense_listing",
-                                                                     "promoter_listing", "listing_links", "expense_returns")}}
+                                                                     "promoter_listing", "listing_links", "expense_returns",
+                                                                     "promoter_returns")}}
 
 
 def test_every_row_keeps_the_row_contract(filled):
@@ -208,7 +209,7 @@ def test_every_sample_return_is_a_row_or_a_catch_log_line_and_never_both(filled)
 
 
 def test_the_listings_read_every_row(filled):
-    assert len(filled["expense_listing"]) == 37 and len(filled["promoter_listing"]) == 7
+    assert len(filled["expense_listing"]) == 37 and len(filled["promoter_listing"]) == 21
     assert not [a for a in filled["set_aside"] if a["stage"] == "listing"]
 
 
@@ -233,6 +234,64 @@ def test_the_published_views_build_on_the_lane_s_tables(filled):
     agree = conn.execute(f"SELECT count(*) FROM {schema}.party_finance_pub_party_expenses WHERE agrees").fetchone()[0]
     conn.rollback()
     assert n == len(filled["expense_listing"]) and agree >= 6
+    conn.execute(L.sql("publish.sql", schema, shared=True).replace("pub.", f"{schema}.party_finance_pub_"))
+    n = conn.execute(f"SELECT count(*) FROM {schema}.party_finance_pub_promoter_expenses").fetchone()[0]
+    agree = conn.execute(f"SELECT count(*) FROM {schema}.party_finance_pub_promoter_expenses "
+                         "WHERE election_agrees AND cannabis_referendum_agrees").fetchone()[0]
+    conn.rollback()
+    assert n == len(filled["promoter_listing"]) and agree >= 1
+
+
+PROMOTER_DECLARATION = """2. TOTAL ELECTION EXPENSES
+   Part A: Election advertising $ 141,224.34
+3. TOTAL REFERENDUM EXPENSES FOR THE CANNABIS REFERENDUM
+   Part B: Referendum advertising for the Cannabis Referendum
+   $ 141,224.34
+   Part C: Referendum advertising for the End of Life Choice Act Referendum
+
+   $ 0.00
+"""
+
+
+def test_each_promoter_part_is_its_own_figure_checked_by_the_return_s_two_statements():
+    parts = promoter_returns.scan({1: PROMOTER_DECLARATION, 2: "TOTAL FOR PART A $ 141,224.34\n",
+                                   4: "TOTAL FOR PART B\n$141,224.34\n"}, "ABC")
+    assert [promoter_returns.judge(parts[k]) for k in "ABC"] == ["", "", ""]
+    assert [(parts[k].figure, parts[k].check) for k in "ABC"] == [
+        (141224.34, "declared-and-schedule"), (141224.34, "declared-and-schedule"), (0.0, "declared-only")]
+    assert parts["B"].schedule_page == 4 and parts["C"].page == 1
+
+
+def test_a_promoter_part_its_two_statements_contradict_or_neither_states_is_not_read():
+    parts = promoter_returns.scan({1: PROMOTER_DECLARATION, 2: "TOTAL FOR PART A $ 141,224.00\n"}, "AB")
+    assert "not the schedule's total" in promoter_returns.judge(parts["A"])
+    parts = promoter_returns.scan({1: "Part A: Election advertising\nWrite 'N/A' if you have none\nN/A\n"}, "A")
+    assert parts["A"].declared is None and "no figure read" in promoter_returns.judge(parts["A"])
+
+
+def test_compare_promoters_never_adds_a_referendum_column_to_the_election_one():
+    listing_rows = [{"key": "r", "year": 2020, "promoter": "P", "election_expenses": 5.0,
+                     "cannabis_referendum_expenses": 5.0, "end_of_life_referendum_expenses": 0.0},
+                    {"key": "s", "year": 2023, "promoter": "Q", "election_expenses": 7.0,
+                     "cannabis_referendum_expenses": None, "end_of_life_referendum_expenses": None}]
+    returns = [{"listing_row": "r", "spending": "election_expenses", "figure": 5.0, "document": "x"},
+               {"listing_row": "r", "spending": "cannabis_referendum_expenses", "figure": 4.0, "document": "x"}]
+    out = check.compare_promoters(listing_rows, returns)
+    assert [(d["promoter"], d["spending"]) for d in out["equal"]] == [("P", "election_expenses")]
+    assert [d["spending"] for d in out["differ"]] == ["cannabis_referendum_expenses"]
+    assert [(d["promoter"], d["spending"]) for d in out["unread"]] == [
+        ("P", "end_of_life_referendum_expenses"), ("Q", "election_expenses")]
+
+
+def test_every_sample_promoter_part_is_a_row_or_a_catch_log_line_and_agrees_with_the_commission(filled):
+    rows = {r["key"] for r in filled["promoter_returns"]}
+    aside = {a["item"] for a in filled["set_aside"] if a["stage"] == "promoter-return"}
+    assert rows and not (rows & aside)
+    out = check.compare_promoters(filled["promoter_listing"], filled["promoter_returns"])
+    assert out["differ"] == [] and len(out["equal"]) >= 4, out
+    today = dt.date.today()
+    for r in filled["promoter_returns"]:
+        assert rowcontract.validate({**r, "loaded_at": r["loaded_at"].isoformat()}, today) == [], r["key"]
 
 
 ALLOCATION = """<html><body><ol><li>Past elections</li><li>2023 General Election</li></ol>
