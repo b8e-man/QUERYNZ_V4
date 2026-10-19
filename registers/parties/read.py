@@ -1,0 +1,1 @@
+"""The reading: register pages read from their text layer through the reader contract, from the document profile; a party's lifecycle (registration, renames, deregistration) from the Commission's notices. Built by the parties session."""

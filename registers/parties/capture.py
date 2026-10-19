@@ -1,0 +1,1 @@
+"""Step 1.10 case one: documents already held. This lane takes the Register of Political Parties as the old estate holds it under its staging folders by hash, read-only, and fetches nothing (step 4.1). Built by the parties session."""
