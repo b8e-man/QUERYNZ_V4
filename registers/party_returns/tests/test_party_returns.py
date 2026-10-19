@@ -149,13 +149,27 @@ def test_every_sample_document_is_a_row_or_set_aside_and_never_both(filled):
     aside = {a[0] for a in filled["aside"]}
     assert rows | aside == set(_items())
     assert not (rows & aside)
-    assert len(rows) >= 20, "the slice reads the text-layer returns; fewer than twenty means the reader broke"
+    assert len(rows) >= 28, "the lane reads the text-layer and the stored-reading returns; fewer means the reader broke"
 
 
-def test_the_mixed_return_is_set_aside_at_recognition(filled):
-    stages = {a[0]: (a[1], a[2]) for a in filled["aside"]}
-    mixed = [i for i in open(os.path.join(LANE, "sample.list"), encoding="utf-8") if "mixed" in i and not i.startswith("#")][0].split()[0]
-    assert stages[mixed][0] == "recognise" and "page reader" in stages[mixed][1]
+def test_a_mixed_return_reads_its_text_declaration_page_before_any_pixels(filled):
+    rows = {r["document"]: r for r in filled["rows"]}
+    mixed = [i for i in open(os.path.join(LANE, "sample.list"), encoding="utf-8") if "the declaration page is text" in i][0].split()[0]
+    r = rows[mixed]
+    assert r["read_from"] == "text" and r["profile"] == "ec-party-return-image-declaration" and r["year_from"] == "declaration page"
+
+
+def test_the_pixel_cases_land_where_the_sample_list_says(filled):
+    rows = {r["document"]: r for r in filled["rows"]}
+    stages = {a[0]: a[1] for a in filled["aside"]}
+    for line in open(os.path.join(LANE, "sample.list"), encoding="utf-8"):
+        if "(pixels" not in line:
+            continue
+        sha = line.split()[0]
+        if "set aside" in line:
+            assert sha in stages, line
+        else:
+            assert sha in rows and rows[sha]["read_from"] == "pixels", line
 
 
 def test_every_row_keeps_the_row_contract(filled):
@@ -165,7 +179,8 @@ def test_every_row_keeps_the_row_contract(filled):
         row["loaded_at"] = r["loaded_at"].isoformat()
         row["filed"] = {"year": r["year"], "declared_total": r["declared_total"]}
         assert rowcontract.validate(row, today) == [], r["key"]
-        assert r["key"] == r["document"] + "/declaration" and r["read_from"] == "text"
+        assert r["key"] == r["document"] + "/declaration" and r["read_from"] in ("text", "pixels")
+        assert r["year_from"] in ("declaration page", "loans page", "year ended")
         assert r["party"] is not None, f"{r['party_label']!r} did not resolve to a registered party"
         assert r["total_check"] in ("parts-sum", "declared-nil")
 

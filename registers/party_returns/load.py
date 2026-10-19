@@ -17,7 +17,7 @@ from registers.party_returns import capture, read
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "party_returns"
 TABLES = ("returns", "set_aside")
-COLUMNS = ("key", "document", "page", "place", "party", "party_label", "party_basis", "year", "declared_total",
+COLUMNS = ("key", "document", "page", "place", "party", "party_label", "party_basis", "year", "year_from", "declared_total",
            "part_a", "part_c", "part_d", "part_f", "part_g", "declared_parts", "total_check", "read_from", "reader",
            "profile", "profile_version", "loaded_at")
 
@@ -74,5 +74,6 @@ def publish(conn, staging: str) -> None:
         create_tables(conn, SCHEMA)
         wipe(conn, SCHEMA)
         for t in TABLES:
-            conn.execute(f"INSERT INTO {SCHEMA}.{t} SELECT * FROM {staging}.{t}")
+            cols = ", ".join(COLUMNS) if t == "returns" else "document, stage, reason, at"
+            conn.execute(f"INSERT INTO {SCHEMA}.{t} ({cols}) SELECT {cols} FROM {staging}.{t}")
         conn.execute(sql("publish.sql"))

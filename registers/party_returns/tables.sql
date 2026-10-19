@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS party_returns.returns (
     party_label      text NOT NULL,                          -- the party name as filed on the declaration page
     party_basis      text NOT NULL,                          -- exact | variant | core | fuzzy:<ratio> | unresolved
     year             integer NOT NULL,                       -- the calendar year the return covers, as printed
+    year_from        text NOT NULL,                          -- declaration page | loans page | year ended (registers/party_returns/pixels.py)
     declared_total   numeric(14,2) NOT NULL,                 -- the return's own grand total, as printed
     part_a           numeric(14,2),
     part_c           numeric(14,2),
@@ -25,11 +26,13 @@ CREATE TABLE IF NOT EXISTS party_returns.returns (
     profile_version  integer NOT NULL,
     loaded_at        timestamptz NOT NULL
 );
+-- year_from came with step 4 (the pixel route); a table made before it gains the column, and rows are named by column
+ALTER TABLE party_returns.returns ADD COLUMN IF NOT EXISTS year_from text;
 
 -- the catch log: one line for every document the lane could not take to a row
 CREATE TABLE IF NOT EXISTS party_returns.set_aside (
     document   text NOT NULL,
-    stage      text NOT NULL,                                -- recognise | declaration
+    stage      text NOT NULL,                                -- recognise | read | declaration
     reason     text NOT NULL,
     at         timestamptz NOT NULL DEFAULT now()
 );
