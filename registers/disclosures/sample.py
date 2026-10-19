@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(HERE)))
 
 from support.docstore import sha256_file  # noqa: E402
-from support.docstore.landing import copy_from_old, land, path_for, read_bytes  # noqa: E402
+from support.docstore.landing import copy_from_old, land, names_of, path_for, read_bytes  # noqa: E402
 from registers.disclosures import capture  # noqa: E402
 from registers.disclosures import load as L  # noqa: E402
 
@@ -43,8 +43,8 @@ def fill(conn, schema: str, items: list) -> int:
             data = read_bytes(sha)
             # every name the store and the old folder know: the table may link any one of them
             index = index if index is not None else old_index()
-            names = [r[0] for r in conn.execute("SELECT name FROM docs.names WHERE sha256 = %s AND kind = 'file'", (sha,))]
-            names = sorted(set(names) | {os.path.basename(p) for _, p in index.get(sha, [])}) or [sha]
+            names = {os.path.basename(n) for n in names_of(sha, conn)} | {os.path.basename(p) for _, p in index.get(sha, [])}
+            names = sorted(names) or [sha]
             for name in names:
                 land(data, name=name, source=capture.SOURCE, conn=conn)
         else:

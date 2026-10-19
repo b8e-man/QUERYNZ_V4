@@ -21,7 +21,8 @@ TABLES = ("declarations", "items", "files", "set_aside")
 COLUMNS = ("key", "document", "page", "place", "regime", "threshold", "section", "party", "party_label", "party_basis",
            "donor_name", "amount", "amount_original", "received_on", "given_on", "commission_note", "amendment",
            "amended_on", "withdrawn_on", "returned_on", "amount_note", "items_sum", "items_check",
-           "at_or_under_threshold", "href", "declaration_document", "read_from", "reader", "profile",
+           "at_or_under_threshold", "href", "declaration_document", "form_total", "form_check", "form_reading",
+           "read_from", "reader", "profile",
            "profile_version", "loaded_at")
 ITEM_COLUMNS = ("key", "declaration", "ordinal", "amount", "first_date", "contributor", "text")
 
@@ -44,8 +45,15 @@ def sql(name: str, schema: str = SCHEMA, shared: bool = False) -> str:
 
 
 def create_tables(conn, schema: str, shared: bool = False) -> None:
+    """The lane's tables as tables.sql has them now: made again on every
+    build, since every row is rebuilt from documents (a register can be
+    regenerated). The published views go with them; publish makes them
+    again in the same transaction."""
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {private_of(schema)}")
+    for t in TABLES:
+        conn.execute(f"DROP TABLE IF EXISTS {table(schema, t, shared)} CASCADE")
+    conn.execute(f"DROP TABLE IF EXISTS {table(private_of(schema), 'donor_addresses', shared)} CASCADE")
     conn.execute(sql("tables.sql", schema, shared))
 
 
@@ -55,12 +63,14 @@ def wipe(conn, schema: str, shared: bool = False) -> None:
     conn.execute(f"DELETE FROM {table(private_of(schema), 'donor_addresses', shared)}")
 
 
-def insert(conn, schema: str, result: read.Result, linked: dict, shared: bool = False) -> int:
+def insert(conn, schema: str, result: read.Result, linked: dict, forms: dict, shared: bool = False) -> int:
     for item, stage, reason in result.set_aside:
         conn.execute(f"INSERT INTO {table(schema, 'set_aside', shared)} (item, stage, reason) VALUES (%s, %s, %s)",
                      (item, stage, reason))
     for row in result.rows:
-        r = {**row, **row["filed"], "declaration_document": linked.get(row["key"])}
+        doc = linked.get(row["key"])
+        r = {**row, **row["filed"], "declaration_document": doc,
+             **read.form_check(row["filed"]["amount"], doc, forms)}
         conn.execute(f"INSERT INTO {table(schema, 'declarations', shared)} ({', '.join(COLUMNS)}) "
                      f"VALUES ({', '.join(['%s'] * len(COLUMNS))})", tuple(r[c] for c in COLUMNS))
     for it in result.items:
@@ -84,9 +94,10 @@ def build(conn, schema: str, listings: list, declarations: list, aside: list, sh
     results = [read.read_listing(read_bytes(sha), sha) for sha, _ in listings]
     rows = [r for res in results for r in res.rows]
     linked, files = read.join(rows, declarations)
+    forms = {sha: read.form_reading(sha) for sha in set(linked.values())}
     n = seen = aside_n = 0
     for res in results:
-        n += insert(conn, schema, res, linked, shared)
+        n += insert(conn, schema, res, linked, forms, shared)
         seen += res.seen
         aside_n += len(res.set_aside)
     files_t = table(schema, "files", shared)

@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS disclosures.declarations (
     at_or_under_threshold  boolean NOT NULL,                    -- the Commission's own figure does not exceed the regime's floor
     href                   text,                                -- the Commission's link to the scanned declaration
     declaration_document   text CHECK (declaration_document ~ '^[0-9a-f]{64}$'),  -- the scan, when held
+    form_total             numeric(14,2),                       -- the scan's own printed total, from a held page reading (pixels)
+    form_check             text NOT NULL,                       -- equal | differs | no total read | no reading held | no scan held
+    form_reading           text,                                -- the reading's stamp: <model>/<settings hash> <profile>@<version> page <n>
     read_from              text NOT NULL CHECK (read_from IN ('text', 'pixels')),
     reader                 text NOT NULL,
     profile                text NOT NULL,

@@ -8,9 +8,10 @@
    same party and year; a difference is a card, never a silent fix. The
    frozen site reads only the 2023 regime, so the earlier regimes are
    counted apart, not compared.
-2. The form's own total (tranche 2): the Commission prints the amount
-   twice, in its table and on the scanned declaration; where a reading of
-   the scan is held, the two are compared.
+2. The form's own total: the Commission prints the amount twice, in its
+   table and on the scanned declaration. Where a page reading of the scan
+   is held, the load compares the two (`form_check`); here they are
+   counted, and a difference fails the check.
 
     frozen()                       ({(party, year): total}, {party: count})
     compare(rows, frozen_by_year, frozen_n)
@@ -69,8 +70,12 @@ def main(argv=None) -> int:
     database = argv[argv.index("--database") + 1] if "--database" in argv else "querynz_v4"
     from support import db
     with db.connect(db.READ_KEY if database == "querynz_v4" else db.OWNER_KEY, database) as conn:
-        cur = conn.execute(f"SELECT party, party_label, regime, amount, given_on FROM {schema}.declarations")
+        cur = conn.execute(f"SELECT key, party, party_label, regime, amount, given_on, form_total, form_check "
+                           f"FROM {schema}.declarations")
         rows = [dict(zip([d[0] for d in cur.description], r)) for r in cur]
+    forms = {}
+    for r in rows:
+        forms[r["form_check"]] = forms.get(r["form_check"], 0) + 1
     out = compare(rows, *frozen())
     print(f"equal: {len(out['equal'])} party-years; differ: {len(out['differ'])}; "
           f"earlier regimes held, not on the frozen site: {out['earlier_regimes']}")
@@ -80,7 +85,11 @@ def main(argv=None) -> int:
         print(f"  count {c['party']}: ours {c['ours']}, frozen {c['frozen']}")
     for label, n in sorted(out["unresolved_parties"].items()):
         print(f"  not a registered party in keys.parties: {label!r} ({n})")
-    return 1 if out["differ"] else 0
+    print("the form's own total against the table: " + ", ".join(f"{k} {v}" for k, v in sorted(forms.items())))
+    for r in rows:
+        if r["form_check"] == "differs":
+            print(f"  FORM DIFFERS {r['key']}: table {r['amount']:.2f}, form {r['form_total']:.2f}")
+    return 1 if out["differ"] or forms.get("differs") else 0
 
 
 if __name__ == "__main__":

@@ -28,7 +28,10 @@ from dataclasses import dataclass, field
 from keys import parties
 from keys.names import is_organisation, organisation_key, person_key
 from support import profiles
-from registers.disclosures import listing
+from support import reader as rd
+from support.docread import pagereader
+from support.docread.read import read_document
+from registers.disclosures import form, listing
 
 PROFILE = "ec-disclosure-listing"
 READER = "registers.disclosures.listing 1"
@@ -114,6 +117,47 @@ def read_listing(data: bytes, sha256: str, loaded_at: str = None) -> Result:
     return out
 
 
+def form_reading(sha256: str) -> dict:
+    """The scan's own printed total from its held page readings (replayed,
+    never made here): {'total', 'stamp'} or {'total': None, 'stamp': None,
+    'held': False}."""
+    pages = form.stored(sha256)
+    if not pages:
+        return {"total": None, "stamp": None, "held": False}
+    got = form.total({p.page: p.text for p in pages})
+    at = next((p for p in pages if p.page == got.page), pages[0])
+    stamp = f"{at.model}/{rd.settings_hash(at.settings)} {at.profile}@{at.profile_version} page {got.page or '-'}"
+    return {"total": got.amount, "stamp": stamp, "held": True}
+
+
+def form_check(amount: float, document: str, forms: dict) -> dict:
+    """The table's amount against the scan's printed total: two statements
+    of one figure by the Commission. A difference is reported, never
+    resolved here."""
+    if not document:
+        return {"form_total": None, "form_check": "no scan held", "form_reading": None}
+    f = forms.get(document) or {"held": False}
+    if not f.get("held"):
+        return {"form_total": None, "form_check": "no reading held", "form_reading": None}
+    if f["total"] is None:
+        return {"form_total": None, "form_check": "no total read", "form_reading": f["stamp"]}
+    same = abs(f["total"] - float(amount)) < 0.005
+    return {"form_total": f["total"], "form_check": "equal" if same else "differs", "form_reading": f["stamp"]}
+
+
+def read_scan(data: bytes, sha256: str, store: rd.Store = None, page_reader: bool = False):
+    """Every page of one scanned declaration read by the page reader, as
+    the profile's `page_image` lane says (the form's text layer holds the
+    labels, never the typed values). For the scheduler's job; the fast tier
+    calls it with `page_reader=False` and gets the unread pages named."""
+    prof = profiles.profile(form.PROFILE)
+    n = pagereader.page_total(data) if pagereader.is_pdf(data) else 1
+    blank = {p: "" for p in range(1, n + 1)}
+    return read_document(data, sha256, profile=form.PROFILE, profile_version=int(prof["version"]),
+                         store=store or rd.Store(), page_reader=page_reader, texts=blank,
+                         dpi=int((prof.get("ocr") or {}).get("dpi") or 200))
+
+
 def join(rows: list, held: list) -> tuple:
     """rows: the read rows; held: [(sha256, Commission file name)] of the
     landed declarations. Returns ({key: sha256}, [(sha256, name, linked_by,
@@ -144,3 +188,25 @@ def join(rows: list, held: list) -> tuple:
         else:
             files.append((sha, name, None, "not linked by the table"))
     return linked, files
+
+
+def main(argv=None) -> int:
+    """`python -m registers.disclosures.read --scan SHA`: one scanned
+    declaration read by the page reader, every page, and stored; the piece
+    of the `qv4-disclosures-read` job, run by a scheduler worker that holds
+    the GLM-OCR profile (never by hand: core, "Shared things on the
+    boxes"). Prints the hash, the pages read and unread, never the text."""
+    import sys
+    from support.docstore.landing import read_bytes
+    argv = argv if argv is not None else sys.argv[1:]
+    if "--scan" not in argv:
+        print("usage: python -m registers.disclosures.read --scan SHA256")
+        return 2
+    sha = argv[argv.index("--scan") + 1]
+    got = read_scan(read_bytes(sha), sha, page_reader=True)
+    print(f"{sha} read {len(got.readings)} page(s), replayed {got.replayed}, unread {got.unread}")
+    return 1 if got.unread else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

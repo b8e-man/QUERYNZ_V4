@@ -149,6 +149,34 @@ def test_a_challenge_shell_and_a_cut_file_are_not_documents(tmp_path):
     assert capture.commission_name("/x/archive/2026-20k+-donations__A_1_May_2026.pdf") == "A_1_May_2026.pdf"
 
 
+FORM_PAGE = """Party Donation Disclosure
+Donations exceeding $20,000 must be disclosed within 10 working days
+Total donation and date received
+Total amount
+$ 21,563.88
+Amount Date received Amount Date received
+$ 3,593.98 1/6/26 $ 3,593.98 2/6/26
+"""
+
+
+def test_the_form_s_total_is_the_figure_under_its_label_never_the_boilerplate():
+    from registers.disclosures import form
+    got = form.total({1: FORM_PAGE})
+    assert (got.amount, got.page) == (21563.88, 1)
+    assert form.total({1: FORM_PAGE.replace("$ 21,563.88", "")}).amount == 3593.98, "the next figure in the window"
+    assert form.total({1: "Donations exceeding $20,000\nTotal amount\n\n\n\n\n\n$ 5.00"}).amount is None
+    assert form.total({}).why
+
+
+def test_the_form_check_names_what_it_could_not_compare():
+    forms = {"1" * 64: {"held": True, "total": 21563.88, "stamp": "s"}, "2" * 64: {"held": True, "total": None, "stamp": "s"}}
+    assert read.form_check(21563.88, "1" * 64, forms)["form_check"] == "equal"
+    assert read.form_check(21000.00, "1" * 64, forms)["form_check"] == "differs"
+    assert read.form_check(1.0, "2" * 64, forms)["form_check"] == "no total read"
+    assert read.form_check(1.0, "3" * 64, forms)["form_check"] == "no reading held"
+    assert read.form_check(1.0, None, forms)["form_check"] == "no scan held"
+
+
 def test_compare_buckets_by_the_day_the_party_received_the_gift():
     rows = [{"party": "Example Party", "party_label": "Example Party", "regime": check.COMPARED, "amount": 30000, "given_on": dt.date(2023, 12, 30)},
             {"party": "Example Party", "party_label": "Example Party", "regime": check.COMPARED, "amount": 25000, "given_on": dt.date(2024, 1, 2)},
@@ -238,6 +266,16 @@ def test_the_scans_join_by_the_commission_s_link(filled):
             assert sha not in linked
         elif "linked" in line or "archive" in line:
             assert files[sha]["status"] == "linked" and sha in linked, line
+
+
+def test_the_form_s_own_total_never_differs_from_the_table_where_a_reading_is_held(filled):
+    checks = {}
+    for r in filled["rows"]:
+        checks[r["form_check"]] = checks.get(r["form_check"], 0) + 1
+    assert checks.get("differs", 0) == 0, [(r["key"], r["amount"], r["form_total"]) for r in filled["rows"] if r["form_check"] == "differs"]
+    assert checks.get("equal", 0) >= 1, "the sample holds a scan with a stored reading; none compared means the replay broke"
+    assert all(r["form_check"] == "no scan held" for r in filled["rows"] if r["regime"] != "over-20000-from-2023"), \
+        "the Commission links no scan before 2023"
 
 
 def test_each_party_year_equals_the_frozen_site_or_has_a_card(filled):

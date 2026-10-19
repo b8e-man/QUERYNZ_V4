@@ -4,6 +4,7 @@ CREATE OR REPLACE VIEW pub.disclosures AS
 SELECT key, document, page, place, regime, threshold, section, party, party_label, party_basis, donor_name,
        amount, amount_original, received_on, given_on, commission_note, amendment, amended_on, withdrawn_on,
        returned_on, amount_note, items_sum, items_check, at_or_under_threshold, href, declaration_document,
+       form_total, form_check, form_reading,
        read_from, reader, profile, profile_version, loaded_at
 FROM disclosures.declarations;
 

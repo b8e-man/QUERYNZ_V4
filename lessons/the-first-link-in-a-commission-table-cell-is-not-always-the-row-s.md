@@ -1,4 +1,4 @@
-The first link in an Electoral Commission table cell is not always the row's own: three 2023 rows carry a stray empty anchor to another declaration in front of their own, so take the anchor that carries text, and check any cell with two links.
+The first link in an Electoral Commission table cell is not always the row's own: three 2023 rows carry a stray empty link to another declaration first, so take the anchor that carries text.
 area: registers/disclosures, any lane reading an elections.nz table (promoters, party expenses, candidate returns)
 paid-for-by: 2026-10-19, disclosures session, step 4.1
 
