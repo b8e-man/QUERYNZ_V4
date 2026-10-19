@@ -3,7 +3,7 @@
 Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
-**Date:** 2026-10-20, 04:15. **Step:** 3 closed under ruling 60; 4.1 running; tracks B and E on the queue's clock. **Boxes:** node2 is the estate; node1 waits
+**Date:** 2026-10-20, 05:00. **Step:** 3 closed under ruling 60; 4.1 running, no session open; tracks B and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1 waits
 for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy
 address (test alarm 18 October).
 
@@ -26,11 +26,10 @@ address (test alarm 18 October).
 - Step 4.1, three lanes merged: disclosures (`docs/merges/disclosures-1`,
   `-2`: 520 declarations from the Commission's table, 2023-on total equal
   to the cent, 15 of 16 party-years equal, National 2023 queued for Arthur;
-  246 scans read, form check 223 equal, 3 differ, carded); party returns (`party-returns-2`: 99 rows, 49
-  party-years equal, 0 differing; Part A donors on 22 returns, 476 rows;
-  loans on 6; 14 amendments; `qv4-read-pages` reads the 41 unread
-  returns' image pages, rows 110 done and 111 running; session 3 reloads,
-  then Part A's refused pages and the outside check); parties
+  246 scans read, form check 223 equal, 3 differ, carded); party returns (`party-returns-2`: Part A donors, loans,
+  amendments; `qv4-read-pages` read the 41 unread returns' pages, rows
+  110 and 111; now 137 rows, 15 set aside; session 3 re-measures, then
+  Part A's refused pages and the outside check); parties
   (`parties-1`: 78 registrations, 149 names with windows, every rename
   read, 17 on the register). Blocker: `keys.parties` must read
   `pub.party_names` by date (fix session briefed).
@@ -40,10 +39,10 @@ address (test alarm 18 October).
   the lane checks on the board. Rulings 58 and 59 (orders kept and never
   shown; no letter to the Authority yet). Open: the gate's redirect and
   gzip card (`support/fetchgate`).
-- Track B session 2 running: the copy and its restore merged
-  (`docs/merges/offsite-2a`: `qv4-offsite-copy` nightly 21:00 NZDT beside
-  the 1.8 dump, first nightly run 19 October; `qv4-offsite-rehearsal`
-  every 28 days); 2b follows, then the dump is retired.
+- Track B closed (`docs/merges/offsite-2a`, `-2b`): `qv4-offsite-copy`
+  nightly 21:00 NZDT, ranges for big tables, order-free restore check, a
+  bucket restore to equality in 1 h 50 min; the step 1.8 dump retired.
+  Next: the Sunday full (25 October) and the first 28-day rehearsal.
 - The node1 setup card when Arthur powers node1. The positive half of 1.4
   waits for a new declaration.
 
