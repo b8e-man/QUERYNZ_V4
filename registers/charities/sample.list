@@ -1,1 +1,12 @@
-# registers/charities/sample.list: hashes and key: lines only. Empty until the capture lands its first records.
+# registers/charities/sample.list: hashes and key: lines only. Pages of the feed landed by the capture on 20 October 2026.
+# the feed's metadata (every entity set, its key and fields)
+4c6044da8e6750d6f1bc015e7b586776b8aa4566e7ce9b207deed9a4f1f23e8b
+# the open-data page: the terms (CC BY 3.0 NZ, the 1,000-row limit, the email-address limit)
+34e09f96ffb44c0e970afa91a9b6198c0ea94d2b14a194c7ea206faa8ce8d097
+# OfficerStatus, a code list (7 rows)
+096cd46a0a021f648663c6d40d979d84451ad0592bcb43425113fda6b353ecbb
+# Groups, the whole set in one page (357 rows)
+610afd8fbcd60229e01373d412bae03d12923c2e33e8e37551d76e369e85b0db
+# Organisations, the first page of the first full pass (keys 32584 to 33583)
+8b8c330e98358148cb8adbcb62c7b8c88b2c3842852047e1a960b4afffe01e9b
+key: Organisations 32584
