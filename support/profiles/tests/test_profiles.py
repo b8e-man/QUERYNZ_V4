@@ -15,7 +15,7 @@ def test_the_shipped_profiles_load_and_carry_no_address():
     assert len(cur) == 22 and "ec-party-return-text" in cur
     assert cur["ec-party-return-scan"]["version"] == 5 and cur["ec-party-return-scan"]["ocr"]["trial"]["ruling"] == 60   # the trial verdict, 19 October
     hist = pr.history("ec-party-return-scan")
-    assert [h["version"] for h in hist] == [1, 2, 3, 4]
+    assert [h["version"] for h in hist] == [1, 2, 3, 4, 5]
     text = open(pr.PROFILES, encoding="utf-8").read()
     assert not re.search(r"\d+ [A-Z][a-z]+ (Road|Street|Avenue)", text)
 
