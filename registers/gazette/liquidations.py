@@ -66,7 +66,7 @@ _SIGNED = re.compile(r"(?P<names>(?<![A-Za-z])[A-Z](?:[^.:;|]|(?<=\b[A-Z])\.){1,
 _PERSON = re.compile(r"^(?:[A-Z](?:\.\s?|\s)){0,3}[A-Z][\w’'\-]+(?:\s+(?:[A-Z]\.?|[A-Z][\w’'\-]+|van|de|der|von|du|le|la|te|ter|di|da)){0,4}$")
 #: a post-nominal ("C.A.", "FCA"); a signature printed in capitals ("ANN EXAMPLE") is a name, not this
 _QUALIFICATION = re.compile(r"^(?:[A-Z]{1,4}\.\s?){1,5}$|^(?:CA|FCA|ACA|CPA|FCPA|CAANZ|CA ANZ|ACIS|LLB|BCom|MBA|QSM|JP|MInstD)$")
-_NOT_NAME = re.compile(r"\b(?:Limited|LIMITED|Ltd|Company|Liquidator|Liquidators|Notice|Dated|Insolvency|Assignee|"
+_NOT_NAME = re.compile(r"\b(?:Limited|LIMITED|Ltd|Company|Liquidator|Liquidators|Receivers?|Managers?|Notice|Dated|Insolvency|Assignee|"
                        r"Chartered|Accountants?|Partners?|Associates|Court|Official|Contact|Phone|Telephone|Email)\b")
 
 
@@ -152,8 +152,10 @@ def _title_head(title: str, text: str) -> str:
     return t
 
 
-def _liquidators(text: str) -> tuple:
-    sig = list(_SIGNED.finditer(text))
+def _liquidators(text: str, signed=_SIGNED) -> tuple:
+    """The signature's names; `signed` is the pattern of a signature and its
+    role (a receivership passes its own)."""
+    sig = list(signed.finditer(text))
     if not sig:
         return [], None
     m = sig[-1]

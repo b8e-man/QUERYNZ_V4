@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 
 from keys.dates import filed_date
 from support import profiles
-from registers.gazette import capture, celebrants, liquidations, notices, prohibitions, removals, windingup
+from registers.gazette import capture, celebrants, liquidations, notices, prohibitions, receiverships, removals, windingup
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -48,6 +48,7 @@ READER_LIQUIDATIONS = "registers.gazette.liquidations 2"
 COMPANY_READERS = (
     (removals, "gazette-removal-notice", "registers.gazette.removals 1", "removal"),
     (windingup, "gazette-winding-up-application", "registers.gazette.windingup 1", "winding-up application"),
+    (receiverships, "gazette-receivership", "registers.gazette.receiverships 1", "receivership"),
 )
 NOT_READ = "not read"
 

@@ -61,9 +61,11 @@ CLOSED_FROM, CLOSED_TO = 2000, 2025
 #: measured 20 October 2026 on every row: 98.1% joined, 98.8% of held printed numbers agreeing by name
 JOINED_FLOOR, NUMBER_FLOOR = 0.97, 0.98
 #: the company-notice profiles: the Gazette's section, the profile every notice in it must be taken by, and the
-#: floor of its company rows the register must hold (measured 20 October 2026: removals 96.7%, applications 96.1%)
+#: floor of its company rows the register must hold (measured 20 October 2026: removals 96.7%, applications 96.0%,
+#: receiverships 90.9%: a company sold out of receivership is often renamed, and the register holds the latest name)
 COMPANY = {"removal": ("ds", "gazette-removal-notice", 0.95),
-           "winding-up application": ("aw", "gazette-winding-up-application", 0.95)}
+           "winding-up application": ("aw", "gazette-winding-up-application", 0.95),
+           "receivership": ("ar", "gazette-receivership", 0.88)}
 
 
 def _register(joined: dict) -> dict:

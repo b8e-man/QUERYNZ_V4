@@ -14,6 +14,7 @@ from registers.gazette import celebrants as K
 from registers.gazette import check, notices, read
 from registers.gazette import liquidations as LQ
 from registers.gazette import prohibitions as PR
+from registers.gazette import receiverships as RC
 from registers.gazette import register as RG
 from registers.gazette import removals as RM
 from registers.gazette import windingup as WU
@@ -444,6 +445,29 @@ def test_a_winding_up_application_reads_court_reference_hearing_and_plaintiff_an
     assert [c.name for c in old.companies] == ["C.G.S Limited"] and old.filed_on == "2004-08-09"
 
 
+def test_a_receivership_reads_action_date_appointer_and_receivers_and_never_publishes_a_person_as_a_company():
+    t = ("Notice of Appointment of Receivers and Managers Pursuant to Section 8 of the Receiverships Act 1993 Notice is hereby "
+         "given that on 9 May 2016, Ann Example and Bob Sample, chartered accountants of Town, were appointed as receivers and "
+         "managers of the property of ABLE (2019) LIMITED by Baker Finance Limited under the powers contained in a general "
+         "security agreement. Dated this 10th day of May 2016. Ann Example and Bob Sample, Receivers and Managers. Address: "
+         "Level 2, 12 Sample Street, Town.")
+    r = RC.read("ABLE (2019) LIMITED (in receivership)", t)
+    assert [c.name for c in r.companies] == ["ABLE (2019) LIMITED"] and r.action == "appointment"
+    assert (r.event_on, r.event_basis, r.by_whom, r.statute) == ("2016-05-09", "appointment", "Baker Finance Limited",
+                                                                 "Receiverships Act 1993 s 8")
+    assert [(x.name, x.role) for x in r.people] == [("Ann Example", "Receivers and Managers"), ("Bob Sample", "Receivers and Managers")]
+    assert "Sample Street" not in repr(r)
+    ceased = RC.read("Notice of Ceasing to Act as Receiver", "Notice is hereby given that I ceased to act as receiver of "
+                     "BAKER LIMITED on 3 June 2017. Dated this 5th day of June 2017. Cy Example, Receiver.")
+    assert (ceased.action, ceased.event_on, ceased.event_basis) == ("ceased to act", "2017-06-03", "ceased to act")
+    assert [c.name for c in ceased.companies] == ["BAKER LIMITED"]
+    person = RC.read("ANN BEA EXAMPLE and CARTER LIMITED (in receivership)", t)
+    who = RC.read("ANN BEA EXAMPLE, BOB EXAMPLE, CARTER HOLDINGS LIMITED", t)
+    lone = RC.read("ANN BEA EXAMPLE", t)
+    assert lone.companies == [] and who.companies == [] and any(p == "subject" for p, w in lone.unread + who.unread)
+    assert [c.name for c in person.companies] == ["ANN BEA EXAMPLE and CARTER LIMITED"]   # as printed: an "and" name is the notice's
+
+
 def test_the_check_fails_on_a_ds_or_aw_notice_not_taken_by_its_profile():
     rows = _closed_years() + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
                               ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
@@ -642,3 +666,9 @@ def test_each_removal_and_winding_up_case_reads_as_its_comment_says(filled):
     assert cos["2008-aw1889"][0]["party"] is None
     assert any(a["stage"] == "winding-up application" and "2008-aw1889" in a["item"] for a in filled["aside"])
     assert not set(filled["company_notices"][0]) & {"address", "text", "phone", "email"}
+    assert [c["action"] for c in cos["2008-ar2467"]] == ["ceased to act"] * 2
+    assert cos["2000-ar1621"][0]["by_whom"] not in (None, "court", "security instrument")
+    assert cos["2000-ar4936"][0]["people"] == 2 and cos["2000-ar4936"][0]["by_whom"] == "security instrument"
+    assert cos["2000-ar2556"] and cos["2013-ar2626"][0]["action"] == "appointment; ceased to act"
+    assert notice["2015-ar86"]["status"] == "set aside" and "2015-ar86" not in cos
+    assert cos["2007-ar826"][0]["by_whom"] == "court"
