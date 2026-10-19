@@ -231,13 +231,15 @@ def test_a_daily_timetable_may_name_several_times_and_each_is_checked(tmp_path):
 def test_the_four_founding_jobs_are_on_the_queues_clock_in_utc():
     """Step 2.12: the founding timers' jobs, with the deadlines their units
     carried, a query limit under each, and their times in UTC (the units
-    held NZDT: 07:30, 09:00/21:00, 04:30, 03:05)."""
+    held NZDT: 07:30, 09:00/21:00, 04:30; the off-site dump's 03:05 became
+    track B's copy at 21:00)."""
     cat = reg.load()
     want = {"qv4-checks-board": (("18:30",), 3600), "qv4-checks-heartbeat": (("20:00", "08:00"), 300),
-            "qv4-full-tier": (("15:30",), 7200), "qv4-offsite-dump": (("14:05",), 3600)}
+            "qv4-full-tier": (("15:30",), 7200), "qv4-offsite-copy": (("08:00",), 16200)}
     for name, (times, deadline) in want.items():
         jt = cat[name]
         assert jt.at_utc == times and jt.needs.deadline_s == deadline and jt.cls == "due" and jt.enabled, name
         assert 0 < jt.needs.query_timeout_s < jt.needs.deadline_s, name
         assert jt.needs.needs == "processor" and not jt.every_s and not jt.wanted, name
-    assert cat["qv4-offsite-dump"].requires == ("pg_dump", "gpg"), "node1 once lacked a program and nobody knew"
+    assert cat["qv4-offsite-copy"].requires == ("pg_dump", "gpg", "zstd"), "node1 once lacked a program and nobody knew"
+    assert "qv4-offsite-dump" not in cat, "the step 1.8 dump was retired by track B (offsite-2b)"
