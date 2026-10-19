@@ -8,6 +8,8 @@ model, so the fast tier runs the same code.
   addresses    an independent celebrant's address: the private schema only (hard limit 15)
   prohibitions one per person a prohibition notice names (prohibitions.py); its
                address goes to the private schema only, like a celebrant's
+  liquidations one per company a liquidator's appointment names, and liquidators
+               one per liquidator it names (liquidations.py); no address is read
 
 Items in equal items out plus items set aside, three times over: every
 export line is a notice or a second capture set aside; every notice
@@ -27,16 +29,18 @@ from dataclasses import dataclass, field
 
 from keys.dates import filed_date
 from support import profiles
-from registers.gazette import capture, celebrants, notices, prohibitions
+from registers.gazette import capture, celebrants, liquidations, notices, prohibitions
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
 EXPORT_PROFILE = "gazette-notices-export"
 CELEBRANT_PROFILE = "gazette-celebrant-list"
 PROHIBITION_PROFILE = "gazette-director-prohibition"
+LIQUIDATION_PROFILE = "gazette-liquidator-appointment"
 READER_NOTICES = "registers.gazette.notices 1"
 READER_CELEBRANTS = "registers.gazette.celebrants 1"
 READER_PROHIBITIONS = "registers.gazette.prohibitions 1"
+READER_LIQUIDATIONS = "registers.gazette.liquidations 1"
 NOT_READ = "not read"
 
 
@@ -47,6 +51,8 @@ class Result:
     addresses: list = field(default_factory=list)      # (celebrant key, address)
     prohibitions: list = field(default_factory=list)
     prohibition_addresses: list = field(default_factory=list)   # (prohibition key, address, formerly)
+    liquidations: list = field(default_factory=list)
+    liquidators: list = field(default_factory=list)
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
     counts: dict = field(default_factory=dict)
 
@@ -93,7 +99,7 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
     loaded_at = loaded_at or dt.datetime.now().astimezone().isoformat(timespec="seconds")
     out = Result()
     ev, cv = profile_version(EXPORT_PROFILE), profile_version(CELEBRANT_PROFILE)
-    pv = profile_version(PROHIBITION_PROFILE)
+    pv, lv = profile_version(PROHIBITION_PROFILE), profile_version(LIQUIDATION_PROFILE)
     base = {"document": export_sha, "page": 1, "read_from": "text", "loaded_at": loaded_at}
 
     held = lines_of(export_bytes, set(only) if only is not None else None)
@@ -105,6 +111,7 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
     acted = []                                         # (notice, action, [notice numbers it acts on])
     recognised = with_records = wholly_aside = 0
     prohibited = prohibited_read = prohibited_aside = 0
+    liquidated = liquidated_read = liquidated_aside = 0
     for nid in sorted(by):
         line, others = notices.pick(by[nid])
         for o, why in others:
@@ -150,6 +157,37 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                 status = "set aside"
                 if not got.unread:
                     out.set_aside.append((f"{export_sha}/notice {nid}", "prohibitions", "recognised, and no person read"))
+        elif liquidations.recognise(code, line["title"], line["text"]):
+            liquidated += 1
+            fmt, reader, profile, version = LIQUIDATION_PROFILE, READER_LIQUIDATIONS, LIQUIDATION_PROFILE, lv
+            got = liquidations.read(line["title"], line["text"])
+            for place, why in got.unread:
+                out.set_aside.append((f"{export_sha}/notice {nid} {place}", "liquidations", why))
+            stamp = {**base, "reader": READER_LIQUIDATIONS, "profile": LIQUIDATION_PROFILE, "profile_version": lv}
+            for c in got.companies:
+                out.liquidations.append({
+                    "key": f"gazette/{nid}/company/{c.ordinal}", **stamp, "place": f"notice {nid} company {c.ordinal}",
+                    "filed": {"notice": nid, "published_on": line["published_on"], "company": c.name,
+                              "company_number": c.number, "shape": got.shape, "appointed_by": got.appointed_by,
+                              "statute": got.statute, "appointed_on": c.appointed_on, "appointed_at": c.appointed_at,
+                              "date_basis": c.date_basis, "dated_on": got.dated_on, "corrigendum": got.corrigendum,
+                              "liquidators": len(got.liquidators), "ordinal": c.ordinal},
+                })
+            for x in got.liquidators:
+                out.liquidators.append({
+                    "key": f"gazette/{nid}/liquidator/{x.ordinal}", **stamp, "place": f"notice {nid} liquidator {x.ordinal}",
+                    "filed": {"notice": nid, "published_on": line["published_on"], "name": x.name, "role": x.role,
+                              "named_in_body": x.named_in_body, "companies": len(got.companies), "ordinal": x.ordinal},
+                })
+            records = len(got.companies)
+            if records:
+                liquidated_read += 1
+                status = "read, part set aside" if got.unread else "read"
+            else:
+                liquidated_aside += 1
+                status = "set aside"
+                if not got.unread:
+                    out.set_aside.append((f"{export_sha}/notice {nid}", "liquidations", "recognised, and no company read"))
         elif celebrants.recognise(line["title"], line["text"]):
             recognised += 1
             fmt, reader, profile, version = CELEBRANT_PROFILE, READER_CELEBRANTS, CELEBRANT_PROFILE, cv
@@ -208,6 +246,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
         raise AssertionError(f"the celebrant lists do not reconcile: {recognised} recognised, {with_records} read, {wholly_aside} set aside")
     if prohibited_read + prohibited_aside != prohibited:
         raise AssertionError(f"the prohibitions do not reconcile: {prohibited} recognised, {prohibited_read} read, {prohibited_aside} set aside")
+    if liquidated_read + liquidated_aside != liquidated:
+        raise AssertionError(f"the liquidations do not reconcile: {liquidated} recognised, {liquidated_read} read, {liquidated_aside} set aside")
     if len({r["key"] for r in out.celebrants}) != len(out.celebrants):
         raise AssertionError("two celebrant rows share a key")
     out.counts = {"lines": len(held), "notices": len(out.notices), "captured_twice": twice,
@@ -216,6 +256,9 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                   "celebrant_addresses": len(out.addresses), "prohibition_notices": prohibited,
                   "prohibition_notices_read": prohibited_read, "prohibition_notices_set_aside": prohibited_aside,
                   "prohibitions": len(out.prohibitions), "prohibition_addresses": len(out.prohibition_addresses),
+                  "liquidation_notices": liquidated, "liquidation_notices_read": liquidated_read,
+                  "liquidation_notices_set_aside": liquidated_aside, "liquidations": len(out.liquidations),
+                  "liquidators": len(out.liquidators),
                   "set_aside": len(out.set_aside),
                   "not_read": sum(1 for r in out.notices if r["filed"]["format"] == NOT_READ)}
     return out

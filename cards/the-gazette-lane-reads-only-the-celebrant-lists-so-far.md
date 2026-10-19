@@ -1,9 +1,10 @@
 # The Gazette lane reads only the celebrant lists so far
 kind: finding
-state: open
+state: closed
 use-case: 1
 session: gazette
 opened: 2026-10-20
+closed: 2026-10-20
 
 Every one of the 207,133 notices is held and typed by the Gazette's own
 section code, and one format is read: the Registrar-General's celebrant
@@ -19,3 +20,9 @@ in `gazette_private` from the first line, and samples are masked.
 
 Next session: read the prohibitions (one fixed template, small) and the
 liquidator appointments (the largest), each its own profile and tranche.
+
+Closed by gazette-2: the director prohibitions (537 notices, 538 people,
+profile `gazette-director-prohibition`) and the liquidator appointments
+(43,587 notices, 60,711 company rows, 45,067 liquidator rows, profile
+`gazette-liquidator-appointment`) are read. What is still unread is card
+`the-gazette-lane-leaves-the-other-insolvency-bankruptcy-and-appointment-notices-unread`.

@@ -15,3 +15,8 @@ prohibition, a court order, a banning order, a substitution or a variation), the
 "permanent", its start and end, and the notice that later revoked, replaced or varied it. The address the notice
 prints (`Of:`) is never shown. Where a later notice revoked it, the person is not shown either: one notice was revoked
 because it named the wrong person.
+
+A liquidation row opens to its notice: the company as printed, its number where the notice prints one, who appointed
+the liquidator (shareholders, board, court, creditors) and under which section, the date and time of the appointment
+(or, for the Official Assignee's lists, the list's date, said so), and the liquidators the notice names, each with how
+they were read (signed, or named in the operative sentence). No address, telephone or email is shown or held.

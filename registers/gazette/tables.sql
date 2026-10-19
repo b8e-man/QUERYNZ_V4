@@ -87,6 +87,53 @@ CREATE TABLE IF NOT EXISTS gazette.prohibitions (
     loaded_at        timestamptz NOT NULL
 );
 
+-- one row per company a liquidator's appointment names (profile gazette-liquidator-appointment, section al)
+CREATE TABLE IF NOT EXISTS gazette.liquidations (
+    key              text PRIMARY KEY,                      -- gazette/<notice>/company/<ordinal>
+    notice           text NOT NULL,
+    published_on     date,
+    company          text NOT NULL,                         -- as printed, brackets ("in liquidation") taken out
+    company_number   text,                                  -- where the notice prints one for its one company
+    shape            text NOT NULL CHECK (shape IN ('notice', 'list')),
+    appointed_by     text CHECK (appointed_by IN ('shareholders', 'board', 'court', 'creditors')),
+    statute          text,                                  -- the first Act and section cited
+    appointed_on     date,                                  -- the appointment's date, or the Official Assignee's list date
+    appointed_at     text,                                  -- the time printed with it: "10.30am"
+    date_basis       text CHECK (date_basis IN ('appointment', 'list date')),
+    dated_on         date,
+    corrigendum      boolean NOT NULL,
+    liquidators      integer NOT NULL,                      -- how many the notice names
+    ordinal          integer NOT NULL,
+    document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page             integer NOT NULL DEFAULT 1,
+    place            text NOT NULL,                         -- notice <number> company <ordinal>
+    read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL
+);
+
+-- one row per liquidator a liquidator's appointment names (from its signature, else its operative sentence)
+CREATE TABLE IF NOT EXISTS gazette.liquidators (
+    key              text PRIMARY KEY,                      -- gazette/<notice>/liquidator/<ordinal>
+    notice           text NOT NULL,
+    published_on     date,
+    name             text NOT NULL,                         -- as signed; no address, telephone or email is read
+    role             text NOT NULL,                         -- as signed (Liquidator, Joint Liquidators, …) or 'named as appointed'
+    named_in_body    text NOT NULL CHECK (named_in_body IN ('full', 'surname', 'no')),
+    companies        integer NOT NULL,                      -- how many companies the notice names
+    ordinal          integer NOT NULL,
+    document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page             integer NOT NULL DEFAULT 1,
+    place            text NOT NULL,
+    read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL
+);
+
 -- every document the lane took, and what it did with it
 CREATE TABLE IF NOT EXISTS gazette.files (
     document   text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),

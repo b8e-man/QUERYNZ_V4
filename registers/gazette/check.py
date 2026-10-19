@@ -43,6 +43,7 @@ from registers.gazette import notices
 
 CELEBRANT = "gazette-celebrant-list"
 PROHIBITION = "gazette-director-prohibition"
+LIQUIDATION = "gazette-liquidator-appointment"
 PROHIBITION_TITLE = re.compile(r"^\s*Notice\s+Prohibiting\s+(?:a\s+)?Persons?\b", re.I)
 SERIES = re.compile(r"^\s*(Marriage|Civil Union) Celebrants? for (\d{4})\s+Notice No\.?\s*(\d+)", re.I)
 CLOSED_FROM, CLOSED_TO = 2000, 2025
@@ -78,7 +79,9 @@ def figures(rows, acted=(), marked=()) -> dict:
            "read": sum(1 for f in fmt.values() if f == PROHIBITION), "named": named,
            "named_not_held_or_read": sorted(t for t, (n, f) in named.items() if f != PROHIBITION),
            "named_not_marked": sorted(t for t in named if t not in set(marked))}
-    return {"numbering": numbering, "celebrants": cel, "prohibitions": pro}
+    al = [(n, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] == "al"]
+    liq = {"filed": len(al), "not_read": sorted(n for n, f in al if f != LIQUIDATION)}
+    return {"numbering": numbering, "celebrants": cel, "prohibitions": pro, "liquidations": liq}
 
 
 def failed(f: dict) -> list:
@@ -98,6 +101,12 @@ def failed(f: dict) -> list:
             why.append(f"{t}: named by {p['named'][t][0]} as the notice it acts on, and not held or not read")
         for t in p["named_not_marked"]:
             why.append(f"{t}: acted on by {p['named'][t][0]}, and its rows do not say so")
+    q = f.get("liquidations")
+    if q is not None:
+        if not q["filed"]:
+            why.append("no notice under section al is published")
+        for n in q["not_read"][:20]:
+            why.append(f"{n}: filed by the Gazette under al and not read as a liquidator's appointment")
     years = set(f["numbering"])
     for y in range(CLOSED_FROM, CLOSED_TO + 1):
         if y not in years:
@@ -134,6 +143,9 @@ def main(argv=None) -> int:
           f"{p['titled'] - len(p['titled_not_read']):,} read as such; {p['read']:,} read in all; "
           f"{len(p['named'])} named by number by a later notice, "
           f"{len(p['named']) - len(p['named_not_held_or_read'])} held and read")
+    q = f["liquidations"]
+    print(f"Liquidator's appointments: {q['filed']:,} notices the Gazette files under al, "
+          f"{q['filed'] - len(q['not_read']):,} taken by its profile (read, or set aside with a reason)")
     why = failed(f)
     for w in why:
         print("FAILS " + w)

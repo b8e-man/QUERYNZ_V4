@@ -12,6 +12,7 @@ import pytest
 from support import db, lane, rowcontract, sample
 from registers.gazette import celebrants as K
 from registers.gazette import check, notices, read
+from registers.gazette import liquidations as LQ
 from registers.gazette import prohibitions as PR
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -166,14 +167,14 @@ def test_the_reading_reconciles_and_keys_are_stable_across_reads():
     one, two = read.read(data, "0" * 64), read.read(data, "0" * 64)
     assert one.counts["notices"] == 2 and one.counts["captured_twice"] == 1 and one.counts["celebrants"] == 3
     assert [r["key"] for r in one.celebrants] == [r["key"] for r in two.celebrants]
-    assert {r["filed"]["format"] for r in one.notices} == {"gazette-celebrant-list", "not read"}
+    assert {r["filed"]["format"] for r in one.notices} == {"gazette-celebrant-list", "gazette-liquidator-appointment"}
     assert read.read(data, "0" * 64, only={"2016-al2"}).counts["notices"] == 1
 
 
 # --- the outside check -------------------------------------------------------------
 
 def test_the_check_fails_on_a_numbered_celebrant_notice_the_lane_did_not_read():
-    rows = [(f"{y}-al1", "Example Limited", "not read") for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
+    rows = [(f"{y}-al1", "Example Limited", check.LIQUIDATION) for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
     good = rows + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
                    ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
     assert check.failed(check.figures(good)) == []
@@ -258,7 +259,7 @@ def test_two_notices_captured_as_one_text_are_both_read():
 
 
 def test_the_check_fails_on_a_titled_prohibition_not_read_and_an_unmarked_revocation():
-    rows = [(f"{y}-al1", "Example Limited", "not read") for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
+    rows = [(f"{y}-al1", "Example Limited", check.LIQUIDATION) for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
     rows += [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
              ("2026-ot41", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION),
              ("2026-ot144", "Revocation of Notice", check.PROHIBITION)]
@@ -267,6 +268,76 @@ def test_the_check_fails_on_a_titled_prohibition_not_read_and_an_unmarked_revoca
     assert any("2026-ot9" in w for w in check.failed(check.figures(rows, [("2026-ot144", "2026-ot9")], ["2026-ot9"])))
     bad = rows + [("2020-ot1", "Notice Prohibiting Person From Managing Companies", "not read")]
     assert any("2020-ot1" in w for w in check.failed(check.figures(bad)))
+
+
+# --- liquidators' appointments (every name invented) ---------------------------
+
+LIQ = ("Notice of Appointment of Liquidator Company Number: 1234567 Notice is hereby given that, in accordance with section "
+       "241(2)(a) of the Companies Act 1993, the shareholders of the above-named company, on 9 May 2016 at 10.30am, appointed "
+       "Ann Bee Example, insolvency practitioner of Exampletown, as liquidator of the above-named company. Dated this 10th day "
+       "of May 2016. A. B. EXAMPLE, Liquidator. Address of Liquidator: Example and Co Limited, PO Box 1, Exampletown. "
+       "Phone: (09) 987 6543.")
+
+
+def test_a_liquidator_s_appointment_reads_company_appointer_date_and_signature_and_no_contact_line():
+    assert LQ.recognise("al", "x", "y") and not LQ.recognise("go", "Appointment of Liquidator", LIQ)
+    r = LQ.read("SMITH AND JONES LIMITED (in liquidation)", LIQ)
+    assert [(c.name, c.number, c.appointed_on, c.appointed_at) for c in r.companies] == [
+        ("SMITH AND JONES LIMITED", "1234567", "2016-05-09", "10.30am")]
+    assert (r.shape, r.appointed_by, r.statute, r.dated_on) == ("notice", "shareholders", "Companies Act 1993 s 241(2)(a)", "2016-05-10")
+    assert [(x.name, x.role, x.named_in_body) for x in r.liquidators] == [("A. B. EXAMPLE", "Liquidator", "surname")]
+    assert "Box" not in repr(r) and "6543" not in repr(r)
+
+
+def test_a_title_is_cut_only_where_every_part_ends_in_a_suffix():
+    assert LQ.split_names("ABLE LIMITED, BAKER AND SONS LIMITED and CARTER LTD (all in liquidation)") == (
+        ["ABLE LIMITED", "BAKER AND SONS LIMITED", "CARTER LTD"], [])
+    assert LQ.split_names("Corrigendum—ABLE LIMITED and BAKER HOLDINGS") == (["ABLE LIMITED"], ["BAKER HOLDINGS"])
+    assert LQ.split_names("ABLE PARTNERS (in liquidation)") == (["ABLE PARTNERS"], [])
+    assert LQ.split_names("ABLE LIMITED (in receivership and") == (["ABLE LIMITED"], [])
+
+
+def test_the_dates_below_go_to_each_company_and_a_bare_title_takes_its_companies_from_them():
+    t = ("Notice of Appointment of Liquidator Ann Example was appointed liquidator of the following companies on the dates and "
+         "times below:9 May 2016ABLE LIMITED (in liquidation) at 10.30am.BAKER LIMITED (in liquidation) at 11.00am.10 May "
+         "2016CARTER LIMITED (in liquidation) at 9.00am.Address of Liquidator: Example and Co Limited, PO Box 1, Town.")
+    r = LQ.read("Appointment of Liquidator", t)
+    assert [(c.name, c.appointed_on, c.appointed_at) for c in r.companies] == [
+        ("ABLE LIMITED", "2016-05-09", "10.30am"), ("BAKER LIMITED", "2016-05-09", "11.00am"),
+        ("CARTER LIMITED", "2016-05-10", "9.00am")]
+    assert r.dates_per_company and [x.name for x in r.liquidators] == ["Ann Example"]
+
+
+def test_the_official_assignee_s_lists_both_ways():
+    bar = ("The Official Assignee is administering the following liquidations: ABLE LIMITED | 1 May 2022 BAKER & SONS "
+           "LIMITED | 2 May 2022 If you claim a security interest in any assets, contact us.")
+    r = LQ.read("Liquidations", bar)
+    assert r.shape == "list" and [(c.name, c.appointed_on, c.date_basis) for c in r.companies] == [
+        ("ABLE LIMITED", "2022-05-01", "list date"), ("BAKER & SONS LIMITED", "2022-05-02", "list date")]
+    assert [x.name for x in r.liquidators] == ["Official Assignee"]
+    stop = ("The Official Assignee is administering the following liquidations:1 May 2014ABLE LIMITED. BAKER LIMITED.2 May "
+            "2014CARTER LIMITED. Telephone: 0508 467 658.")
+    assert [(c.name, c.appointed_on) for c in LQ.read("Appointment of Liquidator", stop).companies] == [
+        ("ABLE LIMITED", "2014-05-01"), ("BAKER LIMITED", "2014-05-01"), ("CARTER LIMITED", "2014-05-02")]
+
+
+def test_an_unsigned_notice_names_its_liquidator_from_the_operative_sentence_and_a_bad_signature_is_logged():
+    t = ("Notice of Appointment of Liquidator On 9 May 2016 at 2.00pm, it was resolved by special resolution of the "
+         "shareholders, pursuant to section 241(2)(a) of the Companies Act 1993, that ABLE LIMITED be liquidated and that Ann "
+         "Bee Example, insolvency practitioner of Town, be appointed liquidator for the purpose. Direct enquiries to Ann.")
+    r = LQ.read("ABLE LIMITED", t)
+    assert [(x.name, x.role) for x in r.liquidators] == [("Ann Bee Example", "named as appointed")]
+    bad = LQ.read("ABLE LIMITED", "Ann Example was appointed liquidator. Dated this 1st day of May 2016. For and on behalf of "
+                                  "Example Insolvency Limited, Liquidators.")
+    assert bad.liquidators == [] and bad.unread == [("signature", "the signature is not a list of names")]
+
+
+def test_the_check_fails_on_an_al_notice_not_read_as_an_appointment():
+    rows = [(f"{y}-al1", "Example Limited", check.LIQUIDATION) for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
+    rows += [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
+             ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
+    assert check.failed(check.figures(rows)) == []
+    assert any("2016-al9" in w for w in check.failed(check.figures(rows + [("2016-al9", "X Limited", "not read")])))
 
 
 # --- the filled sample ---------------------------------------------------------------
@@ -299,7 +370,9 @@ def filled():
                "aside": q(f"SELECT * FROM {schema}.gazette_set_aside"),
                "private": q(f"SELECT key FROM {schema}_private.gazette_celebrant_addresses"),
                "prohibitions": q(f"SELECT * FROM {schema}.gazette_prohibitions ORDER BY key"),
-               "prohibition_private": q(f"SELECT key, formerly FROM {schema}_private.gazette_prohibition_addresses")}
+               "prohibition_private": q(f"SELECT key, formerly FROM {schema}_private.gazette_prohibition_addresses"),
+               "liquidations": q(f"SELECT * FROM {schema}.gazette_liquidations ORDER BY key"),
+               "liquidators": q(f"SELECT * FROM {schema}.gazette_liquidators ORDER BY key")}
 
 
 def test_every_listed_notice_is_held_once_and_the_second_capture_is_a_catch_log_line(filled):
@@ -312,7 +385,8 @@ def test_every_listed_notice_is_held_once_and_the_second_capture_is_a_catch_log_
 def test_each_case_reads_as_its_comment_says(filled):
     by = {n["notice"]: n for n in filled["notices"]}
     assert by["2004-go1177"]["status"] == "set aside" and by["2014-go6947"]["status"] == "set aside"
-    assert by["2025-al4914"]["format"] == by["2018-ba414"]["format"] == by["2002-is8379"]["format"] == "not read"
+    assert by["2018-ba414"]["format"] == by["2002-is8379"]["format"] == "not read"
+    assert by["2025-al4914"]["format"] == check.LIQUIDATION
     assert by["2003-go5183"]["format"] == "not read"
     shapes = {}
     for c in filled["celebrants"]:
@@ -321,7 +395,8 @@ def test_each_case_reads_as_its_comment_says(filled):
     assert shapes["2024-go4242"] == {"chain"} and shapes["2022-go134"] == {"chain"} and shapes["2025-go486"] == {"marked"}
     assert {c["action"] for c in filled["celebrants"] if c["notice"] == "2013-go541"} == {"annual list"}
     for n in by.values():
-        assert n["records"] == sum(1 for c in filled["celebrants"] + filled["prohibitions"] if c["notice"] == n["notice"])
+        assert n["records"] == sum(1 for c in filled["celebrants"] + filled["prohibitions"] + filled["liquidations"]
+                                   if c["notice"] == n["notice"])
 
 
 def test_an_address_is_private_and_no_published_row_carries_one(filled):
@@ -334,7 +409,7 @@ def test_an_address_is_private_and_no_published_row_carries_one(filled):
 
 def test_every_row_keeps_the_row_contract(filled):
     today = dt.date.today()
-    for t in ("notices", "celebrants", "prohibitions"):
+    for t in ("notices", "celebrants", "prohibitions", "liquidations", "liquidators"):
         for r in filled[t]:
             row = {k: r[k] for k in ("key", "document", "page", "place", "reader", "profile", "profile_version", "read_from")}
             row["loaded_at"] = r["loaded_at"].isoformat()
@@ -396,3 +471,33 @@ def test_the_outside_check_passes_on_the_sample_s_prohibitions(filled):
     marked = {p["notice"] for p in filled["prohibitions"] if p["superseded_by"]}
     p = check.figures(rows, acted, marked)["prohibitions"]
     assert p["read"] == 14 and p["titled_not_read"] == [] and p["named_not_held_or_read"] == [] and p["named_not_marked"] == []
+
+
+def test_each_liquidation_case_reads_as_its_comment_says(filled):
+    notice = {n["notice"]: n for n in filled["notices"]}
+    cos, lqs = {}, {}
+    for c in filled["liquidations"]:
+        cos.setdefault(c["notice"], []).append(c)
+    for x in filled["liquidators"]:
+        lqs.setdefault(x["notice"], []).append(x)
+    al = [n for n in notice if "-al" in n]
+    assert len(al) == 17 and all(notice[n]["format"] == check.LIQUIDATION for n in al)
+    assert notice["2008-al1658"]["status"] == "set aside" and "2008-al1658" not in cos
+    assert notice["2023-al2971"]["status"] == notice["2004-al5366"]["status"] == "read, part set aside"
+    assert {c["shape"] for c in cos["2021-al1462"] + cos["2014-al776"]} == {"list"}
+    assert all(c["date_basis"] == "list date" for c in cos["2021-al1462"] + cos["2014-al776"])
+    assert len(cos["2015-al5604"]) > 1 and all(c["appointed_on"] and c["appointed_at"] for c in cos["2015-al5604"])
+    assert cos["2000-al3116"] and len(cos["2001-al3161"]) > 1 and " AND " in cos["2012-al2125"][0]["company"].upper()
+    assert any(x["named_in_body"] == "surname" for x in lqs["2010-al6298"])
+    assert any(x["name"].isupper() for x in lqs["2025-al3664"])
+    assert {x["role"] for x in lqs["2026-al5824"]} == {"named as appointed"} and "2023-al2971" not in lqs
+    assert cos["2021-al1257"][0]["corrigendum"] and cos["2009-al6197"][0]["appointed_by"] == "court"
+    assert cos["2022-al3874"][0]["appointed_by"] == "board" and cos["2023-al647"][0]["company_number"]
+    assert any(a["stage"] == "liquidations" and "2004-al5366" in a["item"] for a in filled["aside"])
+
+
+def test_no_liquidation_row_carries_an_address_and_the_check_passes_on_the_sample(filled):
+    assert not set(filled["liquidations"][0]) & {"address", "text", "phone", "email"}
+    assert not set(filled["liquidators"][0]) & {"address", "text", "phone", "email"}
+    f = check.figures([(n["notice"], n["title"], n["format"]) for n in filled["notices"]])
+    assert f["liquidations"]["filed"] == 17 and f["liquidations"]["not_read"] == []
