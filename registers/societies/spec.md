@@ -1,0 +1,5 @@
+owns: schema `societies` (incorporated societies and their officers, by capture hash: the old estate's loaded rows exported once, then the register's per-entity pages a seventh of the societies each night, the party societies first) and `societies_private` (an officer's address where a page carries one; never published)
+reads: the old database's society and officer tables, exported once by hash (as `registers/companies/capture.py` did); then the Incorporated Societies Register's per-entity interface, politely (slow, a seventh a night, off-peak, cached, a stated crawl delay honoured, never a challenge solved); the four questions answered in `docs/status/societies.md` as the capture goes (ruling 61)
+publishes: `pub.societies` and `pub.society_officers` (role and window, no address), each with its citation
+outside check: the register's own count of registered societies on a date against the rows live on that date
+jobs: `qv4-societies-capture` on the scheduler (nightly, a seventh, party societies first); a `qv4-societies-load` job once the lane reads

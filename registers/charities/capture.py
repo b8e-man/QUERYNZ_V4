@@ -1,0 +1,1 @@
+"""The one capture of the Charities Register's open data feed, shared by both builds (plan step 4.1): verbatim copies landed by hash with a listing, politely, never through the old client (it bypassed the fetch gate and its host no longer resolves). Built by the charities-capture session."""

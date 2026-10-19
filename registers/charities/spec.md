@@ -1,0 +1,5 @@
+owns: schema `charities` (the Charities Register: every charity, its officers and its annual returns, from the register's own open data feed, by capture hash) and `charities_private` (an officer's address where the feed carries one; never published); the capture is this folder's and is shared by the two builds (`charities_a`, `charities_b`, plan step 4.1)
+reads: the register's open data feed, captured once in full and then by changes, politely (slow, off-peak, cached, the feed's own terms); the four questions answered in `docs/status/charities.md` as the capture goes (ruling 61: the legal position page before product)
+publishes: `pub.charities`, `pub.charity_officers` (role and window, no address), `pub.charity_returns` (the financial fields; ruling of 14 August 2026: financial fields are in scope), each with its citation
+outside check: the register's own count of registered charities on a date against the rows live on that date
+jobs: `qv4-charities-capture` on the scheduler (nightly, changes only after the first full copy); a `qv4-charities-load` job once a build reads

@@ -87,24 +87,80 @@ promoter returns' totals, the five unread once the readings land.
 
 ## gazette
 
-Session 1 merged (`docs/merges/gazette-1`): 207,133 notices typed by the
-Gazette's own section code; the celebrant lists read (2,941 of 2,975;
-123,187 rows; 8,943 addresses private). Session 2, when a slot frees
-(`docs/status/gazette.md`): director prohibitions, then liquidator
-appointments (43,587 notices), each its own profile; then the printed
-tables. Launched headless by the integrator 20 October 08:45, Opus.
+Sessions 1 and 2 merged (`docs/merges/gazette-1`, `-2`): 207,133
+notices typed; celebrant lists, director prohibitions (537) and
+liquidator appointments (43,478 of 43,587) read, addresses private. No
+session 3 now; its items (`docs/status/gazette.md`): the other
+insolvency, bankruptcy and appointment notices; the printed tables; the
+liquidations check against the companies register now that lane is
+merged; the parties lane takes this lane's `au` notices.
+
+## charities
+
+Step 4.1: the Charities Register, built twice (plan: Fable and Opus,
+`charities_a` and `charities_b`, against the same tests) from one
+shared capture. This session is the capture, in `registers/charities/`:
+the register's own open data feed, verbatim copies by hash with a
+listing, politely; the four questions answered in the status file as it
+goes (ruling 61). Opus. Launched headless by the integrator.
 
 ```text
-You are the gazette session, session 2, in your working copy. Read
-docs/PLAN.md, docs/status.md and docs/status/gazette.md. The export and
-the celebrant lists are merged; do your status file's next two items:
-director prohibitions (one template; addresses private), then liquidator
-appointments, each with its own document profile proposed for the
-integrator; measure each on every notice of its type, not the sample.
-Mask every sample before printing it (lesson
-a-gazette-celebrant-list-can-print-home-addresses). Edit nothing outside
-your folder, push and raise gazette-2. Finish by telling Arthur what
-closed and what is carded.
+You are a build session for QueryNZV4 on node2, running as Opus, in the
+working copy the launcher made for you. Read docs/PLAN.md, then
+docs/status.md and your own status file docs/status/charities.md (make
+it), the lane contract, the row contract, and
+docs/plan/reference/old-estate/names-addresses-and-capture.md (the old
+charities client bypassed the fetch gate; take the idea, not the code).
+Do the capture half of the charities lane only, in registers/charities/:
+find the register's current open data feed and its terms, answer the
+four questions in your status file (open without a lock; lawful copying;
+the terms accepted; what privacy law or the Charities Act limits) and
+keep going under ruling 61 (the legal position page is written before
+product); capture every charity, officer and annual return record
+verbatim through support.fetchgate, landed by hash with a listing, slow,
+off-peak, cached, the feed's stated limits honoured, never a challenge
+solved; then a qv4-charities-capture job for changes, nightly, proposed
+in your spec for the integrator to add to the catalogue (a build session
+does not queue live jobs). Never print an officer's address into your
+session. Keep a catch log that reconciles. Measure the capture against
+the register's own count of registered charities. Write read.py only as
+far as a listing of what is held; the reading is the two builds' work.
+Edit nothing outside your folder; push and raise charities-capture-1.
+Finish by telling Arthur what closed, what is carded, and the figures.
+```
+
+## societies
+
+Step 4.1, copied through the per-entity interface: incorporated societies
+and their officers, in `registers/societies/`. First the old estate's
+loaded rows exported once by hash (as companies did), then the
+register's per-entity pages a seventh a night, party societies first,
+under ruling 61. Opus. Launched headless by the integrator.
+
+```text
+You are a build session for QueryNZV4 on node2, running as Opus, in the
+working copy the launcher made for you. Read docs/PLAN.md, then
+docs/status.md and your own status file docs/status/societies.md (make
+it), the lane contract, the row contract, registers/companies/capture.py
+(a once-only export from the old database by hash) and
+support/fetchgate. Build one lane only: societies, in
+registers/societies/. First export the old estate's society and officer
+rows once (read-only, the old read-only login, a statement timeout,
+server-side cursors; never at load) and read them under the register's
+own identifiers with windows; an officer's address goes to
+societies_private and nowhere else, never into your session. Then the
+per-entity capture: answer the four questions in your status file and
+keep going under ruling 61; design qv4-societies-capture as a seventh of
+the societies a night, party societies first, through the fetch gate,
+slow, off-peak, cached, a stated crawl delay honoured, never a challenge
+solved; propose the job in your spec for the integrator (a build session
+does not queue live jobs) and prove it on a handful of pages only. Give
+every row a stable key and a citation. Keep a catch log that reconciles.
+Find one figure from the register itself to check against. Build in
+small tranches, each measured on the real rows. Work in your scratch
+schema; edit nothing outside your folder; never touch the old estate's
+jobs, folders or primary database. Push your branch and raise
+societies-1. Finish by telling Arthur what closed and what is carded.
 ```
 
 ## interests-expenses
