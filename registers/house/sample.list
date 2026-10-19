@@ -1,1 +1,170 @@
-# registers/house/sample.list: hashes and key: lines only. Empty until the lane lands its first documents.
+# registers/house/sample.list (plan 1b.6): hashes only, never bytes or rows. The lane's whole input, as the old
+# estate held it on 20 October 2026: the 2026 nominations, the 2020 and 2023 results, the results index and the
+# by-election pages, and Stats NZ's 2020 electorate files. Comments say what each file is and what case it proves.
+9db18fb3af23c51081dfcb383e74c48fe7ba8115e227c61df3a11eb7493bbab8 ec-candidate-list/candidate-and-party-lists-released.html: ec-candidate-lists-release
+8e018da0e0aa8232768400e74d5752269e23e30a8415577d6be5d9ae309bcb85 ec-candidate-list/electorate-candidates-2026.xlsx: ec-electorate-candidates-workbook
+a8fd4272dbdc3ab28f5320ecfa62c4fa9d990d39d5bdd7e768c78e5684ab512b ec-candidate-list/party-lists-2026.html: votenz-party-lists-page
+3a371c79576f495067ec776ee7663848570860d9bc4d16a47bfc4abc007eae20 ec-candidate-list/party-lists-2026.pdf: ec-party-lists-pdf
+0bfd98397bda1dacc89e1d834222ce87a16e26c7e206c4e95900e4bcd4167123 ec-results/results 2020-advance-votes: advance-votes: held, not read
+a44658f6ab1ed4cc9b716877518034f16705abf3d78447a921bccfe2eeff6b25 ec-results/results 2020-e9-e9-part8: not-found: a failed read, a catch-log line
+552e9c0e2eda2a8fb6fbd31958a9a204507e24fc135acc5056e57d7eb6147b21 ec-results/results 2020-electorate-details-01: ec-results-electorate-page
+60d34c08b139fdb312f907d4c628b48fe3a55c9bb29760d16cbb0a524f345205 ec-results/results 2020-electorate-details-02: ec-results-electorate-page
+2580b293dd0e18690e29137c904a90210452a2b549079abe3ae77b0c8c819555 ec-results/results 2020-electorate-details-03: ec-results-electorate-page
+f78ccaa3ea6946c5a2f868ac659202dfdceeee3caa19e0844e2402922e0470eb ec-results/results 2020-electorate-details-04: ec-results-electorate-page
+20f3771d30ad6052ce1983a90b83949d9d2c2ce4c1ae1f72d5936244218740f3 ec-results/results 2020-electorate-details-05: ec-results-electorate-page
+2fd2b462786e09326f116be17a13c356b7569fb83ad62851dfc098e34797196e ec-results/results 2020-electorate-details-06: ec-results-electorate-page
+a41a530ae2eb09be4bc15227064f8af44f6d3be77f895691cea0bc7f250a1fec ec-results/results 2020-electorate-details-07: ec-results-electorate-page
+f03597e3305226cff28dcd96e85748412d91ddb0d67244c2e2059046cf815487 ec-results/results 2020-electorate-details-08: ec-results-electorate-page
+44f10de1b770fccb63a0876d0065a033bdd74d1f954f02dd8d2ac7caef2f1e8b ec-results/results 2020-electorate-details-09: ec-results-electorate-page
+681c5be2991b5dff15cb11b799cf7efa2dbd9f9c0334a80df390c48518c06478 ec-results/results 2020-electorate-details-10: ec-results-electorate-page
+323f9c9711a3d4969916a8869a17228207f73386037f0420ec99bc2eedf6cd38 ec-results/results 2020-electorate-details-11: ec-results-electorate-page
+5336e7be7933a081bbc1f47ca9a4dd26ef204129d413f15d15c585893af1b376 ec-results/results 2020-electorate-details-12: ec-results-electorate-page
+bdd3dc105efdda3d84dfe8a3c918d02f0cbdd10aa39a3188924df071505b09c2 ec-results/results 2020-electorate-details-13: ec-results-electorate-page
+78b8f6d78998808b1b26cb7a80b71bd6a9bb8f1b35bbd7fbe1f580881a22e7ed ec-results/results 2020-electorate-details-14: ec-results-electorate-page
+783f329e5f2cf64fa886cb2ae07d83a68ffdc055b57efd3f5044fe49322debf0 ec-results/results 2020-electorate-details-15: ec-results-electorate-page
+93148156d67819eead8718301e3dad71ca3b345b8a78c0c47f3818d4a7b96705 ec-results/results 2020-electorate-details-16: ec-results-electorate-page
+7532ec372681c8888bf4a1e0647d99a1820bb8ab5d3371cfe1ddfaff33464cc0 ec-results/results 2020-electorate-details-17: ec-results-electorate-page
+2092cf86319589ec94fd8651c7bf566aafb931079c08a542a12c51d6ee469c10 ec-results/results 2020-electorate-details-18: ec-results-electorate-page
+e87e12171edb6070790bef367e09e7bca044834432b538105e92a993d75fc1d0 ec-results/results 2020-electorate-details-19: ec-results-electorate-page
+26b72960795e0fc31781966378d8c31029b1be94df677d249a200bbc06f6b33e ec-results/results 2020-electorate-details-20: fetch-error: a failed read, a catch-log line
+55d25936f4afd442fd2f75267aa67c284d5778faad0751187651fb441bd3ac9c ec-results/results 2020-electorate-details-21: ec-results-electorate-page
+2efd8a68cafd2c533932e5ac1a94b162e74ce6e91e6f7ee67707a416b02b8a9a ec-results/results 2020-electorate-details-22: ec-results-electorate-page
+18f80f4971c196e7b1accb5998aef7b350ef5d245077d9de3a8b4b885e06e747 ec-results/results 2020-electorate-details-23: ec-results-electorate-page
+cb2af2b841f0ae4cf55712396a1980f166763c68c7dd1f0f37c2a852bdcc61d7 ec-results/results 2020-electorate-details-24: ec-results-electorate-page
+46e32fea81b60f99ea3b789e637cc01506e02d2512974c8248a51a769b9c0ea2 ec-results/results 2020-electorate-details-25: ec-results-electorate-page
+4c0feb7d24a241e8bf2b761eae4f24373f0ad05051a590544130a99b7b35b6cd ec-results/results 2020-electorate-details-26: ec-results-electorate-page
+dd3affa5e562da2c6ff35de9c38a11b95065aed6338faecba7125178f54b187b ec-results/results 2020-electorate-details-27: ec-results-electorate-page
+ef52407d2fb49511e1c8db168bcf1b4f812fbf320b6874242a6c194dcaf8d8eb ec-results/results 2020-electorate-details-28: ec-results-electorate-page
+baed1b2b55bf844bf97f44fe32128eb9019a3ecc10e01fc816cd78ef983b30ba ec-results/results 2020-electorate-details-29: ec-results-electorate-page
+e737f58de17fcb26114da3f48be67beee64db54288e620f2f5eed490ebe15c8c ec-results/results 2020-electorate-details-30: ec-results-electorate-page
+1f05c2cff30277c1e3a36f7d01339f997597eb5c18556378ed2ab849e7bf53a5 ec-results/results 2020-electorate-details-31: ec-results-electorate-page
+89af68484f3533feec520a756f2fca35ea75a336c15472d21a697261909ec4c9 ec-results/results 2020-electorate-details-32: ec-results-electorate-page
+f7993d659a840a20561b48ccf5a7cb615f91cd7c06b6c069ac3d5946358638ae ec-results/results 2020-electorate-details-33: ec-results-electorate-page
+85a8beef15b0afe64d1bf662b2bbeedce7d21911d40a79dc9e76dfe60af49424 ec-results/results 2020-electorate-details-34: ec-results-electorate-page
+f29c146a7cd17f49d423ea88f46be1e5511a1a83d4067c8f05ac48faa6efab89 ec-results/results 2020-electorate-details-35: ec-results-electorate-page
+ab8079247bcccd54f0f07edacc796f80bbdf7e03f064cb96c3955d161e5c39c0 ec-results/results 2020-electorate-details-36: ec-results-electorate-page
+1a6ebde718d3b2a46fd345401b1b4453b964c0a57855b9ddc01069ec94dc5444 ec-results/results 2020-electorate-details-37: ec-results-electorate-page
+c076f279c207b9b99d930965b4d77c234644f2c70e58c42d4e852b96dc84d992 ec-results/results 2020-electorate-details-38: ec-results-electorate-page
+2707e207caebe389713da1f8297c5906513e3256477ea1c65d57e9dff92aeb6e ec-results/results 2020-electorate-details-39: ec-results-electorate-page
+ed41c43ce60003a3a4c0492ec4169bf7784123b0acb47e7e07dad7185347727e ec-results/results 2020-electorate-details-40: ec-results-electorate-page
+5641aa68d55b7857b4db4250bf72181d24ea6ff4541c5729074ebb9e7df75066 ec-results/results 2020-electorate-details-41: ec-results-electorate-page
+a61d40bf2041ec3755ce1a506a371f24ff4b5f5b1ae18625f7f646434501e20b ec-results/results 2020-electorate-details-42: ec-results-electorate-page
+57f3aac6c3e890192f1fa333a5b2155ad53ba5762862a5ea9ed558da6462acf7 ec-results/results 2020-electorate-details-43: fetch-error: a failed read, a catch-log line
+2b0185dbe91305ff5634af1ef33b0194d3b077eec4c457189d44bbc806f11f37 ec-results/results 2020-electorate-details-44: ec-results-electorate-page
+dcb9fa106651ede104f07959d4222ce997cc563f7f7c6f8cda862e816d2ce7a4 ec-results/results 2020-electorate-details-45: ec-results-electorate-page
+4eebb39ff0659e46523ef61546d80353c1e8898e0fdd2638f47f514fcf988489 ec-results/results 2020-electorate-details-46: ec-results-electorate-page
+48878cb5547506c8d3626c1c944a7fe98dfa2b4c0a4575158275c324b796dd6d ec-results/results 2020-electorate-details-47: ec-results-electorate-page
+4b8dcf916529cbc21b201b4575272aa64c6e910edf9a8788e8a49d9248d07b20 ec-results/results 2020-electorate-details-48: ec-results-electorate-page
+97d33fc2c4fa35dc97e478380d45a70741bd4a8f5c12e9e2aec130f0889985e5 ec-results/results 2020-electorate-details-49: ec-results-electorate-page
+6d2cf7236e04bc2e8bb83bdb67ad031af49d483f4da993b9237e7a2221537ad0 ec-results/results 2020-electorate-details-50: ec-results-electorate-page
+092bc2fbefefceee2114650ffb31bb6a57e6f10dc7068bef634ba294a851ac6a ec-results/results 2020-electorate-details-51: ec-results-electorate-page
+688805b8f982831d43dad9abd4839778d8a3265c665e710069b98de8e656b342 ec-results/results 2020-electorate-details-52: ec-results-electorate-page
+2ba56d68b6f5261e0ac8fc188e8a2fec4b7c4663dc2cefff128532cd09e1eee9 ec-results/results 2020-electorate-details-53: ec-results-electorate-page
+e483a905e0ea8262a2bd0b588958ed5cfa64a576aa6963d3302180cb5f5e3e48 ec-results/results 2020-electorate-details-54: ec-results-electorate-page
+f0b15754174a910934aafd881d1f3b4ba7600da536968b0f001a552abc6243b6 ec-results/results 2020-electorate-details-55: ec-results-electorate-page
+9533dcfff1a1f7de92de346f073e4cfe056859bab26ea4e4f9af27d259900967 ec-results/results 2020-electorate-details-56: ec-results-electorate-page
+82b963e84e60e15a327172514c6b2aab3e0dc912f5dfa0901fabd82c10913592 ec-results/results 2020-electorate-details-57: ec-results-electorate-page
+c552b651aa937f16ae106a93f51302bfa4387810e3c2901c892899a2f8fd18d5 ec-results/results 2020-electorate-details-58: ec-results-electorate-page
+832e325f0d68577c8adf3455d9eea06ab63067a6b385b73eb31339c63e24281c ec-results/results 2020-electorate-details-59: ec-results-electorate-page
+2d07945b42a6bbabc75d0b3472aaf7ba664364be2d6aca5fb64bed19abb4fab0 ec-results/results 2020-electorate-details-60: ec-results-electorate-page
+40bf2470c683b0a53a9cc07906282a1942b2bed6ab09705b30b7674d9d1d4885 ec-results/results 2020-electorate-details-61: ec-results-electorate-page
+163bbb651cbb3a3b36ca263b4ece38f949c36d8836e087dea5151947d4e8ffaa ec-results/results 2020-electorate-details-62: ec-results-electorate-page
+44ca592a1b0db2e2430022512e3b9d106243fc5379a8c8b288eda8c77cec77a8 ec-results/results 2020-electorate-details-63: ec-results-electorate-page
+81d951f9470874ce41ad6af8aac48adcb2b782e250c659395b5055cad23947c7 ec-results/results 2020-electorate-details-64: ec-results-electorate-page
+87611ebbd64df86ed71d9a9bfc0c2f8fa9311d8b0a733a9d60d1b0366887c59c ec-results/results 2020-electorate-details-65: ec-results-electorate-page
+e41d469314f30385450cb3b12f066d2a9705b09aeb0860e6ef8c25e664255923 ec-results/results 2020-electorate-details-66: ec-results-electorate-page
+a377242397743b8f988edb9a988818ef3770eb621ffd36cdc7721d33b91fbe2b ec-results/results 2020-electorate-details-67: ec-results-electorate-page
+d0d59aac73cf5f126a46bd8dea399ede77bcc7fb43d456c7dcfc7d9dbda2a912 ec-results/results 2020-electorate-details-68: ec-results-electorate-page
+36873598ede39410936d492e2239c0654bab00e1a09f2eb0994b1ec8241bba41 ec-results/results 2020-electorate-details-69: ec-results-electorate-page
+25cedcc385a4f03ef7ef081b8151d01762d3ec913372f3adb31d2aa82aa04807 ec-results/results 2020-electorate-details-70: ec-results-electorate-page
+e4729a76c2c02bc5d33c3bf1bccf82454154876541e2b4ae56af7a219c2239c7 ec-results/results 2020-electorate-details-71: ec-results-electorate-page
+a0bb8e6b84a77e1565642388d18e5b4508eb612c83667ad16c9c3a696c2b3741 ec-results/results 2020-electorate-details-72: ec-results-electorate-page
+bfd0b8c188124070ee5498d14a1e50566db17658bcc2edcb906b9fa2f6aaafec ec-results/results 2020-electorate-status: ec-results-electorate-status
+e0eebfc07c60f5839281c376ea257bc5623e1bd29477fd65e702e15f1f809c89 ec-results/results 2020-index: ec-results-overall
+922f18196625387d246aaffe41e2aeab812593b9c42aa6c1b394dc4421feccbf ec-results/results 2020-referendums-results: referendums: held, not read
+948e2b108c891b4b11f3579e6bbc1337306c1c892cc374e818e6c0fc18a8b92e ec-results/results 2020-successful-candidates: ec-results-successful-candidates
+a2d97f38da2199b498436de9d1120322f99da7e513f2d655e8cb0f101d09f7d1 ec-results/results 2020.html: overall-root: held, not read
+0afb5dc55a6da02aaffc62ac9a4f7648c4f232706ff543cbf429c1e9a0389155 ec-results/results 2023-advance-votes: advance-votes: held, not read
+c6be371f2f648e957efeb474cdbde51927b120019f4055e1bc6d8a2b1cf7b1a8 ec-results/results 2023-e9-e9-part8: not-found: a failed read, a catch-log line
+26e5313d480f54b4cd0f2d92d2a3c649e6bb6dcb4387ff5db52db170aa7f41ad ec-results/results 2023-electorate-details-01: ec-results-electorate-page
+6677dd97f231331a5e98e875a4d5d5ef37c2addcbfe58869b9465c90f88691ce ec-results/results 2023-electorate-details-02: ec-results-electorate-page
+2bf686664584bf39387a9dd6b3afd136b6d9d2424f34bc67190653b0c775ac5f ec-results/results 2023-electorate-details-03: ec-results-electorate-page
+118f393b27bd147afedee36fdd7b47dfb6c5d8f5a85c34179347074795151774 ec-results/results 2023-electorate-details-04: ec-results-electorate-page
+eb34c74af8eaafd24e60f09cfb47d330178b4ad9cc670c8b76e4d102834f69f9 ec-results/results 2023-electorate-details-05: ec-results-electorate-page
+1c70883510ab25b397fc71718ed11c52d2de8e48795d156e4aac93d8cf3cc7a3 ec-results/results 2023-electorate-details-06: ec-results-electorate-page
+59dd88544d0e96b6b3d7eb3029abd610a399114f76865f19f8f79f0c22c3a364 ec-results/results 2023-electorate-details-07: ec-results-electorate-page
+3f220141ce0bd73155fbae1a51d8476fa79c12c32b4bd30b40f9bfa0389da476 ec-results/results 2023-electorate-details-08: ec-results-electorate-page
+85658d7fb85bb1340c4c4ef04c4af0a7ab5dd910b1f706f12b8424d10c18c175 ec-results/results 2023-electorate-details-09: ec-results-electorate-page
+ad2b881949db31a14704e4efa5c342dbd046dd99d64ac0577270c76096e745fa ec-results/results 2023-electorate-details-10: ec-results-electorate-page
+a0bb428e5be87289644ca2c148ab243284acfee1c46f0857190c70b3bace6be2 ec-results/results 2023-electorate-details-11: ec-results-electorate-page
+e0be07c695519155b7f11216181d9f5d5559f907854eebe920ee0d1ba8c88f01 ec-results/results 2023-electorate-details-12: ec-results-electorate-page
+c2891d75c10952b50f76881ef205c7d77c26fb86f51dea3d5b7db427a1fafb07 ec-results/results 2023-electorate-details-13: ec-results-electorate-page
+b74e3b8018c1fcb99c39d5d30630791f46312e7d8c1a3c55cc891ba7df87f7ec ec-results/results 2023-electorate-details-14: ec-results-electorate-page
+a754def0c65237409baeaf381e02a40820504ade38872049749b5dd21eb10d70 ec-results/results 2023-electorate-details-15: ec-results-electorate-page
+1847bf91d07df68ae309a8de34a1ae040344668d3dce328a579a7e088a220d61 ec-results/results 2023-electorate-details-16: ec-results-electorate-page
+b39bc8bda22023e9b66119ea0039e9979d8464d63f1eda6fe02d598218432627 ec-results/results 2023-electorate-details-17: ec-results-electorate-page
+76464f83baae9192a91e38cf63b1f3c767cd4ea7b7d0186ab8d0b315ce0ce83d ec-results/results 2023-electorate-details-18: ec-results-electorate-page
+d672b6e59171c5cab4fc650dcdad6ecccf4a1e74097fdac66a27424de3af3fe6 ec-results/results 2023-electorate-details-19: ec-results-electorate-page
+80532fdccc329510ea97b6bceae3c653a3bc033cf7e0e865abea3bf4171c4100 ec-results/results 2023-electorate-details-20: ec-results-electorate-page
+e05b3b1682e83d3356b978d969f9080c1594b93697468c7796aa9183861994ff ec-results/results 2023-electorate-details-21: ec-results-electorate-page
+275560caab5830cf76d2ec7aaf2bdc185d6ebde8ffe1411302a470a4d08acd5b ec-results/results 2023-electorate-details-22: ec-results-electorate-page
+91061b5e87ed8d776f93715989eae37c269694e471be21a30c3a5669b706a7f8 ec-results/results 2023-electorate-details-23: ec-results-electorate-page
+124c8b43455229d3aa0d25c8f7aca52a523265bdc462f3c56d44277e701ccda5 ec-results/results 2023-electorate-details-24: ec-results-electorate-page
+0a4bab21edab5b269b2cd6cbcdd65ad3df7fec4b0f938338573ef61814b2ef6e ec-results/results 2023-electorate-details-25: ec-results-electorate-page
+e36c8e7f63b09ad2fdc2f7b2087a05a6bdeb6359e0ab157b06e8197b9237c25a ec-results/results 2023-electorate-details-26: ec-results-electorate-page
+ec7d133b0d25673eaaae3b5cbc38ef0aa01e699b701a466062a05384689c9e36 ec-results/results 2023-electorate-details-27: ec-results-electorate-page
+bc1af9f73460c467b32c8916631f1392e12b5b5f277ca5c63a241831928c5ee9 ec-results/results 2023-electorate-details-28: ec-results-electorate-page
+9fef3e74b19bb2e1f48ef9fcb68b2b51338ac855fcc7164076741062cf8a98f9 ec-results/results 2023-electorate-details-29: ec-results-electorate-page
+c67c3e594578822a68d0c97c5822b347dd4ceca243abbde288ad024f7c1f8a78 ec-results/results 2023-electorate-details-30: ec-results-electorate-page
+558a265d532ebb68ac8a961eadb05f5a4e043b83921ba21b366fe79140009b83 ec-results/results 2023-electorate-details-31: ec-results-electorate-page
+cd00c11ec9c853c05a0ba0bc0e3479da42b2cde01c5ba5562f33bc6fb5f0861d ec-results/results 2023-electorate-details-32: ec-results-electorate-page
+fc1ad58132e5a928a5817c2f40c81df020330d79676c1f8b42fc338d6bf5c3f6 ec-results/results 2023-electorate-details-33: ec-results-electorate-page
+1c8d739d761376b4cdfd762cd5fdd8297e208579cf39ac1037ab50b6421e79bd ec-results/results 2023-electorate-details-34: ec-results-electorate-page
+356272d9678de560567ba8df36210ae2001c36f7fc936f30fe86df4f8b250b3f ec-results/results 2023-electorate-details-35: ec-results-electorate-page
+3288df9c37b545f48ab7282b355ca11eaf83d940496425b91e8f2ebd7676c8b4 ec-results/results 2023-electorate-details-36: ec-results-electorate-page
+4480896d500be5d067c13b70ca8b19a8b3b275dc40d9480e0fdc874e6c3af40b ec-results/results 2023-electorate-details-37: ec-results-electorate-page
+983bd01d4505deda6d5fe88943026d6b23579aa54a53d30c5aec722c99b39cc1 ec-results/results 2023-electorate-details-38: ec-results-electorate-page
+9aab15973847021815dd3f1589c7ea0d4659730601c8bedebc6a7f352f324515 ec-results/results 2023-electorate-details-39: ec-results-electorate-page
+4055a1589efc58d568bfd1318e3ee572740943ce62a1d1e06a0679fd5ba468ca ec-results/results 2023-electorate-details-40: ec-results-electorate-page
+a00eb5cbd2be02d4cff0da98e6f3a879d3d71e7f2347f4c98f2b3ffd8b17920b ec-results/results 2023-electorate-details-41: ec-results-electorate-page
+0cc03be08b2d98d5d6c923ee8ef6a4b0d4b8963701958029ec9937b0f3f92e03 ec-results/results 2023-electorate-details-42: ec-results-electorate-page
+31d3bce237d1dcf8756781c744728460d2470baf3db004a46196a6be0b785aec ec-results/results 2023-electorate-details-43: ec-results-electorate-page
+a5678f5ebbfbf9089f545695b0bc5c4b65c4a6744d749d04b75183a0d838e8c3 ec-results/results 2023-electorate-details-44: ec-results-electorate-page
+5cef0940ea004966ca7817e3cea1556fe0ad87660faafc206966331905b6d102 ec-results/results 2023-electorate-details-45: ec-results-electorate-page
+d0f17d566b0c6add83c4e784e161387ba3b44f65746fbefed155c5123c32ad74 ec-results/results 2023-electorate-details-46: ec-results-electorate-page
+ab427f2d707fdb67b0d007cb1465d1f337a3594e629d162e5a7613bc271bac74 ec-results/results 2023-electorate-details-47: ec-results-electorate-page
+02630279c93b1c17f45f6fd954537497eb465e727900cadd97c78917d72fe678 ec-results/results 2023-electorate-details-48: ec-results-electorate-page
+fb72f6716196a35744b1bbb58e577f6a597818ffc9529055b7480ca01879de83 ec-results/results 2023-electorate-details-49: ec-results-electorate-page
+cddc15fc11d0638ce4740ce5d78ff2d18b9b46f3f311ff1765062de4b0d653cc ec-results/results 2023-electorate-details-50: ec-results-electorate-page
+d6d0d5e7d8ffd7762b30e4b0a87be9ebf4e013acca2d7538f8928988030c9565 ec-results/results 2023-electorate-details-51: ec-results-electorate-page
+3b4e07023645ecf007a121eded30d95837460ea4bb5fd989c621f7f3334b9aed ec-results/results 2023-electorate-details-52: ec-results-electorate-page
+e26a0f2ec0579f116118411c286a9655e021894a29fea769bd2cd9f8cbf99edc ec-results/results 2023-electorate-details-53: ec-results-electorate-page
+2a5633d1c2edcfec9d8e2ae03a0d13cd26d2685b689420e909f06f37eb4ebb96 ec-results/results 2023-electorate-details-54: ec-results-electorate-page
+58a2ec11795022eafd7707c6e04bcdb74bfd7635602ab564f94b21fb5f33c381 ec-results/results 2023-electorate-details-55: ec-results-electorate-page
+68acbe8aaddfdddef357960cfaae070fe09c724dbab521bbdd8dfac34f06bb9d ec-results/results 2023-electorate-details-56: ec-results-electorate-page
+d1b44f6c8c16df2e36bfbe07330cfa0ab8cd665ff3bf62fde6ed09638ad1001b ec-results/results 2023-electorate-details-57: ec-results-electorate-page
+c1920c46fee5a27d8cc6e3835d14f7f5b57dc3621b3a4848e973f367de557be1 ec-results/results 2023-electorate-details-58: ec-results-electorate-page
+4c1656568dcb7e35ec9349e636b7d12c366d92664829f7add075727316ef89ab ec-results/results 2023-electorate-details-59: ec-results-electorate-page
+a31c752fb6d8d1853fc43cf7cb864d357e5b0104a1600b1f5172429fefc6c387 ec-results/results 2023-electorate-details-60: ec-results-electorate-page
+582deb9b2ec80f57a15b8693ba17e693b4a249c593bbbc8ba366cbf7e6504803 ec-results/results 2023-electorate-details-61: ec-results-electorate-page
+000342a716ebefe563496deea3a2ec9831ab3e4c294c78c03ab9aae9bac0dd03 ec-results/results 2023-electorate-details-62: ec-results-electorate-page
+1d6098cf833930d287fe77c9854cd318ad1003e8271ff207b2923835e85d5b7b ec-results/results 2023-electorate-details-63: ec-results-electorate-page
+069626dd1cfb8ca545cb5aa3604320a7d74eddc914d86a7004110ce9ff163a11 ec-results/results 2023-electorate-details-64: ec-results-electorate-page
+1e0663fb3d35a8be74e30f4794fe01897111cc57a754cdad4fdd3ef8e115b267 ec-results/results 2023-electorate-details-65: ec-results-electorate-page
+8bbb1b893ae1160ff0f8a3abb7e61ae06f9e177a776b8e483bd6b0f3961ad59f ec-results/results 2023-electorate-details-66: ec-results-electorate-page
+24ef95180fa864cd58e93c7ffcfd34e9ff3494740f7ed380a45d540aeccc3af5 ec-results/results 2023-electorate-details-67: ec-results-electorate-page
+dc5d5a3557706cd20ee427cd82c034e824bb4c940a4d55353706cdd90bd47a09 ec-results/results 2023-electorate-details-68: ec-results-electorate-page
+241a78b6724f19b495d17d0f95b46f51abb498c53d06eebe1c1bee1d3b454d7f ec-results/results 2023-electorate-details-69: ec-results-electorate-page
+38b5b2c90b147ed13edfb9778fea2e5d977238a9f97370395c5efd01a9ed5425 ec-results/results 2023-electorate-details-70: ec-results-electorate-page
+bdc3c4a45fd57149939dfd8df51512488abbb8b84b71333c274cb82c139add49 ec-results/results 2023-electorate-details-71: ec-results-electorate-page
+04a80ed43da47b9eb6b73d353d96244bf69568d328645ad480cf713e0ff7426c ec-results/results 2023-electorate-details-72: ec-results-electorate-page
+46f0c9622f2ca9d433ed043c0195008266311582d2024dfd0597606878046ee8 ec-results/results 2023-electorate-status: ec-results-electorate-status
+130f38da0230a5c75df40941298c7ed92ed2c56aca97f1e0573525e02d7332ce ec-results/results 2023-index: ec-results-overall
+ea23b8dff65065f7f47e6e0591a56c9c0e08f4f718fd8ecb81eae05c0a28eb96 ec-results/results 2023-successful-candidates: ec-results-successful-candidates
+b3c811324735387f07fa6acf35422babd1fbed37ffecaf93ad9b5ff414c83451 ec-results/results 2023.html: overall-root: held, not read
+b683cd6173a31708e3e1e7c93cdd71ee2b1a9a05866df1c8ac3e6914bda4b5ca ec-byelections/live-https-electionresults-govt-nz-.html: ec-results-elections-index
+2cd9ddf120e20bbb537ae6309cb14a1e11e4fc65e204cc97b1f49b075baff775 ec-byelections/live-https-electionresults-govt-nz-2023-port-waikato-byelection-.html: challenge: a failed read, a catch-log line
+890f23c8505f2f718b9126bc64d0ad79d59f0123a973f766e191f4b050d95dea ec-byelections/live-https-electionresults-govt-nz-2025-tamaki-makaurau-byelection-.html: challenge: a failed read, a catch-log line
+b20a41d565c9004e8729db02ef23d9e8203fbedfa48a9d3a64c17eef81111b40 ec-byelections/held/2025_tamaki_makaurau.html: ec-byelection-result-page
+9a9c732df306c104a82338725a80f26773f901e0a9fb7144981aab92076f4af4 boundaries/general-2020.geojson: statsnz-electorates-2020
+2893c35aff56fe64090f3e4e765e2a9f622b40b2cce3126b285009a0ca52c3a7 boundaries/maori-2020.geojson: statsnz-electorates-2020
