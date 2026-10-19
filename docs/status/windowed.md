@@ -29,7 +29,8 @@ windowed scope).
   every order leaving before 1 March 2027; 1 transport failure.
   Authority: 2010 to 2026 listed but 2016 (1 of 22 pages: a reset), 2,881
   cases; 1,226 held, 1,516 PDFs; 5 set aside (3 resets, a 404, the page).
-- A year cut short is listed again (`complete_years`): `windowed-3`.
+- A year cut short is listed again (`complete_years`): `windowed-3`,
+  merged ae1481b. windowed-1, -2, -3 all merged; no track E card open.
 
 ## Half-done
 
@@ -38,5 +39,7 @@ windowed scope).
 
 ## Next
 
-1. `windowed-1` and `-2` merged (82b169d), catalogue lines in; the nightly capture takes the rest (about
-   eleven nights for the Tribunal, three or four for the Authority).
+1. Nothing for a session. The two `qv4-` capture jobs take the rest on
+   the queue's clock (Tribunal 22:30, Authority 23:00 NZDT); the checks
+   board shows each lane red until it has caught its source up. Track E
+   is finished when both checks are green; the reading is step 5.
