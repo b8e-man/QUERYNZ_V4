@@ -21,17 +21,20 @@ windowed scope).
 
 - One run of a lane at a time (advisory lock) and an answer from another
   host stops the run: `windowed-2`, pushed (70ff303).
+- The first capture ran BY DAY, on Arthur's word ("run the capture now,
+  not at 22:00. Use --anytime"), 19 October 08:36 to 13:06 NZDT, by hand
+  from the main checkout (82b169d), `--anytime`, the catalogue's budgets,
+  `nice 10`, 5 s floor, one run per lane. Both ended on their budget.
+  Tribunal: all 37 months listed, 33,500 orders; 3,608 held (3,152 new),
+  every order leaving before 1 March 2027; 1 transport failure.
+  Authority: 2010 to 2026 listed but 2016 (1 of 22 pages: a reset), 2,881
+  cases; 1,226 held, 1,516 PDFs; 5 set aside (3 resets, a 404, the page).
+- A year cut short is listed again (`complete_years`): `windowed-3`.
 
 ## Half-done
 
-- The first capture runs BY DAY, on Arthur's word (19 October, "run the
-  capture now, not at 22:00. Use --anytime"): started 19 October by hand
-  from the main checkout (merged code, 82b169d), both lanes at once with
-  `--anytime` and the catalogue's budgets under `nice 10`; 5 s floor in the
-  lane and the gate, one run per lane (advisory lock: tonight's scheduled
-  run skips while it holds). Output:
-  `/home/user/querynzv4-work/scratch/windowed/capture-2026-10-19/`.
-  [ ] tenancy_tribunal  [ ] real_estate_authority
+- The rest of the capture, nightly on the scheduler: Tribunal 29,892
+  orders (about nine nights), Authority 1,655 cases and 2016's 21 pages.
 
 ## Next
 

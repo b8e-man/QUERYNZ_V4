@@ -294,3 +294,21 @@ def test_one_run_of_the_lane_at_a_time():
         conn = FakeConn(held)
         assert C.Tables(conn).try_lock() is (not held)
         assert conn.sql == [("SELECT pg_try_advisory_lock(hashtext(%s))", (C.JOB,))]
+
+
+def test_a_year_cut_short_is_listed_again():
+    rows = [(2015, 1, 2), (2015, 2, 2), (2016, 1, 22)]          # 2016 stopped after page 1 (19 October)
+    assert C.complete_years(rows) == {2015}
+    assert 2016 in C.years_to_list(TODAY, C.complete_years(rows))
+
+
+def test_a_failed_listing_page_leaves_the_year_unlisted():
+    site = FakeSite({2015: cases(2000, 25)})
+
+    def page_two_fails(url, timeout=60, **kw):
+        if "qd1=2015" in url and "pagesel=2" in url:
+            raise ConnectionResetError(104, "Connection reset by peer")
+        return site(url, timeout)
+    r, t, _ = run(page_two_fails)
+    r.run(TODAY, list_only=True)
+    assert C.complete_years((y, p, n) for y, p, n, *_ in t.listings) == set(C.years_to_list(TODAY, set())) - {2015}
