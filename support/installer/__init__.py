@@ -50,7 +50,8 @@ QV4_LLAMA_DIR = os.environ.get("QV4_LLAMA_DIR") or os.path.join(LIVE, "llama", "
 MODELS_DIR = os.environ.get("QV4_MODELS") or "/home/user/models"
 CRED_DIR = os.environ.get("QV4_CRED_DIR") or os.path.expanduser("~/.querynz")
 UNIT_GLOBS = ("checks/jobs/qv4-*.service", "checks/jobs/qv4-*.timer", "support/*/units/qv4-*.service", "support/*/units/qv4-*.timer",
-              "support/*/jobs/qv4-*.service", "support/*/jobs/qv4-*.timer")     # support/offsite/jobs/ (the founding session's)
+              "support/*/jobs/qv4-*.service", "support/*/jobs/qv4-*.timer",     # support/offsite/jobs/ (the founding session's)
+              "products/*/units/qv4-*.service", "products/*/units/qv4-*.timer")  # a product's surface on its own port (board-1, 20 October)
 
 
 def sha256_file(path: str) -> str:
@@ -79,7 +80,8 @@ def unit_sources(repo: str = REPO) -> dict[str, str]:
         for p in sorted(glob.glob(os.path.join(repo, pattern))):
             out[os.path.basename(p)] = p
     bad = []
-    for folder in ("checks/jobs", *glob.glob(os.path.join(repo, "support", "*", "units")), *glob.glob(os.path.join(repo, "support", "*", "jobs"))):
+    for folder in ("checks/jobs", *glob.glob(os.path.join(repo, "support", "*", "units")), *glob.glob(os.path.join(repo, "support", "*", "jobs")),
+                   *glob.glob(os.path.join(repo, "products", "*", "units"))):
         d = folder if os.path.isabs(folder) else os.path.join(repo, folder)
         for n in os.listdir(d) if os.path.isdir(d) else []:
             if (n.endswith(".service") or n.endswith(".timer")) and not n.startswith(PREFIX):
