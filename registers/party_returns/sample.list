@@ -1,6 +1,7 @@
 # registers/party_returns/sample.list (plan 1b.6): hashes only, never bytes or rows.
 # The text-layer returns of the seven front-page parties, 2017 to 2025, as the frozen site named them on 18 October 2026,
-# and one mixed return (Green 2023, six image pages) to prove the set-aside path. Comments say party and year only.
+# and the image-page returns read from the page reader's stored readings (step 4.1), their hard cases named.
+# Comments say party, year and the case only.
 765c53fbeb2801555b8b01d8ee280412dcf79444518b23911377f96560433ba2 The New Zealand National Party 2023
 24c6c12725cabb17f053ff03047997b1eeda085ee0a47cb3ab76783dd5058d6c ACT New Zealand 2019
 e4cd85fa01c83c424c6a1ec5e4c800d6917b31284fb0fad53d017ebb054a3dca ACT New Zealand 2022
@@ -15,7 +16,7 @@ ceafc2c4f9f4fdc62825455fc94f2a59d6c5bee6b9364f520a7dfb231890307b New Zealand Lab
 0f079493cce3617711dcca4e60dd26d34af85ff4c2f486fdd86b1ee6758d45e0 The Green Party of Aotearoa New Zealand 2020
 e5c7f64c836f3a8f264446cee0f76797ca6dd5f7b314d0f10474011594682c9a The Green Party of Aotearoa New Zealand 2021
 fa8eb985bf23130fe4d81e1b40c4ec3682e554404433713b03d9f44a5f1f2e8c The Green Party of Aotearoa New Zealand 2022
-c207394543138a322f75c28241b44096e0d718775499a19189a00de24134437f The Green Party of Aotearoa New Zealand 2023 (mixed: set aside)
+c207394543138a322f75c28241b44096e0d718775499a19189a00de24134437f The Green Party of Aotearoa New Zealand 2023 (mixed: the declaration page is text, the schedules images)
 37a89439018e923668e06d8df282dd195888d3e04497ac763cc4fc7bd74ac67f The Green Party of Aotearoa New Zealand 2025
 eb228b7b3bbd8f936c6313c0486d3b5d9abe5d9a1c7e2afac2acbe04c96ef68b New Zealand First Party 2021
 a460ac4dac8e6f3fac07939b10e189cb2ab15171a73b9ee711cdf74f7a3b12a0 New Zealand First Party 2022
@@ -24,3 +25,13 @@ a460ac4dac8e6f3fac07939b10e189cb2ab15171a73b9ee711cdf74f7a3b12a0 New Zealand Fir
 910d9beb708781dff59f24813737400c7e5bb647728ea0ab5e808b1388991202 Opportunity Party 2019
 df933eeddb1d5d62a97f991c8e18e8f2a9f301df5a96fa9b38ea578cc143487f Opportunity Party 2020
 d4ad6c2d3159db32b28ee32ca8c2fd5286ddf9eee6c3417aa6a1c877c5f41ff9 Opportunity Party 2022
+11490261631bab92b3cd46e86f6e61dd7bd331c0c3be00829203f806a53102ff New Zealand First Party 2023 (pixels: year from the loans page)
+f1504cb1933382d0ccc3ed675c2492b377a631232501b95227ee4a58972f11ae ACT New Zealand 2021 (pixels: the 2021 form misprints its loans sentence)
+24edf34f65bbd9f84b6eb4c84e01bfa6d9df2ef4f6b7a9b647efa4c145f61904 Vision New Zealand 2020 (pixels: handwritten schedule, typed declaration)
+ea8b4bbbe195416eab10c81d5aafc7fb3b9aef611a4eb1a54c9aa6adda661fdc New Zealand First Party 2019 (pixels: parts miss the total by $1,000, set aside)
+5dd9525a24db0fa6f1ea294430bef6d73852aaf70bd2fdec260d4e9a58a86325 Te Pāti Māori 2019 (pixels: nil)
+3da90d007a04c89696bff49dfa64850ed64bac3c455ac1abbbea388b33c138ef New Zealand Labour Party 2020 (pixels: amended return)
+8e5eb53867f42aabea4338ff827125cd5cbc8e7ab72b0db669adc241dff5ebce The New Zealand National Party 2020 (pixels)
+29958a45e4c6eec10480e96ab602e6b03a5226276acb8a16e2b85627349d1d3b Te Pāti Māori 2022 (pixels: audited, the frozen site's)
+f0e5d105735f9846b3880cd7e77d218d70f673c3f6fd5af79721801de6821c26 Te Pāti Māori 2022 (pixels: unaudited, another return for the same year)
+dfaef4a3ad9ce47230855a01fc95780b21be10a37825f871060862124cb1ca9c The Green Party of Aotearoa New Zealand 2017 (pixels: no stored page reading, set aside)
