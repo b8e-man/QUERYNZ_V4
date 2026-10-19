@@ -1,6 +1,6 @@
 # offsite (track B, session 2)
 
-**Updated:** 2026-10-20 03:30 NZDT. Overwritten at every close.
+**Updated:** 2026-10-20 04:10 NZDT. Overwritten at every close.
 
 ## Done
 
@@ -12,17 +12,12 @@
 - **Restore from the bucket to equality, 19 October 19:40 to 21:30: 1 h 50
   min**, copy 20261019T193457 (objects of four runs): 269 of 269 tables, 530
   million rows, and 90,123 of 90,123 files equal; 24.5 GB fetched in 41 min.
-  The vectors table is kept on the box, never sent (by design).
+  The vectors table is kept on the box, never sent (by design); from the
+  local copy it restored too: incoming_news 23/23 with the vectors, 62 min.
 - offsite-2b raised (branch at the commit that carries this file): ranges
   for tables over 1 GB, the spool lock, the multiset check, prefetch, and
   the step 1.8 dump retired (code and units here; the scheduler's three
   files by patch).
-
-## Under way
-
-- The vectors from the local copy: unit `qv4-offsite-rehearsal-vectors`,
-  log `/home/user/querynzv4-work/scratch/offsite/rehearsal-vectors.log`,
-  record under `/home/user/querynzv4-work/scratch/offsite/live/checks/`.
 
 ## Next
 
