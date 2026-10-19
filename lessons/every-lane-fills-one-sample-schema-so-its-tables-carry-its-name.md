@@ -1,4 +1,4 @@
-Every module's sample fills one shared scratch schema, so a lane's tables there must carry its name (`load.table(schema, t, shared=True)`): a second lane's `returns` or `files` takes the first's name and its fill, and every other lane's sample fixture, fails.
+Every module's sample fills one shared scratch schema, so a lane's tables there carry its name (load.table(schema, t, shared=True)): a second lane's returns or files table takes the first's name, and every other lane's sample fixture fails.
 area: any lane's sample.py and load.py (registers/*), support/sample
 paid-for-by: 2026-10-20, candidate-returns session, step 4.1
 
