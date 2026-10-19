@@ -1,5 +1,5 @@
-owns: schema `disclosures` (large-donation disclosures over $20,000, by document hash) and `disclosures_private` (nothing published lives there)
-reads: the Commission's disclosure files the old estate already holds under `var/staging/ec-donations/` (the `archive/` and `residue/donations_20k/` trees, taken by hash, read-only); fetches nothing until the public site is switched (step 4.1; ruling 241: no Wayback for this page)
-publishes: `pub.disclosures` rows, one per declared donation, each citing its document; an amendment replaces only the declaration the Commission says it replaces
-outside check: the Commission's own listing count of disclosures per year against the rows held
-jobs: a `qv4-disclosures-read` job on the scheduler once the reading exists; no capture job before the switch
+owns: schema `disclosures` (`declarations`, `items`, `files`, `set_aside`) and `disclosures_private` (`donor_addresses`: the donor cell's address lines, never published)
+reads: the Commission's own table of large declarations (`donations-exceeding-20000` and its `-30000` page, 2008 onward) and the scanned declarations, as the old `ec-disclosures` job holds them under `var/staging/ec-donations/` (`index/`, `residue/donations_20k/`, `archive/2026-20k+-donations__*`), copied by hash, read-only (case 1 of 1.10); the profile `ec-disclosure-listing`; `keys.parties`, `keys.names`, `keys.dates`. Fetches nothing until the public site is switched
+publishes: `pub.disclosures`, one row per declaration the Commission lists, citing the listing and its place, with the scan's hash where held; `pub.disclosure_items`, the gifts each declaration itemises, as printed. An amendment is the Commission's statement, read, never inferred
+outside check: each party-year the frozen site shows (`home.json`, `disclosed_by_year`, by the day the party received the gift) against the declarations held (`check.py`); the form's printed total against the table's amount where a reading of the scan is held (tranche 2)
+jobs: none yet; loaded by the merge gate's staging step. A `qv4-disclosures-read` job on the scheduler once the form-total reading exists; no capture job before the switch
