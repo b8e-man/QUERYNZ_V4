@@ -98,6 +98,7 @@ used_for = "Step 3: the incumbent at its second compression level"
 
 [profiles.trial-teleocr]
 model = "teleocr"
+binary = "qv4-llama-server-teleocr"
 weights = ["/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-Q8_0.gguf", "/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-mmproj-q8_0.gguf"]
 slots = 1
 context = 32768
@@ -109,6 +110,7 @@ used_for = "Step 3 challenger: TeleOCR (community conversion as NaviDC-OCR); nee
 
 [profiles.trial-teleocr-f16]
 model = "teleocr-f16"
+binary = "qv4-llama-server-teleocr"
 weights = ["/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-f16.gguf", "/mnt/hdd2/qv4-models/teleocr/NaviDC-OCR-mmproj-f16.gguf"]
 slots = 1
 context = 32768

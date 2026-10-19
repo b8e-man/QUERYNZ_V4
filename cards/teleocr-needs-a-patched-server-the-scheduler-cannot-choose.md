@@ -1,9 +1,10 @@
 # TeleOCR needs a patched model server, and the scheduler cannot choose a server per profile
 kind: blocker
-state: open
+state: closed
 use-case: Follow the Money (step 3, the page-reader trial: the TeleOCR arm)
 session: trial
 opened: 2026-10-18
+closed: 2026-10-19
 
 TeleOCR's own GGUF (rleo/TeleOCR-GGUF) says on its card it is not for
 llama.cpp (a Qwen3-style decoder with head_dim 128 behind a Qwen2.5-VL
@@ -51,3 +52,5 @@ file, and that file is outside this fence: the two lines
 request carries them). The `requires` line stays: the probe now lists the
 program, so it is satisfied wherever the profile is loadable, and it mirrors
 the additions file. The card closes when those two lines land.
+
+Closed at the merge of `fix-support-scheduler-1`: a profile may name its own server binary (`binary = "<probe name>"`), the probe lists `qv4-llama-server-teleocr`, and both TeleOCR profiles carry the line in `support/scheduler/profiles.toml` and the trial's additions file alike. The TeleOCR arm itself waits for the trial's resumption (ruling 60).
