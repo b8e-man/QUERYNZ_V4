@@ -23,6 +23,13 @@ tables through the product reader, never the sample:
   8. Every template on disk gets the contract's common rules: the done-when
      donor's report under each carries group-standing, hubs-met and
      replaced-return (unless the template opts out), each keeping the contract.
+  9. The walk's routes, each on a row taken from the tables at run time: an
+     interests return lists its own declarations, confirmed; a sitting
+     member's seat reaches expense rows by name, near with the reason; a
+     donation row a confirmed link joins to a person row takes that row's
+     group and says so; a winding-up notice is dated "to be heard" with its
+     filing and publication days; the header lists no group row a section
+     lists.
 
   python -m products.report check [--ref REF]      exit 1 on any failure
 """
@@ -86,6 +93,76 @@ def own_words_not_refused(conn, subject, held: set) -> list:
     return out
 
 
+def routes(conn, subject, held: set) -> list:
+    """The walk's routes on run-time rows (9)."""
+    out = []
+    # an interests return lists its declarations
+    got = db.rows(conn, "select r.key from pub.mp_interest_returns r where r.declarations > 0 and exists (select 1 from pub.mp_interests i where i.member_return = r.key) "
+                        "order by r.as_at desc, r.key limit 1")
+    if got:
+        ref = f"mp_interests:{got[0]['key']}"
+        r = build.build(conn, ref, subject, held)
+        decl = [it for s_ in r["sections"] for it in s_["items"] if it["view"] == "mp_interests" and it.get("via") == ref]
+        if not decl or any(it["grade"] != "confirmed" for it in decl):
+            out.append(f"{ref}: an interests return's own declarations are not listed as confirmed ({len(decl)} listed)")
+    else:
+        out.append("no interests return with declarations: route 9a cannot be checked")
+    # a member's seat reaches expense rows by name, near
+    got = db.rows(conn, "select m.key from pub.members m where exists (select 1 from pub.mp_expenses e where e.role = 'total' "
+                        "and translate(lower(e.name), 'āēīōū', 'aeiou') = translate(lower(m.display_name), 'āēīōū', 'aeiou')) order by m.from_on desc, m.key limit 1")
+    if got:
+        ref = f"house:{got[0]['key']}"
+        r = build.build(conn, ref, subject, held)
+        exp = [it for s_ in r["sections"] for it in s_["items"] if it["view"] in ("mp_expenses", "minister_expenses")]
+        if not exp:
+            out.append(f"{ref}: a member's seat reaches no expense row by name")
+        elif any(it["grade"] != "near" or not it.get("reason") for it in exp):
+            out.append(f"{ref}: an expense row reached by name is not near with its reason")
+        elif any(it["row"].get("role") == "category" for it in exp):
+            out.append(f"{ref}: a per-category expense line is listed; only totals and money outside the total are")
+    else:
+        out.append("no member whose name an expense release prints: route 9b cannot be checked")
+    # a donation row takes the group of the person row a confirmed link names
+    got = db.rows(conn, "select l.row_b as donor from pub.links l join pub.groups g on g.row_key = l.row_a where l.grade = 'confirmed' and l.row_a like 'companies:%%/director/%%' "
+                        "and l.row_b like 'party_returns:%%' and exists (select 1 from pub.groups g2 where g2.group_id = g.group_id and g2.row_key <> l.row_a) order by l.row_b limit 1")
+    if got:
+        ref = got[0]["donor"]
+        r = build.build(conn, ref, subject, held)
+        g = r["group"]
+        if not g.get("via") or g.get("size", 1) < 2:
+            out.append(f"{ref}: a donation row a confirmed link joins to a person row takes no group (via {g.get('via')!r}, size {g.get('size')})")
+        gs = [f for f in r["flags"] if f["rule"] == "group-standing"]
+        if not gs or "filed row" not in gs[0]["text"]:
+            out.append(f"{ref}: the group-standing flag does not say the group is an adopted one")
+    else:
+        out.append("no donation row confirmed to a grouped director row: route 9c cannot be checked")
+    # a winding-up notice says what its date is
+    got = db.rows(conn, "select n.register_key from pub.gazette_company_notices n where n.kind = 'winding-up application' and n.event_basis = 'hearing' "
+                        "and n.filed_on is not null and n.published_on is not null and n.register_key is not null and exists (select 1 from pub.companies c where c.key = n.register_key) "
+                        "order by n.published_on desc, n.key limit 1")
+    if got:
+        ref = f"companies:{got[0]['register_key']}"
+        r = build.build(conn, ref, subject, held)
+        notices = [it for s_ in r["sections"] for it in s_["items"] if it["view"] == "gazette_company_notices" and it["row"].get("kind") == "winding-up application"]
+        if not notices:
+            out.append(f"{ref}: the winding-up notice on the company is not listed")
+        elif not all("to be heard" in it["dates"]["text"] and "filed" in it["dates"]["text"] and "published" in it["dates"]["text"] for it in notices):
+            out.append(f"{ref}: a winding-up notice's date does not say it is the hearing day with its filing and publication days: {notices[0]['dates']['text']!r}")
+    else:
+        out.append("no winding-up notice joined to a company: route 9d cannot be checked")
+    # the header repeats nothing a section lists
+    got = db.rows(conn, "select g.row_key from pub.groups g join pub.names n on n.ref = g.row_key where n.view = 'directors' "
+                        "and (select count(*) from pub.groups g2 where g2.group_id = g.group_id) between 2 and 6 order by g.row_key limit 1")
+    if got:
+        ref = got[0]["row_key"]
+        r = build.build(conn, ref, subject, held)
+        listed = {it["ref"] for s_ in r["sections"] for it in s_["items"]}
+        twice = [m["ref"] for m in r["members"] if m["ref"] in listed]
+        if twice:
+            out.append(f"{ref}: the header repeats {len(twice)} group row(s) a section lists")
+    return out
+
+
 def problems(conn, ref: str = None) -> list:
     out = []
     held = db.pub_views(conn)
@@ -141,6 +218,8 @@ def problems(conn, ref: str = None) -> list:
     out += cited_rows_exist(conn, r)
     # 7. a register's own words are not the report's
     out += own_words_not_refused(conn, subject, held)
+    # 9. the walk's routes
+    out += routes(conn, subject, held)
     # 6. the memo prints
     text = memo.text(r)
     html = memo.html_body(r)

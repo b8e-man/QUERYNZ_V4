@@ -81,3 +81,27 @@ def test_a_row_without_a_document_says_the_original_is_not_held():
 def test_a_blank_value_says_not_stated():
     assert rows.fmt(None) == rows.NOT_STATED and rows.fmt("") == rows.NOT_STATED
     assert rows.fmt(decimal.Decimal("1234.5"), "amount") == "$1,234.50" and rows.fmt(2023, "year") == "2023"
+
+
+def test_a_gazette_notice_date_says_what_it_dates_and_a_publication_day_dates_a_row():
+    v = cat.BY_NAME["gazette_company_notices"]
+    r = {"key": "gazette/2018-aw3107/company/1", "kind": "winding-up application", "company": "X LIMITED", "action": "application to put into liquidation",
+         "event_on": dt.date(2018, 7, 13), "event_basis": "hearing", "filed_on": dt.date(2018, 5, 25), "published_on": dt.date(2018, 7, 5)}
+    d = rows.dates(v, r)
+    assert d["text"] == "to be heard 13 July 2018; filed 25 May 2018; published 5 July 2018" and not d["undated"]
+    r2 = {"key": "k", "kind": "removal", "company": "Y LIMITED", "action": "intention to remove", "event_on": dt.date(2020, 2, 1), "event_basis": "objections by",
+          "filed_on": None, "published_on": dt.date(2020, 1, 10)}
+    assert rows.dates(v, r2)["text"] == "objections by 1 February 2020; published 10 January 2020"
+    r3 = dict(r2, event_on=None, event_basis=None)
+    d3 = rows.dates(v, r3)
+    assert d3["text"] == "published 10 January 2020" and not d3["undated"]
+    lq = cat.BY_NAME["gazette_liquidations"]
+    assert rows.dates(lq, {"key": "k", "appointed_on": dt.date(2021, 3, 4), "published_on": dt.date(2021, 3, 9)})["text"] == "appointed 4 March 2021; published 9 March 2021"
+
+
+def test_an_expense_row_is_a_dated_figure_with_money_formatted():
+    v = cat.BY_NAME["mp_expenses"]
+    r = {"key": "h/sheet1/C10", "name": "Mark Mitchell", "category": "Grand Total", "role": "total", "figure": decimal.Decimal("8323.28"),
+         "period_start": dt.date(2020, 7, 1), "period_end": dt.date(2020, 9, 30)}
+    assert rows.statement(v, r) == "Mark Mitchell · Grand Total: $8,323.28, a member's expenses as released for the period"
+    assert rows.dates(v, r)["text"] == "from 1 July 2020; to 30 September 2020"

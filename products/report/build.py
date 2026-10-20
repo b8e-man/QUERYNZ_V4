@@ -41,7 +41,7 @@ def _blank(section: tpl.Section, held: set) -> str:
 
 def _sort_key(it: dict) -> tuple:
     d = it["dates"]
-    when = d.get("start") or d.get("on") or (dt.date(int(d["year"]), 1, 1) if d.get("year") and str(d["year"]).isdigit() else None)
+    when = d.get("start") or d.get("on") or d.get("published") or (dt.date(int(d["year"]), 1, 1) if d.get("year") and str(d["year"]).isdigit() else None)
     return (SECTION_ORDER_GRADE.get(it["grade"], 1), when is None, -(when.toordinal() if when else 0), it["ref"])
 
 
@@ -137,8 +137,9 @@ def build(conn, ref: str, t: tpl.Template, held: set = None) -> dict:
                "omitted": sum(o["omitted"] for o in omitted), "omitted_views": sorted({o["view"] for o in omitted}),
                "blank": None if items else _blank(s, held), "not_held": [cat.NOT_HELD_NAME[x] for x in s.not_held]}
         report["sections"].append(sec)
-    # the subject's own row and the group's members that no section claimed stay with the subject
-    report["members"] = [m for m in w["members"] if m["ref"] != ref]
+    # the group's members that no section claimed stay with the subject in the header; the rest are in their sections, once
+    report["members"] = [m for m in w["members"] if m["ref"] != ref and m["ref"] not in taken]
+    report["group"]["in_sections"] = sum(1 for m in w["members"] if m["ref"] != ref and m["ref"] in taken)
     report["flags"] = apply_rules(report, t)
     # citations, numbered once per row
     number = {}

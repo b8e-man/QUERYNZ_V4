@@ -33,6 +33,9 @@ SETTINGS = {"hub_roles": 50, "busy_address": 50, "thousand_address": 1000,
 NEAR_THROUGH_PEOPLE = "a connection that passes through more than one person is listed as near, never confirmed (the design's default)"
 NEAR_CONTESTED_GROUP = "the group this row belongs to is contested as a whole: the watch flagged it"
 NEAR_THROUGH_NEAR = "reached through a near link: {reason}"
+NEAR_BY_NAME = "the release prints a name only, so these rows are matched to the subject by name: near, never confirmed"
+NO_GROUP_FOR_FILED = "a filed row ({view}): no confirmed link names a person row, so there is no group to take; every same name elsewhere is a namesake, apart"
+ADOPTED_GROUP = "a filed row ({view}): the group shown is that of the person row a confirmed link names, {via}"
 NOMINEE = re.compile(r"\b(nominees?|trustees?|custodians?|custodial)\b", re.I)
 CROWN = re.compile(r"\b(her majesty|his majesty|the crown|the sovereign|minister (of|for)|crown entity)\b", re.I)
 
@@ -52,6 +55,11 @@ EXPAND_ONLY_AS_START = frozenset({"party_return_totals", "candidate_return_total
 #: rows of other views that point at a company by its register key
 POINTING_AT = {"companies": (("gazette_liquidations", "register_key", "published_on"),
                              ("gazette_company_notices", "register_key", "published_on"))}
+#: rows that carry a printed name and no key to a person row (the expense releases), reached from a person's row by name, as near:
+#: (child view, its name column, the name column of the person row, the rows wanted)
+NAMED_ROWS = {"members": (("mp_expenses", "name", "display_name", ("total", "outside")), ("minister_expenses", "name", "display_name", ("total", "outside"))),
+              "mp_interest_returns": (("mp_expenses", "name", "name", ("total", "outside")), ("minister_expenses", "name", "name", ("total", "outside")))}
+ADOPT_FROM = 10   # confirmed links from a filed row looked at for a person row whose group to take
 
 
 # ── items ───────────────────────────────────────────────────────────────────
@@ -228,6 +236,63 @@ def rows_where(conn, view: str, column: str, value, order: str) -> tuple:
     return rows.rows_where(conn, view, column, value, LIMITS["roles"], order)
 
 
+def first_last(name: str) -> str:
+    w = cat.fold(name).split()
+    return f"{w[0]} {w[-1]}" if len(w) > 1 else (w[0] if w else "")
+
+
+def named_rows(conn, pv: cat.View, p: dict, allowed: set, skipped: list, via: str) -> list:
+    """The rows of NAMED_ROWS views whose printed name is the person row's
+    (folded whole, or first and last word), graded near by name."""
+    out = []
+    for child, col, person_col, roles in NAMED_ROWS.get(pv.name, ()):
+        if child not in allowed:
+            skipped.append(child)
+            continue
+        name = p.get(person_col) or ""
+        if not name or rows.is_suppressed(pv, p):
+            continue
+        cv = cat.BY_NAME[child]
+        folded = f"translate(lower({col}), 'āēīōū', 'aeiou')"
+        got = db.rows(conn, f"select *, {cv.key_col} as key, count(*) over () as total from pub.{cv.name} "
+                            f"where role = any(%s) and ({folded} = %s or split_part({folded}, ' ', 1) || ' ' || regexp_replace({folded}, '^.* ', '') = %s) "
+                            f"order by period_start desc nulls last, {cv.key_col} limit %s", (list(roles), cat.fold(name), first_last(name), LIMITS["roles"]))
+        total = got[0]["total"] if got else 0
+        for r in got:
+            r.pop("total", None)
+            out.append(near(item(cv, r, via=via), NEAR_BY_NAME, "printed-name"))
+        if total > len(got):
+            out.append({"omitted": total - len(got), "view": child, "via": via})
+    return out
+
+
+def adopted_group(conn, ref: str, sv: cat.View, cache: dict) -> dict:
+    """The group a filed row (a donation, a loan, a disclosure, an interest)
+    takes: that of the person row a confirmed link names, the first by ref
+    when several; how many groups those person rows fall in is counted."""
+    none = {"built": True, "why": NO_GROUP_FOR_FILED.format(view=sv.name), "rows": [ref], "size": 1, "contested": False, "omitted": 0,
+            "group_id": None, "settings": None, "via": None, "via_groups": 0}
+    L = links_of(conn, [ref])
+    people = []
+    for l in L["confirmed"]:
+        hit = resolve(conn, l["other"], cache)
+        if hit and hit[0].kind == "person":
+            people.append(l["other"])
+    if not people:
+        return none
+    people = sorted(set(people))[:ADOPT_FROM]
+    groups = {}
+    for pref in people:
+        g = group_of(conn, pref)
+        groups.setdefault(g.get("group_id") or pref, (pref, g))
+    via, g = groups[min(groups, key=lambda k: groups[k][0])]
+    g = dict(g, via=via, via_groups=len(groups), why=ADOPTED_GROUP.format(view=sv.name, via=via)
+             + (f"; confirmed links name person rows in {len(groups)} groups, and the first by ref is walked" if len(groups) > 1 else ""))
+    g["rows"] = [ref] + [r for r in g["rows"] if r != ref]
+    g["size"] = g["size"] + (0 if ref in group_of(conn, via)["rows"] else 1)
+    return g
+
+
 # ── the walk ────────────────────────────────────────────────────────────────
 
 def link_item(conn, l: dict, cache: dict, allowed: set, skipped: list, via: str = None) -> dict | None:
@@ -263,14 +328,21 @@ def walk(conn, ref: str, allowed: set, depth: int = 2) -> dict:
     skipped = []
     sev, se = rows.entity_of(conn, sv, sr)
     out = {"found": True, "start": item(sv, sr, rows.title(sev, se) if se else None), "settings": dict(SETTINGS), "limits": dict(LIMITS), "skipped": skipped,
-           "members": [], "confirmed": [], "near": [], "entities": [], "roles": [], "pointing": [], "second": [], "hubs": []}
+           "members": [], "confirmed": [], "near": [], "entities": [], "roles": [], "pointing": [], "second": [], "named": [], "hubs": []}
     if sv.name not in allowed:
         out["start_outside_template"] = True
-    # 1. the group
-    g = group_of(conn, ref) if sv.kind == "person" else {"built": links_built(conn), "why": "an organisation needs no group: its official number is the link",
-                                                            "rows": [ref], "size": 1, "contested": False, "omitted": 0, "group_id": None, "settings": None}
-    out["group"] = {k: g[k] for k in ("built", "why", "group_id", "contested", "settings", "size", "omitted")}
+    # 1. the group: a person's own; a filed row takes the group of the person row a confirmed link names; an organisation needs none
+    if sv.kind == "person":
+        g = group_of(conn, ref)
+    elif sv.kind == "figure" and links_built(conn):
+        g = adopted_group(conn, ref, sv, cache)
+    else:
+        g = {"built": links_built(conn), "why": "an organisation needs no group: its official number is the link",
+             "rows": [ref], "size": 1, "contested": False, "omitted": 0, "group_id": None, "settings": None}
+    out["group"] = {k: g.get(k) for k in ("built", "why", "group_id", "contested", "settings", "size", "omitted", "via", "via_groups")}
+    subject_person = sv.kind == "person" or bool(g.get("via"))   # a filed row walking a person's group is graded as a person's walk
     member_refs = list(g["rows"])
+    members = set(member_refs)
     for mref in member_refs:
         mhit = resolve(conn, mref, cache)
         if not mhit:
@@ -289,11 +361,24 @@ def walk(conn, ref: str, allowed: set, depth: int = 2) -> dict:
             if it["grade"] == "near":
                 near(eit, it["reason"])
             out["entities"].append(eit)
+        # a member row with child rows of its own (an interests return and its declarations) is its own entity: the subject's own filing
+        if mv.name in ROLES_ON and mv.kind != "organisation":
+            eit = item(mv, mr, via=None if mref == ref else ref, hop=it["dates"])
+            if it["grade"] == "near":
+                near(eit, it["reason"])
+            out["entities"].append(eit)
+        # rows that carry this person's printed name and no key (the expense releases): by name, near
+        for nit in named_rows(conn, mv, mr, allowed, skipped, mref):
+            if "omitted" in nit:
+                out["roles"].append(nit)
+            elif it["grade"] == "near":
+                out["named"].append(near(nit, NEAR_THROUGH_NEAR.format(reason=it["reason"]), nit["rule"]))
+            else:
+                out["named"].append(nit)
     # 2. the links, confirmed and near
     L = links_of(conn, member_refs)
     out["links_built"] = L["built"]
     out["links_omitted"] = L["omitted"]
-    members = set(member_refs)
     for l in L["confirmed"]:
         it = link_item(conn, l, cache, allowed, skipped)
         if it:
@@ -307,7 +392,7 @@ def walk(conn, ref: str, allowed: set, depth: int = 2) -> dict:
             out["near"].append(it)
             if not it.get("missing") and it["kind"] == "organisation":
                 out["entities"].append(dict(it, hop=it["dates"]))
-    # an organisation start is its own entity
+    # an organisation start is its own entity (a person start with child rows was added with the members, above)
     if sv.kind == "organisation" and sv.name in allowed and sv.name in ROLES_ON:
         out["entities"].insert(0, item(sv, sr))
     # 3. each entity: the register's own rows on it, rows pointing at it, its own links (one step)
@@ -333,7 +418,7 @@ def walk(conn, ref: str, allowed: set, depth: int = 2) -> dict:
         h = name_hub(eit["title"]) if not eit["suppressed"] else None
         if h:
             eit["flags"].append(h)
-        if ev.name in EXPAND_ONLY_AS_START and eit["ref"] != ref:
+        if ev.name in EXPAND_ONLY_AS_START and eit["ref"] not in members:   # the subject's own filing is expanded; one it is merely filed in is context
             eit["context_only"] = True
             continue
         if expanded >= LIMITS["expand"]:
@@ -347,7 +432,7 @@ def walk(conn, ref: str, allowed: set, depth: int = 2) -> dict:
                 continue
             if it["ref"] in members or it["ref"] == ref:
                 continue
-            if it["kind"] == "person" and sv.kind == "person":
+            if it["kind"] == "person" and subject_person:
                 near(it, NEAR_THROUGH_PEOPLE)
             elif through_near:
                 near(it, NEAR_THROUGH_NEAR.format(reason=eit["reason"]))
@@ -355,7 +440,7 @@ def walk(conn, ref: str, allowed: set, depth: int = 2) -> dict:
                 h = address_hub(conn, it["row"])
                 if h:
                     it["flags"].append(h)
-            (out["second"] if it["kind"] == "person" and sv.kind == "person" else out["roles"]).append(it)
+            (out["second"] if it["kind"] == "person" and subject_person else out["roles"]).append(it)
         for it in pointing_at(conn, ev, e, allowed, skipped):
             if "omitted" not in it and through_near:
                 near(it, NEAR_THROUGH_NEAR.format(reason=eit["reason"]))
@@ -377,10 +462,10 @@ def walk(conn, ref: str, allowed: set, depth: int = 2) -> dict:
     if depth < 2:
         out["second"] = []
     # 4. hubs on every person met
-    people = [it for k in ("members", "confirmed", "near", "second", "roles") for it in out[k] if it.get("kind") == "person" and "omitted" not in it]
+    people = [it for k in ("members", "confirmed", "near", "second", "roles", "named") for it in out[k] if it.get("kind") == "person" and "omitted" not in it]
     flag_people(conn, people)
     out["hubs"] = [{"ref": it["ref"], "title": it["title"], **f} for k in ("start", ) for it in [out["start"]] for f in it["flags"]] + \
-                  [{"ref": it["ref"], "title": it["title"], **f} for k in ("members", "entities", "confirmed", "near", "roles", "second") for it in out[k]
+                  [{"ref": it["ref"], "title": it["title"], **f} for k in ("members", "entities", "confirmed", "near", "roles", "second", "named") for it in out[k]
                    if "omitted" not in it for f in it["flags"]]
     out["skipped"] = sorted(set(skipped))
     out["entities_not_expanded"] = sum(1 for e in out["entities"] if e.get("not_expanded"))

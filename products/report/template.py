@@ -42,7 +42,7 @@ class Section:
     name: str
     heading: str
     views: tuple                 # the published views it draws on (all in the template's reads)
-    sources: tuple = ("members", "confirmed", "near", "roles", "pointing", "second")   # the walk's buckets it draws from
+    sources: tuple = ("members", "confirmed", "near", "roles", "pointing", "second", "named")   # the walk's buckets it draws from
     not_held: tuple = ()         # registers it would read that no lane has published: the blank says so
     text: str = ""               # a line printed under the heading
 
