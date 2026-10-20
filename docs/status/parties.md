@@ -1,33 +1,41 @@
 # parties: where it stands
 
-**Date:** 2026-10-19, 21:30. **Step:** 4.1, the Register of Political
-Parties and party lifecycle, `registers/parties/`. **Merge request:**
-`parties-1`.
+**Date:** 2026-10-20. **Step:** 4.1, the Register of Political Parties and
+party lifecycle, `registers/parties/`. **Merge requests:** `parties-1`
+(merged), `parties-2` (raised).
 
 ## Done
 
-- Capture: the register page and applications page copied by hash (case
-  1; 21 earlier captures in the old manifest were overwritten, catch-log
-  lines at load); the Commission's 136 Gazette notices on the register
-  exported once to `gazette-party-register-notices-2026-10-19.jsonl`
-  (sha256 dc19fb7f…, case 2), landed in the store.
-- Readers: `register.py` (17 of 17 parties; contact lines private),
-  `notices.py` (every resolution read, none set aside; 15 stated renames,
-  one corrigendum applied), `lifecycle.py` (78 registrations, 17 on the register, 55 cancelled;
-  renames kept in one registration, re-registration a new one).
-- Outside check green on the sample: 14 page parties joined to the notices
-  by name, 3 before the notices' reach, 0 differing; the four known renames
-  one registration each, the window agreeing.
-- Label measurement: by name and window alone, 31 of 34 unresolved
-  party-return rows and 46 of 53 unresolved disclosure rows resolve.
+- Tranche 1: the register page (17 parties; contact lines private), the
+  lifecycle (renames one registration, re-registration a new one), the
+  outside check against the notices.
+- Tranche 2: the Commission's notices taken from the Gazette lane
+  (`pub.gazette_notices`, section `au`, register titles: 137), text from
+  its export by hash where equal to the parties export (136 of 136), cited
+  to that document and the notice's row (`gazette_key`); the old export
+  kept landed, "read, compared, not cited". New: 2023-au2700 cancels
+  Heartland New Zealand (20 June 2023). A section 70A logo cancellation no
+  longer mints a second One New Zealand Party: 77 registrations.
+- `same_name_as`/`same_name_note` on `pub.parties`: New Zealand Loyal,
+  United Future New Zealand, the Alliance kept apart and said so.
+- `pub.party_labels`: 1,154 (label, day or year) rows from 17 tables of
+  six lanes, 1,009 joined, 0 disagreeing with any lane's own join.
+- Full build in the sample database (`scratch_parties_2_full`, labels read
+  from the real `pub`): catch log empty, outside check green. Fast tier
+  green (whole repository, 290 s).
 
 ## Carded
 
-- `keys-parties-should-read-the-party-names-the-lane-publishes` (blocker
-  for the two lanes' labels; `keys/` is outside this fence).
-- `six-parties-are-off-the-register-with-no-cancellation-held`.
+- Closed: renamed-party money (confirmed), New Zealand Loyal (two),
+  labels the frozen site left unfolded (measured).
+- Open with what each needs: three labels and short labels (`bin/fix
+  keys`: `NZ`, `and`, `Incorporated`, `ACT`); unregistered candidacy label
+  (site); five parties with no cancellation held (a capture, after the
+  switch); new: the lanes and the site do not yet join the party labels.
 
 ## Next
 
-1. A fix session on `keys` to read `pub.party_names` by date (card above).
-2. When the Gazette lane exists, take its notices instead of the export.
+1. Integrator: append `gazette-party-register-notices` version 2 from
+   `profile-proposed.jsonl`; load the lane after the label lanes so
+   `pub.party_labels` sees their latest rows.
+2. A fix session on `keys`; then each consuming lane joins the view.

@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS house.electorates (
     party_informals      integer,
     poll_cancelled       boolean NOT NULL,
     result_held          boolean NOT NULL,                  -- the electorate's result page was read
+    candidates_held      text NOT NULL,                     -- every candidate | the leading two, from the status page | …
     document             text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
     page                 integer NOT NULL DEFAULT 1,
     place                text NOT NULL,

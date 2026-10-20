@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime as dt
 
 from products.report import catalogue as cat
-from products.report import rules, template as tpl, walk
+from products.report import contract, rules, template as tpl, walk
 
 SECTION_ORDER_GRADE = {"confirmed": 0, "near": 1}
 
@@ -41,7 +41,7 @@ def _blank(section: tpl.Section, held: set) -> str:
 
 def _sort_key(it: dict) -> tuple:
     d = it["dates"]
-    when = d.get("start") or d.get("on") or (dt.date(int(d["year"]), 1, 1) if d.get("year") and str(d["year"]).isdigit() else None)
+    when = d.get("start") or d.get("on") or d.get("published") or (dt.date(int(d["year"]), 1, 1) if d.get("year") and str(d["year"]).isdigit() else None)
     return (SECTION_ORDER_GRADE.get(it["grade"], 1), when is None, -(when.toordinal() if when else 0), it["ref"])
 
 
@@ -65,6 +65,23 @@ def _ordered(items: list) -> list:
     conf = [x for x in out + rest if x["grade"] == "confirmed"]
     nearby = [x for x in out + rest if x["grade"] != "confirmed"]
     return conf + nearby
+
+
+def apply_rules(report: dict, t: tpl.Template) -> list:
+    """The flags: the contract's common rules first (unless the template opts
+    out), then the template's own; a template flag with a common flag's
+    `rule` name replaces it. A rule that breaks is a blocked check, never a
+    silent green. Fired first, red before amber before info."""
+    flags = {}
+    for rule in (contract.COMMON_RULES if t.common_rules else ()) + tuple(t.rules):
+        try:
+            f = rule(report)
+        except Exception as exc:
+            f = contract.flag(getattr(rule, "__name__", "rule"), "?", "blocked", "info", f"this check could not run: {type(exc).__name__}: {exc}")
+        flags[f["rule"]] = f
+    out = list(flags.values())
+    out.sort(key=lambda f: (f["status"] != "fired", ("red", "amber", "info").index(f["severity"])))
+    return out
 
 
 def build(conn, ref: str, t: tpl.Template, held: set = None) -> dict:
@@ -120,16 +137,10 @@ def build(conn, ref: str, t: tpl.Template, held: set = None) -> dict:
                "omitted": sum(o["omitted"] for o in omitted), "omitted_views": sorted({o["view"] for o in omitted}),
                "blank": None if items else _blank(s, held), "not_held": [cat.NOT_HELD_NAME[x] for x in s.not_held]}
         report["sections"].append(sec)
-    # the subject's own row and the group's members that no section claimed stay with the subject
-    report["members"] = [m for m in w["members"] if m["ref"] != ref]
-    # rules
-    for rule in t.rules:
-        try:
-            report["flags"].append(rule(report))
-        except Exception as exc:        # a rule that breaks is a blocked check, never a silent green
-            report["flags"].append(tpl.flag(getattr(rule, "__name__", "rule"), "?", "blocked", "info",
-                                            f"this check could not run: {type(exc).__name__}: {exc}"))
-    report["flags"].sort(key=lambda f: (f["status"] != "fired", ("red", "amber", "info").index(f["severity"])))
+    # the group's members that no section claimed stay with the subject in the header; the rest are in their sections, once
+    report["members"] = [m for m in w["members"] if m["ref"] != ref and m["ref"] not in taken]
+    report["group"]["in_sections"] = sum(1 for m in w["members"] if m["ref"] != ref and m["ref"] in taken)
+    report["flags"] = apply_rules(report, t)
     # citations, numbered once per row
     number = {}
     for it in [report["subject"]] + report["members"] + [it for s in report["sections"] for it in s["items"]]:

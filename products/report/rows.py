@@ -20,7 +20,7 @@ NOT_STATED = "not stated"
 UNDATED = "undated"
 PIXELS = "read from pixels: weaker evidence"
 MONEY = {"amount", "amount_original", "declared_total", "donations", "expenses", "loans", "part_a", "part_c", "part_d",
-         "part_f", "part_g", "loans_h", "loans_i", "loans_total", "items_sum", "form_total", "total"}
+         "part_f", "part_g", "loans_h", "loans_i", "loans_total", "items_sum", "form_total", "total", "figure"}
 
 
 # ── refs ────────────────────────────────────────────────────────────────────
@@ -94,14 +94,20 @@ def title(v: cat.View, r: dict) -> str:
 # ── dating a connection ─────────────────────────────────────────────────────
 
 def dates(v: cat.View, r: dict) -> dict:
-    """How the row is dated: {'start', 'end', 'on', 'year', 'period',
-    'undated', 'text'}. A row with none of its view's date columns filled
-    is undated and says so; the files it was seen in are stated beside, as
-    a bound on when, never as the date of anything."""
+    """How the row is dated: {'start', 'end', 'on', 'year', 'filed',
+    'published', 'period', 'undated', 'text'}. The `on` date says what it
+    dates when the view knows (a notice's hearing day, the last day for
+    objections, an appointment); a filing day and a publication day are
+    stated beside it, and a row with only a publication day is dated by it.
+    A row with none of its view's date columns filled is undated and says
+    so; the files it was seen in are stated beside, as a bound on when,
+    never as the date of anything."""
     start = r.get(v.start) if v.start else None
     end = r.get(v.end) if v.end else None
     on = r.get(v.on) if v.on else None
     year = r.get(v.year) if v.year else None
+    filed = r.get(v.filed) if v.filed else None
+    published = r.get(v.published) if v.published else None
     period = tuple(r.get(c) if c else None for c in v.period) if v.period else ()
     bits = []
     if start:
@@ -112,10 +118,16 @@ def dates(v: cat.View, r: dict) -> dict:
         bits.append("no end filed" + (" (in the latest file)" if r.get("in_latest") else
                                      "" if "in_latest" not in r else " (not in the latest file: the file states no end)"))
     if on:
-        bits.append(fmt_date(on))
+        basis = (str(r.get(v.on_basis) or "").strip().lower() if v.on_basis else "") or v.on_label
+        word = cat.ON_BASIS_WORD.get(basis, basis)
+        bits.append(f"{word} {fmt_date(on)}".strip())
     if year and not (start or on):
         bits.append(f"{year} (the year the row is filed under)")
-    undated = not (start or end or on or year)
+    if filed:
+        bits.append(f"filed {fmt_date(filed)}")
+    if published:
+        bits.append(f"published {fmt_date(published)}")
+    undated = not (start or end or on or year or filed or published)
     if undated:
         bits.append(UNDATED)
     if period and any(period) and undated:
@@ -126,7 +138,8 @@ def dates(v: cat.View, r: dict) -> dict:
             bits.append(f"last seen in the file {fmt(b)}")
         elif a:
             bits.append(f"first seen in the file {fmt(a)}")
-    return {"start": start, "end": end, "on": on, "year": year, "period": period, "undated": undated, "text": "; ".join(bits)}
+    return {"start": start, "end": end, "on": on, "year": year, "filed": filed, "published": published, "period": period, "undated": undated,
+            "text": "; ".join(bits)}
 
 
 # ── the citation ────────────────────────────────────────────────────────────
