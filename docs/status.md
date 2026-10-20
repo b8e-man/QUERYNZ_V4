@@ -14,7 +14,7 @@ waits for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy a
   model server beside the copy, GLM-OCR as the page reader.
 - Step 4.1, twelve lanes merged (`docs/merges/`): disclosures (520
   declarations), party returns (140 totals, Part A 1,133 rows on 52 returns), parties
-  (78 registrations), party finance (expenses, statements, promoters),
+  (77 registrations; `parties-2` the labels view), party finance (expenses, statements, promoters),
   gazette 1 to 3 (207,133 notices; celebrants, prohibitions,
   liquidations, 1.48 M company notices, 65,299 bankruptcies, 3,155
   appointments, joined to the companies register), house (1,611
@@ -34,10 +34,10 @@ waits for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy a
 
 ## Running (headless, from the integrator)
 
-- `agriculture` (Opus): template 04. `comparison-2` (Fable): its readers
-  for template v2. Raised, integrating: `parties-2`, `review` (track C).
-  Next: two fix sessions (board link, recruitment's rule copies), `keys`,
-  the charities builds after tonight's copy.
+- `disclosures-3`, `fix-keys-1`, `recruitment-2` (Opus). Raised,
+  integrating in order: `review` (track C), `fix-products-board-1`,
+  `agriculture-1`, `comparison-2`. Next: the charities builds after
+  tonight's copy.
 
 ## Half-done
 
