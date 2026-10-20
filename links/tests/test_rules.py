@@ -85,3 +85,75 @@ def test_refs_round_trip_and_the_ddl_targets_a_schema():
     pub = links.publish_sql()
     for v in ("pub.links", "pub.groups", "pub.decisions", "pub.names", "pub.old_decisions"):
         assert f"CREATE OR REPLACE VIEW {v}" in pub, v
+
+
+def test_the_given_name_is_the_first_of_the_given_names_whichever_field_a_lane_put_them_in():
+    """A lane that files every given name in one field (candidate returns,
+    Gazette bankruptcies) keys the row as every other register does (links-2)."""
+    r = rows.read_name("Louise Claire UPSTON", "Louise Claire", None, "UPSTON")
+    assert (r["given"], r["middle"], r["fl_key"], r["full_key"], r["has_middle"]) == ("Louise", "Claire", "louise upston", "louise claire upston", True)
+    assert r["fl_key"] == rows.read_name("UPSTON, Louise Claire")["fl_key"] == rows.read_name("Louise UPSTON", "Louise", "", "UPSTON")["fl_key"]
+    assert rows.read_name("Romana (Marnz) MANNING", "Romana (Marnz)", None, "MANNING")["full_key"] == "romana manning"   # a nickname is no name
+    assert rows.read_name("Mary Anne SMITH", "Mary Anne", "Louise", "SMITH")["middle"] == "Anne Louise"
+
+
+def test_a_footnote_mark_in_an_expense_line_is_no_name():
+    r = rows.read_name("Doyle, Benjamin (3)")
+    assert (r["fl_key"], r["name_key"], r["has_middle"]) == ("benjamin doyle", "benjamin doyle", False)
+
+
+def test_a_declared_interest_names_its_organisation_up_to_the_dash():
+    assert rows.declared_name("Spire Investments Limited – commercial property") == "Spire Investments Limited"
+    assert rows.declared_name("Cameron Brewer Communications Limited (inactive, and in process of de- registration)") == "Cameron Brewer Communications Limited"
+    assert rows.declared_name("Animal Scanning Services (NZ) Limited – farming") == "Animal Scanning Services (NZ) Limited"
+    assert rows.declared_name("Roxtene Holdings Limited (not trading)") == "Roxtene Holdings Limited"
+    assert rows.declared_name("  ") == ""
+
+
+def test_every_published_view_the_rows_read_is_named_once_and_the_politician_views_exist():
+    views = [v for _, v, _ in rows.SOURCES]
+    assert len(views) == len(set(views))
+    for v in ("gazette_bankruptcies", "gazette_appointments", "mp_expenses", "minister_expenses", "mp_interests",
+              "candidate_return_donors", "candidate_return_totals"):
+        assert v in views, v
+    assert rows.POLITICIAN_VIEWS <= set(views)
+    assert rows.DECLARED_VIEWS <= set(views)
+
+
+def test_every_rule_named_in_rules_is_built_and_the_tables_carry_the_catch_log():
+    import os
+    import links
+    with open(os.path.join(links.HERE, "build.py"), encoding="utf-8") as f:
+        build = f.read()
+    for name in dir(rules):
+        if name.startswith("RULE_"):
+            assert f"rules.{name}" in build, name
+    sql = links.tables_sql()
+    assert "CREATE TABLE IF NOT EXISTS links.rows_catch" in sql
+    assert "rows_register ON links.rows (register, view)" in sql
+    with open(os.path.join(links.HERE, "check.py"), encoding="utf-8") as f:
+        assert "check_rows_current" in f.read()
+
+
+def test_a_scratch_schema_is_made_and_links_itself_never_is():
+    import links
+
+    class Conn:
+        def __init__(self):
+            self.sql = []
+
+        def execute(self, q):
+            self.sql.append(q)
+
+        def commit(self):
+            pass
+
+    c = Conn()
+    links.ensure_schema(c, "links")
+    assert c.sql == []
+    links.ensure_schema(c, "scratch_links_2")
+    assert c.sql[0] == "CREATE SCHEMA IF NOT EXISTS scratch_links_2"
+    import pytest
+    with pytest.raises(ValueError):
+        links.ensure_schema(c, "scratch; drop")
+    assert "scratch_x_pub.links" in links.publish_ddl("scratch_x", "scratch_x_pub")

@@ -13,7 +13,8 @@ pairs (a name carried by 300 rows would otherwise be 44,850 links).
   whose companies filed the same registered office, one star per name and
   address; a busy address (more than HUB_FLOOR companies) does not count.
 - `source-identifier@1`: a lane's own join between two of its rows (a seat
-  and the candidacy that won it).
+  and the candidacy that won it; the filing candidate on a candidate return
+  and on the amendment that replaces it).
 - `official-number@1`: a company shareholder's NZBN to the company; a
   liquidation notice's company number to the company.
 - `organisation-name@1`: a donation row's organisation name to the
@@ -119,6 +120,17 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
                'confirmed', NULL
         FROM pub.members m JOIN pub.candidates c ON c.key = m.candidate
         ON CONFLICT DO NOTHING""", {"rule": RULE_SOURCE})
+    # the lane's own join: the filing candidate on an original candidate return and on the amendment the Commission says replaces it
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT least('candidate_returns:' || o.key, 'candidate_returns:' || n.key), greatest('candidate_returns:' || o.key, 'candidate_returns:' || n.key), %(rule)s,
+               jsonb_build_object('join', 'pub.candidate_return_totals.replaced_by', 'year', o.year, 'electorate', o.electorate,
+                                  'as_filed', jsonb_build_array(a.name_filed, b.name_filed), 'registers', jsonb_build_array('candidate_returns', 'candidate_returns')),
+               'confirmed', NULL
+        FROM pub.candidate_return_totals o JOIN pub.candidate_return_totals n ON n.key = o.replaced_by || '/declaration'
+        JOIN {s}.rows a ON a.ref = 'candidate_returns:' || o.key JOIN {s}.rows b ON b.ref = 'candidate_returns:' || n.key
+        WHERE o.replaced_by IS NOT NULL
+        ON CONFLICT DO NOTHING""", {"rule": RULE_SOURCE})
     out[RULE_SOURCE] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (RULE_SOURCE,)).fetchone()[0]
     # the number is the link
     conn.execute(f"""
@@ -149,12 +161,19 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
         FROM {s}.rows r
         JOIN (SELECT n.org_key, n.entity_ref, n.registered_on, n.removed_on, count(*) OVER (PARTITION BY n.org_key) AS n
               FROM {s}.org_names n) o ON o.org_key = r.name_key
-        WHERE r.kind = 'organisation' AND r.register IN ('party_returns', 'disclosures')
+        WHERE r.kind = 'organisation' AND r.register IN ('party_returns', 'candidate_returns', 'disclosures', 'mp_interests')
         ON CONFLICT DO NOTHING""", {"rule": rules.RULE_ORG_NAME, "one": rules.NEAR_ORG_NAME + "; one company carries this name",
                                      "many": rules.NEAR_ORG_NAME + "; several companies carry this name"})
     out[rules.RULE_ORG_NAME] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_ORG_NAME,)).fetchone()[0]
     log(f"links.build: {rules.RULE_ORG_NAME}: {out[rules.RULE_ORG_NAME]} ({time.monotonic() - t0:.0f} s)")
     conn.commit()
+    # the rules of links-2: the House's own rows to their seats; declared interests to companies and the member's own directorships;
+    # the donation registers' named circumstances; companies under one name; one candidate under two printings
+    for name, step in ((rules.RULE_SEAT, seat_links), (rules.RULE_DECLARED, declared_links), ("donor rules", donor_links),
+                       (rules.RULE_COMPANY_NAME, company_name_links), (rules.RULE_NAME_FORM, name_form_links)):
+        out[name] = step(conn, s)
+        log(f"links.build: {name}: {out[name]} ({time.monotonic() - t0:.0f} s)")
+    out[rules.RULE_NUMBER] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_NUMBER,)).fetchone()[0]
     # near: every other shared first and last name, one star per name over the confirmed components
     out[rules.RULE_NAME_ONLY] = near_links(conn, s, log, reader=reader)
     conn.commit()
@@ -162,6 +181,246 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     conn.commit()
     out["seconds"] = round(time.monotonic() - t0, 1)
     return out
+
+
+#: an electorate name as the House and the Commission print it, folded for equality (macrons to plain letters, letters only)
+_PLACE = "lower(regexp_replace(translate(coalesce({x}, ''), 'āēīōūĀĒĪŌŪ', 'aeiouAEIOU'), '[^A-Za-z]', '', 'g'))"
+
+
+def _count(conn, s: str, rule: str) -> int:
+    return conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rule,)).fetchone()[0]
+
+
+def seat_links(conn, s: str) -> dict:
+    """`seat-and-window@1`: a row the House publishes about a sitting member
+    (an interests return, an expense line) joined to the seat whose term
+    covers the row's date, under the same first and last name, the
+    electorate agreeing where the row prints one ('List' to a list seat).
+    Confirmed when every seat that fits is one member: one party, and no
+    two middle names (the seats before and after an election are one
+    person's, under either printing of the name); near with the reason
+    when two members of the name sat in the window. Middle names that
+    differ on both rows take the pair out."""
+    conn.execute(f"""
+        CREATE TEMP TABLE seat_fit ON COMMIT DROP AS
+        WITH seat AS (
+            SELECT r.ref, r.fl_key, r.full_key, r.has_middle, r.name_key, m.key AS seat_key, m.from_on, coalesce(m.ended_on, m.to_by) AS to_on,
+                   m.route, e.name AS electorate_name, m.party_registered, m.election
+            FROM {s}.rows r JOIN pub.members m ON r.ref = 'house:' || m.key LEFT JOIN pub.electorates e ON e.key = m.electorate
+            WHERE r.view = 'members' AND r.fl_key IS NOT NULL),
+        published AS (
+            SELECT r.ref, r.view, r.fl_key, r.full_key, r.has_middle, r.name_filed, r.started_on, coalesce(r.ended_on, r.started_on) AS ended_on,
+                   x.electorate
+            FROM {s}.rows r LEFT JOIN pub.mp_interest_returns x ON r.view = 'mp_interest_returns' AND r.ref = 'mp_interests:' || x.key
+            WHERE r.view IN ('mp_interest_returns', 'mp_expenses', 'minister_expenses') AND r.fl_key IS NOT NULL AND r.started_on IS NOT NULL)
+        SELECT p.ref AS row_ref, p.view, p.name_filed, p.started_on, p.ended_on, p.electorate AS printed_electorate,
+               t.ref AS seat_ref, t.seat_key, t.name_key, t.full_key, t.has_middle, t.party_registered, t.route, t.electorate_name, t.from_on, t.to_on, t.election
+        FROM published p JOIN seat t ON t.fl_key = p.fl_key
+         AND p.started_on <= coalesce(t.to_on, 'infinity'::date) AND p.ended_on >= t.from_on
+         AND NOT (t.has_middle AND p.has_middle AND t.full_key <> p.full_key)
+         AND (p.electorate IS NULL OR (lower(p.electorate) = 'list' AND t.route = 'list')
+              OR {_PLACE.format(x='p.electorate')} = {_PLACE.format(x='t.electorate_name')})""")
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT least(f.row_ref, f.seat_ref), greatest(f.row_ref, f.seat_ref), %(rule)s,
+               jsonb_build_object('seat', f.seat_key, 'election', f.election, 'route', f.route, 'electorate', f.electorate_name,
+                                  'term', jsonb_build_array(f.from_on, f.to_on), 'row', f.view, 'dated', jsonb_build_array(f.started_on, f.ended_on),
+                                  'printed_electorate', f.printed_electorate, 'as_filed', f.name_filed, 'members_fitting', u.members,
+                                  'registers', jsonb_build_array(split_part(f.row_ref, ':', 1), 'house')),
+               CASE WHEN u.members = 1 THEN 'confirmed' ELSE 'near' END,
+               CASE WHEN u.members = 1 THEN NULL ELSE %(ambiguous)s END
+        FROM seat_fit f
+        JOIN (SELECT row_ref, count(DISTINCT party_registered) + (count(DISTINCT full_key) FILTER (WHERE has_middle) > 1)::int AS members
+              FROM seat_fit GROUP BY 1) u ON u.row_ref = f.row_ref
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_SEAT, "ambiguous": rules.NEAR_SEAT_AMBIGUOUS})
+    conn.commit()
+    row = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE grade = 'confirmed'),
+                                  count(DISTINCT row_a) FILTER (WHERE grade = 'confirmed' AND split_part(row_a, ':', 1) <> 'house')
+                                  + count(DISTINCT row_b) FILTER (WHERE grade = 'confirmed' AND split_part(row_b, ':', 1) <> 'house')
+                           FROM {s}.links WHERE rule = %s""", (rules.RULE_SEAT,)).fetchone()
+    unjoined = conn.execute(f"""SELECT view, count(*) FROM {s}.rows r WHERE view IN ('mp_interest_returns', 'mp_expenses', 'minister_expenses')
+                                AND NOT EXISTS (SELECT 1 FROM {s}.links l WHERE l.rule = %s AND (l.row_a = r.ref OR l.row_b = r.ref)) GROUP BY 1""",
+                            (rules.RULE_SEAT,)).fetchall()
+    return {"links": int(row[0]), "confirmed": int(row[1]), "near_ambiguous": int(row[0] - row[1]), "rows_joined": int(row[2]),
+            "rows_no_seat_fits": {v: int(n) for v, n in unjoined}}
+
+
+def declared_links(conn, s: str) -> dict:
+    """A member's declared interests anchored to the companies register.
+    `official-number@1` where the declaration prints the company number in
+    brackets; otherwise `organisation-name@1` (near, with whether exactly
+    one company of the name was alive on the declaration date) is made by
+    the organisation-name step. Then `declared-directorship@1`: the member's
+    return and a director row of the member's name on a company the member
+    declared, confirmed (design: a politician's name on the director
+    register counts with a company that person declared); near when two
+    directors of that name sit on the declared company."""
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT least(r.ref, 'companies:' || c.key), greatest(r.ref, 'companies:' || c.key), %(rule)s,
+               jsonb_build_object('number', 'company number', 'value', c.number, 'declared', r.name_filed, 'company', c.name,
+                                  'registers', jsonb_build_array('mp_interests', 'companies')), 'confirmed', NULL
+        FROM {s}.rows r JOIN pub.mp_interests i ON r.ref = 'mp_interests:' || i.key
+        JOIN pub.companies c ON c.number = substring(i.text FROM '\\((\\d{{5,8}})\\)') AND c.register = 'companies'
+        WHERE r.view = 'mp_interests'
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_NUMBER})
+    numbered = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s AND evidence->>'declared' IS NOT NULL", (rules.RULE_NUMBER,)).fetchone()[0]
+    conn.execute(f"""
+        CREATE TEMP TABLE declared_company ON COMMIT DROP AS
+        SELECT i.ref AS declared_ref, i.entity_ref AS return_ref, i.name_filed AS declared, i.started_on AS as_at, o.entity_ref AS company_ref,
+               count(*) OVER (PARTITION BY i.ref) AS companies_alive
+        FROM {s}.rows i JOIN {s}.org_names o ON o.org_key = i.name_key
+        WHERE i.view = 'mp_interests' AND i.kind = 'organisation'
+          AND (o.registered_on IS NULL OR o.registered_on <= i.started_on) AND (o.removed_on IS NULL OR o.removed_on >= i.started_on)
+        UNION
+        SELECT least(l.row_a, l.row_b), i.entity_ref, i.name_filed, i.started_on, greatest(l.row_a, l.row_b), 1
+        FROM {s}.links l JOIN {s}.rows i ON i.ref = least(l.row_a, l.row_b) AND i.view = 'mp_interests'
+        WHERE l.rule = %(number)s""", {"number": rules.RULE_NUMBER})
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT DISTINCT ON (least(m.ref, d.ref), greatest(m.ref, d.ref))
+               least(m.ref, d.ref), greatest(m.ref, d.ref), %(rule)s,
+               jsonb_build_object('declared', dc.declared, 'declaration', dc.declared_ref, 'as_at', dc.as_at, 'company', dc.company_ref,
+                                  'directors_of_this_name_on_it', n.names, 'role', jsonb_build_array(d.started_on, d.ended_on),
+                                  'as_filed', jsonb_build_array(m.name_filed, d.name_filed), 'registers', jsonb_build_array('mp_interests', 'companies')),
+               CASE WHEN n.names = 1 THEN 'confirmed' ELSE 'near' END, CASE WHEN n.names = 1 THEN NULL ELSE %(two)s END
+        FROM declared_company dc
+        JOIN {s}.rows m ON m.ref = dc.return_ref AND m.fl_key IS NOT NULL
+        JOIN {s}.rows d ON d.entity_ref = dc.company_ref AND d.view = 'directors' AND d.fl_key = m.fl_key
+        JOIN (SELECT d2.entity_ref, d2.fl_key, count(DISTINCT CASE WHEN d2.has_middle THEN d2.full_key END) + (count(*) FILTER (WHERE NOT d2.has_middle) > 0)::int AS names
+              FROM {s}.rows d2 WHERE d2.view = 'directors' GROUP BY 1, 2) n ON n.entity_ref = d.entity_ref AND n.fl_key = d.fl_key
+        WHERE dc.companies_alive = 1 AND NOT (m.has_middle AND d.has_middle AND m.full_key <> d.full_key)
+        ORDER BY least(m.ref, d.ref), greatest(m.ref, d.ref), d.started_on DESC NULLS LAST
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_DECLARED, "two": rules.NEAR_DECLARED_TWO})
+    conn.commit()
+    row = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE grade = 'confirmed'), count(DISTINCT least(row_a, row_b)) FILTER (WHERE grade = 'confirmed')
+                           FROM {s}.links WHERE rule = %s""", (rules.RULE_DECLARED,)).fetchone()
+    return {"declarations_with_a_company_number": int(numbered), "links": int(row[0]), "confirmed": int(row[1]), "near_two_directors": int(row[0] - row[1]),
+            "returns_joined_to_a_directorship": int(row[2])}
+
+
+def donor_links(conn, s: str) -> dict:
+    """Three near rules on the donation registers, each naming its evidence.
+    `filed-name@1`: donation rows filed under one organisation name, one
+    star per name across party returns, candidate returns and declarations.
+    `own-return@1`: a donor row on a candidate's own return in the
+    candidate's name. `member-and-party-donor@1`: a member's name on a donor
+    row (a party return's Part A, a declaration) to the member's own party,
+    dated in the term. Every one is near: the rows name a circumstance,
+    and whether any may confirm is Arthur's (the decision queue)."""
+    out = {}
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT least(m.ref, r.ref), greatest(m.ref, r.ref), %(rule)s,
+               jsonb_build_object('name_key', r.name_key, 'as_filed', jsonb_build_array(m.name_filed, r.name_filed),
+                                  'same_party', m.entity_ref = r.entity_ref, 'dated', jsonb_build_array(m.started_on, r.started_on),
+                                  'registers', jsonb_build_array(m.register, r.register)),
+               'near', %(reason)s
+        FROM {s}.rows r
+        JOIN (SELECT name_key, min(ref) AS ref FROM {s}.rows WHERE kind IN ('organisation', 'estate')
+              AND register IN ('party_returns', 'candidate_returns', 'disclosures') GROUP BY 1 HAVING count(*) > 1) k ON k.name_key = r.name_key
+        JOIN {s}.rows m ON m.ref = k.ref
+        WHERE r.kind IN ('organisation', 'estate') AND r.register IN ('party_returns', 'candidate_returns', 'disclosures') AND r.ref <> k.ref
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_FILED_NAME, "reason": rules.NEAR_FILED_NAME})
+    out[rules.RULE_FILED_NAME] = _count(conn, s, rules.RULE_FILED_NAME)
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT least(d.ref, c.ref), greatest(d.ref, c.ref), %(rule)s,
+               jsonb_build_object('return', c.ref, 'election', c.election, 'electorate', c.electorate,
+                                  'as_filed', jsonb_build_array(d.name_filed, c.name_filed), 'registers', jsonb_build_array('candidate_returns', 'candidate_returns')),
+               'near', %(reason)s
+        FROM {s}.rows d JOIN {s}.rows c ON c.ref = d.entity_ref AND c.view = 'candidate_return_totals' AND c.fl_key = d.fl_key
+        WHERE d.view = 'candidate_return_donors' AND d.kind = 'person' AND NOT (d.has_middle AND c.has_middle AND d.full_key <> c.full_key)
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_OWN_RETURN, "reason": rules.NEAR_OWN_RETURN})
+    out[rules.RULE_OWN_RETURN] = _count(conn, s, rules.RULE_OWN_RETURN)
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT DISTINCT ON (least(d.ref, p.ref), greatest(d.ref, p.ref))
+               least(d.ref, p.ref), greatest(d.ref, p.ref), %(rule)s,
+               jsonb_build_object('party', coalesce(pr.party, ds.party), 'year', coalesce(pr.year, extract(year FROM ds.given_on)::int),
+                                  'politician', p.view, 'election', p.election, 'term', jsonb_build_array(p.started_on, p.ended_on),
+                                  'as_filed', jsonb_build_array(d.name_filed, p.name_filed), 'registers', jsonb_build_array(d.register, 'house')),
+               'near', %(reason)s
+        FROM {s}.rows d
+        LEFT JOIN pub.party_return_donors pr ON d.ref = 'party_returns:' || pr.key
+        LEFT JOIN pub.disclosures ds ON d.ref = 'disclosures:' || ds.key
+        JOIN {s}.rows p ON p.view = 'members' AND p.fl_key = d.fl_key
+        JOIN pub.members m ON p.ref = 'house:' || m.key AND m.party_registered = coalesce(pr.party, ds.party) AND m.party_registered <> ''
+             AND d.started_on <= coalesce(m.ended_on, m.to_by, 'infinity'::date) AND coalesce(d.ended_on, d.started_on) >= m.from_on
+        WHERE d.kind = 'person' AND d.register IN ('party_returns', 'disclosures') AND NOT (d.has_middle AND p.has_middle AND d.full_key <> p.full_key)
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_PARTY_DONOR, "reason": rules.NEAR_PARTY_DONOR})
+    out[rules.RULE_PARTY_DONOR] = _count(conn, s, rules.RULE_PARTY_DONOR)
+    conn.commit()
+    return out
+
+
+def company_name_links(conn, s: str) -> dict:
+    """`company-name@1`, near: companies under one name, one star per name;
+    and under one name apart from a year in brackets, one star per bare
+    name. The number is the only confirmation of a company."""
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT least(m.entity_ref, o.entity_ref), greatest(m.entity_ref, o.entity_ref), %(rule)s,
+               jsonb_build_object('name_key', o.org_key, 'registered', jsonb_build_array(m.registered_on, o.registered_on),
+                                  'removed', jsonb_build_array(m.removed_on, o.removed_on),
+                                  'alive_together', coalesce(m.removed_on, 'infinity') >= coalesce(o.registered_on, '-infinity')
+                                                AND coalesce(o.removed_on, 'infinity') >= coalesce(m.registered_on, '-infinity'),
+                                  'companies_of_this_name', k.n, 'registers', jsonb_build_array('companies', 'companies')),
+               'near', %(reason)s
+        FROM {s}.org_names o
+        JOIN (SELECT org_key, min(entity_ref) AS entity_ref, count(*) AS n FROM {s}.org_names GROUP BY 1 HAVING count(*) > 1) k ON k.org_key = o.org_key
+        JOIN {s}.org_names m ON m.entity_ref = k.entity_ref AND m.org_key = k.org_key
+        WHERE o.entity_ref <> k.entity_ref
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_COMPANY_NAME, "reason": rules.NEAR_COMPANY_SAME})
+    same = _count(conn, s, rules.RULE_COMPANY_NAME)
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT least(m.entity_ref, o.entity_ref), greatest(m.entity_ref, o.entity_ref), %(rule)s,
+               jsonb_build_object('name_key', o.bare, 'as_keyed', jsonb_build_array(m.org_key, o.org_key),
+                                  'registered', jsonb_build_array(m.registered_on, o.registered_on), 'removed', jsonb_build_array(m.removed_on, o.removed_on),
+                                  'registers', jsonb_build_array('companies', 'companies')),
+               'near', %(reason)s
+        FROM (SELECT entity_ref, org_key, registered_on, removed_on, trim(regexp_replace(org_key, '\\s*\\(\\d{{4}}\\)\\s*', ' ', 'g')) AS bare
+              FROM {s}.org_names WHERE org_key ~ '\\(\\d{{4}}\\)') o
+        JOIN (SELECT org_key, min(entity_ref) AS entity_ref FROM {s}.org_names GROUP BY 1) k ON k.org_key = o.bare
+        JOIN {s}.org_names m ON m.entity_ref = k.entity_ref AND m.org_key = k.org_key
+        WHERE o.bare <> '' AND o.bare <> o.org_key
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_COMPANY_NAME, "reason": rules.NEAR_COMPANY_YEAR})
+    conn.commit()
+    total = _count(conn, s, rules.RULE_COMPANY_NAME)
+    return {"same_name": int(same), "same_name_apart_from_a_year": int(total - same), "links": int(total)}
+
+
+def name_form_links(conn, s: str) -> dict:
+    """`candidate-name-form@1`, near: the House rows (candidacies, seats) of
+    one first and last name for one party across different elections, where
+    the printings differ (a middle name on one printing only, or none on
+    either), one star per name and party. A pair whose two printings both
+    carry middle names that differ is left out: those are two names."""
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT least(m.ref, r.ref), greatest(m.ref, r.ref), %(rule)s,
+               jsonb_build_object('party', r.party, 'elections', jsonb_build_array(m.election, r.election),
+                                  'electorates', jsonb_build_array(m.electorate, r.electorate), 'as_filed', jsonb_build_array(m.name_filed, r.name_filed),
+                                  'same_printing', m.name_key = r.name_key, 'registers', jsonb_build_array('house', 'house'))
+               , 'near', %(reason)s
+        FROM (SELECT x.*, coalesce(c.party_registered, mm.party_registered) AS party FROM {s}.rows x
+              LEFT JOIN pub.candidates c ON x.view = 'candidates' AND x.ref = 'house:' || c.key
+              LEFT JOIN pub.members mm ON x.view = 'members' AND x.ref = 'house:' || mm.key
+              WHERE x.view IN ('candidates', 'members') AND x.fl_key IS NOT NULL) r
+        JOIN (SELECT fl_key, party, min(ref) AS ref FROM (SELECT x.fl_key, coalesce(c.party_registered, mm.party_registered) AS party, x.ref, x.election
+                                                           FROM {s}.rows x
+                                                           LEFT JOIN pub.candidates c ON x.view = 'candidates' AND x.ref = 'house:' || c.key
+                                                           LEFT JOIN pub.members mm ON x.view = 'members' AND x.ref = 'house:' || mm.key
+                                                           WHERE x.view IN ('candidates', 'members') AND x.fl_key IS NOT NULL) y
+              WHERE party IS NOT NULL AND party <> '' GROUP BY 1, 2 HAVING count(DISTINCT election) > 1) k ON k.fl_key = r.fl_key AND k.party = r.party
+        JOIN {s}.rows m ON m.ref = k.ref
+        WHERE r.ref <> k.ref AND r.election <> m.election AND NOT (m.has_middle AND r.has_middle AND m.full_key <> r.full_key)
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_NAME_FORM, "reason": rules.NEAR_NAME_FORM})
+    conn.commit()
+    row = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE (evidence->>'same_printing')::boolean) FROM {s}.links WHERE rule = %s""",
+                       (rules.RULE_NAME_FORM,)).fetchone()
+    return {"links": int(row[0]), "same_printing": int(row[1]), "different_printing": int(row[0] - row[1])}
 
 
 def components(conn, s: str) -> tuple:
@@ -287,9 +546,11 @@ def build_groups(conn, s: str, log=print) -> dict:
 
 def build_watch(conn, s: str, log=print) -> dict:
     """The watch over every confirmed name link: regions apart (the current
-    appointments' registered offices sit in different postcode regions) and
-    a very common name. A bankruptcy on one row, and donor addresses far
-    apart, wait on registers not yet published."""
+    appointments' registered offices sit in different postcode regions), a
+    very common name, and a bankruptcy on one row with a directorship taken
+    up within three years on the other (an undischarged bankrupt may not
+    manage a company). Donor addresses far apart wait: no donor address is
+    published."""
     t0 = time.monotonic()
     work_tables(conn, s)
     conn.execute(f"DELETE FROM {s}.watch")
@@ -317,8 +578,19 @@ def build_watch(conn, s: str, log=print) -> dict:
                           'text', 'a very common first and last name with no middle name filed',
                           'evidence', jsonb_build_object('director_rows_with_this_name', nc.n)))
                      ELSE '[]'::jsonb END)
+               ||
+               (CASE WHEN (a.view = 'gazette_bankruptcies' AND b.view = 'directors' AND b.started_on > a.started_on
+                           AND b.started_on <= a.started_on + interval '3 years')
+                        OR (b.view = 'gazette_bankruptcies' AND a.view = 'directors' AND a.started_on > b.started_on
+                           AND a.started_on <= b.started_on + interval '3 years')
+                     THEN jsonb_build_array(jsonb_build_object('kind', 'bankrupt-yet-appointing',
+                          'text', 'a bankruptcy on one row and a directorship taken up within three years of it on the other',
+                          'evidence', jsonb_build_object('bankruptcy_on', CASE WHEN a.view = 'gazette_bankruptcies' THEN a.started_on ELSE b.started_on END,
+                                                         'appointed_on', CASE WHEN a.view = 'directors' THEN a.started_on ELSE b.started_on END)))
+                     ELSE '[]'::jsonb END)
         FROM {s}.links l
         JOIN {s}.rows a ON a.ref = l.row_a
+        JOIN {s}.rows b ON b.ref = l.row_b
         LEFT JOIN {s}.row_regions ra ON ra.ref = l.row_a
         LEFT JOIN {s}.row_regions rb ON rb.ref = l.row_b
         LEFT JOIN {s}.name_counts nc ON nc.fl_key = a.fl_key
@@ -326,10 +598,10 @@ def build_watch(conn, s: str, log=print) -> dict:
     conn.commit()
     row = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE flags <> '[]'::jsonb),
                                   count(*) FILTER (WHERE flags::text LIKE '%%regions-apart%%'),
-                                  count(*) FILTER (WHERE flags::text LIKE '%%very-common-name%%') FROM {s}.watch""").fetchone()
-    out = {"watched": row[0], "flagged": row[1], "regions_apart": row[2], "very_common_name": row[3],
-           "not_available": ["bankruptcy-conflict: no bankruptcy register is published yet",
-                             "donor-addresses-apart: no donor address is published"],
+                                  count(*) FILTER (WHERE flags::text LIKE '%%very-common-name%%'),
+                                  count(*) FILTER (WHERE flags::text LIKE '%%bankrupt-yet-appointing%%') FROM {s}.watch""").fetchone()
+    out = {"watched": row[0], "flagged": row[1], "regions_apart": row[2], "very_common_name": row[3], "bankrupt_yet_appointing": row[4],
+           "not_available": ["donor-addresses-apart: no donor address is published"],
            "seconds": round(time.monotonic() - t0, 1)}
     log(f"links.build: watch: {out}")
     return out
