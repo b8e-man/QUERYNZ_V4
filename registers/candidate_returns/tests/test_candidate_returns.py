@@ -260,11 +260,12 @@ def test_the_sample_s_cases_land_where_the_list_says(filled):
     assert rows[c["a scanner's own OCR layer without the heading: the stored page reading"]]["read_from"] == "pixels"
     assert rows[c["the figure typed in the step cell, the form's $0.00 left in the parts"]]["expenses_check"] == "step-cell"
     assert stages[c["set aside: the expenses parts do not sum to the printed total"]] == ["declaration"]
-    # the live job qv4-read-pages-candidates reads the set-aside scans into the shared store (queued 20 October):
-    # until the lane's sample reads this case against an empty store (card), the scan is either still set aside at
-    # `read`, or its reading has landed and the lane picked it up from pixels
-    no_reading = c["scan with no stored page reading: set aside for a re-read"]
-    assert stages.get(no_reading) == ["read"] or rows[no_reading]["read_from"] == "pixels"
+    # read against an empty store (`key: empty-store` in sample.list), whatever a job has since stored for it
+    assert stages[c["scan with no stored page reading: set aside for a re-read"]] == ["read"]
+    assert rows[c["Part A on a candidate's copy of the form without the part's heading"]]["donors_check"] == "parts-sum"
+    assert rows[c["Part A from pixels: the stored page reading, reconciled"]]["donors_check"] == "parts-sum"
+    assert stages[c["Part A from pixels refused: the reader went down the columns"]] == ["part-a"]
+    assert stages[c["a scanner's text layer with no printed total: set aside"]] == ["declaration"]
     no_year = files[c["no year in the path: the form's own title names the election"]]
     assert no_year["year"] == 2023 and no_year["placed_by"] == "spreadsheet name"
     rep, amd = c["replaced: the listing links the amendment"], c["the amendment that replaces it"]
@@ -364,3 +365,96 @@ def test_published_donors_keep_the_row_contract_and_their_addresses_stay_private
         by_return[r["return_key"]] = round(by_return.get(r["return_key"], 0) + float(r["amount"]), 2)
     parts = {r["key"]: float(r["part_a"] or 0) for r in filled["returns"]}
     assert all(abs(by_return[k] - parts[k]) < 0.005 for k in by_return)
+
+
+def test_a_copy_of_the_form_without_its_heading_is_known_by_its_printed_total(monkeypatch):
+    """A candidate's own copy of the form (`To add more rows …`) keeps the table and `TOTAL FOR PART A` but drops
+    the part's heading and footer; a cell's note in money (`($10,000 of it …`) never ends a name."""
+    from registers.candidate_returns import donors
+    monkeypatch.setattr(donors, "EXAMPLE_CELL", donors._fold_hash("Sample Form Person 1 Sample Street, Sampletown Sampleshire"))
+    page = "\n".join(l for l in PART_A.splitlines() if "CANDIDATE DONATIONS OF" not in l and not l.startswith("PART A "))
+    page = page.replace("Example Holdings Limited, Exampleville", "Example Holdings Limited ($2,000 cash) Exampleville")
+    part = donors.read({2: "  To add more rows to this table\n" + page}, 9500.0)
+    assert part.problems == [] and [r["name"] for r in part.rows] == ["Jane Example", "Example Holdings Limited"]
+
+
+PIXELS_A = """PART A: CANDIDATE DONATIONS OF MORE THAN $1,500
+OTHER THAN ANONYMOUS OR OVERSEAS DONATIONS
+TOTAL FOR PART A $9,500.00
+Donor's name and street address
+Date donation or aggregated donations received dd/mm/yyyy
+Does the donation contain contributions from another person of more than $1,500
+Enter YES or NO
+If YES complete Part B
+Amount of donation or total aggregated donations (including GST) $0.00
+Sample Form Person
+1 Sample Street, Sampletown Sampleshire
+2/06/2020 - 14/07/2020 Yes $5,000.00
+Jane Example, 12 Example Road, Exampletown
+18/8/2020
+No
+$7,000.00
+Example Holdings Limited, PO Box 1, Exampletown
+1/09/2020 No $2,500.00
+PART A
+Page: 2
+"""
+
+
+def _pixels_example(monkeypatch):
+    from registers.candidate_returns import donors
+    monkeypatch.setattr(donors, "EXAMPLE_CELL", donors._fold_hash("Sample Form Person 1 Sample Street, Sampletown Sampleshire"))
+
+
+def test_part_a_from_pixels_drops_the_example_and_reconciles(monkeypatch):
+    from registers.candidate_returns import pixels
+    _pixels_example(monkeypatch)
+    part = pixels.read({2: PIXELS_A}, 9500.0)
+    assert part.problems == [] and part.check == "parts-sum" and part.examples == 1
+    assert [(r["name"], r["amount"], r["yes_no"]) for r in part.rows] == [("Jane Example", 7000.0, "No"),
+                                                                          ("Example Holdings Limited", 2500.0, "No")]
+    assert all("Ex" in r["address"] and not any(ch.isdigit() for ch in r["name"]) for r in part.rows)
+
+
+def test_part_a_from_pixels_read_column_by_column_is_refused(monkeypatch):
+    """The reader listed the names, then the headings, then the figures: pairing them by order is the one fault the
+    total cannot see, so the page is set aside."""
+    from registers.candidate_returns import pixels
+    _pixels_example(monkeypatch)
+    lines = PIXELS_A.splitlines()
+    names = ["Jane Example, 12 Example Road, Exampletown", "Example Holdings Limited, PO Box 1, Exampletown"]
+    body = [l for l in lines if l not in names]
+    body.insert(4, names[0])
+    body.insert(5, names[1])
+    part = pixels.read({2: "\n".join(body)}, 9500.0)
+    assert part.rows == [] and any("among its column headings" in p for p in part.problems)
+    swapped = PIXELS_A.replace("18/8/2020\nNo\n$7,000.00\n", "18/8/2020\n").replace("1/09/2020 No $2,500.00", "Exampleville\nNo\n$7,000.00\n$2,500.00")
+    part = pixels.read({2: swapped}, 9500.0)
+    assert part.rows == [] and part.problems
+
+
+def test_a_part_a_not_read_is_not_a_nil_and_its_pages_are_listed_for_a_re_read():
+    from registers.candidate_returns import replay
+    sha = "e" * 64
+    run = {sha: {"year": 2023, "set_aside": [("part-a", f"{read.REREAD} {sha} pages 2, 3, 4")]},
+           "f" * 64: {"year": 2020, "set_aside": [("read", "no text page carries the declaration; 3 of 3 pages are images, "
+                                                           "with no stored page reading (pages 1, 2, 3): ask for a re-read of x")]}}
+    assert replay.rereads(run) == [(sha, 2023, "part-a", [2, 3, 4]), ("f" * 64, 2020, "read", [1, 2, 3])]
+
+
+def test_a_scanner_s_text_layer_stands_only_on_its_printed_total():
+    """A scanner's own OCR layer dropped a handwritten Part G and total whole (`ca579c46524e`: the page shows $470,
+    the layer nothing), leaving NIL in Part F to read as expenses of 0.00: on a picture page parts alone never stand."""
+    page = PAGE_2020.replace("$ 2,000.00\n             party", "\n             party")
+    page = page.replace("Total (F + G)                  $ 3,211.13", "Total (F + G)                            ")
+    page = page.replace("$ 1,211.13", "NIL       ")
+    d = declaration.read(page)
+    assert d.check("expenses") == "parts" and d.figure("expenses") == 0.0 and d.problems("expenses") == []
+    from types import SimpleNamespace
+    r = SimpleNamespace(reader="text-layer", model="pdftotext", profile=read.TEXT, profile_version=1, read_from="text")
+    typed = read._publish_or_set_aside(read.Result("a" * 64), d, 1, r, "x", scanner=False)
+    assert typed.set_aside == [] and typed.row["filed"]["expenses"] == 0.0
+    scanned = read._publish_or_set_aside(read.Result("b" * 64), d, 1, r, "x", scanner=True)
+    assert scanned.row is None and read.SCANNER in scanned.set_aside[0][1]
+    from registers.candidate_returns import replay
+    assert replay.rereads({"b" * 64: {"year": 2020, "set_aside": scanned.set_aside}}) == [("b" * 64, 2020, "declaration", [1])]

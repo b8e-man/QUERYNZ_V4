@@ -338,3 +338,12 @@ CREATE TABLE IF NOT EXISTS gazette_private.possession_details (
     property      text,
     registration  text
 );
+
+-- a published text as the notice printed it, before cut.py cut it before the property it names (a title naming a
+-- street address, a company run on into one): never published, never granted to the session reader (hard limit 15)
+CREATE TABLE IF NOT EXISTS gazette_private.uncut (
+    key        text NOT NULL,                               -- the row's key in the lane's own table
+    col        text NOT NULL,                               -- the column cut: title, company, party, …
+    value      text NOT NULL,
+    PRIMARY KEY (key, col)
+);
