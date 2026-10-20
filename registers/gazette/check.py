@@ -49,7 +49,7 @@ import re
 import sys
 from collections import defaultdict
 
-from registers.gazette import notices
+from registers.gazette import dissolutions, notices
 from registers.gazette import register as R
 
 CELEBRANT = "gazette-celebrant-list"
@@ -67,7 +67,18 @@ COMPANY = {"removal": ("ds", "gazette-removal-notice", 0.95),
            "winding-up application": ("aw", "gazette-winding-up-application", 0.95),
            "receivership": ("ar", "gazette-receivership", 0.88),
            "notice to creditors": ("md", "gazette-creditors-notice", 0.90),          # measured 93.8%
-           "administration": ("aa", "gazette-administration", 0.88)}                # measured 91.9%
+           "administration": ("aa", "gazette-administration", 0.88),                # measured 91.9%
+           "overseas company": ("cb", "gazette-overseas-company-ceasing", 0.92),    # measured 95.4% (gazette-4)
+           "restoration": ("ot", "gazette-restoration-notice", 0.90),               # measured 93.1% (gazette-4)
+           "dissolution": (("is", "ct"), "gazette-society-dissolution", 0.95)}     # measured 98.7% (gazette-4)
+#: a section that holds other notices too: only those its title marks must be taken by the profile (ot holds
+#: prohibitions, amalgamations and rectifications beside its restorations; is and ct, directions on surplus assets and
+#: schemes beside their dissolutions)
+#: where most rows print the register's own number, the share of those numbers whose name agrees: a join by number stays
+#: right while the reader cuts names wrong (measured 20 October 2026: dissolutions 90.2%; lesson
+#: a-join-by-number-hides-a-broken-name-read-the-agreement-share)
+COMPANY_NUMBER_FLOOR = {"dissolution": 0.85}
+TITLED = {"restoration": re.compile(r"\brestor", re.I).search, "dissolution": dissolutions.titled}
 #: every notice in section ba is taken by one of these
 BANKRUPTCY = ("gazette-bankruptcy-list", "gazette-no-asset-procedure-list", "gazette-bankruptcy-notice")
 APPOINTMENT = "gazette-public-appointment"
@@ -76,6 +87,11 @@ APPOINTMENT = "gazette-public-appointment"
 MEMBERS_FROM, MEMBERS_FLOOR = "2021", 0.85
 #: a printed celebrant table's person should be named by a delimited list too: measured 20 October 2026 at 79.7%
 TABLE_FLOOR = 0.70
+
+
+def codes(code) -> tuple:
+    """A profile's sections: one code, or several."""
+    return (code,) if isinstance(code, str) else tuple(code)
 
 
 def _register(joined: dict) -> dict:
@@ -160,8 +176,9 @@ def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulle
         liq["register"] = _register(joined)
     company = {}
     for kind, (code, profile, floor) in COMPANY.items():
-        filed = [(n, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] == code]
-        company[kind] = {"code": code, "filed": len(filed), "not_read": sorted(n for n, f in filed if f not in (profile, CELEBRANT))}
+        filed = [(n, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] in codes(code)
+                 and (kind not in TITLED or TITLED[kind](t or ""))]
+        company[kind] = {"code": "/".join(codes(code)), "filed": len(filed), "not_read": sorted(n for n, f in filed if f not in (profile, CELEBRANT))}
         if company_joined is not None:
             company[kind]["register"] = _register(company_joined.get(kind, {}))
     ba = [(n, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] == "ba"]
@@ -211,7 +228,7 @@ def failed(f: dict) -> list:
         for n in c["not_read"][:20]:
             why.append(f"{n}: filed by the Gazette under {c['code']} and not taken by the {kind} profile")
         if c.get("register") is not None:
-            why += _register_fails(kind, c["register"], COMPANY[kind][2])
+            why += _register_fails(kind, c["register"], COMPANY[kind][2], COMPANY_NUMBER_FLOOR.get(kind))
     b = f.get("bankruptcies")
     if b is not None:
         if not b["filed"]:
@@ -293,8 +310,10 @@ def main(argv=None) -> int:
           f"{q['filed'] - len(q['not_read']):,} taken by its profile (read, or set aside with a reason)")
     for what, c in [("liquidation", q)] + list(f["company"].items()):
         if what != "liquidation":
-            plural = "Notices to creditors" if what == "notice to creditors" else f"{what.capitalize()}s"
-            print(f"{plural}: {c['filed']:,} notices the Gazette files under {c['code']}, "
+            plural = {"notice to creditors": "Notices to creditors", "overseas company": "Overseas companies"}.get(
+                what, f"{what.capitalize()}s")
+            titled = " and titles as its profile's" if what in TITLED else ""
+            print(f"{plural}: {c['filed']:,} notices the Gazette files under {c['code']}{titled}, "
                   f"{c['filed'] - len(c['not_read']):,} taken by its profile (read, or set aside with a reason)")
         r = c.get("register")
         if r and r["rows"]:
