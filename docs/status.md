@@ -20,7 +20,7 @@ ntfy address (test alarm 18 October).
   gazette 1 to 3 (207,133 notices; celebrants, prohibitions,
   liquidations, 1.48 M company notices, 65,299 bankruptcies, 3,155
   appointments, joined to the companies register), house (1,611
-  candidacies), companies (1.92 M entities, 1.19 M directors, 1.58 M
+  candidacies; `house-2` the comparison's six cards), companies (1.92 M entities, 1.19 M directors, 1.58 M
   shareholdings), expenses and MPs' interests, societies (53,271;
   133,080 officers), candidate returns (372 totals, 175 donors; 713
   scans wait, ruling 62), the charities capture (first full copy
@@ -38,8 +38,8 @@ ntfy address (test alarm 18 October).
 
 - `report-2` (Fable): the shape's cards from the first template.
   `parties-2` (Opus): labels and renames. Raised, integrating: `review`
-  (track C), `house-2`. Next: `agriculture` (template 04), the charities
-  builds after tonight's copy.
+  (track C). Next: `agriculture` (template 04), `comparison-2` (its
+  readers for template v2), the charities builds after tonight's copy.
 
 ## Half-done
 

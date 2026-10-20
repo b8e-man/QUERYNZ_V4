@@ -1,4 +1,4 @@
-Before working a "the lane has no row for it" card, look up each difference in the rebuilt rows by surname within the same race: most will be rows the lane holds under another name form, and a "file in the listing" may be the old job's error stub.
+Before working a "the lane has no row for it" card, look each difference up in the rebuilt rows by surname within the race: most are rows held under another name form, and a "file in the listing" may be the old job's error stub.
 area: comparison with the frozen site, candidates, person names, EC results, catch log
 paid-for-by: 2026-10-20, house-2 session, step 4.5
 
