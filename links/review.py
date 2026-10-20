@@ -289,7 +289,7 @@ def fingerprint() -> str:
     h.update(SYSTEM.encode())
     h.update(json.dumps(VERDICT_SCHEMA, sort_keys=True).encode())
     h.update(f"{AGENT_VERSION}|{MAX_TOKENS}|{SPLITS}".encode())
-    for fn in (screen, evidence_for_pair, _overlap, _row, _name_counts, parse_verdict, ask, read):
+    for fn in (screen, evidence_for_pair, _overlap, _row, _name_counts, parse_verdict, ask):   # not read(): its waiting is operational
         h.update(inspect.getsource(fn).encode())
     return h.hexdigest()[:16]
 
