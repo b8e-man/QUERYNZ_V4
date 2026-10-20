@@ -15,16 +15,18 @@ can support them:
   charity-integrity-marks  blocked: the Charities Register's banned-director and bankrupt marks are not held
   comcom-coverage          blocked: the Commerce Commission's cases are not published
 
-and the ones a board screen adds: identity (the subject's group and its
-standing), subject-hub (the subject is itself a professional director or a
-nominee), register-removals, bankruptcy (blocked until a link rule reaches a
-Gazette bankruptcy notice: a blank there is not a clear), public-life
-(seats, candidacies, declared interests, political money) and
-replaced-return.
+and the ones a board screen adds: subject-hub (the subject is itself a
+professional director or a nominee), register-removals, bankruptcy (blocked
+until a link rule reaches a Gazette bankruptcy notice: a blank there is not a
+clear) and public-life (seats, candidacies, declared interests, political
+money). Who the subject is, the hubs met on the walk and rows from a replaced
+return are the builder's common rules (group-standing, hubs-met,
+replaced-return), run for every template; this file carries no copy.
 
 Imports nothing of products.report: the one-way test holds a template folder
-to its own code, and the shape loads this file by path. `flag` below builds
-the shape's flag dict and refuses what the contract refuses; the shape's
+to its own code. The shape loads this file by path and binds the name
+`contract` (products/report/contract.py) before it runs: `flag` and the
+helpers over a built report below are the contract's, and the shape's
 presentation rules check every flag again on every report (rule 9).
 
 The A-1 property of the old set runs through all of them: evidence on the
@@ -51,41 +53,7 @@ PUBLIC_VIEWS = ("members", "candidates", "mp_interest_returns", "mp_interests")
 MONEY_VIEWS = ("party_return_donors", "party_return_loans", "disclosures", "disclosure_items", "candidate_return_donors", "promoter_people")
 
 
-def flag(rule, version, status, severity, text, citations=(), sources_held=(), sources_not_held=(), scope="subject") -> dict:
-    """One verdict, in the shape's contract: fired cites, clear names its
-    sources, blocked says why."""
-    if status not in ("fired", "clear", "blocked") or severity not in ("red", "amber", "info"):
-        raise ValueError(f"{rule}: status {status!r}, severity {severity!r}")
-    if status == "fired" and not citations:
-        raise ValueError(f"{rule}: a fired flag must cite the rows it rests on")
-    if status == "clear" and not sources_held:
-        raise ValueError(f"{rule}: a clear flag must name the sources it was checked against")
-    if status == "blocked" and not text:
-        raise ValueError(f"{rule}: a blocked flag must say why the check could not run")
-    return {"rule": rule, "version": version, "status": status, "severity": severity, "text": text, "scope": scope,
-            "citations": tuple(citations), "sources_held": tuple(sources_held), "sources_not_held": tuple(sources_not_held)}
-
-
-def items(report, views=None, grades=("confirmed", "near")):
-    for s in report["sections"]:
-        for it in s["items"]:
-            if (views is None or it["view"] in views) and it["grade"] in grades:
-                yield it
-
-
-def section(report, name):
-    for s in report["sections"]:
-        if s["name"] == name:
-            return s
-    return {"name": name, "items": []}
-
-
-def _all(report) -> dict:
-    out = {}
-    for it in [report.get("subject")] + list(report.get("members", [])) + [it for s in report["sections"] for it in s["items"]]:
-        if it:
-            out.setdefault(it["ref"], it)
-    return out
+flag, items, section, all_items = contract.flag, contract.items, contract.section, contract.all_items   # noqa: F821  (bound by the loader)
 
 
 def _as_of(report) -> dt.date:
@@ -120,7 +88,7 @@ def _not_a_person_start(report):
 
 def _role_on(report, company_ref: str) -> list:
     """The subject's own rows on a company: the role or holding and its dating text."""
-    by = _all(report)
+    by = all_items(report)
     out = []
     for it in by.values():
         if it["view"] in ("directors", "shareholders") and it["grade"] == "confirmed":
@@ -341,24 +309,6 @@ def public_life(report):
                 sources_not_held=("a candidate's own return, not yet joined to a person", "MPs' and ministers' expenses, not yet readable by the report"))
 
 
-def identity(report):
-    """Who the subject is: the row the screen starts from and the rows a rule
-    confirms are the same person, and whether the watch contests them."""
-    g = report.get("group") or {}
-    subj = report["subject"]
-    if not g.get("built"):
-        return flag("identity", V, "blocked", "info", "no links are published: the subject is this one row, and every same name elsewhere is a namesake")
-    if g.get("contested"):
-        return flag("identity", V, "fired", "amber", f"the subject's group of {g.get('size', 1)} rows is contested as a whole: the watch found a sign "
-                    "that its confirmed links cover two people, so every other row of it is listed as near", citations=(subj["ref"],))
-    if subj["kind"] != "person":
-        return flag("identity", V, "clear", "info", f"the screen starts from a {subj['kind']} row; it has no group of its own",
-                    sources_held=("pub.links",))
-    n = g.get("size", 1)
-    return flag("identity", V, "clear", "info", "the subject is this one row: no confirmed link reaches it" if n == 1 else
-                f"the subject is a group of {n} rows confirmed the same person, not contested", sources_held=("pub.groups", "pub.links"))
-
-
 def subject_hub(report):
     """The subject itself a professional director or a nominee: what its
     shared boards join means little (the hubs the walk met on others are
@@ -373,14 +323,5 @@ def subject_hub(report):
                 sources_held=("pub.directors", "pub.groups"))
 
 
-def replaced_rows(report):
-    rep = [it for it in items(report) if it.get("replaced_by")]
-    if rep:
-        return flag("replaced-return", V, "fired", "info", f"{len(rep)} row(s) come from a return the Commission has since replaced by an amendment; "
-                    "each is shown with its replacement named and is never summed", citations=tuple(it["ref"] for it in rep))
-    return flag("replaced-return", V, "clear", "info", "no row shown comes from a replaced return",
-                sources_held=("pub.party_return_donors", "pub.party_return_totals", "pub.candidate_return_donors"))
-
-
-RULES = (identity, subject_hub, prohibition, bankruptcy, liquidation_history, register_removals, namesake_exposure,
-         charity_officer_roles, charity_integrity_marks, comcom_coverage, young_entity, public_life, replaced_rows)
+RULES = (subject_hub, prohibition, bankruptcy, liquidation_history, register_removals, namesake_exposure,
+         charity_officer_roles, charity_integrity_marks, comcom_coverage, young_entity, public_life)

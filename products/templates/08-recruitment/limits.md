@@ -67,12 +67,12 @@ the card that would lift it is named.
 ## Refused reports
 
 The shape refuses to print a report that seems to break a presentation
-rule. Two of its checks refuse true reports today: a person surnamed Lane
-(or Place, Drive, Street) with a dated row
+rule. At the checkpoint two of its checks refused true reports: a person
+surnamed Lane (or Place, Drive, Street) with a dated row
 (`a-surname-lane-trips-the-home-address-check`), and any report reaching a
 company with "CONTROL" in its name
-(`a-company-name-with-control-trips-the-cause-check`). The screen for
-those subjects cannot be printed until the report lane fixes the checks.
+(`a-company-name-with-control-trips-the-cause-check`). The report lane has
+closed both; on the re-measure below no subject is refused.
 
 ## The checkpoint, 2026-10-20
 
@@ -92,3 +92,9 @@ one screen with no tab-hopping (one memo); namesakes visibly separate (the
 first section); a namesake count that degrades to a declared partial (the
 walk's limits and the namesake-exposure flag); charities and ComCom
 declared not held.
+
+The twelve subjects' keys are in `checkpoint.list`. Re-measured
+2026-10-20 (`recruitment-2`, the common rules taken from the builder): all
+twelve print, none refused; the only change is the template's `identity`
+flag gone (the builder's `group-standing` says the same on each: four
+fired amber, eight clear) and `replaced-return` now the builder's.
