@@ -8,7 +8,7 @@ import tempfile
 
 import pytest
 
-from products.report import rules, template as tpl
+from products.report import build, contract, rules, template as tpl
 
 
 def write_template(folder, body):
@@ -33,7 +33,8 @@ views = ["directors"]
 
 def test_the_shapes_own_template_loads_with_rules():
     t = tpl.by_name("subject")
-    assert t.name == "subject" and len(t.rules) >= 5 and t.sections and t.views <= set(tpl.cat.BY_NAME)
+    assert t.name == "subject" and len(t.rules) >= 2 and t.common_rules and len(contract.COMMON_RULES) == 3
+    assert t.sections and t.views <= set(tpl.cat.BY_NAME)
     for s in t.sections:
         assert set(s.views) <= t.views
 
@@ -125,3 +126,47 @@ def test_a_registers_own_words_are_not_the_reports_and_a_planted_fault_still_is(
     because = {"rule": "r", "status": "fired", "severity": "red", "text": "fired because of x", "citations": ("a:b",), "sources_held": ()}
     assert any("rule 3" in p for p in rules.problems(report([item(ref="x:1")], flags=[because])))
     assert rules.address_shaped("2020 Great North Road, Avondale") and not rules.address_shaped("Terrace Investments 2000 Limited")
+
+
+RULES_ON_THE_CONTRACT = '''
+flag = contract.flag          # bound by the loader; no import of products.report
+def mine(report):
+    return flag("mine", "0.1", "clear", "info", "nothing", sources_held=("pub.directors",))
+def replaced_rows(report):
+    return flag("replaced-return", "9", "blocked", "info", "the template's own, replacing the common one")
+RULES = (mine, replaced_rows)
+'''
+
+
+def test_a_template_reaches_the_contract_by_name_and_the_common_rules_run_for_it():
+    d = tempfile.mkdtemp()
+    write_template(d, GOOD)
+    with open(os.path.join(d, "rules.py"), "w", encoding="utf-8") as f:
+        f.write(RULES_ON_THE_CONTRACT)
+    t = tpl.load(d)
+    assert len(t.rules) == 2 and t.common_rules
+    r = report([item(ref="x:1")])
+    r.update({"group": {"built": True, "size": 1, "contested": False}, "hubs": [], "flags": []})
+    flags = {f["rule"]: f for f in build.apply_rules(r, t)}
+    assert {"group-standing", "hubs-met", "replaced-return", "mine"} == set(flags)
+    assert flags["replaced-return"]["version"] == "9" and flags["replaced-return"]["status"] == "blocked"
+    assert flags["group-standing"]["status"] == "clear"
+    write_template(d, GOOD.replace('owner = "test"\n', 'owner = "test"\ncommon_rules = false\n'))
+    assert set(f["rule"] for f in build.apply_rules(r, tpl.load(d))) == {"mine", "replaced-return"}
+    assert contract.presentation_problems is rules.problems and contract.address_shaped("12 Smith Street, Epsom")
+
+
+def test_a_figure_start_with_an_adopted_group_says_so():
+    r = report([item(ref="x:1")])
+    r["subject"] = item(ref="party_returns:h/A/1", view="party_return_donors", kind="figure")
+    r.update({"group": {"built": True, "size": 3, "contested": False, "via": "companies:companies/1/director/a", "via_groups": 1}, "hubs": []})
+    f = contract.group_standing(r)
+    assert f["status"] == "clear" and "filed row" in f["text"] and "companies:companies/1/director/a" in f["citations"]
+    r["group"]["contested"] = True
+    assert contract.group_standing(r)["status"] == "fired"
+
+
+def test_the_stable_address_of_a_report_on_a_row():
+    assert contract.report_url("companies:companies/9429037782269") == "/report/companies:companies/9429037782269"
+    assert contract.report_url("party_returns:abc/A/3", "http://10.0.0.2:8440", "08-recruitment") == "http://10.0.0.2:8440/report/party_returns:abc/A/3?template=08-recruitment"
+    assert contract.report_url("x:a b", "", "subject") == "/report/x:a%20b"

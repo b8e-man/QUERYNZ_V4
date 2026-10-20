@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime as dt
 
 from products.report import catalogue as cat
-from products.report import rules, template as tpl, walk
+from products.report import contract, rules, template as tpl, walk
 
 SECTION_ORDER_GRADE = {"confirmed": 0, "near": 1}
 
@@ -65,6 +65,23 @@ def _ordered(items: list) -> list:
     conf = [x for x in out + rest if x["grade"] == "confirmed"]
     nearby = [x for x in out + rest if x["grade"] != "confirmed"]
     return conf + nearby
+
+
+def apply_rules(report: dict, t: tpl.Template) -> list:
+    """The flags: the contract's common rules first (unless the template opts
+    out), then the template's own; a template flag with a common flag's
+    `rule` name replaces it. A rule that breaks is a blocked check, never a
+    silent green. Fired first, red before amber before info."""
+    flags = {}
+    for rule in (contract.COMMON_RULES if t.common_rules else ()) + tuple(t.rules):
+        try:
+            f = rule(report)
+        except Exception as exc:
+            f = contract.flag(getattr(rule, "__name__", "rule"), "?", "blocked", "info", f"this check could not run: {type(exc).__name__}: {exc}")
+        flags[f["rule"]] = f
+    out = list(flags.values())
+    out.sort(key=lambda f: (f["status"] != "fired", ("red", "amber", "info").index(f["severity"])))
+    return out
 
 
 def build(conn, ref: str, t: tpl.Template, held: set = None) -> dict:
@@ -122,14 +139,7 @@ def build(conn, ref: str, t: tpl.Template, held: set = None) -> dict:
         report["sections"].append(sec)
     # the subject's own row and the group's members that no section claimed stay with the subject
     report["members"] = [m for m in w["members"] if m["ref"] != ref]
-    # rules
-    for rule in t.rules:
-        try:
-            report["flags"].append(rule(report))
-        except Exception as exc:        # a rule that breaks is a blocked check, never a silent green
-            report["flags"].append(tpl.flag(getattr(rule, "__name__", "rule"), "?", "blocked", "info",
-                                            f"this check could not run: {type(exc).__name__}: {exc}"))
-    report["flags"].sort(key=lambda f: (f["status"] != "fired", ("red", "amber", "info").index(f["severity"])))
+    report["flags"] = apply_rules(report, t)
     # citations, numbered once per row
     number = {}
     for it in [report["subject"]] + report["members"] + [it for s in report["sections"] for it in s["items"]]:

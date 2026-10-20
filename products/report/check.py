@@ -20,6 +20,9 @@ tables through the product reader, never the sample:
      donor whose name carries a street word and on a company whose name
      carries a word of cause (both taken from the tables at run time) is
      not refused; the rules still refuse a planted fault (the fast tests).
+  8. Every template on disk gets the contract's common rules: the done-when
+     donor's report under each carries group-standing, hubs-met and
+     replaced-return (unless the template opts out), each keeping the contract.
 
   python -m products.report check [--ref REF]      exit 1 on any failure
 """
@@ -149,6 +152,17 @@ def problems(conn, ref: str = None) -> list:
         out.append("the memo has no citations list")
     if "none found" not in text and "not held" not in text:
         out.append("the memo never says none found or not held: every report has a register it did not reach")
+    # 8. every template on disk carries the common rules
+    for name, folder in tpl.folders().items():
+        t = tpl.load(folder)
+        if name == "subject" or not t.common_rules:
+            continue
+        rt = build.build(conn, ref, t, held)
+        have = {f["rule"] for f in rt["flags"]}
+        for want in ("group-standing", "hubs-met", "replaced-return"):
+            if want not in have:
+                out.append(f"template {name}: the report on {ref} carries no {want} flag; the contract's common rules did not run")
+        out += [f"template {name} on {ref}: {p}" for p in rt["problems"] if "rule 9" in p]
     # 3. the rules on a company row and a director row too
     if company_key:
         for other in (f"companies:{company_key}",) + tuple(f"companies:{d['key']}" for d in db.rows(
