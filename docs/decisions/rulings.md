@@ -97,3 +97,5 @@ Each answer from Arthur, with the date and his words. Rulings 1 to 54 are from t
 
 
 62. Arthur, 20 October, 14:30: "let's delay the document reading until everything is built. We need some sample data but not the full tranches." The page-reader jobs (`qv4-read-pages*`, the re-reads) are not queued in bulk until the plan's build is done; a lane that needs readings works from the sample the store already holds and sets the rest aside with hashes and pages, so the queue is one command when the time comes. `qv4-read-pages-candidates` (row 130, 713 pieces) was cancelled at 14:30 with 60 of its 713 returns read; those stay as the sample. Step 3's halt (ruling 60) stands with it.
+
+**21 October.** 63. Arthur, 21 October, 08:15: "let's hold 6 until the end." Step 6 (register scans) is held until the end of the plan: step 5 runs to its close (templates 13, 7, 5, 6, 11, 12; the lanes of 5.3; the legal documents of 5.4; monitoring 5.5), then step 7 (archive search), then step 6. The briefs are ordered that way.

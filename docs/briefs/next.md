@@ -44,15 +44,14 @@ docs/briefs/next.md, one commit each; the worker is live, so restart
 
 ## disclosures
 
-Sessions 1 and 2 merged (`docs/merges/disclosures-1`, `-2`): 520
-declarations from the Commission's table, 2023-on total equal to the
-cent, 15 of 16 party-years equal (National 2023 is the old estate's
-double count, queued for Arthur); the 246 scans read; form check 223
-equal, 3 differ (carded: a handwritten total, a struck-out total, a link
-to the wrong month's scan, all the Commission's to say), 50 no total read.
-The read job reads on the worker's card. No session 3 now: the lane's
-next items (`docs/status/disclosures.md`) wait on the cards and on
-Arthur's word for the feed (step 4.8).
+Sessions 1 to 3 merged (`docs/merges/disclosures-1` to `-3`): 520
+declarations, 15 of 16 party-years equal to the frozen site, the form check
+on every scan held, 27 scans set aside (ruling 62), the gift's year the
+money year. New card 21 October: the frozen site gained an ACT New Zealand
+declaration the lane's one-off capture predates
+(`act-new-zealand-2026-a-declaration-filed-after-the-lane-s-capture`);
+the gap widens with every filing until the lane captures the Commission's
+table nightly or Arthur says the gap stands until the switch.
 
 ## party-returns
 
@@ -85,12 +84,10 @@ cent (National 2023, default no).
 
 ## parties
 
-Session 1 merged (`docs/merges/parties-1`): 78 registrations from the
-Commission's page and 136 Gazette notices (exported once from the old
-estate's text), 149 names with windows, every stated rename read, 17 on
-the register, 6 off it with no cancellation held (carded). No session 2
-now: the lane takes the Gazette lane's notices when that lane exists.
-Its blocker is a fix on `keys` (next section).
+Sessions 1 and 2 merged (`docs/merges/parties-1`, `-2`): 77 registrations,
+149 names with windows, 137 Gazette notices read from the gazette lane,
+`pub.party_labels` (1,154 labels from 17 tables, 119 unresolved after
+`fix-keys-1`'s spelling rules). No session 3 now.
 
 ## party-finance
 
@@ -118,40 +115,39 @@ what is carded.
 
 ## links
 
-Merged (`docs/merges/links-1`): the two rules, the old ledgers mapped,
-the test pairs, the six measurements; loaded live 20 October. Track C
-(the review agent) runs in this folder as session `review` below. Open
-card for the lane: `the-links-tables-do-not-migrate-an-existing-column`.
-Queue: a company name alone confirming a donor; one company's office as
-a shared address.
+Merged (`docs/merges/links-1`, `review-1`, `links-2`): the two rules, the
+old ledgers mapped, test pairs, six measurements; track C's review agent
+measured and recording, applying nothing; every published register read,
+2.82 M links, the House's rows joined to seats, declared interests
+anchored. Live reload at the links-2 merge. Open for the lane: the keys
+card on a judge's title and a surname particle; the search route
+(`support/fetchgate`, a fix session). Queue: three questions on what a
+register's own structure may confirm (defaults built as settings).
 
 ## gazette
 
-Sessions 1 to 3 merged (`docs/merges/gazette-1` to `-3`): 207,133
-notices typed; celebrants, prohibitions, liquidations, the company
-notices, bankruptcies and appointments read, every address private, the
-companies register joined. Session 4 when wanted: the four pane
-paragraphs (card `the-gazette-pane-spec-omits-the-four-tables-of-gazette-3`),
-the `au` notices for the parties lane, the remaining sections by use
-case.
-
-## candidate-returns
-
-Merged (`docs/merges/candidate-returns-1`): 1,105 returns by hash, the
-Commission's listing and spreadsheets, 372 totals (353 equal), Part A
-175 donors. The 713 scans wait (ruling 62: no bulk reading until the
-build is done; 60 were read before the job was cancelled and
-stand as the sample). Session 2 then rebuilds, Part A from pixels, the
-nine candidate-made copies (status file).
+Sessions 1 to 5 merged (`docs/merges/gazette-1` to `-5`): 207,133 notices
+typed; celebrants, prohibitions, liquidations, company notices of twelve
+kinds (removals, winding-up, receiverships, creditors, administrations,
+overseas companies ceasing, restorations, society dissolutions,
+rectifications, amalgamations, transfers out, deeds), bankruptcies,
+appointments, mortgagee possessions; every address private; 76,803 unread.
+Session 6, Opus, launched headless by the integrator 21 October 07:35 on
+the card `published-gazette-titles-can-carry-a-street-address` (the brief
+is in the integrator's scratch folder; its gist: cut every published title
+before any property it names, the uncut title private, a check). Queue:
+may the lane read notices that name people for their conduct (default no).
 
 ## site
 
-Sessions 1 and 2 merged (`docs/merges/site-1`, `-2`): the shape and the
-template at version 2 (every frozen section under the queue's default,
-electorate money, statements, the interests register on the person page);
-`qv4-site-build` 08:00, `qv4-site-compare` 08:45. Session 3 when the
-comparison names a cause that is the shape's, or when Arthur rules the
-section, window or party-board questions.
+Sessions 1 to 3 merged (`docs/merges/site-1` to `-3`): the shape and the
+template at version 3 (keys from the settled display name, one donor one
+page, a declaration in the gift's year). The version-3 build is refused by
+the site's own fall gate until it is told the fall is a recorded
+correction; the classifier refused that flag to the integrator, so Arthur
+runs it on node2: `cd /home/user/querynzv4 && .venv/bin/python -m
+products.published_site build --allow-drop`. Session 4 when the comparison
+names a cause that is the shape's.
 
 ## charities
 
@@ -336,68 +332,50 @@ session on `support/fetchgate` when wanted, not this session's.
 
 ## comparison
 
-Merged (`docs/merges/comparison-1`): `python -m checks.comparison run`
-pairs the frozen release with the rebuilt version built from its listing;
-`qv4-site-compare` daily 08:45 NZDT; the lanes' checks on the board. Day
-one: 43,062 differences, all carded, 23,067 under cards saying the new
-side is short. The cards name their owners (house, party-returns, site,
-disclosures, parties); the owners' next sessions are briefed below. Queue:
-which frozen sections the template carries (default all).
+Merged (`comparison-1`, `-2`): `python -m checks.comparison run` daily
+08:45. Day two (frozen 2026-10-20T0620 against rebuilt 1513): 29,508
+differences, 0 uncarded, 7,947 under cards saying the new side is short.
+Site-3 measured 29,336 in scratch; the live figure follows the version-3
+build. Queue: which frozen sections the template carries (default all).
 
 ## review
 
-Track C, the review agent, in `links/`. Fable. Launched headless by the
-integrator 20 October 12:50.
-
-```text
-You are a build session for QueryNZV4, running as Fable on node2, in
-the working copy the launcher made for you. Read docs/PLAN.md, then
-docs/plan/track-c.md, docs/plan/step-4.md (4.2 and 4.3),
-docs/plan/design.md, docs/status.md, docs/status/links.md, links/README.md,
-links/spec.md, links/review.py, links/measurements.md, the cards that
-name the links lane, and make your own status file docs/status/review.md.
-Do track C: the review agent, in links/. Build on the old refute-only
-agent in /home/user/qnz3-ref/data-layer/research/research/merge_refuter.py
-and webtools.py and the screen-then-re-read pattern in
-data-layer/healer/healer/crawler.py and reread.py, as ideas; the three
-verdicts match the decisions table (not the same; contested; no reason
-to doubt). The agent runs on the boxes only, through the scheduler's
-qv4-links-review job on the review-and-questions profile (the worker
-gives QV4_MODEL_URL and QV4_MODEL); nothing it reads leaves the boxes.
-Measure it before it acts: score it on the test pairs of 4.3 (links'
-pairs tables), at least 200 of each kind per name band where supplied;
-the default pass mark is fewer than 1 in 100 known-one-person pairs
-wrongly split, and report what share of the known-different pairs it
-catches. Until it passes, verdicts are recorded in links.readings and
-never applied; build the apply path (a decision added, then a rebuild)
-behind a switch that is off, with a check that fails if a reading ever
-becomes a decision while the switch is off. The web is searched only for
-evidence that two rows are different people, a name and a public role at
-most, through the fetch gate, and every citation must be a page fetched
-in that run; the gate has no search route yet, so card what support/
-needs and do not build around it. Also the lane's open card
-the-links-tables-do-not-migrate-an-existing-column, and re-run
-links.old --map --promote and links.pairs in your scratch schema now that
-candidate-returns publishes (the integrator reloads the live schema).
-Never print a home address: the evidence is registered offices and
-roles. Build in small tranches, each measured on the real published
-tables. Work in your scratch schema; edit nothing outside links/; push
-your branch and raise review-1. Finish by telling Arthur the two
-figures, what is carded and what waits on him.
-```
+Merged (`docs/merges/review-1`): `review-agent@2`, scored on 577 pairs on
+the live schema 20 October 21:00 (0 of 144 one-person pairs split, 363 of
+430 two-people caught; the model's own one-person rate unmeasured until a
+charities lane supplies pairs); verdicts recorded, nothing applied. Queue:
+may the agent's splits be applied (default no). The test pairs were redrawn
+by links-2: score again (`qv4-links-review --args '{"mode": "score"}'`).
 
 ## report
 
-Merged (`docs/merges/report-1`): the subject-report shape in
-`products/report/`, unit `qv4-report` on 10.0.0.2:8440. Next, step 5.2 in
-the plan's order, each template its own session once the one before is
-merged: recruitment (08) merged (`docs/merges/recruitment-1`: 23 views, 13
-flags, limits.md, 12 real subjects checkpointed; eight cards for the
-shape, taken by session `report-2`); agriculture (04) next, its folder on
-main, then banking (03), legal (02). The template brief: the recruitment
-one in `docs/merges/recruitment-1`'s session log, with the use case,
-folder and old rule set changed. Cards for the links session (same-name
-donor rows) and a board fix ("report from here").
+Merged (`docs/merges/report-1`, `-2`): the subject-report shape on
+10.0.0.2:8440, the flag contract bound as `contract`. Step 5.2 in the
+plan's order: recruitment 08 (0.2), agriculture 04, banking 03 merged;
+legal 02 building (`legal-1`, Opus, launched 21 October 07:35). Next in
+order: use case 13 (beneficial ownership, domestic half), then 7, 5, 6,
+11, 12. Open for the shape: a company start does not follow its officers;
+the walk reads twelve companies and lists forty; current roles first.
+
+## ownership
+
+Step 5.2, template 13 (use case 13, beneficial ownership, the domestic
+half), `products/templates/13-ownership/`. Opus. Launched headless by the
+integrator 21 October 08:25 (the brief is in the integrator's scratch
+folder: the shareholdings chain through held registers, each hop dated,
+nominees as holders of record, sanctions and overseas registers named as
+not held). After it, in the plan's order: 7, 5, 6, 11, 12. Step 6 is held
+until the end of the plan (ruling 63).
+
+## candidate-returns
+
+Merged (`docs/merges/candidate-returns-1`): 1,105 returns by hash, 372
+totals (353 equal), Part A 175 donors; 713 scans wait (ruling 62; 60 read
+stand as the sample). Session 2, Opus, launched headless by the integrator
+21 October 08:25 on the sample: Part A of the nine candidate-made copies,
+Part A from pixels on the 60 read scans with the rest listed for the later
+re-read, Parts D and H where the form supports them, the eleven-returns
+card, the no-reading case pinned.
 
 ## integrator
 
