@@ -41,7 +41,7 @@ def test_a_build_writes_the_kinds_runs_the_gates_and_stops(offline, tmp_path):
     act = [p for p in home["parties"] if p["key"] == X.A][0]
     assert act["total_window"] == 51000.0 and act["named_window"] == 40600.0 and act["seats"]["total"] == 2
     assert home["recent_disclosures"]["total"] == 25000.0
-    assert home["totals"]["electorate_spend"]["held"] is False
+    assert home["totals"]["electorate_spend"] == 500.0 and home["totals"]["electorate_declared"] == 1200.0
     rows = [json.loads(l) for l in open(os.path.join(out, "RELEASES.jsonl"))]
     assert rows[-1]["action"] == "built" and rows[-1]["gates"][0] == ["snapshot", True]
     assert not any("deploy" in l.lower() and "fail" in l for l in lines)
