@@ -10,7 +10,8 @@ recorded in `links.measurements`. None had ever been run.
    links (links.readings), reported as an agent's judgment.
 4. How often each rule can fire at all, per register.
 5. Company names to official numbers: the share of organisation donors that
-   match exactly one company alive on the donation date.
+   match exactly one company alive on the donation date; and, beside them,
+   the companies a member declared (`mp_interests`) on the return's date.
 6. The shape of the groups: sizes, and any group that contradicts itself.
 """
 from __future__ import annotations
@@ -141,11 +142,11 @@ def m5_company_names(conn, s: str) -> dict:
                    count(o.entity_ref) FILTER (WHERE (o.registered_on IS NULL OR o.registered_on <= coalesce(r.ended_on, r.started_on, current_date))
                                                  AND (o.removed_on IS NULL OR o.removed_on >= coalesce(r.started_on, current_date))) AS alive
             FROM {s}.rows r LEFT JOIN {s}.org_names o ON o.org_key = r.name_key
-            WHERE r.kind = 'organisation' AND r.register IN ('party_returns', 'disclosures') GROUP BY 1, 2)
+            WHERE r.kind = 'organisation' AND r.register IN ('party_returns', 'candidate_returns', 'disclosures', 'mp_interests') GROUP BY 1, 2)
         SELECT register, count(*), count(*) FILTER (WHERE alive = 1), count(*) FILTER (WHERE alive > 1),
                count(*) FILTER (WHERE alive = 0 AND any_time > 0), count(*) FILTER (WHERE any_time = 0)
         FROM d GROUP BY 1 ORDER BY 1""").fetchall()
-    out = {"organisation_donors": []}
+    out = {"organisation_donors": [], "note": "mp_interests rows are the companies a member declared, dated by the return, not donors"}
     for reg, n, one, many, dead, none in rows:
         out["organisation_donors"].append({"register": reg, "rows": int(n), "exactly_one_company_alive_on_the_date": int(one),
                                            "share": round(one / n, 4) if n else None, "several_alive": int(many),
@@ -162,7 +163,7 @@ def m6_groups(conn, s: str) -> dict:
         FROM g GROUP BY 1 ORDER BY min(n)""").fetchall()
     out = {"sizes": [{"rows_in_group": b, "groups": int(g), "rows": int(r), "contested": int(c), "spanning_registers": int(sp)}
                      for b, g, r, c, sp in rows]}
-    row = conn.execute(f"SELECT count(DISTINCT group_id), count(*), max(c) FROM (SELECT group_id, count(*) AS c FROM {s}.groups GROUP BY 1) x").fetchone()
+    row = conn.execute(f"SELECT count(*), sum(c), max(c) FROM (SELECT group_id, count(*) AS c FROM {s}.groups GROUP BY 1) x").fetchone()
     out["groups"], out["rows_in_groups"], out["largest"] = int(row[0]), int(row[1]), int(row[2] or 0)
     # a group that contradicts itself: a `not the same` decision whose two rows the walk still joins
     row = conn.execute(f"""

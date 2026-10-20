@@ -4,26 +4,39 @@ registered office under the one reading of addresses (keys.addresses).
 Reads `pub.*` only. No home address: the address arm reads the office of
 the company a role sits on, which a company publishes.
 
-    python -m links.rows [--schema scratch_links]
+    python -m links.rows [--schema scratch_links] [--register gazette [--register house …]]
 
 A register is named by its lane folder, as the board names it. The views
 read, and what each row's entity is:
 
-| register      | view                 | person name          | entity (`<register>:<key>`) |
-| companies     | directors            | full_name            | entity_key          |
-| companies     | shareholders         | name (individuals)   | entity_key          |
-| societies     | society_officers     | full_name            | society_key         |
-| house         | candidates, members  | name (politician)    | -                   |
-| party_returns | party_return_donors  | donor                | party (as resolved) |
-| disclosures   | disclosures, items   | donor_name, contributor | party            |
-| party_finance | promoter_people      | name                 | promoter_key        |
-| gazette       | prohibitions, liquidators | name            | -                   |
-| mp_interests  | mp_interest_returns  | name (politician)    | -                   |
+| register          | view                                  | person name              | entity (`<register>:<key>`) |
+| companies         | directors                             | full_name                | entity_key          |
+| companies         | shareholders                          | name (individuals)       | entity_key          |
+| societies         | society_officers                      | full_name                | society_key         |
+| house             | candidates, members                   | name (politician)        | -                   |
+| party_returns     | party_return_donors                   | donor                    | party (as resolved) |
+| candidate_returns | candidate_return_donors, _totals      | donor; the filing candidate | the return        |
+| disclosures       | disclosures, items                    | donor_name, contributor  | party               |
+| party_finance     | promoter_people                       | name                     | promoter_key        |
+| gazette           | prohibitions, liquidators             | name                     | -                   |
+| gazette           | gazette_bankruptcies                  | given_names, surname (a withheld name is no row) | - |
+| gazette           | gazette_appointments                  | name                     | -                   |
+| mp_interests      | mp_interest_returns                   | name (politician)        | -                   |
+| mp_interests      | mp_interests (directorships, business interests) | the declared organisation | the member's return |
+| expenses          | mp_expenses, minister_expenses        | member (politician)      | -                   |
 
-Expenses are figures under a member's name, not roles; they are not rows here.
+An expense line is a figure under a member's name; it is a row here so a
+product can reach the register through the one reading of names.
+
+**Rebuild only what changed (register rule 10):** `--register` empties and
+refills one register's rows and leaves the others; the registered offices
+and company names are refilled only with `companies`. The links are still
+built whole over the rows (`links.build`).
 """
 from __future__ import annotations
 
+import json
+import re
 import sys
 import time
 
@@ -85,8 +98,32 @@ SOURCES = (
     ("mp_interests", "mp_interest_returns", """
         SELECT key, name, NULL, as_at, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
         FROM pub.mp_interest_returns WHERE name IS NOT NULL AND name <> ''"""),
+    # a Gazette bankruptcy names a person in two fields; a name the Gazette later withheld is blank and makes no row
+    ("gazette", "gazette_bankruptcies", """
+        SELECT key, trim(coalesce(given_names, '') || ' ' || coalesce(surname, '')) AS name, NULL, event_on, NULL::date, NULL, NULL,
+               document, withheld_by IS NOT NULL, given_names, NULL, surname
+        FROM pub.gazette_bankruptcies WHERE coalesce(surname, '') <> ''"""),
+    ("gazette", "gazette_appointments", """
+        SELECT key, name, NULL, starts_on, ends_on, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.gazette_appointments WHERE name IS NOT NULL AND name <> ''"""),
+    # a declared company directorship or business interest: the organisation named, read from the entry's text
+    ("mp_interests", "mp_interests", """
+        SELECT key, text AS name, 'mp_interests:' || member_return, as_at, NULL::date, NULL, NULL, document, withheld, NULL, NULL, NULL
+        FROM pub.mp_interests WHERE category IN ('directorships', 'business-interests') AND text IS NOT NULL AND text <> ''"""),
+    # an expense line is a figure under a member's name, for the period of the release
+    ("expenses", "mp_expenses", """
+        SELECT key, member AS name, NULL, period_start, period_end, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.mp_expenses WHERE member IS NOT NULL AND member <> ''"""),
+    ("expenses", "minister_expenses", """
+        SELECT key, member AS name, NULL, period_start, period_end, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.minister_expenses WHERE member IS NOT NULL AND member <> ''"""),
 )
-POLITICIAN_VIEWS = {"candidates", "members", "mp_interest_returns", "candidate_return_totals"}   # the filing candidate is a politician
+#: the filing candidate is a politician; a declared interest is the member's own (a sole trade in the member's name is not a director row)
+POLITICIAN_VIEWS = {"candidates", "members", "mp_interest_returns", "candidate_return_totals", "mp_expenses", "minister_expenses", "mp_interests"}
+DECLARED_VIEWS = {"mp_interests"}       # the name is read out of a declared entry's text
+_DASHES = (" – ", " — ", " - ")
+_TRAILING_NOTE = re.compile(r"\s*\([^()]*\)\s*$")      # "(not trading)", "(inactive, and in process of de-registration)"
+_BRACKETED = re.compile(r"\s*\([^()]*\)")
 
 ADDRESS_SQL = """
     SELECT key, entity_key, started_on, last_file, in_latest, care_of, line_1, line_2, line_3, line_4, postcode
@@ -98,13 +135,32 @@ def fold(s: str) -> str:
     return " ".join(kn.fold_diacritics(s or "").lower().replace("'", "").replace("’", "").split())
 
 
+def declared_name(text: str) -> str:
+    """The organisation a declared interest names: the entry's text up to
+    its dash ("Spire Investments Limited – commercial property"), a trailing
+    bracketed note off ("(not trading)")."""
+    t = kn.squash(text or "")
+    for sep in _DASHES:
+        if sep in t:
+            t = t.split(sep, 1)[0]
+            break
+    return _TRAILING_NOTE.sub("", t).strip(" .,;:")
+
+
 def read_name(name: str, first: str = None, middle: str = None, last: str = None) -> dict:
     """The one reading: given, middle, family and the three keys. A lane
     that publishes the parts (directors, officers) is read from its parts,
-    so a two-word surname stays a surname."""
+    so a two-word surname stays a surname. The given name is the first of
+    the given names and the rest are middle names, whichever field a lane
+    put them in, as `keys.names.person_name` reads a one-line name: a lane
+    that files every given name in one field ("Louise Claire", surname
+    "UPSTON") would otherwise key the row apart from every other register's
+    "Louise UPSTON". A nickname in brackets is no name."""
     if first or last:
-        given, mid, family = kn.squash(first or ""), kn.squash(middle or ""), kn.squash(last or "")
+        givens = kn.squash(_BRACKETED.sub("", f"{first or ''} {middle or ''}")).split()
+        given, mid, family = (givens[0] if givens else ""), " ".join(givens[1:]), kn.squash(last or "")
     else:
+        name = _BRACKETED.sub("", name)     # a footnote mark "(3)" or a nickname in brackets is no name
         n = kn.person_name(name)
         given, mid, family = n.given, n.middle, n.family
     fl = fold(f"{given} {family}") if given and family else None
@@ -114,9 +170,15 @@ def read_name(name: str, first: str = None, middle: str = None, last: str = None
             "fl_key": fl, "full_key": full, "has_middle": bool(mid)}
 
 
-def row_record(register: str, view: str, r: tuple) -> tuple | None:
+def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple | None:
+    """The row to write, or None with the reason counted in `catch`."""
     key, name, entity, started, ended, election, electorate, document, suppressed, first, middle, last = r
+    if view in DECLARED_VIEWS:
+        name = declared_name(name)
     if suppressed or not name or name == "name suppressed":
+        reason = "suppressed or withheld" if suppressed or name == "name suppressed" else "no name"
+        if catch is not None:
+            catch[reason] = catch.get(reason, 0) + 1
         return None
     kind = kn.name_kind(name)
     if kind == "person":
@@ -139,20 +201,36 @@ def address_record(r: tuple) -> tuple | None:
     return (links.ref("companies", entity_key), k, "registered office", started_on, last_file, in_latest, region, key)
 
 
-def gather(conn, schema: str, log=print, reader=None) -> dict:
+def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
     """Wipe and refill `<schema>.rows`, `.entity_addresses`, `.org_names` from
     `pub`, in one transaction on `conn`. `reader` is a second connection the
     published rows are read through: a server-side cursor and a COPY cannot
-    share one connection (the next fetch waits behind the open COPY)."""
+    share one connection (the next fetch waits behind the open COPY).
+    `registers`, when given, names the registers to refill (rule 10); the
+    rest of the rows stand, and the offices and company names are refilled
+    only when `companies` is among them."""
     reader = reader or conn
     t0 = time.monotonic()
     conn.execute(links.ddl(schema))
     counts = {}
+    registers = set(registers) if registers else None
+    unknown = (registers or set()) - {r for r, _, _ in SOURCES}
+    if unknown:
+        raise ValueError(f"no such register in links.rows: {sorted(unknown)}")
+    companies_too = registers is None or "companies" in registers
     with conn.cursor() as w:
-        for t in ("rows", "entity_addresses", "org_names"):
-            conn.execute(f"DELETE FROM {schema}.{t}")
+        if registers is None:
+            conn.execute(f"DELETE FROM {schema}.rows")
+        else:
+            conn.execute(f"DELETE FROM {schema}.rows WHERE register = ANY(%s)", (sorted(registers),))
+        if companies_too:
+            for t in ("entity_addresses", "org_names"):
+                conn.execute(f"DELETE FROM {schema}.{t}")
         for register, view, sql in SOURCES:
-            n = 0
+            if registers is not None and register not in registers:
+                continue
+            n = read = 0
+            catch: dict = {}
             with reader.cursor(name=f"links_rows_{view}") as cur:
                 cur.itersize = 20000
                 cur.execute(sql)
@@ -160,12 +238,25 @@ def gather(conn, schema: str, log=print, reader=None) -> dict:
                             f"fl_key, full_key, has_middle, entity_ref, started_on, ended_on, election, electorate, politician, document) "
                             f"FROM STDIN") as copy:
                     for r in cur:
-                        rec = row_record(register, view, r)
+                        read += 1
+                        rec = row_record(register, view, r, catch)
                         if rec:
                             copy.write_row(rec)
                             n += 1
+            assert read == n + sum(catch.values()), (view, read, n, catch)
+            conn.execute(f"""INSERT INTO {schema}.rows_catch (view, register, read, written, set_aside, reasons, gathered_at)
+                             VALUES (%s, %s, %s, %s, %s, %s::jsonb, now())
+                             ON CONFLICT (view) DO UPDATE SET register = EXCLUDED.register, read = EXCLUDED.read, written = EXCLUDED.written,
+                                 set_aside = EXCLUDED.set_aside, reasons = EXCLUDED.reasons, gathered_at = now()""",
+                         (view, register, read, n, read - n, json.dumps(catch)))
             counts[f"{register}.{view}"] = n
-            log(f"links.rows: {register}.{view}: {n} rows ({time.monotonic() - t0:.0f} s)")
+            log(f"links.rows: {register}.{view}: {n} rows, {read - n} set aside {catch} ({time.monotonic() - t0:.0f} s)")
+        if not companies_too:
+            conn.execute(f"ANALYZE {schema}.rows")
+            conn.commit()
+            counts["seconds"] = round(time.monotonic() - t0, 1)
+            counts["registers"] = sorted(registers)
+            return counts
         n = 0
         seen = set()
         with reader.cursor(name="links_addresses") as cur:
@@ -203,14 +294,15 @@ def gather(conn, schema: str, log=print, reader=None) -> dict:
 
 
 def main(argv=None) -> int:
-    import json
     from support import db
     argv = sys.argv[1:] if argv is None else argv
     schema = argv[argv.index("--schema") + 1] if "--schema" in argv else links.SCHEMA
+    registers = [argv[i + 1] for i, a in enumerate(argv) if a == "--register"] or None
     with db.connect(db.OWNER_KEY, "querynz_v4") as conn, db.connect(db.OWNER_KEY, "querynz_v4") as reader:
         conn.execute("SET statement_timeout = 0")
         reader.execute("SET statement_timeout = 0")
-        print(json.dumps(gather(conn, schema, reader=reader)))
+        links.ensure_schema(conn, schema)
+        print(json.dumps(gather(conn, schema, reader=reader, registers=registers)))
     return 0
 
 

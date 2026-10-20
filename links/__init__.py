@@ -74,6 +74,30 @@ def ddl(schema: str = SCHEMA) -> str:
     return tables_sql().replace("links.", f"{schema}.")
 
 
+def ensure_schema(conn, schema: str = SCHEMA) -> None:
+    """A session's scratch schema is made on first use; `links` itself is
+    the database's and is never created here."""
+    if not re.match(r"^[a-z][a-z0-9_]*$", schema):
+        raise ValueError(f"not a schema name: {schema!r}")
+    if schema.startswith("scratch_"):
+        from support import db
+        conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+        # the session reader sees a scratch schema as it sees every non-private one (support.db.plan_sql)
+        conn.execute(f"GRANT USAGE ON SCHEMA {schema} TO {db.ROLES['read']}")
+        conn.execute(f"ALTER DEFAULT PRIVILEGES IN SCHEMA {schema} GRANT SELECT ON TABLES TO {db.ROLES['read']}")
+        conn.execute(f"GRANT SELECT ON ALL TABLES IN SCHEMA {schema} TO {db.ROLES['read']}")
+        conn.commit()
+
+
+def publish_ddl(schema: str = SCHEMA, pub: str = "pub") -> str:
+    """The published views' SQL, for `links` into `pub`, or a scratch schema
+    into a scratch `pub` beside it (`<schema>_pub`)."""
+    for name in (schema, pub):
+        if not re.match(r"^[a-z][a-z0-9_]*$", name):
+            raise ValueError(f"not a schema name: {name!r}")
+    return publish_sql().replace("links.", f"{schema}.").replace("pub.", f"{pub}.")
+
+
 def pair(a: str, b: str) -> tuple:
     """The ordered pair the tables store: the smaller key first."""
     if a == b:
