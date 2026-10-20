@@ -1,13 +1,11 @@
 # Where the build stands
 
-Overwritten at every close; under 3 KB. What happened is in the cards, the
-lessons and the commit messages.
+Overwritten at every close; under 3 KB. The detail is in `docs/merges/`.
 
 **Date:** 2026-10-20, 13:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 and 5.1 merged, day one not clean; track C open. Tracks B
 and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1
-waits for its setup card (ruling 57). **Alarm channel:** the old estate's
-ntfy address (test alarm 18 October).
+waits for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy address.
 
 ## Done
 
@@ -20,7 +18,7 @@ ntfy address (test alarm 18 October).
   gazette 1 to 3 (207,133 notices; celebrants, prohibitions,
   liquidations, 1.48 M company notices, 65,299 bankruptcies, 3,155
   appointments, joined to the companies register), house (1,611
-  candidacies), companies (1.92 M entities, 1.19 M directors, 1.58 M
+  candidacies; `house-2` the comparison's six cards), companies (1.92 M entities, 1.19 M directors, 1.58 M
   shareholdings), expenses and MPs' interests, societies (53,271;
   133,080 officers), candidate returns (372 totals, 175 donors; 713
   scans wait, ruling 62), the charities capture (first full copy
@@ -36,11 +34,10 @@ ntfy address (test alarm 18 October).
 
 ## Running (headless, from the integrator)
 
-- `review` (Fable, `links/`): track C, scored on the test pairs; verdicts
-  recorded, not applied.
-- `house-2` (Opus): the comparison's five house cards. `recruitment`
-  (Opus): template 08, step 5.2. `review` raised, next. Next: the
-  charities builds after tonight's copy.
+- `agriculture` (Opus): template 04. `comparison-2` (Fable): its readers
+  for template v2. Raised, integrating: `parties-2`, `review` (track C).
+  Next: two fix sessions (board link, recruitment's rule copies), `keys`,
+  the charities builds after tonight's copy.
 
 ## Half-done
 
@@ -51,5 +48,7 @@ ntfy address (test alarm 18 October).
   electorate money, statements) and `party-returns-5`; `qv4-site-compare`
   daily 08:45. Ahead: seven clean days, checkpoint, export test, the
   switch after 7 November on Arthur's word.
-- 5.1 built (`report-1`): the subject-report shape on 10.0.0.2:8440, the
-  done-when green on the real tables; 5.2's templates next, recruitment first.
+- 5.1 built (`report-1`, `-2`): the subject-report shape on
+  10.0.0.2:8440, a contract templates bind without importing.
+  5.2: template 08 recruitment built and checkpointed (`recruitment-1`,
+  23 views, 13 flags, 12 real subjects); agriculture next.

@@ -69,6 +69,32 @@ def test_the_successful_candidates_page_reads_party_seat_and_electorate():
                                         ("Example Party", "SAMPLE, Kim", "Example Central", 7)]
 
 
+def _status_page(rows):
+    body = "".join(f'<tr id="electorate-row-{n}"><td><a href="./electorate-details-{n}.html">{e}</a></td>'
+                   f'<td><span class="mobile-show">Leading Candidate:</span> {a} <span>({aa})</span></td>'
+                   f'<td><span class="mobile-show">2nd Candidate:</span> {b} ({bb})</td>'
+                   f'<td class="text-right"><span class="mobile-show float-left">Margin:</span> {m}</td></tr>'
+                   for n, (e, a, aa, b, bb, m) in enumerate(rows, 1))
+    return f'<table id="electorate-status-table"><tbody>{body}</tbody></table>'.encode()
+
+
+def test_the_status_page_reads_the_two_leaders_their_abbreviations_and_the_margin():
+    page = _status_page([("Example Central", "EXAMPLE, Jo", "EXP", "SAMPLE, Kim Lee", "OTH", "1,234")])
+    assert results.status_rows(page) == [(1, "Example Central", "leading", "EXAMPLE, Jo", "EXP", 1234),
+                                         (1, "Example Central", "second", "SAMPLE, Kim Lee", "OTH", 1234)]
+    assert results.status(page) == [("Example Central", "EXAMPLE, Jo", "EXP"), ("Example Central", "SAMPLE, Kim Lee", "OTH")]
+
+
+def test_the_margin_check_fails_when_a_leader_s_votes_are_wrong():
+    ele = [{"key": "ge-1/example-central", "election": "ge-1", "join_basis": "boundary set not held", "statsnz_code": None,
+            "result_held": True, "poll_cancelled": False}]
+    cands = [{"electorate": "ge-1/example-central", "votes": v} for v in (100, 60, 5)]
+    figs = [_fig("ge-1", "margin", None, 40, "ge-1/status/example-central/margin")]
+    assert check.margins(cands, ele, figs) == {"ge-1": (1, 1)}
+    cands[1]["votes"] = 61
+    assert check.failed(check.compare(cands, [], ele, figs)) == ["ge-1: 0 of 1 of the status page's margins equal the result pages' votes"]
+
+
 def test_the_index_reads_polling_days_and_sets_aside_an_undated_link():
     page = ('<h3>General Elections</h3><ul><li><a href="electionresults_2023/">2023 General Election - 14 October 2023'
             '</a></li><li><a href="x/">Election results prior to 1994</a></li></ul><h3>By-elections</h3><ul><li>'
@@ -179,6 +205,26 @@ def test_every_read_results_page_is_an_electorate_and_its_candidates_reconcile(f
             continue
         votes = sum(c["votes"] for c in filled["candidates"] if c["electorate"] == e["key"])
         assert votes + e["candidate_informals"] == e["candidate_total"], e["key"]
+
+
+def test_a_race_whose_result_page_is_not_held_has_its_two_leaders_from_the_status_page(filled):
+    for ekey, leader, second, party2 in (("ge-2020/mana", "EDMONDS, Barbara", "HAYES, Jo", "National Party"),
+                                         ("ge-2020/rongotai", "EAGLE, Paul", "CROSSEN, Teall", "Green Party")):
+        e = next(x for x in filled["electorates"] if x["key"] == ekey)
+        assert not e["result_held"] and e["candidates_held"].startswith("the leading and second candidates only")
+        rows = sorted((c for c in filled["candidates"] if c["electorate"] == ekey), key=lambda c: c["place"])
+        assert [(c["name"], c["votes"], c["profile"]) for c in rows] == [
+            (leader, None, "ec-results-electorate-status"), (second, None, "ec-results-electorate-status")]
+        assert rows[0]["party"] == "Labour Party" and rows[1]["party"] == party2
+        seat = next(m for m in filled["members"] if m["electorate"] == ekey)
+        assert seat["candidate"] == rows[0]["key"]
+    assert all(e["candidates_held"] for e in filled["electorates"])
+
+
+def test_the_status_page_agrees_with_every_held_result_page(filled):
+    out = check.margins(filled["candidates"], filled["electorates"], filled["figures"])
+    assert out == {"ge-2020": (70, 70), "ge-2023": (71, 71)}
+    assert not [a for a in filled["set_aside"] if "status page's leading and second" in a["reason"]]
 
 
 def test_every_row_keeps_the_row_contract(filled):

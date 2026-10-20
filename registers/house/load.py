@@ -20,7 +20,7 @@ COLUMNS = {
     "elections": ("key", "kind", "name", "electorate", "polled_on", "polled_basis", "results_href"),
     "electorates": ("key", "election", "name", "number", "statsnz_code", "statsnz_name", "layer", "statsnz_document",
                     "join_basis", "votes_counted", "candidate_total", "candidate_informals", "party_total",
-                    "party_informals", "poll_cancelled", "result_held"),
+                    "party_informals", "poll_cancelled", "result_held", "candidates_held"),
     "candidates": ("key", "election", "name", "display_name", "name_key", "party", "party_registered", "party_basis",
                    "electorate", "list_place", "list_document", "list_place_cite", "votes", "poll_cancelled",
                    "joined_basis"),

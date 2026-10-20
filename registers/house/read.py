@@ -39,7 +39,7 @@ from registers.house import results as RS
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
-READER = "registers.house 1"
+READER = "registers.house 2"
 NEXT_GENERAL = "ge-2026"
 
 
@@ -197,6 +197,8 @@ def _results(r, by_profile, elections):
             read_pages[e.name] = (sha, name, e)
             for place, cand, party, votes, cancelled in e.candidates:
                 party_of[(e.name, K.person_key(cand))] = party
+        status = _status(r, by_profile, year, ekey, read_pages, party_of)
+        r.from_status = getattr(r, "from_status", {})
         for number, ename in listed:
             j = joined.get(ename)
             sha, name, e = read_pages.get(ename, (None, None, None))
@@ -211,32 +213,51 @@ def _results(r, by_profile, elections):
                    "party_total": e.party_total if e else None, "party_informals": e.party_informals if e else None,
                    "poll_cancelled": bool(e and e.candidates and all(c[4] for c in e.candidates)),
                    "result_held": e is not None,
+                   "candidates_held": ("every candidate, from the result page" if e else
+                                       "the leading and second candidates only, from the status page; the result page "
+                                       "is not held" if status["rows"].get(ename) else "none: the result page is not held"),
                    **(r.stamp(sha, "ec-results-electorate-page", f"{name} h2") if e else
                       r.stamp(list_doc, "ec-results-electorate-page", f"the electorate selector, option {number}"))}
             r.add("electorates", row)
             if year in ("2020", "2023") and not j:
                 r.aside(ekey_e, "electorates", f"{ename}: no Stats NZ 2020 name equals it")
             if e is None:
+                got = status["rows"].get(ename, [])
                 r.aside(ekey_e, "results", f"{ename} {year}: the electorate's result page is not held (a failed read); "
-                                           f"its candidates and votes are missing")
+                                           + (f"its leading and second candidates are read from the status page, its "
+                                              f"other candidates and every vote are missing" if got else
+                                              "its candidates and votes are missing"))
+                for n, role, cand, ab in got:
+                    party = status["abbrev"].get(ab)
+                    reg, basis = _party(party)
+                    ckey = f"{ekey}/{slug(cand)}/{slug(ename)}"
+                    if r.add("candidates", {
+                            "key": ckey, "election": ekey, "name": cand,
+                            "display_name": K.person_name(cand).display, "name_key": K.person_key(cand),
+                            "party": party, "party_registered": reg,
+                            "party_basis": (f"the abbreviation {ab} beside the candidate on the status page, paired with "
+                                            f"{party} by the year's read result pages" if party else
+                                            f"the abbreviation {ab} on the status page; not paired with one party"),
+                            "electorate": ekey_e, "list_place": None, "list_document": None, "list_place_cite": None,
+                            "votes": None, "poll_cancelled": False, "joined_basis": None,
+                            **r.stamp(status["document"], "ec-results-electorate-status",
+                                      f"electorate-status-table row {n}, the {role} candidate")}):
+                        r.from_status[(ekey_e, K.person_key(cand))] = ckey
                 continue
             for place, cand, party, votes, cancelled in e.candidates:
                 reg, basis = _party(party)
                 r.add("candidates", {
                     "key": f"{ekey}/{slug(cand)}/{slug(ename)}", "election": ekey, "name": cand,
                     "display_name": K.person_name(cand).display, "name_key": K.person_key(cand),
-                    "party": party, "party_registered": reg, "party_basis": basis or "no party printed",
+                    "party": party, "party_registered": reg,
+                    "party_basis": basis or ("no party printed beside the candidate (an independent, or a party with "
+                                             "no list); the label as filed is on the candidate's return, which this "
+                                             "lane does not read"),
                     "electorate": ekey_e, "list_place": None, "list_document": None, "list_place_cite": None,
                     "votes": votes, "poll_cancelled": cancelled, "joined_basis": None,
                     **r.stamp(sha, "ec-results-electorate-page", f"{name} partyCandidatesResultsTable row {place}")})
-        for f, sha, name, captured, data in by_profile.get("ec-results-electorate-status", []):
-            if _year(name) != year:
-                continue
-            for ename, cand, ab in RS.status(data):
-                if (ename, K.person_key(cand)) not in party_of:
-                    continue                    # the electorate's page is not held: nothing to pair with
-                p = party_of[(ename, K.person_key(cand))] or "∅"
-                abbrev.setdefault((year, ab), set()).add(p)
+        for ab, ps in status["pairs"].items():
+            abbrev.setdefault((year, ab), set()).update(ps)
         for f, sha, name, captured, data in by_profile.get("ec-results-overall", []):
             if _year(name) != year:
                 continue
@@ -254,6 +275,38 @@ def _results(r, by_profile, elections):
             r.aside(f"{k[0]} {k[1]}", "results", f"the abbreviation {k[1]} is paired with {sorted(v)}: not used")
 
 
+def _status(r, by_profile, year, ekey, read_pages, party_of) -> dict:
+    """The year's status page: the party each abbreviation stands for,
+    paired by the read result pages; the two leading candidates of each
+    electorate whose result page is not held; and the margin it prints,
+    a figure the check counts again. Where the result page is held, the
+    page's own two leaders must be the status page's, or a catch-log line."""
+    out = {"pairs": {}, "abbrev": {}, "rows": {}, "document": None}
+    for f, sha, name, captured, data in by_profile.get("ec-results-electorate-status", []):
+        if _year(name) != year:
+            continue
+        out["document"] = sha
+        per = {}
+        for n, ename, role, cand, ab, margin in RS.status_rows(data):
+            if (ename, K.person_key(cand)) in party_of:
+                out["pairs"].setdefault(ab, set()).add(party_of[(ename, K.person_key(cand))] or "∅")
+            if ename not in read_pages:
+                out["rows"].setdefault(ename, []).append((n, role, cand, ab))
+            per.setdefault(ename, (n, margin, []))[2].append(cand)
+        for ename, (n, margin, names) in per.items():
+            if margin is not None:
+                r.out.figures.append({"key": f"{ekey}/status/{slug(ename)}/margin", "election": ekey, "what": "margin",
+                                      "party": None, "value": margin,
+                                      **r.stamp(sha, "ec-results-electorate-status", f"electorate-status-table row {n}, Margin")})
+            if ename in read_pages:
+                top = [c[1] for c in sorted(read_pages[ename][2].candidates, key=lambda c: -(c[3] or 0))[:2]]
+                if [K.person_key(x) for x in names] != [K.person_key(x) for x in top]:
+                    r.aside(f"{sha}/row {n}", "results", f"{ename} {year}: the status page's leading and second "
+                                                         f"{names} are not the result page's {top}")
+    out["abbrev"] = {ab: next(iter(ps)) for ab, ps in out["pairs"].items() if len(ps) == 1 and "∅" not in ps}
+    return out
+
+
 def _successful(r, by_profile, year, ekey, read_pages):
     for f, sha, name, captured, data in by_profile.get("ec-results-successful-candidates", []):
         if _year(name) != year:
@@ -267,7 +320,7 @@ def _successful(r, by_profile, year, ekey, read_pages):
             key = f"{ekey}/seat/{slug(seat)}" if route == "electorate" else f"{ekey}/seat/list/{slug(party)}/{slug(cand)}"
             ckey = f"{ekey}/{slug(cand)}/{slug(seat)}" if route == "electorate" else None
             if route == "electorate" and seat not in read_pages:
-                ckey = None
+                ckey = getattr(r, "from_status", {}).get((ekey_e, K.person_key(cand)))   # the status page's leader, or none
             reg, basis = _party(party)
             r.add("members", {"key": key, "election": ekey, "name": cand, "display_name": K.person_name(cand).display,
                               "name_key": K.person_key(cand), "party": party, "party_registered": reg,
@@ -298,6 +351,7 @@ def _by_elections(r, by_profile, elections):
                               "join_basis": "joined through the general election it falls in", "votes_counted": e.candidate_total,
                               "candidate_total": e.candidate_total, "candidate_informals": e.candidate_informals,
                               "party_total": None, "party_informals": None, "poll_cancelled": False, "result_held": True,
+                              "candidates_held": "every candidate, from the by-election's result page",
                               **r.stamp(sha, "ec-byelection-result-page", f"{name} h2")})
         year = hit[0]["polled_on"][:4]
         known = {ab: p for (y, ab), p in sorted(abbrev.items()) if y <= year}
@@ -376,6 +430,7 @@ def _nominations(r, by_profile):
                               "join_basis": "boundary set not held: Stats NZ's 2025 electorates need a key (card)",
                               "votes_counted": None, "candidate_total": None, "candidate_informals": None,
                               "party_total": None, "party_informals": None, "poll_cancelled": False, "result_held": False,
+                              "candidates_held": "every nominated candidate, from the Commission's workbook; not yet polled",
                               **r.stamp(wsha, "ec-electorate-candidates-workbook",
                                         f"sheet1 column B, first row naming it")})
     for row, nm, ename, party in ele:

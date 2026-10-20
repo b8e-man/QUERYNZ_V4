@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import html
 
-from products.report import rows
+from products.report import contract, rows
 
 GRADE_WORD = {"confirmed": "confirmed", "near": "near"}
 CSS = """
@@ -61,9 +61,20 @@ def _line_text(it: dict) -> str:
         extra.append(f"via {it['via']}")
     for f in it.get("flags", []):
         extra.append(f"HUB: {f['text']}")
-    if it.get("note") and it["view"] in ("shareholders", "directors", "disclosures"):
+    if it.get("note") and it["view"] in ("shareholders", "directors", "disclosures", "gazette_company_notices"):
         extra.append(it["note"])
     return line + ("".join("\n      " + x for x in extra) if extra else "")
+
+
+def _group_line(g: dict) -> str:
+    bits = [g.get("why") or f"{g.get('size')} rows" + (", contested as a whole" if g.get("contested") else ", not contested")]
+    if g.get("via") and g.get("size", 1) > 1:
+        bits.append(f"{g['size']} rows" + (", contested as a whole" if g.get("contested") else ", not contested"))
+    if g.get("in_sections"):
+        bits.append(f"{g['in_sections']} of its rows are listed in the sections below, marked confirmed")
+    if g.get("omitted"):
+        bits.append(f"{g['omitted']} rows not listed")
+    return "; ".join(bits)
 
 
 def text(report: dict) -> str:
@@ -80,8 +91,7 @@ def text(report: dict) -> str:
     for f in s.get("flags", []):
         out.append(f"  HUB: {f['text']}")
     g = report["group"]
-    out.append("  group: " + (g.get("why") or f"{g.get('size')} rows" + (", CONTESTED as a whole" if g.get("contested") else ", not contested")
-                              + (f"; {g['omitted']} rows not listed" if g.get("omitted") else "")))
+    out.append("  group: " + _group_line(g).replace("contested as a whole", "CONTESTED as a whole"))
     for m in report.get("members", []):
         out.append(f"  same person, by confirmed link: {m['statement']} ({m['dates']['text']}) [{m.get('cite', '?')}]"
                    + (f"\n      near: {m['reason']}" if m.get("reason") else ""))
@@ -149,7 +159,7 @@ def text(report: dict) -> str:
 
 # ── HTML ────────────────────────────────────────────────────────────────────
 
-def _li(it: dict) -> str:
+def _li(it: dict, template_name: str = "subject") -> str:
     out = [f'<li><span class="grade {esc(it["grade"])}">{esc(GRADE_WORD.get(it["grade"], it["grade"]))}</span>{esc(it["statement"])} '
            f'<span class="dates">({esc(it["dates"]["text"])})</span> <span class="cite">[{esc(it.get("cite", "?"))}]</span>']
     if it.get("reason"):
@@ -159,10 +169,10 @@ def _li(it: dict) -> str:
     if it.get("replaced_by"):
         out.append(f'<span class="reason">from a return since replaced; the amendment is document <code>{esc(str(it["replaced_by"])[:12])}…</code>; never summed</span>')
     if it.get("via"):
-        out.append(f'<span class="reason">via <a href="/report?ref={esc(it["via"])}">{esc(it["via"])}</a></span>')
+        out.append(f'<span class="reason">via <a href="{esc(contract.report_url(it["via"], "", template_name))}">{esc(it["via"])}</a></span>')
     for f in it.get("flags", []):
         out.append(f'<span class="flag">hub: {esc(f["text"])}</span>')
-    out.append(f'<span class="reason"><a href="/report?ref={esc(it["ref"])}">report from here</a></span></li>')
+    out.append(f'<span class="reason"><a href="{esc(contract.report_url(it["ref"], "", template_name))}">report from here</a></span></li>')
     return "".join(out)
 
 
@@ -181,9 +191,9 @@ def html_body(report: dict) -> str:
     for f in s.get("flags", []):
         out.append(f'<p class="warn">hub: {esc(f["text"])}</p>')
     g = report["group"]
-    out.append('<p class="note">group: ' + esc(g.get("why") or (f"{g.get('size')} rows" + (", contested as a whole" if g.get("contested") else ", not contested"))) + "</p>")
+    out.append('<p class="note">group: ' + esc(_group_line(g)) + "</p>")
     if report.get("members"):
-        out.append("<ul>" + "".join(_li(dict(m, statement="same person, by confirmed link: " + m["statement"])) for m in report["members"]) + "</ul>")
+        out.append("<ul>" + "".join(_li(dict(m, statement="same person, by confirmed link: " + m["statement"]), t["name"]) for m in report["members"]) + "</ul>")
     if report.get("problems"):
         out.append('<p class="warn">Refused: this report breaks the presentation rules and is not to be relied on.</p><ul>' +
                    "".join(f"<li>{esc(p)}</li>" for p in report["problems"]) + "</ul>")
@@ -203,7 +213,7 @@ def html_body(report: dict) -> str:
         if not sec["items"]:
             out.append(f'<p class="why">{esc(sec["blank"])}</p>')
         else:
-            out.append("<ul>" + "".join(_li(it) for it in sec["items"]) + "</ul>")
+            out.append("<ul>" + "".join(_li(it, t["name"]) for it in sec["items"]) + "</ul>")
             if sec.get("omitted"):
                 out.append(f'<p class="note">and {sec["omitted"]:,} more row(s) in {esc(", ".join("pub." + v for v in sec["omitted_views"]))}, not listed: the walk stops at its limits</p>')
             if sec.get("not_held"):
