@@ -22,18 +22,21 @@ the liquidator (shareholders, board, court, creditors) and under which section, 
 they were read (signed, or named in the operative sentence). No address, telephone or email is shown or held.
 
 A company notice row opens to its notice: the company as printed, its number where the notice prints one, the kind
-(removal, winding-up application, receivership, notice to creditors, administration, overseas company) and the notice's own action (an
-intention to remove, a restoration, an application to put into liquidation, a receiver's appointment or ceasing to
-act, a meeting, a call to prove claims, a dividend, an overseas company ceasing to carry on business in New Zealand or applying
-for removal from the overseas register), the Act and section, the ground of a removal, who gave notice,
-and for a winding-up application the plaintiff by name only, its court and reference. The one date a notice turns on
-is shown with what it dates (`event_basis`: to be heard, objections by, appointed, ceased to act, meeting, claims by,
-dividend); the filing day and the publication day stand beside it; a notice that prints no such day leaves it blank
-and is dated by its publication day alone (48,393 rows, 46,282 of them removals); a day whose kind the reader could
-not name is shown as a bare "event on" (72 rows, administrations and notices to creditors). The row says which
-Companies Office entity it was joined to and how (by number and name, or by the one name alive on the notice's date),
-or "not held". The receivers and administrators the notice names are listed under it. A plaintiff's address for
-service is never read, held or shown.
+(removal, winding-up application, receivership, notice to creditors, administration, overseas company, restoration)
+and the notice's own action (an intention to remove, a restoration, an application to put into liquidation, a
+receiver's appointment or ceasing to act, a meeting, a call to prove claims, a dividend, an overseas company ceasing
+to carry on business in New Zealand or applying for removal from the overseas register, the Registrar's intention to
+restore a company to the register), the Act and section, the ground of a removal, who gave notice, and for a
+winding-up application the plaintiff by name only, its court and reference. The one date a notice turns on is shown
+with what it dates (`event_basis`: to be heard, objections by, appointed, ceased to act, meeting, claims by, dividend,
+ceases); the filing day and the publication day stand beside it; a notice that prints no such day leaves it blank and
+is dated by its publication day alone (48,393 rows, 46,282 of them removals); a day whose kind the reader could not
+name is shown as a bare "event on" (72 rows, administrations and notices to creditors). The row says which Companies
+Office entity it was joined to and how (by number and name, or by the one name alive on the notice's date), or "not
+held". The receivers and administrators the notice names are listed under it. A plaintiff's address for service is
+never read, held or shown, and neither is the applicant a restoration names, nor the applicant's address: a
+restoration row is the company alone. A restoration given under `ds` is a removal row whose action is "restoration"
+(5,155 rows); one under `ot` is the kind "restoration".
 
 A practitioner row is a receiver or an administrator as the notice signs them: the name, the role as printed (Receiver
 and Manager, Joint Administrators, Former Receiver, …), how the name was read (`full`: also named in full in the
