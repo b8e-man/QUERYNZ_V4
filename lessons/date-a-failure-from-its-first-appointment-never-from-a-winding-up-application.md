@@ -1,4 +1,4 @@
-Date a company's failure from the first appointment a Gazette notice dates (a liquidator, a receiver, an administrator), never from the earliest insolvency notice: a winding-up application can be dismissed, and taken as the failure it moves the date years early and changes whose role was on the board at the time.
+Date a company's failure from the first appointment a Gazette notice dates (liquidator, receiver, administrator), never from the earliest insolvency notice: a winding-up application can be dismissed and would move the date years early.
 area: subject reports, products/templates, step 5.2 templates, flags, gazette, insolvency dates
 paid-for-by: 2026-10-21, insurance-1 session, step 5.2 (template 06)
 
