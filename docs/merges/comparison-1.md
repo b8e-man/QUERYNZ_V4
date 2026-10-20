@@ -38,7 +38,7 @@ tests/test_imports_one_way.py and test_reading_limits.py green.
 Nothing written in the old folder; no address or suppressed name printed.
 Lesson: `two-shapes-compare-by-figure-not-by-field`.
 
-## Result (integrator, 2026-10-20 14:40 NZDT)
+## Result (integrator, 2026-10-20 13:57 NZDT)
 
 Merged into main as d534b5d (merged main first). Done at the merge:
 `qv4-site-compare` in the catalogue (priority 52, due 19:45 UTC, after
