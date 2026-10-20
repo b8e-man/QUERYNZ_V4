@@ -4,7 +4,7 @@ Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
 **Date:** 2026-10-20, 13:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
-4.5 (comparison) and track C (review agent) open; 5.1 opening. Tracks B
+4.5 merged, day one not clean; track C and 5.1 open. Tracks B
 and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1
 waits for its setup card (ruling 57). **Alarm channel:** the old estate's
 ntfy address (test alarm 18 October).
@@ -36,16 +36,16 @@ ntfy address (test alarm 18 October).
 
 ## Running (headless, from the integrator)
 
-- `comparison` (Fable, `checks/`): step 4.5 figure by figure, seven clean
-  days; the lanes' checks onto the board.
 - `review` (Fable, `links/`): track C, scored on the test pairs; verdicts
   recorded, not applied.
-- Next slot: step 5.1, the subject-report shape in `products/report/`
-  (skeleton on main); the charities builds after tonight's copy.
+- `report` (Fable, `products/report/`): step 5.1, the subject-report
+  shape. Next: the charities builds after tonight's copy.
 
 ## Half-done
 
 - 1.4: the positive half waits for the next declaration. Step 2:
   `qv4-questions` held (ruling 22); node1 setup carded (ruling 57).
-- 4.5 to 4.8 ahead: seven clean days, checkpoint, export test, the
+- 4.5 built (`comparison-1`): 43,062 differences on day one, every one
+  carded, 23,067 under cards saying the new side is short; `qv4-site-compare`
+  daily 08:45. Ahead: seven clean days, checkpoint, export test, the
   switch after 7 November on Arthur's word.
