@@ -178,16 +178,18 @@ def test_a_model_that_has_gone_away_is_retried_for_the_wait_and_a_refusal_never_
 
     def post(url, body, timeout):
         calls.append(1)
-        if len(calls) < 3:
+        if len(calls) < 2:
             raise ConnectionRefusedError("gone")
         return {"model": body["model"], "choices": [{"message": {"content": '{"verdict": "contested", "reasoning": "thin"}'}}]}
 
     def refused(*a):
         raise ConnectionRefusedError("gone")
 
-    v = review.read(_evidence(), url="http://127.0.0.1:8111/v1/chat/completions", model="m", post=post, wait=1000, sleep=slept.append)
-    assert v["verdict"] == "contested" and len(calls) == 3 and slept == [review.RETRY_EVERY_S] * 2
+    served = iter(["other", "other", "m"])
+    v = review.read(_evidence(), url="http://127.0.0.1:8111/v1/chat/completions", model="m", post=post, wait=1000, sleep=slept.append,
+                    served=lambda url: next(served), log=lambda *a: None)
+    assert v["verdict"] == "contested" and len(calls) == 2 and slept == [review.RETRY_EVERY_S] * 3     # no prompt goes to the other model
     with pytest.raises(ConnectionRefusedError):
         review.read(_evidence(), url="http://127.0.0.1:8111/v1/chat/completions", model="m", post=refused, wait=0)
     with pytest.raises(modelclient.Refused):
-        review.read(_evidence(), url="https://api.example.com/v1/chat/completions", model="m", post=post, wait=1000, sleep=slept.append)
+        review.read(_evidence(), url="https://api.example.com/v1/chat/completions", model="m", post=post, wait=1000, sleep=slept.append, served=lambda u: "m")

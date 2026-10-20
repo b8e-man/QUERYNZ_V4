@@ -251,7 +251,7 @@ WAIT_FOR_MODEL_S = 5400         # a session's scoring outlives a card swap: the 
 RETRY_EVERY_S = 60
 
 
-def read(evidence: dict, *, url: str = None, model: str = None, post=None, wait: float = 0, sleep=time.sleep, log=print) -> dict:
+def read(evidence: dict, *, url: str = None, model: str = None, post=None, wait: float = 0, sleep=time.sleep, served=None, log=print) -> dict:
     """The agent's verdict on one pair: the screen, else the model. With
     `wait`, a model that has gone away (the card swapped, the server down)
     is retried every minute for that long before the error is raised."""
@@ -268,8 +268,17 @@ def read(evidence: dict, *, url: str = None, model: str = None, post=None, wait:
             from support import modelclient
             if isinstance(exc, modelclient.Refused) or time.monotonic() - t0 >= wait:
                 raise
-            log(f"links.review: the model is away ({type(exc).__name__}: {str(exc)[:120]}); retrying in {RETRY_EVERY_S} s")
-            sleep(RETRY_EVERY_S)
+            log(f"links.review: the model is away ({type(exc).__name__}: {str(exc)[:120]}); waiting for it")
+            # wait on the server's model list (a read, no prompt sent), so no evidence goes to whatever holds the port meanwhile
+            while time.monotonic() - t0 < wait:
+                sleep(RETRY_EVERY_S)
+                try:
+                    if (served or modelclient.served_model)(url) == model:
+                        break
+                except Exception:       # noqa: BLE001 — nothing answers yet
+                    pass
+            else:
+                raise
 
 
 def fingerprint() -> str:
