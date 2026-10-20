@@ -12,7 +12,8 @@ a report that breaks one is refused by the surface rather than printed:
   6. no suppressed name on any surface: a suppressed row's name columns never
      appear in its title or statement;
   7. no home address: the only address-shaped statement is a company's
-     registered office;
+     registered office, or a company's own registered name (a company named
+     "1 SHEA TERRACE LIMITED" is shown as the register names it);
   8. a near connection carries its reason;
   9. a flag keeps the contract: fired cites, clear names its sources, blocked says why.
 
@@ -43,6 +44,7 @@ STREET = r"(?:street|road|avenue|drive|place|lane|crescent|terrace|highway|parad
 ADDRESS_NUMBERED = re.compile(r"(?<![\d.,$/:-])\b\d{1,5}[a-z]?(?:/\d{1,5}[a-z]?)?(?![\d.,/])[\s,]+(?:[\w'’.-]+\s+){0,4}?" + STREET + r"\b", re.I)
 #: a street word, a comma, one to three locality words, a four-digit postcode: "Smith Street, Epsom, Auckland 1051"
 ADDRESS_POSTCODED = re.compile(r"\b" + STREET + r"\b\s*,\s*(?:[A-Za-z'’-]+,?\s+){1,3}\d{4}\b", re.I)
+LEGAL_ENDING = re.compile(r"\b(limited|ltd\.?|tapui \(limited\)|limited partnership|incorporated|inc\.?)$", re.I)
 BLANK_OK = re.compile(r"^(none found in .+|not held: .+|none found)(; (none found in .+|not held: .+))*$")
 MASK_MIN = 3   # a register value this short or shorter is not masked (it cannot carry a word of cause)
 
@@ -50,6 +52,35 @@ MASK_MIN = 3   # a register value this short or shorter is not masked (it cannot
 def address_shaped(text: str) -> bool:
     """True when the text carries something shaped like a street address."""
     return bool(ADDRESS_NUMBERED.search(text or "") or ADDRESS_POSTCODED.search(text or ""))
+
+
+def company_names(it: dict) -> list:
+    """The register's own names for companies the item carries: the title of
+    an organisation row, the title of the row it sits on (a company, a
+    society, a return), and any name column whose value ends in a company's
+    legal ending. A company registered as "1 SHEA TERRACE LIMITED" is the
+    register's name for it and is shown (hard limit 15 shows a company's
+    registered address); a person's name column and the rest of a statement
+    are still read for an address by shape."""
+    out = set()
+    if it.get("kind") == "organisation" and it.get("title"):
+        out.add(" ".join(str(it["title"]).split()))
+    if it.get("entity_title"):
+        out.add(" ".join(str(it["entity_title"]).split()))
+    v = cat.BY_NAME.get(it.get("view"))
+    for col in (v.names if v else ()):
+        val = " ".join(str((it.get("row") or {}).get(col) or "").split())
+        if val and LEGAL_ENDING.search(val):
+            out.add(val)
+    return sorted(out, key=len, reverse=True)
+
+
+def without_company_names(it: dict, text: str) -> str:
+    text = " ".join((text or "").split())
+    for n in company_names(it):
+        if len(n) > MASK_MIN:
+            text = text.replace(n, " ")
+    return text
 
 
 def register_values(it: dict) -> list:
@@ -123,7 +154,8 @@ def problems(report: dict) -> list:
                 if len(val) > 2 and val.lower() in text.lower():
                     out.append(f"{ref}: a suppressed name appears (rule 6)")
                     break
-        if it.get("view") != "company_addresses" and (address_shaped(it.get("title", "")) or address_shaped(it.get("statement", ""))):
+        if it.get("view") != "company_addresses" and (address_shaped(without_company_names(it, it.get("title", "")))
+                                                       or address_shaped(without_company_names(it, it.get("statement", "")))):
             out.append(f"{ref}: an address-shaped statement outside the registered-office view (rule 7)")
         if it.get("grade") == "near" and not it.get("reason"):
             out.append(f"{ref}: near with no reason (rule 8)")
