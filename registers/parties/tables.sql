@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS parties.registrations (
     register_place          text,
     cancelled_document      text CHECK (cancelled_document ~ '^[0-9a-f]{64}$'),
     cancelled_place         text,
+    same_name_as            text,                           -- the other registrations that carried one of its names, comma-separated
+    same_name_note          text,                           -- said so: the windows, and that a party registered again is a new registration
     read_from               text NOT NULL CHECK (read_from IN ('text', 'pixels')),
     reader                  text NOT NULL,
     profile                 text NOT NULL,
@@ -79,7 +81,8 @@ CREATE TABLE IF NOT EXISTS parties.events (
     title             text,
     clause            text NOT NULL,                        -- the resolution's own words, as held
     source_note       text NOT NULL,
-    document          text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    gazette_key       text,                                 -- the notice's row in pub.gazette_notices, where the Gazette lane holds it
+    document          text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),  -- the Gazette lane's export where it holds the same text, else the parties export
     page              integer NOT NULL DEFAULT 1,
     place             text NOT NULL,
     read_from         text NOT NULL CHECK (read_from IN ('text', 'pixels')),
@@ -89,19 +92,43 @@ CREATE TABLE IF NOT EXISTS parties.events (
     loaded_at         timestamptz NOT NULL
 );
 
+-- every party label the other lanes publish, one row per (label, on), resolved by name and window (labels.py)
+CREATE TABLE IF NOT EXISTS parties.labels (
+    key              text PRIMARY KEY,                      -- label/<12 hex of the label>/<on>
+    label            text NOT NULL,                         -- as the other lane publishes it
+    "on"             text NOT NULL,                         -- the day the filing speaks for (YYYY-MM-DD), else its year (YYYY); '' none
+    grain            text NOT NULL CHECK (grain IN ('day', 'year')),
+    party            text,                                  -- the registration (pub.parties.key); NULL unresolved
+    party_name       text,                                  -- that registration's name now, or last carried
+    basis            text NOT NULL,                         -- exact | variant | core | fuzzy:0.NN | before its bracket … | not a party | unresolved
+    why              text,                                  -- for a label that joins no registration: why
+    same_name        text,                                  -- where two registrations carried the name: both, with their windows
+    sources          text NOT NULL,                         -- <lane>.<table> <rows>; …
+    rows             integer NOT NULL,
+    resolver         text NOT NULL,
+    document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),  -- the name row the registration carried that day
+    page             integer NOT NULL DEFAULT 1,
+    place            text NOT NULL,
+    read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL
+);
+
 -- every document the lane took, and what it did with it
 CREATE TABLE IF NOT EXISTS parties.files (
     document   text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
     name       text NOT NULL,
-    kind       text NOT NULL,                               -- register | applications | notices
-    status     text NOT NULL,                               -- read | held, not read
+    kind       text NOT NULL,                               -- register | applications | notices | gazette notices
+    status     text NOT NULL,                               -- read | held, not read | read, compared, not cited
     PRIMARY KEY (document, name)
 );
 
 -- the catch log: one line for every item the lane could not take to a row
 CREATE TABLE IF NOT EXISTS parties.set_aside (
     item       text NOT NULL,
-    stage      text NOT NULL,                               -- capture | page | notices | lifecycle
+    stage      text NOT NULL,                               -- capture | page | notices | lifecycle | labels
     reason     text NOT NULL,
     at         timestamptz NOT NULL DEFAULT now()
 );

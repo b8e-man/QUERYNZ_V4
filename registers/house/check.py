@@ -1,6 +1,6 @@
 """The lane's check against the world outside it (contract: the lane).
 
-Two of the Commission's own published figures, and Stats NZ's names:
+Three of the Commission's own published figures, and Stats NZ's names:
 
   nominations   the release for a general election states its candidates:
                 the total, list only, electorate only for registered
@@ -10,6 +10,10 @@ Two of the Commission's own published figures, and Stats NZ's names:
   seats         the overall result states each party's electorate, list and
                 total seats. Each is counted again from the members the
                 successful-candidates page returned (2020: 120; 2023: 122).
+  margins       the status page prints each electorate's margin between its
+                two leading candidates; each is counted again from the
+                result page's votes where that page is held (2020: 70;
+                2023: 71, Port Waikato's poll cancelled).
   electorates   every electorate of an election fought on a boundary set
                 held joins Stats NZ's name for it (2020 and 2023: 72 of 72).
 
@@ -80,6 +84,28 @@ def seats(members: list, figures: list, election: str) -> list:
     return out
 
 
+def margins(candidates: list, electorates: list, figures: list) -> dict:
+    """{election: (margins stated, margins equal)}: the status page's margin
+    against the leading two candidates' votes on the electorate's own
+    result page, where that page is held."""
+    held = {e["key"] for e in electorates if e["result_held"] and not e["poll_cancelled"]}
+    votes = {}
+    for c in candidates:
+        if c["electorate"] in held and c["votes"] is not None:
+            votes.setdefault(c["electorate"], []).append(c["votes"])
+    out = {}
+    for f in figures:
+        if f["what"] != "margin":
+            continue
+        ekey = f["key"].replace("/status/", "/").rsplit("/margin", 1)[0]
+        if ekey not in held:
+            continue
+        top = sorted(votes.get(ekey, []), reverse=True)[:2]
+        stated, equal = out.get(f["election"], (0, 0))
+        out[f["election"]] = (stated + 1, equal + (len(top) == 2 and top[0] - top[1] == f["value"]))
+    return out
+
+
 def compare(candidates: list, members: list, electorates: list, figures: list) -> dict:
     out = {"nominations": {}, "seats": {}, "electorates": {}}
     for e in sorted({f["election"] for f in figures}):
@@ -93,6 +119,7 @@ def compare(candidates: list, members: list, electorates: list, figures: list) -
         rows = [x for x in electorates if x["election"] == e]
         if any(x["join_basis"] in ("exact", "not joined") or x["statsnz_code"] for x in rows):
             out["electorates"][e] = (len(rows), sum(1 for x in rows if x["statsnz_code"]))
+    out["margins"] = margins(candidates, electorates, figures)
     pdf = [f for f in figures if f["what"] == "pdf places equal"]
     out["pdf"] = {f["election"]: (f["value"], sum(1 for c in candidates if c["election"] == f["election"]
                                                   and c["list_place"] is not None)) for f in pdf}
@@ -113,6 +140,9 @@ def failed(out: dict) -> list:
     for e, (n, joined) in out["electorates"].items():
         if joined != n:
             why.append(f"{e}: {joined} of {n} electorates join Stats NZ's names")
+    for e, (stated, equal) in out.get("margins", {}).items():
+        if equal != stated:
+            why.append(f"{e}: {equal} of {stated} of the status page's margins equal the result pages' votes")
     for e, (equal, listed) in out.get("pdf", {}).items():
         if equal != listed:
             why.append(f"{e}: the PDF agrees with {equal} of {listed} list places")
@@ -133,6 +163,8 @@ def report(out: dict) -> list:
                      + (f" (members {tot[3]} against {tot[2]})" if tot else ""))
     for e, (n, joined) in out["electorates"].items():
         lines.append(f"{e} electorates: {joined} of {n} join Stats NZ's names")
+    for e, (stated, equal) in out.get("margins", {}).items():
+        lines.append(f"{e} margins: {equal} of {stated} of the status page's margins equal the result pages' votes")
     for e, (equal, listed) in out.get("pdf", {}).items():
         lines.append(f"{e} party lists: the Commission's PDF agrees with {equal} of {listed} places")
     return lines

@@ -25,6 +25,7 @@ from products.board import db, links_view, panes, search, state
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
+REPORT_URL = os.environ.get("QV4_REPORT_URL") or ""    # the subject report's server; unset, no pane offers a report
 MAX_PANES = 12
 RENDER_LOCK = threading.Lock()      # one page at a time: the session reader's cap is five connections, shared
 
@@ -81,7 +82,8 @@ def row_context(conn, v: cat.View, r: dict, q: str, path: list, pinned: set, sam
            "parent": search.parent(conn, v, r), "children": search.children(conn, v, r),
            "doc_names": docstore.names_of(r["document"], conn) if r.get("document") else [],
            "links": links_view.links_of(conn, ref), "group": links_view.group_of(conn, ref) if v.kind == "person" else {},
-           "same": same(v, r), "same_words": same_words, "resolve": resolver(conn)}
+           "same": same(v, r), "same_words": same_words, "resolve": resolver(conn),
+           "report": panes.report_href(REPORT_URL, ref)}
     return ctx
 
 
@@ -99,7 +101,8 @@ def person_context(conn, v: cat.View, r: dict, q: str, path: list, same=None) ->
             members.append(hit)
     return {"v": v, "row": r, "q": q, "path": path, "group": group, "members": members,
             "links": links_view.links_of(conn, ref), "same": same(v, r),
-            "same_words": search.names_of_row(v, r), "resolve": resolve}
+            "same_words": search.names_of_row(v, r), "resolve": resolve,
+            "report": panes.report_href(REPORT_URL, ref)}
 
 
 def render(q: str, path: list, message: str = "", conn=None) -> str:

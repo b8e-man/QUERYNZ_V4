@@ -7,6 +7,7 @@
     by_election_page(data)   the same shape from a by-election page (party printed as an abbreviation)
     successful(data)         [(party, name, seat, electorate page number or None)]: 'List Seat' or an electorate
     status(data)             [(electorate, name, abbreviation)] for the leading and second candidates
+    status_rows(data)        the same with the row, which of the two, and the printed margin
     overall(data)            {party: (electorate seats, list seats, total)}, and the Total row
 
 Every page that prints its own totals is scored against them (`Electorate.problems`).
@@ -144,18 +145,27 @@ def successful(data: bytes) -> list:
 
 
 def status(data: bytes) -> list:
+    return [(e, name, ab) for _, e, _, name, ab, _ in status_rows(data)]
+
+
+def status_rows(data: bytes) -> list:
+    """[(row, electorate, 'leading' | 'second', name, abbreviation, margin)]:
+    the status page's two leading candidates in each electorate, and the
+    margin it prints between them."""
     t = data.decode("utf-8", "replace")
     i = t.find('id="electorate-status-table"')
     body = t[i:t.find("</table>", i)] if i >= 0 else ""
     out = []
-    for row in _ROW.findall(body):
+    for n, row in enumerate(_ROW.findall(body), 1):
         cells = [text(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
         if len(cells) < 3:
             continue
+        m = re.match(r"Margin:\s*([\d,]+)$", cells[3]) if len(cells) > 3 else None
+        margin = _int(m.group(1)) if m else None
         for c in cells[1:3]:
-            m = re.match(r"(?:Leading|2nd) Candidate:\s*(.*?)\s*\(([^()]+)\)\s*$", c)
+            m = re.match(r"(Leading|2nd) Candidate:\s*(.*?)\s*\(([^()]+)\)\s*$", c)
             if m:
-                out.append((cells[0], m.group(1), m.group(2)))
+                out.append((n, cells[0], "leading" if m.group(1) == "Leading" else "second", m.group(2), m.group(3), margin))
     return out
 
 

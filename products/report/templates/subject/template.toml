@@ -117,6 +117,16 @@ view = "mp_interests"
 licence = "Register of Pecuniary and Other Specified Interests of Members of Parliament, published by the House"
 attribution = "Office of the Registrar of Pecuniary Interests"
 [[reads]]
+view = "mp_expenses"
+licence = "Parliamentary Service quarterly expense releases, Crown copyright, Creative Commons Attribution 4.0 (data.govt.nz)"
+attribution = "Parliamentary Service"
+refresh = "quarterly releases"
+[[reads]]
+view = "minister_expenses"
+licence = "Internal Affairs ministerial expense releases, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "Department of Internal Affairs"
+refresh = "quarterly releases"
+[[reads]]
 view = "parties"
 licence = "Register of Political Parties, public under the Electoral Act 1993"
 attribution = "Electoral Commission"
@@ -156,3 +166,9 @@ not_held = ["insolvency", "courts"]
 name = "public"
 heading = "Public roles: appointments, candidacies, seats, declared interests, promoters"
 views = ["gazette_appointments", "candidates", "members", "mp_interest_returns", "mp_interests", "parties", "promoters", "promoter_people"]
+
+[[sections]]
+name = "expenses"
+heading = "Expenses the House and the Executive released"
+views = ["mp_expenses", "minister_expenses"]
+text = "The releases print a name only, so these rows are matched by name and are near, never confirmed. Each is the period total as printed, or money the release prints outside its total, shown beside and never added."

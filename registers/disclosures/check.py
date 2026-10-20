@@ -9,9 +9,13 @@
    frozen site reads only the 2023 regime, so the earlier regimes are
    counted apart, not compared.
 2. The form's own total: the Commission prints the amount twice, in its
-   table and on the scanned declaration. Where a page reading of the scan
-   is held, the load compares the two (`form_check`); here they are
-   counted, and a difference fails the check.
+   table and on the scanned declaration. Where a page reading or the
+   scan's typed text layer gives the total, the load compares the two
+   (`form_check`); here they are counted.
+
+Either way a difference is printed, and fails the check unless a card in
+`cards/` names it (the party and year, or the declaration's key): a
+difference is a card, never a silent fix, and a carded one is still shown.
 
     frozen()                       ({(party, year): total}, {party: count})
     compare(rows, frozen_by_year, frozen_n)
@@ -19,12 +23,14 @@
 
 Read-only.
 """
+import glob
 import json
 import os
 import sys
 
 OLD_LIVE = os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3"
 HOME_JSON = os.path.join(OLD_LIVE, "var", "pi-snapshot", "current", "data", "home.json")
+CARDS = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "cards")
 COMPARED = "over-20000-from-2023"
 TOLERANCE = 0.005
 
@@ -64,6 +70,23 @@ def compare(rows: list, frozen_by_year: dict, frozen_n: dict) -> dict:
             "unresolved_parties": unresolved}
 
 
+def carded(cards_dir: str = None) -> str:
+    """Every card's text, for `card_for` to search."""
+    text = []
+    for p in sorted(glob.glob(os.path.join(cards_dir or CARDS, "*.md"))):
+        with open(p, encoding="utf-8") as f:
+            text.append(f"{os.path.basename(p)[:-3]}\n{f.read()}")
+    return "\n\x00".join(text)
+
+
+def card_for(needle: str, cards: str):
+    """The name of the first card whose text holds `needle`, or None."""
+    for block in cards.split("\n\x00"):
+        if needle in block:
+            return block.split("\n", 1)[0]
+    return None
+
+
 def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     schema = argv[argv.index("--schema") + 1] if "--schema" in argv else "disclosures"
@@ -77,10 +100,14 @@ def main(argv=None) -> int:
     for r in rows:
         forms[r["form_check"]] = forms.get(r["form_check"], 0) + 1
     out = compare(rows, *frozen())
+    cards = carded()
+    uncarded = 0
     print(f"equal: {len(out['equal'])} party-years; differ: {len(out['differ'])}; "
           f"earlier regimes held, not on the frozen site: {out['earlier_regimes']}")
     for d in out["differ"]:
-        print(f"  DIFFERS {d['party']} {d['year']}: ours {d['ours']:.2f}, frozen {d['frozen']:.2f}")
+        card = card_for(f"{d['party']} {d['year']}", cards) or card_for(f"{_short(d['party'])} {d['year']}", cards)
+        uncarded += card is None
+        print(f"  DIFFERS {d['party']} {d['year']}: ours {d['ours']:.2f}, frozen {d['frozen']:.2f}; card: {card or 'NONE'}")
     for c in out["count_differs"]:
         print(f"  count {c['party']}: ours {c['ours']}, frozen {c['frozen']}")
     for label, n in sorted(out["unresolved_parties"].items()):
@@ -88,8 +115,16 @@ def main(argv=None) -> int:
     print("the form's own total against the table: " + ", ".join(f"{k} {v}" for k, v in sorted(forms.items())))
     for r in rows:
         if r["form_check"] == "differs":
-            print(f"  FORM DIFFERS {r['key']}: table {r['amount']:.2f}, form {r['form_total']:.2f}")
-    return 1 if out["differ"] or forms.get("differs") else 0
+            card = card_for(r["key"], cards)
+            uncarded += card is None
+            print(f"  FORM DIFFERS {r['key']}: table {r['amount']:.2f}, form {r['form_total']:.2f}; card: {card or 'NONE'}")
+    print(f"differences with no card: {uncarded}")
+    return 1 if uncarded else 0
+
+
+def _short(party: str) -> str:
+    """'The New Zealand National Party' → 'National', as the cards name it."""
+    return party.replace("The New Zealand ", "").replace("New Zealand ", "").replace(" Party", "")
 
 
 if __name__ == "__main__":

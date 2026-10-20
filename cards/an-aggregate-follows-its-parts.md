@@ -15,3 +15,12 @@ party pages 23).
 
 Which side is right: whichever the parts' cards say. This card never
 closes by itself; it empties as the others do. Owner: comparison.
+
+Comparison-2 (2026-10-20): where an aggregate's parts are named by its own
+path, only those parts count: a race's totals follow that race's
+candidates, an electorate's window total its years, the home page's
+electorate totals its electorates, a party's funding its card, candidate
+donations and public money, the donor categories every party card. The
+page's other figures still stand in for a party card's window, a donor's
+receivers and a ranking. Today 1,890 (donor 599, pickers 284, electorate
+351, home 151, size-bands 30, subject 71).
