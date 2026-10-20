@@ -352,7 +352,7 @@ def test_each_party_year_equals_the_frozen_site_or_has_a_card(filled):
     uncarded = [d for d in out["differ"] if f"{d['party']} {d['year']}" not in cards]
     assert uncarded == [], "differences from the frozen site with no card: " + "; ".join(
         f"{d['party']} {d['year']} ours {d['ours']:.2f} frozen {d['frozen']:.2f}" for d in uncarded)
-    assert len(out["equal"]) >= 15
+    assert len(out["equal"]) >= 14   # 15 until 21 October: ACT New Zealand 2026 differs by a declaration filed after the capture (its card)
 
 
 def test_the_published_views_build_on_the_lane_s_tables(filled):
