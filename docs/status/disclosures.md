@@ -1,40 +1,40 @@
 # disclosures: where the lane stands
 
 Step 4.1, the large-donation disclosures lane, `registers/disclosures/`.
-Session 2, 20 October 2026, node2, Opus, working copy `disclosures`.
-Merge request `disclosures-2` raised (branch `session/disclosures`).
+Session 3, 20 October 2026, node2, Opus, working copy `disclosures-3`.
+Merge request `disclosures-3` raised (branch `session/disclosures-3`).
 
 ## Done
 
-- The Commission's own table of large declarations, both pages, all three
-  regimes: 520 declarations, 0 set aside, the catch log reconciles.
-  Copied by hash from the old `var/staging/ec-donations/`; nothing fetched.
-- 281 scans held; all 276 rows from 2023 on joined to their scan by the
-  Commission's link; 6 held scans no row links.
-- Frozen site: 15 of 16 party-years equal; National 2023 is the old
-  estate's double count (card; queue question, default no fix).
-- Reloaded after row 97's readings (scratch schema): form check 223 equal,
-  3 differ, 50 no total read, 244 no scan held (before 2023). Each differ
-  carded after looking at the total box: a handwritten total misread
-  (table right), a struck-out total taken (table right), and a May 2023
-  row whose link opens a February declaration (the Commission's to say).
-- `qv4-disclosures-read` reads on the worker's card: `read_scan` and
-  `main` pass `QV4_MODEL_URL` and `QV4_MODEL`, and `main` refuses without
-  them (card `the-disclosures-read-job-reads-through-the-carve-out-s-server`
-  closed).
+- 520 declarations, all three regimes, from the Commission's own table;
+  catch log reconciles (520 read, 0 set aside from the listing). Nothing
+  fetched.
+- The 50 with no total read, measured before any change: the page reading
+  dropped the "Total amount" box on 49 (31 typed, 18 handwritten, 1 empty
+  box); 1 was a bare "$20,000" filtered as boilerplate.
+- The total reader now: takes a figure-only line; keeps every figure in
+  the box; stops at the next label (an empty box is no total); falls back
+  to the scan's typed text layer, never on a page under a full-page
+  picture. Form check on all 276 linked: 245 equal, 1 "equal, a second
+  figure in the box", 3 differ (each carded), 27 no total read, each set
+  aside with hash and pages (stage `form`, ruling 62).
+- `check.py`: a difference fails only when no card names it; all four
+  (National 2023 and three form differences) are carded. Green on the full
+  scratch build.
+- The received-date rule is in the spec: a declaration belongs to the year
+  of the gift (`given_on`); 8 of 520 were declared in a later year.
 
 ## Waiting on others
 
-- The integrator: merge `disclosures-2`. The job may be queued again for
-  new scans; nothing is waiting on it now.
-- Arthur: the May/February link (card
-  `a-may-2023-declaration-links-the-scan-of-a-february-one`) needs the
-  Commission's word if it is to be settled.
+- The integrator: merge `disclosures-3`.
+- The site lane: bucket by `given_on` (`products/published_site/figures.py:84`);
+  then 8 comparison differences fall.
+- The comparison: correct two cause rules (owner and side), see the cards.
+- Arthur: the Commission's word on three declarations ($42,200 box over
+  $27,000 of gifts; the May/February link; the 30 June / 30 July date).
 
 ## Next
 
-- The 50 "no total read": measure why (layout, handwriting, an empty box)
-  before any change to `form.total`.
-- The struck-out case: let the check say "equal, a second figure in the
-  box" where one of two figures equals the table (card).
+- When a page-reader job is allowed: the 27 set-aside scans (listed in
+  `disclosures.set_aside`, stage `form`).
 - Take over the old feed only on Arthur's word (step 4.1, step 4.8).
