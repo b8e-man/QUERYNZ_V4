@@ -77,7 +77,26 @@ def tables():
         "pub.broadcasting_allocations": [{"party": A, "year": 2023, "round": 2, "final": True, "eligible": True, "amount": 500},
                                          {"party": A, "year": 2023, "round": 1, "final": False, "eligible": True, "amount": 450}],
         "pub.promoters": [], "pub.promoter_expenses": [], "pub.promoter_people": [],
-        "pub.party_financial_statements": [], "pub.party_statement_figures": [],
+        "pub.party_financial_statements": [
+            {"key": "fs-list/2025/row/1", "document": D["g"], "page": 1, "place": "row 1", "filed_year": 2025, "party": A, "party_label": "ACT New Zealand",
+             "party_basis": "exact", "note": None, "mark": None, "balance_date": "2024-12-31", "deadline": "2025-06-30", "date_filed": "2025-06-27",
+             "audit_requirement": "No audit required", "statements": [D["h"]], "read_from": "text"},
+            {"key": "fs-list/2026/row/1", "document": D["g"], "page": 1, "place": "row 2", "filed_year": 2026, "party": A, "party_label": "ACT New Zealand",
+             "party_basis": "exact", "note": None, "mark": None, "balance_date": None, "deadline": None, "date_filed": None,
+             "audit_requirement": "No audit required", "statements": [], "read_from": "text"},
+            {"key": "fs-list/2016/row/1", "document": D["g"], "page": 1, "place": "row 3", "filed_year": 2016, "party": A, "party_label": "ACT New Zealand",
+             "party_basis": "exact", "note": None, "mark": None, "balance_date": "2015-12-31", "deadline": None, "date_filed": None,
+             "audit_requirement": "No audit required", "statements": [D["h"]], "read_from": "text"}],
+        "pub.party_statement_figures": [
+            {"key": D["h"] + "/income", "document": D["h"], "page": 3, "place": "col 2", "roster_row": "fs-list/2025/row/1", "filed_year": 2025, "balance_date": "2024-12-31",
+             "party": A, "party_label": "ACT", "party_basis": "exact", "current": True, "figure": "income", "amount": 1565672.0, "prior_amount": 4554215.0, "scale": 1,
+             "figure_check": "income-less-expenditure", "printed": "1,565,672", "read_from": "text"},
+            {"key": D["h"] + "/expenditure", "document": D["h"], "page": 3, "place": "col 2", "roster_row": "fs-list/2025/row/1", "filed_year": 2025, "balance_date": "2024-12-31",
+             "party": A, "party_label": "ACT", "party_basis": "exact", "current": True, "figure": "expenditure", "amount": 1500000.0, "prior_amount": None, "scale": 1,
+             "figure_check": "income-less-expenditure", "printed": "1,500,000", "read_from": "text"},
+            {"key": D["h"] + "/income/old", "document": D["h"], "page": 3, "place": "col 2", "roster_row": "fs-list/2025/row/1", "filed_year": 2025, "balance_date": "2024-12-31",
+             "party": A, "party_label": "ACT", "party_basis": "exact", "current": False, "figure": "income", "amount": 99.0, "prior_amount": None, "scale": 1,
+             "figure_check": "superseded", "printed": "99", "read_from": "text"}],
         "pub.names": [
             {"ref": "party_returns:r1/A/1", "register": "party_returns", "view": "party_return_donors", "key": "r1/A/1", "kind": "person", "name_key": "donor jane q"},
             {"ref": "party_returns:r1/A/2", "register": "party_returns", "view": "party_return_donors", "key": "r1/A/2", "kind": "person", "name_key": "donor jane q"},
@@ -115,10 +134,15 @@ class FakeTables:
 
 #: what the Commission's table says for the fixture rows (the gate reads it again by SQL)
 COMMISSION_TABLE = [("ACT New Zealand", 2023, 40000.0, 1), ("ACT New Zealand", 2026, 25000.0, 1)]
+#: what the party-finance lane's tables say, re-counted by SQL: party key, statements in the window, income
+STATEMENTS_TABLE = [(A, 2, 1565672.0)]
 
 
 class NoConn:
-    """A connection that answers the one SQL the commission gate runs and nothing else."""
+    """A connection that answers the few SQL statements the gates run, by their table name, and nothing else."""
+
+    def __init__(self, answers=None):
+        self.answers = answers or {}
 
     def __enter__(self):
         return self
@@ -127,4 +151,9 @@ class NoConn:
         return False
 
     def execute(self, sql, params=()):
+        for table, rows in self.answers.items():
+            if table in sql:
+                return iter(rows)
+        if "party_financial_statements" in sql:
+            return iter(STATEMENTS_TABLE)
         return iter(COMMISSION_TABLE)

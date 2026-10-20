@@ -91,8 +91,10 @@ def build(listing_version: str = None, out: str = None, template_path: str = Non
         for view in PINNED_VIEWS:
             hashes.update(r.get("document") for r in tables.get(view))
         hashes.update(p.get("document") for p in tables.get("pub.parties"))
-        for view in ("pub.members", "pub.candidates", "pub.electorates", "pub.elections"):
+        for view in ("pub.members", "pub.candidates", "pub.electorates", "pub.elections", "pub.party_financial_statements", "pub.party_statement_figures"):
             hashes.update(m.get("document") for m in tables.get(view))
+        for st in tables.get("pub.party_financial_statements"):
+            hashes.update(st.get("statements") or [])
         try:
             with read.read_connect() as rconn:
                 doc_names = read.document_names(rconn, hashes)

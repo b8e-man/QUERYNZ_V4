@@ -329,3 +329,42 @@ def donor_totals(d: Donor) -> dict:
             "by_receiver": {k: money(v) for k, v in sorted(by_receiver.items())},
             "basis": "returns plus disclosures in years no return covers; a disclosure the return covers is sighted and never added; "
                      "ownership is a note and never adds to an owner's total"}
+
+
+# ── party financial statements (party-finance lane; plan 4.4 tranche 2) ───────
+
+STATEMENT_FIGURES = ("income", "expenditure", "surplus", "assets", "liabilities", "net_assets")
+
+
+def statements(tables, idx: PartyIndex, years: list) -> dict:
+    """{party key: [statement]} from pub.party_financial_statements, newest
+    filed year first, each with the headline figures the lane read from the
+    statement document (pub.party_statement_figures, current rows only).
+    A statement listed by the Commission with no document held keeps its
+    row and says so. Filed years inside the window only."""
+    figs = defaultdict(dict)
+    for f in tables.get("pub.party_statement_figures"):
+        if not f.get("current") or f.get("figure") not in STATEMENT_FIGURES:
+            continue
+        figs[f.get("roster_row") or ""][f["figure"]] = {
+            "amount": money(f["amount"]) if f.get("amount") is not None else None,
+            "prior": money(f["prior_amount"]) if f.get("prior_amount") is not None else None,
+            "scale": f.get("scale"), "check": f.get("figure_check"), "printed": f.get("printed"),
+            "document": f.get("document"), "page": f.get("page"), "place": f.get("place"), "read_from": f.get("read_from")}
+    out = defaultdict(list)
+    for s in tables.get("pub.party_financial_statements"):
+        k = idx.key(s.get("party"))
+        if not k or s.get("filed_year") is None or int(s["filed_year"]) not in years:
+            continue
+        docs = [d for d in (s.get("statements") or []) if d]
+        out[k].append({"ref": f"party_finance:{s['key']}", "filed_year": int(s["filed_year"]), "balance_date": s.get("balance_date"),
+                       "deadline": s.get("deadline"), "date_filed": s.get("date_filed"),
+                       "audit_requirement": s.get("audit_requirement"), "party_filed": s.get("party_label"), "party_basis": s.get("party_basis"),
+                       "note": s.get("note"), "mark": s.get("mark"), "documents": docs, "document_held": bool(docs),
+                       "figures": figs.get(s["key"], {}), "figures_read": sorted(figs.get(s["key"], {})),
+                       "read_from": s.get("read_from"), "listing_document": s.get("document"), "page": s.get("page"), "place": s.get("place"),
+                       "basis": "the Commission's list of statements filed under s 210K; the figures are read from the statement document itself"
+                                + ("" if docs else "; no statement document is held, so no figure is read")})
+    for k in out:
+        out[k].sort(key=lambda s: (-s["filed_year"], s["ref"]))
+    return dict(out)

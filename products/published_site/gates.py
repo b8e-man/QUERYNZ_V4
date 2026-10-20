@@ -244,8 +244,44 @@ def compare(version_dir: str, ctx=None) -> tuple:
     return True, line + (" (--allow-drop)" if fell else "")
 
 
+def statements(version_dir: str, ctx=None) -> tuple:
+    """The party-finance lane's statements, re-counted by SQL through the connection: every party page lists as
+    many statements in the window as pub.party_financial_statements holds for its key, and the income figures it
+    shows sum to what pub.party_statement_figures holds (current rows). A page that lists a statement the lane
+    does not hold, or hides one it does, is a red."""
+    conn = (ctx or {}).get("conn")
+    years = (ctx or {}).get("years") or []
+    if conn is None or not years:
+        return False, "no connection or no window to re-count the statements with; the gate cannot pass by default"
+    cur = conn.execute("select s.party, count(*), coalesce(sum(f.amount), 0)::float from pub.party_financial_statements s "
+                       "left join pub.party_statement_figures f on f.roster_row = s.key and f.current and f.figure = 'income' "
+                       "where s.filed_year >= %s group by 1", (years[0],))
+    table = {r[0]: (int(r[1]), float(r[2] or 0)) for r in cur}
+    shown = {}
+    for rel, obj in payloads(version_dir):
+        if paths.kind_of(rel) == "subject" and obj.get("kind") == "party":
+            fin = obj.get("financials")
+            if isinstance(fin, list):
+                shown[obj.get("key")] = (len(fin), sum(float((st.get("figures") or {}).get("income", {}).get("amount") or 0) for st in fin))
+    diffs, equal = [], 0
+    for key, (n, income) in table.items():
+        mine = shown.get(key)
+        if mine is None:
+            diffs.append(f"{key}: the lane holds {n} statement(s), no party page lists them")
+        elif mine[0] != n or abs(mine[1] - income) > 0.005:
+            diffs.append(f"{key}: page lists {mine[0]} statement(s) with income ${mine[1]:,.2f}, the lane holds {n} with ${income:,.2f}")
+        else:
+            equal += 1
+    for key, (n, income) in shown.items():
+        if key not in table and n:
+            diffs.append(f"{key}: page lists {n} statement(s) the lane does not hold")
+    if diffs:
+        return False, f"{len(diffs)} party(ies) differ from pub.party_financial_statements ({equal} equal): " + "; ".join(diffs[:4])
+    return True, f"{equal} parties' statements and income figures equal the lane's tables; {sum(1 for n, _ in shown.values() if not n)} page(s) list none"
+
+
 GATES = [("snapshot", snapshot), ("addresses", addresses), ("suppressed", suppressed), ("donor-fold", donor_fold),
-         ("commission", commission), ("compare", compare)]
+         ("commission", commission), ("statements", statements), ("compare", compare)]
 
 
 def run_all(version_dir: str, gates=None, ctx=None) -> list:  # noqa: F811 — the full list replaces the first definition

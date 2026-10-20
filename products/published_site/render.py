@@ -27,6 +27,7 @@ class Context:
         self.doc_names = doc_names
         self.generated_at = generated_at
         self.races = ftm.races(self.s)
+        self.statements = F.statements(tables, idx, years)
 
     def cite(self, document, page=None, place=None, href=None) -> dict:
         names = self.doc_names.get(document) or []
@@ -140,13 +141,34 @@ def search_index(ctx: Context) -> dict:
     return {"entries": entries, "generated_at": ctx.generated_at}
 
 
+def party_keys_by_name(ctx: Context, keys) -> list:
+    """[(key, name, path)]: one page per registration key. Two registrations
+    with one name (New Zealand Loyal, 2023 and 2026) would share a path, so
+    the key with the most to show in the window keeps the plain path (ties:
+    the one on the register) and the other is keyed by its registration."""
+    def weight(k):
+        S = ctx.series.get(k)
+        return (len(S.named_rows) + len(S.disclosures) + sum(len(v) for v in S.returns_by_year.values()) if S else 0) + len(ctx.statements.get(k, []))
+    named = sorted(((k, ctx.idx.name(k)) for k in keys if ctx.idx.name(k)),
+                   key=lambda kn: (kn[1], -weight(kn[0]), not ctx.idx.by_key.get(kn[0], {}).get("on_register"), kn[0]))
+    out, taken = [], set()
+    for k, name in named:
+        rel = paths.path("subject", "party", name)
+        if rel in taken:
+            rel = paths.path("subject", "party", f"{name} ({k})")
+        taken.add(rel)
+        out.append((k, name, rel))
+    return out
+
+
 def subject_parties(ctx: Context) -> dict:
     out = {}
-    keys = {p["key"] for p in ctx.idx.registered()} | set(ctx.series)
-    for k in keys:
-        name = ctx.idx.name(k)
-        if not name:
-            continue
+    keys = {p["key"] for p in ctx.idx.registered()} | set(ctx.series) | set(ctx.statements)
+    pages = party_keys_by_name(ctx, keys)
+    namesakes = defaultdict(list)
+    for k, name, rel in pages:
+        namesakes[name].append((k, rel))
+    for k, name, rel in pages:
         S = ctx.series.get(k) or F.Series(k, ctx.years, ctx.s)
         card = ctx.party_card(k)
         received = []
@@ -167,7 +189,9 @@ def subject_parties(ctx: Context) -> dict:
         for race, ys in ctx.races.items():
             rows_ = [x for x in received if x["year"] in ys]
             by_race[str(race)] = {"race": race, "named": F.money(sum(x["amount"] for x in rows_)), "rows": len(rows_)}
-        out[paths.path("subject", "party", name)] = {
+        card["other_registrations_of_this_name"] = [{"key": k2, "page": r2, "on_register": bool(ctx.idx.by_key.get(k2, {}).get("on_register"))}
+                                                    for k2, r2 in namesakes[name] if k2 != k]
+        out[rel] = {
             "subject": name, "kind": "party", "key": k, "generated_at": ctx.generated_at, "card": card,
             "donations_received": received, "donations_received_total": F.money(sum(x["amount"] for x in received)),
             "donations_received_by_race": by_race,
@@ -176,7 +200,12 @@ def subject_parties(ctx: Context) -> dict:
             "loans": loans, "loans_total": F.money(sum(x["amount"] for x in loans)),
             "board": not_held("party board members", "no lane publishes party boards; the frozen site read them from party websites"),
             "mps": {"seats": S.seats, "basis": "members sitting now, from the house lane; the roster of names is on the pickers"},
-            "financials": not_held("financial statement figures", "pub.party_statement_figures is read but not yet rendered (tranche 3)"),
+            "financials": [dict(st, cite=ctx.cite(st["documents"][0] if st["documents"] else st["listing_document"], st.get("page"), st.get("place")),
+                                 figures={f: dict(v, cite=ctx.cite(v["document"], v.get("page"), v.get("place"))) for f, v in st["figures"].items()})
+                           for st in ctx.statements.get(k, [])],
+            "financials_basis": "annual financial statements filed with the Commission under the Electoral Act 1993 s 210K, from the filed year the window starts; "
+                                "one row per statement the Commission lists, newest first; the six headline figures are read from the statement document, each cited; "
+                                "a statement listed with no document held shows its row and no figure; an empty list means none listed in the window",
             "received_note": "Part A rows as filed, the current return only; a year whose rows are set aside shows its declared total and no rows",
             "basis": card["window"]["basis"]}
     return out
@@ -243,10 +272,9 @@ def size_bands(ctx: Context) -> dict:
     line = float(s["line"])
     th = s.get("itemisation_threshold", {"to_2022": 15000, "from_2023": 5000})
     out = {}
-    for k, S in ctx.series.items():
-        name = ctx.idx.name(k)
-        if not name or not any(S.returns_by_year.values()):
-            continue
+    for k, name, rel in party_keys_by_name(ctx, [k for k, S in ctx.series.items() if any(S.returns_by_year.values())]):
+        S = ctx.series[k]
+        rel = rel.replace("/subject/party/", "/size-bands/", 1)
         over, under, unknown = [], [], []
         g_by_year, aside_by_year = {}, {"anonymous": {}, "overseas": {}, "protected": {}}
         years = []
@@ -282,7 +310,7 @@ def size_bands(ctx: Context) -> dict:
                   "total": F.money(sum(sum(v.values()) for v in aside_by_year.values())),
                   "by_kind": {kk: F.money(sum(v.values())) for kk, v in aside_by_year.items()}, "by_year": aside_by_year,
                   "basis": "anonymous, overseas and protected money (Parts C, D, F): a size we do not have, not a size of zero"}]
-        out[paths.path("size-bands", name)] = {
+        out[rel] = {
             "party": name, "key": k, "generated_at": ctx.generated_at, "window": [ctx.years[0], ctx.years[-1]], "line": s["line"],
             "bands": bands, "years": years, "years_covered": [y["year"] for y in years],
             "declared_total": F.money(sum(y["declared_total"] for y in years)),
