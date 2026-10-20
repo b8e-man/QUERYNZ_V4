@@ -314,3 +314,63 @@ def test_a_night_asks_party_first_stops_at_a_block_and_its_failed_ask_moves_the_
     assert seen == [capture.entity_url(N2)] and not out["ok"] and out["failed"] == 1
     assert capture.clock(_Conn(socs), ledger)[N2]
     assert "SECRETKEY" not in open(ledger).read() + open(tmp_path / "runs.jsonl").read()
+
+
+def test_a_read_that_times_out_is_set_aside_and_the_night_goes_on(monkeypatch, tmp_path):
+    g = _gate(monkeypatch, tmp_path)
+    monkeypatch.setattr(capture, "POSITIONS", g["positions_dir"])
+    monkeypatch.setattr(capture, "LANE_FLOOR_S", 0.0)
+    monkeypatch.setattr("support.jobrun.RUNS", str(tmp_path / "runs.jsonl"))
+    monkeypatch.setattr(fetchgate, "LEDGER_DIR", str(tmp_path / "gate"))
+    monkeypatch.setattr(capture, "land", lambda data, **kw: (type("Ref", (), {"sha256": "ab" * 32})(), True))
+    N3 = "9429000000031"
+    socs = [(N1, "A CLUB INCORPORATED", "registered"), (N2, "B CLUB INCORPORATED", "registered"),
+            (N3, "C CLUB INCORPORATED", "registered")]
+    socs += [(f"94290000002{i:02d}", f"CLUB {i} INCORPORATED", "registered") for i in range(18)]   # a seventh is 3
+
+    def fake(url, timeout):
+        if url.endswith(N1):
+            raise TimeoutError("The read operation timed out")
+        if url.endswith(N2):
+            return 504, b"", url
+        return 200, b'{"nzbn": "%s"}' % N3.encode(), url
+    ledger, rests, said = str(tmp_path / "asks.jsonl"), [], []
+    out = capture.night(_Conn(socs), anytime=True, key="SECRETKEY", fetch=fake, pacer=g["pacer"], ledger=ledger,
+                        log=said.append, rest=rests.append)
+    assert out["ok"] and out["asked"] == 3 and out["landed"] == 1 and out["set_aside"] == 2 and not out["stopped"]
+    assert rests == [capture.REST_S, capture.REST_S] and "set_aside 2" in said[0]
+    aside = dict(capture.set_asides(ledger))
+    assert aside.keys() == {f"societies/{N1}", f"societies/{N2}"}
+    assert "timed out" in aside[f"societies/{N1}"] and "504" in aside[f"societies/{N2}"]
+    assert capture.clock(_Conn(socs), ledger)[N1]                         # a set-aside moves the clock
+
+    # nothing lands: red, and five in a row stop the run in one line, no traceback
+    socs = [(f"94290000001{i:02d}", f"CLUB {i} INCORPORATED", "registered") for i in range(42)]   # a seventh is 6
+    asked = []
+
+    def down(url, timeout):
+        asked.append(url)
+        raise ConnectionResetError(104, "Connection reset by peer")
+    said.clear()
+    out = capture.night(_Conn(socs), anytime=True, key="SECRETKEY", fetch=down, pacer=g["pacer"],
+                        ledger=str(tmp_path / "down.jsonl"), log=said.append, rest=lambda s: None)
+    assert not out["ok"] and len(asked) == capture.FAILS_IN_A_ROW and "in a row" in out["stopped"]
+    assert len(said) == 1 and "\n" not in said[0]
+
+    # a 504 that is a challenge page is a block: the run stops there
+    out = capture.night(_Conn(socs), anytime=True, key="SECRETKEY", fetch=lambda u, t: (504, b"<html>captcha</html>", u),
+                        pacer=g["pacer"], ledger=str(tmp_path / "blocked.jsonl"), log=said.append, rest=lambda s: None)
+    assert not out["ok"] and out["asked"] == 1 and out["failed"] == 1 and "hard limit 6" in out["stopped"]
+
+
+def test_a_night_stopped_by_a_block_after_answers_landed_is_green_and_says_so(monkeypatch, tmp_path):
+    g = _gate(monkeypatch, tmp_path)
+    monkeypatch.setattr(capture, "POSITIONS", g["positions_dir"])
+    monkeypatch.setattr(capture, "LANE_FLOOR_S", 0.0)
+    monkeypatch.setattr("support.jobrun.RUNS", str(tmp_path / "runs.jsonl"))
+    monkeypatch.setattr(fetchgate, "LEDGER_DIR", str(tmp_path / "gate"))
+    monkeypatch.setattr(capture, "land", lambda data, **kw: (type("Ref", (), {"sha256": "ab" * 32})(), True))
+    socs = [(f"94290000001{i:02d}", f"CLUB {i} INCORPORATED", "registered") for i in range(14)]   # a seventh is 2
+    out = capture.night(_Conn(socs), anytime=True, key="SECRETKEY", pacer=g["pacer"], ledger=str(tmp_path / "a.jsonl"),
+                        fetch=lambda u, t: (200, b"{}", u) if u.endswith("100") else (429, b"", u), log=lambda *a: None)
+    assert out["ok"] and out["landed"] == 1 and out["failed"] == 1 and "hard limit 6" in out["stopped"]
