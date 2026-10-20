@@ -1,79 +1,108 @@
-"""Loading (plan 1b.7): `load(conn, schema)` builds this build's tables under
-`schema` from the pages the capture lists, and `publish(conn, staging)` would
-move them into place. `fill` in sample.py uses the same `build`.
+"""Loading (plan 1b.7): `load(conn, schema)` builds the reading's tables
+under `schema` from the pages the capture lists, and `publish(conn, staging)`
+moves them into `charities` and `charities_private` and makes the views, in
+one transaction. `fill` in sample.py uses the same `build`.
 
-Idempotent per pass: the tables are dropped and made again and every row is
-read again from the same pages inside one transaction, so a second load of
-the same listing gives the same rows under the same keys (only `loaded_at`
-moves). Items in equal items out plus items set aside, page by page, in the
-`pages` ledger; check.py holds the lane to it.
+Idempotent per listing: the reading's tables are dropped and made again and
+every row is read again from the same pages inside one transaction, so a
+second load of the same listing gives the same rows under the same keys (only
+`loaded_at` moves). The capture's own tables are never touched. Items in
+equal items out plus items set aside, page by page, in the `read_pages`
+ledger; check.py holds the lane to it.
 
-Two builds of this reading exist (plan step 4.1) and one is kept, so this one
-publishes nothing until it is the one kept: `KEPT` is the setting the
-integrator turns on, with the move into `charities`.
+A charity's address for service goes to `charities_private.addresses`, never
+to a table in `charities`; publish.sql shows it only where the charity is a
+body corporate (queue: whether a charity's address for service is shown when
+it may be a trustee's home; the default, until Arthur rules).
 
-    python -m registers.charities_b.load [--schema scratch_charities_b_full] [--database querynz_v4_sample]
+    python -m registers.charities.load [--schema scratch_charities_full] [--database querynz_v4_sample]
+    python -m registers.charities.load --job      # qv4-charities-load: build in staging, check, publish
 
-reads the listing and the pages from querynz_v4 with the read-only login and
-writes into `schema` of `database` with the owner's. Every line printed is a count.
+A session loads only a scratch or staging schema: it reads the listing and
+the pages from querynz_v4 with the read-only login and writes into `schema`
+of `database` with the owner's. `--job` builds into `STAGING` of querynz_v4,
+publishes only when the reading reconciles and agrees with the register's own
+view, and records the run. Every line printed is a count.
 """
 import argparse
 import collections
 import decimal
 import json
 import os
+import re
 import sys
 import time
 
 from support import jobrun
 from support.docstore.landing import read_bytes
-from registers.charities_b import capture, read
+from registers.charities import capture, read
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SCHEMA = "charities_b"
-JOB = "qv4-charities-b-load"
-KEPT = False            # the integrator sets this when this build is the one kept (plan 4.1)
-SCRATCH = "scratch_charities_b_full"
-TABLES = ("pages", "codes", "groups", "charities", "officers", "returns", "set_aside", "notes")
+SCHEMA = "charities"
+PRIVATE = "charities_private"
+JOB = "qv4-charities-load"
+SCRATCH = "scratch_charities_full"
+STAGING = "staging_charities_load"
+TABLES = ("read_pages", "codes", "groups", "charities", "officers", "returns", "read_set_aside", "read_notes")
+PRIVATE_TABLES = ("addresses",)
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version")
 COLUMNS = {
-    "pages": ("document", "entity_set", "rows", "typed", "set_aside", "skipped"),
+    "read_pages": ("document", "entity_set", "rows", "typed", "set_aside", "skipped"),
     "codes": ("code_list", "entity", "code", "name", "document"),
     "groups": ("key", "number", "group_id", "name", "status", "registered_on", "deregistered_on",
                "source_modified_at") + _CITE,
     "charities": ("key", "number", "organisation_id", "name", "other_names", "status", "registered_on",
                   "deregistered_on", "deregistration_reason", "legal_structure", "legal_structure_other",
                   "charitable_purpose", "main_sector_id", "main_sector", "main_activity_id", "main_activity",
-                  "main_beneficiary_id", "main_beneficiary", "address_for_service", "group_key", "group_number",
+                  "main_beneficiary_id", "main_beneficiary", "group_key", "group_number",
                   "group_name", "group_type", "nzbn", "incorporation_number", "year_end_month", "year_end_day",
                   "annual_return_due_on", "source_modified_at") + _CITE,
     "officers": ("key", "officer_id", "charity_key", "organisation_id", "kind", "full_name", "first_name",
-                 "middle_name", "last_name", "role", "started_on", "ended_on", "ended_on_stated", "status",
+                 "middle_name", "last_name", "name_note", "suppressed", "role", "started_on", "ended_on", "ended_on_stated", "status",
                  "disqualified", "declared_not_disqualified", "source_modified_at") + _CITE,
     "returns": ("key", "return_id", "charity_key", "group_key", "organisation_id", "group_id", "period_end",
                 "months_covered", "began_on", "tier_id", "tier", "currency", "audited", "modified_opinion", "opinion",
                 "status_code") + tuple(read.HEADLINE) + ("figures", "material_expenses", "source_modified_at") + _CITE,
-    "set_aside": ("entity_set", "document", "place", "stage", "reason"),
-    "notes": ("note", "count"),
+    "read_set_aside": ("entity_set", "document", "place", "stage", "reason"),
+    "read_notes": ("note", "count"),
+    "addresses": ("key", "address_for_service", "document", "page", "place"),
 }
 JSON_COLUMNS = ("figures", "material_expenses")
 
 
+def private_of(schema: str) -> str:
+    return PRIVATE if schema == SCHEMA else f"{schema}_private"
+
+
 def table(schema: str, t: str, shared: bool = False) -> str:
-    """`schema.t`; in a schema every module shares (the sample's), the
-    build's tables carry its name: `schema.charities_b_t`."""
-    return f"{schema}.{SCHEMA}_{t}" if shared else f"{schema}.{t}"
+    """`schema.t` (a private table: in the schema's private twin); in a
+    schema every module shares (the sample's), the lane's tables carry its
+    name: `schema.charities_t`."""
+    where = private_of(schema) if t in PRIVATE_TABLES else schema
+    return f"{where}.{SCHEMA}_{t}" if shared else f"{where}.{t}"
+
+
+_NAMES = re.compile(r"(?<![A-Za-z0-9_])charities(_private)?\.")
 
 
 def sql(name: str, schema: str = SCHEMA, shared: bool = False) -> str:
+    """A file of this lane's SQL under `schema` (its private twin for
+    `charities_private.`), rewritten in one pass; for tables.sql, the
+    reading's part only (the capture makes its own)."""
     with open(os.path.join(HERE, name), encoding="utf-8") as f:
         text = f.read()
-    return text.replace(f"{SCHEMA}.", f"{schema}.{SCHEMA}_" if shared else f"{schema}.")
+    if name == "tables.sql":
+        text = capture.READING + text.split(capture.READING, 1)[1]
+    pre = f"{SCHEMA}_" if shared else ""
+    return _NAMES.sub(lambda m: f"{private_of(schema) if m.group(1) else schema}.{pre}", text)
 
 
 def create_tables(conn, schema: str, shared: bool = False) -> None:
+    """The reading's tables, empty, under `schema` and its private twin. The
+    capture's tables in the same schema are never dropped."""
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-    for t in TABLES:
+    conn.execute(f"CREATE SCHEMA IF NOT EXISTS {private_of(schema)}")
+    for t in TABLES + PRIVATE_TABLES:
         conn.execute(f"DROP TABLE IF EXISTS {table(schema, t, shared)} CASCADE")
     conn.execute(sql("tables.sql", schema, shared))
 
@@ -140,7 +169,7 @@ def build(conn, schema: str, pages: dict, read_bytes=read_bytes, only: dict = No
                     asides.append(read.aside(lst, sha, r.get(read._CODE_ID.get(lst, "Id")), "read", "a code with no name"))
     missing = codes.missing()
     if missing:
-        raise LookupError(f"charities_b: no page of the code list(s) {', '.join(missing)} is listed; nothing is read")
+        raise LookupError(f"charities: no page of the code list(s) {', '.join(missing)} is listed; nothing is read")
     counts["codes"] = _copy(conn, T("codes"), COLUMNS["codes"],
                             (dict(zip(COLUMNS["codes"], e)) for e in codes.entries))
 
@@ -182,6 +211,8 @@ def build(conn, schema: str, pages: dict, read_bytes=read_bytes, only: dict = No
             charities[o["organisation_id"]] = (o["key"], None)
     counts["groups"] = _copy(conn, T("groups"), COLUMNS["groups"], groups)
     counts["charities"] = _copy(conn, T("charities"), COLUMNS["charities"], kept)
+    counts["addresses"] = _copy(conn, T("addresses"), COLUMNS["addresses"],
+                                (o for o in kept if o["address_for_service"] is not None))
     del orgs, kept
 
     for entity_set, t, reader in (
@@ -202,10 +233,10 @@ def build(conn, schema: str, pages: dict, read_bytes=read_bytes, only: dict = No
     if only is None:
         bad = [p for p in ledger_rows if p["skipped"]]
         if bad:
-            raise AssertionError(f"charities_b: {len(bad)} page(s) do not reconcile (rows in ≠ typed + set aside)")
-    _copy(conn, T("pages"), COLUMNS["pages"], ledger_rows)
-    counts["set_aside"] = _copy(conn, T("set_aside"), COLUMNS["set_aside"], asides)
-    _copy(conn, T("notes"), COLUMNS["notes"], ({"note": k, "count": v} for k, v in sorted(notes.items())))
+            raise AssertionError(f"charities: {len(bad)} page(s) do not reconcile (rows in ≠ typed + set aside)")
+    _copy(conn, T("read_pages"), COLUMNS["read_pages"], ledger_rows)
+    counts["set_aside"] = _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides)
+    _copy(conn, T("read_notes"), COLUMNS["read_notes"], ({"note": k, "count": v} for k, v in sorted(notes.items())))
     counts["pages"] = len(ledger_rows)
     counts["rows_in"] = sum(p["rows"] - p["skipped"] for p in ledger_rows)
     counts["seconds"] = round(time.monotonic() - t0, 1)
@@ -215,8 +246,8 @@ def build(conn, schema: str, pages: dict, read_bytes=read_bytes, only: dict = No
 
 
 def listings(conn) -> dict:
-    """Feed set → [sha256] oldest first, for every set this build reads."""
-    return {s: [sha for sha, _, _ in capture.listing(conn, s)] for s in tuple(read.SETS) + read.CODE_LISTS}
+    """Feed set → [sha256] oldest first, for every set this reading reads."""
+    return {s: [sha for sha, _ in read.pages(conn, s)] for s in tuple(read.SETS) + read.CODE_LISTS}
 
 
 def load(conn, schema: str, log=print) -> int:
@@ -226,34 +257,74 @@ def load(conn, schema: str, log=print) -> int:
     counts = build(conn, schema, listings(conn))
     rows = counts["charities"] + counts["officers"] + counts["returns"] + counts["groups"]
     detail = ", ".join(f"{k} {v}" for k, v in counts.items() if not k.startswith("aside")) + f", into {schema}"
-    log("charities_b: " + detail)
+    log("charities: " + detail)
     jobrun.record(JOB, True, detail, started, {k: v for k, v in counts.items() if not k.startswith("aside")})
     return rows
 
 
 def publish(conn, staging: str, log=print) -> None:
-    """Nothing, until this build is the one kept (plan 4.1): two builds of
-    one reading must not both publish `pub.charities`. When kept, the tables
-    move into the lane's schema and publish.sql makes the views, in one
-    transaction (contract: the lane)."""
-    if not KEPT:
-        log("charities_b: not the build kept (plan 4.1); nothing published")
-        return
+    """The reading's tables from `staging` (and its private twin) into
+    `charities` and `charities_private`, and the views of publish.sql, in
+    one transaction (contract: the lane). The capture's tables stay."""
     with conn.transaction():
         create_tables(conn, SCHEMA)
-        for t in TABLES:
-            conn.execute(f"INSERT INTO {SCHEMA}.{t} SELECT * FROM {staging}.{t}")
+        for t in TABLES + PRIVATE_TABLES:
+            conn.execute(f"INSERT INTO {table(SCHEMA, t)} SELECT * FROM {table(staging, t)}")
         conn.execute(sql("publish.sql"))
+    log(f"charities: published from {staging}")
+
+
+def unchanged(conn, listed: dict) -> bool:
+    """True when the published reading read exactly the pages listed now
+    (register rule 10: rebuild only what changed)."""
+    if conn.execute("SELECT to_regclass(%s)", (f"{SCHEMA}.read_pages",)).fetchone()[0] is None:
+        return False
+    held = {r[0] for r in conn.execute(f"SELECT document FROM {SCHEMA}.read_pages")}
+    return held == {sha for shas in listed.values() for sha in shas}
+
+
+def job(log=print) -> int:
+    """qv4-charities-load: build in STAGING of querynz_v4, hold it to the
+    reading's own checks (every row reconciled, the register's view agreed),
+    and publish only then. A reading that fails its own check publishes
+    nothing."""
+    from support import db
+    from registers.charities import check
+    started = jobrun.now()
+    with db.connect(db.OWNER_KEY, "querynz_v4") as conn:
+        conn.execute("SET statement_timeout = '600s'")
+        listed = listings(conn)
+        if unchanged(conn, listed):
+            log("charities: the listing is the one published; nothing loaded")
+            jobrun.record(JOB, True, "unchanged: the listing is the one published", started, {})
+            return 0
+        with conn.transaction():
+            counts = build(conn, STAGING, listed)
+        f = check.reading(conn, STAGING, conn, read_bytes)
+        detail = (f"{counts['charities']} charities, {counts['officers']} officers, {counts['returns']} returns, "
+                  f"{counts['set_aside']} set aside; " + ("; ".join(f["problems"]) or "reconciles, the view agrees"))
+        if not f["ok"]:
+            log("charities: RED, nothing published: " + detail)
+            jobrun.record(JOB, False, "nothing published: " + detail, started, {})
+            return 1
+        publish(conn, STAGING, log)
+    log("charities: published: " + detail)
+    jobrun.record(JOB, True, "published: " + detail, started,
+                  {k: v for k, v in counts.items() if not k.startswith("aside")})
+    return 0
 
 
 def main(argv=None) -> int:
     from support import db
-    ap = argparse.ArgumentParser(prog="python -m registers.charities_b.load")
+    ap = argparse.ArgumentParser(prog="python -m registers.charities.load")
     ap.add_argument("--schema", default=SCRATCH)
     ap.add_argument("--database", default="querynz_v4_sample")
+    ap.add_argument("--job", action="store_true", help="qv4-charities-load: build, check and publish into querynz_v4")
     a = ap.parse_args(argv)
+    if a.job:
+        return job()
     if not a.schema.startswith(("scratch_", "staging_")):
-        print("charities_b: a session loads only a scratch or staging schema")
+        print("charities: a session loads only a scratch or staging schema")
         return 2
     started = jobrun.now()
     with db.connect(db.READ_KEY, "querynz_v4") as src:
@@ -263,7 +334,7 @@ def main(argv=None) -> int:
         with conn.transaction():
             counts = build(conn, a.schema, pages)
     for k, v in counts.items():
-        print(f"charities_b: {k}: {v}")
+        print(f"charities: {k}: {v}")
     jobrun.record(JOB, True, f"{counts['charities']} charities, {counts['officers']} officers, {counts['returns']} "
                   f"returns into {a.database}.{a.schema}", started,
                   {k: v for k, v in counts.items() if not k.startswith("aside")})
