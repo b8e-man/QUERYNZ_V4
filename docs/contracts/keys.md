@@ -38,6 +38,10 @@ existing copy promoted.
    readable in the label; it never joins two parties. Unresolved is never
    guessed. Without the lane's rows the register list is the snapshot of
    18 October 2026; the live path is beside it (fix-keys-1, 20 October).
+   The core arm also compares after named spelling rules (NZ is New
+   Zealand, and is &, a trailing Incorporated is off; an abbreviation
+   "The X Party" answers to X), tried only after the core as filed
+   misses (fix-keys-1 second, 20 October).
 
 ## Addresses (`keys/addresses.py`)
 
