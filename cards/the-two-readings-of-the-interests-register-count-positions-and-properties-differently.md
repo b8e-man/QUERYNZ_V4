@@ -19,3 +19,11 @@ not been read against the register page by page.
 Which side is right: neither is shown wrong; the member's own return
 decides, and the rebuilt line cites the page to open. Owner:
 interests-expenses, with a sample read against the register.
+
+site-3 (2026-10-20): the shape's part is the fold of one declaration
+repeated across editions into one line with first and last seen
+(`figures.interests`, keyed by category and the declaration's text), so a
+reworded declaration is two lines where the frozen's anchored body was
+one; 335 differences today, unchanged by this tranche. Whether a count is
+right is read against the register page by page, the lane's; the card stays
+with interests-expenses.

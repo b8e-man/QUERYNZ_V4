@@ -92,8 +92,9 @@ class Tables:
         if view == "pub.candidate_return_donors":
             return rows(self.conn, f"select * from {view} where year >= %s order by year, return_key, ordinal, key", (w,))
         if view == "pub.disclosures":
-            return rows(self.conn, f"select * from {view} where extract(year from coalesce(received_on, given_on, amended_on)) >= %s "
-                                   "or coalesce(received_on, given_on, amended_on) is null order by key", (w,))
+            # a declaration's year is the gift's (given_on); the Commission's date only where no gift date is printed
+            return rows(self.conn, f"select * from {view} where extract(year from coalesce(given_on, received_on, amended_on)) >= %s "
+                                   "or coalesce(given_on, received_on, amended_on) is null order by key", (w,))
         if view == "pub.names":
             return rows(self.conn, f"select * from {view} where register = any(%s)", (list(REGISTERS),))
         if view == "pub.groups":
