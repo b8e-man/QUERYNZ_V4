@@ -20,3 +20,35 @@ A liquidation row opens to its notice: the company as printed, its number where 
 the liquidator (shareholders, board, court, creditors) and under which section, the date and time of the appointment
 (or, for the Official Assignee's lists, the list's date, said so), and the liquidators the notice names, each with how
 they were read (signed, or named in the operative sentence). No address, telephone or email is shown or held.
+
+A company notice row opens to its notice: the company as printed, its number where the notice prints one, the kind
+(removal, winding-up application, receivership, notice to creditors, administration) and the notice's own action (an
+intention to remove, a restoration, an application to put into liquidation, a receiver's appointment or ceasing to
+act, a meeting, a call to prove claims, a dividend), the Act and section, the ground of a removal, who gave notice,
+and for a winding-up application the plaintiff by name only, its court and reference. The one date a notice turns on
+is shown with what it dates (`event_basis`: to be heard, objections by, appointed, ceased to act, meeting, claims by,
+dividend); the filing day and the publication day stand beside it; a notice that prints no such day leaves it blank
+and is dated by its publication day alone (48,393 rows, 46,282 of them removals); a day whose kind the reader could
+not name is shown as a bare "event on" (72 rows, administrations and notices to creditors). The row says which
+Companies Office entity it was joined to and how (by number and name, or by the one name alive on the notice's date),
+or "not held". The receivers and administrators the notice names are listed under it. A plaintiff's address for
+service is never read, held or shown.
+
+A practitioner row is a receiver or an administrator as the notice signs them: the name, the role as printed (Receiver
+and Manager, Joint Administrators, Former Receiver, …), how the name was read (`full`: also named in full in the
+notice's text above the signature; `surname`: only the surname there; `no`: only at the signature), and the companies
+the same notice names, listed under it. No address, telephone or email is read or shown.
+
+A bankruptcy row opens to its notice: the person's surname, given names and any alias, the occupation where the notice
+prints one, the kind (an adjudication, a no-asset procedure, an annulment, a discharge, a meeting, other), the list or
+single notice it came from, the day and time it happened where printed, the court and the Act. The address and the
+"formerly of" address the notice prints are never shown: they are held only in `gazette_private`. A person a later
+annulment names is withheld, the name and the occupation alike, on the annulment's own row and on every earlier row
+naming them as bankrupt; the row stays, saying which annulment withheld it. A bankruptcy row is not joined to a person
+anywhere else: two people of one name are two rows.
+
+An appointment row opens to its notice: the appointee as printed (with any honorific), the body and the role, the Act
+and section, who appointed (the Governor-General, a Minister, the Sovereign, a Chief Justice or Chief Judge), the
+term's start and end where printed, and whether the notice is a corrigendum. Where an appointee lives (", of <town>")
+is read past and never kept. A name on an appointment is not joined to a Member of Parliament or anyone else; the
+check compares surnames only, as a measure of the reader.
