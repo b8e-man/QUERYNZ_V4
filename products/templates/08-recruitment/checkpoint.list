@@ -1,0 +1,14 @@
+# The checkpoint's twelve subjects (2026-10-20), as register keys: re-render each with
+# python -m products.report render REF --template recruitment, and diff against the last run.
+companies:companies/9429000001311/shareholder/37219c784974
+companies:companies/9429000001458/director/8944b48ae1b8
+companies:companies/9429000004428/director/3195b60fe645
+companies:companies/9429000015394/director/521da7f46a2b
+companies:companies/9429030061330/director/820346c62258
+companies:companies/9429030934689/director/34517e6c079c
+companies:companies/9429031200745/director/9826f5895450
+companies:companies/9429052755736/director/09669fa627e4
+house:ge-2023/brooking-rachel/dunedin
+mp_interests:036fa95048411ffd51f4f86706cbcf516a5667ad1f5865ba819095ec993b5886/p10/l12
+party_finance:82ec8f72060bdf89f871a9b8f34d140d34a23241036cc17a969c058308da854a/block/11/comparable-with-director/2
+party_returns:d87ba3156e35faff25abc6e820f825cce75a3f0083e7ca0e40e454a5fb5a6ab8/A/10

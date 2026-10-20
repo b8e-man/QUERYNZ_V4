@@ -42,6 +42,7 @@ SETTINGS = {
     "chain": "follow",            # follow | one-step: how far a chain of confirmed links is trusted
     "contested_group": "whole",   # whole: a group the watch flags is contested as a whole
     "steps": "near",              # near: a multi-step connection through more than one person is near
+    "review_applies": "off",      # off | on: whether the review agent's splits become decisions (track C; off until it passes and Arthur rules)
 }
 
 #: the name bands, by how many director rows carry the first-and-last name (measurement 1)

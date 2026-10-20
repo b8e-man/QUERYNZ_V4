@@ -39,3 +39,13 @@ beside the earlier row, so some of these are one person twice, not two
 people; the kind's truth is clean only where the middle names differ or
 are absent. The measurement counts them apart. A later month's file, or
 the register's own appointment history, would settle them.
+
+**After candidate-returns published (review session, track C, 20 October).**
+`candidate-across-amended-return` is supplied: the filing candidate's own row
+on an original return and on the amendment the listing links, 2 pairs (the
+lane holds 5 replaced returns; for 3 the replacing document is not among the
+372 totals rows). `donor-across-amended-candidate-return` (same donor and
+amount on both) finds none. The charities kind still waits on a charities
+lane publishing; the monthly-file kind stays unsupplied. The one-person side
+is therefore 144 pairs, 142 of them politicians the lane's own identifier
+joins; the review agent's pass mark is measured on those, and said so.

@@ -163,9 +163,55 @@ def test_the_form_s_total_is_the_figure_under_its_label_never_the_boilerplate():
     from registers.disclosures import form
     got = form.total({1: FORM_PAGE})
     assert (got.amount, got.page) == (21563.88, 1)
-    assert form.total({1: FORM_PAGE.replace("$ 21,563.88", "")}).amount == 3593.98, "the next figure in the window"
+    assert form.total({1: FORM_PAGE.replace("$ 21,563.88", "")}).amount is None, \
+        "an empty box is no total: the grid of gifts under it is the next label's (J Marcroft 2023, gifts $27,000 + $5,000)"
     assert form.total({1: "Donations exceeding $20,000\nTotal amount\n\n\n\n\n\n$ 5.00"}).amount is None
     assert form.total({}).why
+
+
+def test_a_bare_20_000_in_the_box_is_the_total_not_the_boilerplate():
+    from registers.disclosures import form
+    page = "Total donation and date received\nFor multiple donations, the date the final donation was received\n\nTotal amount\n$20,000\n\nDate received\n28 February 2023"
+    assert form.total({1: page}).amount == 20000.0
+    assert form.total({1: "Total amount\nDonations over $20,000 must be disclosed\n$ 31,000.00"}).amount == 31000.0
+    assert form.total({1: "Total amount\n20020\n\nDate received\n01/04/2026"}).amount == 20020.0, "the $ is printed outside the box"
+    assert form.total({1: "Total amount\n1\nDate received"}).amount is None, "a bare figure under $100 is not a total"
+
+
+def test_a_struck_out_total_and_its_correction_are_both_kept_and_the_check_names_it():
+    from registers.disclosures import form
+    page = "Total donation and date received\n$26,066.66\n$19,250.22\n\nDate received\n23/10/23"
+    got = form.total({1: page})
+    assert got.amount == 26066.66 and got.figures == (26066.66, 19250.22)
+    forms = {"1" * 64: {"held": True, "total": got.amount, "figures": got.figures, "stamp": "s"}}
+    assert read.form_check(19250.22, "1" * 64, forms) == {"form_total": 19250.22, "form_check": read.SECOND_FIGURE, "form_reading": "s"}
+    assert read.form_check(26066.66, "1" * 64, forms)["form_check"] == read.SECOND_FIGURE, "which one is struck is not seen"
+    assert read.form_check(30000.00, "1" * 64, forms)["form_check"] == "differs"
+    assert form.total({1: "Total amount   $ 50,000.00      Date received  12/06/2023"}).figures == (50000.0,), \
+        "the next label on the same line ends nothing: one figure"
+
+
+def test_the_text_layer_is_read_only_where_the_reading_has_no_total_and_never_under_a_picture(monkeypatch):
+    from registers.disclosures import form
+    typed = "Total donation and date received\n      Total amount        $  50,000.00\n\nDate received   12/06/2023\n" + "x" * 80
+    monkeypatch.setattr(form.textpages, "text_pages", lambda data: {1: typed, 2: "Total amount  $ 9\n" + "y" * 80})
+    monkeypatch.setattr(form, "picture_pages", lambda data: {2})
+    assert form.text_layer(b"%PDF-1.7") == {1: typed}
+    assert form.text_layer(b"\xff\xd8 a photograph") == {}
+    monkeypatch.setattr(form, "stored", lambda sha: [])
+    got = read.form_reading("a" * 64, b"%PDF-1.7")
+    assert (got["total"], got["held"]) == (50000.0, True) and got["stamp"].startswith(read.TEXT_LAYER)
+    monkeypatch.setattr(form, "picture_pages", lambda data: {1, 2})
+    none = read.form_reading("a" * 64, b"%PDF-1.7")
+    assert none["held"] is False and none["total"] is None
+
+
+def test_a_scan_with_no_total_read_is_set_aside_with_its_hash_and_pages():
+    forms = {"1" * 64: {"held": True, "total": None, "pages": 2, "stamp": "s"}, "2" * 64: {"held": True, "total": 5.0},
+             "3" * 64: {"held": False, "total": None, "pages": 1}}
+    got = read.needs_reading(forms, {"k1": "1" * 64, "k2": "2" * 64, "k3": "3" * 64, "k4": "1" * 64})
+    assert [g[0] for g in got] == ["1" * 64, "3" * 64] and all(g[1] == "form" for g in got)
+    assert "2 page(s)" in got[0][2] and "ruling 62" in got[0][2]
 
 
 def test_the_form_check_names_what_it_could_not_compare():
@@ -317,3 +363,14 @@ def test_the_published_views_build_on_the_lane_s_tables(filled):
     cols = [d[0] for d in conn.execute(f"SELECT * FROM {schema}.disclosures_pub_disclosures LIMIT 0").description]
     conn.rollback()
     assert n == len(filled["rows"]) and not any("address" in c for c in cols)
+
+
+def test_a_difference_passes_the_check_only_when_a_card_names_it(tmp_path):
+    (tmp_path / "a-card.md").write_text("# x\nstate: open\n\n`ec-listing/2023-06-13/5912c64f7260` differs; National 2023 too\n")
+    (tmp_path / "other.md").write_text("# y\nstate: open\nnothing\n")
+    cards = check.carded(str(tmp_path))
+    assert check.card_for("ec-listing/2023-06-13/5912c64f7260", cards) == "a-card"
+    assert check.card_for("National 2023", cards) == "a-card"
+    assert check.card_for("ec-listing/2024-07-17/76b5df1420ab", cards) is None
+    assert check.card_for("nothing", cards) == "other", "the name is the card's own, not its neighbour's"
+    assert check._short("The New Zealand National Party") == "National"

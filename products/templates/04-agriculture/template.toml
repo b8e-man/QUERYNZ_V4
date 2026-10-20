@@ -1,0 +1,186 @@
+# Use case 4, the agriculture counterparty (plan step 5.2, second template):
+# an agribusiness credit manager, or a farm business owner and their
+# accountant, asks "what does the record say about this trading company
+# and the people behind it" before supplying on credit, buying stock or
+# signing a contract. A subject report on the shape in products/report/; it
+# reads only the published views below, and its sections run in the order
+# a credit decision reads them. Its own rules are in rules.py; its known
+# limits in limits.md.
+name = "agriculture"
+title = "Agriculture counterparty"
+version = "0.1"
+owner = "products/templates/04-agriculture, step 5.2 (session agriculture)"
+# 1: the counterparty and the rows on it; from a person, the person's group
+# and the companies it sits on. The person's co-directors are not the
+# counterparty's record.
+depth = 1
+
+limits = [
+  "Only the registers the estate has published are read; what is not held is the last section, and nothing in this report says anything about it.",
+  "A connection is as the register states it: a role, a holding of record, a donation filed under a name. Nothing here says who stands behind a holding or runs a company.",
+  "Started from a company, the report lists its officers and holders of record but does not yet follow them: their other companies, their prohibitions and their society roles are not read, and those checks are blocked, never clear. Start a second report from each person listed.",
+  "The counterparty is the row the report starts from. A row that only shares its name is a namesake, listed apart, and is not the counterparty until confirmed.",
+  "Two facts are shown side by side with their dates. The report never says one followed from the other.",
+  "A Gazette bankruptcy notice is published but no link rule joins it to a person yet, so this report cannot see one: a blank there is not a clear.",
+  "Sole traders, general partnerships and trusts are not in the companies file and are not held. A limited partnership's own row is held; its partners are not.",
+  "The Personal Property Securities Register (security over stock, crops and plant), land titles, the Insolvency Register, court judgments, the Charities Register and MPI's prosecutions are not held.",
+  "A company's registered office is listed and is flagged when many companies share it. No residential address is held in any view read.",
+  "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+]
+
+# ── what it reads: each view with its licence ───────────────────────────────
+[[reads]]
+view = "companies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "directors"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "shareholders"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "company_addresses"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; registered offices only, never a residential address"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "gazette_liquidations"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_company_notices"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_prohibitions"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a revoked prohibition's name is never shown"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_bankruptcies"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; an annulled bankruptcy's name is withheld"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "societies"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "society_officers"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "party_return_donors"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "party_return_loans"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "party_return_totals"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "disclosures"
+licence = "Electoral Commission large-donation disclosures: published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "nightly listing"
+[[reads]]
+view = "disclosure_items"
+licence = "Electoral Commission large-donation disclosures: published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "nightly listing"
+[[reads]]
+view = "candidate_return_donors"
+licence = "Electoral Commission candidate returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return is published"
+[[reads]]
+view = "candidate_return_totals"
+licence = "Electoral Commission candidate returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return is published"
+[[reads]]
+view = "promoters"
+licence = "Register of Promoters, public under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as the register is published"
+[[reads]]
+view = "promoter_people"
+licence = "Register of Promoters, public under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as the register is published"
+
+# ── sections, in the order a credit manager reads them ──────────────────────
+# A row is listed once, in the first section that names its view and the walk
+# bucket it came from; an entity the walk reached (a company, a return) goes
+# to the first section naming its view. The first section takes only near
+# links: rows that share the counterparty's name and that no rule confirms.
+# A near Gazette notice is not taken there; it stays in the Gazette section,
+# marked near, so the reader sees it in place.
+[[sections]]
+name = "identity"
+heading = "Who the counterparty is, and its namesakes set apart"
+views = ["directors", "shareholders", "society_officers", "party_return_donors", "party_return_loans", "disclosures", "disclosure_items",
+         "candidate_return_donors", "promoter_people"]
+sources = ["near"]
+text = "The counterparty is the row above: a company is its NZBN, and a person is the rows a rule confirms are the same person. Each row here shares a name with it and no rule confirms it: a namesake, with the reason it is only near. Nothing in a namesake's rows is the counterparty's."
+
+[[sections]]
+name = "officers"
+heading = "Its officers and holders of record, with their dates"
+views = ["directors", "shareholders", "company_addresses"]
+sources = ["roles", "members", "confirmed"]
+text = "Every director and shareholder the register files on the company, current and past, with the dates it files, and the registered office. A holding is shown as the register states it: a shareholder of record, and a nominee or trustee holder holds for others; nobody is called an owner. Started from a person, these are the person's own roles."
+
+[[sections]]
+name = "gazette"
+heading = "Gazette receiverships, liquidations, winding-up applications, administrations, creditors' notices and removals; bankruptcies and prohibitions"
+views = ["gazette_liquidations", "gazette_company_notices", "gazette_prohibitions", "gazette_bankruptcies"]
+sources = ["members", "confirmed", "near", "pointing"]
+not_held = ["insolvency", "courts"]
+text = "A notice on a company is listed with that company's name and the notice's own date; the officers' dates are in the section above. The two sit side by side and nothing joins them. A removal from the register is not an insolvency. Bankruptcy notices are published but no link rule joins them to a person yet, so this section cannot show one; and started from a company, its people's prohibitions are not read."
+
+[[sections]]
+name = "other-companies"
+heading = "The people's other companies, and what became of them"
+views = ["companies"]
+sources = ["members", "confirmed", "near"]
+text = "Each company with its register status and its dates as the register files them. Started from a person, these are the companies the person has a row on, and their Gazette notices are in the section above. Started from a company, the report does not yet follow its people to their other companies: start a report from each officer listed above."
+
+[[sections]]
+name = "societies"
+heading = "Charity and society roles"
+views = ["societies", "society_officers"]
+sources = ["roles", "members", "confirmed"]
+not_held = ["charities"]
+text = "Incorporated societies only: the Charities Register is not published yet. Started from a company, its people's society roles are not read."
+
+[[sections]]
+name = "money"
+heading = "Political money given or received"
+views = ["party_return_donors", "party_return_loans", "disclosures", "disclosure_items", "candidate_return_donors", "party_return_totals",
+         "candidate_return_totals", "promoters", "promoter_people"]
+sources = ["members", "confirmed"]
+text = "A donation is from the donor the Commission filed it under. A return that covers a gift is the record; a disclosure of the same gift is shown beside it and never added. A row filed under a name the counterparty only shares is listed with the namesakes above, not here."
+
+[[sections]]
+name = "not-held"
+heading = "What is not held"
+views = []
+not_held = ["securities", "linz", "insolvency", "courts", "charities", "limited_partnerships", "fsp", "sanctions"]
+text = "Registers a counterparty check would read that no lane has published: security interests over stock, crops and plant; land titles; the Insolvency Register; court judgments; charities; a limited partnership's partners; sole traders, general partnerships and trusts (the business-number register outside the companies file); MPI prosecutions and animal-tracing enforcement. Nothing in this report says anything about them; ask the source."

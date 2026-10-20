@@ -32,3 +32,13 @@ estate judged, but it is a choice, so it waits here. The 32 and the 1 are
 read by eye when the party-returns lane's Part A is complete. Superseded
 versions (`donor-anchor-1.0` to `-2.1`) and withdrawn rows are copied and
 mapped where they can be, and never applied.
+
+**After candidate-returns published (review session, track C, 20 October).**
+`links.old --map --promote` re-run in `scratch_review`: 5,383 decisions
+promoted (28 more). Of the 167 live candidate-donation anchors, 18 map (11 by
+donor and the return's hash or year, 3 to the accepted company, 2 by donor,
+year and amount, 2 by the donor name alone); 129 name a return the lane does
+not hold (the lane holds the 2020, 2022 and 2023 returns; the old anchors
+reach back to 2014 and 2017, outside the Follow the Money window, ruling
+347); 18 name a donor on no published row; 2 are one of several identical
+rows. The 129 are not a gap: nothing before 2019 is worked.

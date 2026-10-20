@@ -10,9 +10,12 @@ role: "is there anything in the public record we should know".
   directorships and holdings of record; Gazette insolvency, bankruptcy and
   prohibition notices; charity and society roles; political money; seats
   and declared interests; what is not held); its limits.
-- `rules.py`: thirteen flags, standing for the old estate's seven person
+- `rules.py`: eleven flags, standing for the old estate's seven person
   rules where the held registers support them, and blocked where they do
-  not. Loaded by path by the shape; imports nothing of it.
+  not; the builder adds its three common flags (group-standing, hubs-met,
+  replaced-return), so a memo carries fourteen. Loaded by path by the
+  shape, which binds `contract` (the flag and the helpers) before it runs;
+  imports nothing of it.
 - `limits.md`: the known-limits page and the checkpoint of 2026-10-20.
 - `tests/`: fixtures (fast) and the real tables through
   `python -m products.report render REF --template recruitment` (slow).

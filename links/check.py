@@ -10,6 +10,10 @@
    director substituted after that day must never confirm a link).
 3. The published views answer with the tables' counts (links, groups,
    decisions), so the board reads what was built.
+4. No reading of the review agent has become a decision while the apply
+   switch (`links.SETTINGS["review_applies"]`) is off, and every decision
+   the agent made names a passing score of the judgment that made it
+   (track C: until it passes, verdicts are recorded and never applied).
 """
 from __future__ import annotations
 
@@ -58,12 +62,26 @@ def check_published(conn, s: str, pub: str = "pub") -> list:
     return out
 
 
+def check_review_switch(conn, s: str, applies: bool = None) -> list:
+    """A reading never becomes a decision while the switch is off; and each
+    decision the agent made rests on a score that passed."""
+    from links import review
+    applies = review.applies() if applies is None else applies
+    made = conn.execute(f"SELECT count(*) FROM {s}.decisions WHERE made_by LIKE 'review-agent@%%'").fetchone()[0]
+    unscored = conn.execute(f"""SELECT count(*) FROM {s}.decisions d WHERE d.made_by LIKE 'review-agent@%%'
+                                AND NOT EXISTS (SELECT 1 FROM {s}.scores sc WHERE sc.run_id = d.made_on->'applied_under'->>'score_run' AND sc.passed)""").fetchone()[0]
+    return [{"check": "no review-agent reading became a decision while the switch is off", "switch": "on" if applies else "off",
+             "review_agent_decisions": int(made), "ok": applies or int(made) == 0},
+            {"check": "every review-agent decision names a passing score", "without_a_passing_score": int(unscored), "ok": int(unscored) == 0}]
+
+
 def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out = []
     if oldconn is not None:
         out += check_old_copy(oldconn, conn, s)
     out += check_addresses(conn, s)
     out += check_published(conn, s, pub)
+    out += check_review_switch(conn, s)
     return out
 
 

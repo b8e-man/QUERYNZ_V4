@@ -5,7 +5,9 @@ confirmed rows, amber on a namesake's, a blocked check where the registers
 held cannot see, dates side by side and no word of cause, a revoked
 prohibition never counted. Imports nothing of products.report (the one-way
 test): the shape is reached through its command line, and the rules file is
-loaded by path as the shape loads it."""
+loaded by path as the shape loads it, with the name `contract` bound to the
+shape's contract file (products/report/contract.py, read by path) before it
+runs."""
 import importlib.util
 import inspect
 import os
@@ -27,11 +29,18 @@ def toml():
         return tomllib.load(f)
 
 
-def rules_module():
-    spec = importlib.util.spec_from_file_location("qv4_test_recruitment_rules", os.path.join(HERE, "rules.py"))
+def by_path(name, path, **bound):
+    spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
+    mod.__dict__.update(bound)
     spec.loader.exec_module(mod)
     return mod
+
+
+def rules_module():
+    """As the shape's loader does: `contract` bound, then the file run."""
+    contract = by_path("qv4_test_report_contract", os.path.join(REPO, "products", "report", "contract.py"))
+    return by_path("qv4_test_recruitment_rules", os.path.join(HERE, "rules.py"), contract=contract)
 
 
 R = rules_module()
@@ -247,12 +256,16 @@ def test_the_subject_hub_fires_only_on_the_subjects_own_rows():
     assert rule("subject_hub")(r)["status"] == "clear"
 
 
-def test_identity_is_amber_on_a_contested_group_and_blocked_with_no_links():
-    r = report()
-    r["group"].update(contested=True, size=12)
-    assert rule("identity")(r)["severity"] == "amber"
-    r["group"] = {"built": False}
-    assert rule("identity")(r)["status"] == "blocked"
+COMMON = {"group-standing", "hubs-met", "replaced-return"}
+
+
+def test_the_common_rules_are_the_builders_and_not_copied_here():
+    names = {f["rule"] for f in (r(report()) for r in R.RULES)}
+    assert not names & (COMMON | {"identity"}), names & (COMMON | {"identity"})
+    assert toml().get("common_rules", True), "the screen keeps the builder's common rules"
+    assert R.flag is R.contract.flag and R.items is R.contract.items and R.all_items is R.contract.all_items
+    src = inspect.getsource(R)
+    assert not re.search(r"^def (flag|items|section|_all|group_standing|hubs_met|replaced_rows|identity)\(", src, re.M)
 
 
 def test_the_rules_file_imports_nothing_of_the_shape():

@@ -6,7 +6,9 @@ and refresh the published views. `fill` in sample.py uses the same pieces.
 Capture, read every listing, join the scans, insert. Items in equal items
 out plus items set aside: every table row on a listing is a declaration or
 a catch-log line, and every file taken from the old folder is landed or a
-catch-log line.
+catch-log line. A linked scan whose printed total could not be read is a
+catch-log line of its own (stage `form`, its hash and pages): its row is
+still a declaration, so it is counted apart.
 """
 import os
 
@@ -95,6 +97,12 @@ def build(conn, schema: str, listings: list, declarations: list, aside: list, sh
     rows = [r for res in results for r in res.rows]
     linked, files = read.join(rows, declarations)
     forms = {sha: read.form_reading(sha) for sha in set(linked.values())}
+    # ruling 62: a scan whose total could not be read is set aside with its hash and pages, never queued from here;
+    # its row stays (the table is the source for the amount), so these lines are not in the reconciliation
+    needs = read.needs_reading(forms, linked)
+    for item, stage, reason in needs:
+        conn.execute(f"INSERT INTO {table(schema, 'set_aside', shared)} (item, stage, reason) VALUES (%s, %s, %s)",
+                     (item, stage, reason))
     n = seen = aside_n = 0
     for res in results:
         n += insert(conn, schema, res, linked, forms, shared)
@@ -111,7 +119,8 @@ def build(conn, schema: str, listings: list, declarations: list, aside: list, sh
     return {"listings": len(listings), "table_rows": seen, "rows": n, "set_aside": aside_n,
             "declarations_held": len({s for s, _ in declarations}), "linked": len(linked),
             "files_not_linked": sum(1 for f in files if f[3] == "not linked by the table"),
-            "collisions": sum(1 for f in files if f[3] == "collision"), "not_documents": len(aside)}
+            "collisions": sum(1 for f in files if f[3] == "collision"), "not_documents": len(aside),
+            "need_a_reading": len(needs)}
 
 
 def load(conn, schema: str, log=print) -> int:
