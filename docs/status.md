@@ -32,7 +32,7 @@ building; track C measured. Tracks B and E closed, on the queue's clock.
 ## Running (headless, from the integrator)
 
 - `ownership-1` (template 13), `candidate-returns-2` (the sample), `gazette-6`
-  (titles), all Opus; `legal-1` raised. Step 6 held to the end (ruling 63).
+  (titles), all Opus; `legal-1` raised. Step 7 held to the end (ruling 63).
   Next: charities builds after the 23:30 copy; then templates 7, 5, 6, 11, 12.
 
 ## Half-done

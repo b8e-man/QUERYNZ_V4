@@ -1,0 +1,186 @@
+# Use case 2, the legal counterparty and conflict check (plan step 5.2,
+# fourth template): a law firm asks, before it acts, "who is this
+# counterparty, who stands on its register, and does anyone here already
+# act for or against them". A subject report on the shape in
+# products/report/; it reads only the published views below, and its
+# sections run in the order a conflicts clerk reads them. Its own rules are
+# in rules.py; its known limits in limits.md.
+name = "legal"
+title = "Legal counterparty and conflict check"
+version = "0.1"
+owner = "products/templates/02-legal, step 5.2 (session legal-1)"
+# 2: the person's group, the companies it sits on, and the other people on
+# those companies (near: a connection through another person is never
+# confirmed): the conflict web. From a company the walk lists its officers
+# and holders and does not follow them.
+depth = 2
+
+limits = [
+  "The firm's own client and matter list is not an input: the report lists the names a conflict search would compare, and the comparison is the firm's. No flag here says there is no conflict.",
+  "Started from a company, the report lists its officers and holders of record but does not yet follow them: the companies they share, their prohibitions, their insolvency appointments and their society roles are not read, and those checks are blocked, never clear. Start a report from each person listed.",
+  "Court judgments (step 5.4), tribunal and disciplinary findings, the Insolvency Register and the Personal Property Securities Register are not held: what is not held is the last section, and nothing in this report says anything about it.",
+  "A connection is as the register states it: a role, a holding of record, a donation filed under a name. Nothing here says who stands behind a holding or runs a company; a nominee or trustee holds for others.",
+  "The party is the row the report starts from and the rows a rule confirms are the same person. A row that only shares the name is a namesake, listed apart, and is not the party until confirmed.",
+  "Two facts are shown side by side with their dates. The report never says one followed from the other.",
+  "The companies file lists current roles only: a company a person left, or that was removed with them on it, is not seen, so no check over a person's companies is ever clear.",
+  "A Gazette bankruptcy notice is published but no link rule joins it to a person yet, so this report cannot see one: a blank there is not a clear.",
+  "The other companies in an amalgamation notice, and a mortgagee's entry into possession, are published but not reachable by this report; each is named in its flag.",
+  "The walk reads Gazette notices on the first twelve companies it reaches and lists up to forty; past those the checks that need them are blocked, never clear.",
+  "A company's registered office is listed and is flagged when fifty or more companies share it; the companies sharing a smaller office are not listed. No residential address is held in any view read.",
+  "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+]
+
+# ── what it reads: each view with its licence ───────────────────────────────
+[[reads]]
+view = "companies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "directors"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "shareholders"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "company_addresses"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; registered offices only, never a residential address"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "gazette_liquidations"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_company_notices"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person named in a rectification is held by initials and surname only"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_liquidators"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a practitioner's name and role only, never an address or telephone"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_prohibitions"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a revoked prohibition's name is never shown"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_bankruptcies"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; an annulled bankruptcy's name is withheld"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "societies"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "society_officers"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "party_return_donors"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "party_return_loans"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "party_return_totals"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "disclosures"
+licence = "Electoral Commission large-donation disclosures: published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "nightly listing"
+[[reads]]
+view = "disclosure_items"
+licence = "Electoral Commission large-donation disclosures: published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "nightly listing"
+[[reads]]
+view = "candidate_return_donors"
+licence = "Electoral Commission candidate returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return is published"
+[[reads]]
+view = "candidate_return_totals"
+licence = "Electoral Commission candidate returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return is published"
+[[reads]]
+view = "promoters"
+licence = "Register of Promoters, public under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as the register is published"
+[[reads]]
+view = "promoter_people"
+licence = "Register of Promoters, public under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as the register is published"
+
+# ── sections, in the order a conflicts clerk reads them ─────────────────────
+# A row is listed once, in the first section that names its view and the walk
+# bucket it came from; an entity the walk reached (a company, a return) goes
+# to the first section naming its view. So the party's own roles fill the
+# officers section, and each company the party sits on heads the conflict
+# web with the other people on it beneath. The first section takes only near
+# links: rows that share the party's name and that no rule confirms.
+[[sections]]
+name = "identity"
+heading = "Who the party is, and its namesakes set apart"
+views = ["directors", "shareholders", "society_officers", "party_return_donors", "party_return_loans", "disclosures", "disclosure_items",
+         "candidate_return_donors", "promoter_people"]
+sources = ["near"]
+text = "The party is the row above: a company is its NZBN, and a person is the rows a rule confirms are the same person. Each row here shares a name with the party and no rule confirms it: a namesake, with the reason it is only near. A conflict search on the name will meet these rows; nothing in them is the party's."
+
+[[sections]]
+name = "officers"
+heading = "Its officers and holders of record, with their dates"
+views = ["directors", "shareholders", "company_addresses"]
+sources = ["roles", "members", "confirmed"]
+text = "Every director and shareholder the companies file lists on the company, with the dates it files, and its registered office; started from a person, the person's own roles and holdings. A holding is shown as the register states it: a shareholder of record. A nominee or trustee holds for others, and a company holder's own register is not followed here: start a report from it. The file lists current roles only."
+
+[[sections]]
+name = "web"
+heading = "The companies those people share, with dates: the conflict web"
+views = ["companies", "directors", "shareholders"]
+sources = ["members", "confirmed", "near", "second"]
+text = "Each company the person sits on, with its register status and dates, and beneath it the other directors and holders of record on it with their own dates, each near: a connection through another person is never confirmed. These are the names a conflict search compares with the firm's clients and opposing parties. A name on two companies is two rows that share a name. Started from a company, the report does not follow its people: start a report from each officer listed above."
+
+[[sections]]
+name = "gazette"
+heading = "The Gazette on the company and its people"
+views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_prohibitions", "gazette_bankruptcies"]
+sources = ["members", "confirmed", "near", "pointing"]
+not_held = ["insolvency"]
+text = "Liquidations, receiverships, administrations, winding-up applications, creditors' notices, deeds of company arrangement, removals, dissolutions and restorations, amalgamations, the Registrar's rectifications and transfers out, each under the company's name with its own date; then on the people, director prohibitions with their term and the person's own insolvency appointments as a practitioner. A removal from the register is not an insolvency. Bankruptcy notices are published but no link rule joins them to a person yet, and a mortgagee's entry into possession is not reachable here: neither can show. Started from a company, its people's notices are not read."
+
+[[sections]]
+name = "money"
+heading = "Charity and society roles, and political money"
+views = ["societies", "society_officers", "party_return_donors", "party_return_loans", "disclosures", "disclosure_items",
+         "candidate_return_donors", "party_return_totals", "candidate_return_totals", "promoters", "promoter_people"]
+sources = ["members", "confirmed"]
+not_held = ["charities"]
+text = "Incorporated society roles (the Charities Register is not published yet), then donations, loans and promoters' roles. A donation is from the donor the Commission filed it under; a disclosure of a gift a return covers is shown beside it and never added. Started from a company, these are the company's own."
+
+[[sections]]
+name = "not-held"
+heading = "What is not held"
+views = []
+not_held = ["courts", "insolvency", "securities", "charities", "limited_partnerships", "fsp", "sanctions", "linz"]
+text = "Registers a conflict check would read that no lane has published: court judgments and tribunal decisions (step 5.4), the disciplinary findings of the Lawyers and Conveyancers Disciplinary Tribunal and the other professional bodies, the Insolvency Register, the Personal Property Securities Register, charities, a limited partnership's partners, financial service providers, sanctions lists and land titles. The firm's own client and matter list is not an input. Nothing in this report says anything about them; ask the source."
