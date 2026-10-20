@@ -43,7 +43,7 @@ META = {"basis", "generated_at", "template", "template_version", "known_limits",
         "cycles", "map_cycles", "cycle_years", "headline_parties", "subject", "kind", "key", "name", "name_key",
         "party", "electorate", "found", "variants", "search_aliases", "website", "abbreviation", "found",
         "name_forms", "name_match", "freshness", "elections", "years_covered", "window", "line", "statute",
-        "stamp", "map_boundary_review"}
+        "stamp", "map_boundary_review", "candidate_rows_gap"}
 
 
 def cents(v) -> int | None:
@@ -135,15 +135,18 @@ def spelling_key(s) -> str:
     return t
 
 
-def sections(old_doc: dict, new_doc: dict, mapped: set, figures: dict) -> None:
+def sections(old_doc: dict, new_doc: dict, mapped: set, figures: dict, added: set = frozenset()) -> None:
     """One figure per top-level key one side has and the other lacks, when
-    it is not metadata and not already read as figures."""
+    it is not metadata and not already read as figures. `added` is the
+    template's own list of keys the rebuilt page carries and the frozen page
+    never did (`sections_added` in ftm.json): those are the shape's, not a
+    difference."""
     for k in old_doc:
         if k in META or k in mapped:
             continue
         figures.setdefault(f"section/{k}", ("present", "present" if k in new_doc else ABSENT))
     for k in new_doc:
-        if k in META or k in mapped or k in old_doc:
+        if k in META or k in mapped or k in old_doc or k in added:
             continue
         figures.setdefault(f"section/{k}", (ABSENT, "present"))
 
@@ -217,12 +220,32 @@ def rows_figure(rows, key=lambda r: r) -> tuple:
     return tuple(sorted(key(r) for r in rows))
 
 
+def figures_held(p: dict) -> int:
+    """How many by-year figures a party entry holds (not None)."""
+    return sum(1 for k in ("declared_by_year", "named_by_year", "disclosed_by_year")
+               for v in (p.get(k) or {}).values() if v is not None)
+
+
+def parties_by_name(entries) -> list:
+    """A home page's party entries, one per name: the rebuilt home lists a
+    name once per registration (New Zealand Loyal has two), and the entry
+    with most to show stands for the name, as the site's own page rule has
+    it (template `settled.party_page_key`)."""
+    out = {}
+    for p in entries or []:
+        name = p.get("party")
+        if name in out and figures_held(out[name]) >= figures_held(p):
+            continue
+        out[name] = p
+    return list(out.values())
+
+
 # ── home ──────────────────────────────────────────────────────────────────────
 
 def home(side: str, d: dict) -> dict:
     f = {}
     old = side == "old"
-    for p in d.get("parties") or []:
+    for p in parties_by_name(d.get("parties")):
         name = p.get("party")
         f[f"party/{name}/listed"] = True
         for k, v in (party_card_old(p) if old else party_card_new(p)).items():
@@ -241,10 +264,17 @@ def home(side: str, d: dict) -> dict:
         f["recent_disclosures/rows"] = rows_figure(rd.get("rows") or [],
                                                    lambda r: (fold(r.get("party")), fold(r.get("donor")), cents(r.get("amount"))))
     el = d.get("electorates")
-    if old:
+    if old or not not_held(el):
+        # both sides: the window total and each year's figure per electorate
+        # (the rebuilt side carries them since the template's second version)
         for e in el or []:
-            f[f"electorates/{e.get('electorate')}/spend"] = cents(e.get("spend"))
-            f[f"electorates/{e.get('electorate')}/declared"] = cents(e.get("declared"))
+            name = e.get("electorate")
+            f[f"electorates/{name}/spend"] = cents(e.get("spend"))
+            f[f"electorates/{name}/declared"] = cents(e.get("declared"))
+            for y, v in sorted((e.get("spend_by_year") or {}).items()):
+                f[f"electorates/{name}/spend/{y}"] = cents(v)
+            for y, v in sorted((e.get("declared_by_year") or {}).items()):
+                f[f"electorates/{name}/declared/{y}"] = cents(v)
     mapped = {"parties", "totals", "donors", "recent_disclosures", "electorates"}
     return f, mapped
 
@@ -294,20 +324,27 @@ def pickers(side: str, d: dict) -> dict:
 def electorates(side: str, d: dict) -> dict:
     f = {}
     old = side == "old"
+    one_year = str(d.get("year") or "").isdigit()
     for e in d.get("electorates") or []:
         name = e.get("electorate")
         f[f"electorate/{name}/listed"] = True
-        if old:
+        if not one_year:
+            # the all-years file: the frozen entry carries the all-time total
+            # (and its latest race, compared in that year's file); the
+            # rebuilt entry the window's total
+            f[f"electorate/{name}/declared_total"] = cents(e.get("total_all") if old else e.get("declared_total"))
+        elif old:
             ye = e.get("ye") or {}
             f[f"electorate/{name}/declared_total"] = cents(ye.get("declared_total"))
             f[f"electorate/{name}/candidates"] = len(ye.get("candidates") or [])
             won = [c.get("display") or c.get("candidate") for c in ye.get("candidates") or [] if c.get("elected")]
             f[f"electorate/{name}/elected"] = person_key(won[0]) if won else None
         else:
-            f[f"electorate/{name}/declared_total"] = held_or(d.get("money"))
+            f[f"electorate/{name}/declared_total"] = held_or(e.get("declared_total"))
             f[f"electorate/{name}/candidates"] = e.get("candidates")
             f[f"electorate/{name}/elected"] = person_key(e.get("elected")) if e.get("elected") else None
-    if not str(d.get("year") or "").isdigit():
+    money = d.get("money")
+    if not one_year:
         pass                                   # the all-years file: its counts are sections
     elif old:
         f["counts/electorates"] = len(d.get("electorates") or [])
@@ -318,7 +355,7 @@ def electorates(side: str, d: dict) -> dict:
     else:
         f["counts/electorates"] = d.get("contests")
         f["counts/candidates"] = d.get("candidates")
-        f["totals/declared_total"] = held_or(d.get("money"))
+        f["totals/declared_total"] = held_or(money, lambda m: cents(m.get("declared_total")) if isinstance(m, dict) else cents(m))
     mapped = {"electorates", "elections", "contests", "candidates", "money", "with_result", "year", "tracker",
               "announced"}
     return f, mapped
@@ -473,8 +510,8 @@ def subject_person(side: str, d: dict) -> dict:
             k = f"candidacy/{year}/{fold(str(r.get('electorate') or '').split('/')[-1]) or 'list'}"
             f[f"{k}/party"] = r.get("party") or r.get("party_filed")
             f[f"{k}/votes"] = r.get("votes")
-            f[f"{k}/declared"] = NOT_HELD
-            f[f"{k}/expenses"] = NOT_HELD
+            f[f"{k}/declared"] = held_or(r.get("declared"))
+            f[f"{k}/expenses"] = held_or(r.get("expenses"))
         f["donations_made/total"] = held_or(d.get("donations_made"))
     mapped = {"candidacies", "donations_made", "donations_made_total", "positions", "sitting_mp", "seats",
               "namesakes_note", "candidates_available", "candidates_context_linked", "candidates_namesake_only",

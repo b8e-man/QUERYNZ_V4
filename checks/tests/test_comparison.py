@@ -129,7 +129,8 @@ def ctx():
     return {"unread_party_years": {("ACT New Zealand", "2017")}, "donor_causes": {}, "new_rows": {}, "old_rows": {},
             "old_parties": {"ACT New Zealand"}, "left_out_party_years": set(), "unheld_party_years": set(),
             "new_people": {}, "no_result": set(), "old_people": {}, "unread_names": {("act new zealand", "2017")},
-            "left_out_names": set(), "unheld_names": set()}
+            "left_out_names": set(), "unheld_names": set(), "new_multi": {}, "race_causes": {},
+            "withheld_expenses": set()}
 
 
 def d(kind, figure, old, new, **more):

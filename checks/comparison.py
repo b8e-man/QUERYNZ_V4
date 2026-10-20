@@ -10,8 +10,9 @@ both sides into figures (comparison_figures), differs them with no
 tolerance on money, groups every difference by its cause, and writes the
 day's result:
 
-    <live>/checks/comparison/days/<frozen version>.json   the full result
-    <live>/checks/comparison/ledger.jsonl                 one line per day
+    <live>/checks/comparison/days/<frozen version>.json         the result, by cause
+    <live>/checks/comparison/days/<frozen version>.diffs.jsonl  every difference with its cause
+    <live>/checks/comparison/ledger.jsonl                       one line per day
 
 A cause is one entry in CAUSES: a card in cards/, which side is right and
 why, and a rule that recognises its differences. A difference no rule
@@ -48,6 +49,7 @@ NEW_SITE = os.environ.get("QV4_SITE_OUT") or os.path.join(LIVE, "site")
 STATE_DIR = os.path.join(LIVE, "checks", "comparison")
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CARDS = os.path.join(REPO, "cards")
+TEMPLATE = os.path.join(REPO, "products", "templates", "ftm", "ftm.json")
 KINDS = ("home", "parties", "electorates", "pickers", "subject", "electorate", "donor", "board-member",
          "size-bands", "cite")
 WINDOW_HOURS = 26
@@ -205,7 +207,7 @@ def match_donors(old_root: str, new_root: str, matched: list) -> list:
 
 # ── differences ───────────────────────────────────────────────────────────────
 
-def diff_file(kind: str, old_rel: str | None, new_rel: str | None, old_doc, new_doc) -> list:
+def diff_file(kind: str, old_rel: str | None, new_rel: str | None, old_doc, new_doc, added: dict = None) -> list:
     """Every difference between one file on the two sides, as dicts
     {figure, old, new}; a file one side lacks is one difference `file`."""
     if old_doc is None or new_doc is None:
@@ -222,7 +224,8 @@ def diff_file(kind: str, old_rel: str | None, new_rel: str | None, old_doc, new_
         fo = {k: v for k, v in fo.items() if not k.startswith(("counts/", "totals/"))}
         fn = {k: v for k, v in fn.items() if not k.startswith(("counts/", "totals/"))}
     secs = {}
-    F.sections(old_doc, new_doc, mo | mn, secs)
+    section_kind = (old_rel or new_rel).split("/")[2] if kind == "subject" else kind
+    F.sections(old_doc, new_doc, mo | mn, secs, (added or {}).get(section_kind, set()))
     for k, (o, n) in secs.items():
         if o != n:
             out.append({"figure": k, "old": o, "new": n})
@@ -253,7 +256,9 @@ def diff_file(kind: str, old_rel: str | None, new_rel: str | None, old_doc, new_
 # cause when the difference follows one found elsewhere.
 
 WINDOW_FROM = "2017"
-AGGREGATES = ("window", "races", "band", "declared_total", "by_receiver", "open_year_disclosures")
+AGGREGATES = ("window", "races", "band", "declared_total", "expenses_total", "by_receiver", "open_year_disclosures")
+#: the frozen home lists these totals over its electorates; the rebuilt home the same
+ELECTORATE_TOTALS = {"totals/electorate_declared": "declared", "totals/electorate_spend": "spend"}
 
 
 def _party_of_path(d) -> str:
@@ -285,16 +290,44 @@ def _is_section(d) -> bool:
     return d["figure"].startswith("section/")
 
 
+def _parts_prefix(d) -> str | None:
+    """Where an aggregate's parts are named by its own path, the prefix they
+    share: a race's total sums that race's candidates; an electorate's
+    window total on the home page sums its years; the home page's
+    electorate totals sum its electorates. None where the parts are the
+    page's other figures (a party card's window, a donor's receivers)."""
+    parts = d["figure"].split("/")
+    if d["kind"] == "electorate" and parts[0] == "race" and len(parts) == 3:
+        return f"race/{parts[1]}/candidate/"
+    if d["kind"] == "home" and parts[0] == "electorates" and len(parts) == 3:
+        return f"electorates/{parts[1]}/{parts[2]}/"
+    if d["kind"] == "home" and d["figure"] in ELECTORATE_TOTALS:
+        return "electorates/"
+    return None
+
+
 def _aggregate(d, ctx):
     """A window, race, band, receiver or total figure that differs because a
     part of it differs on the same page: it takes that part's cause when
-    every differing part has one, else it is uncarded with them."""
+    every differing part has one, else it is uncarded with them. A race's
+    parts are its own candidates, an electorate's its own years."""
     parts = d["figure"].split("/")
     last = parts[-1]
-    is_agg = any(a in parts for a in AGGREGATES) or last in ("total", "rows") or parts[0] == "rows" and last != "total" and False
+    is_agg = any(a in parts for a in AGGREGATES) or last in ("total", "rows") or d["figure"] in ELECTORATE_TOTALS \
+        or (d["kind"] == "home" and parts[0] == "electorates" and len(parts) == 3)
     if not is_agg:
         return False
-    if _year(d) and last.isdigit() and parts[-2] in ("by_year", "declared", "named", "disclosed", "over_line"):
+    if _year(d) and last.isdigit() and parts[-2] in ("by_year", "declared", "named", "disclosed", "over_line", "spend"):
+        return False
+    prefix = _parts_prefix(d)
+    if prefix:
+        want = ELECTORATE_TOTALS.get(d["figure"])
+        for x in d["file_diffs"]:
+            if x is d or _is_section(x) or not x["figure"].startswith(prefix):
+                continue
+            if want and x["figure"].split("/")[2] != want:
+                continue
+            return True
         return False
     party = _fig_party(d)
     for x in d["file_diffs"]:
@@ -305,6 +338,115 @@ def _aggregate(d, ctx):
             continue
         return True
     return False
+
+
+RACE_PRIORITY = ("candidate-returns-not-held", "candidacy-missing-on-the-rebuilt-side", "candidate-name-differs",
+                 "person-split-by-name-form", "race-2017-against-race-2026", "candidates-from-the-results")
+
+
+def _follows_race(d, ctx):
+    """An electorate's money for one year on the home page, or in a year
+    file, follows the causes of that race's candidate figures on the
+    electorate page (which the comparison reads first); a 2017 year is the
+    frozen site's race outside the window. The all-years file's total
+    follows every race of the electorate."""
+    parts = d["figure"].split("/")
+    if d["kind"] == "home" and parts[0] == "electorates" and len(parts) == 4:
+        el, years = F.fold(parts[1]), [parts[3]]
+    elif d["kind"] == "electorates" and parts[0] == "electorate" and parts[-1] == "declared_total":
+        doc = d.get("new_doc") or d.get("old_doc") or {}
+        y = str(doc.get("year") or "")
+        el = F.fold(parts[1])
+        years = [y] if y.isdigit() else sorted({yy for e, yy in ctx["race_causes"] if e == el})
+        if not years:
+            return False
+    else:
+        return False
+    if years == ["2017"]:
+        return "race-2017-against-race-2026"
+    causes = set()
+    for y in years:
+        causes |= ctx["race_causes"].get((el, y), set())
+    if not causes or None in causes:
+        return False
+    for c in RACE_PRIORITY:
+        if c in causes:
+            return c
+    return sorted(causes)[0]
+
+
+def _frozen_withheld_expenses(d, ctx) -> bool:
+    """The frozen page shows no expenses for a candidate though its own
+    summary figure (`stated_expenses`) is the one the rebuilt page shows:
+    the frozen site withheld a figure it could not reconcile. The person
+    page's candidacy follows its electorate page (read first)."""
+    if not d["figure"].endswith("/expenses") or d["old"] is not None or not isinstance(d["new"], int):
+        return False
+    parts = d["figure"].split("/")
+    if d["kind"] == "subject" and parts[0] == "candidacy":
+        return (parts[1], parts[2], F.person_key((d.get("old_doc") or {}).get("subject"))) in ctx["withheld_expenses"]
+    if d["kind"] != "electorate":
+        return False
+    y, key = parts[1], parts[3]
+    for r in (d.get("old_doc") or {}).get("races") or []:
+        if str(r.get("year") or str(r.get("election", ""))[-4:]) != y:
+            continue
+        for c in r.get("candidates") or []:
+            if F.person_key(c.get("display") or c.get("candidate")) == key and F.cents(c.get("stated_expenses")) == d["new"]:
+                return True
+    return False
+
+
+def _candidacy_verdict(key: str, year: str, el: str, ctx) -> str:
+    """Why a frozen candidacy (person key, year, electorate fold) is on no
+    matching rebuilt page: 'form' when the rebuilt race has the same
+    surname and first given name on another page, 'given' when the same
+    surname under another given name, else 'lacks'."""
+    people = ctx["new_people"].get((year, el), set())
+    if key in people:
+        return "form"
+    sur = key.split()[0] if key else ""
+    if sur and any(k.split()[0] == sur and k != key for k in people):
+        return "given"
+    return "lacks"
+
+
+VERDICT_CAUSE = {"form": "person-split-by-name-form", "given": "candidate-name-differs",
+                 "lacks": "candidacy-missing-on-the-rebuilt-side"}
+
+
+def _candidacy_missing(d, ctx):
+    """A frozen candidacy a matched rebuilt person page lacks (2020 on): the
+    house lane lacks the row, or holds it under another name form or given
+    name (house-2's count: of 139, 35 lacked and 104 held otherwise)."""
+    if d["kind"] == "subject" and d["figure"].startswith("candidacy/") and d["new"] == ABSENT and _year(d) >= "2020":
+        el = d["figure"].split("/")[2]
+        if el == "list":
+            return False
+        return VERDICT_CAUSE[_candidacy_verdict(F.person_key((d.get("old_doc") or {}).get("subject")), _year(d), el, ctx)]
+    if d["kind"] == "electorate" and "/candidate/" in d["figure"] and d["new"] == ABSENT and _year(d) >= "2020":
+        return "candidacy-missing-on-the-rebuilt-side"
+    return False
+
+
+def _old_person_missing(d, ctx):
+    """A frozen person page with an electorate candidacy from 2020 and no
+    rebuilt page: the frozen site's second page for one person, a name
+    form, another given name, or a row the house lane lacks."""
+    if not (d["kind"] == "subject" and d["figure"] == "file" and d["new"] == ABSENT):
+        return False
+    rows = [r for r in _old_person_rows(d) if int(r.get("year") or 0) >= 2020 and r.get("electorate")]
+    if not rows:
+        return False
+    key = F.person_key((d.get("old_doc") or {}).get("subject"))
+    if ctx["old_people"][key] > 1:
+        return "duplicate-person-page-on-the-frozen-side"
+    verdicts = {_candidacy_verdict(key, str(r.get("year")), F.fold(r.get("electorate")), ctx) for r in rows}
+    if "lacks" in verdicts:
+        return "candidacy-missing-on-the-rebuilt-side"
+    if "given" in verdicts:
+        return "candidate-name-differs"
+    return "person-split-by-name-form"
 
 
 def _public_money_pair(d) -> tuple:
@@ -390,7 +532,10 @@ def _classify_row(row, ctx, side: str, mine: str) -> str:
         return "return-with-no-reading"
     if (party, y) in ctx["unread_names"]:
         return "part-a-rows-not-read"
-    other = (ctx["new_rows"] if side == "old" else ctx["old_rows"]).get(row, set()) - {mine}
+    other_all = (ctx["new_rows"] if side == "old" else ctx["old_rows"]).get(row, set())
+    if mine in other_all and ctx["new_multi"].get(mine, 0) > 1:
+        return "rebuilt-splits-a-donor-across-two-pages"
+    other = other_all - {mine}
     if other:
         words = {w for w in mine.split() if len(w) > 2 and w not in STOPWORDS}
         return "fold-differs" if any(words & set(o.split()) for o in other) else "frozen-reattributed-a-vehicle"
@@ -398,7 +543,11 @@ def _classify_row(row, ctx, side: str, mine: str) -> str:
 
 
 STOPWORDS = {"the", "and", "ltd", "limited", "trust", "family", "via", "inc", "incorporated", "estate"}
-ROW_PRIORITY = ("two-returns-chosen-by-nobody", "return-with-no-reading", "part-a-rows-not-read", "fold-differs",
+#: party-years the lane holds under a label `keys` resolves to no registration (card three-party-labels-resolve-to-no-registration)
+UNRESOLVED_LABELS = {("Te Pāti Māori", "2021"), ("Animal Justice Party Aotearoa New Zealand", "2023"),
+                     ("New Zealand Outdoors & Freedom Party", "2023")}
+ROW_PRIORITY = ("rebuilt-splits-a-donor-across-two-pages", "two-returns-chosen-by-nobody", "return-with-no-reading",
+                "part-a-rows-not-read", "fold-differs",
                 "frozen-reattributed-a-vehicle", "before-the-window", "rows-only-the-frozen-side-has",
                 "rows-only-the-rebuilt-side-has")
 
@@ -460,6 +609,13 @@ def _donor_by_year(d, ctx):
     if verdict is False:
         return False
     old, new = _donor_rows(d.get("old_doc"), y), _donor_rows(d.get("new_doc"), y)
+    mine_old, mine_new = F.fold((d.get("old_doc") or {}).get("name")), F.fold((d.get("new_doc") or {}).get("name"))
+    for c, r in new.get("candidate", []):
+        if ctx["old_rows"].get((y, c, F.fold(r)), set()) - {mine_old}:
+            return "fold-differs"
+    for c, r in old.get("candidate", []):
+        if ctx["new_rows"].get((y, c, F.fold(r)), set()) - {mine_new}:
+            return "fold-differs"
     if old.get("candidate"):
         return "candidate-returns-not-held"
     if not old and new.get("disclosure") and y < "2023":
@@ -479,6 +635,10 @@ def _donor_file(d, ctx):
         return False
     years = [int(h.get("year") or 0) for h in rows]
     srcs = {h.get("source") for h in rows}
+    if d["old"] == ABSENT and ctx["new_multi"].get(F.fold(doc.get("name")), 0) > 1:
+        return "rebuilt-splits-a-donor-across-two-pages"
+    if d["old"] == ABSENT and srcs <= {"candidate"}:
+        return "frozen-wrote-no-page-for-a-candidate-donor"
     verdict = _rows_verdict(d, ctx)
     if d["new"] == ABSENT:
         if srcs <= {"candidate"}:
@@ -511,14 +671,37 @@ CAUSES = [
     dict(id="follows", card=None, right=None, owner=None, why="", match=_donor_by_year),
     dict(id="follows", card=None, right=None, owner=None, why="", match=_donor_file),
     dict(id="follows", card=None, right=None, owner=None, why="", match=_follows_donor),
+    dict(id="follows", card=None, right=None, owner=None, why="", match=_follows_race),
     # ── the new side is short: a lane has not published, or has not read ──
     dict(id="candidate-returns-not-held", card="electorate-money-waits-on-the-candidate-returns-lane", right="frozen",
          owner="candidate-returns",
-         why="the frozen site shows candidate donations and expenses from the Commission's candidate-return summaries and the candidates' own returns; no lane publishes them yet (step 4.1, candidate-returns is running), so every electorate figure, every candidate figure and every donor known only from a candidate's return is 'not held' or absent on the new side",
+         why="the frozen site shows candidate donations and expenses from the Commission's candidate-return summaries and the candidates' own returns for every candidate who filed; the candidate-returns lane publishes the returns it has read (385 totals, 713 scans waiting on the page reader, ruling 62), so a candidate figure, an electorate's year and a donor known only from a candidate's return are 'not held' or absent on the new side where the return is not read yet",
          match=lambda d, ctx: (d["kind"] == "home" and d["figure"].startswith("electorates/") and F.not_held((d.get("new_doc") or {}).get("electorates")))
          or (_is_not_held(d) and (d["kind"] in ("electorate", "electorates") or d["figure"].startswith("electorates/") or d["figure"] in ("totals/electorate_spend", "totals/electorate_declared") or d["figure"].endswith("/declared") or d["figure"].endswith("/expenses")))
          or (d["kind"] == "donor" and d["figure"].startswith("by_receiver/") and any(h.get("source") == "candidate" and F.fold(h.get("receiver")) == F.fold(d["figure"].split("/", 1)[1]) for h in (d.get("old_doc") or {}).get("history") or []))
          or (d["kind"] == "subject" and d["figure"] == "donations_made/total" and _is_not_held(d))),
+    dict(id="nil-return-is-a-zero", card="a-nil-candidate-return-is-a-zero-on-the-rebuilt-side-and-a-blank-on-the-frozen", right="new",
+         owner="comparison",
+         why="where a candidate's return declares nil donations the rebuilt page shows $0.00 with the return cited and the frozen page left the cell blank; a nil read from the return is a figure",
+         match=lambda d, ctx: d["kind"] in ("electorate", "subject") and d["figure"].endswith("/declared")
+         and d["figure"].startswith(("race/", "candidacy/")) and d["old"] is None and d["new"] == 0),
+    dict(id="frozen-withheld-expenses", card="the-frozen-site-withheld-a-candidate-s-expenses-it-could-not-reconcile", right="new",
+         owner="comparison",
+         why="the frozen electorate page shows no expenses for a candidate whose summary figure it holds (Epsom 2023: $20,895.09 in `stated_expenses`, `expenses` empty, because its own reading of the return did not reconcile); the rebuilt page shows the Commission's figure, and the return as the lane read it agrees",
+         match=_frozen_withheld_expenses),
+    dict(id="cancelled-poll-row-has-no-money", card="the-frozen-person-page-shows-no-money-for-the-cancelled-port-waikato-poll", right="new",
+         owner="comparison",
+         why="the frozen person page lists Port Waikato 2023 as '(Poll Cancelled)' with no donations and no expenses; the candidate's return for that contest is held and the Commission's table carries its figures, which the rebuilt candidacy shows",
+         match=lambda d, ctx: d["kind"] == "subject" and d["figure"].startswith("candidacy/2023/port waikato/")
+         and d["figure"].endswith(("/declared", "/expenses")) and d["old"] is None and isinstance(d["new"], int)),
+    dict(id="frozen-wrote-no-page-for-a-candidate-donor", card="the-frozen-site-wrote-no-page-for-some-candidate-return-donors", right="new",
+         owner="comparison",
+         why="a donor whose only rows are in candidates' returns has a rebuilt page citing each return and no frozen page at all, though the frozen site held candidate rows for its other donors; the rebuilt side gives every donor with money a page",
+         match=lambda d, ctx: False),
+    dict(id="rebuilt-splits-a-donor-across-two-pages", card="the-rebuilt-site-writes-two-donor-pages-for-one-name", right="frozen",
+         owner="site",
+         why="the rebuilt site has two donor pages under one name and one spelling ('Alan Wilderland' at `alan-wilderland` and at `alan-wilderland-alan-wilderland`), each with part of the history; the frozen site has one page with all of it, so the matched rebuilt page is short the rows its twin carries and the twin has no frozen counterpart",
+         match=lambda d, ctx: False),
     dict(id="part-a-rows-not-read", card="part-a-rows-are-read-on-a-minority-of-the-returns-held", right="frozen",
          owner="party-returns",
          why="the party-returns lane has read the Part A (named donor) rows on 38 of the 152 returns held; a party-year whose rows are not read publishes its declared total and no named rows, so every named, over-the-line, placed and per-donor figure for that party-year is short on the new side, and the window and race figures that sum them follow",
@@ -596,8 +779,8 @@ CAUSES = [
     dict(id="list-only-candidacies-not-shown", card="list-only-candidacies-are-not-on-the-rebuilt-person-page", right="frozen", owner="site",
          why="the frozen person page lists a candidacy on the party list alone (no electorate) with its list place; the rebuilt page lists electorate candidacies only, so a list-only year is on the frozen side only",
          match=lambda d, ctx: d["kind"] == "subject" and "/list/" in d["figure"] and d["new"] == ABSENT),
-    dict(id="house-lane-lacks-a-result", card="the-house-lane-has-no-result-for-a-race-the-frozen-site-shows-won", right="frozen", owner="house",
-         why="the frozen electorate page names the winner of a race the rebuilt page shows with no result held (Mana 2020, Barbara Edmonds); the house lane has not read that result page",
+    dict(id="house-lane-lacks-a-result", card="candidacies-the-frozen-site-shows-and-the-house-lane-lacks", right="frozen", owner="house",
+         why="the frozen electorate page names the winner of a race the rebuilt page shows with no result held (Mana and Rongotai 2020, whose result pages the old estate holds only as its job's fetch errors); house-2 reads the two leaders from the status page, and what is left is the race's other candidates, which the lane lacks",
          match=lambda d, ctx: d["kind"] in ("electorate", "electorates") and d["figure"].endswith("/elected") and d["old"] and d["new"] in (None, ABSENT) and _year(d) not in ("2017", "2026")),
     dict(id="frozen-missed-a-winner", card="the-frozen-site-names-no-winner-where-the-results-do", right="new", owner="comparison",
          why="the frozen electorate page shows no winner for a race the official result decides (Nelson 2020 and 2023, Rachel Boyack): its name join failed; the rebuilt page names the winner from the house lane's seats",
@@ -616,6 +799,14 @@ CAUSES = [
          why="", match=lambda d, ctx: d["kind"] == "subject" and d["figure"] == "file" and d["old"] == ABSENT and "/person/" in d["path"]),
     dict(id="party-not-on-frozen-home", card="the-rebuilt-home-page-lists-every-party-with-money", right="neither", owner="site",
          why="", match=lambda d, ctx: d["kind"] in ("home", "size-bands", "subject") and _fig_party(d) and _fig_party(d) not in ctx["old_parties"] and d["old"] == ABSENT),
+    dict(id="nz-first-2019-misread-total", card="nz-first-2019-the-frozen-site-shows-a-misread-total", right="new", owner="party-returns",
+         why="the frozen site shows New Zealand First's 2019 declared total as $368,535.17; the return's parts add to $369,535.17, which the lane publishes and the Commission's table carries, so one digit of the frozen figure is misread",
+         match=lambda d, ctx: _fig_party(d) == "New Zealand First Party" and _year(d) == "2019"
+         and (d["figure"].endswith("/declared/2019") or d["figure"] in ("year/2019/declared_total", "year/2019/placed"))
+         and isinstance(d["old"], int) and isinstance(d["new"], int)),
+    dict(id="party-label-resolves-to-no-registration", card="three-party-labels-resolve-to-no-registration", right="frozen", owner="keys",
+         why="the party-returns lane holds the return (Te Pāti Māori 2021, $13,144.00, equal to the frozen figure) under a label `keys` does not resolve to a registration ('The Maori Party (Te Pati Maori)'), so the rebuilt party-year publishes with no key and the home, party and size-band pages show nothing for it",
+         match=lambda d, ctx: (_fig_party(d), _year(d)) in UNRESOLVED_LABELS and (_fig_party(d), _year(d)) in ctx["unheld_party_years"]),
     dict(id="two-returns-chosen-by-nobody", card="a-party-year-with-two-returns-held-is-chosen-by-nobody", right="frozen", owner="site",
          why="", match=lambda d, ctx: (_fig_party(d), _year(d)) in ctx["left_out_party_years"]),
     dict(id="return-with-no-reading", card="party-years-the-frozen-site-totals-and-the-lane-holds-no-total-for", right="frozen", owner="party-returns",
@@ -638,21 +829,20 @@ CAUSES = [
          why="New Zealand First: the frozen site shows $888,141.69 of large donations in 2023 and nothing in 2024, the rebuilt site $831,141.69 and $57,000; Labour: $744,672.35 against $724,304.35 and $20,368. In each case one declaration is bucketed by the day the Commission received it on the frozen side and by the day the party received the gift on the rebuilt one, the lane's rule",
          match=lambda d, ctx: "disclosed/" in d["figure"] and _fig_party(d) in ("New Zealand First Party", "New Zealand Labour Party") and _year(d) in ("2023", "2024")),
     dict(id="candidate-name-differs", card="a-candidate-s-given-name-differs-between-the-return-summary-and-the-results", right="new", owner="house",
-         why="in Napier 2020 the frozen page (from the Commission's candidate-return summary) lists Ian Gaskin and the rebuilt page (from the official results) Camden Gaskin; the results are the record of who stood, so the rebuilt name is taken as right and the summary's name is for the lane to look at",
+         why="in Napier 2020 the frozen page (from the Commission's candidate-return summary) lists Ian Gaskin and the rebuilt page (from the official results) Camden Gaskin; the results are the record of who stood, so the rebuilt name is taken as right and the summary's name is for the lane to look at; a frozen person page's candidacy, or whole page, that the rebuilt race holds under another given name (Dave/David Kennedy) is the same cause",
          match=lambda d, ctx: d["kind"] == "electorate" and "/candidate/" in d["figure"] and _year(d) >= "2020" and _same_surname_other_side(d)),
     dict(id="unregistered-label-not-on-candidacy", card="an-unregistered-party-label-is-not-on-the-rebuilt-candidacy", right="frozen", owner="house",
          why="the frozen person page shows a candidacy's party as filed, 'Independent' or an unregistered label ('Future Youth Party'); the rebuilt candidacy names the registered party only and shows nothing for the rest",
          match=lambda d, ctx: d["kind"] == "subject" and d["figure"].endswith("/party") and d["figure"].startswith("candidacy/") and d["new"] is None and d["old"] not in (None, ABSENT)),
     dict(id="candidacy-missing-on-the-rebuilt-side", card="candidacies-the-frozen-site-shows-and-the-house-lane-lacks", right="frozen", owner="house",
-         why="the frozen person page lists a candidacy (an electorate contest of 2020, 2023 or 2026) that no rebuilt person page carries under any name form, or an electorate page lists a candidate the rebuilt race lacks; the house lane has no row for it",
-         match=lambda d, ctx: (d["kind"] == "subject" and d["figure"].startswith("candidacy/") and d["new"] == ABSENT and _year(d) >= "2020")
-         or (d["kind"] == "electorate" and "/candidate/" in d["figure"] and d["new"] == ABSENT and _year(d) >= "2020")),
+         why="the frozen person page lists a candidacy (an electorate contest of 2020, 2023 or 2026) that no rebuilt person page carries under any name form, or an electorate page lists a candidate the rebuilt race lacks; the house lane has no row for it (Mana and Rongotai 2020). A candidacy the rebuilt race holds under the same surname and first given name on another page, or under another given name, goes to those causes' cards instead",
+         match=_candidacy_missing),
     dict(id="old-person-list-only-or-early", card="list-only-candidacies-are-not-on-the-rebuilt-person-page", right="frozen", owner="site",
          why="", match=lambda d, ctx: d["kind"] == "subject" and d["figure"] == "file" and d["new"] == ABSENT and _old_person_rows(d) and all(int(r.get("year") or 0) < 2020 or r.get("electorate") is None for r in _old_person_rows(d))),
-    dict(id="old-person-no-result", card="the-house-lane-has-no-result-for-a-race-the-frozen-site-shows-won", right="frozen", owner="house",
+    dict(id="old-person-no-result", card="candidacies-the-frozen-site-shows-and-the-house-lane-lacks", right="frozen", owner="house",
          why="", match=lambda d, ctx: d["kind"] == "subject" and d["figure"] == "file" and d["new"] == ABSENT and _old_person_rows(d) and all((str(r.get("year")), F.fold(r.get("electorate"))) in ctx["no_result"] for r in _old_person_rows(d) if int(r.get("year") or 0) >= 2020 and r.get("electorate"))),
     dict(id="old-person-candidacy-missing", card="candidacies-the-frozen-site-shows-and-the-house-lane-lacks", right="frozen", owner="house",
-         why="", match=lambda d, ctx: d["kind"] == "subject" and d["figure"] == "file" and d["new"] == ABSENT and any(int(r.get("year") or 0) >= 2020 and r.get("electorate") for r in _old_person_rows(d))),
+         why="", match=_old_person_missing),
     dict(id="frozen-person-page-with-nothing-on-it", card="the-frozen-site-has-person-pages-with-nothing-on-them", right="new", owner="comparison",
          why="a frozen person page with no candidacy, no position, no board role and no donation made; the rebuilt site makes no page for a person it holds nothing about",
          match=lambda d, ctx: d["kind"] == "subject" and d["figure"] == "file" and d["new"] == ABSENT and _old_person_empty(d)),
@@ -665,7 +855,7 @@ CAUSES = [
     dict(id="person-split-by-name-form", card="the-rebuilt-site-splits-one-candidate-across-two-name-forms", right="frozen", owner="house",
          why="the results print a candidate under different name forms in different elections ('Anthony Vickers Odering' in 2020, 'Anthony Odering' in 2023); the house lane keys a person by the printed name, so the rebuilt site has two pages where the frozen site joined them; a candidacy is then on the frozen page and absent from the matching rebuilt page",
          match=lambda d, ctx: d["kind"] == "subject" and d["figure"].startswith("candidacy/") and d["new"] == ABSENT and _year(d) >= "2020" and F.person_key((d.get("old_doc") or {}).get("subject")) in ctx["new_people"].get((_year(d), d["figure"].split("/")[2]), set())),
-    dict(id="house-lane-lacks-a-result", card="the-house-lane-has-no-result-for-a-race-the-frozen-site-shows-won", right="frozen", owner="house",
+    dict(id="house-lane-lacks-a-result", card="candidacies-the-frozen-site-shows-and-the-house-lane-lacks", right="frozen", owner="house",
          why="", match=lambda d, ctx: (d["kind"] == "subject" and d["figure"].startswith("candidacy/") and d["new"] == ABSENT and (_year(d), d["figure"].split("/")[2]) in ctx["no_result"])
          or (d["kind"] == "electorate" and d["new"] == ABSENT and (_year(d), F.fold((d.get("old_doc") or {}).get("electorate"))) in ctx["no_result"])),
     dict(id="frozen-person-page-before-the-window", card="the-frozen-site-shows-the-2017-race-the-rebuilt-site-the-2026-one", right="neither", owner="site",
@@ -695,7 +885,7 @@ def context(new_root: str, new_files: dict) -> dict:
                     unread.add((card.get("party"), str(y)))
     left_out, unheld = set(), set()
     try:
-        for p in load(new_root, "data/home.json").get("parties") or []:
+        for p in F.parties_by_name(load(new_root, "data/home.json").get("parties")):
             for y in (p.get("window") or {}).get("years_left_out") or []:
                 left_out.add((p.get("party"), str(y)))
             for y, v in (p.get("declared_by_year") or {}).items():
@@ -723,17 +913,20 @@ def context(new_root: str, new_files: dict) -> dict:
             for r in doc.get("races") or []:
                 if r.get("result_held") is False:
                     no_result.add((str(r.get("year") or str(r.get("election", ""))[-4:]), F.fold(doc.get("electorate"))))
-    rows_index = defaultdict(set)
+    rows_index, new_multi = defaultdict(set), Counter()
     for rel, k in new_files.items():
         if k == "donor":
             try:
                 doc = load(new_root, rel)
             except (OSError, ValueError):
                 continue
+            new_multi[F.fold(doc.get("name"))] += 1
             for h in doc.get("history") or []:
-                if h.get("source") in ("return", "disclosure"):
-                    rows_index[(str(h.get("year")), F.cents(h.get("amount")), F.fold(h.get("party_name")))].add(F.fold(doc.get("name")))
+                if h.get("source") in ("return", "disclosure", "candidate"):
+                    receiver = h.get("receiver") if h.get("source") == "candidate" else h.get("party_name")
+                    rows_index[(str(h.get("year")), F.cents(h.get("amount")), F.fold(receiver))].add(F.fold(doc.get("name")))
     return {"unread_party_years": unread, "donor_causes": {}, "new_rows": rows_index, "old_parties": set(),
+            "new_multi": new_multi, "race_causes": {}, "withheld_expenses": set(),
             "left_out_party_years": left_out, "unheld_party_years": unheld, "new_people": new_people,
             "no_result": no_result, "old_people": Counter(), "old_rows": defaultdict(set),
             "unread_names": {(F.fold(p), y) for p, y in unread}, "left_out_names": {(F.fold(p), y) for p, y in left_out},
@@ -762,8 +955,20 @@ def old_context(old_root: str, old_files: dict, ctx: dict) -> None:
             except (OSError, ValueError):
                 continue
             for h in doc.get("history") or []:
-                if h.get("source") in ("party", "disclosure"):
+                if h.get("source") in ("party", "disclosure", "candidate"):
                     ctx["old_rows"][(str(h.get("year")), F.cents(h.get("amount")), F.fold(h.get("receiver")))].add(F.fold(doc.get("name")))
+
+
+def sections_added(template: str = None) -> dict:
+    """{kind: keys} the template declares as the rebuilt pages' own
+    (`sections_added` in ftm.json, read only); person and party pages are
+    the subject kind's two halves."""
+    try:
+        with open(template or TEMPLATE, encoding="utf-8") as f:
+            added = json.load(f).get("sections_added") or {}
+    except (OSError, ValueError):
+        return {}
+    return {k: set(v) for k, v in added.items() if isinstance(v, list)}
 
 
 def card_state(card: str, cards_dir: str = None) -> str | None:
@@ -811,9 +1016,10 @@ def compare(old_root: str, new_root: str, causes=None, cards_dir: str = None) ->
     for k in new_files.values():
         kinds[k]["new"] += 1
     grouped = defaultdict(lambda: {"n": 0, "kinds": Counter(), "sample": []})
-    uncarded = []
+    uncarded, records = [], []
     total = 0
     order = {"donor": 0}
+    added = sections_added()
     matched = match_donors(old_root, new_root, match_files(old_files, new_files))
     matched = sorted(matched, key=lambda m: (order.get(m[0], 1), m[1] or m[2]))
     for kind, orel, nrel in matched:
@@ -821,16 +1027,18 @@ def compare(old_root: str, new_root: str, causes=None, cards_dir: str = None) ->
         ndoc = load(new_root, nrel) if nrel else None
         if orel and nrel:
             kinds[kind]["matched"] += 1
-        diffs = diff_file(kind, orel, nrel, odoc, ndoc)
+        diffs = diff_file(kind, orel, nrel, odoc, ndoc, added)
         if odoc is not None and ndoc is not None and kind not in ("cite", "board-member"):
             fo, _ = F.figures(kind, orel, "old", odoc)
             kinds[kind]["figures"] += len(fo)
         for d in diffs:
             d.update(kind=kind, path=orel or nrel, old_doc=odoc, new_doc=ndoc, file_diffs=diffs)
+        assigned = []
         for d in diffs:
             cid = assign(d, ctx, causes)
             if cid and card_state(by_id[cid]["card"], cards_dir) in (None, "dropped"):
                 cid = None
+            assigned.append(cid)
             rec = {"kind": kind, "path": d["path"], "figure": d["figure"],
                    "old": F.show(d["figure"], d["old"]), "new": F.show(d["figure"], d["new"])}
             for extra in ("old_only", "new_only"):
@@ -838,6 +1046,7 @@ def compare(old_root: str, new_root: str, causes=None, cards_dir: str = None) ->
                     rec[extra] = d[extra][:12]
             total += 1
             kinds[kind]["differences"] += 1
+            records.append(dict(rec, cause=cid or "uncarded"))
             g = grouped[cid or "uncarded"]
             g["n"] += 1
             g["kinds"][kind] += 1
@@ -847,8 +1056,16 @@ def compare(old_root: str, new_root: str, causes=None, cards_dir: str = None) ->
                 uncarded.append(rec)
         if kind == "donor":
             name = F.fold((odoc or ndoc or {}).get("name"))
-            ids = [assign(d, ctx, causes) for d in diffs if not d["figure"].startswith("section/")]
+            ids = [cid for d, cid in zip(diffs, assigned) if not d["figure"].startswith("section/")]
             ctx["donor_causes"][name] = None if (not ids or None in ids) else ids[0]
+        elif kind == "electorate":
+            el = F.fold((odoc or ndoc or {}).get("electorate"))
+            for d, cid in zip(diffs, assigned):
+                parts = d["figure"].split("/")
+                if parts[0] == "race" and len(parts) > 3 and parts[2] == "candidate":
+                    ctx["race_causes"].setdefault((el, parts[1]), set()).add(cid)
+                    if cid == "frozen-withheld-expenses":
+                        ctx["withheld_expenses"].add((parts[1], el, parts[3]))
     by_cause = {}
     for cid, g in sorted(grouped.items(), key=lambda kv: -kv[1]["n"]):
         c = by_id.get(cid)
@@ -861,7 +1078,7 @@ def compare(old_root: str, new_root: str, causes=None, cards_dir: str = None) ->
             "by_cause": by_cause, "uncarded": n_uncarded, "new_wrong": new_wrong,
             "clean": n_uncarded == 0 and new_wrong == 0,
             "explained": n_uncarded == 0,
-            "unread_party_years": len(ctx["unread_party_years"])}
+            "unread_party_years": len(ctx["unread_party_years"]), "records": records}
 
 
 def run(frozen: str = None, new: str = None, *, state_dir: str = None, site: str = None,
@@ -888,9 +1105,18 @@ def run(frozen: str = None, new: str = None, *, state_dir: str = None, site: str
 
 
 def write_day(day: dict, state_dir: str) -> None:
+    """The day record (grouped, with samples) and beside it every
+    difference with its cause, one JSON line each (`<version>.diffs.jsonl`),
+    so a card's full list is on disk; figures only, never a page's text."""
     os.makedirs(os.path.join(state_dir, "days"), exist_ok=True)
     name = (day.get("frozen") or "none").replace("/", "_")
     path = os.path.join(state_dir, "days", f"{name}.json")
+    records = day.pop("records", None)
+    if records is not None:
+        with open(path[:-5] + ".diffs.jsonl.tmp", "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r, ensure_ascii=False, default=str) + "\n")
+        os.replace(path[:-5] + ".diffs.jsonl.tmp", path[:-5] + ".diffs.jsonl")
     with open(path + ".tmp", "w", encoding="utf-8") as f:
         json.dump(day, f, ensure_ascii=False, indent=1, default=str)
     os.replace(path + ".tmp", path)
