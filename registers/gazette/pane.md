@@ -59,3 +59,18 @@ and section, who appointed (the Governor-General, a Minister, the Sovereign, a C
 term's start and end where printed, and whether the notice is a corrigendum. Where an appointee lives (", of <town>")
 is read past and never kept. A name on an appointment is not joined to a Member of Parliament or anyone else; the
 check compares surnames only, as a measure of the reader.
+
+A possession row (`pub.gazette_possessions`, one per notice under `gn` of a mortgagee's entry into possession, 3,002
+notices from 2000 to 2026) opens to its notice: the lender by name as printed, with its company number where printed and
+the companies register's entity; the borrower by name only where it is a company; whether the notice is about land
+(1,191) or goods (1,777, mostly vehicles and plant; 34 do not say); whether the lender entered into possession, received
+the property's income (8) or both (20); the Act and section; and the day of entry, saying where it came from: "with
+effect from" (1,751), the sentence that enters (1,145), or the notice's first "on" or "as from" day (55); 51 print no day
+the reader can find. Measured on every notice on 20 October 2026: 2,899 name their lender (2,827 shown by name; 35
+lenders are people and 37 names may run on from the borrowers', so neither is shown); 2,449 of the 2,864 company lenders
+are joined to the register, the rest mostly custodian companies renamed or removed since and building societies, which
+the companies register does not hold; 339 borrowers are companies (330 shown, 306 joined), 136 are people and 2,441
+notices name no borrower. The property's address, the goods' description and registration numbers, and every person's
+name are never shown: they are held only in `gazette_private`, and a row says only that a description is held. A title
+that names the property is shown cut before it. A lender printed without its "Limited" ("GE Custodians") is joined with
+it added, and says so.

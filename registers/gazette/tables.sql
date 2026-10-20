@@ -250,6 +250,44 @@ CREATE TABLE IF NOT EXISTS gazette.appointments (
     loaded_at        timestamptz NOT NULL
 );
 
+-- one row per notice of a mortgagee's entry into possession of mortgaged land or goods, or its receipt of the income
+-- (gn). The lender and a borrower that is a company by name; the property, the goods' registration numbers and any
+-- person's name in gazette_private only (hard limit 15)
+CREATE TABLE IF NOT EXISTS gazette.possessions (
+    key                       text PRIMARY KEY,             -- gazette/<notice>/possession
+    notice                    text NOT NULL,
+    published_on              date,
+    action                    text NOT NULL CHECK (action IN ('entry into possession', 'receipt of income',
+                                                              'entry into possession and receipt of income')),
+    asset                     text NOT NULL CHECK (asset IN ('land', 'goods', 'not stated')),
+    statute                   text,
+    mortgagee                 text,                         -- a company as printed; none where a person, or not shown
+    mortgagee_kind            text NOT NULL CHECK (mortgagee_kind IN ('company', 'person', 'not read')),
+    mortgagee_number          text,
+    mortgagee_register_key    text,                         -- pub.companies.key
+    mortgagee_register_match  text,                         -- how (register.py); NULL where the register was not in the database
+    mortgagor                 text,                         -- a company as printed; never a person
+    mortgagor_kind            text NOT NULL CHECK (mortgagor_kind IN ('company', 'person', 'not printed', 'not read')),
+    mortgagor_number          text,
+    mortgagor_register_key    text,
+    mortgagor_register_match  text,
+    entered_on                date,                         -- the day of entry
+    entered_basis             text,                         -- with effect from | in the entry's sentence | the notice's first 'on' or 'as from' day
+    dated_on                  date,
+    corrigendum               boolean NOT NULL,
+    property_held             boolean NOT NULL,             -- a description of the land or goods is in gazette_private
+    document                  text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page                      integer NOT NULL DEFAULT 1,
+    place                     text NOT NULL,                -- notice <number> possession
+    read_from                 text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader                    text NOT NULL,
+    profile                   text NOT NULL,
+    profile_version           integer NOT NULL,
+    loaded_at                 timestamptz NOT NULL,
+    CHECK (mortgagor IS NULL OR mortgagor_kind = 'company'),
+    CHECK (mortgagee IS NULL OR mortgagee_kind = 'company')
+);
+
 -- every document the lane took, and what it did with it
 CREATE TABLE IF NOT EXISTS gazette.files (
     document   text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
@@ -285,4 +323,15 @@ CREATE TABLE IF NOT EXISTS gazette_private.bankruptcy_addresses (
     key        text PRIMARY KEY,                            -- the bankruptcy row's key
     address    text,
     formerly   text
+);
+
+-- a possession notice's property (the land's description, often a home's address, or the goods'), the goods'
+-- registration, VIN or serial numbers, and a lender or borrower who is a person, or a name the published row does not
+-- show: never published, never granted to the session reader
+CREATE TABLE IF NOT EXISTS gazette_private.possession_details (
+    key           text PRIMARY KEY,                         -- the possession row's key
+    mortgagee     text,
+    mortgagor     text,
+    property      text,
+    registration  text
 );

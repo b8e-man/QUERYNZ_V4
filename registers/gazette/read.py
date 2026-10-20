@@ -18,6 +18,9 @@ model, so the fast tier runs the same code.
                overseas company's leaving (overseas.py), a restoration (restorations.py) or a
                society's or trust board's dissolution (dissolutions.py) names,
                and practitioners one per receiver or administrator named; no address is read
+  possessions  one per notice of a mortgagee's entry into possession (possessions.py): the
+               names it may show decided at the join (load.join_possessions); the property,
+               registration numbers and any person's name to the private schema only
 
 Items in equal items out plus items set aside, three times over: every
 export line is a notice or a second capture set aside; every notice
@@ -38,7 +41,7 @@ from dataclasses import dataclass, field
 from keys.dates import filed_date
 from support import profiles
 from registers.gazette import (appointments, bankruptcies, capture, celebrants, creditors, dissolutions, liquidations, notices, overseas,
-                               prohibitions, receiverships, removals, restorations, windingup)
+                               possessions, prohibitions, receiverships, removals, restorations, windingup)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -53,6 +56,7 @@ READER_LIQUIDATIONS = "registers.gazette.liquidations 2"
 READER_BANKRUPTCIES = "registers.gazette.bankruptcies 1"
 APPOINTMENT_PROFILE = "gazette-public-appointment"
 READER_APPOINTMENTS = "registers.gazette.appointments 1"
+READER_POSSESSIONS = "registers.gazette.possessions 1"
 #: the company-notice readers: (module, profile, reader stamp, kind), tried in this order
 COMPANY_READERS = (
     (removals, "gazette-removal-notice", "registers.gazette.removals 1", "removal"),
@@ -81,6 +85,7 @@ class Result:
     bankruptcies: list = field(default_factory=list)
     bankruptcy_addresses: list = field(default_factory=list)   # (bankruptcy key, address, formerly)
     appointments: list = field(default_factory=list)
+    possessions: list = field(default_factory=list)     # names and the property in `_private`, moved out at the join
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
     counts: dict = field(default_factory=dict)
 
@@ -150,6 +155,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
     bankrupt = defaultdict(lambda: [0, 0, 0])           # profile → [recognised, read, set aside]
     appointed = [0, 0, 0]                               # recognised, read, set aside
     av = profile_version(APPOINTMENT_PROFILE)
+    mv = profile_version(possessions.PROFILE)
+    possessed = [0, 0, 0]                               # recognised, read, set aside
     orgs = None                                         # the celebrant organisation vocabulary, made before the first table
     # the printed celebrant tables last: they are cut by the organisations every other list prints
     for nid in sorted(by, key=lambda n: (any(celebrants.is_table(l["text"]) for l in by[n]), n)):
@@ -324,6 +331,31 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                 status = "set aside"
                 if not got.unread:
                     out.set_aside.append((f"{export_sha}/notice {nid}", "bankruptcies", "recognised, and no person read"))
+        elif possessions.recognise(code, line["title"], line["text"]):
+            fmt, reader, profile, version = possessions.PROFILE, READER_POSSESSIONS, possessions.PROFILE, mv
+            possessed[0] += 1
+            got = possessions.read(line["title"], line["text"])
+            for place, why in got.unread:
+                out.set_aside.append((f"{export_sha}/notice {nid} {place}", "possessions", why))
+            lender, borrower = got.mortgagee, got.mortgagor
+            out.possessions.append({
+                "key": f"gazette/{nid}/possession", **base, "place": f"notice {nid} possession",
+                "reader": READER_POSSESSIONS, "profile": possessions.PROFILE, "profile_version": mv,
+                "filed": {"notice": nid, "published_on": line["published_on"], "action": got.action, "asset": got.asset,
+                          "statute": got.statute, "mortgagee": None, "mortgagee_kind": lender.kind if lender else "not read",
+                          "mortgagee_number": lender.number if lender else None,
+                          "mortgagor": None, "mortgagor_kind": borrower.kind if borrower else
+                          ("not read" if got.mortgagor_printed else "not printed"),
+                          "mortgagor_number": borrower.number if borrower and borrower.kind == "company" else None,
+                          "entered_on": got.entered_on, "entered_basis": got.entered_basis, "dated_on": got.dated_on,
+                          "corrigendum": got.corrigendum, "property_held": bool(got.property or got.registration)},
+                # the join decides which names are shown (load.join_possessions); until then every name is private
+                "_private": {"mortgagee": lender, "glued": got.glued, "mortgagor": borrower, "property": got.property,
+                             "registration": got.registration},
+            })
+            records = 1 if lender else 0
+            possessed[1 if records else 2] += 1
+            status = ("read, part set aside" if got.unread else "read") if records else "set aside"
         elif appointments.recognise(code, line["title"], line["text"]):
             fmt, reader, profile, version = APPOINTMENT_PROFILE, READER_APPOINTMENTS, APPOINTMENT_PROFILE, av
             appointed[0] += 1
@@ -346,7 +378,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
             "key": f"gazette/{nid}", **base, "place": f"notice {nid}",
             "reader": reader, "profile": profile, "profile_version": version,
             "filed": {"notice": nid, "year": year, "section": code, "number": n, "family": notices.family(code),
-                      "format": fmt, "status": status, "records": records, "supersedes": supersedes, "title": line["title"],
+                      "format": fmt, "status": status, "records": records, "supersedes": supersedes,
+                      "title": possessions.public_title(line["title"]) if fmt == possessions.PROFILE else line["title"],
                       "published_on": line["published_on"], "url": line["url"], "old_type": line.get("old_type"),
                       "article": line["article"], "source_note": capture.EXPORT_NOTE},
         })
@@ -379,6 +412,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
         if not f["withheld_by"]:
             later = sorted(a for a in annulled.get(_person_key(f), []) if (f["event_on"] or f["published_on"] or "") <= a[0])
             f["withheld_by"] = later[0][1] if later else None
+    if possessed[1] + possessed[2] != possessed[0]:
+        raise AssertionError(f"the possession notices do not reconcile: {possessed}")
     if appointed[1] + appointed[2] != appointed[0]:
         raise AssertionError(f"the appointment notices do not reconcile: {appointed}")
     for slug, (n, ok, aside) in bankrupt.items():
@@ -409,6 +444,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                   "bankruptcies_withheld": sum(1 for b in out.bankruptcies if b["filed"]["withheld_by"]),
                   "appointment_notices": appointed[0], "appointment_notices_read": appointed[1],
                   "appointment_notices_set_aside": appointed[2], "appointments": len(out.appointments),
+                  "possession_notices": possessed[0], "possession_notices_read": possessed[1],
+                  "possession_notices_set_aside": possessed[2],
                   "set_aside": len(out.set_aside),
                   "not_read": sum(1 for r in out.notices if r["filed"]["format"] == NOT_READ)}
     return out

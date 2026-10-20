@@ -62,3 +62,12 @@ CREATE OR REPLACE VIEW pub.gazette_appointments AS
 SELECT key, notice, published_on, body, name, role, statute, by_whom, starts_on, ends_on, dated_on, corrigendum, ordinal,
        document, page, place, read_from, reader, profile, profile_version, loaded_at
 FROM gazette.appointments;
+
+-- a mortgagee's entry into possession: the lender and a company borrower by name, land or goods, the day; never the
+-- property, a registration number or a person's name (gazette_private)
+CREATE OR REPLACE VIEW pub.gazette_possessions AS
+SELECT key, notice, published_on, action, asset, statute, mortgagee, mortgagee_kind, mortgagee_number, mortgagee_register_key,
+       mortgagee_register_match, mortgagor, mortgagor_kind, mortgagor_number, mortgagor_register_key, mortgagor_register_match,
+       entered_on, entered_basis, dated_on, corrigendum, property_held, document, page, place, read_from, reader, profile,
+       profile_version, loaded_at
+FROM gazette.possessions;
