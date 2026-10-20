@@ -1,0 +1,186 @@
+# Use case 13, beneficial ownership and anti-money-laundering checks, the
+# domestic half (plan step 5.2, fifth template): a compliance team asks "who
+# ultimately holds or runs this, and are they exposed". A subject report on
+# the shape in products/report/; it reads only the published views below, and
+# its sections run in the order a compliance analyst reads them. Its own
+# rules are in rules.py; its known limits in limits.md.
+#
+# The domestic half: the companies register's holders of record and
+# directors, the Gazette, the House and political money. Sanctions lists,
+# limited partnerships, overseas registers, trusts and the securities
+# register are not held; every check that needs one is blocked, never clear.
+name = "ownership"
+title = "Beneficial ownership and AML checks, domestic half"
+version = "0.1"
+owner = "products/templates/13-ownership, step 5.2 (session ownership-1)"
+# 2: from a company, its holders of record, directors and registered office
+# (one hop; a company holder carries no business number, so the walk cannot
+# take the next); from a person, the companies the person holds or sits on
+# and the other holders and directors on them (near).
+depth = 2
+
+limits = [
+  "The chain stops at the first hop. A company that holds shares is named in the companies file with no business number, so nothing joins it to its own row: its holders and directors are not reached, and every check that needs the people further up is blocked, never clear. The depth limit is four hops; the registers reach one.",
+  "A holder of record is the name on the share register and nothing more. For whom a nominee, trustee or custodian holds the shares is in no register held, and New Zealand keeps no register of trusts, nor of the people shares are held for.",
+  "Sanctions lists (Foreign Affairs, the United Nations, the Police designations) are not held: the exposure check has no list to read and is blocked, never clear.",
+  "Limited partnerships, overseas registers and the Personal Property Securities Register are not held: a holder that is a limited partnership or an overseas company is named as filed and not followed.",
+  "The shares on a holder's row are the shares filed for that holding. A parcel held jointly is filed once per holder with the same number of shares, and no row says which rows share a parcel or how many shares the company has issued, so no fraction is computed and none is carried up the chain.",
+  "A holding is dated only by the monthly files it was seen in (from July 2026); the register's own allocation dates are not published.",
+  "Started from a company, the report lists its directors and holders of record but does not follow the people: their prohibitions, other companies, seats and donations are not read, and those checks are blocked, never clear. Start a report from each person listed.",
+  "A holder that holds many companies is flagged only when its name says nominee, trustee, custodian or the Crown, or when it is a professional director: the count of companies a holder holds is not read by the walk.",
+  "The entity is the row the report starts from and the rows a rule confirms are the same. A row that only shares the name is a namesake, set apart with its reason, and is not the entity until confirmed.",
+  "Two facts are shown side by side with their dates. The report never says one followed from the other.",
+  "A Gazette bankruptcy notice is published but no link rule joins it to a person yet, so this report cannot see one: a blank there is not a clear.",
+  "A company's registered office is listed and is flagged when fifty or more companies share it. No residential address is held in any view read.",
+  "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+]
+
+# ── what it reads: each view with its licence ───────────────────────────────
+[[reads]]
+view = "companies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "shareholders"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "directors"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "company_addresses"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; registered offices only, never a residential address"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "gazette_liquidations"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_company_notices"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person named in a rectification is held by initials and surname only"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_prohibitions"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a revoked prohibition's name is never shown"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_bankruptcies"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; an annulled bankruptcy's name is withheld"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "members"
+licence = "Electoral Commission results and the House's own lists, public"
+attribution = "Electoral Commission; New Zealand Parliament"
+refresh = "after each election and by-election"
+[[reads]]
+view = "candidates"
+licence = "Electoral Commission results and nominations, public"
+attribution = "Electoral Commission"
+refresh = "after each election and by-election"
+[[reads]]
+view = "mp_interest_returns"
+licence = "Register of Pecuniary and Other Specified Interests of Members of Parliament, published by the House"
+attribution = "Office of the Registrar of Pecuniary Interests"
+refresh = "each annual edition"
+[[reads]]
+view = "mp_interests"
+licence = "Register of Pecuniary and Other Specified Interests of Members of Parliament, published by the House"
+attribution = "Office of the Registrar of Pecuniary Interests"
+refresh = "each annual edition"
+[[reads]]
+view = "party_return_donors"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "party_return_loans"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "party_return_totals"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "disclosures"
+licence = "Electoral Commission large-donation disclosures: published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "nightly listing"
+[[reads]]
+view = "disclosure_items"
+licence = "Electoral Commission large-donation disclosures: published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "nightly listing"
+[[reads]]
+view = "candidate_return_donors"
+licence = "Electoral Commission candidate returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return is published"
+[[reads]]
+view = "candidate_return_totals"
+licence = "Electoral Commission candidate returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return is published"
+
+# ── sections, in the order a compliance analyst reads them ──────────────────
+# A row is listed once, in the first section that names its view and the walk
+# bucket it came from; an entity the walk reached (a company, a return) goes
+# to the first section naming its view, whatever that section's buckets. So
+# each company heads the holders section with its holders of record beneath
+# it, and a company that only shares the entity's name sits there too, near,
+# with its reason, after every confirmed row. The first section takes only
+# near links: rows that share the subject's name and that no rule confirms.
+[[sections]]
+name = "identity"
+heading = "The entity, and its namesakes set apart"
+views = ["directors", "shareholders", "members", "candidates", "party_return_donors", "party_return_loans", "disclosures", "disclosure_items",
+         "candidate_return_donors"]
+sources = ["near"]
+text = "The entity is the row above: a company is its NZBN, and a person is the rows a rule confirms are the same person. Each row here shares a name with the subject and no rule confirms it: a namesake, with the reason it is only near. Nothing in a namesake's rows is the subject's. A company that shares the name is listed in the next section, near, with its reason."
+
+[[sections]]
+name = "holders"
+heading = "Its shareholders of record, with their shares and the files that date them, as far up the chain as the registers reach"
+views = ["companies", "shareholders"]
+sources = ["roles", "members", "confirmed", "near", "second"]
+text = "Every shareholder of record the companies file lists on the company, with the shares filed for that holding and the monthly files it was seen in. A holder of record is shown as the register states it; a nominee, trustee or custodian holds for others, and for whom is in no register held. The chain stops here: a holder that is a company carries no business number in the file, so its own holders are not reached (the depth limit is four hops; the registers reach one), and the flags below name each company holder. A parcel held jointly is filed once per holder, so the shares on two rows may be one parcel and are never added. Started from a person, each company the person holds or sits on, with its other holders of record beneath it, each near."
+
+[[sections]]
+name = "officers"
+heading = "Its directors and registered office, and the directors of the companies a person sits on"
+views = ["directors", "company_addresses"]
+sources = ["roles", "members", "confirmed", "second"]
+text = "Every director the companies file lists on the company, with the dates it files, and its registered office, flagged when many companies share it. The directors and holders of a company holder further up the chain are not reached. Started from a person, the person's own directorships, then the other directors on those companies, each near: a connection through another person is never confirmed."
+
+[[sections]]
+name = "gazette"
+heading = "The Gazette on the companies and the people"
+views = ["gazette_liquidations", "gazette_company_notices", "gazette_prohibitions", "gazette_bankruptcies"]
+sources = ["members", "confirmed", "near", "pointing"]
+not_held = ["insolvency"]
+text = "Liquidations, receiverships, administrations, winding-up applications, creditors' notices, deeds of company arrangement, removals, restorations and amalgamations on the companies listed, each with its own date; then director prohibitions with their term on a person. A removal from the register is not an insolvency. Bankruptcy notices are published but no link rule joins one to a person yet. Started from a company, its people's notices are not read, nor the notices on a company holder further up."
+
+[[sections]]
+name = "exposure"
+heading = "Public office and political money"
+views = ["members", "candidates", "mp_interest_returns", "mp_interests", "party_return_donors", "party_return_loans", "disclosures", "disclosure_items",
+         "candidate_return_donors", "party_return_totals", "candidate_return_totals"]
+sources = ["members", "confirmed"]
+text = "Seats in the House and candidacies confirmed to a person, and a member's declared interest that names the company; then donations and loans the Electoral Commission filed under the subject's name. A donation is from the donor the Commission filed it under; a disclosure of a gift a return covers is shown beside it and never added. Started from a company, these are the company's own: its directors' and holders' seats and donations are not read."
+
+[[sections]]
+name = "not-held"
+heading = "What is not held"
+views = []
+not_held = ["sanctions", "limited_partnerships", "securities", "insolvency", "courts", "fsp", "charities", "linz"]
+text = "Registers an anti-money-laundering check would read that no lane has published: the sanctions lists (the Russia Sanctions Act list kept by Foreign Affairs, the United Nations consolidated list, the Police designations under the Terrorism Suppression Act), the limited partnerships register and a partnership's general and limited partners, overseas company registers and an overseas holder's own holders, trusts and their trustees, settlors and the people they hold for (New Zealand keeps no register of trusts, nor of the people shares are held for), the Personal Property Securities Register, the Insolvency Register, court judgments, financial service providers, charities and land titles. Nothing in this report says anything about them; ask the source."

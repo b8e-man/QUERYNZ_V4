@@ -31,18 +31,24 @@
    by hash, so it is never fetched twice in a day and is re-read without the
    network. The party societies first, then the stalest seventh. A 403, 429,
    5xx or challenge page is a failed read: logged, and the run stops for that
-   host. The four questions are answered in `docs/status/societies.md`.
+   host. A read that times out or is cut off (a socket timeout, the gateway's
+   504, a reset connection) is a failed read too, but not a block: the society
+   is set aside with the reason, the run rests and goes on, and five in a row
+   stop it. The four questions are answered in `docs/status/societies.md`.
 
     export(part)                    one part's bytes (run once, done)
     copy_all(conn)                  land the three parts: ([(part, DocumentRef, name, at)], [(item, why)])
     slice_for(day, societies, asked, party)   tonight's NZBNs, party societies first
     fetch_entity(nzbn, ...)         one gated ask: (Fetched, DocumentRef or None)
+    cut_off(exc_or_fetched)         why a read did not finish, or ''
+    set_asides(ledger)              the catch log's lines: [(item, why)] of societies whose last ask did not finish
     python -m registers.societies.capture --export DIR [PART ...]
     python -m registers.societies.capture --fetch NZBN [NZBN ...]   a handful, to prove the path
     python -m registers.societies.capture --night [--budget-s N] [--anytime]   the nightly job
 """
 import datetime as dt
 import gzip
+import http.client
 import json
 import os
 import re
@@ -94,6 +100,11 @@ NIGHTS = 7
 #: the lane's own floor between asks, above the gate's default, until the gate's FLOORS names the host
 LANE_FLOOR_S = 5.0
 _LAST = {}
+#: after a read that did not finish, the run rests this long before the next ask
+REST_S = 60.0
+#: this many unfinished reads in a row and the host is not answering: the run stops (hard limit 7)
+FAILS_IN_A_ROW = 5
+GATEWAY_TIMEOUT = 504
 
 
 def _j(obj) -> str:
@@ -270,6 +281,25 @@ def fetch_entity(nzbn: str, conn=None, *, key: str = None, fetch=None, pacer=Non
     return got, ref
 
 
+def cut_off(what) -> str:
+    """Why a read did not finish: a timeout, the gateway's 504 or a dropped
+    connection, as one line; '' for anything else (a block, a refusal, an
+    answer). `what` is the exception an ask raised, or its Fetched."""
+    import urllib.error
+    if isinstance(what, BaseException):
+        exc = what.reason if isinstance(what, urllib.error.URLError) and isinstance(what.reason, BaseException) \
+            else what
+        if isinstance(exc, TimeoutError):
+            return "the read timed out"
+        if isinstance(exc, (ConnectionError, http.client.IncompleteRead, http.client.RemoteDisconnected)):
+            return f"the connection was cut off ({type(exc).__name__})"
+        return ""
+    from support import fetchgate
+    if getattr(what, "status", None) == GATEWAY_TIMEOUT and not fetchgate.looks_challenged(200, what.body):
+        return "HTTP 504: the register's gateway timed out"
+    return ""
+
+
 ASK_LEDGER = os.path.join(os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live", "checks",
                           "societies-asks.jsonl")
 DEFAULT_BUDGET_S = 5 * 3600 - 600
@@ -316,20 +346,39 @@ def answers(ledger: str = ASK_LEDGER) -> list:
     return sorted(set(out), key=lambda x: (x[1], x[0]))
 
 
+def set_asides(ledger: str = ASK_LEDGER) -> list:
+    """[(item, why)] for the catch log: every society whose last ask in the
+    nights' ledger did not finish. One asked again and answered drops out."""
+    last = {}
+    if os.path.exists(ledger):
+        with open(ledger, encoding="utf-8") as f:
+            for line in f:
+                r = json.loads(line)
+                if r["at"] >= last.get(r["nzbn"], {}).get("at", ""):
+                    last[r["nzbn"]] = r
+    return [(f"societies/{n}", f"asked {r['at']}: {r['set_aside']}")
+            for n, r in sorted(last.items()) if r.get("set_aside")]
+
+
 def night(conn, *, budget_s: float = DEFAULT_BUDGET_S, anytime: bool = False, key: str = None, fetch=None,
-          pacer=None, now=None, ledger: str = ASK_LEDGER, log=print) -> dict:
+          pacer=None, now=None, ledger: str = ASK_LEDGER, log=print, rest=None) -> dict:
     """One night: the party societies, then the stalest seventh, one gated
-    ask each, until the slice, the budget or off-peak ends, or a block."""
+    ask each, until the slice, the budget or off-peak ends, or a block. A
+    read that does not finish sets its society aside and the run rests and
+    goes on. A block or a refusal stops it. Red only when the register
+    answered nothing: a run stopped early that landed answers is green and
+    says why it stopped."""
     import time
-    from support import jobrun
+    from support import fetchgate, jobrun
+    rest = rest or time.sleep
     now = now or (lambda: dt.datetime.now().astimezone())
     started, t0 = jobrun.now(), time.monotonic()
     socs = [(n, name, status) for n, name, status in conn.execute(
         "SELECT nzbn, name, status FROM societies.societies WHERE in_latest AND status = 'registered' "
         "AND nzbn IS NOT NULL")]
     tonight = slice_for(socs, clock(conn, ledger))
-    counts = {"slice": len(tonight), "asked": 0, "landed": 0, "not_found": 0, "failed": 0}
-    stopped = ""
+    counts = {"slice": len(tonight), "asked": 0, "landed": 0, "not_found": 0, "failed": 0, "set_aside": 0}
+    stopped, red, in_a_row = "", False, 0
     key = key or api_key()
     os.makedirs(os.path.dirname(ledger), exist_ok=True)
     for n in tonight:
@@ -339,17 +388,41 @@ def night(conn, *, budget_s: float = DEFAULT_BUDGET_S, anytime: bool = False, ke
         if time.monotonic() - t0 >= budget_s:
             stopped = "budget spent"
             break
-        got, ref = fetch_entity(n, conn, key=key, fetch=fetch, pacer=pacer)
+        try:
+            got, ref = fetch_entity(n, conn, key=key, fetch=fetch, pacer=pacer)
+            why = cut_off(got)
+        except fetchgate.Refused as exc:
+            stopped, red = f"the gate refused {n}: {exc}", True
+            break
+        except (OSError, http.client.HTTPException) as exc:
+            why = cut_off(exc)
+            if not why:
+                stopped, red = f"no answer at {n}: {type(exc).__name__}: {exc}", True
+                break
+            got, ref = None, None
         conn.commit()
         counts["asked"] += 1
-        counts["landed" if ref else "not_found" if got.status == 404 else "failed"] += 1
+        line = {"nzbn": n, "at": now().isoformat(timespec="seconds"), "status": got.status if got else None,
+                "sha256": ref.sha256 if ref else None}
+        if why:
+            counts["set_aside"] += 1
+            in_a_row += 1
+            line.update(blocked=None, set_aside=why)
+        else:
+            in_a_row = 0
+            counts["landed" if ref else "not_found" if got.status == 404 else "failed"] += 1
+            line["blocked"] = got.blocked or None
         with open(ledger, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"nzbn": n, "at": now().isoformat(timespec="seconds"), "status": got.status,
-                                "sha256": ref.sha256 if ref else None, "blocked": got.blocked or None}) + "\n")
-        if got.blocked:
-            stopped = f"a failed read at {n}: {got.blocked}"
+            f.write(json.dumps(line) + "\n")
+        if not why and got.blocked:
+            stopped, red = f"a failed read at {n}: {got.blocked}", True
             break
-    ok = not stopped.startswith("a failed read")
+        if in_a_row >= FAILS_IN_A_ROW:
+            stopped, red = f"{in_a_row} reads in a row did not finish, the last at {n}: {why}", True
+            break
+        if why:
+            rest(REST_S)
+    ok = counts["landed"] + counts["not_found"] > 0 or not (red or counts["asked"])
     detail = ", ".join(f"{k} {v}" for k, v in counts.items()) + (f"; stopped: {stopped}" if stopped else "")
     log("societies capture: " + detail)
     jobrun.record("qv4-societies-capture", ok, detail, started, counts)
@@ -386,7 +459,11 @@ def main(argv=None) -> int:
         key = api_key()
         with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
             for n in nzbns:
-                got, ref = fetch_entity(n, conn, key=key)
+                try:
+                    got, ref = fetch_entity(n, conn, key=key)
+                except (OSError, http.client.HTTPException) as exc:
+                    print(f"{n}: not landed: {cut_off(exc) or type(exc).__name__}", flush=True)
+                    continue
                 conn.commit()
                 print(f"{n}: HTTP {got.status}, {len(got.body)} bytes"
                       + (f", landed {ref.sha256}" if ref else f", not landed: {got.blocked or 'no answer'}"),

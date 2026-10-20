@@ -312,3 +312,81 @@ def test_a_failed_listing_page_leaves_the_year_unlisted():
     r, t, _ = run(page_two_fails)
     r.run(TODAY, list_only=True)
     assert C.complete_years((y, p, n) for y, p, n, *_ in t.listings) == set(C.years_to_list(TODAY, set())) - {2015}
+
+
+# ── a server error is one failed read; a block still stops (card: an HTTP 500 ends the run as failed) ─────
+
+class Rests(NoWait):
+    def __init__(self):
+        self.floors = []
+
+    def wait(self, host, floor):
+        self.floors.append(floor)
+        return 0.0
+
+
+def answers_once(site, status, when, body=b""):
+    """The site, except the request numbered `when` (from 1) answers `status`, as the gate returns it."""
+    def opener(url, timeout=60, **kw):
+        if len(site.asked) + 1 == when:
+            site.asked.append(url)
+            return fg.Fetched(url, status, body, url, fg.looks_challenged(status, body))
+        return site(url, timeout)
+    return opener
+
+
+def test_an_http_500_is_one_failed_read_set_aside_and_the_run_rests_and_goes_on():
+    for status in C.SERVER_ERRORS:
+        site = FakeSite({2015: cases(2000, 3)})
+        listed = len(C.years_to_list(TODAY, set()))          # one listing page a year; 2015 has one
+        p = Rests()
+        r = C.Run(FakeTables(), land_fn=FakeStore(), opener=answers_once(site, status, listed + 1), pacer=p,
+                  clock=lambda: 0.0, now_local=lambda: NIGHT, log=lambda *_: None)
+        out = r.run(TODAY)
+        assert out["stopped"] == "" and out["cases"] == 2 and out["landed"] == 2, status   # the first case's abstract failed
+        assert [why for _, s, why in r.t.asides] == [f"HTTP {status}: the server's own error; set aside, the run rests and goes on"]
+        assert p.floors[listed + 1] == C.REST_S and p.floors[listed + 2] == C.FLOOR_S     # rests once, then its floor
+        assert site.asked.count(C.abstract_url(2000)) == 1                                # not asked twice in the run
+        assert not r.t.cases[2000]["captured"] and 2000 in r.t.pending(10)               # it waits for the next night
+        assert C.outcome(out) == (True, "done")
+
+
+def test_a_challenge_behind_a_503_still_stops_the_run():
+    site = FakeSite({2015: cases(2000, 3)})
+    r, t, _ = run(answers_once(site, 503, 19, b"<html><title>Just a moment...</title></html>"))
+    out = r.run(TODAY)
+    assert out["stopped"].startswith("stopped: HTTP 503: a block or a challenge") and len(site.asked) == 19
+
+
+def test_a_403_or_429_still_stops_the_run():
+    for status in (403, 429):
+        site = FakeSite({2015: cases(2000, 3)})
+        r, _, _ = run(answers_once(site, status, 19))
+        out = r.run(TODAY)
+        assert out["stopped"].startswith(f"stopped: HTTP {status}: a block or a challenge") and len(site.asked) == 19
+
+
+def test_three_server_errors_in_a_row_stop_the_run():
+    site = FakeSite({2015: cases(2000, 5)})
+
+    def down(url, timeout=60, **kw):
+        if "abstract.aspx" in url:
+            site.asked.append(url)
+            return fg.Fetched(url, 500, b"", url, fg.looks_challenged(500, b""))
+        return site(url, timeout)
+    r, _, _ = run(down)
+    out = r.run(TODAY)
+    assert out["stopped"] == "stopped: 3 failed reads in a row; the host may be in trouble"
+    assert len([u for u in site.asked if "abstract.aspx" in u]) == 3
+
+
+def test_a_run_stopped_early_after_landing_is_green_and_red_only_when_nothing_landed():
+    site = FakeSite({2015: cases(2000, 5)}, blocked_after=20)
+    r, _, _ = run(site)
+    out = r.run(TODAY)
+    ok, last = C.outcome(out)
+    assert ok and last.startswith("stopped early: a challenge page") and out["cases"] > 0
+    r2, _, _ = run(FakeSite({2015: cases(2000, 5)}, blocked_after=0))
+    ok2, last2 = C.outcome(r2.run(TODAY))
+    assert not ok2 and last2.endswith("; nothing landed")
+    assert C.outcome({"stopped": "budget spent", "listings": 0, "cases": 0, "landed": 0}) == (True, "budget spent")
