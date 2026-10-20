@@ -1,9 +1,10 @@
 # Sections the rebuilt pages add
 kind: finding
-state: open
+state: closed
 use-case: 1
 session: comparison
 opened: 2026-10-20
+closed: 2026-10-20
 
 The rebuilt pages carry sections the frozen pages did not: on person pages
 candidacies with votes, expenses and interests as "not held" blocks; on the
@@ -21,3 +22,8 @@ as prose; `party_window` for leaders, rules and top donors; the frozen's `exposu
 rebuilt in scratch: 1,866 differences fell to 209: `interests` on 206 member pages (the member's own returns, which the frozen had no block for),
 `returns_for_contests_not_held` on one electorate page (Tauranga's 2022 by-election returns), and the all-years file's count and year list. The
 template lists these under `sections_added`. Still needs: the comparison's section rule to read that list. Owner: comparison.
+
+Closed 2026-10-20 by comparison-2. The section rule reads the template's
+`sections_added` (read only) and counts none of those keys: 209 fell to 0.
+A key the rebuilt pages add that the template does not list is still a
+difference, so the list is the record.

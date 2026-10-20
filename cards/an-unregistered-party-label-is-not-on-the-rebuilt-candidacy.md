@@ -31,3 +31,13 @@ wherever the result prints none, joined the way candidate-returns already
 joins (year, electorate, surname); and candidate-returns to publish the
 summary's party for the returns it has not read. Owner from here: site, with
 candidate-returns.
+
+## 2026-10-20 (parties-2)
+
+`pub.candidates.party` now carries the label as filed, and
+`pub.party_labels` holds each with its outcome: on the real tables 49
+candidacies are "not a party" (`Independent`, and `IND` on the 2025
+by-election list) and 19 carry an unregistered label with "no
+registration live then answers to it" (Money Free Party NZ, Te Pāti Hira,
+NAP, …). Still needs the site: show the label where the registration is
+null.

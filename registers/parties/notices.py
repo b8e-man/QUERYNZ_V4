@@ -226,6 +226,12 @@ def _read_clause(clause: str, notice: str, published_on: str) -> list:
         if name and re.search(r"\blogo$", name, re.I):
             out.append(("logo", {}))
             continue
+        # "cancel the registration of the X Party logo in accordance with …" (2011-au5154): the cut ends
+        # the name at " Party logo"; the logo is what is cancelled unless the sentence says "and its logo"
+        sentence = re.split(r"\.(?=\s|[A-Z]|$)", rest, maxsplit=1)[0]
+        if re.search(r"\blogos?\b", sentence, re.I) and not re.search(r"\band its logo", sentence, re.I):
+            out.append(("logo", {}))
+            continue
         out.append(("cancelled", {"name": name}))
     if out:
         return out

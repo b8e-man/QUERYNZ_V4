@@ -107,3 +107,19 @@ def test_page_wraps_panes_with_the_search_and_the_save_form():
     html = panes.page("doe", ["directors:k"], ["<section class=\"pane\">x</section>"], "pinned")
     assert 'name="q" value="doe"' in html and 'action="/save"' in html and "pinned" in html
     assert "<script" not in html
+
+
+def test_every_pane_offers_a_report_from_here_only_when_a_report_server_is_named():
+    v = cat.BY_NAME["directors"]
+    r = director()
+    ref = f"{v.register}:{r['key']}"
+    report = panes.report_href("http://10.0.0.2:8440/", ref)
+    assert report == f"http://10.0.0.2:8440/report/{v.register}:companies/1/director/a"
+    link = f'<a href="{report}">report from here</a>'
+    assert panes.row_pane(ctx(v, r, report=report)).count(link) == 1
+    person = {"v": v, "row": r, "q": "doe", "path": [], "group": {"built": False, "why": "no links built yet"},
+              "same": {"held": set()}, "report": report}
+    assert panes.person_pane(person).count(link) == 1
+    assert panes.report_href("", ref) == ""                       # no server named, no link
+    assert "report from here" not in panes.row_pane(ctx(v, r, report=""))
+    assert "report from here" not in panes.person_pane({**person, "report": ""})
