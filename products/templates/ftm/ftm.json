@@ -1,68 +1,332 @@
 {
-  "name": "follow-the-money",
-  "shape": "published-site",
-  "use_case": 1,
-  "reads": [
-    {"table": "pub.party_return_totals", "licence": "Party donation and loan returns filed under the Electoral Act 1993 and published by the Electoral Commission: public records", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.party_return_donors", "licence": "Part A of the same returns: donations over the itemisation threshold, filed under the Electoral Act 1993, public records", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.party_return_loans", "licence": "Parts H and I of the same returns, public records", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.disclosures", "licence": "Large-donation disclosures (Electoral Act 1993 s 210C), the Commission's own published table, public records", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.disclosure_items", "licence": "The itemised contributions of those disclosures, public records", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.parties", "licence": "The Register of Political Parties, kept under the Electoral Act 1993, public", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.party_names", "licence": "Names and renames from the register and the Commission's Gazette notices, public", "attribution": "Electoral Commission; New Zealand Gazette", "refresh": "daily"},
-    {"table": "pub.elections", "licence": "Election results published by the Electoral Commission, public", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.electorates", "licence": "Electorate results published by the Electoral Commission; names joined to Stats NZ's electorate layers (CC BY 4.0, Stats NZ)", "attribution": "Electoral Commission; Stats NZ", "refresh": "daily"},
-    {"table": "pub.candidates", "licence": "Candidate lists and results published by the Electoral Commission, public", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.members", "licence": "Who sits in the House, from the Commission's results and declarations, public", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.party_expenses", "licence": "Party election expense returns and the Commission's own expense table, public records", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.party_expense_returns", "licence": "The expense returns themselves, public records", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.broadcasting_allocations", "licence": "Broadcasting allocation decisions under the Broadcasting Act 1989 Part 6, public", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.promoters", "licence": "The register of promoters, public", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.promoter_expenses", "licence": "Promoter expense returns and the Commission's table, public records", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.promoter_people", "licence": "The people named on promoter returns, public records", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.party_financial_statements", "licence": "Party financial statements filed under the Electoral Act 1993 s 210K, public records", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.party_statement_figures", "licence": "Headline figures from those statements, public records", "attribution": "Electoral Commission", "refresh": "daily"},
-    {"table": "pub.names", "licence": "The estate's one reading of every filed name (links); no licence of its own", "attribution": "", "refresh": "daily"},
-    {"table": "pub.groups", "licence": "Rows gathered as one person by the confirming rules (links); no licence of its own", "attribution": "", "refresh": "daily"},
-    {"table": "pub.decisions", "licence": "Remembered rulings on pairs of rows (links); no licence of its own", "attribution": "", "refresh": "daily"}
-  ],
-  "sections": ["home", "parties", "electorates", "pickers", "subject", "electorate", "donor", "board-member", "size-bands", "cite"],
-  "rules": [
-    "the window: every figure from 1 January of settings.window_from; earlier rows are kept in the registers and never published here",
-    "a race is every calendar year after the election before it, up to and including its own, inside the window (ruling 361); 2017 is not a race (ruling 366); the 2020 race's named donors run from settings.named_from (ruling 363)",
-    "seven front-page parties (settings.headline_parties); other parties' data is kept and served, not worked",
-    "a renamed party is the same party: rows are joined on the registration key the lanes publish",
-    "a donation is from the donor the Commission filed it under; a wholly-owned company keeps its own row and ownership is a note, never added to the owner's total",
-    "if a return covers the money the return is the record; a disclosure of the same gift is shown beside it and never added",
-    "the headline is all donations, the return's declared total; named donors come second; one figure per party-year with its basis named",
-    "where our reading and the Commission's figure differ, the Commission's is the headline, linked to the Commission's own page",
-    "no press-reported row",
-    "a person's home address is never shown or extractable: no payload carries one, and the address gate reads every payload's text",
-    "a suppressed name is suppressed on every surface; the row and the money stay",
-    "every figure names its document; a blank says 'none found' or 'not held'; a total states what it leaves out; an unreadable name is shown as unreadable; a figure read from pixels is marked weaker",
-    "a party-year with more than one return held and none replaced is shown with every return and none is chosen"
-  ],
-  "known_limits": "Nothing before 2017. Candidate returns are not yet published by a lane, so electorate money is 'not held'. Party boards have no lane, so board-member pages are 'not held'. Press, industry exposure, interests and expenses are not in this template. Part A rows are read on 38 of the 152 returns held; a party-year whose rows are set aside shows its declared total and 'named rows not read'. Disclosures before 2023 have no scan held; their figures are the Commission's table alone.",
-  "owner": "site",
-  "version": 1,
-  "settings": {
-    "window_from": 2017,
-    "named_from": "2017-09-24",
-    "races": {"2020": [2018, 2019, 2020], "2023": [2021, 2022, 2023], "2026": [2024, 2025, 2026]},
-    "map_races": [2020, 2023],
-    "line": 15000,
-    "headline_parties": [
-      "ec-party/1994-12-02/af3607addd1b",
-      "ec-party/1995-02-17/a28c696c2e25",
-      "ec-party/1995-02-17/20279c9fbe70",
-      "ec-party/1995-08-17/bac447419124",
-      "ec-party/1994-12-20/1dc0d6700cb8",
-      "ec-party/2004-07-09/2565ad9ab61a",
-      "ec-party/2017-03-06/eda08d2f09ea"
-    ],
-    "disclosure_regimes": {"over-20000-2008-2010": 20000, "over-30000-2011-2022": 30000, "over-20000-from-2023": 20000},
-    "itemisation_threshold": {"to_2022": 15000, "from_2023": 5000},
-    "suppressed_names_view": "pub.suppressed_names",
-    "donor_list_cut": 1500
+ "name": "follow-the-money",
+ "shape": "published-site",
+ "use_case": 1,
+ "reads": [
+  {
+   "table": "pub.party_return_totals",
+   "licence": "Party donation and loan returns filed under the Electoral Act 1993 and published by the Electoral Commission: public records",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.party_return_donors",
+   "licence": "Part A of the same returns: donations over the itemisation threshold, filed under the Electoral Act 1993, public records",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.party_return_loans",
+   "licence": "Parts H and I of the same returns, public records",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.candidate_return_totals",
+   "licence": "Candidate donation and expense returns filed under the Electoral Act 1993 and the Commission's own table of them, public records",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.candidate_return_donors",
+   "licence": "Part A of the candidates' returns: donations over the itemisation threshold, public records",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.disclosures",
+   "licence": "Large-donation disclosures (Electoral Act 1993 s 210C), the Commission's own published table, public records",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.disclosure_items",
+   "licence": "The itemised contributions of those disclosures, public records",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.parties",
+   "licence": "The Register of Political Parties, kept under the Electoral Act 1993, public",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.party_names",
+   "licence": "Names and renames from the register and the Commission's Gazette notices, public",
+   "attribution": "Electoral Commission; New Zealand Gazette",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.elections",
+   "licence": "Election results published by the Electoral Commission, public",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.electorates",
+   "licence": "Electorate results published by the Electoral Commission; names joined to Stats NZ's electorate layers (CC BY 4.0, Stats NZ)",
+   "attribution": "Electoral Commission; Stats NZ",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.candidates",
+   "licence": "Candidate lists and results published by the Electoral Commission, public",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.members",
+   "licence": "Who sits in the House, from the Commission's results and declarations, public",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.party_expenses",
+   "licence": "Party election expense returns and the Commission's own expense table, public records",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.party_expense_returns",
+   "licence": "The expense returns themselves, public records",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.broadcasting_allocations",
+   "licence": "Broadcasting allocation decisions under the Broadcasting Act 1989 Part 6, public",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.promoters",
+   "licence": "The register of promoters, public",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.promoter_expenses",
+   "licence": "Promoter expense returns and the Commission's table, public records",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.promoter_people",
+   "licence": "The people named on promoter returns, public records",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.party_financial_statements",
+   "licence": "Party financial statements filed under the Electoral Act 1993 s 210K, public records",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.party_statement_figures",
+   "licence": "Headline figures from those statements, public records",
+   "attribution": "Electoral Commission",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.mp_interest_returns",
+   "licence": "The Register of Pecuniary and Other Specified Interests of Members of Parliament, published by the Registrar each year, public",
+   "attribution": "Office of the Registrar of Pecuniary Interests; Parliament",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.mp_interests",
+   "licence": "The declarations in that register, verbatim; real-property declarations withheld (queue: may-the-interests-register-s-real-property-declarations-be-shown)",
+   "attribution": "Office of the Registrar of Pecuniary Interests; Parliament",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.names",
+   "licence": "The estate's one reading of every filed name (links); no licence of its own",
+   "attribution": "",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.groups",
+   "licence": "Rows gathered as one person by the confirming rules (links); no licence of its own",
+   "attribution": "",
+   "refresh": "daily"
+  },
+  {
+   "table": "pub.decisions",
+   "licence": "Remembered rulings on pairs of rows (links); no licence of its own",
+   "attribution": "",
+   "refresh": "daily"
   }
+ ],
+ "sections": [
+  "home",
+  "parties",
+  "electorates",
+  "pickers",
+  "subject",
+  "electorate",
+  "donor",
+  "board-member",
+  "size-bands",
+  "cite"
+ ],
+ "rules": [
+  "the window: every figure from 1 January of settings.window_from; earlier rows are kept in the registers and never published here",
+  "a race is every calendar year after the election before it, up to and including its own, inside the window (ruling 361); 2017 is not a race (ruling 366); the 2020 race's named donors run from settings.named_from (ruling 363)",
+  "seven front-page parties (settings.headline_parties); other parties' data is kept and served, not worked",
+  "a renamed party is the same party: rows are joined on the registration key the lanes publish",
+  "a donation is from the donor the Commission filed it under; a wholly-owned company keeps its own row and ownership is a note, never added to the owner's total",
+  "if a return covers the money the return is the record; a disclosure of the same gift is shown beside it and never added",
+  "the headline is all donations, the return's declared total; named donors come second; one figure per party-year with its basis named",
+  "where our reading and the Commission's figure differ, the Commission's is the headline, linked to the Commission's own page",
+  "no press-reported row",
+  "a person's home address is never shown or extractable: no payload carries one, and the address gate reads every payload's text",
+  "a suppressed name is suppressed on every surface; the row and the money stay",
+  "every figure names its document; a blank says 'none found' or 'not held'; a total states what it leaves out; an unreadable name is shown as unreadable; a figure read from pixels is marked weaker",
+  "a party-year with more than one return held and none replaced is shown with every return and none is chosen"
+ ],
+ "known_limits": "Nothing before 2017 (the queue asks whether 2019). Candidate returns are the candidate-returns lane's read returns alone: 380 current returns (2020: 211, 2022: 3, 2023: 166), of which 370 join a candidate in the official results; a candidate the lane holds no return for is 'not held', never a nil; the Commission's table rows the lane has not read as a return are not published, and 2017 is not held. Party boards have no lane, so board-member pages are 'not held'. Press, industry exposure, the interests tree and MPs' expenses are not in this template (the links have not read the expenses registers' names). The interests register is shown as the member's own returns under the shared reading of the printed name; real-property declarations are counted and their text withheld. Donations made by a person are joined only through a confirmed group of the links, and no group yet spans the house and donor registers, so the section is empty with its basis. Part A rows are read on 38 of the 152 returns held; a party-year whose rows are set aside shows its declared total and 'named rows not read'. Disclosures before 2023 have no scan held; their figures are the Commission's table alone. The 2020 and 2023 party lists are not held, so a list seat shows no list place and a list-only candidate who was not elected is not shown for those years.",
+ "owner": "site",
+ "version": 2,
+ "settings": {
+  "window_from": 2017,
+  "named_from": "2017-09-24",
+  "races": {
+   "2020": [
+    2018,
+    2019,
+    2020
+   ],
+   "2023": [
+    2021,
+    2022,
+    2023
+   ],
+   "2026": [
+    2024,
+    2025,
+    2026
+   ]
+  },
+  "map_races": [
+   2020,
+   2023
+  ],
+  "line": 15000,
+  "headline_parties": [
+   "ec-party/1994-12-02/af3607addd1b",
+   "ec-party/1995-02-17/a28c696c2e25",
+   "ec-party/1995-02-17/20279c9fbe70",
+   "ec-party/1995-08-17/bac447419124",
+   "ec-party/1994-12-20/1dc0d6700cb8",
+   "ec-party/2004-07-09/2565ad9ab61a",
+   "ec-party/2017-03-06/eda08d2f09ea"
+  ],
+  "disclosure_regimes": {
+   "over-20000-2008-2010": 20000,
+   "over-30000-2011-2022": 30000,
+   "over-20000-from-2023": 20000
+  },
+  "itemisation_threshold": {
+   "to_2022": 15000,
+   "from_2023": 5000
+  },
+  "suppressed_names_view": "pub.suppressed_names",
+  "donor_list_cut": 1500
+ },
+ "settled": {
+  "donor_picker": "the rebuilt side's rule: every folded donor with money that counts in the window, from party returns, candidate returns and declarations in years no return covers, cut at settings.donor_list_cut after folding (today 633, none cut). Why: the frozen picker cut at 1,500 before folding and listed 1,345 of 2,152 with a hole on record; a cut after folding is the one the plan asked for, and a candidate's donor is a donor",
+  "donor_display_name": "the rebuilt side's rule: the spelling filed most often across the donor's rows, ties to the shorter then the alphabetical (figures.Donor.name); the row keeps its filed spelling. Why: the register's own most-used form, never a reading of ours; the frozen site chose a form by its own fold and titled it, so one donor sits at two paths until the switch, when old paths are mapped once",
+  "donor_page_key": "the rebuilt side's rule: the display name above, so the path follows the fold. Why: the same rule as the frozen site under a different fold (the-two-folds-cut-donor-names-differently); ruling 253 keeps the EC-filed donor, so no owner's page absorbs a vehicle's rows",
+  "person_page_key": "the rebuilt side's rule: the name as the Commission's results print it (surname in capitals, 'Aaron STALLARD'). Why: the register's own form, not a title-casing of ours; the slug is the same on both sides, only the hash differs, and old paths are mapped once at the switch",
+  "party_page_key": "the registration key, one page per registration; two registrations with one name get two deterministic paths, the plain one to the key with most to show. Why: a set's order used to decide which survived (New Zealand Loyal, two registrations)"
+ },
+ "page_sections": {
+  "note": "every frozen section is carried under the queue's default (which-frozen-sections-belong-in-the-follow-the-money-template: all of them); the person-page sections the queue's recommendation would move to step 5 are marked, and come out of this template by that ruling alone",
+  "home": [
+   "parties",
+   "donors",
+   "recent_disclosures",
+   "party_transfers",
+   "race_donations",
+   "race_spend",
+   "party_funding",
+   "donor_categories",
+   "party_spend",
+   "race_public",
+   "public_money",
+   "promoter_spend",
+   "donors_sighted",
+   "electorates"
+  ],
+  "parties": [
+   "registered",
+   "historic",
+   "unresolved_returns",
+   "unaffiliated_sitting",
+   "junk_labels",
+   "unmatched_disclosures"
+  ],
+  "party": [
+   "card",
+   "donations_received",
+   "disclosures",
+   "loans",
+   "financials",
+   "donations_made",
+   "mps",
+   "party_window.top_donors",
+   "party_window.leaders (not held)",
+   "party_window.rules (not held)",
+   "board (not held)",
+   "industries (not held)",
+   "exposure (not held)",
+   "coverage"
+  ],
+  "person": {
+   "kept": [
+    "seats",
+    "candidacies (electorate and list)",
+    "donations_received",
+    "donations_made (empty until the links confirm a group)"
+   ],
+   "queue_would_move": [
+    "positions",
+    "properties",
+    "interests",
+    "interests_extra",
+    "interests_tree (not held)",
+    "exposure (not held)",
+    "industry_exposure (not held)",
+    "public_expenses (not held)",
+    "party_boards (not held)"
+   ]
+  },
+  "electorate": [
+   "races",
+   "money",
+   "returns_for_contests_not_held (when any)"
+  ],
+  "donor": [
+   "history",
+   "totals",
+   "identity",
+   "ownership"
+  ]
+ },
+ "sections_added": {
+  "note": "top-level keys the rebuilt pages carry and the frozen pages did not; the comparison's section rule counts them until it reads this list",
+  "person": [
+   "interests"
+  ],
+  "electorate": [
+   "returns_for_contests_not_held"
+  ],
+  "electorates": [
+   "n",
+   "years"
+  ]
+ }
 }

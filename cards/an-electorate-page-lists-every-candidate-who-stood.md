@@ -1,9 +1,10 @@
 # An electorate page lists every candidate who stood
 kind: finding
-state: open
+state: closed
 use-case: 1
 session: comparison
 opened: 2026-10-20
+closed: 2026-10-20
 
 The frozen electorate page lists the candidates in the Commission's
 candidate-return summary (those who filed a return); the rebuilt page
@@ -16,3 +17,8 @@ the rebuilt side.
 
 Which side is right: neither is wrong; they list different things under
 one heading. The page should say which list it shows. Owner: site.
+
+Closed (site-2, 2026-10-20). The page says which list it shows: its basis names the Commission's official result as the list, and a candidate with
+no return shows "no return held", never a nil. Measured against the frozen 2026-10-20T0620, rebuilt in scratch: the card's figures rose from 667
+to 748 (new person pages 329 unchanged; candidacies on matched pages 170 to 251 as list seats joined them; candidates 168 unchanged), which is the
+design: the rebuilt side lists everyone who stood.
