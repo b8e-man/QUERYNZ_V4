@@ -1,4 +1,4 @@
-Read the first given name as the given name and the rest as middle names whichever field a lane filed them in: a lane that files every given name in one field ("Louise Claire", surname "UPSTON") was keyed "louise claire upston" and met no other register's "Louise UPSTON".
+Read the first given name as the given name and the rest as middle names whichever field a lane filed them in: a lane that files every given name in one field was keyed apart from every other register's rows.
 area: links, keys, the shared reading of names, a new lane's name columns
 paid-for-by: 2026-10-20, links-2, step 4.2
 
