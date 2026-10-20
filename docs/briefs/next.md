@@ -165,8 +165,9 @@ case.
 
 Merged (`docs/merges/candidate-returns-1`): 1,105 returns by hash, the
 Commission's listing and spreadsheets, 372 totals (353 equal), Part A
-175 donors. The 713 scans are queued as `qv4-read-pages-candidates`;
-session 2 rebuilds when they land, then Part A from pixels and the
+175 donors. The 713 scans wait (ruling 62: no bulk reading until the
+build is done; 60 were read before the job was cancelled and
+stand as the sample). Session 2 then rebuilds, Part A from pixels, the
 nine candidate-made copies (status file).
 
 ## site
@@ -503,6 +504,11 @@ ask. Auto is the classifier mode, not bypass (hard limit 3). An agent of
 the integrator's own does not work: the scope hook fences it to the main
 checkout (`docs/merges/offsite-1-not-started.md`). Start lines are handed
 to Arthur only when he asks for a window.
+
+Reading (Arthur, 20 October, ruling 62): no page-reader job is queued in
+bulk until the build is done. A lane's request for readings is answered
+with the store's sample and a note; the hashes it sets aside are the queue
+for later, one command.
 
 ## founding
 
