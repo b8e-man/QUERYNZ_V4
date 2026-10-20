@@ -17,7 +17,7 @@ and read published tables only.
   `cards/`, and writes `<live>/checks/comparison/days/<version>.json` and the
   clean-day ledger `ledger.jsonl`. `show` prints the last day; `causes` lists
   the causes and their cards. The board item reads the ledger. Its daily job
-  is proposed in `jobs-proposed.toml` (after `qv4-site-build`).
+  is `qv4-site-compare` in the scheduler's catalogue (after `qv4-site-build`).
 - `module_checks.py`: every lane's own check (`registers/*/check.py` with a
   main) and the board's and the published site's, run as commands with a
   timeout the way `windowed.py` runs track E's two; red on exit 1, a crash

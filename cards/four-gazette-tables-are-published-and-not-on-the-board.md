@@ -1,9 +1,10 @@
 # Four gazette tables are published and not on the board
 kind: finding
-state: open
+state: closed
 use-case: -
 session: comparison
 opened: 2026-10-20
+closed: 2026-10-20
 
 `python -m products.board check` is red: `pub.gazette_bankruptcies`,
 `pub.gazette_company_notices`, `pub.gazette_practitioners` and
@@ -22,3 +23,8 @@ three, disclosures, expenses and party-returns, sit under
 `national-2023-the-frozen-site-counts-one-declaration-twice`,
 `expense-release-totals-the-publishers-printed-wrong` and
 `labour-2017-the-page-reader-drops-a-handwritten-correction`).
+
+Closed 2026-10-20 by the integrator at the merge of comparison-1: the four
+views went into the board's catalogue in the records commit after
+gazette-3 (2101719), written from the columns since the lane's `pane.md`
+was not extended (card `the-gazette-pane-spec-omits-the-four-tables-of-gazette-3`).
