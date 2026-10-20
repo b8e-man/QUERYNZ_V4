@@ -103,6 +103,10 @@ def build(conn, schema: str, page: tuple, export: tuple, others: list, aside: li
                                         res.names[0]["loaded_at"])
     for row in label_rows:
         _insert(conn, table(schema, "labels", shared), COLUMNS["labels"], row)
+    for src, m in measured.items():
+        if not isinstance(m, dict):             # a source table this database does not publish: said, never skipped silently
+            conn.execute(f"INSERT INTO {table(schema, 'set_aside', shared)} (item, stage, reason) VALUES (%s, 'labels', %s)",
+                         (f"pub.{src.split('.', 1)[1]}", f"{src}: {m}; its labels are not in pub.party_labels"))
     for key, contact in res.contacts:
         conn.execute(f"INSERT INTO {table(private_of(schema), 'secretary_contacts', shared)} (key, contact) VALUES (%s, %s)",
                      (key, contact))

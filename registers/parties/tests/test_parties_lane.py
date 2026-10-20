@@ -290,7 +290,8 @@ def filled():
 
 
 def test_everything_is_read_and_the_catch_log_holds_only_what_the_old_folder_lost(filled):
-    assert [a for a in filled["aside"] if a["stage"] != "capture"] == []
+    assert [a for a in filled["aside"] if a["stage"] not in ("capture", "labels")] == []
+    assert all("not published here" in a["reason"] for a in filled["aside"] if a["stage"] == "labels")
     assert len({e["notice"] for e in filled["events"]}) == 137
     on = [r for r in filled["regs"] if r["on_register"]]
     assert len(on) == 17 and len(filled["private"]) == 17

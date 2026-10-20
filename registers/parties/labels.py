@@ -61,7 +61,7 @@ SOURCES = (
     ("party_finance", "party_statement_figures", "party_label", "coalesce(balance_date::text, filed_year::text)", "day"),
     ("party_finance", "broadcasting_allocations", "party_label", "year::text", "year"),
 )
-NOT_A_PARTY = {"independent"}
+NOT_A_PARTY = {"independent", "ind"}           # "IND": the Commission's own short form on a by-election's list
 _BRACKET = re.compile(r"^(.*?\S)\s*\(([^()]*)\)\s*$")
 
 
@@ -92,7 +92,7 @@ def collect(conn) -> tuple:
 
 def _registrations_named(label: str, names: list) -> list:
     k = P.name_key(label)
-    return sorted({n["party"] for n in names if n["kind"] in ("name", "printed") and P.name_key(n["name"]) == k})
+    return sorted({n["party"] for n in names if P.name_key(n["name"]) == k})
 
 
 def _window(reg: dict) -> str:
@@ -126,6 +126,9 @@ def resolve(label: str, on: str, rows: list, regs: dict) -> dict:
     live = [k for k in named if k in regs and _live(regs[k], when)]
     if len(live) > 1:
         return {**out, "why": f"{len(live)} registrations of this name were live within {when}: neither is taken"}
+    if named and not live:
+        return {**out, "why": f"the name is a registration's ({'; '.join(f'{k}, {_window(regs[k])}' for k in named if k in regs)}),"
+                              f" and none was live on {when}"}
     return {**out, "why": "no registration live then answers to it by any name it carried"}
 
 
