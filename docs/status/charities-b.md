@@ -7,7 +7,7 @@ half, in `registers/charities_b/`. Reads the capture's pages; fetches nothing.
 
 - `read.py`, `load.py`, `check.py`, `tables.sql`, `publish.sql`, `sample.py`,
   `sample.list`, `pane.md`, `spec.md`, the proposed profile
-  `charities-odata-page` v1; 29 fast tests (2.5 s), 3 slow (2 min 18 s).
+  `charities-odata-page` v1; 25 fast tests (2.5 s), 3 slow (2 min 18 s).
 - Full build in `querynz_v4_sample.scratch_charities_b_full`: 46,131
   charities, 589,108 officers, 430,437 returns, 357 groups, 120 code
   entries; 132 rows set aside, each with its reason; every row of 1,079
