@@ -1,13 +1,11 @@
 # Where the build stands
 
-Overwritten at every close; under 3 KB. What happened is in the cards, the
-lessons and the commit messages.
+Overwritten at every close; under 3 KB. The detail is in `docs/merges/`.
 
 **Date:** 2026-10-20, 13:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 and 5.1 merged, day one not clean; track C open. Tracks B
 and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1
-waits for its setup card (ruling 57). **Alarm channel:** the old estate's
-ntfy address (test alarm 18 October).
+waits for its setup card (ruling 57). **Alarm channel:** the old estate's ntfy address.
 
 ## Done
 
@@ -36,10 +34,10 @@ ntfy address (test alarm 18 October).
 
 ## Running (headless, from the integrator)
 
-- `report-2` (Fable): the shape's cards from the first template.
-  `parties-2` (Opus): labels and renames. Raised, integrating: `review`
-  (track C). Next: `agriculture` (template 04), `comparison-2` (its
-  readers for template v2), the charities builds after tonight's copy.
+- `agriculture` (Opus): template 04. `comparison-2` (Fable): its readers
+  for template v2. Raised, integrating: `parties-2`, `review` (track C).
+  Next: two fix sessions (board link, recruitment's rule copies), `keys`,
+  the charities builds after tonight's copy.
 
 ## Half-done
 
@@ -50,6 +48,7 @@ ntfy address (test alarm 18 October).
   electorate money, statements) and `party-returns-5`; `qv4-site-compare`
   daily 08:45. Ahead: seven clean days, checkpoint, export test, the
   switch after 7 November on Arthur's word.
-- 5.1 built (`report-1`): the subject-report shape on 10.0.0.2:8440.
+- 5.1 built (`report-1`, `-2`): the subject-report shape on
+  10.0.0.2:8440, a contract templates bind without importing.
   5.2: template 08 recruitment built and checkpointed (`recruitment-1`,
   23 views, 13 flags, 12 real subjects); agriculture next.

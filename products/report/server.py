@@ -3,7 +3,9 @@ limit 13), with the least machinery that works: the standard library's HTTP
 server, one page per request, no script. Routes:
 
   GET  /                         the form: a ref and a template
-  GET  /report?ref=&template=&format=html|text|json     the memo
+  GET  /report/<register>:<key>  the memo: the stable address of a report on a row, the ref as the board names it
+                                 (?template=&format=html|text|json as below; contract.report_url builds it)
+  GET  /report?ref=&template=&format=html|text|json     the memo, the query form the page's own form uses
   GET  /saved                    the saved memos      GET /saved/<id>   one saved memo, as text
   POST /save                     save the memo the page shows (ref, template, note)
   GET  /health                   'ok' and the port
@@ -110,8 +112,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 ctype, body = render("", get("template", "subject"), message=get("m")[:100])
                 self.send(body, ctype)
                 return
-            if url.path == "/report":
-                ref = get("ref")[:MAX_REF]
+            if url.path == "/report" or url.path.startswith("/report/"):
+                ref = (urllib.parse.unquote(url.path[len("/report/"):]) if url.path.startswith("/report/") else get("ref"))[:MAX_REF]
                 ctype, body = render(ref, get("template", "subject"), get("format", "html"), get("m")[:100], get("saved") == "1")
                 self.send(body, ctype)
                 return

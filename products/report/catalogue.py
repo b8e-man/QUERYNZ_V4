@@ -13,6 +13,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 MACRONS = ("āēīōūĀĒĪŌŪ", "aeiouAEIOU")
+MONEY_COLUMNS = {"figure"}   # money columns the statement formats that rows.MONEY does not list by name
+#: what a Gazette notice's date is, by the lane's event_basis, as the memo words it
+ON_BASIS_WORD = {"hearing": "to be heard", "objections by": "objections by", "appointment": "appointed", "ceased to act": "ceased to act",
+                 "meeting": "meeting", "claims by": "claims by", "dividend": "dividend", "published": "published"}
 
 
 @dataclass(frozen=True)
@@ -28,6 +32,10 @@ class View:
     start: str = ""             # the date the connection begins, as filed
     end: str = ""               # the date it ends, as filed
     on: str = ""                # one date the row is dated by (published, received, polled)
+    on_basis: str = ""          # a column whose value says what `on` dates (a hearing, objections by, an appointment)
+    on_label: str = ""          # a fixed word saying what `on` dates, when the view has one meaning
+    filed: str = ""             # the day the notice was filed, printed beside
+    published: str = ""         # the day the notice was published, printed beside; dates the row when nothing else does
     year: str = ""              # a year column, when that is all the dating a row has
     period: tuple = ()          # (first_file, last_file): the files the row was seen in, when nothing else dates it
     entity: tuple = ()          # (view, column): the row of another view this row sits on
@@ -85,11 +93,12 @@ VIEWS: tuple = (
     V("candidate_return_donors", "candidate_returns", "figure", ("donor", "amount"), names=("donor",), year="year", amount="amount",
       entity=("candidate_return_totals", "return_key"), statement="{title} to the candidate {surname} ({electorate}, {party}), return for {year}; dates as printed: {dates}"),
     # ── gazette ─────────────────────────────────────────────────────────────
-    V("gazette_liquidations", "gazette", "organisation", ("company",), names=("company",), on="appointed_on",
-      entity=("companies", "register_key"), statement="{title}: {shape}, appointed by {appointed_by}",
+    V("gazette_liquidations", "gazette", "organisation", ("company",), names=("company",), on="appointed_on", on_label="appointed",
+      published="published_on", entity=("companies", "register_key"), statement="{title}: {shape}, appointed by {appointed_by}",
       note="no address, telephone or email is shown or held"),
-    V("gazette_company_notices", "gazette", "organisation", ("company", "kind"), names=("company",), on="event_on",
-      entity=("companies", "register_key"), statement="{title}: {action}", note="an applicant is named only"),
+    V("gazette_company_notices", "gazette", "organisation", ("company", "kind"), names=("company",), on="event_on", on_basis="event_basis",
+      filed="filed_on", published="published_on", entity=("companies", "register_key"), statement="{title}: {action}",
+      note="an applicant is named only; the date says what it dates: a winding-up application's is the day it is to be heard, a removal's the last day for objections"),
     V("gazette_liquidators", "gazette", "person", ("name", "role"), names=("name",), on="published_on",
       role="role", statement="{title} named in a Gazette notice"),
     V("gazette_practitioners", "gazette", "person", ("name", "role"), names=("name",), on="published_on",
@@ -113,6 +122,15 @@ VIEWS: tuple = (
     V("mp_interests", "mp_interests", "figure", ("heading", "name"), names=("name",), withheld="withheld", on="as_at",
       entity=("mp_interest_returns", "member_return"), statement="{heading}: {text}",
       note="the category is the heading, never the number: the register renumbered in 2018"),
+    # ── MPs' and ministers' expenses (the releases print a name only: reached by name, as near) ──
+    V("mp_expenses", "expenses", "figure", ("name", "category"), names=("name",), start="period_start", end="period_end", amount="figure",
+      role="role", statement="{title}: {amount}, a member's expenses as released for the period",
+      note="the member's period total as the release prints it, and money the release prints outside its total beside it, never added in; "
+           "the per-category lines are in pub.mp_expenses and not listed"),
+    V("minister_expenses", "expenses", "figure", ("name", "category"), names=("name",), start="period_start", end="period_end", amount="figure",
+      role="role", statement="{title}: {amount}, a minister's expenses as released for the period",
+      note="the minister's period total as the release prints it, and money the release prints outside its total beside it, never added in; "
+           "the per-category lines are in pub.minister_expenses and not listed"),
     # ── parties and promoters ───────────────────────────────────────────────
     V("parties", "parties", "organisation", ("name",), names=("name",), start="registered_on", end="cancelled_on",
       statement="{title}: registered political party, {status}", note="never the secretary's contact lines"),
@@ -133,6 +151,7 @@ REGISTERS = (
     ("gazette", "Gazette notices"),
     ("house", "Candidates and the House"),
     ("mp_interests", "MPs' declared interests"),
+    ("expenses", "MPs' and ministers' expenses"),
     ("parties", "Registered political parties"),
     ("party_finance", "Registered promoters"),
 )
@@ -165,7 +184,7 @@ def columns_read(v: View) -> set:
     """Every column the report reads from this view; the citation's columns
     are read when present and not demanded (a child may cite through its parent)."""
     out = set(v.title) | set(v.names)
-    for c in (v.suppressed, v.withheld, v.start, v.end, v.on, v.year, v.role, v.amount, v.key_col):
+    for c in (v.suppressed, v.withheld, v.start, v.end, v.on, v.on_basis, v.filed, v.published, v.year, v.role, v.amount, v.key_col):
         if c:
             out.add(c)
     out |= {c for c in v.period if c}
