@@ -626,3 +626,17 @@ priority = 31
 command = ["python", "-m", "registers.real_estate_authority.capture", "--budget-s", "14400"]
 at_utc = "10:00"
 nice = 10
+
+[jobs.qv4-read-pages-candidates]
+description = "Every image page of one candidate return through the page-reader profile, stored under the reader contract's stamp and the candidate-returns lane's scan profile (card: 713 returns set aside at stage read wait on a reading). One piece per document; the lane picks the readings up on its next load. Queued by the integrator after candidate-returns-1."
+needs = "model-profile"
+profile = "page-reader"
+memory_gb = 1.5
+deadline_s = 1800
+query_timeout_s = 300
+class = "whenever"
+priority = 25
+command = ["python", "-m", "support.scheduler", "read-pages", "--profile", "ec-candidate-return-scan"]
+requires = ["pdftoppm"]
+pieces = true
+can_share = false

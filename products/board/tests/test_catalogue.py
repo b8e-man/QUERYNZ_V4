@@ -6,6 +6,7 @@ from products.board import catalogue as cat
 PUBLISHED_AT_20_OCTOBER = {
     "societies", "society_officers", "society_states",   # societies-1, merged after the board (20 October)
     "promoter_expense_returns", "party_statement_figures",   # party-finance-2 (20 October)
+    "gazette_company_notices", "gazette_practitioners", "gazette_bankruptcies", "gazette_appointments",   # gazette-3 (20 October)
     "candidate_return_totals", "candidate_return_donors",   # candidate-returns-1 (20 October)   # pub.* on 20 October 2026; the outside check compares with the live list
     "broadcasting_allocations", "candidates", "companies", "company_addresses", "company_states", "directors",
     "disclosure_items", "disclosures", "elections", "electorates", "gazette_celebrants", "gazette_liquidations",
