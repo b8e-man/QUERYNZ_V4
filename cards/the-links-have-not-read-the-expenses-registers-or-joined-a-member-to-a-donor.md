@@ -14,3 +14,16 @@ counterpart. The site never joins by name alone.
 
 Which side is right: the rebuilt one is not wrong, it is waiting. Owner: links (the expenses registers' names; a confirming rule a member's row
 can meet), then site.
+
+Links, 20 October (links-2). The expenses half is done: `pub.names` carries
+every `mp_expenses` (26,689) and `minister_expenses` (13,467) line under the
+member's name, and `seat-and-window@1` joins 22,357 of them to the seat
+whose term covers the period (confirmed); the 17,403 before ge-2020 and the
+list-vacancy members' lines have no seat row (the house lane's). The donor
+half is built as near, never confirmed: `member-and-party-donor@1` (106: a
+member's name on a Part A or declaration row to the member's own party in
+the term) and `own-return@1` (1), each with its evidence. The site's
+`donations_made` stays empty with its basis until Arthur rules
+(`may-a-donation-rows-circumstance-confirm-a-link`, default no; the
+recommendation keeps these two near). Owner from here: Arthur's ruling,
+then site.

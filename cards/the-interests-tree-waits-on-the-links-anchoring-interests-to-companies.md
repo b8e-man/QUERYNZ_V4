@@ -16,3 +16,15 @@ pages show the same nothing and the comparison counts no difference.
 
 Which side is right: the frozen one, where it drew a tree, until Arthur
 rules the section out of the template. Owner: links.
+
+Links, 20 October (links-2). The anchoring exists: every declared
+directorship and business interest is a row in `pub.names` (view
+`mp_interests`, 3,593 organisations, 615 in a person's name), joined to the
+companies register by `organisation-name@1` (near; the evidence says
+whether exactly one company of the name was alive on the return's date:
+2,303 of 3,593, 64%; 41 several; 1,064 no company of that name, among them
+overseas companies, partnerships and trusts) or by the company number a
+member printed in brackets (`official-number@1`, 8). And
+`declared-directorship@1` joins 86 members' returns to their own director
+rows (434 links, confirmed; queued). The tree and the industry exposure
+are the site's to draw from these links. Owner from here: site.

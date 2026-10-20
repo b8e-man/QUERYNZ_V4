@@ -1,47 +1,48 @@
 # links: where it stands
 
-**Date:** 2026-10-20. **Step:** 4.2 and 4.3, `links/`. **Merge request:** `links-1`.
+**Date:** 2026-10-20, 21:30. **Step:** 4.2 and 4.3, `links/`. **Merge requests:** `links-1` (merged), `review-1` (merged), `links-2` (raised).
 
-## Done (in `scratch_links`, measured on the real published tables)
+## Done (links-2, in `scratch_links_2` on the real published tables)
 
-- Rows: 2.75 M person rows from nine registers under the shared reading;
-  867 K registered offices; 1.92 M company names (`links.rows`, 3 min).
-- Links, stored as a star per component: rule 1 (full name with middle)
-  1,257,095; rule 2 (first and last name, one quiet office) 942,014; the
-  number 4,384; the house lane's own join 142; organisation names 191
-  (near); name-only near 410,160. Groups 669,863 over 2.25 M rows; watch
-  flags 149,982 of 2.2 M confirmed links; 51,618 groups contested.
-- Old ledgers copied exactly (folds 5,479; anchors 71,319; verdicts 381),
-  mapped by content, the last word promoted: 5,355 decisions. Unmapped:
-  carded (`old-decisions-that-could-not-be-mapped-to-new-rows`).
-- Test pairs (4.3): two directors on one company at once 430 (200/200/30);
-  two candidates 1; seat-and-candidacy 142; donor across amended return 0.
-  Three kinds the registers cannot supply: carded.
-- The six measurements: `links/measurements.md` (full) and
-  `links.measurements`. Error rate on "two people" pairs: rare 52%,
-  middling 21.5%, common 36.7%, nearly all rule 2 on the two roles'
-  shared company (queued); identical full names on one company may be
-  the register's own duplicate. Agent reading of 100 confirmed links: 98
-  no reason to doubt, 2 contested (the session's judgment, registers
-  only, no web search).
-- `pub.links`, `pub.groups`, `pub.decisions`, `pub.names`,
-  `pub.old_decisions` (`publish.sql`), tested in `scratch_links_pub` in the
-  board's shape. `check.py` green (8 of 8). Fast tier: 17 tests green.
+- Rows: every published register read, nineteen views, 2.88 M rows: Gazette
+  bankruptcies (64,741; a withheld name is no row) and appointments, MPs' and
+  ministers' expense lines, the companies a member's interests declare
+  (4,208 entries, 3,593 organisations), the filing candidates and candidate
+  donors, the rows loaded since the morning (454 Part A, 560 candidate
+  returns; 18 stale donor keys re-read). A catch log per view; `check.py`
+  fails when a lane has loaded rows the links have not read.
+- The given name is the first given name whichever field a lane filed it in
+  (385 filing candidates and 52,939 bankrupts were keyed apart; 26,294
+  director rows gained a middle name).
+- Rules: `seat-and-window@1` (23,042 confirmed: a return or expense line to
+  the seat whose term covers it); `declared-directorship@1` (434, 86 members'
+  returns to their directorships); the amended candidate return as the lane's
+  own join; near with a named reason: `company-name@1` 88,819,
+  `organisation-name@1` 3,228 (declared companies anchored, 64% to one live
+  company), `candidate-name-form@1` 402 (37 under two printings),
+  `filed-name@1` 172, `member-and-party-donor@1` 106, `own-return@1` 1.
+  Watch: bankrupt-yet-appointing (149). Rule 10: `links.rows --register`.
+- 2,815,624 links; 681,618 groups over 2,315,026 rows; 172 hold a seat, 40
+  reach a company. Measurements re-run (`measurements.md`); error on
+  two-people pairs rare 38.5%, middling 22.0%, common 35.5% (a new draw).
+  `check.py` 29 of 29 green in scratch; fast tier 35 tests green.
 
 ## Carded / queued
 
-- `the-links-jobs-into-the-catalogue` (blocker, integrator);
-  `three-test-pair-kinds-the-registers-cannot-supply`;
-  `old-decisions-that-could-not-be-mapped-to-new-rows`.
-- Queue: `may-a-company-name-alone-confirm-a-donor` (default near);
-  `does-one-company-s-office-count-as-a-shared-address` (default yes).
+- Closed: bankruptcies-and-appointments, member-and-interests-return,
+  same-name-donor-rows, same-name-companies, the stale donor key (site-3's).
+  Half: expenses-and-member-to-donor (expenses done; the donor half queued).
+  Handed on: interests tree (site draws it), candidate name forms (queue).
+- New: `the-name-reading-keeps-a-judges-title-…` (keys).
+- Queue: `may-a-registers-own-structure-confirm-a-politicians-row` (default
+  yes, as built); `may-a-donation-rows-circumstance-confirm-a-link` (default
+  no); `may-one-candidate-under-two-printings-be-one-page` (default no).
 
 ## Next
 
-1. Integrator: load into `links` (`rows`, `old`, `build`, `pairs`,
-   `measure`, `publish.sql`), catalogue entries, drop `scratch_links` and
-   `scratch_links_pub` after the merge.
-2. Re-run `links.old --map --promote` and `links.pairs` when party-returns'
-   Part A, candidate-returns and charities publish.
-3. Register rule 10 (rebuild only what changed); the review job's first
-   run on the review profile; the agent scored on the pairs (track C).
+1. Integrator: reload `links` from this branch (`build_all`; `tables.sql`
+   adds `rows_catch` and an index), run `check.py` live; drop
+   `scratch_links_2` and `scratch_links_2_pub`.
+2. House rows before ge-2020 and list-vacancy members find no seat: the
+   house lane's (card `who-left-the-house-mid-term…`).
+3. Score the review agent again on the redrawn pairs (track C's job).

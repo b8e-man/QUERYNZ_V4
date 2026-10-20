@@ -1,9 +1,10 @@
 # The links hold a donor key read before party-returns-5 fixed the row, and have not read the rows loaded since
 kind: finding
-state: open
+state: closed
 use-case: 1
 session: site-3
 opened: 2026-10-20
+closed: 2026-10-21
 
 Two things the links' `pub.names` holds for the donor registers, found
 while closing `a-donor-name-key-on-the-rebuilt-site-carries-a-residence-fragment`
@@ -31,3 +32,11 @@ load (`qv4-links-build`, proposed in the links' spec), so the fixed row's
 key is read again and the new rows get one. Meanwhile the site folds an
 unread row by its exact filed spelling and keys every page by its display
 name, so no site figure waits on this.
+
+Closed (integrator, 2026-10-21, at the links-2 merge): links-2 re-read
+every Part A key the lane had fixed (18 keys, the one carrying the
+fragment among them) and every row loaded since the first build, with a
+check that fails when a lane has loaded rows the links have not read. The
+live `links` schema is reloaded from that branch at the merge; the site
+derives its keys from the display name since site-3, so no published field
+repeats the links' key.

@@ -37,3 +37,15 @@ of an identity (old lesson, 3-measurement-gates). Still needs: links to show
 the pair as near, or Arthur to rule a confirming rule; then the site to give
 a group one page, not each name key one page. Owner from here: links, then
 site.
+
+Links, 20 October (links-2). `candidate-name-form@1` shows the pair as
+near: the House rows (candidacies, seats) of one first and last name for one
+party across different elections, where no two middle names differ, with
+both printings, elections and electorates in the evidence: 402 links, 365
+of them the same printing under one key (the site joins those already), 37
+a middle name on one printing only (UPSTON, BOYACK, CAMERON, JONES). A
+confirming rule for a politician's name is Arthur's: queued as
+`may-one-candidate-under-two-printings-be-one-page` (default no;
+recommendation: confirm only for one party, consecutive general elections,
+the same electorate or both list). Owner from here: Arthur's ruling, then
+site.

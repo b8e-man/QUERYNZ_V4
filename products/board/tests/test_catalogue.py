@@ -8,6 +8,7 @@ PUBLISHED_AT_20_OCTOBER = {
     "promoter_expense_returns", "party_statement_figures",   # party-finance-2 (20 October)
     "gazette_company_notices", "gazette_practitioners", "gazette_bankruptcies", "gazette_appointments",   # gazette-3 (20 October)
     "party_labels",   # parties-2 (20 October)
+    "gazette_possessions",   # gazette-5 (21 October)
     "candidate_return_totals", "candidate_return_donors",   # candidate-returns-1 (20 October)   # pub.* on 20 October 2026; the outside check compares with the live list
     "broadcasting_allocations", "candidates", "companies", "company_addresses", "company_states", "directors",
     "disclosure_items", "disclosures", "elections", "electorates", "gazette_celebrants", "gazette_liquidations",
