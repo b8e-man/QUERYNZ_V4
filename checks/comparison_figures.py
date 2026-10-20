@@ -34,7 +34,9 @@ ABSENT = "ABSENT"
 MONEY = {"declared", "named", "over_line", "total", "disclosed", "allocated", "spent", "placed", "part_a",
          "declared_total", "expenses_total", "expenses", "spend", "open_year_disclosures", "returns",
          "by_year", "by_receiver", "amount", "rows", "electorate_spend", "electorate_declared",
-         "party_spend", "broadcast_allocation", "public_spent"}
+         "party_spend", "broadcast_allocation", "public_spent", "part", "sub_threshold", "anonymous", "overseas",
+         "protected", "broadcast", "unreconciled_by", "referendum", "referendum_2020", "cannabis_2020", "eol_2020",
+         "sighted_total", "public_expenses"}
 #: keys that are prose, stamps or template plumbing, never figures
 META = {"basis", "generated_at", "template", "template_version", "known_limits", "donors_basis", "note",
         "received_note", "namesake_note", "coverage_note", "donations_made_basis", "mps_basis",
@@ -43,7 +45,7 @@ META = {"basis", "generated_at", "template", "template_version", "known_limits",
         "cycles", "map_cycles", "cycle_years", "headline_parties", "subject", "kind", "key", "name", "name_key",
         "party", "electorate", "found", "variants", "search_aliases", "website", "abbreviation", "found",
         "name_forms", "name_match", "freshness", "elections", "years_covered", "window", "line", "statute",
-        "stamp", "map_boundary_review"}
+        "stamp", "map_boundary_review", "candidate_rows_gap"}
 
 
 def cents(v) -> int | None:
@@ -135,15 +137,18 @@ def spelling_key(s) -> str:
     return t
 
 
-def sections(old_doc: dict, new_doc: dict, mapped: set, figures: dict) -> None:
+def sections(old_doc: dict, new_doc: dict, mapped: set, figures: dict, added: set = frozenset()) -> None:
     """One figure per top-level key one side has and the other lacks, when
-    it is not metadata and not already read as figures."""
+    it is not metadata and not already read as figures. `added` is the
+    template's own list of keys the rebuilt page carries and the frozen page
+    never did (`sections_added` in ftm.json): those are the shape's, not a
+    difference."""
     for k in old_doc:
         if k in META or k in mapped:
             continue
         figures.setdefault(f"section/{k}", ("present", "present" if k in new_doc else ABSENT))
     for k in new_doc:
-        if k in META or k in mapped or k in old_doc:
+        if k in META or k in mapped or k in old_doc or k in added:
             continue
         figures.setdefault(f"section/{k}", (ABSENT, "present"))
 
@@ -217,12 +222,32 @@ def rows_figure(rows, key=lambda r: r) -> tuple:
     return tuple(sorted(key(r) for r in rows))
 
 
+def figures_held(p: dict) -> int:
+    """How many by-year figures a party entry holds (not None)."""
+    return sum(1 for k in ("declared_by_year", "named_by_year", "disclosed_by_year")
+               for v in (p.get(k) or {}).values() if v is not None)
+
+
+def parties_by_name(entries) -> list:
+    """A home page's party entries, one per name: the rebuilt home lists a
+    name once per registration (New Zealand Loyal has two), and the entry
+    with most to show stands for the name, as the site's own page rule has
+    it (template `settled.party_page_key`)."""
+    out = {}
+    for p in entries or []:
+        name = p.get("party")
+        if name in out and figures_held(out[name]) >= figures_held(p):
+            continue
+        out[name] = p
+    return list(out.values())
+
+
 # ── home ──────────────────────────────────────────────────────────────────────
 
 def home(side: str, d: dict) -> dict:
     f = {}
     old = side == "old"
-    for p in d.get("parties") or []:
+    for p in parties_by_name(d.get("parties")):
         name = p.get("party")
         f[f"party/{name}/listed"] = True
         for k, v in (party_card_old(p) if old else party_card_new(p)).items():
@@ -240,16 +265,136 @@ def home(side: str, d: dict) -> dict:
         f["recent_disclosures/total"] = cents(rd.get("total"))
         f["recent_disclosures/rows"] = rows_figure(rd.get("rows") or [],
                                                    lambda r: (fold(r.get("party")), fold(r.get("donor")), cents(r.get("amount"))))
+    home_sections(d, f)
     el = d.get("electorates")
-    if old:
+    if old or not not_held(el):
+        # both sides: the window total and each year's figure per electorate
+        # (the rebuilt side carries them since the template's second version)
         for e in el or []:
-            f[f"electorates/{e.get('electorate')}/spend"] = cents(e.get("spend"))
-            f[f"electorates/{e.get('electorate')}/declared"] = cents(e.get("declared"))
-    mapped = {"parties", "totals", "donors", "recent_disclosures", "electorates"}
+            name = e.get("electorate")
+            f[f"electorates/{name}/spend"] = cents(e.get("spend"))
+            f[f"electorates/{name}/declared"] = cents(e.get("declared"))
+            for y, v in sorted((e.get("spend_by_year") or {}).items()):
+                f[f"electorates/{name}/spend/{y}"] = cents(v)
+            for y, v in sorted((e.get("declared_by_year") or {}).items()):
+                f[f"electorates/{name}/declared/{y}"] = cents(v)
+    mapped = {"parties", "totals", "donors", "recent_disclosures", "electorates"} | HOME_SECTIONS
     return f, mapped
 
 
-# ── parties ───────────────────────────────────────────────────────────────────
+HOME_SECTIONS = {"party_transfers", "race_donations", "race_spend", "race_spend_total", "party_funding", "donor_categories",
+                 "party_spend", "race_public", "public_money", "promoter_spend", "donors_sighted"}
+
+
+def _by_year_money(f: dict, prefix: str, d: dict | None) -> None:
+    for y, v in sorted((d or {}).items()):
+        f[f"{prefix}/by_year/{y}"] = cents(v)
+
+
+def _by_year_fields(f: dict, prefix: str, d: dict | None, money: tuple, counts: tuple) -> None:
+    for y, v in sorted((d or {}).items()):
+        v = v or {}
+        for k in money:
+            if k in v:
+                f[f"{prefix}/by_year/{y}/{k}"] = cents(v.get(k))
+        for k in counts:
+            if k in v:
+                f[f"{prefix}/by_year/{y}/{k}_n"] = _count(v.get(k))
+
+
+def _rows(d: dict, key: str) -> list:
+    v = d.get(key)
+    return [r for r in v if isinstance(r, dict)] if isinstance(v, list) else []
+
+
+def _count(v):
+    """A count as published: a number, or the length of a list the page
+    gives instead of the number; None for nothing."""
+    if isinstance(v, bool):
+        return int(v)
+    if isinstance(v, (int, float)):
+        return v
+    if isinstance(v, (list, dict)):
+        return len(v)
+    return None
+
+
+def _block(d: dict, key: str) -> dict:
+    v = d.get(key)
+    return v if isinstance(v, dict) else {}
+
+
+def home_sections(d: dict, f: dict) -> None:
+    """The home page's money sections (the template's second version
+    carries every one the frozen page has, under the frozen keys): per
+    party, per year, and the page's own totals. A count whose key is a
+    money word elsewhere (`returns`) is read as `returns_n`."""
+    for t in _rows(d, "party_transfers"):
+        n = t.get("party") or t.get("name")
+        f[f"party_transfers/{n}/total"] = cents(t.get("total"))
+        f[f"party_transfers/{n}/n"] = _count(t.get("rows"))
+        _by_year_money(f, f"party_transfers/{n}", t.get("by_year"))
+    for t in _rows(d, "race_donations"):
+        n = t.get("party") or t.get("name")
+        f[f"race_donations/{n}/total"] = cents(t.get("total"))
+        f[f"race_donations/{n}/n"] = _count(t.get("rows"))
+        _by_year_money(f, f"race_donations/{n}", t.get("by_year"))
+    for t in _rows(d, "race_spend"):
+        n = t.get("party") or t.get("name")
+        f[f"race_spend/{n}/spend"] = cents(t.get("spend"))
+        f[f"race_spend/{n}/candidates"] = _count(t.get("candidates"))
+        f[f"race_spend/{n}/with_figure"] = _count(t.get("with_figure"))
+        _by_year_money(f, f"race_spend/{n}", t.get("by_year"))
+    if isinstance(d.get("race_spend_total"), (int, float)):
+        f["race_spend/total"] = cents(d.get("race_spend_total"))
+    for t in _rows(d, "party_funding"):
+        n = t.get("party") or t.get("name")
+        f[f"party_funding/{n}/total"] = cents(t.get("total"))
+        _by_year_money(f, f"party_funding/{n}", t.get("by_year"))
+        for k, v in sorted((t.get("parts") or {}).items()):
+            f[f"party_funding/{n}/part/{k}"] = cents(v)
+    dc = _block(d, "donor_categories")
+    for k in ("named", "sub_threshold", "anonymous", "overseas", "protected"):
+        if k in dc:
+            f[f"donor_categories/{k}"] = cents(dc.get(k))
+    if "party_years" in dc:
+        f["donor_categories/party_years"] = _count(dc.get("party_years"))
+    ps = _block(d, "party_spend")
+    for k in ("total", "broadcast", "unreconciled_by"):
+        if k in ps:
+            f[f"party_spend/{k}"] = cents(ps.get(k))
+    for k in ("returns", "parties_with_figure", "unreconciled"):
+        if k in ps:
+            f[f"party_spend/{k}_n"] = _count(ps.get(k))
+    _by_year_fields(f, "party_spend", ps.get("by_year"), ("spend", "broadcast", "unreconciled_by"), ("returns", "with_figure", "unreconciled"))
+    for t in _rows(d, "race_public"):
+        n = t.get("party") or t.get("name")
+        f[f"race_public/{n}/total"] = cents(t.get("total"))
+        f[f"race_public/{n}/spent"] = cents(t.get("spent"))
+        _by_year_money(f, f"race_public/{n}", t.get("by_year"))
+    pm = _block(d, "public_money")
+    for k in ("allocated", "spent"):
+        if k in pm:
+            f[f"public_money/{k}"] = cents(pm.get(k))
+    for k in ("parties", "allocated_nothing"):
+        if k in pm:
+            f[f"public_money/{k}_n"] = _count(pm.get(k))
+    _by_year_fields(f, "public_money", pm.get("by_year"), ("allocated", "spent"), ("parties", "allocated_nothing"))
+    pr = _block(d, "promoter_spend")
+    for k in ("total", "referendum_2020", "cannabis_2020", "eol_2020"):
+        if k in pr:
+            f[f"promoter_spend/{k}"] = cents(pr.get(k))
+    for k in ("returns", "promoters", "people", "nil_returns", "agree", "read_from_the_return", "named"):
+        if k in pr:
+            f[f"promoter_spend/{k}_n"] = _count(pr.get(k))
+    _by_year_fields(f, "promoter_spend", pr.get("by_year"), ("spend", "referendum"), ("returns",))
+    ds = _block(d, "donors_sighted")
+    if ds:
+        f["donors_sighted/n"] = _count(ds.get("n"))
+        f["donors_sighted/total"] = cents(ds.get("total"))
+
+
+# ── parties ────────────────────────────────────────────────────────────────
 
 def parties(side: str, d: dict) -> dict:
     f = {}
@@ -266,7 +411,15 @@ def parties(side: str, d: dict) -> dict:
     if u:
         f["unresolved_returns/count"] = u.get("returns")
         f["unresolved_returns/declared"] = cents(u.get("declared"))
-    mapped = {"registered", "historic", "unfolded_returns", "unresolved_returns", "registered_n"}
+    if "unaffiliated_sitting" in d:
+        f["unaffiliated_sitting/n"] = d.get("unaffiliated_sitting")
+    for k in ("junk_labels", "unmatched_disclosures"):
+        v = d.get(k) or {}
+        if v:
+            f[f"{k}/n"] = v.get("rows")
+            f[f"{k}/total"] = cents(v.get("total"))
+    mapped = {"registered", "historic", "unfolded_returns", "unresolved_returns", "registered_n", "unaffiliated_sitting",
+              "junk_labels", "unmatched_disclosures"}
     return f, mapped
 
 
@@ -294,20 +447,27 @@ def pickers(side: str, d: dict) -> dict:
 def electorates(side: str, d: dict) -> dict:
     f = {}
     old = side == "old"
+    one_year = str(d.get("year") or "").isdigit()
     for e in d.get("electorates") or []:
         name = e.get("electorate")
         f[f"electorate/{name}/listed"] = True
-        if old:
+        if not one_year:
+            # the all-years file: the frozen entry carries the all-time total
+            # (and its latest race, compared in that year's file); the
+            # rebuilt entry the window's total
+            f[f"electorate/{name}/declared_total"] = cents(e.get("total_all") if old else e.get("declared_total"))
+        elif old:
             ye = e.get("ye") or {}
             f[f"electorate/{name}/declared_total"] = cents(ye.get("declared_total"))
             f[f"electorate/{name}/candidates"] = len(ye.get("candidates") or [])
             won = [c.get("display") or c.get("candidate") for c in ye.get("candidates") or [] if c.get("elected")]
             f[f"electorate/{name}/elected"] = person_key(won[0]) if won else None
         else:
-            f[f"electorate/{name}/declared_total"] = held_or(d.get("money"))
+            f[f"electorate/{name}/declared_total"] = held_or(e.get("declared_total"))
             f[f"electorate/{name}/candidates"] = e.get("candidates")
             f[f"electorate/{name}/elected"] = person_key(e.get("elected")) if e.get("elected") else None
-    if not str(d.get("year") or "").isdigit():
+    money = d.get("money")
+    if not one_year:
         pass                                   # the all-years file: its counts are sections
     elif old:
         f["counts/electorates"] = len(d.get("electorates") or [])
@@ -318,7 +478,7 @@ def electorates(side: str, d: dict) -> dict:
     else:
         f["counts/electorates"] = d.get("contests")
         f["counts/candidates"] = d.get("candidates")
-        f["totals/declared_total"] = held_or(d.get("money"))
+        f["totals/declared_total"] = held_or(money, lambda m: cents(m.get("declared_total")) if isinstance(m, dict) else cents(m))
     mapped = {"electorates", "elections", "contests", "candidates", "money", "with_result", "year", "tracker",
               "announced"}
     return f, mapped
@@ -350,6 +510,11 @@ def electorate(side: str, d: dict) -> dict:
                 f[f"race/{y}/candidate/{n}/declared"] = held_or(c.get("declared"))
                 f[f"race/{y}/candidate/{n}/expenses"] = held_or(c.get("expenses"))
         f[f"race/{y}/held"] = True
+    if old:
+        f["money/declared_total"] = cents(d.get("total_all"))
+    else:
+        m = d.get("money")
+        f["money/declared_total"] = held_or(m, lambda v: cents((v or {}).get("declared_total")))
     mapped = {"races", "elections", "total_all", "donor_rows", "announced", "money"}
     return f, mapped
 
@@ -409,6 +574,10 @@ def size_bands(side: str, d: dict) -> dict:
 
 # ── subject: party ────────────────────────────────────────────────────────────
 
+#: how many of a party page's top donors are compared by name (the frozen list runs to every donor)
+TOP_DONORS = 10
+
+
 def subject_party(side: str, d: dict) -> dict:
     f = {}
     old = side == "old"
@@ -428,8 +597,14 @@ def subject_party(side: str, d: dict) -> dict:
         rows = [r for r in d.get("donations_received") or [] if r.get("line_kind")]
         fin = pw.get("financials")
         f["financials/held"] = bool(fin) if fin is not None else None
+        f["financials/n"] = len(fin or [])
         bd = (d.get("board") or {}).get("party_asserted") or {}
         f["board/current"] = bd.get("current")
+        f["mps/n"] = len(pw.get("mps") or [])
+        f["leaders/held"] = bool(pw.get("leaders")) if pw.get("leaders") is not None else None
+        f["rules/held"] = bool(pw.get("rules")) if pw.get("rules") is not None else None
+        for t in (pw.get("top_donors") or [])[:TOP_DONORS]:
+            f[f"top_donors/{t.get('name')}/total"] = cents(t.get("total"))
     else:
         card = d.get("card") or {}
         for k, v in party_card_new(card).items():
@@ -438,11 +613,20 @@ def subject_party(side: str, d: dict) -> dict:
             f[f"card/{k}"] = v
         rows = d.get("donations_received") or []
         f["financials/held"] = held_or(d.get("financials"), lambda v: bool(v))
+        f["financials/n"] = held_or(d.get("financials"), lambda v: len(v or []))
         f["board/current"] = held_or(d.get("board"), lambda v: v.get("current") if isinstance(v, dict) else v)
+        f["mps/n"] = held_or(d.get("mps"), lambda v: len((v or {}).get("members") or []) if isinstance(v, dict) else len(v or []))
+        pw = d.get("party_window") or {}
+        f["leaders/held"] = held_or(pw.get("leaders"), lambda v: bool(v))
+        f["rules/held"] = held_or(pw.get("rules"), lambda v: bool(v))
+        for t in (pw.get("top_donors") or [])[:TOP_DONORS]:
+            f[f"top_donors/{t.get('name')}/total"] = cents(t.get("total"))
     years = sorted({str(r.get("year")) for r in rows})
     for y in years:
         f[f"rows/{y}"] = rows_figure([r for r in rows if str(r.get("year")) == y], lambda r: cents(r.get("amount")))
     f["rows/total"] = cents(sum((r.get("amount") or 0) for r in rows))
+    f["donations_made/total"] = cents(d.get("donations_made_total"))
+    f["disclosures/sighted_total"] = cents(d.get("disclosures_sighted_total"))
     mapped = {"party_window", "card", "donations_received", "donations_received_total", "mps", "financials",
               "board", "donations_received_not_shown", "name_matched_count", "disclosed_count", "corroborated_count",
               "discrepancy_count", "disclosures_sighted_total", "disclosures_open_total", "anchored",
@@ -465,6 +649,11 @@ def subject_person(side: str, d: dict) -> dict:
             f[f"{k}/declared"] = cents(r.get("declared"))
             f[f"{k}/expenses"] = cents(r.get("expenses"))
         f["donations_made/total"] = cents(d.get("donations_made_total"))
+        f["positions/n"] = len(d.get("positions") or [])
+        f["properties/n"] = len(d.get("properties") or [])
+        f["party_boards/n"] = len(d.get("party_boards") or []) if isinstance(d.get("party_boards"), list) else None
+        f["public_expenses/total"] = cents((d.get("public_expenses") or {}).get("total")) if isinstance(d.get("public_expenses"), dict) else None
+        f["interests_tree/held"] = bool((d.get("interests_tree") or {}).get("tree")) if d.get("interests_tree") is not None else None
     else:
         for r in d.get("candidacies") or []:
             el = str(r.get("election") or "")
@@ -473,14 +662,24 @@ def subject_person(side: str, d: dict) -> dict:
             k = f"candidacy/{year}/{fold(str(r.get('electorate') or '').split('/')[-1]) or 'list'}"
             f[f"{k}/party"] = r.get("party") or r.get("party_filed")
             f[f"{k}/votes"] = r.get("votes")
-            f[f"{k}/declared"] = NOT_HELD
-            f[f"{k}/expenses"] = NOT_HELD
-        f["donations_made/total"] = held_or(d.get("donations_made"))
+            f[f"{k}/declared"] = held_or(r.get("declared"))
+            f[f"{k}/expenses"] = held_or(r.get("expenses"))
+        f["donations_made/total"] = held_or(d.get("donations_made_total"), lambda v: cents(v) if v is not None else held_or(d.get("donations_made")))
+        f["positions/n"] = held_or(d.get("positions"), lambda v: len(v or []))
+        f["properties/n"] = held_or(d.get("properties"), lambda v: len(v or []))
+        f["party_boards/n"] = held_or(d.get("party_boards"), lambda v: len(v or []))
+        f["public_expenses/total"] = held_or(d.get("public_expenses"), lambda v: cents((v or {}).get("total")))
+        f["interests_tree/held"] = held_or(d.get("interests_tree"), lambda v: bool((v or {}).get("tree")))
+    received = d.get("donations_received") or []
+    f["donations_received/total"] = cents(d.get("donations_received_total"))
+    f["donations_received/rows"] = rows_figure(received, lambda r: cents(r.get("amount")))
     mapped = {"candidacies", "donations_made", "donations_made_total", "positions", "sitting_mp", "seats",
               "namesakes_note", "candidates_available", "candidates_context_linked", "candidates_namesake_only",
               "include_candidates", "positions_not_drawn", "positions_aliases", "donations_made_not_shown",
               "matched_names", "candidate_rows", "anchored", "name_matched_count", "disclosed_count",
-              "corroborated_count", "discrepancy_count", "coverage", "exposure_rollup"}
+              "corroborated_count", "discrepancy_count", "coverage", "exposure_rollup", "donations_received",
+              "donations_received_total", "properties", "party_boards", "public_expenses", "interests_tree",
+              "donations_received_by_year"}
     return f, mapped
 
 
@@ -516,9 +715,14 @@ STRICT_ZERO = ("declared", "declared_total", "disclosed", "votes", "n", "count",
 
 def same(figure_id: str, o, n) -> bool:
     """Equal as published facts: None and no entry are both 'no figure';
-    for a few by-year figures a zero is too."""
+    for a few by-year figures a zero is too. A rebuilt page that says it
+    does not hold a figure, against a frozen page that shows nothing there
+    (no entry, None, an empty list, False), shows the same: nothing."""
     if o == n:
         return True
+    if NOT_HELD in (o, n):
+        other = n if o == NOT_HELD else o
+        return other in (None, ABSENT) or other == 0 or other is False
     nothing = {None, ABSENT}
     parts = figure_id.split("/")
     last = parts[-2] if (len(parts) > 1 and parts[-1].isdigit()) else parts[-1]

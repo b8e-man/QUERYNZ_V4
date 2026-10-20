@@ -36,6 +36,12 @@ def test_person_key_folds_the_three_ways_a_name_is_written():
     assert F.person_key("Tim van de Molen") == F.person_key("Tim VAN DE MOLEN")
 
 
+def test_a_name_segment_with_a_residence_word_is_withheld_from_the_record():
+    assert C.withhold("donors/A Person, Sunny Retirement Village/total") == "donors/[name withheld: residence fragment]/total"
+    assert C.withhold("data/donor/a-person-sunny-retirement-village-1a2b3c4d.json") == "data/donor/[name withheld: residence fragment]"
+    assert C.withhold("donors/Village Green Trust/total") == "donors/Village Green Trust/total" and C.withhold(123) == 123
+
+
 def test_slug_and_spelling_keys():
     assert F.slug_of_path("data/subject/person/aaron-stallard-8936a9e5.json") == "aaron-stallard"
     assert F.spelling_key("3EYES Construction Ltd") == F.spelling_key("3Eyes Construction Limited")
@@ -82,7 +88,7 @@ def test_a_part_a_year_not_read_is_a_named_figure_of_none():
 def home_docs(new_amount=1227121.15):
     old = {"parties": [OLD_PARTY], "totals": {"party_spend": 21364169.97}, "donors": [{"name": "A", "total": 100.0}],
            "recent_disclosures": {"n": 1, "total": 50000.0, "rows": [{"party": "P", "donor": "D", "amount": 50000.0}]},
-           "generated_at": "x", "race_spend": [1]}
+           "generated_at": "x", "press": [1]}
     np = json.loads(json.dumps(NEW_PARTY))
     np["declared_by_year"]["2020"] = new_amount
     new = {"parties": [np], "totals": {"party_spend": 21364169.97}, "donors": [{"name": "A", "total": 100.0}],
@@ -94,7 +100,7 @@ def home_docs(new_amount=1227121.15):
 def test_identical_figures_are_no_difference_and_one_cent_is():
     old, new = home_docs()
     diffs = {d["figure"]: d for d in C.diff_file("home", "data/home.json", "data/home.json", old, new)}
-    assert set(diffs) == {"section/race_spend"}, diffs
+    assert set(diffs) == {"section/press"}, diffs
     old, new = home_docs(1227121.16)
     diffs = {d["figure"]: d for d in C.diff_file("home", "data/home.json", "data/home.json", old, new)}
     assert diffs["party/ACT New Zealand/declared/2020"]["old"] == 122712115
@@ -129,7 +135,8 @@ def ctx():
     return {"unread_party_years": {("ACT New Zealand", "2017")}, "donor_causes": {}, "new_rows": {}, "old_rows": {},
             "old_parties": {"ACT New Zealand"}, "left_out_party_years": set(), "unheld_party_years": set(),
             "new_people": {}, "no_result": set(), "old_people": {}, "unread_names": {("act new zealand", "2017")},
-            "left_out_names": set(), "unheld_names": set()}
+            "left_out_names": set(), "unheld_names": set(), "new_multi": {}, "race_causes": {},
+            "withheld_expenses": set()}
 
 
 def d(kind, figure, old, new, **more):

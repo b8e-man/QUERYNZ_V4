@@ -12,12 +12,18 @@ and read published tables only.
 - `comparison.py` and `comparison_figures.py`: the comparison with the frozen
   site (plan 4.5). `python -m checks.comparison run` pairs today's frozen
   release with the rebuilt version built from its listing, reads every file
-  of the ten kinds on both sides into the same figures, differs them with no
-  tolerance on money, groups each difference by a cause that has a card in
-  `cards/`, and writes `<live>/checks/comparison/days/<version>.json` and the
+  of the ten kinds on both sides into the same figures (every section the
+  template's `page_sections` lists; `sections_added` in
+  `products/templates/ftm/ftm.json` is read so the shape's own keys are not
+  counted), differs them with no tolerance on money, groups each difference
+  by a cause that has a card in `cards/`, and writes
+  `<live>/checks/comparison/days/<version>.json`, beside it every
+  difference with its cause (`<version>.diffs.jsonl`, figures only), and the
   clean-day ledger `ledger.jsonl`. `show` prints the last day; `causes` lists
-  the causes and their cards. The board item reads the ledger. Its daily job
-  is `qv4-site-compare` in the scheduler's catalogue (after `qv4-site-build`).
+  the causes and their cards. A rebuilt page saying "not held" against a
+  frozen page showing nothing is no difference. The board item reads the
+  ledger. Its daily job is `qv4-site-compare` in the scheduler's catalogue
+  (after `qv4-site-build`).
 - `module_checks.py`: every lane's own check (`registers/*/check.py` with a
   main) and the board's and the published site's, run as commands with a
   timeout the way `windowed.py` runs track E's two; red on exit 1, a crash
