@@ -65,7 +65,7 @@ def test_the_donor_fold_gate_misses_a_page_and_a_shared_key(built):
     os.remove(os.path.join(vdir, paths.path("donor", "Jane Q Donor")))
     ok, line = gates.donor_fold(vdir)
     assert not ok and "has no donor page" in line
-    plant(vdir, paths.path("donor", "Big Co Limited"), lambda o: o.update({"name_key": "giver open year"}))
+    plant(vdir, paths.path("donor", "Big Co Limited"), lambda o: o.update({"name_key": "open year giver"}))
     ok, line = gates.donor_fold(vdir)
     assert "share the name key" in line
 
@@ -128,3 +128,30 @@ def test_the_statements_gate_recounts_the_lane_by_sql(built):
     ok, line = gates.statements(vdir, ctx)
     assert not ok and "income" in line
     assert not gates.statements(vdir, {"conn": None, "years": [2017]})[0]
+
+
+def test_the_name_keys_gate_sees_a_key_the_name_lacks_and_a_residence_word(built):
+    out, vdir = built
+    ok, line = gates.name_keys(vdir)
+    assert ok and "keys match the name beside them" in line
+    plant(vdir, paths.path("donor", "Big Co Limited"), lambda o: o.update({"name_key": "big co limited sunny village"}))
+    ok, line = gates.name_keys(vdir)
+    assert not ok and "2 word(s) the name lacks" in line and "sunny" not in line and "data/donor/big-co-limited" in line
+    plant(vdir, paths.path("donor", "Big Co Limited"), lambda o: o.update({"name_key": "big co limited"}))
+    plant(vdir, paths.path("home"), lambda o: o["donors"].__setitem__(0, dict(o["donors"][0], name_key="big co limited retirement village")))
+    ok, line = gates.name_keys(vdir)
+    assert not ok and "data/home.json at donors[].name_key" in line and "village" not in line
+    plant(vdir, paths.path("home"), lambda o: o["donors"].__setitem__(0, dict(o["donors"][0], name_key="big co limited", name="Big Co Limited Rest Home")))
+    ok, line = gates.name_keys(vdir)
+    assert not ok and "a residence word in a name field" in line and "Rest Home" not in line
+    plant(vdir, paths.path("home"), lambda o: o["donors"].__setitem__(0, dict(o["donors"][0], name="Big Co Limited")))
+    assert gates.name_keys(vdir)[0]
+
+
+def test_the_gate_s_residence_vocabulary_is_the_comparison_s():
+    """The site may not import checks/ (imports run one way), so the vocabulary is copied and held equal here."""
+    import re
+    src = open(os.path.join(os.path.dirname(gates.__file__), "..", "..", "checks", "comparison.py"), encoding="utf-8").read()
+    m = re.search(r"^RESIDENCE_WORDS = (\(.*?\))$", src, re.M | re.S)
+    assert m, "checks/comparison.py has no RESIDENCE_WORDS tuple"
+    assert tuple(eval(m.group(1))) == gates.RESIDENCE_WORDS

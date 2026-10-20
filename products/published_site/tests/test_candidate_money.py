@@ -66,7 +66,7 @@ def test_candidate_donors_fold_only_by_the_shared_reading_of_the_exact_spelling(
     assert big["totals"]["candidate_returns"] == 600.0 and big["totals"]["party_returns"] == 40000.0 and big["totals"]["total"] == 40600.0
     assert big["totals"]["by_receiver"] == {"ACT New Zealand": 40000.0, "David SEYMOUR": 600.0}
     local = load(vdir, paths.path("donor", "Local Giver"))
-    assert local["name_key"] == "filed:local giver" and local["totals"]["total"] == 477.0 and len(local["history"]) == 2
+    assert local["name_key"] == "local giver" and local["totals"]["total"] == 477.0 and len(local["history"]) == 2
     assert "not joined" in [r for r in local["history"] if r["receiver"] == "Ghost NOBODY"][0]["basis"]
     pk = load(vdir, paths.path("pickers"))
     assert "Local Giver" in [d["name"] for d in pk["donors"]]

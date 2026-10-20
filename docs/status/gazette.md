@@ -1,40 +1,50 @@
 # gazette: where it stands
 
-**Date:** 2026-10-20. **Step:** 4.1, Gazette notices, `registers/gazette/`.
-**Merge requests:** `gazette-1`, `gazette-2` (merged), `gazette-3` (raised).
+**Date:** 2026-10-20. **Step:** 4.1 and 5.3, Gazette notices, `registers/gazette/`.
+**Merge requests:** `gazette-1` to `-3` (merged), `gazette-4` (raised), `gazette-5` (raised; carries gazette-4).
 
 ## Done
 
 - Capture: every notice the old estate holds as text, exported once
   (207,133 notices, sha256 47de7e09…); typed by the Gazette's section code.
-- Celebrant lists: 2,975 notices, 159,502 rows (the twelve printed tables
-  now cut by the organisation vocabulary: 36,315); addresses private.
-- Director prohibitions (537 notices) and liquidator appointments (43,587).
-- gazette-3, each its own profile (proposed), measured on every notice:
-  removals `ds`, winding-up applications `aw`, receiverships `ar`, notices to
-  creditors `md`, administrations `aa` (1.48 M company rows in
-  `company_notices`, receivers and administrators in `practitioners`);
-  bankruptcies `ba` (65,299 people, addresses in `gazette_private` only,
-  annulled people withheld); appointments to public office (3,155).
-- Every company row joined to `pub.companies` (`register.py`): al 98.2%,
-  ds 96.7%, aw 96.0%, md 93.8%, aa 91.9%, ar 90.9%; the rest catch-log lines.
-- Outside check (`check.py`, exits 1): the floors above; every notice under
-  al, ds, aw, ar, md, aa, ba and every "Appointment…" taken by its profile;
-  "Honourable" appointees since 2021 against the house lane's members
-  (125 of 134); table people named by a delimited list (79.7%).
-- Full load into a scratch schema: 88 s, 4.5 GB peak.
+- Read, each its own profile, measured on every notice: celebrant lists,
+  prohibitions, liquidations (`al`), removals `ds`, winding-up `aw`,
+  receiverships `ar`, creditors `md`, administrations `aa`, bankruptcies
+  `ba` (addresses in `gazette_private` only), appointments (3,155).
+- gazette-4, three new kinds in `company_notices`, profiles proposed in
+  `profile-proposed.jsonl`: overseas companies leaving NZ `cb` (2,601 of
+  2,607 notices, 95.4% joined); restorations `ot` (868 of 888, 31,515 rows,
+  93.1%; the applicant and address never read); society and trust board
+  dissolutions `is`/`ct` (1,697 of 1,813, 33,749 rows, 98.7% by the
+  register's own number, 90.2% agreeing by name). Check floors 92/90/95%,
+  name agreement 85%. Full load 92 s into `scratch_gazette_4_full`
+  (sample database); the check exits 0. Unread fell 86,173 → 80,865.
+- gazette-5 tranche 1, mortgagee entries into possession (`gn`): `possessions.py`, proposed profile
+  `gazette-mortgagee-possession`, `pub.gazette_possessions`, private `possession_details`. 3,002 notices,
+  2,899 lender named, 2,951 day, 2,449 of 2,864 company lenders joined (85.5%); floors 95/95/82%. Full load
+  101 s into `scratch_gazette_5_full`; the check exits 0. Unread 80,865 → 77,863.
+- gazette-5 tranche 2, `ot` (`companyacts.py`, four proposed profiles): rectifications 486 of 503
+  notices, 2,877 rows, 99.7% joined, 85.1% by name, people by initials only; amalgamations 369, 1,000
+  rows, 73.1%; transfers out 167, 95.8%; deeds 21, 89.7%. Unread → 76,803. Both cards closed.
+- `pane.md` covers all ten views.
+- The parties lane reads this lane's `au` notices (parties-2: 137).
+
+## Unread, by use case (recruitment 08, agriculture 04, banking 03, legal 02)
+
+Wanted and not yet read: none of the carded sections. Waiting on Arthur (queue): vehicle confiscation orders (`go`, 6,213)
+and disciplinary findings (`gn`, 96). Not wanted: `ln` 25,679
+and `lt` 2,637 land (use case 12); the rest of `go` (education licences,
+medicines, school agreements, JPs), `au` 7,165 (the parties lane reads 137),
+`gs`, `sl`, `cu`, `rs`, `dl`, `vw`, `pb`; `pn` 555 firm partners; `vr`/`ps`
+ministers and vacancies (the house lane); `fs` 109 friendly societies.
 
 ## Carded
 
-- `appointment-notices-whose-appointees-run-together-are-unread`.
-- `annulled-bankrupts-the-reader-cannot-name-stay-published-on-earlier-rows`.
-- `bin-fast-runs-the-system-python-in-a-working-copy-without-a-venv` (integrator).
-- From before: `civil-union-celebrant-lists-without-stops-are-unread`,
-  `the-old-capture-missed-a-seventh-of-2019-s-gazette-notices`.
+- `published-gazette-titles-can-carry-a-street-address` (gazette-5: `ln` 1,642, 57 elsewhere).
+- Left for Arthur's word: `appointment-notices-whose-appointees-run-together-are-unread`,
+  `annulled-bankrupts-the-reader-cannot-name-stay-published-on-earlier-rows`.
 
 ## Next
 
-1. The parties lane takes this lane's `au` notices instead of its export.
-2. The two cards above, if Arthur wants appointments or annulments shown.
-3. The remaining unread sections (`ot`, `is`, `ct`, `cb`, `pn`, …), by
-   use case.
+1. Cut every published title before a street address (card above).
+2. Disciplinary findings, if Arthur rules yes.

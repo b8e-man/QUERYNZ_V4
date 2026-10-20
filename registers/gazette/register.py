@@ -28,10 +28,12 @@ from collections import defaultdict
 #: how a row was joined; the last three give no register row
 NUMBER, NUMBER_NAME_DIFFERS = "number and name", "number; the register's name differs"
 NAME, NAME_NUMBER_NOT_HELD = "name, alive on the date", "name; the printed number is not held"
+#: a name printed without its legal ending ("GE Custodians"), held with "Limited" (possessions.py)
+NAME_LIMITED = "name with Limited added, alive on the date"
 SEVERAL, NOT_ALIVE, NOT_HELD = "name; several alive on the date", "name; held, not alive on the date", "not held"
 UNMATCHED = (SEVERAL, NOT_ALIVE, NOT_HELD)
 COUNT = {NUMBER: "number", NUMBER_NAME_DIFFERS: "number_name_differs", NAME: "name",
-         NAME_NUMBER_NOT_HELD: "name_number_not_held", SEVERAL: "several", NOT_ALIVE: "not_alive", NOT_HELD: "not_held"}
+         NAME_NUMBER_NOT_HELD: "name_number_not_held", NAME_LIMITED: "name_limited", SEVERAL: "several", NOT_ALIVE: "not_alive", NOT_HELD: "not_held"}
 
 _STATUS = re.compile(r"\s*\((?:\s*[a-z\"“'‘]|\s*(?i:in|formerly|previously|now|receivers?|all|both|trading)\b)[^()]*(?:\([^()]*\)[^()]*)*\)")
 
@@ -58,21 +60,22 @@ def _on(d):
 
 class Index:
     def __init__(self, rows):
-        self.by_number, self.by_name = {}, defaultdict(list)
+        self.by_number, self.by_name = defaultdict(dict), defaultdict(list)
         for k, register, number, name, registered_on, removed_on in rows:
             r = (k, key(name), _on(registered_on), _on(removed_on))
             n = _number(number)
-            if n and register == "companies":     # a society's number is another sequence: a notice's "Company No." is never one
-                self.by_number.setdefault(n, r)
+            if n:                                 # each register numbers its own: a notice's "Company No." is never a society's
+                self.by_number[register].setdefault(n, r)
             self.by_name[r[1]].append(r)
 
-    def match(self, company: str, number: str = None, on=None, year: int = None) -> tuple:
+    def match(self, company: str, number: str = None, on=None, year: int = None, registers=("companies",)) -> tuple:
         """on: the appointment date; without one, the notice's year (alive
-        at some time in it)."""
+        at some time in it). registers: the registers whose numbers the
+        printed number can be (a society's notice prints the society's)."""
         on, n, k = _on(on), _number(number), key(company)
         lo, hi = (on, on) if on else (dt.date(year, 1, 1), dt.date(year, 12, 31)) if year else (None, None)
-        if n and n in self.by_number:
-            r = self.by_number[n]
+        r = next((self.by_number[g][n] for g in registers if n and n in self.by_number[g]), None)
+        if r:
             return r[0], NUMBER if r[1] == k else NUMBER_NAME_DIFFERS
         held = self.by_name.get(k, [])
         alive = [r for r in held if lo is None or ((r[2] is None or r[2] <= hi) and (r[3] is None or r[3] >= lo))]

@@ -13,6 +13,10 @@ class Entry:
     number: str = None
     event_on: str = None          # this company's own date, where the notice gives each its own
     event_at: str = None
+    role: str = None              # amalgamation: amalgamating company | amalgamated company
+    ground: str = None            # rectification: what is corrected, from a fixed list
+    party: str = None             # rectification: who applied; a person by initials and surname
+    people: str = None            # rectification: the persons a correction names, by initials and surname
 
 
 @dataclass

@@ -22,6 +22,8 @@ import datetime as dt
 import re
 from collections import Counter, defaultdict
 
+from products.published_site import paths
+
 _DATE = re.compile(r"(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})")
 
 
@@ -81,7 +83,17 @@ def current(rows: list) -> list:
 
 
 def disclosure_year(d: dict) -> int | None:
-    return year_of(d.get("received_on") or d.get("given_on"))
+    """The year a declaration belongs to is the gift's (`given_on`, the day
+    the party received it), never the Commission's (`received_on`): the
+    disclosures lane's rule, measured on all 520 held (8 gifts were declared
+    in a later year). Where the table prints no gift date (a 2008-2022
+    declaration itemising several gifts) the Commission's date is the only
+    one held and is taken, said so in the row's basis."""
+    return year_of(d.get("given_on") or d.get("received_on"))
+
+
+def disclosure_year_basis(d: dict) -> str:
+    return "the year of the gift (given_on)" if d.get("given_on") else "the year the Commission received the declaration (no gift date printed)"
 
 
 def live_disclosures(rows: list) -> list:
@@ -265,8 +277,14 @@ def party_series(tables, settings: dict, idx: PartyIndex, years: list) -> dict:
 
 
 class Donor:
-    def __init__(self, name_key: str, kind: str):
-        self.name_key, self.kind = name_key, kind
+    """One donor as the site shows it. `readings` are the links' keys (or the
+    filed-spelling stand-ins) folded here; they stay inside the build and no
+    published field repeats them. `name_key`, the published key, is derived
+    from the display name alone (paths.name_key) once the fold is settled."""
+
+    def __init__(self, reading: str, kind: str):
+        self.readings = [reading]
+        self.kinds = Counter({kind: 1})
         self.spellings = Counter()
         self.rows = []          # history rows, each with its document
         self.refs = []          # the pub.names refs folded here
@@ -275,6 +293,39 @@ class Donor:
     def name(self) -> str:
         best = sorted(self.spellings.items(), key=lambda kv: (-kv[1], len(kv[0]), kv[0]))
         return best[0][0] if best else "(unreadable)"
+
+    @property
+    def name_key(self) -> str:
+        return paths.name_key(self.name) or "unreadable"
+
+    @property
+    def kind(self) -> str:
+        best = sorted(self.kinds.items(), key=lambda kv: (-kv[1], kv[0] == "unreadable", kv[0]))
+        return best[0][0] if best else "unreadable"
+
+    def absorb(self, other: "Donor") -> None:
+        self.readings.extend(other.readings)
+        self.kinds.update(other.kinds)
+        self.spellings.update(other.spellings)
+        self.rows.extend(other.rows)
+        self.refs.extend(other.refs)
+
+
+def fold_by_display(donors: dict) -> dict:
+    """One donor, one page (the template's settled page key is the display
+    name): donors whose display names are one form, case and marks aside, are
+    one donor. The links read a filed spelling under one key; the fold here
+    only joins rows the links have not read (a row loaded after the links
+    ran takes a filed-spelling stand-in) or have read apart from an identical
+    spelling, which is carded for them. Keyed by the page key."""
+    out = {}
+    for d in sorted(donors.values(), key=lambda d: (-len(d.rows), d.readings[0])):
+        k = d.name_key
+        if k in out:
+            out[k].absorb(d)
+        else:
+            out[k] = d
+    return out
 
 
 def donors(tables, settings: dict, idx: PartyIndex, series: dict, years: list, cm=None) -> dict:
@@ -295,8 +346,11 @@ def donors(tables, settings: dict, idx: PartyIndex, series: dict, years: list, c
     out = {}
 
     def D(ref, filed):
+        """The donor a row folds into: the links' reading of the row; else the
+        links' reading of its exact filed spelling in another row (a row the
+        links have not read yet, or a candidate return's); else the spelling."""
         n = reading.get(ref)
-        if not n and ref.startswith("candidate_returns:"):
+        if not n:
             hits = by_spelling.get((filed or "").strip().lower(), set())
             if len(hits) == 1:
                 nk, kind = next(iter(hits))
@@ -330,7 +384,8 @@ def donors(tables, settings: dict, idx: PartyIndex, series: dict, years: list, c
         d = D(f"disclosures:{x['key']}", x.get("donor_name"))
         d.rows.append({"ref": f"disclosures:{x['key']}", "source": "disclosure", "year": y, "party": k, "party_name": idx.name(k),
                        "party_filed": x.get("party_label"), "donor_filed": x.get("donor_name"), "amount": money(x["amount"]),
-                       "received_on": x.get("received_on"), "document": x["document"], "page": x.get("page"),
+                       "received_on": x.get("received_on"), "given_on": x.get("given_on"), "year_basis": disclosure_year_basis(x),
+                       "document": x["document"], "page": x.get("page"),
                        "declaration_document": x.get("declaration_document"), "href": x.get("href"), "regime": x.get("regime"),
                        "counts": not covered,
                        "basis": "sighted: the return for this year is the record" if covered else "open year: no return held"})
@@ -347,7 +402,7 @@ def donors(tables, settings: dict, idx: PartyIndex, series: dict, years: list, c
                                 "donor_filed": d.get("donor"), "amount": money(d.get("amount")), "dates": d.get("dates"), "contributions": d.get("contributions"),
                                 "document": d["document"], "page": d.get("page"), "ordinal": d.get("ordinal"), "read_from": d.get("read_from"),
                                 "counts": True, "basis": "Part A of the candidate's return" + ("" if ckey else "; the return is not joined to a candidate in the results")})
-    return out
+    return fold_by_display(out)
 
 
 def donor_totals(d: Donor) -> dict:
