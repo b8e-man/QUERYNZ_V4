@@ -118,7 +118,7 @@ def dates(v: cat.View, r: dict) -> dict:
     undated = not (start or end or on or year)
     if undated:
         bits.append(UNDATED)
-    if period and any(period):
+    if period and any(period) and undated:
         a, b = (period + (None, None))[:2]
         if a and b:
             bits.append(f"in the files from {fmt(a)} to {fmt(b)}")
