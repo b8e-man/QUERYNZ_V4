@@ -1,4 +1,4 @@
-When a lane later holds the whole source, re-select a one-off export by the source's own words, not the old classifier's type: 136 of 136 register notices matched the Gazette lane word for word, and the Gazette lane held a 137th the classifier had typed as an authority's.
+When a lane later holds the whole source, re-select a one-off export by the source's own words, not the old classifier's type: 136 of 136 notices matched the Gazette lane, which held a 137th the classifier mistyped.
 area: party register, Gazette notices, one-off exports, old classifier, notice selection
 paid-for-by: 2026-10-20, parties-2 session, step 4.1
 
