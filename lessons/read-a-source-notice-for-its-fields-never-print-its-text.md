@@ -1,4 +1,4 @@
-When a checkpoint reads a fact against its source document, extract only the fields being checked (a date, a name, a section): never print a notice's text into the session, because a Gazette prohibition notice carries the person's home address.
+When a checkpoint reads a fact against its source document, extract only the fields being checked (a date, a name, a section); never print a notice's text into the session, since a prohibition notice carries a home address.
 area: checkpoints, reading against source, Gazette, hard limit 11, subject reports
 paid-for-by: 2026-10-20, banking-1 session, step 5.2 checkpoint
 
