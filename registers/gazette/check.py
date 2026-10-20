@@ -63,6 +63,11 @@ JOINED_FLOOR, NUMBER_FLOOR = 0.97, 0.98
 #: the company-notice profiles: the Gazette's section, the profile every notice in it must be taken by, and the
 #: floor of its company rows the register must hold (measured 20 October 2026: removals 96.7%, applications 96.0%,
 #: receiverships 90.9%: a company sold out of receivership is often renamed, and the register holds the latest name)
+#: the Registrar's other ot notices (gazette-5), measured 20 October 2026 on every notice: see the merge request
+#: rectifications 2,869 of 2,877 rows joined (99.7%), 85.1% of printed numbers agreeing by name (renamed since, or a
+#: bracket the register prints and the notice does not); amalgamations 73.1% (269 of the 1,000 rows unjoined, 210 of them
+#: from 2000-2009: companies amalgamated away under names the register no longer holds); transfers out 95.8%; deeds 89.7%
+RECT_FLOOR, AMAL_FLOOR, TRANSFER_FLOOR, DEED_FLOOR = 0.97, 0.70, 0.92, 0.85
 COMPANY = {"removal": ("ds", "gazette-removal-notice", 0.95),
            "winding-up application": ("aw", "gazette-winding-up-application", 0.95),
            "receivership": ("ar", "gazette-receivership", 0.88),
@@ -70,15 +75,24 @@ COMPANY = {"removal": ("ds", "gazette-removal-notice", 0.95),
            "administration": ("aa", "gazette-administration", 0.88),                # measured 91.9%
            "overseas company": ("cb", "gazette-overseas-company-ceasing", 0.92),    # measured 95.4% (gazette-4)
            "restoration": ("ot", "gazette-restoration-notice", 0.90),               # measured 93.1% (gazette-4)
-           "dissolution": (("is", "ct"), "gazette-society-dissolution", 0.95)}     # measured 98.7% (gazette-4)
+           "dissolution": (("is", "ct"), "gazette-society-dissolution", 0.95),     # measured 98.7% (gazette-4)
+           "rectification": ("ot", "gazette-register-rectification", RECT_FLOOR),
+           "amalgamation": ("ot", "gazette-amalgamation-proposal", AMAL_FLOOR),
+           "transfer out": ("ot", "gazette-transfer-out", TRANSFER_FLOOR),
+           "deed of company arrangement": ("ot", "gazette-deed-of-company-arrangement", DEED_FLOOR)}
 #: a section that holds other notices too: only those its title marks must be taken by the profile (ot holds
 #: prohibitions, amalgamations and rectifications beside its restorations; is and ct, directions on surplus assets and
 #: schemes beside their dissolutions)
 #: where most rows print the register's own number, the share of those numbers whose name agrees: a join by number stays
 #: right while the reader cuts names wrong (measured 20 October 2026: dissolutions 90.2%; lesson
 #: a-join-by-number-hides-a-broken-name-read-the-agreement-share)
-COMPANY_NUMBER_FLOOR = {"dissolution": 0.85}
-TITLED = {"restoration": re.compile(r"\brestor", re.I).search, "dissolution": dissolutions.titled}
+COMPANY_NUMBER_FLOOR = {"dissolution": 0.85, "rectification": 0.80}
+TITLED = {"restoration": re.compile(r"\brestor", re.I).search, "dissolution": dissolutions.titled,
+          "rectification": lambda t: bool(re.search(r"\bcorrect\s+(?:the\s+)?(?:New\s+Zealand\s+)?register|\brectif", t, re.I))
+                                     and not re.search(r"\brestor", t, re.I),         # a restoration that corrects too is a restoration
+          "amalgamation": re.compile(r"\bamalgamat", re.I).search,
+          "transfer out": re.compile(r"\btransfer\w*\s+(?:of\s+)?(?:registration|incorporation)|other\s+jurisdiction", re.I).search,
+          "deed of company arrangement": re.compile(r"deed\s+of\s+company\s+arrangement", re.I).search}
 #: every notice in section ba is taken by one of these
 BANKRUPTCY = ("gazette-bankruptcy-list", "gazette-no-asset-procedure-list", "gazette-bankruptcy-notice")
 APPOINTMENT = "gazette-public-appointment"
@@ -248,7 +262,7 @@ def failed(f: dict) -> list:
         if q.get("register") is not None:
             why += _register_fails("liquidation", q["register"], JOINED_FLOOR, NUMBER_FLOOR)
     for kind, c in f.get("company", {}).items():
-        if not c["filed"]:
+        if not c["filed"] and not (c.get("register") or {}).get("rows"):     # a kind titled by its company names is seen by its rows
             why.append(f"no notice under section {c['code']} is published")
         for n in c["not_read"][:20]:
             why.append(f"{n}: filed by the Gazette under {c['code']} and not taken by the {kind} profile")
@@ -355,7 +369,8 @@ def main(argv=None) -> int:
           f"{q['filed'] - len(q['not_read']):,} taken by its profile (read, or set aside with a reason)")
     for what, c in [("liquidation", q)] + list(f["company"].items()):
         if what != "liquidation":
-            plural = {"notice to creditors": "Notices to creditors", "overseas company": "Overseas companies"}.get(
+            plural = {"notice to creditors": "Notices to creditors", "overseas company": "Overseas companies",
+                      "transfer out": "Transfers out", "deed of company arrangement": "Deeds of company arrangement"}.get(
                 what, f"{what.capitalize()}s")
             titled = " and titles as its profile's" if what in TITLED else ""
             print(f"{plural}: {c['filed']:,} notices the Gazette files under {c['code']}{titled}, "

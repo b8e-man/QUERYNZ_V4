@@ -137,22 +137,23 @@ CREATE TABLE IF NOT EXISTS gazette.liquidators (
 );
 
 -- one row per company a removal notice (ds), a winding-up application (aw), a receivership (ar), a notice to creditors (md),
--- an administration (aa), an overseas company's leaving (cb), a restoration to the register (ot) or a society's or trust
--- board's dissolution (is, ct) names
+-- an administration (aa), an overseas company's leaving (cb), a restoration to the register, a rectification of it, an
+-- amalgamation, a transfer out or a deed of company arrangement (ot) or a society's or trust board's dissolution (is, ct) names
 CREATE TABLE IF NOT EXISTS gazette.company_notices (
     key              text PRIMARY KEY,                      -- gazette/<notice>/company/<ordinal>
     notice           text NOT NULL,
     published_on     date,
     kind             text NOT NULL CHECK (kind IN ('removal', 'winding-up application', 'receivership', 'notice to creditors',
-                                                     'administration', 'overseas company', 'restoration', 'dissolution')),
+                                                     'administration', 'overseas company', 'restoration', 'dissolution',
+                                                     'rectification', 'amalgamation', 'transfer out', 'deed of company arrangement')),
     action           text,                                  -- the notice's own words: intention to remove, application to put into liquidation, …
     company          text NOT NULL,                         -- as printed, a status or former name in brackets taken out
     company_number   text,                                  -- where printed for this company
     shape            text NOT NULL CHECK (shape IN ('notice', 'list')),
     statute          text,                                  -- the first Act and section cited
-    ground           text,                                  -- removal: liquidation completed | ceased business
+    ground           text,                                  -- removal: liquidation completed | ceased business; rectification: what is corrected; transfer out: where to
     by_whom          text,                                  -- who gives notice or appointed: liquidator, Registrar, director, …
-    party            text,                                  -- the plaintiff (aw) as printed; never its address
+    party            text,                                  -- the plaintiff (aw) as printed; never its address; rectification: who applied, a person by initials
     event_on         date,                                  -- what event_basis says: objections by, hearing, appointment, ceased to act, ceases, dissolved on
     event_at         text,                                  -- the time printed with it
     event_basis      text,
@@ -165,6 +166,8 @@ CREATE TABLE IF NOT EXISTS gazette.company_notices (
     register_key     text,                                  -- the companies lane's entity (pub.companies.key); none where unmatched
     register_match   text,                                  -- how (register.py); NULL where the register was not in the database
     ordinal          integer NOT NULL,
+    role             text,                                  -- amalgamation: amalgamating company | amalgamated company
+    people_named     text,                                  -- rectification: the persons a correction names, initials and surname only
     document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
     page             integer NOT NULL DEFAULT 1,
     place            text NOT NULL,                         -- notice <number> company <ordinal>

@@ -41,6 +41,22 @@ held or shown, and neither is the applicant a restoration names, nor the applica
 company alone. A restoration given under `ds` is a removal row whose action is "restoration" (5,155 rows); one under
 `ot` is the kind "restoration".
 
+Four more kinds come from the Registrar's other `ot` notices (gazette-5, measured on every notice 20 October 2026). A
+rectification row (2,877 rows from 486 of 503 notices; 99.7% joined, 85.1% of printed numbers agreeing by name) is a
+company the Registrar intends to correct the register for: its number, what is corrected as words from a fixed list in
+`ground` (director 700, shareholding 532, liquidation 513, receivership, company name, annual return, address,
+constitution, …, "other" 227), the people the correction names in `people_named` and an applicant who is a person in
+`party`, by initials and surname only (867 rows name people; 467 applicants are people), and the day objections close.
+The correction's sentence is never held or shown, so neither is a given name or an address it prints. An amalgamation
+row (1,000 rows from 369 notices, 73.1% joined; the unjoined mostly 2000-2009 companies under names the register no
+longer holds) is each company a proposal names, `role` saying which continues as the amalgamated company (163) and which
+amalgamate into it; a proposal that forms a new company names none to continue. A transfer-out row (168 from 167
+notices, 95.8% joined) is a company leaving the register to be incorporated elsewhere, the place in `ground` (the
+British Virgin Islands 21, Australia, Delaware, …) and the day after which it applies. A deed of company arrangement row
+(39 from 21 notices, 89.7% joined) is the company, the action (executed, varied, terminated) and its day; the deed
+administrators are practitioner rows (20). 198 `ot` notices stay unread: extensions of time to register a charge,
+court applications and industrial and provident society notices.
+
 A practitioner row is a receiver or an administrator as the notice signs them: the name, the role as printed (Receiver
 and Manager, Joint Administrators, Former Receiver, …), how the name was read (`full`: also named in full in the
 notice's text above the signature; `surname`: only the surname there; `no`: only at the signature), and the companies

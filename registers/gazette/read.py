@@ -16,7 +16,9 @@ model, so the fast tier runs the same code.
   company_notices  one per company a removal notice (removals.py), a winding-up
                application (windingup.py), a receivership (receiverships.py), an
                overseas company's leaving (overseas.py), a restoration (restorations.py) or a
-               society's or trust board's dissolution (dissolutions.py) names,
+               society's or trust board's dissolution (dissolutions.py), an amalgamation, a
+               rectification of the register, a transfer out or a deed of company arrangement
+               (companyacts.py; a rectification's people by initials and surname only) names,
                and practitioners one per receiver or administrator named; no address is read
   possessions  one per notice of a mortgagee's entry into possession (possessions.py): the
                names it may show decided at the join (load.join_possessions); the property,
@@ -40,7 +42,7 @@ from dataclasses import dataclass, field
 
 from keys.dates import filed_date
 from support import profiles
-from registers.gazette import (appointments, bankruptcies, capture, celebrants, creditors, dissolutions, liquidations, notices, overseas,
+from registers.gazette import (appointments, bankruptcies, capture, celebrants, companyacts, creditors, dissolutions, liquidations, notices, overseas,
                                possessions, prohibitions, receiverships, removals, restorations, windingup)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -66,6 +68,10 @@ COMPANY_READERS = (
     (creditors.Administration, "gazette-administration", "registers.gazette.creditors 1", "administration"),
     (overseas, "gazette-overseas-company-ceasing", "registers.gazette.overseas 1", "overseas company"),
     (restorations, "gazette-restoration-notice", "registers.gazette.restorations 1", "restoration"),
+    (companyacts.Rectification, "gazette-register-rectification", "registers.gazette.companyacts 1", "rectification"),
+    (companyacts.Amalgamation, "gazette-amalgamation-proposal", "registers.gazette.companyacts 1", "amalgamation"),
+    (companyacts.TransferOut, "gazette-transfer-out", "registers.gazette.companyacts 1", "transfer out"),
+    (companyacts.DeedOfArrangement, "gazette-deed-of-company-arrangement", "registers.gazette.companyacts 1", "deed of company arrangement"),
     (dissolutions, "gazette-society-dissolution", "registers.gazette.dissolutions 1", "dissolution"),
 )
 NOT_READ = "not read"
@@ -282,7 +288,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                     "key": f"gazette/{nid}/company/{c.ordinal}", **stamp, "place": f"notice {nid} company {c.ordinal}",
                     "filed": {"notice": nid, "published_on": line["published_on"], "kind": kind, "action": got.action,
                               "company": c.name, "company_number": c.number, "shape": got.shape, "statute": got.statute,
-                              "ground": got.ground, "by_whom": got.by_whom, "party": got.party,
+                              "ground": c.ground or got.ground, "by_whom": got.by_whom, "party": c.party or got.party,
+                              "role": c.role, "people_named": c.people,
                               "event_on": c.event_on or got.event_on, "event_at": c.event_at or got.event_at,
                               "event_basis": got.event_basis, "filed_on": got.filed_on, "court": got.court,
                               "reference": got.reference, "dated_on": got.dated_on, "corrigendum": got.corrigendum,

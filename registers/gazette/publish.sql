@@ -32,12 +32,13 @@ SELECT key, notice, published_on, name, role, named_in_body, companies, ordinal,
        profile, profile_version, loaded_at
 FROM gazette.liquidators;
 
--- removals (ds), winding-up applications (aw), receiverships (ar), notices to creditors (md) and administrations (aa): one row per company named, with the register's
--- entity; a plaintiff by name only, never its address for service
+-- removals (ds), winding-up applications (aw), receiverships (ar), notices to creditors (md), administrations (aa) and the rest:
+-- one row per company named, with the register's entity; a plaintiff by name only, never its address for service; a
+-- rectification's people by initials and surname only; role and people_named last, added by gazette-5
 CREATE OR REPLACE VIEW pub.gazette_company_notices AS
 SELECT key, notice, published_on, kind, action, company, company_number, shape, statute, ground, by_whom, party, event_on,
        event_at, event_basis, filed_on, court, reference, dated_on, corrigendum, people, register_key, register_match, ordinal,
-       document, page, place, read_from, reader, profile, profile_version, loaded_at
+       document, page, place, read_from, reader, profile, profile_version, loaded_at, role, people_named
 FROM gazette.company_notices;
 
 CREATE OR REPLACE VIEW pub.gazette_practitioners AS

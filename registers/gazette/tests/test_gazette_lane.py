@@ -19,6 +19,7 @@ from registers.gazette import check, notices, read
 from registers.gazette import liquidations as LQ
 from registers.gazette import overseas as OV
 from registers.gazette import possessions as PS
+from registers.gazette import companyacts as CA
 from registers.gazette import prohibitions as PR
 from registers.gazette import receiverships as RC
 from registers.gazette import register as RG
@@ -205,8 +206,10 @@ def test_the_reading_reconciles_and_keys_are_stable_across_reads():
 def _closed_years() -> list:
     """A notice for every closed year, and one under each company-notice section, each read by its profile."""
     rows = [(f"{y}-al1", "Example Limited", check.LIQUIDATION) for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
-    return rows + [(f"2016-{c}7", "Notice of Intention to Restore Example Limited", profile)
-                   for code, profile, floor in check.COMPANY.values() for c in check.codes(code)] + [
+    titles = {"rectification": "Notice of Intention to Correct Register", "amalgamation": "Notice of Amalgamation Proposal",
+              "transfer out": "Notice of Transfer of Registration", "deed of company arrangement": "Deed of Company Arrangement"}
+    return rows + [(f"2016-{c}{7 + i}", titles.get(kind, "Notice of Intention to Restore Example Limited"), profile)
+                   for i, (kind, (code, profile, floor)) in enumerate(check.COMPANY.items()) for c in check.codes(code)] + [
         ("2016-ba7", "Bankruptcies", check.BANKRUPTCY[0])]
 
 
@@ -582,7 +585,7 @@ def test_a_one_company_restoration_with_no_colon_and_a_row_that_is_not_a_name():
 def test_the_check_asks_only_the_restorations_of_section_ot_of_the_restoration_profile():
     rows = _closed_years() + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
                               ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
-    assert check.failed(check.figures(rows + [("2016-ot8", "Notice of Amalgamation Proposal", "not read")])) == []
+    assert check.failed(check.figures(rows + [("2016-ot98", "Notice of Intention to Extend Time for Registration of Charge", "not read")])) == []
     assert any("2016-ot9" in w for w in check.failed(check.figures(rows + [("2016-ot9", "Notice of Intention to Restore Companies", "not read")])))
     joined = {"dissolution": {RG.NUMBER: 80, RG.NUMBER_NAME_DIFFERS: 20}}
     assert any("printed company numbers" in w for w in check.failed(check.figures(rows, company_joined=joined)))
@@ -675,6 +678,59 @@ def test_the_possession_check_fails_on_an_unread_notice_a_numbered_title_a_shown
     low = check.failed(check.figures(rows, taken=ok + low))
     assert any("name their lender" in w for w in low) and any("day of entry" in w for w in low) and any("possession lenders" in w for w in low)
     assert check.failed(check.figures(rows + [("2016-gn9", "Unclaimed Property", "not read")], taken=ok)) == []
+
+
+# --- the Registrar's other ot notices (every name, number and address invented) -------------
+
+RECTIFY = ("I intend to rectify the New Zealand Register of Companies in terms of section 360A(1)(a) of the Companies Act 1993 "
+           "in relation to the following companies on the application of the following persons, by deleting incorrect documents "
+           "and otherwise adjusting the Register.ABLE WIDGETS LIMITED (1234567) – rectification will be by the following: Remove "
+           "the particulars of director dated 3 October 2019 that Annabel Mary Example was appointed as director. The effect being "
+           "Robert James Sample remains the sole shareholder, of 12 Sample Street, Exampleton 9999. (Application by Annabel Mary "
+           "Example) BAKER (2019) LIMITED (in liquidation) (7654321) – to remove a change of registered office address to 3 Sample "
+           "Road, Exampleton. (Application by Cobalt Lawyers Limited) Any person who wishes to object must do so by 7 October 2024 "
+           "being not less than 20 working days after the date of this notice. Dated this 9th day of September 2024.")
+GIVEN = ("Annabel", "Mary", "Robert", "James", "Sample Street", "Sample Road", "Exampleton", "9999")
+
+
+def test_a_rectification_keeps_each_company_and_its_people_by_initials_and_never_an_address():
+    assert CA.Rectification.recognise("ot", "Notice of Intention to Correct Register", RECTIFY)
+    r = CA.Rectification.read("Notice of Intention to Correct Register", RECTIFY)
+    assert [(c.name, c.number) for c in r.companies] == [("ABLE WIDGETS LIMITED", "1234567"), ("BAKER (2019) LIMITED", "7654321")]
+    a, b = r.companies
+    assert a.people == "A. M. Example; R. J. Sample" and a.party == "A. M. Example" and a.ground == "director; shareholding"
+    assert b.people is None and b.party == "Cobalt Lawyers Limited" and b.ground == "address"
+    assert (r.event_on, r.event_basis, r.statute, r.unread) == ("2024-10-07", "objections by", "Companies Act 1993 s 360A(1)(a)", [])
+    assert not [w for w in GIVEN if w in repr(r)]
+    assert CA.initials("Ana van der Example") == "A. van der Example" and CA.initials("J. M. Example") == "J. M. Example"
+
+
+def test_an_amalgamation_marks_the_company_that_continues_and_a_transfer_says_where_it_goes():
+    r = CA.Amalgamation.read("ABLE HOLDINGS LIMITED and BAKER LIMITED", "Public Notice of Amalgamation Proposal Pursuant to Section "
+                             "221(4)(b) of the Companies Act 1993 It is proposed that Able Holdings Limited and Baker Limited amalgamate. "
+                             "On amalgamation, Baker Limited will continue as the amalgamated company. Copies of the amalgamation proposal "
+                             "are available at Level 1, 2 Sample Street, Exampleton. Dated 1 May 2020.")
+    assert [(c.name, c.role) for c in r.companies] == [("ABLE HOLDINGS LIMITED", "amalgamating company"), ("BAKER LIMITED", "amalgamated company")]
+    assert r.unread == [] and "Sample" not in repr(r)
+    t = CA.TransferOut.read("Cobalt Pacific Limited", "Public Notice of Intention to Transfer Registration of Company to Other "
+                            "Jurisdiction. Cobalt Pacific Limited hereby gives notice that after the 3rd day of June 2021 it intends to "
+                            "apply under section 343 of the Companies Act 1993 to be removed from the New Zealand Register in connection "
+                            "with becoming incorporated under the law in force in the British Virgin Islands. Dated 1 May 2021.")
+    assert [c.name for c in t.companies] == ["Cobalt Pacific Limited"] and t.ground == "British Virgin Islands"
+    assert (t.event_on, t.event_basis) == ("2021-06-03", "applies after")
+    assert not CA.Amalgamation.recognise("ot", "Notice of Intention to Restore Companies", "proposes to restore the following")
+    assert not CA.Rectification.recognise("ds", "Notice of Intention to Correct Register", "")
+
+
+def test_the_check_floors_the_ot_kinds_and_a_kind_titled_by_its_companies_is_seen_by_its_rows():
+    rows = _closed_years() + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
+                              ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
+    assert any("2016-ot97" in w for w in check.failed(check.figures(rows + [("2016-ot97", "Notice of Intention to Correct Register", "not read")])))
+    assert check.failed(check.figures(rows + [("2016-ot99", "Notice of Intention to Restore Company and to Correct the Register",
+                                               "gazette-restoration-notice")])) == []
+    joined = {"transfer out": {RG.NAME: 95, RG.NOT_HELD: 5}, "rectification": {RG.NUMBER: 70, RG.NUMBER_NAME_DIFFERS: 30}}
+    why = check.failed(check.figures(rows, company_joined=joined))
+    assert not [w for w in why if "transfer out" in w or "section ot" in w] and any("printed company numbers" in w for w in why)
 
 
 # --- society and trust board dissolutions (is, ct; every name invented) ----------------------
@@ -969,7 +1025,8 @@ def test_each_removal_and_winding_up_case_reads_as_its_comment_says(filled):
     for code, (sec, profile, floor) in ((c, v) for c, v in check.COMPANY.items()):
         held = [n for n in notice if any(f"-{c}" in n for c in check.codes(sec))
                 and (code not in check.TITLED or check.TITLED[code](notice[n]["title"]))]
-        assert held and all(notice[n]["format"] == profile for n in held)
+        assert all(notice[n]["format"] == profile for n in held)
+        assert any(n["format"] == profile for n in notice.values()), profile     # a kind titled by its companies' names is held too
     assert [c["action"] for c in cos["2009-ds4850"]] == ["liquidation completed"] * 2
     assert cos["2009-ds4850"][0]["ground"] == "liquidation completed" and cos["2009-ds4850"][0]["by_whom"] == "liquidator"
     assert cos["2020-ds1992"][0]["by_whom"] == "director" and cos["2020-ds1992"][0]["company_number"]
@@ -1059,3 +1116,20 @@ def test_each_possession_case_reads_as_its_comment_says_and_nothing_private_is_p
     private = {p["key"]: p for p in filled["possession_private"]}
     assert private[by["2001-gn8009"]["key"]]["borrower"] and private[by["2025-gn4818"]["key"]]["registration"]
     assert not set(filled["possessions"][0]) & {"property", "registration", "address", "text"}
+
+
+def test_each_ot_case_reads_as_its_comment_says_and_people_are_initials_only(filled):
+    rows = {}
+    for c in filled["company_notices"]:
+        rows.setdefault(c["notice"], []).append(c)
+    notice = {n["notice"]: n for n in filled["notices"]}
+    rect = rows["2025-ot4755"]
+    assert all(r["kind"] == "rectification" and r["company_number"] for r in rect) and any(r["people_named"] for r in rect)
+    for r in filled["company_notices"]:
+        for p in [x for x in (r["people_named"] or "").split("; ") if x]:
+            assert CA.INITIALLED.fullmatch(p), r["key"]
+    assert len(rows["2004-ot3433"]) >= 3 and notice["2001-ot6620"]["status"] == "set aside"
+    assert [r["role"] for r in rows["2026-ot739"]].count("amalgamated company") == 1
+    assert notice["2026-ot4909"]["status"] == "read, part set aside" and rows["2026-ot4909"]
+    assert rows["2026-ot5669"][0]["kind"] == "transfer out" and rows["2026-ot5669"][0]["ground"]
+    assert rows["2008-ot6435"][0]["kind"] == "deed of company arrangement"
