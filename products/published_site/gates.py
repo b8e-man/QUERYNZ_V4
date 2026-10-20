@@ -184,9 +184,9 @@ def commission(version_dir: str, ctx=None) -> tuple:
     years = (ctx or {}).get("years") or []
     if not years:
         return False, "the window's years are not known to the gate"
-    cur = conn.execute("select party, extract(year from coalesce(received_on, given_on))::int as y, sum(amount)::float, count(*) "
+    cur = conn.execute("select party, extract(year from coalesce(given_on, received_on))::int as y, sum(amount)::float, count(*) "
                        "from pub.disclosures where withdrawn_on is null and coalesce(amendment, '') <> 'amendment withdrawn' "
-                       "and extract(year from coalesce(received_on, given_on)) >= %s group by 1, 2", (years[0],))
+                       "and extract(year from coalesce(given_on, received_on)) >= %s group by 1, 2", (years[0],))
     table = {(r[0], r[1]): (r[2] or 0.0, r[3]) for r in cur}
     shown = {}
     for p in home.get("parties", []):
@@ -214,6 +214,68 @@ def commission(version_dir: str, ctx=None) -> tuple:
     if diffs:
         return False, f"{len(diffs)} party-year(s) differ from the Commission's table ({equal} equal): " + "; ".join(diffs[:4])
     return True, f"{equal} party-years and the open year equal the Commission's table to the cent" + (f"; {len(unresolved)} year(s) of unresolved-party rows not shown" if unresolved else "")
+
+
+#: the comparison's residence vocabulary (checks/comparison.py RESIDENCE_WORDS; a test holds the two equal): words that
+#: mark where a person lives inside a filed name. The gate names the file and the field, never the text (hard limit 11)
+RESIDENCE_WORDS = ("retirement village", "rest home", "resthome", "lifecare", "care home", "retirement")
+#: the fields that carry a name or a form of one; a residence word in any of them is a red. The interests register's own
+#: headings and declaration text ("retirement schemes") are the register's words, not a name, and are not among them
+NAME_FIELDS = {"name", "name_key", "spellings", "donor", "donor_filed", "donor_name", "n", "a", "name_forms", "display", "candidate", "subject"}
+#: the field a name_key sits beside, first found
+DISPLAY_FIELDS = ("name", "display", "candidate", "subject", "member_as_printed")
+
+
+def _words(s: str) -> set:
+    return set(paths.name_key(s).split())
+
+
+def _key_faults(obj, rel: str, field: str, out: list) -> None:
+    if isinstance(obj, dict):
+        nk = obj.get("name_key")
+        if isinstance(nk, str) and nk and not nk.startswith("filed:"):
+            disp = next((obj[f] for f in DISPLAY_FIELDS if isinstance(obj.get(f), str) and obj.get(f)), None)
+            if disp is None:
+                out.append(f"{rel} at {field or '.'}: a name_key with no name beside it")
+            elif _words(nk) - _words(disp):
+                out.append(f"{rel} at {field or '.'}.name_key: {len(_words(nk) - _words(disp))} word(s) the name lacks")
+        for k, v in obj.items():
+            _key_faults(v, rel, f"{field}.{k}" if field else k, out)
+    elif isinstance(obj, list):
+        for v in obj:
+            _key_faults(v, rel, f"{field}[]", out)
+
+
+def _residence_faults(obj, rel: str, field: str, leaf: str, out: list) -> None:
+    if isinstance(obj, str):
+        if leaf in NAME_FIELDS and any(w in obj.lower() for w in RESIDENCE_WORDS):
+            out.append(f"{rel} at {field}: a residence word in a name field")
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            _residence_faults(v, rel, f"{field}.{k}" if field else k, k, out)
+    elif isinstance(obj, list):
+        for v in obj:
+            _residence_faults(v, rel, f"{field}[]", leaf, out)
+
+
+def name_keys(version_dir: str, ctx=None) -> tuple:
+    """Every published key is the name's own (hard limit 15; the card
+    a-donor-name-key-on-the-rebuilt-site-carries-a-residence-fragment): a
+    `name_key` carries no token the name beside it lacks, and no name field
+    and no file path carries a residence word. The links' reading of a filed
+    cell is never a field here, so what the cell carried cannot leak as a key."""
+    faults, keys, strings = [], 0, 0
+    for rel, obj in payloads(version_dir):
+        if any(w in rel.lower().replace("-", " ") for w in RESIDENCE_WORDS):
+            faults.append(f"{rel}: a residence word in the path")
+        _key_faults(obj, rel, "", faults)
+        _residence_faults(obj, rel, "", "", faults)
+        for field, _s in strings_of(obj):
+            strings += 1
+            keys += field.endswith("name_key")
+    if faults:
+        return False, f"{len(faults)} key or name fault(s): " + "; ".join(faults[:5]) + " (the text itself is not printed)"
+    return True, f"{keys:,} keys match the name beside them; {strings:,} strings, no residence word in a name field or a path"
 
 
 def donor_totals_of(version_dir: str) -> dict:
@@ -332,7 +394,7 @@ def _fold(s) -> str:
     return re.sub(r"[^a-z0-9]+", " ", "".join(ch for ch in t if not unicodedata.combining(ch)).lower()).strip()
 
 
-GATES = [("snapshot", snapshot), ("addresses", addresses), ("suppressed", suppressed), ("donor-fold", donor_fold),
+GATES = [("snapshot", snapshot), ("addresses", addresses), ("suppressed", suppressed), ("name-keys", name_keys), ("donor-fold", donor_fold),
          ("commission", commission), ("statements", statements), ("candidate-money", candidate_money), ("compare", compare)]
 
 

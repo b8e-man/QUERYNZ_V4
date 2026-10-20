@@ -15,3 +15,8 @@ the reconciliation count and its money differ. Four figures today.
 
 Which side is right: neither is shown; the 2023 return decides. Owner:
 party-finance, to open that return.
+
+site-3 (2026-10-20): the shape counts the `pub.party_expense_returns` rows
+whose read total differs from the Commission's figure, as the lane publishes
+that check, and adds nothing of its own; 4 figures today, unchanged. The
+2023 return is the lane's to open; the card stays with party-finance.
