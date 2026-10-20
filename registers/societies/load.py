@@ -138,6 +138,7 @@ def load(conn, schema: str, log=print) -> int:
     """The three parts and every landed answer, read, under `schema`. Returns the officer count."""
     started = jobrun.now()
     landed, aside = capture.copy_all(conn)
+    aside += capture.set_asides()
     capture.land_proof(conn)
     counts = build(conn, schema, [(part, ref.sha256, name) for part, ref, name, at in landed], aside,
                    answers=capture.answers())
