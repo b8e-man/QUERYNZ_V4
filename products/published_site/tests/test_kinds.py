@@ -40,7 +40,7 @@ def test_pickers_list_sitting_members_and_the_cut_donor_list(vdir):
     assert [m["name"] for m in p["mps"]] == ["Karen CHHOUR", "David SEYMOUR"]          # Pat GONE's seat ended
     seymour = p["mps"][1]
     assert seymour["seat"]["route"] == "electorate" and seymour["running"]["electorate"] == "ge-2026/epsom" and seymour["running"]["namesakes"] == 0
-    assert p["donors_listed"] == 3 and p["donor_population"] == 3 and p["donors"][0]["name"] == "Big Co Limited"
+    assert p["donors_listed"] == 4 and p["donor_population"] == 4 and p["donors"][0]["name"] == "Big Co Limited"   # Local Giver is known from a candidate return alone
 
 
 def test_size_bands_split_at_the_line_and_keep_part_g_nameless(vdir):
@@ -64,12 +64,12 @@ def test_cites_name_the_document_and_never_a_lane(vdir):
 
 def test_electorates_hold_candidates_and_results_and_say_money_is_not_held(vdir):
     e = load(vdir, paths.path("electorate", "Epsom"))
-    assert e["elections"] == [2023, 2026] and e["money"]["held"] is False          # 2014 is before the window
+    assert e["elections"] == [2023, 2026] and e["money"]["declared_total"] == 1200.0   # 2014 is before the window
     r23 = e["races"][0]
     assert r23["elected"] == "David SEYMOUR" and r23["candidates"][0]["elected"] is True and r23["candidates"][1]["elected"] is False
     assert r23["candidates"][0]["sitting_mp"] is True and r23["candidates"][0]["party"] == "ACT New Zealand"
     assert r23["candidates"][1]["party"] is None and r23["candidates"][1]["party_filed"] == "Nobody Party"
-    assert r23["declared_total"]["not_held"] == "candidate donations"
+    assert r23["declared_total"] == 1200.0 and r23["expenses_total"] == 500.0
     r26 = e["races"][1]
     assert r26["result_held"] is False and r26["elected"] is None and r26["candidates"][0]["elected"] is None
     a = load(vdir, paths.path("electorates", "all"))

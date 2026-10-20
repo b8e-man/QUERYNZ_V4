@@ -46,6 +46,47 @@ def tables():
              "donor_name": "Withdrawn Giver", "amount": 99999.0, "received_on": "2026-03-03", "given_on": None, "amendment": "amendment withdrawn",
              "withdrawn_on": None, "href": None, "declaration_document": None}],
         "pub.disclosure_items": [],
+        "pub.candidate_return_totals": [
+            {"key": "cr-2023-epsom-seymour", "document": D["c"], "page": 1, "place": "declaration", "year": 2023, "surname": "SEYMOUR", "given_names": "David",
+             "electorate": "Epsom", "party": "ACT New Zealand", "status": "current", "replaced_by": None, "placed_by": "listing link",
+             "donations": 1000.0, "part_a": 1000.0, "part_c": 0, "part_d": 0, "donations_check": "parts-sum", "expenses": 500.0, "part_f": 500.0, "part_g": 0,
+             "expenses_check": "parts-sum", "loans": 0.0, "loans_check": "declared-nil", "signed": "yes",
+             "commission_donations": 1200.0, "commission_expenses": 500.0, "commission_loans": None, "commission_file": "2023-candidate-returns.csv",
+             "commission_key": "2023/Epsom/SEYMOUR", "read_from": "text", "reader": "x", "profile": "p", "profile_version": 1, "donors_check": "parts-sum"},
+            {"key": "cr-2023-epsom-other", "document": D["d"], "page": 1, "place": "declaration", "year": 2023, "surname": "OTHER", "given_names": "Ann",
+             "electorate": "Epsom", "party": "Nobody Party", "status": "current", "replaced_by": None, "placed_by": "listing link",
+             "donations": 0.0, "part_a": None, "part_c": 0, "part_d": 0, "donations_check": "declared-nil", "expenses": 0.0, "part_f": 0, "part_g": 0,
+             "expenses_check": "declared-nil", "loans": 0.0, "loans_check": "declared-nil", "signed": "yes",
+             "commission_donations": 0.0, "commission_expenses": 0.0, "commission_loans": None, "commission_file": "2023-candidate-returns.csv",
+             "commission_key": "2023/Epsom/OTHER", "read_from": "pixels", "reader": "x", "profile": "p", "profile_version": 1, "donors_check": "declared-nil"},
+            {"key": "cr-2023-epsom-nobody", "document": D["f"], "page": 1, "place": "declaration", "year": 2023, "surname": "NOBODY", "given_names": "Ghost",
+             "electorate": "Epsom", "party": "Ghost Party", "status": "unlisted", "replaced_by": None, "placed_by": "file name",
+             "donations": 77.0, "part_a": 77.0, "part_c": 0, "part_d": 0, "donations_check": "parts-sum", "expenses": 7.0, "part_f": 7.0, "part_g": 0,
+             "expenses_check": "parts-sum", "loans": 0.0, "loans_check": "declared-nil", "signed": "yes",
+             "commission_donations": None, "commission_expenses": None, "commission_loans": None, "commission_file": None,
+             "commission_key": None, "read_from": "text", "reader": "x", "profile": "p", "profile_version": 1, "donors_check": "parts-sum"},
+            {"key": "cr-2018-epsom-bye", "document": D["f"], "page": 1, "place": "declaration", "year": 2018, "surname": "BYE", "given_names": "Election",
+             "electorate": "Epsom", "party": "Nobody Party", "status": "current", "replaced_by": None, "placed_by": "listing link",
+             "donations": 9.0, "part_a": 9.0, "part_c": 0, "part_d": 0, "donations_check": "parts-sum", "expenses": 1.0, "part_f": 1.0, "part_g": 0,
+             "expenses_check": "parts-sum", "loans": 0.0, "loans_check": "declared-nil", "signed": "yes",
+             "commission_donations": 9.0, "commission_expenses": 1.0, "commission_loans": None, "commission_file": "2018-by-election.csv",
+             "commission_key": "2018/Epsom/BYE", "read_from": "text", "reader": "x", "profile": "p", "profile_version": 1, "donors_check": "parts-sum"},
+            {"key": "cr-2023-epsom-seymour-old", "document": D["e"], "page": 1, "place": "declaration", "year": 2023, "surname": "SEYMOUR", "given_names": "David",
+             "electorate": "Epsom", "party": "ACT New Zealand", "status": "replaced", "replaced_by": "cr-2023-epsom-seymour", "placed_by": "listing link",
+             "donations": 5.0, "part_a": 5.0, "part_c": 0, "part_d": 0, "donations_check": "parts-sum", "expenses": 5.0, "part_f": 5.0, "part_g": 0,
+             "expenses_check": "parts-sum", "loans": 0.0, "loans_check": "declared-nil", "signed": "yes",
+             "commission_donations": None, "commission_expenses": None, "commission_loans": None, "commission_file": None,
+             "commission_key": None, "read_from": "text", "reader": "x", "profile": "p", "profile_version": 1, "donors_check": "parts-sum"}],
+        "pub.candidate_return_donors": [
+            {"key": "cr-2023-epsom-seymour/A/1", "return_key": "cr-2023-epsom-seymour", "document": D["c"], "page": 2, "ordinal": 1, "year": 2023, "surname": "SEYMOUR",
+             "given_names": "David", "electorate": "Epsom", "party": "ACT New Zealand", "status": "current", "replaced_by": None,
+             "donor": "Big Co Limited", "amount": 600.0, "dates": "01/02/2023", "contributions": None, "read_from": "text", "reader": "x", "profile": "p", "profile_version": 1, "place": None},
+            {"key": "cr-2023-epsom-seymour/A/2", "return_key": "cr-2023-epsom-seymour", "document": D["c"], "page": 2, "ordinal": 2, "year": 2023, "surname": "SEYMOUR",
+             "given_names": "David", "electorate": "Epsom", "party": "ACT New Zealand", "status": "current", "replaced_by": None,
+             "donor": "Local Giver", "amount": 400.0, "dates": "02/02/2023", "contributions": None, "read_from": "text", "reader": "x", "profile": "p", "profile_version": 1, "place": None},
+            {"key": "cr-2023-epsom-nobody/A/1", "return_key": "cr-2023-epsom-nobody", "document": D["f"], "page": 2, "ordinal": 1, "year": 2023, "surname": "NOBODY",
+             "given_names": "Ghost", "electorate": "Epsom", "party": "Ghost Party", "status": "unlisted", "replaced_by": None,
+             "donor": "Local Giver", "amount": 77.0, "dates": "", "contributions": None, "read_from": "text", "reader": "x", "profile": "p", "profile_version": 1, "place": None}],
         "pub.elections": [
             {"key": "ge-2023", "kind": "general", "name": "2023 General Election", "electorate": None, "polled_on": "2023-10-14", "document": D["g"], "page": 1},
             {"key": "ge-2026", "kind": "general", "name": "2026 General Election", "electorate": None, "polled_on": None, "document": D["g"], "page": 1},
@@ -98,13 +139,13 @@ def tables():
              "party": A, "party_label": "ACT", "party_basis": "exact", "current": False, "figure": "income", "amount": 99.0, "prior_amount": None, "scale": 1,
              "figure_check": "superseded", "printed": "99", "read_from": "text"}],
         "pub.names": [
-            {"ref": "party_returns:r1/A/1", "register": "party_returns", "view": "party_return_donors", "key": "r1/A/1", "kind": "person", "name_key": "donor jane q"},
-            {"ref": "party_returns:r1/A/2", "register": "party_returns", "view": "party_return_donors", "key": "r1/A/2", "kind": "person", "name_key": "donor jane q"},
-            {"ref": "party_returns:r2/A/1", "register": "party_returns", "view": "party_return_donors", "key": "r2/A/1", "kind": "organisation", "name_key": "big co"},
-            {"ref": "disclosures:d1", "register": "disclosures", "view": "disclosures", "key": "d1", "kind": "organisation", "name_key": "big co"},
-            {"ref": "disclosures:d2", "register": "disclosures", "view": "disclosures", "key": "d2", "kind": "person", "name_key": "giver open year"},
-            {"ref": "party_returns:r3/A/1", "register": "party_returns", "view": "party_return_donors", "key": "r3/A/1", "kind": "person", "name_key": "counted twice"},
-            {"ref": "party_returns:r4/A/1", "register": "party_returns", "view": "party_return_donors", "key": "r4/A/1", "kind": "person", "name_key": "counted twice"}],
+            {"ref": "party_returns:r1/A/1", "register": "party_returns", "view": "party_return_donors", "key": "r1/A/1", "name_filed": "Jane Q Donor", "kind": "person", "name_key": "donor jane q"},
+            {"ref": "party_returns:r1/A/2", "register": "party_returns", "view": "party_return_donors", "key": "r1/A/2", "name_filed": "Jane Q. Donor", "kind": "person", "name_key": "donor jane q"},
+            {"ref": "party_returns:r2/A/1", "register": "party_returns", "view": "party_return_donors", "key": "r2/A/1", "name_filed": "Big Co Limited", "kind": "organisation", "name_key": "big co"},
+            {"ref": "disclosures:d1", "register": "disclosures", "view": "disclosures", "key": "d1", "name_filed": "Big Co Limited", "kind": "organisation", "name_key": "big co"},
+            {"ref": "disclosures:d2", "register": "disclosures", "view": "disclosures", "key": "d2", "name_filed": "Open Year Giver", "kind": "person", "name_key": "giver open year"},
+            {"ref": "party_returns:r3/A/1", "register": "party_returns", "view": "party_return_donors", "key": "r3/A/1", "name_filed": "Twice Counted", "kind": "person", "name_key": "counted twice"},
+            {"ref": "party_returns:r4/A/1", "register": "party_returns", "view": "party_return_donors", "key": "r4/A/1", "name_filed": "Twice Counted", "kind": "person", "name_key": "counted twice"}],
         "pub.groups": [], "pub.decisions": [],
     }
 
@@ -136,6 +177,8 @@ class FakeTables:
 COMMISSION_TABLE = [("ACT New Zealand", 2023, 40000.0, 1), ("ACT New Zealand", 2026, 25000.0, 1)]
 #: what the party-finance lane's tables say, re-counted by SQL: party key, statements in the window, income
 STATEMENTS_TABLE = [(A, 2, 1565672.0)]
+#: the Commission's candidate table re-summed by SQL: year, electorate, declared (the Commission's figure where it has one), returns
+CANDIDATE_TABLE = [(2023, "Epsom", 1277.0, 3), (2018, "Epsom", 9.0, 1)]
 
 
 class NoConn:
@@ -156,4 +199,6 @@ class NoConn:
                 return iter(rows)
         if "party_financial_statements" in sql:
             return iter(STATEMENTS_TABLE)
+        if "candidate_return_totals" in sql:
+            return iter(CANDIDATE_TABLE)
         return iter(COMMISSION_TABLE)

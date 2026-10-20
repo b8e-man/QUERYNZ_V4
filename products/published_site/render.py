@@ -13,6 +13,7 @@ from __future__ import annotations
 import datetime as dt
 from collections import defaultdict
 
+from products.published_site import candidate_money as CM
 from products.published_site import figures as F
 from products.published_site import paths
 from products.published_site import site_template as ftm
@@ -20,7 +21,7 @@ from products.published_site import site_template as ftm
 
 class Context:
     def __init__(self, template, tables, listing, years: list, idx: F.PartyIndex, series: dict, donors: dict,
-                 doc_names: dict, generated_at: str):
+                 doc_names: dict, generated_at: str, cm=None):
         self.template, self.tables, self.listing, self.years = template, tables, listing, years
         self.s = template.settings
         self.idx, self.series, self.donors = idx, series, donors
@@ -28,6 +29,15 @@ class Context:
         self.generated_at = generated_at
         self.races = ftm.races(self.s)
         self.statements = F.statements(tables, idx, years)
+        self.elections = F.elections_in_window(tables, years)
+        self.cm = cm if cm is not None else CM.candidate_money(tables, idx, self.elections, years)
+        self._contests = None
+
+    def contests(self) -> dict:
+        """{electorate name: [race]} computed once: every race in the window with its candidates and money."""
+        if self._contests is None:
+            self._contests = contests(self)
+        return self._contests
 
     def cite(self, document, page=None, place=None, href=None) -> dict:
         names = self.doc_names.get(document) or []
@@ -86,6 +96,7 @@ def home(ctx: Context) -> dict:
         donors.append({"name": d.name, "name_key": d.name_key, "kind": d.kind, "total": t["total"], "returns": t["returns"],
                        "open_year_disclosures": t["open_year_disclosures"], "spellings": sorted(d.spellings), "rows": len(d.rows),
                        "page": paths.path("donor", d.name)})
+    electorates = electorate_summary(ctx)
     pm = {"allocated": F.money(sum(sum(S.allocated_by_year.values()) for S in ctx.series.values())),
           "spent": F.money(sum(sum(S.spent_by_year.values()) for S in ctx.series.values())),
           "expenses": F.money(sum(sum(S.expenses_by_year.values()) for S in ctx.series.values()))}
@@ -96,13 +107,18 @@ def home(ctx: Context) -> dict:
             "totals": {"declared_by_year": {y: F.money(v) for y, v in sorted(totals_by_year.items())},
                        "declared_window": F.money(sum(totals_by_year.values())),
                        "party_spend": pm["expenses"], "broadcast_allocation": pm["allocated"], "public_spent": pm["spent"],
-                       "electorate_spend": not_held("candidate expense returns", "no lane publishes candidate returns yet (step 4.1, candidate-returns)"),
-                       "electorate_declared": not_held("candidate donation returns", "no lane publishes candidate returns yet")},
+                       "electorate_spend": F.money(sum(e["spend"] for e in electorates)), "electorate_declared": F.money(sum(e["declared"] for e in electorates)),
+                       "electorates": len(electorates), "candidates": sum(e["candidates"] for e in electorates),
+                       "candidates_with_figure": sum(e["with_figure"] for e in electorates), "candidates_declaring": sum(e["declaring"] for e in electorates),
+                       "candidate_returns_not_joined": sum(e["returns_not_joined"] for e in electorates)},
             "donors": donors, "donors_basis": "the largest folded donors in the window by money that counts: Part A rows plus disclosures in years no return covers",
             "recent_disclosures": {"year": open_year, "rows": recent, "n": len(recent), "total": F.money(sum(r["amount"] for r in recent)),
                                    "basis": "donations over the threshold declared to the Commission within 10 working days (Electoral Act 1993 s 210C); "
                                             "no annual return is held for the open year, so these are the only money known for it"},
-            "electorates": not_held("electorate money", "candidate returns are not published yet; candidates and results are on the electorate pages"),
+            "electorates": electorates,
+            "electorates_basis": "one row per electorate with a contest in the window: candidate election expenses (spend) and declared donations from the "
+                                 "candidate-returns lane, the Commission's table as the headline, summed over the window's races; a return the results list no "
+                                 "candidate for is counted apart on the electorate page and not here",
             "basis": {"parties": "one figure per calendar year from the window's start: the return's own declared total; the second figure is the Part A rows "
                                  f"above ${s['line']:,.0f}; disclosures are sighted beside the return and never added; the races follow ruling 361, 2017 is no race (366)",
                       "window": f"calendar {s['window_from']} onward (ruling 364); earlier rows are kept in the registers and never published here"},
@@ -345,6 +361,14 @@ def cites(ctx: Context) -> dict:
             put(f"disclosures:{d['key']}", d["document"], d.get("page"), d.get("place"), "EC large-donation disclosures (the Commission's table)",
                 href=d.get("href"), read_from=d.get("read_from"),
                 text=f"{d.get('donor_name')}: ${float(d['amount'] or 0):,.2f} to {pn} ({F.disclosure_year(d)})")
+    for ckey, x in ctx.cm.rows():
+        r = x["return"]
+        who = CM.display(ctx.cm.candidate_of(ckey) if ckey else None, r)
+        put(f"candidate_returns:{r['key']}", r["document"], r.get("page"), r.get("place"), "EC candidate return (declaration)", read_from=r.get("read_from"),
+            text=f"{who}, {r.get('electorate')} {r.get('year')}: donations ${float(r.get('donations') or 0):,.2f}, expenses ${float(r.get('expenses') or 0):,.2f}")
+        for d in x["donors"]:
+            put(f"candidate_returns:{d['key']}", d["document"], d.get("page"), d.get("ordinal"), "EC candidate return (Part A)", read_from=d.get("read_from"),
+                text=f"{d.get('donor')}: ${float(d.get('amount') or 0):,.2f} to {who} ({r.get('electorate')} {r.get('year')})")
     return out
 
 
@@ -354,29 +378,67 @@ MORE_KINDS = [("pickers", lambda ctx: {paths.path("pickers"): pickers(ctx)}), ("
 # ── electorates, electorate pages, people, board members ─────────────────────
 
 def _elections(ctx: Context) -> dict:
-    """{election key: row} for the elections in the window (polling day in or after window_from, or not yet polled)."""
-    out = {}
-    for e in ctx.tables.get("pub.elections"):
-        y = F.year_of(e.get("polled_on"))
-        if (y and y >= ctx.years[0]) or (not y and e.get("kind") == "general"):
-            out[e["key"]] = e
+    return ctx.elections
+
+
+NO_RETURN = ("no return held by the candidate-returns lane: the candidate filed nothing the Commission lists, the return's scan is queued for reading, "
+             "or the Commission's table row alone is not published (the lane's card); not a nil")
+
+
+def _money_of(ctx: Context, c: dict) -> dict:
+    """A candidate's money from the joined return; with no return joined the three figures are 'not held' (the
+    estate cannot tell a candidate who filed nothing from one whose return it has not read), never a zero."""
+    x = ctx.cm.of(c["key"])
+    if not x:
+        return {"declared": not_held("candidate donations", NO_RETURN), "expenses": not_held("candidate expenses", NO_RETURN),
+                "loans": not_held("candidate loans", NO_RETURN), "return_held": False, "declared_basis": NO_RETURN, "expenses_basis": NO_RETURN,
+                "loans_basis": NO_RETURN, "nil": None, "itemised_n": 0, "itemised_total": 0.0, "weaker": False, "return_cite": None, "return_ref": None}
+    r, f = x["return"], x["figures"]
+    out = dict(f)
+    out.update({"return_held": True, "return_ref": f"candidate_returns:{r['key']}", "return_status": r.get("status"),
+                "itemised_n": len(x["donors"]), "itemised_total": F.money(sum(F.money(d.get("amount")) for d in x["donors"])),
+                "commission_file": r.get("commission_file"), "return_cite": ctx.cite(r["document"], r.get("page"), r.get("place"))})
     return out
 
 
 def _candidate_row(ctx: Context, c: dict, sitting: set) -> dict:
     k = ctx.idx.key(c.get("party_registered"))
-    return {"candidate": c.get("name"), "display": c.get("display_name") or c.get("name"), "name_key": c.get("name_key"),
-            "party": ctx.idx.name(k) or None, "party_filed": c.get("party"), "party_registered": bool(k),
-            "list_place": c.get("list_place"), "votes": c.get("votes"), "poll_cancelled": bool(c.get("poll_cancelled")),
-            "elected": None, "sitting_mp": (c.get("name_key") or "") in sitting,
-            "declared": not_held("candidate donations", "candidate returns are not published yet"),
-            "expenses": not_held("candidate expenses", "candidate returns are not published yet"),
-            "page": paths.path("subject", "person", c.get("display_name") or c.get("name")) if (c.get("display_name") or c.get("name")) else None,
-            "cite": ctx.cite(c.get("document"), c.get("page"), c.get("place")), "tier": "register-asserted"}
+    row = {"candidate": c.get("name"), "display": c.get("display_name") or c.get("name"), "name_key": c.get("name_key"),
+           "party": ctx.idx.name(k) or None, "party_filed": c.get("party"), "party_registered": bool(k),
+           "list_place": c.get("list_place"), "votes": c.get("votes"), "poll_cancelled": bool(c.get("poll_cancelled")),
+           "elected": None, "sitting_mp": (c.get("name_key") or "") in sitting,
+           "page": paths.path("subject", "person", c.get("display_name") or c.get("name")) if (c.get("display_name") or c.get("name")) else None,
+           "cite": ctx.cite(c.get("document"), c.get("page"), c.get("place")), "tier": "register-asserted"}
+    row.update(_money_of(ctx, c))
+    return row
 
 
-def electorates_and_pages(ctx: Context) -> dict:
-    elections = _elections(ctx)
+def _unjoined_row(ctx: Context, x: dict) -> dict:
+    r, f = x["return"], x["figures"]
+    return {"candidate_as_filed": CM.display(None, r), "surname": r.get("surname"), "given_names": r.get("given_names"), "party_filed": r.get("party"), "year": int(r["year"]),
+            "declared": f["declared"], "declared_basis": f["declared_basis"], "expenses": f["expenses"], "expenses_basis": f["expenses_basis"],
+            "loans": f["loans"], "nil": f["nil"], "weaker": f["weaker"], "itemised_n": len(x["donors"]),
+            "why": x.get("why"), "return_ref": f"candidate_returns:{r['key']}", "return_cite": ctx.cite(r["document"], r.get("page"), r.get("place"))}
+
+
+def race_money(cands: list, unjoined: list) -> dict:
+    """The race's money over the candidates' joined returns, the unjoined returns counted apart and never added."""
+    held = [c for c in cands if c["return_held"]]
+    return {"declared_total": F.money(sum(c["declared"] or 0 for c in held)), "expenses_total": F.money(sum(c["expenses"] or 0 for c in held)),
+            "loans_total": F.money(sum(c["loans"] or 0 for c in held)),
+            "returns_held": len(held), "declaring": sum(1 for c in held if (c["declared"] or 0) > 0), "nil_returns": sum(1 for c in held if c["nil"]),
+            "no_return": len(cands) - len(held), "weaker": sum(1 for c in held if c["weaker"]),
+            "itemised_n": sum(c["itemised_n"] for c in held), "itemised_total": F.money(sum(c["itemised_total"] for c in held)),
+            "returns_not_joined": {"n": len(unjoined), "declared": F.money(sum(u["declared"] or 0 for u in unjoined)),
+                                   "expenses": F.money(sum(u["expenses"] or 0 for u in unjoined)), "rows": unjoined},
+            "money_basis": "candidate donations and expenses from the candidate-returns lane, joined to the results by year, electorate and surname; "
+                           "the Commission's own table is the headline where it has a figure and the return as read stands beside it; "
+                           "a return the results list no candidate for is counted apart under returns_not_joined and never added"}
+
+
+def contests(ctx: Context) -> dict:
+    """{electorate name: [race dict]} in polling-day order; the one computation the electorate pages, the year files and the home page share."""
+    elections = ctx.elections
     sitting = {m.get("name_key") for m in ctx.tables.get("pub.members") if not (m.get("to_by") or m.get("ended_on"))}
     winners = {}
     for m in ctx.tables.get("pub.members"):
@@ -387,11 +449,10 @@ def electorates_and_pages(ctx: Context) -> dict:
         if c.get("election") in elections and c.get("electorate"):
             by_seat[c["electorate"]].append(c)
     rows = {e["key"]: e for e in ctx.tables.get("pub.electorates") if e.get("election") in elections}
-    names = defaultdict(dict)        # electorate name -> {election key: electorate row}
+    names = defaultdict(dict)
     for key, e in rows.items():
         names[e["name"]][e["election"]] = e
-    files = {}
-    per_year = defaultdict(list)
+    out = {}
     for name in sorted(names):
         races = []
         for ek, e in sorted(names[name].items(), key=lambda kv: elections[kv[0]].get("polled_on") or "9999"):
@@ -401,49 +462,115 @@ def electorates_and_pages(ctx: Context) -> dict:
                 w = winners.get(raw["key"])
                 c["elected"] = True if w else (False if e.get("result_held") else None)
             cands.sort(key=lambda c: (-(c["votes"] or 0), c["display"] or ""))
-            parties = defaultdict(lambda: {"candidates": 0, "votes": 0})
+            parties = defaultdict(lambda: {"candidates": 0, "votes": 0, "declared": 0.0, "expenses": 0.0, "declaring": 0})
             for c in cands:
                 p = parties[c["party"] or c["party_filed"] or "no party listed"]
                 p["candidates"] += 1
                 p["votes"] += c["votes"] or 0
+                if c["return_held"]:
+                    p["declared"] = F.money(p["declared"] + (c["declared"] or 0))
+                    p["expenses"] = F.money(p["expenses"] + (c["expenses"] or 0))
+                    p["declaring"] += 1 if (c["declared"] or 0) > 0 else 0
+                    p["returns_held"] = p.get("returns_held", 0) + 1
             year = F.year_of(el.get("polled_on")) or 2026
+            unjoined = [_unjoined_row(ctx, x) for x in ctx.cm.unjoined_for(year, name)] if el.get("kind") == "general" else []
+            entries = [(ctx.cm.candidate_of(k), ctx.cm.of(k)) for k in (c["key"] for c in by_seat.get(e["key"], [])) if ctx.cm.of(k)]
+            entries += [(None, x) for x in ctx.cm.unjoined_for(year, name)] if el.get("kind") == "general" else []
+            donors = CM.donor_lines(entries, CM.display)
+            top = max((c for c in cands if c["return_held"]), key=lambda c: (c["declared"] or 0, c["display"]), default=None)
             race = {"year": year, "election": ek, "election_name": el.get("name"), "kind": el.get("kind"), "polled_on": el.get("polled_on"),
                     "result_held": bool(e.get("result_held")), "poll_cancelled": bool(e.get("poll_cancelled")),
                     "votes_counted": e.get("votes_counted"), "candidate_total": e.get("candidate_total"), "party_total": e.get("party_total"),
                     "candidates": cands, "candidates_n": len(cands),
                     "elected": next((c["display"] for c in cands if c["elected"]), None),
                     "parties": [{"party": p, **v} for p, v in sorted(parties.items(), key=lambda kv: -kv[1]["votes"])],
-                    "declared_total": not_held("candidate donations", "candidate returns are not published yet (step 4.1, candidate-returns)"),
-                    "expenses_total": not_held("candidate expenses", "candidate returns are not published yet"),
-                    "donors": not_held("per-donor lines", "candidate returns are not published yet"),
+                    "top": {"display": top["display"], "party": top["party"] or top["party_filed"], "declared": top["declared"], "elected": top["elected"]} if top and (top["declared"] or 0) > 0 else None,
+                    "donors": donors, "donors_n": len(donors),
+                    "donors_basis": "per-donor lines from the candidates' own returns as the lane read them, names as filed and never folded; each line cites its return; "
+                                    "a candidate whose Part A the lane set aside, or who declared below the itemising threshold, has no lines here",
                     "cite": ctx.cite(e.get("document"), e.get("page"), e.get("place")),
                     "statsnz": {"code": e.get("statsnz_code"), "name": e.get("statsnz_name"), "layer": e.get("layer"), "join": e.get("join_basis")}}
+            race.update(race_money(cands, unjoined))
             races.append(race)
-            per_year[year].append({"electorate": name, "key": e["key"], "candidates": len(cands), "result_held": race["result_held"],
-                                   "elected": race["elected"], "votes_counted": e.get("votes_counted")})
+        out[name] = races
+    return out
+
+
+def electorate_summary(ctx: Context) -> list:
+    """One row per electorate across the window's races, for the home page: the frozen site's `electorates` list."""
+    out = []
+    for name, races in ctx.contests().items():
+        row = {"electorate": name, "key": paths.slug(name), "page": paths.path("electorate", name),
+               "spend": F.money(sum(r["expenses_total"] for r in races)), "spend_by_year": {str(r["year"]): r["expenses_total"] for r in races},
+               "declared": F.money(sum(r["declared_total"] for r in races)), "declared_by_year": {str(r["year"]): r["declared_total"] for r in races},
+               "candidates": sum(r["candidates_n"] for r in races), "candidates_by_year": {str(r["year"]): r["candidates_n"] for r in races},
+               "with_figure": sum(r["returns_held"] for r in races), "with_figure_by_year": {str(r["year"]): r["returns_held"] for r in races},
+               "declaring": sum(r["declaring"] for r in races), "declaring_by_year": {str(r["year"]): r["declaring"] for r in races},
+               "returns_not_joined": sum(r["returns_not_joined"]["n"] for r in races),
+               "winner": None, "elections": [r["year"] for r in races]}
+        last = next((r for r in reversed(races) if r["elected"]), None)
+        if last:
+            c = next(c for c in last["candidates"] if c["elected"])
+            row["winner"] = {"name": c["display"], "party": c["party"], "party_filed": c["party_filed"], "year": last["year"]}
+        out.append(row)
+    return out
+
+
+def electorates_and_pages(ctx: Context) -> dict:
+    names = ctx.contests()
+    files = {}
+    per_year = defaultdict(list)
+    for name, races in names.items():
+        for race in races:
+            per_year[race["year"]].append({"electorate": name, "key": paths.slug(name), "page": paths.path("electorate", name), "candidates": race["candidates_n"],
+                                           "result_held": race["result_held"], "elected": race["elected"], "votes_counted": race["votes_counted"],
+                                           "declared_total": race["declared_total"], "expenses_total": race["expenses_total"],
+                                           "returns_held": race["returns_held"], "declaring": race["declaring"], "returns_not_joined": race["returns_not_joined"]["n"]})
+        apart = [_unjoined_row(ctx, x) for y in sorted(ctx.cm.years_of(name)) if y not in {r["year"] for r in races} for x in ctx.cm.unjoined_for(y, name)]
         files[paths.path("electorate", name)] = {
             "electorate": name, "key": paths.slug(name), "found": True, "generated_at": ctx.generated_at, "elections": [r["year"] for r in races],
-            "races": races, "money": not_held("electorate money", "candidate returns are not published yet; candidates and results are held"),
+            "races": races,
+            "returns_for_contests_not_held": {"n": len(apart), "declared": F.money(sum(u["declared"] or 0 for u in apart)), "rows": apart,
+                                              "years": sorted({u["year"] for u in apart}),
+                                              "basis": "returns the lane holds for a contest in this electorate that the house lane's results do not hold (a by-election); "
+                                                       "counted apart, never added to a race"},
+            "money": {"declared_total": F.money(sum(r["declared_total"] for r in races)), "expenses_total": F.money(sum(r["expenses_total"] for r in races)),
+                      "by_year": {str(r["year"]): {"declared": r["declared_total"], "expenses": r["expenses_total"], "returns_held": r["returns_held"]} for r in races},
+                      "returns_not_joined": sum(r["returns_not_joined"]["n"] for r in races),
+                      "basis": "the window's races summed; each race says what it holds"},
+            "candidates_basis": "every candidate in the Commission's official result for the race (the house lane), not only those who filed a return; "
+                                "a candidate with no return shows 'no return held'",
             "basis": "one electorate, every election in the window: the candidates as the Commission's results and lists print them, the winner from the house lane's seats; "
-                     "money waits on the candidate-returns lane"}
+                     "money from the candidate-returns lane, the Commission's own table as the headline"}
     for year in sorted(per_year):
+        rows_ = sorted(per_year[year], key=lambda r: r["electorate"])
         files[paths.path("electorates", str(year))] = {
-            "year": year, "generated_at": ctx.generated_at, "electorates": sorted(per_year[year], key=lambda r: r["electorate"]),
-            "contests": len(per_year[year]), "with_result": sum(1 for r in per_year[year] if r["result_held"]),
-            "candidates": sum(r["candidates"] for r in per_year[year]),
-            "money": not_held("candidate money", "candidate returns are not published yet"),
+            "year": year, "generated_at": ctx.generated_at, "electorates": rows_,
+            "contests": len(rows_), "with_result": sum(1 for r in rows_ if r["result_held"]),
+            "candidates": sum(r["candidates"] for r in rows_),
+            "money": {"declared_total": F.money(sum(r["declared_total"] for r in rows_)), "expenses_total": F.money(sum(r["expenses_total"] for r in rows_)),
+                      "returns_held": sum(r["returns_held"] for r in rows_), "declaring": sum(r["declaring"] for r in rows_),
+                      "returns_not_joined": sum(r["returns_not_joined"] for r in rows_),
+                      "basis": "the year's contests summed: candidate donations and expenses from the candidate-returns lane, the Commission's table as the headline; "
+                               "each electorate's row carries its own"},
             "basis": "every electorate contested in the year's elections, from the house lane"}
     files[paths.path("electorates", "all")] = {
         "generated_at": ctx.generated_at, "years": sorted(per_year), "electorates": [
-            {"electorate": name, "key": paths.slug(name), "elections": sorted(F.year_of(elections[ek].get("polled_on")) or 2026 for ek in names[name]),
-             "page": paths.path("electorate", name)} for name in sorted(names)],
-        "n": len(names), "money": not_held("candidate money", "candidate returns are not published yet"),
+            {"electorate": name, "key": paths.slug(name), "elections": [r["year"] for r in races], "page": paths.path("electorate", name),
+             "declared_total": F.money(sum(r["declared_total"] for r in races)), "expenses_total": F.money(sum(r["expenses_total"] for r in races))}
+            for name, races in names.items()],
+        "n": len(names),
+        "money": {"declared_total": F.money(sum(r["declared_total"] for rs in names.values() for r in rs)),
+                  "expenses_total": F.money(sum(r["expenses_total"] for rs in names.values() for r in rs)),
+                  "by_year": {str(y): {"declared": F.money(sum(r["declared_total"] for r in per_year[y])), "expenses": F.money(sum(r["expenses_total"] for r in per_year[y]))} for y in sorted(per_year)},
+                  "basis": "every race in the window summed"},
         "basis": "every electorate with a contest in the window; the per-year files list each year's contests"}
     return files
 
 
 def subject_people(ctx: Context) -> dict:
     elections = _elections(ctx)
+    e_names = {e["key"]: e.get("name") for e in ctx.tables.get("pub.electorates")}
     people = {}
 
     def P(name_key, display):
@@ -451,7 +578,8 @@ def subject_people(ctx: Context) -> dict:
             return None
         if name_key not in people:
             people[name_key] = {"subject": display, "kind": "person", "name_key": name_key, "generated_at": ctx.generated_at,
-                                "name_forms": set(), "seats": [], "candidacies": [], "party_boards": not_held("party board roles", "no lane publishes party boards"),
+                                "name_forms": set(), "seats": [], "candidacies": [], "donations_received": [],
+                                "party_boards": not_held("party board roles", "no lane publishes party boards"),
                                 "donations_made": not_held("donations made", "a person is joined to a donor row only by the links' confirmed rules, which the template does not yet read; namesakes are never joined by name alone"),
                                 "interests": not_held("declared interests", "pub.mp_interests is not in this template yet"),
                                 "expenses": not_held("MPs' and ministers' expenses", "pub.mp_expenses is not in this template yet"),
@@ -474,13 +602,33 @@ def subject_people(ctx: Context) -> dict:
         if not p:
             continue
         k = ctx.idx.key(c.get("party_registered"))
-        p["candidacies"].append({"election": c.get("election"), "electorate": c.get("electorate"), "party": ctx.idx.name(k) or c.get("party"),
+        money = _money_of(ctx, c)
+        p["candidacies"].append({"election": c.get("election"), "year": F.year_of(elections[c["election"]].get("polled_on")) or 2026,
+                                 "electorate": c.get("electorate"), "electorate_name": e_names.get(c.get("electorate")), "party": ctx.idx.name(k) or c.get("party"),
                                  "party_filed": c.get("party"), "list_place": c.get("list_place"), "votes": c.get("votes"),
+                                 "declared": money["declared"], "declared_basis": money["declared_basis"], "expenses": money["expenses"], "expenses_basis": money["expenses_basis"],
+                                 "loans": money["loans"], "return_held": money["return_held"], "return_ref": money["return_ref"], "return_cite": money["return_cite"],
+                                 "itemised_n": money["itemised_n"], "itemised_total": money["itemised_total"], "weaker": money["weaker"],
                                  "cite": ctx.cite(c.get("document"), c.get("page"), c.get("place"))})
+        x = ctx.cm.of(c["key"])
+        if x:
+            for d in x["donors"]:
+                p["donations_received"].append({"ref": f"candidate_returns:{d['key']}", "year": int(x["return"]["year"]), "electorate": x["return"].get("electorate"),
+                                                "party_filed": x["return"].get("party"), "donor": (d.get("donor") or "").strip() or "(unreadable)",
+                                                "amount": F.money(d.get("amount")), "dates": d.get("dates"), "contributions": d.get("contributions"),
+                                                "read_from": d.get("read_from"), "cite": ctx.cite(d["document"], d.get("page"), d.get("ordinal"))})
     out = {}
     for p in people.values():
         p["name_forms"] = sorted(p["name_forms"])
         p["sitting_mp"] = any(s["sitting"] for s in p["seats"])
+        p["candidacies"].sort(key=lambda c: (-c["year"], c.get("electorate_name") or ""))
+        p["donations_received"].sort(key=lambda r: (-r["year"], -r["amount"], r["donor"]))
+        p["donations_received_total"] = F.money(sum(r["amount"] for r in p["donations_received"]))
+        p["donations_received_by_year"] = [{"year": c["year"], "electorate": c.get("electorate_name"), "party_filed": c["party_filed"], "total": c["declared"],
+                                            "declared_basis": c["declared_basis"], "itemised_total": c["itemised_total"], "itemised_n": c["itemised_n"],
+                                            "return_cite": c["return_cite"]} for c in p["candidacies"] if c["return_held"]]
+        p["received_note"] = ("the candidate's own returns: the year's declared total (the Commission's table as the headline) and the per-donor lines "
+                              "the lane read from Part A, names as filed; a year with a total and no lines had its Part A set aside or declared under the threshold")
         p["namesakes_note"] = "one page per shared reading of the name; two people with one name would share it, so every row cites its own document"
         rel = paths.path("subject", "person", p["subject"])
         out[rel] = p

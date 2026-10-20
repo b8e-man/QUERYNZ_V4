@@ -201,6 +201,17 @@ class Series:
                 "basis": "broadcasting allocation: the Commission's final decision for the election year; spent and expenses: the party's expense return as the Commission tabulates it"}
 
 
+def elections_in_window(tables, years: list) -> dict:
+    """{election key: row} for the elections in the window: polling day in or
+    after the first year, or a general election not yet polled."""
+    out = {}
+    for e in tables.get("pub.elections"):
+        y = year_of(e.get("polled_on"))
+        if (y and y >= years[0]) or (not y and e.get("kind") == "general"):
+            out[e["key"]] = e
+    return out
+
+
 def window_years(settings: dict, today: dt.date = None) -> list:
     today = today or dt.date.today()
     return list(range(int(settings["window_from"]), today.year + 1))
@@ -266,17 +277,30 @@ class Donor:
         return best[0][0] if best else "(unreadable)"
 
 
-def donors(tables, settings: dict, idx: PartyIndex, series: dict, years: list) -> dict:
-    """{name_key: Donor} over the current Part A rows and the live disclosures
-    in the window, folded by the shared reading. A disclosure in a year the
-    party's return covers is a sighting, never money."""
+def donors(tables, settings: dict, idx: PartyIndex, series: dict, years: list, cm=None) -> dict:
+    """{name_key: Donor} over the current Part A rows, the live disclosures
+    and (when the candidate money is given) the per-donor lines of the
+    candidates' returns in the window, folded by the shared reading. A
+    disclosure in a year the party's return covers is a sighting, never
+    money. The links have not read the candidate returns' names, so a
+    candidate-return donor takes the shared reading of its exact filed
+    spelling where the links have read that spelling in a party return or a
+    declaration, and is otherwise kept under its filed spelling alone."""
     reading = {}
+    by_spelling = defaultdict(set)
     for n in tables.get("pub.names"):
         reading[n["ref"]] = n
+        if n.get("name_filed") and n.get("name_key") and n.get("register") in ("party_returns", "disclosures"):
+            by_spelling[n["name_filed"].strip().lower()].add((n["name_key"], n.get("kind")))
     out = {}
 
     def D(ref, filed):
         n = reading.get(ref)
+        if not n and ref.startswith("candidate_returns:"):
+            hits = by_spelling.get((filed or "").strip().lower(), set())
+            if len(hits) == 1:
+                nk, kind = next(iter(hits))
+                n = {"name_key": nk, "kind": kind}
         nk = n["name_key"] if n and n.get("name_key") else ("filed:" + (filed or "").strip().lower())
         kind = n["kind"] if n else "unreadable"
         if nk not in out:
@@ -310,25 +334,41 @@ def donors(tables, settings: dict, idx: PartyIndex, series: dict, years: list) -
                        "declaration_document": x.get("declaration_document"), "href": x.get("href"), "regime": x.get("regime"),
                        "counts": not covered,
                        "basis": "sighted: the return for this year is the record" if covered else "open year: no return held"})
+    if cm is not None:
+        from products.published_site import candidate_money as CM
+        for ckey, x in cm.rows():
+            r = x["return"]
+            c = cm.candidate_of(ckey) if ckey else None
+            k = idx.key(c.get("party_registered")) if c else None
+            for d in x["donors"]:
+                dn = D(f"candidate_returns:{d['key']}", d.get("donor"))
+                dn.rows.append({"ref": f"candidate_returns:{d['key']}", "source": "candidate", "year": int(r["year"]), "party": k, "party_name": idx.name(k) if k else "",
+                                "party_filed": r.get("party"), "receiver": CM.display(c, r), "candidate_key": ckey, "electorate": r.get("electorate"),
+                                "donor_filed": d.get("donor"), "amount": money(d.get("amount")), "dates": d.get("dates"), "contributions": d.get("contributions"),
+                                "document": d["document"], "page": d.get("page"), "ordinal": d.get("ordinal"), "read_from": d.get("read_from"),
+                                "counts": True, "basis": "Part A of the candidate's return" + ("" if ckey else "; the return is not joined to a candidate in the results")})
     return out
 
 
 def donor_totals(d: Donor) -> dict:
     by_year, by_receiver = defaultdict(float), defaultdict(float)
-    returns = sum(r["amount"] for r in d.rows if r["source"] == "return" and r["counts"])
+    returns = sum(r["amount"] for r in d.rows if r["source"] in ("return", "candidate") and r["counts"])
     uncounted = sum(r["amount"] for r in d.rows if r["source"] == "return" and not r["counts"])
+    party_returns = sum(r["amount"] for r in d.rows if r["source"] == "return" and r["counts"])
+    candidate_returns = sum(r["amount"] for r in d.rows if r["source"] == "candidate")
     open_disc = sum(r["amount"] for r in d.rows if r["source"] == "disclosure" and r["counts"])
     sighted = sum(r["amount"] for r in d.rows if r["source"] == "disclosure" and not r["counts"])
     for r in d.rows:
         if r["counts"]:
             by_year[str(r["year"])] += r["amount"]
-            by_receiver[r["party_name"]] += r["amount"]
-    return {"returns": money(returns), "returns_not_counted": money(uncounted), "open_year_disclosures": money(open_disc), "disclosures_sighted": money(sighted),
+            by_receiver[r.get("receiver") or r["party_name"]] += r["amount"]
+    return {"returns": money(returns), "party_returns": money(party_returns), "candidate_returns": money(candidate_returns),
+            "returns_not_counted": money(uncounted), "open_year_disclosures": money(open_disc), "disclosures_sighted": money(sighted),
             "total": money(returns + open_disc),
             "by_year": {k: money(v) for k, v in sorted(by_year.items())},
             "by_receiver": {k: money(v) for k, v in sorted(by_receiver.items())},
-            "basis": "returns plus disclosures in years no return covers; a disclosure the return covers is sighted and never added; "
-                     "ownership is a note and never adds to an owner's total"}
+            "basis": "party returns and candidate returns (a candidate is the receiver), plus disclosures in years no return covers; "
+                     "a disclosure the return covers is sighted and never added; ownership is a note and never adds to an owner's total"}
 
 
 # ── party financial statements (party-finance lane; plan 4.4 tranche 2) ───────

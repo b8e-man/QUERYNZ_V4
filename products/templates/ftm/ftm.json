@@ -6,6 +6,8 @@
     {"table": "pub.party_return_totals", "licence": "Party donation and loan returns filed under the Electoral Act 1993 and published by the Electoral Commission: public records", "attribution": "Electoral Commission", "refresh": "daily"},
     {"table": "pub.party_return_donors", "licence": "Part A of the same returns: donations over the itemisation threshold, filed under the Electoral Act 1993, public records", "attribution": "Electoral Commission", "refresh": "daily"},
     {"table": "pub.party_return_loans", "licence": "Parts H and I of the same returns, public records", "attribution": "Electoral Commission", "refresh": "daily"},
+    {"table": "pub.candidate_return_totals", "licence": "Candidate donation and expense returns filed under the Electoral Act 1993 and the Commission's own table of them, public records", "attribution": "Electoral Commission", "refresh": "daily"},
+    {"table": "pub.candidate_return_donors", "licence": "Part A of the candidates' returns: donations over the itemisation threshold, public records", "attribution": "Electoral Commission", "refresh": "daily"},
     {"table": "pub.disclosures", "licence": "Large-donation disclosures (Electoral Act 1993 s 210C), the Commission's own published table, public records", "attribution": "Electoral Commission", "refresh": "daily"},
     {"table": "pub.disclosure_items", "licence": "The itemised contributions of those disclosures, public records", "attribution": "Electoral Commission", "refresh": "daily"},
     {"table": "pub.parties", "licence": "The Register of Political Parties, kept under the Electoral Act 1993, public", "attribution": "Electoral Commission", "refresh": "daily"},

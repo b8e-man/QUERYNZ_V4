@@ -16,13 +16,15 @@ import datetime as dt
 import os
 import sys
 
+from products.published_site import candidate_money as CM
 from products.published_site import figures as F
 from products.published_site import gates, pin, read, redact, render, version
 from products.published_site import site_template as ftm
 
 OUT = os.environ.get("QV4_SITE_OUT") or os.path.join(os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live", "site")
 #: the views whose rows carry the money: a row citing a document the listing does not hold is left out
-PINNED_VIEWS = ("pub.party_return_totals", "pub.party_return_donors", "pub.party_return_loans", "pub.disclosures")
+PINNED_VIEWS = ("pub.party_return_totals", "pub.party_return_donors", "pub.party_return_loans", "pub.disclosures",
+                "pub.candidate_return_totals", "pub.candidate_return_donors")
 
 
 def pin_tables(tables: read.Tables, listing: pin.Listing) -> dict:
@@ -77,12 +79,14 @@ def build(listing_version: str = None, out: str = None, template_path: str = Non
             left = pin_tables(tables, listing)
             idx = F.PartyIndex(tables.get("pub.parties"), tables.get("pub.party_names"))
             series = F.party_series(tables, s, idx, years)
-            donors = F.donors(tables, s, idx, series, years)
+            cm = CM.candidate_money(tables, idx, F.elections_in_window(tables, years), years)
+            donors = F.donors(tables, s, idx, series, years, cm)
             forms = redact.load_forms(tables, s.get("suppressed_names_view"))
         except Exception as exc:  # noqa: BLE001
             say(f"fail  the published tables could not be read: {type(exc).__name__}: {exc}")
             return False, None, lines
-        say(f"  read {len(tables.counts)} published views; {len(series)} parties with figures, {len(donors)} folded donors, window {years[0]}–{years[-1]}")
+        say(f"  read {len(tables.counts)} published views; {len(series)} parties with figures, {len(donors)} folded donors, "
+            f"{cm.joined} of {cm.returns} candidate returns joined to a candidate, window {years[0]}–{years[-1]}")
         for view, x in left.items():
             if x["left_out"]:
                 say(f"  {view}: {x['left_out']} of {x['rows']} rows cite a document the listing does not hold and are left out")
@@ -104,7 +108,7 @@ def build(listing_version: str = None, out: str = None, template_path: str = Non
         unnamed = sum(1 for h, n in doc_names.items() if not n)
         say(f"  {len(doc_names)} documents cited, {unnamed} with no name in the document store")
 
-        ctx = render.Context(t, tables, listing, years, idx, series, donors, doc_names, generated_at)
+        ctx = render.Context(t, tables, listing, years, idx, series, donors, doc_names, generated_at, cm=cm)
         files = {}
         files[render.paths.path("home")] = render.home(ctx)
         files[render.paths.path("parties")] = render.parties(ctx)
@@ -134,7 +138,8 @@ def build(listing_version: str = None, out: str = None, template_path: str = Non
             say(f"fail  could not write the version: {exc}")
             return False, stamp, lines
         say(f"  version {stamp}: {len(files)} files written to {vdir}")
-        gate_ctx = {"conn": conn, "years": years, "suppressed_forms": forms, "previous": previous, "allow_drop": allow_drop}
+        gate_ctx = {"conn": conn, "years": years, "suppressed_forms": forms, "previous": previous, "allow_drop": allow_drop,
+                    "candidate_returns_unjoined": sum(len(v) for v in cm.unjoined.values())}
         results = gates.run_all(vdir, ctx=gate_ctx)
     ok = True
     for name, g_ok, line in results:

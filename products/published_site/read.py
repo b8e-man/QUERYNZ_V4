@@ -83,6 +83,10 @@ class Tables:
             return rows(self.conn, f"select * from {view} where year >= %s order by party_key, year, document, ordinal", (w,))
         if view == "pub.party_return_loans":
             return rows(self.conn, f"select * from {view} where year >= %s order by party_key, year, document, ordinal", (w,))
+        if view == "pub.candidate_return_totals":
+            return rows(self.conn, f"select * from {view} where year >= %s order by year, electorate, surname, document", (w,))
+        if view == "pub.candidate_return_donors":
+            return rows(self.conn, f"select * from {view} where year >= %s order by year, return_key, ordinal, key", (w,))
         if view == "pub.disclosures":
             return rows(self.conn, f"select * from {view} where extract(year from coalesce(received_on, given_on, amended_on)) >= %s "
                                    "or coalesce(received_on, given_on, amended_on) is null order by key", (w,))
