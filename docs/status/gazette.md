@@ -1,7 +1,7 @@
 # gazette: where it stands
 
-**Date:** 2026-10-20. **Step:** 4.1 and 5.3, Gazette notices, `registers/gazette/`.
-**Merge requests:** `gazette-1` to `-3` (merged), `gazette-4` (raised), `gazette-5` (raised; carries gazette-4).
+**Date:** 2026-10-21. **Step:** 4.1 and 5.3, Gazette notices, `registers/gazette/`.
+**Merge requests:** `gazette-1` to `-3` (merged), `gazette-4`, `-5` (merged), `gazette-6` (raised).
 
 ## Done
 
@@ -11,21 +11,13 @@
   prohibitions, liquidations (`al`), removals `ds`, winding-up `aw`,
   receiverships `ar`, creditors `md`, administrations `aa`, bankruptcies
   `ba` (addresses in `gazette_private` only), appointments (3,155).
-- gazette-4, three new kinds in `company_notices`, profiles proposed in
-  `profile-proposed.jsonl`: overseas companies leaving NZ `cb` (2,601 of
-  2,607 notices, 95.4% joined); restorations `ot` (868 of 888, 31,515 rows,
-  93.1%; the applicant and address never read); society and trust board
-  dissolutions `is`/`ct` (1,697 of 1,813, 33,749 rows, 98.7% by the
-  register's own number, 90.2% agreeing by name). Check floors 92/90/95%,
-  name agreement 85%. Full load 92 s into `scratch_gazette_4_full`
-  (sample database); the check exits 0. Unread fell 86,173 → 80,865.
-- gazette-5 tranche 1, mortgagee entries into possession (`gn`): `possessions.py`, proposed profile
-  `gazette-mortgagee-possession`, `pub.gazette_possessions`, private `possession_details`. 3,002 notices,
-  2,899 lender named, 2,951 day, 2,449 of 2,864 company lenders joined (85.5%); floors 95/95/82%. Full load
-  101 s into `scratch_gazette_5_full`; the check exits 0. Unread 80,865 → 77,863.
-- gazette-5 tranche 2, `ot` (`companyacts.py`, four proposed profiles): rectifications 486 of 503
-  notices, 2,877 rows, 99.7% joined, 85.1% by name, people by initials only; amalgamations 369, 1,000
-  rows, 73.1%; transfers out 167, 95.8%; deeds 21, 89.7%. Unread → 76,803. Both cards closed.
+- gazette-4: overseas companies `cb` (95.4% joined), restorations `ot` (93.1%), society and trust board
+  dissolutions `is`/`ct` (98.7%). gazette-5: mortgagee possessions `gn` (3,002 notices, 85.5% of company
+  lenders joined; property private); `ot` rectifications (99.7%, people by initials), amalgamations (73.1%),
+  transfers out (95.8%), deeds (89.7%). Unread 86,173 → 76,803. Details in `docs/merges/gazette-4`, `-5`.
+- gazette-6: every published text cut before a street address or property reference (`cut.py`, at the read; the
+  uncut in `gazette_private.uncut`): 1,463 titles (`ln` 1,434), 71 companies, 2 plaintiffs; check fails on any left
+  (0 on the full load into `scratch_gazette_6_full`, 1,496 notices on gazette-5's uncut load). Card closed.
 - `pane.md` covers all ten views.
 - The parties lane reads this lane's `au` notices (parties-2: 137).
 
@@ -40,11 +32,9 @@ ministers and vacancies (the house lane); `fs` 109 friendly societies.
 
 ## Carded
 
-- `published-gazette-titles-can-carry-a-street-address` (gazette-5: `ln` 1,642, 57 elsewhere).
 - Left for Arthur's word: `appointment-notices-whose-appointees-run-together-are-unread`,
   `annulled-bankrupts-the-reader-cannot-name-stay-published-on-earlier-rows`.
 
 ## Next
 
-1. Cut every published title before a street address (card above).
-2. Disciplinary findings, if Arthur rules yes.
+1. Disciplinary findings, if Arthur rules yes.

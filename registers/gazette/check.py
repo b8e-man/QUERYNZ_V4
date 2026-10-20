@@ -35,8 +35,15 @@ catch-log lines and are counted here, never failed one by one: the
 register's own gaps (a company renamed after its liquidation, a name it
 never held) are not the reading's.
 
+Every text the lane publishes, every title and every other text column,
+is searched for a street address or a property reference (cut.find, the
+detector the load cuts by): one found fails the check, named by its notice,
+never printed (hard limit 15).
+
 The old lane's gate recorded a failure and still exited 0. This one exits 1.
 
+    carried(values)     {table.column: [notices]} for the published texts that name a property, from
+                        [(table, column, notice, value)]
     figures(rows, acted, marked, joined)  the counts from [(notice, title, format)],
                         [(notice, supersedes)], the notices whose rows say what superseded them,
                         and {register_match: rows} over the liquidation rows
@@ -49,7 +56,7 @@ import re
 import sys
 from collections import defaultdict
 
-from registers.gazette import dissolutions, notices, possessions
+from registers.gazette import cut, dissolutions, notices, possessions
 from registers.gazette import register as R
 
 CELEBRANT = "gazette-celebrant-list"
@@ -176,8 +183,18 @@ def possession_figures(rows, taken) -> dict:
             "person_shown": sum(1 for k, m, e, b, s in taken if b == "person" and s)}
 
 
+def carried(values) -> dict:
+    """values: [(table, column, notice, text)] over every published text column; the notices whose text there names a
+    street address or a property reference, by table and column."""
+    out = defaultdict(list)
+    for t, col, notice, v in values:
+        if v and cut.find(v):
+            out[f"{t}.{col}"].append(notice)
+    return {k: sorted(set(v)) for k, v in sorted(out.items())}
+
+
 def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulled_shown=0, appointees=None, members=None,
-            tables=None, taken=None) -> dict:
+            tables=None, taken=None, texts=None) -> dict:
     """rows: [(notice, title, format)] from the lane's published notices;
     acted: [(notice, supersedes)] for the notices that act on others; marked:
     the notices whose prohibition rows carry what superseded them."""
@@ -233,6 +250,8 @@ def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulle
         out["possessions"] = possession_figures(rows, taken)
     if tables is not None:
         out["tables"] = dict(tables)                    # {"rows": n, "named_elsewhere": n}
+    if texts is not None:
+        out["carried"] = carried(texts)
     return out
 
 
@@ -305,6 +324,9 @@ def failed(f: dict) -> list:
             why.append(f"{m['never_joined']:,} possession lenders were never joined to the companies register (not in the database at load)")
         elif m["joined"] < POSSESSION_JOINED_FLOOR * m["companies"]:
             why.append(f"the companies register holds {m['joined']:,} of {m['companies']:,} possession lenders, below {POSSESSION_JOINED_FLOOR:.0%}")
+    for where, ns in (f.get("carried") or {}).items():
+        why.append(f"{where}: {len(ns):,} published values name a street address or a property reference "
+                   f"(hard limit 15), the first in notice {ns[0]}")
     t = f.get("tables")
     if t and t["rows"] and t["named_elsewhere"] < TABLE_FLOOR * t["rows"]:
         why.append(f"{t['named_elsewhere']:,} of {t['rows']:,} people the printed celebrant tables name are named by a "
@@ -314,6 +336,23 @@ def failed(f: dict) -> list:
         if y not in years:
             why.append(f"{y}: the lane publishes no notice for a closed year")
     return why
+
+
+def published_texts(conn, schema: str, shared: bool) -> list:
+    """[(table, column, notice, text)]: every distinct text in every text column of the lane's published tables."""
+    from registers.gazette.load import COLUMNS, table
+    out = []
+    for t in cut.TABLES:
+        name = table(schema, t, shared)
+        sch, rel = name.split(".")
+        typed = dict(conn.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = %s "
+                                  "AND table_name = %s", (sch, rel)).fetchall())
+        for col in COLUMNS[t]:
+            if col in cut.SKIP or typed.get(col) not in ("text", "ARRAY"):
+                continue
+            out += [(t, col, n, v) for n, v in conn.execute(
+                f'SELECT min(notice), "{col}"::text FROM {name} WHERE "{col}" IS NOT NULL GROUP BY 2')]
+    return out
 
 
 def main(argv=None) -> int:
@@ -343,13 +382,14 @@ def main(argv=None) -> int:
         appointees = conn.execute(f"SELECT notice, name, role FROM {table(schema, 'appointments', shared)}").fetchall()
         taken = conn.execute(f"SELECT mortgagee_kind, mortgagee_register_match, entered_on IS NOT NULL, mortgagor_kind, "
                              f"mortgagor IS NOT NULL FROM {table(schema, 'possessions', shared)}").fetchall()
+        texts = published_texts(conn, schema, shared)
         annulled_shown = conn.execute(f"SELECT count(*) FROM {table(schema, 'bankruptcies', shared)} "
                                       f"WHERE kind = 'annulment' AND withheld_by IS NULL").fetchone()[0]
     with db.connect(db.READ_KEY, "querynz_v4") as conn:       # the house lane's members, always from the published estate
         conn.execute("SET statement_timeout = '60s'")
         members = ([n for (n,) in conn.execute("SELECT name FROM pub.members")]
                    if conn.execute("SELECT to_regclass('pub.members') IS NOT NULL").fetchone()[0] else [])
-    f = figures(rows, acted, marked, joined, company_joined, annulled_shown, appointees, members, tables, taken)
+    f = figures(rows, acted, marked, joined, company_joined, annulled_shown, appointees, members, tables, taken, texts)
     print(f"{len(rows)} notices published. The Gazette's own numbering, closed years "
           f"({CLOSED_FROM}-{CLOSED_TO}): highest number against numbers held")
     for y, (top, held) in f["numbering"].items():
@@ -400,6 +440,8 @@ def main(argv=None) -> int:
     if m:
         print(f"  against the house lane's members: {m['members']} of {m['honourable']} 'Honourable' appointees (not judges) "
               f"since {MEMBERS_FROM} are Members of Parliament by surname")
+    print(f"Published text: {len(texts):,} distinct values in every text column, "
+          f"{sum(len(v) for v in f['carried'].values()):,} notices naming a street address or a property reference")
     why = failed(f)
     for w in why:
         print("FAILS " + w)
