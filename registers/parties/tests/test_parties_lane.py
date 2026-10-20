@@ -205,6 +205,56 @@ def test_the_check_fails_when_the_page_s_date_is_not_the_notice_s():
     assert any("the page says 2016-01-01" in w for w in check.failed(bad))
 
 
+def test_a_party_logo_cancelled_by_section_70a_is_not_the_party_cancelled():
+    t = ("At its meeting on 22 July 2011, the Electoral Commission Board considered the application to cancel a party "
+         "logo under Part 4 of the Electoral Act 1993:Cancellation of logo, at the request of the following political "
+         "party:Example Party.The Electoral Commission resolved to cancel the registration of the Example Party logo in "
+         "accordance with section 70A of the Electoral Act 1993.The Register will be updated accordingly.")
+    got = notices.read(t, "2011-au1")
+    assert {e.kind for e in got.events} == {"logo"} and got.unread == []
+    t2 = ("Pursuant to Part 4 of the Electoral Act 1993, the Electoral Commission resolved on 20 June 2023 to cancel the "
+          "registration of the Example Party and its logo, at the party’s request." + SIG)
+    assert _events(t2) == [("cancelled", "2023-06-20", "Example Party", None, None)]
+
+
+# --- the labels --------------------------------------------------------------
+
+def _label_rows():
+    """Two registrations of one name a year apart, and a party renamed."""
+    regs = {"r/a": {"key": "r/a", "name": "Example Loyal", "registered_on": "2021-03-01", "cancelled_on": "2022-02-01"},
+            "r/b": {"key": "r/b", "name": "Example Loyal", "registered_on": "2022-09-01", "cancelled_on": None},
+            "r/c": {"key": "r/c", "name": "Te Pāti Tauira", "registered_on": "2004-07-09", "cancelled_on": None}}
+    names = [("r/a", "Example Loyal", "name", "2021-03-01", "2022-02-01"),
+             ("r/b", "Example Loyal", "name", "2022-09-01", None),
+             ("r/c", "Tauira Party", "name", "2004-07-09", "2023-07-12"),
+             ("r/c", "Te Pāti Tauira", "name", "2023-07-12", None)]
+    rows = [{"party": p, "name": n, "kind": k, "from_on": f, "to_on": to, "registered_on": regs[p]["registered_on"],
+             "cancelled_on": regs[p]["cancelled_on"]} for p, n, k, f, to in names]
+    return rows, regs
+
+
+def test_a_label_in_a_name_two_registrations_carried_joins_the_one_live_that_day_and_says_so():
+    from registers.parties import labels
+    rows, regs = _label_rows()
+    a = labels.resolve("Example Loyal", "2021-06-30", rows, regs)
+    b = labels.resolve("Example Loyal", "2023", rows, regs)
+    assert a["party"] == "r/a" and b["party"] == "r/b"
+    assert "2 registrations" in a["same_name"] and "r/a" in a["same_name"] and "r/b" in a["same_name"]
+    both = labels.resolve("Example Loyal", "2022", rows, regs)
+    assert both["party"] is None and "2 registrations of this name were live within 2022" in both["why"]
+
+
+def test_a_renamed_party_s_old_name_is_the_same_registration_and_a_bracket_is_tried_both_ways():
+    from registers.parties import labels
+    rows, regs = _label_rows()
+    assert labels.resolve("Tauira Party", "2020", rows, regs)["party"] == "r/c"
+    got = labels.resolve("The Tauira Party (Te Pati Tauira)", "2021", rows, regs)
+    assert got["party"] == "r/c" and got["basis"].startswith("before its bracket")
+    assert labels.resolve("Independent", "2020", rows, regs)["basis"] == "not a party"
+    nothing = labels.resolve("Example Freedom", "2020", rows, regs)
+    assert nothing["party"] is None and nothing["why"].startswith("no registration live then")
+
+
 # --- the filled sample -------------------------------------------------------
 
 def _schema() -> str:
@@ -233,6 +283,7 @@ def filled():
                "regs": q(f"SELECT * FROM {schema}.parties_registrations ORDER BY key"),
                "names": q(f"SELECT * FROM {schema}.parties_names"),
                "events": q(f"SELECT * FROM {schema}.parties_events"),
+               "labels": q(f"SELECT * FROM {schema}.parties_labels"),
                "files": q(f"SELECT * FROM {schema}.parties_files"),
                "aside": q(f"SELECT * FROM {schema}.parties_set_aside"),
                "private": q(f"SELECT key FROM {schema}_private.parties_secretary_contacts")}
@@ -240,10 +291,50 @@ def filled():
 
 def test_everything_is_read_and_the_catch_log_holds_only_what_the_old_folder_lost(filled):
     assert [a for a in filled["aside"] if a["stage"] != "capture"] == []
-    assert len({e["notice"] for e in filled["events"]}) == 136
+    assert len({e["notice"] for e in filled["events"]}) == 137
     on = [r for r in filled["regs"] if r["on_register"]]
     assert len(on) == 17 and len(filled["private"]) == 17
-    assert {f["status"] for f in filled["files"]} == {"read", "held, not read"}
+    assert {f["status"] for f in filled["files"]} == {"read", "held, not read", "read, compared, not cited"}
+
+
+def test_every_notice_is_the_gazette_lane_s_copy_cited_to_its_document(filled):
+    from registers.parties import capture
+    assert {e["document"] for e in filled["events"]} == {capture.GAZETTE_EXPORT_SHA}
+    assert {e["source_note"] for e in filled["events"]} == {capture.GAZETTE_NOTE}
+    assert all(e["place"].startswith(f"notice {e['notice']} resolution ") for e in filled["events"])
+
+
+def test_the_heartland_cancellation_only_the_gazette_lane_holds_closes_its_registration(filled):
+    hit = [r for r in filled["regs"] if lifecycle.name_key(r["name"]) == lifecycle.name_key("Heartland New Zealand Party")]
+    assert len(hit) == 1 and str(hit[0]["cancelled_on"]) == "2023-06-20" and hit[0]["off_register_by"] is None
+    assert hit[0]["cancelled_place"] == "notice 2023-au2700 resolution 1"
+
+
+def test_a_logo_cancellation_makes_no_second_registration(filled):
+    one = [r for r in filled["regs"] if lifecycle.name_key(r["name"]) == lifecycle.name_key("One New Zealand Party")]
+    assert len(one) == 1 and str(one[0]["cancelled_on"]) == "2006-09-27"
+    assert len(filled["regs"]) == 77
+
+
+def test_two_registrations_of_one_name_are_kept_apart_and_say_so(filled):
+    loyal = sorted((r for r in filled["regs"] if r["name"] == "New Zealand Loyal"), key=lambda r: r["key"])
+    assert len(loyal) == 2 and loyal[0]["same_name_as"] == loyal[1]["key"] and loyal[1]["same_name_as"] == loyal[0]["key"]
+    assert "2023-08-28 to 2024-07-26" in loyal[0]["same_name_note"] and "2026-08-05 to now" in loyal[0]["same_name_note"]
+    assert all(r["same_name_as"] is None for r in filled["regs"] if lifecycle.name_key(r["name"]) not in (
+        "newzealandloyal", "unitedfuturenewzealand"))
+
+
+def test_every_label_row_reconciles_keeps_the_row_contract_and_says_why_it_joins_nothing(filled):
+    today = dt.date.today()
+    keys = [r["key"] for r in filled["labels"]]
+    assert len(keys) == len(set(keys))
+    regs = {r["key"] for r in filled["regs"]}
+    for r in filled["labels"]:
+        row = {k: r[k] for k in ("key", "document", "page", "place", "reader", "profile", "profile_version", "read_from")}
+        row["loaded_at"] = r["loaded_at"].isoformat()
+        assert rowcontract.validate(row, today) == [], r["key"]
+        assert (r["party"] in regs) if r["party"] else bool(r["why"]), r["key"]
+        assert r["rows"] == sum(int(p.rsplit(" ", 1)[1]) for p in r["sources"].split("; "))
 
 
 def test_every_row_keeps_the_row_contract_and_no_contact_line_is_published(filled):
@@ -274,13 +365,9 @@ def test_the_four_known_renames_are_one_registration_each(filled):
 
 def test_the_outside_check_passes_on_the_sample(filled):
     from support.docstore.landing import read_bytes
-    from registers.parties import read
     regs = filled["regs"]
     page = next(r for r in regs if r["register_document"])
-    events, pub = [], {}
-    for n in read.read_export(read_bytes(filled["events"][0]["document"])):
-        pub[n["notice"]] = n["published_on"]
-        events += notices.read(n["text"], n["notice"], n["published_on"]).events
+    events, pub = check.notices_of({(e["notice"], e["document"]) for e in filled["events"]})
     out = check.compare(events, register.read(read_bytes(page["register_document"])).entries, str(page["register_seen_on"]), pub)
     assert check.failed(out, sum(1 for r in regs if r["on_register"])) == []
     assert len(out["joined"]) + len(out["window"]) + len(out["before_reach"]) + len(out["no_notice_held"]) == out["page"]

@@ -3,32 +3,38 @@ this lane's tables under a staging schema of the real database, and
 `publish` to move the rows into the lane's own tables in one transaction
 and refresh the published views. `fill` in sample.py uses the same pieces.
 
-Capture, read the page and the notices, build the lifecycle, insert. Items
-in equal items out plus items set aside (read.py says how).
+Capture, take the notices (the Gazette lane's copy where it holds the same
+text: capture.notices_held), read the page and the notices, build the
+lifecycle, insert; then resolve every party label the other lanes publish
+(labels.py) against the names just built. Items in equal items out plus
+items set aside (read.py and labels.py say how).
 """
 import os
 
 from support import jobrun
 from support.docstore.landing import read_bytes
-from registers.parties import capture, read
+from registers.parties import capture, labels, read
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "parties"
 PRIVATE = "parties_private"
-TABLES = ("registrations", "names", "events", "files", "set_aside")
+TABLES = ("registrations", "names", "events", "labels", "files", "set_aside")
 COLUMNS = {
     "registrations": ("key", "document", "page", "place", "name", "first_name", "registered_on",
                       "notice_registered_on", "registered_by", "registered_basis", "cancelled_on", "status",
                       "on_register", "register_seen_on", "off_register_by", "page_basis", "window", "abbreviation",
                       "abbreviation_on_ballot", "components", "logo_registered_on", "statement_deadline", "audit",
                       "website", "rules_title", "rules_href", "secretary", "register_document", "register_place",
-                      "cancelled_document", "cancelled_place", "read_from", "reader", "profile", "profile_version",
-                      "loaded_at"),
+                      "cancelled_document", "cancelled_place", "same_name_as", "same_name_note", "read_from", "reader",
+                      "profile", "profile_version", "loaded_at"),
     "names": ("key", "party", "name", "name_key", "kind", "from_on", "to_on", "basis", "document", "page", "place",
               "read_from", "reader", "profile", "profile_version", "loaded_at"),
     "events": ("key", "notice", "published_on", "decided_on", "kind", "party_label", "new_name", "abbreviation",
-               "old_abbreviation", "ref", "party", "url", "title", "clause", "source_note", "document", "page", "place",
+               "old_abbreviation", "ref", "party", "url", "title", "clause", "source_note", "gazette_key", "document",
+               "page", "place",
                "read_from", "reader", "profile", "profile_version", "loaded_at"),
+    "labels": ("key", "label", "on", "grain", "party", "party_name", "basis", "why", "same_name", "sources", "rows",
+               "resolver", "document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
 }
 
 
@@ -66,30 +72,52 @@ def _insert(conn, name: str, cols: tuple, row: dict) -> None:
                  f"VALUES ({', '.join(['%s'] * len(cols))})", tuple(flat.get(c) for c in cols))
 
 
-def build(conn, schema: str, page: tuple, export: tuple, others: list, aside: list, shared: bool = False) -> dict:
+def build(conn, schema: str, page: tuple, export: tuple, others: list, aside: list, shared: bool = False,
+          listing: list = None, pub_conn=None) -> dict:
     """page: (sha256, captured on, name); export: (sha256, name); others:
     [(sha256, name, kind)] held and not read; aside: [(item, why)] from
-    capture. Wipes and fills `schema`; returns the counts."""
+    capture; listing: the Gazette lane's rows for the register's notices
+    (capture.gazette_listing; read from its document by the same rule where
+    the database publishes none); pub_conn: where the other lanes' published
+    labels are read (default `conn`; a session measuring the real tables
+    from the sample database passes the read-only login). Wipes and fills
+    `schema`; returns the counts."""
     create_tables(conn, schema, shared)
-    for item, why in aside:
+    if not listing:
+        listing = capture.listing_from_document()
+    held, taken_aside = capture.notices_held(listing, export[0])
+    for item, why in aside + taken_aside:
         conn.execute(f"INSERT INTO {table(schema, 'set_aside', shared)} (item, stage, reason) VALUES (%s, 'capture', %s)",
                      (item, why))
-    res = read.read(read_bytes(page[0]), page[0], page[1], read_bytes(export[0]), export[0])
+    res = read.read(read_bytes(page[0]), page[0], page[1], held)
     for item, stage, reason in res.set_aside:
         conn.execute(f"INSERT INTO {table(schema, 'set_aside', shared)} (item, stage, reason) VALUES (%s, %s, %s)",
                      (item, stage, reason))
     for t, rows in (("registrations", res.registrations), ("names", res.names), ("events", res.events)):
         for row in rows:
             _insert(conn, table(schema, t, shared), COLUMNS[t], row)
+    page_stamp = {"document": page[0], "page": 1, "read_from": "text", "profile": read.PAGE_PROFILE,
+                  "profile_version": read.profile_version(read.PAGE_PROFILE)}
+    flat = lambda rows: [{**r, **r.get("filed", {})} for r in rows]
+    label_rows, measured = labels.build(pub_conn or conn, flat(res.names), flat(res.registrations), page_stamp,
+                                        res.names[0]["loaded_at"])
+    for row in label_rows:
+        _insert(conn, table(schema, "labels", shared), COLUMNS["labels"], row)
     for key, contact in res.contacts:
         conn.execute(f"INSERT INTO {table(private_of(schema), 'secretary_contacts', shared)} (key, contact) VALUES (%s, %s)",
                      (key, contact))
     files = table(schema, "files", shared)
     conn.execute(f"INSERT INTO {files} VALUES (%s, %s, 'register', 'read')", (page[0], page[2]))
-    conn.execute(f"INSERT INTO {files} VALUES (%s, %s, 'notices', 'read')", (export[0], export[1]))
+    used = {n["document"] for n in held}
+    conn.execute(f"INSERT INTO {files} VALUES (%s, %s, 'notices', %s)",
+                 (export[0], export[1], "read" if export[0] in used else "read, compared, not cited"))
+    for sha in sorted(used - {export[0]}):
+        conn.execute(f"INSERT INTO {files} VALUES (%s, %s, 'gazette notices', 'read') ON CONFLICT DO NOTHING",
+                     (sha, capture.GAZETTE_EXPORT_NAME))
     for sha, name, kind in others:
         conn.execute(f"INSERT INTO {files} VALUES (%s, %s, %s, 'held, not read') ON CONFLICT DO NOTHING", (sha, name, kind))
-    return {**res.counts, "not_held": len(aside)}
+    return {**res.counts, "not_held": len(aside), "notices_aside": len(taken_aside), "labels": len(label_rows),
+            "labels_resolved": sum(1 for r in label_rows if r["party"]), "measured": measured}
 
 
 def load(conn, schema: str, log=print) -> int:
@@ -100,8 +128,11 @@ def load(conn, schema: str, log=print) -> int:
     page = next((ref.sha256, at[:10], name) for kind, ref, name, at in landed if kind == "register")
     export = next((ref.sha256, name) for kind, ref, name, at in landed if kind == "notices")
     others = [(ref.sha256, name, kind) for kind, ref, name, at in landed if kind == "applications"]
-    counts = build(conn, schema, page, export, others, aside)
+    counts = build(conn, schema, page, export, others, aside, listing=capture.gazette_listing(conn))
+    measured = counts.pop("measured")
     detail = ", ".join(f"{k} {v}" for k, v in counts.items()) + f", into {schema}"
+    for src, m in measured.items():
+        log(f"parties: labels from {src}: {m}")
     log("parties: " + detail)
     jobrun.record("qv4-parties-load", True, detail, started, counts)
     return counts["registrations"]
