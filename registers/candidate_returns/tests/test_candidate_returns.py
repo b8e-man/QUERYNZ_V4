@@ -260,11 +260,12 @@ def test_the_sample_s_cases_land_where_the_list_says(filled):
     assert rows[c["a scanner's own OCR layer without the heading: the stored page reading"]]["read_from"] == "pixels"
     assert rows[c["the figure typed in the step cell, the form's $0.00 left in the parts"]]["expenses_check"] == "step-cell"
     assert stages[c["set aside: the expenses parts do not sum to the printed total"]] == ["declaration"]
-    # the live job qv4-read-pages-candidates reads the set-aside scans into the shared store (queued 20 October):
-    # until the lane's sample reads this case against an empty store (card), the scan is either still set aside at
-    # `read`, or its reading has landed and the lane picked it up from pixels
-    no_reading = c["scan with no stored page reading: set aside for a re-read"]
-    assert stages.get(no_reading) == ["read"] or rows[no_reading]["read_from"] == "pixels"
+    # read against an empty store (`key: empty-store` in sample.list), whatever a job has since stored for it
+    assert stages[c["scan with no stored page reading: set aside for a re-read"]] == ["read"]
+    assert rows[c["Part A on a candidate's copy of the form without the part's heading"]]["donors_check"] == "parts-sum"
+    assert rows[c["Part A from pixels: the stored page reading, reconciled"]]["donors_check"] == "parts-sum"
+    assert stages[c["Part A from pixels refused: the reader went down the columns"]] == ["part-a"]
+    assert stages[c["a scanner's text layer with no printed total: set aside"]] == ["declaration"]
     no_year = files[c["no year in the path: the form's own title names the election"]]
     assert no_year["year"] == 2023 and no_year["placed_by"] == "spreadsheet name"
     rep, amd = c["replaced: the listing links the amendment"], c["the amendment that replaces it"]
@@ -439,3 +440,21 @@ def test_a_part_a_not_read_is_not_a_nil_and_its_pages_are_listed_for_a_re_read()
            "f" * 64: {"year": 2020, "set_aside": [("read", "no text page carries the declaration; 3 of 3 pages are images, "
                                                            "with no stored page reading (pages 1, 2, 3): ask for a re-read of x")]}}
     assert replay.rereads(run) == [(sha, 2023, "part-a", [2, 3, 4]), ("f" * 64, 2020, "read", [1, 2, 3])]
+
+
+def test_a_scanner_s_text_layer_stands_only_on_its_printed_total():
+    """A scanner's own OCR layer dropped a handwritten Part G and total whole (`ca579c46524e`: the page shows $470,
+    the layer nothing), leaving NIL in Part F to read as expenses of 0.00: on a picture page parts alone never stand."""
+    page = PAGE_2020.replace("$ 2,000.00\n             party", "\n             party")
+    page = page.replace("Total (F + G)                  $ 3,211.13", "Total (F + G)                            ")
+    page = page.replace("$ 1,211.13", "NIL       ")
+    d = declaration.read(page)
+    assert d.check("expenses") == "parts" and d.figure("expenses") == 0.0 and d.problems("expenses") == []
+    from types import SimpleNamespace
+    r = SimpleNamespace(reader="text-layer", model="pdftotext", profile=read.TEXT, profile_version=1, read_from="text")
+    typed = read._publish_or_set_aside(read.Result("a" * 64), d, 1, r, "x", scanner=False)
+    assert typed.set_aside == [] and typed.row["filed"]["expenses"] == 0.0
+    scanned = read._publish_or_set_aside(read.Result("b" * 64), d, 1, r, "x", scanner=True)
+    assert scanned.row is None and read.SCANNER in scanned.set_aside[0][1]
+    from registers.candidate_returns import replay
+    assert replay.rereads({"b" * 64: {"year": 2020, "set_aside": scanned.set_aside}}) == [("b" * 64, 2020, "declaration", [1])]

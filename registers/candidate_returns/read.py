@@ -44,6 +44,8 @@ import datetime as dt
 import glob
 import json
 import os
+import re
+import subprocess
 from dataclasses import dataclass, field
 
 from support import profiles
@@ -61,6 +63,9 @@ READING_PROFILES = (SCAN, "ec-candidate-expenses-return", TEXT)
 PAGE_MODEL = "glm-ocr"
 PAGE_PROMPT = "OCR"
 PAGES_MAX = 20
+PICTURE_SHARE = 0.8
+#: the words a declaration set aside for a scanner's text layer carries, for `replay rereads`
+SCANNER = "a scanner's text layer gives parts with no printed total: a box may be dropped"
 #: the words a Part A set-aside line opens its re-read request with, for `replay rereads`
 REREAD = "Part A is on image pages with no stored page reading: re-read"
 
@@ -87,6 +92,8 @@ def profile_version(slug: str) -> int:
 def stored_page(store: rd.Store, sha256: str, page: int):
     """The page reader's stored reading of one page, or None: GLM-OCR with the prompt "OCR" under a candidate-return
     profile, the profile order first and its newest version first."""
+    if sha256 in getattr(store, "hidden", ()):        # the sample's pinned case: read as if nothing were stored
+        return None
     roots = [s.root for s in (store, getattr(store, "shared", None)) if s is not None]
     for slug in READING_PROFILES:
         found = []
@@ -106,6 +113,28 @@ def stored_page(store: rd.Store, sha256: str, page: int):
             return rd.Reading(r["document"], r["page"], r["reader"], r["model"], r["settings"], r["profile"],
                               int(r["profile_version"]), r["read_from"], r["text"], made_at=r.get("made_at"))
     return None
+
+
+def picture_pages(data: bytes) -> set:
+    """The pages that carry an image at least PICTURE_SHARE of the page's width: a scan or a photograph of the form,
+    whose text layer, where it has one, is the scanner's own reading (copied from the disclosures lane's rule; lesson:
+    a page reader can drop a filled box; the scanner's layer dropped a handwritten $470 whole)."""
+    try:
+        info = subprocess.run(["pdfinfo", "-"], input=data, capture_output=True, timeout=60).stdout.decode("utf-8", "replace")
+        listing = subprocess.run(["pdfimages", "-list", "-"], input=data, capture_output=True, timeout=120).stdout.decode("utf-8", "replace")
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    m = re.search(r"Page size:\s+([\d.]+) x ([\d.]+)", info)
+    width = float(m.group(1)) / 72 if m else 8.27
+    out = set()
+    for ln in listing.splitlines()[2:]:
+        f = ln.split()
+        try:
+            if f[2] == "image" and float(f[12]) > 0 and int(f[3]) / float(f[12]) >= PICTURE_SHARE * width:
+                out.add(int(f[0]))
+        except (IndexError, ValueError):
+            continue
+    return out
 
 
 def has_heading(text: str) -> bool:
@@ -137,11 +166,16 @@ def _row(sha256, page, decl, reading, loaded_at) -> dict:
     }
 
 
-def _publish_or_set_aside(out: Result, decl, page: int, reading, loaded_at) -> Result:
+def _publish_or_set_aside(out: Result, decl, page: int, reading, loaded_at, scanner: bool = False) -> Result:
+    """`scanner`: the text is a scanner's own layer under a full-page picture, which drops a handwritten box whole
+    and keeps the labels round it; a section there stands only on its printed total or its NIL, never on parts
+    alone (a part it dropped reads as blank)."""
     out.declaration = decl
     problems = []
     for name in ("donations", "expenses"):
         problems += decl.problems(name)
+        if scanner and name in decl.sections and decl.check(name) in ("parts", "step-cell") and not decl.sections[name].step_nil:
+            problems.append(f"{name}: {SCANNER}")
     if "loans" in decl.sections:
         problems += decl.problems("loans")
     if problems:
@@ -226,7 +260,7 @@ def read_return(data: bytes, sha256: str, store: rd.Store = None, loaded_at: str
         reading = read_document(data, sha256, profile=TEXT, profile_version=profile_version(TEXT), store=store,
                                 texts={page: texts[page]})
         r = reading.readings[0]
-        _publish_or_set_aside(out, declaration.read(r.text), page, r, loaded_at)
+        _publish_or_set_aside(out, declaration.read(r.text), page, r, loaded_at, scanner=page in picture_pages(data))
         if out.row:
             _part_a(out, data, texts, store)
         return out

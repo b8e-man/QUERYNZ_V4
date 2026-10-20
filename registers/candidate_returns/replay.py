@@ -21,7 +21,9 @@ at a page's layout without a name or an address entering it (hard limit 11).
 `rereads` lists, from a run, every return a page reading is owed for (ruling
 62: the page reader is not queued in bulk until the build is done, so the
 queue is this list): stage `read` (no stored reading of the declaration
-page) and stage `part-a` (Part A on image pages with no stored reading),
+page), stage `declaration` where the page is a scanner's text layer set aside
+for want of its printed total, and stage `part-a` (Part A on image pages with
+no stored reading),
 each with its hash and pages, one line each, and the count of pages.
 """
 import hashlib
@@ -125,6 +127,7 @@ def compare(a: dict, b: dict) -> list:
 
 
 READ_PAGES = re.compile(r"no stored page reading \(pages ([\d, ]+)\): ask for a re-read")
+SCANNER_PAGE = re.compile(r"^page (\d+):")
 PART_A_PAGES = re.compile(re.escape(read.REREAD) + r" [0-9a-f]{64} pages ([\d, ]+)")
 
 
@@ -133,7 +136,8 @@ def rereads(d: dict) -> list:
     out = []
     for sha, v in sorted(d.items()):
         for stage, why in v["set_aside"]:
-            m = (READ_PAGES if stage == "read" else PART_A_PAGES if stage == "part-a" else None)
+            m = (READ_PAGES if stage == "read" else PART_A_PAGES if stage == "part-a" else
+                 SCANNER_PAGE if stage == "declaration" and read.SCANNER in why else None)
             m = m.search(why) if m else None
             if m:
                 out.append((sha, v["year"], stage, [int(p) for p in re.findall(r"\d+", m.group(1))]))
