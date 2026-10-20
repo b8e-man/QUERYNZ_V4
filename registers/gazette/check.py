@@ -74,6 +74,10 @@ COMPANY = {"removal": ("ds", "gazette-removal-notice", 0.95),
 #: a section that holds other notices too: only those its title marks must be taken by the profile (ot holds
 #: prohibitions, amalgamations and rectifications beside its restorations; is and ct, directions on surplus assets and
 #: schemes beside their dissolutions)
+#: where most rows print the register's own number, the share of those numbers whose name agrees: a join by number stays
+#: right while the reader cuts names wrong (measured 20 October 2026: dissolutions 90.2%; lesson
+#: a-join-by-number-hides-a-broken-name-read-the-agreement-share)
+COMPANY_NUMBER_FLOOR = {"dissolution": 0.85}
 TITLED = {"restoration": re.compile(r"\brestor", re.I).search, "dissolution": dissolutions.titled}
 #: every notice in section ba is taken by one of these
 BANKRUPTCY = ("gazette-bankruptcy-list", "gazette-no-asset-procedure-list", "gazette-bankruptcy-notice")
@@ -224,7 +228,7 @@ def failed(f: dict) -> list:
         for n in c["not_read"][:20]:
             why.append(f"{n}: filed by the Gazette under {c['code']} and not taken by the {kind} profile")
         if c.get("register") is not None:
-            why += _register_fails(kind, c["register"], COMPANY[kind][2])
+            why += _register_fails(kind, c["register"], COMPANY[kind][2], COMPANY_NUMBER_FLOOR.get(kind))
     b = f.get("bankruptcies")
     if b is not None:
         if not b["filed"]:

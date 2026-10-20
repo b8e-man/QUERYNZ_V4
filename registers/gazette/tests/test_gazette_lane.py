@@ -583,6 +583,10 @@ def test_the_check_asks_only_the_restorations_of_section_ot_of_the_restoration_p
                               ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
     assert check.failed(check.figures(rows + [("2016-ot8", "Notice of Amalgamation Proposal", "not read")])) == []
     assert any("2016-ot9" in w for w in check.failed(check.figures(rows + [("2016-ot9", "Notice of Intention to Restore Companies", "not read")])))
+    joined = {"dissolution": {RG.NUMBER: 80, RG.NUMBER_NAME_DIFFERS: 20}}
+    assert any("printed company numbers" in w for w in check.failed(check.figures(rows, company_joined=joined)))
+    assert not [w for w in check.failed(check.figures(rows, company_joined={"dissolution": {RG.NUMBER: 90, RG.NUMBER_NAME_DIFFERS: 10}}))
+                if "dissolution" in w]
 
 
 # --- society and trust board dissolutions (is, ct; every name invented) ----------------------
