@@ -7,17 +7,18 @@ Land the export (never run it: capture.py was run once), read it, copy the
 rows in. Items in equal items out plus items set aside (read.py says how).
 """
 import os
+import re
 
 from support import jobrun
 from support.docstore.landing import read_bytes
-from registers.gazette import capture, dissolutions, read, register
+from registers.gazette import capture, dissolutions, possessions, read, register
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "gazette"
 PRIVATE = "gazette_private"
 TABLES = ("notices", "celebrants", "prohibitions", "liquidations", "liquidators", "company_notices", "practitioners",
-          "bankruptcies", "appointments", "files", "set_aside")
-PRIVATE_TABLES = ("celebrant_addresses", "prohibition_addresses", "bankruptcy_addresses")
+          "bankruptcies", "appointments", "possessions", "files", "set_aside")
+PRIVATE_TABLES = ("celebrant_addresses", "prohibition_addresses", "bankruptcy_addresses", "possession_details")
 COLUMNS = {
     "notices": ("key", "notice", "year", "section", "number", "family", "format", "status", "records", "supersedes", "title",
                 "published_on", "url", "old_type", "article", "source_note", "document", "page", "place",
@@ -37,7 +38,8 @@ COLUMNS = {
                     "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
     "company_notices": ("key", "notice", "published_on", "kind", "action", "company", "company_number", "shape", "statute",
                         "ground", "by_whom", "party", "event_on", "event_at", "event_basis", "filed_on", "court", "reference",
-                        "dated_on", "corrigendum", "people", "register_key", "register_match", "ordinal", "document", "page",
+                        "dated_on", "corrigendum", "people", "register_key", "register_match", "ordinal", "role", "people_named",
+                        "document", "page",
                         "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
 }
 COLUMNS["practitioners"] = COLUMNS["liquidators"]
@@ -47,6 +49,13 @@ COLUMNS["appointments"] = ("key", "notice", "published_on", "body", "name", "rol
 COLUMNS["bankruptcies"] = ("key", "notice", "published_on", "kind", "shape", "surname", "given_names", "also_known_as",
                            "occupation", "event_on", "event_at", "court", "statute", "dated_on", "withheld_by", "ordinal",
                            "document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at")
+
+COLUMNS["possessions"] = ("key", "notice", "published_on", "action", "asset", "statute", "mortgagee", "mortgagee_kind",
+                          "mortgagee_number", "mortgagee_register_key", "mortgagee_register_match", "mortgagor",
+                          "mortgagor_kind", "mortgagor_number", "mortgagor_register_key", "mortgagor_register_match",
+                          "entered_on", "entered_basis", "dated_on", "corrigendum", "property_held", "document", "page",
+                          "place", "read_from", "reader", "profile", "profile_version", "loaded_at")
+PRIVATE_COLUMNS = {"possession_details": ("key", "mortgagee", "mortgagor", "property", "registration")}
 
 
 def private_of(schema: str) -> str:
@@ -97,18 +106,21 @@ def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool
     create_tables(conn, schema, shared)
     res = read.read(read_bytes(export[0]), export[0], only=only)
     joined = join_register(conn, res, schema, shared)
+    details = join_possessions(res, joined.pop("_index", None))
     _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason"),
           [(i, "capture", w) for i, w in aside] + list(res.set_aside))
     for t, rows in (("notices", res.notices), ("celebrants", res.celebrants), ("prohibitions", res.prohibitions),
                     ("liquidations", res.liquidations), ("liquidators", res.liquidators),
                     ("company_notices", res.company_notices), ("practitioners", res.practitioners),
-                    ("bankruptcies", res.bankruptcies), ("appointments", res.appointments)):
+                    ("bankruptcies", res.bankruptcies), ("appointments", res.appointments),
+                    ("possessions", res.possessions)):
         _copy(conn, table(schema, t, shared), COLUMNS[t], _flat(COLUMNS[t], rows))
     _copy(conn, table(private_of(schema), "celebrant_addresses", shared), ("key", "address"), res.addresses)
     _copy(conn, table(private_of(schema), "prohibition_addresses", shared), ("key", "address", "formerly"),
           res.prohibition_addresses)
     _copy(conn, table(private_of(schema), "bankruptcy_addresses", shared), ("key", "address", "formerly"),
           res.bankruptcy_addresses)
+    _copy(conn, table(private_of(schema), "possession_details", shared), PRIVATE_COLUMNS["possession_details"], details)
     conn.execute(f"INSERT INTO {table(schema, 'files', shared)} VALUES (%s, %s, 'notices', 'read')", export)
     return {**res.counts, **joined, "not_held": len(aside)}
 
@@ -133,7 +145,42 @@ def join_register(conn, res, schema: str, shared: bool = False) -> dict:
         n[f["register_match"]] = n.get(f["register_match"], 0) + 1
         if f["register_match"] in register.UNMATCHED:
             res.set_aside.append((f"{r['document']}/{r['place']}", "register", f"the companies register: {f['register_match']}"))
-    return {f"register_{register.COUNT[k]}": v for k, v in n.items()}
+    return {**{f"register_{register.COUNT[k]}": v for k, v in n.items()}, "_index": idx}
+
+
+def join_possessions(res, idx) -> list:
+    """Each possession row's lender and company borrower joined to the register (possessions.join), and the
+    names it may show decided: a company by name; a person never; a lender's name that may run on from the
+    borrowers' only as the end of it the register holds; a name the register does not hold and that joins
+    two names with "and" not shown, since it may be a person's beside a company's. Without the register no
+    name that could be a person's is shown. Returns the private rows: (key, mortgagee, mortgagor, property,
+    registration), a name only where the published row does not show it."""
+    out = []
+    for r in res.possessions:
+        f, p = r["filed"], r.pop("_private")
+        on, year = f["entered_on"] or f["dated_on"] or f["published_on"], int(f["notice"][:4])
+        hidden = {}
+        for role, party in (("mortgagee", p["mortgagee"]), ("mortgagor", p["mortgagor"])):
+            if party is None:
+                continue
+            if party.kind != "company":
+                hidden[role] = party.name
+                continue
+            glued = p["glued"] and role == "mortgagee"
+            if idx is None:
+                name, k, how = (None if glued else party.name), None, None
+            else:
+                name, k, how = possessions.join(idx, party, on, year, glued)
+                if how in register.UNMATCHED:
+                    res.set_aside.append((f"{r['document']}/{r['place']} {role}", "register", f"the companies register: {how}"))
+            if name and k is None and re.search(r"\s(?:and|&)\s", name) and not possessions.firm(name):
+                name = None
+            if name is None:
+                hidden[role] = party.name
+            f[role], f[f"{role}_register_key"], f[f"{role}_register_match"] = name, k, how
+        if hidden or p["property"] or p["registration"]:
+            out.append((r["key"], hidden.get("mortgagee"), hidden.get("mortgagor"), p["property"], p["registration"]))
+    return out
 
 
 def load(conn, schema: str, log=print) -> int:

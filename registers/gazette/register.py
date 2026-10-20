@@ -28,10 +28,12 @@ from collections import defaultdict
 #: how a row was joined; the last three give no register row
 NUMBER, NUMBER_NAME_DIFFERS = "number and name", "number; the register's name differs"
 NAME, NAME_NUMBER_NOT_HELD = "name, alive on the date", "name; the printed number is not held"
+#: a name printed without its legal ending ("GE Custodians"), held with "Limited" (possessions.py)
+NAME_LIMITED = "name with Limited added, alive on the date"
 SEVERAL, NOT_ALIVE, NOT_HELD = "name; several alive on the date", "name; held, not alive on the date", "not held"
 UNMATCHED = (SEVERAL, NOT_ALIVE, NOT_HELD)
 COUNT = {NUMBER: "number", NUMBER_NAME_DIFFERS: "number_name_differs", NAME: "name",
-         NAME_NUMBER_NOT_HELD: "name_number_not_held", SEVERAL: "several", NOT_ALIVE: "not_alive", NOT_HELD: "not_held"}
+         NAME_NUMBER_NOT_HELD: "name_number_not_held", NAME_LIMITED: "name_limited", SEVERAL: "several", NOT_ALIVE: "not_alive", NOT_HELD: "not_held"}
 
 _STATUS = re.compile(r"\s*\((?:\s*[a-z\"“'‘]|\s*(?i:in|formerly|previously|now|receivers?|all|both|trading)\b)[^()]*(?:\([^()]*\)[^()]*)*\)")
 

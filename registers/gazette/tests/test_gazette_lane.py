@@ -18,6 +18,8 @@ from registers.gazette import dissolutions as DS
 from registers.gazette import check, notices, read
 from registers.gazette import liquidations as LQ
 from registers.gazette import overseas as OV
+from registers.gazette import possessions as PS
+from registers.gazette import companyacts as CA
 from registers.gazette import prohibitions as PR
 from registers.gazette import receiverships as RC
 from registers.gazette import register as RG
@@ -204,8 +206,10 @@ def test_the_reading_reconciles_and_keys_are_stable_across_reads():
 def _closed_years() -> list:
     """A notice for every closed year, and one under each company-notice section, each read by its profile."""
     rows = [(f"{y}-al1", "Example Limited", check.LIQUIDATION) for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
-    return rows + [(f"2016-{c}7", "Notice of Intention to Restore Example Limited", profile)
-                   for code, profile, floor in check.COMPANY.values() for c in check.codes(code)] + [
+    titles = {"rectification": "Notice of Intention to Correct Register", "amalgamation": "Notice of Amalgamation Proposal",
+              "transfer out": "Notice of Transfer of Registration", "deed of company arrangement": "Deed of Company Arrangement"}
+    return rows + [(f"2016-{c}{7 + i}", titles.get(kind, "Notice of Intention to Restore Example Limited"), profile)
+                   for i, (kind, (code, profile, floor)) in enumerate(check.COMPANY.items()) for c in check.codes(code)] + [
         ("2016-ba7", "Bankruptcies", check.BANKRUPTCY[0])]
 
 
@@ -581,12 +585,152 @@ def test_a_one_company_restoration_with_no_colon_and_a_row_that_is_not_a_name():
 def test_the_check_asks_only_the_restorations_of_section_ot_of_the_restoration_profile():
     rows = _closed_years() + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
                               ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
-    assert check.failed(check.figures(rows + [("2016-ot8", "Notice of Amalgamation Proposal", "not read")])) == []
+    assert check.failed(check.figures(rows + [("2016-ot98", "Notice of Intention to Extend Time for Registration of Charge", "not read")])) == []
     assert any("2016-ot9" in w for w in check.failed(check.figures(rows + [("2016-ot9", "Notice of Intention to Restore Companies", "not read")])))
     joined = {"dissolution": {RG.NUMBER: 80, RG.NUMBER_NAME_DIFFERS: 20}}
     assert any("printed company numbers" in w for w in check.failed(check.figures(rows, company_joined=joined)))
     assert not [w for w in check.failed(check.figures(rows, company_joined={"dissolution": {RG.NUMBER: 90, RG.NUMBER_NAME_DIFFERS: 10}}))
                 if "dissolution" in w]
+
+
+# --- a mortgagee's entry into possession (gn; every name, address and number invented) ---------
+
+GOODS = ("In the matter of section 156(1)(a)(ii) of the Property Law Act 2007 and in the matter of mortgage over goods dated "
+         "1 September 2022 over the mortgaged goods described below. Able Finance Limited (1234567), the mortgagee under the "
+         "Security Agreement, hereby gives notice that it has entered into possession of the mortgaged goods described below "
+         "with effect from 15 August 2025. Description of Mortgaged Goods 2019 Example Ute, Registration No.: ZZZ999, VIN: "
+         "EXAMPLEVIN0000001. Address of Mortgagee The address to which communications relating to the mortgaged goods may be "
+         "addressed is Able Finance Limited, 1 Sample Street, Exampleton. Signed by ANN EXAMPLE.")
+GLUED = ("In the matter of section 156 of the Property Law Act 2007, and in the matter of mortgage 1234567.1 (North Auckland "
+         "Land Registry), Identifier 123456 (\"the mortgage\"), and in the matter of Ann Example and Bob Example Baker "
+         "Custodians (Pacific) Limited (\"the mortgagee\" under the mortgage) hereby gives notice that it has entered into "
+         "possession of the mortgaged land described below with effect from 5 April 2011.The description of the mortgaged "
+         "land is 1 Sample Road, Exampleton, being all the land in certificate of title NA1A/1.The address to which "
+         "communications relating to the mortgaged land may be addressed is Baker Custodians (Pacific) Limited, PO Box 1.")
+PERSON = ("To: Ann Example and Bob Example. In the matter of section 156 of the Property Law Act 2007, notice is given that "
+          "on 3 March 2012 Cobalt Bank Limited, as mortgagee under mortgage 7654321.1, entered into possession of the property "
+          "situated at 2 Sample Avenue, Exampleton, being the land in certificate of title WN1/2. Dated 4 March 2012.")
+PRIVATE = ("Ann", "Bob", "Example", "Sample", "Exampleton", "ZZZ999", "EXAMPLEVIN", "NA1A", "WN1/2")
+
+
+def _possession_export(lines):
+    return "\n".join(json.dumps({"notice": n, "title": t, "text": x, "published_on": "2012-03-05", "url": f"u/{n}",
+                                  "article": i, "old_article": i}) for i, (n, t, x) in enumerate(lines, 1)).encode()
+
+
+def test_a_goods_possession_reads_its_lender_number_day_and_keeps_the_goods_apart():
+    r = PS.read("Public Notice of Entry into Possession of Mortgaged Goods", GOODS)
+    assert (r.mortgagee.name, r.mortgagee.kind, r.mortgagee.number) == ("Able Finance Limited", "company", "1234567")
+    assert (r.asset, r.action, r.entered_on, r.entered_basis, r.unread) == (
+        "goods", "entry into possession", "2025-08-15", "with effect from", [])
+    assert r.statute == "Property Law Act 2007 s 156(1)(a)(ii)" and r.mortgagor is None and not r.mortgagor_printed
+    assert "ZZZ999" in r.registration and "EXAMPLEVIN0000001" in r.registration and "Example Ute" in r.property
+
+
+def test_a_lender_that_runs_on_from_the_borrowers_is_shown_only_as_the_register_holds_it():
+    r = PS.read("Notice of Entry into Possession of Mortgaged Land", GLUED)
+    assert r.glued and r.mortgagee.name.endswith("Baker Custodians (Pacific) Limited") and r.entered_on == "2011-04-05"
+    idx = RG.Index([("c/1", "companies", "100", "BAKER CUSTODIANS (PACIFIC) LIMITED", "2000-01-01", None)])
+    assert PS.join(idx, r.mortgagee, r.entered_on, 2011, glued=True)[:2] == ("Baker Custodians (Pacific) Limited", "c/1")
+    assert PS.join(RG.Index([]), r.mortgagee, r.entered_on, 2011, glued=True)[0] is None
+    idx = RG.Index([("c/2", "companies", "200", "ABLE CUSTODIANS LIMITED", "2000-01-01", None)])
+    assert PS.join(idx, PS.Party("Able Custodians", "company"), "2011-01-01", 2011) == ("Able Custodians", "c/2", RG.NAME_LIMITED)
+
+
+def test_no_property_registration_or_person_reaches_a_published_possession_row():
+    from registers.gazette import load as L
+    export = _possession_export([("2012-gn1", "Notice of Entry into Possession of the Property at 2 Sample Avenue, Exampleton", PERSON),
+                                 ("2011-gn2", "Notice of Entry into Possession of Mortgaged Land", GLUED),
+                                 ("2025-gn3", "Public Notice of Entry into Possession of Mortgaged Goods", GOODS)])
+    for idx in (None, RG.Index([("c/9", "companies", "9", "COBALT BANK LIMITED", "2000-01-01", None)])):
+        res = read.read(export, "0" * 64)
+        private = L.join_possessions(res, idx)
+        shown = repr([r["filed"] for r in res.possessions]) + repr([n["filed"] for n in res.notices]) + repr(res.set_aside)
+        assert not [w for w in PRIVATE if w in shown], idx
+        by = {r["filed"]["notice"]: r["filed"] for r in res.possessions}
+        assert by["2012-gn1"]["mortgagor_kind"] == "person" and by["2012-gn1"]["mortgagor"] is None
+        assert by["2012-gn1"]["entered_on"] == "2012-03-03" and by["2012-gn1"]["property_held"]
+        assert by["2011-gn2"]["mortgagee"] is None and by["2025-gn3"]["mortgagee"] == "Able Finance Limited"
+        assert {k for k, *_ in private} == {"gazette/2012-gn1/possession", "gazette/2011-gn2/possession", "gazette/2025-gn3/possession"}
+        assert {n["filed"]["notice"]: n["filed"]["title"] for n in res.notices}["2012-gn1"] == "Notice of Entry into Possession of the Property"
+    assert by["2012-gn1"]["mortgagee"] == "Cobalt Bank Limited" and by["2012-gn1"]["mortgagee_register_key"] == "c/9"
+
+
+def test_possession_is_recognised_by_section_and_title_and_never_takes_unclaimed_property_or_a_receiver():
+    assert PS.recognise("gn", "Notice of Entry into Possession of Mortgaged Goods", "")
+    assert PS.recognise("gn", "Able Finance Limited", "Able Finance Limited has entered into possession of the mortgaged goods")
+    assert not PS.recognise("gn", "Unclaimed Property", "possession of the mortgaged land")
+    assert not PS.recognise("gn", "Notice of Appointment of Receiver of Mortgaged Property", "")
+    assert not PS.recognise("ds", "Notice of Entry into Possession of Mortgaged Goods", "")
+    assert PS.public_title("Notice of Entry into Possession of Properties 12 and 14 Sample Road") == "Notice of Entry into Possession of Properties"
+
+
+def test_the_possession_check_fails_on_an_unread_notice_a_numbered_title_a_shown_person_or_a_low_share():
+    rows = _closed_years() + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
+                              ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
+    ok = [("company", RG.NUMBER, True, "not printed", False)] * 90 + [("company", RG.NOT_HELD, True, "person", False)] * 10
+    assert check.failed(check.figures(rows, taken=ok)) == []
+    bad = check.failed(check.figures(rows + [("2016-gn7", "Notice of Entry into Possession of Mortgaged Land", "not read"),
+                                             ("2016-gn8", "Notice of Entry into Possession at 1 Sample Road", check.POSSESSION)],
+                                      taken=ok + [("company", RG.NUMBER, True, "person", True)]))
+    assert any("2016-gn7" in w for w in bad) and any("2016-gn8" in w for w in bad) and any("borrower who is a person" in w for w in bad)
+    low = [("company", RG.NOT_HELD, False, "not printed", False)] * 30 + [("not read", None, True, "not printed", False)] * 10
+    low = check.failed(check.figures(rows, taken=ok + low))
+    assert any("name their lender" in w for w in low) and any("day of entry" in w for w in low) and any("possession lenders" in w for w in low)
+    assert check.failed(check.figures(rows + [("2016-gn9", "Unclaimed Property", "not read")], taken=ok)) == []
+
+
+# --- the Registrar's other ot notices (every name, number and address invented) -------------
+
+RECTIFY = ("I intend to rectify the New Zealand Register of Companies in terms of section 360A(1)(a) of the Companies Act 1993 "
+           "in relation to the following companies on the application of the following persons, by deleting incorrect documents "
+           "and otherwise adjusting the Register.ABLE WIDGETS LIMITED (1234567) – rectification will be by the following: Remove "
+           "the particulars of director dated 3 October 2019 that Annabel Mary Example was appointed as director. The effect being "
+           "Robert James Sample remains the sole shareholder, of 12 Sample Street, Exampleton 9999. (Application by Annabel Mary "
+           "Example) BAKER (2019) LIMITED (in liquidation) (7654321) – to remove a change of registered office address to 3 Sample "
+           "Road, Exampleton. (Application by Cobalt Lawyers Limited) Any person who wishes to object must do so by 7 October 2024 "
+           "being not less than 20 working days after the date of this notice. Dated this 9th day of September 2024.")
+GIVEN = ("Annabel", "Mary", "Robert", "James", "Sample Street", "Sample Road", "Exampleton", "9999")
+
+
+def test_a_rectification_keeps_each_company_and_its_people_by_initials_and_never_an_address():
+    assert CA.Rectification.recognise("ot", "Notice of Intention to Correct Register", RECTIFY)
+    r = CA.Rectification.read("Notice of Intention to Correct Register", RECTIFY)
+    assert [(c.name, c.number) for c in r.companies] == [("ABLE WIDGETS LIMITED", "1234567"), ("BAKER (2019) LIMITED", "7654321")]
+    a, b = r.companies
+    assert a.people == "A. M. Example; R. J. Sample" and a.party == "A. M. Example" and a.ground == "director; shareholding"
+    assert b.people is None and b.party == "Cobalt Lawyers Limited" and b.ground == "address"
+    assert (r.event_on, r.event_basis, r.statute, r.unread) == ("2024-10-07", "objections by", "Companies Act 1993 s 360A(1)(a)", [])
+    assert not [w for w in GIVEN if w in repr(r)]
+    assert CA.initials("Ana van der Example") == "A. van der Example" and CA.initials("J. M. Example") == "J. M. Example"
+
+
+def test_an_amalgamation_marks_the_company_that_continues_and_a_transfer_says_where_it_goes():
+    r = CA.Amalgamation.read("ABLE HOLDINGS LIMITED and BAKER LIMITED", "Public Notice of Amalgamation Proposal Pursuant to Section "
+                             "221(4)(b) of the Companies Act 1993 It is proposed that Able Holdings Limited and Baker Limited amalgamate. "
+                             "On amalgamation, Baker Limited will continue as the amalgamated company. Copies of the amalgamation proposal "
+                             "are available at Level 1, 2 Sample Street, Exampleton. Dated 1 May 2020.")
+    assert [(c.name, c.role) for c in r.companies] == [("ABLE HOLDINGS LIMITED", "amalgamating company"), ("BAKER LIMITED", "amalgamated company")]
+    assert r.unread == [] and "Sample" not in repr(r)
+    t = CA.TransferOut.read("Cobalt Pacific Limited", "Public Notice of Intention to Transfer Registration of Company to Other "
+                            "Jurisdiction. Cobalt Pacific Limited hereby gives notice that after the 3rd day of June 2021 it intends to "
+                            "apply under section 343 of the Companies Act 1993 to be removed from the New Zealand Register in connection "
+                            "with becoming incorporated under the law in force in the British Virgin Islands. Dated 1 May 2021.")
+    assert [c.name for c in t.companies] == ["Cobalt Pacific Limited"] and t.ground == "British Virgin Islands"
+    assert (t.event_on, t.event_basis) == ("2021-06-03", "applies after")
+    assert not CA.Amalgamation.recognise("ot", "Notice of Intention to Restore Companies", "proposes to restore the following")
+    assert not CA.Rectification.recognise("ds", "Notice of Intention to Correct Register", "")
+
+
+def test_the_check_floors_the_ot_kinds_and_a_kind_titled_by_its_companies_is_seen_by_its_rows():
+    rows = _closed_years() + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
+                              ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
+    assert any("2016-ot97" in w for w in check.failed(check.figures(rows + [("2016-ot97", "Notice of Intention to Correct Register", "not read")])))
+    assert check.failed(check.figures(rows + [("2016-ot99", "Notice of Intention to Restore Company and to Correct the Register",
+                                               "gazette-restoration-notice")])) == []
+    joined = {"transfer out": {RG.NAME: 95, RG.NOT_HELD: 5}, "rectification": {RG.NUMBER: 70, RG.NUMBER_NAME_DIFFERS: 30}}
+    why = check.failed(check.figures(rows, company_joined=joined))
+    assert not [w for w in why if "transfer out" in w or "section ot" in w] and any("printed company numbers" in w for w in why)
 
 
 # --- society and trust board dissolutions (is, ct; every name invented) ----------------------
@@ -735,6 +879,10 @@ def filled():
                "company_notices": q(f"SELECT * FROM {schema}.gazette_company_notices ORDER BY key"),
                "bankruptcies": q(f"SELECT * FROM {schema}.gazette_bankruptcies ORDER BY key"),
                "appointments": q(f"SELECT * FROM {schema}.gazette_appointments ORDER BY key"),
+               "possessions": q(f"SELECT * FROM {schema}.gazette_possessions ORDER BY key"),
+               "possession_private": q(f"SELECT key, mortgagee IS NOT NULL AS lender, mortgagor IS NOT NULL AS borrower, "
+                                       f"property IS NOT NULL AS property, registration IS NOT NULL AS registration "
+                                       f"FROM {schema}_private.gazette_possession_details"),
                "bankruptcy_private": q(f"SELECT key, address IS NOT NULL AS a, formerly IS NOT NULL AS f "
                                        f"FROM {schema}_private.gazette_bankruptcy_addresses")}
 
@@ -761,6 +909,7 @@ def test_each_case_reads_as_its_comment_says(filled):
     for n in by.values():
         assert n["records"] == sum(1 for c in filled["celebrants"] + filled["prohibitions"] + filled["liquidations"]
                                    + filled["company_notices"] + filled["bankruptcies"] + filled["appointments"]
+                                   + [p for p in filled["possessions"] if p["mortgagee_kind"] != "not read"]
                                    if c["notice"] == n["notice"])
 
 
@@ -876,7 +1025,8 @@ def test_each_removal_and_winding_up_case_reads_as_its_comment_says(filled):
     for code, (sec, profile, floor) in ((c, v) for c, v in check.COMPANY.items()):
         held = [n for n in notice if any(f"-{c}" in n for c in check.codes(sec))
                 and (code not in check.TITLED or check.TITLED[code](notice[n]["title"]))]
-        assert held and all(notice[n]["format"] == profile for n in held)
+        assert all(notice[n]["format"] == profile for n in held)
+        assert any(n["format"] == profile for n in notice.values()), profile     # a kind titled by its companies' names is held too
     assert [c["action"] for c in cos["2009-ds4850"]] == ["liquidation completed"] * 2
     assert cos["2009-ds4850"][0]["ground"] == "liquidation completed" and cos["2009-ds4850"][0]["by_whom"] == "liquidator"
     assert cos["2020-ds1992"][0]["by_whom"] == "director" and cos["2020-ds1992"][0]["company_number"]
@@ -951,3 +1101,35 @@ def test_each_appointment_case_reads_as_its_comment_says(filled):
     assert ppl["2023-vr1151"][0]["name"].startswith("The Honourable")
     assert notice["2011-go3789"]["status"] == "set aside" and "2011-go3789" not in ppl
     assert not set(filled["appointments"][0]) & {"address", "place_of_residence", "text"}
+
+
+def test_each_possession_case_reads_as_its_comment_says_and_nothing_private_is_published(filled):
+    by = {p["notice"]: p for p in filled["possessions"]}
+    notice = {n["notice"]: n for n in filled["notices"]}
+    assert by["2025-gn4818"]["asset"] == "goods" and by["2025-gn4818"]["entered_basis"] == "with effect from"
+    assert by["2025-gn4818"]["mortgagee"] and by["2025-gn4818"]["mortgagee_number"]
+    assert by["2001-gn8009"]["mortgagor_kind"] == "person" and by["2001-gn8009"]["mortgagor"] is None
+    assert by["2017-gn5054"]["mortgagee"] is None or by["2017-gn5054"]["mortgagee_register_key"]
+    assert by["2026-gn652"]["mortgagee_kind"] == "not read" and notice["2026-gn652"]["status"] == "set aside"
+    assert by["2002-gn1558"]["action"] == "receipt of income" and by["2026-gn5382"]["mortgagor_kind"] == "company"
+    assert not any(ch.isdigit() for ch in notice["2000-gn5377"]["title"])
+    private = {p["key"]: p for p in filled["possession_private"]}
+    assert private[by["2001-gn8009"]["key"]]["borrower"] and private[by["2025-gn4818"]["key"]]["registration"]
+    assert not set(filled["possessions"][0]) & {"property", "registration", "address", "text"}
+
+
+def test_each_ot_case_reads_as_its_comment_says_and_people_are_initials_only(filled):
+    rows = {}
+    for c in filled["company_notices"]:
+        rows.setdefault(c["notice"], []).append(c)
+    notice = {n["notice"]: n for n in filled["notices"]}
+    rect = rows["2025-ot4755"]
+    assert all(r["kind"] == "rectification" and r["company_number"] for r in rect) and any(r["people_named"] for r in rect)
+    for r in filled["company_notices"]:
+        for p in [x for x in (r["people_named"] or "").split("; ") if x]:
+            assert CA.INITIALLED.fullmatch(p), r["key"]
+    assert len(rows["2004-ot3433"]) >= 3 and notice["2001-ot6620"]["status"] == "set aside"
+    assert [r["role"] for r in rows["2026-ot739"]].count("amalgamated company") == 1
+    assert notice["2026-ot4909"]["status"] == "read, part set aside" and rows["2026-ot4909"]
+    assert rows["2026-ot5669"][0]["kind"] == "transfer out" and rows["2026-ot5669"][0]["ground"]
+    assert rows["2008-ot6435"][0]["kind"] == "deed of company arrangement"

@@ -49,7 +49,7 @@ import re
 import sys
 from collections import defaultdict
 
-from registers.gazette import dissolutions, notices
+from registers.gazette import dissolutions, notices, possessions
 from registers.gazette import register as R
 
 CELEBRANT = "gazette-celebrant-list"
@@ -63,6 +63,11 @@ JOINED_FLOOR, NUMBER_FLOOR = 0.97, 0.98
 #: the company-notice profiles: the Gazette's section, the profile every notice in it must be taken by, and the
 #: floor of its company rows the register must hold (measured 20 October 2026: removals 96.7%, applications 96.0%,
 #: receiverships 90.9%: a company sold out of receivership is often renamed, and the register holds the latest name)
+#: the Registrar's other ot notices (gazette-5), measured 20 October 2026 on every notice: see the merge request
+#: rectifications 2,869 of 2,877 rows joined (99.7%), 85.1% of printed numbers agreeing by name (renamed since, or a
+#: bracket the register prints and the notice does not); amalgamations 73.1% (269 of the 1,000 rows unjoined, 210 of them
+#: from 2000-2009: companies amalgamated away under names the register no longer holds); transfers out 95.8%; deeds 89.7%
+RECT_FLOOR, AMAL_FLOOR, TRANSFER_FLOOR, DEED_FLOOR = 0.97, 0.70, 0.92, 0.85
 COMPANY = {"removal": ("ds", "gazette-removal-notice", 0.95),
            "winding-up application": ("aw", "gazette-winding-up-application", 0.95),
            "receivership": ("ar", "gazette-receivership", 0.88),
@@ -70,21 +75,37 @@ COMPANY = {"removal": ("ds", "gazette-removal-notice", 0.95),
            "administration": ("aa", "gazette-administration", 0.88),                # measured 91.9%
            "overseas company": ("cb", "gazette-overseas-company-ceasing", 0.92),    # measured 95.4% (gazette-4)
            "restoration": ("ot", "gazette-restoration-notice", 0.90),               # measured 93.1% (gazette-4)
-           "dissolution": (("is", "ct"), "gazette-society-dissolution", 0.95)}     # measured 98.7% (gazette-4)
+           "dissolution": (("is", "ct"), "gazette-society-dissolution", 0.95),     # measured 98.7% (gazette-4)
+           "rectification": ("ot", "gazette-register-rectification", RECT_FLOOR),
+           "amalgamation": ("ot", "gazette-amalgamation-proposal", AMAL_FLOOR),
+           "transfer out": ("ot", "gazette-transfer-out", TRANSFER_FLOOR),
+           "deed of company arrangement": ("ot", "gazette-deed-of-company-arrangement", DEED_FLOOR)}
 #: a section that holds other notices too: only those its title marks must be taken by the profile (ot holds
 #: prohibitions, amalgamations and rectifications beside its restorations; is and ct, directions on surplus assets and
 #: schemes beside their dissolutions)
 #: where most rows print the register's own number, the share of those numbers whose name agrees: a join by number stays
 #: right while the reader cuts names wrong (measured 20 October 2026: dissolutions 90.2%; lesson
 #: a-join-by-number-hides-a-broken-name-read-the-agreement-share)
-COMPANY_NUMBER_FLOOR = {"dissolution": 0.85}
-TITLED = {"restoration": re.compile(r"\brestor", re.I).search, "dissolution": dissolutions.titled}
+COMPANY_NUMBER_FLOOR = {"dissolution": 0.85, "rectification": 0.80}
+TITLED = {"restoration": re.compile(r"\brestor", re.I).search, "dissolution": dissolutions.titled,
+          "rectification": lambda t: bool(re.search(r"\bcorrect\s+(?:the\s+)?(?:New\s+Zealand\s+)?register|\brectif", t, re.I))
+                                     and not re.search(r"\brestor", t, re.I),         # a restoration that corrects too is a restoration
+          "amalgamation": re.compile(r"\bamalgamat", re.I).search,
+          "transfer out": re.compile(r"\btransfer\w*\s+(?:of\s+)?(?:registration|incorporation)|other\s+jurisdiction", re.I).search,
+          "deed of company arrangement": re.compile(r"deed\s+of\s+company\s+arrangement", re.I).search}
 #: every notice in section ba is taken by one of these
 BANKRUPTCY = ("gazette-bankruptcy-list", "gazette-no-asset-procedure-list", "gazette-bankruptcy-notice")
 APPOINTMENT = "gazette-public-appointment"
 #: an appointee styled "The Honourable", not a judge, in a notice from MEMBERS_FROM on, should be a Member of Parliament
 #: (the house lane's pub.members) by surname: measured 20 October 2026 at 93% (125 of 134; by full name 101)
 MEMBERS_FROM, MEMBERS_FLOOR = "2021", 0.85
+#: a mortgagee's entry into possession (gn): every notice so titled taken by the profile; of those taken, the share
+#: whose lender is named, whose day of entry is read, and of the lenders that are companies the share the register holds
+#: (measured 20 October 2026 on every notice: 2,902 of 3,005 named, 96.6%; 2,952 days, 98.2%; 2,449 of 2,866
+#: companies joined, 85.4%: lenders' custodian companies renamed or removed since, and building societies, which the
+#: companies register does not hold)
+POSSESSION = possessions.PROFILE
+POSSESSION_NAMED_FLOOR, POSSESSION_DAY_FLOOR, POSSESSION_JOINED_FLOOR = 0.95, 0.95, 0.82
 #: a printed celebrant table's person should be named by a delimited list too: measured 20 October 2026 at 79.7%
 TABLE_FLOOR = 0.70
 
@@ -139,8 +160,24 @@ def members_check(appointees, members) -> dict:
     return {"honourable": seen, "members": held, "members_known": len(surnames)}
 
 
+def possession_figures(rows, taken) -> dict:
+    """rows: [(notice, title, format)]; taken: [(mortgagee_kind, mortgagee_register_match, entered, mortgagor_kind,
+    mortgagor shown)] over the published possession rows."""
+    gn = [(n, t, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] == possessions.CODE
+          and possessions._TITLE.search(t or "") and not possessions._UNCLAIMED.search(t or "")
+          and not possessions._APPOINTMENT.match(t or "")]
+    companies = [m for k, m, e, b, s in taken if k == "company"]
+    return {"titled": len(gn), "not_read": sorted(n for n, t, f in gn if f != POSSESSION),
+            "titles_with_digits": sorted(n for n, t, f in rows if f == POSSESSION and re.search(r"\d", t or "")),
+            "rows": len(taken), "named": sum(1 for k, *_ in taken if k != "not read"),
+            "entered": sum(1 for k, m, e, b, s in taken if e), "companies": len(companies),
+            "joined": sum(1 for m in companies if m and m not in R.UNMATCHED),
+            "never_joined": sum(1 for m in companies if m is None),
+            "person_shown": sum(1 for k, m, e, b, s in taken if b == "person" and s)}
+
+
 def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulled_shown=0, appointees=None, members=None,
-            tables=None) -> dict:
+            tables=None, taken=None) -> dict:
     """rows: [(notice, title, format)] from the lane's published notices;
     acted: [(notice, supersedes)] for the notices that act on others; marked:
     the notices whose prohibition rows carry what superseded them."""
@@ -192,6 +229,8 @@ def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulle
         app["members"] = members_check(appointees, members)
     out = {"numbering": numbering, "celebrants": cel, "prohibitions": pro, "liquidations": liq, "company": company,
            "bankruptcies": bank, "appointments": app}
+    if taken is not None:
+        out["possessions"] = possession_figures(rows, taken)
     if tables is not None:
         out["tables"] = dict(tables)                    # {"rows": n, "named_elsewhere": n}
     return out
@@ -223,7 +262,7 @@ def failed(f: dict) -> list:
         if q.get("register") is not None:
             why += _register_fails("liquidation", q["register"], JOINED_FLOOR, NUMBER_FLOOR)
     for kind, c in f.get("company", {}).items():
-        if not c["filed"]:
+        if not c["filed"] and not (c.get("register") or {}).get("rows"):     # a kind titled by its company names is seen by its rows
             why.append(f"no notice under section {c['code']} is published")
         for n in c["not_read"][:20]:
             why.append(f"{n}: filed by the Gazette under {c['code']} and not taken by the {kind} profile")
@@ -248,6 +287,24 @@ def failed(f: dict) -> list:
             elif m["honourable"] and m["members"] < MEMBERS_FLOOR * m["honourable"]:
                 why.append(f"{m['members']} of {m['honourable']} 'Honourable' appointees since {MEMBERS_FROM} are Members of "
                            f"Parliament by surname, below {MEMBERS_FLOOR:.0%}")
+    m = f.get("possessions")
+    if m is not None:
+        if not m["rows"]:
+            why.append("no possession notice is read")
+        for n in m["not_read"][:20]:
+            why.append(f"{n}: titled a mortgagee's entry into possession under gn and not taken by its profile")
+        for n in m["titles_with_digits"][:20]:
+            why.append(f"{n}: a possession notice's published title carries a number (a property's address is never published)")
+        if m["person_shown"]:
+            why.append(f"{m['person_shown']} possession rows show a borrower who is a person")
+        if m["rows"] and m["named"] < POSSESSION_NAMED_FLOOR * m["rows"]:
+            why.append(f"{m['named']:,} of {m['rows']:,} possession notices name their lender, below {POSSESSION_NAMED_FLOOR:.0%}")
+        if m["rows"] and m["entered"] < POSSESSION_DAY_FLOOR * m["rows"]:
+            why.append(f"{m['entered']:,} of {m['rows']:,} possession notices give their day of entry, below {POSSESSION_DAY_FLOOR:.0%}")
+        if m["never_joined"] or not m["companies"]:
+            why.append(f"{m['never_joined']:,} possession lenders were never joined to the companies register (not in the database at load)")
+        elif m["joined"] < POSSESSION_JOINED_FLOOR * m["companies"]:
+            why.append(f"the companies register holds {m['joined']:,} of {m['companies']:,} possession lenders, below {POSSESSION_JOINED_FLOOR:.0%}")
     t = f.get("tables")
     if t and t["rows"] and t["named_elsewhere"] < TABLE_FLOOR * t["rows"]:
         why.append(f"{t['named_elsewhere']:,} of {t['rows']:,} people the printed celebrant tables name are named by a "
@@ -284,13 +341,15 @@ def main(argv=None) -> int:
             f"SELECT count(*), count(o.s) FROM {cel} t LEFT JOIN o ON o.s = lower(t.surname) AND o.g = lower(t.given_names) "
             f"WHERE t.list_shape = 'table'").fetchone()))
         appointees = conn.execute(f"SELECT notice, name, role FROM {table(schema, 'appointments', shared)}").fetchall()
+        taken = conn.execute(f"SELECT mortgagee_kind, mortgagee_register_match, entered_on IS NOT NULL, mortgagor_kind, "
+                             f"mortgagor IS NOT NULL FROM {table(schema, 'possessions', shared)}").fetchall()
         annulled_shown = conn.execute(f"SELECT count(*) FROM {table(schema, 'bankruptcies', shared)} "
                                       f"WHERE kind = 'annulment' AND withheld_by IS NULL").fetchone()[0]
     with db.connect(db.READ_KEY, "querynz_v4") as conn:       # the house lane's members, always from the published estate
         conn.execute("SET statement_timeout = '60s'")
         members = ([n for (n,) in conn.execute("SELECT name FROM pub.members")]
                    if conn.execute("SELECT to_regclass('pub.members') IS NOT NULL").fetchone()[0] else [])
-    f = figures(rows, acted, marked, joined, company_joined, annulled_shown, appointees, members, tables)
+    f = figures(rows, acted, marked, joined, company_joined, annulled_shown, appointees, members, tables, taken)
     print(f"{len(rows)} notices published. The Gazette's own numbering, closed years "
           f"({CLOSED_FROM}-{CLOSED_TO}): highest number against numbers held")
     for y, (top, held) in f["numbering"].items():
@@ -310,7 +369,8 @@ def main(argv=None) -> int:
           f"{q['filed'] - len(q['not_read']):,} taken by its profile (read, or set aside with a reason)")
     for what, c in [("liquidation", q)] + list(f["company"].items()):
         if what != "liquidation":
-            plural = {"notice to creditors": "Notices to creditors", "overseas company": "Overseas companies"}.get(
+            plural = {"notice to creditors": "Notices to creditors", "overseas company": "Overseas companies",
+                      "transfer out": "Transfers out", "deed of company arrangement": "Deeds of company arrangement"}.get(
                 what, f"{what.capitalize()}s")
             titled = " and titles as its profile's" if what in TITLED else ""
             print(f"{plural}: {c['filed']:,} notices the Gazette files under {c['code']}{titled}, "
@@ -329,6 +389,10 @@ def main(argv=None) -> int:
     if t and t["rows"]:
         print(f"Printed celebrant tables: {t['rows']:,} people read, {t['named_elsewhere']:,} "
               f"({100 * t['named_elsewhere'] / t['rows']:.1f}%) named by a delimited list too")
+    m = f["possessions"]
+    print(f"Mortgagees' entries into possession: {m['titled']:,} notices so titled under gn, "
+          f"{m['titled'] - len(m['not_read']):,} taken by the profile; of {m['rows']:,} read, {m['named']:,} name the lender and "
+          f"{m['entered']:,} the day of entry; {m['joined']:,} of {m['companies']:,} company lenders joined to the register")
     a = f["appointments"]
     print(f"Appointments: {a['titled']:,} notices titled 'Appointment…' in the government sections, {a['read']:,} taken by "
           f"the appointment profile, the rest celebrant lists")

@@ -1,7 +1,7 @@
 # gazette: where it stands
 
 **Date:** 2026-10-20. **Step:** 4.1 and 5.3, Gazette notices, `registers/gazette/`.
-**Merge requests:** `gazette-1` to `-3` (merged), `gazette-4` (raised).
+**Merge requests:** `gazette-1` to `-3` (merged), `gazette-4` (raised), `gazette-5` (raised; carries gazette-4).
 
 ## Done
 
@@ -19,17 +19,20 @@
   register's own number, 90.2% agreeing by name). Check floors 92/90/95%,
   name agreement 85%. Full load 92 s into `scratch_gazette_4_full`
   (sample database); the check exits 0. Unread fell 86,173 → 80,865.
-- `pane.md` covers all nine published views (card closed).
-- The parties lane reads this lane's `au` notices (parties-2, merged 20
-  October: 137 notices from `pub.gazette_notices`), so the old next item 1
-  is done.
+- gazette-5 tranche 1, mortgagee entries into possession (`gn`): `possessions.py`, proposed profile
+  `gazette-mortgagee-possession`, `pub.gazette_possessions`, private `possession_details`. 3,002 notices,
+  2,899 lender named, 2,951 day, 2,449 of 2,864 company lenders joined (85.5%); floors 95/95/82%. Full load
+  101 s into `scratch_gazette_5_full`; the check exits 0. Unread 80,865 → 77,863.
+- gazette-5 tranche 2, `ot` (`companyacts.py`, four proposed profiles): rectifications 486 of 503
+  notices, 2,877 rows, 99.7% joined, 85.1% by name, people by initials only; amalgamations 369, 1,000
+  rows, 73.1%; transfers out 167, 95.8%; deeds 21, 89.7%. Unread → 76,803. Both cards closed.
+- `pane.md` covers all ten views.
+- The parties lane reads this lane's `au` notices (parties-2: 137).
 
 ## Unread, by use case (recruitment 08, agriculture 04, banking 03, legal 02)
 
-Wanted, carded for the next session: mortgagee entries into possession
-(`gn`, 2,953; 03, 04); amalgamations and rectifications (`ot`, ~740; 02,
-03). Waiting on Arthur (queue): vehicle confiscation orders (`go`, 6,213)
-and disciplinary findings (`gn`, 96). Not wanted by the four: `ln` 25,679
+Wanted and not yet read: none of the carded sections. Waiting on Arthur (queue): vehicle confiscation orders (`go`, 6,213)
+and disciplinary findings (`gn`, 96). Not wanted: `ln` 25,679
 and `lt` 2,637 land (use case 12); the rest of `go` (education licences,
 medicines, school agreements, JPs), `au` 7,165 (the parties lane reads 137),
 `gs`, `sl`, `cu`, `rs`, `dl`, `vw`, `pb`; `pn` 555 firm partners; `vr`/`ps`
@@ -37,13 +40,11 @@ ministers and vacancies (the house lane); `fs` 109 friendly societies.
 
 ## Carded
 
-- `mortgagee-entries-into-possession-in-the-gazette-are-unread`,
-  `amalgamations-and-the-registrar-s-rectifications-under-ot-are-unread`.
+- `published-gazette-titles-can-carry-a-street-address` (gazette-5: `ln` 1,642, 57 elsewhere).
 - Left for Arthur's word: `appointment-notices-whose-appointees-run-together-are-unread`,
   `annulled-bankrupts-the-reader-cannot-name-stay-published-on-earlier-rows`.
 
 ## Next
 
-1. Mortgagee entries into possession, addresses private (card above).
-2. Amalgamations and rectifications under `ot` (card above).
-3. Disciplinary findings, if Arthur rules yes.
+1. Cut every published title before a street address (card above).
+2. Disciplinary findings, if Arthur rules yes.

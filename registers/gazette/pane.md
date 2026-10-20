@@ -41,6 +41,22 @@ held or shown, and neither is the applicant a restoration names, nor the applica
 company alone. A restoration given under `ds` is a removal row whose action is "restoration" (5,155 rows); one under
 `ot` is the kind "restoration".
 
+Four more kinds come from the Registrar's other `ot` notices (gazette-5, measured on every notice 20 October 2026). A
+rectification row (2,877 rows from 486 of 503 notices; 99.7% joined, 85.1% of printed numbers agreeing by name) is a
+company the Registrar intends to correct the register for: its number, what is corrected as words from a fixed list in
+`ground` (director 700, shareholding 532, liquidation 513, receivership, company name, annual return, address,
+constitution, …, "other" 227), the people the correction names in `people_named` and an applicant who is a person in
+`party`, by initials and surname only (867 rows name people; 467 applicants are people), and the day objections close.
+The correction's sentence is never held or shown, so neither is a given name or an address it prints. An amalgamation
+row (1,000 rows from 369 notices, 73.1% joined; the unjoined mostly 2000-2009 companies under names the register no
+longer holds) is each company a proposal names, `role` saying which continues as the amalgamated company (163) and which
+amalgamate into it; a proposal that forms a new company names none to continue. A transfer-out row (168 from 167
+notices, 95.8% joined) is a company leaving the register to be incorporated elsewhere, the place in `ground` (the
+British Virgin Islands 21, Australia, Delaware, …) and the day after which it applies. A deed of company arrangement row
+(39 from 21 notices, 89.7% joined) is the company, the action (executed, varied, terminated) and its day; the deed
+administrators are practitioner rows (20). 198 `ot` notices stay unread: extensions of time to register a charge,
+court applications and industrial and provident society notices.
+
 A practitioner row is a receiver or an administrator as the notice signs them: the name, the role as printed (Receiver
 and Manager, Joint Administrators, Former Receiver, …), how the name was read (`full`: also named in full in the
 notice's text above the signature; `surname`: only the surname there; `no`: only at the signature), and the companies
@@ -59,3 +75,18 @@ and section, who appointed (the Governor-General, a Minister, the Sovereign, a C
 term's start and end where printed, and whether the notice is a corrigendum. Where an appointee lives (", of <town>")
 is read past and never kept. A name on an appointment is not joined to a Member of Parliament or anyone else; the
 check compares surnames only, as a measure of the reader.
+
+A possession row (`pub.gazette_possessions`, one per notice under `gn` of a mortgagee's entry into possession, 3,002
+notices from 2000 to 2026) opens to its notice: the lender by name as printed, with its company number where printed and
+the companies register's entity; the borrower by name only where it is a company; whether the notice is about land
+(1,191) or goods (1,777, mostly vehicles and plant; 34 do not say); whether the lender entered into possession, received
+the property's income (8) or both (20); the Act and section; and the day of entry, saying where it came from: "with
+effect from" (1,751), the sentence that enters (1,145), or the notice's first "on" or "as from" day (55); 51 print no day
+the reader can find. Measured on every notice on 20 October 2026: 2,899 name their lender (2,827 shown by name; 35
+lenders are people and 37 names may run on from the borrowers', so neither is shown); 2,449 of the 2,864 company lenders
+are joined to the register, the rest mostly custodian companies renamed or removed since and building societies, which
+the companies register does not hold; 339 borrowers are companies (330 shown, 306 joined), 136 are people and 2,441
+notices name no borrower. The property's address, the goods' description and registration numbers, and every person's
+name are never shown: they are held only in `gazette_private`, and a row says only that a description is held. A title
+that names the property is shown cut before it. A lender printed without its "Limited" ("GE Custodians") is joined with
+it added, and says so.
