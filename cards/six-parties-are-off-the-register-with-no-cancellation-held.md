@@ -17,3 +17,15 @@ notices; it holds 136 notices from 24 February 2000, one for all of
 such a party owed a return is therefore not known from the documents
 held. The unlock is the cancellation notices, which the Gazette lane's
 capture would bring (no fetch from this lane before the switch).
+
+## 2026-10-20 (parties-2): Heartland closed; five left
+
+The Gazette lane holds one register notice the old classifier mistyped:
+2023-au2700 ("Cancellation of Registered Party and Logo"), the
+Commission's cancellation of Heartland New Zealand Party on 20 June 2023
+at the party's request. The lane now reads its notices from that lane, so
+Heartland is cancelled on that day. A search of the text of all 207,133
+notices the Gazette lane holds finds no cancellation of the other five
+(Outdoor Recreation NZ, Jim Anderton's Progressive, Destiny New Zealand,
+New Zealand Family Rights Protection Party, New Zealand People's Party).
+Still needs a capture of those notices, which waits for the switch.

@@ -5,7 +5,10 @@ by hash from the old folder; one found in neither fails naming the hash, so
 the session can ask for a capture. No model is called.
 
 The lane is small: its sample is the whole of what it reads, the register
-page, the applications page and the notices export.
+page, the applications page, the notices export and the Gazette lane's
+export (its register notices read in place; the sample's pub tables hold
+no `au` notice, so the listing comes from the document by the same rule).
+The labels are those the sample's published tables hold.
 
 Every module fills one shared scratch schema, so this lane's tables there
 carry its name (`parties_registrations`, …; load.table).
@@ -43,6 +46,10 @@ def fill(conn, schema: str, items: list) -> int:
         if item.startswith("key:"):
             continue
         sha = item.split()[0]
+        if sha == capture.GAZETTE_EXPORT_SHA:      # the Gazette lane's document: read in place, landed by that lane
+            if not os.path.exists(path_for(sha)):
+                raise LookupError(f"parties/sample.list names the Gazette lane's export {sha}, not in the document store")
+            continue
         if sha == capture.EXPORT_SHA:
             _held(conn, sha, capture.EXPORT_NAME, "notices")
             export = (sha, capture.EXPORT_NAME)

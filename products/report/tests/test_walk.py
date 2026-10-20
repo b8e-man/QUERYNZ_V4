@@ -30,3 +30,9 @@ def test_the_two_design_defaults_are_settings():
     assert walk.SETTINGS["through_people"] == "near"
     assert walk.SETTINGS["hub_roles"] == 50 and walk.SETTINGS["thousand_address"] == 1000 and walk.SETTINGS["busy_address"] == 50
     assert walk.LIMITS["members"] > 0 and walk.LIMITS["links"] > 0
+
+
+def test_a_printed_name_is_matched_whole_or_by_first_and_last_word():
+    assert walk.first_last("Tracey Lee McLELLAN") == "tracey mclellan" and walk.first_last("Hōne Pani Tamati Waka Nene HARAWIRA") == "hone harawira"
+    assert walk.first_last("Hōne") == "hone" and walk.first_last("") == ""
+    assert "near, never confirmed" in walk.NEAR_BY_NAME and walk.NAMED_ROWS["members"][0][3] == ("total", "outside")

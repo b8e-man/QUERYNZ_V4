@@ -4,7 +4,11 @@ refresh; its sections in order; its known limits) and an optional
 `rules.py` exporting `RULES`, a tuple of pure functions `(report) -> flag`.
 The rules file is loaded by path, not imported, so a template folder under
 `products/templates/` (step 5.2) needs no import of this module and the
-one-way test stays simple.
+one-way test stays simple. Before the file runs, the name `contract` is
+bound in it to `products.report.contract`: the flag, the helpers over a
+built report, the common rules and the presentation rules, reachable with
+no import line (see that module). The common rules run for every template
+unless its `template.toml` says `common_rules = false`.
 
 What a template reads is all it is allowed to read (design: "A template
 holds five things"). The builder passes the template's views to the walk,
@@ -24,12 +28,13 @@ import tomllib
 from dataclasses import dataclass, field
 
 from products.report import catalogue as cat
+from products.report import contract
+from products.report.contract import flag  # noqa: F401  (the shape's own rules reach it here too)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SHAPE_TEMPLATES = os.path.join(HERE, "templates")
 USE_CASE_TEMPLATES = os.path.join(os.path.dirname(HERE), "templates")   # products/templates/<nn>-<name>/ (step 5.2)
-STATUSES = ("fired", "clear", "blocked")
-SEVERITIES = ("red", "amber", "info")
+STATUSES, SEVERITIES = contract.STATUSES, contract.SEVERITIES
 
 
 @dataclass(frozen=True)
@@ -37,7 +42,7 @@ class Section:
     name: str
     heading: str
     views: tuple                 # the published views it draws on (all in the template's reads)
-    sources: tuple = ("members", "confirmed", "near", "roles", "pointing", "second")   # the walk's buckets it draws from
+    sources: tuple = ("members", "confirmed", "near", "roles", "pointing", "second", "named")   # the walk's buckets it draws from
     not_held: tuple = ()         # registers it would read that no lane has published: the blank says so
     text: str = ""               # a line printed under the heading
 
@@ -62,27 +67,11 @@ class Template:
     limits: tuple = ()
     depth: int = 2
     rules: tuple = field(default=(), compare=False)
+    common_rules: bool = True     # the contract's COMMON_RULES run first; `common_rules = false` in template.toml opts out
 
     @property
     def views(self) -> set:
         return {r.view for r in self.reads}
-
-
-def flag(rule: str, version: str, status: str, severity: str, text: str, citations: tuple = (), sources_held: tuple = (),
-         sources_not_held: tuple = (), scope: str = "subject") -> dict:
-    """A rule's verdict; the contract is checked at construction."""
-    if status not in STATUSES:
-        raise ValueError(f"{rule}: status {status!r}")
-    if severity not in SEVERITIES:
-        raise ValueError(f"{rule}: severity {severity!r}")
-    if status == "fired" and not citations:
-        raise ValueError(f"{rule}: a fired flag must cite the rows it rests on")
-    if status == "clear" and not sources_held:
-        raise ValueError(f"{rule}: a clear flag must name the sources it was checked against")
-    if status == "blocked" and not text:
-        raise ValueError(f"{rule}: a blocked flag must say why the check could not run")
-    return {"rule": rule, "version": version, "status": status, "severity": severity, "text": text, "scope": scope,
-            "citations": tuple(citations), "sources_held": tuple(sources_held), "sources_not_held": tuple(sources_not_held)}
 
 
 def _load_rules(folder: str) -> tuple:
@@ -91,6 +80,7 @@ def _load_rules(folder: str) -> tuple:
         return ()
     spec = importlib.util.spec_from_file_location(f"qv4_template_rules_{os.path.basename(folder)}", path)
     mod = importlib.util.module_from_spec(spec)
+    mod.contract = contract          # bound before the file runs: a template reaches the contract by this name, never by an import
     spec.loader.exec_module(mod)
     rules = getattr(mod, "RULES", ())
     for r in rules:
@@ -127,7 +117,7 @@ def load(folder: str) -> Template:
     if not sections:
         raise ValueError(f"{folder}: a template has sections")
     return Template(t["name"], t["title"], str(t["version"]), t["owner"], folder, reads, tuple(sections), tuple(t.get("limits", [])),
-                    int(t.get("depth", 2)), _load_rules(folder))
+                    int(t.get("depth", 2)), _load_rules(folder), bool(t.get("common_rules", True)))
 
 
 def folders() -> dict:

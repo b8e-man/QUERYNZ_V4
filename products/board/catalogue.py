@@ -274,6 +274,13 @@ VIEWS: tuple[View, ...] = (
          names=("name",),
          parent=("Notice", "gazette_notices", "notice"),
          note="where an appointee lives is never kept", default_order="published_on"),
+    View("party_labels", "parties", "figure", ("label", "on"),
+         search=("label", "party_name"),
+         fields=(("resolves to", "party_name"), ("basis", "basis"), ("why", "why"), ("grain", "grain"),
+                 ("same name", "same_name"), ("sources", "sources"), ("rows", "rows"), ("resolver", "resolver")),
+         parent=("Party", "parties", "party"),
+         note="every party label the other registers print, and the registration each resolves to; unresolved stays unresolved",
+         default_order="label"),
     # ── house (built; pane.md: house) ──────────────────────────────────────
     View("candidates", "house", "person", ("display_name", "election"),
          search=("name", "display_name", "party", "party_registered", "electorate"),

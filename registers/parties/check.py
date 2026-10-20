@@ -78,25 +78,37 @@ def failed(out: dict, published_rows: int = None) -> list:
     return why
 
 
+def notices_of(cited) -> tuple:
+    """(events, notice → published day), each notice read again from the
+    document its rows cite: [(notice, document)]."""
+    from registers.parties import capture, notices
+    events, published, by_doc = [], {}, {}
+    for notice, document in cited:
+        by_doc.setdefault(document, set()).add(notice)
+    for document, wanted in sorted(by_doc.items()):
+        for nid, lines in sorted(capture.lines_of(document, wanted).items()):
+            n = capture.one_copy(lines)
+            published[nid] = n["published_on"]
+            events += notices.read(n["text"], nid, n["published_on"]).events
+    return events, published
+
+
 def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     schema = argv[argv.index("--schema") + 1] if "--schema" in argv else "parties"
     database = argv[argv.index("--database") + 1] if "--database" in argv else "querynz_v4"
     from support import db
     from support.docstore.landing import read_bytes
-    from registers.parties import notices, read, register
+    from registers.parties import register
     from registers.parties.load import table
     shared = schema.startswith("scratch_")          # the sample's shared schema: the lane's tables carry its name
     regs, events_t = table(schema, "registrations", shared), table(schema, "events", shared)
     with db.connect(db.READ_KEY if database == "querynz_v4" else db.OWNER_KEY, database) as conn:
         page_sha, page_date = conn.execute(f"SELECT register_document, register_seen_on FROM {regs} "
                                            f"WHERE register_document IS NOT NULL LIMIT 1").fetchone()
-        export_sha = conn.execute(f"SELECT document FROM {events_t} LIMIT 1").fetchone()[0]
+        cited = conn.execute(f"SELECT DISTINCT notice, document FROM {events_t}").fetchall()
         on_register = conn.execute(f"SELECT count(*) FROM {regs} WHERE on_register").fetchone()[0]
-    events, published = [], {}
-    for n in read.read_export(read_bytes(export_sha)):
-        published[n["notice"]] = n["published_on"]
-        events += notices.read(n["text"], n["notice"], n["published_on"]).events
+    events, published = notices_of(cited)
     out = compare(events, register.read(read_bytes(page_sha)).entries, str(page_date), published)
     print(f"the register page of {page_date}: {out['page']} parties; joined to the notices by name "
           f"{len(out['joined'])}, by the window alone {len(out['window'])}; registered before the notices' reach "
