@@ -14,7 +14,7 @@ def test_list_only_candidacies_come_from_the_seats_and_the_published_list(vdir):
     assert c["list_place"] is None and "party list itself is not held" in c["elected_basis"] and c["declared"]["held"] is False
     lena = load(vdir, paths.path("subject", "person", "Lena LIST"))
     assert lena["candidacies"][0]["list_place"] == 7 and lena["candidacies"][0]["elected"] is None and lena["candidacies"][0]["cite"]["document"] == X.D["h"]
-    assert lena["sitting_mp"] is False and lena["interests"]["held"] is False
+    assert lena["sitting_mp"] is False and "interests" not in lena and lena["positions"] == []          # never a member: no return to hold
     gone = load(vdir, paths.path("subject", "person", "Pat GONE"))
     assert [c["year"] for c in gone["candidacies"]] == [2020] and gone["candidacies"][0]["route"] == "list"
 
@@ -28,8 +28,8 @@ def test_the_interests_register_attaches_under_the_shared_reading_and_withholds_
     assert len(pos) == 1 and pos[0]["text"] == "Seymour Holdings Limited – property" and pos[0]["editions"] == 2
     assert pos[0]["first_seen"] == "2025-01-31" and pos[0]["last_seen"] == "2026-01-31" and pos[0]["cite"]["page"] == 9 and pos[0]["cite"]["place"] == "l2"
     prop = p["properties"]
-    assert len(prop) == 1 and prop[0]["withheld"] is True and prop[0]["text"] is None and "withheld" in p["properties_basis"]
+    assert len(prop) == 1 and prop[0]["withheld"] is True and prop[0]["text"] is None and "withheld" in p["basis"]["properties"]
     extra = p["interests_extra"]
     assert len(extra) == 1 and extra[0]["category"] == "gifts" and extra[0]["rows"][0]["text"] == "Tickets to a rugby game – a union"
-    assert p["interests_tree"]["held"] is False and p["public_expenses"]["held"] is False and p["industry_exposure"]["held"] is False
+    assert p["interests_tree"]["held"] is False and p["public_expenses"]["held"] is False and p["exposure"]["held"] is False and p["industry_exposure"]["held"] is False and p["donations_received_not_shown"] == 0
     assert "A pen" not in json.dumps(p)                                                               # the 2016 edition is outside the window

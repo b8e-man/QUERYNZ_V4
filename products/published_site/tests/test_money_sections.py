@@ -39,7 +39,7 @@ def test_the_home_page_carries_the_money_sections_with_their_bases(vdir):
     assert ps["named"][0]["name"] == "Vote Loud Limited" and ps["named"][0]["people"] == [{"role": "authorised representative", "name": "Loud Person"}]
     assert ps["read_from_the_return"] == 1 and ps["agree"] == 1 and ps["nil_returns"] == 0
     assert h["donors_sighted"]["n"] == 0 and h["totals"]["promoter_spend"] == 300000.0 and h["totals"]["public_allocated"] == 500.0
-    assert set(h["sections_basis"]) >= {"party_transfers", "race_donations", "party_funding", "donor_categories"}
+    assert set(h["basis"]["sections"]) >= {"party_transfers", "race_donations", "party_funding", "donor_categories"}
 
 
 def test_the_parties_page_counts_what_resolves_to_nobody(vdir):
@@ -50,13 +50,14 @@ def test_the_parties_page_counts_what_resolves_to_nobody(vdir):
 
 def test_the_party_page_lists_top_donors_donations_made_and_sitting_members(vdir):
     p = load(vdir, paths.path("subject", "party", "ACT New Zealand"))
-    top = p["top_donors"]
+    top = p["party_window"]["top_donors"]
     assert [d["name"] for d in top] == ["Big Co Limited", "Open Year Giver", "Jane Q Donor"] and top[0]["total"] == 40000.0 and top[1]["open_year_disclosures"] == 25000.0
     assert top[2]["total"] == 600.0 and top[2]["n"] == 2 and top[2]["first_year"] == 2017 and top[2]["page"] == paths.path("donor", "Jane Q Donor")
-    assert [d["name"] for d in p["top_donors_by_race"]["2023"]] == ["Big Co Limited"] and p["top_donors_by_race"]["2020"] == []
+    assert [d["name"] for d in p["party_window"]["top_donors_by_race"]["2023"]] == ["Big Co Limited"] and p["party_window"]["top_donors_by_race"]["2020"] == []
     made = p["donations_made"]
     assert len(made) == 1 and made[0]["receiver"] == "David SEYMOUR" and made[0]["tier"] == "committee" and made[0]["donor_filed"] == "ACT Epsom Electorate Committee"
     assert p["donations_made_total"] == 200.0 and made[0]["cite"]["document"] == X.D["c"]
     mps = p["mps"]["members"]
     assert [m["name"] for m in mps] == ["David SEYMOUR", "Karen CHHOUR"] and mps[0]["receipts"] == 1200.0 and mps[1]["receipts"] == 0.0
-    assert p["leaders"]["held"] is False and p["rules"]["held"] is False and p["industries"]["held"] is False
+    assert p["party_window"]["leaders"]["held"] is False and p["party_window"]["rules"]["held"] is False and p["industries"]["held"] is False
+    assert p["coverage"]["financial_statements"] == 2 and p["donations_made_not_shown"] == 0 and p["exposure_cascade"]["held"] is False
