@@ -42,9 +42,9 @@ from dataclasses import dataclass, field
 
 from keys.numbers import charity_number as cc_of, nzbn as nzbn_of
 from support import profiles
-from registers.charities.capture import parse_page
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+CAPTURE = "charities"            # the capture lane's schema: its listing (capture_passes, capture_pages) is what this reads
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
 PROFILE = "charities-odata-page"
 READER = "registers.charities_a.read 1"
@@ -127,9 +127,6 @@ _STREET_NUMBER = re.compile(r"^\d+[a-z]?[\s/,]")
 #: a name field that holds a date: a filer's birth date typed where a name goes. The feed has no birth-date field;
 #: this is the one way one reaches a page, and it is never published (hard limit: no birth date)
 _DATE_IN_NAME = re.compile(r"\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b|\b(19|20)\d\d-\d\d-\d\d\b")
-#: digits in a name that are not a lone year: an organisation named in a person's fields keeps its "(2014)"
-_DIGITS = re.compile(r"\d+")
-_YEAR = re.compile(r"^(19|20)\d\d$")
 
 
 @dataclass
@@ -253,23 +250,16 @@ def name_reads_as_address(name: str) -> bool:
     return any(low.startswith(b) or f" {b}" in low for b in _ADDRESS_BLOCK) or bool(_STREET_NUMBER.match(low))
 
 
-def name_holds_digits(name: str) -> bool:
-    """True when a name field holds digits that are not a lone year (an
-    organisation's "(2014)" is a name; "Smith02" or "3/11/66" is not)."""
-    runs = _DIGITS.findall(name or "")
-    return any(not _YEAR.match(r) for r in runs)
-
-
 def name_fault(name: str):
-    """Why a name field cannot be published as filed, or None: a date, an address, digits."""
+    """Why a name field cannot be published as filed, or None: it holds a
+    date (a birth date) or reads as an address. Stray digits ("Smith02", an
+    organisation's "(2014)") are the register's own filing and stay."""
     if not name:
         return None
     if name_holds_a_date(name):
         return "holds a date"
     if name_reads_as_address(name):
         return "reads as an address"
-    if name_holds_digits(name):
-        return "holds digits"
     return None
 
 
@@ -286,6 +276,36 @@ def disqualification_of(r: dict):
 
 
 # ── the pages ───────────────────────────────────────────────────────────────
+# Two pieces mirror the capture lane's own (registers/charities/capture.py parse_page, read.py pages), because imports
+# run one way and a lane never imports another: the build kept moves into registers/charities and the mirrors go.
+
+def parse_page(body: bytes):
+    """(stated count or None, rows) from one page of the feed's JSON. The feed
+    wraps rows as {"d": [...]} or {"d": {"results": [...], "__count": "N"}}."""
+    j = json.loads(body)
+    d = j["d"]
+    if isinstance(d, list):
+        return None, d
+    rows = d.get("results")
+    if not isinstance(rows, list):
+        raise ValueError("no results list")
+    c = d.get("__count")
+    return (int(c) if c is not None else None), rows
+
+
+def listed_pages(conn, entity_set: str, schema: str = CAPTURE) -> list:
+    """(sha256, url) of every page a build reads for a set, in order: the
+    newest finished full pass, then each finished changes pass after it."""
+    full = conn.execute(f"SELECT pass_id, finished_at FROM {schema}.capture_passes WHERE entity_set = %s "
+                        "AND mode IN ('full', 'whole') AND finished_at IS NOT NULL AND pages > 0 "
+                        "ORDER BY finished_at DESC LIMIT 1", (entity_set,)).fetchone()
+    if full is None:
+        return []
+    return [(r[0], r[1]) for r in conn.execute(
+        f"SELECT g.sha256, g.url FROM {schema}.capture_pages g JOIN {schema}.capture_passes p USING (pass_id) "
+        "WHERE p.pass_id = %s OR (p.entity_set = %s AND p.mode = 'changes' AND p.finished_at IS NOT NULL "
+        "AND p.started_at >= %s) ORDER BY p.pass_id, g.page_no", (full[0], entity_set, full[1]))]
+
 
 def page_rows(entity_set: str, data: bytes):
     """(stated, rows) of one page, which must be a page of the set it is listed under."""
@@ -433,8 +453,8 @@ def _officer(r: dict, codes: Codes, held, groups):
     if charity_key is None:
         return None, None, "officer of an organisation the register's copy does not hold"
     body = bool(r.get("IsaBodyCorporate"))
-    # a name field that holds a date, an address or stray digits is withheld, named by its fault in name_note, and
-    # the row stays (recover over exclude): the role and its window are the register's record whatever was typed
+    # a name field that holds a date or an address is withheld, named by its fault in name_note, and the row stays
+    # (recover over exclude): the role and its window are the register's record whatever was typed into a name
     names, notes = {}, []
     for f, col in (("FirstName", "first_name"), ("MiddleName", "middle_names"), ("LastName", "last_name"),
                    ("FullName", "full_name"), ("BodyCorporateName", "body_corporate_name")):

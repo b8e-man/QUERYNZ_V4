@@ -30,9 +30,9 @@ import argparse
 import json
 import sys
 
-from registers.charities.capture import SCHEMA as CAPTURE
-from registers.charities import read as capture_read
-from registers.charities_a import load
+from registers.charities_a import load, read
+
+CAPTURE = read.CAPTURE
 
 
 def pass_of(listing_conn, entity_set: str = "Organisations"):
@@ -52,7 +52,7 @@ def reconcile_pages(conn, schema: str, shared: bool, listing_conn) -> list:
     listed = {(r[0], r[1]): r[2] for r in listing_conn.execute(
         f"SELECT g.sha256, g.entity_set, g.rows FROM {CAPTURE}.capture_pages g")}
     for s in load.SETS:
-        for sha, _ in capture_read.pages(listing_conn, s):
+        for sha, _ in read.listed_pages(listing_conn, s):
             f = files.get((sha, s))
             if f is None:
                 out.append(f"{s} page {sha[:12]}: listed by the capture, not read by the load")

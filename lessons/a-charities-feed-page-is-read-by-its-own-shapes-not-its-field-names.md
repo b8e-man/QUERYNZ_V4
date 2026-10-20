@@ -1,4 +1,4 @@
-Read the Charities feed by what each set's values actually index: a group's MainActivityId points into the 12,728-row Activities set while an organisation's points into the 11-row MainActivity list, one charity number can sit on two Organisations rows, and the same code Id repeats per EntityName.
+Read the Charities feed by what its values index, not by field names: a group's MainActivityId indexes the 12,728-row Activities set, an organisation's the 11-row list; one number can sit on two rows; a code Id repeats per EntityName.
 area: charities, odata, code lists, keys, reading registers
 paid-for-by: 2026-10-21, charities-a session (Fable), step 4.1
 

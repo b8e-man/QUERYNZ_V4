@@ -5,15 +5,20 @@ nothing is fetched twice). The listing is `registers.charities.read.pages`;
 the bytes are in the document store by sha256, source `charities`. This
 build never opens the feed: the capture lane owns it and its job.
 
-    python -m registers.charities_a.capture      says so, and lists what the capture holds
+    python -m registers.charities_a.capture      says so, and counts the pages listed for each set
 """
 import sys
 
 
 def main(argv=None) -> int:
-    from registers.charities import read as capture_read
-    print("charities_a: captures nothing; it reads the pages registers/charities landed. Held:")
-    return capture_read.main(argv)
+    from support import db
+    from registers.charities_a import load, read
+    print("charities_a: captures nothing; it reads the pages registers/charities landed. Listed:")
+    with db.connect(db.READ_KEY, "querynz_v4") as conn:
+        conn.execute("SET statement_timeout = '30s'")
+        for s in load.SETS:
+            print(f"  {s}: {len(read.listed_pages(conn, s))} page(s)")
+    return 0
 
 
 if __name__ == "__main__":

@@ -24,7 +24,6 @@ import time
 
 from support import jobrun
 from support.docstore.landing import read_bytes
-from registers.charities import read as capture_read
 from registers.charities_a import read
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -94,7 +93,7 @@ def _flat(cols: tuple, rows):
 
 def listing(conn) -> dict:
     """set → [(sha256, url)] from the capture lane's listing, in reading order."""
-    return {s: capture_read.pages(conn, s) for s in SETS}
+    return {s: read.listed_pages(conn, s) for s in SETS}
 
 
 def signature(pages: dict) -> str:
@@ -106,7 +105,7 @@ def signature(pages: dict) -> str:
 
 
 def has_listing(conn) -> bool:
-    return conn.execute("SELECT to_regclass('charities.capture_pages') IS NOT NULL").fetchone()[0]
+    return conn.execute("SELECT to_regclass(%s) IS NOT NULL", (f"{read.CAPTURE}.capture_pages",)).fetchone()[0]
 
 
 class _Files:

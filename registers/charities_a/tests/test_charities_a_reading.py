@@ -167,7 +167,7 @@ def test_an_officer_is_keyed_on_officer_id_with_the_register_s_window_and_flags(
     assert not any(k in json.dumps(by) for k in ("address", "birth", "mail", "phone"))
 
 
-def test_a_name_field_that_holds_a_date_an_address_or_digits_is_withheld_and_the_row_stays():
+def test_a_name_field_that_holds_a_date_or_an_address_is_withheld_and_the_row_stays():
     held = {100: "charities/CC12345"}
     r = _read("Officers", [_officer(1, MiddleName="31/10/1965"), _officer(2, FullName="12 Example Street", LastName="Street"),
                            _officer(3, LastName="Grove", FullName="Ann Grove"), _officer(4, FullName="   ", FirstName=None, LastName=None),
@@ -182,13 +182,13 @@ def test_a_name_field_that_holds_a_date_an_address_or_digits_is_withheld_and_the
     assert by[2]["full_name"] == "Ann Street" and by[2]["name_note"] == "FullName withheld: reads as an address"
     assert by[3]["name_note"] is None and by[5]["name_note"] is None and by[5]["last_name"] == "Example Terrace"
     assert by[6]["name_note"] is None and by[6]["full_name"] == "THE EXAMPLE (2014) TRUST"
-    assert by[7]["last_name"] is None and by[7]["full_name"] == "Ann" and by[7]["name_note"] == "LastName withheld: holds digits; FullName withheld: holds digits"
+    assert by[7]["last_name"] == "Able02" and by[7]["full_name"] == "Ann Able02" and by[7]["name_note"] is None
     assert 8 not in by and "9302" not in json.dumps(r.set_aside) and "1965" not in json.dumps(r.rows)
     assert read.name_reads_as_address("Lane") is False and read.name_reads_as_address("PO Box 12") is True
     assert read.name_reads_as_address("Ann Street") is False and read.name_reads_as_address("Ann Peter Street") is False
     assert read.name_reads_as_address("12 Example Street") and read.name_reads_as_address("12a example street, exampleton")
     assert read.name_holds_a_date("2001-02-03") and not read.name_holds_a_date("Ann")
-    assert read.name_fault("Ann (2014) Trust") is None and read.name_fault("Ann 3") == "holds digits"
+    assert read.name_fault("Ann (2014) Trust") is None and read.name_fault("Ann 3") is None and read.name_fault("3/11/66") == "holds a date"
 
 
 # --- annual returns ---------------------------------------------------------------------
