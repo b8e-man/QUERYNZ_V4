@@ -76,6 +76,13 @@ replay only. Edit nothing outside your folder, push and raise
 party-returns-4. Finish by telling Arthur what closed and what is carded.
 ```
 
+Session 5 merged (`docs/merges/party-returns-5`): Part A on 52 returns
+(1,133 rows) over the stored page readings, three declarations mended,
+two published faults fixed. Set-aside pages for a later re-read are
+listed by `python -m registers.party_returns.replay rereads` (ruling 62:
+not queued until the build is done). Queue: may Part A pass a rounding
+cent (National 2023, default no).
+
 ## parties
 
 Session 1 merged (`docs/merges/parties-1`): 78 registrations from the
@@ -132,18 +139,47 @@ case.
 
 Merged (`docs/merges/candidate-returns-1`): 1,105 returns by hash, the
 Commission's listing and spreadsheets, 372 totals (353 equal), Part A
-175 donors. The 713 scans are queued as `qv4-read-pages-candidates`;
-session 2 rebuilds when they land, then Part A from pixels and the
+175 donors. The 713 scans wait (ruling 62: no bulk reading until the
+build is done; 60 were read before the job was cancelled and
+stand as the sample). Session 2 then rebuilds, Part A from pixels, the
 nine candidate-made copies (status file).
 
 ## site
 
-Merged (`docs/merges/site-1`): the shape in `products/published_site/`
-and the template in `products/templates/ftm/`; a version folder a day
-under `<live>/site/v/`, preview on 10.0.0.2:8430, `qv4-site-build` at
-08:00 NZDT. Session 2 when the comparison names a cause that is the
-shape's: electorate money, donations on person pages, statements on
-party pages (status file). Queue: the window, 2017 or 2019.
+Session 1 merged (`docs/merges/site-1`). Session 2 running (Fable,
+launched headless 20 October 14:45) on the comparison's eighteen site cards:
+
+```text
+You are a build session for QueryNZV4, running as Fable on node2, in the
+working copy the launcher made for you. Read docs/PLAN.md, then
+docs/plan/step-4.md (4.4 and 4.5), docs/status.md, docs/status/site.md and
+docs/status/comparison.md, products/published_site/spec.md,
+products/templates/ftm/README.md, checks/README.md (read only; the
+comparison's day record is under
+/home/user/querynzv4-work/live/checks/comparison/), and the eighteen cards
+owned by site that the comparison session opened on 20 October
+(session: comparison; "Owner: site"), with the queue item
+which-frozen-sections-belong-in-the-follow-the-money-template (default:
+all sections; recommendation: money sections stay, person-page sections
+go to step 5). Build the shape's second tranche in
+products/published_site/ and products/templates/ftm/: the frozen sections
+the template does not carry, under the queue's default (every money
+section; the person-page sections too until Arthur rules, marked in the
+template as the ones the queue would move); financial statements on the
+party page; electorate money from pub.candidate_return_totals and
+pub.candidate_return_donors; list-only candidacies on the person page;
+the donor picker and the display-name and key choices each settled with a
+line in the template saying which side's rule it takes and why; and for
+each card either a close with the figures that fell in a rebuild measured
+against the frozen version (python -m checks.comparison run reads both
+sides; run it, never edit checks/) or a line saying what it still needs.
+No deploy step, no deploy token, never 8300 or 8301, never the frozen
+publisher; no home address; a suppressed name suppressed, the money
+stays. Build in small tranches, each with a gate that can fail on the
+real published tables. Edit nothing outside your two folders; push your
+branch and raise site-2. Finish by telling Arthur how many of today's
+differences fell, by cause, what is carded and what waits on him.
+```
 
 ## charities
 
@@ -234,6 +270,33 @@ Commission about reading its results site (card: three by-elections and
 two 2020 pages not held). Mid-term changes come from the Gazette lane
 (card). No session 2 now.
 
+Session 2, when a slot frees (Opus), on the comparison's five house cards:
+
+```text
+You are a build session for QueryNZV4, running as Opus on node2, in the
+working copy the launcher made for you. Read docs/PLAN.md, then
+docs/plan/step-4.md (4.1 and 4.5), docs/status.md, docs/status/house.md
+and docs/status/comparison.md, registers/house/spec.md, the lane contract
+and the row contract, and the cards owned by house that the comparison
+session opened on 20 October (session: comparison; "Owner: house"):
+candidacies-the-frozen-site-shows-and-the-house-lane-lacks,
+the-house-lane-has-no-result-for-a-race-the-frozen-site-shows-won,
+an-unregistered-party-label-is-not-on-the-rebuilt-candidacy,
+a-candidate-s-given-name-differs-between-the-return-summary-and-the-results,
+the-rebuilt-site-splits-one-candidate-across-two-name-forms,
+the-rebuilt-pages-carry-vote-counts-the-frozen-site-never-read. Build
+the lane's second tranche in registers/house/: each card either closed
+with its figure measured on the real published tables, or left open with
+a line saying why the frozen side is wrong and what the card still needs.
+Documents only from what the old estate holds or the official results
+already captured; fetch nothing new without the four questions in your
+status file. Every row keeps its stable key and citation; the catch log
+reconciles; the outside check stays green. Work in your scratch schema;
+edit nothing outside registers/house/; push your branch and raise
+house-2. Finish by telling Arthur which cards closed, what the comparison
+should see fall, and what waits on him.
+```
+
 ## companies
 
 Session 1 merged (`docs/merges/companies-1`): no raw monthly file
@@ -323,44 +386,13 @@ session on `support/fetchgate` when wanted, not this session's.
 
 ## comparison
 
-Step 4.5, the comparison with the frozen site, in `checks/`; and the
-lanes' checks onto the checks board. Fable. Launched headless by the
-integrator 20 October 12:50.
-
-```text
-You are a build session for QueryNZV4, running as Fable on node2, in
-the working copy the launcher made for you. Read docs/PLAN.md, then
-docs/plan/step-4.md (4.5 and 4.4), docs/plan/design.md, docs/status.md,
-docs/status/site.md, checks/README.md, checks/release_compare.py,
-checks/frozen_product.py and checks/windowed.py, products/published_site/spec.md
-(read only; that folder is not yours), and make your own status file
-docs/status/comparison.md. Do the part of step 4 named here: the
-comparison with the frozen site, in checks/. The new estate's version
-folders are under /home/user/querynzv4-work/live/site/v/<stamp>/, each
-built from one frozen release's recorded listing (the pin inside the
-folder names it; the listings are under
-/home/user/querynzv4-work/live/checks/frozen-product/listings/); the
-frozen site's versions are under var/pi-snapshot/v/ in the live old
-folder, read only, as release_compare.py already reads them. Compare
-every published file of the ten kinds, figure by figure, no tolerance
-on money; group every difference by its cause; one card per cause saying
-which side is right and why (a cause that is the new side's fault is a
-card for the lane that owns it, never a fix by you); record each day's
-result under <live>/checks/comparison/ with a clean-day ledger (a clean
-day: no difference without a card, no card saying the new side is wrong;
-passing: seven clean days in a row); put the comparison on the checks
-board (checks/board.py REGISTRY) and propose its daily job in
-checks/jobs-proposed.toml to run after qv4-site-build. Second tranche:
-put the lanes' and the products' own checks on the board the way
-windowed.py does for its two lanes, as commands with a timeout, for every
-registers/*/check.py with a main and for products/board and
-products/published_site; card what goes red. Never write into the old
-folder; never print a person's home address or a suppressed name. Build
-in small tranches, each with a check that can fail on the real folders.
-Edit nothing outside checks/; push your branch and raise comparison-1.
-Finish by telling Arthur what differs today, by cause, what is carded,
-and what waits on him.
-```
+Merged (`docs/merges/comparison-1`): `python -m checks.comparison run`
+pairs the frozen release with the rebuilt version built from its listing;
+`qv4-site-compare` daily 08:45 NZDT; the lanes' checks on the board. Day
+one: 43,062 differences, all carded, 23,067 under cards saying the new
+side is short. The cards name their owners (house, party-returns, site,
+disclosures, parties); the owners' next sessions are briefed below. Queue:
+which frozen sections the template carries (default all).
 
 ## review
 
@@ -406,39 +438,13 @@ figures, what is carded and what waits on him.
 
 ## report
 
-Step 5.1, the subject-report shape, in `products/report/` (skeleton on
-main, `spec.md`). Fable. The template for use case 8 (recruitment) follows
-in `products/templates/08-recruitment/` when the shape is merged.
-
-```text
-You are a build session for QueryNZV4, running as Fable on node2, in
-the working copy the launcher made for you. Read docs/PLAN.md, then
-docs/plan/step-5.md (5.1 and 5.2), docs/plan/design.md, docs/status.md,
-products/report/spec.md, products/board/spec.md and products/board/catalogue.py
-(read only: how each lane's rows are titled and cited; the board is not
-yours), links/spec.md, and make your own status file docs/status/report.md.
-Do the part of step 5 named here: the subject-report shape, in
-products/report/. One builder: it starts from one row (register, colon,
-key, as the board names a row), walks confirmed links outward through
-pub.links and pub.groups and lists near links beside them with their
-reasons, fills a template's sections from the pub views the template
-names and nothing else, applies the template's rules and flags, cites
-every statement, says "none found" or "not held" for every blank, and
-prints as a memo. Every connection is dated or marked undated; hubs are
-flagged (professional directors, nominees, the Crown, an address with a
-thousand companies); a nominee is never shown as an owner; coincidence
-is never joined to cause; absence is not a finding. Harvest the old
-estate's flows, report builder, memo, flag sets and checklists in
-/home/user/qnz3-ref/data-layer/ as ideas and tests, not code. Serve it
-on the local network only, on a port of its own, as unit qv4-report in
-products/report/units/. No home address and no suppressed name on any
-surface. Build in small tranches, each with a check that can fail on the
-real published tables; the done-when is a report on a known donor that
-names its returns, the company behind it and that company's directors,
-each cited. Work in your scratch schema; edit nothing outside
-products/report/; push your branch and raise report-1. Finish by telling
-Arthur what closed, what is carded and what waits on him.
-```
+Merged (`docs/merges/report-1`): the subject-report shape in
+`products/report/`, unit `qv4-report` on 10.0.0.2:8440. Next, step 5.2 in
+the plan's order, each template its own session once the one before is
+merged: `bin/start-session recruitment products/templates/08-recruitment`
+with the step 5 template brief (`docs/plan/step-5.md`), then agriculture
+(04), banking (03), legal (02). Cards for the links session (same-name
+donor rows) and a board fix ("report from here").
 
 ## integrator
 
@@ -472,6 +478,11 @@ ask. Auto is the classifier mode, not bypass (hard limit 3). An agent of
 the integrator's own does not work: the scope hook fences it to the main
 checkout (`docs/merges/offsite-1-not-started.md`). Start lines are handed
 to Arthur only when he asks for a window.
+
+Reading (Arthur, 20 October, ruling 62): no page-reader job is queued in
+bulk until the build is done. A lane's request for readings is answered
+with the store's sample and a note; the hashes it sets aside are the queue
+for later, one command.
 
 ## founding
 

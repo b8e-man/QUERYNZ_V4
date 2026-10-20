@@ -4,7 +4,7 @@ Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
 **Date:** 2026-10-20, 13:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
-4.5 merged, day one not clean; track C and 5.1 open. Tracks B
+4.5 and 5.1 merged, day one not clean; track C open. Tracks B
 and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1
 waits for its setup card (ruling 57). **Alarm channel:** the old estate's
 ntfy address (test alarm 18 October).
@@ -15,7 +15,7 @@ ntfy address (test alarm 18 October).
   fences, watcher, freeze tag `v3-frozen-2026-10-18`, scheduler, installer,
   model server beside the copy, GLM-OCR as the page reader.
 - Step 4.1, twelve lanes merged (`docs/merges/`): disclosures (520
-  declarations), party returns (137 totals, Part A 843 rows), parties
+  declarations), party returns (140 totals, Part A 1,133 rows on 52 returns), parties
   (78 registrations), party finance (expenses, statements, promoters),
   gazette 1 to 3 (207,133 notices; celebrants, prohibitions,
   liquidations, 1.48 M company notices, 65,299 bankruptcies, 3,155
@@ -23,7 +23,7 @@ ntfy address (test alarm 18 October).
   candidacies), companies (1.92 M entities, 1.19 M directors, 1.58 M
   shareholdings), expenses and MPs' interests, societies (53,271;
   133,080 officers), candidate returns (372 totals, 175 donors; 713
-  scans queued for reading), the charities capture (first full copy
+  scans wait, ruling 62), the charities capture (first full copy
   tonight 23:30). Private schemas owner-only.
 - 4.2/4.3 links (`links-1`): two rules, 2.61 M links, 669,863 groups, the
   old ledgers mapped, test pairs, six measurements. 4.4 site shape and
@@ -38,8 +38,9 @@ ntfy address (test alarm 18 October).
 
 - `review` (Fable, `links/`): track C, scored on the test pairs; verdicts
   recorded, not applied.
-- `report` (Fable, `products/report/`): step 5.1, the subject-report
-  shape. Next: the charities builds after tonight's copy.
+- `house-2` (Opus): the comparison's five house cards. `recruitment`
+  (Opus): template 08, step 5.2. `site-2` raised, integrating. Next: the
+  charities builds after tonight's copy.
 
 ## Half-done
 
@@ -49,3 +50,5 @@ ntfy address (test alarm 18 October).
   carded, 23,067 under cards saying the new side is short; `qv4-site-compare`
   daily 08:45. Ahead: seven clean days, checkpoint, export test, the
   switch after 7 November on Arthur's word.
+- 5.1 built (`report-1`): the subject-report shape on 10.0.0.2:8440, the
+  done-when green on the real tables; 5.2's templates next, recruitment first.
