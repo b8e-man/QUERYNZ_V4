@@ -1,0 +1,5 @@
+owns: schema `subject_report` (saved reports and their memos; nothing a person typed is deleted) and `subject_report_private` (nothing published lives there); the unit `qv4-report` and its port on the local network, named here once built
+reads: the `pub` views each template names and nothing else; `pub.links`, `pub.groups`, `pub.decisions` for the walk outward; never a lane's inside (the one-way test)
+publishes: nothing in `pub`; a report from one row, a person or an organisation, walking confirmed links outward with near links beside them and their reasons, every statement cited, every blank "none found" or "not held", printable as a memo; every connection dated, hubs flagged, a nominee never shown as an owner, coincidence never shown as cause; no home address and no suppressed name
+outside check: a report on a known donor names its returns, the company behind it and that company's directors, each with its citation, and nothing the registers do not hold
+jobs: `qv4-report` (standing, the page's server, local network only); no capture, no fetch

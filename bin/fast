@@ -57,6 +57,8 @@ def main() -> int:
     filled = "sample: skipped (--no-fill)" if no_fill else fill(repo)
     print(filled)
     py = os.path.join(repo, ".venv", "bin", "python")
+    if not os.path.exists(py):   # a working copy has no .venv: the main checkout's, as fill() does
+        py = os.path.join(S.MAIN, ".venv", "bin", "python")
     if not os.path.exists(py):
         py = sys.executable
     target = [module] if module else []
