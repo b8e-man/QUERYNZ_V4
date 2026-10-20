@@ -76,38 +76,12 @@ replay only. Edit nothing outside your folder, push and raise
 party-returns-4. Finish by telling Arthur what closed and what is carded.
 ```
 
-Session 5 running (Opus, launched headless 20 October 14:45) on the
-comparison's Part A cards:
-
-```text
-You are a build session for QueryNZV4, running as Opus on node2, in the
-working copy the launcher made for you. Read docs/PLAN.md, then
-docs/plan/step-4.md (4.1 and 4.5), docs/plan/reference (the Electoral
-Commission forms), docs/status.md, docs/status/party-returns.md and
-docs/status/comparison.md, registers/party_returns/spec.md, the lane
-contract and the row contract, and the cards owned by party-returns that
-the comparison session opened on 20 October (session: comparison;
-"Owner: party-returns"):
-part-a-rows-are-read-on-a-minority-of-the-returns-held,
-part-a-rows-the-frozen-site-has-and-no-rebuilt-page-carries,
-party-years-the-frozen-site-totals-and-the-lane-holds-no-total-for,
-the-rebuilt-lane-holds-declared-totals-the-frozen-site-lacked, and the
-lane's own open cards. Build the lane's fifth tranche in
-registers/party_returns/: Part A rows from every return whose pages have
-a stored reading (the page reader's stored readings under the lane's
-stamp; call no model yourself; a return with no stored reading is set
-aside with its hash and pages so the integrator can queue it), the two
-party-years with no total, and for each card either a close with its
-figure measured on all the returns held or a line saying what it still
-needs. The example row drops by the hash of its cell (ruling 190); an
-unreadable line is a line, not a donor (191); a disclosure is never
-summed into a return (192); the donor is the EC-filed entity (253).
-Addresses only in the private schema. Every change measured on the real
-tables through replay. Work in your scratch schema; edit nothing outside
-registers/party_returns/; push your branch and raise party-returns-5.
-Finish by telling Arthur which cards closed, what the comparison should
-see fall, and what waits on him.
-```
+Session 5 merged (`docs/merges/party-returns-5`): Part A on 52 returns
+(1,133 rows) over the stored page readings, three declarations mended,
+two published faults fixed. Set-aside pages for a later re-read are
+listed by `python -m registers.party_returns.replay rereads` (ruling 62:
+not queued until the build is done). Queue: may Part A pass a rounding
+cent (National 2023, default no).
 
 ## parties
 
@@ -172,40 +146,12 @@ nine candidate-made copies (status file).
 
 ## site
 
-Session 1 merged (`docs/merges/site-1`). Session 2 running (Fable,
-launched headless 20 October 14:45) on the comparison's eighteen site cards:
-
-```text
-You are a build session for QueryNZV4, running as Fable on node2, in the
-working copy the launcher made for you. Read docs/PLAN.md, then
-docs/plan/step-4.md (4.4 and 4.5), docs/status.md, docs/status/site.md and
-docs/status/comparison.md, products/published_site/spec.md,
-products/templates/ftm/README.md, checks/README.md (read only; the
-comparison's day record is under
-/home/user/querynzv4-work/live/checks/comparison/), and the eighteen cards
-owned by site that the comparison session opened on 20 October
-(session: comparison; "Owner: site"), with the queue item
-which-frozen-sections-belong-in-the-follow-the-money-template (default:
-all sections; recommendation: money sections stay, person-page sections
-go to step 5). Build the shape's second tranche in
-products/published_site/ and products/templates/ftm/: the frozen sections
-the template does not carry, under the queue's default (every money
-section; the person-page sections too until Arthur rules, marked in the
-template as the ones the queue would move); financial statements on the
-party page; electorate money from pub.candidate_return_totals and
-pub.candidate_return_donors; list-only candidacies on the person page;
-the donor picker and the display-name and key choices each settled with a
-line in the template saying which side's rule it takes and why; and for
-each card either a close with the figures that fell in a rebuild measured
-against the frozen version (python -m checks.comparison run reads both
-sides; run it, never edit checks/) or a line saying what it still needs.
-No deploy step, no deploy token, never 8300 or 8301, never the frozen
-publisher; no home address; a suppressed name suppressed, the money
-stays. Build in small tranches, each with a gate that can fail on the
-real published tables. Edit nothing outside your two folders; push your
-branch and raise site-2. Finish by telling Arthur how many of today's
-differences fell, by cause, what is carded and what waits on him.
-```
+Sessions 1 and 2 merged (`docs/merges/site-1`, `-2`): the shape and the
+template at version 2 (every frozen section under the queue's default,
+electorate money, statements, the interests register on the person page);
+`qv4-site-build` 08:00, `qv4-site-compare` 08:45. Session 3 when the
+comparison names a cause that is the shape's, or when Arthur rules the
+section, window or party-board questions.
 
 ## charities
 
@@ -467,9 +413,12 @@ figures, what is carded and what waits on him.
 Merged (`docs/merges/report-1`): the subject-report shape in
 `products/report/`, unit `qv4-report` on 10.0.0.2:8440. Next, step 5.2 in
 the plan's order, each template its own session once the one before is
-merged: `bin/start-session recruitment products/templates/08-recruitment`
-with the step 5 template brief (`docs/plan/step-5.md`), then agriculture
-(04), banking (03), legal (02). Cards for the links session (same-name
+merged: recruitment (08) merged (`docs/merges/recruitment-1`: 23 views, 13
+flags, limits.md, 12 real subjects checkpointed; eight cards for the
+shape, taken by session `report-2`); agriculture (04) next, its folder on
+main, then banking (03), legal (02). The template brief: the recruitment
+one in `docs/merges/recruitment-1`'s session log, with the use case,
+folder and old rule set changed. Cards for the links session (same-name
 donor rows) and a board fix ("report from here").
 
 ## integrator

@@ -201,6 +201,17 @@ class Series:
                 "basis": "broadcasting allocation: the Commission's final decision for the election year; spent and expenses: the party's expense return as the Commission tabulates it"}
 
 
+def elections_in_window(tables, years: list) -> dict:
+    """{election key: row} for the elections in the window: polling day in or
+    after the first year, or a general election not yet polled."""
+    out = {}
+    for e in tables.get("pub.elections"):
+        y = year_of(e.get("polled_on"))
+        if (y and y >= years[0]) or (not y and e.get("kind") == "general"):
+            out[e["key"]] = e
+    return out
+
+
 def window_years(settings: dict, today: dt.date = None) -> list:
     today = today or dt.date.today()
     return list(range(int(settings["window_from"]), today.year + 1))
@@ -266,17 +277,30 @@ class Donor:
         return best[0][0] if best else "(unreadable)"
 
 
-def donors(tables, settings: dict, idx: PartyIndex, series: dict, years: list) -> dict:
-    """{name_key: Donor} over the current Part A rows and the live disclosures
-    in the window, folded by the shared reading. A disclosure in a year the
-    party's return covers is a sighting, never money."""
+def donors(tables, settings: dict, idx: PartyIndex, series: dict, years: list, cm=None) -> dict:
+    """{name_key: Donor} over the current Part A rows, the live disclosures
+    and (when the candidate money is given) the per-donor lines of the
+    candidates' returns in the window, folded by the shared reading. A
+    disclosure in a year the party's return covers is a sighting, never
+    money. The links have not read the candidate returns' names, so a
+    candidate-return donor takes the shared reading of its exact filed
+    spelling where the links have read that spelling in a party return or a
+    declaration, and is otherwise kept under its filed spelling alone."""
     reading = {}
+    by_spelling = defaultdict(set)
     for n in tables.get("pub.names"):
         reading[n["ref"]] = n
+        if n.get("name_filed") and n.get("name_key") and n.get("register") in ("party_returns", "disclosures"):
+            by_spelling[n["name_filed"].strip().lower()].add((n["name_key"], n.get("kind")))
     out = {}
 
     def D(ref, filed):
         n = reading.get(ref)
+        if not n and ref.startswith("candidate_returns:"):
+            hits = by_spelling.get((filed or "").strip().lower(), set())
+            if len(hits) == 1:
+                nk, kind = next(iter(hits))
+                n = {"name_key": nk, "kind": kind}
         nk = n["name_key"] if n and n.get("name_key") else ("filed:" + (filed or "").strip().lower())
         kind = n["kind"] if n else "unreadable"
         if nk not in out:
@@ -310,22 +334,129 @@ def donors(tables, settings: dict, idx: PartyIndex, series: dict, years: list) -
                        "declaration_document": x.get("declaration_document"), "href": x.get("href"), "regime": x.get("regime"),
                        "counts": not covered,
                        "basis": "sighted: the return for this year is the record" if covered else "open year: no return held"})
+    if cm is not None:
+        from products.published_site import candidate_money as CM
+        for ckey, x in cm.rows():
+            r = x["return"]
+            c = cm.candidate_of(ckey) if ckey else None
+            k = idx.key(c.get("party_registered")) if c else None
+            for d in x["donors"]:
+                dn = D(f"candidate_returns:{d['key']}", d.get("donor"))
+                dn.rows.append({"ref": f"candidate_returns:{d['key']}", "source": "candidate", "year": int(r["year"]), "party": k, "party_name": idx.name(k) if k else "",
+                                "party_filed": r.get("party"), "receiver": CM.display(c, r), "candidate_key": ckey, "electorate": r.get("electorate"),
+                                "donor_filed": d.get("donor"), "amount": money(d.get("amount")), "dates": d.get("dates"), "contributions": d.get("contributions"),
+                                "document": d["document"], "page": d.get("page"), "ordinal": d.get("ordinal"), "read_from": d.get("read_from"),
+                                "counts": True, "basis": "Part A of the candidate's return" + ("" if ckey else "; the return is not joined to a candidate in the results")})
     return out
 
 
 def donor_totals(d: Donor) -> dict:
     by_year, by_receiver = defaultdict(float), defaultdict(float)
-    returns = sum(r["amount"] for r in d.rows if r["source"] == "return" and r["counts"])
+    returns = sum(r["amount"] for r in d.rows if r["source"] in ("return", "candidate") and r["counts"])
     uncounted = sum(r["amount"] for r in d.rows if r["source"] == "return" and not r["counts"])
+    party_returns = sum(r["amount"] for r in d.rows if r["source"] == "return" and r["counts"])
+    candidate_returns = sum(r["amount"] for r in d.rows if r["source"] == "candidate")
     open_disc = sum(r["amount"] for r in d.rows if r["source"] == "disclosure" and r["counts"])
     sighted = sum(r["amount"] for r in d.rows if r["source"] == "disclosure" and not r["counts"])
     for r in d.rows:
         if r["counts"]:
             by_year[str(r["year"])] += r["amount"]
-            by_receiver[r["party_name"]] += r["amount"]
-    return {"returns": money(returns), "returns_not_counted": money(uncounted), "open_year_disclosures": money(open_disc), "disclosures_sighted": money(sighted),
+            by_receiver[r.get("receiver") or r["party_name"]] += r["amount"]
+    return {"returns": money(returns), "party_returns": money(party_returns), "candidate_returns": money(candidate_returns),
+            "returns_not_counted": money(uncounted), "open_year_disclosures": money(open_disc), "disclosures_sighted": money(sighted),
             "total": money(returns + open_disc),
             "by_year": {k: money(v) for k, v in sorted(by_year.items())},
             "by_receiver": {k: money(v) for k, v in sorted(by_receiver.items())},
-            "basis": "returns plus disclosures in years no return covers; a disclosure the return covers is sighted and never added; "
-                     "ownership is a note and never adds to an owner's total"}
+            "basis": "party returns and candidate returns (a candidate is the receiver), plus disclosures in years no return covers; "
+                     "a disclosure the return covers is sighted and never added; ownership is a note and never adds to an owner's total"}
+
+
+# ── party financial statements (party-finance lane; plan 4.4 tranche 2) ───────
+
+STATEMENT_FIGURES = ("income", "expenditure", "surplus", "assets", "liabilities", "net_assets")
+
+
+def statements(tables, idx: PartyIndex, years: list) -> dict:
+    """{party key: [statement]} from pub.party_financial_statements, newest
+    filed year first, each with the headline figures the lane read from the
+    statement document (pub.party_statement_figures, current rows only).
+    A statement listed by the Commission with no document held keeps its
+    row and says so. Filed years inside the window only."""
+    figs = defaultdict(dict)
+    for f in tables.get("pub.party_statement_figures"):
+        if not f.get("current") or f.get("figure") not in STATEMENT_FIGURES:
+            continue
+        figs[f.get("roster_row") or ""][f["figure"]] = {
+            "amount": money(f["amount"]) if f.get("amount") is not None else None,
+            "prior": money(f["prior_amount"]) if f.get("prior_amount") is not None else None,
+            "scale": f.get("scale"), "check": f.get("figure_check"), "printed": f.get("printed"),
+            "document": f.get("document"), "page": f.get("page"), "place": f.get("place"), "read_from": f.get("read_from")}
+    out = defaultdict(list)
+    for s in tables.get("pub.party_financial_statements"):
+        k = idx.key(s.get("party"))
+        if not k or s.get("filed_year") is None or int(s["filed_year"]) not in years:
+            continue
+        docs = [d for d in (s.get("statements") or []) if d]
+        out[k].append({"ref": f"party_finance:{s['key']}", "filed_year": int(s["filed_year"]), "balance_date": s.get("balance_date"),
+                       "deadline": s.get("deadline"), "date_filed": s.get("date_filed"),
+                       "audit_requirement": s.get("audit_requirement"), "party_filed": s.get("party_label"), "party_basis": s.get("party_basis"),
+                       "note": s.get("note"), "mark": s.get("mark"), "documents": docs, "document_held": bool(docs),
+                       "figures": figs.get(s["key"], {}), "figures_read": sorted(figs.get(s["key"], {})),
+                       "read_from": s.get("read_from"), "listing_document": s.get("document"), "page": s.get("page"), "place": s.get("place"),
+                       "basis": "the Commission's list of statements filed under s 210K; the figures are read from the statement document itself"
+                                + ("" if docs else "; no statement document is held, so no figure is read")})
+    for k in out:
+        out[k].sort(key=lambda s: (-s["filed_year"], s["ref"]))
+    return dict(out)
+
+
+# ── the interests register on a person page (interests-expenses lane) ─────────
+
+POSITION_CATEGORIES = ("directorships", "business-interests", "trusts", "employment")
+PROPERTY_CATEGORY = "real-property"
+
+
+def interests(tables, years: list) -> dict:
+    """{name_key: {"returns": [...], "items": {category: [item]}}} over the
+    register's editions in the window, under the links' shared reading of
+    the member's name on each return (pub.names, register mp_interests). A
+    declaration repeated across editions is one item with first and last
+    seen; a withheld declaration (real property) keeps its count and no
+    text. Nothing here joins a name to anything but its own return."""
+    key_of_return = {}
+    for n in tables.get("pub.names"):
+        if n.get("register") == "mp_interests" and n.get("name_key"):
+            key_of_return[n["key"]] = n["name_key"]
+    out = {}
+    items = {}
+    for r in tables.get("pub.mp_interest_returns"):
+        nk = key_of_return.get(r["key"])
+        y = year_of(r.get("as_at"))
+        if not nk or not y or y not in years:
+            continue
+        p = out.setdefault(nk, {"returns": [], "items": defaultdict(dict)})
+        p["returns"].append({"ref": f"mp_interests:{r['key']}", "as_at": r.get("as_at"), "member_as_printed": r.get("member"), "party_label": r.get("party_label"),
+                             "electorate": r.get("electorate"), "declarations": r.get("declarations"), "document": r.get("document"), "page": r.get("page"), "place": r.get("place")})
+    for d in tables.get("pub.mp_interests"):
+        nk = key_of_return.get(d.get("member_return"))
+        y = year_of(d.get("as_at"))
+        if not nk or nk not in out or not y or y not in years:
+            continue
+        cat = d.get("category") or "other"
+        text = None if d.get("withheld") else (d.get("text") or "").strip()
+        ik = (cat, text if text is not None else f"withheld:{d['key']}")
+        bucket = out[nk]["items"][cat]
+        it = bucket.get(ik)
+        if not it:
+            it = bucket[ik] = {"ref": f"mp_interests:{d['key']}", "category": cat, "heading": d.get("heading"), "text": text, "withheld": bool(d.get("withheld")),
+                               "first_seen": d.get("as_at"), "last_seen": d.get("as_at"), "editions": 0,
+                               "document": d.get("document"), "page": d.get("page"), "place": d.get("place")}
+        it["editions"] += 1
+        if d.get("as_at") and (it["first_seen"] is None or d["as_at"] < it["first_seen"]):
+            it["first_seen"] = d["as_at"]
+        if d.get("as_at") and d["as_at"] >= (it["last_seen"] or ""):
+            it["last_seen"], it["ref"], it["document"], it["page"], it["place"] = d["as_at"], f"mp_interests:{d['key']}", d.get("document"), d.get("page"), d.get("place")
+    for p in out.values():
+        p["returns"].sort(key=lambda r: r["as_at"] or "", reverse=True)
+        p["items"] = {cat: sorted(b.values(), key=lambda i: (i["last_seen"] or "", i["text"] or ""), reverse=True) for cat, b in p["items"].items()}
+    return out

@@ -189,7 +189,7 @@ def test_every_row_keeps_the_row_contract(filled):
         assert r["key"] == r["document"] + "/declaration" and r["read_from"] in ("text", "pixels")
         assert r["year_from"] in ("declaration page", "loans page", "year ended")
         assert r["party"] is not None, f"{r['party_label']!r} did not resolve to a registered party"
-        assert r["total_check"] in ("parts-sum", "declared-nil")
+        assert r["total_check"] in ("parts-sum", "declared-nil", "parts-confirmed", "part-pages")
 
 
 def test_each_declared_total_equals_the_frozen_site_or_has_a_card(filled):

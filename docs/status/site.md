@@ -1,34 +1,35 @@
 # site: where it stands
 
-**Date:** 2026-10-20. **Step:** 4.4, the published-site shape and the Follow
-the Money template, `products/published_site/` and `products/templates/ftm/`.
-**Merge request:** `site-1`.
+**Date:** 2026-10-20 (site-2). **Step:** 4.4, the published-site shape and
+the Follow the Money template, `products/published_site/` and
+`products/templates/ftm/`. **Merge requests:** `site-1`, `site-2` (the
+detail of each tranche is in `docs/merges/`).
 
 ## Done
 
-- The template `products/templates/ftm/ftm.json`: 22 pub views with
-  licence and attribution, the ten kinds as sections, 13 rules, the
-  known-limits page, the frozen site's settings (window 2017, races
-  2020/2023/2026 under rulings 361/363/366, seven parties by registration
-  key, the $15,000 line, the disclosure regimes).
-- The shape: `build.py` (template → listing pin → pub views → figures →
-  ten kinds → version folder → six gates → `built` row → stop); the frozen
-  site's path rule; the listing pin (`pin.py`, the watcher's listings);
-  the read layer (pub only, the template is the whole of what may be
-  read); the figures; the kinds (home, parties, electorates ×5, pickers,
-  subject party ×30 and person ×1,261, electorate ×82, donor ×623,
-  size-bands ×27, cite ×1,300; board-member "not held"); suppression
-  machinery; the preview on 8430 (never 8300/8301); `check.py`; the
-  proposed `qv4-site-build` job and `qv4-site-preview` unit.
-- Real build from listing 2026-10-20T0620: 3,332 files, 8 MB, 0.9 s, every
-  gate green; 46 party-years of disclosures equal the Commission's table
-  to the cent; 86 of 125 front-page party-year figures equal the frozen
-  home file (the rest are the lanes' carded differences and Part A rows
-  not yet read). 52 tests, each gate shown failing on a planted defect.
-- Cards: the suppressed-names list has no owner; what the rebuilt site
-  cannot show yet; a party-year with two returns is chosen by nobody.
-  Queue: the window, 2017 or 2019 (default 2017). Lesson: "none chosen"
-  is a property of the year.
+- Template version 2: 26 pub views; `settled` says which side's rule the
+  donor picker, display names and page keys take and why; `page_sections`
+  lists every frozen section carried, the person-page ones marked as those
+  the queue item would move; `sections_added` names the rebuilt-only keys;
+  the known-limits page rewritten.
+- Party page: financial statements (party-finance), top donors, leaders
+  and rules under `party_window`, donations made to candidates, sitting
+  members, coverage; two registrations with one name get two pages.
+- Electorate money from the candidate-returns views: 370 of 380 current
+  returns join the results by year, electorate and surname; the
+  Commission's figure is the headline; no return is "not held", never nil.
+- Home page: the frozen's eleven money sections with bases; party spend,
+  public money and promoter totals equal the frozen to the cent. Person
+  page: list candidacies; the member's interests register returns (real
+  property counted, withheld); expenses, exposure and boards "not held".
+- Eight gates (two new, each caught a real fault), 55 tests.
+- Comparison (never edited), frozen 2026-10-20T0620 against the scratch
+  rebuild: 43,062 differences fell to 30,447 (sections not in the template
+  10,651 to 266; candidate returns not held 9,618 to 7,077; rebuilt-only
+  sections 1,866 to 209; statements 17 to 0). 610 uncarded are the
+  comparison's own readers (carded).
+- Cards: of the comparison's 18 owned by site, 4 closed, 10 accepted, 4
+  open with what each needs; 4 new. Lesson: a section is matched by its key.
 
 ## Half-done
 
@@ -36,12 +37,12 @@ the Money template, `products/published_site/` and `products/templates/ftm/`.
 
 ## Next
 
-1. Integrator: merge `site-1`; add `qv4-site-build` to the catalogue from
-   `jobs-proposed.toml`; the preview unit when the installer reaches
-   `products/*/units/`; register `products.published_site.check.check` on
-   the board; point `QV4_SITE_OUT` at `<live>/site`.
-2. The comparison session (4.5) reads `<live>/site/v/<stamp>/` beside the
-   frozen folder, figure by figure.
-3. When candidate-returns publishes: electorate money; when links' rules
-   are read: donations made on person pages; financial statements on party
-   pages.
+1. Integrator: merge `site-2`; `qv4-site-build` then builds version 2
+   beside the frozen site; `qv4-site-compare` reads it.
+2. Arthur: the section queue item; the window (2017 or 2019); party
+   boards in or out; the coupled donor names as a class; the real-property
+   text (queue, default no).
+3. Lanes: candidate-returns to publish the Commission's rows where no
+   return is read; house to hold the 2020 and 2023 lists; links to read the
+   expenses registers' names; parties on New Zealand Loyal; comparison to
+   update its four readers and read `sections_added`.
