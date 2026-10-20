@@ -28,9 +28,14 @@ A run, in order:
 
 Politeness (hard limit 7): one request at a time, at least `FLOOR_S`
 between requests (and the gate's own floor, whichever is slower), off-peak
-only unless `--anytime`, nothing fetched twice. A 403, 429, 5xx or a
-challenge page is a failed read (hard limit 6): logged, and the run STOPS.
-Three transport failures in a row stop it too. A gate refusal is never caught.
+only unless `--anytime`, nothing fetched twice. A 403, 429 or a challenge
+page (the gate's verdict) is a block (hard limit 6): logged, and the run
+STOPS. A 500, 502, 503 or 504 with no challenge on the page is the server's
+own error: one failed read set aside with its status, then the run rests
+`REST_S` and goes on, and that case waits for the next night. Three failed
+reads in a row (server errors or transport failures) stop it too. A run that
+stops early after landing something exits green with a "stopped early" line
+and its counts; red only when nothing landed. A gate refusal is never caught.
 
     python -m registers.real_estate_authority.capture [--budget-s N] [--max-items N] [--list-only] [--anytime]
 """
@@ -57,6 +62,8 @@ AT_RISK_BODY = "Complaints Assessment Committee Hearing"
 FLOOR_S = 5.0
 OFF_PEAK = (22, 6)
 STOP_AFTER_FAILURES = 3
+SERVER_ERRORS = (500, 502, 503, 504)   # the server's own error, unless the page is a challenge
+REST_S = 60.0                         # the gap after a failed read, before the next request
 DEFAULT_BUDGET_S = 16200
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -213,6 +220,7 @@ class Run:
         self.budget_s, self.max_items, self.anytime, self.log = budget_s, max_items, anytime, log
         self.started = self.clock()
         self.failures = 0
+        self.tried = set()
         self.counts = {"requests": 0, "listings": 0, "listed": 0, "cases": 0, "landed": 0, "already_held": 0,
                        "set_aside": 0}
         self.stopped = ""
@@ -231,10 +239,12 @@ class Run:
         self.counts["set_aside"] += 1
 
     def get(self, url: str):
-        """One gated, paced request: the Fetched, or None after a transport
-        failure (a catch-log line). Raises Stop on a block, a challenge or
-        three failures in a row; a gate refusal is never caught."""
-        self.pacer.wait(HOST, FLOOR_S)
+        """One gated, paced request: the Fetched, or None after a failed read
+        (a transport failure, or a server error with no challenge on the page),
+        set aside with its reason, the next request resting `REST_S`. Raises
+        Stop on a block, a challenge or three failed reads in a row; a gate
+        refusal is never caught."""
+        self.pacer.wait(HOST, REST_S if self.failures else FLOOR_S)
         self.counts["requests"] += 1
         try:
             kw = {"pacer": self.gate_pacer} if self.gate_pacer is not None else {}
@@ -242,11 +252,9 @@ class Run:
         except fg.Refused:
             raise
         except Exception as exc:  # noqa: BLE001
-            self.failures += 1
-            self.aside(url, "fetch", f"transport: {type(exc).__name__}: {str(exc)[:200]}")
-            if self.failures >= STOP_AFTER_FAILURES:
-                raise Stop(f"{self.failures} transport failures in a row; the host may be in trouble")
-            return None
+            return self.failed(url, f"transport: {type(exc).__name__}: {str(exc)[:200]}")
+        if f.status in SERVER_ERRORS and not fg.looks_challenged(200, f.body):
+            return self.failed(url, f"HTTP {f.status}: the server's own error; set aside, the run rests and goes on")
         self.failures = 0
         if f.blocked:
             self.aside(url, "fetch", f.blocked)
@@ -258,6 +266,13 @@ class Run:
             self.aside(url, "fetch", why)
             raise Stop(why)
         return f
+
+    def failed(self, url, why):
+        self.failures += 1
+        self.aside(url, "fetch", why)
+        if self.failures >= STOP_AFTER_FAILURES:
+            raise Stop(f"{self.failures} failed reads in a row; the host may be in trouble")
+        return None
 
     def land(self, f, kind):
         return self.land_fn(f.body, name=f.url, source=SOURCE, name_kind="url",
@@ -271,7 +286,7 @@ class Run:
             url = listing_url(year, page)
             f = self.get(url)
             if f is None or f.status != 200:
-                self.aside(f"{year}/{page}", "listing", f"HTTP {getattr(f, 'status', 'none')}")
+                self.aside(f"{year}/{page}", "listing", "a failed read" if f is None else f"HTTP {f.status}")
                 return
             try:
                 num_found, pages, rows = parse_listing(f.body)
@@ -323,12 +338,14 @@ class Run:
     def fetch_pending(self):
         done = 0
         while done < self.max_items and self.time_left():
-            batch = self.t.pending(min(100, self.max_items - done))
+            # a case tried this run and not held (a failed read) waits for the next night: nothing asked twice
+            batch = [c for c in self.t.pending(min(100, self.max_items - done) + len(self.tried)) if c not in self.tried]
             if not batch:
                 break
             for case_id in batch:
                 if done >= self.max_items or not self.time_left():
                     return
+                self.tried.add(case_id)
                 self.capture_case(case_id)
                 done += 1
 
@@ -343,6 +360,19 @@ class Run:
         except Stop as exc:
             self.stopped = f"stopped: {exc}"
         return {**self.counts, "stopped": self.stopped}
+
+
+def outcome(out: dict):
+    """(ok, the last words of the run's line). A run that stopped early (a
+    block, a challenge, a host in trouble) after landing something is green
+    with a "stopped early" line: a polite stop is not a failure. Red only
+    when it stopped with nothing landed."""
+    stopped = out["stopped"]
+    if not stopped.startswith("stopped:"):
+        return True, stopped or "done"
+    if out["listings"] or out["cases"] or out["landed"]:
+        return True, "stopped early: " + stopped[len("stopped:"):].strip()
+    return False, stopped + "; nothing landed"
 
 
 def landing(conn):
@@ -374,9 +404,9 @@ def main(argv=None) -> int:
             return 0
         out = Run(t, land_fn=landing(conn), budget_s=a.budget_s, max_items=a.max_items,
                   anytime=a.anytime).run(dt.date.today(), list_only=a.list_only)
-    ok = not out["stopped"].startswith("stopped:")
+    ok, last = outcome(out)
     detail = (f"{out['listings']} listing pages, {out['listed']} cases listed, {out['cases']} cases held, "
-              f"{out['landed']} PDFs landed, {out['set_aside']} set aside; {out['stopped'] or 'done'}")
+              f"{out['landed']} PDFs landed, {out['set_aside']} set aside; {last}")
     print(f"{SOURCE}: {detail}")
     jobrun.record(JOB, ok, detail, started, out)
     return 0 if ok else 1
