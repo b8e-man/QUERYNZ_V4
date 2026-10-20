@@ -20,7 +20,7 @@ ntfy address (test alarm 18 October).
   gazette 1 to 3 (207,133 notices; celebrants, prohibitions,
   liquidations, 1.48 M company notices, 65,299 bankruptcies, 3,155
   appointments, joined to the companies register), house (1,611
-  candidacies), companies (1.92 M entities, 1.19 M directors, 1.58 M
+  candidacies; `house-2` the comparison's six cards), companies (1.92 M entities, 1.19 M directors, 1.58 M
   shareholdings), expenses and MPs' interests, societies (53,271;
   133,080 officers), candidate returns (372 totals, 175 donors; 713
   scans wait, ruling 62), the charities capture (first full copy
@@ -36,19 +36,20 @@ ntfy address (test alarm 18 October).
 
 ## Running (headless, from the integrator)
 
-- `review` (Fable, `links/`): track C, scored on the test pairs; verdicts
-  recorded, not applied.
-- `house-2` (Opus): the comparison's five house cards. `recruitment`
-  (Opus): template 08, step 5.2. `site-2` raised, integrating. Next: the
-  charities builds after tonight's copy.
+- `report-2` (Fable): the shape's cards from the first template.
+  `parties-2` (Opus): labels and renames. Raised, integrating: `review`
+  (track C). Next: `agriculture` (template 04), `comparison-2` (its
+  readers for template v2), the charities builds after tonight's copy.
 
 ## Half-done
 
 - 1.4: the positive half waits for the next declaration. Step 2:
   `qv4-questions` held (ruling 22); node1 setup carded (ruling 57).
 - 4.5 built (`comparison-1`): 43,062 differences on day one, every one
-  carded, 23,067 under cards saying the new side is short; `qv4-site-compare`
+  carded; 30,447 after `site-2` (template v2: every frozen section,
+  electorate money, statements) and `party-returns-5`; `qv4-site-compare`
   daily 08:45. Ahead: seven clean days, checkpoint, export test, the
   switch after 7 November on Arthur's word.
-- 5.1 built (`report-1`): the subject-report shape on 10.0.0.2:8440, the
-  done-when green on the real tables; 5.2's templates next, recruitment first.
+- 5.1 built (`report-1`): the subject-report shape on 10.0.0.2:8440.
+  5.2: template 08 recruitment built and checkpointed (`recruitment-1`,
+  23 views, 13 flags, 12 real subjects); agriculture next.

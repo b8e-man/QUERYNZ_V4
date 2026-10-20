@@ -113,3 +113,18 @@ def test_a_second_build_compares_against_the_first(built, monkeypatch):
     ok, stamp, lines = B.build("2026-10-20T0620", out, stamp="2026-10-20T0902", listings_folder=os.path.join(os.path.dirname(out), "listings"),
                                log=lambda s: None, allow_drop=True)
     assert ok
+
+
+def test_the_statements_gate_recounts_the_lane_by_sql(built):
+    out, vdir = built
+    ctx = {"conn": X.NoConn(), "years": list(range(2017, 2027))}
+    ok, line = gates.statements(vdir, ctx)
+    assert ok and "1 parties' statements" in line, line
+    rel = paths.path("subject", "party", "ACT New Zealand")
+    plant(vdir, rel, lambda o: o["financials"].pop())
+    ok, line = gates.statements(vdir, ctx)
+    assert not ok and "page lists 1 statement(s)" in line, line
+    plant(vdir, rel, lambda o: o["financials"].append({"filed_year": 2025, "figures": {"income": {"amount": 1.0}}}))
+    ok, line = gates.statements(vdir, ctx)
+    assert not ok and "income" in line
+    assert not gates.statements(vdir, {"conn": None, "years": [2017]})[0]

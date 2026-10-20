@@ -146,40 +146,12 @@ nine candidate-made copies (status file).
 
 ## site
 
-Session 1 merged (`docs/merges/site-1`). Session 2 running (Fable,
-launched headless 20 October 14:45) on the comparison's eighteen site cards:
-
-```text
-You are a build session for QueryNZV4, running as Fable on node2, in the
-working copy the launcher made for you. Read docs/PLAN.md, then
-docs/plan/step-4.md (4.4 and 4.5), docs/status.md, docs/status/site.md and
-docs/status/comparison.md, products/published_site/spec.md,
-products/templates/ftm/README.md, checks/README.md (read only; the
-comparison's day record is under
-/home/user/querynzv4-work/live/checks/comparison/), and the eighteen cards
-owned by site that the comparison session opened on 20 October
-(session: comparison; "Owner: site"), with the queue item
-which-frozen-sections-belong-in-the-follow-the-money-template (default:
-all sections; recommendation: money sections stay, person-page sections
-go to step 5). Build the shape's second tranche in
-products/published_site/ and products/templates/ftm/: the frozen sections
-the template does not carry, under the queue's default (every money
-section; the person-page sections too until Arthur rules, marked in the
-template as the ones the queue would move); financial statements on the
-party page; electorate money from pub.candidate_return_totals and
-pub.candidate_return_donors; list-only candidacies on the person page;
-the donor picker and the display-name and key choices each settled with a
-line in the template saying which side's rule it takes and why; and for
-each card either a close with the figures that fell in a rebuild measured
-against the frozen version (python -m checks.comparison run reads both
-sides; run it, never edit checks/) or a line saying what it still needs.
-No deploy step, no deploy token, never 8300 or 8301, never the frozen
-publisher; no home address; a suppressed name suppressed, the money
-stays. Build in small tranches, each with a gate that can fail on the
-real published tables. Edit nothing outside your two folders; push your
-branch and raise site-2. Finish by telling Arthur how many of today's
-differences fell, by cause, what is carded and what waits on him.
-```
+Sessions 1 and 2 merged (`docs/merges/site-1`, `-2`): the shape and the
+template at version 2 (every frozen section under the queue's default,
+electorate money, statements, the interests register on the person page);
+`qv4-site-build` 08:00, `qv4-site-compare` 08:45. Session 3 when the
+comparison names a cause that is the shape's, or when Arthur rules the
+section, window or party-board questions.
 
 ## charities
 
@@ -270,32 +242,10 @@ Commission about reading its results site (card: three by-elections and
 two 2020 pages not held). Mid-term changes come from the Gazette lane
 (card). No session 2 now.
 
-Session 2, when a slot frees (Opus), on the comparison's five house cards:
-
-```text
-You are a build session for QueryNZV4, running as Opus on node2, in the
-working copy the launcher made for you. Read docs/PLAN.md, then
-docs/plan/step-4.md (4.1 and 4.5), docs/status.md, docs/status/house.md
-and docs/status/comparison.md, registers/house/spec.md, the lane contract
-and the row contract, and the cards owned by house that the comparison
-session opened on 20 October (session: comparison; "Owner: house"):
-candidacies-the-frozen-site-shows-and-the-house-lane-lacks,
-the-house-lane-has-no-result-for-a-race-the-frozen-site-shows-won,
-an-unregistered-party-label-is-not-on-the-rebuilt-candidacy,
-a-candidate-s-given-name-differs-between-the-return-summary-and-the-results,
-the-rebuilt-site-splits-one-candidate-across-two-name-forms,
-the-rebuilt-pages-carry-vote-counts-the-frozen-site-never-read. Build
-the lane's second tranche in registers/house/: each card either closed
-with its figure measured on the real published tables, or left open with
-a line saying why the frozen side is wrong and what the card still needs.
-Documents only from what the old estate holds or the official results
-already captured; fetch nothing new without the four questions in your
-status file. Every row keeps its stable key and citation; the catch log
-reconciles; the outside check stays green. Work in your scratch schema;
-edit nothing outside registers/house/; push your branch and raise
-house-2. Finish by telling Arthur which cards closed, what the comparison
-should see fall, and what waits on him.
-```
+Session 2 merged (`docs/merges/house-2`): the comparison's six house cards,
+three closed, three open with what each needs (the two 2020 pages the
+old jobs alone may fetch until the switch; the Stats NZ key). Session 3
+when a comparison card or Arthur's key calls for it.
 
 ## companies
 
@@ -441,9 +391,12 @@ figures, what is carded and what waits on him.
 Merged (`docs/merges/report-1`): the subject-report shape in
 `products/report/`, unit `qv4-report` on 10.0.0.2:8440. Next, step 5.2 in
 the plan's order, each template its own session once the one before is
-merged: `bin/start-session recruitment products/templates/08-recruitment`
-with the step 5 template brief (`docs/plan/step-5.md`), then agriculture
-(04), banking (03), legal (02). Cards for the links session (same-name
+merged: recruitment (08) merged (`docs/merges/recruitment-1`: 23 views, 13
+flags, limits.md, 12 real subjects checkpointed; eight cards for the
+shape, taken by session `report-2`); agriculture (04) next, its folder on
+main, then banking (03), legal (02). The template brief: the recruitment
+one in `docs/merges/recruitment-1`'s session log, with the use case,
+folder and old rule set changed. Cards for the links session (same-name
 donor rows) and a board fix ("report from here").
 
 ## integrator
