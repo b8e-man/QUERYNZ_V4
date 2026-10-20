@@ -21,3 +21,8 @@ counted as "rows only one side has" under two lanes' cards.
 Which side is right: the frozen one; one donor, one page. The template
 settles the page key as the display name, so two keys for one display name
 is the site's fold or path rule, not the lanes'. Owner: site.
+
+Also seen: the twin pages carry two different `name_key` values for one
+spelling, and the key is the links' reading (pub.names), so the fold that
+splits them may be the links' rather than the site's. Owner from here:
+site, with links.

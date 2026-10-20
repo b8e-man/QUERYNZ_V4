@@ -1,0 +1,6 @@
+A comparison reader written for one side's shape reports every figure of the other side as absent, and the count looks like a lane's gap; when a template gains a section, read it on both sides the same day or not at all.
+area: checks, comparison, published-site, templates
+
+Why: four readers in `checks/comparison_figures.py` were written when the rebuilt site had no electorate money; when the template's second version added it, the home page's electorates, the year files and the person page's candidacy money were read on the frozen side only, and 614 differences appeared as "the new side lacks" that were the reader's. The same day the template's `page_sections` listed eleven home sections the readers skipped altogether, so those figures were compared by nobody, and a residence fragment in a published key field was seen only when a section was read for the first time.
+
+How to apply: when a template changes shape, the comparison's tranche is to read the template's own list of sections (`page_sections`, `sections_added`) and write a reader per section that takes both shapes into one figure id; then measure, and expect a few new causes with cards, not a reader that says "not held". Treat "not held" against nothing shown as no difference, and name an aggregate's parts by its path so a wrong total cannot hide behind an unrelated figure on the same page.

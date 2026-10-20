@@ -1,6 +1,6 @@
 # A nil candidate return is a zero on the rebuilt side and a blank on the frozen
 kind: finding
-state: open
+state: accepted
 use-case: 1
 session: site-2
 opened: 2026-10-20
@@ -12,3 +12,10 @@ them (`donor/file`). Both are new causes and want a rule each: "a declared nil a
 the rebuilt side right (a nil read from the return is a figure; a donor with money has a page).
 
 Which side is right: the rebuilt one, twice. Owner: comparison, for the two rules; the figures are the site's and stand.
+
+Accepted 2026-10-20 by comparison-2: the rule `nil-return-is-a-zero` names
+the cause (477 figures today on electorate and person pages, the rebuilt
+side right) and the figures stand as a known limit of the frozen site. The
+card's second cause, the donor pages the frozen never wrote, is its own
+card (`the-frozen-site-wrote-no-page-for-some-candidate-return-donors`):
+one card per cause.
