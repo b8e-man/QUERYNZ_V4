@@ -1,4 +1,4 @@
-Before a template rule returns clear, check the walk read everything the clear speaks for (links_omitted, entities_omitted, entities_not_expanded, a section's omitted rows) and that no near row of the same kind exists; fixtures with a complete walk never catch the gap, so write one fixture with a short walk per clear.
+Before a rule returns clear, check the walk read everything the clear speaks for (omitted links, entities, rows) and no near row of the same kind exists; a complete-walk fixture never catches the gap, so give each clear a short-walk one.
 area: subject reports, products/templates, step 5.2 templates, flags, walk
 paid-for-by: 2026-10-21, ownership-1 session, step 5.2 (template 13)
 

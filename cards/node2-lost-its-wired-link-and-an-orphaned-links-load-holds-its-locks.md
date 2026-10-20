@@ -1,6 +1,7 @@
 # node2 lost its wired link, and an orphaned links load holds the links locks
 kind: blocker
-state: open
+state: closed
+closed: 2026-10-21
 use-case: estate (step 0 boxes); links (4.2); every product reading pub.links
 session: ownership-1
 opened: 2026-10-21
@@ -21,3 +22,11 @@ node1 (the link was at 10 Mb/s before it dropped). For the integrator:
 terminate that backend, re-run the reload once the link is back, and
 check the VIP unit restored 10.0.0.10. Seen by ownership-1, which read
 through 127.0.0.1 (PGHOSTADDR) with the session reader.
+
+Closed at the merge (integrator, 21 October). The cable was out from 07:50
+to 08:57 while node1 was on the bench; the fix on node2 is the
+NetworkManager drop-in that keeps `enp13s0` configured without a carrier
+(`the-primary-loses-its-own-database-address-when-the-twin-cable-is-out`
+carries the install and what remains for node1). The two orphaned backends
+were ended at 09:13 and the links reloaded 09:00 to 09:25 (2,815,621
+links). The 10 Mb/s question belongs to the carrier card.
