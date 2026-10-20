@@ -44,6 +44,7 @@ STREET = re.compile(r"\b(?:street|st|road|rd|avenue|ave|lane|place|pl|terrace|tc
 CARE_OF = re.compile(r"\b(?:ltd|limited|chartered|accountants?|lawyers?|solicitors?|pwc|bdo|kpmg|deloitte|parliament)\b", re.I)
 #: letters after a name; what follows them in the same cell, before the address, is the address's first line
 POSTNOMINAL = re.compile(r"\b(?:QC|KC|JP|ONZM|CNZM|KNZM|DNZM|GNZM|MNZM|QSO|QSM|OBE|CBE|KBE|DBE)\b(?=\s+[A-Z])")
+NUMBERED_COMPANY = re.compile(r"^(\d[\w.&]*\s+(?:[A-Za-z][\w.&'’-]*\s+){0,4}(?:Limited|Ltd)\b\.?)", re.I)
 LEADING_N = re.compile(r"^\s*(\d{1,3})\.?\s+(?=[A-Za-z])")
 CENT = 0.005
 
@@ -67,12 +68,15 @@ def split(cell: str):
         name, address = split(first)
         return (None, " ".join(cell.split())) if name is None else (name, " ".join(f"{address} {rest}".split()))
     cell = " ".join((cell or "").split()).strip(" ,;")
+    co = NUMBERED_COMPANY.match(cell)
+    if co:                                          # `22 E.A.W Limited - …`: a company whose name opens with a figure
+        return co.group(1), cell[co.end():].strip(" ,;-–")
     m = ADDRESS_START.search(cell)
     head, rest = (cell[:m.start()], cell[m.start():]) if m else (cell, "")
     pn = POSTNOMINAL.search(head) if m else None
     if pn:                                          # `Hon A B QC Rose Retirement Village 59/…`
         head, rest = head[:pn.end()], head[pn.end():] + rest
-    parts = re.split(r"(?<=[,;])", head)
+    parts = re.split(r"(?<=[,;])|(?=\s[-–]\s)", head)     # `Name - Deloitte`: a dash between spaces parts them too
     for i in range(len(parts)):                     # `Name, Main Road, Town`: no figure, still a street
         if i and CARE_OF.search(parts[i]):
             head, rest = "".join(parts[:i]), "".join(parts[i:]) + (" " + rest if rest else "")

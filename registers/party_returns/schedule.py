@@ -261,7 +261,7 @@ def _stacked(lines, page):
     out, pending = [], {"cell": [], "dates": [], "yes_no": ""}
     for line in lines:
         s = line.strip()
-        if not s or _furniture(s):
+        if not s or _furniture(s) or re.fullmatch(r"\d{1,3}\.?", s):     # a bare row number: an empty row of the form
             continue
         yn = re.match(r"^(yes|no)\s+(\S.*)$", s, re.I)          # `No 35000`: the Yes/No and the figure on one line
         if yn and (MONEY_ONLY.match(yn.group(2)) or whole(yn.group(2)) is not None):
@@ -306,6 +306,7 @@ def _inline(lines, page):
     down the columns), and text left after the last figure. A bare row
     number is an empty row of the form."""
     out, pending = [], []
+    closers = [s for l in lines if (s := l.strip()) and not _furniture(s) and (c := _closer(s)) and c[1]]
     for line in lines:
         s = line.strip()
         if not s or _furniture(s) or re.fullmatch(r"\d{1,3}\.?", s):
@@ -329,8 +330,8 @@ def _inline(lines, page):
             n, text = int(m.group(1)), text[m.end():]
         waiting = [p for p in pending if _cell_words(p)]
         numbers = [int(m.group(1)) for p in waiting if (m := re.match(r"^(\d{1,3})\.?\s+[A-Za-z]", p))]
-        if (_cell_words(text) and waiting) or any(b == a + 1 for a, b in zip(numbers, numbers[1:])):
-            return None
+        if len(closers) > 1 and ((_cell_words(text) and waiting) or any(b == a + 1 for a, b in zip(numbers, numbers[1:]))):
+            return None                         # with one figure on the page, every line above it is its row's
         cell = [w for w in (_cell_words(p) for p in pending + [text]) if w]
         if not cell:
             return None
@@ -519,6 +520,9 @@ def page_rows(lines: list, page: int, src: str, carry=()):
             body.append(l)
             after_total = False
     tail = []
+    figures = [l for l in body if MONEY.search(l) and money(l)]
+    if src != "text" and len(figures) == 1 and any(POINTER.search(l) for l in body):
+        return [], []                           # `1 See attachment for full listing` / `2 $ 2,727,334.14`: no donor here
     if src == "text":
         got, tail = _layout(body, page, carry)
     elif sum(1 for l in body if l.count("|") >= 3 and MONEY.search(l)) >= 1:
