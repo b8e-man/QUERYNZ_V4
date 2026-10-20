@@ -1,4 +1,4 @@
-A presentation rule that judges wording (a word of cause, "owner") reads the report's own words, with every register value masked out first; a rule that guards a hard limit (no home address) reads values too, and recognises its target by shape, never by one token.
+A wording rule (a word of cause, "owner") reads the report's own words with register values masked first; a hard-limit rule (no home address) reads values too and knows its target by shape, never by one token.
 area: subject reports, products/report, presentation rules, templates, checks that refuse
 paid-for-by: 2026-10-20, report session, step 5.1 (report-2), the recruitment checkpoint's two refusals
 
