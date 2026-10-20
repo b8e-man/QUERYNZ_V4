@@ -4,6 +4,7 @@ state: accepted
 use-case: 1
 session: site-2
 opened: 2026-10-20
+closed: 2026-10-20
 
 Where a candidate's return declares nil donations the rebuilt electorate page shows $0.00 with the return cited; the frozen page left the cell
 blank. The comparison's `declared` figure is strict (0 is not None), so each is a difference with no cause rule: 265 today (2020: 153, 2023: 112).
