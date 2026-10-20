@@ -14,7 +14,8 @@ model, so the fast tier runs the same code.
                address to the private schema only, and a person an annulment names
                marked so the published view withholds the name
   company_notices  one per company a removal notice (removals.py), a winding-up
-               application (windingup.py) or a receivership (receiverships.py) names,
+               application (windingup.py), a receivership (receiverships.py) or an
+               overseas company's leaving (overseas.py) names,
                and practitioners one per receiver or administrator named; no address is read
 
 Items in equal items out plus items set aside, three times over: every
@@ -35,8 +36,8 @@ from dataclasses import dataclass, field
 
 from keys.dates import filed_date
 from support import profiles
-from registers.gazette import (appointments, bankruptcies, capture, celebrants, creditors, liquidations, notices, prohibitions,
-                               receiverships, removals, windingup)
+from registers.gazette import (appointments, bankruptcies, capture, celebrants, creditors, liquidations, notices, overseas,
+                               prohibitions, receiverships, removals, windingup)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -58,6 +59,7 @@ COMPANY_READERS = (
     (receiverships, "gazette-receivership", "registers.gazette.receiverships 1", "receivership"),
     (creditors.CreditorsNotice, "gazette-creditors-notice", "registers.gazette.creditors 1", "notice to creditors"),
     (creditors.Administration, "gazette-administration", "registers.gazette.creditors 1", "administration"),
+    (overseas, "gazette-overseas-company-ceasing", "registers.gazette.overseas 1", "overseas company"),
 )
 NOT_READ = "not read"
 

@@ -22,9 +22,10 @@ the liquidator (shareholders, board, court, creditors) and under which section, 
 they were read (signed, or named in the operative sentence). No address, telephone or email is shown or held.
 
 A company notice row opens to its notice: the company as printed, its number where the notice prints one, the kind
-(removal, winding-up application, receivership, notice to creditors, administration) and the notice's own action (an
+(removal, winding-up application, receivership, notice to creditors, administration, overseas company) and the notice's own action (an
 intention to remove, a restoration, an application to put into liquidation, a receiver's appointment or ceasing to
-act, a meeting, a call to prove claims, a dividend), the Act and section, the ground of a removal, who gave notice,
+act, a meeting, a call to prove claims, a dividend, an overseas company ceasing to carry on business in New Zealand or applying
+for removal from the overseas register), the Act and section, the ground of a removal, who gave notice,
 and for a winding-up application the plaintiff by name only, its court and reference. The one date a notice turns on
 is shown with what it dates (`event_basis`: to be heard, objections by, appointed, ceased to act, meeting, claims by,
 dividend); the filing day and the publication day stand beside it; a notice that prints no such day leaves it blank

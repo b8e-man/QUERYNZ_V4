@@ -16,6 +16,7 @@ from registers.gazette import celebrants as K
 from registers.gazette import creditors as CR
 from registers.gazette import check, notices, read
 from registers.gazette import liquidations as LQ
+from registers.gazette import overseas as OV
 from registers.gazette import prohibitions as PR
 from registers.gazette import receiverships as RC
 from registers.gazette import register as RG
@@ -517,6 +518,33 @@ def test_the_check_fails_on_a_ds_or_aw_notice_not_taken_by_its_profile():
     assert [w for w in check.failed(check.figures(rows, company_joined=joined)) if "removal" in w]
 
 
+# --- overseas companies (cb; every name invented) -------------------------------------
+
+def test_an_overseas_company_is_its_title_less_the_branch_and_reads_its_action_number_and_day():
+    r = OV.read("ABLE WIDGETS PTY LTD (New Zealand branch)", "Notice of Intention to Cease to Carry on Business in New "
+                "Zealand Company No.: 1234567 Notice is hereby given, pursuant to section 343(1)(a) of the Companies Act 1993, "
+                "that on 30 June 2021 the above-named company will cease to carry on business in New Zealand. Dated this 1st "
+                "day of May 2021. Example Lawyers, PO Box 1, Auckland.")
+    assert ([(c.name, c.number) for c in r.companies], r.action, r.event_on, r.event_basis, r.statute, r.by_whom) == (
+        [("ABLE WIDGETS PTY LTD", "1234567")], "ceasing to carry on business", "2021-06-30", "ceases",
+        "Companies Act 1993 s 343(1)(a)", "the company")
+    assert OV.name_of('Baker Inc. (the "overseas company")') == "Baker Inc"
+    assert OV.name_of("Cobalt (Australia) Pty Limited (formerly Dune Pty Limited)") == "Cobalt (Australia) Pty Limited"
+    assert OV.name_of("Delta Pty Ltd (ACN 012 345 678)") == "Delta Pty Ltd"
+    assert OV.recognise("cb", "", "") and not OV.recognise("ds", "", "")
+
+
+def test_an_overseas_notice_that_names_no_company_or_no_action_is_a_catch_log_line():
+    r = OV.read("Notice of Intention of Overseas Company Ceasing to Carry on Business in New Zealand", "The company will cease "
+                "to carry on business in New Zealand.")
+    assert r.companies == [] and ("title", "the title is not the company's name") in r.unread
+    r = OV.read("ECHO PTY LTD", "Notice is hereby given that the company has changed its address.")
+    assert r.action is None and r.unread and [c.name for c in r.companies] == ["ECHO PTY LTD"]
+    r = OV.read("FOXTROT LIMITED", "Notice is given that the company intends to be deregistered and removed from the overseas "
+                "register three months from the date of this notice.")
+    assert r.action == "application for removal"
+
+
 # --- bankruptcies (every name and address invented) ----------------------------------
 
 def test_the_older_adjudication_list_reads_people_by_day_and_keeps_every_address_apart():
@@ -794,6 +822,9 @@ def test_each_removal_and_winding_up_case_reads_as_its_comment_says(filled):
         assert c["kind"] == "winding-up application" and c["court"] and c["filed_on"] and c["event_basis"] == "hearing"
         assert c["party"]
     assert cos["2008-aw1889"][0]["party"] is None
+    assert [(c["kind"], c["action"], c["shape"]) for c in cos["2021-cb10"]] == [
+        ("overseas company", "ceasing to carry on business", "notice")]
+    assert len(cos["2017-cb4477"]) > 3 and {(c["action"], c["by_whom"]) for c in cos["2017-cb4477"]} == {("intention to remove", "Registrar")}
     assert any(a["stage"] == "winding-up application" and "2008-aw1889" in a["item"] for a in filled["aside"])
     assert not set(filled["company_notices"][0]) & {"address", "text", "phone", "email"}
     assert [c["action"] for c in cos["2008-ar2467"]] == ["ceased to act"] * 2

@@ -67,7 +67,8 @@ COMPANY = {"removal": ("ds", "gazette-removal-notice", 0.95),
            "winding-up application": ("aw", "gazette-winding-up-application", 0.95),
            "receivership": ("ar", "gazette-receivership", 0.88),
            "notice to creditors": ("md", "gazette-creditors-notice", 0.90),          # measured 93.8%
-           "administration": ("aa", "gazette-administration", 0.88)}                # measured 91.9%
+           "administration": ("aa", "gazette-administration", 0.88),                # measured 91.9%
+           "overseas company": ("cb", "gazette-overseas-company-ceasing", 0.92)}    # measured 95.4% (gazette-4)
 #: every notice in section ba is taken by one of these
 BANKRUPTCY = ("gazette-bankruptcy-list", "gazette-no-asset-procedure-list", "gazette-bankruptcy-notice")
 APPOINTMENT = "gazette-public-appointment"
