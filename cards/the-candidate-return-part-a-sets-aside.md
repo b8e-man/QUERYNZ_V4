@@ -1,25 +1,33 @@
-# Part A is set aside on 20 published candidate returns
+# Part A is set aside on 26 published candidate returns
 kind: finding
 state: open
 use-case: 1
 session: candidate-returns
 opened: 2026-10-20
 
-`donors.py` publishes a return's Part A only when its rows add to the
-page's TOTAL FOR PART A and to the declaration's Part A, and only when the
-cut leaves names with no figure, street word or comma tail. 81 of 94
-text-layer returns with donations publish (175 donor rows; the form's
-example row dropped on 336). Stage `part-a` (the row stands):
+`donors.py` (text layer) and `pixels.py` (the page reader's stored
+readings) publish a return's Part A only when its rows add to the page's
+`TOTAL FOR PART A` and to the declaration's Part A, and only when the cut
+leaves names with no figure, street word or comma tail. Measured on 21
+October (candidate-returns-2) on all 1,105 returns: 221 donor rows on 100
+returns (88 typed, 12 from pixels). Stage `part-a` (the row stands), 26:
 
-- 9: no rows found against a declared Part A: candidate-made copies of
-  the form (Word, Excel) with no form table, and no `TOTAL FOR PART A`.
-  Their tables need their own look (`replay shape <hash> 2`).
-- 6: Part A is on image pages; not read from pixels yet (after the
-  page-reading card).
-- 2: the table's columns are not where its header says.
-- 2: the cut cannot vouch for a name (a street word, no name before the
-  address): set aside, which is the safe outcome; look at the cells'
-  shape before loosening anything.
-- 1: the rows add short, and later pages are images (a continuation).
+- 15 scans whose stored reading of the Part A page does not pair: 9 put
+  rows among the column headings, 4 give a figure with no cell (read
+  column by column), 2 leave a cell with no figure or a cell and figure on
+  one line after waiting lines. Refused by design: a shifted name still
+  adds up. They want a cell-scale re-read, not a looser parser.
+- 4 scans with nothing to reconcile, or rows short of the total
+  (`02e7fb6587a3`: rows run on to a page the reader did not join; `1348a1ec2972`:
+  the declaration says 13,750, the Part A page 5,400).
+- 3 with no stored reading of the Part A pages: in `replay rereads`.
+- 6 typed: 3 cells the cut cannot vouch for (`405025782059`,
+  `46b9dbe30bcf`, `8cc3c5beb63e`; set aside is the safe outcome), 1 row
+  with no donor (`5aa66f7c54b1`), 2 tables whose columns are not where the
+  header says (`16f8069f7c7f`, `98161ad95f6d`, the latter now set aside
+  whole as a scanner layer).
 
-Part D (overseas donors) is not read.
+Closed from the first list: the 8 candidate copies without the part's
+heading are known by their printed total (7 publish, 26 rows); the 6
+scans' Part A is read from pixels where it pairs. Part D is declared on one
+return ($140) and no return read declares a loan, so neither has a reader.

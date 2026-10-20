@@ -5,7 +5,10 @@ beside them (landed by hash; they are small). Each return is found in the
 old folder by the old folder's manifests and its hash checked on landing;
 one the manifests misname is found by hashing every in-window file; one
 found nowhere fails naming the hash, so the session can ask for a capture.
-No model is called; stored page readings are replayed.
+No model is called; stored page readings are replayed, except for a return
+the list names on a `key: empty-store <sha256>` line, which is read as if
+the store held nothing for it: a case that must stay set aside for a
+re-read cannot be moved by a job that later reads it.
 
 Every module fills one shared scratch schema, so this lane's tables there
 carry its name (`candidate_returns_files`, …; `load.table`).
@@ -36,6 +39,7 @@ def fill(conn, schema: str, items: list) -> int:
     load.create_tables(conn, schema, shared=True)
     load.wipe(conn, schema, shared=True)
     shas = [i.split()[0] for i in items if i.strip() and not i.startswith("key:")]
+    hidden = {i.split()[2] for i in items if i.startswith("key:") and i.split()[1:2] == ["empty-store"]}
     manifest, everything = capture.manifest_index(), None
     landed = {}
     for sha in shas:
@@ -47,7 +51,9 @@ def fill(conn, schema: str, items: list) -> int:
             raise LookupError(f"candidate_returns/sample.list names {sha}, which is not among the old folder's "
                               f"in-window returns: ask for a capture")
         landed[sha] = paths
-    b = load.build(landed, load.statements(conn), rd.Store(), read_bytes)
+    store = rd.Store()
+    store.hidden = hidden
+    b = load.build(landed, load.statements(conn), store, read_bytes)
     load.insert(conn, schema, b, shared=True)
     c = load.counts(b)
     if not c["reconciles"]:

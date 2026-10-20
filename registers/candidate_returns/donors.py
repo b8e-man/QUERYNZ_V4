@@ -116,7 +116,7 @@ def split(cell: str):
                 return None, cell
             head, rest = "".join(parts[:i]), "".join(parts[i:]) + (" " + rest if rest else "")
             break
-    name = re.sub(r"[,;]\s*\w{1,2}\W*$", "", head.strip()).strip(" ,;:-–(")
+    name = re.sub(r"[,;]\s*\w{1,2}\W*$", "", head.strip()).strip(" ,;:-–($")
     if len(R.name_key(name)) < 3:
         return None, cell
     return name, rest.strip(" ,;")
@@ -143,7 +143,7 @@ def _region(text: str):
     lines = (text or "").splitlines()
     head = next((i for i, l in enumerate(lines) if HEADING.search(l)), None)
     foot = next((i for i, l in enumerate(lines) if FOOTER.match(l)), None)
-    if head is None and foot is None:
+    if head is None and foot is None and not any(TOTAL.search(l) for l in lines):
         return None
     printed = None
     for l in lines:
@@ -217,7 +217,8 @@ def _records(lines: list, cols, page: int) -> tuple:
 def read(texts: dict, declared) -> Part:
     out = Part(declared=declared)
     found = []
-    pages = [p for p in sorted(texts) if HEADING.search(texts[p] or "") or any(FOOTER.match(l) for l in (texts[p] or "").splitlines())]
+    pages = [p for p in sorted(texts) if HEADING.search(texts[p] or "") or TOTAL.search(texts[p] or "")
+             or any(FOOTER.match(l) for l in (texts[p] or "").splitlines())]
     if not pages:
         if declared:
             out.problems.append("no Part A page carries a text layer")

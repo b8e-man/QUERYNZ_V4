@@ -884,7 +884,8 @@ def filled():
                                        f"property IS NOT NULL AS property, registration IS NOT NULL AS registration "
                                        f"FROM {schema}_private.gazette_possession_details"),
                "bankruptcy_private": q(f"SELECT key, address IS NOT NULL AS a, formerly IS NOT NULL AS f "
-                                       f"FROM {schema}_private.gazette_bankruptcy_addresses")}
+                                       f"FROM {schema}_private.gazette_bankruptcy_addresses"),
+               "uncut": q(f"SELECT key, col FROM {schema}_private.gazette_uncut")}
 
 
 def test_every_listed_notice_is_held_once_and_the_second_capture_is_a_catch_log_line(filled):
@@ -1133,3 +1134,80 @@ def test_each_ot_case_reads_as_its_comment_says_and_people_are_initials_only(fil
     assert notice["2026-ot4909"]["status"] == "read, part set aside" and rows["2026-ot4909"]
     assert rows["2026-ot5669"][0]["kind"] == "transfer out" and rows["2026-ot5669"][0]["ground"]
     assert rows["2008-ot6435"][0]["kind"] == "deed of company arrangement"
+
+
+# --- published text cut before any property it names (every name, number and address invented) -----------
+
+def test_a_property_is_cut_from_the_text_and_a_highway_a_date_or_a_company_s_name_is_not():
+    from registers.gazette import cut
+    assert cut.public("Land Taken for Road at 12 Sample Street, Exampleton") == "Land Taken for Road"
+    assert cut.public("Land Acquired, 12, 14 and 16 SAMPLE ROAD, Exampleton") == "Land Acquired"
+    assert cut.public("Notice of Entry into Possession of the Property situated at 2/14A Sample Avenue") == \
+        "Notice of Entry into Possession of the Property"
+    assert cut.public("Land Taken in Lot 2 DP 12345, Exampleton") == "Land Taken in"
+    assert cut.public("Declaring Land at 7 Sample, Exampleton to be Road") == "Declaring Land"
+    assert cut.public("Example Holdings Limited, of 3 Sample Example") == "Example Holdings Limited"
+    assert cut.public("12 Sample Street") == ""
+    for kept in ("Land Acquired for State Highway 2 Sample Road, Exampleton District",
+                 "12 SAMPLE STREET LIMITED (in liquidation)", "12 Sample Street Holdings (2005) Limited",
+                 "Section 12 of the Companies Act 1993", "Resource Management Act 1991 Sample Road Order",
+                 "Meeting at 10 am", "Notice as at 1 July 2024", "Classification Notice 2023 No AB12"):
+        assert cut.public(kept) == kept and not cut.find(kept), kept
+
+
+def test_every_published_text_is_cut_at_the_read_and_the_uncut_kept_for_the_private_table():
+    export = _possession_export([("2024-ln1", "Land Taken for Road at 12 Sample Street, Exampleton", "Pursuant to section 20."),
+                                 ("2024-ln2", "Land Acquired for State Highway 2 Sample Road", "Pursuant to section 20."),
+                                 ("2012-gn1", "Notice of Entry into Possession of the Property at 2 Sample Avenue, Exampleton",
+                                  PERSON)])
+    res = read.read(export, "0" * 64)
+    title = {n["filed"]["notice"]: n["filed"]["title"] for n in res.notices}
+    assert title == {"2024-ln1": "Land Taken for Road", "2024-ln2": "Land Acquired for State Highway 2 Sample Road",
+                     "2012-gn1": "Notice of Entry into Possession of the Property"}
+    assert {(k, c) for k, c, v in res.uncut} == {("gazette/2024-ln1", "title"), ("gazette/2012-gn1", "title")}
+    assert all("Sample" in v for k, c, v in res.uncut) and res.counts["cut"] == 2
+
+
+def test_a_company_or_a_plaintiff_run_on_into_an_address_is_cut_and_a_list_of_names_too():
+    from registers.gazette import cut
+    res = read.Result(company_notices=[
+        {"key": "gazette/2007-aw1/company/1", "filed": {"notice": "2007-aw1", "company": "EXAMPLE LIMITED at 12 Sample Street",
+                                                        "party": "Ann Example, 3 Sample Road, Exampleton",
+                                                        "people": ["A Example", "B Example of 4 Sample Lane"],
+                                                        "event_on": "2007-01-02"}},
+        {"key": "gazette/2007-ds1/company/1", "filed": {"notice": "2007-ds1", "company": "12 SAMPLE STREET LIMITED"}}])
+    uncut = cut.rows(res)
+    f = res.company_notices[0]["filed"]
+    assert (f["company"], f["party"], f["people"]) == ("EXAMPLE LIMITED", "Ann Example", ["A Example", "B Example"])
+    assert res.company_notices[1]["filed"]["company"] == "12 SAMPLE STREET LIMITED"
+    assert sorted(c for k, c, v in uncut) == ["company", "party", "people"] and f["event_on"] == "2007-01-02"
+
+
+def test_the_check_fails_on_a_published_text_that_names_a_property():
+    rows = _closed_years() + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
+                              ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
+    clean = [("notices", "title", "2016-ln1", "Land Taken for Road"),
+             ("company_notices", "company", "2016-ds1", "12 SAMPLE STREET LIMITED")]
+    assert check.failed(check.figures(rows, texts=clean)) == []
+    bad = check.failed(check.figures(rows, texts=clean + [("notices", "title", "2016-ln2", "Land at 12 Sample Street"),
+                                                          ("company_notices", "party", "2016-aw3", "Ann Example, Lot 2 DP 12345")]))
+    assert any(w.startswith("notices.title: 1 ") and "2016-ln2" in w for w in bad)
+    assert any(w.startswith("company_notices.party: 1 ") and "2016-aw3" in w for w in bad)
+    assert not any("Sample" in w or "12345" in w for w in bad)
+
+
+def test_no_published_text_in_the_sample_names_a_property_and_the_cut_cases_read_as_their_comments_say(filled):
+    from registers.gazette import cut
+    for t in ("notices", "celebrants", "prohibitions", "liquidations", "liquidators", "company_notices", "bankruptcies",
+              "appointments", "possessions"):
+        for r in filled[t]:
+            for col, v in r.items():
+                if col not in cut.SKIP and isinstance(v, (str, list)):
+                    assert not any(cut.find(x) for x in ([v] if isinstance(v, str) else v) if isinstance(x, str)), (t, col, r["notice"])
+    uncut = {(k.split("/")[1], c) for k, c in ((u["key"], u["col"]) for u in filled["uncut"])}
+    title = {n["notice"]: n["title"] for n in filled["notices"]}
+    assert ("2026-ln978", "title") in uncut and title["2026-ln978"]
+    assert ("2013-ds409", "title") in uncut and title["2013-ds409"] == ""
+    assert ("2026-ds85", "company") in uncut and ("2007-aw4110", "party") in uncut
+    assert not {n for n, c in uncut} & {"2025-ln1660", "2026-ds4648"}
+
