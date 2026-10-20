@@ -24,6 +24,8 @@
     {"table": "pub.promoter_people", "licence": "The people named on promoter returns, public records", "attribution": "Electoral Commission", "refresh": "daily"},
     {"table": "pub.party_financial_statements", "licence": "Party financial statements filed under the Electoral Act 1993 s 210K, public records", "attribution": "Electoral Commission", "refresh": "daily"},
     {"table": "pub.party_statement_figures", "licence": "Headline figures from those statements, public records", "attribution": "Electoral Commission", "refresh": "daily"},
+    {"table": "pub.mp_interest_returns", "licence": "The Register of Pecuniary and Other Specified Interests of Members of Parliament, published by the Registrar each year, public", "attribution": "Office of the Registrar of Pecuniary Interests; Parliament", "refresh": "daily"},
+    {"table": "pub.mp_interests", "licence": "The declarations in that register, verbatim; real-property declarations withheld (queue: may-the-interests-register-s-real-property-declarations-be-shown)", "attribution": "Office of the Registrar of Pecuniary Interests; Parliament", "refresh": "daily"},
     {"table": "pub.names", "licence": "The estate's one reading of every filed name (links); no licence of its own", "attribution": "", "refresh": "daily"},
     {"table": "pub.groups", "licence": "Rows gathered as one person by the confirming rules (links); no licence of its own", "attribution": "", "refresh": "daily"},
     {"table": "pub.decisions", "licence": "Remembered rulings on pairs of rows (links); no licence of its own", "attribution": "", "refresh": "daily"}

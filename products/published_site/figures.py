@@ -408,3 +408,55 @@ def statements(tables, idx: PartyIndex, years: list) -> dict:
     for k in out:
         out[k].sort(key=lambda s: (-s["filed_year"], s["ref"]))
     return dict(out)
+
+
+# ── the interests register on a person page (interests-expenses lane) ─────────
+
+POSITION_CATEGORIES = ("directorships", "business-interests", "trusts", "employment")
+PROPERTY_CATEGORY = "real-property"
+
+
+def interests(tables, years: list) -> dict:
+    """{name_key: {"returns": [...], "items": {category: [item]}}} over the
+    register's editions in the window, under the links' shared reading of
+    the member's name on each return (pub.names, register mp_interests). A
+    declaration repeated across editions is one item with first and last
+    seen; a withheld declaration (real property) keeps its count and no
+    text. Nothing here joins a name to anything but its own return."""
+    key_of_return = {}
+    for n in tables.get("pub.names"):
+        if n.get("register") == "mp_interests" and n.get("name_key"):
+            key_of_return[n["key"]] = n["name_key"]
+    out = {}
+    items = {}
+    for r in tables.get("pub.mp_interest_returns"):
+        nk = key_of_return.get(r["key"])
+        y = year_of(r.get("as_at"))
+        if not nk or not y or y not in years:
+            continue
+        p = out.setdefault(nk, {"returns": [], "items": defaultdict(dict)})
+        p["returns"].append({"ref": f"mp_interests:{r['key']}", "as_at": r.get("as_at"), "member_as_printed": r.get("member"), "party_label": r.get("party_label"),
+                             "electorate": r.get("electorate"), "declarations": r.get("declarations"), "document": r.get("document"), "page": r.get("page"), "place": r.get("place")})
+    for d in tables.get("pub.mp_interests"):
+        nk = key_of_return.get(d.get("member_return"))
+        y = year_of(d.get("as_at"))
+        if not nk or nk not in out or not y or y not in years:
+            continue
+        cat = d.get("category") or "other"
+        text = None if d.get("withheld") else (d.get("text") or "").strip()
+        ik = (cat, text if text is not None else f"withheld:{d['key']}")
+        bucket = out[nk]["items"][cat]
+        it = bucket.get(ik)
+        if not it:
+            it = bucket[ik] = {"ref": f"mp_interests:{d['key']}", "category": cat, "heading": d.get("heading"), "text": text, "withheld": bool(d.get("withheld")),
+                               "first_seen": d.get("as_at"), "last_seen": d.get("as_at"), "editions": 0,
+                               "document": d.get("document"), "page": d.get("page"), "place": d.get("place")}
+        it["editions"] += 1
+        if d.get("as_at") and (it["first_seen"] is None or d["as_at"] < it["first_seen"]):
+            it["first_seen"] = d["as_at"]
+        if d.get("as_at") and d["as_at"] >= (it["last_seen"] or ""):
+            it["last_seen"], it["ref"], it["document"], it["page"], it["place"] = d["as_at"], f"mp_interests:{d['key']}", d.get("document"), d.get("page"), d.get("place")
+    for p in out.values():
+        p["returns"].sort(key=lambda r: r["as_at"] or "", reverse=True)
+        p["items"] = {cat: sorted(b.values(), key=lambda i: (i["last_seen"] or "", i["text"] or ""), reverse=True) for cat, b in p["items"].items()}
+    return out

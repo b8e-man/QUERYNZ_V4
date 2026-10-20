@@ -35,6 +35,7 @@ class Context:
         self._contests = None
         self._transfers = None
         self._people_money = None
+        self.interests = F.interests(tables, years)
 
     @property
     def transfers(self) -> list:
@@ -643,11 +644,23 @@ def subject_people(ctx: Context) -> dict:
         if name_key not in people:
             people[name_key] = {"subject": display, "kind": "person", "name_key": name_key, "generated_at": ctx.generated_at,
                                 "name_forms": set(), "seats": [], "candidacies": [], "donations_received": [],
-                                "party_boards": not_held("party board roles", "no lane publishes party boards"),
-                                "donations_made": not_held("donations made", "a person is joined to a donor row only by the links' confirmed rules, which the template does not yet read; namesakes are never joined by name alone"),
-                                "interests": not_held("declared interests", "pub.mp_interests is not in this template yet"),
-                                "expenses": not_held("MPs' and ministers' expenses", "pub.mp_expenses is not in this template yet"),
-                                "basis": "a person as the house lane holds them: seats and candidacies under the shared reading of the name; nothing else is joined here"}
+                                "party_boards": not_held("party board roles", "no lane publishes party boards; the frozen site read them from party websites"),
+                                "donations_made": [], "donations_made_total": 0.0,
+                                "donations_made_basis": "a person is joined to a donor row only by a group the links' two confirming rules built (pub.groups); today no group "
+                                                        "joins a house row to a party-return, candidate-return or declaration row: rule 1 needs a full name with a middle name on "
+                                                        "both rows and rule 2 a shared office, which a candidate or member row never carries; namesakes are never joined by name alone",
+                                "interests": not_held("declared interests", "no return in the Register of Pecuniary Interests reads as this name (the shared reading, pub.names); "
+                                                                            "members only, from the register's editions in the window"),
+                                "positions": [], "properties": [], "interests_extra": [],
+                                "interests_tree": not_held("declared positions anchored to the companies register",
+                                                           "anchoring a declared directorship or business interest to a company needs the links to read the interests register "
+                                                           "against the companies register, which they do not yet; the queue asks whether it belongs in this template"),
+                                "industry_exposure": not_held("industry exposure", "as interests_tree"),
+                                "public_expenses": not_held("MPs' and ministers' expenses", "the links have not read the expenses registers' names (pub.names has no "
+                                                                                              "mp_expenses or minister_expenses rows), so no expense row can be attached under the "
+                                                                                              "shared reading; carded for links; the queue asks whether it belongs in this template"),
+                                "basis": "a person as the house lane holds them: seats and candidacies under the shared reading of the name, the candidate's own returns, and the "
+                                         "member's own returns in the Register of Pecuniary Interests under the same reading; nothing else is joined here"}
         people[name_key]["name_forms"].add(display)
         return people[name_key]
 
@@ -659,6 +672,23 @@ def subject_people(ctx: Context) -> dict:
         p["seats"].append({"election": m.get("election"), "route": m.get("route"), "electorate": m.get("electorate"), "party": ctx.idx.name(k) or m.get("party"),
                            "from": m.get("from_on"), "to_by": m.get("to_by"), "ended_on": m.get("ended_on"), "sitting": not (m.get("to_by") or m.get("ended_on")),
                            "cite": ctx.cite(m.get("document"), m.get("page"), m.get("place"))})
+    for m in ctx.tables.get("pub.members"):
+        if m.get("route") != "list" or m.get("election") not in elections:
+            continue
+        p = P(m.get("name_key"), m.get("display_name") or m.get("name"))
+        if not p:
+            continue
+        k = ctx.idx.key(m.get("party_registered") or m.get("party"))
+        p["candidacies"].append({"election": m.get("election"), "year": F.year_of(elections[m["election"]].get("polled_on")) or 2026,
+                                 "electorate": None, "electorate_name": None, "party": ctx.idx.name(k) or m.get("party"), "party_filed": m.get("party"),
+                                 "list_place": None, "votes": None, "route": "list", "elected": True,
+                                 "elected_basis": "a list seat in the official result (the house lane's seats); the party list itself is not held for this election "
+                                                  "(house card: the-2020-and-2023-party-lists-are-not-held), so the place on it is not shown",
+                                 "declared": not_held("candidate donations", "a list-only candidacy files no electorate return"),
+                                 "expenses": not_held("candidate expenses", "a list-only candidacy files no electorate return"),
+                                 "declared_basis": "none: list only", "expenses_basis": "none: list only", "loans": None, "return_held": False, "return_ref": None,
+                                 "return_cite": None, "itemised_n": 0, "itemised_total": 0.0, "weaker": False,
+                                 "cite": ctx.cite(m.get("document"), m.get("page"), m.get("place"))})
     for c in ctx.tables.get("pub.candidates"):
         if c.get("election") not in elections:
             continue
@@ -666,10 +696,21 @@ def subject_people(ctx: Context) -> dict:
         if not p:
             continue
         k = ctx.idx.key(c.get("party_registered"))
+        if not c.get("electorate"):
+            p["candidacies"].append({"election": c.get("election"), "year": F.year_of(elections[c["election"]].get("polled_on")) or 2026,
+                                     "electorate": None, "electorate_name": None, "party": ctx.idx.name(k) or c.get("party"), "party_filed": c.get("party"),
+                                     "list_place": c.get("list_place"), "votes": None, "route": "list", "elected": None,
+                                     "elected_basis": "on the party list as the Commission published it; no result yet",
+                                     "declared": not_held("candidate donations", "a list-only candidacy files no electorate return"),
+                                     "expenses": not_held("candidate expenses", "a list-only candidacy files no electorate return"),
+                                     "declared_basis": "none: list only", "expenses_basis": "none: list only", "loans": None, "return_held": False, "return_ref": None,
+                                     "return_cite": None, "itemised_n": 0, "itemised_total": 0.0, "weaker": False,
+                                     "cite": ctx.cite(c.get("list_document") or c.get("document"), c.get("page"), c.get("list_place_cite") or c.get("place"))})
+            continue
         money = _money_of(ctx, c)
         p["candidacies"].append({"election": c.get("election"), "year": F.year_of(elections[c["election"]].get("polled_on")) or 2026,
                                  "electorate": c.get("electorate"), "electorate_name": e_names.get(c.get("electorate")), "party": ctx.idx.name(k) or c.get("party"),
-                                 "party_filed": c.get("party"), "list_place": c.get("list_place"), "votes": c.get("votes"),
+                                 "party_filed": c.get("party"), "list_place": c.get("list_place"), "votes": c.get("votes"), "route": "electorate",
                                  "declared": money["declared"], "declared_basis": money["declared_basis"], "expenses": money["expenses"], "expenses_basis": money["expenses_basis"],
                                  "loans": money["loans"], "return_held": money["return_held"], "return_ref": money["return_ref"], "return_cite": money["return_cite"],
                                  "itemised_n": money["itemised_n"], "itemised_total": money["itemised_total"], "weaker": money["weaker"],
@@ -682,10 +723,28 @@ def subject_people(ctx: Context) -> dict:
                                                 "amount": F.money(d.get("amount")), "dates": d.get("dates"), "contributions": d.get("contributions"),
                                                 "read_from": d.get("read_from"), "cite": ctx.cite(d["document"], d.get("page"), d.get("ordinal"))})
     out = {}
-    for p in people.values():
+    for nk, p in people.items():
         p["name_forms"] = sorted(p["name_forms"])
         p["sitting_mp"] = any(s["sitting"] for s in p["seats"])
         p["candidacies"].sort(key=lambda c: (-c["year"], c.get("electorate_name") or ""))
+        reg = ctx.interests.get(nk)
+        if reg:
+            def item(i):
+                return {"ref": i["ref"], "category": i["category"], "heading": i["heading"], "text": i["text"] if not i["withheld"] else None, "withheld": i["withheld"],
+                        "first_seen": i["first_seen"], "last_seen": i["last_seen"], "editions": i["editions"], "tier": "register-asserted",
+                        "cite": ctx.cite(i["document"], i["page"], i["place"])}
+            p["interests"] = {"returns": [dict(r, cite=ctx.cite(r["document"], r["page"], r["place"])) for r in reg["returns"]],
+                              "editions": [r["as_at"] for r in reg["returns"]], "latest": reg["returns"][0]["as_at"] if reg["returns"] else None,
+                              "categories": {cat: len(v) for cat, v in sorted(reg["items"].items())},
+                              "basis": "the member's own returns in the Register of Pecuniary and Other Specified Interests, every edition in the window, under the shared "
+                                       "reading of the printed name; a declaration repeated across editions is one line with first and last seen"}
+            p["positions"] = [item(i) for cat in F.POSITION_CATEGORIES for i in reg["items"].get(cat, [])]
+            p["properties"] = [item(i) for i in reg["items"].get(F.PROPERTY_CATEGORY, [])]
+            p["interests_extra"] = [{"category": cat, "heading": v[0]["heading"], "n": len(v), "rows": [item(i) for i in v]}
+                                    for cat, v in sorted(reg["items"].items()) if cat not in F.POSITION_CATEGORIES and cat != F.PROPERTY_CATEGORY]
+            p["positions_basis"] = "declared company directorships and controlling interests, other business interests, trusts and employment, as declared and unanchored"
+            p["properties_basis"] = ("real-property declarations: the count and the editions, the text withheld (queue: may-the-interests-register-s-real-property-"
+                                     "declarations-be-shown, default no; hard limit 15)")
         p["donations_received"].sort(key=lambda r: (-r["year"], -r["amount"], r["donor"]))
         p["donations_received_total"] = F.money(sum(r["amount"] for r in p["donations_received"]))
         p["donations_received_by_year"] = [{"year": c["year"], "electorate": c.get("electorate_name"), "party_filed": c["party_filed"], "total": c["declared"],

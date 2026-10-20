@@ -30,7 +30,7 @@ ROSTER_VIEWS = {"pub.parties", "pub.party_names", "pub.elections", "pub.electora
                 "pub.promoters", "pub.promoter_expenses", "pub.promoter_people",
                 "pub.party_financial_statements", "pub.party_statement_figures", "pub.disclosure_items"}
 #: the registers whose rows this template names; pub.names and pub.groups are read for these alone
-REGISTERS = ("party_returns", "disclosures", "house", "party_finance")
+REGISTERS = ("party_returns", "disclosures", "house", "party_finance", "mp_interests")
 
 
 def product_connect():
@@ -83,6 +83,10 @@ class Tables:
             return rows(self.conn, f"select * from {view} where year >= %s order by party_key, year, document, ordinal", (w,))
         if view == "pub.party_return_loans":
             return rows(self.conn, f"select * from {view} where year >= %s order by party_key, year, document, ordinal", (w,))
+        if view == "pub.mp_interests":
+            return rows(self.conn, f"select * from {view} where extract(year from as_at) >= %s order by as_at, member_return, key", (w,))
+        if view == "pub.mp_interest_returns":
+            return rows(self.conn, f"select * from {view} where extract(year from as_at) >= %s order by as_at, key", (w,))
         if view == "pub.candidate_return_totals":
             return rows(self.conn, f"select * from {view} where year >= %s order by year, electorate, surname, document", (w,))
         if view == "pub.candidate_return_donors":

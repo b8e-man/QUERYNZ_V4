@@ -13,7 +13,8 @@ def test_a_filed_name_is_a_party_only_by_its_names_or_a_committee_of_it():
     assert pn.of("ACT New Zealand") == (X.A, "party") and pn.of("The ACT Party") == (X.A, "party") and pn.of("NZ National Party") == (X.B, "party")
     assert pn.of("ACT Epsom Electorate Committee") == (X.A, "committee") and pn.of("National Party Botany Electorate") == (X.B, "committee")
     assert pn.of("Big Co Limited") == (None, None) and pn.of("Epsom Electorate Committee") == (None, None)      # no party token: nobody's
-    assert pn.of("ACT National Party Electorate Committee") == (None, None)                                       # two parties' words: ambiguous, nobody's
+    assert pn.of("ACT National Party Electorate Committee") == (None, None)                                       # two parties fit: ambiguous, nobody's
+    assert pn.of("NP National Party Club Rooms Society Inc") == (X.B, "committee") and pn.of("ONE Electorate Committee") == (None, None)
 
 
 def test_the_home_page_carries_the_money_sections_with_their_bases(vdir):

@@ -81,7 +81,7 @@ def test_electorates_hold_candidates_and_results_and_say_money_is_not_held(vdir)
 def test_people_pages_hold_seats_and_candidacies_and_nothing_joined_by_name(vdir):
     p = load(vdir, paths.path("subject", "person", "David SEYMOUR"))
     assert p["sitting_mp"] is True and len(p["seats"]) == 1 and len(p["candidacies"]) == 2
-    assert p["donations_made"]["held"] is False and p["party_boards"]["held"] is False
+    assert p["donations_made"] == [] and p["donations_made_total"] == 0.0 and "no group joins" in p["donations_made_basis"] and p["party_boards"]["held"] is False
     assert os.path.exists(os.path.join(vdir, paths.path("subject", "person", "Pat GONE")))
     assert not os.path.exists(os.path.join(vdir, paths.path("subject", "person", "Bob OLD")))   # 2014 is outside the window
     assert not any(f.startswith("board-member") for f in os.listdir(os.path.join(vdir, "data")) if os.path.isdir(os.path.join(vdir, "data", f)) and f == "board-member")

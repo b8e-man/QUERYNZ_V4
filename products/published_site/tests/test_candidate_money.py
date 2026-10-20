@@ -56,7 +56,7 @@ def test_the_person_page_shows_the_candidacy_s_money_and_the_lines_received(vdir
     assert c23["declared"] == 1200.0 and c23["expenses"] == 500.0 and c23["return_held"] is True and c23["electorate_name"] == "Epsom"
     assert [r["donor"] for r in p["donations_received"]] == ["Big Co Limited", "Local Giver", "ACT Epsom Electorate Committee"] and p["donations_received_total"] == 1200.0
     assert p["donations_received_by_year"][0]["total"] == 1200.0 and p["donations_received_by_year"][0]["itemised_total"] == 1200.0
-    assert p["donations_made"]["held"] is False                                   # still nothing joined by name
+    assert p["donations_made"] == []                                              # still nothing joined by name
 
 
 def test_candidate_donors_fold_only_by_the_shared_reading_of_the_exact_spelling(vdir):

@@ -31,21 +31,22 @@ def _fold_party(s: str) -> str:
 
 class PartyNames:
     """Which party a filed donor name is: the party itself (its registered
-    name, first name, abbreviation or a name the parties lane published) or
-    a committee, branch or club of it (a party word and a committee word).
-    Anything else is nobody's: the row stays under its filed name."""
+    name, first name, abbreviation or a name the parties lane published,
+    folded) or a committee, branch or club of it (every distinctive word of
+    one party's name or abbreviation present, a committee word present, and
+    no other party fitting). Anything else is nobody's: the row stays under
+    its filed name."""
 
     def __init__(self, idx: F.PartyIndex, party_names: list):
         self.exact = {}
-        self.words = defaultdict(set)
+        self.distinct = defaultdict(list)
         for key, p in idx.by_key.items():
             for n in (p.get("name"), p.get("first_name"), p.get("abbreviation")):
                 if n:
                     self.exact.setdefault(_fold_party(n), key)
-            for n in (p.get("name"), p.get("abbreviation")):
-                for w in CM.fold(n or "").split():
-                    if w not in GENERIC and (len(w) >= 4 or w == "act"):
-                        self.words[w].add(key)
+                    words = {w for w in CM.fold(n).split() if w not in GENERIC}
+                    if words and all(len(w) >= 4 or w == "act" for w in words) and words not in self.distinct[key]:
+                        self.distinct[key].append(words)
         for n in party_names:
             if n.get("party") and n.get("name"):
                 self.exact.setdefault(_fold_party(n["name"]), n["party"])
@@ -56,11 +57,10 @@ class PartyNames:
         if f in self.exact:
             return self.exact[f], "party"
         if any(w in f for w in COMMITTEE_WORDS):
-            keys = set()
-            for w in f.split():
-                keys |= self.words.get(w, set())
-            if len(keys) == 1:
-                return next(iter(keys)), "committee"
+            fw = set(f.split())
+            hits = {key for key, sets in self.distinct.items() if any(ws <= fw for ws in sets)}
+            if len(hits) == 1:
+                return next(iter(hits)), "committee"
         return None, None
 
 
@@ -228,7 +228,7 @@ def race_public(ctx) -> list:
 
 
 def public_money(ctx) -> dict:
-    by_year = {}
+    by_year, parties = {}, set()
     for b in ctx.tables.get("pub.broadcasting_allocations"):
         k = ctx.idx.key(b.get("party"))
         if not k or not b.get("final") or b.get("year") not in ctx.years:
@@ -238,11 +238,12 @@ def public_money(ctx) -> dict:
         if b.get("eligible") and amt > 0:
             y["allocated"] = F.money(y["allocated"] + amt)
             y["parties"] += 1
+            parties.add(k)
             y["spent"] = F.money(y["spent"] + float(ctx.series[k].spent_by_year.get(b["year"], 0) if k in ctx.series else 0))
         else:
             y["allocated_nothing"] += 1
     return {"allocated": F.money(sum(v["allocated"] for v in by_year.values())), "spent": F.money(sum(v["spent"] for v in by_year.values())),
-            "parties": sum(v["parties"] for v in by_year.values()), "allocated_nothing": sum(v["allocated_nothing"] for v in by_year.values()),
+            "parties": len(parties), "party_years": sum(v["parties"] for v in by_year.values()), "allocated_nothing": sum(v["allocated_nothing"] for v in by_year.values()),
             "by_year": dict(sorted(by_year.items())),
             "basis": "the Commission's final broadcasting allocation decision for each election year in the window; spent is the party's expense return's figure"}
 
