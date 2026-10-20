@@ -26,7 +26,11 @@ aside whole at stage `declaration`. A published return then has its Part A
 read from its text-layer pages (`donors.py`): published whole when the rows
 add to the page's own total and the declaration's Part A, otherwise set
 aside whole beside the row (stage `part-a`, which is not a return's stage:
-the row stands). Part A on image pages is not read yet (stage `part-a`). The candidate, year, electorate and
+the row stands). A scanned return's Part A is read from the stored readings of
+the pages after its declaration (`pixels.py`), under the same reconciliation;
+one with none of them stored is set aside naming its pages for a re-read (ruling
+62; `replay rereads`), and a Part A the declaration left blank is never taken for
+nil. The candidate, year, electorate and
 party come from the Commission (`join.py`), never from the file name; the
 page's own words for them are kept as filed beside.
 
@@ -46,7 +50,7 @@ from support import profiles
 from support import reader as rd
 from support.docread import pages
 from support.docread.read import read_document
-from registers.candidate_returns import declaration, donors
+from registers.candidate_returns import declaration, donors, pixels
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -57,6 +61,8 @@ READING_PROFILES = (SCAN, "ec-candidate-expenses-return", TEXT)
 PAGE_MODEL = "glm-ocr"
 PAGE_PROMPT = "OCR"
 PAGES_MAX = 20
+#: the words a Part A set-aside line opens its re-read request with, for `replay rereads`
+REREAD = "Part A is on image pages with no stored page reading: re-read"
 
 
 @dataclass
@@ -152,11 +158,7 @@ def _part_a(out: Result, data: bytes, texts: dict, store) -> None:
     if declared is None:
         declared = 0.0 if f.get("donations") == 0 else None
     if out.route != "text":
-        f["donors_check"] = None
-        if declared:
-            out.set_aside.append(("part-a", "Part A is on image pages: not read from pixels yet"))
-        else:
-            f["donors_check"] = "declared-nil"
+        _part_a_pixels(out, texts, store, declared)
         return
     thick = {p: t for p, t in texts.items() if p not in set(pages.thin_pages(texts))}
     part = donors.read(thick, declared)
@@ -170,13 +172,41 @@ def _part_a(out: Result, data: bytes, texts: dict, store) -> None:
         return
     reading = read_document(data, out.document, profile=TEXT, profile_version=profile_version(TEXT), store=store,
                             texts={p: thick[p] for p in sorted({r["page"] for r in part.rows})})
-    by_page = {r.page: r for r in reading.readings}
-    for k, r in enumerate(part.rows, 1):
+    _stamp(out, part.rows, {r.page: r for r in reading.readings})
+
+
+def _stamp(out: Result, rows: list, by_page: dict) -> None:
+    for k, r in enumerate(rows, 1):
         rd_ = by_page[r["page"]]
         out.donors.append({**r, "key": f"{out.document}/A/{k}", "place": f"A/{k}", "ordinal": k, "document": out.document,
                            "return_key": out.row["key"], "reader": f"{rd_.reader}: {rd_.model}", "profile": rd_.profile,
                            "profile_version": int(rd_.profile_version), "read_from": rd_.read_from,
                            "loaded_at": out.row["loaded_at"]})
+
+
+def _part_a_pixels(out: Result, texts: dict, store, declared) -> None:
+    """Part A from the page reader's stored readings of the pages after the declaration (`pixels.py`). A part with
+    none of its pages stored is set aside naming the pages a re-read job would read (`replay rereads`)."""
+    f = out.row["filed"]
+    f["donors_check"] = None
+    if declared == 0.0:
+        f["donors_check"] = "declared-nil"
+        return
+    after = [p for p in sorted(texts) if p > out.row["page"]]
+    stored = {p: r for p in after if (r := stored_page(store, out.document, p)) is not None}
+    carrying = {p: r for p, r in stored.items() if donors.HEADING.search(r.text) or donors.TOTAL.search(r.text)}
+    if not carrying:
+        missing = [p for p in after if p not in stored][:3]
+        why = (f"{REREAD} {out.document} pages {', '.join(map(str, missing))}" if missing
+               else "no stored page reading carries Part A's heading or printed total")
+        out.set_aside.append(("part-a", why))
+        return
+    part = pixels.read({p: r.text for p, r in carrying.items()}, declared)
+    f["donors_check"] = part.check or None
+    if part.problems:
+        out.set_aside.append(("part-a", "; ".join(part.problems)[:1800]))
+        return
+    _stamp(out, part.rows, carrying)
 
 
 def read_return(data: bytes, sha256: str, store: rd.Store = None, loaded_at: str = None) -> Result:
@@ -214,7 +244,7 @@ def read_return(data: bytes, sha256: str, store: rd.Store = None, loaded_at: str
             return out
     if missing:
         kind = "images" if set(missing) <= thin else "images or carry a scanner's own OCR layer without the heading"
-        shown = ", ".join(map(str, missing[:12])) + (" …" if len(missing) > 12 else "")
+        shown = ", ".join(map(str, missing))
         out.set_aside.append(("read", f"no text page carries the declaration; {len(missing)} of {len(texts)} pages are "
                                       f"{kind}, with no stored page reading (pages {shown}): ask for a re-read of {sha256}"))
     else:

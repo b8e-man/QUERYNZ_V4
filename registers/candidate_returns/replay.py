@@ -7,6 +7,7 @@ to a folder of the caller's, never the shared reader store. No database.
     python -m registers.candidate_returns.replay run OUT.json [--store DIR]
     python -m registers.candidate_returns.replay compare BEFORE.json AFTER.json
     python -m registers.candidate_returns.replay shape SHA_PREFIX [PAGE ...]
+    python -m registers.candidate_returns.replay rereads RUN.json
 
 `run` writes one entry per document (its names, placement, status, the
 declared figures, Part A's amounts and pages (never a donor's name), the
@@ -17,6 +18,11 @@ return's pages as the reading sees them (text layer, or the stored page
 reading) with every word that is not the form's own, and every figure that
 is not money, a date or a row number, turned to `x`: so a session can look
 at a page's layout without a name or an address entering it (hard limit 11).
+`rereads` lists, from a run, every return a page reading is owed for (ruling
+62: the page reader is not queued in bulk until the build is done, so the
+queue is this list): stage `read` (no stored reading of the declaration
+page) and stage `part-a` (Part A on image pages with no stored reading),
+each with its hash and pages, one line each, and the count of pages.
 """
 import hashlib
 import json
@@ -118,6 +124,22 @@ def compare(a: dict, b: dict) -> list:
     return out
 
 
+READ_PAGES = re.compile(r"no stored page reading \(pages ([\d, ]+)\): ask for a re-read")
+PART_A_PAGES = re.compile(re.escape(read.REREAD) + r" [0-9a-f]{64} pages ([\d, ]+)")
+
+
+def rereads(d: dict) -> list:
+    """[(sha256, year, stage, [pages])] for every return a page reading is owed for, in hash order."""
+    out = []
+    for sha, v in sorted(d.items()):
+        for stage, why in v["set_aside"]:
+            m = (READ_PAGES if stage == "read" else PART_A_PAGES if stage == "part-a" else None)
+            m = m.search(why) if m else None
+            if m:
+                out.append((sha, v["year"], stage, [int(p) for p in re.findall(r"\d+", m.group(1))]))
+    return out
+
+
 def shape_line(line: str) -> str:
     out, last = [], 0
     for m in KEEP.finditer(line):
@@ -162,6 +184,12 @@ def main(argv=None) -> int:
         a, b = (json.load(open(p, encoding="utf-8")) for p in argv[1:])
         for line in compare(a, b):
             print("  " + line)
+        return 0
+    if argv[:1] == ["rereads"] and len(argv) == 2:
+        got = rereads(json.load(open(argv[1], encoding="utf-8")))
+        for sha, year, stage, pages_ in got:
+            print(f"{sha} {year} {stage} pages {','.join(map(str, pages_))}")
+        print(f"{len(got)} returns, {sum(len(p) for _, _, _, p in got)} pages")
         return 0
     if argv[:1] == ["shape"] and len(argv) >= 2:
         shape(argv[1], [int(p) for p in argv[2:]])

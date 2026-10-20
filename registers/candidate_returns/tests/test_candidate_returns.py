@@ -375,3 +375,67 @@ def test_a_copy_of_the_form_without_its_heading_is_known_by_its_printed_total(mo
     page = page.replace("Example Holdings Limited, Exampleville", "Example Holdings Limited ($2,000 cash) Exampleville")
     part = donors.read({2: "  To add more rows to this table\n" + page}, 9500.0)
     assert part.problems == [] and [r["name"] for r in part.rows] == ["Jane Example", "Example Holdings Limited"]
+
+
+PIXELS_A = """PART A: CANDIDATE DONATIONS OF MORE THAN $1,500
+OTHER THAN ANONYMOUS OR OVERSEAS DONATIONS
+TOTAL FOR PART A $9,500.00
+Donor's name and street address
+Date donation or aggregated donations received dd/mm/yyyy
+Does the donation contain contributions from another person of more than $1,500
+Enter YES or NO
+If YES complete Part B
+Amount of donation or total aggregated donations (including GST) $0.00
+Sample Form Person
+1 Sample Street, Sampletown Sampleshire
+2/06/2020 - 14/07/2020 Yes $5,000.00
+Jane Example, 12 Example Road, Exampletown
+18/8/2020
+No
+$7,000.00
+Example Holdings Limited, PO Box 1, Exampletown
+1/09/2020 No $2,500.00
+PART A
+Page: 2
+"""
+
+
+def _pixels_example(monkeypatch):
+    from registers.candidate_returns import donors
+    monkeypatch.setattr(donors, "EXAMPLE_CELL", donors._fold_hash("Sample Form Person 1 Sample Street, Sampletown Sampleshire"))
+
+
+def test_part_a_from_pixels_drops_the_example_and_reconciles(monkeypatch):
+    from registers.candidate_returns import pixels
+    _pixels_example(monkeypatch)
+    part = pixels.read({2: PIXELS_A}, 9500.0)
+    assert part.problems == [] and part.check == "parts-sum" and part.examples == 1
+    assert [(r["name"], r["amount"], r["yes_no"]) for r in part.rows] == [("Jane Example", 7000.0, "No"),
+                                                                          ("Example Holdings Limited", 2500.0, "No")]
+    assert all("Ex" in r["address"] and not any(ch.isdigit() for ch in r["name"]) for r in part.rows)
+
+
+def test_part_a_from_pixels_read_column_by_column_is_refused(monkeypatch):
+    """The reader listed the names, then the headings, then the figures: pairing them by order is the one fault the
+    total cannot see, so the page is set aside."""
+    from registers.candidate_returns import pixels
+    _pixels_example(monkeypatch)
+    lines = PIXELS_A.splitlines()
+    names = ["Jane Example, 12 Example Road, Exampletown", "Example Holdings Limited, PO Box 1, Exampletown"]
+    body = [l for l in lines if l not in names]
+    body.insert(4, names[0])
+    body.insert(5, names[1])
+    part = pixels.read({2: "\n".join(body)}, 9500.0)
+    assert part.rows == [] and any("among its column headings" in p for p in part.problems)
+    swapped = PIXELS_A.replace("18/8/2020\nNo\n$7,000.00\n", "18/8/2020\n").replace("1/09/2020 No $2,500.00", "Exampleville\nNo\n$7,000.00\n$2,500.00")
+    part = pixels.read({2: swapped}, 9500.0)
+    assert part.rows == [] and part.problems
+
+
+def test_a_part_a_not_read_is_not_a_nil_and_its_pages_are_listed_for_a_re_read():
+    from registers.candidate_returns import replay
+    sha = "e" * 64
+    run = {sha: {"year": 2023, "set_aside": [("part-a", f"{read.REREAD} {sha} pages 2, 3, 4")]},
+           "f" * 64: {"year": 2020, "set_aside": [("read", "no text page carries the declaration; 3 of 3 pages are images, "
+                                                           "with no stored page reading (pages 1, 2, 3): ask for a re-read of x")]}}
+    assert replay.rereads(run) == [(sha, 2023, "part-a", [2, 3, 4]), ("f" * 64, 2020, "read", [1, 2, 3])]
