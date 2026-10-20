@@ -413,9 +413,12 @@ figures, what is carded and what waits on him.
 Merged (`docs/merges/report-1`): the subject-report shape in
 `products/report/`, unit `qv4-report` on 10.0.0.2:8440. Next, step 5.2 in
 the plan's order, each template its own session once the one before is
-merged: `bin/start-session recruitment products/templates/08-recruitment`
-with the step 5 template brief (`docs/plan/step-5.md`), then agriculture
-(04), banking (03), legal (02). Cards for the links session (same-name
+merged: recruitment (08) merged (`docs/merges/recruitment-1`: 23 views, 13
+flags, limits.md, 12 real subjects checkpointed; eight cards for the
+shape, taken by session `report-2`); agriculture (04) next, its folder on
+main, then banking (03), legal (02). The template brief: the recruitment
+one in `docs/merges/recruitment-1`'s session log, with the use case,
+folder and old rule set changed. Cards for the links session (same-name
 donor rows) and a board fix ("report from here").
 
 ## integrator

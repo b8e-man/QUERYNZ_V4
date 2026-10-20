@@ -36,11 +36,10 @@ ntfy address (test alarm 18 October).
 
 ## Running (headless, from the integrator)
 
-- `review` (Fable, `links/`): track C, scored on the test pairs; verdicts
-  recorded, not applied.
-- `house-2` (Opus): the comparison's five house cards. `recruitment`
-  (Opus): template 08, step 5.2. `review` raised, next. Next: the
-  charities builds after tonight's copy.
+- `report-2` (Fable): the shape's cards from the first template.
+  `parties-2` (Opus): labels and renames. Raised, integrating: `review`
+  (track C), `house-2`. Next: `agriculture` (template 04), the charities
+  builds after tonight's copy.
 
 ## Half-done
 
@@ -51,5 +50,6 @@ ntfy address (test alarm 18 October).
   electorate money, statements) and `party-returns-5`; `qv4-site-compare`
   daily 08:45. Ahead: seven clean days, checkpoint, export test, the
   switch after 7 November on Arthur's word.
-- 5.1 built (`report-1`): the subject-report shape on 10.0.0.2:8440, the
-  done-when green on the real tables; 5.2's templates next, recruitment first.
+- 5.1 built (`report-1`): the subject-report shape on 10.0.0.2:8440.
+  5.2: template 08 recruitment built and checkpointed (`recruitment-1`,
+  23 views, 13 flags, 12 real subjects); agriculture next.
