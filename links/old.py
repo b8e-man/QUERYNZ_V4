@@ -12,13 +12,26 @@ The three ledgers (old database `nzbn_canonical`, read-only login):
 |                                   | director identity (corroborated, by an arm)             |               |
 | registers.review_verdicts         | Arthur's `hold` on a corroborated identity              | contested (the brief: the old "hold" is "contested") |
 
-Every row of every version is copied (`copied` is the row as it was,
-`old_id` is `<table>:<id>`). A row that names a pair is mapped; a row that
-names none (abstain, no-match, reject, party-register) says so in
-`mapped_how`. Only the old estate's last word is promoted into
-`links.decisions` as `old-estate:<table>:<id>`: live rows at the current
-weights version (`donor-anchor-2.2`), live folds, live verdicts. A row
-that cannot be mapped is counted and carded, never guessed.
+Every row of every version is copied (`copied` is the row as it is,
+`old_id` is `<table>:<id>`). The ledgers are only ever added to, so each
+build copies the rows the copy does not hold yet (those above its highest
+old id, and any gap below it) and re-reads `withdrawn_at` and
+`withdrawn_reason` on the rows it holds, the one thing the old estate
+changes on a row (card: the links copy the old ledgers once and the check
+counts them live). A row that names a pair is mapped; a row that names
+none (abstain, no-match, reject, party-register) says so in `mapped_how`.
+
+Only the old estate's last word is promoted into `links.decisions` as
+`old-estate:<table>:<id>`: live folds; each donation's latest live anchor,
+whatever its weights version (the old estate re-judges a donation at each
+new version and keeps the older judgment as the record, so the latest
+supersedes it; the latest is the highest id, never a version sorted as
+text, which ranks 2.10 below 2.3); a live hold whose anchors at its
+version are still applied (a hold binds to one version's reading, and a
+new reading puts the card back in the old review). The versions seen are
+recorded in the map's tally, with the version of the old table's latest
+decision (card: the old estate's anchors moved to weights 2.3). A row that
+cannot be mapped is counted and carded, never guessed.
 
 The old row numbers changed nightly, so the map goes by content:
 - an old director record (`public.director_roles.id`) → its name, company
@@ -41,12 +54,13 @@ from keys import names as kn
 import links
 
 OLD_DB = "nzbn_canonical"
-CURRENT_WEIGHTS = "donor-anchor-2.2"
 LEDGERS = {
-    "roster_identity_folds": "SELECT * FROM registers.roster_identity_folds ORDER BY id",
-    "donor_anchors": "SELECT * FROM registers.donor_anchors ORDER BY id",
-    "review_verdicts": "SELECT * FROM registers.review_verdicts ORDER BY id",
+    "roster_identity_folds": "SELECT * FROM registers.roster_identity_folds WHERE id = ANY(%s) ORDER BY id",
+    "donor_anchors": "SELECT * FROM registers.donor_anchors WHERE id = ANY(%s) ORDER BY id",
+    "review_verdicts": "SELECT * FROM registers.review_verdicts WHERE id = ANY(%s) ORDER BY id",
 }
+# what the old estate changes on a row of an append-only ledger: its withdrawal
+LEDGER_STATE = "SELECT id, withdrawn_at, withdrawn_reason FROM registers.{table} ORDER BY id"
 OLD_DIRECTOR_SQL = """
     SELECT coalesce(unique_identifier, id::text), full_name, source_nzbn, appointed_at::text FROM public.director_roles
     WHERE id::text = ANY(%s::text[]) OR unique_identifier = ANY(%s::text[])"""
@@ -63,27 +77,50 @@ def _json(v):
     return json.loads(json.dumps(v, default=str))
 
 
+def ledger_changes(held: dict, theirs: list) -> tuple:
+    """`held`: old id → (withdrawn_at, withdrawn_reason) as the copy holds
+    them; `theirs`: (id, withdrawn_at, withdrawn_reason) from the old table.
+    → (ids to copy, {id: (withdrawn_at, withdrawn_reason)} to re-read, ids
+    held that the old table no longer has)."""
+    missing, changed, seen = [], {}, set()
+    for oid, w_at, w_why in theirs:
+        oid = int(oid)
+        seen.add(oid)
+        now = (_json(w_at), w_why)
+        if oid not in held:
+            missing.append(oid)
+        elif tuple(held[oid]) != now:
+            changed[oid] = now
+    return sorted(missing), changed, sorted(set(held) - seen)
+
+
 def copy_ledgers(old, conn, s: str, log=print) -> dict:
-    """Every row of the three ledgers, exactly as it is, once."""
+    """Bring the copy of the three ledgers level with the old database:
+    every row it does not hold yet, exactly as it is, and the withdrawal
+    re-read on every row it holds."""
     t0 = time.monotonic()
     out = {}
     for table, sql in LEDGERS.items():
+        held = {int(r[0]): (r[1], r[2]) for r in conn.execute(
+            f"""SELECT split_part(old_id, ':', 2), copied->'withdrawn_at', copied->>'withdrawn_reason'
+                FROM {s}.old_decisions WHERE source = %s""", (table,)).fetchall()}
+        missing, changed, gone = ledger_changes(held, old.execute(LEDGER_STATE.format(table=table)).fetchall())
         n = 0
-        with old.cursor(name=f"links_old_{table}") as cur:
-            cur.itersize = 5000
-            cur.execute(sql)
-            cols = None
-            with conn.cursor() as w:
-                for r in cur:
-                    if cols is None:
-                        cols = [d.name for d in cur.description]
+        with conn.cursor() as w:
+            for i in range(0, len(missing), 5000):
+                cur = old.execute(sql, (missing[i:i + 5000],))
+                cols = [d.name for d in cur.description]
+                for r in cur.fetchall():
                     row = dict(zip(cols, r))
                     w.execute(f"""INSERT INTO {s}.old_decisions (old_id, copied, source)
                                   VALUES (%s, %s::jsonb, %s) ON CONFLICT (old_id) DO NOTHING""",
                               (f"{table}:{row['id']}", json.dumps(_json(row)), table))
                     n += 1
-        out[table] = n
-        log(f"links.old: copied {table}: {n} ({time.monotonic() - t0:.0f} s)")
+            w.executemany(f"""UPDATE {s}.old_decisions SET copied = copied || jsonb_build_object('withdrawn_at', %s::jsonb, 'withdrawn_reason', %s::text)
+                              WHERE old_id = %s""",
+                          [(json.dumps(w_at), w_why, f"{table}:{oid}") for oid, (w_at, w_why) in changed.items()])
+        out[table] = {"held": len(held), "copied": n, "withdrawal_re_read": len(changed), "gone_from_the_old_table": len(gone)}
+        log(f"links.old: {table}: {json.dumps(out[table])} ({time.monotonic() - t0:.0f} s)")
     conn.commit()
     return out
 
@@ -182,6 +219,46 @@ def _by_amount(conn, s: str, view: str, refs: list, amount) -> list:
                                        (register, register, refs, amount)).fetchall()]
 
 
+def _id(oid: str) -> int:
+    return int(oid.split(":", 1)[1])
+
+
+def applied_anchors(anchors: list) -> tuple:
+    """The old estate's last word on each donation. `anchors`: (old_id,
+    copied). → ({old_id: None when applied, else why not}, the versions
+    seen). A donation is its stable content key (`source`, `row_key`); the
+    latest is the highest old id among its live judgments (old ids rise
+    with `decided_at`); no version is named here."""
+    latest: dict = {}
+    for oid, c in anchors:
+        if not c.get("withdrawn_at") and c.get("row_key"):
+            k = (c.get("source"), c["row_key"])
+            if k not in latest or _id(oid) > _id(latest[k]):
+                latest[k] = oid
+    by_oid = dict(anchors)
+    out, versions = {}, {}
+    for oid, c in anchors:
+        v = versions.setdefault(c.get("weights_version"), {"rows": 0, "live": 0, "applied": 0})
+        v["rows"] += 1
+        if c.get("withdrawn_at"):
+            out[oid] = "withdrawn"
+            continue
+        v["live"] += 1
+        if not c.get("row_key"):
+            # a ledger version before the content key (1.0, 1.1): which later
+            # judgment re-judged its donation cannot be told, so it is not the word
+            out[oid] = "names no donation key (a ledger version before the content key)"
+            continue
+        top = latest[(c.get("source"), c["row_key"])]
+        if top == oid:
+            out[oid] = None
+            v["applied"] += 1
+        else:
+            out[oid] = f"superseded by {top} (weights {by_oid[top].get('weights_version')})"
+    newest = max(anchors, key=lambda a: _id(a[0]))[1].get("weights_version") if anchors else None
+    return out, {"latest_decision_version": newest, "versions": dict(sorted(versions.items(), key=lambda kv: str(kv[0])))}
+
+
 def map_all(old, conn, s: str, log=print) -> dict:
     """Fill row_a, row_b, verdict and mapped_how on every copied row."""
     t0 = time.monotonic()
@@ -217,6 +294,8 @@ def map_all(old, conn, s: str, log=print) -> dict:
         if c.get("withdrawn_at"):
             how = f"withdrawn in the old estate ({c.get('withdrawn_reason') or 'no reason given'}); not applied. " + how
         updates.append((ra, rb, verdict, how, oid))
+    applied, seen = applied_anchors(anchors)
+    tally["donor_anchors_versions"] = seen
     pair_anchors = [c for _, c in anchors if c.get("band") in ("accept", "corroborated")]
     donmap = donation_map(old, conn, s, pair_anchors)
     for oid, c in anchors:
@@ -236,8 +315,9 @@ def map_all(old, conn, s: str, log=print) -> dict:
         else:
             ra = rb = None
             how = f"donation: {how_d}; other: {how_o}"
-        if c.get("withdrawn_at") or c.get("weights_version") != CURRENT_WEIGHTS:
-            how = ("withdrawn" if c.get("withdrawn_at") else f"superseded (weights {c.get('weights_version')})") + " in the old estate; not applied. " + how
+        if applied[oid]:
+            how = (applied[oid] if applied[oid].startswith(("withdrawn", "superseded")) else f"superseded: {applied[oid]}") \
+                + " in the old estate; not applied. " + how
         updates.append((ra, rb, "same", how, oid))
     # verdicts: hold → contested, on the pair the corroborated anchor at that version named
     anchor_by_pk: dict = {}
@@ -246,18 +326,30 @@ def map_all(old, conn, s: str, log=print) -> dict:
             pk = str((c.get("features") or {}).get("person_key") or "")
             anchor_by_pk.setdefault((pk, c.get("weights_version")), []).append(oid)
     anchor_rows = {u[4]: u for u in updates}
+    latest_verdict: dict = {}
+    for oid, c in verdicts:
+        if not c.get("withdrawn_at"):
+            k = str(c["card_key"])
+            if k not in latest_verdict or _id(oid) > _id(latest_verdict[k]):
+                latest_verdict[k] = oid
     for oid, c in verdicts:
         cands = anchor_by_pk.get((str(c["card_key"]), c.get("weights_version")), [])
-        mapped = [anchor_rows[x] for x in cands if anchor_rows.get(x) and anchor_rows[x][0]]
+        live = [x for x in cands if applied.get(x) is None]
+        mapped = [anchor_rows[x] for x in live if anchor_rows.get(x) and anchor_rows[x][0]]
         if mapped:
             ra, rb = mapped[0][0], mapped[0][1]
-            how = f"the corroborated anchor this hold read ({cands[0]}); {len(mapped)} of {len(cands)} anchors on the identity map"
+            how = f"the corroborated anchor this hold read ({live[0]}); {len(mapped)} of {len(live)} applied anchors on the identity map"
         else:
             ra = rb = None
-            how = (f"the identity's {len(cands)} anchors at {c.get('weights_version')} map to no pair" if cands
+            how = (f"the identity's {len(live)} applied anchors at {c.get('weights_version')} map to no pair" if live
                    else "no corroborated anchor at that version carries this identity key")
-        if c.get("weights_version") != CURRENT_WEIGHTS or c.get("withdrawn_at"):
-            how = "superseded or withdrawn in the old estate; not applied. " + how
+        if c.get("withdrawn_at"):
+            how = "withdrawn in the old estate; not applied. " + how
+        elif latest_verdict.get(str(c["card_key"])) != oid:
+            how = f"superseded by {latest_verdict[str(c['card_key'])]} in the old estate; not applied. " + how
+        elif cands and not live:
+            how = (f"superseded in the old estate: every anchor this hold read at {c.get('weights_version')} "
+                   "was judged again since; not applied. " + how)
         updates.append((ra, rb, "contested", how, oid))
     with conn.cursor() as w:
         w.executemany(f"UPDATE {s}.old_decisions SET row_a = %s, row_b = %s, verdict = %s, mapped_how = %s WHERE old_id = %s", updates)
