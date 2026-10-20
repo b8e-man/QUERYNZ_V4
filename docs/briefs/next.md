@@ -153,7 +153,11 @@ names a cause that is the shape's.
 
 Step 4.1: the Charities Register, built twice (plan: Fable and Opus,
 `charities_a` and `charities_b`, against the same tests) from one
-shared capture. This session is the capture, in `registers/charities/`:
+shared capture. The capture (`charities-capture-1`, merged 20 October)
+completed its first full copy overnight; the two builds, `charities-a`
+(Fable) and `charities-b` (Opus), were launched headless by the integrator
+21 October 09:50 with one brief each (in the integrator's scratch folder).
+The capture brief, for the record:
 the register's own open data feed, verbatim copies by hash with a
 listing, politely; the four questions answered in the status file as it
 goes (ruling 61). Opus. Launched headless by the integrator.
@@ -364,8 +368,10 @@ half), `products/templates/13-ownership/`. Opus. Launched headless by the
 integrator 21 October 08:25 (the brief is in the integrator's scratch
 folder: the shareholdings chain through held registers, each hop dated,
 nominees as holders of record, sanctions and overseas registers named as
-not held). After it, in the plan's order: 7, 5, 6, 11, 12; then step 6. Step 7 is held
-until the end of the plan (ruling 63).
+not held). Raised 21 October. Template 7 (`construction-1`, Opus,
+`products/templates/07-construction/`) launched 21 October 09:50; then, in
+the plan's order, 5, 6, 11, 12; then step 6. Step 7 is held until the end
+of the plan (ruling 63).
 
 ## candidate-returns
 
