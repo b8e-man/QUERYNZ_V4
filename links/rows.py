@@ -56,6 +56,14 @@ SOURCES = (
         SELECT key, donor AS name, 'parties:' || party AS entity_key, make_date(year, 1, 1), make_date(year, 12, 31), NULL, NULL,
                document, false, NULL, NULL, NULL
         FROM pub.party_return_donors WHERE donor IS NOT NULL AND donor <> ''"""),
+    ("candidate_returns", "candidate_return_donors", """
+        SELECT key, donor AS name, 'candidate_returns:' || return_key AS entity_key, make_date(year, 1, 1), make_date(year, 12, 31),
+               year::text AS election, electorate, document, false, NULL, NULL, NULL
+        FROM pub.candidate_return_donors WHERE donor IS NOT NULL AND donor <> ''"""),
+    ("candidate_returns", "candidate_return_totals", """
+        SELECT key, trim(coalesce(given_names, '') || ' ' || coalesce(surname, '')) AS name, NULL, make_date(year, 1, 1), NULL::date,
+               year::text AS election, electorate, document, false, given_names, NULL, surname
+        FROM pub.candidate_return_totals WHERE coalesce(surname, '') <> ''"""),
     ("disclosures", "disclosures", """
         SELECT key, donor_name AS name, 'parties:' || party AS entity_key, coalesce(given_on, received_on), NULL::date, NULL, NULL,
                document, false, NULL, NULL, NULL
@@ -78,7 +86,7 @@ SOURCES = (
         SELECT key, name, NULL, as_at, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
         FROM pub.mp_interest_returns WHERE name IS NOT NULL AND name <> ''"""),
 )
-POLITICIAN_VIEWS = {"candidates", "members", "mp_interest_returns"}
+POLITICIAN_VIEWS = {"candidates", "members", "mp_interest_returns", "candidate_return_totals"}   # the filing candidate is a politician
 
 ADDRESS_SQL = """
     SELECT key, entity_key, started_on, last_file, in_latest, care_of, line_1, line_2, line_3, line_4, postcode

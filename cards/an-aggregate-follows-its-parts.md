@@ -24,3 +24,8 @@ donations and public money, the donor categories every party card. The
 page's other figures still stand in for a party card's window, a donor's
 receivers and a ranking. Today 1,890 (donor 599, pickers 284, electorate
 351, home 151, size-bands 30, subject 71).
+
+site-3 (2026-10-20), main's code against this branch's on the same tables:
+1,890 → 1,920. The 58 twinned donor pages folded into one carry every row,
+so each merged page's totals follow more differing parts; nothing of the
+aggregate's own moved.

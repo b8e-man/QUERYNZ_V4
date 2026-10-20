@@ -25,8 +25,8 @@ The old row numbers changed nightly, so the map goes by content:
   and appointment date → the one `pub.directors` row with that name on that
   company appointed that day;
 - an old donation row → its return's file hash, donor, amount and year →
-  the one `pub.party_return_donors` or `pub.disclosures` row; candidate
-  donations wait on the candidate-returns lane;
+  the one `pub.party_return_donors`, `pub.candidate_return_donors` or
+  `pub.disclosures` row (the candidate-returns lane published on 20 October);
 - an accepted company → `companies:companies/<NZBN>`.
 """
 from __future__ import annotations
@@ -141,10 +141,7 @@ def donation_map(old, conn, s: str, anchors: list) -> dict:
                 old_rows[oid] = (sha, year, receiver, donor, amount)
         for a in rows:
             key = f"donor_anchors:{a['id']}"
-            if source == "candidate":
-                out[key] = (None, "a candidate donation: the candidate-returns lane is not built")
-                continue
-            view = "party_return_donors" if source == "party" else "disclosures"
+            view = {"party": "party_return_donors", "candidate": "candidate_return_donors", "disclosure": "disclosures"}[source]
             orow = old_rows.get(int(a["donation_id"]))
             if orow and _fold(orow[3]) == _fold(a["donor_name"]):
                 sha, year, receiver, donor, amount = orow
@@ -174,12 +171,15 @@ def donation_map(old, conn, s: str, anchors: list) -> dict:
     return out
 
 
+_DONOR_TABLES = {"party_return_donors": ("pub.party_return_donors", "party_returns"),
+                 "candidate_return_donors": ("pub.candidate_return_donors", "candidate_returns"),
+                 "disclosures": ("pub.disclosures", "disclosures")}
+
+
 def _by_amount(conn, s: str, view: str, refs: list, amount) -> list:
-    table = "pub.party_return_donors" if view == "party_return_donors" else "pub.disclosures"
-    col = "amount"
-    return [r[0] for r in conn.execute(f"""SELECT %s || ':' || key FROM {table} WHERE %s || ':' || key = ANY(%s) AND {col} = %s""",
-                                       (view.split("_")[0] if view == "disclosures" else "party_returns",
-                                        view.split("_")[0] if view == "disclosures" else "party_returns", refs, amount)).fetchall()]
+    table, register = _DONOR_TABLES[view]
+    return [r[0] for r in conn.execute(f"""SELECT %s || ':' || key FROM {table} WHERE %s || ':' || key = ANY(%s) AND amount = %s""",
+                                       (register, register, refs, amount)).fetchall()]
 
 
 def map_all(old, conn, s: str, log=print) -> dict:

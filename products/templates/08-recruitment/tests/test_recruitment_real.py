@@ -4,7 +4,9 @@ recruitment`), as a consultant's memo is made. Subjects are taken from the
 tables at run time, never fixed, so the test follows the data: a director
 confirmed to a prohibition notice, a director whose company has only a
 removal notice, and a director under the first and last name the most
-people share. Imports nothing of products.report (the one-way test)."""
+people share. Every memo carries the builder's common flags (group-standing,
+hubs-met, replaced-return) once, and no copy of them. Imports nothing of
+products.report (the one-way test)."""
 import os
 import re
 import subprocess
@@ -18,6 +20,7 @@ pytestmark = pytest.mark.slow
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 FLAG = re.compile(r"^  (FIRED|CLEAR|BLOCKED)\s+(red|amber|info)\s+([a-z-]+)@[\d.]+: (.*)$")
+COMMON = ("group-standing", "hubs-met", "replaced-return")
 HEADING = re.compile(r"^([A-Z][A-Z ,']+?)  \((\d+) confirmed, (\d+) near\)$")
 
 
@@ -50,6 +53,9 @@ def memo(ref: str) -> dict:
             sections[current]["lines"].append(line)
         elif line and not line.startswith(" "):
             current = None
+    for name in COMMON:
+        assert len(re.findall(rf"^  (?:FIRED|CLEAR|BLOCKED)\s+\w+\s+{name}@", text, re.M)) == 1, name
+    assert "identity" not in flags, "the template's copy of group-standing is gone"
     return {"text": text, "flags": flags, "sections": sections}
 
 

@@ -14,3 +14,5 @@ What it holds:
 - `known_limits`: the page a reader sees, starting "Nothing before 2017".
 
 Version 2 (site-2, 2026-10-20): candidate returns, the interests register, financial statements and every frozen money section read and rendered.
+
+Version 3 (site-3, 2026-10-20): the donor page key is the display name's own form and repeats no reading of the links; one display name is one donor; a declaration's year is the gift's (`settled.declaration_year`); a statement is one line however many files.

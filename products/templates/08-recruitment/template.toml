@@ -6,7 +6,7 @@
 # reads them. Its own rules are in rules.py; its known limits in limits.md.
 name = "recruitment"
 title = "Recruitment board screen"
-version = "0.1"
+version = "0.2"
 owner = "products/templates/08-recruitment, step 5.2 (session recruitment)"
 # 1: the subject's group and the entities it sits on. The other people on
 # those companies (co-directors, other shareholders) are not the subject's

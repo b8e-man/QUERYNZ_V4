@@ -19,12 +19,17 @@ Known to be one person:
 - `donor-across-amended-return`: the same donor, by name and amount, in a
   party return and the amendment the Commission says replaces it.
 
+- `candidate-across-amended-return`: the candidate named on an original
+  candidate return and on the amendment the Commission's listing says
+  replaces it (`pub.candidate_return_totals.replaced_by`, the replacing
+  document's hash).
+- `donor-across-amended-candidate-return`: the same donor, by name and
+  amount, on both.
+
 Not supplied today, and said so: the same role across monthly company
 files (the companies lane keeps one row per role across the files, and the
 monthly file carries no role identifier); the same charity officer across
-returns (the charities register is captured and not yet published); a
-candidate across an original and an amended return (the candidate-returns
-lane is not built).
+returns (the charities register is captured and not yet published).
 
 Bands: by how many director rows carry the first-and-last name (links.BANDS).
 """
@@ -43,11 +48,12 @@ KINDS = {
     "two-candidates-one-election": "two people",
     "member-and-candidacy": "one person",
     "donor-across-amended-return": "one person",
+    "candidate-across-amended-return": "one person",
+    "donor-across-amended-candidate-return": "one person",
 }
 NOT_SUPPLIED = {
     "same-role-across-monthly-files": "the companies lane keeps one row per role across the monthly files, and the file carries no role identifier",
     "same-charity-officer-across-returns": "the charities register is captured and not yet published",
-    "candidate-across-amended-return": "the candidate-returns lane is not built",
 }
 
 
@@ -93,11 +99,38 @@ def candidates_donor_amended(conn, s: str) -> list:
         WHERE o.replaced_by IS NOT NULL AND a.kind = 'person' AND b.kind = 'person'""").fetchall()
 
 
+def candidates_candidate_amended(conn, s: str) -> list:
+    """The candidate's own row on an original return and on the amendment that replaces it."""
+    return conn.execute(f"""
+        SELECT least(a.ref, b.ref), greatest(a.ref, b.ref), a.fl_key,
+               jsonb_build_object('original_return', o.key, 'amended_return', n.key, 'candidate', a.name_filed, 'year', o.year, 'electorate', o.electorate)
+        FROM pub.candidate_return_totals o
+        JOIN pub.candidate_return_totals n ON n.key = o.replaced_by || '/declaration'
+        JOIN {s}.rows a ON a.ref = 'candidate_returns:' || o.key
+        JOIN {s}.rows b ON b.ref = 'candidate_returns:' || n.key
+        WHERE o.replaced_by IS NOT NULL""").fetchall()
+
+
+def candidates_donor_candidate_amended(conn, s: str) -> list:
+    return conn.execute(f"""
+        SELECT least(a.ref, b.ref), greatest(a.ref, b.ref), a.fl_key,
+               jsonb_build_object('original_return', o.key, 'amended_return', n.key, 'donor', a.name_filed, 'amount', pa.amount)
+        FROM pub.candidate_return_totals o
+        JOIN pub.candidate_return_totals n ON n.key = o.replaced_by || '/declaration'
+        JOIN pub.candidate_return_donors pa ON pa.return_key = o.key
+        JOIN pub.candidate_return_donors pb ON pb.return_key = n.key AND lower(pb.donor) = lower(pa.donor) AND pb.amount = pa.amount
+        JOIN {s}.rows a ON a.ref = 'candidate_returns:' || pa.key
+        JOIN {s}.rows b ON b.ref = 'candidate_returns:' || pb.key
+        WHERE o.replaced_by IS NOT NULL AND a.kind = 'person' AND b.kind = 'person'""").fetchall()
+
+
 DRAWERS = {
     "two-directors-one-company": candidates_two_directors,
     "two-candidates-one-election": candidates_two_candidates,
     "member-and-candidacy": candidates_member_candidacy,
     "donor-across-amended-return": candidates_donor_amended,
+    "candidate-across-amended-return": candidates_candidate_amended,
+    "donor-across-amended-candidate-return": candidates_donor_candidate_amended,
 }
 
 

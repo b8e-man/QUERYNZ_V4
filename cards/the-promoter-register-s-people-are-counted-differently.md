@@ -14,3 +14,9 @@ count has been checked against the register's own page.
 
 Which side is right: neither is shown. Owner: party-finance, to count the
 register's page once.
+
+site-3 (2026-10-20): the shape counts the rows of `pub.promoter_people` and
+the distinct promoters they name, and adds nothing of its own; the two
+figures (303 and 21 against 247 and 7) stand today, 2 differences. What
+moves them is the lane's reading of the register's page, so the card stays
+with party-finance.

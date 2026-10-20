@@ -903,7 +903,7 @@ CAUSES = [
          match=lambda d, ctx: False),
     dict(id="national-2023-counted-twice", card="national-2023-the-frozen-site-counts-one-declaration-twice", right="new", owner="disclosures",
          why="", match=lambda d, ctx: "disclosed/2023" in d["figure"] and _fig_party(d) == "The New Zealand National Party"),
-    dict(id="declaration-dated-by-the-day-received", card="two-declarations-sit-in-2023-on-the-frozen-site-and-2024-on-the-rebuilt-one", right="new", owner="disclosures",
+    dict(id="declaration-dated-by-the-day-received", card="two-declarations-sit-in-2023-on-the-frozen-site-and-2024-on-the-rebuilt-one", right="frozen", owner="site",
          why="New Zealand First: the frozen site shows $888,141.69 of large donations in 2023 and nothing in 2024, the rebuilt site $831,141.69 and $57,000; Labour: $744,672.35 against $724,304.35 and $20,368. In each case one declaration is bucketed by the day the Commission received it on the frozen side and by the day the party received the gift on the rebuilt one, the lane's rule",
          match=lambda d, ctx: "disclosed/" in d["figure"] and _fig_party(d) in ("New Zealand First Party", "New Zealand Labour Party") and _year(d) in ("2023", "2024")),
     dict(id="candidate-name-differs", card="a-candidate-s-given-name-differs-between-the-return-summary-and-the-results", right="new", owner="house",
