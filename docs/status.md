@@ -4,7 +4,7 @@ Overwritten at every close; under 3 KB. What happened is in the cards, the
 lessons and the commit messages.
 
 **Date:** 2026-10-20, 13:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
-4.5 merged, day one not clean; track C and 5.1 open. Tracks B
+4.5 and 5.1 merged, day one not clean; track C open. Tracks B
 and E closed, on the queue's clock. **Boxes:** node2 is the estate; node1
 waits for its setup card (ruling 57). **Alarm channel:** the old estate's
 ntfy address (test alarm 18 October).
@@ -38,8 +38,9 @@ ntfy address (test alarm 18 October).
 
 - `review` (Fable, `links/`): track C, scored on the test pairs; verdicts
   recorded, not applied.
-- `report` (Fable, `products/report/`): step 5.1, the subject-report
-  shape. Next: the charities builds after tonight's copy.
+- `site-2` (Fable) and `party-returns-5` (Opus): the comparison's cards
+  for the shape and for Part A. Next: `house-2`, the recruitment
+  template (5.2), the charities builds after tonight's copy.
 
 ## Half-done
 
@@ -49,3 +50,5 @@ ntfy address (test alarm 18 October).
   carded, 23,067 under cards saying the new side is short; `qv4-site-compare`
   daily 08:45. Ahead: seven clean days, checkpoint, export test, the
   switch after 7 November on Arthur's word.
+- 5.1 built (`report-1`): the subject-report shape on 10.0.0.2:8440, the
+  done-when green on the real tables; 5.2's templates next, recruitment first.
