@@ -1,4 +1,4 @@
-When a reader is asked whether two register rows are one person, state outright in the evidence what the register says (two roles of one kind on one body at once; middle names that differ) rather than leaving two dated rows for the model to compare: shown the rows alone, the model read them as a succession and said "no reason to doubt".
+State the register's fact in the evidence (two roles of one kind on one body at once; middle names that differ): shown two dated rows alone, the review model read them as a succession and found no reason to doubt.
 area: links, the review agent, prompts and evidence, measurement
 paid-for-by: 2026-10-20, review session, track C
 

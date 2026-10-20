@@ -1,4 +1,4 @@
-A session that reads through a model profile the scheduler placed must expect the planner to lend the card away mid-run: make the run resumable and have it wait and retry for the profile's return, because the two-slot scoring died twice on a connection error when read-pages took the card.
+A session reading through a model profile the scheduler placed must make its run resumable and wait for the profile's return: the planner lends the card away mid-run, and two scoring processes died on the refused connection.
 area: links, the review agent, the scheduler, model profiles, sessions
 paid-for-by: 2026-10-20, review session, track C
 
