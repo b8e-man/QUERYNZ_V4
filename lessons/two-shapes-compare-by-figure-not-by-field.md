@@ -1,0 +1,6 @@
+Two sites that share paths and not field names are compared by reading both into one flat set of figures, money as cents, and differing that; a key-by-key JSON diff reports everything and explains nothing.
+area: checks, comparison, published-site
+
+Why: the frozen site's `home.json` and the rebuilt one share every path and almost no key names (`window.series[].named` against `named_by_year`; `totals.returns` against `totals.total`), so the first instinct, a JSON key diff, counted 46,000 differences of which the figures were a minority. One extractor per kind that reads each side into the same figure ids (`party/<name>/declared/<year>`) made the differences countable, and made a cause a rule over figure ids and the two documents, which is what a card can name.
+
+How to apply: before comparing two published shapes, write the figure ids first and the extractors second, and keep three normalisations explicit and tested: money in whole cents; "None", "no entry" and (for everything but a declared total) zero as the same fact; a person's name as surname plus first given name. Then attribute causes in a second pass with the whole file's differences in hand, so an aggregate can follow its parts instead of being counted again.

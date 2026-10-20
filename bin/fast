@@ -34,6 +34,8 @@ def fill(repo: str) -> str:
     py = os.path.join(repo, ".venv", "bin", "python")
     if not os.path.exists(py):
         py = os.path.join(S.MAIN, ".venv", "bin", "python")
+    if not os.path.exists(py):   # S.MAIN is the copy itself when bin/ runs from a working copy (report-1)
+        py = "/home/user/querynzv4/.venv/bin/python"
     cred = os.path.join(os.environ.get("QV4_CRED_DIR") or os.path.expanduser("~/.querynz"), "v4.env")
     if not os.path.exists(py) or not os.path.exists(cred) or os.environ.get("QV4_NO_DB"):
         return "sample: not filled (no database environment here)"
@@ -59,6 +61,8 @@ def main() -> int:
     py = os.path.join(repo, ".venv", "bin", "python")
     if not os.path.exists(py):   # a working copy has no .venv: the main checkout's, as fill() does
         py = os.path.join(S.MAIN, ".venv", "bin", "python")
+    if not os.path.exists(py):   # S.MAIN is the copy itself when bin/ runs from a working copy (report-1)
+        py = "/home/user/querynzv4/.venv/bin/python"
     if not os.path.exists(py):
         py = sys.executable
     target = [module] if module else []
