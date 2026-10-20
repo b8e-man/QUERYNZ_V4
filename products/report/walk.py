@@ -63,7 +63,8 @@ def item(v: cat.View, r: dict, entity_title: str = None, **extra) -> dict:
     it = {"ref": rows.ref_of(v, str(r.get(v.key_col))), "view": v.name, "register": v.register, "kind": v.kind,
           "title": rows.title(v, r), "statement": rows.statement(v, r, entity_title), "dates": rows.dates(v, r),
           "citation": rows.citation(v, r), "suppressed": rows.is_suppressed(v, r), "note": v.note,
-          "grade": "confirmed", "reason": None, "rule": None, "via": None, "flags": [], "row": r}
+          "grade": "confirmed", "reason": None, "rule": None, "via": None, "flags": [], "row": r,
+          "replaced_by": r.get("replaced_by") or None}
     it.update(extra)
     return it
 

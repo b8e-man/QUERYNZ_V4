@@ -71,3 +71,26 @@ def test_the_walk_from_a_known_donor_reaches_the_company_and_its_directors_each_
     returns = [e for e in w["entities"] if e["view"] == "party_return_totals"]
     assert returns and returns[0].get("context_only"), "the subject's return is context, not expanded into other donors"
     assert not any(r.get("view") == "party_return_donors" and r["via"] == returns[0]["ref"] for r in w["roles"])
+
+
+def test_a_report_on_a_known_donor_names_its_returns_the_company_and_its_directors_each_cited():
+    """The done-when of plan 5.1, on the real tables."""
+    from products.report import build, template as tpl
+    t = tpl.by_name("subject")
+    with db.read_connect() as conn:
+        donor_ref, company_key = known_donor(conn)
+        r = build.build(conn, donor_ref, t)
+    assert r["found"] and r["problems"] == [], r["problems"]
+    money = [s for s in r["sections"] if s["name"] == "money"][0]
+    assert any(it["view"] == "party_return_totals" for it in money["items"]), "the subject's own return is not named"
+    companies = [s for s in r["sections"] if s["name"] == "companies"][0]
+    company = [it for it in companies["items"] if it["ref"] == f"companies:{company_key}"]
+    assert company and company[0]["grade"] == "near" and "name match" in company[0]["reason"]
+    directors = [it for it in companies["items"] if it["view"] == "directors" and it["via"] == f"companies:{company_key}"]
+    assert directors
+    for it in [r["subject"]] + money["items"] + companies["items"]:
+        assert it["cite"] and r["citations"][it["cite"] - 1]["key"] == it["citation"]["key"]
+    for s in r["sections"]:
+        if not s["items"]:
+            assert s["blank"].startswith("none found in") or s["blank"].startswith("not held:")
+    assert r["flags"] and all(f["status"] in ("fired", "clear", "blocked") for f in r["flags"])
