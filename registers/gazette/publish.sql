@@ -1,6 +1,8 @@
 -- registers/gazette: what later modules read. Every notice held, typed, with its address; the celebrants read
 -- from the Registrar-General's lists. The notice text is never published (bankruptcy and prohibition notices print
 -- home addresses), and no address column is: an independent celebrant's address stays in gazette_private.
+-- Every text published here is cut before any street address or property reference it names (cut.py, at the read);
+-- the uncut value is in gazette_private.uncut only.
 CREATE OR REPLACE VIEW pub.gazette_notices AS
 SELECT key, notice, year, section, number, family, format, status, records, supersedes, title, published_on, url, source_note,
        document, page, place, read_from, reader, profile, profile_version, loaded_at
