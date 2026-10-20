@@ -58,21 +58,22 @@ def _on(d):
 
 class Index:
     def __init__(self, rows):
-        self.by_number, self.by_name = {}, defaultdict(list)
+        self.by_number, self.by_name = defaultdict(dict), defaultdict(list)
         for k, register, number, name, registered_on, removed_on in rows:
             r = (k, key(name), _on(registered_on), _on(removed_on))
             n = _number(number)
-            if n and register == "companies":     # a society's number is another sequence: a notice's "Company No." is never one
-                self.by_number.setdefault(n, r)
+            if n:                                 # each register numbers its own: a notice's "Company No." is never a society's
+                self.by_number[register].setdefault(n, r)
             self.by_name[r[1]].append(r)
 
-    def match(self, company: str, number: str = None, on=None, year: int = None) -> tuple:
+    def match(self, company: str, number: str = None, on=None, year: int = None, registers=("companies",)) -> tuple:
         """on: the appointment date; without one, the notice's year (alive
-        at some time in it)."""
+        at some time in it). registers: the registers whose numbers the
+        printed number can be (a society's notice prints the society's)."""
         on, n, k = _on(on), _number(number), key(company)
         lo, hi = (on, on) if on else (dt.date(year, 1, 1), dt.date(year, 12, 31)) if year else (None, None)
-        if n and n in self.by_number:
-            r = self.by_number[n]
+        r = next((self.by_number[g][n] for g in registers if n and n in self.by_number[g]), None)
+        if r:
             return r[0], NUMBER if r[1] == k else NUMBER_NAME_DIFFERS
         held = self.by_name.get(k, [])
         alive = [r for r in held if lo is None or ((r[2] is None or r[2] <= hi) and (r[3] is None or r[3] >= lo))]

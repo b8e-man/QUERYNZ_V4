@@ -137,13 +137,14 @@ CREATE TABLE IF NOT EXISTS gazette.liquidators (
 );
 
 -- one row per company a removal notice (ds), a winding-up application (aw), a receivership (ar), a notice to creditors (md),
--- an administration (aa), an overseas company's leaving (cb) or a restoration to the register (ot) names
+-- an administration (aa), an overseas company's leaving (cb), a restoration to the register (ot) or a society's or trust
+-- board's dissolution (is, ct) names
 CREATE TABLE IF NOT EXISTS gazette.company_notices (
     key              text PRIMARY KEY,                      -- gazette/<notice>/company/<ordinal>
     notice           text NOT NULL,
     published_on     date,
     kind             text NOT NULL CHECK (kind IN ('removal', 'winding-up application', 'receivership', 'notice to creditors',
-                                                     'administration', 'overseas company', 'restoration')),
+                                                     'administration', 'overseas company', 'restoration', 'dissolution')),
     action           text,                                  -- the notice's own words: intention to remove, application to put into liquidation, …
     company          text NOT NULL,                         -- as printed, a status or former name in brackets taken out
     company_number   text,                                  -- where printed for this company
@@ -152,7 +153,7 @@ CREATE TABLE IF NOT EXISTS gazette.company_notices (
     ground           text,                                  -- removal: liquidation completed | ceased business
     by_whom          text,                                  -- who gives notice or appointed: liquidator, Registrar, director, …
     party            text,                                  -- the plaintiff (aw) as printed; never its address
-    event_on         date,                                  -- what event_basis says: objections by, hearing, appointment, ceased to act, ceases
+    event_on         date,                                  -- what event_basis says: objections by, hearing, appointment, ceased to act, ceases, dissolved on
     event_at         text,                                  -- the time printed with it
     event_basis      text,
     filed_on         date,                                  -- the application's filing (aw)

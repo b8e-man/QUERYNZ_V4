@@ -15,7 +15,8 @@ model, so the fast tier runs the same code.
                marked so the published view withholds the name
   company_notices  one per company a removal notice (removals.py), a winding-up
                application (windingup.py), a receivership (receiverships.py), an
-               overseas company's leaving (overseas.py) or a restoration (restorations.py) names,
+               overseas company's leaving (overseas.py), a restoration (restorations.py) or a
+               society's or trust board's dissolution (dissolutions.py) names,
                and practitioners one per receiver or administrator named; no address is read
 
 Items in equal items out plus items set aside, three times over: every
@@ -36,7 +37,7 @@ from dataclasses import dataclass, field
 
 from keys.dates import filed_date
 from support import profiles
-from registers.gazette import (appointments, bankruptcies, capture, celebrants, creditors, liquidations, notices, overseas,
+from registers.gazette import (appointments, bankruptcies, capture, celebrants, creditors, dissolutions, liquidations, notices, overseas,
                                prohibitions, receiverships, removals, restorations, windingup)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -61,6 +62,7 @@ COMPANY_READERS = (
     (creditors.Administration, "gazette-administration", "registers.gazette.creditors 1", "administration"),
     (overseas, "gazette-overseas-company-ceasing", "registers.gazette.overseas 1", "overseas company"),
     (restorations, "gazette-restoration-notice", "registers.gazette.restorations 1", "restoration"),
+    (dissolutions, "gazette-society-dissolution", "registers.gazette.dissolutions 1", "dissolution"),
 )
 NOT_READ = "not read"
 
