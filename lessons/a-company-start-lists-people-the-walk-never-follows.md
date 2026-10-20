@@ -1,4 +1,4 @@
-Run every rule of a template from each kind of start (a company, a person, a society or filed row): from a company the walk lists its officers but never follows them, so a check over the people must block on a company start, or it clears a company whose director is prohibited.
+Run every template rule from each start kind (company, person, filed row): from a company the walk lists officers but never follows them, so a people check must block on a company start or it clears a company with a prohibited director.
 area: subject reports, products/templates, step 5.2 templates, flags, walk
 paid-for-by: 2026-10-20, agriculture session, step 5.2
 
