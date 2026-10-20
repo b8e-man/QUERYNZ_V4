@@ -1,4 +1,4 @@
-Search every published text column for an address with the detector the load cuts by, not only the column the card named: a company as printed and a plaintiff ran on into street addresses, and a highway's number before a road and a company named for its address look like one and are not.
+Search every published text column for an address with the detector the load cuts by: a company and a plaintiff ran on into addresses, and a highway number before a road or a company named for its address is not one.
 area: Gazette notices, published titles, company names as printed, hard limit 15, checks that silently pass
 paid-for-by: 2026-10-21, gazette session 6, step 5.3
 
