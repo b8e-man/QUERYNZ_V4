@@ -1,0 +1,17 @@
+[Unit]
+Description=QueryNZV4 subject report — one row, a template, a cited memo (plan step 5.1); the local network only
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/user/querynzv4
+ExecStart=/home/user/querynzv4/.venv/bin/python -m products.report serve
+# the port, where saved reports live, and the board the page links to; the credential files are read at the moment of use
+Environment=PYTHONUNBUFFERED=1 QV4_REPORT_PORT=8440 QV4_REPORT_BIND=0.0.0.0 QV4_REPORT_STATE=querynz_v4/subject_report QV4_BOARD_URL=http://10.0.0.2:8420/
+# a standing service: back within ten seconds of a failure; every statement it runs has its own 20 s limit
+Restart=on-failure
+RestartSec=10
+Nice=5
+
+[Install]
+WantedBy=default.target
