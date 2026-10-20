@@ -11,14 +11,14 @@ import re
 
 from support import jobrun
 from support.docstore.landing import read_bytes
-from registers.gazette import capture, dissolutions, possessions, read, register
+from registers.gazette import capture, cut, dissolutions, possessions, read, register
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "gazette"
 PRIVATE = "gazette_private"
 TABLES = ("notices", "celebrants", "prohibitions", "liquidations", "liquidators", "company_notices", "practitioners",
           "bankruptcies", "appointments", "possessions", "files", "set_aside")
-PRIVATE_TABLES = ("celebrant_addresses", "prohibition_addresses", "bankruptcy_addresses", "possession_details")
+PRIVATE_TABLES = ("celebrant_addresses", "prohibition_addresses", "bankruptcy_addresses", "possession_details", "uncut")
 COLUMNS = {
     "notices": ("key", "notice", "year", "section", "number", "family", "format", "status", "records", "supersedes", "title",
                 "published_on", "url", "old_type", "article", "source_note", "document", "page", "place",
@@ -107,6 +107,7 @@ def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool
     res = read.read(read_bytes(export[0]), export[0], only=only)
     joined = join_register(conn, res, schema, shared)
     details = join_possessions(res, joined.pop("_index", None))
+    res.uncut += cut.rows(res, ("possessions",))     # the names the join chose to show, cut like every other
     _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason"),
           [(i, "capture", w) for i, w in aside] + list(res.set_aside))
     for t, rows in (("notices", res.notices), ("celebrants", res.celebrants), ("prohibitions", res.prohibitions),
@@ -121,8 +122,9 @@ def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool
     _copy(conn, table(private_of(schema), "bankruptcy_addresses", shared), ("key", "address", "formerly"),
           res.bankruptcy_addresses)
     _copy(conn, table(private_of(schema), "possession_details", shared), PRIVATE_COLUMNS["possession_details"], details)
+    _copy(conn, table(private_of(schema), "uncut", shared), ("key", "col", "value"), res.uncut)
     conn.execute(f"INSERT INTO {table(schema, 'files', shared)} VALUES (%s, %s, 'notices', 'read')", export)
-    return {**res.counts, **joined, "not_held": len(aside)}
+    return {**res.counts, **joined, "not_held": len(aside), "cut": len(res.uncut)}
 
 
 def join_register(conn, res, schema: str, shared: bool = False) -> dict:

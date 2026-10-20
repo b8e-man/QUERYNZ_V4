@@ -23,6 +23,8 @@ model, so the fast tier runs the same code.
   possessions  one per notice of a mortgagee's entry into possession (possessions.py): the
                names it may show decided at the join (load.join_possessions); the property,
                registration numbers and any person's name to the private schema only
+  uncut        every published text (a title, a company as printed, …) cut before any
+               property it names (cut.py); the uncut value to the private schema only
 
 Items in equal items out plus items set aside, three times over: every
 export line is a notice or a second capture set aside; every notice
@@ -42,7 +44,7 @@ from dataclasses import dataclass, field
 
 from keys.dates import filed_date
 from support import profiles
-from registers.gazette import (appointments, bankruptcies, capture, celebrants, companyacts, creditors, dissolutions, liquidations, notices, overseas,
+from registers.gazette import (appointments, bankruptcies, capture, celebrants, companyacts, creditors, cut, dissolutions, liquidations, notices, overseas,
                                possessions, prohibitions, receiverships, removals, restorations, windingup)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -92,6 +94,7 @@ class Result:
     bankruptcy_addresses: list = field(default_factory=list)   # (bankruptcy key, address, formerly)
     appointments: list = field(default_factory=list)
     possessions: list = field(default_factory=list)     # names and the property in `_private`, moved out at the join
+    uncut: list = field(default_factory=list)          # (row key, column, the value before cut.py cut it)
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
     counts: dict = field(default_factory=dict)
 
@@ -386,7 +389,7 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
             "reader": reader, "profile": profile, "profile_version": version,
             "filed": {"notice": nid, "year": year, "section": code, "number": n, "family": notices.family(code),
                       "format": fmt, "status": status, "records": records, "supersedes": supersedes,
-                      "title": possessions.public_title(line["title"]) if fmt == possessions.PROFILE else line["title"],
+                      "title": line["title"],
                       "published_on": line["published_on"], "url": line["url"], "old_type": line.get("old_type"),
                       "article": line["article"], "source_note": capture.EXPORT_NOTE},
         })
@@ -433,6 +436,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
             raise AssertionError(f"the {kind} notices do not reconcile: {n} recognised, {ok} read, {aside} set aside")
     if len({r["key"] for r in out.celebrants}) != len(out.celebrants):
         raise AssertionError("two celebrant rows share a key")
+    # every published text cut before any property it names; the uncut value is held privately (hard limit 15)
+    out.uncut = cut.rows(out)
     out.counts = {"lines": len(held), "notices": len(out.notices), "captured_twice": twice,
                   "celebrant_lists": recognised, "celebrant_lists_read": with_records,
                   "celebrant_lists_set_aside": wholly_aside, "celebrants": len(out.celebrants),
@@ -453,6 +458,6 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                   "appointment_notices_set_aside": appointed[2], "appointments": len(out.appointments),
                   "possession_notices": possessed[0], "possession_notices_read": possessed[1],
                   "possession_notices_set_aside": possessed[2],
-                  "set_aside": len(out.set_aside),
+                  "set_aside": len(out.set_aside), "cut": len(out.uncut),
                   "not_read": sum(1 for r in out.notices if r["filed"]["format"] == NOT_READ)}
     return out
