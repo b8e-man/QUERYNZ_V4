@@ -16,6 +16,10 @@ tables through the product reader, never the sample:
      column is read outside the registered-office view (hard limit 15).
   5. Every template on disk loads, and names only published views.
   6. The memo prints, as text and as HTML, with every citation numbered.
+  7. A register's own words are not read as the report's: a report on a
+     donor whose name carries a street word and on a company whose name
+     carries a word of cause (both taken from the tables at run time) is
+     not refused; the rules still refuse a planted fault (the fast tests).
 
   python -m products.report check [--ref REF]      exit 1 on any failure
 """
@@ -49,6 +53,33 @@ def cited_rows_exist(conn, report: dict) -> list:
         hit = conn.execute(f"select 1 from pub.{v.name} where {v.key_col} = %s limit 1", (c["key"],)).fetchone()
         if not hit:
             out.append(f"citation [{c['n']}] pub.{c['view']} {c['key']}: no such row in the published view")
+    return out
+
+
+STREET_NAMED = r"\m(lane|place|street|drive|terrace|road|crescent)\M"
+CAUSE_NAMED = r"\m(control|controls|behind|beneficial|owner|owners)\M"
+
+
+def own_words_not_refused(conn, subject, held: set) -> list:
+    """A donor surnamed with a street word and a company named with a word of
+    cause, from the tables today: their reports are not refused for rules 3,
+    4 or 7, because those are the register's words. Each is named so the
+    failure says which row."""
+    out = []
+    picks = []
+    for sql, label in ((f"select key from pub.party_return_donors where donor ~* %s and donor !~ '\\d' order by key limit 1", "party_returns"),
+                       (f"select c.key from pub.companies c where c.name ~* %s and exists (select 1 from pub.directors d where d.entity_key = c.key and d.in_latest) order by c.key limit 1", "companies")):
+        got = db.rows(conn, sql, (STREET_NAMED if label == "party_returns" else CAUSE_NAMED,))
+        if not got:
+            out.append(f"no row to check rules 3, 4 and 7 against a register's own words in {label}")
+            continue
+        picks.append(f"{label}:{got[0]['key']}")
+    for ref in picks:
+        r = build.build(conn, ref, subject, held)
+        if not r["found"]:
+            out.append(f"{ref}: not found")
+            continue
+        out += [f"{ref}: {p}" for p in r["problems"] if "(rule 3)" in p or "(rule 4)" in p or "(rule 7)" in p]
     return out
 
 
@@ -105,6 +136,8 @@ def problems(conn, ref: str = None) -> list:
             out.append(f"{ref}: the company's directors are not named with citations")
     # 2. nothing the registers do not hold
     out += cited_rows_exist(conn, r)
+    # 7. a register's own words are not the report's
+    out += own_words_not_refused(conn, subject, held)
     # 6. the memo prints
     text = memo.text(r)
     html = memo.html_body(r)
