@@ -51,7 +51,7 @@ class _NoConn:
 
 
 def test_old_verdicts_map_to_the_new_ones_and_a_hold_is_contested():
-    assert old.CURRENT_WEIGHTS == "donor-anchor-2.2"
+    assert not hasattr(old, "CURRENT_WEIGHTS")   # the old table says which judgment is current (test_old_ledgers)
     assert set(old.LEDGERS) == {"roster_identity_folds", "donor_anchors", "review_verdicts"}
     # the brief: the old "hold" is "contested"; a fold or an accept is "same"
     doc = old.__doc__
