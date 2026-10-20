@@ -68,9 +68,11 @@ PAST_NOT_HELD = ("the companies file lists current roles only, so a company the 
 #: a holder's name that says it holds for others (the walk flags nominee, trustee, custodian; a trust and a fiduciary are added here)
 CUSTODIAL = re.compile(r"\b(nominees?|trustees?|trusts?|custodians?|custodial|fiduciary)\b", re.I)
 PARTNERSHIP = re.compile(r"\b(limited partnership|l\.?p\.?)$|\blimited partnership\b", re.I)
-#: company forms that are not New Zealand's: a holder so named is registered elsewhere, and its own register is not held
-OVERSEAS_FORM = re.compile(r"\b(pty\.? ?(ltd|limited)\.?|pte\.? ?(ltd|limited)\.?|inc\.?|llc|l\.l\.c\.|gmbh|ag|s\.a\.?|b\.?v\.?|n\.v\.?|nv|plc|"
-                           r"corp\.?|corporation|sdn\.? bhd\.?|k\.k\.|co\.,? ltd\.?|s\.a\.r\.l\.?|sarl|oy|ab|a/s|aps|s\.p\.a\.?|spa)$", re.I)
+#: company forms that are not New Zealand's: a holder so named is registered elsewhere, and its own register is not held; never
+#: "corporation", which names NZ statutory bodies (ACCIDENT COMPENSATION CORPORATION holds shares; the checkpoint caught it), and
+#: never "Inc", which NZ incorporated societies and Maori land incorporations also write (Gore District Memorial RSA Inc)
+OVERSEAS_FORM = re.compile(r"\b(pty\.? ?(ltd|limited)\.?|pte\.? ?(ltd|limited)\.?|llc|l\.l\.c\.|gmbh|ag|s\.a\.?|b\.?v\.?|n\.v\.?|nv|plc|"
+                           r"sdn\.? bhd\.?|k\.k\.|co\.,? ltd\.?|s\.a\.r\.l\.?|sarl|oy|ab|a/s|aps|s\.p\.a\.?|spa)$", re.I)
 INSOLVENCY_VIEWS = ("gazette_liquidations", "gazette_company_notices")
 INSOLVENCY_KINDS = ("winding-up application", "receivership", "administration", "notice to creditors", "deed of company arrangement")
 INSOLVENT_STATUS = re.compile(r"liquidation|receiv|administration|statutory management", re.I)
@@ -186,8 +188,11 @@ def _holder_name(it) -> str:
 
 
 def _hop(it) -> str:
-    shares = it["row"].get("shares")
-    filed = f"{shares:,} shares filed for the holding" if isinstance(shares, (int, float)) else "no share count filed"
+    shares = it["row"].get("shares")   # numeric in the view, so a Decimal; an int in a fixture
+    if shares is None:
+        filed = "no share count filed"
+    else:
+        filed = f"{int(shares):,} shares filed for the holding" if shares == int(shares) else f"{shares} shares filed for the holding"
     return f"{it['title']}: {filed} ({it['dates']['text']})"
 
 
@@ -282,8 +287,9 @@ def custodial_holders(report):
                     citations=tuple(it["ref"] for it in hit), sources_not_held=FOR_WHOM[:2], scope="entity" if _company_start(report) else "near")
     if _company_start(report) and not holders:
         return flag("custodial-holders", V, "blocked", "amber", f"no holder of record is listed: {_no_holders(report)}", scope="entity")
-    if section(report, "holders").get("omitted"):
-        return flag("custodial-holders", V, "blocked", "amber", "the walk left holder rows past its limit unread; a nominee could be among them")
+    if section(report, "holders").get("omitted") or _walk_short(report):
+        return flag("custodial-holders", V, "blocked", "amber", "the walk left holder rows or companies past its limit unread; a nominee could be "
+                    "among them")
     return flag("custodial-holders", V, "clear", "amber", f"none of the {len(holders)} holder(s) of record listed is named as a nominee, trustee or "
                 "custodian; a holder can hold for others without saying so in its name", sources_held=(HOLDERS_HELD,), sources_not_held=FOR_WHOM[:2])
 
@@ -362,8 +368,8 @@ def public_office(report):
                     "namesake's until confirmed; a member's or candidate's name on the companies register is joined only with a supporting link",
                     citations=tuple(it["ref"] for it in nearby), scope="near")
     if _company_start(report):
-        return flag("public-office", V, "blocked", "amber", f"no member's declared interest names the company, but {NOT_FOLLOWED}: whether any of "
-                    "them sat in the House or stood is not read", scope="officer-group")
+        return flag("public-office", V, "blocked", "amber", "no link yet joins a member's declared interest to a company row, and "
+                    f"{NOT_FOLLOWED}: whether any of them sat in the House or stood is not read", scope="officer-group")
     if _other_start(report):
         return flag("public-office", V, "blocked", "amber", _other_start(report))
     w = report.get("walk") or {}
@@ -383,10 +389,18 @@ def political_money(report):
                     "in the exposure section with its date and the party or candidate filed", citations=tuple(it["ref"] for it in money))
     if _other_start(report):
         return flag("political-money", V, "blocked", "info", _other_start(report))
-    near_money = [it for it in section(report, "identity")["items"] if it["view"] in MONEY_VIEWS]
+    near_money = list(items(report, MONEY_VIEWS, ("near",)))
+    if near_money:
+        return flag("political-money", V, "fired", "info", f"{len(near_money)} row(s) of political money filed under the subject's name or one "
+                    "near it, joined near: the Electoral Commission files a donor's name, never a number, so each is listed with the namesakes "
+                    "and its reason, and is the filed donor's until a rule confirms it: " + "; ".join(f"{it['title']} ({it['dates']['text']})"
+                                                                                                     for it in near_money[:EXAMPLES]),
+                    citations=tuple(it["ref"] for it in near_money), scope="near")
+    if (report.get("walk") or {}).get("links_omitted"):
+        return flag("political-money", V, "blocked", "info", f"the walk left {report['walk']['links_omitted']:,} link(s) unread past its limit; "
+                    "a donation filed under the subject's name could be among them")
     whose = "the company's own; its directors' and holders' are not read" if _company_start(report) else "the person"
-    return flag("political-money", V, "clear", "info", f"no donation, loan or disclosure filed under {whose}"
-                + (f"; {len(near_money)} filed under a name it only shares are listed with the namesakes" if near_money else ""),
+    return flag("political-money", V, "clear", "info", f"no donation, loan or disclosure filed under {whose}, confirmed or near",
                 sources_held=("Electoral Commission returns and disclosures",),
                 sources_not_held=("a candidate's own return, not yet joined to a person",))
 

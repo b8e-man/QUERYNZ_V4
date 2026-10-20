@@ -7,7 +7,7 @@ shares and files and stops there; a nominee, trustee or custodian is a
 holder of record and nothing more; a namesake company's holders are not the
 entity's; from a company the people are not followed, so no check on them
 clears; a suppressed name is never read; no word of cause or of ownership.
-A mutant check breaks the rules file on purpose, twelve ways, and requires
+A mutant check breaks the rules file on purpose, fifteen ways, and requires
 these properties to catch every break.
 
 Imports nothing of products.report (the one-way test): the shape is reached
@@ -158,6 +158,8 @@ NOMINEE = holder("n", "ACME NOMINEES LIMITED", kind="company", shares=100,
 TRUSTEE = holder("t", "SMITH FAMILY TRUSTEE COMPANY LIMITED", kind="company", shares=50)
 LP = holder("p", "KAURI GROWTH FUND LIMITED PARTNERSHIP", kind="company", shares=10)
 OFFSHORE = holder("o", "SOUTHERN CROSS INVESTMENTS PTY LTD", kind="company", shares=10)
+ACC = holder("a", "ACCIDENT COMPENSATION CORPORATION", kind="company", shares=2466123)
+RSA = holder("r", "Gore District Memorial RSA Inc", kind="company", shares=10)
 HIDDEN = dict(holder("s", "SECRET NOMINEES LIMITED", kind="company", shares=5, suppressed=True), title="name suppressed")
 DIRECTOR = it("companies:companies/1/director/d", "directors", title="Jane Mary DOE", via=ACME["ref"],
               row={"entity_key": "companies/1", "role_type": "DIRECTOR", "appointed_on": "2011-03-03", "in_latest": True})
@@ -245,16 +247,28 @@ def properties(mod) -> list:
         bad.append("a nominee or trustee holder was not shown as a holder of record")
     if JANE["ref"] in cust["citations"] or HOLDCO["ref"] in cust["citations"]:
         bad.append("custodial-holders named a holder its name does not mark")
+    short = person(holders=[BETA, dict(CO_HOLDER, row=dict(CO_HOLDER["row"], name="BETA HOLDINGS LIMITED"))])
+    short["walk"]["entities_omitted"] = 111
+    if rl("custodial_holders")(short)["status"] == "clear":
+        bad.append("custodial-holders cleared a walk that stopped before its companies' holders were read")
+    unread = person()
+    unread["walk"]["links_omitted"] = 177
+    if rl("political_money")(unread)["status"] == "clear":
+        bad.append("political-money cleared with links unread past the walk's limit")
     if rl("partnership_holders")(full)["status"] != "fired" or LP["ref"] not in rl("partnership_holders")(full)["citations"]:
         bad.append("a limited partnership holder was not flagged")
     if rl("overseas_holders")(full)["status"] != "fired" or OFFSHORE["ref"] not in rl("overseas_holders")(full)["citations"]:
         bad.append("an overseas holder was not flagged")
+    if rl("overseas_holders")(company(holders=[ACC, RSA]))["status"] == "fired":
+        bad.append("a New Zealand statutory corporation was flagged as overseas")
     if rl("prohibition")(report(gazette=[dict(PROHIB, grade="near")]))["severity"] == "red":
         bad.append("a namesake's prohibition is red")
     if rl("prohibition")(report(gazette=[dict(PROHIB, suppressed=True)]))["status"] == "fired":
         bad.append("a revoked prohibition was counted")
     if rl("public_office")(company(exposure=[DECLARED]))["status"] != "fired":
         bad.append("a member's declared interest naming the company did not fire public-office")
+    if rl("political_money")(company(identity=[dict(DONATION, grade="near")]))["status"] == "clear":
+        bad.append("political-money cleared a company with a donation filed under its name, near")
     if rl("public_office")(report(identity=[NEAR_MEMBER]))["severity"] != "info":
         bad.append("a namesake's seat is more than info")
     return bad
@@ -279,6 +293,11 @@ MUTANTS = (
     ("a prohibition clears from a company", '    if _company_start(report):\n        return flag("prohibition"', '    if False:\n        return flag("prohibition"'),
     ("a namesake's prohibition is red", 'return flag("prohibition", V, "fired", "amber",', 'return flag("prohibition", V, "fired", "red",'),
     ("public office clears from a company", '    if _company_start(report):\n        return flag("public-office"', '    if False:\n        return flag("public-office"'),
+    ("near money clears", "    if near_money:\n        return flag(\"political-money\"", "    if False:\n        return flag(\"political-money\""),
+    ("a short walk clears the custodial check", 'if section(report, "holders").get("omitted") or _walk_short(report):',
+     'if section(report, "holders").get("omitted"):'),
+    ("unread links clear the money", "    if (report.get(\"walk\") or {}).get(\"links_omitted\"):\n        return flag(\"political-money\"",
+     "    if False:\n        return flag(\"political-money\""),
     ("a hub-free holder list clears", 'return flag("holder-hubs", V, "blocked", "info", "no holder',
      'return flag("holder-hubs", V, "clear", "info", sources_held=("pub.shareholders",), text="no holder'),
 )
@@ -311,6 +330,9 @@ def test_the_chain_names_each_first_hop_with_its_shares_files_and_depth_limit():
     assert set(f["citations"]) == {HOLDCO["ref"], NOMINEE["ref"]} and "2 of the 3 holder(s) of record are companies" in f["text"]
     assert "DOE HOLDINGS LIMITED: 400 shares filed for the holding (undated; in the files from companies-2026-07" in f["text"]
     assert "the depth limit is 4 hops and the registers reach 1" in f["text"] and "no fraction is computed" in f["text"]
+    import decimal
+    dec = rule("holding_chain")(company(holders=[dict(HOLDCO, row=dict(HOLDCO["row"], shares=decimal.Decimal("1200")))]))
+    assert "1,200 shares filed for the holding" in dec["text"], "the view's numeric column arrives as a Decimal"
     removed = dict(ACME, row=dict(ACME["row"], status="Removed"))
     b = rule("holding_chain")(report(subject=removed))
     assert b["status"] == "blocked" and "off the register" in b["text"]
@@ -352,6 +374,8 @@ def test_public_office_a_seat_is_amber_a_declaration_naming_the_company_fires_an
 def test_political_money_is_the_companys_own_from_a_company():
     f = rule("political_money")(company(exposure=[DONATION]))
     assert f["status"] == "fired" and f["citations"] == (DONATION["ref"],)
+    n = rule("political_money")(company(identity=[dict(DONATION, grade="near")]))
+    assert n["status"] == "fired" and n["scope"] == "near" and "never a number" in n["text"]
     c = rule("political_money")(company())
     assert c["status"] == "clear" and "directors' and holders' are not read" in c["text"]
 
