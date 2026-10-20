@@ -125,6 +125,18 @@ def row_link(q: str, path: list, v: cat.View, r: dict, meta: str = "") -> str:
     return f'<li><a class="row" href="{esc(href(q, path + [f"{v.name}:{r["key"]}"]))}">{t}</a>{m}{pix}</li>'
 
 
+def report_href(base: str, ref: str) -> str:
+    """The subject report's stable address for a row, `<base>/report/<register>:<key>`;
+    empty when no report server is named (`QV4_REPORT_URL`)."""
+    if not base:
+        return ""
+    return f"{base.rstrip('/')}/report/{urllib.parse.quote(ref, safe=':/')}"
+
+
+def report_link(ctx: dict) -> str:
+    return f'<a href="{esc(ctx["report"])}">report from here</a>' if ctx.get("report") else ""
+
+
 def register_heading(register: str) -> str:
     return esc(REGISTER_NAME.get(register, register))
 
@@ -277,6 +289,7 @@ def row_pane(ctx: dict) -> str:
                f'<button>{"pinned" if ctx.get("pinned") else "pin"}</button></form>')
     if v.kind == "person" and not is_suppressed(v, r):
         out.append(f'<a href="{esc(href(q, path + [f"person:{v.name}:{r["key"]}"]))}">person: the group and namesakes</a>')
+    out.append(report_link(ctx))
     words = ctx.get("same_words") or []
     if words:
         out.append(f'<a href="{esc("/?" + urllib.parse.urlencode({"q": " ".join(words)}))}">search this name afresh</a>')
@@ -331,6 +344,8 @@ def person_pane(ctx: dict) -> str:
     v, r, q, path = ctx["v"], ctx["row"], ctx["q"], ctx["path"]
     out = ['<section class="pane">', f'<div class="reg">person · from {register_heading(v.register)} · {esc(v.name)}</div>',
            f"<h2>{esc(title_of(v, r))}</h2>"]
+    if ctx.get("report"):
+        out.append(f'<div class="actions">{report_link(ctx)}</div>')
     group = ctx.get("group") or {}
     out.append("<h3>The group</h3>")
     if not group.get("built"):

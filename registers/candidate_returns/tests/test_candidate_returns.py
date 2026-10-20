@@ -260,7 +260,11 @@ def test_the_sample_s_cases_land_where_the_list_says(filled):
     assert rows[c["a scanner's own OCR layer without the heading: the stored page reading"]]["read_from"] == "pixels"
     assert rows[c["the figure typed in the step cell, the form's $0.00 left in the parts"]]["expenses_check"] == "step-cell"
     assert stages[c["set aside: the expenses parts do not sum to the printed total"]] == ["declaration"]
-    assert stages[c["scan with no stored page reading: set aside for a re-read"]] == ["read"]
+    # the live job qv4-read-pages-candidates reads the set-aside scans into the shared store (queued 20 October):
+    # until the lane's sample reads this case against an empty store (card), the scan is either still set aside at
+    # `read`, or its reading has landed and the lane picked it up from pixels
+    no_reading = c["scan with no stored page reading: set aside for a re-read"]
+    assert stages.get(no_reading) == ["read"] or rows[no_reading]["read_from"] == "pixels"
     no_year = files[c["no year in the path: the form's own title names the election"]]
     assert no_year["year"] == 2023 and no_year["placed_by"] == "spreadsheet name"
     rep, amd = c["replaced: the listing links the amendment"], c["the amendment that replaces it"]

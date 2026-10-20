@@ -1,0 +1,201 @@
+# Use case 8, the recruitment board screen (plan step 5.2, first template):
+# an executive search consultant asks "is there anything in the public
+# record we should know" about a candidate for a board or senior role. A
+# subject report on the shape in products/report/; it reads only the
+# published views below, and its sections run in the order the consultant
+# reads them. Its own rules are in rules.py; its known limits in limits.md.
+name = "recruitment"
+title = "Recruitment board screen"
+version = "0.2"
+owner = "products/templates/08-recruitment, step 5.2 (session recruitment)"
+# 1: the subject's group and the entities it sits on. The other people on
+# those companies (co-directors, other shareholders) are not the subject's
+# record, and a board screen does not list them.
+depth = 1
+
+limits = [
+  "Only the registers the estate has published are read; what is not held is the last section, and nothing in this report says anything about it.",
+  "A connection is as the register states it: a role, a holding of record, a donation filed under a name. Nothing here says who owns or controls what.",
+  "The subject is the row the report starts from and the rows a rule confirms are the same person. A row that only shares the name is a namesake, listed apart, and is not the subject until confirmed.",
+  "Two facts are shown side by side with their dates. The report never says one followed from the other.",
+  "A Gazette bankruptcy notice and a Gazette appointment are published but no link rule joins them to a person yet, so this report cannot see them: a blank there is not a clear.",
+  "Charities, court judgments, the Insolvency Register, the securities register, financial service providers, sanctions lists and the Commerce Commission's cases are not held.",
+  "A company's registered office is read only to flag an address shared by many companies; it is not listed. No residential address is held in any view read.",
+  "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+]
+
+# ── what it reads: each view with its licence ───────────────────────────────
+[[reads]]
+view = "directors"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "shareholders"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "companies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "monthly file"
+[[reads]]
+view = "company_addresses"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; registered offices only, never a residential address"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "gazette_liquidations"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_company_notices"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_prohibitions"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a revoked prohibition's name is never shown"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_bankruptcies"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; an annulled bankruptcy's name is withheld"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "societies"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "society_officers"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "party_return_donors"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "party_return_loans"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "party_return_totals"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "disclosures"
+licence = "Electoral Commission large-donation disclosures: published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "nightly listing"
+[[reads]]
+view = "disclosure_items"
+licence = "Electoral Commission large-donation disclosures: published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "nightly listing"
+[[reads]]
+view = "candidate_return_donors"
+licence = "Electoral Commission candidate returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return is published"
+[[reads]]
+view = "candidate_return_totals"
+licence = "Electoral Commission candidate returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return is published"
+[[reads]]
+view = "promoters"
+licence = "Register of Promoters, public under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as the register is published"
+[[reads]]
+view = "promoter_people"
+licence = "Register of Promoters, public under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as the register is published"
+[[reads]]
+view = "members"
+licence = "Electoral Commission results and the House's own lists, public"
+attribution = "Electoral Commission; New Zealand Parliament"
+refresh = "after each election and by-election"
+[[reads]]
+view = "candidates"
+licence = "Electoral Commission results and nominations, public"
+attribution = "Electoral Commission"
+refresh = "after each election and by-election"
+[[reads]]
+view = "mp_interest_returns"
+licence = "Register of Pecuniary and Other Specified Interests of Members of Parliament, published by the House"
+attribution = "Office of the Registrar of Pecuniary Interests"
+refresh = "each annual edition"
+[[reads]]
+view = "mp_interests"
+licence = "Register of Pecuniary and Other Specified Interests of Members of Parliament, published by the House"
+attribution = "Office of the Registrar of Pecuniary Interests"
+refresh = "each annual edition"
+
+# ── sections, in the order a search consultant reads them ───────────────────
+# A row is listed once, in the first section that names its view and the walk
+# bucket it came from. The first section takes only near links: the rows that
+# share the subject's name and that no rule confirms, set apart before any
+# record is read. A near Gazette notice is not taken there; it stays in the
+# Gazette section, marked near, because a consultant must see it in place.
+[[sections]]
+name = "identity"
+heading = "Who this is, and the namesakes set apart"
+views = ["directors", "shareholders", "society_officers", "party_return_donors", "party_return_loans", "disclosures", "disclosure_items",
+         "candidate_return_donors", "promoter_people", "members", "candidates", "mp_interest_returns"]
+sources = ["near"]
+text = "The subject is the row above and the rows confirmed the same person. Each row here shares a name with the subject and no rule confirms it: a namesake, with the reason it is only near. Nothing in a namesake's rows is the subject's."
+
+[[sections]]
+name = "companies"
+heading = "Directorships and holdings of record, current and past"
+views = ["companies", "directors", "shareholders"]
+sources = ["members", "confirmed"]
+text = "Each company with the subject's role on it and its dates as the register files them. A holding is shown as the register states it: a shareholder of record. Nobody is called an owner."
+
+[[sections]]
+name = "gazette"
+heading = "Gazette insolvency, bankruptcy and prohibition notices"
+views = ["gazette_liquidations", "gazette_company_notices", "gazette_prohibitions", "gazette_bankruptcies"]
+sources = ["members", "confirmed", "near", "pointing"]
+not_held = ["insolvency", "courts"]
+text = "A notice on a company is listed with that company's name and the notice's own date; the subject's dates on the company are in the section above. The two sit side by side and nothing joins them. Bankruptcy notices are published but no link rule joins them to a person yet, so this section cannot show one."
+
+[[sections]]
+name = "societies"
+heading = "Charity and society roles"
+views = ["societies", "society_officers"]
+sources = ["members", "confirmed"]
+not_held = ["charities"]
+text = "Incorporated societies only: the Charities Register is not published yet."
+
+[[sections]]
+name = "money"
+heading = "Political money given or received"
+views = ["party_return_donors", "party_return_loans", "disclosures", "disclosure_items", "candidate_return_donors", "party_return_totals",
+         "candidate_return_totals", "promoters", "promoter_people"]
+sources = ["members", "confirmed"]
+text = "A donation is from the donor the Commission filed it under. A return that covers a gift is the record; a disclosure of the same gift is shown beside it and never added. A candidate's own return is not yet joined to the person by any link rule."
+
+[[sections]]
+name = "public"
+heading = "Seats, candidacies and declared interests, where the person is or was a member"
+views = ["members", "candidates", "mp_interest_returns", "mp_interests"]
+sources = ["members", "confirmed"]
+text = "An MP's declared interests are listed under each annual return. MPs' and ministers' expenses are published but this report cannot read them yet. Public appointments in the Gazette are published but no link rule joins them to a person yet, so they are not read."
+
+[[sections]]
+name = "not-held"
+heading = "What is not held"
+views = []
+not_held = ["charities", "courts", "insolvency", "securities", "fsp", "sanctions", "limited_partnerships"]
+text = "Registers a board screen would read that no lane has published. Nothing in this report says anything about them; ask the source."

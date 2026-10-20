@@ -626,3 +626,29 @@ priority = 31
 command = ["python", "-m", "registers.real_estate_authority.capture", "--budget-s", "14400"]
 at_utc = "10:00"
 nice = 10
+
+[jobs.qv4-read-pages-candidates]
+description = "Every image page of one candidate return through the page-reader profile, stored under the reader contract's stamp and the candidate-returns lane's scan profile (card: 713 returns set aside at stage read wait on a reading). One piece per document; the lane picks the readings up on its next load. Queued by the integrator after candidate-returns-1."
+needs = "model-profile"
+profile = "page-reader"
+memory_gb = 1.5
+deadline_s = 1800
+query_timeout_s = 300
+class = "whenever"
+priority = 25
+command = ["python", "-m", "support.scheduler", "read-pages", "--profile", "ec-candidate-return-scan"]
+requires = ["pdftoppm"]
+pieces = true
+can_share = false
+
+[jobs.qv4-site-compare]
+description = "Step 4.5: pair today's frozen release with the rebuilt version built from its listing, read every published file of the ten kinds on both sides figure by figure (no tolerance on money), group every difference by its cause, and write the day record and the clean-day ledger under <live>/checks/comparison/. Exits 1 when a difference has no cause card, or when no rebuilt version exists for today's listing. After qv4-site-build."
+needs = "processor"
+memory_gb = 1
+deadline_s = 900
+query_timeout_s = 60
+class = "due"
+priority = 52
+command = ["python", "-m", "checks.comparison", "run"]
+at_utc = "19:45"
+nice = 10

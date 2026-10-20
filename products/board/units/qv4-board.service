@@ -6,8 +6,8 @@ After=network-online.target
 Type=simple
 WorkingDirectory=/home/user/querynzv4
 ExecStart=/home/user/querynzv4/.venv/bin/python -m products.board serve
-# the port and where pins and saved paths live; the credential files are read at the moment of use
-Environment=PYTHONUNBUFFERED=1 QV4_BOARD_PORT=8420 QV4_BOARD_BIND=0.0.0.0 QV4_BOARD_STATE=querynz_v4/board
+# the port, where pins and saved paths live, and the subject report every pane links to; the credential files are read at the moment of use
+Environment=PYTHONUNBUFFERED=1 QV4_BOARD_PORT=8420 QV4_BOARD_BIND=0.0.0.0 QV4_BOARD_STATE=querynz_v4/board QV4_REPORT_URL=http://10.0.0.2:8440
 # a standing service: back within ten seconds of a failure; every statement it runs has its own 20 s limit
 Restart=on-failure
 RestartSec=10

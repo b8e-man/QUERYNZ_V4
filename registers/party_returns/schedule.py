@@ -23,8 +23,9 @@ own route. Each row says which route paired its cell with its amount
   column, measured from the page's own column heading.
 - **table** (the page reader's markdown): one row per line. A blank first
   cell is the same donor's next dated donation.
-- **numbered** (the page reader's list, `3. NO`, `3. $ 5,000.00`): the
-  printed row number pairs the cell with its amount; when the numbers
+- **numbered** (the page reader's list, `3. NO`, `3. $ 5,000.00`, or a
+  numbered name with the rest of its row on the unnumbered lines below):
+  the printed row number pairs the cell with its amount; when the numbers
   leave a figure with no cell they are the reader's own list numbers,
   and the page goes the stacked route.
 - **stacked** (the page reader's lines with no markup): each row's cell,
@@ -34,6 +35,13 @@ A page the reader went down column by column (every name, then every
 amount) is refused, never paired by order: a name shifted by one row still
 adds up, so the part's total cannot catch it. A page that fits none of
 these yields no rows, and the reconciliation in the caller says so.
+A page with one figure pairs every line above it with that figure; a page
+whose one figure sits beside `see attachment` names no donor. A donor's
+`Aggregated total` line restates its dated rows and is dropped where it
+equals them (on the next page too); a page reader's page whose first row
+names nobody takes the donor the page before left open with no figure.
+In the text layer a cell's name is its first line, and a dated name line
+above a numbered figure line with no date opens that row.
 `TOTAL FOR PART A $ x` is the part's own printed total; the blank form's
 `$0.00`, a zero row, a row pointing at an attached schedule and a page
 subtotal (a last figure equal to the figures above it) are not rows.
@@ -64,6 +72,8 @@ TABLE_START = re.compile(r"^\s*(?:\|\s*)*(?:donor.?s?\s+name|name\s+and\s+(?:str
 ROW_NUMBER = re.compile(r"^\s{0,3}(\d{1,3})(?=\s|$)")     # the form prints it at the margin; a wrapped address is indented further
 NUMBERED = re.compile(r"^\s*(\d{1,3})\.\s+(.*)$")
 DATE_HEAD = re.compile(r"Date\s+donation|aggregated\s+donations|dd/mm/yyyy|Date\s+(?:of\s+)?(?:the\s+)?loan", re.I)
+#: a donor's own subtotal under its dated rows (`Jane Doe  Aggregated total  $ 24,150.00`)
+SUBTOTAL = re.compile(r"\baggregated\s+total\W*$", re.I)
 #: a row that points at an attached schedule carries the schedule's total, not a donor
 POINTER = re.compile(r"\bsee\s+(?:the\s+)?(?:attach(?:ed|ment)|schedule|appendix|over|list|separate)", re.I)
 CENT = 0.005
@@ -71,6 +81,7 @@ FULL_DATE = re.compile(r"\b\d{1,2}/\d{1,2}/(?:\d{4}|\d{2})\b,?")    # with its y
 RULE = re.compile(r"^[Il|!]$")    # a table rule the text layer kept as a letter
 #: a figure printed with no cents (`150000`, `$ 12,500`): an amount only where the amount column puts it
 WHOLE = re.compile(r"^\$?\s*(\d{1,3}(?:,\d{3})+|\d{3,7})$")
+WHOLE_AFTER_YESNO = re.compile(r"\b(yes|no)\s+(\$?\s*(?:\d{1,3}(?:,\d{3})+|\d{3,7}))\s*\|?\s*$", re.I)
 AMOUNT_HEAD = re.compile(r"\$0\.00|\(including\s+gst\)", re.I)
 BARE_NUMBER = re.compile(r"^\s*\d{1,3}\s*$")
 DONOR_COLUMN = 60          # the name cell ends about here when the page prints no column heading
@@ -86,6 +97,7 @@ class Row:
     n: int = None              # the printed row number, when there is one
     paired_by: str = ""        # layout | table | numbered | stacked
     read_from: str = ""        # text | pixels
+    subtotal: bool = False     # a donor's `Aggregated total` line: restates the rows above it, never a row
 
 
 def money(s: str):
@@ -195,25 +207,53 @@ def _table(lines, page) -> list:
 
 
 def _numbered(lines, page) -> list:
+    """The page reader's list, each row under its printed number (`3. NO`,
+    `3. $ 5,000.00`), or a numbered name line with the rest of its row on
+    the unnumbered lines below it (the address, the date, Yes/No, the
+    figure), which are that row's until the next number. A figure with no
+    cents counts only after the row's Yes/No, as in `_stacked`. A row given
+    two figures is refused (None): which one is its own is a guess."""
     by = {}
     order = []
+    n = None
     for line in lines:
         m = NUMBERED.match(line)
-        if not m or _furniture(m.group(2)):
-            continue
-        n, body = int(m.group(1)), m.group(2).strip()
+        if m:
+            if _furniture(m.group(2)):
+                continue
+            n, body = int(m.group(1)), m.group(2).strip()
+        else:
+            body = line.strip()
+            if n is None or not body or _furniture(body):
+                if n is None and body and not _furniture(body) and MONEY_ONLY.match(body) and money(body):
+                    return None                 # a figure above the first number: whose is it
+                continue
         if n not in by:
             by[n] = {"cell": [], "amount": None, "dates": [], "yes_no": ""}
             order.append(n)
-        if MONEY_ONLY.match(body):
-            by[n]["amount"] = money(body)
+        row = by[n]
+        closer = None if MONEY_ONLY.match(body) else _closer(body)
+        figure = money(body) if MONEY_ONLY.match(body) else (whole(body) if (not m and row["yes_no"]) else None)
+        if figure is not None:
+            if row["amount"] and figure:
+                return None
+            row["amount"] = figure or row["amount"]
+        elif closer and closer[0].strip():         # the whole row on its numbered line: `3. name, address 2/4/19 NO $ 4,025.00`
+            if row["amount"]:
+                return None
+            text, row["amount"] = closer
+            yn = re.search(r"(?:^|\s)(yes|no)\s*$", text, re.I)
+            if yn:
+                row["yes_no"], text = yn.group(1), text[:yn.start()]
+            row["dates"] += [d.group(0) for d in DATE.finditer(text)]
+            row["cell"].append(_cell_words(text))
         elif YESNO.match(body):
-            by[n]["yes_no"] = body
+            row["yes_no"] = body
         elif DATE.fullmatch(body.split(",")[0].strip()):
-            by[n]["dates"].append(body)
+            row["dates"].append(body)
         else:
-            by[n]["cell"].append(body)
-    got = [Row(page, " ".join(by[n]["cell"]), by[n]["amount"], " ".join(by[n]["dates"]), by[n]["yes_no"], n, "numbered")
+            row["cell"].append(body)
+    got = [Row(page, "\n".join(by[n]["cell"]), by[n]["amount"], " ".join(by[n]["dates"]), by[n]["yes_no"], n, "numbered")
            for n in order if by[n]["amount"]]
     if any(not r.cell for r in got):            # the reader numbered its own list items, not the form's rows
         return _stacked([m.group(2) if (m := NUMBERED.match(l)) else l for l in lines], page)
@@ -230,7 +270,7 @@ def _stacked(lines, page):
     out, pending = [], {"cell": [], "dates": [], "yes_no": ""}
     for line in lines:
         s = line.strip()
-        if not s or _furniture(s):
+        if not s or _furniture(s) or re.fullmatch(r"\d{1,3}\.?", s):     # a bare row number: an empty row of the form
             continue
         yn = re.match(r"^(yes|no)\s+(\S.*)$", s, re.I)          # `No 35000`: the Yes/No and the figure on one line
         if yn and (MONEY_ONLY.match(yn.group(2)) or whole(yn.group(2)) is not None):
@@ -259,6 +299,9 @@ def _closer(s: str):
     """(text before the figure, amount) when a line ends in its one money
     figure, else None."""
     ms = list(MONEY.finditer(s))
+    if not ms:                                  # `… 20/11/2024 NO 5500`: a figure with no cents after the row's Yes/No
+        w = WHOLE_AFTER_YESNO.search(s)
+        return (s[:w.start(2)].rstrip(" $|"), whole(w.group(2))) if w else None
     if len(ms) != 1 or s[ms[0].end():].strip(" |"):
         return None
     return s[:ms[0].start()].rstrip(" $|"), money(ms[0].group(0))
@@ -275,6 +318,7 @@ def _inline(lines, page):
     down the columns), and text left after the last figure. A bare row
     number is an empty row of the form."""
     out, pending = [], []
+    closers = [s for l in lines if (s := l.strip()) and not _furniture(s) and (c := _closer(s)) and c[1]]
     for line in lines:
         s = line.strip()
         if not s or _furniture(s) or re.fullmatch(r"\d{1,3}\.?", s):
@@ -298,8 +342,8 @@ def _inline(lines, page):
             n, text = int(m.group(1)), text[m.end():]
         waiting = [p for p in pending if _cell_words(p)]
         numbers = [int(m.group(1)) for p in waiting if (m := re.match(r"^(\d{1,3})\.?\s+[A-Za-z]", p))]
-        if (_cell_words(text) and waiting) or any(b == a + 1 for a, b in zip(numbers, numbers[1:])):
-            return None
+        if len(closers) > 1 and ((_cell_words(text) and waiting) or any(b == a + 1 for a, b in zip(numbers, numbers[1:]))):
+            return None                         # with one figure on the page, every line above it is its row's
         cell = [w for w in (_cell_words(p) for p in pending + [text]) if w]
         if not cell:
             return None
@@ -453,6 +497,11 @@ def _layout(lines, page, carry=()):
         opener = next((j for j in gap if items[j]["n"] is not None), None)
         if opener is None and items[anchors[after]]["n"] is not None and items[anchors[after]]["name"]:
             opener = anchors[after]                 # the next row opens on its own figure's line
+            above = items[anchors[after] - 1]
+            if anchors[after] - 1 > anchors[before] and above["name"] and above["dates"] and \
+                    not items[anchors[after]]["dates"] and items[anchors[before]]["dates"]:
+                opener -= 1     # unless its date, and the name beside it, sit on the line above: `Name … 04/03/22`
+                                # over `10  Auckland 1010 … $ 100,000.00`, the row above dated on its own line
         if opener is not None:
             owner[i] = after if i >= opener else before
         else:
@@ -461,7 +510,7 @@ def _layout(lines, page, carry=()):
     for k, a in enumerate(anchors):
         mine = [items[i] for i in range(len(items)) if owner[i] == k]
         n = next((it["n"] for it in mine if it["n"] is not None), None)
-        out.append(Row(page, " ".join(it["name"] for it in mine if it["name"]), items[a]["amount"],
+        out.append(Row(page, "\n".join(it["name"] for it in mine if it["name"]), items[a]["amount"],
                        " ".join(it["dates"] for it in mine if it["dates"]),
                        next((it["yes_no"] for it in mine if it["yes_no"]), ""), n, "layout"))
     return out, tail
@@ -483,6 +532,9 @@ def page_rows(lines: list, page: int, src: str, carry=()):
             body.append(l)
             after_total = False
     tail = []
+    figures = [l for l in body if MONEY.search(l) and money(l)]
+    if src != "text" and len(figures) == 1 and any(POINTER.search(l) for l in body):
+        return [], []                           # `1 See attachment for full listing` / `2 $ 2,727,334.14`: no donor here
     if src == "text":
         got, tail = _layout(body, page, carry)
     elif sum(1 for l in body if l.count("|") >= 3 and MONEY.search(l)) >= 1:
@@ -502,12 +554,39 @@ def page_rows(lines: list, page: int, src: str, carry=()):
     out = []
     for r in got:
         r.read_from = src
+        if SUBTOTAL.search(" ".join(r.cell.split())):
+            r.subtotal = True
+            out.append(r)
+            continue
         if not r.cell.strip():                  # the same donor's next dated donation
             if not out:
                 continue                        # nobody above it on this page: the part's total refuses the loss
             r.cell, r.n = out[-1].cell, out[-1].n
         out.append(r)
     return out, tail
+
+
+def _open_cell(lines: list):
+    """The donor's cell a page reader's table leaves open at the foot of a
+    page: the last row naming someone, with no figure, under which only its
+    own dated rows (an empty first cell, no figure) follow. None when the
+    page's last named row has its figure."""
+    for line in reversed(lines):
+        s = line.strip()
+        if not s or _furniture(s):
+            continue
+        if s.count("|") < 3 or MONEY.search(s):
+            return None
+        cells = [c.strip() for c in s.strip("|").split("|")]
+        if re.fullmatch(r"\d{1,3}\.?", cells[0] or "-") and len(cells) > 1:
+            cells = cells[1:]
+        if _cell_words(cells[0]):
+            return cells[0]
+    return None
+
+
+def _nameless(r: Row) -> bool:
+    return not re.sub(r"\b(?:yes|no)\b", " ", _cell_words(r.cell), flags=re.I).strip(" ,.-–")
 
 
 def rows(texts: dict, src: dict, heading, end, letter: str):
@@ -525,6 +604,11 @@ def rows(texts: dict, src: dict, heading, end, letter: str):
             problems.append(f"page {pages_[i - 1]}: a row runs over the page break onto a page not read from text")
             carry = []
         got, tail = page_rows([l for q, l in lines if q == p], p, how, carry)
+        if got and how != "text" and i and pages_[i - 1] == p - 1 and _nameless(got[0]):
+            # the row the page before left open (a donor's dated rows run over the break, its figure here)
+            opened = _open_cell([l for q, l in lines if q == pages_[i - 1]]) if src.get(pages_[i - 1], "pixels") != "text" else None
+            if opened:
+                got[0].cell = opened
         if got is None:
             problems.append(f"page {p}: the cells and the figures do not pair (a row left unfinished, or the page read column by column)"
                             if not carry else f"page {p}: a row carried over the page break from page {pages_[i - 1]} "
@@ -537,4 +621,22 @@ def rows(texts: dict, src: dict, heading, end, letter: str):
             continue
         out += got
         carry = tail
-    return out, total, problems
+    return _subtotals(out, problems), total, problems
+
+
+def _subtotals(found: list, problems: list) -> list:
+    """The rows with each donor's `Aggregated total` line taken out, where it
+    equals, to the cent, the rows since the one before it (it may sit on
+    the next page). One that does not is a problem: a row above it was
+    misread, or it is not a subtotal."""
+    out, since = [], []
+    for r in found:
+        if not r.subtotal:
+            out.append(r)
+            since.append(r)
+            continue
+        if not since or abs(sum(x.amount for x in since) - r.amount) >= CENT:
+            problems.append(f"page {r.page}: an aggregated total of {r.amount:,.2f} is not the "
+                            f"{sum(x.amount for x in since):,.2f} of the {len(since)} rows above it")
+        since = []
+    return out

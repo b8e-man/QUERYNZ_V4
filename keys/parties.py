@@ -6,7 +6,8 @@ REGISTERED party, and the basis is returned with it so a row can be tiered:
 
   exact     the registered name itself, after the organisation fold
   variant   the frozen lineage map (renames, the Greens' comma family)
-  core      the letters-and-digits core is equal
+  core      the letters-and-digits core is equal, as filed or after the
+            spelling rules (SPELLINGS, and THE_X_PARTY for abbreviations)
   fuzzy     the core is close to exactly one registered core and the
             party's distinctive word is readable in it (the pixel-read arm)
   None      unresolved: never guessed
@@ -90,6 +91,32 @@ AMENDMENT = re.compile(
     r"|\b(?:19|20)\d\d\b", re.I)
 
 
+#: the spelling rules, by name: each is applied to the label and to every
+#: registered name alike, and tried only after the core as filed misses
+SPELLINGS = (
+    ("nz is new zealand", re.compile(r"\bnz\b", re.I), "New Zealand"),
+    ("and is &", re.compile(r"\band\b", re.I), "&"),
+    ("a trailing incorporated is off", re.compile(r"[\s,]+(?:incorporated|inc\.?)\s*$", re.I), ""),
+)
+#: an abbreviation "The X Party" also answers to X alone ("ACT" is The ACT Party)
+THE_X_PARTY = re.compile(r"^\s*the\s+(\S+)\s+party\s*$", re.I)
+
+
+def spelled(label: str, rules=None) -> str:
+    """The core after the spelling rules: 'Animal Justice Party Aotearoa NZ
+    Incorporated' → 'animaljusticepartyaotearoanewzealand'."""
+    s = label or ""
+    for _, rx, repl in SPELLINGS if rules is None else rules:
+        s = rx.sub(repl, s)
+    return core(s)
+
+
+def short_form(abbreviation: str) -> str:
+    """X's core where the abbreviation is "The X Party", else ''."""
+    m = THE_X_PARTY.match(abbreviation or "")
+    return core(m.group(1)) if m and len(core(m.group(1))) >= 3 else ""
+
+
 def without_amendment(label: str) -> str:
     """`label` with any amendment marker, month and year removed."""
     return squash(AMENDMENT.sub(" ", label or ""))
@@ -163,6 +190,14 @@ def party_name(label: str, registered=REGISTERED, on=None):
     for cc in (c, "newzealand" + c[2:] if c.startswith("nz") else c):
         if cc in by_core:
             return by_core[cc], "core"
+    by_spelling = {}
+    for n, ab in registered:
+        for k in (spelled(n), spelled(ab or ""), short_form(ab)):
+            if len(k) >= 3:
+                by_spelling.setdefault(k, set()).add(n)
+    hit = by_spelling.get(spelled(label))
+    if hit:
+        return (_one(hit), "core") if _one(hit) else (None, "unresolved")
     if len(c) < FUZZY_MIN_LEN:
         return None, "unresolved"
     # the pixel-read arm: close to one registered core of about the same
@@ -265,6 +300,15 @@ def _by_registration(label: str, rows, on):
     for cc in (c, "newzealand" + c[2:] if c.startswith("nz") else c, name_key(label)):
         if cc in by_core:
             return (_one(by_core[cc]), "core") if _one(by_core[cc]) else (None, "unresolved")
+    by_spelling = {}
+    for r in live:
+        abbreviation = r.get("kind", "name") == "abbreviation"
+        for k in (spelled(r["name"]), short_form(r["name"]) if abbreviation else ""):
+            if len(k) >= 3:
+                by_spelling.setdefault(k, set()).add(r["party"])
+    hit = by_spelling.get(spelled(label))
+    if hit:
+        return (_one(hit), "core") if _one(hit) else (None, "unresolved")
     if len(c) < FUZZY_MIN_LEN:
         return None, "unresolved"
     # the pixel-read arm, as above: one clear winner of about the same length,

@@ -21,3 +21,20 @@ is wrong, only unjoined. The fix is in `keys` (a fix session on
 kept as no party. Historic parties (United Future, Progressive, Mana)
 need the parties lane's register lineage.
 Blocks: nothing in these lanes; the person links of step 4.2 will want it.
+
+## 2026-10-20 (parties-2): measured through the parties lane's view; ACT still needs keys
+
+Resolved by date against the parties lane's names (`pub.party_labels`,
+the full published tables, 20 October): `National`, `Green`, `Maori`,
+`United Future`, `Progressive` and `Mana` join their registrations, and
+`Independent` is published as not a party. Rows joined, the view against
+each lane's own `party`: `pub.mp_expenses` 24,893 of 26,689 (the lane
+12,622), `pub.minister_expenses` 12,717 of 13,435 (5,204),
+`pub.mp_interest_returns` 2,428 of 2,521 (1,084), `pub.mp_interests`
+23,932 of 24,901 (9,483); 0 rows where both join and disagree. Still
+needs `bin/fix keys` for `ACT` and `Act`, 3,367 rows across the four
+tables: the registered abbreviation is "The ACT Party" and the name key
+keeps "actparty" whole. United Future in the quarter from 1 July 2013 (6
+rows) rightly joins nothing: the party was off the register from 31 May
+to 13 August 2013, and the row says so. The lanes still resolve against
+the snapshot: `the-lanes-and-the-site-do-not-yet-join-the-party-labels`.

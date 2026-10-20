@@ -1,0 +1,174 @@
+# The subject-report shape's own template (plan step 5.1): what the registers
+# hold about one person or organisation, confirmed connections first, near
+# beside them. It reads every published view the catalogue knows; a use-case
+# template (step 5.2) names fewer and adds its own rules.
+name = "subject"
+title = "Subject report"
+version = "0.1"
+owner = "products/report, step 5.1"
+depth = 2
+
+limits = [
+  "Only the registers the estate has published are read; the list of registers not held is printed with each report.",
+  "A connection is as the register states it: a role, a holding of record, a donation filed under a name. Nothing here says who owns or controls what.",
+  "A name match is near, never confirmed. A connection through more than one person is near.",
+  "The walk stops at the limits printed in the memo; what it left out is counted, never silent.",
+  "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+]
+
+[[reads]]
+view = "party_return_donors"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "party_return_totals"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+[[reads]]
+view = "party_return_loans"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+[[reads]]
+view = "disclosures"
+licence = "Electoral Commission large-donation disclosures: published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "nightly listing"
+[[reads]]
+view = "disclosure_items"
+licence = "Electoral Commission large-donation disclosures: published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+[[reads]]
+view = "candidate_return_donors"
+licence = "Electoral Commission candidate returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+[[reads]]
+view = "candidate_return_totals"
+licence = "Electoral Commission candidate returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+[[reads]]
+view = "companies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "directors"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+[[reads]]
+view = "shareholders"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+[[reads]]
+view = "company_addresses"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; registered offices only, never a residential address"
+attribution = "Companies Office"
+[[reads]]
+view = "societies"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+[[reads]]
+view = "society_officers"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+[[reads]]
+view = "gazette_liquidations"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_company_notices"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+[[reads]]
+view = "gazette_liquidators"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+[[reads]]
+view = "gazette_practitioners"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+[[reads]]
+view = "gazette_prohibitions"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a revoked prohibition's name is never shown"
+attribution = "New Zealand Gazette"
+[[reads]]
+view = "gazette_bankruptcies"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; an annulled bankruptcy's name is withheld"
+attribution = "New Zealand Gazette"
+[[reads]]
+view = "gazette_appointments"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+[[reads]]
+view = "candidates"
+licence = "Electoral Commission results and nominations, public"
+attribution = "Electoral Commission"
+[[reads]]
+view = "members"
+licence = "Electoral Commission results and the House's own lists, public"
+attribution = "Electoral Commission; New Zealand Parliament"
+[[reads]]
+view = "mp_interest_returns"
+licence = "Register of Pecuniary and Other Specified Interests of Members of Parliament, published by the House"
+attribution = "Office of the Registrar of Pecuniary Interests"
+[[reads]]
+view = "mp_interests"
+licence = "Register of Pecuniary and Other Specified Interests of Members of Parliament, published by the House"
+attribution = "Office of the Registrar of Pecuniary Interests"
+[[reads]]
+view = "mp_expenses"
+licence = "Parliamentary Service quarterly expense releases, Crown copyright, Creative Commons Attribution 4.0 (data.govt.nz)"
+attribution = "Parliamentary Service"
+refresh = "quarterly releases"
+[[reads]]
+view = "minister_expenses"
+licence = "Internal Affairs ministerial expense releases, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "Department of Internal Affairs"
+refresh = "quarterly releases"
+[[reads]]
+view = "parties"
+licence = "Register of Political Parties, public under the Electoral Act 1993"
+attribution = "Electoral Commission"
+[[reads]]
+view = "promoters"
+licence = "Register of Promoters, public under the Electoral Act 1993"
+attribution = "Electoral Commission"
+[[reads]]
+view = "promoter_people"
+licence = "Register of Promoters, public under the Electoral Act 1993"
+attribution = "Electoral Commission"
+
+[[sections]]
+name = "money"
+heading = "Donations, loans and disclosures"
+views = ["party_return_donors", "party_return_loans", "disclosures", "disclosure_items", "candidate_return_donors", "party_return_totals", "candidate_return_totals"]
+text = "A donation is from the donor the Commission filed it under. A return that covers a gift is the record; a disclosure of the same gift is shown beside it and never added."
+
+[[sections]]
+name = "companies"
+heading = "Companies: roles, holdings of record, registered offices"
+views = ["companies", "directors", "shareholders", "company_addresses"]
+text = "A holding is shown as the register states it: a shareholder of record. Nobody is called an owner."
+
+[[sections]]
+name = "societies"
+heading = "Incorporated societies"
+views = ["societies", "society_officers"]
+
+[[sections]]
+name = "insolvency"
+heading = "Insolvency, prohibitions and bankruptcies in the Gazette"
+views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_practitioners", "gazette_prohibitions", "gazette_bankruptcies"]
+not_held = ["insolvency", "courts"]
+
+[[sections]]
+name = "public"
+heading = "Public roles: appointments, candidacies, seats, declared interests, promoters"
+views = ["gazette_appointments", "candidates", "members", "mp_interest_returns", "mp_interests", "parties", "promoters", "promoter_people"]
+
+[[sections]]
+name = "expenses"
+heading = "Expenses the House and the Executive released"
+views = ["mp_expenses", "minister_expenses"]
+text = "The releases print a name only, so these rows are matched by name and are near, never confirmed. Each is the period total as printed, or money the release prints outside its total, shown beside and never added."

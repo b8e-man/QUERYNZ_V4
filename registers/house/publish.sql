@@ -9,6 +9,7 @@ FROM house.elections;
 CREATE OR REPLACE VIEW pub.electorates AS
 SELECT key, election, name, number, statsnz_code, statsnz_name, layer, statsnz_document, join_basis, votes_counted,
        candidate_total, candidate_informals, party_total, party_informals, poll_cancelled, result_held,
+       candidates_held,
        document, page, place, read_from, reader, profile, profile_version, loaded_at
 FROM house.electorates;
 
