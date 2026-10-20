@@ -10,6 +10,7 @@ keeps anything that is not one of the ten kinds out of a version.
     path("home")                                -> "data/home.json"
     path("subject", "party", "ACT New Zealand") -> "data/subject/party/act-new-zealand-7b1ffcdc.json"
 """
+import re
 import unicodedata
 
 KINDS = {"home": "home", "parties": "parties", "electorates": "electorates", "pickers": "pickers",
@@ -38,6 +39,18 @@ def slug(s: str) -> str:
         t = t.replace("--", "-")
     t = t.strip("-")
     return t[:60] or "x"
+
+
+def name_key(display: str) -> str:
+    """A page's key, from the settled display name and nothing else: diacritics
+    folded, lower case, apostrophes out, every other mark a space. It is the
+    key a published file carries beside a name (`name_key`), so a reader can
+    match it to the name by eye; it never repeats a reading the links hold,
+    which is theirs and may carry what the filed cell carried (the card
+    a-donor-name-key-on-the-rebuilt-site-carries-a-residence-fragment)."""
+    t = unicodedata.normalize("NFKD", display or "")
+    t = "".join(ch for ch in t if not unicodedata.combining(ch)).lower().replace("'", "").replace("\u2019", "")
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", t).split())
 
 
 def path(read: str, *key: str) -> str:

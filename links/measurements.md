@@ -110,3 +110,57 @@ decision (there are none yet).
 The largest, 1,220 rows across companies, Gazette and societies, is a
 professional trustee director; the next two are liquidators named on
 hundreds of notices.
+
+## Track C: the review agent scored on the test pairs, 20 October 2026
+
+Run `score-1` in `scratch_review` on the real published tables (`links.scores`,
+`links.readings`), after candidate-returns published: 575 pairs, every one
+the registers supply. The agent is `review-agent@2`: a screen on what the
+registers state outright (a source identifier joins the pair; the two rows
+file different middle names), then the review model (Qwen 3.6 35B-A3B, the
+review profile, through the card the scheduler placed) under a verdict
+grammar, 22.5 s a reading. A split is `not the same` or `contested`: both
+take the link out of the walk that makes the groups.
+
+| Truth | Band | Pairs | Not the same | Contested | No reason to doubt | Of which by the screen | Split per 100 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| one person | rare | 137 | 0 | 0 | 137 | 135 | 0.0 |
+| one person | middling | 7 | 0 | 0 | 7 | 7 | 0.0 |
+| **one person** | **all** | **144** | **0** | **0** | **144** | **142** | **0.0 (wrongly split)** |
+| two people | rare | 200 | 138 | 12 | 50 | 91 | 75.0 |
+| two people | middling | 201 | 167 | 19 | 15 | 140 | 92.5 |
+| two people | common | 30 | 25 | 0 | 5 | 19 | 83.3 |
+| **two people** | **all** | **431** | **330** | **31** | **70** | **250** | **83.8 (caught)** |
+
+**The two figures.** Wrongly split: 0 of 144 known-one-person pairs (0 per
+100; the default pass mark is fewer than 1 per 100, so the run is recorded
+as passed). Caught: 361 of 431 known-two-people pairs (83.8 per 100; 91.3
+per 100 once the 61 pairs with an identical full name and middle name, whose
+truth is not clean, are set apart).
+
+**What the pass does and does not show.** 142 of the 144 one-person pairs
+are a seat and its winning candidacy, joined by the house lane's own
+identifier, and the screen passes those without asking the model; only 2
+one-person pairs (a candidate across an original and an amended return)
+reached the model, and it kept both. So the model's own rate of wrongly
+splitting one person is measured on 2 pairs, which is no measurement. The
+registers hold no other one-person kind yet (card
+`three-test-pair-kinds-the-registers-cannot-supply`); the charities officer
+identifier will supply hundreds once a charities lane publishes, and the
+switch should stay off until the model has been scored on them.
+
+**The model alone**, on the 181 two-people pairs the screen left it: 111
+caught (61.3 per 100; rare 54.1, middling 75.4, common 54.5), 70 kept. Its
+misses are two directors of one name on one company at once, where it read
+the shared company and office as joining the two rows ("the differing
+appointment dates likely reflect a single person re-appointed"), though the
+evidence states `same_role_on_same_body_at_once`. The evidence derives that
+field from the same fact that defines the pair kind, so the screen was kept
+from deciding on it: the figure measures whether the model follows the
+register's practice when told it, and it does so three times in five.
+
+The run spanned two restarts (the card was lent to a read-pages job midway);
+nothing that decides a verdict changed between them, and the fingerprint in
+`links.scores` is of the judgment as it stands. No web search: the gate has
+no search route (card `the-fetch-gate-has-no-search-route`). Nothing was
+applied: `links.SETTINGS["review_applies"]` is off and `check.py` holds it.

@@ -28,3 +28,8 @@ def test_only_the_ten_kinds_have_a_path():
     assert paths.kind_of("data/search-index.json") == "" and paths.kind_of("SNAPSHOT.json") == ""
     assert set(paths.KINDS) == {"home", "parties", "electorates", "pickers", "subject", "electorate", "donor",
                                 "board-member", "size-bands", "cite"}
+
+
+def test_a_page_key_is_the_display_name_s_own_form():
+    assert paths.name_key("Te Pāti Māori") == "te pati maori" and paths.name_key("O'Brien, J.") == "obrien j"
+    assert paths.name_key("  Jane  Q. Donor ") == "jane q donor" and paths.name_key("") == "" and paths.name_key(None) == ""

@@ -1,4 +1,4 @@
-Mask a Gazette notice's title as well as its text, and publish a title cut before any property it names: possession notices title themselves "Notice of Entry into Possession of the Property at <address>", and a lender's name can run on from the borrowers' when the capture loses a line break.
+Mask a Gazette notice's title as well as its text and publish a title cut before any property it names: possession notices title themselves with the property's address, and a lender's name can run on from the borrowers'.
 area: Gazette notices, mortgagee possession, masking samples, published titles, hard limits 11 and 15
 paid-for-by: 2026-10-20, gazette session 5, step 5.3
 

@@ -1,4 +1,4 @@
-Where a notice's sentences can name people and addresses (the Registrar's rectifications), keep only words from a fixed list and the people as initials and surname, never the sentence; and match a list's closing "Dated" case-sensitively, because "dated 3 October" sits inside the rows.
+Where a notice's sentences can name people and addresses (the Registrar's rectifications), keep only words from a fixed list and the people as initials and surname, never the sentence; match a list's closing "Dated" case-sensitively.
 area: Gazette notices, Registrar of Companies, rectifications, people's names, hard limits 11 and 15, reading documents
 paid-for-by: 2026-10-20, gazette session 5, step 5.3
 

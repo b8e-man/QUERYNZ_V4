@@ -60,6 +60,11 @@ CREATE TABLE IF NOT EXISTS links.old_decisions (
     verdict      text,                     -- what it says about the pair: same, not the same, contested; NULL when it names no pair
     mapped_how   text                      -- how the two rows were found, or why they were not (a card)
 );
+-- Columns added since the table first shipped (card the-links-tables-do-not-migrate-an-existing-column):
+-- CREATE TABLE IF NOT EXISTS leaves an existing table as it was, so each later column is added here too.
+ALTER TABLE links.old_decisions ADD COLUMN IF NOT EXISTS source text;
+ALTER TABLE links.old_decisions ADD COLUMN IF NOT EXISTS verdict text;
+ALTER TABLE links.old_decisions ADD COLUMN IF NOT EXISTS mapped_how text;
 
 -- The rows the rules read: every person row of every published register,
 -- under the one shared reading of names (keys.names). Rebuilt with the registers.
@@ -149,5 +154,39 @@ CREATE TABLE IF NOT EXISTS links.readings (
     verdict      text NOT NULL CHECK (verdict IN ('no reason to doubt', 'contested', 'not the same')),
     reasoning    text,
     web_searched boolean NOT NULL DEFAULT false,
-    read_at      timestamptz NOT NULL DEFAULT now()
+    read_at      timestamptz NOT NULL DEFAULT now(),
+    run_id       text,                     -- the scoring or review run this reading belongs to
+    pair_id      bigint,                   -- a test pair's id when the reading scores the agent (links.test_pairs); NULL for a watched link
+    kind         text,                     -- the test pair's kind, and its truth and band, copied so a score needs no join
+    truth        text,
+    band         text,
+    screen       text,                     -- what the screen said before the model was asked, or 'model' when it decided nothing
+    evidence     jsonb,                    -- what the reader was shown (registered offices and roles; never a home address)
+    citations    jsonb,                    -- the web pages the verdict cites, each fetched in this run; [] when none
+    model        text,                     -- the served model, read back
+    seconds      real
+);
+-- columns added since the table first shipped (track C; card the-links-tables-do-not-migrate-an-existing-column)
+ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS run_id text;
+ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS pair_id bigint;
+ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS kind text;
+ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS truth text;
+ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS band text;
+ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS screen text;
+ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS evidence jsonb;
+ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS citations jsonb;
+ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS model text;
+ALTER TABLE links.readings ADD COLUMN IF NOT EXISTS seconds real;
+CREATE INDEX IF NOT EXISTS readings_run ON links.readings (run_id);
+CREATE INDEX IF NOT EXISTS readings_link ON links.readings (link_id);
+
+-- The scores of the review agent on the test pairs (track C), one row per scoring run: the figures the pass mark reads.
+CREATE TABLE IF NOT EXISTS links.scores (
+    run_id       text PRIMARY KEY,
+    agent        text NOT NULL,            -- 'review-agent@N'
+    fingerprint  text NOT NULL,            -- a hash of everything that decides a verdict; a changed judgment is a new measurement
+    model        text,
+    scored_at    timestamptz NOT NULL DEFAULT now(),
+    figures      jsonb NOT NULL,           -- by truth and band: pairs, wrongly split, caught; the pass mark and whether it passed
+    passed       boolean NOT NULL
 );

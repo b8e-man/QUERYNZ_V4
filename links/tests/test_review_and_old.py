@@ -27,8 +27,8 @@ def test_the_reading_goes_through_the_model_client_and_names_its_model():
                 "usage": {}}
 
     v = review.ask({"link_id": 1, "rows": []}, url="http://127.0.0.1:8020/v1/chat/completions", model="qwen3.6-35b-a3b-q4km", post=post)
-    assert v == {"verdict": "contested", "reasoning": "busy address"}
-    assert seen["model"] == "qwen3.6-35b-a3b-q4km" and "DOUBT" in seen["system"]
+    assert (v["verdict"], v["reasoning"], v["model"], v["screen"]) == ("contested", "busy address", "qwen3.6-35b-a3b-q4km", "model")
+    assert seen["model"] == "qwen3.6-35b-a3b-q4km" and "contested" in seen["system"]
     with pytest.raises(Exception):
         review.ask({"link_id": 1}, url="https://api.example.com/v1/chat/completions", model="x", post=post)   # not a local address
 

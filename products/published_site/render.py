@@ -107,7 +107,8 @@ def home(ctx: Context) -> dict:
         for d in S.disclosures:
             if F.disclosure_year(d) == open_year:
                 recent.append({"party": ctx.idx.name(S.key), "party_key": S.key, "donor": d.get("donor_name"), "amount": F.money(d["amount"]),
-                               "received_on": d.get("received_on"), "amendment": d.get("amendment"), "ref": f"disclosures:{d['key']}",
+                               "received_on": d.get("received_on"), "given_on": d.get("given_on"), "year_basis": F.disclosure_year_basis(d),
+                               "amendment": d.get("amendment"), "ref": f"disclosures:{d['key']}",
                                "cite": ctx.cite(d["document"], d.get("page"), d.get("place"), d.get("href"))})
     recent.sort(key=lambda r: (r["received_on"] or "", r["donor"] or ""), reverse=True)
     top = sorted(ctx.donors.values(), key=lambda d: -F.donor_totals(d)["total"])
@@ -241,7 +242,8 @@ def subject_parties(ctx: Context) -> dict:
         disclosed = []
         for d in sorted(S.disclosures, key=lambda d: (d.get("received_on") or "", d.get("donor_name") or ""), reverse=True):
             disclosed.append({"ref": f"disclosures:{d['key']}", "year": F.disclosure_year(d), "donor": d.get("donor_name"), "amount": F.money(d["amount"]),
-                              "received_on": d.get("received_on"), "amendment": d.get("amendment"), "regime": d.get("regime"),
+                              "received_on": d.get("received_on"), "given_on": d.get("given_on"), "year_basis": F.disclosure_year_basis(d),
+                              "amendment": d.get("amendment"), "regime": d.get("regime"),
                               "covered_by_return": bool(S.returns_by_year.get(F.disclosure_year(d))),
                               "cite": ctx.cite(d["document"], d.get("page"), d.get("place"), d.get("href"))})
         loans = [{"ref": f"party_returns:{r['key']}", "year": r["year"], "lender": r.get("lender"), "amount": F.money(r["amount"]),
@@ -330,11 +332,13 @@ def donor_pages(ctx: Context) -> dict:
             row["cite"] = ctx.cite(r["document"], r.get("page"), r.get("ordinal"), r.get("href"))
             hist.append(row)
         rel = paths.path("donor", d.name)
-        if rel in out:   # two folded donors whose display names collide: keep both apart by key
-            rel = paths.path("donor", f"{d.name} ({d.name_key})")
+        if rel in out:   # one donor, one page: the fold by display name (figures.fold_by_display) rules this out; never invent a twin path
+            raise ValueError(f"two donors would share the page {rel}; the fold by display name has not run")
         out[rel] = {"generated_at": ctx.generated_at, "name": d.name, "name_key": d.name_key,
-                    "identity": {"kind": d.kind, "spellings": sorted(d.spellings), "rows_folded": len(d.refs),
-                                 "basis": "folded under the estate's one reading of the filed name (links, pub.names); a person is never joined to a company role here"},
+                    "identity": {"kind": d.kind, "spellings": sorted(d.spellings), "rows_folded": len(d.refs), "readings_folded": len(d.readings),
+                                 "basis": "folded under the estate's one reading of the filed name (links, pub.names), then one page per display name; "
+                                          "the key beside the name is the display name's own form and repeats no reading; "
+                                          "a person is never joined to a company role here"},
                     "history": hist, "history_total_rows": len(hist),
                     "totals": t, "ownership": {"notes": ["ownership is a note and never adds to an owner's total (ruling 253)"], "companies": not_held("owned companies", "the links' groups are not yet read into donor pages")},
                     "basis": "returns plus disclosures in years no return covers"}
