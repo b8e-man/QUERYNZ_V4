@@ -1,7 +1,7 @@
 # gazette: where it stands
 
 **Date:** 2026-10-20. **Step:** 4.1 and 5.3, Gazette notices, `registers/gazette/`.
-**Merge requests:** `gazette-1` to `-3` (merged), `gazette-4` (raised), `gazette-5` (carries gazette-4).
+**Merge requests:** `gazette-1` to `-3` (merged), `gazette-4` (raised), `gazette-5` (raised; carries gazette-4).
 
 ## Done
 
