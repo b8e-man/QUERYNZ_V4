@@ -1,23 +1,27 @@
-# Seven returns read from pixels are set aside at the declaration page
+# Four returns read from pixels are set aside at the declaration page (was seven)
 kind: finding
 state: open
 use-case: 1
 session: party-returns
 opened: 2026-10-19
+updated: 2026-10-20 (party-returns session 5)
 
-Of the 74 returns whose image pages all have stored readings, 67 read to a
-row and these seven do not, each with its reason in `party_returns.set_aside`:
+Session 5 mends a pixel-read declaration from its part pages' own printed
+totals (`read.recover`), to the cent and only when every part page
+agrees: NZ First 2019 (`total_check = parts-confirmed`, $369,535.17: the
+total was misread; card `nz-first-2019-the-frozen-site-shows-a-misread-total`),
+TEA Party 2020 ($154,619.77) and Vision NZ 2022 ($20,776.49, a handwritten
+Part G the reader missed; `part-pages`). All three equal the Commission's
+by-year figure. Left:
 
-- NZ First 2019 (`ea8b4bbbe195`): the parts read sum to $369,535.17 and
-  the printed total is $368,535.17, which is the frozen site's figure. One
-  part is misread by a digit; the total is right but unproven.
-- TEA Party 2020 (`53b9663181c4`), Vision NZ 2022 (`380df5ce2adf`), NZ
-  Outdoors & Freedom 2024 (`19156e3990b5`): the total is read and no part
-  is, a layout the pixel reader does not yet pair.
+- NZ Outdoors & Freedom 2024 (`19156e3990b5`): a total and no part read,
+  and no part page prints a total.
 - NZ Outdoors and Freedom 2021 (`9a69f1b198b7`): no total read.
 - Social Credit 2019 (`794ddfdbfd8f`), New Conservative 2022 unaudited
   (`ea38362821ab`): no page states the year by the two rules.
 
-Only NZ First 2019 is a front-page party-year. Not worked here. A page
-reader's second look at one page is the likely fix for the first, a
-layout case in `pixels.read` for the next three.
+None is a front-page party-year. Heartland 2022 (text, `2c311c867cfd`) is
+set aside the same way and stays so: its text layer and the page reader
+both print $56,623.73 over parts of $51,623.73; the filer mis-added, the
+Commission states the parts. Not mended, since the lane does not correct
+a figure two readings agree is printed.

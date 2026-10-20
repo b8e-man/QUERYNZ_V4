@@ -446,3 +446,139 @@ def test_an_address_word_run_into_its_number_or_a_park_never_stays_in_a_name():
     assert donors.split("3Example Developments Ltd - 12 Sample Grove, Exampleton")[0] == "3Example Developments Ltd"
     assert donors.split("Park, Jane, 4 Sample Road")[0] == "Park, Jane"
     assert donors.split("Estate of Example Donor formerly of 12 Sample Road, Exampleton")[0] == "Estate of Example Donor"
+
+
+# --- session 5: rows the totals cannot check, the page reader's other shapes, the name cut ---------------------------
+
+def _head(total):
+    return HEAD.replace("$ 188,000.00", total)
+
+
+def test_a_dated_name_line_opens_the_row_whose_figure_line_carries_no_date():
+    # ACT 2022 p2: a donor's later gifts on dated lines of their own, then the next donor's name and date on the
+    # line above its figure, whose line carries the end of the address; once read as the $50's donor (the sum held)
+    page = "\n".join([_head("$ 170,050.00"),
+                      _line("", "    Example One, 1 Sample Road, Exampleton", "02/03/22"),
+                      _line(" 1", "", "", "No", "$ 50,000.00"),
+                      _line("", "    Example Two, 4 Model Street, Exampleton", "08/03/22"),
+                      _line(" 2", "", "", "No", "$ 10,000.00"),
+                      _line(" 3", "", "23/05/22", "No", "$ 10,000.00"),
+                      _line(" 4", "", "25/06/22", "No", "$ 50.00"),
+                      _line("", "    Example Three, 9 Sample Grove, Exampleton", "04/03/22"),
+                      _line(" 5", "    Auckland 1010", "", "No", "$ 100,000.00"),
+                      " PART A" + " " * 120 + "Page: 2"])
+    part = donors.read({2: page}, {2: "text"}, 170050.0)
+    assert part.check == "parts-sum"
+    assert [(r["name"], r["amount"]) for r in part.rows] == [
+        ("Example One", 50000.0), ("Example Two", 10000.0), ("Example Two", 10000.0), ("Example Two", 50.0),
+        ("Example Three", 100000.0)]
+
+
+def test_a_text_cell_takes_its_name_from_its_first_line():
+    page = "\n".join([_head("$ 140,000.00"),
+                      _line("", "    Hon Example Donor", "25/1/19"),
+                      _line(" 1", "", "", "No", "$ 140,000.00"),
+                      _line("", "    Sample Gardens Retreat", "25/10/19"),
+                      " PART A" + " " * 120 + "Page: 2"])
+    part = donors.read({2: page}, {2: "text"}, 140000.0)
+    assert part.check == "parts-sum" and part.rows[0]["name"] == "Hon Example Donor"
+    assert "Retreat" in part.rows[0]["address"]
+
+
+NUMBERED_NAME = """PART A: PARTY DONATIONS OF MORE THAN $15,000
+TOTAL FOR PART A
+$ 25,500.00
+Donor's name and street address
+1. Example Donor
+16 Sample Road, Exampleton
+12/03/2018
+No
+$ 500.00
+2. Sample Holdings Ltd
+4 Model Street, Wellington
+05/07/2018
+No
+25000
+"""
+
+
+def test_a_numbered_name_takes_the_unnumbered_lines_below_it():
+    rows, printed, problems = _rows(NUMBERED_NAME, "pixels")
+    assert problems == [] and [(r.n, r.amount) for r in rows] == [(1, 500.0), (2, 25000.0)]
+    part = donors.read({2: NUMBERED_NAME}, {2: "pixels"}, 25500.0)
+    assert [r["name"] for r in part.rows] == ["Example Donor", "Sample Holdings Ltd"]
+    assert all("Road" not in r["name"] and "Street" not in r["name"] for r in part.rows)
+    two = NUMBERED_NAME.replace("$ 500.00\n", "$ 500.00\n$ 700.00\n")
+    assert schedule._numbered(two.splitlines(), 2) is None            # one row, two figures: whose is which
+
+
+def test_a_donor_s_aggregated_total_restates_its_rows_and_is_never_one():
+    # NZ First 2019: each donor's dated gifts a line each, then its own `Aggregated total`, the second on the next page
+    page2 = "\n".join(["PART A: PARTY DONATIONS OF MORE THAN $15,000", "TOTAL FOR PART A $28,100.00",
+                       "Donor's name and street address",
+                       "1. Example Capital Limited, 1 Sample Road, Exampleton 23/04/2019 NO $4,025.00",
+                       "2. Example Capital Limited, 1 Sample Road, Exampleton 20/12/2019 NO $8,050.00",
+                       "3. Example Capital Limited Aggregated total $12,075.00",
+                       "4. Example Donor, 2 Model Street, Exampleton 18/04/2019 NO $8,025.00",
+                       "5. Example Donor, 2 Model Street, Exampleton 02/12/2019 NO $8,000.00"])
+    page3 = "Donor's name and street address\nExample Donor Aggregated total $16,025.00\n"
+    part = donors.read({2: page2, 3: page3}, {2: "pixels", 3: "pixels"}, 28100.0)
+    assert part.check == "parts-sum" and len(part.rows) == 4
+    assert {r["name"] for r in part.rows} == {"Example Capital Limited", "Example Donor"}
+    wrong = page3.replace("$16,025.00", "$16,000.00")
+    part = donors.read({2: page2, 3: wrong}, {2: "pixels", 3: "pixels"}, 28100.0)
+    assert part.check == "" and any("aggregated total of 16,000.00" in p for p in part.problems)
+
+
+def test_a_page_with_one_figure_and_a_pointer_page():
+    one = ("PART A: PARTY DONATIONS OF MORE THAN $5,000\nTOTAL FOR PART A $10,000.00\nDonor's name and street address\n"
+           "1 Example Donor\n2 Sample Road Exampleton\n12/11/2024\nNO $10,000.00\n")
+    part = donors.read({2: one}, {2: "pixels"}, 10000.0)
+    assert part.check == "parts-sum" and [r["name"] for r in part.rows] == ["Example Donor"]
+    pointer = ("PART A: PARTY DONATIONS OF MORE THAN $5,000\nTOTAL FOR PART A 26000.00\nDonor's name and street address\n"
+               "1 See attachment for full listing\n2 $26,000.00\n3\n4\n")
+    rows, printed, problems = _rows(pointer, "pixels")
+    assert rows == [] and problems == [] and printed == 26000.0
+
+
+def test_bare_row_numbers_and_a_whole_figure_after_yes_or_no_close_rows():
+    stacked = ("PART A: PARTY DONATIONS OF MORE THAN $5,000\nDonor's name and street address\n"
+               "1 Example Donor 12 Sample Road Exampleton\n17/08/2023\nNO\n$20,000.00\n"
+               "2 Sample Holder 4 Model Street Exampleton\n08/08/2023\nNO\n$25,000.00\n7\n8\n9\n")
+    rows, _, problems = _rows(stacked, "pixels")
+    assert problems == [] and [r.amount for r in rows] == [20000.0, 25000.0]
+    inline = ("PART A: PARTY DONATIONS OF MORE THAN $5,000\nTOTAL FOR PART A 5500\nDonor's name and street address\n"
+              "C Example 4 Sample Street, Exampleton 20/11/2024 NO 5500\n")
+    part = donors.read({2: inline}, {2: "pixels"}, 5500.0)
+    assert part.check == "parts-sum" and [(r["name"], r["amount"]) for r in part.rows] == [("C Example", 5500.0)]
+
+
+def test_a_donor_s_dated_rows_run_over_a_page_reader_page_break():
+    # ACT 2017: a donor's monthly gifts, its name at the foot of page 2 and its one figure on page 3's sixth line
+    page2 = ("PART A: PARTY DONATIONS OF MORE THAN $15,000\nTOTAL FOR PART A $146,000.00\n"
+             "| Donor's name and street address | Date | Enter YES or NO | Amount |\n"
+             "| Example, Ann | 18/05/2017 | No | $25,000.00 |\n"
+             "| Sample, Jenny via Sample Trust, 1 Model Road | 04/01/2017 | No | |\n"
+             "| | 01/02/2017 | No | |\n| | 01/03/2017 | No | |\n")
+    page3 = "Donor's name and street address\n01/04/2017 No\n01/05/2017 No\n01/12/2017 No $121,000.00\n"
+    part = donors.read({2: page2, 3: page3}, {2: "pixels", 3: "pixels"}, 146000.0)
+    assert part.check == "parts-sum"
+    assert [(r["name"], r["amount"]) for r in part.rows] == [("Example, Ann", 25000.0),
+                                                             ("Sample, Jenny via Sample Trust", 121000.0)]
+    closed = page2.replace("| | 01/03/2017 | No | |", "| | 01/03/2017 | No | $0.50 |")
+    part = donors.read({2: closed, 3: page3}, {2: "pixels", 3: "pixels"}, 146000.5)
+    assert part.check == ""                     # the row above closed with its figure: page 3's first row names nobody
+
+
+def test_the_name_stops_before_a_care_of_a_postnominal_s_address_or_parliament():
+    assert donors.split("Reti Holdings Ltd, Sample Accountants Ltd")[0] == "Reti Holdings Ltd"
+    assert donors.split("Example Farms Limited, BDO Exampleton Limited")[0] == "Example Farms Limited"
+    assert donors.split("Example Co Limited - Deloitte")[0] == "Example Co Limited"
+    assert donors.split("Example, Simon - Parliament Buildings, Wellington")[0] == "Example, Simon"
+    assert donors.split("JANE EXAMPLE, Parliament Buildings")[0] == "JANE EXAMPLE"
+    assert donors.split("JANE EXAMPLE, d- Parliament Buildings, Wellington")[0] == "JANE EXAMPLE"
+    assert donors.split("Hon Ann Example QC Sample Grace Retirement Village 59/184 Model Road")[0] == "Hon Ann Example QC"
+    assert donors.split("EXAMPLE HON ANN, Sample Retirement Village, 184 Model Road")[0] == "EXAMPLE HON ANN"
+    assert donors.split("22 E.A.W Limited - 4 Sample Street, Exampleton")[0] == "22 E.A.W Limited"
+    # a person after the comma is no care-of: kept
+    assert donors.split("Example Trust via Sample Trustee Ltd, Ann Example")[0] == "Example Trust via Sample Trustee Ltd, Ann Example"

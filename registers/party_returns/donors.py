@@ -19,7 +19,10 @@ The name is the text before the first figure or address word (`Level`,
 opens a part holding a street word, so the published name never carries a
 house number or a street; with no figure in the cell, a street word with
 no separator before it leaves no name (with a figure, `Brian Lane, 4 …`
-is a name). The rest of the cell is the address and goes only to
+is a name). A part after the comma, or after a spaced dash, that names a
+company, an accountant or Parliament is a care-of address; letters after a
+name (`QC`) end it before an address line run on to it; a company whose
+name opens with a figure (`22 E.A.W Limited`) keeps it. The rest of the cell is the address and goes only to
 `party_returns_private` (hard limit 15). A cell that leaves no name, or
 that `support.docread.rows.malformed` refuses (a column heading, a date
 swallowed, an address with no name), sets the part aside: its money cannot
@@ -103,6 +106,11 @@ def _row(r: schedule.Row) -> dict:
     dates = ", ".join(m.group(0).strip(" ,") for m in schedule.DATE.finditer(r.dates or ""))   # the dates, never what sat beside them
     return {"n": n, "name": name, "address": address, "cell": " ".join(cell.split()), "amount": round(r.amount, 2), "dates": dates,
             "yes_no": r.yes_no, "page": r.page, "paired_by": r.paired_by, "read_from": r.read_from}
+
+
+def pages(texts: dict) -> list:
+    """The pages Part A's table runs over."""
+    return sorted({p for p, _ in schedule.region(texts, HEADING, END)})
 
 
 def read(texts: dict, src: dict, declared) -> Part:

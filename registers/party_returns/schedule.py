@@ -23,8 +23,9 @@ own route. Each row says which route paired its cell with its amount
   column, measured from the page's own column heading.
 - **table** (the page reader's markdown): one row per line. A blank first
   cell is the same donor's next dated donation.
-- **numbered** (the page reader's list, `3. NO`, `3. $ 5,000.00`): the
-  printed row number pairs the cell with its amount; when the numbers
+- **numbered** (the page reader's list, `3. NO`, `3. $ 5,000.00`, or a
+  numbered name with the rest of its row on the unnumbered lines below):
+  the printed row number pairs the cell with its amount; when the numbers
   leave a figure with no cell they are the reader's own list numbers,
   and the page goes the stacked route.
 - **stacked** (the page reader's lines with no markup): each row's cell,
@@ -34,6 +35,13 @@ A page the reader went down column by column (every name, then every
 amount) is refused, never paired by order: a name shifted by one row still
 adds up, so the part's total cannot catch it. A page that fits none of
 these yields no rows, and the reconciliation in the caller says so.
+A page with one figure pairs every line above it with that figure; a page
+whose one figure sits beside `see attachment` names no donor. A donor's
+`Aggregated total` line restates its dated rows and is dropped where it
+equals them (on the next page too); a page reader's page whose first row
+names nobody takes the donor the page before left open with no figure.
+In the text layer a cell's name is its first line, and a dated name line
+above a numbered figure line with no date opens that row.
 `TOTAL FOR PART A $ x` is the part's own printed total; the blank form's
 `$0.00`, a zero row, a row pointing at an attached schedule and a page
 subtotal (a last figure equal to the figures above it) are not rows.

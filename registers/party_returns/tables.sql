@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS party_returns.returns (
     part_f           numeric(14,2),
     part_g           numeric(14,2),
     declared_parts   text,                                   -- the letters in the total's brackets, as printed
-    total_check      text NOT NULL,                          -- parts-sum (total equals the parts read) | declared-nil
+    total_check      text NOT NULL,                          -- parts-sum (total equals the parts read) | declared-nil | parts-confirmed (a misread total mended: every part page agrees) | part-pages (parts from the part pages)
     read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
     reader           text NOT NULL,
     profile          text NOT NULL,

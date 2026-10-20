@@ -34,6 +34,19 @@ row publishes with the label as filed. Without the lane's rows (the
 sample, before its `pub` holds them) the label resolves against the
 snapshot of today's register and `party_key` is empty.
 
+**A misread declaration.** A pixel-read declaration whose parts and total
+disagree is mended only from the part pages' own printed totals, to the
+cent, when every one agrees (`recover`: `parts-confirmed`, the total
+misread; `part-pages`, no part read and the pages make the total). A
+text-layer declaration is never mended: two readings of a printed figure
+that agree are the figure.
+
+**Part A over the page reader's readings.** When Part A is set aside on
+the pages as read and the page reader has stored readings (under the
+lane's stamp) of pages the text layer read, Part A is read again over
+those, and taken only if it reconciles. Otherwise the set-aside line names
+the part's text pages that have no stored reading, for a re-read job.
+
 A return the profile does not recognise, or whose declaration page cannot
 be reconciled with its own total, publishes nothing: it is set aside with
 the stage and the reason. A return that publishes its row then has its
@@ -64,6 +77,8 @@ IMAGE_DECLARATION = "ec-party-return-image-declaration"
 #: every profile a stored page reading of a party return may have been made under
 READING_PROFILES = (SCAN, IMAGE_DECLARATION, "ec-party-return-handwritten", PROFILE)
 PAGE_MODEL = "glm-ocr"
+#: the words a set-aside line opens its re-read request with, for `replay rereads`
+REREAD = "no stored page reading of the part's text pages: re-read"
 #: the settings stamped on the page reader's readings, exactly (the trial's incumbent, `support.trials.readers`;
 #: and the re-read job's shorter stamp). A test holds the first equal to the trial's own.
 PAGE_SETTINGS = (
@@ -208,10 +223,15 @@ def _part_a(out: Result, sha256: str, texts: dict, readings: dict, store: rd.Sto
     if not a.problems or store is None:
         return a, readings
     over = _stored_overlay(store, sha256, texts, readings)
-    if over is None:
-        return a, readings
-    b = donors.read(over[0], {p: r.read_from for p, r in over[1].items()}, out.row["filed"]["part_a"])
-    return (b, over[1]) if not b.problems else (a, readings)
+    if over is not None:
+        b = donors.read(over[0], {p: r.read_from for p, r in over[1].items()}, out.row["filed"]["part_a"])
+        if not b.problems:
+            return b, over[1]
+    unread = [p for p in donors.pages(texts) if src.get(p) == "text" and stored_page(store, sha256, p) is None]
+    paired = [x for x in a.problems if not x.startswith("the ")]     # a page or a row went wrong, not only the sum
+    if unread and paired:   # what a re-read job would be asked for (step 2.14); this module never asks
+        a.problems.append(f"{REREAD} {sha256} pages {', '.join(map(str, unread))}")
+    return a, readings
 
 
 def _schedules(out: Result, sha256: str, texts: dict, readings: dict, page_text: str, store: rd.Store = None) -> None:
