@@ -1,9 +1,10 @@
 # The frozen site counts open-year disclosures as named money
 kind: finding
-state: open
+state: accepted
 use-case: 1
 session: comparison
 opened: 2026-10-20
+closed: 2026-10-20
 
 The frozen site adds the open year's large-donation declarations into a
 party's named window, its over-the-line window and the 2026 race (ACT's
@@ -15,3 +16,7 @@ the party pages.
 
 Which side is right: neither is wrong; the rebuilt rule is ruling 193's.
 Owner: site.
+
+Accepted (site-2, 2026-10-20): ruling 193; the rebuilt home and party pages show the open year's declarations beside the returns
+(`recent_disclosures`, `disclosures_open_total`) and never sum them. Measured against the frozen 2026-10-20T0620, rebuilt in scratch: 153
+differences, unchanged.

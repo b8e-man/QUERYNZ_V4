@@ -39,7 +39,7 @@ ntfy address (test alarm 18 October).
 - `review` (Fable, `links/`): track C, scored on the test pairs; verdicts
   recorded, not applied.
 - `house-2` (Opus): the comparison's five house cards. `recruitment`
-  (Opus): template 08, step 5.2. `site-2` raised, integrating. Next: the
+  (Opus): template 08, step 5.2. `review` raised, next. Next: the
   charities builds after tonight's copy.
 
 ## Half-done
@@ -47,7 +47,8 @@ ntfy address (test alarm 18 October).
 - 1.4: the positive half waits for the next declaration. Step 2:
   `qv4-questions` held (ruling 22); node1 setup carded (ruling 57).
 - 4.5 built (`comparison-1`): 43,062 differences on day one, every one
-  carded, 23,067 under cards saying the new side is short; `qv4-site-compare`
+  carded; 30,447 after `site-2` (template v2: every frozen section,
+  electorate money, statements) and `party-returns-5`; `qv4-site-compare`
   daily 08:45. Ahead: seven clean days, checkpoint, export test, the
   switch after 7 November on Arthur's word.
 - 5.1 built (`report-1`): the subject-report shape on 10.0.0.2:8440, the
