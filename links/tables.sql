@@ -91,6 +91,19 @@ CREATE INDEX IF NOT EXISTS rows_full ON links.rows (full_key);
 CREATE INDEX IF NOT EXISTS rows_entity ON links.rows (entity_ref);
 CREATE INDEX IF NOT EXISTS rows_name ON links.rows (name_key);
 CREATE INDEX IF NOT EXISTS rows_view_name ON links.rows (view, lower(name_filed));   -- the old decisions map by filed name
+CREATE INDEX IF NOT EXISTS rows_register ON links.rows (register, view);         -- one register's rows are refilled alone (rule 10)
+
+-- The rows' catch log (design, register rule 8): per published view, the rows read, the rows written and the
+-- rows set aside with the reason; `check.py` counts each view again and fails when the links have fallen behind a lane.
+CREATE TABLE IF NOT EXISTS links.rows_catch (
+    view         text PRIMARY KEY,
+    register     text NOT NULL,
+    read         integer NOT NULL,
+    written      integer NOT NULL,
+    set_aside    integer NOT NULL,
+    reasons      jsonb NOT NULL,
+    gathered_at  timestamptz NOT NULL DEFAULT now()
+);
 
 -- A company's registered office under the one reading of addresses (keys.addresses).
 -- No person's address: the address arm reads the office of the company a role sits on.

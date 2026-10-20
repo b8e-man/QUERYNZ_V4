@@ -10,7 +10,10 @@
    director substituted after that day must never confirm a link).
 3. The published views answer with the tables' counts (links, groups,
    decisions), so the board reads what was built.
-4. No reading of the review agent has become a decision while the apply
+4. The rows have read every published view they name as it stands now:
+   each view counted again equals what the last gather read, and the
+   catch log reconciles (read = written + set aside).
+5. No reading of the review agent has become a decision while the apply
    switch (`links.SETTINGS["review_applies"]`) is off, and every decision
    the agent made names a passing score of the judgment that made it
    (track C: until it passes, verdicts are recorded and never applied).
@@ -22,7 +25,7 @@ import json
 import sys
 
 import links
-from links import old, rules
+from links import old, rows, rules
 
 SUPPRESSION_DAY = dt.date(2026, 11, 18)
 
@@ -62,6 +65,24 @@ def check_published(conn, s: str, pub: str = "pub") -> list:
     return out
 
 
+def check_rows_current(conn, s: str) -> list:
+    """The rows have read every published view they name, and none has
+    grown since: each view's rows, counted again now, equal what the last
+    gather read (its catch log: read = written + set aside). A lane that
+    loaded rows after the links last ran fails here (card: the links held a
+    donor key read before party-returns-5 fixed the row)."""
+    out = []
+    logged = {v: (int(r), int(w), int(a)) for v, r, w, a in conn.execute(f"SELECT view, read, written, set_aside FROM {s}.rows_catch").fetchall()}
+    for register, view, sql in rows.SOURCES:
+        now = int(conn.execute(f"SELECT count(*) FROM ({sql}) q").fetchone()[0])
+        held = int(conn.execute(f"SELECT count(*) FROM {s}.rows WHERE view = %s", (view,)).fetchone()[0])
+        read, written, aside = logged.get(view, (0, 0, 0))
+        out.append({"check": f"{register}.{view}: the rows read the view as it stands", "published_now": now, "read_last": read,
+                    "written": written, "set_aside": aside, "held": held,
+                    "ok": now == read and held == written and read == written + aside})
+    return out
+
+
 def check_review_switch(conn, s: str, applies: bool = None) -> list:
     """A reading never becomes a decision while the switch is off; and each
     decision the agent made rests on a score that passed."""
@@ -81,6 +102,7 @@ def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
         out += check_old_copy(oldconn, conn, s)
     out += check_addresses(conn, s)
     out += check_published(conn, s, pub)
+    out += check_rows_current(conn, s)
     out += check_review_switch(conn, s)
     return out
 

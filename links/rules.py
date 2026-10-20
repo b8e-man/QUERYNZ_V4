@@ -34,6 +34,26 @@ NEAR_BUSY_ADDRESS = "the shared address is a busy one (more than 50 companies) a
 NEAR_POLITICIAN = "a politician's name on another register needs a supporting link: a shared directorship, a shareholding, or a declared company"
 NEAR_ORG_NAME = "a name match to a company; the donation row carries no official number"
 
+# Rules added by links-2 (20 October 2026). Confirmed: a register's own structure joins the rows. Near: the rows name a
+# circumstance beside the name, which is evidence a reader can weigh and not a confirmation; whether any of them may
+# confirm is Arthur's (docs/decisions/queue/).
+RULE_SEAT = "seat-and-window@1"              # a House-published row (an interests return, an expense line) and the seat whose term covers it
+RULE_DECLARED = "declared-directorship@1"    # a member's return and a director row of the member's name on a company the member declared
+RULE_FILED_NAME = "filed-name@1"             # two donation rows filed under one organisation name (near)
+RULE_OWN_RETURN = "own-return@1"             # a donor row on a candidate's own return in the candidate's name (near)
+RULE_PARTY_DONOR = "member-and-party-donor@1"   # a politician's name on a donor row to the politician's own party, dated in the term (near)
+RULE_COMPANY_NAME = "company-name@1"         # two companies under one name (near): the number is the only confirmation
+RULE_NAME_FORM = "candidate-name-form@1"     # one name under two printings across elections, same party (near)
+
+NEAR_SEAT_AMBIGUOUS = "more than one member of this name sat in the window, and the rows do not say which filed this"
+NEAR_DECLARED_TWO = "the declared company has two directors of this name; the rows do not say which is the member"
+NEAR_FILED_NAME = "two donation rows filed under one organisation name; neither carries an official number (the filed name is the Commission's donor, ruling 253)"
+NEAR_OWN_RETURN = "a donor row on the candidate's own return in the candidate's name; a name on the candidate's own form, not an identifier"
+NEAR_PARTY_DONOR = "a politician's name on a donor row to the politician's own party, dated in the term; a name with a circumstance, not a confirmation"
+NEAR_COMPANY_SAME = "two companies under one name; only the official number confirms a company"
+NEAR_COMPANY_YEAR = "two companies under one name apart from a year in brackets (a successor's name); only the official number confirms a company"
+NEAR_NAME_FORM = "one first and last name under two printings in different elections for one party; a printing is a name relationship, not an identity"
+
 
 def same_full_name(a: dict, b: dict) -> bool:
     """Rule 1: the full name key equal, with a middle name on both."""
