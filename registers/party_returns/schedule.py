@@ -73,6 +73,7 @@ FULL_DATE = re.compile(r"\b\d{1,2}/\d{1,2}/(?:\d{4}|\d{2})\b,?")    # with its y
 RULE = re.compile(r"^[Il|!]$")    # a table rule the text layer kept as a letter
 #: a figure printed with no cents (`150000`, `$ 12,500`): an amount only where the amount column puts it
 WHOLE = re.compile(r"^\$?\s*(\d{1,3}(?:,\d{3})+|\d{3,7})$")
+WHOLE_AFTER_YESNO = re.compile(r"\b(yes|no)\s+(\$?\s*(?:\d{1,3}(?:,\d{3})+|\d{3,7}))\s*\|?\s*$", re.I)
 AMOUNT_HEAD = re.compile(r"\$0\.00|\(including\s+gst\)", re.I)
 BARE_NUMBER = re.compile(r"^\s*\d{1,3}\s*$")
 DONOR_COLUMN = 60          # the name cell ends about here when the page prints no column heading
@@ -290,6 +291,9 @@ def _closer(s: str):
     """(text before the figure, amount) when a line ends in its one money
     figure, else None."""
     ms = list(MONEY.finditer(s))
+    if not ms:                                  # `… 20/11/2024 NO 5500`: a figure with no cents after the row's Yes/No
+        w = WHOLE_AFTER_YESNO.search(s)
+        return (s[:w.start(2)].rstrip(" $|"), whole(w.group(2))) if w else None
     if len(ms) != 1 or s[ms[0].end():].strip(" |"):
         return None
     return s[:ms[0].start()].rstrip(" $|"), money(ms[0].group(0))
@@ -554,6 +558,29 @@ def page_rows(lines: list, page: int, src: str, carry=()):
     return out, tail
 
 
+def _open_cell(lines: list):
+    """The donor's cell a page reader's table leaves open at the foot of a
+    page: the last row naming someone, with no figure, under which only its
+    own dated rows (an empty first cell, no figure) follow. None when the
+    page's last named row has its figure."""
+    for line in reversed(lines):
+        s = line.strip()
+        if not s or _furniture(s):
+            continue
+        if s.count("|") < 3 or MONEY.search(s):
+            return None
+        cells = [c.strip() for c in s.strip("|").split("|")]
+        if re.fullmatch(r"\d{1,3}\.?", cells[0] or "-") and len(cells) > 1:
+            cells = cells[1:]
+        if _cell_words(cells[0]):
+            return cells[0]
+    return None
+
+
+def _nameless(r: Row) -> bool:
+    return not re.sub(r"\b(?:yes|no)\b", " ", _cell_words(r.cell), flags=re.I).strip(" ,.-–")
+
+
 def rows(texts: dict, src: dict, heading, end, letter: str):
     """(rows, printed_total, problems) for one part of a return. A text
     page's row whose figure is on the next page is carried there (the next
@@ -569,6 +596,11 @@ def rows(texts: dict, src: dict, heading, end, letter: str):
             problems.append(f"page {pages_[i - 1]}: a row runs over the page break onto a page not read from text")
             carry = []
         got, tail = page_rows([l for q, l in lines if q == p], p, how, carry)
+        if got and how != "text" and i and pages_[i - 1] == p - 1 and _nameless(got[0]):
+            # the row the page before left open (a donor's dated rows run over the break, its figure here)
+            opened = _open_cell([l for q, l in lines if q == pages_[i - 1]]) if src.get(pages_[i - 1], "pixels") != "text" else None
+            if opened:
+                got[0].cell = opened
         if got is None:
             problems.append(f"page {p}: the cells and the figures do not pair (a row left unfinished, or the page read column by column)"
                             if not carry else f"page {p}: a row carried over the page break from page {pages_[i - 1]} "
