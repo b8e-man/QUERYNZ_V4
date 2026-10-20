@@ -170,3 +170,24 @@ def test_two_roles_stand_at_once_when_their_filed_windows_overlap_and_an_open_en
     assert review._overlap({"from": "2020-01-01", "to": "2021-01-01"}, {"from": "2020-06-01", "to": ""})
     assert not review._overlap({"from": "2020-01-01", "to": "2021-01-01"}, {"from": "2022-01-01", "to": ""})
     assert review._overlap({"from": "", "to": ""}, {"from": "2022-01-01", "to": ""})
+
+
+def test_a_model_that_has_gone_away_is_retried_for_the_wait_and_a_refusal_never_is():
+    from support import modelclient
+    calls, slept = [], []
+
+    def post(url, body, timeout):
+        calls.append(1)
+        if len(calls) < 3:
+            raise ConnectionRefusedError("gone")
+        return {"model": body["model"], "choices": [{"message": {"content": '{"verdict": "contested", "reasoning": "thin"}'}}]}
+
+    def refused(*a):
+        raise ConnectionRefusedError("gone")
+
+    v = review.read(_evidence(), url="http://127.0.0.1:8111/v1/chat/completions", model="m", post=post, wait=1000, sleep=slept.append)
+    assert v["verdict"] == "contested" and len(calls) == 3 and slept == [review.RETRY_EVERY_S] * 2
+    with pytest.raises(ConnectionRefusedError):
+        review.read(_evidence(), url="http://127.0.0.1:8111/v1/chat/completions", model="m", post=refused, wait=0)
+    with pytest.raises(modelclient.Refused):
+        review.read(_evidence(), url="https://api.example.com/v1/chat/completions", model="m", post=post, wait=1000, sleep=slept.append)

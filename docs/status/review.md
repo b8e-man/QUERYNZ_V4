@@ -11,7 +11,7 @@
 ## Half-done
 
 - The scratch build (`/home/user/querynzv4-work/scratch/review/build.log`): rows, old (5,383 promoted), links … pairs … measure.
-- Live jobs: about to enqueue `qv4-rehearsal-review` once, so the scheduler puts the review profile on a card (hard limit 25: a recorded swap); the scoring then calls that card's server at the port the scheduler's cards table shows. Ticked when done: [x] (enqueued 13:1x NZDT)
+- Live jobs: about to enqueue `qv4-rehearsal-review` once, so the scheduler puts the review profile on a card (hard limit 25: a recorded swap); the scoring then calls that card's server at the port the scheduler's cards table shows. Ticked when done: [x] (queued 13:10 NZDT; the planner lent the card to read-pages at about 13:35, so queued once more at 13:45 for the last 84 readings)
 
 ## Next
 

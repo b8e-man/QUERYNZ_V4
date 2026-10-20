@@ -247,14 +247,29 @@ def ask(item: dict, *, url: str, model: str, post=None) -> dict:
     return v
 
 
-def read(evidence: dict, *, url: str = None, model: str = None, post=None) -> dict:
-    """The agent's verdict on one pair: the screen, else the model."""
+WAIT_FOR_MODEL_S = 5400         # a session's scoring outlives a card swap: the planner may lend the card away and bring the profile back
+RETRY_EVERY_S = 60
+
+
+def read(evidence: dict, *, url: str = None, model: str = None, post=None, wait: float = 0, sleep=time.sleep, log=print) -> dict:
+    """The agent's verdict on one pair: the screen, else the model. With
+    `wait`, a model that has gone away (the card swapped, the server down)
+    is retried every minute for that long before the error is raised."""
     v = screen(evidence)
     if v is not None:
         return {**v, "model": None, "seconds": 0.0}
     if not (url and model):
         raise RuntimeError("the model is needed and QV4_MODEL_URL / QV4_MODEL were not given")
-    return ask(evidence, url=url, model=model, post=post)
+    t0 = time.monotonic()
+    while True:
+        try:
+            return ask(evidence, url=url, model=model, post=post)
+        except Exception as exc:        # noqa: BLE001 — recorded by the model client; retried while the profile is away
+            from support import modelclient
+            if isinstance(exc, modelclient.Refused) or time.monotonic() - t0 >= wait:
+                raise
+            log(f"links.review: the model is away ({type(exc).__name__}: {str(exc)[:120]}); retrying in {RETRY_EVERY_S} s")
+            sleep(RETRY_EVERY_S)
 
 
 def fingerprint() -> str:
@@ -355,7 +370,7 @@ def score(conn, s: str, *, url: str = None, model: str = None, run_id: str = Non
         args.append(kind)
     if part:
         i, n = (int(x) for x in part.split("/"))
-        q += f" AND pair_id % {n} = {i}"
+        q += f" AND mod(pair_id, {n}) = {i}"
     q += " ORDER BY kind, band, pair_id"
     if limit:
         q += f" LIMIT {int(limit)}"
@@ -369,7 +384,7 @@ def score(conn, s: str, *, url: str = None, model: str = None, run_id: str = Non
             log(f"links.review: pair {pair_id}: {e}")
             skipped += 1
             continue
-        v = read(ev, url=url, model=model, post=post)
+        v = read(ev, url=url, model=model, post=post, wait=WAIT_FOR_MODEL_S if post is None else 0, log=log)
         link_id = (ev.get("link") or {}).get("link_id") or 0
         record_reading(conn, s, row_a=a, row_b=b, link_id=link_id, verdict=v, evidence=ev, agent=agent, run_id=run_id,
                        pair={"pair_id": pair_id, "kind": kind_, "truth": truth, "band": band})
@@ -457,7 +472,7 @@ def watched(conn, s: str, *, url: str = None, model: str = None, limit: int = 20
     tally = {v: 0 for v in VERDICTS}
     for link_id, a, b in todo:
         ev = evidence_for_pair(conn, s, a, b)
-        v = read(ev, url=url, model=model, post=post)
+        v = read(ev, url=url, model=model, post=post, wait=WAIT_FOR_MODEL_S if post is None else 0, log=log)
         record_reading(conn, s, row_a=a, row_b=b, link_id=link_id, verdict=v, evidence=ev, agent=agent, run_id=run_id)
         tally[v["verdict"]] += 1
         n += 1
@@ -567,8 +582,9 @@ def main(argv=None) -> int:
             return 2
     with db.connect(db.OWNER_KEY, "querynz_v4") as conn:
         conn.execute("SET statement_timeout = 0")
-        conn.execute(links.ddl(s))
-        conn.commit()
+        if "--part" not in argv:         # parts run side by side; two DDL passes at once deadlock on the same table
+            conn.execute(links.ddl(s))
+            conn.commit()
         if "--score" in argv or mode == "score":
             limit = _opt(argv, "--limit", args.get("limit"))
             out = score(conn, s, url=url, model=model, run_id=_opt(argv, "--run-id", args.get("run_id")),
