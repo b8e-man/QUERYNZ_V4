@@ -5,6 +5,18 @@ its status (read, read with a part set aside, set aside, not read), its date and
 the citation. The notice text is never shown: bankruptcy, prohibition and independent-celebrant notices print home
 addresses.
 
+A title is shown cut before any property it names, and so is every other text on every row below (a company as printed,
+a plaintiff, a lender, a name): a house number and a street ("12 Sample Street", "12, 14 and 16 Sample Road"), a land
+description ("Lot 2 DP 12345", "Section 5 Block II", a record of title, "Unit 3"), or a number the words before it place
+("at 12", "Properties 12 and 14", ", of 12"). The words that led into it ("at", "situated at", ", of") go with it. A
+highway's number before a road ("State Highway 2 … Road") is not a property, and a company's name that holds an address
+("12 Sample Street Limited") is the companies register's own name for it and is shown whole. Measured on every notice
+on 21 October 2026: 1,463 titles cut (land notices `ln` 1,434; 29 across nine other sections, 8 of them possession
+notices), 4 of them to nothing, which shows as an empty title; 71 companies as printed (removals and winding-up
+applications whose company runs on into an address, all but three not joined to the register) and 2 plaintiffs. The
+uncut text is held in `gazette_private` only. No title was found to carry a vehicle's registration or a person's
+residence: a confiscation order's title names no vehicle.
+
 A celebrant row opens to its notice: the surname and given names, the organisation where the list prints one, the
 list's own action (appointment, removal, publication, annual list) and statute, the period where stated, and how the
 name was cut (`delimited`, `last word`, `glue`). An address is never shown; a row from an address list says only that
