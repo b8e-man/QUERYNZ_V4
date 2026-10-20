@@ -48,6 +48,7 @@ aside whole beside the row (stages `part-a`, `loans`, `part-h`).
     result.set_aside    [(stage, reason)]
 """
 import datetime as dt
+import re
 from dataclasses import dataclass, field
 
 from keys import parties
@@ -55,7 +56,7 @@ from support import profiles
 from support import reader as rd
 from support.docread import pages
 from support.docread.read import read_document
-from registers.party_returns import declaration, donors, loans, pixels
+from registers.party_returns import declaration, donors, loans, pixels, schedule
 
 PROFILE = "ec-party-return-text"
 SCAN = "ec-party-return-scan"
@@ -185,16 +186,44 @@ def _stamp(rows: list, part: str, sha256: str, readings: dict, loaded_at: str) -
     return out
 
 
-def _schedules(out: Result, sha256: str, texts: dict, readings: dict, page_text: str) -> None:
+def _stored_overlay(store: rd.Store, sha256: str, texts: dict, readings: dict):
+    """(texts, readings) with every page the text layer read replaced by the
+    page reader's stored reading of it, where one is stored under the
+    lane's stamp; None when no such page is stored."""
+    got = {p: r for p in texts if readings.get(p) is not None and readings[p].read_from == "text"
+           and (r := stored_page(store, sha256, p)) is not None}
+    if not got:
+        return None
+    return {**texts, **{p: r.text for p, r in got.items()}}, {**readings, **got}
+
+
+def _part_a(out: Result, sha256: str, texts: dict, readings: dict, store: rd.Store):
+    """Part A from the pages as read; when that is set aside and the page
+    reader has stored readings of pages the text layer read (a scanner's
+    text layer, a re-read job's pages), Part A again over those readings.
+    The second reading is taken only when it reconciles; the first one's
+    problems stand otherwise. (part, readings the rows are stamped from)"""
+    src = {p: r.read_from for p, r in readings.items()}
+    a = donors.read(texts, src, out.row["filed"]["part_a"])
+    if not a.problems or store is None:
+        return a, readings
+    over = _stored_overlay(store, sha256, texts, readings)
+    if over is None:
+        return a, readings
+    b = donors.read(over[0], {p: r.read_from for p, r in over[1].items()}, out.row["filed"]["part_a"])
+    return (b, over[1]) if not b.problems else (a, readings)
+
+
+def _schedules(out: Result, sha256: str, texts: dict, readings: dict, page_text: str, store: rd.Store = None) -> None:
     """Part A's donors and Part H's loans, each part published whole or set
     aside whole with its reason (stages `part-a`, `loans`, `part-h`)."""
     src = {p: r.read_from for p, r in readings.items()}
     filed, loaded_at = out.row["filed"], out.row["loaded_at"]
-    a = donors.read(texts, src, filed["part_a"])
+    a, a_readings = _part_a(out, sha256, texts, readings, store)
     filed["donors_check"] = a.check or None
     if a.problems:
         out.set_aside.append(("part-a", "; ".join(a.problems)[:2000]))
-    out.donors = _stamp(a.rows, "A", sha256, readings, loaded_at)
+    out.donors = _stamp(a.rows, "A", sha256, a_readings, loaded_at)
     owed = loans.declared(page_text)
     filed["loans_h"], filed["loans_i"], filed["loans_total"], filed["loans_check"] = None, None, None, None
     if owed.problems:
@@ -229,8 +258,73 @@ def read_text(data, sha256, texts, store, out, loaded_at, party_rows_=None) -> R
     decl = declaration.read(reading.texts.get(1, ""))
     if _publish_or_set_aside(out, decl):
         out.row = _row(sha256, 1, decl, reading.readings[0], "declaration page", loaded_at, party_rows_)
-        _schedules(out, sha256, reading.texts, {r.page: r for r in reading.readings}, reading.texts.get(1, ""))
+        _schedules(out, sha256, reading.texts, {r.page: r for r in reading.readings}, reading.texts.get(1, ""), store)
     return out
+
+
+PAGE_TOTAL = re.compile(r"TOTAL\s+FOR\s+PART\s+([A-G])\b\s*:?", re.I)
+BOX_LABEL = re.compile(r"^\W*total\s+(?:number|amount)\s+of\s+donations\b", re.I)
+EDITION = "A+C+D+F+G"           # the form whose part pages carry the declaration's own letters
+
+
+def page_totals(full: dict, declaration_page: int) -> dict:
+    """Each donations part's own printed total, from its page (`TOTAL FOR
+    PART G $ x`, or the figure alone within the next three lines, where the
+    page reader puts a box's figure under its label): {letter: amount}. The
+    declaration page is not a part page."""
+    out = {}
+    for p in sorted(full):
+        if p == declaration_page:
+            continue
+        lines = [pixels.clean(l) for l in (full[p] or "").splitlines()]
+        for i, line in enumerate(lines):
+            m = PAGE_TOTAL.search(line)
+            if not m or m.group(1).upper() in out:
+                continue
+            got = schedule.money(line[m.end():])
+            for nxt in ([] if got is not None else [l for l in lines[i + 1:i + 6] if l.strip()][:3]):
+                if schedule.MONEY_ONLY.match(nxt):
+                    got = schedule.money(nxt)
+                    break
+                if not BOX_LABEL.match(nxt):        # only the box's own label may stand between
+                    break
+            if got is not None:
+                out[m.group(1).upper()] = got
+    return out
+
+
+def recover(decl, full: dict, declaration_page: int) -> str:
+    """A pixel-read declaration whose own arithmetic fails, mended from the
+    part pages' printed totals, or left as it is: the mending's name
+    (`total_check`), or ''. Two cases, both checked to the cent:
+
+    - every part was read and they do not add to the total read, and the
+      part pages' totals carry exactly the parts' non-zero figures and add
+      to the parts: the total was misread (NZ First 2019: a degraded `9`
+      read as `8` by both readers; the form adds its own totals). The
+      total becomes the parts' sum: `parts-confirmed`.
+    - no part was read and a total was, on the form whose part pages carry
+      the declaration's letters, and the part pages' non-zero totals add
+      to the total: the parts are the pages' (a handwritten figure the
+      reader missed; parts are never negative, so the rest are nil):
+      `part-pages`."""
+    if decl.total is None or decl.total_is_nil:
+        return ""
+    pages_ = page_totals(full, declaration_page)
+    if decl.total_letters == EDITION:       # Part B and E there are contributions, inside A's and D's figures
+        pages_ = {k: v for k, v in pages_.items() if k in declaration.EXPECTED_PARTS}
+    nonzero = sorted(round(v, 2) for v in pages_.values() if v)
+    cents = lambda x: round(x * 100)
+    if all(k in decl.parts for k in declaration.EXPECTED_PARTS) and cents(decl.parts_sum) != cents(decl.total):
+        if nonzero == sorted(round(v, 2) for v in decl.parts.values() if v) and cents(sum(nonzero)) == cents(decl.parts_sum):
+            decl.total = decl.parts_sum
+            return "parts-confirmed"
+        return ""
+    if not decl.parts and decl.total_letters == EDITION:
+        if nonzero and cents(sum(nonzero)) == cents(decl.total) and all(k in declaration.EXPECTED_PARTS for k, v in pages_.items() if v):
+            decl.parts = {k: (pages_.get(k) or 0.0) for k in declaration.EXPECTED_PARTS}
+            return "part-pages"
+    return ""
 
 
 def read_pixels(data, sha256, texts, how, store, out, loaded_at, party_rows_=None) -> Result:
@@ -257,6 +351,7 @@ def read_pixels(data, sha256, texts, how, store, out, loaded_at, party_rows_=Non
         return out
     r = by_page[page]
     decl = pixels.read(r.text) if r.read_from == "pixels" else declaration.read(r.text)
+    mended = recover(decl, full, page) if r.read_from == "pixels" else ""
     year_from, extra = "declaration page", []
     if decl.year is None:
         decl.year, year_from = pixels.return_year(full)
@@ -264,7 +359,9 @@ def read_pixels(data, sha256, texts, how, store, out, loaded_at, party_rows_=Non
             extra = [year_from]
     if _publish_or_set_aside(out, decl, extra):
         out.row = _row(sha256, page, decl, r, year_from, loaded_at, party_rows_)
-        _schedules(out, sha256, full, by_page, r.text)
+        if mended:
+            out.row["filed"]["total_check"] = mended
+        _schedules(out, sha256, full, by_page, r.text, store)
     return out
 
 

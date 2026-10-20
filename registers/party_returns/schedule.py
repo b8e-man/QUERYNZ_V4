@@ -453,6 +453,11 @@ def _layout(lines, page, carry=()):
         opener = next((j for j in gap if items[j]["n"] is not None), None)
         if opener is None and items[anchors[after]]["n"] is not None and items[anchors[after]]["name"]:
             opener = anchors[after]                 # the next row opens on its own figure's line
+            above = items[anchors[after] - 1]
+            if anchors[after] - 1 > anchors[before] and above["name"] and above["dates"] and \
+                    not items[anchors[after]]["dates"] and items[anchors[before]]["dates"]:
+                opener -= 1     # unless its date, and the name beside it, sit on the line above: `Name … 04/03/22`
+                                # over `10  Auckland 1010 … $ 100,000.00`, the row above dated on its own line
         if opener is not None:
             owner[i] = after if i >= opener else before
         else:
@@ -461,7 +466,7 @@ def _layout(lines, page, carry=()):
     for k, a in enumerate(anchors):
         mine = [items[i] for i in range(len(items)) if owner[i] == k]
         n = next((it["n"] for it in mine if it["n"] is not None), None)
-        out.append(Row(page, " ".join(it["name"] for it in mine if it["name"]), items[a]["amount"],
+        out.append(Row(page, "\n".join(it["name"] for it in mine if it["name"]), items[a]["amount"],
                        " ".join(it["dates"] for it in mine if it["dates"]),
                        next((it["yes_no"] for it in mine if it["yes_no"]), ""), n, "layout"))
     return out, tail

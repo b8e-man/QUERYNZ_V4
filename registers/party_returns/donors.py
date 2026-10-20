@@ -36,10 +36,14 @@ from registers.party_returns import schedule
 HEADING = re.compile(r"PART\s*A\s*[:.\-–]?\s*PARTY\s+DONATIONS?\s+OF\s+MORE\s+THAN", re.I)
 END = re.compile(r"instructions?\s+for\s+part\s+[B-I]\b|^\W*part\s*[B-I]\s*[:.\-–]|total\s+for\s+part\s+[B-I]\b", re.I)
 #: where the address begins: a figure (not one run into a word: `3Sixty Ltd`, `1st Floor`), or a word that opens an address
-ADDRESS_START = re.compile(r"\d(?![a-z]{2})|\bc\s*/\s*[-o](?!\w)|\b(?:care\s+of|(?:late|formerly)\s+of|level|lvl|floor|flat|unit|apt|apartment|suite|shed|building|bldg|"
+ADDRESS_START = re.compile(r"\d(?![a-z]{2})|\bc\s*/\s*[-o](?!\w)|(?<!\S)[cd]-(?=\s)|\b(?:care\s+of|(?:late|formerly)\s+of|level|lvl|floor|flat|unit|apt|apartment|suite|shed|buildings?|bldg|"
                            r"p\.?\s*o\.?\s*box|private\s+bag|rd\s*\d)(?![a-z])", re.I)    # `Suite1`: the number may follow at once
 STREET = re.compile(r"\b(?:street|st|road|rd|avenue|ave|lane|place|pl|terrace|tce|drive|dr|crescent|cres|parade|pde|"
-                    r"highway|hwy|quay|way|close|grove|court|esplanade|rise|mews|boulevard|line|valley|heights|park)\b\.?", re.I)
+                    r"highway|hwy|quay|way|close|grove|court|esplanade|rise|mews|boulevard|line|valley|heights|park|village)\b\.?", re.I)
+#: a part after the comma that names who the post goes through, not the donor: `Reti Holdings Ltd, Sudburys Ltd`
+CARE_OF = re.compile(r"\b(?:ltd|limited|chartered|accountants?|lawyers?|solicitors?|pwc|bdo|kpmg|deloitte|parliament)\b", re.I)
+#: letters after a name; what follows them in the same cell, before the address, is the address's first line
+POSTNOMINAL = re.compile(r"\b(?:QC|KC|JP|ONZM|CNZM|KNZM|DNZM|GNZM|MNZM|QSO|QSM|OBE|CBE|KBE|DBE)\b(?=\s+[A-Z])")
 LEADING_N = re.compile(r"^\s*(\d{1,3})\.?\s+(?=[A-Za-z])")
 CENT = 0.005
 
@@ -65,8 +69,14 @@ def split(cell: str):
     cell = " ".join((cell or "").split()).strip(" ,;")
     m = ADDRESS_START.search(cell)
     head, rest = (cell[:m.start()], cell[m.start():]) if m else (cell, "")
+    pn = POSTNOMINAL.search(head) if m else None
+    if pn:                                          # `Hon A B QC Rose Retirement Village 59/…`
+        head, rest = head[:pn.end()], head[pn.end():] + rest
     parts = re.split(r"(?<=[,;])", head)
     for i in range(len(parts)):                     # `Name, Main Road, Town`: no figure, still a street
+        if i and CARE_OF.search(parts[i]):
+            head, rest = "".join(parts[:i]), "".join(parts[i:]) + (" " + rest if rest else "")
+            break
         if STREET.search(parts[i]):
             if i == 0:
                 if m:                               # a number marks the address: `Brian Lane, 4 …` is a name
