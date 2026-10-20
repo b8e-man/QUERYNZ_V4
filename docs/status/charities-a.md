@@ -21,7 +21,7 @@
 - Outside check green: the register stated 46,132 on the capture day, the
   build holds 46,124 (−8), within the 221 rows that moved during the pass.
 - Tests: 21 fast (14 on invented pages, 7 on the filled sample), 2 slow;
-  module fast tier green in 30 s; whole-repository fast tier run.
+  module fast tier green in 30 s; whole-repository fast tier green in 300 s.
 - Two lessons: birth dates typed into name fields; the feed's own shapes
   (group codes index the keyed sets, numbers on two rows, code Ids per set).
 
