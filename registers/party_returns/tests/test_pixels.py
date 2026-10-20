@@ -132,6 +132,53 @@ def test_parts_that_miss_the_total_publish_nothing():
     assert out.set_aside[0][0] == "declaration" and "parts sum to" in out.set_aside[0][1]
 
 
+def test_a_misread_total_is_mended_only_by_the_part_pages_own_totals():
+    out = _read("the total misread by $1,000")
+    f = out.row["filed"]
+    assert f["total_check"] == "parts-confirmed" and f["declared_total"] == 369535.17 and f["part_a"] == 52325.0
+    assert f["donors_check"] == "parts-sum" and len(out.donors) == 11          # each donor's aggregated total dropped
+    out = _read("a handwritten Part G the reader missed")
+    f = out.row["filed"]
+    assert f["total_check"] == "part-pages" and f["declared_total"] == 20776.49 and f["part_g"] == 20776.49
+    assert f["part_a"] == 0.0 and f["donors_check"] == "declared-nil"
+
+
+PART_PAGES = {2: "PART A: PARTY DONATIONS OF MORE THAN $15,000\nTOTAL FOR PART A $52,325.00\n",
+              5: "TOTAL FOR PART C: $0.00\n", 9: "TOTAL FOR PART F $0.00\n",
+              10: "PART G\nTOTAL FOR PART G\nTotal number of donations\n317,210.17\n"}
+
+
+def test_recover_wants_every_part_page_to_agree():
+    from support.docread.declaration import Declaration
+    d = Declaration(parts={"A": 52325.0, "C": 0.0, "D": 0.0, "F": 0.0, "G": 317210.17}, total=368535.17,
+                    total_letters="A+C+D+F+G")
+    assert read.recover(d, {1: "", **PART_PAGES}, 1) == "parts-confirmed" and d.total == 369535.17
+    d = Declaration(parts={"A": 52325.0, "C": 0.0, "D": 0.0, "F": 0.0, "G": 317210.17}, total=368535.17,
+                    total_letters="A+C+D+F+G")
+    other = {**PART_PAGES, 10: PART_PAGES[10].replace("317,210.17", "316,210.17")}
+    assert read.recover(d, {1: "", **other}, 1) == "" and d.total == 368535.17      # a page disagrees: no mend
+    d = Declaration(parts={}, total=317210.17, total_letters="A+C+D+F+G")
+    assert read.recover(d, {1: "", 10: PART_PAGES[10]}, 1) == "part-pages" and d.parts["G"] == 317210.17
+    d = Declaration(parts={}, total=400000.0, total_letters="A+C+D+F+G")
+    assert read.recover(d, {1: "", 10: PART_PAGES[10]}, 1) == "" and d.parts == {}   # the pages do not make the total
+    d = Declaration(parts={}, total=317210.17, total_letters="A+B+C+D+E")
+    assert read.recover(d, {1: "", 10: PART_PAGES[10]}, 1) == ""                     # page letters not the form's own
+
+
+def test_part_a_is_read_again_over_the_page_reader_s_stored_readings():
+    # Labour 2024: a scanner's text layer garbles a figure; the re-read job's pages of Part A add up
+    sha = [l.split()[0] for l in open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sample.list"),
+                                      encoding="utf-8") if "New Zealand Labour Party 2024" in l][0]
+    if not os.path.exists(path_for(sha)):
+        pytest.skip(f"document {sha[:12]} is not in the document store here")
+    store = ReplayOnly()
+    if read.stored_page(store, sha, 3) is None:
+        pytest.skip(f"no stored page reading of {sha[:12]} page 3 here")
+    out = read.read_return(read_bytes(sha), sha, store, loaded_at="2026-10-19T20:00:00+13:00")
+    assert out.row["filed"]["donors_check"] == "parts-sum"
+    assert "pixels" in {d["read_from"] for d in out.donors} and abs(sum(d["amount"] for d in out.donors) - 452766.53) < 0.005
+
+
 def test_an_image_page_with_no_stored_reading_names_the_document(tmp_path):
     # an empty reader store: the live one has held this return's pages since queue rows 110 and 111 (20 October)
     sha = _sample("no stored page reading")

@@ -8,6 +8,14 @@ shared reader store.
     python -m registers.party_returns.replay run OUT.json [--store DIR] [--snapshot]
     python -m registers.party_returns.replay compare BEFORE.json AFTER.json
     python -m registers.party_returns.replay shape SHA_PREFIX [PAGE ...]
+    python -m registers.party_returns.replay rereads RUN.json
+
+`rereads` lists, from a run, every return set aside at a stage a page
+reading could mend, with its whole hash and the pages to ask for: pages the
+page reader has no stored reading of, and pages it read column by column
+or left a row unfinished on (a cell-scale re-read); the integrator queues
+them (step 2.14). A return set aside for any other reason is listed with no
+pages and its reason, so it is not mistaken for one a re-read would clear.
 
 `run` resolves each label against the parties lane's names in the real
 database, through the read-only login (`--snapshot`: today's register, as
@@ -114,6 +122,28 @@ def compare(a: dict, b: dict) -> list:
     return out
 
 
+PAGE_FAULT = re.compile(r"page (\d+): (?:the cells and the figures do not pair|a row carried over the page break)")
+
+
+def rereads(d: dict) -> list:
+    """[(sha256, party, year, stage, pages, why)] for every set-aside stage."""
+    out = []
+    for sha, v in sorted(d.items(), key=lambda x: x[1]["path"]):
+        r = v["row"] or {}
+        for stage, why in v["set_aside"]:
+            pages_ = sorted({int(p) for p in PAGE_FAULT.findall(why)})
+            m = re.search(re.escape(read.REREAD) + r" [0-9a-f]{64} pages ([\d, ]+)", why)
+            if m:
+                pages_ = sorted(set(pages_) | {int(p) for p in m.group(1).split(",")})
+            m = re.search(r"pages ([\d, …]+)\): ask for a re-read", why)
+            if stage == "read" and m:
+                pages_ = sorted(int(p) for p in re.findall(r"\d+", m.group(1)))
+            kind = ("no stored reading" if stage == "read" or read.REREAD in why else "cell-scale re-read") if pages_ else "not a reading fault"
+            out.append((sha, r.get("party") or r.get("party_label") or v["path"].rsplit("/", 1)[-1], r.get("year"), stage,
+                        pages_, kind if pages_ else why[:160]))
+    return out
+
+
 def shape_line(line: str) -> str:
     out, last = [], 0
     for m in KEEP.finditer(line):
@@ -159,6 +189,10 @@ def main(argv=None) -> int:
         print(f"before: {counts(a)}\nafter:  {counts(b)}")
         for line in compare(a, b):
             print("  " + line)
+        return 0
+    if argv[:1] == ["rereads"] and len(argv) == 2:
+        for sha, party, year, stage, pages_, why in rereads(json.load(open(argv[1], encoding="utf-8"))):
+            print(f"{sha}\t{party}\t{year}\t{stage}\t{','.join(map(str, pages_)) or '-'}\t{why}")
         return 0
     if argv[:1] == ["shape"] and len(argv) >= 2:
         shape(argv[1], [int(p) for p in argv[2:]])

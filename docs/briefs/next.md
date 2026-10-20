@@ -76,38 +76,12 @@ replay only. Edit nothing outside your folder, push and raise
 party-returns-4. Finish by telling Arthur what closed and what is carded.
 ```
 
-Session 5 running (Opus, launched headless 20 October 14:45) on the
-comparison's Part A cards:
-
-```text
-You are a build session for QueryNZV4, running as Opus on node2, in the
-working copy the launcher made for you. Read docs/PLAN.md, then
-docs/plan/step-4.md (4.1 and 4.5), docs/plan/reference (the Electoral
-Commission forms), docs/status.md, docs/status/party-returns.md and
-docs/status/comparison.md, registers/party_returns/spec.md, the lane
-contract and the row contract, and the cards owned by party-returns that
-the comparison session opened on 20 October (session: comparison;
-"Owner: party-returns"):
-part-a-rows-are-read-on-a-minority-of-the-returns-held,
-part-a-rows-the-frozen-site-has-and-no-rebuilt-page-carries,
-party-years-the-frozen-site-totals-and-the-lane-holds-no-total-for,
-the-rebuilt-lane-holds-declared-totals-the-frozen-site-lacked, and the
-lane's own open cards. Build the lane's fifth tranche in
-registers/party_returns/: Part A rows from every return whose pages have
-a stored reading (the page reader's stored readings under the lane's
-stamp; call no model yourself; a return with no stored reading is set
-aside with its hash and pages so the integrator can queue it), the two
-party-years with no total, and for each card either a close with its
-figure measured on all the returns held or a line saying what it still
-needs. The example row drops by the hash of its cell (ruling 190); an
-unreadable line is a line, not a donor (191); a disclosure is never
-summed into a return (192); the donor is the EC-filed entity (253).
-Addresses only in the private schema. Every change measured on the real
-tables through replay. Work in your scratch schema; edit nothing outside
-registers/party_returns/; push your branch and raise party-returns-5.
-Finish by telling Arthur which cards closed, what the comparison should
-see fall, and what waits on him.
-```
+Session 5 merged (`docs/merges/party-returns-5`): Part A on 52 returns
+(1,133 rows) over the stored page readings, three declarations mended,
+two published faults fixed. Set-aside pages for a later re-read are
+listed by `python -m registers.party_returns.replay rereads` (ruling 62:
+not queued until the build is done). Queue: may Part A pass a rounding
+cent (National 2023, default no).
 
 ## parties
 
