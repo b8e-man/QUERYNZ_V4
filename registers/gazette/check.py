@@ -68,7 +68,11 @@ COMPANY = {"removal": ("ds", "gazette-removal-notice", 0.95),
            "receivership": ("ar", "gazette-receivership", 0.88),
            "notice to creditors": ("md", "gazette-creditors-notice", 0.90),          # measured 93.8%
            "administration": ("aa", "gazette-administration", 0.88),                # measured 91.9%
-           "overseas company": ("cb", "gazette-overseas-company-ceasing", 0.92)}    # measured 95.4% (gazette-4)
+           "overseas company": ("cb", "gazette-overseas-company-ceasing", 0.92),    # measured 95.4% (gazette-4)
+           "restoration": ("ot", "gazette-restoration-notice", 0.90)}               # measured 93.1% (gazette-4)
+#: a section that holds other notices too: only those its title marks must be taken by the profile (ot holds
+#: prohibitions, amalgamations and rectifications beside its restorations)
+TITLED = {"restoration": re.compile(r"\brestor", re.I)}
 #: every notice in section ba is taken by one of these
 BANKRUPTCY = ("gazette-bankruptcy-list", "gazette-no-asset-procedure-list", "gazette-bankruptcy-notice")
 APPOINTMENT = "gazette-public-appointment"
@@ -161,7 +165,8 @@ def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulle
         liq["register"] = _register(joined)
     company = {}
     for kind, (code, profile, floor) in COMPANY.items():
-        filed = [(n, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] == code]
+        filed = [(n, f) for n, t, f in rows if (notices.number(n) or (0, ""))[1] == code
+                 and (kind not in TITLED or TITLED[kind].search(t or ""))]
         company[kind] = {"code": code, "filed": len(filed), "not_read": sorted(n for n, f in filed if f not in (profile, CELEBRANT))}
         if company_joined is not None:
             company[kind]["register"] = _register(company_joined.get(kind, {}))

@@ -137,13 +137,13 @@ CREATE TABLE IF NOT EXISTS gazette.liquidators (
 );
 
 -- one row per company a removal notice (ds), a winding-up application (aw), a receivership (ar), a notice to creditors (md),
--- an administration (aa) or an overseas company's leaving (cb) names
+-- an administration (aa), an overseas company's leaving (cb) or a restoration to the register (ot) names
 CREATE TABLE IF NOT EXISTS gazette.company_notices (
     key              text PRIMARY KEY,                      -- gazette/<notice>/company/<ordinal>
     notice           text NOT NULL,
     published_on     date,
     kind             text NOT NULL CHECK (kind IN ('removal', 'winding-up application', 'receivership', 'notice to creditors',
-                                                     'administration', 'overseas company')),
+                                                     'administration', 'overseas company', 'restoration')),
     action           text,                                  -- the notice's own words: intention to remove, application to put into liquidation, …
     company          text NOT NULL,                         -- as printed, a status or former name in brackets taken out
     company_number   text,                                  -- where printed for this company

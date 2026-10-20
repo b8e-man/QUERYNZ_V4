@@ -21,6 +21,7 @@ from registers.gazette import prohibitions as PR
 from registers.gazette import receiverships as RC
 from registers.gazette import register as RG
 from registers.gazette import removals as RM
+from registers.gazette import restorations as RS
 from registers.gazette import windingup as WU
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -202,7 +203,8 @@ def test_the_reading_reconciles_and_keys_are_stable_across_reads():
 def _closed_years() -> list:
     """A notice for every closed year, and one under each company-notice section, each read by its profile."""
     rows = [(f"{y}-al1", "Example Limited", check.LIQUIDATION) for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
-    return rows + [(f"2016-{code}7", "Example Limited", profile) for code, profile, floor in check.COMPANY.values()] + [
+    return rows + [(f"2016-{code}7", "Notice of Intention to Restore Example Limited", profile)
+                   for code, profile, floor in check.COMPANY.values()] + [
         ("2016-ba7", "Bankruptcies", check.BANKRUPTCY[0])]
 
 
@@ -545,6 +547,43 @@ def test_an_overseas_notice_that_names_no_company_or_no_action_is_a_catch_log_li
     assert r.action == "application for removal"
 
 
+# --- restorations (ot; every name and address invented) ---------------------------------
+
+def test_a_restoration_list_takes_each_company_and_never_its_applicant_or_address():
+    text = ("Section 329 of the Companies Act 1993 Take notice that the Registrar of Companies proposes to restore the following "
+            "companies to the Register, on the application of the persons named below, on the grounds that such companies were "
+            "carrying on business at the time of removal:ABLE WIDGETS LIMITED. 1234567. Applicant: Ann Example, 1 Sample "
+            "Street, Exampleton 9999.Baker & Co. Limited. Applicant: Bob Sample, PO Box 2, Wellington.Cobalt Company, Limited. "
+            "AK. 765432. Applicant: Example Lawyers Limited, PO Box 3, Auckland 1010.Any person who wishes to object must do so "
+            "by 20 June 2003. Dated this 1st day of June 2003.")
+    r = RS.read("Notice of Intention to Restore Companies to the Register", text)
+    assert [(c.name, c.number) for c in r.companies] == [("ABLE WIDGETS LIMITED", "1234567"), ("Baker & Co. Limited", None),
+                                                         ("Cobalt Company, Limited", "765432")]
+    assert (r.action, r.by_whom, r.event_on, r.event_basis, r.unread) == (
+        "intention to restore", "Registrar", "2003-06-20", "objections by", [])
+    assert not any(w in repr(r) for w in ("Example", "Sample", "Street", "Box", "Exampleton"))
+
+
+def test_a_one_company_restoration_with_no_colon_and_a_row_that_is_not_a_name():
+    r = RS.read("Notice of Intention to Restore Company to the Register", "Section 329 of the Companies Act 1993 Take notice "
+                "that the Registrar proposes to restore the following company to the Register, on the application of the person "
+                "named below, on the grounds that it was carrying on business at the time of removal. DELTA (2019) LIMITED. "
+                "Applicant: Ann Example, 1 Sample Road, Exampleton.")
+    assert [c.name for c in r.companies] == ["DELTA (2019) LIMITED"] and r.unread == [("list", "the list's end is not where the reader expects it")]
+    r = RS.read("Notice of Intention to Restore Companies", "proposes to restore the following companies: ECHO LIMITED. Applicant: "
+                "Ann Example, 1 Sample Road, Exampleton.the company's papers. Applicant: Bob Sample. Dated 1 May 2004.")
+    assert [c.name for c in r.companies] == ["ECHO LIMITED"] and r.unread[0][1] == "the text before an applicant does not end in a company's name"
+    assert RS.recognise("ot", "Notice of Intention to Restore Companies", "") and not RS.recognise("ot", "Notice Prohibiting Person", "x")
+    assert not RS.recognise("ds", "Notice of Intention to Restore Companies", "")
+
+
+def test_the_check_asks_only_the_restorations_of_section_ot_of_the_restoration_profile():
+    rows = _closed_years() + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
+                              ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
+    assert check.failed(check.figures(rows + [("2016-ot8", "Notice of Amalgamation Proposal", "not read")])) == []
+    assert any("2016-ot9" in w for w in check.failed(check.figures(rows + [("2016-ot9", "Notice of Intention to Restore Companies", "not read")])))
+
+
 # --- bankruptcies (every name and address invented) ----------------------------------
 
 def test_the_older_adjudication_list_reads_people_by_day_and_keeps_every_address_apart():
@@ -805,7 +844,7 @@ def test_each_removal_and_winding_up_case_reads_as_its_comment_says(filled):
     for c in filled["company_notices"]:
         cos.setdefault(c["notice"], []).append(c)
     for code, (sec, profile, floor) in ((c, v) for c, v in check.COMPANY.items()):
-        held = [n for n in notice if f"-{sec}" in n]
+        held = [n for n in notice if f"-{sec}" in n and (code not in check.TITLED or check.TITLED[code].search(notice[n]["title"]))]
         assert held and all(notice[n]["format"] == profile for n in held)
     assert [c["action"] for c in cos["2009-ds4850"]] == ["liquidation completed"] * 2
     assert cos["2009-ds4850"][0]["ground"] == "liquidation completed" and cos["2009-ds4850"][0]["by_whom"] == "liquidator"
@@ -824,6 +863,8 @@ def test_each_removal_and_winding_up_case_reads_as_its_comment_says(filled):
     assert cos["2008-aw1889"][0]["party"] is None
     assert [(c["kind"], c["action"], c["shape"]) for c in cos["2021-cb10"]] == [
         ("overseas company", "ceasing to carry on business", "notice")]
+    assert len(cos["2003-ot1127"]) > 5 and all(c["company_number"] and c["kind"] == "restoration" for c in cos["2003-ot1127"])
+    assert cos["2022-ot1005"] and all(c["event_basis"] == "objections by" for c in cos["2022-ot1005"])
     assert len(cos["2017-cb4477"]) > 3 and {(c["action"], c["by_whom"]) for c in cos["2017-cb4477"]} == {("intention to remove", "Registrar")}
     assert any(a["stage"] == "winding-up application" and "2008-aw1889" in a["item"] for a in filled["aside"])
     assert not set(filled["company_notices"][0]) & {"address", "text", "phone", "email"}
