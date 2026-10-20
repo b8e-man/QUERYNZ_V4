@@ -306,8 +306,10 @@ def main(argv=None) -> int:
           f"{q['filed'] - len(q['not_read']):,} taken by its profile (read, or set aside with a reason)")
     for what, c in [("liquidation", q)] + list(f["company"].items()):
         if what != "liquidation":
-            plural = "Notices to creditors" if what == "notice to creditors" else f"{what.capitalize()}s"
-            print(f"{plural}: {c['filed']:,} notices the Gazette files under {c['code']}, "
+            plural = {"notice to creditors": "Notices to creditors", "overseas company": "Overseas companies"}.get(
+                what, f"{what.capitalize()}s")
+            titled = " and titles as its profile's" if what in TITLED else ""
+            print(f"{plural}: {c['filed']:,} notices the Gazette files under {c['code']}{titled}, "
                   f"{c['filed'] - len(c['not_read']):,} taken by its profile (read, or set aside with a reason)")
         r = c.get("register")
         if r and r["rows"]:
