@@ -45,6 +45,28 @@ def _sort_key(it: dict) -> tuple:
     return (SECTION_ORDER_GRADE.get(it["grade"], 1), when is None, -(when.toordinal() if when else 0), it["ref"])
 
 
+def _ordered(items: list) -> list:
+    """Confirmed before near; an entity (a company, a return) before the rows
+    that sit on it, each group newest first; rows whose entity is not in the
+    section after, newest first."""
+    refs = {it["ref"] for it in items}
+    heads = sorted([it for it in items if it["view"] in ("companies", "societies", "party_return_totals", "candidate_return_totals", "disclosures",
+                                                         "promoters", "mp_interest_returns", "parties")], key=_sort_key)
+    head_refs = {h["ref"] for h in heads}
+    out, placed = [], set()
+    for h in heads:
+        out.append(h)
+        placed.add(h["ref"])
+        for it in sorted([x for x in items if x.get("via") == h["ref"] and x["ref"] not in head_refs], key=_sort_key):
+            out.append(it)
+            placed.add(it["ref"])
+    rest = sorted([x for x in items if x["ref"] not in placed], key=_sort_key)
+    # keep confirmed before near overall: a near head and its rows sit after every confirmed item
+    conf = [x for x in out + rest if x["grade"] == "confirmed"]
+    nearby = [x for x in out + rest if x["grade"] != "confirmed"]
+    return conf + nearby
+
+
 def build(conn, ref: str, t: tpl.Template, held: set = None) -> dict:
     """The report. `held`: the pub views present (for the blanks); read from
     the connection when not given."""
@@ -67,6 +89,7 @@ def build(conn, ref: str, t: tpl.Template, held: set = None) -> dict:
     report["group"] = w["group"]
     report["hubs"] = w["hubs"]
     report["walk"] = {"links_built": w.get("links_built"), "links_omitted": w.get("links_omitted", 0), "entities_omitted": w.get("entities_omitted", 0),
+                      "entities_not_expanded": w.get("entities_not_expanded", 0),
                       "group_omitted": w["group"].get("omitted", 0), "skipped": w.get("skipped", []), "limits": w["limits"], "settings": w["settings"],
                       "start_outside_template": w.get("start_outside_template", False)}
     if w.get("start_outside_template"):
@@ -91,7 +114,7 @@ def build(conn, ref: str, t: tpl.Template, held: set = None) -> dict:
                 continue
             taken.add(e["ref"])
             items.append(e)
-        items.sort(key=_sort_key)
+        items = _ordered(items)
         sec = {"name": s.name, "heading": s.heading, "text": s.text, "views": list(s.views), "items": items,
                "confirmed": sum(1 for it in items if it["grade"] == "confirmed"), "near": sum(1 for it in items if it["grade"] == "near"),
                "omitted": sum(o["omitted"] for o in omitted), "omitted_views": sorted({o["view"] for o in omitted}),

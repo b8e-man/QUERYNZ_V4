@@ -68,7 +68,7 @@ VIEWS: tuple = (
       statement="{party} return for {year}: declared total {amount}",
       note="an amendment the Commission lists replaces a return; the two are never summed"),
     V("party_return_donors", "party_returns", "figure", ("donor", "amount"), names=("donor",), year="year", amount="amount",
-      entity=("party_return_totals", "return_key"), statement="{title} to {party}, in the party's return for {year} (Part A)"),
+      entity=("party_return_totals", "return_key"), statement="{title} to {party}, in the party's return for {year} (Part A); dates as printed: {dates}"),
     V("party_return_loans", "party_returns", "figure", ("lender", "amount"), names=("lender",), year="year", amount="amount",
       entity=("party_return_totals", "return_key"), statement="{title} lent to {party}, in the party's return for {year}"),
     # ── large-donation disclosures ──────────────────────────────────────────
@@ -83,7 +83,7 @@ VIEWS: tuple = (
       statement="{title}: candidate return, donations {amount}",
       note="a replaced return shows the amendment the Commission links in its place and is never summed"),
     V("candidate_return_donors", "candidate_returns", "figure", ("donor", "amount"), names=("donor",), year="year", amount="amount",
-      entity=("candidate_return_totals", "return_key"), statement="{title} to the candidate {surname} ({electorate}, {party}), return for {year}"),
+      entity=("candidate_return_totals", "return_key"), statement="{title} to the candidate {surname} ({electorate}, {party}), return for {year}; dates as printed: {dates}"),
     # ── gazette ─────────────────────────────────────────────────────────────
     V("gazette_liquidations", "gazette", "organisation", ("company",), names=("company",), on="appointed_on",
       entity=("companies", "register_key"), statement="{title}: {shape}, appointed by {appointed_by}",

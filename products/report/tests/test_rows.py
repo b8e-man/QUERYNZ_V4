@@ -65,7 +65,7 @@ def test_a_year_only_row_is_dated_by_its_year():
          "party": "New Zealand First Party", "year": 2023, "document": "cd" * 32, "page": 4, "read_from": "pixels"}
     d = rows.dates(v, r)
     assert not d["undated"] and d["text"] == "2023 (the year the row is filed under)"
-    assert rows.statement(v, r) == "Rank Group Limited · $110,000.00 to New Zealand First Party, in the party's return for 2023 (Part A)"
+    assert rows.statement(v, r) == "Rank Group Limited · $110,000.00 to New Zealand First Party, in the party's return for 2023 (Part A); dates as printed: not stated"
     c = rows.citation(v, r)
     assert rows.cite_text(c) == "pub.party_return_donors h/A/3; document cdcdcdcdcdcd…; page 4; read from pixels: weaker evidence"
 

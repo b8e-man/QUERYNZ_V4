@@ -62,7 +62,8 @@ def item(v: cat.View, r: dict, entity_title: str = None, **extra) -> dict:
     template's rules; the memo never prints it whole."""
     it = {"ref": rows.ref_of(v, str(r.get(v.key_col))), "view": v.name, "register": v.register, "kind": v.kind,
           "title": rows.title(v, r), "statement": rows.statement(v, r, entity_title), "dates": rows.dates(v, r),
-          "citation": rows.citation(v, r), "suppressed": rows.is_suppressed(v, r), "note": v.note,
+          "citation": rows.citation(v, r), "suppressed": rows.is_suppressed(v, r),
+          "note": v.note if not (v.name in ("directors", "society_officers") and r.get("in_latest", True)) else "",
           "grade": "confirmed", "reason": None, "rule": None, "via": None, "flags": [], "row": r,
           "replaced_by": r.get("replaced_by") or None}
     it.update(extra)
@@ -260,7 +261,8 @@ def walk(conn, ref: str, allowed: set, depth: int = 2) -> dict:
         return {"found": False, "why": f"{ref}: no published row has this ref"}
     sv, sr = hit
     skipped = []
-    out = {"found": True, "start": item(sv, sr), "settings": dict(SETTINGS), "limits": dict(LIMITS), "skipped": skipped,
+    sev, se = rows.entity_of(conn, sv, sr)
+    out = {"found": True, "start": item(sv, sr, rows.title(sev, se) if se else None), "settings": dict(SETTINGS), "limits": dict(LIMITS), "skipped": skipped,
            "members": [], "confirmed": [], "near": [], "entities": [], "roles": [], "pointing": [], "second": [], "hubs": []}
     if sv.name not in allowed:
         out["start_outside_template"] = True
@@ -381,4 +383,5 @@ def walk(conn, ref: str, allowed: set, depth: int = 2) -> dict:
                   [{"ref": it["ref"], "title": it["title"], **f} for k in ("members", "entities", "confirmed", "near", "roles", "second") for it in out[k]
                    if "omitted" not in it for f in it["flags"]]
     out["skipped"] = sorted(set(skipped))
+    out["entities_not_expanded"] = sum(1 for e in out["entities"] if e.get("not_expanded"))
     return out
