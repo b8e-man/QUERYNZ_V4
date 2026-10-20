@@ -10,7 +10,7 @@ import os
 
 from support import jobrun
 from support.docstore.landing import read_bytes
-from registers.gazette import capture, read, register
+from registers.gazette import capture, dissolutions, read, register
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "gazette"
@@ -128,7 +128,8 @@ def join_register(conn, res, schema: str, shared: bool = False) -> dict:
         f = r["filed"]
         on = f.get("appointed_on") or (f.get("event_on") if f.get("event_basis") == "appointment" else None) \
             or f.get("filed_on") or f.get("dated_on") or f["published_on"]
-        f["register_key"], f["register_match"] = idx.match(f["company"], f["company_number"], on, int(f["notice"][:4]))
+        regs = dissolutions.REGISTERS if f.get("kind") == "dissolution" else ("companies",)   # a society prints its own number
+        f["register_key"], f["register_match"] = idx.match(f["company"], f["company_number"], on, int(f["notice"][:4]), regs)
         n[f["register_match"]] = n.get(f["register_match"], 0) + 1
         if f["register_match"] in register.UNMATCHED:
             res.set_aside.append((f"{r['document']}/{r['place']}", "register", f"the companies register: {f['register_match']}"))

@@ -1,0 +1,5 @@
+# May the review agent's splits become decisions?
+raised: 2026-10-20 by review (track C)
+default: No. `links.SETTINGS["review_applies"]` stays off; verdicts are recorded in `links.readings` and applied by nobody
+blocks: Nothing. The watch and the groups work as before; products show flagged groups as contested
+recommendation: Not yet, though the agent passed the default mark (0 of 144 known-one-person pairs wrongly split; 361 of 431 known-two-people pairs caught). 142 of the 144 one-person pairs are passed by the screen on the house lane's own identifier; the model itself kept 2 of 2. That is no measurement of the model wrongly splitting one person. Turn the switch on only after a charities lane publishes, the officer identifier supplies hundreds of one-person pairs that reach the model, and `qv4-links-review` in mode `score` passes again on them. Then the first application should be to the watch-flagged links only (what `--watched` reads), with the groups rebuilt once and the contested count compared before and after.

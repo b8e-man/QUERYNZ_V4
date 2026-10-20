@@ -230,15 +230,15 @@ command = ["python", "-m", "links.build_all"]
 nice = 10
 
 [jobs.qv4-links-review]
-description = "Step 4.2 / track C: the review agent reads a sample of confirmed links through the review profile and records its verdicts (links.readings); nothing is applied until track C passes it on the test pairs."
+description = "Track C: the review agent reads test pairs (mode score) or watched confirmed links (mode watched, the default) through the review profile and records its verdicts in links.readings; applies nothing while the switch is off."
 needs = "model-profile"
 profile = "review"
 memory_gb = 0.5
-deadline_s = 3600
-query_timeout_s = 60
+deadline_s = 7200
+query_timeout_s = 120
 class = "whenever"
 priority = 60
-command = ["python", "-m", "links.review", "--run", "/home/user/querynzv4-work/scratch/links/review-sample-7.jsonl"]
+command = ["python", "-m", "links.review", "--job"]
 can_share = true
 
 # ── step 4.4, the Follow the Money version folder (site-1); the job's class is due, daily at 08:00 NZDT ──

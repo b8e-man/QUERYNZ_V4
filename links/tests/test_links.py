@@ -51,3 +51,13 @@ def test_the_sql_applies_and_decisions_cannot_be_changed():
         with pytest.raises(psycopg.errors.RaiseException):
             conn.execute("UPDATE links.decisions SET verdict='contested' WHERE row_a='a:1'")
         conn.rollback()
+
+
+def test_every_column_added_after_a_table_first_shipped_has_its_alter_line():
+    """CREATE TABLE IF NOT EXISTS leaves an existing table as it was (card
+    the-links-tables-do-not-migrate-an-existing-column)."""
+    sql = links.tables_sql()
+    for table, cols in (("old_decisions", ("source", "verdict", "mapped_how")),
+                        ("readings", ("run_id", "pair_id", "kind", "truth", "band", "screen", "evidence", "citations", "model", "seconds"))):
+        for col in cols:
+            assert f"ALTER TABLE links.{table} ADD COLUMN IF NOT EXISTS {col} " in sql, (table, col)

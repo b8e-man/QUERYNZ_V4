@@ -140,3 +140,59 @@ def test_windows_from_the_names_alone():
     assert w["ec-party/2023-08-28/1daf"] == ("2023-08-28", "2024-07-26")
     assert w["ec-party/2004-07-09/2565"] == ("2004-07-09", None)
     assert p.party_name("New Zealand Loyal", rows, on=2024)[0] == "ec-party/2023-08-28/1daf"
+
+
+# the spelling rules: each named, each with a label only it resolves
+SPELLING_ROWS = ROWS + [
+    {"party": "ec-party/2017-08-11/dd6c", "name": "NZ Outdoors & Freedom Party", "kind": "name",
+     "from_on": "2022-04-06", "to_on": None, "registered_on": "2017-08-11", "cancelled_on": None},
+    {"party": "ec-party/2023-08-16/651c", "name": "Animal Justice Party Aotearoa New Zealand", "kind": "name",
+     "from_on": "2023-08-16", "to_on": None, "registered_on": "2023-08-16", "cancelled_on": None},
+    {"party": "ec-party/1995-02-17/a28c", "name": "ACT New Zealand", "kind": "name",
+     "from_on": "1995-02-17", "to_on": None, "registered_on": "1995-02-17", "cancelled_on": None},
+    {"party": "ec-party/1995-02-17/a28c", "name": "The Act Party", "kind": "abbreviation",
+     "from_on": "2007-12-17", "to_on": None, "registered_on": "1995-02-17", "cancelled_on": None},
+    {"party": "ec-party/2014-07-24/b57d", "name": "Internet Party and MANA Movement", "kind": "name",
+     "from_on": "2014-07-24", "to_on": "2014-12-18", "registered_on": "2014-07-24", "cancelled_on": "2014-12-18"},
+]
+#: rule name → (label, on, the registration only that rule reaches)
+BY_RULE = {
+    "nz is new zealand": ("Animal Justice Party Aotearoa NZ Incorporated", 2023, "ec-party/2023-08-16/651c"),
+    "and is &": ("New Zealand Outdoors and Freedom Party", 2023, "ec-party/2017-08-11/dd6c"),
+    "a trailing incorporated is off": ("Animal Justice Party Aotearoa NZ Incorporated", 2023, "ec-party/2023-08-16/651c"),
+}
+
+
+@pytest.mark.parametrize("rule", sorted(BY_RULE))
+def test_each_spelling_rule_resolves_its_label_and_fails_without_it(rule, monkeypatch):
+    label, on, party = BY_RULE[rule]
+    assert p.party_name(label, SPELLING_ROWS, on=on) == (party, "core")
+    monkeypatch.setattr(p, "SPELLINGS", tuple(s for s in p.SPELLINGS if s[0] != rule))
+    assert p.party_name(label, SPELLING_ROWS, on=on)[0] is None, rule
+
+
+def test_act_is_the_act_party_and_fails_without_the_rule(monkeypatch):
+    for label in ("ACT", "Act"):
+        assert p.party_name(label, SPELLING_ROWS, on="2023-10-01") == ("ec-party/1995-02-17/a28c", "core")
+        assert p.party_name(label) == ("ACT New Zealand", "core")
+    monkeypatch.setattr(p, "short_form", lambda abbreviation: "")
+    assert p.party_name("ACT", SPELLING_ROWS, on="2023-10-01")[0] is None
+    assert p.party_name("ACT")[0] is None
+
+
+def test_the_spelling_rules_widen_nothing_else():
+    # "The X Party" is an abbreviation's rule: a name of that shape does not shed its words
+    assert p.party_name("ACT", [{"party": "a", "name": "The Act Party", "kind": "name",
+                                 "from_on": None, "to_on": None}])[0] is None
+    # a part of a joint name is not the joint party
+    assert p.party_name("Internet Party", SPELLING_ROWS, on=2014)[0] is None
+    for label in ("Labour and Green", "New Labour Party", "NZNP Amended", "Northland", "Hon Pete Hodgson"):
+        assert p.party_name(label, SPELLING_ROWS, on=2023)[0] is None, label
+        assert p.party_name(label)[0] is None, label
+    # the fuzzy arm is untouched: its floor, length window and rivals stand
+    assert (p.FUZZY_MIN, p.FUZZY_MIN_LEN, p.LENGTH_WINDOW) == (0.86, 8, (0.85, 1.15))
+
+
+def test_the_snapshot_takes_the_spelling_rules_too():
+    assert p.party_name("Animal Justice Party Aotearoa NZ Incorporated") == ("Animal Justice Party Aotearoa New Zealand", "core")
+    assert p.party_name("New Zealand Outdoors and Freedom Party") == ("NZ Outdoors & Freedom Party", "core")

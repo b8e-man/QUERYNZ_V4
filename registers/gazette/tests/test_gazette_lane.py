@@ -14,12 +14,15 @@ from registers.gazette import appointments as AP
 from registers.gazette import bankruptcies as BK
 from registers.gazette import celebrants as K
 from registers.gazette import creditors as CR
+from registers.gazette import dissolutions as DS
 from registers.gazette import check, notices, read
 from registers.gazette import liquidations as LQ
+from registers.gazette import overseas as OV
 from registers.gazette import prohibitions as PR
 from registers.gazette import receiverships as RC
 from registers.gazette import register as RG
 from registers.gazette import removals as RM
+from registers.gazette import restorations as RS
 from registers.gazette import windingup as WU
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -201,7 +204,8 @@ def test_the_reading_reconciles_and_keys_are_stable_across_reads():
 def _closed_years() -> list:
     """A notice for every closed year, and one under each company-notice section, each read by its profile."""
     rows = [(f"{y}-al1", "Example Limited", check.LIQUIDATION) for y in range(check.CLOSED_FROM, check.CLOSED_TO + 1)]
-    return rows + [(f"2016-{code}7", "Example Limited", profile) for code, profile, floor in check.COMPANY.values()] + [
+    return rows + [(f"2016-{c}7", "Notice of Intention to Restore Example Limited", profile)
+                   for code, profile, floor in check.COMPANY.values() for c in check.codes(code)] + [
         ("2016-ba7", "Bankruptcies", check.BANKRUPTCY[0])]
 
 
@@ -517,6 +521,99 @@ def test_the_check_fails_on_a_ds_or_aw_notice_not_taken_by_its_profile():
     assert [w for w in check.failed(check.figures(rows, company_joined=joined)) if "removal" in w]
 
 
+# --- overseas companies (cb; every name invented) -------------------------------------
+
+def test_an_overseas_company_is_its_title_less_the_branch_and_reads_its_action_number_and_day():
+    r = OV.read("ABLE WIDGETS PTY LTD (New Zealand branch)", "Notice of Intention to Cease to Carry on Business in New "
+                "Zealand Company No.: 1234567 Notice is hereby given, pursuant to section 343(1)(a) of the Companies Act 1993, "
+                "that on 30 June 2021 the above-named company will cease to carry on business in New Zealand. Dated this 1st "
+                "day of May 2021. Example Lawyers, PO Box 1, Auckland.")
+    assert ([(c.name, c.number) for c in r.companies], r.action, r.event_on, r.event_basis, r.statute, r.by_whom) == (
+        [("ABLE WIDGETS PTY LTD", "1234567")], "ceasing to carry on business", "2021-06-30", "ceases",
+        "Companies Act 1993 s 343(1)(a)", "the company")
+    assert OV.name_of('Baker Inc. (the "overseas company")') == "Baker Inc"
+    assert OV.name_of("Cobalt (Australia) Pty Limited (formerly Dune Pty Limited)") == "Cobalt (Australia) Pty Limited"
+    assert OV.name_of("Delta Pty Ltd (ACN 012 345 678)") == "Delta Pty Ltd"
+    assert OV.recognise("cb", "", "") and not OV.recognise("ds", "", "")
+
+
+def test_an_overseas_notice_that_names_no_company_or_no_action_is_a_catch_log_line():
+    r = OV.read("Notice of Intention of Overseas Company Ceasing to Carry on Business in New Zealand", "The company will cease "
+                "to carry on business in New Zealand.")
+    assert r.companies == [] and ("title", "the title is not the company's name") in r.unread
+    r = OV.read("ECHO PTY LTD", "Notice is hereby given that the company has changed its address.")
+    assert r.action is None and r.unread and [c.name for c in r.companies] == ["ECHO PTY LTD"]
+    r = OV.read("FOXTROT LIMITED", "Notice is given that the company intends to be deregistered and removed from the overseas "
+                "register three months from the date of this notice.")
+    assert r.action == "application for removal"
+
+
+# --- restorations (ot; every name and address invented) ---------------------------------
+
+def test_a_restoration_list_takes_each_company_and_never_its_applicant_or_address():
+    text = ("Section 329 of the Companies Act 1993 Take notice that the Registrar of Companies proposes to restore the following "
+            "companies to the Register, on the application of the persons named below, on the grounds that such companies were "
+            "carrying on business at the time of removal:ABLE WIDGETS LIMITED. 1234567. Applicant: Ann Example, 1 Sample "
+            "Street, Exampleton 9999.Baker & Co. Limited. Applicant: Bob Sample, PO Box 2, Wellington.Cobalt Company, Limited. "
+            "AK. 765432. Applicant: Example Lawyers Limited, PO Box 3, Auckland 1010.Any person who wishes to object must do so "
+            "by 20 June 2003. Dated this 1st day of June 2003.")
+    r = RS.read("Notice of Intention to Restore Companies to the Register", text)
+    assert [(c.name, c.number) for c in r.companies] == [("ABLE WIDGETS LIMITED", "1234567"), ("Baker & Co. Limited", None),
+                                                         ("Cobalt Company, Limited", "765432")]
+    assert (r.action, r.by_whom, r.event_on, r.event_basis, r.unread) == (
+        "intention to restore", "Registrar", "2003-06-20", "objections by", [])
+    assert not any(w in repr(r) for w in ("Example", "Sample", "Street", "Box", "Exampleton"))
+
+
+def test_a_one_company_restoration_with_no_colon_and_a_row_that_is_not_a_name():
+    r = RS.read("Notice of Intention to Restore Company to the Register", "Section 329 of the Companies Act 1993 Take notice "
+                "that the Registrar proposes to restore the following company to the Register, on the application of the person "
+                "named below, on the grounds that it was carrying on business at the time of removal. DELTA (2019) LIMITED. "
+                "Applicant: Ann Example, 1 Sample Road, Exampleton.")
+    assert [c.name for c in r.companies] == ["DELTA (2019) LIMITED"] and r.unread == [("list", "the list's end is not where the reader expects it")]
+    r = RS.read("Notice of Intention to Restore Companies", "proposes to restore the following companies: ECHO LIMITED. Applicant: "
+                "Ann Example, 1 Sample Road, Exampleton.the company's papers. Applicant: Bob Sample. Dated 1 May 2004.")
+    assert [c.name for c in r.companies] == ["ECHO LIMITED"] and r.unread[0][1] == "the text before an applicant does not end in a company's name"
+    assert RS.recognise("ot", "Notice of Intention to Restore Companies", "") and not RS.recognise("ot", "Notice Prohibiting Person", "x")
+    assert not RS.recognise("ds", "Notice of Intention to Restore Companies", "")
+
+
+def test_the_check_asks_only_the_restorations_of_section_ot_of_the_restoration_profile():
+    rows = _closed_years() + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
+                              ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
+    assert check.failed(check.figures(rows + [("2016-ot8", "Notice of Amalgamation Proposal", "not read")])) == []
+    assert any("2016-ot9" in w for w in check.failed(check.figures(rows + [("2016-ot9", "Notice of Intention to Restore Companies", "not read")])))
+    joined = {"dissolution": {RG.NUMBER: 80, RG.NUMBER_NAME_DIFFERS: 20}}
+    assert any("printed company numbers" in w for w in check.failed(check.figures(rows, company_joined=joined)))
+    assert not [w for w in check.failed(check.figures(rows, company_joined={"dissolution": {RG.NUMBER: 90, RG.NUMBER_NAME_DIFFERS: 10}}))
+                if "dissolution" in w]
+
+
+# --- society and trust board dissolutions (is, ct; every name invented) ----------------------
+
+def test_a_dissolution_list_cuts_at_each_number_and_drops_the_old_office_letters():
+    r = DS.read("Dissolution of Incorporated Societies", "Section 28(1) of the Incorporated Societies Act 1908 The Registrar of "
+                "Incorporated Societies is satisfied that these societies are no longer carrying on their operations and hereby "
+                "declares them to be dissolved:ABLE TENNIS CLUB INCORPORATED 1234567.Baker Society (N.Z.) Inc. 765432.COBALT "
+                "CLUB INCORPORATED AK. I.S. 222333.Dated this 3rd day of May 2021. Ann Example, Assistant Registrar of "
+                "Incorporated Societies.")
+    assert [(c.name, c.number) for c in r.companies] == [("ABLE TENNIS CLUB INCORPORATED", "1234567"),
+                                                         ("Baker Society (N.Z.) Inc", "765432"), ("COBALT CLUB INCORPORATED", "222333")]
+    assert (r.action, r.statute, r.unread) == ("dissolution", "Incorporated Societies Act 1908 s 28(1)", [])
+
+
+def test_a_revocation_dates_each_body_and_a_list_with_no_numbers_is_cut_by_its_days():
+    r = DS.read("Revocation of Dissolution of Incorporated Societies", "The Registrar is satisfied that the dissolution of these "
+                "societies ought to be revoked and has declared accordingly: DELTA CLUB INCORPORATED (3 May 2004). ECHO SOCIETY "
+                "INCORPORATED (12 June 2005). With this publication these societies are revived. Dated this 1st day of May 2010.")
+    assert [(c.name, c.number, c.event_on) for c in r.companies] == [("DELTA CLUB INCORPORATED", None, "2004-05-03"),
+                                                                     ("ECHO SOCIETY INCORPORATED", None, "2005-06-12")]
+    assert (r.action, r.event_basis) == ("revocation of dissolution", "dissolved on")
+    assert DS.recognise("ct", "Dissolution of Charitable Trust Boards", "") and not DS.recognise("ot", "Dissolution of X", "")
+    assert not DS.recognise("is", "Notice of Direction for the Disposition of Surplus Assets of a Dissolved Society", "")
+    assert not DS.recognise("ct", "Notice of Application for Approval of a Scheme", "")
+
+
 # --- bankruptcies (every name and address invented) ----------------------------------
 
 def test_the_older_adjudication_list_reads_people_by_day_and_keeps_every_address_apart():
@@ -652,7 +749,7 @@ def test_every_listed_notice_is_held_once_and_the_second_capture_is_a_catch_log_
 def test_each_case_reads_as_its_comment_says(filled):
     by = {n["notice"]: n for n in filled["notices"]}
     assert by["2004-go1177"]["status"] == "set aside" and by["2014-go6947"]["status"] == "set aside"
-    assert by["2018-ba414"]["format"] == check.BANKRUPTCY[2] and by["2002-is8379"]["format"] == "not read"
+    assert by["2018-ba414"]["format"] == check.BANKRUPTCY[2] and by["2002-is8379"]["format"] == "gazette-society-dissolution"
     assert by["2025-al4914"]["format"] == check.LIQUIDATION
     assert by["2003-go5183"]["format"] == "not read"
     shapes = {}
@@ -777,7 +874,8 @@ def test_each_removal_and_winding_up_case_reads_as_its_comment_says(filled):
     for c in filled["company_notices"]:
         cos.setdefault(c["notice"], []).append(c)
     for code, (sec, profile, floor) in ((c, v) for c, v in check.COMPANY.items()):
-        held = [n for n in notice if f"-{sec}" in n]
+        held = [n for n in notice if any(f"-{c}" in n for c in check.codes(sec))
+                and (code not in check.TITLED or check.TITLED[code](notice[n]["title"]))]
         assert held and all(notice[n]["format"] == profile for n in held)
     assert [c["action"] for c in cos["2009-ds4850"]] == ["liquidation completed"] * 2
     assert cos["2009-ds4850"][0]["ground"] == "liquidation completed" and cos["2009-ds4850"][0]["by_whom"] == "liquidator"
@@ -794,6 +892,14 @@ def test_each_removal_and_winding_up_case_reads_as_its_comment_says(filled):
         assert c["kind"] == "winding-up application" and c["court"] and c["filed_on"] and c["event_basis"] == "hearing"
         assert c["party"]
     assert cos["2008-aw1889"][0]["party"] is None
+    assert [(c["kind"], c["action"], c["shape"]) for c in cos["2021-cb10"]] == [
+        ("overseas company", "ceasing to carry on business", "notice")]
+    assert len(cos["2003-ot1127"]) > 5 and all(c["company_number"] and c["kind"] == "restoration" for c in cos["2003-ot1127"])
+    assert cos["2022-ot1005"] and all(c["event_basis"] == "objections by" for c in cos["2022-ot1005"])
+    assert len(cos["2021-is1244"]) > 3 and {(c["kind"], c["action"]) for c in cos["2021-is1244"]} == {("dissolution", "dissolution")}
+    assert all(c["company_number"] and c["register_match"] for c in cos["2021-is1244"])
+    assert {c["action"] for c in cos["2002-is8379"]} == {"revocation of dissolution"} and cos["2002-ct1324"]
+    assert len(cos["2017-cb4477"]) > 3 and {(c["action"], c["by_whom"]) for c in cos["2017-cb4477"]} == {("intention to remove", "Registrar")}
     assert any(a["stage"] == "winding-up application" and "2008-aw1889" in a["item"] for a in filled["aside"])
     assert not set(filled["company_notices"][0]) & {"address", "text", "phone", "email"}
     assert [c["action"] for c in cos["2008-ar2467"]] == ["ceased to act"] * 2
