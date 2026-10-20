@@ -1,0 +1,174 @@
+# Use case 6, insurance underwriting (plan step 5.2, eighth template): a
+# commercial underwriter asks "what stands against this business and its
+# people" before pricing the risk: the real safety and solvency record behind
+# a proposal. A subject report on the shape in products/report/; it reads only
+# the published views below, and its sections run in the order an underwriter
+# reads them. Its own rules are in rules.py; its known limits in limits.md.
+#
+# The use case runs on WorkSafe's releases and the regulators' actions, with
+# the courts and tribunals waiting (plan 5.2). None of them is published yet:
+# the safety record is the last section, every register in it named as not
+# held, and its flags are blocked, never clear. What the held registers do
+# support is the solvency half: the Gazette on the entity, the companies its
+# people sit on and how each stands, and the prohibitions and bankruptcies on
+# the people.
+name = "insurance"
+title = "Insurance underwriting"
+version = "0.1"
+owner = "products/templates/06-insurance, step 5.2 (session insurance-1)"
+# 2: from a person, the person's companies, the notices and offices on them,
+# and the other people on them (near). From a company, its officers, holders
+# and registered office and the Gazette on it, and the companies that share
+# its name (near); its people are listed and not followed.
+depth = 2
+
+limits = [
+  "The safety record is not held: WorkSafe's prosecutions and enforceable undertakings, the Commerce Commission's and the Financial Markets Authority's actions, court judgments, the Employment Relations Authority, the Disputes Tribunal and Fire and Emergency New Zealand's notices. The flags that would read them are blocked, never clear, and nothing in this report says anything about them.",
+  "Started from a company, the report lists its directors and holders of record but does not yet follow them: their other companies, any of those that failed, and their prohibitions and bankruptcies are not read, and those checks are blocked, never clear. Start a report from each director listed.",
+  "The companies file lists current roles only: a company a person left, or that was struck off with them on it, is not seen, nor its failure, so no check over a person's companies is ever clear. A director who left the board before July 2026 is not seen either, so officer churn is never clear.",
+  "A sister company's failure is dated from its Gazette notice and the person's role on it from the date the companies file states; the two dates are set side by side. The report never says one followed from the other.",
+  "The companies change history (former names, trading names, industry classification, earlier directors and offices) is not held before 16 August 2026 and is held but not published since.",
+  "A company's status is read from the latest companies file; the dated history of its status (pub.company_states) and a lender's entry into possession (pub.gazette_possessions) are published but the report cannot reach them yet.",
+  "The Official Assignee's Insolvency Register, the Personal Property Securities Register and the financial service providers register are not held: the interfaces have waited on approval since 19 September 2026.",
+  "The entity is the row the report starts from and the rows a rule confirms are the same. A row that only shares the name is a namesake, set apart with its reason, and is not the entity until confirmed.",
+  "A hub (a professional director, a nominee, an address with fifty or more companies) joins many companies: a failure reached through a hub is shown and never raised red.",
+  "The walk reads Gazette notices on the first twelve companies it reaches and lists up to forty; past those the checks that need them are blocked, never clear.",
+  "A company's registered office is shown as the companies file states it. No residential address is held in any view read.",
+  "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+]
+
+# ── what it reads: each view with its licence ───────────────────────────────
+# pub.company_states and pub.gazette_possessions are published and the brief
+# names them, but the report's catalogue does not know either, and a template
+# naming a view the catalogue does not know is refused when loaded: carded on
+# the report lane (the-catalogue-does-not-know-gazette-possessions), named in
+# the flags status-history and mortgagee-possession.
+[[reads]]
+view = "companies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "directors"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "shareholders"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "company_addresses"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; registered offices only, never a residential address"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "gazette_liquidations"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_liquidators"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a practitioner's name and role only, never an address or telephone"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_company_notices"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person named in a rectification is held by initials and surname only"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_appointments"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; where an appointee lives is never kept"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_prohibitions"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a revoked prohibition's name is never shown"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_bankruptcies"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; an annulled bankruptcy's name is withheld"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "societies"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "society_officers"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+
+# ── sections, in the order an underwriter reads them ────────────────────────
+# A row is listed once, in the first section that names its view and the walk
+# bucket it came from; an entity the walk reached (a company, a society) goes
+# to the first section naming its view. So the entity's officers fill the
+# people section, every company reached heads the companies section (the
+# person's own confirmed, then a namesake's or a same-name company near), and
+# every Gazette notice on a company is in the solvency section under the
+# company's name. Each sister company that failed, with the person's role on
+# it dated beside the failure, is in the flags. The first section takes only
+# near links.
+[[sections]]
+name = "identity"
+heading = "The entity, and its namesakes set apart"
+views = ["directors", "shareholders", "society_officers"]
+sources = ["near"]
+text = "The entity is the row above: a company is its NZBN, and a person is the rows a rule confirms are the same person. Each row here shares a name with it and no rule confirms it: a namesake, with the reason it is only near. A company that only shares the entity's name is listed with the companies below, near; nothing in a namesake's rows is the entity's."
+
+[[sections]]
+name = "standing"
+heading = "Its standing today, its age, and its registered office"
+views = ["company_addresses"]
+sources = ["roles", "members", "confirmed"]
+text = "The entity's register status and the day it was registered are in the header above, as the latest companies file states them, and in the flags entity-status and young-entity. Below, each registered office as the companies file states it; a company's registered address is shown, and no residential address is held. An office that fifty or more companies share is a hub and joins nothing. The dated history of a company's status is published and not yet reachable by this report."
+
+[[sections]]
+name = "solvency"
+heading = "The solvency record: the Gazette on the entity, and on its people's companies"
+views = ["gazette_liquidations", "gazette_company_notices"]
+sources = ["pointing", "members", "confirmed", "near"]
+not_held = ["insolvency", "securities"]
+text = "Liquidations (appointed by the shareholders or the court), winding-up applications, receiverships, administrations, creditors' notices, deeds of company arrangement, removals and restorations, dissolutions, amalgamations and rectifications, each under its company's name with its own date, which says what it dates: a liquidator's appointment, a hearing day, a removal's last day for objections. Started from a person, the notices on each of the person's companies. A removal from the register is not an insolvency. A lender's entry into possession is published in the Gazette and not yet reachable by this report."
+
+[[sections]]
+name = "people"
+heading = "Its people: directors and holders of record, with their dates"
+views = ["directors", "shareholders"]
+sources = ["members", "confirmed", "roles"]
+text = "Every director and shareholder the companies file lists on the company, with the dates it files; started from a person, the person's own roles and holdings. A holding is shown as the register states it: a shareholder of record. The file lists current roles only: a director who left before July 2026 is not seen. Started from a company, these people are listed and not followed: start a report from each director to read their other companies and the notices on them."
+
+[[sections]]
+name = "companies"
+heading = "Their other companies, and how each stands"
+views = ["companies"]
+sources = ["members", "confirmed", "near"]
+not_held = ["insolvency"]
+text = "Started from a person, each company the person sits on or holds, with its register status and the dates the register files: a failed company (in liquidation, in receivership, in administration, removed) and a going one side by side, the Gazette notices on each in the solvency section above under its name; the flag sister-company-failure sets each failure's date beside the person's own role on that company. A company reached only by a name it shares, or through a namesake, is near. Started from a company, its people are not followed: listed here are only the companies that share its name, near, and the check is blocked."
+
+[[sections]]
+name = "people-notices"
+heading = "Prohibitions and bankruptcies on its people"
+views = ["gazette_prohibitions", "gazette_bankruptcies"]
+sources = ["members", "confirmed", "near"]
+not_held = ["insolvency"]
+text = "A director prohibition or a bankruptcy notice the link rules join to the person by name, with its dates; a near row shares the name only. A revoked prohibition and an annulled bankruptcy's name are never shown. Started from a company, its people's notices are not read, and a blank here is not a clear: start a report from each director listed."
+
+[[sections]]
+name = "beside"
+heading = "The people beside them, and their other roles"
+views = ["directors", "shareholders", "societies", "society_officers", "gazette_appointments", "gazette_liquidators"]
+sources = ["second", "members", "confirmed", "near"]
+text = "The other directors and holders of record on the person's companies, each near: a connection through another person is never confirmed; then incorporated society roles, public appointments in the Gazette, and appointments as a liquidator (an insolvency practitioner is appointed to a failed company and is not one of its officers). Started from a company, its people are not followed."
+
+[[sections]]
+name = "safety"
+heading = "The safety record: what is not held"
+views = []
+not_held = ["courts", "insolvency", "securities", "fsp"]
+text = "Registers a safety record would read that no lane has published: WorkSafe New Zealand's prosecutions and enforceable undertakings (the release texts are held and not yet read into a register), the Commerce Commission's cases and the Financial Markets Authority's warnings and actions (held and not yet read), court judgments, the Employment Relations Authority's determinations, the Disputes Tribunal's decisions, Fire and Emergency New Zealand's notices, the companies change history before 16 August 2026 (former names, trading names, industry classification, earlier directors and offices; held but unread since), the Official Assignee's Insolvency Register, the Personal Property Securities Register and the financial service providers register. Nothing in this report says anything about them: no prosecution, undertaking, judgment or determination is a finding of none. Ask the source."

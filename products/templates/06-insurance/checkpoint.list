@@ -1,0 +1,14 @@
+# The checkpoint's twelve subjects (2026-10-21), as register keys: re-render each with
+# python -m products.report render REF --template insurance, and diff against the last run.
+companies:companies/9429030004535/director/1fd3419c66e5
+companies:companies/9429030082236/director/883a094e7243
+companies:companies/9429031522878/director/e74bedb8d6e1
+companies:companies/9429038812507/director/bf6b6c98abed
+companies:companies/9429000004428/director/3195b60fe645
+companies:companies/9429052657764/shareholder/e5a9ab7635dc
+societies:societies/9429000000000/officer/d323a6097c2c
+companies:companies/9429030004535
+companies:companies/9429036847587
+companies:companies/9429030052567
+companies:companies/9429052755736
+companies:companies/9429050820856
