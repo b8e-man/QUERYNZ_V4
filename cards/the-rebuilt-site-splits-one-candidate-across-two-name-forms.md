@@ -16,3 +16,24 @@ rebuilt page with the same surname and first given name.
 Which side is right: the frozen one, for the join. Joining is the links'
 work (person identity) and the house lane's key; the same rule as the
 MP roster's name forms. Owner: house, with links.
+
+House, 20 October (house-2). Measured on the two version folders, counting
+people by first given name and surname who have an electorate candidacy
+from 2020: each side splits 30 people across two pages. 16 are split on
+both sides. 14 are split only on the frozen side (the return summary's form
+against the result's). 14 are split only on the rebuilt side, all of them in
+2026, where the nominations workbook prints the full name and the results
+the short one (Louise Claire UPSTON 2026, Louise UPSTON 2023). So the frozen
+site did not join them; it split them along other lines. Today this is 109
+figures: 93 in card `candidacies-the-frozen-site-shows-and-the-house-lane-lacks`,
+and 16 among its whole pages.
+
+The house lane cannot close this from its own documents. The Commission
+gives a candidate no identifier, and no house file says that two name forms
+are one person. Within one election the links already confirm a seat to its
+candidacy (`source-identifier`). Joining across elections by name form is a
+person-identity rule, and a variant is evidence of a name relationship, not
+of an identity (old lesson, 3-measurement-gates). Still needs: links to show
+the pair as near, or Arthur to rule a confirming rule; then the site to give
+a group one page, not each name key one page. Owner from here: links, then
+site.
