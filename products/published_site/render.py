@@ -15,6 +15,7 @@ from collections import defaultdict
 
 from products.published_site import candidate_money as CM
 from products.published_site import figures as F
+from products.published_site import money_sections as M
 from products.published_site import paths
 from products.published_site import site_template as ftm
 
@@ -32,6 +33,26 @@ class Context:
         self.elections = F.elections_in_window(tables, years)
         self.cm = cm if cm is not None else CM.candidate_money(tables, idx, self.elections, years)
         self._contests = None
+        self._transfers = None
+        self._people_money = None
+
+    @property
+    def transfers(self) -> list:
+        if self._transfers is None:
+            self._transfers = M.party_transfers(self)
+        return self._transfers
+
+    @property
+    def people_money(self) -> dict:
+        """{name_key: [candidacy money dicts]} for every candidate in the window's races."""
+        if self._people_money is None:
+            out = defaultdict(list)
+            for races in self.contests().values():
+                for r in races:
+                    for c in r["candidates"]:
+                        out[c.get("name_key") or ""].append(c)
+            self._people_money = dict(out)
+        return self._people_money
 
     def contests(self) -> dict:
         """{electorate name: [race]} computed once: every race in the window with its candidates and money."""
@@ -97,6 +118,8 @@ def home(ctx: Context) -> dict:
                        "open_year_disclosures": t["open_year_disclosures"], "spellings": sorted(d.spellings), "rows": len(d.rows),
                        "page": paths.path("donor", d.name)})
     electorates = electorate_summary(ctx)
+    transfers, race_don, race_sp = M.transfers_for_home(ctx.transfers), M.race_donations(ctx), M.race_spend(ctx)
+    p_spend, pub_money, prom = M.party_spend(ctx), M.public_money(ctx), M.promoter_spend(ctx)
     pm = {"allocated": F.money(sum(sum(S.allocated_by_year.values()) for S in ctx.series.values())),
           "spent": F.money(sum(sum(S.spent_by_year.values()) for S in ctx.series.values())),
           "expenses": F.money(sum(sum(S.expenses_by_year.values()) for S in ctx.series.values()))}
@@ -110,11 +133,27 @@ def home(ctx: Context) -> dict:
                        "electorate_spend": F.money(sum(e["spend"] for e in electorates)), "electorate_declared": F.money(sum(e["declared"] for e in electorates)),
                        "electorates": len(electorates), "candidates": sum(e["candidates"] for e in electorates),
                        "candidates_with_figure": sum(e["with_figure"] for e in electorates), "candidates_declaring": sum(e["declaring"] for e in electorates),
-                       "candidate_returns_not_joined": sum(e["returns_not_joined"] for e in electorates)},
+                       "candidate_returns_not_joined": sum(e["returns_not_joined"] for e in electorates),
+                       "party_spend_returns": p_spend["returns"], "public_allocated": pub_money["allocated"],
+                       "promoter_spend": prom["total"], "promoter_returns": prom["returns"], "promoters_registered": prom["promoters"], "promoter_people": prom["people"]},
             "donors": donors, "donors_basis": "the largest folded donors in the window by money that counts: Part A rows plus disclosures in years no return covers",
             "recent_disclosures": {"year": open_year, "rows": recent, "n": len(recent), "total": F.money(sum(r["amount"] for r in recent)),
                                    "basis": "donations over the threshold declared to the Commission within 10 working days (Electoral Act 1993 s 210C); "
                                             "no annual return is held for the open year, so these are the only money known for it"},
+            "party_transfers": transfers, "race_donations": race_don, "race_spend": race_sp, "race_spend_total": F.money(sum(p["spend"] for p in race_sp)),
+            "party_funding": M.party_funding(ctx, race_don), "donor_categories": M.donor_categories(ctx), "party_spend": p_spend,
+            "race_public": M.race_public(ctx), "public_money": pub_money, "promoter_spend": prom, "donors_sighted": M.donors_sighted(ctx),
+            "sections_basis": {
+                "party_transfers": "candidate-return donor lines whose filed name is a party (its registered name, first name, abbreviation or a name the parties lane "
+                                   "published) or a committee, branch or club naming one party and a committee word; the row keeps its filed name on every page (ruling 253) "
+                                   "and is counted here as the party's own money reaching its candidates",
+                "race_donations": "candidates' declared donations (the Commission's table as the headline) by the party the results give the candidate, by election year",
+                "race_spend": "candidates' election expenses by the same party and year; candidates counts every candidate in the results, with_figure those with a return held",
+                "party_funding": "one figure per party and year: the party's own declared total, its candidates' declared donations and its broadcasting allocation; "
+                                 "the three parts are named and the disclosures are never added",
+                "donor_categories": "the parts of the party returns held singly per year", "party_spend": "party expense returns as the Commission tabulates them",
+                "race_public": "broadcasting allocation per party, final decision", "public_money": "broadcasting allocation per election year",
+                "promoter_spend": "promoter expense returns with the people on the register", "donors_sighted": "declaration-only donors in covered years"},
             "electorates": electorates,
             "electorates_basis": "one row per electorate with a contest in the window: candidate election expenses (spend) and declared donations from the "
                                  "candidate-returns lane, the Commission's table as the headline, summed over the window's races; a return the results list no "
@@ -136,6 +175,8 @@ def parties(ctx: Context) -> dict:
     unresolved_rows = [r for r in F.current(ctx.tables.get("pub.party_return_totals"))
                        if r["year"] in ctx.years and not ctx.idx.key(r.get("party_key") or r.get("party"))]
     return {"generated_at": ctx.generated_at, "registered": reg, "registered_n": len(reg),
+            "unaffiliated_sitting": M.unaffiliated_sitting(ctx), "junk_labels": M.junk_labels(ctx), "unmatched_disclosures": M.unmatched_disclosures(ctx),
+            "unaffiliated_sitting_basis": "members sitting now whose party the house lane gives resolves to no registration",
             "historic": {"count": len(historic), "total": F.money(sum(c["total_window"] or 0 for c in historic)),
                          "parties": sorted(c["party"] for c in historic)},
             "unresolved_returns": {"returns": len(unresolved_rows), "declared": F.money(sum(float(r["declared_total"] or 0) for r in unresolved_rows)),
@@ -205,6 +246,18 @@ def subject_parties(ctx: Context) -> dict:
         for race, ys in ctx.races.items():
             rows_ = [x for x in received if x["year"] in ys]
             by_race[str(race)] = {"race": race, "named": F.money(sum(x["amount"] for x in rows_)), "rows": len(rows_)}
+        made = [dict(r, cite=ctx.cite(r["document"], r.get("page"), r.get("ordinal"))) for t in ctx.transfers if t["key"] == k for r in t["rows_detail"]]
+        made.sort(key=lambda r: (-r["year"], -r["amount"], r["receiver"]))
+        sitting = []
+        for m in ctx.tables.get("pub.members"):
+            if (m.get("to_by") or m.get("ended_on")) or ctx.idx.key(m.get("party_registered") or m.get("party")) != k:
+                continue
+            nm = m.get("display_name") or m.get("name") or ""
+            receipts = F.money(sum(c["declared"] for cs in ctx.people_money.get(m.get("name_key") or "", []) for c in [cs] if c["return_held"]))
+            sitting.append({"name": nm, "name_key": m.get("name_key"), "seat": m.get("electorate"), "route": m.get("route"), "election": m.get("election"),
+                            "receipts": receipts, "elections_with_return": sum(1 for c in ctx.people_money.get(m.get("name_key") or "", []) if c["return_held"]),
+                            "page": paths.path("subject", "person", nm) if nm else None, "cite": ctx.cite(m.get("document"), m.get("page"), m.get("place"))})
+        sitting.sort(key=lambda x: (-x["receipts"], x["name"]))
         card["other_registrations_of_this_name"] = [{"key": k2, "page": r2, "on_register": bool(ctx.idx.by_key.get(k2, {}).get("on_register"))}
                                                     for k2, r2 in namesakes[name] if k2 != k]
         out[rel] = {
@@ -215,7 +268,18 @@ def subject_parties(ctx: Context) -> dict:
             "disclosures_open_total": F.money(sum(x["amount"] for x in disclosed if not x["covered_by_return"])),
             "loans": loans, "loans_total": F.money(sum(x["amount"] for x in loans)),
             "board": not_held("party board members", "no lane publishes party boards; the frozen site read them from party websites"),
-            "mps": {"seats": S.seats, "basis": "members sitting now, from the house lane; the roster of names is on the pickers"},
+            "leaders": not_held("party leaders", "no lane publishes party leaders; the frozen site read them from party websites"),
+            "rules": not_held("party rules", "no lane publishes party rules yet (party-finance's card: party-rules-are-not-in-this-lane-s-folders)"),
+            "mps": {"seats": S.seats, "members": sitting, "basis": "members sitting now from the house lane, each with the declared donations of their candidacies in the window "
+                                                                  "(the Commission's table as the headline) summed across elections; 'no return held' counts nothing"},
+            "top_donors": M.top_donors(ctx, k), "top_donors_by_race": {str(r): M.top_donors(ctx, k, ys) for r, ys in ctx.races.items()},
+            "top_donors_note": "the ten largest folded donors by money that counts: Part A rows of the party's returns plus declarations in years no return covers; "
+                               "folded under the links' shared reading of the filed name; each donor's page lists every row",
+            "donations_made": made, "donations_made_total": F.money(sum(r["amount"] for r in made)),
+            "donations_made_basis": "the party's own money reaching its candidates: candidate-return donor lines filed under the party's name or a committee, branch or club of it; "
+                                    "each line keeps its filed name and cites the candidate's return",
+            "industries": not_held("industry exposure", "needs the links to read donors against the companies register; the queue asks whether it belongs in this template"),
+            "exposure": not_held("industry exposure", "as industries"),
             "financials": [dict(st, cite=ctx.cite(st["documents"][0] if st["documents"] else st["listing_document"], st.get("page"), st.get("place")),
                                  figures={f: dict(v, cite=ctx.cite(v["document"], v.get("page"), v.get("place"))) for f, v in st["figures"].items()})
                            for st in ctx.statements.get(k, [])],

@@ -40,7 +40,7 @@ def test_pickers_list_sitting_members_and_the_cut_donor_list(vdir):
     assert [m["name"] for m in p["mps"]] == ["Karen CHHOUR", "David SEYMOUR"]          # Pat GONE's seat ended
     seymour = p["mps"][1]
     assert seymour["seat"]["route"] == "electorate" and seymour["running"]["electorate"] == "ge-2026/epsom" and seymour["running"]["namesakes"] == 0
-    assert p["donors_listed"] == 4 and p["donor_population"] == 4 and p["donors"][0]["name"] == "Big Co Limited"   # Local Giver is known from a candidate return alone
+    assert p["donors_listed"] == 5 and p["donor_population"] == 5 and p["donors"][0]["name"] == "Big Co Limited"   # Local Giver and the committee are known from a candidate return alone
 
 
 def test_size_bands_split_at_the_line_and_keep_part_g_nameless(vdir):

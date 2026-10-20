@@ -33,10 +33,10 @@ def test_the_electorate_page_carries_the_money_and_the_unjoined_return_apart(vdi
     assert r23["declared_total"] == 1200.0 and r23["expenses_total"] == 500.0 and r23["returns_held"] == 2 and r23["declaring"] == 1 and r23["nil_returns"] == 1
     assert r23["returns_not_joined"]["n"] == 1 and r23["returns_not_joined"]["declared"] == 77.0 and r23["returns_not_joined"]["rows"][0]["candidate_as_filed"] == "Ghost NOBODY"
     sey = r23["candidates"][0]
-    assert sey["declared"] == 1200.0 and sey["declared_ours"] == 1000.0 and sey["return_cite"]["document"] == X.D["c"] and sey["itemised_n"] == 2
+    assert sey["declared"] == 1200.0 and sey["declared_ours"] == 1000.0 and sey["return_cite"]["document"] == X.D["c"] and sey["itemised_n"] == 3
     assert r23["top"]["display"] == "David SEYMOUR" and r23["parties"][0]["declared"] == 1200.0
     names = [d["name"] for d in r23["donors"]]
-    assert names == ["Big Co Limited", "Local Giver"] and r23["donors"][1]["total"] == 477.0 and r23["donors"][1]["n"] == 2   # as filed, never folded; the unjoined return's line is here too
+    assert names == ["Big Co Limited", "Local Giver", "ACT Epsom Electorate Committee"] and r23["donors"][1]["total"] == 477.0 and r23["donors"][1]["n"] == 2   # as filed, never folded; the unjoined return's line is here too
     assert r23["donors"][1]["to"][1]["candidate"] == "Ghost NOBODY" and r23["donors"][0]["to"][0]["candidate_key"] == "ge-2023/seymour-david/epsom"
     r26 = e["races"][1]
     assert r26["declared_total"] == 0.0 and r26["returns_held"] == 0 and r26["candidates"][0]["declared"]["held"] is False and "not a nil" in r26["candidates"][0]["declared_basis"]
@@ -54,8 +54,8 @@ def test_the_person_page_shows_the_candidacy_s_money_and_the_lines_received(vdir
     p = load(vdir, paths.path("subject", "person", "David SEYMOUR"))
     c23 = next(c for c in p["candidacies"] if c["year"] == 2023)
     assert c23["declared"] == 1200.0 and c23["expenses"] == 500.0 and c23["return_held"] is True and c23["electorate_name"] == "Epsom"
-    assert [r["donor"] for r in p["donations_received"]] == ["Big Co Limited", "Local Giver"] and p["donations_received_total"] == 1000.0
-    assert p["donations_received_by_year"][0]["total"] == 1200.0 and p["donations_received_by_year"][0]["itemised_total"] == 1000.0
+    assert [r["donor"] for r in p["donations_received"]] == ["Big Co Limited", "Local Giver", "ACT Epsom Electorate Committee"] and p["donations_received_total"] == 1200.0
+    assert p["donations_received_by_year"][0]["total"] == 1200.0 and p["donations_received_by_year"][0]["itemised_total"] == 1200.0
     assert p["donations_made"]["held"] is False                                   # still nothing joined by name
 
 
