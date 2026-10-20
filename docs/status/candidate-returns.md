@@ -1,37 +1,45 @@
 # candidate-returns: where it stands
 
-**Date:** 2026-10-20. **Step:** 4.1, the candidate donation and expense
+**Date:** 2026-10-21. **Step:** 4.1, the candidate donation and expense
 returns lane, `registers/candidate_returns/`. **Merge request:**
-`candidate-returns-1`.
+`candidate-returns-2` (after `candidate-returns-1`, merged 20 October).
 
 ## Done
 
 Measured on all 1,105 in-window returns (2020, 2022 Tauranga, 2023),
-replay only (`python -m registers.candidate_returns.replay run|compare|shape`):
+replay only (`python -m registers.candidate_returns.replay
+run|compare|shape|rereads`), with the 60 scans read on 20 October as the
+sample (ruling 62):
 
-- **Capture by hash** from the old folder, read-only, fetching nothing;
-  the Commission's 58 listing pages and newest summary spreadsheet per
-  election landed beside them (a challenge page kept as a .csv refused).
-- **Four profiles proposed** (`profile-proposed.jsonl`): the return with a
-  text-layer declaration, the scanned return, the listing, the summary.
-- **The join:** 1,105 placed (1,049 by the listing's own link), none left
-  abstaining; 15 originals replaced by the amendment the listing links.
-- **Totals:** 372 rows, 733 set aside; the catch log reconciles. Against
-  the spreadsheet: 353 equal to the cent, 11 differ (carded).
-- **Part A:** 175 donor rows on 81 returns, each part adding to its own
-  printed totals; the form's example row dropped (336); addresses only in
-  `candidate_returns_private`. 20 parts set aside beside their rows.
-- 22 tests; module and whole-repository fast tiers green.
+- **Totals:** 412 rows, 693 set aside; the catch log reconciles. Against
+  the spreadsheet: 391 equal to the cent, 13 differ, each judged with
+  evidence (card closed): 5 amendments the listing agrees with us on, 5
+  the Commission's typing, 2 its own unexplained figure, 1 return that
+  contradicts itself.
+- **A scanner's text layer** (a page under a full-width picture) stands
+  only on its printed total: two misreads the Commission had right are set
+  aside for a page reading.
+- **Part A:** 221 donor rows on 100 returns (88 typed, 12 from pixels),
+  each part adding to its printed total and the declaration; 26 parts set
+  aside (carded). A candidate copy without the part's heading is known by
+  `TOTAL FOR PART A`; a scan's Part A comes from its stored page reading
+  (`pixels.py`) and is refused when read column by column; a Part A the
+  declaration left blank is no longer taken for nil.
+- **Part D and H:** one return declares Part D ($140), none a loan: no
+  reader built.
+- **Re-reads:** `replay rereads` lists 668 returns, 6,287 pages (hash,
+  stage, pages), the queue for when the build is done.
+- **Sample:** the no-reading case is read against an empty store
+  (`key: empty-store`); four new cases. 27 module tests green.
 
 ## Set aside, carded
 
-- 713 returns wait on a page reading of the declaration page (a scheduler
-  job, `cards/the-candidate-return-scans-need-their-page-readings.md`).
-- The 11 differences; the 20 Part A sets aside; the 2022 Tauranga
-  by-election has no Commission figure held.
+- 668 returns wait on page readings (`the-candidate-return-scans-…`).
+- 26 Part A sets aside; the 2022 Tauranga by-election has no Commission
+  figure held.
 
 ## Next
 
-1. After the page readings land: rebuild, measure, then Part A from pixels.
-2. Part A of the nine candidate-made copies (no form table).
-3. Part D (overseas donors) and Part H's lenders, if the product needs them.
+1. When the build is done and the readings land: `replay run`, `compare`,
+   rebuild.
+2. Part A scans read column by column want a cell-scale re-read.

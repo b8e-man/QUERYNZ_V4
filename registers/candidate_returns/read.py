@@ -199,6 +199,9 @@ def _part_a(out: Result, data: bytes, texts: dict, store) -> None:
     f["donors_check"] = part.check or None
     if part.problems:
         thin_a = [p for p in pages.thin_pages(texts) if p > out.row["page"]]
+        if thin_a and declared and not part.rows and not any(r.startswith("row ") for r in part.problems):
+            _part_a_pixels(out, {p: texts[p] for p in thin_a}, store, declared, after=out.row["page"])
+            return                                    # no row on the typed pages: the table is on the images
         extra = f" ({len(thin_a)} later pages are images)" if thin_a and declared else ""
         out.set_aside.append(("part-a", "; ".join(part.problems)[:1800] + extra))
         return
@@ -218,7 +221,7 @@ def _stamp(out: Result, rows: list, by_page: dict) -> None:
                            "loaded_at": out.row["loaded_at"]})
 
 
-def _part_a_pixels(out: Result, texts: dict, store, declared) -> None:
+def _part_a_pixels(out: Result, texts: dict, store, declared, after: int = None) -> None:
     """Part A from the page reader's stored readings of the pages after the declaration (`pixels.py`). A part with
     none of its pages stored is set aside naming the pages a re-read job would read (`replay rereads`)."""
     f = out.row["filed"]
@@ -226,7 +229,7 @@ def _part_a_pixels(out: Result, texts: dict, store, declared) -> None:
     if declared == 0.0:
         f["donors_check"] = "declared-nil"
         return
-    after = [p for p in sorted(texts) if p > out.row["page"]]
+    after = [p for p in sorted(texts) if p > (out.row["page"] if after is None else after)]
     stored = {p: r for p in after if (r := stored_page(store, out.document, p)) is not None}
     carrying = {p: r for p, r in stored.items() if donors.HEADING.search(r.text) or donors.TOTAL.search(r.text)}
     if not carrying:
