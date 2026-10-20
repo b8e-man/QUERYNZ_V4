@@ -364,7 +364,7 @@ half), `products/templates/13-ownership/`. Opus. Launched headless by the
 integrator 21 October 08:25 (the brief is in the integrator's scratch
 folder: the shareholdings chain through held registers, each hop dated,
 nominees as holders of record, sanctions and overseas registers named as
-not held). After it, in the plan's order: 7, 5, 6, 11, 12. Step 6 is held
+not held). After it, in the plan's order: 7, 5, 6, 11, 12; then step 6. Step 7 is held
 until the end of the plan (ruling 63).
 
 ## candidate-returns
