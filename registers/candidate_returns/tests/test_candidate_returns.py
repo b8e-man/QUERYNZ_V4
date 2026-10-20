@@ -364,3 +364,14 @@ def test_published_donors_keep_the_row_contract_and_their_addresses_stay_private
         by_return[r["return_key"]] = round(by_return.get(r["return_key"], 0) + float(r["amount"]), 2)
     parts = {r["key"]: float(r["part_a"] or 0) for r in filled["returns"]}
     assert all(abs(by_return[k] - parts[k]) < 0.005 for k in by_return)
+
+
+def test_a_copy_of_the_form_without_its_heading_is_known_by_its_printed_total(monkeypatch):
+    """A candidate's own copy of the form (`To add more rows …`) keeps the table and `TOTAL FOR PART A` but drops
+    the part's heading and footer; a cell's note in money (`($10,000 of it …`) never ends a name."""
+    from registers.candidate_returns import donors
+    monkeypatch.setattr(donors, "EXAMPLE_CELL", donors._fold_hash("Sample Form Person 1 Sample Street, Sampletown Sampleshire"))
+    page = "\n".join(l for l in PART_A.splitlines() if "CANDIDATE DONATIONS OF" not in l and not l.startswith("PART A "))
+    page = page.replace("Example Holdings Limited, Exampleville", "Example Holdings Limited ($2,000 cash) Exampleville")
+    part = donors.read({2: "  To add more rows to this table\n" + page}, 9500.0)
+    assert part.problems == [] and [r["name"] for r in part.rows] == ["Jane Example", "Example Holdings Limited"]
