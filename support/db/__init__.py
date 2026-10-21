@@ -29,6 +29,17 @@ prints (hard limit 1). `url()` reads one key; `connect()` opens psycopg.
     python -m support.db scratch NAME    make scratch_NAME in the sample database
     python -m support.db check           every schema present, grants right
 
+The owner login on the live database `querynz_v4` is refused to a session
+that carries no mark (card a-lanes-job-path-published-live-from-a-session-
+before-the-gate): a session proves a load in its scratch schema in the
+sample database, and the live tables are written by the scheduler and the
+gate. A session is a process with CLAUDECODE in its environment; the marks
+are QV4_PIECE or QV4_RUN_ID (the scheduler's worker, on every job it runs)
+and QV4_INTEGRATOR=1 (the integrator's shell: the gate, the installer, the
+catalogue commands, its hand runs). The installed units carry no mark and
+are not sessions, so they pass. The sample database and the reader logins
+are never refused.
+
 Tests: support/db/tests/ (the SQL without a database; the apply against
 the sample database, marked slow)."""
 import os
@@ -40,6 +51,10 @@ OWNER_KEY, READ_KEY, PRODUCT_KEY, OLD_READ_KEY = "QV4_OWNER_URL", "QV4_READ_URL"
 KEY_FILE = {OWNER_KEY: "v4.env", OLD_READ_KEY: "v4.env", READ_KEY: "v4-read.env", PRODUCT_KEY: "v4-read.env"}
 ROLES = {"owner": "qv4_owner", "read": "qv4_read", "product": "qv4_product"}
 DATABASES = ("querynz_v4", "querynz_v4_sample")
+LIVE = "querynz_v4"
+SESSION_VAR = "CLAUDECODE"
+MARKS = ("QV4_PIECE", "QV4_RUN_ID")      # set by the scheduler's worker
+INTEGRATOR_MARK = "QV4_INTEGRATOR"       # =1 in the integrator's shell
 
 LANES = (
     "charities", "companies", "parties", "party_returns", "candidate_returns", "disclosures",
@@ -129,7 +144,40 @@ def url(key: str = OWNER_KEY, database: str = None) -> str:
     raise RuntimeError(f"{key} is not set in {os.path.basename(path)}")
 
 
+class LiveRefused(RuntimeError):
+    """An owner connection to the live database from an unmarked session."""
+
+
+def _database_of(key: str, database: str = None) -> str:
+    if database:
+        return database
+    m = re.search(r"/([A-Za-z0-9_]+)(\?.*)?$", url(key))
+    return m.group(1) if m else ""
+
+
+def marked(env=None) -> bool:
+    """True where the caller may write the live database: not a session,
+    or a session the scheduler or the integrator marked."""
+    env = os.environ if env is None else env
+    if not env.get(SESSION_VAR):
+        return True
+    return env.get(INTEGRATOR_MARK) == "1" or any(env.get(m) for m in MARKS)
+
+
+def guard(key: str = OWNER_KEY, database: str = None, env=None) -> None:
+    """Raise LiveRefused for the owner login on the live database from an
+    unmarked session; anything else passes."""
+    if key != OWNER_KEY or marked(env) or _database_of(key, database) != LIVE:
+        return
+    raise LiveRefused(
+        f"support.db: the owner login on the live database {LIVE} is refused to a session without a mark "
+        f"(QV4_PIECE from the scheduler's worker, or {INTEGRATOR_MARK}=1 from the integrator), because a session "
+        f"proves a load in its scratch schema in {LIVE}_sample only and the live tables are written by the "
+        f"scheduler and the merge gate.")
+
+
 def connect(key: str = OWNER_KEY, database: str = None, **kw):
+    guard(key, database)
     import psycopg
     return psycopg.connect(url(key, database), **kw)
 

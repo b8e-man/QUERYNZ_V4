@@ -3,6 +3,7 @@ granted everything but the private schemas and the seal, the product reader
 pub only; a connection string is read from its file and never printed.
 The apply itself runs against the sample database, marked slow."""
 import os
+import sys
 
 import pytest
 
@@ -75,3 +76,84 @@ def test_apply_to_the_sample_database_and_check_it():
         seen = {r[0] for r in conn.execute(
             "select nspname from pg_namespace where has_schema_privilege(current_user, nspname, 'USAGE')")}
     assert "pub" in seen and "companies" not in seen and "links" not in seen
+
+
+# The live database refuses an unmarked session's owner login (card
+# a-lanes-job-path-published-live-from-a-session-before-the-gate). Every test
+# sets the environment itself: the gate's run inherits the integrator's mark.
+
+SESSION = {"CLAUDECODE": "1"}
+
+
+class _FakePsycopg:
+    def __init__(self):
+        self.calls = []
+
+    def connect(self, conninfo, **kw):
+        self.calls.append(conninfo.rsplit("/", 1)[-1])
+        return "conn"
+
+
+def _creds(tmp_path, monkeypatch):
+    (tmp_path / "v4.env").write_text("QV4_OWNER_URL=postgresql://u:p@h:5432/querynz_v4\n")
+    (tmp_path / "v4-read.env").write_text("QV4_READ_URL=postgresql://r:p@h:5432/querynz_v4\n"
+                                          "QV4_PRODUCT_URL=postgresql://q:p@h:5432/querynz_v4\n")
+    monkeypatch.setattr(db, "CRED_DIR", str(tmp_path))
+    fake = _FakePsycopg()
+    monkeypatch.setitem(sys.modules, "psycopg", fake)
+    return fake
+
+
+def _env(monkeypatch, **set_):
+    for k in ("CLAUDECODE", "QV4_PIECE", "QV4_RUN_ID", "QV4_INTEGRATOR"):
+        monkeypatch.delenv(k, raising=False)
+    for k, v in set_.items():
+        monkeypatch.setenv(k, v)
+
+
+def test_an_unmarked_session_is_refused_the_live_owner_login_before_psycopg(monkeypatch):
+    _env(monkeypatch, **SESSION)
+    monkeypatch.setitem(sys.modules, "psycopg", None)      # importing it would raise ImportError
+    monkeypatch.setattr(db, "CRED_DIR", "/nonexistent")    # and no credential file is read
+    with pytest.raises(db.LiveRefused) as e:
+        db.connect(db.OWNER_KEY, "querynz_v4")
+    msg = str(e.value)
+    assert "scratch schema in querynz_v4_sample" in msg and "scheduler and the merge gate" in msg
+    assert "QV4_PIECE" in msg and "QV4_INTEGRATOR=1" in msg
+    _env(monkeypatch, CLAUDECODE="1", QV4_INTEGRATOR="0")
+    with pytest.raises(db.LiveRefused):
+        db.connect(db.OWNER_KEY, "querynz_v4")             # the mark is exactly 1
+
+
+def test_the_default_database_is_read_from_the_url(tmp_path, monkeypatch):
+    fake = _creds(tmp_path, monkeypatch)
+    _env(monkeypatch, **SESSION)
+    with pytest.raises(db.LiveRefused):
+        db.connect()                                       # the URL names querynz_v4
+    assert fake.calls == []
+
+
+@pytest.mark.parametrize("mark", [{"QV4_PIECE": "3"}, {"QV4_RUN_ID": "r1"}, {"QV4_INTEGRATOR": "1"}])
+def test_each_mark_lets_a_session_through(tmp_path, monkeypatch, mark):
+    fake = _creds(tmp_path, monkeypatch)
+    _env(monkeypatch, **SESSION, **mark)
+    assert db.connect(db.OWNER_KEY, "querynz_v4") == "conn"
+    assert db.connect() == "conn"
+    assert fake.calls == ["querynz_v4", "querynz_v4"]
+
+
+def test_an_installed_unit_is_no_session_and_passes(tmp_path, monkeypatch):
+    fake = _creds(tmp_path, monkeypatch)
+    _env(monkeypatch)                                      # the worker daemon, the board, the offsite dump
+    assert db.connect(db.OWNER_KEY, "querynz_v4") == "conn"
+    assert fake.calls == ["querynz_v4"]
+
+
+def test_the_sample_database_and_the_reader_logins_are_never_refused(tmp_path, monkeypatch):
+    fake = _creds(tmp_path, monkeypatch)
+    _env(monkeypatch, **SESSION)
+    assert db.connect(db.OWNER_KEY, "querynz_v4_sample") == "conn"
+    assert db.connect(db.READ_KEY, "querynz_v4") == "conn"
+    assert db.connect(db.READ_KEY) == "conn"
+    assert db.connect(db.PRODUCT_KEY, "querynz_v4") == "conn"
+    assert fake.calls == ["querynz_v4_sample", "querynz_v4", "querynz_v4", "querynz_v4"]
