@@ -10,7 +10,7 @@ no import of the shape, the same way a use-case template's rules.py is
 written."""
 flag, items = contract.flag, contract.items   # noqa: F821  (bound by the loader)
 
-V = "0.2"
+V = "0.3"
 GAZETTE = ("New Zealand Gazette notices: liquidations, receiverships, company notices, prohibitions, bankruptcies")
 NOT_HELD_FOR_INSOLVENCY = ("the Insolvency Register (interface awaited since 19 September 2026)", "court judgments (step 5.4)")
 
@@ -34,8 +34,15 @@ def prohibition(report):
     if conf:
         return flag("prohibition", V, "fired", "red", f"{len(conf)} director prohibition notice(s) confirmed to the subject", citations=tuple(it["ref"] for it in conf))
     if nearby:
-        return flag("prohibition", V, "fired", "amber", f"{len(nearby)} director prohibition notice(s) under a name near the subject's; not the subject until confirmed",
-                    citations=tuple(it["ref"] for it in nearby), scope="near")
+        return flag("prohibition", V, "fired", "amber", f"{len(nearby)} director prohibition notice(s) under a name near the subject's, or on a person on the subject; "
+                                                        "not the subject until confirmed", citations=tuple(it["ref"] for it in nearby), scope="near")
+    w = report.get("walk") or {}
+    if report["subject"]["kind"] == "organisation":   # a company start: the clear covers its officers only as far as they were followed
+        if "officers" not in (w.get("buckets") or []) or w.get("officers_omitted"):
+            return flag("prohibition", V, "blocked", "red", "a company start: its officers were not all followed, so a prohibition on one may stand unread; "
+                                                            "start a report from each officer listed")
+        return flag("prohibition", V, "clear", "red", f"no director prohibition on the subject's officers' records ({w.get('officers_followed', 0)} followed one step) in the Gazette notices held",
+                    sources_held=("New Zealand Gazette prohibition notices (pub.gazette_prohibitions)", "pub.groups: each officer's confirmed rows"))
     return flag("prohibition", V, "clear", "red", "no director prohibition confirmed or near the subject in the Gazette notices held",
                 sources_held=("New Zealand Gazette prohibition notices (pub.gazette_prohibitions)",))
 
