@@ -60,8 +60,12 @@ def _line_text(it: dict) -> str:
         extra.append(f"from a return since replaced; the amendment is document {str(it['replaced_by'])[:12]}…; never summed")
     if it.get("via") and it["via"] != "start":
         extra.append(f"via {it['via']}")
-    if it.get("depth"):
+    if it.get("above"):
+        extra.append(f"on a company {it['depth']} up the chain ({it.get('through')})")
+    elif it.get("depth"):
         extra.append(f"{it['depth']} up the chain" if it.get("hop_text") or it["view"] == "shareholders" else f"one step through {it.get('through')}")
+    if it.get("near_link"):
+        extra.append("the officer's own link to this row is near, with the link's rule and reason above")
     if it.get("hop_text"):
         extra.append(it["hop_text"])
     if (it.get("holdings") or 0) > 1:
@@ -99,6 +103,7 @@ def _reaches_text(w: dict) -> list:
             bits.append(f"{c['cycles']} met twice")
         if c.get("omitted"):
             bits.append(f"{c['omitted']} past the chain's limits")
+        bits.append(f"on the companies above, {c.get('above_notices', 0)} Gazette notices and {c.get('above_directors', 0)} current directors read")
         left.append("; ".join(bits))
     for n in w.get("chain_notes") or []:
         left.append(f"chain, {n['depth']} up: {n['text']} (via {n['via']})")
@@ -231,8 +236,12 @@ def _li(it: dict, template_name: str = "subject") -> str:
         out.append(f'<span class="reason">from a return since replaced; the amendment is document <code>{esc(str(it["replaced_by"])[:12])}…</code>; never summed</span>')
     if it.get("via"):
         out.append(f'<span class="reason">via <a href="{esc(contract.report_url(it["via"], "", template_name))}">{esc(it["via"])}</a></span>')
-    if it.get("depth"):
+    if it.get("above"):
+        out.append(f'<span class="reason">on a company {esc(it["depth"])} up the chain (<a href="{esc(contract.report_url(it["through"], "", template_name))}">{esc(it["through"])}</a>)</span>')
+    elif it.get("depth"):
         out.append(f'<span class="reason">{esc(f"{it[chr(100)+chr(101)+chr(112)+chr(116)+chr(104)]} up the chain" if it.get("hop_text") or it["view"] == "shareholders" else f"one step through {it.get(chr(116)+chr(104)+chr(114)+chr(111)+chr(117)+chr(103)+chr(104))}")}</span>')
+    if it.get("near_link"):
+        out.append('<span class="reason">the officer\'s own link to this row is near, with the link\'s rule and reason above</span>')
     if it.get("hop_text"):
         out.append(f'<span class="reason">{esc(it["hop_text"])}</span>')
     if (it.get("holdings") or 0) > 1:

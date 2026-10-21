@@ -453,6 +453,62 @@ def routes_4(conn, subject, held: set) -> list:
         tt = tpl.load(folder)
         if any(key == "charities" for key, _ in tt.superseded_not_held) and {"charities", "charity_officers"} & tt.views:
             out.append(f"template {name}: reads the charities views and still names charities as not held")
+    # an officer's near link: a director a near link (name alone) joins to another director row, and nothing confirmed: from the company
+    # start, the other row's company is listed under officers, near, with the link's rule and reason after the officer's
+    links = db.rows(conn, "select l.row_a, l.row_b, l.rule from pub.links l where l.grade = 'near' and l.row_a like 'companies:%%/director/%%' "
+                          "and l.row_b like 'companies:%%/director/%%' order by l.row_a limit 60")
+    pick = None
+    for l in links:
+        d = db.rows(conn, "select key, entity_key from pub.directors where key = %s and in_latest and not coalesce(suppressed, false)", (l["row_a"].split(":", 1)[1],))
+        o = db.rows(conn, "select entity_key from pub.directors where key = %s and in_latest and ended_on is null", (l["row_b"].split(":", 1)[1],))
+        if d and o and o[0]["entity_key"] != d[0]["entity_key"]:
+            pick = (d[0]["entity_key"], l["row_a"], l["row_b"], o[0]["entity_key"], l["rule"])
+            break
+    if pick:
+        start, officer, other, other_co, rule = pick
+        ref = f"companies:{start}"
+        r = build.build(conn, ref, subject, held)
+        got = [it for it in _items(r) if it.get("near_link") and it.get("through") == officer]
+        co = [it for it in got if it["ref"] == f"companies:{other_co}"]
+        if not co:
+            out.append(f"{ref}: the company a near link of the director's reaches ({other_co}, {rule}) is not listed under the officers reach")
+        elif not (co[0]["grade"] == "near" and co[0]["rule"] == rule and "and the officer's own link to this row is near: " in (co[0].get("reason") or "")
+                  and "reached through a person on the subject" in co[0]["reason"].split("and the officer's own link")[0]):
+            out.append(f"{ref}: the near-linked company is not near with the officer's reason first and the link's rule and reason after ({co[0]['rule']}, {co[0].get('reason')!r})")
+        if "the officer's own link to this row is near" not in memo.text(r):
+            out.append(f"{ref}: the memo does not say the row came by the officer's near link")
+    else:
+        out.append("no near link between two current directors of different companies among the first sixty: the officer-near-link route cannot be checked")
+    # the chain reads the companies above: a holder of record whose own row has a current director (and a notice where one exists) lists them, marked above
+    cands = db.rows(conn, "select s.entity_key as k, s.name from pub.shareholders s where s.in_latest and s.shareholder_type = 'company' "
+                          "and (select count(*) from pub.companies c where c.name = s.name) = 1 order by s.key limit 40")
+    got = []
+    for c in cands:
+        above = db.rows(conn, "select c.key from pub.companies c where c.name = %s and exists (select 1 from pub.directors d where d.entity_key = c.key and d.in_latest and d.ended_on is null)",
+                        (c["name"],))
+        if above:
+            got.append({"k": c["k"], "above": above[0]["key"]})
+            if db.rows(conn, "select 1 from pub.gazette_liquidations where register_key = %s limit 1", (above[0]["key"],)):
+                got.insert(0, got.pop())
+                break
+    if got:
+        ref = f"companies:{got[0]['k']}"
+        r = build.build(conn, ref, subject, held)
+        above = [it for it in _items(r) if it.get("above")]
+        directors = [it for it in above if it["view"] == "directors" and it["via"] == f"companies:{got[0]['above']}"]
+        if not directors:
+            out.append(f"{ref}: the current directors of the company above ({got[0]['above']}) are not listed")
+        elif not all(it["grade"] == "near" and it["depth"] == 1 and it["rule"] == "chain" and "name only" in (it.get("reason") or "") for it in directors):
+            out.append(f"{ref}: a director above is not near with the chain company's reason at its depth ({directors[0].get('reason')!r})")
+        elif any(not walk.current_role(it["row"]) for it in directors):
+            out.append(f"{ref}: an ended director of the company above is listed as current")
+        n_notices = db.rows(conn, "select count(*) as n from pub.gazette_liquidations where register_key = %s", (got[0]["above"],))[0]["n"]
+        if n_notices and not [it for it in above if it["view"] == "gazette_liquidations"]:
+            out.append(f"{ref}: the {n_notices} liquidation notice(s) on the company above are not listed")
+        if r["walk"]["chain"].get("above_directors", 0) < 1 or "on the companies above" not in memo.text(r):
+            out.append(f"{ref}: the memo does not count what was read on the companies above ({r['walk']['chain']})")
+    else:
+        out.append("no company holder of record resolved by a unique name whose own row has a current director: the companies-above route cannot be checked")
     return out
 
 

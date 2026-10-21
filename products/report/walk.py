@@ -25,8 +25,9 @@ followed up the chain to its own holders (the `chain` bucket, to the
 template's `chain_depth`, at most LIMITS["chain"]; a hop by business
 number is confirmed, a hop by a name only one company carries is near, a
 company met twice is listed once, a chain cut at the depth says it goes
-on, and the shares are carried as filed, never as a fraction). A bucket no
-section of the template draws on is not walked (`buckets`).
+on, and the shares are carried as filed, never as a fraction; on each company above, the notices pointing at it and
+its current directors, with the company's grade). A bucket no section of
+the template draws on is not walked (`buckets`).
 
 Nothing here reads a view the template did not name: `allowed` is the
 template's list and a view outside it is skipped, with the skip recorded.
@@ -53,6 +54,7 @@ NEAR_BY_NAME = "the release prints a name only, so these rows are matched to the
 NO_GROUP_FOR_FILED = "a filed row ({view}): no confirmed link names a person row, so there is no group to take; every same name elsewhere is a namesake, apart"
 ADOPTED_GROUP = "a filed row ({view}): the group shown is that of the person row a confirmed link names, {via}"
 NEAR_THROUGH_OFFICER = "reached through a person on the subject ({who}): an officer's other role is the officer's connection, not the subject's; near, never confirmed"
+NEAR_OFFICER_LINK = "{officer}; and the officer's own link to this row is near: {link}"
 NEAR_SHARED_OFFICE = "shares the registered office with the subject; an office is not a person, and a shared office is no connection on its own"
 NEAR_HOLDER_BY_NAME = "the holder of record is matched to its own register row by name only ({n} company carries the name; the file gives no business number for a holder): near, never confirmed"
 NEAR_CHARITY_OFFICER_BY_NAME = "no link joins the Charities Register's officers to any other row yet, so this officer row is matched to the subject by name: near, never confirmed"
@@ -544,53 +546,36 @@ def current_role(r: dict) -> bool:
 
 def follow_officers(conn, ref: str, officers: list, allowed: set, skipped: list, cache: dict) -> tuple:
     """From an organisation start, each officer on it one step: the rows of
-    the officer's group (confirmed links) the template allows, role rows only
-    when current, the companies and societies they sit on, and the notices
-    pointing at those; every item near by the through-people default
-    (NEAR_THROUGH_OFFICER), via the officer's row on the start. Returns
-    (items, officers followed, officers past the limit)."""
+    the officer's group (confirmed links) the template allows, and beside
+    them the rows the officer's near links reach (a namesake's companies,
+    set apart with the link's own reason), role rows only when current, the
+    companies and societies they sit on, and the notices pointing at those;
+    every item near by the through-people default (NEAR_THROUGH_OFFICER),
+    via the officer's row on the start; a near-linked row carries the link's
+    rule and, after the officer's reason, the link's (NEAR_OFFICER_LINK), so
+    a reader sees a namesake's companies set apart rather than nothing.
+    Both under the same officer limits. Returns (items, officers followed,
+    officers past the limit, near links past the limit)."""
     out, seen = [], set()
     followed = [o for o in officers if not o["suppressed"]][:LIMITS["officers"]]
+    links_omitted = 0
     for o in followed:
         g = group_of(conn, o["ref"])
         reason = NEAR_THROUGH_OFFICER.format(who=o["title"])
         if g.get("contested"):
             reason = NEAR_CONTESTED_GROUP + "; " + reason
-        n_rows = 0
+        count = {"rows": 0}
         for mref in g["rows"]:
-            if mref == o["ref"]:
+            if mref != o["ref"]:
+                _officer_row(conn, ref, o, mref, reason, "through-officer", None, allowed, skipped, cache, seen, count, out)
+        L = links_of(conn, [o["ref"]])
+        links_omitted += L["omitted"]
+        for l in L["near"]:
+            if l["other"] in g["rows"] or l["other"] == o["ref"]:
                 continue
-            hit = resolve(conn, mref, cache)
-            if not hit:
-                continue
-            mv, mr = hit
-            if mv.name not in allowed:
-                skipped.append(mv.name)
-                continue
-            if (mv.name in ROLE_VIEWS and not current_role(mr)) or not listable(mv, mr):
-                continue
-            ev, e = rows.entity_of(conn, mv, mr)
-            if e and rows.ref_of(ev, str(e[ev.key_col])) == ref:
-                continue   # the officer's row on the start itself is already listed
-            if n_rows >= LIMITS["officer_rows"]:
-                out.append({"omitted": 1, "view": mv.name, "via": o["ref"]})
-                continue
-            n_rows += 1
-            it = near(item(mv, mr, rows.title(ev, e) if e else None, via=o["ref"], through=o["ref"], depth=1), reason, "through-officer")
-            out.append(it)
-            if e:
-                eref = rows.ref_of(ev, str(e[ev.key_col]))
-                if eref in seen:
-                    continue
-                seen.add(eref)
-                eit = near(item(ev, e, via=it["ref"], through=o["ref"], hop=it["dates"], depth=1), reason, "through-officer")
-                out.append(eit)
-                if ev.name == "companies":
-                    for pit in pointing_at(conn, ev, e, allowed, skipped):
-                        if "omitted" not in pit:
-                            near(pit, reason, "through-officer")
-                            pit["through"] = o["ref"]
-                        out.append(pit)
+            link = {"rule": l["rule"], "evidence": l.get("evidence"), "watch": l.get("watch") or [], "decision": l.get("decision")}
+            why = NEAR_OFFICER_LINK.format(officer=reason, link=l.get("reason") or "the rule that joined these rows grades the link near")
+            _officer_row(conn, ref, o, l["other"], why, l["rule"], link, allowed, skipped, cache, seen, count, out)
     # one omitted line per (view, officer), counted
     merged, counts = [], {}
     for it in out:
@@ -599,7 +584,49 @@ def follow_officers(conn, ref: str, officers: list, allowed: set, skipped: list,
         else:
             merged.append(it)
     merged += [{"omitted": n, "view": v, "via": via} for (v, via), n in counts.items()]
-    return merged, len(followed), max(0, len([o for o in officers if not o["suppressed"]]) - len(followed))
+    return merged, len(followed), max(0, len([o for o in officers if not o["suppressed"]]) - len(followed)), links_omitted
+
+
+def _officer_row(conn, ref: str, o: dict, mref: str, reason: str, rule: str, link: dict | None, allowed: set, skipped: list, cache: dict,
+                 seen: set, count: dict, out: list) -> None:
+    """One row reached from a followed officer (a row of the officer's group,
+    or one a near link of the officer's reaches): the row, its entity once,
+    and the notices on a company; all near with `reason` and `rule`; a
+    near-linked row carries the link's evidence too."""
+    hit = resolve(conn, mref, cache)
+    if not hit:
+        return
+    mv, mr = hit
+    if mv.name not in allowed:
+        skipped.append(mv.name)
+        return
+    if (mv.name in ROLE_VIEWS and not current_role(mr)) or not listable(mv, mr):
+        return
+    ev, e = rows.entity_of(conn, mv, mr)
+    if e and rows.ref_of(ev, str(e[ev.key_col])) == ref:
+        return   # the officer's row on the start itself is already listed
+    if count["rows"] >= LIMITS["officer_rows"]:
+        out.append({"omitted": 1, "view": mv.name, "via": o["ref"]})
+        return
+    count["rows"] += 1
+    extra = dict(link, near_link=True) if link else {}
+    it = near(item(mv, mr, rows.title(ev, e) if e else None, via=o["ref"], through=o["ref"], depth=1, **extra), reason, rule)
+    out.append(it)
+    if e:
+        eref = rows.ref_of(ev, str(e[ev.key_col]))
+        if eref in seen:
+            return
+        seen.add(eref)
+        eit = near(item(ev, e, via=it["ref"], through=o["ref"], hop=it["dates"], depth=1, **({"near_link": True} if link else {})), reason, rule)
+        out.append(eit)
+        if ev.name == "companies":
+            for pit in pointing_at(conn, ev, e, allowed, skipped):
+                if "omitted" not in pit:
+                    near(pit, reason, rule)
+                    pit["through"], pit["depth"] = o["ref"], 1
+                    if link:
+                        pit["near_link"] = True
+                out.append(pit)
 
 
 def office_companies(conn, ref: str, office: dict, allowed: set, skipped: list) -> tuple:
@@ -659,8 +686,11 @@ def chain(conn, start_ref: str, start_row: dict, allowed: set, skipped: list, ch
     is on. A hop by business number is confirmed; by a name one company
     carries, near; a name several carry, or none, is not followed and says
     so; a company met twice is listed once; at the depth limit a company
-    holder says the chain goes on. Returns (items, stats)."""
-    stats = {"depth": 0, "companies": 0, "holders": 0, "cut": 0, "cycles": 0, "unresolved": 0, "omitted": 0}
+    holder says the chain goes on. On each company above, the notices
+    pointing at it (a liquidation, a removal, a possession) and its current
+    directors are listed with the company's grade, via the company, marked
+    `above` with the company's depth. Returns (items, stats)."""
+    stats = {"depth": 0, "companies": 0, "holders": 0, "cut": 0, "cycles": 0, "unresolved": 0, "omitted": 0, "above_notices": 0, "above_directors": 0}
     depth = min(int(chain_depth or 0), LIMITS["chain"])
     if depth < 1:
         return [], stats
@@ -729,9 +759,43 @@ def chain(conn, start_ref: str, start_row: dict, allowed: set, skipped: list, ch
                 it["note"] = CHAIN_GOES_ON
                 stats["cut"] += 1
             out.append(it)
+            out += above_company(conn, cv, crow, it, d, allowed, skipped, stats)
             next_frontier.append((crow, d, grade, why))
         frontier = next_frontier
     return out, stats
+
+
+def above_company(conn, cv: cat.View, crow: dict, it: dict, d: int, allowed: set, skipped: list, stats: dict) -> list:
+    """What is read on a company above in the chain: the notices pointing at
+    it and its current directors, each via the company, with the company's
+    grade and reason, marked `above` at the company's depth."""
+    out = []
+    cref = rows.ref_of(cv, str(crow["key"]))
+    for pit in pointing_at(conn, cv, crow, allowed, skipped):
+        if "omitted" in pit:
+            out.append(pit)
+            continue
+        pit.update(above=True, depth=d, through=cref)
+        if it["grade"] == "near":
+            near(pit, it["reason"], "chain")
+        out.append(pit)
+        stats["above_notices"] += 1
+    if "directors" not in allowed:
+        skipped.append("directors")
+        return out
+    dv = cat.BY_NAME["directors"]
+    total, got = rows.rows_where(conn, "directors", "entity_key", crow["key"], LIMITS["officer_rows"], "appointed_on")
+    for r in got:
+        if not current_role(r):
+            continue
+        dit = item(dv, r, rows.title(cv, crow), via=cref, above=True, depth=d, through=cref)
+        if it["grade"] == "near":
+            near(dit, it["reason"], "chain")
+        out.append(dit)
+        stats["above_directors"] += 1
+    if total > len(got):
+        out.append({"omitted": total - len(got), "view": "directors", "via": cref})
+    return out
 
 
 def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth: int = 0) -> dict:
@@ -909,7 +973,8 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
     # 3b. the reaches a template asks for: an organisation start's officers, the companies at its office, the chain above it
     if sv.kind == "organisation" and "officers" in wanted:
         officers = [it for it in out["roles"] if "omitted" not in it and it["view"] in OFFICER_VIEWS and it["via"] == ref and it["kind"] == "person"]
-        out["officers"], out["officers_followed"], out["officers_omitted"] = follow_officers(conn, ref, officers, allowed, skipped, cache)
+        out["officers"], out["officers_followed"], out["officers_omitted"], more = follow_officers(conn, ref, officers, allowed, skipped, cache)
+        out["links_omitted"] += more
     if sv.name == "companies" and "office" in wanted and start_office is not None:
         out["office"], out["office_companies"], out["office_listed"] = office_companies(conn, ref, start_office, allowed, skipped)
     if sv.name == "companies" and "chain" in wanted and chain_depth:
