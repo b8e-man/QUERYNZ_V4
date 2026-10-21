@@ -896,3 +896,28 @@ priority = 68
 command = ["python", "-m", "registers.overseas_investment.load", "--job"]
 at_utc = "17:35"
 nice = 10
+
+# ── step 6.3, the grants (grants-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
+[jobs.qv4-grants-capture]
+description = "Step 6.3: the Department of Internal Affairs' national file of class 4 grants (its catalogue page at most every 30 days, the file only when the page changed) and the Lottery Grants Board's records of grants on Community Matters (the site walked whole, resumable, each page again after 30 days), through the fetch gate 5 s apart (10 s for the catalogue); a block or challenge stops that host for the night. Nightly at 22:45 NZDT, at most 4 hours."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 18000
+query_timeout_s = 60
+class = "due"
+priority = 69
+command = ["python", "-m", "registers.grants.capture"]
+at_utc = "09:45"
+nice = 10
+
+[jobs.qv4-grants-load]
+description = "Step 6.3: the grants, recipients and publishers from the newest national file and every record-of-grants page, built in staging, checked, published only on green; nothing when the listing is the one published (a full build 9.8 s). Nightly at 06:35 NZDT."
+needs = "processor"
+memory_gb = 1
+deadline_s = 1200
+query_timeout_s = 600
+class = "due"
+priority = 70
+command = ["python", "-m", "registers.grants.load", "--job"]
+at_utc = "17:35"
+nice = 10

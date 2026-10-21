@@ -93,6 +93,8 @@ FLOORS = {
     "www.fma.govt.nz": 5.0,
     "www.worksafe.govt.nz": 5.0,
     "www.linz.govt.nz": 5.0,   # the overseas investment decisions (oio-1, 21 October)
+    "www.communitymatters.govt.nz": 5.0,   # the Lottery's records of grants (grants-1, 21 October)
+    "www.dia.govt.nz": 5.0,   # the Department's class 4 list (grants-1, 21 October)
 }
 
 

@@ -133,6 +133,23 @@ def listing(conn, schema: str = SCHEMA) -> list:
     return out
 
 
+def load(conn, schema: str, log=print) -> int:
+    """The merge gate's staging step (support/staging): the newest national file and every record-of-grants page
+    held, read under `schema`; with nothing captured the tables are made empty. Problems the reading's check finds
+    are logged, as the job logs them. Added by the integrator at the merge of grants-1."""
+    from registers.grants import check
+    listed = listing(conn)
+    if not listed:
+        create_tables(conn, schema)
+        log(f"{SCHEMA}: nothing captured yet; nothing read into {schema}")
+        return 0
+    counts = build(conn, schema, listed)
+    problems = check.reading(conn, schema)
+    log(f"{SCHEMA}: {counts['grants']} grants, {counts['recipients']} recipients, {counts['documents']} documents, "
+        f"{counts['set_aside']} set aside into {schema}; " + ("; ".join(problems) or "reconciles"))
+    return counts["grants"]
+
+
 def publish(conn, staging: str, log=print) -> None:
     with conn.transaction():
         create_tables(conn, SCHEMA)
