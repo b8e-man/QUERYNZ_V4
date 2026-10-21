@@ -1,0 +1,5 @@
+# Whether the award notices read from the old estate's copy of 14 August 2026 are kept, now the ministry's host blocks the estate
+default: Kept. The lane reads the eight files the old estate saved at `~/source-raws/gets-2026-08-14/` (plan 1.10 case 1, pinned by hash; the reference note's verdict for the award notices is "take the data"). The data is published under CC BY 3.0 NZ, which permits the copy. The old estate fetched them with a browser-like User-Agent past an Incapsula challenge that meets a plain one; the new estate does not, and its own refresh stops at the block (hard limit 6).
+blocks: Nothing. If Arthur rules against the copy, the lane's tables are dropped and the documents withdrawn (never deleted); the lane waits for the ministry's files.
+recommendation: The default. The block is on how the files are fetched, not on the right to copy them, and every row carries the licence and the ministry's attribution. Write to the ministry (`opendata@mbie.govt.nz`) for the refresh (card `the-ministry-s-gets-files-answer-403`).
+raised: 2026-10-21 by tenders-1
