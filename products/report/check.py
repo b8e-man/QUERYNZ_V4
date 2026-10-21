@@ -40,6 +40,10 @@ tables through the product reader, never the sample:
      held apart by a section's `own`; the companies at a shared office; a
      filed row's standing; the start's own company confirmed in a contested
      group; practitioners via the notice; a holding hub; a Crown body.
+ 10. The fix-report-2 routes (`routes_4`): a company's charity by business
+     number with its officers; a director's namesake charity officer near
+     by name; a charity's returns newest first, dated 'period to'; a
+     template naming charities as not held loads and says it is published.
 
   python -m products.report check [--ref REF]      exit 1 on any failure
 """
@@ -366,6 +370,148 @@ def routes_3(conn, subject, held: set) -> list:
     return out
 
 
+def routes_4(conn, subject, held: set) -> list:
+    """The fix-report-2 routes (the cards of 21 October), each on a row
+    taken from the tables at run time: a company's charity by business
+    number, confirmed, with the charity's officers and returns beneath it; a
+    director's namesake charity officer near by name with the reason; a
+    charity start's returns newest first, dated 'period to'; a template that
+    still names `charities` as not held loads and its memo says the register
+    is published."""
+    out = []
+    # a company (a charitable trust board with no director, where one exists) reaches its charity by business number, confirmed, and the charity's officers
+    nz = [x["nzbn"] for x in db.rows(conn, "select ch.nzbn from pub.charities ch where ch.nzbn is not null and ch.status = 'Registered' "
+                                           "and exists (select 1 from pub.charity_officers o where o.charity_key = ch.key and o.ended_on is null) order by ch.key limit 300")]
+    got = (db.rows(conn, "select c.key from pub.companies c where c.nzbn = any(%s) and c.in_latest and not exists (select 1 from pub.directors d where d.entity_key = c.key) "
+                         "order by c.key limit 1", (nz,)) or db.rows(conn, "select c.key from pub.companies c where c.nzbn = any(%s) and c.in_latest order by c.key limit 1", (nz,))) if nz else []
+    if got:
+        ref = f"companies:{got[0]['key']}"
+        r = build.build(conn, ref, subject, held)
+        ch = _items(r, "charities")
+        if not ch or ch[0]["grade"] != "confirmed" or ch[0].get("rule") != "official-number" or ch[0]["via"] != ref:
+            out.append(f"{ref}: the company's charity is not listed confirmed by business number via the company ({[(c['grade'], c.get('rule')) for c in ch]})")
+        else:
+            officers = [it for it in _items(r, "charity_officers") if it["via"] == ch[0]["ref"]]
+            if not officers or any(it["grade"] != "confirmed" for it in officers):
+                out.append(f"{ref}: the charity's officers are not listed confirmed beneath it ({len(officers)} listed)")
+            if any("disqualified as the register states it" not in it["statement"] for it in officers):
+                out.append(f"{ref}: an officer's statement does not carry the register's disqualified mark")
+        sec = [s for s in r["sections"] if s["name"] == "charities"]
+        if not sec or not sec[0]["items"] or sec[0]["items"][0]["view"] != "charities":
+            out.append(f"{ref}: the charities section does not lead with the charity")
+    else:
+        out.append("no registered charity with current officers carries a business number of a company in the latest file: the number-join route cannot be checked")
+    # a director named as a charity officer reaches the officer row, near by name with the reason
+    names = [x["full_name"] for x in db.rows(conn, "select full_name from pub.charity_officers where length(full_name) > 20 and ended_on is null "
+                                                   "and not coalesce(suppressed, false) order by key limit 300")]
+    got = db.rows(conn, "select d.key, d.full_name from pub.directors d where d.full_name = any(%s) and d.in_latest and not coalesce(d.suppressed, false) order by d.key limit 1", (names,)) if names else []
+    if got:
+        ref = f"companies:{got[0]['key']}"
+        r = build.build(conn, ref, subject, held)
+        named = [it for it in _items(r, "charity_officers") if cat.fold(it["row"].get("full_name") or "") == cat.fold(got[0]["full_name"])]
+        same = [it for it in named if it.get("rule") == "same-name"]
+        if not named:
+            out.append(f"{ref}: a charity officer of the director's name is not listed")
+        elif any(it["grade"] != "near" for it in named):   # by name, or through the person's own charity: near either way, no link joins the register yet
+            out.append(f"{ref}: a charity officer of the director's name is listed confirmed, and no link rule joins the register yet")
+        elif not all("matched to the subject by name" in (it.get("reason") or "") and it["via"] == ref for it in same):
+            out.append(f"{ref}: a charity officer matched by name is not near with the by-name reason, via the subject's row")
+        elif not same and not any(it.get("via", "").startswith("charities:") for it in named):
+            out.append(f"{ref}: a charity officer of the director's name is listed by neither name nor the person's own charity")
+    else:
+        out.append("no director carries a current charity officer's name: the by-name route cannot be checked")
+    # a charity start lists its officers and its returns, newest first, each return dated 'period to'
+    got = db.rows(conn, "select ch.key from pub.charities ch where (select count(*) from pub.charity_returns r where r.charity_key = ch.key) between 2 and 20 "
+                        "and exists (select 1 from pub.charity_officers o where o.charity_key = ch.key) order by ch.key limit 1")
+    if got:
+        ref = f"charities:{got[0]['key']}"
+        r = build.build(conn, ref, subject, held)
+        rets = [it for it in _items(r, "charity_returns") if it["via"] == ref]
+        offs = [it for it in _items(r, "charity_officers") if it["via"] == ref]
+        if not rets or not offs:
+            out.append(f"{ref}: a charity start lists {len(rets)} returns and {len(offs)} officers")
+        elif not all("period to" in it["dates"]["text"] and it["grade"] == "confirmed" for it in rets):
+            out.append(f"{ref}: a return is not dated 'period to' and confirmed: {rets[0]['dates']['text']!r}")
+        elif [it["dates"]["on"] for it in rets] != sorted((it["dates"]["on"] for it in rets), reverse=True):
+            out.append(f"{ref}: the returns are not newest first")
+        out += [f"{ref}: {p}" for p in r["problems"]]
+        out += cited_rows_exist(conn, r)
+    else:
+        out.append("no charity with two to twenty returns and an officer: the charity-start route cannot be checked")
+    # a template that still names `charities` as not held loads, and its memo says the register is published and not read
+    t = tpl.Template("check-superseded", "check", "0", "check", "", subject.reads,
+                     (tpl.Section("a", "A", ("companies",), not_held=("courts",)),), depth=1, superseded_not_held=(("charities", "charities"),))
+    got = db.rows(conn, "select key from pub.companies where in_latest order by key limit 1")
+    if got:
+        ref = f"companies:{got[0]['key']}"
+        text = memo.text(build.build(conn, ref, t, held))
+        if "names as not held a register that is published" not in text or "Charities register" not in text:
+            out.append(f"{ref}: the memo of a template naming charities as not held does not say the register is published")
+        if "Charities register and officers" in text:
+            out.append(f"{ref}: the memo still lists the Charities register among the registers not held")
+    for name, folder in tpl.folders().items():
+        tt = tpl.load(folder)
+        if any(key == "charities" for key, _ in tt.superseded_not_held) and {"charities", "charity_officers"} & tt.views:
+            out.append(f"template {name}: reads the charities views and still names charities as not held")
+    # an officer's near link: a director a near link (name alone) joins to another director row, and nothing confirmed: from the company
+    # start, the other row's company is listed under officers, near, with the link's rule and reason after the officer's
+    links = db.rows(conn, "select l.row_a, l.row_b, l.rule from pub.links l where l.grade = 'near' and l.row_a like 'companies:%%/director/%%' "
+                          "and l.row_b like 'companies:%%/director/%%' order by l.row_a limit 60")
+    pick = None
+    for l in links:
+        d = db.rows(conn, "select key, entity_key from pub.directors where key = %s and in_latest and not coalesce(suppressed, false)", (l["row_a"].split(":", 1)[1],))
+        o = db.rows(conn, "select entity_key from pub.directors where key = %s and in_latest and ended_on is null", (l["row_b"].split(":", 1)[1],))
+        if d and o and o[0]["entity_key"] != d[0]["entity_key"]:
+            pick = (d[0]["entity_key"], l["row_a"], l["row_b"], o[0]["entity_key"], l["rule"])
+            break
+    if pick:
+        start, officer, other, other_co, rule = pick
+        ref = f"companies:{start}"
+        r = build.build(conn, ref, subject, held)
+        got = [it for it in _items(r) if it.get("near_link") and it.get("through") == officer]
+        co = [it for it in got if it["ref"] == f"companies:{other_co}"]
+        if not co:
+            out.append(f"{ref}: the company a near link of the director's reaches ({other_co}, {rule}) is not listed under the officers reach")
+        elif not (co[0]["grade"] == "near" and co[0]["rule"] == rule and "and the officer's own link to this row is near: " in (co[0].get("reason") or "")
+                  and "reached through a person on the subject" in co[0]["reason"].split("and the officer's own link")[0]):
+            out.append(f"{ref}: the near-linked company is not near with the officer's reason first and the link's rule and reason after ({co[0]['rule']}, {co[0].get('reason')!r})")
+        if "the officer's own link to this row is near" not in memo.text(r):
+            out.append(f"{ref}: the memo does not say the row came by the officer's near link")
+    else:
+        out.append("no near link between two current directors of different companies among the first sixty: the officer-near-link route cannot be checked")
+    # the chain reads the companies above: a holder of record whose own row has a current director (and a notice where one exists) lists them, marked above
+    cands = db.rows(conn, "select s.entity_key as k, s.name from pub.shareholders s where s.in_latest and s.shareholder_type = 'company' "
+                          "and (select count(*) from pub.companies c where c.name = s.name) = 1 order by s.key limit 40")
+    got = []
+    for c in cands:
+        above = db.rows(conn, "select c.key from pub.companies c where c.name = %s and exists (select 1 from pub.directors d where d.entity_key = c.key and d.in_latest and d.ended_on is null)",
+                        (c["name"],))
+        if above:
+            got.append({"k": c["k"], "above": above[0]["key"]})
+            if db.rows(conn, "select 1 from pub.gazette_liquidations where register_key = %s limit 1", (above[0]["key"],)):
+                got.insert(0, got.pop())
+                break
+    if got:
+        ref = f"companies:{got[0]['k']}"
+        r = build.build(conn, ref, subject, held)
+        above = [it for it in _items(r) if it.get("above")]
+        directors = [it for it in above if it["view"] == "directors" and it["via"] == f"companies:{got[0]['above']}"]
+        if not directors:
+            out.append(f"{ref}: the current directors of the company above ({got[0]['above']}) are not listed")
+        elif not all(it["grade"] == "near" and it["depth"] == 1 and it["rule"] == "chain" and "name only" in (it.get("reason") or "") for it in directors):
+            out.append(f"{ref}: a director above is not near with the chain company's reason at its depth ({directors[0].get('reason')!r})")
+        elif any(not walk.current_role(it["row"]) for it in directors):
+            out.append(f"{ref}: an ended director of the company above is listed as current")
+        n_notices = db.rows(conn, "select count(*) as n from pub.gazette_liquidations where register_key = %s", (got[0]["above"],))[0]["n"]
+        if n_notices and not [it for it in above if it["view"] == "gazette_liquidations"]:
+            out.append(f"{ref}: the {n_notices} liquidation notice(s) on the company above are not listed")
+        if r["walk"]["chain"].get("above_directors", 0) < 1 or "on the companies above" not in memo.text(r):
+            out.append(f"{ref}: the memo does not count what was read on the companies above ({r['walk']['chain']})")
+    else:
+        out.append("no company holder of record resolved by a unique name whose own row has a current director: the companies-above route cannot be checked")
+    return out
+
+
 def problems(conn, ref: str = None) -> list:
     out = []
     held = db.pub_views(conn)
@@ -424,6 +570,7 @@ def problems(conn, ref: str = None) -> list:
     # 9. the walk's routes
     out += routes(conn, subject, held)
     out += routes_3(conn, subject, held)
+    out += routes_4(conn, subject, held)
     # 6. the memo prints
     text = memo.text(r)
     html = memo.html_body(r)

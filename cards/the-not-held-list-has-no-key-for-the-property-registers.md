@@ -1,9 +1,10 @@
 # The not-held list has no key for the registers a property developer check names, and the catalogue cannot reach the charities views
 kind: finding
-state: open
+state: closed
 use-case: 12 property developer due diligence
 session: property-1
 opened: 2026-10-21
+closed: 2026-10-21
 
 The property template (`products/templates/12-property/`) must say it
 cannot see the Overseas Investment Office's decisions, building consents
@@ -30,3 +31,15 @@ Register as not held. When both land, the fix in the template folder: the
 three keys in the not-held section's `not_held`, the two views in `reads`
 and the principals section, and the three blocked flags' text pointing at
 the keys.
+
+Closed (fix-report-2, 2026-10-21). `oio`, `building_consents` and `rea`
+are in `catalogue.NOT_HELD` with the wording above; the Real Estate
+Authority key says not held until its lane publishes a view. The second
+ask is closed with `the-report-cannot-reach-the-charities-register`: the
+catalogue knows `pub.charities`, `pub.charity_officers` and
+`pub.charity_returns`, a company's charity is reached by business number
+and a person's namesake officer rows by name; a template that still names
+`charities` as not held loads, and its memo says the register is published.
+The property template's fix (the three keys in `not_held`, the two views in
+`reads` and the principals section, the flags' text) is carded in
+`the-property-template-can-now-read-the-charities-register-and-the-reaches`.
