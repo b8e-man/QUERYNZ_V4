@@ -14,16 +14,17 @@ charity arm files, and where its officers overlap.
   chain, and the charities its people serve; the charity's annual returns;
   officer overlap, through the `officers` reach; the Gazette on the entity,
   its people and its people's companies; what is not held); its limits.
-  The charities register's three views are named in a comment and carded:
-  the catalogue does not know them yet.
+  The Charities Register's three views are read: a company's charity by
+  business number (confirmed), a person's officer rows by name (near).
 - `rules.py`: 21 flags on the bound contract. `officer-overlap` sets each
   officer's other current roles beside the officer's role on the entity,
   dated, care-named organisations counted apart and the entity's own name
   word apart again, hubs never amber. `disqualified-officer` and
   `officer-bankruptcy` read the Gazette on each officer's record (and the
-  charity register's disqualification once reachable). `charity-arm`,
+  Charities Register's disqualified mark: red on the entity's own charity's
+  officers, amber on a row matched by name). `charity-arm`,
   `charity-returns`, `charity-audit-opinion`, `charity-return-filed` read
-  the charity views by name and block until the template reads them.
+  the charity views.
   `retirement-villages`, `hdc-decisions`, `certification-audits`,
   `provider-registers`, `aged-care-commissioner`, `court-judgments`,
   `past-roles` are blocked, never clear. A start that lists no officer

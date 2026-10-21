@@ -21,29 +21,27 @@ accepted for now; the card that would lift it is named.
   started from a village row lists no officer and every officer check
   blocks. The flag `retirement-villages` is **blocked, never clear**, red.
   (`the-retirement-villages-file-holds-no-operator-or-supervisor`)
-- **The charities register.** The lane's reading (`session/charities-3`)
-  publishes `pub.charities`, `pub.charity_officers` and
-  `pub.charity_returns`, with the financial fields under the ruling of
-  14 August 2026, and has not merged: the views are not on the database,
-  and the report's catalogue knows none of them, so a template naming them
-  is refused when loaded. The template names the register as not held in
-  its governance and charity-returns sections; `charity-arm`,
-  `charity-returns`, `charity-audit-opinion` and `charity-return-filed`
-  are **blocked, never clear**, and `disqualified-officer` names the
-  register's own disqualification marker as not held. The rules already
-  read the three views by name (period, tier, income, expenditure,
-  surplus, assets, liabilities, equity, audit and opinion, newest first;
-  the officer's `disqualified`); they run the day the template reads them.
-  Even then a charity is reached only where the links lane joins its
-  officers by name and its number to its companies-register row: neither
-  join exists yet. (`the-report-cannot-reach-the-charities-register`)
+- **The Charities Register, by number and by name.** The template reads
+  `pub.charities`, `pub.charity_officers` and `pub.charity_returns`. A
+  company's charity is reached by its business number, confirmed, with
+  the officers and annual returns the register files on it (the figures as
+  filed, newest first, never added across returns). A charity officer row
+  that carries a person's name is listed near: no link joins the
+  register's officers to any other row yet, so each is a namesake's until
+  a rule confirms it, and a rule over such a row is amber at most. A
+  charity met only by such a row is named, not walked: its returns are not
+  read. (`charity-officers-are-in-no-link-and-no-name-row`, the links
+  lane's)
 - **A charitable trust board's trustees.** The companies register lists no
   officer on any of its 35,599 charitable trust board rows; the trustees
-  are filed with the Charities Register. Started from a trust board (an
-  operator's charity arm, such as Ryman Healthcare Charitable Trust), every
-  officer check blocks and says why. The same holds for an incorporated
-  society's companies-register row: its officers are under its row in the
-  societies register, and the flags say to start there.
+  are filed with the Charities Register. Started from a trust board whose
+  charity carries its business number, the trustees are listed from the
+  charity and the register's disqualified mark on each is read (red on one
+  with no end filed); they are not followed to their other roles, so the
+  overlap and Gazette checks over them block and say so. A board with no
+  charity by its number blocks every officer check. The same holds for an
+  incorporated society's companies-register row: its officers are under
+  its row in the societies register, and the flags say to start there.
 - **The health regulators' registers.** The Health and Disability
   Commissioner's decisions, certification audits of rest homes and
   hospitals, the Ministry of Health's provider registers and the Aged Care
@@ -150,10 +148,27 @@ notice 2026-aa1210, family "insolvency: administration", published
 MC-H1, the operator web with its roll-up: the officers reach and the
 holding chain two up (Arvida's holder of record Stonepeak Alps Bidco, and
 its holder Stonepeak Alps Holdco, near by name); the villages it runs are
-not held. MC-H2, the charity's financial claims: written in the rules,
-blocked until the charities register is reachable. MC-H3, officer overlap
+not held. MC-H2, the charity's financial claims: read since 2026-10-21
+from the charity's returns, as filed. MC-H3, officer overlap
 across the web: built from a company and a society (`officer-overlap`,
 dated, hubs flagged) and from a person. MC-H4, adverse-coverage recall: the
 press is parked; the "articles mentioning" section comes with step 7.6.
 Statutory-supervisor churn: not held, as the old estate found. The
 Health and Disability Commissioner's decisions: to acquire (plan 5.3).
+
+## The checkpoint re-rendered, 2026-10-21 (fix-templates-1, the Charities Register)
+
+The same twelve subjects, before and after the template read the Charities
+Register. None refused. The two charitable trust boards (Ryman Healthcare
+Charitable Trust, Presbyterian Support (Northern)) now reach their charity
+by business number, confirmed: 14 and 37 officer rows and 18 and 17 annual
+returns. On both, `charity-arm` and `charity-returns` went from blocked to
+fired (info), `charity-audit-opinion` and `charity-return-filed` from
+blocked to clear (no modified opinion; a return held for the last period);
+the officer checks still block, now saying the trustees are listed from
+the charity, their disqualified mark read (none carried one), and not
+followed. The director (subject 12): `charity-arm` from blocked to fired,
+three charity officer rows of the same name, near; `disqualified-officer`
+stays clear and now names the charity officer rows it read by name. The
+operators, the society and the village row are unchanged: no charity by
+business number.
