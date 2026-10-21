@@ -5,12 +5,13 @@ shareholdings, with sanctions lists, limited partnerships and overseas data
 waiting. A subject report (the shape in `products/report/`) for a compliance
 team: "who ultimately owns or controls this, and are they exposed".
 
-- `template.toml`: the 19 pub views it reads, each with its licence,
-  attribution and refresh; depth 2; six sections in the order an analyst
+- `template.toml`: the 22 pub views it reads, each with its licence,
+  attribution and refresh; depth 2; seven sections in the order an analyst
   reads them (the entity and its namesakes apart; its holders of record
   with their shares and files, as far up the chain as the registers reach,
   which is one hop; its directors and registered office; the Gazette;
-  public office and political money; what is not held, sanctions lists,
+  public office and political money; registered charities (a company's
+  by business number, a person's officer rows by name, near); what is not held, sanctions lists,
   limited partnerships, overseas registers, trusts and the securities
   register named); its limits.
 - `rules.py`: nineteen flags. The chain names each company holder and

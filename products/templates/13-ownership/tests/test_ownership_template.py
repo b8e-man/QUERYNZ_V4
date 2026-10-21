@@ -25,7 +25,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "holders", "officers", "gazette", "exposure", "not-held"]
+ORDER = ["identity", "holders", "officers", "gazette", "exposure", "charities", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 #: words that would join two facts as cause, or call a holder of record more than that (the shape's rules 3 and 4 hold the full list)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|controlled|behind|"
@@ -111,6 +111,20 @@ def test_its_sections_run_in_the_compliance_analysts_order():
     for x in t["sections"]:
         assert set(x["views"]) <= views
         assert not CAUSE.search(x["text"]) and not CAUSE.search(x["heading"]), (x["name"], CAUSE.search(x["text"] + x["heading"]))
+
+
+def test_it_reads_the_charities_register_in_a_section_of_its_own():
+    """Card the-ownership-template-can-now-read-the-charities-register-and-the-reaches (the charities half): the three views read with
+    their licence, in a charities section before what is not held (a company's charity by business number, `roles`; a person's
+    officer rows by name, `named`), and `charities` out of every not-held line and out of the not-held text."""
+    t = toml()
+    reads = {r["view"]: r for r in t["reads"]}
+    for v in ("charities", "charity_officers", "charity_returns"):
+        assert "Charities Register open data" in reads[v]["licence"] and reads[v]["attribution"].startswith("Charities Services")
+    s = {x["name"]: x for x in t["sections"]}
+    assert s["charities"]["views"] == ["charities", "charity_officers", "charity_returns"] and s["charities"]["sources"][:2] == ["named", "roles"]
+    assert "never added across returns" in s["charities"]["text"] and not CAUSE.search(s["charities"]["text"] + s["charities"]["heading"])
+    assert not any("charities" in x.get("not_held", []) for x in t["sections"]) and "charities" not in s["not-held"]["text"]
 
 
 def test_the_known_limits_page_and_the_checkpoint_list_exist():

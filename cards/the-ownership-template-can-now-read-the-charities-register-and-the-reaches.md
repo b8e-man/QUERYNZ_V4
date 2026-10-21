@@ -38,3 +38,12 @@ this template do, each a fix in `products/templates/13-ownership/`:
 Not a comparison cause. The shape's fixture tests and `python -m
 products.report check` hold the reaches; this card is the template's own
 reading of them, closed when its sections, flags and tests use them.
+
+Progress, fix-templates-1 (2026-10-21): the Charities Register half is done:
+the three views in `reads` and a new charities section before what is not
+held (sources `named`, `roles`, `members`, `confirmed`); `charities` out of
+the not-held line and its text. Fixture test
+`test_it_reads_the_charities_register_in_a_section_of_its_own`; checkpoint
+re-rendered (limits.md). Still open, outside that brief: the companies above
+(`chain_depth = 2`, a section naming `chain`), which is also what would reach
+a charitable trust holding shares of record.
