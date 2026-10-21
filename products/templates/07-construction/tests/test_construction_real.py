@@ -3,10 +3,11 @@
 render REF --template construction`), as a procurement lead's memo is made.
 Subjects are taken from the tables at run time, never fixed, so the test
 follows the data: a director in an uncontested group, not a hub, who sits on
-a company liquidated and on a going company registered within the window;
-that going company, from which the people are not followed; the liquidated
-company itself; and a going company that only shares a name with a company
-liquidated within the window. A company whose name reads as a street address
+a company liquidated and on a going company registered within 300 days of it
+(the pair is shown whatever the gap, ruling 65); that going company, from
+which the people are not followed; the liquidated company itself; and a
+going company that only shares a name with a company liquidated within 300
+days of its start. A company whose name reads as a street address
 is skipped: the shape refuses any report that meets one (carded on the
 report lane). Every memo carries the builder's common flags once and is not
 refused. Imports nothing of products.report (the one-way test)."""
@@ -83,7 +84,8 @@ def test_a_director_on_a_liquidated_and_a_new_company_raises_the_phoenix_flag(pa
     f = m["flags"]["phoenix-signature"]
     hub = m["flags"]["subject-hub"]["status"] == "fired"
     assert f["status"] == "fired" and f["severity"] == ("amber" if hub else "red"), f
-    assert "the window is 365 days either side" in f["text"] and re.search(r"registered \d{4}-\d\d-\d\d, \d+ days (after|before)", f["text"])
+    assert re.search(r"of \d+ pair\(s\), nearest first, \d+ within 90 days and [1-9]\d* within 365 days; no window is set, so every gap is shown", f["text"])
+    assert re.search(r"registered \d{4}-\d\d-\d\d, \d+ days (after|before)", f["text"])
     assert m["flags"]["insolvency-notices"]["status"] == "fired"
     for name in ("building-practitioners", "insolvency-register", "court-judgments", "employment-determinations", "change-history"):
         assert m["flags"][name]["status"] == "blocked", name

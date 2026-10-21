@@ -1,36 +1,46 @@
 # companies: where it stands
 
-**Date:** 2026-10-20. **Step:** 4.1, companies, `registers/companies/`.
-**Merge request:** `companies-1`.
+**Date:** 2026-10-21. **Step:** 4.1 merged (`companies-1`); 5.5 company
+monitoring built, `registers/companies/monitor.py`. **Merge request:** `companies-2`.
 
 ## Done
 
-- Raw files: none survive (deleted after loading under the old retention
-  rule). The loaded tables of `companies-2026-07` and `companies-2026-08`
-  were exported once on 20 October 2026, 05:56 to 05:57 NZDT (old read-only
-  login, statement limit, server-side cursors, 48 s) to four gzip parts,
-  pinned in `capture.py` and landed in the store by the sample fill.
-- Reading, measured on every real row: 1,920,468 entities (1,821,454
-  companies; 59,981 societies and the like; 35,599 charitable trust boards;
-  2,922 public sector; 512 retirement villages), 5,629 earlier states,
-  1,185,805 director roles, 1,581,955 shareholdings, 867,277 registered
-  offices. Every export line is a row or a catch-log line; each file's
-  count reconciles with the old loader's own, folds logged with their
-  count. No end date is carried: a role's window is the files it is in.
-- Outside check: the Companies Office's statistics; 30 June 2026 live
-  756,999 against 756,821 (+0.02%); monthly incorporations equal or within
-  one, removals within 1%, April 2025 to July 2026. Green on all real rows.
-- Fast tier green (lane 20 tests; whole repository 117 s).
+- Monthly lane: 1.92 M entities, unchanged (`docs/merges/companies-1.md`).
+- Monitor: products ask through `pub.request_company_check` /
+  `pub.watch_company` (owner-rights functions, product reader only, asker =
+  login); one gated call per entity, 5 s apart, at most 300 a NZ day, nothing
+  fetched twice a day; answers landed by hash; dated changes with citations
+  in `pub.company_changes`; roles with the register's own end dates.
+- Proved on 8 real entities, 21 October 11:05 NZDT, all 200, no challenge:
+  5 sample companies (one real change: in liquidation in August, removed
+  now; 0 false), a sole trader (name withheld by the register), a
+  partnership, a trading trust. The real lane gives the same one change.
+- Tests: 25 new (fast on invented answers and the sample; one slow).
+
+## The interface, under the four questions (ruling 61; read 21 October 2026)
+
+1. **Open?** Yes, with our own free subscription key; no lock got past.
+2. **Lawful copying?** The register is public by statute (NZBN Act 2016,
+   Companies Act 1993). The portal names no licence ("There is no fee for
+   using this API"; "MBIE is not liable for the accuracy"). Copying register
+   contents is the lawyer's question (card `the-nzbn-api-terms-and-the-copying-of-register-contents`).
+3. **Terms accepted?** The portal's at registration; no rate limit stated
+   anywhere read (portal page, nzbn.govt.nz terms of use). Asked: keep batch
+   jobs off Wednesday 21:00–23:00; use `ETag`. Ours: 300 calls a day, 5 s apart.
+4. **Privacy and statute?** Directors' and shareholders' addresses are
+   persons' and go to `companies_private` only; so does every address of a
+   sole trader, partnership or trust; e-mail and phone are never read.
+   Only a company's or society's registered office is shown (hard limit 15).
 
 ## Carded
 
-- `the-companies-office-statistics-file-has-no-legal-position`.
-- `the-old-loader-folded-shareholdings-and-kept-no-role-numbers`.
-- `no-monthly-company-file-is-held-for-the-18-november-step`.
-- Queue: `the-company-package-carries-sole-traders` (default: not taken).
+- `the-companies-monitor-job-into-the-catalogue` (blocker, integrator).
+- `the-nzbn-interface-has-a-change-search-and-watchlists` (Arthur).
 
 ## Next
 
-1. The merge gate's full load (about 5.6 M rows) and the SQL check on it.
-2. The insolvency appointments and the other package tables, if a product
-   asks; a reader for the raw CSVs when a package is held as a file.
+1. The integrator's merge: job, profile, the position widened.
+2. A product (the board, template 5) calls `pub.request_company_check`.
+3. The old estate's August package holds 228,000 sole traders, partnerships
+   and trading trusts (`bulk.unincorporated_entities_core_data`): the queue's
+   default (not taken) stands; the monitor takes them one at a time.
