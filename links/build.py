@@ -300,7 +300,12 @@ def declared_links(conn, s: str) -> dict:
 
 
 def donor_links(conn, s: str) -> dict:
-    """Three near rules on the donation registers, each naming its evidence.
+    """Four near rules on the donation registers, each naming its evidence.
+    `coupled-name@1` (ruling 73): a coupled donor row ("Craig & Shayne
+    Greenlees") to each of its part rows, one per person the filed name
+    names (`links.rows.part_records`); the other rules then read a part as
+    any person row, so a person's page reaches the coupled donation and the
+    donor stays one row.
     `filed-name@1`: donation rows filed under one organisation name, one
     star per name across party returns, candidate returns and declarations.
     `own-return@1`: a donor row on a candidate's own return in the
@@ -309,6 +314,17 @@ def donor_links(conn, s: str) -> dict:
     dated in the term. Every one is near: the rows name a circumstance,
     and whether any may confirm is Arthur's (the decision queue)."""
     out = {}
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT least(d.ref, p.ref), greatest(d.ref, p.ref), %(rule)s,
+               jsonb_build_object('as_filed', d.name_filed, 'part', p.name_filed, 'name_key', p.name_key,
+                                  'part_number', substring(p.ref FROM '#([0-9]+)$')::int,
+                                  'parts', count(*) OVER (PARTITION BY d.ref), 'registers', jsonb_build_array(d.register, p.register)),
+               'near', %(reason)s
+        FROM {s}.rows p JOIN {s}.rows d ON d.ref = p.part_of
+        WHERE p.part_of IS NOT NULL
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_COUPLED, "reason": rules.NEAR_COUPLED})
+    out[rules.RULE_COUPLED] = _count(conn, s, rules.RULE_COUPLED)
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
         SELECT least(m.ref, r.ref), greatest(m.ref, r.ref), %(rule)s,
@@ -342,8 +358,8 @@ def donor_links(conn, s: str) -> dict:
                                   'as_filed', jsonb_build_array(d.name_filed, p.name_filed), 'registers', jsonb_build_array(d.register, 'house')),
                'near', %(reason)s
         FROM {s}.rows d
-        LEFT JOIN pub.party_return_donors pr ON d.ref = 'party_returns:' || pr.key
-        LEFT JOIN pub.disclosures ds ON d.ref = 'disclosures:' || ds.key
+        LEFT JOIN pub.party_return_donors pr ON coalesce(d.part_of, d.ref) = 'party_returns:' || pr.key
+        LEFT JOIN pub.disclosures ds ON coalesce(d.part_of, d.ref) = 'disclosures:' || ds.key
         JOIN {s}.rows p ON p.view = 'members' AND p.fl_key = d.fl_key
         JOIN pub.members m ON p.ref = 'house:' || m.key AND m.party_registered = coalesce(pr.party, ds.party) AND m.party_registered <> ''
              AND d.started_on <= coalesce(m.ended_on, m.to_by, 'infinity'::date) AND coalesce(d.ended_on, d.started_on) >= m.from_on

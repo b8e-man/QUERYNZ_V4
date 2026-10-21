@@ -10,13 +10,24 @@ the card that would lift it is named.
 A company that failed (a liquidator, receiver or administrator appointed, a
 winding-up application, a creditors' notice, a deed of company arrangement;
 or a removal from the register, which is not an insolvency) dated from its
-Gazette notice, beside a going company whose registration falls within the
-**window**, 365 days either side of that date (`WINDOW_DAYS`, a setting;
-the old estate's MC-C1 used 90 days after, and a new firm is often set up
-before the old one is put into liquidation). Measured on the confirmed
+Gazette notice, beside every going company that shares a person or an
+office with it, **whatever the gap in time**. Each pair shows the gap in
+days from the failure to the going company's registration, signed ("50
+days after", "134 days before"), and the pairs are ordered by that gap,
+nearest first. The **window is the reader's setting, not the template's**
+(Arthur's ruling 65, 21 October 2026): until then the template cut at 365
+days either side (`WINDOW_DAYS`, now gone). The flag says how many of its
+pairs fall within 90 days (the old estate's MC-C1) and within 365 days
+(construction-1's cut), so a reader sees the old defaults without losing
+the rest. A window cuts only when the reader sets one, as `window_days` on
+the report; the shape does not carry it yet, so today every gap is shown
+(`the-report-carries-no-template-parameters`). Measured on the confirmed
 groups, 2026-10-21: 476 going companies at 90 days, 1,191 at 365, 1,858 at
 730, of 784,993 registered. A removal is thirty times as common (38,059 at
-365 days) and is never red.
+365 days) and is never red. With no cut, a confirmed insolvency beside a
+going company is red however far apart they are: a director whose one
+company failed in 2024 and whose other was registered in 2001 is raised,
+and the gap, last in the order, is the reader's to weigh.
 
 The flag `phoenix-signature` is raised only on a **shared person** (from a
 person: two of the person's own confirmed companies) or a **shared
@@ -90,6 +101,11 @@ never red.
   section with its status, and every Gazette notice in the Gazette section
   under its company's name; the flags make the split.
   (`a-section-cannot-set-the-starts-own-rows-apart-from-its-peoples`)
+- **A reader's window.** The template reads `window_days` from the
+  report and cuts there, saying how many pairs it left out; the shape
+  takes no such parameter from the page or the command line yet, so a
+  reader cannot narrow the list and every gap is shown.
+  (`the-report-carries-no-template-parameters`)
 - **A status and a notice that disagree.** 739 companies with a Gazette
   liquidation notice are registered today (restored, or the liquidation
   ended). The notice still dates a failure, and the company's status is
@@ -168,3 +184,28 @@ measurement above); `same-name-failed` words its subject by the start. The
 fixtures had already caught a crash in the office pair's text that no real
 row reached. Cards: four on the report lane, one on the companies lane, one
 on the earlier templates' bankruptcy check.
+
+## The checkpoint re-rendered, 2026-10-21 (construction-2, ruling 65)
+
+The same twelve subjects, rendered with the template before and after the
+window became the reader's. Ten printed and changed only in their phoenix
+flags; one (subject 7, the address-named company) is still refused by the
+shape; one (subject 9, the professional director) is unchanged, its walk
+short. No flag changed status or severity.
+
+- **Pairs the 365-day cut hid now show, after the near ones.** The
+  scaffolding director (subject 4): the liquidation beside the new
+  company 4 days after, as before, and now beside a going company
+  registered 765 days before it. The director in the contested group
+  (subject 8): 6 pairs instead of 1 (0 within 90 days, 1 within 365), the
+  rest from 2,806 days apart. The director of 28 going companies (subject
+  7's walk, refused) counts 28 pairs, 2 within 90 days and 4 within 365.
+- **Every fired flag counts its pairs** ("of 1 pair(s), nearest first, 1
+  within 90 days and 1 within 365 days; no window is set, so every gap is
+  shown"); the three red signatures (subjects 1, 4, 6) still name the same
+  failure and the same new company first, at 34, 4 and 7 days.
+- **`same-name-failed`** (subject 10) drops "within the window" and counts
+  its one pair, 263 days, within 365 and not within 90.
+- **A person with no failure** (subjects 11, 12) says so plainly ("no dated
+  failure has a going company to set beside it") instead of naming a
+  window, and still gives no clear.

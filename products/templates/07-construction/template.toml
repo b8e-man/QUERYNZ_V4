@@ -9,15 +9,18 @@
 # receivership, in administration, under a deed of company arrangement, or
 # removed), dated from its Gazette notice, beside a going company that shares
 # a person or a registered office with it, the going company's own start
-# beside the failure and the window stated. A name is never the signature on
-# its own: the old estate's probe found a same-name join within ninety days
+# beside the failure with the gap in days, whatever the gap, nearest first.
+# The window is the reader's setting (ruling 65, 21 October 2026): the flag
+# counts the pairs within 90 and 365 days and cuts only when the reader sets
+# one (`window_days` on the report, which the shape does not yet carry). A
+# name is never the signature on its own:the old estate's probe found a same-name join within ninety days
 # yields 14.2 million pairs, and of 183 going companies that share a name with
 # a company liquidated within a year of their start, 2 share a director's name
 # and 1 a confirmed person (measured 2026-10-21).
 name = "construction"
 title = "Subcontractor vetting and phoenix detection"
-version = "0.1"
-owner = "products/templates/07-construction, step 5.2 (session construction-1)"
+version = "0.2"
+owner = "products/templates/07-construction, step 5.2 (sessions construction-1, construction-2)"
 # 2: from a person, the person's companies, the notices and offices on them,
 # and the other people on them (near). From a company, its officers, holders
 # and registered office, the Gazette on it, and the companies that share its
@@ -27,6 +30,7 @@ depth = 2
 
 limits = [
   "A name is never the phoenix signature: a company that only shares the entity's name is listed near, and the phoenix flag is raised only on a shared person or a shared registered office together with a dated failure.",
+  "The phoenix flag sets every dated failure beside every going company whatever the gap, nearest first, and counts those within 90 and 365 days; the window is the reader's setting, and the report cannot yet carry one, so every gap is shown.",
   "Started from a company, the report lists its officers and holders of record but does not yet follow them: the other companies they sit on, and how those failed, are not read, so the phoenix signature through a shared person is blocked, never clear. Start a report from each director listed; from a person the signature is read across all the person's companies.",
   "The companies that share a registered office with the entity are counted, and listed only when they also share its name or a person: a shared office alone is not seen, so that half of the signature is blocked, never clear.",
   "The companies file lists current roles only: a company the person left, or that was struck off with them on it, is not seen, nor its failure, so no check over a person's companies is ever clear.",
@@ -111,7 +115,7 @@ refresh = "as the lane re-reads the register"
 # every Gazette notice on a company, the entity's own and those on the
 # companies above, is in the Gazette section under the company's name. The
 # phoenix signature itself, each failure beside each going company's start
-# with the window, is in the flags. The first section takes only near links.
+# with the gap in days, is in the flags. The first section takes only near links.
 [[sections]]
 name = "identity"
 heading = "The entity, and its namesakes set apart"
@@ -132,7 +136,7 @@ heading = "The phoenix signature: companies that share a person or a name with i
 views = ["companies"]
 sources = ["members", "confirmed", "near"]
 not_held = ["insolvency"]
-text = "Started from a person, each company the person sits on or holds, with its register status and the dates the register files: a failed company (in liquidation, in receivership, in administration, removed) and a going one side by side, its Gazette notices in the Gazette section below under its name; the flags set each dated failure beside each going company's start and state the window. A company reached only by a name it shares is near. Started from a company, its people are not followed: listed here are only the companies that share its name, near, and the signature through a person is blocked; start a report from each director listed above."
+text = "Started from a person, each company the person sits on or holds, with its register status and the dates the register files: a failed company (in liquidation, in receivership, in administration, removed) and a going one side by side, its Gazette notices in the Gazette section below under its name; the flags set each dated failure beside each going company's start with the gap in days, nearest first, whatever the gap, and count those within 90 and 365 days. A company reached only by a name it shares is near. Started from a company, its people are not followed: listed here are only the companies that share its name, near, and the signature through a person is blocked; start a report from each director listed above."
 
 [[sections]]
 name = "office"

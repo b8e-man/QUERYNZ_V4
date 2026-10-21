@@ -23,7 +23,11 @@ Income is the last income line before the first expenditure line, on its
 page or the one before (Te Pāti Māori prints a subtotal first; New
 Conservatives 2024 put income and expenditure on facing pages). Whole-dollar statements may
 round each line, so they agree within a dollar; statements with cents to
-the cent. A printed dash or NIL is zero; brackets are negative, and a line
+the cent. Where no line agrees so, a line less than $100 off is taken
+(ruling 66, `reconcile.py`): the printed figure published, and every
+figure of the pair carrying the `issue` that names the difference. A pair
+that agrees only within its printed precision carries its difference too, and
+no precision admits $100 or more. A printed dash or NIL is zero; brackets are negative, and a line
 named deficit alone is negative. The second figure on a line, when there
 is one, is the prior year's, kept to check against the year before.
 
@@ -37,6 +41,7 @@ from dataclasses import dataclass, field
 
 from support import profiles
 from support.docread import pages
+from registers.party_finance import reconcile
 
 PROFILE = "ec-party-financial-statements"
 READER = "registers.party_finance.statements 1"
@@ -95,6 +100,7 @@ class Figure:
     printed: str
     check: str
     scale: int = 1
+    issue: str = None    # ruling 66: the pair's difference from its printed line
 
 
 @dataclass
@@ -201,8 +207,19 @@ def _signed(x: Line) -> float:
     return x.amount
 
 
-def _fig(name, x: Line, check, amount_=None) -> Figure:
-    return Figure(name, x.amount if amount_ is None else amount_, x.prior, x.page, x.label, x.printed, check, x.scale)
+def _fig(name, x: Line, check, amount_=None, issue=None) -> Figure:
+    return Figure(name, x.amount if amount_ is None else amount_, x.prior, x.page, x.label, x.printed, check, x.scale,
+                  issue)
+
+
+def _pick(lines_: list, computed: float, value, tol):
+    """The first line whose `value` is `computed` within its printed precision (`tol(line)`), else the first within
+    ruling 66's tolerance, else None. A thousands statement's precision never admits $100 or more (ruling 66)."""
+    for strict in (True, False):
+        for x in lines_:
+            if reconcile.within(computed, value(x)) and (not strict or abs(value(x) - computed) <= tol(x)):
+                return x
+    return None
 
 
 def _tol(*xs) -> float:
@@ -223,11 +240,12 @@ def operating(ls: list) -> tuple:
     if e.amount < 0:      # an accounting export prints expenditure negative (New Conservatives 2025)
         e = Line(e.page, e.label, -e.amount, None if e.prior is None else -e.prior, e.step, e.printed, e.scale)
     diff = round(i.amount - e.amount, 2)
-    for s in _named(ls, "surplus"):
-        if s.page in (e.page, e.page + 1) and abs(_signed(s) - diff) <= _tol(i, e, s):
-            c = "income-less-expenditure"
-            return {"income": _fig("income", i, c), "expenditure": _fig("expenditure", e, c),
-                    "surplus": _fig("surplus", s, c, _signed(s))}, ""
+    s = _pick([s for s in _named(ls, "surplus") if s.page in (e.page, e.page + 1)], diff, _signed, lambda s: _tol(i, e, s))
+    if s is not None:
+        c = "income-less-expenditure"
+        why = reconcile.issue(diff, _signed(s), "income less expenditure against the surplus or deficit line")
+        return {"income": _fig("income", i, c, issue=why), "expenditure": _fig("expenditure", e, c, issue=why),
+                "surplus": _fig("surplus", s, c, _signed(s), why)}, ""
     return {}, (f"income {i.amount:,.2f} less expenditure {e.amount:,.2f} is {diff:,.2f}, "
                 "and no surplus or deficit line prints it")
 
@@ -243,11 +261,13 @@ def position(ls: list) -> tuple:
         return {}, "no total liabilities line on the assets' page"
     li = liab[0]
     diff = round(a.amount - li.amount, 2)
-    for n in _named(ls, "net_assets"):
-        if n.page in (a.page, a.page + 1) and abs(n.amount - diff) <= _tol(a, li, n):
-            c = "assets-less-liabilities"
-            return {"assets": _fig("assets", a, c), "liabilities": _fig("liabilities", li, c),
-                    "net_assets": _fig("net_assets", n, c)}, ""
+    n = _pick([n for n in _named(ls, "net_assets") if n.page in (a.page, a.page + 1)], diff, lambda n: n.amount,
+              lambda n: _tol(a, li, n))
+    if n is not None:
+        c = "assets-less-liabilities"
+        why = reconcile.issue(diff, n.amount, "assets less liabilities against the net-assets line")
+        return {"assets": _fig("assets", a, c, issue=why), "liabilities": _fig("liabilities", li, c, issue=why),
+                "net_assets": _fig("net_assets", n, c, issue=why)}, ""
     return {}, f"assets {a.amount:,.2f} less liabilities {li.amount:,.2f} is {diff:,.2f}, and no net-assets line prints it"
 
 

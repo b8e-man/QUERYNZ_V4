@@ -35,11 +35,11 @@ FILE_COLUMNS = ("document", "names", "placed_by", "year", "surname", "given_name
 RETURN_COLUMNS = ("key", "document", "page", "place", "donations", "part_a", "part_c", "part_d", "donations_check",
                   "expenses", "part_f", "part_g", "expenses_check", "loans", "loans_check", "signed", "year_as_printed",
                   "candidate_as_printed", "party_as_printed", "electorate_as_printed", "read_from", "reader", "profile",
-                  "profile_version", "loaded_at", "donors_check")
+                  "profile_version", "loaded_at", "donors_check", "issue")
 COMMISSION_COLUMNS = ("key", "source", "file", "file_name", "year", "surname", "given_names", "electorate", "party",
                       "donations", "expenses", "loans", "received", "link", "problems")
 DONOR_COLUMNS = ("key", "return_key", "document", "page", "place", "ordinal", "donor", "amount", "dates", "contributions",
-                 "read_from", "reader", "profile", "profile_version", "loaded_at")
+                 "read_from", "reader", "profile", "profile_version", "loaded_at", "issue")
 COLUMNS_OF = {"files": FILE_COLUMNS, "returns": RETURN_COLUMNS, "commission": COMMISSION_COLUMNS,
               "set_aside": ("document", "stage", "reason", "at"), "donors": DONOR_COLUMNS,
               "addresses": ("key", "document", "address", "cell")}

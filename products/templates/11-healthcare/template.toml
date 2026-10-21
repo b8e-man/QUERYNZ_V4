@@ -1,0 +1,195 @@
+# Use case 11, healthcare operator governance (plan step 5.2, ninth
+# template): an aged-care investor or a regulator's analyst asks who governs
+# this operator, what its charity arm files, and where its officers overlap.
+# A subject report on the shape in products/report/ (the third tranche,
+# report-3: the officers and chain reaches, the section filters and the
+# not-held keys); it reads only the published views below, and its sections
+# run in the order an investor reads them. Its own rules are in rules.py;
+# its known limits in limits.md.
+#
+# The use case runs on the retirement villages file and the charity returns,
+# with the Health and Disability Commissioner's decisions waiting (plan 5.2).
+# What the estate holds today:
+# - the retirement villages file is not held: the companies lane carries 512
+#   village rows in pub.companies (register retirement_village: the village's
+#   name, number, status and registration day, as the old estate's tables had
+#   them) and no operator, no statutory supervisor, no link from a village to
+#   the company that runs it; a village row is reached only by a name it
+#   shares, near;
+# - the charities lane's reading (session charities-3) publishes
+#   pub.charities, pub.charity_officers and pub.charity_returns (the
+#   financial fields under the ruling of 14 August 2026) and has not merged:
+#   the views are not on the database, and the report's catalogue knows none
+#   of them, and a template naming a view the catalogue does not know is
+#   refused when loaded. They are carded on the report lane
+#   (the-report-cannot-reach-the-charities-register) with the reads and
+#   sections this template adds when they land; until then the charity
+#   sections name the register as not held and every charity flag is
+#   blocked, never clear. The rules already read the three views by name.
+# - the registers a health regulator keeps are not held, and the shape's
+#   not-held list has no key for them (carded on the report lane:
+#   the-not-held-list-has-no-key-for-the-health-registers): the retirement
+#   villages file (key asked: retirement_villages), the Health and Disability
+#   Commissioner's decisions (hdc), certification audits (certification),
+#   the Ministry of Health's provider registers (health_providers) and the
+#   Aged Care Commissioner (aged_care_commissioner). They are named in the
+#   last section's text and in the flags; court judgments carry the key
+#   `courts`.
+name = "healthcare"
+title = "Healthcare operator governance"
+version = "0.1"
+owner = "products/templates/11-healthcare, step 5.2 (session healthcare-1)"
+# 2: from a company, its officers, holders, registered office, earlier states
+# and the Gazette on it, and the companies that share its name (near); its
+# officers are followed one step (the `officers` reach) and its company
+# holders up the chain. From a person, the person's companies, the notices
+# on them, and the other people on them (near).
+depth = 2
+chain_depth = 2
+
+limits = [
+  "The retirement villages file is not held: which company operates a village, the village's statutory supervisor and when it changed are in no published register. The companies lane carries the village's own row (its name, number, status and registration day) and nothing joins it to an operator; a village row reached here shares a name and is near.",
+  "The charities register is not reachable by this report yet: its reading is built and not merged, and the report's catalogue knows none of its views. Whether the operator or its people sit on a charity, the charity's status, its officers and its annual returns are not shown, and every charity flag is blocked, never clear.",
+  "The Health and Disability Commissioner's decisions, certification audits, the Ministry of Health's provider registers, the Aged Care Commissioner and court judgments are not held. Nothing in this report says anything about care quality, a complaint, a breach finding or a certification: no such finding here is a finding of none.",
+  "The registers carry no industry: a company is called care or retirement living here only because its registered name carries such a word, which is a sign to read, not a finding.",
+  "Started from a company, its first twelve officers are followed one step to their other current roles (near: an officer's other role is the officer's connection, not the entity's); past that the overlap and the officers' notices are partial, and their checks say so.",
+  "The companies file lists current roles only: a role a person left, or a company struck off with them on it, is not seen, so no check over past roles is ever clear.",
+  "A role and a notice are each dated as the register files them, side by side; the report never says one followed from the other.",
+  "A hub (a professional director, a nominee, the Crown, an address with fifty or more companies) joins many companies: an overlap through a hub is shown and means little on its own.",
+  "The entity is the row the report starts from and the rows a rule confirms are the same. A row that only shares the name is a namesake, set apart with its reason.",
+  "A company's registered office is shown as the companies file states it. No residential address, and no officer's contact detail, is held in any view read.",
+  "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+]
+
+# ── what it reads: each view with its licence ───────────────────────────────
+# Asked for and not yet named (the catalogue does not know them; carded):
+# pub.charities, pub.charity_officers, pub.charity_returns (Charities
+# Register, Department of Internal Affairs, CC BY 3.0 NZ, attribution owed;
+# the register's own refresh; officers' contact details and a non-corporate
+# charity's address for service never published).
+[[reads]]
+view = "companies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "company_states"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the earlier state a later monthly file changed"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "directors"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; a director's residential address is never published"
+attribution = "Companies Office"
+refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "shareholders"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "company_addresses"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; registered offices only, never a residential address"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "societies"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "society_officers"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022; an officer's contact details are never published"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "gazette_liquidations"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_liquidators"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a practitioner's name and role only, never an address or telephone"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_company_notices"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person named in a rectification is held by initials and surname only"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_appointments"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; where an appointee lives is never kept"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_prohibitions"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a revoked prohibition's name is never shown"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "gazette_bankruptcies"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; an annulled bankruptcy's name is withheld"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+
+# ── sections, in the order an investor reads them ───────────────────────────
+# A row is listed once, in the first section that names its view and the
+# walk bucket it came from and whose filters keep it; an entity the walk
+# reached goes to the first section naming its view that keeps it. So the
+# namesakes (not the entity's own, `own = false`) fill the first section,
+# the entity's own rows the standing and governance sections, an officer's
+# other roles and the people beside the overlap section, and every Gazette
+# notice the Gazette section.
+[[sections]]
+name = "identity"
+heading = "The entity, and its namesakes set apart"
+views = ["companies", "societies", "directors", "shareholders", "society_officers"]
+sources = ["near"]
+own = false
+text = "The entity is the row above: a company is its business number, a society its register number, and a person is the rows a rule confirms are the same person. Each row here shares a name with it and no rule confirms it: a namesake, with the reason it is only near. A retirement village's own register row reached by a name it shares is listed here: the file that would say which company operates the village is not held."
+
+[[sections]]
+name = "standing"
+heading = "Its standing and age"
+views = ["company_states", "company_addresses"]
+sources = ["roles", "members", "confirmed"]
+own = true
+text = "The entity's register status and the day it was registered are in the header above, as the latest file states them, and in the flags entity-status and young-entity. Below, an earlier state a later monthly file changed (dated as in the file that carried it), and each registered office as the companies file states it; a company's registered address is shown, and no residential address is held."
+
+[[sections]]
+name = "governance"
+heading = "Its governance: directors, holders of record, and the charities its people serve"
+views = ["directors", "shareholders", "society_officers", "companies", "societies"]
+sources = ["roles", "members", "confirmed", "chain"]
+not_held = ["charities"]
+text = "Every director and holder of record the companies file lists on the company, and every officer the societies register lists on a society, with the dates each files; started from a person, the person's own roles and holdings and the companies and societies they sit on. A holding is shown as the register states it: a holder of record. A company holder is followed two up the chain, by business number where the file has one, otherwise by a name only one company carries (near), its shares as filed. Where the entity or its people are officers of a registered charity, the charity's status and its officers belong here: the charities register is not yet reachable by this report."
+
+[[sections]]
+name = "charity-returns"
+heading = "The charity's annual returns"
+views = []
+not_held = ["charities"]
+text = "Each annual return a charity reached here files, newest first: the period it covers, the reporting tier it reports under, its income, expenditure, surplus, assets, liabilities and equity as filed, whether the financial report was audited, and whether the auditor's opinion was modified and how. The charities register's returns are not yet reachable by this report: none is listed, and that is not a finding of none."
+
+[[sections]]
+name = "overlap"
+heading = "Officer overlap: the same people on other companies"
+views = ["directors", "shareholders", "society_officers", "companies", "societies"]
+sources = ["officers", "second"]
+text = "Started from a company or a society, each officer's other current roles, one step (near: an officer's other role is the officer's connection, not the entity's), with the date each role began beside the date the officer's role on the entity began; then the people beside the entity's people on their other companies. Started from a person, the other people on the person's companies (near). A professional director or a nominee is a hub and sits on many companies; an overlap through a hub is flagged. Two roles held at once are two facts with their dates; this report does not say what one has to do with the other."
+
+[[sections]]
+name = "gazette"
+heading = "The Gazette on the entity, its people and its people's companies"
+views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_prohibitions", "gazette_bankruptcies", "gazette_appointments"]
+sources = ["pointing", "members", "confirmed", "near", "roles", "officers"]
+not_held = ["insolvency", "courts"]
+text = "Liquidations, winding-up applications, receiverships, administrations, creditors' notices, removals, restorations and the other company notices, each under its company's name with its own date, which says what it dates; then director prohibitions, bankruptcies and public appointments the link rules join to a person by name. A notice on an officer's other company, or on an officer, is the officer's and is listed near. A removal from the register is not an insolvency. A revoked prohibition and an annulled bankruptcy's name are never shown."
+
+[[sections]]
+name = "not-held"
+heading = "What is not held"
+views = []
+not_held = ["courts", "tribunals", "disciplinary", "employment", "regulators", "worksafe", "company_history"]
+text = "Registers an operator's governance record would read that no lane has published: the retirement villages file (each village's operator and statutory supervisor, and when the supervisor changed), the Health and Disability Commissioner's decisions, certification audits of rest homes and hospitals, the Ministry of Health's provider registers, the Aged Care Commissioner's reports, court judgments, the tribunals and disciplinary bodies, the Employment Relations Authority, WorkSafe's prosecutions, the Commerce Commission's cases and the companies change history before 16 August 2026. Nothing in this report says anything about them: no decision, audit, complaint or judgment here is a finding of none. Ask the source."

@@ -1,0 +1,7 @@
+# registers/openlaw/sample.list: hashes and key: lines only. EMPTY ON PURPOSE: OpenLaw NZ's API terms (3.6(a)) bar
+# permanent copies of what the interface returns without its express authorisation, and none is on file, so no page
+# is held to list. The lane's tests run on hand-made records (tests/fixture.py, every name invented) and, marked slow,
+# on one page read in memory from the interface and kept nowhere (tests/test_openlaw_live.py).
+# Once authorised, the first night's pages land and this list names a page each of: a clean civil case, a case with a
+# suppression banner, one with an anonymised party, one whose party table is empty (the caption read), a criminal
+# caption, and a page that is not the profile's shape; as `key: case <the interface's id>` lines with their pages.
