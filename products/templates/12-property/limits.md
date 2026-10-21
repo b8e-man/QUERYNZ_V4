@@ -75,9 +75,14 @@ own start.
 - **The companies above.** The chain is followed two up; the directors of a
   company above and the Gazette on it are not read
   (`the-chain-reach-reads-nothing-on-the-companies-above`).
-- **Charities.** Where a trust behind a developer is a registered charity,
-  its officers are not reachable: the catalogue knows no charities view yet
-  (the same ask as healthcare-1's `the-report-cannot-reach-the-charities-register`).
+- **Charities, by number and by name.** A developer's trust board whose
+  charity carries its business number reaches the charity, confirmed, with
+  the trustees and annual returns the register files on it, in the
+  principals section. A charity officer row that carries a principal's name
+  is listed near: no link joins the Charities Register's officers to any
+  other row yet, so each is a namesake's until a rule confirms it. No flag
+  reads them. (`charity-officers-are-in-no-link-and-no-name-row`, the links
+  lane's)
 - **Offices.** A registered office fifty or more companies share, or whose
   lines name an accountant, a lawyer or a formation agent, or that the
   file says is kept care of another, is a hub: a company met there means
@@ -127,3 +132,20 @@ Fixed at the checkpoint: the lapsed intention to remove (above); a stale
 count in the serial text; a person whose group reaches one company read as
 a full history; an office kept care of another named apart from a
 firm-named one. Carded: the three cards named above.
+
+## The checkpoint re-rendered, 2026-10-21 (fix-templates-1: the window, the Charities Register)
+
+The same twelve subjects, before and after both changes. None refused; no
+flag changed status or severity and no section changed its counts.
+
+- **The window as a parameter.** `window_days` is declared (an integer, no
+  default), so the memo prints "parameters: window_days not set" and the
+  limits line no longer says the report cannot carry one. Rendered with
+  `--set window_days=365`, the director with 34 companies (subject 12)
+  lists 21 of the serial pattern's 175 pairs and says 154 fall outside the
+  window; `--set window_days=abc` reaches the rule as text and it says no
+  cut is applied.
+- **The Charities Register.** Every memo lost the line saying it names as
+  not held a register that is published; no subject reaches a charity by
+  business number, and none of the three directors' names is on a charity
+  officer row.

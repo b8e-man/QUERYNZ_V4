@@ -31,10 +31,7 @@
 # the-not-held-list-has-no-key-for-the-property-registers): the
 # not-held keys for the Overseas Investment Office's decisions, building
 # consents and council minutes, and the Real Estate Authority's decisions;
-# the charities views (pub.charities, pub.charity_officers, where a trust
-# behind a developer is a registered charity), which the catalogue does not
-# know (the same ask as healthcare-1's
-# the-report-cannot-reach-the-charities-register); the Gazette on the
+# the Gazette on the
 # companies above in the holding chain, which the chain reach does not read
 # (the-chain-reach-reads-nothing-on-the-companies-above); a director's near
 # links, which the officers reach does not follow
@@ -68,8 +65,9 @@ limits = [
 ]
 
 # ── the reader's settings ───────────────────────────────────────────────────
-# No default: ruling 65 makes the window the reader's, and none is the
-# template's. A value that is not a whole number of days reaches the rule as
+# Card the-construction-and-property-templates-declare-no-window-days-parameter
+# (closed by fix-templates-1). No default: ruling 65 makes the window the
+# reader's, and none is the template's. A value that is not a whole number of days reaches the rule as
 # the text given, and the flag says no cut is applied.
 [[params]]
 name = "window_days"
@@ -77,11 +75,6 @@ kind = "integer"
 means = "days either side of a failure's Gazette date within which a going company is set beside it; not set: every gap is shown"
 
 # ── what it reads: each view with its licence ───────────────────────────────
-# Asked for and not yet named (the catalogue does not know them; carded):
-# pub.charities, pub.charity_officers (Charities Register, Department of
-# Internal Affairs, CC BY 3.0 NZ, attribution owed; officers' contact
-# details and a non-corporate charity's address for service never
-# published).
 [[reads]]
 view = "companies"
 licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
@@ -164,6 +157,21 @@ refresh = "as the lane re-reads the register"
 # project history; the notices on those the serial section; the companies at
 # its office the office section; and the Gazette on the entity itself the
 # last section that reads one.
+[[reads]]
+view = "charities"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the register is public under the Charities Act 2005; the address for service is never read"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_officers"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; a suppressed name is suppressed, the row stays"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_returns"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the financial fields under the ruling of 14 August 2026"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
 [[sections]]
 name = "identity"
 heading = "The entity, and its namesakes set apart"
@@ -183,9 +191,9 @@ text = "The entity's register status, its type and the day it was registered are
 [[sections]]
 name = "principals"
 heading = "Its principals: directors and holders of record, with their dates"
-views = ["directors", "shareholders", "society_officers"]
-sources = ["roles", "members", "confirmed"]
-text = "Every director and holder of record the companies file lists on the company, with the dates it files; started from a person, the person's own roles and holdings. A holding is shown as the register states it: a holder of record, with the shares filed. A nominee or a trustee holds for others, and for whom is in no register held. The file lists current roles only."
+views = ["directors", "shareholders", "society_officers", "charities", "charity_officers", "charity_returns"]
+sources = ["roles", "members", "confirmed", "named"]
+text = "Every director and holder of record the companies file lists on the company, with the dates it files; started from a person, the person's own roles and holdings. A holding is shown as the register states it: a holder of record, with the shares filed. A nominee or a trustee holds for others, and for whom is in no register held. The file lists current roles only. Then the Charities Register: a company's charity by its business number (a developer's trust board), confirmed, with the trustees and annual returns the register files on it, the figures as filed and never added across returns; started from a person, each charity officer row that carries the person's name, near: no link joins the register's officers to any other row yet, so each is a namesake's until a rule confirms it."
 
 [[sections]]
 name = "chain"
@@ -246,5 +254,5 @@ text = "Liquidations, receiverships, administrations, winding-up applications, c
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["linz", "courts", "securities", "insolvency", "building_practitioners", "company_history", "charities", "trusts", "overseas"]
-text = "Registers a developer check would read that no lane has published: land titles and their company side (LINZ: which company is on which title, and since when), the Overseas Investment Office's decisions (an applicant, a vendor, a price), building consents, code compliance certificates and council minutes, court judgments (a body corporate's or a buyer's claim, a weathertightness case), the Personal Property Securities Register, the Insolvency Register, the Real Estate Authority's decisions, licensed building practitioners, the companies change history before 16 August 2026, the Charities Register, trusts and overseas registers. Nothing in this report says anything about them: no title, decision, consent or judgment here is a finding of none. Ask the source."
+not_held = ["linz", "courts", "securities", "insolvency", "building_practitioners", "company_history", "trusts", "overseas"]
+text = "Registers a developer check would read that no lane has published: land titles and their company side (LINZ: which company is on which title, and since when), the Overseas Investment Office's decisions (an applicant, a vendor, a price), building consents, code compliance certificates and council minutes, court judgments (a body corporate's or a buyer's claim, a weathertightness case), the Personal Property Securities Register, the Insolvency Register, the Real Estate Authority's decisions, licensed building practitioners, the companies change history before 16 August 2026, trusts and overseas registers. Nothing in this report says anything about them: no title, decision, consent or judgment here is a finding of none. Ask the source."

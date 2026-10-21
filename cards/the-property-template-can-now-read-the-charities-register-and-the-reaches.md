@@ -63,3 +63,12 @@ template do, each a fix in `products/templates/12-property/`:
 Not a comparison cause. The shape's fixture tests and `python -m
 products.report check` hold the reaches; this card is the template's own
 reading of them, closed when its sections, flags and tests use them.
+
+Progress, fix-templates-1 (2026-10-21): the principals' charities bullet is
+done: the three views in `reads` and the principals section (`named` added);
+`charities` out of the not-held line and its text, the comments that carded
+the views gone. Fixture test `test_the_principals_section_reads_the_charities_register`;
+checkpoint re-rendered (limits.md). `window_days` is declared (card
+`the-construction-and-property-templates-declare-no-window-days-parameter`,
+closed). Still open, outside that brief: the oio, building_consents and rea
+keys, an officer's near links, and the companies above.
