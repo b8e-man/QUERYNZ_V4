@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. The detail is in `docs/merges/`.
 
-**Date:** 2026-10-22, 01:48 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-22, 03:26 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 day three not clean; 5.1 done; 5.2 closed (ten templates, `fix-report-2`
 parameters); 5.3 eight lanes merged (OpenLaw, HDC held on terms; sanctions
 lists held); 5.4 merged; 5.5 merged; 6.1 merged (`scan-1`, the scan on
@@ -31,14 +31,15 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- None at 01:48; the inbox is empty. Merged since 18:00 on 21 October:
+- None at 03:26; the inbox is empty. Merged since 18:00 on 21 October:
   `sanctions-1`, `scan-1`, `tenders-1` (29,874 award notices live),
   `regulators-1`, `fix-report-2`, `oio-1`, `hdc-1`, `diaries-1` (ruling
   78: the Beehive and Hansard come from Arthur's third-party source),
-  `grants-1`, `fix-support-fetchgate-1`, `scan-templates-1`,
-  `fix-templates-1`. Next sessions: `bin/fix products/templates` (three
-  open cards), the six-lanes redirect card, step 6.2 templates 3 and 4
-  (4 waits on the diaries source), 6.3's others. Step 7 held (63).
+  `grants-1` (178,729 grants live), `fix-support-fetchgate-1`,
+  `scan-templates-1`, `fix-templates-1`, `redirects-1`,
+  `fix-products-templates-1`, `grants-2`. Next: 6.2 template 3's sources
+  as a lane; template 4 waits on the diaries source; the job-path card.
+  Step 7 held (63).
 
 ## Half-done
 
