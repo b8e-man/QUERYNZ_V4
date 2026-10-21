@@ -17,6 +17,7 @@ body{margin:0;font:14px/1.45 system-ui,sans-serif;color:#222;background:#f4f4f2}
 header{display:flex;gap:1rem;align-items:center;padding:.5rem 1rem;background:#fff;border-bottom:1px solid #ddd}
 header h1{font-size:15px;margin:0 1rem 0 0;font-weight:600}
 header input{padding:.3rem .5rem;font-size:14px}
+header label.param{font-size:12px;color:#555}
 header a{color:#246}
 main{max-width:52rem;margin:1rem auto;background:#fff;border:1px solid #d8d8d4;border-radius:4px;padding:1.5rem 2rem}
 h2{font-size:18px;margin:0 0 .25rem}
@@ -59,8 +60,12 @@ def _line_text(it: dict) -> str:
         extra.append(f"from a return since replaced; the amendment is document {str(it['replaced_by'])[:12]}…; never summed")
     if it.get("via") and it["via"] != "start":
         extra.append(f"via {it['via']}")
-    if it.get("depth"):
+    if it.get("above"):
+        extra.append(f"on a company {it['depth']} up the chain ({it.get('through')})")
+    elif it.get("depth"):
         extra.append(f"{it['depth']} up the chain" if it.get("hop_text") or it["view"] == "shareholders" else f"one step through {it.get('through')}")
+    if it.get("near_link"):
+        extra.append("the officer's own link to this row is near, with the link's rule and reason above")
     if it.get("hop_text"):
         extra.append(it["hop_text"])
     if (it.get("holdings") or 0) > 1:
@@ -71,7 +76,7 @@ def _line_text(it: dict) -> str:
         extra.append("cannot say whether new: undated, or dated by a year or a file only")
     for f in it.get("flags", []):
         extra.append(f"HUB: {f['text']}")
-    if it.get("note") and it["view"] in ("shareholders", "directors", "disclosures", "gazette_company_notices"):
+    if it.get("note") and it["view"] in ("shareholders", "directors", "disclosures", "gazette_company_notices", "charity_officers"):
         extra.append(it["note"])
     return line + ("".join("\n      " + x for x in extra) if extra else "")
 
@@ -98,10 +103,24 @@ def _reaches_text(w: dict) -> list:
             bits.append(f"{c['cycles']} met twice")
         if c.get("omitted"):
             bits.append(f"{c['omitted']} past the chain's limits")
+        bits.append(f"on the companies above, {c.get('above_notices', 0)} Gazette notices and {c.get('above_directors', 0)} current directors read")
         left.append("; ".join(bits))
     for n in w.get("chain_notes") or []:
         left.append(f"chain, {n['depth']} up: {n['text']} (via {n['via']})")
     return left
+
+
+def _param_text(p: dict) -> str:
+    """One declared parameter as the memo states it: what the reader set, or
+    that none was set and the default stands; a value that does not read as
+    its kind is shown as given and said to be unread."""
+    if p.get("source") == "given" and p.get("read"):
+        return f"{p['name']} = {p['value']} ({p['means']})"
+    if p.get("source") == "given":
+        return f"{p['name']} = {p['given']!r}: not read as {'an' if p['kind'][0] in 'aeiou' else 'a'} {p['kind']}, so the rule treats it as not set ({p['means']})"
+    if p.get("default") is not None:
+        return f"{p['name']} not set; the template's default {p['default']} stands ({p['means']})"
+    return f"{p['name']} not set ({p['means']})"
 
 
 def _group_line(g: dict) -> str:
@@ -122,6 +141,8 @@ def text(report: dict) -> str:
     if report.get("since"):
         out.append(f"since {report['since']}: {report.get('new') or 0} row(s) dated on or after it are marked NEW; "
                    f"{report.get('cannot_say') or 0} cannot say (undated, or dated by a year or a monthly file only)")
+    if report.get("params_declared"):
+        out.append("parameters: " + "; ".join(_param_text(p) for p in report["params_declared"]))
     out.append("")
     if not report.get("found"):
         out.append(f"NOT FOUND: {report.get('why')}")
@@ -183,6 +204,8 @@ def text(report: dict) -> str:
         left.append("views reached but not read, because the template does not name them: " + ", ".join("pub." + v for v in w["skipped"]))
     if report.get("views_not_published"):
         left.append("views the template names that are not published: " + ", ".join("pub." + v for v in report["views_not_published"]))
+    for x in report.get("superseded_not_held") or []:
+        left.append(f"the template names as not held a register that is published and which it does not read: {x}")
     left += _reaches_text(w)
     out += [f"  - {x}" for x in left] or ["  nothing: every link, entity and group row within the walk's reach is listed"]
     st = w.get("settings", {})
@@ -213,8 +236,12 @@ def _li(it: dict, template_name: str = "subject") -> str:
         out.append(f'<span class="reason">from a return since replaced; the amendment is document <code>{esc(str(it["replaced_by"])[:12])}…</code>; never summed</span>')
     if it.get("via"):
         out.append(f'<span class="reason">via <a href="{esc(contract.report_url(it["via"], "", template_name))}">{esc(it["via"])}</a></span>')
-    if it.get("depth"):
+    if it.get("above"):
+        out.append(f'<span class="reason">on a company {esc(it["depth"])} up the chain (<a href="{esc(contract.report_url(it["through"], "", template_name))}">{esc(it["through"])}</a>)</span>')
+    elif it.get("depth"):
         out.append(f'<span class="reason">{esc(f"{it[chr(100)+chr(101)+chr(112)+chr(116)+chr(104)]} up the chain" if it.get("hop_text") or it["view"] == "shareholders" else f"one step through {it.get(chr(116)+chr(104)+chr(114)+chr(111)+chr(117)+chr(103)+chr(104))}")}</span>')
+    if it.get("near_link"):
+        out.append('<span class="reason">the officer\'s own link to this row is near, with the link\'s rule and reason above</span>')
     if it.get("hop_text"):
         out.append(f'<span class="reason">{esc(it["hop_text"])}</span>')
     if (it.get("holdings") or 0) > 1:
@@ -234,6 +261,8 @@ def html_body(report: dict) -> str:
     if report.get("since"):
         out.append(f'<p class="meta">since {esc(report["since"])}: {report.get("new") or 0} row(s) dated on or after it are marked new; '
                    f'{report.get("cannot_say") or 0} cannot say (undated, or dated by a year or a monthly file only)</p>')
+    if report.get("params_declared"):
+        out.append('<p class="meta">parameters: ' + esc("; ".join(_param_text(p) for p in report["params_declared"])) + "</p>")
     if not report.get("found"):
         out.append(f'<p class="warn">not found: {esc(report.get("why"))}</p>')
         return "\n".join(out)
@@ -291,6 +320,9 @@ def html_body(report: dict) -> str:
     if report.get("views_not_published"):
         any_left = True
         out.append(f'<li>views the template names that are not published: {esc(", ".join("pub." + v for v in report["views_not_published"]))}</li>')
+    for x in report.get("superseded_not_held") or []:
+        any_left = True
+        out.append(f"<li>the template names as not held a register that is published and which it does not read: {esc(x)}</li>")
     for x in _reaches_text(w):
         any_left = True
         out.append(f"<li>{esc(x)}</li>")
@@ -310,21 +342,40 @@ def html_body(report: dict) -> str:
     return "\n".join(out)
 
 
+def _param_inputs(params: list) -> str:
+    """The form's inputs for the parameters the chosen template declares: one
+    each, named as declared, its meaning as the label, what the reader gave
+    as its value and its default as the placeholder."""
+    out = []
+    for p in params or ():
+        ph = "" if p.get("default") is None else f'placeholder="{esc(p["default"])}" '
+        out.append(f'<label class="param" title="{esc(p.get("means"))}">{esc(p["name"])} '
+                   f'<input name="{esc(p["name"])}" value="{esc(p.get("given") or "")}" {ph}size="8"></label>')
+    return " ".join(out)
+
+
 def page(body: str, ref: str = "", template_name: str = "subject", templates: list = (), message: str = "", saved: bool = False,
-         board_url: str = "") -> str:
-    """The page around a memo: the form, the template choice, save; no script
-    (the browser's own print command uses the print stylesheet)."""
+         board_url: str = "", since: str = "", params: list = ()) -> str:
+    """The page around a memo: the form, the template choice, the since date,
+    the parameters the template declares, save; no script (the browser's
+    own print command uses the print stylesheet)."""
     opts = "".join(f'<option value="{esc(n)}"{" selected" if n == template_name else ""}>{esc(n)}</option>' for n in templates) or f'<option>{esc(template_name)}</option>'
     actions = ""
+    hidden = "".join(f'<input type="hidden" name="{esc(p["name"])}" value="{esc(p["given"])}">' for p in params or () if p.get("given"))
     if ref:
-        actions = (f'<div class="actions"><a href="/report?ref={esc(ref)}&template={esc(template_name)}&format=text">plain text</a>'
+        q = "&".join(f"{esc(p['name'])}={esc(p['given'])}" for p in params or () if p.get("given"))
+        actions = (f'<div class="actions"><a href="/report?ref={esc(ref)}&template={esc(template_name)}&format=text'
+                   f'{"&since=" + esc(since) if since else ""}{"&" + q if q else ""}">plain text</a>'
                    f'<form class="inline" method="post" action="/save"><input type="hidden" name="ref" value="{esc(ref)}">'
-                   f'<input type="hidden" name="template" value="{esc(template_name)}"><input name="note" placeholder="a note to keep with it" size="28"> '
+                   f'<input type="hidden" name="template" value="{esc(template_name)}"><input type="hidden" name="since" value="{esc(since)}">{hidden}'
+                   f'<input name="note" placeholder="a note to keep with it" size="28"> '
                    f'<button>{"saved" if saved else "save this memo"}</button></form></div>')
     msg = f'<span class="note">{esc(message)}</span>' if message else ""
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ subject report</title>"
             f"<style>{CSS}</style></head><body><header><h1>QueryNZ subject report</h1>"
             f'<form method="get" action="/report"><input name="ref" value="{esc(ref)}" placeholder="register:key, as the board names a row" size="56"> '
-            f'<select name="template">{opts}</select> <button>report</button></form><a href="/saved">saved memos</a>'
+            f'<select name="template">{opts}</select> <label class="param" title="rows dated on or after this day are marked new">since '
+            f'<input name="since" value="{esc(since)}" placeholder="YYYY-MM-DD" size="10"></label> {_param_inputs(params)} <button>report</button></form>'
+            f'<a href="/saved">saved memos</a>'
             + (f'<a href="{esc(board_url)}">board</a>' if board_url else "") + f"{msg}</header>"
             f"<main>{actions}{body}</main></body></html>")

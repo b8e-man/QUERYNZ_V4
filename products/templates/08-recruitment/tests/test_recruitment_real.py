@@ -100,4 +100,4 @@ def test_the_most_shared_name_keeps_its_namesakes_apart_and_never_confirmed():
     assert all(x.startswith("  - [near]") for x in ident["lines"])
     assert m["flags"]["namesake-exposure"]["status"] == "fired"
     assert m["flags"]["bankruptcy"]["status"] == "blocked" and m["flags"]["charity-integrity-marks"]["status"] == "blocked"
-    assert "not held: Charities register and officers" in m["text"]
+    assert "not held: Charities register and officers" not in m["text"]   # held since charities-3; the key superseded at fix-report-2
