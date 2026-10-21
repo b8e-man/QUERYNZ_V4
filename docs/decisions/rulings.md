@@ -221,7 +221,7 @@ G) and 7f4a88c6 (the two ledger lines), by Arthur's run of the integrator's
 script. 77's row was a 2020 Manurewa candidate-return row whose donor name
 the old reader took from the cell's residence line, not the Labour
 party-return row the first draft named; that row was already clean. Proof
-is the 06:19 release on 22 October.
+is the 06:19 release on 22 October: published 06:29, no donor file or picker entry carries a residence word, and NZ First 2019 reads $369,535.17 (checked by the integrator from the release folder).
 
 78. Arthur, 21 October, about 18:20, while the integrator was gating
 sanctions-1, unprompted: "forget about capturing the beehive and hansard
