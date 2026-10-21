@@ -212,6 +212,16 @@ NOT_HELD = (
     ("regulators", "Commerce Commission and Financial Markets Authority actions"),
     ("mpi", "Ministry for Primary Industries prosecutions and animal-tracing enforcement"),
     ("fire", "Fire and Emergency New Zealand notices"),
+    # the registers a health regulator keeps (healthcare-1)
+    ("retirement_villages", "The retirement villages file: each village's operator and statutory supervisor"),
+    ("hdc", "Health and Disability Commissioner decisions"),
+    ("certification", "Certification audits of rest homes and hospitals"),
+    ("health_providers", "The Ministry of Health's provider registers"),
+    ("aged_care_commissioner", "The Aged Care Commissioner's reports"),
+    # the registers a property developer check names (property-1); the Real Estate Authority lane captures and publishes no view yet
+    ("oio", "Overseas Investment Office decisions"),
+    ("building_consents", "Building consents, code compliance certificates and council minutes"),
+    ("rea", "Real Estate Authority decisions"),
 )
 NOT_HELD_NAME = dict(NOT_HELD)
 #: not-held keys a template may still cite for a register a lane has since published: {old key: the register}. A template naming one
