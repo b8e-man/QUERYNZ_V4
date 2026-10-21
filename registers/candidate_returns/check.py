@@ -13,12 +13,14 @@ spreadsheet row no held return answers; "Return not received" counted
 apart). A replaced return is never compared: its figures are a fact about
 an earlier filing.
 
+    issues(returns, donors) -> {"returns", "donors", "donor_parts", "largest_cents"}   ruling 66's issue rows
     compare(files, returns, commission) -> {"equal": [...], "differs": [...], "set_aside": [...], "not_held": [...],
                                             "not_received": [...], "no_spreadsheet": [...]}
     python -m registers.candidate_returns.check [--schema candidate_returns] [--database querynz_v4]
 
 Read-only.
 """
+import re
 import sys
 
 CENT = 0.005
@@ -62,6 +64,18 @@ def compare(files: list, returns: list, commission: list) -> dict:
     return out
 
 
+def issues(returns: list, donors: list) -> dict:
+    """Ruling 66: the rows published on a reconciliation within $100 that was not to the cent, by table, with the
+    largest difference admitted (cents)."""
+    def off(i):
+        return max((abs(int(round(float(m.replace(",", "")) * 100))) for m in re.findall(r"[+-]([\d,]+\.\d{2}):", i or "")),
+                   default=0)
+    r = [x for x in returns if x.get("issue")]
+    d = [x for x in donors if x.get("issue")]
+    return {"returns": len(r), "donors": len(d), "donor_parts": len({x["return_key"] for x in d}),
+            "largest_cents": max((off(x["issue"]) for x in r + d), default=0)}
+
+
 def summary(result: dict) -> str:
     return ", ".join(f"{k.replace('_', ' ')} {len(v)}" for k, v in result.items())
 
@@ -78,9 +92,12 @@ def main(argv=None) -> int:
     database = argv[argv.index("--database") + 1] if "--database" in argv else "querynz_v4"
     from support import db
     with db.connect(db.READ_KEY, database) as conn:
-        res = compare(_rows(conn, f"SELECT * FROM {schema}.files"), _rows(conn, f"SELECT * FROM {schema}.returns"),
-                      _rows(conn, f"SELECT * FROM {schema}.commission"))
+        returns = _rows(conn, f"SELECT * FROM {schema}.returns")
+        res = compare(_rows(conn, f"SELECT * FROM {schema}.files"), returns, _rows(conn, f"SELECT * FROM {schema}.commission"))
+        flagged = issues(returns, _rows(conn, f"SELECT key, return_key, issue FROM {schema}.donors"))
     print(summary(res))
+    print("issue rows (ruling 66): {returns} returns, {donors} donor rows on {donor_parts} parts; largest {largest_cents} cents"
+          .format(**flagged))
     for d in res["differs"]:
         print(f"  {d[0][:12]} {d[1]} {d[2]}, {d[3]}: " + "; ".join(f"{k} {a} against {b}" for k, a, b in d[4]))
     return 0

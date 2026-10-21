@@ -10,7 +10,7 @@ import re
 import pytest
 
 from support import db, lane, rowcontract, sample
-from registers.disclosures import capture, check, listing, read
+from registers.disclosures import capture, check, listing, read, reconcile
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 LANE = os.path.join(REPO, "registers", "disclosures")
@@ -99,6 +99,36 @@ def test_an_inline_amendment_of_2008_carries_the_amended_total_and_the_original(
     frm = rows["H Donor"]
     assert (frm.amount, frm.amount_original, frm.received_on, frm.amended_on) == (44496.65, 44571.65, "2008-06-16", "2008-06-23")
     assert frm.regime == "over-20000-2008-2010" and frm.threshold == 20000
+
+
+def test_ruling_66_itemised_gifts_within_100_reconcile_with_an_issue_and_100_or_more_do_not():
+    assert reconcile.RECONCILE_TOLERANCE_CENTS == 10000
+    assert read.items_check(30000.00, 30000.00, 2) == ("equal", None)
+    assert read.items_check(30099.99, 30000.00, 2) == ("reconciled", "+99.99: the 2 itemised gifts against the declared amount")
+    assert read.items_check(29900.01, 30000.00, 2) == ("reconciled", "-99.99: the 2 itemised gifts against the declared amount")
+    assert read.items_check(30100.00, 30000.00, 2) == ("differs", None)      # exactly $100 is unreconciled
+    assert read.items_check(29900.00, 30000.00, 2) == ("differs", None)
+    assert read.items_check(30100.01, 30000.00, 2) == ("differs", None)
+    assert read.items_check(None, 30000.00, 0) == ("no figures", None)
+
+
+def _old_row(gifts: str, total: str) -> dict:
+    html = ('<h2>Party donations exceeding $30,000 from 1 January 2011 to 31 December 2022</h2><table>'
+            '<tr><td>Party, donation, date received by the Commission</td><td>Name and address of donor</td>'
+            '<td>Amount(s) and date(s) of donations</td></tr>'
+            f'<tr><td>Example Party<br>{total}<br>23 December 2021</td><td>E Donor<br>3 Invented Lane</td>'
+            f'<td>{gifts}</td></tr></table>')
+    return read.read_listing(html.encode(), "0" * 64, loaded_at="2026-10-21T13:00:00+13:00").rows[0]["filed"]
+
+
+def test_ruling_66_through_the_listing_reader_the_printed_amount_stands():
+    f = _old_row("$20,000 on 25 May 2021<br>$15,099.99 on 9 December 2021", "$35,000")
+    assert (f["amount"], f["items_sum"], f["items_check"]) == (35000.0, 35099.99, "reconciled")
+    assert f["issue"] == "+99.99: the 2 itemised gifts against the declared amount"
+    f = _old_row("$20,000 on 25 May 2021<br>$15,100 on 9 December 2021", "$35,000")
+    assert (f["amount"], f["items_check"], f["issue"]) == (35000.0, "differs", None)
+    f = _old_row("$20,000 on 25 May 2021<br>$15,000 on 9 December 2021", "$35,000")
+    assert (f["items_check"], f["issue"]) == ("equal", None)
 
 
 def test_a_row_the_table_cannot_answer_for_is_a_catch_log_line():
@@ -363,6 +393,21 @@ def test_the_published_views_build_on_the_lane_s_tables(filled):
     cols = [d[0] for d in conn.execute(f"SELECT * FROM {schema}.disclosures_pub_disclosures LIMIT 0").description]
     conn.rollback()
     assert n == len(filled["rows"]) and not any("address" in c for c in cols)
+    assert cols[-1] == "issue", "ruling 66's flag is published, at the view's end"
+
+
+def test_ruling_66_the_sample_s_listed_keys_carry_their_outcome_and_the_check_counts_them(filled):
+    by_key = {r["key"]: r for r in filled["rows"]}
+    keys = [l.split()[1] for l in sample.read_list(os.path.join(LANE, "sample.list")) if l.startswith("key: ec-listing/")]
+    assert len(keys) == 3
+    admitted = by_key[keys[0]]
+    assert (admitted["items_check"], admitted["issue"]) == ("reconciled", "+0.16: the 8 itemised gifts against the declared amount")
+    assert float(admitted["amount"]) == 41037.00, "the published total is the printed one"
+    for k in keys[1:]:
+        assert (by_key[k]["items_check"], by_key[k]["issue"]) == ("differs", None)
+    flagged = check.issues(filled["rows"])
+    assert flagged == [(keys[0], admitted["issue"])]
+    assert all(r["items_check"] == "reconciled" for r in filled["rows"] if r["issue"])
 
 
 def test_a_difference_passes_the_check_only_when_a_card_names_it(tmp_path):
