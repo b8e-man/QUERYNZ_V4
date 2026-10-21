@@ -269,11 +269,13 @@ def test_the_lane_rests_its_floor_after_each_answer():
 
 
 def test_a_redirect_to_another_host_stops_the_run_and_lands_nothing():
+    # the gate returns a redirect off the host unfetched: the 3xx and its Location, final_url the URL asked
     def away(url, timeout):
-        return fg.Fetched(url, 200, b"{}", "https://elsewhere.example/x")
+        return fg.Fetched(url, 302, b"", url, "", "https://elsewhere.example/x")
     store, t = FakeStore(), FakeTables()
     _, out = run(t, away, store, sets=["Groups"])
-    assert "redirected" in out["stopped"] and not store.docs
+    assert "redirected to elsewhere.example" in out["stopped"] and not store.docs
+    assert [a[3] for a in t.aside] == ["redirected to elsewhere.example: not landed, and the run stops"]
 
 
 def test_the_code_lists_and_documents_are_asked_weekly_and_a_full_list_is_not_trusted():
