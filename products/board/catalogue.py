@@ -522,6 +522,24 @@ VIEWS: tuple[View, ...] = (
          fields=(("party", "party"), ("year", "year"), ("amount", "amount"), ("dates as printed", "dates"),
                  ("interest", "interest"), ("ordinal", "ordinal"), ("replaced by", "replaced_by")),
          names=("lender",), parent=("Return", "party_return_totals", "return_key"), default_order="ordinal"),
+    # ── party boards, the declared tier (ruling 72; pane.md: party_boards; catalogued in the merge after party-boards-1) ──
+    View("party_board_roles", "party_boards", "person", ("name", "role"),
+         search=("name", "name_as_declared"),
+         fields=(("party", "party"), ("role", "role"), ("role basis", "role_basis"), ("section", "section"),
+                 ("name as declared", "name_as_declared"), ("qualifier", "qualifier"), ("tier", "tier"),
+                 ("captures", "captures"), ("page shape", "shape")),
+         dates=(("first captured on", "captured_on"), ("last captured on", "last_captured_on")),
+         urls=("url", "archive_url"),
+         names=("name", "name_as_declared"),
+         parent=("Page", "party_board_pages", "document"),
+         note="the board a party declares on its own website, as captured; built and not deployed to the Follow the Money site (ruling 72)"),
+    View("party_board_pages", "party_boards", "document", ("party", "url"), key_col="document", default_order="document",
+         search=("url",),
+         fields=(("party", "party"), ("status", "status"), ("page shape", "shape"), ("reason", "reason"),
+                 ("rows", "rows"), ("set aside", "set_aside"), ("capture kind", "capture_kind")),
+         dates=(("captured on", "captured_on"),),
+         urls=("url", "archive_url"),
+         joins=(Join("Declared roles", "party_board_roles", "document", key_column="document", order="name"),)),
 )
 
 BY_NAME = {v.name: v for v in VIEWS}
@@ -540,6 +558,7 @@ REGISTERS = (
     ("charities", "Charities register and officers"),
     ("candidate_returns", "Candidate donation and expense returns"),
     ("gazette", "Gazette notices"),
+    ("party_boards", "Party boards as declared on party websites (ruling 72: not on the site)"),
 )
 
 #: registers the plan names that no lane has published yet (plan step 4.1 and later steps)
