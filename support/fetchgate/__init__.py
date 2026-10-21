@@ -103,6 +103,18 @@ FLOORS = {
     "www.linz.govt.nz": 5.0,   # the overseas investment decisions (oio-1, 21 October)
     "www.communitymatters.govt.nz": 5.0,   # the Lottery's records of grants (grants-1, 21 October)
     "www.dia.govt.nz": 5.0,   # the Department's class 4 list (grants-1, 21 October)
+    "airrescueservices.co.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
+    "pelorustrust.net.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
+    "agt.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
+    "onefoundation.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
+    "trustaoraki.co.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
+    "newhorizoncommunitytrust.co.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
+    "milestonefoundation.co.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
+    "wecare.org.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
+    "nzct.org.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
+    "growregions.govt.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
+    "tec.govt.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
+    "educationcounts.govt.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
 }
 
 
