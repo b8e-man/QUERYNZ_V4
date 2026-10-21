@@ -268,9 +268,9 @@ class Run:
             self.t.set_aside(url, "fetch", f.blocked)
             self.counts["set_aside"] += 1
             raise Stop(f.blocked)
-        elsewhere = fg.host_of(f.final_url or url)
+        elsewhere = fg.host_of(f.location) if f.status in fg.REDIRECT_STATUSES and f.location else HOST
         if elsewhere != HOST:
-            # the gate judged the URL asked, not the one answered: nothing from another host is landed
+            # the gate judged the URL asked and hands back a redirect off it unfetched, in f.location
             why = f"redirected to {elsewhere}: not landed, and the run stops"
             self.t.set_aside(url, "fetch", why)
             self.counts["set_aside"] += 1
