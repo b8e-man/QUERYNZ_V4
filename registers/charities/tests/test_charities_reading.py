@@ -564,9 +564,17 @@ def test_the_capture_s_measure_holds_within_the_rows_the_register_moved():
                                               "modified_during_the_pass", "modified_since_the_pass_began", "detail")}
 
 
-def test_the_rows_cite_the_proposed_profile_the_one_after_the_ledger_s():
+def test_the_rows_cite_the_profile_version_the_ledger_holds_or_the_proposed_one():
+    """Before the merge the proposed file carries the version the rows cite and
+    the ledger is one behind; at the merge the integrator appends it and
+    deletes the file (charities-3), so the ledger's version is the rows'."""
     from support import profiles
-    proposed = profiles.current(os.path.join(LANE, "profile-proposed.jsonl"))[read.PROFILE]
     shipped = profiles.current().get(read.PROFILE)
-    assert proposed["version"] == read.PROFILE_VERSION and proposed["tooling"]["read"] == "registers/charities/read.py"
-    assert shipped is None or shipped["version"] in (read.PROFILE_VERSION - 1, read.PROFILE_VERSION)
+    path = os.path.join(LANE, "profile-proposed.jsonl")
+    if os.path.exists(path):
+        proposed = profiles.current(path)[read.PROFILE]
+        assert proposed["version"] == read.PROFILE_VERSION and proposed["tooling"]["read"] == "registers/charities/read.py"
+        assert shipped is None or shipped["version"] in (read.PROFILE_VERSION - 1, read.PROFILE_VERSION)
+    else:
+        assert shipped is not None and shipped["version"] == read.PROFILE_VERSION
+        assert shipped["tooling"]["read"] == "registers/charities/read.py"
