@@ -1,0 +1,5 @@
+# Whether a declined grant application naming an individual is shown on a product surface
+default: Shown as the Department publishes it, inside the estate only: `pub.grants` keeps every declined application with its status, never as money received, and the recipient as printed, never looked up
+blocks: Nothing now; the products that show grants (use cases 9 and 14, the report shape) before anything is sold or goes on the public site
+recommendation: The default. The Department publishes declined applications on purpose (the Gambling Act requires societies to publish them, s 110(4)) under CC BY 4.0, and they show where money was asked for and refused. But 6,060 declined applications in the national file name a recipient no organisation word or number shows to be an organisation, and a person who applied for help and was refused is a different thing to show than a club that was. If Arthur wants it narrower: show a declined application only where the recipient is shown to be an organisation (`recipient_kind`), one filter in the views
+raised: 2026-10-21 by grants-1 (step 6.3: registers/grants)
