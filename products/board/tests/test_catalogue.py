@@ -12,6 +12,9 @@ PUBLISHED_AT_20_OCTOBER = {
     "charities", "charity_officers", "charity_returns",   # charities-3 (21 October), catalogued at the construction-2 merge
     "company_lookups", "company_lookup_roles", "company_lookup_holdings", "company_changes",   # companies-2 (21 October)
     "party_board_roles", "party_board_pages",   # party-boards-1 (21 October), catalogued at the next merge
+    "overseas_investment_decisions", "overseas_investment_parties",   # oio-1 (21 October), catalogued at the next merge
+    "grant_publishers", "grants", "grant_recipients",   # grants-1 (21 October), catalogued at the next merge
+    "commerce_commission_cases", "commerce_commission_parties", "fma_actions", "fma_parties", "worksafe_actions", "worksafe_parties",   # regulators-1 (21 October), catalogued at the next merge
     "award_notices", "award_suppliers",   # tenders-1 (21 October), catalogued at the next merge
     "sanctions_lists", "sanctions_listings",   # sanctions-1 (21 October), catalogued once published
     "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "building_practitioners",   # sanctions-1 (21 October)

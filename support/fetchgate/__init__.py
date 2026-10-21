@@ -15,6 +15,10 @@ file is archived verbatim with its hash, as a record. What refuses:
   4. a challenge or a block met on the read (hard limit 6): a 403, 429 or
      5xx, or a challenge page, is a failed read. It is logged and the lane
      moves on; nothing is solved, logged in to, or got around
+  5. a redirect is not followed unasked: the gate judged the host asked,
+     not the one pointed to. `open_url` returns the 3xx with its Location;
+     a caller that wants it followed passes `follow=`, and every hop is
+     judged, recorded and paced as a fresh request
 
 Politeness (hard limit 7): one User-Agent for the whole estate; a floor
 between requests to one host that is the SLOWEST of the default, the stated
@@ -55,7 +59,11 @@ POLITE_FLOOR_S = 5.0
 MAX_FLOOR_S = 120.0          # a crawl delay above this is honoured at this: the host is asking not to be crawled
 CHALLENGE_STATUSES = (403, 429, 503, 502, 500, 504)
 CHALLENGE_MARKS = ("cf-chl", "challenge-platform", "just a moment", "attention required", "captcha",
-                   "radware", "incapsula", "_incapsula_", "are you a human", "access denied")
+                   "radware", "incapsula", "_incapsula_", "are you a human", "access denied",
+                   "pardon our interruption")
+#: response headers only a challenge or block page carries (lower case)
+CHALLENGE_HEADERS = ("x-spa-interstitial",)    # Imperva's interstitial (grants-1, 21 October)
+REDIRECT_STATUSES = (301, 302, 303, 307, 308)
 
 #: hosts we do not capture from (hard limit 8). Matched with every parent domain.
 HELD = {
@@ -88,6 +96,13 @@ FLOORS = {
     "www.police.govt.nz": 10.0,
     "scsanctions.un.org": 10.0,
     "catalogue.data.govt.nz": 10.0,   # its own crawl delay (tenders-1, 21 October)
+    # step 5.3, the regulator lanes (regulators-1, 21 October)
+    "www.comcom.govt.nz": 5.0,
+    "www.fma.govt.nz": 5.0,
+    "www.worksafe.govt.nz": 5.0,
+    "www.linz.govt.nz": 5.0,   # the overseas investment decisions (oio-1, 21 October)
+    "www.communitymatters.govt.nz": 5.0,   # the Lottery's records of grants (grants-1, 21 October)
+    "www.dia.govt.nz": 5.0,   # the Department's class 4 list (grants-1, 21 October)
 }
 
 
@@ -332,13 +347,20 @@ class Fetched:
     url: str
     status: int
     body: bytes
-    final_url: str
+    final_url: str           # the address that answered: never one the gate did not judge
     blocked: str = ""        # '' or why this is a failed read (a challenge or a block)
+    location: str = ""       # a 3xx's Location, absolute and NOT fetched; '' otherwise
 
 
-def looks_challenged(status: int, body: bytes) -> str:
+def looks_challenged(status: int, body: bytes, headers: dict = None) -> str:
+    """Recognise a block by the block page's own landmarks: its status, its
+    title, its own header. Never by a challenge script's name alone, which
+    real pages from a protected site carry too (Imperva's reese84 is one)."""
     if status in CHALLENGE_STATUSES:
         return f"HTTP {status}: a block or a challenge; a challenged read is a failed read (hard limit 6)"
+    for name in (headers or {}):
+        if name.lower() in CHALLENGE_HEADERS:
+            return f"a challenge page (header {name}); a challenged read is a failed read (hard limit 6)"
     head = body[:4096].decode("utf-8", "replace").lower()
     for mark in CHALLENGE_MARKS:
         if mark in head:
@@ -346,23 +368,54 @@ def looks_challenged(status: int, body: bytes) -> str:
     return ""
 
 
+class _NoFollow(urllib.request.HTTPRedirectHandler):
+    """urllib follows a 3xx by itself; this hands it back as an HTTPError."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoFollow)
+
+
+def _go(url: str, timeout: int, headers: dict, max_bytes: int):
+    req = urllib.request.Request(url, headers={"User-Agent": UA, **(headers or {})})
+    try:
+        with _OPENER.open(req, timeout=timeout) as r:
+            return r.status, (r.read(max_bytes) if max_bytes else r.read()), url, dict(r.headers.items())
+    except urllib.error.HTTPError as e:
+        return e.code, b"", url, dict(e.headers.items()) if e.headers else {}
+
+
 def open_url(url: str, *, timeout: int = 30, headers: dict = None, pacer: Pacer = None, max_bytes: int = None,
-             fetch=None, positions_dir: str = None, ledger_dir: str = None) -> Fetched:
+             fetch=None, positions_dir: str = None, ledger_dir: str = None, follow: int = 0,
+             same_host_hops: int = 3) -> Fetched:
     """The gated fetch: check, pace, go, with the one UA. A 404 is the host
     answering; a 403, 429, 5xx or a challenge page is a failed read, returned
-    as `blocked` and never retried in the same run."""
-    dec = check(url, positions_dir=positions_dir, ledger_dir=ledger_dir)
-    (pacer or _PACER).wait(dec.host, dec.floor)
-    if fetch is not None:
-        status, body, final = fetch(url, timeout)
-    else:
-        req = urllib.request.Request(url, headers={"User-Agent": UA, **(headers or {})})
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                status, body, final = r.status, (r.read(max_bytes) if max_bytes else r.read()), r.geturl()
-        except urllib.error.HTTPError as e:
-            status, body, final = e.code, b"", url
-    return Fetched(url, status, body, final, looks_challenged(status, body))
+    as `blocked` and never retried in the same run.
+
+    A redirect is returned, not followed: `status` is the 3xx, `location` the
+    address it points to, unfetched, and `final_url` the URL asked. With
+    `follow=n` up to n hops are taken, each one checked against the positions
+    (a Refused is raised as for any URL), recorded and paced on its own host.
+    A redirect that stays on the host asked is followed without asking, up to
+    `same_host_hops` (the host was judged; http to https and a trailing slash
+    are the common cases); set it to 0 to see those too.
+    `fetch(url, timeout) -> (status, body, final[, headers])` is injectable."""
+    asked, hops = url, 0
+    while True:
+        dec = check(url, positions_dir=positions_dir, ledger_dir=ledger_dir)
+        (pacer or _PACER).wait(dec.host, dec.floor)
+        got = fetch(url, timeout) if fetch is not None else _go(url, timeout, headers, max_bytes)
+        status, body, final = got[:3]
+        hdrs = got[3] if len(got) > 3 else {}
+        loc = next((v for k, v in hdrs.items() if k.lower() == "location"), "") if status in REDIRECT_STATUSES else ""
+        loc = urllib.parse.urljoin(url, loc) if loc else ""
+        same_host = bool(loc) and host_of(loc) == host_of(asked)
+        if loc and (hops < follow or (same_host and hops < same_host_hops)):
+            url, hops = loc, hops + 1
+            continue
+        return Fetched(asked, status, body, final, looks_challenged(status, body, hdrs), loc)
 
 
 def pace(url_or_host: str, pacer: Pacer = None) -> float:

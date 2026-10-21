@@ -1,0 +1,50 @@
+# registers/grants/sample.list: hashes and key: lines only. Landed 21 October 2026 through the fetch gate (a daytime
+# survey and proof: 105 page requests and one robots file per host, 5 s apart or the host's stated delay, serial).
+# The Department's national file of class 4 grants, "Grants from Gaming Machine Profits" (CC BY 4.0; 178,739 records,
+# decisions 2021 to 2025). `key: dia <record number>` names the records the fill reads (the whole file is the slow test)
+a1da8259821c41dd8243aa90f6a4ac1d03e19c4026dc53bce8214505c3832083
+# the catalogue's page for the file (licence CC BY 4.0, the download link); the Department's copyright statement
+# (CC BY 4.0) and terms of use; the Imperva interstitial the catalogue served to a search on 21 October 2026 with a 200
+# (a challenge the gate did not see; held, never read: the capture's challenge test)
+44049a1bf0b13b9a15c37203947866d0c11c85d589dd9e980433af3866fba917
+4939948812cb521ecc5566c6323db677d5d701310bee8667c5f021aadbf1acb0
+b405d51adf6c9884612aa85c77136513663dd8ae3ec41b8afbf156ee7ec8d3b6
+fe3dcaa5d2872d504b93e3708fb93df3c6f6f0db37d6f9b4529606d9f8d0e199
+# Community Matters: the 2024/25 round two Lottery Community National record of grants (156 rows, 61 asterisked
+# multi-year grants, the footnote after the table); the site's home page (no record; not recognised)
+16bd7a0b3d0e3494bb57419ace762082f9b2694f37bad15b6d2f413076399905
+9d579b4c2b1c8e7aadd0ce52ff93a97c3b26b87d3d26d7bb24f76b26c727d8a6
+# records of the national file: declined with 0 granted, a decision dated d/mm/yyyy, the Department's final name not
+# the name as published
+key: dia 3
+# accepted, a name no organisation word or number shows to be an organisation (kept as printed, never looked up)
+key: dia 2
+# an amount granted in cents
+key: dia 5
+# a region printed in mixed case
+key: dia 13
+# no recipient named (a catch-log line)
+key: dia 583
+# no decision date, the year only
+key: dia 3241
+# a valid NZBN printed; a twelve-digit business-number field (not an NZBN, kept as published)
+key: dia 12328
+key: dia 18583
+# society name forms: 'Lion Foundation', 'THE BENDIGO VALLEY …', 'Tab New Zealand'
+key: dia 11244
+key: dia 22538
+key: dia 88866
+# the amount granted empty
+key: dia 58811
+# a refund dated NULL; a refund dated by a spreadsheet day number
+key: dia 115239
+key: dia 120451
+# a field in Windows-1252 in a UTF-8 file
+key: dia 117126
+# a charity number in lower case; one in spreadsheet exponent form (not a charity number, kept as published)
+key: dia 136422
+key: dia 141130
+# benefits several territorial authorities
+key: dia 136365
+# status Refunded
+key: dia 178732

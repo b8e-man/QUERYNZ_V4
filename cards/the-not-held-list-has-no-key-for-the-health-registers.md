@@ -1,9 +1,10 @@
 # The shape's not-held list has no key for the registers a health regulator keeps
 kind: finding
-state: open
+state: closed
 use-case: 11 healthcare operator governance
 session: healthcare-1
 opened: 2026-10-21
+closed: 2026-10-21
 
 Template 11 must name, each with its key, what it cannot see: the retirement
 villages file and its statutory supervisors, the Health and Disability
@@ -24,3 +25,10 @@ For the report lane, five entries for `catalogue.NOT_HELD`:
 
 Then template 11 names them in `not_held` on its not-held section (and
 `retirement_villages` on its standing section), a fix in its folder.
+
+Closed (fix-report-2, 2026-10-21). The five entries are in
+`catalogue.NOT_HELD` with the wording above (`retirement_villages`, `hdc`,
+`certification`, `health_providers`, `aged_care_commissioner`); the
+catalogue's other keys stay (`tests/test_catalogue.py`). Template 11's
+`not_held` lines are its own fix, in
+`the-healthcare-template-can-now-read-the-charities-register-and-the-reaches`.

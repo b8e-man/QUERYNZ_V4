@@ -324,20 +324,136 @@ by links-2: score again (`qv4-links-review --args '{"mode": "score"}'`).
 
 ## report
 
-Merged (`docs/merges/report-1` to `-3`): the subject-report shape on
-10.0.0.2:8440; tranche 3 added a since date, the officers, office and chain
-reaches, section filters, holdings and the not-held list with keys. Open
-for the shape (cards): template parameters (`window_days`, from
-construction-2); the charities views (healthcare-1, charities-3); the
-health registers' not-held keys. One fix session on `products/report` for
-the three, after the 21 October merges.
+Merged (`docs/merges/report-1` to `-3`, `fix-report-2`): the subject-report
+shape on 10.0.0.2:8440, contract 0.4: template parameters (`[[params]]`,
+`report["params"]`), the Charities Register catalogued and reached, eight
+not-held keys, an officer's near links, the companies above in the chain.
+`fix-templates-1` (raised 21 October, `products/templates`): construction
+and property declare `window_days`; the ten templates read the charities
+register; a healthcare trust board's trustees read from its charity.
+Three template cards stay open for a later `bin/fix products/templates`.
 
 ## ownership
 
-Step 5.2: templates 13 (`ownership-1`), 7 (`construction-1`, `-2`), 5
-(`credit-1`), 6 (`insurance-1`) merged; 11 (`healthcare-1`) raised; 12
-(`property-1`, Opus) launched 21 October 13:40. After 12 merges, step 5.2
-closes and step 6 (register scans) follows; step 7 held (ruling 63).
+Step 5.2 closed 21 October: templates 13, 7 (+ `construction-2`), 5, 6,
+11 (`healthcare-1`), 12 (`property-1`) merged beside 08, 04, 03, 02. Step
+6.1 (`scan-1`, Fable, `products/scan`) runs; step 7 held (ruling 63).
+
+## party-boards
+
+Merged (`party-boards-1`, ruling 72): the declared tier from the held
+party-website capture, 2017 on; `pub.party_board_roles` and
+`pub.party_board_pages`, on the board, not on the site and not in the
+links. `qv4-party-boards-load` reloads on demand. Carded: Labour's and the
+Greens' boards are not in the capture. Next, when Arthur asks: the
+historic private-positions tier.
+
+## openlaw
+
+HELD (`openlaw-1`, step 5.4): the OpenLaw NZ interface's terms (clause
+3.6(a)/3.7) bar the copy; queue item
+`whether-openlaw-api-content-may-be-copied` has no default. Lane built
+and proven in memory; profile appended; schemas made; no job. Nothing
+runs until Arthur rules or OpenLaw NZ authorises in writing.
+
+## courts
+
+Merged (`courts-1`, step 5.4): the senior courts' judgments from
+courtsofnz.govt.nz and the held Waitangi Tribunal reports; five profiles;
+`qv4-courts-capture` nightly 03:30 NZDT; `pub.court_judgments` and
+`pub.court_judgment_parties` (board views in the merge after). Carded:
+District Court judgments not captured, High Court outcomes not read,
+Tribunal reports held and not read. The Ministry of Justice letter is
+Arthur's.
+
+## sanctions
+
+Merged (`sanctions-1`, step 5.3): limited partnerships through the NZBN
+interface (`qv4-limited-partnerships-capture` nightly 21:00, never
+Wednesday; `-load` 06:50) and the Building Practitioners Board's decisions
+(`qv4-building-practitioners-capture` nightly 23:00, the spec's weekly
+Sunday until the catalogue carries a weekday; `-load` 06:40). HELD: the
+practitioner register (Building Act s 307/308) and the three sanctions
+lists (MFAT, UN, Police), five queue items. Both checks red until the
+first full passes. Board views in the merge after.
+
+## scan
+
+Merged (`scan-1`, step 6.1): the register-scan shape on 10.0.0.2:8450, two
+proving scans, `qv4-scan-rerun` after the links' build; the two trust
+settings "default in force" (queue). Step 6.2 templates follow, in the
+plan's order: 1 (tender and award intelligence, on `pub.award_notices`),
+2, 3, 4(b) to (d).
+
+## tenders
+
+Merged (`tenders-1`, step 6.2's register): the GETS award notices, 29,874
+(July 2014 on) from the old estate's files of 14 August, read by six
+profiles; `pub.award_notices`, `pub.award_suppliers` with the CC BY 3.0 NZ
+attribution on every row. The ministry's host answers 403 and
+data.govt.nz challenges: failed reads, not got around; `qv4-tenders-refresh`
+asks nothing before 2 November, then weekly. Arthur's: a letter to the
+ministry; the queue item on keeping the old copy (default: kept).
+
+## regulators
+
+Merged (`regulators-1`, step 5.3): Commerce Commission cases (1,727
+listed), FMA warnings and enforcement (825), WorkSafe prosecutions and
+undertakings (670), each captured verbatim, read by profile, no model;
+six jobs nightly from 22:30. Checks red until a full pass is held.
+
+## diaries
+
+RULED (`diaries-1`, 6.2 4(a); ruling 78): the Beehive and Hansard are not
+captured; Arthur has a third-party source. The reader's one attempt was
+refused by the wall (hard limit 6: a failed read, nothing got around);
+records merged, no lane code; the blocker card and the letter question
+closed with the ruling. Diaries begin January 2019. Next: Arthur names the
+source; its position (ruling 61), then the register from it. The headed
+browser still has no home in the new estate (finding card).
+
+## oio
+
+Merged (`oio-1`, 5.3): overseas investment decision summaries from
+linz.govt.nz, 1,337 listed from 2017, read by profile, no model;
+`pub.overseas_investment_decisions`, `pub.overseas_investment_parties`;
+the land's address withheld on every row (queue, default applied);
+`qv4-overseas-investment-capture` 23:10, `-load` 06:35. Check red until
+the first full pass.
+
+## hdc
+
+HELD (`hdc-1`, 5.3): the Commissioner's copyright allows research use
+only; queue item `whether-the-hdc-decisions-may-be-copied-for-the-estate`
+has no default (the session recommends a letter asking permission). Lane
+built and proven on twelve pages; profiles appended; no job.
+
+## grants
+
+Raised (`grants-1`, step 6.3, Opus): the Department of Internal Affairs'
+national file of class 4 grants (178,739 records, 2021 to 2025, CC BY 4.0)
+and the Lottery Grants Board's records of grants on Community Matters;
+`pub.grants`, `pub.grant_recipients`, `pub.grant_publishers`; 31 society
+sites surveyed and carded by class. Nothing held on terms. Jobs
+`qv4-grants-capture` 22:45, `-load` 06:35 at the merge. Queue: declined
+applications naming an individual (default: as the Department shows them,
+inside the estate only).
+
+## fetchgate
+
+Raised (`fix-support-fetchgate-1`): Imperva's interstitial is a blocked
+read; a redirect is returned, not followed, unless the caller asks
+(`follow=`). At the merge the integrator adds a same-host default (http to
+https, a trailing slash) so the nightly captures do not thin. Card for the
+six lanes that stop on the final address.
+
+## scan-templates
+
+Raised (`scan-templates-1`, step 6.2 templates 1 and 2): `tender-awards`
+(33,744 lines), `procurement-directors-donors` (80), `procurement-
+shareholders-donors` (6); a shape diff over ten scan files to apply at the
+merge (`patch -p1`; the hooks refuse `git apply`). The award join stays
+off the public site (6.2 row 2; 6.4 is Arthur's question).
 
 ## candidate-returns
 

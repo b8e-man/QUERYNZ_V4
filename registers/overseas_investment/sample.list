@@ -1,0 +1,45 @@
+# registers/overseas_investment/sample.list: hashes and key: lines only. Landed 21 October 2026 through the fetch gate
+# (a daytime proof of the path: the ten years' listings, 27 pages, and 24 summaries, 5 s apart).
+# The documents about the source (not read as pages): the copyright licence (CC BY 4.0); the disclaimer; the privacy
+# statement
+4c1e32139d0117bd68e30580e0ac699aa9e6bf74155496678f6872565bfa29c1
+ec3aa019ec5a03ee12b371b8b99f777da31ab72df0fd587641eaa63cec1e3b14
+fc06114082cc83a2c644f563962a67bcbf3585918a20ca998beaea1be525ba05
+# listing pages: the unfiltered first page (pager to page 48); 2017's first page (pager to page 1); 2020's first page
+e78cb09a2a00e24f2bc5a3c866dadd98477b7d6c7d70f03b01b3b87aa4780b80
+5d0088563e92b6dd0adb066d81b8f414c7b4964652e4d379f317e1eb3c9281e6
+0aa045493de570e96287539f41b78e05f9f2af9124f1d53daf12a93873cc81d3
+key: listing year-2017 5d0088563e92b6dd0adb066d81b8f414c7b4964652e4d379f317e1eb3c9281e6
+# summaries, `key: item <list> <sha256>` (the slug and case numbers come from the page and the store, never from git):
+#  1 a trust's land bought from three trustees named as persons; a street address; one figure
+#  2 two parcels at five street addresses; consideration withheld under the OIA; a retrospective penalty
+#  3 consent declined; two attachments; ownership lines naming holders
+#  4 a 2017 decision of the older layout; land described by locality only
+#  5 two persons buying a lifestyle block; a street address with no street word; persons in ownership lines
+#  6 an "Asset Value" in place of a consideration; persons intending to reside
+#  7 one page under two case numbers; three vendors, two with a receivership beside the name, lines shared
+#  8 a standing-consent notification, "Consent holder"
+#  9 an older notification: the section where the outcome goes, "Date" for the decision date, "ha"
+# 10 everything withheld under the OIA: applicant, investment, and an "Issuer" row
+# 11 applicant and vendor withheld; declined by Ministers
+# 12 a withheld applicant with an ownership line
+# 13 one page under seven case numbers; seven parcels across two places
+# 14 two vendors each with their own ownership lines; areas with thousands separators
+# 15 a "Lease amount" per annum, never read as a price
+# 16 a "Cost of Commencing Business"; two pathways on two lines
+key: item year-2026 4710b38ce4d6911d5b6115a219120305c0ced9cdae4ae8f6d045155eb226ba19
+key: item year-2026 84573cef2a2348306d89762b5b9617d64ce7b3e3f4a7e27eb32a829aaf5664c5
+key: item year-2017 cd4b667106dd833993c0b75a8b1edf1310dfe5249e2dd93cbf8a2af3475f5fe0
+key: item year-2017 b9fcd2dcb70d439dd4be2dcb351bd24856f2049951b68cee7759917663493202
+key: item year-2017 7d8c52619f563259ad40ece319183f1e57e0652df2d1d3f1f25f29d241822aba
+key: item year-2020 19b40c7fa55cd1b2627212a5cab9447ecd31bbec06b41909340e53793837aa03
+key: item year-2020 1cc1be1e4ddd719d204d927858fef3c0f9c091f1e770be2b46d866ba5d90ea84
+key: item year-2026 45b08e188ee071698cc1f5dff7fa57ede820a5ecc84752effd6b003f75c4027f
+key: item year-2022 2ba28c76522b136f3a37fbced2476c384807cc8eadf7141139b57d18267b29f2
+key: item year-2018 ee73ef7cd86fdfc1a555c52880e765d0e6370774eff8f44abf702ad358023cdc
+key: item year-2021 1d6e1d9f72e1d76dc88ec5da9f6dd8d9d6998e1758003cafa207ad3d8b84c165
+key: item year-2024 518b00ea09c821fb083fb6bf26df87c72880563f507b33fbf9991781733fa8da
+key: item year-2020 e1add9fd7700d9f3f56137bf9bcbe44722b8c47411c223cd1b8f216ac46b896e
+key: item year-2018 1f491138ec4ccc95883a08b6b6c26f0709c2a06cb9e5c7012ad1f3a0ad564769
+key: item year-2023 2643faf28f446a0978a312b2a8bdcde824b07de38050cec04fe63e90a94d3c30
+key: item year-2024 ef0a2e355232a142ffbe7d94a52f6363a54013f486d71f4ec6a12d874c62f3f6
