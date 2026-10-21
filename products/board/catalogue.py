@@ -592,6 +592,24 @@ VIEWS: tuple[View, ...] = (
                  ("area", "area")),
          names=("name",), suppressed="suppressed",
          note="held: nothing is asked of the practitioner register (Building Act 2004 s 307, s 308); this view is empty until Arthur rules"),
+    # ── step 5.3, the held sanctions lists (sanctions-1; catalogued in the merge after their views were published) ──
+    View("sanctions_lists", "sanctions", "document", ("name", "version"), key_col="list_id", default_order="list_id",
+         search=("name", "publisher"),
+         fields=(("publisher", "publisher"), ("law", "law"), ("version", "version"), ("stated count", "stated"),
+                 ("stated where", "stated_where"), ("listings", "listings"), ("ended", "ended"), ("set aside", "set_aside")),
+         joins=(Join("Listings", "sanctions_listings", "list_id", key_column="list_id", order="name"),),
+         note="held on the publishers' terms (sanctions-1): empty until a list is landed by hand under its licence or the publisher authorises a copy"),
+    View("sanctions_listings", "sanctions", "person", ("name", "kind"),
+         search=("name", "aliases"),
+         fields=(("list", "list_id"), ("list reference", "list_ref"), ("other reference", "other_ref"), ("kind", "kind"),
+                 ("status", "status"), ("aliases", "aliases"), ("original script", "original_script"), ("titles", "titles"),
+                 ("positions", "positions"), ("nationalities", "nationalities"), ("countries", "countries"),
+                 ("regime", "regime"), ("basis", "basis"), ("list version", "list_version")),
+         dates=(("designated on", "designated_on"), ("renewed on", "renewed_on"), ("expires on", "expires_on"),
+                ("ended on", "ended_on"), ("updated on", "updated_on")),
+         names=("name",),
+         parent=("List", "sanctions_lists", "list_id"),
+         note="names and aliases as the list publishes them; countries and nothing finer (hard limit 15)"),
 )
 
 BY_NAME = {v.name: v for v in VIEWS}
@@ -611,6 +629,7 @@ REGISTERS = (
     ("candidate_returns", "Candidate donation and expense returns"),
     ("gazette", "Gazette notices"),
     ("party_boards", "Party boards as declared on party websites (ruling 72: not on the site)"),
+    ("sanctions", "Sanctions lists (held on the publishers' terms)"),
     ("limited_partnerships", "Limited partnerships and their general partners"),
     ("building_practitioners", "Licensed building practitioners: the Board's decisions (the register held)"),
     ("courts", "Court judgments of the senior courts, by caption"),
