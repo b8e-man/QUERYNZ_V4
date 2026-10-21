@@ -9,7 +9,8 @@ read, the declared total equals the frozen site's figure for that party
 and year, or the difference has a card.
 
     frozen_series()            (registered party, year) → (total, source file)
-    compare(rows, frozen)      {"equal": [...], "differ": [...], "unmatched": [...], "other_returns": [...]}
+    compare(rows, frozen)      {"equal": [...], "differ": [...], "unmatched": [...], "other_returns": [...], "issues": [...]}
+    issue_counts(conn, schema) {"returns": n, "donors": n, "loans": n}: rows ruling 66 admitted with an `issue`
     python -m registers.party_returns.check [--schema party_returns] [--database querynz_v4]
 
 Read-only. The frozen site chose one return per party-year, so where this
@@ -59,7 +60,15 @@ def compare(rows: list, frozen: dict) -> dict:
         else:
             differ += [{"party": party, "year": year, "ours": float(r["declared_total"]), "frozen": total,
                         "document": r["document"], "frozen_file": source} for r in ours]
-    return {"equal": equal, "differ": differ, "unmatched": unmatched, "other_returns": other}
+    issues = [{"party": r.get("party"), "year": r["year"], "document": r["document"], "issue": r["issue"]}
+              for r in rows if r.get("issue")]
+    return {"equal": equal, "differ": differ, "unmatched": unmatched, "other_returns": other, "issues": issues}
+
+
+def issue_counts(conn, schema: str = "party_returns") -> dict:
+    """The rows ruling 66 admitted: a difference below $100 between the parts and the printed total, named in `issue`."""
+    return {t: conn.execute(f"SELECT count(*) FROM {schema}.{t} WHERE issue IS NOT NULL").fetchone()[0]
+            for t in ("returns", "donors", "loans")}
 
 
 def main(argv=None) -> int:
@@ -68,11 +77,15 @@ def main(argv=None) -> int:
     database = argv[argv.index("--database") + 1] if "--database" in argv else "querynz_v4"
     from support import db
     with db.connect(db.READ_KEY if database == "querynz_v4" else db.OWNER_KEY, database) as conn:
-        cur = conn.execute(f"SELECT party, party_label, year, declared_total, document FROM {schema}.returns")
+        cur = conn.execute(f"SELECT party, party_label, year, declared_total, document, issue FROM {schema}.returns")
         rows = [dict(zip([d[0] for d in cur.description], r)) for r in cur]
+        issues = issue_counts(conn, schema)
     out = compare(rows, frozen_series())
     for k in ("equal", "differ", "unmatched", "other_returns"):
         print(f"{k}: {len(out[k])}")
+    print("rows with an issue (ruling 66): " + ", ".join(f"{t} {n}" for t, n in issues.items()))
+    for d in out["issues"]:
+        print(f"  issue {d['party']} {d['year']} {d['document'][:12]}: {d['issue']}")
     for d in out["differ"]:
         print(f"  DIFFERS {d['party']} {d['year']}: ours {d['ours']:.2f}, frozen {d['frozen']:.2f}, document {d['document']}")
     for u in out["unmatched"]:

@@ -2,13 +2,14 @@
 shape, names only published views with their licences, runs its sections in
 the order a procurement lead reads them, and its rules keep the flag
 contract: the phoenix flag is raised only on a shared person or a shared
-registered office together with a dated failure inside the window, never on a
-name alone, never red through a hub or a removal or a near link; the office a
+registered office together with a dated failure, whatever the gap, never on a
+name alone, every pair shown nearest first with its gap and counted within 90
+and 365 days, a window cutting only when the reader sets one (ruling 65), never red through a hub or a removal or a near link; the office a
 company takes at its liquidation (its liquidator's) is never compared; a
 check the walk could not have seen is blocked (from a company its officers
 are not followed; a short walk; past roles not held); a suppressed name is
 never counted; dates side by side, no word of cause or ownership and no
-address in a flag. A mutant check breaks the rules file on purpose, fourteen
+address in a flag. A mutant check breaks the rules file on purpose, seventeen
 ways, and requires these properties to catch every break.
 
 Imports nothing of products.report (the one-way test): the shape is reached
@@ -280,13 +281,24 @@ def properties(mod) -> list:
         for r in (from_company(phoenix=[], office=[NEWCO_OFFICE], gazette=[]), starts["other"]):
             if rl(name)(r)["status"] == "clear":
                 bad.append(f"{r['subject']['view']} start: {name} cleared the people it never followed")
-    # the signature: a shared person and a dated insolvency inside the window, red
+    # the signature: a shared person and a dated insolvency, red whatever the gap; the window is the reader's (ruling 65)
     f = rl("phoenix_signature")(person())
     if not (f["status"] == "fired" and f["severity"] == "red" and NEWCO["ref"] in f["citations"] and LIQ["ref"] in f["citations"]):
         bad.append(f"a confirmed failure 50 days before a going company's start did not raise the phoenix flag red: {f['status']} {f['severity']}")
+    if "of 4 pair(s), nearest first, 1 within 90 days and 1 within 365 days" not in f["text"]:
+        bad.append(f"the phoenix flag does not count its pairs within 90 and 365 days: {f['text'][-300:]}")
     late = dict(NEWCO, row=dict(NEWCO["row"], registered_on="2024-01-01"))
-    if rl("phoenix_signature")(person(phoenix=[FAILED, late]))["status"] == "fired":
-        bad.append("a going company registered three and a half years after the failure raised the phoenix flag: the window was not applied")
+    g = rl("phoenix_signature")(person(phoenix=[FAILED, late]))
+    if not (g["status"] == "fired" and g["severity"] == "red" and "1267 days after" in g["text"]):
+        bad.append(f"a going company registered three and a half years after the failure was cut with no window set: {g['status']} {g['severity']}")
+    if rl("phoenix_signature")(dict(person(phoenix=[FAILED, late]), window_days=365))["status"] == "fired":
+        bad.append("the reader's window of 365 days did not cut a going company registered three and a half years after the failure")
+    if rl("phoenix_signature")(dict(person(phoenix=[FAILED, late]), window_days="1500"))["status"] != "fired":
+        bad.append("the reader's window of 1,500 days, passed as text, cut a pair 1,267 days apart")
+    two = person(phoenix=[FAILED, dict(late, ref="companies:companies/6", row=dict(late["row"], key="companies/6")), NEWCO])
+    t = rl("phoenix_signature")(two)["text"]
+    if not (0 <= t.find("50 days after") < t.find("1267 days after")):
+        bad.append("the phoenix flag's pairs are not ordered by their gap, nearest first")
     if rl("phoenix_signature")(person(phoenix=[FAILED, NEWCO], gazette=[], office=[]))["severity"] == "red" and \
             rl("phoenix_signature")(person(phoenix=[FAILED, NEWCO], gazette=[], office=[]))["status"] == "fired":
         bad.append("an undated failure (status only) raised the phoenix flag red: no window can be measured")
@@ -349,7 +361,11 @@ def test_the_properties_hold_on_the_rules_as_written(held):
 
 #: (what the mutant breaks, the text replaced, its replacement): each must be unique in rules.py and caught by properties()
 MUTANTS = (
-    ("the window is never applied", "out.append((f, g, days, abs(days) <= WINDOW_DAYS))", "out.append((f, g, days, True))"),
+    ("the reader's window is never applied", "out.append((f, g, days, window is None or abs(days) <= window))", "out.append((f, g, days, True))"),
+    ("a window is cut when the reader sets none", '    if w is None or w == "" or isinstance(w, bool):\n        return None',
+     '    if w is None or w == "" or isinstance(w, bool):\n        return 365'),
+    ("the pairs are not nearest first", "    out.sort(key=lambda p: (abs(p[2]),", "    out.sort(key=lambda p: (-abs(p[2]),"),
+    ("the old defaults are not counted", "OLD_WINDOWS = (90, 365)", "OLD_WINDOWS = ()"),
     ("a removal raises the flag red", "red = bool(insolvent) and not hub", "red = not hub"),
     ("a hub raises the flag red", "red = bool(insolvent) and not hub", "red = bool(insolvent)"),
     ("a name alone is the signature from a company", "by_office = _office_pairs(report, failed, [s]) if _ending(s) == \"going\" else []",
@@ -367,7 +383,7 @@ MUTANTS = (
      'kind = "insolvency" if _insolvency(n) or _removal(n) else None'),
     ("a receiver ceasing dates a failure", ' and "ceas" not in (r.get("action") or "").lower()', ""),
     ("a revoked prohibition is counted", "live = [it for it in items(report, (view,)) if not it.get(\"suppressed\")]", "live = list(items(report, (view,)))"),
-    ("a flag joins two facts", 'f"{what} on another of the person\'s companies: "', 'f"{what} on another of the person\'s companies, because of the person: "'),
+    ("a flag joins two facts", 'carry {what} in the Gazette, each set beside "', 'carry {what} in the Gazette, because of the person, each set beside "'),
 )
 
 
@@ -414,13 +430,27 @@ def test_every_rule_runs_from_each_start_once_and_carries_no_common_rules_name()
     assert "common_rules" not in toml(), "the template keeps the builder's common rules"
 
 
-def test_the_phoenix_signature_sets_each_failure_beside_the_going_companys_start_with_the_window(held):
+def test_the_phoenix_signature_sets_every_failure_beside_each_going_start_whatever_the_gap_nearest_first(held):
     f = rule("phoenix_signature")(person())
     assert f["status"] == "fired" and f["severity"] == "red" and f["scope"] == "officer-group"
     assert "ACME BUILD LIMITED: liquidation (liquidator appointed by the court), appointed 13 July 2020" in f["text"]
     assert "KEA FORMWORK LIMITED: registered 2020-09-01, 50 days after" in f["text"]
-    assert "the window is 365 days either side" in f["text"] and "DELTA LIMITED" not in f["text"], "a going company outside the window is not paired"
-    assert set(f["citations"]) == {FAILED["ref"], LIQ["ref"], NEWCO["ref"]}
+    assert "2 of the person's companies carry an insolvency" in f["text"] and "2 going company(ies)" in f["text"]
+    # ruling 65: the window is the reader's; a company registered nineteen years before the liquidation is listed, after the nearer ones
+    assert "WINDOW_DAYS" not in open(os.path.join(HERE, "rules.py"), encoding="utf-8").read()
+    assert "DELTA LIMITED: registered 2001-05-01, 7013 days before" in f["text"], "a going company far from the failure is paired"
+    assert f["text"].index("50 days after") < f["text"].index("1055 days before") < f["text"].index("7013 days before")
+    assert "of 4 pair(s), nearest first, 1 within 90 days and 1 within 365 days; no window is set, so every gap is shown" in f["text"]
+    assert "and 1 more pair(s)" in f["text"]
+    assert set(f["citations"]) == {FAILED["ref"], LIQ["ref"], NEWCO["ref"], GAMMA["ref"], RECEIVER["ref"], OLDCO["ref"]}
+    cut = rule("phoenix_signature")(dict(person(), window_days=365))
+    assert cut["status"] == "fired" and "DELTA LIMITED" not in cut["text"] and "GAMMA" not in cut["text"]
+    assert "the reader's window is 365 days either side of the failure's Gazette date, and 3 of them fall outside it and are not listed" in cut["text"]
+    assert set(cut["citations"]) == {FAILED["ref"], LIQ["ref"], NEWCO["ref"]}
+    nonsense = rule("phoenix_signature")(dict(person(), window_days="a year"))
+    assert "is not a whole number of days, so no cut is applied" in nonsense["text"] and "DELTA LIMITED" in nonsense["text"]
+    none_inside = rule("phoenix_signature")(dict(person(phoenix=[FAILED, OLDCO], gazette=[LIQ]), window_days=90))
+    assert none_inside["status"] == "clear" and "no pair is listed" in none_inside["text"] and "1 of them fall outside it" in none_inside["text"]
     before = person(phoenix=[FAILED, dict(NEWCO, row=dict(NEWCO["row"], registered_on="2020-03-01"))])
     assert "134 days before" in rule("phoenix_signature")(before)["text"], "a new firm set up before the liquidation is in the window too"
     gamma_only = person(phoenix=[GAMMA, dict(NEWCO, row=dict(NEWCO["row"], registered_on="2023-10-01"))], gazette=[RECEIVER])

@@ -182,7 +182,7 @@ def donation_map(old, conn, s: str, anchors: list) -> dict:
             orow = old_rows.get(int(a["donation_id"]))
             if orow and _fold(orow[3]) == _fold(a["donor_name"]):
                 sha, year, receiver, donor, amount = orow
-                found = conn.execute(f"""SELECT r.ref FROM {s}.rows r WHERE r.view = %s AND lower(r.name_filed) = lower(%s)
+                found = conn.execute(f"""SELECT r.ref FROM {s}.rows r WHERE r.view = %s AND lower(r.name_filed) = lower(%s) AND r.part_of IS NULL
                                          AND (r.document = %s OR extract(year FROM r.started_on)::text = %s)""",
                                      (view, donor, sha, str(year))).fetchall()
                 if len(found) == 1:
@@ -198,7 +198,8 @@ def donation_map(old, conn, s: str, anchors: list) -> dict:
                 if not found:
                     out[key] = (None, "no published row carries this donor in that return (the return may be set aside or not read)")
                     continue
-            found = conn.execute(f"SELECT ref FROM {s}.rows WHERE view = %s AND lower(name_filed) = lower(%s)", (view, a["donor_name"])).fetchall()
+            found = conn.execute(f"SELECT ref FROM {s}.rows WHERE view = %s AND lower(name_filed) = lower(%s) AND part_of IS NULL",
+                                 (view, a["donor_name"])).fetchall()
             if len(found) == 1:
                 out[key] = (found[0][0], "the donor name alone: exactly one published row carries it (the old row number no longer resolves)")
             elif not found:

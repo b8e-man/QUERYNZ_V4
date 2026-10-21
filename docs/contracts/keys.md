@@ -23,7 +23,12 @@ existing copy promoted.
    orders estate, party organ, organisation, person.
 5. `is_joint_name(name)`: True for two people filed as one line, False for
    one donor (an organisation with "&" in its name included), None for a
-   shape nobody has judged. A joint filed name is one donor.
+   shape nobody has judged. A joint filed name is one donor (ruling 253);
+   `joint_parts(name)` names the people in it, each whole ("Greenlees,
+   Craig & Shayne" → Craig Greenlees, Shayne Greenlees), and the links join
+   that one donor row to each of them (ruling 73, `coupled-name@1`). An
+   organisation is never cut on "&"; a shape with initials only stays
+   unjudged.
 6. `split_via`: "X via Y" names X; Y is the conduit.
 
 ## Parties (`keys/parties.py`)

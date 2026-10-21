@@ -25,7 +25,7 @@ COLUMNS = ("key", "document", "page", "place", "regime", "threshold", "section",
            "amended_on", "withdrawn_on", "returned_on", "amount_note", "items_sum", "items_check",
            "at_or_under_threshold", "href", "declaration_document", "form_total", "form_check", "form_reading",
            "read_from", "reader", "profile",
-           "profile_version", "loaded_at")
+           "profile_version", "loaded_at", "issue")
 ITEM_COLUMNS = ("key", "declaration", "ordinal", "amount", "first_date", "contributor", "text")
 
 

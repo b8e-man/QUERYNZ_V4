@@ -43,7 +43,13 @@ is a part with nothing declared in it and is recorded as blank. A
 section whose parts and total are all zero, with one figure typed in its
 step cell, declares the step cell's figure (the Commission's own reading;
 check `step-cell`). A page
-whose arithmetic does not hold is reported, never published.
+whose arithmetic does not hold is reported, never published. Ruling 66
+(`reconcile.py`): the pairing is sought to the cent first, and only where
+none holds is one sought whose parts fall short of or over the printed
+total by less than $100 (the smallest difference, then the nearest
+figures); such a section is published on its printed total with an issue
+naming the difference (`issues`). A difference of $100 or more is still a
+problem.
 
 The page reader's stored reading of a scanned page (GLM-OCR) is plain:
 each figure on its label's line after one space, no columns, the step
@@ -57,6 +63,8 @@ figures alone; markup becomes spacing.
 import re
 from decimal import ROUND_HALF_UP, Decimal
 from dataclasses import dataclass, field
+
+from registers.candidate_returns import reconcile
 
 MONEY = re.compile(r"(?<![\w.,/-])(?:\$\s*)?(?:(?P<nil>NIL|Nil|nil)\b|(?P<num>\d{1,3}(?:\s?,\s?\d{3})+|\d+)(?:\.(?P<cents>\d{1,4})|(?<=\d)-(?P<hcents>\d{2})(?!\d))?)(?![\d,/]|\.\d|\s?%)")
 THRESHOLD = re.compile(r"(?:\bthan|\bup\s+to)\s{0,2}\$\s?[\d,]+", re.I)      # the form's `more than $1,500`, never a filed figure
@@ -136,6 +144,15 @@ class Declaration:
             return "parts" if name != "loans" else "part-h"
         return "declared-nil" if self.figure(name) == 0.0 else "step-cell"
 
+    def issues(self, name: str) -> list:
+        """Ruling 66: a section published on its printed total whose parts differ from it by less than $100."""
+        s = self.sections.get(name)
+        if s is None or name == "loans" or s.total is None or not s.parts or self.check(name) != "parts-sum":
+            return []
+        what = f"{name} Parts {' + '.join(sorted(s.parts))} against the printed total"
+        got = reconcile.issue(round(sum(s.parts.values()), 2), s.total, what)
+        return [got] if got and reconcile.within(sum(s.parts.values()), s.total) else []
+
     def problems(self, name: str) -> list:
         s = self.sections.get(name)
         if s is None:
@@ -148,7 +165,7 @@ class Declaration:
             out.append(f"{name}: two pairings of the figures with the labels hold equally well")
         if self.check(name) == "step-cell":
             return out + ([f"{name}: {len(s.unpaired)} figure(s) paired with no label"] if s.unpaired else [])
-        if name != "loans" and s.total is not None and s.parts and abs(sum(s.parts.values()) - s.total) > 0.011:
+        if name != "loans" and s.total is not None and s.parts and not reconcile.within(sum(s.parts.values()), s.total):
             out.append(f"{name}: parts sum to {sum(s.parts.values()):.2f} but the total is {s.total:.2f}")
         for f in s.step:
             if f and abs(f - fig) > 0.011:
@@ -235,11 +252,12 @@ TO_STEP = 2.0            # giving a figure between the step sentence and the fir
 NO_TOTAL = 6.0           # leaving a total line with no figure while figures are paired
 
 
-def _holds(sec_name: str, got: dict) -> bool:
+def _off(sec_name: str, got: dict) -> int:
+    """How far, in cents, the parts paired fall from the total paired; 0 where there is nothing to sum."""
     if sec_name == "loans" or "total" not in got:
-        return True
+        return 0
     parts = [v for k, v in got.items() if k != "total"]
-    return not parts or abs(sum(parts) - got["total"]) <= 0.011
+    return abs(reconcile.difference(round(sum(parts), 2), got["total"])) if parts else 0
 
 
 def assign(sec_name: str, sec: Section) -> None:
@@ -248,15 +266,17 @@ def assign(sec_name: str, sec: Section) -> None:
     labels, pool = sec.labels, sec.pool
     own = {line: l for l, (_, line) in enumerate(labels)}
     has_total = any(n == "total" for n, _ in labels)
-    best = []                                         # (cost, {label index: figure index}, [figure index to the step cell])
+    best = []                                         # ((cents off, cost), {label index: figure index}, [figure index to the step cell])
+    tolerance = [1]                                   # to the cent; then, where nothing holds, ruling 66's
 
     def walk(fi, li, chosen, step, cost):
         if fi == len(pool):
             got = {labels[l][0]: pool[f][0] for l, f in chosen.items()}
-            if _holds(sec_name, got):
+            off = _off(sec_name, got)
+            if off < tolerance[0]:
                 if has_total and "total" not in got and any(v for v in got.values()):
                     cost += NO_TOTAL
-                best.append((round(cost, 3), dict(chosen), list(step)))
+                best.append(((off, round(cost, 3)), dict(chosen), list(step)))
             return
         fig, _, line, pre = pool[fi]
         if fig == 0.0:                                # a printed default under a typed figure (`0 $8,800.00`)
@@ -273,6 +293,9 @@ def assign(sec_name: str, sec: Section) -> None:
 
     if sum(1 for f in pool if f[0]) <= len(labels) + sum(1 for f in pool if f[3]) and len(pool) <= 12:
         walk(0, 0, {}, [], 0.0)
+        if not best:
+            tolerance[0] = reconcile.RECONCILE_TOLERANCE_CENTS
+            walk(0, 0, {}, [], 0.0)
     if not best:                                      # no way holds: the nearest pairing, reported by problems()
         chosen, used = {}, set()
         for fi, (_, _, line, _) in enumerate(pool):
@@ -285,7 +308,7 @@ def assign(sec_name: str, sec: Section) -> None:
             l = min(options, key=lambda l: _cost(line, labels[l][1]))
             chosen[l] = fi
             used.add(l)
-        best = [(0.0, chosen, [])]
+        best = [((0, 0.0), chosen, [])]
     best.sort(key=lambda b: b[0])
     top = best[0]
     view = lambda b: ({labels[l][0]: pool[f][0] for l, f in b[1].items()}, sorted(pool[f][0] for f in b[2]))

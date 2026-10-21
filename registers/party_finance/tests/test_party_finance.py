@@ -8,7 +8,7 @@ import os
 import pytest
 
 from support import db, lane, rowcontract, sample
-from registers.party_finance import check, expenses, listing, promoter_returns, read, statements
+from registers.party_finance import check, expenses, listing, promoter_returns, read, reconcile, statements
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 LANE = os.path.join(REPO, "registers", "party_finance")
@@ -82,7 +82,7 @@ Part D: Broadcasting allocation                                  $ 9,999.00
 def test_the_form_total_is_checked_against_a_b_and_c_and_never_d():
     f = expenses.figures({1: DECLARATION})
     assert f["total"] == 1200.50 and f["basis"] == "form" and f["limit"] == 2806400.00
-    assert expenses.judge(f) == (1200.50, "parts-sum", "")
+    assert expenses.judge(f) == (1200.50, "parts-sum", "", None)
 
 
 def test_the_form_s_total_beats_the_auditor_s():
@@ -91,14 +91,17 @@ def test_the_form_s_total_beats_the_auditor_s():
 
 
 def test_a_total_its_parts_contradict_is_refused():
+    f = expenses.figures({1: DECLARATION.replace("$ 1,200.50", "$ 1,300.50")})
+    total, check_, why, issue = expenses.judge(f, tolerant=True)
+    assert total is None and "not A + B + C" in why and issue is None, "$100 off is set aside (ruling 66)"
     f = expenses.figures({1: DECLARATION.replace("$ 1,200.50", "$ 1,200.14")})
-    total, check_, why = expenses.judge(f)
-    assert total is None and "not A + B + C" in why
+    total, check_, why, issue = expenses.judge(f)
+    assert total is None and "not A + B + C" in why, "to the cent first: the tolerance only when no pass holds"
 
 
 def test_a_part_not_read_is_not_zero():
     page = "\n".join(line for line in DECLARATION.splitlines() if not line.startswith(("Part B", "Total")))
-    total, _, why = expenses.judge(expenses.figures({1: page}))
+    total, _, why, _ = expenses.judge(expenses.figures({1: page}), tolerant=True)
     assert total is None and "a part not read is not zero" in why
 
 
@@ -128,7 +131,7 @@ Part D: Party only allocation expenses
 def test_a_figure_alone_below_its_label_and_whole_dollars_are_read():
     f = expenses.figures({1: BOXES})
     assert f["parts"] == {"A": 986.0, "B": 0.0, "C": 0.0, "D": 68511.51} and f["total"] == 986.0
-    assert expenses.judge(f) == (986.0, "parts-sum", "")
+    assert expenses.judge(f) == (986.0, "parts-sum", "", None)
     assert expenses.figures({1: "TOTAL FOR PART A 986\nTotal (A + B + C) 986\n"})["total"] == 986.0
 
 
@@ -176,8 +179,11 @@ def test_a_statement_s_pairs_publish_only_where_its_own_arithmetic_holds():
     assert figs["income"].prior == 211147, "a note number is not a figure"
     figs, why = statements.position(ls)
     assert why == "" and figs["liabilities"].amount == 83, "a small figure in the figure column is not a note"
+    figs, why = statements.operating(statements.lines({3: STATEMENT.replace("17,627", "17,500")}))
+    assert figs == {} and "no surplus or deficit line prints it" in why, "$127 off: set aside (ruling 66)"
     figs, why = statements.operating(statements.lines({3: STATEMENT.replace("17,627", "17,600")}))
-    assert figs == {} and "no surplus or deficit line prints it" in why
+    assert why == "" and figs["surplus"].amount == -339, "$27 off: reconciled, the printed line published"
+    assert {f.issue for f in figs.values()} == {"+27.00: income less expenditure against the surplus or deficit line"}
 
 
 def test_a_dash_in_a_column_of_its_own_is_nil():
@@ -417,8 +423,12 @@ def test_each_round_is_scored_against_the_page_s_own_total():
 
 
 def test_a_round_that_does_not_add_up_publishes_nothing():
+    rows, totals, aside = read.allocation_rows(ALLOCATION.replace(b"$3,000", b"$3,100"), "a" * 64)
+    assert rows == [] and totals[1]["rows_sum"] == 4100 and "do not add" in aside[-1][2], "$100 off (ruling 66)"
     rows, totals, aside = read.allocation_rows(ALLOCATION.replace(b"$3,000", b"$3,001"), "a" * 64)
-    assert rows == [] and totals[1]["rows_sum"] == 4001 and "do not add" in aside[-1][2]
+    assert len(rows) == 6 and aside == [] and totals[1]["issue"] == "+1.00: the round 2 rows against TOTAL allocated"
+    assert [r["issue"] for r in rows if r["round"] == 2] == [totals[1]["issue"]] * 3
+    assert {r["issue"] for r in rows if r["round"] == 1} == {None}
     rows, totals, aside = read.allocation_rows(ALLOCATION, "a" * 64)
     assert len(rows) == 6 and aside == [] and [r["final"] for r in rows[:2]] == [False, True]
 
@@ -520,3 +530,85 @@ def test_the_roster_links_every_held_statement(filled):
     years = [r[0] for r in conn.execute(f"SELECT DISTINCT filed_year FROM {schema}.party_finance_financial_statements ORDER BY 1")]
     assert n == 47 and years == [2024, 2025, 2026]
     assert not [a for a in filled["set_aside"] if a["stage"] == "statement"]
+
+
+# Ruling 66: below $100 reconciled with an issue; $100 or more set aside; the printed figure published.
+@pytest.mark.parametrize("off, admitted", [(0, True), (1, True), (9999, True), (10000, False), (10001, False)])
+def test_the_tolerance_is_below_one_hundred_dollars_and_exactly_one_hundred_is_not(off, admitted):
+    assert reconcile.RECONCILE_TOLERANCE_CENTS == 10000
+    printed = 1200.50
+    parts = round(printed + off / 100, 2)
+    assert reconcile.within(parts, printed) is admitted and reconcile.within(printed - off / 100, printed) is admitted
+    assert (reconcile.issue(parts, printed, "x") is None) is (off == 0)
+    page = DECLARATION.replace("$ 1,000.00", f"$ {1000 + off / 100:,.2f}")
+    total, check_, why, issue = expenses.judge(expenses.figures({1: page}), tolerant=True)
+    if admitted:
+        assert (total, check_, why) == (1200.50, "parts-sum", ""), "the printed total is the one published"
+        assert issue == (None if off == 0 else f"+{off / 100:,.2f}: A + B + C against the form's total")
+    else:
+        assert total is None and "not A + B + C" in why and issue is None
+
+
+@pytest.mark.parametrize("off, admitted", [(9999, True), (10000, False), (10001, False)])
+def test_a_promoter_s_schedule_below_one_hundred_dollars_off_its_box_publishes_the_box(off, admitted):
+    sched = f"TOTAL FOR PART A $ {141224.34 - off / 100:,.2f}\n"
+    part = promoter_returns.scan({1: PROMOTER_DECLARATION, 2: sched}, "A")["A"]
+    assert "not the schedule's total" in promoter_returns.judge(part), "to the cent first"
+    part = promoter_returns.scan({1: PROMOTER_DECLARATION, 2: sched}, "A")["A"]
+    why = promoter_returns.judge(part, tolerant=True)
+    if admitted:
+        assert why == "" and (part.figure, part.check) == (141224.34, "declared-and-schedule")
+        assert part.issue == f"-{off / 100:,.2f}: TOTAL FOR PART A against the declaration's Part A"
+    else:
+        assert "not the schedule's total" in why and part.figure is None and part.issue is None
+
+
+@pytest.mark.parametrize("off, admitted", [(99, True), (100, False), (101, False)])
+def test_a_broadcasting_round_below_one_hundred_dollars_off_publishes_with_its_issue(off, admitted):
+    from registers.party_finance import broadcasting
+    b = broadcasting.read(ALLOCATION.replace(b"$3,000", f"${3000 + off:,}".encode()))
+    assert (b.failed_rounds == []) is admitted
+    assert b.issues == ({1: f"+{off}.00: the round 2 rows against TOTAL allocated"} if admitted else {})
+
+
+@pytest.mark.parametrize("off, admitted", [(99.99, True), (100.00, False), (100.01, False)])
+def test_a_statement_pair_below_one_hundred_dollars_off_publishes_with_its_issue(off, admitted):
+    page = f"""                                                          2025          2024
+Total assets                                               {5870 + off:,.2f}      3,234.00
+Total Liabilities                                             83.00        166.00
+Total assets less total liabilities (net assets)           5,787.00      3,068.00
+"""
+    figs, why = statements.position(statements.lines({4: page}))
+    if admitted:
+        assert why == "" and figs["net_assets"].amount == 5787.0
+        assert {f.issue for f in figs.values()} == {f"+{off:,.2f}: assets less liabilities against the net-assets line"}
+    else:
+        assert figs == {} and "no net-assets line prints it" in why
+
+
+def test_the_issue_is_a_column_of_every_view_a_sum_admits_and_check_counts_it():
+    with open(os.path.join(LANE, "publish.sql"), encoding="utf-8") as f:
+        sql = f.read()
+    for view in ("party_expense_returns", "promoter_expense_returns", "broadcasting_allocations",
+                 "party_statement_figures"):
+        body = sql[sql.index(f"VIEW pub.{view} AS"):].split(";")[0]
+        assert ", issue\nFROM" in body, view
+    assert "r.issue AS return_issue" in sql
+    assert set(check.ISSUE_TABLES) <= set(__import__("registers.party_finance.load", fromlist=["x"]).COLUMNS_OF)
+
+
+def test_the_sample_s_issue_rows_are_counted_and_name_their_difference(filled):
+    n = check.issue_rows(filled["conn"], filled["schema"], shared=True)
+    assert n["expense_returns"] >= 1 and n["statement_figures"] >= 6, n
+    for t in ("expense_returns", "statement_figures"):
+        for (issue,) in filled["conn"].execute(f"SELECT issue FROM {filled['schema']}.party_finance_{t} "
+                                               "WHERE issue IS NOT NULL"):
+            assert reconcile.within(0, float(issue.split(":")[0].replace(",", ""))), issue
+
+
+def test_ruling_66_a_thousands_statement_s_precision_never_admits_100_or_more():
+    from registers.party_finance import statements
+    tol = lambda x: 1000.0                            # a statement printed in thousands rounds a line by up to $1,000
+    assert statements._pick([500.0], 0.0, lambda x: x, tol) is None
+    assert statements._pick([99.99], 0.0, lambda x: x, tol) == 99.99
+    assert statements._pick([100.0], 0.0, lambda x: x, tol) is None

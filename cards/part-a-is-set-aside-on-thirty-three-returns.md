@@ -40,3 +40,5 @@ rereads RUN.json` lists each with its hash and the pages to ask for.
   a rule for Arthur); National 2024 $69,241.49 short (the page reader
   looped on page 3: re-read page 3); Labour 2017 (its own card).
 - **1, nothing to reconcile against** (NZ Outdoors and Freedom 2022).
+
+reconcile-1 (21 October, ruling 66): 24 set aside; National 2023 leaves the "add to something else" list (reconciled, issue `+0.01`). The rest differ by $100 or more and stay.

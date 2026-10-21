@@ -77,7 +77,8 @@ def test_a_page_read_column_by_column_is_refused_never_paired_by_order():
 
 
 def test_a_part_publishes_only_what_adds_to_both_printed_totals():
-    assert donors.read({2: LAYOUT}, {2: "text"}, 31000.01).check == ""                    # the declaration's Part A differs
+    assert donors.read({2: LAYOUT}, {2: "text"}, 31100.0).check == ""                     # the declaration's Part A is $100 out
+    assert donors.read({2: LAYOUT}, {2: "text"}, 31000.01).issue.startswith("-0.01: ")     # a cent out: ruling 66's issue
     assert donors.read({2: LAYOUT.replace("$ 31,000.00", "$ 30,000.00")}, {2: "text"}, 31000.0).rows == []
     nothing = donors.read({2: LAYOUT.replace("TOTAL FOR PART A        $ 31,000.00", "")}, {2: "text"}, None)
     assert nothing.rows == [] and "nothing to reconcile" in nothing.problems[0]
@@ -326,7 +327,9 @@ def test_every_published_part_adds_to_the_return_s_own_figure(filled):  # noqa: 
     for part, table, figure in (("donors_check", "donors", "part_a"), ("loans_check", "loans", "loans_h")):
         bad = conn.execute(f"""select r.key from {schema}.returns r
             left join (select return_key, sum(amount) s from {schema}.{table} group by 1) t on t.return_key = r.key
-            where r.{part} is not null and abs(coalesce(t.s, 0) - r.{figure}) >= 0.005""").fetchall()
+            where r.{part} is not null and abs(coalesce(t.s, 0) - r.{figure}) >= 0.005
+              and not (abs(coalesce(t.s, 0) - r.{figure}) < 100 and exists (
+                  select 1 from {schema}.{table} x where x.return_key = r.key and x.issue is not null))""").fetchall()
         assert bad == [], (table, bad)
         orphans = conn.execute(f"select count(*) from {schema}.{table} t join {schema}.returns r on r.key = t.return_key "
                                f"where r.{part} is null").fetchone()[0]
@@ -525,9 +528,9 @@ def test_a_donor_s_aggregated_total_restates_its_rows_and_is_never_one():
     part = donors.read({2: page2, 3: page3}, {2: "pixels", 3: "pixels"}, 28100.0)
     assert part.check == "parts-sum" and len(part.rows) == 4
     assert {r["name"] for r in part.rows} == {"Example Capital Limited", "Example Donor"}
-    wrong = page3.replace("$16,025.00", "$16,000.00")
+    wrong = page3.replace("$16,025.00", "$15,900.00")                           # $125 out: over ruling 66's $100
     part = donors.read({2: page2, 3: wrong}, {2: "pixels", 3: "pixels"}, 28100.0)
-    assert part.check == "" and any("aggregated total of 16,000.00" in p for p in part.problems)
+    assert part.check == "" and any("aggregated total of 15,900.00" in p for p in part.problems)
 
 
 def test_a_page_with_one_figure_and_a_pointer_page():
