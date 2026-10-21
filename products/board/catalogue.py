@@ -610,6 +610,27 @@ VIEWS: tuple[View, ...] = (
          names=("name",),
          parent=("List", "sanctions_lists", "list_id"),
          note="names and aliases as the list publishes them; countries and nothing finer (hard limit 15)"),
+    # ── step 6.2, the GETS award notices (tenders-1; catalogued in the merge after; pane.md) ──
+    View("award_notices", "tenders", "event", ("title", "posting_agency"),
+         search=("title", "posting_agency", "department", "reference_number"), numbers=("rfx_id",),
+         fields=(("GETS identifier", "rfx_id"), ("era", "era"), ("department", "department"), ("RFx type", "rfx_type"),
+                 ("competition", "competition_type"), ("coverage", "tender_coverage"),
+                 ("prequalification required", "prequalification_required"), ("reference", "reference_number"),
+                 ("award type", "award_type"), ("value NZD", "value_nzd"), ("value note", "value_note"),
+                 ("regions", "regions"), ("categories", "categories"), ("suppliers named", "suppliers_named"),
+                 ("file report date", "report_date"), ("licence", "licence"), ("attribution", "attribution")),
+         dates=(("opened on", "opened_on"), ("closed on", "closed_on"), ("awarded on", "awarded_on")),
+         joins=(Join("Suppliers", "award_suppliers", "notice_key", key_column="notice_key", order="business_name"),),
+         note="a notice lists who won what and when; it never says why. 'Not Awarded' is also how an agency marks a tender awarded off the system"),
+    View("award_suppliers", "tenders", "organisation", ("business_name", "posting_agency"),
+         search=("business_name",), numbers=("nzbn", "rfx_id"),
+         fields=(("NZBN", "nzbn"), ("NZBN as published", "nzbn_as_published"), ("NZBN form", "nzbn_form"),
+                 ("country", "country"), ("agency", "posting_agency"), ("notice", "title"), ("award type", "award_type"),
+                 ("notice value NZD", "notice_value_nzd"), ("licence", "licence"), ("attribution", "attribution")),
+         dates=(("awarded on", "awarded_on"),),
+         names=("business_name",),
+         parent=("Notice", "award_notices", "notice_key"),
+         note="the supplier as published; no address and no website is held (a supplier may be a sole trader)"),
 )
 
 BY_NAME = {v.name: v for v in VIEWS}
@@ -629,6 +650,7 @@ REGISTERS = (
     ("candidate_returns", "Candidate donation and expense returns"),
     ("gazette", "Gazette notices"),
     ("party_boards", "Party boards as declared on party websites (ruling 72: not on the site)"),
+    ("tenders", "Government procurement award notices (GETS open data, CC BY 3.0 NZ)"),
     ("sanctions", "Sanctions lists (held on the publishers' terms)"),
     ("limited_partnerships", "Limited partnerships and their general partners"),
     ("building_practitioners", "Licensed building practitioners: the Board's decisions (the register held)"),
@@ -639,7 +661,6 @@ REGISTERS = (
 NOT_HELD = (
     ("hansard", "Hansard"),
     ("linz", "LINZ titles"),
-    ("tenders", "Tenders and awards"),
     ("papers_past", "Papers Past"),
     ("tenancy_tribunal", "Tenancy Tribunal orders (held, nothing published: ruling 58)"),
     ("real_estate_authority", "Real Estate Authority decisions (held, nothing published: ruling 59)"),
