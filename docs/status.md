@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. The detail is in `docs/merges/`.
 
-**Date:** 2026-10-22, 07:5x NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-22, 09:4x NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 day three not clean; 5.1 done; 5.2 closed (ten templates, `fix-report-2`
 parameters); 5.3 eight lanes merged (OpenLaw, HDC held on terms; sanctions
 lists held); 5.4 merged; 5.5 merged; 6.1 merged (`scan-1`, the scan on
@@ -31,15 +31,16 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- `security-1` (track H.1 to H.3, Fable). Merged since 18:00 on 21 October:
+- `settlements-1` (template 3's two sources, capture only, ruling 79).
+  Merged since 18:00 on 21 October:
   `sanctions-1`, `scan-1`, `tenders-1` (29,874 award notices live),
   `regulators-1`, `fix-report-2`, `oio-1`, `hdc-1`, `diaries-1`,
   `grants-1` (178,729 grants live), `fix-support-fetchgate-1`,
   `scan-templates-1`, `fix-templates-1`, `redirects-1`,
   `fix-products-templates-1`, `grants-2`, `fix-support-db-1` (a session's
   owner login on the live database is refused; the gate and hand runs
-  carry QV4_INTEGRATOR=1). Next: template 3's sources as a lane;
-  template 4 waits on the diaries source. Step 7 held.
+  carry QV4_INTEGRATOR=1), `security-1` (track H.1 to H.3; the sittings
+  after the build, ruling 79). Template 4 waits on node1. Step 7 held.
 
 ## Half-done
 
@@ -47,7 +48,5 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
   not clean; ahead: seven clean days, checkpoint, export test, the switch
   after 7 November. Step 2: `qv4-questions` held (ruling 22); node1 setup
   carded (ruling 57).
-- Waits on Arthur: the OpenLaw and HDC
-  terms (no default), the letters (Ministry of Justice; MBIE on the GETS
-  files; the Commissioner), the diaries source's name (ruling 78), node1's fence and the cable check; items 12, 69
+- Waits on Arthur: node1's fence and the cable check; items 12, 69
   and 75 return after the build.
