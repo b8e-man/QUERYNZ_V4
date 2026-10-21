@@ -138,6 +138,10 @@ def load(conn, schema: str, log=print) -> int:
     held, read under `schema`; with nothing captured the tables are made empty. Problems the reading's check finds
     are logged, as the job logs them. Added by the integrator at the merge of grants-1."""
     from registers.grants import check
+    if conn.execute("SELECT to_regclass('grants.capture_docs')").fetchone()[0] is None:
+        create_tables(conn, schema)
+        log(f"{SCHEMA}: the capture has not run on this database (no grants.capture_docs); nothing read into {schema}")
+        return 0
     listed = listing(conn)
     if not listed:
         create_tables(conn, schema)
