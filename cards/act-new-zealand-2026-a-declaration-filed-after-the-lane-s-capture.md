@@ -1,9 +1,10 @@
 # ACT New Zealand 2026: a declaration filed after the lane's capture is on the frozen site
 kind: finding
-state: open
+state: closed
 use-case: 1
 session: founding
 opened: 2026-10-21
+closed: 2026-10-21
 
 The frozen site's release 2026-10-21T0619 carries a large-donation
 declaration for ACT New Zealand of $22,374.74 (gift 30 September 2026,
@@ -23,3 +24,5 @@ next morning's release.
 Owner: disclosures. What it needs: a nightly capture of the Commission's
 table into the lane (a `qv4-disclosures-capture` job through the fetch
 gate), or Arthur's word that the gap stands until the switch.
+
+Closed by ruling 70 (21 October): "keep". The gap stands until the switch; no nightly capture of the Commission's table before it (step 4.8 unchanged).

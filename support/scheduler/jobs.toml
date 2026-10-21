@@ -652,3 +652,35 @@ priority = 52
 command = ["python", "-m", "checks.comparison", "run"]
 at_utc = "19:45"
 nice = 10
+
+# ── step 5.5, company monitoring (the NZBN register's entity detail, one entity at a time) ──
+# Waiting requests first, then due watches; one gated call each, at least 5 s
+# apart, at most 300 a New Zealand day (the interface states no limit; ours).
+# Off-peak 22:00 to 01:00 NZ time, before qv4-societies-capture asks the same
+# host at 01:00, never Wednesday 21:00 to 23:00 (maintenance). A 403, 429,
+# 5xx or challenge stops the night (exit 1). The clock is NZDT (UTC+13) until
+# 5 April 2027; move it with the founding jobs.
+[jobs.qv4-companies-monitor]
+description = "Step 5.5: company monitoring. Each product request, then each due watch, checked against the NZBN register's entity detail through the fetch gate with our own key; the answer landed by hash and every difference stored as a dated change. Nightly at 23:30 NZDT, at most 25 minutes."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 2400
+query_timeout_s = 60
+class = "due"
+priority = 37
+command = ["python", "-m", "registers.companies.monitor", "--night", "--budget-s", "1500"]
+at_utc = "10:30"
+nice = 10
+
+# ── charities (the register's own OData feed; the copy lands in the document store by hash and the lane reads it) ──
+[jobs.qv4-charities-load]
+description = "Charities: read the latest OData copy of the register (organisations, officers, annual returns) from the document store into the lane's tables and publish pub.charities, pub.charity_officers and pub.charity_returns; addresses to charities_private; the register's own count checked. Nightly at 06:30 NZDT after the capture."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 1800
+query_timeout_s = 600
+class = "due"
+priority = 38
+command = ["python", "-m", "registers.charities.load", "--job"]
+at_utc = "17:30"
+nice = 10

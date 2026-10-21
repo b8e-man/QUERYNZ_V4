@@ -22,6 +22,14 @@ What the contract holds:
   CAUSE, OWNER, address_shaped, BLANK_OK
                              the words those rules read, so a template can keep its own text clear
   report_url(ref, base)      the stable address of a report on a row
+  report["since"]            the since date the report was built with (ISO, or None), and on every
+                             item `new`: True (dated on or after it), False, or None (cannot say);
+                             `report["new"]` and `report["cannot_say"]` count them
+  item["holdings"]           on a holder of record: the companies it holds in the latest file
+  item["depth"], ["through"], ["hop_text"], ["chain_goes_on"]
+                             on a chain or officers row: how far up, the row it came through
+  report["walk"]["chain"], ["officers_followed"], ["office_companies"]
+                             what the three asked-for reaches did and left out
 
 Version: VERSION. A template that needs more asks for it here, by a card on
 the report lane; it does not copy the shape's code."""
@@ -31,7 +39,7 @@ import urllib.parse
 
 from products.report import rules as _rules
 
-VERSION = "0.2"
+VERSION = "0.3"
 STATUSES = ("fired", "clear", "blocked")
 SEVERITIES = ("red", "amber", "info")
 
@@ -89,7 +97,7 @@ def all_items(report: dict) -> dict:
 
 # ── the rules every subject report carries ──────────────────────────────────
 
-COMMON_VERSION = "0.2"
+COMMON_VERSION = "0.3"
 
 
 def group_standing(report: dict) -> dict:
@@ -111,6 +119,10 @@ def group_standing(report: dict) -> dict:
         return flag("group-standing", COMMON_VERSION, "fired", "amber",
                     "the subject's group is contested as a whole: the watch flagged a sign that its confirmed links cover two people; "
                     "every other row of the group is listed as near", citations=(subject["ref"],))
+    if subject["kind"] == "figure":
+        return flag("group-standing", COMMON_VERSION, "clear", "info",
+                    g.get("why") or f"a filed row ({subject['view']}): no confirmed link names a person row, so there is no group to take; "
+                                    "every same name elsewhere is a namesake, apart", sources_held=("pub.links",))
     if subject["kind"] != "person":
         return flag("group-standing", COMMON_VERSION, "clear", "info", "an organisation: its official number is the link, and it needs no group",
                     sources_held=("pub.links",))
