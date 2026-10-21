@@ -50,6 +50,7 @@ LANES = (
     "openlaw",   # step 5.4, held on the interface's terms (openlaw-1, 21 October 2026)
     "courts",   # step 5.4, the senior courts' judgments (courts-1, 21 October 2026)
     "limited_partnerships", "building_practitioners", "sanctions",   # step 5.3 (sanctions-1, 21 October 2026)
+    "commerce_commission", "fma", "worksafe",   # step 5.3, the regulator actions (regulators-1, 21 October 2026)
 )
 PRODUCTS = ("ftm", "subject_report", "register_scan", "archive_search", "board")
 FIXED = ("pub", "links", "links_private", "docs", "sealed", "scheduler")

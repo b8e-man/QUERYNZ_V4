@@ -227,3 +227,8 @@ its blocker card `the-beehive-s-wall-refuses-the-diaries-reader`, and the
 Office of the Clerk letter in the letters queue item; the step 4 line on
 Hansard's challenge (held at 23 September) closes the same way: no
 permission request is sought.
+
+A note on the clock in 75 to 77 (integrator, 21 October, 20:40): their
+"about 14:20" and "about 14:25" are the relaying session's estimate, which
+it later said ran slow; the commit that recorded them (02b1cce) is
+timestamped 13:41 NZDT. Neither clock is firm; the order of the rulings is.
