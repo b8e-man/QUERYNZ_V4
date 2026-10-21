@@ -214,6 +214,15 @@ exposure: one commit to the old repository so the fold drops the fragment
 and the donor page and picker regenerate clean, drafted from the reference
 copy and applied by Arthur himself; the next daily release is the proof.
 
+A note on 76 and 77 (integrator, 22 October, 05:13): applied in the old
+repository as aefd8d0b (77: a ledger correction reaches a candidate return's
+rows), 6ff4b228 (76: a total correction may set the declared total and Part
+G) and 7f4a88c6 (the two ledger lines), by Arthur's run of the integrator's
+script. 77's row was a 2020 Manurewa candidate-return row whose donor name
+the old reader took from the cell's residence line, not the Labour
+party-return row the first draft named; that row was already clean. Proof
+is the 06:19 release on 22 October.
+
 78. Arthur, 21 October, about 18:20, while the integrator was gating
 sanctions-1, unprompted: "forget about capturing the beehive and hansard
 I have a 3rd party source". Neither www.beehive.govt.nz (the ministers'

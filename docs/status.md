@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. The detail is in `docs/merges/`.
 
-**Date:** 2026-10-22, 03:26 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-22, 05:15 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 day three not clean; 5.1 done; 5.2 closed (ten templates, `fix-report-2`
 parameters); 5.3 eight lanes merged (OpenLaw, HDC held on terms; sanctions
 lists held); 5.4 merged; 5.5 merged; 6.1 merged (`scan-1`, the scan on
@@ -25,9 +25,9 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
   4.4 site version 3. 4.9 board 78 views. 5.1 the report shape, tranche 3.
 - 5.2 closed: templates 08, 04, 03, 02, 13, 07 (ruling 65), 05, 06, 11
   (`healthcare-1`), 12 (`property-1`). 5.5 `qv4-companies-monitor`.
-- Rulings 64 to 77 on 21 October (`docs/decisions/rulings.md`); the two
-  emergency fixes to the frozen product (76, 77) are drafted for Arthur's
-  run.
+- Rulings 64 to 78 on 21 October (`docs/decisions/rulings.md`); the two
+  emergency fixes (76, 77) applied in the old repository 22 October 05:12,
+  aefd8d0b to 7f4a88c6; proof: the 06:19 release.
 
 ## Running (headless, from the integrator)
 
@@ -47,7 +47,7 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
   not clean; ahead: seven clean days, checkpoint, export test, the switch
   after 7 November. Step 2: `qv4-questions` held (ruling 22); node1 setup
   carded (ruling 57).
-- Waits on Arthur: the two emergency fixes (his run), the OpenLaw and HDC
+- Waits on Arthur: the OpenLaw and HDC
   terms (no default), the letters (Ministry of Justice; MBIE on the GETS
   files; the Commissioner), the diaries source's name (ruling 78), the
   scratch drops (his run), node1's fence and the cable check; items 12, 69

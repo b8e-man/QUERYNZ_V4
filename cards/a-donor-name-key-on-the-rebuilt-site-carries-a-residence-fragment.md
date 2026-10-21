@@ -49,3 +49,5 @@ The frozen site's own copy of the fragment stands until Arthur's word
 (hard limit 19); nothing here changes it.
 
 Ruling 77 (21 October): "fix now", first of the two emergency fixes because the exposure is live (hard limit 15). The old estate's fold drops the fragment, the donor page and picker regenerate clean; the patch drafted from the reference copy, the commit Arthur's own; proof is the next daily release.
+
+Applied 22 October, 05:12 (old repository aefd8d0b, 6ff4b228, 7f4a88c6): the frozen page was a 2020 candidate-return row, corrected through the ledger; the 06:19 release is the proof.
