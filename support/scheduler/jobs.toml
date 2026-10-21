@@ -684,3 +684,92 @@ priority = 38
 command = ["python", "-m", "registers.charities.load", "--job"]
 at_utc = "17:30"
 nice = 10
+# ── party boards, the declared tier (ruling 72): read from the held party-website capture, no fetch; a reload when the lane changes ──
+[jobs.qv4-party-boards-load]
+description = "Party boards (ruling 72): read the held party-website capture by its profile into one row per declared board role and publish pub.party_board_roles and pub.party_board_pages; nothing on the site and nothing into the links. No schedule: queued when the lane or its profile changes."
+needs = "processor"
+memory_gb = 1
+deadline_s = 1800
+query_timeout_s = 300
+class = "whenever"
+priority = 39
+command = ["python", "-m", "registers.party_boards.load", "--job"]
+nice = 10
+
+# ── step 5.4, the senior courts' judgments (courts-1; card the-courts-lane-s-edits-outside-its-fence) ──
+[jobs.qv4-courts-capture]
+description = "Step 5.4: each senior court's RSS feed on courtsofnz.govt.nz, the case pages it links and the judgment PDFs not held, plus the listed judgments whose old file is gone; through the fetch gate, five seconds apart, each fetched once. Daily at 03:30 NZDT, at most an hour."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 4500
+query_timeout_s = 60
+class = "due"
+priority = 32
+command = ["python", "-m", "registers.courts.capture", "--budget-s", "3600"]
+at_utc = "14:30"
+nice = 10
+
+# ── step 5.3, limited partnerships and the Building Practitioners Board's decisions (sanctions-1; card the-partnerships-and-board-decisions-jobs-into-the-catalogue) ──
+# The sanctions lists have no job: all three are held on their publishers' terms.
+[jobs.qv4-limited-partnerships-capture]
+description = "Step 5.3: one NZBN entity-detail call per registered limited partnership in pub.companies, through the fetch gate with our key, 5 s apart, at most 600 a night, the stalest first; the capture itself skips Wednesday (the interface's maintenance window). Nightly at 21:00 NZDT, at most 55 minutes."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 4200
+query_timeout_s = 60
+class = "due"
+priority = 53
+command = ["python", "-m", "registers.limited_partnerships.capture", "--night"]
+at_utc = "08:00"
+nice = 10
+
+[jobs.qv4-limited-partnerships-load]
+description = "Step 5.3: nothing when the listing is the one published, else the limited partnerships and their general partners built in staging, checked, published only on green. Nightly at 06:50 NZDT."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 900
+query_timeout_s = 600
+class = "due"
+priority = 54
+command = ["python", "-m", "registers.limited_partnerships.load", "--job"]
+at_utc = "17:50"
+nice = 10
+
+[jobs.qv4-building-practitioners-capture]
+description = "Step 5.3: the Building Practitioners Board's published decisions list (about 80 pages) and its documents, through the fetch gate 5 s apart, each fetched once. The spec asks for Sunday 23:00 NZDT weekly; the catalogue has no weekday, so it runs nightly at 23:00 NZDT (about 7 minutes) until the lane or the scheduler carries the day."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 2700
+query_timeout_s = 60
+class = "due"
+priority = 55
+command = ["python", "-m", "registers.building_practitioners.capture"]
+at_utc = "10:00"
+nice = 10
+
+[jobs.qv4-building-practitioners-load]
+description = "Step 5.3: the Board's decisions from the newest finished pass, built in staging, checked, published only on green. Nightly at 06:40 NZDT (the spec says Monday; see the capture)."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 900
+query_timeout_s = 600
+class = "due"
+priority = 56
+command = ["python", "-m", "registers.building_practitioners.load", "--job"]
+at_utc = "17:40"
+nice = 10
+
+# ── step 6.1, the register scan's re-run (scan-1; card the-scan-rerun-job-into-the-catalogue). It runs after the
+# links' build, which runs after each lane load, so a scan is re-run once the views it read have loaded; the runner
+# decides which scans are stale and re-runs only those (and never-run ones). The catalogue carries no per-job
+# environment: the product's defaults are querynz_v4/register_scan and a ten-minute statement limit. ──
+[jobs.qv4-scan-rerun]
+description = "Step 6.1: re-run every register scan a published view has loaded since (the stale rule: each run records max(loaded_at) of every view it read). After the links' build; one query per scan under a ten-minute statement limit; the run cut at an hour."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 3600
+query_timeout_s = 600
+class = "whenever"
+priority = 59
+command = ["python", "-m", "products.scan", "run", "--stale"]
+nice = 10

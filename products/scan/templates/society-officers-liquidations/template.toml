@@ -1,0 +1,59 @@
+# A proving scan for the shape (plan step 6.1): it needs no new lane. One
+# person step, so a line is confirmed when the links confirm the officer and
+# the director are one person and the group is not contested.
+name = "society-officers-liquidations"
+title = "Society officers who are directors of a company with a Gazette liquidation notice"
+question = "Which officers of an incorporated society are also, by the links, a director of a company that has a liquidation notice in the Gazette?"
+join = "An officer row of the societies register; a director row the links say is the same person; the company that director row sits on; each Gazette liquidation notice the lane matched to that company by its register key."
+version = "0.1"
+owner = "products/scan, step 6.1"
+
+limits = [
+  "A director row and an officer row are one person only as the links say: a group of confirmed links, or a direct confirmed link under the chains setting. A shared name alone is not on this list.",
+  "A liquidation notice is matched to a company by the Gazette lane (register_match says how); a notice the lane could not match to the register is not on this list.",
+  "The companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+  "Dates are each row's own: an officer's and a director's start, a notice's appointment day. Nothing here says that one fact led to another.",
+]
+
+[[reads]]
+view = "society_officers"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "directors"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "companies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "monthly file"
+[[reads]]
+view = "gazette_liquidations"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+
+[[steps]]
+view = "society_officers"
+label = "officer"
+columns = ["role_type", "role_status"]
+[[steps]]
+view = "directors"
+label = "director"
+by = "person"
+columns = ["role_type"]
+[[steps]]
+view = "companies"
+label = "company"
+by = "row"
+on = ["entity_key", "key"]
+columns = ["status", "nzbn"]
+[[steps]]
+view = "gazette_liquidations"
+label = "notice"
+by = "row"
+on = ["key", "register_key"]
+columns = ["shape", "appointed_by", "register_match"]

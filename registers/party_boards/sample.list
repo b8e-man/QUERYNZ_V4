@@ -1,0 +1,44 @@
+# registers/party_boards/sample.list (plan 1b.6): hashes only, never bytes or rows. Comments say what case a file proves.
+# Pages from the old party-boards capture: at least one per party in it, each of the profile's shapes, its hard cases.
+# ACT New Zealand
+73ce45e5049d79f8ea8306e2536bed9b2b1c4e16cd002f1bafdc196a7e353a3b act-board-table: a role cell and a name cell per row, the email cell never read
+a7c10e6b6464439e94455e92e1fe89d957f0581970b5e33068ae595e8ada7b1a act-board-table, gzip bytes; '(Acting)' kept as the qualifier
+6057cc3993d0094137fff2aeee85e4b33ea17023a1e87b9964d4ef47e512462c act-board-table: a region declared vacant is set aside, not a person
+# Animal Justice Party Aotearoa New Zealand
+0438e6f045a27fe159d38a8a798ae994dcef0ac34e486780d1bc3c8ac3f7ea1d a theme's placeholder people ('John Doe'): a drop-note, gzip bytes
+55f4d95a76abdc383b7bd6d6bf6e65aa00d4ea436dd2c4effaf737bebc74eeb4 ajp-team-elementor
+2a74f29288afbf84bd6812a55dcd6cec99557afc56f84a3e12c43bd8fbcd46f1 ajp-team-bricks
+6da107e0ba853d0b8e13d4e5e84f322124335b900524c136c3cd0e92be04abac zstandard bytes; no board heading: a drop-note
+# Aotearoa Legalise Cannabis Party
+4572a5a7854f41cdc07f7c3774c38db35a411ebc52fc4a861aed791edda8422a alcp-officers-2018: 'Role: Name', 'Co-Leaders: A & B' is two rows
+7fbd7e3ca4ffd3d8696a52244b38a15761d2c2008eee19efb04462ab7d909e0f alcp-leadership-2020: a heading over columns that do not pair, a drop-note by the profile's word
+3df412749cc2b925649a488e5acc445775661476a3f55db7eb18b61b9dd7a67b alcp-team-2026: 'Role Name' by the site's role words
+# Conservative Party NZ
+86424f29442e1ce0716e270071e5a68340432a0404bb86b10e9481c516f58663 conservative-board-list: names under the heading, the Secretary General in a sentence
+# NZ Outdoors & Freedom Party
+543c467bcda47f2c882773a173156d113113bc9f86b00780a81cd3aea8b19928 nzofp-board: 'Name (Role)', a nickname bracket inside the name
+# New Zealand First Party
+a6abde8d0783a8fbcb4dc06ca543f72c22e0243981bf48c13dc3cb313cd02289 nzfirst-board-boxes; the members' council below is not the board
+768a4bb4ba8be367e5006021c7551cbac45c80fc29b1bbe41fbc0f967990e715 nzfirst-board-cards under the boxes' heading (requires), gzip bytes
+7943e28c08d9efa8902aef8b1f8c6e3103df935de78b9570cf4157d97b8aef09 nzfirst-board-cards: a card whose role line repeats the name is set aside
+d3a51bff6befa6878dd45477a66bb3cd9855734c0f712f80ad08d88f8e1947c8 one document captured twice; no shape for the page: a drop-note
+# New Zealand Labour Party
+b91bff84c299f1d5c0e600dd43927dcc0185a0ee6fbdfbabae25f9a6782514d7 labour-nz-council-2017: the council's heading and no one under it
+# Opportunity Party
+447c2152988802e26fd5ada52c64e9c9a02705135e6bbc2f4ddb6e00bd98f096 opportunity-board-2026-03: names only, the page's title declares the role
+bd593c87f47c439a1c4bc2b28c8b514ab1045bc2fc1a75a72910c33427bcfaed opportunity-board: a chair's role stated, the rest by the section
+# Te Pāti Māori
+4de16b4821c2654c9a917940ba571264dcbad547a00b4fb4043668a3f441848a tpm-national-executive: the heading printed three times; the MPs' cards after it are not read
+# The Green Party of Aotearoa New Zealand
+268515745dbde8dbe0444340764c8d04597c2db825073c6d352cbe4825787c62 no shape: the capture holds no Green board page in the window
+# The New Zealand National Party
+fb6dc414ae73169a7120867177f7f9cc79d3ec31e1fb4a394c208caa72fde519 national-directors-2018: name and roles in one heading, roles in <small>
+6bfe3b205f8587f235402fe62b809dbf69423e6b523070151419206141b980a6 national-board-2020
+c82eed4fe841cfd062b17faae521734632e7d8696cf4cb3c5b11af56fe9ef686 national-bod-2022
+4ea386174104ecccdfdd979bc761140d057e706f85d73db500ac3fc3e93c92a0 national-bod-2023: a name printed in capitals
+# Vision New Zealand
+185edb0bb583280d02cbc6837b4efbe36148a149c7373e2c6b87ade717b23441 no shape for the page: a drop-note
+# Women's Rights Party
+0a6d93afc6077a7e51c877b6451a9cecd73ebf2c3fb70c44d139c07b596ffece wrp-executive, gzip bytes; the promoter statement on the page is never read
+# Before the window: listed, not landed
+d5b10d9431aa4648560551318140bb03df6a1fc08af2dd6b999408e4902b7527 captured 2001: before the window (ruling 71), listed and not landed
