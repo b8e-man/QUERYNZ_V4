@@ -81,6 +81,14 @@ never red.
   Authority's determinations (unpaid wages), the Personal Property
   Securities Register. Each has a flag that is always blocked, and the last
   section names them.
+- **A charity officer row is matched by name.** The people section lists
+  the Charities Register's officer rows that carry the person's name, near,
+  and `society-roles` cites them: no link joins the register's officers to
+  any other row yet, so each is a namesake's until a rule confirms it. A
+  company's charity by business number is confirmed, with its officers and
+  annual returns, the figures as filed and never added across returns. A
+  holder of record's name is not looked up, so the flag blocks there.
+  (`charity-officers-are-in-no-link-and-no-name-row`, the links lane's)
 - **A lender's entry into possession, and the dated status rows.** Both are
   published (`pub.gazette_possessions`, `pub.company_states`) and unknown to
   the report's catalogue, so a template cannot name them.
@@ -204,3 +212,20 @@ short. No flag changed status or severity.
 - **A person with no failure** (subjects 11, 12) says so plainly ("no dated
   failure has a going company to set beside it") instead of naming a
   window, and still gives no clear.
+
+## The checkpoint re-rendered, 2026-10-21 (fix-templates-1: the window, the Charities Register)
+
+The same twelve subjects, before and after both changes. None refused.
+
+- **The window as a parameter.** `window_days` is declared (an integer, no
+  default), so the memo prints "parameters: window_days not set" and the
+  limits line no longer says the report cannot carry one; nothing else
+  changed, as no window is set by default. Rendered with `--set
+  window_days=365`: the director in the contested group (subject 8) lists
+  1 of its 6 pairs and says 5 fall outside the window and are not listed;
+  the scaffolding director (subject 4) lists 1 of 2.
+- **The Charities Register.** The people section gained charity officer
+  rows of the same name, near, on four directors (3, 21, 6 and 2 rows), and
+  `society-roles` went from clear to fired (info) on those four, citing
+  them; no company in the list has a charity by business number. No other
+  flag changed.

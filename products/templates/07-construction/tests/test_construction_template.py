@@ -31,7 +31,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 VIEWS = {"companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
-         "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers"}
+         "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
+         "charities", "charity_officers", "charity_returns"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
                    r"beneficial)\b", re.I)
@@ -134,6 +135,38 @@ def test_its_sections_run_in_the_procurement_leads_order():
         assert not CAUSE.search(x["text"]) and not CAUSE.search(x["heading"]), x["name"]
 
 
+def test_society_roles_read_the_charities_register_by_name_and_by_number():
+    """Card the-construction-template-can-now-read-the-charities-register: the three views in the people section (`named` first),
+    `charities` out of every not-held line and CHARITIES_NOT_HELD out of the rules; society-roles lists a charity officer row
+    carrying the person's name, near, and from a company its charity by business number; a clear needs the name looked up."""
+    t = toml()
+    s = {x["name"]: x for x in t["sections"]}
+    assert {"charities", "charity_officers", "charity_returns"} <= set(s["people"]["views"]) and s["people"]["sources"][0] == "named"
+    assert not any("charities" in x.get("not_held", []) for x in t["sections"]) and "Charities Register" not in s["not-held"]["text"]
+    assert "CHARITIES_NOT_HELD" not in open(os.path.join(HERE, "rules.py"), encoding="utf-8").read()
+    reads = {"reads": [{"view": v} for v in VIEWS]}
+    by_name = it("charities:charities/CC9/officer/7", "charity_officers", grade="near", title="Jane Mary DOE", via=PERSON["ref"],
+                 statement="Jane Mary DOE: Trustee of A CLUB TRUST (Past; disqualified as the register states it: no)",
+                 reason="no link joins the Charities Register's officers to any other row yet", row={"charity_key": "charities/CC9"})
+    by_name["rule"] = "same-name"
+    roles = rule("society_roles")
+    f = roles(dict(report(people=[by_name]), template=reads))
+    assert f["status"] == "fired" and f["scope"] == "near" and by_name["ref"] in f["citations"] and "carry the person's name, near" in f["text"]
+    assert roles(dict(report(), template=reads))["status"] == "clear"
+    skipped = dict(report(), template=reads)
+    skipped["walk"] = dict(skipped["walk"], skipped=["charity_officers"])
+    assert roles(skipped)["status"] == "blocked"
+    holder = it("companies:companies/1/shareholder/a", "shareholders", title="Jane Mary DOE")
+    assert roles(dict(report(subject=holder), template=reads))["status"] == "blocked", "a holder's name is not looked up"
+    charity = it("charities:charities/CC1", "charities", title="KEA TRUST", statement="KEA TRUST: registered charity CC1, Registered; Trust",
+                 via=NEWCO["ref"], row={"key": "charities/CC1", "nzbn": "2"})
+    trustee = it("charities:charities/CC1/officer/1", "charity_officers", title="John SMITH", via=charity["ref"], row={"charity_key": "charities/CC1"})
+    f = roles(dict(from_company(people=[charity, trustee]), template=reads))
+    assert f["status"] == "fired" and "the company's charity by its business number" in f["text"] and charity["ref"] in f["citations"]
+    assert roles(dict(from_company(), template=reads))["status"] == "blocked"
+    assert not CAUSE.search(f["text"])
+
+
 def test_the_known_limits_page_and_the_checkpoint_list_exist():
     with open(os.path.join(HERE, "limits.md"), encoding="utf-8") as f:
         page = f.read()
@@ -151,7 +184,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 KIND = {"directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
-        "party_return_donors": "figure"}
+        "party_return_donors": "figure", "charities": "organisation", "charity_officers": "person", "charity_returns": "figure"}
 THROUGH = "a connection that passes through more than one person is listed as near, never confirmed (the design's default)"
 SAME_REASON = "two companies under one name; only the official number confirms a company"
 
