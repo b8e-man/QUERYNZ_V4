@@ -3,10 +3,11 @@ documents sample.list names, from the document store, through this branch's
 own reading, into `schema` of the sample database (the lane's tables there
 carry its name). A hash whose shape a profile recognises is read: the
 national file only at the records the `key: dia N` lines name, a record of
-grants whole. Any other hash is a document the capture holds and the reading
-does not (a page about the source, a page the walk passed through, a
-challenge page). A document not in the store fails the fill, naming its hash.
-No model is called and nothing is fetched."""
+grants whole, a society's file (a PDF) whole or as one catch-log line. Any
+other hash is a document the capture holds and the reading does not (a page
+about the source, a page the walk passed through, a challenge page). A
+document not in the store fails the fill, naming its hash. No model is
+called and nothing is fetched."""
 import os
 import sys
 
@@ -26,11 +27,14 @@ def docs_of(items: list) -> tuple:
     for sha in dict.fromkeys(i for i in items if not i.startswith("key:")):
         if not os.path.exists(path_for(sha)):
             raise LookupError(f"grants/sample.list names {sha}, which is not in the document store")
-        slug = read.recognise(read_bytes(sha))
+        data = read_bytes(sha)
+        slug = read.recognise(data)
         if slug in LIST_OF:
             docs.append((LIST_OF[slug], None, sha))
             if slug == read.DIA_CSV:
                 only[sha] = records
+        elif data.startswith(b"%PDF"):                  # a society's file: read, or a catch-log line
+            docs.append(("society-file", None, sha))
     return docs, only
 
 

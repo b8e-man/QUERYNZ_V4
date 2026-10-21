@@ -17,7 +17,8 @@ SELECT g.key, g.publisher_key, g.grantor_key, gp.name AS grantor, g.grantor_as_p
        g.amount_requested_as_published, g.amount_granted_as_published, g.amount_nzd, g.multi_year,
        g.purpose_as_published, g.category_1, g.category_2, g.decided_on, g.decided_on_as_published, g.period, g.round,
        g.is_refund, g.refunded_on, g.refunded_on_as_published, g.amount_refunded_as_published, g.benefits,
-       g.territorial_authority, g.other_territorial_authority, g.region,
+       g.territorial_authority, g.other_territorial_authority, g.region, g.application_as_published,
+       g.reason_as_published, g.interest_as_published,
        p.licence, p.attribution,
        g.document, g.page, g.place, g.read_from, g.reader, g.profile, g.profile_version, g.loaded_at
 FROM grants.grants g

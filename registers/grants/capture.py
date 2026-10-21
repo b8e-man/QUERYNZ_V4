@@ -17,7 +17,18 @@ Two publishers' documents, both the Department of Internal Affairs':
                 record of grants. The walk resumes from its frontier; a page is
                 asked again only after `RECRAWL_DAYS`.
   about         the pages about the sources: the Department's copyright and
-                terms, the catalogue's terms, at most every `ABOUT_EVERY_DAYS`.
+                terms, the catalogue's terms, at most every `ABOUT_EVERY_DAYS`;
+                and each society's terms, copyright or privacy page, met on its
+                walk, before its first list is landed.
+  society-page  a class 4 society's own grants page (`SOCIETY_SITES`, class A
+  society-file  of the card: the nine whose lists are files) and the pages it
+                links on the same site whose address or words speak of grants,
+                approved, declined, distributions, recipients or results, to
+                `SOCIETY_DEPTH`; every file those pages link whose address or
+                link words say the same is landed once (`society-file`) and
+                never asked again: a society publishes a new list as a new file.
+                A file whose name dates it wholly before 2017 is left unasked
+                (ruling 71). A page is asked again after `RECRAWL_DAYS`.
 
 Politeness (hard limit 7): one request at a time, at least `FLOOR_S` apart
 (the gate's floor binds too: the catalogue states a crawl delay of 10 s),
@@ -32,7 +43,7 @@ not asked again this run, and the run moves to the next list. A 500, 502,
 aside, the run rests `REST_S` and goes on; three in a row stop that host. A
 gate refusal is never caught.
 
-    python -m registers.grants.capture [--anytime] [--list dia-file|lottery-page|about] [--max-requests N] [--budget-s N]
+    python -m registers.grants.capture [--anytime] [--list dia-file|lottery-page|about|society-file] [--society KEY] [--max-requests N] [--budget-s N]
 """
 import argparse
 import datetime as dt
@@ -61,6 +72,29 @@ DEFAULT_BUDGET_S = 4 * 3600
 STOP_AFTER_FAILURES = 3
 MAX_DEPTH = 8
 SERVER_ERRORS = (500, 502, 503, 504)
+SOCIETY_DEPTH = 2
+FILE_DEPTH = -1        # a society's file in the frontier: asked once
+ABOUT_DEPTH = -2       # a society's terms, copyright or privacy page in the frontier
+#: class A of `cards/the-societies-own-grants-lists-by-class.md`: society key → its grants page, at the address it
+#: answers on (the survey of 21 October 2026 followed each home page's redirect)
+SOCIETY_SITES = {
+    "nz-community-trust": "https://www.nzct.org.nz/grants",
+    "air-rescue-services": "https://www.airrescueservices.co.nz/grant-distributions/",
+    "pelorus-trust": "https://www.pelorustrust.net.nz/grants",
+    "aotearoa-gaming-trust": "https://www.agt.nz/resources/funding-distributions",
+    "one-foundation": "https://onefoundation.nz/grants",
+    "trust-aoraki": "https://trustaoraki.co.nz/grants-list/",
+    "new-horizon-community-trust": "https://www.newhorizoncommunitytrust.co.nz/approved-grants/",
+    "milestone-foundation": "https://www.milestonefoundation.co.nz/grant-recipients.html",
+    "we-care-community-trust": "https://wecare.org.nz/historical-grants.html",
+}
+#: the words by which a society's page or file says it is about the grants made
+GRANT_WORDS = re.compile(r"(?i)grant|approved|declined|distribution|recipient|result|successful|allocation|funded")
+#: words of a page about the source itself: its terms, copyright, privacy
+ABOUT_WORDS = re.compile(r"(?i)terms|copyright|disclaimer|privacy")
+FILE_SUFFIX = re.compile(r"(?i)\.(?:pdf|xlsx?|csv)$")
+NOT_A_PAGE = re.compile(r"(?i)(/wp-admin|/wp-json|/feed\b|/cart|/login|/apply|/application|\.(?:docx?|zip|jpe?g|png|gif|"
+                        r"svg|mp4|css|js|ico)$)")
 NZ = ZoneInfo("Pacific/Auckland")
 HERE = os.path.dirname(os.path.abspath(__file__))
 #: until the integrator moves `position/*.md` to docs/legal/positions/, a session runs with QV4_POSITIONS pointing at
@@ -140,6 +174,58 @@ def links(base: str, body: bytes, host: str) -> list:
     return out
 
 
+def site_of(host: str) -> str:
+    """A host without its `www.`: a society links its own files under both."""
+    return re.sub(r"^www\.", "", (host or "").lower())
+
+
+def on_host(url: str, host: str) -> str:
+    """A page of the same site at the walk's own host (a society links itself under both `www.` and bare)."""
+    p = urllib.parse.urlsplit(url)
+    return urllib.parse.urlunsplit((p.scheme, host, p.path, p.query, p.fragment))
+
+
+def quoted(url: str) -> str:
+    """The address as a request can carry it: a space in a file's name (AGT's `download.php?file=… Q1 2026 ….pdf`)
+    is percent-encoded, an escape already there is kept."""
+    return urllib.parse.quote(url, safe=":/?=&%#;,+@~!$'()*")
+
+
+def _years(text: str) -> list:
+    return [int(y) for y in re.findall(r"(?<!\d)(20[0-3]\d)(?!\d)", text)]
+
+
+def before_window(url: str) -> bool:
+    """A file whose name carries years and every one of them is before ruling 71's 2017."""
+    ys = _years(urllib.parse.unquote(urllib.parse.urlsplit(url).path + "?" + urllib.parse.urlsplit(url).query))
+    return bool(ys) and max(ys) < read.WINDOW_FROM
+
+
+def society_links(base: str, body: bytes):
+    """(pages, files, about) a society's page links on its own site, in page order, once each: pages and files whose
+    address or link words say grants, and pages about the source (terms, copyright, privacy)."""
+    pages, files, about = [], [], []
+    site = site_of(fg.host_of(base))
+    for h, words in re.findall(rb'<a\b[^>]*?href="([^"#]+)"[^>]*>(.*?)</a>', body, re.S | re.I):
+        u = urllib.parse.urljoin(base, html.unescape(h.decode("utf-8", "replace")).strip())
+        if urllib.parse.urlsplit(u).scheme not in ("http", "https") or site_of(fg.host_of(u)) != site:
+            continue
+        said = html.unescape(re.sub(r"<[^>]+>|\s+", " ", words.decode("utf-8", "replace")))
+        path = urllib.parse.unquote(urllib.parse.urlsplit(u).path + " " + urllib.parse.urlsplit(u).query)
+        file_name = urllib.parse.unquote(u.split("file=", 1)[1]) if "file=" in u else urllib.parse.urlsplit(u).path
+        if FILE_SUFFIX.search(file_name):
+            if GRANT_WORDS.search(path + " " + said) and u not in files:
+                files.append(u)
+        elif NOT_A_PAGE.search(urllib.parse.urlsplit(u).path):
+            continue
+        elif ABOUT_WORDS.search(path + " " + said):
+            if canonical(u) not in about:
+                about.append(canonical(u))
+        elif GRANT_WORDS.search(path + " " + said) and canonical(u) not in pages:
+            pages.append(canonical(u))
+    return pages, files, about
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -148,7 +234,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 def fetch_once(url: str, timeout: int):
     """One request with the estate's User-Agent and no redirect followed: (status, body, final, location)."""
     opener = urllib.request.build_opener(_NoRedirect)
-    req = urllib.request.Request(url, headers={"User-Agent": fg.UA})
+    req = urllib.request.Request(quoted(url), headers={"User-Agent": fg.UA})
     try:
         with opener.open(req, timeout=timeout) as r:
             return r.status, r.read(), r.geturl(), ""
@@ -186,13 +272,16 @@ class Tables:
                           "set_aside = %s, stopped = %s WHERE run_id = %s",
                           (counts["requests"], counts["landed"], counts["set_aside"], stopped or None, run_id))
 
-    def last(self, lst, url=None):
-        """When `lst` (and `url`) was last landed, and the hash."""
+    def last(self, lst, url=None, publisher=None):
+        """When `lst` (and `url`, and `publisher`) was last landed, and the hash."""
         q = f"SELECT at, sha256 FROM {self.T('capture_docs')} WHERE list = %s"
         args = [lst]
         if url:
             q += " AND url = %s"
             args.append(url)
+        if publisher:
+            q += " AND publisher = %s"
+            args.append(publisher)
         return self.conn.execute(q + " ORDER BY at DESC LIMIT 1", args).fetchone()
 
     def add_doc(self, run_id, lst, publisher, url, sha, recognised, new):
@@ -211,8 +300,14 @@ class Tables:
     def frontier_next(self, host, limit, recrawl_days):
         return [tuple(r) for r in self.conn.execute(
             f"SELECT url, depth FROM {self.T('capture_frontier')} WHERE host = %s AND depth <= %s AND "
-            "(asked_at IS NULL OR asked_at < now() - make_interval(days => %s)) ORDER BY asked_at NULLS FIRST, depth, "
+            "depth >= 0 AND (asked_at IS NULL OR asked_at < now() - make_interval(days => %s)) ORDER BY asked_at NULLS FIRST, depth, "
             "found_at, url LIMIT %s", (host, MAX_DEPTH, recrawl_days, limit))]
+
+    def frontier_unasked(self, host, depth):
+        """The addresses at `depth` (a society's files, or its pages about the source) never asked, in order found."""
+        return [r[0] for r in self.conn.execute(
+            f"SELECT url FROM {self.T('capture_frontier')} WHERE host = %s AND depth = %s AND asked_at IS NULL "
+            "ORDER BY found_at, url", (host, depth))]
 
     def frontier_asked(self, host, url, status):
         self.conn.execute(f"UPDATE {self.T('capture_frontier')} SET asked_at = now(), status = %s "
@@ -221,25 +316,34 @@ class Tables:
 
 # ── a run ─────────────────────────────────────────────────────────────────────
 
+LISTS = ("about", "dia-file", "lottery-page", "society-file")
+
+
 class Blocked(RuntimeError):
-    """This host blocked or challenged us: it is not asked again this run."""
+    """This host blocked or challenged us: it is not asked again this run. `status` is the answer that blocked."""
+
+    def __init__(self, why, status=None, asked=True):
+        super().__init__(why)
+        self.status, self.asked = status, asked
 
 
 class Run:
     def __init__(self, tables, *, land_fn, fetch=None, clock=None, sleep=None, now=None,
                  budget_s: float = DEFAULT_BUDGET_S, max_requests: int = 100000, anytime: bool = False,
-                 lists=("about", "dia-file", "lottery-page"), log=print):
+                 lists=LISTS, societies=(), log=print):
         self.t, self.land_fn, self.log = tables, land_fn, log
         self.fetch = fetch or fetch_once
         self.clock = clock or time.monotonic
         self.pacer = fg.Pacer(now=self.clock, sleep=sleep or time.sleep)
         self.now = now or (lambda: dt.datetime.now(NZ))
         self.budget_s, self.max_requests, self.anytime, self.lists = budget_s, max_requests, anytime, lists
+        self.societies = tuple(societies)
         self.started = self.clock()
         self.failures = {}
         self.blocked = {}
         self.run_id = None
-        self.counts = {"requests": 0, "landed": 0, "already_held": 0, "set_aside": 0, "records_of_grants": 0}
+        self.counts = {"requests": 0, "landed": 0, "already_held": 0, "set_aside": 0, "records_of_grants": 0,
+                       "society_lists": 0, "before_window": 0}
         self.stopped = ""
 
     def time_left(self) -> bool:
@@ -262,7 +366,7 @@ class Run:
         """One gated, paced request to `host` with no redirect followed: (status, body, location), or None after a
         failed read. Raises Blocked on a 403, 429 or challenge, or after three failed reads in a row."""
         if host in self.blocked:
-            raise Blocked(self.blocked[host])
+            raise Blocked(self.blocked[host], asked=False)
         dec = fg.check(url, positions_dir=POSITIONS)          # a refusal raises fg.Refused and is never caught
         self.pacer.wait(dec.host, max(dec.floor, REST_S if self.failures.get(host) else FLOOR_S))
         self.counts["requests"] += 1
@@ -277,7 +381,7 @@ class Run:
         if why:
             self.aside(url, "fetch", why)
             self.blocked[host] = why
-            raise Blocked(why)
+            raise Blocked(why, status)
         return status, body, location
 
     def failed(self, url, host, why):
@@ -296,10 +400,10 @@ class Run:
                 return None, url
             status, body, location = got
             if status in (301, 302, 303, 307, 308) and location:
-                if fg.host_of(location) != host:
+                if site_of(fg.host_of(location)) != site_of(host):
                     self.aside(url, "fetch", f"redirects to {fg.host_of(location)}: not followed")
                     return None, url
-                url = location
+                url, host = location, fg.host_of(location)
                 continue
             return got, url
         self.aside(url, "fetch", "too many redirects")
@@ -362,6 +466,19 @@ class Run:
         if slug != read.DIA_CSV:
             self.aside(url, "dia-file", "the file landed is not the profile's shape; the reading will set it aside")
 
+    def walk_one(self, url, host):
+        """One page of a walk. A page that blocks is marked asked, with the status that blocked, before the block
+        stops the host: else it stays first in the frontier and every later run opens on it and stops (the first
+        walk of 22 October 2026 met a 403 on its sixteenth page)."""
+        try:
+            got, final = self.get_following(url, host)
+        except Blocked as exc:
+            if exc.asked:
+                self.t.frontier_asked(host, url, exc.status)
+            raise
+        self.t.frontier_asked(host, url, got[0] if got else None)
+        return got, final
+
     def lottery_pages(self):
         host = CM_HOST
         self.t.frontier_add(host, [canonical(CM_HOME)], 0)
@@ -372,8 +489,7 @@ class Run:
             for url, depth in batch:
                 if not self.time_left():
                     return
-                got, final = self.get_following(url, host)
-                self.t.frontier_asked(host, url, got[0] if got else None)
+                got, final = self.walk_one(url, host)
                 if got is None:
                     continue
                 status, body, _ = got
@@ -388,9 +504,83 @@ class Run:
                     self.counts["records_of_grants"] += 1
                 self.t.frontier_add(host, links(final, body, host), depth + 1)
 
+    def society_files(self):
+        """Each class A society's grants page, the grants pages it links (to `SOCIETY_DEPTH`), every grants file they
+        link landed once, and the society's terms, copyright or privacy page landed under `about` before its first
+        file. A block stops that society's site, not the run."""
+        for key, start in SOCIETY_SITES.items():
+            if self.societies and key not in self.societies:
+                continue
+            if not self.time_left():
+                return
+            try:
+                self.society(key, start)
+            except Blocked as exc:
+                self.log(f"{SOURCE}: society-file {key}: stopped for this site: {exc}")
+                self.stopped = (self.stopped + "; " if self.stopped else "") + f"{key} stopped: {exc}"
+
+    def society(self, key, start):
+        """The walk keeps what it finds in the frontier: pages at their depth from the grants page, files at
+        `FILE_DEPTH` and the pages about the source at `ABOUT_DEPTH`, so a run cut short leaves nothing found
+        unasked for long. A file is asked once; a page again after `RECRAWL_DAYS`."""
+        host = fg.host_of(start)
+        self.t.frontier_add(host, [canonical(start)], 0)
+        seen = set()
+        while self.time_left():
+            batch = [(u, d) for u, d in self.t.frontier_next(host, 50, RECRAWL_DAYS)
+                     if 0 <= d <= SOCIETY_DEPTH and u not in seen]
+            if not batch:
+                break
+            for url, depth in batch:
+                seen.add(url)
+                if not self.time_left():
+                    return
+                got, final = self.walk_one(url, host)
+                if got is None:
+                    continue
+                status, body, _ = got
+                if status != 200:
+                    if status != 404:
+                        self.aside(url, "society-page", f"HTTP {status}")
+                    continue
+                if b"<html" not in body[:4096].lower():
+                    continue
+                self.land(body, final, "society-page", key)
+                pages, files, about = society_links(final, body)
+                self.t.frontier_add(host, [on_host(p, host) for p in pages], depth + 1)
+                self.t.frontier_add(host, files, FILE_DEPTH)
+                self.t.frontier_add(host, about, ABOUT_DEPTH)
+        if not self.t.last("about", None, key):
+            for url in self.t.frontier_unasked(host, ABOUT_DEPTH)[:2]:
+                if not self.time_left():
+                    return
+                got, final = self.walk_one(url, host)
+                if got is not None and got[0] == 200:
+                    self.land(got[1], final, "about", key)
+        for url in self.t.frontier_unasked(host, FILE_DEPTH):
+            if before_window(url):
+                self.counts["before_window"] += 1
+                continue
+            if self.t.last("society-file", url) is not None:
+                self.t.frontier_asked(host, url, 200)
+                self.counts["already_held"] += 1
+                continue
+            if not self.time_left():
+                return
+            got, final = self.walk_one(url, host)
+            if got is None:
+                continue
+            if got[0] != 200:
+                self.aside(url, "society-file", f"HTTP {got[0]}")
+                continue
+            sha, slug = self.land(got[1], url, "society-file", key)
+            if slug:
+                self.counts["society_lists"] += 1
+
     def run(self) -> dict:
         self.run_id = self.t.begin()
-        steps = {"about": self.about, "dia-file": self.dia_file, "lottery-page": self.lottery_pages}
+        steps = {"about": self.about, "dia-file": self.dia_file, "lottery-page": self.lottery_pages,
+                 "society-file": self.society_files}
         for name in self.lists:
             try:
                 steps[name]()
@@ -419,7 +609,8 @@ def landing(conn):
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="registers.grants.capture")
     ap.add_argument("--anytime", action="store_true", help="outside off-peak (by hand: a proof)")
-    ap.add_argument("--list", action="append", choices=["about", "dia-file", "lottery-page"])
+    ap.add_argument("--list", action="append", choices=list(LISTS))
+    ap.add_argument("--society", action="append", choices=sorted(SOCIETY_SITES))
     ap.add_argument("--max-requests", type=int, default=100000)
     ap.add_argument("--budget-s", type=float, default=DEFAULT_BUDGET_S)
     ap.add_argument("--database", default="querynz_v4")
@@ -435,10 +626,11 @@ def main(argv=None) -> int:
             print(f"{SOURCE}: another run holds the lane; this one asks for nothing")
             return 0
         out = Run(t, land_fn=landing(conn), anytime=a.anytime, max_requests=a.max_requests, budget_s=a.budget_s,
-                  lists=tuple(a.list or ("about", "dia-file", "lottery-page"))).run()
+                  lists=tuple(a.list or LISTS), societies=a.society or ()).run()
     ok, last = outcome(out)
     detail = (f"{out['requests']} requests, {out['landed']} landed, {out['already_held']} already held, "
-              f"{out['records_of_grants']} records of grants met, {out['set_aside']} set aside; {last}")
+              f"{out['records_of_grants']} records of grants met, {out['society_lists']} society lists landed, "
+              f"{out['set_aside']} set aside; {last}")
     print(f"{SOURCE}: {detail}")
     if a.database == "querynz_v4":
         jobrun.record(JOB, ok, detail, started, out)

@@ -27,3 +27,31 @@ reached: the catalogue then served a challenge.
 
 Every society's 2021 to 2025 grants are already in the Department's file. The societies' own lists add 2017 to
 2020 (ruling 71's window) and the purpose as printed.
+
+## Class A read (grants-2, 22 October 2026)
+
+The walk from each grants page (one link deep; two for One Foundation; the job walks two), at night, serial, 5 s apart: 321 requests (the gate's ledger), 235 files landed (no
+block, no challenge). 100 read under eleven profiles (15,524 decisions), 114 carded by hash in `unprofiled.list`,
+14 not lists (refunds, forms, policies), 7 scans.
+
+| Society | Read | Carded |
+| --- | --- | --- |
+| Air Rescue | every quarter July 2017 to June 2026 but one; 2021 to 2025 agree with the national file within 0.12% (count) and 0.02% (money) | April to June 2020 (pictures) |
+| Pelorus | every meeting December 2025 to June 2026, approved and declined; printed totals agree | the 28 April 2026 declined list is not published: its link serves the approved list |
+| Aotearoa Gaming Trust | 2026 quarters 1 to 3 | earlier years not linked |
+| Trust Aoraki | August, October, December 2025 (purpose printed) | A3 sheets 2016 to 2022 (blocks side by side), 2024 to 2025 posters, 4 scans |
+| Milestone | every month November 2017 to March 2020 | 2020 to 2026 in several layouts, purpose printed |
+| New Horizon | June 2024 to May 2026, approved and unsuccessful | |
+| We Care | 2022 quarters (52 grants against the national file's 55) | declined lists, 2023 to 2025 annual reports |
+| NZ Community Trust | | its one list redirects to `static1.squarespace.com`, a host no position names |
+| One Foundation | | its lists are built by script: no list in the page |
+
+## Regional development and tertiary funding (grants-2, 22 October 2026; ruling 61)
+
+Seven page requests through the gate under the draft position `position/regional-development-and-tertiary-funding.md`.
+
+| Publisher | What | Shape | Terms | Outcome |
+| --- | --- | --- | --- | --- |
+| Kānoa, MBIE's regional development unit (growregions.govt.nz) | "All Kānoa managed projects" (Provincial Growth Fund, Regional Strategic Partnership Fund, Regional Infrastructure Fund and others), as of August 2026 | one xlsx; a PDF overview of the funds | CC BY-NC 4.0 (its copyright page): no commercial use without permission | **not landed**; carded, queue |
+| Tertiary Education Commission (tec.govt.nz) | funding allocations per provider (Education Counts points there) | not seen | not read | **challenged** (Incapsula) on the first request: a failed read; carded |
+| Ministry of Education, Education Counts | the financial resourcing of tertiary education | aggregate tables, no recipient-level grants seen | CC BY 4.0 | nothing to read for this lane |

@@ -20,11 +20,13 @@ CREATE TABLE IF NOT EXISTS grants.capture_runs (
 
 -- every document a run landed, by its hash, with the list that asked for it: `dia-file` (the national file of class 4
 -- grants), `dia-file-page` (the catalogue's page that lists it), `lottery-page` (a page of Community Matters met on
--- the crawl), `about` (a page about a source: a licence, terms, a privacy notice). `recognised` is the profile whose
+-- the crawl), `about` (a page about a source: a licence, terms, a privacy notice), `society-page` (a class 4
+-- society's own grants page) and `society-file` (a grants list it links, as a file); `publisher` is the society's
+-- key there. `recognised` is the profile whose
 -- shape it has, or null (a page the crawl walked through and the reading never reads)
 CREATE TABLE IF NOT EXISTS grants.capture_docs (
     run_id      bigint NOT NULL REFERENCES grants.capture_runs (run_id),
-    list        text NOT NULL CHECK (list IN ('dia-file', 'dia-file-page', 'lottery-page', 'about')),
+    list        text NOT NULL,
     publisher   text NOT NULL,
     url         text NOT NULL,
     sha256      text NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'),
@@ -33,6 +35,12 @@ CREATE TABLE IF NOT EXISTS grants.capture_docs (
     at          timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS grants_capture_docs_list ON grants.capture_docs (list, url, at);
+-- the lists, held by a named check so a new list is one line here (grants-2 added the societies' two)
+ALTER TABLE grants.capture_docs DROP CONSTRAINT IF EXISTS capture_docs_list_check;
+ALTER TABLE grants.capture_docs DROP CONSTRAINT IF EXISTS grants_capture_docs_list_check;
+ALTER TABLE grants.capture_docs DROP CONSTRAINT IF EXISTS capture_docs_list_known;
+ALTER TABLE grants.capture_docs ADD CONSTRAINT capture_docs_list_known
+    CHECK (list IN ('dia-file', 'dia-file-page', 'lottery-page', 'about', 'society-page', 'society-file'));
 
 -- the crawl's frontier for a site walked whole (the whole-site doctrine): every address met, and when it was asked
 CREATE TABLE IF NOT EXISTS grants.capture_frontier (
@@ -60,7 +68,9 @@ CREATE TABLE IF NOT EXISTS grants.capture_set_aside (
 -- the Lottery Grants Board through `committee`). The recipient exactly as printed; the NZBN and the charity number
 -- only where the publisher printed a valid one beside it. `amount_nzd` is the granted amount of an accepted grant;
 -- every figure is also kept as published. `period` is the year of decision (the national file) or the financial
--- year (a Lottery record); `round` is the Lottery's round as printed
+-- year (a Lottery record), or a society list's decision date or its period as printed ('2025-07-01/2025-09-30');
+-- `round` is the Lottery's round as printed. A society's own list adds its application number, its reason for a
+-- decision and its declared conflicts of interest, each as printed
 CREATE TABLE grants.grants (
     key                            text PRIMARY KEY,
     publisher_key                  text NOT NULL,
@@ -95,6 +105,9 @@ CREATE TABLE grants.grants (
     territorial_authority          text,
     other_territorial_authority    text,
     region                         text,
+    application_as_published       text,
+    reason_as_published            text,
+    interest_as_published          text,
     document                       text NOT NULL,
     page                           integer NOT NULL,
     place                          text NOT NULL,
