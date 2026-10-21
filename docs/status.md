@@ -2,47 +2,51 @@
 
 Overwritten at every close; under 3 KB. The detail is in `docs/merges/`.
 
-**Date:** 2026-10-21, 14:30 NZDT. **Step:** 4 built through 4.4 and 4.9;
-4.5 day three not clean; 5.1 done; 5.2 nine templates merged, 11 and 12
-raised; 5.5 merged; track C measured. Tracks B and E closed, on
-the queue's clock. **Boxes:** node2 is the estate; node1 waits for its
-setup card (ruling 57). **Alarm channel:** the old estate's ntfy address.
+**Date:** 2026-10-21, 23:20 NZDT. **Step:** 4 built through 4.4 and 4.9;
+4.5 day three not clean; 5.1 done; 5.2 closed (ten templates, `fix-report-2`
+parameters); 5.3 eight lanes merged (OpenLaw, HDC held on terms; sanctions
+lists held); 5.4 merged; 5.5 merged; 6.1 merged (`scan-1`, the scan on
+port 8450); 6.2 template lane `tenders-1` merged, templates 1 and 2 raised;
+6.3 `grants-1` raised. Track C measured. Tracks B and E closed, on the
+queue's clock. **Boxes:** node2 is the estate; node1 waits for its setup
+card (ruling 57). **Alarm channel:** the old estate's ntfy address.
 
 ## Done
 
 - Steps 0 to 3 closed (`docs/merges/scheduler-*`, `trial-*`; ruling 60).
-  1.4's positive half observed 21 October (an ACT declaration reached the
-  06:19 release with only the carve-out running; ruling 70: the gap stands).
-- 4.1, fourteen lanes merged (`docs/merges/`): disclosures, party returns,
-  parties, party finance, gazette 1 to 6 (live, 207,133 notices), house,
-  companies (1.92 M), expenses and interests, societies (133,116),
-  candidate returns (412 published), charities (46,131 charities, 589,108
-  officers, 430,437 returns; the Opus build kept, ruling 64 on addresses).
-- 4.2/4.3 links: `links-1`, `links-2`, `fixes-1`; 2.82 M links; the agent
-  (track C) scores 578 pairs and applies nothing (ruling 69: after the
-  build). 4.4 site version 3. 4.9 board 51 views. 5.1 the report shape,
-  tranche 3 (`report-3`: since date, reaches, filters, not-held keys).
-- 5.2 templates merged: 08, 04, 03, 02, 13, 07 (+ `construction-2`, ruling
-  65), 05, 06. 5.5 company monitoring (`companies-2`): `qv4-companies-monitor`.
-- Rulings 64 to 77 on 21 October (`docs/decisions/rulings.md`): the window
-  is 2017 (71), reconciliation doctrine under $100 (66, `reconcile-1`),
-  coupled donors joined to each person (73, `coupled-1`), party boards built
-  not deployed (72, `party-boards-1`), two emergency fixes to the frozen
-  product (76, 77: the patch is drafted, Arthur's commit).
+  1.4's positive half observed 21 October (ruling 70: the gap stands).
+- 4.1, fifteen lanes merged (`docs/merges/`): the political-donation
+  lanes (ruling 66 reconciliation, `reconcile-1`), parties, party finance,
+  gazette 1 to 6 (207,133 notices), house, companies (1.92 M), expenses and
+  interests, societies, candidate returns, charities (46,131; ruling 64),
+  party boards (`party-boards-1`, ruling 72: built, not on the site),
+  OpenLaw (`openlaw-1`, HELD on its terms), courts (`courts-1`, 148 judgments).
+- 4.2/4.3 links: 2.82 M links, 2.32 M groups, rebuilt after `coupled-1`
+  (ruling 73); the agent (track C) scores and applies nothing (ruling 69).
+  4.4 site version 3. 4.9 board 75 views. 5.1 the report shape, tranche 3.
+- 5.2 closed: templates 08, 04, 03, 02, 13, 07 (ruling 65), 05, 06, 11
+  (`healthcare-1`), 12 (`property-1`). 5.5 `qv4-companies-monitor`.
+- Rulings 64 to 77 on 21 October (`docs/decisions/rulings.md`); the two
+  emergency fixes to the frozen product (76, 77) are drafted for Arthur's
+  run.
 
 ## Running (headless, from the integrator)
 
-- `openlaw-1` and `courts-1` (step 5.4, Opus). Raised, waiting on the gate
-  in raise order: `construction-2`, `coupled-1`, `reconcile-1`,
-  `healthcare-1`, `party-boards-1`, `property-1`. Step 6 follows 5.2's close; step 7 held (ruling 63).
+- None at 23:20. Raised, waiting on the gate in raise order: `grants-1`,
+  `fix-support-fetchgate-1`, `scan-templates-1`, `fix-templates-1`. Merged
+  tonight after 18:00: `sanctions-1`, `scan-1`, `tenders-1` (29,874 award
+  notices live), `regulators-1`, `fix-report-2`, `oio-1`, `hdc-1`,
+  `diaries-1` (records only; ruling 78: the Beehive and Hansard come from
+  Arthur's third-party source). Step 7 held (ruling 63).
 
 ## Half-done
 
 - 4.5 (`comparison-1`, `-2`): day three 29,259 differences, 0 uncarded,
   not clean; ahead: seven clean days, checkpoint, export test, the switch
-  after 7 November. Charities views to reach the report shape and the
-  templates' charity flags (card). Step 2: `qv4-questions` held (ruling
-  22); node1 setup carded (ruling 57).
-- Waits on Arthur: the two emergency fixes (his run), the retired-session
-  scratch drop (his run), node1's fence and the cable check; items 12, 69
+  after 7 November. Step 2: `qv4-questions` held (ruling 22); node1 setup
+  carded (ruling 57).
+- Waits on Arthur: the two emergency fixes (his run), the OpenLaw and HDC
+  terms (no default), the letters (Ministry of Justice; MBIE on the GETS
+  files; the Commissioner), the diaries source's name (ruling 78), the
+  scratch drops (his run), node1's fence and the cable check; items 12, 69
   and 75 return after the build.

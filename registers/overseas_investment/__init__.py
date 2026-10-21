@@ -1,0 +1,1 @@
+"""registers/overseas_investment: the Overseas Investment Office's decision summaries (step 5.3; oio-1). Added by the integrator at the merge: without it the tests collect as the root tests package."""

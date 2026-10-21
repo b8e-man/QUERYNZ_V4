@@ -16,7 +16,9 @@ prints it (design: "Rules for everything a product shows"; the brief):
   7. no home address: no address-shaped text in a title or a carried value,
      a company's own registered name aside;
   8. a near or contested line carries its reasons;
-  9. the grade is one of the three.
+  9. the grade is one of the three;
+ 10. an optional step with nothing there says "none found in" its view and
+     carries no citation, no date and no value.
 
 Pure: a template, a run's lines and the shape's own words in, problems out."""
 from __future__ import annotations
@@ -78,6 +80,10 @@ def line_problems(ln: dict) -> list:
         if m and "never" not in text:
             out.append(f"line {n}: shown as an owner in the scan's own words: {m.group(0)!r} (rule 4)")
     for s in ln.get("steps") or []:
+        if s.get("absent"):
+            if not BLANK_OK.match(s.get("title") or "") or s.get("cite") or s.get("values") or s.get("ref"):
+                out.append(f"line {n}, {s.get('label')}: a step with nothing there says 'none found in' and carries nothing else (rule 10)")
+            continue
         if not s.get("cite"):
             out.append(f"line {n}, {s.get('label')}: no citation (rule 1)")
         if not s.get("dates"):

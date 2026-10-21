@@ -1,0 +1,62 @@
+# Step 6.2, template 1: use case 10, tender and award intelligence, on the
+# GETS award notices (registers/tenders). One line per supplier named on an
+# award notice, with the company row the supplier is joined to where one is
+# found: by business number when both rows carry one (confirmed), else by
+# the name alone (near, the reason on the line; every company under that
+# name a line of its own, marked as a namesake). A supplier with no company
+# row found is still listed, the company step "none found in". Read the
+# lines from the supplier's side (every award it won) or the agency's (its
+# awards, supplier by supplier): the CSV carries both columns.
+name = "tender-awards"
+title = "Government procurement awards, supplier by supplier, with the company row each supplier is joined to"
+question = "For each award notice a government agency published on GETS, which suppliers did it name, and which company in the companies register is each supplier, by business number or else by name?"
+join = "An award notice; each supplier the notice's supplier file names on it; the company row whose business number is the supplier's, or, where either row lacks a number, every company row whose name is the supplier's name once folded."
+version = "1.0"
+owner = "products/scan/templates, step 6.2 (use case 10)"
+
+limits = [
+  "The supplier file publishes no business number a join can use: of 31,264 supplier rows, 12,694 carry it in spreadsheet exponent form with the digits gone and the rest are empty, NULL or short (tenders-1). Every company here is joined by name alone, near, until the ministry publishes the numbers.",
+  "A join by name is a namesake of record, never an identity: a supplier filed as 'Fulton Hogan' meets the company 'FULTON HOGAN LIMITED', and a trading name, a misspelling or an overseas supplier meets nothing. Where a name meets several company rows each is its own line, marked as one of its namesakes.",
+  "The value is the notice's own: shown as published, where '0' means the agency gave no value (the value note says so) and the historic file (July 2014 to June 2019) has no amount column at all. Nothing here adds values up: one notice can name several suppliers, and the value is the notice's, not each supplier's share.",
+  "Dates are the notice's award date as published. The file is the ministry's quarterly report (report date beside each row); a notice the ministry has not yet published is not on this list.",
+  "A notice whose award type is 'Not Awarded' names no supplier and is not on this list: the list starts from the suppliers named.",
+  "No address of any kind is read: the supplier file's address and website columns are never loaded (registers/tenders). The company's registered office is read only to flag an office a thousand companies share, never printed.",
+  "A notice is shown by its agency and its GETS RFx ID, not its title: 754 of the 29,874 titles carry a street address (a site's, which can be a home), so the title stays out of every line; the RFx ID finds the notice on GETS.",
+  "Licence: CC BY 3.0 NZ, attribution to the Ministry of Business, Innovation and Employment on every surface; the companies register under CC BY 4.0, attribution to the Companies Office.",
+]
+
+[[reads]]
+view = "award_notices"
+licence = "Ministry of Business, Innovation and Employment, GETS award notices open data, Creative Commons Attribution 3.0 New Zealand (CC BY 3.0 NZ)"
+attribution = "Source: Ministry of Business, Innovation and Employment, New Zealand Government procurement award notices (GETS open data), licensed under CC BY 3.0 NZ"
+refresh = "the ministry's quarterly file (qv4-tenders-refresh; blocked while the ministry's host answers 403)"
+[[reads]]
+view = "award_suppliers"
+licence = "Ministry of Business, Innovation and Employment, GETS award notices open data, Creative Commons Attribution 3.0 New Zealand (CC BY 3.0 NZ)"
+attribution = "Source: Ministry of Business, Innovation and Employment, New Zealand Government procurement award notices (GETS open data), licensed under CC BY 3.0 NZ"
+refresh = "the ministry's quarterly file, with the notices"
+[[reads]]
+view = "companies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "monthly file"
+
+[[steps]]
+view = "award_notices"
+label = "award"
+columns = ["award_type", "awarded_amount_as_published", "value_note", "categories", "era"]
+[[steps]]
+view = "award_suppliers"
+label = "supplier"
+by = "row"
+on = ["key", "notice_key"]
+columns = ["nzbn_as_published", "nzbn_form", "country"]
+[[steps]]
+view = "companies"
+label = "company"
+by = "name"
+on = ["business_name", "name"]
+number = ["nzbn", "nzbn"]
+optional = true
+namesakes = true
+columns = ["status", "entity_type", "nzbn"]
