@@ -1,0 +1,5 @@
+# The alarm address is the one secret outside the credential directory: leave it there, or move it
+default: leave it. The ntfy address sits in `ops/config/alert-channel.env` in the live old folder, not in `~/.querynz/`. Hard limit 1 says credentials live in the credential directory and nowhere else; the plan's map ("How an alarm reaches Arthur") names this file as the one new jobs read, so the plan itself accepts the exception. Both estates read that path today (`ops/production/unit-failed.sh`; `support/alarm`). Moving it means a change to the old estate's config outside the three kinds hard limit 22 allows, so it waits.
+blocks: nothing. The runbook `docs/security/runbooks/alarm-address.md` rotates it in place.
+recommendation: leave it until the old estate is retired; then the new alarm module reads `~/.querynz/alarm.env` (`ALERT_NTFY_URL`) and the old file goes. If Arthur prefers the move now, the new module takes a second path to read, tried first, and the old file stays for the old watcher.
+raised: 2026-10-22 by security-1
