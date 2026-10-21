@@ -17,8 +17,11 @@ procurement lead: "is this the failed firm again under a new name".
   Insolvency Register, court judgments, employment determinations and the
   change history before 16 August 2026 named); its limits.
 - `rules.py`: 26 flags. `phoenix-signature` sets each failure, dated from
-  its Gazette notice, beside each going company's start with the window
-  stated (365 days either side, `WINDOW_DAYS`), raised only on a shared
+  its Gazette notice, beside each going company's start with the gap in
+  days, signed, nearest first, whatever the gap: the window is the
+  reader's setting (ruling 65), read as `window_days` on the report and
+  cut only when set, and the flag counts the pairs within 90 and 365 days;
+  raised only on a shared
   person or a shared registered office from before the failure, never on a
   name alone; `same-name-failed` shows the name-only case and is never red;
   a hub or a near link is amber at most; a removal is never red. Every rule
@@ -27,7 +30,7 @@ procurement lead: "is this the failed firm again under a new name".
   nothing of it.
 - `limits.md`: the known-limits page and the checkpoint of 2026-10-21.
 - `checkpoint.list`: the checkpoint's twelve subjects as register keys.
-- `tests/`: fixtures and a mutant check, fourteen mutants (fast); the real
+- `tests/`: fixtures and a mutant check, seventeen mutants (fast); the real
   tables through `python -m products.report render REF --template
   construction` (slow).
 

@@ -9,6 +9,7 @@ PUBLISHED_AT_20_OCTOBER = {
     "gazette_company_notices", "gazette_practitioners", "gazette_bankruptcies", "gazette_appointments",   # gazette-3 (20 October)
     "party_labels",   # parties-2 (20 October)
     "gazette_possessions",   # gazette-5 (21 October)
+    "charities", "charity_officers", "charity_returns",   # charities-3 (21 October), catalogued at the construction-2 merge
     "company_lookups", "company_lookup_roles", "company_lookup_holdings", "company_changes",   # companies-2 (21 October)
     "candidate_return_totals", "candidate_return_donors",   # candidate-returns-1 (20 October)   # pub.* on 20 October 2026; the outside check compares with the live list
     "broadcasting_allocations", "candidates", "companies", "company_addresses", "company_states", "directors",
@@ -45,10 +46,12 @@ def test_not_held_registers_have_no_views():
 
 def test_no_pane_shows_a_person_s_address():
     """Hard limit 15: the only address columns the board shows are a company's
-    registered office, in its own view."""
+    registered office, in its own view, and a body-corporate charity's address for service (ruling 64)."""
     for v in cat.VIEWS:
         for c in cat.columns_shown(v):
             if v.name == "company_addresses":
+                continue
+            if v.name == "charities" and c == "address_for_service":   # a body corporate's, shown under ruling 64; a trust's is withheld by the view
                 continue
             assert not any(w in c for w in ("address", "street", "suburb", "residential")), (v.name, c)
 
