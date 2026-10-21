@@ -56,6 +56,7 @@ READER = "registers.grants.read 1"
 DIA_CSV = "dia-class4-grants-csv"
 LOTTERY_PAGE = "lottery-record-of-grants-page"
 WINDOW_FROM = 2017      # ruling 71: the window is 2017 on
+SCAN_WORDS = 60         # a PDF carrying fewer words than this on its text layer is a scan
 EXCEL_EPOCH = dt.date(1899, 12, 30)
 
 #: the publishers this lane knows: key → (name, kind, website, licence, attribution). The societies are the
@@ -68,6 +69,9 @@ DIA_ATTRIBUTION = ("Source: Te Tari Taiwhenua Department of Internal Affairs, Gr
                    "(class 4 grants data), licensed under CC BY 4.0")
 LOTTERY_ATTRIBUTION = ("Source: Te Tari Taiwhenua Department of Internal Affairs, Community Matters, Te Puna Tahua "
                        "Lottery Grants Board record of grants, licensed under CC BY 4.0")
+#: a society's own list carries no licence the survey saw: its facts are read and cited, its words quoted, under the
+#: position docs/legal/positions/class-4-society-grant-publications.md (a lawyer confirms before anything is sold)
+SOCIETY_LICENCE = "none stated: facts read and cited under the position class-4-society-grant-publications"
 SOCIETIES = {
     # key: (name as the Department's list prints it, website as listed, on the list of 21 October 2026)
     "air-rescue-services": ("Air Rescue Services Limited", "https://www.airrescueservices.co.nz", True),
@@ -159,7 +163,8 @@ def publishers() -> list:
             "role": "makes Lottery grants through its committees (Gambling Act 2003, Part 4)"}]
     for k, (name, site, listed) in sorted(SOCIETIES.items()):
         out.append({"key": k, "name": name, "kind": "class 4 society", "website": site, "on_departments_list": listed,
-                    "licence": CC_BY_4, "attribution": DIA_ATTRIBUTION,
+                    "licence": SOCIETY_LICENCE, "attribution": f"Source: {name}, its own list of grants approved and "
+                                                               "declined (Gambling Act 2003, s 110(4))",
                     "role": "makes class 4 grants from gaming machine proceeds (Gambling Act 2003, s 110(4): "
                             "publishes its grants at least annually)"})
     return out
@@ -188,7 +193,10 @@ def profile(slug: str) -> dict:
 
 def _first_line(data: bytes) -> list:
     line = data[:4096].split(b"\n", 1)[0].rstrip(b"\r").decode("utf-8-sig", "replace")
-    return next(csv.reader([line]), [])
+    try:
+        return next(csv.reader([line]), [])
+    except csv.Error:          # not a CSV (a file a society walk landed): no header
+        return []
 
 
 _H1 = re.compile(r"<h1[^>]*>(?P<h>(?:(?!<h1).)*?)</h1>", re.S | re.I)
@@ -208,6 +216,9 @@ def headings(page: str) -> list:
 
 def recognise(data: bytes):
     """The slug of the profile whose shape the document has, or None."""
+    if data.startswith(b"%PDF"):
+        from registers.grants import society
+        return society.recognise(data)
     if _first_line(data) == profile(DIA_CSV)["recognise"]["header_exact"]:
         return DIA_CSV
     head = data[:600000].decode("utf-8", "replace")
@@ -464,12 +475,23 @@ def _reconcile(out: Reading) -> None:
 
 
 def read_document(data: bytes, sha: str, only=None) -> Reading:
-    """One document, recognised then read; a document no profile recognises is one catch-log line."""
+    """One document, recognised then read; a document no profile recognises is one catch-log line (a PDF says how
+    much text it carries, so a scan is told from a layout no profile knows)."""
     slug = recognise(data)
     if slug is None:
-        return Reading(None, None, [], [{"document": sha, "place": "whole document", "stage": "recognise",
-                                         "reason": "no profile recognises its shape; not read"}], 1)
-    return READERS[slug](data, sha, only)
+        out = Reading(None, None, [], [{"document": sha, "place": "whole document", "stage": "recognise",
+                                        "reason": "no profile recognises its shape; not read"}], 1)
+        if data.startswith(b"%PDF"):
+            from registers.grants import pdftable
+            ws = pdftable.words(data)
+            out.stated = {"pages": pdftable.page_count(data), "text_words": len(ws)}
+            if len(ws) < SCAN_WORDS:
+                out.set_aside[0]["reason"] = "a scan: no text layer to read (no page reader runs in this lane)"
+        return out
+    if slug in READERS:
+        return READERS[slug](data, sha, only)
+    from registers.grants import society
+    return society.read_file(data, sha, slug)
 
 
 # ── recipients as published ───────────────────────────────────────────────────

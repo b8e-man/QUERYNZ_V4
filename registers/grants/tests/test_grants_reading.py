@@ -74,10 +74,12 @@ def filled():
 def test_the_sample_reads_what_it_names(filled):
     keyed = {int(i.split()[2]) for i in filled["items"] if i.startswith("key: dia ")}
     dia = [g for g in filled["grants"] if g["document"] == DIA_FILE]
-    assert len(dia) + len(filled["read_set_aside"]) == len(keyed)
-    assert [(a["place"], a["reason"]) for a in filled["read_set_aside"]] == [("record 583", "no recipient named")]
-    assert {d["document"]: d["profile"] for d in filled["read_documents"]} == {
-        DIA_FILE: read.DIA_CSV, LOTTERY_NATIONAL: read.LOTTERY_PAGE}
+    assert len(dia) + sum(1 for a in filled["read_set_aside"] if a["document"] == DIA_FILE) == len(keyed)
+    assert [(a["place"], a["reason"]) for a in filled["read_set_aside"] if a["document"] == DIA_FILE] == [
+        ("record 583", "no recipient named")]
+    profiles = {d["document"]: d["profile"] for d in filled["read_documents"]}
+    assert profiles[DIA_FILE] == read.DIA_CSV and profiles[LOTTERY_NATIONAL] == read.LOTTERY_PAGE
+    assert {d["list"] for d in filled["read_documents"]} == {"dia-file", "lottery-page", "society-file"}
 
 
 def test_every_row_meets_the_row_contract(filled):
@@ -122,7 +124,11 @@ def test_pages_that_are_no_record_are_not_recognised():
 
 
 def test_the_views_carry_the_licence_and_the_check_is_clean(filled):
-    assert filled["view"] and all(r["licence"] == "CC BY 4.0" and r["attribution"] for r in filled["view"])
+    assert filled["view"] and all(r["attribution"] for r in filled["view"])
+    assert all(r["licence"] == ("CC BY 4.0" if r["publisher_key"] == "dia" else read.SOCIETY_LICENCE)
+               for r in filled["view"])
+    assert {r["grantor_key"] for r in filled["view"] if r["publisher_key"] != "dia"} == {
+        r["publisher_key"] for r in filled["view"] if r["publisher_key"] != "dia"}
     assert check.views(filled["conn"], f"{SAMPLE_SCHEMA}.v_") == []
     assert check.reading(filled["conn"], SAMPLE_SCHEMA) == []
 

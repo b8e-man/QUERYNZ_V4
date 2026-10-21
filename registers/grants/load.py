@@ -5,8 +5,11 @@ same `build`.
 
 What is read (`listing`): the newest national file of class 4 grants landed
 (the Department replaces it whole once a year, so an older file is never read
-beside it), and every Community Matters page the walk landed whose shape is a
-record of grants, at the newest hash held for its address. A page whose
+beside it), every Community Matters page the walk landed whose shape is a
+record of grants, at the newest hash held for its address, and every file a
+society walk landed (`society-file`), at the newest hash for its address: a
+file no profile recognises is a catch-log line, and the check tells a list in
+an unknown layout from a scan and from a file that is no list. A page whose
 address says it is a record of grants and whose shape no profile recognises
 is listed too, so it becomes a catch-log line and the check sees it. Items in
 equal grants plus set aside, document by document; the build raises if not.
@@ -40,7 +43,8 @@ COLUMNS = {
                "amount_granted_as_published", "amount_nzd", "multi_year", "purpose_as_published", "category_1",
                "category_2", "decided_on", "decided_on_as_published", "period", "round", "is_refund", "refunded_on",
                "refunded_on_as_published", "amount_refunded_as_published", "benefits", "territorial_authority",
-               "other_territorial_authority", "region") + _CITE,
+               "other_territorial_authority", "region", "application_as_published", "reason_as_published",
+               "interest_as_published") + _CITE,
     "recipients": ("key", "grantor_key", "publisher_key", "name_as_published", "kind", "nzbn", "charity_number",
                    "grants", "accepted", "declined", "amount_nzd", "first_period", "last_period") + _CITE,
     "publishers": ("key", "name", "kind", "website", "on_departments_list", "licence", "attribution", "role", "grants"),
@@ -80,14 +84,32 @@ def _copy(conn, name: str, cols: tuple, rows) -> int:
     return n
 
 
+def repeat(out, applications: dict) -> None:
+    """A society's application printed again in another of its files (Pelorus served its approved list of 28 April
+    2026 under the declined list's name too, as other bytes) is read once: the repeat becomes a catch-log line."""
+    keep = []
+    for g in out.grants:
+        k = (g["grantor_key"], g.get("application_as_published"))
+        if k[1] and k in applications:
+            out.set_aside.append({"document": g["document"], "place": g["place"], "stage": "repeat",
+                                  "reason": f"application {k[1]} is read from {applications[k][:12]}…"})
+            continue
+        if k[1]:
+            applications[k] = g["document"]
+        keep.append(g)
+    out.grants = keep
+
+
 def build(conn, schema: str, docs: list, read_bytes=read_bytes, only=None) -> dict:
     """`docs`: [(list, url, sha256)], one per document to read; `only`: {sha256: record numbers} (the sample)."""
     t0 = time.monotonic()
     create_tables(conn, schema)
     T = lambda t: table(schema, t)
     grants, ledger, asides, notes = [], [], [], []
+    applications = {}
     for lst, url, sha in docs:
         out = read.read_document(read_bytes(sha), sha, (only or {}).get(sha))
+        repeat(out, applications)
         grants += out.grants
         asides += out.set_aside
         notes += [{"document": sha, "note": k, "count": v} for k, v in sorted(out.notes.items())]
@@ -130,6 +152,10 @@ def listing(conn, schema: str = SCHEMA) -> list:
         f"SELECT DISTINCT ON (url) url, sha256, recognised FROM {T('capture_docs')} WHERE list = 'lottery-page' "
         "ORDER BY url, at DESC").fetchall()
     out += [("lottery-page", u, s) for u, s, slug in rows if slug == read.LOTTERY_PAGE or RECORD_ADDRESS.search(u)]
+    rows = conn.execute(
+        f"SELECT DISTINCT ON (url) url, sha256 FROM {T('capture_docs')} WHERE list = 'society-file' "
+        "ORDER BY url, at DESC").fetchall()
+    out += [("society-file", u, s) for u, s in rows]
     return out
 
 

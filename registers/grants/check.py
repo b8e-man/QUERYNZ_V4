@@ -26,7 +26,9 @@ import argparse
 import datetime as dt
 import json
 import re
+import os
 import sys
+import urllib.parse
 
 from registers.grants import capture, read
 
@@ -137,7 +139,7 @@ def outside(conn, schema: str = SCHEMA, read_bytes=None, today: dt.date = None) 
                         f"FROM {T('read_documents')}").fetchall()
     files = [d for d in docs if d[3] == read.DIA_CSV]
     pages = [d for d in docs if d[3] == read.LOTTERY_PAGE]
-    unread = [d for d in docs if d[3] is None]
+    unread = [d for d in docs if d[3] is None and d[1] != "society-file"]
     if not files:
         problems.append("no national file of class 4 grants read")
     if not pages:
@@ -163,6 +165,8 @@ def outside(conn, schema: str = SCHEMA, read_bytes=None, today: dt.date = None) 
     if missing:
         problems.append(f"{len(missing)} societies on the Department's list have no grant in its file: "
                         + ", ".join(missing))
+    society_problems, society_figures = societies(conn, schema, docs, bool(files))
+    problems += society_problems
     newest = conn.execute(f"SELECT max(decided_on) FROM {T('grants')} WHERE profile = %s", (read.DIA_CSV,)).fetchone()[0]
     today = today or dt.date.today()
     if newest and (today.year - newest.year) * 12 + today.month - newest.month > STALE_MONTHS:
@@ -171,7 +175,114 @@ def outside(conn, schema: str = SCHEMA, read_bytes=None, today: dt.date = None) 
                                  "ORDER BY period", (read.DIA_CSV,)).fetchall())
     return {"ok": not problems, "problems": problems, "files": len(files), "records_of_grants": len(pages),
             "file_records": sum(d[4] for d in files), "grants_by_year": per_year, "newest_decision": newest,
-            "societies_listed": len(listed), "societies_with_grants": len(with_grants)}
+            "societies_listed": len(listed), "societies_with_grants": len(with_grants),
+            "society_lists": society_figures}
+
+
+#: an address that names a society's file as something other than a list of grants decided: a refund list, a form,
+#: a policy, a guide, a report. Any other file with a text layer is taken to be a list (absence of a name is no proof)
+NOT_A_LIST = re.compile(r"(?i)refund|returned|form\b|forms?[-_ .]|polic|guide|declaration|accountability|criteria|"
+                        r"salary|writer|exclusion|privacy|annual[-_ ]?report|financial[-_ ]?statement|audit|consent")
+#: society files known to be lists in a layout no profile reads yet, by hash: `unprofiled.list`, carded
+UNPROFILED_LIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "unprofiled.list")
+
+
+def unprofiled() -> dict:
+    with open(UNPROFILED_LIST, encoding="utf-8") as f:
+        return {ln.split()[0]: ln.split(None, 2)[1:] for ln in f if ln.strip() and not ln.startswith("#")}
+
+
+#: a society whose own lists differ from the national file for a reason known and carded: reported, not red
+KNOWN_DIFFERENCES = {
+    "we-care-community-trust": "its 2022 lists print 52 grants, $1,387,532; the national file 55, $1,669,449: three "
+                               "grants the society's quarterly lists do not carry (card the-societies-own-grants-lists)",
+}
+TOLERANCE = 0.005      # a society's own lists against the national file, over the years both cover whole
+
+
+def _covered_years(periods: list) -> set:
+    """Calendar years every day of which the lists inside that year ('yyyy-mm-dd/yyyy-mm-dd', one year) cover: a list
+    over two years (New Horizon's June to May) cannot be counted to either."""
+    spans = sorted((dt.date.fromisoformat(p[:10]), dt.date.fromisoformat(p[11:21])) for p in periods
+                   if "/" in p and p[:4] == p[11:15])
+    merged = []
+    for a, b in spans:
+        if merged and a <= merged[-1][1] + dt.timedelta(days=1):
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    years = set()
+    for a, b in merged:
+        for y in range(a.year, b.year + 1):
+            if a <= dt.date(y, 1, 1) and dt.date(y, 12, 31) <= b:
+                years.add(y)
+    return years
+
+
+def societies(conn, schema, docs, national: bool) -> tuple:
+    """The societies' own lists: (problems, figures). Red on: a list in a layout no profile reads and no card names;
+    a list whose printed total its rows do not sum to; a society whose lists, over the years they cover whole and the
+    national file holds, differ from the national file by more than half a per cent in applications decided or in
+    the money granted."""
+    T = lambda t: capture.table(schema, t)
+    problems, figures = [], {"files": 0, "read": 0, "scans": 0, "not_lists": 0, "carded": 0, "compared": {}}
+    carded = unprofiled()
+    for d in (d for d in docs if d[1] == "society-file"):
+        figures["files"] += 1
+        stated = d[7] if isinstance(d[7], dict) else json.loads(d[7] or "{}")
+        if d[3] is not None:
+            figures["read"] += 1
+            for col in ("requested", "granted"):
+                if stated.get(f"total_{col}") is not None:
+                    want = total_of(stated[f"total_{col}"])
+                    got = stated.get(f"rows_{col}")
+                    if want is None or got is None or abs(float(got) - want) > 0.5:
+                        problems.append(f"the society list {d[0][:12]}… prints a {col} total of "
+                                        f"{stated[f'total_{col}']}; its rows sum to {got}")
+        elif stated.get("text_words", 0) < read.SCAN_WORDS:
+            figures["scans"] += 1
+        elif NOT_A_LIST.search(urllib.parse.unquote(d[2] or "")):
+            figures["not_lists"] += 1
+        elif d[0][:16] in carded:
+            figures["carded"] += 1
+        else:
+            problems.append(f"the society list {(d[2] or '')[-60:]} ({d[0][:12]}…) is in a layout no profile reads")
+    if not national:
+        return problems, figures
+    rows = conn.execute(f"SELECT grantor_key, period, status, count(*), coalesce(sum(amount_nzd), 0) "
+                        f"FROM {T('grants')} WHERE publisher_key = grantor_key GROUP BY 1, 2, 3").fetchall()
+    by = {}
+    for soc, period, status, n, money in rows:
+        by.setdefault(soc, []).append((period, status, n, float(money)))
+    for soc, got in sorted(by.items()):
+        years = _covered_years([p for p, *_ in got])
+        nat = conn.execute(f"SELECT period, count(*), coalesce(sum(amount_nzd), 0) FROM {T('grants')} "
+                           "WHERE publisher_key = 'dia' AND grantor_key = %s AND status IN ('Accepted', 'Declined') "
+                           "GROUP BY 1", (soc,)).fetchall()
+        both = sorted(years & {int(p) for p, _, _ in nat})
+        if not both:
+            continue
+        statuses = {st for p, st, *_ in got if "/" in p and int(p[:4]) in both} or {"Accepted", "Declined"}
+        nat = conn.execute(f"SELECT period, count(*), coalesce(sum(amount_nzd), 0) FROM {T('grants')} "
+                           "WHERE publisher_key = 'dia' AND grantor_key = %s AND status = ANY(%s) GROUP BY 1",
+                           (soc, sorted(statuses))).fetchall()     # a list of approvals only: approvals only
+        theirs = [sum(n for p, n, _ in nat if int(p) in both), sum(float(m) for p, _, m in nat if int(p) in both)]
+        ours = [0, 0.0]
+        for period, status, n, money in got:
+            if "/" in period and int(period[:4]) in both and period[:4] == period[11:15] and status in statuses:
+                ours[0] += n
+                ours[1] += money
+        figures["compared"][soc] = {"years": both, "statuses": sorted(statuses), "decided": ours[0],
+                                    "national": theirs[0],
+                                    "granted": round(ours[1]), "national_granted": round(theirs[1])}
+        differs = abs(ours[0] - theirs[0]) > TOLERANCE * theirs[0] or abs(ours[1] - theirs[1]) > TOLERANCE * theirs[1]
+        figures["compared"][soc]["agrees"] = not differs
+        if differs and soc in KNOWN_DIFFERENCES:
+            figures["compared"][soc]["known"] = KNOWN_DIFFERENCES[soc]
+        elif differs:
+            problems.append(f"{soc}: its own lists for {both[0]} to {both[-1]} read {ours[0]} applications decided "
+                            f"and ${ours[1]:,.0f} granted; the national file {theirs[0]} and ${theirs[1]:,.0f}")
+    return problems, figures
 
 
 def main(argv=None) -> int:
