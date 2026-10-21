@@ -1,31 +1,34 @@
 # ministers-diaries: where it stands
 
-**Date:** 2026-10-21, 16:40 NZDT. **Session:** `diaries-1` (Opus). **Step:** 6.2 template 4(a),
-`registers/ministers_diaries/`. **Merge request:** not yet raised.
+**Date:** 2026-10-21, 18:10 NZDT. **Session:** `diaries-1` (Opus). **Step:** 6.2 template 4(a),
+`registers/ministers_diaries/`. **Merge request:** none: BLOCKED at capture (card
+`the-beehive-s-wall-refuses-the-diaries-reader`). Branch `session/diaries-1` pushed.
 
 ## The four questions (hard limit 4), as far as read
 
-1. **Open?** The releases are published on www.beehive.govt.nz with no login. The host sits behind
-   an Incapsula wall: a plain request gets the wall's shell (robots.txt and the sitemap, 21 Oct).
-   A real headed browser was served the home page with no challenge; then `/advanced_search` and a
-   minister's page were refused (403, the wall's incident page). Failed reads, logged; the run
-   stopped. One more off-peak attempt tonight at 22:00, four pages, stopping on the first refusal.
-2. **Lawful copying?** To read: the site's `/copyright` page (tonight). Ministerial diaries are a
-   Crown proactive release under the Cabinet policy of December 2018.
-3. **Terms accepted?** None clicked; `/legal` to read tonight.
-4. **Privacy?** The policy itself leaves out home addresses as meeting places, personal, party and
-   constituency business, and anything that would breach personal privacy; releases redact under
-   the Official Information Act. Kept: names as printed, a public role at most; a location only as
-   a place of business; redactions kept and counted.
+1. **Open?** Published on www.beehive.govt.nz, no login, but behind an Incapsula wall. Plain
+   requests get the wall's shell. A real headed browser got the home page with no challenge, then
+   was refused (403, the wall's incident page) on `/advanced_search` and a minister's page. Failed
+   reads, logged, stopped (hard limit 6). Seven requests in all.
+2. **Lawful copying?** Not yet read: `/copyright`. Diaries are a Crown proactive release (Cabinet,
+   December 2018).
+3. **Terms accepted?** None clicked; `/legal` not yet read.
+4. **Privacy?** The policy leaves out home addresses as meeting places and personal, party and
+   constituency business; releases redact under the OIA. The lane keeps names as printed (a public
+   role at most), a location only as a place of business, redactions kept and counted.
 
-## Done
+## Held
 
-- Draft position `registers/ministers_diaries/position/ministers-diaries.md` (gate reads it).
-- `browser.py`: the headed reader, gated and paced, stops on a refusal.
-- Policy facts from the Beehive's own release of 10 Dec 2018 (held by the old news store): diaries
-  from January 2019, monthly, within 15 business days; ministers and under-secretaries.
+- Draft position `position/ministers-diaries.md` (the gate reads it; integrator moves it).
+- `browser.py`: the headed reader, gated by `fg.check`, five seconds apart, never reloads a refusal.
+- `tables.sql`: capture tables only. No profile, reader, publish, check or sample yet: the layout has
+  not been seen, and a profile is measured on real releases.
+- Policy facts (the Beehive's release of 10 Dec 2018, in the old news store): January 2019 onward,
+  monthly, within 15 business days; ministers and under-secretaries. Nothing exists for 2017.
 
 ## Next
 
-1. Tonight's pass; if refused, the lane is blocked at capture and goes to Arthur.
-2. If served: the listing, a sample of releases, then the profiles and the reading.
+1. One off-peak attempt (a hand run at 22:00 or later, four pages: `/copyright`, `/legal`,
+   `/ministers`, one minister's page), stopping on the first refusal.
+2. Served: listing, a sample of releases, profiles by shape, the reading, publish, check, tests.
+3. Refused: Arthur's queue item `may-we-ask-the-beehive-to-let-the-diaries-reader-through`.
