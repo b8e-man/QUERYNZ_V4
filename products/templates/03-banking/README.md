@@ -5,14 +5,15 @@ register waiting for the full picture. A subject report (the shape in
 `products/report/`) for a bank's credit analyst: "every company this person
 has touched, and how each ended".
 
-- `template.toml`: the 19 pub views it reads, each with its licence,
+- `template.toml`: the 22 pub views it reads, each with its licence,
   attribution and refresh; depth 2 (the people beside, near); its seven
   sections in the order an analyst reads them (who the person is and the
   namesakes apart; every directorship and shareholding with its dates; how
   each company ended, its status and Gazette notices dated beneath it;
   prohibitions and bankruptcies on the person; the people they sat beside
-  and the companies those people share; charity, society and political
-  money; what is not held, the securities register named); its limits.
+  and the companies those people share; society roles, the Charities
+  Register (a charity officer row by the person's name, near; a company's
+  charity by business number), political money; what is not held, the securities register named); its limits.
 - `rules.py`: twenty flags, standing for the old estate's person and company
   rules and its banking checks MC-B1 to MC-B4 where the held registers
   support them, blocked where they do not. Every rule branches on the start
