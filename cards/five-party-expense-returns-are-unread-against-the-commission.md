@@ -50,3 +50,5 @@ A + B + C = total still gates every one. Six returns read before moved to
 that full check with the same totals. On every real file: 35 of 37
 equal, 2 explained (Part A alone), 0 differ, 0 unread. Leighton Baker
 Party's superseded original stays set aside (8 cents).
+
+reconcile-1 (21 October, ruling 66): Leighton Baker Party 2023's superseded original (`ef943a1c589a`) is now a row with issue `+0.08`, not current.

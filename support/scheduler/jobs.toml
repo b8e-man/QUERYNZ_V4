@@ -684,3 +684,27 @@ priority = 38
 command = ["python", "-m", "registers.charities.load", "--job"]
 at_utc = "17:30"
 nice = 10
+# ── party boards, the declared tier (ruling 72): read from the held party-website capture, no fetch; a reload when the lane changes ──
+[jobs.qv4-party-boards-load]
+description = "Party boards (ruling 72): read the held party-website capture by its profile into one row per declared board role and publish pub.party_board_roles and pub.party_board_pages; nothing on the site and nothing into the links. No schedule: queued when the lane or its profile changes."
+needs = "processor"
+memory_gb = 1
+deadline_s = 1800
+query_timeout_s = 300
+class = "whenever"
+priority = 39
+command = ["python", "-m", "registers.party_boards.load", "--job"]
+nice = 10
+
+# ── step 5.4, the senior courts' judgments (courts-1; card the-courts-lane-s-edits-outside-its-fence) ──
+[jobs.qv4-courts-capture]
+description = "Step 5.4: each senior court's RSS feed on courtsofnz.govt.nz, the case pages it links and the judgment PDFs not held, plus the listed judgments whose old file is gone; through the fetch gate, five seconds apart, each fetched once. Daily at 03:30 NZDT, at most an hour."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 4500
+query_timeout_s = 60
+class = "due"
+priority = 32
+command = ["python", "-m", "registers.courts.capture", "--budget-s", "3600"]
+at_utc = "14:30"
+nice = 10

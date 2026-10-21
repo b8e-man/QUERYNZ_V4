@@ -21,3 +21,5 @@ template, boards among the sections the recommendation would move), and a boards
 template), then a boards lane.
 
 Ruling 72 (21 October): "build the declared anchor tier but dont deploy to the site". A lane reads the held capture, the tier the party itself declares, no fetch; nothing on the site and nothing into the links until Arthur rules. Briefed as `party-boards-1`. Owner: that lane.
+
+party-boards-1 (2026-10-21): the declared tier is built, not deployed (`registers/party_boards/`, merge request `party-boards-1`): `pub.party_board_roles` 2,876 rows from 440 pages of ten parties, `pub.party_board_pages` every capture; 429 pages are drop-notes with their reasons. Nothing on the site, nothing in the links. The site's 123 differences stand until Arthur rules boards into the template. Labour, the Greens and Vision: card `labour-and-green-boards-are-not-in-the-party-boards-capture`.
