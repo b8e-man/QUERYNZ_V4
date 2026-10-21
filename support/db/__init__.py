@@ -53,6 +53,7 @@ LANES = (
     "commerce_commission", "fma", "worksafe",   # step 5.3, the regulator actions (regulators-1, 21 October 2026)
     "overseas_investment",   # step 5.3, the overseas investment decisions (oio-1, 21 October 2026)
     "hdc_decisions",   # step 5.3, held on the Commissioner's copyright terms (hdc-1, 21 October 2026)
+    "grants",   # step 6.3, class 4 society and Lottery grants (grants-1, 21 October 2026)
 )
 PRODUCTS = ("ftm", "subject_report", "register_scan", "archive_search", "board")
 FIXED = ("pub", "links", "links_private", "docs", "sealed", "scheduler")
