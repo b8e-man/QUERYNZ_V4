@@ -30,10 +30,11 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "standing", "solvency", "people", "companies", "people-notices", "beside", "safety"]
+ORDER = ["identity", "standing", "solvency", "people", "companies", "people-notices", "beside", "charities", "safety"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 VIEWS = {"companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
-         "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers"}
+         "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
+         "charities", "charity_officers", "charity_returns"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
                    r"beneficial)\b", re.I)
@@ -89,6 +90,20 @@ def test_the_shape_loads_it_by_name_with_every_view_known_and_every_rule():
     assert line and HERE in line[0], out.stdout
     t = toml()
     assert f"{len(t['reads'])} views, {len(t['sections'])} sections, {len(R.RULES)} rules" in line[0]
+
+
+def test_it_reads_the_charities_register_in_a_section_of_its_own():
+    """Card the-insurance-template-can-now-read-the-charities-register: the three views read with their licence, in a charities
+    section after the people beside (a person's officer rows by name, `named`; a company's charity and the rows on it, `roles`),
+    the figures never added across returns and no word of what a charity has to do with the risk."""
+    t = toml()
+    reads = {r["view"]: r for r in t["reads"]}
+    for v in ("charities", "charity_officers", "charity_returns"):
+        assert "Charities Register open data" in reads[v]["licence"] and reads[v]["attribution"].startswith("Charities Services")
+    s = {x["name"]: x for x in t["sections"]}["charities"]
+    assert s["views"] == ["charities", "charity_officers", "charity_returns"] and s["sources"][:2] == ["named", "roles"]
+    assert "never added across returns" in s["text"] and "near" in s["text"] and not CAUSE.search(s["text"] + s["heading"])
+    assert not any("charities" in x.get("not_held", []) for x in t["sections"])
 
 
 def test_it_names_only_the_views_the_brief_names_each_once_with_its_licence():

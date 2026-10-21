@@ -7,6 +7,13 @@ the card that would lift it is named.
 
 ## What it cannot see
 
+- **A charity officer row is matched by name.** The charities section lists
+  the Charities Register's officer rows that carry a person's name, near: no
+  link joins the register's officers to any other row yet, so each is a
+  namesake's until a rule confirms it. A company's charity by business
+  number is confirmed, with its officers and annual returns, the figures as
+  filed and never added across returns. No flag reads them.
+  (`charity-officers-are-in-no-link-and-no-name-row`, the links lane's)
 - **The safety record.** WorkSafe's prosecutions and enforceable
   undertakings, the Commerce Commission's cases, the Financial Markets
   Authority's warnings and actions, court judgments, the Employment
@@ -133,3 +140,13 @@ release texts at a reported tier: not built, no lane (carded). The
 change-of-trade flag: blocked, the change history unpublished. MC-I1 (a
 company's dated press timeline) and MC-I3 (semantic incident recall): the
 press graph is parked; the "articles mentioning" section comes with step 7.6.
+
+## The checkpoint re-rendered, 2026-10-21 (fix-templates-1, the Charities Register)
+
+The same twelve subjects, before and after the template read the Charities
+Register in a new charities section. None refused. The section lists
+charity officer rows of the same name, near, on three of the five directors
+(1, 28 and 6 rows) and on the society officer (5); the holder of record's
+name is not looked up, and no company in the list has a charity by business
+number. `namesake-exposure` now counts those rows: three subjects from clear
+to fired, info. No other flag changed.
