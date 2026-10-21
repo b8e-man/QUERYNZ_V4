@@ -1,9 +1,10 @@
 # The companies monitor's job, profile and position go in at the merge
 kind: blocker
-state: open
+state: closed
 use-case: 5
 session: companies-2
 opened: 2026-10-21
+closed: 2026-10-21
 
 Three edits outside the companies fence, for the integrator at the merge of
 `companies-2`:
@@ -44,3 +45,5 @@ companies lane creates (`tables.sql`, `IF NOT EXISTS`; the queue and the
 ledger survive every later load). `memory_gb` is a first figure, not yet
 measured from a run record. The checks board's `python -m
 registers.companies.check` now carries the monitor's three checks too.
+
+Closed by the integrator at the merge of `companies-2` (21 October 2026): profile `nzbn-entity-detail-any-kind` version 1 appended (74 slugs); the position page widened to every entity kind; `qv4-companies-monitor` in the catalogue, `support.scheduler check` green. The monitor tables are created by the gate's staging publish of the lane.
