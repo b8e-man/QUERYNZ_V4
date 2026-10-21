@@ -23,8 +23,9 @@ authorisation to:
    citations between judgments, statutes applied);
 2. show the citation, court, date, parties (with suppression applied),
    cited judgments and statute links in our product, attributed to
-   OpenLaw NZ with a link to each case, where parts of the product may
-   later be paid for.
+   OpenLaw NZ with a link to each case;
+3. include that material in a commercial product, where access is paid
+   for (clause 3.7).
 
 We would read the cases one request at a time, three seconds apart,
 overnight, and then only new cases nightly. A suppressed or anonymised
