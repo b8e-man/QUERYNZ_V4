@@ -7,15 +7,22 @@ the card that would lift it is named.
 
 ## What it cannot see
 
-- **Anyone above the first hop.** A shareholder that is a company is filed
-  with no business number (empty on all 1,581,955 holder rows; 204,156 of
-  them are company holders), so nothing joins it to its own row and its
-  holders and directors are not reached. The report names each company
-  holder with its shares and files and stops: `holding-chain` fires on
-  it, and `ultimate-holders` is **blocked, never clear**. The depth limit
-  is four hops (`CHAIN_DEPTH`); the registers reach one (`CHAIN_REACHED`).
-  (`a-company-holder-carries-no-business-number`,
-  `the-walk-does-not-follow-a-company-holder-up-the-chain`)
+- **The chain above, two up, by name.** A shareholder that is a company is
+  filed with no business number (empty on all 1,581,955 holder rows;
+  204,156 of them are company holders, measured 2026-10-21), so the chain
+  follows a company holder to its own row only by a name one company in
+  the register carries: **near**, never confirmed, on every subject at the
+  checkpoint. A name several companies carry, or none (an overseas
+  company, a trust, a body of another kind), is named and not followed.
+  The template follows the chain two companies up (`chain_depth = 2`); a
+  company cut there says the chain goes on. On each company above its
+  holders of record, current directors and Gazette notices are listed in
+  the chain section with that company's grade: the holder's, never counted
+  as the company's own (`insolvency-notices` sets a notice above beside
+  the company's; the holder-name checks read the holders up the chain and
+  say where each sits). Above the chain the registers reach,
+  `ultimate-holders` is **blocked, never clear**. The depth limit is four
+  hops (`CHAIN_DEPTH`). (`a-company-holder-carries-no-business-number`)
 - **For whom shares are held.** The register names holders of record. A
   nominee, trustee or custodian is shown as a holder of record and flagged
   by its name (`custodial-holders`); the people it holds for are in no
@@ -79,8 +86,9 @@ the card that would lift it is named.
   near: no link joins the register's officers to any other row yet, so each
   is a namesake's until a rule confirms it. A company's charity by business
   number is confirmed, with its officers and returns; a charitable trust
-  holding shares of record is reached by its number only where the chain
-  is walked, which this template does not yet do. No flag reads them.
+  holding shares of record is followed up the chain as a company (by name,
+  near), and its charity's trustees are read only from a report started
+  from it. No flag reads them.
   (`charity-officers-are-in-no-link-and-no-name-row`, the links lane's)
 - **Overseas registers and trusts** are named in the not-held section's
   text, not in the shape's not-held list.
@@ -130,3 +138,33 @@ holder of record's group (subject 11) lists three charity officer rows of
 the same name, near; no company in the list has a charity by business
 number, and every memo lost the line saying it names as not held a
 register that is published.
+
+## The checkpoint re-rendered, 2026-10-22 (fix-products-templates-1, the companies above)
+
+The same twelve subjects, before (a clean copy of 2748790) and after
+`chain_depth = 2` and the chain section. None refused. Every company
+reached up the chain was reached by name, near: no holder row carries a
+business number.
+
+- **SAILPLANE SERVICES** (1): its trustee holder followed to its row and
+  one further up (BR LEGAL TRUSTEE COMPANY), the chain going on past two
+  up; four directors and two notices above listed. `custodial-holders`
+  and `holder-hubs` now name the trustee one up too.
+- **FOLEY WINES** (2): six companies reached, thirteen holders not
+  followed (several companies or none of that name), 27 directors and one
+  notice above. `overseas-holders` went from blocked to fired amber: FFW
+  Opco, LLC and Lion Pty Ltd hold shares one up.
+- **SEASONAL SOLUTIONS** (4): 36 companies reached, the chain going on at
+  14; `custodial-holders` went from clear to fired info and `holder-hubs`
+  from blocked to fired info on six trustee holders one up.
+- **SACRED HILL VINEYARDS** (6): its holder SACRED HILL WINERY followed one
+  up, its liquidation and winding-up application listed and set beside
+  the company's own three notices in `insolvency-notices`, never counted
+  as its own; the other holder (Jebsen Beverage Company) not followed, no
+  company of that name in the register.
+- **CANDLE SUPPLY** (3) and **STREAMLINERS** (5): each company holder is
+  named and not followed (an Australian nominee; a trust and a general
+  partner filed under the partnership's words: no company of that name in
+  the register), and `holding-chain` now says so; nothing is listed above.
+- The holder-less, person and filed-row subjects (7 to 12) list nothing in
+  the chain section and no flag changed.

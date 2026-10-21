@@ -8,8 +8,9 @@ limit, a cut chain that says it goes on, an empty holder list that says why,
 an unresolved holder shown as a leaf), taken as ideas and tests, not code,
 where the held registers can support them:
 
-  holding-chain        the holders of record of the company, and the companies among them: the chain stops at the first hop,
-                       because a company holder carries no business number, and the flag names each one with its shares and files
+  holding-chain        the holders of record of the company, the companies among them, and the chain above them as far as the
+                       template follows it: each company reached by business number (confirmed) or by a name one company carries
+                       (near), the holders not followed, where the chain is cut, and what was read on the companies above
   ultimate-holders     blocked, never clear: a holder of record is not the person the shares are held for, and no register held names that person
   custodial-holders    a holder of record named as a nominee, trustee or custodian: shown as a holder of record, never more
   holder-hubs          a holder of record the walk flagged as a hub; blocked otherwise, because how many companies a holder holds is not read
@@ -35,8 +36,12 @@ hubs-met, replaced-return); this file carries no copy of them.
 
 Every rule branches on the start: a company, a person, or anything else (a
 filed donation, a notice). From a company the walk lists the directors and
-holders of record and does not follow them, so every check on the people is
-blocked and says to start a report from each one. A check the walk could not
+holders of record and does not follow the people, so every check on the
+people is blocked and says to start a report from each one; it follows a
+company holder up the chain (the `chain` section), and the holders, directors
+and notices read on a company above are the holder's: the holder checks read
+the holders up the chain beside the company's own, saying where each sits,
+and `insolvency-notices` sets a notice above beside the company's own. A check the walk could not
 have seen is blocked, never clear. No flag joins two facts with a word of
 cause, and none calls a holder of record more than that: dates sit side by
 side, and a share count is the count filed for that holding.
@@ -50,11 +55,9 @@ import datetime as dt
 import re
 
 V = "0.1"
-#: how many hops up the chain a report would follow once the walk can follow a company holder (the old chain page's default was three,
-#: its ceiling four); the registers reach one today, because a company holder carries no business number
-#: (card a-company-holder-carries-no-business-number; the walk's half: the-walk-does-not-follow-a-company-holder-up-the-chain)
+#: the old chain page's ceiling (its default was three); the template follows the chain `chain_depth` companies up (template.toml),
+#: a company holder by its business number where the file carries one, otherwise by a name one company carries
 CHAIN_DEPTH = 4
-CHAIN_REACHED = 1
 YOUNG_DAYS = 730          # under 24 months registered: worth a question (the old young-entity rule)
 NAMESAKE_NOTE_AT = 5
 NAMESAKE_PARTIAL_AT = 50
@@ -94,8 +97,8 @@ FOR_WHOM = ("for whom a holder of record holds", "a trust's trustees, settlors a
 SECURITIES = "the Personal Property Securities Register (interface awaited since 19 September 2026)"
 NOT_FOLLOWED = ("started from a company, the report lists its directors and holders of record but does not follow them to their own links "
                 "and companies yet; start a report from each person listed")
-CHAIN_STOPS = (f"a holder that is a company is filed with no business number, so nothing joins it to its own row and its holders and directors "
-               f"are not reached: the depth limit is {CHAIN_DEPTH} hops and the registers reach {CHAIN_REACHED}")
+CHAIN_STOPS = (f"past the companies the chain reaches, and above a company holder it cannot place (a name several companies carry, or none: an "
+               f"overseas company, a trust, a body of another kind), the holders and directors are not reached; the depth limit is {CHAIN_DEPTH} hops")
 
 
 flag, items, section, all_items = contract.flag, contract.items, contract.section, contract.all_items   # noqa: F821  (bound by the loader)
@@ -178,6 +181,22 @@ def _holders(report) -> list:
     return rows
 
 
+def _chain(report) -> list:
+    """The rows the walk read up the holding chain (the chain section): the companies above, their holders, directors and notices."""
+    names = {s["name"] for s in report["sections"]}
+    return list(section(report, "chain")["items"]) if "chain" in names and _company_start(report) else []
+
+
+def _above(report) -> list:
+    """The companies above the company in the holding chain, nearest first."""
+    return sorted([it for it in _chain(report) if it["view"] == "companies"], key=lambda it: (it.get("depth") or 0, it["ref"]))
+
+
+def _chain_holders(report) -> list:
+    """The holders of record on the companies above: the holder's, beside the company's own."""
+    return [it for it in _chain(report) if it["view"] == "shareholders"]
+
+
 def _is_company_holder(it) -> bool:
     return (it["row"].get("shareholder_type") or "").lower() == "company"
 
@@ -193,7 +212,8 @@ def _hop(it) -> str:
         filed = "no share count filed"
     else:
         filed = f"{int(shares):,} shares filed for the holding" if shares == int(shares) else f"{shares} shares filed for the holding"
-    return f"{it['title']}: {filed} ({it['dates']['text']})"
+    up = f"; on a company {it['depth']} up the chain, {it['grade']}" if it.get("depth") else ""
+    return f"{it['title']}: {filed} ({it['dates']['text']}{up})"
 
 
 def _hops(rows) -> str:
@@ -241,9 +261,9 @@ def holding_chain(report):
     tail = f"; {omitted:,} holder row(s) past the walk's limit, not read" if omitted else ""
     if companies:
         return flag("holding-chain", V, "fired", "amber",
-                    f"{len(companies)} of the {len(holders)} holder(s) of record are companies, and the chain stops at each: {CHAIN_STOPS}. "
-                    f"Each first hop, with the shares filed for it (no fraction is computed: a parcel held jointly is filed once per holder): "
-                    f"{_hops(companies)}{tail}", citations=tuple(it["ref"] for it in companies), sources_not_held=(OVERSEAS, LP_PARTNERS), scope="entity")
+                    f"{len(companies)} of the {len(holders)} holder(s) of record are companies. Each first hop, with the shares filed for it (no "
+                    f"fraction is computed: a parcel held jointly is filed once per holder): {_hops(companies)}{tail}. {_up_the_chain(report)}",
+                    citations=tuple(it["ref"] for it in companies + _above(report)), sources_not_held=(OVERSEAS, LP_PARTNERS), scope="entity")
     if not holders:
         return flag("holding-chain", V, "blocked", "amber", f"no holder of record is listed: {_no_holders(report)}; an empty list is not a "
                     "finding", scope="entity")
@@ -252,6 +272,36 @@ def holding_chain(report):
                     "among those not read", scope="entity")
     return flag("holding-chain", V, "clear", "amber", f"the chain ends at the first hop: each of the {len(holders)} holder(s) of record is filed "
                 "as an individual, not a company", sources_held=(HOLDERS_HELD,), scope="entity")
+
+
+def _up_the_chain(report) -> str:
+    """What the walk read above the first hop: the companies reached and how, the holders it could not follow, where it was cut, and
+    the rows listed on the companies above."""
+    w = report.get("walk") or {}
+    depth = w.get("chain_depth") or 0
+    if not depth:
+        return f"The chain is not followed past the first hop (the template sets no chain depth): {CHAIN_STOPS}"
+    above = _above(report)
+    notes = w.get("chain_notes") or []
+    st = w.get("chain") or {}
+    conf = [it for it in above if it["grade"] == "confirmed"]
+    bits = [f"Up the chain, followed {depth} up: {len(above)} company(ies) reached, {len(conf)} by business number (confirmed) and "
+            f"{len(above) - len(conf)} by a name one company carries (near)"]
+    if above:
+        bits.append("; ".join(f"{it['title']} ({it.get('depth', '?')} up, {it['grade']}; {it.get('hop_text') or 'a holder of record'})"
+                              for it in above[:EXAMPLES]) + (f"; and {len(above) - EXAMPLES} more" if len(above) > EXAMPLES else ""))
+    if notes:
+        bits.append(f"{len(notes)} holder(s) not followed: " + "; ".join(n["text"] for n in notes[:EXAMPLES]))
+    cut = [it for it in above if it.get("chain_goes_on")]
+    if cut:
+        bits.append(f"the chain goes on past {depth} up at {len(cut)} company(ies)")
+    rows = _chain(report)
+    bits.append(f"on the companies above, {sum(1 for it in rows if it['view'] == 'shareholders')} holder(s) of record, "
+                f"{sum(1 for it in rows if it['view'] == 'directors')} current director(s) and {sum(1 for it in rows if it['view'] in INSOLVENCY_VIEWS)} "
+                "Gazette notice(s) are listed, each with its company's grade: the holder's rows, not the company's")
+    if st.get("omitted"):
+        bits.append(f"{st['omitted']} holder(s) or company(ies) past the walk's limit, not read")
+    return "; ".join(bits) + f"; {CHAIN_STOPS}"
 
 
 def ultimate_holders(report):
@@ -268,7 +318,7 @@ def ultimate_holders(report):
     counted = (f"{len(holders)} holder(s) of record listed: {len(people)} filed as individuals, {len(holders) - len(people)} as companies, "
                f"{len(custodial)} named as a nominee, trustee or custodian") if holders else f"no holder of record listed ({_no_holders(report)})"
     return flag("ultimate-holders", V, "blocked", "red", f"{counted}. A holder of record is the name on the share register; for whom it holds, "
-                f"and who stands above a company holder, is in no register held ({CHAIN_STOPS}); this report names no one for whom the shares "
+                f"and who stands above the last company the chain reaches, is in no register held ({CHAIN_STOPS}); this report names no one for whom the shares "
                 "are held", sources_not_held=FOR_WHOM, scope="entity")
 
 
@@ -277,10 +327,11 @@ def custodial_holders(report):
     if _other_start(report):
         return flag("custodial-holders", V, "blocked", "amber", _other_start(report))
     holders = _holders(report)
-    hit = [it for it in holders if CUSTODIAL.search(_holder_name(it)) or any(f.get("kind") == "nominee" for f in it.get("flags", []))]
+    hit = [it for it in holders + _chain_holders(report) if CUSTODIAL.search(_holder_name(it)) or any(f.get("kind") == "nominee" for f in it.get("flags", []))]
     on_subject = [it for it in hit if it["grade"] == "confirmed"]
     if hit:
-        where = "on the company" if _company_start(report) else "on the person's companies"
+        where = ("on the company or up its holding chain" if any(it.get("depth") for it in hit) else "on the company") if _company_start(report) \
+            else "on the person's companies"
         return flag("custodial-holders", V, "fired", "amber" if on_subject else "info",
                     f"{len(hit)} holder(s) of record {where} are named as a nominee, trustee or custodian: each is shown as a holder of record, "
                     f"as the register states it; for whom it holds is in no register held: {_hops(hit)}",
@@ -290,7 +341,9 @@ def custodial_holders(report):
     if section(report, "holders").get("omitted") or _walk_short(report):
         return flag("custodial-holders", V, "blocked", "amber", "the walk left holder rows or companies past its limit unread; a nominee could be "
                     "among them")
-    return flag("custodial-holders", V, "clear", "amber", f"none of the {len(holders)} holder(s) of record listed is named as a nominee, trustee or "
+    up = len(_chain_holders(report))
+    return flag("custodial-holders", V, "clear", "amber", f"none of the {len(holders)} holder(s) of record listed"
+                + (f", nor of the {up} up its holding chain," if up else "") + " is named as a nominee, trustee or "
                 "custodian; a holder can hold for others without saying so in its name", sources_held=(HOLDERS_HELD,), sources_not_held=FOR_WHOM[:2])
 
 
@@ -298,7 +351,7 @@ def holder_hubs(report):
     """A holder of record the walk flagged as a hub. How many companies a holder holds is not read, so no hub-free clear is given."""
     if _other_start(report):
         return flag("holder-hubs", V, "blocked", "info", _other_start(report))
-    hit = [it for it in _holders(report) if any(f.get("kind") in ("nominee", "crown", "professional-director") for f in it.get("flags", []))]
+    hit = [it for it in _holders(report) + _chain_holders(report) if any(f.get("kind") in ("nominee", "crown", "professional-director") for f in it.get("flags", []))]
     if hit:
         kinds = sorted({f["kind"] for it in hit for f in it["flags"] if f.get("kind") in ("nominee", "crown", "professional-director")})
         return flag("holder-hubs", V, "fired", "info", f"{len(hit)} holder(s) of record are hubs ({', '.join(kinds)}): a holding shared through a hub "
@@ -310,7 +363,7 @@ def holder_hubs(report):
 def partnership_holders(report):
     if _other_start(report):
         return flag("partnership-holders", V, "blocked", "amber", _other_start(report), sources_not_held=(LP_PARTNERS,))
-    hit = [it for it in _holders(report) if PARTNERSHIP.search(_holder_name(it).strip())]
+    hit = [it for it in _holders(report) + _chain_holders(report) if PARTNERSHIP.search(_holder_name(it).strip())]
     if _company_start(report) and "partnership" in (report["subject"]["row"].get("entity_type") or "").lower():
         hit = [report["subject"]] + hit
     if hit:
@@ -324,14 +377,14 @@ def partnership_holders(report):
 def overseas_holders(report):
     if _other_start(report):
         return flag("overseas-holders", V, "blocked", "amber", _other_start(report), sources_not_held=(OVERSEAS,))
-    hit = [it for it in _holders(report) if _is_company_holder(it) and OVERSEAS_FORM.search(_holder_name(it).strip())]
+    hit = [it for it in _holders(report) + _chain_holders(report) if _is_company_holder(it) and OVERSEAS_FORM.search(_holder_name(it).strip())]
     if hit:
         return flag("overseas-holders", V, "fired", "amber", f"{len(hit)} holder(s) of record are named with an overseas company form: "
                     f"{_hops(hit)}; its own register is not held, so its holders and directors are not reached",
                     citations=tuple(it["ref"] for it in hit), sources_not_held=(OVERSEAS,))
     return flag("overseas-holders", V, "blocked", "info", "no holder of record listed is named with an overseas company form, but overseas "
-                "registers are not held and a company holder carries no business number, so an overseas holder named otherwise is not known "
-                "as one", sources_not_held=(OVERSEAS,))
+                "registers are not held, and a holder the chain finds no company of that name for is not said to be overseas, so an overseas "
+                "holder named otherwise is not known as one", sources_not_held=(OVERSEAS,))
 
 
 # ── exposure ────────────────────────────────────────────────────────────────
@@ -438,13 +491,21 @@ def insolvency_notices(report):
     if _other_start(report):
         return flag("insolvency-notices", V, "blocked", "red", _other_start(report), sources_not_held=NOT_HELD_INSOLVENCY)
     if _company_start(report):
-        own = [it for it in _notices(report) if _insolvency(it) and _on_subject(report, it)]
+        own = [it for it in _notices(report) if _insolvency(it) and _on_subject(report, it) and not it.get("above")]
+        up = [it for it in _chain(report) if it["view"] in INSOLVENCY_VIEWS and _insolvency(it)]
+        beside = ("; beside it, " + f"{len(up)} on a company above in the holding chain, the holder's and not the company's: "
+                  + "; ".join(f"{it['title']} ({it['dates']['text']}; {it.get('depth', '?')} up, {it['grade']})" for it in up[:EXAMPLES])) if up else ""
         if own:
             return flag("insolvency-notices", V, "fired", "red", f"{len(own)} Gazette insolvency notice(s) on the company: "
-                        + "; ".join(f"{it['title']} ({it['dates']['text']})" for it in own[:EXAMPLES]),
-                        citations=tuple(it["ref"] for it in own), sources_not_held=NOT_HELD_INSOLVENCY, scope="entity")
+                        + "; ".join(f"{it['title']} ({it['dates']['text']})" for it in own[:EXAMPLES]) + beside,
+                        citations=tuple(it["ref"] for it in own + up), sources_not_held=NOT_HELD_INSOLVENCY, scope="entity")
+        if up:
+            return flag("insolvency-notices", V, "fired", "amber", "no Gazette insolvency notice on the company" + beside,
+                        citations=tuple(it["ref"] for it in up), sources_not_held=NOT_HELD_INSOLVENCY, scope="chain")
+        read = ("the notices on the companies the chain reaches above were read too" if (report.get("walk") or {}).get("chain_depth")
+                else "a company holder's own notices are not read")
         return flag("insolvency-notices", V, "clear", "red", "no Gazette liquidation, receivership, administration, winding-up, creditors' notice or "
-                    "deed of company arrangement on the company; a company holder's own notices are not read",
+                    f"deed of company arrangement on the company; {read}",
                     sources_held=(GAZETTE_HELD + ", joined to the company by its number",), sources_not_held=NOT_HELD_INSOLVENCY, scope="entity")
     conf = [it for it in _notices(report) if _insolvency(it)]
     nearby = [it for it in _notices(report, ("near",)) if _insolvency(it)]

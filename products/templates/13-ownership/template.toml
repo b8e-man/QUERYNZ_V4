@@ -13,14 +13,22 @@ name = "ownership"
 title = "Beneficial ownership and AML checks, domestic half"
 version = "0.1"
 owner = "products/templates/13-ownership, step 5.2 (session ownership-1)"
-# 2: from a company, its holders of record, directors and registered office
-# (one hop; a company holder carries no business number, so the walk cannot
-# take the next); from a person, the companies the person holds or sits on
-# and the other holders and directors on them (near).
+# 2: from a company, its holders of record, directors and registered office;
+# from a person, the companies the person holds or sits on and the other
+# holders and directors on them (near).
 depth = 2
+# 2: from a company, each company holder of record followed up the chain two
+# companies (fix-products-templates-1; the shape's `chain` reach since
+# report-3, its companies above read since fix-report-2): by business number
+# where the file carries one (confirmed), by a name only one company carries
+# (near); each company above with its holders of record, current directors
+# and Gazette notices; a chain cut at two says it goes on. The old chain
+# page's default was three and its ceiling four.
+chain_depth = 2
 
 limits = [
-  "The chain stops at the first hop. A company that holds shares is named in the companies file with no business number, so nothing joins it to its own row: its holders and directors are not reached, and every check that needs the people further up is blocked, never clear. The depth limit is four hops; the registers reach one.",
+  "The chain is followed two companies up from the first hop: a company holder by its business number where the file carries one (confirmed), otherwise by a name only one company in the register carries (near). A holder whose name several companies carry, or none (an overseas company, a trust, a body of another kind), is named and not followed; past two up the chain says it goes on. Every check that needs the people above the chain the registers reach is blocked, never clear. The depth limit is four hops.",
+  "On each company above in the chain its holders of record, its current directors and the Gazette notices on it are listed with that company's grade: they are the holder's, not the entity's, and no check counts them as the entity's own. A charitable trust board holding shares of record is followed as a company; its charity's trustees are read only from a report started from it.",
   "A holder of record is the name on the share register and nothing more. For whom a nominee, trustee or custodian holds the shares is in no register held, and New Zealand keeps no register of trusts, nor of the people shares are held for.",
   "Sanctions lists (Foreign Affairs, the United Nations, the Police designations) are not held: the exposure check has no list to read and is blocked, never clear.",
   "Limited partnerships, overseas registers and the Personal Property Securities Register are not held: a holder that is a limited partnership or an overseas company is named as filed and not followed.",
@@ -168,14 +176,21 @@ name = "holders"
 heading = "Its shareholders of record, with their shares and the files that date them, as far up the chain as the registers reach"
 views = ["companies", "shareholders"]
 sources = ["roles", "members", "confirmed", "near", "second"]
-text = "Every shareholder of record the companies file lists on the company, with the shares filed for that holding and the monthly files it was seen in. A holder of record is shown as the register states it; a nominee, trustee or custodian holds for others, and for whom is in no register held. The chain stops here: a holder that is a company carries no business number in the file, so its own holders are not reached (the depth limit is four hops; the registers reach one), and the flags below name each company holder. A parcel held jointly is filed once per holder, so the shares on two rows may be one parcel and are never added. Started from a person, each company the person holds or sits on, with its other holders of record beneath it, each near."
+text = "Every shareholder of record the companies file lists on the company, with the shares filed for that holding and the monthly files it was seen in. A holder of record is shown as the register states it; a nominee, trustee or custodian holds for others, and for whom is in no register held. A holder that is a company is followed up the chain in the next section, and the flags below name each company holder. A parcel held jointly is filed once per holder, so the shares on two rows may be one parcel and are never added. Started from a person, each company the person holds or sits on, with its other holders of record beneath it, each near."
+
+[[sections]]
+name = "chain"
+heading = "The holding chain above it: the companies that hold its shares of record, two up, with their holders, directors and notices"
+views = ["companies", "shareholders", "directors", "gazette_liquidations", "gazette_company_notices"]
+sources = ["chain"]
+text = "Started from a company, each company holder of record followed to its own register row: by the business number the file carries for it, confirmed, or by a name only one company in the register carries, near, with its reason. Each company above is listed at its place up the chain with the shares of record it holds in the company below, as filed and never added or turned into a fraction, then its own holders of record, its current directors and the Gazette notices on it, each with that company's grade: the holder's rows, not the entity's. A company met twice is listed once; a holder whose name several companies carry, or none (an overseas company, a trust, a body of another kind), is named and not followed; at two up a company says the chain goes on. A holder of record is shown as the register states it; for whom it holds is in no register held. Started from a person, nothing is listed here: start a report from each company."
 
 [[sections]]
 name = "officers"
 heading = "Its directors and registered office, and the directors of the companies a person sits on"
 views = ["directors", "company_addresses"]
 sources = ["roles", "members", "confirmed", "second"]
-text = "Every director the companies file lists on the company, with the dates it files, and its registered office, flagged when many companies share it. The directors and holders of a company holder further up the chain are not reached. Started from a person, the person's own directorships, then the other directors on those companies, each near: a connection through another person is never confirmed."
+text = "Every director the companies file lists on the company, with the dates it files, and its registered office, flagged when many companies share it. The directors and holders of a company holder further up the chain are in the chain section. Started from a person, the person's own directorships, then the other directors on those companies, each near: a connection through another person is never confirmed."
 
 [[sections]]
 name = "gazette"
@@ -183,7 +198,7 @@ heading = "The Gazette on the companies and the people"
 views = ["gazette_liquidations", "gazette_company_notices", "gazette_prohibitions", "gazette_bankruptcies"]
 sources = ["members", "confirmed", "near", "pointing"]
 not_held = ["insolvency"]
-text = "Liquidations, receiverships, administrations, winding-up applications, creditors' notices, deeds of company arrangement, removals, restorations and amalgamations on the companies listed, each with its own date; then director prohibitions with their term on a person. A removal from the register is not an insolvency. Bankruptcy notices are published but no link rule joins one to a person yet. Started from a company, its people's notices are not read, nor the notices on a company holder further up."
+text = "Liquidations, receiverships, administrations, winding-up applications, creditors' notices, deeds of company arrangement, removals, restorations and amalgamations on the companies listed, each with its own date; then director prohibitions with their term on a person. A removal from the register is not an insolvency. Bankruptcy notices are published but no link rule joins one to a person yet. Started from a company, its people's notices are not read; the notices on a company holder further up are in the chain section."
 
 [[sections]]
 name = "exposure"

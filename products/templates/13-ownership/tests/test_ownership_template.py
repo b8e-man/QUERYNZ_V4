@@ -25,7 +25,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "holders", "officers", "gazette", "exposure", "charities", "not-held"]
+ORDER = ["identity", "holders", "chain", "officers", "gazette", "exposure", "charities", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 #: words that would join two facts as cause, or call a holder of record more than that (the shape's rules 3 and 4 hold the full list)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|controlled|behind|"
@@ -100,7 +100,7 @@ def test_its_sections_run_in_the_compliance_analysts_order():
     assert s["identity"]["sources"] == ["near"] and "companies" not in s["identity"]["views"], \
         "an entity goes to the first section naming its view whatever the section's buckets: the companies head the holders"
     assert s["holders"]["views"] == ["companies", "shareholders"] and "roles" in s["holders"]["sources"]
-    assert "depth limit is four hops" in s["holders"]["text"] and "never added" in s["holders"]["text"]
+    assert "followed up the chain in the next section" in s["holders"]["text"] and "never added" in s["holders"]["text"]
     assert "nominee, trustee or custodian" in s["holders"]["text"] and "holder of record" in s["holders"]["text"]
     assert "pointing" in s["gazette"]["sources"] and "insolvency" in s["gazette"]["not_held"]
     assert {"members", "mp_interests", "party_return_donors"} <= set(s["exposure"]["views"])
@@ -194,10 +194,33 @@ PROHIB = it("gazette:gazette/2022-ot1/prohibition/1", "gazette_prohibitions", ti
 DONATION = it("party_returns:abc/A/1", "party_return_donors", title="ACME TRADING LIMITED · $5,000", row={"donor": "ACME TRADING LIMITED"})
 
 
-def report(subject=PERSON, hubs=(), omitted=None, **sections):
+#: the chain above ACME: DOE HOLDINGS LIMITED by its business number (confirmed, 1 up), its holder of record a nominee and its director;
+#: above it KAHU CAPITAL LIMITED by a name one company carries (near, 2 up, where the chain goes on), a receivership on it; and a holder
+#: the chain could not place
+NEAR_BY_NAME = ("the holder of record is matched to its own register row by name only (1 company carries the name; the file gives no business "
+                "number for a holder): near, never confirmed")
+UP1 = dict(it("companies:companies/21", "companies", title="DOE HOLDINGS LIMITED", via=HOLDCO["ref"], row={"key": "companies/21", "status": "Registered"}),
+           depth=1, rule="chain", hop_text="holds 400 shares of record in ACME TRADING LIMITED, as filed (undated)")
+UP1_HOLDER = dict(holder("u", "KAHU CAPITAL LIMITED", kind="company", shares=1000, via=UP1["ref"]), depth=1, rule="chain")
+UP1_NOMINEE = dict(holder("v", "CUSTODIAL SERVICES NOMINEES LIMITED", kind="company", shares=5, via=UP1["ref"]), depth=1, rule="chain")
+UP1_DIRECTOR = dict(it("companies:companies/21/director/a", "directors", title="Jane Mary DOE", via=UP1["ref"], row={"in_latest": True}),
+                    above=True, depth=1, through=UP1["ref"])
+UP2 = dict(it("companies:companies/22", "companies", grade="near", title="KAHU CAPITAL LIMITED", via=UP1_HOLDER["ref"], reason=NEAR_BY_NAME,
+              row={"key": "companies/22", "status": "In Receivership"}), depth=2, rule="chain", chain_goes_on=True,
+           hop_text="holds 1,000 shares of record in DOE HOLDINGS LIMITED, as filed (undated)")
+UP2_REC = dict(it("gazette:gazette/2025-ar1/company/22", "gazette_company_notices", grade="near", title="KAHU CAPITAL LIMITED · receivership",
+                  dates="appointed 2 February 2025", via=UP2["ref"], reason=NEAR_BY_NAME, row={"kind": "receivership", "register_key": "companies/22"}),
+               above=True, depth=2, through=UP2["ref"])
+CHAIN_NOTE = {"text": "SOUTHERN TRUST: not followed; no company of this name in the register (an overseas company, a trust or a body of another kind)",
+              "via": "companies:companies/21/shareholder/w", "depth": 2}
+CHAIN = [UP1, UP1_HOLDER, UP1_NOMINEE, UP1_DIRECTOR, UP2, UP2_REC]
+
+
+def report(subject=PERSON, hubs=(), omitted=None, chain_depth=0, chain_notes=(), **sections):
     out = {"found": True, "as_of": "2026-10-21", "subject": subject, "members": [], "flags": [], "hubs": list(hubs),
            "group": {"built": True, "size": 1, "contested": False, "omitted": 0},
-           "walk": {"links_built": True, "links_omitted": 0, "entities_omitted": 0, "entities_not_expanded": 0}, "sections": []}
+           "walk": {"links_built": True, "links_omitted": 0, "entities_omitted": 0, "entities_not_expanded": 0, "chain_depth": chain_depth,
+                    "chain_notes": list(chain_notes), "chain": {"depth": 2 if chain_depth else 0, "cut": 1 if chain_depth else 0}}, "sections": []}
     for name in ORDER:
         rows = sections.get(name.replace("-", "_"), [])
         out["sections"].append({"name": name, "heading": name, "items": rows, "omitted": (omitted or {}).get(name, 0),
@@ -238,6 +261,17 @@ def properties(mod) -> list:
                 bad.append(f"{start}: {name} cleared: nothing held can clear it")
         if rl("sanctions_lists")(r)["status"] != "blocked":
             bad.append(f"{start}: sanctions-lists did not block: no list is held")
+    # the chain above: the holder's rows, never the company's own
+    up = company(holders=[JANE, HOLDCO], chain=CHAIN, chain_depth=2, chain_notes=[CHAIN_NOTE])
+    if rl("insolvency_notices")(up)["severity"] == "red" or UP2_REC["ref"] not in rl("insolvency_notices")(up)["citations"]:
+        bad.append("a receivership on a company two up the chain was the company's own, or went unsaid")
+    conf_up = company(holders=[JANE, HOLDCO], chain=[UP1, dict(UP2_REC, grade="confirmed", reason=None, depth=1, via=UP1["ref"])], chain_depth=2)
+    if rl("insolvency_notices")(conf_up)["severity"] == "red":
+        bad.append("a confirmed notice on the company one up the chain was red: it is the holder's, not the company's")
+    if "goes on" not in rl("holding_chain")(up)["text"]:
+        bad.append("a chain cut at its depth did not say it goes on")
+    if UP1_NOMINEE["ref"] not in rl("custodial_holders")(up)["citations"]:
+        bad.append("a nominee holding shares of record a company up the chain was not read")
     for name in PEOPLE_CHECKS:
         if rl(name)(company(holders=[JANE], officers=[DIRECTOR]))["status"] == "clear":
             bad.append(f"company start: {name} cleared the people it never followed")
@@ -299,6 +333,11 @@ MUTANTS = (
     ("the holders of record are taken for the people held for", 'return flag("ultimate-holders", V, "blocked", "red", f"{counted}.',
      'return flag("ultimate-holders", V, "clear", "red", sources_held=("pub.shareholders",), text=f"{counted}.'),
     ("a company holder is not seen", "companies = [it for it in holders if _is_company_holder(it)]", "companies = []"),
+    ("a notice above is the company's own", "if _insolvency(it) and _on_subject(report, it) and not it.get(\"above\")]",
+     "if _insolvency(it) and (_on_subject(report, it) or it.get(\"above\"))]"),
+    ("a notice above goes unsaid", "        up = [it for it in _chain(report) if it[\"view\"] in INSOLVENCY_VIEWS and _insolvency(it)]", "        up = []"),
+    ("a nominee up the chain is not read", "    hit = [it for it in holders + _chain_holders(report) if CUSTODIAL", "    hit = [it for it in holders if CUSTODIAL"),
+    ("a cut chain does not say it goes on", "    if cut:\n        bits.append(f\"the chain goes on", "    if False:\n        bits.append(f\"the chain goes on"),
     ("a namesake company's holders are the entity's", "return [it for it in rows if _on_subject(report, it)]", "return rows"),
     ("an empty holder list clears", '    if not holders:\n        return flag("holding-chain"', '    if False:\n        return flag("holding-chain"'),
     ("holders past the limit clear", '    if omitted:\n        return flag("holding-chain"', '    if False:\n        return flag("holding-chain"'),
@@ -343,13 +382,44 @@ def test_the_chain_names_each_first_hop_with_its_shares_files_and_depth_limit():
     assert f["status"] == "fired" and f["severity"] == "amber" and f["scope"] == "entity"
     assert set(f["citations"]) == {HOLDCO["ref"], NOMINEE["ref"]} and "2 of the 3 holder(s) of record are companies" in f["text"]
     assert "DOE HOLDINGS LIMITED: 400 shares filed for the holding (undated; in the files from companies-2026-07" in f["text"]
-    assert "the depth limit is 4 hops and the registers reach 1" in f["text"] and "no fraction is computed" in f["text"]
+    assert "the depth limit is 4 hops" in f["text"] and "no fraction is computed" in f["text"]
+    assert "The chain is not followed past the first hop (the template sets no chain depth)" in f["text"]
     import decimal
     dec = rule("holding_chain")(company(holders=[dict(HOLDCO, row=dict(HOLDCO["row"], shares=decimal.Decimal("1200")))]))
     assert "1,200 shares filed for the holding" in dec["text"], "the view's numeric column arrives as a Decimal"
     removed = dict(ACME, row=dict(ACME["row"], status="Removed"))
     b = rule("holding_chain")(report(subject=removed))
     assert b["status"] == "blocked" and "off the register" in b["text"]
+
+
+def test_the_chain_above_is_followed_two_up_with_its_holders_directors_and_notices_the_holders_not_the_companys():
+    """Card the-ownership-template-can-now-read-the-charities-register-and-the-reaches (the companies above): chain_depth 2 and a chain
+    section naming `chain` with the companies, holders, directors and Gazette views; holding-chain counts what was read up the chain;
+    a notice above is the holder's, beside the company's own; a nominee two up is a holder of record up the chain."""
+    t = toml()
+    assert t["chain_depth"] == 2
+    s = {x["name"]: x for x in t["sections"]}
+    assert s["chain"]["sources"] == ["chain"] and set(s["chain"]["views"]) == {"companies", "shareholders", "directors", "gazette_liquidations",
+                                                                              "gazette_company_notices"}
+    assert not any("chain" in x.get("sources", []) for x in t["sections"] if x["name"] != "chain"), "a chain row is listed in one section"
+    assert "never added or turned into a fraction" in s["chain"]["text"] and "the chain goes on" in s["chain"]["text"]
+    assert not any("registers reach one" in x for x in t["limits"]) and "carries no business number in the file" not in s["holders"]["text"]
+    r = company(holders=[JANE, HOLDCO], chain=CHAIN, chain_depth=2, chain_notes=[CHAIN_NOTE])
+    f = rule("holding_chain")(r)
+    assert f["status"] == "fired" and f["severity"] == "amber" and {UP1["ref"], UP2["ref"]} <= set(f["citations"])
+    assert "Up the chain, followed 2 up: 2 company(ies) reached, 1 by business number (confirmed) and 1 by a name one company carries (near)" in f["text"]
+    assert "DOE HOLDINGS LIMITED (1 up, confirmed; holds 400 shares of record in ACME TRADING LIMITED, as filed (undated))" in f["text"]
+    assert "1 holder(s) not followed: SOUTHERN TRUST: not followed" in f["text"] and "the chain goes on past 2 up at 1 company(ies)" in f["text"]
+    assert "on the companies above, 2 holder(s) of record, 1 current director(s) and 1 Gazette notice(s) are listed" in f["text"]
+    n = rule("insolvency_notices")(r)
+    assert (n["status"], n["severity"], n["scope"]) == ("fired", "amber", "chain") and "2 up, near" in n["text"] and UP2_REC["ref"] in n["citations"]
+    both = rule("insolvency_notices")(company(holders=[JANE, HOLDCO], gazette=[LIQ], chain=CHAIN, chain_depth=2))
+    assert both["severity"] == "red" and both["text"].startswith("1 Gazette insolvency notice(s) on the company") and "beside it, 1" in both["text"]
+    c = rule("custodial_holders")(r)
+    assert c["status"] == "fired" and "on the company or up its holding chain" in c["text"] and "on a company 1 up the chain, confirmed" in c["text"]
+    assert UP1_NOMINEE["ref"] in c["citations"]
+    clear = rule("insolvency_notices")(company(holders=[JANE, HOLDCO], chain=[UP1, UP1_HOLDER], chain_depth=2))
+    assert clear["status"] == "clear" and "the companies the chain reaches above were read too" in clear["text"]
 
 
 def test_for_whom_shares_are_held_is_always_blocked_and_counts_what_was_read():
