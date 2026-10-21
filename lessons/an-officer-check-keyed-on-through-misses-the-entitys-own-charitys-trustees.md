@@ -1,4 +1,4 @@
-An officer check that reads only rows carrying `through` never sees a trust board's trustees: the walk reaches them through the board's own charity by business number, with no `through`, so the check must read the entity's own charity's officer rows by name or it falls through to its clear.
+An officer check that reads only rows carrying `through` never sees a trust board's trustees (reached via the board's own charity, with no `through`): read the entity's own charity's officer rows by name, or the check clears.
 area: subject reports, products/templates, healthcare, charities, officer checks, clears
 paid-for-by: 2026-10-21, fix-templates-1, step 5.2
 
