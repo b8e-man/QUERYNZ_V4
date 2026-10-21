@@ -56,8 +56,7 @@ import re
 V = "0.1"
 #: the window is the reader's setting, not the template's (ruling 65, 21 October 2026, as the construction template reads it):
 #: every dated failure is set beside every going company whatever the gap, nearest first, and a window cuts only when the reader
-#: passes one as the report's `window_days` (days either side of the failure). The shape carries no such parameter yet (card
-#: the-report-carries-no-template-parameters, construction-2); until it does, no cut is applied.
+#: passes one as the report's `window_days` (days either side of the failure), a parameter template.toml declares.
 WINDOW_KEY = "window_days"
 #: the gaps a flag counts its pairs within, so a reader sees the old defaults without losing the rest (the old MC-C1 90 days, 365)
 COUNTED_WINDOWS = (90, 365)

@@ -1,9 +1,10 @@
 # The construction and property templates read `window_days` but declare it in no template.toml, so a reader's window is refused
 kind: finding
-state: open
+state: closed
 use-case: 7 construction and phoenix detection; 12 property developer due diligence
 session: fix-report-2
 opened: 2026-10-21
+closed: 2026-10-21
 
 The shape carries template parameters (card
 `the-report-carries-no-template-parameters`, closed 2026-10-21): a template
@@ -31,3 +32,5 @@ the shape cannot yet carry one come out, and the template's own test renders
 with `--set window_days=365` and sees the cut. A value that is not a whole
 number of days reaches the rule as the text given, as the rules already
 expect.
+
+Closed by fix-templates-1 (2026-10-21): both template.toml files declare `window_days` (`kind = "integer"`, no default, the card's `means`); the rules' comments and the limits lines that said the shape cannot carry it are out; each template's test checks the declaration, that the shape's form offers the field, and that the rule cuts at the value on the report (fails without the declaration). Real renders with `--set window_days=365`: construction's contested-group director lists 1 of 6 pairs; property's 34-company director 21 of 175; `--set window_days=abc` says no cut is applied. Recorded in each limits.md.

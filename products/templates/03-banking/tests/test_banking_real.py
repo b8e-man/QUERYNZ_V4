@@ -90,8 +90,10 @@ def test_from_the_company_a_liquidation_names_the_people_checks_block():
     assert m["flags"]["insolvency-notices"]["status"] == "fired" and m["flags"]["insolvency-notices"]["severity"] == "red"
     assert m["flags"]["company-endings"]["status"] in ("fired", "clear")
     for name in ("repeat-insolvency", "left-before-notice", "prohibition", "shared-boards", "charity-officer-roles"):
+        if name == "charity-officer-roles" and "the company's charity by its business number" in m["flags"][name]["text"]:
+            continue   # the company's own charity, confirmed by number, fires; its people's roles are still not read
         assert m["flags"][name]["status"] == "blocked", name
-        assert name == "charity-officer-roles" or "start a report from each person" in m["flags"][name]["text"], name
+        assert "start a report from each person" in m["flags"][name]["text"], name
 
 
 def test_a_company_with_only_a_removal_notice_is_not_an_insolvency_and_nothing_clears_while_past_roles_are_not_held():

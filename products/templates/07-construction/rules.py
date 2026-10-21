@@ -26,7 +26,8 @@ code, where the held registers can support them:
   prohibition, bankruptcy  on the person, confirmed or near; blocked from a company
   practitioner-roles     the person named as liquidator: an insolvency practitioner, not a director of the failed company
   practitioner-repeat    blocked: a liquidator row does not name its company
-  society-roles          incorporated society roles, confirmed
+  society-roles          incorporated society roles, confirmed; charity officer rows that carry the person's name (near: no link
+                         joins the Charities Register yet); from a company, its charity by business number and the rows on it
   namesake-exposure      the report's own uncertainty
   walk-coverage          how many companies reached had their notices and officers read
   subject-hub            the person is a professional director, a nominee or the Crown
@@ -60,8 +61,7 @@ import re
 V = "0.2"
 #: the phoenix window is the reader's setting, not the template's (ruling 65, 21 October 2026): every dated failure is set beside
 #: every going company whatever the gap, nearest first, and a window cuts only when the reader passes one as the report's
-#: `window_days` (days either side of the failure). The shape carries no such parameter yet (card
-#: the-report-carries-no-template-parameters); until it does, no cut is applied.
+#: `window_days` (days either side of the failure), a parameter template.toml declares (`--set window_days=365`).
 WINDOW_KEY = "window_days"
 #: the gaps a flag counts its pairs within, so a reader sees the old defaults without losing the rest: the old estate's MC-C1 used 90
 #: days after, construction-1 365 either side. Measured 2026-10-21 on the confirmed groups: 476 going companies at 90 days, 1,191 at
@@ -109,7 +109,11 @@ SECURITIES = "the Personal Property Securities Register (interface awaited since
 POSSESSIONS = ("a mortgagee's entry into possession (pub.gazette_possessions: published, not in the report's catalogue)",)
 LIQUIDATOR_COMPANY = ("the company a Gazette liquidator row was appointed to (pub.gazette_liquidators names its notice, not its company)",)
 LP_PARTNERS = "a limited partnership's general and limited partners (the limited partnerships register)"
-CHARITIES_NOT_HELD = ("the Charities Register and its officers (not yet published)",)
+#: the views whose rows the walk looks a person's name up from in the Charities Register (the shape's NAME_JOIN_FROM)
+NAME_LOOKED_UP = ("directors", "society_officers", "members", "candidates", "mp_interest_returns", "promoter_people", "gazette_appointments")
+CHARITY_HELD = "Charities Register officers (pub.charity_officers), looked up by the person's name"
+CHARITY_BY_NAME = ("no link joins the Charities Register's officers to any other row yet, so each is matched by name and is a namesake's "
+                   "until a rule confirms it")
 NOT_FOLLOWED = ("started from a company, the report lists its officers and holders of record but does not follow them to their own links "
                 "and companies yet; start a report from each person listed")
 
@@ -886,19 +890,67 @@ def practitioner_repeat(report):
                 "this check cannot run", sources_not_held=LIQUIDATOR_COMPANY, scope="officer-group")
 
 
+def _charity_unread(report):
+    """Why a charity officer row under the subject's name could not have been seen, or None: the template reads
+    pub.charity_officers, the walk did not skip it, the subject's row is one the walk looks the name up from, and no row of that
+    name was left past the walk's limit."""
+    reads = {r["view"] for r in (report.get("template") or {}).get("reads", [])}
+    if report.get("template") and "charity_officers" not in reads:
+        return "the template does not read pub.charity_officers"
+    if "charity_officers" in ((report.get("walk") or {}).get("skipped") or ()):
+        return "pub.charity_officers is not published where this report was built"
+    s = report["subject"]
+    if s.get("suppressed") or s["view"] not in NAME_LOOKED_UP:
+        return (f"a charity officer row is looked for under the name a {', '.join(sorted(NAME_LOOKED_UP))} row carries; the report "
+                f"starts from pub.{s['view']}, so no name was looked for")
+    left = sum(x.get("omitted", 0) for x in report["sections"] if "charity_officers" in (x.get("omitted_views") or ()))
+    if left:
+        return f"the walk left {left:,} charity officer row(s) of the same name past its limit"
+    return None
+
+
+def _charity_roles(report) -> list:
+    """The charity officer rows that carry the subject's name: near by name (rule same-name), never a row of another person on a
+    charity; a suppressed name is never counted."""
+    return [it for it in items(report, ("charity_officers",)) if it.get("rule") == "same-name" and not it.get("suppressed")]
+
+
+def _company_charities(report) -> list:
+    """Started from a company, its charity by business number (confirmed, rule official-number), with the officer rows on it."""
+    if not _company_start(report):
+        return []
+    out = []
+    for c in items(report, ("charities",), ("confirmed",)):
+        officers = [it for it in items(report, ("charity_officers",), ("confirmed",)) if it.get("via") == c["ref"]]
+        out.append((c, officers))
+    return out
+
+
 def society_roles(report):
+    # the officers of a society the report starts from are that society's, not the subject's roles
     conf = [it for it in items(report, ("society_officers",), ("confirmed",)) if it.get("via") != report["subject"]["ref"]]
-    if conf:
-        return flag("society-roles", V, "fired", "info", f"officer of {len({it.get('via') or _company_of(it) for it in conf})} incorporated "
-                    "society(ies): " + "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in conf[:EXAMPLES]),
-                    citations=tuple(it["ref"] for it in conf), sources_not_held=CHARITIES_NOT_HELD)
+    by_name, own = _charity_roles(report), _company_charities(report)
+    if conf or by_name or own:
+        bits = [f"officer of {len({it.get('via') or _company_of(it) for it in conf})} incorporated society(ies): "
+                + "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in conf[:EXAMPLES])] if conf else []
+        bits += [f"{len(by_name)} charity officer row(s) carry the person's name, near: {CHARITY_BY_NAME}: "
+                 + "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in by_name[:EXAMPLES])] if by_name else []
+        bits += [f"the company's charity by its business number: {c['statement']} ({c['dates']['text']}), {len(o)} officer row(s) on it"
+                 for c, o in own[:EXAMPLES]]
+        return flag("society-roles", V, "fired", "info", " | ".join(bits),
+                    citations=tuple(dict.fromkeys([it["ref"] for it in conf + by_name] + [c["ref"] for c, _ in own])),
+                    scope="subject" if conf or own else "near")
     if _company_start(report):
-        return flag("society-roles", V, "blocked", "info", f"{NOT_FOLLOWED}: their society roles are not read", sources_not_held=CHARITIES_NOT_HELD,
-                    scope="officer-group")
+        return flag("society-roles", V, "blocked", "info", f"{NOT_FOLLOWED}: their society and charity roles are not read; the company "
+                    "has no charity row by its business number", scope="officer-group")
     if _other_start(report):
-        return flag("society-roles", V, "blocked", "info", _other_start(report), sources_not_held=CHARITIES_NOT_HELD)
-    return flag("society-roles", V, "clear", "info", "no incorporated society officer role confirmed to the person",
-                sources_held=("Incorporated Societies Register officers (pub.society_officers)",), sources_not_held=CHARITIES_NOT_HELD)
+        return flag("society-roles", V, "blocked", "info", _other_start(report))
+    why = _charity_unread(report)
+    if why:
+        return flag("society-roles", V, "blocked", "info", f"no incorporated society officer role is confirmed to the person, but {why}, "
+                    "so no clear is given")
+    return flag("society-roles", V, "clear", "info", "no incorporated society officer role confirmed to the person, and no charity "
+                "officer row carries the person's name", sources_held=("Incorporated Societies Register officers (pub.society_officers)", CHARITY_HELD))
 
 
 # ── the report's own reach ──────────────────────────────────────────────────

@@ -7,11 +7,12 @@ subject report (the shape in `products/report/`) for a trade credit team:
 "has anything changed for the companies I am exposed to, and what stands
 against this one today", re-run on change.
 
-- `template.toml`: the 12 pub views it reads, each with its licence,
+- `template.toml`: the 15 pub views it reads, each with its licence,
   attribution and refresh; depth 2; seven sections in a credit analyst's
   order (the entity and its namesakes apart; its standing today; what
   changed, each director, holder and registered office with the monthly
-  files that show it; the Gazette on the entity; its people; prohibitions
+  files that show it; the Gazette on the entity; its people, their society roles and the
+  Charities Register's officer rows by name (near); prohibitions
   and bankruptcies among them; what is not held, each named); its limits.
 - `rules.py`: twenty-five flags on the bound contract. `monthly-changes`
   lists every change between the files, newest first, dated by its file with

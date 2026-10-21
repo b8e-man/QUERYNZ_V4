@@ -32,8 +32,18 @@ the card that would lift it is named.
   is blocked. A limited partnership's own row (status, dates) is held; its
   general and limited partners are not, so it shows no officers and says
   why. (`not-held-lacks-unincorporated-entities-and-mpi`)
+- **A charity officer row is matched by name.** No link joins the
+  Charities Register's officers to any other row yet, so a row carrying
+  the counterparty's name is near, a namesake's until a rule confirms it,
+  and the register's disqualified mark on one is amber, never red. From a
+  company, its charity by business number is confirmed (an A&P
+  association, a society on the companies register) with its officers and
+  returns, and a mark on one of those officers is red; its directors' own
+  charity rows are not read, so the mark check blocks. A holder of
+  record's row is not looked up by name.
+  (`charity-officers-are-in-no-link-and-no-name-row`, the links lane's)
 - **Security over stock, crops and plant (the PPSR), land titles, the
-  Insolvency Register, court judgments, the Charities Register, MPI
+  Insolvency Register, court judgments, MPI
   prosecutions and NAIT enforcement.** Not held; listed in the report's last
   section and in the flags that would read them.
 - **When a role really ended.** A directorship that has left the latest
@@ -96,3 +106,21 @@ person's report (MC-A1: the officers section, then a report per person,
 until the walk follows them); flags and the memo in one build under 2 s
 (MC-A2); a partnership's empty officers said so; NAIT and MPI declared not
 held, never adjudicated from news.
+
+## Re-rendered, 2026-10-21 (fix-templates-1, the Charities Register)
+
+The 2026-10-20 checkpoint kept no keys, so `checkpoint.list` now holds six:
+NIRVANA FARM LIMITED and HALL BLOCK FARM LIMITED from it, NIRVANA's
+director, a Federated Farmers district society, and two societies on the
+companies register that are registered charities. Rendered before and
+after the template read the Charities Register; none refused. The two farm
+companies and the society start are unchanged (no charity by business
+number; a society start's officers are that society's). The director:
+`charity-integrity-marks` from blocked to clear, `charity-officer-roles`
+from clear to fired with three charity officer rows of the same name, near.
+RAI VALLEY AGRICULTURAL AND PASTORAL ASSOCIATION and the Institute of
+Agricultural and Horticultural Science: `charity-officer-roles` from blocked
+to fired, each reaching its charity by business number, confirmed, with 11
+and 21 officer rows and the returns beneath it (28 and 40
+rows in the section); the mark check still blocks (their directors are not
+followed) and says the charity's own officer rows carry no mark.

@@ -50,7 +50,16 @@ the card that would lift it is named.
   (`a-contested-groups-near-row-can-make-the-start-rows-own-company-near`)
 - **Current roles first.** A section lists newest first; it cannot put
   current roles first. (`a-section-cannot-put-current-roles-first`)
-- **The Insolvency Register, court judgments, the Charities Register, the
+- **A charity officer row is matched by name.** No link joins the
+  Charities Register's officers to any other row yet, so a row carrying
+  the person's name is near, a namesake's until a rule confirms it; the
+  register's disqualified mark on one is amber, never red. From a company,
+  its charity by business number is confirmed and a mark on an officer of
+  it is red; its directors' own charity rows are not read, so that check
+  blocks. A holder of record's row is not looked up by name, so neither
+  charity check clears from one.
+  (`charity-officers-are-in-no-link-and-no-name-row`, the links lane's)
+- **The Insolvency Register, court judgments, the
   limited partnerships register (a partnership's partners), financial
   service providers, sanctions lists, land titles, the Commerce
   Commission's cases.** Not held; named in the last section and in the
@@ -115,3 +124,19 @@ on companies the person has a role on, confirmed and near visibly apart
 (B2, current roles only); prohibitions with namesakes labelled (B3); company
 age by registration date, not GST (B4). Failures carded: five on the report
 lane, one on the companies lane (above).
+
+## The checkpoint re-rendered, 2026-10-21 (fix-templates-1, the Charities Register)
+
+The same twelve subjects, before and after the template read the Charities
+Register (`charities`, `charity_officers`, `charity_returns`). None refused.
+`charity-integrity-marks` went from blocked to clear on the six directors
+and the society officer (no row carrying the name has the register's
+disqualified mark); it still blocks on the three companies (their
+directors are not followed; none has a charity by business number), the
+holder of record and the donation. `charity-officer-roles` fired (info) on
+five directors, the society officer and the donation (its donor's group),
+listing 1 to 51 charity officer rows of the same name, near; it went from
+clear to blocked on the holder of record (subject 7), whose name is not
+looked up. The money section gained those rows, near; no
+other flag changed status except `namesake-exposure`, which now counts them
+(two subjects from clear to fired, info).

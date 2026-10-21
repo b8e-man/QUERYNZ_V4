@@ -98,13 +98,13 @@ def test_the_shape_loads_it_by_name_with_every_view_known_and_every_rule():
 def test_it_names_only_the_views_the_brief_names_each_once_with_its_licence():
     t = toml()
     views = [r["view"] for r in t["reads"]]
-    assert len(views) == len(set(views)) and set(views) == VIEWS and t["depth"] == 2 and t["chain_depth"] == 2
+    assert len(views) == len(set(views)) and set(views) == VIEWS | set(CHARITY_VIEWS) and t["depth"] == 2 and t["chain_depth"] == 2
     assert all(r.get("licence") and r.get("attribution") and r.get("refresh") for r in t["reads"])
     assert "registered offices only, never a residential address" in [r for r in t["reads"] if r["view"] == "company_addresses"][0]["licence"]
-    for unreached in CHARITY_VIEWS:
-        assert unreached not in views, "the catalogue does not know it: carded, named in the flags"
+    for v in CHARITY_VIEWS:
+        assert "Charities Register open data" in [r for r in t["reads"] if r["view"] == v][0]["licence"], v
     src = open(os.path.join(HERE, "template.toml"), encoding="utf-8").read()
-    for card in ("the-report-cannot-reach-the-charities-register", "the-not-held-list-has-no-key-for-the-health-registers"):
+    for card in ("charity-officers-are-in-no-link-and-no-name-row", "the-not-held-list-has-no-key-for-the-health-registers"):
         assert card in src, card
     assert "14 August 2026" in src and "512" in src and "register retirement_village" in src
 
@@ -115,8 +115,8 @@ def test_its_sections_run_in_the_investors_order():
     s = {x["name"]: x for x in t["sections"]}
     assert s["identity"]["sources"] == ["near"] and s["identity"]["own"] is False, "a namesake is never the entity's own row"
     assert s["standing"]["own"] is True and set(s["standing"]["views"]) == {"company_states", "company_addresses"}
-    assert "chain" in s["governance"]["sources"] and "charities" in s["governance"]["not_held"]
-    assert s["charity-returns"]["views"] == [] and s["charity-returns"]["not_held"] == ["charities"]
+    assert "chain" in s["governance"]["sources"] and "charities" in s["governance"]["views"]
+    assert s["charity-returns"]["views"] == ["charity_returns"]
     for named in ("period", "tier", "income", "expenditure", "surplus", "assets", "liabilities", "equity", "audited", "opinion", "newest first"):
         assert named in s["charity-returns"]["text"], named
     assert s["overlap"]["sources"] == ["officers", "second"]
@@ -138,7 +138,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
     for want in ("namesake", "not a clear", "checkpoint", "retirement villages file", "never clear", "charit", "Health and Disability Commissioner"):
         assert want in page, want
     lim = toml()["limits"]
-    assert any("retirement villages file is not held" in x for x in lim) and any("charities register is not reachable" in x for x in lim)
+    assert any("retirement villages file is not held" in x for x in lim) and any("Charities Register's officers" in x and "matched by name" in x for x in lim)
     with open(os.path.join(HERE, "checkpoint.list"), encoding="utf-8") as f:
         keys = [x.strip() for x in f if x.strip() and not x.startswith("#")]
     assert len(keys) == 12 and len(set(keys)) == 12 and all(re.match(r"^[a-z_]+:\S+$", k) for k in keys), "twelve register keys, one a line"
@@ -226,6 +226,16 @@ RET_MOD = ret(3, "2025-06-30", modified=True)
 TRUSTEE_DQ = it("charities:charities/officers/5", "charity_officers", grade="near", title="Bob James LEE", reason=THROUGH.format(who="Bob James LEE"),
                 row={"charity_key": "charities/CC10001", "role": "Trustee", "status": "Disqualified", "disqualified": True}, through=BOB["ref"],
                 via=BOB["ref"], rule_="through-officer")
+#: a charity officer row matched to Bob by name only (rule same-name), the register's mark on it: amber at most
+BY_NAME_DQ = dict(TRUSTEE_DQ, ref="charities:charities/officers/6", rule="same-name",
+                  reason="no link joins the Charities Register's officers to any other row yet, so this officer row is matched to the subject by name")
+#: a charitable trust board's own charity by its business number, and the trustees the register files on it
+BOARD_CHARITY = it("charities:charities/CC20002", "charities", title="KOWHAI LIVING CHARITABLE TRUST", via="companies:companies/9",
+                   row={"key": "charities/CC20002", "status": "Registered", "nzbn": "9", "year_end_month": 3, "year_end_day": 31}, rule_="official-number")
+BOARD_TRUSTEE = it("charities:charities/officers/20", "charity_officers", title="Mere Ana TAMA", via=BOARD_CHARITY["ref"],
+                   row={"charity_key": "charities/CC20002", "role": "Trustee", "status": "Qualified", "disqualified": False})
+BOARD_TRUSTEE_DQ = it("charities:charities/officers/21", "charity_officers", title="Tom Rua WIRI", via=BOARD_CHARITY["ref"],
+                      row={"charity_key": "charities/CC20002", "role": "Trustee", "status": "Disqualified", "disqualified": True})
 PRO_HUB = {"ref": ANN["ref"], "title": "Ann Mary ROE", "kind": "professional-director", "text": "a professional director: 80 directorships"}
 #: the person start: Ann's own row on the entity, and her own confirmed role on another operator
 PERSON = dict(ANN, via=None)
@@ -300,7 +310,7 @@ def properties(mod) -> list:
     for name in CHARITY_CHECKS:
         for r in (operator(), person(), report(subject=TRUST_BOARD)):
             f = rl(name)(r)
-            if f["status"] != "blocked" or "not reachable by this report" not in f["text"]:
+            if f["status"] != "blocked" or "the template does not read" not in f["text"]:
                 bad.append(f"{name} ran though the template does not read the charities register")
     # an organisation start whose officers were not all read never clears an officer check
     for name in OFFICER_CHECKS:
@@ -341,6 +351,12 @@ def properties(mod) -> list:
         bad.append("an ended prohibition was red")
     if rl("disqualified_officer")(operator(gazette=[dict(BOB_PROHIB, suppressed=True)]))["status"] == "fired":
         bad.append("a revoked (suppressed) prohibition was counted")
+    f = rl("disqualified_officer")(with_charity(RET_2025, governance=[ANN, BOB, CHARITY, BY_NAME_DQ]))
+    if f["status"] == "fired" and f["severity"] == "red":
+        bad.append("a disqualified mark on a charity officer row matched only by name is red")
+    f = rl("disqualified_officer")(report(subject=TRUST_BOARD, charities=True, governance=[BOARD_CHARITY, BOARD_TRUSTEE, BOARD_TRUSTEE_DQ]))
+    if not (f["status"] == "fired" and f["severity"] == "red"):
+        bad.append(f"a trustee the register marks disqualified on the trust board's own charity was not raised red: {f['status']} {f['severity']}")
     if rl("disqualified_officer")(with_charity(RET_2025, governance=[ANN, BOB, CHARITY, TRUSTEE_DQ]))["status"] != "fired":
         bad.append("a charity officer the register marks disqualified did not raise disqualified-officer")
     if rl("officer_bankruptcy")(operator())["status"] != "fired":
@@ -402,7 +418,10 @@ MUTANTS = (
     ("a trust board with no officer listed clears", "    if _no_officers(report):\n        return _no_officers(report)\n", ""),
     ("an officer past the limit is ignored", "    if w.get(\"officers_omitted\"):\n        return f\"the walk followed", "    if False:\n        return f\"the walk followed"),
     ("the officers reach is assumed to have run", "    if \"officers\" not in (w.get(\"buckets\") or []):", "    if False:"),
-    ("a contested group's prohibition is red", "red = [it for it in on_officers if not _contested(it) and", "red = [it for it in on_officers if"),
+    ("a contested group's prohibition is red", "red = [it for it in on_officers if it.get(\"rule\") != \"same-name\" and not _contested(it) and",
+     "red = [it for it in on_officers if it.get(\"rule\") != \"same-name\" and"),
+    ("a by-name charity row is red", "red = [it for it in on_officers if it.get(\"rule\") != \"same-name\" and", "red = [it for it in on_officers if"),
+    ("the entity's own charity's trustees are not read", "    if own_marks:", "    if False:"),
     ("an ended prohibition is red", " and _in_force(report, it) and it[\"through\"] in officer_rows", " and it[\"through\"] in officer_rows"),
     ("a revoked prohibition is counted", "live = [it for it in items(report, (view,)) if not it.get(\"suppressed\")]", "live = list(items(report, (view,)))"),
     ("the charity register's disqualification is not read", "if it[\"row\"].get(\"disqualified\") and not it.get(\"suppressed\")]", "if False]"),
@@ -412,7 +431,7 @@ MUTANTS = (
      "    if True:\n        return flag(rule, V, \"clear\", severity, text, **kw)"),
     ("a removal is an insolvency", "return it[\"view\"] == \"gazette_company_notices\" and r.get(\"kind\") in INSOLVENCY_KINDS and", "return it[\"view\"] == \"gazette_company_notices\" and"),
     ("a namesake charity's opinion is red", "red = [it for it in modified if it[\"ref\"] in newest and it[\"grade\"] == \"confirmed\"]", "red = list(modified)"),
-    ("a charity check runs without the register", "    if missing:\n        return (\"the Charities Register is not reachable", "    if False:\n        return (\"the Charities Register is not reachable"),
+    ("a charity check runs without the register", "    if missing:\n        return (\"the template does not read pub.", "    if False:\n        return (\"the template does not read pub."),
     ("a return a period short is filed", "if newest is None or (due - newest).days > PERIOD_SLACK_DAYS:", "if newest is None:"),
     ("the entity is never young", "if (as_of - reg).days < YOUNG_DAYS:\n        return flag(\"young-entity\", V, \"fired\", \"amber\"",
      "if (as_of - reg).days < 0:\n        return flag(\"young-entity\", V, \"fired\", \"amber\""),
@@ -482,7 +501,7 @@ def test_a_prohibition_on_an_officers_record_is_dated_beside_the_officers_role_o
 def test_the_charity_checks_block_until_the_template_reads_the_register_and_then_read_its_returns():
     for name in CHARITY_CHECKS:
         f = rule(name)(operator())
-        assert f["status"] == "blocked" and "not reachable by this report" in f["text"] and "pub.charity_returns" in f["text"], name
+        assert f["status"] == "blocked" and "the template does not read" in f["text"] and "pub.charity_returns" in f["text"], name
     s = rule("charity_returns_summary")(with_charity(RET_2024, RET_2025))
     assert s["status"] == "fired" and s["citations"] == (RET_2025["ref"],)
     for want in ("period to 2025-06-30", "Tier 2", "income $2,500,000", "expenditure $2,400,000", "surplus $100,000", "assets $9,000,000",
@@ -496,6 +515,35 @@ def test_the_charity_checks_block_until_the_template_reads_the_register_and_then
     assert none["status"] == "fired" and "newest return held: none" in none["text"]
     assert rule("charity_arm")(with_charity(RET_2025))["status"] == "fired"
     assert rule("charity_arm")(with_charity(governance=[ANN]))["status"] == "blocked"
+
+
+def test_the_charities_register_is_read_by_number_and_by_name():
+    """Card the-healthcare-template-can-now-read-the-charities-register-and-the-reaches (the charities half): the three views read,
+    `charities` out of every not-held line; a trust board's trustees on its own charity are read for the register's mark and named as
+    not followed; a by-name row is amber at most; the charity arm lists by-name rows near."""
+    t = toml()
+    assert {"charities", "charity_officers", "charity_returns"} <= {r["view"] for r in t["reads"]}
+    sec = {x["name"]: x for x in t["sections"]}
+    assert {"charities", "charity_officers"} <= set(sec["governance"]["views"]) and "named" in sec["governance"]["sources"]
+    assert sec["charity-returns"]["views"] == ["charity_returns"] and "roles" in sec["charity-returns"]["sources"]
+    assert not any("charities" in x.get("not_held", []) for x in t["sections"])
+    board = dict(subject=TRUST_BOARD, charities=True)
+    f = rule("disqualified_officer")(report(governance=[BOARD_CHARITY, BOARD_TRUSTEE, BOARD_TRUSTEE_DQ], **board))
+    assert f["status"] == "fired" and f["severity"] == "red" and f["citations"] == (BOARD_TRUSTEE_DQ["ref"],) and f["scope"] == "entity", f
+    ended = dict(BOARD_TRUSTEE_DQ, row=dict(BOARD_TRUSTEE_DQ["row"], ended_on="2020-01-01"))
+    assert rule("disqualified_officer")(report(governance=[BOARD_CHARITY, ended], **board))["severity"] == "amber"
+    o = rule("officer_overlap")(report(governance=[BOARD_CHARITY, BOARD_TRUSTEE], **board))
+    assert o["status"] == "blocked" and "1 officer row(s) on its charity" in o["text"] and "not followed" in o["text"], o
+    o = rule("officer_overlap")(report(**board))
+    assert o["status"] == "blocked" and "no charity row carries this board's business number" in o["text"]
+    p = rule("disqualified_officer")(report(subject=PERSON, charities=True, governance=[PERSON_RIMU, dict(BY_NAME_DQ, through=None, via=PERSON["ref"])]))
+    assert p["status"] == "fired" and p["severity"] == "amber", p
+    c = rule("disqualified_officer")(report(subject=PERSON, charities=True, governance=[PERSON_RIMU]))
+    assert c["status"] == "clear" and any("pub.charity_officers" in x for x in c["sources_held"]), c
+    holder = it("companies:companies/1/shareholder/a", "shareholders", title="Ann Mary ROE", via=None)
+    assert rule("disqualified_officer")(report(subject=holder, charities=True))["status"] == "blocked", "a holder's name is not looked up"
+    a = rule("charity_arm")(report(subject=PERSON, charities=True, governance=[dict(BY_NAME_DQ, through=None, via=PERSON["ref"], entity_title="A TRUST")]))
+    assert a["status"] == "fired" and a["scope"] == "near" and "A TRUST" in a["text"] and "namesake" in a["text"]
 
 
 def test_every_register_not_held_blocks_and_a_village_row_is_named_as_such():

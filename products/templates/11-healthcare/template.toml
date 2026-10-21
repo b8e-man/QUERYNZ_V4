@@ -16,16 +16,13 @@
 #   them) and no operator, no statutory supervisor, no link from a village to
 #   the company that runs it; a village row is reached only by a name it
 #   shares, near;
-# - the charities lane's reading (session charities-3) publishes
-#   pub.charities, pub.charity_officers and pub.charity_returns (the
-#   financial fields under the ruling of 14 August 2026) and has not merged:
-#   the views are not on the database, and the report's catalogue knows none
-#   of them, and a template naming a view the catalogue does not know is
-#   refused when loaded. They are carded on the report lane
-#   (the-report-cannot-reach-the-charities-register) with the reads and
-#   sections this template adds when they land; until then the charity
-#   sections name the register as not held and every charity flag is
-#   blocked, never clear. The rules already read the three views by name.
+# - the Charities Register: pub.charities, pub.charity_officers and
+#   pub.charity_returns (the financial fields under the ruling of 14 August
+#   2026), read since fix-templates-1. A company's charity is reached by its
+#   business number (confirmed); a charity officer row that carries a
+#   person's name is near, because no link joins the register's officers to
+#   any other row yet (card charity-officers-are-in-no-link-and-no-name-row,
+#   the links lane's), so a rule over such a row is amber at most.
 # - the registers a health regulator keeps are not held, and the shape's
 #   not-held list has no key for them (carded on the report lane:
 #   the-not-held-list-has-no-key-for-the-health-registers): the retirement
@@ -49,7 +46,7 @@ chain_depth = 2
 
 limits = [
   "The retirement villages file is not held: which company operates a village, the village's statutory supervisor and when it changed are in no published register. The companies lane carries the village's own row (its name, number, status and registration day) and nothing joins it to an operator; a village row reached here shares a name and is near.",
-  "The charities register is not reachable by this report yet: its reading is built and not merged, and the report's catalogue knows none of its views. Whether the operator or its people sit on a charity, the charity's status, its officers and its annual returns are not shown, and every charity flag is blocked, never clear.",
+  "The Charities Register is read: a company's charity by its business number, confirmed, with the officers and annual returns the register files on it (the figures as filed, never added across returns); a charity officer row that carries a person's name, near. No link joins the Charities Register's officers to any other row yet, so such a row is matched by name, a namesake's until a rule confirms it, and a rule over it is amber at most. A charitable trust board's trustees are read from its charity for the register's disqualified mark and are not followed to their other roles.",
   "The Health and Disability Commissioner's decisions, certification audits, the Ministry of Health's provider registers, the Aged Care Commissioner and court judgments are not held. Nothing in this report says anything about care quality, a complaint, a breach finding or a certification: no such finding here is a finding of none.",
   "The registers carry no industry: a company is called care or retirement living here only because its registered name carries such a word, which is a sign to read, not a finding.",
   "Started from a company, its first twelve officers are followed one step to their other current roles (near: an officer's other role is the officer's connection, not the entity's); past that the overlap and the officers' notices are partial, and their checks say so.",
@@ -62,11 +59,6 @@ limits = [
 ]
 
 # ── what it reads: each view with its licence ───────────────────────────────
-# Asked for and not yet named (the catalogue does not know them; carded):
-# pub.charities, pub.charity_officers, pub.charity_returns (Charities
-# Register, Department of Internal Affairs, CC BY 3.0 NZ, attribution owed;
-# the register's own refresh; officers' contact details and a non-corporate
-# charity's address for service never published).
 [[reads]]
 view = "companies"
 licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
@@ -102,6 +94,21 @@ view = "society_officers"
 licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022; an officer's contact details are never published"
 attribution = "Companies Office"
 refresh = "as the lane re-reads the register"
+[[reads]]
+view = "charities"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the register is public under the Charities Act 2005; the address for service is never read"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_officers"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; a suppressed name is suppressed, the row stays"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_returns"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the financial fields under the ruling of 14 August 2026"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
 [[reads]]
 view = "gazette_liquidations"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
@@ -160,22 +167,21 @@ text = "The entity's register status and the day it was registered are in the he
 [[sections]]
 name = "governance"
 heading = "Its governance: directors, holders of record, and the charities its people serve"
-views = ["directors", "shareholders", "society_officers", "companies", "societies"]
-sources = ["roles", "members", "confirmed", "chain"]
-not_held = ["charities"]
-text = "Every director and holder of record the companies file lists on the company, and every officer the societies register lists on a society, with the dates each files; started from a person, the person's own roles and holdings and the companies and societies they sit on. A holding is shown as the register states it: a holder of record. A company holder is followed two up the chain, by business number where the file has one, otherwise by a name only one company carries (near), its shares as filed. Where the entity or its people are officers of a registered charity, the charity's status and its officers belong here: the charities register is not yet reachable by this report."
+views = ["directors", "shareholders", "society_officers", "companies", "societies", "charities", "charity_officers"]
+sources = ["roles", "members", "confirmed", "chain", "named"]
+text = "Every director and holder of record the companies file lists on the company, and every officer the societies register lists on a society, with the dates each files; started from a person, the person's own roles and holdings and the companies and societies they sit on. A holding is shown as the register states it: a holder of record. A company holder is followed two up the chain, by business number where the file has one, otherwise by a name only one company carries (near), its shares as filed. Then the Charities Register: a company's charity by its business number, confirmed, with its status and the officers the register files on it (a charitable trust board's trustees are filed there); started from a person, each charity officer row that carries the person's name, near: no link joins the register's officers to any other row yet, so each is a namesake's until a rule confirms it."
 
 [[sections]]
 name = "charity-returns"
 heading = "The charity's annual returns"
-views = []
-not_held = ["charities"]
-text = "Each annual return a charity reached here files, newest first: the period it covers, the reporting tier it reports under, its income, expenditure, surplus, assets, liabilities and equity as filed, whether the financial report was audited, and whether the auditor's opinion was modified and how. The charities register's returns are not yet reachable by this report: none is listed, and that is not a finding of none."
+sources = ["roles", "members", "confirmed"]
+views = ["charity_returns"]
+text = "Each annual return a charity reached here files, newest first: the period it covers, the reporting tier it reports under, its income, expenditure, surplus, assets, liabilities and equity as filed, whether the financial report was audited, and whether the auditor's opinion was modified and how. The figures are as the return files them, each return on its own line, never added across returns. A charity reached only by an officer row that carries a person's name has its returns unread here: start a report from the charity's company, if it has one."
 
 [[sections]]
 name = "overlap"
 heading = "Officer overlap: the same people on other companies"
-views = ["directors", "shareholders", "society_officers", "companies", "societies"]
+views = ["directors", "shareholders", "society_officers", "companies", "societies", "charity_officers"]
 sources = ["officers", "second"]
 text = "Started from a company or a society, each officer's other current roles, one step (near: an officer's other role is the officer's connection, not the entity's), with the date each role began beside the date the officer's role on the entity began; then the people beside the entity's people on their other companies. Started from a person, the other people on the person's companies (near). A professional director or a nominee is a hub and sits on many companies; an overlap through a hub is flagged. Two roles held at once are two facts with their dates; this report does not say what one has to do with the other."
 

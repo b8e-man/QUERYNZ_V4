@@ -23,7 +23,7 @@ FLAG = re.compile(r"^  (FIRED|CLEAR|BLOCKED)\s+(red|amber|info)\s+([a-z-]+)@[\d.
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 HEADING = re.compile(r"^([A-Z][A-Z ,':]+?)  \((\d+) confirmed, (\d+) near\)$")
 CHANGES = "WHAT CHANGED, MONTH BY MONTH: DIRECTORS, HOLDERS OF RECORD AND REGISTERED OFFICES, EACH DATED BY THE FILE THAT FIRST SHOWS IT"
-PEOPLE = "ITS PEOPLE: THE PEOPLE BESIDE THEM, AND THEIR SOCIETY ROLES"
+PEOPLE = "ITS PEOPLE: THE PEOPLE BESIDE THEM, AND THEIR SOCIETY AND CHARITY ROLES"
 LATEST = "(select max(last_file) from pub.directors)"
 CHANGED_AND_LIQUIDATED = f"""
     select 'companies:' || c.key from pub.companies c

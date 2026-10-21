@@ -73,7 +73,15 @@ the card that would lift it is named.
   every check that needs them blocks (subject 11: 111 companies past the
   limit, 177 links unread).
 - **The securities register, the Insolvency Register, court judgments,
-  financial service providers, charities and land titles** are not held.
+  financial service providers and land titles** are not held.
+- **A charity officer row is matched by name.** The charities section
+  lists the Charities Register's officer rows that carry a person's name,
+  near: no link joins the register's officers to any other row yet, so each
+  is a namesake's until a rule confirms it. A company's charity by business
+  number is confirmed, with its officers and returns; a charitable trust
+  holding shares of record is reached by its number only where the chain
+  is walked, which this template does not yet do. No flag reads them.
+  (`charity-officers-are-in-no-link-and-no-name-row`, the links lane's)
 - **Overseas registers and trusts** are named in the not-held section's
   text, not in the shape's not-held list.
   (`the-catalogue-names-no-overseas-registers-or-trusts-as-not-held`)
@@ -113,3 +121,12 @@ The checkpoint ran on `pub.links` of 2,614,679 links, after the links
 reload of 07:50 failed with node2's network (see
 `node2-lost-its-wired-link-and-an-orphaned-links-load-holds-its-locks`);
 re-run it once the integrator has reloaded the links.
+
+## The checkpoint re-rendered, 2026-10-21 (fix-templates-1, the Charities Register)
+
+The same twelve subjects, before and after the template read the Charities
+Register in a new charities section. None refused; no flag changed. The
+holder of record's group (subject 11) lists three charity officer rows of
+the same name, near; no company in the list has a charity by business
+number, and every memo lost the line saying it names as not held a
+register that is published.

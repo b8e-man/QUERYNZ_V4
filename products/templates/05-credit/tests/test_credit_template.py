@@ -124,6 +124,22 @@ def test_its_sections_run_in_the_credit_analysts_order():
         assert not CAUSE.search(x["text"]) and not CAUSE.search(x["heading"]), x["name"]
 
 
+def test_it_reads_the_charities_register_where_the_people_are_and_names_it_nowhere_as_not_held():
+    """Card the-credit-template-can-now-read-the-charities-register: the three views read with their licence, in the people section
+    (a charity officer row by the person's name comes as `named`, before the people beside it), and the register out of every
+    not-held line and out of the rules."""
+    t = toml()
+    reads = {r["view"]: r for r in t["reads"]}
+    for v in ("charities", "charity_officers", "charity_returns"):
+        assert v in reads and "Charities Register open data" in reads[v]["licence"] and reads[v]["attribution"].startswith("Charities Services")
+    s = {x["name"]: x for x in t["sections"]}
+    assert {"charities", "charity_officers", "charity_returns"} <= set(s["people"]["views"])
+    assert s["people"]["sources"][0] == "named" and "roles" in s["people"]["sources"]
+    assert "never added across returns" in s["people"]["text"]
+    assert not any("charities" in x.get("not_held", []) for x in t["sections"]) and "Charities Register" not in s["not-held"]["text"]
+    assert "CHARITIES_NOT_HELD" not in open(os.path.join(HERE, "rules.py"), encoding="utf-8").read()
+
+
 def test_the_known_limits_page_and_the_checkpoint_list_exist():
     with open(os.path.join(HERE, "limits.md"), encoding="utf-8") as f:
         page = f.read()

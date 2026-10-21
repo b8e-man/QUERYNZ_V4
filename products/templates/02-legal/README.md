@@ -6,13 +6,15 @@ shape in `products/report/`) for a law firm before it acts: "who is this
 counterparty, who stands on its register, and does anyone here already act
 for or against them".
 
-- `template.toml`: the 20 pub views it reads, each with its licence,
+- `template.toml`: the 23 pub views it reads, each with its licence,
   attribution and refresh; depth 2 (the conflict web: the people on the
   person's companies, near); six sections in the order a conflicts clerk
   reads them (who the party is and its namesakes apart; officers and
   holders of record with dates; the companies those people share, with
   dates, as the conflict web; the Gazette on the company and its people;
-  charity, society and political money; what is not held, court judgments
+  society roles, the Charities Register (a charity officer row by the
+  party's name, near; a company's charity by business number) and political
+  money; what is not held, court judgments
   and disciplinary findings named); its limits.
 - `rules.py`: 27 flags, standing for the old estate's legal checks MC-L1 to
   MC-L5 and its person and company rules where the held registers support

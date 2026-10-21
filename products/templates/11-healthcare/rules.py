@@ -37,10 +37,13 @@ anything else. From an organisation the walk follows its first officers one
 step only when the template names the `officers` reach (it does) and says
 how many it left; a check through an officer is blocked when an officer was
 not followed (the agriculture lesson). The charity rules read
-pub.charities, pub.charity_officers and pub.charity_returns by name and
-block, never clear, while the template does not read them (the report's
-catalogue does not know them yet: carded). Evidence on confirmed rows is red
-or amber; the same evidence reached through a near link is amber at most.
+pub.charities, pub.charity_officers and pub.charity_returns: a company's
+charity by its business number (confirmed, with the officers and returns on
+it, graded as the company is), and a charity officer row that carries a
+person's name (near: no link joins the Charities Register's officers to any
+other row yet, so a rule over such a row is amber at most). Evidence on
+confirmed rows is red or amber; the same evidence reached through a near
+link is amber at most.
 Dates sit side by side; no flag joins two facts with a word of cause, none
 calls a holder an owner, and none prints an address or an officer's contact
 detail.
@@ -80,6 +83,8 @@ OFFICER_VIEWS = ("directors", "society_officers")
 ROLE_VIEWS = ("directors", "shareholders", "society_officers")
 ORGANISATION_VIEWS = ("companies", "societies")
 CHARITY_VIEWS = ("charities", "charity_officers", "charity_returns")
+#: the views whose rows the walk looks a person's name up from in the Charities Register (the shape's NAME_JOIN_FROM)
+NAME_LOOKED_UP = ("directors", "society_officers", "members", "candidates", "mp_interest_returns", "promoter_people", "gazette_appointments")
 #: the words a fired flag must not carry, the shape's own (rules 3 and 4): a register's name that holds one is not quoted in a flag
 UNSAFE = re.compile(contract.CAUSE.pattern + "|" + contract.OWNER.pattern, re.I)   # noqa: F821  (bound by the loader)
 
@@ -88,8 +93,7 @@ SOCIETIES_HELD = "Incorporated Societies Register (pub.societies, pub.society_of
 GAZETTE_HELD = "New Zealand Gazette liquidation and company notices (pub.gazette_liquidations, pub.gazette_company_notices)"
 INSOLVENCY_REGISTER = "the Official Assignee's Insolvency Register (interface awaited since 19 September 2026)"
 COURTS = "court judgments: the OpenLaw case-law lane and the courts register (step 5.4)"
-CHARITIES = ("the Charities Register (pub.charities, pub.charity_officers, pub.charity_returns: the lane's reading is built and not merged, "
-             "and the report's catalogue does not know the views)")
+CHARITIES = "the Charities Register (pub.charities, pub.charity_officers, pub.charity_returns), which this template does not name in its reads"
 VILLAGES = ("the retirement villages file: each village's operator and statutory supervisor, and when the supervisor changed (not held; "
             "the companies lane carries the village's own row only)")
 HDC = "the Health and Disability Commissioner's decisions and case notes (not held; to acquire, plan 5.3)"
@@ -191,10 +195,16 @@ def _no_officers(report):
         return None
     s = report["subject"]
     kind = (s["row"].get("entity_type") or "").lower()
+    trustees = _own_charity_officers(report)
     if _village(report):
         where = "a retirement village's register row names no operator and no officer: the retirement villages file is not held"
+    elif "charitable trust" in kind and trustees:
+        where = (f"a charitable trust board's trustees are filed with the Charities Register: {len(trustees)} officer row(s) on its charity, "
+                 "reached by its business number, are listed and their own disqualified mark is read, but they are not followed to their "
+                 "other roles; start a report from each trustee")
     elif "charitable trust" in kind:
-        where = "a charitable trust board's trustees are filed with the Charities Register, which this report cannot reach yet"
+        where = ("a charitable trust board's trustees are filed with the Charities Register, and no charity row carries this board's business "
+                 "number")
     elif "society" in kind:
         where = ("an incorporated society's officers are in the societies register, under the society's own row there; start the report "
                  "from that row")
@@ -222,6 +232,12 @@ def _name(it) -> str:
     the shape reads as cause or ownership is not quoted (the section lists it)."""
     t = it.get("title") or it["ref"]
     return f"the row cited ({it['ref']})" if UNSAFE.search(t) else t
+
+
+def _charity_title(it) -> str:
+    """The charity an officer row sits on, by its register name, unless that name carries a word the shape reads as cause or ownership."""
+    t = it.get("entity_title") or ""
+    return t if t and not UNSAFE.search(t) else "a charity (cited)"
 
 
 def _who(it) -> str:
@@ -317,6 +333,14 @@ def _officer_rows(report) -> dict:
     """{ref: item} the entity's own officers: its directors and society officers as the register lists them on it."""
     s = report["subject"]["ref"]
     return {it["ref"]: it for it in all_items(report).values() if it["view"] in OFFICER_VIEWS and it.get("via") == s}
+
+
+def _own_charity_officers(report) -> list:
+    """The officer rows the Charities Register files on the entity's own charity, reached by the entity's business number (confirmed):
+    a charitable trust board's trustees are filed there, not on its companies register row. Not followed to their other roles."""
+    s = report["subject"]["ref"]
+    mine = {it["ref"] for it in items(report, ("charities",), ("confirmed",)) if it.get("via") == s}
+    return [it for it in items(report, ("charity_officers",), ("confirmed",)) if it.get("via") in mine]
 
 
 def _through(report, views) -> list:
@@ -554,14 +578,30 @@ def _people_notice(report, rule, view, noun, extra_not_held=()):
         if w.get("links_omitted"):
             return flag(rule, V, "blocked", "red", f"the walk left {w['links_omitted']:,} link(s) unread past its limit; a {noun} could be "
                         "among them, so no clear is given", sources_not_held=not_held)
+        held = (f"New Zealand Gazette (pub.{view}), joined by name in pub.links",)
+        if view == "gazette_prohibitions" and _reads(report, "charity_officers"):
+            s = report["subject"]
+            if s["view"] in NAME_LOOKED_UP and not s.get("suppressed"):
+                held += ("Charities Register officers (pub.charity_officers), looked up by the person's name",)
+            else:
+                return flag(rule, V, "blocked", "red", f"no {noun} in the Gazette confirmed or near the person, but a charity officer row is looked "
+                            f"for under the name a {', '.join(NAME_LOOKED_UP)} row carries, and the report starts from pub.{s['view']}, so no "
+                            "clear is given", sources_not_held=not_held)
         return flag(rule, V, "clear", "red", f"no {noun} confirmed or near the person: the link rules join every such notice by name, and every "
-                    "link from the person's rows was read", sources_held=(f"New Zealand Gazette (pub.{view}), joined by name in pub.links",),
-                    sources_not_held=not_held)
+                    "link from the person's rows was read", sources_held=held, sources_not_held=not_held)
     if _other_start(report):
         return flag(rule, V, "blocked", "red", _other_start(report), sources_not_held=not_held)
+    own_marks = [it for it in charity_marks if it in _own_charity_officers(report)]
+    if own_marks:   # an officer the register marks disqualified on the entity's own charity: the entity's own record, confirmed
+        current = [it for it in own_marks if not _date(it["row"].get("ended_on"))]
+        return flag(rule, V, "fired", "red" if current else "amber", f"{len(own_marks)} officer row(s) on the entity's own charity carry the "
+                    f"register's disqualified mark, {len(current)} with no end filed: "
+                    + "; ".join(f"{_name(it)} ({it['dates']['text']}; {it['row'].get('status') or 'status not filed'})"
+                                         for it in own_marks[:EXAMPLES]),
+                    citations=tuple(it["ref"] for it in own_marks), sources_not_held=not_held, scope="entity")
     on_officers = [it for it in live + charity_marks if it.get("through")]
     if on_officers:
-        red = [it for it in on_officers if not _contested(it) and _in_force(report, it) and it["through"] in officer_rows
+        red = [it for it in on_officers if it.get("rule") != "same-name" and not _contested(it) and _in_force(report, it) and it["through"] in officer_rows
                and _current(officer_rows[it["through"]]) and it["through"] not in _hub_refs(report)]
         bits = []
         for it in sorted(on_officers, key=lambda x: x in red, reverse=True)[:EXAMPLES]:
@@ -666,8 +706,8 @@ def _charities_unread(report):
     """Why the charity checks cannot run, or None when the template reads the three charity views."""
     missing = [v for v in CHARITY_VIEWS if not _reads(report, v)]
     if missing:
-        return ("the Charities Register is not reachable by this report: its reading is built and not merged, and the report's catalogue does not "
-                "know pub." + ", pub.".join(missing) + "; whether the entity or its people sit on a charity, and what it files, is not shown")
+        return ("the template does not read pub." + ", pub.".join(missing) + "; whether the entity or its people sit on a charity, and what it "
+                "files, is not shown")
     return None
 
 
@@ -695,9 +735,15 @@ def charity_arm(report):
     if why:
         return flag("charity-arm", V, "blocked", "info", why, sources_not_held=(CHARITIES,))
     chars = _charities(report)
+    by_name = [it for it in items(report, ("charity_officers",)) if it.get("rule") == "same-name" and not it.get("suppressed")]
+    if not chars and by_name:
+        return flag("charity-arm", V, "fired", "info", f"{len(by_name)} charity officer row(s) carry the person's name, near: no link joins the "
+                    "Charities Register's officers to any other row yet, so each is a namesake's until a rule confirms it: "
+                    + "; ".join(f"{_name(it)}, {it['row'].get('role') or 'officer'} of {_charity_title(it)} ({it['dates']['text']})"
+                                for it in by_name[:EXAMPLES]), citations=tuple(it["ref"] for it in by_name), scope="near")
     if not chars:
         return flag("charity-arm", V, "blocked", "info", "no charity is reached from the entity or its people: a charity whose officers or "
-                    "number the links do not join to the entity cannot be seen here, so no clear is given", sources_not_held=(CHARITIES,))
+                    "number the links do not join to the entity cannot be seen here, so no clear is given")
     ended = [c for c in chars if _ending(c) == "ended"]
     return flag("charity-arm", V, "fired", "amber" if ended else "info",
                 f"{len(chars)} registered charity(ies) reached, {len(ended)} no longer registered: "
@@ -712,8 +758,7 @@ def charity_audit_opinion(report):
         return flag("charity-audit-opinion", V, "blocked", "red", why, sources_not_held=(CHARITIES,))
     rets = [it for it in items(report, ("charity_returns",))]
     if not rets:
-        return flag("charity-audit-opinion", V, "blocked", "red", "no charity return is reached, so no audit opinion can be read",
-                    sources_not_held=(CHARITIES,))
+        return flag("charity-audit-opinion", V, "blocked", "red", "no charity return is reached, so no audit opinion can be read")
     newest = {}
     for c in _charities(report):
         rs = _returns_of(report, c)
@@ -756,8 +801,7 @@ def charity_return_filed(report):
         return flag("charity-return-filed", V, "blocked", "amber", why, sources_not_held=(CHARITIES,))
     chars = [c for c in _charities(report) if _ending(c) == "going"]
     if not chars:
-        return flag("charity-return-filed", V, "blocked", "amber", "no registered charity is reached, so no filing can be checked",
-                    sources_not_held=(CHARITIES,))
+        return flag("charity-return-filed", V, "blocked", "amber", "no registered charity is reached, so no filing can be checked")
     as_of, late, unknown = _as_of(report), [], []
     for c in chars:
         due = _last_period_end(c, as_of)
@@ -801,7 +845,7 @@ def charity_returns_summary(report):
                      f"{'audited' if r.get('audited') else 'not audited' if r.get('audited') is False else 'audit not stated'}"
                      f"{', modified opinion' if r.get('modified_opinion') else ''}")
     if not lines:
-        return flag("charity-returns", V, "blocked", "info", "no charity return is reached", sources_not_held=(CHARITIES,))
+        return flag("charity-returns", V, "blocked", "info", "no charity return is reached")
     return flag("charity-returns", V, "fired", "info", f"the newest return of {len(lines)} charity(ies), as filed: " + " || ".join(lines[:EXAMPLES]),
                 citations=tuple(cites))
 

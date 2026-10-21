@@ -31,7 +31,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 VIEWS = {"companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
-         "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers"}
+         "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
+         "charities", "charity_officers", "charity_returns"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
                    r"beneficial)\b", re.I)
@@ -89,6 +90,19 @@ def test_the_shape_loads_it_by_name_with_every_view_known_and_every_rule():
     assert f"{len(t['reads'])} views, {len(t['sections'])} sections, {len(R.RULES)} rules" in line[0]
 
 
+def test_the_window_is_a_parameter_the_reader_sets_and_the_rule_reads():
+    """Card the-construction-and-property-templates-declare-no-window-days-parameter: `window_days` is declared (an integer, no
+    default: ruling 65 makes the window the reader's), so the shape's form offers it and `--set window_days=365` is accepted; the
+    value the shape puts on the report is the one the phoenix rule cuts at."""
+    p = [x for x in toml().get("params", []) if x["name"] == "window_days"]
+    assert p and p[0]["kind"] == "integer" and "default" not in p[0] and "every gap is shown" in p[0]["means"], p
+    out = subprocess.run([sys.executable, "-m", "products.report", "render", "", "--template", "construction", "--html"], cwd=REPO,
+                         capture_output=True, text=True, timeout=20)
+    assert out.returncode == 0 and '<input name="window_days"' in out.stdout, out.stderr[-500:]
+    late = dict(NEWCO, row=dict(NEWCO["row"], registered_on="2024-01-01"))
+    assert rule("phoenix_signature")(dict(person(phoenix=[FAILED, late]), window_days=365, params={"window_days": 365}))["status"] != "fired"
+
+
 def test_it_names_only_the_views_the_brief_names_each_once_with_its_licence():
     t = toml()
     views = [r["view"] for r in t["reads"]]
@@ -121,6 +135,38 @@ def test_its_sections_run_in_the_procurement_leads_order():
         assert not CAUSE.search(x["text"]) and not CAUSE.search(x["heading"]), x["name"]
 
 
+def test_society_roles_read_the_charities_register_by_name_and_by_number():
+    """Card the-construction-template-can-now-read-the-charities-register: the three views in the people section (`named` first),
+    `charities` out of every not-held line and CHARITIES_NOT_HELD out of the rules; society-roles lists a charity officer row
+    carrying the person's name, near, and from a company its charity by business number; a clear needs the name looked up."""
+    t = toml()
+    s = {x["name"]: x for x in t["sections"]}
+    assert {"charities", "charity_officers", "charity_returns"} <= set(s["people"]["views"]) and s["people"]["sources"][0] == "named"
+    assert not any("charities" in x.get("not_held", []) for x in t["sections"]) and "Charities Register" not in s["not-held"]["text"]
+    assert "CHARITIES_NOT_HELD" not in open(os.path.join(HERE, "rules.py"), encoding="utf-8").read()
+    reads = {"reads": [{"view": v} for v in VIEWS]}
+    by_name = it("charities:charities/CC9/officer/7", "charity_officers", grade="near", title="Jane Mary DOE", via=PERSON["ref"],
+                 statement="Jane Mary DOE: Trustee of A CLUB TRUST (Past; disqualified as the register states it: no)",
+                 reason="no link joins the Charities Register's officers to any other row yet", row={"charity_key": "charities/CC9"})
+    by_name["rule"] = "same-name"
+    roles = rule("society_roles")
+    f = roles(dict(report(people=[by_name]), template=reads))
+    assert f["status"] == "fired" and f["scope"] == "near" and by_name["ref"] in f["citations"] and "carry the person's name, near" in f["text"]
+    assert roles(dict(report(), template=reads))["status"] == "clear"
+    skipped = dict(report(), template=reads)
+    skipped["walk"] = dict(skipped["walk"], skipped=["charity_officers"])
+    assert roles(skipped)["status"] == "blocked"
+    holder = it("companies:companies/1/shareholder/a", "shareholders", title="Jane Mary DOE")
+    assert roles(dict(report(subject=holder), template=reads))["status"] == "blocked", "a holder's name is not looked up"
+    charity = it("charities:charities/CC1", "charities", title="KEA TRUST", statement="KEA TRUST: registered charity CC1, Registered; Trust",
+                 via=NEWCO["ref"], row={"key": "charities/CC1", "nzbn": "2"})
+    trustee = it("charities:charities/CC1/officer/1", "charity_officers", title="John SMITH", via=charity["ref"], row={"charity_key": "charities/CC1"})
+    f = roles(dict(from_company(people=[charity, trustee]), template=reads))
+    assert f["status"] == "fired" and "the company's charity by its business number" in f["text"] and charity["ref"] in f["citations"]
+    assert roles(dict(from_company(), template=reads))["status"] == "blocked"
+    assert not CAUSE.search(f["text"])
+
+
 def test_the_known_limits_page_and_the_checkpoint_list_exist():
     with open(os.path.join(HERE, "limits.md"), encoding="utf-8") as f:
         page = f.read()
@@ -138,7 +184,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 KIND = {"directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
-        "party_return_donors": "figure"}
+        "party_return_donors": "figure", "charities": "organisation", "charity_officers": "person", "charity_returns": "figure"}
 THROUGH = "a connection that passes through more than one person is listed as near, never confirmed (the design's default)"
 SAME_REASON = "two companies under one name; only the official number confirms a company"
 

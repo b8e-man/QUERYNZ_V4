@@ -26,6 +26,7 @@ limits = [
   "A Gazette bankruptcy notice is published but no link rule joins it to a person yet, so this report cannot see one: a blank there is not a clear.",
   "The other companies in an amalgamation notice, and a mortgagee's entry into possession, are published but not reachable by this report; each is named in its flag.",
   "The walk reads Gazette notices on the first twelve companies it reaches and lists up to forty; past those the checks that need them are blocked, never clear.",
+  "A charity officer row is matched to the party by name only: no link joins the Charities Register's officers to any other row yet, so each is a namesake's until a rule confirms it.",
   "A company's registered office is listed and is flagged when fifty or more companies share it; the companies sharing a smaller office are not listed. No residential address is held in any view read.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
 ]
@@ -86,6 +87,21 @@ view = "society_officers"
 licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
 attribution = "Companies Office"
 refresh = "as the lane re-reads the register"
+[[reads]]
+view = "charities"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the register is public under the Charities Act 2005; the address for service is never read"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_officers"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; a suppressed name is suppressed, the row stays"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_returns"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the financial fields under the ruling of 14 August 2026"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
 [[reads]]
 view = "party_return_donors"
 licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
@@ -172,15 +188,13 @@ text = "Liquidations, receiverships, administrations, winding-up applications, c
 [[sections]]
 name = "money"
 heading = "Charity and society roles, and political money"
-views = ["societies", "society_officers", "party_return_donors", "party_return_loans", "disclosures", "disclosure_items",
-         "candidate_return_donors", "party_return_totals", "candidate_return_totals", "promoters", "promoter_people"]
-sources = ["members", "confirmed"]
-not_held = ["charities"]
-text = "Incorporated society roles (the Charities Register is not published yet), then donations, loans and promoters' roles. A donation is from the donor the Commission filed it under; a disclosure of a gift a return covers is shown beside it and never added. Started from a company, these are the company's own."
+views = ["societies", "society_officers", "charities", "charity_officers", "charity_returns", "party_return_donors", "party_return_loans", "disclosures", "disclosure_items", "candidate_return_donors", "party_return_totals", "candidate_return_totals", "promoters", "promoter_people"]
+sources = ["members", "confirmed", "named", "roles"]
+text = "Incorporated society roles; then the Charities Register: a charity officer row that carries the party's name, near: no link joins the register's officers to any other row yet, and, started from a company, its charity by business number (confirmed) with the officers and annual returns on it, the figures as filed and never added across returns; then donations, loans and promoters' roles. A donation is from the donor the Commission filed it under; a disclosure of a gift a return covers is shown beside it and never added. Started from a company, these are the company's own."
 
 [[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["courts", "insolvency", "securities", "charities", "limited_partnerships", "fsp", "sanctions", "linz"]
-text = "Registers a conflict check would read that no lane has published: court judgments and tribunal decisions (step 5.4), the disciplinary findings of the Lawyers and Conveyancers Disciplinary Tribunal and the other professional bodies, the Insolvency Register, the Personal Property Securities Register, charities, a limited partnership's partners, financial service providers, sanctions lists and land titles. The firm's own client and matter list is not an input. Nothing in this report says anything about them; ask the source."
+not_held = ["courts", "insolvency", "securities", "limited_partnerships", "fsp", "sanctions", "linz"]
+text = "Registers a conflict check would read that no lane has published: court judgments and tribunal decisions (step 5.4), the disciplinary findings of the Lawyers and Conveyancers Disciplinary Tribunal and the other professional bodies, the Insolvency Register, the Personal Property Securities Register, a limited partnership's partners, financial service providers, sanctions lists and land titles. The firm's own client and matter list is not an input. Nothing in this report says anything about them; ask the source."

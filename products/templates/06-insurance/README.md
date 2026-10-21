@@ -6,13 +6,14 @@ those is published yet. A subject report (the shape in `products/report/`)
 for a commercial underwriter: "what stands against this business and its
 people" before pricing the risk.
 
-- `template.toml`: the 12 pub views it reads, each with its licence,
-  attribution and refresh; depth 2; its eight sections in the order an
+- `template.toml`: the 15 pub views it reads, each with its licence,
+  attribution and refresh; depth 2; its nine sections in the order an
   underwriter reads them (the entity and its namesakes apart; its standing,
   age and registered office; the solvency record in the Gazette, each
   notice dated; its people with their dates; their other companies and how
   each stands; prohibitions and bankruptcies on the people; the people
-  beside them and their other roles; the safety record, every register in
+  beside them and their other roles; registered charities (the business's
+  own by business number, its people's officer rows by name, near); the safety record, every register in
   it named as not held); its limits.
 - `rules.py`: 23 flags on the bound contract. `sister-company-failure` sets
   each failure of a person's company, dated from its first Gazette

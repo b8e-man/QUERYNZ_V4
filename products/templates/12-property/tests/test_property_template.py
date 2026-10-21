@@ -40,7 +40,7 @@ ORDER = ["identity", "standing", "principals", "chain", "history", "serial", "of
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 VIEWS = {"companies", "company_states", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators",
          "gazette_company_notices", "gazette_possessions", "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies",
-         "society_officers"}
+         "society_officers", "charities", "charity_officers", "charity_returns"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
                    r"beneficial)\b", re.I)
@@ -97,6 +97,33 @@ def test_the_shape_loads_it_by_name_with_every_view_known_and_every_rule():
     assert f"{len(t['reads'])} views, {len(t['sections'])} sections, {len(R.RULES)} rules" in line[0]
 
 
+def test_the_window_is_a_parameter_the_reader_sets_and_the_rule_reads():
+    """Card the-construction-and-property-templates-declare-no-window-days-parameter: `window_days` is declared (an integer, no
+    default: ruling 65 makes the window the reader's), so the shape's form offers it and `--set window_days=30` is accepted; the
+    value the shape puts on the report is the one the serial pattern cuts at."""
+    p = [x for x in toml().get("params", []) if x["name"] == "window_days"]
+    assert p and p[0]["kind"] == "integer" and "default" not in p[0] and "every gap is shown" in p[0]["means"], p
+    out = subprocess.run([sys.executable, "-m", "products.report", "render", "", "--template", "property", "--html"], cwd=REPO,
+                         capture_output=True, text=True, timeout=20)
+    assert out.returncode == 0 and '<input name="window_days"' in out.stdout, out.stderr[-500:]
+    cut = rule("serial_pattern")(dict(developer(window=30), params={"window_days": 30}))
+    assert "fall outside it and are not listed" in cut["text"] and "MATAI GROVE DEVELOPMENT LIMITED: registered" not in cut["text"]
+
+
+def test_the_principals_section_reads_the_charities_register():
+    """Card the-property-template-can-now-read-the-charities-register-and-the-reaches (the charities half): the three views in the
+    principals section (a trust board's charity by business number with its trustees and returns; a person's officer rows by name,
+    `named`), `charities` out of every not-held line and out of the not-held text."""
+    t = toml()
+    s = {x["name"]: x for x in t["sections"]}
+    assert {"charities", "charity_officers", "charity_returns"} <= set(s["principals"]["views"]) and "named" in s["principals"]["sources"]
+    assert "never added across returns" in s["principals"]["text"] and "near" in s["principals"]["text"]
+    assert not any("charities" in x.get("not_held", []) for x in t["sections"]) and "Charities Register" not in s["not-held"]["text"]
+    for x in t["sections"]:
+        if x["name"] != "principals":
+            assert not {"charities", "charity_officers", "charity_returns"} & set(x["views"]), x["name"]
+
+
 def test_it_names_only_the_views_the_brief_names_each_once_with_its_licence():
     t = toml()
     views = [r["view"] for r in t["reads"]]
@@ -104,11 +131,11 @@ def test_it_names_only_the_views_the_brief_names_each_once_with_its_licence():
     assert all(r.get("licence") and r.get("attribution") and r.get("refresh") for r in t["reads"])
     assert "registered offices only, never a residential address" in [r for r in t["reads"] if r["view"] == "company_addresses"][0]["licence"]
     assert "private tables" in [r for r in t["reads"] if r["view"] == "gazette_possessions"][0]["licence"]
-    for unreached in ("charities", "charity_officers"):
-        assert unreached not in views, "the catalogue does not know it: carded, named in the not-held section"
+    for v in ("charities", "charity_officers", "charity_returns"):
+        assert "Charities Register open data" in [r for r in t["reads"] if r["view"] == v][0]["licence"], v
     src = open(os.path.join(HERE, "template.toml"), encoding="utf-8").read()
-    for card in ("the-not-held-list-has-no-key-for-the-property-registers", "the-report-carries-no-template-parameters",
-                 "the-report-cannot-reach-the-charities-register"):
+    for card in ("the-not-held-list-has-no-key-for-the-property-registers", "the-construction-and-property-templates-declare-no-window-days-parameter",
+                 "the-chain-reach-reads-nothing-on-the-companies-above"):
         assert card in src, card
     assert "ruling 65" in src and "section 2.6" in src
 

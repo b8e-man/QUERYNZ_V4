@@ -12,7 +12,8 @@
 # beside the failure with the gap in days, whatever the gap, nearest first.
 # The window is the reader's setting (ruling 65, 21 October 2026): the flag
 # counts the pairs within 90 and 365 days and cuts only when the reader sets
-# one (`window_days` on the report, which the shape does not yet carry). A
+# one (`window_days`, declared below as a parameter: `--set window_days=365`
+# on the command line, `?window_days=365` on the page). A
 # name is never the signature on its own:the old estate's probe found a same-name join within ninety days
 # yields 14.2 million pairs, and of 183 going companies that share a name with
 # a company liquidated within a year of their start, 2 share a director's name
@@ -30,7 +31,7 @@ depth = 2
 
 limits = [
   "A name is never the phoenix signature: a company that only shares the entity's name is listed near, and the phoenix flag is raised only on a shared person or a shared registered office together with a dated failure.",
-  "The phoenix flag sets every dated failure beside every going company whatever the gap, nearest first, and counts those within 90 and 365 days; the window is the reader's setting, and the report cannot yet carry one, so every gap is shown.",
+  "The phoenix flag sets every dated failure beside every going company whatever the gap, nearest first, and counts those within 90 and 365 days; the window is the reader's setting (`window_days`), and with none set every gap is shown.",
   "Started from a company, the report lists its officers and holders of record but does not yet follow them: the other companies they sit on, and how those failed, are not read, so the phoenix signature through a shared person is blocked, never clear. Start a report from each director listed; from a person the signature is read across all the person's companies.",
   "The companies that share a registered office with the entity are counted, and listed only when they also share its name or a person: a shared office alone is not seen, so that half of the signature is blocked, never clear.",
   "The companies file lists current roles only: a company the person left, or that was struck off with them on it, is not seen, nor its failure, so no check over a person's companies is ever clear.",
@@ -43,6 +44,15 @@ limits = [
   "A company's registered office is shown as the companies file states it. No residential address is held in any view read.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
 ]
+
+# ── the reader's settings ───────────────────────────────────────────────────
+# No default: ruling 65 makes the window the reader's, and none is the
+# template's. A value that is not a whole number of days reaches the rule as
+# the text given, and the flag says no cut is applied.
+[[params]]
+name = "window_days"
+kind = "integer"
+means = "days either side of a failure's Gazette date within which a going company is set beside it; not set: every gap is shown"
 
 # ── what it reads: each view with its licence ───────────────────────────────
 [[reads]]
@@ -116,6 +126,21 @@ refresh = "as the lane re-reads the register"
 # companies above, is in the Gazette section under the company's name. The
 # phoenix signature itself, each failure beside each going company's start
 # with the gap in days, is in the flags. The first section takes only near links.
+[[reads]]
+view = "charities"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the register is public under the Charities Act 2005; the address for service is never read"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_officers"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; a suppressed name is suppressed, the row stays"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_returns"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the financial fields under the ruling of 14 August 2026"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
 [[sections]]
 name = "identity"
 heading = "The entity, and its namesakes set apart"
@@ -155,11 +180,10 @@ text = "A director prohibition or a bankruptcy notice the link rules join to the
 
 [[sections]]
 name = "people"
-heading = "Its people's other roles: the people beside them, and their society roles"
-views = ["directors", "shareholders", "societies", "society_officers"]
-sources = ["second", "members", "confirmed"]
-not_held = ["charities"]
-text = "The other directors and holders of record on the person's companies, each near: a connection through another person is never confirmed; then incorporated society roles. The companies themselves, going and failed, with their states, are listed once, in the phoenix section above. Started from a company, its people are not followed."
+heading = "Its people's other roles: the people beside them, and their society and charity roles"
+views = ["directors", "shareholders", "societies", "society_officers", "charities", "charity_officers", "charity_returns"]
+sources = ["named", "second", "members", "confirmed", "roles"]
+text = "The other directors and holders of record on the person's companies, each near: a connection through another person is never confirmed; then incorporated society roles, then the Charities Register: a charity officer row that carries the person's name, near (no link joins the register's officers to any other row yet), and a company's charity by business number, confirmed, with its officers and annual returns, the figures as filed and never added across returns. The companies themselves, going and failed, with their states, are listed once, in the phoenix section above. Started from a company, its people are not followed."
 
 [[sections]]
 name = "gazette"
@@ -173,5 +197,5 @@ text = "Liquidations (appointed by the shareholders or the court), receiverships
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["building_practitioners", "insolvency", "courts", "securities", "charities", "limited_partnerships", "tenders"]
-text = "Registers a subcontractor check would read that no lane has published: the licensed building practitioners register (whether the firm's people hold a licence, and any discipline), the Official Assignee's Insolvency Register (bankruptcies, no-asset procedures and summary instalment orders, and their discharge), court judgments, the Employment Relations Authority's determinations (unpaid wages and arrears), the companies change history before 16 August 2026 (former names, trading names, earlier directors and offices; held but unread since), the Personal Property Securities Register, a lender's entry into possession, the Charities Register, a limited partnership's partners, and tenders and awards. Nothing in this report says anything about them; ask the source."
+not_held = ["building_practitioners", "insolvency", "courts", "securities", "limited_partnerships", "tenders"]
+text = "Registers a subcontractor check would read that no lane has published: the licensed building practitioners register (whether the firm's people hold a licence, and any discipline), the Official Assignee's Insolvency Register (bankruptcies, no-asset procedures and summary instalment orders, and their discharge), court judgments, the Employment Relations Authority's determinations (unpaid wages and arrears), the companies change history before 16 August 2026 (former names, trading names, earlier directors and offices; held but unread since), the Personal Property Securities Register, a lender's entry into possession, a limited partnership's partners, and tenders and awards. Nothing in this report says anything about them; ask the source."

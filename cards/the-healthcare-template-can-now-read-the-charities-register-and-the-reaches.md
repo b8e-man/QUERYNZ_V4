@@ -69,3 +69,15 @@ template do, each a fix in `products/templates/11-healthcare/`:
 Not a comparison cause. The shape's fixture tests and `python -m
 products.report check` hold the reaches; this card is the template's own
 reading of them, closed when its sections, flags and tests use them.
+
+Progress, fix-templates-1 (2026-10-21): the Charities Register bullet and the
+`charities` not-held key are done: the three views in `reads`; `charities`
+and `charity_officers` in the governance section (`named` added), the returns
+in the charity-returns section, `charity_officers` in the overlap section;
+`charities` out of both `not_held` lines; the charity flags read the views; a
+trust board's trustees are read from its own charity for the disqualified mark
+(red with no end filed), not followed; a by-name row is amber at most. Fixture
+test `test_the_charities_register_is_read_by_number_and_by_name`, three new
+mutants; checkpoint re-rendered (limits.md). Still open, outside that brief:
+the health registers' not-held keys, an officer's near links, and the
+companies above (`chain` in the Gazette section).

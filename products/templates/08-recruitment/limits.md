@@ -15,9 +15,15 @@ the card that would lift it is named.
   joined to a person by any link rule, so the template does not read
   appointments, and a candidate's return of donations received is not
   listed. (same card)
-- **Charities.** The Charities Register is not published yet: no charity
-  role, and no check of its banned-director and undischarged-bankrupt
-  marks (that flag is blocked). Incorporated societies are read.
+- **A charity officer row is matched by name.** The Charities Register is
+  read, but no link joins its officers to any other row yet, so a row
+  carrying the subject's name is near, a namesake's until a rule confirms
+  it, and the register's disqualified mark on one is amber, never red.
+  From a company, its charity by business number is confirmed, with its
+  officers and returns, and a mark on one of those officers is red. A
+  holder of record's row is not looked up by name, so neither charity check
+  clears from one. (`charity-officers-are-in-no-link-and-no-name-row`, the
+  links lane's) Incorporated societies are read.
 - **The Commerce Commission's cases and the FMA's warnings.** Held but not
   published (step 5.3); that flag is blocked.
 - **An MP's declared interests and expenses.** The interests are published
@@ -98,3 +104,16 @@ The twelve subjects' keys are in `checkpoint.list`. Re-measured
 twelve print, none refused; the only change is the template's `identity`
 flag gone (the builder's `group-standing` says the same on each: four
 fired amber, eight clear) and `replaced-return` now the builder's.
+
+## The checkpoint re-rendered, 2026-10-21 (fix-templates-1, the Charities Register)
+
+The same twelve subjects, before and after the template read the Charities
+Register. None refused. `charity-integrity-marks` went from blocked to clear
+on the ten whose name is looked up (the seven directors, the candidate, the
+interests return and the promoter's person): no row carrying the name has
+the register's disqualified mark. It still blocks on the holder of record
+and the donation. `charity-officer-roles` fired (info) on eight, listing 1
+to 62 charity officer rows of the same name, near, in the societies section,
+and went from clear to blocked on the holder of record, whose name is not
+looked up. `namesake-exposure` now counts those rows (one subject from clear
+to fired, info). No other flag changed.

@@ -23,7 +23,8 @@ limits = [
   "Two facts are shown side by side with their dates. The report never says one followed from the other.",
   "A Gazette bankruptcy notice is published but no link rule joins it to a person yet, so this report cannot see one: a blank there is not a clear.",
   "Sole traders, general partnerships and trusts are not in the companies file and are not held. A limited partnership's own row is held; its partners are not.",
-  "The Personal Property Securities Register (security over stock, crops and plant), land titles, the Insolvency Register, court judgments, the Charities Register and MPI's prosecutions are not held.",
+  "The Personal Property Securities Register (security over stock, crops and plant), land titles, the Insolvency Register, court judgments and MPI's prosecutions are not held.",
+  "A charity officer row is matched to the counterparty by name only: no link joins the Charities Register's officers to any other row yet, so each is a namesake's until a rule confirms it, and the register's disqualified mark on one is amber at most.",
   "A company's registered office is listed and is flagged when many companies share it. No residential address is held in any view read.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
 ]
@@ -79,6 +80,21 @@ view = "society_officers"
 licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
 attribution = "Companies Office"
 refresh = "as the lane re-reads the register"
+[[reads]]
+view = "charities"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the register is public under the Charities Act 2005; the address for service is never read"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_officers"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; a suppressed name is suppressed, the row stays"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_returns"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the financial fields under the ruling of 14 August 2026"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
 [[reads]]
 view = "party_return_donors"
 licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
@@ -165,10 +181,9 @@ text = "Each company with its register status and its dates as the register file
 [[sections]]
 name = "societies"
 heading = "Charity and society roles"
-views = ["societies", "society_officers"]
-sources = ["roles", "members", "confirmed"]
-not_held = ["charities"]
-text = "Incorporated societies only: the Charities Register is not published yet. Started from a company, its people's society roles are not read."
+views = ["societies", "society_officers", "charities", "charity_officers", "charity_returns"]
+sources = ["roles", "members", "confirmed", "named"]
+text = "Incorporated society roles; then the Charities Register: a charity officer row that carries the counterparty's name, near: no link joins the register's officers to any other row yet; started from a company, its charity by business number (confirmed) with the officers and annual returns on it, the figures as filed and never added across returns. Started from a company, its people's society and charity roles are not read."
 
 [[sections]]
 name = "money"
@@ -182,5 +197,5 @@ text = "A donation is from the donor the Commission filed it under. A return tha
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["securities", "linz", "insolvency", "courts", "charities", "limited_partnerships", "fsp", "sanctions"]
-text = "Registers a counterparty check would read that no lane has published: security interests over stock, crops and plant; land titles; the Insolvency Register; court judgments; charities; a limited partnership's partners; sole traders, general partnerships and trusts (the business-number register outside the companies file); MPI prosecutions and animal-tracing enforcement. Nothing in this report says anything about them; ask the source."
+not_held = ["securities", "linz", "insolvency", "courts", "limited_partnerships", "fsp", "sanctions"]
+text = "Registers a counterparty check would read that no lane has published: security interests over stock, crops and plant; land titles; the Insolvency Register; court judgments; a limited partnership's partners; sole traders, general partnerships and trusts (the business-number register outside the companies file); MPI prosecutions and animal-tracing enforcement. Nothing in this report says anything about them; ask the source."

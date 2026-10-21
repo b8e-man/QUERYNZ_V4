@@ -37,6 +37,13 @@ amber at three with a departure.
 
 ## What it cannot see
 
+- **A charity officer row is matched by name.** The people section lists
+  the Charities Register's officer rows that carry the person's name, near:
+  no link joins the register's officers to any other row yet, so each is a
+  namesake's until a rule confirms it. A company's charity by business
+  number is confirmed, with its officers and annual returns, the figures as
+  filed and never added across returns. No flag reads them yet.
+  (`charity-officers-are-in-no-link-and-no-name-row`, the links lane's)
 - **A status or name change between the files.** `pub.company_states` holds
   the earlier state of each entity the August file changed (5,629 rows: 3,979
   status changes, 1,346 name changes), but the report's catalogue does not
@@ -155,3 +162,11 @@ people's other companies and their notices: built from a person, blocked
 from a company. A since-date, a watched list, the interface's freshness,
 the securities and insolvency registers, judgments, credit-bureau data: not
 held, each named.
+
+## The checkpoint re-rendered, 2026-10-21 (fix-templates-1, the Charities Register)
+
+The same twelve subjects, before and after the template read the Charities
+Register. None refused; no flag changed. The people section gained charity
+officer rows of the same name, near, on two of the four directors (6 and
+3 rows); no company in the list has a charity by
+business number, so nothing confirmed was added.
