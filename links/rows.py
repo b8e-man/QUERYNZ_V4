@@ -28,6 +28,15 @@ read, and what each row's entity is:
 An expense line is a figure under a member's name; it is a row here so a
 product can reach the register through the one reading of names.
 
+**A coupled donor name (ruling 73).** A donation row filed as two people
+("Craig & Shayne Greenlees", "Mills, Phillip & Jackie"; `keys.names.is_joint_name`)
+stays one row as the Commission filed it, with its name key, and is not
+read as one person (no given, family or person keys). Beside it, one part
+row per person it names (`keys.names.joint_parts`): ref `<donor ref>#<n>`,
+the donor's register, view, key, entity and dates, `part_of` the donor's
+ref, `name_filed` the person's name as the part reads it. The rules read a
+part as any person row; `coupled-name@1` joins it to its donor row.
+
 **Rebuild only what changed (register rule 10):** `--register` empties and
 refills one register's rows and leaves the others; the registered offices
 and company names are refilled only with `companies`. The links are still
@@ -121,6 +130,8 @@ SOURCES = (
 #: the filing candidate is a politician; a declared interest is the member's own (a sole trade in the member's name is not a director row)
 POLITICIAN_VIEWS = {"candidates", "members", "mp_interest_returns", "candidate_return_totals", "mp_expenses", "minister_expenses", "mp_interests"}
 DECLARED_VIEWS = {"mp_interests"}       # the name is read out of a declared entry's text
+#: the donation views, where a coupled filed name is one donor joined to each person it names (ruling 73)
+DONATION_VIEWS = {"party_return_donors", "candidate_return_donors", "disclosures", "disclosure_items"}
 _DASHES = (" – ", " — ", " - ")
 _TRAILING_NOTE = re.compile(r"\s*\([^()]*\)\s*$")      # "(not trading)", "(inactive, and in process of de-registration)"
 _BRACKETED = re.compile(r"\s*\([^()]*\)")
@@ -181,14 +192,34 @@ def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple 
             catch[reason] = catch.get(reason, 0) + 1
         return None
     kind = kn.name_kind(name)
-    if kind == "person":
+    if kind == "person" and view in DONATION_VIEWS and kn.is_joint_name(name) is True:
+        # one donor, two people: read as nobody alone; its part rows carry the people (part_records)
+        read = {"given": None, "middle": None, "family": None, "name_key": kn.person_key(name),
+                "fl_key": None, "full_key": None, "has_middle": False}
+    elif kind == "person":
         read = read_name(name, first, middle, last)
     else:
         read = {"given": None, "middle": None, "family": None, "name_key": kn.organisation_key(name),
                 "fl_key": None, "full_key": None, "has_middle": False}
     return (links.ref(register, key), register, view, key, kind, name, read["given"], read["middle"], read["family"],
             read["name_key"], read["fl_key"], read["full_key"], read["has_middle"], entity, started, ended, election, electorate,
-            view in POLITICIAN_VIEWS, document)
+            view in POLITICIAN_VIEWS, document, None)
+
+
+def part_records(rec: tuple) -> list:
+    """The part rows of a coupled donor row (ruling 73), one per person its
+    filed name names; [] for any other row. Each is read as a one-line
+    person name and carries the donor row's place: register, view, key,
+    entity, dates, document, with `part_of` the donor's ref."""
+    ref, register, view = rec[0], rec[1], rec[2]
+    if view not in DONATION_VIEWS or rec[4] != "person" or rec[10] is not None:
+        return []
+    out = []
+    for i, part in enumerate(kn.joint_parts(rec[5]), 1):
+        r = read_name(part)
+        out.append((f"{ref}#{i}", register, view, rec[3], "person", part, r["given"], r["middle"], r["family"], r["name_key"],
+                    r["fl_key"], r["full_key"], r["has_middle"]) + tuple(rec[13:20]) + (ref,))
+    return out
 
 
 def address_record(r: tuple) -> tuple | None:
@@ -229,13 +260,13 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
         for register, view, sql in SOURCES:
             if registers is not None and register not in registers:
                 continue
-            n = read = 0
+            n = read = parts = 0
             catch: dict = {}
             with reader.cursor(name=f"links_rows_{view}") as cur:
                 cur.itersize = 20000
                 cur.execute(sql)
                 with w.copy(f"COPY {schema}.rows (ref, register, view, key, kind, name_filed, given, middle, family, name_key, "
-                            f"fl_key, full_key, has_middle, entity_ref, started_on, ended_on, election, electorate, politician, document) "
+                            f"fl_key, full_key, has_middle, entity_ref, started_on, ended_on, election, electorate, politician, document, part_of) "
                             f"FROM STDIN") as copy:
                     for r in cur:
                         read += 1
@@ -243,6 +274,9 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
                         if rec:
                             copy.write_row(rec)
                             n += 1
+                            for part in part_records(rec):
+                                copy.write_row(part)
+                                parts += 1
             assert read == n + sum(catch.values()), (view, read, n, catch)
             conn.execute(f"""INSERT INTO {schema}.rows_catch (view, register, read, written, set_aside, reasons, gathered_at)
                              VALUES (%s, %s, %s, %s, %s, %s::jsonb, now())
@@ -250,7 +284,9 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
                                  set_aside = EXCLUDED.set_aside, reasons = EXCLUDED.reasons, gathered_at = now()""",
                          (view, register, read, n, read - n, json.dumps(catch)))
             counts[f"{register}.{view}"] = n
-            log(f"links.rows: {register}.{view}: {n} rows, {read - n} set aside {catch} ({time.monotonic() - t0:.0f} s)")
+            if parts:
+                counts[f"{register}.{view}.parts"] = parts
+            log(f"links.rows: {register}.{view}: {n} rows, {read - n} set aside {catch}, {parts} coupled-name parts ({time.monotonic() - t0:.0f} s)")
         if not companies_too:
             conn.execute(f"ANALYZE {schema}.rows")
             conn.commit()

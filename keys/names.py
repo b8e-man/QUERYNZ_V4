@@ -23,7 +23,13 @@ Rules, each paid for in the old estate (reference/old-estate/names-addresses-and
   authority for given names (old ruling 360): `given_names.txt`, every given
   name filed ten or more times.
 - **A joint filed name is one donor**, flagged as joint; a shape nobody has
-  judged is left unexamined (None), never guessed.
+  judged is left unexamined (None), never guessed. `joint_parts` reads the
+  people it names (ruling 73: the row stays one, the links join it to each):
+  "A & B Surname" and "Surname, A & B" share the surname, "A Surname and B
+  Other" and "Surname, A & Other, B" name two whole names. A part whose
+  given name is an initial is not read, and one of the parts must carry a
+  given name the director register knows ("Bread and Roses Auction" is no
+  couple).
 - **"X via Y" names X;** Y is the conduit, kept apart.
 """
 import os
@@ -223,6 +229,94 @@ def is_joint_name(name: str):
         return False
     if ORG_WORDS.search(s):
         return False
-    if _JOINT_PLAIN.match(s) or _JOINT_INVERTED.match(s):
+    if _joint_people(s):
+        return True
+    if _JOINT_TITLES.match(s):
         return True
     return None
+
+
+def joint_parts(name: str) -> tuple:
+    """The people a joint filed name names, each a one-line given-first name
+    ('Craig & Shayne Greenlees' → ('Craig Greenlees', 'Shayne Greenlees');
+    'Douglas, Jeffrey Graeme & Christine Elizabeth' → ('Jeffrey Graeme
+    Douglas', 'Christine Elizabeth Douglas'); 'Stewart Menzies and Megan Jean
+    Harrison' → both whole). Empty when the name is not joint, or is joint
+    but names nobody by a given name ('Mr & Mrs McCabe')."""
+    s = squash(name)
+    if not s or is_joint_name(s) is not True:
+        return ()
+    return tuple(_joint_people(s) or ())
+
+
+# the couple form with titles and no given name: 'Mr & Mrs McCabe', 'Dr & Mrs GMO Becroft' (joint, naming nobody by a given name)
+_JOINT_TITLES = re.compile(rf"(?i)^\s*(?:{'|'.join(HONORIFICS)})\.?\s*{_AMP}\s*(?:{'|'.join(HONORIFICS)})\.?(?:\s+[A-Z][A-Za-z'’-]*)+\s*$")
+_PART_TITLES = re.compile(r"^((" + "|".join(HONORIFICS + ("lady", "lord")) + r")(?:[\s.]+|$))+", re.I)
+_TOKEN = re.compile(r"^[A-Z][A-Za-z'’-]*\.?$")
+#: the words that begin a surname of two words ('Janet De Lu', 'Mere Te Rangi', 'Anna van der Berg')
+SURNAME_PARTICLES = frozenset({"de", "da", "di", "del", "della", "der", "den", "du", "la", "le", "van", "von", "te", "ten", "ter", "st"})
+
+
+def _is_initial(tok: str) -> bool:
+    return len(tok.rstrip(".")) == 1
+
+
+def _tokens(part: str):
+    """A part's words, its titles off; None when any word is not a name word."""
+    toks = _PART_TITLES.sub("", part.strip()).split()
+    for t in toks:
+        if not (_TOKEN.match(t) or t.lower() in SURNAME_PARTICLES):
+            return None
+    return toks
+
+
+def _surname_split(toks: list) -> tuple:
+    """(given words, surname words) of a given-first name: the last word, and
+    the particles before it ('Janet De Lu' → (['Janet'], ['De', 'Lu']))."""
+    i = len(toks) - 1
+    while i > 1 and toks[i - 1].lower() in SURNAME_PARTICLES:
+        i -= 1
+    return toks[:i], toks[i:]
+
+
+def _joint_people(s: str):
+    """The names of a joint filed line, or None when it is not one of the
+    judged shapes. Exactly one '&' or 'and'; every part a name of words; no
+    part's given name an initial; one given name known to the register."""
+    halves = re.split(rf"\s*{_AMP}\s*", s)
+    if len(halves) != 2 or not all(h.strip() for h in halves):
+        return None
+    left, right = halves
+    lc, rc = left.count(","), right.count(",")
+    if lc > 1 or rc > 1:
+        return None
+    if lc and rc:                        # 'Thompson, Peter & Grooton, Eddie'
+        lf, lg = (_tokens(x) for x in left.split(","))
+        rf, rg = (_tokens(x) for x in right.split(","))
+        if not (lf and lg and rf and rg):
+            return None
+        people = [(lg, lf), (rg, rf)]
+    elif lc:                             # 'Mills, Phillip & Jackie': one surname, filed first
+        fam, lg = (_tokens(x) for x in left.split(","))
+        rg = _tokens(right)
+        if not (fam and lg and rg) or len(rg) > 3:
+            return None
+        people = [(lg, fam), (rg, fam)]
+    elif rc:
+        return None
+    else:
+        lt, rt = _tokens(left), _tokens(right)
+        if not lt or not rt or len(rt) < 2 or len(lt) > 4 or len(rt) > 4:
+            return None
+        rg, fam = _surname_split(rt)
+        if len(lt) == 1 or all(_is_initial(t) for t in lt[1:]):   # 'Craig & Shayne Greenlees', 'Gregory J & Paula R Dickson'
+            people = [(lt, fam), (rg, fam)]
+        else:                                                      # 'Stewart Menzies and Megan Jean Harrison'
+            lg, lfam = _surname_split(lt)
+            people = [(lg, lfam), (rg, fam)]
+    if any(not g or not f or _is_initial(g[0]) for g, f in people):
+        return None
+    known = given_names()
+    if not any(fold_diacritics(g[0]).lower() in known for g, _ in people):
+        return None
+    return [" ".join(g + f) for g, f in people]

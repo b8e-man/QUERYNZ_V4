@@ -81,6 +81,10 @@ def test_name_kind_estate_party_then_the_rest():
     "Dirk and Janet De Lu", "Sophie and Frieder Guy", "Mr & Mrs McCabe", "Dr & Mrs GMO Becroft",
     "Wares, Robert John & Irina", "Meehan, Christopher & Michaela", "Mills, Phillip & Jackie",
     "Smale, Greg & Felicity", "McBride, Murray & Necia",
+    # the published donor tables' forms the first recogniser missed (ruling 73)
+    "Stephen B & Virginia Fisher", "Gregory J & Paula R Dickson", "Douglas, Jeffrey Graeme & Christine Elizabeth",
+    "Stewart Menzies and Megan Jean Harrison", "Brendan Lindsay and Jocelyn Lindsay", "Thompson, Peter & Grooton, Eddie",
+    "Sir Brendan and Lady Jo Lindsay",
 ])
 def test_joint_people_are_flagged(name):
     assert n.is_joint_name(name) is True, name
@@ -97,7 +101,38 @@ def test_one_donor_is_not_flagged(name):
 
 @pytest.mark.parametrize("name", [
     "Christopher & Banks", "M & J Ruka", "G & J Barfoot", "Mr L & Mrs D Coombes",
-    "Mr Y S & Mrs C C C Lay", "Drury & Alo, Rod & Rebecca",
+    "Mr Y S & Mrs C C C Lay", "Drury & Alo, Rod & Rebecca", "M and J Patterson", "Christopher and Banks",
+    # no word of it is a given name the director register knows: not a couple
+    "Bread and Roses Auction", "Te Pati Maori Ikaroa Rawhiti Fundraising and Donations during",
 ])
 def test_an_unjudgeable_shape_abstains(name):
     assert n.is_joint_name(name) is None, name
+    assert n.joint_parts(name) == (), name
+
+
+# ruling 73: the row stays one; these are the people the links join it to (real filed strings, the published donor tables)
+@pytest.mark.parametrize("name, parts", [
+    ("Craig & Shayne Greenlees", ("Craig Greenlees", "Shayne Greenlees")),
+    ("Greenlees, Craig & Shayne", ("Craig Greenlees", "Shayne Greenlees")),
+    ("Laurence and Katrina Day", ("Laurence Day", "Katrina Day")),
+    ("Dirk and Janet de Lu", ("Dirk de Lu", "Janet de Lu")),
+    ("Stephen B & Virginia J Fisher", ("Stephen B Fisher", "Virginia J Fisher")),
+    ("Douglas, Jeffrey Graeme & Christine Elizabeth", ("Jeffrey Graeme Douglas", "Christine Elizabeth Douglas")),
+    ("Stewart Menzies and Megan Jean Harrison", ("Stewart Menzies", "Megan Jean Harrison")),
+    ("Suzy Amis Cameron and James Cameron", ("Suzy Amis Cameron", "James Cameron")),
+    ("Kiri Tamihere-Waititi and Rawiri Waititi", ("Kiri Tamihere-Waititi", "Rawiri Waititi")),
+    ("Thompson, Peter & Grooton, Eddie", ("Peter Thompson", "Eddie Grooton")),
+    ("Sir Brendan and Lady Jo Lindsay", ("Brendan Lindsay", "Jo Lindsay")),
+])
+def test_a_joint_name_names_each_person(name, parts):
+    assert n.joint_parts(name) == parts, name
+
+
+@pytest.mark.parametrize("name", [
+    "Mr & Mrs McCabe", "Dr & Mrs GMO Becroft",          # joint, and nobody named by a given name
+    "Christopher & Banks Limited", "Rail & Maritime Transport Union", "Terry Budgen and Forest Loaders Ltd",
+    "West Reeve Family Trust via Eldon Reeve & Hilary West", "Phillip Mills Family Trust, Phillip and Jackie Mills",
+    "Smith & Sons Limited", "John Key",
+])
+def test_no_person_is_cut_out_of_an_organisation_or_a_title(name):
+    assert n.joint_parts(name) == (), name

@@ -3,6 +3,8 @@ as `links.rows` reads them; the reading of names into the keys the rules
 compare; the SQL defines every table and the publish text every view."""
 import re
 
+import pytest
+
 import links
 from links import rows, rules
 
@@ -64,6 +66,43 @@ def test_organisations_are_read_apart_from_people():
     assert rec is None
     rec = rows.row_record("house", "candidates", ("k3", "HORN, Chrys", None, None, None, "ge-2020", "ge-2020/x", "doc", False, None, None, None))
     assert rec[0] == "house:k3" and rec[18] is True and rec[10] == "chrys horn"
+
+
+@pytest.mark.parametrize("view, filed, parts", [
+    # real filed strings from the published donor tables (ruling 73)
+    ("party_return_donors", "Greenlees, Craig & Shayne", ["Craig Greenlees", "Shayne Greenlees"]),
+    ("disclosures", "Craig & Shayne Greenlees", ["Craig Greenlees", "Shayne Greenlees"]),
+    ("candidate_return_donors", "Stewart Menzies and Megan Jean Harrison", ["Stewart Menzies", "Megan Jean Harrison"]),
+    ("party_return_donors", "Douglas, Jeffrey Graeme & Christine Elizabeth", ["Jeffrey Graeme Douglas", "Christine Elizabeth Douglas"]),
+])
+def test_a_coupled_donor_stays_one_row_and_names_each_person(view, filed, parts):
+    register = {"party_return_donors": "party_returns", "disclosures": "disclosures", "candidate_return_donors": "candidate_returns"}[view]
+    rec = rows.row_record(register, view, ("k1", filed, "parties:x", None, None, None, None, "doc", False, None, None, None))
+    # the donor row: one row, the filed string, its own name key, read as no one person
+    assert rec[0] == f"{register}:k1" and rec[4] == "person" and rec[5] == filed and rec[9]
+    assert rec[6:9] == (None, None, None) and rec[10] is None and rec[11] is None and rec[12] is False and rec[20] is None
+    got = rows.part_records(rec)
+    assert [p[5] for p in got] == parts
+    for i, p in enumerate(got, 1):
+        assert len(p) == len(rec) and p[0] == f"{register}:k1#{i}" and p[20] == rec[0]
+        assert p[1:4] == rec[1:4] and p[13:20] == rec[13:20] and p[4] == "person"
+        assert p[10] == rows.read_name(parts[i - 1])["fl_key"] and p[9] == rows.read_name(parts[i - 1])["name_key"]
+
+
+@pytest.mark.parametrize("register, view, filed", [
+    ("party_returns", "party_return_donors", "Smith & Sons Limited"),           # an organisation is never cut on '&'
+    ("party_returns", "party_return_donors", "Christopher & Banks"),
+    ("party_returns", "party_return_donors", "M and J Patterson"),              # initials: not judged, read as filed
+    ("disclosures", "disclosures", "Mr & Mrs McCabe"),                          # joint, but nobody named by a given name
+    ("companies", "directors", "Craig & Shayne Greenlees"),                     # only donation rows are cut
+])
+def test_no_part_where_the_filed_name_names_no_two_people(register, view, filed):
+    rec = rows.row_record(register, view, ("k1", filed, "x:y", None, None, None, None, "doc", False, None, None, None))
+    assert rows.part_records(rec) == []
+
+
+def test_the_coupled_rule_is_near_and_named():
+    assert rules.RULE_COUPLED == "coupled-name@1" and "ruling 73" in rules.NEAR_COUPLED
 
 
 def test_an_address_record_is_the_company_s_office_with_its_region():
