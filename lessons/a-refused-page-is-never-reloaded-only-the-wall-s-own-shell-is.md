@@ -1,4 +1,4 @@
-Through a wall like Incapsula, reload only a 200 that is the wall's own shell (tiny, its resource script and nothing else); a 403 or its "Request unsuccessful" incident page is a refusal and is never reloaded, and one refusal stops the run for the host, not just the path.
+Through a wall like Incapsula, reload only a 200 that is the wall's own shell (tiny, its script and nothing else); a 403 or its incident page is a refusal, never reloaded, and one refusal stops the run for the whole host, not just the path.
 area: capture, headed browser, Incapsula, failed reads, hard limit 6, beehive.govt.nz
 paid-for-by: 2026-10-21, diaries-1, step 6.2 template 4(a)
 

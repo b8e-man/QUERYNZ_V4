@@ -32,3 +32,7 @@
    `/ministers`, one minister's page), stopping on the first refusal.
 2. Served: listing, a sample of releases, profiles by shape, the reading, publish, check, tests.
 3. Refused: Arthur's queue item `may-we-ask-the-beehive-to-let-the-diaries-reader-through`.
+
+## Ruling 78 (21 October, 18:20)
+
+The Beehive and Hansard are not captured; Arthur has a third-party source. The blocker card and the letter question closed with the ruling; the lane's browser, tables and draft position left the branch at the merge. Next: Arthur names the source; its position (ruling 61), then the register from it.

@@ -1,9 +1,10 @@
 # The Beehive's wall refuses the ministers' diaries reader
 kind: blocker
-state: open
+state: closed
 use-case: 15
 session: diaries-1
 opened: 2026-10-21
+closed: 2026-10-21
 
 Template 4(a), the ministers' diary register, has no documents: every
 diary release is on www.beehive.govt.nz, which sits behind an Incapsula
@@ -23,3 +24,5 @@ refused again, Arthur's letter to the Beehive's web team (DPMC) asking
 that the reader be let through, queue item
 `may-we-ask-the-beehive-to-let-the-diaries-reader-through`. Not a route:
 an archive's copy of the Beehive's pages (that goes around the block).
+
+Closed by the integrator at the merge of `diaries-1` (21 October 2026) under ruling 78: Arthur, 18:20, "forget about capturing the beehive and hansard I have a 3rd party source". The Beehive is not captured and no letter is written; the diary register is built from the third-party source once he names it (its position first, ruling 61). The queue item `may-we-ask-the-beehive-to-let-the-diaries-reader-through` closes with it.

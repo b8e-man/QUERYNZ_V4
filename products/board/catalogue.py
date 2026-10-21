@@ -732,7 +732,10 @@ REGISTERS = (
 
 #: registers the plan names that no lane has published yet (plan step 4.1 and later steps)
 NOT_HELD = (
-    ("hansard", "Hansard"),
+    ("hansard", "Hansard (ruling 78: not captured; a third-party source Arthur supplies)"),
+    ("ministers_diaries", "Ministers' diaries (ruling 78: the Beehive is not captured; a third-party source Arthur supplies)"),
+    ("openlaw", "OpenLaw case law (held on its terms: queue, no default)"),
+    ("hdc_decisions", "Health and Disability Commissioner decisions (held on the Commissioner's copyright terms: queue, no default)"),
     ("linz", "LINZ titles"),
     ("papers_past", "Papers Past"),
     ("tenancy_tribunal", "Tenancy Tribunal orders (held, nothing published: ruling 58)"),
