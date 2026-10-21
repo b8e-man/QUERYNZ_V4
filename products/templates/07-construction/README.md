@@ -19,8 +19,8 @@ procurement lead: "is this the failed firm again under a new name".
 - `rules.py`: 26 flags. `phoenix-signature` sets each failure, dated from
   its Gazette notice, beside each going company's start with the gap in
   days, signed, nearest first, whatever the gap: the window is the
-  reader's setting (ruling 65), read as `window_days` on the report and
-  cut only when set, and the flag counts the pairs within 90 and 365 days;
+  reader's setting (ruling 65), the parameter `window_days` that
+  `template.toml` declares, cut only when set, and the flag counts the pairs within 90 and 365 days;
   raised only on a shared
   person or a shared registered office from before the failure, never on a
   name alone; `same-name-failed` shows the name-only case and is never red;

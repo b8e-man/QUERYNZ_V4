@@ -89,6 +89,19 @@ def test_the_shape_loads_it_by_name_with_every_view_known_and_every_rule():
     assert f"{len(t['reads'])} views, {len(t['sections'])} sections, {len(R.RULES)} rules" in line[0]
 
 
+def test_the_window_is_a_parameter_the_reader_sets_and_the_rule_reads():
+    """Card the-construction-and-property-templates-declare-no-window-days-parameter: `window_days` is declared (an integer, no
+    default: ruling 65 makes the window the reader's), so the shape's form offers it and `--set window_days=365` is accepted; the
+    value the shape puts on the report is the one the phoenix rule cuts at."""
+    p = [x for x in toml().get("params", []) if x["name"] == "window_days"]
+    assert p and p[0]["kind"] == "integer" and "default" not in p[0] and "every gap is shown" in p[0]["means"], p
+    out = subprocess.run([sys.executable, "-m", "products.report", "render", "", "--template", "construction", "--html"], cwd=REPO,
+                         capture_output=True, text=True, timeout=20)
+    assert out.returncode == 0 and '<input name="window_days"' in out.stdout, out.stderr[-500:]
+    late = dict(NEWCO, row=dict(NEWCO["row"], registered_on="2024-01-01"))
+    assert rule("phoenix_signature")(dict(person(phoenix=[FAILED, late]), window_days=365, params={"window_days": 365}))["status"] != "fired"
+
+
 def test_it_names_only_the_views_the_brief_names_each_once_with_its_licence():
     t = toml()
     views = [r["view"] for r in t["reads"]]

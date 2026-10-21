@@ -60,8 +60,7 @@ import re
 V = "0.2"
 #: the phoenix window is the reader's setting, not the template's (ruling 65, 21 October 2026): every dated failure is set beside
 #: every going company whatever the gap, nearest first, and a window cuts only when the reader passes one as the report's
-#: `window_days` (days either side of the failure). The shape carries no such parameter yet (card
-#: the-report-carries-no-template-parameters); until it does, no cut is applied.
+#: `window_days` (days either side of the failure), a parameter template.toml declares (`--set window_days=365`).
 WINDOW_KEY = "window_days"
 #: the gaps a flag counts its pairs within, so a reader sees the old defaults without losing the rest: the old estate's MC-C1 used 90
 #: days after, construction-1 365 either side. Measured 2026-10-21 on the confirmed groups: 476 going companies at 90 days, 1,191 at

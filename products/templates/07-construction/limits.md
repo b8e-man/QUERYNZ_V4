@@ -19,9 +19,9 @@ nearest first. The **window is the reader's setting, not the template's**
 days either side (`WINDOW_DAYS`, now gone). The flag says how many of its
 pairs fall within 90 days (the old estate's MC-C1) and within 365 days
 (construction-1's cut), so a reader sees the old defaults without losing
-the rest. A window cuts only when the reader sets one, as `window_days` on
-the report; the shape does not carry it yet, so today every gap is shown
-(`the-report-carries-no-template-parameters`). Measured on the confirmed
+the rest. A window cuts only when the reader sets one: `window_days`, a
+parameter the template declares (`--set window_days=365` on the command
+line, `?window_days=365` on the page); with none set every gap is shown. Measured on the confirmed
 groups, 2026-10-21: 476 going companies at 90 days, 1,191 at 365, 1,858 at
 730, of 784,993 registered. A removal is thirty times as common (38,059 at
 365 days) and is never red. With no cut, a confirmed insolvency beside a
@@ -101,11 +101,6 @@ never red.
   section with its status, and every Gazette notice in the Gazette section
   under its company's name; the flags make the split.
   (`a-section-cannot-set-the-starts-own-rows-apart-from-its-peoples`)
-- **A reader's window.** The template reads `window_days` from the
-  report and cuts there, saying how many pairs it left out; the shape
-  takes no such parameter from the page or the command line yet, so a
-  reader cannot narrow the list and every gap is shown.
-  (`the-report-carries-no-template-parameters`)
 - **A status and a notice that disagree.** 739 companies with a Gazette
   liquidation notice are registered today (restored, or the liquidation
   ended). The notice still dates a failure, and the company's status is
