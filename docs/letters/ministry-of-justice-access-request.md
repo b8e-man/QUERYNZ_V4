@@ -1,14 +1,15 @@
 # Letter to the Ministry of Justice: a permitted route to Judicial Decisions Online and the tribunal decision files (plan step 5.3 item 5; the old run sheet's unsent letter of 31 August 2026)
 
 Drafted by the integrator, 22 October 2026, for Arthur to send from his own
-address. Address: info@justice.govt.nz (the Ministry's general enquiries
-address; the integrator could not read the Ministry's contact page through
-the gate, which has no position for www.justice.govt.nz, so check it
-before sending; the old estate held only webmaster@justice.govt.nz). Not a
+address. Address: contactus@justice.govt.nz, the Ministry's question-and-feedback
+address (its contact page lists no general address; OIA@justice.govt.nz is
+for Official Information Act requests, media@justice.govt.nz for media).
+The first sending, to info@justice.govt.nz from memory, bounced on 22
+October. Not a
 permission to copy (judgments carry no copyright, Copyright Act 1994 s 27):
 an access route, since Judicial Decisions Online drops automated requests
 before any response and the assets folder's robots file bars automated
-reading. Sent: 22 October 2026, by Arthur. Answer: (none yet).
+reading. Sent: 22 October 2026 to contactus@justice.govt.nz, by Arthur (the first address bounced). Answer: (none yet).
 
 ---
 
