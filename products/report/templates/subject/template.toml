@@ -4,9 +4,10 @@
 # template (step 5.2) names fewer and adds its own rules.
 name = "subject"
 title = "Subject report"
-version = "0.1"
+version = "0.2"
 owner = "products/report, step 5.1"
 depth = 2
+chain_depth = 2
 
 limits = [
   "Only the registers the estate has published are read; the list of registers not held is printed with each report.",
@@ -14,6 +15,7 @@ limits = [
   "A name match is near, never confirmed. A connection through more than one person is near.",
   "The walk stops at the limits printed in the memo; what it left out is counted, never silent.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+  "From a company, its officers are followed one step (their other current roles, near); the companies at its registered office are listed when the office is not a hub (near); its company holders of record are followed two up the chain, by business number where the file has one and otherwise by a name only one company carries (near). A holder's share is shown as filed, never as a fraction.",
 ]
 
 [[reads]]
@@ -64,6 +66,10 @@ view = "company_addresses"
 licence = "Companies Office bulk data, Creative Commons Attribution 4.0; registered offices only, never a residential address"
 attribution = "Companies Office"
 [[reads]]
+view = "company_states"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the earlier state a later monthly file changed"
+attribution = "Companies Office"
+[[reads]]
 view = "societies"
 licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
 attribution = "Companies Office"
@@ -79,6 +85,10 @@ refresh = "daily"
 [[reads]]
 view = "gazette_company_notices"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+[[reads]]
+view = "gazette_possessions"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person's name and the property are never published"
 attribution = "New Zealand Gazette"
 [[reads]]
 view = "gazette_liquidators"
@@ -147,9 +157,9 @@ text = "A donation is from the donor the Commission filed it under. A return tha
 
 [[sections]]
 name = "companies"
-heading = "Companies: roles, holdings of record, registered offices"
-views = ["companies", "directors", "shareholders", "company_addresses"]
-text = "A holding is shown as the register states it: a shareholder of record. Nobody is called an owner."
+heading = "Companies: roles, holdings of record, registered offices, earlier states"
+views = ["companies", "directors", "shareholders", "company_addresses", "company_states"]
+text = "A holding is shown as the register states it: a shareholder of record. Nobody is called an owner. From a company start, its officers' other current roles, the companies at its office and the holders up its chain are listed near, each with its reason."
 
 [[sections]]
 name = "societies"
@@ -158,8 +168,8 @@ views = ["societies", "society_officers"]
 
 [[sections]]
 name = "insolvency"
-heading = "Insolvency, prohibitions and bankruptcies in the Gazette"
-views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_practitioners", "gazette_prohibitions", "gazette_bankruptcies"]
+heading = "Insolvency, possessions, prohibitions and bankruptcies in the Gazette"
+views = ["gazette_liquidations", "gazette_company_notices", "gazette_possessions", "gazette_liquidators", "gazette_practitioners", "gazette_prohibitions", "gazette_bankruptcies"]
 not_held = ["insolvency", "courts"]
 
 [[sections]]

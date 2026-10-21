@@ -30,15 +30,26 @@ tables through the product reader, never the sample:
      group and says so; a winding-up notice is dated "to be heard" with its
      filing and publication days; the header lists no group row a section
      lists.
+ 10. The third tranche's routes (routes_3), each on a run-time row: a
+     company named like a street address is shown, not refused; a
+     possession notice on the borrower, dated "entered", and new since the
+     day it was entered; a company's earlier state dated by its file and
+     kept by a changed section; a company holder followed up the chain by
+     name, near, shares as filed; a director's other current company
+     reached from a company start, near, through the director's row, and
+     held apart by a section's `own`; the companies at a shared office; a
+     filed row's standing; the start's own company confirmed in a contested
+     group; practitioners via the notice; a holding hub; a Crown body.
 
   python -m products.report check [--ref REF]      exit 1 on any failure
 """
 from __future__ import annotations
 
+import datetime as dt
 import re
 import sys
 
-from products.report import build, catalogue as cat, db, memo, rules, template as tpl
+from products.report import build, catalogue as cat, db, memo, rules, template as tpl, walk
 
 ADDRESS_WORDS = re.compile(r"residential|home_address|street|suburb|postal", re.I)
 
@@ -115,11 +126,13 @@ def routes(conn, subject, held: set) -> list:
         r = build.build(conn, ref, subject, held)
         exp = [it for s_ in r["sections"] for it in s_["items"] if it["view"] in ("mp_expenses", "minister_expenses")]
         if not exp:
-            out.append(f"{ref}: a member's seat reaches no expense row by name")
-        elif any(it["grade"] != "near" or not it.get("reason") for it in exp):
+            out.append(f"{ref}: a member's seat reaches no expense row by name or by link")
+        elif any(it["grade"] == "near" and not it.get("reason") for it in exp):
             out.append(f"{ref}: an expense row reached by name is not near with its reason")
-        elif any(it["row"].get("role") == "category" for it in exp):
-            out.append(f"{ref}: a per-category expense line is listed; only totals and money outside the total are")
+        elif any(it["grade"] == "confirmed" and not (it.get("rule") or it.get("via") == ref) for it in exp):
+            out.append(f"{ref}: an expense row listed as confirmed names no link rule and is not of the seat's own group")
+        elif any(it["row"].get("role") not in walk.EXPENSE_ROLES for it in exp):
+            out.append(f"{ref}: a per-category expense line is listed; only totals and money outside the total are, by name or by link")
     else:
         out.append("no member whose name an expense release prints: route 9b cannot be checked")
     # a donation row takes the group of the person row a confirmed link names
@@ -160,6 +173,196 @@ def routes(conn, subject, held: set) -> list:
         twice = [m["ref"] for m in r["members"] if m["ref"] in listed]
         if twice:
             out.append(f"{ref}: the header repeats {len(twice)} group row(s) a section lists")
+    return out
+
+
+def _items(r: dict, view: str = None) -> list:
+    return [it for s_ in r["sections"] for it in s_["items"] if view is None or it["view"] == view]
+
+
+def routes_3(conn, subject, held: set) -> list:
+    """The third tranche's routes, each on a row taken from the tables at run
+    time (the cards of 21 October)."""
+    out = []
+    # a company named like a street address is shown as the register names it (hard limit 15 shows a company's address; rule 7 keeps a person's)
+    got = db.rows(conn, "select key from pub.companies where name ~ '^[0-9]+[A-Z]? ' and name ~* '(street|road|terrace|lane|avenue|drive|place|crescent) limited$' "
+                        "and exists (select 1 from pub.directors d where d.entity_key = companies.key and d.in_latest) order by key limit 1")
+    if got:
+        ref = f"companies:{got[0]['key']}"
+        r = build.build(conn, ref, subject, held)
+        out += [f"{ref}: a company named like an address refuses its own report: {p}" for p in r["problems"] if "(rule 7)" in p]
+        d = db.rows(conn, "select key from pub.directors where entity_key = %s and in_latest order by key limit 1", (got[0]["key"],))
+        if d:
+            r2 = build.build(conn, f"companies:{d[0]['key']}", subject, held)
+            out += [f"companies:{d[0]['key']}: a director's walk meeting a company named like an address is refused: {p}" for p in r2["problems"] if "(rule 7)" in p]
+    else:
+        out.append("no company named like a street address with a director: the rule 7 exemption cannot be checked")
+    # a mortgagee's entry into possession is listed on the borrower company, dated 'entered'
+    got = db.rows(conn, "select mortgagor_register_key as k from pub.gazette_possessions where mortgagor_register_key is not null and entered_on is not null "
+                        "and exists (select 1 from pub.companies c where c.key = gazette_possessions.mortgagor_register_key) order by published_on desc, key limit 1")
+    if got:
+        ref = f"companies:{got[0]['k']}"
+        r = build.build(conn, ref, subject, held)
+        poss = _items(r, "gazette_possessions")
+        if not poss:
+            out.append(f"{ref}: the possession notice on the company is not listed")
+        elif not all("entered" in it["dates"]["text"] and it["grade"] == "confirmed" for it in poss):
+            out.append(f"{ref}: a possession notice is not dated 'entered' and confirmed: {poss[0]['dates']['text']!r}")
+        # the since date: the notice is new since the day it was entered, and not new since the day after
+        entered = poss[0]["dates"]["on"] if poss else None
+        if entered:
+            latest = max(x for x in (entered, poss[0]["dates"].get("published")) if x)   # a row is new when any of its dates is on or after the since date
+            r_new = build.build(conn, ref, subject, held, since=entered)
+            r_old = build.build(conn, ref, subject, held, since=latest + dt.timedelta(days=1))
+            if not [it for it in _items(r_new, "gazette_possessions") if it.get("new")] or r_new.get("new", 0) < 1:
+                out.append(f"{ref}: since {entered}: the possession entered that day is not marked new")
+            if [it for it in _items(r_old, "gazette_possessions") if it.get("new") and it["dates"]["on"] == entered]:
+                out.append(f"{ref}: since {latest + dt.timedelta(days=1)}: a possession entered and published before it is marked new")
+            if "since " not in memo.text(r_new):
+                out.append(f"{ref}: the memo does not print the since date")
+    else:
+        out.append("no possession notice on a company: the possessions route cannot be checked")
+    # a company's earlier state is listed, dated by its file; a changed section keeps it with the file that shows the change
+    got = db.rows(conn, "select entity_key as k from pub.company_states where exists (select 1 from pub.companies c where c.key = company_states.entity_key) order by key limit 1")
+    if got:
+        ref = f"companies:{got[0]['k']}"
+        r = build.build(conn, ref, subject, held)
+        st = _items(r, "company_states")
+        if not st or not all("as in the file" in it["dates"]["text"] and not it["dates"]["undated"] for it in st):
+            out.append(f"{ref}: the company's earlier state is not listed dated by its file ({len(st)} listed)")
+        t = tpl.Template("check-changed", "check", "0", "check", "", subject.reads,
+                         (tpl.Section("changed", "Changed", ("companies", "directors", "shareholders", "company_addresses", "company_states"), changed=True),
+                          tpl.Section("rest", "Rest", ("companies", "directors", "shareholders", "company_addresses", "company_states"))), depth=1)
+        rc = build.build(conn, ref, t, held)
+        ch = rc["sections"][0]["items"]
+        if not any(it["view"] == "company_states" and it.get("changed_in") for it in ch):
+            out.append(f"{ref}: a changed section does not keep the earlier state with the file that shows the change")
+        if any(not it.get("changed_in") for it in ch):
+            out.append(f"{ref}: a changed section keeps a row that is no change")
+    else:
+        out.append("no company with an earlier state: the states route cannot be checked")
+    # the chain: a company holder of record whose name one company carries is followed to its own row, near by name, with the shares carried
+    got = db.rows(conn, "select s.entity_key as k from pub.shareholders s where s.in_latest and s.shareholder_type = 'company' "
+                        "and (select count(*) from pub.companies c where c.name = s.name) = 1 order by s.key limit 1")
+    if got:
+        ref = f"companies:{got[0]['k']}"
+        r = build.build(conn, ref, subject, held)
+        up = [it for it in _items(r, "companies") if it.get("depth") and it.get("hop_text")]
+        if not up:
+            out.append(f"{ref}: a company holder of record is not followed to its own register row")
+        elif not all(it["grade"] == "near" and "name only" in (it.get("reason") or "") and "shares of record" in it["hop_text"] and it["dates"]["text"] for it in up if it["depth"] == 1):
+            out.append(f"{ref}: a chain hop by name is not near with its reason, the shares as filed and a date or undated")
+        if r["walk"]["chain"].get("depth", 0) < 1 or r["walk"]["chain_depth"] != subject.chain_depth:
+            out.append(f"{ref}: the chain's depth is not stated ({r['walk']['chain']})")
+        if "holding chain was followed" not in memo.text(r):
+            out.append(f"{ref}: the memo does not say how far the chain was followed")
+    else:
+        out.append("no company holder whose name one company carries: the chain route cannot be checked")
+    # from a company start its officers are followed one step: another current company of a director, near, through the director's row
+    got = db.rows(conn, "select d.entity_key as k from pub.directors d join pub.groups g on g.row_key = 'companies:' || d.key "
+                        "join pub.groups g2 on g2.group_id = g.group_id and g2.row_key <> g.row_key join pub.names n on n.ref = g2.row_key and n.view = 'directors' "
+                        "where d.in_latest and not coalesce(d.suppressed, false) and not g.contested order by d.key limit 1")
+    if got:
+        ref = f"companies:{got[0]['k']}"
+        r = build.build(conn, ref, subject, held)
+        through = [it for it in _items(r) if it.get("through") and it.get("rule") == "through-officer"]
+        if not any(it["view"] == "companies" for it in through):
+            out.append(f"{ref}: a director's other current company is not reached from the company start ({r['walk']['officers_followed']} officers followed)")
+        elif not all(it["grade"] == "near" and "through a person on the subject" in (it.get("reason") or "") and it["through"].startswith(ref + "/") for it in through):
+            out.append(f"{ref}: an officer's other row is not near, with the through-officer reason, via the officer's row on the start")
+        elif any(it["view"] == "directors" and not walk.current_role(it["row"]) for it in through):
+            out.append(f"{ref}: an officer's ended or left role is listed as a current one")
+        tw = tpl.Template("check-own", "check", "0", "check", "", subject.reads,
+                          (tpl.Section("own", "Own", ("companies", "directors", "shareholders", "company_addresses"), own=True),
+                           tpl.Section("theirs", "Theirs", ("companies", "directors", "shareholders", "company_addresses"), own=False)), depth=1)
+        ro = build.build(conn, ref, tw, held)
+        own, theirs = ro["sections"]
+        if not any(it["view"] == "directors" and it["via"] == ref for it in own["items"]) or any(it.get("through") for it in own["items"]):
+            out.append(f"{ref}: a section asking for the start's own rows does not hold its directors apart from its people's companies")
+        if not any(it.get("through") for it in theirs["items"]) or any(it["via"] == ref for it in theirs["items"]):
+            out.append(f"{ref}: a section asking for the people's rows holds the start's own")
+    else:
+        out.append("no company with a director in an uncontested group with another directorship: the officers route cannot be checked")
+    # the companies at the start's registered office are listed, near, when the office is not a hub
+    cands = db.rows(conn, "select a.entity_key as k, a.line_1, a.line_2, a.postcode from pub.company_addresses a where a.in_latest and exists (select 1 from pub.company_addresses b "
+                          "where b.in_latest and b.line_1 = a.line_1 and coalesce(b.line_2, '') = coalesce(a.line_2, '') and coalesce(b.postcode, '') = coalesce(a.postcode, '') "
+                          "and b.entity_key <> a.entity_key) order by a.key limit 30")
+    pick = None
+    for c in cands:
+        n = db.rows(conn, "select count(distinct entity_key) as n from pub.company_addresses where in_latest and line_1 = %s and coalesce(line_2, '') = %s and coalesce(postcode, '') = %s",
+                    (c["line_1"], c["line_2"] or "", c["postcode"] or ""))[0]["n"]
+        if 2 <= n < walk.SETTINGS["busy_address"]:
+            pick = (c["k"], n)
+            break
+    if pick:
+        ref = f"companies:{pick[0]}"
+        r = build.build(conn, ref, subject, held)
+        at = [it for it in _items(r, "companies") if it.get("rule") == "shared-office"]
+        if not at:
+            out.append(f"{ref}: the {pick[1] - 1} other companies at the subject's office are not listed")
+        elif not all(it["grade"] == "near" and "office is not a person" in (it.get("reason") or "") for it in at):
+            out.append(f"{ref}: a company at the subject's office is not near with the shared-office reason")
+        elif r["walk"]["office_companies"] != pick[1]:
+            out.append(f"{ref}: the walk counts {r['walk']['office_companies']} companies at the office; the view holds {pick[1]}")
+    else:
+        out.append("no registered office shared by two to forty-nine companies among the first thirty: the office route cannot be checked")
+    # a filed row no confirmed link names a person for: group-standing says it has no group, never that it is an organisation
+    got = db.rows(conn, "select d.key from pub.party_return_donors d where not exists (select 1 from pub.links l where l.grade = 'confirmed' "
+                        "and (l.row_a = 'party_returns:' || d.key or l.row_b = 'party_returns:' || d.key)) order by d.key limit 1")
+    if got:
+        ref = f"party_returns:{got[0]['key']}"
+        r = build.build(conn, ref, subject, held)
+        gs = [f for f in r["flags"] if f["rule"] == "group-standing"]
+        if not gs or "organisation" in gs[0]["text"] or "no group" not in gs[0]["text"]:
+            out.append(f"{ref}: group-standing on a filed row with no group says {gs[0]['text'] if gs else 'nothing'!r}")
+    else:
+        out.append("no donor row without a confirmed link: the filed-row standing route cannot be checked")
+    # in a contested group the start row's own company is confirmed, whichever member reaches it first
+    got = db.rows(conn, "select g.row_key from pub.groups g where g.contested and g.row_key like 'companies:%%/shareholder/%%' order by 1 limit 1")
+    if got:
+        ref = got[0]["row_key"]
+        r = build.build(conn, ref, subject, held)
+        own_key = r["subject"]["row"].get("entity_key")
+        company = [it for it in _items(r, "companies") if it["ref"] == f"companies:{own_key}"]
+        if not company:
+            out.append(f"{ref}: the start row's own company is not listed")
+        elif company[0]["grade"] != "confirmed":
+            out.append(f"{ref}: the start row's own company is graded {company[0]['grade']} in a contested group: {company[0].get('reason')!r}")
+    else:
+        out.append("no shareholder row in a contested group: the own-entity route cannot be checked")
+    # the practitioners a liquidation notice names are reached from the notice on the company
+    got = db.rows(conn, "select l.register_key as k from pub.gazette_liquidations l where l.register_key is not null and exists (select 1 from pub.gazette_liquidators x where x.notice = l.notice) "
+                        "and exists (select 1 from pub.companies c where c.key = l.register_key) order by l.published_on desc, l.key limit 1")
+    if got:
+        ref = f"companies:{got[0]['k']}"
+        r = build.build(conn, ref, subject, held)
+        liq = _items(r, "gazette_liquidators")
+        if not liq or not all(it["via"].startswith("gazette:") and "notice on" in it["statement"] for it in liq):
+            out.append(f"{ref}: the practitioners on the company's liquidation notice are not listed via the notice ({len(liq)} listed)")
+    else:
+        out.append("no liquidation notice with practitioner rows on a company: the practitioners route cannot be checked")
+    # a holder of record in fifty companies or more is a hub by its count, not only by its name
+    got = db.rows(conn, "select name from pub.shareholders where in_latest and shareholder_type = 'company' group by name having count(distinct entity_key) >= %s order by 1 limit 1",
+                  (walk.SETTINGS["hub_holdings"],))
+    if got:
+        k = db.rows(conn, "select entity_key as k from pub.shareholders where in_latest and name = %s order by key limit 1", (got[0]["name"],))[0]["k"]
+        ref = f"companies:{k}"
+        r = build.build(conn, ref, subject, held)
+        hubs = [h for h in r["hubs"] if h["kind"] == "holding-hub"]
+        if not hubs:
+            out.append(f"{ref}: a holder of record in {walk.SETTINGS['hub_holdings']} companies or more is not flagged as a hub")
+    else:
+        out.append("no holder of record in fifty companies: the holding-hub route cannot be checked")
+    # a Crown body holding shares is a hub by its register name
+    names = sorted({x.upper() for x in walk.CROWN_BODIES} | {x.upper() + " LIMITED" for x in walk.CROWN_BODIES})
+    got = db.rows(conn, "select entity_key as k from pub.shareholders where in_latest and translate(upper(name), 'ĀĒĪŌŪ', 'AEIOU') = any(%s) order by key limit 1", (names,))
+    if got:
+        ref = f"companies:{got[0]['k']}"
+        r = build.build(conn, ref, subject, held)
+        if not [h for h in r["hubs"] if h["kind"] == "crown"]:
+            out.append(f"{ref}: a Crown body holding shares is not flagged as the Crown")
+    else:
+        out.append("no Crown body holds shares by its register name: the Crown-body route cannot be checked")
     return out
 
 
@@ -220,6 +423,7 @@ def problems(conn, ref: str = None) -> list:
     out += own_words_not_refused(conn, subject, held)
     # 9. the walk's routes
     out += routes(conn, subject, held)
+    out += routes_3(conn, subject, held)
     # 6. the memo prints
     text = memo.text(r)
     html = memo.html_body(r)
