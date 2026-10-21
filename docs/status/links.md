@@ -27,6 +27,12 @@
   two-people pairs rare 38.5%, middling 22.0%, common 35.5% (a new draw).
   `check.py` 29 of 29 green in scratch; fast tier 35 tests green.
 
+## Since: coupled-1 (2026-10-21, ruling 73)
+
+`coupled-name@1`: a coupled donor row stays one row and is joined, near, to a
+part row per person it names; 37 rows, 74 parts, 74 links in scratch. See
+`docs/status/coupled-1.md`.
+
 ## Carded / queued
 
 - Closed: bankruptcies-and-appointments, member-and-interests-return,
