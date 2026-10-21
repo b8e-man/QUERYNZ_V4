@@ -1,0 +1,51 @@
+# registers/tenders/sample.list: hashes and key: lines only. The eight GETS open-data files of the old estate's raw
+# acquisition of 14 August 2026 (pinned in capture.OLD_RAWS, which names each file's set and era), the ministry's
+# schema workbook and the catalogue's description of the package. `key: <era> <RFx ID>` names the notices read, with
+# every supplier, region and category record of the same RFx ID in the same era.
+# notices: historic (7,314 records), current (22,560)
+dcf55d3f4705c481db30a9fb584b6b3c863695d8c07c2984d00eabcafeca1fed
+a6528eaaec0ed549f6cc7b665f1051c3f827e72306ddcb3a5457ee8624912364
+# suppliers: historic, current
+5d286f9ab56ea608b78ec29c31acef6e56013211d69aa0494f2317ddc3cb761c
+412cd7cd3f8069e639cb6f369ca3d20497ed0d52e1c9f7661c80434bd843a675
+# regions: historic, current
+99b375f4ab2927d1703356cc0e9a14b22e0005abc9ec87b33ec9d234e6605a60
+b63aa4eba21d030bccf5717add3f21c6168f41cf50d71fc5b95ee93fd37767fd
+# categories: historic, current
+db1b426c0a1b6caabdb6b1e3e5c57b875ec82cb87061b15ff287c42175f42d8e
+e03993a5ebb05ca4ceffe29e532b8364b7ff86d042e3583249b89d6bd3b4adb2
+# the schema workbook (held, not read) and the catalogue's description (CC BY 3.0 NZ; the four files it lists)
+ac1f4c17db225453841f3db0ddcb6d86f82b9f19701a2cd50b8382a648940a0e
+2ed62b084adbf7f4dd00b12f8b819a111a7d73d801c17e732cca1451f352606d
+# an RFx ID published in both files, with other dates in each
+key: historic 12994431
+key: current 12994431
+key: historic 16939670
+key: current 16939670
+# a value published; one of them with a supplier field of NULL
+key: current 10199365
+key: current 16845263
+# awarded with an amount of 0 (no value given)
+key: current 11121012
+# not awarded (no supplier)
+key: historic 10007376
+key: historic 10037929
+# a supplier number in exponent form (its digits lost), current and historic
+key: current 16912433
+key: historic 10096289
+# a supplier field of seven digits (a company number, not an NZBN)
+key: historic 10058111
+# a supplier record with no business name
+key: historic 10002541
+# three or more suppliers on one notice
+key: historic 10255554
+# the same supplier twice on one notice (the key's ordinal)
+key: current 19834916
+# no region named
+key: historic 17435225
+# an award date after the file's report date, as published
+key: current 25011835
+# a six-digit RFx ID
+key: historic 421098
+# supplier, region and category records naming an RFx ID the historic notices file lacks (three catch-log lines)
+key: historic 18184651
