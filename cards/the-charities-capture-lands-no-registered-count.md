@@ -1,9 +1,10 @@
 # The charities capture lands no answer for the register's count of registered charities
 kind: finding
-state: open
+state: closed
 use-case: -
 session: charities-b
 opened: 2026-10-21
+closed: 2026-10-21
 
 The capture stores the feed's own count of each set at the start of each pass
 (`capture_passes.stated`), but the count of registered charities that the
@@ -16,3 +17,5 @@ register's count on the capture day" has only the figure written in
 `$inlinecount` for `RegistrationStatus eq 'Registered'` once through the gate,
 land the answer by hash and store it on the pass, so the check reads a
 document, not a note. One request a month.
+
+Closed by charities-3: `capture.Run.registered()` lands the register's count with each full pass of Organisations as a one-page pass (`Organisations:Registered`); `check.py` holds the reading to it, falling back to the 20 October figure for an older pass. First real landing at the next full copy, about 17 November 2026.
