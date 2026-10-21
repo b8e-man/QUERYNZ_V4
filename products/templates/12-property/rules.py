@@ -41,7 +41,13 @@ director; from a person the person's own confirmed companies are the
 record, and evidence there may be red. A holder of record is listed and
 never followed, and never called an owner. A check the walk could not
 have seen is blocked, never clear; a check over a principal's companies is
-never clear while the companies file lists current roles only. Dates sit
+never clear while the companies file lists current roles only. A
+director's near link (a row the link rules join to the director by name
+alone, `near_link` on the item) reaches a namesake's companies: they are
+kept apart as their own principal, amber at most, never the director's
+own. The directors and the notices on a company above in the holding chain
+(`above`) are the holder's: listed, and counted by no check as the
+entity's or a principal's. Dates sit
 side by side with the gap in days; no flag joins two facts with a word of
 cause, and none prints an address: the office section shows a company's.
 
@@ -101,11 +107,14 @@ PERSON_MORTGAGORS = "a mortgagee possession whose mortgagor is a person (the nam
 SECURITIES = "the Personal Property Securities Register (interface awaited since 19 September 2026)"
 LINZ = "land titles (LINZ): which company holds which title, and since when"
 NOT_FOLLOWED_HOLDERS = "a holder of record is listed and not followed: start a report from each holder listed"
-#: the registers a developer check would read and the catalogue's not-held list has no key for yet (card
-#: the-not-held-list-has-no-key-for-the-property-registers): named in the flags until a key lands
-OIO = "the Overseas Investment Office's decisions (applicant, vendor, price)"
-CONSENTS = "building consents, code compliance certificates and council minutes"
-REA = "the Real Estate Authority's decisions"
+#: the registers a developer check would read, each named first as the catalogue's not-held key names it (card
+#: the-not-held-list-has-no-key-for-the-property-registers, closed by fix-report-2): the not-held section cites the key, so the
+#: flag and the memo's not-held line name the same register
+OIO = "Overseas Investment Office decisions (key oio; applicant, vendor, price)"
+CONSENTS = "Building consents, code compliance certificates and council minutes (key building_consents)"
+REA = "Real Estate Authority decisions (key rea; the lane captures and publishes no view yet)"
+#: the key a director's namesake principal takes beside the director's own: the companies the director's near links reach
+NAMESAKE_KEY = " near-link"
 
 
 flag, items, section, all_items = contract.flag, contract.items, contract.section, contract.all_items   # noqa: F821  (bound by the loader)
@@ -386,11 +395,19 @@ def _principals(report) -> dict:
         for d in _own_people(report):
             out[d["ref"]] = {"title": "a director whose name is suppressed" if d.get("suppressed") else d["title"], "grade": "near",
                              "hub": d["ref"] in hubs, "item": d, "companies": {s["ref"]: s}}
+        own = dict(out)
         for it in every.values():
-            if it["view"] in ("directors", "shareholders") and it.get("through") in out:
-                c = companies.get(_company_of(it))
-                if c is not None:
-                    out[it["through"]]["companies"].setdefault(c["ref"], c)
+            t = it.get("through")
+            if it["view"] not in ("directors", "shareholders") or t not in own:
+                continue
+            c = companies.get(_company_of(it))
+            if c is None:
+                continue
+            if it.get("near_link"):   # a namesake's company: its own principal, apart
+                out.setdefault(t + NAMESAKE_KEY, {"title": f"rows a near link of {own[t]['title']} reaches", "grade": "near", "hub": False,
+                                                  "item": own[t]["item"], "companies": {}, "namesake": True})["companies"].setdefault(c["ref"], c)
+            else:
+                own[t]["companies"].setdefault(c["ref"], c)
         return out
     if _person_start(report):
         s = report["subject"]
@@ -419,11 +436,23 @@ def _principals(report) -> dict:
 
 
 def _evidence_grade(report, p) -> str:
-    """'red' where the record is the person's own confirmed rows and the person is no hub; 'amber' through a director (near) or a hub."""
-    return "red" if p["grade"] == "confirmed" and not p["hub"] else "amber"
+    """'red' where the record is the person's own confirmed rows and the person is no hub; 'amber' through a director (near), a
+    director's near link (a namesake's) or a hub."""
+    return "red" if p["grade"] == "confirmed" and not p["hub"] and not p.get("namesake") else "amber"
+
+
+def _own_principals(principals) -> dict:
+    return {k: p for k, p in principals.items() if not p.get("namesake")}
+
+
+def _namesakes(principals) -> dict:
+    return {k: p for k, p in principals.items() if p.get("namesake")}
 
 
 def _whose(report, p) -> str:
+    if p.get("namesake"):
+        return ("companies a director's near link reaches (the link rules join the row to the director by name alone: a namesake's until a "
+                "rule confirms it, never the director's own; start a report from the director)")
     if _company_start(report):
         hub = "; the director is a hub (a professional director or a nominee): a pattern through a hub means little on its own" if p["hub"] else ""
         return (f"the director {p['title']}'s companies, reached through the director's row on the entity (near: a director's other "
@@ -512,8 +541,11 @@ def serial_pattern(report):
         return flag("serial-pattern", V, "blocked", "red", f"the walk could not read every principal's companies ({short}): a failure "
                     "among those left out cannot be counted", sources_not_held=(CHANGE_HISTORY,), scope="principals")
     n = sum(len(p["companies"]) for p in principals.values())
+    ns = _namesakes(principals)
     return _clear_or_past("serial-pattern", "red", f"no principal has {SERIAL_AT} or more failed companies among the {n} company "
-                          f"row(s) the walk reached under {len(principals)} principal(s)", sources_held=(COMPANIES_HELD, GAZETTE_HELD),
+                          f"row(s) the walk reached under {len(principals) - len(ns)} principal(s)"
+                          + (f", {sum(len(p['companies']) for p in ns.values())} of them through a director's near link and counted apart"
+                             if ns else ""), sources_held=(COMPANIES_HELD, GAZETTE_HELD),
                           sources_not_held=(INSOLVENCY_REGISTER, CHANGE_HISTORY), scope="principals")
 
 
@@ -524,6 +556,7 @@ def _same_name(it) -> bool:
 
 def _shared_by_directors(report, principals) -> str:
     """From a company: how many of the directors' other companies have two or more of the entity's directors on them, as a count."""
+    principals = _own_principals(principals)
     if not _company_start(report) or len(principals) < 2:
         return ""
     on = {}
@@ -844,9 +877,17 @@ def possession(report):
     s = report["subject"]
     ps = _possessions(report)
     principals = _principals(report)
-    on_principal = {c for p in principals.values() for c in p["companies"]}
+    on_principal = {c for p in _own_principals(principals).values() for c in p["companies"]}
+    on_namesake = {c for p in _namesakes(principals).values() for c in p["companies"]} - on_principal - {s["ref"]}
     as_borrower = [it for it in ps if any(_mortgagor_is(it, c) for c in on_principal | {s["ref"]})]
-    as_lender = [it for it in ps if it not in as_borrower]
+    as_namesake = [it for it in ps if it not in as_borrower and any(_mortgagor_is(it, c) for c in on_namesake)]
+    as_lender = [it for it in ps if it not in as_borrower and it not in as_namesake]
+    if as_namesake and not as_borrower:
+        return flag("possession", V, "fired", "amber", f"{len(as_namesake)} mortgagee entry(ies) into possession where the mortgagor is a "
+                    "company a director's near link reaches (a namesake's until a rule confirms it, never a principal's): "
+                    + "; ".join(f"{_name(it)} on the mortgagor {_mortgagor_name(report, it)}, {it['dates']['text']}" for it in as_namesake[:EXAMPLES])
+                    + "; the property and a person mortgagor's name are not shown", citations=tuple(it["ref"] for it in as_namesake),
+                    sources_not_held=(PERSON_MORTGAGORS, SECURITIES, LINZ), scope="near")
     if as_borrower:
         own = [it for it in as_borrower if _mortgagor_is(it, s["ref"]) or (it["grade"] == "confirmed" and _person_start(report))]
         sev = "red" if own else "amber"
@@ -855,8 +896,10 @@ def possession(report):
         whose = ("the mortgagor is the entity itself" if any(_mortgagor_is(it, s["ref"]) for it in own) else
                  "the mortgagor is one of the person's own confirmed companies" if own else
                  "the mortgagor is a director's other company (near: the director's connection, not the entity's)")
-        return flag("possession", V, "fired", sev, f"{len(as_borrower)} mortgagee entry(ies) into possession where {whose}: {text}; "
-                    "the property and a person mortgagor's name are not shown", citations=tuple(it["ref"] for it in as_borrower),
+        apart = (f"; apart, {len(as_namesake)} where the mortgagor is a company a director's near link reaches (a namesake's)"
+                 if as_namesake else "")
+        return flag("possession", V, "fired", sev, f"{len(as_borrower)} mortgagee entry(ies) into possession where {whose}: {text}{apart}; "
+                    "the property and a person mortgagor's name are not shown", citations=tuple(it["ref"] for it in as_borrower + as_namesake),
                     sources_not_held=(PERSON_MORTGAGORS, SECURITIES, LINZ), scope="principals")
     if as_lender:
         return flag("possession", V, "fired", "info", f"{len(as_lender)} mortgagee entry(ies) into possession where a company here is the "
@@ -909,9 +952,13 @@ def _people_rule(report, rule, view, what):
         live = [it for it in rows if view != "gazette_prohibitions" or _in_force(it, as_of)]
         red = [it for it in conf if _person_start(report) and (view != "gazette_prohibitions" or _in_force(it, as_of))]
         sev = "red" if red else "amber" if live else "info"
+        linked = [it for it in rows if it.get("near_link")]
         whose = ("on the person's own confirmed record" if red else
-                 "on a director of the entity, reached through the director's row (near: start a report from the director)" if _company_start(report)
-                 else "reached only by a shared name (near: a namesake's, until confirmed)")
+                 "reached through a director's near link (the link rules join the row to the director by name alone: a namesake's until "
+                 "confirmed)" if linked and len(linked) == len(rows) else
+                 "on a director of the entity, reached through the director's row (near: start a report from the director)"
+                 + (f"; {len(linked)} of them through a director's near link, a namesake's until confirmed" if linked else "")
+                 if _company_start(report) else "reached only by a shared name (near: a namesake's, until confirmed)")
         pick = (red or live or rows)[:EXAMPLES]
         return flag(rule, V, "fired", sev, f"{len(rows)} {what}(s), {whose}: " + "; ".join(
             f"{'a name suppressed' if it.get('suppressed') else it['title']}, {it['dates']['text']}" for it in pick)
@@ -948,8 +995,15 @@ def insolvency_notices(report):
     ins = [n for n in _notices(report) if _insolvency(n)]
     own = [n for n in ins if _company_of(n) == s["ref"]]
     principals = _principals(report)
-    theirs = {c for p in principals.values() for c in p["companies"] if c != s["ref"]}
+    theirs = {c for p in _own_principals(principals).values() for c in p["companies"] if c != s["ref"]}
     other = [n for n in ins if _company_of(n) in theirs]
+    namesake = {c for p in _namesakes(principals).values() for c in p["companies"]} - theirs - {s["ref"]}
+    apart = [n for n in ins if _company_of(n) in namesake]
+    up = [n for n in ins if n.get("above") and n not in own + other + apart]
+    beside = ((f"; apart, {len(apart)} on {len({_company_of(n) for n in apart})} company(ies) a director's near link reaches "
+               f"({_counted(apart, _kind)}): a namesake's until a rule confirms it, never a principal's") if apart else "") + \
+        ((f"; beside them, {len(up)} on a company above in the holding chain ({_counted(up, _kind)}): the holder's, not the entity's")
+         if up else "")
     if own or other:
         conf = [n for n in other if n["grade"] == "confirmed"]
         sev = "red" if own or (conf and _person_start(report)) else "amber"
@@ -959,9 +1013,13 @@ def insolvency_notices(report):
         if other:
             bits.append(f"{len(other)} on {len({_company_of(n) for n in other})} of the principals' other companies ({_counted(other, _kind)})"
                         + ("" if _person_start(report) else ", reached through the directors (near)"))
-        return flag("insolvency-notices", V, "fired", sev, "Gazette insolvency notices: " + "; ".join(bits) + "; each is listed with its own "
-                    "date, which says what it dates", citations=tuple(n["ref"] for n in own + other), sources_not_held=(INSOLVENCY_REGISTER,),
-                    scope="principals")
+        return flag("insolvency-notices", V, "fired", sev, "Gazette insolvency notices: " + "; ".join(bits) + beside + "; each is listed with "
+                    "its own date, which says what it dates", citations=tuple(n["ref"] for n in own + other + apart + up),
+                    sources_not_held=(INSOLVENCY_REGISTER,), scope="principals")
+    if apart or up:   # only a namesake's or a holder's: listed, amber at most, and no clear while they stand
+        return flag("insolvency-notices", V, "fired", "amber" if apart else "info", "no Gazette insolvency notice on the entity or on the "
+                    f"{len(theirs)} principal company row(s) reached" + beside, citations=tuple(n["ref"] for n in apart + up),
+                    sources_not_held=(INSOLVENCY_REGISTER,), scope="near")
     short = _reach_short(report)
     if short:
         return flag("insolvency-notices", V, "blocked", "red", f"the walk could not read every principal's companies ({short})",
@@ -989,8 +1047,9 @@ def holding_chain(report):
     if above:
         return flag("holding-chain", V, "fired", "info", f"{len(above)} company(ies) hold shares of record above the entity, up to "
                     f"{st.get('depth') or 1} up: " + "; ".join(f"{_name(it)} ({it.get('hop_text') or 'a holder of record'})" for it in above[:EXAMPLES])
-                    + "; a holder of record is shown as the register states it; the directors of a company above and the Gazette on it are not read",
-                    citations=tuple(it["ref"] for it in above), scope="chain")
+                    + f"; a holder of record is shown as the register states it; on the companies above, {st.get('above_directors', 0)} current "
+                    f"director(s) and {st.get('above_notices', 0)} Gazette notice(s) are listed with each company's grade, the holder's and "
+                    "not the entity's", citations=tuple(it["ref"] for it in above), scope="chain")
     return flag("holding-chain", V, "clear", "info", "no company holds shares of record in the entity: its holders of record are people",
                 sources_held=(COMPANIES_HELD,), scope="chain")
 
@@ -1015,22 +1074,27 @@ def history_reach(report):
     if not ds:
         return flag("history-reach", V, "blocked", "amber", "the companies file lists no current director on the entity", scope="principals")
     principals = _principals(report)
-    empty = [p for p in principals.values() if len(p["companies"]) <= 1]
+    ns = _namesakes(principals)
+    empty = [p for k, p in _own_principals(principals).items() if len(p["companies"]) <= 1 and k + NAMESAKE_KEY not in ns]
+    only_near = [p for k, p in _own_principals(principals).items() if len(p["companies"]) <= 1 and k + NAMESAKE_KEY in ns]
+    m = len({c for p in ns.values() for c in p["companies"]})
+    apart = (f"; apart, {m} company(ies) a director's near link reaches ({len(only_near)} director(s) reached other companies only so): a "
+             "namesake's until a rule confirms it, never the director's own") if ns else ""
     bits = []
     if empty:
         bits.append(f"{len(empty)} of the {len(ds)} director(s) reached no other company ("
-                    + "; ".join(p["title"] for p in empty[:EXAMPLES]) + "): either none is current, or no confirmed link joins the director's "
-                    "other rows (a name the links lane joins only near is not followed by this reach); start a report from each")
+                    + "; ".join(p["title"] for p in empty[:EXAMPLES]) + "): either none is current, or no link, confirmed or near, joins the "
+                    "director's row to another company's; start a report from each")
     if w.get("officers_omitted"):
         bits.append(f"{w['officers_omitted']} director(s) past the first {w.get('limits', {}).get('officers', 12)} were not followed")
     om = sum(s.get("omitted") or 0 for s in report.get("sections", []) if s["name"] in ("history", "serial"))
     if om:
         bits.append(f"{om} row(s) past the walk's limit were not listed")
-    n = len({c for p in principals.values() for c in p["companies"] if c != report["subject"]["ref"]})
+    n = len({c for p in _own_principals(principals).values() for c in p["companies"] if c != report["subject"]["ref"]})
     if bits:
         return flag("history-reach", V, "blocked", "amber", f"{w.get('officers_followed', 0)} director(s) followed, {n} other company(ies) "
-                    "reached; " + "; ".join(bits), scope="principals")
-    return flag("history-reach", V, "fired", "info", f"each of the {len(ds)} director(s) was followed: {n} other company(ies) reached",
+                    "reached; " + "; ".join(bits) + apart, scope="principals")
+    return flag("history-reach", V, "fired", "info", f"each of the {len(ds)} director(s) was followed: {n} other company(ies) reached" + apart,
                 citations=tuple(d["ref"] for d in ds), scope="principals")
 
 

@@ -1,9 +1,10 @@
 # The property template can now read the Charities Register and the new reaches
 kind: finding
-state: open
+state: closed
 use-case: 12 property developer due diligence
 session: fix-report-2
 opened: 2026-10-21
+closed: 2026-10-22
 
 The report shape's fix-report-2 (merge request `fix-report-2`, 2026-10-21)
 closed the shape's half of the cards this template waited on
@@ -72,3 +73,18 @@ checkpoint re-rendered (limits.md). `window_days` is declared (card
 `the-construction-and-property-templates-declare-no-window-days-parameter`,
 closed). Still open, outside that brief: the oio, building_consents and rea
 keys, an officer's near links, and the companies above.
+
+Closed by fix-products-templates-1 (2026-10-22): `oio`, `building_consents`
+and `rea` in the not-held section's `not_held`, and the three blocked flags
+naming each register as the catalogue's key does; a director's near links
+kept apart as a namesake's principal (`rows a near link of … reaches`), amber
+at most: `serial-pattern` counts them apart from the director's own,
+`earlier-failure`, `insolvency-notices`, `possession` and the people checks
+set them apart, `history-reach` fires on them saying they are a namesake's;
+`directors` in the chain section and `chain` in the Gazette and possessions
+sections, `holding-chain` counting what is listed above and no longer saying
+it is not read. Fixture test
+`test_the_reaches_name_the_property_keys_a_directors_near_links_and_the_companies_above`,
+eight new mutants; the checkpoint re-rendered (limits.md): GORING and KERVIL's
+serial pattern went from fired to blocked, the namesake's PJO liquidation no
+longer added to the entity's own failure.
