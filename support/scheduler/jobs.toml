@@ -921,3 +921,40 @@ priority = 70
 command = ["python", "-m", "registers.grants.load", "--job"]
 at_utc = "17:35"
 nice = 10
+
+# ── step 6.2 template 3, the settlements lanes (settlements-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
+[jobs.qv4-iwi-directory-capture]
+description = "Step 6.2 template 3: Te Kāhui Māngai walked whole from its home page (about 240 pages, 5 s apart, about 20 minutes), each page landed by hash. Due daily at 22:30 NZDT; the walk itself refuses to start under a week after the last finished walk and stops at 06:00 NZDT, so it walks weekly, off-peak, and the other days cost no request."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 10800
+query_timeout_s = 60
+class = "due"
+priority = 71
+command = ["python", "-m", "registers.iwi_directory.capture", "--budget-s", "7200"]
+at_utc = "09:30"
+nice = 10
+
+[jobs.qv4-iwi-directory-load]
+description = "Step 6.2 template 3: iwi, hapū, marae, organisations, governance entities and their settlements from the newest finished walk, built in staging, checked, published only on green; nothing when the walk is the one published. Daily at 06:35 NZDT, so the Monday after the walk."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 900
+query_timeout_s = 600
+class = "due"
+priority = 72
+command = ["python", "-m", "registers.iwi_directory.load", "--job"]
+at_utc = "17:35"
+nice = 10
+
+[jobs.qv4-settlement-commitments-watch]
+description = "Step 6.2 template 3: Te Haeata's records address asked once a week (red the day the login wall falls) and the open pages about the source every 30 days, landed by hash. Weekly by interval, which the scheduler's clock lands on Thursday 13:00 NZDT: one request, so the daytime is accepted; the spec's Sunday 23:15 needs a weekday field the catalogue does not have."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 900
+query_timeout_s = 60
+class = "due"
+priority = 73
+command = ["python", "-m", "registers.settlement_commitments.capture"]
+every_s = 604800
+nice = 10

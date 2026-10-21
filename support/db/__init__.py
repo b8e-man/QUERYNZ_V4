@@ -69,6 +69,8 @@ LANES = (
     "overseas_investment",   # step 5.3, the overseas investment decisions (oio-1, 21 October 2026)
     "hdc_decisions",   # step 5.3, held on the Commissioner's copyright terms (hdc-1, 21 October 2026)
     "grants",   # step 6.3, class 4 society and Lottery grants (grants-1, 21 October 2026)
+    "iwi_directory",   # step 6.2 template 3, Te Kāhui Māngai (settlements-1, 22 October 2026)
+    "settlement_commitments",   # step 6.2 template 3, Te Haeata, behind a login and watched (settlements-1, 22 October 2026)
 )
 PRODUCTS = ("ftm", "subject_report", "register_scan", "archive_search", "board")
 FIXED = ("pub", "links", "links_private", "docs", "sealed", "scheduler")

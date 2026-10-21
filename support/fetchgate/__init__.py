@@ -115,6 +115,8 @@ FLOORS = {
     "growregions.govt.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
     "tec.govt.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
     "educationcounts.govt.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
+    "www.tkm.govt.nz": 5.0,   # Te Kāhui Māngai, the iwi and hapū directory (settlements-1, 22 October)
+    "tehaeata.govt.nz": 5.0,   # Te Haeata, behind a login: watched, one request a week (settlements-1, 22 October)
 }
 
 
