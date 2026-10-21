@@ -1,9 +1,10 @@
 # The agriculture template can now read the Charities Register
 kind: finding
-state: open
+state: closed
 use-case: 4 agriculture counterparty
 session: fix-report-2
 opened: 2026-10-21
+closed: 2026-10-21
 
 The report shape's fix-report-2 (merge request `fix-report-2`, 2026-10-21)
 closed the shape's half of the cards this template waited on. What it lets
@@ -45,3 +46,5 @@ this template do, each a fix in `products/templates/04-agriculture/`:
 Not a comparison cause. The shape's fixture tests and `python -m
 products.report check` hold the reaches; this card is the template's own
 reading of them, closed when its sections, flags and tests use them.
+
+Closed by fix-templates-1 (2026-10-21): the three views in `reads` and the societies section (sources `named` added); `charities` out of both `not_held` lines and the texts; `charity-officer-roles` lists the charity officer rows carrying the counterparty's name (near) and, from a company, its charity by business number; `charity-integrity-marks` reads the register's `disqualified` mark, red on a confirmed row of the company's own charity, amber by name, clear only where the name was looked up, the view not skipped and nothing left past the limit; `CHARITIES_NOT_HELD` out. Fixture test `test_the_charity_flags_read_the_register_by_name_and_by_number`; a `checkpoint.list` of six subjects (the 2026-10-20 checkpoint kept no keys), re-rendered before and after (limits.md).

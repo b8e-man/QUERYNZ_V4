@@ -1,0 +1,9 @@
+# Subjects for re-rendering (fix-templates-1, 2026-10-21): the 2026-10-20 checkpoint named its twelve in limits.md and kept no keys;
+# these six are two of them by name and four chosen for the Charities Register. Re-render each with
+# python -m products.report render REF --template agriculture, and diff against the last run.
+companies:companies/9429041725702
+companies:companies/9429040944159
+companies:companies/9429041725702/director/73354732461e
+societies:societies/9429042712930
+companies:companies/9429042734888
+companies:companies/9429042680154
