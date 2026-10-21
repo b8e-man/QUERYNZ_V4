@@ -36,7 +36,13 @@ Every rule branches on the start: a company, a society, a person, or
 anything else. From an organisation the walk follows its first officers one
 step only when the template names the `officers` reach (it does) and says
 how many it left; a check through an officer is blocked when an officer was
-not followed (the agriculture lesson). The charity rules read
+not followed (the agriculture lesson). An officer's near link (a row the
+link rules join to the officer by name alone, `near_link` on the item) is a
+namesake's row: the overlap and the notices on the officers' companies count
+it apart, never as the officer's own, and a notice reached by one is never
+red. A notice on a company above in the holding chain (`above`) is the
+holder's: listed in the Gazette section, counted beside the entity's own
+notices and never as one. The charity rules read
 pub.charities, pub.charity_officers and pub.charity_returns: a company's
 charity by its business number (confirmed, with the officers and returns on
 it, graded as the company is), and a charity officer row that carries a
@@ -94,12 +100,15 @@ GAZETTE_HELD = "New Zealand Gazette liquidation and company notices (pub.gazette
 INSOLVENCY_REGISTER = "the Official Assignee's Insolvency Register (interface awaited since 19 September 2026)"
 COURTS = "court judgments: the OpenLaw case-law lane and the courts register (step 5.4)"
 CHARITIES = "the Charities Register (pub.charities, pub.charity_officers, pub.charity_returns), which this template does not name in its reads"
-VILLAGES = ("the retirement villages file: each village's operator and statutory supervisor, and when the supervisor changed (not held; "
-            "the companies lane carries the village's own row only)")
-HDC = "the Health and Disability Commissioner's decisions and case notes (not held; to acquire, plan 5.3)"
-CERTIFICATION = "certification audits of rest homes and hospitals under the Health and Disability Services (Safety) Act 2001 (not held)"
-PROVIDERS = "the Ministry of Health's provider registers: certified providers and their premises (not held)"
-AGED_CARE_COMMISSIONER = "the Aged Care Commissioner's reports and findings (not held)"
+#: the registers a health regulator keeps, each named first as the catalogue's not-held key names it (the not-held section cites
+#: the key, so the flag and the memo's not-held line name the same register), then what the flag needs said
+VILLAGES = ("The retirement villages file: each village's operator and statutory supervisor (key retirement_villages; and when the "
+            "supervisor changed; the companies lane carries the village's own row only)")
+HDC = "Health and Disability Commissioner decisions (key hdc; and case notes; to acquire, plan 5.3)"
+CERTIFICATION = ("Certification audits of rest homes and hospitals (key certification; under the Health and Disability Services (Safety) "
+                 "Act 2001)")
+PROVIDERS = "The Ministry of Health's provider registers (key health_providers; certified providers and their premises)"
+AGED_CARE_COMMISSIONER = "The Aged Care Commissioner's reports (key aged_care_commissioner; and findings)"
 NOT_FOLLOWED = ("started from an organisation, the report follows its officers one step to their other current roles; some were not "
                 "followed, so start a report from each officer listed")
 
@@ -348,6 +357,36 @@ def _through(report, views) -> list:
     return [it for it in items(report, views, ("confirmed", "near")) if it.get("through") and it.get("rule") == "through-officer"]
 
 
+def _through_link(report, views) -> list:
+    """Rows an officer's near link reaches (the link rules join them to the officer by name alone): a namesake's until confirmed, never
+    the officer's own."""
+    return [it for it in items(report, views, ("confirmed", "near")) if it.get("through") and it.get("near_link") and not it.get("above")]
+
+
+def _above(report, views) -> list:
+    """Rows read on a company above in the holding chain: the holder's, never the entity's."""
+    return [it for it in items(report, views, ("confirmed", "near")) if it.get("above")]
+
+
+def _namesake_roles(report) -> dict:
+    """{officer ref: [current role rows an officer's near link reaches]}."""
+    out = {}
+    for it in _through_link(report, ROLE_VIEWS):
+        if _current(it):
+            out.setdefault(it["through"], []).append(it)
+    return out
+
+
+def _apart(rows, noun) -> str:
+    """The rows an officer's near link reaches, counted apart: a namesake's until a rule confirms it."""
+    if not rows:
+        return ""
+    ex = "; ".join(f"{_role(r) if r['view'] in ROLE_VIEWS else _kind(r)} on {_entity_name(r)} ({r['dates']['text']}; {r.get('rule') or 'near'})"
+                   for r in rows[:EXAMPLES])
+    return (f"; and {len(rows)} {noun} an officer's near link reaches (the link rules join the row to the officer by name alone: a "
+            f"namesake's until a rule confirms it, never the officer's own): {ex}")
+
+
 def _companies_through(report) -> dict:
     """{company ref: item} the companies and societies an officer's other roles sit on."""
     return {it["ref"]: it for it in _through(report, ORGANISATION_VIEWS)}
@@ -463,13 +502,17 @@ def insolvency_notice(report):
         return flag("insolvency-notice", V, "blocked", "red", "a society's Gazette notices are filed under its row in the companies register, "
                     "which the societies register's row does not join: start the report from the society's companies register row",
                     sources_not_held=(INSOLVENCY_REGISTER,), scope="entity")
-    own = [it for it in _notices(report, ("confirmed",)) if _on_subject(report, it)]
+    own = [it for it in _notices(report, ("confirmed",)) if _on_subject(report, it) and not it.get("above")]
+    up = [it for it in _above(report, ("gazette_liquidations", "gazette_company_notices")) if _insolvency(it)]
+    beside = (f"; beside it, {len(up)} on a company above in the holding chain, the holder's and not the entity's: "
+              + "; ".join(f"{_kind(it)} on {_entity_name(it)}, {it['dates']['text']} ({it.get('depth', '?')} up, {it['grade']})" for it in up[:EXAMPLES])
+              ) if up else ""
     if own:
         own.sort(key=lambda it: (_notice_date(it) is None, _notice_date(it) or dt.date.min))
         return flag("insolvency-notice", V, "fired", "red", f"{len(own)} Gazette insolvency notice(s) on the entity, earliest first: "
                     + "; ".join(f"{_kind(it)}, {it['dates']['text']}" for it in own[:EXAMPLES])
-                    + (f"; and {len(own) - EXAMPLES} more" if len(own) > EXAMPLES else ""),
-                    citations=tuple(it["ref"] for it in own), sources_not_held=(INSOLVENCY_REGISTER, COURTS), scope="entity")
+                    + (f"; and {len(own) - EXAMPLES} more" if len(own) > EXAMPLES else "") + beside,
+                    citations=tuple(it["ref"] for it in own + up), sources_not_held=(INSOLVENCY_REGISTER, COURTS), scope="entity")
     if set(section(report, "gazette").get("omitted_views") or ()) & {"gazette_liquidations", "gazette_company_notices"}:
         return flag("insolvency-notice", V, "blocked", "red", "the entity has more Gazette notices than the walk lists; an insolvency could be "
                     "among those left out", scope="entity")
@@ -478,7 +521,7 @@ def insolvency_notice(report):
                     "no Gazette insolvency notice on it is held: the status is undated here", citations=(report["subject"]["ref"],),
                     sources_not_held=(INSOLVENCY_REGISTER,), scope="entity")
     return flag("insolvency-notice", V, "clear", "red", "no Gazette liquidation, winding-up application, receivership, administration, "
-                "creditors' notice or deed of company arrangement on the entity",
+                "creditors' notice or deed of company arrangement on the entity" + beside, citations=tuple(it["ref"] for it in up),
                 sources_held=(GAZETTE_HELD + ", joined to the company by its number",), sources_not_held=(INSOLVENCY_REGISTER, COURTS),
                 scope="entity")
 
@@ -492,7 +535,9 @@ def officer_company_notices(report):
         roles = {}
         for it in _through(report, ROLE_VIEWS):
             roles.setdefault(_company_of(it), []).append(it)
-        hits = [n for n in _notices(report) if n.get("through")]
+        hits = [n for n in _notices(report) if n.get("through") and not n.get("near_link") and not n.get("above")]
+        apart = [n for n in _notices(report) if n.get("through") and n.get("near_link") and not n.get("above")]
+        also = _apart(apart, "notice(s) on companies")
         if hits:
             hits.sort(key=lambda n: (_notice_date(n) is None, _notice_date(n) or dt.date.min), reverse=True)
             bits = []
@@ -506,13 +551,18 @@ def officer_company_notices(report):
             return flag("officer-company-notices", V, "fired", "amber",
                         f"{len(hits)} Gazette insolvency notice(s) on {len({n.get('via') for n in hits})} other company(ies) the entity's officers "
                         f"sit on, newest first: " + " ; ".join(bits) + (f"; and {len(hits) - EXAMPLES} more" if len(hits) > EXAMPLES else "")
-                        + (f"; {short}" if short else "") + "; each company is the officer's, not the entity's",
-                        citations=tuple(dict.fromkeys([n["ref"] for n in hits] + [r["ref"] for n in hits for r in roles.get(n.get("via"), [])[:1]])),
+                        + (f"; {short}" if short else "") + "; each company is the officer's, not the entity's" + also,
+                        citations=tuple(dict.fromkeys([n["ref"] for n in hits] + [r["ref"] for n in hits for r in roles.get(n.get("via"), [])[:1]]
+                                                      + [n["ref"] for n in apart])),
                         sources_not_held=(INSOLVENCY_REGISTER,), scope="officer-group")
         gap = _officer_gap(report)
         if gap:
-            return flag("officer-company-notices", V, "blocked", "amber", gap, sources_not_held=(INSOLVENCY_REGISTER,),
+            return flag("officer-company-notices", V, "blocked", "amber", gap + also, sources_not_held=(INSOLVENCY_REGISTER,),
                         scope="officer-group")
+        if apart:   # only a namesake's companies carry a notice: listed, never the officer's, and no clear while they stand
+            return flag("officer-company-notices", V, "fired", "info", "no Gazette insolvency notice on the other current companies of the "
+                        f"{_walk(report).get('officers_followed', 0)} officer(s) followed" + also, citations=tuple(n["ref"] for n in apart),
+                        sources_not_held=(INSOLVENCY_REGISTER,), scope="near")
         return _clear_or_past("officer-company-notices", "amber", f"no Gazette insolvency notice on the other current companies of the "
                               f"{_walk(report).get('officers_followed', 0)} officer(s) followed", sources_held=(GAZETTE_HELD,),
                               sources_not_held=(INSOLVENCY_REGISTER,), scope="officer-group")
@@ -601,7 +651,7 @@ def _people_notice(report, rule, view, noun, extra_not_held=()):
                     citations=tuple(it["ref"] for it in own_marks), sources_not_held=not_held, scope="entity")
     on_officers = [it for it in live + charity_marks if it.get("through")]
     if on_officers:
-        red = [it for it in on_officers if it.get("rule") != "same-name" and not _contested(it) and _in_force(report, it) and it["through"] in officer_rows
+        red = [it for it in on_officers if it.get("rule") != "same-name" and not it.get("near_link") and not _contested(it) and _in_force(report, it) and it["through"] in officer_rows
                and _current(officer_rows[it["through"]]) and it["through"] not in _hub_refs(report)]
         bits = []
         for it in sorted(on_officers, key=lambda x: x in red, reverse=True)[:EXAMPLES]:
@@ -643,10 +693,16 @@ def officer_overlap(report):
         officers = _officer_rows(report)
         overlap = _overlap(report)
         short = _officers_short(report)
+        namesake = [r for v in _namesake_roles(report).values() for r in v]
+        also = _apart(namesake, "role(s) on organisations")
         if not overlap:
             gap = _officer_gap(report)
             if gap:
-                return flag("officer-overlap", V, "blocked", "amber", gap, scope="officer-group")
+                return flag("officer-overlap", V, "blocked", "amber", gap + also, scope="officer-group")
+            if namesake:
+                return flag("officer-overlap", V, "fired", "info", f"none of the entity's {len(officers)} officer(s) listed holds another current "
+                            "role through the rows a confirmed link joins to the officer" + also, citations=tuple(r["ref"] for r in namesake),
+                            scope="near")
             return flag("officer-overlap", V, "clear", "info", f"none of the entity's {len(officers)} officer(s) listed holds another current role "
                         "in the registers read", sources_held=(COMPANIES_HELD, SOCIETIES_HELD, "pub.groups: each officer's confirmed rows"),
                         scope="officer-group")
@@ -669,8 +725,8 @@ def officer_overlap(report):
         text = (f"{len(overlap)} of the entity's officer(s) hold {n_roles} other current role(s); {len(care_officers)} officer(s), not hubs, sit on "
                 f"another organisation whose registered name reads as care or retirement living and does not carry the entity's own leading name "
                 f"word (the registers carry no industry: the name is a sign to read, not a finding): " + " || ".join(lines[:EXAMPLES]) + (f" || and {len(lines) - EXAMPLES} more officer(s)" if len(lines) > EXAMPLES else "")
-                + (f"; {short}" if short else "") + "; two roles held at once are two dated facts, and nothing more is said of them")
-        cites = tuple(dict.fromkeys([oref for oref in overlap] + [r["ref"] for v in overlap.values() for r in v]))
+                + (f"; {short}" if short else "") + also + "; two roles held at once are two dated facts, and nothing more is said of them")
+        cites = tuple(dict.fromkeys([oref for oref in overlap] + [r["ref"] for v in overlap.values() for r in v] + [r["ref"] for r in namesake]))
         return flag("officer-overlap", V, "fired", "amber" if care_officers else "info", text, citations=cites, scope="officer-group")
     roles = _person_roles(report)
     orgs = {}

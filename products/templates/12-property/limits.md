@@ -49,8 +49,11 @@ own start.
   Authority's decisions and the licensed building practitioners register
   are not held. Nothing here says what land a developer holds, what it was
   consented to build, or whether a buyer or a body corporate sued it. Each
-  has a blocked flag, never clear. Three have no key in the shape's
-  not-held list (`the-not-held-list-has-no-key-for-the-property-registers`).
+  has a blocked flag, never clear, naming the register as the catalogue's
+  not-held key does; the last section cites every key (`oio`,
+  `building_consents` and `rea` since 2026-10-22), so the memo's not-held
+  line carries them. The Real Estate Authority's key says not held until
+  its lane publishes a view.
 - **Past roles and removed companies.** The companies file lists current
   roles only, and a removed company carries no directors in it: of 4,960
   director rows on removed companies, 4,941 are not in the latest file
@@ -61,20 +64,28 @@ own start.
   otherwise **blocked, never clear**; `past-roles` says so on every report.
   A blank in the project history is not a clear.
 - **A director the links lane joins by name alone.** The officers reach
-  follows each director's confirmed group. Of 12,719 current directors of
-  registered companies named "develop…", 4,602 have no confirmed link to
-  another director row and 1,956 of those have a near one: for them the
-  project history is empty, and `history-reach` blocks and says to start
-  a report from the director. Checkpoint subject 3 (GORING DEVELOPMENT
-  LIMITED) is one: its director's two liquidated development companies are
-  not shown. (`the-officers-reach-does-not-list-an-officers-near-links`)
+  follows each director's confirmed group and, since fix-report-2, the
+  director's near links: a row the link rules join to the director by name
+  alone is listed with the director's reason and then the link's. Of
+  12,719 current directors of registered companies named "develop…", 4,602
+  have no confirmed link to another director row and 1,956 of those have a
+  near one (measured 2026-10-21). The rules keep those companies apart, as
+  a namesake's (`rows a near link of … reaches`), amber at most: the serial
+  pattern counts their failures apart from the director's own, never
+  added; `earlier-failure`, `insolvency-notices` and `possession` set them
+  apart; `history-reach` fires on them, saying they are a namesake's until
+  a rule confirms the link. Checkpoint subjects 3 and 4 (GORING, KERVIL)
+  meet their director's namesake PJO CONSTRUCTION LIMITED, in liquidation.
 - **Twelve directors, forty rows each.** Past the walk's limits the history
   and the notices are partial, and the checks say so.
 - **Holders are listed, not followed.** A holder of record is never called
   an owner, and for whom a nominee or a trustee holds is in no register.
-- **The companies above.** The chain is followed two up; the directors of a
-  company above and the Gazette on it are not read
-  (`the-chain-reach-reads-nothing-on-the-companies-above`).
+- **The companies above.** The chain is followed two up; the current
+  directors of a company above are listed in the chain section, and the
+  Gazette on it in the Gazette and possessions sections, each with the
+  company's grade and its place up the chain. They are the holder's: no
+  check counts them as the entity's or a principal's, and
+  `insolvency-notices` sets a notice above beside the entity's own.
 - **Charities, by number and by name.** A developer's trust board whose
   charity carries its business number reaches the charity, confirmed, with
   the trustees and annual returns the register files on it, in the
@@ -149,3 +160,30 @@ flag changed status or severity and no section changed its counts.
   not held a register that is published; no subject reaches a charity by
   business number, and none of the three directors' names is on a charity
   officer row.
+
+## The checkpoint re-rendered, 2026-10-22 (fix-products-templates-1: the keys, a director's near links, the companies above)
+
+The same twelve subjects, before (a clean copy of 2748790) and after. None
+refused.
+
+- **The keys.** Every memo's not-held line now carries the Overseas
+  Investment Office's decisions, building consents and council minutes,
+  and the Real Estate Authority's decisions; the three blocked flags name
+  them as the catalogue does.
+- **A director's near links.** On GORING (subject 3) and KERVIL (4)
+  `serial-pattern` went from fired amber to blocked: it had counted the
+  director's namesake PJO CONSTRUCTION LIMITED (a `name-only` near link,
+  in liquidation) with the entity's own failure to reach two. Counted
+  apart, neither reaches two, and the flag says one company came through a
+  near link. `earlier-failure` stays fired amber and now says the PJO
+  liquidation is a namesake's; `insolvency-notices` sets it apart;
+  `history-reach` stays fired, now "0 other company(ies) reached; apart,
+  1 a director's near link reaches". No other subject has a near-linked
+  company.
+- **The companies above.** The five subjects with a holding chain (1, 2,
+  4, 6, 7) now list one to four current directors of the companies above
+  (on 6 and 7 professional directors, flagged as hubs); `holding-chain`
+  counts them on 1, 2 and 4 and stays blocked on 6 and 7 (the chain goes
+  on past two up). No company above carries a Gazette notice at the
+  checkpoint. The large line counts of those memos' diffs are the
+  citation numbers moving down.

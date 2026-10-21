@@ -49,14 +49,24 @@ accepted for now; the card that would lift it is named.
   tribunals, WorkSafe's prosecutions or the Commerce Commission's cases.
   `hdc-decisions`, `certification-audits`, `provider-registers`,
   `aged-care-commissioner` and `court-judgments` are **blocked, never
-  clear**. Nothing in a report says anything about care quality, a
+  clear**, each naming its register as the catalogue's not-held key does;
+  the last section cites the five keys, so the memo's not-held line
+  carries them, and the standing section cites the villages file's. Nothing in a report says anything about care quality, a
   complaint, a breach of the Code of Rights or a certification: no such
   finding is a finding of none.
-- **Those registers by name in the memo's not-held line.** A section may
-  name only the catalogue's not-held keys, and there is none for the
-  villages file, the Commissioner, certification, the provider registers
-  or the Aged Care Commissioner; the last section's text and the flags name
-  them. (`the-not-held-list-has-no-key-for-the-health-registers`)
+- **An officer's near links.** A row the link rules join to an officer by
+  name alone (a namesake's directorship, its company, the notices on it) is
+  listed in the overlap and Gazette sections with the officer's reason and
+  then the link's, rule the link's. `officer-overlap` and
+  `officer-company-notices` count such rows apart, never as the officer's
+  own, and never raise amber on them; a prohibition or bankruptcy reached by
+  one is never red. A namesake's row alone gives info, never a clear.
+- **The companies above.** The governance section lists the current
+  directors of each company up the holding chain (two up) and the Gazette
+  section the notices on it, each with the company's grade and its place up
+  the chain. `insolvency-notice` sets an insolvency notice on a company
+  above beside the entity's own and never counts it as one; no officer
+  check reads the directors above.
 - **What an organisation does.** The registers carry no industry. A company
   is called care or retirement living only because its registered name
   carries such a word (care, lifecare, health, hospital, rest home,
@@ -172,3 +182,17 @@ three charity officer rows of the same name, near; `disqualified-officer`
 stays clear and now names the charity officer rows it read by name. The
 operators, the society and the village row are unchanged: no charity by
 business number.
+
+## The checkpoint re-rendered, 2026-10-22 (fix-products-templates-1, the reaches)
+
+The same twelve subjects, before (a clean copy of 2748790) and after. None
+refused; no flag changed status or severity. The five health registers
+now stand in every memo's not-held line, and the villages file under the
+standing section; the five blocked flags name them as the catalogue does.
+`officer-overlap` on eight subjects (the seven operators and the society)
+now counts apart the roles an officer's near link
+reaches (one to eight each, all `name-only`): a namesake's, never the
+officer's own; before, they were listed and the flag did not say so.
+Summerset's Gazette section gained one notice on a company two up its
+holding chain (a removal, near by name, a nominee holder): the holder's,
+not an insolvency, so `insolvency-notice` is unchanged.

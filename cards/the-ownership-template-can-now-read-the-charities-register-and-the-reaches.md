@@ -1,9 +1,10 @@
 # The ownership template can now read the Charities Register and the companies above
 kind: finding
-state: open
+state: closed
 use-case: 13 beneficial ownership and AML checks, domestic half
 session: fix-report-2
 opened: 2026-10-21
+closed: 2026-10-22
 
 The report shape's fix-report-2 (merge request `fix-report-2`, 2026-10-21)
 closed the shape's cards on the charities views and the chain. What it lets
@@ -47,3 +48,17 @@ the not-held line and its text. Fixture test
 re-rendered (limits.md). Still open, outside that brief: the companies above
 (`chain_depth = 2`, a section naming `chain`), which is also what would reach
 a charitable trust holding shares of record.
+
+Closed by fix-products-templates-1 (2026-10-22): `chain_depth = 2` and a chain
+section (sources `chain`; companies, shareholders, directors and the two
+Gazette company views) after the holders; `holding-chain` names what was read
+above the first hop (the companies reached, by business number confirmed or by
+a unique name near, the holders not followed, where the chain goes on, the
+holders, directors and notices listed above); `insolvency-notices` sets a
+notice above beside the company's own and never counts it as one; the four
+holder-name checks read the holders up the chain, saying where each sits. A
+charitable trust holding shares of record is followed as a company (by name,
+near); its charity's trustees only from a report started from it. Fixture
+test `test_the_chain_above_is_followed_two_up_with_its_holders_directors_and_notices_the_holders_not_the_companys`,
+four new mutants; the checkpoint re-rendered (limits.md): every hop above is
+near, since no holder row carries a business number.

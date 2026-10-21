@@ -11,7 +11,7 @@
 # investment decisions, with building consents and the courts waiting (plan
 # 5.2). Neither of the first two is held in this estate: no lane publishes
 # land titles (the catalogue's key `linz`) or the Overseas Investment
-# Office's decisions (no key yet). What the estate holds is the developer's
+# Office's decisions (`oio`). What the estate holds is the developer's
 # company record: the companies register's roles, holdings, offices and
 # states, and the Gazette's insolvency notices, mortgagee possessions,
 # prohibitions and bankruptcies. The old estate's requirement (section 2.6,
@@ -27,15 +27,16 @@
 # below (`--set window_days=365`, `?window_days=365`); with none set, every
 # gap is shown, nearest first.
 #
-# Asked for and not reachable (carded on the report lane,
-# the-not-held-list-has-no-key-for-the-property-registers): the
-# not-held keys for the Overseas Investment Office's decisions, building
-# consents and council minutes, and the Real Estate Authority's decisions;
-# the Gazette on the
-# companies above in the holding chain, which the chain reach does not read
-# (the-chain-reach-reads-nothing-on-the-companies-above); a director's near
-# links, which the officers reach does not follow
-# (the-officers-reach-does-not-list-an-officers-near-links).
+# What fix-report-2 let it reach, read since fix-products-templates-1: the
+# not-held keys for the Overseas Investment Office's decisions (`oio`),
+# building consents and council minutes (`building_consents`) and the Real
+# Estate Authority's decisions (`rea`, not held until its lane publishes a
+# view; card the-not-held-list-has-no-key-for-the-property-registers); the
+# current directors and the Gazette on each company above in the holding
+# chain (the-chain-reach-reads-nothing-on-the-companies-above); and a
+# director's near links, a namesake's rows listed with the director's reason
+# and then the link's (the-officers-reach-does-not-list-an-officers-near-links),
+# which the rules count apart from the director's own, amber at most.
 name = "property"
 title = "Property developer due diligence"
 version = "0.1"
@@ -55,7 +56,8 @@ limits = [
   "Land titles and their company side (LINZ), the Overseas Investment Office's decisions, building consents and council minutes, court judgments, the Personal Property Securities Register, the Insolvency Register and the Real Estate Authority's decisions are not held: nothing here says what land a developer holds, what it was consented to build, or whether a buyer sued it. No such finding here is a finding of none.",
   "The companies file lists current roles only, and a company removed from the register carries no directors in the file: a principal's earlier special-purpose company that was liquidated and then removed is not seen from the principal, nor its failure. So the serial pattern fires on what it sees and is never clear.",
   "Started from a company, its first twelve directors are followed one step to their other current companies and the notices on those (near: a director's other company is the director's connection, not the entity's); a holder of record is listed and not followed.",
-  "The holding chain is followed two companies up, by business number where the file has one, otherwise by a name only one company carries (near). The directors of a company above and the Gazette on it are not read.",
+  "The holding chain is followed two companies up, by business number where the file has one, otherwise by a name only one company carries (near). The current directors of a company above and the Gazette on it are listed with the company's grade; they are the holder's, and no check counts them as the entity's or a principal's.",
+  "A director's near link (a row the link rules join to the director by name alone) is followed one step and listed with the director's reason and then the link's: a namesake's companies, counted apart from the director's own and amber at most until a rule confirms the link.",
   "A failure and a later company's start are two dated facts set side by side with the gap in days; the report never says one followed from the other. The window is the reader's setting (`window_days`), and with none set every gap is shown.",
   "A registered office an accountant, a lawyer or a formation agent keeps, and any office fifty or more companies share, is a hub: a company met there is listed as sharing an office and means nothing on its own. A liquidated company's registered office is usually its liquidator's, so a shared office with a failed company is never compared across the failure.",
   "A mortgagee's entry into possession is read where the Gazette names the company that mortgaged the property; a person mortgagor's name and the property stay in the gazette lane's private tables, and no address is shown.",
@@ -198,17 +200,17 @@ text = "Every director and holder of record the companies file lists on the comp
 [[sections]]
 name = "chain"
 heading = "The holding chain above it"
-views = ["companies", "shareholders"]
+views = ["companies", "shareholders", "directors"]
 sources = ["chain"]
 own = false
-text = "A company that holds shares of record in the entity, and the companies that hold shares in that one, two up: by business number where the file has one, otherwise by a name only one company carries (near), each with the shares as filed and the files that date the holding. The directors of a company above, and the Gazette on it, are not read: start a report from it."
+text = "A company that holds shares of record in the entity, and the companies that hold shares in that one, two up: by business number where the file has one, otherwise by a name only one company carries (near), each with the shares as filed and the files that date the holding; then the current directors of each company above, with the company's grade and its place up the chain. The Gazette on a company above is in the Gazette and possessions sections. A director above is the holder's officer, not the entity's."
 
 [[sections]]
 name = "history"
 heading = "The principals' other companies: the project history, newest first"
 views = ["companies", "societies", "directors", "shareholders", "society_officers"]
 sources = ["officers", "members", "confirmed", "second"]
-text = "Started from a company, each director's other current companies, one step (near: a director's other company is the director's connection, not the entity's), newest first, each with its status and the day it was registered, the director's role on it beneath; started from a person, each company the person sits on or holds, newest first, the other people on it beneath (near). A company in liquidation or receivership stays in the file with its directors; one removed from the register carries none, so a principal's earlier company that was liquidated and then removed is not listed here. A professional director or a nominee sits on many companies and is a hub."
+text = "Started from a company, each director's other current companies, one step (near: a director's other company is the director's connection, not the entity's), newest first, each with its status and the day it was registered, the director's role on it beneath; started from a person, each company the person sits on or holds, newest first, the other people on it beneath (near). A company in liquidation or receivership stays in the file with its directors; one removed from the register carries none, so a principal's earlier company that was liquidated and then removed is not listed here. A director's near link (a row the link rules join to the director by name alone) is listed too, with the director's reason and then the link's: a namesake's company until a rule confirms it, counted apart from the director's own. A professional director or a nominee sits on many companies and is a hub."
 
 [[sections]]
 name = "serial"
@@ -230,7 +232,7 @@ text = "Each company's registered office as the companies file states it; a comp
 name = "possessions"
 heading = "Mortgagee possessions on the entity and the principals' companies"
 views = ["gazette_possessions"]
-sources = ["pointing", "officers", "members", "confirmed", "near"]
+sources = ["pointing", "officers", "members", "confirmed", "near", "chain"]
 not_held = ["securities", "linz"]
 text = "A lender's entry into possession of a mortgaged property, as the Gazette states it, where the notice names the entity or a principal's company as mortgagor, with the day of entry; a notice on a director's other company is the director's and is listed near. The property and a person mortgagor's name are never shown. Land titles and the Personal Property Securities Register are not held."
 
@@ -246,13 +248,14 @@ text = "A director prohibition or a bankruptcy notice the link rules join to the
 name = "gazette"
 heading = "The Gazette on the entity itself"
 views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_appointments"]
-sources = ["pointing", "members", "confirmed", "near", "roles"]
+sources = ["pointing", "members", "confirmed", "near", "roles", "chain"]
 not_held = ["insolvency"]
-text = "Liquidations, receiverships, administrations, winding-up applications, creditors' notices, removals and restorations, amalgamations and the other company notices on the entity, each with its own date and the practitioners the notice names; started from a person, also the person's own appointments as liquidator or to a public office. The Gazette on the companies above in the holding chain is not read."
+text = "Liquidations, receiverships, administrations, winding-up applications, creditors' notices, removals and restorations, amalgamations and the other company notices on the entity, each with its own date and the practitioners the notice names; started from a person, also the person's own appointments as liquidator or to a public office. Then the notices on each company above in the holding chain, with that company's grade and its place up the chain: the holder's notices, not the entity's."
 
 [[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["linz", "courts", "securities", "insolvency", "building_practitioners", "company_history", "trusts", "overseas"]
+not_held = ["linz", "oio", "building_consents", "courts", "securities", "insolvency", "rea", "building_practitioners", "company_history", "trusts",
+            "overseas"]
 text = "Registers a developer check would read that no lane has published: land titles and their company side (LINZ: which company is on which title, and since when), the Overseas Investment Office's decisions (an applicant, a vendor, a price), building consents, code compliance certificates and council minutes, court judgments (a body corporate's or a buyer's claim, a weathertightness case), the Personal Property Securities Register, the Insolvency Register, the Real Estate Authority's decisions, licensed building practitioners, the companies change history before 16 August 2026, trusts and overseas registers. Nothing in this report says anything about them: no title, decision, consent or judgment here is a finding of none. Ask the source."

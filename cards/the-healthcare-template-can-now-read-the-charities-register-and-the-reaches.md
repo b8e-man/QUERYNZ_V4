@@ -1,9 +1,10 @@
 # The healthcare template can now read the Charities Register and the new reaches
 kind: finding
-state: open
+state: closed
 use-case: 11 healthcare operator governance
 session: fix-report-2
 opened: 2026-10-21
+closed: 2026-10-22
 
 The report shape's fix-report-2 (merge request `fix-report-2`, 2026-10-21)
 closed the shape's half of the cards this template waited on
@@ -81,3 +82,14 @@ test `test_the_charities_register_is_read_by_number_and_by_name`, three new
 mutants; checkpoint re-rendered (limits.md). Still open, outside that brief:
 the health registers' not-held keys, an officer's near links, and the
 companies above (`chain` in the Gazette section).
+
+Closed by fix-products-templates-1 (2026-10-22): the five health keys in the
+not-held section's `not_held` (`retirement_villages` on the standing section
+too), and the five blocked flags naming each register as the catalogue's key
+does; an officer's near links counted apart in `officer-overlap` and
+`officer-company-notices` (info alone, never amber, never a clear while one
+stands; a prohibition or bankruptcy reached by one never red); `chain` in the
+Gazette section, a notice on a company above set beside the entity's own in
+`insolvency-notice` and never counted as an officer's company's. Fixture test
+`test_the_reaches_name_the_health_keys_an_officers_near_links_and_the_companies_above`
+and five new mutants; the checkpoint re-rendered (limits.md).

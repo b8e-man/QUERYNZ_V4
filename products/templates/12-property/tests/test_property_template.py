@@ -269,6 +269,24 @@ BANKRUPT = it("gazette:gazette/2019-ba1/person/1", "gazette_bankruptcies", grade
 #: the holding chain above the entity
 ABOVE = company(5, "KAURI TRUSTEE LIMITED", registered="2024-11-01", grade="near", rule_="chain", depth=1,
                 hop_text="holds 50 shares of record in KAURI HEIGHTS DEVELOPMENT LIMITED, as filed (undated)")
+#: Ann's near link (name-only@1): a namesake's two companies, both liquidated, listed with the officer's reason then the link's
+LINK_WHY = NEAR_ANN + "; and the officer's own link to this row is near: the two rows share a full name and nothing else"
+NS1 = company(6, "PJO CONSTRUCTION LIMITED", status="In Liquidation", registered="2016-02-02", grade="near", reason=LINK_WHY, through=ANN["ref"],
+              rule_="name-only@1", near_link=True)
+NS2 = company(7, "PJO HOMES LIMITED", status="In Liquidation", registered="2017-03-03", grade="near", reason=LINK_WHY, through=ANN["ref"],
+              rule_="name-only@1", near_link=True)
+ANN_NS = [dict(director(c["ref"].rsplit("/", 1)[1], "n", "Ann Mary ROE", c["row"]["registered_on"], c["title"], via=ANN["ref"], grade="near",
+                        reason=LINK_WHY, through=ANN["ref"]), rule="name-only@1", near_link=True) for c in (NS1, NS2)]
+NS1_LIQ = dict(liquidation(6, NS1["title"], "2018-04-04", through=ANN["ref"]), rule="name-only@1", near_link=True, reason=LINK_WHY)
+NS2_LIQ = dict(liquidation(7, NS2["title"], "2019-05-05", through=ANN["ref"]), rule="name-only@1", near_link=True, reason=LINK_WHY)
+NS_POSSESSION = dict(POSSESSION, ref="gazette:gazette/2019-mp9/possession/1", row=dict(POSSESSION["row"], mortgagor_register_key="companies/6"),
+                     via=NS1["ref"], rule="name-only@1", near_link=True, reason=LINK_WHY)
+NS_PROHIB = dict(PROHIB, ref="gazette:gazette/2020-ot9/prohibition/2", rule="name-only@1", near_link=True, reason=LINK_WHY)
+#: a director and a receivership on the company above (the walk's `chain` bucket: `above`, the company's depth, through the company)
+ABOVE_DIRECTOR = dict(director(5, "z", "Wiremu TANE", "2024-11-01", ABOVE["title"], via=ABOVE["ref"], grade="near", reason=ABOVE["reason"]),
+                      above=True, depth=1, through=ABOVE["ref"], rule="chain")
+ABOVE_REC = dict(notice(5, ABOVE["title"], "receivership", "2026-02-02", through=ABOVE["ref"], action="appointment of receivers"),
+                 above=True, depth=1, rule="chain")
 PRO_HUB = {"ref": ANN["ref"], "title": "Ann Mary ROE", "kind": "professional-director", "text": "a professional director: 80 directorships"}
 #: the person start: Ann's own row on the entity; her own confirmed rows on the earlier companies, and the companies confirmed
 PERSON = dict(ANN, via=None)
@@ -454,6 +472,26 @@ def properties(mod) -> list:
     hr = rl("history_reach")(report(principals=[ANN]))
     if hr["status"] != "blocked":
         bad.append("a director who reached no other company did not block history-reach")
+    # a director's near link: a namesake's companies, apart from the director's own, amber at most
+    sp = rl("serial_pattern")(developer(history=[OLD1, OLD2, GOING, NS1, NS2] + list(ANN_ON.values()) + ANN_NS,
+                                        serial=[OLD1_LIQ, OLD2_REC, NS1_LIQ, NS2_LIQ]))
+    if "Ann Mary ROE: 2 of 4 companies failed" not in sp["text"] or "rows a near link of Ann Mary ROE reaches: 2 of 2 companies failed" not in sp["text"]:
+        bad.append("a namesake's companies were counted as the director's own in serial-pattern, or not counted apart")
+    only = report(principals=[ANN], history=[NS1, NS2] + ANN_NS, serial=[NS1_LIQ, NS2_LIQ])
+    ns = rl("insolvency_notices")(only)
+    if ns["status"] != "fired" or ns["severity"] == "red" or "principals' other companies" in ns["text"] or "near link reaches" not in ns["text"]:
+        bad.append(f"a namesake's notices were a principal's in insolvency-notices: {ns['status']} {ns['severity']}")
+    if rl("history_reach")(only)["status"] != "fired" or "a namesake's" not in rl("history_reach")(only)["text"]:
+        bad.append("a director reaching other companies only through a near link stayed blocked, or was not said to be a namesake's")
+    po = rl("possession")(report(principals=[ANN], history=[NS1] + ANN_NS[:1], possessions=[NS_POSSESSION]))
+    if po["severity"] == "red" or "near link reaches" not in po["text"]:
+        bad.append("a possession on a namesake's company was not set apart")
+    if "near link" not in rl("prohibition")(report(principals=[ANN], people_notices=[NS_PROHIB]))["text"]:
+        bad.append("a prohibition through a director's near link was not said to be a namesake's")
+    # the companies above: the holder's, never the entity's or a principal's
+    up = rl("insolvency_notices")(developer(serial=[], history=[GOING, ANN_ON[GOING["ref"]]], chain=[ABOVE, ABOVE_DIRECTOR], gazette=[ABOVE_REC]))
+    if up["severity"] == "red" or "holding chain" not in up["text"] or ABOVE_REC["ref"] not in up["citations"]:
+        bad.append("a notice on a company above was the entity's, or went unsaid")
     # no suppressed name in a flag
     # the shape masks a suppressed row's title; the rules keep their own guard, so a row marked suppressed is never named even unmasked
     hidden = dict(ANN, suppressed=True)
@@ -474,7 +512,7 @@ def test_the_properties_hold_on_the_rules_as_written():
 #: (what the mutant breaks, the text replaced, its replacement): each must be unique in rules.py and caught by properties()
 MUTANTS = (
     ("a series through a director is red", "sev = _evidence_grade(report, p) if len(insolvencies) >= SERIAL_AT else", "sev = \"red\" if len(insolvencies) >= SERIAL_AT else"),
-    ("a hub's series is red", "return \"red\" if p[\"grade\"] == \"confirmed\" and not p[\"hub\"] else \"amber\"", "return \"red\" if p[\"grade\"] == \"confirmed\" else \"amber\""),
+    ("a hub's series is red", "and not p[\"hub\"] and not p.get(\"namesake\") else \"amber\"", "and not p.get(\"namesake\") else \"amber\""),
     ("one failure is a series", "        if len(failed) < SERIAL_AT:\n            continue", "        if len(failed) < 1:\n            continue"),
     ("a clear is given though past roles are not held", "    if HISTORY:\n        return flag(rule, V, \"clear\", severity, text, **kw)",
      "    if True:\n        return flag(rule, V, \"clear\", severity, text, **kw)"),
@@ -488,8 +526,8 @@ MUTANTS = (
     ("a hub office is compared", "        if mine and any(_office_hub(report, s[\"ref\"], it) for it in mine):", "        if False:"),
     ("an accountant's office is not seen", "return bool(PROFESSIONAL_OFFICE.search(", "return bool(False and PROFESSIONAL_OFFICE.search("),
     ("a possession through a director is red", "        sev = \"red\" if own else \"amber\"", "        sev = \"red\""),
-    ("a lender's possession is the developer's", "    as_lender = [it for it in ps if it not in as_borrower]\n    if as_borrower:",
-     "    as_lender = []\n    as_borrower = ps\n    if as_borrower:"),
+    ("a lender's possession is the developer's", "    as_lender = [it for it in ps if it not in as_borrower and it not in as_namesake]\n",
+     "    as_lender = []\n    as_borrower = ps\n"),
     ("a prohibition through a director is red", "red = [it for it in conf if _person_start(report) and", "red = [it for it in rows if"),
     ("an ended prohibition is red", "and (view != \"gazette_prohibitions\" or _in_force(it, as_of))]", "]"),
     ("a company with no director clears its people", "        if not _own_people(report):\n            return \"the companies file lists no current director",
@@ -498,7 +536,15 @@ MUTANTS = (
      "        if False:\n            return f\"{w['officers_omitted']} director(s) past the walk's limit were not followed\""),
     ("unpublished links clear the people", "    if not w.get(\"links_built\"):\n        return \"no links are published", "    if False:\n        return \"no links are published"),
     ("a director past the limit is not said", "    if _company_start(report) and w.get(\"officers_omitted\"):", "    if False:"),
-    ("an empty history is a clean one", "    empty = [p for p in principals.values() if len(p[\"companies\"]) <= 1]", "    empty = []"),
+    ("an empty history is a clean one", "    empty = [p for k, p in _own_principals(principals).items() if len(p[\"companies\"]) <= 1 and k + NAMESAKE_KEY not in ns]",
+     "    empty = []"),
+    ("a namesake's company is the director's own", "            if it.get(\"near_link\"):   # a namesake's company: its own principal, apart", "            if False:"),
+    ("a namesake's notice is a principal's", "    theirs = {c for p in _own_principals(principals).values() for c in p[\"companies\"] if c != s[\"ref\"]}",
+     "    theirs = {c for p in principals.values() for c in p[\"companies\"] if c != s[\"ref\"]}"),
+    ("a namesake's possession is a principal's", "    on_principal = {c for p in _own_principals(principals).values() for c in p[\"companies\"]}",
+     "    on_principal = {c for p in principals.values() for c in p[\"companies\"]}"),
+    ("a namesake's history is no history", " and k + NAMESAKE_KEY not in ns]", "]"),
+    ("a notice up the chain goes unsaid", "    up = [n for n in ins if n.get(\"above\") and n not in own + other + apart]", "    up = []"),
     ("a suppressed director is named", "\"a director whose name is suppressed\" if d.get(\"suppressed\") else d[\"title\"]", "d[\"title\"]"),
     ("an insolvency on the entity is amber", "        sev = \"red\" if own or (conf and _person_start(report)) else \"amber\"", "        sev = \"amber\""),
     ("a holder the chain cannot follow is ignored", "    if notes or st.get(\"cut\"):", "    if st.get(\"cut\"):"),
@@ -552,6 +598,45 @@ def test_the_serial_pattern_sets_out_each_failure_in_the_order_registered_with_i
     assert "of 4 pair(s), nearest first, 0 within 90 days and 1 within 365 days" in f["text"]
     p = rule("serial_pattern")(person())
     assert p["severity"] == "red" and "the person's own confirmed companies" in p["text"]
+
+
+#: the catalogue's not-held keys for the property registers (products/report/catalogue.py, NOT_HELD) and the flag that blocks on each
+PROPERTY_KEYS = {"oio": ("overseas_investment", "Overseas Investment Office decisions"),
+                 "building_consents": ("building_consents", "Building consents, code compliance certificates and council minutes"),
+                 "rea": ("real_estate_authority", "Real Estate Authority decisions")}
+
+
+def test_the_reaches_name_the_property_keys_a_directors_near_links_and_the_companies_above():
+    """fix-products-templates-1: the three keys in the not-held section and each blocked flag naming its register as the catalogue
+    does; a director's near links a namesake's principal, apart; the directors and the Gazette on the companies above listed."""
+    s = {x["name"]: x for x in toml()["sections"]}
+    with open(os.path.join(REPO, "products", "report", "catalogue.py"), encoding="utf-8") as f:
+        cat = f.read()
+    for key, (fn, name) in PROPERTY_KEYS.items():
+        assert key in s["not-held"]["not_held"] and f'("{key}", "{name}' in cat, key
+        assert rule(fn)(report())["sources_not_held"][0].startswith(name), fn
+    assert "directors" in s["chain"]["views"] and "chain" in s["gazette"]["sources"] and "chain" in s["possessions"]["sources"]
+    assert "is not read" not in s["gazette"]["text"] and "are not read" not in s["chain"]["text"]
+    assert "named" in s["principals"]["sources"] and "charity_officers" in s["principals"]["views"]
+    r = developer(history=[OLD1, OLD2, GOING, NS1, NS2] + list(ANN_ON.values()) + ANN_NS, serial=[OLD1_LIQ, OLD2_REC, NS1_LIQ, NS2_LIQ])
+    sp = rule("serial_pattern")(r)
+    assert sp["text"].startswith("2 principal(s)") and sp["severity"] == "amber" and "a namesake's until a rule confirms it" in sp["text"]
+    assert NS1_LIQ["ref"] in sp["citations"]
+    ef = rule("earlier_failure")(r)
+    assert "rows a near link of Ann Mary ROE reaches" in ef["text"] and ef["severity"] == "amber"
+    only = report(principals=[ANN], history=[NS1, NS2] + ANN_NS, serial=[NS1_LIQ, NS2_LIQ])
+    hr = rule("history_reach")(only)
+    assert hr["status"] == "fired" and "0 other company(ies) reached; apart, 2 company(ies) a director's near link reaches" in hr["text"]
+    ins = rule("insolvency_notices")(only)
+    assert (ins["status"], ins["severity"], ins["scope"]) == ("fired", "amber", "near") and "2 on 2 company(ies) a director's near link" in ins["text"]
+    pr = rule("prohibition")(report(principals=[ANN], people_notices=[NS_PROHIB]))
+    assert pr["severity"] == "amber" and "reached through a director's near link" in pr["text"]
+    ch = rule("holding_chain")(developer(chain=[ABOVE, ABOVE_DIRECTOR], gazette=[ABOVE_REC], chain_stats={"depth": 1, "cut": 0, "above_directors": 1,
+                                                                                                        "above_notices": 1}))
+    assert ch["status"] == "fired" and "1 current director(s) and 1 Gazette notice(s) are listed" in ch["text"]
+    up = rule("insolvency_notices")(developer(chain=[ABOVE, ABOVE_DIRECTOR], gazette=[ABOVE_REC]))
+    assert "beside them, 1 on a company above in the holding chain (1 receivership)" in up["text"]
+    assert set(R._principals(developer(chain=[ABOVE, ABOVE_DIRECTOR]))) == {ANN["ref"]}, "a director above is no principal"
 
 
 def test_every_register_not_held_blocks():

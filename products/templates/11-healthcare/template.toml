@@ -23,15 +23,16 @@
 #   person's name is near, because no link joins the register's officers to
 #   any other row yet (card charity-officers-are-in-no-link-and-no-name-row,
 #   the links lane's), so a rule over such a row is amber at most.
-# - the registers a health regulator keeps are not held, and the shape's
-#   not-held list has no key for them (carded on the report lane:
-#   the-not-held-list-has-no-key-for-the-health-registers): the retirement
-#   villages file (key asked: retirement_villages), the Health and Disability
-#   Commissioner's decisions (hdc), certification audits (certification),
-#   the Ministry of Health's provider registers (health_providers) and the
-#   Aged Care Commissioner (aged_care_commissioner). They are named in the
-#   last section's text and in the flags; court judgments carry the key
-#   `courts`.
+# - the registers a health regulator keeps are not held, and since
+#   fix-report-2 the shape's not-held list has a key for each (card
+#   the-not-held-list-has-no-key-for-the-health-registers, closed): the
+#   retirement villages file (retirement_villages, on the standing section
+#   too), the Health and Disability Commissioner's decisions (hdc),
+#   certification audits (certification), the Ministry of Health's provider
+#   registers (health_providers) and the Aged Care Commissioner
+#   (aged_care_commissioner). The last section names them, so the memo's
+#   not-held line carries them, and each blocked flag names the register as
+#   the catalogue does; court judgments carry the key `courts`.
 name = "healthcare"
 title = "Healthcare operator governance"
 version = "0.1"
@@ -161,6 +162,7 @@ name = "standing"
 heading = "Its standing and age"
 views = ["company_states", "company_addresses"]
 sources = ["roles", "members", "confirmed"]
+not_held = ["retirement_villages"]
 own = true
 text = "The entity's register status and the day it was registered are in the header above, as the latest file states them, and in the flags entity-status and young-entity. Below, an earlier state a later monthly file changed (dated as in the file that carried it), and each registered office as the companies file states it; a company's registered address is shown, and no residential address is held."
 
@@ -183,19 +185,20 @@ name = "overlap"
 heading = "Officer overlap: the same people on other companies"
 views = ["directors", "shareholders", "society_officers", "companies", "societies", "charity_officers"]
 sources = ["officers", "second"]
-text = "Started from a company or a society, each officer's other current roles, one step (near: an officer's other role is the officer's connection, not the entity's), with the date each role began beside the date the officer's role on the entity began; then the people beside the entity's people on their other companies. Started from a person, the other people on the person's companies (near). A professional director or a nominee is a hub and sits on many companies; an overlap through a hub is flagged. Two roles held at once are two facts with their dates; this report does not say what one has to do with the other."
+text = "Started from a company or a society, each officer's other current roles, one step (near: an officer's other role is the officer's connection, not the entity's), with the date each role began beside the date the officer's role on the entity began; then the people beside the entity's people on their other companies. Started from a person, the other people on the person's companies (near). A professional director or a nominee is a hub and sits on many companies; an overlap through a hub is flagged. An officer's near link (a row the link rules join to the officer by name alone) is listed too, with the officer's reason and then the link's own: a namesake's role until a rule confirms it, counted apart from the officer's own. Two roles held at once are two facts with their dates; this report does not say what one has to do with the other."
 
 [[sections]]
 name = "gazette"
 heading = "The Gazette on the entity, its people and its people's companies"
 views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_prohibitions", "gazette_bankruptcies", "gazette_appointments"]
-sources = ["pointing", "members", "confirmed", "near", "roles", "officers"]
+sources = ["pointing", "members", "confirmed", "near", "roles", "officers", "chain"]
 not_held = ["insolvency", "courts"]
-text = "Liquidations, winding-up applications, receiverships, administrations, creditors' notices, removals, restorations and the other company notices, each under its company's name with its own date, which says what it dates; then director prohibitions, bankruptcies and public appointments the link rules join to a person by name. A notice on an officer's other company, or on an officer, is the officer's and is listed near. A removal from the register is not an insolvency. A revoked prohibition and an annulled bankruptcy's name are never shown."
+text = "Liquidations, winding-up applications, receiverships, administrations, creditors' notices, removals, restorations and the other company notices, each under its company's name with its own date, which says what it dates; then director prohibitions, bankruptcies and public appointments the link rules join to a person by name. A notice on an officer's other company, or on an officer, is the officer's and is listed near; one on a company an officer's near link reaches is a namesake's until a rule confirms it, and is counted apart. A notice on a company above in the holding chain is listed with that company's grade and its place up the chain: the holder's notice, not the entity's. A removal from the register is not an insolvency. A revoked prohibition and an annulled bankruptcy's name are never shown."
 
 [[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["courts", "tribunals", "disciplinary", "employment", "regulators", "worksafe", "company_history"]
+not_held = ["retirement_villages", "hdc", "certification", "health_providers", "aged_care_commissioner", "courts", "tribunals", "disciplinary",
+            "employment", "regulators", "worksafe", "company_history"]
 text = "Registers an operator's governance record would read that no lane has published: the retirement villages file (each village's operator and statutory supervisor, and when the supervisor changed), the Health and Disability Commissioner's decisions, certification audits of rest homes and hospitals, the Ministry of Health's provider registers, the Aged Care Commissioner's reports, court judgments, the tribunals and disciplinary bodies, the Employment Relations Authority, WorkSafe's prosecutions, the Commerce Commission's cases and the companies change history before 16 August 2026. Nothing in this report says anything about them: no decision, audit, complaint or judgment here is a finding of none. Ask the source."
