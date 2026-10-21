@@ -2,13 +2,12 @@
 
 Overwritten at every close; under 3 KB. The detail is in `docs/merges/`.
 
-**Date:** 2026-10-21, 23:20 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-22, 01:48 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 day three not clean; 5.1 done; 5.2 closed (ten templates, `fix-report-2`
 parameters); 5.3 eight lanes merged (OpenLaw, HDC held on terms; sanctions
 lists held); 5.4 merged; 5.5 merged; 6.1 merged (`scan-1`, the scan on
-port 8450); 6.2 template lane `tenders-1` merged, templates 1 and 2 raised;
-6.3 `grants-1` raised. Track C measured. Tracks B and E closed, on the
-queue's clock. **Boxes:** node2 is the estate; node1 waits for its setup
+port 8450); 6.2 `tenders-1` merged, templates 1 and 2 merged (`scan-templates-1`);
+6.3 `grants-1` merged (178,729 grants live). Track C measured; B and E closed. **Boxes:** node2 is the estate; node1 waits for its setup
 card (ruling 57). **Alarm channel:** the old estate's ntfy address.
 
 ## Done
@@ -23,7 +22,7 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
   OpenLaw (`openlaw-1`, HELD on its terms), courts (`courts-1`, 148 judgments).
 - 4.2/4.3 links: 2.82 M links, 2.32 M groups, rebuilt after `coupled-1`
   (ruling 73); the agent (track C) scores and applies nothing (ruling 69).
-  4.4 site version 3. 4.9 board 75 views. 5.1 the report shape, tranche 3.
+  4.4 site version 3. 4.9 board 78 views. 5.1 the report shape, tranche 3.
 - 5.2 closed: templates 08, 04, 03, 02, 13, 07 (ruling 65), 05, 06, 11
   (`healthcare-1`), 12 (`property-1`). 5.5 `qv4-companies-monitor`.
 - Rulings 64 to 77 on 21 October (`docs/decisions/rulings.md`); the two
@@ -32,12 +31,14 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- None at 23:20. Raised, waiting on the gate in raise order: `grants-1`,
-  `fix-support-fetchgate-1`, `scan-templates-1`, `fix-templates-1`. Merged
-  tonight after 18:00: `sanctions-1`, `scan-1`, `tenders-1` (29,874 award
-  notices live), `regulators-1`, `fix-report-2`, `oio-1`, `hdc-1`,
-  `diaries-1` (records only; ruling 78: the Beehive and Hansard come from
-  Arthur's third-party source). Step 7 held (ruling 63).
+- None at 01:48; the inbox is empty. Merged since 18:00 on 21 October:
+  `sanctions-1`, `scan-1`, `tenders-1` (29,874 award notices live),
+  `regulators-1`, `fix-report-2`, `oio-1`, `hdc-1`, `diaries-1` (ruling
+  78: the Beehive and Hansard come from Arthur's third-party source),
+  `grants-1`, `fix-support-fetchgate-1`, `scan-templates-1`,
+  `fix-templates-1`. Next sessions: `bin/fix products/templates` (three
+  open cards), the six-lanes redirect card, step 6.2 templates 3 and 4
+  (4 waits on the diaries source), 6.3's others. Step 7 held (63).
 
 ## Half-done
 
