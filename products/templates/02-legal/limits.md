@@ -61,8 +61,16 @@ that would lift it is named.
 - **Smaller shared offices.** A registered office shared by fifty or more
   companies is flagged as a hub; which companies share a smaller one is
   not listed.
+- **A charity officer row is matched by name.** No link joins the
+  Charities Register's officers to any other row yet, so a row carrying
+  the party's name is near, a namesake's until a rule confirms it, and the
+  register's disqualified mark on one is amber. From a company, its charity
+  by business number is confirmed with its officers and returns; its
+  directors' own charity rows are not read, so the mark check blocks. A
+  holder of record's row is not looked up by name.
+  (`charity-officers-are-in-no-link-and-no-name-row`, the links lane's)
 - **The Insolvency Register, the Personal Property Securities Register,
-  the Charities Register, a limited partnership's partners, financial
+  a limited partnership's partners, financial
   service providers, sanctions lists, land titles, the Commerce
   Commission's cases.** Not held; named in the last section and in the
   flags that would read them.
@@ -137,3 +145,20 @@ now read as that person (it blocked every check before); `shared-boards`
 says how many of the companies reached are the person's confirmed (a
 contested group's companies are near). Failures carded: five on the report
 lane and one on the gazette lane (above).
+
+## The checkpoint re-rendered, 2026-10-21 (fix-templates-1, the Charities Register)
+
+The same twelve subjects, before and after the template read the Charities
+Register. None refused. The six companies are unchanged: none has a charity
+by business number, and their people are not followed, so both charity
+checks still block on them. On the five directors `charity-integrity-marks`
+went from blocked to clear (no row carrying the name has the register's
+disqualified mark) and `charity-officer-roles` from clear to fired (info),
+listing 1 to 51 charity officer rows of the same name, near; the money
+section gained them. On the donation, `charity-officer-roles` fired on one
+row under its donor's name. `namesake-exposure` now counts those rows (one
+subject from clear to fired, info). Outside the list, HABITAT FOR HUMANITY
+NORTHERN AND SOUTHERN LIMITED reaches its charity CC24459 by business
+number, confirmed, with 40 officer rows and its returns beneath it, and the
+mark check fires amber on one past director the register marks
+disqualified.

@@ -37,7 +37,7 @@ GAZETTE = {"gazette_liquidations", "gazette_company_notices", "gazette_liquidato
 HISTORY_CHECKS = ("company_status", "insolvency_notices", "repeat_insolvency", "amalgamation", "register_events")
 PEOPLE_CHECKS = ("conflict_web", "shared_boards", "repeat_insolvency", "prohibition", "practitioner_roles", "charity_officer_roles", "bankruptcy")
 ALWAYS_BLOCKED = ("client_overlap", "mortgagee_possession", "bankruptcy", "court_judgments", "disciplinary_findings", "comcom_coverage",
-                  "securities_register", "charity_integrity_marks")
+                  "securities_register")
 
 
 def toml():
@@ -114,7 +114,8 @@ def test_its_sections_run_in_the_conflicts_clerks_order():
     for kind in ("liquidations", "receiverships", "administrations", "winding-up", "creditors' notices", "deeds of company arrangement", "removals",
                  "restorations", "amalgamations", "rectifications", "transfers out", "prohibitions"):
         assert kind in s["gazette"]["text"].lower(), kind
-    assert "charities" in s["money"]["not_held"]
+    assert {"charities", "charity_officers", "charity_returns"} <= set(s["money"]["views"]) and "named" in s["money"]["sources"]
+    assert not any("charities" in x.get("not_held", []) for x in t["sections"]), "the Charities Register is published and read"
     assert {"courts", "insolvency", "securities"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
     assert "Disciplinary Tribunal" in s["not-held"]["text"] and "client and matter list" in s["not-held"]["text"]
     views = {r["view"] for r in t["reads"]}
@@ -141,7 +142,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 KIND = {"directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
-        "party_return_donors": "figure"}
+        "party_return_donors": "figure", "charities": "organisation", "charity_officers": "person", "charity_returns": "figure"}
 THROUGH = "a connection that passes through more than one person is listed as near, never confirmed (the design's default)"
 
 
@@ -291,6 +292,11 @@ def properties(mod) -> list:
     f = rl("holders_of_record")(company(officers=[NOMINEE]))
     if f["status"] != "fired" or "holder of record" not in f["text"]:
         bad.append("a nominee holder was not shown as a holder of record")
+    f = rl("charity_integrity_marks")(report(money=[BY_NAME_BANNED]))
+    if f["status"] == "fired" and f["severity"] == "red":
+        bad.append("a disqualified mark on a charity officer row matched only by name is red")
+    if rl("charity_integrity_marks")(report(subject=it("companies:companies/1/shareholder/a", "shareholders", title="Jane DOE")))["status"] == "clear":
+        bad.append("charity-integrity-marks cleared a holder's name it never looked up")
     return bad
 
 
@@ -300,6 +306,8 @@ def test_the_properties_hold_on_the_rules_as_written(held):
 
 #: (what the mutant breaks, the text replaced, its replacement): each must be unique in rules.py and caught by properties()
 MUTANTS = (
+    ("a by-name charity mark is red", 'MARK_SEVERITY if conf else "amber"', '"red"'),
+    ("a name never looked up clears", 's.get("suppressed") or s["view"] not in NAME_LOOKED_UP', 'False'),
     ("a namesake's notices are red", 'return flag("insolvency-notices", V, "fired", "amber",', 'return flag("insolvency-notices", V, "fired", "red",'),
     ("a removal counts as insolvency", '"notice to creditors", "deed of company arrangement")\n',
      '"notice to creditors", "deed of company arrangement", "removal")\n'),
@@ -489,6 +497,59 @@ def test_namesake_exposure_declares_the_report_partial_past_fifty():
     f = rule("namesake_exposure")(r)
     assert f["status"] == "fired" and f["severity"] == "amber" and "partial" in f["text"] and "conflict search" in f["text"]
     assert rule("namesake_exposure")(report())["status"] == "clear"
+
+
+# the Charities Register (card the-legal-template-can-now-read-the-charities-register)
+CHARITY = it("charities:charities/CC1", "charities", title="ACME TRUST", statement="ACME TRUST: registered charity CC1, Registered; Trust",
+             row={"key": "charities/CC1", "status": "Registered", "nzbn": "1"}, via=ACME["ref"])
+TRUSTEE = it("charities:charities/CC1/officer/1", "charity_officers", title="John SMITH", via=CHARITY["ref"],
+             statement="John SMITH: Trustee of ACME TRUST (Qualified; disqualified as the register states it: False)",
+             row={"charity_key": "charities/CC1", "status": "Qualified", "disqualified": False})
+BANNED = dict(TRUSTEE, ref="charities:charities/CC1/officer/2", title="Ann BLOGGS", row=dict(TRUSTEE["row"], status="Disqualified", disqualified=True),
+              statement="Ann BLOGGS: Trustee of ACME TRUST (Disqualified; disqualified as the register states it: True)")
+BY_NAME = it("charities:charities/CC9/officer/7", "charity_officers", grade="near", title="Jane Mary DOE", via=PERSON["ref"],
+             reason="no link joins the Charities Register's officers to any other row yet, so this officer row is matched to the subject by name",
+             statement="Jane Mary DOE: Treasurer of A CLUB TRUST (Past; disqualified as the register states it: False)",
+             row={"charity_key": "charities/CC9", "status": "Past", "disqualified": False})
+BY_NAME["rule"] = "same-name"
+BY_NAME_BANNED = dict(BY_NAME, ref="charities:charities/CC9/officer/8", row=dict(BY_NAME["row"], status="Removed as Disqualified", disqualified=True),
+                      statement="Jane Mary DOE: Treasurer of A CLUB TRUST (Removed as Disqualified; disqualified as the register states it: True)")
+READS = {"reads": [{"view": v} for v in ("companies", "directors", "society_officers", "charities", "charity_officers", "charity_returns")]}
+
+
+def test_the_charity_flags_read_the_register_by_name_and_by_number():
+    marks, roles = rule("charity_integrity_marks"), rule("charity_officer_roles")
+    assert "CHARITIES_NOT_HELD" not in open(os.path.join(HERE, "rules.py"), encoding="utf-8").read()
+    # a person: the rows carrying the person's name are near, so a mark on one is amber, never red
+    f = marks(dict(report(money=[BY_NAME_BANNED]), template=READS))
+    assert f["status"] == "fired" and f["severity"] == "amber" and f["scope"] == "near" and BY_NAME_BANNED["ref"] in f["citations"], f
+    assert "Removed as Disqualified" in f["text"] and "a namesake's until a rule confirms it" in f["text"]
+    f = roles(dict(report(money=[BY_NAME]), template=READS))
+    assert f["status"] == "fired" and f["severity"] == "info" and "carry the person's name, near" in f["text"] and BY_NAME["ref"] in f["citations"]
+    # nothing found under the person's name: clear, naming the register it was read in
+    f = marks(dict(report(), template=READS))
+    assert f["status"] == "clear" and any("pub.charity_officers" in x for x in f["sources_held"]), f
+    assert roles(dict(report(), template=READS))["status"] == "clear"
+    # a clear needs the name looked up: a holder's row is not looked up, a skipped view or rows past the limit are not read
+    holder = it("companies:companies/1/shareholder/a", "shareholders", title="Jane Mary DOE")
+    assert marks(dict(report(subject=holder), template=READS))["status"] == "blocked"
+    skipped = dict(report(), template=READS)
+    skipped["walk"] = dict(skipped["walk"], skipped=["charity_officers"])
+    assert marks(skipped)["status"] == "blocked" and roles(skipped)["status"] == "blocked"
+    left = dict(report(), template=READS)
+    left["sections"][ORDER.index("money")].update(omitted=4, omitted_views=["charity_officers"])
+    assert marks(left)["status"] == "blocked"
+    # a company: its charity by business number is confirmed, and a mark on an officer of it is amber
+    f = marks(dict(company(money=[CHARITY, TRUSTEE, BANNED]), template=READS))
+    assert f["status"] == "fired" and f["severity"] == "amber" and f["citations"] == (BANNED["ref"],), f
+    f = roles(dict(company(money=[CHARITY, TRUSTEE]), template=READS))
+    assert f["status"] == "fired" and "the company's charity by its business number" in f["text"] and "1 officer row(s) on it" in f["text"]
+    assert CHARITY["ref"] in f["citations"]
+    f = marks(dict(company(money=[CHARITY, TRUSTEE]), template=READS))
+    assert f["status"] == "blocked" and "carry no disqualified mark" in f["text"], "its directors' own charity rows are not read from a company"
+    for r in (company(money=[CHARITY, TRUSTEE, BANNED]), report(money=[BY_NAME_BANNED])):
+        for fn in (marks, roles):
+            assert not CAUSE.search(fn(dict(r, template=READS))["text"])
 
 
 def test_money_reads_only_confirmed_rows():

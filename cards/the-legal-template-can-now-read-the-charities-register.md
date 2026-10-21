@@ -1,9 +1,10 @@
 # The legal template can now read the Charities Register
 kind: finding
-state: open
+state: closed
 use-case: 2 legal counterparty and conflict check
 session: fix-report-2
 opened: 2026-10-21
+closed: 2026-10-21
 
 The report shape's fix-report-2 (merge request `fix-report-2`, 2026-10-21)
 closed the shape's half of the cards this template waited on. What it lets
@@ -45,3 +46,5 @@ this template do, each a fix in `products/templates/02-legal/`:
 Not a comparison cause. The shape's fixture tests and `python -m
 products.report check` hold the reaches; this card is the template's own
 reading of them, closed when its sections, flags and tests use them.
+
+Closed by fix-templates-1 (2026-10-21): the three views in `reads` and the money section (sources `named` and `roles`); `charities` out of both `not_held` lines and the texts; `charity-officer-roles` lists the charity officer rows carrying the party's name (near) and, from a company, its charity by business number; `charity-integrity-marks` reads the register's `disqualified` mark (amber, the template's severity), clear only where the name was looked up, the view not skipped and nothing left past the limit; `CHARITIES_NOT_HELD` out. Fixture test `test_the_charity_flags_read_the_register_by_name_and_by_number` and two mutants; the checkpoint re-rendered (limits.md).
