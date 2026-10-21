@@ -125,6 +125,18 @@ def listing(conn, schema: str = SCHEMA) -> dict:
     return out
 
 
+def load(conn, schema: str, log=print) -> int:
+    """The merge gate's staging step (support/staging): the newest landed list documents, read under `schema`
+    (none while the lists are held). Added by the integrator at the merge of sanctions-1."""
+    from registers.sanctions import check
+    capture.Tables(conn).create()
+    listed = listing(conn)
+    counts = build(conn, schema, listed)
+    problems = check.reading(conn, schema)
+    log(f"{SCHEMA}: {counts['listings']} listings from {counts['lists']} lists into {schema}; " + ("; ".join(problems) or "reconciles"))
+    return counts["listings"]
+
+
 def publish(conn, staging: str, log=print) -> None:
     with conn.transaction():
         create_tables(conn, SCHEMA)

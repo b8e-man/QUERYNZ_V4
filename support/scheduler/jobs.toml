@@ -708,3 +708,53 @@ priority = 32
 command = ["python", "-m", "registers.courts.capture", "--budget-s", "3600"]
 at_utc = "14:30"
 nice = 10
+
+# ── step 5.3, limited partnerships and the Building Practitioners Board's decisions (sanctions-1; card the-partnerships-and-board-decisions-jobs-into-the-catalogue) ──
+# The sanctions lists have no job: all three are held on their publishers' terms.
+[jobs.qv4-limited-partnerships-capture]
+description = "Step 5.3: one NZBN entity-detail call per registered limited partnership in pub.companies, through the fetch gate with our key, 5 s apart, at most 600 a night, the stalest first; the capture itself skips Wednesday (the interface's maintenance window). Nightly at 21:00 NZDT, at most 55 minutes."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 4200
+query_timeout_s = 60
+class = "due"
+priority = 53
+command = ["python", "-m", "registers.limited_partnerships.capture", "--night"]
+at_utc = "08:00"
+nice = 10
+
+[jobs.qv4-limited-partnerships-load]
+description = "Step 5.3: nothing when the listing is the one published, else the limited partnerships and their general partners built in staging, checked, published only on green. Nightly at 06:50 NZDT."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 900
+query_timeout_s = 600
+class = "due"
+priority = 54
+command = ["python", "-m", "registers.limited_partnerships.load", "--job"]
+at_utc = "17:50"
+nice = 10
+
+[jobs.qv4-building-practitioners-capture]
+description = "Step 5.3: the Building Practitioners Board's published decisions list (about 80 pages) and its documents, through the fetch gate 5 s apart, each fetched once. The spec asks for Sunday 23:00 NZDT weekly; the catalogue has no weekday, so it runs nightly at 23:00 NZDT (about 7 minutes) until the lane or the scheduler carries the day."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 2700
+query_timeout_s = 60
+class = "due"
+priority = 55
+command = ["python", "-m", "registers.building_practitioners.capture"]
+at_utc = "10:00"
+nice = 10
+
+[jobs.qv4-building-practitioners-load]
+description = "Step 5.3: the Board's decisions from the newest finished pass, built in staging, checked, published only on green. Nightly at 06:40 NZDT (the spec says Monday; see the capture)."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 900
+query_timeout_s = 600
+class = "due"
+priority = 56
+command = ["python", "-m", "registers.building_practitioners.load", "--job"]
+at_utc = "17:40"
+nice = 10

@@ -115,6 +115,17 @@ def listing(conn, schema: str = SCHEMA) -> list:
         f"SELECT sha256, pass_id FROM {schema}.capture_pages WHERE pass_id >= %s ORDER BY pass_id, page_no", (since,))]
 
 
+def load(conn, schema: str, log=print) -> int:
+    """The merge gate's staging step (support/staging): the newest pass's pages, read under `schema`.
+    Problems the reading's check finds are logged, as the job logs them. Added by the integrator at the merge of sanctions-1."""
+    from registers.building_practitioners import check
+    listed = listing(conn)
+    counts = build(conn, schema, listed)
+    problems = check.reading(conn, schema)
+    log(f"{SCHEMA}: {counts['decisions']} decisions, {counts['set_aside']} set aside into {schema}; " + ("; ".join(problems) or "reconciles"))
+    return counts["decisions"]
+
+
 def publish(conn, staging: str, log=print) -> None:
     with conn.transaction():
         create_tables(conn, SCHEMA)

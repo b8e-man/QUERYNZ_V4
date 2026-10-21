@@ -1,4 +1,4 @@
-Before copying a public register, read its own Act for a search-purpose section: a register can be open to anyone and still be searchable only for the purposes its Act names, so a bulk copy is unlawful though the site's copyright says "copy freely".
+Before copying a public register, read its own Act for a search-purpose section: a register can be open to anyone and still be searchable only for the purposes its Act names, so a bulk copy is unlawful though the site says "copy freely".
 area: capture, legal positions, registers/building_practitioners, any register of people under its own Act
 paid-for-by: 2026-10-21, sanctions-1, step 5.3
 

@@ -540,6 +540,27 @@ VIEWS: tuple[View, ...] = (
          dates=(("captured on", "captured_on"),),
          urls=("url", "archive_url"),
          joins=(Join("Declared roles", "party_board_roles", "document", key_column="document", order="name"),)),
+    # ── step 5.4, the senior courts' judgments (courts-1; catalogued in the merge after) ──
+    View("court_judgments", "courts", "document", ("citation", "court_name"),
+         search=("citation", "heading", "case_numbers"),
+         fields=(("court", "court_name"), ("registry", "registry"), ("case numbers", "case_numbers"),
+                 ("judges", "judges"), ("heading", "heading"), ("outcome", "outcome"),
+                 ("paragraphs", "paragraphs"), ("parties", "parties"), ("suppression", "suppression"),
+                 ("suppression kinds", "suppression_kinds"), ("names withheld", "names_withheld"),
+                 ("status", "status"), ("missing", "missing"), ("source", "source")),
+         dates=(("judgment date", "judgment_date"),),
+         urls=("source_url",),
+         withheld="names_withheld",
+         joins=(Join("Parties", "court_judgment_parties", "judgment", key_column="judgment", order="position"),),
+         note="a court's suppression order binds every surface: a withheld name is withheld here and in every product"),
+    View("court_judgment_parties", "courts", "person", ("name", "role"),
+         search=("name",),
+         fields=(("citation", "citation"), ("court", "court"), ("position", "position"), ("role", "role"),
+                 ("capacity", "capacity"), ("the Crown", "crown"), ("anonymised", "anonymised"),
+                 ("confidence", "confidence")),
+         dates=(("judgment date", "judgment_date"),),
+         names=("name",), suppressed="withheld",
+         parent=("Judgment", "court_judgments", "judgment")),
 )
 
 BY_NAME = {v.name: v for v in VIEWS}
@@ -559,6 +580,7 @@ REGISTERS = (
     ("candidate_returns", "Candidate donation and expense returns"),
     ("gazette", "Gazette notices"),
     ("party_boards", "Party boards as declared on party websites (ruling 72: not on the site)"),
+    ("courts", "Court judgments of the senior courts, by caption"),
 )
 
 #: registers the plan names that no lane has published yet (plan step 4.1 and later steps)

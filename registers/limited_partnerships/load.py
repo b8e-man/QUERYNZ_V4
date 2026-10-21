@@ -138,6 +138,18 @@ def listing(conn, schema: str = SCHEMA) -> list:
         "ORDER BY asked_at")]
 
 
+def load(conn, schema: str, log=print) -> int:
+    """The merge gate's staging step (support/staging): every landed answer, read under `schema`.
+    Problems the reading's check finds are logged, as the job logs them. Added by the integrator at the merge of sanctions-1."""
+    from registers.limited_partnerships import check
+    listed = listing(conn)
+    counts = build(conn, schema, listed)
+    problems = check.reading(conn, schema)
+    log(f"{SCHEMA}: {counts['partnerships']} partnerships, {counts['partners']} general partners, "
+        f"{counts['read_set_aside']} set aside into {schema}; " + ("; ".join(problems) or "reconciles"))
+    return counts["partnerships"] + counts["partners"]
+
+
 def publish(conn, staging: str, log=print) -> None:
     with conn.transaction():
         create_tables(conn, SCHEMA)
