@@ -23,9 +23,9 @@
 # (liquidated, in receivership, in administration, removed), dated from its
 # Gazette notice, beside a later company under the same principal, the gap
 # in days. The window is the reader's setting (ruling 65, as the
-# construction template reads it): `window_days` on the report, which the
-# shape does not yet carry (card the-report-carries-no-template-parameters,
-# construction-2); until it does, every gap is shown, nearest first.
+# construction template reads it): `window_days`, the parameter declared
+# below (`--set window_days=365`, `?window_days=365`); with none set, every
+# gap is shown, nearest first.
 #
 # Asked for and not reachable (carded on the report lane,
 # the-not-held-list-has-no-key-for-the-property-registers): the
@@ -59,13 +59,22 @@ limits = [
   "The companies file lists current roles only, and a company removed from the register carries no directors in the file: a principal's earlier special-purpose company that was liquidated and then removed is not seen from the principal, nor its failure. So the serial pattern fires on what it sees and is never clear.",
   "Started from a company, its first twelve directors are followed one step to their other current companies and the notices on those (near: a director's other company is the director's connection, not the entity's); a holder of record is listed and not followed.",
   "The holding chain is followed two companies up, by business number where the file has one, otherwise by a name only one company carries (near). The directors of a company above and the Gazette on it are not read.",
-  "A failure and a later company's start are two dated facts set side by side with the gap in days; the report never says one followed from the other. The window is the reader's setting, and until the report carries it every gap is shown.",
+  "A failure and a later company's start are two dated facts set side by side with the gap in days; the report never says one followed from the other. The window is the reader's setting (`window_days`), and with none set every gap is shown.",
   "A registered office an accountant, a lawyer or a formation agent keeps, and any office fifty or more companies share, is a hub: a company met there is listed as sharing an office and means nothing on its own. A liquidated company's registered office is usually its liquidator's, so a shared office with a failed company is never compared across the failure.",
   "A mortgagee's entry into possession is read where the Gazette names the company that mortgaged the property; a person mortgagor's name and the property stay in the gazette lane's private tables, and no address is shown.",
   "The entity is the row the report starts from and the rows a rule confirms are the same. A row that only shares the name is a namesake, set apart with its reason.",
   "A company's registered office is shown as the companies file states it. No residential address is held in any view read.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
 ]
+
+# ── the reader's settings ───────────────────────────────────────────────────
+# No default: ruling 65 makes the window the reader's, and none is the
+# template's. A value that is not a whole number of days reaches the rule as
+# the text given, and the flag says no cut is applied.
+[[params]]
+name = "window_days"
+kind = "integer"
+means = "days either side of a failure's Gazette date within which a going company is set beside it; not set: every gap is shown"
 
 # ── what it reads: each view with its licence ───────────────────────────────
 # Asked for and not yet named (the catalogue does not know them; carded):

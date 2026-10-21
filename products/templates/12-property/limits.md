@@ -21,11 +21,10 @@ the gap in days. `earlier-failure` sets each failure beside the entity's
 own start.
 
 - **The window is the reader's** (ruling 65, as the construction template
-  reads it): `window_days` on the report, days either side of the failure.
-  The shape carries no such parameter yet
-  (`the-report-carries-no-template-parameters`, construction-2), so no cut
-  is applied and every gap is shown, nearest first, with how many fall
-  within 90 and 365 days.
+  reads it): `window_days`, a parameter the template declares, days
+  either side of the failure (`--set window_days=365`,
+  `?window_days=365`). With none set no cut is applied and every gap is
+  shown, nearest first, with how many fall within 90 and 365 days.
 - **Severity.** Red only on a person's own confirmed companies with two or
   more insolvencies and the person no hub. Through a director (from a
   company) a director's other company is the director's connection, near,
