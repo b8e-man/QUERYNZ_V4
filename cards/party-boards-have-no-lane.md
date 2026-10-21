@@ -19,3 +19,5 @@ Site-2 (2026-10-20): unchanged; the party page's `board` and the person page's `
 2026-10-20T0620, rebuilt in scratch: 123 differences. Still needs: Arthur's ruling (queue: which-frozen-sections-belong-in-the-follow-the-money-
 template, boards among the sections the recommendation would move), and a boards lane if ruled in; the capture is held. Owner: site (the
 template), then a boards lane.
+
+Ruling 72 (21 October): "build the declared anchor tier but dont deploy to the site". A lane reads the held capture, the tier the party itself declares, no fetch; nothing on the site and nothing into the links until Arthur rules. Briefed as `party-boards-1`. Owner: that lane.

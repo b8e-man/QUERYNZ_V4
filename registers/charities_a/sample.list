@@ -1,0 +1,42 @@
+# registers/charities_a/sample.list: hashes and key: lines only. Pages of the Charities Register's feed landed by the
+# capture lane (registers/charities) on 20 and 21 October 2026. The fill keeps the charities named by the key: lines,
+# their officers and returns on the pages listed, the groups whole, and the code lists.
+# the feed's metadata (every entity set, its key and fields); not a JSON page, listed for the shape only
+4c6044da8e6750d6f1bc015e7b586776b8aa4566e7ce9b207deed9a4f1f23e8b
+# the code lists
+28a5fcaaa0bf261b75f7b72c8b667fa9f8582e80d200e89cc5093329be2ecc6d LegalStructure
+7893020712750726484e09c6419b0d1159304fb1f84dd234620aba27b8f7dee8 ReportingTier
+eb031491a4078f41223e7f01ced33219cbd61040e36bc92e81ecec9a94700313 ReportingCurrency
+096cd46a0a021f648663c6d40d979d84451ad0592bcb43425113fda6b353ecbb OfficerStatus
+1884789d4e0f12220c8ecb55982a6124a91ba0fbcb40f57bc8039fd963a82ab5 RegistrationStatus
+c105e70f0effc5b22a8f9dea9b0d04987d33385b7aff7acd9076e0e2ee2ebdaa AuditModifiedOpinionReceived
+9bf904be2936b202967c68982a74149f4f4047b9e07dfe6f99ef285e5541eda1 MainActivity
+a1fa974d895818f76a5137d641e7c12c653615b77130a06e9886cf9015c858fc MainSector
+65e26b893fa9753f2652646e6e95f4768ca0fd8cec1d058034a67d75ead05db3 MainBeneficiary
+2757bd7a9da05d98a4db116340378eecf71b7a91bb00fe97ee5437db5695c5ef AreaOfOperations
+# Groups, the whole set in one page (357 rows)
+610afd8fbcd60229e01373d412bae03d12923c2e33e8e37551d76e369e85b0db Groups
+# Organisations pages 9, 40, 41, 42 and 47 of the full pass of 20 October, and the same pages of vOrganisations
+36da2fd5897d5d52e8a7a842e5c05bb3732dd56e644477bf0f4f76b80a1093e7 Organisations page 9
+9912e4765fc8f3474610b44230316b046984f3b134f88f4af2fe2524a1b2abae Organisations page 40 (holds five rows with no charity number)
+a4dd93ad30d05f66d2b49e5b20ff9e8e95a831e85d806856f683ac7aa7da5ca0 Organisations page 41
+1e1e50fe00126fbaf5442eb8cce913749cb62567e45820b5d9dc22bcc4894c06 Organisations page 42
+2f26c93a72a43799d86bb9539569f4bf28b82835a471689f4a3c547be0fd3457 Organisations page 47 (the last; one number held by two rows)
+4c5e0f96a7d44f3e48429210efdcb9738946a1fd468dd478e7f7d41fc453207b vOrganisations page 9
+b9da0ad2022442e4adbb7830d7c4ff14d12e103ae4826eacc02cb074d4a74747 vOrganisations page 40
+dd0e24d9c3b3ce46ec1b42b1c64414080ec79b791ea8205d2f2292ae1cc1e7b3 vOrganisations page 41
+babba8263ceea8d94bd523b7798c7030d92cc6e6fc7bd4ce8135455a9a2bcf58 vOrganisations page 42
+d3741ba4598ca8205a559ad4f5d27c669e5912b5e41fa2358eb3e5d46cb0e2ea vOrganisations page 47
+# Officers page 1 of the full pass (three Disqualified officers among its 1,000 rows)
+e241faa732b2f13d69dc960137e2547658f252178ff1fefa2e5cb3fea565a127 Officers page 1
+# AnnualReturn page 431 of the full pass (the last: 522 rows, tiers 1 to 4, modified audit opinions, four group returns)
+eb3a67e2f528ab93cd40dd909d6f3cc38f015cbf6179f52817c7fd2832bbe506 AnnualReturn page 431
+# the charities kept
+key: CC60542
+key: CC59945
+key: CC59877
+key: CC65228
+key: CC36145
+key: CC59003
+key: CC59008
+key: CC59186

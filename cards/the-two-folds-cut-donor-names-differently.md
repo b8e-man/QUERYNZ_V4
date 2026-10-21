@@ -22,3 +22,5 @@ coupled names ("A & B Surname") as a class. Owner: site (the fold).
 Accepted (site-2, 2026-10-20): ruling 253; the template's `settled.donor_page_key` and `settled.donor_display_name` say the rebuilt rule and why.
 Measured against the frozen 2026-10-20T0620, rebuilt in scratch: 205 differences, unchanged. Waits on Arthur only for the coupled names
 ("A & B Surname") as a class, if he wants them looked at.
+
+Ruling 73 (21 October): one row where the Commission files the names together, joined by the links to each person named in it. A fix session on links and keys does the joining.

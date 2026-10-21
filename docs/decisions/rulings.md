@@ -74,7 +74,7 @@ Each answer from Arthur, with the date and his words. Rulings 1 to 54 are from t
 
 54) The new estate is kept quick to work on: three weights of session, a budget on required reading, nothing that grows read whole, two tiers of checks on a sample database, registers that rebuild in parts, data questions answered from the published tables, and the wait measured ("Keeping the work quick").
 
-**Old rulings this plan still relies on,** by their number in `docs/records/DECISIONS.md`: 172 (no text to a cloud model), 203 (Papers Past is a search corpus), 217 (busy address), 220 (the watch on links; its "on Arthur's word" is replaced by ruling 41), 221 (the two confirming rules), 253 (ownership is a note), 193, 277 and 357 (the return is the record), 321 (fyi.org.nz), 333 and 347 (2019 onward), 349 (a renamed party), 351 and 356 (seven parties), 355 (no press row), 361 (a race is every year since the election before it, cut at the window; it replaced 358 on 16 October), 360 (for telling a person's name from an organisation's, the director register is the authority for given names).
+**Old rulings this plan still relies on,** by their number in `docs/records/DECISIONS.md`: 172 (no text to a cloud model), 203 (Papers Past is a search corpus), 217 (busy address), 220 (the watch on links; its "on Arthur's word" is replaced by ruling 41), 221 (the two confirming rules), 253 (ownership is a note), 193, 277 and 357 (the return is the record), 321 (fyi.org.nz), 333 and 347 (2019 onward; superseded on the window by 364 and ruling 71: calendar 2017 onward), 349 (a renamed party), 351 and 356 (seven parties), 355 (no press row), 361 (a race is every year since the election before it, cut at the window; it replaced 358 on 16 October), 360 (for telling a person's name from an organisation's, the director register is the authority for given names).
 
 ## From 55
 
@@ -99,3 +99,89 @@ Each answer from Arthur, with the date and his words. Rulings 1 to 54 are from t
 62. Arthur, 20 October, 14:30: "let's delay the document reading until everything is built. We need some sample data but not the full tranches." The page-reader jobs (`qv4-read-pages*`, the re-reads) are not queued in bulk until the plan's build is done; a lane that needs readings works from the sample the store already holds and sets the rest aside with hashes and pages, so the queue is one command when the time comes. `qv4-read-pages-candidates` (row 130, 713 pieces) was cancelled at 14:30 with 60 of its 713 returns read; those stay as the sample. Step 3's halt (ruling 60) stands with it.
 
 **21 October.** 63. Arthur, 21 October, 08:15: "let's hold 6 until the end", corrected at 08:30: "I miss typed. i meant step 7"; after step 6 was explained to him, "step 6 can go back as it was". Step 7 (archive search) is held until the end of the plan; step 6 (register scans) keeps its place after step 5. The briefs are ordered step 5 to its close, then step 6, then step 7.
+
+64. Arthur, 21 October, about 12:45, through the integrator's side chat, on
+the queue item `whether-a-charity-s-address-for-service-is-shown-when-it-may-be-a-trustee-s-home`:
+"1. keep. We will decide to withhold before we have customers." The default
+stands: a charity's address for service is shown where the charity is a
+body corporate (an incorporated society, a company, a trust board
+incorporated under the Charitable Trusts Act) and withheld for the rest
+(20,031 of 45,895 on the 21 October copy, 16,507 of them for filing no
+legal structure); the final withholding rule is decided before there are
+customers, with the legal review (ruling 61). Built so by `charities-3`;
+the queue item closes.
+
+65. Arthur, 21 October, about 12:50, on template 7's phoenix window (365
+days either side of the failure; the old estate used 90 days after): "2.
+for this we want the window to be user configurable, so flag all companies
+with shared people or offices." The template flags every company that
+shares a person or a registered office with the subject and carries a
+failure notice, whatever the gap, showing the gap in days; the window is
+the reader's parameter, no cut until set. Built by `construction-2`.
+
+66. Arthur, 21 October, about 13:00, on Part A rounding (a candidate
+return's parts against its printed total; the default made a one-cent
+difference a set-aside): "4. anything under $100 is considered reconciled
+but flaggd as having an issue. anything over $100 is considred
+unreconciled. this applies accross political donation documents as
+doctrine." Doctrine for every political-donation document (candidate
+returns, party returns, disclosures, party finance): a difference under
+$100 between a document's parts and its printed total is reconciled and the
+row carries an issue flag; $100 or more is unreconciled. Lane work in the
+four lanes, briefed as `reconciliation-1`.
+
+67. Arthur, 21 October, about 13:10, on the queue item
+`may-the-gazette-lane-read-notices-that-name-people-for-conduct`: "5.
+keep". The default stands: vehicle confiscation orders and professional
+disciplinary findings stay typed and unread in `pub.gazette_notices`, and
+no person is published from them. The queue item closes.
+
+68. Arthur, 21 October, about 13:15, on the queue item
+`which-frozen-sections-belong-in-the-follow-the-money-template`: "6. I dont
+understand but keep all the sections of course, I dont know why you would
+ask". Every section of the frozen site's pages belongs in the Follow the
+Money template; the comparison keeps counting a missing section as the new
+side short until the template carries it. Not to be asked again. The queue
+item closes.
+
+69. Arthur, 21 October, about 13:20, on the queue item
+`may-the-review-agent-s-splits-be-applied`: "8. we will review at the end.
+Keep as a card for after the build". The switch stays off; the agent's
+verdicts are recorded and applied by nobody; the question is a card for
+after the build (`cards/the-review-agent-s-splits-are-ruled-on-after-the-build.md`).
+The queue item closes.
+
+70. Arthur, 21 October, about 13:25, on the card
+`act-new-zealand-2026-a-declaration-filed-after-the-lane-s-capture` (the
+disclosures lane's copy of the Commission's table is one declaration behind
+the frozen site): "9. keep". The gap stands until the switch; no nightly
+capture of the Commission's table is added before it (step 4.8 unchanged).
+The card closes as accepted.
+
+71. Arthur, 21 October, about 13:30, on the queue item
+`the-template-s-window-2017-or-2019`: "7. no we changed it to 2017". The
+Follow the Money window is calendar 2017 onward, whole, as ruling 364 says
+and as the template's `settings.window_from` holds; old ruling 347's 2019
+is superseded on the window. The queue item closes on its default.
+
+72. Arthur, 21 October, about 13:40, on party boards (card
+`party-boards-have-no-lane`): "8. buikld the declared anbchor tier but dont
+deploy to the site". A party-boards lane is built from the held
+party-website capture (1,061 files, no fetch), the tier the party itself
+declares; it is not published on the Follow the Money site and does not
+enter the links until he rules; the party page's board stays "not held".
+Briefed as `party-boards-1`.
+
+73. Arthur, 21 October, about 13:45, on coupled donor names such as "A & B
+Surname" (card `the-two-folds-cut-donor-names-differently`): "9. one row
+where the EC files them together. they are in effect a single entity but
+joined to each of the individual entities". The donor row stays one row as
+the Commission filed it (ruling 253 unchanged); the links join that coupled
+donor to each person named in it, so each person's page shows the coupled
+donation and the donor page stays one. A fix session on links and keys.
+
+74. Arthur, 21 October, about 13:50, on the Stats NZ service key for the
+2025 electorate boundaries (card `stats-nz-2025-electorates-need-arthur-s-key`;
+queue item `the-key-for-electorate-boundary-shapes`): "11 not wanted". No
+Stats NZ key; `pub.electorates` keeps the 71 for 2026 with `join_basis`
+"boundary set not held"; the card closes and the key leaves the queue item.
