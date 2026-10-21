@@ -45,6 +45,7 @@ class View:
     amount: str = ""            # the money column
     statement: str = ""         # the sentence, with {title} {role} {entity} {amount} {year} {party}
     note: str = ""              # a line every item of this view carries
+    row_note: str = ""          # a column whose value, when filled, is the item's note (a name field the lane withheld, and why)
     key_col: str = "key"
 
 
@@ -77,6 +78,20 @@ VIEWS: tuple = (
       start="started_on", end="ended_on", period=("first_read_on", "last_read_on"), entity=("societies", "society_key"),
       role="role_type", statement="{title}: {role} of {entity} ({role_status})",
       note="a role the register stopped listing keeps its last day read; it is never given an end the register did not state"),
+    # ── charities (the register's own open data; its officers and returns sit on the charity) ──
+    V("charities", "charities", "organisation", ("name",), names=("name",),
+      start="registered_on", end="deregistered_on", statement="{title}: registered charity {number}, {status}; {legal_structure}",
+      note="as the Charities Register's feed states it; the address for service is never read here; the charity's business number joins it to its "
+           "companies-register row"),
+    V("charity_officers", "charities", "person", ("full_name",), names=("full_name", "first_name", "middle_name", "last_name"), suppressed="suppressed",
+      start="started_on", end="ended_on", entity=("charities", "charity_key"), role="role", row_note="name_note",
+      statement="{title}: {role} of {entity} ({status}; disqualified as the register states it: {disqualified})",
+      note="an officer as the register's feed names them, a role and its dates; no address, birth date or contact is held in the view"),
+    V("charity_returns", "charities", "figure", ("period_end", "tier"), on="period_end", on_label="period to", amount="total_gross_income",
+      entity=("charities", "charity_key"),
+      statement="{entity}: annual return, {tier}: gross income {amount}, expenditure {total_expenditure}, net surplus {net_surplus}, "
+                "total assets {total_assets}, total liabilities {total_liabilities}, total equity {total_equity}; audited {audited}; opinion {opinion}",
+      note="the figures as filed in the return, under the ruling of 14 August 2026; a blank is a field the return did not fill"),
     # ── party returns ───────────────────────────────────────────────────────
     V("party_return_totals", "party_returns", "figure", ("party", "year"), year="year", amount="declared_total",
       statement="{party} return for {year}: declared total {amount}",
@@ -161,6 +176,7 @@ REGISTERS = (
     ("candidate_returns", "Candidate donation and expense returns"),
     ("companies", "Companies, directors and shareholders"),
     ("societies", "Incorporated societies and their officers"),
+    ("charities", "Charities register, officers and annual returns"),
     ("gazette", "Gazette notices"),
     ("house", "Candidates and the House"),
     ("mp_interests", "MPs' declared interests"),
@@ -173,7 +189,6 @@ REGISTER_NAME = dict(REGISTERS)
 #: registers the plan names that no lane has published yet (step 4.1 and step 5.3), and the registers the
 #: templates must say they cannot see: one list, each with the key a template's section cites in `not_held`
 NOT_HELD = (
-    ("charities", "Charities register and officers"),
     ("courts", "Court judgments"),
     ("tribunals", "Tribunal decisions (employment, tenancy, environment, coroners)"),
     ("disciplinary", "Disciplinary tribunals' findings (lawyers, conveyancers, the other professional bodies)"),
@@ -197,8 +212,21 @@ NOT_HELD = (
     ("regulators", "Commerce Commission and Financial Markets Authority actions"),
     ("mpi", "Ministry for Primary Industries prosecutions and animal-tracing enforcement"),
     ("fire", "Fire and Emergency New Zealand notices"),
+    # the registers a health regulator keeps (healthcare-1)
+    ("retirement_villages", "The retirement villages file: each village's operator and statutory supervisor"),
+    ("hdc", "Health and Disability Commissioner decisions"),
+    ("certification", "Certification audits of rest homes and hospitals"),
+    ("health_providers", "The Ministry of Health's provider registers"),
+    ("aged_care_commissioner", "The Aged Care Commissioner's reports"),
+    # the registers a property developer check names (property-1); the Real Estate Authority lane captures and publishes no view yet
+    ("oio", "Overseas Investment Office decisions"),
+    ("building_consents", "Building consents, code compliance certificates and council minutes"),
+    ("rea", "Real Estate Authority decisions"),
 )
 NOT_HELD_NAME = dict(NOT_HELD)
+#: not-held keys a template may still cite for a register a lane has since published: {old key: the register}. A template naming one
+#: loads, the key is dropped from its section's blank, and the report says the register is published and the template does not read it
+SUPERSEDED_NOT_HELD = {"charities": "charities"}
 
 #: what links/ publishes; read through walk, never as a register view
 LINKS_VIEWS = frozenset({"links", "groups", "decisions", "names", "old_decisions"})
@@ -222,6 +250,8 @@ def columns_read(v: View) -> set:
         out.add(v.hide_names[0])
     if v.entity:
         out.add(v.entity[1])
+    if v.row_note:
+        out.add(v.row_note)
     return out
 
 

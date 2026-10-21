@@ -46,6 +46,13 @@ LANES = (
     "party_finance", "house", "mp_interests", "expenses", "gazette", "societies",
     "hansard", "linz", "tenders", "papers_past",
     "tenancy_tribunal", "real_estate_authority",   # track E, the windowed sources (18 October 2026)
+    "party_boards",   # the declared tier, built not deployed (ruling 72, 21 October 2026)
+    "openlaw",   # step 5.4, held on the interface's terms (openlaw-1, 21 October 2026)
+    "courts",   # step 5.4, the senior courts' judgments (courts-1, 21 October 2026)
+    "limited_partnerships", "building_practitioners", "sanctions",   # step 5.3 (sanctions-1, 21 October 2026)
+    "commerce_commission", "fma", "worksafe",   # step 5.3, the regulator actions (regulators-1, 21 October 2026)
+    "overseas_investment",   # step 5.3, the overseas investment decisions (oio-1, 21 October 2026)
+    "hdc_decisions",   # step 5.3, held on the Commissioner's copyright terms (hdc-1, 21 October 2026)
 )
 PRODUCTS = ("ftm", "subject_report", "register_scan", "archive_search", "board")
 FIXED = ("pub", "links", "links_private", "docs", "sealed", "scheduler")

@@ -20,7 +20,8 @@ NOT_STATED = "not stated"
 UNDATED = "undated"
 PIXELS = "read from pixels: weaker evidence"
 MONEY = {"amount", "amount_original", "declared_total", "donations", "expenses", "loans", "part_a", "part_c", "part_d",
-         "part_f", "part_g", "loans_h", "loans_i", "loans_total", "items_sum", "form_total", "total", "figure"}
+         "part_f", "part_g", "loans_h", "loans_i", "loans_total", "items_sum", "form_total", "total", "figure",
+         "total_gross_income", "total_expenditure", "net_surplus", "total_assets", "total_liabilities", "total_equity"}
 
 
 # ── refs ────────────────────────────────────────────────────────────────────

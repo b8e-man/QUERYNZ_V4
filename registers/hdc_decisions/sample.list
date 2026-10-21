@@ -1,0 +1,35 @@
+# registers/hdc_decisions/sample.list: hashes and key: lines only. Landed 21 October 2026 through the fetch gate, into
+# the sample database (a daytime proof and the profiling before it: 36 requests and one robots read, 5 s apart; a research copy under the
+# Commissioner's copyright 3.1).
+# The documents about the source (not read as pages): copyright; terms and conditions; privacy statement; the naming
+# policy page; the naming policy (PDF, June 2023)
+d9686c4ae3ed3bd574ec688022b64985b4b2f04a30a8ad9774ca78d663f365bf
+0e1f55e154f0b90c738e5b32e4003f1981ea1c27b12455cfb057464a40427c54
+b2d6046ef0fb16228103ed5c63923545dd33e0ee8c59b8864524a8a6b5391961
+2ca9912d0f47379f733ba92b9a1b576b33105e1a71587bbd1cd558ef942e69a1
+3d61c4272f815e6dc75db55a0aa31bd22e9be2e2097df2c54276ef12ad238b19
+# listing pages: 2017's first (Page 1 of 5, twelve tiles) and last (one tile); the unfiltered listing's last page
+# (Page 168 of 168, 1998); the case studies (one page, twenty tiles)
+key: listing decisions-2017 5a250e1694e047cd0885edd33b176a85c8d0f1860e0530b4cae943d44f0d319f
+key: listing decisions-2017 0d3891997cb64a8d8a516dbbb95c44ce05ecbd6f895c9bf411b5d91b331308bd
+key: listing all c126a84592ca0653f2b5229bec9d653729d9e1ed68e9e43d2e579feb4522ac85
+key: listing case-studies b65f72dceb1e3a9c47909199542753456e9afb5ac2affa939f14f5464d988f52
+# pages, `key: item <list> <sha256>` (the slug is the page's own address, from the store). 2017: a DHB not named, an
+# obstetrician as a role; three DHBs on one heading split at its line breaks, a joint finding about two of them; a
+# company and ACC named in the notice, a generic disability provider. 2019: a generic disability service and a
+# support worker; a joint decision of two file numbers naming Waikato DHB. 2021: a pharmacy not named; a GP with no
+# finding headings. 2023: Southern DHB / Te Whatu Ora Southern named with a slash and a bar, dated 2024; a surgeon
+# breaching three rights. 2026: the new layout, the provider named by definition (UCO) and the advice header. Case
+# studies: one naming Health NZ by definition, one stating a file number.
+key: item decisions-2017 4b90211d73068b63f9adaf4e4dacec13d5524a5fe48c8cb83e43fc1d19c0769f
+key: item decisions-2017 f73a9f6934382a0e95151f57f9913f3043ed372778ebc841079ebfc39912ea6c
+key: item decisions-2017 4f774af8f2b239ba7de7076e1b2de49cc0ee4ee0f42e0230607efc09a999276b
+key: item decisions-2019 80fa0762dfb1d32973a98bd33c2bb22fd8fe5e6efbdb4fb5c294f57294116472
+key: item decisions-2019 1d1faa1e2797b24b34b536eaef1352256271876ebb7ef4bc1e55bcf69cf816e0
+key: item decisions-2021 d929aeace65b6dbbc6f1611471160bd022176c9dc4a6ece27d99c53fa2093ca5
+key: item decisions-2021 d018a6a968140f9ede7d6d47cd70f12f26e26a15155ebe0ad6618f9d519091b2
+key: item decisions-2023 8956ff7b03367469e23489e944c759ef9d0f40974a4032d3dcc6ed9d25572bd4
+key: item decisions-2023 e103e7568734bd091738905c338c7a8fe88431c353c02fd5aeee2a4a2f1290f1
+key: item decisions-2026 1f788b1734f4c6534c36d7df4639c557a6cf35bbc520155ee5c02ba559331f09
+key: item case-studies 5f739104e0b758cc1c97ac2570559daca696c061b1f22fdde8bc281163f029bc
+key: item case-studies abef9de92c6e448d6dd7d60282d9dd2afcfd6a3ae1a587a5aaec66aeb6c70400
