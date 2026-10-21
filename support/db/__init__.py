@@ -49,6 +49,7 @@ LANES = (
     "party_boards",   # the declared tier, built not deployed (ruling 72, 21 October 2026)
     "openlaw",   # step 5.4, held on the interface's terms (openlaw-1, 21 October 2026)
     "courts",   # step 5.4, the senior courts' judgments (courts-1, 21 October 2026)
+    "limited_partnerships", "building_practitioners", "sanctions",   # step 5.3 (sanctions-1, 21 October 2026)
 )
 PRODUCTS = ("ftm", "subject_report", "register_scan", "archive_search", "board")
 FIXED = ("pub", "links", "links_private", "docs", "sealed", "scheduler")
