@@ -92,6 +92,7 @@ FLOORS = {
     "www.comcom.govt.nz": 5.0,
     "www.fma.govt.nz": 5.0,
     "www.worksafe.govt.nz": 5.0,
+    "www.linz.govt.nz": 5.0,   # the overseas investment decisions (oio-1, 21 October)
 }
 
 

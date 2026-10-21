@@ -131,6 +131,23 @@ def listing(conn, schema: str = SCHEMA) -> list:
     return out
 
 
+def load(conn, schema: str, log=print) -> int:
+    """The merge gate's staging step (support/staging): the newest finished pass of each year's listing, read under
+    `schema`; with no finished pass the tables are made empty. Problems the reading's check finds are logged, as the
+    job logs them. Added by the integrator at the merge of oio-1."""
+    from registers.overseas_investment import check
+    listed = listing(conn)
+    if not listed:
+        create_tables(conn, schema)
+        log(f"{SCHEMA}: no finished pass of any year's listing is held; nothing read into {schema}")
+        return 0
+    counts = build(conn, schema, listed)
+    problems = check.reading(conn, schema)
+    log(f"{SCHEMA}: {counts['decisions']} decisions, {counts['parties']} parties, {counts['set_aside']} set aside, "
+        f"{counts['not_captured']} not captured into {schema}; " + ("; ".join(problems) or "reconciles"))
+    return counts["decisions"] + counts["parties"]
+
+
 def publish(conn, staging: str, log=print) -> None:
     with conn.transaction():
         create_tables(conn, SCHEMA)
