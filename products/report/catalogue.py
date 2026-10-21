@@ -38,7 +38,9 @@ class View:
     published: str = ""         # the day the notice was published, printed beside; dates the row when nothing else does
     year: str = ""              # a year column, when that is all the dating a row has
     period: tuple = ()          # (first_file, last_file): the files the row was seen in, when nothing else dates it
+    as_in: str = ""             # a column naming the monthly file whose state the row is: dated "as in the file …"
     entity: tuple = ()          # (view, column): the row of another view this row sits on
+    entity_col: str = ""        # the parent's column that `entity` joins, when not its key (a notice number)
     role: str = ""              # the column naming the role
     amount: str = ""            # the money column
     statement: str = ""         # the sentence, with {title} {role} {entity} {amount} {year} {party}
@@ -64,6 +66,10 @@ VIEWS: tuple = (
       start="started_on", period=("", "last_file"), entity=("companies", "entity_key"), role="kind",
       statement="{entity}: {role} at {title}",
       note="a company's registered office; no residential address is held in any published table"),
+    V("company_states", "companies", "organisation", ("name",), names=("name",), as_in="file",
+      start="registered_on", end="removed_on", entity=("companies", "entity_key"), role="status",
+      statement="{title}: an earlier state of {entity}, {status} {entity_type}, as the file {file} carried it; a later file changed it",
+      note="the state a monthly file carried before a later file changed it; the day of the change is between the two files' cuts, which the lane does not publish"),
     # ── societies ───────────────────────────────────────────────────────────
     V("societies", "societies", "organisation", ("name",), names=("name",),
       start="registered_on", end="removed_on", statement="{title}: incorporated society, {status}"),
@@ -99,8 +105,15 @@ VIEWS: tuple = (
     V("gazette_company_notices", "gazette", "organisation", ("company", "kind"), names=("company",), on="event_on", on_basis="event_basis",
       filed="filed_on", published="published_on", entity=("companies", "register_key"), statement="{title}: {action}",
       note="an applicant is named only; the date says what it dates: a winding-up application's is the day it is to be heard, a removal's the last day for objections"),
+    V("gazette_possessions", "gazette", "event", ("mortgagee", "action"), names=("mortgagee", "mortgagor"), on="entered_on", on_label="entered",
+      published="published_on", entity=("companies", "mortgagor_register_key"), role="action",
+      statement="{title}, {asset}; mortgagor {mortgagor} ({mortgagor_kind}); {statute}",
+      note="a mortgagee's entry into possession as the Gazette states it; a person's name and the property stay in the lane's private tables, "
+           "and a company mortgagee or mortgagor is named with its register key"),
     V("gazette_liquidators", "gazette", "person", ("name", "role"), names=("name",), on="published_on",
-      role="role", statement="{title} named in a Gazette notice"),
+      entity=("gazette_liquidations", "notice"), entity_col="notice",
+      role="role", statement="{title} named in the Gazette notice on {entity}",
+      note="a practitioner is named as the notice names them, a business name and a role; never an address"),
     V("gazette_practitioners", "gazette", "person", ("name", "role"), names=("name",), on="published_on",
       role="role", statement="{title} named in a Gazette notice"),
     V("gazette_prohibitions", "gazette", "person", ("name", "action"), names=("name", "also_known_as"),
@@ -157,18 +170,33 @@ REGISTERS = (
 )
 REGISTER_NAME = dict(REGISTERS)
 
-#: registers the plan names that no lane has published yet (step 4.1 and step 5.3)
+#: registers the plan names that no lane has published yet (step 4.1 and step 5.3), and the registers the
+#: templates must say they cannot see: one list, each with the key a template's section cites in `not_held`
 NOT_HELD = (
     ("charities", "Charities register and officers"),
     ("courts", "Court judgments"),
+    ("tribunals", "Tribunal decisions (employment, tenancy, environment, coroners)"),
+    ("disciplinary", "Disciplinary tribunals' findings (lawyers, conveyancers, the other professional bodies)"),
+    ("disputes", "Disputes Tribunal decisions"),
+    ("employment", "Employment Relations Authority determinations"),
     ("insolvency", "The Insolvency Register"),
     ("securities", "The Personal Property Securities Register"),
     ("fsp", "Financial service providers"),
     ("linz", "LINZ titles"),
     ("tenders", "Tenders and awards"),
     ("sanctions", "Sanctions lists"),
-    ("limited_partnerships", "Limited partnerships register"),
+    ("limited_partnerships", "Limited partnerships' partners (the partnerships themselves are rows of the companies register)"),
     ("building_practitioners", "Licensed building practitioners"),
+    ("overseas", "Overseas company registers"),
+    ("trusts", "Trusts: no New Zealand register exists"),
+    ("unincorporated", "Sole traders, general partnerships and other business-number entities outside the companies file"),
+    ("company_history", "The companies change history before 16 August 2026"),
+    ("nzbn_interface", "The business-number interface, between monthly files (step 5.5)"),
+    ("credit_bureau", "Credit-bureau defaults and payment records"),
+    ("worksafe", "WorkSafe prosecutions and enforceable undertakings"),
+    ("regulators", "Commerce Commission and Financial Markets Authority actions"),
+    ("mpi", "Ministry for Primary Industries prosecutions and animal-tracing enforcement"),
+    ("fire", "Fire and Emergency New Zealand notices"),
 )
 NOT_HELD_NAME = dict(NOT_HELD)
 
@@ -188,6 +216,8 @@ def columns_read(v: View) -> set:
         if c:
             out.add(c)
     out |= {c for c in v.period if c}
+    if v.as_in:
+        out.add(v.as_in)
     if v.hide_names:
         out.add(v.hide_names[0])
     if v.entity:

@@ -27,3 +27,5 @@ statements have them under v1; the rest need a page-reader job), measured
 the same way. The reader's line parser expects layout columns; a stored
 reading's tables come as markdown or plain lines, so it needs its own
 tokeniser and the same two checks.
+
+reconcile-1 (21 October, ruling 66): the arithmetic set-aside is now one, NZ Loyal 2024 ($80,354.02 out); Aotearoa Legalise Cannabis 2024 is reconciled with issue `-0.21`.

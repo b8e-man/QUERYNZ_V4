@@ -1,9 +1,10 @@
 # The catalogue's not-held list has no key for employment determinations or the companies change history
 kind: finding
-state: open
+state: closed
 use-case: 7 construction; also 5, 6
 session: construction-1
 opened: 2026-10-21
+closed: 2026-10-21
 
 A template may name only `catalogue.NOT_HELD` keys in a section's
 `not_held`. Use case 7 must say that the Employment Relations Authority's
@@ -14,3 +15,11 @@ section text and in the flags `employment-determinations` and
 `change-history`. For the report lane: add `employment` ("Employment
 Relations Authority determinations") and `company_history` ("The companies
 change history"), beside the keys `the-not-held-list-lacks-disciplinary-findings-and-tribunals` asks for.
+
+Closed 2026-10-21 by the report session (report-3). `employment`
+("Employment Relations Authority determinations") and `company_history`
+("The companies change history before 16 August 2026") are in
+`catalogue.NOT_HELD` (the insurance card asked for the same under
+`change_history`; one key, `company_history`, serves the three cards that
+asked). The construction template names them in its sections' `not_held`
+(a fix in its folder).

@@ -109,6 +109,7 @@ def dates(v: cat.View, r: dict) -> dict:
     filed = r.get(v.filed) if v.filed else None
     published = r.get(v.published) if v.published else None
     period = tuple(r.get(c) if c else None for c in v.period) if v.period else ()
+    as_in = r.get(v.as_in) if v.as_in else None
     bits = []
     if start:
         bits.append(f"from {fmt_date(start)}")
@@ -127,7 +128,9 @@ def dates(v: cat.View, r: dict) -> dict:
         bits.append(f"filed {fmt_date(filed)}")
     if published:
         bits.append(f"published {fmt_date(published)}")
-    undated = not (start or end or on or year or filed or published)
+    if as_in:
+        bits.append(f"as in the file {as_in}")
+    undated = not (start or end or on or year or filed or published or as_in)
     if undated:
         bits.append(UNDATED)
     if period and any(period) and undated:
@@ -138,8 +141,8 @@ def dates(v: cat.View, r: dict) -> dict:
             bits.append(f"last seen in the file {fmt(b)}")
         elif a:
             bits.append(f"first seen in the file {fmt(a)}")
-    return {"start": start, "end": end, "on": on, "year": year, "filed": filed, "published": published, "period": period, "undated": undated,
-            "text": "; ".join(bits)}
+    return {"start": start, "end": end, "on": on, "year": year, "filed": filed, "published": published, "period": period, "as_in": as_in,
+            "undated": undated, "text": "; ".join(bits)}
 
 
 # ── the citation ────────────────────────────────────────────────────────────
@@ -245,12 +248,19 @@ def locate(conn, ref: str) -> tuple:
 
 
 def entity_of(conn, v: cat.View, r: dict) -> tuple:
-    """The row this row sits on (a role's company, a donation's return), or (None, None)."""
+    """The row this row sits on (a role's company, a donation's return, a
+    practitioner's notice), or (None, None). The join is on the parent's key
+    unless the view names another column (`entity_col`: a notice number, which
+    several company rows of one notice share; the first is taken)."""
     if not v.entity:
         return None, None
     ev, col = v.entity
     key = r.get(col)
     if not key:
         return None, None
-    e = row(conn, ev, key)
+    if v.entity_col and v.entity_col != cat.BY_NAME[ev].key_col:
+        got = rows_where(conn, ev, v.entity_col, key, 1)[1]
+        e = got[0] if got else None
+    else:
+        e = row(conn, ev, key)
     return (cat.BY_NAME[ev], e) if e else (None, None)

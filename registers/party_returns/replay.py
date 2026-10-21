@@ -82,8 +82,10 @@ def run(out_path: str, store_dir: str, files=None, parties=None) -> dict:
         if r.row:
             f_ = r.row["filed"]
             row = {k: f_.get(k) for k in ("party", "party_key", "party_label", "party_basis", "year", "declared_total", "part_a",
-                                          "donors_check", "loans_check")}
+                                          "donors_check", "loans_check", "issue")}
         out[sha] = {"path": os.path.relpath(path, capture.FOLDER), "row": row,
+                    "issues": {"A": next((d["issue"] for d in r.donors if d.get("issue")), None),
+                               "H": next((x["issue"] for x in r.loans if x.get("issue")), None)},
                     "donors": [[d["name"], d["amount"], d["page"], d["paired_by"]] for d in r.donors],
                     "loans": [[x["name"], x["amount"]] for x in r.loans], "set_aside": r.set_aside}
     with open(out_path, "w", encoding="utf-8") as f:
@@ -96,7 +98,10 @@ def counts(d: dict) -> dict:
     return {"rows": sum(1 for v in d.values() if v["row"]), "published": len(pub),
             "donor_rows": sum(len(d[s]["donors"]) for s in pub),
             "nil": sum(1 for v in d.values() if v["row"] and v["row"]["donors_check"] == "declared-nil"),
-            "set_aside": sum(1 for v in d.values() if any(st == "part-a" for st, _ in v["set_aside"]))}
+            "set_aside": sum(1 for v in d.values() if any(st == "part-a" for st, _ in v["set_aside"])),
+            "issues": {"returns": sum(1 for v in d.values() if (v["row"] or {}).get("issue")),
+                       "A": sum(1 for v in d.values() if (v.get("issues") or {}).get("A")),
+                       "H": sum(1 for v in d.values() if (v.get("issues") or {}).get("H"))}}
 
 
 def compare(a: dict, b: dict) -> list:
@@ -116,6 +121,11 @@ def compare(a: dict, b: dict) -> list:
             out.append(f"{s[:12]} {tag(y)}: set aside {[t for t, _ in x['set_aside']]} -> {[t for t, _ in y['set_aside']]}")
         if x["loans"] != y["loans"]:
             out.append(f"{s[:12]} {tag(y)}: Part H rows {len(x['loans'])} -> {len(y['loans'])}")
+        xi = {"row": (x["row"] or {}).get("issue"), **(x.get("issues") or {})}
+        yi = {"row": (y["row"] or {}).get("issue"), **(y.get("issues") or {})}
+        for k in ("row", "A", "H"):
+            if xi.get(k) != yi.get(k):
+                out.append(f"{s[:12]} {tag(y)}: issue ({k}) {xi.get(k)!r} -> {yi.get(k)!r}")
         if (x["row"] or {}).get("party") != (y["row"] or {}).get("party"):
             out.append(f"{s[:12]} {tag(y)}: party {(x['row'] or {}).get('party')!r} -> {(y['row'] or {}).get('party')!r} "
                        f"({(y['row'] or {}).get('party_basis')})")

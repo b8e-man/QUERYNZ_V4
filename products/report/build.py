@@ -1,19 +1,71 @@
 """The builder (plan 5.1): one row, one template, one report. It runs the
 walk over the template's views, fills each section from the walk's items
-(confirmed first, near after, each once), writes the blank a section with
-nothing says ("none found in …" naming the views read, or "not held: …"
-naming the register no lane has published), applies the template's rules,
-numbers every citation, and checks the finished report against the
-presentation rules (products.report.rules); the problems, if any, are
-carried in the report so a surface can refuse to print it."""
+(confirmed first, near after, each once; a section's own, status and
+changed filters applied, so a row one section leaves goes on to the next
+that names its view), writes the blank a section with nothing says ("none
+found in …" naming the views read, or "not held: …" naming the register
+no lane has published), applies the template's rules, numbers every
+citation, marks what is new since a date when one is given, and checks the
+finished report against the presentation rules (products.report.rules);
+the problems, if any, are carried in the report so a surface can refuse to
+print it."""
 from __future__ import annotations
 
 import datetime as dt
+import time
 
 from products.report import catalogue as cat
 from products.report import contract, rules, template as tpl, walk
 
 SECTION_ORDER_GRADE = {"confirmed": 0, "near": 1}
+FILE_VIEWS = frozenset({"directors", "shareholders", "company_addresses", "companies"})   # rows dated by the monthly files they were seen in
+_FILES = {"at": 0.0, "first": None, "last": None}
+FILES_TTL_S = 3600
+
+
+def files_held(conn) -> tuple:
+    """(first file, last file) the companies lane holds, read from pub.companies
+    once an hour: the lane publishes no list of its files
+    (`the-companies-lane-publishes-no-list-of-its-monthly-files`)."""
+    if time.monotonic() - _FILES["at"] > FILES_TTL_S or _FILES["first"] is None:
+        got = walk.db.rows(conn, "select min(first_file) as first, max(last_file) as last from pub.companies")
+        _FILES.update(at=time.monotonic(), first=(got[0]["first"] if got else None), last=(got[0]["last"] if got else None))
+    return _FILES["first"], _FILES["last"]
+
+
+def changed_in(it: dict, files: tuple) -> str | None:
+    """The file that first shows the change this row is, or None when the row
+    is no change: a row that arrived after the first file held, one that left
+    before the latest, or a company's earlier state."""
+    r = it.get("row") or {}
+    first, last = files
+    if it["view"] == "company_states":
+        return str(r.get("file") or "")
+    if it["view"] not in FILE_VIEWS:
+        return None
+    if r.get("first_file") and first and str(r["first_file"]) > str(first):
+        return str(r["first_file"])
+    if "in_latest" in r and not r.get("in_latest") and r.get("last_file"):
+        return str(r["last_file"])
+    return None
+
+
+def is_own(it: dict, ref: str, members: set) -> bool:
+    return it["ref"] == ref or it.get("via") in members or it.get("via") == ref
+
+
+def is_new(it: dict, since: dt.date | None):
+    """True when a date of the row is on or after `since`; False when every
+    date is before it; None when the row is undated, or dated only by a year
+    or by the files it was seen in, so it cannot say."""
+    if since is None:
+        return None
+    d = it.get("dates") or {}
+    when = [x for x in (d.get("start"), d.get("end"), d.get("on"), d.get("filed"), d.get("published")) if x]
+    when = [x.date() if isinstance(x, dt.datetime) else x for x in when]
+    if not when:
+        return None
+    return any(x >= since for x in when)
 
 
 def _bucket_items(w: dict, sources: tuple) -> list:
@@ -84,20 +136,39 @@ def apply_rules(report: dict, t: tpl.Template) -> list:
     return out
 
 
-def build(conn, ref: str, t: tpl.Template, held: set = None) -> dict:
+def _keeps(s: tpl.Section, it: dict, ref: str, members: set, files: tuple) -> bool:
+    """The section's own filters: own, statuses, changed."""
+    if s.own is not None and is_own(it, ref, members) != s.own:
+        return False
+    if s.statuses and "status" in (it.get("row") or {}) and cat.fold(str(it["row"].get("status") or "")) not in s.statuses:
+        return False
+    if s.changed:
+        when = changed_in(it, files)
+        if when is None:
+            return False
+        it["changed_in"] = when
+    return True
+
+
+def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | str | None = None) -> dict:
     """The report. `held`: the pub views present (for the blanks); read from
-    the connection when not given."""
+    the connection when not given. `since`: a date; every item dated on or
+    after it is marked new, one that cannot say is marked so, and a rule may
+    read `report["since"]`."""
     from products.report import db
     held = held if held is not None else db.pub_views(conn)
     allowed = {v for v in t.views if v in held}
+    if isinstance(since, str):
+        since = dt.date.fromisoformat(since.strip()) if since.strip() else None
     now = dt.datetime.now().astimezone()
     report = {"template": {"name": t.name, "title": t.title, "version": t.version, "owner": t.owner,
                            "reads": [{"view": r.view, "licence": r.licence, "attribution": r.attribution, "refresh": r.refresh} for r in t.reads]},
               "ref": ref, "as_of": now.date().isoformat(), "built_at": now.isoformat(timespec="seconds"),
+              "since": since.isoformat() if since else None, "new": None,
               "found": False, "why": "", "subject": None, "group": {}, "sections": [], "flags": [], "hubs": [], "citations": [],
               "walk": {}, "limits": list(t.limits), "not_held": [name for _, name in cat.NOT_HELD],
               "views_not_published": sorted(t.views - held), "problems": []}
-    w = walk.walk(conn, ref, allowed, depth=t.depth)
+    w = walk.walk(conn, ref, allowed, depth=t.depth, buckets=t.buckets, chain_depth=t.chain_depth)
     if not w.get("found"):
         report["why"] = w.get("why", "not found")
         return report
@@ -108,12 +179,17 @@ def build(conn, ref: str, t: tpl.Template, held: set = None) -> dict:
     report["walk"] = {"links_built": w.get("links_built"), "links_omitted": w.get("links_omitted", 0), "entities_omitted": w.get("entities_omitted", 0),
                       "entities_not_expanded": w.get("entities_not_expanded", 0),
                       "group_omitted": w["group"].get("omitted", 0), "skipped": w.get("skipped", []), "limits": w["limits"], "settings": w["settings"],
-                      "start_outside_template": w.get("start_outside_template", False)}
+                      "start_outside_template": w.get("start_outside_template", False), "buckets": sorted(t.buckets),
+                      "officers_followed": w.get("officers_followed", 0), "officers_omitted": w.get("officers_omitted", 0),
+                      "office_companies": w.get("office_companies", 0), "office_listed": w.get("office_listed", 0),
+                      "chain_depth": t.chain_depth, "chain": w.get("chain_stats") or {},
+                      "chain_notes": [{"text": x["chain_note"], "via": x["via"], "depth": x["depth"]} for x in w.get("chain", []) if "chain_note" in x]}
     if w.get("start_outside_template"):
         report["problems"].append(f"the subject's view pub.{w['start']['view']} is not one the template {t.name} reads")
     # sections
     taken = {ref}
-    members = {m["ref"] for m in w["members"]}
+    members = {m["ref"] for m in w["members"]} | {ref}
+    files = files_held(conn) if any(s.changed for s in t.sections) else (None, None)
     for s in t.sections:
         items, omitted = [], []
         for it in _bucket_items(w, s.sources):
@@ -121,22 +197,36 @@ def build(conn, ref: str, t: tpl.Template, held: set = None) -> dict:
                 if it["view"] in s.views:
                     omitted.append(it)
                 continue
-            if it.get("missing") or it["ref"] in taken or it["view"] not in s.views:
+            if "chain_note" in it:
+                continue
+            if it.get("missing") or it["ref"] in taken or it["view"] not in s.views or not _keeps(s, it, ref, members, files):
                 continue
             taken.add(it["ref"])
             items.append(it)
         # the entities the walk reached (a company, a return) belong in their section too, once
         for e in w["entities"]:
-            if e["ref"] in taken or e["view"] not in s.views:
+            if e["ref"] in taken or e["view"] not in s.views or not _keeps(s, e, ref, members, files):
                 continue
             taken.add(e["ref"])
             items.append(e)
-        items = _ordered(items)
+        if s.changed:   # the file that first shows the change, newest first; confirmed before near
+            items.sort(key=lambda it: (it.get("changed_in") or "", it["ref"]), reverse=True)
+            items.sort(key=lambda it: SECTION_ORDER_GRADE.get(it["grade"], 1))
+        else:
+            items = _ordered(items)
+        for it in items:
+            it["new"] = is_new(it, since)
         sec = {"name": s.name, "heading": s.heading, "text": s.text, "views": list(s.views), "items": items,
                "confirmed": sum(1 for it in items if it["grade"] == "confirmed"), "near": sum(1 for it in items if it["grade"] == "near"),
                "omitted": sum(o["omitted"] for o in omitted), "omitted_views": sorted({o["view"] for o in omitted}),
-               "blank": None if items else _blank(s, held), "not_held": [cat.NOT_HELD_NAME[x] for x in s.not_held]}
+               "blank": None if items else _blank(s, held), "not_held": [cat.NOT_HELD_NAME[x] for x in s.not_held],
+               "own": s.own, "statuses": list(s.statuses), "changed": s.changed,
+               "new": sum(1 for it in items if it.get("new")) if since else None,
+               "cannot_say": sum(1 for it in items if it.get("new") is None) if since else None}
         report["sections"].append(sec)
+    if since:
+        report["new"] = sum(s["new"] for s in report["sections"])
+        report["cannot_say"] = sum(s["cannot_say"] for s in report["sections"])
     # the group's members that no section claimed stay with the subject in the header; the rest are in their sections, once
     report["members"] = [m for m in w["members"] if m["ref"] != ref and m["ref"] not in taken]
     report["group"]["in_sections"] = sum(1 for m in w["members"] if m["ref"] != ref and m["ref"] in taken)

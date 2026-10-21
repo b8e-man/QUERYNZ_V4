@@ -21,7 +21,9 @@ them):
   asks the model itself.
 
 A return is published when each section it declares reads under the page's
-own arithmetic (`declaration.Declaration.problems`); otherwise it is set
+own arithmetic (`declaration.Declaration.problems`; ruling 66: parts
+within $100 of the printed total publish that total, the difference in
+`issue`); otherwise it is set
 aside whole at stage `declaration`. A published return then has its Part A
 read from its text-layer pages (`donors.py`): published whole when the rows
 add to the page's own total and the declaration's Part A, otherwise set
@@ -52,7 +54,7 @@ from support import profiles
 from support import reader as rd
 from support.docread import pages
 from support.docread.read import read_document
-from registers.candidate_returns import declaration, donors, pixels
+from registers.candidate_returns import declaration, donors, pixels, reconcile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -152,6 +154,7 @@ def _row(sha256, page, decl, reading, loaded_at) -> dict:
     filed.update({f"part_{k.lower()}": (s.parts.get(k) if s else None) for k in ("A", "C", "D")})
     s = decl.sections.get("expenses")
     filed.update({f"part_{k.lower()}": (s.parts.get(k) if s else None) for k in ("F", "G")})
+    filed["issue"] = reconcile.join(i for name in ("donations", "expenses") for i in decl.issues(name))
     return {
         "key": f"{sha256}/declaration",
         "document": sha256,

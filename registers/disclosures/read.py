@@ -32,7 +32,7 @@ from support import reader as rd
 from support.docread import pagereader
 from support.docread.read import read_document
 from support.docstore.landing import read_bytes
-from registers.disclosures import form, listing
+from registers.disclosures import form, listing, reconcile
 from registers.disclosures.form import Total
 
 PROFILE = "ec-disclosure-listing"
@@ -80,6 +80,18 @@ def file_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")
 
 
+def items_check(items_sum, amount, n: int) -> tuple:
+    """(check, issue): the itemised gifts against the printed amount (ruling 66). `equal` to the cent;
+    `reconciled` below $100 with the issue naming the signed difference; `differs` at $100 or more; `no
+    figures` where nothing is itemised. The printed amount stands in every case."""
+    if items_sum is None:
+        return "no figures", None
+    if not reconcile.within(items_sum, amount):
+        return "differs", None
+    why = reconcile.issue(items_sum, amount, f"the {n} itemised gifts against the declared amount")
+    return ("reconciled" if why else "equal"), why
+
+
 def read_listing(data: bytes, sha256: str, loaded_at: str = None) -> Result:
     prof = current_profile()
     version = int(prof["version"])
@@ -95,7 +107,7 @@ def read_listing(data: bytes, sha256: str, loaded_at: str = None) -> Result:
         key = stable_key(row, taken[base])
         party, basis = parties.party_name(row.party_label)
         items_sum = round(sum(i.amount for i in row.items if i.amount is not None), 2) if row.items else None
-        check = "no figures" if items_sum is None else ("equal" if abs(items_sum - row.amount) < 0.005 else "differs")
+        check, issue = items_check(items_sum, row.amount, len(row.items))
         out.rows.append({
             "key": key, "document": sha256, "page": 1, "place": f"table {row.table} row {row.row}",
             "reader": READER, "profile": PROFILE, "profile_version": version, "read_from": "text",
@@ -107,7 +119,7 @@ def read_listing(data: bytes, sha256: str, loaded_at: str = None) -> Result:
                 "amount_original": row.amount_original, "received_on": row.received_on, "given_on": row.given_on,
                 "commission_note": row.commission_note, "amendment": row.amendment, "amended_on": row.amended_on,
                 "withdrawn_on": row.withdrawn_on, "returned_on": row.returned_on, "amount_note": row.amount_note,
-                "items_sum": items_sum, "items_check": check,
+                "items_sum": items_sum, "items_check": check, "issue": issue,
                 "at_or_under_threshold": row.amount <= row.threshold, "href": row.href,
             },
         })

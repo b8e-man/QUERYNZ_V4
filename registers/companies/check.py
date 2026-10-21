@@ -35,9 +35,17 @@ is how the reading of the figures was checked.
     failed(f)                    the reasons the check fails, empty when it passes
     python -m registers.companies.check [--schema companies | scratch_<session>] [--database querynz_v4]
 
+The monitor (plan 5.5; monitor.py) is checked beside it, from its own
+tables (`monitor_failed`): every change cites an answer the ledger shows
+landed (HTTP 200, the document in the store's table); every request older
+than the monitor's ANSWER_WITHIN is answered by a landed call or set aside
+with its reason; no New Zealand day holds more calls than DAILY_LIMIT (the
+interface states no limit; the limit is ours, docs/status/companies.md).
+
 Read-only.
 """
 import datetime as dt
+import os
 import sys
 
 SOURCE = "https://www.companiesoffice.govt.nz/insights-and-articles/latest-company-statistics/"
@@ -120,6 +128,36 @@ def measure(conn, t: str) -> dict:
     return figures(dict(zip(QUARTERS, row[1:])), months, row[0].isoformat() if row[0] else "1900-01-01")
 
 
+def in_store(sha: str) -> bool:
+    """The answer's bytes are in the document store (the store's own path; its tables are support's)."""
+    from support.docstore.landing import path_for
+    return os.path.exists(path_for(sha))
+
+
+def monitor_failed(conn, t, now=None) -> list:
+    """The monitor's three checks. `t(name)` is a table's full name."""
+    from registers.companies import monitor as M
+    now = now or M.now_nz()
+    why = []
+    n = conn.execute(f"SELECT count(*) FROM {t('changes')} ch WHERE NOT EXISTS (SELECT 1 FROM {t('calls')} c "
+                     f"WHERE c.id = ch.call_id AND c.status = 200 AND c.document = ch.document)").fetchone()[0]
+    n += sum(1 for (sha,) in conn.execute(f"SELECT DISTINCT document FROM {t('changes')}") if not in_store(sha))
+    if n:
+        why.append(f"{n} change(s) cite no answer the ledger shows landed")
+    n = conn.execute(f"SELECT count(*) FROM {t('requests')} r WHERE (r.state = 'waiting' AND r.asked_at < %s) "
+                     f"OR (r.state = 'answered' AND NOT EXISTS (SELECT 1 FROM {t('calls')} c WHERE c.id = r.call_id "
+                     f"AND c.status = 200 AND c.document IS NOT NULL)) "
+                     f"OR (r.state = 'set_aside' AND coalesce(btrim(r.reason), '') = '')",
+                     (now - M.ANSWER_WITHIN,)).fetchone()[0]
+    if n:
+        why.append(f"{n} request(s) neither answered by a landed call nor set aside with a reason within "
+                   f"{int(M.ANSWER_WITHIN.total_seconds() // 3600)} hours")
+    for day, calls in conn.execute(f"SELECT day, count(*) FROM {t('calls')} GROUP BY day HAVING count(*) > %s "
+                                   f"ORDER BY day", (M.DAILY_LIMIT,)).fetchall():
+        why.append(f"{day}: {calls} calls to the interface, over the day's limit of {M.DAILY_LIMIT}")
+    return why
+
+
 def report(f: dict) -> list:
     out = [f"The latest file's cut: {f['cut']}. Live companies on a quarter end, the lane against the Companies Office:"]
     for d, got, want in f["quarters"]:
@@ -141,9 +179,10 @@ def main(argv=None) -> int:
         # the sample's shared schema names the lane's tables `companies_…`; a lane or staging schema does not
         shared = conn.execute("SELECT to_regclass(%s) IS NOT NULL", (table(schema, "entities", True),)).fetchone()[0]
         f = measure(conn, table(schema, "entities", shared))
+        mon = monitor_failed(conn, lambda n: table(schema, n, shared))
     for line in report(f):
         print(line)
-    why = failed(f)
+    why = failed(f) + mon
     for w in why:
         print("FAILS " + w)
     return 1 if why else 0

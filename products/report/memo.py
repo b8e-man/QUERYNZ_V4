@@ -46,7 +46,7 @@ def esc(x) -> str:
 
 
 def _line_text(it: dict) -> str:
-    bits = [f"[{it['grade']}] {it['statement']}"]
+    bits = [("NEW " if it.get("new") else "") + f"[{it['grade']}] {it['statement']}"]
     bits.append(f"({it['dates']['text']})")
     bits.append(f"[{it.get('cite', '?')}]")
     line = " ".join(bits)
@@ -59,11 +59,49 @@ def _line_text(it: dict) -> str:
         extra.append(f"from a return since replaced; the amendment is document {str(it['replaced_by'])[:12]}…; never summed")
     if it.get("via") and it["via"] != "start":
         extra.append(f"via {it['via']}")
+    if it.get("depth"):
+        extra.append(f"{it['depth']} up the chain" if it.get("hop_text") or it["view"] == "shareholders" else f"one step through {it.get('through')}")
+    if it.get("hop_text"):
+        extra.append(it["hop_text"])
+    if (it.get("holdings") or 0) > 1:
+        extra.append(f"holder of record in {it['holdings']:,} companies in the latest file")
+    if it.get("changed_in"):
+        extra.append(f"change first shown in the file {it['changed_in']}")
+    if it.get("new") is None and it.get("since_asked"):
+        extra.append("cannot say whether new: undated, or dated by a year or a file only")
     for f in it.get("flags", []):
         extra.append(f"HUB: {f['text']}")
     if it.get("note") and it["view"] in ("shareholders", "directors", "disclosures", "gazette_company_notices"):
         extra.append(it["note"])
     return line + ("".join("\n      " + x for x in extra) if extra else "")
+
+
+def _reaches_text(w: dict) -> list:
+    """What the asked-for reaches (officers, office, chain) did and left out."""
+    left = []
+    if w.get("officers_omitted"):
+        left.append(f"{w['officers_omitted']:,} officers past the limit of {w.get('limits', {}).get('officers')} were not followed")
+    if w.get("office_companies") and not w.get("office_listed"):
+        left.append(f"{w['office_companies']:,} companies share the subject's registered office: a hub, and none is listed")
+    elif w.get("office_companies", 0) - 1 > w.get("office_listed", 0):
+        left.append(f"{w['office_companies'] - 1:,} other companies share the subject's registered office; {w['office_listed']} listed, the walk's limit")
+    c = w.get("chain") or {}
+    if w.get("chain_depth") and not c.get("companies") and not c.get("unresolved"):
+        left.append(f"the holding chain (to {w['chain_depth']} up): no company holder of record to follow")
+    elif w.get("chain_depth"):
+        bits = [f"the holding chain was followed {c.get('depth', 0)} of {w['chain_depth']} up: {c.get('companies', 0)} companies"]
+        if c.get("cut"):
+            bits.append(f"{c['cut']} at the depth limit go on")
+        if c.get("unresolved"):
+            bits.append(f"{c['unresolved']} holders not followed (a name none or several companies carry)")
+        if c.get("cycles"):
+            bits.append(f"{c['cycles']} met twice")
+        if c.get("omitted"):
+            bits.append(f"{c['omitted']} past the chain's limits")
+        left.append("; ".join(bits))
+    for n in w.get("chain_notes") or []:
+        left.append(f"chain, {n['depth']} up: {n['text']} (via {n['via']})")
+    return left
 
 
 def _group_line(g: dict) -> str:
@@ -80,7 +118,11 @@ def _group_line(g: dict) -> str:
 def text(report: dict) -> str:
     """The memo as plain text."""
     t = report["template"]
-    out = [f"{t['title'].upper()} — {report['ref']}", f"template {t['name']} {t['version']} ({t['owner']}); as of {report['as_of']}; built {report['built_at']}", ""]
+    out = [f"{t['title'].upper()} — {report['ref']}", f"template {t['name']} {t['version']} ({t['owner']}); as of {report['as_of']}; built {report['built_at']}"]
+    if report.get("since"):
+        out.append(f"since {report['since']}: {report.get('new') or 0} row(s) dated on or after it are marked NEW; "
+                   f"{report.get('cannot_say') or 0} cannot say (undated, or dated by a year or a monthly file only)")
+    out.append("")
     if not report.get("found"):
         out.append(f"NOT FOUND: {report.get('why')}")
         return "\n".join(out) + "\n"
@@ -141,6 +183,7 @@ def text(report: dict) -> str:
         left.append("views reached but not read, because the template does not name them: " + ", ".join("pub." + v for v in w["skipped"]))
     if report.get("views_not_published"):
         left.append("views the template names that are not published: " + ", ".join("pub." + v for v in report["views_not_published"]))
+    left += _reaches_text(w)
     out += [f"  - {x}" for x in left] or ["  nothing: every link, entity and group row within the walk's reach is listed"]
     st = w.get("settings", {})
     if st:
@@ -160,7 +203,7 @@ def text(report: dict) -> str:
 # ── HTML ────────────────────────────────────────────────────────────────────
 
 def _li(it: dict, template_name: str = "subject") -> str:
-    out = [f'<li><span class="grade {esc(it["grade"])}">{esc(GRADE_WORD.get(it["grade"], it["grade"]))}</span>{esc(it["statement"])} '
+    out = [f'<li>{"<span class=\"warn\">new</span> " if it.get("new") else ""}<span class="grade {esc(it["grade"])}">{esc(GRADE_WORD.get(it["grade"], it["grade"]))}</span>{esc(it["statement"])} '
            f'<span class="dates">({esc(it["dates"]["text"])})</span> <span class="cite">[{esc(it.get("cite", "?"))}]</span>']
     if it.get("reason"):
         out.append(f'<span class="reason">near: {esc(it["reason"])}' + (f" · rule {esc(it['rule'])}" if it.get("rule") else "") + "</span>")
@@ -170,6 +213,14 @@ def _li(it: dict, template_name: str = "subject") -> str:
         out.append(f'<span class="reason">from a return since replaced; the amendment is document <code>{esc(str(it["replaced_by"])[:12])}…</code>; never summed</span>')
     if it.get("via"):
         out.append(f'<span class="reason">via <a href="{esc(contract.report_url(it["via"], "", template_name))}">{esc(it["via"])}</a></span>')
+    if it.get("depth"):
+        out.append(f'<span class="reason">{esc(f"{it[chr(100)+chr(101)+chr(112)+chr(116)+chr(104)]} up the chain" if it.get("hop_text") or it["view"] == "shareholders" else f"one step through {it.get(chr(116)+chr(104)+chr(114)+chr(111)+chr(117)+chr(103)+chr(104))}")}</span>')
+    if it.get("hop_text"):
+        out.append(f'<span class="reason">{esc(it["hop_text"])}</span>')
+    if (it.get("holdings") or 0) > 1:
+        out.append(f'<span class="reason">holder of record in {it["holdings"]:,} companies in the latest file</span>')
+    if it.get("changed_in"):
+        out.append(f'<span class="reason">change first shown in the file {esc(it["changed_in"])}</span>')
     for f in it.get("flags", []):
         out.append(f'<span class="flag">hub: {esc(f["text"])}</span>')
     out.append(f'<span class="reason"><a href="{esc(contract.report_url(it["ref"], "", template_name))}">report from here</a></span></li>')
@@ -180,6 +231,9 @@ def html_body(report: dict) -> str:
     t = report["template"]
     out = [f"<h2>{esc(t['title'])}</h2>",
            f'<p class="meta">{esc(report["ref"])} · template {esc(t["name"])} {esc(t["version"])} ({esc(t["owner"])}) · as of {esc(report["as_of"])} · built {esc(report["built_at"])}</p>']
+    if report.get("since"):
+        out.append(f'<p class="meta">since {esc(report["since"])}: {report.get("new") or 0} row(s) dated on or after it are marked new; '
+                   f'{report.get("cannot_say") or 0} cannot say (undated, or dated by a year or a monthly file only)</p>')
     if not report.get("found"):
         out.append(f'<p class="warn">not found: {esc(report.get("why"))}</p>')
         return "\n".join(out)
@@ -237,6 +291,9 @@ def html_body(report: dict) -> str:
     if report.get("views_not_published"):
         any_left = True
         out.append(f'<li>views the template names that are not published: {esc(", ".join("pub." + v for v in report["views_not_published"]))}</li>')
+    for x in _reaches_text(w):
+        any_left = True
+        out.append(f"<li>{esc(x)}</li>")
     if not any_left:
         out.append("<li>nothing: every link, entity and group row within the walk's reach is listed</li>")
     out.append("</ul>")
