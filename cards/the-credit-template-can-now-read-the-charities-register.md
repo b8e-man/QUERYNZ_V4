@@ -1,9 +1,10 @@
 # The credit template can now read the Charities Register
 kind: finding
-state: open
+state: closed
 use-case: 5 business credit and monitoring
 session: fix-report-2
 opened: 2026-10-21
+closed: 2026-10-21
 
 The report shape's fix-report-2 (merge request `fix-report-2`, 2026-10-21)
 closed the shape's half of the cards this template waited on. What it lets
@@ -38,3 +39,5 @@ this template do, each a fix in `products/templates/05-credit/`:
 Not a comparison cause. The shape's fixture tests and `python -m
 products.report check` hold the reaches; this card is the template's own
 reading of them, closed when its sections, flags and tests use them.
+
+Closed by fix-templates-1 (2026-10-21): the three views in `reads` and the people section (sources `named` first, then `second`, `members`, `confirmed`, `roles`); `charities` out of both `not_held` lines and the not-held text; `CHARITIES_NOT_HELD` out of rules.py. The template declares no charity flag, so none changed. Fixture test `test_it_reads_the_charities_register_where_the_people_are_and_names_it_nowhere_as_not_held`; the checkpoint re-rendered (limits.md).

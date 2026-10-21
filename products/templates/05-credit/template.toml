@@ -113,6 +113,21 @@ refresh = "as the lane re-reads the register"
 # them, and the dated change list itself, newest first, is the flag
 # monthly-changes: a section cannot select only the rows that changed
 # between files (carded). The first section takes only near links.
+[[reads]]
+view = "charities"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the register is public under the Charities Act 2005; the address for service is never read"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_officers"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; a suppressed name is suppressed, the row stays"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_returns"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the financial fields under the ruling of 14 August 2026"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
 [[sections]]
 name = "identity"
 heading = "The entity, and its namesakes set apart"
@@ -144,11 +159,10 @@ text = "Each Gazette notice on the entity, or on the companies above, under its 
 
 [[sections]]
 name = "people"
-heading = "Its people: the people beside them, and their society roles"
-views = ["directors", "shareholders", "societies", "society_officers"]
-sources = ["second", "members", "confirmed"]
-not_held = ["charities"]
-text = "Started from a person: the other directors and holders of record on the person's companies, each near (a connection through another person is never confirmed), then incorporated society roles; the person's companies and their states are in the standing section above. Started from a company, its people are listed in the changes section and are not followed: their other companies and those companies' states are not read, so an empty section here is not a clear; start a report from each director listed."
+heading = "Its people: the people beside them, and their society and charity roles"
+views = ["directors", "shareholders", "societies", "society_officers", "charities", "charity_officers", "charity_returns"]
+sources = ["named", "second", "members", "confirmed", "roles"]
+text = "Started from a person: the other directors and holders of record on the person's companies, each near (a connection through another person is never confirmed), then incorporated society roles, then the Charities Register: a charity officer row that carries the person's name, near (no link joins the register's officers to any other row yet), and a company's charity by business number, confirmed, with the officers and annual returns on it, the figures as filed and never added across returns; the person's companies and their states are in the standing section above. Started from a company, its people are listed in the changes section and are not followed: their other companies and those companies' states are not read, so an empty section here is not a clear; start a report from each director listed."
 
 [[sections]]
 name = "people-notices"
@@ -162,5 +176,5 @@ text = "A director prohibition or a bankruptcy notice the link rules join to the
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["securities", "insolvency", "courts", "charities", "limited_partnerships", "fsp"]
-text = "Registers a credit check would read that no lane has published or this report cannot reach: the Personal Property Securities Register (who holds security over the company's assets, and since when), the Official Assignee's Insolvency Register (bankruptcies, no-asset procedures, summary instalment orders and their discharge; its daily removals check), court judgments (a creditor's judgment, a winding-up order's reasons), credit-bureau defaults and payment records, the companies change history before 16 August 2026 (former names, trading names, earlier directors and offices; held and unread since), the business-number interface's changes between monthly files until step 5.5 is built, a status or name change between the files held (published, not reachable), a lender's entry into possession (published, not reachable), the Charities Register, a limited partnership's partners and financial service providers. Nothing in this report says anything about them; ask the source."
+not_held = ["securities", "insolvency", "courts", "limited_partnerships", "fsp"]
+text = "Registers a credit check would read that no lane has published or this report cannot reach: the Personal Property Securities Register (who holds security over the company's assets, and since when), the Official Assignee's Insolvency Register (bankruptcies, no-asset procedures, summary instalment orders and their discharge; its daily removals check), court judgments (a creditor's judgment, a winding-up order's reasons), credit-bureau defaults and payment records, the companies change history before 16 August 2026 (former names, trading names, earlier directors and offices; held and unread since), the business-number interface's changes between monthly files until step 5.5 is built, a status or name change between the files held (published, not reachable), a lender's entry into possession (published, not reachable), a limited partnership's partners and financial service providers. Nothing in this report says anything about them; ask the source."

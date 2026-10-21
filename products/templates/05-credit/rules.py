@@ -110,7 +110,6 @@ CHANGE_HISTORY = "the companies change history: not held before 16 August 2026, 
 CREDIT_BUREAU = "credit-bureau defaults and payment records (no lane; not a public register)"
 COURTS = ("court judgments: the OpenLaw case-law lane and the courts register (step 5.4)",)
 POSSESSIONS = ("a mortgagee's entry into possession (pub.gazette_possessions: published, not in the report's catalogue)",)
-CHARITIES_NOT_HELD = ("the Charities Register and its officers (not yet published)",)
 NOT_FOLLOWED = ("started from a company, the report lists its officers and holders of record but does not follow them to their own links "
                 "and companies yet; start a report from each person listed")
 GRAIN = "the grain is the monthly file: a change is dated to the file that first shows it, a month and not a day"
