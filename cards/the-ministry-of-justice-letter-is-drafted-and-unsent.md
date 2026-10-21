@@ -1,9 +1,10 @@
 # The Ministry of Justice letter is drafted and unsent
 kind: blocker
-state: open
+state: closed
 use-case: 6, 7, 11, 12 (court and tribunal appearances in the templates)
 session: integrator
 opened: 2026-10-22
+closed: 2026-10-22
 
 The letter asking the Ministry for a permitted route to Judicial Decisions
 Online's back catalogue and the tribunal decision files under
@@ -26,3 +27,5 @@ the letter exists.
 
 What closes it: the letter sent (note the date in the draft), or Arthur
 rules it is not sent.
+
+Closed 22 October 2026: the letter sent by Arthur. The answer, when it comes, goes on the letter file and reopens the courts position for those hosts.

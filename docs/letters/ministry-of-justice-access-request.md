@@ -8,7 +8,7 @@ before sending; the old estate held only webmaster@justice.govt.nz). Not a
 permission to copy (judgments carry no copyright, Copyright Act 1994 s 27):
 an access route, since Judicial Decisions Online drops automated requests
 before any response and the assets folder's robots file bars automated
-reading. Sent: (date, by Arthur). Answer: (none yet).
+reading. Sent: 22 October 2026, by Arthur. Answer: (none yet).
 
 ---
 
