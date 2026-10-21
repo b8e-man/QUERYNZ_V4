@@ -185,3 +185,31 @@ donation and the donor page stays one. A fix session on links and keys.
 queue item `the-key-for-electorate-boundary-shapes`): "11 not wanted". No
 Stats NZ key; `pub.electorates` keeps the 71 for 2026 with `join_basis`
 "boundary set not held"; the card closes and the key leaves the queue item.
+
+75. Arthur, 21 October, about 14:20, on links-2's three structure
+questions (queue items `may-a-registers-own-structure-confirm-a-politicians-row`,
+default yes; `may-a-donation-rows-circumstance-confirm-a-link`, default no;
+`may-one-candidate-under-two-printings-be-one-page`, default no): "12.
+let's experiment once the build is complete". The three defaults stand as
+built; the questions are held, not closed, for an experiment after the
+build (card `the-links-structure-questions-are-tried-after-the-build`); no
+change to the links now. The queue items close into that card.
+
+76. Arthur, 21 October, about 14:25, on card
+`nz-first-2019-the-frozen-site-shows-a-misread-total` (the frozen site's
+NZ First 2019 total is $1,000 under its printed parts, Part A $52,325.00
+and Part G $317,210.17; the Commission's own by-year figure agrees with the
+parts): "15. fix now". An emergency fix to the frozen product under hard
+limit 19: one commit to the old repository correcting that published
+figure, drafted from the reference copy and applied by Arthur himself in
+the live old folder; the next daily release is the proof.
+
+77. Arthur, 21 October, about 14:25, on card
+`a-donor-name-key-on-the-rebuilt-site-carries-a-residence-fragment` (the
+frozen site's fold of one filed donor name keeps a residence fragment in
+the donor page's file name and the picker; the rebuilt side is already
+clean by site-3's name-keys gate): "16. fix now". An emergency fix under
+hard limit 19, and first of the two because it is a live hard-limit-15
+exposure: one commit to the old repository so the fold drops the fragment
+and the donor page and picker regenerate clean, drafted from the reference
+copy and applied by Arthur himself; the next daily release is the proof.

@@ -20,6 +20,9 @@ wins once it holds the slug.
     promoter_rows(data, sha, at)                      -> (promoters, people, private contacts, set_aside)
     statement_rows(data, sha, by_url, at)             -> (rows, links, set_aside)
     statement_figure_rows(result, row, current, at)   -> (rows, set_aside), three rows per pair that holds
+
+A row a sum admitted within ruling 66's tolerance carries `issue`: the
+signed difference and what was added against what (`reconcile.py`).
 """
 import datetime as dt
 import os
@@ -119,7 +122,7 @@ def expense_return_row(result: expenses.Result, listing_row: dict, link: dict, c
             "part_c": result.parts.get("C"), "expense_limit": result.limit, "read_from": result.read_from,
             "reader": ("support.docread 1: text-layer" if result.read_from == "text" else f"{expenses.PAGE_MODEL} (stored reading)"),
             "profile": result.reading_profile, "profile_version": result.reading_version,
-            "loaded_at": loaded_at or now()}
+            "loaded_at": loaded_at or now(), "issue": result.issue}
 
 
 def allocation_rows(data: bytes, sha256: str, loaded_at: str = None, party_rows=()) -> tuple:
@@ -138,7 +141,8 @@ def allocation_rows(data: bytes, sha256: str, loaded_at: str = None, party_rows=
                        "round_label": label, "allocated": (b.totals.get("allocated") or [None] * len(b.rounds))[i],
                        "available": (b.totals.get("available") or [None] * len(b.rounds))[i],
                        "rows_sum": sum(r.amounts[i] or 0 for r in b.rows),
-                       "printed": " | ".join(f"{k}: {v[i] if i < len(v) else ''}" for k, v in b.printed_totals.items())})
+                       "printed": " | ".join(f"{k}: {v[i] if i < len(v) else ''}" for k, v in b.printed_totals.items()),
+                       "issue": b.issues.get(i)})
     if b.failed_rounds:
         bad = ", ".join(f"round {i + 1} rows {totals[i]['rows_sum']} against {totals[i]['allocated']}" for i in b.failed_rounds)
         return [], totals, aside + [(sha256, "allocation", f"{year}: the rounds do not add to the page's own totals ({bad}); "
@@ -152,7 +156,8 @@ def allocation_rows(data: bytes, sha256: str, loaded_at: str = None, party_rows=
                          "final": i == len(b.rounds) - 1, "party_label": r.label, "party": party, "party_basis": basis,
                          "mark": r.mark or None, "eligible": r.eligible, "amount": r.amounts[i], "printed": r.printed[i],
                          "reader": f"{broadcasting.READER}: {broadcasting.MODEL}", "profile": prof["slug"],
-                         "profile_version": int(prof["version"]), "read_from": "text", "loaded_at": loaded_at})
+                         "profile_version": int(prof["version"]), "read_from": "text", "loaded_at": loaded_at,
+                         "issue": b.issues.get(i)})
     return rows, totals, aside
 
 
@@ -176,7 +181,7 @@ def promoter_return_rows(result: promoter_returns.Result, listing_row: dict, loa
                      "schedule": part.schedule, "read_from": how,
                      "reader": ("support.docread 1: text-layer" if how == "text"
                                 else f"{expenses.PAGE_MODEL} (stored reading)"),
-                     "profile": prof, "profile_version": version, "loaded_at": loaded_at})
+                     "profile": prof, "profile_version": version, "loaded_at": loaded_at, "issue": part.issue})
     return rows, aside
 
 
@@ -269,7 +274,7 @@ def statement_figure_rows(result: statements.Result, row: dict, current: bool, l
                     "current": current, "figure": name, "amount": f.amount, "prior_amount": f.prior, "scale": f.scale,
                     "figure_check": f.check, "printed": f.printed, "read_from": "text",
                     "reader": f"{statements.READER}: {statements.MODEL}", "profile": statements.PROFILE,
-                    "profile_version": statements.profile_version(), "loaded_at": loaded_at})
+                    "profile_version": statements.profile_version(), "loaded_at": loaded_at, "issue": f.issue})
     aside = [(f"{result.document}/{pair}", "statement-figures", f"{row['party_label']} {row['filed_year']}: {why}")
              for pair, why in result.set_aside]
     return out, aside

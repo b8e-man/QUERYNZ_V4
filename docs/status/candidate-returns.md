@@ -1,8 +1,8 @@
 # candidate-returns: where it stands
 
 **Date:** 2026-10-21. **Step:** 4.1, the candidate donation and expense
-returns lane, `registers/candidate_returns/`. **Merge request:**
-`candidate-returns-2` (after `candidate-returns-1`, merged 20 October).
+returns lane, `registers/candidate_returns/`. **Merge requests:**
+`candidate-returns-1` and `-2` merged; `reconcile-1` raised (ruling 66).
 
 ## Done
 
@@ -29,8 +29,24 @@ sample (ruling 62):
   reader built.
 - **Re-reads:** `replay rereads` lists 668 returns, 6,287 pages (hash,
   stage, pages), the queue for when the build is done.
-- **Sample:** the no-reading case is read against an empty store
-  (`key: empty-store`); four new cases. 27 module tests green.
+
+## Ruling 66 (reconcile-1)
+
+Parts within $100 of a printed total are published on the printed total
+with `issue` (the signed difference and which parts); $100 or more stays
+set aside. One constant, `reconcile.RECONCILE_TOLERANCE_CENTS = 10000`;
+the declaration's pairing is sought to the cent first, the tolerance only
+where none holds. Replayed on all 1,105 (no fetch, no model):
+
+- 1 set-aside became reconciled with an issue (`13e5f25572ae`, expenses
+  F + G $0.03 over the printed $337.23; the Commission's spreadsheet has
+  the parts' $337.26, so the outside check now shows 14 differ, not 13).
+- 5 published returns had a 1-cent difference passed silently by the old
+  rule (`<= 0.011`); each now carries its issue.
+- Stay unreconciled for a sum: 6 declarations (nearest `fde6a63114d2`,
+  $117.30) and 16 Part A parts (nearest $1,650). Largest admitted: $0.03.
+  No Part A was admitted.
+- `check.py` prints the issue rows; two sample cases; 41 tests green.
 
 ## Set aside, carded
 

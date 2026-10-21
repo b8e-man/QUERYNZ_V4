@@ -99,6 +99,8 @@ class FakeFeed:
             rows = sorted(rows, key=lambda r: r[key])
             if since:
                 rows = [r for r in rows if r.get("ModifiedOn", "") >= since]
+            if C.REGISTERED_FILTER in q.get("$filter", ""):
+                rows = [r for r in rows if r.get("RegistrationStatus") == "Registered"]
             matching = rows
             if after is not None:
                 rows = [r for r in rows if r[key] > after]
@@ -135,7 +137,7 @@ def test_the_first_page_asks_the_feeds_own_count_and_a_changes_page_its_date():
     since = dt.datetime(2026, 10, 19, 23, 0, tzinfo=NZ)
     q = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(C.page_url("AnnualReturn", "AnnualReturnId", None, since, True)).query))
     assert q["$inlinecount"] == "allpages"
-    assert q["$filter"] == "ModifiedOn ge datetime'2026-10-19T23:00:00'"
+    assert q["$filter"] == "ModifiedOn ge datetime'2026-10-19T10:00:00'"        # the feed's clock is UTC
 
 
 def test_a_full_copy_lands_every_page_verbatim_and_reconciles_to_the_stated_count():
@@ -144,10 +146,21 @@ def test_a_full_copy_lands_every_page_verbatim_and_reconciles_to_the_stated_coun
     p = [p for p in t.passes if p["entity_set"] == "Organisations"][0]
     assert p["finished_at"] and p["mode"] == "full"
     assert p["stated"] == 2500 == p["rows"]
-    assert [pg["rows"] for pg in t.pages] == [1000, 1000, 500]
+    assert [pg["rows"] for pg in t.pages if pg["set"] == "Organisations"] == [1000, 1000, 500]
     for pg in t.pages:
         assert store.docs[pg["sha"]] == feed(pg["url"], 0).body      # the bytes as served, unchanged
     assert out["stopped"] == "" and not t.aside
+
+
+def test_a_full_pass_of_organisations_lands_the_register_s_count_of_registered_charities():
+    feed, store, t = FakeFeed({"Organisations": orgs(2500)}), FakeStore(), FakeTables()
+    run(t, feed, store, sets=["Organisations"])
+    reg = [p for p in t.passes if p["entity_set"] == C.REGISTERED]
+    assert len(reg) == 1 and reg[0]["stated"] == 1250 and reg[0]["finished_at"] and reg[0]["mode"] == "whole"
+    page = [pg for pg in t.pages if pg["set"] == C.REGISTERED][0]
+    assert "RegistrationStatus eq 'Registered'" in urllib.parse.unquote(page["url"]) and page["sha"] in store.docs
+    run(t, feed, store, now=NIGHT + dt.timedelta(days=1), sets=["Organisations"])     # a changes pass asks nothing more
+    assert len([p for p in t.passes if p["entity_set"] == C.REGISTERED]) == 1
 
 
 def test_a_page_ending_exactly_on_the_cap_asks_once_more_and_finishes_on_the_empty_page():
@@ -171,16 +184,16 @@ def test_after_a_full_copy_the_next_run_asks_only_for_changes_since_a_day_before
     feed, store, t = FakeFeed({"Organisations": orgs(10)}), FakeStore(), FakeTables()
     run(t, feed, store, sets=["Organisations"])
     run(t, feed, store, now=NIGHT + dt.timedelta(days=1), sets=["Organisations"])
-    assert [p["mode"] for p in t.passes] == ["full", "changes"]
-    assert t.passes[1]["since"] == NIGHT - dt.timedelta(days=1)
-    assert "ModifiedOn ge datetime'2026-10-19T23:00:00'" in urllib.parse.unquote(feed.asked[-1])
+    assert [p["mode"] for p in t.passes if p["entity_set"] == "Organisations"] == ["full", "changes"]
+    assert t.passes[2]["since"] == NIGHT - dt.timedelta(days=1)
+    assert "ModifiedOn ge datetime'2026-10-19T10:00:00'" in urllib.parse.unquote(feed.asked[-1])
 
 
 def test_the_same_bytes_again_are_already_held_not_a_new_document():
     feed, store, t = FakeFeed({"Organisations": orgs(10)}), FakeStore(), FakeTables()
     run(t, feed, store, sets=["Organisations"])
     _, out = run(t, feed, store, now=NIGHT + dt.timedelta(days=C.FULL_EVERY_DAYS), sets=["Organisations"])
-    assert out["new"] == 0 and out["already_held"] == 1
+    assert out["new"] == 0 and out["already_held"] == 2         # the page, and the register's count with it
 
 
 def test_a_full_copy_is_run_again_after_its_period_so_a_withheld_row_is_seen_gone():
@@ -293,7 +306,7 @@ def test_the_position_names_the_host_and_the_gate_lets_the_lane_through(tmp_path
 def test_the_measure_counts_the_held_copy_against_the_registers_count():
     feed, store, t = FakeFeed({"Organisations": orgs(2500)}), FakeStore(), FakeTables()
     run(t, feed, store, sets=["Organisations"])
-    held = [store.docs[pg["sha"]] for pg in t.pages]
+    held = [store.docs[pg["sha"]] for pg in t.pages if pg["set"] == "Organisations"]
     rows = sum(C.count_registered(b)[0] for b in held)
     reg = sum(C.count_registered(b)[1] for b in held)
     assert rows == 2500 and reg == 1250

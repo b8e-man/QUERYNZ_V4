@@ -1,38 +1,44 @@
 # report: where it stands
 
-**Date:** 2026-10-20. **Step:** 5.1, the subject-report shape, `products/report/`.
-**Merge request:** `report-2` (raised); `report-1` merged.
+**Date:** 2026-10-21. **Step:** 5.1, the subject-report shape, `products/report/`.
+**Merge request:** `report-3` (raised); `report-1`, `report-2` merged.
 
 ## Done
 
-- The shape (`report-1`): one builder from one row and one template; the
-  walk, sections, citations, blanks, flags, memo, server on 8440, saved memos.
-- The second tranche (`report-2`), each closed on run-time rows through
-  `python -m products.report check` (green, about 10 s):
-  rules 3, 4 and 7 read the report's own words, a register's values masked,
-  an address by shape (the Lane and CONTROL refusals); the template
-  contract `contract.py`, bound as `contract` in every template's rules
-  with no import, the common rules run for every template; an interests
-  return's declarations listed as the subject's own; `mp_expenses` and
-  `minister_expenses` catalogued and reached by name, near; a Gazette
-  notice's date says what it dates with filing and publication beside; the
-  header lists no row a section lists; a filed row takes the group of the
-  person row a confirmed link names; the stable address
-  `/report/<register>:<key>`. Fast tier 26 tests in 25 s with the fill;
-  slow 4; one-way, query-crossing and reading-limit tests green.
+- The shape (`report-1`), the second tranche (`report-2`).
+- The third tranche (`report-3`), the templates' open cards against the
+  shape, each closed on run-time rows through `python -m products.report
+  check` (green, about 40 s) and a fixture test: `gazette_possessions` and
+  `company_states` catalogued and reached; expense rows filtered to totals
+  by every route; the holding chain (`chain_depth`, by number confirmed, by
+  a unique name near, shares as filed); an organisation start's officers
+  followed one step (`officers`, near, through the officer's row); the
+  companies at a registered office (`office`); a section's `own`,
+  `statuses` and `changed` filters; a holder's `holdings` and the holding
+  hub; one not-held list with every key the templates asked for; a
+  company's own name never read as an address; practitioners via the
+  notice; Crown bodies by register name; a filed row's standing; the
+  start's own company confirmed in a contested group; a since date
+  (`?since=`, `--since`), each row new, not new or cannot say. Fast tier
+  34 tests; templates' fast tier green; one-way and reading-limit tests green.
 
 ## Carded
 
-- `a-member-row-and-its-interests-return-join-only-by-name` (links).
-- `a-pane-on-the-board-offers-a-report-from-here` stays open for the board
-  half (a fix session on `products/board`).
-- `expense_release_totals` waits on the lane's `expense-release-totals-has-no-stable-key`.
+- `the-report-keeps-no-watched-list`: carded on to step 5.5 (the trigger is
+  the estate's); the shape's since date and saved memos are its half.
+- `four-templates-still-say-no-link-reaches-a-bankruptcy`: the four
+  templates' change, written into the card.
+- Left where they are: `the-companies-lane-publishes-no-list-of-its-monthly-files`
+  (companies lane), `worksafe-and-regulator-actions-have-no-lane` (a lane),
+  `a-company-holder-carries-no-business-number` (companies lane: the chain
+  hops by name until it lands).
 
 ## Next
 
-1. The integrator merges `report-2`, restarts `qv4-report`. Eight closed
-   cards here duplicate files on `session/recruitment` (recruitment-1, raised
-   first): take this branch's copies, which carry the closings.
-2. The recruitment template drops its own `flag`, `subject_hub` and
-   `replaced_rows` copies and its figure-start block (a fix in its folder).
-3. Step 5.2 continues: template 2 (agriculture) on the shape.
+1. The integrator merges `report-3` (card copies: take this branch's on the
+   six credit-1 and insurance-1 cards), restarts `qv4-report`.
+2. Fixes in the template folders the closed cards name: name `officers`,
+   `office`, `chain` in sources and set `chain_depth`; read `company_states`,
+   `gazette_possessions`, the new not-held keys, `holdings`, `report["since"]`;
+   unblock the checks each card lists.
+3. Step 5.2 continues with templates 5, 6, 11 and 12 on this shape.

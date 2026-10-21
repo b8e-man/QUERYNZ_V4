@@ -1,0 +1,17 @@
+# The checkpoint's twelve subjects (2026-10-21), as register keys: re-render each with
+# python -m products.report render REF --template healthcare, and diff against the last run.
+# Seven operators of aged care and retirement living (companies), two charitable trust boards
+# (one an operator's charity arm), a society, a village developer in receivership, and a director
+# who sits on two operators' boards.
+companies:companies/9429041061350
+companies:companies/9429039629517
+companies:companies/9429035141679
+companies:companies/9429034676066
+companies:companies/9429039960740
+companies:companies/9429034659267
+companies:companies/9429030679757
+companies:companies/9429043044610
+companies:companies/9429042808688
+societies:societies/9429043084746
+companies:companies/9429042206118
+companies:companies/9429041061350/director/589218ccd7e3

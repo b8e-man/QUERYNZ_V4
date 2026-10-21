@@ -84,9 +84,12 @@ CREATE TABLE IF NOT EXISTS links.rows (
     started_on   date, ended_on date,      -- as filed
     election     text, electorate text,
     politician   boolean NOT NULL DEFAULT false,
-    document     text
+    document     text,
+    part_of      text                      -- a coupled donor row's part (ruling 73): the donor row's ref; NULL on every filed row
 );
+ALTER TABLE links.rows ADD COLUMN IF NOT EXISTS part_of text;
 CREATE INDEX IF NOT EXISTS rows_fl ON links.rows (fl_key);
+CREATE INDEX IF NOT EXISTS rows_part_of ON links.rows (part_of) WHERE part_of IS NOT NULL;
 CREATE INDEX IF NOT EXISTS rows_full ON links.rows (full_key);
 CREATE INDEX IF NOT EXISTS rows_entity ON links.rows (entity_ref);
 CREATE INDEX IF NOT EXISTS rows_name ON links.rows (name_key);
