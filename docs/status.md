@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. The detail is in `docs/merges/`.
 
-**Date:** 2026-10-22, 06:5x NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-22, 07:5x NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 day three not clean; 5.1 done; 5.2 closed (ten templates, `fix-report-2`
 parameters); 5.3 eight lanes merged (OpenLaw, HDC held on terms; sanctions
 lists held); 5.4 merged; 5.5 merged; 6.1 merged (`scan-1`, the scan on
@@ -37,9 +37,11 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
   78: the Beehive and Hansard come from Arthur's third-party source),
   `grants-1` (178,729 grants live), `fix-support-fetchgate-1`,
   `scan-templates-1`, `fix-templates-1`, `redirects-1`,
-  `fix-products-templates-1`, `grants-2`. Next: 6.2 template 3's sources
-  as a lane; template 4 waits on the diaries source; the job-path card.
-  Step 7 held (63).
+  `fix-products-templates-1`, `grants-2`, `fix-support-db-1` (the job-path
+  card closed: a session's owner login on the live database is refused;
+  the gate and hand runs carry QV4_INTEGRATOR=1). Running: `security-1`
+  (track H.1 to H.3). Next: 6.2 template 3's sources as a lane; template
+  4 waits on the diaries source. Step 7 held (63).
 
 ## Half-done
 
