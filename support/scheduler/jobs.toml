@@ -773,3 +773,28 @@ class = "whenever"
 priority = 59
 command = ["python", "-m", "products.scan", "run", "--stale"]
 nice = 10
+
+# ── registers/tenders: the GETS award notices (step 6.2, template 1; tenders-1, card the-tenders-jobs-into-the-catalogue) ──
+[jobs.qv4-tenders-refresh]
+description = "The ministry's GETS award-notice files through the fetch gate, each current file once a quarter. Asks nothing until a set was last acquired 80 days ago, or within a week of a block; off-peak, 10 s apart; stops and goes red at a block (card the-ministry-s-gets-files-answer-403)."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 1200
+query_timeout_s = 60
+class = "due"
+priority = 57
+command = ["python", "-m", "registers.tenders.capture", "--refresh"]
+at_utc = "10:00"
+nice = 10
+
+[jobs.qv4-tenders-load]
+description = "The award notices read from the listed files into staging, checked against the files' own counts, published only on green; nothing when the listing is the one published."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 1800
+query_timeout_s = 600
+class = "due"
+priority = 58
+command = ["python", "-m", "registers.tenders.load", "--job"]
+at_utc = "17:30"
+nice = 10

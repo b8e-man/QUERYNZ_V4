@@ -1,9 +1,10 @@
 # The award notices' two jobs go into the job catalogue, and the lane's position and profiles move
 kind: blocker
-state: open
+state: closed
 use-case: 10 tender and award intelligence
 session: tenders-1
 opened: 2026-10-21
+closed: 2026-10-21
 
 Outside the tenders-1 fence. At the merge of `tenders-1` the integrator:
 
@@ -43,3 +44,5 @@ command = ["python", "-m", "registers.tenders.load", "--job"]
 at_utc = "17:30"
 nice = 10
 ```
+
+Closed by the integrator at the merge of `tenders-1` (21 October 2026): the position is `docs/legal/positions/government-procurement-award-notices.md` (the lane's `POSITIONS` set to none); the six profiles are versions 1 in the ledger (92 slugs), the proposed file removed; the gate floors `catalogue.data.govt.nz` at 10 s; `qv4-tenders-refresh` (priority 57, 23:00 NZDT) and `qv4-tenders-load` (58, 06:30) in the catalogue, `support.scheduler check` green; the two award views are catalogued on the board in the merge after this one, once the gate has published them.

@@ -87,6 +87,7 @@ FLOORS = {
     "www.lbp.govt.nz": 5.0,
     "www.police.govt.nz": 10.0,
     "scsanctions.un.org": 10.0,
+    "catalogue.data.govt.nz": 10.0,   # its own crawl delay (tenders-1, 21 October)
 }
 
 

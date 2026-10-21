@@ -58,7 +58,7 @@ JOB = "qv4-tenders-refresh"
 HERE = os.path.dirname(os.path.abspath(__file__))
 #: the draft position sits in the lane folder until the integrator moves it to docs/legal/positions/
 #: (ruling 61); then this goes back to None, the gate's default
-POSITIONS = os.path.join(HERE, "position")
+POSITIONS = None   # the position moved to docs/legal/positions/ at the merge of tenders-1; None is the gate's own folder
 NZ = ZoneInfo("Pacific/Auckland")
 PACKAGE = "new-zealand-government-procurement-award-notices"
 CATALOGUE = f"https://catalogue.data.govt.nz/api/3/action/package_show?id={PACKAGE}"
