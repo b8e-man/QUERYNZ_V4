@@ -27,9 +27,11 @@ SELECT decision_id, row_a, row_b, verdict, made_by, made_on, made_at FROM links.
 
 -- The search table across registers (plan 4.9): every person and organisation
 -- name in every published register, under the one shared reading, pointing at
--- its row. Keys only; the row itself is read from its own view.
+-- its row. Keys only; the row itself is read from its own view (by `view` and
+-- `key`: a coupled donor's part, ref '<donor ref>#<n>', carries its donor
+-- row's view and key, and `part_of` names the donor row; ruling 73).
 CREATE OR REPLACE VIEW pub.names AS
-SELECT ref, register, view, key, kind, name_filed, name_key, fl_key, full_key, has_middle, entity_ref, politician
+SELECT ref, register, view, key, kind, name_filed, name_key, fl_key, full_key, has_middle, entity_ref, politician, part_of
 FROM links.rows;
 
 -- The old estate's judgments, copied exactly and mapped beside (contract: links, 5).
