@@ -17,7 +17,7 @@ Holes already on record. Reproduce the frozen site first; then each of these is 
 - The donor list is cut at 1,500 before names are folded, so a donor can lose its page.
 - A parsed return total was held for under half the party-years since 2019 at one count; measure it again.
 - The announced-candidates tier is empty, and the 2026 candidate list has never been captured: the Commission's pages are behind a challenge.
-- Parliament's Hansard pages have been behind a challenge since about 5 October; the Hansard register is held at 23 September. No technical route will be sought. The unlock is a permission request, which is Arthur's.
+- Parliament's Hansard pages have been behind a challenge since about 5 October; the Hansard register is held at 23 September. No technical route will be sought. The unlock is a permission request, which is Arthur's. Ruling 78 (21 October): no request is sent; Hansard is not captured, Arthur supplies a third-party source.
 - No electorate candidate has a vote count: the results site refuses automated reads.
 
 ### Do

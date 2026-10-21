@@ -83,6 +83,15 @@ FLOORS = {
     # (docs/legal/positions/tenancy-tribunal-decisions.md, real-estate-authority-decisions.md)
     "forms.justice.govt.nz": 5.0,
     "decisions.dotnous.com": 5.0,
+    # step 5.3 (sanctions-1, 21 October): the Board's decisions list; the two held lists, should they ever be authorised
+    "www.lbp.govt.nz": 5.0,
+    "www.police.govt.nz": 10.0,
+    "scsanctions.un.org": 10.0,
+    "catalogue.data.govt.nz": 10.0,   # its own crawl delay (tenders-1, 21 October)
+    # step 5.3, the regulator lanes (regulators-1, 21 October)
+    "www.comcom.govt.nz": 5.0,
+    "www.fma.govt.nz": 5.0,
+    "www.worksafe.govt.nz": 5.0,
 }
 
 

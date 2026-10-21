@@ -1,0 +1,20 @@
+# The two trust settings (design: "3. Links", "Two settings are ruled from
+# measurement, and each has a default until then"). Each is a setting, not
+# code: the runner reads this file and records what was in force in every
+# run. When Arthur rules, the value and the ruling's number change here and
+# nothing else does. The status is "default in force" until then.
+
+[chains]
+# "follow": a group follows chains of confirmed links (pub.groups), as the old folds did, and a group the watch flags
+#           is contested as a whole. The Follow the Money site needs this to reproduce the frozen site.
+# "direct": only a confirmed link between the two rows themselves joins them; a chain through a third row does not.
+value = "follow"
+status = "default in force"
+ruling = ""
+
+[through_people]
+# "near": a connection that passes through more than one person is listed as near, never confirmed.
+# "confirmed": each step through a person keeps its own grade and a path's grade is the weakest step's.
+value = "near"
+status = "default in force"
+ruling = ""
