@@ -1,16 +1,18 @@
 # OpenLaw NZ case law (draft position, ruling 61)
 
-hosts: openlaw.nz, s3-ap-southeast-2.amazonaws.com
+hosts: openlaw.nz
 
 Class: the parsed case law served by OpenLaw NZ (a registered charity,
 CC55967) through its GraphQL interface at `api.openlaw.nz/graphql`, and the
-pages about it on `www.openlaw.nz`. The second host is named for one
-document only, the interface's terms (`/assets.openlaw.nz/apiterms.pdf`);
-nothing else is fetched from it. Lane: `registers/openlaw`.
+pages about it on `www.openlaw.nz`. The interface's terms
+(`assets.openlaw.nz/apiterms.pdf`) sit on a shared S3 host that this page
+does not cover: the integrator dropped it at the merge, and the one
+document is landed by hand if the lane is ever authorised. Lane:
+`registers/openlaw`.
 
-Draft, held in the lane's folder (`registers/openlaw/position/`) because
-the fence keeps a build session out of `docs/legal/positions/`; the
-integrator moves it there. Read 21 October 2026 through the fetch gate by
+Draft, written in the lane's folder because the fence keeps a build
+session out of `docs/legal/positions/`, and moved here by the integrator
+at the merge of `openlaw-1`. Read 21 October 2026 through the fetch gate by
 openlaw-1; the pages cited are held by their sha256 in the session's
 scratch folder and land with the capture's first authorised run.
 

@@ -154,9 +154,27 @@ def listing(conn, schema: str = SCHEMA) -> list:
         f"SELECT sha256 FROM {schema}.capture_pages ORDER BY pass_id, page_no")))
 
 
+def load(conn, schema: str, log=print) -> int:
+    """The merge gate's staging step (support/staging). Held: while the
+    position carries no `authorised:` line the tables are made empty under
+    `schema` and nothing is read (API terms 3.6(a)). Added by the integrator
+    at the merge of openlaw-1."""
+    if not capture.authorisation():
+        create_tables(conn, schema)
+        log("openlaw: held: OpenLaw has not authorised copies (API terms 3.6(a)); nothing loaded")
+        return 0
+    listed = listing(conn)
+    counts = build(conn, schema, listed)
+    log(f"openlaw: {counts['cases']} cases, {counts['parties']} parties into {schema}")
+    return counts["cases"] + counts["parties"]
+
+
 def publish(conn, staging: str, log=print) -> None:
     """The reading's tables from `staging` into `openlaw`/`openlaw_private`
     and the views of publish.sql, in one transaction. The capture's tables stay."""
+    if not capture.authorisation():
+        log("openlaw: held; nothing published")
+        return
     with conn.transaction():
         create_tables(conn, SCHEMA)
         for t in TABLES + PRIVATE_TABLES:
