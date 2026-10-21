@@ -13,7 +13,7 @@ start that lists no officer (a charitable trust board, a village row) and
 a walk that left officers unfollowed block every officer check, never
 clear; every register not held blocks; dates side by side, no word of cause
 or ownership, no address and no suppressed name in a flag. A mutant check
-breaks the rules file on purpose, eighteen ways, and requires these
+breaks the rules file on purpose, twenty-five ways, and requires these
 properties to catch every break.
 
 Imports nothing of products.report (the one-way test): the shape is reached
@@ -236,6 +236,21 @@ BOARD_TRUSTEE = it("charities:charities/officers/20", "charity_officers", title=
                    row={"charity_key": "charities/CC20002", "role": "Trustee", "status": "Qualified", "disqualified": False})
 BOARD_TRUSTEE_DQ = it("charities:charities/officers/21", "charity_officers", title="Tom Rua WIRI", via=BOARD_CHARITY["ref"],
                       row={"charity_key": "charities/CC20002", "role": "Trustee", "status": "Disqualified", "disqualified": True})
+#: Bob's near link (name-only@1) to a namesake's directorship on PJO-like company 7, in liquidation: listed with the officer's reason then
+#: the link's, rule the link's, `near_link` on each item
+LINK_WHY = THROUGH.format(who="Bob James LEE") + "; and the officer's own link to this row is near: the two rows share a full name and nothing else"
+BOB_NAMESAKE = dict(director(7, "n", "Bob James LEE", "2015-04-01", "TOTARA DEVELOPMENTS LIMITED", grade="near", reason=LINK_WHY, through=BOB["ref"],
+                             via=BOB["ref"]), rule="name-only@1", near_link=True)
+NAMESAKE_LIQ = dict(it("gazette:gazette/2024-al9/company/7", "gazette_liquidations", grade="near", title="TOTARA DEVELOPMENTS LIMITED",
+                       dates="appointed 2 May 2024", row={"register_key": "companies/7", "appointed_on": "2024-05-02", "published_on": "2024-05-04"},
+                       via="companies:companies/7", reason=LINK_WHY, through=BOB["ref"], entity_title="TOTARA DEVELOPMENTS LIMITED"),
+                    rule="name-only@1", near_link=True)
+NAMESAKE_PROHIB = dict(BOB_PROHIB, ref="gazette:gazette/2021-ot9/prohibition/3", rule="name-only@1", near_link=True, reason=LINK_WHY)
+#: a receivership on the company two up the holding chain (the walk's `chain` bucket: `above`, the company's depth, through the company)
+ABOVE_RECEIVER = dict(it("gazette:gazette/2025-ar3/company/8", "gazette_company_notices", title="KOWHAI HOLDCO LIMITED · receivership",
+                         dates="appointed 3 March 2025", via="companies:companies/8", entity_title="KOWHAI HOLDCO LIMITED",
+                         row={"kind": "receivership", "register_key": "companies/8", "event_basis": "appointment", "event_on": "2025-03-03"}),
+                      above=True, depth=2, through="companies:companies/8")
 PRO_HUB = {"ref": ANN["ref"], "title": "Ann Mary ROE", "kind": "professional-director", "text": "a professional director: 80 directorships"}
 #: the person start: Ann's own row on the entity, and her own confirmed role on another operator
 PERSON = dict(ANN, via=None)
@@ -339,6 +354,23 @@ def properties(mod) -> list:
     pc["group"]["contested"] = True
     if rl("officer_overlap")(pc)["status"] != "fired":
         bad.append("a contested group's other rows were dropped from the overlap instead of counted near")
+    # an officer's near link: a namesake's, counted apart and never the officer's own
+    f = rl("officer_overlap")(operator(overlap=[ANN_SISTER, BOB_ACME, BOB_NAMESAKE]))
+    if f["severity"] == "amber" or BOB_NAMESAKE["ref"] not in f["citations"] or "near link reaches" not in f["text"]:
+        bad.append("a role an officer's near link reaches was not counted apart, or raised the overlap amber")
+    if rl("officer_overlap")(report(governance=[ANN, BOB], overlap=[BOB_NAMESAKE]))["status"] == "clear":
+        bad.append("officer-overlap cleared while a namesake's role stood listed")
+    o = rl("officer_company_notices")(report(governance=[ANN, BOB], overlap=[BOB_NAMESAKE], gazette=[NAMESAKE_LIQ]))
+    if o["severity"] != "info" or o["status"] == "clear" or "near link reaches" not in o["text"]:
+        bad.append(f"a notice on a company an officer's near link reaches was the officer's own: {o['status']} {o['severity']}")
+    if rl("disqualified_officer")(operator(gazette=[NAMESAKE_PROHIB]))["severity"] == "red":
+        bad.append("a prohibition an officer's near link reaches was red")
+    # the companies above: the holder's notices, never the entity's nor an officer's company's
+    a = rl("insolvency_notice")(report(gazette=[ABOVE_RECEIVER]))
+    if a["status"] != "clear" or ABOVE_RECEIVER["ref"] not in a["citations"] or "holding chain" not in a["text"]:
+        bad.append(f"a notice on a company above was the entity's own, or went unsaid: {a['status']}")
+    if rl("officer_company_notices")(report(governance=[ANN, BOB], gazette=[ABOVE_RECEIVER]))["status"] == "fired":
+        bad.append("a notice on a company above was counted as one on an officer's company")
     # the people
     d = rl("disqualified_officer")(operator())
     if not (d["status"] == "fired" and d["severity"] == "red" and BOB["ref"] in d["citations"]):
@@ -418,8 +450,15 @@ MUTANTS = (
     ("a trust board with no officer listed clears", "    if _no_officers(report):\n        return _no_officers(report)\n", ""),
     ("an officer past the limit is ignored", "    if w.get(\"officers_omitted\"):\n        return f\"the walk followed", "    if False:\n        return f\"the walk followed"),
     ("the officers reach is assumed to have run", "    if \"officers\" not in (w.get(\"buckets\") or []):", "    if False:"),
-    ("a contested group's prohibition is red", "red = [it for it in on_officers if it.get(\"rule\") != \"same-name\" and not _contested(it) and",
-     "red = [it for it in on_officers if it.get(\"rule\") != \"same-name\" and"),
+    ("a contested group's prohibition is red", "and not it.get(\"near_link\") and not _contested(it) and", "and not it.get(\"near_link\") and"),
+    ("a near link's prohibition is red", "if it.get(\"rule\") != \"same-name\" and not it.get(\"near_link\") and", "if it.get(\"rule\") != \"same-name\" and"),
+    ("a namesake's role is the officer's own", "if it.get(\"through\") and it.get(\"near_link\") and not it.get(\"above\")]\n\n\ndef _above",
+     "if False]\n\n\ndef _above"),
+    ("a namesake's notice is the officer's own", "hits = [n for n in _notices(report) if n.get(\"through\") and not n.get(\"near_link\") and not n.get(\"above\")]",
+     "hits = [n for n in _notices(report) if n.get(\"through\") and not n.get(\"above\")]"),
+    ("a notice up the chain is an officer's company's", "hits = [n for n in _notices(report) if n.get(\"through\") and not n.get(\"near_link\") and not n.get(\"above\")]",
+     "hits = [n for n in _notices(report) if n.get(\"through\") and not n.get(\"near_link\")]"),
+    ("a notice up the chain is the entity's own", "if _on_subject(report, it) and not it.get(\"above\")]", "if _on_subject(report, it) or it.get(\"above\")]"),
     ("a by-name charity row is red", "red = [it for it in on_officers if it.get(\"rule\") != \"same-name\" and", "red = [it for it in on_officers if"),
     ("the entity's own charity's trustees are not read", "    if own_marks:", "    if False:"),
     ("an ended prohibition is red", " and _in_force(report, it) and it[\"through\"] in officer_rows", " and it[\"through\"] in officer_rows"),
@@ -544,6 +583,42 @@ def test_the_charities_register_is_read_by_number_and_by_name():
     assert rule("disqualified_officer")(report(subject=holder, charities=True))["status"] == "blocked", "a holder's name is not looked up"
     a = rule("charity_arm")(report(subject=PERSON, charities=True, governance=[dict(BY_NAME_DQ, through=None, via=PERSON["ref"], entity_title="A TRUST")]))
     assert a["status"] == "fired" and a["scope"] == "near" and "A TRUST" in a["text"] and "namesake" in a["text"]
+
+
+#: the catalogue's not-held keys for the health registers (products/report/catalogue.py, NOT_HELD) and the flag that blocks on each
+HEALTH_KEYS = {"retirement_villages": ("retirement_villages", "The retirement villages file: each village's operator and statutory supervisor"),
+               "hdc": ("hdc_decisions", "Health and Disability Commissioner decisions"),
+               "certification": ("certification_audits", "Certification audits of rest homes and hospitals"),
+               "health_providers": ("provider_registers", "The Ministry of Health's provider registers"),
+               "aged_care_commissioner": ("aged_care_commissioner", "The Aged Care Commissioner's reports")}
+
+
+def test_the_reaches_name_the_health_keys_an_officers_near_links_and_the_companies_above():
+    """fix-products-templates-1: the five health keys in the not-held section (the villages file on standing too) and each blocked flag
+    naming its register as the catalogue does; an officer's near links counted apart; the Gazette on the companies above listed."""
+    s = {x["name"]: x for x in toml()["sections"]}
+    with open(os.path.join(REPO, "products", "report", "catalogue.py"), encoding="utf-8") as f:
+        cat = f.read()
+    for key, (fn, name) in HEALTH_KEYS.items():
+        assert key in s["not-held"]["not_held"] and f'("{key}", "{name}' in cat, key
+        assert rule(fn)(report())["sources_not_held"][0].startswith(name), fn
+    assert s["standing"]["not_held"] == ["retirement_villages"]
+    assert "chain" in s["gazette"]["sources"] and "officers" in s["overlap"]["sources"] and "charity_officers" in s["governance"]["views"]
+    assert "named" in s["governance"]["sources"]
+    f = rule("officer_overlap")(operator(overlap=[ANN_RIMU, RIMU, ANN_SISTER, BOB_ACME, BOB_NAMESAKE]))
+    assert f["severity"] == "amber" and "and 1 role(s) on organisations an officer's near link reaches" in f["text"] and "name-only@1" in f["text"]
+    assert "1 officer(s), not hubs" in f["text"], "the namesake's role is not the officer's"
+    o = rule("officer_company_notices")(operator(gazette=[RIMU_LIQ, NAMESAKE_LIQ]))
+    assert o["severity"] == "amber" and o["text"].startswith("1 Gazette insolvency notice(s)") and NAMESAKE_LIQ["ref"] in o["citations"]
+    only = rule("officer_company_notices")(report(governance=[ANN, BOB], overlap=[BOB_NAMESAKE], gazette=[NAMESAKE_LIQ]))
+    assert (only["status"], only["severity"], only["scope"]) == ("fired", "info", "near")
+    d = rule("disqualified_officer")(report(governance=[ANN, BOB], gazette=[NAMESAKE_PROHIB]))
+    assert d["status"] == "fired" and d["severity"] == "amber"
+    a = rule("insolvency_notice")(report(gazette=[ABOVE_RECEIVER]))
+    assert a["status"] == "clear" and "1 on a company above in the holding chain" in a["text"] and "2 up, confirmed" in a["text"]
+    both = rule("insolvency_notice")(report(gazette=[OWN_LIQ, ABOVE_RECEIVER]))
+    assert both["text"].startswith("1 Gazette insolvency notice(s) on the entity") and ABOVE_RECEIVER["ref"] in both["citations"]
+    assert rule("officer_company_notices")(report(governance=[ANN, BOB], gazette=[ABOVE_RECEIVER]))["status"] != "fired"
 
 
 def test_every_register_not_held_blocks_and_a_village_row_is_named_as_such():

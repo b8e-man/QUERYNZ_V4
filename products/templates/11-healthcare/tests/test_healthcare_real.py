@@ -67,7 +67,10 @@ def memo(ref: str) -> dict:
     assert "could not run" not in text, "a rule broke on real rows"
     for name in NOT_HELD:
         assert flags[name]["status"] == "blocked", name
-    assert "WHAT IS NOT HELD" in text and "not held: Court judgments" in text
+    line = [x for x in text.splitlines() if x.startswith("  not held: The retirement villages file") and "Court judgments" in x]
+    assert "WHAT IS NOT HELD" in text and line, "the not-held section's line names the health keys, then the courts"
+    assert all(n in line[0] for n in ("Health and Disability Commissioner decisions", "Certification audits", "provider registers",
+                                      "Aged Care Commissioner"))
     assert "not held: Charities register and officers" not in text   # held since charities-3; the key superseded at fix-report-2
     return {"text": text, "flags": flags}
 
