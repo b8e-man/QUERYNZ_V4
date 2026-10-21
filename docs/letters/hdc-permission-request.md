@@ -4,7 +4,7 @@ Drafted by the integrator, 22 October 2026, for Arthur to send from his own
 address to hdc@hdc.org.nz (the address the copyright page gives for a
 proposed use). The asks follow the copyright page: 3.1 allows research
 copies; 3.2 needs written permission for any other purpose; 3.3 asks for
-source, date and accurate reproduction. Sent: (date, by Arthur). Answer: (none yet).
+source, date and accurate reproduction. Sent: 22 October 2026, by Arthur. Answer: (none yet).
 
 ---
 
