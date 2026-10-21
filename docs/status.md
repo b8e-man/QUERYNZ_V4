@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. The detail is in `docs/merges/`.
 
-**Date:** 2026-10-22, 05:15 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-22, 06:5x NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 day three not clean; 5.1 done; 5.2 closed (ten templates, `fix-report-2`
 parameters); 5.3 eight lanes merged (OpenLaw, HDC held on terms; sanctions
 lists held); 5.4 merged; 5.5 merged; 6.1 merged (`scan-1`, the scan on
@@ -49,6 +49,5 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
   carded (ruling 57).
 - Waits on Arthur: the OpenLaw and HDC
   terms (no default), the letters (Ministry of Justice; MBIE on the GETS
-  files; the Commissioner), the diaries source's name (ruling 78), the
-  scratch drops (his run), node1's fence and the cable check; items 12, 69
+  files; the Commissioner), the diaries source's name (ruling 78), node1's fence and the cable check; items 12, 69
   and 75 return after the build.
