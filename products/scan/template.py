@@ -20,8 +20,24 @@ the view it lands on and how it gets there:
                  the two rows themselves. Both rows must be rows pub.names
                  carries (`person_row` in the catalogue).
   by = "link"    a link of one named rule between this row and the next
-                 (`rule = "organisation-name@1"`), graded as the link is:
-                 a near rule gives a near line, with the link's own reason.
+                 (`rule = "organisation-name@1"`), or of any of several
+                 (`rule = ["full-name@1", "name-only@1"]`), graded as the
+                 link is: a near rule gives a near line, with the link's
+                 own reason.
+  by = "name"    a name column of this row and one of the next are the same
+                 text once folded (lower case, macrons off, a legal ending
+                 such as Limited off, letters and digits only): `on = [name
+                 here, name there]`. With `number = [here, there]`, two rows
+                 that both carry the number join by it alone (confirmed) and
+                 never by name; otherwise by name alone (near, with the
+                 reason). Every row there under the same name is a line of
+                 its own; with `namesakes = true` (the rows there are each
+                 one body, as the companies register's are) each such line
+                 is marked as one of its namesakes.
+
+A row or name step may be `optional = true`: a row with nothing to join
+there is still listed, the step shown as "none found in" the view; every
+step after an optional one is optional too.
 
 A step may filter (`where = { in_latest = true, role_status = ["current"] }`:
 equality, a list, a boolean or null; nothing else) and name columns to
@@ -37,7 +53,8 @@ from products.scan import views as cat
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES = os.path.join(HERE, "templates")
-BYS = ("row", "person", "link")
+BYS = ("row", "person", "link", "name")
+OPTIONAL_BYS = ("row", "name")
 MAX_STEPS = 6
 
 
@@ -47,10 +64,18 @@ class Step:
     label: str                   # the word the list heads this step's columns with
     by: str = ""                 # "" for the first step; row | person | link
     on: tuple = ()               # (column here, column there) for a row step
-    rule: str = ""               # the link rule for a link step
+    rule: str = ""               # the link rule for a link step (several: joined with ", ")
     where: tuple = ()            # ((column, value), ...): value a scalar, a list, a bool or None
     columns: tuple = ()          # columns carried into the line beside the title, dates and citation
     views: tuple = ()            # the first step only: every view the scan starts from
+    number: tuple = ()           # a name step: (number column here, number column there)
+    optional: bool = False       # a row or name step: a row with nothing to join is listed, the step "none found in"
+    rules: tuple = ()            # a link step: every rule it follows
+    namesakes: bool = False      # a name step: several rows there under one name are namesakes, and each line says so
+
+    @property
+    def fold_note(self) -> str:
+        return "by business number or by name" if self.number else "by name"
 
 
 @dataclass(frozen=True)
@@ -139,8 +164,8 @@ def load(folder: str) -> Template:
             starts = tuple(s["views"]) if s.get("views") else ((s["view"],) if s.get("view") else ())
             if not starts:
                 raise ValueError(f"{folder}: the first step names the view (or views) every row starts from")
-            if s.get("by"):
-                raise ValueError(f"{folder}: the first step is where the scan starts; it has no `by`")
+            if s.get("by") or s.get("optional"):
+                raise ValueError(f"{folder}: the first step is where the scan starts; it has no `by` and is not optional")
             for v in starts:
                 if v not in views:
                     raise ValueError(f"{folder}: step {name} starts from pub.{v}, which the template does not read")
@@ -152,20 +177,41 @@ def load(folder: str) -> Template:
         by = s.get("by")
         if by not in BYS:
             raise ValueError(f"{folder}: step {name}: by is one of {BYS}, not {by!r}")
-        on, rule = (), ""
-        if by == "row":
+        on, rule, rules, number = (), "", (), ()
+        if by in ("row", "name"):
             on = tuple(s.get("on") or ())
             if len(on) != 2 or not all(cat.COLUMN.match(str(c)) for c in on):
-                raise ValueError(f"{folder}: step {name}: a row step names `on = [column here, column there]`")
+                raise ValueError(f"{folder}: step {name}: a {by} step names `on = [column here, column there]`")
+            if any(cat.ADDRESS_COLUMN.search(str(c)) for c in on):
+                raise ValueError(f"{folder}: step {name}: joins on an address-shaped column (hard limit 15)")
+        if by == "name":
+            number = tuple(s.get("number") or ())
+            if number and (len(number) != 2 or not all(cat.COLUMN.match(str(c)) for c in number)):
+                raise ValueError(f"{folder}: step {name}: a name step's `number = [column here, column there]`")
+        elif s.get("number") or "namesakes" in s:
+            raise ValueError(f"{folder}: step {name}: only a name step names a number or its namesakes")
+        namesakes = s.get("namesakes", False)
+        if not isinstance(namesakes, bool):
+            raise ValueError(f"{folder}: step {name}: namesakes is true or false")
         elif by == "person":
             prev = steps[-1].view
             if not (cat.BY_NAME[v].person_row and cat.BY_NAME[prev].person_row):
                 raise ValueError(f"{folder}: step {name}: a person step joins two rows pub.names carries; pub.{prev} to pub.{v} is not that")
-        else:
-            rule = str(s.get("rule") or "")
-            if not rule or "@" not in rule:
-                raise ValueError(f"{folder}: step {name}: a link step names the rule, as the links publish it (name@version)")
-        steps.append(Step(v, str(name), by, on, rule, _where(folder, name, s.get("where")), _columns(folder, name, s.get("columns"))))
+        elif by == "link":
+            raw = s.get("rule")
+            rules = tuple(str(x) for x in raw) if isinstance(raw, list) else ((str(raw),) if raw else ())
+            if not rules or not all("@" in x for x in rules) or len(set(rules)) != len(rules):
+                raise ValueError(f"{folder}: step {name}: a link step names the rule (or rules), as the links publish it (name@version)")
+            rule = ", ".join(rules)
+        optional = s.get("optional", False)
+        if not isinstance(optional, bool):
+            raise ValueError(f"{folder}: step {name}: optional is true or false")
+        if optional and by not in OPTIONAL_BYS:
+            raise ValueError(f"{folder}: step {name}: only a row or name step may be optional")
+        if steps[-1].optional and not optional:
+            raise ValueError(f"{folder}: step {name}: follows an optional step, so it is optional too")
+        steps.append(Step(v, str(name), by, on, rule, _where(folder, name, s.get("where")), _columns(folder, name, s.get("columns")),
+                          (), number, optional, rules, namesakes))
     labels = [s.label for s in steps]
     if len(set(labels)) != len(labels):
         raise ValueError(f"{folder}: every step has its own label")

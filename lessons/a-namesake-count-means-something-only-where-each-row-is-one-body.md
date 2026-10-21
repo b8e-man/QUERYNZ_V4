@@ -1,4 +1,4 @@
-Count namesakes only where each row of the view is one body (a company, a person): over a view of events, such as the award suppliers (one row per supplier per notice), the count measures how often a name recurs, and "one of 38 namesakes" was one firm's 38 awards.
+Count namesakes only where each row of the view is one body: over a view of events, such as award suppliers (a row per supplier per notice), the count is how often a name recurs; "38 namesakes" was one firm's 38 awards.
 area: scan templates, name joins, namesakes, products/scan, registers/tenders, procurement
 paid-for-by: 2026-10-21, scan-templates-1 session, step 6.2
 

@@ -1,4 +1,4 @@
-A mutant planted and reverted with an edit of the same length inside one second leaves Python's bytecode cache stale, so the reverted code still runs as the mutant (or a planted mutant runs as the clean code and the test passes): run mutant checks with `python -B` or `PYTHONDONTWRITEBYTECODE=1`, or recompile the file before trusting the result.
+A mutant planted and reverted by a same-length edit within a second leaves Python's bytecode cache stale, so the reverted code still runs as the mutant (or the mutant as clean code): run mutant checks with `python -B`, or recompile first.
 area: mutant checks, tests, pytest, sed, bytecode, __pycache__, checks that silently pass
 paid-for-by: 2026-10-21, scan-templates-1 session, step 6.2
 

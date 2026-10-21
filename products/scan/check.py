@@ -12,7 +12,12 @@ sample:
      (the fast tier's mutant test proves the catch).
   4. The presentation rules hold on every line of every latest run, and the
      run recorded no problems.
-  5. The two proving scans prove the shape on the real tables: the society
+  5. The step-6.2 templates, read back on a spread of each run's lines:
+     every join on the line holds today (the link, the register keys, the
+     names folding alike, the namesake count, the business number), the
+     grade says how each was made, and every supplier the notices name is on
+     the award list.
+     The two proving scans prove the shape on the real tables: the society
      scan has confirmed lines, and on a sample of its lines the notice's
      register key is the company's today, the officer and the director are
      in one group, and the grade follows the group's contested flag; the
@@ -75,8 +80,13 @@ def check_template(pub, t: tpl.Template, held: set) -> list:
             for s in t.steps:
                 if s.view == v or v in s.views:
                     need |= set(s.columns) | {c for c, _ in s.where}
-                    if s.by == "row":
+                    if s.by in ("row", "name"):
                         need.add(s.on[1])
+                    need |= set(s.number[1:])
+                    i = t.steps.index(s)
+                    if i + 1 < len(t.steps) and t.steps[i + 1].by in ("row", "name"):
+                        need.add(t.steps[i + 1].on[0])
+                        need |= set(t.steps[i + 1].number[:1])
             missing = sorted(need - cols)
             if missing:
                 out_.append(f"{t.name}: pub.{v} lacks {missing}")
@@ -105,6 +115,8 @@ def check_run(pub, st, t: tpl.Template, settings: dict) -> list:
         lines_seen += 1
         out_ += [f"{t.name}: {p}" for p in rules.line_problems(ln)[:5]]
         for s in ln["steps"]:
+            if s.get("absent"):
+                continue
             if s["cite"] not in numbers:
                 out_.append(f"{t.name}: line {ln['n']} cites [{s['cite']}], which the run's citations lack")
         if len(out_) > 40:
@@ -119,7 +131,7 @@ def check_run(pub, st, t: tpl.Template, settings: dict) -> list:
     html = out.scan_html(t, r, lines, total, 1, state.PAGE, state.citations(st, r["run_id"], sorted({c for ln in lines for c in ln["cites"]})), [])
     for ln in lines:
         for s in ln["steps"]:
-            if f"[{s['cite']}]" not in html:
+            if not s.get("absent") and f"[{s['cite']}]" not in html:
                 out_.append(f"{t.name}: the page lacks citation [{s['cite']}] of line {ln['n']}")
                 break
     text = out.csv_text(t, state.all_lines(st, r["run_id"]))
@@ -179,6 +191,101 @@ def proving(pub, st) -> list:
     return out_
 
 
+TEMPLATES_PROVED = ("tender-awards", "procurement-directors-donors", "procurement-shareholders-donors")
+SAMPLE = 60          # lines read back per step-6.2 template, spread across the run
+FOLD_READS = 5       # namesake counts read back (each folds the whole view)
+
+
+def spread(lines: list, k: int = SAMPLE) -> list:
+    step = max(1, len(lines) // k)
+    return lines[::step][:k]
+
+
+def _row(pub, view: str, key: str, cols: str) -> dict:
+    got = db.rows(pub, f"select {cols} from pub.{view} where key = %s", (key,))
+    return got[0] if got else {}
+
+
+def _key(step: dict) -> str:
+    return step["ref"].split(":", 1)[1]
+
+
+def _by_name(pub, name: str, scan: str, n, ln: dict, here: dict, there: dict, here_col: str, there_col: str,
+             here_view: str, there_view: str, folds: list) -> list:
+    """A name step read back: by name, the two names fold alike; marked as
+    one of N namesakes, N rows there carry the folded name today."""
+    out_ = []
+    a, b = _row(pub, here_view, _key(here), f"{here_col} as name"), _row(pub, there_view, _key(there), f"{there_col} as name")
+    if not a or not b:
+        return [f"{scan}: line {n}: {name}: a row is not in its view today"]
+    if any(name + ": joined by name alone" in x for x in ln["reasons"]):
+        if loose(a["name"]) != loose(b["name"]) or not loose(a["name"]):
+            out_.append(f"{scan}: line {n}: {name}: joined by name, but the names do not fold alike today")
+    m = next((x for x in ln["reasons"] if x.startswith(f"{name}: one of ")), None)
+    if m and folds[0] < FOLD_READS:
+        folds[0] += 1
+        want = int(m.split()[3].replace(",", ""))
+        got = db.rows(pub, f"select count(*) as n from pub.{there_view} x where {plan.fold_sql(f'x.{there_col}')} = {plan.fold_sql('%s')}",
+                      (b["name"],))[0]["n"]
+        if got != want:
+            out_.append(f"{scan}: line {n}: {name}: marked one of {want} namesakes; pub.{there_view} has {got} under that name today")
+    return out_
+
+
+def templates_proving(pub, scan: str, lines: list) -> list:
+    """The step-6.2 templates on the real tables, read back line by line
+    (a spread of each run): every join on the line holds today and the
+    grade says how it was made. `lines` is passed in so a test can plant a
+    fault and see it caught."""
+    out_, folds = [], [0]
+    if scan == "tender-awards":   # every supplier the notices name is on the list, matched or not
+        held = db.rows(pub, "select count(*) as n from pub.award_suppliers s join pub.award_notices a on a.key = s.notice_key")[0]["n"]
+        listed = len({ln["steps"][1]["ref"] for ln in lines})
+        if listed != held:
+            out_.append(f"{scan}: {listed:,} suppliers listed; the notices name {held:,} today")
+    for ln in spread(lines):
+        n = ln["n"]
+        if scan == "tender-awards":
+            aw, su, co = ln["steps"]
+            if _row(pub, "award_suppliers", _key(su), "notice_key").get("notice_key") != _key(aw):
+                out_.append(f"{scan}: line {n}: the supplier is not named on the award today")
+            if co.get("absent"):
+                if ln["grade"] != "confirmed" or ln["reasons"]:
+                    out_.append(f"{scan}: line {n}: no company joined, but graded {ln['grade']} with reasons")
+                continue
+            if ln["grade"] == "confirmed":
+                a, b = _row(pub, "award_suppliers", _key(su), "nzbn"), _row(pub, "companies", _key(co), "nzbn")
+                if not a.get("nzbn") or a.get("nzbn") != b.get("nzbn"):
+                    out_.append(f"{scan}: line {n}: confirmed, but the supplier and the company do not share a business number")
+            elif not any("company: joined by name alone" in x for x in ln["reasons"]):
+                out_.append(f"{scan}: line {n}: near without the name join's reason")
+            out_ += _by_name(pub, "company", scan, n, ln, su, co, "business_name", "name", "award_suppliers", "companies", folds)
+        elif scan in ("procurement-directors-donors", "procurement-shareholders-donors"):
+            donor, person, co, su, aw = ln["steps"]
+            pview = person["view"]
+            link = db.rows(pub, "select grade from pub.links where rule = any(%s) and ((row_a = %s and row_b = %s) or (row_a = %s and row_b = %s))",
+                           (["full-name@1", "name-only@1"], donor["ref"], person["ref"], person["ref"], donor["ref"]))
+            if not link:
+                out_.append(f"{scan}: line {n}: no full-name or name-only link joins the donor and the {person['label']} today")
+            elif link[0]["grade"] != "confirmed" and not any(x.startswith(person["label"] + ":") for x in ln["reasons"]):
+                out_.append(f"{scan}: line {n}: a near link without its reason")
+            if _row(pub, pview, _key(person), "entity_key").get("entity_key") != _key(co):
+                out_.append(f"{scan}: line {n}: the {person['label']} row is not on the company today")
+            if _row(pub, "award_suppliers", _key(su), "notice_key").get("notice_key") != _key(aw):
+                out_.append(f"{scan}: line {n}: the supplier is not named on the award today")
+            if any("supplier: joined by name alone" in x for x in ln["reasons"]):
+                if ln["grade"] != "near":
+                    out_.append(f"{scan}: line {n}: graded {ln['grade']}; a supplier joined by name is near")
+            else:
+                a, b = _row(pub, "companies", _key(co), "nzbn"), _row(pub, "award_suppliers", _key(su), "nzbn")
+                if not b.get("nzbn") or a.get("nzbn") != b.get("nzbn"):
+                    out_.append(f"{scan}: line {n}: the supplier is joined without the name join's reason and without a shared business number")
+            out_ += _by_name(pub, "supplier", scan, n, ln, co, su, "name", "business_name", "companies", "award_suppliers", folds)
+        if len(out_) > 10:
+            break
+    return out_
+
+
 def main(argv=None) -> int:
     argv = list(argv or [])
     only = argv[argv.index("--scan") + 1] if "--scan" in argv else None
@@ -196,6 +303,10 @@ def main(argv=None) -> int:
                 continue
             problems += check_template(pub, t, held)
             problems += check_run(pub, st, t, settings)
+        for name in names:
+            r = state.latest(st, name) if name in TEMPLATES_PROVED else None
+            if r:
+                problems += templates_proving(pub, name, list(state.all_lines(st, r["run_id"])))
         if not only:
             problems += proving(pub, st)
             try:

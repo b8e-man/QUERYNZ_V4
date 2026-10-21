@@ -1,9 +1,10 @@
 # The scan shape's additions for the step-6.2 templates go in at the merge
 kind: blocker
-state: open
+state: closed
 use-case: 10 tender and award intelligence; 9 government procurement integrity
 session: scan-templates-1
 opened: 2026-10-21
+closed: 2026-10-22
 
 The session's fence is `products/scan/templates/`; the templates need five
 additions to the shape in `products/scan/`, carried as
@@ -36,3 +37,5 @@ run `python -m products.scan run` for `tender-awards`,
 2.5 minutes together) and `python -m products.scan check` (green on the
 merged copy in this session's scratch schema, 11.6 s). Merged without the
 diff, the three templates do not load and `run --stale` fails loudly.
+
+Closed by the integrator at the merge of `scan-templates-1` (22 October 2026): the shape diff applied to the ten scan files by a small unified-diff reader (the hooks refuse `git apply` and `patch`), every hunk's context matched, in the same commit as the three templates; `products/scan/templates/_shape/` removed; the scan's tests green with the templates loading.

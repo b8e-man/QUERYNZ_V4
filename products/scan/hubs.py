@@ -72,13 +72,15 @@ def offices_of(conn, keys: list) -> dict:
 
 def flag(conn, lines: list, busy: set) -> int:
     """Adds hubs to each line's `hubs` ({step, kind, text}); returns how many lines carry one."""
-    people = [s["ref"] for ln in lines for s in ln["steps"] if s["view"] in PERSON_HUB_VIEWS and not s["suppressed"]]
-    companies = [s["ref"].split(":", 1)[1] for ln in lines for s in ln["steps"] if s["view"] == "companies"]
+    people = [s["ref"] for ln in lines for s in ln["steps"] if s["view"] in PERSON_HUB_VIEWS and not s["suppressed"] and not s.get("absent")]
+    companies = [s["ref"].split(":", 1)[1] for ln in lines for s in ln["steps"] if s["view"] == "companies" and not s.get("absent")]
     roles = directorships_by_group(conn, people) if people else {}
     offices = offices_of(conn, companies) if (companies and busy) else {}
     n = 0
     for ln in lines:
         for s in ln["steps"]:
+            if s.get("absent"):
+                continue
             v = cat.BY_NAME[s["view"]]
             if v.kind == "organisation" or s["view"] == "shareholders":
                 h = name_hub(s["title"])
