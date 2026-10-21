@@ -31,3 +31,5 @@ template marks the person-page sections as the ones the queue's recommendation w
 the frozen 2026-10-20T0620, rebuilt in scratch: 10,651 differences fell to 266, all one key: the frozen page's `candidate_rows_gap` line is written
 for a candidate with the Commission's total and no parsed return, a state the rebuilt side has no row for; its words are in the person page's
 basis instead.
+
+Ruling 68 (21 October): every frozen section belongs in the template; the comparison keeps counting a missing one against the new side until the template carries it. Not to be asked again.
