@@ -5,7 +5,7 @@ address to enquiries@openlaw.nz (the site's only request route: "Get in
 touch" is a mailto link; there is no contact form). Cut to the asks the
 terms require: 3.6(a) copies and databases, 3.6(b) display and derived
 work, 3.7 charging. Keeping the copy if the terms end (5.3(b)) is our
-policy, asked later if they say yes. Sent: (date, by Arthur). Answer: (none yet).
+policy, asked later if they say yes. Sent: 22 October 2026, by Arthur. Answer: (none yet).
 
 ---
 
