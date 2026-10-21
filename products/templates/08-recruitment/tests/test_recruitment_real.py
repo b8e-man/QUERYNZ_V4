@@ -99,5 +99,7 @@ def test_the_most_shared_name_keeps_its_namesakes_apart_and_never_confirmed():
     assert ident["confirmed"] == 0 and ident["near"] > 0
     assert all(x.startswith("  - [near]") for x in ident["lines"])
     assert m["flags"]["namesake-exposure"]["status"] == "fired"
-    assert m["flags"]["bankruptcy"]["status"] == "blocked" and m["flags"]["charity-integrity-marks"]["status"] == "blocked"
+    assert m["flags"]["bankruptcy"]["status"] == "blocked"
+    marks = m["flags"]["charity-integrity-marks"]   # read since fix-templates-1: an officer row by name is near, so a mark on one is amber
+    assert marks["status"] == "clear" or (marks["status"] == "fired" and marks["severity"] == "amber"), marks
     assert "not held: Charities register and officers" not in m["text"]   # held since charities-3; the key superseded at fix-report-2
