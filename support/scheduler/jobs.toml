@@ -758,3 +758,18 @@ priority = 56
 command = ["python", "-m", "registers.building_practitioners.load", "--job"]
 at_utc = "17:40"
 nice = 10
+
+# ── step 6.1, the register scan's re-run (scan-1; card the-scan-rerun-job-into-the-catalogue). It runs after the
+# links' build, which runs after each lane load, so a scan is re-run once the views it read have loaded; the runner
+# decides which scans are stale and re-runs only those (and never-run ones). The catalogue carries no per-job
+# environment: the product's defaults are querynz_v4/register_scan and a ten-minute statement limit. ──
+[jobs.qv4-scan-rerun]
+description = "Step 6.1: re-run every register scan a published view has loaded since (the stale rule: each run records max(loaded_at) of every view it read). After the links' build; one query per scan under a ten-minute statement limit; the run cut at an hour."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 3600
+query_timeout_s = 600
+class = "whenever"
+priority = 59
+command = ["python", "-m", "products.scan", "run", "--stale"]
+nice = 10
