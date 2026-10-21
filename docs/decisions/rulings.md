@@ -213,3 +213,17 @@ hard limit 19, and first of the two because it is a live hard-limit-15
 exposure: one commit to the old repository so the fold drops the fragment
 and the donor page and picker regenerate clean, drafted from the reference
 copy and applied by Arthur himself; the next daily release is the proof.
+
+78. Arthur, 21 October, about 18:20, while the integrator was gating
+sanctions-1, unprompted: "forget about capturing the beehive and hansard
+I have a 3rd party source". Neither www.beehive.govt.nz (the ministers'
+diary releases, step 6.2 template 4(a)) nor Parliament's Hansard pages is
+captured by the estate; the diary register and the Hansard register are
+built from a third-party source Arthur supplies. Its name, its terms and
+its legal position (ruling 61, the four questions) wait on him naming it;
+until then the two registers are not held. Closes diaries-1's queue item
+`may-we-ask-the-beehive-to-let-the-diaries-reader-through` with no letter,
+its blocker card `the-beehive-s-wall-refuses-the-diaries-reader`, and the
+Office of the Clerk letter in the letters queue item; the step 4 line on
+Hansard's challenge (held at 23 September) closes the same way: no
+permission request is sought.
