@@ -44,3 +44,5 @@ statements' own arithmetic does not hold and they publish nothing for
 that pair: Aotearoa Legalise Cannabis 2024 (its surplus is 21 cents off
 its lines) and NZ Loyal 2024 (it brackets a surplus as a loss). The
 scanned remainder is card `the-scanned-party-statements-figures-are-not-read`.
+
+reconcile-1 (21 October, ruling 66): the 21-cent surplus (Aotearoa Legalise Cannabis 2024) publishes with its issue.
