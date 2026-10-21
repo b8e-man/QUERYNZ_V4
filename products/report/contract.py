@@ -25,6 +25,13 @@ What the contract holds:
   report["since"]            the since date the report was built with (ISO, or None), and on every
                              item `new`: True (dated on or after it), False, or None (cannot say);
                              `report["new"]` and `report["cannot_say"]` count them
+  report["params"]           {name: value} for every parameter the template declares (`[[params]]` in
+                             its template.toml: name, kind, default, means), read as its kind, or the text
+                             the reader gave when that does not read (the rule says so), or the default;
+                             each is also under its own name on the report (`report["window_days"]`),
+                             read the way `report["since"]` is; `report["params_declared"]` says which
+                             were given. The page offers them and the command line sets them (`--set`);
+                             a name the template does not declare is refused before anything is read
   item["holdings"]           on a holder of record: the companies it holds in the latest file
   item["depth"], ["through"], ["hop_text"], ["chain_goes_on"]
                              on a chain or officers row: how far up, the row it came through
@@ -39,7 +46,7 @@ import urllib.parse
 
 from products.report import rules as _rules
 
-VERSION = "0.3"
+VERSION = "0.4"
 STATUSES = ("fired", "clear", "blocked")
 SEVERITIES = ("red", "amber", "info")
 
