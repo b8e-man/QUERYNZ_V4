@@ -1,0 +1,21 @@
+# registers/courts/sample.list (plan 1b.6): hashes only, never bytes or rows. A comment says what case a document
+# proves, never whose it is.
+# The once-only listing of the old estate's judgments (21 October 2026, 14:44): 359 documents, three sources.
+8285d0068216f1675561dc260eb370ca9b6f1d78fae26e3d483d3a35aab79572 listing
+af540a6a0ab85a307c5e0206e41be2221e52e133dcf9dbe2b6dd60b81282f05e NZSC, two banners above the court line; three anonymised appellants on one line
+d2e3a5d946d936749539b2eee9418cf50855c37eebe724fb495d2a521cfef208 NZCA, an s 204 banner: names withheld, the Crown's shown
+6e35522ee40f429781a17d9bf3be184fcc2d443fbfbe8d2f369a9786b200486b NZCA civil, a singular role whose name wraps over four lines
+f302207384b38cdbb12af638f39f89f6fa35571c6141c393287db8c2bf8df8a8 NZSC, IN THE MATTER OF a reference, with a role under it
+04ccbc867b422d5886ed2a06cd4a0f576289f37d0f17f2343f77b1fbdc04a7a8 NZSC consolidated appeal: seven case numbers, a caption over two pages, lists split low
+0a3e0476e9b0a8399385014cd1d183cb301c457702f5f822815b5552e82aa6d0 NZSC, a Family Court Act banner
+dbcefdeefa8b2751b59f91e78afeb2d9bfecba86a491b6aa0bc42bf2bf60b84b NZCA, the caption prints "Appellant" where the counsel line says "First and Second Appellants"
+fb9197201dfdf31f43a66146a66442e3c4d49204b945fc3638c5b69ae59b9c10 NZHC criminal, three anonymised defendants, one to a line
+8af5489fbd83ff36287f9ac52d0cf51dfc02ec0e98266021ea56ce1daadbb1c3 NZHC criminal, two defendants joined by "&" over two lines
+b1d094e34628958bcfd780e3d46a4772d5c9a34aff1491a6c63349d0f0688a26 NZHC criminal, three defendants, the counsel lines name each
+2143318967aff11ba0a39ab78f45fa2217d68aeeba7458228ea47655fa224b4f NZHC civil, a name and its role, then the next, inside one block
+872671193e7f06f633a7276ea89f7a6a9a96d79432b33144f41eaf69120bad77 NZHC civil, UNDER and IN THE MATTER, the caption continued over the page
+28e91d9a66421fcc966b2d9ce4a39e2c6d18f4dc7ebe94859f47e3601721e09c NZHC civil, nine defendants "as trustees of" a trust
+13680ffdb6b04a61ffbb4a591f89545fce77479750667eafba0d14ebb32f9423 NZHC, one citation in two documents (a reissue), the first
+4122a601be9fe02a641c7d04b74c18cfc43f80216afdf95ad31b59b4dec6dff4 NZHC, one citation in two documents (a reissue), the second
+50dc03de8f93f75ece612a5ee085858fbbcddb46b9ef9bb63cab732801b5cff9 listed, its old file gone: a catch-log line, fetched by the capture job
+8008bd12a3d512ed47a2c5fec658ef1f7915877a9f30b0c6af5d60c49a92e62b a Waitangi Tribunal report: recognised, held, not read into judgment rows
