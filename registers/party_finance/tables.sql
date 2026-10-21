@@ -254,3 +254,10 @@ CREATE TABLE IF NOT EXISTS party_finance.statement_figures (
     profile_version   integer NOT NULL,
     loaded_at         timestamptz NOT NULL
 );
+
+-- ruling 66: a row a sum admitted below $100 off its printed total names the difference (reconcile.py)
+ALTER TABLE party_finance.expense_returns ADD COLUMN IF NOT EXISTS issue text;
+ALTER TABLE party_finance.promoter_returns ADD COLUMN IF NOT EXISTS issue text;
+ALTER TABLE party_finance.allocations ADD COLUMN IF NOT EXISTS issue text;
+ALTER TABLE party_finance.allocation_totals ADD COLUMN IF NOT EXISTS issue text;
+ALTER TABLE party_finance.statement_figures ADD COLUMN IF NOT EXISTS issue text;

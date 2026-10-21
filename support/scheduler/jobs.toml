@@ -671,3 +671,27 @@ priority = 37
 command = ["python", "-m", "registers.companies.monitor", "--night", "--budget-s", "1500"]
 at_utc = "10:30"
 nice = 10
+
+# ── charities (the register's own OData feed; the copy lands in the document store by hash and the lane reads it) ──
+[jobs.qv4-charities-load]
+description = "Charities: read the latest OData copy of the register (organisations, officers, annual returns) from the document store into the lane's tables and publish pub.charities, pub.charity_officers and pub.charity_returns; addresses to charities_private; the register's own count checked. Nightly at 06:30 NZDT after the capture."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 1800
+query_timeout_s = 600
+class = "due"
+priority = 38
+command = ["python", "-m", "registers.charities.load", "--job"]
+at_utc = "17:30"
+nice = 10
+# ── party boards, the declared tier (ruling 72): read from the held party-website capture, no fetch; a reload when the lane changes ──
+[jobs.qv4-party-boards-load]
+description = "Party boards (ruling 72): read the held party-website capture by its profile into one row per declared board role and publish pub.party_board_roles and pub.party_board_pages; nothing on the site and nothing into the links. No schedule: queued when the lane or its profile changes."
+needs = "processor"
+memory_gb = 1
+deadline_s = 1800
+query_timeout_s = 300
+class = "whenever"
+priority = 39
+command = ["python", "-m", "registers.party_boards.load", "--job"]
+nice = 10

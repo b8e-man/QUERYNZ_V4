@@ -89,7 +89,7 @@ def check_rows_current(conn, s: str) -> list:
     logged = {v: (int(r), int(w), int(a)) for v, r, w, a in conn.execute(f"SELECT view, read, written, set_aside FROM {s}.rows_catch").fetchall()}
     for register, view, sql in rows.SOURCES:
         now = int(conn.execute(f"SELECT count(*) FROM ({sql}) q").fetchone()[0])
-        held = int(conn.execute(f"SELECT count(*) FROM {s}.rows WHERE view = %s", (view,)).fetchone()[0])
+        held = int(conn.execute(f"SELECT count(*) FROM {s}.rows WHERE view = %s AND part_of IS NULL", (view,)).fetchone()[0])
         read, written, aside = logged.get(view, (0, 0, 0))
         out.append({"check": f"{register}.{view}: the rows read the view as it stands", "published_now": now, "read_last": read,
                     "written": written, "set_aside": aside, "held": held,

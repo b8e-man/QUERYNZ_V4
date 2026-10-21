@@ -12,7 +12,9 @@ full-width row into parties eligible and parties not eligible.
 
 Every round is a column of rows, and the page prints its own total for
 each, so every column is scored against it: rows read and the total
-printed must agree to the dollar, or the column publishes nothing. A blank
+printed must agree to the dollar, or the column publishes nothing; rows
+less than $100 off the printed total publish with the round's `issue`
+naming the difference (ruling 66, `reconcile.py`). A blank
 cell is no allocation in that round (the party was out by then), not
 zero. A trailing `*` or `**` on a party is the page's footnote mark, kept
 as printed. Deterministic: a regex over captured HTML, no model.
@@ -22,6 +24,7 @@ as printed. Deterministic: a regex over captured HTML, no model.
 import re
 from dataclasses import dataclass, field
 
+from registers.party_finance import reconcile
 from registers.party_finance.listing import text
 
 READER = "registers.party_finance.broadcasting 1"
@@ -53,6 +56,7 @@ class Reading:
     printed_totals: dict = field(default_factory=dict)
     skipped: list = field(default_factory=list)       # (where, why)
     failed_rounds: list = field(default_factory=list) # round indexes whose rows do not add to the printed total
+    issues: dict = field(default_factory=dict)        # round index → ruling 66's issue: rows below $100 off the total
 
 
 def dollars(printed: str):
@@ -119,8 +123,10 @@ def read(data: bytes) -> Reading:
     allocated = out.totals.get("allocated") or []
     for i in range(n):
         s = sum(r.amounts[i] or 0 for r in out.rows)
-        if i >= len(allocated) or allocated[i] is None or s != allocated[i] or out.skipped:
+        if i >= len(allocated) or allocated[i] is None or out.skipped or not reconcile.within(s, allocated[i]):
             out.failed_rounds.append(i)
+        elif s != allocated[i]:
+            out.issues[i] = reconcile.issue(s, allocated[i], f"the round {i + 1} rows against TOTAL allocated")
     return out
 
 

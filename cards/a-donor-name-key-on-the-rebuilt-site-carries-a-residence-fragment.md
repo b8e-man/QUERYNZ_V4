@@ -47,3 +47,5 @@ declared positions keep the word, as the register's text, not a name).
 The links' half is `the-links-hold-a-donor-key-read-before-party-returns-5-fixed-the-row`.
 The frozen site's own copy of the fragment stands until Arthur's word
 (hard limit 19); nothing here changes it.
+
+Ruling 77 (21 October): "fix now", first of the two emergency fixes because the exposure is live (hard limit 15). The old estate's fold drops the fragment, the donor page and picker regenerate clean; the patch drafted from the reference copy, the commit Arthur's own; proof is the next daily release.

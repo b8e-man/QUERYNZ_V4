@@ -6,7 +6,8 @@ $30,000` and `Total (H + I)`. `declared(text)` reads the three, the
 thresholds cut out first (they are the form's words, never a figure); a
 figure the label does not carry is the next figure alone in the amount
 column, as on the donations half. The return's own arithmetic checks
-them: H + I equals the total, or the loans are not taken.
+them: H + I equals the total, or differs by less than $100 (ruling 66,
+`reconcile.py`: the row carries the `issue`), or the loans are not taken.
 
 **The lenders.** Part H is not a table: the form prints one block per
 loan, opening with `Lender's name and street address`, then the amount,
@@ -15,8 +16,9 @@ the security and any terms. A block's loan amount is its first figure
 under the lender or under `Loan amount`; the unpaid balance and the
 figure under `Total aggregated loan amount from the same lender` (the
 lender's running total) are never added. Every block is
-published only when the blocks add up, to the cent, to Part H on the
-declaration page and to `TOTAL FOR PART H` where that was read. The
+published only when the blocks add up to Part H on the declaration page
+and to `TOTAL FOR PART H` where that was read, or differ from each by less
+than $100 (ruling 66: each lender row carries the `issue`). The
 lender's name is cut from the address the way a donor's is
 (`donors.split`); the address goes only to `party_returns_private`, and so
 does a guarantor's name and address (a guarantor is a private person the
@@ -31,7 +33,7 @@ import re
 from dataclasses import dataclass, field
 
 from support.docread import declaration as D
-from registers.party_returns import donors, pixels, schedule
+from registers.party_returns import donors, pixels, reconcile, schedule
 
 LOANS_START = re.compile(r"TOTAL\s*PART[A-Za-z/]*\s*LOANS|TOTAL\s+\w+\s+LOANS", re.I)
 LABEL_H = re.compile(r"party\s+loans\s+exceeding", re.I)
@@ -47,7 +49,6 @@ FIELD = re.compile(r"loan\s+amount|\(?including\s+gst\)?|date\s+(?:the\s+)?loan|
                    re.I)
 AMOUNT_FIELDS = (None, "loan amount", "including gst", "(including gst)")
 RATE = re.compile(r"\b\d{1,2}(?:\.\d+)?\s*%|\binterest[\s-]+free\b|\bnil\b|\bnone\b", re.I)
-CENT = 0.005
 
 
 @dataclass
@@ -56,6 +57,7 @@ class Loans:
     i: float = None
     total: float = None
     problems: list = field(default_factory=list)
+    issue: str = None                                # ruling 66: H + I differs from the total by less than $100
 
 
 def _figure(rest: str, threshold: bool = True):
@@ -97,8 +99,11 @@ def declared(text: str) -> Loans:
     for name in ("h", "i"):
         if getattr(out, name) is None:
             out.problems.append(f"Part {name.upper()} on the declaration page was not read")
-    if not out.problems and abs(out.h + out.i - out.total) >= CENT:
-        out.problems.append(f"Part H {out.h:,.2f} + Part I {out.i:,.2f} is not the total {out.total:,.2f}")
+    if not out.problems:
+        if not reconcile.within(round(out.h + out.i, 2), out.total):
+            out.problems.append(f"Part H {out.h:,.2f} + Part I {out.i:,.2f} is not the total {out.total:,.2f}")
+        else:
+            out.issue = reconcile.issue(round(out.h + out.i, 2), out.total, "the declaration's Part H + Part I against its Total (H + I)")
     return out
 
 
@@ -193,11 +198,14 @@ def read(texts: dict, src: dict, declared_h) -> donors.Part:
     wants = [(what, x) for what, x in (("the declaration's Part H", declared_h), ("TOTAL FOR PART H", printed)) if x is not None]
     if not wants:
         out.problems.append("nothing to reconcile against: neither the declaration's Part H nor TOTAL FOR PART H was read")
+    issues = []
     for what, x in wants:
-        if abs(total - x) >= CENT:
+        if not reconcile.within(total, x) or (not rows and reconcile.cents(x)):    # nothing read is not a difference
             out.problems.append(f"the {len(rows)} loans read add to {total:,.2f}; {what} is {x:,.2f}")
+        issues.append(reconcile.issue(total, x, f"the {len(rows)} Part H loans against {what}"))
     if out.problems:
         return out
-    out.rows = [{**r, "n": k} for k, r in enumerate(rows, 1)]
+    out.issue = reconcile.join(issues)
+    out.rows = [{**r, "n": k, "issue": out.issue} for k, r in enumerate(rows, 1)]
     out.check = "declared-nil" if not rows else "parts-sum"
     return out

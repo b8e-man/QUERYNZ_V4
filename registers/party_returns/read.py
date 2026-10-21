@@ -47,6 +47,11 @@ lane's stamp) of pages the text layer read, Part A is read again over
 those, and taken only if it reconciles. Otherwise the set-aside line names
 the part's text pages that have no stored reading, for a re-read job.
 
+**Ruling 66.** A declaration whose parts differ from its printed total by
+less than $100 (`reconcile.py`) publishes with the printed total and an
+`issue` on the row naming the signed difference; so does a Part H + Part I
+against its Total (H + I). $100 or more is set aside as before.
+
 A return the profile does not recognise, or whose declaration page cannot
 be reconciled with its own total, publishes nothing: it is set aside with
 the stage and the reason. A return that publishes its row then has its
@@ -69,7 +74,7 @@ from support import profiles
 from support import reader as rd
 from support.docread import pages
 from support.docread.read import read_document
-from registers.party_returns import declaration, donors, loans, pixels, schedule
+from registers.party_returns import declaration, donors, loans, pixels, reconcile, schedule
 
 PROFILE = "ec-party-return-text"
 SCAN = "ec-party-return-scan"
@@ -185,6 +190,7 @@ def _row(sha256, page, decl, reading, year_from, loaded_at, party_rows_=None) ->
             "part_f": decl.parts.get("F"), "part_g": decl.parts.get("G"),
             "declared_parts": decl.total_letters,
             "total_check": decl.check,
+            "issue": declaration_issue(decl),
         },
     }
 
@@ -250,6 +256,7 @@ def _schedules(out: Result, sha256: str, texts: dict, readings: dict, page_text:
         out.set_aside.append(("loans", "; ".join(owed.problems)))
         return
     filed["loans_h"], filed["loans_i"], filed["loans_total"] = owed.h, owed.i, owed.total
+    filed["issue"] = reconcile.join([filed.get("issue"), owed.issue])
     h = loans.read(texts, src, owed.h)
     filed["loans_check"] = h.check or None
     if h.problems:
@@ -257,9 +264,29 @@ def _schedules(out: Result, sha256: str, texts: dict, readings: dict, page_text:
     out.loans = _stamp(h.rows, "H", sha256, readings, loaded_at)
 
 
+PARTS_SUM = "parts sum to "
+
+
+def declaration_issue(decl):
+    """Ruling 66: the declaration's parts against its printed total, when they differ by less than $100 and every
+    part was read; None when they agree to the cent, or when the difference is not admitted."""
+    if decl.total is None or (decl.total_is_nil and not decl.parts) or any(p not in decl.parts for p in declaration.EXPECTED_PARTS):
+        return None
+    if not reconcile.within(decl.parts_sum, decl.total):
+        return None
+    return reconcile.issue(decl.parts_sum, decl.total,
+                           f"the declaration's parts ({' + '.join(declaration.EXPECTED_PARTS)}) against its declared total")
+
+
+def declaration_problems(decl) -> list:
+    """`Declaration.problems`, with the parts-against-total line dropped where ruling 66 admits the difference."""
+    admitted = declaration_issue(decl) is not None
+    return [p for p in decl.problems() if not (admitted and p.startswith(PARTS_SUM))]
+
+
 def _publish_or_set_aside(out: Result, decl, extra: list = ()) -> bool:
     out.declaration = decl
-    problems = decl.problems() + list(extra)
+    problems = declaration_problems(decl) + list(extra)
     if decl.party_label is None:
         problems.append("no party name on the declaration page")
     if problems:

@@ -12,6 +12,9 @@
    table and on the scanned declaration. Where a page reading or the
    scan's typed text layer gives the total, the load compares the two
    (`form_check`); here they are counted.
+3. Ruling 66: the declarations whose itemised gifts reconcile to the
+   amount only within $100 carry an `issue`; here they are counted
+   (`issues`), each printed with its difference, never folded.
 
 Either way a difference is printed, and fails the check unless a card in
 `cards/` names it (the party and year, or the declaration's key): a
@@ -19,6 +22,7 @@ difference is a card, never a silent fix, and a carded one is still shown.
 
     frozen()                       ({(party, year): total}, {party: count})
     compare(rows, frozen_by_year, frozen_n)
+    issues(rows)                   [(key, issue)] of the rows carrying one (ruling 66)
     python -m registers.disclosures.check [--schema disclosures] [--database querynz_v4]
 
 Read-only.
@@ -70,6 +74,11 @@ def compare(rows: list, frozen_by_year: dict, frozen_n: dict) -> dict:
             "unresolved_parties": unresolved}
 
 
+def issues(rows: list) -> list:
+    """[(key, issue)] for every row whose parts reconcile only within the tolerance (ruling 66)."""
+    return [(r["key"], r["issue"]) for r in rows if r.get("issue")]
+
+
 def carded(cards_dir: str = None) -> str:
     """Every card's text, for `card_for` to search."""
     text = []
@@ -93,8 +102,8 @@ def main(argv=None) -> int:
     database = argv[argv.index("--database") + 1] if "--database" in argv else "querynz_v4"
     from support import db
     with db.connect(db.READ_KEY if database == "querynz_v4" else db.OWNER_KEY, database) as conn:
-        cur = conn.execute(f"SELECT key, party, party_label, regime, amount, given_on, form_total, form_check "
-                           f"FROM {schema}.declarations")
+        cur = conn.execute(f"SELECT key, party, party_label, regime, amount, given_on, form_total, form_check, "
+                           f"issue FROM {schema}.declarations")
         rows = [dict(zip([d[0] for d in cur.description], r)) for r in cur]
     forms = {}
     for r in rows:
@@ -118,6 +127,10 @@ def main(argv=None) -> int:
             card = card_for(r["key"], cards)
             uncarded += card is None
             print(f"  FORM DIFFERS {r['key']}: table {r['amount']:.2f}, form {r['form_total']:.2f}; card: {card or 'NONE'}")
+    flagged = issues(rows)
+    print(f"reconciled with an issue (ruling 66, below $100): {len(flagged)}")
+    for key, why in flagged:
+        print(f"  ISSUE {key}: {why}")
     print(f"differences with no card: {uncarded}")
     return 1 if uncarded else 0
 

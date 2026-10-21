@@ -44,6 +44,7 @@ RULE_OWN_RETURN = "own-return@1"             # a donor row on a candidate's own 
 RULE_PARTY_DONOR = "member-and-party-donor@1"   # a politician's name on a donor row to the politician's own party, dated in the term (near)
 RULE_COMPANY_NAME = "company-name@1"         # two companies under one name (near): the number is the only confirmation
 RULE_NAME_FORM = "candidate-name-form@1"     # one name under two printings across elections, same party (near)
+RULE_COUPLED = "coupled-name@1"              # a coupled donor row to each person its filed name names (near; ruling 73)
 
 NEAR_SEAT_AMBIGUOUS = "more than one member of this name sat in the window, and the rows do not say which filed this"
 NEAR_DECLARED_TWO = "the declared company has two directors of this name; the rows do not say which is the member"
@@ -53,6 +54,8 @@ NEAR_PARTY_DONOR = "a politician's name on a donor row to the politician's own p
 NEAR_COMPANY_SAME = "two companies under one name; only the official number confirms a company"
 NEAR_COMPANY_YEAR = "two companies under one name apart from a year in brackets (a successor's name); only the official number confirms a company"
 NEAR_NAME_FORM = "one first and last name under two printings in different elections for one party; a printing is a name relationship, not an identity"
+NEAR_COUPLED = ("the Commission filed this donor as two people on one line; this person is one of the names in it, read from the filed "
+                "string, not an identifier; the donor stays one row (ruling 73)")
 
 
 def same_full_name(a: dict, b: dict) -> bool:

@@ -89,6 +89,10 @@ KEYED = (
     ("AnnualReturn", "AnnualReturnId", True),
     ("AnnualReturnCloseRelationshipTransaction", "AnnualReturnCloseRelationshipTransactionId", True),
 )
+#: the register's own count of registered charities, asked and landed once at the start of each full pass of
+#: Organisations, so the lane's check reads that day's count from a document, not from a note
+REGISTERED = "Organisations:Registered"
+REGISTERED_FILTER = "RegistrationStatus eq 'Registered'"
 #: the code lists: each well under one page
 WHOLE = ("AreaOfOperations", "AuditModifiedOpinionReceived", "LegalStructure", "ReportingCurrency", "ReportingTier",
          "MainActivity", "MainBeneficiary", "MainSector", "OfficerStatus", "RegistrationStatus")
@@ -115,10 +119,13 @@ def _q(v: str) -> str:
 
 
 def odata_datetime(t: dt.datetime) -> str:
-    """The feed's literal for a moment, in NZ local time without a zone (the
-    register's clock); seconds kept, microseconds dropped."""
+    """The feed's literal for a moment, in UTC without a zone: the feed
+    writes ModifiedOn in UTC (`…Z`) and compares a literal as UTC (21
+    October 2026: `ge datetime'2026-10-20T06:00:00'` counted 1 organisation,
+    `'2026-10-19T19:00:00'` 228, the held rows' last change being 06:02 UTC).
+    Seconds kept, microseconds dropped."""
     if t.tzinfo is not None:
-        t = t.astimezone(NZ)
+        t = t.astimezone(dt.timezone.utc)
     return "datetime'" + t.replace(tzinfo=None, microsecond=0).isoformat() + "'"
 
 
@@ -197,9 +204,13 @@ def plan_pass(last_full_done, last_done_started, open_pass: bool, now: dt.dateti
 
 # ── the lane's tables ─────────────────────────────────────────────────────────
 
+READING = "-- ── the reading"   # tables.sql's second part, the reading's tables, made by load.py
+
+
 def tables_sql(schema: str = SCHEMA) -> str:
+    """The capture's part of tables.sql, under `schema`."""
     with open(os.path.join(HERE, "tables.sql"), encoding="utf-8") as f:
-        return f.read().replace(f"{SCHEMA}.", f"{schema}.")
+        return f.read().split(READING)[0].replace(f"{SCHEMA}.", f"{schema}.")
 
 
 class Tables:
@@ -367,11 +378,35 @@ class Run:
                             keys[-1] if keys else None, new, stated if first else None)
             self.counts["pages"] += 1
             self.counts["rows"] += len(rows)
+            if first and entity_set == "Organisations" and p["mode"] == "full":
+                self.registered()
             if len(rows) < PAGE:
                 self.t.finish(p)
                 self.counts["passes_finished"] += 1
                 self.log(f"{SOURCE}: {entity_set} {p['mode']} pass {p['pass_id']} finished: {p['pages']} pages")
                 return
+
+    def registered(self):
+        """The register's count of registered charities, as its own answer
+        ($inlinecount, one row asked), landed by hash as a one-page pass of
+        its own; the count is the pass's `stated`. A failed read is a
+        catch-log line and the pass finishes with nothing landed."""
+        p = self.t.begin(REGISTERED, "whole")
+        url = count_url("Organisations", "OrganisationId", REGISTERED_FILTER)
+        f = self.get(url, p["pass_id"])
+        if f is not None:
+            try:
+                stated, rows = parse_page(f.body)
+                if stated is None:
+                    raise ValueError("no count in the answer")
+            except (ValueError, KeyError, TypeError) as exc:
+                self._aside(p["pass_id"], url, "parse", f"not the register's count: {type(exc).__name__}")
+            else:
+                ref, new = self._land(f.body, url)
+                self.t.add_page(p, REGISTERED, url, ref.sha256, len(rows), None, None, new, stated)
+                self.counts["pages"] += 1
+        self.t.finish(p)
+        self.counts["passes_finished"] += 1
 
     # the code lists and the documents about the feed
     def whole(self, name: str, url: str, now: dt.datetime, parse: bool, content_type: str):

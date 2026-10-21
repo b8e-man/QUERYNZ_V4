@@ -18,7 +18,11 @@ taken across as rules, not code:
 - Parts are read by their name and summed only as A + B + C. A part not
   read is not a part that is zero, so two parts of three is no total.
 - A total whose parts are all read and do not add to it is refused, not
-  published (an OCR pass read ACT 2020 as $91,082,166.64).
+  published (an OCR pass read ACT 2020 as $91,082,166.64), unless the
+  difference is below $100 (ruling 66, `reconcile.py`): then the printed
+  total is published and the row's `issue` names the difference. Both
+  passes are tried to the cent before either is taken within the
+  tolerance.
 
 Pages come through the reader contract: the text layer where a page has
 one, else the page reader's stored reading (GLM-OCR at the profile's 300
@@ -36,6 +40,7 @@ from support import profiles
 from support import reader as rd
 from support.docread import pages
 from support.docread.read import read_document
+from registers.party_finance import reconcile
 
 PROFILE = "ec-party-expenses-return"
 PAGE_MODEL = "glm-ocr"
@@ -46,7 +51,6 @@ PAGE_SETTINGS = tuple(
      "weights": ["GLM-OCR-Q8_0.gguf", "mmproj-GLM-OCR-Q8_0.gguf"]} for dpi in (300, 200)) + (
     {"dpi": 300, "prompt": "OCR"},)   # the reader contract's own stamp: what qv4-read-pages stores (integrator, 20 October)
 EXPENSE_PARTS = ("A", "B", "C")
-TOLERANCE = 0.011
 
 #: what a recogniser puts between a label and its figure on one line: pipes, colons, `=`, dashes
 GAP = r"[ \t|:;.,=\-–—_\[\]]*"
@@ -86,6 +90,7 @@ class Result:
     passes: str = ""                    # which pass gave the figure: first | pixels
     unread: list = field(default_factory=list)
     set_aside: list = field(default_factory=list)
+    issue: str = None                   # ruling 66: the parts' difference from the printed total, below $100
 
 
 def money(s: str):
@@ -138,24 +143,27 @@ def figures(page_texts: dict) -> dict:
     return out
 
 
-def judge(f: dict) -> tuple:
-    """(total, check, why-not). The return's own arithmetic is the gate."""
+def judge(f: dict, tolerant: bool = False) -> tuple:
+    """(total, check, why-not, issue). The return's own arithmetic is the gate; `tolerant` admits parts below
+    $100 off the printed total (ruling 66), the printed total published and the difference the issue."""
     parts = f["parts"]
     have = [k for k in EXPENSE_PARTS if parts.get(k) is not None]
     if f["total"] is not None:
         if len(have) == len(EXPENSE_PARTS):
             s = round(sum(parts[k] for k in EXPENSE_PARTS), 2)
-            if abs(s - f["total"]) <= TOLERANCE:
-                return f["total"], "parts-sum", ""
-            return None, None, f"the total read ({f['total']:.2f}, {f['basis']}) is not A + B + C as read ({s:.2f})"
-        return f["total"], "stated-only", ""
+            if reconcile.difference(s, f["total"]) == 0:
+                return f["total"], "parts-sum", "", None
+            if tolerant and reconcile.within(s, f["total"]):
+                return f["total"], "parts-sum", "", reconcile.issue(s, f["total"], f"A + B + C against the {f['basis']}'s total")
+            return None, None, f"the total read ({f['total']:.2f}, {f['basis']}) is not A + B + C as read ({s:.2f})", None
+        return f["total"], "stated-only", "", None
     if len(have) == len(EXPENSE_PARTS):
-        return round(sum(parts[k] for k in EXPENSE_PARTS), 2), "summed-parts", ""
+        return round(sum(parts[k] for k in EXPENSE_PARTS), 2), "summed-parts", "", None
     if f["nil"] is not None:
-        return 0.0, "declared-nil", ""
+        return 0.0, "declared-nil", "", None
     if have:
-        return None, None, f"parts {', '.join(have)} read and no total: a part not read is not zero"
-    return None, None, "no total and no parts read"
+        return None, None, f"parts {', '.join(have)} read and no total: a part not read is not zero", None
+    return None, None, "no total and no parts read", None
 
 
 def page_texts(data, sha256, store, prof_version, all_pixels: bool, profile: str = PROFILE):
@@ -187,16 +195,18 @@ def read_return(data: bytes, sha256: str, store: rd.Store) -> Result:
         res.set_aside.append(("recognise", "not a PDF"))
         return res
     why = ""
-    for pass_name, all_pixels in (("first", False), ("pixels", True)):
+    for tolerant, pass_name, all_pixels in ((False, "first", False), (False, "pixels", True),
+                                            (True, "first", False), (True, "pixels", True)):
         texts, unread = page_texts(data, sha256, store, res.profile_version, all_pixels)
         f = figures({p: t for p, (t, *_) in texts.items()})
-        total, check, why = judge(f)
+        total, check, why, issue = judge(f, tolerant)
         if total is not None:
             page = f["page"] or max((f["part_pages"].get(k) or 0) for k in EXPENSE_PARTS) or f["nil"]
             _, how, rprof, rver = texts[page]
             res.total, res.total_check, res.basis = total, check, f["basis"] or ("nil" if check == "declared-nil" else "parts")
             res.page, res.read_from, res.parts, res.limit = page, how, f["parts"], f["limit"]
             res.reading_profile, res.reading_version, res.passes, res.unread = rprof, rver, pass_name, unread
+            res.issue = issue
             return res
         res.unread = unread
     tail = f"; pages with no text layer and no stored reading: {res.unread}" if res.unread else ""

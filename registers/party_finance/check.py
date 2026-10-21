@@ -15,6 +15,8 @@ return was not read is listed as unread, never as agreeing.
     compare_years(figures)      {"equal", "differ"}: a statement's prior-year column against the year before's figure
     compare_promoters(listing, returns)   {"equal", "differ", "unread"}: each promoter's column against its return's part,
                                           the Commission's referendum columns never added to its election one
+    issue_rows(conn, schema)              {table: rows carrying ruling 66's `issue`}: a sum admitted below $100
+                                          off its printed total, counted, never failed
     python -m registers.party_finance.check [--schema party_finance] [--database querynz_v4] [--shared]
 """
 import sys
@@ -102,6 +104,16 @@ def rows(conn, schema: str, shared: bool = False) -> tuple:
               f"FROM {schema}.{pre}statement_figures"))
 
 
+#: the tables whose rows a sum against a printed total admits (ruling 66)
+ISSUE_TABLES = ("expense_returns", "promoter_returns", "allocations", "allocation_totals", "statement_figures")
+
+
+def issue_rows(conn, schema: str, shared: bool = False) -> dict:
+    pre = "party_finance_" if shared else ""
+    return {t: conn.execute(f"SELECT count(*) FROM {schema}.{pre}{t} WHERE issue IS NOT NULL").fetchone()[0]
+            for t in ISSUE_TABLES}
+
+
 def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     schema = argv[argv.index("--schema") + 1] if "--schema" in argv else "party_finance"
@@ -109,6 +121,7 @@ def main(argv=None) -> int:
     from support import db
     with db.connect(db.READ_KEY if database == "querynz_v4" else db.OWNER_KEY, database) as conn:
         listing, returns, p_listing, p_returns, figures = rows(conn, schema, "--shared" in argv)
+        issues = issue_rows(conn, schema, "--shared" in argv)
     out, pro = compare(listing, returns), compare_promoters(p_listing, p_returns)
     for k in ("equal", "part_a_only", "differ", "unread"):
         print(f"{k}: {len(out[k])}")
@@ -133,6 +146,8 @@ def main(argv=None) -> int:
     for d in years["differ"]:
         print(f"  {d['party']} {d['year']} {d['figure']}: prior column {d['prior_column']:,.2f}, "
               f"the year before's statement {d['year_before']:,.2f}")
+    print(f"rows reconciled with an issue (ruling 66, below $100): {sum(issues.values())} "
+          f"({', '.join(f'{t} {n}' for t, n in issues.items())})")
     return 1 if out["differ"] or pro["differ"] else 0
 
 
