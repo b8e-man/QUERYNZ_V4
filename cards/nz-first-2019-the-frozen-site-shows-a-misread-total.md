@@ -22,3 +22,5 @@ show this one party-year differ (home, party page, size bands) under this
 card. Nothing to fix on the rebuilt side; on the frozen side it is a
 published figure off by $1,000, which is an emergency fix only on
 Arthur's word (hard limit 19). Default: no fix to the frozen product.
+
+Ruling 76 (21 October): "fix now". An emergency fix to the old repository under hard limit 19, the patch drafted from the reference copy, the commit Arthur's own in the live old folder; proof is the next daily release.

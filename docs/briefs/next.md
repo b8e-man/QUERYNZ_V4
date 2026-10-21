@@ -151,41 +151,16 @@ names a cause that is the shape's.
 
 ## charities
 
-Step 4.1: the Charities Register, built twice (plan: Fable and Opus,
-`charities_a` and `charities_b`, against the same tests) from one
-shared capture. The capture (`charities-capture-1`, merged 20 October)
-completed its first full copy overnight; the two builds, `charities-a`
-(Fable) and `charities-b` (Opus), were launched headless by the integrator
-21 October 09:50 with one brief each (in the integrator's scratch folder).
-The capture brief, for the record:
-the register's own open data feed, verbatim copies by hash with a
-listing, politely; the four questions answered in the status file as it
-goes (ruling 61). Opus. Launched headless by the integrator.
-
-```text
-You are a build session for QueryNZV4 on node2, running as Opus, in the
-working copy the launcher made for you. Read docs/PLAN.md, then
-docs/status.md and your own status file docs/status/charities.md (make
-it), the lane contract, the row contract, and
-docs/plan/reference/old-estate/names-addresses-and-capture.md (the old
-charities client bypassed the fetch gate; take the idea, not the code).
-Do the capture half of the charities lane only, in registers/charities/:
-find the register's current open data feed and its terms, answer the
-four questions in your status file (open without a lock; lawful copying;
-the terms accepted; what privacy law or the Charities Act limits) and
-keep going under ruling 61 (the legal position page is written before
-product); capture every charity, officer and annual return record
-verbatim through support.fetchgate, landed by hash with a listing, slow,
-off-peak, cached, the feed's stated limits honoured, never a challenge
-solved; then a qv4-charities-capture job for changes, nightly, proposed
-in your spec for the integrator to add to the catalogue (a build session
-does not queue live jobs). Never print an officer's address into your
-session. Keep a catch log that reconciles. Measure the capture against
-the register's own count of registered charities. Write read.py only as
-far as a listing of what is held; the reading is the two builds' work.
-Edit nothing outside your folder; push and raise charities-capture-1.
-Finish by telling Arthur what closed, what is carded, and the figures.
-```
+Step 4.1 closed: the capture (`charities-capture-1`), the two builds
+(`charities-a` Fable, `charities-b` Opus, merged as records with the
+comparison lesson), and `charities-3` (the Opus build kept, moved to
+`registers/charities/`, published: `pub.charities`, `pub.charity_officers`,
+`pub.charity_returns`; `qv4-charities-load` nightly 06:30). Ruling 64: a
+body corporate's address for service shown, a trust's withheld. Next for
+the lane: nothing. For the report shape and the templates: the charities
+views to reach (card `the-report-shape-and-five-templates-still-say-the-
+charities-register-is-not-published`), a fix session on `products/report`
+then one across the templates, after the merges of 21 October.
 
 ## societies
 
@@ -249,15 +224,11 @@ when a comparison card or Arthur's key calls for it.
 
 ## companies
 
-Session 1 merged (`docs/merges/companies-1`): no raw monthly file
-survives, so the old estate's loaded tables of the July and August 2026
-files were exported once by hash; 1,920,468 entities, 1,185,805 director
-roles, 1,581,955 shareholdings, 867,277 registered offices; the
-Companies Office's own statistics equal within 0.02%. Residential
-addresses private. Cards: the old loader folded shareholdings and kept
-no role numbers; no monthly file is held for the 18 November step; the
-statistics page's legal position (ruling 61: before product). Queue:
-the package carries sole traders. No session 2 now.
+Session 1 merged (`docs/merges/companies-1`): 1,920,468 entities from
+the old estate's loaded July and August 2026 files. Session 2 merged
+(`docs/merges/companies-2`, step 5.5): the monitor, `pub.request_company_check`,
+`pub.watch_company`, `pub.unwatch_company`, `qv4-companies-monitor` nightly
+23:30 NZDT, profile `nzbn-entity-detail-any-kind`. No session 3 now.
 
 ## board
 
@@ -353,25 +324,20 @@ by links-2: score again (`qv4-links-review --args '{"mode": "score"}'`).
 
 ## report
 
-Merged (`docs/merges/report-1`, `-2`): the subject-report shape on
-10.0.0.2:8440, the flag contract bound as `contract`. Step 5.2 in the
-plan's order: recruitment 08 (0.2), agriculture 04, banking 03 merged;
-legal 02 building (`legal-1`, Opus, launched 21 October 07:35). Next in
-order: use case 13 (beneficial ownership, domestic half), then 7, 5, 6,
-11, 12. Open for the shape: a company start does not follow its officers;
-the walk reads twelve companies and lists forty; current roles first.
+Merged (`docs/merges/report-1` to `-3`): the subject-report shape on
+10.0.0.2:8440; tranche 3 added a since date, the officers, office and chain
+reaches, section filters, holdings and the not-held list with keys. Open
+for the shape (cards): template parameters (`window_days`, from
+construction-2); the charities views (healthcare-1, charities-3); the
+health registers' not-held keys. One fix session on `products/report` for
+the three, after the 21 October merges.
 
 ## ownership
 
-Step 5.2, template 13 (use case 13, beneficial ownership, the domestic
-half), `products/templates/13-ownership/`. Opus. Launched headless by the
-integrator 21 October 08:25 (the brief is in the integrator's scratch
-folder: the shareholdings chain through held registers, each hop dated,
-nominees as holders of record, sanctions and overseas registers named as
-not held). Raised 21 October. Template 7 (`construction-1`, Opus,
-`products/templates/07-construction/`) launched 21 October 09:50; then, in
-the plan's order, 5, 6, 11, 12; then step 6. Step 7 is held until the end
-of the plan (ruling 63).
+Step 5.2: templates 13 (`ownership-1`), 7 (`construction-1`, `-2`), 5
+(`credit-1`), 6 (`insurance-1`) merged; 11 (`healthcare-1`) raised; 12
+(`property-1`, Opus) launched 21 October 13:40. After 12 merges, step 5.2
+closes and step 6 (register scans) follows; step 7 held (ruling 63).
 
 ## candidate-returns
 

@@ -16,3 +16,15 @@ so nothing shows wrong; but the check never clears where it could, and the
 pages mislead. A fix in each folder: the prohibition rule's guard (links
 built, every link read) for the clear, as the construction template's
 `bankruptcy` does, and the limits line updated.
+
+Read by the report session (report-3) on 2026-10-21: nothing in the shape
+to change; the card is the four templates' and stays open for them. In
+each folder: (a) the `bankruptcy` rule clears only when
+`report["walk"]["links_built"]` and `links_omitted == 0` (the construction
+template's guard), fired on a confirmed row, amber on a near one, blocked
+otherwise; (b) the limits page's line "a bankruptcy cannot be seen"
+replaced by "a bankruptcy row is reached by the person rules (full-name
+confirmed, name-only near); an annulled one is withheld"; (c) the rule's
+text "no link rule joins one to a person yet" removed. Legal:
+`products/templates/02-legal/rules.py` and `limits.md`; banking:
+`03-banking`; agriculture: `04-agriculture`; ownership: `13-ownership`.

@@ -92,7 +92,7 @@ def test_a_farming_limited_partnership_says_its_partners_are_not_held():
           and name ~* '(farm|dairy|orchard)' order by key limit 1""")
     m = memo(ref)
     assert m["flags"]["officers-of-record"]["status"] == "blocked" and "partners" in m["flags"]["officers-of-record"]["text"]
-    assert "not held: " in m["text"] and "Limited partnerships register" in m["text"]
+    assert "not held: " in m["text"] and "Limited partnerships' partners" in m["text"]
 
 
 def test_a_company_with_only_a_removal_notice_is_not_an_insolvency():

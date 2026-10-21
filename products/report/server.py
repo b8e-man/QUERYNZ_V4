@@ -6,6 +6,7 @@ server, one page per request, no script. Routes:
   GET  /report/<register>:<key>  the memo: the stable address of a report on a row, the ref as the board names it
                                  (?template=&format=html|text|json as below; contract.report_url builds it)
   GET  /report?ref=&template=&format=html|text|json     the memo, the query form the page's own form uses
+                                 (&since=YYYY-MM-DD on either: rows dated on or after it are marked new)
   GET  /saved                    the saved memos      GET /saved/<id>   one saved memo, as text
   POST /save                     save the memo the page shows (ref, template, note)
   GET  /health                   'ok' and the port
@@ -36,16 +37,17 @@ def templates() -> list:
     return sorted(tpl.folders())
 
 
-def build_report(ref: str, template_name: str, conn=None) -> dict:
+def build_report(ref: str, template_name: str, conn=None, since: str = "") -> dict:
     t = tpl.by_name(template_name)
     if conn is not None:
-        return build.build(conn, ref, t)
+        return build.build(conn, ref, t, since=since or None)
     with RENDER_LOCK, db.scan_connect() as c:
-        return build.build(c, ref, t)
+        return build.build(c, ref, t, since=since or None)
 
 
-def render(ref: str, template_name: str = "subject", fmt: str = "html", message: str = "", saved: bool = False, conn=None) -> tuple:
-    """(content type, body)."""
+def render(ref: str, template_name: str = "subject", fmt: str = "html", message: str = "", saved: bool = False, conn=None, since: str = "") -> tuple:
+    """(content type, body). `since`: a date (YYYY-MM-DD); rows dated on or
+    after it are marked new."""
     if not ref:
         body = memo.page("<p class=\"note\">Name a row as the board names it: <code>register:key</code>, for example "
                          "<code>companies:companies/9429037782269</code> or a <code>party_returns:…/A/3</code> donor row. "
@@ -53,7 +55,7 @@ def render(ref: str, template_name: str = "subject", fmt: str = "html", message:
                          "cites every line, and says what it did not find and what is not held.</p>", "", template_name, templates(), message,
                          board_url=BOARD_URL)
         return "text/html; charset=utf-8", body
-    report = build_report(ref, template_name, conn)
+    report = build_report(ref, template_name, conn, since)
     if fmt == "text":
         return "text/plain; charset=utf-8", memo.text(report)
     if fmt == "json":
@@ -114,7 +116,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             if url.path == "/report" or url.path.startswith("/report/"):
                 ref = (urllib.parse.unquote(url.path[len("/report/"):]) if url.path.startswith("/report/") else get("ref"))[:MAX_REF]
-                ctype, body = render(ref, get("template", "subject"), get("format", "html"), get("m")[:100], get("saved") == "1")
+                ctype, body = render(ref, get("template", "subject"), get("format", "html"), get("m")[:100], get("saved") == "1", since=get("since")[:10])
                 self.send(body, ctype)
                 return
             self.send("<p>not here</p>", status=404)

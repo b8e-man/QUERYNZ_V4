@@ -25,3 +25,12 @@ key: 9429053756381 shareholders whose company the entity file does not name
 key: 9429039555410 a registered office line with nothing in it: set aside
 key: 9429036809608 a director line with no name: set aside
 key: 9429036965915 director rows from the NZBN API, not the file: set aside
+# The interface's answers proved on 21 October 2026 (monitor.PROOF), read in the order they were made.
+4a04d8011c52d8573f5ebd349ccc2074121780a22c2dc62e2a9d1a3edbffa309 answer: a company whose directors and shareholders the monthly file holds
+7e5de3c19209597e02ee159fb809e90499f1d3dc17b79bfb8f2d89a15cd1025d answer: a company two directors, a trading name
+f1268f88b9ba4565680586d5e4e3830c432e65c1488990a1cca2c3a364d5b616 answer: in liquidation in the file, removed since; ended directors with the register's end dates
+0efd3e5558b3ed719bdbacee0cfc2425a24b1567aee72d97457fc4161fe5fa98 answer: a company held by companies, historic holdings with their ends
+24047621e0d36469b5bfe6972e199b092c9a265a04343e5744b46c2b2b86fea0 answer: a removed company
+f04ab846e973b6ae488d34e2940b6ca1fd38ba8508b572a577f5e5ce2a5e6642 answer: a sole trader whose name the register withholds
+b5e3ec66cfb3af2a71c2f33222f3d5f75a3fe7f986f7dca330d4256d2ceb8db2 answer: a partnership, no partners listed
+48692f12198b5a9e9e2011ba01c4ba8a548a8c9fabcd87a2fdec7fc21e4da663 answer: a trading trust with trustees and two private addresses

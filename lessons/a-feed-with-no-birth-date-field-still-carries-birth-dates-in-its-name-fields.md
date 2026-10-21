@@ -9,7 +9,7 @@ and year in a MiddleName or LastName: a birth date typed where a name goes)
 and 4 held a street address with its number. A reading that trusts the field
 list would have published them all as names.
 
-How to apply: run `name_fault` (registers/charities_a/read.py) on each name
+How to apply: run `name_fault` (registers/charities/read.py) on each name
 field: a date, or a leading street number or box phrase. The field is
 withheld and `name_note` says which and why; the full name is rebuilt from
 the clean parts; the row stays with its role and window (recover over
