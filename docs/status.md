@@ -33,13 +33,13 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
 
 - `security-1` (track H.1 to H.3, Fable). Merged since 18:00 on 21 October:
   `sanctions-1`, `scan-1`, `tenders-1` (29,874 award notices live),
-  `regulators-1`, `fix-report-2`, `oio-1`, `hdc-1`, `diaries-1` (ruling 78),
+  `regulators-1`, `fix-report-2`, `oio-1`, `hdc-1`, `diaries-1`,
   `grants-1` (178,729 grants live), `fix-support-fetchgate-1`,
   `scan-templates-1`, `fix-templates-1`, `redirects-1`,
   `fix-products-templates-1`, `grants-2`, `fix-support-db-1` (a session's
   owner login on the live database is refused; the gate and hand runs
-  carry QV4_INTEGRATOR=1). Next: 6.2 template 3's sources as a lane;
-  template 4 waits on the diaries source. Step 7 held (63).
+  carry QV4_INTEGRATOR=1). Next: template 3's sources as a lane;
+  template 4 waits on the diaries source. Step 7 held.
 
 ## Half-done
 
