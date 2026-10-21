@@ -29,3 +29,5 @@ supplier file's business numbers as text (card
 `the-gets-supplier-file-loses-its-business-numbers`). Until then the
 done-line's "refreshed on a schedule" stays open; the rest of it ("read,
 checked against the source's own count") is met.
+
+22 October 2026: the letter sent by Arthur to opendata@mbie.govt.nz (`docs/letters/mbie-gets-files-request.md`); it also asks for the supplier file's business numbers as text. Waits on the ministry's answer.

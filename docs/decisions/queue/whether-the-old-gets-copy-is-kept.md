@@ -3,3 +3,4 @@ default: Kept. The lane reads the eight files the old estate saved at `~/source-
 blocks: Nothing. If Arthur rules against the copy, the lane's tables are dropped and the documents withdrawn (never deleted); the lane waits for the ministry's files.
 recommendation: The default. The block is on how the files are fetched, not on the right to copy them, and every row carries the licence and the ministry's attribution. Write to the ministry (`opendata@mbie.govt.nz`) for the refresh (card `the-ministry-s-gets-files-answer-403`).
 raised: 2026-10-21 by tenders-1
+update: 2026-10-22, the letter to the ministry sent by Arthur (docs/letters/mbie-gets-files-request.md).

@@ -4,7 +4,7 @@ Drafted by the integrator, 22 October 2026, for Arthur to send from his own
 address to opendata@mbie.govt.nz (the publisher contact the government data
 catalogue gives for the package). Not a permission letter: the files are
 CC BY 3.0 NZ. It asks for a way to read them and for the NZBN column as
-text. Sent: (date, by Arthur). Answer: (none yet).
+text. Sent: 22 October 2026, by Arthur. Answer: (none yet).
 
 ---
 
