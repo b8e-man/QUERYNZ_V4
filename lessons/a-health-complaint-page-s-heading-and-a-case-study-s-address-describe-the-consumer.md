@@ -1,4 +1,4 @@
-On a health-complaints source the page's own heading and a summary-shaped address describe the consumer's care (an age, a condition, a relation): never keep a heading, key a summary-shaped address by its hash and hold the address in the private twin, and pass every kept text through a guard that names the field, never the value.
+On a health-complaints source a page heading or a summary-shaped address describes the consumer's care: keep no heading, key such an address by its hash in the private twin, and guard every kept text by naming the field, never the value.
 area: registers, privacy, hdc_decisions, hard limits 11 15 16
 
 The Health and Disability Commissioner anonymises consumers by letter, but its listing tiles ("Delays in recognition
