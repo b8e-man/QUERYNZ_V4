@@ -218,15 +218,16 @@ def test_each_mutant_is_caught(name):
 
 # ── the profiles ─────────────────────────────────────────────────────────────
 
-def test_the_proposed_profiles_are_whole_and_new():
-    rows = [json.loads(l) for l in open(os.path.join(LANE, "profile-proposed.jsonl"), encoding="utf-8") if l.strip()]
-    assert {r["slug"] for r in rows} == {read.LISTING_PROFILE, read.DECISION_PROFILE, read.CASE_STUDIES_PROFILE,
-                                         read.CASE_STUDY_PROFILE}
+def test_the_profiles_are_in_the_ledger_whole():
+    """The four profiles were proposed in `profile-proposed.jsonl` and appended to the ledger by the integrator at the
+    merge of hdc-1 (21 October 2026); the proposed file left the branch then, so the ledger is read."""
     held = profiles.current()
-    for r in rows:
-        assert profiles.valid_slug(r["slug"]) and r["kind"] == profiles.KIND and r["version"] == read.PROFILE_VERSION
+    slugs = {read.LISTING_PROFILE, read.DECISION_PROFILE, read.CASE_STUDIES_PROFILE, read.CASE_STUDY_PROFILE}
+    assert slugs <= set(held)
+    for slug in slugs:
+        r = held[slug]
+        assert profiles.valid_slug(slug) and r["kind"] == profiles.KIND and int(r["version"]) >= read.PROFILE_VERSION
         assert all(k in r for k in profiles.FIELDS) and r["by"] and r["at"]
-        assert r["slug"] not in held or int(held[r["slug"]]["version"]) < r["version"]
         assert "Mrs" not in json.dumps(r) and "aged" not in json.dumps(r)
 
 
