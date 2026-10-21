@@ -138,6 +138,32 @@ def test_parts_that_do_not_sum_to_the_total_are_a_problem_not_a_number():
     assert any("parts sum to" in p for p in d.problems("expenses"))
 
 
+def _expenses_total(total: str):
+    return declaration.read(PAGE_2020.replace("$ 3,211.13", total))
+
+
+@pytest.mark.parametrize("total, issue", [("$ 3,111.14", "+99.99"), ("$ 3,311.12", "-99.99"), ("$ 3,211.12", "+0.01")])
+def test_ruling_66_parts_within_100_publish_the_printed_total_with_the_difference_named(total, issue):
+    d = _expenses_total(total)
+    assert d.problems("expenses") == [] and d.check("expenses") == "parts-sum"
+    assert d.figure("expenses") == float(total.strip("$ ").replace(",", ""))      # the printed total, never the parts' sum
+    assert d.issues("expenses") == [f"{issue}: expenses Parts F + G against the printed total"]
+    assert d.issues("donations") == []
+
+
+@pytest.mark.parametrize("total", ["$ 3,111.13", "$ 3,311.13", "$ 3,111.12"])
+def test_ruling_66_a_difference_of_100_or_more_is_set_aside(total):
+    d = _expenses_total(total)
+    assert any("parts sum to 3211.13" in p for p in d.problems("expenses")) and d.issues("expenses") == []
+
+
+def test_ruling_66_the_tolerance_is_one_constant_and_100_exactly_is_out():
+    from registers.candidate_returns import reconcile
+    assert reconcile.RECONCILE_TOLERANCE_CENTS == 10000
+    assert reconcile.within(99.99, 0) and not reconcile.within(100, 0) and not reconcile.within(0, 100.01)
+    assert reconcile.issue(5.0, 5.0, "x") is None and reconcile.issue(4.5, 5.0, "x") == "-0.50: x"
+
+
 LISTING = """<table><thead><tr><th>Year</th></tr></thead>
 <tbody><tr><td><h4 class="key">Download</h4><div class="value"><a href="/assets/x/other.pdf"></a>
 <a href="/assets/candidate-returns/2023/P/2023_P_Example-Electorate_ROE_Jane.pdf"><span class="sr-only">Download the return</span></a></div></td>
@@ -271,6 +297,19 @@ def test_the_sample_s_cases_land_where_the_list_says(filled):
     rep, amd = c["replaced: the listing links the amendment"], c["the amendment that replaces it"]
     assert files[rep]["status"] == "replaced" and files[rep]["replaced_by"] == amd and files[amd]["status"] == "current"
     assert files[c["the 2022 Tauranga by-election, placed by its file name"]]["placed_by"] == "file name"
+    over = rows[c["ruling 66: the expenses parts $0.03 over the printed total, published on the total with an issue"]]
+    assert float(over["expenses"]) == 337.23 and over["issue"] == "+0.03: expenses Parts F + G against the printed total"
+    under = rows[c["ruling 66: the expenses parts a cent under the printed total, the issue named"]]
+    assert under["issue"] == "-0.01: expenses Parts F + G against the printed total"
+
+
+def test_ruling_66_the_check_counts_the_issue_rows(filled):
+    conn, schema = filled["conn"], filled["schema"]
+    donors_ = [dict(zip(("key", "return_key", "issue"), r)) for r in
+               conn.execute(f"SELECT key, return_key, issue FROM {schema}.candidate_returns_donors").fetchall()]
+    got = check.issues(filled["returns"], donors_)
+    assert got["returns"] == sum(1 for r in filled["returns"] if r["issue"]) >= 2
+    assert got["largest_cents"] == 3
 
 
 def test_the_outside_check_runs_on_the_sample(filled):
@@ -289,6 +328,9 @@ def test_the_published_views_build_on_the_lane_s_tables(filled):
     assert n == len(filled["returns"])
     cols = [d[0] for d in conn.execute(f"SELECT * FROM {schema}.pub_candidate_return_totals LIMIT 0").description]
     assert not any("address" in c for c in cols)
+    assert cols[-1] == "issue"
+    cols = [d[0] for d in conn.execute(f"SELECT * FROM {schema}.pub_candidate_return_donors LIMIT 0").description]
+    assert cols[-1] == "issue"
 
 
 def test_the_scan_route_never_calls_a_model(monkeypatch):
@@ -339,6 +381,23 @@ def test_part_a_that_does_not_add_up_is_set_aside_whole(monkeypatch):
     monkeypatch.setattr(donors, "EXAMPLE_CELL", donors._fold_hash("Sample Form Person 1 Sample Street, Sampletown Sampleshire"))
     part = donors.read({2: PART_A}, 10000.0)
     assert part.rows == [] and any("add to 9,500.00" in p for p in part.problems)
+
+
+@pytest.mark.parametrize("printed, admitted, issue", [("9,599.99", True, "-99.99"), ("9,400.01", True, "+99.99"),
+                                                      ("9,600.00", False, None), ("9,400.00", False, None),
+                                                      ("9,600.01", False, None), ("9,500.00", True, None)])
+def test_ruling_66_part_a_rows_within_100_of_both_totals_publish_with_the_issue_on_every_row(monkeypatch, printed, admitted,
+                                                                                             issue):
+    from registers.candidate_returns import donors
+    monkeypatch.setattr(donors, "EXAMPLE_CELL", donors._fold_hash("Sample Form Person 1 Sample Street, Sampletown Sampleshire"))
+    part = donors.read({2: PART_A.replace("$ 9,500.00", f"$ {printed}")}, float(printed.replace(",", "")))
+    if not admitted:
+        assert part.rows == [] and part.problems
+        return
+    assert part.problems == [] and len(part.rows) == 2
+    want = None if issue is None else (f"{issue}: the 2 Part A rows against the declaration's Part A; "
+                                       f"{issue}: the 2 Part A rows against TOTAL FOR PART A")
+    assert part.issue == want and all(r["issue"] == want for r in part.rows)
 
 
 def test_a_name_ends_at_its_comma_and_a_long_one_line_name_is_not_vouched_for():

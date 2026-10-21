@@ -97,14 +97,16 @@ def run(out_path: str, store_dir: str) -> dict:
             "names": f["names"], "placed_by": f["placed_by"], "status": f["status"], "year": f["year"],
             "route": res.route, "page": r["page"] if r else None,
             "row": {k: r[k] for k in ("donations", "expenses", "loans", "donations_check", "expenses_check",
-                                      "loans_check", "read_from", "donors_check")} if r else None,
+                                      "loans_check", "read_from", "donors_check", "issue")} if r else None,
             "donors": [[d["amount"], d["page"]] for d in res.donors],
+            "donors_issue": res.donors[0].get("issue") if res.donors else None,
             "set_aside": [(s, why) for d, s, why in b.set_aside if d == f["document"]]}
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(out, fh, indent=1, ensure_ascii=False)
     print(load.counts(b))
     res = check.compare(b.files, b.returns, b.commission)
     print("outside check:", check.summary(res))
+    print("issue rows (ruling 66):", check.issues(b.returns, b.donors))
     return out
 
 
@@ -117,6 +119,8 @@ def compare(a: dict, b: dict) -> list:
             continue
         if x.get("donors") != y.get("donors"):
             out.append(f"{s[:12]} {y['year']}: Part A rows {len(x.get('donors') or [])} -> {len(y.get('donors') or [])}")
+        if x.get("donors_issue") != y.get("donors_issue"):
+            out.append(f"{s[:12]} {y['year']}: Part A issue {x.get('donors_issue')} -> {y.get('donors_issue')}")
         if x["row"] != y["row"]:
             out.append(f"{s[:12]} {y['year']}: {x['row']} -> {y['row']}")
         if [t for t, _ in x["set_aside"]] != [t for t, _ in y["set_aside"]]:

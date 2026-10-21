@@ -83,6 +83,10 @@ FLOORS = {
     # (docs/legal/positions/tenancy-tribunal-decisions.md, real-estate-authority-decisions.md)
     "forms.justice.govt.nz": 5.0,
     "decisions.dotnous.com": 5.0,
+    # step 5.3 (sanctions-1, 21 October): the Board's decisions list; the two held lists, should they ever be authorised
+    "www.lbp.govt.nz": 5.0,
+    "www.police.govt.nz": 10.0,
+    "scsanctions.un.org": 10.0,
 }
 
 

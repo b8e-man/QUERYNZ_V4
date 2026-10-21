@@ -47,7 +47,8 @@ CREATE TABLE IF NOT EXISTS candidate_returns.returns (
     profile                text NOT NULL,
     profile_version        integer NOT NULL,
     loaded_at              timestamptz NOT NULL,
-    donors_check           text                     -- Part A: parts-sum | declared-nil | NULL: set aside or not read
+    donors_check           text,                    -- Part A: parts-sum | declared-nil | NULL: set aside or not read
+    issue                  text                     -- ruling 66: a section's parts within $100 of its printed total, not equal
 );
 
 -- the Commission's own statements: each spreadsheet row and each listing row, by the file it was read from
@@ -96,9 +97,13 @@ CREATE TABLE IF NOT EXISTS candidate_returns.donors (
     reader           text NOT NULL,
     profile          text NOT NULL,
     profile_version  integer NOT NULL,
-    loaded_at        timestamptz NOT NULL
+    loaded_at        timestamptz NOT NULL,
+    issue            text                            -- ruling 66: the part's rows within $100 of a printed total, not equal
 );
 
 -- tranche 3: Part A read; a table made before it gains the columns (rows are named by column)
 ALTER TABLE candidate_returns.returns ADD COLUMN IF NOT EXISTS donors_check text;
 ALTER TABLE candidate_returns.donors ADD COLUMN IF NOT EXISTS place text;
+-- ruling 66: the difference a reconciliation admitted, named on the row
+ALTER TABLE candidate_returns.returns ADD COLUMN IF NOT EXISTS issue text;
+ALTER TABLE candidate_returns.donors ADD COLUMN IF NOT EXISTS issue text;

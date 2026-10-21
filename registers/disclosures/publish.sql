@@ -5,7 +5,8 @@ SELECT key, document, page, place, regime, threshold, section, party, party_labe
        amount, amount_original, received_on, given_on, commission_note, amendment, amended_on, withdrawn_on,
        returned_on, amount_note, items_sum, items_check, at_or_under_threshold, href, declaration_document,
        form_total, form_check, form_reading,
-       read_from, reader, profile, profile_version, loaded_at
+       read_from, reader, profile, profile_version, loaded_at,
+       issue      -- ruling 66: the gifts' signed difference below $100; a view gains columns only at its end
 FROM disclosures.declarations;
 
 CREATE OR REPLACE VIEW pub.disclosure_items AS

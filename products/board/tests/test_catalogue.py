@@ -11,6 +11,9 @@ PUBLISHED_AT_20_OCTOBER = {
     "gazette_possessions",   # gazette-5 (21 October)
     "charities", "charity_officers", "charity_returns",   # charities-3 (21 October), catalogued at the construction-2 merge
     "company_lookups", "company_lookup_roles", "company_lookup_holdings", "company_changes",   # companies-2 (21 October)
+    "party_board_roles", "party_board_pages",   # party-boards-1 (21 October), catalogued at the next merge
+    "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "building_practitioners",   # sanctions-1 (21 October)
+    "court_judgments", "court_judgment_parties",   # courts-1 (21 October), catalogued at the next merge
     "candidate_return_totals", "candidate_return_donors",   # candidate-returns-1 (20 October)   # pub.* on 20 October 2026; the outside check compares with the live list
     "broadcasting_allocations", "candidates", "companies", "company_addresses", "company_states", "directors",
     "disclosure_items", "disclosures", "elections", "electorates", "gazette_celebrants", "gazette_liquidations",

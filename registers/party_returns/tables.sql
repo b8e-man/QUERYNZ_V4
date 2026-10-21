@@ -89,6 +89,12 @@ CREATE TABLE IF NOT EXISTS party_returns.loans (
     loaded_at        timestamptz NOT NULL
 );
 
+-- ruling 66 (Arthur, 21 October): a difference below $100 between a part's figures and the printed total they are
+-- held to is reconciled, and named here: the signed difference (parts minus printed) and which parts; NULL when equal
+ALTER TABLE party_returns.returns ADD COLUMN IF NOT EXISTS issue text;    -- the declaration's parts, or Part H + I, against its total
+ALTER TABLE party_returns.donors ADD COLUMN IF NOT EXISTS issue text;     -- Part A's rows against its printed totals
+ALTER TABLE party_returns.loans ADD COLUMN IF NOT EXISTS issue text;      -- Part H's loans against its printed totals
+
 -- which return an amended return replaces, as the Commission's listing states it (amendments.py)
 CREATE TABLE IF NOT EXISTS party_returns.amendments (
     document         text PRIMARY KEY CHECK (document ~ '^[0-9a-f]{64}$'),      -- the replaced return

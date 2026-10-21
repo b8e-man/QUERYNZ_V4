@@ -22,10 +22,12 @@ of them, and its lines and amount are dropped before the rows are grouped,
 so the next row's name is never pulled into it (lesson: the form's own
 sample address is the tell for an example line left in a return).
 
-**The reconciliation.** The rows are published only when they add, to the
-cent, to the page's `TOTAL FOR PART A` and to the declaration's Part A; a
-Part A declared nil publishes no rows. Anything else sets the part aside
-whole, with both figures.
+**The reconciliation.** The rows are published only when they add to the
+page's `TOTAL FOR PART A` and to the declaration's Part A, each to within
+ruling 66's tolerance (`reconcile.py`: less than $100); a difference that
+is not nil is published as the part's `issue` on every row, naming the
+signed difference and which total; a Part A declared nil publishes no
+rows. Anything else sets the part aside whole, with both figures.
 
 **The cut** (as the party-returns lane's, copied: a lane never imports
 another): the name is the text of the cell's first line before the first
@@ -45,6 +47,7 @@ import re
 from dataclasses import dataclass, field
 
 from support.docread import rows as R
+from registers.candidate_returns import reconcile
 from registers.candidate_returns.declaration import MONEY, amount
 
 HEADING = re.compile(r"PART\s*A\s*[:.]?\s*CANDIDATE\s+DONATIONS\s+OF\s+MORE\s+THAN", re.I)
@@ -73,6 +76,7 @@ class Part:
     check: str = ""                                  # parts-sum | declared-nil | '' when set aside
     problems: list = field(default_factory=list)
     examples: int = 0                                # the form's example rows dropped
+    issue: str = None                                # ruling 66: the rows reconcile within $100 but not to the cent
 
 
 ORG = re.compile(r"\b(?:ltd|limited|trust|party|inc|incorporated|association|assn|union|council|branch|lec|electorate|"
@@ -270,10 +274,11 @@ def _finish(out: Part, found: list) -> Part:
     if not wants:
         out.problems.append("nothing to reconcile against")
     for what, x in wants:
-        if abs(total - x) >= CENT:
+        if not reconcile.within(total, x):
             out.problems.append(f"the {len(rows)} rows read add to {total:,.2f}; {what} is {x:,.2f}")
     if out.problems:
         return out
-    out.rows = rows
+    out.issue = reconcile.join(reconcile.issue(total, x, f"the {len(rows)} Part A rows against {what}") for what, x in wants)
+    out.rows = [{**r, "issue": out.issue} for r in rows]
     out.check = "parts-sum" if rows else "declared-nil"
     return out

@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS disclosures.declarations (
     returned_on            date,                                -- the day the party returned the gift, where stated
     amount_note            text NOT NULL DEFAULT '',            -- what the Commission prints after the amount, verbatim
     items_sum              numeric(14,2),                       -- the first figure of every itemised line, summed
-    items_check            text NOT NULL,                       -- equal | differs | no figures (the lines carry multiples and ranges)
+    items_check            text NOT NULL,                       -- equal | reconciled (below $100, ruling 66) | differs | no figures (the lines carry multiples and ranges)
     at_or_under_threshold  boolean NOT NULL,                    -- the Commission's own figure does not exceed the regime's floor
     href                   text,                                -- the Commission's link to the scanned declaration
     declaration_document   text CHECK (declaration_document ~ '^[0-9a-f]{64}$'),  -- the scan, when held
@@ -37,8 +37,10 @@ CREATE TABLE IF NOT EXISTS disclosures.declarations (
     reader                 text NOT NULL,
     profile                text NOT NULL,
     profile_version        integer NOT NULL,
-    loaded_at              timestamptz NOT NULL
+    loaded_at              timestamptz NOT NULL,
+    issue                  text                                 -- ruling 66: the itemised gifts' signed difference from the amount, below $100; NULL when equal
 );
+ALTER TABLE disclosures.declarations ADD COLUMN IF NOT EXISTS issue text;
 
 -- the gifts a declaration itemises, one per printed line, as printed
 CREATE TABLE IF NOT EXISTS disclosures.items (
