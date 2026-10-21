@@ -67,8 +67,8 @@ def opener_for(answers):
 
     def opener(url, timeout=60):
         asked.append(url)
-        status, body, final, blocked = answers.get(url, (404, b"", url, ""))
-        return fg.Fetched(url, status, body, final, blocked)
+        status, body, final, blocked, *location = answers.get(url, (404, b"", url, ""))
+        return fg.Fetched(url, status, body, final, blocked, *location)
     return opener, asked
 
 
@@ -115,9 +115,11 @@ def test_a_challenge_stops_the_run_and_a_server_s_own_error_does_not():
 
 
 def test_a_redirect_off_the_host_stops_and_lands_nothing():
-    answers = {C.RSS["NZSC"]: (200, RSS.encode(), "https://elsewhere.example/rss", "")}
+    # the gate returns a redirect off the host unfetched: the 3xx and its Location, final_url the URL asked
+    answers = {C.RSS["NZSC"]: (302, b"", C.RSS["NZSC"], "", "https://elsewhere.example/rss")}
     r, t, asked, landed = run_with(answers)
     assert "redirected to elsewhere.example" in r.run()["stopped"] and landed == []
+    assert t.logs == [(C.RSS["NZSC"], "fetch", "redirected to elsewhere.example: not landed, and the run stops")]
 
 
 def test_the_back_catalogue_search_is_never_asked():

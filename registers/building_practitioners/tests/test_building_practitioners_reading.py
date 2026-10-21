@@ -10,6 +10,7 @@ import types
 
 import pytest
 
+import support.fetchgate as fg
 from support import db, rowcontract, sample
 from registers.building_practitioners import capture, check, load, read
 from registers.building_practitioners import sample as S
@@ -142,35 +143,36 @@ def test_the_register_is_held_and_asks_nothing(tmp_path):
     assert capture.authorisation("register", real) is None
 
 
+class PassTables:
+    def __init__(s):
+        s.pages, s.asides, s.p = [], [], None
+
+    def open_pass(s):
+        return s.p
+
+    def last_full_done(s):
+        return None
+
+    def begin(s):
+        s.p = {"pass_id": 1, "next_start": 0, "pages": 0, "stated": None}
+        return s.p
+
+    def add_page(s, p, start, url, sha, n, new, stated):
+        s.pages.append(start)
+        p["next_start"], p["stated"] = start + 20, stated
+
+    def add_doc(s, *a):
+        pass
+
+    def finish(s, p):
+        pass
+
+    def set_aside(s, pid, item, stage, why):
+        s.asides.append(why)
+
+
 def test_a_block_stops_the_run_and_the_pass_resumes_from_its_page():
-    class T:
-        def __init__(s):
-            s.pages, s.asides, s.p = [], [], None
-
-        def open_pass(s):
-            return s.p
-
-        def last_full_done(s):
-            return None
-
-        def begin(s):
-            s.p = {"pass_id": 1, "next_start": 0, "pages": 0, "stated": None}
-            return s.p
-
-        def add_page(s, p, start, url, sha, n, new, stated):
-            s.pages.append(start)
-            p["next_start"], p["stated"] = start + 20, stated
-
-        def add_doc(s, *a):
-            pass
-
-        def finish(s, p):
-            pass
-
-        def set_aside(s, pid, item, stage, why):
-            s.asides.append(why)
-
-    t, clock, answers = T(), [0.0], iter([200, 200, 200, 200, 403])
+    t, clock, answers = PassTables(), [0.0], iter([200, 200, 200, 200, 403])
     page = _page([_item(f"Invented [2026] BPB {i} – final decision", number=f"CB{i}") for i in range(20)], total=100)
 
     def opener(url, timeout):
@@ -186,6 +188,22 @@ def test_a_block_stops_the_run_and_the_pass_resumes_from_its_page():
     assert out["stopped"].startswith("stopped:") and t.asides == ["HTTP 403"]
     assert t.pages == [0] and t.p["next_start"] == 20          # three documents, one page, then the block
     assert clock[0] >= 4 * capture.FLOOR_S
+
+
+def test_a_redirect_to_another_host_stops_the_run_and_lands_nothing():
+    # The gate returns a redirect off the host asked unfetched: the 3xx, its Location, and final_url the URL
+    # asked. A final_url elsewhere no longer happens, so only this shape proves the stop.
+    t, landed = PassTables(), []
+
+    def opener(url, timeout):
+        return fg.Fetched(url, 302, b"", url, "", "https://elsewhere.example/x")
+
+    run = capture.Run(t, land_fn=lambda d, **k: landed.append(k) or (types.SimpleNamespace(sha256="a" * 64), True),
+                      opener=opener, clock=lambda: 0.0, sleep=lambda s: None,
+                      now=lambda: dt.datetime(2026, 10, 22, 23, 0, tzinfo=capture.NZ))
+    out = run.run()
+    assert out["stopped"] == "stopped: redirected to another host"
+    assert t.asides == ["redirected to elsewhere.example"] and landed == [] and t.pages == []
 
 
 # ── the filled sample: real pages ─────────────────────────────────────────────
