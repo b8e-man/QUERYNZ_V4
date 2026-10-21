@@ -6,7 +6,9 @@ server, one page per request, no script. Routes:
   GET  /report/<register>:<key>  the memo: the stable address of a report on a row, the ref as the board names it
                                  (?template=&format=html|text|json as below; contract.report_url builds it)
   GET  /report?ref=&template=&format=html|text|json     the memo, the query form the page's own form uses
-                                 (&since=YYYY-MM-DD on either: rows dated on or after it are marked new)
+                                 (&since=YYYY-MM-DD on either: rows dated on or after it are marked new;
+                                 &<name>=<value> for a parameter the template declares, which the form offers;
+                                 one it does not declare is refused, 400)
   GET  /saved                    the saved memos      GET /saved/<id>   one saved memo, as text
   POST /save                     save the memo the page shows (ref, template, note)
   GET  /health                   'ok' and the port
@@ -37,30 +39,52 @@ def templates() -> list:
     return sorted(tpl.folders())
 
 
-def build_report(ref: str, template_name: str, conn=None, since: str = "") -> dict:
+def build_report(ref: str, template_name: str, conn=None, since: str = "", params: dict | None = None) -> dict:
     t = tpl.by_name(template_name)
     if conn is not None:
-        return build.build(conn, ref, t, since=since or None)
+        return build.build(conn, ref, t, since=since or None, params=params)
     with RENDER_LOCK, db.scan_connect() as c:
-        return build.build(c, ref, t, since=since or None)
+        return build.build(c, ref, t, since=since or None, params=params)
 
 
-def render(ref: str, template_name: str = "subject", fmt: str = "html", message: str = "", saved: bool = False, conn=None, since: str = "") -> tuple:
+def declared_params(template_name: str, given: dict | None = None) -> list:
+    """The parameters the template declares, for the form, with what the
+    reader gave as the value shown; an undeclared name is not here (the
+    builder refuses it)."""
+    try:
+        t = tpl.by_name(template_name)
+    except KeyError:
+        return []
+    return [{"name": p.name, "kind": p.kind, "means": p.means, "default": p.default, "given": (given or {}).get(p.name, "")} for p in t.params]
+
+
+def render(ref: str, template_name: str = "subject", fmt: str = "html", message: str = "", saved: bool = False, conn=None, since: str = "",
+           params: dict | None = None) -> tuple:
     """(content type, body). `since`: a date (YYYY-MM-DD); rows dated on or
-    after it are marked new."""
+    after it are marked new. `params`: {name: value} for parameters the
+    template declares; one it does not declare raises KeyError, which the
+    page answers 400 and the command line prints."""
     if not ref:
         body = memo.page("<p class=\"note\">Name a row as the board names it: <code>register:key</code>, for example "
                          "<code>companies:companies/9429037782269</code> or a <code>party_returns:…/A/3</code> donor row. "
                          "Choose a template. The memo lists confirmed connections first, near ones beside them with their reasons, "
                          "cites every line, and says what it did not find and what is not held.</p>", "", template_name, templates(), message,
-                         board_url=BOARD_URL)
+                         board_url=BOARD_URL, params=declared_params(template_name))
         return "text/html; charset=utf-8", body
-    report = build_report(ref, template_name, conn, since)
+    report = build_report(ref, template_name, conn, since, params)
     if fmt == "text":
         return "text/plain; charset=utf-8", memo.text(report)
     if fmt == "json":
         return "application/json", json.dumps(build.public(report), default=state._json, indent=1)
-    return "text/html; charset=utf-8", memo.page(memo.html_body(report), ref, template_name, templates(), message, saved, BOARD_URL)
+    return "text/html; charset=utf-8", memo.page(memo.html_body(report), ref, template_name, templates(), message, saved, BOARD_URL,
+                                                 since=since, params=declared_params(template_name, params))
+
+
+QUERY_OWN = frozenset({"ref", "template", "format", "m", "saved", "since"})   # the page's own query names; the rest are a template's parameters
+
+
+def query_params(qs: dict) -> dict:
+    return {k: (v or [""])[0].strip()[:100] for k, v in qs.items() if k not in QUERY_OWN and (v or [""])[0].strip()}
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -116,7 +140,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             if url.path == "/report" or url.path.startswith("/report/"):
                 ref = (urllib.parse.unquote(url.path[len("/report/"):]) if url.path.startswith("/report/") else get("ref"))[:MAX_REF]
-                ctype, body = render(ref, get("template", "subject"), get("format", "html"), get("m")[:100], get("saved") == "1", since=get("since")[:10])
+                try:
+                    ctype, body = render(ref, get("template", "subject"), get("format", "html"), get("m")[:100], get("saved") == "1", since=get("since")[:10],
+                                         params=query_params(qs))
+                except KeyError as exc:
+                    if "declares no parameter" not in str(exc):
+                        raise
+                    self.send(f"<p>refused: {memo.esc(exc.args[0] if exc.args else exc)}</p>", status=400)
+                    return
                 self.send(body, ctype)
                 return
             self.send("<p>not here</p>", status=404)
@@ -136,10 +167,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if not ref:
                     self.send("<p>nothing to save</p>", status=400)
                     return
-                report = build_report(ref, template_name)
+                since = get("since")[:10]
+                params = {k: get(k)[:100] for k in form if k not in ("ref", "template", "note", "since") and get(k)}
+                report = build_report(ref, template_name, since=since, params=params)
                 state.save(report, memo.text(report), note)
                 self.send_response(303)
-                self.send_header("Location", "/report?" + urllib.parse.urlencode({"ref": ref, "template": template_name, "saved": "1", "m": "memo saved"}))
+                self.send_header("Location", "/report?" + urllib.parse.urlencode({"ref": ref, "template": template_name, "saved": "1", "m": "memo saved",
+                                                                                  **({"since": since} if since else {}), **params}))
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return
