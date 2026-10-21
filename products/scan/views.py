@@ -73,6 +73,10 @@ VIEWS: tuple = (
     V("parties", "parties", "organisation", ("name",), names=("name",), start="registered_on", end="cancelled_on"),
     V("promoters", "party_finance", "organisation", ("promoter", "year"), names=("promoter",), on="registered_on", on_label="registered"),
     V("promoter_people", "party_finance", "person", ("name", "role"), names=("name",), year="year", person_row=True),
+    # a notice is titled by its agency and GETS's RFx ID, never its own title: 754 of 29,874 titles are address-shaped (a
+    # site's street address, which can be a home), and the presentation rules refuse an address in an event's row
+    V("award_notices", "tenders", "event", ("posting_agency", "rfx_id"), on="awarded_on", on_label="awarded"),
+    V("award_suppliers", "tenders", "organisation", ("business_name",), names=("business_name",), on="awarded_on", on_label="awarded"),
 )
 BY_NAME = {v.name: v for v in VIEWS}
 #: what links/ publishes: read for a person or link step, never as a register of answers
@@ -85,6 +89,7 @@ REGISTER_NAME = {
     "disclosures": "Large-donation disclosures", "candidate_returns": "Candidate donation and expense returns",
     "gazette": "Gazette notices", "house": "Candidates and the House", "mp_interests": "MPs' declared interests",
     "parties": "Registered political parties", "party_finance": "Registered promoters",
+    "tenders": "Government procurement award notices",
 }
 
 

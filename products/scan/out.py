@@ -98,7 +98,7 @@ def run_doc(t: tpl.Template, r: dict) -> dict:
             "problems": r.get("problems") or [], "note": r.get("note") or "",
             "reads": [{"view": x.view, "licence": x.licence, "attribution": x.attribution, "refresh": x.refresh} for x in t.reads],
             "limits": list(t.limits), "steps": [{"label": s.label, "view": s.view, "views": list(s.views), "by": s.by, "on": list(s.on), "rule": s.rule,
-                                                  "columns": list(s.columns)} for s in t.steps]}
+                                                  "number": list(s.number), "optional": s.optional, "namesakes": s.namesakes, "columns": list(s.columns)} for s in t.steps]}
 
 
 def json_text(t: tpl.Template, r: dict, lines_iter, citations: list) -> str:
@@ -179,6 +179,9 @@ def table_html(t: tpl.Template, lines: list, total: int, page_no: int, size: int
     for ln in lines:
         cells = []
         for s, st in zip(t.steps, ln["steps"]):
+            if st.get("absent"):
+                cells.append(f'<td class="note">{esc(st["title"])}</td>')
+                continue
             vals = "".join(f'<span class="meta">{esc(c)}: {esc(x)}</span><br>' for c, x in (st.get("values") or {}).items())
             cells.append(f'<td>{esc(st["title"])} <span class="cite">[{st["cite"]}]</span><span class="dates">{esc(st["dates"])}</span>{vals}</td>')
         extra = "".join(f'<span class="reason">{esc(x)}</span>' for x in ln["reasons"]) + "".join(f'<span class="hub">hub, {esc(h["step"])}: {esc(h["text"])}</span>' for h in ln["hubs"])

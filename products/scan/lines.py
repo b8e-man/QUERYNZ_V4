@@ -21,6 +21,9 @@ GRADES = ("confirmed", "near", "contested")
 NEAR_THROUGH_PEOPLE = "the path passes through more than one person: near, never confirmed (the through-people setting)"
 NEAR_LINK_DEFAULT = "the rule that joined these rows grades the link near"
 CONTESTED_DECISION = "a decision contests this link"
+NEAR_BY_NAME = ("joined by name alone: the two names are the same text once case, macrons, punctuation and a legal ending such as "
+                "Limited are set aside; an official number does not join these rows")
+NAMESAKES = "one of {n} rows of pub.{view} that carry this name: namesakes, each a line of its own; the registers do not say which, if any, is the {here}"
 
 
 def fmt_date(d) -> str:
@@ -39,7 +42,7 @@ def fmt(value) -> str:
     if isinstance(value, decimal.Decimal):
         return f"{value:,}"
     if isinstance(value, (list, tuple)):
-        return "; ".join(str(x) for x in value) or NOT_STATED
+        return "; ".join(" ".join(str(y) for y in x.values()) if isinstance(x, dict) else str(x) for x in value) or NOT_STATED
     if isinstance(value, dict):
         return "; ".join(f"{k}: {x}" for k, x in value.items()) or NOT_STATED
     return str(value)
@@ -144,6 +147,14 @@ def grade_of(t: Template, settings: dict, rec: dict) -> tuple:
     the through-people setting); else confirmed."""
     reasons, contested, near = [], False, False
     for i, s in enumerate(t.steps):
+        if s.by == "name":
+            if rec.get(f"s{i}__by") == "name":
+                near = True
+                reasons.append(f"{s.label}: {NEAR_BY_NAME}")
+            if (rec.get(f"s{i}__namesakes") or 0) > 1:
+                near = True
+                reasons.append(f"{s.label}: " + NAMESAKES.format(n=rec[f"s{i}__namesakes"], view=s.view, here=t.steps[i - 1].label))
+            continue
         if s.by not in ("person", "link"):
             continue
         if rec.get(f"s{i}__contested"):
@@ -173,6 +184,12 @@ def line_of(t: Template, settings: dict, start: str, rec: dict, numbering: Numbe
         view = start if i == 0 else s.view
         v = cat.BY_NAME[view]
         r = step_row(rec, i)
+        if s.optional and r.get(v.key_col) is None:   # nothing there: the step is listed as none found, uncited
+            how = s.fold_note if s.by == "name" else f"by {s.on[1]}"
+            steps.append({"label": s.label, "view": view, "register": v.register, "kind": v.kind, "ref": None, "absent": True,
+                          "title": f"none found in pub.{view} {how}", "dates": "", "cite": None, "cite_text": "", "suppressed": False,
+                          "values": {}, "group": None, "link": None})
+            continue
         c = citation(v, r)
         n = numbering.cite(c)
         steps.append({"label": s.label, "view": view, "register": v.register, "kind": v.kind, "ref": cat.ref_of(v, r.get(v.key_col)),
@@ -180,4 +197,4 @@ def line_of(t: Template, settings: dict, start: str, rec: dict, numbering: Numbe
                       "values": {c_: fmt(shown(v, r, c_)) for c_ in s.columns},
                       "group": rec.get(f"s{i}__group"), "link": rec.get(f"s{i}__link")})
     grade, reasons = grade_of(t, settings, rec)
-    return {"grade": grade, "reasons": reasons, "hubs": [], "cites": sorted({s["cite"] for s in steps}), "steps": steps}
+    return {"grade": grade, "reasons": reasons, "hubs": [], "cites": sorted({s["cite"] for s in steps if s["cite"]}), "steps": steps}

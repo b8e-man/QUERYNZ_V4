@@ -19,3 +19,14 @@ What the shape needs from the links: either filed rows in `pub.groups`
 (gathered by their confirmed links, with the contested flag), or a
 published view of (row, group_id) that covers them. Owner: links. The
 procurement template (use case 9, donor overlap) is the first that needs it.
+
+Measured by scan-templates-1 (21 October 2026), which met it as foretold:
+the procurement scans (`procurement-directors-donors`,
+`procurement-shareholders-donors`) go from a donor row to a director or
+shareholder row by a link step of two rules (`full-name@1`,
+`name-only@1`; the shape now takes several rules in one step). The links of
+those two rules join 718 donor-to-director pairs (88 full-name, 630
+name-only); the groups of the director rows they land on hold about 6,000
+director rows, so a donor reaches roughly one directorship in eight of the
+person it is joined to. The chains setting cannot widen it until filed rows
+are in `pub.groups`. On both templates' known-limits pages.
