@@ -34,9 +34,9 @@ COLUMNS_OF = {
     "listing_links": ("row_key", "ordinal", "link_text", "url", "amended", "document"),
     "allocations": ("key", "document", "page", "place", "year", "round", "round_label", "final", "party_label", "party",
                     "party_basis", "mark", "eligible", "amount", "printed", "reader", "profile", "profile_version",
-                    "read_from", "loaded_at"),
+                    "read_from", "loaded_at", "issue"),
     "allocation_totals": ("key", "document", "year", "round", "round_label", "allocated", "available", "rows_sum",
-                          "printed"),
+                          "printed", "issue"),
     "promoters": ("key", "document", "page", "place", "year", "promoter", "registered_on", "registered_for", "statement",
                   "reader", "profile", "profile_version", "read_from", "loaded_at"),
     "promoter_people": ("key", "promoter_key", "document", "page", "place", "role", "name", "reader", "profile",
@@ -47,13 +47,13 @@ COLUMNS_OF = {
                              "profile_version", "read_from", "loaded_at"),
     "expense_returns": ("key", "document", "page", "place", "listing_row", "year", "party_label", "party",
                         "party_basis", "current", "total", "total_check", "part_a", "part_b", "part_c", "expense_limit",
-                        "read_from", "reader", "profile", "profile_version", "loaded_at"),
+                        "read_from", "reader", "profile", "profile_version", "loaded_at", "issue"),
     "statement_figures": ("key", "document", "page", "place", "roster_row", "filed_year", "balance_date", "party_label",
                           "party", "party_basis", "current", "figure", "amount", "prior_amount", "scale", "figure_check",
-                          "printed", "read_from", "reader", "profile", "profile_version", "loaded_at"),
+                          "printed", "read_from", "reader", "profile", "profile_version", "loaded_at", "issue"),
     "promoter_returns": ("key", "document", "page", "place", "listing_row", "year", "promoter", "part", "spending",
                          "figure", "figure_check", "declared", "schedule", "read_from", "reader", "profile",
-                         "profile_version", "loaded_at"),
+                         "profile_version", "loaded_at", "issue"),
 }
 TABLES = tuple(COLUMNS_OF)
 #: the private twin's tables (hard limit 15): never published, never granted to a reader

@@ -26,11 +26,11 @@ PRIVATE_TABLES = ("addresses",)
 COLUMNS = ("key", "document", "page", "place", "party", "party_label", "party_basis", "year", "year_from", "declared_total",
            "part_a", "part_c", "part_d", "part_f", "part_g", "declared_parts", "total_check", "read_from", "reader",
            "profile", "profile_version", "loaded_at", "loans_h", "loans_i", "loans_total", "donors_check", "loans_check",
-           "party_key")
+           "party_key", "issue")
 DONOR_COLUMNS = ("key", "return_key", "document", "page", "ordinal", "n", "donor", "amount", "dates", "contributions",
-                 "paired_by", "read_from", "reader", "profile", "profile_version", "loaded_at")
+                 "paired_by", "read_from", "reader", "profile", "profile_version", "loaded_at", "issue")
 LOAN_COLUMNS = ("key", "return_key", "document", "page", "ordinal", "lender", "amount", "dates", "interest", "read_from",
-                "reader", "profile", "profile_version", "loaded_at")
+                "reader", "profile", "profile_version", "loaded_at", "issue")
 AMENDMENT_COLUMNS = ("document", "replaced_by", "party_label", "year", "stated", "listing")
 COLUMNS_OF = {"returns": COLUMNS, "donors": DONOR_COLUMNS, "loans": LOAN_COLUMNS, "amendments": AMENDMENT_COLUMNS,
               "set_aside": ("document", "stage", "reason", "at"), "addresses": ("key", "document", "address", "cell")}

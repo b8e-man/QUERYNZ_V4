@@ -14,6 +14,11 @@ statements of it, the declaration's box and the schedule's total:
     schedule-only           the schedule's total alone
     (none)                  the two disagree, or neither is read: a catch-log line
 
+The schedule's total is its lines added, so a declaration's box that
+differs from it by less than $100 is taken as `declared-and-schedule`,
+the box's figure published and the part's `issue` naming the difference
+(ruling 66, `reconcile.py`), but only once no pass agrees to the cent.
+
 A part written N/A is not read as zero: the page reader drops handwriting
 (PSA 2020 wrote N/A by hand in all three), and no typed N/A was met.
 
@@ -29,13 +34,12 @@ from dataclasses import dataclass, field
 
 from support import profiles
 from support import reader as rd
-from registers.party_finance import expenses
+from registers.party_finance import expenses, reconcile
 
 PROFILE = "ec-promoter-expenses-return"
 #: the part letter → the Commission's column, by the form's year (2023 has Part A alone)
 COLUMNS = {2020: {"A": "election_expenses", "B": "cannabis_referendum_expenses", "C": "end_of_life_referendum_expenses"},
            2023: {"A": "election_expenses"}}
-TOLERANCE = 0.011
 
 FIG = r"\$\s*(?<![\d.,])([\d][\d,]*\.\d\d)\b"
 #: the figure below its label, blank lines between allowed (the page reader reads the boxes one by one)
@@ -57,6 +61,7 @@ class Part:
     declared_page: int = None
     schedule: float = None
     schedule_page: int = None
+    issue: str = None                                # ruling 66: the schedule's total less the box, below $100
 
     @property
     def page(self):
@@ -90,12 +95,17 @@ def scan(page_texts: dict, letters) -> dict:
     return out
 
 
-def judge(part: Part) -> str:
-    """Sets the part's figure and check; returns why not, or ''."""
+def judge(part: Part, tolerant: bool = False) -> str:
+    """Sets the part's figure and check; returns why not, or ''. `tolerant`: a schedule below $100 off the box
+    (ruling 66) is taken, the box's figure published and the difference the part's issue."""
     d, s = part.declared, part.schedule
     if d is not None and s is not None:
-        if abs(d - s) <= TOLERANCE:
+        if reconcile.difference(s, d) == 0:
             part.figure, part.check = d, "declared-and-schedule"
+            return ""
+        if tolerant and reconcile.within(s, d):
+            part.figure, part.check = d, "declared-and-schedule"
+            part.issue = reconcile.issue(s, d, f"TOTAL FOR PART {part.letter} against the declaration's Part {part.letter}")
             return ""
         return f"Part {part.letter}: the declaration's {d:.2f} is not the schedule's total {s:.2f}"
     if d is not None:
@@ -119,10 +129,11 @@ def read_return(data: bytes, sha256: str, store: rd.Store, year: int) -> Result:
     if not data.startswith(b"%PDF"):
         res.set_aside.append(("", "not a PDF"))
         return res
-    for pass_name, all_pixels in (("first", False), ("pixels", True)):
+    for tolerant, pass_name, all_pixels in ((False, "first", False), (False, "pixels", True),
+                                            (True, "first", False), (True, "pixels", True)):
         texts, unread = expenses.page_texts(data, sha256, store, res.profile_version, all_pixels, PROFILE)
         parts = scan({p: t for p, (t, *_) in texts.items()}, letters)
-        whys = [(k, w) for k, w in ((k, judge(parts[k])) for k in letters) if w]
+        whys = [(k, w) for k, w in ((k, judge(parts[k], tolerant)) for k in letters) if w]
         res.parts, res.unread, res.passes = parts, unread, pass_name
         res.pages = {p: tuple(v[1:]) for p, v in texts.items()}
         if not whys:
