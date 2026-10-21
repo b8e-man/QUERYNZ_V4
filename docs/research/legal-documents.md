@@ -1,9 +1,8 @@
 # How New Zealand legal documents are structured
 
-Step 5.4 item 3. Its home is `docs/research/legal-documents.md`; it sits in
-the courts lane's folder because the session's fence did not reach
-`docs/research/` (card `the-courts-lane-s-edits-outside-its-fence`): the
-integrator moves it at the merge, unchanged.
+Step 5.4 item 3. Written in the courts lane's folder by `courts-1`, whose
+fence did not reach `docs/research/`, and moved here unchanged by the
+integrator at the merge (card `the-courts-lane-s-edits-outside-its-fence`).
 
 Written 21 October 2026 by courts-1, before the reading was built further
 (profiles before readers), from the documents the estate holds: the old

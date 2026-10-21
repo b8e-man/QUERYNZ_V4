@@ -1,9 +1,10 @@
 # The courts lane's research note, profiles, position, schema and job go in at the merge
 kind: blocker
-state: open
+state: closed
 use-case: 2
 session: courts-1
 opened: 2026-10-21
+closed: 2026-10-21
 
 Six edits outside the courts fence (`registers/courts/` only: the launcher's
 scope file did not carry `docs/research/legal-documents.md`, which the brief
@@ -45,3 +46,5 @@ nice = 10
 
 6. Register `python -m registers.courts.check` on the board as the lane's
    outside check (pane: `registers/courts/pane.md`).
+
+Closed by the integrator at the merge of `courts-1` (21 October 2026): the research note is `docs/research/legal-documents.md`; the five profiles are versions 1 in the ledger (81 slugs) and the proposed file is gone; the position is `docs/legal/positions/court-judgments.md`; `courts` and `courts_private` applied with grants on both databases; `qv4-courts-capture` in the catalogue at priority 32 (34 is the charities capture's), `support.scheduler check` green; the check is on the board already: `checks/module_checks.py` discovers every lane `check.py` with a `main`.

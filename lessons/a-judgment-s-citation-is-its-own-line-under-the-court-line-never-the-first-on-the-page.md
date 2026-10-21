@@ -1,4 +1,4 @@
-A judgment's neutral citation is the line of its own under the court line and the case numbers, never the first citation on the page: a suppression banner above the court line cites other judgments, and a caption's party count follows the role's grammatical number, not its line breaks.
+A judgment's neutral citation is its own line under the court line and the case numbers, never the first citation printed: a suppression banner above the court line cites other judgments; a caption's party count follows the role's number.
 area: courts, legal documents, captions, suppression, reading by layout
 paid-for-by: 2026-10-21, courts-1
 
