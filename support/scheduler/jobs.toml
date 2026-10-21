@@ -871,3 +871,28 @@ priority = 66
 command = ["python", "-m", "registers.worksafe.load", "--job"]
 at_utc = "17:30"
 nice = 10
+
+# ── step 5.3, the overseas investment decisions (oio-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
+[jobs.qv4-overseas-investment-capture]
+description = "Step 5.3: the Overseas Investment Office's decision summaries on linz.govt.nz, through the fetch gate 5 s apart: each year's listing weekly (about 27 pages), then the summaries listed and not held (about 1,320 on the first nights, then the month's new ones). Nightly at 23:10 NZDT, at most 3 hours."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 14400
+query_timeout_s = 60
+class = "due"
+priority = 67
+command = ["python", "-m", "registers.overseas_investment.capture"]
+at_utc = "10:10"
+nice = 10
+
+[jobs.qv4-overseas-investment-load]
+description = "Step 5.3: the overseas investment decisions from the newest finished pass, built in staging, checked, published only on green; nothing when the listing is the one published. Nightly at 06:35 NZDT."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 1200
+query_timeout_s = 600
+class = "due"
+priority = 68
+command = ["python", "-m", "registers.overseas_investment.load", "--job"]
+at_utc = "17:35"
+nice = 10
