@@ -6,21 +6,25 @@ waiting. A subject report (the shape in `products/report/`) for a compliance
 team: "who ultimately owns or controls this, and are they exposed".
 
 - `template.toml`: the 22 pub views it reads, each with its licence,
-  attribution and refresh; depth 2; seven sections in the order an analyst
-  reads them (the entity and its namesakes apart; its holders of record
-  with their shares and files, as far up the chain as the registers reach,
-  which is one hop; its directors and registered office; the Gazette;
+  attribution and refresh; depth 2, the chain two up (`chain_depth = 2`);
+  eight sections in the order an analyst reads them (the entity and its
+  namesakes apart; its holders of record with their shares and files; the
+  holding chain above, two companies up, by name (near) or business number
+  (confirmed), with each company's holders, directors and notices; its directors and registered office; the Gazette;
   public office and political money; registered charities (a company's
   by business number, a person's officer rows by name, near); what is not held, sanctions lists,
   limited partnerships, overseas registers, trusts and the securities
   register named); its limits.
 - `rules.py`: nineteen flags. The chain names each company holder and
-  stops (`CHAIN_DEPTH = 4`, `CHAIN_REACHED = 1`); for whom shares are held
+  what was read above it: the companies reached and how, the holders not
+  followed, where it was cut (`CHAIN_DEPTH = 4`, the ceiling); the rows
+  above are the holder's, never the company's own; for whom shares are held
   and the sanctions check are blocked, never clear; a nominee, trustee or
   custodian is a holder of record and nothing more. Every rule branches on
   the start (company, person, other). Loaded by path by the shape, with
   `contract` bound; imports nothing of it.
-- `limits.md`: the known-limits page and the checkpoint of 2026-10-21.
+- `limits.md`: the known-limits page, the checkpoint of 2026-10-21 and its
+  re-renders.
 - `checkpoint.list`: the checkpoint's twelve subjects as register keys.
 - `tests/`: fixtures and a mutant check (fast); the real tables (slow).
 

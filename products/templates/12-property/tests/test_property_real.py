@@ -72,7 +72,8 @@ def memo(ref: str) -> dict:
         assert flags[name]["status"] == "blocked", name
     for name in ("serial-pattern", "earlier-failure", "possession", "insolvency-notices"):
         assert flags[name]["status"] != "clear", f"{name} cleared: past roles are not held"
-    assert "WHAT IS NOT HELD" in text and re.search(r"^  not held: LINZ titles, Court judgments, ", text, re.M)
+    assert "WHAT IS NOT HELD" in text and re.search(r"^  not held: LINZ titles, Overseas Investment Office decisions, Building consents, code compliance certificates and "
+                                                   r"council minutes, Court judgments, .*Real Estate Authority decisions", text, re.M)
     return {"text": text, "flags": flags}
 
 

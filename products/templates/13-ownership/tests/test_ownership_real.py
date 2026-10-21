@@ -48,14 +48,15 @@ def memo(ref: str) -> dict:
     return {"text": text, "flags": flags}
 
 
-def test_a_company_with_a_company_holder_and_a_nominee_names_both_and_stops():
+def test_a_company_with_a_company_holder_and_a_nominee_names_both_and_follows_the_chain():
     ref = one("""with n as (select distinct entity_key from pub.shareholders
                             where in_latest and shareholder_type = 'company' and name like '%NOMINEES LIMITED' limit 200)
                  select 'companies:' || min(c.key) from n join pub.companies c on c.key = n.entity_key
                  where c.status = 'Registered' and (select count(*) from pub.shareholders s where s.entity_key = c.key) < 30""")
     m = memo(ref)
     chain = m["flags"]["holding-chain"]
-    assert chain["status"] == "fired" and "the registers reach 1" in chain["text"] and "shares filed for the holding" in chain["text"]
+    assert chain["status"] == "fired" and "Up the chain, followed 2 up:" in chain["text"] and "shares filed for the holding" in chain["text"]
+    assert "the depth limit is 4 hops" in chain["text"] and "HOLDING CHAIN ABOVE IT" in m["text"]
     assert m["flags"]["custodial-holders"]["status"] == "fired" and "holder of record" in m["flags"]["custodial-holders"]["text"]
     for name in ("prohibition", "public-office"):
         assert m["flags"][name]["status"] == "blocked", "from a company its people are not followed"

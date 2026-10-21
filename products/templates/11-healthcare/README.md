@@ -27,11 +27,15 @@ charity arm files, and where its officers overlap.
   the charity views.
   `retirement-villages`, `hdc-decisions`, `certification-audits`,
   `provider-registers`, `aged-care-commissioner`, `court-judgments`,
-  `past-roles` are blocked, never clear. A start that lists no officer
-  blocks every officer check.
+  `past-roles` are blocked, never clear, each naming its register as the
+  catalogue's not-held key does. A start that lists no officer blocks every
+  officer check. A row an officer's near link reaches is counted apart in
+  the overlap and the officers' notices, never as the officer's own; a
+  notice on a company above in the holding chain is set beside the entity's
+  own, never counted as one.
 - `limits.md`: the known-limits page and the checkpoint of 2026-10-21.
 - `checkpoint.list`: the checkpoint's twelve subjects as register keys.
-- `tests/`: fixtures and a mutant check of eighteen breaks (fast); the real
+- `tests/`: fixtures and a mutant check of twenty-five breaks (fast); the real
   tables through `python -m products.report render REF --template
   healthcare` (slow).
 

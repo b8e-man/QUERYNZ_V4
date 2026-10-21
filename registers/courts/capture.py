@@ -267,8 +267,9 @@ class Run:
                 # (lesson: a gate status verdict is not a block)
                 return None
             raise Stop(f.blocked)
-        if self.fg.host_of(f.final_url or url) != HOST:
-            why = f"redirected to {self.fg.host_of(f.final_url)}: not landed, and the run stops"
+        # the gate hands back a redirect off the host asked unfetched, in f.location (final_url is the URL asked)
+        if f.status in self.fg.REDIRECT_STATUSES and f.location and self.fg.host_of(f.location) != HOST:
+            why = f"redirected to {self.fg.host_of(f.location)}: not landed, and the run stops"
             self.t.log(url, "fetch", why)
             raise Stop(why)
         return f

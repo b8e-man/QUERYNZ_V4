@@ -304,8 +304,9 @@ class Refresh:
         if f.blocked:
             self.aside(url, "fetch", f.blocked)
             raise Stop(f.blocked)
-        if fg.host_of(f.final_url or url) != fg.host_of(url):
-            why = f"redirected to {fg.host_of(f.final_url)}: not landed, and the run stops"
+        # the gate hands back a redirect off the host asked unfetched, in f.location (final_url is the URL asked)
+        if f.status in fg.REDIRECT_STATUSES and f.location and fg.host_of(f.location) != fg.host_of(url):
+            why = f"redirected to {fg.host_of(f.location)}: not landed, and the run stops"
             self.aside(url, "fetch", why)
             raise Stop(why)
         if f.status != 200:

@@ -270,7 +270,8 @@ def test_a_redirect_to_another_host_stops_the_run_and_lands_nothing():
 
     def moved(url, timeout=60, **kw):
         f = site(url, timeout)
-        return fg.Fetched(url, f.status, f.body, "https://elsewhere.example/x") if "abstract.aspx" in url else f
+        # the gate returns a redirect off the host unfetched: the 3xx and its Location, final_url the URL asked
+        return fg.Fetched(url, 302, b"", url, "", "https://elsewhere.example/x") if "abstract.aspx" in url else f
     r, t, store = run(moved)
     out = r.run(TODAY)
     assert out["stopped"] == "stopped: redirected to elsewhere.example: not landed, and the run stops"

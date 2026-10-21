@@ -60,8 +60,8 @@ class Host:
 
     def __call__(self, url, timeout):
         self.asked.append((url, self.clock.t))
-        status, body = self.answers.get(url, (404, b""))
-        return fg.Fetched(url, status, body, url, fg.looks_challenged(status, body))
+        status, body, *location = self.answers.get(url, (404, b""))
+        return fg.Fetched(url, status, body, url, fg.looks_challenged(status, body), *location)
 
 
 class Clock:
@@ -133,6 +133,15 @@ def test_a_challenge_page_answered_200_stops_the_run_and_lands_nothing():
     assert o["stopped"].startswith("stopped:") and "challenge" in o["stopped"]
     assert [f["classified"][1] for f in t.files] == [None]          # the catalogue only
     assert len(host.asked) == 2 and t.asides[-1][1] == "fetch"
+
+
+def test_a_redirect_to_another_host_stops_the_run_and_lands_nothing():
+    # the gate returns a redirect off the host unfetched: the 3xx and its Location, final_url the URL asked
+    o, t, host = refresh(capture, {capture.CATALOGUE: (200, PACKAGE),
+                                   BASE + "GETS-award-notices.csv": (302, b"", "https://elsewhere.example/x.csv")})
+    assert o["stopped"] == "stopped: redirected to elsewhere.example: not landed, and the run stops"
+    assert [f["classified"][1] for f in t.files] == [None]          # the catalogue only
+    assert len(host.asked) == 2 and t.asides[-1][1:] == ("fetch", o["stopped"][len("stopped: "):])
 
 
 def test_a_404_on_the_upper_case_name_asks_once_for_the_lower_case_name():
