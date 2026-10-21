@@ -1,0 +1,43 @@
+# A proving scan for the shape (plan step 6.1): it needs no new lane. A
+# link step by the links' own rule, which grades the join near, so every
+# line is near with the rule's reason: a filed name matches a company name,
+# and the donor row carries no official number.
+name = "donors-named-as-companies"
+title = "Donors whose exact filed name is a company name in the companies register"
+question = "Which donors, in a party's return or a large-donation disclosure, are filed under a name that is exactly a company's registered name?"
+join = "A donor row of the party returns, or a disclosure; the company row the links' organisation-name rule joins it to by the filed name."
+version = "0.1"
+owner = "products/scan, step 6.1"
+
+limits = [
+  "Near, by the links' own rule: the donation row carries no official number, so the match is by name alone. The donor is the one the Commission filed (ruling 253); the company is listed beside it as a namesake of record.",
+  "A return that covers a gift is the record; a disclosure of the same gift is its own line here and is never added to a return.",
+  "The companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+]
+
+[[reads]]
+view = "party_return_donors"
+licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "as each return or amendment is published"
+[[reads]]
+view = "disclosures"
+licence = "Electoral Commission large-donation disclosures: published for inspection under the Electoral Act 1993"
+attribution = "Electoral Commission"
+refresh = "nightly listing"
+[[reads]]
+view = "companies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "monthly file"
+
+[[steps]]
+views = ["party_return_donors", "disclosures"]
+label = "donor"
+columns = ["party", "amount"]
+[[steps]]
+view = "companies"
+label = "company"
+by = "link"
+rule = "organisation-name@1"
+columns = ["status", "entity_type", "nzbn"]

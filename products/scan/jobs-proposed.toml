@@ -1,0 +1,18 @@
+# For the integrator, at the merge of scan-1: the re-run job, into
+# support/scheduler/jobs.toml (every scheduled job goes through the
+# scheduler). It runs after the links' build, which runs after each lane
+# load, so a scan is re-run once the views it read have loaded; the runner
+# itself decides which scans are stale and re-runs only those (and never-run
+# ones). memory_gb is a first figure from the two proving scans and the
+# whole-register timing run (under 300 MB), not yet measured from a run record.
+[jobs.qv4-scan-rerun]
+description = "Step 6.1: re-run every register scan a published view has loaded since (the stale rule: each run records max(loaded_at) of every view it read). After the links' build; one query per scan under a ten-minute statement limit; the run cut at an hour."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 3600
+query_timeout_s = 600
+class = "whenever"
+priority = 40
+command = ["python", "-m", "products.scan", "run", "--stale"]
+env = { QV4_SCAN_STATE = "querynz_v4/register_scan", QV4_SCAN_STATEMENT_MS = "600000" }
+nice = 10
