@@ -3,7 +3,10 @@
     python -m links.check [--schema scratch_links]        exits 1 on any failure
 
 1. Every row of the three old ledgers is copied once: the count in
-   `old_decisions` per ledger equals the old database's own count.
+   `old_decisions` per ledger equals the old database's own count, and so
+   does the count withdrawn (each build brings the copy level, so the two
+   counts are of the same thing; a decision the old estate made since the
+   last build is named as such, not as a missing copy).
 2. No confirming address is anything but a company's registered office,
    and none comes from a monthly file dated on or after 18 November 2026,
    the day director address suppression begins (plan 4.3: an address a
@@ -31,11 +34,22 @@ SUPPRESSION_DAY = dt.date(2026, 11, 18)
 
 
 def check_old_copy(oldconn, conn, s: str) -> list:
+    """Like with like: the old rows up to the copy's highest old id, and
+    those withdrawn, against the copy's; the rows the old estate added
+    since the copy was brought level are counted beside, as the next
+    build's to copy."""
     out = []
     for table in old.LEDGERS:
-        theirs = oldconn.execute(f"SELECT count(*) FROM registers.{table}").fetchone()[0]
-        ours = conn.execute(f"SELECT count(*) FROM {s}.old_decisions WHERE source = %s", (table,)).fetchone()[0]
-        out.append({"check": f"old ledger copied: {table}", "old_database": int(theirs), "copied": int(ours), "ok": int(theirs) == int(ours)})
+        ours, ours_w, top = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE coalesce(copied->>'withdrawn_at', '') <> ''),
+                                                   coalesce(max(split_part(old_id, ':', 2)::bigint), 0)
+                                            FROM {s}.old_decisions WHERE source = %s""", (table,)).fetchone()
+        theirs, theirs_w, since = oldconn.execute(f"""SELECT count(*) FILTER (WHERE id <= %s), count(*) FILTER (WHERE id <= %s AND withdrawn_at IS NOT NULL),
+                                                             count(*) FILTER (WHERE id > %s)
+                                                      FROM registers.{table}""", (top, top, top)).fetchone()
+        out.append({"check": f"old ledger copied: {table}", "old_database": int(theirs), "copied": int(ours),
+                    "withdrawn_old": int(theirs_w), "withdrawn_copied": int(ours_w), "highest_old_id_copied": int(top),
+                    "decided_since_the_copy": int(since),
+                    "ok": int(theirs) == int(ours) and int(theirs_w) == int(ours_w)})
     return out
 
 

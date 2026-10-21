@@ -1,9 +1,10 @@
 # A holder of record's count of companies is not read, so a holding hub is flagged only by its name
 kind: finding
-state: open
+state: closed
 use-case: subject report (5.1); 13 beneficial ownership and AML
 session: ownership-1
 opened: 2026-10-21
+closed: 2026-10-21
 
 The walk flags a professional director by its group's directorships and a
 holder only when its name says nominee, trustee, custodian or the Crown.
@@ -18,3 +19,18 @@ holder (no key exists) and on its group for a person, with a setting for
 the threshold (the plan's thousand; fifty, as for directors and offices,
 is what the data reaches). The ownership template's `holder-hubs` is
 blocked, never clear, until then.
+
+Closed 2026-10-21 by the report session (report-3). Every shareholder row
+the walk lists now carries `holdings`: for a company holder the count of
+companies it holds in the latest file, counted on its name in one query
+(no key exists); for a person the shareholder rows of its group. A holder
+in `SETTINGS["hub_holdings"]` companies or more (50, what the data reaches;
+the plan's thousand stays the address figure) is flagged `holding-hub` ("a
+holder of record in N companies in the latest file: it holds as the
+register states, for many"), beside the nominee flag by name. The memo
+prints the count on any holder in more than one company. Measured: BR
+LEGAL TRUSTEE COMPANY LIMITED prints "holder of record in 23 companies";
+`python -m products.report check` takes the first holder in fifty
+companies or more from the tables at run time and fails unless a company
+it holds flags it. The ownership template's `holder-hubs` reads `holdings`
+and the flag (a fix in its folder).
