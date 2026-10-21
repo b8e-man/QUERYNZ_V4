@@ -159,3 +159,100 @@ def test_every_decision_carries_what_it_decided_and_why(tmp_path):
     fg.record(d, str(tmp_path))
     row = json.loads(open(os.path.join(str(tmp_path), os.listdir(str(tmp_path))[0])).read())
     assert row["allowed"] and row["reason"] and row["host"] == "www.elections.nz" and row["at"]
+
+
+# ── Imperva's interstitial and redirects (grants-1, 21 October) ─────────────
+
+INTERSTITIAL = (b"<!DOCTYPE html><html><head><title>Pardon Our Interruption</title>"
+                b"<script>window.reeseSkipExpirationCheck = true;</script>"
+                b"<script src=\"/Ifed-the-Swoud-Sath-on-the-Goule-of-Ile\" async></script></head>"
+                b"<body><h1>Pardon Our Interruption</h1><p>As you were browsing something about your browser "
+                b"made us think you were a bot.</p></body></html>")
+
+
+@pytest.fixture
+def gated(positions, tmp_path, monkeypatch):
+    for h in ("www.elections.nz", "elections.nz", "gazette.govt.nz", "127.0.0.1", "localhost"):
+        monkeypatch.setitem(fg._ROBOTS, h, robots(h))
+    return dict(positions_dir=positions, ledger_dir=str(tmp_path / "l"), pacer=fg.Pacer(now=lambda: 0.0, sleep=lambda s: None))
+
+
+def test_an_imperva_interstitial_answered_200_is_a_failed_read(gated):
+    got = fg.open_url("https://www.elections.nz/x", fetch=lambda u, t: (200, INTERSTITIAL, u, {"X-SPA-INTERSTITIAL": "1"}), **gated)
+    assert got.status == 200 and got.blocked
+    assert "pardon our interruption" in fg.looks_challenged(200, INTERSTITIAL)          # the page alone
+    assert "X-SPA-INTERSTITIAL" in fg.looks_challenged(200, b"<html></html>", {"X-SPA-INTERSTITIAL": "1"})  # the header alone
+
+
+def test_a_real_page_carrying_the_imperva_script_is_not_a_challenge():
+    page = b"<html><head><title>Datasets</title><script src=\"/reese84.js?d=x\"></script></head><body>rows</body></html>"
+    assert fg.looks_challenged(200, page, {"Content-Type": "text/html"}) == ""
+
+
+def test_a_redirect_is_returned_not_followed_and_the_other_host_is_never_asked(gated):
+    asked = []
+
+    def fetch(u, t):
+        asked.append(u)
+        return (302, b"", u, {"Location": "https://unnamed.example/elsewhere"})
+    got = fg.open_url("https://www.elections.nz/x", fetch=fetch, **gated)
+    assert asked == ["https://www.elections.nz/x"]
+    assert got.status == 302 and got.location == "https://unnamed.example/elsewhere"
+    assert got.final_url == "https://www.elections.nz/x" and got.blocked == ""
+
+
+def test_following_is_asked_for_and_every_hop_is_judged(gated, tmp_path):
+    hops = {"https://www.elections.nz/a": (301, b"", "https://www.elections.nz/a", {"location": "/b"}),
+            "https://www.elections.nz/b": (302, b"", "https://www.elections.nz/b", {"Location": "https://unnamed.example/c"})}
+    asked = []
+
+    def fetch(u, t):
+        asked.append(u)
+        return hops.get(u, (200, b"<html>ok</html>", u, {}))
+    with pytest.raises(fg.Refused, match="unnamed.example"):
+        fg.open_url("https://www.elections.nz/a", fetch=fetch, follow=5, **gated)
+    assert asked == ["https://www.elections.nz/a", "https://www.elections.nz/b"]      # no knock on the unnamed host
+    hops["https://www.elections.nz/b"] = (302, b"", "", {"Location": "https://gazette.govt.nz/c"})
+    got = fg.open_url("https://www.elections.nz/a", fetch=fetch, follow=5, **gated)
+    assert got.status == 200 and got.final_url == "https://gazette.govt.nz/c" and got.url == "https://www.elections.nz/a"
+    got = fg.open_url("https://www.elections.nz/a", fetch=fetch, follow=1, **gated)
+    assert got.status == 302 and got.location == "https://gazette.govt.nz/c"         # out of hops: returned, not taken
+    rows = [json.loads(l) for f in os.listdir(tmp_path / "l") for l in open(tmp_path / "l" / f)]
+    assert [r["host"] for r in rows][-2:] == ["www.elections.nz", "www.elections.nz"]
+    assert any(r["host"] == "unnamed.example" and not r["allowed"] for r in rows)
+
+
+def test_urllib_itself_does_not_follow_a_redirect(gated, positions):
+    """The real transport, on loopback: the answer from 127.0.0.1 points at
+    localhost, which no position names. The old open_url let urllib go there."""
+    import http.server
+    import threading
+    with open(os.path.join(positions, "loopback.md"), "w") as f:
+        f.write("# loopback\nhosts: 127.0.0.1\n")
+    went = []
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            went.append(self.headers.get("Host"))
+            if self.path == "/x":
+                self.send_response(302)
+                self.send_header("Location", f"http://localhost:{self.server.server_port}/landed")
+                self.end_headers()
+            else:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"from another host")
+
+        def log_message(self, *a):
+            pass
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        got = fg.open_url(f"http://127.0.0.1:{srv.server_port}/x", timeout=5, **gated)
+        assert got.status == 302 and got.location.endswith("/landed") and got.body == b""
+        assert len(went) == 1
+        with pytest.raises(fg.Refused, match="localhost"):
+            fg.open_url(f"http://127.0.0.1:{srv.server_port}/x", timeout=5, follow=3, **gated)
+        assert len(went) == 2
+    finally:
+        srv.shutdown()
