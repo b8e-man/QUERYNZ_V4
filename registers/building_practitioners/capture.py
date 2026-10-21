@@ -229,8 +229,9 @@ class Run:
         if f.blocked:
             self._aside(pass_id, url, "fetch", f.blocked)
             raise Stop(f.blocked)
-        if fg.host_of(f.final_url or url) != fg.host_of(url):
-            self._aside(pass_id, url, "fetch", f"redirected to {fg.host_of(f.final_url)}")
+        # the gate hands back a redirect off the host asked unfetched, in f.location (final_url is the URL asked)
+        if f.status in fg.REDIRECT_STATUSES and f.location and fg.host_of(f.location) != fg.host_of(url):
+            self._aside(pass_id, url, "fetch", f"redirected to {fg.host_of(f.location)}")
             raise Stop("redirected to another host")
         if f.status != 200:
             self._aside(pass_id, url, "fetch", f"HTTP {f.status}")
