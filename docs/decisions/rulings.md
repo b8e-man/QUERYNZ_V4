@@ -241,3 +241,14 @@ A note on the clock in 75 to 77 (integrator, 21 October, 20:40): their
 "about 14:20" and "about 14:25" are the relaying session's estimate, which
 it later said ran slow; the commit that recorded them (02b1cce) is
 timestamped 13:41 NZDT. Neither clock is firm; the order of the rulings is.
+
+79. Arthur, 22 October, about 08:40, in three sentences while working
+through the integrator's list: "let's hold this to after the build" (the
+track H sittings, the deploy token's rotation first: the runbooks from
+security-1 stand, no rotation before the build closes); "2 can wait till we
+have the other box" (the diaries source under ruling 78: template 4 stays
+not held until node1 is in service); and "no document reading proceeds
+until we have both boxes up". So: every lane may survey, write its
+position and capture; no reading of documents by a model (the read stages,
+the trials, the Waitangi Tribunal reports' question) starts until node1
+is in service beside node2.
