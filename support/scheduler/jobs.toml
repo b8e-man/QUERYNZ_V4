@@ -798,3 +798,76 @@ priority = 58
 command = ["python", "-m", "registers.tenders.load", "--job"]
 at_utc = "17:30"
 nice = 10
+
+# ── step 5.3, the regulator actions (regulators-1; card the-regulator-lanes-jobs-into-the-catalogue). The clock is NZDT (UTC+13) until 5 April 2027. ──
+[jobs.qv4-commerce-commission-capture]
+description = "Step 5.3: the Commerce Commission's case register (listing and each case's details), through the fetch gate 5 s apart; a full pass of the listing weekly, then the changed items only. Nightly at 22:30 NZDT, at most 4 hours."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 18000
+query_timeout_s = 60
+class = "due"
+priority = 61
+command = ["python", "-m", "registers.commerce_commission.capture"]
+at_utc = "09:30"
+nice = 10
+
+[jobs.qv4-commerce-commission-load]
+description = "Step 5.3: the commerce commission lane's reading from the newest finished pass, built in staging, checked, published only on green; nothing when the listing is the one published. Nightly at 06:20 NZDT."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 1200
+query_timeout_s = 600
+class = "due"
+priority = 62
+command = ["python", "-m", "registers.commerce_commission.load", "--job"]
+at_utc = "17:20"
+nice = 10
+
+[jobs.qv4-fma-capture]
+description = "Step 5.3: the Financial Markets Authority's warnings, alerts and enforcement cases, through the fetch gate 5 s apart; a full pass of the listing weekly, then the changed items only. Nightly at 23:00 NZDT, at most 4 hours."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 18000
+query_timeout_s = 60
+class = "due"
+priority = 63
+command = ["python", "-m", "registers.fma.capture"]
+at_utc = "10:00"
+nice = 10
+
+[jobs.qv4-fma-load]
+description = "Step 5.3: the fma lane's reading from the newest finished pass, built in staging, checked, published only on green; nothing when the listing is the one published. Nightly at 06:25 NZDT."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 1200
+query_timeout_s = 600
+class = "due"
+priority = 64
+command = ["python", "-m", "registers.fma.load", "--job"]
+at_utc = "17:25"
+nice = 10
+
+[jobs.qv4-worksafe-capture]
+description = "Step 5.3: WorkSafe New Zealand's court summaries and enforceable undertakings, through the fetch gate 5 s apart; a full pass of the listing weekly, then the changed items only. Nightly at 23:30 NZDT, at most 4 hours."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 18000
+query_timeout_s = 60
+class = "due"
+priority = 65
+command = ["python", "-m", "registers.worksafe.capture"]
+at_utc = "10:30"
+nice = 10
+
+[jobs.qv4-worksafe-load]
+description = "Step 5.3: the worksafe lane's reading from the newest finished pass, built in staging, checked, published only on green; nothing when the listing is the one published. Nightly at 06:30 NZDT."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 1200
+query_timeout_s = 600
+class = "due"
+priority = 66
+command = ["python", "-m", "registers.worksafe.load", "--job"]
+at_utc = "17:30"
+nice = 10

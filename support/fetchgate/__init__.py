@@ -88,6 +88,10 @@ FLOORS = {
     "www.police.govt.nz": 10.0,
     "scsanctions.un.org": 10.0,
     "catalogue.data.govt.nz": 10.0,   # its own crawl delay (tenders-1, 21 October)
+    # step 5.3, the regulator lanes (regulators-1, 21 October)
+    "www.comcom.govt.nz": 5.0,
+    "www.fma.govt.nz": 5.0,
+    "www.worksafe.govt.nz": 5.0,
 }
 
 

@@ -116,6 +116,23 @@ def listing(conn, schema: str = SCHEMA) -> list:
     return out
 
 
+def load(conn, schema: str, log=print) -> int:
+    """The merge gate's staging step (support/staging): the newest finished pass of the listing, read under `schema`;
+    with no finished pass the tables are made empty. Problems the reading's check finds are logged, as the job logs
+    them. Added by the integrator at the merge of regulators-1."""
+    from registers.commerce_commission import check
+    listed = listing(conn)
+    if not listed:
+        create_tables(conn, schema)
+        log(f"{SCHEMA}: no finished pass of the listing is held; nothing read into {schema}")
+        return 0
+    counts = build(conn, schema, listed)
+    problems = check.reading(conn, schema)
+    log(f"{SCHEMA}: {counts['cases']} cases, {counts['parties']} parties, {counts['set_aside']} set aside, "
+        f"{counts['not_captured']} not captured into {schema}; " + ("; ".join(problems) or "reconciles"))
+    return counts["cases"] + counts["parties"]
+
+
 def publish(conn, staging: str, log=print) -> None:
     with conn.transaction():
         create_tables(conn, SCHEMA)
