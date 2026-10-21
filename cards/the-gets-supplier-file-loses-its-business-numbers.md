@@ -1,9 +1,10 @@
 # The ministry's supplier file has lost its business numbers, so awards cannot be joined to companies by NZBN
 kind: finding
-state: open
+state: closed
 use-case: 9 government procurement integrity (template 2); 10 tender and award intelligence
 session: tenders-1
 opened: 2026-10-21
+closed: 2026-10-21
 
 The plan describes the award notices as "keyed on official business
 number". They are not. In the files of 14 August 2026 the `Supplier NZBN`
@@ -24,3 +25,13 @@ it against `pub.companies` with the name, not alone.
 Fix, if any: the ministry republishing the column as text (the same letter
 as card `the-ministry-s-gets-files-answer-403`). To decide at template 2's
 checkpoint: accept onto its known-limits page, or wait for the letter.
+
+Accepted at template 2's checkpoint (scan-templates-1, 21 October 2026):
+a line on the known-limits pages of `tender-awards` and both
+`procurement-*-donors` scans. Both templates join supplier and company by
+business number when both rows carry one (confirmed) and otherwise by the
+folded name alone (near, with the reason, namesakes marked), so the day the
+ministry republishes the column the lines turn confirmed with no template
+change. The six-and-seven-digit company numbers went to the links lane as
+card `the-gets-supplier-number-is-often-a-company-number`; the letter stands
+on card `the-ministry-s-gets-files-answer-403`.
