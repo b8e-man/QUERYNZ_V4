@@ -1,0 +1,7 @@
+# registers/sanctions/sample.list: hashes and key: lines only. EMPTY ON PURPOSE: every list is held on its
+# publisher's terms (position/sanctions-lists.md; the queue items), so no list document is landed to name here.
+# MFAT's terms bar automated access, the UN's allow only personal non-commercial copies with no compiling, and
+# Police's allow saving only for non-commercial private purposes. The lane's tests run on hand-made documents (every
+# name invented) and, when QV4_SANCTIONS_LIVE=1 and marked slow, on the UN's and Police's lists read in memory from the
+# publisher and kept nowhere. Once a list is authorised (or MFAT's workbook is landed by hand), this list names it,
+# with `key: list <list> <sha256> <version>` and, for Police, `key: page-1373 <sha256>`.
