@@ -15,7 +15,7 @@ diligence), `products/templates/12-property/`. **Merge request:** `property-1` (
   possession, prohibition, bankruptcy, insolvency notices, holding chain,
   history reach, namesakes; nine not-held registers blocked. Window read as
   `report["window_days"]` (ruling 65), no cut until set.
-- Tests: 40 fixture tests with 26 mutants, all caught; 3 real-table tests
+- Tests: 37 fixture tests, 26 of them mutants, all caught; 3 real-table tests
   (slow), green. Fast tier `products/templates` green (30 s); one-way and
   reading-limit tests green; `python -m products.report check` green.
 - Checkpoint: twelve subjects in `checkpoint.list`, none refused, no rule
