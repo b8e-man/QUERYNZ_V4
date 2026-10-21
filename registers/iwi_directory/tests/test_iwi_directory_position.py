@@ -12,7 +12,7 @@ from support.docstore.landing import path_for, read_bytes
 from registers.iwi_directory import read
 
 LANE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-POSITION = os.path.join(LANE, "position", "iwi-and-hapu-directory.md")
+POSITION = os.path.join(os.path.dirname(os.path.dirname(LANE)), "docs", "legal", "positions", "iwi-and-hapu-directory.md")   # moved there at the merge
 QUOTES = {
     "6c3d13e5": "may be reproduced for personal, not-for-profit or in-house use without formal permission or charge",
     "3377b9be": "CC-BY-NZ-3.0",

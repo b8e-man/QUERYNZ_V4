@@ -16,7 +16,7 @@ from registers.settlement_commitments import capture, check, load, read
 from registers.settlement_commitments import sample as S
 
 LANE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-POSITION = os.path.join(LANE, "position", "treaty-settlement-commitments.md")
+POSITION = os.path.join(os.path.dirname(os.path.dirname(LANE)), "docs", "legal", "positions", "treaty-settlement-commitments.md")   # moved there at the merge
 SCHEMA = "scratch_test_settlement_commitments"
 ITEMS = sample.read_list(os.path.join(LANE, "sample.list"))
 QUOTES = {
