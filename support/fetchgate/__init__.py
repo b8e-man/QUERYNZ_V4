@@ -388,7 +388,8 @@ def _go(url: str, timeout: int, headers: dict, max_bytes: int):
 
 
 def open_url(url: str, *, timeout: int = 30, headers: dict = None, pacer: Pacer = None, max_bytes: int = None,
-             fetch=None, positions_dir: str = None, ledger_dir: str = None, follow: int = 0) -> Fetched:
+             fetch=None, positions_dir: str = None, ledger_dir: str = None, follow: int = 0,
+             same_host_hops: int = 3) -> Fetched:
     """The gated fetch: check, pace, go, with the one UA. A 404 is the host
     answering; a 403, 429, 5xx or a challenge page is a failed read, returned
     as `blocked` and never retried in the same run.
@@ -397,6 +398,9 @@ def open_url(url: str, *, timeout: int = 30, headers: dict = None, pacer: Pacer 
     address it points to, unfetched, and `final_url` the URL asked. With
     `follow=n` up to n hops are taken, each one checked against the positions
     (a Refused is raised as for any URL), recorded and paced on its own host.
+    A redirect that stays on the host asked is followed without asking, up to
+    `same_host_hops` (the host was judged; http to https and a trailing slash
+    are the common cases); set it to 0 to see those too.
     `fetch(url, timeout) -> (status, body, final[, headers])` is injectable."""
     asked, hops = url, 0
     while True:
@@ -407,7 +411,8 @@ def open_url(url: str, *, timeout: int = 30, headers: dict = None, pacer: Pacer 
         hdrs = got[3] if len(got) > 3 else {}
         loc = next((v for k, v in hdrs.items() if k.lower() == "location"), "") if status in REDIRECT_STATUSES else ""
         loc = urllib.parse.urljoin(url, loc) if loc else ""
-        if loc and hops < follow:
+        same_host = bool(loc) and host_of(loc) == host_of(asked)
+        if loc and (hops < follow or (same_host and hops < same_host_hops)):
             url, hops = loc, hops + 1
             continue
         return Fetched(asked, status, body, final, looks_challenged(status, body, hdrs), loc)

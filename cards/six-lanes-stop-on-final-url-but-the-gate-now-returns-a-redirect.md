@@ -21,3 +21,5 @@ slash) is now set aside too, where urllib used to follow it silently.
 Each lane: stop on `f.location` off its host instead of `f.final_url`; pass `follow=` only where its
 source is known to redirect on its own host. Its tests inject a `Fetched` with `final_url` elsewhere, so
 they stay green and prove nothing here; add one with `status=302, location=...`.
+
+Integrator, at the merge (22 October 2026): the gate follows a redirect that stays on the host asked by default (three hops), so the within-host case this card feared (http to https, a trailing slash) does not set pages aside; what remains is the cross-host case, where the lanes' final-address stop no longer fires and a `HTTP 30x` row is set aside instead. Nothing is fetched from the other host either way.

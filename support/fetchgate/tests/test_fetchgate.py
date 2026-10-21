@@ -256,3 +256,28 @@ def test_urllib_itself_does_not_follow_a_redirect(gated, positions):
         assert len(went) == 2
     finally:
         srv.shutdown()
+
+
+def test_a_redirect_within_the_host_is_followed_by_default_and_a_fourth_hop_is_not(gated):
+    """Integrator, at the merge of fix-support-fetchgate-1: the host asked was judged, so http to https or a trailing slash on
+    the same host is followed (each hop paced and recorded); another host is still returned unfollowed."""
+    asked = []
+
+    def fetch(u, t):
+        asked.append(u)
+        if u.endswith("/x"):
+            return (301, b"", u, {"Location": "https://www.elections.nz/x/"})
+        return (200, b"<html>page</html>", u, {})
+    got = fg.open_url("https://www.elections.nz/x", fetch=fetch, **gated)
+    assert asked == ["https://www.elections.nz/x", "https://www.elections.nz/x/"]
+    assert got.status == 200 and got.location == "" and got.blocked == ""
+
+    def loop(u, t):
+        return (302, b"", u, {"Location": "https://www.elections.nz/again"})
+    got = fg.open_url("https://www.elections.nz/x", fetch=loop, **gated)
+    assert got.status == 302 and got.location == "https://www.elections.nz/again"
+
+    def away(u, t):
+        return (302, b"", u, {"Location": "https://unnamed.example/elsewhere"})
+    got = fg.open_url("https://www.elections.nz/x", fetch=away, **gated)
+    assert got.status == 302 and got.location == "https://unnamed.example/elsewhere"
