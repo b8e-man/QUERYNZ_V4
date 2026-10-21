@@ -57,7 +57,8 @@ def test_each_broken_reading_is_caught(name):
 CAPTURE_MUTANTS = {
     "a block not stopping the host": ("            self.blocked[host] = why\n            raise Blocked(why)",
                                       "            return None"),
-    "the gate's marks only": ("    for mark in MORE_CHALLENGE_MARKS:", "    for mark in ():"),
+    # "the gate's marks only" left at the merge of fix-support-fetchgate-1 (22 October 2026): the gate now carries the
+    # interstitial's marks itself, so a lane that drops MORE_CHALLENGE_MARKS is no longer broken; the lane's copy may go.
     "a redirect followed off the host": ("                if fg.host_of(location) != host:", "                if False:"),
     "no rest between requests": ("self.pacer.wait(dec.host, max(dec.floor, REST_S if self.failures.get(host) else FLOOR_S))",
                                  "pass"),
