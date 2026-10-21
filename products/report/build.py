@@ -102,7 +102,7 @@ def _ordered(items: list) -> list:
     that sit on it, each group newest first; rows whose entity is not in the
     section after, newest first."""
     refs = {it["ref"] for it in items}
-    heads = sorted([it for it in items if it["view"] in ("companies", "societies", "party_return_totals", "candidate_return_totals", "disclosures",
+    heads = sorted([it for it in items if it["view"] in ("companies", "societies", "charities", "party_return_totals", "candidate_return_totals", "disclosures",
                                                          "promoters", "mp_interest_returns", "parties")], key=_sort_key)
     head_refs = {h["ref"] for h in heads}
     out, placed = [], set()
@@ -150,12 +150,18 @@ def _keeps(s: tpl.Section, it: dict, ref: str, members: set, files: tuple) -> bo
     return True
 
 
-def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | str | None = None) -> dict:
+def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | str | None = None, params: dict | None = None) -> dict:
     """The report. `held`: the pub views present (for the blanks); read from
     the connection when not given. `since`: a date; every item dated on or
     after it is marked new, one that cannot say is marked so, and a rule may
-    read `report["since"]`."""
+    read `report["since"]`. `params`: {name: value} the reader set, each a
+    parameter the template declares (`[[params]]` in its template.toml; an
+    undeclared name is refused with KeyError before anything is read): every
+    declared parameter is put in `report["params"]` and under its own name
+    on the report, read as its kind, or as the text given when that does
+    not read (the rule says so), or its default."""
     from products.report import db
+    values, declared = tpl.params_for(t, params)
     held = held if held is not None else db.pub_views(conn)
     allowed = {v for v in t.views if v in held}
     if isinstance(since, str):
@@ -165,8 +171,11 @@ def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | st
                            "reads": [{"view": r.view, "licence": r.licence, "attribution": r.attribution, "refresh": r.refresh} for r in t.reads]},
               "ref": ref, "as_of": now.date().isoformat(), "built_at": now.isoformat(timespec="seconds"),
               "since": since.isoformat() if since else None, "new": None,
+              "params": values, "params_declared": list(declared), **values,
               "found": False, "why": "", "subject": None, "group": {}, "sections": [], "flags": [], "hubs": [], "citations": [],
               "walk": {}, "limits": list(t.limits), "not_held": [name for _, name in cat.NOT_HELD],
+              "superseded_not_held": [f"{cat.REGISTER_NAME[reg]} (named {key!r} in the template; published as "
+                                      f"{', '.join('pub.' + v.name for v in cat.views_of(reg))})" for key, reg in t.superseded_not_held],
               "views_not_published": sorted(t.views - held), "problems": []}
     w = walk.walk(conn, ref, allowed, depth=t.depth, buckets=t.buckets, chain_depth=t.chain_depth)
     if not w.get("found"):

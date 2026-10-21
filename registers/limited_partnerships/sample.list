@@ -1,0 +1,40 @@
+# registers/limited_partnerships/sample.list: hashes and key: lines only. Answers of the NZBN register's entity
+# detail for limited partnerships, landed 21 October 2026 through the fetch gate with our own key. A `key: asked`
+# line gives the moment an answer was asked (the day is the row's `asked_on`).
+# a new NZ partnership (registered 30 July 2026): one general partner, a body with an NZBN
+8ec6c18bdb1af5d21df4b1558b560d8dfc9b16a480e707a86914bee3219d55fa
+key: asked 8ec6c18bdb1af5d21df4b1558b560d8dfc9b16a480e707a86914bee3219d55fa 2026-10-21T15:01:52+13:00
+# an overseas partnership (type Z): a person authorised for service (another role, counted, not read), an active
+# general partner who is a person and an inactive one
+178a14c922bebfc4b5a15f389b81c08de7118ab0bdd7a2bc381857b3a37fb246
+key: asked 178a14c922bebfc4b5a15f389b81c08de7118ab0bdd7a2bc381857b3a37fb246 2026-10-21T15:02:06+13:00
+# an NZ partnership of 2008, the oldest registered: ended registered addresses beside the current one
+46e8a6b74cd00cc2db0eaf592cb34602b877f73d08c01db8ac3f5348b5b52c9a
+key: asked 46e8a6b74cd00cc2db0eaf592cb34602b877f73d08c01db8ac3f5348b5b52c9a 2026-10-21T15:02:11+13:00
+# two different bodies answered under ONE role identifier (the key adds kind and name)
+d33e92fc4822d5bff90ca5738553a153eb7c128b35e69cff547bb49beb73dff5
+key: asked d33e92fc4822d5bff90ca5738553a153eb7c128b35e69cff547bb49beb73dff5 2026-10-21T15:07:55+13:00
+# two general partners
+e9609f65dae37479b144613ca2c6a806630eb22787ca79ba071cd1a55d5f9459
+key: asked e9609f65dae37479b144613ca2c6a806630eb22787ca79ba071cd1a55d5f9459 2026-10-21T15:08:20+13:00
+# ten more of the frame, chosen by hash order: one body general partner each
+6c443649022ee7e37a6e8db7dcd484fd771841547948cf086511ea24daee2455
+key: asked 6c443649022ee7e37a6e8db7dcd484fd771841547948cf086511ea24daee2455 2026-10-21T15:07:21+13:00
+2b20f7e4e381e46afb29d92dbe8417b3c077592c125fbf02e9e59d99f83144ad
+key: asked 2b20f7e4e381e46afb29d92dbe8417b3c077592c125fbf02e9e59d99f83144ad 2026-10-21T15:07:27+13:00
+8439c971f968f87ac6968bd079b94b8e8ab2f85e452960d7d47819d4d5fe501d
+key: asked 8439c971f968f87ac6968bd079b94b8e8ab2f85e452960d7d47819d4d5fe501d 2026-10-21T15:07:32+13:00
+1f666a058abb19ee25a2eeab442427d1da83356f5e6d8871b8e06e5b8cd92290
+key: asked 1f666a058abb19ee25a2eeab442427d1da83356f5e6d8871b8e06e5b8cd92290 2026-10-21T15:07:38+13:00
+ed38206c0aea4134249081bc5f682efb0d7659e4187b2bc7bec07657cd85a83f
+key: asked ed38206c0aea4134249081bc5f682efb0d7659e4187b2bc7bec07657cd85a83f 2026-10-21T15:07:44+13:00
+377c77ba23894165ba293e415d72daad9cac757824c446982cc8e7fdaeec2eed
+key: asked 377c77ba23894165ba293e415d72daad9cac757824c446982cc8e7fdaeec2eed 2026-10-21T15:07:50+13:00
+34fe3f45e8f16d810a2e13a414cb4ae5b9465a17ec7a6ff74faffd9b20d95873
+key: asked 34fe3f45e8f16d810a2e13a414cb4ae5b9465a17ec7a6ff74faffd9b20d95873 2026-10-21T15:08:01+13:00
+42c403f2e5119f76bb88d9ff71cfde8c593a7edd0e85e466819f8842417a076a
+key: asked 42c403f2e5119f76bb88d9ff71cfde8c593a7edd0e85e466819f8842417a076a 2026-10-21T15:08:08+13:00
+bc10ce0e67fb599db15c27ba2b8aa039f91263dc5937eb84e89f691480c74ffc
+key: asked bc10ce0e67fb599db15c27ba2b8aa039f91263dc5937eb84e89f691480c74ffc 2026-10-21T15:08:13+13:00
+29bb92ad9ec782794fcfac36c7995925c399aa2a1f9b85ca48f63d94a6e4b5ea
+key: asked 29bb92ad9ec782794fcfac36c7995925c399aa2a1f9b85ca48f63d94a6e4b5ea 2026-10-21T15:08:25+13:00
