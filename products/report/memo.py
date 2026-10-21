@@ -72,7 +72,7 @@ def _line_text(it: dict) -> str:
         extra.append("cannot say whether new: undated, or dated by a year or a file only")
     for f in it.get("flags", []):
         extra.append(f"HUB: {f['text']}")
-    if it.get("note") and it["view"] in ("shareholders", "directors", "disclosures", "gazette_company_notices"):
+    if it.get("note") and it["view"] in ("shareholders", "directors", "disclosures", "gazette_company_notices", "charity_officers"):
         extra.append(it["note"])
     return line + ("".join("\n      " + x for x in extra) if extra else "")
 
@@ -199,6 +199,8 @@ def text(report: dict) -> str:
         left.append("views reached but not read, because the template does not name them: " + ", ".join("pub." + v for v in w["skipped"]))
     if report.get("views_not_published"):
         left.append("views the template names that are not published: " + ", ".join("pub." + v for v in report["views_not_published"]))
+    for x in report.get("superseded_not_held") or []:
+        left.append(f"the template names as not held a register that is published and which it does not read: {x}")
     left += _reaches_text(w)
     out += [f"  - {x}" for x in left] or ["  nothing: every link, entity and group row within the walk's reach is listed"]
     st = w.get("settings", {})
@@ -309,6 +311,9 @@ def html_body(report: dict) -> str:
     if report.get("views_not_published"):
         any_left = True
         out.append(f'<li>views the template names that are not published: {esc(", ".join("pub." + v for v in report["views_not_published"]))}</li>')
+    for x in report.get("superseded_not_held") or []:
+        any_left = True
+        out.append(f"<li>the template names as not held a register that is published and which it does not read: {esc(x)}</li>")
     for x in _reaches_text(w):
         any_left = True
         out.append(f"<li>{esc(x)}</li>")

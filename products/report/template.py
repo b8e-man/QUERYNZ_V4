@@ -106,6 +106,7 @@ class Template:
     common_rules: bool = True     # the contract's COMMON_RULES run first; `common_rules = false` in template.toml opts out
     chain_depth: int = 0          # company holders of record followed up the chain from a company start (0: none; the walk caps it)
     params: tuple = ()            # the reader's settings the template's rules read, declared so a surface can offer and refuse them
+    superseded_not_held: tuple = ()   # (key, register) for each not-held key the template cites that a lane has since published
 
     @property
     def param_names(self) -> tuple:
@@ -151,15 +152,21 @@ def load(folder: str) -> Template:
         if not r.licence:
             raise ValueError(f"{folder}: pub.{r.view} is read without its licence terms stated")
     views = {r.view for r in reads}
-    sections = []
+    sections, superseded = [], []
     for s in t.get("sections", []):
         sv = tuple(s.get("views", []))
         outside = [x for x in sv if x not in views]
         if outside:
             raise ValueError(f"{folder}: section {s.get('name')} draws on {outside}, which the template does not read")
+        not_held = []
         for nh in s.get("not_held", []):
+            if nh in cat.SUPERSEDED_NOT_HELD:   # a register a lane published after the template named it: the template loads, and the report says so
+                if (nh, cat.SUPERSEDED_NOT_HELD[nh]) not in superseded:
+                    superseded.append((nh, cat.SUPERSEDED_NOT_HELD[nh]))
+                continue
             if nh not in cat.NOT_HELD_NAME:
                 raise ValueError(f"{folder}: section {s.get('name')} names {nh!r} as not held; the catalogue has no such register")
+            not_held.append(nh)
         sources = tuple(s.get("sources", Section.sources))
         unknown = [b for b in sources if b not in BUCKETS]
         if unknown:
@@ -167,7 +174,7 @@ def load(folder: str) -> Template:
         own = s.get("own")
         if own is not None and not isinstance(own, bool):
             raise ValueError(f"{folder}: section {s.get('name')}: own is true or false")
-        sections.append(Section(s["name"], s["heading"], sv, sources, tuple(s.get("not_held", [])), s.get("text", ""),
+        sections.append(Section(s["name"], s["heading"], sv, sources, tuple(not_held), s.get("text", ""),
                                 own, tuple(cat.fold(x) for x in s.get("statuses", [])), bool(s.get("changed", False))))
     if not sections:
         raise ValueError(f"{folder}: a template has sections")
@@ -190,7 +197,7 @@ def load(folder: str) -> Template:
             raise ValueError(f"{folder}: the parameter {name}'s default {default!r} is not a {p['kind']}")
         params.append(Param(name, p["kind"], default, str(p["means"])))
     return Template(t["name"], t["title"], str(t["version"]), t["owner"], folder, reads, tuple(sections), tuple(t.get("limits", [])),
-                    int(t.get("depth", 2)), _load_rules(folder), bool(t.get("common_rules", True)), chain_depth, tuple(params))
+                    int(t.get("depth", 2)), _load_rules(folder), bool(t.get("common_rules", True)), chain_depth, tuple(params), tuple(superseded))
 
 
 def read_param(kind: str, value):

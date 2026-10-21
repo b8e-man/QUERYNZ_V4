@@ -1,9 +1,10 @@
 # The report's catalogue knows no charity view, so no template can show a charity arm, its officers or its returns
 kind: finding
-state: open
+state: closed
 use-case: 11 healthcare operator governance; also 2, 8, 9, 14
 session: healthcare-1
 opened: 2026-10-21
+closed: 2026-10-21
 
 The charities lane's reading (`session/charities-3`, not merged at
 2026-10-21 13:30) publishes `pub.charities`, `pub.charity_officers` and
@@ -49,3 +50,19 @@ What the use case needs, after charities-3 merges:
 Measured at the checkpoint: two operators' charitable trust boards (Ryman
 Healthcare Charitable Trust, Presbyterian Support (Northern)) list no
 officer anywhere the report reads, so every officer check on them blocks.
+
+Closed for the report lane, item 1 (fix-report-2, 2026-10-21): the three
+Views as asked (`charities` without `address_for_service`; `charity_officers`
+with the four name columns, `suppressed`, `started_on`/`ended_on`, `role`,
+the charity as its entity, `disqualified` and `status` in the statement,
+`name_note` as the note; `charity_returns` on `period_end` "period to",
+`total_gross_income` as the amount, the other figures in the statement);
+`ROLES_ON["charities"]` (officers by `started_on`, returns newest first);
+`charity_officers` in `OFFICER_VIEWS` and `ROLE_VIEWS`. Beyond the ask: a
+company's charity row is joined by business number as an entity of the walk
+(confirmed, `official-number`), so a charitable trust board's row in
+`pub.companies` reaches its trustees today without the links lane; a
+charity officer carrying a person's name is listed near by name, with its
+reason. Item 2 is carded for the links lane
+(`charity-officers-are-in-no-link-and-no-name-row`); item 3 is template
+11's, in `the-healthcare-template-can-now-read-the-charities-register-and-the-reaches`.
