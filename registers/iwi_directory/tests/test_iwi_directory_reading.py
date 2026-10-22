@@ -46,8 +46,8 @@ def _iwi_page(tables_html, orgs_html, name="Ngāti Invented"):
             '<div id="clearFooterHome"></div><div id="footer"></div></body></html>').encode()
 
 
-def _table(heading, rows, hapu=True):
-    heads = (["Hapū"] if hapu else []) + ["Marae", "Wharenui", "Location"]
+def _table(heading, rows, hapu=True, heads=None):
+    heads = heads or (["Hapū"] if hapu else []) + ["Marae", "Wharenui", "Location"]
     th = "".join(f"<th><h4>{h}</h4></th>" for h in heads)
     trs = "".join(f'<tr class="{"odd" if i % 2 else "even"}">' + "".join(f"<td>{c}</td>" for c in r) + "</tr>"
                   for i, r in enumerate(rows))
@@ -154,6 +154,41 @@ def rules(r) -> list:
     nohapu = _iwi_page(_table("x", [["Pā", "Whare", "Somewhere"]], hapu=False), "")
     if not any(x["relation"] == "marae of iwi" for x in r.read_page(nohapu, SHA, URL)["relations"]):
         broken.append("a marae on a page with no hapū column is the iwi's")
+    # the shapes the first full walk printed (22 October 2026): a list of hapū alone beside a marae table, no
+    # wharenui column, marae and location alone, and "Not yet identified" where a marae is not named
+    split = _iwi_page(_table("Hapū", [["Ngāti Tahi"], ["Ngāti Rua"]], heads=["Hapū"])
+                      + _table("Marae", [["Pā Toru", "Whare Toru", "Toru Road"]], hapu=False), "")
+    try:
+        out = r.read_page(split, SHA, URL)
+        kinds = sorted(e["kind"] for e in out["entities"])
+        if kinds != ["hapū", "hapū", "iwi", "marae"] or not any(x["relation"] == "marae of iwi" for x in out["relations"]):
+            broken.append(f"a list of hapū alone is the iwi's hapū, its marae table beside it the iwi's: {kinds}")
+    except r.NotTheShape as exc:
+        broken.append(f"a list of hapū alone is read: {exc}")
+    nowhare = _iwi_page(_table("x", [["Ngāti Tahi", "Not yet identified", ""], ["Ngāti Rua", "Pā Wha", "Wha Road"]],
+                               heads=["Hapū", "Marae", "Location"])
+                        + _table("y", [["Pā Rima", "Rima Road"]], heads=["Marae", "Location"]), "")
+    try:
+        out = r.read_page(nowhare, SHA, URL)
+        names = sorted(e["name"] for e in out["entities"] if e["kind"] == "marae")
+        if names != ["Pā Rima", "Pā Wha"]:
+            broken.append(f"a table with no wharenui column is read, and 'Not yet identified' is no marae: {names}")
+    except r.NotTheShape as exc:
+        broken.append(f"a table with no wharenui column is read: {exc}")
+    flags = _iwi_page(_table("x", [["A", "B", "C", "D"]]), _org(1, "Flag Trust", [
+        ("maunga_blue_sm", "Ngā Iwi o Taranaki. ", None),
+        ("rma_sm_hapu", "Resource Management Act consultation - Groups that represent hapū of this iwi. ", None),
+        ("phone_sm", "Phone. ", SECRETS[1])], [("Website", f'<a href="http://{SECRETS[2]}">{SECRETS[2]}</a>')]))
+    out = r.read_page(flags, SHA, URL)
+    got = [f for e in out["entities"] for f in e["flags"]]
+    if not any(f.startswith("member of Ngā Iwi o Taranaki") for f in got):
+        broken.append("the maunga picture is the Ngā Iwi o Taranaki flag")
+    if not any(f.startswith("RMA group representing hapū") for f in got):
+        broken.append("the RMA hapū groups' picture is not the iwi authority's")
+    if any("phone" in f.lower() for f in got):
+        broken.append("a contact icon is never a flag")
+    if SECRETS[2] in repr(out) or SECRETS[1] in repr(out):
+        broken.append("a contact value in a kept label (a website that is an email address) leaves the page")
     return broken
 
 
@@ -171,9 +206,14 @@ MUTANTS = {
                                         'entry["fields"][col] = text(val)'),
     "a deed keyed by its words": ('s_key = "tkm/settlement/" + fold(e["name"]) + "/" + fold(s["signed_on"] or s["as_printed"])',
                                   's_key = "tkm/settlement/" + fold(s["as_printed"])'),
-    "unknown flags dropped": ('FLAG_BY_IMAGE.get(img.group(1), "other: " + img.group(1))', 'FLAG_BY_IMAGE.get(img.group(1), "")'),
+    "unknown flags dropped": ('return FLAG_BY_IMAGE.get(parts[0], "other: " + parts[0])', 'return FLAG_BY_IMAGE.get(parts[0], "")'),
+    "the flag's qualifier ignored": ('        if f"{parts[0]}_{q}" in FLAG_BY_IMAGE:\n', "        if False:\n"),
+    "a contact icon kept": ("            if img and contact_image(img.group(1)):\n", "            if False:\n"),
+    "a contact value in a kept label kept": ('if CONTACT_VALUE.search(entry["fields"][col] or ""):', "if False:"),
+    "a placeholder kept as a marae": ('row = {c: ("" if PLACEHOLDER.match(v) else v)', "row = {c: (v)"),
+    "a one-column table's rows dropped": ("if len(cells) <= 1 and len(cols) > 1 or not any(cells):", "if len(cells) <= 1:"),
     "any page read as the site's": ('    if "<title>TKM |" not in page and "Te Kahui Mangai" not in page:\n', "    if False:\n"),
-    "any heads accepted": ('if cols[-3:] != ["Marae", "Wharenui", "Location"] or cols[:-3] not in ([], ["Hapū"]):', "if False:"),
+    "any heads accepted": ("if cols not in HAPU_HEADS:", "if False:"),
 }
 
 
@@ -332,11 +372,11 @@ def filled():
 
 
 def test_every_page_is_in_the_ledger_and_none_set_aside(filled):
-    assert len(filled["read_pages"]) == len(filled["entries"]) == 36 and not filled["read_set_aside"]
+    assert len(filled["read_pages"]) == len(filled["entries"]) == 40 and not filled["read_set_aside"]
     kinds = {}
     for p in filled["read_pages"]:
         kinds[p["kind"]] = kinds.get(p["kind"], 0) + 1
-    assert kinds == {"iwi": 10, "region": 13, "authority": 2, "omo": 1, "nontribal": 1, "site": 9}
+    assert kinds == {"iwi": 14, "region": 13, "authority": 2, "omo": 1, "nontribal": 1, "site": 9}
 
 
 def test_every_row_meets_the_row_contract(filled):
@@ -363,6 +403,15 @@ def test_the_hard_cases_read_as_the_site_prints_them(filled):
     assert any(r["relation"] == "marae of iwi" and r["to_key"] == "tkm/iwi/moriori" for r in filled["relations"])
     assert ents["tkm/org/te-kotahitanga-o-te-arawa-waka-fisheries-trust-board"]["pages"] == 2
     assert sum(1 for e in filled["entities"] if e["kind"] == "marae" and e["listed_as"] != "tribal marae") == 175
+    # the first full walk's hard cases (fix-registers-iwi-directory-1, 23 October 2026)
+    flags = [f for e in filled["entities"] for f in e["flags"]]
+    assert not [f for f in flags if f.startswith("other: ")]
+    assert any(f.startswith("member of Ngā Iwi o Taranaki") for f in ents["tkm/org/te-kahui-o-taranaki-trust"]["flags"])
+    assert any(f.startswith("RMA group representing hapū") for f in flags)
+    assert hapu("muaupoko") == 7 and hapu("ngati-mutunga-o-wharekauri") == 0
+    assert any(r["relation"] == "marae of iwi" and r["to_key"] == "tkm/iwi/muaupoko" for r in filled["relations"])
+    assert not [e for e in filled["entities"] if read.PLACEHOLDER.match(e["name"])]
+    assert ents["tkm/org/ngati-mutunga-o-wharekauri-iwi-trust"]["website"] is None
 
 
 def test_no_contact_value_on_a_page_reaches_a_row(filled):
@@ -395,5 +444,8 @@ def test_the_check_goes_red_on_a_contact_value_or_a_broken_ledger(filled):
         problems = check.reading(conn, SAMPLE_SCHEMA)
         assert any("email or a phone" in p for p in problems)
         assert any("not held" in p for p in problems)
+        conn.execute(f"DELETE FROM {T('read_pages')}")
+        assert check.outside(conn, SAMPLE_SCHEMA, filled["entries"])[0].startswith(
+            "a finished walk is held and none of it is published")
     finally:
         conn.rollback()
