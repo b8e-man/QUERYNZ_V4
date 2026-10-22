@@ -129,3 +129,6 @@ CREATE TABLE IF NOT EXISTS {s}.timetable (
     last_done  timestamptz,
     last_by    text
 );
+-- the timetable the clock last served the job under (`queue.clock_of`): a job with no row, or
+-- whose timetable differs, takes its NEXT slot (card the-scheduler-s-worker-runs-the-main-checkout-…)
+ALTER TABLE {s}.timetable ADD COLUMN IF NOT EXISTS clock text;

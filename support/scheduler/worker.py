@@ -27,6 +27,7 @@ import datetime as dt
 import json
 import os
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -40,6 +41,20 @@ from support.scheduler import registry as reg
 from support.scheduler import runner, runs
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+MAIN = "main"
+
+
+def checkout_branch(path) -> str | None:
+    """The branch the checkout holding `path` is on, asked of git by path:
+    "HEAD" for a detached head, None when git cannot say."""
+    try:
+        p = subprocess.run(["git", "-C", str(path), "rev-parse", "--abbrev-ref", "HEAD"],
+                           capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if p.returncode:
+        return None
+    return p.stdout.strip() or None
 
 
 def _connect(database: str):
@@ -67,13 +82,16 @@ class Worker:
         self.name, self.box = name, box or pb.profile().get("host")
         self.database, self.schema = database, schema
         self._reload = registry is None and profiles is None     # a test's own catalogue is never replaced
+        self.log = log or (lambda m: print(f"{dt.datetime.now().astimezone().isoformat(timespec='seconds')} {name}: {m}", flush=True))
+        self._off_main: str | None = None                          # why the catalogue is held, as last logged
+        if self._reload and not self._on_main():
+            registry = {}    # no good catalogue yet: run nothing until the checkout is back on main
         self.registry = registry if registry is not None else reg.load()
         self.profiles = profiles if profiles is not None else reg.profiles()
         self.rules = rules or reg.queueing()
         self.tick_s, self.probe_every_s, self.alarm_after_s = tick_s, probe_every_s, alarm_after_s
         self.hide_programs = tuple(hide_programs)
         self.max_parallel = max_parallel
-        self.log = log or (lambda m: print(f"{dt.datetime.now().astimezone().isoformat(timespec='seconds')} {name}: {m}", flush=True))
         self._connect = connect or (lambda: _connect(self.database))
         self.alarm = alarm or send_alarm
         self.cards_manager = cards_manager
@@ -96,11 +114,32 @@ class Worker:
         self.profile, self.probed_at = p, time.monotonic()
         return p
 
+    def _on_main(self) -> bool:
+        """Whether the checkout the catalogue is read from is on main. An
+        integrator checks an integrate branch out in the main checkout for
+        about twenty-five minutes before the gate; a catalogue read then ran
+        the branch's new jobs live (card the-scheduler-s-worker-runs-the-
+        main-checkout-…, finding 2). Off main the last good catalogue is kept
+        and one line says why, once per change."""
+        branch = checkout_branch(reg.JOBS.parent)
+        if branch == MAIN:
+            if self._off_main is not None:
+                self.log(f"catalogue: the checkout is back on {MAIN}; reloading again")
+                self._off_main = None
+            return True
+        why = ("git cannot say which branch the checkout is on" if branch is None else
+               "the checkout has a detached head" if branch == "HEAD" else f"the checkout is on {branch}")
+        if why != self._off_main:
+            self.log(f"catalogue not reloaded: {why}, not {MAIN}; the last good catalogue is kept")
+            self._off_main = why
+        return False
+
     def reload_catalogue(self) -> None:
         """The catalogue and the profiles are re-read on the probe's clock,
         so a change lands within that interval without a restart. A file
-        that no longer parses is logged and the last good one kept."""
-        if not self._reload:
+        that no longer parses is logged and the last good one kept; so is
+        every file while the checkout is not on main."""
+        if not self._reload or not self._on_main():
             return
         try:
             registry, profiles, rules = reg.load(), reg.profiles(), reg.queueing()
@@ -180,7 +219,7 @@ class Worker:
             self.alarm(f"qv4 {self.box}: worker {w['name']} silent",
                        f"no heartbeat from {w['name']} ({w['box']}) since {seen:%Y-%m-%d %H:%M} UTC; "
                        f"its leases lapse and {self.name} takes them over")
-        for qid in q.enqueue_due(self.conn, self.schema, self.registry, now=now, created_by=self.name):
+        for qid in q.enqueue_due(self.conn, self.schema, self.registry, now=now, created_by=self.name, log=self.log):
             self.log(f"timetable: queued row {qid}")
         for qid in q.enqueue_standing(self.conn, self.schema, self.registry, now=now, created_by=self.name):
             self.log(f"standing: queued row {qid}")
