@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
 
-**Date:** 2026-10-23, 12:30 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-23, 12:40 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 not clean (no version accepted since 20 October, see Half-done); 5.1
 done; 5.2 closed (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held
 on terms; sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on
@@ -37,9 +37,9 @@ old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- Nothing. Merged: the iwi directory's second sitting (a key per
-  settlement row), `settlement-key` (onto the board). Template 4 and
-  step 7 wait (rulings 79, 63).
+- `release-copy-1`: the worker runs a release copy that moves only on a
+  push (the worker card's second half). Template 4 and step 7 wait
+  (rulings 79, 63).
 
 ## Half-done
 
