@@ -23,6 +23,7 @@ difference is a card, never a silent fix, and a carded one is still shown.
     frozen()                       ({(party, year): total}, {party: count})
     compare(rows, frozen_by_year, frozen_n)
     issues(rows)                   [(key, issue)] of the rows carrying one (ruling 66)
+    verdict(rows, by_year, n, cards)  (differences no card names, lines): the job's gate (load.job)
     python -m registers.disclosures.check [--schema disclosures] [--database querynz_v4]
 
 Read-only.
@@ -96,42 +97,55 @@ def card_for(needle: str, cards: str):
     return None
 
 
+def held(conn, relation: str) -> list:
+    """The declarations of `relation` (a schema's `declarations`, or the
+    sample's `disclosures_declarations`), as dicts."""
+    cur = conn.execute(f"SELECT key, party, party_label, regime, amount, given_on, form_total, form_check, "
+                       f"issue FROM {relation}")
+    return [dict(zip([d[0] for d in cur.description], r)) for r in cur]
+
+
+def verdict(rows: list, frozen_by_year: dict, frozen_n: dict, cards: str) -> tuple:
+    """(differences no card names, the lines to print): the whole check."""
+    forms = {}
+    for r in rows:
+        forms[r["form_check"]] = forms.get(r["form_check"], 0) + 1
+    out = compare(rows, frozen_by_year, frozen_n)
+    uncarded, lines = 0, []
+    lines.append(f"equal: {len(out['equal'])} party-years; differ: {len(out['differ'])}; "
+                 f"earlier regimes held, not on the frozen site: {out['earlier_regimes']}")
+    for d in out["differ"]:
+        card = card_for(f"{d['party']} {d['year']}", cards) or card_for(f"{_short(d['party'])} {d['year']}", cards)
+        uncarded += card is None
+        lines.append(f"  DIFFERS {d['party']} {d['year']}: ours {d['ours']:.2f}, frozen {d['frozen']:.2f}; card: {card or 'NONE'}")
+    for c in out["count_differs"]:
+        lines.append(f"  count {c['party']}: ours {c['ours']}, frozen {c['frozen']}")
+    for label, n in sorted(out["unresolved_parties"].items()):
+        lines.append(f"  not a registered party in keys.parties: {label!r} ({n})")
+    lines.append("the form's own total against the table: " + ", ".join(f"{k} {v}" for k, v in sorted(forms.items())))
+    for r in rows:
+        if r["form_check"] == "differs":
+            card = card_for(r["key"], cards)
+            uncarded += card is None
+            lines.append(f"  FORM DIFFERS {r['key']}: table {r['amount']:.2f}, form {r['form_total']:.2f}; card: {card or 'NONE'}")
+    flagged = issues(rows)
+    lines.append(f"reconciled with an issue (ruling 66, below $100): {len(flagged)}")
+    for key, why in flagged:
+        lines.append(f"  ISSUE {key}: {why}")
+    lines.append(f"differences with no card: {uncarded}")
+    return uncarded, lines
+
+
 def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     schema = argv[argv.index("--schema") + 1] if "--schema" in argv else "disclosures"
     database = argv[argv.index("--database") + 1] if "--database" in argv else "querynz_v4"
     from support import db
     with db.connect(db.READ_KEY if database == "querynz_v4" else db.OWNER_KEY, database) as conn:
-        cur = conn.execute(f"SELECT key, party, party_label, regime, amount, given_on, form_total, form_check, "
-                           f"issue FROM {schema}.declarations")
-        rows = [dict(zip([d[0] for d in cur.description], r)) for r in cur]
-    forms = {}
-    for r in rows:
-        forms[r["form_check"]] = forms.get(r["form_check"], 0) + 1
-    out = compare(rows, *frozen())
-    cards = carded()
-    uncarded = 0
-    print(f"equal: {len(out['equal'])} party-years; differ: {len(out['differ'])}; "
-          f"earlier regimes held, not on the frozen site: {out['earlier_regimes']}")
-    for d in out["differ"]:
-        card = card_for(f"{d['party']} {d['year']}", cards) or card_for(f"{_short(d['party'])} {d['year']}", cards)
-        uncarded += card is None
-        print(f"  DIFFERS {d['party']} {d['year']}: ours {d['ours']:.2f}, frozen {d['frozen']:.2f}; card: {card or 'NONE'}")
-    for c in out["count_differs"]:
-        print(f"  count {c['party']}: ours {c['ours']}, frozen {c['frozen']}")
-    for label, n in sorted(out["unresolved_parties"].items()):
-        print(f"  not a registered party in keys.parties: {label!r} ({n})")
-    print("the form's own total against the table: " + ", ".join(f"{k} {v}" for k, v in sorted(forms.items())))
-    for r in rows:
-        if r["form_check"] == "differs":
-            card = card_for(r["key"], cards)
-            uncarded += card is None
-            print(f"  FORM DIFFERS {r['key']}: table {r['amount']:.2f}, form {r['form_total']:.2f}; card: {card or 'NONE'}")
-    flagged = issues(rows)
-    print(f"reconciled with an issue (ruling 66, below $100): {len(flagged)}")
-    for key, why in flagged:
-        print(f"  ISSUE {key}: {why}")
-    print(f"differences with no card: {uncarded}")
+        rows = held(conn, f"{schema}.declarations")
+    uncarded, lines = verdict(rows, *frozen(), carded())
+    for line in lines:
+        print(line)
     return 1 if uncarded else 0
 
 
