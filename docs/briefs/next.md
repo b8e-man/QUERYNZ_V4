@@ -498,6 +498,17 @@ the integrator's own does not work: the scope hook fences it to the main
 checkout (`docs/merges/offsite-1-not-started.md`). Start lines are handed
 to Arthur only when he asks for a window.
 
+Views and the worker (integrator, 23 October): on every integrate branch,
+before its fast tier and its gate, catalogue on the board the `pub.*` views
+the previous merge published (the gate's full tier runs the board's
+outside check against the live tables, so a view named late turns it red
+and a view named early fails as unpublished; two gates were refused this
+way on 23 October). Until the worker's release copy lands (card
+`the-scheduler-s-worker-runs-the-main-checkout-s-working-tree-so-an-integrate-branch-s-jobs-ran-live-before-the-gate`),
+stop the idle worker before checking out an integrate branch and start it
+after the push; a job new to the catalogue now waits for its next slot
+(fix-support-scheduler-1), so a lane's first run is queued by hand.
+
 Reading (Arthur, 20 October, ruling 62): no page-reader job is queued in
 bulk until the build is done. A lane's request for readings is answered
 with the store's sample and a note; the hashes it sets aside are the queue

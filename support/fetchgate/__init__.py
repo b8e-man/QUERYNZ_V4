@@ -43,7 +43,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import urllib.robotparser
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 LEDGER_DIR = os.path.join(LIVE, "checks", "fetch-gate")
@@ -63,6 +63,10 @@ CHALLENGE_MARKS = ("cf-chl", "challenge-platform", "just a moment", "attention r
                    "pardon our interruption")
 #: response headers only a challenge or block page carries (lower case)
 CHALLENGE_HEADERS = ("x-spa-interstitial",)    # Imperva's interstitial (grants-1, 21 October)
+#: the most a challenge or block page weighs. Cloudflare's "Just a moment..." shell is 29,045 bytes (old lesson:
+#: a shell outweighs a short article, so size alone never clears a page with a block's title); Christchurch's
+#: InfoCouncil listing, 795,737 bytes with 237 minutes links and "captcha" in a form's script, is content (councils-1)
+CHALLENGE_PAGE_MAX = 64 * 1024
 REDIRECT_STATUSES = (301, 302, 303, 307, 308)
 
 #: hosts we do not capture from (hard limit 8). Matched with every parent domain.
@@ -414,17 +418,34 @@ class Fetched:
     final_url: str           # the address that answered: never one the gate did not judge
     blocked: str = ""        # '' or why this is a failed read (a challenge or a block)
     location: str = ""       # a 3xx's Location, absolute and NOT fetched; '' otherwise
+    headers: dict = field(default_factory=dict)   # the answer's response headers, names as sent (an ETag to keep)
+
+    @property
+    def unchanged(self) -> bool:
+        """A 304: the host says what we hold (sent as If-None-Match) is current. No body; not a block."""
+        return self.status == 304
 
 
 def looks_challenged(status: int, body: bytes, headers: dict = None) -> str:
-    """Recognise a block by the block page's own landmarks: its status, its
-    title, its own header. Never by a challenge script's name alone, which
-    real pages from a protected site carry too (Imperva's reese84 is one)."""
+    """A page is a challenge when its status, its own header or its title says so, or when a body no bigger than a
+    challenge page carries a block's mark near its top; a word or a script name on a bigger page, which carries the
+    content asked for, never makes it one (real pages from a protected site carry that script too). A 304 is the
+    host saying "unchanged", not a block."""
+    if status == 304:
+        return ""
     if status in CHALLENGE_STATUSES:
         return f"HTTP {status}: a block or a challenge; a challenged read is a failed read (hard limit 6)"
     for name in (headers or {}):
         if name.lower() in CHALLENGE_HEADERS:
             return f"a challenge page (header {name}); a challenged read is a failed read (hard limit 6)"
+    body = body or b""
+    m = re.search(rb"<title[^>]*>(.*?)</title", body[:CHALLENGE_PAGE_MAX], re.I | re.S)
+    title = m.group(1).decode("utf-8", "replace").lower() if m else ""
+    for mark in CHALLENGE_MARKS:
+        if mark in title:
+            return f"a challenge page (title {mark!r}); a challenged read is a failed read (hard limit 6)"
+    if len(body) > CHALLENGE_PAGE_MAX:
+        return ""
     head = body[:4096].decode("utf-8", "replace").lower()
     for mark in CHALLENGE_MARKS:
         if mark in head:
@@ -465,6 +486,8 @@ def open_url(url: str, *, timeout: int = 30, headers: dict = None, pacer: Pacer 
     A redirect that stays on the host asked is followed without asking, up to
     `same_host_hops` (the host was judged; http to https and a trailing slash
     are the common cases); set it to 0 to see those too.
+    The answer's headers come back on `headers`, so a lane can keep an ETag
+    and send it as If-None-Match; a 304 then comes back `unchanged`, no body.
     `fetch(url, timeout) -> (status, body, final[, headers])` is injectable."""
     asked, hops = url, 0
     while True:
@@ -479,7 +502,9 @@ def open_url(url: str, *, timeout: int = 30, headers: dict = None, pacer: Pacer 
         if loc and (hops < follow or (same_host and hops < same_host_hops)):
             url, hops = loc, hops + 1
             continue
-        return Fetched(asked, status, body, final, looks_challenged(status, body, hdrs), loc)
+        if status == 304:
+            body = b""
+        return Fetched(asked, status, body, final, looks_challenged(status, body, hdrs), loc, dict(hdrs))
 
 
 def pace(url_or_host: str, pacer: Pacer = None) -> float:
