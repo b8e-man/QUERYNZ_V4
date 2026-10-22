@@ -1055,7 +1055,6 @@ priority = 81
 command = ["python", "-m", "registers.local_elections.capture", "listings", "--budget-s", "3600"]
 at_utc = "09:10"
 nice = 10
-enabled = false   # until the integrator's adopt run has carried the session's capture into the live schema (local-elections-1)
 
 [jobs.qv4-local-elections-files]
 description = "Step 6.3: each wanted return (a council's candidate return of electoral donations and expenses, PDF, Word or a scan) asked once ever, oldest election first, 5 s apart or the crawl delay, landed by hash and HELD, not read (ruling 79). Daily at 22:20 NZDT; it stops at 06:00 and resumes the next night; a host that blocks or challenges is not asked again that night. About 2,000 files at the first runs (about four nights), then only what the weekly listings add."
@@ -1068,7 +1067,6 @@ priority = 82
 command = ["python", "-m", "registers.local_elections.capture", "files", "--budget-s", "25200"]
 at_utc = "09:20"
 nice = 10
-enabled = false   # until the integrator's adopt run has carried the session's capture into the live schema (local-elections-1)
 
 [jobs.qv4-local-elections-load]
 description = "Step 6.3: the returns register rebuilt from every listing page held, in staging, held to check.py's reading rules, published only on green. Daily at 06:40 NZDT, after the files run stops."
@@ -1081,4 +1079,3 @@ priority = 83
 command = ["python", "-m", "registers.local_elections.load", "--job"]
 at_utc = "17:40"
 nice = 10
-enabled = false   # until the integrator's adopt run has carried the session's capture into the live schema (local-elections-1)
