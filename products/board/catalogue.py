@@ -755,8 +755,9 @@ VIEWS: tuple[View, ...] = (
          note="hapū of iwi, marae of hapū or iwi, organisation of iwi, iwi in region, rohe in local authority, as the directory lists them"),
     View("iwi_directory_settlements", "iwi_directory", "event", ("name", "act"),
          search=("name", "act", "as_printed"),
-         fields=(("Act", "act"), ("year", "act_year"), ("stage", "stage"), ("signed on", "signed_on"), ("as printed", "as_printed"),
-                 ("settlement", "settlement_key")),   # one row per body since fix-registers-iwi-directory-1 (second sitting); the settlement's own key beside it
+         fields=(("Act", "act"), ("year", "act_year"), ("stage", "stage"), ("signed on", "signed_on"), ("as printed", "as_printed")),
+         # settlement_key (one row per body since fix-registers-iwi-directory-1's second sitting) is catalogued at the next merge: the gate's
+         # full tier runs against the live view before the gate publishes the column
          urls=("url",),
          parent=("Entity", "iwi_directory_entities", "entity_key"), default_order="act_year",
          note="the Act or deed a governance entity's own entry names; a mandate is a stage, never a settlement"),
