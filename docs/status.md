@@ -2,11 +2,11 @@
 
 Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
 
-**Date:** 2026-10-23, 09:35 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-23, 10:50 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 not clean (no version accepted since 20 October, see Half-done); 5.1
 done; 5.2 closed (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held
 on terms; sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on
-port 8450); 6.2 `tenders-1` and templates 1 and 2 merged; 6.3's four source
+port 8450); 6.2 `tenders-1` and templates 1 to 3 merged; 6.3's four source
 lines have lanes. Track C measured; B and E closed. **Boxes:** node2 is the
 estate; node1 waits for its setup card (ruling 57). **Alarm channel:** the
 old estate's ntfy address.
@@ -22,10 +22,9 @@ old estate's ntfy address.
 - 4.2/4.3 links: 2.82 M links, 2.32 M groups, rebuilt after `coupled-1`
   (ruling 73); the agent (track C) scores and applies nothing (ruling 69).
   4.4 site version 3. 4.9 board 87 views. 5.1 the report shape, tranche 3.
-- 5.2 closed: templates 08, 04, 03, 02, 13, 07 (ruling 65), 05, 06, 11, 12.
-  5.5 `qv4-companies-monitor`.
-- Rulings 64 to 79 (`docs/decisions/rulings.md`); emergency fixes 76 and
-  77 applied in the old repository 22 October, proved by the 06:19 release.
+- 5.2 closed (ten templates, ruling 65); 5.5 `qv4-companies-monitor`.
+- Rulings 64 to 79; emergency fixes 76 and 77 in the old repository,
+  proved by the 22 October release.
 - Merged 21 to 23 October (`docs/merges/`): sanctions, scan, tenders,
   regulators, oio, hdc, diaries, grants, scan templates, redirects,
   `security-1` (H.1 to H.3), `settlements-1`, 6.3 capture only (ruling
@@ -33,12 +32,14 @@ old estate's ntfy address.
   and scheduler fixes (a new job takes its next slot), `fixes-2` (the
   charities, overseas investment and windowed checks answer the board,
   the iwi directory's first walk reads green, `qv4-disclosures-load`
-  nightly at 07:40).
+  nightly at 07:40), `scan-templates-2` (template 3, use case 14: six
+  `settlement-map-*` scans, 3,445 lines, all cited and read back).
 
 ## Running (headless, from the integrator)
 
-- Nothing. Next: template 3 (use case 14) once `qv4-iwi-directory-load`
-  has filled its views; template 4 and step 7 wait (rulings 79, 63).
+- `fix-registers-iwi-directory-1` (second sitting): a settlement key per
+  row; macrons kept in a body's key. Template 4 and step 7 wait (rulings
+  79, 63).
 
 ## Half-done
 
@@ -47,8 +48,7 @@ old estate's ntfy address.
   falls; 23 October the disclosures page's nightly hash (reloaded by hand,
   job added). Arthur's `--allow-drop` run accepts a version; then seven
   clean days, checkpoint, export test, the switch after 7 November.
-  Comparison 23 October: 29,193 differences, 27 uncarded (the missing
-  disclosures). Step 2: `qv4-questions` held (ruling 22).
+  Comparison 23 October: 29,193 differences, 27 uncarded. Step 2: `qv4-questions` held (ruling 22).
 - Waits on Arthur: node1's fence and the cable check; the site build with
   `--allow-drop`; letters (MBIE, Dunedin, the councils' returns and
   registers); scratch schema drops; items 12, 69 and 75 after the build.
