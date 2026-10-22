@@ -43,3 +43,33 @@ checking out an integrate branch and starts it again after the push; a
 merge window is about twenty-five minutes.
 
 Lesson filed with this card: `a-worker-that-reads-the-checkout-runs-the-branch`.
+
+## 2026-10-23, fix-support-scheduler-1 (branch `fix/support-scheduler-1`)
+
+Done, in `support/scheduler` only:
+
+- **Finding 1 closed in code.** A timetabled job the clock has never served
+  (no `scheduler.timetable` row: new to the catalogue, or enabled for the
+  first time) or whose timetable differs from the one its row records
+  (`timetable.clock`, new column) no longer runs at once: `enqueue_due` marks
+  the slot due now served, as `handover` does, and logs one line naming the
+  first run, which is the next timetabled time. Rows from before the column
+  adopt their timetable and keep any slot they are owed. No timetable, no
+  change.
+- **Finding 2, the catalogue half.** The worker reloads `jobs.toml` and
+  `profiles.toml` only while the checkout they sit in is on `main` (git
+  asked by path). On an integrate branch or a detached head it keeps the
+  last good catalogue and logs why once; started off main it holds an empty
+  catalogue until main.
+
+Still open, so this card stays open:
+
+- **The code half of finding 2.** Every job, and the worker itself, still
+  runs the main checkout's working tree (`WorkingDirectory`, `cwd=REPO`). A
+  job the worker starts during a merge window runs the integrate branch's
+  code. The fix is a release copy that moves only when main is pushed, and
+  the unit (`support/scheduler/units/qv4-worker@.service`) pointing at it.
+  The copy and what moves it (the installer, the integrator's push) are
+  outside this module, so it is a build session's.
+- Until that lands the integrator's interim stands: stop the idle worker
+  before checking out an integrate branch, start it after the push.

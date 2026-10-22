@@ -181,6 +181,8 @@ def test_a_timetable_slot_is_queued_once_whoever_notices(conn, s, tmp_path):
                      'priority = 50\ncommand = ["true"]\nevery_s = 600\n'
     j, _ = fx.write(tmp_path, jobs=jobs)
     cat = reg.load(j)
+    assert q.slot_for(cat["tick"], secs(50)) == secs(0)
+    assert q.enqueue_due(conn, s, cat, now=secs(50), created_by="node2") == [], "new to the clock: its next slot"
     assert q.slot_for(cat["tick"], secs(650)) == secs(600)
     first = q.enqueue_due(conn, s, cat, now=secs(650), created_by="node2")
     again = q.enqueue_due(conn, s, cat, now=secs(651), created_by="node2-b")
@@ -193,8 +195,8 @@ def test_a_timetable_slot_is_queued_once_whoever_notices(conn, s, tmp_path):
     assert len(nxt) == 1
     slot = conn.execute(f"SELECT timetable_slot FROM {s}.queue WHERE id = %s", (nxt[0],)).fetchone()[0]
     assert slot == secs(1200)
-    row = conn.execute(f"SELECT last_slot, last_done FROM {s}.timetable WHERE job = 'tick'").fetchone()
-    assert row[0] == secs(1200) and row[1] == secs(1260)
+    row = conn.execute(f"SELECT last_slot, last_done, clock FROM {s}.timetable WHERE job = 'tick'").fetchone()
+    assert row[0] == secs(1200) and row[1] == secs(1260) and row[2] == "every 600s"
 
 
 def test_a_daily_slot_is_today_once_the_clock_has_passed_it(tmp_path):
@@ -286,3 +288,99 @@ def test_a_handover_marks_the_timers_slot_served_so_the_queue_runs_the_next_one(
     row = conn.execute(f"SELECT last_slot FROM {s}.timetable WHERE job = 'daily'").fetchone()
     assert row[0] == (day + dt.timedelta(days=1)).replace(hour=3, minute=30), "a handover never moves the clock back"
     assert q.handover(conn, s, "doc", registry=cat, now=day) is None, "a job with no timetable has no clock to hand over"
+
+
+DAILY = ('[jobs.daily]\nneeds = "processor"\nmemory_gb = 0.1\ndeadline_s = 60\nquery_timeout_s = 10\n'
+         'priority = 50\ncommand = ["true"]\n')
+
+
+def daily(tmp_path, at, name="jobs.toml", enabled=True):
+    sub = tmp_path / name.replace(".", "_")
+    sub.mkdir(exist_ok=True)
+    j, _ = fx.write(sub, jobs=fx.JOBS + "\n" + DAILY + f"at_utc = {at}\n" + ("" if enabled else "enabled = false\n"))
+    return reg.load(j)
+
+
+def test_a_job_new_to_the_catalogue_takes_its_next_slot_not_yesterdays(conn, s, tmp_path):
+    """Card the-scheduler-s-worker-runs-the-main-checkout-…, finding 1: a daily
+    job appearing at 22:30, before nothing of today's 03:30 is owed, used to be
+    owed yesterday's 03:30 and ran at once (procurement-1, 22 October). Now
+    the slot due when it appears is marked served and the first run is the
+    next 03:30; nothing runs between."""
+    cat = daily(tmp_path, '"03:30"')
+    day = dt.datetime(2026, 10, 22, tzinfo=dt.timezone.utc)
+    lines = []
+    assert q.enqueue_due(conn, s, cat, now=day.replace(hour=2), created_by="node2", log=lines.append) == []
+    assert len(lines) == 1 and "daily new to the clock" in lines[0] and "first run 2026-10-22 03:30" in lines[0], lines
+    row = conn.execute(f"SELECT last_slot, clock FROM {s}.timetable WHERE job = 'daily'").fetchone()
+    assert row == (day.replace(hour=3, minute=30) - dt.timedelta(days=1), "at 03:30")
+    assert q.enqueue_due(conn, s, cat, now=day.replace(hour=3, minute=29), created_by="node2-b", log=lines.append) == []
+    assert len(lines) == 1, "marked once, by whichever worker noticed first"
+    first = q.enqueue_due(conn, s, cat, now=day.replace(hour=3, minute=31), created_by="node2")
+    assert len(first) == 1
+    assert conn.execute(f"SELECT timetable_slot FROM {s}.queue WHERE id = %s", (first[0],)).fetchone()[0] == \
+        day.replace(hour=3, minute=30)
+
+
+def test_a_job_appearing_after_todays_time_waits_for_tomorrows(conn, s, tmp_path):
+    cat = daily(tmp_path, '"03:30"')
+    day = dt.datetime(2026, 10, 22, tzinfo=dt.timezone.utc)
+    assert q.enqueue_due(conn, s, cat, now=day.replace(hour=22, minute=30), created_by="node2") == []
+    assert q.enqueue_due(conn, s, cat, now=day.replace(hour=23, minute=59), created_by="node2") == []
+    assert len(q.enqueue_due(conn, s, cat, now=(day + dt.timedelta(days=1)).replace(hour=3, minute=30),
+                             created_by="node2")) == 1
+
+
+def test_a_job_whose_timetable_changed_takes_its_next_slot(conn, s, tmp_path):
+    """A daily job moved from 03:30 to 20:00, read at 21:00: today's 20:00 was
+    never served, but it is not owed; the first run under the new time is
+    tomorrow's 20:00. Reordering the same times is not a change."""
+    day = dt.datetime(2026, 10, 22, tzinfo=dt.timezone.utc)
+    old = daily(tmp_path, '"03:30"', "old.toml")
+    q.enqueue_due(conn, s, old, now=day.replace(hour=2), created_by="node2")
+    qid = q.enqueue_due(conn, s, old, now=day.replace(hour=3, minute=30), created_by="node2")[0]
+    c = q.claim(conn, s, "node2", ["daily"], lease_s=60, now=day.replace(hour=3, minute=31))
+    assert c["id"] == qid
+    q.complete(conn, s, qid, c["token"], outcome="ok", now=day.replace(hour=3, minute=32))
+    new = daily(tmp_path, '"20:00"', "new.toml")
+    lines = []
+    assert q.enqueue_due(conn, s, new, now=day.replace(hour=21), created_by="node2", log=lines.append) == []
+    assert len(lines) == 1 and "timetable changed from 'at 03:30'" in lines[0], lines
+    assert q.enqueue_due(conn, s, new, now=day.replace(hour=23), created_by="node2") == []
+    assert len(q.enqueue_due(conn, s, new, now=(day + dt.timedelta(days=1)).replace(hour=20), created_by="node2")) == 1
+    two = daily(tmp_path, '["20:00", "08:00"]', "two.toml")
+    q.enqueue_due(conn, s, two, now=(day + dt.timedelta(days=1)).replace(hour=21), created_by="node2")
+    same = daily(tmp_path, '["08:00", "20:00"]', "same.toml")
+    lines = []
+    q.enqueue_due(conn, s, same, now=(day + dt.timedelta(days=1)).replace(hour=21), created_by="node2", log=lines.append)
+    assert lines == [], "the same times in another order are the same timetable"
+
+
+def test_a_job_enabled_after_entering_disabled_takes_its_next_slot(conn, s, tmp_path):
+    """The local-elections jobs entered disabled and were enabled after the
+    adopt run: enabling is when the clock first sees them, so they too wait
+    for the next slot."""
+    day = dt.datetime(2026, 10, 22, tzinfo=dt.timezone.utc)
+    off = daily(tmp_path, '"03:30"', "off.toml", enabled=False)
+    assert q.enqueue_due(conn, s, off, now=day.replace(hour=2), created_by="node2") == []
+    assert conn.execute(f"SELECT count(*) FROM {s}.timetable WHERE job = 'daily'").fetchone()[0] == 0
+    on = daily(tmp_path, '"03:30"', "on.toml")
+    assert q.enqueue_due(conn, s, on, now=day.replace(hour=9), created_by="node2") == []
+    assert len(q.enqueue_due(conn, s, on, now=(day + dt.timedelta(days=1)).replace(hour=3, minute=30),
+                             created_by="node2")) == 1
+
+
+def test_a_row_from_before_the_clock_was_recorded_is_served_as_before(conn, s, tmp_path):
+    """The deploy: the live rows have no `clock`. Each adopts its timetable
+    and a slot it is owed still runs; none is skipped by the upgrade."""
+    cat = daily(tmp_path, '"03:30"')
+    day = dt.datetime(2026, 10, 22, tzinfo=dt.timezone.utc)
+    conn.execute(f"INSERT INTO {s}.timetable (job, last_slot, last_by) VALUES ('daily', %s, 'node2')",
+                 (day.replace(hour=3, minute=30) - dt.timedelta(days=1),))
+    assert len(q.enqueue_due(conn, s, cat, now=day.replace(hour=9), created_by="node2")) == 1
+    assert conn.execute(f"SELECT clock FROM {s}.timetable WHERE job = 'daily'").fetchone()[0] == "at 03:30"
+
+
+def test_a_job_with_no_timetable_is_untouched_by_the_clock(conn, s, cat):
+    assert q.enqueue_due(conn, s, cat, now=T0, created_by="node2") == []
+    assert conn.execute(f"SELECT count(*) FROM {s}.timetable").fetchone()[0] == 0

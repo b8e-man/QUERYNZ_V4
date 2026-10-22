@@ -21,7 +21,9 @@ on and the other worker finishes the rest.
 
 THE CLOCK BELONGS TO THE SCHEDULER (2.12). A timetabled job's next slot is
 enqueued by whichever worker notices first; a unique index on (job, slot)
-keeps two workers from enqueueing the same slot. STANDING SERVICES (2.13)
+keeps two workers from enqueueing the same slot. A job new to the clock, or
+whose timetable changed, takes its NEXT slot: the slot due when it appears
+is marked served, so nothing runs the moment a catalogue is read. STANDING SERVICES (2.13)
 carry a wanted count; a worker enqueues what is missing.
 
 Every time here is UTC (`timestamptz`); both boxes' clocks hold local time
@@ -323,6 +325,31 @@ def slot_for(jt: reg.JobType, now: dt.datetime) -> dt.datetime | None:
     return None
 
 
+def clock_of(jt: reg.JobType) -> str | None:
+    """The timetable as one comparable string ("every 600s", "at 03:30,15:00");
+    None for a job with no timetable. Stored on the job's timetable row, so a
+    change to it is seen whichever worker, or whichever start, reads it."""
+    if jt.every_s:
+        return f"every {jt.every_s}s"
+    if jt.at_utc:
+        return "at " + ",".join(sorted(jt.at_utc))
+    return None
+
+
+def next_slot(jt: reg.JobType, now: dt.datetime) -> dt.datetime | None:
+    """The first slot after `now`: when a job new to the clock first runs."""
+    if jt.every_s:
+        return slot_for(jt, now) + dt.timedelta(seconds=jt.every_s)
+    if jt.at_utc:
+        times = sorted(tuple(int(x) for x in t.split(":")) for t in jt.at_utc)
+        for day in (0, 1):
+            for h, m in times:
+                t = now.replace(hour=h, minute=m, second=0, microsecond=0) + dt.timedelta(days=day)
+                if t > now:
+                    return t
+    return None
+
+
 def handover(conn, schema: str, job: str, *, registry: dict = None, now=None, by: str = "handover") -> dt.datetime | None:
     """A job moving from a timer on one box onto the queue's clock (2.12):
     the slot due at `now` is marked served, because the timer served it, so
@@ -335,17 +362,32 @@ def handover(conn, schema: str, job: str, *, registry: dict = None, now=None, by
     slot = slot_for(jt, _now(now))
     if slot is None:
         return None
-    conn.execute(f"INSERT INTO {schema}.timetable (job, last_slot, last_by) VALUES (%s, %s, %s) "
-                 f"ON CONFLICT (job) DO UPDATE SET last_slot = GREATEST({schema}.timetable.last_slot, EXCLUDED.last_slot), "
-                 f"last_by = EXCLUDED.last_by", (job, slot, by))
+    _mark_served(conn, schema, job, slot, clock_of(jt), by)
     return slot
 
 
-def enqueue_due(conn, schema: str, registry: dict = None, *, now=None, created_by: str = "timetable") -> list[int]:
+def _mark_served(conn, schema: str, job: str, slot: dt.datetime, clock: str | None, by: str) -> None:
+    """Mark `slot` served under `clock`, never moving an existing clock back."""
+    conn.execute(f"INSERT INTO {schema}.timetable (job, last_slot, last_by, clock) VALUES (%s, %s, %s, %s) "
+                 f"ON CONFLICT (job) DO UPDATE SET last_slot = GREATEST({schema}.timetable.last_slot, EXCLUDED.last_slot), "
+                 f"last_by = EXCLUDED.last_by, clock = EXCLUDED.clock", (job, slot, by, clock))
+
+
+def enqueue_due(conn, schema: str, registry: dict = None, *, now=None, created_by: str = "timetable",
+                log=None) -> list[int]:
     """Queue every timetabled job whose slot is due and not yet served. Any
     worker may do this; the unique index keeps the slot single. A slot is
     not queued while an earlier instance of the job is still queued or
-    leased: a stuck job does not pile up behind itself."""
+    leased: a stuck job does not pile up behind itself.
+
+    A job the clock has never served (no timetable row: new to the
+    catalogue, or enabled for the first time), or whose timetable differs
+    from the one its row records, is not queued: the slot due now is marked
+    served, as `handover` does, and its first run is the next slot. Before
+    this a new daily job was owed yesterday's last slot and ran the moment
+    a worker read the catalogue (procurement-1 and settlements-1, 22
+    October). A row from before the clock was recorded (`clock` NULL) adopts
+    the current timetable and is served as before."""
     registry = registry if registry is not None else reg.load()
     t = _now(now)
     out = []
@@ -355,9 +397,19 @@ def enqueue_due(conn, schema: str, registry: dict = None, *, now=None, created_b
         slot = slot_for(jt, t)
         if slot is None:
             continue
+        clock = clock_of(jt)
         with conn.transaction():
-            last = conn.execute(f"SELECT last_slot FROM {schema}.timetable WHERE job = %s", (jt.name,)).fetchone()
-            if last and last[0] is not None and last[0] >= slot:
+            last = conn.execute(f"SELECT last_slot, clock FROM {schema}.timetable WHERE job = %s", (jt.name,)).fetchone()
+            if last is None or (last[1] is not None and last[1] != clock):
+                why = "new to the clock" if last is None else f"timetable changed from {last[1]!r}"
+                _mark_served(conn, schema, jt.name, slot, clock, f"{created_by}: {why}")
+                if log:
+                    log(f"timetable: {jt.name} {why} ({clock}); slot {slot:%Y-%m-%d %H:%M} UTC marked served, "
+                        f"first run {next_slot(jt, t):%Y-%m-%d %H:%M} UTC")
+                continue
+            if last[1] is None:
+                conn.execute(f"UPDATE {schema}.timetable SET clock = %s WHERE job = %s", (clock, jt.name))
+            if last[0] is not None and last[0] >= slot:
                 continue
             busy = conn.execute(f"SELECT 1 FROM {schema}.queue WHERE job = %s AND state IN ('queued', 'leased') LIMIT 1",
                                 (jt.name,)).fetchone()
@@ -366,9 +418,9 @@ def enqueue_due(conn, schema: str, registry: dict = None, *, now=None, created_b
             qid = enqueue(conn, schema, jt.name, cls=jt.cls, priority=jt.priority, due_at=slot, created_by=created_by,
                           timetable_slot=slot, registry=registry, now=t)
             if qid is not None:
-                conn.execute(f"INSERT INTO {schema}.timetable (job, last_slot, last_by) VALUES (%s, %s, %s) "
-                             f"ON CONFLICT (job) DO UPDATE SET last_slot = EXCLUDED.last_slot, last_by = EXCLUDED.last_by",
-                             (jt.name, slot, created_by))
+                conn.execute(f"INSERT INTO {schema}.timetable (job, last_slot, last_by, clock) VALUES (%s, %s, %s, %s) "
+                             f"ON CONFLICT (job) DO UPDATE SET last_slot = EXCLUDED.last_slot, last_by = EXCLUDED.last_by, "
+                             f"clock = EXCLUDED.clock", (jt.name, slot, created_by, clock))
                 out.append(qid)
     return out
 
