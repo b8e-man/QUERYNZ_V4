@@ -12,7 +12,7 @@ holding no returns, or set aside; the build raises if not. The returns
 themselves are held by hash and not read (ruling 79): the row says whether
 its file is held, and by which hash.
 
-    python -m registers.local_elections.load [--schema scratch_…] [--database querynz_v4_sample]
+    python -m registers.local_elections.load [--schema scratch_local_elections_full] [--capture-schema scratch_local_elections_capture]
     python -m registers.local_elections.load --job
 
 Every line printed is a count.
@@ -192,10 +192,10 @@ def job(log=print) -> int:
 def main(argv=None) -> int:
     from support import db
     ap = argparse.ArgumentParser(prog="python -m registers.local_elections.load")
-    ap.add_argument("--schema", default="scratch_local_elections_1")
+    ap.add_argument("--schema", default="scratch_local_elections_full")
     ap.add_argument("--database", default="querynz_v4_sample")
     ap.add_argument("--capture-database", default="querynz_v4_sample")
-    ap.add_argument("--capture-schema", default="scratch_local_elections_1")
+    ap.add_argument("--capture-schema", default="scratch_local_elections_capture")
     ap.add_argument("--publish", action="store_true", help="also make the views (in the sample database only)")
     ap.add_argument("--job", action="store_true")
     a = ap.parse_args(argv)

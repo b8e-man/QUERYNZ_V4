@@ -1,7 +1,9 @@
 # Where councils publish their candidates' returns: the survey of 22 October 2026 (local-elections-1)
 
 Through the fetch gate, daytime, one request at a time, at least 5 s apart (each robots file's crawl delay
-honoured: 7 s for most councils, 30 s for Ōtorohanga): about 520 requests, the robots files with them. No model.
+honoured: 7 s for most councils, 30 s for Ōtorohanga): 410 requests (the gate's ledger), the robots files with
+them, then 110 for the first listings pass (89 pages: 21 asked twice, where two seeds of one council linked the
+same page; fixed, each page once a pass). Nothing blocked the listings pass. No model.
 
 ## One collected source? No
 

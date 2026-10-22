@@ -234,3 +234,12 @@ def test_a_seed_s_year_is_its_own_page_s_not_the_archive_it_links():
                 clock=NIGHT, log=lambda *a: None, anytime=True,
                 seed_list=[("X", [2022], "https://www.example.govt.nz/hub")]).listings()
     assert [w[2] for w in t._wanted] == [None]
+
+
+def test_a_file_at_the_size_cap_is_never_landed_cut_short(monkeypatch):
+    monkeypatch.setattr(capture, "MAX_FILE_BYTES", 10)
+    landed = []
+    t = FakeTables([("https://a.govt.nz/big.pdf", "A", 2019)])
+    capture.Run(t, land_fn=lambda *a, **k: (landed.append(1), (Ref, True))[1],
+                fetch_fn=lambda u, m: (Got(b"x" * 10), "landed", None), clock=NIGHT, log=lambda *a: None).files()
+    assert landed == [] and t.files["https://a.govt.nz/big.pdf"] == "too large"

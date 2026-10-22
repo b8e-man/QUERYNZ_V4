@@ -260,6 +260,8 @@ class Run:
             r, state, why = self._ask(url, MAX_FILE_BYTES)
             if state == "skipped":
                 continue
+            if state == "landed" and len(r.body) >= MAX_FILE_BYTES:
+                state, why = "too large", f"{MAX_FILE_BYTES >> 20} MB or more: not landed cut short"
             if state != "landed":
                 self.t.file(pid, url, r.status if r else None, None, None, None, state, why)
                 continue
