@@ -397,6 +397,51 @@ def landing(conn):
     return land_fn
 
 
+# ── adopting a session's capture record ───────────────────────────────────────
+
+ADOPT_TABLES = ('capture_items', 'capture_held_hosts', 'capture_set_aside')
+
+
+def adopt(src, dst, src_schema: str, dst_schema: str = SCHEMA, log=print) -> dict:
+    """Carry a session's proven capture record (its scratch schema in the sample database) into the lane's own schema
+    on `dst`, once, so the first live run asks nothing the session already asked; each landed document's bytes are
+    landed again on `dst` from the document store (no fetch). Refuses when the lane's record on `dst` is not empty."""
+    from support.docstore.landing import land, names_of, path_for, read_bytes
+    Tables(dst, dst_schema).create()
+    if any(dst.execute(f"SELECT 1 FROM {table(dst_schema, t)} LIMIT 1").fetchone() for t in ADOPT_TABLES):
+        raise RuntimeError(f"{SCHEMA}: the live capture record is not empty; nothing adopted")
+    counts = {}
+    for t in ADOPT_TABLES:
+        cur = src.execute(f"SELECT * FROM {table(src_schema, t)}")
+        cols = [d.name for d in cur.description]
+        rows = cur.fetchall()
+        with dst.cursor().copy(f"COPY {table(dst_schema, t)} ({', '.join(cols)}) FROM STDIN") as cp:
+            for r in rows:
+                cp.write_row(r)
+        for c in cols:                                   # a serial id copied as it was: move its sequence past it
+            seq = dst.execute("SELECT pg_get_serial_sequence(%s, %s)", (table(dst_schema, t), c)).fetchone()[0]
+            if seq and rows:
+                dst.execute(f"SELECT setval(%s, (SELECT max({c}) FROM {table(dst_schema, t)}))", (seq,))
+        counts[t] = len(rows)
+    shas = set()
+    for t in ADOPT_TABLES:
+        cols = [r[0] for r in src.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = %s "
+                                          "AND table_name = %s", (src_schema, table(src_schema, t).split(".", 1)[1]))]
+        if "sha256" in cols:
+            shas |= {r[0] for r in src.execute(f"SELECT sha256 FROM {table(src_schema, t)} WHERE sha256 IS NOT NULL")}
+    landed = 0
+    for sha in sorted(shas):
+        if not os.path.exists(path_for(sha)):          # a hash the old estate holds, not this store: copied later
+            continue
+        for name in names_of(sha, src) or [sha]:
+            land(read_bytes(sha), name=name, source=SOURCE, conn=dst, name_kind="url" if name.startswith("http") else "file")
+        landed += 1
+    counts["documents re-landed"] = landed
+    for k, v in counts.items():
+        log(f"{SCHEMA}: adopted {k}: {v}")
+    return counts
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="registers.councillor_interests.capture")
     ap.add_argument("--anytime", action="store_true", help="outside off-peak (by hand: a proof)")
@@ -404,8 +449,14 @@ def main(argv=None) -> int:
     ap.add_argument("--only", action="append", help="a council's name, as REGISTERS has it")
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=SCHEMA)
+    ap.add_argument("--adopt", metavar="SCRATCH_SCHEMA", help="the integrator, once: carry a session's capture record "
+                    "from querynz_v4_sample into the live schema")
     a = ap.parse_args(argv)
     from support import db, jobrun
+    if a.adopt:
+        with db.connect(db.OWNER_KEY, "querynz_v4_sample") as src, db.connect(db.OWNER_KEY, a.database, autocommit=True) as dst:
+            adopt(src, dst, a.adopt)
+        return 0
     started = jobrun.now()
     regs = {k: v for k, v in REGISTERS.items() if not a.only or k in a.only}
     with db.connect(db.OWNER_KEY, a.database, autocommit=True) as conn:

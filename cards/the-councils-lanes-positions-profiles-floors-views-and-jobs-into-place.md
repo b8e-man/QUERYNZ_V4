@@ -20,4 +20,9 @@ For the integrator at the merge of `councils-1` (a session's fence keeps these o
 5. Jobs: the four in the lanes' `jobs-proposed.toml`, with priorities; `support.scheduler check`.
 6. Views: `pub.council_meetings`, `pub.councillor_interest_registers`, `pub.councillor_interests` on the board in the
    merge after this one (each lane's `views.md`).
-7. Regenerate the queue, the card board and the lessons index.
+7. Before the first run of either capture job, carry the session's capture record into the live schemas, once:
+   `QV4_INTEGRATOR=1 python -m registers.council_minutes.capture --adopt scratch_councils_1` and the same for
+   `registers.councillor_interests.capture` (proven into `scratch_councils_1_adopt2`: 948 minutes rows, 485 register
+   rows, 1,060 documents re-landed from the store, a second adopt refused, a run after it asks for nothing). Without
+   it the first nights fetch about 990 documents a second time.
+8. Regenerate the queue, the card board and the lessons index.
