@@ -12,11 +12,15 @@ rows for that year. Exit 1 on any of:
   3. a row it listed is not read: not captured yet, or set aside
   4. the reading does not reconcile (a listed row with no ledger line, a
      decision with no ledger line, a party with no decision, a private row
-     with no decision), or a view shows a withheld name or its origins,
+     with no decision, more private rows than decisions), or a view shows a withheld name or its origins,
      carries an address column, or a text value shaped like a street
      address (reported by key, never by value)
 
-Every line printed is a count.
+Every line printed is a count. Run bare it connects with the session reader,
+which has no grant on `overseas_investment_private` (by design): the private
+figures come from `read_statements`, the count the load writes beside its
+ledger. The load and the gate's staging step run `reading` under the owner,
+which also holds that count to the private table itself.
 
     python -m registers.overseas_investment.check [--database querynz_v4]
 """
@@ -43,7 +47,8 @@ STREET = re.compile(rf"(?<![\w/.-]){_NOT_A_HOUSE}{_NUM},?\s+(?:[A-Z][\w'’.-]*\
                     rf"(?!\s+(?:Limited|Ltd|Incorporated|Inc)\b)")
 
 
-def reading(conn, schema: str = SCHEMA) -> list:
+def reading(conn, schema: str = SCHEMA, private: bool = True) -> list:
+    """Problems in the reading under `schema`. `private=False` names no private table (the session reader's run)."""
     T = lambda t: capture.table(schema, t)
     out = []
     n = conn.execute(f"SELECT count(*) FROM {T('decisions')} d WHERE NOT EXISTS (SELECT 1 FROM {T('read_items')} r "
@@ -62,10 +67,24 @@ def reading(conn, schema: str = SCHEMA) -> list:
                            "WHERE d.key = p.decision_key)").fetchone()[0]
     if orphans:
         out.append(f"{orphans} parties with no decision")
-    stray = conn.execute(f"SELECT count(*) FROM {T('investments')} i WHERE NOT EXISTS (SELECT 1 FROM {T('decisions')} d "
-                         "WHERE d.key = i.key)").fetchone()[0]
-    if stray:
-        out.append(f"{stray} private statements with no decision")
+    there = conn.execute("SELECT to_regclass(%s)", (T("read_statements"),)).fetchone()[0] is not None
+    counted = conn.execute(f"SELECT statements, stray FROM {T('read_statements')}").fetchall() if there else []
+    if not there:
+        out.append("the private statements' count is missing (no load since read_statements was added)")
+    elif len(counted) != 1:
+        out.append(f"{len(counted)} rows in the private statements' count (one expected)")
+    else:
+        statements, stray = counted[0]
+        if stray:
+            out.append(f"{stray} private statements with no decision")
+        if statements > decisions:
+            out.append(f"{statements} private statements against {decisions} decision rows")
+        if private:
+            held = conn.execute(f"SELECT count(*), count(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM {T('decisions')} d "
+                                f"WHERE d.key = i.key)) FROM {T('investments')} i").fetchone()
+            if tuple(held) != (statements, stray):
+                out.append(f"the private statements' count says {statements} ({stray} stray); the private table holds "
+                           f"{held[0]} ({held[1]} stray)")
     leaked = conn.execute(f"SELECT count(*) FROM {T('parties')} WHERE withheld AND (name IS NOT NULL OR origins IS NOT NULL "
                           "OR trust IS NOT NULL OR status IS NOT NULL)").fetchone()[0]
     if leaked:
@@ -145,7 +164,7 @@ def main(argv=None) -> int:
             print(f"{SCHEMA}: check: nothing published yet (no load has run)")
             return 1
         out = outside(conn)
-        out["problems"] = reading(conn) + views(conn)
+        out["problems"] = reading(conn, private=False) + views(conn)
     print(f"{SCHEMA}: check: " + json.dumps(out, default=str))
     return 0 if out["ok"] and not out["problems"] else 1
 
