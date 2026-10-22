@@ -31,20 +31,16 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- `procurement-1` (6.3: live tenders, agency contract disclosures,
-  council procurement), `councils-1` (6.3: council minutes held,
-  councillors' interests), `local-elections-1` (6.3: the returns, 2019 on);
-  all capture only, ruling 79. Merged since 18:00 on 21 October:
-  `sanctions-1`, `scan-1`, `tenders-1` (29,874 award notices live),
-  `regulators-1`, `fix-report-2`, `oio-1`, `hdc-1`, `diaries-1`,
-  `grants-1` (178,729 grants live), `fix-support-fetchgate-1`,
-  `scan-templates-1`, `fix-templates-1`, `redirects-1`,
-  `fix-products-templates-1`, `grants-2`, `fix-support-db-1` (a session's
-  owner login on the live database is refused; the gate and hand runs
-  carry QV4_INTEGRATOR=1), `security-1` (track H.1 to H.3; the sittings
-  after the build, ruling 79), `settlements-1` (template 3: Te Kāhui Māngai
-  walked weekly from Sunday; Te Haeata behind a login, watched). Template 4
-  waits on node1. Step 7 held.
+- 6.3, capture only (ruling 79): `procurement-1` (live tenders, agency
+  contract disclosures, council procurement), `councils-1` (minutes held,
+  councillors' interests), `local-elections-1` (the returns, 2019 on). Merged 21 to 22 October (`docs/merges/`):
+  sanctions, scan, tenders (29,874 award notices), the
+  regulators, oio, hdc, diaries, grants 1 and 2 (178,729 grants), the
+  scan templates, redirects, `fix-support-db-1` (a session's owner login on
+  the live database is refused; the gate and hand runs carry
+  QV4_INTEGRATOR=1), `security-1` (track H.1 to H.3; sittings after the
+  build, ruling 79), `settlements-1` (template 3: Te Kāhui Māngai walked
+  weekly; Te Haeata behind a login, watched). Template 4 waits on node1; 7 held.
 
 ## Half-done
 
