@@ -25,13 +25,20 @@ Prints counts only and exits 1 when any check fails.
 5. **No officer name column holds a date or an address** (`read.name_fault`)
    once the reading has withheld them.
 
-    python -m registers.charities.check [--schema scratch_charities_full] [--database querynz_v4_sample] [--offline]
+    python -m registers.charities.check [--offline]
+    python -m registers.charities.check --schema scratch_charities_full [--database querynz_v4_sample]
 
+Run bare (as the board runs it) it reads the lane's live tables, `charities`
+in querynz_v4, with the read-only login, and holds the `pub.` views to them
+(row counts only); the private twin carries no grant to that login, and no
+check here reads it. `--schema` names a session's scratch proof, read in
+querynz_v4_sample with the owner's login unless `--database` says otherwise.
 `--offline` leaves out check 1 (no request is made). The job's own run
 (`load.job`) holds a reading to checks 2 to 5 before it publishes.
 """
 import argparse
 import collections
+import contextlib
 import datetime as dt
 import json
 import sys
@@ -45,6 +52,9 @@ REGISTER_COUNT = {"registered": 29265, "organisations": 46132,
                             "full copy land the count as a document"}
 TABLE_OF = {"Groups": "groups", "Organisations": "charities", "Officers": "officers", "AnnualReturn": "returns"}
 NAME_COLUMNS = ("full_name", "first_name", "middle_name", "last_name")
+LIVE, SAMPLE = "querynz_v4", "querynz_v4_sample"
+#: each published view and the lane's table it shows, row for row
+VIEWS = {"pub.charities": "charities", "pub.charity_officers": "officers", "pub.charity_returns": "returns"}
 
 
 def outside(conn, opener=None, read_bytes=None) -> dict:
@@ -220,22 +230,60 @@ def reading(conn, schema: str, capture_conn, read_bytes, shared: bool = False) -
             "ok": not problems}
 
 
+def views(conn) -> list:
+    """The published views against the lane's tables they show: problems,
+    as plain lines (counts only)."""
+    out = []
+    for v, t in VIEWS.items():
+        if conn.execute("SELECT to_regclass(%s)", (v,)).fetchone()[0] is None:
+            out.append(f"{v} is not published")
+            continue
+        shown = conn.execute(f"SELECT count(*) FROM {v}").fetchone()[0]
+        held = conn.execute(f"SELECT count(*) FROM {load.table(load.SCHEMA, t)}").fetchone()[0]
+        if shown != held:
+            out.append(f"{v} shows {shown} rows, {load.SCHEMA}.{t} holds {held}")
+    return out
+
+
+def target(schema: str, database: str = None) -> tuple:
+    """(login, database) to read `schema` in: the live schema in querynz_v4
+    with the read-only login; a scratch proof in the sample with the owner's
+    (a session's scratch schema carries no grant to the reader)."""
+    from support import db
+    database = database or (LIVE if schema == load.SCHEMA else SAMPLE)
+    return (db.READ_KEY if database == LIVE else db.OWNER_KEY), database
+
+
 def main(argv=None) -> int:
     from support import db
     from support.docstore.landing import read_bytes
     ap = argparse.ArgumentParser(prog="python -m registers.charities.check")
-    ap.add_argument("--schema", default=load.SCRATCH)
-    ap.add_argument("--database", default="querynz_v4_sample")
+    ap.add_argument("--schema", default=load.SCHEMA, help="the lane's live tables; a session's scratch schema for its proof")
+    ap.add_argument("--database", help=f"{LIVE} for the live schema, {SAMPLE} for any other")
     ap.add_argument("--offline", action="store_true", help="leave out the capture's measure (no request)")
     a = ap.parse_args(argv)
-    with db.connect(db.READ_KEY, "querynz_v4") as src, db.connect(db.OWNER_KEY, a.database) as conn:
+    key, database = target(a.schema, a.database)
+    with contextlib.ExitStack() as stack:
+        src = stack.enter_context(db.connect(db.READ_KEY, LIVE))
         src.execute("SET statement_timeout = '60s'")
+        conn = src if (key, database) == (db.READ_KEY, LIVE) else stack.enter_context(db.connect(key, database))
         conn.execute("SET statement_timeout = '120s'")
+        if conn.execute("SELECT to_regclass(%s)", (load.table(a.schema, "read_pages"),)).fetchone()[0] is None:
+            print(f"charities: check RED: nothing loaded under {database}.{a.schema} (no read_pages)")
+            return 1
         f = {"reading": reading(conn, a.schema, src, read_bytes)}
+        if a.schema == load.SCHEMA:
+            f["views"] = views(conn)
         if not a.offline:
             f["capture_measure"] = outside(src, read_bytes=read_bytes)
+    problems = f["reading"]["problems"] + f.get("views", [])
+    if not a.offline and not f["capture_measure"]["ok"]:
+        problems.append("the capture's measure fails")
+    ok = not problems
+    held = f["reading"]["counts"]["sets"]
+    print(f"charities: check {'green' if ok else 'RED'} on {database}.{a.schema}: "
+          + ", ".join(f"{s} {n.get('typed')}" for s, n in held.items()) + "".join(f"; {p}" for p in problems))
     print(json.dumps(f, indent=1, default=str))
-    ok = f["reading"]["ok"] and (a.offline or f["capture_measure"]["ok"])
     print("charities: check " + ("green" if ok else "RED"))
     return 0 if ok else 1
 
