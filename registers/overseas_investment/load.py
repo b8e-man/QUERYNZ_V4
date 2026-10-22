@@ -30,7 +30,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "overseas_investment"
 JOB = "qv4-overseas-investment-load"
 STAGING = "staging_overseas_investment_load"
-TABLES = ("read_items", "decisions", "parties", "investments", "read_set_aside")
+TABLES = ("read_items", "decisions", "parties", "investments", "read_statements", "read_set_aside")
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version")
 COLUMNS = {
     "read_items": ("list", "slug", "case_number", "pass_id", "document", "state", "parties"),
@@ -106,13 +106,24 @@ def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
             ledger.append({**line, "state": "read"})
     if len(ledger) != len({(e[0], e[1], e[2]) for e in entries}):
         raise AssertionError(f"{SCHEMA}: {len(entries)} rows listed, {len(ledger)} in the ledger")
-    return {"decisions": _copy(conn, T("decisions"), COLUMNS["decisions"], decisions),
-            "parties": _copy(conn, T("parties"), COLUMNS["parties"], parties),
-            "private": _copy(conn, T("investments"), COLUMNS["investments"], private),
-            "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
-            "listed": _copy(conn, T("read_items"), COLUMNS["read_items"], ledger),
-            "not_captured": sum(1 for l in ledger if l["state"] == "not captured"),
-            "seconds": round(time.monotonic() - t0, 1)}
+    counts = {"decisions": _copy(conn, T("decisions"), COLUMNS["decisions"], decisions),
+              "parties": _copy(conn, T("parties"), COLUMNS["parties"], parties),
+              "private": _copy(conn, T("investments"), COLUMNS["investments"], private),
+              "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
+              "listed": _copy(conn, T("read_items"), COLUMNS["read_items"], ledger),
+              "not_captured": sum(1 for l in ledger if l["state"] == "not captured"),
+              "seconds": round(time.monotonic() - t0, 1)}
+    count_private(conn, schema)
+    return counts
+
+
+def count_private(conn, schema: str) -> None:
+    """The private statements' count into `read_statements`, from the private twin as it stands, for the check the
+    session reader runs (it has no grant on the twin)."""
+    T = lambda t: table(schema, t)
+    conn.execute(f"DELETE FROM {T('read_statements')}")
+    conn.execute(f"INSERT INTO {T('read_statements')} (statements, stray) SELECT count(*), count(*) FILTER (WHERE NOT EXISTS "
+                 f"(SELECT 1 FROM {T('decisions')} d WHERE d.key = i.key)) FROM {T('investments')} i")
 
 
 def listing(conn, schema: str = SCHEMA) -> list:

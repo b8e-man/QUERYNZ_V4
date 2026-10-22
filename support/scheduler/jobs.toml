@@ -1079,3 +1079,17 @@ priority = 83
 command = ["python", "-m", "registers.local_elections.load", "--job"]
 at_utc = "17:40"
 nice = 10
+
+# ── disclosures (fix-registers-disclosures-1, 23 October): the Commission's two listings are re-fetched by the old job at
+# 03:34 NZDT and cited by hash, so the lane loads nightly after the frozen release (06:16) and before the build (08:00) ──
+[jobs.qv4-disclosures-load]
+description = "Disclosures: copy the old folder's current Commission listings and scanned declarations by hash, build into staging_disclosures_load, hold them to the lane's check against the frozen site, and publish pub.disclosures and its tables only on green. Daily at 07:40 NZDT."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 900
+query_timeout_s = 600
+class = "due"
+priority = 84
+command = ["python", "-m", "registers.disclosures.load", "--job"]
+at_utc = "18:40"
+nice = 10

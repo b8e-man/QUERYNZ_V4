@@ -9,8 +9,22 @@ a catch-log line, and every file taken from the old folder is landed or a
 catch-log line. A linked scan whose printed total could not be read is a
 catch-log line of its own (stage `form`, its hash and pages): its row is
 still a declaration, so it is counted apart.
+
+    python -m registers.disclosures.load [--schema scratch_…] [--database querynz_v4_sample]
+    python -m registers.disclosures.load --job    # qv4-disclosures-load: capture, build in staging, check, publish
+
+The Commission's two listings are re-fetched by the old job every night, and
+their bytes change most nights; pub.disclosures cites them by hash, and the
+day's build keeps only rows whose document the frozen release listed. So
+the lane is loaded every night, after that release, by `--job`: it copies
+the old folder's current listings and scans, builds into `STAGING` of
+querynz_v4, holds the result to check.py's verdict against the frozen
+site, and publishes only when no difference lacks a card. A session loads
+only a scratch or staging schema of the sample database.
 """
+import argparse
 import os
+import sys
 
 from support import jobrun
 from support.docstore.landing import read_bytes
@@ -18,6 +32,8 @@ from registers.disclosures import capture, read
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "disclosures"
+JOB = "qv4-disclosures-load"
+STAGING = "staging_disclosures_load"
 PRIVATE = "disclosures_private"
 TABLES = ("declarations", "items", "files", "set_aside")
 COLUMNS = ("key", "document", "page", "place", "regime", "threshold", "section", "party", "party_label", "party_basis",
@@ -123,18 +139,69 @@ def build(conn, schema: str, listings: list, declarations: list, aside: list, sh
             "need_a_reading": len(needs)}
 
 
+def documents(landed: list, aside: list) -> tuple:
+    """capture.copy_all's output as build's three arguments."""
+    listings = [(ref.sha256, capture.commission_name(p)) for kind, ref, p, _ in landed if kind == "listing"]
+    declarations = [(ref.sha256, capture.commission_name(p)) for kind, ref, p, _ in landed if kind == "declaration"]
+    return listings, declarations, [(os.path.basename(p), why) for p, why in aside]
+
+
 def load(conn, schema: str, log=print) -> int:
     """Every candidate file of the old folder landed by hash, every listing
     read, the scans joined, under `schema`. Returns the row count."""
     started = jobrun.now()
     landed, aside = capture.copy_all(conn)
-    listings = [(ref.sha256, capture.commission_name(p)) for kind, ref, p, _ in landed if kind == "listing"]
-    declarations = [(ref.sha256, capture.commission_name(p)) for kind, ref, p, _ in landed if kind == "declaration"]
-    counts = build(conn, schema, listings, declarations, [(os.path.basename(p), why) for p, why in aside])
+    counts = build(conn, schema, *documents(landed, aside))
     detail = ", ".join(f"{k} {v}" for k, v in counts.items()) + f", into {schema}"
     log("disclosures: " + detail)
-    jobrun.record("qv4-disclosures-load", True, detail, started, counts)
+    jobrun.record(JOB, True, detail, started, counts)
     return counts["rows"]
+
+
+def stage(conn, schema: str, shared: bool = False) -> tuple:
+    """Capture, build `schema`, and hold it to the lane's check: (green,
+    counts, the check's lines). Green is rows read and no difference from
+    the frozen site, nor any form, that a card does not name."""
+    from registers.disclosures import check
+    landed, aside = capture.copy_all(conn)
+    with conn.transaction():
+        counts = build(conn, schema, *documents(landed, aside), shared=shared)
+    uncarded, lines = check.verdict(check.held(conn, table(schema, "declarations", shared)),
+                                    *check.frozen(), check.carded())
+    counts["uncarded"] = uncarded
+    if not counts["rows"]:
+        lines.append("no declaration read: nothing to publish")
+    return bool(counts["rows"]) and not uncarded, counts, lines
+
+
+def frozen_release() -> str:
+    """The frozen release the check compares with, by its version folder."""
+    from registers.disclosures import check
+    return os.path.basename(os.path.realpath(os.path.dirname(os.path.dirname(check.HOME_JSON))))
+
+
+def job(log=print) -> int:
+    """qv4-disclosures-load: stage, check and publish into querynz_v4. A
+    load that fails its check publishes nothing and the last published
+    rows stay; the staged ones are kept for a look."""
+    from support import db
+    started = jobrun.now()
+    with db.connect(db.OWNER_KEY, db.LIVE) as conn:
+        conn.execute("SET statement_timeout = '600s'")
+        green, counts, lines = stage(conn, STAGING)
+        detail = (f"{counts['rows']} declarations from {counts['listings']} listings, {counts['set_aside']} set aside, "
+                  f"{counts['linked']} scans linked; against frozen release {frozen_release()}: {lines[0]}; "
+                  f"{counts['uncarded']} differences with no card")
+        if not green:
+            for line in lines:
+                log("disclosures: " + line)
+            log("disclosures: RED, nothing published: " + detail)
+            jobrun.record(JOB, False, "nothing published: " + detail, started, counts)
+            return 1
+        publish(conn, STAGING)
+    log("disclosures: published: " + detail)
+    jobrun.record(JOB, True, "published: " + detail, started, counts)
+    return 0
 
 
 def publish(conn, staging: str) -> None:
@@ -147,3 +214,28 @@ def publish(conn, staging: str) -> None:
             conn.execute(f"INSERT INTO {SCHEMA}.{t} SELECT * FROM {staging}.{t}")
         conn.execute(f"INSERT INTO {PRIVATE}.donor_addresses SELECT * FROM {private_of(staging)}.donor_addresses")
         conn.execute(sql("publish.sql"))
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(prog="python -m registers.disclosures.load")
+    ap.add_argument("--schema")
+    ap.add_argument("--database", default="querynz_v4_sample")
+    ap.add_argument("--job", action="store_true", help=f"{JOB}: capture, build, check and publish into querynz_v4")
+    a = ap.parse_args(argv)
+    if a.job:
+        return job()
+    from support import db
+    if not a.schema or not a.schema.startswith(("scratch_", "staging_")) or a.database == db.LIVE:
+        print("disclosures: a session loads only a scratch or staging schema of the sample database")
+        return 2
+    with db.connect(db.OWNER_KEY, a.database) as conn:
+        green, counts, lines = stage(conn, a.schema, shared=a.schema.startswith("scratch_"))
+    for line in lines:
+        print("disclosures: " + line)
+    print("disclosures: " + ", ".join(f"{k} {v}" for k, v in counts.items()) + f", into {a.database}.{a.schema}: "
+          + ("green" if green else "RED"))
+    return 0 if green else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -419,3 +419,63 @@ def test_a_difference_passes_the_check_only_when_a_card_names_it(tmp_path):
     assert check.card_for("ec-listing/2024-07-17/76b5df1420ab", cards) is None
     assert check.card_for("nothing", cards) == "other", "the name is the card's own, not its neighbour's"
     assert check._short("The New Zealand National Party") == "National"
+
+
+class _Conn:
+    """A stand-in for the live connection: the job's steps are monkeypatched."""
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, *a, **k):
+        return self
+
+    def transaction(self):
+        return self
+
+
+def _job(monkeypatch, uncarded: int, rows: int = 522):
+    from registers.disclosures import load as L
+    from support import jobrun
+    calls, runs = [], []
+    monkeypatch.setattr(db, "connect", lambda key, database=None, **k: calls.append(("connect", database)) or _Conn())
+    monkeypatch.setattr(capture, "copy_all", lambda conn: calls.append(("capture",)) or ([], []))
+    monkeypatch.setattr(L, "build", lambda conn, schema, *a, shared=False: calls.append(("build", schema, shared)) or
+                        {"listings": 2, "table_rows": rows, "rows": rows, "set_aside": 0, "linked": rows})
+    monkeypatch.setattr(check, "held", lambda conn, relation: calls.append(("held", relation)) or [])
+    monkeypatch.setattr(check, "frozen", lambda: ({}, {}))
+    monkeypatch.setattr(check, "carded", lambda: "")
+    monkeypatch.setattr(check, "verdict", lambda *a: calls.append(("verdict",)) or (uncarded, ["equal: 45 party-years"]))
+    monkeypatch.setattr(L, "frozen_release", lambda: "2026-10-23T0618")
+    monkeypatch.setattr(L, "publish", lambda conn, staging: calls.append(("publish", staging)))
+    monkeypatch.setattr(jobrun, "record", lambda job, ok, detail, *a, **k: runs.append((job, ok, detail)))
+    return L.job(log=lambda *_: None), calls, runs
+
+
+def test_the_job_publishes_only_after_the_check_is_green(monkeypatch):
+    rc, calls, runs = _job(monkeypatch, uncarded=0)
+    steps = [c[0] for c in calls]
+    assert rc == 0 and steps == ["connect", "capture", "build", "held", "verdict", "publish"]
+    assert calls[0] == ("connect", "querynz_v4") and calls[2] == ("build", "staging_disclosures_load", False)
+    assert calls[3] == ("held", "staging_disclosures_load.declarations"), "the check reads the staged rows, not the live"
+    assert calls[-1] == ("publish", "staging_disclosures_load")
+    assert runs == [("qv4-disclosures-load", True, runs[0][2])] and runs[0][2].startswith("published: 522 declarations")
+
+
+def test_the_job_publishes_nothing_when_a_difference_has_no_card(monkeypatch):
+    rc, calls, runs = _job(monkeypatch, uncarded=1)
+    assert rc == 1 and "publish" not in [c[0] for c in calls] and "verdict" in [c[0] for c in calls]
+    assert runs[0][:2] == ("qv4-disclosures-load", False) and runs[0][2].startswith("nothing published")
+
+
+def test_the_job_publishes_nothing_when_no_declaration_was_read(monkeypatch):
+    rc, calls, runs = _job(monkeypatch, uncarded=0, rows=0)
+    assert rc == 1 and "publish" not in [c[0] for c in calls] and runs[0][1] is False
+
+
+def test_a_session_loads_only_a_scratch_or_staging_schema_of_the_sample():
+    from registers.disclosures import load as L
+    assert L.main(["--schema", "disclosures"]) == 2
+    assert L.main(["--schema", "staging_disclosures_load", "--database", "querynz_v4"]) == 2

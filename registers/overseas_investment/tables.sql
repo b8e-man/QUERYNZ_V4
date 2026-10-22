@@ -160,6 +160,13 @@ CREATE TABLE IF NOT EXISTS overseas_investment_private.investments (
     document           text NOT NULL
 );
 
+-- the private statements' count, written by the load (which can see the private twin) beside the ledger, so a check
+-- run under the session reader (which has no grant on the twin, by design) still answers: one row
+CREATE TABLE IF NOT EXISTS overseas_investment.read_statements (
+    statements  integer NOT NULL,                    -- rows in overseas_investment_private.investments
+    stray       integer NOT NULL                     -- of them, rows whose key is no decision's
+);
+
 CREATE TABLE IF NOT EXISTS overseas_investment.read_set_aside (
     document  text,
     place     text NOT NULL,

@@ -4,7 +4,8 @@ The source's own count is the site's: the iwi its 13 region maps and its
 local and regional authority lists link (117 distinct iwi on 22 October
 2026). Exit 1 on any of:
 
-  1. no finished walk is held
+  1. no finished walk is held, or one is held and nothing of it is published
+     (the load refused: its own red line names why)
   2. an iwi the site's own maps and lists link is not read (not landed, set
      aside, or not the iwi page's shape), or an iwi page is read that no map
      or list links
@@ -19,6 +20,8 @@ local and regional authority lists link (117 distinct iwi on 22 October
 Every line printed is a count.
 
     python -m registers.iwi_directory.check [--database querynz_v4] [--schema iwi_directory]
+    python -m registers.iwi_directory.check --database querynz_v4_sample --schema scratch_… --views scratch_….v_ \
+        --capture-database querynz_v4      (a session's scratch build of the live walk)
 """
 import argparse
 import re
@@ -103,11 +106,15 @@ def views(conn, prefix: str = "pub.") -> list:
     return out
 
 
-def outside(conn, schema: str = SCHEMA) -> list:
+def outside(conn, schema: str = SCHEMA, listed=None) -> list:
+    """`listed`: the walk's pages, where the walk is held elsewhere than `schema` (a session's scratch build)."""
     T = lambda t: capture.table(schema, t)
     from registers.iwi_directory import load
-    if not load.listing(conn, schema):
+    if not (load.listing(conn, schema) if listed is None else listed):
         return ["no finished walk of the site is held"]
+    if not conn.execute(f"SELECT count(*) FROM {T('read_pages')}").fetchone()[0]:
+        return ["a finished walk is held and none of it is published: the load has not run, or refused (its job "
+                "record says why)"]
     linked = {r[0] for r in conn.execute(f"SELECT DISTINCT unnest(iwi_links) FROM {T('read_pages')}")}
     read_iwi = {r[0].rsplit("/", 1)[1] for r in conn.execute(f"SELECT key FROM {T('entities')} WHERE kind = 'iwi'")}
     out = []
@@ -127,11 +134,18 @@ def main(argv=None) -> int:
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=SCHEMA)
     ap.add_argument("--views", default="pub.", help="the prefix the views are read under")
+    ap.add_argument("--capture-database", help="where the walk is held, for a scratch build (load.py's own option)")
+    ap.add_argument("--capture-schema", default=SCHEMA)
     a = ap.parse_args(argv)
     from support import db
-    key = db.READ_KEY if a.database == "querynz_v4" else db.OWNER_KEY
-    with db.connect(key, a.database) as conn:
-        problems = outside(conn, a.schema)
+    from registers.iwi_directory import load
+    key = lambda d: db.READ_KEY if d == "querynz_v4" else db.OWNER_KEY
+    listed = None
+    if a.capture_database:
+        with db.connect(key(a.capture_database), a.capture_database) as src:
+            listed = load.listing(src, a.capture_schema)
+    with db.connect(key(a.database), a.database) as conn:
+        problems = outside(conn, a.schema, listed)
         if not problems or problems[0] != "no finished walk of the site is held":
             problems += reading(conn, a.schema) + views(conn, a.views)
     for p in problems:

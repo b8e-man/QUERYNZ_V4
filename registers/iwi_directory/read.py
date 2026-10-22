@@ -36,10 +36,21 @@ KEEP = {"legal entity": "legal_entity", "governance structure": "governance_stru
         "local authorities": "local_authorities", "website": "website",
         "primary purpose/kaupapa": "primary_purpose"}
 
-#: role flags by the picture's file name; the alt text is kept as printed beside it
+#: role flags by the picture's file name (its first word, or first word and qualifier: `rma_sm_hapu` is
+#: `rma_hapu`), each as the site's glossary defines it; the alt text is kept as printed beside it
 FLAG_BY_IMAGE = {"posttreaty": "post-settlement governance entity", "mfa": "Māori Fisheries Act 2004",
-                 "iao": "iwi aquaculture organisation", "rma": "RMA iwi authority", "tuhono": "Tūhono organisation",
-                 "treaty": "mandate for settlement negotiations", "tree": "collective settlement governance entity"}
+                 "iao": "iwi aquaculture organisation", "rma": "RMA iwi authority",
+                 "rma_hapu": "RMA group representing hapū of the iwi", "rma_other": "RMA other iwi authority",
+                 "tuhono": "Tūhono organisation", "treaty": "mandate for settlement negotiations",
+                 "tree": "collective settlement governance entity",
+                 "maunga": "member of Ngā Iwi o Taranaki (Taranaki Maunga collective redress)"}
+#: a picture that stands for a contact (phone, email, address) is never a flag and never kept (hard limit 15)
+CONTACT_IMAGE = re.compile(r"phone|mobile|fax|mail|envelope|address|postal|contact|location", re.I)
+#: an email address or a phone number, wherever the site prints one: a kept label holding one is not kept (a
+#: website entry that is three email addresses behind `http://`, 23 October 2026)
+CONTACT_VALUE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|(?:\+64|\b0)\d{1,2}[ -]?\d{3}[ -]?\d{3,4}\b")
+#: a cell the site fills where it names nothing: blank, not a hapū or a marae
+PLACEHOLDER = re.compile(r"^(?:not yet identified|unknown|-+)$", re.I)
 PSGE = re.compile(r"^post[- ](?:treaty )?settlement governance entity", re.I)
 MANDATE = re.compile(r"^mandate recognised by the crown", re.I)
 ACT = re.compile(r"^(.*?\bAct\s+(\d{4}))\b")
@@ -68,6 +79,20 @@ def fold(s: str) -> str:
     s = unicodedata.normalize("NFKD", s or "")
     s = "".join(c for c in s if not unicodedata.combining(c)).lower()
     return re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+
+
+def flag_kind(stem: str) -> str:
+    """A role flag's rule by its picture's file stem; one no rule names is 'other: <first word>' for the check."""
+    parts = re.split(r"[_.-]", stem.lower())
+    for q in parts[1:]:
+        if f"{parts[0]}_{q}" in FLAG_BY_IMAGE:
+            return FLAG_BY_IMAGE[f"{parts[0]}_{q}"]
+    return FLAG_BY_IMAGE.get(parts[0], "other: " + parts[0])
+
+
+def contact_image(stem: str) -> bool:
+    """A contact icon: its file name says phone, email or address, and no rule names it a flag."""
+    return flag_kind(stem).startswith("other: ") and bool(CONTACT_IMAGE.search(stem))
 
 
 def label_key(s: str) -> str:
@@ -116,7 +141,8 @@ def recognise(body: bytes) -> str:
 
 def tables(section: str) -> list:
     """[(rohe heading or '', [column], [[cell]])] for each table.haputable, in order; a blank first cell is the
-    row above's (the page prints a hapū once for its several marae). A row of one cell is a note, dropped."""
+    row above's (the page prints a hapū once for its several marae). A row of one cell under several heads is a
+    note, dropped; under one head (a list of hapū alone) it is the row."""
     out, heading = [], ""
     for m in re.finditer(r"<h4[^>]*>(.*?)</h4>|<h2[^>]*>(.*?)</h2>|<table class=\"haputable\">(.*?)</table>",
                          section, re.S):
@@ -133,7 +159,7 @@ def tables(section: str) -> list:
         rows, above = [], None
         for tr in re.findall(r"<tr class=\"(?:odd|even)\"[^>]*>(.*?)</tr>", body, re.S):
             cells = [text(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
-            if len(cells) <= 1:
+            if len(cells) <= 1 and len(cols) > 1 or not any(cells):
                 continue
             if len(cells) != len(cols):
                 raise NotTheShape(f"a row of {len(cells)} cells under {len(cols)} heads ({heading!r})")
@@ -163,12 +189,14 @@ def organisations(section: str) -> list:
         if lu:
             entry["last_updated"] = lu.group(1)
         for p in re.findall(r"<p[^>]*>(.*?)</p>", block, re.S):
-            img = re.search(r"<img[^>]*src=\"/images/([a-z]+)[^\"]*\"[^>]*alt=\"([^\"]*)\"[^>]*>", p)
+            img = re.search(r"<img[^>]*src=\"/images/([A-Za-z0-9_-]+)[^\"]*\"[^>]*alt=\"([^\"]*)\"[^>]*>", p)
+            if img and contact_image(img.group(1)):
+                continue
             if img:
                 after = text(p[img.end():])
                 br = re.search(r"\[\s*(.*?)\s*\]", after)
                 alt = img.group(2).strip() or re.sub(r"\s*\[.*?\]\s*", " ", after).strip()[:300]
-                entry["flags"].append((FLAG_BY_IMAGE.get(img.group(1), "other: " + img.group(1)), alt,
+                entry["flags"].append((flag_kind(img.group(1)), alt,
                                        br.group(1) if br else None))
                 continue
             for lab, val in re.findall(r"<b>\s*([^<]+?)\s*</b>(.*?)(?=<b>|$)", p, re.S):
@@ -182,6 +210,9 @@ def organisations(section: str) -> list:
                     entry["fields"][col] = href.group(1) if href else text(val)
                 else:
                     entry["fields"][col] = text(val.lstrip(":")) or None
+                if CONTACT_VALUE.search(entry["fields"][col] or ""):
+                    entry["fields"][col] = None
+                    entry["unread"].append(lab.rstrip(":").strip() + " (a contact printed in it)")
         out.append(entry)
     return out
 
@@ -257,6 +288,11 @@ def _org_rows(entries, sha, url, kind, iwi_key=None):
     return ents, rels, sets
 
 
+#: the hapū tables' heads as the site prints them: hapū with marae, marae alone, or a list of hapū alone (its
+#: marae in a table of their own beside it, the iwi's); the wharenui column is left out on some pages
+HAPU_HEADS = [h + m for h in (["Hapū"], []) for m in (["Marae", "Wharenui", "Location"], ["Marae", "Location"])] + [["Hapū"]]
+
+
 def read_iwi(body: bytes, sha: str, url: str) -> dict:
     page = body.decode("utf-8", "replace")
     name = h1_of(page)
@@ -282,12 +318,13 @@ def read_iwi(body: bytes, sha: str, url: str) -> dict:
         raise NotTheShape("no hapū and marae section")
     seen = {}
     for t, (heading, cols, rows) in enumerate(tables(hapu_sec), 1):
-        if cols[-3:] != ["Marae", "Wharenui", "Location"] or cols[:-3] not in ([], ["Hapū"]):
+        if cols not in HAPU_HEADS:
             raise NotTheShape(f"hapū table {t} has heads {cols}")
         for r, cells in enumerate(rows, 1):
             cite = _cite(sha, url, f"hapū table {t}, row {r}", "iwi")
-            hapu = cells[0] if cols[0] == "Hapū" else ""
-            marae, wharenui, location = cells[-3:]
+            row = {c: ("" if PLACEHOLDER.match(v) else v) for c, v in zip(cols, cells)}
+            hapu, marae = row.get("Hapū", ""), row.get("Marae", "")
+            wharenui, location = row.get("Wharenui", ""), row.get("Location", "")
             h_key = None
             if hapu:
                 h_key = f"tkm/hapu/{slug_of(url)}/{fold(hapu)}"
