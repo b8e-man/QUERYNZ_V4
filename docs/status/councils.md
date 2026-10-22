@@ -1,29 +1,30 @@
 # councils: where the step 6.3 councils lanes stand
 
-Session councils-1 (Opus), 22 October 2026, node2. Merge request `councils-1`. Ruling 79: no reading by a model, no PDF read.
+Session councils-1 (Opus), 22 October 2026, node2. Merge request `councils-1`. Ruling 79: no model, no PDF read.
 
 ## Done
 
-- `registers/council_minutes`: the 24 InfoCouncil councils' meeting listings read by shape (1,347 meetings, 4,130
-  documents listed on 21 listings; venue never read); minutes PDFs captured and held, never read; the old estate's
-  351 listed PDFs pinned (`2264a857…`), 347 named today and never fetched again (their files are on node1: card).
-  Load, check (rows against each grid's own count), `pub.council_meetings`, 16 tests, 3 mutants.
-- `registers/councillor_interests`: no collected file; 78 councils (DIA's list) surveyed, 71 registers found, 47
-  terms pages read. Capture (landing pages monthly, register documents once), Invercargill's structured register
-  read (15 members; real property and spouses' interests never read), the 78-council catalogue,
-  `pub.councillor_interest_registers` and `pub.councillor_interests`, 15 tests, 3 mutants.
-- Both positions written (lane `position/` folders); 5 profiles proposed; jobs proposed; views notes.
+- `registers/council_minutes`: the 24 InfoCouncil councils' listings read by shape: 1,347 meetings, 4,130 documents
+  listed on 21 listings; venue never read. Night of 22 October (scratch): 600 minutes PDFs landed (601 requests, 5 s
+  apart, 49 min, no block), 347 left to the old estate's copy by hash (files on node1: card), 1 404; all 948 listed
+  minutes accounted. `pub.council_meetings`; check green; 17 tests.
+- `registers/councillor_interests`: no collected file. 78 councils (DIA's list) surveyed; 47 terms pages read. Night
+  of 22 October: 387 register documents held for 42 councils (35 single PDFs, 7 per-member sets); Invercargill's
+  structured page read (15 members, 56 rows; real property and spouses never read). `pub.councillor_interest_registers`,
+  `pub.councillor_interests`; check green; 17 tests.
+- Both positions, 5 profiles, 4 job specs, views notes in the lane folders. Fast tier green per lane (39 s).
 
 ## Held
 
-- InfoCouncil: Christchurch (gate's challenge check on a real page: card), Kāpiti and Hawke's Bay (404: moved).
-- Interests: 10 sites blocked in the survey; Auckland, South Waikato, Waimakariri held on their terms (queue, no
-  default).
+- InfoCouncil: Christchurch (gate challenge check on a real page), Kāpiti and Hawke's Bay (404: moved). Cards.
+- Interests: 10 sites blocked; Auckland, South Waikato, Waimakariri held on their terms (queue, no default); 12
+  landing pages link no file by name; 5 addresses failed; 3 off-site storage hosts. Card.
 
 ## Waits on ruling 79
 
-- Reading the minutes (never: plan 6.3) and the PDF registers (card); past InfoCouncil years (card).
+- Any reading of the held minutes (plan 6.3: never attendance or resolutions) and of the PDF registers (card).
 
 ## Next
 
-- NIGHT_LINE
+- After the merge: the jobs run nightly; the integrator places the positions, profiles, floors, views and jobs
+  (blocker card). Then: past InfoCouncil years (card), the moved instances, the registers' gaps (card).

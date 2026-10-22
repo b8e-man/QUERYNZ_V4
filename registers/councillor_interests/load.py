@@ -104,6 +104,7 @@ def build(conn, schema: str, items: list, held: dict, registers: dict = None, re
             withheld[k] = withheld.get(k, 0) + n
     reg_rows = []
     for council, (host, page, pdf) in registers.items():
+        why_failed = None
         nd = sum(1 for d in docs.values() if d["council"] == council)
         landing = newest.get(page) if page else None
         hosts = {capture.site_of(h) for h in held}
@@ -118,10 +119,16 @@ def build(conn, schema: str, items: list, held: dict, registers: dict = None, re
         elif capture.site_of(host) in hosts:
             form = "not reached"
         elif page or pdf:
-            form = "linked, not found" if landing else "not yet captured"
+            failed = [it for it in items if it["url"] in (page, pdf) and it.get("why") and not it.get("sha256")]
+            if landing:
+                form = "linked, not found"
+            elif failed:
+                form, why_failed = "address failed", failed[-1]["why"]
+            else:
+                form = "not yet captured"
         else:
             form = "not found"
-        why = capture.TERMS_BAR.get(council) or next(
+        why = capture.TERMS_BAR.get(council) or (why_failed if form == "address failed" else None) or next(
             (w for h, w in held.items() if capture.site_of(h) == capture.site_of(host)), None)
         reg_rows.append({"council": council, "host": host, "form": form, "landing_url": page,
                          "landing_sha256": landing["sha256"] if landing else None, "documents_held": nd,

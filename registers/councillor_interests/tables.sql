@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS councillor_interests.capture_set_aside (
 CREATE TABLE IF NOT EXISTS councillor_interests.registers (
     council          text PRIMARY KEY,
     host             text NOT NULL,
-    form             text NOT NULL,                  -- html register | pdf register | per-member files | linked, not found | not yet captured | not found | not reached | held: its terms bar automated access
+    form             text NOT NULL,                  -- html register | pdf register | per-member files | linked, not found | not yet captured | address failed | not found | not reached | held: its terms bar automated access
     landing_url      text,
     landing_sha256   text,
     documents_held   integer NOT NULL DEFAULT 0,     -- register documents landed (held, never read)
