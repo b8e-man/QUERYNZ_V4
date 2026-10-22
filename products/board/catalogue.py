@@ -732,6 +732,43 @@ VIEWS: tuple[View, ...] = (
          names=("name_as_published",),
          parent=("Grantor", "grant_publishers", "grantor_key"), default_order="name_as_published",
          note="one row per grantor and recipient name as published"),
+    # ── step 6.2 template 3, the iwi and hapū directory (settlements-1; catalogued in the merge after; pane.md) ──
+    View("iwi_directory_entities", "iwi_directory", "organisation", ("name", "kind"),
+         search=("name", "listed_as", "region", "legal_entity", "hapu_represented", "area_of_interest", "local_authorities", "wharenui"),
+         numbers=("charity_number", "nzbn"),
+         fields=(("kind", "kind"), ("listed as", "listed_as"), ("region", "region"), ("legal entity", "legal_entity"),
+                 ("governance structure", "governance_structure"), ("hapū represented", "hapu_represented"),
+                 ("area of interest", "area_of_interest"), ("local authorities", "local_authorities"),
+                 ("primary purpose", "primary_purpose"), ("website", "website"), ("wharenui", "wharenui"),
+                 ("location", "location"), ("roles as printed", "flags"), ("charity number", "charity_number"), ("NZBN", "nzbn"),
+                 ("last updated as printed", "last_updated"), ("pages", "pages"), ("source", "source")),
+         urls=("website", "url"),
+         joins=(Join("Relations", "iwi_directory_relations", "from_key", key_column="key", order="relation"),
+                Join("Settlements", "iwi_directory_settlements", "entity_key", key_column="key", order="act_year")),
+         default_order="name",
+         note="as supplied to Te Puni Kōkiri by the organisations; not advice on whom to consult. No person, phone, email or postal address is held; a marae's location is the marae's own"),
+    View("iwi_directory_relations", "iwi_directory", "event", ("relation", "to_name"),
+         search=("to_name", "relation", "section"),
+         fields=(("relation", "relation"), ("to", "to_name"), ("section of the page", "section")),
+         urls=("url",),
+         parent=("Entity", "iwi_directory_entities", "from_key"), default_order="relation",
+         note="hapū of iwi, marae of hapū or iwi, organisation of iwi, iwi in region, rohe in local authority, as the directory lists them"),
+    View("iwi_directory_settlements", "iwi_directory", "event", ("name", "act"),
+         search=("name", "act", "as_printed"),
+         fields=(("Act", "act"), ("year", "act_year"), ("stage", "stage"), ("signed on", "signed_on"), ("as printed", "as_printed")),
+         urls=("url",),
+         parent=("Entity", "iwi_directory_entities", "entity_key"), default_order="act_year",
+         note="the Act or deed a governance entity's own entry names; a mandate is a stage, never a settlement"),
+    # ── step 6.3, agency contract disclosures (procurement-1; pane.md) ──
+    View("agency_contract_costs", "contract_disclosures", "figure", ("contract_class", "financial_year"),
+         search=("agency", "contract_class", "region", "territorial_authority"),
+         fields=(("agency", "agency"), ("level", "level"), ("region", "region"), ("territorial authority", "territorial_authority"),
+                 ("contract class", "contract_class"), ("financial year", "financial_year"), ("year ended", "year_ended"),
+                 ("active claims as published", "active_claims_as_published"), ("total costs as published", "total_costs_as_published"),
+                 ("active claims", "active_claims"), ("total costs NZD", "total_costs_nzd"), ("suppressed", "suppressed"),
+                 ("licence", "licence"), ("attribution", "attribution")),
+         default_order="financial_year",
+         note="ACC's own Official Information Act answer: claims and costs through each class of its health contracts, by year and place; no supplier is named; a suppressed cell is shown as ACC printed it"),
 )
 
 BY_NAME = {v.name: v for v in VIEWS}
@@ -761,6 +798,8 @@ REGISTERS = (
     ("limited_partnerships", "Limited partnerships and their general partners"),
     ("building_practitioners", "Licensed building practitioners: the Board's decisions (the register held)"),
     ("courts", "Court judgments of the senior courts, by caption"),
+    ("iwi_directory", "Iwi, hapū, marae and post-settlement governance entities (Te Kāhui Māngai, CC BY 3.0 NZ as catalogued)"),
+    ("contract_disclosures", "Agency contract disclosures: ACC's health contract costs (an OIA answer on the data catalogue, CC BY 3.0 NZ)"),
 )
 
 #: registers the plan names that no lane has published yet (plan step 4.1 and later steps)
@@ -773,6 +812,8 @@ NOT_HELD = (
     ("papers_past", "Papers Past"),
     ("tenancy_tribunal", "Tenancy Tribunal orders (held, nothing published: ruling 58)"),
     ("real_estate_authority", "Real Estate Authority decisions (held, nothing published: ruling 59)"),
+    ("settlement_commitments", "Treaty settlement commitments (Te Haeata: behind a login, hard limit 6; watched)"),
+    ("council_procurement", "Council procurement off GETS (barred by the councils' terms or behind a login; watched)"),
 )
 
 #: the links views the board reads once links/ publishes them (plan step 4.9: a search table published by links)
