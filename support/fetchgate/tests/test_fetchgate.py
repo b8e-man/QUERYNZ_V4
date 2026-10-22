@@ -281,3 +281,93 @@ def test_a_redirect_within_the_host_is_followed_by_default_and_a_fourth_hop_is_n
         return (302, b"", u, {"Location": "https://unnamed.example/elsewhere"})
     got = fg.open_url("https://www.elections.nz/x", fetch=away, **gated)
     assert got.status == 302 and got.location == "https://unnamed.example/elsewhere"
+
+
+# ── a block is known by its own page, not a word on a page of content (councils-1, 22 October) ──
+
+def listing_like_christchurch():
+    """The shape of christchurch.infocouncil.biz on 22 October, not its bytes: a 200 of about 795,737 bytes, the
+    word `captcha` in a form's script inside the first 4,096 bytes, and 237 minutes links."""
+    head = (b"<!DOCTYPE html><html><head><title>Christchurch City Council - Meetings</title>"
+            b"<script src=\"/scripts/contact-form-captcha.js\"></script>"
+            b"<script>var captchaKey = 'form';</script></head><body><table>")
+    rows = b"".join(b"<tr><td>Council %d</td><td><a href=\"/Open/2026/10/CNCL_2026%04d_MIN_%d.PDF\">Minutes</a></td></tr>"
+                    % (i, i, i) for i in range(237))
+    page, tail = head + rows + b"<!-- ", b" --></table></body></html>"
+    return page + b"x" * (795_737 - len(page) - len(tail)) + tail
+
+
+def test_a_listing_carrying_the_content_asked_for_is_not_a_challenge_for_a_word_in_its_script(gated):
+    page = listing_like_christchurch()
+    assert len(page) == 795_737 and page.count(b"_MIN_") == 237 and b"captcha" in page[:4096]
+    assert fg.looks_challenged(200, page, {"Content-Type": "text/html"}) == ""
+    got = fg.open_url("https://www.elections.nz/listing", fetch=lambda u, t: (200, page, u, {}), **gated)
+    assert got.status == 200 and got.blocked == "" and got.body == page
+
+
+def test_every_block_page_the_gate_knows_is_still_a_failed_read():
+    pages = {
+        "cloudflare challenge": b"<!DOCTYPE html><html><head><title>Just a moment...</title><style>"
+                                + b"b{}" * 9000 + b"</style></head><body><script>window._cf_chl_opt={}</script></body></html>",
+        "cloudflare block": b"<html><head><title>Attention Required! | Cloudflare</title></head>"
+                            b"<body><div id=\"cf-error-details\">Sorry, you have been blocked</div></body></html>",
+        "incapsula": b"<html style=\"height:100%\"><head><META NAME=\"ROBOTS\" CONTENT=\"NOINDEX, NOFOLLOW\"></head>"
+                     b"<body><iframe id=\"main-iframe\" src=\"/_Incapsula_Resource?CWUDNSAI=9&xinfo=1\">"
+                     b"Request unsuccessful. Incapsula incident ID: 1-2</iframe></body></html>",
+        "imperva": INTERSTITIAL,
+        "radware": b"<html><head><title>Radware Captcha Page</title></head><body><form>"
+                   b"<div class=\"g-recaptcha\"></div></form></body></html>",
+    }
+    for name, page in pages.items():
+        assert fg.looks_challenged(200, page), name
+    assert len(pages["cloudflare challenge"]) > 4096                  # the title is found past the first 4,096 bytes
+    # the title is the block page's own landmark, whatever the page weighs
+    big = b"<html><head><title>Just a moment...</title></head><body>" + b"x" * 900_000 + b"</body></html>"
+    assert "title" in fg.looks_challenged(200, big)
+    # and a small page with a block's mark near its top is still a challenge, as before
+    assert fg.looks_challenged(200, b"<html><body>Are you a human? captcha</body></html>")
+
+
+# ── response headers, and 304 is "unchanged" (societies, 20 October) ─────────
+
+def test_fetched_carries_the_headers_as_sent_and_old_callers_still_build_it(gated):
+    assert fg.Fetched("u", 200, b"", "u", "", "").headers == {}                # a field with a default
+    got = fg.open_url("https://www.elections.nz/e", fetch=lambda u, t: (200, b"<html>x</html>", u, {"ETag": "\"v1\""}), **gated)
+    assert got.headers == {"ETag": "\"v1\""} and not got.unchanged
+
+
+def test_a_304_is_unchanged_with_no_body_and_not_a_block_on_the_real_transport(gated, positions):
+    import http.server
+    import threading
+    with open(os.path.join(positions, "loopback.md"), "w") as f:
+        f.write("# loopback\nhosts: 127.0.0.1\n")
+    seen = []
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen.append(self.headers.get("If-None-Match"))
+            if self.headers.get("If-None-Match") == "\"v1\"":
+                self.send_response(304)
+                self.send_header("ETag", "\"v1\"")
+                self.end_headers()
+                return
+            body = b"{\"entity\": 1}"
+            self.send_response(200)
+            self.send_header("ETag", "\"v1\"")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{srv.server_port}/entity"
+        first = fg.open_url(url, timeout=5, **gated)
+        assert first.status == 200 and first.headers.get("ETag") == "\"v1\"" and not first.unchanged
+        again = fg.open_url(url, timeout=5, headers={"If-None-Match": first.headers["ETag"]}, **gated)
+        assert again.status == 304 and again.unchanged and again.body == b"" and again.blocked == ""
+        assert again.headers.get("ETag") == "\"v1\"" and seen == [None, "\"v1\""]
+    finally:
+        srv.shutdown()

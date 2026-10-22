@@ -794,6 +794,23 @@ VIEWS: tuple[View, ...] = (
          names=("member",),
          parent=("Register", "councillor_interest_registers", "council"), default_order="member",
          note="an elected member's declared interests as the council's own structured register publishes them; never real property, a home, an address, a contact, or a spouse's or partner's interests. Off the public site unless Arthur says (hard limit 14)"),
+    # ── step 6.3, local election candidate returns (local-elections-1; catalogued in the merge after; views-note.md) ──
+    View("local_election_returns", "local_elections", "document", ("candidate_as_listed", "council", "election_year"),
+         search=("candidate_as_listed", "council", "position"),
+         fields=(("council", "council"), ("election", "election_year"), ("by-election", "by_election"),
+                 ("covers", "covers"), ("seat", "position"), ("kind", "return_kind"), ("file held", "file_state"),
+                 ("file", "file_document"), ("source", "source")),
+         urls=("file_url", "listing_url"),
+         names=("candidate_as_listed",),
+         joins=(Join("Coverage", "local_election_returns_coverage", "council", key_column="council", order="election_year"),),
+         default_order="election_year",
+         note="a return the council's electoral officer lists under s 112F, held and not read: no amount and no donor until the returns' reading (ruling 79); the candidate's name as the listing prints it, matched to no one by this lane"),
+    View("local_election_returns_coverage", "local_elections", "figure", ("council", "election_year"),
+         search=("council",),
+         fields=(("by-election", "by_election"), ("returns listed", "returns_listed"), ("combined files", "combined_files"),
+                 ("files held", "files_held"), ("files failed", "files_failed")),
+         default_order="council", key_col="council",
+         note="a council's election: what its electoral officer lists and what the estate holds"),
 )
 
 BY_NAME = {v.name: v for v in VIEWS}
@@ -827,6 +844,7 @@ REGISTERS = (
     ("contract_disclosures", "Agency contract disclosures: ACC's health contract costs (an OIA answer on the data catalogue, CC BY 3.0 NZ)"),
     ("council_minutes", "Council meetings on InfoCouncil (minutes held by hash, never read)"),
     ("councillor_interests", "Councillors' registers of interests, council by council (off the public site: hard limit 14)"),
+    ("local_elections", "Local election candidate returns (listed; held unread until ruling 79 lifts)"),
 )
 
 #: registers the plan names that no lane has published yet (plan step 4.1 and later steps)
