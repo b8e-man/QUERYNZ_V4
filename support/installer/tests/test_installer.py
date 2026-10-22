@@ -134,3 +134,64 @@ def test_a_products_unit_folder_is_reached_and_its_prefix_is_enforced(tmp_path):
     else:
         raise AssertionError("an unprefixed unit in a product folder must be refused")
 
+
+
+def test_the_shipped_worker_unit_runs_from_the_release_copy_never_the_main_checkout():
+    """Card the-scheduler-s-worker-runs-the-main-checkout-…, finding 2: the
+    worker and every job it starts run the release copy."""
+    text = open(inst.unit_sources()["qv4-worker@.service"], encoding="utf-8").read()
+    lines = text.splitlines()
+    assert "WorkingDirectory=/home/user/querynzv4-release" in lines
+    assert any(l.startswith("ExecStart=/home/user/querynzv4-release/.venv/bin/python -m support.scheduler worker") for l in lines)
+    assert not any(l.startswith(("WorkingDirectory=/home/user/querynzv4/", "ExecStart=/home/user/querynzv4/"))
+                   or l == "WorkingDirectory=/home/user/querynzv4" for l in lines)
+
+
+def release_repo(tmp_path, monkeypatch):
+    repo = fake_repo(tmp_path)
+    copy = tmp_path / "release"
+    monkeypatch.setattr(inst, "RELEASE_COPY", str(copy))
+    worker = os.path.join(repo, "support", "scheduler", "units", "qv4-worker@.service")
+    open(worker, "w").write(f"[Service]\nWorkingDirectory={copy}\nExecStart={copy}/.venv/bin/python -m support.scheduler worker\n")
+    return repo, copy
+
+
+def test_the_worker_unit_is_refused_until_the_release_copy_exists(tmp_path, monkeypatch):
+    repo, copy = release_repo(tmp_path, monkeypatch)
+    monkeypatch.setattr(inst, "MAIN_CHECKOUT", repo)      # the integrator's install: from the main checkout, shipped text
+    units = tmp_path / "units"
+    units.mkdir()
+    (units / "qv4-worker@.service").write_text("the unit running now\n")
+    calls = []
+    sh = lambda c: calls.append(c) or (0, "")  # noqa: E731
+    done = {d["unit"]: d for d in inst.install_units(repo, str(units), box="node2", sh=sh)}
+    assert done["qv4-worker@.service"]["action"] == "refused" and "not made" in done["qv4-worker@.service"]["why"]
+    assert (units / "qv4-worker@.service").read_text() == "the unit running now\n", "the unit on the box is left as it is"
+    assert "qv4-worker@node2.service" not in [c[-1] for c in calls], "a worker without its copy is never enabled"
+    assert done["qv4-a.timer"]["action"] == "install", "every other unit is still placed"
+    (copy / ".git").mkdir(parents=True)
+    (copy / ".git" / "qv4-release.json").write_text('{"commit": "abc"}')
+    done = {d["unit"]: d for d in inst.install_units(repo, str(units), box="node2", sh=sh)}
+    assert "no .venv" in done["qv4-worker@.service"]["why"]
+    (copy / ".venv" / "bin").mkdir(parents=True)
+    (copy / ".venv" / "bin" / "python").write_text("")
+    calls.clear()
+    done = {d["unit"]: d for d in inst.install_units(repo, str(units), box="node2", sh=sh)}
+    assert done["qv4-worker@.service"]["action"] == "update" and done["qv4-worker@node2.service"]["action"] == "enabled"
+    assert f"WorkingDirectory={copy}\n" in (units / "qv4-worker@.service").read_text()
+    assert ["systemctl", "--user", "enable", "--now", "qv4-worker@node2.service"] in calls
+
+
+def test_a_rehearsal_from_a_working_copy_rewrites_the_release_path_and_the_release_copy_installs_the_shipped_text(
+        tmp_path, monkeypatch):
+    repo, copy = release_repo(tmp_path, monkeypatch)
+    src = os.path.join(repo, "support", "scheduler", "units", "qv4-worker@.service")
+    text = inst.unit_text(src, repo)
+    assert f"WorkingDirectory={os.path.realpath(repo)}\n" in text and "REHEARSAL" in text
+    assert f"ExecStart={inst.MAIN_CHECKOUT}/.venv/bin/python -m" in text, "a working copy without a .venv uses the main one"
+    assert inst.release_missing(text) is None, "a rehearsal does not wait on the release copy"
+    copy.mkdir()
+    assert inst.unit_text(src, str(copy)) == open(src).read(), "installed from the release copy: the shipped text"
+    main_unit = tmp_path / "m.service"
+    main_unit.write_text(f"[Service]\nWorkingDirectory={inst.MAIN_CHECKOUT}\n")
+    assert f"WorkingDirectory={os.path.realpath(repo)}\n" in inst.unit_text(str(main_unit), repo)

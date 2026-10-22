@@ -5,8 +5,11 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/user/querynzv4
-ExecStart=/home/user/querynzv4/.venv/bin/python -m support.scheduler worker --name %i
+# the release copy: one pushed commit of origin/main, moved only by
+# `python -m support.installer release`; never the main checkout, where the
+# integrator checks integrate branches out before the gate
+WorkingDirectory=/home/user/querynzv4-release
+ExecStart=/home/user/querynzv4-release/.venv/bin/python -m support.scheduler worker --name %i
 Environment=PYTHONUNBUFFERED=1
 # a stop tells the worker (TERM to the main process); it tells its children,
 # gives its leases back and raises no alarm. Anything left after 90 s is killed.
