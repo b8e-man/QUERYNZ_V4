@@ -4,7 +4,7 @@ rules, the capture on a fake transport (a council whose terms bar automated
 access is never asked, a block holds the whole site, a document is asked
 once, a page not due still yields its documents), the filled sample (real
 pages, sample.list) against the row contract, DIA's 78 councils and the
-withheld rules, and both lanes' positions against what they capture. No
+withheld rules, and the position against what it captures. No
 model is called, no PDF is read and nothing is fetched."""
 import datetime as dt
 import hashlib
@@ -19,7 +19,6 @@ from registers.councillor_interests import capture, check, load, read
 from registers.councillor_interests import sample as S
 
 LANE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REPO = os.path.dirname(os.path.dirname(LANE))
 SAMPLE_SCHEMA = "scratch_test_councillor_interests"
 SECRETS = ("14 Pretend Street", "Nowhere Road", "hemi@invented.example", "021 555 0199", "Aroha Madeup",
            "Spouse Employer Ltd", "Lot 9 Imaginary Block", "Imaginary Valley")
@@ -193,14 +192,11 @@ def _covered(host, hosts):
     return any(".".join(parts[i:]) in hosts for i in range(len(parts) - 1))
 
 
-def test_each_position_names_every_host_its_lane_asks():
-    from registers.council_minutes import capture as minutes
+def test_the_position_names_every_host_the_lane_asks():
     mine = _hosts(os.path.join(LANE, "position", "councillors-registers-of-interests.md"))
     asked = {capture.REGISTERS[c][0] for c in capture.REGISTERS}
     asked |= {re.sub(r"^https?://([^/]+).*$", r"\1", u) for v in capture.REGISTERS.values() for u in v[1:] if u}
     assert not [h for h in asked if not _covered(h, mine)]
-    plat = _hosts(os.path.join(REPO, "registers", "council_minutes", "position", "council-meeting-platform-infocouncil.md"))
-    assert not [b for b in minutes.INSTANCES if not _covered(b.split("//")[1], plat)]
 
 
 # ── the filled sample: real pages ─────────────────────────────────────────────

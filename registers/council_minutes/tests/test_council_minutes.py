@@ -286,3 +286,10 @@ def test_the_reading_is_clean_and_goes_red_when_broken(filled):
     finally:
         conn.rollback()
     assert any("grid" in p for p in problems) and any("street address" in p for p in problems)
+
+
+def test_the_position_names_every_instance_host():
+    text = open(os.path.join(LANE, "position", "council-meeting-platform-infocouncil.md"), encoding="utf-8").read()
+    hosts = {h.strip() for h in re.search(r"^hosts: (.*)$", text, re.M).group(1).split(",")}
+    covered = lambda h: any(".".join(h.split(".")[i:]) in hosts for i in range(len(h.split(".")) - 1))
+    assert not [b for b in capture.INSTANCES if not covered(b.split("//")[1])]

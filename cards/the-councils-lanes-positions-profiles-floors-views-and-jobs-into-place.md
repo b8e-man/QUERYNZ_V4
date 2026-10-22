@@ -12,7 +12,7 @@ For the integrator at the merge of `councils-1` (a session's fence keeps these o
    `registers/councillor_interests/position/councillors-registers-of-interests.md` to `docs/legal/positions/`, and
    `registers/councillor_interests/position/terms-read.md` beside the second as
    `councillors-registers-of-interests-terms.md` (it has no `hosts:` line; the position cites it); repoint
-   `test_each_position_names_every_host_its_lane_asks` at the moved files.
+   `test_the_position_names_every_host_the_lane_asks` and `test_the_position_names_every_instance_host` at the moved files.
 3. Profiles: append the lines of each lane's `profiles-proposed.jsonl` (five: two and three, version 1) to
    `support/profiles/profiles.jsonl`; remove the proposed files.
 4. Gate floors: 5 s for `infocouncil.biz` and the four council-domain instances; nothing else (each council site's
