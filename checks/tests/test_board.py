@@ -84,3 +84,14 @@ def test_job_files_carry_the_prefix_a_deadline_and_a_persistent_timer():
             assert "WorkingDirectory=/home/user/querynzv4" in text
         else:
             assert "Persistent=true" in text and "OnCalendar=" in text and "WantedBy=timers.target" in text
+
+
+def test_every_registered_check_takes_the_call_the_board_makes(monkeypatch):
+    """board.run calls each check as c(now=now); a check registered without
+    the keyword crashes into a red item (windowed, 19 to 23 October 2026)."""
+    import inspect
+    from checks import board
+    for c in board.REGISTRY:
+        sig = inspect.signature(c)
+        takes = "now" in sig.parameters or any(p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+        assert takes, f"{c.__module__}.check cannot take now=; the board would record it as crashed"

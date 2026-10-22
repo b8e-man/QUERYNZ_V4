@@ -23,7 +23,7 @@ def run_lane(lane: str) -> tuple[int, str]:
     return p.returncode, (p.stdout + p.stderr).strip()
 
 
-def check(run=run_lane, lanes=LANES) -> dict:
+def check(run=run_lane, lanes=LANES, *, now=None) -> dict:  # now: the board passes it to every check; unused here
     items = []
     for lane in lanes:
         rc, out = run(lane)
