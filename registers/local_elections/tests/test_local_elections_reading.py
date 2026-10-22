@@ -174,8 +174,8 @@ def test_a_landed_file_is_never_asked_twice():
 
 def test_the_listings_pass_follows_a_folder_and_wants_only_in_window_returns():
     pages = {"https://www.example.govt.nz/elections/returns": FOLDER,
-             "https://www.example.govt.nz/elections/returns?path=Elections/Candidate Expenses/2025": LISTING,
-             "https://www.example.govt.nz/elections/returns?path=Elections/Candidate Expenses/2022": RESULTS}
+             "https://www.example.govt.nz/elections/returns?path=Elections/Candidate%20Expenses/2025": LISTING,
+             "https://www.example.govt.nz/elections/returns?path=Elections/Candidate%20Expenses/2022": RESULTS}
     t = FakeTables([])
     f = lambda u, m: (Got(pages[u]), "landed", None) if u in pages else (Got(status=404), "not found", "HTTP 404")
     run = capture.Run(t, land_fn=lambda *a, **k: (Ref, True), fetch_fn=f, clock=NIGHT, log=lambda *a: None,
@@ -183,3 +183,12 @@ def test_the_listings_pass_follows_a_folder_and_wants_only_in_window_returns():
     out = run.listings()
     urls = [w[0] for w in t._wanted]
     assert out["returns_listed"] == 6 and not any("2016" in u for u in urls)
+
+
+def test_a_hyphenated_or_macron_name_is_one_candidate():
+    page = ("<main><h1>2025</h1><h3>Te Raki Māori Constituency</h3><a href='/media/a1b2c3d4/jones.pdf'>JONES "
+            "Peter-Lucas - electoral donations and expenses (PDF 99 KB)</a><a href='/media/a1b2c3d5/t.pdf'>TE "
+            "WHAREAU Tūī - electoral donations and expenses</a></main>").encode()
+    got = [(r["covers"], r["candidate_as_listed"], r["position"]) for r in rows(page)["rows"]]
+    assert got == [("one candidate", "JONES Peter-Lucas", "Te Raki Māori Constituency"),
+                   ("one candidate", "TE WHAREAU Tūī", "Te Raki Māori Constituency")]

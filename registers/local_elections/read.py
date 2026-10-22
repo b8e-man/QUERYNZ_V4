@@ -19,9 +19,10 @@ counted by its kind and not a row. For each return:
                        constituency, a mayoralty, a community or local board,
                        a subdivision, a licensing trust; else the link's own
                        words or the file's address; else ''
-  election_year        the item's own words or address, else the nearest
-                       context, else the page's title or address, else the
-                       year the seed lists; a year outside the window is
+  election_year        the item's own words or address, else the one year
+                       the seed lists for the page (a council that calls its
+                       2025 election '2026' is corrected there), else the
+                       nearest context, else the page's title or address; a year outside the window is
                        counted and set aside (ruling 71: 2017 onward)
   by_election          context or words that say by-election
   covers               'one candidate', or 'several candidates' where the link
@@ -56,11 +57,11 @@ NOT_A_RETURN = re.compile(
     r"\b(form|guide|guidance|handbook|instructions?|template|blank|nomination|nominations|candidate\s+profiles?|"
     r"profile\s+booklet|results?|declaration\s+of\s+(?:the\s+)?result|progress|pre-?election|report|policy|"
     r"timetable|calendar|notice|map|brochure|booklet|statistics|turnout|code\s+of\s+conduct|"
-    r"representation|order\s+paper|minutes|agenda)\b", re.I)
+    r"representation|order\s+paper|minutes|agenda|special\s*votes|voting\s+document|info\s+sheet)\b", re.I)
 #: words that make an item a blank form or advice whatever else it says
 BLANK_FORM = re.compile(r"\b(form|blank|template|guide|guidance|handbook|instructions?)\b", re.I)
 SEAT = re.compile(
-    r"\b(mayor(?:alty)?|ward|wards|constituency|constituencies|community\s+board|local\s+board|subdivision|"
+    r"\b(mayor(?:alty|al)?|ward|wards|constituency|constituencies|community\s+board|local\s+board|subdivision|"
     r"licensing\s+trust|district\s+council|regional\s+council|city\s+council|at[\s-]large|general\s+roll|"
     r"m[aā]ori\s+(?:ward|constituency)|councillors?|board|trust|regional|general)\b", re.I)
 #: context that names nothing (a council's repeated subheading under each seat)
@@ -72,13 +73,18 @@ SIZE = re.compile(r"[\(\[]\s*(?:pdf|docx?|word|xlsx?)?[\s,:-]*\d[\d.,]*\s*(?:kb|
                   re.I)
 NAME_NOISE = re.compile(
     r"\b(?:electoral|donations?|and|&|expenses?|expenditure|returns?|of|for|the|candidate'?s?|nil|declaration|"
-    r"pdf|docx?|download|view|file|amended|updated|revised|form)\b", re.I)
+    r"pdf|docx?|download|view|file|amended|updated|revised|form)\b|\b[a-z]+_[a-z_]+\b", re.I)
 
 
 #: link words that name nothing: the name is in the row before the link
-GENERIC_WORDS = re.compile(r"(?i)(?:view|download|open|see|read)?\s*(?:the\s+)?(?:return|returns|pdf|here|click here|link|"
+GENERIC_WORDS = re.compile(r"(?i)(?:page\s*\d+\s*)?(?:view|download|open|see|read)?\s*(?:now|file)?\s*(?:the\s+)?(?:return|returns|pdf|here|click here|link|"
                            r"file|document|expenses?|donations?(?:\s+and\s+expenses?)?|declaration|form)?\s*"
-                           r"(?:\(?\s*pdf[^)]*\)?)?")
+                           r"(?:\(?\s*pdf[^)]*\)?)?\s*(?:get_app|file_download|picture_as_pdf|download)?")
+
+
+#: a result's status beside a candidate's name in a results table (dropped from the name)
+STATUS_WORDS = re.compile(r"(?i)\b(?:not\s+)?(?:elected|excluded|withdrawn|retired|unsuccessful|successful|"
+                          r"pdf|kb|mb|open\s+file)\b")
 
 
 class NotTheShape(ValueError):
@@ -87,6 +93,15 @@ class NotTheShape(ValueError):
 
 def _text(fragment: str) -> str:
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", fragment))).strip()
+
+
+def safe_url(url: str) -> str:
+    """An address as a request can carry it: spaces and other unsafe characters percent-encoded, nothing else
+    changed (an address already encoded stays as it is)."""
+    p = urllib.parse.urlsplit(url.strip())
+    q = lambda s, safe: urllib.parse.quote(s, safe=safe + "%")
+    return urllib.parse.urlunsplit((p.scheme, p.netloc, q(p.path, "/:@!$&'()*+,;=-._~"),
+                                    q(p.query, "/:@!$&'()*+,;=?-._~"), ""))
 
 
 def is_file(url: str) -> bool:
@@ -124,12 +139,46 @@ def clean_position(text: str) -> str:
     return t
 
 
+SEAT_END = re.compile(r"(?i)^(.*\b(?:ward|constituency|community\s+board|local\s+board|subdivision|mayor(?:alty)?|"
+                      r"licensing\s+trust|council))\b[\s,:–—-]+(.+)$")
+
+
+def split_seat(words: str):
+    """'KCDC Ōtaki General Ward KOFOED, Rob' → ('KCDC Ōtaki General Ward', 'KOFOED, Rob'); 'X stood for the Y Board'
+    → ('the Y Board', 'X'); otherwise ('', words)."""
+    w = SIZE.sub(" ", words or "").strip()
+    m = re.match(r"(?i)^(.+?)\s+stood\s+for\s+(.+)$", w)
+    if m:
+        return m.group(2).strip(), m.group(1).strip()
+    m = SEAT_END.match(w)
+    if m and re.search(r"[A-Za-zĀĒĪŌŪāēīōū]{2}", NAME_NOISE.sub(" ", m.group(2))):
+        return m.group(1).strip(), m.group(2).strip()
+    return "", w
+
+
+NAME_LIKE = re.compile(r"^(?:[A-ZĀĒĪŌŪ][A-Za-zĀĒĪŌŪāēīōū'’.-]+|[A-ZĀĒĪŌŪ]{2,}|\([^)]{1,30}\)|,|&|and|van|de|der|du|te|ki|o)"
+                       r"(?:\s+(?:[A-ZĀĒĪŌŪ][A-Za-zĀĒĪŌŪāēīōū'’.-]+|[A-ZĀĒĪŌŪ]{2,}|\([^)]{1,30}\)|,|&|and|van|de|der|du|te|ki|o)){1,5}$")
+NOT_NAME = re.compile(r"(?i)\b(voting|votes?|results?|summary|document|declarations?|progress|daily|turnout|statistics|"
+                      r"report|notice|preliminary|final|official|count|sheet|here|click|download|view|information|"
+                      r"published|updated|date_range|page|"
+                      r"jan|feb|mar|apr|jul|aug|sep|sept|oct|nov|dec|september|october|november|december)\b")
+
+
+def looks_like_a_name(words: str) -> bool:
+    w = re.sub(r"\s*,\s*", " , ", SIZE.sub(" ", words or "")).strip()
+    return bool(NAME_LIKE.match(w)) and not NOT_NAME.search(w) and not SEAT.search(w)
+
+
+MONTH = r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+MONTH_DATE = re.compile(rf"(?i)\b(?:\d{{1,2}}(?:st|nd|rd|th)?\s+{MONTH}\.?(?:\s+\d{{4}})?|{MONTH}\.?\s+\d{{4}})\b|\b(?:december|november|october)\b")
+
+
 def name_from_words(words: str) -> str:
-    t = SIZE.sub(" ", words or "")
+    t = MONTH_DATE.sub(" ", SIZE.sub(" ", words or ""))
     t = re.sub(r"\d[\d,.%]*", " ", t)
     t = re.split(r"\s[-–—:|]\s|\s[-–—]|[-–—]\s", t, maxsplit=1)[0] if re.search(r"\s[-–—:|]\s|\s[-–—]|[-–—]\s", t) else t
     t = NAME_NOISE.sub(" ", t)
-    t = re.sub(r"\(\s*\)|\[\s*\]", " ", t)
+    t = re.sub(r"\(\s*\)|\[\s*\]|\([^)]*$|^[^(]*\)", " ", t)
     return re.sub(r"\s+", " ", t).strip(" -–—:|,._")
 
 
@@ -141,7 +190,8 @@ def name_from_address(url: str, council_words: tuple = ()) -> str:
     t = NAME_NOISE.sub(" ", t)
     for w in council_words:
         t = re.sub(rf"\b{re.escape(w)}\b", " ", t, flags=re.I)
-    return re.sub(r"\s+", " ", t).strip(" -_.")
+    t = re.sub(r"\s+", " ", t).strip(" -_.")
+    return split_seat(t)[1]
 
 
 def kind_of(words: str) -> str:
@@ -214,11 +264,12 @@ def read_listing(page: bytes, url: str, council: str, seed_year: int = None, cou
         href, words, before = ev[1], ev[2], ev[3]
         if href.startswith(("mailto:", "tel:", "javascript:", "#")):
             continue
-        absu = urllib.parse.urljoin(url, href)
+        absu = safe_url(urllib.parse.urljoin(url, href))
         if not is_file(absu):
             if (urllib.parse.urlsplit(absu).hostname or "") == host and absu.split("#")[0] != url.split("#")[0]:
-                if RETURN_WORDS.search(words) and re.search(r"donation|expense|return", words + absu, re.I) \
-                        and not NOT_A_RETURN.search(words):
+                if re.search(r"donation|expense", words, re.I) or (
+                        RETURN_WORDS.search(words) and re.search(r"donation|expense|return", absu, re.I)
+                        and not NOT_A_RETURN.search(words)):
                     follow.append(absu)
                 elif "?path=" in absu and absu.startswith(url.split("?")[0]):
                     follow.append(absu)
@@ -235,18 +286,36 @@ def read_listing(page: bytes, url: str, council: str, seed_year: int = None, cou
         if not (says_return or under_returns):
             not_returns["unrelated file"] = not_returns.get("unrelated file", 0) + 1
             continue
-        year = year_of(words, addr) or year_of(*ctx) or page_year or seed_year
-        position_line = seat_of(*ctx) or seat_of(words)
+        year = year_of(words, addr) or seed_year or year_of(*ctx) or page_year
+        file_words = re.search(r"\.(?:pdf|docx?|xlsx?)\b", words or "", re.I) is not None      # the link's words are the file's own name
+        if file_words:
+            words_for_name = re.sub(r"[_+]|(?<=[A-Za-zāēīōū])-(?=[A-Za-zāēīōū])", " ",
+                                    re.split(r"\.(?:pdf|docx?|xlsx?)\b", words, flags=re.I)[0])
+            words_for_name = re.sub(r"(?i)^\s*" + "|".join(map(re.escape, council_words or ("@@",))) + r"\b", " ", words_for_name)
+        else:
+            words_for_name = words
+        seat_words, name_words = split_seat(words_for_name)
+        addr_words = re.sub(r"[_+]|(?<=[a-zāēīōū])-(?=[a-zāēīōū])", " ", addr.rsplit("/", 1)[-1].rsplit(".", 1)[0])
+        position_line = seat_of(*ctx) or seat_words or seat_of(words) or split_seat(addr_words)[0]
         position = clean_position(position_line) if position_line else ""
         generic = not words or bool(GENERIC_WORDS.fullmatch(words.strip()))
-        name = name_from_words(before if generic else words)
-        if generic and SEAT.search(name or ""):
-            name = ""
+        if generic:
+            b_seat, b_name = split_seat(STATUS_WORDS.sub(" ", before))
+            name = name_from_words(b_name)
+            position = position or clean_position(b_seat)
+            if not looks_like_a_name(name):
+                name = next((c for c in ctx[:1] if looks_like_a_name(c)), "")
+        else:
+            name = name_from_words(name_words)
         if not name or len(name) < 3 or not re.search(r"[A-Za-zĀĒĪŌŪāēīōū]{2}", name):
             name = name_from_address(absu, council_words)
-        words_named_nobody = not generic and len(name_from_words(words)) < 3
+        name = re.sub(r"\s+", " ", STATUS_WORDS.sub(" ", name)).strip(" ,-")
+        if not says_return and not looks_like_a_name(name):
+            not_returns["unrelated file"] = not_returns.get("unrelated file", 0) + 1
+            continue
+        words_named_nobody = not generic and len(name_from_words(name_words)) < 3
         several = bool(words_named_nobody or not name or SEAT.search(name) or re.search(r"(?i)\b(all|candidates|returns|elections?|"
-                                                                 r"results|wards?|[a-z]-[a-z]|\d)\b", name)
+                                                                 r"results|wards?|\d)\b", name)
                        or name.lower() == position.lower())
         rows.append({
             "council": council, "election_year": year, "covers": "several candidates" if several else "one candidate",
