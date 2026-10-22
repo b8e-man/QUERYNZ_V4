@@ -118,13 +118,12 @@ def test_a_citation_names_the_row_it_read_and_a_planted_document_is_caught():
     one row per body, each row under its own key) is cited row by row, and the check reads back the
     document, page and place as well as the key."""
     with pub() as c:
-        # since fix-registers-iwi-directory-1 (second sitting) a row's key is its own and the settlement's is settlement_key;
-        # the test groups by that column once it is published (the gate's full tier runs before the gate publishes it)
-        shared = db.rows(c, "select key from pub.iwi_directory_settlements group by key having count(*) > 1 order by key limit 1")
+        shared = db.rows(c, "select settlement_key from pub.iwi_directory_settlements group by settlement_key having count(*) > 1 "
+                            "order by settlement_key limit 1")   # since fix-registers-iwi-directory-1 (second sitting) a row's key is its own
         if not shared:
-            pytest.skip("no settlement key names more than one row today")
-        rows = db.rows(c, "select key, document, page, place from pub.iwi_directory_settlements where key = %s order by entity_key",
-                       (shared[0]["key"],))
+            pytest.skip("no settlement is named by more than one body today")
+        rows = db.rows(c, "select key, document, page, place from pub.iwi_directory_settlements where settlement_key = %s order by entity_key",
+                       (shared[0]["settlement_key"],))
         cites = [{"view": "iwi_directory_settlements", "key": r["key"], "document": r["document"], "page": r["page"], "place": r["place"]}
                  for r in rows]
         assert check.citations_resolve(c, cites) == []
