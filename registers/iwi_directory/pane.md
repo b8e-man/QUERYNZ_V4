@@ -10,7 +10,9 @@
 - **Relations** (`pub.iwi_directory_relations`): hapū of iwi, marae of hapū, marae of iwi, organisation of iwi, iwi
   in region, rohe in local authority.
 - **Settlements** (`pub.iwi_directory_settlements`): the Act (and year) or deed a governance entity's entry names;
-  a mandate is shown as a stage, never as a settlement.
+  a mandate is shown as a stage, never as a settlement. `key` is the row's own (the entity's with the settlement's);
+  `settlement_key` is the settlement's, shared by every body whose entry names it (blank where the entry names none:
+  stage `settled: none named`).
 - **Citation** on every row: the page's sha256 (`document`), `place`, `reader`, `profile`, `profile_version`, `url`.
 
 Say on the pane: "as supplied to Te Puni Kōkiri by the organisations; not advice on whom to consult". No person, no

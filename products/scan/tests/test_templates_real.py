@@ -114,10 +114,12 @@ def test_the_procurement_read_back_holds_and_catches_a_planted_person():
 
 
 def test_a_citation_names_the_row_it_read_and_a_planted_document_is_caught():
-    """A key the iwi directory gives several rows (a collective settlement,
-    one row per body) is cited row by row, and the check reads back the
+    """A settlement the iwi directory names on several bodies' pages (a collective,
+    one row per body, each row under its own key) is cited row by row, and the check reads back the
     document, page and place as well as the key."""
     with pub() as c:
+        # since fix-registers-iwi-directory-1 (second sitting) a row's key is its own and the settlement's is settlement_key;
+        # the test groups by that column once it is published (the gate's full tier runs before the gate publishes it)
         shared = db.rows(c, "select key from pub.iwi_directory_settlements group by key having count(*) > 1 order by key limit 1")
         if not shared:
             pytest.skip("no settlement key names more than one row today")
