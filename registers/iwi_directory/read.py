@@ -231,14 +231,24 @@ def settlement_of(flag) -> dict:
                     "stage": "settled: deed signed" if deed else "settled: as printed",
                     "signed_on": deed.group(1) if deed else None, "as_printed": bracket}
         m = re.search(r"in the (.+?)\.?$", alt)
-        name = m.group(1) if m else alt.rstrip(".")
-        return {"name": name, "act": None, "act_year": None, "stage": "collective settlement", "signed_on": None,
-                "as_printed": alt}
+        if not m:
+            # the flag's own words and nothing beside them ("Post-Treaty settlement governance entity."): the entry
+            # says what the body is and names no settlement
+            return {"name": None, "act": None, "act_year": None, "stage": "settled: none named", "signed_on": None,
+                    "as_printed": alt}
+        return {"name": m.group(1), "act": None, "act_year": None, "stage": "collective settlement",
+                "signed_on": None, "as_printed": alt}
     if MANDATE.match(alt):
         aip = AIP.search(bracket or "")
         return {"name": None, "act": None, "act_year": None, "stage": "mandate recognised",
                 "signed_on": aip.group(1) if aip else None, "as_printed": bracket or alt}
     return None
+
+
+def settlement_row_key(entity_key: str, settlement_key) -> str:
+    """A settlement row's own key: the entity's with the settlement's, so a key names one row; a settlement met
+    under several bodies (a collective, a shared Act) keeps its own key in `settlement_key`."""
+    return f"{entity_key}|{settlement_key or 'no settlement named'}"
 
 
 # ── one page → rows ──────────────────────────────────────────────────────────
@@ -280,11 +290,14 @@ def _org_rows(entries, sha, url, kind, iwi_key=None):
                 continue
             if s["stage"] == "mandate recognised":
                 s_key = "tkm/mandate/" + fold(e["name"])
+            elif s["stage"] == "settled: none named":
+                s_key = None
             elif s["act"] or s["stage"] == "collective settlement":
                 s_key = "tkm/settlement/" + fold(s["name"])
             else:
                 s_key = "tkm/settlement/" + fold(e["name"]) + "/" + fold(s["signed_on"] or s["as_printed"])
-            sets.append({"key": s_key, "entity_key": key, "iwi_key": iwi_key, **s, **cite})
+            sets.append({"key": settlement_row_key(key, s_key), "settlement_key": s_key, "entity_key": key,
+                         "iwi_key": iwi_key, **s, **cite})
     return ents, rels, sets
 
 

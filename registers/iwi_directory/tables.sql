@@ -105,13 +105,16 @@ CREATE TABLE IF NOT EXISTS iwi_directory.relations (
 
 -- the settlement a governance entity's flag names (its Act, or a deed signed), and a mandate's stage
 CREATE TABLE IF NOT EXISTS iwi_directory.settlements (
-    key              text NOT NULL,                 -- tkm/settlement/<act>, tkm/settlement/<entity>/<date>, tkm/mandate/<entity>
+    key              text PRIMARY KEY,              -- the row's own: <entity key>|<settlement key>, or <entity key>|no settlement named
+    settlement_key   text,                          -- the settlement's, shared by each body whose entry names it: tkm/settlement/<act>,
+                                                    -- tkm/settlement/<entity>/<date>, tkm/mandate/<entity>; NULL where the entry names none
     entity_key       text NOT NULL,
     iwi_key          text,
     name             text,
     act              text,
     act_year         integer,
-    stage            text NOT NULL,                 -- 'settled: Act', 'settled: deed signed', 'collective settlement', 'mandate recognised', 'settled: as printed'
+    stage            text NOT NULL,                 -- 'settled: Act', 'settled: deed signed', 'collective settlement', 'mandate recognised', 'settled: as printed',
+                                                    -- 'settled: none named' (the post-settlement flag's own words, no settlement beside them)
     signed_on        text,                          -- as printed
     as_printed       text NOT NULL,
     url              text NOT NULL,
@@ -122,8 +125,7 @@ CREATE TABLE IF NOT EXISTS iwi_directory.settlements (
     reader           text NOT NULL,
     profile          text NOT NULL,
     profile_version  integer NOT NULL,
-    loaded_at        timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (key, entity_key)
+    loaded_at        timestamptz NOT NULL DEFAULT now()
 );
 
 -- labels left unread, by name, with the pages that carry them (never a value): the profile's drift record

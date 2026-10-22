@@ -38,7 +38,7 @@ COLUMNS = {
                  "hapu_represented", "area_of_interest", "local_authorities", "primary_purpose", "website", "wharenui",
                  "location", "flags", "charity_number", "nzbn", "last_updated", "pages", "url") + _CITE,
     "relations": ("key", "from_key", "relation", "to_key", "to_name", "section", "url") + _CITE,
-    "settlements": ("key", "entity_key", "iwi_key", "name", "act", "act_year", "stage", "signed_on", "as_printed",
+    "settlements": ("key", "settlement_key", "entity_key", "iwi_key", "name", "act", "act_year", "stage", "signed_on", "as_printed",
                     "url") + _CITE,
     "read_unread_labels": ("label", "pages"),
     "read_set_aside": ("document", "place", "stage", "reason"),
@@ -122,7 +122,7 @@ def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
         if k not in seen:
             seen.add(k)
             rel_rows.append(dict(r, key="|".join((r["from_key"], r["relation"], r["to_key"] or r["to_name"] or ""))))
-    set_rows = list({(s["key"], s["entity_key"]): s for s in reversed(sets)}.values())
+    set_rows = list({s["key"]: s for s in reversed(sets)}.values())
     merged = merge(ents)
     return {"entities": _copy(conn, T("entities"), COLUMNS["entities"], merged),
             "relations": _copy(conn, T("relations"), COLUMNS["relations"], rel_rows),

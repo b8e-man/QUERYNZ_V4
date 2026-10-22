@@ -18,6 +18,6 @@ SELECT r.key, r.from_key, r.relation, r.to_key, r.to_name, r.section, r.url,
 FROM iwi_directory.relations r;
 
 CREATE OR REPLACE VIEW pub.iwi_directory_settlements AS
-SELECT s.key, s.entity_key, s.iwi_key, s.name, s.act, s.act_year, s.stage, s.signed_on, s.as_printed, s.url,
+SELECT s.key, s.settlement_key, s.entity_key, s.iwi_key, s.name, s.act, s.act_year, s.stage, s.signed_on, s.as_printed, s.url,
        s.document, s.page, s.place, s.read_from, s.reader, s.profile, s.profile_version, s.loaded_at
 FROM iwi_directory.settlements s;

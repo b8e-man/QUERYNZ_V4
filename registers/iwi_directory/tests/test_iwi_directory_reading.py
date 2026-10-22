@@ -60,6 +60,8 @@ CNI = ("tree-green", "Post settlement governance entity in the Central North Isl
 MANDATE = ("treaty_sm", "Mandate recognised by the Crown for Treaty of Waitangi settlement negotiations. ",
            "Agreement in Principle signed with the Crown on 28 June 2019")
 RMA = ("rma_sm", "Resource Management Act consultation. ", None)
+#: the post-settlement flag with nothing beside it (Hako Tūpuna Trust, Ngāti Porou ki Hauraki Rūnanga Trust)
+PLAIN = ("posttreaty_sm", "Post-Treaty settlement governance entity. ", None)
 CONTACT = [("Chair", SECRETS[0]), ("Ph", SECRETS[1]), ("Email", f'<a href="mailto:{SECRETS[2]}">{SECRETS[2]}</a>'),
            ("Postal Address", f"{SECRETS[4]}<br />Nowhere 3999"), ("Physical Address", SECRETS[3]),
            ("RMA Contact", SECRETS[5]), ("Mobile", SECRETS[6])]
@@ -76,7 +78,9 @@ def _sample_page():
                 [("Legal entity", "Incorporated Society"), ("Hapū Represented", "Ngāti Tahi")] + CONTACT,
                 h2="Groups that represent hapū of this iwi for the purposes of the RMA")
          + _org(3, "Invented Collective Trust", [DEED, CNI], [("Legal entity", "Trust")])
-         + _org(4, "Invented Negotiations Team", [MANDATE], [("Legal entity", "Not Applicable")]))
+         + _org(4, "Invented Negotiations Team", [MANDATE], [("Legal entity", "Not Applicable")])
+         + _org(5, "Invented Forests Trust", [CNI], [("Legal entity", "Trust")])
+         + _org(6, "Invented Plain Trust", [PLAIN], [("Legal entity", "Trust")]))
     return _iwi_page(t, o)
 
 
@@ -118,7 +122,18 @@ def rules(r) -> list:
             broken.append(f"a contact value leaves the page: {s[:4]}…")
     if "Chair" not in out["unread"] or "Email" not in out["unread"]:
         broken.append("the unread labels are counted by name")
-    sets = {s["key"]: s for s in out["settlements"]}
+    keys = [s["key"] for s in out["settlements"]]
+    if len(set(keys)) != len(keys) or any(s["key"] != r.settlement_row_key(s["entity_key"], s["settlement_key"])
+                                          for s in out["settlements"]):
+        broken.append(f"a settlement row's key is its entity's with the settlement's, one row each: {keys}")
+    cni_rows = [s for s in out["settlements"]
+                if s["settlement_key"] == "tkm/settlement/central-north-island-forests-iwi-collective-settlement"]
+    if sorted(s["entity_key"] for s in cni_rows) != ["tkm/org/invented-collective-trust", "tkm/org/invented-forests-trust"]:
+        broken.append("a collective named by two bodies is two rows under one settlement key")
+    plain = [s for s in out["settlements"] if s["entity_key"] == "tkm/org/invented-plain-trust"]
+    if [(s["name"], s["settlement_key"], s["stage"]) for s in plain] != [(None, None, "settled: none named")]:
+        broken.append(f"the post-settlement flag's own words name no settlement: {plain}")
+    sets = {s["settlement_key"]: s for s in out["settlements"]}
     act = sets.get("tkm/settlement/ngati-invented-claims-settlement-act-2019")
     if not act or act["act_year"] != 2019 or act["stage"] != "settled: Act":
         broken.append("a governance entity's Act is its settlement, with its year")
@@ -206,6 +221,10 @@ MUTANTS = {
                                         'entry["fields"][col] = text(val)'),
     "a deed keyed by its words": ('s_key = "tkm/settlement/" + fold(e["name"]) + "/" + fold(s["signed_on"] or s["as_printed"])',
                                   's_key = "tkm/settlement/" + fold(s["as_printed"])'),
+    "a settlement row keyed by the settlement alone": ('"key": settlement_row_key(key, s_key)', '"key": s_key'),
+    "the flag's own words read as a collective": (
+        'return {"name": None, "act": None, "act_year": None, "stage": "settled: none named"',
+        'return {"name": alt.rstrip("."), "act": None, "act_year": None, "stage": "collective settlement"'),
     "unknown flags dropped": ('return FLAG_BY_IMAGE.get(parts[0], "other: " + parts[0])', 'return FLAG_BY_IMAGE.get(parts[0], "")'),
     "the flag's qualifier ignored": ('        if f"{parts[0]}_{q}" in FLAG_BY_IMAGE:\n', "        if False:\n"),
     "a contact icon kept": ("            if img and contact_image(img.group(1)):\n", "            if False:\n"),
@@ -372,11 +391,11 @@ def filled():
 
 
 def test_every_page_is_in_the_ledger_and_none_set_aside(filled):
-    assert len(filled["read_pages"]) == len(filled["entries"]) == 40 and not filled["read_set_aside"]
+    assert len(filled["read_pages"]) == len(filled["entries"]) == 41 and not filled["read_set_aside"]
     kinds = {}
     for p in filled["read_pages"]:
         kinds[p["kind"]] = kinds.get(p["kind"], 0) + 1
-    assert kinds == {"iwi": 14, "region": 13, "authority": 2, "omo": 1, "nontribal": 1, "site": 9}
+    assert kinds == {"iwi": 15, "region": 13, "authority": 2, "omo": 1, "nontribal": 1, "site": 9}
 
 
 def test_every_row_meets_the_row_contract(filled):
@@ -412,6 +431,19 @@ def test_the_hard_cases_read_as_the_site_prints_them(filled):
     assert any(r["relation"] == "marae of iwi" and r["to_key"] == "tkm/iwi/muaupoko" for r in filled["relations"])
     assert not [e for e in filled["entities"] if read.PLACEHOLDER.match(e["name"])]
     assert ents["tkm/org/ngati-mutunga-o-wharekauri-iwi-trust"]["website"] is None
+
+
+def test_a_settlement_key_names_one_row(filled):
+    """Card a-settlement-key-names-several-rows: each row its own key (the entity's with the settlement's), the
+    settlement's kept beside it; Hako Tūpuna Trust's flag is the flag's own words, which name no settlement."""
+    rows = filled["settlements"]
+    assert len({s["key"] for s in rows}) == len(rows)
+    assert all(s["key"] == read.settlement_row_key(s["entity_key"], s["settlement_key"]) for s in rows)
+    assert not [s for s in rows if read.PSGE.match(s["name"] or "")]
+    hako = [(s["name"], s["settlement_key"], s["stage"]) for s in rows if s["entity_key"] == "tkm/org/hako-tupuna-trust"]
+    assert hako == [(None, None, "settled: none named")]
+    assert {s["settlement_key"] for s in rows if s["iwi_key"] == "tkm/iwi/ngati-hako"} == {
+        None, "tkm/mandate/ngati-hako-treaty-settlement-negotiators"}
 
 
 def test_no_contact_value_on_a_page_reaches_a_row(filled):

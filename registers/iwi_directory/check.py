@@ -12,7 +12,8 @@ local and regional authority lists link (117 distinct iwi on 22 October
   3. the reading does not reconcile: a page in the ledger as read with no
      rows, a relation or settlement whose entity is not held, a hapū whose
      iwi is not held, a role flag no rule names (`other: …`: the profile must
-     learn it before the row is trusted)
+     learn it before the row is trusted), a settlement row keyed other than
+     by its entity and settlement, or named by the flag's own words
   4. a table or view carries a column named for a person's contact or an
      address, or a text value shaped like an email address or a phone number
      (reported by key, never by value: hard limit 15)
@@ -63,6 +64,14 @@ def reading(conn, schema: str = SCHEMA) -> list:
                      "WHERE e.key = s.entity_key)").fetchone()[0]
     if n:
         out.append(f"{n} settlements whose entity is not held")
+    n = conn.execute(f"SELECT count(*) FROM {T('settlements')} WHERE key <> entity_key || '|' || "
+                     "coalesce(settlement_key, 'no settlement named')").fetchone()[0]
+    if n:
+        out.append(f"{n} settlement rows not keyed by their entity and settlement (a key must name one row)")
+    n = conn.execute(f"SELECT count(*) FROM {T('settlements')} WHERE name ~* "
+                     "'^post[- ](treaty )?settlement governance entity'").fetchone()[0]
+    if n:
+        out.append(f"{n} settlements named by the post-settlement flag's own words")
     n = conn.execute(f"SELECT count(*) FROM {T('entities')} WHERE kind = 'hapū' AND iwi_key NOT IN "
                      f"(SELECT key FROM {T('entities')} WHERE kind = 'iwi')").fetchone()[0]
     if n:
