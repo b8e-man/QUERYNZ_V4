@@ -948,7 +948,7 @@ at_utc = "17:35"
 nice = 10
 
 [jobs.qv4-settlement-commitments-watch]
-description = "Step 6.2 template 3: Te Haeata's records address asked once a week (red the day the login wall falls) and the open pages about the source every 30 days, landed by hash. Weekly by interval, which the scheduler's clock lands on Thursday 13:00 NZDT: one request, so the daytime is accepted; the spec's Sunday 23:15 needs a weekday field the catalogue does not have."
+description = "Step 6.2 template 3: Te Haeata's records address asked once a night (red the day the login wall falls) and the open pages about the source every 30 days, landed by hash. Daily at 23:15 NZDT, inside the capture's off-peak window: a weekly interval landed on Thursday 13:00 NZDT, which the capture refuses, so every weekly slot failed (22 October)."
 needs = "processor"
 memory_gb = 0.2
 deadline_s = 900
@@ -956,7 +956,7 @@ query_timeout_s = 60
 class = "due"
 priority = 73
 command = ["python", "-m", "registers.settlement_commitments.capture"]
-every_s = 604800
+at_utc = "10:15"
 nice = 10
 
 # ── step 6.3, agency contract disclosures and council procurement (procurement-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
