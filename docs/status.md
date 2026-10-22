@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
 
-**Date:** 2026-10-23, 02:30 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-23, 04:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 day three not clean; 5.1 done; 5.2 closed (ten templates, `fix-report-2`
 parameters); 5.3 eight lanes merged (OpenLaw, HDC held on terms; sanctions
 lists held); 5.4 merged; 5.5 merged; 6.1 merged (`scan-1`, the scan on
@@ -29,8 +29,8 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- `fix-support-scheduler-1` (a new job takes its next slot; reload only
-  from main), `fix-support-fetchgate-1` (the challenge check; headers).
+- `fix-support-scheduler-1` in the gate (a new job takes its next slot).
+  Merged: the fetch gate's second sitting (a block known by its own page).
   Merged 21 to 23 October (`docs/merges/`): sanctions, scan, tenders
   (29,874 award notices), regulators, oio, hdc, diaries, grants 1 and 2
   (178,729 grants), scan templates, redirects, `fix-support-db-1` (a
