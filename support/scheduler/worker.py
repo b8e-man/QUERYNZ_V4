@@ -180,7 +180,7 @@ class Worker:
             self.alarm(f"qv4 {self.box}: worker {w['name']} silent",
                        f"no heartbeat from {w['name']} ({w['box']}) since {seen:%Y-%m-%d %H:%M} UTC; "
                        f"its leases lapse and {self.name} takes them over")
-        for qid in q.enqueue_due(self.conn, self.schema, self.registry, now=now, created_by=self.name):
+        for qid in q.enqueue_due(self.conn, self.schema, self.registry, now=now, created_by=self.name, log=self.log):
             self.log(f"timetable: queued row {qid}")
         for qid in q.enqueue_standing(self.conn, self.schema, self.registry, now=now, created_by=self.name):
             self.log(f"standing: queued row {qid}")

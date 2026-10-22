@@ -3,6 +3,7 @@ slow): it claims only what it can run, runs under the limits, records the
 run, and two workers finish a job between them when one stops mid-piece."""
 from __future__ import annotations
 
+import datetime as dt
 import os
 import time
 import uuid
@@ -165,6 +166,9 @@ def test_a_timetabled_job_runs_on_whichever_worker_is_up(conn, s, tmp_path):
     p = tmp_path / "jobs.toml"
     p.write_text(toml)
     registry = {n: j for n, j in reg.load(p).items() if n == "qv4-rehearsal-tick" or not (j.every_s or j.at_utc or j.wanted)}
+    # the clock already knows the job (a job new to it would wait for its next slot): one slot owed
+    conn.execute(f"INSERT INTO {s}.timetable (job, last_slot, last_by, clock) VALUES ('qv4-rehearsal-tick', %s, 'test', %s)",
+                 (q.utcnow() - dt.timedelta(seconds=600), q.clock_of(registry["qv4-rehearsal-tick"])))
     a = worker("node2", s, registry=registry)
     a.stop()
     a._finish_stop()
