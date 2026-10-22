@@ -318,7 +318,8 @@ def copy_credentials(box: str, cred_dir: str = CRED_DIR, sh=None) -> dict:
 
 def check(profiles: dict, repo: str = REPO, unit_dir: str = UNIT_DIR, box: str = None) -> dict:
     """The parity report, as plain facts."""
-    return {"code": plan_code(repo, box), "venv": plan_venv(repo), "units": plan_units(repo, unit_dir),
+    from support.installer import release
+    return {"code": plan_code(repo, box), "venv": plan_venv(repo), "release": release.state(), "units": plan_units(repo, unit_dir),
             "model_server": plan_model_server(), "models": plan_models(profiles),
             "credentials": {"dir": cred_dir_state(), "box": box}}
 
