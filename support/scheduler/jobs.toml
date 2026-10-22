@@ -958,3 +958,40 @@ priority = 73
 command = ["python", "-m", "registers.settlement_commitments.capture"]
 every_s = 604800
 nice = 10
+
+# ── step 6.3, agency contract disclosures and council procurement (procurement-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
+[jobs.qv4-contract-disclosures-refresh]
+description = "Step 6.3: the government data catalogue's descriptions of ACC's health contract file and any changed file, 10 s apart, off-peak. Due daily at 22:40 NZDT; the capture asks nothing until 28 days after its last request, or within a week of a block."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 1200
+query_timeout_s = 60
+class = "due"
+priority = 74
+command = ["python", "-m", "registers.contract_disclosures.capture", "--refresh"]
+at_utc = "09:40"
+nice = 10
+
+[jobs.qv4-contract-disclosures-load]
+description = "Step 6.3: ACC's health contract costs by class, region, authority and year from the newest file, built in staging, held to the file's own totals, published only on green; nothing when the listing is the one published. Daily at 06:40 NZDT."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 900
+query_timeout_s = 600
+class = "due"
+priority = 75
+command = ["python", "-m", "registers.contract_disclosures.load", "--job"]
+at_utc = "17:40"
+nice = 10
+
+[jobs.qv4-council-procurement-watch]
+description = "Step 6.3: the four pages whose terms keep councils' own procurement lists out (Clutha, Tauranga, Dunedin, VendorPanel), re-read 7 s apart and landed by hash, red the day one changes. Due daily at 22:50 NZDT; the watch asks nothing until 30 days after the last."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 900
+query_timeout_s = 60
+class = "due"
+priority = 76
+command = ["python", "-m", "registers.council_procurement.capture"]
+at_utc = "09:50"
+nice = 10
