@@ -46,9 +46,14 @@ def test_the_lane_folder_has_the_shape():
 
 def test_the_position_names_every_watched_host_and_the_platforms():
     pos = fg.positions(os.path.dirname(_position()))
+    text = open(_position(), encoding="utf-8").read()
+    mine = {x.strip().lower() for x in re.search(r"^hosts:\s*(.+)$", text, re.M).group(1).split(",")}
     for url in read.WATCHED:
         h = fg.host_of(url)
-        assert any(pos.get(p) == NAME[:-3] for p in (h, h.split(".", 1)[1])), h
+        # named by this position, and known to the gate (another position may name the same council host:
+        # the councillors' interests position does, and the gate's map takes the later file; either permits)
+        assert any(p in mine for p in (h, h.split(".", 1)[1])), h
+        assert any(p in pos for p in (h, h.split(".", 1)[1])), h
     assert pos["tenderlink.com"] == pos["vendorpanel.nz"] == NAME[:-3]
 
 
