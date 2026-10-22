@@ -266,3 +266,33 @@ def test_the_reading_is_clean_and_goes_red_when_broken(filled):
     finally:
         conn.rollback()
     assert len(problems) == 3, problems
+
+
+def test_links_resolve_against_the_page_s_base_and_are_cleaned():
+    page = (b'<base href="https://www.invented.govt.nz/" /><a href="assets/Register-of-Interests/Cr Invented\n 2026.pdf">'
+            b'Register of interests</a><a href="assets/M\xc4\x81ori-pecuniary.pdf">x</a>')
+    got = capture.register_links(page, "https://www.invented.govt.nz/our-council/register/", "www.invented.govt.nz")
+    assert got == [("https://www.invented.govt.nz/assets/Register-of-Interests/Cr%20Invented%202026.pdf", "document"),
+                   ("https://www.invented.govt.nz/assets/M%C4%81ori-pecuniary.pdf", "document")]
+
+
+def test_a_malformed_address_holds_nothing_and_a_same_site_redirect_is_followed_once(monkeypatch):
+    import http.client
+    import support.docstore.landing as L
+    store, t = {}, FakeTables()
+    monkeypatch.setattr(L, "read_bytes", lambda sha, root=None: store[sha])
+    land = b'<a href="/r1.pdf">pecuniary</a><a href="/r2.pdf">pecuniary</a>'
+
+    def answers(u):
+        if u.endswith("r1.pdf"):
+            raise http.client.InvalidURL("URL can't contain control characters")
+        if u.endswith("r2.pdf"):
+            r = _fetched(u, 301)
+            r.location = "https://invented.govt.nz/r2-moved.pdf"
+            return r
+        return _fetched(u, body=b"%PDF-1.4 y" if u.endswith(".pdf") else land)
+    regs = {"Invented District Council": REGS["Invented District Council"]}
+    r, asked = _run(t, answers, store, regs)
+    out = r.run()
+    assert t.held == {} and out["documents"] == 1 and asked[-1] == "https://invented.govt.nz/r2-moved.pdf"
+    assert t.last_asked("https://www.invented.govt.nz/r1.pdf")[0] is not None   # FakeTables keeps every row

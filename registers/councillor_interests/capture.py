@@ -56,6 +56,8 @@ COUNCIL_LIST_SHA = "b6a3c7102ca288c97fe1bad88249587a4b0906b2a198eb9ce841c3c336be
 REGISTER_LINK = re.compile(r"pecuniar|pecuinar|register[-_ %20]*of[-_ %20]*(members[-_ %20’'s]*)?interest|interests?[-_ %20]*register"
                            r"|members[-_ %20’'s]*interests|declarations?[-_ %20]*of[-_ %20]*interest|registered[-_ %20]*interests",
                            re.I)
+NOT_SENT = "not sent: "
+SERVER_ERRORS = (500, 502, 503, 504)
 DOC = re.compile(r"\.pdf($|\?)|/repository/libraries/|/__data/assets/pdf_file/|/document/serve|/filelink/|/media/[a-z0-9]{8}/", re.I)
 
 #: councils whose website terms bar automated access, read through the gate on 22 October 2026 (sha256 of the terms
@@ -178,16 +180,28 @@ def on_site(url: str, host: str) -> bool:
     return h == host or site_of(h) == site_of(host) or h.endswith("." + site_of(host))
 
 
+def clean_url(url: str) -> str:
+    """An address as a browser sends it: control characters dropped, spaces and other unsafe characters
+    percent-encoded (three councils link files by names with spaces, line breaks or macrons)."""
+    url = re.sub(r"[\x00-\x1f\x7f]", "", url).strip()
+    p = urllib.parse.urlsplit(url)
+    safe = "/%:@!$&'()*+,;=-._~"
+    return urllib.parse.urlunsplit((p.scheme, p.netloc, urllib.parse.quote(p.path, safe=safe),
+                                    urllib.parse.quote(p.query, safe=safe + "?"), ""))
+
+
 def register_links(body: bytes, page_url: str, host: str) -> list:
     """The links on a page, on the council's own site, that name the register by address or words, each once:
-    [(url, 'document' | 'page')]."""
+    [(url, 'document' | 'page')]. Relative links resolve against the page's own `<base href>` where it has one."""
     page = body.decode("utf-8", "replace")
+    base = re.search(r"<base\b[^>]*href=[\"']([^\"']+)", page, re.I)
+    page_url = urllib.parse.urljoin(page_url, html.unescape(base.group(1))) if base else page_url
     out, seen = [], set()
     for m in re.finditer(r"<a\b[^>]*href=[\"']([^\"'#]+)[\"'][^>]*>(.*?)</a>", page, re.S | re.I):
         href, words = html.unescape(m.group(1)).strip(), re.sub(r"<[^>]+>", " ", m.group(2))
         if href.lower().startswith(("mailto:", "tel:", "javascript:")):
             continue
-        url = urllib.parse.urljoin(page_url, href)
+        url = clean_url(urllib.parse.urljoin(page_url, href))
         if url in seen or url.rstrip("/") == page_url.rstrip("/") or not on_site(url, host):
             continue
         if not (REGISTER_LINK.search(urllib.parse.unquote(url)) or REGISTER_LINK.search(html.unescape(words))):
@@ -195,6 +209,10 @@ def register_links(body: bytes, page_url: str, host: str) -> list:
         seen.add(url)
         out.append((url, "document" if DOC.search(url) else "page"))
     return out
+
+
+def capture_same_site(a: str, b: str) -> bool:
+    return site_of(fg.host_of(a)) == site_of(fg.host_of(b))
 
 
 def capture_site_held(url: str, held: dict) -> bool:
@@ -224,8 +242,10 @@ class Tables:
         self.set_aside(host, "host", why)
 
     def last_asked(self, url):
+        """When the url was last asked, and whether as a document; a request that never left the box (a malformed
+        address) is not an ask."""
         r = self.conn.execute(f"SELECT max(asked_at), bool_or(kind = 'document') FROM {self.T('capture_items')} "
-                              "WHERE url = %s", (url,)).fetchone()
+                              "WHERE url = %s AND coalesce(why, '') NOT LIKE %s", (url, NOT_SENT + "%")).fetchone()
         return r if r else (None, None)
 
     def newest_sha(self, url):
@@ -276,7 +296,7 @@ class Run:
             return False                                   # a document is asked once
         return (dt.datetime.now(dt.timezone.utc) - at).days >= EVERY_DAYS
 
-    def ask(self, council, url, kind, found_on, held):
+    def ask(self, council, url, kind, found_on, held, hops=0):
         host = fg.host_of(url)
         if capture_site_held(url, held) or not self.due(url, kind):
             return None
@@ -287,19 +307,29 @@ class Run:
             f = self.opener(url, 90)
         except fg.Refused as exc:
             f, why = None, f"refused by the gate: {str(exc)[:200]}"
+        except (ValueError, UnicodeError) as exc:      # a malformed address: the request never left the box
+            self.t.item(council, url, kind, found_on, None, None, f"{NOT_SENT}{type(exc).__name__}: {str(exc)[:200]}")
+            self.counts["failed"] += 1
+            return None
         except Exception as exc:  # noqa: BLE001
             f, why = None, f"transport: {type(exc).__name__}: {str(exc)[:200]}"
         if f is not None and f.blocked:
             why = f.blocked
+        elif f is not None and f.location and capture_same_site(f.location, url) and hops < 1:
+            self.t.item(council, url, kind, found_on, f.status, None, f"HTTP {f.status}: to {f.location} on the same site")
+            return self.ask(council, clean_url(f.location), kind, url, held, hops + 1)
         elif f is not None and (f.status != 200 or not f.body):
             why = f"HTTP {f.status}" + (f", redirected to {f.location}: not followed" if f.location else "")
         if why:
             self.t.item(council, url, kind, found_on, getattr(f, "status", None), None, why)
             self.counts["failed"] += 1
-            if not why.startswith(("HTTP 404", "HTTP 410", "HTTP 30")):
-                self.t.hold(host, why)
-                held[host] = why
-                self.counts["held_hosts"] += 1
+            if f is None and not why.startswith("refused"):
+                return None                             # a transport failure: the host may be in trouble, not a block
+            if f is not None and not f.blocked and f.status not in SERVER_ERRORS:
+                return None                             # the host answering: 404, 410, a redirect off the site
+            self.t.hold(host, why)
+            held[host] = why
+            self.counts["held_hosts"] += 1
             return None
         is_pdf = f.body[:5] == b"%PDF-"
         ref, new = self.land_fn(f.body, name=url, content_type="application/pdf" if is_pdf else "text/html")
