@@ -1,6 +1,6 @@
 # local-elections-1: where the lane stands
 
-**Date:** 2026-10-22, 20:5x NZDT. **Lane:** `registers/local_elections` (step 6.3), Opus, node2.
+**Date:** 2026-10-22, 22:4x NZDT. **Lane:** `registers/local_elections` (step 6.3), Opus, node2.
 
 ## Done (each a tranche with real-data tests: 40 green, fast tier 39 s)
 
@@ -17,13 +17,14 @@
 
 ## Half-done
 
-- The files pass (each return once, oldest first, off-peak) starts at 22:00 into
-  `scratch_local_elections_capture` of `querynz_v4_sample`; it stops at 06:00 if unfinished. Its capture list
-  (`capture list`) goes to the integrator, who adopts it into the live database with no second fetch.
+- The files pass runs 22:00 to 06:00 into `scratch_local_elections_capture` of `querynz_v4_sample` (at 22:32:
+  204 landed, 50 gone (404), Dunedin and Northland 403). It will not finish tonight (about 5 a minute). When it
+  stops, `tools/after-night.sh` in the scratch folder writes `capture-list.jsonl` and appends the counts to the
+  merge request; the integrator adopts it (no second fetch) and the files job asks the rest.
 
 ## Next
 
-- The merge request, after the night's files pass.
+- Merge request raised (`merge-requests/local-elections-1.md`).
 - Cards: a second survey (22 councils, Tasman's folders, the HTML-only returns), the returns' reading (after
   node1), the held and the failed councils. Queue: `whether-to-ask-the-councils-whose-terms-bar-automated-access`
   (no default).
