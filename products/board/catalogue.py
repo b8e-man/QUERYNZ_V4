@@ -769,6 +769,31 @@ VIEWS: tuple[View, ...] = (
                  ("licence", "licence"), ("attribution", "attribution")),
          default_order="financial_year",
          note="ACC's own Official Information Act answer: claims and costs through each class of its health contracts, by year and place; no supplier is named; a suppressed cell is shown as ACC printed it"),
+    # ── step 6.3, the councils lanes (councils-1; catalogued in the merge after; each lane's views.md) ──
+    View("council_meetings", "council_minutes", "event", ("council", "body"),
+         search=("council", "body", "kind", "code", "minutes_file"),
+         fields=(("council", "council"), ("body", "body"), ("time", "meeting_time"), ("kind", "kind"), ("code", "code"),
+                 ("documents listed", "documents"), ("minutes file", "minutes_file"), ("minutes held", "minutes_held"),
+                 ("minutes sha256", "minutes_sha256"), ("source", "source")),
+         dates=(("meeting date", "meeting_date"),),
+         urls=("minutes_url", "listing_url"),
+         default_order="meeting_date",
+         note="one row per meeting on the council's own InfoCouncil listing; the minutes are held by hash and never read (plan 6.3): no attendance, no resolution, no venue"),
+    View("councillor_interest_registers", "councillor_interests", "document", ("council", "form"),
+         search=("council", "host", "form", "why"),
+         fields=(("host", "host"), ("form", "form"), ("documents held", "documents_held"), ("members read", "members_read"), ("why", "why")),
+         urls=("landing_url",),
+         joins=(Join("Interests", "councillor_interests", "council", key_column="council", order="member"),),
+         default_order="council", key_col="council",
+         note="the 78 councils' registers of members' interests: where each is, in what form, what is held, and why nothing is read where it is not"),
+    View("councillor_interests", "councillor_interests", "person", ("member", "council"),
+         search=("member", "council", "role", "category"),
+         fields=(("council", "council"), ("role", "role"), ("category", "category"), ("entries", "entries"),
+                 ("as at", "as_at"), ("source", "source")),
+         urls=("url",),
+         names=("member",),
+         parent=("Register", "councillor_interest_registers", "council"), default_order="member",
+         note="an elected member's declared interests as the council's own structured register publishes them; never real property, a home, an address, a contact, or a spouse's or partner's interests. Off the public site unless Arthur says (hard limit 14)"),
 )
 
 BY_NAME = {v.name: v for v in VIEWS}
@@ -800,6 +825,8 @@ REGISTERS = (
     ("courts", "Court judgments of the senior courts, by caption"),
     ("iwi_directory", "Iwi, hapū, marae and post-settlement governance entities (Te Kāhui Māngai, CC BY 3.0 NZ as catalogued)"),
     ("contract_disclosures", "Agency contract disclosures: ACC's health contract costs (an OIA answer on the data catalogue, CC BY 3.0 NZ)"),
+    ("council_minutes", "Council meetings on InfoCouncil (minutes held by hash, never read)"),
+    ("councillor_interests", "Councillors' registers of interests, council by council (off the public site: hard limit 14)"),
 )
 
 #: registers the plan names that no lane has published yet (plan step 4.1 and later steps)

@@ -18,6 +18,7 @@ PUBLISHED_AT_20_OCTOBER = {
     "award_notices", "award_suppliers",   # tenders-1 (21 October), catalogued at the next merge
     "iwi_directory_entities", "iwi_directory_relations", "iwi_directory_settlements",   # settlements-1 (22 October), catalogued at the procurement-1 merge
     "agency_contract_costs",   # procurement-1 (22 October), catalogued at its own merge: the view already stood on the live database
+    "council_meetings", "councillor_interest_registers", "councillor_interests",   # councils-1 (23 October), catalogued at the local-elections-1 merge
     "sanctions_lists", "sanctions_listings",   # sanctions-1 (21 October), catalogued once published
     "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "building_practitioners",   # sanctions-1 (21 October)
     "court_judgments", "court_judgment_parties",   # courts-1 (21 October), catalogued at the next merge
