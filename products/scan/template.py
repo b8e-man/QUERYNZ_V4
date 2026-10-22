@@ -75,7 +75,9 @@ class Step:
 
     @property
     def fold_note(self) -> str:
-        return "by business number or by name" if self.number else "by name"
+        if not self.number:
+            return "by name"
+        return f"by {'charity number' if 'charit' in ' '.join(self.number) else 'business number'} or by name"
 
 
 @dataclass(frozen=True)

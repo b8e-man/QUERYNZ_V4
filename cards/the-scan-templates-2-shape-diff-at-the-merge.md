@@ -1,9 +1,10 @@
 # The scan shape's additions for template 3 go in at the merge
 kind: blocker
-state: open
+state: closed
 use-case: 14 the post-settlement governance map
 session: scan-templates-2
 opened: 2026-10-23
+closed: 2026-10-23
 
 The session's fence is `products/scan/templates/`; the six `settlement-map-*`
 scans need four additions to the shape in `products/scan/`, carried as
@@ -33,3 +34,10 @@ Until it is applied `templates/_tests/test_settlement_map.py` skips (guarded:
 the skip cannot outlive the diff) and the six templates do not load, so
 `run --stale` and the check fail loudly. Fate: applied in the same commit as
 the templates and `_shape/` removed, then this card closes.
+
+## Closed (integrator, 2026-10-23)
+
+The diff applied on `integrate/scan-templates-2` by the integrator's own
+unified-diff reader (the hooks refuse `git apply` and `patch`): six files, ten hunks, every context line matched,
+line counts 113→122, 241→243, 201→205, 326→463, 136→148, 114→162; `_shape/` deleted in the same commit as the
+six templates. `bin/fast products/scan` green in 41.6 s with the diff in.
