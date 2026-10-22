@@ -4,7 +4,8 @@
   `name` as the site prints it, `listed_as` (the rohe section, the kind of organisation, tribal or non-tribal marae),
   an iwi's `region`, an organisation's `legal_entity`, `governance_structure`, `hapu_represented`, `website` and its
   role `flags` as printed (post-settlement governance entity with its Act, mandated iwi organisation, iwi aquaculture
-  organisation, RMA iwi authority, Tūhono), a marae's `wharenui` and `location`. `charity_number` and `nzbn` only
+  organisation, RMA iwi authority, RMA group representing hapū, Tūhono, member of Ngā Iwi o Taranaki for the
+  Taranaki Maunga collective redress), a marae's `wharenui` and `location` (blank where the page has no column). `charity_number` and `nzbn` only
   where the page prints them.
 - **Relations** (`pub.iwi_directory_relations`): hapū of iwi, marae of hapū, marae of iwi, organisation of iwi, iwi
   in region, rohe in local authority.

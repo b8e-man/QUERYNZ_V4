@@ -5,6 +5,7 @@ row contract, the ledger, withholding and the views. No model is called and
 nothing is fetched."""
 import datetime as dt
 import os
+import re
 import types
 
 import pytest
@@ -437,6 +438,55 @@ def test_the_check_goes_red_on_a_name_shown_an_address_or_a_broken_ledger(filled
     finally:
         conn.rollback()
     assert check.views(conn, f"{SAMPLE_SCHEMA}.v_") == []
+
+
+PRIVATE = re.compile(r"\b\w+_private\.")                     # a table in a private schema
+
+
+class _Recording:
+    """A connection that keeps every statement it is given."""
+
+    def __init__(self, conn):
+        self.conn, self.sql = conn, []
+
+    def execute(self, q, *a, **kw):
+        self.sql.append(str(q))
+        return self.conn.execute(q, *a, **kw)
+
+
+def test_the_reader_s_run_names_no_private_schema(filled):
+    """The board runs the check bare, under the session reader, which has no grant on a _private schema."""
+    rec = _Recording(filled["conn"])
+    assert check.reading(rec, SAMPLE_SCHEMA, private=False) == []
+    assert rec.sql and not any(PRIVATE.search(q) for q in rec.sql)
+    rec = _Recording(filled["conn"])
+    assert check.reading(rec, SAMPLE_SCHEMA) == []
+    assert any(PRIVATE.search(q) for q in rec.sql)              # the owner's run still reads the twin itself
+    rec = _Recording(filled["conn"])
+    check.views(rec, f"{SAMPLE_SCHEMA}.v_")
+    assert not any(PRIVATE.search(q) for q in rec.sql)
+
+
+def test_the_private_count_matches_the_twin_and_goes_red(filled):
+    conn = filled["conn"]
+    T = lambda t: load.table(SAMPLE_SCHEMA, t)
+    assert filled["read_statements"] == [{"statements": len(filled["investments"]), "stray": 0}]
+    conn.execute(f"INSERT INTO {T('investments')} VALUES ('overseas_investment/decision/none', 'x', %s)", (SHA,))
+    try:
+        assert check.reading(conn, SAMPLE_SCHEMA, private=False) == []       # the count stands until the next load
+        assert any("private table holds" in p for p in check.reading(conn, SAMPLE_SCHEMA))
+        load.count_private(conn, SAMPLE_SCHEMA)
+        assert "1 private statements with no decision" in check.reading(conn, SAMPLE_SCHEMA, private=False)
+    finally:
+        conn.rollback()
+    for mutate in (f"DELETE FROM {T('read_statements')}", f"INSERT INTO {T('read_statements')} VALUES (0, 0)",
+                   f"UPDATE {T('read_statements')} SET statements = 10000", f"DROP TABLE {T('read_statements')}"):
+        conn.execute(mutate)
+        try:
+            assert check.reading(conn, SAMPLE_SCHEMA, private=False) != [], mutate
+        finally:
+            conn.rollback()
+    assert check.reading(conn, SAMPLE_SCHEMA, private=False) == []
 
 
 def test_the_listing_pages_read_their_pager(filled):

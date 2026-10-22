@@ -44,3 +44,11 @@ key: page 3e38e16a8bc65464ba9453e7ae7dcb22d3f250dfd62228c2a45a3c98977da6d5
 # the position's evidence that is not a page of the site: the government data catalogue's record of the directory
 # (CC-BY-NZ-3.0, published by the Ministry of Māori Development)
 3377b9be327a89e60729f784ec568aee007d1d6d00cc88ff9a6223a113bb82ae
+# Added 23 October 2026 by fix-registers-iwi-directory-1, from the first full walk (22 October): Taranaki (the
+# maunga_blue_sm flag, Ngā Iwi o Taranaki), Muaupoko (a list of hapū alone, its marae in a table beside it), Ngāti Apa
+# (Hapū | Marae | Location, no wharenui; "Not yet identified" marae), Ngāti Mutunga o Wharekauri (Marae | Location;
+# a website entry that is email addresses).
+key: page bee89394f5033f5ccd2f72ed0a83ab97adce8cb442e0605f827209e528be9d98
+key: page 23cd4a1572d29c850806349b1ce2fc496b1689dee002bf7ae617fbce19254f4b
+key: page 112dcd57b7d48b7b1a78f31e9550aa4bcd54403f06c4beaad3fb08e14121473c
+key: page fda283ee80c0c26d4c722911b23bec484f14af0156b9f61411f48750881b3c96
