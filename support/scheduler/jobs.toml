@@ -1008,7 +1008,6 @@ command = ["python", "-m", "registers.council_minutes.capture", "--budget-s", "7
 at_utc = "09:15"
 nice = 10
 priority = 77
-enabled = false   # until the integrator's adopt run has carried the session's capture into the live schema (councils-1)
 
 [jobs.qv4-council-minutes-load]
 description = "Step 6.3: the meeting list from every listing held, built in staging, checked against each grid's own row count, published only on green."
@@ -1020,7 +1019,6 @@ class = "due"
 command = ["python", "-m", "registers.council_minutes.load", "--job"]
 at_utc = "17:45"
 priority = 78
-enabled = false   # until the integrator's adopt run has carried the session's capture into the live schema (councils-1)
 
 [jobs.qv4-councillor-interests-capture]
 description = "Step 6.3: each council's register landing page monthly and every register document it links once, 5 s apart (or the site's crawl delay), off-peak; three councils held on their terms, blocked sites held. About 400 requests the first night, a few a night after."
@@ -1033,7 +1031,6 @@ command = ["python", "-m", "registers.councillor_interests.capture", "--budget-s
 at_utc = "11:30"
 nice = 10
 priority = 79
-enabled = false   # until the integrator's adopt run has carried the session's capture into the live schema (councils-1)
 
 [jobs.qv4-councillor-interests-load]
 description = "Step 6.3: the 78 councils' registers and the structured pages' interests, built in staging, checked (78 councils, nothing withheld published), published only on green."
@@ -1045,4 +1042,3 @@ class = "due"
 command = ["python", "-m", "registers.councillor_interests.load", "--job"]
 at_utc = "17:50"
 priority = 80
-enabled = false   # until the integrator's adopt run has carried the session's capture into the live schema (councils-1)

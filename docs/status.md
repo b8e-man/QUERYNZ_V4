@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. The detail is in `docs/merges/`.
 
-**Date:** 2026-10-22, 09:4x NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-23, 00:25 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 day three not clean; 5.1 done; 5.2 closed (ten templates, `fix-report-2`
 parameters); 5.3 eight lanes merged (OpenLaw, HDC held on terms; sanctions
 lists held); 5.4 merged; 5.5 merged; 6.1 merged (`scan-1`, the scan on
@@ -30,16 +30,17 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- 6.3, capture only (ruling 79): `councils-1`; `local-elections-1` raised,
-  integrated after its 06:00 download. Merged: `procurement-1` (GETS
-  listing and councils' lists barred by terms; ACC's costs file built). Merged 21 to 22 October (`docs/merges/`):
+- Nothing; `local-elections-1` raised, merged after its 06:00 download.
+  Merged 6.3 (capture only, ruling 79): `procurement-1` (GETS listing and
+  councils' lists barred by terms; ACC's costs file), `councils-1`
+  (minutes and councillors' interests registers held unread). Merged 21 to 22 October (`docs/merges/`):
   sanctions, scan, tenders (29,874 award notices), the
   regulators, oio, hdc, diaries, grants 1 and 2 (178,729 grants), the
   scan templates, redirects, `fix-support-db-1` (a session's owner login on
   the live database is refused; the gate and hand runs carry
   QV4_INTEGRATOR=1), `security-1` (track H.1 to H.3; sittings after the
   build, ruling 79), `settlements-1` (template 3: Te Kāhui Māngai walked
-  weekly; Te Haeata behind a login, watched). Template 4 waits on node1; 7 held.
+  weekly; Te Haeata behind a login, watched). Template 4 and step 7 wait.
 
 ## Half-done
 
