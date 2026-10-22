@@ -545,3 +545,13 @@ keep working. Update docs/status.md at every close. Finish by telling
 Arthur in plain words what closed, what is carded, what waits on him,
 and whether step 1 is finished or needs another session.
 ```
+
+**A column the gate publishes is catalogued and tested at the next merge
+(integrator, 23 October).** The gate's full tier runs the real-data tests
+(`products/board/tests/test_real.py`, `products/scan/tests/test_templates_real.py`)
+against the live database before the gate's staging step publishes the
+branch's lane. So a catalogue field or a test that names a column the branch
+adds to a published view fails that gate with `UndefinedColumn`
+(`fix-registers-iwi-directory-1`, second sitting: `settlement_key`). Merge the
+lane first; catalogue the column and repoint the test on the next integrate
+branch, as with a new view.

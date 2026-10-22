@@ -29,3 +29,16 @@ the public site.
 Run 8: 193 lines, all confirmed (row joins only), 295 citations, 0
 problems. 102 of 185 bodies name a settlement or mandate (110 rows); 83 are
 listed with "none found in". The recount gives 193.
+
+
+## After `fix-registers-iwi-directory-1` (second sitting), 23 October 2026, 11:55 NZDT (integrator)
+
+The checkpoint above is the first reading's record and stands as written.
+Since the lane's second sitting a row's key is its own (the body's key with
+the settlement's) and the settlement's own key is `settlement_key`; the flag's
+words "post-treaty settlement governance entity" read as no settlement name
+(`settled: none named`, 2 rows); and a body's key keeps its macrons, so Ngāti
+Hāua Iwi Trust and Ngāti Hauā Iwi Trust are two rows. Measured on the live
+published tables after the merge (run 172): 193 lines, 110 settlement rows
+under 110 keys for 96 settlements, 186 bodies; both cards closed. The two
+limits in `template.toml` that said otherwise were rewritten at the merge.

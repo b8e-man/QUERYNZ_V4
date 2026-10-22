@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
 
-**Date:** 2026-10-23, 10:50 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-23, 12:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 not clean (no version accepted since 20 October, see Half-done); 5.1
 done; 5.2 closed (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held
 on terms; sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on
@@ -37,9 +37,9 @@ old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- `fix-registers-iwi-directory-1` (second sitting): a settlement key per
-  row; macrons kept in a body's key. Template 4 and step 7 wait (rulings
-  79, 63).
+- Nothing. 11:51: the iwi directory's second sitting merged (a key per
+  settlement row; two Hāua/Hauā trusts). Template 4 and step 7 wait
+  (rulings 79, 63).
 
 ## Half-done
 

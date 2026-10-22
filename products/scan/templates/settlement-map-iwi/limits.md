@@ -89,3 +89,15 @@ settlement's text and the iwi listing are on it.
 | Te Mana o Ngāti Rangitihi Trust | Ngāti Rangitihi | 2022 Act; CNI collective | none found | none found | none found | none | the collective now cites this body's page |
 | Te Korowai o Wainuiārua | Te Korowai o Wainuiārua | mandate, its text "Deed of Settlement signed … 29 July 2023" | none found | none found | none found | none | the directory's flag and its text differ: both shown |
 | Aorangi Māori Trust Board | Ngāti Kahungunu | none named | none found | none found | none found | none | a blank, right |
+
+
+## After `fix-registers-iwi-directory-1` (second sitting), 23 October 2026, 11:55 NZDT (integrator)
+
+The checkpoint above is the first reading's record and stands as written.
+"The directory's key merges two bodies once" is no longer true: a body's key
+keeps its macrons, so Ngāti Hāua Iwi Trust (Upper Whanganui, a mandate) and
+Ngāti Hauā Iwi Trust (Waikato, the 2014 Act) are two bodies and two lines, and
+the table row above that showed them as one is history. Measured after the
+merge (runs 169 to 174): 231 / 193 / 2,189 / 199 / 330 / 332 lines, 186
+bodies, 0 problems; card `the-iwi-directory-key-folds-two-bodies-into-one`
+closed.
