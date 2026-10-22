@@ -25,15 +25,14 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
   4.4 site version 3. 4.9 board 78 views. 5.1 the report shape, tranche 3.
 - 5.2 closed: templates 08, 04, 03, 02, 13, 07 (ruling 65), 05, 06, 11
   (`healthcare-1`), 12 (`property-1`). 5.5 `qv4-companies-monitor`.
-- Rulings 64 to 78 on 21 October (`docs/decisions/rulings.md`); the two
-  emergency fixes (76, 77) applied in the old repository 22 October 05:12,
-  aefd8d0b to 7f4a88c6; proof: the 06:19 release.
+- Rulings 64 to 79 (`docs/decisions/rulings.md`); emergency fixes 76 and
+  77 applied in the old repository 22 October, proved by the 06:19 release.
 
 ## Running (headless, from the integrator)
 
-- 6.3, capture only (ruling 79): `procurement-1` (live tenders, agency
-  contract disclosures, council procurement), `councils-1` (minutes held,
-  councillors' interests), `local-elections-1` (the returns, 2019 on). Merged 21 to 22 October (`docs/merges/`):
+- 6.3, capture only (ruling 79): `councils-1`; `local-elections-1` raised,
+  integrated after its 06:00 download. Merged: `procurement-1` (GETS
+  listing and councils' lists barred by terms; ACC's costs file built). Merged 21 to 22 October (`docs/merges/`):
   sanctions, scan, tenders (29,874 award notices), the
   regulators, oio, hdc, diaries, grants 1 and 2 (178,729 grants), the
   scan templates, redirects, `fix-support-db-1` (a session's owner login on
