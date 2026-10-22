@@ -30,7 +30,7 @@ in the lane folder; the integrator moves it. Surveyed 22 October 2026 by council
    `7385dfa4…`). The build (in-house, opened to no one, hard limit 13) is within all of them. Lawyer to confirm,
    council by council, before anything is sold.
 3. **What terms did we accept?** None by click. 47 councils' terms pages were read through the gate, each cited by sha256 in
-   `terms-read.md` beside this page (two of them are not site terms: Waitomo's and Taranaki Regional's). Three bar automated access
+   `councillors-registers-of-interests-terms.md` beside this page (two of them are not site terms: Waitomo's and Taranaki Regional's). Three bar automated access
    outright: Auckland (`e58a2ac9…`: "You must not use automated tools, such as bots or web scrapers"), South Waikato
    (`ae3f55ce…`: not to "spider, crawl, or scrape") and Waimakariri (`b3ed5bac…`: no "harvesting bot, robot, spider,
    scraper, or other unauthorised automated means"). Those three are held behind one setting (`TERMS_BAR`) and not

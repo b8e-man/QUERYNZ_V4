@@ -193,7 +193,7 @@ def _covered(host, hosts):
 
 
 def test_the_position_names_every_host_the_lane_asks():
-    mine = _hosts(os.path.join(LANE, "position", "councillors-registers-of-interests.md"))
+    mine = _hosts(os.path.join(os.path.dirname(os.path.dirname(LANE)), "docs", "legal", "positions", "councillors-registers-of-interests.md"))   # moved there at the merge
     asked = {capture.REGISTERS[c][0] for c in capture.REGISTERS}
     asked |= {re.sub(r"^https?://([^/]+).*$", r"\1", u) for v in capture.REGISTERS.values() for u in v[1:] if u}
     assert not [h for h in asked if not _covered(h, mine)]

@@ -1,6 +1,7 @@
 # The two councils lanes' schemas, positions, profiles, floors, views and jobs into place
 kind: blocker
-state: open
+state: closed
+closed: 2026-10-23
 use-case: none (step 6.3)
 session: councils-1
 opened: 2026-10-22
@@ -26,3 +27,12 @@ For the integrator at the merge of `councils-1` (a session's fence keeps these o
    rows, 1,060 documents re-landed from the store, a second adopt refused, a run after it asks for nothing). Without
    it the first nights fetch about 990 documents a second time.
 8. Regenerate the queue, the card board and the lessons index.
+
+## Closed (integrator, 23 October 2026, the councils-1 merge)
+
+Items 1 to 5 and 8 done at the merge; the four jobs enter the catalogue
+disabled, because a job new to the catalogue runs at once (card
+`the-scheduler-s-worker-runs-the-main-checkout-s-working-tree-so-an-integrate-branch-s-jobs-ran-live-before-the-gate`)
+and the adopt runs (item 7) must come first; the integrator runs both adopts
+after the merge and enables the jobs in the records commit. Item 6, the three
+views, in the merge after.
