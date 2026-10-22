@@ -56,3 +56,7 @@ key: page fda283ee80c0c26d4c722911b23bec484f14af0156b9f61411f48750881b3c96
 # the-iwi-directory-key-folds-two-bodies-into-one): Ngāti Hako (the post-settlement flag with no settlement beside it,
 # and a mandate).
 key: page a1e5a7959c9e70767a9f27e4c3bfff03681c5b7a4b1aacdaf9dc443a9fcad942
+# Ngāti Hāua (Upper Whanganui) and Ngāti Hauā (Waikato): Ngāti Hāua Iwi Trust and Ngāti Hauā Iwi Trust, two bodies
+# whose names fold to one key (the macrons tell them apart).
+key: page 53c9af4aecf87d8276321b446d6ba9fd764fa86b49bef4fbd9f9762052dcdf5a
+key: page 5c4d374d67040c732e05d905e44973c34b253deed2e8f2b9590f450b3906677b

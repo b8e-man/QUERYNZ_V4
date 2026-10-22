@@ -7,8 +7,13 @@ An entity met on several pages (a marae shared by hapū of two iwi, an
 organisation listed under each iwi it serves) is one row, cited to the first
 page in address order, with `pages` counting the pages that list it; its
 flags are the union of what each page marks, and an organisation any page
-marks as a post-settlement governance entity is one. Pages in equal pages
-read plus not read (site pages) plus set aside; the build raises if not.
+marks as a post-settlement governance entity is one. An organisation's key
+is its name folded, macrons off; where its pages print names that differ
+(Ngāti Hāua Iwi Trust, Upper Whanganui, and Ngāti Hauā Iwi Trust, Waikato:
+one key, two bodies) each name printed is its own body, keyed by the first
+page that lists it, and its relations and settlements go with it. Pages in
+equal pages read plus not read (site pages) plus set aside; the build raises
+if not.
 
     python -m registers.iwi_directory.load [--schema scratch_…] [--database querynz_v4_sample]
     python -m registers.iwi_directory.load --job
@@ -93,6 +98,30 @@ def merge(entities: list) -> list:
     return list(out.values())
 
 
+def split_by_printed_name(ents: list, rels: list, sets: list) -> list:
+    """An organisation key whose pages print different names (read.printed: macrons kept) names as many bodies:
+    each name printed is keyed `<key>/<slug of the first page that prints it>`, and the relations and settlements
+    read from its pages follow it. `ents` in page order; rows are re-keyed in place. Returns the keys split."""
+    printed = {}
+    for e in ents:
+        if e["key"].startswith("tkm/org/"):
+            printed.setdefault(e["key"], {}).setdefault(read.printed(e["name"]), read.slug_of(e["url"]))
+    split = {k: v for k, v in printed.items() if len(v) > 1}
+    by_page = {}
+    for e in ents:
+        if e["key"] in split:
+            new = f"{e['key']}/{split[e['key']][read.printed(e['name'])]}"
+            by_page[(e["key"], e["document"])] = new
+            e["key"] = new
+    for r in rels:
+        r["from_key"] = by_page.get((r["from_key"], r["document"]), r["from_key"])
+    for s in sets:
+        if (s["entity_key"], s["document"]) in by_page:
+            s["entity_key"] = by_page[(s["entity_key"], s["document"])]
+            s["key"] = read.settlement_row_key(s["entity_key"], s["settlement_key"])
+    return sorted(split)
+
+
 def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
     """`entries`: [(url, sha256)], one per page the walk landed, read in address order."""
     t0 = time.monotonic()
@@ -116,6 +145,7 @@ def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
                        "relations": len(out["relations"]), "iwi_links": out["iwi_links"]})
     if len(ledger) != len({u for u, _ in entries}):
         raise AssertionError(f"{SCHEMA}: {len(set(entries))} pages landed, {len(ledger)} in the ledger")
+    split = split_by_printed_name(ents, rels, sets)
     seen, rel_rows = set(), []
     for r in rels:
         k = (r["from_key"], r["relation"], r["to_key"], r["to_name"])
@@ -131,6 +161,7 @@ def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
                                    [{"label": k, "pages": v} for k, v in sorted(unread.items())]),
             "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
             "pages": _copy(conn, T("read_pages"), COLUMNS["read_pages"], ledger),
+            "organisation_keys_split": len(split),
             "seconds": round(time.monotonic() - t0, 1)}
 
 

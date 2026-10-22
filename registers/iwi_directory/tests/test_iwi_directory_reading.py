@@ -391,11 +391,11 @@ def filled():
 
 
 def test_every_page_is_in_the_ledger_and_none_set_aside(filled):
-    assert len(filled["read_pages"]) == len(filled["entries"]) == 41 and not filled["read_set_aside"]
+    assert len(filled["read_pages"]) == len(filled["entries"]) == 43 and not filled["read_set_aside"]
     kinds = {}
     for p in filled["read_pages"]:
         kinds[p["kind"]] = kinds.get(p["kind"], 0) + 1
-    assert kinds == {"iwi": 15, "region": 13, "authority": 2, "omo": 1, "nontribal": 1, "site": 9}
+    assert kinds == {"iwi": 17, "region": 13, "authority": 2, "omo": 1, "nontribal": 1, "site": 9}
 
 
 def test_every_row_meets_the_row_contract(filled):
@@ -444,6 +444,56 @@ def test_a_settlement_key_names_one_row(filled):
     assert hako == [(None, None, "settled: none named")]
     assert {s["settlement_key"] for s in rows if s["iwi_key"] == "tkm/iwi/ngati-hako"} == {
         None, "tkm/mandate/ngati-hako-treaty-settlement-negotiators"}
+
+
+def test_two_bodies_whose_names_fold_alike_are_two_rows(filled):
+    """Card the-iwi-directory-key-folds-two-bodies-into-one, on the stored pages (23 October 2026): Ngāti Hāua Iwi
+    Trust (Upper Whanganui, a mandate) and Ngāti Hauā Iwi Trust (Waikato, the 2014 Act) fold to one name; each is
+    its own row, keyed by the page that prints it, with its own iwi and its own settlement."""
+    ents = {e["key"]: e for e in filled["entities"]}
+    assert "tkm/org/ngati-haua-iwi-trust" not in ents
+    whanganui = ents["tkm/org/ngati-haua-iwi-trust/ngati-haua-upper-whanganui"]
+    waikato = ents["tkm/org/ngati-haua-iwi-trust/ngati-haua"]
+    assert (whanganui["name"], whanganui["pages"]) == ("Ngāti Hāua Iwi Trust", 1)
+    assert (waikato["name"], waikato["pages"]) == ("Ngāti Hauā Iwi Trust", 1)
+    of_iwi = {(r["from_key"], r["to_key"]) for r in filled["relations"] if r["relation"] == "organisation of iwi"
+              and r["from_key"].startswith("tkm/org/ngati-haua-iwi-trust")}
+    assert of_iwi == {(whanganui["key"], "tkm/iwi/ngati-haua-upper-whanganui"), (waikato["key"], "tkm/iwi/ngati-haua")}
+    sets = {(s["entity_key"], s["stage"], s["act"]) for s in filled["settlements"]
+            if s["entity_key"].startswith("tkm/org/ngati-haua-iwi-trust")}
+    assert sets == {(whanganui["key"], "mandate recognised", None),
+                    (waikato["key"], "settled: Act", "Ngāti Hauā Claims Settlement Act 2014")}
+    assert not [e for e in filled["entities"] if e["key"].count("/") > 2 and e["key"].startswith("tkm/org/")
+                and not e["key"].startswith("tkm/org/ngati-haua-iwi-trust/")]
+
+
+def test_a_body_is_split_only_where_its_pages_print_different_names():
+    """The split on invented pages: a name printed on two pages stays one body; a name that differs by a macron is
+    another body, keyed by the first page that prints it, and its relations and settlements go with it."""
+    def page(slug, name, flags):
+        out = read.read_page(_iwi_page(_table("x", [["A", "B", "C", "D"]]), _org(1, name, flags, [])), slug * 64,
+                             f"https://www.tkm.govt.nz/iwi/{slug}/")
+        return out
+    pages = [page("a", "Ngāti Rua Trust", [PSGE]), page("b", "Ngāti Rūa Trust", [MANDATE]),
+             page("c", "Ngāti Rua Trust", [RMA]), page("d", "Ngāti Rūa Trust", [RMA])]
+    ents = [e for p in pages for e in p["entities"]]
+    rels = [r for p in pages for r in p["relations"]]
+    sets = [s for p in pages for s in p["settlements"]]
+    assert load.split_by_printed_name(ents, rels, sets) == ["tkm/org/ngati-rua-trust"]
+    orgs = [(e["key"], e["name"]) for e in ents if e["key"].startswith("tkm/org/")]
+    assert orgs == [("tkm/org/ngati-rua-trust/a", "Ngāti Rua Trust"), ("tkm/org/ngati-rua-trust/b", "Ngāti Rūa Trust"),
+                    ("tkm/org/ngati-rua-trust/a", "Ngāti Rua Trust"), ("tkm/org/ngati-rua-trust/b", "Ngāti Rūa Trust")]
+    assert {(r["from_key"], r["to_key"]) for r in rels if r["relation"] == "organisation of iwi"} == {
+        ("tkm/org/ngati-rua-trust/a", "tkm/iwi/a"), ("tkm/org/ngati-rua-trust/b", "tkm/iwi/b"),
+        ("tkm/org/ngati-rua-trust/a", "tkm/iwi/c"), ("tkm/org/ngati-rua-trust/b", "tkm/iwi/d")}
+    assert {(s["entity_key"], s["key"], s["stage"]) for s in sets} == {
+        ("tkm/org/ngati-rua-trust/a", "tkm/org/ngati-rua-trust/a|tkm/settlement/ngati-invented-claims-settlement-act-2019",
+         "settled: Act"),
+        ("tkm/org/ngati-rua-trust/b", "tkm/org/ngati-rua-trust/b|tkm/mandate/ngati-rua-trust", "mandate recognised")}
+    same = [page("a", "Ngāti Rua Trust", [RMA]), page("b", "NGĀTI RUA  Trust", [RMA])]
+    ents = [e for p in same for e in p["entities"]]
+    assert load.split_by_printed_name(ents, [], []) == []
+    assert {e["key"] for e in ents if e["key"].startswith("tkm/org/")} == {"tkm/org/ngati-rua-trust"}
 
 
 def test_no_contact_value_on_a_page_reaches_a_row(filled):

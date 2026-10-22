@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS iwi_directory.read_pages (
 -- iwi, hapū, marae, organisations and governance entities as the site lists them
 CREATE TABLE IF NOT EXISTS iwi_directory.entities (
     key                   text PRIMARY KEY,         -- tkm/iwi/<slug>, tkm/hapu/<iwi slug>/<name>, tkm/marae/<name>/<location>, tkm/org/<name>
+                                                    -- (tkm/org/<name>/<page slug> where its pages print names that differ, macrons kept)
     kind                  text NOT NULL CHECK (kind IN ('iwi', 'hapū', 'marae', 'organisation', 'governance entity')),
     name                  text NOT NULL,
     iwi_key               text,                     -- a hapū's iwi

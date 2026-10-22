@@ -81,6 +81,11 @@ def fold(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s).strip("-")
 
 
+def printed(s: str) -> str:
+    """A name as printed, for telling two bodies apart: macrons kept (Hāua is not Hauā), case and spacing not."""
+    return re.sub(r"[\W_]+", "-", unicodedata.normalize("NFC", s or "").lower()).strip("-")
+
+
 def flag_kind(stem: str) -> str:
     """A role flag's rule by its picture's file stem; one no rule names is 'other: <first word>' for the check."""
     parts = re.split(r"[_.-]", stem.lower())
