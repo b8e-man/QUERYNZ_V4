@@ -1,0 +1,58 @@
+# Step 6.2, template 3: use case 14, the post-settlement governance map, on the iwi and hapū directory (registers/iwi_directory). One question in six scans (a line follows one chain); this one: the charity of the same name, and its officers. For the register scan only, never for the public site (step 6.2 row 3, hard limit 14).
+name = "settlement-map-charities"
+title = "Iwi organisations and post-settlement governance entities, with the charity of the same name and its officers"
+question = "For each iwi organisation or post-settlement governance entity in the iwi and hapū directory, which iwi and settlement does it stand for, which charity and which company is it, and who holds its offices?"
+join = "A body (an organisation or a governance entity in the directory); the charity whose charity number is the body's, or, where either lacks one, every charity whose name is the body's once folded; each officer the Charities Register lists on that charity."
+version = "1.0"
+owner = "products/scan/templates, step 6.2 (use case 14)"
+
+limits = [
+  "For the register scan only, never for the public site: an office holder is a register row about a named person, and no new connection about a named person goes on the public site without Arthur's decision at that time (step 6.2 row 3, step 6.4, hard limit 14). Nothing from this scan leaves the scan's page and files.",
+  "One question in six scans, read together by the body's directory key (tkm/org/…): settlement-map-iwi (the iwi it is listed under), settlement-map-settlements (the settlement its entry names), settlement-map-charities, settlement-map-companies and settlement-map-societies (the register row of the same name, with its officers or directors) and settlement-map-shareholdings (the companies a holding of the same name is in). A line follows one chain of rows, so each answer is a list of its own.",
+  "The bodies are the directory's 185 entries of kind 'organisation' (97) and 'governance entity' (88, each with a post-settlement flag) as read on 23 October 2026; an iwi, hapū or marae entry is a body only where it is listed as one of these.",
+  "The directory prints a charity number or a business number for 0 of the 185 bodies today, so every charity here is joined by the folded name alone (lower case, macrons off, a legal ending such as Limited or Incorporated off): near, the reason on the line, every charity under the name a line of its own, marked as one of its namesakes. A name is a namesake of record, never an identity: a body registered under another name (a corporate trustee such as '… Trustee Limited', a statutory name, a name with or without 'Trust' or 'Charitable') meets nothing, and a removed or struck-off row of the same name meets as a namesake, marked. A body with nothing of that name is listed with the step 'none found in', graded confirmed (only the registers' own keys joined it): a blank, not a clear.",
+  "The name joined is the charity's registered name; a charity known by an other name the register files is not reached by it.",
+  "An office holder is the register's own row: the charity's officers as Charities Services lists them (trustees, board members, a body corporate as trustee), with the dates the register files and its own role and status; an officer the register lists as ended is listed with that end, and a suppressed name shows 'name suppressed' with the row kept. A register that lists nobody on a row (a charity whose officers the feed does not carry) gives 'none found in', which is a blank, not an empty board (lesson a-row-that-lists-no-officer-is-not-a-board-with-nobody-on-it).",
+  "The directory's key for a body is its name with the macrons dropped, and once that merges two bodies: tkm/org/ngati-haua-iwi-trust is Ngāti Hāua Iwi Trust (Upper Whanganui) and Ngāti Hauā Iwi Trust (Waikato): the one row carries both iwi and both settlements, each cited to the page it was read from (card the-iwi-directory-key-folds-two-bodies-into-one). The scan's own fold sets macrons aside too, as the lanes and the links do.",
+  "Details are supplied to Te Puni Kōkiri by the organisations themselves and checked twice a year; the directory is not advice on whom to consult and not a record of historical hapū and marae. The Māori Land Court and the Waitangi Tribunal reports are out of this template: the Court's records need a registration, and whether the Tribunal reports serve a named use case is Arthur's question.",
+  "No address and no contact detail is read: the directory's chair, chief executive and contact names, phones, emails and postal and physical addresses are never read by the lane (hard limit 15), a marae's location is never carried, and a charity's address for service and a company's registered office are never printed (the office is read only to flag one a thousand companies share).",
+  "Licences: Te Kāhui Māngai (Te Puni Kōkiri), CC BY 3.0 NZ as catalogued, attribution on every surface; the Charities Register, CC BY 3.0 NZ, attribution to Charities Services.",
+]
+
+[[reads]]
+view = "iwi_directory_entities"
+licence = "Te Kāhui Māngai, Te Puni Kōkiri: Creative Commons Attribution 3.0 New Zealand as catalogued on data.govt.nz; the site's copyright page says personal, not-for-profit or in-house use, and the lawyer says which governs before anything is shown beyond the estate (queue whether-te-kahui-mangai-is-cc-by; position iwi-and-hapu-directory)"
+attribution = "Source: Te Kāhui Māngai, Te Puni Kōkiri (www.tkm.govt.nz), CC BY 3.0 NZ as catalogued on data.govt.nz"
+refresh = "the directory walked whole once a week (qv4-iwi-directory-capture, Sunday night; qv4-iwi-directory-load, 06:35)"
+[[reads]]
+view = "charities"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the register is public under the Charities Act 2005; the address for service is never read"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "charity_officers"
+licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; a suppressed name is suppressed, the row stays"
+attribution = "Charities Services, Department of Internal Affairs"
+refresh = "changes by the feed's modified date; a full copy every 28 days"
+
+[[steps]]
+view = "iwi_directory_entities"
+label = "body"
+where = { kind = ["organisation", "governance entity"] }
+columns = ["legal_entity", "listed_as"]
+[[steps]]
+view = "charities"
+label = "charity"
+by = "name"
+on = ["name", "name"]
+number = ["charity_number", "number"]
+optional = true
+namesakes = true
+columns = ["number", "status", "legal_structure"]
+[[steps]]
+view = "charity_officers"
+label = "officer"
+by = "row"
+on = ["key", "charity_key"]
+optional = true
+columns = ["role", "status", "kind"]
