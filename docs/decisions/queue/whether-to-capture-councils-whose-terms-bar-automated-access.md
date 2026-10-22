@@ -1,0 +1,5 @@
+# Whether to capture the registers of councils whose website terms bar automated access
+default: no default
+blocks: The interests registers of Auckland Council, South Waikato District Council and Waimakariri District Council (3 of 78)
+recommendation: Ask each council for its register by email, or have the lawyer say whether a council's published statutory summary may be copied in the face of its site terms; until then hold them. Their terms (read through the gate 22 October 2026: Auckland `e58a2ac9…`, South Waikato `ae3f55ce…`, Waimakariri `b3ed5bac…`) bar bots, scrapers or crawling outright; one polite fetch a month of one page is still an automated tool. The register itself is a public document the law makes them publish (Local Government Act 2002, Part 4 subpart 3), which is why this is a question and not a no.
+raised: 2026-10-22 by councils-1. Held behind one setting (`registers/councillor_interests/capture.py` `TERMS_BAR`); the view says "held: its terms bar automated access". The survey asked each of these sites for its home page, its terms page and (Auckland) its register's landing page once, before the terms were read.

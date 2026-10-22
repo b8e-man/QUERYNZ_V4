@@ -1,0 +1,8 @@
+# registers/contract_disclosures/sample.list: hashes and key: lines only. Landed 22 October 2026 by procurement-1
+# through the fetch gate (the catalogue's 10 s; no block, no challenge).
+# ACC's "Health contract data" (AR-3944, CC BY 3.0 NZ): the one file read, 8,086 data rows, 80,860 cells
+key: data health-contract-data eef2490b6d7b333b64cdffa52bd5cab3b67a432f279f61fe1da95b6142db725d
+# the catalogue's descriptions: ACC's package (CC BY 3.0 NZ) and MSD's contracted funding 2019/20 (no licence: its
+# file not landed)
+ad5219f9864e0f58679b458bdee32fad07f981e1826fb7a42de48ebc036e2307
+139f0d2215065886c6c2ba4aa9aeed2f062bba9cd6d4a41c69b9a07423f385c9

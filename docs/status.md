@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. The detail is in `docs/merges/`.
 
-**Date:** 2026-10-22, 09:4x NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-23, 00:25 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 day three not clean; 5.1 done; 5.2 closed (ten templates, `fix-report-2`
 parameters); 5.3 eight lanes merged (OpenLaw, HDC held on terms; sanctions
 lists held); 5.4 merged; 5.5 merged; 6.1 merged (`scan-1`, the scan on
@@ -25,23 +25,22 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
   4.4 site version 3. 4.9 board 78 views. 5.1 the report shape, tranche 3.
 - 5.2 closed: templates 08, 04, 03, 02, 13, 07 (ruling 65), 05, 06, 11
   (`healthcare-1`), 12 (`property-1`). 5.5 `qv4-companies-monitor`.
-- Rulings 64 to 78 on 21 October (`docs/decisions/rulings.md`); the two
-  emergency fixes (76, 77) applied in the old repository 22 October 05:12,
-  aefd8d0b to 7f4a88c6; proof: the 06:19 release.
+- Rulings 64 to 79 (`docs/decisions/rulings.md`); emergency fixes 76 and
+  77 applied in the old repository 22 October, proved by the 06:19 release.
 
 ## Running (headless, from the integrator)
 
-- Nothing. Merged since 18:00 on 21 October:
-  `sanctions-1`, `scan-1`, `tenders-1` (29,874 award notices live),
-  `regulators-1`, `fix-report-2`, `oio-1`, `hdc-1`, `diaries-1`,
-  `grants-1` (178,729 grants live), `fix-support-fetchgate-1`,
-  `scan-templates-1`, `fix-templates-1`, `redirects-1`,
-  `fix-products-templates-1`, `grants-2`, `fix-support-db-1` (a session's
-  owner login on the live database is refused; the gate and hand runs
-  carry QV4_INTEGRATOR=1), `security-1` (track H.1 to H.3; the sittings
-  after the build, ruling 79), `settlements-1` (template 3: Te Kāhui Māngai
-  walked weekly from Sunday; Te Haeata behind a login, watched). Template 4
-  waits on node1. Step 7 held.
+- Nothing; `local-elections-1` raised, merged after its 06:00 download.
+  Merged 6.3 (capture only, ruling 79): `procurement-1` (GETS listing and
+  councils' lists barred by terms; ACC's costs file), `councils-1`
+  (minutes and councillors' interests registers held unread). Merged 21 to 22 October (`docs/merges/`):
+  sanctions, scan, tenders (29,874 award notices), the
+  regulators, oio, hdc, diaries, grants 1 and 2 (178,729 grants), the
+  scan templates, redirects, `fix-support-db-1` (a session's owner login on
+  the live database is refused; the gate and hand runs carry
+  QV4_INTEGRATOR=1), `security-1` (track H.1 to H.3; sittings after the
+  build, ruling 79), `settlements-1` (template 3: Te Kāhui Māngai walked
+  weekly; Te Haeata behind a login, watched). Template 4 and step 7 wait.
 
 ## Half-done
 

@@ -117,6 +117,15 @@ FLOORS = {
     "educationcounts.govt.nz": 5.0,   # grants-2 (22 October): the class A societies' own lists; regional and tertiary funding surveyed
     "www.tkm.govt.nz": 5.0,   # Te Kāhui Māngai, the iwi and hapū directory (settlements-1, 22 October)
     "tehaeata.govt.nz": 5.0,   # Te Haeata, behind a login: watched, one request a week (settlements-1, 22 October)
+    "www.cluthadc.govt.nz": 7.0,   # the council asks 7 s; its terms page watched monthly (procurement-1, 22 October)
+    "www.tauranga.govt.nz": 5.0,   # terms page watched monthly (procurement-1, 22 October)
+    "www.dunedin.govt.nz": 5.0,   # terms page watched monthly (procurement-1, 22 October)
+    "www.vendorpanel.nz": 5.0,   # the platform's terms page watched monthly (procurement-1, 22 October)
+    "infocouncil.biz": 5.0,   # InfoCouncil meeting listings and minutes (councils-1, 23 October)
+    "infocouncil.fndc.govt.nz": 5.0,   # InfoCouncil meeting listings and minutes (councils-1, 23 October)
+    "infocouncil.tauranga.govt.nz": 5.0,   # InfoCouncil meeting listings and minutes (councils-1, 23 October)
+    "infocouncil.dunedin.govt.nz": 5.0,   # InfoCouncil meeting listings and minutes (councils-1, 23 October)
+    "infocouncil.boprc.govt.nz": 5.0,   # InfoCouncil meeting listings and minutes (councils-1, 23 October)
 }
 
 
