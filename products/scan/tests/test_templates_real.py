@@ -114,15 +114,16 @@ def test_the_procurement_read_back_holds_and_catches_a_planted_person():
 
 
 def test_a_citation_names_the_row_it_read_and_a_planted_document_is_caught():
-    """A key the iwi directory gives several rows (a collective settlement,
-    one row per body) is cited row by row, and the check reads back the
+    """A settlement the iwi directory names on several bodies' pages (a collective,
+    one row per body, each row under its own key) is cited row by row, and the check reads back the
     document, page and place as well as the key."""
     with pub() as c:
-        shared = db.rows(c, "select key from pub.iwi_directory_settlements group by key having count(*) > 1 order by key limit 1")
+        shared = db.rows(c, "select settlement_key from pub.iwi_directory_settlements group by settlement_key having count(*) > 1 "
+                            "order by settlement_key limit 1")   # since fix-registers-iwi-directory-1 (second sitting) a row's key is its own
         if not shared:
-            pytest.skip("no settlement key names more than one row today")
-        rows = db.rows(c, "select key, document, page, place from pub.iwi_directory_settlements where key = %s order by entity_key",
-                       (shared[0]["key"],))
+            pytest.skip("no settlement is named by more than one body today")
+        rows = db.rows(c, "select key, document, page, place from pub.iwi_directory_settlements where settlement_key = %s order by entity_key",
+                       (shared[0]["settlement_key"],))
         cites = [{"view": "iwi_directory_settlements", "key": r["key"], "document": r["document"], "page": r["page"], "place": r["place"]}
                  for r in rows]
         assert check.citations_resolve(c, cites) == []
