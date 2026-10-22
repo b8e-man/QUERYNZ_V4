@@ -77,6 +77,14 @@ VIEWS: tuple = (
     # site's street address, which can be a home), and the presentation rules refuse an address in an event's row
     V("award_notices", "tenders", "event", ("posting_agency", "rfx_id"), on="awarded_on", on_label="awarded"),
     V("award_suppliers", "tenders", "organisation", ("business_name",), names=("business_name",), on="awarded_on", on_label="awarded"),
+    # the iwi and hapū directory (registers/iwi_directory): organisations' own names and the directory's own words; no person, phone,
+    # email or address is published, and a marae's location is never titled or dated by. The entry's "last updated" is the page's own
+    # text (day/month/year as printed), shown as printed
+    V("iwi_directory_entities", "iwi_directory", "organisation", ("name", "kind"), names=("name",), on="last_updated",
+      on_label="last updated, as printed", url="url"),
+    V("iwi_directory_relations", "iwi_directory", "event", ("relation", "to_name"), url="url"),
+    V("iwi_directory_settlements", "iwi_directory", "event", ("name", "stage"), on="signed_on", on_label="signed, as printed", year="act_year",
+      url="url"),
 )
 BY_NAME = {v.name: v for v in VIEWS}
 #: what links/ publishes: read for a person or link step, never as a register of answers
@@ -90,6 +98,7 @@ REGISTER_NAME = {
     "gazette": "Gazette notices", "house": "Candidates and the House", "mp_interests": "MPs' declared interests",
     "parties": "Registered political parties", "party_finance": "Registered promoters",
     "tenders": "Government procurement award notices",
+    "iwi_directory": "Te Kāhui Māngai, the directory of iwi and Māori organisations",
 }
 
 

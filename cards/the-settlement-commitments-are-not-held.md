@@ -1,9 +1,10 @@
 # The Treaty settlement commitments are not held: Te Haeata is behind a login
 kind: finding
-state: open
+state: closed
 use-case: 14
 session: settlements-1
 opened: 2026-10-22
+closed: 2026-10-23
 
 Te Haeata (tehaeata.govt.nz, Te Puni Kōkiri) answers every records address
 (`/settlements`, `/commitments`, `/resources`) with its login page (sha256
@@ -19,3 +20,10 @@ The lane `registers/settlement_commitments` watches the wall weekly and goes
 red the day it falls. Fate at the checkpoint: a line on template 3's
 known-limits page ("commitments not held: behind a login") unless a letter
 opens them.
+
+Closed 2026-10-23 by scan-templates-2: accepted onto template 3's known
+limits (`settlement-map-settlements`, its template's limits and
+`limits.md`: the settlement is the directory's own, Te Haeata is behind a
+login and not held, hard limit 6). The way in stays Arthur's queue item
+`whether-to-ask-for-the-settlement-commitments`; a letter that opens it
+reopens this as a lane.

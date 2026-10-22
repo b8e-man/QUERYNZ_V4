@@ -111,3 +111,51 @@ def test_the_procurement_read_back_holds_and_catches_a_planted_person():
             bad["steps"][1]["ref"] = other["steps"][1]["ref"] if other else bad["steps"][1]["ref"] + "-not-a-row"
             got = check.templates_proving(c, name, [bad])
             assert any("link joins" in p or "not on the company" in p for p in got)
+
+
+def test_a_citation_names_the_row_it_read_and_a_planted_document_is_caught():
+    """A key the iwi directory gives several rows (a collective settlement,
+    one row per body) is cited row by row, and the check reads back the
+    document, page and place as well as the key."""
+    with pub() as c:
+        shared = db.rows(c, "select key from pub.iwi_directory_settlements group by key having count(*) > 1 order by key limit 1")
+        if not shared:
+            pytest.skip("no settlement key names more than one row today")
+        rows = db.rows(c, "select key, document, page, place from pub.iwi_directory_settlements where key = %s order by entity_key",
+                       (shared[0]["key"],))
+        cites = [{"view": "iwi_directory_settlements", "key": r["key"], "document": r["document"], "page": r["page"], "place": r["place"]}
+                 for r in rows]
+        assert check.citations_resolve(c, cites) == []
+        wrong = [dict(cites[0], document=cites[0]["document"][::-1])]
+        assert any("cited document" in p for p in check.citations_resolve(c, wrong))
+
+
+@pytest.mark.parametrize("name", check.TEMPLATES_CHAINED)
+def test_the_settlement_map_read_back_holds_and_catches_each_planted_fault(name):
+    lines = latest_lines(name)
+    if not lines:
+        R.run(tpl.by_name(name), note="test", log=lambda s: None)
+        lines = latest_lines(name)
+    t = tpl.by_name(name)
+    with pub() as c:
+        assert check.chain_readback(c, t, lines) == []
+        caught = lambda bad: check.chain_readback(c, t, [bad] + [ln for ln in lines if ln["steps"][0]["ref"] != bad["steps"][0]["ref"]])
+        dropped = [ln for ln in lines if ln["steps"][0]["ref"] != lines[0]["steps"][0]["ref"]]
+        assert any("rows listed" in p for p in check.chain_readback(c, t, dropped))
+        found = next(ln for ln in lines if not ln["steps"][1].get("absent"))
+        other = next(ln for ln in lines if not ln["steps"][1].get("absent") and ln["steps"][0]["ref"] != found["steps"][0]["ref"]
+                     and ln["steps"][1]["ref"] != found["steps"][1]["ref"])
+        swapped = copy.deepcopy(found)
+        swapped["steps"][1]["ref"] = other["steps"][1]["ref"]
+        assert any(("differ" in p or "equal to" in p or "do not fold alike" in p) for p in caught(swapped)), name
+        regraded = copy.deepcopy(found)
+        regraded["grade"] = "contested"
+        assert any("graded contested" in p for p in caught(regraded))
+        absent = next((ln for ln in lines if ln["steps"][1].get("absent")), None)
+        if absent:
+            blanked = copy.deepcopy(found)
+            for s in blanked["steps"][1:]:
+                s.update(absent=True, ref=None, cite=None, values={}, title="none found in pub." + s["view"])
+            blanked["reasons"] = []
+            blanked["grade"] = "confirmed"
+            assert any("shown as none found" in p for p in caught(blanked)), name

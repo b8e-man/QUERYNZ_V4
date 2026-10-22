@@ -121,14 +121,18 @@ def cite_text(c: dict) -> str:
 
 
 class Numbering:
-    """Citations numbered once per (view, key), in the order first met."""
+    """Citations numbered once per row, in the order first met: a row is its
+    (view, key) and the document, page and place it was read from, because a
+    published key need not name one row (the iwi directory's settlement key is
+    the settlement's, one row per body whose entry names it, each read from
+    that body's page)."""
 
     def __init__(self):
         self.number = {}
         self.citations = []
 
     def cite(self, c: dict) -> int:
-        key = (c["view"], c["key"])
+        key = (c["view"], c["key"], c.get("document"), c.get("page"), c.get("place"))
         if key not in self.number:
             self.number[key] = len(self.number) + 1
             self.citations.append({"n": self.number[key], **c})

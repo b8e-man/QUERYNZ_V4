@@ -1,0 +1,58 @@
+# Step 6.2, template 3: use case 14, the post-settlement governance map, on the iwi and hapū directory (registers/iwi_directory). One question in six scans (a line follows one chain); this one: each shareholding filed under the body's name, and the company it is in. For the register scan only, never for the public site (step 6.2 row 3, hard limit 14).
+name = "settlement-map-shareholdings"
+title = "Iwi organisations and post-settlement governance entities, with each shareholding filed under the same name and the company it is in"
+question = "For each iwi organisation or post-settlement governance entity in the iwi and hapū directory, which iwi and settlement does it stand for, which charity and which company is it, and who holds its offices?"
+join = "A body (an organisation or a governance entity in the directory); each shareholding the companies register files whose holder's business number is the body's, or, where either lacks one, whose holder's name is the body's once folded; the company that holding is in."
+version = "1.0"
+owner = "products/scan/templates, step 6.2 (use case 14)"
+
+limits = [
+  "For the register scan only, never for the public site: an office holder is a register row about a named person, and no new connection about a named person goes on the public site without Arthur's decision at that time (step 6.2 row 3, step 6.4, hard limit 14). Nothing from this scan leaves the scan's page and files.",
+  "One question in six scans, read together by the body's directory key (tkm/org/…): settlement-map-iwi (the iwi it is listed under), settlement-map-settlements (the settlement its entry names), settlement-map-charities, settlement-map-companies and settlement-map-societies (the register row of the same name, with its officers or directors) and settlement-map-shareholdings (the companies a holding of the same name is in). A line follows one chain of rows, so each answer is a list of its own.",
+  "The bodies are the directory's 185 entries of kind 'organisation' (97) and 'governance entity' (88, each with a post-settlement flag) as read on 23 October 2026; an iwi, hapū or marae entry is a body only where it is listed as one of these.",
+  "The directory prints a charity number or a business number for 0 of the 185 bodies today, so every shareholding here is joined by the folded name alone (lower case, macrons off, a legal ending such as Limited or Incorporated off): near, the reason on the line, every shareholding under the name a line of its own. A name is a namesake of record, never an identity: a body registered under another name (a corporate trustee such as '… Trustee Limited', a statutory name, a name with or without 'Trust' or 'Charitable') meets nothing, and a removed or struck-off row of the same name meets as a holding of its own. A body with nothing of that name is listed with the step 'none found in', graded confirmed (only the registers' own keys joined it): a blank, not a clear.",
+  "A shareholding row is one holding in one company, not one body, so several holdings under one name are not counted as namesakes; a holder the register files as an individual under a body's name (trustees holding for a trust) is shown with the register's own holder type. A suppressed holder is never joined by name: a name the register suppresses is never compared with anything.",
+  "A holding is listed as the register files it (shares and allocation as filed); a holding is never shown as more than a holding, and nothing here adds holdings up or follows them further.",
+  "The directory's key for a body is its name with the macrons dropped, and once that merges two bodies: tkm/org/ngati-haua-iwi-trust is Ngāti Hāua Iwi Trust (Upper Whanganui) and Ngāti Hauā Iwi Trust (Waikato): the one row carries both iwi and both settlements, each cited to the page it was read from (card the-iwi-directory-key-folds-two-bodies-into-one). The scan's own fold sets macrons aside too, as the lanes and the links do.",
+  "Details are supplied to Te Puni Kōkiri by the organisations themselves and checked twice a year; the directory is not advice on whom to consult and not a record of historical hapū and marae. The Māori Land Court and the Waitangi Tribunal reports are out of this template: the Court's records need a registration, and whether the Tribunal reports serve a named use case is Arthur's question.",
+  "No address and no contact detail is read: the directory's chair, chief executive and contact names, phones, emails and postal and physical addresses are never read by the lane (hard limit 15), a marae's location is never carried, and a charity's address for service and a company's registered office are never printed (the office is read only to flag one a thousand companies share).",
+  "Licences: Te Kāhui Māngai (Te Puni Kōkiri), CC BY 3.0 NZ as catalogued, attribution on every surface; Companies Office bulk data, CC BY 4.0, attribution to the Companies Office.",
+]
+
+[[reads]]
+view = "iwi_directory_entities"
+licence = "Te Kāhui Māngai, Te Puni Kōkiri: Creative Commons Attribution 3.0 New Zealand as catalogued on data.govt.nz; the site's copyright page says personal, not-for-profit or in-house use, and the lawyer says which governs before anything is shown beyond the estate (queue whether-te-kahui-mangai-is-cc-by; position iwi-and-hapu-directory)"
+attribution = "Source: Te Kāhui Māngai, Te Puni Kōkiri (www.tkm.govt.nz), CC BY 3.0 NZ as catalogued on data.govt.nz"
+refresh = "the directory walked whole once a week (qv4-iwi-directory-capture, Sunday night; qv4-iwi-directory-load, 06:35)"
+[[reads]]
+view = "shareholders"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; a suppressed holder is never joined by name"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "companies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "monthly file"
+
+[[steps]]
+view = "iwi_directory_entities"
+label = "body"
+where = { kind = ["organisation", "governance entity"] }
+columns = ["legal_entity", "listed_as"]
+[[steps]]
+view = "shareholders"
+label = "holding"
+by = "name"
+on = ["name", "name"]
+number = ["nzbn", "holder_nzbn"]
+where = { suppressed = false }
+optional = true
+columns = ["shareholder_type", "shares", "allocation_status", "in_latest"]
+[[steps]]
+view = "companies"
+label = "company"
+by = "row"
+on = ["entity_key", "key"]
+optional = true
+columns = ["entity_type", "status"]

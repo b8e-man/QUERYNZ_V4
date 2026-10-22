@@ -133,3 +133,15 @@ def test_the_files_carry_every_line_with_its_citations():
     html = out.scan_html(T, r, [ln], 1, 1, 200, [], ["directors"])
     assert "[1]" in html and "[4]" in html and "loaded since: stale" in html and "default in force" in html
     assert "none found in" in out.table_html(T, [], 0, 1, 200, "/scan/x")
+
+
+def test_a_citation_is_numbered_per_row_and_a_key_shared_by_two_rows_gives_two_citations():
+    """The iwi directory's settlement key is the settlement's: one row per
+    body whose entry names it, each read from that body's page. Numbered by
+    (view, key) alone, every body's line cited the first body's page."""
+    num = L.Numbering()
+    a = {"view": "iwi_directory_settlements", "key": "tkm/settlement/cni", "register": "iwi_directory", "document": "d1", "page": 1,
+         "place": "organisations, entry 1", "url": None}
+    b = dict(a, document="d2")
+    assert num.cite(a) == 1 and num.cite(b) == 2 and num.cite(dict(a)) == 1
+    assert [c["document"] for c in num.citations] == ["d1", "d2"]
