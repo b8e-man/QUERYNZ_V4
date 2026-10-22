@@ -31,7 +31,10 @@ card (ruling 57). **Alarm channel:** the old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- Nothing. Merged since 18:00 on 21 October:
+- `procurement-1` (6.3: live tenders, agency contract disclosures,
+  council procurement), `councils-1` (6.3: council minutes held,
+  councillors' interests), `local-elections-1` (6.3: the returns, 2019 on);
+  all capture only, ruling 79. Merged since 18:00 on 21 October:
   `sanctions-1`, `scan-1`, `tenders-1` (29,874 award notices live),
   `regulators-1`, `fix-report-2`, `oio-1`, `hdc-1`, `diaries-1`,
   `grants-1` (178,729 grants live), `fix-support-fetchgate-1`,
