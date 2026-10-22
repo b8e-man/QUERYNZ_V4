@@ -117,6 +117,8 @@ class FakeTables:
     def want(self, council, url, listing_url, year):
         if url not in [w[0] for w in self._wanted] and url not in self.files:
             self._wanted.append((url, council, year))
+            return 1
+        return 0
 
     def wanted(self):
         return sorted([w for w in self._wanted if w[0] not in self.files], key=lambda w: (w[2] or 9999, w[1], w[0]))
@@ -178,11 +180,25 @@ def test_the_listings_pass_follows_a_folder_and_wants_only_in_window_returns():
              "https://www.example.govt.nz/elections/returns?path=Elections/Candidate%20Expenses/2022": RESULTS}
     t = FakeTables([])
     f = lambda u, m: (Got(pages[u]), "landed", None) if u in pages else (Got(status=404), "not found", "HTTP 404")
-    run = capture.Run(t, land_fn=lambda *a, **k: (Ref, True), fetch_fn=f, clock=NIGHT, log=lambda *a: None,
+    run = capture.Run(t, land_fn=lambda *a, **k: (Ref, True), fetch_fn=f, clock=NIGHT, log=lambda *a: None, anytime=True,
                       seed_list=[("Example District Council", [], "https://www.example.govt.nz/elections/returns")])
     out = run.listings()
     urls = [w[0] for w in t._wanted]
-    assert out["returns_listed"] == 6 and not any("2016" in u for u in urls)
+    assert out["returns_new"] == 6 and not any("2016" in u for u in urls)
+
+
+def test_a_page_two_seeds_link_is_asked_once_a_pass():
+    asked = []
+    pages = {"https://www.example.govt.nz/a": FOLDER.replace(b"/elections/returns?path", b"/a?path"),
+             "https://www.example.govt.nz/b": b"<main><a href='/a'>Electoral donations and expenses</a></main>"}
+
+    def f(u, m):
+        asked.append(u)
+        return (Got(pages[u]), "landed", None) if u in pages else (Got(LISTING), "landed", None)
+    seeds = [("X", [], "https://www.example.govt.nz/a"), ("X", [], "https://www.example.govt.nz/b")]
+    capture.Run(FakeTables([]), land_fn=lambda *a, **k: (Ref, True), fetch_fn=f, clock=NIGHT, log=lambda *a: None,
+                anytime=True, seed_list=seeds).listings()
+    assert len(asked) == len(set(asked))
 
 
 def test_a_hyphenated_or_macron_name_is_one_candidate():
@@ -192,3 +208,29 @@ def test_a_hyphenated_or_macron_name_is_one_candidate():
     got = [(r["covers"], r["candidate_as_listed"], r["position"]) for r in rows(page)["rows"]]
     assert got == [("one candidate", "JONES Peter-Lucas", "Te Raki Māori Constituency"),
                    ("one candidate", "TE WHAREAU Tūī", "Te Raki Māori Constituency")]
+
+
+def test_the_listings_pass_asks_nothing_by_day_or_within_the_week():
+    asked = []
+    t = FakeTables([])
+    t.days_since_listings = lambda: 2.0
+    f = lambda u, m: (asked.append(u), (Got(FOLDER), "landed", None))[1]
+    seeds = [("Example District Council", [], "https://www.example.govt.nz/elections/returns")]
+    for clock in (NOON, NIGHT):
+        out = capture.Run(t, land_fn=lambda *a, **k: (Ref, True), fetch_fn=f, clock=clock, log=lambda *a: None,
+                          seed_list=seeds).listings()
+        assert out["requests"] == 0
+    t.days_since_listings = lambda: 7.0
+    assert capture.Run(t, land_fn=lambda *a, **k: (Ref, True), fetch_fn=f, clock=NIGHT, log=lambda *a: None,
+                       seed_list=seeds).listings()["requests"] >= 1
+
+
+def test_a_seed_s_year_is_its_own_page_s_not_the_archive_it_links():
+    hub = b"<main><h1>Elections 2022</h1><a href='/old'>Previous electoral donations and expenses</a></main>"
+    old = b"<main><h1>Previous elections</h1><a href='/o/jones.pdf'>JONES Ann - return</a></main>"
+    pages = {"https://www.example.govt.nz/hub": hub, "https://www.example.govt.nz/old": old}
+    t = FakeTables([])
+    capture.Run(t, land_fn=lambda *a, **k: (Ref, True), fetch_fn=lambda u, m: (Got(pages[u]), "landed", None),
+                clock=NIGHT, log=lambda *a: None, anytime=True,
+                seed_list=[("X", [2022], "https://www.example.govt.nz/hub")]).listings()
+    assert [w[2] for w in t._wanted] == [None]

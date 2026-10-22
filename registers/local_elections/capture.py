@@ -6,7 +6,7 @@ listing page that links candidates' returns (council, the election years it
 seeds, the address). A pass asks each listing page, lands it by hash, reads
 it (`read.read_listing`) for the returns it links and the sub-listings it
 names (a year's folder, a ward's page: followed up to `MAX_DEPTH`, same host
-only), and records every return's address as wanted. A files pass then asks
+only), and records every return's address as wanted. The listings pass runs at most weekly and only off-peak. A files pass then asks
 each wanted file that is not yet held, oldest election first (the 2019
 returns' seven years under s 112F ran out on 12 October 2026, so a council
 may take them down at any time), and lands it by hash. A return is HELD:
@@ -46,12 +46,15 @@ SEEDS = os.path.join(HERE, "listings.tsv")
 FLOOR_S = 5.0
 OFF_PEAK = (22, 6)
 DEFAULT_BUDGET_S = 7 * 3600
+LISTINGS_EVERY_DAYS = 7
 MAX_DEPTH = 2
 MAX_PAGES_A_COUNCIL = 40
 NZ = ZoneInfo("Pacific/Auckland")
 #: until the integrator moves the position to docs/legal/positions/, a session runs with QV4_POSITIONS set
 POSITIONS = os.environ.get("QV4_POSITIONS") or None
 MAX_FILE_BYTES = 60 << 20
+#: a redirect to one of these is a bot manager's challenge (Queenstown-Lakes to Radware's, 22 October 2026): blocked
+CHALLENGE_HOSTS = ("perfdrive.com", "radware.com", "incapsula.com", "hcaptcha.com", "recaptcha.net", "challenges.cloudflare.com")
 
 
 class FloorPacer(fg.Pacer):
@@ -120,10 +123,17 @@ class Tables:
             f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
             (pid, council, url, seed_year, depth, status, sha, state, why))
 
-    def want(self, council, url, listing_url, year):
-        self.conn.execute(
+    def want(self, council, url, listing_url, year) -> int:
+        """1 when the file is new to the capture, 0 when it is already recorded."""
+        return self.conn.execute(
             f"INSERT INTO {self.T('capture_files')} (url, council, listing_url, election_year, state) "
-            f"VALUES (%s, %s, %s, %s, 'wanted') ON CONFLICT (url) DO NOTHING", (url, council, listing_url, year))
+            f"VALUES (%s, %s, %s, %s, 'wanted') ON CONFLICT (url) DO NOTHING", (url, council, listing_url, year)).rowcount
+
+    def days_since_listings(self):
+        r = self.conn.execute(f"SELECT max(finished_at) FROM {self.T('capture_passes')} WHERE mode = 'listings'").fetchone()
+        if not r or r[0] is None:
+            return None
+        return (dt.datetime.now(dt.timezone.utc) - r[0]).total_seconds() / 86400
 
     def wanted(self) -> list:
         return [tuple(r) for r in self.conn.execute(
@@ -148,6 +158,8 @@ def fetch(url: str, max_bytes: int = None):
         return r, "blocked", r.blocked
     if r.status == 404 or r.status == 410:
         return r, "not found", f"HTTP {r.status}"
+    if r.status in fg.REDIRECT_STATUSES and any(fg.host_of(r.location).endswith(h) for h in CHALLENGE_HOSTS):
+        return r, "blocked", f"a redirect to a challenge ({fg.host_of(r.location)}); a challenged read is a failed read (hard limit 6)"
     if r.status in fg.REDIRECT_STATUSES:
         return r, "failed", f"HTTP {r.status} to {r.location} (another host: not followed)"
     if r.status != 200:
@@ -190,35 +202,44 @@ class Run:
         return r, state, why
 
     def listings(self) -> dict:
+        if not self.anytime:
+            if not off_peak(self.clock()):
+                self.log(f"{SOURCE}: outside 22:00 to 06:00 NZ time; no listing asked")
+                return {"requests": 0, "landed": 0, "failed": 0, "stopped": "daytime"}
+            since = self.t.days_since_listings() if hasattr(self.t, "days_since_listings") else None
+            if since is not None and since < LISTINGS_EVERY_DAYS - 0.5:
+                self.log(f"{SOURCE}: the last listings pass finished {since:.1f} days ago; none asked")
+                return {"requests": 0, "landed": 0, "failed": 0, "stopped": "not due"}
         pid = self.t.new_pass("listings")
-        rows = 0
+        rows, seen = 0, set()          # each page once a pass, though two seeds link it
         for council, years, url in (self.seed_list if self.seed_list is not None else seeds()):
             if self._out_of_time():
                 break
-            queue, seen = [(url, 0)], set()
-            while queue and len(seen) < MAX_PAGES_A_COUNCIL:
+            queue, asked_here = [(url, 0)], 0
+            while queue and asked_here < MAX_PAGES_A_COUNCIL:
                 u, depth = queue.pop(0)
                 if u in seen:
                     continue
                 seen.add(u)
+                asked_here += 1
                 r, state, why = self._ask(u)
+                # the seed's one year is the seed page's own: a page it leads to (an archive, a ward) has its own
+                seed_year = years[0] if len(years) == 1 and depth == 0 else None
                 if state != "landed":
-                    self.t.page(pid, council, u, years[0] if len(years) == 1 else None, depth,
-                                r.status if r else None, None, state, why)
+                    self.t.page(pid, council, u, seed_year, depth, r.status if r else None, None, state, why)
                     continue
                 ref, _new = self.land(r.body, name=u, source=SOURCE, name_kind="url", content_type="text/html")
                 self.landed += 1
-                self.t.page(pid, council, u, years[0] if len(years) == 1 else None, depth, r.status, ref.sha256, "landed")
-                out = read.read_listing(r.body, u, council, years[0] if len(years) == 1 else None, council_words(council, u))
+                self.t.page(pid, council, u, seed_year, depth, r.status, ref.sha256, "landed")
+                out = read.read_listing(r.body, u, council, seed_year, council_words(council, u))
                 for row in out["rows"]:
                     if row["election_year"] is None or row["election_year"] >= read.WINDOW_FROM:
-                        self.t.want(council, row["file_url"], u, row["election_year"])
-                        rows += 1
+                        rows += self.t.want(council, row["file_url"], u, row["election_year"])
                 if depth < MAX_DEPTH:
                     queue += [(f, depth + 1) for f in out["follow"] if f not in seen and fg.host_of(f) == fg.host_of(u)]
-        note = f"{rows} returns listed"
+        note = f"{rows} returns new to the capture"
         self.t.end_pass(pid, self.requests, self.landed, self.failed, note)
-        return {"pass": pid, "requests": self.requests, "landed": self.landed, "failed": self.failed, "returns_listed": rows}
+        return {"pass": pid, "requests": self.requests, "landed": self.landed, "failed": self.failed, "returns_new": rows}
 
     def files(self) -> dict:
         if not self.anytime and not off_peak(self.clock()):
@@ -305,7 +326,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="registers.local_elections.capture")
     ap.add_argument("mode", choices=("listings", "files", "adopt", "list"))
     ap.add_argument("path", nargs="?")
-    ap.add_argument("--anytime", action="store_true", help="files outside off-peak (by hand: a proof)")
+    ap.add_argument("--anytime", action="store_true", help="outside off-peak and the week guard (by hand: the survey, a proof)")
     ap.add_argument("--budget-s", type=float, default=DEFAULT_BUDGET_S)
     ap.add_argument("--max-files", type=int)
     ap.add_argument("--database", default="querynz_v4")
@@ -331,7 +352,7 @@ def main(argv=None) -> int:
         out = run.listings() if a.mode == "listings" else run.files()
     detail = ", ".join(f"{k} {v}" for k, v in out.items())
     print(f"{SOURCE}: {a.mode}: {detail}")
-    ok = out.get("landed", 0) > 0 or out.get("stopped") == "daytime" or out.get("requests", 0) == 0
+    ok = out.get("landed", 0) > 0 or out.get("stopped") in ("daytime", "not due") or out.get("requests", 0) == 0
     if a.database == "querynz_v4":
         jobrun.record(JOB_LISTINGS if a.mode == "listings" else JOB_FILES, ok, detail, started, out)
     return 0 if ok else 1

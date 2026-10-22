@@ -1,0 +1,38 @@
+# registers/local_elections: the jobs this lane proposes, for the integrator to append to support/scheduler/jobs.toml
+# (not installed by the session). The clock is NZDT (UTC+13) until 5 April 2027.
+
+[jobs.qv4-local-elections-listings]
+description = "Step 6.3: every council returns page listings.tsv seeds (66 pages, 43 councils on 22 October 2026, and their sub-listings two deep), asked once each, 5 s apart or each robots file's crawl delay, landed by hash and read for the returns they link (each new one recorded as wanted). Due daily at 22:10 NZDT; the pass itself refuses to start under a week after the last finished one and outside 22:00 to 06:00, so it runs weekly, off-peak, and the other days cost no request. About 150 requests, about 20 minutes."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 7200
+query_timeout_s = 60
+class = "due"
+priority = 74
+command = ["python", "-m", "registers.local_elections.capture", "listings", "--budget-s", "3600"]
+at_utc = "09:10"
+nice = 10
+
+[jobs.qv4-local-elections-files]
+description = "Step 6.3: each wanted return (a council's candidate return of electoral donations and expenses, PDF, Word or a scan) asked once ever, oldest election first, 5 s apart or the crawl delay, landed by hash and HELD, not read (ruling 79). Daily at 22:20 NZDT; it stops at 06:00 and resumes the next night; a host that blocks or challenges is not asked again that night. About 2,000 files at the first runs (about four nights), then only what the weekly listings add."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 27000
+query_timeout_s = 60
+class = "due"
+priority = 75
+command = ["python", "-m", "registers.local_elections.capture", "files", "--budget-s", "25200"]
+at_utc = "09:20"
+nice = 10
+
+[jobs.qv4-local-elections-load]
+description = "Step 6.3: the returns register rebuilt from every listing page held, in staging, held to check.py's reading rules, published only on green. Daily at 06:40 NZDT, after the files run stops."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 900
+query_timeout_s = 600
+class = "due"
+priority = 76
+command = ["python", "-m", "registers.local_elections.load", "--job"]
+at_utc = "17:40"
+nice = 10
