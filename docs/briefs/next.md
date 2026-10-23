@@ -503,10 +503,12 @@ before its fast tier and its gate, catalogue on the board the `pub.*` views
 the previous merge published (the gate's full tier runs the board's
 outside check against the live tables, so a view named late turns it red
 and a view named early fails as unpublished; two gates were refused this
-way on 23 October). Until the worker's release copy lands (card
-`the-scheduler-s-worker-runs-the-main-checkout-s-working-tree-so-an-integrate-branch-s-jobs-ran-live-before-the-gate`),
-stop the idle worker before checking out an integrate branch and start it
-after the push; a job new to the catalogue now waits for its next slot
+way on 23 October). After every push of main, run `.venv/bin/python -m support.installer release`
+(node2, /home/user/querynzv4); the worker, its jobs, the four product
+services and the checks' timers run that copy (`/home/user/querynzv4-release`,
+one pushed commit of origin/main with its own `.venv`), so an integrate branch
+no longer needs the worker stopped. When it says `worker restart owed`,
+restart the idle worker: `systemctl --user restart qv4-worker@node2` (node2); a job new to the catalogue now waits for its next slot
 (fix-support-scheduler-1), so a lane's first run is queued by hand.
 
 Reading (Arthur, 20 October, ruling 62): no page-reader job is queued in

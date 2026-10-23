@@ -40,8 +40,11 @@ from support.scheduler import queue as q
 from support.scheduler import registry as reg
 from support.scheduler import runner, runs
 
+# The copy this worker runs in, and so every job it starts: the release copy
+# (/home/user/querynzv4-release, moved only by `python -m support.installer
+# release` after a push), never the main checkout the integrator works in.
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-MAIN = "main"
+ORIGIN_MAIN = "refs/remotes/origin/main"
 
 
 def checkout_branch(path) -> str | None:
@@ -55,6 +58,37 @@ def checkout_branch(path) -> str | None:
     if p.returncode:
         return None
     return p.stdout.strip() or None
+
+
+def _git(path, *args) -> tuple[int, str]:
+    try:
+        p = subprocess.run(["git", "-C", str(path), *args], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return -1, ""
+    return p.returncode, p.stdout.strip()
+
+
+def release_state(path) -> str | None:
+    """None when the checkout holding `path` stands, unedited, at a commit
+    of origin/main (as that checkout last fetched it); otherwise why not.
+    The release copy always does; the main checkout does only once main is
+    pushed, never on an integrate branch or a merge not yet pushed."""
+    rc, head = _git(path, "rev-parse", "HEAD")
+    if rc or not head:
+        return "git cannot say which commit the checkout stands at"
+    rc, _ = _git(path, "merge-base", "--is-ancestor", head, ORIGIN_MAIN)
+    if rc == 1:
+        branch = checkout_branch(path)
+        at = f"on {branch}" if branch and branch != "HEAD" else "detached"
+        return f"the checkout stands at {head[:12]} ({at}), not a commit of origin/main"
+    if rc:
+        return "git cannot say whether the checkout's commit is on origin/main"
+    rc, edits = _git(path, "status", "--porcelain", "--untracked-files=no")
+    if rc:
+        return "git cannot say whether the checkout is edited"
+    if edits:
+        return f"the checkout's tracked files are edited ({len(edits.splitlines())} path(s))"
+    return None
 
 
 def _connect(database: str):
@@ -83,9 +117,9 @@ class Worker:
         self.database, self.schema = database, schema
         self._reload = registry is None and profiles is None     # a test's own catalogue is never replaced
         self.log = log or (lambda m: print(f"{dt.datetime.now().astimezone().isoformat(timespec='seconds')} {name}: {m}", flush=True))
-        self._off_main: str | None = None                          # why the catalogue is held, as last logged
-        if self._reload and not self._on_main():
-            registry = {}    # no good catalogue yet: run nothing until the checkout is back on main
+        self._held: str | None = None                              # why the catalogue is held, as last logged
+        if self._reload and not self._on_release():
+            registry = {}    # no good catalogue yet: run nothing until the checkout stands at a commit of origin/main
         self.registry = registry if registry is not None else reg.load()
         self.profiles = profiles if profiles is not None else reg.profiles()
         self.rules = rules or reg.queueing()
@@ -114,32 +148,32 @@ class Worker:
         self.profile, self.probed_at = p, time.monotonic()
         return p
 
-    def _on_main(self) -> bool:
-        """Whether the checkout the catalogue is read from is on main. An
-        integrator checks an integrate branch out in the main checkout for
-        about twenty-five minutes before the gate; a catalogue read then ran
-        the branch's new jobs live (card the-scheduler-s-worker-runs-the-
-        main-checkout-…, finding 2). Off main the last good catalogue is kept
-        and one line says why, once per change."""
-        branch = checkout_branch(reg.JOBS.parent)
-        if branch == MAIN:
-            if self._off_main is not None:
-                self.log(f"catalogue: the checkout is back on {MAIN}; reloading again")
-                self._off_main = None
+    def _on_release(self) -> bool:
+        """Whether the checkout the catalogue is read from stands, unedited,
+        at a pushed commit of main. An integrator checks an integrate branch
+        out in the main checkout for about twenty-five minutes before the
+        gate; a catalogue read there ran the branch's new jobs live (card
+        the-scheduler-s-worker-runs-the-main-checkout-…, finding 2). The
+        worker runs from the release copy, which always passes; anywhere
+        else the last good catalogue is kept and one line says why, once
+        per change."""
+        why = release_state(reg.JOBS.parent)
+        if why is None:
+            if self._held is not None:
+                self.log("catalogue: the checkout stands at a commit of origin/main again; reloading")
+                self._held = None
             return True
-        why = ("git cannot say which branch the checkout is on" if branch is None else
-               "the checkout has a detached head" if branch == "HEAD" else f"the checkout is on {branch}")
-        if why != self._off_main:
-            self.log(f"catalogue not reloaded: {why}, not {MAIN}; the last good catalogue is kept")
-            self._off_main = why
+        if why != self._held:
+            self.log(f"catalogue not reloaded: {why}; the last good catalogue is kept")
+            self._held = why
         return False
 
     def reload_catalogue(self) -> None:
         """The catalogue and the profiles are re-read on the probe's clock,
         so a change lands within that interval without a restart. A file
         that no longer parses is logged and the last good one kept; so is
-        every file while the checkout is not on main."""
-        if not self._reload or not self._on_main():
+        every file while the checkout is not at a commit of origin/main."""
+        if not self._reload or not self._on_release():
             return
         try:
             registry, profiles, rules = reg.load(), reg.profiles(), reg.queueing()
@@ -195,6 +229,7 @@ class Worker:
         q.tables(self.conn, self.schema)
         self.probe()
         q.register(self.conn, self.schema, self.name, self.box, self.profile)
+        self.log(f"running from {REPO} at {_git(REPO, 'rev-parse', '--short=12', 'HEAD')[1] or '?'}")
         self.log(f"registered on {self.box}: {self.profile.get('cores')} cores, {self.profile.get('memory_total_gb')} GB, "
                  f"{len(self.profile.get('cards') or [])} card(s), programs missing: "
                  f"{[k for k, v in (self.profile.get('programs') or {}).items() if not v]}")

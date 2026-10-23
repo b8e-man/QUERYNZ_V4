@@ -1,9 +1,10 @@
 # The scheduler's worker runs the main checkout's working tree, so an integrate branch's jobs ran live before the gate
 kind: finding
-state: open
+state: closed
 use-case: machinery; plan 1b.7 (the gate), step 2 (the scheduler)
 session: integrator
 opened: 2026-10-22
+closed: 2026-10-23
 
 Found at the merge of `procurement-1` (22 October 2026). The worker unit
 `qv4-worker@node2` has `WorkingDirectory=/home/user/querynzv4`, the main
@@ -73,3 +74,43 @@ Still open, so this card stays open:
   outside this module, so it is a build session's.
 - Until that lands the integrator's interim stands: stop the idle worker
   before checking out an integrate branch, start it after the push.
+
+## 2026-10-23, release-copy-1 (branch `session/release-copy-1`)
+
+The second half, built; it closes at the merge (merge request
+`release-copy-1`, which says what the integrator does):
+
+- **The release copy** `/home/user/querynzv4-release`: a clone of origin
+  holding one pushed commit of main, detached, never a branch, never
+  edited, with its own `.venv`. `python -m support.installer release`
+  makes or moves it: fetch, refuse an edited copy, a branch or a commit
+  not on origin/main, check out, record `.git/qv4-release.json`, log one
+  line to `<live>/installer/release.log`, and say whether the worker must
+  restart (its own code moved).
+- **The worker runs from it.** `qv4-worker@.service` names the copy in
+  `WorkingDirectory` and `ExecStart`, so the worker and every job it starts
+  run the released commit. The catalogue reloads only while its checkout
+  stands, unedited, at a commit of origin/main (the branch-name test
+  became this). The installer refuses to place the worker unit until the
+  copy and its `.venv` exist.
+- **The interim ends at the merge:** after every push the integrator runs
+  the release command; no stop and start around an integrate branch.
+
+Left outside this fence, for the integrator: the product surfaces'
+standing units (`qv4-board`, `qv4-report`, `qv4-site-preview`, `qv4-scan`)
+still name the main checkout, so one restarted during a merge window runs
+the branch's code. Each is two lines to repoint at the copy; the
+installer's refusal then covers them too.
+
+## Closed (integrator, 2026-10-23, at the merge of release-copy-1)
+
+Finding 1 closed by `fix-support-scheduler-1` (merged 08:52: a job new to the
+clock takes its next slot; the catalogue reloads only on main). Finding 2's
+code half closed by `release-copy-1`: the worker and its jobs run
+`/home/user/querynzv4-release`, one pushed commit of origin/main with its
+own `.venv`, moved only by `python -m support.installer release` after a
+push, never the main checkout. The integrator repointed the four product
+services' units (`qv4-board`, `qv4-report`, `qv4-site-preview`, `qv4-scan`)
+at the same copy on the integrate branch, so the note the session left is
+done too. The interim (stop the idle worker around each merge) is withdrawn
+in `docs/briefs/next.md`; the release command after every push replaces it.

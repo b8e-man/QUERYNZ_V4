@@ -4,8 +4,9 @@ After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/user/querynzv4
-ExecStart=/home/user/querynzv4/.venv/bin/python -m products.scan serve
+# the release copy (release-copy-1): one pushed commit of origin/main, moved only by `python -m support.installer release`
+WorkingDirectory=/home/user/querynzv4-release
+ExecStart=/home/user/querynzv4-release/.venv/bin/python -m products.scan serve
 # the port and where the scan's own tables live; the credential files are read at the moment of use
 Environment=PYTHONUNBUFFERED=1 QV4_SCAN_PORT=8450 QV4_SCAN_BIND=0.0.0.0 QV4_SCAN_STATE=querynz_v4/register_scan
 Restart=on-failure

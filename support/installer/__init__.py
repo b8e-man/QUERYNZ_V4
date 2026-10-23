@@ -2,7 +2,7 @@
 files and model files on every box, and copies the credential files from
 box to box directly, never through the repository.
 
-Six steps, each a plan before it is an action:
+Seven steps, each a plan before it is an action:
 
   code          the checkout on the box is the main checkout at a commit;
                 another box pulls the same commit (git), never a copy by hand
@@ -16,7 +16,12 @@ Six steps, each a plan before it is an action:
                 is SUPERSEDED (step 2.12: the clock is the queue's): disabled,
                 removed, and the slot it served handed over so nothing runs
                 twice; its service unit stays for a hand run. The worker
-                instance for this box is enabled.
+                instance for this box is enabled. The worker's unit runs
+                from the release copy (`release.py`); it is refused, and
+                the unit on the box left as it is, until that copy exists.
+  release       the release copy: one pushed commit of origin/main,
+                detached, never edited, with its own `.venv`; moved after
+                every push (`python -m support.installer release`)
   model-server  the estate's own copy of the model server, beside the old
                 build and never over it (`<live>/llama/bin`), with its
                 version and hash recorded; the frozen product's two servers
@@ -127,19 +132,40 @@ def plan_units(repo: str = REPO, unit_dir: str = UNIT_DIR) -> list[dict]:
 
 
 MAIN_CHECKOUT = "/home/user/querynzv4"
+RELEASE_COPY = os.environ.get("QV4_RELEASE") or "/home/user/querynzv4-release"
 
 
 def unit_text(path: str, repo: str = REPO) -> str:
-    """A shipped unit names the main checkout. Installed from a working
-    copy (a rehearsal before the merge) the paths are rewritten to it, and
-    the next install from the main checkout puts the shipped text back:
-    the hash differs, so it is an `update`."""
+    """A shipped unit names the main checkout, or (the worker) the release
+    copy. Installed from the main checkout or the release copy it is the
+    shipped text. Installed from a working copy (a rehearsal before the
+    merge) the paths are rewritten to it, and the next install from the
+    main checkout puts the shipped text back: the hash differs, so it is
+    an `update`."""
     text = open(path, encoding="utf-8").read()
-    if os.path.realpath(repo) != os.path.realpath(MAIN_CHECKOUT):
-        text = text.replace(f"WorkingDirectory={MAIN_CHECKOUT}", f"WorkingDirectory={os.path.realpath(repo)}")
-        text = text.replace("[Service]", f"[Service]\n# REHEARSAL: installed from the working copy {os.path.realpath(repo)}; "
+    here = os.path.realpath(repo)
+    if here not in (os.path.realpath(MAIN_CHECKOUT), os.path.realpath(RELEASE_COPY)):
+        py = os.path.join(here if os.path.exists(os.path.join(here, ".venv", "bin", "python")) else MAIN_CHECKOUT,
+                          ".venv", "bin", "python")
+        text = text.replace(f"ExecStart={RELEASE_COPY}/.venv/bin/python", f"ExecStart={py}")
+        for shipped in (MAIN_CHECKOUT, RELEASE_COPY):
+            text = text.replace(f"WorkingDirectory={shipped}\n", f"WorkingDirectory={here}\n")
+        text = text.replace("[Service]", f"[Service]\n# REHEARSAL: installed from the working copy {here}; "
                                          f"the merge's install replaces this with the shipped unit", 1)
     return text
+
+
+def release_missing(text: str) -> str | None:
+    """Why a unit that runs from the release copy cannot be placed yet: the
+    copy is not made (no record) or has no environment. None when it can."""
+    if f"WorkingDirectory={RELEASE_COPY}\n" not in text:
+        return None
+    from support.installer import release
+    if not release.record(RELEASE_COPY):
+        return f"the release copy {RELEASE_COPY} is not made: run `python -m support.installer release` first"
+    if not os.path.exists(os.path.join(RELEASE_COPY, ".venv", "bin", "python")):
+        return f"the release copy {RELEASE_COPY} has no .venv: rerun `python -m support.installer release`"
+    return None
 
 
 def handover_clock(job: str, timer: str):
@@ -163,7 +189,7 @@ def install_units(repo: str = REPO, unit_dir: str = UNIT_DIR, box: str = None, s
     sh = sh or _sh
     handover = handover or handover_clock
     done = []
-    superseded = set()
+    superseded, refused = set(), set()
     for step in plan_units(repo, unit_dir):
         name = step["unit"]
         if not name.startswith(PREFIX) or step["action"] == "stale":   # never a foreign unit; a stale one is reported only
@@ -181,18 +207,25 @@ def install_units(repo: str = REPO, unit_dir: str = UNIT_DIR, box: str = None, s
             continue
         target = os.path.join(unit_dir, name)
         text = unit_text(unit_sources(repo)[name], repo)
+        why = release_missing(text)
+        if why:
+            # a worker pointed at a copy that is not there would fail and restart for ever; the old unit stays
+            refused.add(name)
+            done.append({"unit": name, "action": "refused", "why": why})
+            continue
         if step["action"] in ("install", "update") or (os.path.exists(target) and open(target, encoding="utf-8").read() != text):
             os.makedirs(unit_dir, exist_ok=True)
             with open(target, "w", encoding="utf-8") as f:
                 f.write(text)
             done.append({"unit": name, "action": step["action"] if step["action"] != "same" else "update"})
-    if done:
+    if any(d["action"] != "refused" for d in done):
         sh(["systemctl", "--user", "daemon-reload"])
     if enable:
         for name in unit_sources(repo):
             if name.endswith(".timer") and name not in superseded and (not only or name in only):
                 sh(["systemctl", "--user", "enable", "--now", name])
-        if "qv4-worker@.service" in unit_sources(repo) and (not only or "qv4-worker@.service" in only):
+        if ("qv4-worker@.service" in unit_sources(repo) and "qv4-worker@.service" not in refused
+                and (not only or "qv4-worker@.service" in only)):
             inst = f"qv4-worker@{box or os.uname().nodename}.service"
             sh(["systemctl", "--user", "enable", "--now", inst])
             done.append({"unit": inst, "action": "enabled"})
@@ -318,7 +351,8 @@ def copy_credentials(box: str, cred_dir: str = CRED_DIR, sh=None) -> dict:
 
 def check(profiles: dict, repo: str = REPO, unit_dir: str = UNIT_DIR, box: str = None) -> dict:
     """The parity report, as plain facts."""
-    return {"code": plan_code(repo, box), "venv": plan_venv(repo), "units": plan_units(repo, unit_dir),
+    from support.installer import release
+    return {"code": plan_code(repo, box), "venv": plan_venv(repo), "release": release.state(), "units": plan_units(repo, unit_dir),
             "model_server": plan_model_server(), "models": plan_models(profiles),
             "credentials": {"dir": cred_dir_state(), "box": box}}
 

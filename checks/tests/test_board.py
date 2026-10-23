@@ -80,8 +80,9 @@ def test_job_files_carry_the_prefix_a_deadline_and_a_persistent_timer():
         assert n.startswith("qv4-")
         if n.endswith(".service"):
             assert re.search(r"^TimeoutStartSec=\d+$", text, re.M), n
-            assert "ExecStart=/home/user/querynzv4/" in text
-            assert "WorkingDirectory=/home/user/querynzv4" in text
+            # the release copy since release-copy-1 (23 October 2026): never the main checkout, where integrate branches are checked out
+            assert "ExecStart=/home/user/querynzv4-release/" in text
+            assert "WorkingDirectory=/home/user/querynzv4-release\n" in text
         else:
             assert "Persistent=true" in text and "OnCalendar=" in text and "WantedBy=timers.target" in text
 

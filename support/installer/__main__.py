@@ -4,7 +4,11 @@
         files and enables the timers and this box's worker (an integrator's step); --box copies
         code, models and credentials to a second box directly
   python -m support.installer check [--box HOST]       the parity report
-  python -m support.installer build [--ref REF]        the model server built from source, beside the copy"""
+  python -m support.installer build [--ref REF]        the model server built from source, beside the copy
+  python -m support.installer release [--commit SHA] [--copy PATH]
+        create or move the release copy the worker runs from (default /home/user/querynzv4-release)
+        to origin/main (or SHA, which must be on origin/main) after a fetch: the integrator's step
+        after every push. Refuses a dirty copy or a branch; logs one line"""
 from __future__ import annotations
 
 import argparse
@@ -12,19 +16,30 @@ import json
 import sys
 
 from support import installer as inst
+from support.installer import release as rel
 from support.scheduler import registry as reg
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m support.installer", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=("plan", "apply", "check", "build"))
+    ap.add_argument("cmd", choices=("plan", "apply", "check", "build", "release"))
     ap.add_argument("--ref", help="build: the source commit or tag (default: the old checkout's HEAD)")
     ap.add_argument("--box")
     ap.add_argument("--units", action="store_true")
     ap.add_argument("--repo", default=inst.REPO, help="install from this checkout (a working copy for a rehearsal)")
     ap.add_argument("--only", nargs="*", default=(), help="units: place only these")
+    ap.add_argument("--commit", help="release: the commit to stand at (default origin/main)")
+    ap.add_argument("--copy", default=rel.RELEASE, help="release: the copy (default %(default)s)")
     a = ap.parse_args(argv)
+    if a.cmd == "release":
+        try:
+            rec = rel.release(a.copy, a.commit, repo=a.repo)
+        except rel.Refused as e:
+            print(f"release refused: {e}", file=sys.stderr)
+            return 1
+        print(json.dumps(rec, indent=1))
+        return 0
     profiles = reg.profiles()
     if a.cmd == "build":
         rec = inst.build_model_server(ref=a.ref)
