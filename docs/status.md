@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
 
-**Date:** 2026-10-23, 12:40 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-23, 13:55 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 not clean (no version accepted since 20 October, see Half-done); 5.1
 done; 5.2 closed (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held
 on terms; sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on
@@ -37,9 +37,10 @@ old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- `release-copy-1`: the worker runs a release copy that moves only on a
-  push (the worker card's second half). Template 4 and step 7 wait
-  (rulings 79, 63).
+- Nothing. 13:47 `release-copy-1` merged: the worker and the product
+  services run `/home/user/querynzv4-release`, moved by the release command
+  after each push; with it `fix-support-offsite-1`. Template 4, step 7
+  wait (79, 63).
 
 ## Half-done
 
@@ -48,7 +49,7 @@ old estate's ntfy address.
   falls; 23 October the disclosures page's nightly hash (reloaded by hand,
   job added). Arthur's `--allow-drop` run accepts a version; then seven
   clean days, checkpoint, export test, the switch after 7 November.
-  Comparison 23 October: 29,193 differences, 27 uncarded. Step 2: `qv4-questions` held (ruling 22).
-- Waits on Arthur: node1's fence and the cable check; the site build with
-  `--allow-drop`; letters (MBIE, Dunedin, the councils' returns and
-  registers); scratch schema drops; items 12, 69 and 75 after the build.
+  Comparison 23 October: 29,193 differences, 27 uncarded.
+- Waits on Arthur: node1's fence and cable check; the build with
+  `--allow-drop`; `rm -rf` of `/mnt/hdd2/qv4-restore` so the rehearsal
+  runs; letters; scratch drops; items 12, 69, 75 after.
