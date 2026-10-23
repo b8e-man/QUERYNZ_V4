@@ -35,9 +35,10 @@ def test_the_open_script_starts_the_unit_then_opens_the_address():
         assert word not in s
 
 
-def test_the_unit_is_a_qv4_standing_service_on_the_main_checkout():
+def test_the_unit_is_a_qv4_standing_service_on_the_release_copy():
+    # since release-copy-1 (23 October 2026) the standing services run the release copy, never the main checkout
     u = open(UNIT, encoding="utf-8").read()
     assert os.path.basename(UNIT).startswith("qv4-")
-    assert "WorkingDirectory=/home/user/querynzv4\n" in u and "products.board serve" in u
+    assert "WorkingDirectory=/home/user/querynzv4-release\n" in u and "products.board serve" in u
     assert "Restart=on-failure" in u and "QV4_BOARD_PORT=8420" in u
     assert "8300" not in u and "8301" not in u

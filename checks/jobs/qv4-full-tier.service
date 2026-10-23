@@ -3,8 +3,9 @@ Description=QueryNZV4 full tier — every test, the slow ones included, nightly 
 
 [Service]
 Type=oneshot
-WorkingDirectory=/home/user/querynzv4
-ExecStart=/home/user/querynzv4/bin/full-tier
+# the release copy (release-copy-1): one pushed commit of origin/main, moved only by `python -m support.installer release`
+WorkingDirectory=/home/user/querynzv4-release
+ExecStart=/home/user/querynzv4-release/bin/full-tier
 TimeoutStartSec=7200
 Environment=PYTHONUNBUFFERED=1
 Nice=10

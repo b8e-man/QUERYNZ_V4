@@ -3,8 +3,9 @@ Description=QueryNZV4 checks board — watches the frozen product each day (plan
 
 [Service]
 Type=oneshot
-WorkingDirectory=/home/user/querynzv4
-ExecStart=/home/user/querynzv4/.venv/bin/python -m checks.board
+# the release copy (release-copy-1): one pushed commit of origin/main, moved only by `python -m support.installer release`
+WorkingDirectory=/home/user/querynzv4-release
+ExecStart=/home/user/querynzv4-release/.venv/bin/python -m checks.board
 # the deadline (plan: every job has one): for a oneshot unit it is TimeoutStartSec
 TimeoutStartSec=3600
 Environment=PYTHONUNBUFFERED=1
