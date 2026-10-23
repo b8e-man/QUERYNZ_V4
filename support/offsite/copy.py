@@ -80,6 +80,24 @@ SELECT n.nspname, c.relname, c.relfilenode::text,
 EPOCH_SQL = """SELECT coalesce(stats_reset::text, '') || '|' || pg_postmaster_start_time()::text
                  FROM pg_stat_database WHERE datname = current_database()"""
 
+# What a restored database must be created with: a CHECK or an index on
+# text holds only under the collation the source validated it with (three
+# links.links rows broke `row_a < row_b` under "C", 22 October).
+LOCALE_SQL = """SELECT pg_encoding_to_char(encoding), datlocprovider::text, datcollate, datctype,
+                       datlocale, daticurules
+                  FROM pg_database WHERE datname = current_database()"""
+PROVIDERS = {"c": "libc", "i": "icu", "b": "builtin"}
+
+
+def database_locale(cur) -> dict:
+    """The current database's encoding, locale provider, collation and
+    ctype, as the manifest records them and the restore creates them."""
+    cur.execute(LOCALE_SQL)
+    enc, prov, collate, ctype, locale, rules = tuple(cur.fetchone())
+    return {"encoding": enc, "provider": PROVIDERS[prov], "collate": collate, "ctype": ctype,
+            "locale": locale, "icu_rules": rules}
+
+
 SEQUENCES_SQL = """
 SELECT n.nspname, c.relname, has_sequence_privilege(c.oid, 'select')
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -243,6 +261,7 @@ class Run:
             cur = conn.cursor()
             cur.execute(EPOCH_SQL)
             epoch = cur.fetchone()[0]
+            locale = database_locale(cur)
             cur.execute(TABLES_SQL)
             tables = cur.fetchall()     # counters read BEFORE the snapshot: a copy holds at least what they count
             conn.commit()
@@ -300,7 +319,8 @@ class Run:
                     self.send(obj)
         self.send(schema_name)
         self.man["databases"][database] = {"epoch": epoch, "frozen": conf["frozen"], "schema": schema_name,
-                                           "sequences": seqs, "done": True, "stamp": self.stamp}
+                                           "sequences": seqs, "locale": locale, "done": True,
+                                           "stamp": self.stamp}
         self.save_progress()
 
     def copy_chunked(self, cur, piece: str, schema: str, table: str, pages: int, size: int, reason: str) -> dict:

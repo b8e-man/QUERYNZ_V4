@@ -17,6 +17,14 @@ could read, else an owned sequence set from its column's maximum), then the
 schema after data (indexes, constraints; pg_restore --section=post-data in
 parallel), then the trees.
 
+Each database is created as its source was: the encoding, locale provider,
+collation and ctype the copy recorded from pg_database (a CHECK or an
+index on text holds only under the collation it was validated with; under
+"C" three links.links rows broke `row_a < row_b`, 22 October). A copy
+made before the manifest carried them takes the live server's settings,
+read at restore time, and the record says which was used. The scratch
+server's initdb takes the first database's.
+
 The scratch server is our own: initdb under the work folder, socket only
 (no TCP), port 5434, run as a transient user unit so it outlives a caller
 started by systemd-run. Its tuning is a bulk load's (no fsync, minimal WAL),
@@ -48,6 +56,7 @@ import time
 from support import db
 from support.offsite import read_env, ENV_FILE, LIVE
 from support.offsite import copy as C
+from support.offsite import pieces as P
 
 ROOT = os.environ.get("QV4_RESTORE_ROOT") or "/mnt/hdd2/qv4-restore"
 PORT = 5434
@@ -58,6 +67,9 @@ SERVER_SETTINGS = ("listen_addresses=", "fsync=off", "synchronous_commit=off", "
                    "wal_level=minimal", "max_wal_senders=0", "shared_buffers=2GB", "maintenance_work_mem=1GB",
                    "max_parallel_maintenance_workers=2", "checkpoint_timeout=30min", "max_wal_size=16GB",
                    "autovacuum=off")
+# initdb's settings when the rehearsal restores no database (trees only)
+SERVER_LOCALE = {"encoding": "UTF8", "provider": "libc", "collate": "C.UTF-8", "ctype": "C.UTF-8",
+                 "locale": None, "icu_rules": None, "from": "default"}
 
 
 class Source:
@@ -155,17 +167,74 @@ def read_manifest(src: Source, stamp: str, passphrase: str) -> dict:
     return json.loads(data)
 
 
+# ── locales ─────────────────────────────────────────────────────────────
+
+def live_locale(database: str) -> dict:
+    """The live server's settings for `database`, read now, through the
+    login the copy reads it with."""
+    login = P.DATABASES.get(database, {}).get("login", db.OWNER_KEY)
+    with db.connect(login, database) as conn:
+        return C.database_locale(conn.cursor())
+
+
+def database_locales(man: dict, databases, live=live_locale) -> dict:
+    """{database: its locale, with "from": "manifest" or "live server"}."""
+    out = {}
+    for database in databases:
+        recorded = man["databases"][database].get("locale")
+        out[database] = (dict(recorded, **{"from": "manifest"}) if recorded
+                         else dict(live(database), **{"from": "live server"}))
+    return out
+
+
+def literal(s: str) -> str:
+    return "'" + s.replace("'", "''") + "'"
+
+
+def initdb_locale_args(loc: dict) -> list:
+    args = ["-E", loc["encoding"], f"--locale-provider={loc['provider']}", f"--locale={loc['collate']}",
+            f"--lc-collate={loc['collate']}", f"--lc-ctype={loc['ctype']}"]
+    if loc["provider"] == "icu":
+        args.append(f"--icu-locale={loc['locale']}")
+        if loc.get("icu_rules"):
+            args.append(f"--icu-rules={loc['icu_rules']}")
+    elif loc["provider"] == "builtin":
+        args.append(f"--builtin-locale={loc['locale']}")
+    return args
+
+
+def create_database_sql(database: str, loc: dict) -> str:
+    if loc["provider"] not in C.PROVIDERS.values():
+        raise ValueError(f"{database}: unknown locale provider")
+    sql = (f"CREATE DATABASE {C.qident(database)} TEMPLATE template0 ENCODING {literal(loc['encoding'])} "
+           f"LOCALE_PROVIDER {loc['provider']} LC_COLLATE {literal(loc['collate'])} LC_CTYPE {literal(loc['ctype'])}")
+    if loc["provider"] == "icu":
+        sql += f" ICU_LOCALE {literal(loc['locale'])}"
+        if loc.get("icu_rules"):
+            sql += f" ICU_RULES {literal(loc['icu_rules'])}"
+    elif loc["provider"] == "builtin":
+        sql += f" BUILTIN_LOCALE {literal(loc['locale'])}"
+    return sql
+
+
+def create_database(root: str, database: str, loc: dict, connect=None) -> None:
+    import psycopg
+    with (connect or psycopg.connect)(conninfo(root, "postgres"), autocommit=True) as c:
+        c.execute(f"DROP DATABASE IF EXISTS {C.qident(database)}")
+        c.execute(create_database_sql(database, loc))
+
+
 # ── the scratch server ──────────────────────────────────────────────────
 
 def socket_dir(root: str) -> str:
     return os.path.join(root, "sock")
 
 
-def start_server(root: str, port: int = PORT, run=subprocess.run) -> None:
+def start_server(root: str, locale: dict, port: int = PORT, run=subprocess.run) -> None:
     pgdata, sock = os.path.join(root, "pgdata"), socket_dir(root)
     os.makedirs(sock, mode=0o700, exist_ok=True)
     if not os.path.exists(os.path.join(pgdata, "PG_VERSION")):
-        r = run(["initdb", "-D", pgdata, "-A", "trust", "-E", "UTF8", "--locale=C.UTF-8", "-U", "restore"],
+        r = run(["initdb", "-D", pgdata, "-A", "trust", *initdb_locale_args(locale), "-U", "restore"],
                 capture_output=True)
         if r.returncode:
             raise RuntimeError(f"initdb: {r.stderr.decode(errors='replace')[-300:]}")
@@ -210,9 +279,11 @@ def pg_restore_section(dump: str, section: str, root: str, database: str, jobs: 
         raise RuntimeError(f"pg_restore {section} {database}: {r.stderr.decode(errors='replace')[-400:]}")
 
 
-def restore_database(database: str, man: dict, src: Source, passphrase: str, root: str, jobs: int, log=print) -> dict:
+def restore_database(database: str, man: dict, src: Source, passphrase: str, root: str, jobs: int, locale: dict,
+                     log=print) -> dict:
     import psycopg
-    rec = {"tables": 0, "rows": 0, "plain_bytes": 0, "in_bad": [], "out_bad": [], "skipped": [], "seconds": {}}
+    rec = {"tables": 0, "rows": 0, "plain_bytes": 0, "in_bad": [], "out_bad": [], "skipped": [], "seconds": {},
+           "locale": locale}
     dbm = man["databases"][database]
     t = time.monotonic()
     work_plain = os.path.join(root, "work", f"{database}-schema.dump")
@@ -222,9 +293,7 @@ def restore_database(database: str, man: dict, src: Source, passphrase: str, roo
         shutil.copyfileobj(zstd.stdout, f)
     if zstd.wait() or gpg.wait():
         raise RuntimeError(f"{database}: schema object does not open")
-    with psycopg.connect(conninfo(root, "postgres"), autocommit=True) as c:
-        c.execute(f"DROP DATABASE IF EXISTS {C.qident(database)}")
-        c.execute(f"CREATE DATABASE {C.qident(database)} TEMPLATE template0 ENCODING 'UTF8'")
+    create_database(root, database, locale)
     pg_restore_section(work_plain, "pre-data", root, database)
     rec["seconds"]["schema_before"] = round(time.monotonic() - t, 1)
 
@@ -380,7 +449,8 @@ def restore_tree(tree: str, tm: dict, src: Source, passphrase: str, root: str, l
 # ── the rehearsal ───────────────────────────────────────────────────────
 
 def rehearse(source: str = "bucket", databases=None, trees=None, keep: bool = False, root: str = None,
-             jobs: int = 4, stamp: str = None, spool: str = None, log=print) -> dict:
+             jobs: int = 4, stamp: str = None, spool: str = None, log=print, live=live_locale,
+             run=subprocess.run) -> dict:
     root = root or ROOT
     started = time.monotonic()
     work = os.path.join(root, "work")
@@ -393,13 +463,18 @@ def rehearse(source: str = "bucket", databases=None, trees=None, keep: bool = Fa
     log(f"restore rehearsal from the {source}: copy {stamp} ({man['kind']})")
     rec = {"stamp": stamp, "kind": man["kind"], "source": source,
            "started": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "databases": {}, "trees": {}}
-    t = time.monotonic()
-    start_server(root)
-    rec["server_s"] = round(time.monotonic() - t, 1)
+    wanted = list(man["databases"]) if databases is None else databases
     failed = False
     try:
-        for database in (list(man["databases"]) if databases is None else databases):
-            rec["databases"][database] = restore_database(database, man, src, passphrase, root, jobs, log)
+        locales = database_locales(man, wanted, live)    # a live read that fails is recorded like any failure
+        rec["server_locale"] = locales[wanted[0]] if wanted else SERVER_LOCALE
+        t = time.monotonic()
+        start_server(root, rec["server_locale"], run=run)
+        rec["server_s"] = round(time.monotonic() - t, 1)
+        for database in wanted:
+            loc = locales[database]
+            log(f"  {database}: {loc['collate']} ({loc['provider']}), from the {loc['from']}")
+            rec["databases"][database] = restore_database(database, man, src, passphrase, root, jobs, loc, log)
         for tree in (list(man["trees"]) if trees is None else trees):
             rec["trees"][tree] = restore_tree(tree, man["trees"][tree], src, passphrase, root, log)
     except Exception as exc:
@@ -415,7 +490,7 @@ def rehearse(source: str = "bucket", databases=None, trees=None, keep: bool = Fa
         rec["finished"] = dt.datetime.now().astimezone().isoformat(timespec="seconds")
         C.write_json(RECORD, rec)
         if not keep and not failed:     # a failed rehearsal keeps its server, log and downloads for the next look
-            stop_server()
+            stop_server(run=run)
             for sub in ("pgdata", "trees", "work", "sock"):
                 path = os.path.join(root, sub)
                 if os.path.realpath(path).startswith(os.path.realpath(root) + os.sep):
