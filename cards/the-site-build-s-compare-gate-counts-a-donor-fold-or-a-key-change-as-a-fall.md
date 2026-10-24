@@ -16,10 +16,15 @@ no version was accepted and step 4.5's count of clean days never started.
    ($19,426,981.45), 711 page(s) gone`) is the donor key changing form at
    `site-3` (the `filed:` prefix and punctuation went: 613 of the 711 gone
    pages reappear under a new key with the same total to the cent) and
-   the donor fold of `reconcile-1` (ruling 66) joining pages; the sum of
-   all donor pages moved from $29,675,901.68 to $29,555,901.68. The 22
-   October fall (3 totals, $72,502.30, 193 new pages) is the fold again
-   and ruling 71's window (2017 onward; the sum rose to $34,045,287.22).
+   the links' re-read display names after the rebuild of ruling 73; the
+   sum of all donor pages moved from $29,675,901.68 to $29,555,901.68. The
+   22 October fall (3 totals, $72,502.30, 193 new pages) is three pages
+   renamed the same way, each total higher under its new name (checked
+   25 October: ajr finance ltd $55,000 → ajr finance limited $75,000;
+   craig shayne greenlees $10,000 → greenlees craig shayne $63,000; vanessa
+   weenink $7,502.30 → weenink vanessa $33,859.50), with ruling 71's window
+   (2017 onward; the sum rose to $34,045,287.22). Ruling 66, named here
+   on 23 October, is the reconciliation doctrine and not a cause.
    The money gates that read the Commission's own tables (`commission`,
    `candidate-money`) were green on every one of those builds, so the
    figures stood; only the page keys moved. The gate cannot tell a fold or
