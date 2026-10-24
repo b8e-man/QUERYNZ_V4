@@ -24,8 +24,7 @@ old estate's ntfy address.
   (ruling 73); the agent (track C) scores and applies nothing (ruling 69).
   4.4 site version 3. 4.9 board 87 views. 5.1 the report shape, tranche 3.
 - 5.2 closed (ten templates, ruling 65); 5.5 `qv4-companies-monitor`.
-- Rulings 64 to 79; emergency fixes 76 and 77 in the old repository,
-  proved by the 22 October release.
+- Rulings 64 to 80; emergency fixes 76 and 77 in the old repository.
 - Merged 21 to 23 October (`docs/merges/`): sanctions, scan, tenders,
   regulators, oio, hdc, diaries, grants, scan templates, redirects,
   `security-1` (H.1 to H.3), `settlements-1`, 6.3 capture only (ruling
@@ -38,10 +37,9 @@ old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- Nothing. 13:47 `release-copy-1` merged: the worker and the product
-  services run `/home/user/querynzv4-release`, moved by the release command
-  after each push; with it `fix-support-offsite-1`. Template 4, step 7
-  wait (79, 63).
+- `board-2` (Opus, `products/board/`, ruling 80: a search tab with a check
+  box per register and a wide results pane; a graph tab, rows as nodes,
+  edges coloured by type with a key). Template 4, step 7 wait (79, 63).
 
 ## Half-done
 
