@@ -117,6 +117,8 @@ Which of the three cases in step 1.10 each lane starts from, as far as the old r
 
 **Why here.** It is the fastest way to see whether the links are right, so build its first version as soon as the first lanes and the links exist, before the comparison in 4.5. It grows with every lane after that, and in step 7 archive-search results become a pane too.
 
+**Second version (ruling 80, 25 October).** Two tabs. **Search:** the first pane becomes the search tab's left pane with a check box per register and a "search all" box at the top; a search runs over the checked registers; the results sit in a wider pane beside it, every field of every matching row, grouped by register, the search term highlighted; the row, person and link panes open to the right of it as before, so the path is still walked. **Graph:** its own search over the same check boxes; every matching register row is a node, every connection the registers assert between rows is an edge coloured by its type (money, role, candidacy, declaration, dealing, the links' same-person verdicts confirmed and near), with a key below the picture; clicking a node re-centres on it. Still no script, still published tables only, never an address edge.
+
 **Done when,** for this first version: a search for a known donor opens, across four panes, its returns, the company behind it, that company's directors, and one director's other companies, each pane citing its document.
 
 ### Done when

@@ -252,3 +252,23 @@ until we have both boxes up". So: every lane may survey, write its
 position and capture; no reading of documents by a model (the read stages,
 the trials, the Waitangi Tribunal reports' question) starts until node1
 is in service beside node2.
+
+80. Arthur, 25 October, about 12:00, on how the board shows connections,
+after the integrator proposed a connection graph as a further pane: "if
+we make it a pane the board will get cluttered. Let's do this. Let's make
+the current pane the basis of the 'search' tab. Let's give each register
+a check box, and searching searches all checked registers. Let's have a
+'search all' check box at the top. Search results appear in an adjacent
+pane in the same tab. This pane should be wider and show all information
+that comes up under each register entry, grouped by register with the
+search term highlighted. Let's make the graph search tab show connections
+between register entries, with register entries as nodes and the
+connections, or edges colour coded with a key below the display." Earlier
+in the same talk: "this is just for the querynz board" (not the public
+site), and the whole thing is a change of mind about how links are shown,
+not about how they are made. So: the board gets two tabs, search and
+graph; a register row is a node; a connection is an edge typed and
+coloured by what the register says (money, role, candidacy, declaration,
+dealing, the links' same-person verdicts); the key sits below the
+picture. Recorded under step 4.9 as its second version; built by
+`board-2` in `products/board/` only.
