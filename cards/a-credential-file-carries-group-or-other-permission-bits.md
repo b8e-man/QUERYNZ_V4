@@ -1,9 +1,10 @@
 # A credential file carries group or other permission bits
 kind: finding
-state: open
+state: closed
 use-case: machinery; track H (hard limit 1)
 session: integrator
 opened: 2026-10-23
+closed: 2026-10-25
 module: support/security
 
 `python -m support.installer plan` on node2, 23 October 2026 13:50, reports
@@ -17,3 +18,6 @@ line on node2 that reads no content: the directory to mode 700 and every
 `mode_ok: true` and this card closes. Track H's inventory
 (`docs/security/inventory.md`) should carry the expected mode beside each
 file.
+
+Closed 25 October 2026 10:20: Arthur set the directory to 700 and every
+`*.env` file to 600; `support.installer plan` reports `mode_ok: true`.
