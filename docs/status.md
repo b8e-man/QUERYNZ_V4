@@ -15,8 +15,8 @@ old estate's ntfy address.
 ## Done
 
 - Steps 0 to 3 closed (ruling 60); 1.4's positive half observed (ruling 70).
-- 4.1, fifteen lanes merged: donations (ruling 66, `reconcile-1`), parties,
-  party finance, gazette (207,133 notices), house, companies (1.92 M),
+- 4.1, fifteen lanes merged: donations (ruling 66), parties, party
+  finance, gazette (207,133 notices), house, companies (1.92 M),
   expenses and interests, societies, candidate returns, charities (46,131;
   ruling 64), party boards (ruling 72: not on the site), OpenLaw (HELD on
   its terms), courts (148 judgments).
@@ -51,5 +51,6 @@ old estate's ntfy address.
   version `2026-10-25T1004`, nine gates green. Next: seven clean days,
   checkpoint, export test, the switch after 7 November. Comparison 25
   October: 29,366 differences, 0 uncarded.
-- Waits on Arthur: letters; scratch drops; items 12, 69, 75 after. When
+- Waits on Arthur: letters (Dunedin, Te Puni Kōkiri, Police); rulings
+  69, 75 after the build. When
   node1 returns: fence it first (10.0.0.1, never the VIP), then ruling 57.
