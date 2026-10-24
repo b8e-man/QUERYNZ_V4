@@ -25,15 +25,13 @@ old estate's ntfy address.
   4.4 site version 3. 4.9 board 87 views. 5.1 the report shape, tranche 3.
 - 5.2 closed (ten templates, ruling 65); 5.5 `qv4-companies-monitor`.
 - Rulings 64 to 80; emergency fixes 76 and 77 in the old repository.
+- Track B: the restore rehearsal equal 25 October (2 h 32 m, en_NZ.UTF-8).
 - Merged 21 to 23 October (`docs/merges/`): sanctions, scan, tenders,
-  regulators, oio, hdc, diaries, grants, scan templates, redirects,
-  `security-1` (H.1 to H.3), `settlements-1`, 6.3 capture only (ruling
-  79: `procurement-1`, `councils-1`, `local-elections-1`), the fetch gate
-  and scheduler fixes (a new job takes its next slot), `fixes-2` (the
-  charities, overseas investment and windowed checks answer the board,
-  the iwi directory's first walk reads green, `qv4-disclosures-load`
-  nightly at 07:40), `scan-templates-2` (template 3, use case 14: six
-  `settlement-map-*` scans, 3,445 lines, all cited and read back).
+  regulators, oio, hdc, diaries, grants, redirects, `security-1` (H.1 to
+  H.3), `settlements-1`, 6.3 capture only (ruling 79), the fetch gate and
+  scheduler fixes, `fixes-2` (the board's reds, `qv4-disclosures-load`
+  nightly 07:40), `scan-templates-2` (template 3, six `settlement-map-*`
+  scans, 3,445 lines cited), `release-copy-1`, `fix-support-offsite-1`.
 
 ## Running (headless, from the integrator)
 
