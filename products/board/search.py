@@ -16,7 +16,8 @@ from concurrent.futures import ThreadPoolExecutor
 from products.board import catalogue as cat
 from products.board import db
 
-LIMIT = 10          # rows shown per view in the first pane
+LIMIT = 10          # rows per view for "same name elsewhere"
+RESULTS_LIMIT = 50  # rows per view in the search tab's results pane, with the view's whole count beside them
 WORKERS = 3         # views are scanned on this many product-reader connections at once (its cap is 10)
 _local = threading.local()
 _pool = ThreadPoolExecutor(max_workers=WORKERS, thread_name_prefix="qv4-board-search")
@@ -81,14 +82,37 @@ def view_sql(v: cat.View, words: list, number: str = None, limit: int = LIMIT, e
     return sql, params
 
 
-def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = None, whole: bool = False) -> dict:
+def held_registers(held: set) -> list:
+    """The registers, in the catalogue's order, that have at least one view published."""
+    return [r for r, _ in cat.REGISTERS if any(v.name in held for v in cat.views_of(r))]
+
+
+def selection(checked: list, all_box: bool, was_all: bool, held: list) -> tuple:
+    """(registers, is_all) from the check boxes of a GET form with no script
+    (ruling 80). `checked` are the register boxes ticked, `all_box` the
+    "search all" box, `was_all` the hidden mark that the page was showing
+    "search all" when it was submitted, `held` the held registers. Nothing
+    checked means search all; ticking "search all" searches all; unticking
+    a register while "search all" stays ticked narrows to what is left."""
+    mine = [r for r in held if r in set(checked)]
+    if all_box and was_all and mine and len(mine) < len(held):
+        return tuple(mine), False
+    if all_box or not mine or len(mine) == len(held):
+        return tuple(held), True
+    return tuple(mine), False
+
+
+def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = None, whole: bool = False,
+           registers=None) -> dict:
     """{register: [(view, total, rows)]} for the views that matched, plus
-    'held' (the pub views present) so the caller can say "not held"."""
+    'held' (the pub views present) so the caller can say "not held".
+    `registers`, when given, scans only those registers' views."""
     words = words_of(term)
     number = re.sub(r"\s", "", term) if is_number(term) else None
     held = db.pub_views(conn)
     out = {}
-    wanted = [v for v in (views or cat.VIEWS) if v.name in held and (words or number)]
+    wanted = [v for v in (views or cat.VIEWS) if v.name in held and (words or number)
+              and (registers is None or v.register in registers)]
     futures = [_pool.submit(_scan, v, words, number, limit, exclude_key, whole) for v in wanted]
     for f in futures:
         v, found = f.result()

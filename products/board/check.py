@@ -15,6 +15,12 @@ tables through the session reader, never the sample:
      today: a known donor opens; the company behind it is found by name
      (not by link, until links/ publishes); that company's directors open;
      one director's other roles open. Each pane cites its document.
+  6. The search tab (ruling 80): the known name is found with only its
+     register checked, and not with that register unchecked.
+  7. The graph tab (ruling 80): the known donor row is drawn with at least
+     one money edge; every edge's far end is a row that exists; no edge type
+     is an address; every relation column the catalogue names exists in its
+     view and in the view it is matched to (with 3).
 
   python -m products.board check [--term NAME]      exit 1 on any failure
 """
@@ -24,7 +30,7 @@ import re
 import sys
 
 from products.board import catalogue as cat
-from products.board import db, search, panes, server
+from products.board import db, graph, search, panes, server
 
 ADDRESS_WORDS = re.compile(r"residential|home_address|street|suburb|postal", re.I)
 
@@ -33,11 +39,19 @@ def problems(conn, term: str = None) -> list:
     out = []
     held = db.pub_views(conn)
     # 3. columns
+    columns = {}
+    for r in db.rows(conn, "select table_name, column_name from information_schema.columns where table_schema = 'pub'"):
+        columns.setdefault(r["table_name"], set()).add(r["column_name"])
     for v in cat.VIEWS:
         if v.name not in held:
             out.append(f"{v.name}: in the catalogue but not published (pub.{v.name} missing)")
             continue
-        cols = {r["column_name"] for r in db.rows(conn, "select column_name from information_schema.columns where table_schema = 'pub' and table_name = %s", (v.name,))}
+        cols = columns.get(v.name, set())
+        for rel in v.relations:
+            if rel.column not in cols:
+                out.append(f"{v.name}: a {rel.kind} relation names `{rel.column}`, which pub.{v.name} does not carry")
+            if rel.to_column not in columns.get(rel.view, set()):
+                out.append(f"{v.name}: a {rel.kind} relation is matched to pub.{rel.view}.{rel.to_column}, which does not exist")
         for c in sorted(cat.columns_shown(v) | set(v.search) | set(v.numbers) | set(v.names) | {v.key_col}):
             if c not in cols:
                 out.append(f"{v.name}: the board shows or searches `{c}`, which pub.{v.name} does not carry")
@@ -69,9 +83,9 @@ def problems(conn, term: str = None) -> list:
             v, n, rows = found[0]
             if n < 1 or not any(term.lower() in (r.get("donor") or "").lower() for r in rows):
                 out.append(f"a search for {term!r} returned {n} party_return_donors rows, none carrying the name")
-        page = panes.search_pane(term, res, held)
+        page = panes.left_pane(term, search.held_registers(held), tuple(search.held_registers(held)), True)
         if "not held" not in page:
-            out.append("the first pane does not say 'not held' for the registers no lane has published")
+            out.append("the left pane does not say 'not held' for the registers no lane has published")
     # 5. the done-when walk, by name until links exist
     if term and not out:
         walk = []
@@ -93,12 +107,43 @@ def problems(conn, term: str = None) -> list:
                     if directors and directors[0]:
                         walk.append(f"directors:{directors[0][0]['key']}")
         html = server.render(term, server.parse_path("|".join(walk)), conn=conn)
-        if html.count('<section class="pane') != len(walk) + 1:
-            out.append(f"the walk from {term!r} rendered {html.count('<section class=\"pane')} panes, expected {len(walk) + 1}")
+        if html.count('<section class="pane') != len(walk) + 2:     # the left pane and the results, then the walk
+            out.append(f"the walk from {term!r} rendered {html.count('<section class=\"pane')} panes, expected {len(walk) + 2}")
         if "<h3>Citation</h3>" not in html and walk:
             out.append("a pane in the walk carries no citation")
         if len(walk) < 3:
             out.append(f"the done-when walk reached {len(walk)} panes past the search (donor, company, director wanted); by name, until links exist")
+    # 6. the search tab over the check boxes
+    if term:
+        others = [r for r in search.held_registers(held) if r != "party_returns"]
+        only = server.render(term, [], conn=conn, checked=["party_returns"])
+        without = server.render(term, [], conn=conn, checked=others)
+        if "<strong>party_return_donors</strong>" not in only or "<mark>" not in only:
+            out.append(f"the search tab with only party_returns checked did not show {term!r} in party_return_donors, marked")
+        if "<strong>party_return_donors</strong>" in without:
+            out.append("the search tab with party_returns unchecked still searched party_return_donors")
+    # 7. the graph tab
+    if any("address" in k for k, _, _ in cat.EDGE_KINDS) or any("address" in r.kind for v in cat.VIEWS for r in v.relations):
+        out.append("an edge type named for an address exists (hard limit 15)")
+    donor = db.rows(conn, "select key from pub.party_return_donors where return_key is not null and donor is not null "
+                          "order by amount desc nulls last, key limit 1")
+    if not donor:
+        out.append("no donor row with a return to graph")
+    else:
+        centre = f"party_return_donors:{donor[0]['key']}"
+        g = graph.build(conn, "", centre=centre)
+        if centre not in g["nodes"] or g["drawn"]["money"] < 1:
+            out.append(f"the graph of {centre} drew no money edge")
+        for e in g["edges"]:
+            if "address" in e["kind"]:
+                out.append(f"the graph drew an address edge: {e}")
+        for nid in g["nodes"]:
+            view, _, key = nid.partition(":")
+            if search.row(conn, view, key) is None:
+                out.append(f"the graph drew a node for {nid}, which is not a row of pub.{view}")
+        page = server.render_graph("", centre, conn=conn)
+        if "<svg" not in page or "<script" in page or "<h3>Key</h3>" not in page:
+            out.append("the graph tab did not render its picture and key without script")
     return out
 
 

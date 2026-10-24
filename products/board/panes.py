@@ -53,6 +53,20 @@ form.inline{display:inline}
 button{font:inherit;font-size:12px;padding:.15rem .5rem}
 .actions{display:flex;gap:.5rem;margin:.5rem 0;flex-wrap:wrap}
 code{font-size:12px;word-break:break-all}
+.pane.left{flex:0 0 19rem;max-width:19rem}
+.pane.wide{flex:0 0 46rem;max-width:46rem}
+.pane.graph{flex:0 0 64rem;max-width:64rem}
+.pane input[type=search]{width:12rem;padding:.3rem .4rem}
+ul.boxes{list-style:none;padding-left:0;font-size:13px}
+label.all{display:block;margin:.5rem 0;font-weight:600}
+.greyed{color:#aaa}
+mark{background:#fde68a;color:inherit;padding:0}
+article.hit{border-top:1px solid #eee;padding:.4rem 0}
+.cite{font-size:12px;color:#555;margin-top:.2rem}
+.view{margin-top:.5rem}
+nav.tabs a{padding:.25rem .6rem;border:1px solid #ccc;border-bottom:none;border-radius:4px 4px 0 0;text-decoration:none}
+nav.tabs a.on{background:#246;color:#fff;border-color:#246}
+table.key td,table.key th{padding:.1rem .5rem;font-size:13px;text-align:left}
 """
 
 
@@ -64,8 +78,10 @@ def encode_path(path: list) -> str:
     return urllib.parse.quote("|".join(path), safe="")
 
 
-def href(q: str, path: list) -> str:
-    return "/?" + urllib.parse.urlencode({"q": q, "p": "|".join(path)})
+def href(q: str, path: list, regs=(), tab: str = "/") -> str:
+    """A page's address: the search tab's is `/?q=&p=` as before, so a saved
+    path still opens; the registers checked follow as `r=`, none meaning all."""
+    return tab + "?" + urllib.parse.urlencode([("q", q), ("p", "|".join(path))] + [("r", x) for x in regs])
 
 
 def fmt(value, column: str = "") -> str:
@@ -118,11 +134,11 @@ def title_of(v: cat.View, r: dict) -> str:
     return " · ".join(parts) or f"({v.name} {r.get('key', '')})"
 
 
-def row_link(q: str, path: list, v: cat.View, r: dict, meta: str = "") -> str:
-    t = esc(title_of(v, r))
+def row_link(q: str, path: list, v: cat.View, r: dict, meta: str = "", regs=(), words=()) -> str:
+    t = mark(title_of(v, r), words)
     pix = f' <span class="warn">{PIXELS}</span>' if r.get("read_from") == "pixels" else ""
     m = f' <span class="meta">{esc(meta)}</span>' if meta else ""
-    return f'<li><a class="row" href="{esc(href(q, path + [f"{v.name}:{r["key"]}"]))}">{t}</a>{m}{pix}</li>'
+    return f'<li><a class="row" href="{esc(href(q, path + [f"{v.name}:{r["key"]}"], regs))}">{t}</a>{m}{pix}</li>'
 
 
 def report_href(base: str, ref: str) -> str:
@@ -141,37 +157,160 @@ def register_heading(register: str) -> str:
     return esc(REGISTER_NAME.get(register, register))
 
 
-# ── the first pane: the search ──────────────────────────────────────────────
+# ── the search tab: the left pane and the results beside it (ruling 80) ──
 
-def search_pane(q: str, results: dict, held: set) -> str:
-    out = ['<section class="pane" id="search">', f'<div class="reg">search</div>']
-    if not q:
-        out.append("<h2>One search across every register</h2>")
-        out.append('<p class="note">A name, an address, a company number or an NZBN. Every word must appear. '
-                   "A suppressed name is never found by name.</p>")
-    else:
-        out.append(f"<h2>{esc(q)}</h2>")
+_FOLD = str.maketrans(cat.MACRONS[0], cat.MACRONS[1])
+
+
+def fold_chars(text: str) -> str:
+    """The search's fold, one character for one character, so a place in the
+    folded text is the same place in the text as filed."""
+    out = []
+    for c in text:
+        f = c.lower().translate(_FOLD)
+        out.append(f[0] if len(f) >= 1 else c)
+    return "".join(out)
+
+
+def mark(text, words) -> str:
+    """`text` escaped, with every place a search word begins a word marked:
+    the same rule and the same fold the search used, so "Maori" marks
+    "Māori" and "Māori" marks "Maori"."""
+    text = "" if text is None else str(text)
+    if not words or not text:
+        return esc(text)
+    folded = fold_chars(text)
+    spans = []
+    for w in words:
+        if not w:
+            continue
+        for m in re.finditer(r"(?<!\w)" + re.escape(w), folded):
+            spans.append((m.start(), m.end()))
+    if not spans:
+        return esc(text)
+    spans.sort()
+    merged = [list(spans[0])]
+    for s0, s1 in spans[1:]:
+        if s0 <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], s1)
+        else:
+            merged.append([s0, s1])
+    out, at = [], 0
+    for s0, s1 in merged:
+        out.append(esc(text[at:s0]) + "<mark>" + esc(text[s0:s1]) + "</mark>")
+        at = s1
+    out.append(esc(text[at:]))
+    return "".join(out)
+
+
+def fmt_marked(value, column: str, words) -> str:
+    """fmt(), with the search words marked where the value is text."""
+    if words and isinstance(value, str) and value:
+        return mark(value, words)
+    return fmt(value, column)
+
+
+def register_boxes(held_regs: list, regs: tuple, is_all: bool) -> str:
+    """A check box per register in the catalogue's order; a register no lane
+    has published is greyed, "not held", and cannot be checked."""
+    out = [f'<label class="all"><input type="checkbox" name="all" value="1"{" checked" if is_all else ""}> search all</label>']
+    if is_all:
+        out.append('<input type="hidden" name="was_all" value="1">')
+    out.append('<ul class="boxes">')
     for register, plain in cat.REGISTERS:
-        views = cat.views_of(register)
-        present = [v for v in views if v.name in held]
-        out.append(f"<h3>{esc(plain)}</h3>")
+        if register in held_regs:
+            on = " checked" if is_all or register in regs else ""
+            out.append(f'<li><label><input type="checkbox" name="r" value="{esc(register)}"{on}> {esc(plain)}</label></li>')
+        else:
+            out.append(f'<li class="greyed"><label><input type="checkbox" disabled> {esc(plain)} <span class="meta">not held</span></label></li>')
+    for register, plain in cat.NOT_HELD:
+        out.append(f'<li class="greyed"><label><input type="checkbox" disabled> {esc(plain)} <span class="meta">not held</span></label></li>')
+    out.append("</ul>")
+    return "".join(out)
+
+
+def left_pane(q: str, held_regs: list, regs: tuple, is_all: bool, action: str = "/", title: str = "Search the registers") -> str:
+    return "\n".join([
+        '<section class="pane left" id="search">', '<div class="reg">search</div>', f"<h2>{esc(title)}</h2>",
+        f'<form method="get" action="{esc(action)}">',
+        f'<input type="search" name="q" value="{esc(q)}" placeholder="a name, an address, a number" autofocus> <button>search</button>',
+        '<p class="note">Every word must appear, macrons folded; a number is matched exactly. '
+        "A suppressed name is never found by name. Nothing checked searches all.</p>",
+        register_boxes(held_regs, regs, is_all), "<p><button>search</button></p></form></section>"])
+
+
+def citation_line(v: cat.View, r: dict) -> str:
+    parts = []
+    doc = r.get("document")
+    parts.append(f'document <code title="{esc(doc)}">{esc(doc[:12])}…</code>' if doc else f'document <span class="note">{NOT_STATED}</span>')
+    for label, c in (("page", "page"), ("place", "place")):
+        if r.get(c) not in (None, ""):
+            parts.append(f"{label} {fmt(r.get(c))}")
+    if r.get("read_from"):
+        parts.append(f'<span class="warn">{PIXELS}</span>' if r["read_from"] == "pixels" else f"read from {esc(r['read_from'])}")
+    for c in v.urls:
+        if r.get(c):
+            u = str(r[c])
+            parts.append(f'<a href="{esc(u)}" rel="noopener">{esc(u[:60])}</a>')
+    return '<div class="cite">' + " · ".join(parts) + "</div>"
+
+
+def hit(q: str, v: cat.View, r: dict, words, regs=()) -> str:
+    """One matching row in the results pane: every field its View shows,
+    its dates, its source's address and its citation, the words marked."""
+    out = ['<article class="hit">',
+           f'<div><a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], regs))}"><strong>{mark(title_of(v, r), words)}</strong></a> '
+           f'<span class="meta">{esc(v.name)}</span></div>']
+    if is_suppressed(v, r):
+        out.append(f'<div class="warn">{SUPPRESSED}: the row and its figures stay (hard limit 16)</div>')
+    rows, blank = [], []
+    for label, c in tuple(v.fields) + tuple(v.dates):
+        if c not in r:
+            continue
+        x = shown(v, r, c)
+        if x is None or x == "":
+            blank.append(label)
+            continue
+        rows.append(f"<tr><th>{esc(label)}</th><td>{fmt_marked(x, c, words)}</td></tr>")
+    if rows:
+        out.append('<table class="f">' + "".join(rows) + "</table>")
+    if blank:
+        out.append(f'<div class="note">not stated: {esc(", ".join(blank))}</div>')
+    out.append(citation_line(v, r))
+    out.append("</article>")
+    return "".join(out)
+
+
+def results_pane(q: str, results: dict, held: set, regs: tuple, is_all: bool, words=()) -> str:
+    """The wider pane beside the left one: every matching row, grouped by
+    register with the register's count, only over the registers checked."""
+    link_regs = () if is_all else regs
+    out = ['<section class="pane wide" id="results">', '<div class="reg">results</div>']
+    if not q:
+        out.append("<h2>Results</h2><p class=\"why\">Type a name, an address or a number in the search box.</p></section>")
+        return "\n".join(out)
+    out.append(f"<h2>{esc(q)}</h2>")
+    out.append(f'<p class="note">searched: {"every held register" if is_all else esc(", ".join(REGISTER_NAME.get(x, x) for x in regs))}</p>')
+    for register, plain in cat.REGISTERS:
+        if register not in regs:
+            continue
+        hits = results.get(register, [])
+        present = [v for v in cat.views_of(register) if v.name in held]
+        total = sum(n for _, n, _ in hits)
+        out.append(f'<h3>{esc(plain)} <span class="count">{total:,}</span></h3>')
         if not present:
             out.append('<p class="why">not held</p>')
             continue
-        hits = results.get(register, []) if q else []
-        if q and not hits:
+        if not hits:
             out.append('<p class="why">none found</p>')
-        for v, total, rows in hits:
-            out.append(f'<div><strong>{esc(v.name)}</strong> <span class="count">{total:,}</span></div><ul>')
+            continue
+        for v, n, rows in hits:
+            out.append(f'<div class="view"><strong>{esc(v.name)}</strong> <span class="count">{n:,}</span></div>')
             for r in rows:
-                out.append(row_link(q, [], v, r))
-            if total > len(rows):
-                out.append(f'<li class="note">and {total - len(rows):,} more; narrow the search</li>')
-            out.append("</ul>")
-    out.append("<h3>Not held</h3><ul>")
-    for register, plain in cat.NOT_HELD:
-        out.append(f'<li>{esc(plain)} <span class="meta">not held</span></li>')
-    out.append("</ul></section>")
+                out.append(hit(q, v, r, words, link_regs))
+            if n > len(rows):
+                out.append(f'<p class="note">and {n - len(rows):,} more in {esc(v.name)}; narrow the search</p>')
+    out.append("</section>")
     return "\n".join(out)
 
 
@@ -213,7 +352,7 @@ def citation(v: cat.View, r: dict, doc_names: list) -> str:
     return "\n".join(out)
 
 
-def links_section(links: dict, group: dict, q: str, path: list, resolve) -> str:
+def links_section(links: dict, group: dict, q: str, path: list, resolve, regs=()) -> str:
     """resolve(ref) -> (view, row) or None, so a link opens the next pane."""
     out = ["<h3>Links</h3>"]
     if not links.get("built"):
@@ -234,7 +373,7 @@ def links_section(links: dict, group: dict, q: str, path: list, resolve) -> str:
                 target = resolve(l["other"])
                 if target:
                     tv, tr = target
-                    out.append(row_link(q, path, tv, tr, meta=f"rule {l['rule']}" + (f"; near because {l['reason']}" if l.get("reason") else "")))
+                    out.append(row_link(q, path, tv, tr, meta=f"rule {l['rule']}" + (f"; near because {l['reason']}" if l.get("reason") else ""), regs=regs))
                 else:
                     out.append(f'<li>{esc(l["other"])} <span class="meta">row not found in the published views; rule {esc(l["rule"])}</span></li>')
                 for d in l.get("decisions") or []:
@@ -243,7 +382,7 @@ def links_section(links: dict, group: dict, q: str, path: list, resolve) -> str:
     return "\n".join(out)
 
 
-def same_name_section(same: dict, q: str, path: list, words: list) -> str:
+def same_name_section(same: dict, q: str, path: list, words: list, regs=()) -> str:
     out = ["<h3>Same name elsewhere</h3>"]
     if not words:
         out.append('<p class="why">not searched: this row\'s name is suppressed or empty</p>')
@@ -260,7 +399,7 @@ def same_name_section(same: dict, q: str, path: list, words: list) -> str:
         for v, total, rows in hits:
             out.append(f'<div><strong>{esc(v.name)}</strong> <span class="count">{total:,}</span></div><ul>')
             for r in rows:
-                out.append(row_link(q, path, v, r))
+                out.append(row_link(q, path, v, r, regs=regs))
             if total > len(rows):
                 out.append(f'<li class="note">and {total - len(rows):,} more</li>')
             out.append("</ul>")
@@ -274,7 +413,7 @@ def row_pane(ctx: dict) -> str:
     parent (label, view, row|None) or None, children [(join, total, rows)],
     doc_names, links, group, same, same_words, resolve, pinned (bool)."""
     v, r, q, path = ctx["v"], ctx["row"], ctx["q"], ctx["path"]
-    before = path[:-1]
+    regs = ctx.get("regs") or ()
     out = [f'<section class="pane{" pinned" if ctx.get("pinned") else ""}">',
            f'<div class="reg">{register_heading(v.register)} · {esc(v.name)} · {esc(v.kind)}</div>',
            f"<h2>{esc(title_of(v, r))}</h2>"]
@@ -286,9 +425,10 @@ def row_pane(ctx: dict) -> str:
     out.append(f'<form class="inline" method="post" action="/pin"><input type="hidden" name="view" value="{esc(v.name)}">'
                f'<input type="hidden" name="key" value="{esc(r["key"])}"><input type="hidden" name="title" value="{esc(title_of(v, r))}">'
                f'<input type="hidden" name="q" value="{esc(q)}"><input type="hidden" name="p" value="{esc("|".join(path))}">'
+               + "".join(f'<input type="hidden" name="r" value="{esc(x)}">' for x in regs) +
                f'<button>{"pinned" if ctx.get("pinned") else "pin"}</button></form>')
     if v.kind == "person" and not is_suppressed(v, r):
-        out.append(f'<a href="{esc(href(q, path + [f"person:{v.name}:{r["key"]}"]))}">person: the group and namesakes</a>')
+        out.append(f'<a href="{esc(href(q, path + [f"person:{v.name}:{r["key"]}"], regs))}">person: the group and namesakes</a>')
     out.append(report_link(ctx))
     words = ctx.get("same_words") or []
     if words:
@@ -311,7 +451,7 @@ def row_pane(ctx: dict) -> str:
         label, view, prow = ctx["parent"]
         out.append(f"<h3>{esc(label)}</h3>")
         if prow:
-            out.append("<ul>" + row_link(q, path, cat.BY_NAME[view], prow) + "</ul>")
+            out.append("<ul>" + row_link(q, path, cat.BY_NAME[view], prow, regs=regs) + "</ul>")
         else:
             out.append('<p class="why">not held: the row it points at is not in the published view</p>')
     # children, in the same register
@@ -323,13 +463,13 @@ def row_pane(ctx: dict) -> str:
         tv = cat.BY_NAME[j.view]
         out.append("<ul>")
         for cr in rows:
-            out.append(row_link(q, path, tv, cr))
+            out.append(row_link(q, path, tv, cr, regs=regs))
         if total > len(rows):
             out.append(f'<li class="note">and {total - len(rows):,} more</li>')
         out.append("</ul>")
-    out.append(links_section(ctx.get("links") or {}, ctx.get("group") or {}, q, path, ctx.get("resolve") or (lambda ref: None)))
+    out.append(links_section(ctx.get("links") or {}, ctx.get("group") or {}, q, path, ctx.get("resolve") or (lambda ref: None), regs))
     if v.names:
-        out.append(same_name_section(ctx.get("same") or {}, q, path, words))
+        out.append(same_name_section(ctx.get("same") or {}, q, path, words, regs))
     out.append(citation(v, r, ctx.get("doc_names") or []))
     out.append("</section>")
     return "\n".join(out)
@@ -342,6 +482,7 @@ def person_pane(ctx: dict) -> str:
     members [(view, row)] resolved from the group, same (namesakes by name),
     same_words, links."""
     v, r, q, path = ctx["v"], ctx["row"], ctx["q"], ctx["path"]
+    regs = ctx.get("regs") or ()
     out = ['<section class="pane">', f'<div class="reg">person · from {register_heading(v.register)} · {esc(v.name)}</div>',
            f"<h2>{esc(title_of(v, r))}</h2>"]
     if ctx.get("report"):
@@ -365,12 +506,12 @@ def person_pane(ctx: dict) -> str:
                 continue
             out.append(f'<div class="reg">{register_heading(register)}</div><ul>')
             for mv, mr in by_reg[register]:
-                out.append(row_link(q, path, mv, mr, meta=mv.name))
+                out.append(row_link(q, path, mv, mr, meta=mv.name, regs=regs))
             out.append("</ul>")
-    out.append("<ul>" + row_link(q, path, v, r, meta="this row") + "</ul>")
-    out.append(links_section(ctx.get("links") or {}, group, q, path, ctx.get("resolve") or (lambda ref: None)))
+    out.append("<ul>" + row_link(q, path, v, r, meta="this row", regs=regs) + "</ul>")
+    out.append(links_section(ctx.get("links") or {}, group, q, path, ctx.get("resolve") or (lambda ref: None), regs))
     out.append("<h3>Possible namesakes, apart</h3>")
-    out.append(same_name_section(ctx.get("same") or {}, q, path, ctx.get("same_words") or []).split("</h3>", 1)[1])
+    out.append(same_name_section(ctx.get("same") or {}, q, path, ctx.get("same_words") or [], regs).split("</h3>", 1)[1])
     out.append("</section>")
     return "\n".join(out)
 
@@ -402,15 +543,19 @@ def paths_pane(paths: list) -> str:
     return "\n".join(out)
 
 
-def page(q: str, path: list, panes: list, message: str = "") -> str:
+def page(q: str, path: list, panes: list, message: str = "", regs=(), tab: str = "search") -> str:
+    """The page: two tabs, search (`/`, as before) and graph (`/graph`), each
+    an href carrying the term and the registers checked (ruling 80)."""
     save = ""
     if path:
         save = (f'<form class="inline" method="post" action="/save"><input type="hidden" name="q" value="{esc(q)}">'
                 f'<input type="hidden" name="p" value="{esc("|".join(path))}">'
+                + "".join(f'<input type="hidden" name="r" value="{esc(x)}">' for x in regs) +
                 f'<input name="name" placeholder="name this path" size="18"> <button>save path</button></form>')
     msg = f'<span class="note">{esc(message)}</span>' if message else ""
+    tabs = (f'<nav class="tabs"><a class="{"on" if tab == "search" else ""}" href="{esc(href(q, [] if tab != "search" else path, regs))}">search</a> '
+            f'<a class="{"on" if tab == "graph" else ""}" href="{esc(href(q, [], regs, "/graph"))}">graph</a></nav>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ board</title>"
-            f"<style>{CSS}</style></head><body><header><h1>QueryNZ board</h1>"
-            f'<form method="get" action="/"><input type="search" name="q" value="{esc(q)}" placeholder="a name, an address, a number" autofocus> '
-            f"<button>search</button></form>{save}<a href=\"/pinned\">pinned</a><a href=\"/saved\">saved paths</a>{msg}</header>"
+            f"<style>{CSS}</style></head><body><header><h1>QueryNZ board</h1>{tabs}"
+            f"{save}<a href=\"/pinned\">pinned</a><a href=\"/saved\">saved paths</a>{msg}</header>"
             f"<main>{''.join(panes)}</main></body></html>")
