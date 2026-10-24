@@ -37,6 +37,11 @@ no version was accepted and step 4.5's count of clean days never started.
    document the release listing does not hold. Reloaded by hand at 08:35;
    the nightly load is `fix-registers-disclosures-1`.
 
+25 October 10:04: Arthur ran the build with `--allow-drop`; version
+`2026-10-25T1004` accepted, nine gates green, 1,102 donor pages, the three
+renamed pages present. The nightly build now compares against an accepted
+version. The design ask below stays open.
+
 The build with `--allow-drop` is Arthur's run, as the gate intends (the
 integrator's hand run was refused by the session's permission classifier;
 the accounting above is what the flag is told for). Asked of the

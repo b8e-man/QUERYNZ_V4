@@ -2,8 +2,8 @@
 
 Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
 
-**Date:** 2026-10-23, 13:55 NZDT. **Step:** 4 built through 4.4 and 4.9;
-4.5 not clean (no version accepted since 20 October, see Half-done); 5.1
+**Date:** 2026-10-25, 10:15 NZDT. **Step:** 4 built through 4.4 and 4.9;
+4.5 counting clean days from 25 October (see Half-done); 5.1
 done; 5.2 closed (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held
 on terms; sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on
 port 8450); 6.2 `tenders-1` and templates 1 to 3 merged; 6.3's four source
@@ -44,12 +44,12 @@ old estate's ntfy address.
 
 ## Half-done
 
-- 4.5: `qv4-site-build` has been refused by a gate since 20 October (card
-  `the-site-build-s-compare-gate-…`): donor folds and key changes read as
-  falls; 23 October the disclosures page's nightly hash (reloaded by hand,
-  job added). Arthur's `--allow-drop` run accepts a version; then seven
-  clean days, checkpoint, export test, the switch after 7 November.
-  Comparison 23 October: 29,193 differences, 27 uncarded.
-- Waits on Arthur: node1's fence and cable check; the build with
-  `--allow-drop`; `rm -rf` of `/mnt/hdd2/qv4-restore` so the rehearsal
-  runs; letters; scratch drops; items 12, 69, 75 after.
+- 4.5: refused by a gate 20 to 25 October (card `the-site-build-s-compare-
+  gate-…`: folds and key changes read as falls; the disclosures hash, now
+  loaded nightly). 25 October 10:04 Arthur's `--allow-drop` run accepted
+  version `2026-10-25T1004`, nine gates green. Next: seven clean days,
+  checkpoint, export test, the switch after 7 November. Comparison 25
+  October: 29,366 differences, 0 uncarded.
+- Waits on Arthur: node1's fence and cable check; `rm -rf` of
+  `/mnt/hdd2/qv4-restore` so the rehearsal runs; the credential files'
+  modes; letters; scratch drops; items 12, 69, 75 after.
