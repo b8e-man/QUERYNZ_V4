@@ -8,7 +8,8 @@ done; 5.2 closed (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held
 on terms; sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on
 port 8450); 6.2 `tenders-1` and templates 1 to 3 merged; 6.3's four source
 lines have lanes. Track C measured; B and E closed. **Boxes:** node2 is the
-estate; node1 waits for its setup card (ruling 57). **Alarm channel:** the
+estate; node1 offline indefinitely (Arthur, 25 October): ruling 79 holds
+model reading till it returns. **Alarm channel:** the
 old estate's ntfy address.
 
 ## Done
@@ -50,6 +51,5 @@ old estate's ntfy address.
   version `2026-10-25T1004`, nine gates green. Next: seven clean days,
   checkpoint, export test, the switch after 7 November. Comparison 25
   October: 29,366 differences, 0 uncarded.
-- Waits on Arthur: node1's fence and cable check; `rm -rf` of
-  `/mnt/hdd2/qv4-restore` so the rehearsal runs; the credential files'
-  modes; letters; scratch drops; items 12, 69, 75 after.
+- Waits on Arthur: letters; scratch drops; items 12, 69, 75 after. When
+  node1 returns: fence it first (10.0.0.1, never the VIP), then ruling 57.
