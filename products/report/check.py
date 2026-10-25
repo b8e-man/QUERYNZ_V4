@@ -45,15 +45,26 @@ tables through the product reader, never the sample:
      by name; a charity's returns newest first, dated 'period to'; a
      template naming charities as not held loads and says it is published.
 
+ 11. The start page's name search (ruling 92 item 7), over HTTP on the
+     page's own server on a passing port: the done-when company's name
+     answers 200 with no row-reference wording, lists the rows as report
+     links, and its first link answers 200 with a memo that says in plain
+     words where it starts; every searched view carries its search columns.
+
   python -m products.report check [--ref REF]      exit 1 on any failure
 """
 from __future__ import annotations
 
 import datetime as dt
+import html as htmllib
 import re
 import sys
+import threading
+import urllib.error
+import urllib.parse
+import urllib.request
 
-from products.report import build, catalogue as cat, db, memo, rules, template as tpl, walk
+from products.report import build, catalogue as cat, db, memo, rules, search, template as tpl, walk
 
 ADDRESS_WORDS = re.compile(r"residential|home_address|street|suburb|postal", re.I)
 
@@ -526,6 +537,11 @@ def problems(conn, ref: str = None) -> list:
         for c in cols & cat.columns_read(v):
             if ADDRESS_WORDS.search(c) and v.name != "company_addresses":
                 out.append(f"{v.name}: reads `{c}`, an address-shaped column outside the registered-office view")
+    for sv in search.searched_views():
+        if sv.name in held:
+            cols = {r["column_name"] for r in db.rows(conn, "select column_name from information_schema.columns where table_schema = 'pub' and table_name = %s", (sv.name,))}
+            for c in sorted((set(sv.search) | set(sv.numbers) | {sv.default_order}) - cols):
+                out.append(f"{sv.name}: the name search reads `{c}`, which pub.{sv.name} does not carry")
     # 5. templates
     for name, folder in tpl.folders().items():
         try:
@@ -593,6 +609,11 @@ def problems(conn, ref: str = None) -> list:
             if want not in have:
                 out.append(f"template {name}: the report on {ref} carries no {want} flag; the contract's common rules did not run")
         out += [f"template {name} on {ref}: {p}" for p in rt["problems"] if "rule 9" in p]
+    # 11. the start page's name search
+    if company_key:
+        name = db.rows(conn, "select name from pub.companies where key = %s", (company_key,))
+        if name and name[0]["name"]:
+            out += search_route(name[0]["name"])
     # 3. the rules on a company row and a director row too
     if company_key:
         for other in (f"companies:{company_key}",) + tuple(f"companies:{d['key']}" for d in db.rows(
@@ -603,6 +624,49 @@ def problems(conn, ref: str = None) -> list:
                 continue
             out += [f"{other}: {p}" for p in r2["problems"]]
             out += cited_rows_exist(conn, r2)
+    return out
+
+
+REF_WORDING = re.compile(r"register:key|as the board names", re.I)
+
+
+def _get(base: str, path: str) -> tuple:
+    try:
+        with urllib.request.urlopen(base + path, timeout=120) as resp:
+            return resp.status, resp.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read().decode("utf-8", "replace")
+
+
+def search_route(term: str) -> list:
+    """11. A name search on the page's own server (a passing port on the
+    loopback): 200, no row-reference wording, rows listed as report links,
+    and the first link a memo that says where it starts. Names nothing in
+    what it returns but the route."""
+    from products.report import server
+    out = []
+    httpd = server.Server(("127.0.0.1", 0), server.Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        base = f"http://127.0.0.1:{httpd.server_address[1]}"
+        status, body = _get(base, "/?" + urllib.parse.urlencode({"q": term}))
+        if status != 200:
+            return [f"the start page's search for a known company's name answered {status}"]
+        if REF_WORDING.search(body):
+            out.append("the start page's search still shows row-reference wording")
+        links = [htmllib.unescape(h) for h in re.findall(r'<li><a href="(/report/[^"]+)"', body)]
+        if not links:
+            return out + ["the start page's search for a known company's name lists no report link"]
+        status, page = _get(base, links[0])
+        if status != 200:
+            out.append(f"the search's first report link answered {status}")
+        elif "This report starts from" not in page or "<h3>Citations</h3>" not in page:
+            out.append("the search's first report link does not render a memo that says where it starts")
+        elif REF_WORDING.search(page):
+            out.append("the memo page shows row-reference wording")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
     return out
 
 
