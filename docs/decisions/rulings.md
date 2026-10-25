@@ -302,3 +302,17 @@ box is unchanged when the fields are closed; address searches the
 registered addresses organisations publish, since no published table
 holds a person's home address (hard limit 15). Built by the board fix
 session after `fix-products-board-1`.
+
+83. Arthur, 25 October, about 13:05, to the explainer agent (relayed to
+the integrator 14:45): "I just made a request for a change and dont want
+to interrupr the work. I want situations where fists and last name might
+be reversed and addresses might only be a close match to be expandable at
+the bottom of the search". So, on the board's search tab: below the exact
+results a section "Near matches", closed until clicked, with two labelled
+classes, a person name whose given name and surname are reversed against
+the query, and an address that is a close but not exact match by the
+estate's own address fold; never mixed with or counted in the exact
+results; only addresses the published views already show, never a home
+address (hard limit 15); nothing written. Rulings 82 and 83 are built
+together by `board-3` in `products/board/` after `fix-products-board-1`
+(ruling 81) merges.
