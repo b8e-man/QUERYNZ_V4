@@ -48,6 +48,6 @@ def test_the_pages_take_their_colours_from_the_one_stylesheet():
     picture = html[html.index("<svg"):html.index("</svg>")]
     assert "<style" not in picture and 'class="bg"' in picture
     assert not re.search(r'\b(fill|color|background)="?#', picture)       # nothing but a stroke carries its own colour
-    strokes = set(re.findall(r'<line [^>]*stroke="(#[0-9a-f]+)"', picture))
+    strokes = set(re.findall(r'<path class="edge" [^>]*stroke="(#[0-9a-f]+)"', picture))
     assert strokes and strokes <= {c for _, c, _ in cat.EDGE_KINDS}
     assert ' style="' not in html

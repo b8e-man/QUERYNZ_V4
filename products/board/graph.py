@@ -36,7 +36,6 @@ PER_VIEW = 8            # matched rows taken from any one view
 PER_RELATION = 10       # neighbours drawn per relation (or per links grade) per matched row
 MAX_NODES = 120
 MAX_FILED = 200         # rows read per donor name per view, for its money edges (ruling 86 (3)); more is said, not hidden
-W, H = 1000, 780
 KIND = {name: (colour, dash) for name, colour, dash in cat.EDGE_KINDS}
 CONFIRMED, NEAR = "same person, confirmed", "same person, near"
 
@@ -293,35 +292,250 @@ def gifts(conn, g: dict, nid: str, name: str, held: set, add_node, add_edge):
 
 # ── layout and drawing: pure ────────────────────────────────────────────────
 
-def layout(g: dict) -> dict:
-    """{node id: (x, y)}, deterministic: each matched row gets a sector of
-    the circle sized to its neighbours; it sits on an inner ring (alone, in
-    the middle) and its neighbours fan out on the outer ring within its
-    sector, in the order they were found, so a row's edges stay together."""
-    cx, cy = W / 2, H / 2
-    nodes = sorted(g["nodes"].items(), key=lambda kv: kv[1]["order"])
-    inner = [nid for nid, n in nodes if n["matched"]]
-    kids = {nid: [] for nid in inner}
-    for nid, n in nodes:
-        if not n["matched"]:
-            kids.setdefault(n["parent"], []).append(nid)
-    pos = {}
-    r1 = 0 if len(inner) <= 1 else min(90 + 14 * len(inner), 230)
-    rx, ry = W / 2 - 120, H / 2 - 60
-    weights = [3 + len(kids.get(nid, [])) for nid in inner] or [1]      # a floor of three, so a row with few neighbours still has room
-    total = float(sum(weights))
-    at = -math.pi / 2 - math.pi * weights[0] / total          # the first row's sector is centred at the top
-    for nid, w in zip(inner, weights):
-        span = 2 * math.pi * w / total
-        mid = at + span / 2
-        pos[nid] = (cx + r1 * math.cos(mid), cy + r1 * math.sin(mid))
-        ks = kids.get(nid, [])
-        for i, k in enumerate(ks):
-            a = at + span * (i + 1) / (len(ks) + 1) if len(inner) > 1 else at + span * (i + 0.5) / len(ks)
-            ring = 1.0 if (len(ks) <= 8 or i % 2 == 0) else 0.82        # two rings when a fan is crowded, so labels clear
-            pos[k] = (cx + rx * ring * math.cos(a), cy + ry * ring * math.sin(a))
-        at += span
-    return pos
+# The layered layout (ruling 92 (1)): the matched rows on one horizontal line
+# in the middle, by register then title, evenly spaced; like a family tree
+# both ways. A row a matched row names (its company, party, return,
+# recipient: what it belongs to or pays) sits above; a row that names a
+# matched row (its directors, shareholders, officers, donors) below; a
+# same-person row beside its match on the middle line, one each side where the
+# width allows, else below with the people. Every node of a layer stands in a
+# block: one per set of matched rows it is joined to, centred at their mean x
+# (so a node joined to several is drawn once, between them), its width shared
+# by need, wrapped into tiers when its nodes outnumber its slots, every node
+# at its own x so a deeper tier's drop passes between the nearer tier's nodes.
+# Every edge has right angles: vertical from the matched row, a horizontal run
+# on a channel between the middle line and the layer, vertical to the far
+# node. One matched row's edges on one side share one run, the family tree's
+# bar; bars whose spans overlap take different channels, ordered to cross least.
+SLOT = 110              # px between two nodes of one row (a node's label is shortened to its slot)
+MARGIN = 60             # px left clear at each side
+W_MIN, W_MAX = 1000, 2000     # the picture's width: the pane's, and the most the middle line may take with rows beside
+TIER = 46               # px between two tiers of a layer: a circle and its two-line label
+MID_ROOM = 42           # px from the middle line to the nearest channel: a matched row's label, either side
+CH = 7                  # px between two channels
+NEAR_CH = 16            # px from the farthest channel to the nearest tier's circles
+EDGE_ROOM = 34          # px beyond the outermost tier: its labels
+PORT = 4                # px between the ends of a shared node's edges, so they fan from it
+REG_ORDER = {r: i for i, (r, _) in enumerate(cat.REGISTERS)}
+
+
+def matched_order(g: dict) -> list:
+    """The matched rows, left to right: by register (the catalogue's order), then title, then id."""
+    return sorted((nid for nid, n in g["nodes"].items() if n["matched"]),
+                  key=lambda nid: (REG_ORDER.get(g["nodes"][nid]["v"].register, len(REG_ORDER)), node_title(g["nodes"][nid]).lower(), nid))
+
+
+def side_of(g: dict, lns: list) -> tuple:
+    """({node id: "up", "down", "beside" or "mid"}, {line n: the line's side}).
+    A line's side is its first cause's: a relation from the matched row (it
+    names the far row) is "up", to it (the far row names it) is "down", a
+    same-person verdict is "beside"; between two matched rows "mid". A node
+    takes "up" if any of its lines does, else "down", else "beside" when one
+    matched row alone reaches it."""
+    line_side, sides = {}, {}
+    for ln in lns:
+        a, b = g["nodes"][ln["a"]], g["nodes"][ln["b"]]
+        if a["matched"] and b["matched"]:
+            line_side[ln["n"]] = "mid"
+            continue
+        m, o = (ln["a"], ln["b"]) if a["matched"] else (ln["b"], ln["a"])
+        first = ln["causes"][0]
+        s = "beside" if first["kind"] in (CONFIRMED, NEAR) else ("up" if first["a"] == m else "down")
+        line_side[ln["n"]] = s
+        sides.setdefault(o, []).append(s)
+    node = {nid: "mid" for nid, n in g["nodes"].items() if n["matched"]}
+    for o, ss in sides.items():
+        node[o] = "up" if "up" in ss else ("down" if "down" in ss or len(ss) > 1 else "beside")
+    for nid in g["nodes"]:
+        node.setdefault(nid, "down")                   # a row drawn with no line of its own (never expected): below
+    return node, line_side
+
+
+def segments(path: list) -> list:
+    return [(path[i], path[i + 1]) for i in range(len(path) - 1) if path[i] != path[i + 1]]
+
+
+def _cross(p, q) -> bool:
+    """A horizontal and a vertical segment meet strictly inside both."""
+    (a, b), (c, d) = p, q
+    if a[1] == b[1] and c[0] == d[0]:
+        (a, b), (c, d) = (c, d), (a, b)
+    if not (a[0] == b[0] and c[1] == d[1]):
+        return False
+    x, y = a[0], c[1]
+    return min(c[0], d[0]) < x < max(c[0], d[0]) and min(a[1], b[1]) < y < max(a[1], b[1])
+
+
+def crossings(paths: dict, ends: dict) -> int:
+    """Pairs of segments of two lines that cross, the lines sharing no node."""
+    segs = {n: segments(p) for n, p in paths.items()}
+    keys = sorted(segs)
+    return sum(1 for i, m in enumerate(keys) for n in keys[i + 1:] if not (ends[m] & ends[n])
+               for s in segs[m] for t in segs[n] if _cross(s, t))
+
+
+def orthogonal(path: list) -> bool:
+    return all(a[0] == b[0] or a[1] == b[1] for a, b in segments(path))
+
+
+def layout(g: dict, lns: list = None) -> dict:
+    """{'pos': {node id: (x, y)}, 'paths': {line n: [(x, y), …]}, 'w', 'h',
+    'bands': the channel bands, where no node label goes, 'crossings': the
+    count of crossing segments, 'tiers': {side: n}}; deterministic and pure."""
+    lns = lines(g) if lns is None else lns
+    mids = matched_order(g)
+    node_side, line_side = side_of(g, lns)
+    m_of = {}                                       # a non-matched node -> its matched neighbours
+    for ln in lns:
+        if line_side[ln["n"]] != "mid":
+            m, o = (ln["a"], ln["b"]) if g["nodes"][ln["a"]]["matched"] else (ln["b"], ln["a"])
+            m_of.setdefault(o, []).append(m)
+    for nid, n in g["nodes"].items():
+        if not n["matched"] and nid not in m_of and mids:
+            m_of[nid] = [n["parent"] if n.get("parent") in mids else mids[0]]
+    beside = {}
+    for o in sorted((o for o, s in node_side.items() if s == "beside"), key=lambda o: g["nodes"][o]["order"]):
+        beside.setdefault(m_of[o][0], []).append(o)
+    per_side = 1 if beside and len(mids) * 3 * SLOT + 2 * MARGIN <= W_MAX else 0
+    for m, os_ in beside.items():
+        for o in os_[2 * per_side:]:
+            node_side[o] = "down"                    # no room beside: below, with the people
+    step = SLOT * (1 + 2 * per_side)
+    layer = {s: sorted(o for o, x in node_side.items() if x == s) for s in ("up", "down")}
+    w = max(W_MIN, len(mids) * step + 2 * MARGIN)      # only the middle line widens the picture; a full layer wraps into tiers
+    left = (w - len(mids) * step) / 2
+    xm = {m: left + step * (i + 0.5) for i, m in enumerate(mids)}
+    pos = {m: (xm[m], 0.0) for m in mids}
+    for m, os_ in beside.items():
+        for j, o in enumerate(os_[:2 * per_side]):
+            pos[o] = (xm[m] + (SLOT if j % 2 == 0 else -SLOT), 0.0)
+    tiers, tier_of = {}, {}
+    for s in ("up", "down"):
+        # a block per set of matched rows a node is joined to, centred at their mean x where the layer has room
+        groups = {}
+        for o in layer[s]:
+            groups.setdefault(tuple(sorted(set(m_of[o]), key=mids.index)), []).append(o)
+        keys = sorted(groups, key=lambda k: (sum(xm[m] for m in k) / len(k), [mids.index(m) for m in k]))
+        room = w - 2 * MARGIN
+        widths = [SLOT * len(groups[k]) for k in keys]          # a slot a node; a full layer shares its width by need
+        if sum(widths) > room:
+            widths = [x * room / sum(widths) for x in widths]
+        starts, at = [], MARGIN
+        for k, bw in zip(keys, widths):
+            centre = sum(xm[m] for m in k) / len(k)
+            starts.append(max(at, centre - bw / 2))
+            at = starts[-1] + bw
+        for i in range(len(keys) - 1, -1, -1):
+            starts[i] = min(starts[i], (starts[i + 1] if i + 1 < len(keys) else w - MARGIN) - widths[i])
+        at = []
+        for k, bw, x0 in zip(keys, widths, starts):
+            os_ = sorted(groups[k], key=lambda o: (node_title(g["nodes"][o]).lower(), o))
+            at += [(x0 + bw * (i + 0.5) / len(os_), o) for i, o in enumerate(os_)]
+        # every block is scaled alike, so its nodes stand evenly; the k-th node of the layer, left to right, goes to
+        # tier k mod tiers, which keeps a slot between two nodes of a tier and every node at its own x
+        tiers[s] = math.ceil(SLOT * len(at) / sum(widths)) if at else 0
+        for i, (x, o) in enumerate(sorted(at)):
+            pos[o], tier_of[o] = (x, 0.0), i % tiers[s]
+    # ports: a node joined to several matched rows takes each edge at its own x, so the edges fan from it
+    port = {}
+    for o, ms in m_of.items():
+        ms = sorted(set(ms), key=lambda m: xm[m])
+        for j, m in enumerate(ms):
+            port[(o, m)] = pos[o][0] + (j - (len(ms) - 1) / 2) * PORT
+    # the bars: one per matched row and side, and one per line between two matched rows (drawn below)
+    bars, mid_lines = {}, []
+    for ln in lns:
+        s = line_side[ln["n"]]
+        if s == "mid":
+            a, b = sorted((ln["a"], ln["b"]), key=lambda m: xm[m])
+            if not any(xm[a] < pos[o][0] < xm[b] for o in pos if o not in tier_of and o not in (a, b)):
+                continue                                             # neighbours on the middle line: a straight run between them
+            mid_lines.append((ln["n"], xm[a] + PORT, xm[b] - PORT))
+            continue
+        m, o = (ln["a"], ln["b"]) if g["nodes"][ln["a"]]["matched"] else (ln["b"], ln["a"])
+        s = node_side[o]
+        if s == "beside":
+            continue
+        bar = bars.setdefault((m, s), {"side": s, "lines": [], "xs": [xm[m]]})
+        bar["lines"].append(ln["n"])
+        bar["xs"].append(port.get((o, m), pos[o][0]))
+
+    def paths_of(k: tuple, y0: float, yc: float, ys: dict) -> dict:
+        b = bars[k]
+        if k[0] == "mid":
+            (xa, xb), n = b["xs"], b["lines"][0]
+            return {n: [(xa, y0), (xa, yc), (xb, yc), (xb, y0)]}
+        m, out = k[0], {}
+        for n in b["lines"]:
+            ln = lns[n - 1]
+            o = ln["b"] if ln["a"] == m else ln["a"]
+            xo = port.get((o, m), pos[o][0])
+            out[n] = [(xm[m], y0), (xm[m], yc), (xo, yc), (xo, ys[o])]
+        return out
+
+    for n, xa, xb in mid_lines:
+        # a line between two matched rows runs on the side where fewer drops and trunks stand inside its span
+        inside = {sd: sum(1 for b in bars.values() if b["side"] == sd for x in b["xs"] if xa < x < xb) for sd in ("up", "down")}
+        bars[("mid", n)] = {"side": "up" if inside["up"] <= inside["down"] else "down", "lines": [n], "xs": [xa, xb]}
+    ends = {ln["n"]: {ln["a"], ln["b"]} for ln in lns}
+    span = {k: (min(b["xs"]), max(b["xs"])) for k, b in bars.items()}
+    chan = {}
+    for s in ("up", "down"):
+        # each pair of bars whose spans overlap crosses a set number of times whichever channel is nearer the middle
+        # line, and only that order matters: count both orders on a sketch (the middle line at 0, the channels at
+        # 1 and 2, the tiers beyond), order the bars to spend the least, then share a channel where spans part
+        sign = -1 if s == "up" else 1
+        sketch = {nid: sign * (1000 + tier_of[nid]) for nid in tier_of}
+        mine = sorted((k for k, b in bars.items() if b["side"] == s), key=lambda k: (span[k][1] - span[k][0], span[k], str(k)))
+        cost = {}
+        for i, a in enumerate(mine):
+            for b in mine[i + 1:]:
+                if span[a][0] <= span[b][1] + CH and span[b][0] <= span[a][1] + CH:
+                    for near, far in ((a, b), (b, a)):
+                        pa, pb = paths_of(near, 0, sign, sketch), paths_of(far, 0, 2 * sign, sketch)
+                        both = {**pa, **pb}
+                        cost[(near, far)] = crossings(both, ends) - crossings(pa, ends) - crossings(pb, ends)
+        order = list(mine)
+        for _ in range(4):                       # move each bar to its cheapest place, until none moves
+            moved = False
+            for k in list(order):
+                rest = [x for x in order if x != k]
+                spend = [sum(cost.get((x, k), 0) for x in rest[:i]) + sum(cost.get((k, x), 0) for x in rest[i:]) for i in range(len(rest) + 1)]
+                best = min(range(len(spend)), key=lambda i: (spend[i], i))
+                if rest[:best] + [k] + rest[best:] != order and spend[best] < spend[order.index(k)]:
+                    order, moved = rest[:best] + [k] + rest[best:], True
+            if not moved:
+                break
+        for i, k in enumerate(order):
+            chan[k] = 1 + max([chan[x] for x in order[:i] if span[x][0] <= span[k][1] + CH and span[k][0] <= span[x][1] + CH], default=-1)
+    count = {s: 1 + max([c for k, c in chan.items() if bars[k]["side"] == s], default=-1) for s in ("up", "down")}
+    up_ch, dn_ch = count["up"], count["down"]
+    top = 20 + (EDGE_ROOM + (tiers["up"] - 1) * TIER + NEAR_CH + max(up_ch - 1, 0) * CH if tiers["up"] else 0)
+    y0 = top + MID_ROOM
+    yc = {k: y0 + (-1 if bars[k]["side"] == "up" else 1) * (MID_ROOM + c * CH) for k, c in chan.items()}
+    tier_y = {"up": lambda t: y0 - MID_ROOM - max(up_ch - 1, 0) * CH - NEAR_CH - t * TIER,
+              "down": lambda t: y0 + MID_ROOM + max(dn_ch - 1, 0) * CH + NEAR_CH + t * TIER}
+    ys = {nid: (tier_y[node_side[nid]](tier_of[nid]) if nid in tier_of else y0) for nid in pos}
+    h = (tier_y["down"](tiers["down"] - 1) + EDGE_ROOM if tiers["down"] else y0 + MID_ROOM) + 20
+    paths = {}
+    for k in bars:
+        paths.update(paths_of(k, y0, yc[k], ys))
+    for ln in lns:
+        if ln["n"] not in paths:                                 # beside, or two neighbours, on the middle line
+            paths[ln["n"]] = [(pos[ln["a"]][0], y0), (pos[ln["b"]][0], y0)]
+    paths = {n: [(round(x, 1), round(y, 1)) for x, y in p] for n, p in paths.items()}
+    bands = []
+    for s in ("up", "down"):
+        cs = [y for k, y in yc.items() if bars[k]["side"] == s]
+        if cs:
+            bands.append((0, min(cs) - 3, w, max(cs) + 3))
+    final = {nid: (round(pos[nid][0], 1), round(ys[nid], 1)) for nid in pos}
+    room = {}                                       # the width a node's label may take: the gap to its nearest neighbour on its row
+    for nid, (x, y) in final.items():
+        gaps = [abs(x - x2) for j, (x2, y2) in final.items() if j != nid and y2 == y] + [2 * x, 2 * (w - x)]
+        room[nid] = min(gaps)
+    return {"pos": final, "paths": paths, "w": w, "h": h, "bands": bands, "crossings": crossings(paths, ends),
+            "tiers": dict(tiers), "y0": y0, "room": room, "side": node_side}
 
 
 def node_title(n: dict) -> str:
@@ -376,9 +590,9 @@ WORDS_AT = (0.5,) + tuple(t for d in range(1, 10) for t in (0.5 - 0.045 * d, 0.5
 WORDS_MAX = 28                                       # an edge's words on the picture; the tooltip and the list carry them whole
 
 
-def _hits(box: tuple, boxes: list, gap: float = 0) -> bool:
+def _hits(box: tuple, boxes: list, gap: float, size: tuple) -> bool:
     x0, y0, x1, y1 = box
-    if x0 < 0 or y0 < 0 or x1 > W or y1 > H:
+    if x0 < 0 or y0 < 0 or x1 > size[0] or y1 > size[1]:
         return True
     return any(x0 - gap < b[2] and b[0] < x1 + gap and y0 - gap < b[3] and b[1] < y1 + gap for b in boxes)
 
@@ -394,51 +608,73 @@ def words_of_line(ln: dict) -> str:
     return short(ln["causes"][0]["label"], WORDS_MAX) + (f" (+{more})" if more else "")
 
 
-def place(g: dict, pos: dict, lns: list) -> dict:
+def along(path: list, t: float) -> tuple:
+    """The point a fraction t of the way along a path, by its length."""
+    segs = segments(path) or [(path[0], path[0])]
+    total = sum(abs(b[0] - a[0]) + abs(b[1] - a[1]) for a, b in segs) or 1.0
+    at = t * total
+    for a, b in segs:
+        d = abs(b[0] - a[0]) + abs(b[1] - a[1])
+        if at <= d or (a, b) == segs[-1]:
+            f = at / d if d else 0
+            return a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f
+        at -= d
+    return path[-1]
+
+
+def place(g: dict, lay: dict, lns: list) -> dict:
     """Deterministic placement of every node label and edge's words, pure.
     {'labels': {node id: (name, register, x, y_name, y_register, anchor,
     box) or None}, 'words': {line n: (text, x, y, box) or None}}. A node's
-    label sits below its circle, else above, right or left, shortened until
-    it clears every label placed before it and every other circle, the
-    register line dropped last of all; a node with no room keeps its name in
-    its tooltip. An edge's words sit on its line, moved along it until their
-    box touches no label, no other words and no circle (GAP apart); with no
-    room they are left off the picture and kept in the tooltip and the list."""
+    label sits above its circle in the upper layer and under it in the lower
+    (outward, so a tier never takes the next one's room), under or else above
+    on the middle line, no wider than the gap to its row's nearest node,
+    shortened until it clears every label placed before it, every other circle
+    and every channel band (ruling 92: a label is never on a channel), the
+    register line dropped last of all; a node with no room
+    keeps its name in its tooltip. An edge's words sit on its path, moved
+    along it from its middle until their box touches no label, no other words
+    and no circle (GAP apart); with no room they are left off the picture and
+    kept in the tooltip and the list."""
+    pos, size, side = lay["pos"], (lay["w"], lay["h"]), lay["side"]
     placed, labels, words = [], {}, {}
     circle = {nid: (pos[nid][0] - radius(n) - 1, pos[nid][1] - radius(n) - 1, pos[nid][0] + radius(n) + 1, pos[nid][1] + radius(n) + 1)
               for nid, n in g["nodes"].items()}
-    for nid, n in sorted(g["nodes"].items(), key=lambda kv: kv[1]["order"]):
+    bands = lay.get("bands", [])
+    order = sorted(g["nodes"].items(), key=lambda kv: (not kv[1]["matched"], kv[1]["order"]))     # the matched rows' names first
+    for nid, n in order:
         x, y = pos[nid]
         rad = radius(n)
         name, reg = node_title(n), n["v"].register.replace("_", " ")
-        others = [b for k, b in circle.items() if k != nid]
+        others = [b for k, b in circle.items() if k != nid] + bands
         labels[nid] = None
         tries = [(k, True) for k in LABEL_LENGTHS] + [(k, False) for k in LABEL_LENGTHS[-2:]]
         for k, with_reg in tries:
             t1, t2 = short(name, k), (short(reg, k + 4) if with_reg else "")
             w = max(len(t1) * NAME_W, len(t2) * REG_W) + 2
+            if w > lay["room"][nid] - GAP and k != LABEL_LENGTHS[-1]:
+                continue
             h = 25 if with_reg else 14
-            spots = ((x - w / 2, y + rad + 1 + GAP, "middle"), (x - w / 2, y - rad - 1 - GAP - h, "middle"),     # below, above
-                     (x + rad + 3 + GAP, y - h / 2, "start"), (x - rad - 3 - GAP - w, y - h / 2, "end"))         # right, left
-            for left, top, anchor in spots:
+            below, above = (x - w / 2, y + rad + 1 + GAP), (x - w / 2, y - rad - 1 - GAP - h)
+            spots = {"up": (above,), "down": (below,)}.get(side.get(nid), (below, above))     # a layer's names face outward
+            for left, top in spots:
                 box = (left, top, left + w, top + h)
-                if not _hits(box, placed, GAP) and not _hits(box, others):
-                    tx = {"middle": left + w / 2, "start": left + 1, "end": left + w - 1}[anchor]
-                    labels[nid] = (t1, t2, tx, top + 11, top + 22, anchor, box)
+                if not _hits(box, placed, GAP, size) and not _hits(box, others, 0, size):
+                    labels[nid] = (t1, t2, left + w / 2, top + 11, top + 22, "middle", box)
                     placed.append(box)
                     break
             if labels[nid]:
                 break
     circles = list(circle.values())
     for ln in lns:
-        (x1, y1), (x2, y2) = pos[ln["a"]], pos[ln["b"]]
+        path = lay["paths"][ln["n"]]
         text = words_of_line(ln)
         w = len(text) * WORD_W / 2 + 2
         words[ln["n"]] = None
         for t in WORDS_AT:
-            x, y = x1 + (x2 - x1) * t, y1 + (y2 - y1) * t
+            x, y = along(path, t)
             box = (x - w, y - 6, x + w, y + 6)
-            if not _hits(box, placed + circles, GAP):
+            if not _hits(box, placed + circles, GAP, size):
                 words[ln["n"]] = (text, x, y, box)
                 placed.append(box)
                 break
@@ -482,20 +718,29 @@ def touching_text(picture: str) -> list:
     return [(a[0], b[0]) for i, a in enumerate(boxes) for b in boxes[i + 1:] if touch(a[2], b[2])]
 
 
-def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None) -> str:
-    pos = layout(g)
+def path_d(path: list) -> str:
+    """An SVG path of right angles: M, then H or V for each segment."""
+    out = [f"M{path[0][0]:.1f} {path[0][1]:.1f}"]
+    for a, b in segments(path):
+        out.append(f"H{b[0]:.1f}" if a[1] == b[1] else f"V{b[1]:.1f}")
+    return " ".join(out)
+
+
+def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None, lay: dict = None) -> str:
     lns = lines(g) if lns is None else lns
-    placement = place(g, pos, lns) if placement is None else placement
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="100%" role="img" '
-           f'aria-label="register rows as nodes, the connections their registers assert as edges, coloured by kind">',
+    lay = layout(g, lns) if lay is None else lay
+    pos, W, H = lay["pos"], lay["w"], lay["h"]
+    placement = place(g, lay, lns) if placement is None else placement
+    out = [f'<div class="picture"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" '
+           f'aria-label="register rows as nodes, the matched rows on the middle line, what they belong to above and what belongs '
+           f'to them below, the connections their registers assert as right-angled edges coloured by kind">',
            f'<rect class="bg" width="{W}" height="{H}"/>']        # styled by the page's one stylesheet (panes.CSS)
     for ln in lns:
-        (x1, y1), (x2, y2) = pos[ln["a"]], pos[ln["b"]]
         colour, dash = KIND[ln["kind"]]
         d = f' stroke-dasharray="{dash}"' if dash else ""
         title = "; ".join(cause_text(e) for e in ln["causes"])
-        out.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{colour}" stroke-width="2"{d}>'
-                   f'<title>{panes.esc(title)}</title></line>')
+        out.append(f'<path class="edge" d="{path_d(lay["paths"][ln["n"]])}" stroke="{colour}"{d}>'
+                   f'<title>{panes.esc(title)}</title></path>')
     for ln in lns:
         at = placement["words"].get(ln["n"])
         if not at:
@@ -519,7 +764,7 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None) -
                 text += f'<text class="reg" x="{lx:.1f}" y="{y2:.1f}" text-anchor="{anchor}">{panes.esc(t2)}</text>'
         out.append(f'<a href="{panes.esc(to)}"><title>{panes.esc(title)} · {panes.esc(panes.register_heading(v.register))} · {panes.esc(v.name)}</title>'
                    f'<circle class="{"matched" if n["matched"] else "other"}" cx="{x:.1f}" cy="{y:.1f}" r="{rad}"/>{text}</a>')
-    out.append("</svg>")
+    out.append("</svg></div>")
     return "".join(out)
 
 
@@ -620,8 +865,9 @@ def pane(g: dict, q: str, boxes=None, regs=None) -> str:
                "No edge is made by matching names here. Click a node to centre on it; an edge's words, where they fit, open the row "
                "that asserts it; hover a line for all it says; under the key the edges are listed by the row they reach.</p>")
     lns = lines(g)
-    placement = place(g, layout(g), lns)
-    out.append(svg(g, q, boxes, lns, placement))
+    lay = layout(g, lns)
+    placement = place(g, lay, lns)
+    out.append(svg(g, q, boxes, lns, placement, lay))
     out.append(key_table(g))
     if any(e.get("addends") for e in g["edges"]):
         out.append('<p class="note">A donor\'s donations to one party or one candidate are one edge, its total the sum of the '

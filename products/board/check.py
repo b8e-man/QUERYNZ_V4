@@ -26,7 +26,9 @@ tables through the session reader, never the sample:
      rule id shows outside a tooltip, and the links' words are on the page.
      Ruling 86 (2): on each, no two text boxes of the rendered SVG touch
      (graph.touching_text, read from its own x, y, anchor, class and text),
-     and no edge carries a number.
+     and no edge carries a number. Ruling 92 (1): on each, every edge the
+     SVG draws is a path of right angles (M, then H and V only), one per
+     line, no straight <line> left, and the matched rows share one y.
 
   8. The field search (ruling 82): every column a field declares exists in
      its view, a date column is a date and a year column a number; a search
@@ -254,6 +256,7 @@ def uses_problems(held: set) -> list:
 
 CROWDED = "smith"
 RULE_ID = re.compile(r"\b[a-z]+(?:-[a-z]+)*@\d+\b")
+RIGHT_ANGLES = re.compile(r"M[\d.]+ [\d.]+( [HV][\d.]+)+")
 
 
 def picture_problems(conn, centre: str, g: dict, page: str) -> list:
@@ -290,6 +293,14 @@ def picture_problems(conn, centre: str, g: dict, page: str) -> list:
         touching = graph.touching_text(picture)
         if touching:
             out.append(f"the graph of {c} draws {len(touching)} pairs of texts whose boxes touch, first {touching[0]}")
+        drawn = re.findall(r'<path class="edge" d="([^"]*)"', picture)
+        crooked = [d for d in drawn if not RIGHT_ANGLES.fullmatch(d)]
+        if crooked or "<line " in picture or len(drawn) != len(graph.lines(gr)):
+            out.append(f"the graph of {c} draws {len(crooked)} edges with a bend that is not a right angle, "
+                       f"{picture.count('<line ')} straight lines, {len(drawn)} paths for {len(graph.lines(gr))} lines (ruling 92 (1))")
+        lay = graph.layout(gr)
+        if len({lay["pos"][k][1] for k, n in gr["nodes"].items() if n["matched"]}) > 1:
+            out.append(f"the graph of {c} sets its matched rows on more than one line (ruling 92 (1))")
         if re.search(r"<text[^>]*>\d+</text>", picture):
             out.append(f"the graph of {c} draws an edge number (ruling 86 (2))")
         bare = re.sub(r"<title>.*?</title>", "", picture, flags=re.S)
