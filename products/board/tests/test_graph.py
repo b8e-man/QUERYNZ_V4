@@ -105,7 +105,7 @@ def test_a_rule_id_shows_only_in_a_title_and_the_list():
     picture = html[html.index("<svg"):html.index("</svg>")]
     assert "@1" not in outside_titles(picture) and "links rule" not in outside_titles(picture)
     assert "(links rule name-only, version 1)" in picture                                    # the edge's tooltip
-    listed = html[html.index("Edges, by number"):]
+    listed = html[html.index("Edges, by the row they reach"):]
     assert "same name, nothing else" in listed and "(links rule name-only, version 1)" in listed
     assert "@1" not in outside_titles(html)
 
@@ -114,19 +114,40 @@ def test_two_rows_joined_twice_get_one_line_listing_both_causes():
     g = sample()
     g["edges"].append({"kind": "money", "a": "directors:x1", "b": "party_return_donors:d1", "label": "lent to", "cite": "directors:x1", "rule": None})
     lns = graph.lines(g)
-    assert len(lns) == 3 and [ln["n"] for ln in lns] == [1, 2, 3]
+    assert len(lns) == 3
     both = lns[2]
     assert [e["kind"] for e in both["causes"]] == ["money", "same person, near"] and both["kind"] == "money"   # the key's order sets the stroke
     html = graph.pane(g, "doe")
     picture = html[html.index("<svg"):html.index("</svg>")]
     assert picture.count("<line ") == 3
-    line = re.search(r'<line [^>]*stroke="([^"]+)"[^>]*><title>3\. ([^<]*)</title>', picture)
-    assert line and line.group(1) == "#3987e5"
-    assert line.group(2) == "money: lent to; same person, near: same name, nothing else (links rule name-only, version 1)"
-    listed = html[html.index('<ol class="edges">'):]
-    third = listed[listed.index('<li value="3">'):]
-    assert third.index("lent to") < third.index("same name, nothing else") and third.count("the row that asserts it") >= 2
+    line = [m for m in re.findall(r'<line [^>]*stroke="([^"]+)"[^>]*><title>([^<]*)</title>', picture) if "lent to" in m[1]]
+    assert len(line) == 1 and line[0][0] == "#3987e5"
+    assert line[0][1] == "money: lent to; same person, near: same name, nothing else (links rule name-only, version 1)"
+    assert ">lent to (+1)</text>" in picture                                    # the words say there is more, the tooltip says what
+    listed = html[html.index('<div class="edges">'):]
+    assert listed.index("lent to") < listed.index("same name, nothing else") and listed.count("the row that asserts it") >= 4
     assert '4 connections on 3 lines' in html
+
+
+def test_no_edge_carries_a_number():
+    html = graph.pane(sample(), "doe")
+    picture = html[html.index("<svg"):html.index("</svg>")]
+    assert not re.search(r"<text[^>]*>\d+</text>", picture) and 'class="num"' not in picture
+    assert "<ol" not in html and "by number" not in html and "<li value=" not in html
+    assert picture.count("<title>") >= picture.count("<line ") + 1               # every line keeps its hover title
+
+
+def test_the_list_is_grouped_by_the_far_row_in_the_key_s_order_then_by_title():
+    g = sample()
+    g["nodes"]["companies:c0"] = node("companies", "c0", False, 4, "directors:x1", name="AARDVARK LIMITED")
+    g["edges"].append({"kind": "role", "a": "directors:x1", "b": "companies:c0", "label": "director of", "cite": "directors:x1", "rule": None})
+    html = graph.pane(g, "doe")
+    listed = html[html.index('<div class="edges">'):]
+    heads = re.findall(r"<h4>(.*?) <span", listed)
+    assert heads == ["A Party · 2023", "AARDVARK LIMITED", "ACME &lt;LIMITED&gt;", "name suppressed"]   # money, then role by title, then same person
+    under = listed[listed.index("<h4>ACME"):listed.index("<h4>name suppressed")]
+    assert "director of" in under and 'href="/?q=doe&amp;p=directors%3Ax1' in under and "from name suppressed" in under
+    assert listed.count("<h4>") == len({frozenset((e["a"], e["b"])) for e in g["edges"]})        # one heading per connected row
 
 
 def crowded(n=40):
@@ -144,7 +165,7 @@ def crowded(n=40):
     return g
 
 
-def test_no_label_or_number_is_drawn_over_another_and_placement_is_deterministic():
+def test_no_text_box_touches_another_on_the_rendered_crowded_picture_and_placement_is_deterministic():
     for n in (3, 12, 40, 110):
         g = crowded(n)
         lns = graph.lines(g)
@@ -154,19 +175,27 @@ def test_no_label_or_number_is_drawn_over_another_and_placement_is_deterministic
         assert graph.overlaps(p) == [], (n, graph.overlaps(p)[:3])
         html = graph.pane(g, "x")
         picture = html[html.index("<svg"):html.index("</svg>")]
-        at = re.findall(r'<text[^>]* x="([\d.]+)" y="([\d.]+)"', picture)
-        assert len(at) == len(set(at)), n
-        drawn = [k for k, v in p["numbers"].items() if v]
-        assert len(drawn) >= min(len(lns), 12), n                       # the picture still numbers most edges
-        listed = html[html.index('<ol class="edges">'):]
-        assert listed.count('<li value="') == len(lns)                  # every edge is listed, numbered or not
-        for k, v in p["numbers"].items():
-            if not v:
-                assert f'<li value="{k}">' in listed and "no room for its number" in listed
+        boxes = graph.text_boxes(picture)
+        assert len(boxes) == sum(1 + bool(v[1]) for v in p["labels"].values() if v) + sum(1 for v in p["words"].values() if v)
+        assert graph.touching_text(picture) == [], (n, graph.touching_text(picture)[:3])     # read from the SVG's own x, y, anchor, class and text
+        drawn = [k for k, v in p["words"].items() if v]
+        assert len(drawn) >= min(len(lns), 3), n                      # the picture still says what some edges are
+        listed = html[html.index('<div class="edges">'):]
+        assert listed.count("the row that asserts it") == len(g["edges"])     # every cause is listed, its words drawn or not
     assert any(graph.place(crowded(110), graph.layout(crowded(110)), graph.lines(crowded(110)))["labels"][k][0].endswith("…")
                for k in crowded(110)["nodes"])                               # names are shortened to clear, not drawn over
 
 
+def test_the_no_touch_reading_catches_two_texts_that_touch():
+    picture = ('<text x="100" y="100" text-anchor="middle">ACME LIMITED</text>'
+               '<text class="words" x="100" y="108" text-anchor="middle">director of</text>')
+    assert graph.touching_text(picture) == [("ACME LIMITED", "director of")]
+    apart = picture.replace('y="108"', 'y="130"')
+    assert graph.touching_text(apart) == []
+    side = ('<text x="10" y="50" text-anchor="start">ab</text><text x="24" y="50" text-anchor="start">cd</text>')
+    assert graph.touching_text(side)                                  # "ab" runs to x 23.8; "cd" starts at 23
+
+
 def test_overlaps_finds_two_boxes_that_meet():
-    p = {"labels": {"a": ("x", "", 0, 0, 0, "middle", (0, 0, 10, 10)), "b": ("y", "", 0, 0, 0, "middle", (5, 5, 15, 15))}, "numbers": {1: (40, 40, (35, 35, 45, 45))}}
+    p = {"labels": {"a": ("x", "", 0, 0, 0, "middle", (0, 0, 10, 10)), "b": ("y", "", 0, 0, 0, "middle", (5, 5, 15, 15))}, "words": {1: ("w", 40, 40, (35, 35, 45, 45))}}
     assert graph.overlaps(p) == [("label a", "label b")]

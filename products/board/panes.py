@@ -74,6 +74,8 @@ article.hit{border-top:1px solid #3a404c;padding:.4rem 0}
 .view{margin-top:.5rem}
 nav.tabs a{padding:.25rem .6rem;border:1px solid #5a6270;border-bottom:none;border-radius:4px 4px 0 0;text-decoration:none}
 nav.tabs a.on{background:#1d3a5f;color:#e8eaed;border-color:#8cb8ff}
+div.edges h4{font-size:13px;margin:.7rem 0 .1rem}
+ul.addends{font-size:12px;color:#aab1bc}
 table.key td,table.key th{padding:.1rem .5rem;font-size:13px;text-align:left}
 table.uc{border-collapse:collapse;width:100%;font-size:13px}
 table.uc th,table.uc td{text-align:left;vertical-align:top;padding:.3rem .5rem;border-top:1px solid #3a404c}

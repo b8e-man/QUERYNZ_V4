@@ -2,11 +2,15 @@
 matches are nodes; every connection their registers assert is an edge, one
 hop out, typed and coloured, with a key below the picture. The picture is
 SVG written here, with no script and no library: every node is an href that
-re-centres on it, and every edge carries a number, an href to the register
-row that asserts the connection, so every edge is cited. Ruling 84: two rows
-joined more than once get one line and its causes are listed; no label is
-drawn over another (`place`); the links' rules read in words
+re-centres on it, and every edge keeps its hover title and its line in the
+list under the key, with an href to the register row that asserts it, so
+every edge is cited. Ruling 84: two rows joined more than once get one line
+and its causes are listed; the links' rules read in words
 (`catalogue.RULE_WORDS`) and their ids appear only in a tooltip or the list.
+Ruling 86: no edge numbers; an edge's words are drawn on its line only where
+their box touches no other text box, node label or circle (`place`,
+deterministic, held on the rendered picture by `text_boxes`); the list is
+grouped by the far row.
 
 Edges come from two places only, both published: a catalogue `Relation`
 (this row's column names a row of another view, as the lane's own pane.md
@@ -17,9 +21,10 @@ made by looking), and draws no address edge of any kind (hard limit 15).
 `build` reads; `layout`, `lines`, `place` and `svg`/`pane` are pure."""
 from __future__ import annotations
 
+import html
 import math
-import urllib.parse
 import re
+import urllib.parse
 
 from products.board import catalogue as cat
 from products.board import db, links_view, panes, search
@@ -209,7 +214,8 @@ def cause_text(e: dict, with_rule: bool = True) -> str:
 
 def lines(g: dict) -> list:
     """One line per pair of rows (ruling 84: causes listed, not drawn over
-    each other), numbered from 1 in the order the pairs were found:
+    each other), in the order the pairs were found, `n` an index that is
+    never drawn (ruling 86):
     {'n', 'a', 'b', 'causes': [edges in the key's order], 'kind': the
     first cause's kind, which sets the stroke}."""
     out, at = [], {}
@@ -225,36 +231,47 @@ def lines(g: dict) -> list:
     return out
 
 
-# Estimated text boxes, so no label or number is drawn over another. The
-# widths are generous averages for the fonts the style sets (11px names,
-# 9px registers and numbers); a box is (x0, y0, x1, y1).
-NAME_W, REG_W, NUM_W = 6.4, 5.2, 5.6
+# Estimated text boxes, so no text is drawn touching another. The widths are
+# generous averages for the fonts the stylesheet sets (11px names, 9px
+# registers and edge words); a box is (x0, y0, x1, y1). `text_boxes` reads
+# the same boxes back from the rendered SVG, so the rule is held on what is
+# drawn, not on what was meant.
+NAME_W, REG_W, WORD_W = 6.4, 5.2, 5.2
+GAP = 2                                              # boxes keep this far apart: "touch" is within it
 LABEL_LENGTHS = (30, 22, 16, 11, 7)                 # a node's name shortened step by step until it clears
-NUMBER_AT = (0.5,) + tuple(t for d in range(1, 10) for t in (0.5 - 0.045 * d, 0.5 + 0.045 * d))   # along a line, from its middle out
+WORDS_AT = (0.5,) + tuple(t for d in range(1, 10) for t in (0.5 - 0.045 * d, 0.5 + 0.045 * d))   # along a line, from its middle out
+WORDS_MAX = 28                                       # an edge's words on the picture; the tooltip and the list carry them whole
 
 
-def _hits(box: tuple, boxes: list) -> bool:
+def _hits(box: tuple, boxes: list, gap: float = 0) -> bool:
     x0, y0, x1, y1 = box
     if x0 < 0 or y0 < 0 or x1 > W or y1 > H:
         return True
-    return any(x0 < b[2] and b[0] < x1 and y0 < b[3] and b[1] < y1 for b in boxes)
+    return any(x0 - gap < b[2] and b[0] < x1 + gap and y0 - gap < b[3] and b[1] < y1 + gap for b in boxes)
 
 
 def radius(n: dict) -> int:
     return 11 if n["centre"] else (8 if n["matched"] else 6)
 
 
+def words_of_line(ln: dict) -> str:
+    """What a line says on the picture: its first cause's words, and how many
+    more causes the tooltip and the list carry."""
+    more = len(ln["causes"]) - 1
+    return short(ln["causes"][0]["label"], WORDS_MAX) + (f" (+{more})" if more else "")
+
+
 def place(g: dict, pos: dict, lns: list) -> dict:
-    """Deterministic placement of every node label and edge number, pure.
+    """Deterministic placement of every node label and edge's words, pure.
     {'labels': {node id: (name, register, x, y_name, y_register, anchor,
-    box) or None}, 'numbers': {n: (x, y, box) or None}}. A node's label sits
-    below its circle, else above, right or left, shortened until it clears
-    every label placed before it and every other circle, the register line
-    dropped last of all; a node with no room keeps its name in its tooltip.
-    A number sits on its line, moved along it until it clears every label,
-    number and circle; with no room it is left off the picture and kept in
-    the list."""
-    placed, labels, numbers = [], {}, {}
+    box) or None}, 'words': {line n: (text, x, y, box) or None}}. A node's
+    label sits below its circle, else above, right or left, shortened until
+    it clears every label placed before it and every other circle, the
+    register line dropped last of all; a node with no room keeps its name in
+    its tooltip. An edge's words sit on its line, moved along it until their
+    box touches no label, no other words and no circle (GAP apart); with no
+    room they are left off the picture and kept in the tooltip and the list."""
+    placed, labels, words = [], {}, {}
     circle = {nid: (pos[nid][0] - radius(n) - 1, pos[nid][1] - radius(n) - 1, pos[nid][0] + radius(n) + 1, pos[nid][1] + radius(n) + 1)
               for nid, n in g["nodes"].items()}
     for nid, n in sorted(g["nodes"].items(), key=lambda kv: kv[1]["order"]):
@@ -268,11 +285,11 @@ def place(g: dict, pos: dict, lns: list) -> dict:
             t1, t2 = short(name, k), (short(reg, k + 4) if with_reg else "")
             w = max(len(t1) * NAME_W, len(t2) * REG_W) + 2
             h = 25 if with_reg else 14
-            spots = ((x - w / 2, y + rad + 1, "middle"), (x - w / 2, y - rad - 1 - h, "middle"),     # below, above
-                     (x + rad + 3, y - h / 2, "start"), (x - rad - 3 - w, y - h / 2, "end"))         # right, left
+            spots = ((x - w / 2, y + rad + 1 + GAP, "middle"), (x - w / 2, y - rad - 1 - GAP - h, "middle"),     # below, above
+                     (x + rad + 3 + GAP, y - h / 2, "start"), (x - rad - 3 - GAP - w, y - h / 2, "end"))         # right, left
             for left, top, anchor in spots:
                 box = (left, top, left + w, top + h)
-                if not _hits(box, placed + others):
+                if not _hits(box, placed, GAP) and not _hits(box, others):
                     tx = {"middle": left + w / 2, "start": left + 1, "end": left + w - 1}[anchor]
                     labels[nid] = (t1, t2, tx, top + 11, top + 22, anchor, box)
                     placed.append(box)
@@ -282,24 +299,54 @@ def place(g: dict, pos: dict, lns: list) -> dict:
     circles = list(circle.values())
     for ln in lns:
         (x1, y1), (x2, y2) = pos[ln["a"]], pos[ln["b"]]
-        w = len(str(ln["n"])) * NUM_W / 2 + 2
-        numbers[ln["n"]] = None
-        for t in NUMBER_AT:
+        text = words_of_line(ln)
+        w = len(text) * WORD_W / 2 + 2
+        words[ln["n"]] = None
+        for t in WORDS_AT:
             x, y = x1 + (x2 - x1) * t, y1 + (y2 - y1) * t
             box = (x - w, y - 6, x + w, y + 6)
-            if not _hits(box, placed + circles):
-                numbers[ln["n"]] = (x, y, box)
+            if not _hits(box, placed + circles, GAP):
+                words[ln["n"]] = (text, x, y, box)
                 placed.append(box)
                 break
-    return {"labels": labels, "numbers": numbers}
+    return {"labels": labels, "words": words}
 
 
 def overlaps(placement: dict) -> list:
-    """Pairs of drawn labels or numbers whose boxes meet; the check wants none."""
+    """Pairs of drawn labels or words whose boxes touch (within GAP); the check wants none."""
     boxes = [("label " + k, v[-1]) for k, v in placement["labels"].items() if v] + \
-            [(f"number {k}", v[-1]) for k, v in placement["numbers"].items() if v]
-    return [(a, b) for i, (a, ba) in enumerate(boxes) for b, bb in boxes[i + 1:]
-            if ba[0] < bb[2] and bb[0] < ba[2] and ba[1] < bb[3] and bb[1] < ba[3]]
+            [(f"words of line {k}", v[-1]) for k, v in placement["words"].items() if v]
+    return [(a, b) for i, (a, ba) in enumerate(boxes) for b, bb in boxes[i + 1:] if touch(ba, bb)]
+
+
+def touch(a: tuple, b: tuple, gap: float = 0) -> bool:
+    return a[0] - gap < b[2] and b[0] < a[2] + gap and a[1] - gap < b[3] and b[1] < a[3] + gap
+
+
+#: per class of <text> on the picture: (width of a character, rise above the baseline, fall below it)
+TEXT_SIZES = {"": (NAME_W, 10, 2), "reg": (REG_W, 7, 2), "words": (WORD_W, 7, 2)}
+
+
+def text_boxes(picture: str) -> list:
+    """Every <text> the rendered SVG draws, as (text, class, box), its box
+    worked out from what the SVG says alone: its x and y, its anchor, its
+    class (which sets its size in the stylesheet) and its characters."""
+    out = []
+    for attrs, body in re.findall(r"<text\b([^>]*)>(.*?)</text>", picture, flags=re.S):
+        a = dict(re.findall(r'([a-z-]+)="([^"]*)"', attrs))
+        cls = a.get("class", "")
+        cw, rise, fall = TEXT_SIZES.get(cls, TEXT_SIZES[""])
+        t = html.unescape(body)
+        x, y, w = float(a["x"]), float(a["y"]), len(t) * cw + 2
+        x0 = {"middle": x - w / 2, "start": x - 1, "end": x + 1 - w}[a.get("text-anchor", "start")]
+        out.append((t, cls, (x0, y - rise, x0 + w, y + fall)))
+    return out
+
+
+def touching_text(picture: str) -> list:
+    """Pairs of text boxes on the rendered picture that touch; empty when none does."""
+    boxes = text_boxes(picture)
+    return [(a[0], b[0]) for i, a in enumerate(boxes) for b in boxes[i + 1:] if touch(a[2], b[2])]
 
 
 def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None) -> str:
@@ -307,22 +354,23 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None) -
     lns = lines(g) if lns is None else lns
     placement = place(g, pos, lns) if placement is None else placement
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="100%" role="img" '
-           f'aria-label="register rows as nodes, the connections their registers assert as numbered edges">',
+           f'aria-label="register rows as nodes, the connections their registers assert as edges, coloured by kind">',
            f'<rect class="bg" width="{W}" height="{H}"/>']        # styled by the page's one stylesheet (panes.CSS)
     for ln in lns:
         (x1, y1), (x2, y2) = pos[ln["a"]], pos[ln["b"]]
         colour, dash = KIND[ln["kind"]]
         d = f' stroke-dasharray="{dash}"' if dash else ""
-        title = f'{ln["n"]}. ' + "; ".join(cause_text(e) for e in ln["causes"])
+        title = "; ".join(cause_text(e) for e in ln["causes"])
         out.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{colour}" stroke-width="2"{d}>'
                    f'<title>{panes.esc(title)}</title></line>')
     for ln in lns:
-        at = placement["numbers"].get(ln["n"])
+        at = placement["words"].get(ln["n"])
         if not at:
             continue
-        x, y, _ = at
+        text, x, y, _ = at
         cite = panes.href(q, [ln["causes"][0]["cite"]], boxes)
-        out.append(f'<a href="{panes.esc(cite)}"><text class="num" x="{x:.1f}" y="{y + 3:.1f}" text-anchor="middle">{ln["n"]}</text></a>')
+        out.append(f'<a href="{panes.esc(cite)}"><title>{panes.esc("; ".join(cause_text(e) for e in ln["causes"]))}</title>'
+                   f'<text class="words" x="{x:.1f}" y="{y + 3:.1f}" text-anchor="middle">{panes.esc(text)}</text></a>')
     for nid, n in sorted(g["nodes"].items(), key=lambda kv: kv[1]["order"]):
         x, y = pos[nid]
         v, r = n["v"], n["row"]
@@ -342,24 +390,64 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None) -
     return "".join(out)
 
 
+def far_end(g: dict, ln: dict) -> tuple:
+    """(near node id, far node id) of a line: the far end is the row reached
+    from a matched one; between two matched rows, the one found later."""
+    a, b = g["nodes"][ln["a"]], g["nodes"][ln["b"]]
+    if a["matched"] != b["matched"]:
+        return (ln["a"], ln["b"]) if a["matched"] else (ln["b"], ln["a"])
+    return (ln["a"], ln["b"]) if a["order"] <= b["order"] else (ln["b"], ln["a"])
+
+
+def addends_list(e: dict, q: str, boxes=None) -> str:
+    """The rows a summed edge adds (tranche 3), each amount and year with its
+    href, and the rows listed but not added, with the reason."""
+    out = []
+    for x in e.get("addends") or []:
+        why = f' <span class="warn">{panes.esc(x["not_added"])}</span>' if x.get("not_added") else ""
+        ret = f' · <a href="{panes.esc(panes.href(q, [x["record"]], boxes))}">{panes.esc(x["record_words"])}</a>' if x.get("record") else ""
+        out.append(f'<li>{panes.esc(x["year"] if x.get("year") is not None else "year not stated")} · '
+                   f'{panes.fmt(x["amount"], "amount")} · {panes.esc(x["what"])}{why} · '
+                   f'<a href="{panes.esc(panes.href(q, [x["cite"]], boxes))}">the row</a>{ret}</li>')
+    return f'<ul class="addends">{"".join(out)}</ul>' if out else ""
+
+
 def edge_list(g: dict, lns: list, placement: dict, q: str, boxes=None) -> str:
-    """Under the key, the edges by number (ruling 84): the two rows, then
-    each cause with its kind, its words and an href to the row asserting it."""
-    out = [f'<h3>Edges, by number <span class="count">{len(lns):,}</span></h3>']
+    """Under the key (ruling 86, replacing ruling 84's numbers): one heading
+    per connected row, by its title, its edges beneath, each cause with its
+    kind, its words and an href to the row asserting it; the rows in the
+    key's order of their first edge, then by title."""
+    groups = {}
+    for ln in lns:
+        near_id, far_id = far_end(g, ln)
+        groups.setdefault(far_id, []).append((near_id, ln))
+    matched = sum(1 for n in g["nodes"].values() if n["matched"])
+
+    def title(nid):
+        n = g["nodes"][nid]
+        return panes.title_of(n["v"], n["row"])
+
+    order = sorted(groups, key=lambda f: (min(KIND_ORDER[ln["kind"]] for _, ln in groups[f]), title(f).lower(), f))
+    out = [f'<h3>Edges, by the row they reach <span class="count">{len(order):,} rows, {len(lns):,} lines</span></h3>']
     if len(g["edges"]) > len(lns):
         out.append(f'<p class="note">{len(g["edges"]):,} connections on {len(lns):,} lines: two rows joined more than once get one line, '
                    "its colour the first cause in the key's order, and every cause is listed here.</p>")
-    out.append('<ol class="edges">')
-    for ln in lns:
-        a, b = g["nodes"][ln["a"]], g["nodes"][ln["b"]]
-        off = "" if placement["numbers"].get(ln["n"]) else ' <span class="meta">(no room for its number on the picture)</span>'
-        out.append(f'<li value="{ln["n"]}">{panes.esc(panes.title_of(a["v"], a["row"]))} · {panes.esc(panes.title_of(b["v"], b["row"]))}{off}<ul>')
-        for e in ln["causes"]:
-            rule = f' <span class="meta">{panes.esc(cat.rule_ref(e["rule"]))}</span>' if e.get("rule") else ""
-            out.append(f'<li><span class="meta">{panes.esc(e["kind"])}</span> {panes.esc(e["label"])}{rule} · '
-                       f'<a href="{panes.esc(panes.href(q, [e["cite"]], boxes))}">the row that asserts it</a></li>')
-        out.append("</ul></li>")
-    out.append("</ol>")
+    off = sum(1 for ln in lns if not placement["words"].get(ln["n"]))
+    if off:
+        out.append(f'<p class="note">{off:,} lines have no room for their words on the picture: each keeps its tooltip and its place here.</p>')
+    out.append('<div class="edges">')
+    for f in order:
+        n = g["nodes"][f]
+        out.append(f'<h4>{panes.esc(title(f))} <span class="meta">{panes.esc(panes.register_heading(n["v"].register))} · {panes.esc(n["v"].name)}</span></h4><ul>')
+        for near_id, ln in sorted(groups[f], key=lambda x: (KIND_ORDER[x[1]["kind"]], title(x[0]).lower())):
+            frm = f' <span class="meta">from {panes.esc(title(near_id))}</span>' if matched > 1 else ""
+            for e in ln["causes"]:
+                rule = f' <span class="meta">{panes.esc(cat.rule_ref(e["rule"]))}</span>' if e.get("rule") else ""
+                out.append(f'<li><span class="meta">{panes.esc(e["kind"])}</span> {panes.esc(e["label"])}{rule}{frm} · '
+                           f'<a href="{panes.esc(panes.href(q, [e["cite"]], boxes))}">the row that asserts it</a>'
+                           f'{addends_list(e, q, boxes)}</li>')
+        out.append("</ul>")
+    out.append("</div>")
     return "".join(out)
 
 
@@ -396,8 +484,8 @@ def pane(g: dict, q: str, boxes=None, regs=None) -> str:
         more = g["matched_total"] - len(matched)
         out.append(f'<p class="note">{len(matched)} matching rows drawn' + (f"; {more:,} more match: narrow the search or the registers" if more > 0 else "") + "</p>")
     out.append('<p class="note">Rows are nodes; an edge is a connection the registers themselves assert, or a same-person verdict of the links. '
-               "No edge is made by matching names here. Click a node to centre on it; an edge's number opens the row that asserts it, "
-               "and the edges are listed by number under the key.</p>")
+               "No edge is made by matching names here. Click a node to centre on it; an edge's words, where they fit, open the row "
+               "that asserts it; hover a line for all it says; under the key the edges are listed by the row they reach.</p>")
     lns = lines(g)
     placement = place(g, layout(g), lns)
     out.append(svg(g, q, boxes, lns, placement))
