@@ -12,39 +12,39 @@ import urllib.request
 import pytest
 
 from products.board import catalogue as cat
+from support.docstore import landing
 from products.board import db, document, panes, server
 
 PDF = b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"
 SECRET = b"a home address, never to be served\n"
 
 
-class Cursor:
-    def __init__(self, cols, rows):
-        self.description = [(c,) for c in cols]
-        self.rows = rows
-
-    def __iter__(self):
-        return iter(self.rows)
-
-
 class Conn:
-    """docs.documents and docs.names, as the session reader reads them."""
+    """The store's records as support.docstore's reader answers them."""
     def __init__(self, documents, names=()):
         self.documents, self.names = documents, names
-
-    def execute(self, sql, params=()):
-        if "from docs.documents" in sql:
-            want = set(params[0])
-            return Cursor(("sha256", "kind", "source", "withdrawn"), [d for d in self.documents if d[0] in want])
-        if "from docs.names" in sql:
-            return Cursor(("name",), [(n,) for s, n in self.names if s == params[0]])
-        raise AssertionError(sql)
 
     def __enter__(self):
         return self
 
     def __exit__(self, *a):
         return False
+
+
+def fake_documents_of(shas, conn):
+    want = set(shas)
+    return {d[0]: {"kind": d[1], "source": d[2], "withdrawn": d[3]} for d in conn.documents if d[0] in want}
+
+
+def fake_names_of(sha, conn):
+    return [n for s, n in conn.names if s == sha]
+
+
+@pytest.fixture(autouse=True)
+def reader(monkeypatch):
+    """landing.documents_of arrives with the patch board-4-docstore-read; faked here either way."""
+    monkeypatch.setattr(landing, "documents_of", fake_documents_of, raising=False)
+    monkeypatch.setattr(landing, "names_of", fake_names_of)
 
 
 def sha(b):
@@ -162,3 +162,16 @@ def test_a_document_not_held_or_not_opened_says_so_and_a_suppressed_row_offers_n
     hidden = panes.citation_line(d, row(full_name="X", suppressed=True), served)
     assert "/doc/" not in hidden and "source not opened" in hidden
     assert 'href="https://example.org/a"' in panes.citation_line(cat.BY_NAME["disclosures"], row(href="https://example.org/a"), held)
+
+
+def test_without_the_store_s_reader_nothing_opens(store, monkeypatch):
+    monkeypatch.delattr(landing, "documents_of")
+    st = document.statuses(conn(), [sha(PDF)])[sha(PDF)]
+    assert st["state"] == document.ABSENT and "documents_of" in st["why"]
+    assert document.fetch(conn(), sha(PDF))[0] == 404
+
+
+def test_the_board_never_queries_the_store_s_tables_itself():
+    import inspect
+    for mod in (document, server):
+        assert "docs.documents" not in inspect.getsource(mod).replace("`docs.documents`", "")

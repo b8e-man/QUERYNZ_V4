@@ -313,10 +313,12 @@ def doc_problems(conn) -> list:
     bytes are not sent; the row's pane and the results begin the citation
     with the "source" link, at the page for a PDF."""
     out = []
-    known = db.rows(conn, "select c.key, c.document, c.page, d.kind from pub.candidates c join docs.documents d on d.sha256 = c.document "
-                          "where d.withdrawn is null order by c.key limit 1")
+    cited = db.rows(conn, "select key, document, page from pub.candidates where document is not null order by key limit 200")
+    states = document.statuses(conn, [r["document"] for r in cited])
+    known = [{**r, "kind": states[r["document"]]["kind"]} for r in cited if states.get(r["document"], {}).get("state") == document.SERVED]
     if not known:
-        return ["no candidates row cites a document the store holds: the source link has nothing to open"]
+        why = next(iter(states.values()), {}).get("why", "")
+        return [f"no candidates row cites a document the board opens: {why}"]
     k = known[0]
     status, ctype, body = document.fetch(conn, k["document"])
     if status != 200 or ctype != document.content_type(k["kind"], landing_names(conn, k["document"]), body[:64] if isinstance(body, bytes) else b""):
@@ -329,9 +331,13 @@ def doc_problems(conn) -> list:
     for bad in ("../" + k["document"][3:], k["document"][:2], k["document"].upper()):
         if document.fetch(conn, bad)[0] != 404:
             out.append(f"/doc/ of a name that is not 64 hex characters ({bad[:6]}…) did not answer 404")
-    held = db.rows(conn, "select sha256 from docs.documents where source = 'party_returns' and withdrawn is null order by sha256 limit 1")
-    if held:
-        st, _, why = document.fetch(conn, held[0]["sha256"])
+    returns = db.rows(conn, "select document from pub.party_return_totals where document is not null order by key limit 50")
+    rstates = document.statuses(conn, [r["document"] for r in returns])
+    held = [s for s, st in rstates.items() if st["state"] == document.WITHHELD]
+    if not held:
+        out.append("no party return document is held to test the refusal on")
+    else:
+        st, _, why = document.fetch(conn, held[0])
         if st != 403 or isinstance(why, bytes):
             out.append(f"/doc/ of a party return, a source that prints donors' addresses, answered {st}")
     html = server.render("", server.parse_path(f"candidates:{k['key']}"), conn=conn)
@@ -343,7 +349,7 @@ def doc_problems(conn) -> list:
 
 
 def landing_names(conn, sha: str) -> list:
-    return [r["name"] for r in db.rows(conn, "select name from docs.names where sha256 = %s order by seen_at, name", (sha,))]
+    return document.landing.names_of(sha, conn)
 
 
 def carries_residence(name: str) -> bool:

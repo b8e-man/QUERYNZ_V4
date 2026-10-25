@@ -26,7 +26,6 @@ import re
 
 from support.docstore import landing
 from products.board import catalogue as cat
-from products.board import db
 
 SHA = re.compile(r"[0-9a-f]{64}")
 NOT_HELD = "document not held here"
@@ -77,20 +76,38 @@ def content_type(kind: str, names=(), head: bytes = b"") -> str:
     return "application/octet-stream"
 
 
+UNREADABLE = ("the store's record cannot be read here: support.docstore has no documents_of yet "
+              "(the patch board-4-docstore-read.patch), so nothing is opened")
+
+
+def records(conn, shas) -> dict:
+    """{sha: {'kind', 'source', 'withdrawn'}} through the store's own reader
+    (support.docstore.landing.documents_of; a product never queries `docs`,
+    the one-way test). None when the store offers no such reader: every
+    document then stays closed."""
+    reader = getattr(landing, "documents_of", None)
+    return reader(shas, conn) if reader else None
+
+
 def statuses(conn, shas) -> dict:
     """{sha: {'state': served | withheld | not held, 'kind', 'source', 'why'}}
-    for the documents rows cite, in one query on the session reader."""
+    for the documents rows cite, in one read of the store's records."""
     want = sorted({s for s in shas if s and SHA.fullmatch(str(s))})
     out = {s: {"state": ABSENT, "kind": "", "source": "", "why": NOT_HELD} for s in want}
     if not want:
         return out
-    for r in db.rows(conn, "select sha256, kind, source, withdrawn from docs.documents where sha256 = any(%s)", (want,)):
+    got = records(conn, want)
+    if got is None:
+        return {s: {"state": ABSENT, "kind": "", "source": "", "why": UNREADABLE} for s in want}
+    for sha, r in got.items():
+        if sha not in out:
+            continue
         if r.get("withdrawn"):
-            out[r["sha256"]] = {"state": ABSENT, "kind": r["kind"], "source": r["source"], "why": "document withdrawn from the store"}
+            out[sha] = {"state": ABSENT, "kind": r["kind"], "source": r["source"], "why": "document withdrawn from the store"}
         elif r["source"] in cat.SERVED_SOURCES:
-            out[r["sha256"]] = {"state": SERVED, "kind": r["kind"], "source": r["source"], "why": ""}
+            out[sha] = {"state": SERVED, "kind": r["kind"], "source": r["source"], "why": ""}
         else:
-            out[r["sha256"]] = {"state": WITHHELD, "kind": r["kind"], "source": r["source"], "why": cat.WITHHELD_WHY}
+            out[sha] = {"state": WITHHELD, "kind": r["kind"], "source": r["source"], "why": cat.WITHHELD_WHY}
     return out
 
 
@@ -124,8 +141,7 @@ def fetch(conn, sha: str, store: str = None) -> tuple:
         data = f.read()
     if hashlib.sha256(data).hexdigest() != sha:
         return 404, "text/plain; charset=utf-8", "the stored bytes do not hash to their name: not served"
-    names = [r["name"] for r in db.rows(conn, "select name from docs.names where sha256 = %s order by seen_at, name", (sha,))]
-    return 200, content_type(st["kind"], names, data[:64]), data
+    return 200, content_type(st["kind"], landing.names_of(sha, conn), data[:64]), data
 
 
 def href(sha: str, kind: str = "", page=None) -> str:
