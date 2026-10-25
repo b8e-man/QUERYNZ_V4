@@ -12,10 +12,13 @@ library's HTTP server, one page per request, no script. Routes:
   POST /pin         pin a pane             POST /save     save the path walked
   GET  /doc/<sha256>  the captured document a row cites, its bytes read only from the store with its content type,
                     whatever its source (document.py, rulings 86 (4) and 88); 404 for anything else
-  GET  /uses        the use cases tab (ruling 87): the plan's table, read at render time, with what the data holds for each
+  GET  /uses        the use cases tab (ruling 87): the plan's table, read at render time, with what the data holds for each;
+                    each name opens its interface on its own server in a new browser tab (ruling 89)
   GET  /health      'ok' and the port, for the launcher
 
-The read connection is opened per request and closed after; the two writes
+Every page's bar ends with the database's connections in use over its
+maximum, by login on hover (ruling 90). The read connection is opened per
+request and closed after; the two writes
 go through products.board.state. Nothing in the estate is written."""
 from __future__ import annotations
 
@@ -35,7 +38,18 @@ PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
 REPORT_URL = os.environ.get("QV4_REPORT_URL") or ""    # the subject report's server; unset, no pane offers a report
 MAX_PANES = 12
-RENDER_LOCK = threading.Lock()      # one page at a time: the session reader's cap is five connections, shared
+RENDER_LOCK = threading.Lock()      # one page at a time: every session's bin/q shares the server's connections
+
+
+def counter(conn=None):
+    """The nav bar's connection count (ruling 90), one query per page on the
+    product reader (`conn` where the page already holds one); None when it
+    fails, and the page still renders ("db ?")."""
+    try:
+        with (contextlib.nullcontext(conn) if conn is not None else db.scan_connect()) as c:
+            return db.connections(c)
+    except Exception:
+        return None
 
 
 def parse_path(p: str) -> list:
@@ -158,7 +172,7 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
                                '<p class="why">row not found in the published view: its key has moved or it was withdrawn</p></section>')
                     continue
                 out.append(panes.row_pane(row_context(conn, v, r, q, so_far, pinned, same, boxes, docs)))
-        return panes.page(q, path, out, message, boxes)
+        return panes.page(q, path, out, message, boxes, db=counter())
 
 
 def render_graph(q: str, centre: str = "", conn=None, boxes: search.Boxes = search.FIRST) -> str:
@@ -169,28 +183,30 @@ def render_graph(q: str, centre: str = "", conn=None, boxes: search.Boxes = sear
         g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None)
         out = [panes.left_pane(q, search.held_registers(held), boxes, action="/graph", title="Graph the connections"),
                graph.pane(g, q, boxes, regs)]
-        return panes.page(q, [], out, "", boxes, tab="graph")
+        return panes.page(q, [], out, "", boxes, tab="graph", db=counter(conn))
 
 
-def render_uses(repo: str = uses.REPO, held: set = None) -> str:
+def render_uses(repo: str = uses.REPO, held: set = None, host: str = "", env=None, answer=None) -> str:
     """The use cases tab (ruling 87): the plan's table from `repo`, the copy
     the board runs from, read now; held views from `pub` on the product
-    reader unless given (the test gives its own)."""
-    table = uses.read_text(uses.TABLE, repo)
-    if table is None:
-        return panes.page("", [], [panes.uses_pane([], missing=uses.TABLE)], tab="uses")
+    reader unless given (the test gives its own, and `answer` for the
+    counter). `host`, the request's Host header, and `env` place the links
+    to each use case's interface (ruling 89, uses.bases)."""
     if held is None:
         with RENDER_LOCK, db.scan_connect() as conn:
-            held = db.pub_views(conn)
-    rows = uses.rows(table, uses.read_text(uses.NOT_HELD, repo), uses.read_templates(repo), held)
-    return panes.page("", [], [panes.uses_pane(rows, source=uses.TABLE)], tab="uses")
+            held, answer = db.pub_views(conn), counter(conn)
+    table = uses.read_text(uses.TABLE, repo)
+    if table is None:
+        return panes.page("", [], [panes.uses_pane([], missing=uses.TABLE)], tab="uses", db=answer)
+    rows = uses.rows(table, uses.read_text(uses.NOT_HELD, repo), uses.read_templates(repo), held, uses.bases(host, env))
+    return panes.page("", [], [panes.uses_pane(rows, source=uses.TABLE)], tab="uses", db=answer)
 
 
 def render_list(which: str) -> str:
     with RENDER_LOCK, db.read_connect() as conn:
         if which == "pinned":
-            return panes.page("", [], [panes.pins_pane(state.pins(conn))])
-        return panes.page("", [], [panes.paths_pane(state.paths(conn))])
+            return panes.page("", [], [panes.pins_pane(state.pins(conn))], db=counter())
+        return panes.page("", [], [panes.paths_pane(state.paths(conn))], db=counter())
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -243,7 +259,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(body)
                 return
             if url.path == "/uses":
-                self.send_html(render_uses())
+                self.send_html(render_uses(host=self.headers.get("Host") or ""))
                 return
             if url.path in ("/pinned", "/saved"):
                 self.send_html(render_list(url.path[1:]))

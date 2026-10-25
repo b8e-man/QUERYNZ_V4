@@ -59,7 +59,12 @@ tables through the session reader, never the sample:
      4.5:1 or more on every background it sets; the key's edges at 3:1 on the
      picture and apart (panes.contrast_problems).
  14. The use cases tab (ruling 87): the copy the board runs from renders the
-     plan's seventeen rows in its order.
+     plan's seventeen rows in its order. Ruling 89: every template folder
+     under products/templates/ and products/scan/templates/ binds to exactly
+     one row (the scan shape's own two, SHAPE_OWN, apart), an orphan fails;
+     each use case with an interface opens it in a new tab, 15 to 17 say what
+     holds them.
+ 15. The connection counter (ruling 90): on the page, "db n/max", n >= 1.
 
   python -m products.board check [--term NAME]      exit 1 on any failure
 """
@@ -203,16 +208,48 @@ def problems(conn, term: str = None) -> list:
     return out
 
 
+#: the scan shape's own templates (step 6.1 proves the shape on them); they serve no use case and are not orphans
+SHAPE_OWN = {"donors-named-as-companies": "step 6.1, the scan shape's own", "society-officers-liquidations": "step 6.1, the scan shape's own"}
+COUNTER = re.compile(r'<span class="db" title="([^"]*)">db (\d+)/(\d+)</span>')
+
+
 def uses_problems(held: set) -> list:
-    """14. The use cases tab renders the plan's rows from the copy the board runs from, in the plan's order."""
+    """14. The use cases tab renders the plan's rows from the copy the board
+    runs from, in the plan's order; every template folder on disk is bound to
+    exactly one of its rows (ruling 89), and none is an orphan; a use case
+    with templates or a site opens it in a new tab, a held one says what
+    holds it and is no link. 15. The nav bar counts the database's
+    connections (ruling 90): on the page, at least this one."""
     table = uses.read_text(uses.TABLE)
     if table is None:
         return [f"the plan's use-case table {uses.TABLE} is not in the copy the board runs from"]
     want = [r["number"] for r in uses.parse_table(table)]
-    got = re.findall(r"<tr><td>(\d+)</td>", server.render_uses(held=held))
+    page = server.render_uses()
+    got = re.findall(r"<tr><td>(\d+)</td>", page)
+    out = []
     if got != want or len(got) != 17:
-        return [f"the use cases tab shows {len(got)} rows in the order {got}; the plan holds {len(want)}"]
-    return []
+        out.append(f"the use cases tab shows {len(got)} rows in the order {got}; the plan holds {len(want)}")
+    for t in uses.read_templates():
+        if t["name"] in SHAPE_OWN and not t["uses"]:
+            continue
+        if len(t["uses"]) != 1 or t["uses"][0] not in want:
+            out.append(f"the template folder {t['folder']} binds to use case(s) {list(t['uses'])}, not to exactly one row of the plan's table: an orphan")
+    rows = uses.rows(table, uses.read_text(uses.NOT_HELD), uses.read_templates(), held)
+    for r in rows:
+        if r["number"] in uses.HELD:
+            if r["links"] or uses.HELD[r["number"]] not in page:
+                out.append(f"use case {r['number']} is held and must say so without a link")
+        elif not r["links"]:
+            out.append(f"use case {r['number']} ({r['name']}) has no interface on the tab: {r['held']}")
+    for a in re.findall(r"<a [^>]*>", page[page.index('<table class="uc">'):] if '<table class="uc">' in page else ""):
+        if 'target="_blank"' not in a or 'rel="noopener"' not in a:
+            out.append(f"a link on the use cases tab does not open in a new tab: {a}")
+    m = COUNTER.search(page)
+    if not m:
+        out.append("the nav bar carries no database connection counter (ruling 90), or it says db ?")
+    elif int(m.group(2)) < 1 or int(m.group(3)) < int(m.group(2)):
+        out.append(f"the connection counter reads db {m.group(2)}/{m.group(3)}; the board's own connection is at least one")
+    return out
 
 
 CROWDED = "smith"
