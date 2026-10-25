@@ -67,6 +67,23 @@ tables through the session reader, never the sample:
      each use case with an interface opens it in a new tab, 15 to 17 say what
      holds them.
  15. The connection counter (ruling 90): on the page, "db n/max", n >= 1.
+ 16. Key columns read as names (ruling 92 (2)): every pointer column and
+     its far column exist; a director's row, in the results pane and its
+     own pane, shows its company's name as a link with the key on hover,
+     never the bare key (far_problems).
+ 18. A register as a table (ruling 92 (5)): every held register's name
+     opens its main view's table with min(100, its count) one-line rows and
+     the count of all its rows, equal to the view's own count; "more" gives
+     the next 100; a search with a table open puts the results between the
+     search pane and the table (table_problems).
+ 19. Any field (ruling 92 (6)): first Phillip, last Mills under "any"
+     finds at least what "all" finds, every row it shows says which field it
+     matched, and the page's selector shows "any" checked (mode_problems).
+ 17. Near names (ruling 92 (4)): the near-names pane for NEAR_NAMES lists
+     the table's form of the given name filed with the surname, with a
+     count of one or more, a link adding it as an alternative, and says a
+     variant is never a link; the search with that alternative finds at
+     least the rows of either name (near_names_problems).
 
   python -m products.board check [--term NAME]      exit 1 on any failure
 """
@@ -207,6 +224,125 @@ def problems(conn, term: str = None) -> list:
     out += doc_problems(conn)
     out += panes.contrast_problems()
     out += uses_problems(held)
+    out += far_problems(conn, held, columns)
+    out += near_names_problems(conn)
+    out += table_problems(conn, held)
+    out += mode_problems(conn)
+    return out
+
+
+def mode_problems(conn) -> list:
+    """19. Ruling 92 (6), on the live registers."""
+    out = []
+    asked = (("first", KNOWN_REVERSED[0]), ("last", KNOWN_REVERSED[1]))
+    total = lambda res: sum(n for k, hits in res.items() if k != "held" for _, n, _ in hits)
+    every = search.search(conn, "", limit=search.RESULTS_LIMIT, registers=("party_returns", "companies"), fields=dict(asked))
+    some = search.search(conn, "", limit=search.RESULTS_LIMIT, registers=("party_returns", "companies"), fields=dict(asked),
+                         mode=search.ANY)
+    if total(some) < total(every) or total(every) < 1:
+        out.append(f"any field found {total(some)} rows, all fields {total(every)}: any must find at least what all finds")
+    page = server.render("", [], conn=conn, boxes=search.Boxes(False, ("party_returns",), asked, mode=search.ANY))
+    res = page[page.index('id="results"'):page.index('id="near"') if 'id="near"' in page else len(page)]
+    if res.count('<article class="hit">') != res.count('<div class="nearwhy">matched: '):
+        out.append("under any field, a result does not say which field it matched")
+    if 'value="any" checked' not in page:
+        out.append("the selector does not show any field checked when it was asked")
+    return out
+
+
+def table_problems(conn, held: set) -> list:
+    """18. Ruling 92 (5), on the live views."""
+    out = []
+    left = panes.left_pane("", search.held_registers(held), search.FIRST)
+    for register in search.held_registers(held):
+        link = re.search(r'href="([^"]*)" title="open the register as a table">' + re.escape(panes.esc(dict(cat.REGISTERS)[register])), left)
+        if not link:
+            out.append(f"{register}: its name in the left pane opens no table")
+            continue
+        boxes = search.boxes_of(urllib.parse.parse_qs(urllib.parse.urlsplit(link.group(1).replace("&amp;", "&")).query))
+        page = server.render("", [], conn=conn, boxes=boxes)
+        if 'id="table"' not in page:
+            out.append(f"{register}: the table pane did not open")
+            continue
+        tab = page[page.index('id="table"'):]
+        v = panes.main_view(register, held)
+        n = db.rows(conn, f"select count(*) as n from pub.{v.name}")[0]["n"]
+        shown = len(re.findall(r"<tr><td", tab))
+        if f"{n:,} rows in {v.name}" not in tab or shown != min(search.TABLE_PAGE, n):
+            out.append(f"{register}: the table of {v.name} shows {shown} rows and not its count {n:,} (wanted {min(search.TABLE_PAGE, n)})")
+        if re.search(r"<tr>[^\n]*<br", tab):
+            out.append(f"{register}: a table row is more than one line")
+        more = re.search(r'<a href="([^"]*)">more: the next', tab)
+        if (more is None) != (n <= search.TABLE_PAGE):
+            out.append(f"{register}: the table's more link is {'missing' if more is None else 'offered with nothing more'}")
+        elif more and register == "companies":
+            b = search.boxes_of(urllib.parse.parse_qs(urllib.parse.urlsplit(more.group(1).replace("&amp;", "&")).query))
+            two = server.render("", [], conn=conn, boxes=b)
+            if len(re.findall(r"<tr><td", two[two.index('id="table"'):])) != 2 * search.TABLE_PAGE:
+                out.append("companies: more did not append the next 100 rows")
+            both = server.render(KNOWN_REVERSED[1], [], conn=conn, boxes=b)
+            order = re.findall(r'<section class="pane[^"]*" id="(search|results|table)"', both)
+            if order != ["search", "results", "table"]:
+                out.append(f"a search with the table open placed its panes {order}, not search, results, table")
+    return out
+
+
+#: a given name whose table form (michael) is surely filed with the surname in the companies register
+NEAR_NAMES = ("mike smith", "michael")
+
+
+def near_names_problems(conn) -> list:
+    """17. Ruling 92 (4), on the live registers."""
+    out = []
+    q, form = NEAR_NAMES
+    boxes = search.Boxes(False, ("companies",))
+    page = server.render(q, [], conn=conn, boxes=boxes, near_names=True)
+    if 'id="near-names"' not in page:
+        return [f"the near-names pane did not open for {q!r}"]
+    pane = page[page.index('id="near-names"'):page.index('id="results"')]
+    got = re.search(r'<a href="([^"]*)">' + form + r'</a> <span class="count">([\d,]+)</span>', pane)
+    if not got or int(got.group(2).replace(",", "")) < 1:
+        return out + [f"the near-names pane for {q!r} does not list {form!r} with a count"]
+    if "never a link the board made" not in pane:
+        out.append("the near-names pane does not say a variant is never a link")
+    qs = urllib.parse.parse_qs(urllib.parse.urlsplit(got.group(1).replace("&amp;", "&")).query)
+    if qs.get("q") != [f"mike|{form} smith"] or qs.get("near") != ["1"]:
+        out.append(f"the {form!r} link does not add it as an alternative in the given name's place: {qs.get('q')}")
+    n = lambda term: sum(t for v, t, _ in search.search(conn, term, registers=("companies",)).get("companies", []))
+    both, one, other = n(f"mike|{form} smith"), n("mike smith"), n(f"{form} smith")
+    if both < max(one, other) or both > one + other:
+        out.append(f"the search with the alternative found {both} rows, outside {max(one, other)} to {one + other}")
+    return out
+
+
+def far_problems(conn, held: set, columns: dict) -> list:
+    """16. Ruling 92 (2): every pointer column exists, its far column too;
+    a director's company reads as the company's name, linked, key on hover."""
+    out = []
+    for v in cat.VIEWS:
+        if v.name not in held:
+            continue
+        for c, (fv, fc) in cat.pointers(v).items():
+            if c not in columns.get(v.name, set()):
+                out.append(f"{v.name}: `{c}` names a {fv} row but pub.{v.name} does not carry it")
+            if fv in held and fc not in columns.get(fv, set()):
+                out.append(f"{v.name}: `{c}` is matched to pub.{fv}.{fc}, which does not exist")
+    d = db.rows(conn, "select d.key, d.last_name, d.entity_key, c.name from pub.directors d join pub.companies c on c.key = d.entity_key "
+                      "where not coalesce(d.suppressed, false) and d.last_name ~ '^[A-Za-z]{4,}$' order by d.key limit 1")
+    if not d:
+        return out + ["no director with a held company to show its company's name"]
+    d = d[0]
+    want = f'title="{panes.esc(d["entity_key"])}">{panes.esc(d["name"])}</a>'
+    pane = server.render("", [f"directors:{d['key']}"], conn=conn)
+    if want not in pane:
+        out.append(f"the row pane of directors:{d['key']} does not show its company's name linked with the key on hover")
+    results = server.render("", [], conn=conn, boxes=search.Boxes(False, ("companies",), (("last", d["last_name"]),)))
+    results = results[results.index('id="results"'):]
+    cells = re.findall(r"<th>company</th><td>(.*?)</td>", results)
+    if not cells or not all(c.startswith('<a class="row"') or c.endswith(f"{panes.NOT_HELD_ROW}</span>") for c in cells):
+        out.append(f"the results pane for last name {d['last_name']!r} shows a director's company other than by name or as not held")
+    if re.search(r"<td>companies/\d+</td>", results + pane):
+        out.append("a company key is shown bare, not as the company's name")
     return out
 
 
