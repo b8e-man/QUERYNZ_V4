@@ -1,0 +1,49 @@
+diff -ruN a/support/docstore/landing.py b/support/docstore/landing.py
+--- a/support/docstore/landing.py	2026-10-26 07:01:05.959662438 +1300
++++ b/support/docstore/landing.py	2026-10-26 07:01:16.107686056 +1300
+@@ -98,6 +98,18 @@
+     return [r[0] for r in conn.execute("SELECT name FROM docs.names WHERE sha256 = %s ORDER BY seen_at, name", (sha256,))]
+ 
+ 
++def documents_of(shas, conn) -> dict:
++    """{sha256: {'kind', 'source', 'withdrawn'}} for the documents the store's
++    table holds among `shas`, read only (one query): what a reader needs to
++    decide whether to open a document, without querying `docs` itself (the
++    one-way test). A sha the table lacks is absent from the answer."""
++    want = sorted({s for s in shas if s})
++    if not want:
++        return {}
++    cur = conn.execute("SELECT sha256, kind, source, withdrawn FROM docs.documents WHERE sha256 = ANY(%s)", (want,))
++    return {r[0]: {"kind": r[1], "source": r[2], "withdrawn": r[3]} for r in cur}
++
++
+ def find_by_name(name: str, conn) -> list:
+     """Every document that has carried this name: the hashes."""
+     return [r[0] for r in conn.execute("SELECT DISTINCT sha256 FROM docs.names WHERE name = %s", (name,))]
+diff -ruN a/support/docstore/tests/test_landing.py b/support/docstore/tests/test_landing.py
+--- a/support/docstore/tests/test_landing.py	2026-10-26 07:01:05.960662442 +1300
++++ b/support/docstore/tests/test_landing.py	2026-10-26 07:01:16.107895810 +1300
+@@ -123,3 +123,23 @@
+         conn.execute("DELETE FROM docs.landings WHERE sha256 = %s", (ref.sha256,))
+         conn.execute("DELETE FROM docs.documents WHERE sha256 = %s", (ref.sha256,))
+         conn.commit()
++
++
++class ReadConn:
++    def __init__(self, rows):
++        self.rows, self.seen = rows, []
++
++    def execute(self, sql, params=()):
++        self.seen.append((sql, params))
++        want = set(params[0])
++        return [r for r in self.rows if r[0] in want]
++
++
++def test_documents_of_answers_kind_source_and_withdrawn_in_one_query():
++    a, b = "a" * 64, "b" * 64
++    conn = ReadConn([(a, "pdf", "house", None), (b, "web-page", "party_returns", "withdrawn: a test")])
++    got = landing.documents_of([a, b, "c" * 64, None, a], conn)
++    assert got == {a: {"kind": "pdf", "source": "house", "withdrawn": None},
++                   b: {"kind": "web-page", "source": "party_returns", "withdrawn": "withdrawn: a test"}}
++    assert len(conn.seen) == 1 and conn.seen[0][1] == ([a, b, "c" * 64],)
++    assert landing.documents_of([], conn) == {} and len(conn.seen) == 1
