@@ -32,8 +32,8 @@ def _conn():
     return c
 
 
-def _scan(v, words, number, limit, exclude_key, whole=False, fields=None):
-    got = view_sql(v, words, number, limit, exclude_key, whole, fields)
+def _scan(v, words, number, limit, exclude_key, whole=False, fields=None, mode="all"):
+    got = view_sql(v, words, number, limit, exclude_key, whole, fields, mode)
     if got is None:
         return v, []
     sql, params = got
@@ -214,24 +214,33 @@ def year_of(value: str):
     return int(v) if re.fullmatch(r"\d{4}", v) else None
 
 
-def fields_sql(v: cat.View, fields: dict):
-    """(clause, params) for the filled fields over one view, every field
-    "and" the others; None when the view holds no column for one of them
-    (or the year is not four digits), so the view is not searched."""
+#: how the filled fields combine (ruling 92 (6)): every one must match, or any one may
+ALL, ANY = "all", "any"
+MODES = ((ALL, "all fields must match"), (ANY, "any field may match"))
+
+
+def _name_clause(fs: cat.Fields, want: dict):
+    """The name fields asked, over every Name of the view (any one of them, all the fields in that one)."""
+    alts, aps = [], []
+    for g in fs.names:
+        got = _name_whole(g, want) if g.whole else _name_parts(g, want)
+        if got:
+            alts.append("(" + got[0] + ")")
+            aps += got[1]
+    return ("(" + " or ".join(alts) + ")", aps) if alts else None
+
+
+def field_clauses(v: cat.View, fields: dict, mode: str = ALL) -> list:
+    """[(the fields it reads, clause or None, params)] for the filled fields
+    over one view, None where the view holds no column for them (or the year
+    is not four digits). With ALL the name fields are one clause, all of them
+    in one Name; with ANY each field is its own (ruling 92 (6))."""
     fs = cat.fields_of(v)
-    where, params = [], []
+    out = []
     want = {f: fields[f] for f in NAME_FIELDS if fields.get(f) and field_words(fields[f])}
-    if want:
-        alts, aps = [], []
-        for g in fs.names:
-            got = _name_whole(g, want) if g.whole else _name_parts(g, want)
-            if got:
-                alts.append("(" + got[0] + ")")
-                aps += got[1]
-        if not alts:
-            return None
-        where.append("(" + " or ".join(alts) + ")")
-        params += aps
+    for part in ([{f: x} for f, x in want.items()] if mode == ANY else [want] if want else []):
+        got = _name_clause(fs, part)
+        out.append((tuple(part), *(got or (None, []))))
     if fields.get("org") and field_words(fields["org"]):
         alts, aps = [], []
         if fs.organisation:
@@ -242,27 +251,52 @@ def fields_sql(v: cat.View, fields: dict):
             c, ps = whole_words(fold_sql(col), fields["org"])
             alts.append(f"({fold_sql(col)} ~ %s and {c})")
             aps += [ORG_WORDS_SQL] + ps
-        if not alts:
-            return None
-        where.append("(" + " or ".join(alts) + ")")
-        params += aps
+        out.append((("org",), "(" + " or ".join(alts) + ")" if alts else None, aps))
     if fields.get("address") and field_words(fields["address"]):
-        if not fs.address:
-            return None
-        c, ps = whole_words(fold_sql("concat_ws(' ', " + ", ".join(fs.address) + ")"), fields["address"])
-        where.append("(" + c + ")")
-        params += ps
+        if fs.address:
+            c, ps = whole_words(fold_sql("concat_ws(' ', " + ", ".join(fs.address) + ")"), fields["address"])
+            out.append((("address",), "(" + c + ")", ps))
+        else:
+            out.append((("address",), None, []))
     if (fields.get("year") or "").strip():
         y = year_of(fields["year"])
         if y is None or not (fs.year or fs.dates):
+            out.append((("year",), None, []))
+        else:
+            alts = [f"{c} = %s" for c in fs.year] + [f"extract(year from {c}) = %s" for c in fs.dates]
+            out.append((("year",), "(" + " or ".join(alts) + ")", [y] * len(alts)))
+    return out
+
+
+def fields_sql(v: cat.View, fields: dict, mode: str = ALL):
+    """(clause, params) for the filled fields over one view. ALL: every
+    field "and" the others, None when the view holds no column for one of
+    them (or the year is not four digits), so the view is not searched.
+    ANY (ruling 92 (6)): any field it holds a column for, "or" the others;
+    None when it holds none."""
+    got = field_clauses(v, fields, mode)
+    if mode == ANY:
+        got = [g for g in got if g[1] is not None]
+        if not got:
             return None
-        alts = [f"{c} = %s" for c in fs.year] + [f"extract(year from {c}) = %s" for c in fs.dates]
-        where.append("(" + " or ".join(alts) + ")")
-        params += [y] * len(alts)
-    return " and ".join(where), params
+        return "(" + " or ".join(c for _, c, _ in got) + ")", [p for _, _, ps in got for p in ps]
+    if any(c is None for _, c, _ in got):
+        return None
+    return " and ".join(c for _, c, _ in got), [p for _, _, ps in got for p in ps]
 
 
-def match_sql(v: cat.View, words: list, number: str = None, whole: bool = False, fields: dict = None):
+def matched_sql(v: cat.View, fields: dict) -> tuple:
+    """(select expressions, params): under ANY, one boolean column per field
+    clause, `_matched_<field>`, so the results say which field a row matched."""
+    exprs, params = [], []
+    for fs, c, ps in field_clauses(v, fields, ANY):
+        if c is not None:
+            exprs.append(f", coalesce({c}, false) as _matched_{fs[0]}")
+            params += ps
+    return "".join(exprs), params
+
+
+def match_sql(v: cat.View, words: list, number: str = None, whole: bool = False, fields: dict = None, mode: str = ALL):
     """(clause, params): the search box's words (each begins a word of the
     row's search columns; with `whole`, is a whole word) or its number, "and"
     the filled fields. ("true", []) when nothing is asked; None when the view
@@ -277,7 +311,7 @@ def match_sql(v: cat.View, words: list, number: str = None, whole: bool = False,
         clause = "(" + (clause or "false") + " or " + " or ".join(f"{c} = %s" for c in v.numbers) + ")"
         params += [number] * len(v.numbers)
     if fields and any((fields.get(f) or "").strip() for f, _ in FIELDS):
-        got = fields_sql(v, fields)
+        got = fields_sql(v, fields, mode)
         if got is None:
             return None
         clause = (clause + " and " if clause else "") + "(" + got[0] + ")"
@@ -300,23 +334,25 @@ def guard_sql(v: cat.View, exclude_key: str = None) -> tuple:
 
 
 def view_sql(v: cat.View, words: list, number: str = None, limit: int = LIMIT, exclude_key: str = None,
-             whole: bool = False, fields: dict = None):
+             whole: bool = False, fields: dict = None, mode: str = ALL):
     """(sql, params): the matching rows of one view with the view's total
     as `total` on every row. Each word must begin a word in the row's
     search columns ("hart" finds HART and HARTLEY); with `whole`, each must
     be a whole word (a namesake search: HART is not HARTLEY). The filled
     fields (ruling 82) narrow it further; None when the view holds no
-    column for one of them."""
-    got = match_sql(v, words, number, whole, fields)
+    column for one of them. Under ANY (ruling 92 (6)) a row matches on
+    any filled field, and carries `_matched_<field>` for each."""
+    got = match_sql(v, words, number, whole, fields, mode)
     if got is None:
         return None
     clause, params = got
     if not words and not number and clause == "true":
         clause = "false"                 # nothing asked finds nothing
     g, gp = guard_sql(v, exclude_key)
-    sql = (f"select *, {v.key_col} as key, count(*) over () as total from pub.{v.name} where {clause}{g} "
+    sel, sp = matched_sql(v, fields) if mode == ANY and fields else ("", [])
+    sql = (f"select *, {v.key_col} as key, count(*) over () as total{sel} from pub.{v.name} where {clause}{g} "
            f"order by {v.default_order} nulls last, {v.key_col} limit %s")
-    return sql, params + gp + [limit]
+    return sql, sp + params + gp + [limit]
 
 
 def held_registers(held: set) -> list:
@@ -334,16 +370,20 @@ class Boxes(NamedTuple):
     no tick; and the filled fields of the expanded search (ruling 82),
     `fields` as (parameter, value) in FIELDS order; the register table open
     (ruling 92 (5)), `table` its view and `upto` the offset of its last
-    page appended. All travel as query parameters on every href (`params`)."""
+    page appended; `mode`, how the fields combine (ruling 92 (6): "all",
+    else "any", written only when "any"). All travel as query parameters on
+    every href (`params`)."""
     all: bool = True
     ticked: tuple = ()
     fields: tuple = ()
     table: str = ""
     upto: int = 0
+    mode: str = "all"
 
     def params(self) -> list:
         table = [("t", self.table), ("o", str(self.upto))] if self.table else []
-        return [("all", "1" if self.all else "0")] + [("r", x) for x in self.ticked] + list(self.fields) + table
+        mode = [("mode", self.mode)] if self.mode != ALL else []
+        return [("all", "1" if self.all else "0")] + [("r", x) for x in self.ticked] + list(self.fields) + mode + table
 
     def asked(self) -> dict:
         return dict(self.fields)
@@ -367,7 +407,8 @@ def boxes_of(qs: dict) -> Boxes:
     table = table if table in cat.BY_NAME else ""
     o = (qs.get("o") or ["0"])[0]
     upto = min(max(int(o) // TABLE_PAGE * TABLE_PAGE, 0), TABLE_MAX - TABLE_PAGE) if o.isdigit() and table else 0
-    return Boxes("1" in alls if alls else not ticked, ticked, fields, table, upto)
+    mode = ANY if (qs.get("mode") or [""])[0] == ANY else ALL
+    return Boxes("1" in alls if alls else not ticked, ticked, fields, table, upto, mode)
 
 
 def selection(boxes: Boxes, held: list) -> tuple:
@@ -378,12 +419,13 @@ def selection(boxes: Boxes, held: list) -> tuple:
 
 
 def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = None, whole: bool = False,
-           registers=None, fields: dict = None) -> dict:
+           registers=None, fields: dict = None, mode: str = ALL) -> dict:
     """{register: [(view, total, rows)]} for the views that matched, plus
     'held' (the pub views present) so the caller can say "not held".
     `registers`, when given, scans only those registers' views; `fields`,
     the filled fields of the expanded search ({parameter: value}), narrow it
-    (ruling 82): a view with no column for one of them is not scanned."""
+    (ruling 82): a view with no column for one of them is not scanned;
+    `mode` ANY: a row matches on any filled field (ruling 92 (6))."""
     words = words_of(term)
     number = re.sub(r"\s", "", term) if is_number(term) else None
     fields = {f: x for f, x in (fields or {}).items() if (x or "").strip()}
@@ -391,7 +433,7 @@ def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = N
     out = {}
     wanted = [v for v in (views or cat.VIEWS) if v.name in held and (words or number or fields)
               and (registers is None or v.register in registers)]
-    futures = [_pool.submit(_scan, v, words, number, limit, exclude_key, whole, fields) for v in wanted]
+    futures = [_pool.submit(_scan, v, words, number, limit, exclude_key, whole, fields, mode) for v in wanted]
     for f in futures:
         v, found = f.result()
         if found:

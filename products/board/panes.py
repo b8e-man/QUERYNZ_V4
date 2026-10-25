@@ -15,7 +15,7 @@ import urllib.parse
 
 from products.board import catalogue as cat
 from products.board import document
-from products.board.search import FIELDS, field_words, words_of
+from products.board.search import FIELD_LABEL, FIELDS, MODES, field_words, words_of
 from products.board.search import add_alternative as search_add, drop_alternative as search_drop
 from products.board.search import FIRST as FIRST_BOXES, TABLE_MAX as TABLE_MAX_N, TABLE_PAGE as TABLE_PAGE_N
 
@@ -86,6 +86,9 @@ details.fields{margin:.5rem 0}
 details.fields label{display:block;margin:.2rem 0;font-size:13px}
 details.fields input{width:11rem;padding:.2rem .3rem;float:right}
 details.fields label::after{content:"";display:block;clear:both}
+details.fields p.modes label{display:inline;margin-right:.75rem}
+details.fields p.modes label::after{display:none}
+details.fields p.modes input{width:auto;float:none}
 details.near{margin-top:1rem;border-top:2px solid #3a404c;padding-top:.5rem}
 details.near summary{font-weight:600;cursor:pointer}
 .nearwhy{font-size:12px;color:#ffb26b}
@@ -395,11 +398,16 @@ def field_boxes(boxes) -> str:
     for f, label in FIELDS:
         extra = ' inputmode="numeric" maxlength="4"' if f == "year" else ""
         out.append(f'<label>{esc(label)} <input name="{f}" value="{esc(asked.get(f, ""))}"{extra}></label>')
+    mode = getattr(boxes, "mode", "all") if boxes is not None else "all"
+    out.append('<p class="modes">' + " ".join(
+        f'<label><input type="radio" name="mode" value="{m}"{" checked" if m == mode else ""}> {esc(label)}</label>'
+        for m, label in MODES) + "</p>")
     out.append('<p class="note">Each field is matched as whole words in the columns that hold it: a surname or given-names '
                "column where a register prints one, else the words of the name in their places; organisation, a company, "
                "party, charity or society name; year, the year or the year of a date; address, the registered addresses "
-               "organisations publish, never a person's home address (no published table holds one). Fields and the box "
-               "above combine: every one must match.</p></details>")
+               "organisations publish, never a person's home address (no published table holds one). With all fields, "
+               "every filled field must match, and a register with no column for one is not searched; with any field, a "
+               "row matches on any one of them, and each result says which. The box above must match either way.</p></details>")
     return "".join(out)
 
 
@@ -557,7 +565,8 @@ def narrowed_line(boxes) -> str:
     if not asked:
         return ""
     parts = [f"{esc(label)} “{esc(asked[f])}”" for f, label in FIELDS if f in asked]
-    return f'<p class="note">narrowed by: {", ".join(parts)}</p>'
+    how = " (any field may match)" if getattr(boxes, "mode", "all") == "any" and len(parts) > 1 else ""
+    return f'<p class="note">narrowed by: {", ".join(parts)}{how}</p>'
 
 
 def search_words(q: str, boxes) -> list:
@@ -612,6 +621,9 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: di
            f'<span class="meta">{esc(v.name)}</span></div>']
     if is_suppressed(v, r):
         out.append(f'<div class="warn">{SUPPRESSED}: the row and its figures stay (hard limit 16)</div>')
+    matched = [FIELD_LABEL[k[len("_matched_"):]] for k in r if k.startswith("_matched_") and r[k]]
+    if matched:
+        out.append(f'<div class="nearwhy">matched: {esc(", ".join(matched))}</div>')     # ruling 92 (6), any field
     rows, blank = [], []
     for label, c in tuple(v.fields) + tuple(v.dates):
         if c not in r:
@@ -663,6 +675,8 @@ def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(),
             continue
         if not hits:
             lacking = [label for f, label in FIELDS if asked.get(f) and not any(holds(v, f) for v in present)]
+            if getattr(boxes, "mode", "all") == "any" and len(lacking) < len(asked):
+                lacking = []                                  # any field: a register holding one of them was searched
             out.append(f'<p class="why">none found{": none of its views holds a column for " + esc(", ".join(lacking)) if lacking else ""}</p>')
             continue
         for v, n, rows in hits:

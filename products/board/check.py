@@ -74,6 +74,9 @@ tables through the session reader, never the sample:
      the count of all its rows, equal to the view's own count; "more" gives
      the next 100; a search with a table open puts the results between the
      search pane and the table (table_problems).
+ 19. Any field (ruling 92 (6)): first Phillip, last Mills under "any"
+     finds at least what "all" finds, every row it shows says which field it
+     matched, and the page's selector shows "any" checked (mode_problems).
  17. Near names (ruling 92 (4)): the near-names pane for NEAR_NAMES lists
      the table's form of the given name filed with the surname, with a
      count of one or more, a link adding it as an alternative, and says a
@@ -222,6 +225,26 @@ def problems(conn, term: str = None) -> list:
     out += far_problems(conn, held, columns)
     out += near_names_problems(conn)
     out += table_problems(conn, held)
+    out += mode_problems(conn)
+    return out
+
+
+def mode_problems(conn) -> list:
+    """19. Ruling 92 (6), on the live registers."""
+    out = []
+    asked = (("first", KNOWN_REVERSED[0]), ("last", KNOWN_REVERSED[1]))
+    total = lambda res: sum(n for k, hits in res.items() if k != "held" for _, n, _ in hits)
+    every = search.search(conn, "", limit=search.RESULTS_LIMIT, registers=("party_returns", "companies"), fields=dict(asked))
+    some = search.search(conn, "", limit=search.RESULTS_LIMIT, registers=("party_returns", "companies"), fields=dict(asked),
+                         mode=search.ANY)
+    if total(some) < total(every) or total(every) < 1:
+        out.append(f"any field found {total(some)} rows, all fields {total(every)}: any must find at least what all finds")
+    page = server.render("", [], conn=conn, boxes=search.Boxes(False, ("party_returns",), asked, mode=search.ANY))
+    res = page[page.index('id="results"'):page.index('id="near"') if 'id="near"' in page else len(page)]
+    if res.count('<article class="hit">') != res.count('<div class="nearwhy">matched: '):
+        out.append("under any field, a result does not say which field it matched")
+    if 'value="any" checked' not in page:
+        out.append("the selector does not show any field checked when it was asked")
     return out
 
 

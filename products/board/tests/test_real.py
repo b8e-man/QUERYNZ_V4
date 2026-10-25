@@ -156,3 +156,27 @@ def test_a_registers_table_answers_with_100_rows_and_its_count():
         assert time.time() - t < 5.0
     tab = html[html.index('id="table"'):]
     assert f"{n:,} rows in directors" in tab and len(re.findall(r"<tr><td", tab)) == 100
+
+
+def test_both_field_modes_against_the_same_fixture_rows():
+    """Ruling 92 (6): four fixture rows in a temporary table of pub.directors' shape (gone with the connection),
+    searched by the board's own SQL under "all" and "any" (first Garry, last Payinda, year 2020)."""
+    import datetime as dt
+    rows = [("a", "Garry", "PAYINDA", dt.date(2020, 3, 1)),      # all three
+            ("b", "Garry", "SMITH", dt.date(2019, 3, 1)),        # first only
+            ("c", "Ann", "PAYINDA", dt.date(2018, 3, 1)),        # last only
+            ("d", "Ann", "SMITH", dt.date(2001, 3, 1))]          # none
+    fields = {"first": "Garry", "last": "Payinda", "year": "2020"}
+    got = {}
+    with db.read_connect() as conn:
+        conn.execute("create temporary table directors (like pub.directors)")
+        for key, first, last, on in rows:
+            conn.execute("insert into pg_temp.directors (key, first_name, last_name, full_name, appointed_on, suppressed) "
+                         "values (%s, %s, %s, %s, %s, false)", (key, first, last, f"{first} {last}", on))
+        for mode in (search.ALL, search.ANY):
+            sql, params = search.view_sql(cat.BY_NAME["directors"], [], None, 50, fields=fields, mode=mode)
+            got[mode] = {r["key"]: r for r in db.rows(conn, sql.replace("from pub.directors", "from pg_temp.directors"), params)}
+    assert sorted(got[search.ALL]) == ["a"]
+    assert sorted(got[search.ANY]) == ["a", "b", "c"]
+    said = lambda k: sorted(f[len("_matched_"):] for f, x in got[search.ANY][k].items() if f.startswith("_matched_") and x)
+    assert said("a") == ["first", "last", "year"] and said("b") == ["first"] and said("c") == ["last"]

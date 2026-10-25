@@ -242,15 +242,17 @@ def address_text(v: cat.View, r: dict) -> str:
 # ── the scan ────────────────────────────────────────────────────────────────
 
 def _read(conn, v: cat.View, near_clause: str, near_params: list, q: str, asked: dict, drop: tuple, source_is_box: bool,
-          also_exact: dict = None):
+          also_exact: dict = None, mode: str = search.ALL):
     """The rows of one view inside the near filter, outside the exact
     search, satisfying the rest of what was asked; None when it cannot hold
     it. `also_exact`: fields whose exact match also rules a row out (an
-    address the box typed is exact in a column the box does not search)."""
+    address the box typed is exact in a column the box does not search).
+    Under ANY (ruling 92 (6)) the exact search is the "any" one and the
+    other fields do not narrow the near class."""
     words = search.words_of(q)
     number = re.sub(r"\s", "", q) if search.is_number(q) else None
-    exact = search.match_sql(v, words, number, False, asked)
-    rest_fields = {f: x for f, x in asked.items() if f not in drop}
+    exact = search.match_sql(v, words, number, False, asked, mode)
+    rest_fields = {f: x for f, x in asked.items() if f not in drop and mode != search.ANY}
     rest = search.match_sql(v, [] if source_is_box else words, None if source_is_box else number, False, rest_fields)
     if rest is None:
         return None
@@ -269,7 +271,7 @@ def _read(conn, v: cat.View, near_clause: str, near_params: list, q: str, asked:
     return db.rows(conn, sql, params + gp + [CANDIDATES])
 
 
-def near(conn, q: str, asked: dict, registers=None, held=None) -> dict:
+def near(conn, q: str, asked: dict, registers=None, held=None, mode: str = search.ALL) -> dict:
     """{'names': {...}, 'addresses': {...}}, each {'total', 'more', 'rows':
     [(view, row)] up to NEAR_LIMIT, 'refs': every 'view:key' found, 'why'
     when the class was not tried}."""
@@ -296,7 +298,7 @@ def near(conn, q: str, asked: dict, registers=None, held=None) -> dict:
                 a, p = name_filter(g, given, surname)
                 alts.append(a)
                 ps += p
-            rows = _read(conn, v, "(" + " or ".join(alts) + ")", ps, q, asked, ("first", "middle", "last"), from_box)
+            rows = _read(conn, v, "(" + " or ".join(alts) + ")", ps, q, asked, ("first", "middle", "last"), from_box, mode=mode)
             if rows is None:
                 continue
             c["more"] |= len(rows) >= CANDIDATES
@@ -318,7 +320,7 @@ def near(conn, q: str, asked: dict, registers=None, held=None) -> dict:
             if not cat.fields_of(v).address:
                 continue
             clause, ps = address_filter(v, reading_q)
-            rows = _read(conn, v, "(" + clause + ")", ps, q, asked, ("address",), from_box, {"address": text})
+            rows = _read(conn, v, "(" + clause + ")", ps, q, asked, ("address",), from_box, {"address": text}, mode)
             if rows is None:
                 continue
             c["more"] |= len(rows) >= CANDIDATES

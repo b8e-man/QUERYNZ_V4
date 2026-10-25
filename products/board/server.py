@@ -145,8 +145,8 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         regs = search.selection(boxes, search.held_registers(held))
         asked = boxes.asked()
         asking = bool(q or asked) and bool(regs)
-        results = search.search(conn, q, limit=search.RESULTS_LIMIT, registers=regs, fields=asked) if asking else {}
-        nearby = near.near(conn, q, asked, registers=regs, held=held) if asking else None     # ruling 83, below the exact results
+        results = search.search(conn, q, limit=search.RESULTS_LIMIT, registers=regs, fields=asked, mode=boxes.mode) if asking else {}
+        nearby = near.near(conn, q, asked, registers=regs, held=held, mode=boxes.mode) if asking else None     # ruling 83, below the exact results
         pinned = {(p["view"], p["key"]) for p in state.pins(conn)}
         same = same_name_memo(conn)
         words = panes.search_words(q, boxes)
