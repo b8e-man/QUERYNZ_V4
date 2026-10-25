@@ -1,8 +1,8 @@
 # board: where it stands
 
-**Date:** 2026-10-26. **Step:** 4.9 second version, rulings 86 to 88
-(80 to 85 kept), `products/board/`. **Merge request:** `board-4`
-(merged); `fix-products-board-1e` (raised, ruling 88).
+**Date:** 2026-10-26. **Step:** 4.9 second version, rulings 86 to 90
+(80 to 85 kept), `products/board/`. **Merge request:** `fix-products-board-1e`
+(ruling 88); `fix-products-board-1f` (raised, rulings 89 and 90).
 
 ## Done
 
@@ -27,22 +27,27 @@
   one-way test. Its new reader `landing.documents_of` comes as the patch
   `board-4-docstore-read.patch` beside the request. Until it is applied,
   nothing opens and the check says so.
-- The use cases tab, `/uses`. It shows the plan's 17 rows at render time,
-  with templates built (3 use cases have one) and registers held or not.
+- The use cases tab, `/uses`: the plan's 17 rows at render time. 13 have
+  templates built (10 subject report, 3 scan). Each name opens its
+  interface in a new browser tab: report form, scan page or site preview.
+  15 to 17 say what holds them. Every template folder binds to one row.
+- A connection counter, "db n/100", in every page's bar; by login on hover.
 - The check covers each of the above. Against live data it is green. It
   opens a party return and one cited document of each of the 27 sources a
   published row cites; with a refusal put back for party returns it is red.
+  An orphan template or a lost hold turns it red.
 
 ## Known limits
 
 - Two rows filed under one name are drawn as one donor. Identical filing
   is all that groups them; the page says so.
 - Lines still pass under node labels. Only text boxes are kept apart.
-- Scan templates carry no `use_case` field. The tab reads "(use case N)"
-  from the owner line, and reads the `use_case` field once a template has one.
+- The scan shape's own two templates (step 6.1) serve no use case; the
+  check names them in `SHAPE_OWN`. A new one must be added there.
 - Earlier limits stand: family-given names with no comma; lanes' pane.md
   name orders; card `an-address-search-on-the-board-cannot-also-name-the-company`.
 
 ## Next
 
-1. The integrator merges `fix-products-board-1e` and restarts `qv4-board`.
+1. The integrator merges `fix-products-board-1e`, then `-1f`, installs the
+   unit (two new settings) and restarts `qv4-board`.

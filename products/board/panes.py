@@ -88,6 +88,7 @@ details.near{margin-top:1rem;border-top:2px solid #3a404c;padding-top:.5rem}
 details.near summary{font-weight:600;cursor:pointer}
 .nearwhy{font-size:12px;color:#ffb26b}
 .pane.uses{flex:0 0 78rem;max-width:78rem}
+header span.db{margin-left:auto;font-size:12px;font-variant-numeric:tabular-nums;cursor:help}
 svg rect.bg{fill:#161a20}
 svg text{font:11px system-ui,sans-serif;fill:#e8eaed}
 svg text.reg{font-size:9px;fill:#aab1bc}
@@ -759,6 +760,24 @@ def person_pane(ctx: dict) -> str:
 NONE_NAMED = '<span class="note">none named</span>'
 
 
+def new_tab(label: str, url: str, cls: str = "") -> str:
+    """A link that opens in a new browser tab, so a use case's interface stays apart from the board (ruling 89)."""
+    c = f' class="{cls}"' if cls else ""
+    return f'<a{c} href="{esc(url)}" target="_blank" rel="noopener">{label}</a>'
+
+
+def use_name(r: dict) -> str:
+    """The use case's name: a link to its interface's first page, the rest
+    listed beside; with none, not a link, and what holds it."""
+    links, held = r.get("links") or [], r.get("held") or ""
+    if not links:
+        return f'<strong>{esc(r["name"])}</strong><br><span class="note">{esc(held)}</span>'
+    out = new_tab(f'<strong>{esc(r["name"])}</strong>', links[0][1], "uc")
+    if len(links) > 1:
+        out += '<br><span class="meta">also: ' + ", ".join(new_tab(esc(label), url) for label, url in links[1:]) + "</span>"
+    return out
+
+
 def uses_pane(rows: list, missing: str = "", source: str = "") -> str:
     """The plan's use cases in its order, each with the scan templates built
     for it and the registers the plan's reference names for it, held or not
@@ -769,14 +788,16 @@ def uses_pane(rows: list, missing: str = "", source: str = "") -> str:
         out.append(f'<p class="why">the plan\'s use-case table is not in the copy the board runs from: {esc(missing)} is missing</p></section>')
         return "\n".join(out)
     out.append(f'<p class="note">{len(rows)} use cases, in the plan\'s order, read now from <code>{esc(source)}</code>. '
-               "Templates: the register scan's templates built for each (products/scan/templates). Registers: the sources "
-               "the plan's reference names for each, in its not-held table (the held tables name no use case), and whether "
-               "a published view holds them today. Nothing here is written.</p>")
+               "A use case's name opens its interface in a new browser tab, on its own server (ruling 89): the subject report's "
+               "form for its template, the register scan's page for each of its templates, the site preview for Follow the Money; "
+               "one with no interface says what holds it. Templates: those built for each, on their shape (products/templates, "
+               "products/scan/templates). Registers: the sources the plan's reference names for each, in its not-held table "
+               "(the held tables name no use case), and whether a published view holds them today. Nothing here is written.</p>")
     out.append('<table class="uc"><tr><th>#</th><th>use case</th><th>who it serves</th><th>the question</th><th>shape</th>'
                "<th>step</th><th>templates built</th><th>registers the reference names</th></tr>")
     for r in rows:
-        ts = "<br>".join(f'<code>{esc(t["name"])}</code> <span class="meta">{esc(t["title"])}</span>' for t in r["templates"]) \
-            or '<span class="note">none built</span>'
+        ts = "<br>".join(f'<code>{esc(t["name"])}</code> <span class="meta">{esc(t["shape"])}: {esc(t["title"])}</span>'
+                         for t in r["templates"]) or '<span class="note">none built</span>'
         regs = []
         for src, found in r["registers"]:
             if not found:
@@ -785,7 +806,7 @@ def uses_pane(rows: list, missing: str = "", source: str = "") -> str:
             state = ", ".join(f'{esc(plain)} <span class="{"meta" if ok else "warn"}">{"held" if ok else "not held"}</span>'
                               for _, plain, ok in found)
             regs.append(f"{esc(src)}: {state}")
-        out.append(f'<tr><td>{esc(r["number"])}</td><td><strong>{esc(r["name"])}</strong></td><td>{esc(r["who"])}</td>'
+        out.append(f'<tr><td>{esc(r["number"])}</td><td>{use_name(r)}</td><td>{esc(r["who"])}</td>'
                    f'<td>{esc(r["question"])}</td><td>{esc(r["shape"])}</td><td>{esc(r["step"])}</td><td>{ts}</td>'
                    f'<td>{"<br>".join(regs) or NONE_NAMED}</td></tr>')
     out.append("</table></section>")
@@ -819,10 +840,30 @@ def paths_pane(paths: list) -> str:
     return "\n".join(out)
 
 
-def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: str = "search") -> str:
+# ── the database connection counter (ruling 90) ────────────────────────────
+
+#: the logins the counter names on hover, in this order; any other login counts as "other"
+LOGINS = ("qv4_product", "qv4_owner", "qv4_read", "qv4_oldread")
+
+
+def db_counter(answer) -> str:
+    """"db <in use>/<max_connections>" for the nav bar, the count by login in
+    its hover title; `answer` is db.connections' {'max', 'by'}, or None when
+    the query failed, which reads "db ?"."""
+    if not answer:
+        return '<span class="db" title="the connection count could not be read">db ?</span>'
+    by = {k: 0 for k in LOGINS + ("other",)}
+    for login, n in (answer.get("by") or {}).items():
+        by[login if login in LOGINS else "other"] += int(n)
+    title = ", ".join(f"{k} {n}" for k, n in by.items())
+    return f'<span class="db" title="{esc(title)}">db {sum(by.values())}/{esc(answer.get("max"))}</span>'
+
+
+def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: str = "search", db=None) -> str:
     """The page: three tabs, search (`/`, as before) and graph (`/graph`),
     each an href carrying the term and the registers checked (ruling 80),
-    and use cases (`/uses`, ruling 87)."""
+    and use cases (`/uses`, ruling 87); the database connection counter at
+    the bar's end (ruling 90; `db`, db.connections' answer, None reads "db ?")."""
     save = ""
     if path:
         save = (f'<form class="inline" method="post" action="/save"><input type="hidden" name="q" value="{esc(q)}">'
@@ -835,5 +876,5 @@ def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: st
             f'<a class="{"on" if tab == "uses" else ""}" href="/uses">use cases</a></nav>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ board</title>"
             f"<style>{CSS}</style></head><body><header><h1>QueryNZ board</h1>{tabs}"
-            f"{save}<a href=\"/pinned\">pinned</a><a href=\"/saved\">saved paths</a>{msg}</header>"
+            f"{save}<a href=\"/pinned\">pinned</a><a href=\"/saved\">saved paths</a>{msg}{db_counter(db)}</header>"
             f"<main>{''.join(panes)}</main></body></html>")
