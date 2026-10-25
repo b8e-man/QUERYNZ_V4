@@ -16,6 +16,7 @@ import urllib.parse
 from products.board import catalogue as cat
 
 SUPPRESSED = "name suppressed"
+NOTHING_TICKED = "tick a register, or search all"     # "search all" off and no register ticked: nothing is searched (ruling 81)
 WITHHELD = "withheld (hard limit 15; a ruling is owed before it is shown)"
 NOT_STATED = "not stated"
 PIXELS = "READ FROM PIXELS: weaker evidence"
@@ -78,10 +79,16 @@ def encode_path(path: list) -> str:
     return urllib.parse.quote("|".join(path), safe="")
 
 
-def href(q: str, path: list, regs=(), tab: str = "/") -> str:
+def href(q: str, path: list, boxes=None, tab: str = "/") -> str:
     """A page's address: the search tab's is `/?q=&p=` as before, so a saved
-    path still opens; the registers checked follow as `r=`, none meaning all."""
-    return tab + "?" + urllib.parse.urlencode([("q", q), ("p", "|".join(path))] + [("r", x) for x in regs])
+    path still opens; the check boxes (search.Boxes) follow as `all=` and
+    `r=`. None writes neither, which opens as the first view (search all)."""
+    return tab + "?" + urllib.parse.urlencode([("q", q), ("p", "|".join(path))] + (boxes.params() if boxes is not None else []))
+
+
+def hidden_boxes(boxes) -> str:
+    """The check boxes as hidden inputs, for the pin and save forms."""
+    return "".join(f'<input type="hidden" name="{k}" value="{esc(x)}">' for k, x in (boxes.params() if boxes is not None else []))
 
 
 def fmt(value, column: str = "") -> str:
@@ -134,11 +141,11 @@ def title_of(v: cat.View, r: dict) -> str:
     return " · ".join(parts) or f"({v.name} {r.get('key', '')})"
 
 
-def row_link(q: str, path: list, v: cat.View, r: dict, meta: str = "", regs=(), words=()) -> str:
+def row_link(q: str, path: list, v: cat.View, r: dict, meta: str = "", boxes=None, words=()) -> str:
     t = mark(title_of(v, r), words)
     pix = f' <span class="warn">{PIXELS}</span>' if r.get("read_from") == "pixels" else ""
     m = f' <span class="meta">{esc(meta)}</span>' if meta else ""
-    return f'<li><a class="row" href="{esc(href(q, path + [f"{v.name}:{r["key"]}"], regs))}">{t}</a>{m}{pix}</li>'
+    return f'<li><a class="row" href="{esc(href(q, path + [f"{v.name}:{r["key"]}"], boxes))}">{t}</a>{m}{pix}</li>'
 
 
 def report_href(base: str, ref: str) -> str:
@@ -210,16 +217,19 @@ def fmt_marked(value, column: str, words) -> str:
     return fmt(value, column)
 
 
-def register_boxes(held_regs: list, regs: tuple, is_all: bool) -> str:
-    """A check box per register in the catalogue's order; a register no lane
-    has published is greyed, "not held", and cannot be checked."""
-    out = [f'<label class="all"><input type="checkbox" name="all" value="1"{" checked" if is_all else ""}> search all</label>']
-    if is_all:
-        out.append('<input type="hidden" name="was_all" value="1">')
-    out.append('<ul class="boxes">')
+def register_boxes(held_regs: list, boxes) -> str:
+    """"search all", then a check box per register in the catalogue's order;
+    a register no lane has published is greyed, "not held", and cannot be
+    checked. The two states are shown as they are (ruling 81): "search all"
+    ticked leaves the register ticks as the user left them. The hidden
+    `all=0` tells an unticked "search all" from an address that never had
+    the form (search.boxes_of)."""
+    out = ['<input type="hidden" name="all" value="0">',
+           f'<label class="all"><input type="checkbox" name="all" value="1"{" checked" if boxes.all else ""}> search all</label>',
+           '<ul class="boxes">']
     for register, plain in cat.REGISTERS:
         if register in held_regs:
-            on = " checked" if is_all or register in regs else ""
+            on = " checked" if register in boxes.ticked else ""
             out.append(f'<li><label><input type="checkbox" name="r" value="{esc(register)}"{on}> {esc(plain)}</label></li>')
         else:
             out.append(f'<li class="greyed"><label><input type="checkbox" disabled> {esc(plain)} <span class="meta">not held</span></label></li>')
@@ -229,14 +239,15 @@ def register_boxes(held_regs: list, regs: tuple, is_all: bool) -> str:
     return "".join(out)
 
 
-def left_pane(q: str, held_regs: list, regs: tuple, is_all: bool, action: str = "/", title: str = "Search the registers") -> str:
+def left_pane(q: str, held_regs: list, boxes, action: str = "/", title: str = "Search the registers") -> str:
     return "\n".join([
         '<section class="pane left" id="search">', '<div class="reg">search</div>', f"<h2>{esc(title)}</h2>",
         f'<form method="get" action="{esc(action)}">',
         f'<input type="search" name="q" value="{esc(q)}" placeholder="a name, an address, a number" autofocus> <button>search</button>',
         '<p class="note">Every word must appear, macrons folded; a number is matched exactly. '
-        "A suppressed name is never found by name. Nothing checked searches all.</p>",
-        register_boxes(held_regs, regs, is_all), "<p><button>search</button></p></form></section>"])
+        "A suppressed name is never found by name. Search all searches every held register, whatever is ticked; "
+        "untick it to search the registers ticked alone.</p>",
+        register_boxes(held_regs, boxes), "<p><button>search</button></p></form></section>"])
 
 
 def citation_line(v: cat.View, r: dict) -> str:
@@ -255,11 +266,11 @@ def citation_line(v: cat.View, r: dict) -> str:
     return '<div class="cite">' + " · ".join(parts) + "</div>"
 
 
-def hit(q: str, v: cat.View, r: dict, words, regs=()) -> str:
+def hit(q: str, v: cat.View, r: dict, words, boxes=None) -> str:
     """One matching row in the results pane: every field its View shows,
     its dates, its source's address and its citation, the words marked."""
     out = ['<article class="hit">',
-           f'<div><a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], regs))}"><strong>{mark(title_of(v, r), words)}</strong></a> '
+           f'<div><a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], boxes))}"><strong>{mark(title_of(v, r), words)}</strong></a> '
            f'<span class="meta">{esc(v.name)}</span></div>']
     if is_suppressed(v, r):
         out.append(f'<div class="warn">{SUPPRESSED}: the row and its figures stay (hard limit 16)</div>')
@@ -281,16 +292,19 @@ def hit(q: str, v: cat.View, r: dict, words, regs=()) -> str:
     return "".join(out)
 
 
-def results_pane(q: str, results: dict, held: set, regs: tuple, is_all: bool, words=()) -> str:
+def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=()) -> str:
     """The wider pane beside the left one: every matching row, grouped by
-    register with the register's count, only over the registers checked."""
-    link_regs = () if is_all else regs
+    register with the register's count, over `regs`, the registers searched
+    (search.selection); `boxes` the check boxes every href carries."""
     out = ['<section class="pane wide" id="results">', '<div class="reg">results</div>']
+    if not boxes.all and not regs:
+        out.append(f"<h2>Results</h2><p class=\"why\">{NOTHING_TICKED}</p></section>")
+        return "\n".join(out)
     if not q:
         out.append("<h2>Results</h2><p class=\"why\">Type a name, an address or a number in the search box.</p></section>")
         return "\n".join(out)
     out.append(f"<h2>{esc(q)}</h2>")
-    out.append(f'<p class="note">searched: {"every held register" if is_all else esc(", ".join(REGISTER_NAME.get(x, x) for x in regs))}</p>')
+    out.append(f'<p class="note">searched: {"every held register" if boxes.all else esc(", ".join(REGISTER_NAME.get(x, x) for x in regs))}</p>')
     for register, plain in cat.REGISTERS:
         if register not in regs:
             continue
@@ -307,7 +321,7 @@ def results_pane(q: str, results: dict, held: set, regs: tuple, is_all: bool, wo
         for v, n, rows in hits:
             out.append(f'<div class="view"><strong>{esc(v.name)}</strong> <span class="count">{n:,}</span></div>')
             for r in rows:
-                out.append(hit(q, v, r, words, link_regs))
+                out.append(hit(q, v, r, words, boxes))
             if n > len(rows):
                 out.append(f'<p class="note">and {n - len(rows):,} more in {esc(v.name)}; narrow the search</p>')
     out.append("</section>")
@@ -352,7 +366,7 @@ def citation(v: cat.View, r: dict, doc_names: list) -> str:
     return "\n".join(out)
 
 
-def links_section(links: dict, group: dict, q: str, path: list, resolve, regs=()) -> str:
+def links_section(links: dict, group: dict, q: str, path: list, resolve, boxes=None) -> str:
     """resolve(ref) -> (view, row) or None, so a link opens the next pane."""
     out = ["<h3>Links</h3>"]
     if not links.get("built"):
@@ -373,7 +387,7 @@ def links_section(links: dict, group: dict, q: str, path: list, resolve, regs=()
                 target = resolve(l["other"])
                 if target:
                     tv, tr = target
-                    out.append(row_link(q, path, tv, tr, meta=f"rule {l['rule']}" + (f"; near because {l['reason']}" if l.get("reason") else ""), regs=regs))
+                    out.append(row_link(q, path, tv, tr, meta=f"rule {l['rule']}" + (f"; near because {l['reason']}" if l.get("reason") else ""), boxes=boxes))
                 else:
                     out.append(f'<li>{esc(l["other"])} <span class="meta">row not found in the published views; rule {esc(l["rule"])}</span></li>')
                 for d in l.get("decisions") or []:
@@ -382,7 +396,7 @@ def links_section(links: dict, group: dict, q: str, path: list, resolve, regs=()
     return "\n".join(out)
 
 
-def same_name_section(same: dict, q: str, path: list, words: list, regs=()) -> str:
+def same_name_section(same: dict, q: str, path: list, words: list, boxes=None) -> str:
     out = ["<h3>Same name elsewhere</h3>"]
     if not words:
         out.append('<p class="why">not searched: this row\'s name is suppressed or empty</p>')
@@ -399,7 +413,7 @@ def same_name_section(same: dict, q: str, path: list, words: list, regs=()) -> s
         for v, total, rows in hits:
             out.append(f'<div><strong>{esc(v.name)}</strong> <span class="count">{total:,}</span></div><ul>')
             for r in rows:
-                out.append(row_link(q, path, v, r, regs=regs))
+                out.append(row_link(q, path, v, r, boxes=boxes))
             if total > len(rows):
                 out.append(f'<li class="note">and {total - len(rows):,} more</li>')
             out.append("</ul>")
@@ -413,7 +427,7 @@ def row_pane(ctx: dict) -> str:
     parent (label, view, row|None) or None, children [(join, total, rows)],
     doc_names, links, group, same, same_words, resolve, pinned (bool)."""
     v, r, q, path = ctx["v"], ctx["row"], ctx["q"], ctx["path"]
-    regs = ctx.get("regs") or ()
+    boxes = ctx.get("boxes")
     out = [f'<section class="pane{" pinned" if ctx.get("pinned") else ""}">',
            f'<div class="reg">{register_heading(v.register)} · {esc(v.name)} · {esc(v.kind)}</div>',
            f"<h2>{esc(title_of(v, r))}</h2>"]
@@ -425,14 +439,14 @@ def row_pane(ctx: dict) -> str:
     out.append(f'<form class="inline" method="post" action="/pin"><input type="hidden" name="view" value="{esc(v.name)}">'
                f'<input type="hidden" name="key" value="{esc(r["key"])}"><input type="hidden" name="title" value="{esc(title_of(v, r))}">'
                f'<input type="hidden" name="q" value="{esc(q)}"><input type="hidden" name="p" value="{esc("|".join(path))}">'
-               + "".join(f'<input type="hidden" name="r" value="{esc(x)}">' for x in regs) +
+               + hidden_boxes(boxes) +
                f'<button>{"pinned" if ctx.get("pinned") else "pin"}</button></form>')
     if v.kind == "person" and not is_suppressed(v, r):
-        out.append(f'<a href="{esc(href(q, path + [f"person:{v.name}:{r["key"]}"], regs))}">person: the group and namesakes</a>')
+        out.append(f'<a href="{esc(href(q, path + [f"person:{v.name}:{r["key"]}"], boxes))}">person: the group and namesakes</a>')
     out.append(report_link(ctx))
     words = ctx.get("same_words") or []
     if words:
-        out.append(f'<a href="{esc("/?" + urllib.parse.urlencode({"q": " ".join(words)}))}">search this name afresh</a>')
+        out.append(f'<a href="{esc(href(" ".join(words), [], boxes))}">search this name afresh</a>')
     out.append("</div>")
     # fields
     out.append('<h3>Fields</h3><table class="f">')
@@ -451,7 +465,7 @@ def row_pane(ctx: dict) -> str:
         label, view, prow = ctx["parent"]
         out.append(f"<h3>{esc(label)}</h3>")
         if prow:
-            out.append("<ul>" + row_link(q, path, cat.BY_NAME[view], prow, regs=regs) + "</ul>")
+            out.append("<ul>" + row_link(q, path, cat.BY_NAME[view], prow, boxes=boxes) + "</ul>")
         else:
             out.append('<p class="why">not held: the row it points at is not in the published view</p>')
     # children, in the same register
@@ -463,13 +477,13 @@ def row_pane(ctx: dict) -> str:
         tv = cat.BY_NAME[j.view]
         out.append("<ul>")
         for cr in rows:
-            out.append(row_link(q, path, tv, cr, regs=regs))
+            out.append(row_link(q, path, tv, cr, boxes=boxes))
         if total > len(rows):
             out.append(f'<li class="note">and {total - len(rows):,} more</li>')
         out.append("</ul>")
-    out.append(links_section(ctx.get("links") or {}, ctx.get("group") or {}, q, path, ctx.get("resolve") or (lambda ref: None), regs))
+    out.append(links_section(ctx.get("links") or {}, ctx.get("group") or {}, q, path, ctx.get("resolve") or (lambda ref: None), boxes))
     if v.names:
-        out.append(same_name_section(ctx.get("same") or {}, q, path, words, regs))
+        out.append(same_name_section(ctx.get("same") or {}, q, path, words, boxes))
     out.append(citation(v, r, ctx.get("doc_names") or []))
     out.append("</section>")
     return "\n".join(out)
@@ -482,7 +496,7 @@ def person_pane(ctx: dict) -> str:
     members [(view, row)] resolved from the group, same (namesakes by name),
     same_words, links."""
     v, r, q, path = ctx["v"], ctx["row"], ctx["q"], ctx["path"]
-    regs = ctx.get("regs") or ()
+    boxes = ctx.get("boxes")
     out = ['<section class="pane">', f'<div class="reg">person · from {register_heading(v.register)} · {esc(v.name)}</div>',
            f"<h2>{esc(title_of(v, r))}</h2>"]
     if ctx.get("report"):
@@ -506,12 +520,12 @@ def person_pane(ctx: dict) -> str:
                 continue
             out.append(f'<div class="reg">{register_heading(register)}</div><ul>')
             for mv, mr in by_reg[register]:
-                out.append(row_link(q, path, mv, mr, meta=mv.name, regs=regs))
+                out.append(row_link(q, path, mv, mr, meta=mv.name, boxes=boxes))
             out.append("</ul>")
-    out.append("<ul>" + row_link(q, path, v, r, meta="this row", regs=regs) + "</ul>")
-    out.append(links_section(ctx.get("links") or {}, group, q, path, ctx.get("resolve") or (lambda ref: None), regs))
+    out.append("<ul>" + row_link(q, path, v, r, meta="this row", boxes=boxes) + "</ul>")
+    out.append(links_section(ctx.get("links") or {}, group, q, path, ctx.get("resolve") or (lambda ref: None), boxes))
     out.append("<h3>Possible namesakes, apart</h3>")
-    out.append(same_name_section(ctx.get("same") or {}, q, path, ctx.get("same_words") or [], regs).split("</h3>", 1)[1])
+    out.append(same_name_section(ctx.get("same") or {}, q, path, ctx.get("same_words") or [], boxes).split("</h3>", 1)[1])
     out.append("</section>")
     return "\n".join(out)
 
@@ -543,18 +557,18 @@ def paths_pane(paths: list) -> str:
     return "\n".join(out)
 
 
-def page(q: str, path: list, panes: list, message: str = "", regs=(), tab: str = "search") -> str:
+def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: str = "search") -> str:
     """The page: two tabs, search (`/`, as before) and graph (`/graph`), each
     an href carrying the term and the registers checked (ruling 80)."""
     save = ""
     if path:
         save = (f'<form class="inline" method="post" action="/save"><input type="hidden" name="q" value="{esc(q)}">'
                 f'<input type="hidden" name="p" value="{esc("|".join(path))}">'
-                + "".join(f'<input type="hidden" name="r" value="{esc(x)}">' for x in regs) +
+                + hidden_boxes(boxes) +
                 f'<input name="name" placeholder="name this path" size="18"> <button>save path</button></form>')
     msg = f'<span class="note">{esc(message)}</span>' if message else ""
-    tabs = (f'<nav class="tabs"><a class="{"on" if tab == "search" else ""}" href="{esc(href(q, [] if tab != "search" else path, regs))}">search</a> '
-            f'<a class="{"on" if tab == "graph" else ""}" href="{esc(href(q, [], regs, "/graph"))}">graph</a></nav>')
+    tabs = (f'<nav class="tabs"><a class="{"on" if tab == "search" else ""}" href="{esc(href(q, [] if tab != "search" else path, boxes))}">search</a> '
+            f'<a class="{"on" if tab == "graph" else ""}" href="{esc(href(q, [], boxes, "/graph"))}">graph</a></nav>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ board</title>"
             f"<style>{CSS}</style></head><body><header><h1>QueryNZ board</h1>{tabs}"
             f"{save}<a href=\"/pinned\">pinned</a><a href=\"/saved\">saved paths</a>{msg}</header>"

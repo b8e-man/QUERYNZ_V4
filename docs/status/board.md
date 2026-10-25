@@ -1,41 +1,43 @@
 # board: where it stands
 
-**Date:** 2026-10-25. **Step:** 4.9 second version (ruling 80),
-`products/board/`. **Merge request:** `board-2` (raised).
+**Date:** 2026-10-25. **Step:** 4.9 second version (rulings 80, 81),
+`products/board/`. **Merge request:** `fix-products-board-1` (raised);
+`board-2` merged.
 
 ## Done
 
 - Search tab, at the old address `/?q=&p=` (saved paths open): left pane
   with a check box per register in catalogue order (not held greyed,
-  uncheckable), "search all" at the top, the search box; a GET form,
-  nothing checked = all (`search.selection`, hidden `was_all` mark).
-  Results pane beside it, wider: every matching row of the checked
-  registers, up to 50 per view with the count, every field, date, source
-  address and citation, the term marked under the search's own fold
-  ("Maori" marks "Māori" and the reverse). Row, person and link panes
-  open to the right as before; pins and paths unchanged.
-- Graph tab `/graph?q=&r=&c=`: matching rows (16 at most) as nodes, one
-  hop of edges from 22 catalogue `Relation` lines (money, role,
-  candidacy, declaration, dealing) and `pub.links` (confirmed solid, near
-  dashed); server-written SVG, deterministic sector layout, a node
-  re-centres, an edge label opens the asserting row; key below with
-  drawn and not-drawn counts; an edge list as the table view. No address
-  edge; a suppressed row draws no same-person edges. Product reader.
-- Outside check grown (search tab with and without the register; graph
-  of a donor row draws money, every far end real, no address type,
-  relation columns in both views): green against the live tables, and
-  shown to fail on a broken relation. Board tests 40 (fast 35, slow 5)
-  green; root fast tests green; `bin/fast products/board` green.
+  uncheckable), "search all" at the top, the search box; a GET form.
+  Ruling 81 on both tabs (`search.Boxes`, `boxes_of`, `selection`): the
+  first view has "search all" ticked and no register; while it is ticked
+  every held register is searched whatever is ticked; unticked, only the
+  ticked registers; none ticked searches nothing and says "tick a
+  register, or search all". `all=` and `r=` ride every href (results,
+  panes to the right, pin and save forms, the graph's re-centre and cite
+  hrefs, the tab links), so turning "search all" off and on loses no
+  tick. A hidden `all=0` tells an unticked box from an old address; an
+  address with neither opens as the first view. Board-2's "nothing ticked
+  means all" and its `was_all` mark are gone.
+- Results pane: every matching row of the registers searched, up to 50
+  per view with the count, every field, date, source address and
+  citation, the term marked under the search's own fold.
+- Graph tab `/graph?q=&all=&r=&c=`: matching rows (16 at most) as nodes,
+  one hop of catalogue `Relation` and `pub.links` edges, server-written
+  SVG, key below. No address edge; a suppressed row draws no same-person
+  edges. Product reader.
+- `bin/fast products/board` green (40 fast; five new ruling-81 pane tests,
+  each shown to fail on its broken rule); slow tests green; `python -m
+  products.board check` green against the live tables.
 
 ## Not done, by choice
 
 - Regulator parties, court parties, gazette `register_key` matches and
   grants → publishers are not drawn: not among the ruling's types.
-  Adding one is a catalogue line.
-- Saved paths keep the term and path, not the registers checked (the
-  table is unchanged); they reopen over all registers.
+- Saved paths keep the term and path, not the boxes (the table is
+  unchanged); they reopen as the first view, search all.
 
 ## Next
 
-1. The integrator merges `board-2` and restarts `qv4-board`.
-2. Lanes mirror their relation lines in `pane.md` (merge request lists them).
+1. The integrator merges `fix-products-board-1` and restarts `qv4-board`.
+2. Lanes mirror their relation lines in `pane.md` (board-2's request).

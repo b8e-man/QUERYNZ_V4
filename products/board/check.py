@@ -15,8 +15,8 @@ tables through the session reader, never the sample:
      today: a known donor opens; the company behind it is found by name
      (not by link, until links/ publishes); that company's directors open;
      one director's other roles open. Each pane cites its document.
-  6. The search tab (ruling 80): the known name is found with only its
-     register checked, and not with that register unchecked.
+  6. The search tab (rulings 80, 81): with "search all" off, the known name
+     is found with only its register ticked, and not with it unticked.
   7. The graph tab (ruling 80): the known donor row is drawn with at least
      one money edge; every edge's far end is a row that exists; no edge type
      is an address; every relation column the catalogue names exists in its
@@ -83,7 +83,7 @@ def problems(conn, term: str = None) -> list:
             v, n, rows = found[0]
             if n < 1 or not any(term.lower() in (r.get("donor") or "").lower() for r in rows):
                 out.append(f"a search for {term!r} returned {n} party_return_donors rows, none carrying the name")
-        page = panes.left_pane(term, search.held_registers(held), tuple(search.held_registers(held)), True)
+        page = panes.left_pane(term, search.held_registers(held), search.FIRST)
         if "not held" not in page:
             out.append("the left pane does not say 'not held' for the registers no lane has published")
     # 5. the done-when walk, by name until links exist
@@ -116,8 +116,8 @@ def problems(conn, term: str = None) -> list:
     # 6. the search tab over the check boxes
     if term:
         others = [r for r in search.held_registers(held) if r != "party_returns"]
-        only = server.render(term, [], conn=conn, checked=["party_returns"])
-        without = server.render(term, [], conn=conn, checked=others)
+        only = server.render(term, [], conn=conn, boxes=search.Boxes(False, ("party_returns",)))     # "search all" off, the one register on
+        without = server.render(term, [], conn=conn, boxes=search.Boxes(False, tuple(others)))
         if "<strong>party_return_donors</strong>" not in only or "<mark>" not in only:
             out.append(f"the search tab with only party_returns checked did not show {term!r} in party_return_donors, marked")
         if "<strong>party_return_donors</strong>" in without:

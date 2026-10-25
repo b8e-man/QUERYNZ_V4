@@ -192,7 +192,7 @@ def short(text: str, n: int = 30) -> str:
     return text if len(text) <= n else text[:n - 1] + "…"
 
 
-def svg(g: dict, q: str, regs=()) -> str:
+def svg(g: dict, q: str, boxes=None) -> str:
     pos = layout(g)
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="100%" role="img" '
            f'aria-label="register rows as nodes, the connections their registers assert as edges">',
@@ -208,7 +208,7 @@ def svg(g: dict, q: str, regs=()) -> str:
                    f'<title>{panes.esc(e["kind"])}: {panes.esc(e["label"])}</title></line>')
     for e in g["edges"]:
         (x1, y1), (x2, y2) = pos[e["a"]], pos[e["b"]]
-        cite = panes.href(q, [e["cite"]], regs)
+        cite = panes.href(q, [e["cite"]], boxes)
         out.append(f'<a href="{panes.esc(cite)}"><text class="lab" x="{(x1 + x2) / 2:.1f}" y="{(y1 + y2) / 2:.1f}" '
                    f'text-anchor="middle">{panes.esc(short(e["label"], 26))}</text></a>')
     for nid, n in sorted(g["nodes"].items(), key=lambda kv: kv[1]["order"]):
@@ -217,7 +217,7 @@ def svg(g: dict, q: str, regs=()) -> str:
         title = panes.title_of(v, r)
         rad = 11 if n["centre"] else (8 if n["matched"] else 6)
         fill, stroke, sw = ("#fde68a", "#222", 2.5) if n["matched"] else ("#ffffff", "#555", 1.5)
-        to = panes.href(q, [], regs, "/graph") + "&" + urllib.parse.urlencode({"c": nid})
+        to = panes.href(q, [], boxes, "/graph") + "&" + urllib.parse.urlencode({"c": nid})
         out.append(f'<a href="{panes.esc(to)}"><title>{panes.esc(title)} · {panes.esc(panes.register_heading(v.register))} · {panes.esc(v.name)}</title>'
                    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{rad}" fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>'
                    f'<text x="{x:.1f}" y="{y + rad + 12:.1f}" text-anchor="middle">{panes.esc(short(title))}</text>'
@@ -237,10 +237,14 @@ def key_table(g: dict) -> str:
     return "".join(out)
 
 
-def pane(g: dict, q: str, regs=()) -> str:
+def pane(g: dict, q: str, boxes=None, regs=None) -> str:
+    """`boxes` the check boxes every href carries; `regs` the registers searched (None: all)."""
     out = ['<section class="pane graph" id="graph">', '<div class="reg">graph</div>']
     if not g["nodes"]:
         out.append("<h2>Graph</h2>")
+        if regs is not None and not regs and not g.get("centre"):
+            out.append(f'<p class="why">{panes.NOTHING_TICKED}</p>' + key_table(g) + "</section>")
+            return "\n".join(out)
         out.append('<p class="why">' + ("none found" if (q or g.get("centre")) else "Type a name, an address or a number in the search box.") + "</p>")
         out.append(key_table(g) + "</section>")
         return "\n".join(out)
@@ -248,15 +252,15 @@ def pane(g: dict, q: str, regs=()) -> str:
     if g.get("centre"):
         n = matched[0]
         out.append(f"<h2>{panes.esc(panes.title_of(n['v'], n['row']))}</h2>")
-        out.append(f'<p class="note">centred on one row; <a href="{panes.esc(panes.href(q, [g["centre"]], regs))}">its pane</a>'
-                   f' · <a href="{panes.esc(panes.href(q, [], regs, "/graph"))}">back to the search</a></p>')
+        out.append(f'<p class="note">centred on one row; <a href="{panes.esc(panes.href(q, [g["centre"]], boxes))}">its pane</a>'
+                   f' · <a href="{panes.esc(panes.href(q, [], boxes, "/graph"))}">back to the search</a></p>')
     else:
         out.append(f"<h2>{panes.esc(q)}</h2>")
         more = g["matched_total"] - len(matched)
         out.append(f'<p class="note">{len(matched)} matching rows drawn' + (f"; {more:,} more match: narrow the search or the registers" if more > 0 else "") + "</p>")
     out.append('<p class="note">Rows are nodes; an edge is a connection the registers themselves assert, or a same-person verdict of the links. '
                "No edge is made by matching names here. Click a node to centre on it; an edge's label opens the row that asserts it.</p>")
-    out.append(svg(g, q, regs))
+    out.append(svg(g, q, boxes))
     out.append(key_table(g))
     if g["unresolved"]:
         out.append(f'<p class="note">{g["unresolved"]} linked rows were not found in the published views and are not drawn</p>')
@@ -264,7 +268,7 @@ def pane(g: dict, q: str, regs=()) -> str:
     for e in g["edges"]:
         a, b = g["nodes"][e["a"]], g["nodes"][e["b"]]
         out.append(f'<li><span class="meta">{panes.esc(e["kind"])}</span> {panes.esc(panes.title_of(a["v"], a["row"]))} '
-                   f'<a href="{panes.esc(panes.href(q, [e["cite"]], regs))}">{panes.esc(e["label"])}</a> '
+                   f'<a href="{panes.esc(panes.href(q, [e["cite"]], boxes))}">{panes.esc(e["label"])}</a> '
                    f'{panes.esc(panes.title_of(b["v"], b["row"]))}</li>')
     out.append("</ul></section>")
     return "\n".join(out)

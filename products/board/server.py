@@ -2,9 +2,9 @@
 hard limit 13), with the least machinery that works: the standard
 library's HTTP server, one page per request, no script. Routes:
 
-  GET  /?q=<term>&p=<view:key|view:key|person:view:key…>&r=<register>…   the search tab: the
+  GET  /?q=<term>&p=<view:key|view:key|person:view:key…>&all=<0|1>&r=<register>…   the search tab: the
                     left pane (check boxes, the search box), the results beside it, then one pane per step of the path
-  GET  /graph?q=<term>&r=<register>…&c=<view:key>   the graph tab: the matching rows as nodes, the
+  GET  /graph?q=<term>&all=<0|1>&r=<register>…&c=<view:key>   the graph tab: the matching rows as nodes, the
                     connections their registers assert as edges, one hop; `c` re-centres on one row
   GET  /pinned      the pinned panes       GET /saved     the saved paths
   POST /pin         pin a pane             POST /save     save the path walked
@@ -82,7 +82,7 @@ def same_name_memo(conn):
     return same
 
 
-def row_context(conn, v: cat.View, r: dict, q: str, path: list, pinned: set, same=None, regs=()) -> dict:
+def row_context(conn, v: cat.View, r: dict, q: str, path: list, pinned: set, same=None, boxes=None) -> dict:
     same = same or same_name_memo(conn)
     ref = links_view.ref(v, r["key"])
     same_words = search.names_of_row(v, r)
@@ -91,11 +91,11 @@ def row_context(conn, v: cat.View, r: dict, q: str, path: list, pinned: set, sam
            "doc_names": docstore.names_of(r["document"], conn) if r.get("document") else [],
            "links": links_view.links_of(conn, ref), "group": links_view.group_of(conn, ref) if v.kind == "person" else {},
            "same": same(v, r), "same_words": same_words, "resolve": resolver(conn),
-           "report": panes.report_href(REPORT_URL, ref), "regs": regs}
+           "report": panes.report_href(REPORT_URL, ref), "boxes": boxes}
     return ctx
 
 
-def person_context(conn, v: cat.View, r: dict, q: str, path: list, same=None, regs=()) -> dict:
+def person_context(conn, v: cat.View, r: dict, q: str, path: list, same=None, boxes=None) -> dict:
     same = same or same_name_memo(conn)
     ref = links_view.ref(v, r["key"])
     group = links_view.group_of(conn, ref)
@@ -110,28 +110,22 @@ def person_context(conn, v: cat.View, r: dict, q: str, path: list, same=None, re
     return {"v": v, "row": r, "q": q, "path": path, "group": group, "members": members,
             "links": links_view.links_of(conn, ref), "same": same(v, r),
             "same_words": search.names_of_row(v, r), "resolve": resolve,
-            "report": panes.report_href(REPORT_URL, ref), "regs": regs}
+            "report": panes.report_href(REPORT_URL, ref), "boxes": boxes}
 
 
-def choose(held: set, checked=(), all_box: bool = False, was_all: bool = False) -> tuple:
-    """(registers, is_all, the registers a link carries: none when all)."""
-    regs, is_all = search.selection(list(checked or ()), all_box, was_all, search.held_registers(held))
-    return regs, is_all, (() if is_all else regs)
-
-
-def render(q: str, path: list, message: str = "", conn=None, checked=(), all_box: bool = False, was_all: bool = False) -> str:
+def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes = search.FIRST) -> str:
     """The search tab. `conn` is a session-reader connection to reuse (the
     check passes its own); without one a connection is opened and closed.
-    `checked`, `all_box`, `was_all`: the form's check boxes (search.selection)."""
+    `boxes`: the form's check boxes, carried on every href (ruling 81)."""
     with RENDER_LOCK, (contextlib.nullcontext(conn) if conn is not None else db.read_connect()) as conn:
         held = db.pub_views(conn)
-        regs, is_all, link_regs = choose(held, checked, all_box, was_all)
-        results = search.search(conn, q, limit=search.RESULTS_LIMIT, registers=None if is_all else regs) if q else {}
+        regs = search.selection(boxes, search.held_registers(held))
+        results = search.search(conn, q, limit=search.RESULTS_LIMIT, registers=regs) if q and regs else {}
         pinned = {(p["view"], p["key"]) for p in state.pins(conn)}
         same = same_name_memo(conn)
         words = search.words_of(q)
-        out = [panes.left_pane(q, search.held_registers(held), regs, is_all),
-               panes.results_pane(q, results, held, regs, is_all, words)]
+        out = [panes.left_pane(q, search.held_registers(held), boxes),
+               panes.results_pane(q, results, held, regs, boxes, words)]
         for i, step in enumerate(path):
             so_far = path[:i + 1]
             if step.startswith("person:"):
@@ -141,7 +135,7 @@ def render(q: str, path: list, message: str = "", conn=None, checked=(), all_box
                 if r is None:
                     out.append('<section class="pane"><p class="why">row not found in the published view</p></section>')
                     continue
-                out.append(panes.person_pane(person_context(conn, v, r, q, so_far, same, link_regs)))
+                out.append(panes.person_pane(person_context(conn, v, r, q, so_far, same, boxes)))
             else:
                 view, _, key = step.partition(":")
                 v = cat.BY_NAME[view]
@@ -150,19 +144,19 @@ def render(q: str, path: list, message: str = "", conn=None, checked=(), all_box
                     out.append(f'<section class="pane"><div class="reg">{panes.esc(view)}</div>'
                                '<p class="why">row not found in the published view: its key has moved or it was withdrawn</p></section>')
                     continue
-                out.append(panes.row_pane(row_context(conn, v, r, q, so_far, pinned, same, link_regs)))
-        return panes.page(q, path, out, message, link_regs)
+                out.append(panes.row_pane(row_context(conn, v, r, q, so_far, pinned, same, boxes)))
+        return panes.page(q, path, out, message, boxes)
 
 
-def render_graph(q: str, centre: str = "", conn=None, checked=(), all_box: bool = False, was_all: bool = False) -> str:
+def render_graph(q: str, centre: str = "", conn=None, boxes: search.Boxes = search.FIRST) -> str:
     """The graph tab, on the product reader (pub only); the check passes its own connection."""
     with RENDER_LOCK, (contextlib.nullcontext(conn) if conn is not None else db.scan_connect()) as conn:
         held = db.pub_views(conn)
-        regs, is_all, link_regs = choose(held, checked, all_box, was_all)
-        g = graph.build(conn, q, regs=None if is_all else regs, centre=centre)
-        out = [panes.left_pane(q, search.held_registers(held), regs, is_all, action="/graph", title="Graph the connections"),
-               graph.pane(g, q, link_regs)]
-        return panes.page(q, [], out, "", link_regs, tab="graph")
+        regs = search.selection(boxes, search.held_registers(held))
+        g = graph.build(conn, q if regs else "", regs=regs, centre=centre)
+        out = [panes.left_pane(q, search.held_registers(held), boxes, action="/graph", title="Graph the connections"),
+               graph.pane(g, q, boxes, regs)]
+        return panes.page(q, [], out, "", boxes, tab="graph")
 
 
 def render_list(which: str) -> str:
@@ -212,12 +206,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_html("<p>not here</p>", 404)
                 return
             q = (qs.get("q") or [""])[0].strip()[:200]
-            boxes = {"checked": [x for x in qs.get("r") or [] if x][:60], "all_box": bool(qs.get("all")), "was_all": bool(qs.get("was_all"))}
+            boxes = search.boxes_of(qs)
             if url.path == "/graph":
-                self.send_html(render_graph(q, parse_centre((qs.get("c") or [""])[0]), **boxes))
+                self.send_html(render_graph(q, parse_centre((qs.get("c") or [""])[0]), boxes=boxes))
                 return
             path = parse_path((qs.get("p") or [""])[0])
-            self.send_html(render(q, path, (qs.get("m") or [""])[0][:100], **boxes))
+            self.send_html(render(q, path, (qs.get("m") or [""])[0][:100], boxes=boxes))
         except Exception as exc:          # the page says what failed; the server stays up
             self.send_html(f"<p>the board could not answer: {panes.esc(type(exc).__name__)}: {panes.esc(exc)}</p>", 500)
 
@@ -228,17 +222,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
         get = lambda k: (form.get(k) or [""])[0]
         try:
             q, path = get("q").strip()[:200], parse_path(get("p"))
-            regs = tuple(x for x in form.get("r") or [] if x in dict(cat.REGISTERS))
+            boxes = search.boxes_of(form)
             if url.path == "/pin":
                 view, key = get("view"), get("key")
                 if view in cat.BY_NAME and key:
                     state.pin(view, key, get("title"))
-                    self.redirect(panes.href(q, path, regs) + "&m=pinned")
+                    self.redirect(panes.href(q, path, boxes) + "&m=pinned")
                     return
             if url.path == "/save":
                 if path:
                     state.save_path(get("name").strip(), q, path)
-                    self.redirect(panes.href(q, path, regs) + "&m=path+saved")
+                    self.redirect(panes.href(q, path, boxes) + "&m=path+saved")
                     return
             self.send_html("<p>nothing to do</p>", 400)
         except Exception as exc:

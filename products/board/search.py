@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from typing import NamedTuple
 
 from products.board import catalogue as cat
 from products.board import db
@@ -87,19 +88,38 @@ def held_registers(held: set) -> list:
     return [r for r, _ in cat.REGISTERS if any(v.name in held for v in cat.views_of(r))]
 
 
-def selection(checked: list, all_box: bool, was_all: bool, held: list) -> tuple:
-    """(registers, is_all) from the check boxes of a GET form with no script
-    (ruling 80). `checked` are the register boxes ticked, `all_box` the
-    "search all" box, `was_all` the hidden mark that the page was showing
-    "search all" when it was submitted, `held` the held registers. Nothing
-    checked means search all; ticking "search all" searches all; unticking
-    a register while "search all" stays ticked narrows to what is left."""
-    mine = [r for r in held if r in set(checked)]
-    if all_box and was_all and mine and len(mine) < len(held):
-        return tuple(mine), False
-    if all_box or not mine or len(mine) == len(held):
-        return tuple(held), True
-    return tuple(mine), False
+class Boxes(NamedTuple):
+    """The left pane's check boxes (ruling 81): "search all" and the register
+    boxes are two separate states, so turning "search all" off and on loses
+    no tick. Both travel as query parameters on every href (`params`)."""
+    all: bool = True
+    ticked: tuple = ()
+
+    def params(self) -> list:
+        return [("all", "1" if self.all else "0")] + [("r", x) for x in self.ticked]
+
+
+FIRST = Boxes()     # the first view of either tab: "search all" ticked, every register unticked
+
+
+def boxes_of(qs: dict) -> Boxes:
+    """Boxes from a parsed query string or POST body. The form sends a
+    hidden `all=0` before the "search all" box (`all=1`), because a GET form
+    sends nothing for an unticked box: so `all` present says the boxes were
+    sent, and "1" among its values says "search all" was ticked. An address
+    with no `all` comes from before ruling 81: none of `r` is the first view
+    (a saved path, an old address); `r` alone is board-2's narrowed link."""
+    known = dict(cat.REGISTERS)
+    ticked = tuple(dict.fromkeys(x for x in (qs.get("r") or [])[:60] if x in known))
+    alls = qs.get("all") or []
+    return Boxes("1" in alls if alls else not ticked, ticked)
+
+
+def selection(boxes: Boxes, held: list) -> tuple:
+    """The registers a search runs over: every held register while "search
+    all" is ticked, whatever is ticked below it; the ticked held registers
+    alone when it is not, so none ticked searches nothing."""
+    return tuple(held) if boxes.all else tuple(r for r in held if r in boxes.ticked)
 
 
 def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = None, whole: bool = False,

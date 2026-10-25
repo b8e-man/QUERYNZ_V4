@@ -5,8 +5,11 @@ are said; every value is escaped; the citation names the document."""
 import datetime as dt
 import decimal
 
+import re
+import urllib.parse
+
 from products.board import catalogue as cat
-from products.board import panes
+from products.board import graph, panes, search
 
 NO_LINKS = {"built": False, "why": "no links built yet", "confirmed": [], "near": []}
 
@@ -19,6 +22,21 @@ def director(**kw):
          "nzbn": "9429000000001", "company_number": "1"}
     r.update(kw)
     return r
+
+
+def boxes_shown(html: str) -> tuple:
+    """(is "search all" ticked, [the register boxes ticked]) as the form shows them."""
+    boxes = re.findall(r'<input type="checkbox" name="(all|r)" value="([^"]*)"( checked)?>', html)
+    return (any(n == "all" and c for n, _, c in boxes), [x for n, x, c in boxes if n == "r" and c])
+
+
+def carried(link: str) -> search.Boxes:
+    """The check boxes an href carries, read back as the server reads them."""
+    return search.boxes_of(urllib.parse.parse_qs(urllib.parse.urlsplit(link.replace("&amp;", "&")).query))
+
+
+def hrefs(html: str) -> list:
+    return [h for h in re.findall(r'href="([^"]*)"', html) if h.startswith(("/?", "/graph?"))]
 
 
 def ctx(v, r, **kw):
@@ -75,20 +93,18 @@ def test_withheld_text_reads_withheld():
 def test_the_search_tab_says_none_found_and_not_held_and_greys_what_is_not_held():
     held = {"companies", "directors", "parties"}       # parties held with no hit: none found; the rest: not held
     regs = ("parties", "companies")
-    html = panes.results_pane("doe", {"companies": [(cat.BY_NAME["directors"], 3, [director()])]}, held, regs, False, ["doe"])
+    html = panes.results_pane("doe", {"companies": [(cat.BY_NAME["directors"], 3, [director()])]}, held, regs, search.Boxes(False, regs), ["doe"])
     assert html.count("none found") == 1 and '<span class="count">3</span>' in html and "<mark>DOE</mark>" in html.replace("&lt;b&gt;", "")
     assert "Charities register" not in html                     # an unchecked register is not in the results
-    left = panes.left_pane("doe", ["parties", "companies"], regs, False)
+    left = panes.left_pane("doe", ["parties", "companies"], search.Boxes(False, regs))
     assert left.count("disabled") == len(cat.REGISTERS) - 2 + len(cat.NOT_HELD)     # greyed and cannot be checked
-    assert left.count(" checked>") == 2 and 'name="all" value="1">' in left and "was_all" not in left
-    every = panes.left_pane("", ["parties", "companies"], ("parties", "companies"), True)
-    assert every.count(" checked>") == 3 and 'name="was_all"' in every          # search all ticks every held register
-    assert panes.results_pane("", {}, held, regs, False).count("none found") == 0
+    assert boxes_shown(left) == (False, ["parties", "companies"])
+    assert panes.results_pane("", {}, held, regs, search.Boxes(False, regs)).count("none found") == 0
 
 
 def test_every_field_the_view_shows_is_in_the_results_and_a_suppressed_name_never_is():
     v = cat.BY_NAME["directors"]
-    html = panes.hit("doe", v, director(), ["doe"], ("companies",))
+    html = panes.hit("doe", v, director(), ["doe"], search.Boxes(False, ("companies",)))
     for label, c in v.fields + v.dates:
         if director().get(c) not in (None, ""):
             assert f"<th>{label}</th>" in html, label
@@ -149,3 +165,72 @@ def test_every_pane_offers_a_report_from_here_only_when_a_report_server_is_named
     assert panes.report_href("", ref) == ""                       # no server named, no link
     assert "report from here" not in panes.row_pane(ctx(v, r, report=""))
     assert "report from here" not in panes.person_pane({**person, "report": ""})
+
+
+# ── ruling 81: "search all" and the register boxes, apart ────────────────
+
+HELD = ["parties", "companies"]
+
+
+def test_the_first_view_of_either_tab_ticks_search_all_and_no_register():
+    for action in ("/", "/graph"):
+        left = panes.left_pane("", HELD, search.FIRST, action=action)
+        assert boxes_shown(left) == (True, [])
+        assert '<input type="hidden" name="all" value="0">' in left      # the form says it was sent; the box says what was ticked
+        assert "was_all" not in left
+
+
+def test_search_all_searches_every_held_register_whatever_is_ticked_and_off_only_the_ticked():
+    on = search.boxes_of({"all": ["0", "1"], "r": ["companies"]})
+    assert search.selection(on, HELD) == tuple(HELD)
+    assert boxes_shown(panes.left_pane("doe", HELD, on)) == (True, ["companies"])     # the tick shows, not acted on
+    results = panes.results_pane("doe", {}, set(), search.selection(on, HELD), on)
+    assert "every held register" in results and "Registered political parties" in results
+    off = search.boxes_of({"all": ["0"], "r": ["companies"]})
+    assert search.selection(off, HELD) == ("companies",)
+    results = panes.results_pane("doe", {}, set(), search.selection(off, HELD), off)
+    assert "Registered political parties" not in results and "every held register" not in results
+
+
+def test_the_boxes_ride_every_href_so_search_all_off_and_on_loses_no_tick():
+    ticks = ["parties", "companies"]
+    for form in (["0"], ["0", "1"], ["0"]):              # off, on, off again across three searches
+        b = search.boxes_of({"all": form, "r": ticks})
+        assert boxes_shown(panes.left_pane("doe", HELD, b)) == ("1" in form, ticks)
+        v = cat.BY_NAME["directors"]
+        company = {"key": "companies/1", "name": "ACME LIMITED"}
+        row = panes.row_pane(ctx(v, director(), boxes=b, parent=("Company", "companies", company)))
+        person = panes.person_pane(ctx(v, director(), boxes=b, group={"built": False, "why": "no links built yet"}))
+        hit = panes.hit("doe", v, director(), ["doe"], b)
+        page = "".join(panes.page("doe", ["directors:k"], [row], "", b, tab=t) for t in ("search", "graph"))
+        g = {"nodes": {"directors:a": {"v": v, "row": director(key="a"), "matched": True, "centre": False, "order": 0, "parent": None},
+                       "companies:c": {"v": cat.BY_NAME["companies"], "row": company, "matched": False, "centre": False, "order": 1, "parent": "directors:a"}},
+             "edges": [{"kind": "role", "a": "directors:a", "b": "companies:c", "label": "Director", "cite": "directors:a"}],
+             "drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS}, "not_drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS},
+             "matched_total": 1, "unresolved": 0, "centre": ""}
+        picture = graph.pane(g, "doe", b, tuple(ticks))
+        links = hrefs(row + person + hit + page + picture)
+        assert any("/graph?" in h and "c=companies" in h for h in links)          # a node re-centres
+        assert any(h.startswith("/graph?") for h in hrefs(page)) and any(h.startswith("/?") for h in hrefs(page))   # both tabs
+        assert len(links) >= 8 and all(carried(h) == b for h in links), [h for h in links if carried(h) != b]
+        pin = row[row.index('action="/pin"'):]
+        sent = urllib.parse.parse_qs(urllib.parse.urlencode(re.findall(r'<input type="hidden" name="(all|r)" value="([^"]*)">', pin)))
+        assert search.boxes_of(sent) == b                                         # the pin and save forms carry them too
+
+
+def test_search_all_off_with_nothing_ticked_searches_nothing_and_says_so():
+    b = search.boxes_of({"all": ["0"], "q": ["doe"]})
+    assert b == search.Boxes(False, ()) and search.selection(b, HELD) == ()
+    results = panes.results_pane("doe", {}, set(HELD), (), b)
+    assert panes.NOTHING_TICKED == "tick a register, or search all" and panes.NOTHING_TICKED in results
+    assert "none found" not in results and "<h3>" not in results
+    assert boxes_shown(panes.left_pane("doe", HELD, b)) == (False, [])
+
+
+def test_a_saved_path_and_an_old_address_open_as_the_first_view():
+    saved = panes.paths_pane([{"name": "walk", "query": "doe", "path": "directors:k\ncompanies:c", "made_at": None}])
+    pinned = panes.pins_pane([{"title": "Jane", "view": "directors", "key": "k", "made_at": None}])
+    for link in hrefs(saved + pinned) + ["/?q=doe&p=directors%3Ak", "/graph?q=doe"]:
+        assert "all=" not in link and "r=" not in link
+        assert carried(link) == search.FIRST
+    assert boxes_shown(panes.left_pane("doe", HELD, carried("/?q=doe"))) == (True, [])
