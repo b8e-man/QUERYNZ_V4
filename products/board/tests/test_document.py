@@ -16,7 +16,7 @@ from support.docstore import landing
 from products.board import db, document, panes, server
 
 PDF = b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"
-SECRET = b"a home address, never to be served\n"
+RETURN = b"a party return, the donors' addresses printed\n"
 
 
 class Conn:
@@ -54,7 +54,7 @@ def sha(b):
 @pytest.fixture
 def store(tmp_path, monkeypatch):
     root = tmp_path / "store"
-    for data in (PDF, SECRET):
+    for data in (PDF, RETURN):
         (root / sha(data)[:2]).mkdir(parents=True, exist_ok=True)
         (root / sha(data)[:2] / sha(data)).write_bytes(data)
     monkeypatch.setenv("QV4_DOCS", str(root))
@@ -62,13 +62,12 @@ def store(tmp_path, monkeypatch):
 
 
 def conn():
-    return Conn([(sha(PDF), "pdf", "house", None), (sha(SECRET), "pdf", "party_returns", None),
+    return Conn([(sha(PDF), "pdf", "house", None), (sha(RETURN), "pdf", "party_returns", None),
                  ("e" * 64, "pdf", "house", "withdrawn: a test"), ("b" * 64, "pdf", "house", None)],
                 [(sha(PDF), "list.pdf")])
 
 
-def test_a_served_source_answers_its_bytes_whole_with_its_content_type(store):
-    assert "party_returns" not in cat.SERVED_SOURCES and "house" in cat.SERVED_SOURCES
+def test_a_held_document_answers_its_bytes_whole_with_its_content_type(store):
     status, ctype, body = document.fetch(conn(), sha(PDF))
     assert (status, ctype, body) == (200, "application/pdf", PDF)
 
@@ -80,9 +79,14 @@ def test_a_wrong_or_malformed_sha_a_withdrawn_or_absent_document_answers_404(sto
     assert document.fetch(c, "b" * 64)[0] == 404                      # in the table, not on the disk
 
 
-def test_a_source_that_may_print_a_home_address_is_refused_and_its_bytes_never_read(store):
-    status, ctype, body = document.fetch(conn(), sha(SECRET))
-    assert status == 403 and SECRET.decode() not in body and "hard limit 15" in body
+def test_no_source_is_refused(store):
+    """Ruling 88: the board opens every captured document the store holds, the addresses it prints included."""
+    assert not hasattr(cat, "SERVED_SOURCES") and not hasattr(document, "WITHHELD")
+    for source in ("party_returns", "candidate_returns", "disclosures", "gazette", "companies", "tenancy_tribunal",
+                   "house", "a source no lane has yet"):
+        c = Conn([(sha(RETURN), "pdf", source, None)])
+        assert document.statuses(c, [sha(RETURN)])[sha(RETURN)]["state"] == document.SERVED, source
+        assert document.fetch(c, sha(RETURN)) == (200, "application/pdf", RETURN), source
 
 
 def test_nothing_outside_the_store_root_is_read(store, tmp_path):
@@ -127,7 +131,9 @@ def test_the_handler_serves_refuses_and_never_lists(store, monkeypatch):
         assert status == 200 and headers["Content-Type"] == "application/pdf" and body == PDF
         assert "sandbox" in headers["Content-Security-Policy"] and headers["X-Content-Type-Options"] == "nosniff"
         assert get("/doc/" + "1" * 64)[0] == 404
-        assert get(f"/doc/{sha(SECRET)}")[0] == 403 and SECRET not in get(f"/doc/{sha(SECRET)}")[2]
+        status, headers, body = get(f"/doc/{sha(RETURN)}")                 # a party return: no source is refused (ruling 88)
+        assert status == 200 and body == RETURN and "sandbox" in headers["Content-Security-Policy"]
+        assert get("/doc/" + "e" * 64)[0] == 404                            # withdrawn
         for listing in ("/doc", "/doc/", f"/doc/{sha(PDF)[:2]}", f"/doc/{sha(PDF)[:2]}/"):
             status, _, body = get(listing)
             assert status == 404 and sha(PDF).encode() not in body, listing
@@ -150,13 +156,16 @@ def test_every_citation_begins_with_its_source_at_its_page():
     assert f'href="/doc/{sha(PDF)}"' in panes.citation_line(v, row(page=3), web)       # no page on a web page
 
 
-def test_a_document_not_held_or_not_opened_says_so_and_a_suppressed_row_offers_none():
+def test_a_document_not_held_or_withdrawn_says_so_and_a_suppressed_row_offers_none():
     v = cat.BY_NAME["candidates"]
     assert "document not held here" in panes.citation_line(v, row(), {})
     assert "document not held here" in panes.citation_line(v, {"key": "k1"}, {})
-    held = {sha(PDF): {"state": document.WITHHELD, "kind": "pdf", "source": "party_returns", "why": cat.WITHHELD_WHY}}
-    line = panes.citation_line(v, row(), held)
-    assert "/doc/" not in line and "not opened here" in line
+    gone = document.statuses(conn(), ["e" * 64])
+    line = panes.citation_line(v, row(document="e" * 64), gone)
+    assert "/doc/" not in line and "withdrawn" in line
+    held = {sha(PDF): {"state": document.SERVED, "kind": "pdf", "source": "party_returns", "why": ""}}
+    for text in (panes.citation_line(v, row(), held), panes.citation_line(cat.BY_NAME["disclosures"], row(), held)):
+        assert f'href="/doc/{sha(PDF)}' in text and "not opened here" not in text     # a party return opens (ruling 88)
     d = cat.BY_NAME["directors"]
     served = {sha(PDF): {"state": document.SERVED, "kind": "pdf", "source": "house", "why": ""}}
     hidden = panes.citation_line(d, row(full_name="X", suppressed=True), served)

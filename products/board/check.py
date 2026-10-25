@@ -49,10 +49,12 @@ tables through the session reader, never the sample:
      in returns of two years or more to one party, gets one party edge whose
      total equals the amounts listed under it as added and the register's
      own sum (gift_problems).
- 12. The originating document (ruling 86 (4)): /doc/ of a known cited
+ 12. The originating document (rulings 86 (4), 88): /doc/ of a known cited
      document answers 200 with its stored content type and its own bytes; a
      wrong sha and a name that is not 64 hex characters answer 404; a party
-     return answers 403; the row's citation begins with "source" (doc_problems).
+     return answers 200 with its stored content type; a cited document of
+     every source the published rows cite answers 200 with its own bytes;
+     the row's citation begins with "source" (doc_problems).
  13. Night mode (ruling 86 (1)): every text colour of the stylesheet reads at
      4.5:1 or more on every background it sets; the key's edges at 3:1 on the
      picture and apart (panes.contrast_problems).
@@ -307,11 +309,13 @@ def gift_problems(conn) -> list:
 
 
 def doc_problems(conn) -> list:
-    """Ruling 86 (4): a known cited document of a served source answers 200
-    with its stored content type, its bytes hashing to its name; a wrong sha
-    answers 404; a held document of a source not served answers 403 and its
-    bytes are not sent; the row's pane and the results begin the citation
-    with the "source" link, at the page for a PDF."""
+    """Rulings 86 (4) and 88: a known cited document answers 200 with its
+    stored content type, its bytes hashing to its name; a wrong sha and a
+    malformed name answer 404; a party return, whose form prints donors'
+    addresses, answers 200 with its stored content type (no source is
+    refused); one cited document of every source the published rows cite
+    answers 200 with its own bytes; the row's pane begins the citation with
+    the "source" link, at the page for a PDF."""
     out = []
     cited = db.rows(conn, "select key, document, page from pub.candidates where document is not null order by key limit 200")
     states = document.statuses(conn, [r["document"] for r in cited])
@@ -320,11 +324,7 @@ def doc_problems(conn) -> list:
         why = next(iter(states.values()), {}).get("why", "")
         return [f"no candidates row cites a document the board opens: {why}"]
     k = known[0]
-    status, ctype, body = document.fetch(conn, k["document"])
-    if status != 200 or ctype != document.content_type(k["kind"], landing_names(conn, k["document"]), body[:64] if isinstance(body, bytes) else b""):
-        out.append(f"/doc/ of the known cited document {k['document'][:12]}… answered {status} {ctype}")
-    elif document.hashlib.sha256(body).hexdigest() != k["document"]:
-        out.append("/doc/ of the known cited document sent bytes that do not hash to its name")
+    out += opened_problems(conn, k["document"], k["kind"], "the known cited document")
     wrong = ("0" if k["document"][0] != "0" else "1") + k["document"][1:]
     if document.fetch(conn, wrong)[0] != 404:
         out.append("/doc/ of a wrong sha did not answer 404")
@@ -333,18 +333,50 @@ def doc_problems(conn) -> list:
             out.append(f"/doc/ of a name that is not 64 hex characters ({bad[:6]}…) did not answer 404")
     returns = db.rows(conn, "select document from pub.party_return_totals where document is not null order by key limit 50")
     rstates = document.statuses(conn, [r["document"] for r in returns])
-    held = [s for s, st in rstates.items() if st["state"] == document.WITHHELD]
+    held = [(s, st["kind"]) for s, st in rstates.items() if st["state"] == document.SERVED]
     if not held:
-        out.append("no party return document is held to test the refusal on")
+        out.append("no party return document is held to open")
     else:
-        st, _, why = document.fetch(conn, held[0])
-        if st != 403 or isinstance(why, bytes):
-            out.append(f"/doc/ of a party return, a source that prints donors' addresses, answered {st}")
+        out += opened_problems(conn, held[0][0], held[0][1], "a party return")
+    by_source = cited_by_source(conn)
+    if not by_source:
+        out.append("no published row cites a document the store holds")
+    for source, (sha, kind) in sorted(by_source.items()):
+        out += opened_problems(conn, sha, kind, f"a cited {source} document")
     html = server.render("", server.parse_path(f"candidates:{k['key']}"), conn=conn)
     link = f'<a class="source" href="{document.href(k["document"], k["kind"], k.get("page"))}">source</a>'
     pane = html[html.rfind('<section class="pane'):]
     if link not in pane or pane.index(link) > pane.find("<th>document</th>"):
         out.append("the known row's pane does not begin its citation with the source link")
+    return out
+
+
+def opened_problems(conn, sha: str, kind: str, what: str) -> list:
+    """/doc/<sha> answers 200, its stored content type and bytes hashing to its name."""
+    status, ctype, body = document.fetch(conn, sha)
+    data = body if isinstance(body, bytes) else b""
+    if status != 200 or ctype != document.content_type(kind, landing_names(conn, sha), data[:64]):
+        return [f"/doc/ of {what} {sha[:12]}… answered {status} {ctype}"]
+    if document.hashlib.sha256(data).hexdigest() != sha:
+        return [f"/doc/ of {what} {sha[:12]}… sent bytes that do not hash to its name"]
+    return []
+
+
+def cited_by_source(conn, per_view: int = 20) -> dict:
+    """{source: (sha, kind)}: one held, not withdrawn document of each source
+    the published views' `document` column cites, read through the store's
+    reader (never a query of `docs`). Its keys are the sources ruling 88 opens
+    that a row can reach."""
+    views = [r["table_name"] for r in db.rows(
+        conn, "select table_name from information_schema.columns where table_schema = 'pub' and column_name = 'document' "
+              "order by table_name")]
+    out = {}
+    for v in views:
+        shas = [r["document"] for r in db.rows(
+            conn, f'select distinct document from pub."{v}" where document is not null limit {int(per_view)}')]
+        for sha, st in sorted(document.statuses(conn, shas).items()):
+            if st["state"] == document.SERVED and st["source"] not in out:
+                out[st["source"]] = (sha, st["kind"])
     return out
 
 

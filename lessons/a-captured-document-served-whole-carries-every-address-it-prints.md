@@ -1,5 +1,5 @@
-A captured document served whole carries every home address it prints, so open a source only after measuring that its printed form has no address field, never on the strength of the row that cites it.
-area: products/board, document store, /doc/, any surface that serves captured bytes, hard limit 15
+A captured document served whole carries every home address it prints, so outside the board (ruling 88) open a source only after measuring that its printed form has no address field, never on the strength of the row that cites it.
+area: any surface that serves captured bytes but the board (ruling 88), document store, /doc/, hard limit 15
 paid-for-by: 2026-10-26, board-4, ruling 86 (4)
 
 Ruling 86 asked for a "source" link on every row that opens the captured
@@ -18,6 +18,12 @@ authorisation); expenses had 103 and none. Every other held document says
 "source held, not opened here" and answers 403 without its bytes being read.
 Which further sources may open is in the decision queue with no default. A
 redacted page image is the likely route.
+
+Ruling 88 (26 October) settled it for the board alone: it is internal, on
+the local network only, so it opens every captured document whole, the
+addresses included, and `SERVED_SOURCES` is gone. The rule stands for every
+other surface: the public site, the report, any export. A session still
+never prints what such a document shows.
 
 Also: `docs.documents.withdrawn` is text, not a boolean. Test it with
 `is null`.

@@ -1176,19 +1176,6 @@ NOT_HELD = (
     ("council_procurement", "Council procurement off GETS (barred by the councils' terms or behind a login; watched)"),
 )
 
-#: the document store's sources whose captured documents the board opens whole at /doc/<sha256> (ruling 86 (4)),
-#: each because its printed form has no field for a person's address, measured over every document it holds
-#: (address-shaped lines counted, never printed). Every other source is cited and not opened (hard limit 15): its
-#: documents may print a home address, and which may open is Arthur's (docs/decisions/queue, no default).
-SERVED_SOURCES = {
-    "house": "the Commission's results, candidate and party-list pages and files: names, parties, electorates, votes; "
-             "measured 2026-10-26, 167 documents, one address-shaped line, the Commission's own in its authorisation",
-    "expenses": "Parliament's and the ministers' quarterly expense workbooks: members, categories, figures; "
-                "measured 2026-10-26, 103 documents, no address-shaped line",
-}
-WITHHELD_WHY = ("held in the store, not opened here: a captured document is served whole and this source's may print a "
-                "person's home address (hard limit 15); open the publisher's copy")
-
 #: the plan's reference names registers by use case in one table only, "Not held" (docs/plan/reference/
 #: registers-and-use-cases/not-held.md, its "Serves use cases" column); each of its sources, by the words it
 #: begins with, and the board's registers that hold it, if any lane has built one (ruling 87). A source with

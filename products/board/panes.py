@@ -403,10 +403,10 @@ def search_words(q: str, boxes) -> list:
 
 def source_link(v: cat.View, r: dict, docs: dict = None) -> str:
     """First in every citation (ruling 86 (4)): "source", the captured
-    document on the board (`/doc/<sha256>`, a PDF at its page); for a
-    document held but not opened, the reason; "document not held here"
-    where the store has no copy. A suppressed row or withheld text offers
-    no document: it would print what the row hides (hard limits 15, 16)."""
+    document on the board (`/doc/<sha256>`, a PDF at its page), whatever
+    its source (ruling 88); "document not held here" where the store has no
+    copy, the reason where it is withdrawn. A suppressed row or withheld text
+    offers no document: it would print what the row hides (hard limit 16)."""
     doc = r.get("document")
     st = (docs or {}).get(doc) if doc else None
     if not st or st["state"] == document.ABSENT:
@@ -414,8 +414,6 @@ def source_link(v: cat.View, r: dict, docs: dict = None) -> str:
         return f'<span class="note">{esc(why)}</span>'
     if is_suppressed(v, r) or is_withheld(v, r):
         return '<span class="note">source not opened: the row hides a name or a text the document prints</span>'
-    if st["state"] == document.WITHHELD:
-        return f'<span class="note" title="{esc(st["why"])}">source held, not opened here (hard limit 15)</span>'
     return f'<a class="source" href="{esc(document.href(doc, st["kind"], r.get("page")))}">source</a>'
 
 
@@ -586,9 +584,9 @@ def citation(v: cat.View, r: dict, doc_names: list, docs: dict = None) -> str:
     if r.get("loaded_at"):
         out.append(f'<tr><th>row written</th><td>{fmt(r["loaded_at"])} <span class="note">(never a date of anything)</span></td></tr>')
     out.append("</table>")
-    out.append('<p class="note">"source" opens the captured document, whole as the lane captured it, only where its source\'s '
-               "printed form has no field for a person's address; any other document is cited and not opened here, since "
-               "captured documents can print home addresses (hard limit 15).</p>")
+    out.append('<p class="note">"source" opens the captured document, whole as the lane captured it, the addresses it prints '
+               "included: this board is on the local network only (ruling 88). A suppressed row or withheld text offers no "
+               "document.</p>")
     return "\n".join(out)
 
 
