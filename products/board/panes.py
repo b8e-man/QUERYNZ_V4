@@ -393,12 +393,18 @@ NEAR_CLASSES = (("names", "Given name and surname reversed", "given name and sur
                 ("addresses", "Addresses, a close match", "a close address"))
 
 
+NEAR_NONE_FROM_BOX = ("the plain box matches words in any order, so a reversed name is already an exact match; "
+                      "use the name fields to see reversed names apart")
+
+
 def near_section(q: str, near: dict, words, boxes=None) -> str:
     """Near matches (ruling 83), below the exact results and never among
     them or in their count: a details element, closed until clicked, with
     its two classes, each row saying which, capped with the whole count."""
     total = sum(near.get(k, {}).get("total", 0) for k, _, _ in NEAR_CLASSES)
-    out = [f'<details class="near" id="near"><summary>Near matches <span class="count">{total:,}</span></summary>',
+    plain = len((q or "").split()) >= 2
+    out = [f'<details class="near" id="near"><summary>Near matches <span class="count">{total:,}</span>'
+           + (f' <span class="note">{esc(NEAR_NONE_FROM_BOX)}</span>' if total == 0 and plain else "") + '</summary>',
            '<p class="note">Not exact matches and not counted with them. Candidates by name or address alone, never a link.</p>']
     for k, heading, why in NEAR_CLASSES:
         c = near.get(k) or {}
@@ -479,9 +485,9 @@ def links_section(links: dict, group: dict, q: str, path: list, resolve, boxes=N
                 target = resolve(l["other"])
                 if target:
                     tv, tr = target
-                    out.append(row_link(q, path, tv, tr, meta=f"rule {l['rule']}" + (f"; near because {l['reason']}" if l.get("reason") else ""), boxes=boxes))
+                    out.append(row_link(q, path, tv, tr, meta=f"{cat.rule_words(l['rule'])} {cat.rule_ref(l['rule'])}" + (f"; near because {l['reason']}" if l.get("reason") else ""), boxes=boxes))
                 else:
-                    out.append(f'<li>{esc(l["other"])} <span class="meta">row not found in the published views; rule {esc(l["rule"])}</span></li>')
+                    out.append(f'<li>{esc(l["other"])} <span class="meta">row not found in the published views; {esc(cat.rule_words(l["rule"]))} {esc(cat.rule_ref(l["rule"]))}</span></li>')
                 for d in l.get("decisions") or []:
                     out.append(f'<li class="meta">decision: {esc(d.get("verdict"))} by {esc(d.get("made_by"))}, {fmt(d.get("made_at"))}</li>')
             out.append("</ul>")

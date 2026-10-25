@@ -132,7 +132,9 @@ def test_links_section_says_plainly_when_nothing_is_built_and_lists_confirmed_fi
              "confirmed": [{"other": "house:ge-2020/x", "register": "house", "rule": "same-role@1", "reason": None, "decisions": [], "evidence": {}}]}
     html = panes.links_section(links, {}, "q", ["directors:k"], lambda ref: (v, director(key=ref.split(":", 1)[1])))
     assert html.index("<strong>confirmed</strong>") < html.index("<strong>near</strong>")
-    assert "near because common name" in html and "rule same-role@1" in html
+    assert "near because common name" in html and "@1" not in html                           # ruling 84: words, never the id
+    assert "same first, middle and last name (links rule full-name, version 1)" in html
+    assert "links rule same-role (links rule same-role, version 1)" in html                 # an id the table lacks is named, not hidden
 
 
 def test_person_pane_keeps_namesakes_apart():

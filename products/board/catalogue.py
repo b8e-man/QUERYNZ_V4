@@ -53,6 +53,44 @@ EDGE_KINDS = (
 )
 RELATION_KINDS = ("money", "role", "candidacy", "declaration", "dealing")   # what a catalogue line may declare; the two same-person kinds come from pub.links
 
+#: the links lane's rules in plain words (ruling 84), keyed by the rule id `pub.links` carries
+#: without its version; the words follow each rule's own description in links/ (rules.py, build.py).
+#: The id and version are shown only in a tooltip or a list, as `rule_ref` writes them, never as a label.
+RULE_WORDS = {
+    "full-name": "same first, middle and last name",
+    "name-and-address": "same first and last name, and their companies filed the same registered office",
+    "name-only": "same name, nothing else",
+    "company-name": "two companies under one name",
+    "seat-and-window": "a row the House published and the seat whose term covers it",
+    "official-number": "the same official number (NZBN or company number)",
+    "organisation-name": "a donation's organisation name is a company's name",
+    "declared-directorship": "a member's declared company has a director of the member's name",
+    "candidate-name-form": "one name for one party's candidate across elections",
+    "filed-name": "two donations filed under one organisation name",
+    "source-identifier": "the register's own identifier joins the two rows",
+    "member-and-party-donor": "a member's name on a donation to the member's own party, in the term",
+    "own-return": "a donor in the candidate's own name, on the candidate's own return",
+    "coupled-name": "one of the people a donation filed as two names",
+}
+
+
+def _rule_parts(rule) -> tuple:
+    rid, _, version = str(rule or "").partition("@")
+    return rid, version
+
+
+def rule_words(rule) -> str:
+    """`name-only@1` reads "same name, nothing else"; an id the table lacks
+    reads "links rule <id>", so nothing is hidden."""
+    rid, _ = _rule_parts(rule)
+    return RULE_WORDS.get(rid) or f"links rule {rid}"
+
+
+def rule_ref(rule) -> str:
+    """"(links rule name-only, version 1)": for a tooltip or a list only."""
+    rid, version = _rule_parts(rule)
+    return f"(links rule {rid}" + (f", version {version})" if version else ")")
+
 
 @dataclass(frozen=True)
 class Name:

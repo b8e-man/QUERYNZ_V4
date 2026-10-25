@@ -56,7 +56,8 @@ def sample():
     g["nodes"]["companies:c1"] = node("companies", "c1", False, 3, "directors:x1", name="ACME <LIMITED>")
     g["edges"] = [{"kind": "money", "a": "party_return_donors:d1", "b": "party_return_totals:t1", "label": "donated, in the return", "cite": "party_return_donors:d1"},
                   {"kind": "role", "a": "directors:x1", "b": "companies:c1", "label": "director of", "cite": "directors:x1"},
-                  {"kind": "same person, near", "a": "party_return_donors:d1", "b": "directors:x1", "label": "full-name@1", "cite": "party_return_donors:d1"}]
+                  {"kind": "same person, near", "a": "party_return_donors:d1", "b": "directors:x1", "label": cat.rule_words("name-only@1"),
+                   "cite": "party_return_donors:d1", "rule": "name-only@1"}]
     g["drawn"].update({"money": 1, "role": 1, "same person, near": 1})
     g["not_drawn"]["role"] = 7
     return g
@@ -78,7 +79,7 @@ def test_the_picture_is_svg_with_hrefs_and_no_script():
     assert "<script" not in html and "<svg" in html and "</svg>" in html
     assert html[:html.index("<h3>Key")].count("<line ") == 3 and 'stroke-dasharray="6 4"' in html                # near is dashed
     assert "/graph?q=doe&amp;p=&amp;all=0&amp;r=party_returns&amp;c=companies%3Ac1" in html          # a node re-centres
-    assert 'href="/?q=doe&amp;p=party_return_donors%3Ad1&amp;all=0&amp;r=party_returns"' in html     # a label cites the asserting row
+    assert 'href="/?q=doe&amp;p=party_return_donors%3Ad1&amp;all=0&amp;r=party_returns"' in html     # a number cites the asserting row
     assert "Secret Person" not in html and "name suppressed" in html                      # hard limit 16 on every surface
     assert "ACME &lt;LIMITED&gt;" in html
     key = html[html.index("<h3>Key</h3>"):]
@@ -93,3 +94,79 @@ def test_an_empty_graph_says_none_found():
     assert "none found" in graph.pane(g, "zzz") and "Type a name" in graph.pane(g, "")
     nothing = graph.pane(g, "zzz", search.Boxes(False, ()), ())          # "search all" off, nothing ticked (ruling 81)
     assert "tick a register, or search all" in nothing and "none found" not in nothing
+
+
+def outside_titles(html: str) -> str:
+    return re.sub(r"<title>.*?</title>", "", html, flags=re.S)
+
+
+def test_a_rule_id_shows_only_in_a_title_and_the_list():
+    html = graph.pane(sample(), "doe")
+    picture = html[html.index("<svg"):html.index("</svg>")]
+    assert "@1" not in outside_titles(picture) and "links rule" not in outside_titles(picture)
+    assert "(links rule name-only, version 1)" in picture                                    # the edge's tooltip
+    listed = html[html.index("Edges, by number"):]
+    assert "same name, nothing else" in listed and "(links rule name-only, version 1)" in listed
+    assert "@1" not in outside_titles(html)
+
+
+def test_two_rows_joined_twice_get_one_line_listing_both_causes():
+    g = sample()
+    g["edges"].append({"kind": "money", "a": "directors:x1", "b": "party_return_donors:d1", "label": "lent to", "cite": "directors:x1", "rule": None})
+    lns = graph.lines(g)
+    assert len(lns) == 3 and [ln["n"] for ln in lns] == [1, 2, 3]
+    both = lns[2]
+    assert [e["kind"] for e in both["causes"]] == ["money", "same person, near"] and both["kind"] == "money"   # the key's order sets the stroke
+    html = graph.pane(g, "doe")
+    picture = html[html.index("<svg"):html.index("</svg>")]
+    assert picture.count("<line ") == 3
+    line = re.search(r'<line [^>]*stroke="([^"]+)"[^>]*><title>3\. ([^<]*)</title>', picture)
+    assert line and line.group(1) == "#2a78d6"
+    assert line.group(2) == "money: lent to; same person, near: same name, nothing else (links rule name-only, version 1)"
+    listed = html[html.index('<ol class="edges">'):]
+    third = listed[listed.index('<li value="3">'):]
+    assert third.index("lent to") < third.index("same name, nothing else") and third.count("the row that asserts it") >= 2
+    assert '4 connections on 3 lines' in html
+
+
+def crowded(n=40):
+    """One matched row with n neighbours, long names: the fan the ruling saw."""
+    g = sample()
+    g["nodes"] = {"party_return_donors:d1": node("party_return_donors", "d1", True, 0, donor="A VERY LONG DONOR NAME LIMITED PARTNERSHIP", amount=5)}
+    g["edges"] = []
+    for i in range(n):
+        nid = f"companies:c{i}"
+        g["nodes"][nid] = node("companies", f"c{i}", False, i + 1, "party_return_donors:d1", name=f"COMPANY NUMBER {i} WITH A LONG NAME LIMITED")
+        g["edges"].append({"kind": "role", "a": "party_return_donors:d1", "b": nid, "label": "director of", "cite": nid, "rule": None})
+        if i % 3 == 0:
+            g["edges"].append({"kind": "same person, near", "a": "party_return_donors:d1", "b": nid, "label": cat.rule_words("company-name@1"),
+                               "cite": "party_return_donors:d1", "rule": "company-name@1"})
+    return g
+
+
+def test_no_label_or_number_is_drawn_over_another_and_placement_is_deterministic():
+    for n in (3, 12, 40, 110):
+        g = crowded(n)
+        lns = graph.lines(g)
+        pos = graph.layout(g)
+        p = graph.place(g, pos, lns)
+        assert p == graph.place(g, pos, lns)
+        assert graph.overlaps(p) == [], (n, graph.overlaps(p)[:3])
+        html = graph.pane(g, "x")
+        picture = html[html.index("<svg"):html.index("</svg>")]
+        at = re.findall(r'<text[^>]* x="([\d.]+)" y="([\d.]+)"', picture)
+        assert len(at) == len(set(at)), n
+        drawn = [k for k, v in p["numbers"].items() if v]
+        assert len(drawn) >= min(len(lns), 12), n                       # the picture still numbers most edges
+        listed = html[html.index('<ol class="edges">'):]
+        assert listed.count('<li value="') == len(lns)                  # every edge is listed, numbered or not
+        for k, v in p["numbers"].items():
+            if not v:
+                assert f'<li value="{k}">' in listed and "no room for its number" in listed
+    assert any(graph.place(crowded(110), graph.layout(crowded(110)), graph.lines(crowded(110)))["labels"][k][0].endswith("…")
+               for k in crowded(110)["nodes"])                               # names are shortened to clear, not drawn over
+
+
+def test_overlaps_finds_two_boxes_that_meet():
+    p = {"labels": {"a": ("x", "", 0, 0, 0, "middle", (0, 0, 10, 10)), "b": ("y", "", 0, 0, 0, "middle", (5, 5, 15, 15))}, "numbers": {1: (40, 40, (35, 35, 45, 45))}}
+    assert graph.overlaps(p) == [("label a", "label b")]

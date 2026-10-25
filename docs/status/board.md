@@ -1,46 +1,40 @@
 # board: where it stands
 
-**Date:** 2026-10-25. **Step:** 4.9 second version, rulings 82 and 83
-(81 kept), `products/board/`. **Merge request:** `board-3` (raised).
+**Date:** 2026-10-25. **Step:** 4.9 second version, ruling 84 (80 to 83
+kept), `products/board/`. **Merge request:** `fix-products-board-1c`
+(raised).
 
 ## Done
 
-- Ruling 82, both tabs: "narrow by field", a details element (closed
-  until clicked or a field is filled) with first, middle and last name,
-  address, organisation, year. Each field matches whole words in the
-  columns `catalogue.FIELDS_OF` declares per view (data: a lane adds a
-  line). A one-string name is read in its places: a first or middle name
-  never its last word, a last or middle name never its first; a comma is
-  Family, Given; an honorific is no word. Organisation reads organisation
-  names, party and company columns, and a donor-type name only where it
-  carries an organisation word. Year reads year columns and the year of
-  the catalogue's dates. Address reads only `ADDRESS_COLUMNS` (company
-  registered offices, charities' addresses for service, limited
-  partnerships' registered offices; societies publish none). Fields and
-  box combine with "and"; the box alone is unchanged (identical results
-  to the main line on four queries). Fields ride every href in
-  `search.Boxes`; the results pane says which narrowed it.
-- Ruling 83, search tab: "Near matches" below the exact results, closed,
-  never counted with them: names reversed (keys.names' reading; middle
-  absent either side; an initial) and close addresses (same street number
-  and street by keys.addresses' fold; level, unit, spelling, suburb
-  differ; a differing town or postcode is not near). 25 per class with
-  the whole count. `near.py`.
-- `fold.py`: keys' readings copied verbatim, held equal by a test.
-- `bin/fast products/board` green; slow tests green (7); `python -m
-  products.board check` green (23 s), its new cases each shown to fail.
+- Ruling 84, graph tab. No rule id on the picture: `catalogue.RULE_WORDS`
+  gives each of the links' 14 rules plain words (name-only@1 reads "same
+  name, nothing else"); an id the table lacks reads "links rule <id>". The
+  id and version show as "(links rule name-only, version 1)" only in an
+  edge's tooltip and the list. A slow test holds every rule in `pub.links`
+  to the table (14 of 14).
+- Two rows joined more than once get one line (`graph.lines`), its colour
+  the first cause in the key's order, its tooltip every cause.
+- Each line carries a number, an href to the asserting row, placed along
+  the line clear of every label, number and circle (`graph.place`,
+  deterministic); with no room it is left off and kept in the list. Node
+  labels are shortened, set beside, or dropped to the tooltip so none meets
+  another. Under the key: the edges by number, each cause with kind, words
+  and the asserting row. The key keeps its counts.
+- The row pane's links read the same words.
+- Near matches: none found from two or more words in the plain box says
+  the box already matches reversed names exactly; use the name fields.
+- `python -m products.board check` adds the picture case (known donor, a
+  name-only donor, the "smith" search); each new test and case shown to
+  fail with its rule broken.
 
 ## Known limits
 
-- An address and an organisation together find no registered office
-  (`company_addresses` has no name column): card
-  `an-address-search-on-the-board-cannot-also-name-the-company`.
-- 49 directors with no `last_name` part are not found by the name fields.
-- From the plain box, a reversed name is already exact (any order), so
-  near names from the box show only the forms it misses (an initial).
+- On a crowded name search ("smith": 87 nodes, 76 lines) about a quarter
+  of the numbers and a tenth of the node labels have no room and live in
+  the list and the tooltips.
+- Text widths are estimated, not measured (no script on the page).
+- Card `an-address-search-on-the-board-cannot-also-name-the-company` open.
 
 ## Next
 
-1. The integrator merges `board-3` and restarts `qv4-board`.
-2. Lanes mirror their `FIELDS_OF` line in `pane.md` (the request lists
-   them).
+1. The integrator merges `fix-products-board-1c` and restarts `qv4-board`.
