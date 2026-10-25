@@ -65,6 +65,7 @@ code{font-size:12px;word-break:break-all;color:#e8eaed}
 .pane.left{flex:0 0 19rem;max-width:19rem}
 .pane.wide{flex:0 0 46rem;max-width:46rem}
 .pane.graph{flex:0 0 64rem;max-width:64rem}
+.pane.graph .picture{overflow-x:auto}
 .pane input[type=search]{width:12rem;padding:.3rem .4rem}
 ul.boxes{list-style:none;padding-left:0;font-size:13px}
 label.all{display:block;margin:.5rem 0;font-weight:600}
@@ -90,9 +91,10 @@ details.near summary{font-weight:600;cursor:pointer}
 .pane.uses{flex:0 0 78rem;max-width:78rem}
 header span.db{margin-left:auto;font-size:12px;font-variant-numeric:tabular-nums;cursor:help}
 svg rect.bg{fill:#161a20}
-svg text{font:11px system-ui,sans-serif;fill:#e8eaed}
+svg text{font:11px system-ui,sans-serif;fill:#e8eaed;paint-order:stroke;stroke:#161a20;stroke-width:3px}
 svg text.reg{font-size:9px;fill:#aab1bc}
 svg text.words{font-size:9px;fill:#e8eaed;paint-order:stroke;stroke:#161a20;stroke-width:3px}
+svg path.edge{fill:none;stroke-width:2}
 svg circle.matched{fill:#f3c969;stroke:#e8eaed;stroke-width:2.5}
 svg circle.other{fill:#0e1014;stroke:#aab1bc;stroke-width:1.5}
 svg a:hover text{text-decoration:underline}

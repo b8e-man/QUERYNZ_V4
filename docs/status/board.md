@@ -1,53 +1,50 @@
 # board: where it stands
 
-**Date:** 2026-10-26. **Step:** 4.9 second version, rulings 86 to 90
-(80 to 85 kept), `products/board/`. **Merge request:** `fix-products-board-1e`
-(ruling 88); `fix-products-board-1f` (raised, rulings 89 and 90).
+**Date:** 2026-10-26. **Step:** 4.9 second version, ruling 92 item 1
+(80 to 90 kept), `products/board/`. **Merge request:** `board-5` (raised).
+Before it: `fix-products-board-1e`, `-1f` (rulings 88 to 90).
 
-## Done
+## Done (board-5)
 
-- Night mode. One dark stylesheet. Every text colour reads at 4.5:1 or
-  more on every background, and the edge colours are re-chosen for dark.
-  A test and the check read the colour pairs from the stylesheet itself.
-- No edge numbers. An edge's words are drawn only where they touch no
-  other text. The list under the key is grouped by the row each edge
-  reaches.
-- Donations summed. A donor's rows filed under one name are one node,
-  with one edge per party or candidate. The edge shows the total and the
-  count. Every addend is listed under it. A disclosure is listed and never
-  added to a return.
-- Source links. `/doc/<sha256>` serves the captured document, read only,
-  whole. Ruling 88: every document the store holds opens, whatever its
-  source, the addresses it prints included: 54,875 documents from 31
-  sources, none withdrawn. The board listens on the local network only
-  (hard limit 13) and publishes no table and no export. A suppressed row
-  or withheld text still offers no link. The setting `SERVED_SOURCES`
-  and the 403 are gone.
-- The store is read only through `support.docstore`, because of the
-  one-way test. Its new reader `landing.documents_of` comes as the patch
-  `board-4-docstore-read.patch` beside the request. Until it is applied,
-  nothing opens and the check says so.
-- The use cases tab, `/uses`: the plan's 17 rows at render time. 13 have
-  templates built (10 subject report, 3 scan). Each name opens its
-  interface in a new browser tab: report form, scan page or site preview.
-  15 to 17 say what holds them. Every template folder binds to one row.
-- A connection counter, "db n/100", in every page's bar; by login on hover.
-- The check covers each of the above. Against live data it is green. It
-  opens a party return and one cited document of each of the 27 sources a
-  published row cites; with a refusal put back for party returns it is red.
-  An orphan template or a lost hold turns it red.
+- The graph is laid out like a family tree. The rows the search matched
+  sit on one horizontal line in the middle, by register then title,
+  evenly spaced. What they belong to or pay (company, party, return,
+  electorate) is above. What belongs to them (directors, shareholders,
+  officers, donors, declared interests) is below. A same-person row sits
+  beside its match when the line has room, else below.
+- A row joined to several matched rows is drawn once, between them, and
+  its edges fan from it.
+- Every edge is drawn with right angles: down or up from the row, along
+  a channel, then to the far row. Runs that would overlap get different
+  channels, ordered to cross least. Crossings are counted.
+- Names sit above or below their node, never on a channel, each no wider
+  than the gap to its neighbour. All text has a halo, so a line under a
+  name no longer cuts it. On the four live graphs tried, every node
+  keeps a name.
+- Only the matched line widens the picture (16 rows: 1,880 px, the pane
+  scrolls sideways). A full layer wraps into tiers instead.
+- Crossings, old sector layout to layered, live 26 October: "hart" 7 to
+  2; "smith" 6 to 11; "fletcher" 33 to 63; the known donor 0 to 0; a
+  centred company 0. See known limits.
+- Tests: matched rows on one y, organisations above, people below,
+  right angles only, overlapping runs apart, and a fixture shaped like
+  the live "hart" graph crossing no more than the sector layout did (7).
+  The check adds right angles and one line for the matched rows on its
+  three graphs. Each was broken in memory and went red.
 
 ## Known limits
 
-- Two rows filed under one name are drawn as one donor. Identical filing
-  is all that groups them; the page says so.
-- Lines still pass under node labels. Only text boxes are kept apart.
-- The scan shape's own two templates (step 6.1) serve no use case; the
-  check names them in `SHAPE_OWN`. A new one must be added there.
+- A node joined to matched rows far apart (a party many candidates
+  share) runs a long bar that the drops between must cross. That is why
+  "smith" and "fletcher" count more crossings than the sector layout's
+  straight lines did, which passed through nodes and labels instead.
+- Two rows filed under one name are drawn as one donor (ruling 86 (3)).
 - Earlier limits stand: family-given names with no comma; lanes' pane.md
   name orders; card `an-address-search-on-the-board-cannot-also-name-the-company`.
 
 ## Next
 
-1. The integrator merges `fix-products-board-1e`, then `-1f`, installs the
-   unit (two new settings) and restarts `qv4-board`.
+1. The integrator merges `fix-products-board-1e`, `-1f`, then `board-5`,
+   and restarts `qv4-board` at the release (graph.py and the stylesheet
+   changed; no table, no unit change). board-6 touches panes.py and
+   search; this branch touches panes.py's stylesheet lines only.
