@@ -14,6 +14,7 @@ import re
 import urllib.parse
 
 from products.board import catalogue as cat
+from products.board import document
 from products.board.search import FIELDS, field_words, words_of
 
 SUPPRESSED = "name suppressed"
@@ -27,56 +28,162 @@ MONEY = {"amount", "amount_original", "items_sum", "form_total", "figure", "prin
          "cannabis_referendum_expenses", "end_of_life_referendum_expenses"}
 REGISTER_NAME = dict(cat.REGISTERS)
 
+#: night mode (ruling 86 (1)): one dark scheme, no second theme and no toggle. Every text colour reads at 4.5:1 or
+#: more on every background the sheet sets (tests/test_night.py and the check read the pairs from this string);
+#: the graph's picture is styled here too, so its labels and its surface are held by the same test
 CSS = """
-body{margin:0;font:14px/1.4 system-ui,sans-serif;color:#222;background:#f4f4f2}
-header{display:flex;gap:1rem;align-items:center;padding:.5rem 1rem;background:#fff;border-bottom:1px solid #ddd;position:sticky;top:0;z-index:2}
+:root{color-scheme:dark}
+body{margin:0;font:14px/1.4 system-ui,sans-serif;color:#e8eaed;background:#0e1014}
+header{display:flex;gap:1rem;align-items:center;padding:.5rem 1rem;background:#161a20;border-bottom:1px solid #3a404c;position:sticky;top:0;z-index:2}
 header h1{font-size:15px;margin:0 1rem 0 0;font-weight:600}
 header input[type=search]{width:28rem;padding:.35rem .5rem;font-size:14px}
-header a{color:#246}
+input,button{color:#e8eaed;background:#232833;border:1px solid #5a6270;border-radius:3px}
+input::placeholder{color:#aab1bc}
 main{display:flex;gap:.75rem;padding:.75rem;overflow-x:auto;align-items:flex-start;min-height:calc(100vh - 3.5rem)}
-.pane{flex:0 0 26rem;max-width:26rem;background:#fff;border:1px solid #d8d8d4;border-radius:4px;padding:.75rem;max-height:calc(100vh - 5rem);overflow-y:auto}
-.pane.pinned{border-color:#b8860b}
+.pane{flex:0 0 26rem;max-width:26rem;background:#161a20;border:1px solid #3a404c;border-radius:4px;padding:.75rem;max-height:calc(100vh - 5rem);overflow-y:auto}
+.pane.pinned{border:2px solid #e0b84d}
 .pane h2{font-size:15px;margin:.25rem 0}
-.pane h3{font-size:12px;margin:1rem 0 .25rem;text-transform:uppercase;letter-spacing:.04em;color:#555;border-bottom:1px solid #eee}
-.reg{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.04em}
-.note,.why{font-size:12px;color:#666;font-style:italic}
-.warn{color:#8a3b00;font-weight:600}
+.pane h3{font-size:12px;margin:1rem 0 .25rem;text-transform:uppercase;letter-spacing:.04em;color:#aab1bc;border-bottom:1px solid #3a404c}
+.reg{font-size:11px;color:#aab1bc;text-transform:uppercase;letter-spacing:.04em}
+.note,.why{font-size:12px;color:#aab1bc;font-style:italic}
+.warn{color:#ffb26b;font-weight:600}
 table.f{border-collapse:collapse;width:100%;font-size:13px}
-table.f th{text-align:left;font-weight:normal;color:#666;vertical-align:top;padding:.1rem .5rem .1rem 0;width:40%}
+table.f th{text-align:left;font-weight:normal;color:#aab1bc;vertical-align:top;padding:.1rem .5rem .1rem 0;width:40%}
 table.f td{padding:.1rem 0;vertical-align:top;word-break:break-word}
 ul{margin:.25rem 0;padding-left:1.1rem}
 li{margin:.1rem 0}
-li .meta{color:#777;font-size:12px}
-.count{color:#777;font-weight:normal}
-a{color:#246}
+li .meta,.meta{color:#aab1bc;font-size:12px}
+.count{color:#aab1bc;font-weight:normal}
+a{color:#8cb8ff}
+a:visited{color:#c3b5ff}
 a.row{text-decoration:none}
 a.row:hover{text-decoration:underline}
 form.inline{display:inline}
 button{font:inherit;font-size:12px;padding:.15rem .5rem}
 .actions{display:flex;gap:.5rem;margin:.5rem 0;flex-wrap:wrap}
-code{font-size:12px;word-break:break-all}
+code{font-size:12px;word-break:break-all;color:#e8eaed}
 .pane.left{flex:0 0 19rem;max-width:19rem}
 .pane.wide{flex:0 0 46rem;max-width:46rem}
 .pane.graph{flex:0 0 64rem;max-width:64rem}
 .pane input[type=search]{width:12rem;padding:.3rem .4rem}
 ul.boxes{list-style:none;padding-left:0;font-size:13px}
 label.all{display:block;margin:.5rem 0;font-weight:600}
-.greyed{color:#aaa}
-mark{background:#fde68a;color:inherit;padding:0}
-article.hit{border-top:1px solid #eee;padding:.4rem 0}
-.cite{font-size:12px;color:#555;margin-top:.2rem}
+.greyed{color:#aab1bc;font-style:italic}
+mark{background:#4d3b00;color:#f3c969;padding:0}
+article.hit{border-top:1px solid #3a404c;padding:.4rem 0}
+.cite{font-size:12px;color:#aab1bc;margin-top:.2rem}
 .view{margin-top:.5rem}
-nav.tabs a{padding:.25rem .6rem;border:1px solid #ccc;border-bottom:none;border-radius:4px 4px 0 0;text-decoration:none}
-nav.tabs a.on{background:#246;color:#fff;border-color:#246}
+nav.tabs a{padding:.25rem .6rem;border:1px solid #5a6270;border-bottom:none;border-radius:4px 4px 0 0;text-decoration:none}
+nav.tabs a.on{background:#1d3a5f;color:#e8eaed;border-color:#8cb8ff}
+div.edges h4{font-size:13px;margin:.7rem 0 .1rem}
+ul.addends{font-size:12px;color:#aab1bc}
 table.key td,table.key th{padding:.1rem .5rem;font-size:13px;text-align:left}
+table.uc{border-collapse:collapse;width:100%;font-size:13px}
+table.uc th,table.uc td{text-align:left;vertical-align:top;padding:.3rem .5rem;border-top:1px solid #3a404c}
 details.fields{margin:.5rem 0}
 details.fields label{display:block;margin:.2rem 0;font-size:13px}
 details.fields input{width:11rem;padding:.2rem .3rem;float:right}
 details.fields label::after{content:"";display:block;clear:both}
-details.near{margin-top:1rem;border-top:2px solid #ddd;padding-top:.5rem}
+details.near{margin-top:1rem;border-top:2px solid #3a404c;padding-top:.5rem}
 details.near summary{font-weight:600;cursor:pointer}
-.nearwhy{font-size:12px;color:#8a3b00}
+.nearwhy{font-size:12px;color:#ffb26b}
+.pane.uses{flex:0 0 78rem;max-width:78rem}
+svg rect.bg{fill:#161a20}
+svg text{font:11px system-ui,sans-serif;fill:#e8eaed}
+svg text.reg{font-size:9px;fill:#aab1bc}
+svg text.words{font-size:9px;fill:#e8eaed;paint-order:stroke;stroke:#161a20;stroke-width:3px}
+svg circle.matched{fill:#f3c969;stroke:#e8eaed;stroke-width:2.5}
+svg circle.other{fill:#0e1014;stroke:#aab1bc;stroke-width:1.5}
+svg a:hover text{text-decoration:underline}
 """
+TEXT_FLOOR = 4.5         # the common accessibility floor for text (WCAG 2 AA)
+EDGE_FLOOR = 3.0         # for a line or a mark that is not text (WCAG 2 non-text contrast)
+EDGE_APART = 15.0        # every two edge colours of the key at least this far apart in OKLab (x100), the normal-vision floor
+
+
+def oklab(hexcolour: str) -> tuple:
+    """An sRGB colour in OKLab (Björn Ottosson's matrices)."""
+    h = hexcolour.lstrip("#")
+    lin = [(lambda c: c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)(int(h[i:i + 2], 16) / 255) for i in (0, 2, 4)]
+    r, g, b = lin
+    l = (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b) ** (1 / 3)
+    m = (0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b) ** (1 / 3)
+    s = (0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b) ** (1 / 3)
+    return (0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s, 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s)
+
+
+def apart(a: str, b: str) -> float:
+    """How far apart two colours are, OKLab distance x100."""
+    return 100 * sum((x - y) ** 2 for x, y in zip(oklab(a), oklab(b))) ** 0.5
+
+
+def luminance(hexcolour: str) -> float:
+    """The relative luminance of an sRGB colour, `#rgb` or `#rrggbb` (WCAG 2)."""
+    h = hexcolour.lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    out = []
+    for i in (0, 2, 4):
+        c = int(h[i:i + 2], 16) / 255
+        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * out[0] + 0.7152 * out[1] + 0.0722 * out[2]
+
+
+def contrast(a: str, b: str) -> float:
+    la, lb = sorted((luminance(a), luminance(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+_HEX = r"#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?\b"
+
+
+def sheet_colours(css: str = None) -> tuple:
+    """(text colours, backgrounds), read from the stylesheet: text is every
+    `color`, and the `fill` of an SVG text rule; a background is every
+    `background`, and the `fill` of the picture's surface (a rect). Every
+    text colour is held against every background, so a pair that can meet
+    on the page is among them."""
+    text, back = set(), set()
+    for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", CSS if css is None else css):
+        for prop, val in re.findall(r"(?:^|;)\s*([a-z-]+)\s*:\s*([^;]+)", body):
+            found = re.findall(_HEX, val)
+            if not found:
+                continue
+            if prop == "color" or (prop == "fill" and "text" in sel):
+                text.update(found)
+            elif prop in ("background", "background-color") or (prop == "fill" and "rect" in sel):
+                back.update(found)
+    return text, back
+
+
+def contrast_problems(css: str = None, edges=None) -> list:
+    """Every text colour on every background at TEXT_FLOOR or more; every
+    edge colour of the key (catalogue.EDGE_KINDS) at EDGE_FLOOR or more on
+    the picture's surface (the key's swatches sit on the pane, the same
+    colour), and every two of them EDGE_APART or more apart; empty when the sheet holds."""
+    text, back = sheet_colours(css)
+    out = []
+    if not text or not back:
+        out.append("the stylesheet sets no text colour or no background")
+    for t in sorted(text):
+        for b in sorted(back):
+            if contrast(t, b) < TEXT_FLOOR:
+                out.append(f"text {t} on {b}: {contrast(t, b):.2f}:1, under {TEXT_FLOOR}:1")
+    surfaces = {c for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", CSS if css is None else css) if "rect" in sel
+                for c in re.findall(r"fill\s*:\s*(" + _HEX + ")", body)}
+    if not surfaces:
+        out.append("the stylesheet sets no surface for the picture")
+    for kind, colour, _ in (cat.EDGE_KINDS if edges is None else edges):
+        for b in sorted(surfaces):
+            if contrast(colour, b) < EDGE_FLOOR:
+                out.append(f"the {kind} edge {colour} on {b}: {contrast(colour, b):.2f}:1, under {EDGE_FLOOR}:1")
+    colours = sorted({colour for _, colour, _ in (cat.EDGE_KINDS if edges is None else edges)})
+    for i, a in enumerate(colours):
+        for b in colours[i + 1:]:
+            if apart(a, b) < EDGE_APART:
+                out.append(f"the edge colours {a} and {b} are {apart(a, b):.1f} apart, under {EDGE_APART}")
+    return out
 
 
 def esc(x) -> str:
@@ -294,8 +401,26 @@ def search_words(q: str, boxes) -> list:
     return words
 
 
-def citation_line(v: cat.View, r: dict) -> str:
-    parts = []
+def source_link(v: cat.View, r: dict, docs: dict = None) -> str:
+    """First in every citation (ruling 86 (4)): "source", the captured
+    document on the board (`/doc/<sha256>`, a PDF at its page); for a
+    document held but not opened, the reason; "document not held here"
+    where the store has no copy. A suppressed row or withheld text offers
+    no document: it would print what the row hides (hard limits 15, 16)."""
+    doc = r.get("document")
+    st = (docs or {}).get(doc) if doc else None
+    if not st or st["state"] == document.ABSENT:
+        why = st["why"] if st else document.NOT_HELD
+        return f'<span class="note">{esc(why)}</span>'
+    if is_suppressed(v, r) or is_withheld(v, r):
+        return '<span class="note">source not opened: the row hides a name or a text the document prints</span>'
+    if st["state"] == document.WITHHELD:
+        return f'<span class="note" title="{esc(st["why"])}">source held, not opened here (hard limit 15)</span>'
+    return f'<a class="source" href="{esc(document.href(doc, st["kind"], r.get("page")))}">source</a>'
+
+
+def citation_line(v: cat.View, r: dict, docs: dict = None) -> str:
+    parts = [source_link(v, r, docs)]
     doc = r.get("document")
     parts.append(f'document <code title="{esc(doc)}">{esc(doc[:12])}…</code>' if doc else f'document <span class="note">{NOT_STATED}</span>')
     for label, c in (("page", "page"), ("place", "place")):
@@ -310,7 +435,7 @@ def citation_line(v: cat.View, r: dict) -> str:
     return '<div class="cite">' + " · ".join(parts) + "</div>"
 
 
-def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "") -> str:
+def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: dict = None) -> str:
     """One matching row in the results pane: every field its View shows,
     its dates, its source's address and its citation, the words marked;
     `why`, for a near match, says which kind it is (ruling 83)."""
@@ -332,16 +457,17 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "") -> str:
         out.append('<table class="f">' + "".join(rows) + "</table>")
     if blank:
         out.append(f'<div class="note">not stated: {esc(", ".join(blank))}</div>')
-    out.append(citation_line(v, r))
+    out.append(citation_line(v, r, docs))
     out.append("</article>")
     return "".join(out)
 
 
-def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(), near: dict = None) -> str:
+def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(), near: dict = None, docs: dict = None) -> str:
     """The wider pane beside the left one: every matching row, grouped by
     register with the register's count, over `regs`, the registers searched
     (search.selection); `boxes` the check boxes every href carries, and the
-    filled fields (ruling 82); `near`, the near matches below (ruling 83)."""
+    filled fields (ruling 82); `near`, the near matches below (ruling 83);
+    `docs`, the cited documents' states (document.statuses, ruling 86 (4))."""
     out = ['<section class="pane wide" id="results">', '<div class="reg">results</div>']
     asked = boxes.asked() if boxes is not None else {}
     if not boxes.all and not regs:
@@ -372,11 +498,11 @@ def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(),
         for v, n, rows in hits:
             out.append(f'<div class="view"><strong>{esc(v.name)}</strong> <span class="count">{n:,}</span></div>')
             for r in rows:
-                out.append(hit(q, v, r, words, boxes))
+                out.append(hit(q, v, r, words, boxes, docs=docs))
             if n > len(rows):
                 out.append(f'<p class="note">and {n - len(rows):,} more in {esc(v.name)}; narrow the search</p>')
     if near is not None:
-        out.append(near_section(q, near, words, boxes))
+        out.append(near_section(q, near, words, boxes, docs))
     out.append("</section>")
     return "\n".join(out)
 
@@ -397,7 +523,7 @@ NEAR_NONE_FROM_BOX = ("the plain box matches words in any order, so a reversed n
                       "use the name fields to see reversed names apart")
 
 
-def near_section(q: str, near: dict, words, boxes=None) -> str:
+def near_section(q: str, near: dict, words, boxes=None, docs: dict = None) -> str:
     """Near matches (ruling 83), below the exact results and never among
     them or in their count: a details element, closed until clicked, with
     its two classes, each row saying which, capped with the whole count."""
@@ -418,7 +544,7 @@ def near_section(q: str, near: dict, words, boxes=None) -> str:
             out.append('<p class="why">none found</p>')
             continue
         for v, r in c["rows"]:
-            out.append(hit(q, v, r, words, boxes, why=why))
+            out.append(hit(q, v, r, words, boxes, why=why, docs=docs))
         shown_n = len(c["rows"])
         if c["total"] > shown_n:
             out.append(f'<p class="note">and {c["total"] - shown_n:,}{" or more" if c.get("more") else ""} more; narrow the search</p>')
@@ -428,8 +554,8 @@ def near_section(q: str, near: dict, words, boxes=None) -> str:
 
 # ── a row's pane ────────────────────────────────────────────────────────────
 
-def citation(v: cat.View, r: dict, doc_names: list) -> str:
-    out = ['<h3>Citation</h3><table class="f">']
+def citation(v: cat.View, r: dict, doc_names: list, docs: dict = None) -> str:
+    out = ['<h3>Citation</h3><table class="f">', f"<tr><th>source</th><td>{source_link(v, r, docs)}</td></tr>"]
     doc = r.get("document")
     if doc:
         out.append(f'<tr><th>document</th><td><code title="{esc(doc)}">{esc(doc[:12])}…</code></td></tr>')
@@ -456,11 +582,13 @@ def citation(v: cat.View, r: dict, doc_names: list) -> str:
     elif doc:
         out.append('<tr><th>the document\'s names</th><td><span class="note">none recorded in the store</span></td></tr>')
     if r.get("source_note"):
-        out.append(f'<tr><th>source</th><td>{esc(r["source_note"])}</td></tr>')
+        out.append(f'<tr><th>source note</th><td>{esc(r["source_note"])}</td></tr>')
     if r.get("loaded_at"):
         out.append(f'<tr><th>row written</th><td>{fmt(r["loaded_at"])} <span class="note">(never a date of anything)</span></td></tr>')
     out.append("</table>")
-    out.append('<p class="note">The document is cited, not opened: captured documents can carry addresses.</p>')
+    out.append('<p class="note">"source" opens the captured document, whole as the lane captured it, only where its source\'s '
+               "printed form has no field for a person's address; any other document is cited and not opened here, since "
+               "captured documents can print home addresses (hard limit 15).</p>")
     return "\n".join(out)
 
 
@@ -582,7 +710,7 @@ def row_pane(ctx: dict) -> str:
     out.append(links_section(ctx.get("links") or {}, ctx.get("group") or {}, q, path, ctx.get("resolve") or (lambda ref: None), boxes))
     if v.names:
         out.append(same_name_section(ctx.get("same") or {}, q, path, words, boxes))
-    out.append(citation(v, r, ctx.get("doc_names") or []))
+    out.append(citation(v, r, ctx.get("doc_names") or [], ctx.get("docs")))
     out.append("</section>")
     return "\n".join(out)
 
@@ -628,6 +756,44 @@ def person_pane(ctx: dict) -> str:
     return "\n".join(out)
 
 
+# ── the use cases tab (ruling 87) ───────────────────────────────────────────
+
+NONE_NAMED = '<span class="note">none named</span>'
+
+
+def uses_pane(rows: list, missing: str = "", source: str = "") -> str:
+    """The plan's use cases in its order, each with the scan templates built
+    for it and the registers the plan's reference names for it, held or not
+    held. `missing`, the plan file's path when the copy the board runs from
+    has none; `source`, the file read."""
+    out = ['<section class="pane uses" id="uses">', '<div class="reg">use cases</div>', "<h2>The plan's use cases</h2>"]
+    if missing:
+        out.append(f'<p class="why">the plan\'s use-case table is not in the copy the board runs from: {esc(missing)} is missing</p></section>')
+        return "\n".join(out)
+    out.append(f'<p class="note">{len(rows)} use cases, in the plan\'s order, read now from <code>{esc(source)}</code>. '
+               "Templates: the register scan's templates built for each (products/scan/templates). Registers: the sources "
+               "the plan's reference names for each, in its not-held table (the held tables name no use case), and whether "
+               "a published view holds them today. Nothing here is written.</p>")
+    out.append('<table class="uc"><tr><th>#</th><th>use case</th><th>who it serves</th><th>the question</th><th>shape</th>'
+               "<th>step</th><th>templates built</th><th>registers the reference names</th></tr>")
+    for r in rows:
+        ts = "<br>".join(f'<code>{esc(t["name"])}</code> <span class="meta">{esc(t["title"])}</span>' for t in r["templates"]) \
+            or '<span class="note">none built</span>'
+        regs = []
+        for src, found in r["registers"]:
+            if not found:
+                regs.append(f'{esc(src)}: <span class="note">not held, no lane</span>')
+                continue
+            state = ", ".join(f'{esc(plain)} <span class="{"meta" if ok else "warn"}">{"held" if ok else "not held"}</span>'
+                              for _, plain, ok in found)
+            regs.append(f"{esc(src)}: {state}")
+        out.append(f'<tr><td>{esc(r["number"])}</td><td><strong>{esc(r["name"])}</strong></td><td>{esc(r["who"])}</td>'
+                   f'<td>{esc(r["question"])}</td><td>{esc(r["shape"])}</td><td>{esc(r["step"])}</td><td>{ts}</td>'
+                   f'<td>{"<br>".join(regs) or NONE_NAMED}</td></tr>')
+    out.append("</table></section>")
+    return "\n".join(out)
+
+
 # ── the lists ───────────────────────────────────────────────────────────────
 
 def pins_pane(pins: list) -> str:
@@ -656,8 +822,9 @@ def paths_pane(paths: list) -> str:
 
 
 def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: str = "search") -> str:
-    """The page: two tabs, search (`/`, as before) and graph (`/graph`), each
-    an href carrying the term and the registers checked (ruling 80)."""
+    """The page: three tabs, search (`/`, as before) and graph (`/graph`),
+    each an href carrying the term and the registers checked (ruling 80),
+    and use cases (`/uses`, ruling 87)."""
     save = ""
     if path:
         save = (f'<form class="inline" method="post" action="/save"><input type="hidden" name="q" value="{esc(q)}">'
@@ -666,7 +833,8 @@ def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: st
                 f'<input name="name" placeholder="name this path" size="18"> <button>save path</button></form>')
     msg = f'<span class="note">{esc(message)}</span>' if message else ""
     tabs = (f'<nav class="tabs"><a class="{"on" if tab == "search" else ""}" href="{esc(href(q, [] if tab != "search" else path, boxes))}">search</a> '
-            f'<a class="{"on" if tab == "graph" else ""}" href="{esc(href(q, [], boxes, "/graph"))}">graph</a></nav>')
+            f'<a class="{"on" if tab == "graph" else ""}" href="{esc(href(q, [], boxes, "/graph"))}">graph</a> '
+            f'<a class="{"on" if tab == "uses" else ""}" href="/uses">use cases</a></nav>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ board</title>"
             f"<style>{CSS}</style></head><body><header><h1>QueryNZ board</h1>{tabs}"
             f"{save}<a href=\"/pinned\">pinned</a><a href=\"/saved\">saved paths</a>{msg}</header>"

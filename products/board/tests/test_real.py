@@ -85,3 +85,23 @@ def test_every_links_rule_in_pub_links_has_its_words():
     assert rules
     lacking = sorted(r for r in rules if r.partition("@")[0] not in cat.RULE_WORDS)
     assert not lacking, lacking
+
+
+def test_a_known_donor_with_returns_in_two_years_gets_one_party_edge_whose_total_equals_its_listed_addends():
+    """Ruling 86 (3), on the live tables: check.gift_problems reads the
+    rendered list under the party and the register's own sum."""
+    with db.read_connect() as conn:
+        centre = check.known_donor(conn)
+        assert centre
+        g = graph.build(conn, "", centre=centre)
+        assert check.gift_problems(conn) == []
+    money = [e for e in g["edges"] if e["kind"] == "money"]
+    assert len(money) == 1 and money[0]["b"].startswith("parties:")
+    assert sum(1 for n in g["nodes"] if n.startswith("party_return_donors:")) == 1     # one donor node, not one per row
+    assert len(money[0]["addends"]) >= 2
+
+
+def test_a_known_cited_document_opens_from_its_source_link_and_a_wrong_sha_does_not():
+    """Ruling 86 (4), on the live store: check.doc_problems answers each case."""
+    with db.read_connect() as conn:
+        assert check.doc_problems(conn) == []

@@ -40,18 +40,61 @@ class Relation:
     label: str = ""                 # what the edge says, read from this row to the far end
 
 
-#: the edge types the graph draws, in the key's order, with their colour and stroke
-#: (the validated categorical palette, light surface; same person shares one hue, solid or dashed)
+#: the edge types the graph draws, in the key's order, with their colour and stroke (ruling 86 (1): night mode):
+#: the categorical palette's dark blue, orange and aqua, with yellow, magenta and violet stepped lighter so that
+#: every pair, not only neighbours in the key, is 15 or more apart in OKLab (x100) and each is 3:1 or more on the
+#: picture's surface (tests/test_night.py); same person shares one hue, solid or dashed. Every edge also carries its words, its tooltip and its line in the list.
 EDGE_KINDS = (
-    ("money", "#2a78d6", ""),
-    ("role", "#eb6834", ""),
-    ("candidacy", "#1baf7a", ""),
-    ("declaration", "#eda100", ""),
+    ("money", "#3987e5", ""),
+    ("role", "#d95926", ""),
+    ("candidacy", "#199e70", ""),
+    ("declaration", "#e3b23c", ""),
     ("dealing", "#e87ba4", ""),
-    ("same person, confirmed", "#6250d6", ""),
-    ("same person, near", "#6250d6", "6 4"),
+    ("same person, confirmed", "#d4ccff", ""),
+    ("same person, near", "#d4ccff", "6 4"),
 )
 RELATION_KINDS = ("money", "role", "candidacy", "declaration", "dealing")   # what a catalogue line may declare; the two same-person kinds come from pub.links
+
+
+@dataclass(frozen=True)
+class Gift:
+    """A donor's rows the graph draws as one money edge per recipient (ruling
+    86 (3)): every row filed under one donor name, as filed (case, macrons
+    and spacing folded, nothing else), to one party or one candidate, is one
+    edge to one node, labelled with the total of the register's own amounts
+    and its count; every addend is listed under it. One name as filed is
+    never a finding that its rows are one person. `added`: whether this
+    view's amounts are summed into the total, or listed apart (a disclosure's
+    gift is also in that year's return: never summed with it, rulings 190 to
+    193 of the old estate, carried in the disclosures and scan templates).
+    `one_recipient`: columns of the recipient row that make one recipient
+    across its rows (a candidate files one return per election); empty, the
+    recipient row is itself the node (a party)."""
+    view: str                       # the donor's view
+    name: str                       # the donor's name, as filed
+    amount: str
+    years: tuple                    # a year column, or date columns whose year counts, first present wins
+    to_view: str                    # the recipient's view
+    column: str                     # this row's column naming the recipient, or the record that names it
+    to_column: str = "key"          # matched to
+    record: str = ""                # this row's column naming the record it sits in (its return), listed beside it
+    record_view: str = ""
+    what: str = ""                  # what one addend is, in words
+    added: bool = True
+    one_recipient: tuple = ()
+    replaced: str = "replaced_by"   # a row an amendment replaces is listed, never added
+
+
+GIFTS = (
+    Gift("party_return_donors", "donor", "amount", ("year",), "parties", "party_key", record="return_key",
+         record_view="party_return_totals", what="party return"),
+    Gift("disclosures", "donor_name", "amount", ("given_on", "received_on"), "parties", "party", to_column="name",
+         what="large-donation disclosure", added=False, replaced=""),
+    Gift("candidate_return_donors", "donor", "amount", ("year",), "candidate_return_totals", "return_key",
+         record="return_key", record_view="candidate_return_totals", what="candidate return",
+         one_recipient=("surname", "given_names")),
+)
+GIFT_OF = {g.view: g for g in GIFTS}
 
 #: the links lane's rules in plain words (ruling 84), keyed by the rule id `pub.links` carries
 #: without its version; the words follow each rule's own description in links/ (rules.py, build.py).
@@ -1132,6 +1175,41 @@ NOT_HELD = (
     ("settlement_commitments", "Treaty settlement commitments (Te Haeata: behind a login, hard limit 6; watched)"),
     ("council_procurement", "Council procurement off GETS (barred by the councils' terms or behind a login; watched)"),
 )
+
+#: the document store's sources whose captured documents the board opens whole at /doc/<sha256> (ruling 86 (4)),
+#: each because its printed form has no field for a person's address, measured over every document it holds
+#: (address-shaped lines counted, never printed). Every other source is cited and not opened (hard limit 15): its
+#: documents may print a home address, and which may open is Arthur's (docs/decisions/queue, no default).
+SERVED_SOURCES = {
+    "house": "the Commission's results, candidate and party-list pages and files: names, parties, electorates, votes; "
+             "measured 2026-10-26, 167 documents, one address-shaped line, the Commission's own in its authorisation",
+    "expenses": "Parliament's and the ministers' quarterly expense workbooks: members, categories, figures; "
+                "measured 2026-10-26, 103 documents, no address-shaped line",
+}
+WITHHELD_WHY = ("held in the store, not opened here: a captured document is served whole and this source's may print a "
+                "person's home address (hard limit 15); open the publisher's copy")
+
+#: the plan's reference names registers by use case in one table only, "Not held" (docs/plan/reference/
+#: registers-and-use-cases/not-held.md, its "Serves use cases" column); each of its sources, by the words it
+#: begins with, and the board's registers that hold it, if any lane has built one (ruling 87). A source with
+#: none reads "no lane". Held or not is read from `pub` at render time.
+REFERENCE_REGISTERS = {
+    "Securities register": (),
+    "Parsed case law": ("openlaw",),
+    "Tribunals, employment and environment courts": ("tenancy_tribunal", "real_estate_authority"),
+    "Sole traders, partnerships, trusts": (),
+    "Company filings": (),
+    "Sanctions lists; limited partnership partners": ("sanctions", "limited_partnerships"),
+    "Overseas ownership data": ("overseas_investment",),
+    "Licensed building practitioners": ("building_practitioners",),
+    "Health and Disability Commissioner decisions": ("hdc_decisions",),
+    "Live tenders, agency contract disclosures, council procurement": ("tenders", "contract_disclosures", "council_procurement"),
+    "Grants": ("grants",),
+    "Local election returns, councillors' interests, council pay": ("local_elections", "councillor_interests"),
+    "Iwi and hapū directory, settlement commitments, Māori Land Court": ("iwi_directory", "settlement_commitments"),
+    "Stock exchange announcements": (),
+    "Building consents; primary-industry prosecutions": (),
+}
 
 #: the links views the board reads once links/ publishes them (plan step 4.9: a search table published by links)
 LINKS_VIEWS = {"links": "pub.links", "groups": "pub.groups", "decisions": "pub.decisions"}

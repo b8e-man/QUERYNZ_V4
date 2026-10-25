@@ -123,3 +123,23 @@ def test_the_tables_apply_and_a_landing_round_trips_in_the_sample_database(tmp_p
         conn.execute("DELETE FROM docs.landings WHERE sha256 = %s", (ref.sha256,))
         conn.execute("DELETE FROM docs.documents WHERE sha256 = %s", (ref.sha256,))
         conn.commit()
+
+
+class ReadConn:
+    def __init__(self, rows):
+        self.rows, self.seen = rows, []
+
+    def execute(self, sql, params=()):
+        self.seen.append((sql, params))
+        want = set(params[0])
+        return [r for r in self.rows if r[0] in want]
+
+
+def test_documents_of_answers_kind_source_and_withdrawn_in_one_query():
+    a, b = "a" * 64, "b" * 64
+    conn = ReadConn([(a, "pdf", "house", None), (b, "web-page", "party_returns", "withdrawn: a test")])
+    got = landing.documents_of([a, b, "c" * 64, None, a], conn)
+    assert got == {a: {"kind": "pdf", "source": "house", "withdrawn": None},
+                   b: {"kind": "web-page", "source": "party_returns", "withdrawn": "withdrawn: a test"}}
+    assert len(conn.seen) == 1 and conn.seen[0][1] == ([a, b, "c" * 64],)
+    assert landing.documents_of([], conn) == {} and len(conn.seen) == 1
