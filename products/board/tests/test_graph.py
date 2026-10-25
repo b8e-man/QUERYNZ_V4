@@ -121,7 +121,7 @@ def test_two_rows_joined_twice_get_one_line_listing_both_causes():
     picture = html[html.index("<svg"):html.index("</svg>")]
     assert picture.count("<line ") == 3
     line = re.search(r'<line [^>]*stroke="([^"]+)"[^>]*><title>3\. ([^<]*)</title>', picture)
-    assert line and line.group(1) == "#2a78d6"
+    assert line and line.group(1) == "#3987e5"
     assert line.group(2) == "money: lent to; same person, near: same name, nothing else (links rule name-only, version 1)"
     listed = html[html.index('<ol class="edges">'):]
     third = listed[listed.index('<li value="3">'):]

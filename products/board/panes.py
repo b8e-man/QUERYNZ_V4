@@ -27,56 +27,160 @@ MONEY = {"amount", "amount_original", "items_sum", "form_total", "figure", "prin
          "cannabis_referendum_expenses", "end_of_life_referendum_expenses"}
 REGISTER_NAME = dict(cat.REGISTERS)
 
+#: night mode (ruling 86 (1)): one dark scheme, no second theme and no toggle. Every text colour reads at 4.5:1 or
+#: more on every background the sheet sets (tests/test_night.py and the check read the pairs from this string);
+#: the graph's picture is styled here too, so its labels and its surface are held by the same test
 CSS = """
-body{margin:0;font:14px/1.4 system-ui,sans-serif;color:#222;background:#f4f4f2}
-header{display:flex;gap:1rem;align-items:center;padding:.5rem 1rem;background:#fff;border-bottom:1px solid #ddd;position:sticky;top:0;z-index:2}
+:root{color-scheme:dark}
+body{margin:0;font:14px/1.4 system-ui,sans-serif;color:#e8eaed;background:#0e1014}
+header{display:flex;gap:1rem;align-items:center;padding:.5rem 1rem;background:#161a20;border-bottom:1px solid #3a404c;position:sticky;top:0;z-index:2}
 header h1{font-size:15px;margin:0 1rem 0 0;font-weight:600}
 header input[type=search]{width:28rem;padding:.35rem .5rem;font-size:14px}
-header a{color:#246}
+input,button{color:#e8eaed;background:#232833;border:1px solid #5a6270;border-radius:3px}
+input::placeholder{color:#aab1bc}
 main{display:flex;gap:.75rem;padding:.75rem;overflow-x:auto;align-items:flex-start;min-height:calc(100vh - 3.5rem)}
-.pane{flex:0 0 26rem;max-width:26rem;background:#fff;border:1px solid #d8d8d4;border-radius:4px;padding:.75rem;max-height:calc(100vh - 5rem);overflow-y:auto}
-.pane.pinned{border-color:#b8860b}
+.pane{flex:0 0 26rem;max-width:26rem;background:#161a20;border:1px solid #3a404c;border-radius:4px;padding:.75rem;max-height:calc(100vh - 5rem);overflow-y:auto}
+.pane.pinned{border:2px solid #e0b84d}
 .pane h2{font-size:15px;margin:.25rem 0}
-.pane h3{font-size:12px;margin:1rem 0 .25rem;text-transform:uppercase;letter-spacing:.04em;color:#555;border-bottom:1px solid #eee}
-.reg{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.04em}
-.note,.why{font-size:12px;color:#666;font-style:italic}
-.warn{color:#8a3b00;font-weight:600}
+.pane h3{font-size:12px;margin:1rem 0 .25rem;text-transform:uppercase;letter-spacing:.04em;color:#aab1bc;border-bottom:1px solid #3a404c}
+.reg{font-size:11px;color:#aab1bc;text-transform:uppercase;letter-spacing:.04em}
+.note,.why{font-size:12px;color:#aab1bc;font-style:italic}
+.warn{color:#ffb26b;font-weight:600}
 table.f{border-collapse:collapse;width:100%;font-size:13px}
-table.f th{text-align:left;font-weight:normal;color:#666;vertical-align:top;padding:.1rem .5rem .1rem 0;width:40%}
+table.f th{text-align:left;font-weight:normal;color:#aab1bc;vertical-align:top;padding:.1rem .5rem .1rem 0;width:40%}
 table.f td{padding:.1rem 0;vertical-align:top;word-break:break-word}
 ul{margin:.25rem 0;padding-left:1.1rem}
 li{margin:.1rem 0}
-li .meta{color:#777;font-size:12px}
-.count{color:#777;font-weight:normal}
-a{color:#246}
+li .meta,.meta{color:#aab1bc;font-size:12px}
+.count{color:#aab1bc;font-weight:normal}
+a{color:#8cb8ff}
+a:visited{color:#c3b5ff}
 a.row{text-decoration:none}
 a.row:hover{text-decoration:underline}
 form.inline{display:inline}
 button{font:inherit;font-size:12px;padding:.15rem .5rem}
 .actions{display:flex;gap:.5rem;margin:.5rem 0;flex-wrap:wrap}
-code{font-size:12px;word-break:break-all}
+code{font-size:12px;word-break:break-all;color:#e8eaed}
 .pane.left{flex:0 0 19rem;max-width:19rem}
 .pane.wide{flex:0 0 46rem;max-width:46rem}
 .pane.graph{flex:0 0 64rem;max-width:64rem}
 .pane input[type=search]{width:12rem;padding:.3rem .4rem}
 ul.boxes{list-style:none;padding-left:0;font-size:13px}
 label.all{display:block;margin:.5rem 0;font-weight:600}
-.greyed{color:#aaa}
-mark{background:#fde68a;color:inherit;padding:0}
-article.hit{border-top:1px solid #eee;padding:.4rem 0}
-.cite{font-size:12px;color:#555;margin-top:.2rem}
+.greyed{color:#aab1bc;font-style:italic}
+mark{background:#4d3b00;color:#f3c969;padding:0}
+article.hit{border-top:1px solid #3a404c;padding:.4rem 0}
+.cite{font-size:12px;color:#aab1bc;margin-top:.2rem}
 .view{margin-top:.5rem}
-nav.tabs a{padding:.25rem .6rem;border:1px solid #ccc;border-bottom:none;border-radius:4px 4px 0 0;text-decoration:none}
-nav.tabs a.on{background:#246;color:#fff;border-color:#246}
+nav.tabs a{padding:.25rem .6rem;border:1px solid #5a6270;border-bottom:none;border-radius:4px 4px 0 0;text-decoration:none}
+nav.tabs a.on{background:#1d3a5f;color:#e8eaed;border-color:#8cb8ff}
 table.key td,table.key th{padding:.1rem .5rem;font-size:13px;text-align:left}
+table.uc{border-collapse:collapse;width:100%;font-size:13px}
+table.uc th,table.uc td{text-align:left;vertical-align:top;padding:.3rem .5rem;border-top:1px solid #3a404c}
 details.fields{margin:.5rem 0}
 details.fields label{display:block;margin:.2rem 0;font-size:13px}
 details.fields input{width:11rem;padding:.2rem .3rem;float:right}
 details.fields label::after{content:"";display:block;clear:both}
-details.near{margin-top:1rem;border-top:2px solid #ddd;padding-top:.5rem}
+details.near{margin-top:1rem;border-top:2px solid #3a404c;padding-top:.5rem}
 details.near summary{font-weight:600;cursor:pointer}
-.nearwhy{font-size:12px;color:#8a3b00}
+.nearwhy{font-size:12px;color:#ffb26b}
+.pane.uses{flex:0 0 78rem;max-width:78rem}
+svg rect.bg{fill:#161a20}
+svg text{font:11px system-ui,sans-serif;fill:#e8eaed}
+svg text.reg{font-size:9px;fill:#aab1bc}
+svg text.words{font-size:9px;fill:#e8eaed;paint-order:stroke;stroke:#161a20;stroke-width:3px}
+svg circle.matched{fill:#f3c969;stroke:#e8eaed;stroke-width:2.5}
+svg circle.other{fill:#0e1014;stroke:#aab1bc;stroke-width:1.5}
+svg a:hover text{text-decoration:underline}
 """
+TEXT_FLOOR = 4.5         # the common accessibility floor for text (WCAG 2 AA)
+EDGE_FLOOR = 3.0         # for a line or a mark that is not text (WCAG 2 non-text contrast)
+EDGE_APART = 15.0        # every two edge colours of the key at least this far apart in OKLab (x100), the normal-vision floor
+
+
+def oklab(hexcolour: str) -> tuple:
+    """An sRGB colour in OKLab (Björn Ottosson's matrices)."""
+    h = hexcolour.lstrip("#")
+    lin = [(lambda c: c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)(int(h[i:i + 2], 16) / 255) for i in (0, 2, 4)]
+    r, g, b = lin
+    l = (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b) ** (1 / 3)
+    m = (0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b) ** (1 / 3)
+    s = (0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b) ** (1 / 3)
+    return (0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s, 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s)
+
+
+def apart(a: str, b: str) -> float:
+    """How far apart two colours are, OKLab distance x100."""
+    return 100 * sum((x - y) ** 2 for x, y in zip(oklab(a), oklab(b))) ** 0.5
+
+
+def luminance(hexcolour: str) -> float:
+    """The relative luminance of an sRGB colour, `#rgb` or `#rrggbb` (WCAG 2)."""
+    h = hexcolour.lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    out = []
+    for i in (0, 2, 4):
+        c = int(h[i:i + 2], 16) / 255
+        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * out[0] + 0.7152 * out[1] + 0.0722 * out[2]
+
+
+def contrast(a: str, b: str) -> float:
+    la, lb = sorted((luminance(a), luminance(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+_HEX = r"#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?\b"
+
+
+def sheet_colours(css: str = None) -> tuple:
+    """(text colours, backgrounds), read from the stylesheet: text is every
+    `color`, and the `fill` of an SVG text rule; a background is every
+    `background`, and the `fill` of the picture's surface (a rect). Every
+    text colour is held against every background, so a pair that can meet
+    on the page is among them."""
+    text, back = set(), set()
+    for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", CSS if css is None else css):
+        for prop, val in re.findall(r"(?:^|;)\s*([a-z-]+)\s*:\s*([^;]+)", body):
+            found = re.findall(_HEX, val)
+            if not found:
+                continue
+            if prop == "color" or (prop == "fill" and "text" in sel):
+                text.update(found)
+            elif prop in ("background", "background-color") or (prop == "fill" and "rect" in sel):
+                back.update(found)
+    return text, back
+
+
+def contrast_problems(css: str = None, edges=None) -> list:
+    """Every text colour on every background at TEXT_FLOOR or more; every
+    edge colour of the key (catalogue.EDGE_KINDS) at EDGE_FLOOR or more on
+    the picture's surface (the key's swatches sit on the pane, the same
+    colour), and every two of them EDGE_APART or more apart; empty when the sheet holds."""
+    text, back = sheet_colours(css)
+    out = []
+    if not text or not back:
+        out.append("the stylesheet sets no text colour or no background")
+    for t in sorted(text):
+        for b in sorted(back):
+            if contrast(t, b) < TEXT_FLOOR:
+                out.append(f"text {t} on {b}: {contrast(t, b):.2f}:1, under {TEXT_FLOOR}:1")
+    surfaces = {c for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", CSS if css is None else css) if "rect" in sel
+                for c in re.findall(r"fill\s*:\s*(" + _HEX + ")", body)}
+    if not surfaces:
+        out.append("the stylesheet sets no surface for the picture")
+    for kind, colour, _ in (cat.EDGE_KINDS if edges is None else edges):
+        for b in sorted(surfaces):
+            if contrast(colour, b) < EDGE_FLOOR:
+                out.append(f"the {kind} edge {colour} on {b}: {contrast(colour, b):.2f}:1, under {EDGE_FLOOR}:1")
+    colours = sorted({colour for _, colour, _ in (cat.EDGE_KINDS if edges is None else edges)})
+    for i, a in enumerate(colours):
+        for b in colours[i + 1:]:
+            if apart(a, b) < EDGE_APART:
+                out.append(f"the edge colours {a} and {b} are {apart(a, b):.1f} apart, under {EDGE_APART}")
+    return out
 
 
 def esc(x) -> str:

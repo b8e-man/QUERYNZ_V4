@@ -40,16 +40,18 @@ class Relation:
     label: str = ""                 # what the edge says, read from this row to the far end
 
 
-#: the edge types the graph draws, in the key's order, with their colour and stroke
-#: (the validated categorical palette, light surface; same person shares one hue, solid or dashed)
+#: the edge types the graph draws, in the key's order, with their colour and stroke (ruling 86 (1): night mode):
+#: the categorical palette's dark blue, orange and aqua, with yellow, magenta and violet stepped lighter so that
+#: every pair, not only neighbours in the key, is 15 or more apart in OKLab (x100) and each is 3:1 or more on the
+#: picture's surface (tests/test_night.py); same person shares one hue, solid or dashed. Every edge also carries its words, its tooltip and its line in the list.
 EDGE_KINDS = (
-    ("money", "#2a78d6", ""),
-    ("role", "#eb6834", ""),
-    ("candidacy", "#1baf7a", ""),
-    ("declaration", "#eda100", ""),
+    ("money", "#3987e5", ""),
+    ("role", "#d95926", ""),
+    ("candidacy", "#199e70", ""),
+    ("declaration", "#e3b23c", ""),
     ("dealing", "#e87ba4", ""),
-    ("same person, confirmed", "#6250d6", ""),
-    ("same person, near", "#6250d6", "6 4"),
+    ("same person, confirmed", "#d4ccff", ""),
+    ("same person, near", "#d4ccff", "6 4"),
 )
 RELATION_KINDS = ("money", "role", "candidacy", "declaration", "dealing")   # what a catalogue line may declare; the two same-person kinds come from pub.links
 

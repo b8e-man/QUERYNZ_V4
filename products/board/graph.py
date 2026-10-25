@@ -308,10 +308,7 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None) -
     placement = place(g, pos, lns) if placement is None else placement
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="100%" role="img" '
            f'aria-label="register rows as nodes, the connections their registers assert as numbered edges">',
-           '<style>text{font:11px system-ui,sans-serif;fill:#222}text.reg{font-size:9px;fill:#666}'
-           'text.num{font-size:9px;font-weight:600;fill:#333;paint-order:stroke;stroke:#fff;stroke-width:3px}'
-           'a:hover text{text-decoration:underline}</style>',
-           f'<rect width="{W}" height="{H}" fill="#fcfcfb"/>']
+           f'<rect class="bg" width="{W}" height="{H}"/>']        # styled by the page's one stylesheet (panes.CSS)
     for ln in lns:
         (x1, y1), (x2, y2) = pos[ln["a"]], pos[ln["b"]]
         colour, dash = KIND[ln["kind"]]
@@ -331,7 +328,6 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None) -
         v, r = n["v"], n["row"]
         title = panes.title_of(v, r)
         rad = radius(n)
-        fill, stroke, sw = ("#fde68a", "#222", 2.5) if n["matched"] else ("#ffffff", "#555", 1.5)
         to = panes.href(q, [], boxes, "/graph") + "&" + urllib.parse.urlencode({"c": nid})
         lab = placement["labels"].get(nid)
         text = ""
@@ -341,7 +337,7 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None) -
             if t2:
                 text += f'<text class="reg" x="{lx:.1f}" y="{y2:.1f}" text-anchor="{anchor}">{panes.esc(t2)}</text>'
         out.append(f'<a href="{panes.esc(to)}"><title>{panes.esc(title)} · {panes.esc(panes.register_heading(v.register))} · {panes.esc(v.name)}</title>'
-                   f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{rad}" fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>{text}</a>')
+                   f'<circle class="{"matched" if n["matched"] else "other"}" cx="{x:.1f}" cy="{y:.1f}" r="{rad}"/>{text}</a>')
     out.append("</svg>")
     return "".join(out)
 
