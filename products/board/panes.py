@@ -14,6 +14,7 @@ import re
 import urllib.parse
 
 from products.board import catalogue as cat
+from products.board import document
 from products.board.search import FIELDS, field_words, words_of
 
 SUPPRESSED = "name suppressed"
@@ -400,8 +401,26 @@ def search_words(q: str, boxes) -> list:
     return words
 
 
-def citation_line(v: cat.View, r: dict) -> str:
-    parts = []
+def source_link(v: cat.View, r: dict, docs: dict = None) -> str:
+    """First in every citation (ruling 86 (4)): "source", the captured
+    document on the board (`/doc/<sha256>`, a PDF at its page); for a
+    document held but not opened, the reason; "document not held here"
+    where the store has no copy. A suppressed row or withheld text offers
+    no document: it would print what the row hides (hard limits 15, 16)."""
+    doc = r.get("document")
+    st = (docs or {}).get(doc) if doc else None
+    if not st or st["state"] == document.ABSENT:
+        why = st["why"] if st else document.NOT_HELD
+        return f'<span class="note">{esc(why)}</span>'
+    if is_suppressed(v, r) or is_withheld(v, r):
+        return '<span class="note">source not opened: the row hides a name or a text the document prints</span>'
+    if st["state"] == document.WITHHELD:
+        return f'<span class="note" title="{esc(st["why"])}">source held, not opened here (hard limit 15)</span>'
+    return f'<a class="source" href="{esc(document.href(doc, st["kind"], r.get("page")))}">source</a>'
+
+
+def citation_line(v: cat.View, r: dict, docs: dict = None) -> str:
+    parts = [source_link(v, r, docs)]
     doc = r.get("document")
     parts.append(f'document <code title="{esc(doc)}">{esc(doc[:12])}…</code>' if doc else f'document <span class="note">{NOT_STATED}</span>')
     for label, c in (("page", "page"), ("place", "place")):
@@ -416,7 +435,7 @@ def citation_line(v: cat.View, r: dict) -> str:
     return '<div class="cite">' + " · ".join(parts) + "</div>"
 
 
-def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "") -> str:
+def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: dict = None) -> str:
     """One matching row in the results pane: every field its View shows,
     its dates, its source's address and its citation, the words marked;
     `why`, for a near match, says which kind it is (ruling 83)."""
@@ -438,16 +457,17 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "") -> str:
         out.append('<table class="f">' + "".join(rows) + "</table>")
     if blank:
         out.append(f'<div class="note">not stated: {esc(", ".join(blank))}</div>')
-    out.append(citation_line(v, r))
+    out.append(citation_line(v, r, docs))
     out.append("</article>")
     return "".join(out)
 
 
-def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(), near: dict = None) -> str:
+def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(), near: dict = None, docs: dict = None) -> str:
     """The wider pane beside the left one: every matching row, grouped by
     register with the register's count, over `regs`, the registers searched
     (search.selection); `boxes` the check boxes every href carries, and the
-    filled fields (ruling 82); `near`, the near matches below (ruling 83)."""
+    filled fields (ruling 82); `near`, the near matches below (ruling 83);
+    `docs`, the cited documents' states (document.statuses, ruling 86 (4))."""
     out = ['<section class="pane wide" id="results">', '<div class="reg">results</div>']
     asked = boxes.asked() if boxes is not None else {}
     if not boxes.all and not regs:
@@ -478,11 +498,11 @@ def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(),
         for v, n, rows in hits:
             out.append(f'<div class="view"><strong>{esc(v.name)}</strong> <span class="count">{n:,}</span></div>')
             for r in rows:
-                out.append(hit(q, v, r, words, boxes))
+                out.append(hit(q, v, r, words, boxes, docs=docs))
             if n > len(rows):
                 out.append(f'<p class="note">and {n - len(rows):,} more in {esc(v.name)}; narrow the search</p>')
     if near is not None:
-        out.append(near_section(q, near, words, boxes))
+        out.append(near_section(q, near, words, boxes, docs))
     out.append("</section>")
     return "\n".join(out)
 
@@ -503,7 +523,7 @@ NEAR_NONE_FROM_BOX = ("the plain box matches words in any order, so a reversed n
                       "use the name fields to see reversed names apart")
 
 
-def near_section(q: str, near: dict, words, boxes=None) -> str:
+def near_section(q: str, near: dict, words, boxes=None, docs: dict = None) -> str:
     """Near matches (ruling 83), below the exact results and never among
     them or in their count: a details element, closed until clicked, with
     its two classes, each row saying which, capped with the whole count."""
@@ -524,7 +544,7 @@ def near_section(q: str, near: dict, words, boxes=None) -> str:
             out.append('<p class="why">none found</p>')
             continue
         for v, r in c["rows"]:
-            out.append(hit(q, v, r, words, boxes, why=why))
+            out.append(hit(q, v, r, words, boxes, why=why, docs=docs))
         shown_n = len(c["rows"])
         if c["total"] > shown_n:
             out.append(f'<p class="note">and {c["total"] - shown_n:,}{" or more" if c.get("more") else ""} more; narrow the search</p>')
@@ -534,8 +554,8 @@ def near_section(q: str, near: dict, words, boxes=None) -> str:
 
 # ── a row's pane ────────────────────────────────────────────────────────────
 
-def citation(v: cat.View, r: dict, doc_names: list) -> str:
-    out = ['<h3>Citation</h3><table class="f">']
+def citation(v: cat.View, r: dict, doc_names: list, docs: dict = None) -> str:
+    out = ['<h3>Citation</h3><table class="f">', f"<tr><th>source</th><td>{source_link(v, r, docs)}</td></tr>"]
     doc = r.get("document")
     if doc:
         out.append(f'<tr><th>document</th><td><code title="{esc(doc)}">{esc(doc[:12])}…</code></td></tr>')
@@ -562,11 +582,13 @@ def citation(v: cat.View, r: dict, doc_names: list) -> str:
     elif doc:
         out.append('<tr><th>the document\'s names</th><td><span class="note">none recorded in the store</span></td></tr>')
     if r.get("source_note"):
-        out.append(f'<tr><th>source</th><td>{esc(r["source_note"])}</td></tr>')
+        out.append(f'<tr><th>source note</th><td>{esc(r["source_note"])}</td></tr>')
     if r.get("loaded_at"):
         out.append(f'<tr><th>row written</th><td>{fmt(r["loaded_at"])} <span class="note">(never a date of anything)</span></td></tr>')
     out.append("</table>")
-    out.append('<p class="note">The document is cited, not opened: captured documents can carry addresses.</p>')
+    out.append('<p class="note">"source" opens the captured document, whole as the lane captured it, only where its source\'s '
+               "printed form has no field for a person's address; any other document is cited and not opened here, since "
+               "captured documents can print home addresses (hard limit 15).</p>")
     return "\n".join(out)
 
 
@@ -688,7 +710,7 @@ def row_pane(ctx: dict) -> str:
     out.append(links_section(ctx.get("links") or {}, ctx.get("group") or {}, q, path, ctx.get("resolve") or (lambda ref: None), boxes))
     if v.names:
         out.append(same_name_section(ctx.get("same") or {}, q, path, words, boxes))
-    out.append(citation(v, r, ctx.get("doc_names") or []))
+    out.append(citation(v, r, ctx.get("doc_names") or [], ctx.get("docs")))
     out.append("</section>")
     return "\n".join(out)
 

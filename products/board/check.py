@@ -53,7 +53,7 @@ import sys
 import urllib.parse
 
 from products.board import catalogue as cat
-from products.board import db, graph, links_view, near, search, panes, server
+from products.board import db, document, graph, links_view, near, search, panes, server
 
 ADDRESS_WORDS = re.compile(r"residential|home_address|street|suburb|postal", re.I)
 #: the comparison's residence vocabulary (checks/comparison.py RESIDENCE_WORDS; tests/test_check_vocabulary.py holds the two equal):
@@ -267,6 +267,46 @@ def gift_problems(conn) -> list:
     if (reg["y"] or 0) < 2 or len(graph.summed(e["addends"])["years"]) < 2:
         out.append("the known donor's summed edge does not span two years")
     return out
+
+
+def doc_problems(conn) -> list:
+    """Ruling 86 (4): a known cited document of a served source answers 200
+    with its stored content type, its bytes hashing to its name; a wrong sha
+    answers 404; a held document of a source not served answers 403 and its
+    bytes are not sent; the row's pane and the results begin the citation
+    with the "source" link, at the page for a PDF."""
+    out = []
+    known = db.rows(conn, "select c.key, c.document, c.page, d.kind from pub.candidates c join docs.documents d on d.sha256 = c.document "
+                          "where d.withdrawn is null order by c.key limit 1")
+    if not known:
+        return ["no candidates row cites a document the store holds: the source link has nothing to open"]
+    k = known[0]
+    status, ctype, body = document.fetch(conn, k["document"])
+    if status != 200 or ctype != document.content_type(k["kind"], landing_names(conn, k["document"]), body[:64] if isinstance(body, bytes) else b""):
+        out.append(f"/doc/ of the known cited document {k['document'][:12]}… answered {status} {ctype}")
+    elif document.hashlib.sha256(body).hexdigest() != k["document"]:
+        out.append("/doc/ of the known cited document sent bytes that do not hash to its name")
+    wrong = ("0" if k["document"][0] != "0" else "1") + k["document"][1:]
+    if document.fetch(conn, wrong)[0] != 404:
+        out.append("/doc/ of a wrong sha did not answer 404")
+    for bad in ("../" + k["document"][3:], k["document"][:2], k["document"].upper()):
+        if document.fetch(conn, bad)[0] != 404:
+            out.append(f"/doc/ of a name that is not 64 hex characters ({bad[:6]}…) did not answer 404")
+    held = db.rows(conn, "select sha256 from docs.documents where source = 'party_returns' and withdrawn is null order by sha256 limit 1")
+    if held:
+        st, _, why = document.fetch(conn, held[0]["sha256"])
+        if st != 403 or isinstance(why, bytes):
+            out.append(f"/doc/ of a party return, a source that prints donors' addresses, answered {st}")
+    html = server.render("", server.parse_path(f"candidates:{k['key']}"), conn=conn)
+    link = f'<a class="source" href="{document.href(k["document"], k["kind"], k.get("page"))}">source</a>'
+    pane = html[html.rfind('<section class="pane'):]
+    if link not in pane or pane.index(link) > pane.find("<th>document</th>"):
+        out.append("the known row's pane does not begin its citation with the source link")
+    return out
+
+
+def landing_names(conn, sha: str) -> list:
+    return [r["name"] for r in db.rows(conn, "select name from docs.names where sha256 = %s order by seen_at, name", (sha,))]
 
 
 def carries_residence(name: str) -> bool:

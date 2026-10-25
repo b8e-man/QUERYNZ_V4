@@ -10,6 +10,9 @@ library's HTTP server, one page per request, no script. Routes:
                     connections their registers assert as edges, one hop; `c` re-centres on one row
   GET  /pinned      the pinned panes       GET /saved     the saved paths
   POST /pin         pin a pane             POST /save     save the path walked
+  GET  /doc/<sha256>  the captured document a row cites, its bytes read only from the store with its content type,
+                    where its source is served (document.py, ruling 86 (4)); 404 for anything else, 403 for a held document not opened
+  GET  /uses        the use cases tab (ruling 87): the plan's table, read at render time, with what the data holds for each
   GET  /health      'ok' and the port, for the launcher
 
 The read connection is opened per request and closed after; the two writes
@@ -26,7 +29,7 @@ import urllib.parse
 
 from support.docstore import landing as docstore
 from products.board import catalogue as cat
-from products.board import db, graph, links_view, near, panes, search, state
+from products.board import db, document, graph, links_view, near, panes, search, state
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
@@ -84,7 +87,7 @@ def same_name_memo(conn):
     return same
 
 
-def row_context(conn, v: cat.View, r: dict, q: str, path: list, pinned: set, same=None, boxes=None) -> dict:
+def row_context(conn, v: cat.View, r: dict, q: str, path: list, pinned: set, same=None, boxes=None, docs=None) -> dict:
     same = same or same_name_memo(conn)
     ref = links_view.ref(v, r["key"])
     same_words = search.names_of_row(v, r)
@@ -93,7 +96,8 @@ def row_context(conn, v: cat.View, r: dict, q: str, path: list, pinned: set, sam
            "doc_names": docstore.names_of(r["document"], conn) if r.get("document") else [],
            "links": links_view.links_of(conn, ref), "group": links_view.group_of(conn, ref) if v.kind == "person" else {},
            "same": same(v, r), "same_words": same_words, "resolve": resolver(conn),
-           "report": panes.report_href(REPORT_URL, ref), "boxes": boxes}
+           "report": panes.report_href(REPORT_URL, ref), "boxes": boxes,
+           "docs": docs if docs is not None else document.statuses(conn, [r.get("document")])}
     return ctx
 
 
@@ -129,27 +133,31 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         pinned = {(p["view"], p["key"]) for p in state.pins(conn)}
         same = same_name_memo(conn)
         words = panes.search_words(q, boxes)
+        steps = []
+        for step in path:
+            person = step.startswith("person:")
+            view, key = step.split(":", 2)[1:] if person else step.partition(":")[::2]
+            steps.append((person, view, search.row(conn, view, key)))
+        cited = [r.get("document") for hits in results.values() if isinstance(hits, list) for _, _, rows in hits for r in rows]
+        cited += [r.get("document") for c in (nearby or {}).values() if isinstance(c, dict) for _, r in c.get("rows") or ()]
+        cited += [r.get("document") for _, _, r in steps if r]
+        docs = document.statuses(conn, cited)          # ruling 86 (4): one query for every "source" link on the page
         out = [panes.left_pane(q, search.held_registers(held), boxes),
-               panes.results_pane(q, results, held, regs, boxes, words, nearby)]
-        for i, step in enumerate(path):
+               panes.results_pane(q, results, held, regs, boxes, words, nearby, docs)]
+        for i, (person, view, r) in enumerate(steps):
             so_far = path[:i + 1]
-            if step.startswith("person:"):
-                _, view, key = step.split(":", 2)
-                v = cat.BY_NAME[view]
-                r = search.row(conn, view, key)
+            v = cat.BY_NAME[view]
+            if person:
                 if r is None:
                     out.append('<section class="pane"><p class="why">row not found in the published view</p></section>')
                     continue
                 out.append(panes.person_pane(person_context(conn, v, r, q, so_far, same, boxes)))
             else:
-                view, _, key = step.partition(":")
-                v = cat.BY_NAME[view]
-                r = search.row(conn, view, key)
                 if r is None:
                     out.append(f'<section class="pane"><div class="reg">{panes.esc(view)}</div>'
                                '<p class="why">row not found in the published view: its key has moved or it was withdrawn</p></section>')
                     continue
-                out.append(panes.row_pane(row_context(conn, v, r, q, so_far, pinned, same, boxes)))
+                out.append(panes.row_pane(row_context(conn, v, r, q, so_far, pinned, same, boxes, docs)))
         return panes.page(q, path, out, message, boxes)
 
 
@@ -186,6 +194,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def send_document(self, sha: str):
+        """GET /doc/<sha256> (ruling 86 (4)): the captured bytes, read only, or
+        a plain refusal; nothing else under /doc answers, so the store is never listed."""
+        with RENDER_LOCK, db.read_connect() as conn:
+            status, ctype, body = document.fetch(conn, sha)
+        data = body if isinstance(body, bytes) else (body + "\n").encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        for k, x in document.HEADERS:
+            self.send_header(k, x)
+        if status == 200:
+            self.send_header("Content-Disposition", f'inline; filename="{sha}"')
+        self.end_headers()
+        self.wfile.write(data)
+
     def redirect(self, where: str):
         self.send_response(303)
         self.send_header("Location", where)
@@ -206,6 +230,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             if url.path in ("/pinned", "/saved"):
                 self.send_html(render_list(url.path[1:]))
+                return
+            if url.path.startswith("/doc/") or url.path == "/doc":
+                self.send_document(url.path[len("/doc/"):])
                 return
             if url.path not in ("/", "/graph"):
                 self.send_html("<p>not here</p>", 404)
