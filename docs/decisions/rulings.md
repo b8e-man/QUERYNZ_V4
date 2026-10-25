@@ -316,3 +316,16 @@ results; only addresses the published views already show, never a home
 address (hard limit 15); nothing written. Rulings 82 and 83 are built
 together by `board-3` in `products/board/` after `fix-products-board-1`
 (ruling 81) merges.
+
+84. Arthur, 25 October, about 16:30, on the board after board-3: "the
+graph display is cluttered with overlapping text. 'name-only@1' what does
+this mean? Let's list rather than overlap multi-cause edges". The label
+was the links lane's rule id and version as `pub.links` carries it. So:
+an edge never shows a rule id; the links' rules read in plain words from
+a table in the board's catalogue (name-only@1 reads "same name, nothing
+else"); two rows joined by more than one connection get one line, and the
+causes are listed, not drawn over each other; no label is drawn over
+another: each edge carries a number on the picture and the edges are
+listed by number under the key, each with its kind, its words and a link
+to the row that asserts it. Built by the board fix session after
+board-3.
