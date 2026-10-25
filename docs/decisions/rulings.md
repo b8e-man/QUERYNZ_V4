@@ -329,3 +329,24 @@ another: each edge carries a number on the picture and the edges are
 listed by number under the key, each with its kind, its words and a link
 to the row that asserts it. Built by the board fix session after
 board-3.
+
+85. Arthur, 25 October, about 16:45, on the field search's reading of a
+one-string name: "where the registers do not have clearly defined first
+and last name conventions, let both be eligible for a match under that
+search field. there are some basic ingestion rules that may have bearing,
+for example, mills phillip and phillip mills on a donation return should
+be considered ambiguous about ordering, however, 'mills, phillip' on the
+same form is not ambiguous because the comma indicates that 'mills' is
+the last name. Many registers will have clear conventions, and normal
+text will use normal ordering, except in the case of the indicative
+comma". So: a comma reads family name then given names everywhere; a
+view with a convention (a surname column, or a form that fixes the order)
+is matched by it, stated once per view in the board's catalogue as data;
+a one-string name with no comma in a view with no convention is
+ambiguous, and the first-name and last-name fields each match any of its
+words, so "Mills Phillip" and "Phillip Mills" are both exact for last
+name Mills, first name Phillip and neither is near; ordinary text reads
+given name first. The near-matches reversed-name class applies only where
+a convention exists and the row contradicts it. Replaces board-3's rule
+(a first name never the last word, a last name never the first). Built by
+the board fix session after ruling 84's.
