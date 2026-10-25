@@ -395,3 +395,34 @@ on the local network (hard limit 13); no published table and no export
 carries a home address; a session, card, lesson or log never prints one
 (hard limit 11); the public site and every other product are untouched.
 The queue item closes. Built by the board fix session after board-4.
+
+89. Arthur, 26 October, about 08:10, on the use-cases tab: "let's build
+out the use cases that we have all the required records for. Let's make
+the name a link that opens the usecase interface in a new tab in the
+browser so we can isolate use case interfaces from the querynz board
+interface". The integrator's finding at the time: every use-case
+interface the plan has built already exists as a template on its shape
+(ten subject-report templates in products/templates/, use cases 2 to 8,
+11 to 13, on the report server at port 8440; three scan templates for 9,
+10 and 14 on port 8450; Follow the Money as the site preview on port
+8430), but the tab saw only the scan's templates, and by the plan's own
+reference no subject-report use case has every named source held (OpenLaw
+and the tribunals wait on letters and lanes). So: each use-case name on
+the tab is a link opening that use case's interface on its own server in
+a new browser tab (the report template's page, the scan's page, the site
+preview), the tab counts the report templates as built, and a use case
+with no interface yet says what holds it (ruling 79 for 15, ruling 63 for
+16 and 17). "Build out" beyond the links waits on the sources each use
+case still lacks, which the tab names. Built by the board fix session
+after ruling 88's.
+
+90. Arthur, 26 October, about 08:25, told the product reader login is
+capped at 10 connections of the database's 100: "allow the full 100
+database connections. for my diagnostic use please put a database
+connection counter in the querynz board nav bar". So: the new estate's
+logins carry no connection limit of their own (qv4_product and qv4_read
+set to no limit by Arthur as the database's superuser; the database's
+max_connections of 100 stands as the only cap); and the board's nav bar
+shows on every page the connections in use over the maximum, with the
+count by login on hover, read from pg_stat_activity on the board's own
+connection. Built by the board fix session with ruling 89.
