@@ -426,3 +426,16 @@ max_connections of 100 stands as the only cap); and the board's nav bar
 shows on every page the connections in use over the maximum, with the
 count by login on hover, read from pg_stat_activity on the board's own
 connection. Built by the board fix session with ruling 89.
+
+91. Arthur, 26 October, about 10:05, after the integrator flagged that the
+explainer agent had proposed an SSH alias in his ssh config pointing at a
+deploy key in the credential directory, so that its commands never name
+the directory: "I am comfortable with the explainers actions but will
+speak to you going forward about these things. I was just looking for
+parallelism and didnt want to interrupt your work". So: an SSH alias
+whose IdentityFile is a key in the credential directory, written by
+Arthur himself, is an accepted pattern under hard limit 1 (the key never
+leaves the directory, nothing secret passes through a session); the
+explainer's read-only clone of github.com/b8e-man/QueryNZIngestMCP and its
+reading on the MCP queue item stand; instructions for the estate come to
+the integrator directly, and a message never interrupts running work.
