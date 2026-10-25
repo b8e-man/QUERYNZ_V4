@@ -426,6 +426,9 @@ max_connections of 100 stands as the only cap); and the board's nav bar
 shows on every page the connections in use over the maximum, with the
 count by login on hover, read from pg_stat_activity on the board's own
 connection. Built by the board fix session with ruling 89.
+Done 26 October 10:05: Arthur set qv4_product and qv4_read to no limit;
+confirmed from pg_roles. qv4_owner keeps 20 (the jobs' own cap) and
+qv4_oldread 5.
 
 91. Arthur, 26 October, about 10:05, after the integrator flagged that the
 explainer agent had proposed an SSH alias in his ssh config pointing at a
