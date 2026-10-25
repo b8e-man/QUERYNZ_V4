@@ -2,8 +2,10 @@
 hard limit 13), with the least machinery that works: the standard
 library's HTTP server, one page per request, no script. Routes:
 
-  GET  /?q=<term>&p=<view:key|view:key|person:view:key…>&all=<0|1>&r=<register>…   the search tab: the
-                    left pane (check boxes, the search box), the results beside it, then one pane per step of the path
+  GET  /?q=<term>&p=<view:key|view:key|person:view:key…>&all=<0|1>&r=<register>…&first=&middle=&last=&address=&org=&year=
+                    the search tab: the left pane (check boxes, the search box, the fields of the expanded search,
+                    ruling 82), the results beside it with the near matches below them (ruling 83), then one pane per
+                    step of the path
   GET  /graph?q=<term>&all=<0|1>&r=<register>…&c=<view:key>   the graph tab: the matching rows as nodes, the
                     connections their registers assert as edges, one hop; `c` re-centres on one row
   GET  /pinned      the pinned panes       GET /saved     the saved paths
@@ -24,7 +26,7 @@ import urllib.parse
 
 from support.docstore import landing as docstore
 from products.board import catalogue as cat
-from products.board import db, graph, links_view, panes, search, state
+from products.board import db, graph, links_view, near, panes, search, state
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
@@ -120,12 +122,15 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
     with RENDER_LOCK, (contextlib.nullcontext(conn) if conn is not None else db.read_connect()) as conn:
         held = db.pub_views(conn)
         regs = search.selection(boxes, search.held_registers(held))
-        results = search.search(conn, q, limit=search.RESULTS_LIMIT, registers=regs) if q and regs else {}
+        asked = boxes.asked()
+        asking = bool(q or asked) and bool(regs)
+        results = search.search(conn, q, limit=search.RESULTS_LIMIT, registers=regs, fields=asked) if asking else {}
+        nearby = near.near(conn, q, asked, registers=regs, held=held) if asking else None     # ruling 83, below the exact results
         pinned = {(p["view"], p["key"]) for p in state.pins(conn)}
         same = same_name_memo(conn)
-        words = search.words_of(q)
+        words = panes.search_words(q, boxes)
         out = [panes.left_pane(q, search.held_registers(held), boxes),
-               panes.results_pane(q, results, held, regs, boxes, words)]
+               panes.results_pane(q, results, held, regs, boxes, words, nearby)]
         for i, step in enumerate(path):
             so_far = path[:i + 1]
             if step.startswith("person:"):
@@ -153,7 +158,7 @@ def render_graph(q: str, centre: str = "", conn=None, boxes: search.Boxes = sear
     with RENDER_LOCK, (contextlib.nullcontext(conn) if conn is not None else db.scan_connect()) as conn:
         held = db.pub_views(conn)
         regs = search.selection(boxes, search.held_registers(held))
-        g = graph.build(conn, q if regs else "", regs=regs, centre=centre)
+        g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None)
         out = [panes.left_pane(q, search.held_registers(held), boxes, action="/graph", title="Graph the connections"),
                graph.pane(g, q, boxes, regs)]
         return panes.page(q, [], out, "", boxes, tab="graph")

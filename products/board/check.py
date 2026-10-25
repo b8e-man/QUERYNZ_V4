@@ -22,17 +22,39 @@ tables through the session reader, never the sample:
      is an address; every relation column the catalogue names exists in its
      view and in the view it is matched to (with 3).
 
+  8. The field search (ruling 82): every column a field declares exists in
+     its view, a date column is a date and a year column a number; a search
+     with only the last name "Hart" finds rows, each with HART as a whole
+     word of a name, so never HARTNELL alone.
+  9. Near matches (ruling 83): a donor filed with given name and surname
+     reversed (KNOWN_REVERSED) is found under "Near matches" and not among
+     the exact results; a registered office is found as near by a query
+     with its level left off and its street type spelled the other way.
+ 10. No home address reaches any result (hard limit 15): the address field
+     reads only catalogue.ADDRESS_COLUMNS and no person's view declares an
+     address; a search for each word of the comparison's residence
+     vocabulary, in the box and in the address field, returns no person's
+     name with a residence after it (carries_residence) and no address
+     outside those columns.
+
   python -m products.board check [--term NAME]      exit 1 on any failure
 """
 from __future__ import annotations
 
 import re
 import sys
+import urllib.parse
 
 from products.board import catalogue as cat
-from products.board import db, graph, search, panes, server
+from products.board import db, graph, near, search, panes, server
 
 ADDRESS_WORDS = re.compile(r"residential|home_address|street|suburb|postal", re.I)
+#: the comparison's residence vocabulary (checks/comparison.py RESIDENCE_WORDS; tests/test_check_vocabulary.py holds the two equal):
+#: a residence word in a person's name field is a home address reaching a result
+RESIDENCE_WORDS = ("retirement village", "rest home", "resthome", "lifecare", "care home", "retirement")
+#: a donor a party return files with given name and surname reversed ("MILLS PHILLIP"; keys/names.py names the case)
+KNOWN_REVERSED = ("Phillip", "Mills")
+DATE_TYPES = {"date", "timestamp with time zone", "timestamp without time zone"}
 
 
 def problems(conn, term: str = None) -> list:
@@ -40,8 +62,10 @@ def problems(conn, term: str = None) -> list:
     held = db.pub_views(conn)
     # 3. columns
     columns = {}
-    for r in db.rows(conn, "select table_name, column_name from information_schema.columns where table_schema = 'pub'"):
+    types = {}
+    for r in db.rows(conn, "select table_name, column_name, data_type from information_schema.columns where table_schema = 'pub'"):
         columns.setdefault(r["table_name"], set()).add(r["column_name"])
+        types[(r["table_name"], r["column_name"])] = r["data_type"]
     for v in cat.VIEWS:
         if v.name not in held:
             out.append(f"{v.name}: in the catalogue but not published (pub.{v.name} missing)")
@@ -144,6 +168,106 @@ def problems(conn, term: str = None) -> list:
         page = server.render_graph("", centre, conn=conn)
         if "<svg" not in page or "<script" in page or "<h3>Key</h3>" not in page:
             out.append("the graph tab did not render its picture and key without script")
+    out += field_problems(conn, held, columns, types)
+    return out
+
+
+def carries_residence(name: str) -> bool:
+    """A person's name with a residence after it ("Jane Doe, Sunrise Rest
+    Home"): a residence word in a part of the name that follows a comma, a
+    "c/-", a bracket or a dash, behind a part that reads as no organisation.
+    An institution named for what it is ("Waimate Rest Home") is not one."""
+    low = cat.fold_term(name or "")
+    for w in RESIDENCE_WORDS:
+        i = low.find(w)
+        if i < 0:
+            continue
+        before = low[:i]
+        cut = max(before.rfind(","), before.rfind("c/-"), before.rfind("("), before.rfind(" - "))
+        if cut > 0 and re.search(r"[a-z]", before[:cut]) and not near.is_organisation(before[:cut]):
+            return True
+    return False
+
+
+def _names(v, r) -> list:
+    return [near.name_strings(g, r) for g in cat.fields_of(v).names]
+
+
+def _hits(res) -> list:
+    return [(v, r) for reg, found in res.items() if reg != "held" for v, _, rows in found for r in rows]
+
+
+def field_problems(conn, held: set, columns: dict, types: dict) -> list:
+    """8 to 10: the field search, the near matches, and no home address."""
+    out = []
+    # 8. every declared column exists, with the type its field reads
+    for v in cat.VIEWS:
+        if v.name not in held:
+            continue
+        fs = cat.fields_of(v)
+        for c in sorted(cat.field_columns(v)):
+            if c not in columns.get(v.name, set()):
+                out.append(f"{v.name}: the field search declares `{c}`, which pub.{v.name} does not carry")
+        for c in fs.dates:
+            if c in columns.get(v.name, set()) and types.get((v.name, c)) not in DATE_TYPES:
+                out.append(f"{v.name}: the year field reads `{c}` as a date, but it is {types.get((v.name, c))}")
+        for c in fs.year:
+            if c in columns.get(v.name, set()) and types.get((v.name, c)) not in ("integer", "smallint", "bigint"):
+                out.append(f"{v.name}: the year field reads `{c}` as a year, but it is {types.get((v.name, c))}")
+    hart = _hits(search.search(conn, "", limit=search.RESULTS_LIMIT, fields={"last": "Hart"}))
+    if not hart:
+        out.append("a search with only the last name Hart found nothing")
+    for v, r in hart:
+        if not any(re.search(r"(?<![a-z])hart(?![a-z])", cat.fold_term(n)) for n in _names(v, r)):
+            out.append(f"the last name Hart found {v.name}:{r['key']}, whose names carry no whole word HART")
+    # 9. a reversed donor is near and not exact; a registered office is near without its level
+    first, last = KNOWN_REVERSED
+    asked = {"first": first, "last": last}
+    nb = near.near(conn, "", asked, registers=("party_returns",), held=held)
+    rev = [x for x in nb["names"]["refs"] if x.startswith("party_return_donors:")]
+    if not rev:
+        out.append(f"the reversed filing of the donor {first} {last} was not found under Near matches")
+    else:
+        exact = {f"{v.name}:{r['key']}" for v, r in _hits(search.search(conn, "", limit=search.RESULTS_LIMIT,
+                                                                        registers=("party_returns",), fields=asked))}
+        if set(rev) & exact:
+            out.append("a reversed donor name was found among the exact results too")
+        page = server.render("", [], conn=conn, boxes=search.Boxes(False, ("party_returns",), tuple(asked.items())))
+        at = page.find('<details class="near"')
+        first_seen = page.find(urllib.parse.urlencode({"p": rev[0]}) + "&")
+        if at < 0 or first_seen < at:
+            out.append("the reversed donor is not shown below the exact results, inside Near matches")
+    office = db.rows(conn, "select key, line_2, line_3 from pub.company_addresses where line_1 ~* '^level [0-9]+$' "
+                           "and line_2 ~* '^[0-9]+ [a-z]+ street$' and line_3 ~ '^[A-Za-z]+$' order by key limit 1")
+    if not office:
+        out.append("no registered office with a level and a street to test the near address on")
+    else:
+        o = office[0]
+        query = re.sub(r"(?i)street$", "St", o["line_2"]) + ", " + o["line_3"]
+        nb = near.near(conn, "", {"address": query}, registers=("companies",), held=held)
+        ref = f"company_addresses:{o['key']}"
+        if ref not in nb["addresses"]["refs"]:
+            out.append(f"a registered office was not found as near by its address without the level{' (candidates capped)' if nb['addresses']['more'] else ''}")
+        clause, params = search.match_sql(cat.BY_NAME["company_addresses"], [], None, False, {"address": query})
+        if db.rows(conn, f"select 1 from pub.company_addresses where key = %s and {clause}", [o["key"]] + params):
+            out.append("the near-address test row is also an exact match: the test proves nothing")
+    # 10. no home address reaches any result
+    for v in cat.VIEWS:
+        fs = cat.fields_of(v)
+        for c in fs.address:
+            if (v.name, c) not in cat.ADDRESS_COLUMNS:
+                out.append(f"{v.name}: the address field reads `{c}`, which is not a registered address an organisation publishes")
+        if fs.address and v.kind == "person":
+            out.append(f"{v.name}: a person's view declares an address column (hard limit 15)")
+    address_views = {x for x, _ in cat.ADDRESS_COLUMNS}
+    for w in RESIDENCE_WORDS:
+        for v, r in _hits(search.search(conn, w, limit=search.RESULTS_LIMIT)):
+            for n in _names(v, r):
+                if carries_residence(n) and not panes.is_suppressed(v, r):
+                    out.append(f"{v.name}:{r['key']}: a person's name in a result carries a residence word (hard limit 15)")
+        for v, r in _hits(search.search(conn, "", limit=search.RESULTS_LIMIT, fields={"address": w})):
+            if v.name not in address_views:
+                out.append(f"the address field found a row of {v.name}, which holds no registered address")
     return out
 
 

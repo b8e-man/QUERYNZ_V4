@@ -6,6 +6,7 @@ import time
 
 import pytest
 
+from products.board import catalogue as cat
 from products.board import check, db, graph, search, server
 
 pytestmark = pytest.mark.slow
@@ -50,3 +51,22 @@ def test_the_graph_of_a_busy_company_is_quick_and_every_far_end_is_a_row():
         for nid in g["nodes"]:
             view, _, key = nid.partition(":")
             assert search.row(conn, view, key) is not None, nid
+
+
+def test_the_field_search_is_quick_and_a_last_name_is_a_whole_word():
+    with db.read_connect() as conn:
+        t = time.time()
+        res = search.search(conn, "", limit=search.RESULTS_LIMIT, fields={"first": "Graeme", "last": "Hart"})
+        assert time.time() - t < 3.0
+        names = [n for reg, hits in res.items() if reg != "held" for v, _, rows in hits for r in rows for n in check._names(v, r)]
+    assert names and all("hart" in cat.fold_term(n).replace(",", " ").split() for n in names)
+
+
+def test_near_matches_render_closed_below_the_results_within_three_seconds():
+    with db.read_connect() as conn:
+        t = time.time()
+        html = server.render("", [], conn=conn, boxes=search.Boxes(True, (), (("first", "Phillip"), ("last", "Mills"))))
+        assert time.time() - t < 3.0
+    exact, below = html.split('<details class="near" id="near">')
+    assert "party_return_donors" in exact and "near: given name and surname reversed" in below
+    assert "narrowed by: first name" in exact and "<script" not in html

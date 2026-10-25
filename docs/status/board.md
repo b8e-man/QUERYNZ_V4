@@ -1,43 +1,46 @@
 # board: where it stands
 
-**Date:** 2026-10-25. **Step:** 4.9 second version (rulings 80, 81),
-`products/board/`. **Merge request:** `fix-products-board-1` (raised);
-`board-2` merged.
+**Date:** 2026-10-25. **Step:** 4.9 second version, rulings 82 and 83
+(81 kept), `products/board/`. **Merge request:** `board-3` (raised).
 
 ## Done
 
-- Search tab, at the old address `/?q=&p=` (saved paths open): left pane
-  with a check box per register in catalogue order (not held greyed,
-  uncheckable), "search all" at the top, the search box; a GET form.
-  Ruling 81 on both tabs (`search.Boxes`, `boxes_of`, `selection`): the
-  first view has "search all" ticked and no register; while it is ticked
-  every held register is searched whatever is ticked; unticked, only the
-  ticked registers; none ticked searches nothing and says "tick a
-  register, or search all". `all=` and `r=` ride every href (results,
-  panes to the right, pin and save forms, the graph's re-centre and cite
-  hrefs, the tab links), so turning "search all" off and on loses no
-  tick. A hidden `all=0` tells an unticked box from an old address; an
-  address with neither opens as the first view. Board-2's "nothing ticked
-  means all" and its `was_all` mark are gone.
-- Results pane: every matching row of the registers searched, up to 50
-  per view with the count, every field, date, source address and
-  citation, the term marked under the search's own fold.
-- Graph tab `/graph?q=&all=&r=&c=`: matching rows (16 at most) as nodes,
-  one hop of catalogue `Relation` and `pub.links` edges, server-written
-  SVG, key below. No address edge; a suppressed row draws no same-person
-  edges. Product reader.
-- `bin/fast products/board` green (40 fast; five new ruling-81 pane tests,
-  each shown to fail on its broken rule); slow tests green; `python -m
-  products.board check` green against the live tables.
+- Ruling 82, both tabs: "narrow by field", a details element (closed
+  until clicked or a field is filled) with first, middle and last name,
+  address, organisation, year. Each field matches whole words in the
+  columns `catalogue.FIELDS_OF` declares per view (data: a lane adds a
+  line). A one-string name is read in its places: a first or middle name
+  never its last word, a last or middle name never its first; a comma is
+  Family, Given; an honorific is no word. Organisation reads organisation
+  names, party and company columns, and a donor-type name only where it
+  carries an organisation word. Year reads year columns and the year of
+  the catalogue's dates. Address reads only `ADDRESS_COLUMNS` (company
+  registered offices, charities' addresses for service, limited
+  partnerships' registered offices; societies publish none). Fields and
+  box combine with "and"; the box alone is unchanged (identical results
+  to the main line on four queries). Fields ride every href in
+  `search.Boxes`; the results pane says which narrowed it.
+- Ruling 83, search tab: "Near matches" below the exact results, closed,
+  never counted with them: names reversed (keys.names' reading; middle
+  absent either side; an initial) and close addresses (same street number
+  and street by keys.addresses' fold; level, unit, spelling, suburb
+  differ; a differing town or postcode is not near). 25 per class with
+  the whole count. `near.py`.
+- `fold.py`: keys' readings copied verbatim, held equal by a test.
+- `bin/fast products/board` green; slow tests green (7); `python -m
+  products.board check` green (23 s), its new cases each shown to fail.
 
-## Not done, by choice
+## Known limits
 
-- Regulator parties, court parties, gazette `register_key` matches and
-  grants → publishers are not drawn: not among the ruling's types.
-- Saved paths keep the term and path, not the boxes (the table is
-  unchanged); they reopen as the first view, search all.
+- An address and an organisation together find no registered office
+  (`company_addresses` has no name column): card
+  `an-address-search-on-the-board-cannot-also-name-the-company`.
+- 49 directors with no `last_name` part are not found by the name fields.
+- From the plain box, a reversed name is already exact (any order), so
+  near names from the box show only the forms it misses (an initial).
 
 ## Next
 
-1. The integrator merges `fix-products-board-1` and restarts `qv4-board`.
-2. Lanes mirror their relation lines in `pane.md` (board-2's request).
+1. The integrator merges `board-3` and restarts `qv4-board`.
+2. Lanes mirror their `FIELDS_OF` line in `pane.md` (the request lists
+   them).

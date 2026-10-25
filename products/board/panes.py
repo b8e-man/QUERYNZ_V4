@@ -14,6 +14,7 @@ import re
 import urllib.parse
 
 from products.board import catalogue as cat
+from products.board.search import FIELDS, field_words, words_of
 
 SUPPRESSED = "name suppressed"
 NOTHING_TICKED = "tick a register, or search all"     # "search all" off and no register ticked: nothing is searched (ruling 81)
@@ -68,6 +69,13 @@ article.hit{border-top:1px solid #eee;padding:.4rem 0}
 nav.tabs a{padding:.25rem .6rem;border:1px solid #ccc;border-bottom:none;border-radius:4px 4px 0 0;text-decoration:none}
 nav.tabs a.on{background:#246;color:#fff;border-color:#246}
 table.key td,table.key th{padding:.1rem .5rem;font-size:13px;text-align:left}
+details.fields{margin:.5rem 0}
+details.fields label{display:block;margin:.2rem 0;font-size:13px}
+details.fields input{width:11rem;padding:.2rem .3rem;float:right}
+details.fields label::after{content:"";display:block;clear:both}
+details.near{margin-top:1rem;border-top:2px solid #ddd;padding-top:.5rem}
+details.near summary{font-weight:600;cursor:pointer}
+.nearwhy{font-size:12px;color:#8a3b00}
 """
 
 
@@ -239,15 +247,51 @@ def register_boxes(held_regs: list, boxes) -> str:
     return "".join(out)
 
 
+def field_boxes(boxes) -> str:
+    """The expanded search (ruling 82): a details element, closed until
+    clicked or until a field is filled, holding the six fields."""
+    asked = boxes.asked() if boxes is not None else {}
+    out = [f'<details class="fields"{" open" if asked else ""}><summary>narrow by field</summary>']
+    for f, label in FIELDS:
+        extra = ' inputmode="numeric" maxlength="4"' if f == "year" else ""
+        out.append(f'<label>{esc(label)} <input name="{f}" value="{esc(asked.get(f, ""))}"{extra}></label>')
+    out.append('<p class="note">Each field is matched as whole words in the columns that hold it: a surname or given-names '
+               "column where a register prints one, else the words of the name in their places; organisation, a company, "
+               "party, charity or society name; year, the year or the year of a date; address, the registered addresses "
+               "organisations publish, never a person's home address (no published table holds one). Fields and the box "
+               "above combine: every one must match.</p></details>")
+    return "".join(out)
+
+
 def left_pane(q: str, held_regs: list, boxes, action: str = "/", title: str = "Search the registers") -> str:
     return "\n".join([
         '<section class="pane left" id="search">', '<div class="reg">search</div>', f"<h2>{esc(title)}</h2>",
         f'<form method="get" action="{esc(action)}">',
         f'<input type="search" name="q" value="{esc(q)}" placeholder="a name, an address, a number" autofocus> <button>search</button>',
+        field_boxes(boxes),
         '<p class="note">Every word must appear, macrons folded; a number is matched exactly. '
         "A suppressed name is never found by name. Search all searches every held register, whatever is ticked; "
         "untick it to search the registers ticked alone.</p>",
         register_boxes(held_regs, boxes), "<p><button>search</button></p></form></section>"])
+
+
+def narrowed_line(boxes) -> str:
+    """Which fields narrowed the search, as the results pane says it."""
+    asked = boxes.asked() if boxes is not None else {}
+    if not asked:
+        return ""
+    parts = [f"{esc(label)} “{esc(asked[f])}”" for f, label in FIELDS if f in asked]
+    return f'<p class="note">narrowed by: {", ".join(parts)}</p>'
+
+
+def search_words(q: str, boxes) -> list:
+    """The words marked in the results: the box's, then every filled text field's."""
+    asked = boxes.asked() if boxes is not None else {}
+    words = list(words_of(q))
+    for f, _ in FIELDS:
+        if f != "year" and asked.get(f):
+            words += [w for w in field_words(asked[f]) if w not in words]
+    return words
 
 
 def citation_line(v: cat.View, r: dict) -> str:
@@ -266,10 +310,11 @@ def citation_line(v: cat.View, r: dict) -> str:
     return '<div class="cite">' + " · ".join(parts) + "</div>"
 
 
-def hit(q: str, v: cat.View, r: dict, words, boxes=None) -> str:
+def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "") -> str:
     """One matching row in the results pane: every field its View shows,
-    its dates, its source's address and its citation, the words marked."""
-    out = ['<article class="hit">',
+    its dates, its source's address and its citation, the words marked;
+    `why`, for a near match, says which kind it is (ruling 83)."""
+    out = ['<article class="hit">'] + ([f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
            f'<div><a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], boxes))}"><strong>{mark(title_of(v, r), words)}</strong></a> '
            f'<span class="meta">{esc(v.name)}</span></div>']
     if is_suppressed(v, r):
@@ -292,19 +337,24 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None) -> str:
     return "".join(out)
 
 
-def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=()) -> str:
+def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(), near: dict = None) -> str:
     """The wider pane beside the left one: every matching row, grouped by
     register with the register's count, over `regs`, the registers searched
-    (search.selection); `boxes` the check boxes every href carries."""
+    (search.selection); `boxes` the check boxes every href carries, and the
+    filled fields (ruling 82); `near`, the near matches below (ruling 83)."""
     out = ['<section class="pane wide" id="results">', '<div class="reg">results</div>']
+    asked = boxes.asked() if boxes is not None else {}
     if not boxes.all and not regs:
         out.append(f"<h2>Results</h2><p class=\"why\">{NOTHING_TICKED}</p></section>")
         return "\n".join(out)
-    if not q:
+    if not q and not asked:
         out.append("<h2>Results</h2><p class=\"why\">Type a name, an address or a number in the search box.</p></section>")
         return "\n".join(out)
-    out.append(f"<h2>{esc(q)}</h2>")
+    out.append(f"<h2>{esc(q) if q else 'By field'}</h2>")
     out.append(f'<p class="note">searched: {"every held register" if boxes.all else esc(", ".join(REGISTER_NAME.get(x, x) for x in regs))}</p>')
+    out.append(narrowed_line(boxes))
+    if asked.get("year") and not re.fullmatch(r"\d{4}", asked["year"].strip()):
+        out.append('<p class="warn">a year is four digits: nothing was searched</p>')
     for register, plain in cat.REGISTERS:
         if register not in regs:
             continue
@@ -316,7 +366,8 @@ def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=())
             out.append('<p class="why">not held</p>')
             continue
         if not hits:
-            out.append('<p class="why">none found</p>')
+            lacking = [label for f, label in FIELDS if asked.get(f) and not any(holds(v, f) for v in present)]
+            out.append(f'<p class="why">none found{": none of its views holds a column for " + esc(", ".join(lacking)) if lacking else ""}</p>')
             continue
         for v, n, rows in hits:
             out.append(f'<div class="view"><strong>{esc(v.name)}</strong> <span class="count">{n:,}</span></div>')
@@ -324,8 +375,49 @@ def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=())
                 out.append(hit(q, v, r, words, boxes))
             if n > len(rows):
                 out.append(f'<p class="note">and {n - len(rows):,} more in {esc(v.name)}; narrow the search</p>')
+    if near is not None:
+        out.append(near_section(q, near, words, boxes))
     out.append("</section>")
     return "\n".join(out)
+
+
+def holds(v: cat.View, field: str) -> bool:
+    """Whether a view has a column for a field of the expanded search."""
+    fs = cat.fields_of(v)
+    if field in ("first", "middle", "last"):
+        return bool(fs.names)
+    return bool({"org": fs.organisation + fs.named, "address": fs.address, "year": fs.year + fs.dates}.get(field))
+
+
+NEAR_CLASSES = (("names", "Given name and surname reversed", "given name and surname reversed"),
+                ("addresses", "Addresses, a close match", "a close address"))
+
+
+def near_section(q: str, near: dict, words, boxes=None) -> str:
+    """Near matches (ruling 83), below the exact results and never among
+    them or in their count: a details element, closed until clicked, with
+    its two classes, each row saying which, capped with the whole count."""
+    total = sum(near.get(k, {}).get("total", 0) for k, _, _ in NEAR_CLASSES)
+    out = [f'<details class="near" id="near"><summary>Near matches <span class="count">{total:,}</span></summary>',
+           '<p class="note">Not exact matches and not counted with them. Candidates by name or address alone, never a link.</p>']
+    for k, heading, why in NEAR_CLASSES:
+        c = near.get(k) or {}
+        out.append(f'<h3>{esc(heading)} <span class="count">{c.get("total", 0):,}{"+" if c.get("more") else ""}</span></h3>')
+        if c.get("why"):
+            out.append(f'<p class="why">{esc(c["why"])}</p>')
+            continue
+        if c.get("note"):
+            out.append(f'<p class="note">{esc(c["note"])}</p>')
+        if not c.get("rows"):
+            out.append('<p class="why">none found</p>')
+            continue
+        for v, r in c["rows"]:
+            out.append(hit(q, v, r, words, boxes, why=why))
+        shown_n = len(c["rows"])
+        if c["total"] > shown_n:
+            out.append(f'<p class="note">and {c["total"] - shown_n:,}{" or more" if c.get("more") else ""} more; narrow the search</p>')
+    out.append("</details>")
+    return "".join(out)
 
 
 # ── a row's pane ────────────────────────────────────────────────────────────
