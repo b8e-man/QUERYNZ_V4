@@ -33,7 +33,7 @@ def test_a_person_pane_renders_with_namesakes_apart():
 
 def test_the_search_tab_marks_maori_as_maori_in_the_registers_checked_only():
     with db.read_connect() as conn:
-        html = server.render("Maori", [], conn=conn, checked=["iwi_directory"])
+        html = server.render("Maori", [], conn=conn, boxes=search.Boxes(False, ("iwi_directory",)))
     results = html[html.index('id="results"'):]
     assert "<mark>Māori</mark>" in results                        # "Maori" typed marks "Māori" filed
     assert "<strong>iwi_directory_entities</strong>" in results

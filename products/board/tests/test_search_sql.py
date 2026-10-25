@@ -42,13 +42,19 @@ def test_regex_characters_in_a_term_are_escaped():
 
 def test_the_check_boxes_choose_the_registers():
     held = ["party_returns", "disclosures", "companies"]
-    sel = search.selection
-    assert sel([], False, False, held) == (tuple(held), True)                         # nothing checked: search all
-    assert sel(["companies"], False, False, held) == (("companies",), False)
-    assert sel(["companies"], True, False, held) == (tuple(held), True)              # "search all" just ticked
-    assert sel(["companies"], True, True, held) == (("companies",), False)           # registers unticked under "search all"
-    assert sel(held, True, True, held) == (tuple(held), True)
-    assert sel(["companies", "nonsense", "openlaw"], False, False, held) == (("companies",), False)   # never a register not held
+    sel, B = search.selection, search.Boxes
+    assert sel(B(True, ()), held) == tuple(held)                                     # the first view: search all
+    assert sel(B(True, ("companies",)), held) == tuple(held)                         # "search all" wins over the ticks
+    assert sel(B(False, ("companies",)), held) == ("companies",)
+    assert sel(B(False, ()), held) == ()                                             # nothing ticked searches nothing
+    assert sel(B(False, ("companies", "openlaw")), held) == ("companies",)           # never a register not held
+    of = search.boxes_of
+    assert of({}) == search.FIRST and of({"q": ["x"], "p": ["companies:1"]}) == search.FIRST     # an old address, a saved path
+    assert of({"all": ["0", "1"], "r": ["companies"]}) == B(True, ("companies",))    # the form, "search all" ticked
+    assert of({"all": ["0"], "r": ["companies"]}) == B(False, ("companies",))        # the form, "search all" unticked
+    assert of({"all": ["0"]}) == B(False, ())                                        # the form, nothing ticked at all
+    assert of({"r": ["companies"]}) == B(False, ("companies",))                      # board-2's narrowed link
+    assert of({"all": ["1"], "r": ["companies", "nonsense", "companies"]}) == B(True, ("companies",))
 
 
 def test_a_search_scans_only_the_registers_checked():

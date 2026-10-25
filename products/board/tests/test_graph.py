@@ -5,7 +5,7 @@ key names each colour and counts its edges; a suppressed name never shows."""
 import re
 
 from products.board import catalogue as cat
-from products.board import graph
+from products.board import graph, search
 
 ADDRESSISH = ("address", "street", "suburb", "residential", "postal")
 
@@ -74,11 +74,11 @@ def test_the_layout_is_deterministic_and_inside_the_picture():
 
 
 def test_the_picture_is_svg_with_hrefs_and_no_script():
-    html = graph.pane(sample(), "doe", ("party_returns",))
+    html = graph.pane(sample(), "doe", search.Boxes(False, ("party_returns",)))
     assert "<script" not in html and "<svg" in html and "</svg>" in html
     assert html[:html.index("<h3>Key")].count("<line ") == 3 and 'stroke-dasharray="6 4"' in html                # near is dashed
-    assert "/graph?q=doe&amp;p=&amp;r=party_returns&amp;c=companies%3Ac1" in html          # a node re-centres
-    assert 'href="/?q=doe&amp;p=party_return_donors%3Ad1&amp;r=party_returns"' in html     # a label cites the asserting row
+    assert "/graph?q=doe&amp;p=&amp;all=0&amp;r=party_returns&amp;c=companies%3Ac1" in html          # a node re-centres
+    assert 'href="/?q=doe&amp;p=party_return_donors%3Ad1&amp;all=0&amp;r=party_returns"' in html     # a label cites the asserting row
     assert "Secret Person" not in html and "name suppressed" in html                      # hard limit 16 on every surface
     assert "ACME &lt;LIMITED&gt;" in html
     key = html[html.index("<h3>Key</h3>"):]
@@ -91,3 +91,5 @@ def test_an_empty_graph_says_none_found():
     g = {"nodes": {}, "edges": [], "drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS}, "not_drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS},
          "matched_total": 0, "unresolved": 0, "centre": ""}
     assert "none found" in graph.pane(g, "zzz") and "Type a name" in graph.pane(g, "")
+    nothing = graph.pane(g, "zzz", search.Boxes(False, ()), ())          # "search all" off, nothing ticked (ruling 81)
+    assert "tick a register, or search all" in nothing and "none found" not in nothing
