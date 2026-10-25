@@ -350,3 +350,23 @@ given name first. The near-matches reversed-name class applies only where
 a convention exists and the row contradicts it. Replaces board-3's rule
 (a first name never the last word, a last name never the first). Built by
 the board fix session after ruling 84's.
+
+86. Arthur, 26 October, about 05:50, four lines on the board: "switch
+the interface to a night mode colour scheme"; "the numbered edges are
+confusing"; "let's group the donations so that all donations to a
+specific party are aggregated into a single node and a total given";
+"Let's make it easier to find the originating document of a record". So:
+(1) the board's pages take a dark scheme throughout, the edge colours of
+the key re-chosen to read on it; (2) edges carry no numbers: an edge's
+words are drawn only where they fit without touching another, every edge
+still has its hover title, and the list under the key is grouped by the
+far row's name, not by number (ruling 84's "listed, not overlapped"
+stands; its numbering goes); (3) in the graph a donor's donations to one
+party, across returns and years, are one edge to one party node labelled
+with the total and the count, the returns listed under it; the same for
+a candidate's donors to that candidate; (4) every row, in the results
+pane and its own pane, carries a "source" link that opens the captured
+document it cites (served by the board from the document store on the
+local network, read only, with the page named) beside the publisher's
+own address where the view holds one. Built by `board-4` in
+`products/board/` after ruling 85's fix.
