@@ -76,7 +76,7 @@ These are never traded for convenience, speed or a passing test. If a step in th
 
 **What may be shown**
 
-15. **A person's home address is never shown or extractable.** No published table and no export carries one. A company's registered address is shown.
+15. **A person's home address is never shown or extractable.** No published table and no export carries one. A company's registered address is shown. One exception, ruling 88 (26 October 2026): the board, which listens on the local network only and is Arthur's own instrument, may open a captured document whole, the addresses it prints included; the board itself still publishes no table and no export, and a session still never prints one.
 16. **A suppressed name is suppressed on every surface;** the row and the money stay.
 17. **Papers Past is searched, not mined.** No people, claims or links are built from it. Its name index stays inside the history product and never feeds the links.
 

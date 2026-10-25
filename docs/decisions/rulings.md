@@ -381,3 +381,17 @@ step, in the plan's order; each row says which templates built for it
 exist on the scan and which registers it needs are held or not held,
 read from the published views. Nothing written. Built by `board-4` with
 ruling 86.
+
+88. Arthur, 26 October, about 07:20, on the queue item
+`which-captured-documents-the-board-may-open-whole` (no default; board-4
+opened only the House and expenses documents under hard limit 15):
+"because the interface we are building here with the Querynz board is
+internal only we can display the addresses". So: on the board, and on the
+board alone, the "source" link opens every captured document the store
+holds, whole, the addresses it prints included. This is an exception to
+hard limit 15 and is written into the limit's own text in
+docs/plan/limits.md and CLAUDE.md. What does not change: the board stays
+on the local network (hard limit 13); no published table and no export
+carries a home address; a session, card, lesson or log never prints one
+(hard limit 11); the public site and every other product are untouched.
+The queue item closes. Built by the board fix session after board-4.
