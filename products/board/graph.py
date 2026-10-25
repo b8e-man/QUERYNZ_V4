@@ -21,6 +21,8 @@ made by looking), and draws no address edge of any kind (hard limit 15).
 `build` reads; `layout`, `lines`, `place` and `svg`/`pane` are pure."""
 from __future__ import annotations
 
+import datetime as dt
+import decimal
 import html
 import math
 import re
@@ -33,6 +35,7 @@ MAX_MATCHED = 16        # matched rows drawn; the rest are counted and the searc
 PER_VIEW = 8            # matched rows taken from any one view
 PER_RELATION = 10       # neighbours drawn per relation (or per links grade) per matched row
 MAX_NODES = 120
+MAX_FILED = 200         # rows read per donor name per view, for its money edges (ruling 86 (3)); more is said, not hidden
 W, H = 1000, 780
 KIND = {name: (colour, dash) for name, colour, dash in cat.EDGE_KINDS}
 CONFIRMED, NEAR = "same person, confirmed", "same person, near"
@@ -96,16 +99,27 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None) -> dic
                 g["matched_total"] += total
                 matched.extend((v, r) for r in rows)
         matched = matched[:MAX_MATCHED]
+    donors = {}                                             # a donor name as filed -> its node (ruling 86 (3))
+    node_of = {}                                            # each matched row -> the node it is drawn as
     for v, r in matched:
-        g["nodes"][node_id(v, r)] = {"v": v, "row": r, "matched": True, "centre": bool(centre), "order": len(g["nodes"]), "parent": None}
+        name = filed_name(v, r)
+        if name and name in donors:
+            node_of[node_id(v, r)] = donors[name]
+            continue
+        nid = node_id(v, r)
+        node_of[nid] = nid
+        g["nodes"][nid] = {"v": v, "row": r, "matched": True, "centre": bool(centre), "order": len(g["nodes"]), "parent": None}
+        if name:
+            donors[name] = nid
+            g["nodes"][nid]["title"] = str(r.get(cat.GIFT_OF[v.name].name))
     seen = set()
 
-    def add_edge(kind, a, b, label, cite, rule=None):
+    def add_edge(kind, a, b, label, cite, rule=None, **extra):
         k = (kind, min(a, b), max(a, b), label, rule)
         if k in seen:
             return
         seen.add(k)
-        g["edges"].append({"kind": kind, "a": a, "b": b, "label": label, "cite": cite, "rule": rule})
+        g["edges"].append({"kind": kind, "a": a, "b": b, "label": label, "cite": cite, "rule": rule, **extra})
         g["drawn"][kind] += 1
 
     def add_node(v, r, parent):
@@ -117,9 +131,11 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None) -> dic
         return nid
 
     resolve = _resolver(conn)
+    for name, nid in donors.items():
+        gifts(conn, g, nid, name, held, add_node, add_edge)
     for v, r in matched:
-        me = node_id(v, r)
-        for rel in v.relations:                             # this row names the far end
+        me = node_of[node_id(v, r)]
+        for rel in (() if filed_name(v, r) else v.relations):     # a donor's money is drawn by gifts(), one edge per recipient                             # this row names the far end
             value = r.get(rel.column)
             far = cat.BY_NAME[rel.view]
             if value in (None, "") or far.name not in held:
@@ -132,7 +148,7 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None) -> dic
                     add_edge(rel.kind, me, nid, rel.label, me)
                     drawn += 1
             g["not_drawn"][rel.kind] += total - drawn
-        for src, rel in INCOMING.get(v.name, ()):           # another view's rows name this row
+        for src, rel in (() if filed_name(v, r) else INCOMING.get(v.name, ())):     # another view's rows name this row
             value = r.get(rel.to_column)
             if value in (None, "") or src.name not in held:
                 continue
@@ -162,6 +178,117 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None) -> dic
                     drawn += 1
             g["not_drawn"][kind] += len(items) - drawn
     return g
+
+
+# ── a donor's money, one edge per recipient (ruling 86 (3)) ─────────────────
+
+def filed_name(v: cat.View, r: dict) -> str:
+    """The donor name a gift row is filed under, folded (case, macrons,
+    spacing); empty for a row that is no gift, or whose name is suppressed."""
+    gift = cat.GIFT_OF.get(v.name)
+    if not gift or panes.is_suppressed(v, r) or not r.get(gift.name):
+        return ""
+    return cat.fold_term(str(r[gift.name]))
+
+
+def year_of(gift: cat.Gift, r: dict):
+    for c in gift.years:
+        x = r.get(c)
+        if isinstance(x, (dt.date, dt.datetime)):
+            return x.year
+        if isinstance(x, int):
+            return x
+    return None
+
+
+def money(x) -> str:
+    return f"${decimal.Decimal(x):,.2f}"
+
+
+def summed(addends: list) -> dict:
+    """The total of the addends that are added, and what the label says: a
+    sum of the register's own amounts and nothing more."""
+    added = [x for x in addends if not x.get("not_added")]
+    total = sum((decimal.Decimal(x["amount"]) for x in added), decimal.Decimal(0))
+    return {"total": total, "added": added, "records": len({x.get("record") or x["cite"] for x in added}),
+            "years": sorted({x["year"] for x in added if x.get("year") is not None})}
+
+
+def years_words(years: list) -> str:
+    return "year not stated" if not years else (str(years[0]) if years[0] == years[-1] else f"{years[0]}–{years[-1]}")
+
+
+def gift_label(addends: list) -> str:
+    """"donated $<total> (<n> returns, <first year>–<last year>)", then the
+    rows listed apart: a disclosure's own sum, never added to a return's."""
+    s = summed(addends)
+    parts = []
+    if s["added"]:
+        n = s["records"]
+        parts.append(f"donated {money(s['total'])} ({n} return{'s' if n != 1 else ''}, {years_words(s['years'])})")
+    apart = [x for x in addends if x.get("not_added") and x.get("apart")]
+    if apart:
+        d = sum((decimal.Decimal(x["amount"]) for x in apart if x.get("amount") is not None), decimal.Decimal(0))
+        ys = sorted({x["year"] for x in apart if x.get("year") is not None})
+        parts.append(f"disclosed {money(d)} ({len(apart)} disclosure{'s' if len(apart) != 1 else ''}, {years_words(ys)}), not added")
+    if not parts:
+        parts.append(f"donated: {len(addends)} row{'s' if len(addends) != 1 else ''}, none added (see the list)")
+    return "; ".join(parts)
+
+
+def gifts(conn, g: dict, nid: str, name: str, held: set, add_node, add_edge):
+    """Every row filed under `name` in the gift views, one money edge per
+    recipient from the donor's node `nid`, its addends listed under it."""
+    by = {}                     # recipient key -> {"rows": [(gift, row, recipient row)], ...}
+    for gift in cat.GIFTS:
+        v, far = cat.BY_NAME[gift.view], cat.BY_NAME[gift.to_view]
+        if v.name not in held or far.name not in held:
+            continue
+        rows = db.rows(conn, f"select *, {v.key_col} as key, count(*) over () as total from pub.{v.name} "
+                             f"where regexp_replace(btrim({search.fold_sql(gift.name)}), '\\s+', ' ', 'g') = %s "
+                             f"order by {v.key_col} limit %s", (name, MAX_FILED))
+        if rows and int(rows[0]["total"]) > len(rows):
+            g["gifts_cut"] = g.get("gifts_cut", 0) + int(rows[0]["total"]) - len(rows)
+        cache = {}
+        for r in rows:
+            if panes.is_suppressed(v, r):
+                continue
+            value = r.get(gift.column)
+            if value in (None, ""):
+                g["gifts_unplaced"] = g.get("gifts_unplaced", 0) + 1
+                continue
+            if value not in cache:
+                cache[value] = _rows(conn, far, gift.to_column, value, 1)[1]
+            if not cache[value]:
+                g["gifts_unplaced"] = g.get("gifts_unplaced", 0) + 1
+                continue
+            rr = cache[value][0]
+            k = (far.name,) + (tuple(cat.fold_term(str(rr.get(c) or "")) for c in gift.one_recipient) if gift.one_recipient else (rr["key"],))
+            by.setdefault(k, []).append((gift, v, r, far, rr))
+    for k in sorted(by, key=lambda k: (k[0] != "parties", k)):
+        items = sorted(by[k], key=lambda x: (year_of(x[0], x[2]) or 0, x[1].name, x[2]["key"]))
+        far = items[0][3]
+        node_row = max((x[4] for x in items), key=lambda rr: (rr.get("year") or 0, rr["key"]))     # a candidate: the latest return
+        far_id = add_node(far, node_row, nid)
+        if not far_id:
+            g["not_drawn"]["money"] += 1
+            continue
+        addends = []
+        for gift, v, r, _, rr in items:
+            why = ""
+            if r.get("amount") is None:
+                why = "no amount filed, not added"
+            elif gift.replaced and r.get(gift.replaced):
+                why = "replaced by an amendment, not added"
+            elif not gift.added:
+                why = "a disclosure: its gift is also in the year's return, never added to it"
+            addends.append({"year": year_of(gift, r), "amount": r.get(gift.amount), "what": gift.what,
+                            "cite": node_id(v, r), "not_added": why, "apart": not gift.added and not (gift.replaced and r.get(gift.replaced)),
+                            "record": f"{gift.record_view}:{r[gift.record]}" if gift.record and r.get(gift.record) else "",
+                            "record_words": "the return" if gift.record else ""})
+        if far.name == "candidate_return_totals":
+            g["nodes"][far_id]["title"] = " ".join(str(node_row.get(c) or "") for c in ("given_names", "surname")).strip() or None
+        add_edge("money", nid, far_id, gift_label(addends), addends[0]["cite"], addends=addends)
 
 
 # ── layout and drawing: pure ────────────────────────────────────────────────
@@ -195,6 +322,12 @@ def layout(g: dict) -> dict:
             pos[k] = (cx + rx * ring * math.cos(a), cy + ry * ring * math.sin(a))
         at += span
     return pos
+
+
+def node_title(n: dict) -> str:
+    """A node's name: the row's title, or the donor's name as filed and a
+    candidate's name where the node stands for several rows (ruling 86 (3))."""
+    return n.get("title") or panes.title_of(n["v"], n["row"])
 
 
 def short(text: str, n: int = 30) -> str:
@@ -277,7 +410,7 @@ def place(g: dict, pos: dict, lns: list) -> dict:
     for nid, n in sorted(g["nodes"].items(), key=lambda kv: kv[1]["order"]):
         x, y = pos[nid]
         rad = radius(n)
-        name, reg = panes.title_of(n["v"], n["row"]), n["v"].register.replace("_", " ")
+        name, reg = node_title(n), n["v"].register.replace("_", " ")
         others = [b for k, b in circle.items() if k != nid]
         labels[nid] = None
         tries = [(k, True) for k in LABEL_LENGTHS] + [(k, False) for k in LABEL_LENGTHS[-2:]]
@@ -374,7 +507,7 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None) -
     for nid, n in sorted(g["nodes"].items(), key=lambda kv: kv[1]["order"]):
         x, y = pos[nid]
         v, r = n["v"], n["row"]
-        title = panes.title_of(v, r)
+        title = node_title(n)
         rad = radius(n)
         to = panes.href(q, [], boxes, "/graph") + "&" + urllib.parse.urlencode({"c": nid})
         lab = placement["labels"].get(nid)
@@ -425,7 +558,7 @@ def edge_list(g: dict, lns: list, placement: dict, q: str, boxes=None) -> str:
 
     def title(nid):
         n = g["nodes"][nid]
-        return panes.title_of(n["v"], n["row"])
+        return node_title(n)
 
     order = sorted(groups, key=lambda f: (min(KIND_ORDER[ln["kind"]] for _, ln in groups[f]), title(f).lower(), f))
     out = [f'<h3>Edges, by the row they reach <span class="count">{len(order):,} rows, {len(lns):,} lines</span></h3>']
@@ -476,7 +609,7 @@ def pane(g: dict, q: str, boxes=None, regs=None) -> str:
     matched = [n for n in g["nodes"].values() if n["matched"]]
     if g.get("centre"):
         n = matched[0]
-        out.append(f"<h2>{panes.esc(panes.title_of(n['v'], n['row']))}</h2>")
+        out.append(f"<h2>{panes.esc(node_title(n))}</h2>")
         out.append(f'<p class="note">centred on one row; <a href="{panes.esc(panes.href(q, [g["centre"]], boxes))}">its pane</a>'
                    f' · <a href="{panes.esc(panes.href(q, [], boxes, "/graph"))}">back to the search</a></p>')
     else:
@@ -490,6 +623,16 @@ def pane(g: dict, q: str, boxes=None, regs=None) -> str:
     placement = place(g, layout(g), lns)
     out.append(svg(g, q, boxes, lns, placement))
     out.append(key_table(g))
+    if any(e.get("addends") for e in g["edges"]):
+        out.append('<p class="note">A donor\'s donations to one party or one candidate are one edge, its total the sum of the '
+                   "return rows' own amounts, every addend listed under the edge below; the rows are those filed under one "
+                   "donor name exactly as filed (case and macrons aside), which is not a finding that they are one person. "
+                   "A disclosure is listed beside them and never added: its gift is also in that year's return.</p>")
+    if g.get("gifts_cut"):
+        out.append(f'<p class="note">{g["gifts_cut"]:,} more rows are filed under these names than one picture reads ({MAX_FILED} per view): '
+                   "the totals are of the rows listed.</p>")
+    if g.get("gifts_unplaced"):
+        out.append(f'<p class="note">{g["gifts_unplaced"]:,} donation rows name no party or return the published views hold, and are not drawn</p>')
     if g["unresolved"]:
         out.append(f'<p class="note">{g["unresolved"]} linked rows were not found in the published views and are not drawn</p>')
     out.append(edge_list(g, lns, placement, q, boxes))

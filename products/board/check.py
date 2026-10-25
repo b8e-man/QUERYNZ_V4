@@ -47,6 +47,7 @@ tables through the session reader, never the sample:
 """
 from __future__ import annotations
 
+import decimal
 import re
 import sys
 import urllib.parse
@@ -218,6 +219,53 @@ def picture_problems(conn, centre: str, g: dict, page: str) -> list:
         bare = re.sub(r"<title>.*?</title>", "", picture, flags=re.S)
         if RULE_ID.search(bare) or "links rule" in bare:
             out.append(f"the graph of {c} shows a rule id outside a tooltip: {(RULE_ID.search(bare) or ['links rule'])[0]}")
+    return out
+
+
+def known_donor(conn) -> str:
+    """A donor filed under one name in returns of two years or more to one
+    party: the first row of the name with the most rows, read from the table."""
+    d = db.rows(conn, "select min(key) as k from pub.party_return_donors where replaced_by is null and amount is not null "
+                      "and donor is not null group by " + search.fold_sql("btrim(donor)") +
+                " having count(distinct year) >= 2 and count(distinct party_key) = 1 order by count(*) desc, 1 limit 1")
+    return f"party_return_donors:{d[0]['k']}" if d else ""
+
+
+LISTED = re.compile(r'<li>(\d{4}|year not stated) · \$([\d,.]+) · [^<]*(<span class="warn">)?')
+
+
+def gift_problems(conn) -> list:
+    """Ruling 86 (3): the known donor's graph draws one money edge to its one
+    party; its label's total equals the sum of the amounts the list shows as
+    added, and equals the register's own sum of the rows filed under that
+    name to that party, no amendment-replaced row among them; it names two
+    years or more."""
+    out = []
+    centre = known_donor(conn)
+    if not centre:
+        return ["no donor filed under one name in two years' returns to one party, to test the summed edge on"]
+    g = graph.build(conn, "", centre=centre)
+    edges = [e for e in g["edges"] if e.get("addends") and e["b"].startswith("parties:")]
+    if len(edges) != 1:
+        return [f"the graph of the known donor {centre} drew {len(edges)} summed party edges, one wanted"]
+    e = edges[0]
+    total = graph.summed(e["addends"])["total"]
+    page = graph.pane(g, "")
+    head = page.find("<h4>" + panes.esc(graph.node_title(g["nodes"][e["b"]])))
+    block = page[head:page.find("</ul></li>", head)] if head >= 0 else ""
+    shown = [decimal.Decimal(a.replace(",", "")) for _, a, why in LISTED.findall(block) if not why]
+    if not shown or sum(shown) != total:
+        out.append(f"the known donor's party edge totals {total}, but the amounts listed under it as added sum to {sum(shown)}")
+    if graph.money(total) not in e["label"]:
+        out.append(f"the known donor's party edge says {e['label']!r}, not its total {graph.money(total)}")
+    r = search.row(conn, "party_return_donors", centre.partition(":")[2])
+    reg = db.rows(conn, "select sum(amount) as s, count(distinct year) as y from pub.party_return_donors where replaced_by is null "
+                        f"and regexp_replace(btrim({search.fold_sql('donor')}), '\\s+', ' ', 'g') = %s and party_key = %s",
+                  (cat.fold_term(r["donor"]), r["party_key"]))[0]
+    if reg["s"] != total:
+        out.append(f"the known donor's party edge totals {total}; the register's rows filed under the name to that party sum to {reg['s']}")
+    if (reg["y"] or 0) < 2 or len(graph.summed(e["addends"])["years"]) < 2:
+        out.append("the known donor's summed edge does not span two years")
     return out
 
 

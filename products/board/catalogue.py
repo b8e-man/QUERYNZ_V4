@@ -55,6 +55,47 @@ EDGE_KINDS = (
 )
 RELATION_KINDS = ("money", "role", "candidacy", "declaration", "dealing")   # what a catalogue line may declare; the two same-person kinds come from pub.links
 
+
+@dataclass(frozen=True)
+class Gift:
+    """A donor's rows the graph draws as one money edge per recipient (ruling
+    86 (3)): every row filed under one donor name, as filed (case, macrons
+    and spacing folded, nothing else), to one party or one candidate, is one
+    edge to one node, labelled with the total of the register's own amounts
+    and its count; every addend is listed under it. One name as filed is
+    never a finding that its rows are one person. `added`: whether this
+    view's amounts are summed into the total, or listed apart (a disclosure's
+    gift is also in that year's return: never summed with it, rulings 190 to
+    193 of the old estate, carried in the disclosures and scan templates).
+    `one_recipient`: columns of the recipient row that make one recipient
+    across its rows (a candidate files one return per election); empty, the
+    recipient row is itself the node (a party)."""
+    view: str                       # the donor's view
+    name: str                       # the donor's name, as filed
+    amount: str
+    years: tuple                    # a year column, or date columns whose year counts, first present wins
+    to_view: str                    # the recipient's view
+    column: str                     # this row's column naming the recipient, or the record that names it
+    to_column: str = "key"          # matched to
+    record: str = ""                # this row's column naming the record it sits in (its return), listed beside it
+    record_view: str = ""
+    what: str = ""                  # what one addend is, in words
+    added: bool = True
+    one_recipient: tuple = ()
+    replaced: str = "replaced_by"   # a row an amendment replaces is listed, never added
+
+
+GIFTS = (
+    Gift("party_return_donors", "donor", "amount", ("year",), "parties", "party_key", record="return_key",
+         record_view="party_return_totals", what="party return"),
+    Gift("disclosures", "donor_name", "amount", ("given_on", "received_on"), "parties", "party", to_column="name",
+         what="large-donation disclosure", added=False, replaced=""),
+    Gift("candidate_return_donors", "donor", "amount", ("year",), "candidate_return_totals", "return_key",
+         record="return_key", record_view="candidate_return_totals", what="candidate return",
+         one_recipient=("surname", "given_names")),
+)
+GIFT_OF = {g.view: g for g in GIFTS}
+
 #: the links lane's rules in plain words (ruling 84), keyed by the rule id `pub.links` carries
 #: without its version; the words follow each rule's own description in links/ (rules.py, build.py).
 #: The id and version are shown only in a tooltip or a list, as `rule_ref` writes them, never as a label.

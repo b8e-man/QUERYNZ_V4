@@ -199,3 +199,55 @@ def test_the_no_touch_reading_catches_two_texts_that_touch():
 def test_overlaps_finds_two_boxes_that_meet():
     p = {"labels": {"a": ("x", "", 0, 0, 0, "middle", (0, 0, 10, 10)), "b": ("y", "", 0, 0, 0, "middle", (5, 5, 15, 15))}, "words": {1: ("w", 40, 40, (35, 35, 45, 45))}}
     assert graph.overlaps(p) == [("label a", "label b")]
+
+
+def gift_graph():
+    """A donor filed under one name in three returns over two years and one
+    disclosure, to one party that a candidacy also reaches."""
+    g = sample()
+    g["nodes"] = {"party_return_donors:d1": node("party_return_donors", "d1", True, 0, donor="Jane DOE", amount=5),
+                  "parties:p1": node("parties", "p1", False, 1, "party_return_donors:d1", name="A Party")}
+    g["nodes"]["party_return_donors:d1"]["title"] = "Jane DOE"
+    adds = [{"year": 2022, "amount": 1000, "what": "party return", "cite": "party_return_donors:d1", "not_added": "", "apart": False,
+             "record": "party_return_totals:t1", "record_words": "the return"},
+            {"year": 2023, "amount": 250.5, "what": "party return", "cite": "party_return_donors:d2", "not_added": "", "apart": False,
+             "record": "party_return_totals:t2", "record_words": "the return"},
+            {"year": 2023, "amount": 99, "what": "party return", "cite": "party_return_donors:d3", "not_added": "replaced by an amendment, not added",
+             "apart": False, "record": "party_return_totals:t3", "record_words": "the return"},
+            {"year": 2023, "amount": 30000, "what": "large-donation disclosure", "cite": "disclosures:x1",
+             "not_added": "a disclosure: its gift is also in the year's return, never added to it", "apart": True, "record": "", "record_words": ""}]
+    g["edges"] = [{"kind": "money", "a": "party_return_donors:d1", "b": "parties:p1", "label": graph.gift_label(adds),
+                   "cite": "party_return_donors:d1", "rule": None, "addends": adds}]
+    return g, adds
+
+
+def test_a_donor_s_gifts_to_one_party_are_one_edge_whose_total_is_the_sum_of_its_listed_addends():
+    g, adds = gift_graph()
+    s = graph.summed(adds)
+    assert s["total"] == graph.decimal.Decimal("1250.5") and s["records"] == 2 and s["years"] == [2022, 2023]
+    assert graph.gift_label(adds) == ("donated $1,250.50 (2 returns, 2022–2023); "
+                                      "disclosed $30,000.00 (1 disclosure, 2023), not added")
+    html = graph.pane(g, "doe")
+    picture = html[html.index("<svg"):html.index("</svg>")]
+    assert picture.count("<line ") == 1 and "donated $1,250.50 (2 returns, 2022–2023)" in picture       # the tooltip, whole
+    listed = html[html.index('<div class="edges">'):]
+    shown = [graph.decimal.Decimal(a.replace(",", "")) for a, why in
+             re.findall(r"<li>\d{4} · \$([\d,.]+) · [^<]*(<span class=\"warn\">)?", listed) if not why]
+    assert sum(shown) == s["total"] and len(shown) == 2                  # the total is checkable from the list
+    assert listed.count("not added") >= 2 and listed.count('>the return</a>') == 3
+    assert 'href="/?q=doe&amp;p=party_return_donors%3Ad2' in listed
+    assert "one donor name exactly as filed" in html
+
+
+def test_a_label_with_one_return_and_none_added_says_so():
+    one = [{"year": 2024, "amount": 10, "what": "candidate return", "cite": "c:1", "not_added": "", "record": "r:1"}]
+    assert graph.gift_label(one) == "donated $10.00 (1 return, 2024)"
+    none = [{"year": None, "amount": None, "what": "party return", "cite": "c:1", "not_added": "no amount filed, not added", "record": "r:1"}]
+    assert "none added" in graph.gift_label(none)
+
+
+def test_a_filed_name_is_folded_and_a_suppressed_or_non_gift_row_has_none():
+    assert graph.filed_name(cat.BY_NAME["party_return_donors"], {"donor": "  Jāne   DOE "}) == "jane doe"
+    assert graph.filed_name(cat.BY_NAME["companies"], {"name": "ACME"}) == ""
+    assert {g.view for g in cat.GIFTS} == {"party_return_donors", "disclosures", "candidate_return_donors"}
+    assert [g.added for g in cat.GIFTS] == [True, False, True]            # a disclosure is never summed with a return
