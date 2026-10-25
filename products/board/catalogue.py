@@ -97,15 +97,27 @@ class Name:
     """Where one person's name sits in a view's row, for the field search
     (ruling 82): `whole`, a column holding the whole name as one string; or
     the parts, `first`, `middle` and `last`, with `given` for a column
-    holding the first and middle names together."""
+    holding the first and middle names together. `order` (ruling 85) says
+    how the name fields read it: PARTS for the parts; for a whole name
+    GIVEN_FAMILY or FAMILY_GIVEN where the register's form or the lane's own
+    rule fixes the order, AMBIGUOUS where nothing does. A comma reads family
+    then given whatever the order."""
     whole: str = ""
     first: str = ""
     middle: str = ""
     given: str = ""
     last: str = ""
+    order: str = ""
 
     def columns(self) -> tuple:
         return tuple(c for c in (self.whole, self.first, self.middle, self.given, self.last) if c)
+
+
+#: a Name's orders (ruling 85)
+PARTS, GIVEN_FAMILY, FAMILY_GIVEN, AMBIGUOUS = "parts", "given-family", "family-given", "ambiguous"
+ORDERS = (PARTS, GIVEN_FAMILY, FAMILY_GIVEN, AMBIGUOUS)
+#: the orders that fix where a name's words go: the near matches' reversed class reads only these
+STATED = (PARTS, GIVEN_FAMILY, FAMILY_GIVEN)
 
 
 @dataclass(frozen=True)
@@ -936,82 +948,117 @@ BY_NAME = {v.name: v for v in VIEWS}
 
 #: the field search (ruling 82): for each view, which column holds which field.
 #: A view not listed has only the year of its dates. Every column is checked
-#: against its view (check.py, tests/test_catalogue.py).
-_P3 = Name(first="first_name", middle="middle_names", last="last_name")
+#: against its view (check.py, tests/test_catalogue.py). Every Name says its
+#: order (ruling 85), with the reason beside it: the lane's pane.md or spec,
+#: its reader, or the register's printed form; where none states it, AMBIGUOUS.
+_P3 = Name(first="first_name", middle="middle_names", last="last_name", order=PARTS)
 FIELDS_OF = {
     "companies": Fields(organisation=("name",)),
     "directors": Fields(names=(_P3,)),
-    "shareholders": Fields(names=(Name("name"),), named=("name",)),
+    "shareholders": Fields(names=(Name("name", order=GIVEN_FAMILY),), named=("name",)),   # the Companies Office's full_name, given names then SURNAME
     "company_addresses": Fields(address=("line_1", "line_2", "line_3", "line_4", "postcode")),
     "company_states": Fields(organisation=("name",)),
     "company_lookups": Fields(organisation=("name",)),
     "company_lookup_roles": Fields(names=(_P3,)),
-    "company_lookup_holdings": Fields(names=(Name("name"),), named=("name",)),
+    "company_lookup_holdings": Fields(names=(Name("name", order=AMBIGUOUS),), named=("name",)),   # no row published yet; the lane states no order
     "societies": Fields(organisation=("name",)),
     "society_officers": Fields(names=(_P3,)),
     "society_states": Fields(organisation=("name",)),
     "charities": Fields(organisation=("name", "other_names"), address=("address_for_service",)),
-    "charity_officers": Fields(names=(Name(first="first_name", middle="middle_name", last="last_name"),)),
-    "promoter_expense_returns": Fields(names=(Name("promoter"),), named=("promoter",), year=("year",)),
+    "charity_officers": Fields(names=(Name(first="first_name", middle="middle_name", last="last_name", order=PARTS),)),
+    "promoter_expense_returns": Fields(names=(Name("promoter", order=AMBIGUOUS),),   # a promoter as the return is filed: the form fixes no order
+                                         named=("promoter",), year=("year",)),
     "party_statement_figures": Fields(organisation=("party", "party_label"), year=("filed_year",)),
-    "candidate_return_totals": Fields(names=(Name(given="given_names", last="surname"),), organisation=("party",), year=("year",)),
-    "candidate_return_donors": Fields(names=(Name("donor"), Name(given="given_names", last="surname")), named=("donor",),
+    "candidate_return_totals": Fields(names=(Name(given="given_names", last="surname", order=PARTS),), organisation=("party",), year=("year",)),
+    "candidate_return_donors": Fields(names=(Name("donor", order=AMBIGUOUS),          # the donor as the candidate wrote it: the form fixes no order
+                                                Name(given="given_names", last="surname", order=PARTS)), named=("donor",),
                                       organisation=("party",), year=("year",)),
-    "disclosures": Fields(names=(Name("donor_name"),), named=("donor_name",), organisation=("party", "party_label")),
-    "disclosure_items": Fields(names=(Name("contributor"),), named=("contributor",)),
-    "mp_expenses": Fields(names=(Name("name"), Name("member")), organisation=("party", "party_label")),
-    "minister_expenses": Fields(names=(Name("name"), Name("member")), organisation=("party", "party_label")),
+    "disclosures": Fields(names=(Name("donor_name", order=AMBIGUOUS),),   # the donor as the party declared it: no order
+                           named=("donor_name",), organisation=("party", "party_label")),
+    "disclosure_items": Fields(names=(Name("contributor", order=AMBIGUOUS),),   # as the declaration itemises it: no order
+                                named=("contributor",)),
+    "mp_expenses": Fields(names=(Name("name", order=AMBIGUOUS),     # the lane turns "Surname, Given" round but leaves the workbook's "Logie Jan" as printed
+                                 Name("member", order=FAMILY_GIVEN)),   # the workbook prints the surname first, with or without a comma
+                          organisation=("party", "party_label")),
+    "minister_expenses": Fields(names=(Name("name", order=GIVEN_FAMILY),     # expenses/read.py person(): given-first, honorifics off
+                                       Name("member", order=GIVEN_FAMILY)),  # the listings print "Hon Given Surname"
+                                organisation=("party", "party_label")),
     "gazette_notices": Fields(year=("year",)),
-    "gazette_celebrants": Fields(names=(Name(given="given_names", last="surname"),), organisation=("organisation",)),
-    "gazette_prohibitions": Fields(names=(Name("name"), Name("also_known_as"))),
+    "gazette_celebrants": Fields(names=(Name(given="given_names", last="surname", order=PARTS),), organisation=("organisation",)),
+    "gazette_prohibitions": Fields(names=(Name("name", order=GIVEN_FAMILY),          # the notice's prose names the person given-first
+                                          Name("also_known_as", order=AMBIGUOUS))),   # an alias in brackets: no order stated
     "gazette_liquidations": Fields(organisation=("company",)),
-    "gazette_liquidators": Fields(names=(Name("name"),)),
+    "gazette_liquidators": Fields(names=(Name("name", order=GIVEN_FAMILY),)),     # the notice's signature, given-first
     "gazette_company_notices": Fields(organisation=("company",), named=("party",)),
-    "gazette_practitioners": Fields(names=(Name("name"),)),
-    "gazette_bankruptcies": Fields(names=(Name(given="given_names", last="surname"), Name("also_known_as"))),
-    "gazette_appointments": Fields(names=(Name("name"),)),
+    "gazette_practitioners": Fields(names=(Name("name", order=GIVEN_FAMILY),)),   # as the notice signs them, given-first
+    "gazette_bankruptcies": Fields(names=(Name(given="given_names", last="surname", order=PARTS),
+                                          Name("also_known_as", order=FAMILY_GIVEN))),   # printed as the subject is, "SURNAME, Given"
+    "gazette_appointments": Fields(names=(Name("name", order=GIVEN_FAMILY),)),    # the appointee in the notice's prose, honorific first
     "party_labels": Fields(organisation=("label", "party_name")),
-    "gazette_possessions": Fields(names=(Name("mortgagee"), Name("mortgagor")), named=("mortgagee", "mortgagor")),
-    "candidates": Fields(names=(Name("name"), Name("display_name")), organisation=("party", "party_registered")),
-    "members": Fields(names=(Name("name"), Name("display_name")), organisation=("party", "party_registered")),
-    "mp_interest_returns": Fields(names=(Name("name"), Name("member")), organisation=("party", "party_label")),
-    "mp_interests": Fields(names=(Name("name"), Name("member")), organisation=("party",)),
-    "parties": Fields(names=(Name("secretary"),), organisation=("name", "first_name")),
+    "gazette_possessions": Fields(names=(Name("mortgagee", order=AMBIGUOUS), Name("mortgagor", order=AMBIGUOUS)),   # the lane states no order
+                                 named=("mortgagee", "mortgagor")),
+    "candidates": Fields(names=(Name("name", order=FAMILY_GIVEN),              # the Commission's "SURNAME, Given"
+                                Name("display_name", order=GIVEN_FAMILY)),   # house/read.py: keys.names' given-first display
+                         organisation=("party", "party_registered")),
+    "members": Fields(names=(Name("name", order=FAMILY_GIVEN),              # the Commission's "SURNAME, Given"
+                             Name("display_name", order=GIVEN_FAMILY)),   # house/read.py: keys.names' given-first display
+                      organisation=("party", "party_registered")),
+    "mp_interest_returns": Fields(names=(Name("name", order=GIVEN_FAMILY),      # mp_interests/read.py: keys.names' given-first display
+                                         Name("member", order=GIVEN_FAMILY)),   # the register's header "Name (Party, Electorate)", given-first
+                                  organisation=("party", "party_label")),
+    "mp_interests": Fields(names=(Name("name", order=GIVEN_FAMILY), Name("member", order=GIVEN_FAMILY)),   # as mp_interest_returns
+                           organisation=("party",)),
+    "parties": Fields(names=(Name("secretary", order=AMBIGUOUS),),   # the lane states no order
+                      organisation=("name", "first_name")),
     "party_names": Fields(organisation=("name",)),
     "party_events": Fields(organisation=("party_label", "new_name")),
     "party_expenses": Fields(organisation=("party", "party_label"), year=("year",)),
     "party_expense_returns": Fields(organisation=("party", "party_label"), year=("year",)),
     "party_financial_statements": Fields(organisation=("party", "party_label"), year=("filed_year",)),
     "broadcasting_allocations": Fields(organisation=("party", "party_label"), year=("year",)),
-    "promoters": Fields(names=(Name("promoter"),), named=("promoter",), year=("year",)),
-    "promoter_people": Fields(names=(Name("name"),), named=("promoter",), year=("year",)),
-    "promoter_expenses": Fields(names=(Name("promoter"),), named=("promoter",), year=("year",)),
+    "promoters": Fields(names=(Name("promoter", order=AMBIGUOUS),),   # as the promoter filed it: no order
+                        named=("promoter",), year=("year",)),
+    "promoter_people": Fields(names=(Name("name", order=AMBIGUOUS),),   # as the return names them: no order
+                              named=("promoter",), year=("year",)),
+    "promoter_expenses": Fields(names=(Name("promoter", order=AMBIGUOUS),),   # as filed: no order
+                                named=("promoter",), year=("year",)),
     "party_return_totals": Fields(organisation=("party", "party_label"), year=("year",)),
-    "party_return_donors": Fields(names=(Name("donor"),), named=("donor",), organisation=("party", "party_label"), year=("year",)),
-    "party_return_loans": Fields(names=(Name("lender"),), named=("lender",), organisation=("party", "party_label"), year=("year",)),
-    "party_board_roles": Fields(names=(Name("name"), Name("name_as_declared")), organisation=("party",)),
+    "party_return_donors": Fields(names=(Name("donor", order=AMBIGUOUS),),   # the donor as the party's return prints it: MILLS PHILLIP and Phillip Mills both (ruling 85)
+                                  named=("donor",), organisation=("party", "party_label"), year=("year",)),
+    "party_return_loans": Fields(names=(Name("lender", order=AMBIGUOUS),),   # as the return prints it: no order
+                                 named=("lender",), organisation=("party", "party_label"), year=("year",)),
+    "party_board_roles": Fields(names=(Name("name", order=GIVEN_FAMILY), Name("name_as_declared", order=GIVEN_FAMILY)),   # a party's page, ordinary text
+                                organisation=("party",)),
     "party_board_pages": Fields(organisation=("party",)),
-    "court_judgment_parties": Fields(names=(Name("name"),), named=("name",)),
+    "court_judgment_parties": Fields(names=(Name("name", order=AMBIGUOUS),),   # an intitulement in capitals: the lane states no order
+                                     named=("name",)),
     "limited_partnerships": Fields(organisation=("name",), address=("registered_office",)),
     "limited_partnership_partners": Fields(names=(_P3,), named=("full_name",)),
-    "building_practitioner_decisions": Fields(names=(Name("name"),)),
-    "building_practitioners": Fields(names=(Name("name"),)),
-    "sanctions_listings": Fields(names=(Name("name"),), named=("name",),
+    "building_practitioner_decisions": Fields(names=(Name("name", order=AMBIGUOUS),)),   # the lane states no order
+    "building_practitioners": Fields(names=(Name("name", order=AMBIGUOUS),)),   # the lane states no order
+    "sanctions_listings": Fields(names=(Name("name", order=AMBIGUOUS),),   # the lists' own orders differ; the lane states none
+                                 named=("name",),
                                  dates=("designated_on", "expires_on", "ended_on", "updated_on")),   # renewed_on is a list of dates
     "award_suppliers": Fields(organisation=("business_name",)),
-    "commerce_commission_parties": Fields(names=(Name("name"),), organisation=("name", "trading_as")),
-    "fma_parties": Fields(names=(Name("name"),), organisation=("name",)),
-    "worksafe_parties": Fields(names=(Name("name"),), organisation=("name",)),
-    "overseas_investment_parties": Fields(names=(Name("name"),), organisation=("name",)),
+    "commerce_commission_parties": Fields(names=(Name("name", order=AMBIGUOUS),),   # "as published": no order stated
+                                          organisation=("name", "trading_as")),
+    "fma_parties": Fields(names=(Name("name", order=AMBIGUOUS),),   # "as published": no order stated
+                          organisation=("name",)),
+    "worksafe_parties": Fields(names=(Name("name", order=AMBIGUOUS),),   # the lane states no order
+                               organisation=("name",)),
+    "overseas_investment_parties": Fields(names=(Name("name", order=AMBIGUOUS),),   # "as published": no order stated
+                                          organisation=("name",)),
     "grant_publishers": Fields(organisation=("name",)),
-    "grants": Fields(names=(Name("recipient_as_published"),), organisation=("grantor",),
+    "grants": Fields(names=(Name("recipient_as_published", order=AMBIGUOUS),),   # "exactly as printed": no order stated
+                     organisation=("grantor",),
                      named=("recipient_as_published", "recipient_final_as_published")),
     "grant_recipients": Fields(organisation=("name_as_published", "grantor")),
     "iwi_directory_entities": Fields(organisation=("name", "legal_entity")),
     "iwi_directory_settlements": Fields(year=("act_year",)),
     "agency_contract_costs": Fields(dates=("year_ended",)),
-    "councillor_interests": Fields(names=(Name("member"),)),
-    "local_election_returns": Fields(names=(Name("candidate_as_listed"),), year=("election_year",)),
+    "councillor_interests": Fields(names=(Name("member", order=AMBIGUOUS),)),   # the lane states no order
+    "local_election_returns": Fields(names=(Name("candidate_as_listed", order=AMBIGUOUS),),   # each council lists its own way
+                                     year=("election_year",)),
     "local_election_returns_coverage": Fields(year=("election_year",)),
 }
 

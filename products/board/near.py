@@ -4,10 +4,14 @@ never a looser rule.
 
 - **names**: a person name whose given name and surname are reversed against
   the query ("MILLS PHILLIP" for Phillip Mills, or "Phillip, Mills"), read by
-  keys.names.person_name (honorifics off, "Family, Given" turned round); a
-  middle name may be absent on either side; an initial matches a given name
-  it begins. The query is the first and last name fields when both are
-  filled, else the search box when it reads as a person's name.
+  keys.names.person_name (honorifics off, "Family, Given" turned round) in
+  its view's order (ruling 85): only a Name whose order is stated
+  (catalogue.STATED) can contradict the query; in an AMBIGUOUS one either
+  order is exact and never near. A FAMILY_GIVEN name with no comma reads its
+  first word as the family. A middle name may be absent on either side; an
+  initial matches a given name it begins. The query is the first and last
+  name fields when both are filled, else the search box when it reads as a
+  person's name.
 - **addresses**: the same street number and street, by keys.addresses'
   fold (address_key), with a different unit, spelling, suburb or town
   form, or the same building at a different level; only over the address
@@ -98,6 +102,18 @@ def is_reversed(raw: str, given: str, middles: list, surname: list) -> bool:
     return True
 
 
+def as_read(g: cat.Name, raw: str) -> str:
+    """A filed name as keys.names should read it in its view's order: a
+    FAMILY_GIVEN name with no comma gets one after its first word."""
+    if g.order != cat.FAMILY_GIVEN:
+        return raw
+    s = fold.strip_honorifics(raw or "")
+    if "," in s or len(s.split()) < 2:
+        return s
+    family, rest = s.split(None, 1)
+    return f"{family}, {rest}"
+
+
 def _name_expr(g: cat.Name) -> str:
     if g.whole:
         return g.whole
@@ -106,13 +122,15 @@ def _name_expr(g: cat.Name) -> str:
 
 def name_filter(g: cat.Name, given: str, surname: list) -> tuple:
     """A SQL filter holding every reversed form of the name in one Name of a
-    view: 'Surname Given…' with no comma, or 'Given…, Surname'."""
-    n = f"regexp_replace({search.fold_sql(_name_expr(g))}, %s, '')"
+    view: 'Given…, Surname', or with no comma 'Surname Given…' (the given
+    name first, where the Name is FAMILY_GIVEN: 'Given… Surname')."""
+    n = search.stripped_sql(_name_expr(g))
     s = r"\s+".join(re.escape(w) for w in surname)
     gp = (re.escape(given) + r"\w*" if len(given) == 1 else "(?:" + re.escape(given) + "|" + re.escape(given[0]) + r")\M")
+    plain = ("^" + gp + r"[^,]*\s" + s + r"\M" if g.order == cat.FAMILY_GIVEN else "^" + s + r"\M[^\w,]*\s+" + gp)
+    strip = [search._HON_SQL, search._POST_SQL]
     return (f"({search.fold_sql(_name_expr(g))} ~ %s and ({n} ~ %s or {n} ~ %s))",      # the cheap whole-word test first
-            [r"\m" + s + r"\M", search._HON_SQL, "^" + s + r"\M[^\w,]*\s+" + gp,
-             search._HON_SQL, "^" + gp + "[^,]*,\\s*" + s + r"\M"])
+            [r"\m" + s + r"\M"] + strip + [plain] + strip + ["^" + gp + "[^,]*,\\s*" + s + r"\M"])
 
 
 def name_strings(g: cat.Name, r: dict) -> str:
@@ -270,7 +288,7 @@ def near(conn, q: str, asked: dict, registers=None, held=None) -> dict:
             c["note"] = ("the box finds a name's words in any order, so a reversed name it holds is an exact match; "
                          "here are the reversed forms it misses (an initial). The name fields read the order.")
         for v in views:
-            groups = cat.fields_of(v).names
+            groups = [g for g in cat.fields_of(v).names if g.order in cat.STATED]     # ambiguous: either order is exact
             if not groups:
                 continue
             alts, ps = [], []
@@ -283,7 +301,7 @@ def near(conn, q: str, asked: dict, registers=None, held=None) -> dict:
                 continue
             c["more"] |= len(rows) >= CANDIDATES
             for r in rows:
-                if any(is_reversed(name_strings(g, r), given, middles, surname) for g in groups):
+                if any(is_reversed(as_read(g, name_strings(g, r)), given, middles, surname) for g in groups):
                     c["total"] += 1
                     c["refs"].append(f"{v.name}:{r['key']}")
                     if len(c["rows"]) < NEAR_LIMIT:

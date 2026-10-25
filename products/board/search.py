@@ -85,35 +85,60 @@ def whole_words(expr: str, value: str) -> tuple:
     return " and ".join(f"{expr} ~ %s" for _ in ws), [r"\m" + re.escape(w) + r"\M" for w in ws]
 
 
-def name_patterns(field: str, value: str) -> tuple:
+#: post-nominals and a trailing "MP" are not part of a name (keys.names._POST, through the board's copy)
+_POST_SQL = fold._POST.pattern.replace(r"\b", r"\y")
+#: what may follow the family name at the end of a given-first name: a bracket ("(Acting)", "(H)"), a
+#: post-nominal the end-cut left before one ("Dean MP (H)"), punctuation
+_TAIL = r"(?:\s*\([^)]*\)|,?\s+(?:kc|qc|mp|jp|onzm|cnzm|dnzm|knzm|mnzm|qso|qsm)\M\.?)*\W*$"
+
+
+def name_patterns(field: str, value: str, order: str) -> tuple:
     """(no comma, with a comma, one word) patterns for a name field over a
-    one-string name (ruling 82), applied after the honorific is cut from the
-    front: a first or middle name is never the last word and a last or middle
-    name never the first, when the name has two words or more; with a comma
-    ("Family, Given") the family is before it and the given names after.
+    one-string name read in its view's order (ruling 85), applied after an
+    honorific is cut from the front and post-nominals from the end.
+
+    With a comma ("Family, Given") in any order, the family is before it,
+    the first name is the first word after it, a middle name a later one.
+    With no comma: GIVEN_FAMILY puts the first name first, the last name at
+    the end, a middle name between; FAMILY_GIVEN puts the last name first
+    and the given names after it (where the family name ends is not marked,
+    so a first name is any word after the first and a middle name any after
+    the second); AMBIGUOUS lets a first or last name be any word, and a
+    middle name any word but the first of a name of three words or more.
     A one-word name is matched by a first or last name (None for a middle)."""
     p = phrase(value)
     if field == "first":
-        return p + r"\S*\s+\S", "," + ".*" + p, p
-    if field == "last":
-        return r"\S\s+\S*" + p, "^[^,]*" + p, p
-    return r"\S\s+\S*" + p + r"\S*\s+\S", r",\s*\S+\s+.*" + p, None
+        comma, one = r",\s*" + p, p
+        plain = {cat.GIVEN_FAMILY: r"^\W*" + p + r"\S*\s+\S", cat.FAMILY_GIVEN: r"\S\s+\S*" + p}.get(order, p)
+    elif field == "last":
+        comma, one = "^[^,]*" + p, p
+        plain = {cat.GIVEN_FAMILY: r"\S\s+\S*" + p + _TAIL, cat.FAMILY_GIVEN: r"^\W*" + p + r"\S*\s+\S"}.get(order, p)
+    else:
+        comma, one = r",\s*\S+\s+.*" + p, None
+        plain = {cat.GIVEN_FAMILY: r"\S\s+\S*" + p + r"\S*\s+\S",
+                 cat.FAMILY_GIVEN: r"\S\s+\S+\s+\S*" + p}.get(order, r"^(?=\W*\S+\s+\S+\s+\S).*\S\s+\S*" + p)
+    return plain, comma, one
 
 
-def _name_whole(col: str, want: dict) -> tuple:
-    """A one-string name: every name field asked, by name_patterns."""
-    n = f"regexp_replace({fold_sql(col)}, %s, '')"
+def stripped_sql(col: str) -> str:
+    """A one-string name folded, its honorifics cut from the front and its post-nominals from the end."""
+    return f"regexp_replace(regexp_replace({fold_sql(col)}, %s, ''), %s, '')"
+
+
+def _name_whole(g: cat.Name, want: dict) -> tuple:
+    """A one-string name: every name field asked, by name_patterns in the Name's order."""
+    n = stripped_sql(g.whole)
     parts, params = [], []
     for f in NAME_FIELDS:
         if not want.get(f):
             continue
-        plain, comma, one = name_patterns(f, want[f])
+        plain, comma, one = name_patterns(f, want[f], g.order)
         alt = f"({n} !~ ',' and {n} ~ %s) or ({n} ~ ',' and {n} ~ %s)"
-        ps = [_HON_SQL, _HON_SQL, plain, _HON_SQL, _HON_SQL, comma]
+        ps = [_HON_SQL, _POST_SQL, _HON_SQL, _POST_SQL, plain, _HON_SQL, _POST_SQL, _HON_SQL, _POST_SQL, comma]
         if one:
             alt += f" or ({n} !~ %s and {n} ~ %s)"
-            ps += [_HON_SQL, r"\S\s+\S", _HON_SQL, one]
-        parts.append(f"({fold_sql(col)} ~ %s and (" + alt + "))")     # the cheap whole-word test first
+            ps += [_HON_SQL, _POST_SQL, r"\S\s+\S", _HON_SQL, _POST_SQL, one]
+        parts.append(f"({fold_sql(g.whole)} ~ %s and (" + alt + "))")     # the cheap whole-word test first
         params += [phrase(want[f])] + ps
     return " and ".join(parts), params
 
@@ -159,7 +184,7 @@ def fields_sql(v: cat.View, fields: dict):
     if want:
         alts, aps = [], []
         for g in fs.names:
-            got = _name_whole(g.whole, want) if g.whole else _name_parts(g, want)
+            got = _name_whole(g, want) if g.whole else _name_parts(g, want)
             if got:
                 alts.append("(" + got[0] + ")")
                 aps += got[1]

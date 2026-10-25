@@ -30,10 +30,12 @@ tables through the session reader, never the sample:
      its view, a date column is a date and a year column a number; a search
      with only the last name "Hart" finds rows, each with HART as a whole
      word of a name, so never HARTNELL alone.
-  9. Near matches (ruling 83): a donor filed with given name and surname
-     reversed (KNOWN_REVERSED) is found under "Near matches" and not among
-     the exact results; a registered office is found as near by a query
-     with its level left off and its street type spelled the other way.
+  9. Name order (ruling 85) and near matches (ruling 83): every Name a view
+     declares has an order; the known donor a party return files surname
+     first (KNOWN_REVERSED, "MILLS PHILLIP", on a form that fixes no order)
+     is among the exact results for first Phillip, last Mills and not under
+     "Near matches"; a registered office is found as near by a query with
+     its level left off and its street type spelled the other way.
  10. No home address reaches any result (hard limit 15): the address field
      reads only catalogue.ADDRESS_COLUMNS and no person's view declares an
      address; a search for each word of the comparison's residence
@@ -56,7 +58,8 @@ ADDRESS_WORDS = re.compile(r"residential|home_address|street|suburb|postal", re.
 #: the comparison's residence vocabulary (checks/comparison.py RESIDENCE_WORDS; tests/test_check_vocabulary.py holds the two equal):
 #: a residence word in a person's name field is a home address reaching a result
 RESIDENCE_WORDS = ("retirement village", "rest home", "resthome", "lifecare", "care home", "retirement")
-#: a donor a party return files with given name and surname reversed ("MILLS PHILLIP"; keys/names.py names the case)
+#: a donor a party return files surname first ("MILLS PHILLIP"; keys/names.py names the case): exact, not near, since
+#: the donor form fixes no order (ruling 85)
 KNOWN_REVERSED = ("Phillip", "Mills")
 DATE_TYPES = {"date", "timestamp with time zone", "timestamp without time zone"}
 
@@ -266,23 +269,33 @@ def field_problems(conn, held: set, columns: dict, types: dict) -> list:
     for v, r in hart:
         if not any(re.search(r"(?<![a-z])hart(?![a-z])", cat.fold_term(n)) for n in _names(v, r)):
             out.append(f"the last name Hart found {v.name}:{r['key']}, whose names carry no whole word HART")
-    # 9. a reversed donor is near and not exact; a registered office is near without its level
+    # 9. every Name has an order; the donor filed surname first is exact and not near; a registered office is near
+    for name, fs in cat.FIELDS_OF.items():
+        for g in fs.names:
+            if g.order not in cat.ORDERS or (g.order == cat.PARTS) == bool(g.whole):
+                out.append(f"{name}: the Name over {', '.join(g.columns())} declares no name order (ruling 85)")
     first, last = KNOWN_REVERSED
     asked = {"first": first, "last": last}
-    nb = near.near(conn, "", asked, registers=("party_returns",), held=held)
-    rev = [x for x in nb["names"]["refs"] if x.startswith("party_return_donors:")]
-    if not rev:
-        out.append(f"the reversed filing of the donor {first} {last} was not found under Near matches")
+    filed = db.rows(conn, "select key from pub.party_return_donors where "
+                          f"{search.fold_sql('donor')} ~ %s order by key",
+                    [r"^\W*" + cat.fold_term(last) + r"\s+" + cat.fold_term(first) + r"\M[^,]*$"])
+    if not filed:
+        out.append(f"no party return donor filed as {last.upper()} {first.upper()} to test the name order on")
     else:
+        refs = {f"party_return_donors:{r['key']}" for r in filed}
         exact = {f"{v.name}:{r['key']}" for v, r in _hits(search.search(conn, "", limit=search.RESULTS_LIMIT,
                                                                         registers=("party_returns",), fields=asked))}
-        if set(rev) & exact:
-            out.append("a reversed donor name was found among the exact results too")
+        if refs - exact:
+            out.append(f"{len(refs - exact)} of {len(refs)} donor rows filed {last.upper()} {first.upper()} are not "
+                       f"among the exact results for first {first}, last {last}")
+        nb = near.near(conn, "", asked, registers=("party_returns",), held=held)
+        if refs & set(nb["names"]["refs"]):
+            out.append(f"a donor row filed {last.upper()} {first.upper()} is under Near matches: the donor form fixes no order")
         page = server.render("", [], conn=conn, boxes=search.Boxes(False, ("party_returns",), tuple(asked.items())))
         at = page.find('<details class="near"')
-        first_seen = page.find(urllib.parse.urlencode({"p": rev[0]}) + "&")
-        if at < 0 or first_seen < at:
-            out.append("the reversed donor is not shown below the exact results, inside Near matches")
+        first_seen = page.find(urllib.parse.urlencode({"p": sorted(refs)[0]}) + "&")
+        if first_seen < 0 or (at >= 0 and first_seen > at):
+            out.append(f"the donor filed {last.upper()} {first.upper()} is not shown among the exact results")
     office = db.rows(conn, "select key, line_2, line_3 from pub.company_addresses where line_1 ~* '^level [0-9]+$' "
                            "and line_2 ~* '^[0-9]+ [a-z]+ street$' and line_3 ~ '^[A-Za-z]+$' order by key limit 1")
     if not office:
