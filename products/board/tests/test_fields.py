@@ -1,5 +1,6 @@
 """The field search (ruling 82): six fields, each matched as whole words in
-the columns a view declares for it; a one-string name read in its places;
+the columns a view declares for it; a one-string name read in its places
+by its view's declared order (ruling 85), a comma read family then given;
 the address field only over the registered addresses organisations
 publish; the fields ride every href with the ticks; the plain box alone is
 unchanged. Pure: the database's patterns are run here through Python's re."""
@@ -20,11 +21,11 @@ def are(pattern: str) -> str:
     return pattern.replace(r"\m", r"(?<!\w)(?=\w)").replace(r"\M", r"(?<=\w)(?!\w)").replace(r"\y", r"\b")
 
 
-def whole_name_matches(name: str, want: dict) -> bool:
+def whole_name_matches(name: str, want: dict, order: str = cat.GIVEN_FAMILY) -> bool:
     """The one-string name rule as the SQL applies it (search._name_whole)."""
-    n = re.sub(are(search._HON_SQL), "", fold(name))
+    n = re.sub(are(search._POST_SQL), "", re.sub(are(search._HON_SQL), "", fold(name)))
     for f, value in want.items():
-        plain, comma, one = search.name_patterns(f, value)
+        plain, comma, one = search.name_patterns(f, value, order)
         if not re.search(are(search.phrase(value)), fold(name)):
             return False
         ok = ("," not in n and re.search(are(plain), n)) or ("," in n and re.search(are(comma), n)) \
@@ -34,24 +35,78 @@ def whole_name_matches(name: str, want: dict) -> bool:
     return True
 
 
-def test_a_last_name_is_a_whole_word_and_never_the_first_word():
+def test_a_last_name_is_a_whole_word_and_in_a_given_family_name_the_last():
     assert not whole_name_matches("John Graham HARTNELL", {"last": "Hart"})        # ruling 82's case
     assert not whole_name_matches("John Graham HARTNELL", {"first": "graham", "last": "hart"})
     assert whole_name_matches("Graeme Richard Hart", {"last": "Hart"})
-    assert not whole_name_matches("Hart Graeme", {"last": "Hart"})                 # the first word of two is not a surname
+    assert not whole_name_matches("Hart Graeme", {"last": "Hart"})                 # given-first: the first word of two is not a surname
+    assert not whole_name_matches("John Graham Smith", {"last": "Graham"})         # nor a middle word: the family place is the end
+    assert whole_name_matches("Jacqui Dean MP (H)", {"first": "Jacqui", "last": "Dean"})   # a post-nominal and a bracket after it
+    assert whole_name_matches("Hon Chris Bishop, MP", {"last": "Bishop"})          # a post-nominal's comma is no inversion
     assert whole_name_matches("Hart", {"last": "Hart"}) and whole_name_matches("Hart", {"first": "Hart"})   # one word: either
     assert whole_name_matches("Hart, Graeme", {"last": "hart", "first": "graeme"})  # the Commission's inversion
     assert not whole_name_matches("Graeme, Hart", {"last": "hart"})
     assert whole_name_matches("Rt Hon Dr Winston Peters", {"first": "Winston", "last": "Peters"})   # honorifics are no word
 
 
-def test_a_first_name_is_never_the_last_word_and_a_middle_name_neither_end():
+def test_in_a_given_family_name_a_first_name_is_the_first_word_and_a_middle_name_neither_end():
     assert not whole_name_matches("MILLS PHILLIP", {"first": "Phillip", "last": "Mills"})
+    assert not whole_name_matches("John Graham Smith", {"first": "Graham"})
     assert whole_name_matches("Mills, Phillip & Jackie", {"first": "Phillip", "last": "Mills"})
     assert whole_name_matches("John Graham Smith", {"middle": "Graham"})
     assert not whole_name_matches("John Graham Smith", {"middle": "John"}) and not whole_name_matches("John Smith", {"middle": "Smith"})
     assert whole_name_matches("Smith, John Graham", {"middle": "graham"}) and not whole_name_matches("Smith, John Graham", {"middle": "john"})
     assert whole_name_matches("Māui Pōmare", {"first": "maui", "last": "Pomare"})     # macrons folded both ways
+
+
+def test_an_ambiguous_name_matches_last_and_first_in_either_order():
+    """Ruling 85: a donor form fixes no order, so MILLS PHILLIP and Phillip Mills are both exact."""
+    want = {"first": "Phillip", "last": "Mills"}
+    for name in ("Mills Phillip", "MILLS PHILLIP", "Phillip Mills", "Hon Phillip Mills"):
+        assert whole_name_matches(name, want, cat.AMBIGUOUS), name
+    assert whole_name_matches("Mills Phillip", {"first": "Mills"}, cat.AMBIGUOUS)      # a first name alone: any word
+    assert whole_name_matches("Phillip Mills", {"last": "Phillip"}, cat.AMBIGUOUS)
+    assert not whole_name_matches("Mills Jackie", want, cat.AMBIGUOUS)                 # both words, or no match
+    assert not whole_name_matches("Millsom Phillip", want, cat.AMBIGUOUS)              # whole words still
+    assert whole_name_matches("Mills Phillip John", {"middle": "John"}, cat.AMBIGUOUS)
+    assert not whole_name_matches("Mills Phillip John", {"middle": "Mills"}, cat.AMBIGUOUS)   # the first word is never a middle
+    assert not whole_name_matches("Phillip Mills", {"middle": "Mills"}, cat.AMBIGUOUS)        # two words have no middle
+    # the view's declaration carries it to the SQL
+    sql, params = search.fields_sql(cat.BY_NAME["party_return_donors"], want)
+    assert search.name_patterns("last", "Mills", cat.AMBIGUOUS)[0] in params
+    assert search.name_patterns("last", "Mills", cat.GIVEN_FAMILY)[0] not in params
+
+
+def test_a_comma_reads_family_then_given_in_every_order():
+    for order in (cat.GIVEN_FAMILY, cat.FAMILY_GIVEN, cat.AMBIGUOUS):
+        assert whole_name_matches("Mills, Phillip", {"last": "Mills", "first": "Phillip"}, order), order
+        assert not whole_name_matches("Mills, Phillip", {"last": "Phillip"}, order), order
+        assert not whole_name_matches("Mills, Phillip", {"first": "Mills"}, order), order
+        assert whole_name_matches("MILLS, Phillip John", {"middle": "John"}, order), order
+
+
+def test_a_given_family_name_is_not_matched_by_its_given_name_as_the_last():
+    assert not whole_name_matches("Phillip Mills", {"last": "Phillip"}, cat.GIVEN_FAMILY)
+    assert whole_name_matches("Phillip Mills", {"last": "Mills"}, cat.GIVEN_FAMILY)
+    assert not whole_name_matches("Phillip Mills", {"first": "Mills"}, cat.GIVEN_FAMILY)
+
+
+def test_a_family_given_name_with_no_comma_puts_the_last_name_first():
+    assert whole_name_matches("Logie Jan", {"first": "Jan", "last": "Logie"}, cat.FAMILY_GIVEN)    # the workbook's form
+    assert not whole_name_matches("Logie Jan", {"last": "Jan"}, cat.FAMILY_GIVEN)
+    assert not whole_name_matches("Logie Jan", {"first": "Logie"}, cat.FAMILY_GIVEN)
+    assert whole_name_matches("Smith John Graham", {"middle": "Graham"}, cat.FAMILY_GIVEN)
+    assert not whole_name_matches("Smith John Graham", {"middle": "John"}, cat.FAMILY_GIVEN)
+
+
+def test_every_name_declares_an_order_and_parts_are_parts():
+    for name, fs in cat.FIELDS_OF.items():
+        for g in fs.names:
+            assert g.order in cat.ORDERS, (name, g)
+            assert (g.order == cat.PARTS) == (not g.whole), (name, g)
+    assert cat.FIELDS_OF["party_return_donors"].names[0].order == cat.AMBIGUOUS      # ruling 85's own example
+    assert cat.FIELDS_OF["disclosures"].names[0].order == cat.AMBIGUOUS
+    assert cat.FIELDS_OF["candidate_return_donors"].names[0].order == cat.AMBIGUOUS
 
 
 def test_parts_are_matched_in_their_own_columns():

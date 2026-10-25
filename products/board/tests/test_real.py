@@ -63,13 +63,18 @@ def test_the_field_search_is_quick_and_a_last_name_is_a_whole_word():
 
 
 def test_near_matches_render_closed_below_the_results_within_three_seconds():
+    """A reversed name where the order is stated (the directors' parts) is near;
+    on a form that fixes none (the party donors, ruling 85) it is exact."""
     with db.read_connect() as conn:
         t = time.time()
-        html = server.render("", [], conn=conn, boxes=search.Boxes(True, (), (("first", "Phillip"), ("last", "Mills"))))
+        html = server.render("", [], conn=conn, boxes=search.Boxes(True, (), (("first", "James"), ("last", "Taylor"))))
         assert time.time() - t < 3.0
+        mills = server.render("", [], conn=conn, boxes=search.Boxes(True, (), (("first", "Phillip"), ("last", "Mills"))))
     exact, below = html.split('<details class="near" id="near">')
-    assert "party_return_donors" in exact and "near: given name and surname reversed" in below
+    assert "directors" in below and "near: given name and surname reversed" in below
     assert "narrowed by: first name" in exact and "<script" not in html
+    exact, below = mills.split('<details class="near" id="near">')
+    assert "party_return_donors" in exact and "near: given name and surname reversed" not in below
 
 
 def test_every_links_rule_in_pub_links_has_its_words():

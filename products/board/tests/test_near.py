@@ -41,14 +41,53 @@ def test_the_query_comes_from_the_name_fields_else_a_name_in_the_box():
 
 
 def test_the_sql_filter_holds_every_reversed_form():
-    def are(p):
-        return p.replace(r"\m", r"(?<!\w)(?=\w)").replace(r"\M", r"(?<=\w)(?!\w)")
-    _, ps = near.name_filter(cat.Name("donor"), "phillip", ["mills"])
-    whole, hon, nocomma, _, comma = ps
+    _, ps = near.name_filter(cat.Name("donor", order=cat.GIVEN_FAMILY), "phillip", ["mills"])
+    whole, hon, post, nocomma, _, _, comma = ps
     for name in ("mills phillip", "mills  phillip graham", "hon mills phillip", "phillip, mills", "p, mills", "mills p."):
-        n = re.sub(are(hon), "", name)
+        n = re.sub(are(post), "", re.sub(are(hon), "", name))
         assert re.search(are(whole), name) and (re.search(are(nocomma), n) or re.search(are(comma), n)), name
     assert not re.search(are(nocomma), "mills, phillip") and not re.search(are(comma), "mills, phillip")
+
+
+def test_a_family_given_name_is_reversed_when_the_given_name_comes_first():
+    """Ruling 85: the Commission's candidate name is 'SURNAME, Given'; with no comma its first word is still the family."""
+    g = cat.Name("name", order=cat.FAMILY_GIVEN)
+    assert near.is_reversed(near.as_read(g, "Phillip Mills"), "phillip", [], ["mills"])
+    assert not near.is_reversed(near.as_read(g, "Mills Phillip"), "phillip", [], ["mills"])
+    assert not near.is_reversed(near.as_read(g, "MILLS, Phillip"), "phillip", [], ["mills"])
+    _, ps = near.name_filter(g, "phillip", ["mills"])
+    assert re.search(are(ps[3]), "phillip mills") and not re.search(are(ps[3]), "mills phillip")
+
+
+def fake_rows(by_view: dict):
+    """A stand-in for db.rows: each view's rows, and the views asked."""
+    asked = []
+
+    def rows(conn, sql, params=()):
+        v = re.search(r"from pub\.(\w+)", sql).group(1)
+        asked.append(v)
+        return [dict(r, key=f"{v}-{i}") for i, r in enumerate(by_view.get(v, []))]
+    return rows, asked
+
+
+def test_the_reversed_class_is_empty_for_an_ambiguous_view_and_kept_where_the_order_is_stated():
+    """Ruling 85: a reversed name on a form that fixes no order is exact, never near."""
+    rows, asked = fake_rows({"party_return_donors": [{"donor": "MILLS PHILLIP"}],
+                             "gazette_appointments": [{"name": "Mills Phillip"}]})
+    held = {"party_return_donors", "gazette_appointments"}
+    orig = near.db.rows
+    near.db.rows = rows
+    try:
+        out = near.near(object(), "", {"first": "Phillip", "last": "Mills"}, held=held)
+    finally:
+        near.db.rows = orig
+    assert "party_return_donors" not in asked                                     # never read for the reversed class
+    assert out["names"]["refs"] == ["gazette_appointments:gazette_appointments-0"]  # given-first prose: reversed is near
+    assert cat.FIELDS_OF["party_return_donors"].names[0].order == cat.AMBIGUOUS
+
+
+def are(p):
+    return p.replace(r"\m", r"(?<!\w)(?=\w)").replace(r"\M", r"(?<=\w)(?!\w)").replace(r"\y", r"\b")
 
 
 def test_a_close_address_is_the_same_street_number_and_street_by_the_fold():
