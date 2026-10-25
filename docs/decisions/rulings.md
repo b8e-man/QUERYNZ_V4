@@ -370,3 +370,14 @@ document it cites (served by the board from the document store on the
 local network, read only, with the page named) beside the publisher's
 own address where the view holds one. Built by `board-4` in
 `products/board/` after ruling 85's fix.
+
+87. Arthur, 26 October, about 06:40: "let's also add a tab that lists the
+use cases". So: a third tab on the board, "use cases", listing the plan's
+use cases from the plan's own table
+(docs/plan/reference/registers-and-use-cases/the-sixteen-use-cases.md,
+seventeen rows, read at render time from the copy the board runs from):
+number, name, who it serves, the question it answers, the shape and the
+step, in the plan's order; each row says which templates built for it
+exist on the scan and which registers it needs are held or not held,
+read from the published views. Nothing written. Built by `board-4` with
+ruling 86.
