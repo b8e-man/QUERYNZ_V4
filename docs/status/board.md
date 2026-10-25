@@ -1,41 +1,41 @@
 # board: where it stands
 
-**Date:** 2026-10-26. **Step:** 4.9 second version, ruling 85 (80 to 84
-kept), `products/board/`. **Merge request:** `fix-products-board-1d`
+**Date:** 2026-10-26. **Step:** 4.9 second version, rulings 86 and 87
+(80 to 85 kept), `products/board/`. **Merge request:** `board-4`
 (raised).
 
 ## Done
 
-- Ruling 85, name order. Each `catalogue.Name` declares an order as data,
-  with its reason beside it: `parts` (9), `given-family` (15),
-  `family-given` (4) or `ambiguous` (26). Unless the lane's pane.md, its
-  spec, its reader or the register's printed form states the order, a
-  Name is `ambiguous`.
-- The name fields read a one-string name by its view's order. A comma
-  reads family then given in every view. A stated order puts each field
-  in its place. `ambiguous` lets a first or last name match any word.
-  Honorifics come off the front and post-nominals off the end.
-- Near matches: the reversed-name class reads only Names with a stated
-  order. In an ambiguous view a reversed name is exact. A `family-given`
-  name with no comma reads its first word as the family.
-- Live, first Phillip, last Mills: party donors exact 8 → 10, Near
-  matches 2 → 0 (all registers: exact 48 → 50).
-  `python -m products.board check` holds the two MILLS PHILLIP donor rows
-  exact and not near, and holds that every Name has an order. It goes red
-  on board-3's rule.
+- Night mode. One dark stylesheet. Every text colour reads at 4.5:1 or
+  more on every background, and the edge colours are re-chosen for dark.
+  A test and the check read the colour pairs from the stylesheet itself.
+- No edge numbers. An edge's words are drawn only where they touch no
+  other text. The list under the key is grouped by the row each edge
+  reaches.
+- Donations summed. A donor's rows filed under one name are one node,
+  with one edge per party or candidate. The edge shows the total and the
+  count. Every addend is listed under it. A disclosure is listed and never
+  added to a return.
+- Source links. `/doc/<sha256>` serves the captured document, read only.
+  It opens only for sources whose form has no address field: house and
+  expenses, 270 documents. Every other held document is cited and not
+  opened (hard limit 15). Queued with no default:
+  `which-captured-documents-the-board-may-open-whole`.
+- The use cases tab, `/uses`. It shows the plan's 17 rows at render time,
+  with templates built (3 use cases have one) and registers held or not.
+- The check covers each of the above; it is green against live data.
 
 ## Known limits
 
-- In a `family-given` name with no comma, where the family name ends is
-  not marked, so a first name may be any word after the first.
-- On a crowded name search ("smith") about a quarter of the graph's
-  numbers live only in the list.
-- The lanes' pane.md files do not yet state their name order. The merge
-  request lists each view's order for them to mirror.
-- `pub.mp_expenses.name` holds both orders: 744 rows still read
-  surname-first. It is declared `ambiguous`.
-- Card `an-address-search-on-the-board-cannot-also-name-the-company` open.
+- Two rows filed under one name are drawn as one donor. Identical filing
+  is all that groups them; the page says so.
+- Lines still pass under node labels. Only text boxes are kept apart.
+- Scan templates carry no `use_case` field. The tab reads "(use case N)"
+  from the owner line, and reads the `use_case` field once a template has one.
+- Earlier limits stand: family-given names with no comma; lanes' pane.md
+  name orders; card `an-address-search-on-the-board-cannot-also-name-the-company`.
 
 ## Next
 
-1. The integrator merges `fix-products-board-1d` and restarts `qv4-board`.
+1. The integrator merges `board-4` and restarts `qv4-board`.
+2. Arthur rules which further sources may open whole.
