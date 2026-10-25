@@ -50,7 +50,7 @@ docs/status/board.md. No card opened or closed.
 
 Lesson filed (above).
 
-## Result (integrator, 25 October 17:40 NZDT)
+## Result (integrator, 26 October 05:36 NZDT; the gate ran through the night)
 
 Merged as 0aa2e6c: fast tier green (627 s), gate green, nothing to load.
 Moved from the session's scratch folder into the inbox by the integrator.
