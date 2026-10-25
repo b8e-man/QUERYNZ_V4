@@ -21,9 +21,14 @@
   expenses, 270 documents. Every other held document is cited and not
   opened (hard limit 15). Queued with no default:
   `which-captured-documents-the-board-may-open-whole`.
+- The store is read only through `support.docstore`, because of the
+  one-way test. Its new reader `landing.documents_of` comes as the patch
+  `board-4-docstore-read.patch` beside the request. Until it is applied,
+  nothing opens and the check says so.
 - The use cases tab, `/uses`. It shows the plan's 17 rows at render time,
   with templates built (3 use cases have one) and registers held or not.
-- The check covers each of the above; it is green against live data.
+- The check covers each of the above. Against live data it is green with
+  the patch applied, and has one problem (nothing opens) without it.
 
 ## Known limits
 
@@ -37,5 +42,5 @@
 
 ## Next
 
-1. The integrator merges `board-4` and restarts `qv4-board`.
+1. The integrator applies the patch, merges `board-4` and restarts `qv4-board`.
 2. Arthur rules which further sources may open whole.
