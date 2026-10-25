@@ -1189,6 +1189,28 @@ SERVED_SOURCES = {
 WITHHELD_WHY = ("held in the store, not opened here: a captured document is served whole and this source's may print a "
                 "person's home address (hard limit 15); open the publisher's copy")
 
+#: the plan's reference names registers by use case in one table only, "Not held" (docs/plan/reference/
+#: registers-and-use-cases/not-held.md, its "Serves use cases" column); each of its sources, by the words it
+#: begins with, and the board's registers that hold it, if any lane has built one (ruling 87). A source with
+#: none reads "no lane". Held or not is read from `pub` at render time.
+REFERENCE_REGISTERS = {
+    "Securities register": (),
+    "Parsed case law": ("openlaw",),
+    "Tribunals, employment and environment courts": ("tenancy_tribunal", "real_estate_authority"),
+    "Sole traders, partnerships, trusts": (),
+    "Company filings": (),
+    "Sanctions lists; limited partnership partners": ("sanctions", "limited_partnerships"),
+    "Overseas ownership data": ("overseas_investment",),
+    "Licensed building practitioners": ("building_practitioners",),
+    "Health and Disability Commissioner decisions": ("hdc_decisions",),
+    "Live tenders, agency contract disclosures, council procurement": ("tenders", "contract_disclosures", "council_procurement"),
+    "Grants": ("grants",),
+    "Local election returns, councillors' interests, council pay": ("local_elections", "councillor_interests"),
+    "Iwi and hapū directory, settlement commitments, Māori Land Court": ("iwi_directory", "settlement_commitments"),
+    "Stock exchange announcements": (),
+    "Building consents; primary-industry prosecutions": (),
+}
+
 #: the links views the board reads once links/ publishes them (plan step 4.9: a search table published by links)
 LINKS_VIEWS = {"links": "pub.links", "groups": "pub.groups", "decisions": "pub.decisions"}
 #: every view the links module publishes: read through LINKS_VIEWS and the search table, never catalogued as a register view

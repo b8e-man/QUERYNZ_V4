@@ -756,6 +756,44 @@ def person_pane(ctx: dict) -> str:
     return "\n".join(out)
 
 
+# ── the use cases tab (ruling 87) ───────────────────────────────────────────
+
+NONE_NAMED = '<span class="note">none named</span>'
+
+
+def uses_pane(rows: list, missing: str = "", source: str = "") -> str:
+    """The plan's use cases in its order, each with the scan templates built
+    for it and the registers the plan's reference names for it, held or not
+    held. `missing`, the plan file's path when the copy the board runs from
+    has none; `source`, the file read."""
+    out = ['<section class="pane uses" id="uses">', '<div class="reg">use cases</div>', "<h2>The plan's use cases</h2>"]
+    if missing:
+        out.append(f'<p class="why">the plan\'s use-case table is not in the copy the board runs from: {esc(missing)} is missing</p></section>')
+        return "\n".join(out)
+    out.append(f'<p class="note">{len(rows)} use cases, in the plan\'s order, read now from <code>{esc(source)}</code>. '
+               "Templates: the register scan's templates built for each (products/scan/templates). Registers: the sources "
+               "the plan's reference names for each, in its not-held table (the held tables name no use case), and whether "
+               "a published view holds them today. Nothing here is written.</p>")
+    out.append('<table class="uc"><tr><th>#</th><th>use case</th><th>who it serves</th><th>the question</th><th>shape</th>'
+               "<th>step</th><th>templates built</th><th>registers the reference names</th></tr>")
+    for r in rows:
+        ts = "<br>".join(f'<code>{esc(t["name"])}</code> <span class="meta">{esc(t["title"])}</span>' for t in r["templates"]) \
+            or '<span class="note">none built</span>'
+        regs = []
+        for src, found in r["registers"]:
+            if not found:
+                regs.append(f'{esc(src)}: <span class="note">not held, no lane</span>')
+                continue
+            state = ", ".join(f'{esc(plain)} <span class="{"meta" if ok else "warn"}">{"held" if ok else "not held"}</span>'
+                              for _, plain, ok in found)
+            regs.append(f"{esc(src)}: {state}")
+        out.append(f'<tr><td>{esc(r["number"])}</td><td><strong>{esc(r["name"])}</strong></td><td>{esc(r["who"])}</td>'
+                   f'<td>{esc(r["question"])}</td><td>{esc(r["shape"])}</td><td>{esc(r["step"])}</td><td>{ts}</td>'
+                   f'<td>{"<br>".join(regs) or NONE_NAMED}</td></tr>')
+    out.append("</table></section>")
+    return "\n".join(out)
+
+
 # ── the lists ───────────────────────────────────────────────────────────────
 
 def pins_pane(pins: list) -> str:
@@ -784,8 +822,9 @@ def paths_pane(paths: list) -> str:
 
 
 def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: str = "search") -> str:
-    """The page: two tabs, search (`/`, as before) and graph (`/graph`), each
-    an href carrying the term and the registers checked (ruling 80)."""
+    """The page: three tabs, search (`/`, as before) and graph (`/graph`),
+    each an href carrying the term and the registers checked (ruling 80),
+    and use cases (`/uses`, ruling 87)."""
     save = ""
     if path:
         save = (f'<form class="inline" method="post" action="/save"><input type="hidden" name="q" value="{esc(q)}">'
@@ -794,7 +833,8 @@ def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: st
                 f'<input name="name" placeholder="name this path" size="18"> <button>save path</button></form>')
     msg = f'<span class="note">{esc(message)}</span>' if message else ""
     tabs = (f'<nav class="tabs"><a class="{"on" if tab == "search" else ""}" href="{esc(href(q, [] if tab != "search" else path, boxes))}">search</a> '
-            f'<a class="{"on" if tab == "graph" else ""}" href="{esc(href(q, [], boxes, "/graph"))}">graph</a></nav>')
+            f'<a class="{"on" if tab == "graph" else ""}" href="{esc(href(q, [], boxes, "/graph"))}">graph</a> '
+            f'<a class="{"on" if tab == "uses" else ""}" href="/uses">use cases</a></nav>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ board</title>"
             f"<style>{CSS}</style></head><body><header><h1>QueryNZ board</h1>{tabs}"
             f"{save}<a href=\"/pinned\">pinned</a><a href=\"/saved\">saved paths</a>{msg}</header>"

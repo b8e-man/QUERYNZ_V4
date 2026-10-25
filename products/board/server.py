@@ -29,7 +29,7 @@ import urllib.parse
 
 from support.docstore import landing as docstore
 from products.board import catalogue as cat
-from products.board import db, document, graph, links_view, near, panes, search, state
+from products.board import db, document, graph, links_view, near, panes, search, state, uses
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
@@ -172,6 +172,20 @@ def render_graph(q: str, centre: str = "", conn=None, boxes: search.Boxes = sear
         return panes.page(q, [], out, "", boxes, tab="graph")
 
 
+def render_uses(repo: str = uses.REPO, held: set = None) -> str:
+    """The use cases tab (ruling 87): the plan's table from `repo`, the copy
+    the board runs from, read now; held views from `pub` on the product
+    reader unless given (the test gives its own)."""
+    table = uses.read_text(uses.TABLE, repo)
+    if table is None:
+        return panes.page("", [], [panes.uses_pane([], missing=uses.TABLE)], tab="uses")
+    if held is None:
+        with RENDER_LOCK, db.scan_connect() as conn:
+            held = db.pub_views(conn)
+    rows = uses.rows(table, uses.read_text(uses.NOT_HELD, repo), uses.read_templates(repo), held)
+    return panes.page("", [], [panes.uses_pane(rows, source=uses.TABLE)], tab="uses")
+
+
 def render_list(which: str) -> str:
     with RENDER_LOCK, db.read_connect() as conn:
         if which == "pinned":
@@ -227,6 +241,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
+                return
+            if url.path == "/uses":
+                self.send_html(render_uses())
                 return
             if url.path in ("/pinned", "/saved"):
                 self.send_html(render_list(url.path[1:]))
