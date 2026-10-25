@@ -69,6 +69,11 @@ tables through the session reader, never the sample:
      its far column exist; a director's row, in the results pane and its
      own pane, shows its company's name as a link with the key on hover,
      never the bare key (far_problems).
+ 17. Near names (ruling 92 (4)): the near-names pane for NEAR_NAMES lists
+     the table's form of the given name filed with the surname, with a
+     count of one or more, a link adding it as an alternative, and says a
+     variant is never a link; the search with that alternative finds at
+     least the rows of either name (near_names_problems).
 
   python -m products.board check [--term NAME]      exit 1 on any failure
 """
@@ -210,6 +215,35 @@ def problems(conn, term: str = None) -> list:
     out += panes.contrast_problems()
     out += uses_problems(held)
     out += far_problems(conn, held, columns)
+    out += near_names_problems(conn)
+    return out
+
+
+#: a given name whose table form (michael) is surely filed with the surname in the companies register
+NEAR_NAMES = ("mike smith", "michael")
+
+
+def near_names_problems(conn) -> list:
+    """17. Ruling 92 (4), on the live registers."""
+    out = []
+    q, form = NEAR_NAMES
+    boxes = search.Boxes(False, ("companies",))
+    page = server.render(q, [], conn=conn, boxes=boxes, near_names=True)
+    if 'id="near-names"' not in page:
+        return [f"the near-names pane did not open for {q!r}"]
+    pane = page[page.index('id="near-names"'):page.index('id="results"')]
+    got = re.search(r'<a href="([^"]*)">' + form + r'</a> <span class="count">([\d,]+)</span>', pane)
+    if not got or int(got.group(2).replace(",", "")) < 1:
+        return out + [f"the near-names pane for {q!r} does not list {form!r} with a count"]
+    if "never a link the board made" not in pane:
+        out.append("the near-names pane does not say a variant is never a link")
+    qs = urllib.parse.parse_qs(urllib.parse.urlsplit(got.group(1).replace("&amp;", "&")).query)
+    if qs.get("q") != [f"mike|{form} smith"] or qs.get("near") != ["1"]:
+        out.append(f"the {form!r} link does not add it as an alternative in the given name's place: {qs.get('q')}")
+    n = lambda term: sum(t for v, t, _ in search.search(conn, term, registers=("companies",)).get("companies", []))
+    both, one, other = n(f"mike|{form} smith"), n("mike smith"), n(f"{form} smith")
+    if both < max(one, other) or both > one + other:
+        out.append(f"the search with the alternative found {both} rows, outside {max(one, other)} to {one + other}")
     return out
 
 

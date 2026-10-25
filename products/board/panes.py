@@ -16,6 +16,7 @@ import urllib.parse
 from products.board import catalogue as cat
 from products.board import document
 from products.board.search import FIELDS, field_words, words_of
+from products.board.search import add_alternative as search_add, drop_alternative as search_drop
 
 SUPPRESSED = "name suppressed"
 NOTHING_TICKED = "tick a register, or search all"     # "search all" off and no register ticked: nothing is searched (ruling 81)
@@ -396,12 +397,64 @@ def left_pane(q: str, held_regs: list, boxes, action: str = "/", title: str = "S
     return "\n".join([
         '<section class="pane left" id="search">', '<div class="reg">search</div>', f"<h2>{esc(title)}</h2>",
         f'<form method="get" action="{esc(action)}">',
-        f'<input type="search" name="q" value="{esc(q)}" placeholder="a name, an address, a number" autofocus> <button>search</button>',
+        f'<input type="search" name="q" value="{esc(q)}" placeholder="a name, an address, a number" autofocus> <button>search</button>'
+        + (' <button name="near" value="1" title="given names near the one typed, with the same surname: nicknames, '
+           'spellings, common forms">near names</button>' if action == "/" else ""),
         field_boxes(boxes),
         '<p class="note">Every word must appear, macrons folded; a number is matched exactly. '
         "A suppressed name is never found by name. Search all searches every held register, whatever is ticked; "
         "untick it to search the registers ticked alone.</p>",
         register_boxes(held_regs, boxes), "<p><button>search</button></p></form></section>"])
+
+
+NEAR_NAMES_NOTE = ("A variant is a candidate you choose to add to the search, never a link the board made: the board makes "
+                   "no link by looking (plan 4.9), and two names sharing a surname are not one person. The forms come from a "
+                   "table of common nicknames, spellings and Māori forms (given_names.py), and from the given names filed "
+                   "with this surname that share the first three letters or are one letter apart. Each count is the rows in "
+                   "the registers searched that file that given name with the surname. Adding one searches either name in "
+                   "that place.")
+
+
+def near_names_pane(q: str, data: dict, boxes) -> str:
+    """The near-names pane (ruling 92 (4)): for each given name typed, its
+    variants filed with the same surname words, each with its count and a
+    link that adds it to the search as an alternative in that place
+    (search.add_alternative: "garry|gareth"), the pane kept open (`near=1`)."""
+    out = ['<section class="pane" id="near-names">', '<div class="reg">near names</div>', "<h2>Near names</h2>",
+           f'<p class="note">{esc(NEAR_NAMES_NOTE)}</p>']
+    if data.get("why"):
+        out.append(f'<p class="why">{esc(data["why"])}</p></section>')
+        return "\n".join(out)
+    asked = boxes.asked() if boxes is not None else {}
+
+    def with_term(change) -> str:
+        if data.get("from_fields"):
+            f = change[0]
+            fields = tuple((k, change[1](x) if k == f else x) for k, x in boxes.fields)
+            return href(q, [], boxes._replace(fields=fields)) + "&near=1"
+        return href(change[1](q), [], boxes) + "&near=1"
+
+    sur = " ".join(data.get("surname") or [])
+    for g in data.get("given") or []:
+        field = g.get("field") or ""
+        out.append(f'<h3>{esc(g["typed"])} {esc(sur)} <span class="count">{g["count"]:,} rows</span></h3>')
+        if g["chosen"]:
+            items = [f'{esc(c)} <a href="{esc(with_term((field, lambda t, c=c: search_drop(t, c))))}">remove</a>'
+                     for c in g["chosen"]]
+            out.append(f'<p>in the search as alternatives: {", ".join(items)}</p>')
+        if not g["variants"]:
+            out.append(f'<p class="why">none found: no other given name near {esc(g["typed"])} is filed with {esc(sur)}</p>')
+            continue
+        out.append("<ul>")
+        for w, n, why in g["variants"]:
+            if w in g["chosen"]:
+                link = f"<strong>{esc(w)}</strong> <span class=\"meta\">in the search</span>"
+            else:
+                link = f'<a href="{esc(with_term((field, lambda t, w=w, typed=g["typed"]: search_add(t, typed, w))))}">{esc(w)}</a>'
+            out.append(f'<li>{link} <span class="count">{n:,}</span> <span class="meta">{esc(why)}</span></li>')
+        out.append("</ul>")
+    out.append("</section>")
+    return "\n".join(out)
 
 
 def narrowed_line(boxes) -> str:
@@ -420,7 +473,7 @@ def search_words(q: str, boxes) -> list:
     for f, _ in FIELDS:
         if f != "year" and asked.get(f):
             words += [w for w in field_words(asked[f]) if w not in words]
-    return words
+    return [x for w in words for x in w.split("|") if x]      # a word's alternatives (ruling 92 (4)) are each marked
 
 
 def source_link(v: cat.View, r: dict, docs: dict = None) -> str:

@@ -125,3 +125,22 @@ def test_a_directors_row_shows_its_companys_name_not_its_key():
     from products.board import panes
     assert f'title="{panes.esc(d["entity_key"])}">{panes.esc(d["name"])}</a>' in html
     assert f"<td>{d['entity_key']}</td>" not in html
+
+
+def test_the_near_names_button_answers_200_and_lists_counts():
+    """Ruling 92 (4), live over HTTP: the button's GET (`near=1`) answers 200 with the pane and its counts."""
+    import re
+    import threading
+    import urllib.request
+    httpd = server.Server(("127.0.0.1", 0), server.Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/?q=garry+payinda&all=1&near=1"
+        with urllib.request.urlopen(url, timeout=60) as r:
+            assert r.status == 200
+            html = r.read().decode()
+    finally:
+        httpd.shutdown()
+    pane = html[html.index('id="near-names"'):html.index('id="results"')]
+    assert re.search(r'<h3>garry payinda <span class="count">[\d,]+ rows</span></h3>', pane)
+    assert re.search(r'</a> <span class="count">[1-9][\d,]*</span>', pane)       # at least one variant, with its count

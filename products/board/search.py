@@ -49,8 +49,47 @@ def fold_sql(expr: str) -> str:
     return f"translate(lower({expr}), '{MACRON_FROM}', '{MACRON_TO}')"
 
 
+def _alternatives(w: str) -> str:
+    """A word with its alternatives (ruling 92 (4): "garry|gareth", chosen
+    from the near names), its empty alternatives dropped; "" when none is left."""
+    return "|".join(x for x in w.split("|") if x)
+
+
 def words_of(term: str) -> list:
-    return [w for w in re.split(r"[\s,;]+", cat.fold_term(term)) if w]
+    return [a for a in (_alternatives(w) for w in re.split(r"[\s,;]+", cat.fold_term(term))) if a]
+
+
+def word_re(w: str) -> str:
+    """A word as a pattern: "garry|gareth" matches either in the word's place."""
+    alts = [re.escape(x) for x in w.split("|") if x]
+    return alts[0] if len(alts) == 1 else "(?:" + "|".join(alts) + ")"
+
+
+def base_term(text: str) -> str:
+    """The text with each word's alternatives dropped to the first, as typed."""
+    return " ".join(w.split("|")[0] for w in (text or "").split() if w.split("|")[0])
+
+
+def add_alternative(text: str, typed: str, variant: str) -> str:
+    """`text` with `variant` added as an alternative to its first word whose
+    first form folds to `typed` (ruling 92 (4): an "or" within the name's place)."""
+    words = (text or "").split()
+    for i, w in enumerate(words):
+        forms = w.split("|")
+        if cat.fold_term(forms[0]).strip(".,;") == typed:
+            if variant not in [cat.fold_term(f) for f in forms]:
+                words[i] = w + "|" + variant
+            break
+    return " ".join(words)
+
+
+def drop_alternative(text: str, variant: str) -> str:
+    """`text` with `variant` taken out of every word's alternatives (never a word's first form)."""
+    out = []
+    for w in (text or "").split():
+        forms = w.split("|")
+        out.append("|".join([forms[0]] + [f for f in forms[1:] if cat.fold_term(f) != variant]))
+    return " ".join(out)
 
 
 def is_number(term: str) -> bool:
@@ -71,18 +110,19 @@ ORG_WORDS_SQL = fold.ORG_WORDS.pattern.replace(r"\b", r"\y")
 
 def field_words(value: str) -> list:
     """A field's words, folded as the search folds: '.', ',' and ';' are not words."""
-    return [w for w in re.split(r"[\s,;.]+", cat.fold_term(value or "")) if w]
+    return [a for a in (_alternatives(w) for w in re.split(r"[\s,;.]+", cat.fold_term(value or ""))) if a]
 
 
 def phrase(value: str) -> str:
-    """The pattern for a field's words in a row, together and whole: de lu matches DE LU, never DELUCA."""
-    return r"\m" + r"\s+".join(re.escape(w) for w in field_words(value)) + r"\M"
+    """The pattern for a field's words in a row, together and whole: de lu matches DE LU, never DELUCA;
+    a word with alternatives matches any of them in its place."""
+    return r"\m" + r"\s+".join(word_re(w) for w in field_words(value)) + r"\M"
 
 
 def whole_words(expr: str, value: str) -> tuple:
     """Every word of `value` a whole word of `expr`."""
     ws = field_words(value)
-    return " and ".join(f"{expr} ~ %s" for _ in ws), [r"\m" + re.escape(w) + r"\M" for w in ws]
+    return " and ".join(f"{expr} ~ %s" for _ in ws), [r"\m" + word_re(w) + r"\M" for w in ws]
 
 
 #: post-nominals and a trailing "MP" are not part of a name (keys.names._POST, through the board's copy)
@@ -231,7 +271,7 @@ def match_sql(v: cat.View, words: list, number: str = None, whole: bool = False,
     where, params = [], []
     for w in words:
         where.append(f"{haystack} ~ %s")
-        params.append(r"\m" + re.escape(w) + (r"\M" if whole else ""))
+        params.append(r"\m" + word_re(w) + (r"\M" if whole else ""))
     clause = "(" + " and ".join(where) + ")" if where else ""
     if number and v.numbers:
         clause = "(" + (clause or "false") + " or " + " or ".join(f"{c} = %s" for c in v.numbers) + ")"
