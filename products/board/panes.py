@@ -264,6 +264,27 @@ def row_link(q: str, path: list, v: cat.View, r: dict, meta: str = "", boxes=Non
     return f'<li><a class="row" href="{esc(href(q, path + [f"{v.name}:{r["key"]}"], boxes))}">{t}</a>{m}{pix}</li>'
 
 
+NOT_HELD_ROW = "(row not held)"
+
+
+def far_cell(v: cat.View, r: dict, column: str, far, q: str, path: list, boxes=None, words=()):
+    """A column naming another view's row (ruling 92 (2)): the far row's
+    title as a link to its pane, the key in the hover title; the key with
+    "(row not held)" where the published view lacks it. None when the column
+    names no row, or `far` (search.far_rows) was not resolved for the page."""
+    p = cat.pointers(v).get(column)
+    x = r.get(column)
+    if far is None or not p or x in (None, ""):
+        return None
+    fv, fc = p
+    fr = far.get((fv, fc, str(x)))
+    if fr is None:
+        return f'<code>{esc(x)}</code> <span class="note">{NOT_HELD_ROW}</span>'
+    tv = cat.BY_NAME[fv]
+    return (f'<a class="row" href="{esc(href(q, path + [f"{fv}:{fr["key"]}"], boxes))}" title="{esc(x)}">'
+            f'{mark(title_of(tv, fr), words)}</a>')
+
+
 def report_href(base: str, ref: str) -> str:
     """The subject report's stable address for a row, `<base>/report/<register>:<key>`;
     empty when no report server is named (`QV4_REPORT_URL`)."""
@@ -434,10 +455,11 @@ def citation_line(v: cat.View, r: dict, docs: dict = None) -> str:
     return '<div class="cite">' + " · ".join(parts) + "</div>"
 
 
-def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: dict = None) -> str:
+def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: dict = None, far: dict = None) -> str:
     """One matching row in the results pane: every field its View shows,
     its dates, its source's address and its citation, the words marked;
-    `why`, for a near match, says which kind it is (ruling 83)."""
+    `why`, for a near match, says which kind it is (ruling 83); `far`, the
+    rows its key columns name (search.far_rows, ruling 92 (2))."""
     out = ['<article class="hit">'] + ([f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
            f'<div><a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], boxes))}"><strong>{mark(title_of(v, r), words)}</strong></a> '
            f'<span class="meta">{esc(v.name)}</span></div>']
@@ -451,7 +473,8 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: di
         if x is None or x == "":
             blank.append(label)
             continue
-        rows.append(f"<tr><th>{esc(label)}</th><td>{fmt_marked(x, c, words)}</td></tr>")
+        cell = far_cell(v, r, c, far, q, [], boxes, words)
+        rows.append(f"<tr><th>{esc(label)}</th><td>{cell if cell is not None else fmt_marked(x, c, words)}</td></tr>")
     if rows:
         out.append('<table class="f">' + "".join(rows) + "</table>")
     if blank:
@@ -461,7 +484,8 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: di
     return "".join(out)
 
 
-def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(), near: dict = None, docs: dict = None) -> str:
+def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(), near: dict = None, docs: dict = None,
+                 far: dict = None) -> str:
     """The wider pane beside the left one: every matching row, grouped by
     register with the register's count, over `regs`, the registers searched
     (search.selection); `boxes` the check boxes every href carries, and the
@@ -497,11 +521,11 @@ def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(),
         for v, n, rows in hits:
             out.append(f'<div class="view"><strong>{esc(v.name)}</strong> <span class="count">{n:,}</span></div>')
             for r in rows:
-                out.append(hit(q, v, r, words, boxes, docs=docs))
+                out.append(hit(q, v, r, words, boxes, docs=docs, far=far))
             if n > len(rows):
                 out.append(f'<p class="note">and {n - len(rows):,} more in {esc(v.name)}; narrow the search</p>')
     if near is not None:
-        out.append(near_section(q, near, words, boxes, docs))
+        out.append(near_section(q, near, words, boxes, docs, far))
     out.append("</section>")
     return "\n".join(out)
 
@@ -522,7 +546,7 @@ NEAR_NONE_FROM_BOX = ("the plain box matches words in any order, so a reversed n
                       "use the name fields to see reversed names apart")
 
 
-def near_section(q: str, near: dict, words, boxes=None, docs: dict = None) -> str:
+def near_section(q: str, near: dict, words, boxes=None, docs: dict = None, far: dict = None) -> str:
     """Near matches (ruling 83), below the exact results and never among
     them or in their count: a details element, closed until clicked, with
     its two classes, each row saying which, capped with the whole count."""
@@ -543,7 +567,7 @@ def near_section(q: str, near: dict, words, boxes=None, docs: dict = None) -> st
             out.append('<p class="why">none found</p>')
             continue
         for v, r in c["rows"]:
-            out.append(hit(q, v, r, words, boxes, why=why, docs=docs))
+            out.append(hit(q, v, r, words, boxes, why=why, docs=docs, far=far))
         shown_n = len(c["rows"])
         if c["total"] > shown_n:
             out.append(f'<p class="note">and {c["total"] - shown_n:,}{" or more" if c.get("more") else ""} more; narrow the search</p>')
@@ -678,7 +702,8 @@ def row_pane(ctx: dict) -> str:
     for label, c in v.fields:
         if c not in r:
             continue
-        out.append(f"<tr><th>{esc(label)}</th><td>{fmt(shown(v, r, c), c)}</td></tr>")
+        cell = far_cell(v, r, c, ctx.get("far"), q, path, boxes)
+        out.append(f"<tr><th>{esc(label)}</th><td>{cell if cell is not None else fmt(shown(v, r, c), c)}</td></tr>")
     out.append("</table>")
     if v.dates:
         out.append('<h3>Dates, as filed</h3><table class="f">')

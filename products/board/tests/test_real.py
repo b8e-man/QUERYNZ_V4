@@ -114,3 +114,14 @@ def test_a_cited_document_of_every_cited_source_opens():
         assert "party_returns" in by_source and "house" in by_source
         for source, (sha, kind) in by_source.items():
             assert check.opened_problems(conn, sha, kind, source) == [], source
+
+
+def test_a_directors_row_shows_its_companys_name_not_its_key():
+    """Ruling 92 (2), live: the company field reads the company's name, linked, the key on hover."""
+    with db.read_connect() as conn:
+        d = db.rows(conn, "select d.key, d.entity_key, c.name from pub.directors d join pub.companies c on c.key = d.entity_key "
+                          "where not coalesce(d.suppressed, false) order by d.key desc limit 1")[0]
+        html = server.render("", [f"directors:{d['key']}"], conn=conn)
+    from products.board import panes
+    assert f'title="{panes.esc(d["entity_key"])}">{panes.esc(d["name"])}</a>' in html
+    assert f"<td>{d['entity_key']}</td>" not in html

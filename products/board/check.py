@@ -65,6 +65,10 @@ tables through the session reader, never the sample:
      each use case with an interface opens it in a new tab, 15 to 17 say what
      holds them.
  15. The connection counter (ruling 90): on the page, "db n/max", n >= 1.
+ 16. Key columns read as names (ruling 92 (2)): every pointer column and
+     its far column exist; a director's row, in the results pane and its
+     own pane, shows its company's name as a link with the key on hover,
+     never the bare key (far_problems).
 
   python -m products.board check [--term NAME]      exit 1 on any failure
 """
@@ -205,6 +209,38 @@ def problems(conn, term: str = None) -> list:
     out += doc_problems(conn)
     out += panes.contrast_problems()
     out += uses_problems(held)
+    out += far_problems(conn, held, columns)
+    return out
+
+
+def far_problems(conn, held: set, columns: dict) -> list:
+    """16. Ruling 92 (2): every pointer column exists, its far column too;
+    a director's company reads as the company's name, linked, key on hover."""
+    out = []
+    for v in cat.VIEWS:
+        if v.name not in held:
+            continue
+        for c, (fv, fc) in cat.pointers(v).items():
+            if c not in columns.get(v.name, set()):
+                out.append(f"{v.name}: `{c}` names a {fv} row but pub.{v.name} does not carry it")
+            if fv in held and fc not in columns.get(fv, set()):
+                out.append(f"{v.name}: `{c}` is matched to pub.{fv}.{fc}, which does not exist")
+    d = db.rows(conn, "select d.key, d.last_name, d.entity_key, c.name from pub.directors d join pub.companies c on c.key = d.entity_key "
+                      "where not coalesce(d.suppressed, false) and d.last_name ~ '^[A-Za-z]{4,}$' order by d.key limit 1")
+    if not d:
+        return out + ["no director with a held company to show its company's name"]
+    d = d[0]
+    want = f'title="{panes.esc(d["entity_key"])}">{panes.esc(d["name"])}</a>'
+    pane = server.render("", [f"directors:{d['key']}"], conn=conn)
+    if want not in pane:
+        out.append(f"the row pane of directors:{d['key']} does not show its company's name linked with the key on hover")
+    results = server.render("", [], conn=conn, boxes=search.Boxes(False, ("companies",), (("last", d["last_name"]),)))
+    results = results[results.index('id="results"'):]
+    cells = re.findall(r"<th>company</th><td>(.*?)</td>", results)
+    if not cells or not all(c.startswith('<a class="row"') or c.endswith(f"{panes.NOT_HELD_ROW}</span>") for c in cells):
+        out.append(f"the results pane for last name {d['last_name']!r} shows a director's company other than by name or as not held")
+    if re.search(r"<td>companies/\d+</td>", results + pane):
+        out.append("a company key is shown bare, not as the company's name")
     return out
 
 

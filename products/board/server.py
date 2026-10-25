@@ -101,7 +101,8 @@ def same_name_memo(conn):
     return same
 
 
-def row_context(conn, v: cat.View, r: dict, q: str, path: list, pinned: set, same=None, boxes=None, docs=None) -> dict:
+def row_context(conn, v: cat.View, r: dict, q: str, path: list, pinned: set, same=None, boxes=None, docs=None,
+                far=None) -> dict:
     same = same or same_name_memo(conn)
     ref = links_view.ref(v, r["key"])
     same_words = search.names_of_row(v, r)
@@ -111,7 +112,8 @@ def row_context(conn, v: cat.View, r: dict, q: str, path: list, pinned: set, sam
            "links": links_view.links_of(conn, ref), "group": links_view.group_of(conn, ref) if v.kind == "person" else {},
            "same": same(v, r), "same_words": same_words, "resolve": resolver(conn),
            "report": panes.report_href(REPORT_URL, ref), "boxes": boxes,
-           "docs": docs if docs is not None else document.statuses(conn, [r.get("document")])}
+           "docs": docs if docs is not None else document.statuses(conn, [r.get("document")]),
+           "far": far if far is not None else search.far_rows(conn, [(v, r)])}
     return ctx
 
 
@@ -156,8 +158,12 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         cited += [r.get("document") for c in (nearby or {}).values() if isinstance(c, dict) for _, r in c.get("rows") or ()]
         cited += [r.get("document") for _, _, r in steps if r]
         docs = document.statuses(conn, cited)          # ruling 86 (4): one query for every "source" link on the page
+        shown_rows = [(v, r) for hits in results.values() if isinstance(hits, list) for v, _, rows in hits for r in rows]
+        shown_rows += [vr for c in (nearby or {}).values() if isinstance(c, dict) for vr in c.get("rows") or ()]
+        shown_rows += [(cat.BY_NAME[view], r) for _, view, r in steps if r]
+        far = search.far_rows(conn, shown_rows, held)  # ruling 92 (2): one query per far view for every key shown
         out = [panes.left_pane(q, search.held_registers(held), boxes),
-               panes.results_pane(q, results, held, regs, boxes, words, nearby, docs)]
+               panes.results_pane(q, results, held, regs, boxes, words, nearby, docs, far)]
         for i, (person, view, r) in enumerate(steps):
             so_far = path[:i + 1]
             v = cat.BY_NAME[view]
@@ -171,7 +177,7 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
                     out.append(f'<section class="pane"><div class="reg">{panes.esc(view)}</div>'
                                '<p class="why">row not found in the published view: its key has moved or it was withdrawn</p></section>')
                     continue
-                out.append(panes.row_pane(row_context(conn, v, r, q, so_far, pinned, same, boxes, docs)))
+                out.append(panes.row_pane(row_context(conn, v, r, q, so_far, pinned, same, boxes, docs, far)))
         return panes.page(q, path, out, message, boxes, db=counter())
 
 

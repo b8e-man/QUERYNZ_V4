@@ -372,6 +372,35 @@ def children(conn, v: cat.View, r: dict, limit: int = 200) -> list:
     return out
 
 
+def far_rows(conn, pairs, held: set = None) -> dict:
+    """{(far view, far column, value): far row, or None where it is not held}
+    for every column of the (view, row) pairs that names another view's row
+    (catalogue.pointers, ruling 92 (2)): the values collected first, then
+    one query per far view for the whole page. A far view not in `held` is
+    not asked, and its values read None."""
+    want = {}
+    for v, r in pairs:
+        if v is None or not r:
+            continue
+        for c, (fv, fc) in cat.pointers(v).items():
+            x = r.get(c)
+            if x not in (None, ""):
+                want.setdefault(fv, {}).setdefault(fc, set()).add(str(x))
+    out = {(fv, fc, x): None for fv, cols in want.items() for fc, xs in cols.items() for x in xs}
+    for fv, cols in want.items():
+        if held is not None and fv not in held:
+            continue
+        t = cat.BY_NAME[fv]
+        cs = sorted(cols)
+        where = " or ".join(f"{fc} = any(%s)" for fc in cs)
+        for r in db.rows(conn, f"select *, {t.key_col} as key from pub.{fv} where {where}", [sorted(cols[fc]) for fc in cs]):
+            for fc in cs:
+                k = (fv, fc, str(r.get(fc)))
+                if k in out and out[k] is None:
+                    out[k] = r
+    return out
+
+
 def parent(conn, v: cat.View, r: dict):
     if not v.parent:
         return None

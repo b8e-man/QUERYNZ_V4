@@ -1204,6 +1204,39 @@ LINKS_VIEWS = {"links": "pub.links", "groups": "pub.groups", "decisions": "pub.d
 LINKS_PUBLISHED = frozenset({"links", "groups", "decisions", "names", "old_decisions"})
 
 
+#: ruling 92 (2): shown columns holding another view's key that no parent tuple or Relation names, as data:
+#: view -> ((column, far view, far column), ...). The far column is the far view's key, or an official number
+#: (an NZBN) the far view carries; the pane shows the far row's title in the column's place
+POINTERS = {
+    "shareholders": (("holder_nzbn", "companies", "nzbn"),),
+    "company_lookup_roles": (("body_nzbn", "companies", "nzbn"), ("held_key", "directors", "key")),
+    "limited_partnership_partners": (("body_nzbn", "companies", "nzbn"),),
+    "charity_returns": (("group_key", "charities", "key"),),
+    "gazette_liquidations": (("register_key", "companies", "key"),),
+    "gazette_company_notices": (("register_key", "companies", "key"),),
+    "gazette_possessions": (("mortgagee_register_key", "companies", "key"), ("mortgagor_register_key", "companies", "key")),
+}
+
+
+def pointers(v: View) -> dict:
+    """{column: (far view, far column)} for every column a pane of `v` shows
+    (its fields) that names another view's row (ruling 92 (2)): the parent
+    tuple and each Relation matched to the far view's key, then POINTERS. A
+    Relation matched to a name (a party by its name) is not one: the value
+    is already the name."""
+    shown = {c for _, c in v.fields}
+    out = {}
+    if v.parent and v.parent[2] in shown:
+        out[v.parent[2]] = (v.parent[1], BY_NAME[v.parent[1]].key_col)
+    for r in v.relations:
+        if r.column in shown and r.to_column == BY_NAME[r.view].key_col:
+            out.setdefault(r.column, (r.view, r.to_column))
+    for column, view, to_column in POINTERS.get(v.name, ()):
+        if column in shown:
+            out.setdefault(column, (view, to_column))
+    return out
+
+
 def views_of(register: str) -> list:
     return [v for v in VIEWS if v.register == register]
 
