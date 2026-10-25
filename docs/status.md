@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
 
-**Date:** 2026-10-26, 09:10 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-26, 09:45 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 counting clean days from 25 October (see Half-done); 5.1
 done; 5.2 closed (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held
 on terms; sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on
@@ -35,10 +35,8 @@ old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- `fix-products-board-1f` (Opus, rulings 89, 90: use-case links opening each
-  interface in a new tab; a connection counter in the nav bar), on 88's
-  branch. Merged 25 and 26 October: `board-2` (80), `fix-products-board-1`
-  (81, 84, 85, 88), `board-3` (82, 83), `board-4` (86, 87),
+- Nothing. Merged 25 and 26 October: `board-2` (80), `fix-products-board-1`
+  (81, 84, 85, 88, 89, 90), `board-3` (82, 83), `board-4` (86, 87),
   `fix-registers-companies-1`. Template 4, step 7 wait (79, 63).
 
 ## Half-done
