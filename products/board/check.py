@@ -22,9 +22,11 @@ tables through the session reader, never the sample:
      is an address; every relation column the catalogue names exists in its
      view and in the view it is matched to (with 3). Ruling 84: on that
      graph, a donor row the links join by name alone and the crowded
-     graph of a name search (CROWDED), no two labels
-     or numbers sit at one place or meet, and no rule id shows outside a
-     tooltip; the links' words are on the page.
+     graph of a name search (CROWDED), no two texts sit at one place, no
+     rule id shows outside a tooltip, and the links' words are on the page.
+     Ruling 86 (2): on each, no two text boxes of the rendered SVG touch
+     (graph.touching_text, read from its own x, y, anchor, class and text),
+     and no edge carries a number.
 
   8. The field search (ruling 82): every column a field declares exists in
      its view, a date column is a date and a year column a number; a search
@@ -43,6 +45,20 @@ tables through the session reader, never the sample:
      name with a residence after it (carries_residence) and no address
      outside those columns.
 
+ 11. Donations summed (ruling 86 (3)): the known donor, filed under one name
+     in returns of two years or more to one party, gets one party edge whose
+     total equals the amounts listed under it as added and the register's
+     own sum (gift_problems).
+ 12. The originating document (ruling 86 (4)): /doc/ of a known cited
+     document answers 200 with its stored content type and its own bytes; a
+     wrong sha and a name that is not 64 hex characters answer 404; a party
+     return answers 403; the row's citation begins with "source" (doc_problems).
+ 13. Night mode (ruling 86 (1)): every text colour of the stylesheet reads at
+     4.5:1 or more on every background it sets; the key's edges at 3:1 on the
+     picture and apart (panes.contrast_problems).
+ 14. The use cases tab (ruling 87): the copy the board runs from renders the
+     plan's seventeen rows in its order.
+
   python -m products.board check [--term NAME]      exit 1 on any failure
 """
 from __future__ import annotations
@@ -53,7 +69,7 @@ import sys
 import urllib.parse
 
 from products.board import catalogue as cat
-from products.board import db, document, graph, links_view, near, search, panes, server
+from products.board import db, document, graph, links_view, near, search, panes, server, uses
 
 ADDRESS_WORDS = re.compile(r"residential|home_address|street|suburb|postal", re.I)
 #: the comparison's residence vocabulary (checks/comparison.py RESIDENCE_WORDS; tests/test_check_vocabulary.py holds the two equal):
@@ -178,7 +194,23 @@ def problems(conn, term: str = None) -> list:
             out.append("the graph tab did not render its picture and key without script")
         out += picture_problems(conn, centre, g, page)
     out += field_problems(conn, held, columns, types)
+    out += gift_problems(conn)
+    out += doc_problems(conn)
+    out += panes.contrast_problems()
+    out += uses_problems(held)
     return out
+
+
+def uses_problems(held: set) -> list:
+    """14. The use cases tab renders the plan's rows from the copy the board runs from, in the plan's order."""
+    table = uses.read_text(uses.TABLE)
+    if table is None:
+        return [f"the plan's use-case table {uses.TABLE} is not in the copy the board runs from"]
+    want = [r["number"] for r in uses.parse_table(table)]
+    got = re.findall(r"<tr><td>(\d+)</td>", server.render_uses(held=held))
+    if got != want or len(got) != 17:
+        return [f"the use cases tab shows {len(got)} rows in the order {got}; the plan holds {len(want)}"]
+    return []
 
 
 CROWDED = "smith"
@@ -212,10 +244,15 @@ def picture_problems(conn, centre: str, g: dict, page: str) -> list:
         picture = html[html.index("<svg"):html.index("</svg>")] if "<svg" in html else ""
         at = re.findall(r'<text[^>]* x="([\d.]+)" y="([\d.]+)"', picture)
         if len(at) != len(set(at)):
-            out.append(f"the graph of {c} draws {len(at) - len(set(at))} labels or numbers at the same place as another")
+            out.append(f"the graph of {c} draws {len(at) - len(set(at))} texts at the same place as another")
         met = graph.overlaps(graph.place(gr, graph.layout(gr), graph.lines(gr)))
         if met:
-            out.append(f"the graph of {c} draws {len(met)} labels or numbers over another, first {met[0]}")
+            out.append(f"the graph of {c} places {len(met)} texts touching another, first {met[0]}")
+        touching = graph.touching_text(picture)
+        if touching:
+            out.append(f"the graph of {c} draws {len(touching)} pairs of texts whose boxes touch, first {touching[0]}")
+        if re.search(r"<text[^>]*>\d+</text>", picture):
+            out.append(f"the graph of {c} draws an edge number (ruling 86 (2))")
         bare = re.sub(r"<title>.*?</title>", "", picture, flags=re.S)
         if RULE_ID.search(bare) or "links rule" in bare:
             out.append(f"the graph of {c} shows a rule id outside a tooltip: {(RULE_ID.search(bare) or ['links rule'])[0]}")
