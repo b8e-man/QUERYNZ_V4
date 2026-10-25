@@ -80,3 +80,15 @@ regenerable, restored registers with home addresses inside) are Arthur's
 queued once that folder is clear, since initdb needs an empty pgdata. The
 correction to the brief is noted: the copy restored EQUAL by hand on 19
 October, before the three out-of-order rows existed.
+
+## Rehearsal after the fix (integrator, 25 October 12:50 NZDT)
+
+Arthur emptied `/mnt/hdd2/qv4-restore` at 10:12; `qv4-offsite-rehearsal`
+queued as row 456, leased by the node2 worker 10:13, finished 12:45:
+`equal: true` in 2 h 32 m (fetch 58 min, 35.9 GB from the bucket, copy
+stamped 20261024T210014). Scratch server en_NZ.UTF-8 libc, as the source.
+Databases equal: extractions 75 tables, incoming_news 22, nzbn_canonical
+137, querynz_v4 858 (the `links.links` CHECK that failed under "C" now
+holds); 0 bad. Trees equal: eight, 183,623 files, 0 bad. The server and
+the scratch folder removed by the rehearsal itself; the folder is empty.
+Next rehearsal in 28 days by the `whenever` job.

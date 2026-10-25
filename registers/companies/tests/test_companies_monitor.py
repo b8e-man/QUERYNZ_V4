@@ -290,8 +290,10 @@ def night(filled, monkeypatch, tmp_path):
                      log=lambda *a: None, **g, **kw)
 
     def ask(nzbn=None, name=None):
-        return conn.execute(f"INSERT INTO {T.requests} (nzbn, name, product, asked_by) VALUES (%s, %s, 'test', "
-                            f"session_user) RETURNING id", (nzbn, name)).fetchone()[0]
+        # stamped from the fixture's clock: the column's DEFAULT now() is the real clock, and a threshold
+        # measured against the fixture's clock then passes or fails by the day the suite runs
+        return conn.execute(f"INSERT INTO {T.requests} (nzbn, name, product, asked_by, asked_at) VALUES (%s, %s, "
+                            f"'test', session_user, %s) RETURNING id", (nzbn, name, clock["now"])).fetchone()[0]
 
     yield {"conn": conn, "T": T, "go": go, "ask": ask, "answers": answers, "clock": clock, "store": store,
            "t": lambda n: table(filled["schema"], n, True)}
@@ -378,8 +380,8 @@ def test_the_day_s_limit_stops_the_calls_and_the_check_counts_them(night, monkey
 def test_a_watch_falls_due_by_its_interval_and_off_peak_holds_the_night(night):
     conn, T = night["conn"], night["T"]
     night["answers"][N1] = _answer(N1, addresses=[])
-    conn.execute(f"INSERT INTO {T.watch} (nzbn, product, asked_by, every_days) VALUES (%s, 'test', session_user, 7)",
-                 (N1,))
+    conn.execute(f"INSERT INTO {T.watch} (nzbn, product, asked_by, asked_at, every_days) VALUES (%s, 'test', "
+                 f"session_user, %s, 7)", (N1, night["clock"]["now"]))
     assert night["go"]()["watches"] == 1
     night["clock"]["now"] += dt.timedelta(days=1)
     assert night["go"]()["watches"] == 0                                   # not due for a week
