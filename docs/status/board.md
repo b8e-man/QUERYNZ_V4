@@ -1,53 +1,45 @@
 # board: where it stands
 
-**Date:** 2026-10-26. **Step:** 4.9 second version, rulings 86 to 90
-(80 to 85 kept), `products/board/`. **Merge request:** `fix-products-board-1e`
-(ruling 88); `fix-products-board-1f` (raised, rulings 89 and 90).
+**Date:** 2026-10-26. **Step:** 4.9 second version, ruling 92 items 2, 4,
+5 and 6 (80 to 91 kept), `products/board/`. **Session:** board-6.
+**Merge request:** `board-6` (raised). board-5 builds item 1 (the graph's
+layout) beside it in `graph.py`; this branch leaves `graph.py` and the SVG
+styles untouched.
 
 ## Done
 
-- Night mode. One dark stylesheet. Every text colour reads at 4.5:1 or
-  more on every background, and the edge colours are re-chosen for dark.
-  A test and the check read the colour pairs from the stylesheet itself.
-- No edge numbers. An edge's words are drawn only where they touch no
-  other text. The list under the key is grouped by the row each edge
-  reaches.
-- Donations summed. A donor's rows filed under one name are one node,
-  with one edge per party or candidate. The edge shows the total and the
-  count. Every addend is listed under it. A disclosure is listed and never
-  added to a return.
-- Source links. `/doc/<sha256>` serves the captured document, read only,
-  whole. Ruling 88: every document the store holds opens, whatever its
-  source, the addresses it prints included: 54,875 documents from 31
-  sources, none withdrawn. The board listens on the local network only
-  (hard limit 13) and publishes no table and no export. A suppressed row
-  or withheld text still offers no link. The setting `SERVED_SOURCES`
-  and the 403 are gone.
-- The store is read only through `support.docstore`, because of the
-  one-way test. Its new reader `landing.documents_of` comes as the patch
-  `board-4-docstore-read.patch` beside the request. Until it is applied,
-  nothing opens and the check says so.
-- The use cases tab, `/uses`: the plan's 17 rows at render time. 13 have
-  templates built (10 subject report, 3 scan). Each name opens its
-  interface in a new browser tab: report form, scan page or site preview.
-  15 to 17 say what holds them. Every template folder binds to one row.
-- A connection counter, "db n/100", in every page's bar; by login on hover.
-- The check covers each of the above. Against live data it is green. It
-  opens a party return and one cited document of each of the 27 sources a
-  published row cites; with a refusal put back for party returns it is red.
-  An orphan template or a lost hold turns it red.
+- Item 2, names not keys. A field that holds another row's key (a
+  director's company, an officer's charity, an NZBN of a body) shows that
+  row's name as a link, the key on hover. A row not held shows the key and
+  "(row not held)". One query per far view per page.
+- Item 4, near names. A "near names" button beside the search box. Its
+  pane lists, for each given name typed, the given names filed with the
+  same surname: common forms from a table of English and Māori names
+  (`given_names.py`), plus names sharing the first three letters or one
+  letter apart, each with a count of rows. A click adds the name to the
+  search as an alternative (`garry|gary payinda`). The pane says a variant
+  is a candidate, never a link.
+- Item 5, a register as a table. Each register's name in the left pane
+  opens a table: the count of all rows, 100 one-line rows, "more" for the
+  next 100 (1,000 at most), a chooser for the register's other views. A
+  search with the table open puts the results between search and table.
+- Item 6, all or any. Two choices in "narrow by field": all fields must
+  match (the default, as before) or any field may match. Under "any" each
+  result says which field it matched.
+- The check has four new cases (16 to 19). Against live data it is green.
+  Each was shown red with its rule broken.
 
 ## Known limits
 
-- Two rows filed under one name are drawn as one donor. Identical filing
-  is all that groups them; the page says so.
-- Lines still pass under node labels. Only text boxes are kept apart.
-- The scan shape's own two templates (step 6.1) serve no use case; the
-  check names them in `SHAPE_OWN`. A new one must be added there.
-- Earlier limits stand: family-given names with no comma; lanes' pane.md
-  name orders; card `an-address-search-on-the-board-cannot-also-name-the-company`.
+- The graph tab always combines fields with "all": it is board-5's file.
+- Near names reads the name fields when first and last are filled, else
+  the box when it reads as a person's name (two to four words).
+- A table cell is cut at 40 characters; the whole value is on hover.
+- Earlier limits stand: one name as filed drawn as one donor; lines under
+  node labels; `SHAPE_OWN`; family-given names with no comma; card
+  `an-address-search-on-the-board-cannot-also-name-the-company`.
 
 ## Next
 
-1. The integrator merges `fix-products-board-1e`, then `-1f`, installs the
-   unit (two new settings) and restarts `qv4-board`.
+1. The integrator merges `board-6` (after or beside board-5) and restarts
+   `qv4-board` at the release. No table, unit or setting changes.
