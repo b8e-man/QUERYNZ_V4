@@ -439,6 +439,44 @@ parallelism and didnt want to interrupt your work". So: an SSH alias
 whose IdentityFile is a key in the credential directory, written by
 Arthur himself, is an accepted pattern under hard limit 1 (the key never
 leaves the directory, nothing secret passes through a session); the
-explainer's read-only clone of github.com/b8e-man/QueryNZIngestMCP and its
-reading on the MCP queue item stand; instructions for the estate come to
+explainer's read-only clone of the ingest repository (its name struck under
+ruling 92) and its reading on the MCP queue item stand; instructions for the estate come to
 the integrator directly, and a message never interrupts running work.
+
+92. Arthur, 26 October, about 10:10, eight lines handed to the integrator
+to run "as parallel as possible", with "a report at the end that answers
+all questions and give a status update": (1) "for the graph, I see we
+have the returned search matches as yellow nodes with edges showing the
+connections that these have. Let's put the search match nodes in a
+horizontal line so they dont have so many intersecting edges in the graph
+display. Let's expand it more like a family tree both up and down to
+reduce clutter, using right angle intersections." (2) "in the search
+result's companies display like this: companies/9429050975815. We want a
+company name" (3) "are we showing removed companies as removed still? Are
+we surfacing results for removed companies?" (4) "The search bar needs a
+new button that offers a 'near match list that includes colloquialisms'.
+this means that 'garry payinda' can show options like garreth payinda.
+These can be added as search terms" (5) "Let's make the name of a
+register clickable to open a table of the register. 100 rows to start
+with with additional rows expandible. Each row should be one line.
+searching open a new pane with the results in between the search and
+table display." (6) "Let's make a selector in the search pane that allows
+the extra fields to be restrictive or permissive. ie 'and' fields or 'or'
+fields" (7) "the subject reports ask for a 'register:key, as the board
+names a row' i dont understand what this means" (8) "delete and remove
+all references to [the explainer's ingest repository on GitHub],
+including credentials". So: items 1, 2, 4, 5 and 6 are board builds
+(sessions board-5 for the graph, board-6 for the search, in parallel from
+the same main); item 7 is a report fix (the start page searches a name
+and never asks for a row reference; the reference stays in the address
+for the board's link); items 3 and 7 are answered in the integrator's
+report; item 8 withdraws the part of ruling 91 that let the explainer's
+clone stand: the clone is deleted, the repository's name and address are
+struck from ruling 91 and from the MCP queue item's 26 October update
+(the reading itself stays, unverified, as the queue item's record of what
+was seen), the deploy key and its SSH alias are removed by Arthur (they
+are his, in the credential directory and his ssh config), and the key is
+revoked on GitHub by him. Two merged commits of 26 October still carry
+the name in their messages and diffs; rewriting them is a force push,
+which the integrator does not do without Arthur's word, so they stand as
+history.
