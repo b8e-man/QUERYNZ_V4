@@ -324,18 +324,26 @@ def held_registers(held: set) -> list:
     return [r for r, _ in cat.REGISTERS if any(v.name in held for v in cat.views_of(r))]
 
 
+TABLE_PAGE = 100     # rows a register's table shows, and each "more" appends (ruling 92 (5))
+TABLE_MAX = 1000     # rows a table shows at most; past it, search
+
+
 class Boxes(NamedTuple):
     """The left pane's check boxes (ruling 81): "search all" and the register
     boxes are two separate states, so turning "search all" off and on loses
     no tick; and the filled fields of the expanded search (ruling 82),
-    `fields` as (parameter, value) in FIELDS order. All travel as query
-    parameters on every href (`params`)."""
+    `fields` as (parameter, value) in FIELDS order; the register table open
+    (ruling 92 (5)), `table` its view and `upto` the offset of its last
+    page appended. All travel as query parameters on every href (`params`)."""
     all: bool = True
     ticked: tuple = ()
     fields: tuple = ()
+    table: str = ""
+    upto: int = 0
 
     def params(self) -> list:
-        return [("all", "1" if self.all else "0")] + [("r", x) for x in self.ticked] + list(self.fields)
+        table = [("t", self.table), ("o", str(self.upto))] if self.table else []
+        return [("all", "1" if self.all else "0")] + [("r", x) for x in self.ticked] + list(self.fields) + table
 
     def asked(self) -> dict:
         return dict(self.fields)
@@ -355,7 +363,11 @@ def boxes_of(qs: dict) -> Boxes:
     ticked = tuple(dict.fromkeys(x for x in (qs.get("r") or [])[:60] if x in known))
     alls = qs.get("all") or []
     fields = tuple((f, v) for f, v in ((f, " ".join(((qs.get(f) or [""])[0]).split())[:FIELD_MAX]) for f, _ in FIELDS) if v)
-    return Boxes("1" in alls if alls else not ticked, ticked, fields)
+    table = (qs.get("t") or [""])[0]
+    table = table if table in cat.BY_NAME else ""
+    o = (qs.get("o") or ["0"])[0]
+    upto = min(max(int(o) // TABLE_PAGE * TABLE_PAGE, 0), TABLE_MAX - TABLE_PAGE) if o.isdigit() and table else 0
+    return Boxes("1" in alls if alls else not ticked, ticked, fields, table, upto)
 
 
 def selection(boxes: Boxes, held: list) -> tuple:
@@ -386,6 +398,16 @@ def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = N
             out.setdefault(v.register, []).append((v, int(found[0]["total"]), found))
     out["held"] = held
     return out
+
+
+def table(conn, v: cat.View, upto: int = 0) -> tuple:
+    """(count of all rows, the first upto + TABLE_PAGE rows) of one view in
+    its default order (ruling 92 (5)): every row, a suppressed one included,
+    for the pane to show as panes.shown() does."""
+    total = db.rows(conn, f"select count(*) as n from pub.{v.name}")[0]["n"]
+    rows = db.rows(conn, f"select *, {v.key_col} as key from pub.{v.name} "
+                         f"order by {v.default_order} nulls last, {v.key_col} limit %s", (min(upto, TABLE_MAX - TABLE_PAGE) + TABLE_PAGE,))
+    return int(total), rows
 
 
 def row(conn, view: str, key: str):

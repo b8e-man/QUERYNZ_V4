@@ -1241,6 +1241,15 @@ def views_of(register: str) -> list:
     return [v for v in VIEWS if v.register == register]
 
 
+#: a register's main view, the one its table opens first (ruling 92 (5)), where it is not the first catalogued
+MAIN_VIEW = {"parties": "parties", "grants": "grants", "sanctions": "sanctions_listings"}
+
+
+def main_view_of(register: str) -> str:
+    """The view a register's table opens on: MAIN_VIEW, else its first catalogued view."""
+    return MAIN_VIEW.get(register) or views_of(register)[0].name
+
+
 def columns_shown(v: View) -> set:
     """Every column a pane of this view reads; the citation's document, page
     and place are read when present and are not demanded here (a child row

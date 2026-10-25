@@ -144,3 +144,15 @@ def test_the_near_names_button_answers_200_and_lists_counts():
     pane = html[html.index('id="near-names"'):html.index('id="results"')]
     assert re.search(r'<h3>garry payinda <span class="count">[\d,]+ rows</span></h3>', pane)
     assert re.search(r'</a> <span class="count">[1-9][\d,]*</span>', pane)       # at least one variant, with its count
+
+
+def test_a_registers_table_answers_with_100_rows_and_its_count():
+    """Ruling 92 (5), live: the directors table, 100 one-line rows and the count of all rows."""
+    import re
+    with db.read_connect() as conn:
+        n = db.rows(conn, "select count(*) as n from pub.directors")[0]["n"]
+        t = time.time()
+        html = server.render("", [], conn=conn, boxes=search.Boxes(table="directors"))
+        assert time.time() - t < 5.0
+    tab = html[html.index('id="table"'):]
+    assert f"{n:,} rows in directors" in tab and len(re.findall(r"<tr><td", tab)) == 100

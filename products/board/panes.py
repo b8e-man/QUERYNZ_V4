@@ -17,6 +17,7 @@ from products.board import catalogue as cat
 from products.board import document
 from products.board.search import FIELDS, field_words, words_of
 from products.board.search import add_alternative as search_add, drop_alternative as search_drop
+from products.board.search import FIRST as FIRST_BOXES, TABLE_MAX as TABLE_MAX_N, TABLE_PAGE as TABLE_PAGE_N
 
 SUPPRESSED = "name suppressed"
 NOTHING_TICKED = "tick a register, or search all"     # "search all" off and no register ticked: nothing is searched (ruling 81)
@@ -89,6 +90,10 @@ details.near{margin-top:1rem;border-top:2px solid #3a404c;padding-top:.5rem}
 details.near summary{font-weight:600;cursor:pointer}
 .nearwhy{font-size:12px;color:#ffb26b}
 .pane.uses{flex:0 0 78rem;max-width:78rem}
+.pane.table{flex:0 0 72rem;max-width:72rem}
+table.grid{border-collapse:collapse;font-size:12px;table-layout:fixed;width:100%}
+table.grid th,table.grid td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:.1rem .4rem;border-top:1px solid #3a404c;text-align:left}
+table.grid th{color:#aab1bc;font-weight:normal}
 header span.db{margin-left:auto;font-size:12px;font-variant-numeric:tabular-nums;cursor:help}
 svg rect.bg{fill:#161a20}
 svg text{font:11px system-ui,sans-serif;fill:#e8eaed}
@@ -355,20 +360,25 @@ def fmt_marked(value, column: str, words) -> str:
     return fmt(value, column)
 
 
-def register_boxes(held_regs: list, boxes) -> str:
+def register_boxes(held_regs: list, boxes, q: str = None) -> str:
     """"search all", then a check box per register in the catalogue's order;
     a register no lane has published is greyed, "not held", and cannot be
     checked. The two states are shown as they are (ruling 81): "search all"
     ticked leaves the register ticks as the user left them. The hidden
     `all=0` tells an unticked "search all" from an address that never had
-    the form (search.boxes_of)."""
+    the form (search.boxes_of). With `q` (the search tab), each held
+    register's name is a link opening its table (ruling 92 (5))."""
     out = ['<input type="hidden" name="all" value="0">',
            f'<label class="all"><input type="checkbox" name="all" value="1"{" checked" if boxes.all else ""}> search all</label>',
            '<ul class="boxes">']
     for register, plain in cat.REGISTERS:
         if register in held_regs:
             on = " checked" if register in boxes.ticked else ""
-            out.append(f'<li><label><input type="checkbox" name="r" value="{esc(register)}"{on}> {esc(plain)}</label></li>')
+            if q is None:
+                out.append(f'<li><label><input type="checkbox" name="r" value="{esc(register)}"{on}> {esc(plain)}</label></li>')
+            else:
+                out.append(f'<li><label><input type="checkbox" name="r" value="{esc(register)}"{on}></label> '
+                           f'<a class="row" href="{esc(table_href(q, boxes, register))}" title="open the register as a table">{esc(plain)}</a></li>')
         else:
             out.append(f'<li class="greyed"><label><input type="checkbox" disabled> {esc(plain)} <span class="meta">not held</span></label></li>')
     for register, plain in cat.NOT_HELD:
@@ -404,7 +414,10 @@ def left_pane(q: str, held_regs: list, boxes, action: str = "/", title: str = "S
         '<p class="note">Every word must appear, macrons folded; a number is matched exactly. '
         "A suppressed name is never found by name. Search all searches every held register, whatever is ticked; "
         "untick it to search the registers ticked alone.</p>",
-        register_boxes(held_regs, boxes), "<p><button>search</button></p></form></section>"])
+        register_boxes(held_regs, boxes, q if action == "/" else None),
+        (f'<input type="hidden" name="t" value="{esc(boxes.table)}"><input type="hidden" name="o" value="{boxes.upto}">'
+         if action == "/" and boxes is not None and boxes.table else ""),
+        "<p><button>search</button></p></form></section>"])
 
 
 NEAR_NAMES_NOTE = ("A variant is a candidate you choose to add to the search, never a link the board made: the board makes "
@@ -453,6 +466,87 @@ def near_names_pane(q: str, data: dict, boxes) -> str:
                 link = f'<a href="{esc(with_term((field, lambda t, w=w, typed=g["typed"]: search_add(t, typed, w))))}">{esc(w)}</a>'
             out.append(f'<li>{link} <span class="count">{n:,}</span> <span class="meta">{esc(why)}</span></li>')
         out.append("</ul>")
+    out.append("</section>")
+    return "\n".join(out)
+
+
+# ── a register as a table (ruling 92 (5)) ─────────────────────────────────
+
+CELL_CHARS = 40      # a cell's text is cut here, the whole value in its hover title
+
+
+def table_href(q: str, boxes, register: str = "", view: str = "", upto: int = 0) -> str:
+    """The search tab with a register's table open: its main view (the first
+    of its views the catalogue lists; the server takes the first published
+    one, main_view, where it is not; the chooser offers the rest), or
+    `view`, from row 1 to upto + 100."""
+    view = view or cat.main_view_of(register)
+    b = (boxes or FIRST_BOXES)._replace(table=view, upto=upto)
+    return href(q, [], b) + "#table"
+
+
+def main_view(register: str, held: set):
+    """The register's main view where it is published, else its first published view."""
+    first = cat.BY_NAME[cat.main_view_of(register)]
+    return first if first.name in held else next((v for v in cat.views_of(register) if v.name in held), None)
+
+
+def one_line(text: str) -> tuple:
+    """(the cell's text cut to CELL_CHARS, escaped, the whole value for its title, escaped): one line, always."""
+    t = " ".join(str(text).split())
+    return esc(t if len(t) <= CELL_CHARS else t[:CELL_CHARS - 1] + "…"), esc(t)
+
+
+def plain(value, column: str = "") -> str:
+    """A value as fmt() shows it, as plain text."""
+    return html.unescape(re.sub(r"<[^>]+>", "", fmt(value, column)))
+
+
+def table_pane(q: str, v: cat.View, total: int, rows: list, boxes, held: set = (), far: dict = None) -> str:
+    """One register's view as a table (ruling 92 (5)): the count of all its
+    rows at the top, then the first rows in the view's default order, one
+    line each, the title and the catalogue's fields in fixed columns, cut
+    with the whole value on hover; the title opens the row's pane; a key
+    column shows the far row's title (ruling 92 (2)); "more" appends the next
+    TABLE_PAGE (its href carries the offset); a chooser for the register's
+    other views. A suppressed name and withheld text as panes.shown()."""
+    out = ['<section class="pane table" id="table">', f'<div class="reg">{register_heading(v.register)} · table</div>',
+           f'<h2>{register_heading(v.register)} <span class="count">{total:,} rows in {esc(v.name)}</span></h2>']
+    others = [w for w in cat.views_of(v.register) if w.name in held]
+    if len(others) > 1:
+        out.append('<p class="note">views: ' + " · ".join(
+            f"<strong>{esc(w.name)}</strong>" if w.name == v.name else f'<a href="{esc(table_href(q, boxes, view=w.name))}">{esc(w.name)}</a>'
+            for w in others) + "</p>")
+    out.append(f'<p class="note">rows 1 to {len(rows):,} of {total:,}, in the view order ({esc(v.default_order)}); one line each, '
+               "the whole value on hover; a name the register suppresses reads " + SUPPRESSED + ".</p>")
+    cols = [("title", "")] + [(label, c) for label, c in v.fields]
+    out.append('<table class="grid"><tr>' + "".join(f"<th>{esc(label)}</th>" for label, _ in cols) + "</tr>")
+    for r in rows:
+        cells = []
+        t, full = one_line(title_of(v, r))
+        cells.append(f'<td title="{full}"><a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], boxes))}">{t}</a></td>')
+        for _, c in cols[1:]:
+            p = cat.pointers(v).get(c)
+            x = r.get(c)
+            if far is not None and p and x not in (None, ""):
+                fr = far.get((p[0], p[1], str(x)))
+                if fr is None:
+                    t, _ = one_line(f"{x} {NOT_HELD_ROW}")
+                    cells.append(f'<td title="{esc(x)}">{t}</td>')
+                else:
+                    t, _ = one_line(title_of(cat.BY_NAME[p[0]], fr))
+                    cells.append(f'<td title="{esc(x)}"><a class="row" href="{esc(href(q, [f"{p[0]}:{fr["key"]}"], boxes))}">{t}</a></td>')
+                continue
+            t, full = one_line(plain(shown(v, r, c), c))
+            cells.append(f'<td title="{full}">{t}</td>')
+        out.append("<tr>" + "".join(cells) + "</tr>")
+    out.append("</table>")
+    if len(rows) < total:
+        upto = boxes.upto + TABLE_PAGE_N
+        if upto < TABLE_MAX_N:
+            out.append(f'<p><a href="{esc(table_href(q, boxes, view=v.name, upto=upto))}">more: the next {TABLE_PAGE_N}</a></p>')
+        else:
+            out.append(f'<p class="note">the table shows {TABLE_MAX_N:,} rows at most; search to find the rest</p>')
     out.append("</section>")
     return "\n".join(out)
 

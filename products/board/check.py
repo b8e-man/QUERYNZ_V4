@@ -69,6 +69,11 @@ tables through the session reader, never the sample:
      its far column exist; a director's row, in the results pane and its
      own pane, shows its company's name as a link with the key on hover,
      never the bare key (far_problems).
+ 18. A register as a table (ruling 92 (5)): every held register's name
+     opens its main view's table with min(100, its count) one-line rows and
+     the count of all its rows, equal to the view's own count; "more" gives
+     the next 100; a search with a table open puts the results between the
+     search pane and the table (table_problems).
  17. Near names (ruling 92 (4)): the near-names pane for NEAR_NAMES lists
      the table's form of the given name filed with the surname, with a
      count of one or more, a link adding it as an alternative, and says a
@@ -216,6 +221,44 @@ def problems(conn, term: str = None) -> list:
     out += uses_problems(held)
     out += far_problems(conn, held, columns)
     out += near_names_problems(conn)
+    out += table_problems(conn, held)
+    return out
+
+
+def table_problems(conn, held: set) -> list:
+    """18. Ruling 92 (5), on the live views."""
+    out = []
+    left = panes.left_pane("", search.held_registers(held), search.FIRST)
+    for register in search.held_registers(held):
+        link = re.search(r'href="([^"]*)" title="open the register as a table">' + re.escape(panes.esc(dict(cat.REGISTERS)[register])), left)
+        if not link:
+            out.append(f"{register}: its name in the left pane opens no table")
+            continue
+        boxes = search.boxes_of(urllib.parse.parse_qs(urllib.parse.urlsplit(link.group(1).replace("&amp;", "&")).query))
+        page = server.render("", [], conn=conn, boxes=boxes)
+        if 'id="table"' not in page:
+            out.append(f"{register}: the table pane did not open")
+            continue
+        tab = page[page.index('id="table"'):]
+        v = panes.main_view(register, held)
+        n = db.rows(conn, f"select count(*) as n from pub.{v.name}")[0]["n"]
+        shown = len(re.findall(r"<tr><td", tab))
+        if f"{n:,} rows in {v.name}" not in tab or shown != min(search.TABLE_PAGE, n):
+            out.append(f"{register}: the table of {v.name} shows {shown} rows and not its count {n:,} (wanted {min(search.TABLE_PAGE, n)})")
+        if re.search(r"<tr>[^\n]*<br", tab):
+            out.append(f"{register}: a table row is more than one line")
+        more = re.search(r'<a href="([^"]*)">more: the next', tab)
+        if (more is None) != (n <= search.TABLE_PAGE):
+            out.append(f"{register}: the table's more link is {'missing' if more is None else 'offered with nothing more'}")
+        elif more and register == "companies":
+            b = search.boxes_of(urllib.parse.parse_qs(urllib.parse.urlsplit(more.group(1).replace("&amp;", "&")).query))
+            two = server.render("", [], conn=conn, boxes=b)
+            if len(re.findall(r"<tr><td", two[two.index('id="table"'):])) != 2 * search.TABLE_PAGE:
+                out.append("companies: more did not append the next 100 rows")
+            both = server.render(KNOWN_REVERSED[1], [], conn=conn, boxes=b)
+            order = re.findall(r'<section class="pane[^"]*" id="(search|results|table)"', both)
+            if order != ["search", "results", "table"]:
+                out.append(f"a search with the table open placed its panes {order}, not search, results, table")
     return out
 
 

@@ -155,18 +155,27 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
             person = step.startswith("person:")
             view, key = step.split(":", 2)[1:] if person else step.partition(":")[::2]
             steps.append((person, view, search.row(conn, view, key)))
+        tv = trows = None
+        if boxes.table:                                # ruling 92 (5): the register's table, kept while a search runs
+            tv = cat.BY_NAME[boxes.table]
+            tv = tv if tv.name in held else panes.main_view(tv.register, held)
+            if tv is not None:
+                total, trows = search.table(conn, tv, boxes.upto)
         cited = [r.get("document") for hits in results.values() if isinstance(hits, list) for _, _, rows in hits for r in rows]
         cited += [r.get("document") for c in (nearby or {}).values() if isinstance(c, dict) for _, r in c.get("rows") or ()]
         cited += [r.get("document") for _, _, r in steps if r]
         docs = document.statuses(conn, cited)          # ruling 86 (4): one query for every "source" link on the page
         shown_rows = [(v, r) for hits in results.values() if isinstance(hits, list) for v, _, rows in hits for r in rows]
         shown_rows += [vr for c in (nearby or {}).values() if isinstance(c, dict) for vr in c.get("rows") or ()]
-        shown_rows += [(cat.BY_NAME[view], r) for _, view, r in steps if r]
+        shown_rows += [(cat.BY_NAME[view], r) for _, view, r in steps if r] + [(tv, r) for r in trows or ()]
         far = search.far_rows(conn, shown_rows, held)  # ruling 92 (2): one query per far view for every key shown
         out = [panes.left_pane(q, search.held_registers(held), boxes)]
         if near_names:
             out.append(panes.near_names_pane(q, near.near_names(conn, q, asked, registers=regs, held=held), boxes))
-        out += [panes.results_pane(q, results, held, regs, boxes, words, nearby, docs, far)]
+        if q or asked or tv is None:                   # with a table open and nothing asked, the table sits beside the search
+            out.append(panes.results_pane(q, results, held, regs, boxes, words, nearby, docs, far))
+        if tv is not None:
+            out.append(panes.table_pane(q, tv, total, trows, boxes._replace(table=tv.name), held, far))
         for i, (person, view, r) in enumerate(steps):
             so_far = path[:i + 1]
             v = cat.BY_NAME[view]
