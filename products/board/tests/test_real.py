@@ -102,6 +102,15 @@ def test_a_known_donor_with_returns_in_two_years_gets_one_party_edge_whose_total
 
 
 def test_a_known_cited_document_opens_from_its_source_link_and_a_wrong_sha_does_not():
-    """Ruling 86 (4), on the live store: check.doc_problems answers each case."""
+    """Rulings 86 (4) and 88, on the live store: check.doc_problems answers each case."""
     with db.read_connect() as conn:
         assert check.doc_problems(conn) == []
+
+
+def test_a_cited_document_of_every_cited_source_opens():
+    """Ruling 88: no source is refused; the party returns among those a row cites."""
+    with db.read_connect() as conn:
+        by_source = check.cited_by_source(conn)
+        assert "party_returns" in by_source and "house" in by_source
+        for source, (sha, kind) in by_source.items():
+            assert check.opened_problems(conn, sha, kind, source) == [], source

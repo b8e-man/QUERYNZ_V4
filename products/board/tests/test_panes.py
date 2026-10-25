@@ -72,14 +72,14 @@ def test_a_blank_says_not_stated_and_dates_are_as_filed():
     assert "never a date of anything" in html
 
 
-def test_the_citation_names_the_document_and_opens_no_document_of_a_source_not_served():
+def test_the_citation_names_the_document_and_says_what_source_opens():
     v = cat.BY_NAME["disclosures"]
     r = {"key": "ec-listing/x", "donor_name": "A Donor", "party": "A Party", "amount": decimal.Decimal("25000.00"),
          "document": "cd" * 32, "page": 3, "place": "row 4", "read_from": "text", "href": "https://elections.nz/x"}
     html = panes.row_pane(ctx(v, r, doc_names=["https://elections.nz/listing.html", "listing-2023.html"]))
     assert "cdcdcdcdcdcd…" in html and 'title="' + "cd" * 32 + '"' in html
     assert 'href="https://elections.nz/listing.html"' in html and "listing-2023.html" in html
-    assert "$25,000.00" in html and "cited and not opened here" in html
+    assert "$25,000.00" in html and "the addresses it prints included" in html and "not opened here" not in html
     assert "/doc/" not in html and "document not held here" in html          # no state given: nothing is offered
 
 

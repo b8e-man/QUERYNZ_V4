@@ -1,8 +1,8 @@
 # board: where it stands
 
-**Date:** 2026-10-26. **Step:** 4.9 second version, rulings 86 and 87
+**Date:** 2026-10-26. **Step:** 4.9 second version, rulings 86 to 88
 (80 to 85 kept), `products/board/`. **Merge request:** `board-4`
-(raised).
+(merged); `fix-products-board-1e` (raised, ruling 88).
 
 ## Done
 
@@ -16,19 +16,22 @@
   with one edge per party or candidate. The edge shows the total and the
   count. Every addend is listed under it. A disclosure is listed and never
   added to a return.
-- Source links. `/doc/<sha256>` serves the captured document, read only.
-  It opens only for sources whose form has no address field: house and
-  expenses, 270 documents. Every other held document is cited and not
-  opened (hard limit 15). Queued with no default:
-  `which-captured-documents-the-board-may-open-whole`.
+- Source links. `/doc/<sha256>` serves the captured document, read only,
+  whole. Ruling 88: every document the store holds opens, whatever its
+  source, the addresses it prints included: 54,875 documents from 31
+  sources, none withdrawn. The board listens on the local network only
+  (hard limit 13) and publishes no table and no export. A suppressed row
+  or withheld text still offers no link. The setting `SERVED_SOURCES`
+  and the 403 are gone.
 - The store is read only through `support.docstore`, because of the
   one-way test. Its new reader `landing.documents_of` comes as the patch
   `board-4-docstore-read.patch` beside the request. Until it is applied,
   nothing opens and the check says so.
 - The use cases tab, `/uses`. It shows the plan's 17 rows at render time,
   with templates built (3 use cases have one) and registers held or not.
-- The check covers each of the above. Against live data it is green with
-  the patch applied, and has one problem (nothing opens) without it.
+- The check covers each of the above. Against live data it is green. It
+  opens a party return and one cited document of each of the 27 sources a
+  published row cites; with a refusal put back for party returns it is red.
 
 ## Known limits
 
@@ -42,5 +45,4 @@
 
 ## Next
 
-1. The integrator applies the patch, merges `board-4` and restarts `qv4-board`.
-2. Arthur rules which further sources may open whole.
+1. The integrator merges `fix-products-board-1e` and restarts `qv4-board`.

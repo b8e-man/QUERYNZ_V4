@@ -3,15 +3,12 @@ captured document's bytes from the document store, read only, whole as
 captured, with its content type, so a row's "source" link opens what it
 cites (a PDF at its page, `#page=<n>`).
 
-Hard limit 15 decides which documents open. A captured document is served
-whole, and many print a person's home address (a donor's on a party or
-candidate return or a disclosure, a bankrupt's in the Gazette, a tenant's in
-a tribunal order). So a document is served only when its source is in
-`catalogue.SERVED_SOURCES`, sources whose printed form has no address field,
-each with the measurement beside it; every other held document is cited and
-not opened here, with the reason, and the publisher's own address beside it
-where the view holds one. Which further sources may open is Arthur's, in the
-decision queue, with no default.
+Ruling 88 decides which documents open: every one the store holds, whole,
+whatever its source, the addresses it prints included. The board listens on
+the local network only and is Arthur's own instrument (hard limits 13 and
+15, the limit's own exception); it still publishes no table and no export,
+and a suppressed row or withheld text offers no link (hard limit 16, in
+panes.source_link). A withdrawn document answers 404 and its row says so.
 
 The handler refuses anything but 64 hex characters, reads only
 `<root>/<aa>/<sha256>` (the landing wrapper's own layout) after resolving it
@@ -25,11 +22,10 @@ import os
 import re
 
 from support.docstore import landing
-from products.board import catalogue as cat
 
 SHA = re.compile(r"[0-9a-f]{64}")
 NOT_HELD = "document not held here"
-SERVED, WITHHELD, ABSENT = "served", "withheld", "not held"
+SERVED, ABSENT = "served", "not held"
 
 #: a document's content type, by its kind in `docs.documents` and, where the kind leaves it open, its name or first bytes
 TYPES = {"pdf": "application/pdf", "web-page": "text/html; charset=utf-8", "text": "text/plain; charset=utf-8",
@@ -90,7 +86,7 @@ def records(conn, shas) -> dict:
 
 
 def statuses(conn, shas) -> dict:
-    """{sha: {'state': served | withheld | not held, 'kind', 'source', 'why'}}
+    """{sha: {'state': served | not held, 'kind', 'source', 'why'}}
     for the documents rows cite, in one read of the store's records."""
     want = sorted({s for s in shas if s and SHA.fullmatch(str(s))})
     out = {s: {"state": ABSENT, "kind": "", "source": "", "why": NOT_HELD} for s in want}
@@ -104,10 +100,8 @@ def statuses(conn, shas) -> dict:
             continue
         if r.get("withdrawn"):
             out[sha] = {"state": ABSENT, "kind": r["kind"], "source": r["source"], "why": "document withdrawn from the store"}
-        elif r["source"] in cat.SERVED_SOURCES:
-            out[sha] = {"state": SERVED, "kind": r["kind"], "source": r["source"], "why": ""}
         else:
-            out[sha] = {"state": WITHHELD, "kind": r["kind"], "source": r["source"], "why": cat.WITHHELD_WHY}
+            out[sha] = {"state": SERVED, "kind": r["kind"], "source": r["source"], "why": ""}
     return out
 
 
@@ -126,12 +120,10 @@ def path_in_store(sha: str, store: str = None) -> str:
 def fetch(conn, sha: str, store: str = None) -> tuple:
     """(status, content type, bytes or a reason). 404 for a malformed sha,
     one the store does not hold or holds withdrawn, or bytes that do not hash
-    to their name; 403 for a held document whose source is not served."""
+    to their name. No source is refused (ruling 88)."""
     if not SHA.fullmatch(sha or ""):
         return 404, "text/plain; charset=utf-8", "not a document: a document is named by 64 hex characters"
     st = statuses(conn, [sha])[sha]
-    if st["state"] == WITHHELD:
-        return 403, "text/plain; charset=utf-8", st["why"]
     if st["state"] != SERVED:
         return 404, "text/plain; charset=utf-8", st["why"]
     p = path_in_store(sha, store)

@@ -11,7 +11,7 @@ library's HTTP server, one page per request, no script. Routes:
   GET  /pinned      the pinned panes       GET /saved     the saved paths
   POST /pin         pin a pane             POST /save     save the path walked
   GET  /doc/<sha256>  the captured document a row cites, its bytes read only from the store with its content type,
-                    where its source is served (document.py, ruling 86 (4)); 404 for anything else, 403 for a held document not opened
+                    whatever its source (document.py, rulings 86 (4) and 88); 404 for anything else
   GET  /uses        the use cases tab (ruling 87): the plan's table, read at render time, with what the data holds for each
   GET  /health      'ok' and the port, for the launcher
 
