@@ -120,3 +120,13 @@ def test_a_suppressed_near_row_shows_no_name():
     html = panes.near_section("", {"names": {"total": 1, "rows": [(v, r)], "refs": []}, "addresses": {"total": 0, "rows": []}},
                               ["hidden"], None)
     assert "Hidden Person" not in html and panes.SUPPRESSED in html
+
+
+def test_none_found_from_the_plain_box_with_two_words_says_why_in_the_summary():
+    empty = {"names": {"total": 0, "rows": [], "refs": []}, "addresses": {"total": 0, "rows": []}}
+    summary = lambda html: html[html.index("<summary>"):html.index("</summary>")]
+    assert panes.NEAR_NONE_FROM_BOX in summary(panes.near_section("graham hart", empty, ["graham", "hart"]))
+    assert panes.NEAR_NONE_FROM_BOX not in panes.near_section("hart", empty, ["hart"])          # one word: nothing to reverse
+    assert panes.NEAR_NONE_FROM_BOX not in panes.near_section("", empty, [])                    # the name fields only
+    one = {"names": {"total": 1, "rows": [], "refs": []}, "addresses": {"total": 0, "rows": []}}
+    assert panes.NEAR_NONE_FROM_BOX not in panes.near_section("graham hart", one, ["graham", "hart"])

@@ -20,7 +20,11 @@ tables through the session reader, never the sample:
   7. The graph tab (ruling 80): the known donor row is drawn with at least
      one money edge; every edge's far end is a row that exists; no edge type
      is an address; every relation column the catalogue names exists in its
-     view and in the view it is matched to (with 3).
+     view and in the view it is matched to (with 3). Ruling 84: on that
+     graph, a donor row the links join by name alone and the crowded
+     graph of a name search (CROWDED), no two labels
+     or numbers sit at one place or meet, and no rule id shows outside a
+     tooltip; the links' words are on the page.
 
   8. The field search (ruling 82): every column a field declares exists in
      its view, a date column is a date and a year column a number; a search
@@ -46,7 +50,7 @@ import sys
 import urllib.parse
 
 from products.board import catalogue as cat
-from products.board import db, graph, near, search, panes, server
+from products.board import db, graph, links_view, near, search, panes, server
 
 ADDRESS_WORDS = re.compile(r"residential|home_address|street|suburb|postal", re.I)
 #: the comparison's residence vocabulary (checks/comparison.py RESIDENCE_WORDS; tests/test_check_vocabulary.py holds the two equal):
@@ -168,7 +172,49 @@ def problems(conn, term: str = None) -> list:
         page = server.render_graph("", centre, conn=conn)
         if "<svg" not in page or "<script" in page or "<h3>Key</h3>" not in page:
             out.append("the graph tab did not render its picture and key without script")
+        out += picture_problems(conn, centre, g, page)
     out += field_problems(conn, held, columns, types)
+    return out
+
+
+CROWDED = "smith"
+RULE_ID = re.compile(r"\b[a-z]+(?:-[a-z]+)*@\d+\b")
+
+
+def picture_problems(conn, centre: str, g: dict, page: str) -> list:
+    """Ruling 84, on the known donor's graph, on a donor row the links join
+    by name alone (so a links edge is drawn) and on a crowded name search: no two labels or numbers
+    at the same place or with boxes that meet, no rule id outside a tooltip,
+    the links' words on the picture's tooltips and in the list."""
+    out = []
+    linked = db.rows(conn, "select row_a from pub.links where row_a like 'party_returns:%%' and rule = 'name-only@1' "
+                           "order by row_a limit 1")
+    cases = [(centre, g, page)]
+    if not linked:
+        out.append("pub.links joins no party_returns row by name-only@1: the words check has no links edge to read")
+    else:
+        v = links_view.view_for(conn, *links_view.split_ref(linked[0]["row_a"]))
+        c = f"{v.name}:{links_view.split_ref(linked[0]['row_a'])[1]}" if v else ""
+        lg = graph.build(conn, "", centre=c) if v else {"edges": []}
+        if not any(e.get("rule") for e in lg["edges"]):
+            out.append(f"the graph of {c} drew no links edge")
+        else:
+            cases.append((c, lg, server.render_graph("", c, conn=conn)))
+            if cat.rule_words("name-only@1") not in cases[-1][2]:
+                out.append(f"the graph of {c} does not say {cat.rule_words('name-only@1')!r}")
+    crowd = graph.build(conn, CROWDED)                     # a name search: up to 16 rows and their fans, the picture the ruling saw
+    cases.append((f"the search {CROWDED!r}", crowd, graph.pane(crowd, CROWDED)))
+    for c, gr, html in cases:
+        picture = html[html.index("<svg"):html.index("</svg>")] if "<svg" in html else ""
+        at = re.findall(r'<text[^>]* x="([\d.]+)" y="([\d.]+)"', picture)
+        if len(at) != len(set(at)):
+            out.append(f"the graph of {c} draws {len(at) - len(set(at))} labels or numbers at the same place as another")
+        met = graph.overlaps(graph.place(gr, graph.layout(gr), graph.lines(gr)))
+        if met:
+            out.append(f"the graph of {c} draws {len(met)} labels or numbers over another, first {met[0]}")
+        bare = re.sub(r"<title>.*?</title>", "", picture, flags=re.S)
+        if RULE_ID.search(bare) or "links rule" in bare:
+            out.append(f"the graph of {c} shows a rule id outside a tooltip: {(RULE_ID.search(bare) or ['links rule'])[0]}")
     return out
 
 

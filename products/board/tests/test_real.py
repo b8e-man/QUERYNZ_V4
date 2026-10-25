@@ -70,3 +70,13 @@ def test_near_matches_render_closed_below_the_results_within_three_seconds():
     exact, below = html.split('<details class="near" id="near">')
     assert "party_return_donors" in exact and "near: given name and surname reversed" in below
     assert "narrowed by: first name" in exact and "<script" not in html
+
+
+def test_every_links_rule_in_pub_links_has_its_words():
+    """Ruling 84: each rule id pub.links carries is in catalogue.RULE_WORDS,
+    so no edge falls back to "links rule <id>" on the live data."""
+    with db.read_connect() as conn:
+        rules = {r["rule"] for r in db.rows(conn, "select distinct rule from pub.links")}
+    assert rules
+    lacking = sorted(r for r in rules if r.partition("@")[0] not in cat.RULE_WORDS)
+    assert not lacking, lacking

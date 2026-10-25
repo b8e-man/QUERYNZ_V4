@@ -80,3 +80,17 @@ def test_person_views_with_a_suppression_column_hide_their_names():
 
 def test_fold_term_drops_macrons_and_case():
     assert cat.fold_term("  Tāmaki  Makaurau ") == "tamaki makaurau"
+
+
+def test_a_links_rule_reads_in_words_and_its_id_only_in_a_reference():
+    """Ruling 84: name-only@1 reads "same name, nothing else"; the id and
+    version only as "(links rule name-only, version 1)"; an unknown id is
+    named, never hidden. Every id is held to the live pub.links in test_real."""
+    assert cat.rule_words("name-only@1") == "same name, nothing else"
+    assert cat.rule_ref("name-only@1") == "(links rule name-only, version 1)"
+    assert cat.rule_words("brand-new@3") == "links rule brand-new" and cat.rule_ref("brand-new") == "(links rule brand-new)"
+    for rid, words in cat.RULE_WORDS.items():
+        assert words and "@" not in words and rid not in words, rid
+    assert {"full-name", "name-and-address", "name-only", "company-name", "seat-and-window", "official-number",
+            "organisation-name", "declared-directorship", "candidate-name-form", "filed-name", "source-identifier",
+            "member-and-party-donor"} <= set(cat.RULE_WORDS)
