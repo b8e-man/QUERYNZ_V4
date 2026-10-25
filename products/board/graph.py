@@ -65,7 +65,7 @@ def _resolver(conn):
     return resolve
 
 
-def build(conn, q: str, regs=None, centre: str = "") -> dict:
+def build(conn, q: str, regs=None, centre: str = "", fields: dict = None) -> dict:
     """{'nodes': {id: {v, row, matched, centre, order}}, 'edges': [...],
     'drawn': {kind: n}, 'not_drawn': {kind: n}, 'matched_total', 'unresolved'}.
     An edge: kind, a, b (node ids), label, cite (the asserting row's id)."""
@@ -79,8 +79,8 @@ def build(conn, q: str, regs=None, centre: str = "") -> dict:
         if r:
             matched.append((cat.BY_NAME[view], r))
         g["matched_total"] = len(matched)
-    elif q:
-        res = search.search(conn, q, limit=PER_VIEW, registers=regs)
+    elif q or fields:
+        res = search.search(conn, q, limit=PER_VIEW, registers=regs, fields=fields)
         for register, _ in cat.REGISTERS:
             for v, total, rows in res.get(register, []):
                 g["matched_total"] += total
@@ -245,7 +245,7 @@ def pane(g: dict, q: str, boxes=None, regs=None) -> str:
         if regs is not None and not regs and not g.get("centre"):
             out.append(f'<p class="why">{panes.NOTHING_TICKED}</p>' + key_table(g) + "</section>")
             return "\n".join(out)
-        out.append('<p class="why">' + ("none found" if (q or g.get("centre")) else "Type a name, an address or a number in the search box.") + "</p>")
+        out.append('<p class="why">' + ("none found" if (q or g.get("centre") or (boxes is not None and boxes.fields)) else "Type a name, an address or a number in the search box.") + "</p>")
         out.append(key_table(g) + "</section>")
         return "\n".join(out)
     matched = [n for n in g["nodes"].values() if n["matched"]]
@@ -255,7 +255,7 @@ def pane(g: dict, q: str, boxes=None, regs=None) -> str:
         out.append(f'<p class="note">centred on one row; <a href="{panes.esc(panes.href(q, [g["centre"]], boxes))}">its pane</a>'
                    f' · <a href="{panes.esc(panes.href(q, [], boxes, "/graph"))}">back to the search</a></p>')
     else:
-        out.append(f"<h2>{panes.esc(q)}</h2>")
+        out.append(f"<h2>{panes.esc(q) if q else 'By field'}</h2>" + panes.narrowed_line(boxes))
         more = g["matched_total"] - len(matched)
         out.append(f'<p class="note">{len(matched)} matching rows drawn' + (f"; {more:,} more match: narrow the search or the registers" if more > 0 else "") + "</p>")
     out.append('<p class="note">Rows are nodes; an edge is a connection the registers themselves assert, or a same-person verdict of the links. '

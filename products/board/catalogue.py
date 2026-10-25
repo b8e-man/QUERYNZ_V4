@@ -55,6 +55,34 @@ RELATION_KINDS = ("money", "role", "candidacy", "declaration", "dealing")   # wh
 
 
 @dataclass(frozen=True)
+class Name:
+    """Where one person's name sits in a view's row, for the field search
+    (ruling 82): `whole`, a column holding the whole name as one string; or
+    the parts, `first`, `middle` and `last`, with `given` for a column
+    holding the first and middle names together."""
+    whole: str = ""
+    first: str = ""
+    middle: str = ""
+    given: str = ""
+    last: str = ""
+
+    def columns(self) -> tuple:
+        return tuple(c for c in (self.whole, self.first, self.middle, self.given, self.last) if c)
+
+
+@dataclass(frozen=True)
+class Fields:
+    """Which columns of a view hold each field of the expanded search
+    (ruling 82). A lane adds a line to FIELDS_OF and no code."""
+    names: tuple = ()               # Name: the people a row names; a name field matches any one of them
+    organisation: tuple = ()        # columns holding a company, party, charity or society name
+    named: tuple = ()               # a name that may be a person's or an organisation's: the organisation field matches it only where it carries an organisation word
+    address: tuple = ()             # registered-address columns an organisation publishes (ADDRESS_COLUMNS), never a person's
+    year: tuple = ()                # integer year columns
+    dates: tuple = None             # date columns whose year counts; None: the View's dates
+
+
+@dataclass(frozen=True)
 class View:
     name: str                       # the pub view
     register: str                   # the lane it belongs to (its folder name under registers/)
@@ -866,6 +894,113 @@ VIEWS: tuple[View, ...] = (
 )
 
 BY_NAME = {v.name: v for v in VIEWS}
+
+
+#: the field search (ruling 82): for each view, which column holds which field.
+#: A view not listed has only the year of its dates. Every column is checked
+#: against its view (check.py, tests/test_catalogue.py).
+_P3 = Name(first="first_name", middle="middle_names", last="last_name")
+FIELDS_OF = {
+    "companies": Fields(organisation=("name",)),
+    "directors": Fields(names=(_P3,)),
+    "shareholders": Fields(names=(Name("name"),), named=("name",)),
+    "company_addresses": Fields(address=("line_1", "line_2", "line_3", "line_4", "postcode")),
+    "company_states": Fields(organisation=("name",)),
+    "company_lookups": Fields(organisation=("name",)),
+    "company_lookup_roles": Fields(names=(_P3,)),
+    "company_lookup_holdings": Fields(names=(Name("name"),), named=("name",)),
+    "societies": Fields(organisation=("name",)),
+    "society_officers": Fields(names=(_P3,)),
+    "society_states": Fields(organisation=("name",)),
+    "charities": Fields(organisation=("name", "other_names"), address=("address_for_service",)),
+    "charity_officers": Fields(names=(Name(first="first_name", middle="middle_name", last="last_name"),)),
+    "promoter_expense_returns": Fields(names=(Name("promoter"),), named=("promoter",), year=("year",)),
+    "party_statement_figures": Fields(organisation=("party", "party_label"), year=("filed_year",)),
+    "candidate_return_totals": Fields(names=(Name(given="given_names", last="surname"),), organisation=("party",), year=("year",)),
+    "candidate_return_donors": Fields(names=(Name("donor"), Name(given="given_names", last="surname")), named=("donor",),
+                                      organisation=("party",), year=("year",)),
+    "disclosures": Fields(names=(Name("donor_name"),), named=("donor_name",), organisation=("party", "party_label")),
+    "disclosure_items": Fields(names=(Name("contributor"),), named=("contributor",)),
+    "mp_expenses": Fields(names=(Name("name"), Name("member")), organisation=("party", "party_label")),
+    "minister_expenses": Fields(names=(Name("name"), Name("member")), organisation=("party", "party_label")),
+    "gazette_notices": Fields(year=("year",)),
+    "gazette_celebrants": Fields(names=(Name(given="given_names", last="surname"),), organisation=("organisation",)),
+    "gazette_prohibitions": Fields(names=(Name("name"), Name("also_known_as"))),
+    "gazette_liquidations": Fields(organisation=("company",)),
+    "gazette_liquidators": Fields(names=(Name("name"),)),
+    "gazette_company_notices": Fields(organisation=("company",), named=("party",)),
+    "gazette_practitioners": Fields(names=(Name("name"),)),
+    "gazette_bankruptcies": Fields(names=(Name(given="given_names", last="surname"), Name("also_known_as"))),
+    "gazette_appointments": Fields(names=(Name("name"),)),
+    "party_labels": Fields(organisation=("label", "party_name")),
+    "gazette_possessions": Fields(names=(Name("mortgagee"), Name("mortgagor")), named=("mortgagee", "mortgagor")),
+    "candidates": Fields(names=(Name("name"), Name("display_name")), organisation=("party", "party_registered")),
+    "members": Fields(names=(Name("name"), Name("display_name")), organisation=("party", "party_registered")),
+    "mp_interest_returns": Fields(names=(Name("name"), Name("member")), organisation=("party", "party_label")),
+    "mp_interests": Fields(names=(Name("name"), Name("member")), organisation=("party",)),
+    "parties": Fields(names=(Name("secretary"),), organisation=("name", "first_name")),
+    "party_names": Fields(organisation=("name",)),
+    "party_events": Fields(organisation=("party_label", "new_name")),
+    "party_expenses": Fields(organisation=("party", "party_label"), year=("year",)),
+    "party_expense_returns": Fields(organisation=("party", "party_label"), year=("year",)),
+    "party_financial_statements": Fields(organisation=("party", "party_label"), year=("filed_year",)),
+    "broadcasting_allocations": Fields(organisation=("party", "party_label"), year=("year",)),
+    "promoters": Fields(names=(Name("promoter"),), named=("promoter",), year=("year",)),
+    "promoter_people": Fields(names=(Name("name"),), named=("promoter",), year=("year",)),
+    "promoter_expenses": Fields(names=(Name("promoter"),), named=("promoter",), year=("year",)),
+    "party_return_totals": Fields(organisation=("party", "party_label"), year=("year",)),
+    "party_return_donors": Fields(names=(Name("donor"),), named=("donor",), organisation=("party", "party_label"), year=("year",)),
+    "party_return_loans": Fields(names=(Name("lender"),), named=("lender",), organisation=("party", "party_label"), year=("year",)),
+    "party_board_roles": Fields(names=(Name("name"), Name("name_as_declared")), organisation=("party",)),
+    "party_board_pages": Fields(organisation=("party",)),
+    "court_judgment_parties": Fields(names=(Name("name"),), named=("name",)),
+    "limited_partnerships": Fields(organisation=("name",), address=("registered_office",)),
+    "limited_partnership_partners": Fields(names=(_P3,), named=("full_name",)),
+    "building_practitioner_decisions": Fields(names=(Name("name"),)),
+    "building_practitioners": Fields(names=(Name("name"),)),
+    "sanctions_listings": Fields(names=(Name("name"),), named=("name",),
+                                 dates=("designated_on", "expires_on", "ended_on", "updated_on")),   # renewed_on is a list of dates
+    "award_suppliers": Fields(organisation=("business_name",)),
+    "commerce_commission_parties": Fields(names=(Name("name"),), organisation=("name", "trading_as")),
+    "fma_parties": Fields(names=(Name("name"),), organisation=("name",)),
+    "worksafe_parties": Fields(names=(Name("name"),), organisation=("name",)),
+    "overseas_investment_parties": Fields(names=(Name("name"),), organisation=("name",)),
+    "grant_publishers": Fields(organisation=("name",)),
+    "grants": Fields(names=(Name("recipient_as_published"),), organisation=("grantor",),
+                     named=("recipient_as_published", "recipient_final_as_published")),
+    "grant_recipients": Fields(organisation=("name_as_published", "grantor")),
+    "iwi_directory_entities": Fields(organisation=("name", "legal_entity")),
+    "iwi_directory_settlements": Fields(year=("act_year",)),
+    "agency_contract_costs": Fields(dates=("year_ended",)),
+    "councillor_interests": Fields(names=(Name("member"),)),
+    "local_election_returns": Fields(names=(Name("candidate_as_listed"),), year=("election_year",)),
+    "local_election_returns_coverage": Fields(year=("election_year",)),
+}
+
+#: the only columns the address field may search: the registered addresses
+#: organisations publish. No published table holds a person's home address
+#: (hard limit 15) and the board never searches for one; societies publish
+#: no address. A test holds every `address` declaration inside this set.
+ADDRESS_COLUMNS = frozenset({
+    ("company_addresses", "line_1"), ("company_addresses", "line_2"), ("company_addresses", "line_3"),
+    ("company_addresses", "line_4"), ("company_addresses", "postcode"),
+    ("charities", "address_for_service"), ("limited_partnerships", "registered_office"),
+})
+
+
+def fields_of(v: View) -> Fields:
+    """The view's field declaration, its dates defaulting to the View's own."""
+    f = FIELDS_OF.get(v.name, Fields())
+    if f.dates is None:
+        f = Fields(f.names, f.organisation, f.named, f.address, f.year, tuple(c for _, c in v.dates))
+    return f
+
+
+def field_columns(v: View) -> set:
+    """Every column the field search reads in this view."""
+    f = fields_of(v)
+    return ({c for n in f.names for c in n.columns()} | set(f.organisation) | set(f.named) | set(f.address)
+            | set(f.year) | set(f.dates))
 
 #: the register folders in the order the first pane lists them, with a plain name each
 REGISTERS = (
