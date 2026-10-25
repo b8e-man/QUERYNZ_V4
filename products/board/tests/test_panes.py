@@ -72,13 +72,39 @@ def test_withheld_text_reads_withheld():
     assert "12 Some Street" not in html and "withheld" in html
 
 
-def test_the_search_pane_says_none_found_and_not_held():
+def test_the_search_tab_says_none_found_and_not_held_and_greys_what_is_not_held():
     held = {"companies", "directors", "parties"}       # parties held with no hit: none found; the rest: not held
-    html = panes.search_pane("doe", {"companies": [(cat.BY_NAME["directors"], 3, [director()])]}, held)
-    assert html.count("none found") == 1 and html.count(">not held<") == len(cat.REGISTERS) - 2 + len(cat.NOT_HELD)   # two registers held
-    assert '<span class="count">3</span>' in html and "Jane" in html
-    assert "Charities register and officers" in html
-    assert panes.search_pane("", {}, held).count("none found") == 0
+    regs = ("parties", "companies")
+    html = panes.results_pane("doe", {"companies": [(cat.BY_NAME["directors"], 3, [director()])]}, held, regs, False, ["doe"])
+    assert html.count("none found") == 1 and '<span class="count">3</span>' in html and "<mark>DOE</mark>" in html.replace("&lt;b&gt;", "")
+    assert "Charities register" not in html                     # an unchecked register is not in the results
+    left = panes.left_pane("doe", ["parties", "companies"], regs, False)
+    assert left.count("disabled") == len(cat.REGISTERS) - 2 + len(cat.NOT_HELD)     # greyed and cannot be checked
+    assert left.count(" checked>") == 2 and 'name="all" value="1">' in left and "was_all" not in left
+    every = panes.left_pane("", ["parties", "companies"], ("parties", "companies"), True)
+    assert every.count(" checked>") == 3 and 'name="was_all"' in every          # search all ticks every held register
+    assert panes.results_pane("", {}, held, regs, False).count("none found") == 0
+
+
+def test_every_field_the_view_shows_is_in_the_results_and_a_suppressed_name_never_is():
+    v = cat.BY_NAME["directors"]
+    html = panes.hit("doe", v, director(), ["doe"], ("companies",))
+    for label, c in v.fields + v.dates:
+        if director().get(c) not in (None, ""):
+            assert f"<th>{label}</th>" in html, label
+    assert "not stated: ended on" in html and "ababababab" in html and "r=companies" in html
+    secret = panes.hit("doe", v, director(suppressed=True, full_name="Secret Person"), ["secret"])
+    assert "Secret" not in secret and panes.SUPPRESSED in secret
+
+
+def test_the_highlight_folds_macrons_both_ways_and_marks_word_starts_only():
+    assert panes.mark("Te Pāti Māori", ["maori"]) == "Te Pāti <mark>Māori</mark>"
+    assert panes.mark("Maori Party", ["maori"]) == "<mark>Maori</mark> Party"        # "Māori" folds to the same word
+    from products.board import search
+    assert panes.mark("Ngā Māori, MAORI", search.words_of("Māori")) == "Ngā <mark>Māori</mark>, <mark>MAORI</mark>"
+    assert panes.mark("Hartley Hart", ["hart"]) == "<mark>Hart</mark>ley <mark>Hart</mark>"
+    assert panes.mark("Smart", ["art"]) == "Smart"                                  # not a word start: the search would not match it either
+    assert panes.mark("<b>x</b> x", ["x"]) == "&lt;b&gt;<mark>x</mark>&lt;/b&gt; <mark>x</mark>"
 
 
 def test_links_section_says_plainly_when_nothing_is_built_and_lists_confirmed_first():

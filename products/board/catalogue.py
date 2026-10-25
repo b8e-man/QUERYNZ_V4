@@ -27,6 +27,34 @@ class Join:
 
 
 @dataclass(frozen=True)
+class Relation:
+    """A connection the register itself asserts between this view's row and a
+    row of another view: `pub.<view>.<to_column> = this row's <column>`. The
+    graph tab draws one edge per match (ruling 80), typed by `kind`; a new
+    lane adds a line here and no code. Never an address, and never a name
+    the board matches by looking (plan 4.9: no link is made by looking)."""
+    kind: str                       # one of EDGE_KINDS
+    column: str                     # this row's column naming the far end
+    view: str                       # the far end's pub view
+    to_column: str = "key"          # the far end's column it is matched to
+    label: str = ""                 # what the edge says, read from this row to the far end
+
+
+#: the edge types the graph draws, in the key's order, with their colour and stroke
+#: (the validated categorical palette, light surface; same person shares one hue, solid or dashed)
+EDGE_KINDS = (
+    ("money", "#2a78d6", ""),
+    ("role", "#eb6834", ""),
+    ("candidacy", "#1baf7a", ""),
+    ("declaration", "#eda100", ""),
+    ("dealing", "#e87ba4", ""),
+    ("same person, confirmed", "#6250d6", ""),
+    ("same person, near", "#6250d6", "6 4"),
+)
+RELATION_KINDS = ("money", "role", "candidacy", "declaration", "dealing")   # what a catalogue line may declare; the two same-person kinds come from pub.links
+
+
+@dataclass(frozen=True)
 class View:
     name: str                       # the pub view
     register: str                   # the lane it belongs to (its folder name under registers/)
@@ -46,6 +74,7 @@ class View:
     note: str = ""                  # a line every pane of this view carries
     default_order: str = "key"
     key_col: str = "key"             # the stable key (one view, expense_release_totals, has none and uses its release)
+    relations: tuple = ()           # Relation: the connections to other rows this view's rows assert
 
 
 DOC = (("document", "document"), ("page", "page"), ("place", "place"), ("read from", "read_from"),
@@ -72,14 +101,16 @@ VIEWS: tuple[View, ...] = (
          dates=(("appointed on", "appointed_on"), ("ended on", "ended_on")),
          names=("full_name",), suppressed="suppressed",
          parent=("Company", "companies", "entity_key"),
-         note="a role that has left the latest file carries no end date: the file states none"),
+         note="a role that has left the latest file carries no end date: the file states none",
+         relations=(Relation("role", "entity_key", "companies", label="director of"),)),
     View("shareholders", "companies", "person", ("name",),
          search=("name",), numbers=("holder_nzbn",),
          fields=(("holder type", "shareholder_type"), ("shares", "shares"), ("allocation", "allocation_status"),
                  ("holder's NZBN", "holder_nzbn"), ("company", "entity_key"), ("in the latest file", "in_latest"),
                  ("in the files from", "first_file"), ("to", "last_file")),
          names=("name",), suppressed="suppressed",
-         parent=("Company", "companies", "entity_key")),
+         parent=("Company", "companies", "entity_key"),
+         relations=(Relation("role", "entity_key", "companies", label="shareholder of"),)),
     View("company_addresses", "companies", "place", ("line_1", "line_2", "line_3", "line_4"),
          search=("line_1", "line_2", "line_3", "line_4", "postcode"),
          fields=(("kind", "kind"), ("care of", "care_of"), ("postcode", "postcode"), ("country", "country"),
@@ -111,14 +142,16 @@ VIEWS: tuple[View, ...] = (
          dates=(("started on", "started_on"), ("ended on", "ended_on")),
          names=("full_name", "first_name", "middle_names", "last_name"), suppressed="suppressed",
          parent=("Entity", "company_lookups", "entity_key"),
-         note="the register's own start and end dates; a role the monthly file stopped listing shows the end the interface gives it"),
+         note="the register's own start and end dates; a role the monthly file stopped listing shows the end the interface gives it",
+         relations=(Relation("role", "entity_key", "company_lookups", label="role in"),)),
     View("company_lookup_holdings", "companies", "person", ("name",),
          search=("name",), numbers=("holder_nzbn",),
          fields=(("holder type", "holder_type"), ("shares", "shares"), ("allocation", "allocation"),
                  ("current", "current"), ("entity", "entity_key"), ("source", "source_note")),
          dates=(("started on", "started_on"), ("ended on", "ended_on")),
          names=("name",), suppressed="suppressed",
-         parent=("Entity", "company_lookups", "entity_key")),
+         parent=("Entity", "company_lookups", "entity_key"),
+         relations=(Relation("role", "entity_key", "company_lookups", label="holds shares in"),)),
     View("company_changes", "companies", "event", ("kind", "subject"),
          search=("subject",),
          fields=(("kind", "kind"), ("before", "before"), ("after", "after"), ("date basis", "date_basis"),
@@ -146,7 +179,8 @@ VIEWS: tuple[View, ...] = (
                 ("last read on", "last_read_on")),
          names=("full_name",), suppressed="suppressed",
          parent=("Society", "societies", "society_key"),
-         note="a role the register stopped listing keeps its last day read; it is never given an end the register did not state"),
+         note="a role the register stopped listing keeps its last day read; it is never given an end the register did not state",
+         relations=(Relation("role", "society_key", "societies", label="officer of"),)),
     View("society_states", "societies", "event", ("file", "status"),
          search=("name",),
          fields=(("name in that file", "name"), ("status", "status")),
@@ -173,7 +207,8 @@ VIEWS: tuple[View, ...] = (
          dates=(("started on", "started_on"), ("ended on", "ended_on")),
          names=("full_name", "first_name", "middle_name", "last_name"), suppressed="suppressed",
          parent=("Charity", "charities", "charity_key"),
-         note="as the register's feed states the officer; a suppressed name is suppressed here, the row and its dates stay"),
+         note="as the register's feed states the officer; a suppressed name is suppressed here, the row and its dates stay",
+         relations=(Relation("role", "charity_key", "charities", label="officer of"),)),
     View("charity_returns", "charities", "figure", ("period_end", "tier"),
          search=("charity_key",),
          fields=(("tier", "tier"), ("months covered", "months_covered"), ("audited", "audited"),
@@ -217,7 +252,8 @@ VIEWS: tuple[View, ...] = (
                  ("electorate", "electorate"), ("party", "party"), ("year", "year")),
          names=("donor",),
          parent=("Return", "candidate_return_totals", "return_key"),
-         note="no donor's address is held in any published table", default_order="ordinal"),
+         note="no donor's address is held in any published table", default_order="ordinal",
+         relations=(Relation("money", "return_key", "candidate_return_totals", label="donated, in the return"),)),
     # ── disclosures (built; pane.md: disclosures) ──────────────────────────
     View("disclosures", "disclosures", "figure", ("donor_name", "party"),
          search=("donor_name", "party", "party_label"),
@@ -231,12 +267,14 @@ VIEWS: tuple[View, ...] = (
          urls=("href",), names=("donor_name",),
          joins=(Join("Itemised gifts", "disclosure_items", "declaration", order="ordinal"),),
          note="an amended declaration is one row with the amended figures; never summed with its original",
-         default_order="received_on"),
+         default_order="received_on",
+         relations=(Relation("money", "party", "parties", to_column="name", label="disclosed by"),)),
     View("disclosure_items", "disclosures", "figure", ("contributor", "amount"),
          search=("contributor", "text"),
          fields=(("amount", "amount"), ("contributor", "contributor"), ("as printed", "text"), ("ordinal", "ordinal")),
          dates=(("first date", "first_date"),), names=("contributor",),
-         parent=("Declaration", "disclosures", "declaration")),
+         parent=("Declaration", "disclosures", "declaration"),
+         relations=(Relation("money", "declaration", "disclosures", label="itemised in"),)),
     # ── expenses (copied from published files; pane.md: expenses) ─────────
     View("mp_expenses", "expenses", "figure", ("name", "category"),
          search=("name", "member", "party", "party_label"),
@@ -378,7 +416,9 @@ VIEWS: tuple[View, ...] = (
                  ("poll cancelled", "poll_cancelled"), ("how the 2026 row was joined", "joined_basis")),
          names=("display_name", "name"),
          parent=("Electorate", "electorates", "electorate"),
-         note="the party as printed on the page, and as registered where the label resolves", default_order="election"),
+         note="the party as printed on the page, and as registered where the label resolves", default_order="election",
+         relations=(Relation("candidacy", "party_registered", "parties", to_column="name", label="candidate for"),
+                    Relation("candidacy", "electorate", "electorates", label="stood in"))),
     View("members", "house", "person", ("display_name", "route"),
          search=("name", "display_name", "party", "party_registered", "electorate"),
          fields=(("as printed", "name"), ("party", "party"), ("party as registered", "party_registered"), ("route", "route"),
@@ -386,7 +426,8 @@ VIEWS: tuple[View, ...] = (
          dates=(("seat from", "from_on"), ("to, at the latest", "to_by"), ("ended on", "ended_on")),
          names=("display_name", "name"),
          parent=("Candidacy", "candidates", "candidate"),
-         note="the day a seat actually ended is in no file this lane holds", default_order="from_on"),
+         note="the day a seat actually ended is in no file this lane holds", default_order="from_on",
+         relations=(Relation("candidacy", "candidate", "candidates", label="seat from"),)),
     View("electorates", "house", "place", ("name", "election"),
          search=("name", "statsnz_name"),
          fields=(("number", "number"), ("Stats NZ name", "statsnz_name"), ("Stats NZ code", "statsnz_code"), ("layer", "layer"),
@@ -416,7 +457,8 @@ VIEWS: tuple[View, ...] = (
                  ("number as printed", "number_printed"), ("declared", "text")),
          dates=(("as at", "as_at"),), names=("name",), withheld="withheld",
          parent=("Member's return", "mp_interest_returns", "member_return"),
-         note="the category is the heading, never the number: the register renumbered in 2018"),
+         note="the category is the heading, never the number: the register renumbered in 2018",
+         relations=(Relation("declaration", "member_return", "mp_interest_returns", label="declared by"),)),
     View("mp_interest_editions", "mp_interests", "document", ("as_at_printed",),
          search=("as_at_printed", "categories"),
          fields=(("categories", "categories"), ("members", "members"), ("declarations", "declarations"),
@@ -493,7 +535,8 @@ VIEWS: tuple[View, ...] = (
     View("promoter_people", "party_finance", "person", ("name", "role"),
          search=("name", "promoter"),
          fields=(("promoter", "promoter"), ("role", "role"), ("year", "year")),
-         names=("name",), parent=("Promoter", "promoters", "promoter_key")),
+         names=("name",), parent=("Promoter", "promoters", "promoter_key"),
+         relations=(Relation("role", "promoter_key", "promoters", label="named for"),)),
     View("promoter_expenses", "party_finance", "figure", ("promoter", "year"),
          search=("promoter",),
          fields=(("election expenses", "election_expenses"), ("cannabis referendum expenses", "cannabis_referendum_expenses"),
@@ -510,18 +553,21 @@ VIEWS: tuple[View, ...] = (
                  ("year from", "year_from"), ("replaced by", "replaced_by")),
          joins=(Join("Donors (Part A)", "party_return_donors", "return_key", order="ordinal"),
                 Join("Lenders", "party_return_loans", "return_key", order="ordinal")),
-         note="an amendment the Commission lists replaces a return; the two are never summed", default_order="year"),
+         note="an amendment the Commission lists replaces a return; the two are never summed", default_order="year",
+         relations=(Relation("money", "party_key", "parties", label="return of"),)),
     View("party_return_donors", "party_returns", "figure", ("donor", "amount"),
          search=("donor",),
          fields=(("party", "party"), ("year", "year"), ("amount", "amount"), ("dates as printed", "dates"),
                  ("contributions", "contributions"), ("how the row was paired", "paired_by"), ("ordinal", "ordinal"),
                  ("replaced by", "replaced_by")),
-         names=("donor",), parent=("Return", "party_return_totals", "return_key"), default_order="ordinal"),
+         names=("donor",), parent=("Return", "party_return_totals", "return_key"), default_order="ordinal",
+         relations=(Relation("money", "return_key", "party_return_totals", label="donated, in the return"),)),
     View("party_return_loans", "party_returns", "figure", ("lender", "amount"),
          search=("lender",),
          fields=(("party", "party"), ("year", "year"), ("amount", "amount"), ("dates as printed", "dates"),
                  ("interest", "interest"), ("ordinal", "ordinal"), ("replaced by", "replaced_by")),
-         names=("lender",), parent=("Return", "party_return_totals", "return_key"), default_order="ordinal"),
+         names=("lender",), parent=("Return", "party_return_totals", "return_key"), default_order="ordinal",
+         relations=(Relation("money", "return_key", "party_return_totals", label="lent, in the return"),)),
     # ── party boards, the declared tier (ruling 72; pane.md: party_boards; catalogued in the merge after party-boards-1) ──
     View("party_board_roles", "party_boards", "person", ("name", "role"),
          search=("name", "name_as_declared"),
@@ -532,7 +578,8 @@ VIEWS: tuple[View, ...] = (
          urls=("url", "archive_url"),
          names=("name", "name_as_declared"),
          parent=("Page", "party_board_pages", "document"),
-         note="the board a party declares on its own website, as captured; built and not deployed to the Follow the Money site (ruling 72)"),
+         note="the board a party declares on its own website, as captured; built and not deployed to the Follow the Money site (ruling 72)",
+         relations=(Relation("role", "party", "parties", to_column="name", label="on the board of"),)),
     View("party_board_pages", "party_boards", "document", ("party", "url"), key_col="document", default_order="document",
          search=("url",),
          fields=(("party", "party"), ("status", "status"), ("page shape", "shape"), ("reason", "reason"),
@@ -576,7 +623,8 @@ VIEWS: tuple[View, ...] = (
                  ("dates stated", "dates_stated")),
          dates=(("started on", "started_on"), ("ended on", "ended_on"), ("asked on", "asked_on")),
          names=("full_name", "first_name", "middle_names", "last_name"), suppressed="suppressed",
-         parent=("Partnership", "limited_partnerships", "partnership_key")),
+         parent=("Partnership", "limited_partnerships", "partnership_key"),
+         relations=(Relation("role", "partnership_key", "limited_partnerships", label="general partner of"),)),
     View("building_practitioner_decisions", "building_practitioners", "document", ("citation", "decision_kind"),
          search=("name", "citation", "complaint_number"), numbers=("lbp_number",),
          fields=(("complaint", "complaint_number"), ("kind", "decision_kind"), ("LBP number", "lbp_number"),
@@ -630,7 +678,8 @@ VIEWS: tuple[View, ...] = (
          dates=(("awarded on", "awarded_on"),),
          names=("business_name",),
          parent=("Notice", "award_notices", "notice_key"),
-         note="the supplier as published; no address and no website is held (a supplier may be a sole trader)"),
+         note="the supplier as published; no address and no website is held (a supplier may be a sole trader)",
+         relations=(Relation("dealing", "notice_key", "award_notices", label="awarded in"),)),
     # ── step 5.3, the regulator actions (regulators-1; catalogued in the merge after) ──
     View("commerce_commission_cases", "commerce_commission", "event", ("case_number", "title"),
          search=("title", "case_number", "acts", "industry"),
@@ -699,7 +748,8 @@ VIEWS: tuple[View, ...] = (
                  ("origins", "origins"), ("shares", "shares"), ("ownership scope", "ownership_scope"),
                  ("withheld by", "withheld_by"), ("ordinal", "ordinal")),
          names=("name",), suppressed="withheld",
-         parent=("Decision", "overseas_investment_decisions", "decision_key"), default_order="ordinal"),
+         parent=("Decision", "overseas_investment_decisions", "decision_key"), default_order="ordinal",
+         relations=(Relation("dealing", "decision_key", "overseas_investment_decisions", label="party to"),)),
     # ── step 6.3, the grants (grants-1; catalogued in the merge after) ──
     View("grant_publishers", "grants", "organisation", ("name", "kind"),
          search=("name",),
@@ -723,7 +773,8 @@ VIEWS: tuple[View, ...] = (
          dates=(("decided on", "decided_on"), ("refunded on", "refunded_on")),
          names=("recipient_as_published",),
          parent=("Grantor", "grant_publishers", "grantor_key"), default_order="decided_on",
-         note="every grant as the Department's national file or a Lottery record of grants prints it (CC BY 4.0); a recipient is kept as printed and never looked up; declined applications as the Department shows them (queue)"),
+         note="every grant as the Department's national file or a Lottery record of grants prints it (CC BY 4.0); a recipient is kept as printed and never looked up; declined applications as the Department shows them (queue)",
+         relations=(Relation("dealing", "recipient_key", "grant_recipients", label="granted to"),)),
     View("grant_recipients", "grants", "organisation", ("name_as_published", "grantor"),
          search=("name_as_published",), numbers=("nzbn", "charity_number"),
          fields=(("grantor", "grantor"), ("kind", "kind"), ("NZBN", "nzbn"), ("charity number", "charity_number"),

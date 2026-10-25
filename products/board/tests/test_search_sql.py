@@ -38,3 +38,29 @@ def test_a_suppressed_or_revoked_row_never_matches_by_name():
 def test_regex_characters_in_a_term_are_escaped():
     _, params = search.view_sql(cat.BY_NAME["companies"], ["a.b(c"], None)
     assert params[0] == "\\m" + "a\\.b\\(c"
+
+
+def test_the_check_boxes_choose_the_registers():
+    held = ["party_returns", "disclosures", "companies"]
+    sel = search.selection
+    assert sel([], False, False, held) == (tuple(held), True)                         # nothing checked: search all
+    assert sel(["companies"], False, False, held) == (("companies",), False)
+    assert sel(["companies"], True, False, held) == (tuple(held), True)              # "search all" just ticked
+    assert sel(["companies"], True, True, held) == (("companies",), False)           # registers unticked under "search all"
+    assert sel(held, True, True, held) == (tuple(held), True)
+    assert sel(["companies", "nonsense", "openlaw"], False, False, held) == (("companies",), False)   # never a register not held
+
+
+def test_a_search_scans_only_the_registers_checked():
+    class Conn:
+        pass
+    import products.board.search as s
+    seen = []
+    orig_pub, orig_scan = s.db.pub_views, s._scan
+    s.db.pub_views = lambda conn: {v.name for v in cat.VIEWS}
+    s._scan = lambda v, *a: (seen.append(v.register) or (v, []))
+    try:
+        s.search(Conn(), "doe", registers=("companies",))
+    finally:
+        s.db.pub_views, s._scan = orig_pub, orig_scan
+    assert seen and set(seen) == {"companies"}

@@ -1,40 +1,41 @@
 # board: where it stands
 
-**Date:** 2026-10-20. **Step:** 4.9, the board, `products/board/`. **Merge
-request:** `board-1` (raised).
+**Date:** 2026-10-25. **Step:** 4.9 second version (ruling 80),
+`products/board/`. **Merge request:** `board-2` (raised).
 
 ## Done
 
-- The page: one search across the 35 published views (every word a word
-  start, macrons folded, a number exact; a suppressed, revoked or withheld
-  name never matched), results by register with counts, "none found" and
-  "not held" said; a pane per row (fields, dates as filed, the same
-  register's rows, links, namesakes by name apart, the document cited not
-  opened); panes chain left to right; a person pane; pin and save path
-  (`board.pins`, `board.paths`, only ever added to). Stdlib HTTP server,
-  no script, no npm. Port 8420 on the local network; unit
-  `units/qv4-board.service`; launcher `qv4-board.desktop` + `open`.
-- Scans run on the product reader (pub only, 3 connections), one session
-  reader connection per page, one page at a time (lesson filed).
-- Outside check green against the real tables (`python -m products.board
-  check`): a donor found with its count, not-held said, every shown column
-  present, no address column outside the registered office, the walk
-  donor → company → director rendered with citations. Search 0.75 s;
-  five panes 1.5 s. Fast tier 25 tests, slow 3, one-way test green.
-- Real state tried in `querynz_v4_sample.scratch_board` (one pin, one path).
+- Search tab, at the old address `/?q=&p=` (saved paths open): left pane
+  with a check box per register in catalogue order (not held greyed,
+  uncheckable), "search all" at the top, the search box; a GET form,
+  nothing checked = all (`search.selection`, hidden `was_all` mark).
+  Results pane beside it, wider: every matching row of the checked
+  registers, up to 50 per view with the count, every field, date, source
+  address and citation, the term marked under the search's own fold
+  ("Maori" marks "Māori" and the reverse). Row, person and link panes
+  open to the right as before; pins and paths unchanged.
+- Graph tab `/graph?q=&r=&c=`: matching rows (16 at most) as nodes, one
+  hop of edges from 22 catalogue `Relation` lines (money, role,
+  candidacy, declaration, dealing) and `pub.links` (confirmed solid, near
+  dashed); server-written SVG, deterministic sector layout, a node
+  re-centres, an edge label opens the asserting row; key below with
+  drawn and not-drawn counts; an edge list as the table view. No address
+  edge; a suppressed row draws no same-person edges. Product reader.
+- Outside check grown (search tab with and without the register; graph
+  of a donor row draws money, every far end real, no address type,
+  relation columns in both views): green against the live tables, and
+  shown to fail on a broken relation. Board tests 40 (fast 35, slow 5)
+  green; root fast tests green; `bin/fast products/board` green.
 
-## Carded
+## Not done, by choice
 
-- `the-installer-does-not-reach-a-product-s-unit-folder` (blocker, integrator).
-- `expense-release-totals-has-no-stable-key` (expenses lane).
-- `how-links-names-a-register-row` (links session; the board assumes
-  `<register>:<key>`).
+- Regulator parties, court parties, gazette `register_key` matches and
+  grants → publishers are not drawn: not among the ruling's types.
+  Adding one is a catalogue line.
+- Saved paths keep the term and path, not the registers checked (the
+  table is unchanged); they reopen over all registers.
 
 ## Next
 
-1. The integrator merges `board-1`, adds the installer globs, enables
-   `qv4-board`, runs `python -m products.board state`.
-2. Arthur copies the launcher to his desktop (one line in the closing note).
-3. When links/ publishes `pub.links`, `pub.groups`, `pub.decisions`: the
-   panes fill on their own; settle the row-ref form (card).
-4. Step 5: "report from here" on a pane.
+1. The integrator merges `board-2` and restarts `qv4-board`.
+2. Lanes mirror their relation lines in `pane.md` (merge request lists them).
