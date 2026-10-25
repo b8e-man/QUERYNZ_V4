@@ -1,6 +1,8 @@
-Read a name column's printed form (a count of commas and of where the capitals sit, then a handful of public rows) before declaring its order: a column a lane's reader calls given-first can still carry the source's surname-first rows that its rule never turned round.
+Read a name column's printed form (count commas and where capitals sit, then a few public rows) before declaring its order: a column a reader calls given-first can still carry surname-first rows its rule never turned round.
 area: products, the board's catalogue (FIELDS_OF name orders), any matcher that reads a one-string name by position
 paid-for-by: 2026-10-26, fix-products-board-1d (ruling 85)
+
+The full observation: Read a name column's printed form (a count of commas and of where the capitals sit, then a handful of public rows) before declaring its order: a column a lane's reader calls given-first can still carry the source's surname-first rows that its rule never turned round.
 
 Ruling 85 has the board match first, middle and last names by each view's
 order, declared as data. `expenses/read.py` says its `name` is "given-first,
