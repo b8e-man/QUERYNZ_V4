@@ -272,3 +272,17 @@ coloured by what the register says (money, role, candidacy, declaration,
 dealing, the links' same-person verdicts); the key sits below the
 picture. Recorded under step 4.9 as its second version; built by
 `board-2` in `products/board/` only.
+
+81. Arthur, 25 October, about 14:10, after seeing the board's two tabs:
+"default in the search all pane should be all unchecked with search all
+checked. This means that a user can uncheck search all and then check
+individual registers. they can check and uncheck search all without
+losing their checked register selections". So, on both tabs: the first
+view shows "search all" ticked and every register unticked; a search runs
+over every held register while "search all" is ticked, whatever register
+boxes are ticked, and over the ticked registers alone when it is not;
+the ticked registers are carried through every search and every pane
+opened, so turning "search all" off and on loses none of them; "search
+all" unticked with no register ticked searches nothing and says so.
+Replaces board-2's rule that nothing ticked means all. Built by
+`fix-products-board-1`.
