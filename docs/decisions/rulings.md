@@ -286,3 +286,19 @@ opened, so turning "search all" off and on loses none of them; "search
 all" unticked with no register ticked searches nothing and says so.
 Replaces board-2's rule that nothing ticked means all. Built by
 `fix-products-board-1`.
+
+82. Arthur, 25 October, about 14:30, after a search for "graham hart"
+found John Graham HARTNELL (each typed word begins a word in the row):
+"I think what you are trying to do is different to what we are really
+trying to achieve ... Let's make the search expandable and add some field
+options that can be used to narrow a search. let's start with first name,
+middle name, last name, address. you can choose 2 more fields that you
+would like to add". The integrator chose organisation (a company, party,
+charity or society name) and year. So, on both tabs: the search box gains
+an expand control; open, it shows those six fields; each field matches
+whole words in the columns that hold that thing (a surname column where
+the register prints one, else a whole word of the name string); the plain
+box is unchanged when the fields are closed; address searches the
+registered addresses organisations publish, since no published table
+holds a person's home address (hard limit 15). Built by the board fix
+session after `fix-products-board-1`.
