@@ -1,0 +1,16 @@
+# Beehive releases, on the board
+
+One pane per release, speech or feature (`pub.beehive_releases`): the
+title, the type as the site gives it, the day (`published_on`, the
+record's own date; `published_at` as served, never re-zoned), the word
+count, and the page's address as the citation, with the document's hash
+small beneath it. Then the ministers the site tags it with, in order
+(`pub.beehive_release_ministers`, each with the site's slug), and the
+portfolios. Then, set apart under the heading "The source's annotation
+(made by its model, not ours)", the topics and quotes
+(`pub.beehive_release_annotations`): shown as the provider's, never as a
+finding of the estate, and never offered as a link. A release served in
+more than one version says "read from the newest of N versions". The body
+is not in any view; the board's document opener shows the record whole
+(ruling 88). Every row notes that the estate did not fetch the page: the
+provider captured it off-estate (ruling 78).
