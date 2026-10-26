@@ -101,7 +101,8 @@ def same_name_memo(conn):
     return same
 
 
-def row_context(conn, v: cat.View, r: dict, q: str, path: list, pinned: set, same=None, boxes=None, docs=None) -> dict:
+def row_context(conn, v: cat.View, r: dict, q: str, path: list, pinned: set, same=None, boxes=None, docs=None,
+                far=None) -> dict:
     same = same or same_name_memo(conn)
     ref = links_view.ref(v, r["key"])
     same_words = search.names_of_row(v, r)
@@ -111,7 +112,8 @@ def row_context(conn, v: cat.View, r: dict, q: str, path: list, pinned: set, sam
            "links": links_view.links_of(conn, ref), "group": links_view.group_of(conn, ref) if v.kind == "person" else {},
            "same": same(v, r), "same_words": same_words, "resolve": resolver(conn),
            "report": panes.report_href(REPORT_URL, ref), "boxes": boxes,
-           "docs": docs if docs is not None else document.statuses(conn, [r.get("document")])}
+           "docs": docs if docs is not None else document.statuses(conn, [r.get("document")]),
+           "far": far if far is not None else search.far_rows(conn, [(v, r)])}
     return ctx
 
 
@@ -133,17 +135,18 @@ def person_context(conn, v: cat.View, r: dict, q: str, path: list, same=None, bo
             "report": panes.report_href(REPORT_URL, ref), "boxes": boxes}
 
 
-def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes = search.FIRST) -> str:
+def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes = search.FIRST, near_names: bool = False) -> str:
     """The search tab. `conn` is a session-reader connection to reuse (the
     check passes its own); without one a connection is opened and closed.
-    `boxes`: the form's check boxes, carried on every href (ruling 81)."""
+    `boxes`: the form's check boxes, carried on every href (ruling 81);
+    `near_names`: the near-names pane beside the search pane (ruling 92 (4))."""
     with RENDER_LOCK, (contextlib.nullcontext(conn) if conn is not None else db.read_connect()) as conn:
         held = db.pub_views(conn)
         regs = search.selection(boxes, search.held_registers(held))
         asked = boxes.asked()
         asking = bool(q or asked) and bool(regs)
-        results = search.search(conn, q, limit=search.RESULTS_LIMIT, registers=regs, fields=asked) if asking else {}
-        nearby = near.near(conn, q, asked, registers=regs, held=held) if asking else None     # ruling 83, below the exact results
+        results = search.search(conn, q, limit=search.RESULTS_LIMIT, registers=regs, fields=asked, mode=boxes.mode) if asking else {}
+        nearby = near.near(conn, q, asked, registers=regs, held=held, mode=boxes.mode) if asking else None     # ruling 83, below the exact results
         pinned = {(p["view"], p["key"]) for p in state.pins(conn)}
         same = same_name_memo(conn)
         words = panes.search_words(q, boxes)
@@ -152,12 +155,27 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
             person = step.startswith("person:")
             view, key = step.split(":", 2)[1:] if person else step.partition(":")[::2]
             steps.append((person, view, search.row(conn, view, key)))
+        tv = trows = None
+        if boxes.table:                                # ruling 92 (5): the register's table, kept while a search runs
+            tv = cat.BY_NAME[boxes.table]
+            tv = tv if tv.name in held else panes.main_view(tv.register, held)
+            if tv is not None:
+                total, trows = search.table(conn, tv, boxes.upto)
         cited = [r.get("document") for hits in results.values() if isinstance(hits, list) for _, _, rows in hits for r in rows]
         cited += [r.get("document") for c in (nearby or {}).values() if isinstance(c, dict) for _, r in c.get("rows") or ()]
         cited += [r.get("document") for _, _, r in steps if r]
         docs = document.statuses(conn, cited)          # ruling 86 (4): one query for every "source" link on the page
-        out = [panes.left_pane(q, search.held_registers(held), boxes),
-               panes.results_pane(q, results, held, regs, boxes, words, nearby, docs)]
+        shown_rows = [(v, r) for hits in results.values() if isinstance(hits, list) for v, _, rows in hits for r in rows]
+        shown_rows += [vr for c in (nearby or {}).values() if isinstance(c, dict) for vr in c.get("rows") or ()]
+        shown_rows += [(cat.BY_NAME[view], r) for _, view, r in steps if r] + [(tv, r) for r in trows or ()]
+        far = search.far_rows(conn, shown_rows, held)  # ruling 92 (2): one query per far view for every key shown
+        out = [panes.left_pane(q, search.held_registers(held), boxes)]
+        if near_names:
+            out.append(panes.near_names_pane(q, near.near_names(conn, q, asked, registers=regs, held=held), boxes))
+        if q or asked or tv is None:                   # with a table open and nothing asked, the table sits beside the search
+            out.append(panes.results_pane(q, results, held, regs, boxes, words, nearby, docs, far))
+        if tv is not None:
+            out.append(panes.table_pane(q, tv, total, trows, boxes._replace(table=tv.name), held, far))
         for i, (person, view, r) in enumerate(steps):
             so_far = path[:i + 1]
             v = cat.BY_NAME[view]
@@ -171,7 +189,7 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
                     out.append(f'<section class="pane"><div class="reg">{panes.esc(view)}</div>'
                                '<p class="why">row not found in the published view: its key has moved or it was withdrawn</p></section>')
                     continue
-                out.append(panes.row_pane(row_context(conn, v, r, q, so_far, pinned, same, boxes, docs)))
+                out.append(panes.row_pane(row_context(conn, v, r, q, so_far, pinned, same, boxes, docs, far)))
         return panes.page(q, path, out, message, boxes, db=counter())
 
 
@@ -276,7 +294,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_html(render_graph(q, parse_centre((qs.get("c") or [""])[0]), boxes=boxes))
                 return
             path = parse_path((qs.get("p") or [""])[0])
-            self.send_html(render(q, path, (qs.get("m") or [""])[0][:100], boxes=boxes))
+            self.send_html(render(q, path, (qs.get("m") or [""])[0][:100], boxes=boxes, near_names="1" in (qs.get("near") or [])))
         except Exception as exc:          # the page says what failed; the server stays up
             self.send_html(f"<p>the board could not answer: {panes.esc(type(exc).__name__)}: {panes.esc(exc)}</p>", 500)
 

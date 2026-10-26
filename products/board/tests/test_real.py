@@ -114,3 +114,69 @@ def test_a_cited_document_of_every_cited_source_opens():
         assert "party_returns" in by_source and "house" in by_source
         for source, (sha, kind) in by_source.items():
             assert check.opened_problems(conn, sha, kind, source) == [], source
+
+
+def test_a_directors_row_shows_its_companys_name_not_its_key():
+    """Ruling 92 (2), live: the company field reads the company's name, linked, the key on hover."""
+    with db.read_connect() as conn:
+        d = db.rows(conn, "select d.key, d.entity_key, c.name from pub.directors d join pub.companies c on c.key = d.entity_key "
+                          "where not coalesce(d.suppressed, false) order by d.key desc limit 1")[0]
+        html = server.render("", [f"directors:{d['key']}"], conn=conn)
+    from products.board import panes
+    assert f'title="{panes.esc(d["entity_key"])}">{panes.esc(d["name"])}</a>' in html
+    assert f"<td>{d['entity_key']}</td>" not in html
+
+
+def test_the_near_names_button_answers_200_and_lists_counts():
+    """Ruling 92 (4), live over HTTP: the button's GET (`near=1`) answers 200 with the pane and its counts."""
+    import re
+    import threading
+    import urllib.request
+    httpd = server.Server(("127.0.0.1", 0), server.Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{httpd.server_address[1]}/?q=garry+payinda&all=1&near=1"
+        with urllib.request.urlopen(url, timeout=60) as r:
+            assert r.status == 200
+            html = r.read().decode()
+    finally:
+        httpd.shutdown()
+    pane = html[html.index('id="near-names"'):html.index('id="results"')]
+    assert re.search(r'<h3>garry payinda <span class="count">[\d,]+ rows</span></h3>', pane)
+    assert re.search(r'</a> <span class="count">[1-9][\d,]*</span>', pane)       # at least one variant, with its count
+
+
+def test_a_registers_table_answers_with_100_rows_and_its_count():
+    """Ruling 92 (5), live: the directors table, 100 one-line rows and the count of all rows."""
+    import re
+    with db.read_connect() as conn:
+        n = db.rows(conn, "select count(*) as n from pub.directors")[0]["n"]
+        t = time.time()
+        html = server.render("", [], conn=conn, boxes=search.Boxes(table="directors"))
+        assert time.time() - t < 5.0
+    tab = html[html.index('id="table"'):]
+    assert f"{n:,} rows in directors" in tab and len(re.findall(r"<tr><td", tab)) == 100
+
+
+def test_both_field_modes_against_the_same_fixture_rows():
+    """Ruling 92 (6): four fixture rows in a temporary table of pub.directors' shape (gone with the connection),
+    searched by the board's own SQL under "all" and "any" (first Garry, last Payinda, year 2020)."""
+    import datetime as dt
+    rows = [("a", "Garry", "PAYINDA", dt.date(2020, 3, 1)),      # all three
+            ("b", "Garry", "SMITH", dt.date(2019, 3, 1)),        # first only
+            ("c", "Ann", "PAYINDA", dt.date(2018, 3, 1)),        # last only
+            ("d", "Ann", "SMITH", dt.date(2001, 3, 1))]          # none
+    fields = {"first": "Garry", "last": "Payinda", "year": "2020"}
+    got = {}
+    with db.read_connect() as conn:
+        conn.execute("create temporary table directors (like pub.directors)")
+        for key, first, last, on in rows:
+            conn.execute("insert into pg_temp.directors (key, first_name, last_name, full_name, appointed_on, suppressed) "
+                         "values (%s, %s, %s, %s, %s, false)", (key, first, last, f"{first} {last}", on))
+        for mode in (search.ALL, search.ANY):
+            sql, params = search.view_sql(cat.BY_NAME["directors"], [], None, 50, fields=fields, mode=mode)
+            got[mode] = {r["key"]: r for r in db.rows(conn, sql.replace("from pub.directors", "from pg_temp.directors"), params)}
+    assert sorted(got[search.ALL]) == ["a"]
+    assert sorted(got[search.ANY]) == ["a", "b", "c"]
+    said = lambda k: sorted(f[len("_matched_"):] for f, x in got[search.ANY][k].items() if f.startswith("_matched_") and x)
+    assert said("a") == ["first", "last", "year"] and said("b") == ["first"] and said("c") == ["last"]

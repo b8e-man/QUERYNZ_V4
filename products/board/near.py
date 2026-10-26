@@ -30,7 +30,7 @@ from __future__ import annotations
 import re
 
 from products.board import catalogue as cat
-from products.board import db, fold, search
+from products.board import db, fold, given_names, search
 
 NEAR_LIMIT = 25      # rows shown per class; the whole count beside them
 CANDIDATES = 2000    # rows read per view for the reading to decide on
@@ -242,15 +242,17 @@ def address_text(v: cat.View, r: dict) -> str:
 # ── the scan ────────────────────────────────────────────────────────────────
 
 def _read(conn, v: cat.View, near_clause: str, near_params: list, q: str, asked: dict, drop: tuple, source_is_box: bool,
-          also_exact: dict = None):
+          also_exact: dict = None, mode: str = search.ALL):
     """The rows of one view inside the near filter, outside the exact
     search, satisfying the rest of what was asked; None when it cannot hold
     it. `also_exact`: fields whose exact match also rules a row out (an
-    address the box typed is exact in a column the box does not search)."""
+    address the box typed is exact in a column the box does not search).
+    Under ANY (ruling 92 (6)) the exact search is the "any" one and the
+    other fields do not narrow the near class."""
     words = search.words_of(q)
     number = re.sub(r"\s", "", q) if search.is_number(q) else None
-    exact = search.match_sql(v, words, number, False, asked)
-    rest_fields = {f: x for f, x in asked.items() if f not in drop}
+    exact = search.match_sql(v, words, number, False, asked, mode)
+    rest_fields = {f: x for f, x in asked.items() if f not in drop and mode != search.ANY}
     rest = search.match_sql(v, [] if source_is_box else words, None if source_is_box else number, False, rest_fields)
     if rest is None:
         return None
@@ -269,7 +271,7 @@ def _read(conn, v: cat.View, near_clause: str, near_params: list, q: str, asked:
     return db.rows(conn, sql, params + gp + [CANDIDATES])
 
 
-def near(conn, q: str, asked: dict, registers=None, held=None) -> dict:
+def near(conn, q: str, asked: dict, registers=None, held=None, mode: str = search.ALL) -> dict:
     """{'names': {...}, 'addresses': {...}}, each {'total', 'more', 'rows':
     [(view, row)] up to NEAR_LIMIT, 'refs': every 'view:key' found, 'why'
     when the class was not tried}."""
@@ -277,7 +279,7 @@ def near(conn, q: str, asked: dict, registers=None, held=None) -> dict:
     held = held if held is not None else db.pub_views(conn)
     views = [v for v in cat.VIEWS if v.name in held and (registers is None or v.register in registers)]
     out = {}
-    nq = name_query(q, asked)
+    nq = name_query(search.base_term(q), {f: search.base_term(x) for f, x in asked.items()})     # a name as typed, its chosen variants aside
     c = {"total": 0, "more": False, "rows": [], "refs": []}
     if nq is None:
         c["why"] = "not tried: fill the first and last name fields, or type a given name and a surname in the box"
@@ -296,7 +298,7 @@ def near(conn, q: str, asked: dict, registers=None, held=None) -> dict:
                 a, p = name_filter(g, given, surname)
                 alts.append(a)
                 ps += p
-            rows = _read(conn, v, "(" + " or ".join(alts) + ")", ps, q, asked, ("first", "middle", "last"), from_box)
+            rows = _read(conn, v, "(" + " or ".join(alts) + ")", ps, q, asked, ("first", "middle", "last"), from_box, mode=mode)
             if rows is None:
                 continue
             c["more"] |= len(rows) >= CANDIDATES
@@ -318,7 +320,7 @@ def near(conn, q: str, asked: dict, registers=None, held=None) -> dict:
             if not cat.fields_of(v).address:
                 continue
             clause, ps = address_filter(v, reading_q)
-            rows = _read(conn, v, "(" + clause + ")", ps, q, asked, ("address",), from_box, {"address": text})
+            rows = _read(conn, v, "(" + clause + ")", ps, q, asked, ("address",), from_box, {"address": text}, mode)
             if rows is None:
                 continue
             c["more"] |= len(rows) >= CANDIDATES
@@ -330,3 +332,86 @@ def near(conn, q: str, asked: dict, registers=None, held=None) -> dict:
                         c["rows"].append((v, r))
     out["addresses"] = c
     return out
+
+
+# ── near names (ruling 92 (4)) ──────────────────────────────────────────────
+
+VARIANT_ROWS = 5000   # distinct filed names read per Name of a view with the surname
+NO_NAME = "type a given name and a surname in the box, or fill the first and last name fields"
+
+
+def _given_words(conn, v: cat.View, names: list, surname: list) -> dict:
+    """{given word: rows} of one view, over the rows where one of its Names
+    holds the surname words together and whole, each row counted once
+    whichever of its Names carries the word; suppressed and revoked rows are
+    never read (hard limit 16), and an organisation's name is no person's."""
+    exprs = [_name_expr(g) for g in names]
+    gs, gp = search.guard_sql(v)
+    pat = r"\m" + r"\s+".join(re.escape(w) for w in surname) + r"\M"
+    cols = ", ".join(f"{e} as s{i}" for i, e in enumerate(exprs))
+    where = " or ".join(f"{search.fold_sql(e)} ~ %s" for e in exprs)
+    sql = (f"select {cols}, count(*) as n from pub.{v.name} where ({where}){gs} "
+           f"group by {', '.join(str(i + 1) for i in range(len(exprs)))} order by n desc limit %s")
+    out = {}
+    for r in db.rows(conn, sql, [pat] * len(exprs) + gp + [VARIANT_ROWS]):
+        found = set()
+        for i, g in enumerate(names):
+            s_ = r[f"s{i}"]
+            if not s_ or is_organisation(s_):
+                continue
+            t = tokens(as_read(g, s_))
+            at = next((j for j in range(len(t) - len(surname) + 1) if t[j:j + len(surname)] == surname), None)
+            if at is not None:
+                found |= {w for w in t[:at] + t[at + len(surname):] if w.isalpha() and len(w) >= 2}
+        for w in found:
+            out[w] = out.get(w, 0) + int(r["n"])
+    return out
+
+
+def held_given_words(conn, surname: list, registers=None, held=None) -> dict:
+    """{given word: rows} across every view with a person's name in the
+    registers searched: the given names filed with these surname words."""
+    held = held if held is not None else db.pub_views(conn)
+    jobs = [(v, list(cat.fields_of(v).names)) for v in cat.VIEWS if v.name in held and cat.fields_of(v).names
+            and (registers is None or v.register in registers)]
+    if conn is None:
+        futures = [search._pool.submit(lambda vg: _given_words(search._conn(), vg[0], vg[1], surname), vg) for vg in jobs]
+        parts = [f.result() for f in futures]
+    else:
+        parts = [_given_words(conn, v, names, surname) for v, names in jobs]
+    out = {}
+    for p in parts:
+        for w, n in p.items():
+            out[w] = out.get(w, 0) + n
+    return out
+
+
+def near_names(conn, q: str, asked: dict, registers=None, held=None, words: dict = None) -> dict:
+    """The near-names pane's content (ruling 92 (4)): for each given name of
+    the query, the given names filed with its surname words that are a
+    common form of it (given_names.GROUPS), share its first three letters,
+    or are one letter apart, each with its count of rows. {'why'} when the
+    query names no given name and surname. `words`, the held given words
+    (held_given_words), when the caller has them; `conn` None scans on the
+    search's own product-reader pool. Candidates, never a link."""
+    asked = {f: x for f, x in (asked or {}).items() if (x or "").strip()}
+    from_fields = bool(asked.get("first") and asked.get("last"))
+    nq = name_query(search.base_term(q), {f: search.base_term(x) for f, x in asked.items()})
+    if nq is None:
+        return {"why": NO_NAME}
+    given, middles, surname = nq
+    if words is None:
+        words = held_given_words(conn, surname, registers, held)
+    chosen = {}
+    for text in ([asked.get("first", ""), asked.get("middle", "")] if from_fields else [q]):
+        for w in search.field_words(text):
+            forms = w.split("|")
+            if len(forms) > 1:
+                chosen.setdefault(forms[0], []).extend(forms[1:])
+    out = []
+    for typed in [given] + [m for m in middles if len(m) > 1]:
+        found = sorted(((w, n, why) for w, n in words.items() for why in [given_names.why_near(typed, w)] if why),
+                       key=lambda x: (-x[1], x[0]))
+        out.append({"typed": typed, "count": words.get(typed, 0), "chosen": chosen.get(typed, []), "variants": found,
+                    "field": ("first" if typed == given else "middle") if from_fields else ""})
+    return {"surname": surname, "given": out, "from_fields": from_fields}
