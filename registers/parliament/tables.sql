@@ -1,4 +1,4 @@
--- registers/parliament: the tables this lane owns, in `parliament` and `parliament_private`.
+-- registers/parliament: the tables this lane owns, in `parliament` (`parliament_private` holds nothing).
 -- Loaded into a staging or scratch schema by replacing `parliament.` (and `parliament_private.`) with that
 -- schema's name (load.sql). Every row is read from one document: a record of one of the ingest MCP's parliament
 -- corpora, landed whole by support/mcpsource (rulings 78, 94, 96). The estate never fetched parliament.nz:
@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS parliament.written_questions (
     annotation               jsonb,                      -- the provider's annotation block, where it gives one
     question_released_on     date,                       -- the day of `questionReleasedDate` (a midnight-UTC stamp)
     reply_present            boolean NOT NULL,           -- `replyText` holds more than whitespace
+    question_text_names_address boolean NOT NULL,        -- the question's shape names an address (shapes.py; hard limit 15 by this flag)
+    reply_text_names_address boolean NOT NULL,           -- the reply's, the same
     text_words               integer NOT NULL DEFAULT 0, -- words in the record's `text` (the provider's run of its fields, not kept)
     fields_unread            text[] NOT NULL DEFAULT '{}',
     versions                 integer NOT NULL DEFAULT 1,
@@ -108,6 +110,7 @@ CREATE TABLE IF NOT EXISTS parliament.api_items (
     annotation               jsonb,
     publication_on           date,                       -- the day of `publicationDate` (a midnight-UTC stamp)
     citation_url             text,                       -- the page's own address where the record gives one; NULL where none
+    text_names_address       boolean NOT NULL,           -- `text`'s shape names an address (shapes.py)
     text_words               integer NOT NULL DEFAULT 0,
     fields_unread            text[] NOT NULL DEFAULT '{}',
     versions                 integer NOT NULL DEFAULT 1,
@@ -124,8 +127,8 @@ CREATE TABLE IF NOT EXISTS parliament.api_items (
     loaded_at                timestamptz NOT NULL
 );
 
--- one per archived parliament.nz page (`parliament-wayback`), taken by the provider from the Internet Archive.
--- The page's text is in the private twin
+-- one per archived parliament.nz page (`parliament-wayback`), taken by the provider from the Internet Archive,
+-- its text whole
 CREATE TABLE IF NOT EXISTS parliament.wayback_pages (
     key                      text PRIMARY KEY,           -- the record's `id` (the page's address as archived)
     url                      text NOT NULL,              -- the page's own address on parliament.nz
@@ -150,7 +153,9 @@ CREATE TABLE IF NOT EXISTS parliament.wayback_pages (
     annotation               jsonb,
     archived_at              text,                       -- `ts` as an ISO stamp (UTC, as the archive keeps it)
     citation_url             text NOT NULL,              -- the page's own address
-    text_words               integer NOT NULL DEFAULT 0, -- words of its text (private)
+    text                     text,                       -- the page's text as served, whole
+    text_names_address       boolean NOT NULL,           -- the text's shape names an address (shapes.py)
+    text_words               integer NOT NULL DEFAULT 0, -- words of its text
     fields_unread            text[] NOT NULL DEFAULT '{}',
     versions                 integer NOT NULL DEFAULT 1,
     seq                      bigint,
@@ -183,9 +188,12 @@ CREATE TABLE IF NOT EXISTS parliament.set_aside (
     reason  text NOT NULL
 );
 
--- an archived page's text as served: never published (an old page may print a person's details; the board
--- opens the document whole, ruling 88)
-CREATE TABLE IF NOT EXISTS parliament_private.wayback_texts (
-    key   text PRIMARY KEY,
-    text  text
+-- every published text the shapes say names an address: the load's report by key (the flag columns say the
+-- same row by row); counted by the load and the check, never printed
+CREATE TABLE IF NOT EXISTS parliament.address_flags (
+    table_name   text NOT NULL,
+    key          text NOT NULL,
+    column_name  text NOT NULL,
+    shape        text NOT NULL CHECK (shape IN ('street', 'legal', 'numbered')),
+    PRIMARY KEY (table_name, key, column_name)
 );

@@ -18,9 +18,19 @@ And for the written questions:
   replies    the share of served questions with a reply at least REPLY_FLOOR: measured 27 October 2026 on
              the first full build, 683,517 of 683,524 (all but 7; the API's queue holds answered questions)
 
+And over the published views (hard limit 15, ruling 102), with a second
+pattern written apart from shapes.py, in Postgres's own regular
+expressions, so a flag the load stopped setting cannot pass silently:
+
+  flagged    each flag column's true count is stated, and equals the load's `address_flags` lines for it
+  street     no text column of a view (every `text`, `varchar` or `jsonb` column, found by introspection, so a
+             column added later is searched too) holds a house number and a street where its
+             `<column>_names_address` flag is false or absent
+
 Run bare it answers about the live tables in querynz_v4 under the session
 reader; a session's scratch proof passes --database, --schema,
---mcp-schema and --owner. Reads no private table. Prints figures only;
+--mcp-schema and --owner (the views of a proof are `<schema>.pub_parliament_*`,
+load.views). Reads no private table. Prints figures only, never a value;
 exits 1 on a failure.
 
     python -m registers.parliament.check [--database D --schema S --mcp-schema M --owner]
@@ -36,6 +46,24 @@ WORDS_TOLERANCE = 0.01
 REPLY_FLOOR = 0.99
 TABLE = {c: "api_items" for c in capture.API_CORPORA}
 TABLE.update({capture.WRITTEN_QUESTIONS: "written_questions", capture.WAYBACK: "wayback_pages"})
+VIEWS = ("written_questions", "api_items", "wayback_pages")
+FLAG = "_names_address"
+# a house number and a street, as Postgres reads it (ARE): not after a letter, a digit or a unit's slash, nor after
+# the word a highway's, a law's or a list's number follows; not a year; one to four capitalised words; the street's
+# kind; and not the start of a company's name ("12 Sample Street Limited")
+_KIND_WORDS = ("Street St Road Rd Avenue Ave Drive Dr Place Pl Crescent Cres Terrace Tce Lane Way Parade Highway Hwy "
+               "Grove Close Court Ct Rise Quay Square Boulevard Esplanade Track Mews Heights Glade Row Loop Walk "
+               "Promenade Strand Mall Circle Common Ridge Vale Downs Line Valley Hill View Green Gardens Park Point "
+               "Reach Key").split()
+_NOT_AFTER = ("Highway highway Hwy SH No No. no. Act Regulations Rule Order Notice Section section Schedule schedule "
+              "Part part Clause clause Reg Route route Question question Bill bill Level level Alert alert Phase phase "
+              "Stage stage Tranche").split()
+STREET_SQL = (r"(?<![[:alnum:]_/.,-])"
+              + "(?<!(?:" + "|".join(w.replace(".", r"\.") for w in _NOT_AFTER) + r") )"
+              + r"(?!(?:18|19|20)[0-9]{2}\M)[0-9]{1,4}[A-Za-z]?(?:\s*[-/]\s*[0-9]{1,4}[A-Za-z]?)?,?\s+"
+              + r"(?:[A-Z][[:alnum:]_'’.-]*\s+){1,4}"
+              + "(?:" + "|".join(sorted({w for k in _KIND_WORDS for w in (k, k.upper())}, key=len, reverse=True)) + r")\M"
+              + r"(?![\s,]*(?:[A-Z(][[:alnum:]_'’&().-]*\s+){0,4}(?:Limited|Ltd|LIMITED|LTD|Incorporated|Inc)\M)")
 
 
 def held(conn, schema: str, mcp_schema: str) -> dict:
@@ -70,6 +98,52 @@ def held(conn, schema: str, mcp_schema: str) -> dict:
         "replied": q(f"SELECT count(*) FROM {wq} WHERE served AND reply_present"),
         "withdrawn": q(f"SELECT count(*) FROM {wq} WHERE NOT served"),
     }
+    return out
+
+
+def view_name(schema: str, v: str) -> tuple:
+    """(schema, view) of a published view: `pub.parliament_<v>` live, `<schema>.pub_parliament_<v>` in a proof."""
+    return ("pub", f"parliament_{v}") if schema == "parliament" else (schema, f"pub_parliament_{v}")
+
+
+def shown(conn, schema: str, shared: bool = False) -> dict:
+    """{view: {"rows": n, "flagged": {column: n}, "lines": {column: n}, "street unflagged": {column: n}}}.
+    shared: the sample's schema, where the lane's tables carry its name (load.table)."""
+    flags_table = f"{schema}.parliament_address_flags" if shared else f"{schema}.address_flags"
+    q = lambda sql, *a: conn.execute(sql, a).fetchall()  # noqa: E731
+    out = {}
+    for v in VIEWS:
+        vs, vn = view_name(schema, v)
+        cols = q("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = %s "
+                 "AND table_name = %s ORDER BY ordinal_position", vs, vn)
+        names = {c for c, _ in cols}
+        texts = [c for c, t in cols if t in ("text", "character varying", "jsonb")]
+        flags = [c for c in names if c.endswith(FLAG)]
+        parts = ["count(*)"] + [f'count(*) FILTER (WHERE "{f}")' for f in flags]
+        for c in texts:
+            f = c + FLAG
+            parts.append(f'count(*) FILTER (WHERE "{c}"::text ~ %(p)s'
+                         + (f' AND NOT coalesce("{f}", false))' if f in names else ")"))
+        row = conn.execute(f'SELECT {", ".join(parts)} FROM "{vs}"."{vn}"', {"p": STREET_SQL}).fetchone()
+        lines = dict(q(f"SELECT column_name, count(*) FROM {flags_table} WHERE table_name = %s "
+                       "GROUP BY column_name", v))
+        out[v] = {"rows": row[0], "flagged": {f[:-len(FLAG)]: n for f, n in zip(flags, row[1:])},
+                  "lines": lines, "street unflagged": dict(zip(texts, row[1 + len(flags):]))}
+    return out
+
+
+def judge_shown(s: dict) -> list:
+    out = []
+    for v, x in s.items():
+        if not x["flagged"]:
+            out.append(f"{v}: the view carries no `{FLAG}` flag")
+        for c, n in x["flagged"].items():
+            if n != x["lines"].get(c, 0):
+                out.append(f"{v}.{c}: {n} rows flagged but {x['lines'].get(c, 0)} address_flags lines")
+        for c, n in x["street unflagged"].items():
+            if n:
+                out.append(f"{v}.{c}: {n} rows hold a street address with "
+                           + (f"`{c}{FLAG}` false" if c in x["flagged"] else "no flag beside the column"))
     return out
 
 
@@ -130,14 +204,20 @@ def main(argv=None) -> int:
     with db.connect(db.OWNER_KEY if a.owner else db.READ_KEY, a.database) as conn:
         conn.execute("SET statement_timeout = '60s'")
         h = held(conn, a.schema, a.mcp_schema)
+        conn.execute("SET statement_timeout = '300s'")       # one pass of the pattern over each view's text
+        s = shown(conn, a.schema)
     o = outside(M.Client())
-    fails = judge(h, o)
+    fails = judge(h, o) + judge_shown(s)
     for c in capture.CORPORA:
         print(f"parliament: {c}: held " + ", ".join(f"{k} {v}" for k, v in h[c].items())
               + "; the MCP " + ", ".join(f"{k} {v}" for k, v in o[c].items()))
     w = h["_wq"]
     print("parliament: written questions " + ", ".join(f"{k} {v}" for k, v in w.items())
           + (f", replied share {w['replied'] / w['served']:.2%}" if w["served"] else ""))
+    for v, x in s.items():
+        print(f"parliament: {v}: {x['rows']} rows; names an address by shape: "
+              + ", ".join(f"{c} {n}" for c, n in x["flagged"].items())
+              + "; a street with no flag: " + str(sum(x["street unflagged"].values())))
     for f in fails:
         print("parliament: FAIL " + f)
     print("parliament: " + ("green" if not fails else f"red, {len(fails)} failure(s)"))

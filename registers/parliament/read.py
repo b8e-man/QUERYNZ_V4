@@ -10,7 +10,13 @@ registers"). Three shapes:
   api_items           `parliament-bills`, `-bills-historical`, `-sc-submissions`, `-sc-reports`, `-sops`:
                       the API's one document shape, typed by corpus and `documentType`
   wayback_pages       `parliament-wayback`, parliament.nz pages the provider took from the Internet
-                      Archive; the page's text goes to the private twin
+                      Archive, the page's text whole
+
+Every text a view publishes whole (the question, the reply, an API
+document's `text`, a page's text) gets a flag beside it,
+`<column>_names_address`, true where shapes.py finds an address's shape
+(ruling 102: a product applies hard limit 15 at its surface by the flag),
+and a line in `address_flags` by key.
 
 A record is read from the version the pull landed last (`items` come in
 that order), never the highest `seq`: after the MCP removes records, a
@@ -23,8 +29,8 @@ goes red on it.
 The records' `text` is the provider's own run of the record's fields (the
 written questions' `text` re-rendered for 17,619 records on 26 October
 with nothing else changed): its words are counted (`text_words`, what the
-MCP's `measure` counts); kept whole only for the API documents, where it
-is short.
+MCP's `measure` counts); kept whole for the API documents and the
+archived pages, where it is the page's own text.
 
     read(items, get_bytes, loaded_at=None, sink=None)
         items: [(corpus, sha256, seq or None, record id or None, served)] → Result
@@ -33,6 +39,8 @@ import datetime as dt
 import json
 import re
 from dataclasses import dataclass, field
+
+from registers.parliament import shapes
 
 READER = "registers.parliament.read"
 PROFILE = {"wq": "mcp-parliament-written-question", "api": "mcp-parliament-api-item",
@@ -86,6 +94,7 @@ COMMON = {"_corpus": ("provider_corpus", T), "_fetched_at": ("provider_fetched_a
 SHAPE = {"wq": WQ_FIELDS, "api": API_FIELDS, "wayback": WAYBACK_FIELDS}
 OWN = {"wq": {"id", "text"}, "api": {"id"}, "wayback": {"id", "text"}}     # read by hand, not by the map
 TABLE = {"wq": "written_questions", "api": "api_items", "wayback": "wayback_pages"}
+FLAGGED = {"wq": ("question_text", "reply_text"), "api": ("text",), "wayback": ("text",)}   # published whole, flagged
 
 
 def shape_of(corpus: str) -> str:
@@ -99,8 +108,9 @@ def shape_of(corpus: str) -> str:
 def columns(shape: str) -> tuple:
     """The table's columns in order, as tables.sql has them."""
     head = {"wq": ("key",), "api": ("key", "corpus", "record_id"), "wayback": ("key",)}[shape]
-    own = {"wq": ("question_released_on", "reply_present"), "api": ("publication_on", "citation_url"),
-           "wayback": ("archived_at", "citation_url")}[shape]
+    own = {"wq": ("question_released_on", "reply_present", "question_text_names_address", "reply_text_names_address"),
+           "api": ("publication_on", "citation_url", "text_names_address"),
+           "wayback": ("archived_at", "citation_url", "text", "text_names_address")}[shape]
     return (head + tuple(c for c, _ in SHAPE[shape].values()) + tuple(c for c, _ in COMMON.values()) + own
             + ("text_words", "fields_unread", "versions", "seq", "served", "source_note")
             + ("document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at"))
@@ -109,7 +119,7 @@ def columns(shape: str) -> tuple:
 @dataclass
 class Result:
     rows: dict = field(default_factory=lambda: {"written_questions": [], "api_items": [], "wayback_pages": []})
-    texts: list = field(default_factory=list)          # (key, text): the wayback pages' text, private
+    flags: list = field(default_factory=list)          # (table, key, column, shape): a text naming an address
     files: list = field(default_factory=list)          # (sha256, corpus, record id, seq, status)
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
     counts: dict = field(default_factory=dict)
@@ -117,8 +127,8 @@ class Result:
     def emit(self, table: str, row: dict) -> None:
         self.rows[table].append(row)
 
-    def emit_text(self, key: str, text) -> None:
-        self.texts.append((key, text))
+    def emit_flag(self, flag: tuple) -> None:
+        self.flags.append(flag)
 
 
 def _str(v):
@@ -217,9 +227,16 @@ def read_one(corpus: str, sha: str, rec: dict, seq, versions: int, served: bool,
         row["archived_at"] = (f"{ts[:4]}-{ts[4:6]}-{ts[6:8]}T{ts[8:10]}:{ts[10:12]}:{ts[12:14]}Z"
                               if re.fullmatch(r"\d{14}", ts) else None)
         row["citation_url"] = rec["url"]
-        out.emit_text(row["key"], clean(text))
+        row["text"] = clean(text)
         if text and NUL in text:
             out.counts["texts with a NUL, kept as U+FFFD"] = out.counts.get("texts with a NUL, kept as U+FFFD", 0) + 1
+    for col in FLAGGED[shape]:
+        found = shapes.shape(row[col])
+        row[f"{col}_names_address"] = found is not None
+        if found:
+            out.emit_flag((TABLE[shape], row["key"], col, found))
+            k = f"{TABLE[shape]}.{col} names an address"
+            out.counts[k] = out.counts.get(k, 0) + 1
     if rec.get("text") is not None and text is None:
         odd.append(f"text:{type(rec['text']).__name__}")
     row.update({"text_words": len(text.split()) if text else 0,
@@ -233,7 +250,7 @@ def read_one(corpus: str, sha: str, rec: dict, seq, versions: int, served: bool,
 
 def read(items, get_bytes, loaded_at: str = None, out: Result = None) -> Result:
     """Every document in `items` read, listed as an older version, or set aside. `out` may be any object with
-    Result's fields and `emit`/`emit_text` (the load streams rows to the tables)."""
+    Result's fields and `emit`/`emit_flag` (the load streams rows to the tables)."""
     loaded_at = loaded_at or dt.datetime.now().astimezone().isoformat(timespec="seconds")
     out = out if out is not None else Result()
     n = out.counts

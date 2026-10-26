@@ -63,12 +63,15 @@ capture block); the rest carry the provider's capture block, kept whole.
    members and ministers in their public roles; a question or reply sometimes
    names a member of the public, an official, a company or a place. Parliamentary
    privilege covers the House's own publication, not ours: our holding is under
-   the Privacy Act 2020. The published views carry no question, reply or page
-   text (they stay in the lane's tables and the private twin; the board opens a
-   document whole, ruling 88). No address column exists (hard limit 15).
-   Archived pages from 2006 on may print MPs' office details or a person in a
-   story; their text is in `parliament_private.wayback_texts` only. A name a
-   court has suppressed is suppressed here too (hard limit 16).
+   the Privacy Act 2020. The published views carry the question, the reply and
+   each page's text whole (rulings 101, 102), each with a flag
+   (`<column>_names_address`) where the text's shape names an address; a
+   product applies hard limit 15 at its own surface by that flag, and the
+   board, on the local network only, shows the text whole. No address column
+   exists. Archived pages from 2006 on may print MPs' office details or a
+   person in a story: flagged the same way. Measured 27 October 2026: 2,524 of
+   683,524 questions and 59 of 4,839 pages flagged. A name a court has
+   suppressed is suppressed here too (hard limit 16).
 
 Crawl delay: not applicable (nothing fetched from the host). Floor for the
 MCP: one request at a time, a second between pages, a call waited for up to

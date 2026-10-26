@@ -8,9 +8,11 @@ challenge the estate may not pass (ruling 78, hard limit 6).
 year (`question_number`, `question_year`; numbered afresh each year) and the
 Parliament, the title as the API gives it ("<number> (<year>). <member> to
 the <minister>"), the minister and their title, the day it was released,
-and whether a reply is held. The question and the reply are held whole in
-the lane's own table (`parliament.written_questions`) and open with the
-document (ruling 88); no view carries them. The citation is the
+and whether a reply is held, then the question and the reply whole
+(rulings 101, 102). The board shows them whole; beside each the view
+carries `question_text_names_address` / `reply_text_names_address`, which
+a product reads to keep an address off its own surface (hard limit 15).
+The citation is the
 document's hash with Parliament's own document id (`document_id`,
 `WQ_<number>_<year>`): the API gives no page address, and none is made up.
 
@@ -36,8 +38,9 @@ shown whole.
 
 **An archived page** (`pub.parliament_wayback_pages`): the page's own
 address, the Internet Archive's copy the provider read (`snapshot_url`) and
-its stamp, the page's title, type and word count. The text opens only with
-the document (ruling 88); no view carries it.
+its stamp, the page's title, type and word count, and the text whole, with
+`text_names_address` beside it. An API document's `text` (the provider's
+run of its fields) is shown the same way.
 
 A record the MCP no longer serves (`served` false) is shown struck through
 with "withdrawn by the source"; a record served in more than one version

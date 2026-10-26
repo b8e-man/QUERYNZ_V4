@@ -2,8 +2,9 @@
 records made in the recorded shapes (no database), then on the filled
 sample (real documents named by hash in sample.list): every field of the
 API becomes a column, the version landed last is read, a withdrawn record
-is marked, the text stays out of every view, and each published row cites
-its document."""
+is marked, every text is published whole with its address flag beside it
+(ruling 102), and each published row cites its document. The made-up
+addresses here are "Sample" streets; no real value is printed."""
 import datetime as dt
 import hashlib
 import os
@@ -14,7 +15,7 @@ import pytest
 from support import db, lane, rowcontract, sample
 from support import mcpsource as M
 from support.mcpsource.tests.fake import made_record
-from registers.parliament import capture, check, read
+from registers.parliament import capture, check, read, shapes
 
 LANE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(LANE))
@@ -74,6 +75,7 @@ def test_a_written_question_is_read_field_by_field():
     assert (row["key"], row["question_number"], row["question_year"], row["member_id"]) == (r["id"], 3, 3, "ab-12")
     assert row["question_text"] == "What is the plan?" and row["reply_present"] is False
     assert row["question_released_on"] == "2025-03-04" and row["text_words"] == 4 and row["fields_unread"] == []
+    assert row["question_text_names_address"] is False and row["reply_text_names_address"] is False and not res.flags
     assert row["document"] == sha and row["profile"] == read.PROFILE["wq"] and "text" not in row
     assert rowcontract.validate(row) == []
 
@@ -91,12 +93,41 @@ def test_an_api_item_is_keyed_by_its_corpus_and_cites_its_own_address():
         assert rowcontract.validate(r) == []
 
 
-def test_a_wayback_page_keeps_its_text_private():
+def test_a_wayback_page_carries_its_text_whole():
     r = _rec(WAYBACK, 4, text="one two three")
     res, _ = _read(WAYBACK, r)
     (row,) = res.rows["wayback_pages"]
     assert row["archived_at"] == "2006-10-19T01:48:02Z" and row["citation_url"] == r["url"]
-    assert row["text_words"] == 3 and "text" not in row and res.texts == [(r["id"], "one two three")]
+    assert row["text_words"] == 3 and row["text"] == "one two three" and row["text_names_address"] is False
+
+
+def test_a_text_naming_an_address_is_published_whole_and_flagged_by_key():
+    q = _rec(WQ, 11, questionText="Who owns the house at 12 Sample Street?", replyText="Lot 2 DP 12345 is held.")
+    res, _ = _read(WQ, q)
+    (row,) = res.rows["written_questions"]
+    assert row["question_text"] == q["questionText"] and row["reply_text"] == q["replyText"]       # nothing withheld
+    assert row["question_text_names_address"] and row["reply_text_names_address"]
+    assert sorted(res.flags) == [("written_questions", q["id"], "question_text", "numbered"),
+                                 ("written_questions", q["id"], "reply_text", "legal")]
+    assert res.counts["written_questions.question_text names an address"] == 1
+    res, _ = _read(WAYBACK, _rec(WAYBACK, 12, text="Write to 2/14A Sample Road, Town."))
+    assert res.rows["wayback_pages"][0]["text_names_address"] and res.flags[0][3] == "street"
+    res, _ = _read(BILLS, _rec(BILLS, 13, text="Sample Road Bill 2024 at 3 readings"))
+    assert res.rows["api_items"][0]["text_names_address"] is False and not res.flags
+
+
+@pytest.mark.parametrize("text,want", [
+    ("12 Sample Street", "street"), ("2/14A Sample Road", "street"), ("12-14 SAMPLE AVENUE", "street"),
+    ("Lot 2 DP 12345", "legal"), ("Section 5 Block II", "legal"), ("Record of Title NA12/34", "legal"),
+    ("CT 12A/345", "legal"), ("Unit 3, 45 Sample Road", "legal"),
+    ("living at 12 Sample", "numbered"), ("the dwelling 7 Sample", "numbered"), ("Ms Sample, of 9 Sample", "numbered"),
+    ("12 Sample Street Limited", None), ("State Highway 2 Sample Road", None), ("SH 1 Sample Highway", None),
+    ("in 2019 Sample Road works", None), ("section 5 Sample Act", None), ("at 12 months", None), ("at 30 June", None),
+    ("at 5 schools", None), ("at 10 am", None), ("question 12 Sample Road", None), ("unit 3 of the plan", None),
+    ("Alert Level 4 Sample Way", None), ("", None), (None, None),
+])
+def test_the_three_shapes_and_what_is_not_an_address(text, want):
+    assert shapes.shape(text) == want
 
 
 def test_the_version_landed_last_is_read_not_the_highest_place():
@@ -134,15 +165,16 @@ def test_a_record_of_the_wrong_shape_is_set_aside():
     assert [w for _, _, w in res.set_aside] == ["no `documentType`"]
 
 
-def test_the_published_views_never_carry_a_text_or_an_address_column():
+def test_the_views_carry_every_text_whole_with_its_flag_beside_it():
+    """Ruling 102: nothing withheld in a view; each text published whole has `<column>_names_address` next to it."""
     sql = open(os.path.join(LANE, "publish.sql"), encoding="utf-8").read().lower()
-    views = sql.split("create or replace view")[1:]
+    views = dict(zip(("wq", "api", "wayback"), sql.split("create or replace view")[1:]))
     assert len(views) == 3
-    for v in views:
+    for shape, v in views.items():
         body = v.split(" from ")[0]
-        for col in ("question_text", "reply_text", "a.text,", "parliament_private", "wayback_texts"):
-            assert col not in body, col
-        assert "citation_url" in body and "document" in body
+        for col in read.FLAGGED[shape]:
+            assert re.search(rf"\.{col}, \w\.{col}_names_address\b", body), (shape, col)
+        assert "citation_url" in body and "document" in body and "_private" not in body
         for col in rowcontract.FORBIDDEN_COLUMNS:
             assert f" {col}," not in body
 
@@ -157,6 +189,19 @@ def _held(**kw):
         h[c].update(v)
     h["_wq"] = {"served": 100, "number repeated": 0, "replied": 99, "withdrawn": 0}
     return h
+
+
+def test_the_check_on_the_views_names_a_street_with_its_flag_false_and_an_unflagged_column():
+    ok = {"written_questions": {"rows": 9, "flagged": {"question_text": 2, "reply_text": 1},
+                                "lines": {"question_text": 2, "reply_text": 1},
+                                "street unflagged": {"question_text": 0, "reply_text": 0, "title": 0}}}
+    assert check.judge_shown(ok) == []
+    bad = {"written_questions": {**ok["written_questions"], "lines": {"question_text": 2},
+                                 "street unflagged": {"question_text": 1, "reply_text": 0, "title": 3}}}
+    fails = check.judge_shown(bad)
+    assert len(fails) == 3 and any("`question_text_names_address` false" in f for f in fails)
+    assert any("title: 3 rows hold a street address with no flag" in f for f in fails)
+    assert check.judge_shown({"api_items": {"rows": 1, "flagged": {}, "lines": {}, "street unflagged": {}}})
 
 
 def test_the_check_is_green_when_the_counts_agree_and_names_each_failure():
@@ -207,7 +252,6 @@ def filled():
         out = {"items": items, "conn": conn, "schema": schema}
         for t in ("written_questions", "api_items", "wayback_pages", "files", "set_aside"):
             out[t] = q(f"SELECT * FROM {schema}.parliament_{t}")
-        out["texts"] = q(f"SELECT key, length(text) n FROM {schema}_private.parliament_wayback_texts")
         out["views"] = {v: q(f"SELECT * FROM {schema}.pub_parliament_{v}")
                         for v in ("written_questions", "api_items", "wayback_pages")}
         yield out
@@ -232,7 +276,7 @@ def test_the_sample_holds_its_hard_cases(filled):
     assert {r["document_type"] for r in api} >= {"Bill", "SelectCommitteeReport", "AmendmentToBill",
                                                    "Submissions called for"}
     assert any(r["citation_url"] for r in api) and any(r["citation_url"] is None for r in api)
-    assert {r["doc_type"] for r in wb} >= {"other", "features"} and len(filled["texts"]) == len(wb)
+    assert {r["doc_type"] for r in wb} >= {"other", "features"} and all(r["text"] for r in wb)
     assert any(r["url"] and r["url"].split("/")[-2].endswith(" ") and not r["record_id"].endswith(" ")
                for r in api)                                                     # an id served with a trailing space, read
 
@@ -245,8 +289,41 @@ def test_every_published_row_cites_its_document(filled):
             assert len(r["document"]) == 64, (name, r["key"])
             assert r["citation_url"] is None or r["citation_url"].startswith(("https://www.parliament.nz/",
                                                                               "http://www.parliament.nz")), r["key"]
-            assert not {"question_text", "reply_text", "text"} & set(r), name
     assert all(r["document_id"] for r in v["written_questions"])                 # Parliament's own id, where no address
+
+
+def test_every_published_text_is_whole_and_its_flag_is_the_shapes(filled):
+    """Counted, never printed: the flag equals shapes.names over the value, the value equals the lane's table."""
+    for shape, name in read.TABLE.items():
+        own = {r["key"]: r for r in filled[name]}
+        for r in filled["views"][name]:
+            for col in read.FLAGGED[shape]:
+                assert r[col] == own[r["key"]][col], (name, r["key"], col)
+                assert r[f"{col}_names_address"] == shapes.names(r[col]), (name, r["key"], col)
+    assert any(r["question_text"] and r["reply_text"] for r in filled["views"]["written_questions"])
+
+
+def test_postgres_s_street_pattern_reads_the_made_up_shapes_as_the_lane_does(filled):
+    conn = filled["conn"]
+    for text in ("12 Sample Street", "2/14A Sample Road", "12-14 SAMPLE AVENUE", "see 4 Sample Road.",
+                 "State Highway 2 Sample Road", "in 2019 Sample Road works", "x123 Sample Road", "No. 4 Sample Road",
+                 "Section 5 Sample Road", "at 5 schools", "12 Sample Street Limited"):
+        pg = conn.execute("SELECT %s ~ %s", (text, check.STREET_SQL)).fetchone()[0]
+        assert pg == (shapes.shape(text) == "street"), text
+
+
+def test_the_check_fails_on_a_planted_street_whose_flag_is_false(filled):
+    """The mutant: one question's text made a street address with its flag left false, in a rolled-back
+    transaction. The check over the view must see it; the counts before must be clean."""
+    conn, s = filled["conn"], filled["schema"]
+    assert check.judge_shown(check.shown(conn, s, shared=True)) == []
+    key = filled["written_questions"][0]["key"]
+    conn.execute(f"UPDATE {s}.parliament_written_questions SET question_text = 'Visit 12 Sample Street.', "
+                 "question_text_names_address = false WHERE key = %s", (key,))
+    fails = check.judge_shown(check.shown(conn, s, shared=True))
+    conn.rollback()
+    assert fails == ["written_questions.question_text: 1 rows hold a street address with "
+                     "`question_text_names_address` false"]
 
 
 def test_arrivals_mark_a_record_that_holds_no_place_withdrawn(filled):

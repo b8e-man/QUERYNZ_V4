@@ -9,7 +9,10 @@ Every record of the seven parliament corpora the pull has taken
 rows go to the tables in batches as they are read (683,524 written
 questions do not sit in memory). Items in (the documents) equal records
 plus older versions plus items set aside; the pull's own catch lines come
-across as set-aside lines at stage `pull`.
+across as set-aside lines at stage `pull`. Every text published whole is
+flagged where its shape names an address (shapes.py, ruling 102); the
+flagged rows go to `address_flags` by key and the log counts them by
+column, never printing a value.
 
     python -m registers.parliament.load --database querynz_v4_sample --schema scratch_parliament_1_build --mcp-schema scratch_mcp_1_pull2
 """
@@ -25,8 +28,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "parliament"
 PRIVATE = "parliament_private"
 JOB = "qv4-parliament-load"
-TABLES = ("written_questions", "api_items", "wayback_pages", "files", "set_aside")
-PRIVATE_TABLES = ("wayback_texts",)
+TABLES = ("written_questions", "api_items", "wayback_pages", "files", "set_aside", "address_flags")
+PRIVATE_TABLES = ()
 COLUMNS = {"written_questions": read.columns("wq"), "api_items": read.columns("api"),
            "wayback_pages": read.columns("wayback")}
 BATCH = 20000
@@ -80,24 +83,15 @@ class Sink(read.Result):
         if len(self.rows[t]) >= BATCH:
             self.flush(t)
 
-    def emit_text(self, key: str, text) -> None:
-        self.texts.append((key, text))
-        if len(self.texts) >= BATCH:
-            self.flush_texts()
 
     def flush(self, t: str) -> None:
         cols = COLUMNS[t]
         _copy(self.conn, table(self.schema, t, self.shared), cols, (tuple(r[c] for c in cols) for r in self.rows[t]))
         self.rows[t] = []
 
-    def flush_texts(self) -> None:
-        _copy(self.conn, table(private_of(self.schema), "wayback_texts", self.shared), ("key", "text"), self.texts)
-        self.texts = []
-
     def close(self) -> None:
         for t in COLUMNS:
             self.flush(t)
-        self.flush_texts()
 
 
 def build(conn, schema: str, items: list, caught: list = (), shared: bool = False, get_bytes=read_bytes) -> dict:
@@ -111,6 +105,7 @@ def build(conn, schema: str, items: list, caught: list = (), shared: bool = Fals
     _copy(conn, table(schema, "files", shared), ("sha256", "corpus", "record_id", "seq", "status"), sink.files)
     _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason"),
           [(f"{c} seq {s}", "pull", f"{st}: {why}") for c, s, st, why in caught] + list(sink.set_aside))
+    _copy(conn, table(schema, "address_flags", shared), ("table_name", "key", "column_name", "shape"), sink.flags)
     return {**sink.counts, "pull caught": len(caught)}
 
 
@@ -122,6 +117,12 @@ def load(conn, schema: str, log=print, mcp_schema: str = capture.MCP_SCHEMA) -> 
     log("parliament: " + detail)
     jobrun.record(JOB, True, detail, started, counts)
     return counts["records"]
+
+
+def views(conn, schema: str) -> None:
+    """The published views over a scratch build, as `<schema>.pub_parliament_*`, so the check reads a proof
+    the way it reads `pub`."""
+    conn.execute(sql("publish.sql", schema).replace("pub.", f"{schema}.pub_"))
 
 
 def publish(conn, staging: str) -> None:
@@ -149,6 +150,7 @@ def main(argv=None) -> int:
         conn.execute("SET statement_timeout = '600s'")
         if a.schema:
             counts = build(conn, a.schema, capture.arrivals(conn, a.mcp_schema), capture.caught(conn, a.mcp_schema))
+            views(conn, a.schema)
             conn.commit()
             print("parliament: " + ", ".join(f"{k} {v}" for k, v in counts.items()) + f", into {a.database}.{a.schema}")
             return 0
