@@ -517,10 +517,12 @@ keep-alives, enabled, lingering; Arthur put this box's key on the VPS
 test tunnel had used; the MCP registered for Claude Code in the project
 directory only (local scope; nothing in the repository). Proven: health
 `{"status":"ok","corpora":6}` through the tunnel; the MCP's handshake
-and tools/list answer (corpora, records, search, get, measure). Not yet
-proven: the `corpora` call returned only keep-alive pings for 40 s, and
-Claude Code's own client times out connecting at 30 s; handed to Arthur
-for the VPS side. The same setup is owed on node1 when it returns, after
+and tools/list answer (corpora, records, search, get, measure). At 16:20
+Claude Code's own client connected (3 s, after one timed-out try), and
+the tools answer: `search` for one word in 45 s, `records` for one
+beehive record (of 45,418) in 34 s, `measure` at once; `corpora` gave
+only keep-alive pings for 40 s. The server's calls are slow on its own
+side; handed to Arthur for the VPS. The same setup is owed on node1 when it returns, after
 the fence (the unit, the key on the VPS, the registration); the queue
 item `an-mcp-for-the-parliament-and-beehive-sites` is closed by this
 ruling once the lane is briefed.
