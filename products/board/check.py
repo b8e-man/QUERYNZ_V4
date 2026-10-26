@@ -228,6 +228,54 @@ def problems(conn, term: str = None) -> list:
     out += near_names_problems(conn)
     out += table_problems(conn, held)
     out += mode_problems(conn)
+    out += removed_problems(conn)
+    return out
+
+
+#: a word many companies carry, some of them removed (ruling 93's live case)
+REMOVED_TERM = "fletcher"
+
+
+def register_count(page: str, register: str) -> tuple:
+    """(count, removed hidden) on a register's count line in the results pane."""
+    got = re.search(re.escape(panes.esc(dict(cat.REGISTERS)[register])) + r' <span class="count">([\d,]+)</span>'
+                    r'(?: <span class="note">([\d,]+) removed hidden</span>)?</h3>', page)
+    if not got:
+        return None, None
+    return int(got.group(1).replace(",", "")), int((got.group(2) or "0").replace(",", ""))
+
+
+def removed_problems(conn) -> list:
+    """20. Ruling 93, on the live companies register: "show removed
+    companies" unticked finds fewer rows than ticked, the hidden count is
+    the difference, no row shown is removed, and only the ticked page's
+    hrefs carry removed=1."""
+    out = []
+    off, on = search.Boxes(False, ("companies",)), search.Boxes(False, ("companies",), removed=True)
+    page_off = server.render(REMOVED_TERM, [], conn=conn, boxes=off)
+    page_on = server.render(REMOVED_TERM, [], conn=conn, boxes=on)
+    n_off, hidden = register_count(page_off, "companies")
+    n_on, hidden_on = register_count(page_on, "companies")
+    if n_off is None or n_on is None:
+        return [f"the companies count line for {REMOVED_TERM!r} is missing"]
+    if not n_off < n_on or hidden != n_on - n_off or hidden_on:
+        out.append(f"{REMOVED_TERM!r} in companies: {n_off:,} shown with {hidden:,} removed hidden, {n_on:,} with the box "
+                   f"ticked ({hidden_on:,} hidden): fewer unticked, the difference hidden, nothing hidden ticked")
+    res = search.search(conn, REMOVED_TERM, limit=search.RESULTS_LIMIT, registers=("companies",), removed=False)
+    for v, _, rows in res.get("companies", []):
+        col = cat.REMOVED_OF.get(v.name)
+        for r in rows if col else ():
+            if (r.get(col) or "").strip().lower() in cat.REMOVED_STATUS:
+                out.append(f"{v.name}:{r['key']} is shown unticked with status {r.get(col)!r}")
+    if 'name="removed" value="1" checked' in page_off or 'name="removed" value="1" checked' not in page_on:
+        out.append("the show removed companies box does not show as it was sent")
+    links = lambda page: re.findall(r'href="(/[^"]*all=[^"]*)"', page)
+    if any("removed=1" in h for h in links(page_off)):
+        out.append("an href carries removed=1 with the box unticked")
+    if not links(page_on) or not all("removed=1" in h for h in links(page_on)):
+        out.append("an href drops removed=1 with the box ticked")
+    if 'name="removed" value="1" checked' in panes.left_pane("", ["companies"], search.FIRST):
+        out.append("the first view has show removed companies ticked")
     return out
 
 
@@ -235,7 +283,7 @@ def mode_problems(conn) -> list:
     """19. Ruling 92 (6), on the live registers."""
     out = []
     asked = (("first", KNOWN_REVERSED[0]), ("last", KNOWN_REVERSED[1]))
-    total = lambda res: sum(n for k, hits in res.items() if k != "held" for _, n, _ in hits)
+    total = lambda res: sum(n for k, hits in res.items() if k not in ("held", "hidden") for _, n, _ in hits)
     every = search.search(conn, "", limit=search.RESULTS_LIMIT, registers=("party_returns", "companies"), fields=dict(asked))
     some = search.search(conn, "", limit=search.RESULTS_LIMIT, registers=("party_returns", "companies"), fields=dict(asked),
                          mode=search.ANY)
@@ -266,7 +314,8 @@ def table_problems(conn, held: set) -> list:
             continue
         tab = page[page.index('id="table"'):]
         v = panes.main_view(register, held)
-        n = db.rows(conn, f"select count(*) as n from pub.{v.name}")[0]["n"]
+        rc, rp = search.removed_sql(v, boxes.removed)       # ruling 93: the first view leaves removed companies out
+        n = db.rows(conn, f"select count(*) as n from pub.{v.name} where true{rc}", rp)[0]["n"]
         shown = len(re.findall(r"<tr><td", tab))
         if f"{n:,} rows in {v.name}" not in tab or shown != min(search.TABLE_PAGE, n):
             out.append(f"{register}: the table of {v.name} shows {shown} rows and not its count {n:,} (wanted {min(search.TABLE_PAGE, n)})")
@@ -590,7 +639,7 @@ def _names(v, r) -> list:
 
 
 def _hits(res) -> list:
-    return [(v, r) for reg, found in res.items() if reg != "held" for v, _, rows in found for r in rows]
+    return [(v, r) for reg, found in res.items() if reg not in ("held", "hidden") for v, _, rows in found for r in rows]
 
 
 def field_problems(conn, held: set, columns: dict, types: dict) -> list:

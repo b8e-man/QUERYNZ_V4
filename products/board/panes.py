@@ -413,6 +413,21 @@ def field_boxes(boxes) -> str:
     return "".join(out)
 
 
+def removed_box(boxes) -> str:
+    """Ruling 93: "show removed companies", under the register ticks,
+    unticked on the first view; an unticked box sends nothing, so the
+    address carries `removed=1` only when it is ticked."""
+    on = " checked" if getattr(boxes, "removed", False) else ""
+    return (f'<p class="removed"><label><input type="checkbox" name="removed" value="1"{on}> show removed companies</label> '
+            f'<span class="note">a company whose status reads {esc(", ".join(sorted(cat.REMOVED_STATUS)))}; '
+            "a row opened by its own link opens whatever its status</span></p>")
+
+
+def hidden_line(n: int) -> str:
+    """The count a search or table left out as removed (ruling 93); "" for none."""
+    return f' <span class="note">{n:,} removed hidden</span>' if n else ""
+
+
 def left_pane(q: str, held_regs: list, boxes, action: str = "/", title: str = "Search the registers") -> str:
     return "\n".join([
         '<section class="pane left" id="search">', '<div class="reg">search</div>', f"<h2>{esc(title)}</h2>",
@@ -425,6 +440,7 @@ def left_pane(q: str, held_regs: list, boxes, action: str = "/", title: str = "S
         "A suppressed name is never found by name. Search all searches every held register, whatever is ticked; "
         "untick it to search the registers ticked alone.</p>",
         register_boxes(held_regs, boxes, q if action == "/" else None),
+        removed_box(boxes),
         (f'<input type="hidden" name="t" value="{esc(boxes.table)}"><input type="hidden" name="o" value="{boxes.upto}">'
          if action == "/" and boxes is not None and boxes.table else ""),
         "<p><button>search</button></p></form></section>"])
@@ -512,16 +528,17 @@ def plain(value, column: str = "") -> str:
     return html.unescape(re.sub(r"<[^>]+>", "", fmt(value, column)))
 
 
-def table_pane(q: str, v: cat.View, total: int, rows: list, boxes, held: set = (), far: dict = None) -> str:
+def table_pane(q: str, v: cat.View, total: int, rows: list, boxes, held: set = (), far: dict = None, hidden: int = 0) -> str:
     """One register's view as a table (ruling 92 (5)): the count of all its
     rows at the top, then the first rows in the view's default order, one
     line each, the title and the catalogue's fields in fixed columns, cut
     with the whole value on hover; the title opens the row's pane; a key
     column shows the far row's title (ruling 92 (2)); "more" appends the next
     TABLE_PAGE (its href carries the offset); a chooser for the register's
-    other views. A suppressed name and withheld text as panes.shown()."""
+    other views. A suppressed name and withheld text as panes.shown();
+    `hidden`, the removed companies left out (ruling 93), on the count line."""
     out = ['<section class="pane table" id="table">', f'<div class="reg">{register_heading(v.register)} · table</div>',
-           f'<h2>{register_heading(v.register)} <span class="count">{total:,} rows in {esc(v.name)}</span></h2>']
+           f'<h2>{register_heading(v.register)} <span class="count">{total:,} rows in {esc(v.name)}</span>{hidden_line(hidden)}</h2>']
     others = [w for w in cat.views_of(v.register) if w.name in held]
     if len(others) > 1:
         out.append('<p class="note">views: ' + " · ".join(
@@ -671,7 +688,8 @@ def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(),
         hits = results.get(register, [])
         present = [v for v in cat.views_of(register) if v.name in held]
         total = sum(n for _, n, _ in hits)
-        out.append(f'<h3>{esc(plain)} <span class="count">{total:,}</span></h3>')
+        hidden = sum(n for x, n in (results.get("hidden") or {}).items() if x in {v.name for v in present})
+        out.append(f'<h3>{esc(plain)} <span class="count">{total:,}</span>{hidden_line(hidden)}</h3>')
         if not present:
             out.append('<p class="why">not held</p>')
             continue

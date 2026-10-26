@@ -75,12 +75,14 @@ def _resolver(conn):
     return resolve
 
 
-def build(conn, q: str, regs=None, centre: str = "", fields: dict = None) -> dict:
+def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, removed: bool = True) -> dict:
     """{'nodes': {id: {v, row, matched, centre, order}}, 'edges': [...],
     'drawn': {kind: n}, 'not_drawn': {kind: n}, 'matched_total', 'unresolved'}.
     An edge is one cause: kind, a, b (node ids), label (plain words), cite
     (the asserting row's id), rule (the links rule id, or None); `lines`
-    folds the causes between two rows into one line."""
+    folds the causes between two rows into one line. `removed` false: a
+    removed company is not a matched row (ruling 93); a far end still shows,
+    and a centre opens whatever its status, since its link names the row."""
     g = {"nodes": {}, "edges": [], "drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS},
          "not_drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS}, "matched_total": 0, "unresolved": 0, "centre": centre}
     held = db.pub_views(conn)
@@ -92,7 +94,7 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None) -> dic
             matched.append((cat.BY_NAME[view], r))
         g["matched_total"] = len(matched)
     elif q or fields:
-        res = search.search(conn, q, limit=PER_VIEW, registers=regs, fields=fields)
+        res = search.search(conn, q, limit=PER_VIEW, registers=regs, fields=fields, removed=removed)
         for register, _ in cat.REGISTERS:
             for v, total, rows in res.get(register, []):
                 g["matched_total"] += total

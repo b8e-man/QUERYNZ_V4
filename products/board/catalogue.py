@@ -1218,6 +1218,15 @@ POINTERS = {
 }
 
 
+#: ruling 93: the status words, case folded and trimmed, of a company no longer on the register. pub.companies'
+#: status values, 26 October 2026: Removed 1,066,680, removed 1,931, dissolved 28,534, deregistered 2,550, closed 65,
+#: "Removed & In Liquidation" 2. Left out: liquidation, receivership and administration (still on the register),
+#: CANCELLED 5, SUSPENDED 1, inactive 1 (not stated as off the register)
+REMOVED_STATUS = frozenset({"removed", "deregistered", "dissolved", "closed", "removed & in liquidation"})
+#: the views whose rows are hidden by status unless "show removed companies" is ticked: view -> its status column
+REMOVED_OF = {"companies": "status"}
+
+
 def pointers(v: View) -> dict:
     """{column: (far view, far column)} for every column a pane of `v` shows
     (its fields) that names another view's row (ruling 92 (2)): the parent
