@@ -227,6 +227,10 @@ class View:
     text: tuple = ()                # (label, column, words when empty): a long text shown whole in the row pane alone, never in a results hit or the table
     title_format: str = ""          # the title as words around its columns ("{sitting_on} · Parliament {parliament}"); where a column it names is empty, the plain title
     says: tuple = ()                # Say: a line the row carries where a column holds a value
+    flags: tuple = ()               # (column, flag column, words): where the flag is true the column's cell, a field or a text, carries the words small beside it
+    served: str = ""                # a column that, when false, strikes the row's title through: "withdrawn by the source"
+    cite: tuple = ()                # (label, column): the source's own id for the row, shown in the citation beside the hash
+    no_url: str = ""                # what the citation says where every one of `urls` is empty ("file name only: no address served")
 
 
 #: every Hansard row's line (registers/hansard/pane.md, ruling 96)
@@ -237,6 +241,17 @@ BEEHIVE_NOTE = ("the estate did not fetch this page: the query-nz provider captu
                 "or the old estate's scraper did before ruling 78")
 #: the heading pane.md insists on for the provider's topics and quotes (ruling 96)
 ANNOTATION = "The source's annotation (made by its model, not ours)"
+
+#: every ministers' diary row's line (registers/ministers_diaries/pane.md, ruling 78)
+DIARY_NOTE = ("the estate did not fetch the PDF: the query-nz provider read it from the Beehive off-estate (ruling 78). "
+              "Names are as the release prints them and are links to nobody")
+#: every Parliament row's line (registers/parliament/pane.md, rulings 78, hard limit 6)
+PARLIAMENT_NOTE = ("the estate did not fetch parliament.nz: the query-nz provider captured it off-estate (ruling 78), "
+                   "through a challenge the estate may not pass (hard limit 6)")
+#: the flag note beside a text a lane's shapes say names an address (ruling 102): the board shows it whole
+NAMES_ADDRESS = "names an address by its shape: a product keeps it off its own surface (hard limit 15); the board shows it whole"
+#: a row served in more than one version (registers/parliament/pane.md)
+VERSIONS = Say("read from the version taken last, of {versions}", "versions", above=1)
 
 DOC = (("document", "document"), ("page", "page"), ("place", "place"), ("read from", "read_from"),
        ("reader", "reader"), ("profile", "profile"))
@@ -660,6 +675,69 @@ VIEWS: tuple[View, ...] = (
          note="captured and read off-estate by the query-nz provider (ruling 78); pdftotext's text, no section or "
               "speaker split. The text is in no view: \"source\" opens the landed record whole (ruling 88, the board only)",
          default_order="sitting_on"),
+    # ── parliament (the ingest MCP's parliament corpora, rulings 96, 101, 102; pane.md: parliament) ──
+    View("parliament_written_questions", "parliament", "document", ("title",),
+         search=("title", "minister_name", "ministerial_display_name", "document_id"),
+         fields=(("number", "question_number"), ("year", "question_year"), ("Parliament", "parliament_number"),
+                 ("minister", "minister_name"), ("the minister's title", "ministerial_display_name"),
+                 ("released, as served", "question_released_at"), ("reply held", "reply_present"),
+                 ("Parliament's member id, the asking member", "member_id"), ("document type", "document_type"),
+                 ("dated", "dated"), ("last modified", "last_modified"), ("attachment", "attachment_name"),
+                 ("captured by the provider", "provider_fetched_at"), ("versions served", "versions"),
+                 ("served by the source", "served"), ("source", "source_note")),
+         dates=(("released", "question_released_on"),), urls=("citation_url",),
+         text=(("The question, as the API gives it", "question_text", "no question text held"),
+               ("The reply, as the API gives it", "reply_text", "no reply held")),
+         flags=(("question_text", "question_text_names_address", NAMES_ADDRESS),
+                ("reply_text", "reply_text_names_address", NAMES_ADDRESS)),
+         relations=(Relation("role", "member_id", "hansard_speeches", to_column="member_id",
+                             label="asked by the member of these turns (Parliament's member id)"),),
+         says=(VERSIONS,), served="served",
+         cite=(("Parliament's document id", "document_id"),),
+         no_url="no page address: the API gives none, and none is made up",
+         note=PARLIAMENT_NOTE + ". The asking member is joined to Hansard by Parliament's own member id, never by a name; "
+              "the House publishes no such id",
+         default_order="parliament_number, question_year, question_number"),
+    View("parliament_api_items", "parliament", "document", ("title", "document_type"),
+         search=("title", "short_title", "bill_title", "select_committee", "member_name", "party_name", "author"),
+         numbers=("bill_number",),
+         fields=(("corpus", "corpus"), ("documentType, as the API gives it", "document_type"), ("type", "item_type"),
+                 ("short title", "short_title"), ("bill", "bill_title"), ("bill number", "bill_number"),
+                 ("current stage", "bill_current_stage_name"), ("stages", "bill_stages"),
+                 ("committee", "select_committee"), ("member, as served", "member_name"),
+                 ("party, as served", "party_name"), ("author", "author"), ("people", "people"),
+                 ("published, as served", "publication_date"), ("last stage", "last_stage_date"),
+                 ("last modified", "last_modified"), ("submissions close", "iob_closing_date"),
+                 ("reference", "reference"), ("order", "order_number"), ("Parliament", "parliament_number"),
+                 ("SOP", "sop"), ("status", "status"), ("attachment", "attachment_name"), ("updated", "updated_at"),
+                 ("captured by the provider", "provider_fetched_at"), ("collected by the provider", "provider_collected_at"),
+                 ("the provider's capture", "capture"), ("versions served", "versions"),
+                 ("served by the source", "served"), ("source", "source_note")),
+         dates=(("published", "publication_on"),), urls=("citation_url",),
+         text=(("Text, the provider's run of the record's fields", "text", "no text held"),),
+         flags=(("text", "text_names_address", NAMES_ADDRESS),),
+         says=(VERSIONS,), served="served",
+         cite=(("Parliament's record id", "record_id"),),
+         no_url="no page address in the record: cited by its hash and Parliament's record id",
+         title_format="{title} · {document_type}",
+         note=PARLIAMENT_NOTE + ". A current bill is in both bill corpora: two rows, one per corpus. The member is a "
+              "name as served, a link to nobody",
+         default_order="publication_on"),
+    View("parliament_wayback_pages", "parliament", "document", ("html_title", "dated"),
+         search=("html_title", "citation_url"),
+         fields=(("the page's address", "citation_url"), ("the Internet Archive's copy", "snapshot_url"),
+                 ("archived, the copy's stamp", "archived_at"), ("day, the copy's", "dated"), ("type", "doc_type"),
+                 ("kind", "kind"), ("words", "text_words"), ("captured by the provider", "captured_at"),
+                 ("the provider's hash of the copy", "captured_sha256"), ("capture status", "capture_status"),
+                 ("the provider's capture", "capture"), ("versions served", "versions"),
+                 ("served by the source", "served"), ("source", "source_note")),
+         urls=("citation_url", "snapshot_url"),
+         text=(("Text as captured", "text", "no text held"),),
+         flags=(("text", "text_names_address", NAMES_ADDRESS),),
+         says=(VERSIONS,), served="served",
+         title_format="{html_title} · archived {dated}",
+         note=PARLIAMENT_NOTE + "; read from the Internet Archive's copy, not the live page",
+         default_order="dated"),
     # ── beehive (the ingest MCP's beehive corpus and the old estate's export, ruling 96; pane.md: beehive) ──
     View("beehive_releases", "beehive", "document", ("title", "type"),
          search=("title", "type"),
@@ -702,6 +780,40 @@ VIEWS: tuple[View, ...] = (
          note=ANNOTATION + ": the query-nz provider's model made it off-estate. Shown as the provider's, never a finding "
               "of the estate, never a link and never read into the graph (ruling 96)",
          default_order="published_on"),
+    # ── ministers_diaries (the ingest MCP's parliament-diaries corpus, rulings 96, 102; pane.md: ministers_diaries) ──
+    View("minister_diary_releases", "ministers_diaries", "document", ("minister", "file_name"),
+         search=("minister", "file_name"),
+         fields=(("minister, as the release prints them", "minister"), ("ministers its entries name", "ministers_named"),
+                 ("portfolios, as released", "portfolios"), ("month", "month"),
+                 ("month, as the file name gives it", "month_named"), ("month of every entry", "entries_month"),
+                 ("calendar months its entries fall in", "months"), ("file name", "file_name"),
+                 ("the site's folder", "upload_folder"), ("entries", "entries"),
+                 ("entries with a withholding", "withheld_entries"), ("locations flagged", "locations_flagged"),
+                 ("source", "source_note")),
+         dates=(("first entry", "first_on"), ("last entry", "last_on")), urls=("citation_url",),
+         joins=(Join("Its meetings, in date and time order", "minister_diary_entries", "release", order="entry_on, rowid"),),
+         title_format="{minister} · {month}",
+         no_url="file name only: no address served",
+         note=DIARY_NOTE, default_order="first_on"),
+    View("minister_diary_entries", "ministers_diaries", "event", ("entry_on", "time", "meeting"),
+         search=("meeting", "attendees", "portfolio", "minister"),
+         fields=(("minister, as released", "minister"), ("portfolio, as released", "portfolio"),
+                 ("time, as released", "time"), ("meeting, as released", "meeting"),
+                 ("attendees, as released", "attendees"), ("location, as released", "location"),
+                 ("the fields the release withholds", "withheld"), ("date, as released", "date_as_released"),
+                 ("release", "release"), ("the provider's row", "rowid"), ("versions served", "versions"),
+                 ("collected by the provider", "collected_at"), ("updated", "updated_at"), ("source", "source_note")),
+         dates=(("day", "entry_on"),), urls=("citation_url",),
+         parent=("Release", "minister_diary_releases", "release"),
+         flags=(("location", "location_names_home", "names a home"),
+                ("location", "location_street_only", "street address, no place of business named"),
+                ("meeting", "meeting_names_address", "street address in the meeting"),
+                ("attendees", "attendees_names_address", "street address in the attendees")),
+         says=(VERSIONS,),
+         no_url="file name only: no address served",
+         note=DIARY_NOTE + ". A withheld field shows the release's own words. The board shows the meeting, attendees and "
+              "location whole (ruling 102); a product keeps a flagged one off its own surface (hard limit 15)",
+         default_order="entry_on"),
     # ── mp_interests (copied from published files; pane.md: mp_interests) ──
     View("mp_interest_returns", "mp_interests", "person", ("name", "as_at"),
          search=("name", "member", "party", "party_label", "electorate"),
@@ -1186,6 +1298,11 @@ FIELDS_OF = {
                              Name("display_name", order=GIVEN_FAMILY)),   # house/read.py: keys.names' given-first display
                       organisation=("party", "party_registered")),
     "hansard_speeches": Fields(names=(Name("member_name", order=FAMILY_GIVEN),)),   # the old roster's "Kuriger, Barbara": the comma fixes it
+    "parliament_written_questions": Fields(names=(Name("minister_name", order=GIVEN_FAMILY),)),   # "Hon Tama Potaka": 673,651 of 683,524 with the honorific, none with a comma
+    "parliament_api_items": Fields(names=(Name("member_name", order=GIVEN_FAMILY),),   # the SOPs' member as served, "Lan Pham", "Dr ...": no comma in 783
+                                   organisation=("party_name", "select_committee")),
+    "minister_diary_releases": Fields(names=(Name("minister", order=GIVEN_FAMILY),)),   # as the release prints them, "Hon Chris Penk": no comma in 2,560
+    "minister_diary_entries": Fields(names=(Name("minister", order=GIVEN_FAMILY),)),   # as the release prints them, "Hon Chris Penk"
     "beehive_release_ministers": Fields(names=(Name("name", order=GIVEN_FAMILY),)),   # the site's tag "Hon Chris Bishop": given then family, the honorific off the front
     "mp_interest_returns": Fields(names=(Name("name", order=GIVEN_FAMILY),      # mp_interests/read.py: keys.names' given-first display
                                          Name("member", order=GIVEN_FAMILY)),   # the register's header "Name (Party, Electorate)", given-first
@@ -1279,8 +1396,10 @@ REGISTERS = (
     ("party_finance", "Party finance: expenses, statements, promoters, broadcasting"),
     ("house", "Candidates, electorates and the House"),
     ("mp_interests", "MPs' declared interests"),
+    ("parliament", "Parliament: written questions, bills, papers and archived pages"),
     ("hansard", "Hansard: who spoke in Parliament"),
     ("beehive", "Beehive: releases, speeches and features"),
+    ("ministers_diaries", "Ministers' diaries: who met the minister"),
     ("expenses", "MPs' and ministers' expenses"),
     ("companies", "Companies, directors and shareholders"),
     ("societies", "Incorporated societies and their officers"),
@@ -1305,7 +1424,7 @@ REGISTERS = (
     ("local_elections", "Local election candidate returns (listed; held unread until ruling 79 lifts)"),
 )
 
-#: the graph canvas's node colours (ruling 100), by family of register: 30 registers cannot take 30 colours each 3:1
+#: the graph canvas's node colours (ruling 100), by family of register: 32 registers cannot take 32 colours each 3:1
 #: on the picture's surface and 15 apart in OKLab (the best found is 13.5 apart), so registers of one family share a
 #: colour, as the two same-person kinds share one hue in the key; the 14 colours are 17.5 or more apart and 3:1 or more
 #: on the surface (tests/test_night.py, panes.contrast_problems). A node's register is named in its hover and the
@@ -1315,7 +1434,7 @@ FAMILIES = (
     ("candidate returns", "#8048e0", ("candidate_returns", "local_elections")),
     ("parties", "#f04020", ("parties", "party_boards")),
     ("party finance", "#f8c0c8", ("party_finance",)),
-    ("the House", "#00d070", ("house", "hansard", "beehive")),
+    ("the House", "#00d070", ("house", "parliament", "hansard", "beehive", "ministers_diaries")),
     ("declared interests", "#d0a008", ("mp_interests", "councillor_interests")),
     ("expenses", "#986800", ("expenses",)),
     ("companies", "#0088b0", ("companies", "limited_partnerships")),
@@ -1333,7 +1452,6 @@ FAMILY_OF = {r: name for name, _, regs in FAMILIES for r in regs}
 
 #: registers the plan names that no lane has published yet (plan step 4.1 and later steps)
 NOT_HELD = (
-    ("ministers_diaries", "Ministers' diaries (ruling 78: the Beehive is not captured; a third-party source Arthur supplies)"),
     ("openlaw", "OpenLaw case law (held on its terms: queue, no default)"),
     ("hdc_decisions", "Health and Disability Commissioner decisions (held on the Commissioner's copyright terms: queue, no default)"),
     ("linz", "LINZ titles"),
@@ -1420,7 +1538,8 @@ def views_of(register: str) -> list:
 
 #: a register's main view, the one its table opens first (ruling 92 (5)), where it is not the first catalogued
 MAIN_VIEW = {"parties": "parties", "grants": "grants", "sanctions": "sanctions_listings", "hansard": "hansard_sittings",
-             "beehive": "beehive_releases"}
+             "beehive": "beehive_releases", "parliament": "parliament_written_questions",
+             "ministers_diaries": "minister_diary_releases"}
 
 
 def main_view_of(register: str) -> str:
@@ -1434,7 +1553,8 @@ def columns_shown(v: View) -> set:
     may cite through its parent)."""
     return (set(v.title) | {c for _, c in v.fields} | {c for _, c in v.dates} | set(v.urls) | set(v.names)
             | {c for _, c, _ in v.text} | set(re.findall(r"\{(\w+)\}", v.title_format))
-            | {c for say in v.says for c in (say.column, *re.findall(r"\{(\w+)\}", say.words))})
+            | {c for say in v.says for c in (say.column, *re.findall(r"\{(\w+)\}", say.words))}
+            | {c for f in v.flags for c in f[:2]} | {c for _, c in v.cite} | ({v.served} if v.served else set()))
 
 
 def fold_term(term: str) -> str:

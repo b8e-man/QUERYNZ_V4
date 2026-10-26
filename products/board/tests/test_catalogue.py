@@ -26,6 +26,8 @@ PUBLISHED_AT_20_OCTOBER = {
     "hansard_sittings", "hansard_sections", "hansard_speeches",   # hansard-1 (26 October, ruling 96), catalogued at fix-products-board-1h
     "beehive_releases", "beehive_release_ministers", "beehive_release_annotations",   # mcp-1 (27 October, ruling 96), catalogued at fix-products-board-1i
     "hansard_days",   # hansard-2 (27 October), catalogued at fix-products-board-1i, which carries it
+    "minister_diary_releases", "minister_diary_entries",   # diaries-2 (27 October, rulings 96, 102), catalogued at fix-products-board-2, which carries it
+    "parliament_written_questions", "parliament_api_items", "parliament_wayback_pages",   # parliament-1 (27 October, rulings 96, 101, 102), the same
     "candidate_return_totals", "candidate_return_donors",   # candidate-returns-1 (20 October)   # pub.* on 20 October 2026; the outside check compares with the live list
     "broadcasting_allocations", "candidates", "companies", "company_addresses", "company_states", "directors",
     "disclosure_items", "disclosures", "elections", "electorates", "gazette_celebrants", "gazette_liquidations",
@@ -67,6 +69,8 @@ def test_no_pane_shows_a_person_s_address():
             if v.name == "company_addresses":
                 continue
             if v.name == "charities" and c == "address_for_service":   # a body corporate's, shown under ruling 64; a trust's is withheld by the view
+                continue
+            if c in {flag for _, flag, _ in v.flags}:   # a flag that a text names an address by its shape (ruling 102): a yes or no, never an address
                 continue
             assert not any(w in c for w in ("address", "street", "suburb", "residential")), (v.name, c)
 
