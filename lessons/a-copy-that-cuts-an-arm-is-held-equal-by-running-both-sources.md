@@ -1,4 +1,4 @@
-When a product copies another module's function but cuts an arm it does not need, hold the copy equal by executing the original's source text in a namespace of its own and comparing what both write (the SQL, for every view), not by comparing text: the one-way rule forbids the import, and a text comparison cannot see past the cut.
+A copy that cuts an arm of another module's function is held equal by exec'ing the original's source beside it and comparing what both write, never by comparing text, which cannot see past the cut.
 area: products, one-way import, copied code, search, tests
 paid-for-by: 2026-10-26, fix-products-report-1 (ruling 92 item 7)
 
@@ -17,3 +17,11 @@ How to apply: products/report/tests/test_search.py is the pattern. Copy
 the original's pieces whole where you can; where you must cut, compare
 outputs over the real catalogue, so a change on the board's side fails the
 copy's test the next time the fast tier runs.
+
+The namespace carries the original's module constants, read from its
+source (every assignment whose value is a literal), not supplied by hand:
+an exec'd `def` evaluates its defaults when it runs, so board-6's
+`mode: str = ALL` made every case a NameError until the board's own
+`ALL, ANY = "all", "any"` was exec'd first (fix-products-report-2). Exec
+only the functions the cut path calls; a helper the path comes to need
+then fails as a NameError, which is the signal to copy again.

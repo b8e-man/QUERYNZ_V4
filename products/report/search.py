@@ -98,8 +98,20 @@ def fold_sql(expr: str) -> str:
     return f"translate(lower({expr}), '{MACRON_FROM}', '{MACRON_TO}')"
 
 
+def _alternatives(w: str) -> str:
+    """A word with its alternatives (ruling 92 (4): "garry|gareth", chosen
+    from the near names), its empty alternatives dropped; "" when none is left."""
+    return "|".join(x for x in w.split("|") if x)
+
+
 def words_of(term: str) -> list:
-    return [w for w in re.split(r"[\s,;]+", cat.fold_term(term)) if w]
+    return [a for a in (_alternatives(w) for w in re.split(r"[\s,;]+", cat.fold_term(term))) if a]
+
+
+def word_re(w: str) -> str:
+    """A word as a pattern: "garry|gareth" matches either in the word's place."""
+    alts = [re.escape(x) for x in w.split("|") if x]
+    return alts[0] if len(alts) == 1 else "(?:" + "|".join(alts) + ")"
 
 
 def is_number(term: str) -> bool:
@@ -120,15 +132,16 @@ def guard_sql(v: cat.View, exclude_key: str = None) -> tuple:
     return clause, params
 
 
-# ── the board's match_sql and view_sql, without the expanded search's fields (ruling 82), which the report does not offer ──
+# ── the board's match_sql and view_sql, without the expanded search's fields (ruling 82) and their mode
+#    (ruling 92 (6)), which the report does not offer: its search is mode ALL with no fields ──
 
 def match_sql(v: Searched, words: list, number: str = None) -> tuple:
-    """(clause, params): each word begins a word of the row's search columns, or the number is an official number."""
+    """(clause, params): each word (or one of its alternatives) begins a word of the row's search columns, or the number is an official number."""
     haystack = fold_sql("concat_ws(' ', " + ", ".join(v.search) + ")")
     where, params = [], []
     for w in words:
         where.append(f"{haystack} ~ %s")
-        params.append(r"\m" + re.escape(w))
+        params.append(r"\m" + word_re(w))
     clause = "(" + " and ".join(where) + ")" if where else ""
     if number and v.numbers:
         clause = "(" + (clause or "false") + " or " + " or ".join(f"{c} = %s" for c in v.numbers) + ")"

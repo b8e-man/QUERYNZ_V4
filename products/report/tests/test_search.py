@@ -15,7 +15,7 @@ from products.report import catalogue as cat
 from products.report import memo, search, server
 
 BOARD = os.path.join(os.path.dirname(__file__), "..", "..", "board")
-COPIED = ("fold_sql", "words_of", "is_number", "guard_sql")
+COPIED = ("fold_sql", "_alternatives", "words_of", "word_re", "is_number", "guard_sql")
 REF_WORDING = re.compile(r"register:key|as the board names", re.I)
 
 
@@ -30,18 +30,37 @@ def test_the_copied_pieces_are_the_boards_source():
         assert mine[name] == theirs[name], f"search.{name} differs from the board's: copy it again"
 
 
+def constants(path: str) -> str:
+    """The module's assignments whose value is a literal (LIMIT, ALL and ANY,
+    …), as source, so the board's defaults are the board's own."""
+    src = open(path, encoding="utf-8").read()
+    out = []
+    for n in ast.parse(src).body:
+        if isinstance(n, ast.Assign):
+            try:
+                ast.literal_eval(n.value)
+            except ValueError:
+                continue
+            out.append(ast.get_source_segment(src, n))
+    return "\n".join(out)
+
+
 def board_sql():
-    """The board's own fold_sql, match_sql, guard_sql and view_sql, from its
-    source text, in a namespace of their own."""
-    theirs = pieces(os.path.join(BOARD, "search.py"))
-    ns = {"re": re, "cat": types.SimpleNamespace(View=object), "LIMIT": search.LIMIT,
+    """The board's own fold_sql, word_re, match_sql, guard_sql and view_sql,
+    with its literal constants, from its source text, in a namespace of
+    their own: a name the no-fields path comes to need fails here."""
+    path = os.path.join(BOARD, "search.py")
+    theirs = pieces(path)
+    ns = {"re": re, "cat": types.SimpleNamespace(View=object),
           "MACRON_FROM": search.MACRON_FROM, "MACRON_TO": search.MACRON_TO}
-    for name in ("fold_sql", "match_sql", "guard_sql", "view_sql"):
+    exec(constants(path), ns)
+    for name in ("fold_sql", "word_re", "match_sql", "guard_sql", "view_sql"):
         exec(theirs[name], ns)
     return ns["view_sql"]
 
 
-@pytest.mark.parametrize("term", ["hart", "Te Pāti Māori", "acme holdings ltd", "9429037782269", "o'brien, j"])
+@pytest.mark.parametrize("term", ["hart", "Te Pāti Māori", "acme holdings ltd", "9429037782269", "o'brien, j",
+                                  "garry|gary hart", "j.|| smith"])
 def test_the_sql_the_report_runs_is_the_sql_the_board_writes(term):
     board_view_sql = board_sql()
     words = search.words_of(term)
