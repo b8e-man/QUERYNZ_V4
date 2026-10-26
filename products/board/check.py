@@ -84,16 +84,30 @@ tables through the session reader, never the sample:
      count of one or more, a link adding it as an alternative, and says a
      variant is never a link; the search with that alternative finds at
      least the rows of either name (near_names_problems).
+ 21. The canvas (ruling 100): the graph tab carries the canvas, its data
+     inline, the SVG inside <noscript> and the key; neither the page nor
+     any file /static/ serves names an address off the box but in a
+     licence comment (assets.addresses); every listed file reads, any other
+     name does not. For JSON_TERM ("hart") the answer /graph.json gives has
+     the same nodes, at the same places, and the same lines, each with the
+     same causes and colour, as the SVG picture of the graph tab for "hart",
+     and the page's inline data is that answer; no edge is an address; a
+     row the register suppresses, centred, keeps its name out of the
+     answer (json_problems).
 
   python -m products.board check [--term NAME]      exit 1 on any failure
 """
 from __future__ import annotations
 
+import collections
 import decimal
+import html
+import json
 import re
 import sys
 import urllib.parse
 
+from products.board import assets
 from products.board import catalogue as cat
 from products.board import db, document, graph, links_view, near, search, panes, server, uses
 
@@ -216,9 +230,10 @@ def problems(conn, term: str = None) -> list:
             if search.row(conn, view, key) is None:
                 out.append(f"the graph drew a node for {nid}, which is not a row of pub.{view}")
         page = server.render_graph("", centre, conn=conn)
-        if "<svg" not in page or "<script" in page or "<h3>Key</h3>" not in page:
-            out.append("the graph tab did not render its picture and key without script")
+        if "<svg" not in noscript_picture(page) or 'id="cy"' not in page or 'id="graph-data"' not in page or "<h3>Key</h3>" not in page:
+            out.append("the graph tab did not render its canvas, its data, the SVG inside <noscript> and the key (ruling 100)")
         out += picture_problems(conn, centre, g, page)
+    out += json_problems(conn)
     out += field_problems(conn, held, columns, types)
     out += gift_problems(conn)
     out += doc_problems(conn)
@@ -492,6 +507,103 @@ def picture_problems(conn, centre: str, g: dict, page: str) -> list:
         if RULE_ID.search(bare) or "links rule" in bare:
             out.append(f"the graph of {c} shows a rule id outside a tooltip: {(RULE_ID.search(bare) or ['links rule'])[0]}")
     return out
+
+
+#: ruling 100's live case: the JSON for this search has the nodes and edges of its SVG picture
+JSON_TERM = "hart"
+
+
+def inline_data(page: str) -> dict:
+    m = re.search(r'<script type="application/json" id="graph-data">(.*?)</script>', page, re.S)
+    return json.loads(m.group(1)) if m else {}
+
+
+def noscript_picture(page: str) -> str:
+    """The SVG picture the page keeps for a browser without script: the <noscript> that holds an <svg>."""
+    return next((b for b in re.findall(r"<noscript>(.*?)</noscript>", page, re.S) if "<svg" in b), "")
+
+
+def svg_graph(page: str) -> tuple:
+    """(node ids, node places, Counter of (line title, colour)) read back from
+    the SVG inside the page's <noscript>, from what it draws alone."""
+    picture = noscript_picture(page)
+    ids = {urllib.parse.unquote_plus(c) for c in re.findall(r'<a href="/graph\?[^"]*?&amp;c=([^"&]+)">', picture)}
+    places = {(float(x), float(y)) for x, y in re.findall(r'<circle class="[a-z]+" cx="([\d.-]+)" cy="([\d.-]+)"', picture)}
+    lines = collections.Counter((html.unescape(title), colour) for colour, title in
+                                re.findall(r'<path class="edge" d="[^"]*" stroke="(#[0-9a-f]+)"[^>]*><title>(.*?)</title>', picture, re.S))
+    return ids, places, lines
+
+
+def json_problems(conn, term: str = JSON_TERM) -> list:
+    """Item 21 (ruling 100)."""
+    out = []
+    page = server.render_graph(term, conn=conn)
+    if "<noscript>" not in page or 'id="cy"' not in page:
+        out.append(f"the graph tab for {term!r} carries no canvas, or no <noscript> picture")
+    for a in assets.addresses(page):
+        out.append(f"the graph tab for {term!r} names an address off the box: {a[:80]}")
+    for name in assets.FILES:
+        found = assets.read(name)
+        if found is None or not found[0]:
+            out.append(f"/static/{name} does not read")
+            continue
+        for a in assets.addresses(found[0].decode("utf-8", "replace")):
+            out.append(f"/static/{name} names an address off the box outside a comment: {a[:80]}")
+    for bad in ("graph.py", "../server.py", "", "static", "LICENSE"):
+        if assets.read(bad) is not None:
+            out.append(f"/static/ answers for {bad!r}, which is not one of its files")
+    data = server.graph_answer(term, conn=conn)
+    if not data["nodes"] or not data["edges"]:
+        out.append(f"the graph.json for {term!r} has {len(data['nodes'])} nodes and {len(data['edges'])} edges: nothing to hold")
+    ids, places, lines = svg_graph(page)
+    got_ids = {n["id"] for n in data["nodes"]}
+    if got_ids != ids:
+        out.append(f"the graph.json for {term!r} has {len(got_ids)} nodes, the SVG {len(ids)}; "
+                   f"{len(got_ids - ids)} only in the JSON, {len(ids - got_ids)} only in the SVG")
+    if {(round(n["x"], 1), round(n["y"], 1)) for n in data["nodes"]} != places:
+        out.append(f"the graph.json for {term!r} places its nodes other than the SVG's layered layout (ruling 92 (1))")
+    got_lines = collections.Counter((e["title"], e["colour"]) for e in data["edges"])
+    if got_lines != lines:
+        out.append(f"the graph.json for {term!r} has {sum(got_lines.values())} lines, the SVG {sum(lines.values())}; "
+                   f"{sum(((got_lines - lines) + (lines - got_lines)).values())} differ")
+    for e in data["edges"]:
+        if any("address" in c["kind"] for c in e["causes"]) or "address" in e["kind"]:
+            out.append(f"the graph.json for {term!r} carries an address edge: {e['kind']}")
+        if not all(c["cite"].startswith("/?") for c in e["causes"]):
+            out.append(f"the graph.json for {term!r} has a cause with no href to the row that asserts it")
+        if e["dashed"] != (e["kind"] == graph.NEAR):
+            out.append(f"the graph.json for {term!r} dashes a {e['kind']} line (only a near verdict is dashed)")
+    inline = inline_data(page)
+    if [n["id"] for n in inline.get("nodes", [])] != [n["id"] for n in data["nodes"]] or \
+            [e["id"] for e in inline.get("edges", [])] != [e["id"] for e in data["edges"]]:
+        out.append(f"the graph tab's inline data for {term!r} is not the answer /graph.json gives")
+    out += suppressed_json_problems(conn)
+    return out
+
+
+def suppressed_json_problems(conn) -> list:
+    """A suppressed row, centred: its name columns' values never in the
+    answer, its title the suppression words. Nothing of the row is printed."""
+    held = db.pub_views(conn)
+    for v in cat.VIEWS:
+        if not v.suppressed or v.name not in held or v.names == ():
+            continue
+        rows = db.rows(conn, f"select *, {v.key_col} as key from pub.{v.name} where {v.suppressed} is true "
+                             f"order by {v.key_col} limit 1")
+        if not rows:
+            continue
+        r = rows[0]
+        c = f"{v.name}:{r['key']}"
+        data = server.graph_answer("", c, conn=conn)
+        text = graph.to_json(data)
+        names = [str(r.get(n)) for n in v.names if r.get(n) not in (None, "") and len(str(r.get(n))) > 2]
+        centre = [n for n in data["nodes"] if n["id"] == c]
+        if not centre or centre[0]["title"] != panes.title_of(v, r) or panes.SUPPRESSED not in centre[0]["title"]:
+            return [f"the graph.json centred on a suppressed row of {v.name} does not title it {panes.SUPPRESSED!r}"]
+        if any(n in text for n in names) or any(n in json.dumps(data, default=str) for n in names):
+            return [f"the graph.json centred on a suppressed row of {v.name} carries its name (hard limit 16)"]
+        return []
+    return ["no published view holds a suppressed row: the canvas's suppression case has nothing to read"]
 
 
 def known_donor(conn) -> str:

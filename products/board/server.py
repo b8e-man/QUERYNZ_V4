@@ -1,13 +1,19 @@
 """The board's page, served on the local network only (design rule 7;
 hard limit 13), with the least machinery that works: the standard
-library's HTTP server, one page per request, no script. Routes:
+library's HTTP server, one page per request. Script runs on the graph tab
+alone (ruling 100), from the board's own /static/ files; every page carries
+a content security policy that lets it ask nothing of any other address.
+Routes:
 
   GET  /?q=<term>&p=<view:key|view:key|person:view:key…>&all=<0|1>&r=<register>…&first=&middle=&last=&address=&org=&year=
                     the search tab: the left pane (check boxes, the search box, the fields of the expanded search,
                     ruling 82), the results beside it with the near matches below them (ruling 83), then one pane per
                     step of the path
   GET  /graph?q=<term>&all=<0|1>&r=<register>…&c=<view:key>   the graph tab: the matching rows as nodes, the
-                    connections their registers assert as edges, one hop; `c` re-centres on one row
+                    connections their registers assert as edges, one hop; `c` re-centres on one row; the picture is
+                    a Cytoscape canvas (ruling 100) with the SVG inside <noscript>
+  GET  /graph.json?c=<view:key>&all=&r=…   the same graph as data (graph.answer): one row's one hop, for the canvas's taps
+  GET  /static/<name>  the board's own files (assets.FILES), with a long cache header; 404 for any other name
   GET  /pinned      the pinned panes       GET /saved     the saved paths
   POST /pin         pin a pane             POST /save     save the path walked
   GET  /doc/<sha256>  the captured document a row cites, its bytes read only from the store with its content type,
@@ -31,6 +37,7 @@ import threading
 import urllib.parse
 
 from support.docstore import landing as docstore
+from products.board import assets
 from products.board import catalogue as cat
 from products.board import db, document, graph, links_view, near, panes, search, state, uses
 
@@ -39,6 +46,10 @@ BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; neve
 REPORT_URL = os.environ.get("QV4_REPORT_URL") or ""    # the subject report's server; unset, no pane offers a report
 MAX_PANES = 12
 RENDER_LOCK = threading.Lock()      # one page at a time: every session's bin/q shares the server's connections
+#: every page asks nothing of any address but the board's own (ruling 100; hard limit 13): scripts only from /static/,
+#: the page's data inline as JSON (never run), the canvas's taps to /graph.json
+POLICY = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
+          "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
 
 
 def counter(conn=None):
@@ -203,8 +214,20 @@ def render_graph(q: str, centre: str = "", conn=None, boxes: search.Boxes = sear
         g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None,
                         removed=boxes.removed)
         out = [panes.left_pane(q, search.held_registers(held), boxes, action="/graph", title="Graph the connections"),
-               graph.pane(g, q, boxes, regs)]
+               graph.pane(g, q, boxes, regs, script=True)]
         return panes.page(q, [], out, "", boxes, tab="graph", db=counter(conn))
+
+
+def graph_answer(q: str, centre: str = "", conn=None, boxes: search.Boxes = search.FIRST) -> dict:
+    """GET /graph.json (ruling 100): the graph tab's graph as data, from the
+    same `graph.build` on the product reader (pub only); the canvas asks it
+    with `c`, one row's one hop, as the reader taps."""
+    with RENDER_LOCK, (contextlib.nullcontext(conn) if conn is not None else db.scan_connect()) as conn:
+        held = db.pub_views(conn)
+        regs = search.selection(boxes, search.held_registers(held))
+        g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None,
+                        removed=boxes.removed)
+        return graph.answer(g, q, boxes)
 
 
 def render_uses(repo: str = uses.REPO, held: set = None, host: str = "", env=None, answer=None) -> str:
@@ -242,6 +265,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Security-Policy", POLICY)
+        self.end_headers()
+        self.wfile.write(data)
+
+    def send_bytes(self, data: bytes, ctype: str, cache: str, status: int = 200):
+        self.send_response(status)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", cache)
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(data)
 
@@ -285,14 +318,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if url.path in ("/pinned", "/saved"):
                 self.send_html(render_list(url.path[1:]))
                 return
+            if url.path.startswith("/static/"):
+                found = assets.read(url.path[len("/static/"):])
+                if found is None:
+                    self.send_bytes(b"not here\n", "text/plain; charset=utf-8", "no-store", 404)
+                else:
+                    self.send_bytes(found[0], found[1], assets.CACHE)
+                return
             if url.path.startswith("/doc/") or url.path == "/doc":
                 self.send_document(url.path[len("/doc/"):])
                 return
-            if url.path not in ("/", "/graph"):
+            if url.path not in ("/", "/graph", "/graph.json"):
                 self.send_html("<p>not here</p>", 404)
                 return
             q = (qs.get("q") or [""])[0].strip()[:200]
             boxes = search.boxes_of(qs)
+            if url.path == "/graph.json":
+                body = graph.to_json(graph_answer(q, parse_centre((qs.get("c") or [""])[0]), boxes=boxes)).encode("utf-8")
+                self.send_bytes(body, "application/json; charset=utf-8", "no-store")
+                return
             if url.path == "/graph":
                 self.send_html(render_graph(q, parse_centre((qs.get("c") or [""])[0]), boxes=boxes))
                 return

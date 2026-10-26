@@ -513,13 +513,14 @@ def children(conn, v: cat.View, r: dict, limit: int = 200) -> list:
     so the pane can say 'none found'."""
     out = []
     for j in v.joins:
-        value = r.get(j.key_column)
-        if value is None:
+        values = [r.get(own) for _, own in j.pairs()]
+        if any(x is None for x in values):
             out.append((j, 0, []))
             continue
         target = cat.BY_NAME[j.view]
+        where = " and ".join(f"{far} = %s" for far, _ in j.pairs())
         found = db.rows(conn, f"select *, {target.key_col} as key, count(*) over () as total from pub.{target.name} "
-                              f"where {j.column} = %s order by {j.order} nulls last, {target.key_col} limit %s", (value, limit))
+                              f"where {where} order by {j.order} nulls last, {target.key_col} limit %s", (*values, limit))
         out.append((j, int(found[0]["total"]) if found else 0, found))
     return out
 

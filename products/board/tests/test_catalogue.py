@@ -23,6 +23,7 @@ PUBLISHED_AT_20_OCTOBER = {
     "sanctions_lists", "sanctions_listings",   # sanctions-1 (21 October), catalogued once published
     "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "building_practitioners",   # sanctions-1 (21 October)
     "court_judgments", "court_judgment_parties",   # courts-1 (21 October), catalogued at the next merge
+    "hansard_sittings", "hansard_sections", "hansard_speeches",   # hansard-1 (26 October, ruling 96), catalogued at fix-products-board-1h
     "candidate_return_totals", "candidate_return_donors",   # candidate-returns-1 (20 October)   # pub.* on 20 October 2026; the outside check compares with the live list
     "broadcasting_allocations", "candidates", "companies", "company_addresses", "company_states", "directors",
     "disclosure_items", "disclosures", "elections", "electorates", "gazette_celebrants", "gazette_liquidations",
