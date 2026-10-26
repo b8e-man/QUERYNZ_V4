@@ -77,6 +77,8 @@ LANES = (
     "councillor_interests",   # step 6.3, councillors' registers of interests, council by council (councils-1, 23 October 2026)
     "local_elections",   # step 6.3, local election candidate returns, council by council, held unread (local-elections-1, 23 October 2026)
     "beehive",   # ruling 96, the Beehive's releases from the ingest MCP and the old estate's pages (mcp-1, 27 October 2026)
+    "ministers_diaries",   # step 6.2, the ministers' diaries from the MCP's parliament-diaries corpus (diaries-2, 27 October 2026)
+    "parliament",   # ruling 96, the MCP's seven parliament corpora (parliament-1, 27 October 2026)
 )
 PRODUCTS = ("ftm", "subject_report", "register_scan", "archive_search", "board")
 FIXED = ("pub", "links", "links_private", "docs", "sealed", "scheduler",

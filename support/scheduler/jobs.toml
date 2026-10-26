@@ -1157,3 +1157,27 @@ priority = 86
 command = ["python", "-m", "registers.hansard.load"]
 at_utc = "15:15"
 nice = 10
+
+[jobs.qv4-ministers-diaries-load]
+description = "Ministers' diaries: rebuild the lane's tables from the MCP's parliament-diaries documents, publish pub.minister_diary_releases and pub.minister_diary_entries on green. Nightly at 04:20 NZDT, after the pull and the Beehive load (ruling 96; diaries-2, 27 October 2026)."
+needs = "processor"
+memory_gb = 1.0
+deadline_s = 1800
+query_timeout_s = 600
+class = "due"
+priority = 87
+command = ["python", "-m", "registers.ministers_diaries.load"]
+at_utc = "15:20"
+nice = 10
+
+[jobs.qv4-parliament-load]
+description = "Parliament: rebuild the lane's tables from the MCP's seven parliament corpora, publish pub.parliament_written_questions, pub.parliament_api_items and pub.parliament_wayback_pages on green. Nightly at 04:30 NZDT, after the pull (ruling 96; parliament-1, 27 October 2026)."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 3600
+query_timeout_s = 600
+class = "due"
+priority = 88
+command = ["python", "-m", "registers.parliament.load"]
+at_utc = "15:30"
+nice = 10

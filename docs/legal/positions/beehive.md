@@ -73,3 +73,47 @@ MCP: one request at a time, a pause of a second between pages, a call waited
 for up to three minutes and retried after 30 s doubling to 10 minutes; the
 nightly pull runs off-peak NZ time. Author: mcp-1 (Opus), 26 October 2026. A
 lawyer reviews this page before anything is sold.
+
+## The ministers' diaries (the `parliament-diaries` corpus; lane `registers/ministers_diaries`)
+
+Added at the merge of diaries-2, 27 October 2026.
+The diaries are the Beehive's monthly proactive releases: each minister's
+diary for a month, published as a PDF under www.beehive.govt.nz/sites/default/
+files/ (Cabinet's policy of December 2018, from January 2019; some ministers
+released earlier months back to October 2017). The provider read each PDF on
+its own box, one record per meeting (minister, portfolio, date, time, meeting,
+location, attendees, the PDF's address or, for 119 of 2,560 releases, its file
+name only), and serves them as the MCP's `parliament-diaries` corpus. Ruling 79
+is untouched: the provider's reading is not a model reading of ours, and no
+model reads anything here. (1) **Open?** The same as the Beehive's pages: no
+login; the estate met the site's wall on 21 October and neither passed it nor
+asked to; it fetched no PDF (ruling 78). (2) **Lawful copying?** A proactive
+release of Crown material, on the same licence as the site, attributed by the
+PDF's address on every row (the file name where no address was served).
+(3) **Terms?** The provider's, as above. (4) **Privacy and the statute.** The
+releases are made under the Official Information Act 1982 and the Cabinet
+policy, which leave out personal, party and constituency business and home
+addresses as meeting places, and withhold under ss 6, 9 and 18; the lane keeps
+every withholding as printed and counts them (2,126 entries, 6,824 fields on
+27 October). The release names officials, other ministers and members of the
+public who attended; the lane keeps each name as printed, a public role at
+most beside it, looks nothing up, and links nobody (a link to a person's row
+is product (b), after links; hard limit 14 for the public site). Hard limit 15
+binds the products, the public site and every export, not the board or the
+published views (ruling 102): the view carries the location, meeting and
+attendees whole, as released, with a flag beside each where its shape names
+an address (on 27 October: 115 locations naming a home or residence, 3,096 a
+street address with no place of business named, 32 meetings and 11 attendee
+lists with a street address), and a product shows none of those at its own
+surface. Ruling 102 is Arthur's reading of hard limit 15; whether a
+published view inside the estate may carry these whole, where only the
+products are outward-facing, is for the lawyer too. The provider's own
+joined `text` is never published. For the lawyer: whether a minister's diary entry naming a private individual who met the
+minister may be shown by name on a product, given the release itself names
+them.
+
+Crawl delay: not applicable (nothing fetched from the host). Floor for the
+MCP: one request at a time, a pause of a second between pages, a call waited
+for up to three minutes and retried after 30 s doubling to 10 minutes; the
+nightly pull runs off-peak NZ time. Author: mcp-1 (Opus), 26 October 2026. A
+lawyer reviews this page before anything is sold.

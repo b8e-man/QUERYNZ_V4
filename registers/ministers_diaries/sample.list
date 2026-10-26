@@ -1,0 +1,15 @@
+# registers/ministers_diaries/sample.list (plan 1b.6): hashes only, never bytes or rows. Each a record of the MCP's
+# parliament-diaries corpus, landed by support/mcpsource (mcp-1's pull, 26 and 27 October 2026); the comment says
+# the case, never whose it is. Order matters: an older version is listed before the current one, as the pull saw them.
+f1b08da6d762a1b8d65af56a499c77afd09cbcd23f5fd1e24dac9d9c453a9319 an older version (the provider re-read its text in place)
+d235549612792af2ce4cded1190de47840ca915d633ee75464c66711cdb3a9ab its current version: an entry before 2019, in a release spanning months
+09b3360602a68d2052cf569a3ac2d8c0ec51a2b443007c20cafb2f9047351da0 a meeting the release withholds (OIA s9(2))
+cd0c33e7fb4cf884c52be9efc593c8f01459283104ab842031e2a3ede538d2d0 a time the release withholds
+3ebab1850d5470943151d2f9b779070bbb462968329e06424fde715821b8ae82 a location that names a residence: shown whole, flagged location_names_home
+5d3ac74e4d841ee00c4315a87b488dabc2095ba64c505fd405f45d427e73f725 a street address with no place of business named: shown whole, flagged location_street_only
+ac8f2735139e4400a8305e859e4229f3132289373e37bf5c05ebddedcd35b721 a street address with a place of business named: shown, not flagged
+6ce907969a596daebace10f5f2b14d06e85b94823540b8ff7a2c5aed2906ab4c a street address in the attendees: shown whole, flagged attendees_names_address
+31d0c57c4aad340f07d22d94e23c92655a64332d1bb8d2812abe44d76b4da1eb a release served as a file name only (no PDF address)
+10b8f273945a138b66243039f9213d17c676a98844ae105b6d06f19e7b15ed5f an entry with no attendees
+bb6877e2dc9d16f70a9dcd2a824e2cf504a6d2dba2073bcdb53f8740b4b835c7 a release whose minister is printed as "No Minister"
+889d3098b34b0e052f27a7b65ab673d5054654faa6ffa2b6e5c7674ce7151f3e a 2026 entry with the PDF's address

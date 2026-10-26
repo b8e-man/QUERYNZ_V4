@@ -60,9 +60,17 @@ def loader(repo: str, module: str):
     return mod
 
 
+PRIVATE_SUFFIX = "_private"   # a lane's private schema is `<schema>_private` (support/db)
+SCHEMA_MAX = 63 - len(PRIVATE_SUFFIX)   # Postgres cuts an identifier at 63 bytes silently
+
+
 def staging_schema(branch: str, module: str) -> str:
+    """`staging_<branch>_<module>`, cut so that `<schema>_private` still fits
+    Postgres's 63-byte identifier: at 63 the private schema was cut back to
+    the public one's name and a lane's two `entries` tables collided
+    (integrate/diaries-parliament, 27 October 2026)."""
     slug = re.sub(r"[^a-z0-9]+", "_", (branch + "_" + module).lower()).strip("_")
-    return ("staging_" + slug)[:63]
+    return ("staging_" + slug)[:SCHEMA_MAX].rstrip("_")
 
 
 def run(repo: str, branch: str, connect, log=print) -> dict:
