@@ -1,4 +1,4 @@
-Before promising every category its own colour at a contrast floor and a distance floor, count the categories and search for the palette: on the board's dark picture 3:1 and 15 apart in OKLab holds for about 22 colours, not the 28 registers, so the graph's nodes take one colour per family of registers.
+Count the categories and search for the palette before promising each its own colour at a contrast and distance floor: the board's dark picture holds about 22 colours at 3:1 and 15 apart, not 28, so graph nodes take one colour per family.
 
 area: products/board, any picture coloured by category (graph nodes, the key, charts)
 
