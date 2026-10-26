@@ -16,8 +16,10 @@ again is the same document). Source `query-nz`; names `<corpus>/<id>` and
 the record's `url` where it has one. A record the MCP later serves changed
 has other bytes, so it lands as a second document under the same names,
 never over the first (one frozen reading each). `arrivals` keeps each
-record's `seq` and hash, so a lane takes the newest version of a record by
-`seq`.
+record's `seq`, hash and `landed_at`; a lane takes as a record's current
+version the one the pull saw last (by `landed_at`), never the highest `seq`
+(after the MCP removes records, a re-rendered one comes back at a lower
+place).
 
 The cursor advances only after its page is landed, in the same transaction
 as the page's arrival rows and catch lines. A record that cannot be landed
@@ -312,9 +314,13 @@ def check_changes_page(page, corpus: str, cursor: int) -> list:
     return recs
 
 
-def _earlier(stamp: str, seconds: int = 1) -> str:
-    """`stamp` a moment earlier, so a record stamped the same second as the
-    newest seen is asked for again (found held) rather than missed."""
+def _earlier(stamp: str, seconds: int = 0) -> str:
+    """`stamp`, or a moment earlier. Asked strictly after the newest stamp
+    seen (0 s): on 27 October 203,464 diary records shared one second, and a
+    margin re-served them all every night. A record changed later in that
+    same second is the weekly re-walk's."""
+    if not seconds:
+        return stamp
     try:
         t = dt.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
     except ValueError:

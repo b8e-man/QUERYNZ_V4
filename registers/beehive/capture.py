@@ -7,7 +7,7 @@ writes one `mcpsource.arrivals` row per record taken: its place in the
 MCP's arrival order (`seq`), its id and the hash it landed as. This lane
 fetches nothing; it reads what the pull landed, by hash.
 
-    arrivals(conn, mcp_schema)    [(sha256, seq, record id)] for the beehive corpus, in arrival order
+    arrivals(conn, mcp_schema)    [(sha256, seq, record id)] for the beehive corpus, in the order the pull saw them
     old_export(conn)              the old estate's Beehive pages, exported once: (sha256, name) or None
     python -m registers.beehive.capture --export PATH    write that export once
 """
@@ -29,7 +29,7 @@ def arrivals(conn, mcp_schema: str = MCP_SCHEMA) -> list:
     if not held:
         return []
     return [tuple(r) for r in conn.execute(f"SELECT sha256, seq, record_id FROM {mcp_schema}.arrivals "
-                                           "WHERE corpus = %s ORDER BY seq, landed_at", (CORPUS,))]
+                                           "WHERE corpus = %s ORDER BY landed_at, seq", (CORPUS,))]
 
 
 def caught(conn, mcp_schema: str = MCP_SCHEMA) -> list:

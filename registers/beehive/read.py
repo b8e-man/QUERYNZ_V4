@@ -5,8 +5,10 @@ support/mcpsource landed it: the record's JSON, keys sorted, without its
 `seq`. The reading takes the MCP's fields as they are: no model, no
 inference, nothing fetched. Each record is read by its hash; where the MCP
 has served a record more than once with different bytes, the release is
-read from the version it served last (the highest `seq`) and the others
-are kept in `files` as older versions.
+read from the version the pull saw last (`items` come in the order the pull
+landed them; never the highest `seq`, since a record the MCP re-renders after
+removing others comes back at a lower place) and the others are kept in
+`files` as older versions.
 
     read(items, get_bytes)   items: [(sha256, seq or None, record id or None)] → Result
 
@@ -173,18 +175,17 @@ def read_one(sha: str, rec: dict, seq, versions: int, out: Result, loaded_at: st
 
 
 def read(items, get_bytes, loaded_at: str = None) -> Result:
-    """Every document in `items` read or set aside. A document's record id
+    """Every document in `items` (in the order the pull saw them) read or set aside. A document's record id
     is its own `id`; where `items` names one too, the two must agree."""
     loaded_at = loaded_at or dt.datetime.now().astimezone().isoformat(timespec="seconds")
     out = Result()
-    newest = {}                                   # sha -> highest seq given (None when none given)
+    newest = {}                                   # sha -> the seq it was last seen at (None when none given)
+    last = {}                                     # sha -> the place in `items` it was last seen
     order = []
-    for sha, seq, _rid in items:
+    for pos, (sha, seq, _rid) in enumerate(items):
         if sha not in newest:
             order.append(sha)
-            newest[sha] = seq
-        elif seq is not None and (newest[sha] is None or seq > newest[sha]):
-            newest[sha] = seq
+        newest[sha], last[sha] = seq, pos
     named = {}
     for sha, _seq, rid in items:
         if rid is not None:
@@ -205,7 +206,7 @@ def read(items, get_bytes, loaded_at: str = None) -> Result:
             out.files.append((sha, rec.get("id") if isinstance(rec, dict) and isinstance(rec.get("id"), str) else None,
                               newest[sha], "set aside"))
             continue
-        rank = (newest[sha] if newest[sha] is not None else -1, pos)
+        rank = last[sha]                          # the version the pull saw last is the record's current one
         by_record.setdefault(rec["id"].strip(), []).append((rank, sha, rec))
     for rid, versions in by_record.items():
         versions.sort(key=lambda v: v[0])

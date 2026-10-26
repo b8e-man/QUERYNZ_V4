@@ -61,8 +61,11 @@ def test_the_newest_version_is_read_and_the_older_kept():
     new = {**old, "title": "Amended title"}
     store = _docs(old, new)
     (s_old, s_new) = list(store)
-    res = read.read([(s_new, 9, new["id"]), (s_old, 4, old["id"])], store.__getitem__)
+    # seen first at place 9, then re-rendered and seen at place 4 (the MCP removed records before it): the later is current
+    res = read.read([(s_old, 9, old["id"]), (s_new, 4, new["id"])], store.__getitem__)
     assert [r["title"] for r in res.releases] == ["Amended title"] and res.releases[0]["versions"] == 2
+    back = read.read([(s_old, 9, old["id"]), (s_new, 4, new["id"]), (s_old, 9, old["id"])], store.__getitem__)
+    assert [r["title"] for r in back.releases] == ["First title"]          # seen again last: the MCP went back to it
     assert sorted(f[3] for f in res.files) == ["older version", "read"]
     assert res.counts["releases"] + res.counts["older versions"] + res.counts["set aside"] == res.counts["documents"]
 

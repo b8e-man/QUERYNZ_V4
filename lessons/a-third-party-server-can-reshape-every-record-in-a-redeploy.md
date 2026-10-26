@@ -14,3 +14,10 @@ After a reshape, stop the pull, re-record the shapes, and start the first pull
 again in a fresh schema; earlier documents stay in the store (never deleted).
 A server whose records carry an `updated_at` may change them in place, where a
 cursor never looks: re-walk weekly (`--rewalk`).
+
+The same night the source removed 246 written questions (every later place
+moved, so a cursor would have skipped the next 246 arrivals) and re-rendered
+the `text` of about 420,000 without moving `updated_at`, so its own change
+feed showed none of it. Hold the source's count against the cursor, re-walk on
+a schedule and resumably, and take a record's current version as the one the
+pull saw last, never the highest place.
