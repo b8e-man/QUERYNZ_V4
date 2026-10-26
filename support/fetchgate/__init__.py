@@ -79,6 +79,8 @@ HELD = {
     "oneroof.co.nz": "ruling 12: NZME",
     "driven.co.nz": "ruling 12: NZME",
     "nzme.co.nz": "ruling 12: NZME",
+    "hansard.parliament.nz": "ruling 78: Hansard is not captured by the estate (a challenge since about 5 October 2026); its register comes from the old export and the MCP (ruling 96)",
+    "parliament.nz": "ruling 78: not captured by the estate; the MCP is the source (rulings 94, 96)",
 }
 #: a publisher's direct request to stop: host → when and how it was made (hard limit 7)
 STOP_REQUESTS = {}
