@@ -45,6 +45,7 @@ Tests: support/mcpsource/tests/ (a fake server; the live shape, slow).
 import datetime as dt
 import json
 import os
+import re
 import time
 
 from support.mcpsource.client import Client, McpError  # noqa: F401  (re-exported)
@@ -128,7 +129,8 @@ class Tables:
 
     def create(self) -> None:
         with open(os.path.join(HERE, "tables.sql"), encoding="utf-8") as f:
-            sql = f.read().replace(f"{SCHEMA}.", f"{self.schema}.").replace(f"{SCHEMA}_", f"{self.schema}_")
+            # one pass: a schema whose own name holds `mcpsource_` (a session's scratch) is not replaced twice
+            sql = re.sub(rf"\b{SCHEMA}(?=[._])", self.schema, f.read())
         with self.conn.transaction():
             self.conn.execute(f"CREATE SCHEMA IF NOT EXISTS {self.schema}")
             self.conn.execute(sql)
@@ -445,41 +447,106 @@ def pull_all(conn, client, schema: str = SCHEMA, only=None, log=None, follow: bo
 # ── the integrator, once: a session's proven pull carried into the live database ─────────────
 
 ADOPT_TABLES = ("cursors", "arrivals", "catch", "drift")
+ADOPT_BATCH = 20_000
 
 
-def adopt(src, dst, src_schema: str, dst_schema: str = SCHEMA, log=print, land=None) -> dict:
+def _by_corpus(conn, table: str) -> dict:
+    return {r[0]: r[1] for r in conn.execute(f"SELECT corpus, count(*) FROM {table} GROUP BY corpus")}
+
+
+def _copy_table(src, dst, src_table: str, dst_table: str) -> int:
+    """The rows of `src_table` that `dst_table` lacks (by its key), streamed
+    from one database to the other through a COPY each way, in one
+    transaction on `dst`: rows the next statement adds or nothing."""
+    cols = [r[0] for r in dst.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = %s "
+                                      "AND table_name = %s ORDER BY ordinal_position", tuple(dst_table.split(".")))]
+    cl = ", ".join(cols)
+    with dst.transaction():
+        dst.execute(f"CREATE TEMP TABLE _adopt (LIKE {dst_table} INCLUDING DEFAULTS) ON COMMIT DROP")
+        with src.cursor() as rc, dst.cursor() as wc:
+            with rc.copy(f"COPY (SELECT {cl} FROM {src_table}) TO STDOUT") as out, \
+                    wc.copy(f"COPY _adopt ({cl}) FROM STDIN") as into:
+                for block in out:
+                    into.write(block)
+            wc.execute(f"INSERT INTO {dst_table} ({cl}) SELECT {cl} FROM _adopt ON CONFLICT DO NOTHING")
+            return wc.rowcount
+
+
+def adopt(src, dst, src_schema: str, dst_schema: str = SCHEMA, log=print, batch: int = ADOPT_BATCH, root: str = None,
+          src_store: str = "docs", dst_store: str = "docs", copy=None) -> dict:
     """Carry a session's pull record (its schema in the sample database)
-    into `dst_schema` on `dst`, and land each of its documents again on
-    `dst` from the document store under every name it carries there (no
-    request to the MCP). Refuses when the record on `dst` is not empty."""
-    from support.docstore.landing import read_bytes
-    if land is None:
-        from support.docstore.landing import land
+    into `dst_schema` on `dst`, and the store rows of its documents into
+    the store tables on `dst` (the bytes are already in the one store on
+    disk; no request to the MCP). Resumable and idempotent: a table is
+    copied only where the live one holds fewer rows than the source (rows
+    it holds are kept), and documents are copied in batches of `batch`
+    hashes, those the live store holds skipped; a rerun after a kill
+    finishes the rest. Ends with a count per table and per corpus, source
+    against live: `ok` is false where any differs, a document has no bytes
+    on disk, or the source store lacks its row."""
+    if copy is None:
+        from support.docstore.landing import copy_documents as copy
     t = Tables(dst, dst_schema)
     t.create()
-    if any(dst.execute(f"SELECT 1 FROM {t.t(x)} LIMIT 1").fetchone() for x in ADOPT_TABLES):
-        raise RuntimeError(f"{dst_schema}: the live pull record is not empty; nothing adopted")
-    counts = {}
-    for x in ADOPT_TABLES:
-        cur = src.execute(f"SELECT * FROM {src_schema}.{x}")
-        cols = [d.name for d in cur.description]
-        rows = cur.fetchall()
-        with dst.cursor().copy(f"COPY {t.t(x)} ({', '.join(cols)}) FROM STDIN") as cp:
-            for r in rows:
-                cp.write_row(r)
-        counts[x] = len(rows)
-    landed = 0
-    from support.docstore.landing import names_for
-    shas = [r[0] for r in src.execute(f"SELECT DISTINCT sha256 FROM {src_schema}.arrivals")]
-    names = names_for(src, shas)       # the store's own query (tests/test_imports_one_way.py)
-    for sha, name, kind, fetched in names:
-        land(read_bytes(sha), name=name, source=SOURCE, conn=dst, name_kind=kind, content_type="application/json",
-             fetched_at=fetched.isoformat() if fetched else None)
-        landed += 1
-    counts["names re-landed"] = landed
-    for k, v in counts.items():
-        log(f"mcpsource: adopted {k}: {v}")
-    return counts
+    if not t.try_lock():
+        raise RuntimeError(f"{dst_schema}: a pull or another adopt holds the record; nothing adopted")
+    try:
+        t0 = time.monotonic()
+        out = {"tables": {}, "documents": {}, "red": []}
+        for x in ADOPT_TABLES:
+            n_src = src.execute(f"SELECT count(*) FROM {src_schema}.{x}").fetchone()[0]
+            n_dst = dst.execute(f"SELECT count(*) FROM {t.t(x)}").fetchone()[0]
+            added = _copy_table(src, dst, f"{src_schema}.{x}", t.t(x)) if n_dst < n_src else 0
+            out["tables"][x] = {"source": n_src, "live before": n_dst, "added": added}
+            log(f"mcpsource: adopt {x}: {n_src} in the source, {n_dst} live before, {added} added "
+                f"({time.monotonic() - t0:.0f} s)")
+        docs = {"asked": 0, "copied": 0, "held": 0, "no source row": 0, "no bytes": 0, "names": 0, "names copied": 0,
+                "names live": 0}
+        per = {}                                       # corpus: [documents in the source, held live after]
+        after, last = "", time.monotonic()
+        while True:
+            rows = src.execute(f"SELECT sha256, array_agg(DISTINCT corpus) FROM {src_schema}.arrivals WHERE sha256 > %s "
+                               "GROUP BY sha256 ORDER BY sha256 LIMIT %s", (after, batch)).fetchall()
+            if not rows:
+                break
+            n = copy(src, dst, [r[0] for r in rows], root=root, src_store=src_store, dst_store=dst_store)
+            absent = set(n["absent"])
+            for sha, corpora in rows:
+                for c in corpora:
+                    k = per.setdefault(c, [0, 0])
+                    k[0] += 1
+                    k[1] += sha not in absent
+            for f in docs:
+                docs[f] += n[f]
+            after = rows[-1][0]
+            if time.monotonic() - last > 60:
+                last = time.monotonic()
+                log(f"mcpsource: adopt documents: {docs['asked']} hashes, {docs['copied']} copied, {docs['held']} held "
+                    f"({docs['asked'] / max(last - t0, 1):.0f} a second)")
+        out["documents"] = docs
+        out["per corpus"] = per
+        for x in ADOPT_TABLES:
+            s, d = _by_corpus(src, f"{src_schema}.{x}"), _by_corpus(dst, t.t(x))
+            for c in sorted(set(s) | set(d)):
+                if s.get(c, 0) != d.get(c, 0):
+                    out["red"].append(f"{x} {c}: {s.get(c, 0)} in the source, {d.get(c, 0)} live")
+        for c, (s, d) in sorted(per.items()):
+            if s != d:
+                out["red"].append(f"documents {c}: {s} in the source, {d} live")
+        for f in ("no source row", "no bytes"):
+            if docs[f]:
+                out["red"].append(f"documents: {docs[f]} with {f}")
+        if docs["names live"] != docs["names"]:
+            out["red"].append(f"names: {docs['names']} in the source, {docs['names live']} live")
+        out["seconds"] = round(time.monotonic() - t0, 1)
+        out["ok"] = not out["red"]
+        log(f"mcpsource: adopt documents: {docs['asked']} hashes, {docs['copied']} copied, {docs['held']} already held, "
+            f"{docs['names copied']} names copied, in {out['seconds']} s")
+        for line in out["red"]:
+            log(f"mcpsource: adopt RED: {line}")
+        return out
+    finally:
+        t.unlock()
 
 
 def summary(res: dict) -> str:

@@ -7,9 +7,11 @@
     python -m support.mcpsource --retry-caught          each catch line asked for again
     python -m support.mcpsource --rewalk                every corpus walked again to its cursor (changes in place)
     python -m support.mcpsource --adopt SCHEMA          the integrator, once: a session's pull carried live
+                                                        (resumable: a rerun after a kill finishes the rest)
 
 Prints counts only, never a record (hard limit 11). Exit 1 when the run is
-red: a corpus failed, a record was caught, or a field is new to us.
+red: a corpus failed, a record was caught, or a field is new to us; for
+--adopt, a count of the source and the live record that differs.
 """
 import argparse
 import sys
@@ -35,14 +37,21 @@ def main(argv=None) -> int:
     ap.add_argument("--rewalk", action="store_true", help="walk each corpus again from 0 to its cursor (weekly): "
                     "lands records the MCP changed in place; the cursor does not move")
     ap.add_argument("--adopt", metavar="SAMPLE_SCHEMA")
+    ap.add_argument("--store", default="docs", help="the adopt's store schema on --database (a scratch one for a proof)")
+    ap.add_argument("--batch", type=int, default=M.ADOPT_BATCH, help="the adopt's documents per batch")
     ap.add_argument("--no-changes", action="store_true", help="the cursor only; skip the change feed")
     a = ap.parse_args(argv)
     from support import db, jobrun
     if a.adopt:
-        with db.connect(db.OWNER_KEY, "querynz_v4_sample") as src, \
+        with db.connect(db.OWNER_KEY, "querynz_v4_sample", autocommit=True) as src, \
                 db.connect(db.OWNER_KEY, a.database, autocommit=True) as dst:
-            M.adopt(src, dst, a.adopt, a.schema)
-        return 0
+            dst.execute("SET synchronous_commit = off")     # a batch lost to a crash is copied again by the rerun
+            res = M.adopt(src, dst, a.adopt, a.schema, log=log, batch=a.batch, dst_store=a.store)
+        print(f"{M.SOURCE}: adopt {'ok' if res['ok'] else 'RED'}: {res['documents']['asked']} documents "
+              f"({res['documents']['copied']} copied, {res['documents']['held']} already held) and "
+              + ", ".join(f"{x} {v['source']}" for x, v in res["tables"].items())
+              + f" into {a.database}.{a.schema} in {res['seconds']} s")
+        return 0 if res["ok"] else 1
     started = jobrun.now()
     client = M.Client(timeout=a.timeout_s)
     with db.connect(db.OWNER_KEY, a.database, autocommit=True) as conn:
