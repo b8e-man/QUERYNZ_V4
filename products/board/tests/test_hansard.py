@@ -45,7 +45,7 @@ def turn(**kw):
 
 def test_the_register_sits_by_the_house_and_takes_the_house_s_colour():
     regs = [r for r, _ in cat.REGISTERS]
-    assert regs.index("hansard") == regs.index("mp_interests") + 1
+    assert regs.index("hansard") == regs.index("parliament") + 1 == regs.index("mp_interests") + 2   # Parliament's records between
     assert dict(cat.REGISTERS)["hansard"] == "Hansard: who spoke in Parliament"
     assert cat.FAMILY_OF["hansard"] == "the House" and cat.REGISTER_COLOUR["hansard"] == cat.REGISTER_COLOUR["house"]
     assert "hansard" not in dict(cat.NOT_HELD)
