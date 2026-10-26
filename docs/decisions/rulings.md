@@ -708,3 +708,17 @@ with a control that lets the force layout spread it; the key and the
 cited edge list under the picture stay (rulings 84, 86); the dark scheme
 (86 (1)) stays and the contrast test covers the node colours. Session
 `board-7`.
+
+101. Arthur, 27 October, about 08:35, on parliament-1's default that its
+published views carry no question or reply text: "its published views
+carry no question or reply text - isnt this the whole point?" So: the
+text is published. `pub.parliament_written_questions` carries the
+question and the reply whole; the lane runs an address-shape check over
+both at the load (the street, legal-description and numbered shapes the
+Gazette lane cuts on, hard limit 15) and a row the check hits has its
+text withheld in the view with the reason, the whole text kept in the
+lane's table, the count reported by key. The same for the archived
+pages' and committee papers' text where the API gives it. Closes the
+queue item `publish-the-written-questions-question-and-reply-text`.
+Built by fix-registers-parliament-1 on parliament-1's branch before it
+merges.
