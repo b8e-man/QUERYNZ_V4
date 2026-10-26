@@ -121,6 +121,18 @@ KNOWN_REVERSED = ("Phillip", "Mills")
 DATE_TYPES = {"date", "timestamp with time zone", "timestamp without time zone"}
 
 
+def address_shaped(v, column: str, data_type: str = None) -> bool:
+    """A column whose name names an address, outside the registered-office
+    view. A boolean the view declares as a flag is not one: it says that a
+    text names an address by its shape (ruling 102), a yes or no, never the
+    address itself (`location_street_only` on the diaries' entries)."""
+    if not ADDRESS_WORDS.search(column) or v.name == "company_addresses":
+        return False
+    if data_type == "boolean" and column in {flag for _, flag, _ in getattr(v, "flags", ())}:
+        return False
+    return True
+
+
 def problems(conn, term: str = None) -> list:
     out = []
     held = db.pub_views(conn)
@@ -144,7 +156,7 @@ def problems(conn, term: str = None) -> list:
             if c not in cols:
                 out.append(f"{v.name}: the board shows or searches `{c}`, which pub.{v.name} does not carry")
         for c in cols:
-            if ADDRESS_WORDS.search(c) and v.name != "company_addresses":
+            if address_shaped(v, c, types.get((v.name, c))):
                 out.append(f"{v.name}: carries `{c}`, an address-shaped column outside the registered-office view: rule on it before showing")
     for name in held - {v.name for v in cat.VIEWS} - cat.LINKS_PUBLISHED:
         out.append(f"pub.{name} is published but the board has no entry for it: add it to the catalogue from the lane's pane.md")

@@ -302,6 +302,24 @@ def title_of(v: cat.View, r: dict) -> str:
     return " · ".join(parts) or f"({v.name} {r.get('key', '')})"
 
 
+WITHDRAWN = "withdrawn by the source"
+
+
+def is_withdrawn(v: cat.View, r: dict) -> bool:
+    """A row the source no longer serves (its `served` column false): shown struck through."""
+    return bool(v.served) and r.get(v.served) is False
+
+
+def struck(v: cat.View, r: dict, html: str) -> str:
+    """A title's html, struck through with "withdrawn by the source" where the row is withdrawn."""
+    return f'<s>{html}</s> <span class="warn">{WITHDRAWN}</span>' if is_withdrawn(v, r) else html
+
+
+def flag_notes(v: cat.View, r: dict, column: str) -> str:
+    """The small notes a column's cell carries where its flags are set (catalogue View.flags, ruling 102)."""
+    return "".join(f' <span class="note">({esc(words)})</span>' for c, flag, words in v.flags if c == column and r.get(flag))
+
+
 def says_of(v: cat.View, r: dict) -> list:
     """The lines a row carries (catalogue.Say) where its columns hold them,
     the words filled from the row as a title fills them."""
@@ -313,7 +331,8 @@ def row_link(q: str, path: list, v: cat.View, r: dict, meta: str = "", boxes=Non
     t = mark(title_of(v, r), words)
     pix = f' <span class="warn">{PIXELS}</span>' if r.get("read_from") == "pixels" else ""
     m = f' <span class="meta">{esc(meta)}</span>' if meta else ""
-    return f'<li><a class="row" href="{esc(href(q, path + [f"{v.name}:{r["key"]}"], boxes))}">{t}</a>{m}{pix}</li>'
+    a = f'<a class="row" href="{esc(href(q, path + [f"{v.name}:{r["key"]}"], boxes))}">{t}</a>'
+    return f'<li>{struck(v, r, a)}{m}{pix}</li>'
 
 
 NOT_HELD_ROW = "(row not held)"
@@ -592,7 +611,8 @@ def table_pane(q: str, v: cat.View, total: int, rows: list, boxes, held: set = (
     for r in rows:
         cells = []
         t, full = one_line(title_of(v, r))
-        cells.append(f'<td title="{full}"><a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], boxes))}">{t}</a></td>')
+        a = f'<a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], boxes))}">{t}</a>'
+        cells.append(f'<td title="{full}">{struck(v, r, a)}</td>')
         for _, c in cols[1:]:
             p = cat.pointers(v).get(c)
             x = r.get(c)
@@ -668,6 +688,11 @@ def citation_line(v: cat.View, r: dict, docs: dict = None) -> str:
         if r.get(c):
             u = str(r[c])
             parts.append(f'<a href="{esc(u)}" rel="noopener">{esc(u[:60])}</a>')
+    if v.no_url and not any(r.get(c) for c in v.urls):
+        parts.append(f'<span class="note">{esc(v.no_url)}</span>')
+    for label, c in v.cite:
+        if r.get(c) not in (None, ""):
+            parts.append(f"{esc(label)} <code>{esc(r[c])}</code>")
     return '<div class="cite">' + " · ".join(parts) + "</div>"
 
 
@@ -676,8 +701,9 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: di
     its dates, its source's address and its citation, the words marked;
     `why`, for a near match, says which kind it is (ruling 83); `far`, the
     rows its key columns name (search.far_rows, ruling 92 (2))."""
+    link = f'<a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], boxes))}"><strong>{mark(title_of(v, r), words)}</strong></a>'
     out = ['<article class="hit">'] + ([f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
-           f'<div><a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], boxes))}"><strong>{mark(title_of(v, r), words)}</strong></a> '
+           f'<div>{struck(v, r, link)} '
            f'<span class="meta">{esc(v.name)}</span></div>']
     if is_suppressed(v, r):
         out.append(f'<div class="warn">{SUPPRESSED}: the row and its figures stay (hard limit 16)</div>')
@@ -694,7 +720,7 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: di
             blank.append(label)
             continue
         cell = far_cell(v, r, c, far, q, [], boxes, words)
-        rows.append(f"<tr><th>{esc(label)}</th><td>{cell if cell is not None else fmt_marked(x, c, words)}</td></tr>")
+        rows.append(f"<tr><th>{esc(label)}</th><td>{cell if cell is not None else fmt_marked(x, c, words)}{flag_notes(v, r, c)}</td></tr>")
     if rows:
         out.append('<table class="f">' + "".join(rows) + "</table>")
     if blank:
@@ -817,6 +843,11 @@ def citation(v: cat.View, r: dict, doc_names: list, docs: dict = None) -> str:
         if r.get(c):
             u = str(r[c])
             out.append(f'<tr><th>{esc(c)}</th><td><a href="{esc(u)}" rel="noopener">{esc(u[:80])}</a></td></tr>')
+    if v.no_url and not any(r.get(c) for c in v.urls):
+        out.append(f'<tr><th>address</th><td><span class="note">{esc(v.no_url)}</span></td></tr>')
+    for label, c in v.cite:
+        if r.get(c) not in (None, ""):
+            out.append(f"<tr><th>{esc(label)}</th><td><code>{esc(r[c])}</code></td></tr>")
     if doc_names:
         items = []
         for n in doc_names[:6]:
@@ -902,7 +933,7 @@ def row_pane(ctx: dict) -> str:
     boxes = ctx.get("boxes")
     out = [f'<section class="pane{" pinned" if ctx.get("pinned") else ""}">',
            f'<div class="reg">{register_heading(v.register)} · {esc(v.name)} · {esc(v.kind)}</div>',
-           f"<h2>{esc(title_of(v, r))}</h2>"]
+           f"<h2>{struck(v, r, esc(title_of(v, r)))}</h2>"]
     if is_suppressed(v, r):
         out.append(f'<p class="warn">{SUPPRESSED}: the row and its figures stay (hard limit 16)</p>')
     if v.note:
@@ -927,11 +958,11 @@ def row_pane(ctx: dict) -> str:
         if c not in r:
             continue
         cell = far_cell(v, r, c, ctx.get("far"), q, path, boxes)
-        out.append(f"<tr><th>{esc(label)}</th><td>{cell if cell is not None else fmt(shown(v, r, c), c)}</td></tr>")
+        out.append(f"<tr><th>{esc(label)}</th><td>{cell if cell is not None else fmt(shown(v, r, c), c)}{flag_notes(v, r, c)}</td></tr>")
     out.append("</table>")
     for label, c, empty in v.text:      # a long text, whole, in this pane alone (never a results hit or the table)
         x = shown(v, r, c)
-        out.append(f"<h3>{esc(label)}</h3>" + (f'<div class="text">{esc(x)}</div>' if x not in (None, "")
+        out.append(f"<h3>{esc(label)}{flag_notes(v, r, c)}</h3>" + (f'<div class="text">{esc(x)}</div>' if x not in (None, "")
                                                  else f'<p class="why">{esc(empty)}</p>'))
     if v.dates:
         out.append('<h3>Dates, as filed</h3><table class="f">')
