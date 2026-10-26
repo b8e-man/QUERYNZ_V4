@@ -469,9 +469,9 @@ def adopt(src, dst, src_schema: str, dst_schema: str = SCHEMA, log=print, land=N
                 cp.write_row(r)
         counts[x] = len(rows)
     landed = 0
-    names = src.execute("SELECT n.sha256, n.name, n.kind, d.fetched_at FROM docs.names n JOIN docs.documents d "
-                        f"USING (sha256) WHERE n.sha256 IN (SELECT sha256 FROM {src_schema}.arrivals) "
-                        "ORDER BY n.seen_at, n.sha256").fetchall()
+    from support.docstore.landing import names_for
+    shas = [r[0] for r in src.execute(f"SELECT DISTINCT sha256 FROM {src_schema}.arrivals")]
+    names = names_for(src, shas)       # the store's own query (tests/test_imports_one_way.py)
     for sha, name, kind, fetched in names:
         land(read_bytes(sha), name=name, source=SOURCE, conn=dst, name_kind=kind, content_type="application/json",
              fetched_at=fetched.isoformat() if fetched else None)
