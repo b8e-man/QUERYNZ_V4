@@ -1,5 +1,4 @@
-Count the categories and search for the palette before promising each its own colour at a contrast and distance floor: the board's dark picture holds about 22 colours at 3:1 and 15 apart, not 28, so graph nodes take one colour per family.
-
+Count the categories and search for the palette before promising each its own colour at a contrast and distance floor; the board's dark picture holds about 22 such colours, not 28, so graph nodes take one colour per family.
 area: products/board, any picture coloured by category (graph nodes, the key, charts)
 
 How it was found (board-7, ruling 100): the brief asked for register colours
