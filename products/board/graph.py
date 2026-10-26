@@ -1,10 +1,12 @@
 """The graph tab (ruling 80; plan 4.9, second version): the rows a search
 matches are nodes; every connection their registers assert is an edge, one
 hop out, typed and coloured, with a key below the picture. The picture is
-SVG written here, with no script and no library: every node is an href that
-re-centres on it, and every edge keeps its hover title and its line in the
-list under the key, with an href to the register row that asserts it, so
-every edge is cited. Ruling 84: two rows joined more than once get one line
+SVG written here: every node is an href that re-centres on it, and every
+edge keeps its hover title and its line in the list under the key, with an
+href to the register row that asserts it, so every edge is cited. Ruling
+100: with script the picture is a Cytoscape canvas (static/graph.js) fed by
+`answer`, the same nodes and lines as data, and the SVG stays inside
+<noscript> for a browser without script. Ruling 84: two rows joined more than once get one line
 and its causes are listed; the links' rules read in words
 (`catalogue.RULE_WORDS`) and their ids appear only in a tooltip or the list.
 Ruling 86: no edge numbers; an edge's words are drawn on its line only where
@@ -18,7 +20,7 @@ says) and `pub.links` (the links' same-person verdicts, confirmed solid and
 near dashed). The board matches no name by looking (plan 4.9: no link is
 made by looking), and draws no address edge of any kind (hard limit 15).
 
-`build` reads; `layout`, `lines`, `place` and `svg`/`pane` are pure."""
+`build` reads; `layout`, `lines`, `place`, `answer` and `svg`/`pane` are pure."""
 from __future__ import annotations
 
 import datetime as dt
@@ -28,6 +30,9 @@ import math
 import re
 import urllib.parse
 
+import json
+
+from products.board import assets
 from products.board import catalogue as cat
 from products.board import db, links_view, panes, search
 
@@ -842,8 +847,80 @@ def key_table(g: dict) -> str:
     return "".join(out)
 
 
-def pane(g: dict, q: str, boxes=None, regs=None) -> str:
-    """`boxes` the check boxes every href carries; `regs` the registers searched (None: all)."""
+# ── the canvas (ruling 100): the same graph as data, for the page's script ──
+
+def grow_href(nid: str, boxes=None) -> str:
+    """/graph.json centred on one row, the check boxes carried."""
+    return "/graph.json?" + urllib.parse.urlencode([("c", nid)] + (boxes.params() if boxes is not None else []))
+
+
+def _addend(x: dict, q: str, boxes=None) -> dict:
+    return {"year": x.get("year"), "amount": panes.fmt(x["amount"], "amount") if x.get("amount") is not None else None,
+            "what": x["what"], "not_added": x.get("not_added") or "", "cite": panes.href(q, [x["cite"]], boxes),
+            "record": panes.href(q, [x["record"]], boxes) if x.get("record") else ""}
+
+
+def answer(g: dict, q: str, boxes=None, lns: list = None, lay: dict = None) -> dict:
+    """The JSON answer (`/graph.json`, and inline for the first view): the
+    picture's nodes and lines exactly, from the same `build`. A node: its id
+    (view:key), view, key, title (suppression and withholding as
+    `panes.shown`), register and its colour, matched, centre, its first
+    position from the layered layout, the href of its pane and of its one
+    hop. A line: its two ends, its kind's colour, dashed for a near verdict,
+    its words, and every cause with its kind, words, rule and the href of the
+    row that asserts it (a money edge's addends under it, ruling 86 (3))."""
+    lns = lines(g) if lns is None else lns
+    lay = layout(g, lns) if lay is None else lay
+    nodes = []
+    for nid, n in sorted(g["nodes"].items(), key=lambda kv: kv[1]["order"]):
+        v = n["v"]
+        x, y = lay["pos"][nid]
+        nodes.append({"id": nid, "view": v.name, "key": str(n["row"]["key"]), "title": node_title(n),
+                      "register": v.register, "register_name": panes.register_heading(v.register),
+                      "family": cat.FAMILY_OF[v.register], "colour": cat.REGISTER_COLOUR[v.register], "matched": n["matched"], "centre": n["centre"],
+                      "x": x, "y": y, "pane": panes.href(q, [nid], boxes), "grow": grow_href(nid, boxes)})
+    edges = []
+    for ln in lns:
+        if any("address" in e["kind"] for e in ln["causes"]):     # never drawn by build either (hard limit 15)
+            continue
+        colour, dash = KIND[ln["kind"]]
+        edges.append({"id": "|".join(sorted((ln["a"], ln["b"]))), "source": ln["a"], "target": ln["b"], "kind": ln["kind"],
+                      "colour": colour, "dashed": bool(dash), "words": words_of_line(ln),
+                      "title": "; ".join(cause_text(e) for e in ln["causes"]),
+                      "causes": [{"kind": e["kind"], "words": e["label"], "rule": cat.rule_ref(e["rule"]) if e.get("rule") else "",
+                                  "cite": panes.href(q, [e["cite"]], boxes),
+                                  "addends": [_addend(x, q, boxes) for x in e.get("addends") or []]} for e in ln["causes"]]})
+    return {"centre": g.get("centre") or "", "nodes": nodes, "edges": edges, "matched_total": g["matched_total"],
+            "drawn": g["drawn"], "not_drawn": g["not_drawn"], "unresolved": g["unresolved"]}
+
+
+def to_json(data: dict) -> str:
+    """JSON safe inside a <script> element: no `<`, `>` or `&` survives literally."""
+    s = json.dumps(data, ensure_ascii=False, default=str, separators=(",", ":"))
+    return s.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+
+
+CANVAS_NOTE = ("Tap a node to grow its one hop, tap it again to fold it; double-tap a node to open its pane; drag a node, "
+               "scroll to zoom, drag the background to pan; hover a line for its words and causes. "
+               "\u201cspread\u201d lets the force layout lay the graph out; \u201ctree\u201d returns every node to its layered place.")
+
+
+def canvas(data: dict, picture: str) -> str:
+    """The picture with script (ruling 100): the canvas, its two controls, its
+    legend of node colours (filled by the script) and its tooltip, shown by graph.js once it runs; the page's data inline; the
+    server-written SVG inside <noscript> for a browser without script."""
+    return ('<div class="canvas"><div class="tools"><button type="button" id="spread">spread</button> '
+            f'<button type="button" id="tree">tree</button> <span class="note">{panes.esc(CANVAS_NOTE)}</span></div>'
+            '<div id="legend" class="legend"></div>'
+            '<div id="cy" class="cy" role="img" aria-label="register rows as round nodes coloured by register, the connections '
+            'their registers assert as curved edges coloured by kind"></div><div id="tip" class="tip" hidden></div></div>'
+            f'<script type="application/json" id="graph-data">{to_json(data)}</script>{assets.tags()}'
+            f"<noscript>{picture}</noscript>")
+
+
+def pane(g: dict, q: str, boxes=None, regs=None, script: bool = False) -> str:
+    """`boxes` the check boxes every href carries; `regs` the registers searched (None: all);
+    `script`: the canvas with the SVG inside <noscript> (ruling 100), else the SVG alone."""
     out = ['<section class="pane graph" id="graph">', '<div class="reg">graph</div>']
     if not g["nodes"]:
         out.append("<h2>Graph</h2>")
@@ -863,13 +940,15 @@ def pane(g: dict, q: str, boxes=None, regs=None) -> str:
         out.append(f"<h2>{panes.esc(q) if q else 'By field'}</h2>" + panes.narrowed_line(boxes))
         more = g["matched_total"] - len(matched)
         out.append(f'<p class="note">{len(matched)} matching rows drawn' + (f"; {more:,} more match: narrow the search or the registers" if more > 0 else "") + "</p>")
+    how = "Click a node to centre on it; an edge's words, where they fit, open the row that asserts it; hover a line for all it says. "
+    how = f"<noscript>{how}</noscript>" if script else how
     out.append('<p class="note">Rows are nodes; an edge is a connection the registers themselves assert, or a same-person verdict of the links. '
-               "No edge is made by matching names here. Click a node to centre on it; an edge's words, where they fit, open the row "
-               "that asserts it; hover a line for all it says; under the key the edges are listed by the row they reach.</p>")
+               f"No edge is made by matching names here. {how}Under the key the edges are listed by the row they reach.</p>")
     lns = lines(g)
     lay = layout(g, lns)
     placement = place(g, lay, lns)
-    out.append(svg(g, q, boxes, lns, placement, lay))
+    picture = svg(g, q, boxes, lns, placement, lay)
+    out.append(canvas(answer(g, q, boxes, lns, lay), picture) if script else picture)
     out.append(key_table(g))
     if any(e.get("addends") for e in g["edges"]):
         out.append('<p class="note">A donor\'s donations to one party or one candidate are one edge, its total the sum of the '

@@ -607,3 +607,104 @@ Sessions: `mcp-1` (support/mcpsource, registers/beehive) and `hansard-1`
 (the export) launched together at 18:40; `parliament-1`, `diaries-2` and
 `hansard-2` (the index join) after mcp-1 merges. The queue item
 `an-mcp-for-the-parliament-and-beehive-sites` closes with this ruling.
+
+97. Arthur, 26 October, about 18:55, while mcp-1 and hansard-1 ran:
+"let's start ingesting the old estates beehive and parliment pages. We
+will just add the unheld fields and records from the MCP". This turns
+ruling 96's last tranche into the base: the old estate's pages are the
+record, the MCP adds the fields they lack and the records the old estate
+never held. What the old news database holds: 55,358 Beehive pages
+(53,459 releases, 1996 to 22 October 2026; 1,853 `node` pages, 2000 to
+2016; 35 speeches; 11 files) and 3,012 parliament.nz pages, of which
+2,892 are the Hansard transcripts hansard-1 already exported (the same
+pages, read into sections) and 120 are Ombudsman PDFs under
+ombudsman.parliament.nz, left for a lane of their own if wanted. So the
+parliament half is done by hansard-1's export; the Beehive half is the
+beehive lane's first tranche, exported once by hash the way the Hansard
+and Gazette were, with the MCP's beehive fields (ministers, portfolios,
+topics, quotes) joined by URL and the MCP's records loaded only where the
+old estate holds no page. mcp-1 was mid-build and cannot be redirected;
+`beehive-2` is briefed so at its merge. The fetch gate now holds
+hansard.parliament.nz and parliament.nz (ruling 78) so that the hansard
+position's hosts line opens nothing.
+    Provider's reply, 26 October about 20:25, verified by the integrator
+    through the tunnel at 20:31 (seven corpora; the tools now `corpora`,
+    `records`, `changes`, `search`, `get`, `measure`): (1) a corpus
+    `parliament-hansard-debates`, one record per sitting day, the daily
+    PDF's URL, sha256 and capture block, the sitting date, the whole day's
+    text as pdftotext -layout gives it, the page count; no split, nothing
+    derived; back run from 20 November 2024 filling (127 of about 250
+    days at 20:31), then a daily tick; (2) `changes(corpus, since,
+    cursor, limit)`: every record arrived or changed in place after a
+    stamp, ordered by updated_at then seq, paged; (3) a uniform `capture`
+    block on the API corpora with whatever was recorded (written
+    questions and bills have none: pure API mirrors). For the estate: the
+    client's re-walk for changed records is replaced by `changes`, and
+    the seventh corpus is pulled, in a fix of support/mcpsource after
+    mcp-1 merges; hansard-2 then reads the debates documents into the
+    hansard lane beside the old transcripts, and the register grows past
+    23 September when the House sits again.
+
+98. Arthur, 26 October, about 21:50, after the integrator listed the jobs
+that need a card: "I want to replce qwen with
+ornith-ai/Ornith-1.5-35B-A3B-GGUF at q4_K_M". So: the text-reader and
+review profiles (step 2.15) serve Ornith 1.5 35B-A3B at Q4_K_M in place
+of Qwen 3.6 35B-A3B; the embedding and page-reader profiles are
+untouched. What the hub says (read 21:58): MIT licence; a mixture of
+experts, about 35B with 3B active, the Ornith family built on Qwen 3.5
+and Gemma 4; Q4_K_M 21.7 GB and a 903 MB image projector; a reasoning
+model whose turn opens with a think block, served with the qwen3
+reasoning parser and a modified Qwen chat template, no documented way to
+turn thinking off; recommended temperature 0.6, top_p 0.95, top_k 20;
+native context 262,144; its claims are coding-agent benchmarks against
+Qwen 3.6 35B-A3B, vendor-reported. Said to Arthur: the text-reader
+profile runs with thinking off and temperature 0, and whether this
+model's template honours that is measured at the swap, not assumed. Done
+by the integrator: the Q4_K_M weights fetched once through
+support.trials.models' downloader to /mnt/hdd2/qv4-models/ornith/ (hash
+checked against the hub, one line in downloads.jsonl); a fix session on
+support/scheduler swaps the two profiles (absolute weight paths, served
+name `ornith-1.5-35b-a3b-q4km`, memory re-measured at 50000x2 on card 1,
+the thinking switch measured, the probe jobs' one real call each), the
+plan's model table and map follow at the merge. Every swap is recorded
+(hard limit 25). Ruling 79 is untouched: a probe is one call, not a
+reading.
+
+99. Arthur, 26 October, about 22:05, ten minutes after ruling 98: "hmm.
+maybe i've changed my mind forget about ornith". Ruling 98 is withdrawn
+before anything landed: the download stopped at 15 MB (no line in
+downloads.jsonl; the scope hook refuses the integrator a delete outside
+the repository, so the partial file under /mnt/hdd2/qv4-models/ornith/ is
+Arthur's to remove), the fix session
+fix-support-scheduler-1 stopped before it edited anything and its copy
+and branch retired, card 1 untouched, profiles.toml unchanged. The
+text-reader and review profiles stay on Qwen 3.6 35B-A3B Q4_K_M as step
+2.15 names them.
+
+100. Arthur, 26 October, about 23:05, after the integrator compared the
+board's graph with the old estate's ("in v3 we had a more attractive
+looking graph"; the old one was Cytoscape with the cola force layout in
+the browser, round nodes coloured by type, soft curved edges, tap to grow
+a neighbourhood, drag, zoom): "abandon ruling 80." The integrator's
+reading: what is abandoned is the rule the board carried from ruling 80
+that it runs with no script ("still no script", step 4.9's second
+version). Ruling 80's two tabs, the register check boxes, the results
+pane and the graph tab itself stand, since rulings 81 to 93 were built on
+them; Arthur says so if he meant more. So: the board may run script, on
+the local network only (hard limit 13), served by the board itself from
+its own folder, a vendored library at a pinned version with its licence
+file beside it, never a request from the page to anything off the box
+(hard limit 10's spirit: nothing of the estate's leaves). The graph tab
+takes the old estate's interaction model and look (Cytoscape and cola as
+v3 used them, read from the reference copy): round nodes coloured by
+register with the label beneath, soft curved edges in the key's colours,
+tap a node to grow its one hop and tap again to fold it, drag, zoom and
+pan, the centre ringed; the rows and edges from a JSON answer built by the
+same `graph.build` (published tables only, every edge cited by its
+asserting row, never an address edge, suppression as before). The
+server-written SVG stays as the picture for a browser without script and
+the layered layout (ruling 92 (1)) gives every node its first position,
+with a control that lets the force layout spread it; the key and the
+cited edge list under the picture stay (rulings 84, 86); the dark scheme
+(86 (1)) stays and the contrast test covers the node colours. Session
+`board-7`.

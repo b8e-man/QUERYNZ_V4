@@ -10,6 +10,7 @@ NOT_HELD so the first pane can say "not held" rather than nothing.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 MACRONS = ("āēīōūĀĒĪŌŪ", "aeiouAEIOU")   # the fold the SQL applies before matching
@@ -18,12 +19,19 @@ MACRONS = ("āēīōūĀĒĪŌŪ", "aeiouAEIOU")   # the fold the SQL applies be
 @dataclass(frozen=True)
 class Join:
     """Rows of another view, in the same register, that belong under this
-    one: `view.column = this row's <key_column>`."""
+    one: `view.column = this row's <key_column>`; a tuple of columns on both
+    sides matches each pair (a Hansard turn's section is its day and index)."""
     label: str
     view: str
-    column: str
-    key_column: str = "key"
+    column: str | tuple
+    key_column: str | tuple = "key"
     order: str = "key"
+
+    def pairs(self) -> tuple:
+        """((far column, this row's column), ...)."""
+        far = (self.column,) if isinstance(self.column, str) else tuple(self.column)
+        own = (self.key_column,) if isinstance(self.key_column, str) else tuple(self.key_column)
+        return tuple(zip(far, own))
 
 
 @dataclass(frozen=True)
@@ -196,7 +204,12 @@ class View:
     default_order: str = "key"
     key_col: str = "key"             # the stable key (one view, expense_release_totals, has none and uses its release)
     relations: tuple = ()           # Relation: the connections to other rows this view's rows assert
+    text: tuple = ()                # (label, column, words when empty): a long text shown whole in the row pane alone, never in a results hit or the table
+    title_format: str = ""          # the title as words around its columns ("{sitting_on} · Parliament {parliament}"); where a column it names is empty, the plain title
 
+
+#: every Hansard row's line (registers/hansard/pane.md, ruling 96)
+HANSARD_NOTE = "taken from the old estate's tables; original not held; held at 23 September 2026"
 
 DOC = (("document", "document"), ("page", "page"), ("place", "place"), ("read from", "read_from"),
        ("reader", "reader"), ("profile", "profile"))
@@ -563,6 +576,48 @@ VIEWS: tuple[View, ...] = (
          dates=(("polling day", "polled_on"),), urls=("results_href",),
          joins=(Join("Electorates", "electorates", "election", order="name"),
                 Join("Seats", "members", "election", order="display_name")), default_order="polled_on"),
+    # ── hansard (taken from the old estate's tables, ruling 96; pane.md: hansard) ──
+    View("hansard_sittings", "hansard", "event", ("sitting_on", "parliament", "volume"),
+         search=("url", "progress"),
+         fields=(("Parliament", "parliament"), ("volume", "volume"), ("transcript when the old estate read it", "progress"),
+                 ("sections", "sections"), ("speech turns", "turns"), ("member turns", "attributed"),
+                 ("role-only turns", "unattributed"), ("members who spoke", "speakers"),
+                 ("page last modified, by the index", "index_lastmod"), ("index fetched", "index_fetched"),
+                 ("source", "source_note")),
+         dates=(("sitting day", "sitting_on"),), urls=("url",),
+         joins=(Join("Sections", "hansard_sections", "sitting_on", key_column="sitting_on", order="section_index"),),
+         title_format="{sitting_on} · Parliament {parliament}, volume {volume}",
+         note=HANSARD_NOTE, default_order="sitting_on"),
+    View("hansard_sections", "hansard", "document", ("subject", "sitting_on"),
+         search=("subject", "proceeding", "bill_title"),
+         numbers=("bill_id",),
+         fields=(("proceeding", "proceeding"), ("subject", "subject"), ("bill", "bill_title"), ("bill id", "bill_id"),
+                 ("transcript when the old estate read it", "progress"), ("section", "section_index"),
+                 ("speech turns", "turns"), ("characters", "chars"), ("Parliament", "parliament"), ("volume", "volume"),
+                 ("source", "source_note")),
+         dates=(("sitting day", "sitting_on"),), urls=("url",),
+         text=(("Text as captured", "text", "no text held"),),
+         joins=(Join("Sitting day", "hansard_sittings", "sitting_on", key_column="sitting_on", order="sitting_on"),
+                Join("Speech turns, in order", "hansard_speeches", ("sitting_on", "section_index"),
+                     key_column=("sitting_on", "section_index"), order="ordinal")),
+         note=HANSARD_NOTE + "; the text is shown on the board only (hard limit 13)", default_order="sitting_on"),
+    View("hansard_speeches", "hansard", "event", ("member_name", "role", "sitting_on"),
+         search=("member_name", "label_as_read", "role", "subject", "bill_title"),
+         numbers=("member_id",),
+         fields=(("member, the old roster's name", "member_name"), ("label, as read by the old estate", "label_as_read"),
+                 ("role", "role"), ("Parliament's member id", "member_id"), ("proceeding", "proceeding"),
+                 ("subject", "subject"), ("bill", "bill_title"), ("section", "section_index"), ("turn", "ordinal"),
+                 ("source", "source_note")),
+         dates=(("sitting day", "sitting_on"),), urls=("url",),
+         names=("member_name",),
+         joins=(Join("Section", "hansard_sections", ("sitting_on", "section_index"),
+                     key_column=("sitting_on", "section_index"), order="section_index"),
+                Join("This member's turns", "hansard_speeches", "member_id", key_column="member_id", order="sitting_on")),
+         title_format='{member_name} · "{label_as_read}" as read by the old estate · {sitting_on}',
+         note=HANSARD_NOTE + "; a turn is presence on the record, not advocacy: the chair speaks often. A role-only turn "
+              "(the Speaker, the chair, the Clerk, an unnamed interjection) shows the role and never a person. The House "
+              "publishes no member id, so a turn names no House member row: matching them by name would be a link made by looking",
+         default_order="sitting_on"),
     # ── mp_interests (copied from published files; pane.md: mp_interests) ──
     View("mp_interest_returns", "mp_interests", "person", ("name", "as_at"),
          search=("name", "member", "party", "party_label", "electorate"),
@@ -1046,6 +1101,7 @@ FIELDS_OF = {
     "members": Fields(names=(Name("name", order=FAMILY_GIVEN),              # the Commission's "SURNAME, Given"
                              Name("display_name", order=GIVEN_FAMILY)),   # house/read.py: keys.names' given-first display
                       organisation=("party", "party_registered")),
+    "hansard_speeches": Fields(names=(Name("member_name", order=FAMILY_GIVEN),)),   # the old roster's "Kuriger, Barbara": the comma fixes it
     "mp_interest_returns": Fields(names=(Name("name", order=GIVEN_FAMILY),      # mp_interests/read.py: keys.names' given-first display
                                          Name("member", order=GIVEN_FAMILY)),   # the register's header "Name (Party, Electorate)", given-first
                                   organisation=("party", "party_label")),
@@ -1138,6 +1194,7 @@ REGISTERS = (
     ("party_finance", "Party finance: expenses, statements, promoters, broadcasting"),
     ("house", "Candidates, electorates and the House"),
     ("mp_interests", "MPs' declared interests"),
+    ("hansard", "Hansard: who spoke in Parliament"),
     ("expenses", "MPs' and ministers' expenses"),
     ("companies", "Companies, directors and shareholders"),
     ("societies", "Incorporated societies and their officers"),
@@ -1162,9 +1219,34 @@ REGISTERS = (
     ("local_elections", "Local election candidate returns (listed; held unread until ruling 79 lifts)"),
 )
 
+#: the graph canvas's node colours (ruling 100), by family of register: 29 registers cannot take 29 colours each 3:1
+#: on the picture's surface and 15 apart in OKLab (the best found is 13.5 apart), so registers of one family share a
+#: colour, as the two same-person kinds share one hue in the key; the 14 colours are 17.5 or more apart and 3:1 or more
+#: on the surface (tests/test_night.py, panes.contrast_problems). A node's register is named in its hover and the
+#: canvas's legend. Queue item `graph-node-colours-by-family` asks whether to keep this or take 28 colours closer together.
+FAMILIES = (
+    ("party donations", "#60c0f8", ("party_returns", "disclosures")),
+    ("candidate returns", "#8048e0", ("candidate_returns", "local_elections")),
+    ("parties", "#f04020", ("parties", "party_boards")),
+    ("party finance", "#f8c0c8", ("party_finance",)),
+    ("the House", "#00d070", ("house", "hansard")),
+    ("declared interests", "#d0a008", ("mp_interests", "councillor_interests")),
+    ("expenses", "#986800", ("expenses",)),
+    ("companies", "#0088b0", ("companies", "limited_partnerships")),
+    ("societies and charities", "#009000", ("societies", "charities")),
+    ("iwi", "#90f8d0", ("iwi_directory",)),
+    ("public money", "#f8e000", ("grants", "tenders", "contract_disclosures")),
+    ("regulators", "#c02090", ("commerce_commission", "fma", "worksafe", "building_practitioners", "overseas_investment")),
+    ("courts and sanctions", "#b888a0", ("courts", "sanctions")),
+    ("notices and minutes", "#f878f8", ("gazette", "council_minutes")),
+)
+#: (register, colour) for every register, in the catalogue's order
+REGISTER_COLOURS = tuple((r, c) for reg, _ in REGISTERS for _, c, regs in FAMILIES for r in regs if r == reg)
+REGISTER_COLOUR = dict(REGISTER_COLOURS)
+FAMILY_OF = {r: name for name, _, regs in FAMILIES for r in regs}
+
 #: registers the plan names that no lane has published yet (plan step 4.1 and later steps)
 NOT_HELD = (
-    ("hansard", "Hansard (ruling 78: not captured; a third-party source Arthur supplies)"),
     ("ministers_diaries", "Ministers' diaries (ruling 78: the Beehive is not captured; a third-party source Arthur supplies)"),
     ("openlaw", "OpenLaw case law (held on its terms: queue, no default)"),
     ("hdc_decisions", "Health and Disability Commissioner decisions (held on the Commissioner's copyright terms: queue, no default)"),
@@ -1251,7 +1333,7 @@ def views_of(register: str) -> list:
 
 
 #: a register's main view, the one its table opens first (ruling 92 (5)), where it is not the first catalogued
-MAIN_VIEW = {"parties": "parties", "grants": "grants", "sanctions": "sanctions_listings"}
+MAIN_VIEW = {"parties": "parties", "grants": "grants", "sanctions": "sanctions_listings", "hansard": "hansard_sittings"}
 
 
 def main_view_of(register: str) -> str:
@@ -1263,7 +1345,8 @@ def columns_shown(v: View) -> set:
     """Every column a pane of this view reads; the citation's document, page
     and place are read when present and are not demanded here (a child row
     may cite through its parent)."""
-    return set(v.title) | {c for _, c in v.fields} | {c for _, c in v.dates} | set(v.urls) | set(v.names)
+    return (set(v.title) | {c for _, c in v.fields} | {c for _, c in v.dates} | set(v.urls) | set(v.names)
+            | {c for _, c, _ in v.text} | set(re.findall(r"\{(\w+)\}", v.title_format)))
 
 
 def fold_term(term: str) -> str:

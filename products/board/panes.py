@@ -52,6 +52,7 @@ main{display:flex;gap:.75rem;padding:.75rem;overflow-x:auto;align-items:flex-sta
 table.f{border-collapse:collapse;width:100%;font-size:13px}
 table.f th{text-align:left;font-weight:normal;color:#aab1bc;vertical-align:top;padding:.1rem .5rem .1rem 0;width:40%}
 table.f td{padding:.1rem 0;vertical-align:top;word-break:break-word}
+div.text{white-space:pre-wrap;word-break:break-word;max-width:60rem;line-height:1.45}
 ul{margin:.25rem 0;padding-left:1.1rem}
 li{margin:.1rem 0}
 li .meta,.meta{color:#aab1bc;font-size:12px}
@@ -107,6 +108,13 @@ svg path.edge{fill:none;stroke-width:2}
 svg circle.matched{fill:#f3c969;stroke:#e8eaed;stroke-width:2.5}
 svg circle.other{fill:#0e1014;stroke:#aab1bc;stroke-width:1.5}
 svg a:hover text{text-decoration:underline}
+.canvas{display:none;position:relative}
+.canvas.on{display:block}
+.canvas .tools{margin:.25rem 0 .4rem}
+div.cy{height:66vh;min-height:26rem;color:#e8eaed;background:#161a20;outline-color:#8cb8ff;border:1px solid #3a404c;border-radius:4px}
+.legend{font-size:12px;color:#aab1bc;margin:0 0 .3rem}
+.legend span.swatch{display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 .3rem 0 .8rem;vertical-align:middle}
+div.tip{position:absolute;z-index:3;max-width:250px;pointer-events:none;font-size:12px;color:#e8eaed;background:#232833;border:1px solid #5a6270;border-radius:3px;padding:.3rem .45rem}
 """
 TEXT_FLOOR = 4.5         # the common accessibility floor for text (WCAG 2 AA)
 EDGE_FLOOR = 3.0         # for a line or a mark that is not text (WCAG 2 non-text contrast)
@@ -169,11 +177,14 @@ def sheet_colours(css: str = None) -> tuple:
     return text, back
 
 
-def contrast_problems(css: str = None, edges=None) -> list:
+def contrast_problems(css: str = None, edges=None, nodes=None) -> list:
     """Every text colour on every background at TEXT_FLOOR or more; every
-    edge colour of the key (catalogue.EDGE_KINDS) at EDGE_FLOOR or more on
-    the picture's surface (the key's swatches sit on the pane, the same
-    colour), and every two of them EDGE_APART or more apart; empty when the sheet holds."""
+    edge colour of the key (catalogue.EDGE_KINDS) and every register's node
+    colour (catalogue.REGISTER_COLOURS, ruling 100) at EDGE_FLOOR or more on
+    the picture's surfaces (the SVG's rect and the canvas's box; the key's
+    swatches sit on the pane, the same colour), and every two edge colours,
+    and every two node colours (a family of registers shares one), EDGE_APART or
+    more apart; empty when the sheet holds."""
     text, back = sheet_colours(css)
     out = []
     if not text or not back:
@@ -184,6 +195,8 @@ def contrast_problems(css: str = None, edges=None) -> list:
                 out.append(f"text {t} on {b}: {contrast(t, b):.2f}:1, under {TEXT_FLOOR}:1")
     surfaces = {c for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", CSS if css is None else css) if "rect" in sel
                 for c in re.findall(r"fill\s*:\s*(" + _HEX + ")", body)}
+    surfaces |= {c for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", CSS if css is None else css) if "div.cy" in sel
+                 for c in re.findall(r"(?:^|;)\s*background(?:-color)?\s*:\s*(" + _HEX + ")", body)}
     if not surfaces:
         out.append("the stylesheet sets no surface for the picture")
     for kind, colour, _ in (cat.EDGE_KINDS if edges is None else edges):
@@ -195,6 +208,18 @@ def contrast_problems(css: str = None, edges=None) -> list:
         for b in colours[i + 1:]:
             if apart(a, b) < EDGE_APART:
                 out.append(f"the edge colours {a} and {b} are {apart(a, b):.1f} apart, under {EDGE_APART}")
+    marks = list(cat.REGISTER_COLOURS if nodes is None else nodes)
+    for register, colour in marks:
+        for b in sorted(surfaces):
+            if contrast(colour, b) < EDGE_FLOOR:
+                out.append(f"the {register} node {colour} on {b}: {contrast(colour, b):.2f}:1, under {EDGE_FLOOR}:1")
+    if nodes is None:
+        out += [f"the register {r} has no node colour" for r, _ in cat.REGISTERS if r not in cat.REGISTER_COLOUR]
+    fills = sorted({colour for _, colour in marks})         # a family shares one colour, as two same-person kinds share a hue
+    for i, a in enumerate(fills):
+        for b in fills[i + 1:]:
+            if apart(a, b) < EDGE_APART:
+                out.append(f"the node colours {a} and {b} are {apart(a, b):.1f} apart, under {EDGE_APART}")
     return out
 
 
@@ -259,12 +284,21 @@ def shown(v: cat.View, r: dict, column: str):
     return r.get(column)
 
 
+def _title_value(x) -> str:
+    return x.strftime("%-d %B %Y") if isinstance(x, dt.date) else str(x)
+
+
 def title_of(v: cat.View, r: dict) -> str:
+    if v.title_format:
+        cols = re.findall(r"\{(\w+)\}", v.title_format)
+        values = {c: shown(v, r, c) for c in cols}
+        if all(x not in (None, "") for x in values.values()):
+            return v.title_format.format(**{c: _title_value(x) for c, x in values.items()})
     parts = []
     for c in v.title:
         x = shown(v, r, c)
         if x not in (None, ""):
-            parts.append(x.strftime("%-d %B %Y") if isinstance(x, dt.date) else str(x))
+            parts.append(_title_value(x))
     return " · ".join(parts) or f"({v.name} {r.get('key', '')})"
 
 
@@ -886,6 +920,10 @@ def row_pane(ctx: dict) -> str:
         cell = far_cell(v, r, c, ctx.get("far"), q, path, boxes)
         out.append(f"<tr><th>{esc(label)}</th><td>{cell if cell is not None else fmt(shown(v, r, c), c)}</td></tr>")
     out.append("</table>")
+    for label, c, empty in v.text:      # a long text, whole, in this pane alone (never a results hit or the table)
+        x = shown(v, r, c)
+        out.append(f"<h3>{esc(label)}</h3>" + (f'<div class="text">{esc(x)}</div>' if x not in (None, "")
+                                                 else f'<p class="why">{esc(empty)}</p>'))
     if v.dates:
         out.append('<h3>Dates, as filed</h3><table class="f">')
         for label, c in v.dates:
