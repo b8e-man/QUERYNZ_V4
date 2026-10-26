@@ -1093,3 +1093,55 @@ priority = 84
 command = ["python", "-m", "registers.disclosures.load", "--job"]
 at_utc = "18:40"
 nice = 10
+
+# Ruling 96 (mcp-1, 27 October 2026): the ingest MCP as a source. The pull
+# lands every record of every corpus as a document by hash and follows the
+# change feed after the cursor; the weekly re-walk finds records changed in
+# place with their stamp unmoved (17,619 written questions on 27 October);
+# the adopt runs once to carry mcp-1's pull from the sample database live.
+[jobs.qv4-mcp-adopt]
+description = "Once, before the first nightly pull: re-land mcp-1's pull (sample schema scratch_mcp_1_pull2) into the live docs from the store and copy the cursors, arrivals and stamps. No request to the MCP. Queued by the integrator (ruling 96)."
+needs = "processor"
+memory_gb = 1.0
+deadline_s = 21600
+query_timeout_s = 3600
+class = "whenever"
+priority = 99
+command = ["python", "-m", "support.mcpsource", "--adopt", "scratch_mcp_1_pull2"]
+nice = 10
+
+[jobs.qv4-mcp-pull]
+description = "Nightly at 02:30 NZDT: poll the ingest MCP's corpora through the tunnel and pull records from each cursor, 200 a page, one request at a time, then the change feed after the cursor; every record landed as a document by hash. Stops on its budget and resumes next night. Red on a failed corpus, a caught record, a new field or the MCP counting fewer records than taken (ruling 96)."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 14400
+query_timeout_s = 60
+class = "due"
+priority = 100
+command = ["python", "-m", "support.mcpsource", "--budget-s", "12600"]
+at_utc = "13:30"
+nice = 10
+
+[jobs.qv4-mcp-rewalk]
+description = "Weekly: walk every corpus again from 0 to its cursor, landing records the MCP changed in place with their stamp unmoved (its change feed cannot show them). Resumes where the last stopped; also the fix when the pull reports the MCP counting fewer records than taken (ruling 96). The catalogue has no weekday, so every seven days from its first run."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 14400
+query_timeout_s = 60
+class = "whenever"
+priority = 101
+command = ["python", "-m", "support.mcpsource", "--rewalk", "--budget-s", "12600"]
+every_s = 604800
+nice = 10
+
+[jobs.qv4-beehive-load]
+description = "Beehive: rebuild the lane's tables from the MCP's beehive documents and the old estate's export, publish pub.beehive_releases and its tables on green. Nightly at 04:00 NZDT, after the pull (ruling 96)."
+needs = "processor"
+memory_gb = 1.0
+deadline_s = 1800
+query_timeout_s = 600
+class = "due"
+priority = 85
+command = ["python", "-m", "registers.beehive.load"]
+at_utc = "15:00"
+nice = 10

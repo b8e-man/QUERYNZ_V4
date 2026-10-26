@@ -1,0 +1,11 @@
+# registers/beehive/sample.list (plan 1b.6): hashes only, never bytes or rows. Each a record of the MCP's beehive corpus,
+# landed by support/mcpsource (mcp-1's first pull, 26 October 2026); the comment says the case, never whose it is.
+6f2dcb9fdfd2db2c3e4d61cad563ecb0a17858a37eb6a3050b1e5f65832841b7 a release tagged with two or more ministers and its portfolios
+6d6d6452ea3430ea33c428bcf33abc36bb7558c1a6da28c242285ae974a98769 a release with no minister, with topics and quotes
+520d60442a94bbe28329ff42e961057c5771488f48e65286e670ae3cf75b401f a release whose annotation block names topics only
+7bf3ebed914a1aca740f43134baab2366e15b7bccf65b5b3fcea4d7e40834abb a speech
+ea4c87d3a9f2ebddcd53846ac13958c3b874558dd008fc9cac1f17751e3e917c a page
+5105fc75613652589539bbd1a4868cc254df352903df8845164c3951f78f1e85 a record served with no date
+09c697d41a5a8eab6ddb713f57b29787ea030ea8be9b16f485f9feac7f31625c a capture the provider has not yet read
+f4cc85cd89314e3c8bbf911261d5841253243f3224ada5b45db3d5195c7586ef the oldest release, 1999
+6f198bf6eff23c4af4efafce5bd30aeb19be886495ac97a7eba173ac04ff3d22 a 2026 release

@@ -98,6 +98,18 @@ def names_of(sha256: str, conn) -> list:
     return [r[0] for r in conn.execute("SELECT name FROM docs.names WHERE sha256 = %s ORDER BY seen_at, name", (sha256,))]
 
 
+def names_for(conn, shas: list) -> list:
+    """Every name of every document in `shas`, as (sha256, name, kind,
+    fetched_at), in the order the names were seen: what a module needs to
+    land those documents again elsewhere from the store (the adopt of
+    support.mcpsource). The only query on the store's tables outside this
+    module's own functions."""
+    if not shas:
+        return []
+    return conn.execute("SELECT n.sha256, n.name, n.kind, d.fetched_at FROM docs.names n JOIN docs.documents d USING (sha256) "
+                        "WHERE n.sha256 = ANY(%s) ORDER BY n.seen_at, n.sha256", (list(shas),)).fetchall()
+
+
 def documents_of(shas, conn) -> dict:
     """{sha256: {'kind', 'source', 'withdrawn'}} for the documents the store's
     table holds among `shas`, read only (one query): what a reader needs to
