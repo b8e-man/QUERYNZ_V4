@@ -229,7 +229,7 @@ def test_a_source_that_counts_fewer_records_than_taken_is_red_and_named(conn):
     res = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
     assert not M.outcome(res) and "fewer than the 10 taken" in res["parliament-bills"]["error"]
     assert M.Tables(conn, TEST_SCHEMA).cursor_of("parliament-bills") == 10
-    walk = M.pull(conn, client_for(server), "parliament-bills", TEST_SCHEMA, land=lands, sleep=no_sleep, rewalk=True)
+    walk = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep, rewalk=True)["parliament-bills"]
     assert (walk["landed"], walk["held"], walk["cursor reset"]) == (0, 8, "10 to 8")
     fresh = made_record("parliament-bills", 8, M.shapes()["parliament-bills"])
     fresh["id"] = "parliament-bills-fresh"

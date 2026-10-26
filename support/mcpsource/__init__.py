@@ -393,7 +393,7 @@ def pull_all(conn, client, schema: str = SCHEMA, only=None, log=None, follow: bo
         if only and name not in only:
             continue
         want = c.get("ingest_cursor", c.get("records"))
-        if want is not None and held.get(name, 0) > want:
+        if want is not None and held.get(name, 0) > want and not kw.get("rewalk"):
             # the MCP counts fewer records than we have taken: it removed some, every later place moved, and a
             # cursor would pass over the next arrivals. Red until a re-walk (`--rewalk`) has reconciled it
             res[name] = {"corpus": name, "error": f"the MCP counts {want} records, fewer than the {held[name]} taken: "
