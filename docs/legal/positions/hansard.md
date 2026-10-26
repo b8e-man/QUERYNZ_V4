@@ -49,3 +49,5 @@ would let the gate fetch them.**
 
 Crawl delay: none read (the robots file is behind the challenge). Floor:
 none needed, nothing is fetched. Author: hansard-1, 26 October 2026.
+
+**The daily PDFs (hansard-2, 27 October 2026).** The MCP's `parliament-hansard-debates` corpus, one record per sitting day with the text of Parliament's daily Hansard PDF, was captured and read off-estate by Arthur's provider (ruling 78); the estate fetches nothing from hansard.parliament.nz and reads the provider's text as a third-party source. The same four answers apply: the PDFs are Parliament's own publication, open to all, under its published licence; the text is shown on the board only (hard limit 13) until a product shows it with this position reviewed (ruling 61).

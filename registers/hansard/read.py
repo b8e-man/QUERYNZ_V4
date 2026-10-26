@@ -18,6 +18,7 @@ days alone, with every member: the sample's way and a re-read of one day.
 
 Items in (lines) equal items out (rows) plus items set aside.
 """
+import datetime as dt
 import hashlib
 import json
 import os
@@ -145,7 +146,10 @@ def read(data: bytes, sha: str, only=None) -> Result:
             "turns": len(turns), "attributed": len(attributed), "unattributed": len(turns) - len(attributed),
             "speakers": len(set(attributed)), "old_sections": r.get("sections"), "old_speeches": r.get("speeches"),
             "old_unattributed": r.get("unattributed"), "old_speakers": r.get("speakers"),
-            "old_derived_at": r.get("derived_at"), "place": place(day), **cite})
+            "old_derived_at": r.get("derived_at"),
+            "captured_at": max((s["fetched_at"] for s in secs if s.get("fetched_at")), default=None,
+                               key=lambda v: dt.datetime.fromisoformat(v)),
+            "place": place(day), **cite})
     held = {s["key"] for s in res.sittings}
     for day in sorted(set(by_day) - held):
         res.set_aside.append((day, "read", "sections held for a day the old sittings table has no row for"))
