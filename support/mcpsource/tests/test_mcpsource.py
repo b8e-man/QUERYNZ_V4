@@ -16,8 +16,9 @@ from support import mcpsource as M
 from support.mcpsource import client as C
 from support.mcpsource.tests.fake import FakeServer, client_for, corpus_of, made_record
 
-CORPORA = ("beehive", "parliament-bills", "parliament-diaries", "parliament-hansard-debates", "parliament-hansard-index",
-           "parliament-wayback",
+CORPORA = ("beehive", "parliament-bills", "parliament-bills-historical", "parliament-diaries",
+           "parliament-hansard-debates", "parliament-hansard-index", "parliament-sc-reports", "parliament-sc-submissions",
+           "parliament-sops", "parliament-wayback",
            "parliament-written-questions")
 TEST_SCHEMA = "scratch_test_mcpsource"
 
@@ -142,7 +143,7 @@ def _count(conn, t, where=""):
 
 
 def test_every_corpus_is_pulled_whole_and_a_second_run_lands_nothing(conn):
-    served = {c: corpus_of(c, n) for c, n in zip(CORPORA, (450, 7, 30, 5, 12, 9, 401))}
+    served = {c: corpus_of(c, n) for c, n in zip(CORPORA, (450, 7, 6, 30, 5, 12, 4, 3, 2, 9, 401))}
     server, lands = FakeServer(served), Lands()
     res = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
     assert M.outcome(res), M.summary(res)
@@ -216,6 +217,25 @@ def test_the_change_feed_lands_a_record_changed_in_place_and_moves_its_stamp(con
     assert t.changes_since("parliament-diaries") == "2099-01-01T00:00:00Z"
     again = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
     assert again["parliament-diaries"]["changes"]["changed"] == 0
+
+
+def test_a_source_that_counts_fewer_records_than_taken_is_red_and_named(conn):
+    served = {"parliament-bills": corpus_of("parliament-bills", 10)}
+    server, lands = FakeServer(served), Lands()
+    M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
+    del served["parliament-bills"][3:5]                          # the MCP removed two (26 October: 246 written questions)
+    for i, r in enumerate(served["parliament-bills"]):
+        r["seq"] = i
+    res = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
+    assert not M.outcome(res) and "fewer than the 10 taken" in res["parliament-bills"]["error"]
+    assert M.Tables(conn, TEST_SCHEMA).cursor_of("parliament-bills") == 10
+    walk = M.pull(conn, client_for(server), "parliament-bills", TEST_SCHEMA, land=lands, sleep=no_sleep, rewalk=True)
+    assert (walk["landed"], walk["held"], walk["cursor reset"]) == (0, 8, "10 to 8")
+    fresh = made_record("parliament-bills", 8, M.shapes()["parliament-bills"])
+    fresh["id"] = "parliament-bills-fresh"
+    served["parliament-bills"].append(fresh)
+    after = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
+    assert after["parliament-bills"]["landed"] == 1 and M.outcome(after)          # the next arrival is not passed over
 
 
 def test_a_changed_page_shape_stops_the_run_and_the_cursor_holds(conn):

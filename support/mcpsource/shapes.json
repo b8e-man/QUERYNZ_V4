@@ -290,6 +290,147 @@
    }
   }
  },
+ "parliament-bills-historical": {
+  "fields": {
+   "_corpus": [
+    "str"
+   ],
+   "_fetched_at": [
+    "str"
+   ],
+   "_shard": [
+    "str"
+   ],
+   "attachmentId": [
+    "null"
+   ],
+   "attachmentName": [
+    "null"
+   ],
+   "author": [
+    "null"
+   ],
+   "billCurrentStageCode": [
+    "null"
+   ],
+   "billCurrentStageId": [
+    "null"
+   ],
+   "billCurrentStageName": [
+    "str"
+   ],
+   "billNumber": [
+    "str"
+   ],
+   "billStage": [
+    "null"
+   ],
+   "billStages": [
+    "list"
+   ],
+   "billTitle": [
+    "null"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "date": [
+    "null"
+   ],
+   "documentType": [
+    "str"
+   ],
+   "duration": [
+    "null"
+   ],
+   "id": [
+    "str"
+   ],
+   "iobClosingDate": [
+    "null"
+   ],
+   "itemSubType": [
+    "null"
+   ],
+   "itemType": [
+    "str"
+   ],
+   "lastModified": [
+    "null"
+   ],
+   "lastStageDate": [
+    "str"
+   ],
+   "memberName": [
+    "null"
+   ],
+   "orderNumber": [
+    "int"
+   ],
+   "parliamentNumber": [
+    "int"
+   ],
+   "partyName": [
+    "null"
+   ],
+   "people": [
+    "null"
+   ],
+   "publicationDate": [
+    "null"
+   ],
+   "reference": [
+    "null"
+   ],
+   "selectCommittee": [
+    "null",
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "shortTitle": [
+    "null"
+   ],
+   "shoulder": [
+    "null"
+   ],
+   "sop": [
+    "null"
+   ],
+   "state": [
+    "null"
+   ],
+   "status": [
+    "str"
+   ],
+   "subject": [
+    "null"
+   ],
+   "text": [
+    "str"
+   ],
+   "thumbnailUrl": [
+    "null"
+   ],
+   "title": [
+    "str"
+   ],
+   "titleUrl": [
+    "null"
+   ],
+   "url": [
+    "null"
+   ]
+  },
+  "items": {
+   "capture": {
+    "status": [
+     "str"
+    ]
+   }
+  }
+ },
  "parliament-diaries": {
   "fields": {
    "_collected": [
@@ -478,6 +619,416 @@
     ]
    }
   }
+ },
+ "parliament-sc-reports": {
+  "fields": {
+   "_corpus": [
+    "str"
+   ],
+   "_fetched_at": [
+    "str"
+   ],
+   "_shard": [
+    "str"
+   ],
+   "attachmentId": [
+    "null"
+   ],
+   "attachmentName": [
+    "null"
+   ],
+   "author": [
+    "null"
+   ],
+   "billCurrentStageCode": [
+    "null"
+   ],
+   "billCurrentStageId": [
+    "null"
+   ],
+   "billCurrentStageName": [
+    "null"
+   ],
+   "billNumber": [
+    "null"
+   ],
+   "billStage": [
+    "null"
+   ],
+   "billStages": [
+    "list"
+   ],
+   "billTitle": [
+    "null"
+   ],
+   "date": [
+    "null"
+   ],
+   "documentType": [
+    "str"
+   ],
+   "duration": [
+    "null"
+   ],
+   "id": [
+    "str"
+   ],
+   "iobClosingDate": [
+    "null"
+   ],
+   "itemSubType": [
+    "null"
+   ],
+   "itemType": [
+    "null"
+   ],
+   "lastModified": [
+    "null"
+   ],
+   "lastStageDate": [
+    "null"
+   ],
+   "memberName": [
+    "null"
+   ],
+   "orderNumber": [
+    "int"
+   ],
+   "parliamentNumber": [
+    "null"
+   ],
+   "partyName": [
+    "null"
+   ],
+   "people": [
+    "null"
+   ],
+   "publicationDate": [
+    "str"
+   ],
+   "reference": [
+    "null"
+   ],
+   "selectCommittee": [
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "shortTitle": [
+    "null"
+   ],
+   "shoulder": [
+    "null"
+   ],
+   "sop": [
+    "null"
+   ],
+   "state": [
+    "null"
+   ],
+   "status": [
+    "null"
+   ],
+   "subject": [
+    "null"
+   ],
+   "text": [
+    "str"
+   ],
+   "thumbnailUrl": [
+    "null"
+   ],
+   "title": [
+    "str"
+   ],
+   "titleUrl": [
+    "null"
+   ],
+   "url": [
+    "null"
+   ]
+  },
+  "items": {}
+ },
+ "parliament-sc-submissions": {
+  "fields": {
+   "_corpus": [
+    "str"
+   ],
+   "_fetched_at": [
+    "str"
+   ],
+   "_shard": [
+    "str"
+   ],
+   "attachmentId": [
+    "null"
+   ],
+   "attachmentName": [
+    "null"
+   ],
+   "author": [
+    "str"
+   ],
+   "billCurrentStageCode": [
+    "null"
+   ],
+   "billCurrentStageId": [
+    "null"
+   ],
+   "billCurrentStageName": [
+    "null"
+   ],
+   "billNumber": [
+    "null"
+   ],
+   "billStage": [
+    "null"
+   ],
+   "billStages": [
+    "list"
+   ],
+   "billTitle": [
+    "null"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "date": [
+    "null"
+   ],
+   "documentType": [
+    "str"
+   ],
+   "duration": [
+    "null"
+   ],
+   "id": [
+    "str"
+   ],
+   "iobClosingDate": [
+    "null",
+    "str"
+   ],
+   "itemSubType": [
+    "null"
+   ],
+   "itemType": [
+    "null"
+   ],
+   "lastModified": [
+    "str"
+   ],
+   "lastStageDate": [
+    "null"
+   ],
+   "memberName": [
+    "null"
+   ],
+   "orderNumber": [
+    "int"
+   ],
+   "parliamentNumber": [
+    "int"
+   ],
+   "partyName": [
+    "null"
+   ],
+   "people": [
+    "null"
+   ],
+   "publicationDate": [
+    "str"
+   ],
+   "reference": [
+    "null"
+   ],
+   "selectCommittee": [
+    "null"
+   ],
+   "seq": [
+    "int"
+   ],
+   "shortTitle": [
+    "null"
+   ],
+   "shoulder": [
+    "null"
+   ],
+   "sop": [
+    "null"
+   ],
+   "state": [
+    "null"
+   ],
+   "status": [
+    "null",
+    "str"
+   ],
+   "subject": [
+    "null"
+   ],
+   "text": [
+    "str"
+   ],
+   "thumbnailUrl": [
+    "null"
+   ],
+   "title": [
+    "str"
+   ],
+   "titleUrl": [
+    "null"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "url": [
+    "str"
+   ]
+  },
+  "items": {
+   "capture": {
+    "status": [
+     "str"
+    ],
+    "url": [
+     "str"
+    ]
+   }
+  }
+ },
+ "parliament-sops": {
+  "fields": {
+   "_corpus": [
+    "str"
+   ],
+   "_fetched_at": [
+    "str"
+   ],
+   "_shard": [
+    "str"
+   ],
+   "attachmentId": [
+    "null"
+   ],
+   "attachmentName": [
+    "null"
+   ],
+   "author": [
+    "null"
+   ],
+   "billCurrentStageCode": [
+    "null"
+   ],
+   "billCurrentStageId": [
+    "null"
+   ],
+   "billCurrentStageName": [
+    "null"
+   ],
+   "billNumber": [
+    "null"
+   ],
+   "billStage": [
+    "null"
+   ],
+   "billStages": [
+    "list"
+   ],
+   "billTitle": [
+    "null"
+   ],
+   "date": [
+    "null"
+   ],
+   "documentType": [
+    "str"
+   ],
+   "duration": [
+    "null"
+   ],
+   "id": [
+    "str"
+   ],
+   "iobClosingDate": [
+    "null"
+   ],
+   "itemSubType": [
+    "null"
+   ],
+   "itemType": [
+    "null"
+   ],
+   "lastModified": [
+    "null"
+   ],
+   "lastStageDate": [
+    "null"
+   ],
+   "memberName": [
+    "str"
+   ],
+   "orderNumber": [
+    "int"
+   ],
+   "parliamentNumber": [
+    "null"
+   ],
+   "partyName": [
+    "null"
+   ],
+   "people": [
+    "null"
+   ],
+   "publicationDate": [
+    "str"
+   ],
+   "reference": [
+    "null"
+   ],
+   "selectCommittee": [
+    "null"
+   ],
+   "seq": [
+    "int"
+   ],
+   "shortTitle": [
+    "str"
+   ],
+   "shoulder": [
+    "null"
+   ],
+   "sop": [
+    "int"
+   ],
+   "state": [
+    "null"
+   ],
+   "status": [
+    "null"
+   ],
+   "subject": [
+    "null"
+   ],
+   "text": [
+    "str"
+   ],
+   "thumbnailUrl": [
+    "null"
+   ],
+   "title": [
+    "str"
+   ],
+   "titleUrl": [
+    "null"
+   ],
+   "url": [
+    "null"
+   ]
+  },
+  "items": {}
  },
  "parliament-wayback": {
   "fields": {

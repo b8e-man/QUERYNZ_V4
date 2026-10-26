@@ -275,6 +275,12 @@ def pull(conn, client, corpus: str, schema: str = SCHEMA, limit: int = PAGE, pau
             break
         if pause_s:
             sleep(pause_s)
+    if rewalk and out["total"] is not None and stop is not None and out["total"] < stop and out["stopped"] == "end":
+        # the MCP removed records: every one it still serves was walked and landed or found held, so the cursor
+        # comes back to its count and the next arrivals are taken from there
+        t.commit_page(corpus, out["total"], out["total"], [], [], {}, move=True)
+        out["cursor reset"] = f"{stop} to {out['total']}"
+        cursor = out["total"]
     out["to"] = cursor
     return out
 
@@ -387,6 +393,13 @@ def pull_all(conn, client, schema: str = SCHEMA, only=None, log=None, follow: bo
         if only and name not in only:
             continue
         want = c.get("ingest_cursor", c.get("records"))
+        if want is not None and held.get(name, 0) > want:
+            # the MCP counts fewer records than we have taken: it removed some, every later place moved, and a
+            # cursor would pass over the next arrivals. Red until a re-walk (`--rewalk`) has reconciled it
+            res[name] = {"corpus": name, "error": f"the MCP counts {want} records, fewer than the {held[name]} taken: "
+                         "it removed records and the places after them moved; run --rewalk"}
+            res[name]["source_cursor"] = want
+            continue
         if not kw.get("rewalk") and want is not None and held.get(name, 0) >= want:
             res[name] = {"corpus": name, "from": held.get(name, 0), "to": held.get(name, 0), "pages": 0, "landed": 0,
                          "held": 0, "caught": 0, "drift": 0, "total": want, "stopped": "nothing new"}
