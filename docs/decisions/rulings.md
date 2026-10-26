@@ -708,3 +708,40 @@ with a control that lets the force layout spread it; the key and the
 cited edge list under the picture stay (rulings 84, 86); the dark scheme
 (86 (1)) stays and the contrast test covers the node colours. Session
 `board-7`.
+
+101. Arthur, 27 October, about 08:35, on parliament-1's default that its
+published views carry no question or reply text: "its published views
+carry no question or reply text - isnt this the whole point?" So: the
+text is published. `pub.parliament_written_questions` carries the
+question and the reply whole; the lane runs an address-shape check over
+both at the load (the street, legal-description and numbered shapes the
+Gazette lane cuts on, hard limit 15) and a row the check hits has its
+text withheld in the view with the reason, the whole text kept in the
+lane's table, the count reported by key. The same for the archived
+pages' and committee papers' text where the API gives it. Closes the
+queue item `publish-the-written-questions-question-and-reply-text`.
+Built by fix-registers-parliament-1 on parliament-1's branch before it
+merges.
+
+102. Arthur, 27 October, about 08:40, on the integrator's reading that
+hard limit 15 bars a written question's text from a published view:
+"Hard limit 15 is only for use cases, not for the querynz board". So the
+limit's reach is restated in CLAUDE.md and docs/plan/limits.md: it binds
+the products (the use cases), the public site and every export, not the
+board and not the published views. A published view may carry a text or
+location column whole, with a flag beside it where the value's shape
+names an address (the Gazette lane's three shapes), and each product
+applies the limit at its own surface by that flag; the board shows the
+text whole. Ruling 101's withholding in the view is withdrawn: the
+parliament lane publishes the question and reply whole with the flag
+(fix-registers-parliament-1 relaunched); the ministers' diaries lane
+publishes the 3,211 held-back locations whole with flags for "names a
+home" and "a street address with no place of business" (a fix on
+diaries-2's branch before it merges), and its queue item
+`may-a-diary-entry-show-a-bare-street-address` closes: on the board yes,
+in a product by the flag. The diaries corpus begins on 1 October 2017
+because that is where the Beehive's releases begin: Cabinet's policy of
+December 2018 made the monthly releases from January 2019 and some
+ministers released earlier months back to October 2017; the provider
+holds what the site published, and the lane holds everything its source
+holds.
