@@ -1,0 +1,18 @@
+# registers/parliament/sample.list (plan 1b.6): hashes only, never bytes or rows. Each a record of one of the MCP's parliament
+# corpora, landed by support/mcpsource (mcp-1's pull, 26 and 27 October 2026); the comment says the case, never whose it is.
+6261a6a1dc03d3670215a00e82a92e9e419ff57f9ac42a80d975a1a1b265b7e9 a written question answered, asked by a member with an id
+13aae3f7d08d4ee79f8a9dc9005ad170c3f8b5cef15506de431951810e812958 a written question whose reply carries an attachment
+f55bb4cebbd9b5a18a8c7953fe48615fe4547f3fa48d2262330fbf701174412c a written question with no member id
+9f5cead39e0dd065e1967f731ba58d3b00cdfd12f872a2f684d1a42338d95948 a written question with no reply
+bf3944abfc4ed734b035d2ee1f853bb102a39017d2f2bfd0641881ee03f8196a a written question read from the later of two versions
+4628b8a4fd76a680356aeedcef93c7ab92341e18820ad654529893299503df56 a written question of 2003
+589998f92cc60299f958def20b267e1faa8110dedebd26ad0e192552577b4d20 a current bill
+8922a7e8c849da66ea39e11692ab44df3eb9cfc8509bf8626caf2685f849ca84 a historical bill with royal assent
+a3b27b220d2c8c65f700e87b88ad360164fd7cf7367c40ce77ad35239f8e6357 a call for submissions with its page address
+974d0533a57661f40199090cddc32f363c5762c07c8b1cb4708a78fb0d7d4f35 a select committee report
+7a404ce8700c808225a77013776100fa647d37dd2fee562ccf75292c2672e0a5 a supplementary order paper
+305c71248c2acf5dd8080a331ce516b192e190f2b20e3e4b03fb265273dfd87d an archived page of type other
+2b86adf70ab2e30c8b367845d1760d0466bddf69741f33cd1289a8f6d8866655 an archived feature page
+c90a270e810201d7f40e7f053b0146ab825d38c6df25f7f198afaee8f7f65db6 an archived page whose text holds a NUL
+ea90ebe9b3a61ae6fd8b9315299e52c85ef0e24eb2443955db6dd7290d5c81cf a historical bill whose number is empty
+4f88f1894fcd48181d46eb760e97c24185d8479e2235b3ac20e6ec07b22daa70 a call for submissions whose id ends in a space
