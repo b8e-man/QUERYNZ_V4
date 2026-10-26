@@ -1,44 +1,47 @@
 # board: where it stands
 
-**Date:** 2026-10-26. **Step:** 4.9 second version, rulings 80 to 93,
-`products/board/`. **Session:** fix-products-board-1 (ruling 93). **Merge
-request:** `fix-products-board-1g`.
+**Date:** 2026-10-26. **Step:** 4.9 second version, rulings 80 to 93 and
+100, `products/board/`. **Session:** board-7 (ruling 100). **Merge
+request:** `board-7`.
 
 ## Done
 
-- Ruling 92 items 1, 2, 4, 5 and 6 (board-5, board-6, merged): the graph
-  as a family tree; names not keys; near names; a register as a table;
-  all or any fields.
-- Ruling 93, removed companies hidden by default. A check box "show
-  removed companies" sits under the register ticks on both tabs,
-  unticked on the first view; ticked, every link carries `removed=1`.
-  Unticked, a company whose status reads removed, deregistered,
-  dissolved, closed or "Removed & In Liquidation" (any case) is left out
-  of the search results, the near matches, the companies table and the
-  graph's matched rows, and the count line says "n removed hidden".
-  The status words are data (`catalogue.REMOVED_STATUS`). A row opened by
-  its own link, and a removed company reached as a far row (a director's
-  company, a graph node's far end), still shows.
-- Live, 26 October: "fletcher" in the companies register, 2,196 rows
-  unticked with 240 removed hidden, 2,436 ticked. The companies table:
-  820,706 shown, 1,099,762 hidden.
-- The check has case 20 (ruling 93); green against live data, and red
-  with the rule broken.
+- Ruling 100, the graph canvas. The graph tab's picture is a Cytoscape
+  canvas with the cola layout, as the old estate's graph page had it:
+  round nodes coloured by register family, label beneath, centre ringed,
+  soft curved edges in the key's colours, near verdicts dashed. Tap a
+  node to grow its one hop, tap again to fold it; double-tap opens its
+  pane; drag, zoom, pan; "spread" and "tree" controls; hover for words
+  and causes.
+- The libraries (Cytoscape 3.34.0, cytoscape-cola 2.5.1, WebCola 3.4.0,
+  MIT) are vendored in `static/` with their licences and sha256, served by
+  the board under `/static/` only. Every page now carries a content
+  security policy: it can ask nothing of any other address.
+- `/graph.json` gives the same graph as data from the same `graph.build`.
+- The SVG stays inside `<noscript>`; the key and the edge list are
+  unchanged.
+- Live, 26 October: the check's new case 21 ("hart": JSON and SVG have
+  the same 28 nodes and 27 lines) is green, and red with the answer
+  broken. Headless Chrome: grow 28 to 68 nodes, fold back to 28, spread,
+  tree, hover, double-tap all work; no console error, no request off
+  the box.
 
 ## Known limits
 
-- Statuses not counted as removed: liquidation, receivership and
-  administration (still on the register), CANCELLED (5), SUSPENDED (1),
-  inactive (1).
-- Only `pub.companies` is filtered; `company_lookups` and the earlier
-  states keep every status.
-- The graph tab always combines fields with "all".
-- A table cell is cut at 40 characters; the whole value is on hover.
-- Earlier limits stand: one name as filed drawn as one donor; lines under
-  node labels; `SHAPE_OWN`; family-given names with no comma; card
-  `an-address-search-on-the-board-cannot-also-name-the-company`.
+- 28 registers share 14 colours, by family (queue item
+  `graph-node-colours-by-family`).
+- The canvas carries only what one tap's answer gives: one hop, capped
+  as the SVG is.
+- Earlier limits stand (see `docs/merges/` for board-5, board-6 and
+  fix-products-board-1g).
+
+## Open
+
+- Card `the-board-has-no-entry-for-the-hansard-views`: the check is red
+  on three lines for the Hansard views. This was red on main before
+  board-7.
 
 ## Next
 
-1. The integrator merges `fix/products-board-1` and restarts `qv4-board`
-   at the release. No table, unit or setting changes.
+1. The integrator merges `session/board-7` and restarts `qv4-board` at
+   the release. No table or unit changes.

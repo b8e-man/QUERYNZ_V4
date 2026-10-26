@@ -1162,6 +1162,32 @@ REGISTERS = (
     ("local_elections", "Local election candidate returns (listed; held unread until ruling 79 lifts)"),
 )
 
+#: the graph canvas's node colours (ruling 100), by family of register: 28 registers cannot take 28 colours each 3:1
+#: on the picture's surface and 15 apart in OKLab (the best found is 13.5 apart), so registers of one family share a
+#: colour, as the two same-person kinds share one hue in the key; the 14 colours are 17.5 or more apart and 3:1 or more
+#: on the surface (tests/test_night.py, panes.contrast_problems). A node's register is named in its hover and the
+#: canvas's legend. Queue item `graph-node-colours-by-family` asks whether to keep this or take 28 colours closer together.
+FAMILIES = (
+    ("party donations", "#60c0f8", ("party_returns", "disclosures")),
+    ("candidate returns", "#8048e0", ("candidate_returns", "local_elections")),
+    ("parties", "#f04020", ("parties", "party_boards")),
+    ("party finance", "#f8c0c8", ("party_finance",)),
+    ("the House", "#00d070", ("house",)),
+    ("declared interests", "#d0a008", ("mp_interests", "councillor_interests")),
+    ("expenses", "#986800", ("expenses",)),
+    ("companies", "#0088b0", ("companies", "limited_partnerships")),
+    ("societies and charities", "#009000", ("societies", "charities")),
+    ("iwi", "#90f8d0", ("iwi_directory",)),
+    ("public money", "#f8e000", ("grants", "tenders", "contract_disclosures")),
+    ("regulators", "#c02090", ("commerce_commission", "fma", "worksafe", "building_practitioners", "overseas_investment")),
+    ("courts and sanctions", "#b888a0", ("courts", "sanctions")),
+    ("notices and minutes", "#f878f8", ("gazette", "council_minutes")),
+)
+#: (register, colour) for every register, in the catalogue's order
+REGISTER_COLOURS = tuple((r, c) for reg, _ in REGISTERS for _, c, regs in FAMILIES for r in regs if r == reg)
+REGISTER_COLOUR = dict(REGISTER_COLOURS)
+FAMILY_OF = {r: name for name, _, regs in FAMILIES for r in regs}
+
 #: registers the plan names that no lane has published yet (plan step 4.1 and later steps)
 NOT_HELD = (
     ("hansard", "Hansard (ruling 78: not captured; a third-party source Arthur supplies)"),
