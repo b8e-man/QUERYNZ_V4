@@ -607,3 +607,23 @@ Sessions: `mcp-1` (support/mcpsource, registers/beehive) and `hansard-1`
 (the export) launched together at 18:40; `parliament-1`, `diaries-2` and
 `hansard-2` (the index join) after mcp-1 merges. The queue item
 `an-mcp-for-the-parliament-and-beehive-sites` closes with this ruling.
+
+97. Arthur, 26 October, about 18:55, while mcp-1 and hansard-1 ran:
+"let's start ingesting the old estates beehive and parliment pages. We
+will just add the unheld fields and records from the MCP". This turns
+ruling 96's last tranche into the base: the old estate's pages are the
+record, the MCP adds the fields they lack and the records the old estate
+never held. What the old news database holds: 55,358 Beehive pages
+(53,459 releases, 1996 to 22 October 2026; 1,853 `node` pages, 2000 to
+2016; 35 speeches; 11 files) and 3,012 parliament.nz pages, of which
+2,892 are the Hansard transcripts hansard-1 already exported (the same
+pages, read into sections) and 120 are Ombudsman PDFs under
+ombudsman.parliament.nz, left for a lane of their own if wanted. So the
+parliament half is done by hansard-1's export; the Beehive half is the
+beehive lane's first tranche, exported once by hash the way the Hansard
+and Gazette were, with the MCP's beehive fields (ministers, portfolios,
+topics, quotes) joined by URL and the MCP's records loaded only where the
+old estate holds no page. mcp-1 was mid-build and cannot be redirected;
+`beehive-2` is briefed so at its merge. The fetch gate now holds
+hansard.parliament.nz and parliament.nz (ruling 78) so that the hansard
+position's hosts line opens nothing.
