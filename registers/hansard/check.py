@@ -19,7 +19,44 @@ against the house lane's `pub.members`. Exit 1 on any of:
      came in mid-term from a party list, which the house lane does not hold
   4. a section whose text does not hash to its SHA-1, or a catch-log line
 
-    python -m registers.hansard.check [--database querynz_v4] [--schema hansard]
+And the MCP's two corpora (hansard-2) against the MCP's own `corpora`
+counts and its `measure` (`mcp_failed`):
+
+  5. taken: each corpus's cursor at least `TAKEN_FLOOR` of the MCP's count,
+     and every record taken an arrival or a catch line; every document a
+     row read, an older version or set aside; no catch line, set-aside line
+     or field the lane has no column for
+  6. measured: the MCP's `n_docs` for the debates at most the records taken
+     plus `TAKEN_FLOOR`'s slack; its `corpus_words` against the words of the
+     days' texts held, within 1% (27 October: 94,602,760 both); every day's
+     served `word_count` equal to its text's
+  7. agreement, on the days both sources hold: of the old sections whose
+     subject is not the old page's "(continued on …)" note, the share found
+     in the same day's PDF text at least `SUBJECT_FLOOR`, and no day below
+     `DAY_FLOOR`. Measured on the whole of both 27 October: 3,691 of 3,885
+     (95.0%), the worst day 57.1%. The 194 not found are not layout (six are
+     the subject's words broken by it): 41 are in a neighbouring day's PDF,
+     and 119 of the other 153 are on eight sittings under urgency that ran
+     past midnight, where the old page carried the whole sitting and the
+     MCP holds the PDF of its first calendar day only (2024-12-10 continued
+     to 13 December; 2025-05-06, 2025-11-18, 2025-12-09 likewise). The
+     seven days under 75% are all such sittings. 90% leaves room for
+     about as many such sittings again and fails if a PDF of another day,
+     or a provider's reading that drops pages, joined the record; 50% for one day is below the worst
+     urgency sitting (57%) and above what a PDF of the wrong day gives
+     (measured: each day given the next held day's PDF finds 37.6%
+     overall, and 85 of 136 days fall below 50%)
+  8. counted, never failed: the days only the MCP holds (1,725: 1,724
+     before the old estate's first day, 20 November 2024, and 2026-07-30),
+     the old days the MCP lacks (0), and the sittings whose page the index
+     names (0: the index corpus holds www.parliament.nz pages, never a
+     hansard.parliament.nz transcript)
+
+Run bare it answers about the live tables under the session reader (the
+day texts are private: the load writes the subject counts beside the days,
+and `--owner` recounts them from the texts and holds the two equal).
+
+    python -m registers.hansard.check [--database querynz_v4] [--schema hansard] [--mcp-schema mcpsource] [--owner]
 """
 import hashlib
 import re
@@ -33,6 +70,11 @@ MEMBER_FLOOR = 0.90
 TURN_FLOOR = 0.95
 HONORIFICS = {"rt", "hon", "dr", "sir", "dame", "right", "honourable", "professor", "prof"}
 MATCHED = ("full", "first given", "given prefix")
+TAKEN_FLOOR = 0.99
+WORDS_TOLERANCE = 0.01
+SUBJECT_FLOOR = 0.90
+DAY_FLOOR = 0.50
+CORPORA = ("parliament-hansard-index", "parliament-hansard-debates")
 
 
 def name_parts(raw: str) -> tuple:
@@ -135,23 +177,129 @@ def figures(conn, schema: str = SCHEMA, shared: bool = False) -> dict:
             "speakers": speakers, "members": None}
 
 
+def mcp_held(conn, schema: str = SCHEMA, mcp_schema: str = "mcpsource", shared: bool = False) -> dict:
+    """The lane's and the pull's side of 5 to 8, under the reader (no private table)."""
+    from registers.hansard.load import table
+    T = lambda t: table(schema, t, shared)  # noqa: E731
+    q = lambda sql, *a: conn.execute(sql, a).fetchone()[0]  # noqa: E731
+    h = {}
+    for c in CORPORA:
+        h[c] = {
+            "cursor": q(f"SELECT coalesce(max(cursor), 0) FROM {mcp_schema}.cursors WHERE corpus = %s", c),
+            "arrivals": q(f"SELECT count(DISTINCT seq) FROM {mcp_schema}.arrivals WHERE corpus = %s", c),
+            "documents": q(f"SELECT count(DISTINCT sha256) FROM {mcp_schema}.arrivals WHERE corpus = %s", c),
+            "caught": q(f"SELECT count(*) FROM {mcp_schema}.catch WHERE corpus = %s AND resolved_at IS NULL", c),
+            "files": q(f"SELECT count(*) FROM {T('files')} WHERE kind = %s", c),
+            "older versions": q(f"SELECT count(*) FROM {T('files')} WHERE kind = %s AND status = 'older version'", c),
+            "files set aside": q(f"SELECT count(*) FROM {T('files')} WHERE kind = %s AND status = 'set aside'", c)}
+    h["parliament-hansard-index"]["rows"] = q(f"SELECT count(*) FROM {T('index_pages')}")
+    h["parliament-hansard-debates"]["rows"] = q(f"SELECT count(*) FROM {T('days')}")
+    h["fields unread"] = q(f"SELECT (SELECT count(*) FROM {T('days')} WHERE cardinality(fields_unread) > 0) + "
+                           f"(SELECT count(*) FROM {T('index_pages')} WHERE cardinality(fields_unread) > 0)")
+    h["words"] = q(f"SELECT coalesce(sum(text_words), 0) FROM {T('days')}")
+    h["word counts differ"] = q(f"SELECT count(*) FROM {T('days')} WHERE word_count IS DISTINCT FROM text_words")
+    h["subjects"], h["in text"] = conn.execute(f"SELECT coalesce(sum(old_subjects), 0), coalesce(sum(subjects_in_text), 0) "
+                                               f"FROM {T('days')} WHERE old_sections IS NOT NULL").fetchone()
+    h["low days"] = conn.execute(f"SELECT key, subjects_in_text, old_subjects FROM {T('days')} WHERE old_subjects > 0 "
+                                 f"AND subjects_in_text < %s * old_subjects ORDER BY key", (DAY_FLOOR,)).fetchall()
+    h["worst day"] = conn.execute(f"SELECT key, subjects_in_text, old_subjects FROM {T('days')} WHERE old_subjects > 0 "
+                                  f"ORDER BY subjects_in_text::numeric / old_subjects, key LIMIT 1").fetchone()
+    h["found"] = dict(conn.execute(f"SELECT found, count(*) FROM {T('day_sections')} GROUP BY 1").fetchall())
+    h["both"] = q(f"SELECT count(*) FROM {T('days')} WHERE old_sections IS NOT NULL")
+    h["mcp only"] = q(f"SELECT count(*) FROM {T('days')} WHERE old_sections IS NULL")
+    h["mcp only since the old first day"] = q(f"SELECT count(*) FROM {T('days')} WHERE old_sections IS NULL "
+                                              f"AND sitting_on >= (SELECT min(sitting_on) FROM {T('sittings')})")
+    h["old only"] = q(f"SELECT count(*) FROM {T('sittings')} s WHERE NOT EXISTS "
+                      f"(SELECT 1 FROM {T('days')} d WHERE d.key = s.key)")
+    h["sittings the index names"] = q(f"SELECT count(*) FROM {T('sittings')} s WHERE EXISTS "
+                                      f"(SELECT 1 FROM {T('index_pages')} p WHERE p.url = s.url)")
+    return h
+
+
+def owner_recount(conn, schema: str = SCHEMA, shared: bool = False) -> int:
+    """The subjects found in their own day's text, counted again from the private texts (the owner login only)."""
+    from registers.hansard import read_mcp
+    from registers.hansard.load import private_of, table
+    n = 0
+    texts = conn.execute(f"SELECT t.key, t.text FROM {table(private_of(schema), 'day_texts', shared)} t "
+                         f"JOIN {table(schema, 'days', shared)} d ON d.key = t.key WHERE d.old_sections IS NOT NULL")
+    for day, text in texts.fetchall():
+        own = read_mcp.fold(text)
+        for (subject,) in conn.execute(f"SELECT subject FROM {table(schema, 'sections', shared)} "
+                                       f"WHERE sitting_on = %s::date", (day,)).fetchall():
+            n += read_mcp.where(subject, own, [])[0] == "own day"
+    return n
+
+
+def mcp_outside(client) -> dict:
+    """The MCP's own counts: `corpora`'s record count and `measure`'s n_docs and corpus_words, per corpus."""
+    listing = {c["name"]: c for c in client.call_retrying("corpora", {})["corpora"]}
+    cells = {x["corpus"]: x for x in client.call_retrying("measure", {"keywords": ["minister"],
+                                                                      "corpora_filter": list(CORPORA)})["cells"]}
+    return {c: {"records": listing[c].get("ingest_cursor", listing[c].get("records")), "n_docs": cells[c]["n_docs"],
+                "corpus_words": cells[c]["corpus_words"]} for c in CORPORA}
+
+
+def mcp_failed(h: dict, o: dict, recount: int = None) -> list:
+    """5 to 7 as plain lines; 8 is printed, never failed."""
+    out = []
+    for c in CORPORA:
+        x, y = h[c], o[c]
+        if x["cursor"] < TAKEN_FLOOR * y["records"]:
+            out.append(f"{c}: taken {x['cursor']} of the MCP's {y['records']} records (floor {TAKEN_FLOOR:.0%})")
+        if x["arrivals"] + x["caught"] != x["cursor"]:
+            out.append(f"{c}: {x['arrivals']} arrivals and {x['caught']} catch lines for a cursor of {x['cursor']}")
+        if x["files"] != x["documents"] or x["rows"] + x["older versions"] + x["files set aside"] != x["documents"]:
+            out.append(f"{c}: {x['documents']} documents but {x['rows']} read, {x['older versions']} older versions, "
+                       f"{x['files set aside']} set aside")
+        if x["caught"] or x["files set aside"]:
+            out.append(f"{c}: {x['caught']} catch lines, {x['files set aside']} documents set aside")
+        if y["n_docs"] > x["cursor"] and x["cursor"] < TAKEN_FLOOR * y["n_docs"]:
+            out.append(f"{c}: the MCP measures {y['n_docs']} documents, the pull holds {x['cursor']}")
+    y = o["parliament-hansard-debates"]
+    if y["corpus_words"] and abs(h["words"] - y["corpus_words"]) > WORDS_TOLERANCE * y["corpus_words"] \
+            and h["parliament-hansard-debates"]["cursor"] >= y["n_docs"]:
+        out.append(f"debates: the MCP counts {y['corpus_words']} words, the days' texts hold {h['words']}")
+    if h["fields unread"]:
+        out.append(f"{h['fields unread']} records with a field the lane has no column for")
+    if h["word counts differ"]:
+        out.append(f"{h['word counts differ']} days whose served word_count is not their text's")
+    if h["subjects"] and h["in text"] < SUBJECT_FLOOR * h["subjects"]:
+        out.append(f"old subjects found in the day's PDF text: {h['in text']} of {h['subjects']}, below {SUBJECT_FLOOR:.0%}")
+    for day, n, of in h["low days"]:
+        out.append(f"day {day}: {n} of {of} old subjects in its PDF text, below {DAY_FLOOR:.0%}")
+    if recount is not None and recount != h["in text"]:
+        out.append(f"the subjects found, counted again from the texts: {recount}, the days say {h['in text']}")
+    return out
+
+
 def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     schema = argv[argv.index("--schema") + 1] if "--schema" in argv else SCHEMA
     database = argv[argv.index("--database") + 1] if "--database" in argv else "querynz_v4"
+    mcp_schema = argv[argv.index("--mcp-schema") + 1] if "--mcp-schema" in argv else "mcpsource"
+    owner = "--owner" in argv or database != "querynz_v4"
     from support import db
+    from support import mcpsource as M
     from registers.hansard.load import table
-    with db.connect(db.READ_KEY if database == "querynz_v4" else db.OWNER_KEY, database) as conn:
+    with db.connect(db.OWNER_KEY if owner else db.READ_KEY, database) as conn:
         conn.execute("SET statement_timeout = '60s'")
         # the sample's shared schema names the lane's tables `hansard_…`; a lane or staging schema does not
         shared = conn.execute("SELECT to_regclass(%s) IS NOT NULL", (table(schema, "sittings", True),)).fetchone()[0]
         f = figures(conn, schema, shared)
+        h = mcp_held(conn, schema, mcp_schema, shared)
+        recount = owner_recount(conn, schema, shared) if owner else None
+    try:
+        o = mcp_outside(M.Client())
+        mcp_problems = mcp_failed(h, o, recount)
+    except Exception as e:  # noqa: BLE001 — the MCP unreachable is a red line, not a crash
+        o, mcp_problems = None, [f"the MCP did not answer: {type(e).__name__}: {str(e)[:200]}"]
     with db.connect(db.READ_KEY, "querynz_v4") as conn:       # the house lane's members, always from the published estate
         conn.execute("SET statement_timeout = '60s'")
         if conn.execute("SELECT to_regclass('pub.members') IS NOT NULL").fetchone()[0]:
             members = [n for (n,) in conn.execute("SELECT name FROM pub.members")]
             f["members"] = members_share(f["speakers"], members)
-    problems = failed(f)
+    problems = failed(f) + mcp_problems
     for p in problems[:40]:
         print(f"{SCHEMA}: RED: {p}")
     if len(problems) > 40:
@@ -163,6 +311,19 @@ def main(argv=None) -> int:
           + (f"members matched {m['members_matched']} of {m['members']}, turns {m['turns_matched']} of {m['turns']}"
              f" ({', '.join(f'{k} {v}' for k, v in sorted(m['basis'].items()))}); not matched: "
              f"{', '.join(m['not_matched']) or 'none'}" if m else "pub.members not read"))
+    d = h["parliament-hansard-debates"]
+    print(f"{SCHEMA}: the MCP: " + ("; ".join(f"{c} taken {h[c]['cursor']} of {o[c]['records']}, n_docs {o[c]['n_docs']}"
+                                              for c in CORPORA) if o else "not read")
+          + f"; days {d['rows']}, words {h['words']}" + (f" against {o['parliament-hansard-debates']['corpus_words']}" if o else ""))
+    w = h["worst day"]
+    print(f"{SCHEMA}: old subjects in the same day's PDF text {h['in text']} of {h['subjects']}"
+          + (f" ({h['in text'] / h['subjects']:.1%})" if h["subjects"] else "")
+          + (f", worst day {w[0]} {w[1]} of {w[2]}" if w else "")
+          + f"; by where found: {', '.join(f'{k} {v}' for k, v in sorted(h['found'].items()))}"
+          + (f"; recounted from the texts {recount}" if recount is not None else ""))
+    print(f"{SCHEMA}: days both hold {h['both']}; only the MCP {h['mcp only']} ({h['mcp only since the old first day']} "
+          f"from the old estate's first day on); old days the MCP lacks {h['old only']}; sittings whose page the index "
+          f"names {h['sittings the index names']} of {len(f['sittings'])}")
     print(f"{SCHEMA}: " + ("0 problems" if not problems else f"{len(problems)} problems"))
     return 1 if problems else 0
 
