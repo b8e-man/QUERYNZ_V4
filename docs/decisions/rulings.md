@@ -480,3 +480,16 @@ revoked on GitHub by him. Two merged commits of 26 October still carry
 the name in their messages and diffs; rewriting them is a force push,
 which the integrator does not do without Arthur's word, so they stand as
 history.
+
+93. Arthur, 26 October, about 14:55, on the integrator's report that the
+board returns every removed company with "status Removed" among its
+fields and nothing in the title: "let's add a check button to show
+removed companies. Dont display them by default". So: the board's search
+pane gets a check box "show removed companies", unticked on the first
+view and riding every href like the register ticks; unticked, a company
+whose status reads as removed (the status words declared as data in the
+catalogue: removed, deregistered, dissolved, closed, case folded) is
+left out of the search results, the near matches, the register table and
+the graph's matched nodes, and the companies count says how many were
+hidden; ticked, every row returns as before. A row pane opened by its
+own link still opens whatever its status, since the link names the row.
