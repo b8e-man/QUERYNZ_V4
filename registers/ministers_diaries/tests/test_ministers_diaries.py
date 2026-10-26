@@ -1,8 +1,9 @@
 """registers/ministers_diaries: the reading of the MCP's parliament-diaries
 records, on records made in the recorded shape (no database), then on the
 filled sample (real documents named by hash in sample.list): every row keeps
-the row contract, the release's withholdings are kept and counted, a
-location is shown only as a place of business, the provider's text stays
+the row contract, the release's withholdings are kept and counted, the
+meeting, attendees and location are published whole with the flags a
+product applies hard limit 15 by (ruling 102), the provider's text stays
 private, and each published row cites its document and the PDF."""
 import datetime as dt
 import hashlib
@@ -82,31 +83,42 @@ def test_the_releases_withholdings_are_kept_as_released_and_counted():
     assert res.counts["withheld fields"] == 5 and res.releases[0]["withheld_entries"] == 2
 
 
-@pytest.mark.parametrize("location,shown,why", [
-    ("Parliament Buildings", "Parliament Buildings", None),
-    ("Auckland", "Auckland", None),
-    ("Ambassador's Residence, Wellington", None, read.HELD_HOME),
-    ("At home", None, read.HELD_HOME),
-    ("12 Example Street, Suburb, Town", None, read.HELD_STREET),
-    ("Example Council, 12 Example Street, Town", "Example Council, 12 Example Street, Town", None),
-    ("Level 3, 99 The Terrace, Wellington", "Level 3, 99 The Terrace, Wellington", None),
-    ("Withheld in accordance with s9(2)(a)", "Withheld in accordance with s9(2)(a)", None),
-    ("", None, None),
+@pytest.mark.parametrize("location,home,street_only", [
+    ("Parliament Buildings", False, False),
+    ("Auckland", False, False),
+    ("Ambassador's Residence, Wellington", True, False),
+    ("At home", True, False),
+    ("12 Example Street, Suburb, Town", False, True),
+    ("Example Council, 12 Example Street, Town", False, False),
+    ("Level 3, 99 The Terrace, Wellington", False, False),
+    ("Withheld in accordance with s9(2)(a)", False, False),
+    ("", False, False),
+    (None, False, False),
 ])
-def test_a_location_is_shown_only_as_a_place_of_business(location, shown, why):
-    assert read.place_of_business(location) == (shown, why)
+def test_a_location_is_flagged_by_its_shape(location, home, street_only):
+    assert read.location_flags(location) == (home, street_only)
 
 
-def test_a_held_location_and_a_masked_address_go_to_the_private_table_only():
-    res = _read(_rec(1, location="12 Example Street, Suburb"),
-                _rec(2, attendees="A Person, 12 Example Road, Town; Chief Executive"))
+def test_every_value_is_published_whole_and_flagged_and_only_the_text_is_private():
+    res = _read(_rec(1, location="12 Example Street, Suburb"), _rec(2, location="At home"),
+                _rec(3, attendees="A Person, 12 Example Road, Town; Chief Executive"),
+                _rec(4, meeting="Visit to 7 Example Street"), _rec(5))
     by = {e["key"]: e for e in res.entries}
-    assert by["1"]["location"] is None and by["1"]["location_held"] == read.HELD_STREET
-    assert by["2"]["attendees"] == f"A Person, {read.MASK}, Town; Chief Executive" and by["2"]["addresses_masked"] == 1
-    priv = {p[0]: p for p in res.private}
-    assert priv["1"][1] == "12 Example Street, Suburb" and priv["2"][3].startswith("A Person, 12 Example Road")
-    assert all(p[4] for p in res.private)                                   # the provider's text, private only
-    assert res.releases[0]["locations_held"] == 1
+    assert by["1"]["location"] == "12 Example Street, Suburb" and by["2"]["location"] == "At home"
+    assert by["3"]["attendees"] == "A Person, 12 Example Road, Town; Chief Executive"
+    assert by["4"]["meeting"] == "Visit to 7 Example Street"
+    flags = {k: tuple(by[k][f] for f in read.FLAGS) for k in by}
+    assert flags == {"1": (False, True, False, False), "2": (True, False, False, False),
+                     "3": (False, False, False, True), "4": (False, False, True, False),
+                     "5": (False, False, False, False)}
+    assert {k: res.counts[k] for k in read.FLAGS} == dict.fromkeys(read.FLAGS, 1)
+    assert all(len(p) == 2 and p[1] for p in res.private)                  # the provider's text, private only
+    assert res.releases[0]["locations_flagged"] == 2
+
+
+def test_the_load_counts_name_every_flag_even_at_zero():
+    res = _read(_rec(1))
+    assert {k: res.counts[k] for k in read.FLAGS} == dict.fromkeys(read.FLAGS, 0)
 
 
 def test_the_version_the_pull_saw_last_is_read_never_the_highest_seq():
@@ -127,7 +139,7 @@ def test_a_record_with_no_release_is_set_aside_and_an_unknown_field_listed():
     assert {e["key"]: e["fields_unread"] for e in res.entries}["3"] == ["sentiment"]
 
 
-def test_the_published_views_never_carry_the_text_the_private_table_or_an_address_column():
+def test_the_published_views_never_carry_the_text_the_private_table_or_an_address_column_and_carry_the_flags():
     sql = open(os.path.join(LANE, "publish.sql"), encoding="utf-8").read().lower()
     views = sql.split("create or replace view")[1:]
     assert len(views) == 2
@@ -136,6 +148,7 @@ def test_the_published_views_never_carry_the_text_the_private_table_or_an_addres
         assert "citation_url" in v and "document" in v and "file_name" in v
         for col in rowcontract.FORBIDDEN_COLUMNS:
             assert f" {col}," not in v and f".{col}," not in v
+    assert all(f"e.{f}" in views[1] for f in read.FLAGS) and "r.locations_flagged" in views[0]
 
 
 # ── the outside check ────────────────────────────────────────────────────────
@@ -227,32 +240,28 @@ def test_every_sample_document_is_read_and_every_row_keeps_the_contract(filled):
 def test_the_sample_holds_its_hard_cases(filled):
     es, rs = filled["entries"], filled["releases"]
     assert any("meeting" in e["withheld"] for e in es) and any("time" in e["withheld"] for e in es)
-    held = {e["location_held"] for e in es}
-    assert {read.HELD_HOME, read.HELD_STREET} <= held
-    assert any(e["addresses_masked"] for e in es) and any(e["attendees"] is None for e in es)
-    assert any(read.STREET.search(e["location"] or "") for e in es)          # a business address, shown
+    assert any(e["location_names_home"] for e in es) and any(e["location_street_only"] for e in es)
+    assert any(e["attendees_names_address"] for e in es) and any(e["attendees"] is None for e in es)
+    assert any(read.STREET.search(e["location"] or "") and not e["location_street_only"] for e in es)  # a business
     assert any(e["entry_on"] < dt.date(2019, 1, 1) for e in es) and any(e["entry_on"].year == 2026 for e in es)
     assert any(r["pdf_url"] is None for r in rs) and any(r["pdf_url"] for r in rs)
     assert any(e["minister"] == "No Minister" for e in es)
     assert any(e["versions"] == 2 for e in es)
 
 
-def test_what_is_held_back_is_in_the_private_table_and_never_published(filled):
+def test_every_value_is_published_whole_its_flags_agree_with_its_shape_and_only_the_text_is_private(filled):
     priv = {p["key"]: p for p in filled["private"]}
     assert set(priv) == {e["key"] for e in filled["entries"]} and all(p["text"] for p in priv.values())
+    assert all(set(p) == {"key", "text"} for p in priv.values())
+    lane = {e["key"]: e for e in filled["entries"]}
     for e in filled["pub_entries"]:
-        if e["location_held"]:
-            assert e["location"] is None and priv[e["key"]]["location"]
-            if e["location_held"] == read.HELD_HOME:
-                assert read.HOME.search(priv[e["key"]]["location"])
-            else:
-                assert read.STREET.search(priv[e["key"]]["location"])
-        assert not read.HOME.search(e["location"] or "")
-        for f in ("meeting", "attendees"):
-            v = e[f] or ""
-            assert not read.STREET.search(v.replace(read.MASK, "")), (e["key"], f)
-            if e["addresses_masked"] and read.MASK in v:
-                assert priv[e["key"]][f] and read.STREET.search(priv[e["key"]][f])
+        for f in ("meeting", "attendees", "location"):
+            assert e[f] == lane[e["key"]][f], (e["key"], f)                 # whole, as the lane read it
+        assert (e["location_names_home"], e["location_street_only"]) == read.location_flags(e["location"]), e["key"]
+        assert e["meeting_names_address"] == bool(read.STREET.search(e["meeting"] or "")), e["key"]
+        assert e["attendees_names_address"] == bool(read.STREET.search(e["attendees"] or "")), e["key"]
+        if e["location_names_home"]:
+            assert read.HOME.search(e["location"])
         assert not {"text", "address"} & set(e)
 
 

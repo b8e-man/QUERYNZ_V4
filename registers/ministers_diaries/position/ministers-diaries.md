@@ -92,13 +92,17 @@ every withholding as printed and counts them (2,126 entries, 6,824 fields on
 27 October). The release names officials, other ministers and members of the
 public who attended; the lane keeps each name as printed, a public role at
 most beside it, looks nothing up, and links nobody (a link to a person's row
-is product (b), after links; hard limit 14 for the public site). A location is
-shown only as a place of business: one that names a home or residence, or a
-street address with no place of business named (3,211 entries), is held back
-in `ministers_diaries_private`, and a street address in the meeting or
-attendees is masked (43); no published column carries an address (hard limit
-15). The provider's own joined `text` is never published. For the lawyer:
-whether a minister's diary entry naming a private individual who met the
+is product (b), after links; hard limit 14 for the public site). Hard limit 15
+binds the products, the public site and every export, not the board or the
+published views (ruling 102): the view carries the location, meeting and
+attendees whole, as released, with a flag beside each where its shape names
+an address (on 27 October: 115 locations naming a home or residence, 3,096 a
+street address with no place of business named, 32 meetings and 11 attendee
+lists with a street address), and a product shows none of those at its own
+surface. Ruling 102 is Arthur's reading of hard limit 15; whether a
+published view inside the estate may carry these whole, where only the
+products are outward-facing, is for the lawyer too. The provider's own
+joined `text` is never published. For the lawyer: whether a minister's diary entry naming a private individual who met the
 minister may be shown by name on a product, given the release itself names
 them.
 

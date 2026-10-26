@@ -14,7 +14,9 @@
   clean      no pull catch line, no set-aside line, no entry with a field the lane has no column for
 
 Stated, never a failure: the release's withholdings (entries and fields), the
-locations held back and the addresses masked, the releases with no PDF
+entries each flag marks (`location_names_home`, `location_street_only`,
+`meeting_names_address`, `attendees_names_address`: counted, never
+printed; a product applies hard limit 15 by them, ruling 102), the releases with no PDF
 address or no month, the entries before 2019, and the ministers named
 against the House's `pub.members`. That last is by the register's own title
 words only ("Rt Hon", "Hon", "Dr", "KC" taken off the name as released), then
@@ -35,6 +37,7 @@ import sys
 
 from keys import names as N
 from support import mcpsource as M
+from registers.ministers_diaries.read import FLAGS
 
 CORPUS = "parliament-diaries"
 FLOOR = 0.99
@@ -67,8 +70,7 @@ def held(conn, schema: str, mcp_schema: str) -> dict:
         "ministers": q(f"SELECT count(DISTINCT minister) FROM {schema}.entries"),
         "entries with a withholding": q(f"SELECT count(*) FROM {schema}.entries WHERE withheld <> '{{}}'"),
         "withheld fields": q(f"SELECT coalesce(sum(cardinality(withheld)), 0) FROM {schema}.entries"),
-        "locations held back": q(f"SELECT count(*) FROM {schema}.entries WHERE location_held IS NOT NULL"),
-        "street addresses masked": q(f"SELECT coalesce(sum(addresses_masked), 0) FROM {schema}.entries"),
+        **{f: q(f"SELECT count(*) FROM {schema}.entries WHERE {f}") for f in FLAGS},
         "releases with no PDF address": q(f"SELECT count(*) FROM {schema}.releases WHERE pdf_url IS NULL"),
         "releases with no month": q(f"SELECT count(*) FROM {schema}.releases WHERE month IS NULL"),
         "entries before 2019": q(f"SELECT count(*) FROM {schema}.entries WHERE entry_on < '2019-01-01'"),

@@ -30,9 +30,9 @@ STAMP = ("document", "page", "place", "read_from", "reader", "profile", "profile
 COLUMNS = {
     "releases": ("key", "source_url", "pdf_url", "file_name", "upload_folder", "minister", "ministers_named",
                  "portfolios", "month", "month_named", "entries_month", "months", "first_on", "last_on", "entries",
-                 "withheld_entries", "locations_held", "source_note") + STAMP,
+                 "withheld_entries", "locations_flagged", "source_note") + STAMP,
     "entries": ("key", "release", "rowid", "minister", "portfolio", "entry_on", "date_as_released", "year", "time",
-                "meeting", "attendees", "location", "location_held", "addresses_masked", "withheld", "collected_at",
+                "meeting", "attendees", "location") + read.FLAGS + ("withheld", "collected_at",
                 "updated_at", "text_words", "fields_unread", "versions", "seq", "source_note") + STAMP,
 }
 
@@ -82,13 +82,13 @@ def build(conn, schema: str, items: list, caught: list = (), shared: bool = Fals
     _copy(conn, table(schema, "files", shared), ("sha256", "record_id", "seq", "status"), res.files)
     _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason"),
           [(f"{capture.CORPUS} seq {s}", "pull", f"{st}: {why}") for s, st, why in caught] + list(res.set_aside))
-    _copy(conn, table(private_of(schema), "entries", shared), ("key", "location", "meeting", "attendees", "text"),
-          res.private)
+    _copy(conn, table(private_of(schema), "entries", shared), ("key", "text"), res.private)
     return {**res.counts, "pull caught": len(caught)}
 
 
 def load(conn, schema: str, log=print, mcp_schema: str = capture.MCP_SCHEMA) -> int:
-    """Every diary document the pull landed, read under `schema`. Returns the entry count."""
+    """Every diary document the pull landed, read under `schema`. Returns the
+    entry count; the log line carries the flagged entries by key."""
     started = jobrun.now()
     counts = build(conn, schema, capture.arrivals(conn, mcp_schema), capture.caught(conn, mcp_schema))
     detail = ", ".join(f"{k} {v}" for k, v in counts.items()) + f", into {schema}"

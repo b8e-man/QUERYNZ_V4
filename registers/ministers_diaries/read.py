@@ -20,12 +20,13 @@ What the reading keeps, and what it holds back:
     (b), after links);
   - the release's own withholdings ("Withheld under s9(2)(f)(iv)", "Withheld
     under OIA") kept as released, and each entry's withheld fields counted;
-  - the location only where the release gives it as a place of business: a
-    location that names a home (a residence, "home", a private address) or a
-    street address with no place of business named is held back
-    (`location_held` says why; the value as released goes to the private
-    table); a street address in the meeting or attendees is masked the same
-    way (hard limit 15);
+  - the location, the meeting and who attended as released, nothing held
+    back or masked (ruling 102: hard limit 15 binds the products, not the
+    published views); beside them the flags a product applies the limit by,
+    set here by the value's shape: `location_names_home` (the release's words
+    name a home or residence), `location_street_only` (a street address with
+    no place of business named), `meeting_names_address` and
+    `attendees_names_address` (a street address in either);
   - the provider's `text` (its own join of the fields) goes to the private
     table only.
 
@@ -51,6 +52,7 @@ KNOWN = ("id", "rowid", "minister", "portfolio", "date", "year", "time", "meetin
          "source_url", "_collected", "updated_at", "capture", "text")
 CAPTURE = ("_collected", "source_url")
 FIELDS = ("portfolio", "time", "meeting", "location", "attendees")      # where a withholding is looked for
+FLAGS = ("location_names_home", "location_street_only", "meeting_names_address", "attendees_names_address")
 MONTHS = ("january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
           "november", "december")
 
@@ -64,7 +66,7 @@ HOME = re.compile(r"\bhome\b|\bresidences?\b|\bhomestead\b|\bprivate\s+(?:addres
 STREET = re.compile(r"\b\d{1,5}[A-Za-z]?(?:\s*[-/]\s*\d{1,5}[A-Za-z]?)?,?\s+(?:[A-ZĀĒĪŌŪ][\w'’.-]*\s+){1,3}"
                     r"(?:Street|St|Road|Rd|Avenue|Ave|Terrace|Tce|Drive|Dr|Place|Pl|Crescent|Cres|Lane|Ln|Way|Grove|"
                     r"Quay|Highway|Hwy|Parade|Square|Sq|Esplanade|Rise|Close|Boulevard|Blvd|Mews|Court|Ct)\b\.?")
-# A place of business named beside a street address (outside the address itself)
+# A place of business named beside a street address (outside the address itself): the location is then not street-only
 BUSINESS = re.compile(r"\b(?:Ltd|Limited|Inc|Incorporated|Council|Offices?|Buildings?|House|Centre|Center|School|"
                       r"College|Kura|Hotel|University|Hospital|Marae|Ministry|Department|Embassy|Commission|Club|Hall|"
                       r"Church|Station|Port|Airport|Library|Museum|Courts?|Tower|Plaza|Trust|Group|Parliament|Beehive|"
@@ -72,16 +74,13 @@ BUSINESS = re.compile(r"\b(?:Ltd|Limited|Inc|Incorporated|Council|Offices?|Build
                       r"Police|Prison|Clinic|Society|Association|Institute|Foundation|Chambers|Board|Authority|Agency|"
                       r"Services?|Company|Lodge|Venue|Conference|Room|Suite|Level|Floor|Arena|Pavilion|Gallery|Hub|"
                       r"Campus|Academy|Polytechnic|Wānanga|Wananga|Terminal|Headquarters|HQ)\b")
-HELD_HOME = "names a home"
-HELD_STREET = "a street address with no place of business named"
-MASK = "[street address held back]"
 
 
 @dataclass
 class Result:
     entries: list = field(default_factory=list)
     releases: list = field(default_factory=list)
-    private: list = field(default_factory=list)        # (key, location, meeting, attendees, text) as served: private
+    private: list = field(default_factory=list)        # (key, text): the provider's text, private
     files: list = field(default_factory=list)          # (sha256, record id, seq, status)
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
     counts: dict = field(default_factory=dict)
@@ -133,27 +132,21 @@ def withheld(rec: dict) -> list:
     return [f for f in FIELDS if WITHHELD.search(rec.get(f) or "")]
 
 
-def place_of_business(location):
-    """(location to publish, why it is held back or None). A withholding is
-    the release's own and is kept."""
+def location_flags(location) -> tuple:
+    """(names a home, a street address with no place of business named) for
+    the location as released. A withholding is the release's own and is
+    neither."""
     loc = _str(location)
-    if loc is None:
-        return None, None
-    if WITHHELD.search(loc):
-        return loc, None
-    if HOME.search(loc):
-        return None, HELD_HOME
-    if STREET.search(loc) and not BUSINESS.search(STREET.sub(" ", loc)):
-        return None, HELD_STREET
-    return loc, None
+    if loc is None or WITHHELD.search(loc):
+        return False, False
+    home = bool(HOME.search(loc))
+    return home, not home and bool(STREET.search(loc)) and not BUSINESS.search(STREET.sub(" ", loc))
 
 
-def mask_street(v):
-    """(value with every street address masked, how many)."""
+def names_address(v) -> bool:
+    """A street address anywhere in the value (the meeting, the attendees)."""
     s = _str(v)
-    if s is None:
-        return None, 0
-    return STREET.subn(MASK, s)
+    return bool(s and STREET.search(s))
 
 
 def release_parts(source_url: str) -> dict:
@@ -177,16 +170,13 @@ def _bump(n: dict, k: str, by: int = 1) -> None:
 def read_one(sha: str, rec: dict, seq, versions: int, out: Result, loaded_at: str) -> None:
     n = out.counts
     key = str(rec["id"]).strip()
-    held_loc = rec.get("location")
-    location, why = place_of_business(held_loc)
-    meeting, m1 = mask_street(rec.get("meeting"))
-    attendees, m2 = mask_street(rec.get("attendees"))
+    home, street_only = location_flags(rec.get("location"))
+    in_meeting, in_attendees = names_address(rec.get("meeting")), names_address(rec.get("attendees"))
     w = withheld(rec)
     on = _iso_date(rec.get("date"))
-    if why:
-        _bump(n, f"locations held back: {why}")
-    if m1 or m2:
-        _bump(n, "entries with a street address masked in the meeting or attendees")
+    for k, flag in zip(FLAGS, (home, street_only, in_meeting, in_attendees)):
+        if flag:
+            _bump(n, k)
     if w:
         _bump(n, "entries with a withholding")
     if rec.get("date") is not None and on is None:
@@ -201,15 +191,15 @@ def read_one(sha: str, rec: dict, seq, versions: int, out: Result, loaded_at: st
         "key": key, "release": rec["source_url"].strip(), "rowid": rec.get("rowid") if isinstance(rec.get("rowid"), int) else None,
         "minister": _str(rec.get("minister")), "portfolio": _str(rec.get("portfolio")), "entry_on": on,
         "date_as_released": _str(rec.get("date")), "year": year, "time": _str(rec.get("time")),
-        "meeting": meeting, "attendees": attendees, "location": location, "location_held": why,
-        "addresses_masked": m1 + m2, "withheld": w, "collected_at": _str(rec.get("_collected")) or _str(cap.get("_collected")),
+        "meeting": _str(rec.get("meeting")), "attendees": _str(rec.get("attendees")),
+        "location": _str(rec.get("location")), "location_names_home": home, "location_street_only": street_only,
+        "meeting_names_address": in_meeting, "attendees_names_address": in_attendees, "withheld": w,
+        "collected_at": _str(rec.get("_collected")) or _str(cap.get("_collected")),
         "updated_at": _str(rec.get("updated_at")),
         "text_words": len(rec["text"].split()) if isinstance(rec.get("text"), str) else 0,
         "fields_unread": unread(rec), "versions": versions, "seq": seq, "source_note": SOURCE_NOTE,
         **_stamp(sha, "record", loaded_at)})
-    out.private.append((key, held_loc if isinstance(held_loc, str) else None,
-                        rec.get("meeting") if m1 else None, rec.get("attendees") if m2 else None,
-                        rec.get("text") if isinstance(rec.get("text"), str) else None))
+    out.private.append((key, rec.get("text") if isinstance(rec.get("text"), str) else None))
 
 
 def releases_of(entries: list, loaded_at: str) -> list:
@@ -235,7 +225,7 @@ def releases_of(entries: list, loaded_at: str) -> list:
             "month": parts["month_named"] or (months[0] if len(months) == 1 else None),
             "first_on": days[0] if days else None, "last_on": days[-1] if days else None,
             "entries": len(es), "withheld_entries": sum(1 for e in es if e["withheld"]),
-            "locations_held": sum(1 for e in es if e["location_held"]),
+            "locations_flagged": sum(1 for e in es if e["location_names_home"] or e["location_street_only"]),
             "source_note": SOURCE_NOTE, **_stamp(es[0]["document"], f"release of {len(es)} entries; first entry {es[0]['key']}",
                                                  loaded_at)})
     return out
@@ -278,6 +268,7 @@ def read(items, get_bytes, loaded_at: str = None) -> Result:
         out.files.append((sha, rid, newest[sha], "read"))
         out.files += [(s, rid, newest[s], "older version") for _, s, _ in versions[:-1]]
     out.releases = releases_of(out.entries, loaded_at)
+    out.counts.update({k: out.counts.get(k, 0) for k in FLAGS})        # the flagged entries, by key, zero included
     out.counts.update({"documents": len(order), "entries": len(out.entries), "releases": len(out.releases),
                        "older versions": sum(len(v) - 1 for v in by_record.values()),
                        "ministers": len({e["minister"] for e in out.entries}),

@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS ministers_diaries.releases (
     last_on          date,
     entries          integer NOT NULL,                      -- rows in entries
     withheld_entries integer NOT NULL,                      -- entries in which the release prints a withholding
-    locations_held   integer NOT NULL,                      -- entries whose location is held back (a home, a street address)
+    locations_flagged integer NOT NULL,                     -- entries whose location is flagged (names a home, street only)
     source_note      text NOT NULL,
     document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),   -- its first entry's document
     page             integer NOT NULL DEFAULT 1,
@@ -48,11 +48,14 @@ CREATE TABLE IF NOT EXISTS ministers_diaries.entries (
     date_as_released text,
     year             text,
     time             text,                                  -- as released ("9:00 AM - 9:20 AM", "Withheld under OIA")
-    meeting          text,                                  -- as released; a street address in it masked
-    attendees        text,                                  -- as released, names as printed; a street address masked
-    location         text,                                  -- only as a place of business; NULL when held back
-    location_held    text,                                  -- why the location is held back, or NULL
-    addresses_masked integer NOT NULL DEFAULT 0,            -- street addresses masked in the meeting and attendees
+    meeting          text,                                  -- as released, whole
+    attendees        text,                                  -- as released, whole, names as printed
+    location         text,                                  -- as released, whole (ruling 102)
+    -- the flags a product applies hard limit 15 by, at its own surface (ruling 102), set by the value's shape
+    location_names_home     boolean NOT NULL DEFAULT false, -- the release's words name a home or residence
+    location_street_only    boolean NOT NULL DEFAULT false, -- a street address with no place of business named
+    meeting_names_address   boolean NOT NULL DEFAULT false, -- a street address in the meeting
+    attendees_names_address boolean NOT NULL DEFAULT false, -- a street address in the attendees
     withheld         text[] NOT NULL DEFAULT '{}',          -- the fields in which the release prints a withholding
     collected_at     text,                                  -- the provider's `_collected`, as served
     updated_at       text,                                  -- the MCP's
@@ -87,12 +90,8 @@ CREATE TABLE IF NOT EXISTS ministers_diaries.set_aside (
     reason  text NOT NULL
 );
 
--- what is held back, as served: never published. The location as released (it may name a home), the meeting and
--- attendees where a street address was masked, and the provider's `text` (its join of every field)
+-- the provider's `text` (its own join of every field), as served: never published
 CREATE TABLE IF NOT EXISTS ministers_diaries_private.entries (
     key        text PRIMARY KEY,
-    location   text,
-    meeting    text,
-    attendees  text,
     text       text
 );
