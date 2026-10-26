@@ -559,3 +559,51 @@ and 137 parliament.nz pages, September to October 2026, which stay
 there (hard limit 18) and are not a source for the new lane. The
 decision Arthur owes is in the queue item
 `an-mcp-for-the-parliament-and-beehive-sites`.
+
+96. Arthur, 26 October, about 18:30, on the survey of ruling 95: "I want
+to ingest everything they have. we should add their fields to our
+registers. we are going to abandon the claims from the old estate. We just
+want the records. We should ingest the hansard records we currently have
+and add the fields from the MCP and use the MCP for updates. I dont care
+what comes in first. I want everything". So: every corpus of the MCP is
+taken, in no order, each record landed whole as a captured document (its
+JSON by sha256, named by corpus and record id and by the page's own URL;
+a record the MCP later returns changed is a second document under the
+same names: one frozen reading each). The lanes, one per site as Arthur
+categorises them: `registers/beehive` (the beehive corpus: releases,
+speeches, features, the site's ministers and portfolios, and the topics
+and quotes their model made, kept as the source's own annotation, cited
+as such, never a claim or a link); `registers/parliament` (written
+questions, bills, wayback); `registers/ministers_diaries` (the
+parliament-diaries corpus, template 4(a)'s register; its PDFs are the
+Beehive's monthly releases); `registers/hansard`. The shared piece is
+`support/mcpsource`: the client over the tunnel, a cursor per corpus, and
+the job `qv4-mcp-pull` (hard limit 23) that polls `corpora` and pulls
+`records` from each cursor, 200 a page, one request at a time, nightly
+off-peak after the first pull. Hansard: the old estate's register is
+exported once by hash the way the Gazette's was (the news database's
+`hansard_sections`, 3,923 sections of 137 sitting days, 20 November 2024
+to 23 September 2026, 47,243 speech turns, with `hansard_members`, 394;
+and the canonical database's `registers.hansard_speeches`, 11,627 rows,
+128 speakers), and the MCP's `parliament-hansard-index` fields (url,
+lastmod, fetched) are joined to it by URL; updates come from the MCP.
+Said plainly to Arthur: that corpus carries no text yet, only which
+Hansard page changed and when, so the speeches stay held at 23 September
+until the MCP carries text. The old estate's claims read from the Beehive
+and parliament.nz pages (ruling 95) are abandoned: the new estate never
+consumes them; they are not deleted (hard limit 18 is a separate word).
+The old estate also holds the text of 55,358 Beehive pages and 3,012
+parliament.nz pages in its news database, which Arthur did not name; the
+integrator's default, from "we just want the records", is to export those
+once by hash too, as the beehive and parliament lanes' last tranche,
+MCP fields joined by URL where the MCP holds the same page; Arthur may
+strike it. Ruling 79 is untouched: no model reads anything here, the
+records arrive structured. Hard limit 11: the pull is a job, never a
+session; a session sees samples. A one-page legal position per site
+before any product shows them (hard limit 9, ruling 61), recording that
+the capture was done off-estate (ruling 78) and, for parliament.nz,
+through a challenge the estate's own capture may not pass (hard limit 6).
+Sessions: `mcp-1` (support/mcpsource, registers/beehive) and `hansard-1`
+(the export) launched together at 18:40; `parliament-1`, `diaries-2` and
+`hansard-2` (the index join) after mcp-1 merges. The queue item
+`an-mcp-for-the-parliament-and-beehive-sites` closes with this ruling.
