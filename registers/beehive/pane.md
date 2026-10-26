@@ -10,7 +10,13 @@ portfolios. Then, set apart under the heading "The source's annotation
 (made by its model, not ours)", the topics and quotes
 (`pub.beehive_release_annotations`): shown as the provider's, never as a
 finding of the estate, and never offered as a link. A release served in
-more than one version says "read from the newest of N versions". The body
+more than one version says "read from the newest of N versions". Where the
+row's fields are the old estate's (`origin` "old estate": its scraper's
+title, day and text, original not held), the pane says so; where the MCP
+holds the page only as a capture its provider has not yet read
+(`mcp_state` "captured only"), the pane says "captured by the provider
+on <captured_at>, not yet read" beside the old estate's reading, and the
+MCP's reading replaces it once the provider reads the page. The body
 is not in any view; the board's document opener shows the record whole
 (ruling 88). Every row notes that the estate did not fetch the page: the
 provider captured it off-estate (ruling 78).

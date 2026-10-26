@@ -22,14 +22,20 @@ record's `seq` and hash, so a lane takes the newest version of a record by
 The cursor advances only after its page is landed, in the same transaction
 as the page's arrival rows and catch lines. A record that cannot be landed
 (no `id`, or a landing that failed twice) is a catch line and the cursor
-passes it; `--retry-caught` asks for each such record again by its place. A
+passes it; `--retry-caught` asks for each such record again by its place.
+The MCP changes records in place (re-processing moves `updated_at`), where
+a cursor never looks: after the cursor, the pull follows the MCP's own
+change feed `changes` from the newest stamp it has read to the end, and
+each changed record lands as a second document. `--rewalk` (from 0, the
+cursor unmoved) is the fallback if the feed is ever in doubt. A
 page whose shape is not the MCP's (no `records`, a `seq` out of place) stops
 the run and the cursor holds. A field the recorded shapes (`shapes.json`)
 do not hold is landed (the bytes are whole) and logged in `drift`, and the
 run is red until a register carries it.
 
     pull(conn, client, corpus)            one corpus, from its stored cursor
-    pull_all(conn, client)                every corpus `corpora` names
+    pull_all(conn, client)                every corpus `corpora` names, then each one's change feed
+    follow_changes(conn, client, corpus)  the MCP's `changes` from the stamp followed last
     python -m support.mcpsource [--database D] [--schema S] [--corpus C …]
 
 Tests: support/mcpsource/tests/ (a fake server; the live shape, slow).
@@ -137,6 +143,21 @@ class Tables:
 
     def unlock(self) -> None:
         self.conn.execute("SELECT pg_advisory_unlock(%s, hashtext(%s))", (LOCK_KEY, self.schema))
+
+    def changes_since(self, corpus: str):
+        """The stamp the change feed was last followed to; with none yet, an
+        hour before this corpus was first taken (UTC), so every record the
+        MCP changed since the first pull began is asked for."""
+        row = self.conn.execute(f"SELECT changes_since FROM {self.t('cursors')} WHERE corpus = %s", (corpus,)).fetchone()
+        if row and row[0]:
+            return row[0]
+        first = self.conn.execute(f"SELECT min(landed_at) FROM {self.t('arrivals')} WHERE corpus = %s", (corpus,)).fetchone()
+        if not first or first[0] is None:
+            return None
+        return (first[0] - dt.timedelta(hours=1)).astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def set_changes_since(self, corpus: str, stamp: str) -> None:
+        self.conn.execute(f"UPDATE {self.t('cursors')} SET changes_since = %s WHERE corpus = %s", (stamp, corpus))
 
     def commit_page(self, corpus: str, cursor: int, total, arrivals: list, catches: list, drift: dict,
                     move: bool = True) -> None:
@@ -258,6 +279,76 @@ def pull(conn, client, corpus: str, schema: str = SCHEMA, limit: int = PAGE, pau
     return out
 
 
+def check_changes_page(page, corpus: str, cursor: int) -> list:
+    """A `changes` page: `records` and `next_cursor` from where it was
+    asked; its records come in (updated_at, seq) order, each with its own
+    `seq` and `updated_at`."""
+    if not isinstance(page, dict) or not isinstance(page.get("records"), list) or "next_cursor" not in page:
+        raise ShapeError(f"{corpus}: the change page at {cursor} is not the MCP's shape: "
+                         f"{sorted(page) if isinstance(page, dict) else type(page).__name__}")
+    recs = page["records"]
+    if page["next_cursor"] != cursor + len(recs):
+        raise ShapeError(f"{corpus}: {len(recs)} changes from {cursor} but next_cursor {page['next_cursor']}")
+    for r in recs:
+        if not isinstance(r, dict) or not isinstance(r.get("seq"), int) or not isinstance(r.get("updated_at"), str):
+            raise ShapeError(f"{corpus}: a change without its seq and updated_at")
+    return recs
+
+
+def _earlier(stamp: str, seconds: int = 1) -> str:
+    """`stamp` a moment earlier, so a record stamped the same second as the
+    newest seen is asked for again (found held) rather than missed."""
+    try:
+        t = dt.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except ValueError:
+        return stamp
+    return (t - dt.timedelta(seconds=seconds)).astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def follow_changes(conn, client, corpus: str, schema: str = SCHEMA, limit: int = PAGE, pause_s: float = PAUSE_S,
+                   root: str = None, land=None, shape=None, log=None, sleep=time.sleep, budget_s: float = None) -> dict:
+    """The MCP's change feed for `corpus` from the stamp followed last: each
+    record it serves lands (bytes it changed are a second document under
+    the same names; the rest are found held) with an arrival row at its
+    own `seq`. Only records already taken by the cursor (`seq` below it) are
+    counted as changes; a fresh arrival is left to the cursor."""
+    t = Tables(conn, schema)
+    shape = shape if shape is not None else shapes().get(corpus)
+    since, upto = t.changes_since(corpus), t.cursor_of(corpus)
+    out = {"since": since, "changes": 0, "changed": 0, "unchanged": 0, "caught": 0, "drift": 0, "pages": 0}
+    if since is None:
+        out["stopped"] = "nothing taken yet"
+        return out
+    newest, cursor, t0 = since, 0, time.monotonic()
+    while True:
+        if budget_s is not None and time.monotonic() - t0 > budget_s:
+            out["stopped"] = "budget"
+            break
+        page = client.call_retrying("changes", {"corpus": corpus, "since": _earlier(since), "cursor": cursor,
+                                                "limit": limit, "include_text": True}, sleep=sleep, log=log)
+        recs = check_changes_page(page, corpus, cursor)
+        if not recs:
+            out["stopped"] = "end"
+            break
+        cursor += len(recs)
+        taken = [r for r in recs if r["seq"] < upto]
+        newest = max([newest] + [r["updated_at"] for r in recs])
+        arrivals, catches, drift, n = _land_page(conn, corpus, taken, shape, root, land, log)
+        t.commit_page(corpus, upto, page.get("total"), arrivals, catches, drift, move=False)
+        out["pages"] += 1
+        out["changes"] += len(taken)
+        out["changed"] += n["landed"]
+        out["unchanged"] += n["held"]
+        out["caught"] += n["caught"]
+        out["drift"] += sum(k for _, k in drift.values())
+        if pause_s:
+            sleep(pause_s)
+    if out.get("stopped") == "end" and not out["caught"]:
+        t.set_changes_since(corpus, newest)     # moved only when the feed was read to its end and every change landed
+    out["to"] = newest
+    return out
+
+
 def retry_caught(conn, client, schema: str = SCHEMA, root: str = None, land=None, log=None, sleep=time.sleep) -> dict:
     """Each unresolved catch line asked for again by its place (one record a request) and landed; resolved when it lands."""
     t = Tables(conn, schema)
@@ -280,8 +371,9 @@ def retry_caught(conn, client, schema: str = SCHEMA, root: str = None, land=None
     return n
 
 
-def pull_all(conn, client, schema: str = SCHEMA, only=None, log=None, **kw) -> dict:
-    """Every corpus `corpora` names (or `only`), each from its cursor:
+def pull_all(conn, client, schema: str = SCHEMA, only=None, log=None, follow: bool = True, **kw) -> dict:
+    """Every corpus `corpora` names (or `only`), each from its cursor, then
+    (with `follow`) each one's change feed from the stamp followed last:
     {corpus: counts}. A corpus that fails is recorded with its error and
     the others still run."""
     listing = client.call_retrying("corpora", {}, log=log, sleep=kw.get("sleep", time.sleep))
@@ -304,6 +396,19 @@ def pull_all(conn, client, schema: str = SCHEMA, only=None, log=None, **kw) -> d
         except (McpError, ShapeError) as e:
             res[name] = {"corpus": name, "error": f"{type(e).__name__}: {e}"[:500]}
         res[name]["source_cursor"] = want
+    if follow and not kw.get("rewalk"):
+        for name in [c["name"] for c in corpora if (not only or c["name"] in only)]:
+            if "error" in res.get(name, {}):
+                continue
+            try:
+                ch = follow_changes(conn, client, name, schema, log=log,
+                                    **{k: v for k, v in kw.items() if k in ("sleep", "pause_s", "land", "root", "budget_s")})
+            except (McpError, ShapeError) as e:
+                res[name]["error"] = f"changes: {type(e).__name__}: {e}"[:500]
+                continue
+            res[name]["changes"] = ch
+            res[name]["caught"] += ch["caught"]
+            res[name]["drift"] += ch["drift"]
     return res
 
 
@@ -353,8 +458,11 @@ def summary(res: dict) -> str:
         if "error" in r:
             parts.append(f"{name}: FAILED {r['error'][:160]}")
         else:
+            ch = r.get("changes") or {}
             parts.append(f"{name}: {r['from']}→{r['to']} of {r.get('source_cursor', r.get('total'))}, "
-                         f"{r['landed']} landed, {r['held']} held, {r['caught']} caught, {r['drift']} drift ({r['stopped']})")
+                         f"{r['landed']} landed, {r['held']} held, {r['caught']} caught, {r['drift']} drift ({r['stopped']})"
+                         + (f"; changes since {ch['since']}: {ch['changed']} changed, {ch['unchanged']} unchanged "
+                            f"({ch.get('stopped')})" if ch else ""))
     return "; ".join(parts)
 
 

@@ -16,7 +16,8 @@ from support import mcpsource as M
 from support.mcpsource import client as C
 from support.mcpsource.tests.fake import FakeServer, client_for, corpus_of, made_record
 
-CORPORA = ("beehive", "parliament-bills", "parliament-diaries", "parliament-hansard-index", "parliament-wayback",
+CORPORA = ("beehive", "parliament-bills", "parliament-diaries", "parliament-hansard-debates", "parliament-hansard-index",
+           "parliament-wayback",
            "parliament-written-questions")
 TEST_SCHEMA = "scratch_test_mcpsource"
 
@@ -139,14 +140,14 @@ def _count(conn, t, where=""):
 
 
 def test_every_corpus_is_pulled_whole_and_a_second_run_lands_nothing(conn):
-    served = {c: corpus_of(c, n) for c, n in zip(CORPORA, (450, 7, 30, 12, 9, 401))}
+    served = {c: corpus_of(c, n) for c, n in zip(CORPORA, (450, 7, 30, 5, 12, 9, 401))}
     server, lands = FakeServer(served), Lands()
     res = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
     assert M.outcome(res), M.summary(res)
     assert {c: r["landed"] for c, r in res.items()} == {c: len(v) for c, v in served.items()}
     assert M.Tables(conn, TEST_SCHEMA).cursors() == {c: len(v) for c, v in served.items()}
     assert _count(conn, "arrivals") == sum(len(v) for v in served.values())
-    pages = [a for m, a in server.requests if m == "tools/call" and a.get("corpus") == "beehive"]
+    pages = [a for m, a in server.requests if m == "tools/call" and a.get("corpus") == "beehive" and "since" not in a]
     assert [(p["cursor"], p["limit"]) for p in pages] == [(0, 200), (200, 200), (400, 200)]
     # named by corpus and id, and by the page's own address
     rec = served["beehive"][5]
@@ -156,7 +157,9 @@ def test_every_corpus_is_pulled_whole_and_a_second_run_lands_nothing(conn):
     before, asked = lands.calls, len(server.requests)
     res2 = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
     assert lands.calls == before and all(r["stopped"] == "nothing new" for r in res2.values())
-    assert [m for m, a in server.requests[asked:] if m == "tools/call"] == ["tools/call"]   # `corpora` only
+    calls = [a for m, a in server.requests[asked:] if m == "tools/call"]
+    assert len(calls) == 1 + len(CORPORA) and all("since" in a for a in calls[1:])   # `corpora`, then one feed each
+    assert all(r["changes"]["changed"] == 0 and r["changes"]["stopped"] == "end" for r in res2.values())
     assert M.Tables(conn, TEST_SCHEMA).cursors() == {c: len(v) for c, v in served.items()}
 
 
@@ -192,6 +195,25 @@ def test_a_rewalk_finds_a_record_changed_in_place_and_leaves_the_cursor(conn):
     assert M.Tables(conn, TEST_SCHEMA).cursor_of("parliament-written-questions") == 250     # the new arrival waits
     assert len(lands.names[f"parliament-written-questions/{rec['id']}"]) == 2
     assert _count(conn, "arrivals", "WHERE seq = 7") == 2
+
+
+def test_the_change_feed_lands_a_record_changed_in_place_and_moves_its_stamp(conn):
+    served = {"parliament-diaries": corpus_of("parliament-diaries", 30)}
+    server, lands = FakeServer(served), Lands()
+    first = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
+    assert first["parliament-diaries"]["changes"]["changed"] == 0 and M.outcome(first)
+    t = M.Tables(conn, TEST_SCHEMA)
+    stamp = t.changes_since("parliament-diaries")
+    assert stamp is not None
+    rec = served["parliament-diaries"][12]
+    rec["meeting"], rec["updated_at"] = "a corrected meeting", "2099-01-01T00:00:00Z"   # re-processed where it stood
+    res = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
+    ch = res["parliament-diaries"]["changes"]
+    assert (res["parliament-diaries"]["stopped"], ch["changed"], ch["stopped"]) == ("nothing new", 1, "end")
+    assert len(lands.names[f"parliament-diaries/{rec['id']}"]) == 2 and _count(conn, "arrivals", "WHERE seq = 12") == 2
+    assert t.changes_since("parliament-diaries") == "2099-01-01T00:00:00Z"
+    again = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
+    assert again["parliament-diaries"]["changes"]["changed"] == 0
 
 
 def test_a_changed_page_shape_stops_the_run_and_the_cursor_holds(conn):

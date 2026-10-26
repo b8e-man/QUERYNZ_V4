@@ -184,6 +184,9 @@
    "billTitle": [
     "null"
    ],
+   "capture": [
+    "dict"
+   ],
    "date": [
     "null"
    ],
@@ -276,7 +279,16 @@
     "null"
    ]
   },
-  "items": {}
+  "items": {
+   "capture": {
+    "_collected": [
+     "str"
+    ],
+    "status": [
+     "str"
+    ]
+   }
+  }
  },
  "parliament-diaries": {
   "fields": {
@@ -285,6 +297,9 @@
    ],
    "attendees": [
     "str"
+   ],
+   "capture": [
+    "dict"
    ],
    "date": [
     "str"
@@ -326,12 +341,98 @@
     "str"
    ]
   },
-  "items": {}
+  "items": {
+   "capture": {
+    "_collected": [
+     "str"
+    ],
+    "source_url": [
+     "str"
+    ]
+   }
+  }
+ },
+ "parliament-hansard-debates": {
+  "fields": {
+   "bytes": [
+    "int"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "date": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "http_status": [
+    "int"
+   ],
+   "id": [
+    "str"
+   ],
+   "page_count": [
+    "int"
+   ],
+   "raw_file": [
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "sitting_date": [
+    "str"
+   ],
+   "text": [
+    "str"
+   ],
+   "title": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "url": [
+    "str"
+   ],
+   "word_count": [
+    "int"
+   ]
+  },
+  "items": {
+   "capture": {
+    "bytes": [
+     "int"
+    ],
+    "fetched_at": [
+     "str"
+    ],
+    "http_status": [
+     "int"
+    ],
+    "raw_file": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ],
+    "url": [
+     "str"
+    ]
+   }
+  }
  },
  "parliament-hansard-index": {
   "fields": {
    "bytes": [
     "int"
+   ],
+   "capture": [
+    "dict"
    ],
    "date": [
     "str"
@@ -361,7 +462,22 @@
     "str"
    ]
   },
-  "items": {}
+  "items": {
+   "capture": {
+    "bytes": [
+     "int"
+    ],
+    "fetched": [
+     "str"
+    ],
+    "raw_file": [
+     "str"
+    ],
+    "url": [
+     "str"
+    ]
+   }
+  }
  },
  "parliament-wayback": {
   "fields": {

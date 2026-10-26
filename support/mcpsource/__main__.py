@@ -35,6 +35,7 @@ def main(argv=None) -> int:
     ap.add_argument("--rewalk", action="store_true", help="walk each corpus again from 0 to its cursor (weekly): "
                     "lands records the MCP changed in place; the cursor does not move")
     ap.add_argument("--adopt", metavar="SAMPLE_SCHEMA")
+    ap.add_argument("--no-changes", action="store_true", help="the cursor only; skip the change feed")
     a = ap.parse_args(argv)
     from support import db, jobrun
     if a.adopt:
@@ -60,7 +61,7 @@ def main(argv=None) -> int:
                 print(f"{M.SOURCE}: {n['asked']} caught records asked again, {n['landed']} landed")
                 return 0
             res = M.pull_all(conn, client, a.schema, only=a.corpus, log=log, budget_s=a.budget_s, pause_s=a.pause_s,
-                             rewalk=a.rewalk)
+                             rewalk=a.rewalk, follow=not a.no_changes)
         finally:
             t.unlock()
     ok = M.outcome(res)

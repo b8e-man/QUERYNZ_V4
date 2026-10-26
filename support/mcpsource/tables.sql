@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS mcpsource.cursors (
     source_total bigint,                                          -- the MCP's `total` on the last page asked
     updated_at   timestamptz NOT NULL DEFAULT now()
 );
+-- the newest `updated_at` the change feed (`changes`) has been followed to: records the MCP changed in place
+ALTER TABLE mcpsource.cursors ADD COLUMN IF NOT EXISTS changes_since text;
 
 -- one row per record taken: its place in the arrival order and the document it landed as. A record the MCP
 -- changed in place and a re-walk found again is a second row at the same `seq` with its new hash

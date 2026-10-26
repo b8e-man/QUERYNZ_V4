@@ -28,6 +28,8 @@ def made_record(corpus: str, seq: int, shape: dict) -> dict:
             rec[field] = seq
         elif field == "id":
             rec[field] = f"{corpus}-{seq:06d}"
+        elif field == "updated_at":
+            rec[field] = "2026-10-26T00:00:00Z"
         elif field == "url":
             rec[field] = f"https://example.test/{corpus}/{seq}" if t == "str" else None
         elif t == "str":
@@ -111,6 +113,13 @@ class FakeServer:
                     "records": page}
             if self.page_hook:
                 body = self.page_hook(body)
+        elif name == "changes":                       # moved after `since`, in (updated_at, seq) order
+            rows = sorted((r for r in self.records[args["corpus"]] if r.get("updated_at", "") > args["since"]),
+                          key=lambda r: (r["updated_at"], r["seq"]))
+            cur, lim = args.get("cursor", 0), args.get("limit", 100)
+            page = rows[cur:cur + lim]
+            body = {"corpus": args["corpus"], "since": args["since"], "cursor": cur, "next_cursor": cur + len(page),
+                    "records": page}
         else:
             return self._answer(msg["id"], {"isError": True, "content": [{"type": "text", "text": f"no tool {name}"}]})
         return self._answer(msg["id"], {"content": [{"type": "text", "text": json.dumps(body)}], "isError": False})
