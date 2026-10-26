@@ -680,3 +680,31 @@ fix-support-scheduler-1 stopped before it edited anything and its copy
 and branch retired, card 1 untouched, profiles.toml unchanged. The
 text-reader and review profiles stay on Qwen 3.6 35B-A3B Q4_K_M as step
 2.15 names them.
+
+100. Arthur, 26 October, about 23:05, after the integrator compared the
+board's graph with the old estate's ("in v3 we had a more attractive
+looking graph"; the old one was Cytoscape with the cola force layout in
+the browser, round nodes coloured by type, soft curved edges, tap to grow
+a neighbourhood, drag, zoom): "abandon ruling 80." The integrator's
+reading: what is abandoned is the rule the board carried from ruling 80
+that it runs with no script ("still no script", step 4.9's second
+version). Ruling 80's two tabs, the register check boxes, the results
+pane and the graph tab itself stand, since rulings 81 to 93 were built on
+them; Arthur says so if he meant more. So: the board may run script, on
+the local network only (hard limit 13), served by the board itself from
+its own folder, a vendored library at a pinned version with its licence
+file beside it, never a request from the page to anything off the box
+(hard limit 10's spirit: nothing of the estate's leaves). The graph tab
+takes the old estate's interaction model and look (Cytoscape and cola as
+v3 used them, read from the reference copy): round nodes coloured by
+register with the label beneath, soft curved edges in the key's colours,
+tap a node to grow its one hop and tap again to fold it, drag, zoom and
+pan, the centre ringed; the rows and edges from a JSON answer built by the
+same `graph.build` (published tables only, every edge cited by its
+asserting row, never an address edge, suppression as before). The
+server-written SVG stays as the picture for a browser without script and
+the layered layout (ruling 92 (1)) gives every node its first position,
+with a control that lets the force layout spread it; the key and the
+cited edge list under the picture stay (rulings 84, 86); the dark scheme
+(86 (1)) stays and the contrast test covers the node colours. Session
+`board-7`.
