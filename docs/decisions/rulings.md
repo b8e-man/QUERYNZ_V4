@@ -493,3 +493,34 @@ left out of the search results, the near matches, the register table and
 the graph's matched nodes, and the companies count says how many were
 hidden; ticked, every row returns as before. A row pane opened by its
 own link still opens whatever its status, since the link names the row.
+
+94. Arthur, 26 October, about 15:50 to 16:00, setting up the ingest MCP
+(the Hermes VPS's `query-nz-ingest` server, version 0.2.0, corpora of
+beehive.govt.nz and parliament.nz captured and read on that box, outside
+the estate) on node2: "i am setting up the mcp on this machine … This
+needs to be set up on node 1 when we get it back"; "this is a source
+that you will regularly call to get its content"; then the four steps
+(an SSH tunnel to the VPS forwarding 8642, 8644 and 8646 to the inner
+box; a user unit for it; `claude mcp add --transport http query-nz
+http://127.0.0.1:8646/mcp`; verify through the MCP). So: the MCP is a
+source lane of the estate, third-party (ruling 78): a `qv4-` job will
+call it on a schedule, land what it serves in the document store by
+hash and load tables from it; no estate job calls its extraction (hard
+limit 10); a legal position from the four questions is written before
+any product shows its content (ruling 61), recording that the capture
+happened off-estate and, for parliament.nz, through a challenge the
+estate's own capture may not pass (hard limit 6). Done on node2 by the
+integrator: the tunnel unit installed as `qv4-mcp-tunnel.service` (hard
+limit 23) in the user systemd folder, Arthur's three forwards with
+keep-alives, enabled, lingering; Arthur put this box's key on the VPS
+(`ssh-copy-id`) after the unit was refused with the password login the
+test tunnel had used; the MCP registered for Claude Code in the project
+directory only (local scope; nothing in the repository). Proven: health
+`{"status":"ok","corpora":6}` through the tunnel; the MCP's handshake
+and tools/list answer (corpora, records, search, get, measure). Not yet
+proven: the `corpora` call returned only keep-alive pings for 40 s, and
+Claude Code's own client times out connecting at 30 s; handed to Arthur
+for the VPS side. The same setup is owed on node1 when it returns, after
+the fence (the unit, the key on the VPS, the registration); the queue
+item `an-mcp-for-the-parliament-and-beehive-sites` is closed by this
+ruling once the lane is briefed.
