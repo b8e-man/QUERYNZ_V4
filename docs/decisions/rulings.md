@@ -517,7 +517,7 @@ keep-alives, enabled, lingering; Arthur put this box's key on the VPS
 test tunnel had used; the MCP registered for Claude Code in the project
 directory only (local scope; nothing in the repository). Proven: health
 `{"status":"ok","corpora":6}` through the tunnel; the MCP's handshake
-and tools/list answer (corpora, records, search, get, measure). At 16:20
+and tools/list answer (corpora, records, search, get, measure). At 16:10
 Claude Code's own client connected (3 s, after one timed-out try), and
 the tools answer: `search` for one word in 45 s, `records` for one
 beehive record (of 45,418) in 34 s, `measure` at once; `corpora` gave
