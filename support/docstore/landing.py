@@ -110,6 +110,62 @@ def names_for(conn, shas: list) -> list:
                         "WHERE n.sha256 = ANY(%s) ORDER BY n.seen_at, n.sha256", (list(shas),)).fetchall()
 
 
+def copy_documents(src, dst, shas, *, root: str = None, src_store: str = "docs", dst_store: str = "docs") -> dict:
+    """The document and name rows of `shas` copied from the store tables on
+    `src` to those on `dst` in one transaction on `dst`: one store on disk,
+    two databases naming the same files (the adopt of support.mcpsource).
+    A document `dst` already holds is left as it is (only its missing names
+    are added); one whose bytes are not on disk is not copied. The bytes
+    are neither read nor hashed: the row is the store's record of them. The
+    schemas are parameters for the tests' scratch pair; the job uses `docs`
+    on both. Returns counts, and `absent`: the shas `dst` lacks after."""
+    want = sorted(set(shas))
+    out = {"asked": len(want), "copied": 0, "held": 0, "no source row": 0, "no bytes": 0, "names": 0,
+           "names copied": 0, "names live": 0, "absent": []}
+    if not want:
+        return out
+    rows = src.execute(f"SELECT sha256, size, kind, source, content_sha256, fetched_at, withdrawn FROM {src_store}.documents "
+                       "WHERE sha256 = ANY(%s)", (want,)).fetchall()
+    names = src.execute(f"SELECT sha256, name, kind, seen_at FROM {src_store}.names WHERE sha256 = ANY(%s)",
+                        (want,)).fetchall()
+    held = {r[0] for r in dst.execute(f"SELECT sha256 FROM {dst_store}.documents WHERE sha256 = ANY(%s)", (want,))}
+    out["no source row"], out["held"], out["names"] = len(want) - len(rows), len(held), len(names)
+    copy = []
+    for r in rows:
+        if r[0] in held:
+            continue
+        p = path_for(r[0], root)
+        if not os.path.exists(p):
+            out["no bytes"] += 1
+            continue
+        copy.append(tuple(r) + (p,))
+    cols = "sha256, size, kind, source, content_sha256, fetched_at, withdrawn, path"
+    with dst.transaction():
+        dst.execute(f"CREATE TEMP TABLE _copy_d (LIKE {dst_store}.documents INCLUDING DEFAULTS) ON COMMIT DROP")
+        dst.execute(f"CREATE TEMP TABLE _copy_n (LIKE {dst_store}.names INCLUDING DEFAULTS) ON COMMIT DROP")
+        with dst.cursor() as cur:
+            with cur.copy(f"COPY _copy_d ({cols}) FROM STDIN") as cp:
+                for r in copy:
+                    cp.write_row(r)
+            with cur.copy("COPY _copy_n (sha256, name, kind, seen_at) FROM STDIN") as cp:
+                for r in names:
+                    cp.write_row(r)
+            cur.execute(f"WITH ins AS (INSERT INTO {dst_store}.documents ({cols}) SELECT {cols} FROM _copy_d "
+                        "ON CONFLICT (sha256) DO NOTHING RETURNING sha256, source) "
+                        f"INSERT INTO {dst_store}.landings (sha256, source, name, ok, new) "
+                        "SELECT i.sha256, i.source, (SELECT min(n.name) FROM _copy_n n WHERE n.sha256 = i.sha256), true, true "
+                        "FROM ins i")
+            out["copied"] = cur.rowcount
+            cur.execute(f"INSERT INTO {dst_store}.names (sha256, name, kind, seen_at) SELECT n.sha256, n.name, n.kind, "
+                        f"n.seen_at FROM _copy_n n JOIN {dst_store}.documents d USING (sha256) ON CONFLICT DO NOTHING")
+            out["names copied"] = cur.rowcount
+            out["names live"] = cur.execute(f"SELECT count(*) FROM _copy_n n JOIN {dst_store}.names x "
+                                            "USING (sha256, kind, name)").fetchone()[0]
+            live = {r[0] for r in cur.execute(f"SELECT sha256 FROM {dst_store}.documents WHERE sha256 = ANY(%s)", (want,))}
+    out["absent"] = [s for s in want if s not in live]
+    return out
+
+
 def documents_of(shas, conn) -> dict:
     """{sha256: {'kind', 'source', 'withdrawn'}} for the documents the store's
     table holds among `shas`, read only (one query): what a reader needs to
