@@ -8,3 +8,12 @@ key: 2026-06-30 twelve sections captured with no text, and no turns in them
 key: 2026-04-01 the old derive retired 72 of its own rows: they stay out of the count
 key: 2026-02-11 a Draft day whose sections the old pipeline marked failed: read the same
 key: 2025-10-16 a day of four sections and no speech turn
+key: 2025-12-09 a sitting under urgency: the old page carried the whole sitting, the PDF its first calendar day
+# Records of the ingest MCP's two Hansard corpora, landed by support/mcpsource (mcp-1's pull, 26 to 27 October 2026).
+7cdecddcb35b2d94d8823f36a7720f5098606c37ab6e859c448ef5d2abea8745 debates: the first day the old estate holds, both sources
+dd73a7b013eea4c2a4b1c239883c8f7afd1030b2db50729808ee89069b4bccc9 debates: the last day held by either, both sources
+782685d5c2183894a965c0df08a244fc484c5522ab76e50ec766d75a3d105a47 debates: the urgency sitting, below 90% found
+35201d924aced6ee88a7c13bc366ed0eb937a7773686de50921274a09cf12d1c debates: the first day the MCP holds, 2003; the old estate does not
+cf15646aa1b814f8a888e43237628275754a372543f4601d4eff23c7d4b64796 debates: a 2026 day the old estate missed
+5b1b263860e58cb78f3046d73fdf0bb9f243d57c60459d1f9bee6ee3c43989b6 index: a Hansard information page on www.parliament.nz
+a45d387326e6a633dadfb2dc93c308617e84bcb46f516a39299c0e849ca2c56d index: a select committee page
