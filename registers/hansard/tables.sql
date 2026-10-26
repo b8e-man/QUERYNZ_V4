@@ -1,7 +1,8 @@
 -- registers/hansard: every table this lane owns, in `hansard`. Every row is read from the once-only export of the old
 -- estate's Hansard tables (capture.py, ruling 96), "taken from the old estate's tables; original not held", and cites
 -- the export's hash, the sitting day and section, and the page's own address. Rebuilt whole on every load.
--- `hansard_private` holds nothing: no row of this source is a home address.
+-- The MCP's rows (hansard-2) read the records support/mcpsource landed and cite the record's hash and the page's or
+-- PDF's address. `hansard_private` holds each day's text as the provider's pdftotext gave it: shown on the board only.
 
 CREATE SCHEMA IF NOT EXISTS hansard;
 CREATE SCHEMA IF NOT EXISTS hansard_private;
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS hansard.sittings (
     old_unattributed integer,
     old_speakers     integer,
     old_derived_at   timestamptz,
+    captured_at      timestamptz,                    -- the latest the old estate fetched any of the day's sections
     source_note      text NOT NULL,
     document         text NOT NULL,
     page             integer NOT NULL,
@@ -122,17 +124,76 @@ CREATE TABLE IF NOT EXISTS hansard.old_speeches (
     document         text NOT NULL
 );
 
--- room for the MCP's `parliament-hansard-index` (session hansard-2, after mcp-1): one row per index record, which
--- Hansard page changed and when; it carries no text. Joined to the sittings by url. Empty until hansard-2 fills it
+-- one per page of the MCP's `parliament-hansard-index` (a sitemap entry: which page changed and when; no text), read
+-- from the version the pull saw last. Joined to the sittings by url in pub.hansard_sittings
 CREATE TABLE IF NOT EXISTS hansard.index_pages (
     url              text NOT NULL,
     lastmod          timestamptz,                    -- the sitemap's own last-modified
-    fetched          timestamptz,                    -- when the MCP fetched the sitemap
-    index_on         date,                           -- the index record's date
+    fetched          timestamptz,                    -- when the provider fetched the sitemap entry
+    index_on         date,                           -- the record's `date`
     record           text,                           -- the MCP's record id
+    raw_file         text,                           -- the provider's file name on its box
+    versions         integer NOT NULL,               -- documents the MCP has served for this record
+    fields_unread    text[] NOT NULL DEFAULT '{}',   -- any field of the record this lane has no column for
+    source_note      text NOT NULL,
     document         text NOT NULL,                  -- the record landed by sha256
+    page             integer NOT NULL,
+    place            text NOT NULL,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
     loaded_at        timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (url, document)
+);
+
+-- one per record of the MCP's `parliament-hansard-debates`: a sitting day's daily PDF, read by the provider with
+-- pdftotext -layout. No section or speech split (the provider made none). The text is in hansard_private.day_texts
+CREATE TABLE IF NOT EXISTS hansard.days (
+    key              text PRIMARY KEY,               -- the sitting day, YYYY-MM-DD
+    sitting_on       date NOT NULL,
+    title            text,
+    pdf_url          text NOT NULL,                  -- the daily PDF's address: the citation
+    pdf_sha256       text,                           -- the provider's hash of the PDF as it received it
+    pdf_bytes        bigint,
+    http_status      integer,
+    captured_at      timestamptz,                    -- when the provider fetched the PDF
+    raw_file         text,                           -- the provider's file name on its box
+    updated_at       text,                           -- the MCP's: moves when the record changes
+    page_count       integer,
+    word_count       integer,                        -- as served
+    text_words       integer NOT NULL,               -- whitespace words of the text (what the MCP's `measure` counts)
+    chars            integer NOT NULL,
+    versions         integer NOT NULL,
+    fields_unread    text[] NOT NULL DEFAULT '{}',
+    old_sections     integer,                        -- the old transcript's sections for the day; NULL: not held there
+    old_subjects     integer,                        -- of those, with a subject that is not a continuation note
+    subjects_in_text integer,                        -- of those, the subject found in this day's text
+    source_note      text NOT NULL,
+    document         text NOT NULL,                  -- the record landed by sha256
+    page             integer NOT NULL,
+    place            text NOT NULL,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- one per old section on a day both sources hold: where its subject is found. No text; check.py reads it under
+-- the reader login (the texts are private)
+CREATE TABLE IF NOT EXISTS hansard.day_sections (
+    key              text PRIMARY KEY,               -- hansard.sections.key
+    sitting_on       date NOT NULL,
+    found            text NOT NULL CHECK (found IN ('own day', 'neighbouring day', 'continuation note',
+                                                     'no subject', 'not found')),
+    neighbour        date,                           -- the held day whose text has it, for 'neighbouring day'
+    document         text NOT NULL                   -- the day's record
+);
+
+CREATE TABLE IF NOT EXISTS hansard_private.day_texts (
+    key              text PRIMARY KEY,               -- hansard.days.key
+    text             text NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS hansard.files (

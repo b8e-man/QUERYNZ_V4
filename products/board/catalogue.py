@@ -184,6 +184,26 @@ class Fields:
 
 
 @dataclass(frozen=True)
+class Say:
+    """A line a row's pane and its results hit carry where `column` holds one
+    of `values` (empty: any value), or, with `above`, a number above it; the
+    words may name the row's columns in braces ("read from the newest of
+    {versions} versions"). A lane's pane.md line said as data."""
+    words: str
+    column: str
+    values: tuple = ()
+    above: int | None = None
+
+    def holds(self, r: dict) -> bool:
+        x = r.get(self.column)
+        if x is None or x == "":
+            return False
+        if self.above is not None:
+            return isinstance(x, (int, float)) and x > self.above
+        return not self.values or x in self.values
+
+
+@dataclass(frozen=True)
 class View:
     name: str                       # the pub view
     register: str                   # the lane it belongs to (its folder name under registers/)
@@ -206,10 +226,17 @@ class View:
     relations: tuple = ()           # Relation: the connections to other rows this view's rows assert
     text: tuple = ()                # (label, column, words when empty): a long text shown whole in the row pane alone, never in a results hit or the table
     title_format: str = ""          # the title as words around its columns ("{sitting_on} · Parliament {parliament}"); where a column it names is empty, the plain title
+    says: tuple = ()                # Say: a line the row carries where a column holds a value
 
 
 #: every Hansard row's line (registers/hansard/pane.md, ruling 96)
 HANSARD_NOTE = "taken from the old estate's tables; original not held; held at 23 September 2026"
+
+#: every Beehive row's line (registers/beehive/pane.md, ruling 78)
+BEEHIVE_NOTE = ("the estate did not fetch this page: the query-nz provider captured it off-estate (ruling 78), "
+                "or the old estate's scraper did before ruling 78")
+#: the heading pane.md insists on for the provider's topics and quotes (ruling 96)
+ANNOTATION = "The source's annotation (made by its model, not ours)"
 
 DOC = (("document", "document"), ("page", "page"), ("place", "place"), ("read from", "read_from"),
        ("reader", "reader"), ("profile", "profile"))
@@ -585,7 +612,8 @@ VIEWS: tuple[View, ...] = (
                  ("page last modified, by the index", "index_lastmod"), ("index fetched", "index_fetched"),
                  ("source", "source_note")),
          dates=(("sitting day", "sitting_on"),), urls=("url",),
-         joins=(Join("Sections", "hansard_sections", "sitting_on", key_column="sitting_on", order="section_index"),),
+         joins=(Join("Sections", "hansard_sections", "sitting_on", key_column="sitting_on", order="section_index"),
+                Join("The daily PDF (the MCP)", "hansard_days", "sitting_on", key_column="sitting_on", order="sitting_on")),
          title_format="{sitting_on} · Parliament {parliament}, volume {volume}",
          note=HANSARD_NOTE, default_order="sitting_on"),
     View("hansard_sections", "hansard", "document", ("subject", "sitting_on"),
@@ -618,6 +646,62 @@ VIEWS: tuple[View, ...] = (
               "(the Speaker, the chair, the Clerk, an unnamed interjection) shows the role and never a person. The House "
               "publishes no member id, so a turn names no House member row: matching them by name would be a link made by looking",
          default_order="sitting_on"),
+    View("hansard_days", "hansard", "document", ("sitting_on", "title"),
+         search=("title", "pdf_url"),
+         fields=(("the provider's title", "title"), ("pages", "page_count"), ("words", "word_count"),
+                 ("captured by the provider", "captured_at"), ("the provider's hash of the PDF", "pdf_sha256"),
+                 ("versions served", "versions"), ("the old transcript", "old_note"),
+                 ("the old transcript's sections", "old_sections"), ("its subjects", "old_subjects"),
+                 ("of them in the PDF's text", "subjects_in_text"), ("source", "source_note")),
+         dates=(("sitting day", "sitting_on"),), urls=("citation_url",),
+         joins=(Join("The sitting's pane (the old transcript's sections)", "hansard_sittings", "sitting_on",
+                     key_column="sitting_on", order="sitting_on"),),
+         title_format="{sitting_on} · daily PDF",
+         note="captured and read off-estate by the query-nz provider (ruling 78); pdftotext's text, no section or "
+              "speaker split. The text is in no view: \"source\" opens the landed record whole (ruling 88, the board only)",
+         default_order="sitting_on"),
+    # ── beehive (the ingest MCP's beehive corpus and the old estate's export, ruling 96; pane.md: beehive) ──
+    View("beehive_releases", "beehive", "document", ("title", "type"),
+         search=("title", "type"),
+         fields=(("type, as the site gives it", "type"), ("kind, as the provider captured it", "kind"),
+                 ("words", "word_count"), ("ministers the site tags", "ministers"), ("portfolios", "portfolios"),
+                 ("the source's annotation: topics (made by its model)", "topics"),
+                 ("the source's annotation: quotes (made by its model)", "quotes"),
+                 ("versions served", "versions"), ("read from", "origin"), ("the provider's reading", "mcp_state"),
+                 ("captured", "captured_at"), ("source", "source_note")),
+         dates=(("day, the record's own", "published_on"),), urls=("citation_url",),
+         joins=(Join("Ministers the site tags it with, in order", "beehive_release_ministers", "release", order="ordinal"),
+                Join(ANNOTATION, "beehive_release_annotations", "release", order="annotation, ordinal")),
+         title_format="{title} · {type}",
+         says=(Say("read from the newest of {versions} versions", "versions", above=1),
+               Say("the title, day and words are the old estate's: its scraper's reading, original not held",
+                   "origin", ("old estate",)),
+               Say("captured by the provider on {captured_at}, not yet read: the old estate's reading is shown until "
+                   "the provider reads the page", "mcp_state", ("captured only",))),
+         note=BEEHIVE_NOTE + ". The body is in no view: \"source\" opens the record whole (ruling 88, the board only)",
+         default_order="published_on"),
+    View("beehive_release_ministers", "beehive", "event", ("name", "published_on"),
+         search=("name", "slug"),
+         fields=(("minister, as the site tags the release", "name"), ("the site's slug", "slug"),
+                 ("order on the release", "ordinal"), ("release", "release"), ("type", "type")),
+         dates=(("the release's day", "published_on"),), urls=("citation_url",),
+         names=("name",),
+         parent=("Release", "beehive_releases", "release"),
+         title_format='{name} · tagged on "{title}" · {published_on}',
+         note=BEEHIVE_NOTE + ". A tag is the site's, on the release; the name is not a link to any person: the House "
+              "publishes no id the site's slug matches, and matching by name would be a link made by looking",
+         default_order="published_on"),
+    View("beehive_release_annotations", "beehive", "document", ("annotation", "value"),
+         search=("value",),
+         fields=(("annotation", "annotation"), ("order", "ordinal"), ("value", "value"),
+                 ("speaker, as the source's model attributed the quote", "speaker"), ("made by a model", "model_made"),
+                 ("made by", "made_by"), ("release", "release")),
+         dates=(("the release's day", "published_on"),), urls=("citation_url",),
+         parent=("Release", "beehive_releases", "release"),
+         title_format=ANNOTATION + " · {annotation}: {value}",
+         note=ANNOTATION + ": the query-nz provider's model made it off-estate. Shown as the provider's, never a finding "
+              "of the estate, never a link and never read into the graph (ruling 96)",
+         default_order="published_on"),
     # ── mp_interests (copied from published files; pane.md: mp_interests) ──
     View("mp_interest_returns", "mp_interests", "person", ("name", "as_at"),
          search=("name", "member", "party", "party_label", "electorate"),
@@ -1102,6 +1186,7 @@ FIELDS_OF = {
                              Name("display_name", order=GIVEN_FAMILY)),   # house/read.py: keys.names' given-first display
                       organisation=("party", "party_registered")),
     "hansard_speeches": Fields(names=(Name("member_name", order=FAMILY_GIVEN),)),   # the old roster's "Kuriger, Barbara": the comma fixes it
+    "beehive_release_ministers": Fields(names=(Name("name", order=GIVEN_FAMILY),)),   # the site's tag "Hon Chris Bishop": given then family, the honorific off the front
     "mp_interest_returns": Fields(names=(Name("name", order=GIVEN_FAMILY),      # mp_interests/read.py: keys.names' given-first display
                                          Name("member", order=GIVEN_FAMILY)),   # the register's header "Name (Party, Electorate)", given-first
                                   organisation=("party", "party_label")),
@@ -1195,6 +1280,7 @@ REGISTERS = (
     ("house", "Candidates, electorates and the House"),
     ("mp_interests", "MPs' declared interests"),
     ("hansard", "Hansard: who spoke in Parliament"),
+    ("beehive", "Beehive: releases, speeches and features"),
     ("expenses", "MPs' and ministers' expenses"),
     ("companies", "Companies, directors and shareholders"),
     ("societies", "Incorporated societies and their officers"),
@@ -1219,7 +1305,7 @@ REGISTERS = (
     ("local_elections", "Local election candidate returns (listed; held unread until ruling 79 lifts)"),
 )
 
-#: the graph canvas's node colours (ruling 100), by family of register: 29 registers cannot take 29 colours each 3:1
+#: the graph canvas's node colours (ruling 100), by family of register: 30 registers cannot take 30 colours each 3:1
 #: on the picture's surface and 15 apart in OKLab (the best found is 13.5 apart), so registers of one family share a
 #: colour, as the two same-person kinds share one hue in the key; the 14 colours are 17.5 or more apart and 3:1 or more
 #: on the surface (tests/test_night.py, panes.contrast_problems). A node's register is named in its hover and the
@@ -1229,7 +1315,7 @@ FAMILIES = (
     ("candidate returns", "#8048e0", ("candidate_returns", "local_elections")),
     ("parties", "#f04020", ("parties", "party_boards")),
     ("party finance", "#f8c0c8", ("party_finance",)),
-    ("the House", "#00d070", ("house", "hansard")),
+    ("the House", "#00d070", ("house", "hansard", "beehive")),
     ("declared interests", "#d0a008", ("mp_interests", "councillor_interests")),
     ("expenses", "#986800", ("expenses",)),
     ("companies", "#0088b0", ("companies", "limited_partnerships")),
@@ -1333,7 +1419,8 @@ def views_of(register: str) -> list:
 
 
 #: a register's main view, the one its table opens first (ruling 92 (5)), where it is not the first catalogued
-MAIN_VIEW = {"parties": "parties", "grants": "grants", "sanctions": "sanctions_listings", "hansard": "hansard_sittings"}
+MAIN_VIEW = {"parties": "parties", "grants": "grants", "sanctions": "sanctions_listings", "hansard": "hansard_sittings",
+             "beehive": "beehive_releases"}
 
 
 def main_view_of(register: str) -> str:
@@ -1346,7 +1433,8 @@ def columns_shown(v: View) -> set:
     and place are read when present and are not demanded here (a child row
     may cite through its parent)."""
     return (set(v.title) | {c for _, c in v.fields} | {c for _, c in v.dates} | set(v.urls) | set(v.names)
-            | {c for _, c, _ in v.text} | set(re.findall(r"\{(\w+)\}", v.title_format)))
+            | {c for _, c, _ in v.text} | set(re.findall(r"\{(\w+)\}", v.title_format))
+            | {c for say in v.says for c in (say.column, *re.findall(r"\{(\w+)\}", say.words))})
 
 
 def fold_term(term: str) -> str:
