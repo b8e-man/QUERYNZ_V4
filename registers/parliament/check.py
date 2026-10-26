@@ -7,7 +7,10 @@ every record's `text`). Against these, for each of the seven corpora:
 
   taken      the pull's cursor (records taken, each an arrival or a catch line) at least 99% of the MCP's count
   read       every distinct document the pull landed is a record read, an older version or a set-aside line
-  served     the records read that the MCP still serves equal the pull's cursor (each place holds one record)
+  served     the records read that the MCP still serves, plus the pages set aside as blocked, equal the pull's
+             cursor (each place holds one record)
+  blocked    an archived page that is the site's refusal (read.BLOCKED, hard limit 6) is set aside: counted and
+             stated on the line, never a failure; any other set-aside line is one
   measured   the MCP's n_docs against the cursor (at least 99%); its corpus_words against the words of the
              records' `text` the rows hold (`text_words`, served records only), within 1%
   clean      no pull catch line, no set-aside line, no row with a field the lane has no column for
@@ -39,7 +42,7 @@ import argparse
 import sys
 
 from support import mcpsource as M
-from registers.parliament import capture
+from registers.parliament import capture, read
 
 FLOOR = 0.99
 WORDS_TOLERANCE = 0.01
@@ -86,7 +89,9 @@ def held(conn, schema: str, mcp_schema: str) -> dict:
             "files set aside": q(f"SELECT count(*) FROM {schema}.files WHERE corpus = %s AND status = 'set aside'", c),
             "set aside": q(f"SELECT count(*) FROM {schema}.set_aside WHERE item LIKE %s", f"{c} seq %")
                          + q(f"SELECT count(*) FROM {schema}.set_aside s JOIN {schema}.files f ON f.sha256 = s.item "
-                             "WHERE f.corpus = %s", c),
+                             "WHERE f.corpus = %s AND s.reason <> %s", c, read.BLOCKED),
+            "blocked": q(f"SELECT count(*) FROM {schema}.set_aside s JOIN {schema}.files f ON f.sha256 = s.item "
+                         "WHERE f.corpus = %s AND s.reason = %s", c, read.BLOCKED),
             "fields unread": q(f"SELECT count(*) FROM {schema}.{t} WHERE cardinality(fields_unread) > 0{where}", *args),
             "words": q(f"SELECT coalesce(sum(text_words), 0) FROM {schema}.{t} WHERE served{where}", *args),
         }
@@ -174,8 +179,9 @@ def judge(h: dict, o: dict) -> list:
         if x["records"] + x["older versions"] + x["files set aside"] != x["documents"]:
             out.append(f"{c}: read {x['documents']} documents but {x['records']} records, {x['older versions']} "
                        f"older versions and {x['files set aside']} set aside")
-        if x["served"] != x["cursor"] - x["caught"]:
-            out.append(f"{c}: {x['served']} records the MCP still serves for {x['cursor'] - x['caught']} places taken")
+        if x["served"] + x["blocked"] != x["cursor"] - x["caught"]:
+            out.append(f"{c}: {x['served']} records the MCP still serves and {x['blocked']} blocked for "
+                       f"{x['cursor'] - x['caught']} places taken")
         if y.get("n_docs") is not None and x["cursor"] < FLOOR * y["n_docs"]:
             out.append(f"{c}: the MCP measures {y['n_docs']} documents, the pull holds {x['cursor']}")
         if y.get("corpus_words") and x["cursor"] >= (y.get("n_docs") or 0) \

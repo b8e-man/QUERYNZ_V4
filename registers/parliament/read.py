@@ -26,6 +26,16 @@ field the lane has no column for, or a value of a type its column cannot
 hold, is listed in `fields_unread`, never dropped silently: the check
 goes red on it.
 
+An archived page that is parliament.nz's refusal ("Unauthorized Request
+Blocked": the Internet Archive kept the site's answer to its crawler, not
+the page) is a challenged read, so a failed read (hard limit 6): set aside
+with BLOCKED, never a row; the document stays in the store. Known by its
+shape, measured on the 4,839 pages of the first full build: the refusal's
+title, and a short text that opens with the refusal's heading and says
+"Unauthorized Activity Detected" (10 pages, all one 42-word text; the
+shortest real page has 81 words, and none carries either phrase). A word
+alone never makes a page a refusal.
+
 The records' `text` is the provider's own run of the record's fields (the
 written questions' `text` re-rendered for 17,619 records on 26 October
 with nothing else changed): its words are counted (`text_words`, what the
@@ -51,6 +61,10 @@ SOURCE_NOTE = ("a record of the query-nz ingest MCP's {corpus} corpus: captured 
                "(ruling 78); the estate never fetched parliament.nz")
 WAYBACK_NOTE = ("a parliament.nz page as the Internet Archive kept it, taken by Arthur's provider and served in the "
                 "query-nz ingest MCP's parliament-wayback corpus (ruling 78); the estate fetched nothing")
+BLOCKED = "blocked: the archived copy is the site's refusal (hard limit 6)"
+REFUSAL_TITLE = "Unauthorized Request Blocked"
+REFUSAL_MARK = "Unauthorized Activity Detected"
+REFUSAL_MAX_WORDS = 60           # the refusal's text is 42 words; the shortest real page of the 4,839 has 81
 _HOST = re.compile(r"^https?://([a-z0-9-]+\.)*parliament\.nz(:\d+)?(/|$)", re.I)
 
 T, I, J = "text", "int", "json"
@@ -187,6 +201,23 @@ def citation_url(rec: dict):
     return None
 
 
+def _norm(v) -> str:
+    return " ".join(v.split()) if isinstance(v, str) else ""
+
+
+def refused(rec: dict) -> str:
+    """BLOCKED when an archived page is the site's refusal by its shape, '' when it is not. The refusal's title
+    over a text that is not the refusal's (measured: none) is set aside too, under its own reason: a block's
+    title is never cleared by what follows it."""
+    title, text = _norm(rec.get("html_title")), _norm(rec.get("text"))
+    short = len(text.split()) <= REFUSAL_MAX_WORDS and text.startswith(REFUSAL_TITLE) and REFUSAL_MARK in text
+    if short and title in (REFUSAL_TITLE, ""):
+        return BLOCKED
+    if title == REFUSAL_TITLE:
+        return "the refusal's title over a text that is not the refusal's shape: a failed read (hard limit 6)"
+    return ""
+
+
 def recognise(shape: str, rec) -> str:
     """'' when the document is this profile's shape, else why not."""
     if not isinstance(rec, dict):
@@ -202,6 +233,8 @@ def recognise(shape: str, rec) -> str:
             return "no `documentType`"
     elif not isinstance(rec.get("url"), str) or not _HOST.match(rec["url"]):
         return "its url is not a parliament.nz page"
+    else:
+        return refused(rec)
     return ""
 
 
@@ -289,6 +322,8 @@ def read(items, get_bytes, loaded_at: str = None, out: Result = None) -> Result:
         if not why and str(rec["id"]).strip() != rid.strip():       # an id may end in a space (one call for submissions)
             why = "the arrival names another record"
         if why:
+            if why == BLOCKED:
+                n["blocked"] = n.get("blocked", 0) + 1
             out.set_aside.append((sha, "recognise", why))
             out.files.append((sha, corpus, rid, seq, "set aside"))
             continue
