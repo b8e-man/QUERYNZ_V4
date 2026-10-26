@@ -2,10 +2,11 @@
 limit 13), with the least machinery that works: the standard library's HTTP
 server, one page per request, no script. Routes:
 
-  GET  /                         the form: a ref and a template
+  GET  /?q=&template=            the start page: a name search (a person, company or organisation), the rows it
+                                 finds across the published views listed, each a link to the report on it (search.py)
   GET  /report/<register>:<key>  the memo: the stable address of a report on a row, the ref as the board names it
                                  (?template=&format=html|text|json as below; contract.report_url builds it)
-  GET  /report?ref=&template=&format=html|text|json     the memo, the query form the page's own form uses
+  GET  /report?ref=&template=&format=html|text|json     the memo, the query form (the plain-text link uses it)
                                  (&since=YYYY-MM-DD on either: rows dated on or after it are marked new;
                                  &<name>=<value> for a parameter the template declares, which the form offers;
                                  one it does not declare is refused, 400)
@@ -26,7 +27,7 @@ import sys
 import threading
 import urllib.parse
 
-from products.report import build, db, memo, state, template as tpl
+from products.report import build, db, memo, search, state, template as tpl
 
 PORT = int(os.environ.get("QV4_REPORT_PORT") or 8440)
 BIND = os.environ.get("QV4_REPORT_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
@@ -59,18 +60,27 @@ def declared_params(template_name: str, given: dict | None = None) -> list:
 
 
 def render(ref: str, template_name: str = "subject", fmt: str = "html", message: str = "", saved: bool = False, conn=None, since: str = "",
-           params: dict | None = None) -> tuple:
-    """(content type, body). `since`: a date (YYYY-MM-DD); rows dated on or
-    after it are marked new. `params`: {name: value} for parameters the
+           params: dict | None = None, term: str = "") -> tuple:
+    """(content type, body). With no ref, the start page: the name search,
+    and with `term` the rows it finds, each a link to its report. `since`: a
+    date (YYYY-MM-DD); rows dated on or after it are marked new. `params`: {name: value} for parameters the
     template declares; one it does not declare raises KeyError, which the
     page answers 400 and the command line prints."""
     if not ref:
-        body = memo.page("<p class=\"note\">Name a row as the board names it: <code>register:key</code>, for example "
-                         "<code>companies:companies/9429037782269</code> or a <code>party_returns:…/A/3</code> donor row. "
-                         "Choose a template. The memo lists confirmed connections first, near ones beside them with their reasons, "
-                         "cites every line, and says what it did not find and what is not held.</p>", "", template_name, templates(), message,
-                         board_url=BOARD_URL, params=declared_params(template_name))
-        return "text/html; charset=utf-8", body
+        if term:
+            if conn is not None:
+                found = search.search(conn, term)
+            else:
+                with RENDER_LOCK, db.scan_connect() as c:
+                    found = search.search(c, term)
+            body = memo.search_results(term, found, template_name, since, declared_params(template_name, params))
+        else:
+            body = ("<p class=\"note\">Type a person, company or organisation name. The page lists the rows of the published registers "
+                    "that carry it; choose one and the report starts from it, with the template chosen beside the box. "
+                    "The memo lists confirmed connections first, near ones beside them with their reasons, cites every line, "
+                    "and says what it did not find and what is not held.</p>")
+        return "text/html; charset=utf-8", memo.page(body, "", template_name, templates(), message, board_url=BOARD_URL, since=since,
+                                                     params=declared_params(template_name, params), term=term)
     report = build_report(ref, template_name, conn, since, params)
     if fmt == "text":
         return "text/plain; charset=utf-8", memo.text(report)
@@ -80,7 +90,7 @@ def render(ref: str, template_name: str = "subject", fmt: str = "html", message:
                                                  since=since, params=declared_params(template_name, params))
 
 
-QUERY_OWN = frozenset({"ref", "template", "format", "m", "saved", "since"})   # the page's own query names; the rest are a template's parameters
+QUERY_OWN = frozenset({"ref", "template", "format", "m", "saved", "since", "q"})   # the page's own query names; the rest are a template's parameters
 
 
 def query_params(qs: dict) -> dict:
@@ -135,7 +145,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send(r["memo"], "text/plain; charset=utf-8")
                 return
             if url.path == "/":
-                ctype, body = render("", get("template", "subject"), message=get("m")[:100])
+                ctype, body = render("", get("template", "subject"), message=get("m")[:100], since=get("since")[:10], params=query_params(qs),
+                                     term=get("q")[:search.MAX_TERM])
                 self.send(body, ctype)
                 return
             if url.path == "/report" or url.path.startswith("/report/"):
