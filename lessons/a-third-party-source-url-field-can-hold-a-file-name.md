@@ -1,4 +1,4 @@
-A field named `source_url` is not an address until every value is: the MCP's diary records serve the Beehive PDF's address for 2,441 releases and only its file name for 119, so publish the address where there is one, the file name beside it always, and never build an address from a name.
+A third-party `source_url` is not an address until every value is: the diaries corpus serves a file name for 119 of 2,560 PDFs, so publish the address only where served, the file name always, and never build one.
 area: mcpsource, ministers_diaries, citations, third-party sources, registers
 paid-for-by: 2026-10-27, diaries-2, the parliament-diaries corpus
 
