@@ -84,10 +84,12 @@ def test_a_slow_server_is_waited_for_and_asked_again():
     server = FakeServer({"beehive": corpus_of("beehive", 2)})
     c = client_for(server)
     c.connect()
-    server.fail_next = [TimeoutError("timed out"), urllib.error.URLError("Connection refused")]
+    import http.client
+    server.fail_next = [TimeoutError("timed out"), urllib.error.URLError("Connection refused"),
+                        http.client.IncompleteRead(b"")]          # an answer cut off mid-stream (26 October, 23:12)
     waits = []
     got = c.call_retrying("corpora", {}, sleep=waits.append)
-    assert got["corpora"][0]["records"] == 2 and waits == [30.0, 60.0]
+    assert got["corpora"][0]["records"] == 2 and waits == [30.0, 60.0, 120.0]
 
 
 def test_the_bytes_are_the_record_sorted_and_compact_without_its_place():

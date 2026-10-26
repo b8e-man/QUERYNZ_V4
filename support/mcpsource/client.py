@@ -18,6 +18,7 @@ connection drops (the server slows under its own arrivals: 45 s a call on
     c = Client()                       # http://127.0.0.1:8646/mcp, the tunnel unit qv4-mcp-tunnel
     c.call("corpora", {})              # the tool's answer, parsed from its JSON text
 """
+import http.client
 import itertools
 import json
 import socket
@@ -103,7 +104,8 @@ class Client:
             if e.code == 404 and self.session:      # the server has forgotten the session: shake hands again
                 self.session = None
             raise McpError(f"HTTP {e.code} {e.reason}: {text}", transient=e.code in (404, 408, 429, 500, 502, 503, 504))
-        except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError, OSError) as e:
+        except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError, OSError,
+                http.client.HTTPException) as e:          # IncompleteRead: the answer cut off mid-stream
             reason = getattr(e, "reason", e)
             raise McpError(f"{type(e).__name__}: {reason}", transient=True)
         except ValueError as e:
