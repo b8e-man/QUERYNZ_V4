@@ -25,6 +25,16 @@ for the same rows.
     export_hansard()         the export's bytes, read through the old read-only login
     copy_all(conn)           land the export: ([(kind, DocumentRef, name, captured at)], [(item, why)])
     python -m registers.hansard.capture --export PATH    write the export once
+
+From hansard-2 the lane also reads two corpora of the ingest MCP (rulings
+94, 96, 97), which the shared pull `support/mcpsource` (job `qv4-mcp-pull`)
+lands record by record as documents of source `query-nz`:
+`parliament-hansard-index` and `parliament-hansard-debates`. This lane
+fetches nothing; it reads what the pull landed, by hash, in the order the
+pull saw it (`mcpsource.arrivals` by `landed_at`).
+
+    arrivals(conn, corpus, mcp_schema)    [(sha256, seq, record id)]
+    caught(conn, corpus, mcp_schema)      [(seq, stage, reason)] not yet landed
 """
 import datetime as dt
 import json
@@ -39,6 +49,8 @@ EXPORT_SHA = "c912d9bc23c54c2593cfc512f422d29d1856b65e091239687e2fca497f66ac3b"
 EXPORTED_AT = "2026-10-26T18:43:16+13:00"
 EXPORT_NOTE = "taken from the old estate's tables; original not held"
 KINDS = ("member", "section", "sitting", "speech")
+MCP_SCHEMA = "mcpsource"
+CORPORA = ("parliament-hansard-index", "parliament-hansard-debates")
 
 #: All four tables are the OLD databases', reached through the old read-only
 #: login; each query names its old schema so it is not mistaken for one into
@@ -121,6 +133,27 @@ def copy_all(conn, export_sha: str = None, log=None) -> tuple:
     if log:
         log(f"hansard: {'landed' if new else 'held'} {ref.sha256[:12]} {EXPORT_NAME}")
     return [("hansard", ref, EXPORT_NAME, EXPORTED_AT)], []
+
+
+def _has(conn, schema: str, table: str) -> bool:
+    return conn.execute("SELECT 1 FROM information_schema.tables WHERE table_schema = %s AND table_name = %s",
+                        (schema, table)).fetchone() is not None
+
+
+def arrivals(conn, corpus: str, mcp_schema: str = MCP_SCHEMA) -> list:
+    """Every record of `corpus` the pull has taken, in the order it landed them. A schema with no pull record yet
+    answers nothing."""
+    if not _has(conn, mcp_schema, "arrivals"):
+        return []
+    return [tuple(r) for r in conn.execute(f"SELECT sha256, seq, record_id FROM {mcp_schema}.arrivals "
+                                           "WHERE corpus = %s ORDER BY landed_at, seq", (corpus,))]
+
+
+def caught(conn, corpus: str, mcp_schema: str = MCP_SCHEMA) -> list:
+    if not _has(conn, mcp_schema, "catch"):
+        return []
+    return [tuple(r) for r in conn.execute(f"SELECT seq, stage, reason FROM {mcp_schema}.catch "
+                                           "WHERE corpus = %s AND resolved_at IS NULL ORDER BY seq", (corpus,))]
 
 
 def main(argv=None) -> int:

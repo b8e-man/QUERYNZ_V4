@@ -1102,8 +1102,8 @@ nice = 10
 [jobs.qv4-mcp-adopt]
 description = "Once, before the first nightly pull: re-land mcp-1's pull (sample schema scratch_mcp_1_pull2) into the live docs from the store and copy the cursors, arrivals and stamps. No request to the MCP. Queued by the integrator (ruling 96)."
 needs = "processor"
-memory_gb = 8.0        # the first run (27 October 07:58) was stopped at 1,312 MB in 1.6 s with 1 GB declared: it reads 1.4 M arrival rows; the peak is written back from this run's record
-deadline_s = 21600
+memory_gb = 0.5        # measured 169 MB peak on the batch copy (fix-support-mcpsource-1, 27 October); the first one-at-a-time version needed 1,312 MB and ran at 21 documents a second
+deadline_s = 7200
 query_timeout_s = 3600
 class = "whenever"
 priority = 99
@@ -1148,6 +1148,8 @@ nice = 10
 
 [jobs.qv4-ministers-diaries-load]
 description = "Ministers' diaries: rebuild the lane's tables from the MCP's parliament-diaries documents, publish pub.minister_diary_releases and pub.minister_diary_entries on green. Nightly at 04:20 NZDT, after the pull and the Beehive load (ruling 96; diaries-2, 27 October 2026)."
+[jobs.qv4-hansard-load]
+description = "Hansard: rebuild the lane's tables from the old export and the MCP's hansard index and daily-PDF documents, publish pub.hansard_sittings, sections, speeches and days on green. Nightly at 04:15 NZDT, after the pull and beside the Beehive load (rulings 96, 97; hansard-2)."
 needs = "processor"
 memory_gb = 1.0
 deadline_s = 1800
@@ -1168,4 +1170,7 @@ class = "due"
 priority = 88
 command = ["python", "-m", "registers.parliament.load"]
 at_utc = "15:30"
+priority = 86
+command = ["python", "-m", "registers.hansard.load"]
+at_utc = "15:15"
 nice = 10
