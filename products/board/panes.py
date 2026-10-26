@@ -52,6 +52,7 @@ main{display:flex;gap:.75rem;padding:.75rem;overflow-x:auto;align-items:flex-sta
 table.f{border-collapse:collapse;width:100%;font-size:13px}
 table.f th{text-align:left;font-weight:normal;color:#aab1bc;vertical-align:top;padding:.1rem .5rem .1rem 0;width:40%}
 table.f td{padding:.1rem 0;vertical-align:top;word-break:break-word}
+div.text{white-space:pre-wrap;word-break:break-word;max-width:60rem;line-height:1.45}
 ul{margin:.25rem 0;padding-left:1.1rem}
 li{margin:.1rem 0}
 li .meta,.meta{color:#aab1bc;font-size:12px}
@@ -283,12 +284,21 @@ def shown(v: cat.View, r: dict, column: str):
     return r.get(column)
 
 
+def _title_value(x) -> str:
+    return x.strftime("%-d %B %Y") if isinstance(x, dt.date) else str(x)
+
+
 def title_of(v: cat.View, r: dict) -> str:
+    if v.title_format:
+        cols = re.findall(r"\{(\w+)\}", v.title_format)
+        values = {c: shown(v, r, c) for c in cols}
+        if all(x not in (None, "") for x in values.values()):
+            return v.title_format.format(**{c: _title_value(x) for c, x in values.items()})
     parts = []
     for c in v.title:
         x = shown(v, r, c)
         if x not in (None, ""):
-            parts.append(x.strftime("%-d %B %Y") if isinstance(x, dt.date) else str(x))
+            parts.append(_title_value(x))
     return " · ".join(parts) or f"({v.name} {r.get('key', '')})"
 
 
@@ -910,6 +920,10 @@ def row_pane(ctx: dict) -> str:
         cell = far_cell(v, r, c, ctx.get("far"), q, path, boxes)
         out.append(f"<tr><th>{esc(label)}</th><td>{cell if cell is not None else fmt(shown(v, r, c), c)}</td></tr>")
     out.append("</table>")
+    for label, c, empty in v.text:      # a long text, whole, in this pane alone (never a results hit or the table)
+        x = shown(v, r, c)
+        out.append(f"<h3>{esc(label)}</h3>" + (f'<div class="text">{esc(x)}</div>' if x not in (None, "")
+                                                 else f'<p class="why">{esc(empty)}</p>'))
     if v.dates:
         out.append('<h3>Dates, as filed</h3><table class="f">')
         for label, c in v.dates:
