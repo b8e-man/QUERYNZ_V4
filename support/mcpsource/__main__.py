@@ -60,8 +60,15 @@ def main(argv=None) -> int:
                 n = M.retry_caught(conn, client, a.schema, log=log)
                 print(f"{M.SOURCE}: {n['asked']} caught records asked again, {n['landed']} landed")
                 return 0
-            res = M.pull_all(conn, client, a.schema, only=a.corpus, log=log, budget_s=a.budget_s, pause_s=a.pause_s,
-                             rewalk=a.rewalk, follow=not a.no_changes)
+            try:
+                res = M.pull_all(conn, client, a.schema, only=a.corpus, log=log, budget_s=a.budget_s,
+                                 pause_s=a.pause_s, rewalk=a.rewalk, follow=not a.no_changes)
+            except (M.McpError, M.ShapeError) as e:     # `corpora` itself did not answer: a red run, recorded
+                detail = f"`corpora` failed: {type(e).__name__}: {e}"[:2000]
+                print(f"{M.SOURCE}: RED: {detail}")
+                if a.runs or a.database == "querynz_v4":
+                    jobrun.record(M.JOB, False, detail, started, {}, path=a.runs)
+                return 1
         finally:
             t.unlock()
     ok = M.outcome(res)
