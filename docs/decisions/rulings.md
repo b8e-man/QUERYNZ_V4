@@ -526,3 +526,36 @@ side; handed to Arthur for the VPS. The same setup is owed on node1 when it retu
 the fence (the unit, the key on the VPS, the registration); the queue
 item `an-mcp-for-the-parliament-and-beehive-sites` is closed by this
 ruling once the lane is briefed.
+
+95. Arthur, 26 October, about 16:25, after the MCP came up: "what I want
+you to do is get new records from it when they arrive. It should tell
+you. you are going to need to categorise these as sources. they come from
+parliament.nz and also beehive.nz. we already hold many of them. they
+have done some processing on them so we might want to capture this.
+There might be more there than we have in our records. you should let me
+know before we decide on an ingestion strategy". So: no lane is built
+until Arthur has seen the survey and ruled the strategy. The integrator's
+survey, 16:40 (through the tunnel; the slow calls of 16:10 were the
+server under 13,495 arrivals in a day, and answered in a second at
+16:40): six corpora, 737,190 records. beehive 45,705 (releases, speeches,
+features; 1999 to 2026; per record the ministers and portfolios as the
+site tags them, the body text, and two fields their model made, topics
+and quotes). parliament-written-questions 683,770 (the Parliament API's
+own fields: question, reply, member, minister; October 2024 to October
+2026; no model). parliament-bills 92 (the API, most fields empty).
+parliament-diaries 5,000 rows (minister, date, time, meeting, location,
+attendees, portfolio, read from the monthly PDFs; May to August 2026
+only: template 4(a)'s register, which the Beehive's wall refused this
+estate, ruling 79's diaries lane). parliament-hansard-index 371 (a
+sitemap of Hansard pages with dates; no text). parliament-wayback 2,539
+(archived parliament.nz pages, 2006 on, text only). Arrival: there is no
+push; `corpora` reports each corpus's cursor, the arrivals in the last
+day and the newest arrival, and `records` pages from any cursor in
+arrival order, so a lane polls and pulls from its last cursor. What the
+estate holds: no Beehive document (the diaries lane was blocked at the
+wall) and 21 parliament.nz documents (MPs' interests); the old estate's
+database holds claims read from 54,826 Beehive pages (52,954 releases)
+and 137 parliament.nz pages, September to October 2026, which stay
+there (hard limit 18) and are not a source for the new lane. The
+decision Arthur owes is in the queue item
+`an-mcp-for-the-parliament-and-beehive-sites`.
