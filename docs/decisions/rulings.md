@@ -644,3 +644,28 @@ position's hosts line opens nothing.
     mcp-1 merges; hansard-2 then reads the debates documents into the
     hansard lane beside the old transcripts, and the register grows past
     23 September when the House sits again.
+
+98. Arthur, 26 October, about 21:50, after the integrator listed the jobs
+that need a card: "I want to replce qwen with
+ornith-ai/Ornith-1.5-35B-A3B-GGUF at q4_K_M". So: the text-reader and
+review profiles (step 2.15) serve Ornith 1.5 35B-A3B at Q4_K_M in place
+of Qwen 3.6 35B-A3B; the embedding and page-reader profiles are
+untouched. What the hub says (read 21:58): MIT licence; a mixture of
+experts, about 35B with 3B active, the Ornith family built on Qwen 3.5
+and Gemma 4; Q4_K_M 21.7 GB and a 903 MB image projector; a reasoning
+model whose turn opens with a think block, served with the qwen3
+reasoning parser and a modified Qwen chat template, no documented way to
+turn thinking off; recommended temperature 0.6, top_p 0.95, top_k 20;
+native context 262,144; its claims are coding-agent benchmarks against
+Qwen 3.6 35B-A3B, vendor-reported. Said to Arthur: the text-reader
+profile runs with thinking off and temperature 0, and whether this
+model's template honours that is measured at the swap, not assumed. Done
+by the integrator: the Q4_K_M weights fetched once through
+support.trials.models' downloader to /mnt/hdd2/qv4-models/ornith/ (hash
+checked against the hub, one line in downloads.jsonl); a fix session on
+support/scheduler swaps the two profiles (absolute weight paths, served
+name `ornith-1.5-35b-a3b-q4km`, memory re-measured at 50000x2 on card 1,
+the thinking switch measured, the probe jobs' one real call each), the
+plan's model table and map follow at the merge. Every swap is recorded
+(hard limit 25). Ruling 79 is untouched: a probe is one call, not a
+reading.
