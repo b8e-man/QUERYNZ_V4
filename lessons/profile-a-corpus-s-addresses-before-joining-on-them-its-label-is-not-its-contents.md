@@ -1,4 +1,4 @@
-Count a corpus's addresses by host and path before building a join on them: the MCP's "Hansard PDF index" held no Hansard transcript or PDF address, so the url join ruling 96 named matches none, and a sitting day's PDF is not a sitting (an urgency sitting spans several).
+Count a corpus's addresses by host and path before building a join on them; the MCP's "Hansard PDF index" held no transcript or PDF address, so the url join matched none, and one day's PDF is not one sitting.
 area: registers/* over the ingest MCP, any join by url or by day across two sources; registers/hansard, registers/parliament
 paid-for-by: 2026-10-27, hansard-2
 
