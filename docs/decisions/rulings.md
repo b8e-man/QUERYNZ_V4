@@ -627,3 +627,20 @@ old estate holds no page. mcp-1 was mid-build and cannot be redirected;
 `beehive-2` is briefed so at its merge. The fetch gate now holds
 hansard.parliament.nz and parliament.nz (ruling 78) so that the hansard
 position's hosts line opens nothing.
+    Provider's reply, 26 October about 20:25, verified by the integrator
+    through the tunnel at 20:31 (seven corpora; the tools now `corpora`,
+    `records`, `changes`, `search`, `get`, `measure`): (1) a corpus
+    `parliament-hansard-debates`, one record per sitting day, the daily
+    PDF's URL, sha256 and capture block, the sitting date, the whole day's
+    text as pdftotext -layout gives it, the page count; no split, nothing
+    derived; back run from 20 November 2024 filling (127 of about 250
+    days at 20:31), then a daily tick; (2) `changes(corpus, since,
+    cursor, limit)`: every record arrived or changed in place after a
+    stamp, ordered by updated_at then seq, paged; (3) a uniform `capture`
+    block on the API corpora with whatever was recorded (written
+    questions and bills have none: pure API mirrors). For the estate: the
+    client's re-walk for changed records is replaced by `changes`, and
+    the seventh corpus is pulled, in a fix of support/mcpsource after
+    mcp-1 merges; hansard-2 then reads the debates documents into the
+    hansard lane beside the old transcripts, and the register grows past
+    23 September when the House sits again.
