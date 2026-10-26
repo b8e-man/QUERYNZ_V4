@@ -258,3 +258,7 @@ def columns_read(v: View) -> set:
 def fold(term: str) -> str:
     out = (term or "").strip().lower().translate(str.maketrans(MACRONS[0], MACRONS[1]))
     return " ".join(out.split())
+
+
+#: the board's name for the fold; search.words_of, copied from the board, calls it so
+fold_term = fold

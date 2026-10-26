@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import html
 
+import urllib.parse
+
+from products.report import catalogue as cat
 from products.report import contract, rows
 
 GRADE_WORD = {"confirmed": "confirmed", "near": "near"}
@@ -38,6 +41,8 @@ ol.cites{font-size:12px;color:#444}
 code{font-size:12px;word-break:break-all}
 .actions{display:flex;gap:.6rem;flex-wrap:wrap;margin:.5rem 0 1rem}
 button{font:inherit;font-size:12px;padding:.15rem .5rem}
+p.start{margin:.1rem 0 .3rem}
+ul.found{list-style:none;padding-left:0}
 @media print{header,.actions{display:none}body{background:#fff}main{border:0;max-width:none;padding:0}}
 """
 
@@ -134,10 +139,22 @@ def _group_line(g: dict) -> str:
     return "; ".join(bits)
 
 
+def starts_from(report: dict) -> str:
+    """Where the report starts, in plain words: the row's title, its key and
+    its register by name ("This report starts from ACME LIMITED, row
+    companies/9429050975815 of the register Companies, directors and
+    shareholders."). The row reference itself is for addresses, never asked
+    of a reader."""
+    register, key = rows.split_ref(report.get("ref") or "")
+    where = f"row {key} of the register {cat.REGISTER_NAME.get(register, register)}"
+    s = report.get("subject") if report.get("found") else None
+    return f"This report starts from {s['title']}, {where}." if s and s.get("title") else f"This report starts from {where}."
+
+
 def text(report: dict) -> str:
     """The memo as plain text."""
     t = report["template"]
-    out = [f"{t['title'].upper()} — {report['ref']}", f"template {t['name']} {t['version']} ({t['owner']}); as of {report['as_of']}; built {report['built_at']}"]
+    out = [t['title'].upper(), starts_from(report), f"template {t['name']} {t['version']} ({t['owner']}); as of {report['as_of']}; built {report['built_at']}"]
     if report.get("since"):
         out.append(f"since {report['since']}: {report.get('new') or 0} row(s) dated on or after it are marked NEW; "
                    f"{report.get('cannot_say') or 0} cannot say (undated, or dated by a year or a monthly file only)")
@@ -257,7 +274,8 @@ def _li(it: dict, template_name: str = "subject") -> str:
 def html_body(report: dict) -> str:
     t = report["template"]
     out = [f"<h2>{esc(t['title'])}</h2>",
-           f'<p class="meta">{esc(report["ref"])} · template {esc(t["name"])} {esc(t["version"])} ({esc(t["owner"])}) · as of {esc(report["as_of"])} · built {esc(report["built_at"])}</p>']
+           f'<p class="start">{esc(starts_from(report))}</p>',
+           f'<p class="meta">template {esc(t["name"])} {esc(t["version"])} ({esc(t["owner"])}) · as of {esc(report["as_of"])} · built {esc(report["built_at"])}</p>']
     if report.get("since"):
         out.append(f'<p class="meta">since {esc(report["since"])}: {report.get("new") or 0} row(s) dated on or after it are marked new; '
                    f'{report.get("cannot_say") or 0} cannot say (undated, or dated by a year or a monthly file only)</p>')
@@ -354,11 +372,43 @@ def _param_inputs(params: list) -> str:
     return " ".join(out)
 
 
+def report_href(ref: str, template_name: str = "subject", since: str = "", params: list = ()) -> str:
+    """The address that runs the report on a row with the chosen template,
+    the since date and the parameters the reader gave (unescaped)."""
+    url = contract.report_url(ref, "", template_name)
+    q = urllib.parse.urlencode([("since", since)] * bool(since) + [(p["name"], p["given"]) for p in params or () if p.get("given")])
+    return url + (("&" if "?" in url else "?") + q if q else "")
+
+
+def search_results(term: str, found: list, template_name: str = "subject", since: str = "", params: list = ()) -> str:
+    """The rows a name search found ([(view, total, rows)], products/report/search.py),
+    each a link that runs the report on that row; up to ten a view, with the view's count."""
+    if not found:
+        return (f"<h2>No row found for “{esc(term)}”</h2><p class=\"note\">Every word must begin a word of a name the published registers hold, "
+                "macrons folded (“hart” finds Hart and Hartley). Fewer words, or another spelling, may find it. "
+                "A suppressed name is never found by name.</p>")
+    out = [f"<h2>Rows naming “{esc(term)}”</h2><p class=\"note\">Choose a row: the report starts from it. "
+           "One name in several registers is not yet one person; the report says what joins them.</p>"]
+    for v, total, rs in found:
+        more = f", the first {len(rs)} listed" if total > len(rs) else ""
+        out.append(f"<h3>{esc(cat.REGISTER_NAME.get(v.register, v.register))}: {esc(v.name.replace('_', ' '))} "
+                   f"<span class=\"meta\">{total:,} found{more}</span></h3><ul class=\"found\">")
+        for r in rs:
+            ref = rows.ref_of(v, str(r["key"]))
+            d = rows.dates(v, r)
+            out.append(f'<li><a href="{esc(report_href(ref, template_name, since, params))}">{esc(rows.title(v, r))}</a> '
+                       f'<span class="dates">{esc(d.get("text"))}</span></li>')
+        out.append("</ul>")
+    return "\n".join(out)
+
+
 def page(body: str, ref: str = "", template_name: str = "subject", templates: list = (), message: str = "", saved: bool = False,
-         board_url: str = "", since: str = "", params: list = ()) -> str:
-    """The page around a memo: the form, the template choice, the since date,
-    the parameters the template declares, save; no script (the browser's
-    own print command uses the print stylesheet)."""
+         board_url: str = "", since: str = "", params: list = (), term: str = "") -> str:
+    """The page around a memo: the name search, the template choice, the
+    since date, the parameters the template declares, save; no script (the
+    browser's own print command uses the print stylesheet). The search is
+    a GET form to the start page, which lists the rows it finds; the
+    report's own row reference travels only in addresses."""
     opts = "".join(f'<option value="{esc(n)}"{" selected" if n == template_name else ""}>{esc(n)}</option>' for n in templates) or f'<option>{esc(template_name)}</option>'
     actions = ""
     hidden = "".join(f'<input type="hidden" name="{esc(p["name"])}" value="{esc(p["given"])}">' for p in params or () if p.get("given"))
@@ -369,13 +419,16 @@ def page(body: str, ref: str = "", template_name: str = "subject", templates: li
                    f'<form class="inline" method="post" action="/save"><input type="hidden" name="ref" value="{esc(ref)}">'
                    f'<input type="hidden" name="template" value="{esc(template_name)}"><input type="hidden" name="since" value="{esc(since)}">{hidden}'
                    f'<input name="note" placeholder="a note to keep with it" size="28"> '
-                   f'<button>{"saved" if saved else "save this memo"}</button></form></div>')
+                   f'<button>{"saved" if saved else "save this memo"}</button></form>'
+                   f'<form class="inline" method="get" action="{esc(contract.report_url(ref))}"><select name="template">{opts}</select> '
+                   f'<input type="hidden" name="since" value="{esc(since)}"><button>run with this template</button></form></div>')
     msg = f'<span class="note">{esc(message)}</span>' if message else ""
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ subject report</title>"
             f"<style>{CSS}</style></head><body><header><h1>QueryNZ subject report</h1>"
-            f'<form method="get" action="/report"><input name="ref" value="{esc(ref)}" placeholder="register:key, as the board names a row" size="56"> '
+            f'<form method="get" action="/"><input name="q" value="{esc(term)}" placeholder="a person, company or organisation name" '
+            f'aria-label="a person, company or organisation name" size="40"> '
             f'<select name="template">{opts}</select> <label class="param" title="rows dated on or after this day are marked new">since '
-            f'<input name="since" value="{esc(since)}" placeholder="YYYY-MM-DD" size="10"></label> {_param_inputs(params)} <button>report</button></form>'
+            f'<input name="since" value="{esc(since)}" placeholder="YYYY-MM-DD" size="10"></label> {_param_inputs(params)} <button>search</button></form>'
             f'<a href="/saved">saved memos</a>'
             + (f'<a href="{esc(board_url)}">board</a>' if board_url else "") + f"{msg}</header>"
             f"<main>{actions}{body}</main></body></html>")
