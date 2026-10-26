@@ -302,6 +302,13 @@ def title_of(v: cat.View, r: dict) -> str:
     return " · ".join(parts) or f"({v.name} {r.get('key', '')})"
 
 
+def says_of(v: cat.View, r: dict) -> list:
+    """The lines a row carries (catalogue.Say) where its columns hold them,
+    the words filled from the row as a title fills them."""
+    return [say.words.format(**{c: NOT_STATED if r.get(c) in (None, "") else _title_value(r.get(c)) for c in re.findall(r"\{(\w+)\}", say.words)})
+            for say in v.says if say.holds(r)]
+
+
 def row_link(q: str, path: list, v: cat.View, r: dict, meta: str = "", boxes=None, words=()) -> str:
     t = mark(title_of(v, r), words)
     pix = f' <span class="warn">{PIXELS}</span>' if r.get("read_from") == "pixels" else ""
@@ -674,6 +681,7 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: di
            f'<span class="meta">{esc(v.name)}</span></div>']
     if is_suppressed(v, r):
         out.append(f'<div class="warn">{SUPPRESSED}: the row and its figures stay (hard limit 16)</div>')
+    out += [f'<div class="note">{esc(line)}</div>' for line in says_of(v, r)]
     matched = [FIELD_LABEL[k[len("_matched_"):]] for k in r if k.startswith("_matched_") and r[k]]
     if matched:
         out.append(f'<div class="nearwhy">matched: {esc(", ".join(matched))}</div>')     # ruling 92 (6), any field
@@ -899,6 +907,7 @@ def row_pane(ctx: dict) -> str:
         out.append(f'<p class="warn">{SUPPRESSED}: the row and its figures stay (hard limit 16)</p>')
     if v.note:
         out.append(f'<p class="note">{esc(v.note)}</p>')
+    out += [f'<p class="note">{esc(line)}</p>' for line in says_of(v, r)]
     out.append('<div class="actions">')
     out.append(f'<form class="inline" method="post" action="/pin"><input type="hidden" name="view" value="{esc(v.name)}">'
                f'<input type="hidden" name="key" value="{esc(r["key"])}"><input type="hidden" name="title" value="{esc(title_of(v, r))}">'

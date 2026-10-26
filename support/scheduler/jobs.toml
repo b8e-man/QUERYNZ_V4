@@ -1145,3 +1145,15 @@ priority = 85
 command = ["python", "-m", "registers.beehive.load"]
 at_utc = "15:00"
 nice = 10
+
+[jobs.qv4-hansard-load]
+description = "Hansard: rebuild the lane's tables from the old export and the MCP's hansard index and daily-PDF documents, publish pub.hansard_sittings, sections, speeches and days on green. Nightly at 04:15 NZDT, after the pull and beside the Beehive load (rulings 96, 97; hansard-2)."
+needs = "processor"
+memory_gb = 1.0
+deadline_s = 1800
+query_timeout_s = 600
+class = "due"
+priority = 86
+command = ["python", "-m", "registers.hansard.load"]
+at_utc = "15:15"
+nice = 10
