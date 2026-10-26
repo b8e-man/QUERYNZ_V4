@@ -1,4 +1,4 @@
-Before declaring a board pointer or graph edge, check the far view publishes the column the join needs: `pub.members` carries no Parliament member id, so every Hansard turn would have read "(row not held)", a false absence, and the only join left was a name match.
+Before declaring a board pointer or graph edge, check the far view publishes the column the join needs; pub.members carries no Parliament member id, so every Hansard turn would have read "(row not held)", a false absence.
 area: board, catalogue, pointers, relations, hansard, house
 paid-for-by: 2026-10-27, fix-products-board-1 (the Hansard views)
 
