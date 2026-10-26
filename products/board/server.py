@@ -145,8 +145,9 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         regs = search.selection(boxes, search.held_registers(held))
         asked = boxes.asked()
         asking = bool(q or asked) and bool(regs)
-        results = search.search(conn, q, limit=search.RESULTS_LIMIT, registers=regs, fields=asked, mode=boxes.mode) if asking else {}
-        nearby = near.near(conn, q, asked, registers=regs, held=held, mode=boxes.mode) if asking else None     # ruling 83, below the exact results
+        results = search.search(conn, q, limit=search.RESULTS_LIMIT, registers=regs, fields=asked, mode=boxes.mode,
+                                removed=boxes.removed) if asking else {}
+        nearby = near.near(conn, q, asked, registers=regs, held=held, mode=boxes.mode, removed=boxes.removed) if asking else None     # ruling 83, below the exact results
         pinned = {(p["view"], p["key"]) for p in state.pins(conn)}
         same = same_name_memo(conn)
         words = panes.search_words(q, boxes)
@@ -156,11 +157,12 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
             view, key = step.split(":", 2)[1:] if person else step.partition(":")[::2]
             steps.append((person, view, search.row(conn, view, key)))
         tv = trows = None
+        hidden = 0
         if boxes.table:                                # ruling 92 (5): the register's table, kept while a search runs
             tv = cat.BY_NAME[boxes.table]
             tv = tv if tv.name in held else panes.main_view(tv.register, held)
             if tv is not None:
-                total, trows = search.table(conn, tv, boxes.upto)
+                total, trows, hidden = search.table(conn, tv, boxes.upto, boxes.removed)
         cited = [r.get("document") for hits in results.values() if isinstance(hits, list) for _, _, rows in hits for r in rows]
         cited += [r.get("document") for c in (nearby or {}).values() if isinstance(c, dict) for _, r in c.get("rows") or ()]
         cited += [r.get("document") for _, _, r in steps if r]
@@ -175,7 +177,7 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         if q or asked or tv is None:                   # with a table open and nothing asked, the table sits beside the search
             out.append(panes.results_pane(q, results, held, regs, boxes, words, nearby, docs, far))
         if tv is not None:
-            out.append(panes.table_pane(q, tv, total, trows, boxes._replace(table=tv.name), held, far))
+            out.append(panes.table_pane(q, tv, total, trows, boxes._replace(table=tv.name), held, far, hidden))
         for i, (person, view, r) in enumerate(steps):
             so_far = path[:i + 1]
             v = cat.BY_NAME[view]
@@ -198,7 +200,8 @@ def render_graph(q: str, centre: str = "", conn=None, boxes: search.Boxes = sear
     with RENDER_LOCK, (contextlib.nullcontext(conn) if conn is not None else db.scan_connect()) as conn:
         held = db.pub_views(conn)
         regs = search.selection(boxes, search.held_registers(held))
-        g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None)
+        g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None,
+                        removed=boxes.removed)
         out = [panes.left_pane(q, search.held_registers(held), boxes, action="/graph", title="Graph the connections"),
                graph.pane(g, q, boxes, regs)]
         return panes.page(q, [], out, "", boxes, tab="graph", db=counter(conn))

@@ -32,8 +32,8 @@ def _conn():
     return c
 
 
-def _scan(v, words, number, limit, exclude_key, whole=False, fields=None, mode="all"):
-    got = view_sql(v, words, number, limit, exclude_key, whole, fields, mode)
+def _scan(v, words, number, limit, exclude_key, whole=False, fields=None, mode="all", removed=True):
+    got = view_sql(v, words, number, limit, exclude_key, whole, fields, mode, removed)
     if got is None:
         return v, []
     sql, params = got
@@ -333,15 +333,36 @@ def guard_sql(v: cat.View, exclude_key: str = None) -> tuple:
     return clause, params
 
 
+def removed_expr(v: cat.View):
+    """(expression, params): true for a row whose status, case folded and
+    trimmed, is in catalogue.REMOVED_STATUS (ruling 93); None for a view
+    catalogue.REMOVED_OF does not name. A row with no status is not removed."""
+    col = cat.REMOVED_OF.get(v.name)
+    if not col:
+        return None
+    return f"coalesce(lower(btrim({col})), '') = any(%s)", [sorted(cat.REMOVED_STATUS)]
+
+
+def removed_sql(v: cat.View, removed: bool = True) -> tuple:
+    """(clause, params) leaving the removed rows out unless `removed` ("show
+    removed companies" ticked, ruling 93); ("", []) when nothing is left out."""
+    got = None if removed else removed_expr(v)
+    return (f" and not ({got[0]})", got[1]) if got else ("", [])
+
+
 def view_sql(v: cat.View, words: list, number: str = None, limit: int = LIMIT, exclude_key: str = None,
-             whole: bool = False, fields: dict = None, mode: str = ALL):
+             whole: bool = False, fields: dict = None, mode: str = ALL, removed: bool = True):
     """(sql, params): the matching rows of one view with the view's total
     as `total` on every row. Each word must begin a word in the row's
     search columns ("hart" finds HART and HARTLEY); with `whole`, each must
     be a whole word (a namesake search: HART is not HARTLEY). The filled
     fields (ruling 82) narrow it further; None when the view holds no
     column for one of them. Under ANY (ruling 92 (6)) a row matches on
-    any filled field, and carries `_matched_<field>` for each."""
+    any filled field, and carries `_matched_<field>` for each. With
+    `removed` false (ruling 93) a view catalogue.REMOVED_OF names leaves its
+    removed rows out in the SQL, before the limit, and every row carries
+    `hidden`, the count left out; when none is left to show, one row with no
+    key carries the counts (search() drops it)."""
     got = match_sql(v, words, number, whole, fields, mode)
     if got is None:
         return None
@@ -350,6 +371,13 @@ def view_sql(v: cat.View, words: list, number: str = None, limit: int = LIMIT, e
         clause = "false"                 # nothing asked finds nothing
     g, gp = guard_sql(v, exclude_key)
     sel, sp = matched_sql(v, fields) if mode == ANY and fields else ("", [])
+    rx = None if removed else removed_expr(v)
+    if rx:
+        sql = (f"with m as (select *, {rx[0]} as _removed{sel} from pub.{v.name} where {clause}{g}), "
+               "h as (select count(*) filter (where not _removed) as total, count(*) filter (where _removed) as hidden from m) "
+               f"select s.*, s.{v.key_col} as key, h.total, h.hidden from h left join lateral "
+               f"(select * from m where not _removed order by {v.default_order} nulls last, {v.key_col} limit %s) s on true")
+        return sql, rx[1] + sp + params + gp + [limit]
     sql = (f"select *, {v.key_col} as key, count(*) over () as total{sel} from pub.{v.name} where {clause}{g} "
            f"order by {v.default_order} nulls last, {v.key_col} limit %s")
     return sql, sp + params + gp + [limit]
@@ -371,19 +399,23 @@ class Boxes(NamedTuple):
     `fields` as (parameter, value) in FIELDS order; the register table open
     (ruling 92 (5)), `table` its view and `upto` the offset of its last
     page appended; `mode`, how the fields combine (ruling 92 (6): "all",
-    else "any", written only when "any"). All travel as query parameters on
-    every href (`params`)."""
+    else "any", written only when "any"); `removed`, "show removed
+    companies" (ruling 93: unticked on the first view, `removed=1` only when
+    ticked). All travel as query parameters on every href (`params`)."""
     all: bool = True
     ticked: tuple = ()
     fields: tuple = ()
     table: str = ""
     upto: int = 0
     mode: str = "all"
+    removed: bool = False
 
     def params(self) -> list:
         table = [("t", self.table), ("o", str(self.upto))] if self.table else []
         mode = [("mode", self.mode)] if self.mode != ALL else []
-        return [("all", "1" if self.all else "0")] + [("r", x) for x in self.ticked] + list(self.fields) + mode + table
+        removed = [("removed", "1")] if self.removed else []
+        return ([("all", "1" if self.all else "0")] + [("r", x) for x in self.ticked] + removed + list(self.fields)
+                + mode + table)
 
     def asked(self) -> dict:
         return dict(self.fields)
@@ -408,7 +440,8 @@ def boxes_of(qs: dict) -> Boxes:
     o = (qs.get("o") or ["0"])[0]
     upto = min(max(int(o) // TABLE_PAGE * TABLE_PAGE, 0), TABLE_MAX - TABLE_PAGE) if o.isdigit() and table else 0
     mode = ANY if (qs.get("mode") or [""])[0] == ANY else ALL
-    return Boxes("1" in alls if alls else not ticked, ticked, fields, table, upto, mode)
+    removed = "1" in (qs.get("removed") or [])
+    return Boxes("1" in alls if alls else not ticked, ticked, fields, table, upto, mode, removed)
 
 
 def selection(boxes: Boxes, held: list) -> tuple:
@@ -419,9 +452,11 @@ def selection(boxes: Boxes, held: list) -> tuple:
 
 
 def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = None, whole: bool = False,
-           registers=None, fields: dict = None, mode: str = ALL) -> dict:
+           registers=None, fields: dict = None, mode: str = ALL, removed: bool = True) -> dict:
     """{register: [(view, total, rows)]} for the views that matched, plus
-    'held' (the pub views present) so the caller can say "not held".
+    'held' (the pub views present) so the caller can say "not held", and
+    'hidden', {view: removed rows left out} when `removed` is false (ruling
+    93: the box "show removed companies" unticked; the default shows them).
     `registers`, when given, scans only those registers' views; `fields`,
     the filled fields of the expanded search ({parameter: value}), narrow it
     (ruling 82): a view with no column for one of them is not scanned;
@@ -433,23 +468,36 @@ def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = N
     out = {}
     wanted = [v for v in (views or cat.VIEWS) if v.name in held and (words or number or fields)
               and (registers is None or v.register in registers)]
-    futures = [_pool.submit(_scan, v, words, number, limit, exclude_key, whole, fields, mode) for v in wanted]
+    futures = [_pool.submit(_scan, v, words, number, limit, exclude_key, whole, fields, mode, removed) for v in wanted]
+    hidden = {}
     for f in futures:
         v, found = f.result()
+        if found and found[0].get("hidden"):
+            hidden[v.name] = int(found[0]["hidden"])
+        if found and found[0].get("key") is None and "hidden" in found[0]:
+            found = []                     # the counts' own row: nothing left to show
         if found:
             out.setdefault(v.register, []).append((v, int(found[0]["total"]), found))
     out["held"] = held
+    out["hidden"] = hidden
     return out
 
 
-def table(conn, v: cat.View, upto: int = 0) -> tuple:
-    """(count of all rows, the first upto + TABLE_PAGE rows) of one view in
-    its default order (ruling 92 (5)): every row, a suppressed one included,
-    for the pane to show as panes.shown() does."""
-    total = db.rows(conn, f"select count(*) as n from pub.{v.name}")[0]["n"]
-    rows = db.rows(conn, f"select *, {v.key_col} as key from pub.{v.name} "
-                         f"order by {v.default_order} nulls last, {v.key_col} limit %s", (min(upto, TABLE_MAX - TABLE_PAGE) + TABLE_PAGE,))
-    return int(total), rows
+def table(conn, v: cat.View, upto: int = 0, removed: bool = True) -> tuple:
+    """(count of the rows shown, the first upto + TABLE_PAGE rows, the count
+    left out) of one view in its default order (ruling 92 (5)): every row, a
+    suppressed one included, for the pane to show as panes.shown() does;
+    with `removed` false, a removed company's row left out (ruling 93)."""
+    rx = None if removed else removed_expr(v)
+    if rx:
+        got = db.rows(conn, f"select count(*) filter (where not ({rx[0]})) as n, count(*) filter (where {rx[0]}) as hidden "
+                            f"from pub.{v.name}", rx[1] * 2)[0]
+    else:
+        got = {"n": db.rows(conn, f"select count(*) as n from pub.{v.name}")[0]["n"], "hidden": 0}
+    rc, rp = removed_sql(v, removed)
+    rows = db.rows(conn, f"select *, {v.key_col} as key from pub.{v.name} where true{rc} "
+                         f"order by {v.default_order} nulls last, {v.key_col} limit %s", rp + [min(upto, TABLE_MAX - TABLE_PAGE) + TABLE_PAGE])
+    return int(got["n"]), rows, int(got["hidden"])
 
 
 def row(conn, view: str, key: str):

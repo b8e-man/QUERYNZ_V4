@@ -180,3 +180,23 @@ def test_both_field_modes_against_the_same_fixture_rows():
     assert sorted(got[search.ANY]) == ["a", "b", "c"]
     said = lambda k: sorted(f[len("_matched_"):] for f, x in got[search.ANY][k].items() if f.startswith("_matched_") and x)
     assert said("a") == ["first", "last", "year"] and said("b") == ["first"] and said("c") == ["last"]
+
+
+def test_removed_companies_against_fixture_rows_under_both_settings():
+    """Ruling 93: five fixture rows in a temporary table of pub.companies' shape (gone with the connection),
+    searched by the board's own SQL with "show removed companies" unticked and ticked, at a limit of two."""
+    rows = [("a", "Registered"), ("b", "REMOVED"), ("c", " dissolved"), ("d", "In Liquidation"), ("e", None)]
+    got = {}
+    with db.read_connect() as conn:
+        conn.execute("create temporary table companies (like pub.companies)")
+        for key, status in rows:
+            conn.execute("insert into pg_temp.companies (key, name, status) values (%s, %s, %s)",
+                         (key, f"FIXTURE FLETCHER {key.upper()} LIMITED", status))
+        for removed in (False, True):
+            sql, params = search.view_sql(cat.BY_NAME["companies"], ["fixture", "fletcher"], None, 2, removed=removed)
+            got[removed] = db.rows(conn, sql.replace("from pub.companies", "from pg_temp.companies"), params)
+        sql, params = search.view_sql(cat.BY_NAME["companies"], ["fixture", "fletcher", "c"], None, 2, removed=False)
+        only_removed = db.rows(conn, sql.replace("from pub.companies", "from pg_temp.companies"), params)
+    assert [r["key"] for r in got[False]] == ["a", "d"] and got[False][0]["total"] == 3 and got[False][0]["hidden"] == 2
+    assert [r["key"] for r in got[True]] == ["a", "b"] and got[True][0]["total"] == 5 and "hidden" not in got[True][0]
+    assert len(only_removed) == 1 and only_removed[0]["key"] is None and only_removed[0]["hidden"] == 1

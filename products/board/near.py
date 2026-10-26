@@ -242,13 +242,14 @@ def address_text(v: cat.View, r: dict) -> str:
 # ── the scan ────────────────────────────────────────────────────────────────
 
 def _read(conn, v: cat.View, near_clause: str, near_params: list, q: str, asked: dict, drop: tuple, source_is_box: bool,
-          also_exact: dict = None, mode: str = search.ALL):
+          also_exact: dict = None, mode: str = search.ALL, removed: bool = True):
     """The rows of one view inside the near filter, outside the exact
     search, satisfying the rest of what was asked; None when it cannot hold
     it. `also_exact`: fields whose exact match also rules a row out (an
     address the box typed is exact in a column the box does not search).
     Under ANY (ruling 92 (6)) the exact search is the "any" one and the
-    other fields do not narrow the near class."""
+    other fields do not narrow the near class. `removed` false: a removed
+    company's row is left out (ruling 93)."""
     words = search.words_of(q)
     number = re.sub(r"\s", "", q) if search.is_number(q) else None
     exact = search.match_sql(v, words, number, False, asked, mode)
@@ -266,12 +267,13 @@ def _read(conn, v: cat.View, near_clause: str, near_params: list, q: str, asked:
             clause += " and not coalesce((" + same[0] + "), false)"
             params += same[1]
     g, gp = search.guard_sql(v)
-    sql = (f"select *, {v.key_col} as key from pub.{v.name} where {clause}{g} "
+    rc, rp = search.removed_sql(v, removed)
+    sql = (f"select *, {v.key_col} as key from pub.{v.name} where {clause}{g}{rc} "
            f"order by {v.default_order} nulls last, {v.key_col} limit %s")
-    return db.rows(conn, sql, params + gp + [CANDIDATES])
+    return db.rows(conn, sql, params + gp + rp + [CANDIDATES])
 
 
-def near(conn, q: str, asked: dict, registers=None, held=None, mode: str = search.ALL) -> dict:
+def near(conn, q: str, asked: dict, registers=None, held=None, mode: str = search.ALL, removed: bool = True) -> dict:
     """{'names': {...}, 'addresses': {...}}, each {'total', 'more', 'rows':
     [(view, row)] up to NEAR_LIMIT, 'refs': every 'view:key' found, 'why'
     when the class was not tried}."""
@@ -298,7 +300,8 @@ def near(conn, q: str, asked: dict, registers=None, held=None, mode: str = searc
                 a, p = name_filter(g, given, surname)
                 alts.append(a)
                 ps += p
-            rows = _read(conn, v, "(" + " or ".join(alts) + ")", ps, q, asked, ("first", "middle", "last"), from_box, mode=mode)
+            rows = _read(conn, v, "(" + " or ".join(alts) + ")", ps, q, asked, ("first", "middle", "last"), from_box, mode=mode,
+                         removed=removed)
             if rows is None:
                 continue
             c["more"] |= len(rows) >= CANDIDATES
@@ -320,7 +323,7 @@ def near(conn, q: str, asked: dict, registers=None, held=None, mode: str = searc
             if not cat.fields_of(v).address:
                 continue
             clause, ps = address_filter(v, reading_q)
-            rows = _read(conn, v, "(" + clause + ")", ps, q, asked, ("address",), from_box, {"address": text}, mode)
+            rows = _read(conn, v, "(" + clause + ")", ps, q, asked, ("address",), from_box, {"address": text}, mode, removed)
             if rows is None:
                 continue
             c["more"] |= len(rows) >= CANDIDATES
