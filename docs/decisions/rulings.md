@@ -672,8 +672,10 @@ reading.
 
 99. Arthur, 26 October, about 22:05, ten minutes after ruling 98: "hmm.
 maybe i've changed my mind forget about ornith". Ruling 98 is withdrawn
-before anything landed: the download stopped at 15 MB and the partial
-file removed (no line in downloads.jsonl), the fix session
+before anything landed: the download stopped at 15 MB (no line in
+downloads.jsonl; the scope hook refuses the integrator a delete outside
+the repository, so the partial file under /mnt/hdd2/qv4-models/ornith/ is
+Arthur's to remove), the fix session
 fix-support-scheduler-1 stopped before it edited anything and its copy
 and branch retired, card 1 untouched, profiles.toml unchanged. The
 text-reader and review profiles stay on Qwen 3.6 35B-A3B Q4_K_M as step
