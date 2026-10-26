@@ -8,10 +8,9 @@ current and historical, select committee calls for submissions and
 reports, supplementary order papers), with parliament.nz pages from 2006 on
 as the Internet Archive kept them, as records of seven corpora of the
 ingest MCP `query-nz-ingest` run by Arthur's provider (rulings 78, 94, 96).
-Lane: `registers/parliament`; the pull is `support/mcpsource`. Draft, held in
-the lane's folder because the fence keeps a build session out of
-`docs/legal/positions/`; the integrator moves it there. Written 27 October
-2026 by parliament-1.
+Lane: `registers/parliament`; the pull is `support/mcpsource`. Draft, written
+27 October 2026 by parliament-1 and moved here at the merge; the lawyer's
+review is still owed (ruling 61).
 
 **Finding: the material is Parliament's public record and copying it is
 lawful (most of it has no copyright at all); the doubt is in how it was
