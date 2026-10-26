@@ -174,6 +174,23 @@ def test_new_arrivals_are_taken_from_the_cursor_and_a_changed_record_is_a_second
     assert [(s, n) for s, _, n in rows] == [(2, True), (5, False), (6, True)] and rows[0][1] == rows[1][1]
 
 
+def test_a_rewalk_finds_a_record_changed_in_place_and_leaves_the_cursor(conn):
+    served = {"parliament-written-questions": corpus_of("parliament-written-questions", 250)}
+    server, lands = FakeServer(served), Lands()
+    M.pull(conn, client_for(server), "parliament-written-questions", TEST_SCHEMA, land=lands, sleep=no_sleep)
+    rec = served["parliament-written-questions"][7]
+    rec["replyText"], rec["updated_at"] = "a later reply", "2026-10-27T01:00:00Z"   # changed where it stood
+    served["parliament-written-questions"].append(made_record("parliament-written-questions", 250,
+                                                              M.shapes()["parliament-written-questions"]))
+    res = M.pull(conn, client_for(server), "parliament-written-questions", TEST_SCHEMA, land=lands, sleep=no_sleep,
+                 rewalk=True)
+    assert (res["from"], res["to"], res["landed"], res["held"]) == (0, 250, 1, 249) and M.outcome(
+        {"x": {**res, "source_cursor": 251}})
+    assert M.Tables(conn, TEST_SCHEMA).cursor_of("parliament-written-questions") == 250     # the new arrival waits
+    assert len(lands.names[f"parliament-written-questions/{rec['id']}"]) == 2
+    assert _count(conn, "arrivals", "WHERE seq = 7") == 2
+
+
 def test_a_changed_page_shape_stops_the_run_and_the_cursor_holds(conn):
     served = {"parliament-diaries": corpus_of("parliament-diaries", 450)}
     server, lands = FakeServer(served), Lands()

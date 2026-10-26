@@ -10,6 +10,14 @@ import json
 from support import mcpsource as M
 
 
+def _block(items: dict, seq: int) -> dict:
+    out = {}
+    for k, types in sorted(items.items()):
+        t = next((x for x in types if x != "null"), "null")
+        out[k] = {"str": f"{k} {seq}", "int": seq, "list": [], "null": None}.get(t)
+    return out
+
+
 def made_record(corpus: str, seq: int, shape: dict) -> dict:
     """A record of `corpus` at `seq` with every recorded field, each of its
     first recorded type."""
@@ -33,7 +41,9 @@ def made_record(corpus: str, seq: int, shape: dict) -> dict:
             elif set(items) == {"*"}:
                 rec[field] = [f"{field} {seq} a", f"{field} {seq} b"]
             else:
-                rec[field] = [{k: f"{k} {seq}" for k in sorted(items)}]
+                rec[field] = [_block(items, seq)]
+        elif t == "dict":
+            rec[field] = _block(shape.get("items", {}).get(field, {}), seq)
         else:
             rec[field] = None
     return rec

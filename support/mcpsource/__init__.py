@@ -73,7 +73,7 @@ def shapes(path: str = None) -> dict:
 def drift_of(record: dict, shape: dict) -> list:
     """[(field, type)] the recorded shape does not hold: a new field, or a
     type other than null it was not seen with; a list's items field by
-    field (`quotes.speaker`). A field a record lacks is not drift: the
+    field (`quotes.speaker`), and a block's fields too (`capture.status`). A field a record lacks is not drift: the
     MCP's older records carry fewer fields."""
     out = []
     fields, items = (shape or {}).get("fields", {}), (shape or {}).get("items", {})
@@ -81,8 +81,8 @@ def drift_of(record: dict, shape: dict) -> list:
         t = _TYPES.get(type(v), type(v).__name__)
         if k not in fields or (t != "null" and t not in fields[k]):
             out.append((k, t))
-        if isinstance(v, list):
-            for x in v:
+        if isinstance(v, (list, dict)):
+            for x in (v if isinstance(v, list) else [v]):
                 subs = x.items() if isinstance(x, dict) else (("*", x),)
                 for kk, vv in subs:
                     tt = _TYPES.get(type(vv), type(vv).__name__)
@@ -138,14 +138,15 @@ class Tables:
     def unlock(self) -> None:
         self.conn.execute("SELECT pg_advisory_unlock(%s, hashtext(%s))", (LOCK_KEY, self.schema))
 
-    def commit_page(self, corpus: str, cursor: int, total, arrivals: list, catches: list, drift: dict) -> None:
+    def commit_page(self, corpus: str, cursor: int, total, arrivals: list, catches: list, drift: dict,
+                    move: bool = True) -> None:
         """The page's arrival rows, catch lines and drift, and the cursor
-        moved past it, in one transaction."""
+        moved past it (unless `move` is false: a re-walk), in one transaction."""
         with self.conn.transaction():
             with self.conn.cursor() as cur:
                 if arrivals:
                     cur.executemany(f"INSERT INTO {self.t('arrivals')} (corpus, seq, record_id, url, sha256, new) "
-                                    "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (corpus, seq) DO NOTHING", arrivals)
+                                    "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (corpus, seq, sha256) DO NOTHING", arrivals)
                 if catches:
                     cur.executemany(f"INSERT INTO {self.t('catch')} (corpus, seq, record_id, stage, reason) "
                                     "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (corpus, seq, stage) "
@@ -154,6 +155,8 @@ class Tables:
                     cur.execute(f"INSERT INTO {self.t('drift')} (corpus, field, type, first_seq, records) "
                                 "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (corpus, field, type) "
                                 f"DO UPDATE SET records = {self.t('drift')}.records + EXCLUDED.records", (corpus, field, t, first, n))
+            if not move:
+                return
             self.conn.execute(f"INSERT INTO {self.t('cursors')} (corpus, cursor, source_total, updated_at) "
                               "VALUES (%s, %s, %s, now()) ON CONFLICT (corpus) DO UPDATE SET cursor = EXCLUDED.cursor, "
                               "source_total = EXCLUDED.source_total, updated_at = now()", (corpus, cursor, total))
@@ -207,16 +210,23 @@ def _land_page(conn, corpus: str, recs: list, shape: dict, root, land, log):
 
 def pull(conn, client, corpus: str, schema: str = SCHEMA, limit: int = PAGE, pause_s: float = PAUSE_S,
          budget_s: float = None, max_pages: int = None, root: str = None, land=None, shape=None, log=None,
-         sleep=time.sleep) -> dict:
+         sleep=time.sleep, rewalk: bool = False) -> dict:
     """Take `corpus` from its stored cursor to the end the MCP serves (or
     the budget). Returns the counts; ShapeError or McpError leaves the
-    cursor at the last page landed."""
+    cursor at the last page landed.
+
+    `rewalk`: walk again from 0 up to the stored cursor without moving it.
+    The MCP may change a record in place (its `updated_at` moves), where a
+    cursor never looks; a re-walk lands each changed record as a second
+    document (an arrival row at the same `seq` with the new hash) and
+    finds the rest already held."""
     t = Tables(conn, schema)
     shape = shape if shape is not None else shapes().get(corpus)
-    cursor = start = t.cursor_of(corpus)
+    stop = t.cursor_of(corpus) if rewalk else None
+    cursor = start = 0 if rewalk else t.cursor_of(corpus)
     t0 = time.monotonic()
     out = {"corpus": corpus, "from": start, "pages": 0, "landed": 0, "held": 0, "caught": 0, "drift": 0,
-           "total": None, "stopped": "end"}
+           "total": None, "stopped": "end", "rewalk": rewalk}
     while True:
         if max_pages is not None and out["pages"] >= max_pages:
             out["stopped"] = "page limit"
@@ -224,7 +234,10 @@ def pull(conn, client, corpus: str, schema: str = SCHEMA, limit: int = PAGE, pau
         if budget_s is not None and time.monotonic() - t0 > budget_s:
             out["stopped"] = "budget"
             break
-        page = client.call_retrying("records", {"corpus": corpus, "cursor": cursor, "limit": limit,
+        if stop is not None and cursor >= stop:
+            break
+        page = client.call_retrying("records", {"corpus": corpus, "cursor": cursor,
+                                                "limit": limit if stop is None else min(limit, stop - cursor),
                                                 "include_text": True}, sleep=sleep, log=log)
         recs = check_page(page, corpus, cursor)
         out["total"] = page.get("total")
@@ -232,7 +245,7 @@ def pull(conn, client, corpus: str, schema: str = SCHEMA, limit: int = PAGE, pau
             break
         arrivals, catches, drift, n = _land_page(conn, corpus, recs, shape, root, land, log)
         cursor += len(recs)
-        t.commit_page(corpus, cursor, page.get("total"), arrivals, catches, drift)
+        t.commit_page(corpus, cursor, page.get("total"), arrivals, catches, drift, move=not rewalk)
         out["pages"] += 1
         out["drift"] += sum(k for _, k in drift.values())
         for k, v in n.items():
@@ -261,7 +274,7 @@ def retry_caught(conn, client, schema: str = SCHEMA, root: str = None, land=None
         if arrivals:
             with conn.transaction():
                 conn.execute(f"INSERT INTO {t.t('arrivals')} (corpus, seq, record_id, url, sha256, new) "
-                             "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (corpus, seq) DO NOTHING", arrivals[0])
+                             "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (corpus, seq, sha256) DO NOTHING", arrivals[0])
                 conn.execute(f"UPDATE {t.t('catch')} SET resolved_at = now() WHERE corpus = %s AND seq = %s", (corpus, seq))
             n["landed"] += 1
     return n
@@ -282,7 +295,7 @@ def pull_all(conn, client, schema: str = SCHEMA, only=None, log=None, **kw) -> d
         if only and name not in only:
             continue
         want = c.get("ingest_cursor", c.get("records"))
-        if want is not None and held.get(name, 0) >= want:
+        if not kw.get("rewalk") and want is not None and held.get(name, 0) >= want:
             res[name] = {"corpus": name, "from": held.get(name, 0), "to": held.get(name, 0), "pages": 0, "landed": 0,
                          "held": 0, "caught": 0, "drift": 0, "total": want, "stopped": "nothing new"}
             continue
@@ -351,6 +364,7 @@ def outcome(res: dict) -> bool:
     for r in res.values():
         if "error" in r or r["caught"] or r["drift"]:
             return False
-        if r.get("source_cursor") is not None and r["to"] < r["source_cursor"] and r["stopped"] == "end":
+        if (not r.get("rewalk") and r.get("source_cursor") is not None and r["to"] < r["source_cursor"]
+                and r["stopped"] == "end"):
             return False
     return True

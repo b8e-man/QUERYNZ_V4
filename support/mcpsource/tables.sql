@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS mcpsource.cursors (
     updated_at   timestamptz NOT NULL DEFAULT now()
 );
 
--- one row per record taken: its place in the arrival order and the document it landed as
+-- one row per record taken: its place in the arrival order and the document it landed as. A record the MCP
+-- changed in place and a re-walk found again is a second row at the same `seq` with its new hash
 CREATE TABLE IF NOT EXISTS mcpsource.arrivals (
     corpus     text NOT NULL,
     seq        bigint NOT NULL,                  -- the record's `seq`, its place in the arrival order
@@ -18,7 +19,7 @@ CREATE TABLE IF NOT EXISTS mcpsource.arrivals (
     sha256     text NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'),
     new        boolean NOT NULL,                 -- false: the same bytes were already held (an unchanged re-arrival)
     landed_at  timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (corpus, seq)
+    PRIMARY KEY (corpus, seq, sha256)
 );
 CREATE INDEX IF NOT EXISTS mcpsource_arrivals_record ON mcpsource.arrivals (corpus, record_id);
 CREATE INDEX IF NOT EXISTS mcpsource_arrivals_sha ON mcpsource.arrivals (sha256);

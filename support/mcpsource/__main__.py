@@ -5,6 +5,7 @@
                                                         a session's proof: the sample database, its own run file
     python -m support.mcpsource --corpus beehive        one corpus
     python -m support.mcpsource --retry-caught          each catch line asked for again
+    python -m support.mcpsource --rewalk                every corpus walked again to its cursor (changes in place)
     python -m support.mcpsource --adopt SCHEMA          the integrator, once: a session's pull carried live
 
 Prints counts only, never a record (hard limit 11). Exit 1 when the run is
@@ -17,6 +18,10 @@ from support import mcpsource as M
 from support.mcpsource.client import TIMEOUT_S
 
 
+def log(line: str) -> None:
+    print(line, flush=True)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="support.mcpsource")
     ap.add_argument("--database", default="querynz_v4")
@@ -27,6 +32,8 @@ def main(argv=None) -> int:
     ap.add_argument("--timeout-s", type=float, default=TIMEOUT_S)
     ap.add_argument("--runs", help="the run-record file (default: the live record, for the live database only)")
     ap.add_argument("--retry-caught", action="store_true")
+    ap.add_argument("--rewalk", action="store_true", help="walk each corpus again from 0 to its cursor (weekly): "
+                    "lands records the MCP changed in place; the cursor does not move")
     ap.add_argument("--adopt", metavar="SAMPLE_SCHEMA")
     a = ap.parse_args(argv)
     from support import db, jobrun
@@ -39,6 +46,9 @@ def main(argv=None) -> int:
     client = M.Client(timeout=a.timeout_s)
     with db.connect(db.OWNER_KEY, a.database, autocommit=True) as conn:
         conn.execute("SET statement_timeout = '60s'")
+        # every landing is its own commit; a crash can lose only the last moment's, in order, so the cursor
+        # never runs past a page whose rows were lost, and the bytes are already on disk
+        conn.execute("SET synchronous_commit = off")
         t = M.Tables(conn, a.schema)
         t.create()
         if not t.try_lock():
@@ -46,10 +56,11 @@ def main(argv=None) -> int:
             return 0
         try:
             if a.retry_caught:
-                n = M.retry_caught(conn, client, a.schema, log=print)
+                n = M.retry_caught(conn, client, a.schema, log=log)
                 print(f"{M.SOURCE}: {n['asked']} caught records asked again, {n['landed']} landed")
                 return 0
-            res = M.pull_all(conn, client, a.schema, only=a.corpus, log=print, budget_s=a.budget_s, pause_s=a.pause_s)
+            res = M.pull_all(conn, client, a.schema, only=a.corpus, log=log, budget_s=a.budget_s, pause_s=a.pause_s,
+                             rewalk=a.rewalk)
         finally:
             t.unlock()
     ok = M.outcome(res)

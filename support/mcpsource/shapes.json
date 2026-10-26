@@ -1,10 +1,22 @@
 {
  "beehive": {
   "fields": {
+   "annotation": [
+    "dict"
+   ],
    "body_text": [
     "str"
    ],
+   "capture": [
+    "dict"
+   ],
    "date": [
+    "str"
+   ],
+   "extracted_at": [
+    "str"
+   ],
+   "fetched_at": [
     "str"
    ],
    "final_url": [
@@ -22,6 +34,12 @@
    "ministers": [
     "list"
    ],
+   "model": [
+    "str"
+   ],
+   "path": [
+    "str"
+   ],
    "portfolios": [
     "list"
    ],
@@ -33,6 +51,15 @@
    ],
    "seq": [
     "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "source_file": [
+    "str"
+   ],
+   "status": [
+    "str"
    ],
    "text": [
     "str"
@@ -46,6 +73,9 @@
    "type": [
     "str"
    ],
+   "updated_at": [
+    "str"
+   ],
    "url": [
     "str"
    ],
@@ -54,6 +84,43 @@
    ]
   },
   "items": {
+   "annotation": {
+    "created_at": [
+     "str"
+    ],
+    "fields": [
+     "list"
+    ],
+    "generator": [
+     "str"
+    ]
+   },
+   "capture": {
+    "fetched_at": [
+     "str"
+    ],
+    "final_url": [
+     "str"
+    ],
+    "http_status": [
+     "int"
+    ],
+    "kind": [
+     "str"
+    ],
+    "path": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ],
+    "status": [
+     "str"
+    ],
+    "url": [
+     "str"
+    ]
+   },
    "ministers": {
     "name": [
      "str"
@@ -84,6 +151,9 @@
  },
  "parliament-bills": {
   "fields": {
+   "_collected": [
+    "str"
+   ],
    "attachmentId": [
     "null"
    ],
@@ -181,6 +251,9 @@
    "state": [
     "null"
    ],
+   "status": [
+    "str"
+   ],
    "subject": [
     "null"
    ],
@@ -196,6 +269,9 @@
    "titleUrl": [
     "null"
    ],
+   "updated_at": [
+    "str"
+   ],
    "url": [
     "null"
    ]
@@ -204,6 +280,9 @@
  },
  "parliament-diaries": {
   "fields": {
+   "_collected": [
+    "str"
+   ],
    "attendees": [
     "str"
    ],
@@ -231,10 +310,16 @@
    "seq": [
     "int"
    ],
+   "source_url": [
+    "str"
+   ],
    "text": [
     "str"
    ],
    "time": [
+    "str"
+   ],
+   "updated_at": [
     "str"
    ],
    "year": [
@@ -245,6 +330,9 @@
  },
  "parliament-hansard-index": {
   "fields": {
+   "bytes": [
+    "int"
+   ],
    "date": [
     "str"
    ],
@@ -257,10 +345,16 @@
    "lastmod": [
     "str"
    ],
+   "raw_file": [
+    "str"
+   ],
    "seq": [
     "int"
    ],
    "text": [
+    "str"
+   ],
+   "updated_at": [
     "str"
    ],
    "url": [
@@ -271,10 +365,22 @@
  },
  "parliament-wayback": {
   "fields": {
+   "bytes": [
+    "int"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "content_encoding": [
+    "str"
+   ],
    "date": [
     "str"
    ],
    "doc_type": [
+    "str"
+   ],
+   "fetched_at": [
     "str"
    ],
    "html_title": [
@@ -283,8 +389,26 @@
    "id": [
     "str"
    ],
+   "kind": [
+    "str"
+   ],
+   "path": [
+    "str"
+   ],
    "seq": [
     "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "snapshot_url": [
+    "str"
+   ],
+   "snapshots": [
+    "int"
+   ],
+   "status": [
+    "str"
    ],
    "text": [
     "str"
@@ -292,14 +416,44 @@
    "ts": [
     "str"
    ],
+   "updated_at": [
+    "str"
+   ],
    "url": [
     "str"
    ]
   },
-  "items": {}
+  "items": {
+   "capture": {
+    "doc_type": [
+     "str"
+    ],
+    "kind": [
+     "str"
+    ],
+    "snapshots": [
+     "int"
+    ],
+    "ts": [
+     "str"
+    ],
+    "url": [
+     "str"
+    ]
+   }
+  }
  },
  "parliament-written-questions": {
   "fields": {
+   "_corpus": [
+    "str"
+   ],
+   "_fetched_at": [
+    "str"
+   ],
+   "_shard": [
+    "str"
+   ],
    "attachmentId": [
     "null",
     "str"
@@ -309,7 +463,8 @@
     "str"
    ],
    "attachmentSize": [
-    "int"
+    "int",
+    "null"
    ],
    "date": [
     "str"
@@ -328,9 +483,11 @@
     "str"
    ],
    "ministerName": [
+    "null",
     "str"
    ],
    "ministerialDisplayName": [
+    "null",
     "str"
    ],
    "parliamentNumber": [
@@ -369,6 +526,9 @@
     "str"
    ],
    "title": [
+    "str"
+   ],
+   "updated_at": [
     "str"
    ],
    "writtenQuestionsDocumentId": [
