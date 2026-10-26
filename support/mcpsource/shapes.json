@@ -1,0 +1,380 @@
+{
+ "beehive": {
+  "fields": {
+   "body_text": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "final_url": [
+    "str"
+   ],
+   "http_status": [
+    "int"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "ministers": [
+    "list"
+   ],
+   "portfolios": [
+    "list"
+   ],
+   "published_at": [
+    "str"
+   ],
+   "quotes": [
+    "list"
+   ],
+   "seq": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "title": [
+    "str"
+   ],
+   "topics": [
+    "list"
+   ],
+   "type": [
+    "str"
+   ],
+   "url": [
+    "str"
+   ],
+   "word_count": [
+    "int"
+   ]
+  },
+  "items": {
+   "ministers": {
+    "name": [
+     "str"
+    ],
+    "slug": [
+     "str"
+    ]
+   },
+   "portfolios": {
+    "*": [
+     "str"
+    ]
+   },
+   "quotes": {
+    "speaker": [
+     "str"
+    ],
+    "text": [
+     "str"
+    ]
+   },
+   "topics": {
+    "*": [
+     "str"
+    ]
+   }
+  }
+ },
+ "parliament-bills": {
+  "fields": {
+   "attachmentId": [
+    "null"
+   ],
+   "attachmentName": [
+    "null"
+   ],
+   "author": [
+    "null"
+   ],
+   "billCurrentStageCode": [
+    "null"
+   ],
+   "billCurrentStageId": [
+    "null"
+   ],
+   "billCurrentStageName": [
+    "str"
+   ],
+   "billNumber": [
+    "str"
+   ],
+   "billStage": [
+    "null"
+   ],
+   "billStages": [
+    "list"
+   ],
+   "billTitle": [
+    "null"
+   ],
+   "date": [
+    "null"
+   ],
+   "documentType": [
+    "str"
+   ],
+   "duration": [
+    "null"
+   ],
+   "id": [
+    "str"
+   ],
+   "iobClosingDate": [
+    "null"
+   ],
+   "itemSubType": [
+    "null"
+   ],
+   "itemType": [
+    "str"
+   ],
+   "lastModified": [
+    "null"
+   ],
+   "lastStageDate": [
+    "str"
+   ],
+   "memberName": [
+    "null"
+   ],
+   "orderNumber": [
+    "int"
+   ],
+   "parliamentNumber": [
+    "int"
+   ],
+   "partyName": [
+    "null"
+   ],
+   "people": [
+    "null"
+   ],
+   "publicationDate": [
+    "null"
+   ],
+   "reference": [
+    "null"
+   ],
+   "selectCommittee": [
+    "null",
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "shortTitle": [
+    "null"
+   ],
+   "shoulder": [
+    "null"
+   ],
+   "sop": [
+    "null"
+   ],
+   "state": [
+    "null"
+   ],
+   "subject": [
+    "null"
+   ],
+   "text": [
+    "str"
+   ],
+   "thumbnailUrl": [
+    "null"
+   ],
+   "title": [
+    "str"
+   ],
+   "titleUrl": [
+    "null"
+   ],
+   "url": [
+    "null"
+   ]
+  },
+  "items": {}
+ },
+ "parliament-diaries": {
+  "fields": {
+   "attendees": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "location": [
+    "str"
+   ],
+   "meeting": [
+    "str"
+   ],
+   "minister": [
+    "str"
+   ],
+   "portfolio": [
+    "str"
+   ],
+   "rowid": [
+    "int"
+   ],
+   "seq": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "time": [
+    "str"
+   ],
+   "year": [
+    "str"
+   ]
+  },
+  "items": {}
+ },
+ "parliament-hansard-index": {
+  "fields": {
+   "date": [
+    "str"
+   ],
+   "fetched": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "lastmod": [
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "url": [
+    "str"
+   ]
+  },
+  "items": {}
+ },
+ "parliament-wayback": {
+  "fields": {
+   "date": [
+    "str"
+   ],
+   "doc_type": [
+    "str"
+   ],
+   "html_title": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "ts": [
+    "str"
+   ],
+   "url": [
+    "str"
+   ]
+  },
+  "items": {}
+ },
+ "parliament-written-questions": {
+  "fields": {
+   "attachmentId": [
+    "null",
+    "str"
+   ],
+   "attachmentName": [
+    "null",
+    "str"
+   ],
+   "attachmentSize": [
+    "int"
+   ],
+   "date": [
+    "str"
+   ],
+   "documentType": [
+    "str"
+   ],
+   "id": [
+    "str"
+   ],
+   "lastModified": [
+    "str"
+   ],
+   "memberId": [
+    "null",
+    "str"
+   ],
+   "ministerName": [
+    "str"
+   ],
+   "ministerialDisplayName": [
+    "str"
+   ],
+   "parliamentNumber": [
+    "int"
+   ],
+   "portfolioId_PortfolioMinister": [
+    "null",
+    "str"
+   ],
+   "questionNumber": [
+    "int"
+   ],
+   "questionReleasedDate": [
+    "str"
+   ],
+   "questionText": [
+    "str"
+   ],
+   "questionYear": [
+    "int"
+   ],
+   "replyText": [
+    "str"
+   ],
+   "roleId": [
+    "null",
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "statusId": [
+    "int"
+   ],
+   "text": [
+    "str"
+   ],
+   "title": [
+    "str"
+   ],
+   "writtenQuestionsDocumentId": [
+    "str"
+   ]
+  },
+  "items": {}
+ }
+}
