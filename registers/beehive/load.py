@@ -29,8 +29,8 @@ COLUMNS = {
     "releases": ("key", "url", "type", "final_url", "http_status", "kind", "captured_sha256", "captured_at",
                  "capture_status", "provider_file", "provider_path", "model", "extracted_at", "annotation_fields",
                  "annotation_generator", "annotation_created_at", "updated_at", "title", "published_at", "published_on",
-                 "word_count", "ministers", "portfolios", "topics", "quotes", "fields_unread", "versions", "seq",
-                 "origin", "source_note", "document", "page", "place", "read_from", "reader", "profile", "profile_version",
+                 "word_count", "text_words", "ministers", "portfolios", "topics", "quotes", "fields_unread", "versions", "seq",
+                 "origin", "mcp_state", "mcp_document", "source_note", "document", "page", "place", "read_from", "reader", "profile", "profile_version",
                  "loaded_at"),
     "release_ministers": ("key", "release", "ordinal", "name", "slug"),
     "release_portfolios": ("key", "release", "ordinal", "portfolio"),
@@ -85,7 +85,7 @@ def build(conn, schema: str, items: list, caught: list = (), shared: bool = Fals
     create_tables(conn, schema, shared)
     res = read.read(items, get_bytes)
     if old:
-        read.read_old(get_bytes(old[0]), old[0], {r["key"] for r in res.releases}, res)
+        read.read_old(get_bytes(old[0]), old[0], res)
         res.files.append((old[0], None, None, "read"))
     for t, rows in (("releases", res.releases), ("release_ministers", res.ministers),
                     ("release_portfolios", res.portfolios), ("release_topics", res.topics),

@@ -110,6 +110,14 @@ def provenance(rec: dict) -> dict:
             "annotation_generator": _str(ann.get("generator")), "annotation_created_at": _str(ann.get("created_at"))}
 
 
+def captured_only(rec: dict) -> bool:
+    """A record the provider has captured and not yet read: its capture
+    and the page's whole text, but none of the site's fields (no title, no
+    type, no body). The provider's reading arrives later as a change to the
+    record (`updated_at` moves); the re-walk lands it."""
+    return not (_str(rec.get("title")) or _str(rec.get("type")) or _str(rec.get("body_text")))
+
+
 def read_one(sha: str, rec: dict, seq, versions: int, out: Result, loaded_at: str) -> None:
     key = rec["id"].strip()
     n = out.counts
@@ -146,16 +154,20 @@ def read_one(sha: str, rec: dict, seq, versions: int, out: Result, loaded_at: st
                            "speaker": _str(q.get("speaker")) if isinstance(q, dict) else None, "model_made": True,
                            "made_by": made_by, **_stamp(sha, f"quotes[{i - 1}]", loaded_at)})
     out.ministers += ministers
-    if not _str(rec.get("title")):
+    if captured_only(rec):
+        n["captured, not yet read by the provider"] = n.get("captured, not yet read by the provider", 0) + 1
+    elif not _str(rec.get("title")):
         n["untitled"] = n.get("untitled", 0) + 1
     if rec.get("date") is not None and _iso_date(rec.get("date")) is None:
         n["dates not ISO"] = n.get("dates not ISO", 0) + 1
     out.releases.append({
         "key": key, "url": rec["url"], **prov, "type": _str(rec.get("type")), "title": _str(rec.get("title")),
         "published_at": _str(rec.get("published_at")), "published_on": _iso_date(rec.get("date")),
-        "word_count": _int(rec.get("word_count")), "ministers": len(ministers), "portfolios": portfolios,
+        "word_count": _int(rec.get("word_count")),
+        "text_words": len(rec["text"].split()) if isinstance(rec.get("text"), str) else 0, "ministers": len(ministers), "portfolios": portfolios,
         "topics": len(topics), "quotes": quotes, "fields_unread": _unread(rec),
-        "versions": versions, "seq": seq, "origin": "mcp", "source_note": SOURCE_NOTE, **_stamp(sha, "record", loaded_at)})
+        "versions": versions, "seq": seq, "origin": "mcp",
+        "mcp_state": "captured only" if captured_only(rec) else "read", "mcp_document": sha, "source_note": SOURCE_NOTE, **_stamp(sha, "record", loaded_at)})
     out.texts.append((key, rec.get("body_text") if isinstance(rec.get("body_text"), str) else None,
                       rec.get("text") if isinstance(rec.get("text"), str) else None))
 
@@ -213,14 +225,19 @@ OLD_PROFILE_VERSION = 1
 OLD_NOTE = "taken from the old estate's tables (its scraper, before ruling 78); original not held"
 
 
-def read_old(data: bytes, sha: str, held: set, out: Result, loaded_at: str = None) -> None:
+def read_old(data: bytes, sha: str, out: Result, loaded_at: str = None) -> None:
     """The old estate's once-only export (capture.OLD_EXPORT_SHA): one
-    release per line whose address the MCP does not hold (`held`), with the
-    title, the NZ post day and the text as the old scraper kept them; no
-    ministers or portfolios (the old scraper kept none). A line the MCP does
-    hold is counted and left: the MCP's record is the reading."""
+    release per line whose address the MCP has not read, with the title, the
+    NZ post day and the text as the old scraper kept them; no ministers or
+    portfolios (the old scraper kept none). A page the MCP has read is
+    counted and left: the MCP's record is the reading. A page the MCP holds
+    only as a capture (captured_only) is read from the old estate, and the
+    row keeps the MCP's document and capture beside it."""
     loaded_at = loaded_at or dt.datetime.now().astimezone().isoformat(timespec="seconds")
     n = out.counts
+    at = {r["key"]: i for i, r in enumerate(out.releases)}
+    held = {r["key"] for r in out.releases if r.get("mcp_state") == "read"}
+    texts = {t[0]: i for i, t in enumerate(out.texts)}
     for i, line in enumerate(data.decode("utf-8").split("\n"), 1):     # never splitlines: a text holds U+2028
         if not line.strip():
             continue
@@ -239,18 +256,33 @@ def read_old(data: bytes, sha: str, held: set, out: Result, loaded_at: str = Non
             continue
         text = row.get("text") or ""
         path = url[len(HOST):].split("/", 1)[0]
-        out.releases.append({
+        stub = out.releases[at[url]] if url in at else None
+        rel = {
             "key": url, "url": url, "type": path or None, "title": _str(row.get("title")),
             "published_at": _str(row.get("posted_nz")), "published_on": _iso_date(row.get("posted_nz")),
-            "word_count": len(text.split()), "ministers": 0, "portfolios": [], "topics": 0, "quotes": 0,
+            "word_count": len(text.split()), "text_words": 0, "ministers": 0, "portfolios": [], "topics": 0, "quotes": 0,
             "fields_unread": [], "versions": 1, "seq": None, "origin": "old estate", "source_note": OLD_NOTE,
             "final_url": None, "http_status": None, "kind": None, "captured_sha256": None,
             "captured_at": _str(row.get("fetched")) or _str(row.get("scraped")), "capture_status": None,
             "provider_file": None, "provider_path": None, "model": None, "extracted_at": None, "annotation_fields": [],
             "annotation_generator": None, "annotation_created_at": None, "updated_at": None,
             "document": sha, "page": 1, "place": f"line {i}", "read_from": "text", "reader": READER,
-            "profile": OLD_PROFILE, "profile_version": OLD_PROFILE_VERSION, "loaded_at": loaded_at})
-        out.texts.append((url, text, None))
+            "profile": OLD_PROFILE, "profile_version": OLD_PROFILE_VERSION, "loaded_at": loaded_at,
+            "mcp_state": None, "mcp_document": None}
+        if stub is None:
+            out.releases.append(rel)
+            out.texts.append((url, text, None))
+            at[url] = len(out.releases) - 1
+            n["from the old estate"] = n.get("from the old estate", 0) + 1
+        else:                                         # the MCP's capture kept beside the old estate's reading
+            keep = ("text_words", "final_url", "http_status", "kind", "captured_sha256", "captured_at", "capture_status",
+                    "provider_file", "provider_path", "updated_at", "versions", "seq", "mcp_state", "mcp_document")
+            rel.update({k: stub[k] for k in keep})
+            rel["source_note"] = OLD_NOTE + "; the MCP holds the page as a capture its provider has not yet read"
+            out.releases[at[url]] = rel
+            i = texts[url]
+            out.texts[i] = (url, text, out.texts[i][2])
+            n["from the old estate, the MCP's capture beside it"] = \
+                n.get("from the old estate, the MCP's capture beside it", 0) + 1
         held.add(url)
-        n["from the old estate"] = n.get("from the old estate", 0) + 1
     n["releases"], n["set aside"] = len(out.releases), len(out.set_aside)

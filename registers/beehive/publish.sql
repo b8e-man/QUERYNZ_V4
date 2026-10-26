@@ -5,7 +5,7 @@
 CREATE OR REPLACE VIEW pub.beehive_releases AS
 SELECT r.key, r.url AS citation_url, r.type, r.kind, r.title, r.published_at, r.published_on, r.word_count,
        ARRAY(SELECT m.name FROM beehive.release_ministers m WHERE m.release = r.key ORDER BY m.ordinal) AS ministers,
-       r.portfolios, r.topics, r.quotes, r.versions, r.updated_at,
+       r.portfolios, r.topics, r.quotes, r.versions, r.origin, r.mcp_state, r.mcp_document, r.updated_at,
        r.captured_at, r.capture_status, r.captured_sha256, r.model AS source_model, r.annotation_fields, r.source_note,
        r.document, r.page, r.place, r.read_from, r.reader, r.profile, r.profile_version, r.loaded_at
 FROM beehive.releases r;

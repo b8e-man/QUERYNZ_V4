@@ -2,12 +2,13 @@
 
 `corpora` gives the beehive corpus's record count (its `ingest_cursor`);
 `measure` gives, for the corpus, `n_docs` (the documents it counts) and
-`corpus_words` (the words in them). Against these:
+`corpus_words` (the whitespace words of every record's `text`: measured
+26 October, 38,122,105 against the 38,169,497 the first pull's texts hold). Against these:
 
   taken      the pull's cursor (records taken, each an arrival or a catch line) at least 99% of the MCP's count
   read       every distinct document the pull landed is a release, an older version or a set-aside line
-  measured   the MCP's n_docs against the records taken (at least 99%); its corpus_words against the word
-             counts the releases hold, within 1%
+  measured   the MCP's n_docs against the records taken (at least 99%); its corpus_words against the words
+             of the MCP records' `text` the releases hold (`text_words`), within 1%
   clean      no pull catch line, no set-aside line, no release with a field the lane has no column for, and no
              model-made field the record names outside topics and quotes
 
@@ -34,15 +35,17 @@ def held(conn, schema: str, mcp_schema: str) -> dict:
         "arrivals": q(f"SELECT count(DISTINCT seq) FROM {mcp_schema}.arrivals WHERE corpus = 'beehive'"),
         "documents": q(f"SELECT count(DISTINCT sha256) FROM {mcp_schema}.arrivals WHERE corpus = 'beehive'"),
         "caught": q(f"SELECT count(*) FROM {mcp_schema}.catch WHERE corpus = 'beehive' AND resolved_at IS NULL"),
-        "releases": q(f"SELECT count(*) FROM {schema}.releases WHERE origin = 'mcp'"),
+        "releases": q(f"SELECT count(*) FROM {schema}.releases WHERE mcp_document IS NOT NULL"),
+        "captured only": q(f"SELECT count(*) FROM {schema}.releases WHERE mcp_state = 'captured only'"),
         "old estate releases": q(f"SELECT count(*) FROM {schema}.releases WHERE origin = 'old estate'"),
+        "old estate only": q(f"SELECT count(*) FROM {schema}.releases WHERE mcp_document IS NULL"),
         "older versions": q(f"SELECT count(*) FROM {schema}.files WHERE status = 'older version'"),
         "set aside": q(f"SELECT count(*) FROM {schema}.set_aside"),
         "files set aside": q(f"SELECT count(*) FROM {schema}.files WHERE status = 'set aside'"),
         "fields unread": q(f"SELECT count(*) FROM {schema}.releases WHERE cardinality(fields_unread) > 0"),
         "annotated outside": q(f"SELECT count(*) FROM {schema}.releases WHERE annotation_fields <> '{{}}' "
                                "AND NOT annotation_fields <@ ARRAY['topics', 'quotes']"),
-        "words": q(f"SELECT coalesce(sum(word_count), 0) FROM {schema}.releases WHERE origin = 'mcp'"),
+        "words": q(f"SELECT coalesce(sum(text_words), 0) FROM {schema}.releases WHERE mcp_document IS NOT NULL"),
     }
 
 

@@ -161,7 +161,9 @@ def test_the_annotation_rows_agree_with_their_release_and_are_the_sources(filled
     for t, col in (("release_topics", "topics"), ("release_quotes", "quotes")):
         n = {}
         for a in filled[t]:
-            assert a["model_made"] and a["made_by"] == read.MADE_BY and a["document"] == by[a["release"]]["document"]
+            rel = by[a["release"]]
+            assert a["model_made"] and a["made_by"].startswith(read.MADE_BY) and a["document"] == rel["document"]
+            assert (rel["annotation_generator"] or rel["model"] or read.MADE_BY) in a["made_by"]
             n[a["release"]] = n.get(a["release"], 0) + 1
         assert all(by[k][col] == n.get(k, 0) for k in by), t
     names = {}
@@ -211,3 +213,31 @@ def test_every_published_row_cites_its_document_and_its_page(filled):
             assert len(r["document"]) == 64 and r["citation_url"].startswith(read.HOST), (name, r["key"])
             assert not {"body_text", "text", "address"} & set(r), name
     assert all(r["model_made"] for r in v["beehive_release_annotations"])
+
+
+def test_the_old_estate_reads_a_page_the_mcp_lacks_or_holds_only_as_a_capture():
+    read_rec = _rec(1)
+    stub = {"id": "https://www.beehive.govt.nz/release/stub-2", "url": "https://www.beehive.govt.nz/release/stub-2",
+            "text": "Menu Home the whole page as rendered", "updated_at": "2026-10-26T05:00:00Z",
+            "capture": {"status": "ok", "fetched_at": "2026-10-26T04:00:00Z", "sha256": "ab" * 32}}
+    store = _docs(read_rec, stub)
+    (s_read, s_stub) = list(store)
+    lines = [{"url": read_rec["url"], "title": "old title", "text": "old body", "posted_nz": "2020-01-02 10:00:00+13"},
+             {"url": stub["url"], "title": "Stub page", "text": "four words of body", "posted_nz": "2021-05-06 09:00:00+12"},
+             {"url": "https://www.beehive.govt.nz/release/old-only-3", "title": "Old only", "text": "a b",
+              "posted_nz": "2019-07-08 08:00:00+12"}]
+    export = ("\n".join(json.dumps(l, ensure_ascii=False) for l in lines) + "\n").encode()
+    export = export.replace(b"four words", "four words".encode())       # a raw line separator inside a text
+    res = read.read([(s_read, 1, read_rec["id"]), (s_stub, 2, stub["id"])], store.__getitem__)
+    read.read_old(export, "cd" * 32, res)
+    by = {r["key"]: r for r in res.releases}
+    assert len(by) == 3 and res.counts["old estate lines"] == 3 and not res.set_aside
+    assert by[read_rec["url"]]["origin"] == "mcp" and by[read_rec["url"]]["title"] == read_rec["title"]
+    s = by[stub["url"]]
+    assert (s["origin"], s["mcp_state"], s["mcp_document"], s["title"], s["published_on"]) == \
+        ("old estate", "captured only", s_stub, "Stub page", "2021-05-06")
+    assert s["captured_at"] == "2026-10-26T04:00:00Z" and s["document"] == "cd" * 32 and s["place"] == "line 2"
+    o = by["https://www.beehive.govt.nz/release/old-only-3"]
+    assert (o["origin"], o["mcp_state"], o["mcp_document"]) == ("old estate", None, None)
+    for row in res.releases:
+        assert rowcontract.validate(row) == [], row["key"]

@@ -51,7 +51,7 @@ def messages_of(body: str, content_type: str) -> list:
         got = json.loads(body)
         return got if isinstance(got, list) else [got]
     out, data = [], []
-    for line in body.splitlines() + [""]:
+    for line in [l[:-1] if l.endswith("\r") else l for l in body.split("\n")] + [""]:   # never splitlines: U+2028
         if line.startswith(":"):
             continue
         if line.startswith("data:"):

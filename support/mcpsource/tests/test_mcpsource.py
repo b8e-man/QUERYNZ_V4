@@ -54,6 +54,9 @@ def test_an_event_stream_answer_is_read_past_its_pings_and_a_json_answer_too():
     assert C.messages_of(sse, "text/event-stream") == [msg]
     assert C.messages_of(json.dumps(msg), "application/json") == [msg]
     assert C.messages_of("", "application/json") == []
+    odd = {"jsonrpc": "2.0", "id": 4, "result": {"text": "a\u2028b\x0cc\x1cd\u0085e"}}   # raw separators in a text
+    body = "event: message\r\ndata: " + json.dumps(odd, ensure_ascii=False) + "\r\n\r\n"
+    assert C.messages_of(body, "text/event-stream") == [odd]
 
 
 def test_the_handshake_keeps_the_session_id_and_says_initialized():

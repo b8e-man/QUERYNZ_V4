@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS beehive.releases (
     published_at     text,                                  -- as served (ISO, `Z`); never re-zoned
     published_on     date,                                  -- the record's `date`
     word_count       integer,                               -- the record's own count of its body's words
+    text_words       integer NOT NULL DEFAULT 0,            -- words in the MCP record's `text` (what its `measure` counts)
     ministers        integer NOT NULL DEFAULT 0,            -- rows in release_ministers
     portfolios       text[] NOT NULL DEFAULT '{}',          -- as the site tags it, in order
     topics           integer NOT NULL DEFAULT 0,            -- rows in release_topics (model-made by the source)
@@ -38,7 +39,9 @@ CREATE TABLE IF NOT EXISTS beehive.releases (
     fields_unread    text[] NOT NULL DEFAULT '{}',          -- any field of the record this lane has no column for
     versions         integer NOT NULL DEFAULT 1,            -- documents held for this record
     seq              bigint,                                -- the MCP's place for the version read (NULL: no arrival row)
-    origin           text NOT NULL CHECK (origin IN ('mcp', 'old estate')),
+    origin           text NOT NULL CHECK (origin IN ('mcp', 'old estate')),   -- whose reading the row's fields are
+    mcp_state        text CHECK (mcp_state IN ('read', 'captured only')),   -- NULL: the MCP has no record of the page
+    mcp_document     text CHECK (mcp_document ~ '^[0-9a-f]{64}$'),           -- the MCP record's document, where it has one
     source_note      text NOT NULL,
     document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
     page             integer NOT NULL DEFAULT 1,
