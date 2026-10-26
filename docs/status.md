@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
 
-**Date:** 2026-10-26, 19:50 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-27, 08:05 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 counting clean days from 25 October (see Half-done); 5.1
 done; 5.2 closed (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held
 on terms; sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on
@@ -24,7 +24,7 @@ old estate's ntfy address.
   (ruling 73); the agent (track C) scores and applies nothing (ruling 69).
   4.4 site version 3. 4.9 board 87 views. 5.1 the report shape, tranche 3.
 - 5.2 closed (ten templates, ruling 65); 5.5 `qv4-companies-monitor`.
-- Rulings 64 to 97 (88 amends limit 15); emergency fixes 76, 77 in the old repository.
+- Rulings 64 to 100 (99 withdraws 98); emergency fixes 76, 77 in the old repository.
 - Track B: the restore rehearsal equal 25 October (2 h 32 m, en_NZ.UTF-8).
 - Merged 21 to 23 October (`docs/merges/`): sanctions, scan, tenders,
   regulators, oio, hdc, diaries, grants, redirects, `security-1` (H.1 to
@@ -35,10 +35,9 @@ old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- `mcp-1` (MCP client, `qv4-mcp-pull`, beehive lane): rulings 96, 97,
-  every MCP corpus taken, the old pages the base. `hansard-1` merged
-  (137 sittings, 47,243 turns). Then `beehive-2`, `parliament-1`,
-  `diaries-2`, `hansard-2`. Merged 25, 26 October:
+- `parliament-1`, `diaries-2`, `hansard-2` over the MCP's documents
+  (rulings 96, 97). Merged 27 October: `mcp-1` (client, `qv4-mcp` jobs,
+  beehive lane, 1.41 M documents), `hansard-1`, `board-7` (ruling 100). Merged 25, 26 October:
   `board-2` to `-6`, four board/report fixes (rulings 80 to 94).
 
 ## Half-done
