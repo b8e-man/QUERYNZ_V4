@@ -198,6 +198,14 @@ def test_a_rewalk_finds_a_record_changed_in_place_and_leaves_the_cursor(conn):
     assert M.Tables(conn, TEST_SCHEMA).cursor_of("parliament-written-questions") == 250     # the new arrival waits
     assert len(lands.names[f"parliament-written-questions/{rec['id']}"]) == 2
     assert _count(conn, "arrivals", "WHERE seq = 7") == 2
+    # a re-walk cut short by its budget resumes where it stopped, and is cleared once it reaches the end
+    part = M.pull(conn, client_for(server), "parliament-written-questions", TEST_SCHEMA, land=lands, sleep=no_sleep,
+                  rewalk=True, max_pages=1)
+    assert (part["to"], part["stopped"], M.Tables(conn, TEST_SCHEMA).rewalk_at("parliament-written-questions")) == \
+        (200, "page limit", 200)
+    rest = M.pull(conn, client_for(server), "parliament-written-questions", TEST_SCHEMA, land=lands, sleep=no_sleep,
+                  rewalk=True)
+    assert (rest["from"], rest["to"], M.Tables(conn, TEST_SCHEMA).rewalk_at("parliament-written-questions")) == (200, 250, 0)
 
 
 def test_the_change_feed_lands_a_record_changed_in_place_and_moves_its_stamp(conn):

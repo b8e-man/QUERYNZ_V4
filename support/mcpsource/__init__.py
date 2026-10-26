@@ -156,6 +156,13 @@ class Tables:
             return None
         return (first[0] - dt.timedelta(hours=1)).astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    def rewalk_at(self, corpus: str) -> int:
+        row = self.conn.execute(f"SELECT rewalk_at FROM {self.t('cursors')} WHERE corpus = %s", (corpus,)).fetchone()
+        return row[0] if row and row[0] is not None else 0
+
+    def set_rewalk_at(self, corpus: str, at) -> None:
+        self.conn.execute(f"UPDATE {self.t('cursors')} SET rewalk_at = %s WHERE corpus = %s", (at, corpus))
+
     def set_changes_since(self, corpus: str, stamp: str) -> None:
         self.conn.execute(f"UPDATE {self.t('cursors')} SET changes_since = %s WHERE corpus = %s", (stamp, corpus))
 
@@ -244,7 +251,7 @@ def pull(conn, client, corpus: str, schema: str = SCHEMA, limit: int = PAGE, pau
     t = Tables(conn, schema)
     shape = shape if shape is not None else shapes().get(corpus)
     stop = t.cursor_of(corpus) if rewalk else None
-    cursor = start = 0 if rewalk else t.cursor_of(corpus)
+    cursor = start = t.rewalk_at(corpus) if rewalk else t.cursor_of(corpus)       # a re-walk resumes where it stopped
     t0 = time.monotonic()
     out = {"corpus": corpus, "from": start, "pages": 0, "landed": 0, "held": 0, "caught": 0, "drift": 0,
            "total": None, "stopped": "end", "rewalk": rewalk}
@@ -267,6 +274,8 @@ def pull(conn, client, corpus: str, schema: str = SCHEMA, limit: int = PAGE, pau
         arrivals, catches, drift, n = _land_page(conn, corpus, recs, shape, root, land, log)
         cursor += len(recs)
         t.commit_page(corpus, cursor, page.get("total"), arrivals, catches, drift, move=not rewalk)
+        if rewalk:
+            t.set_rewalk_at(corpus, cursor)
         out["pages"] += 1
         out["drift"] += sum(k for _, k in drift.values())
         for k, v in n.items():
@@ -275,6 +284,8 @@ def pull(conn, client, corpus: str, schema: str = SCHEMA, limit: int = PAGE, pau
             break
         if pause_s:
             sleep(pause_s)
+    if rewalk and out["stopped"] == "end":
+        t.set_rewalk_at(corpus, None)                    # walked to the end: the next re-walk starts from 0
     if rewalk and out["total"] is not None and stop is not None and out["total"] < stop and out["stopped"] == "end":
         # the MCP removed records: every one it still serves was walked and landed or found held, so the cursor
         # comes back to its count and the next arrivals are taken from there
