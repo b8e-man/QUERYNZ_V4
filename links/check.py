@@ -20,6 +20,13 @@
    switch (`links.SETTINGS["review_applies"]`) is off, and every decision
    the agent made names a passing score of the judgment that made it
    (track C: until it passes, verdicts are recorded and never applied).
+6. The three rules of ruling 106, each counted again in SQL apart from the
+   Python that made them: every `organisation-sole-company@1` link is a
+   donation row and the only company of its name key, live in the year;
+   no `candidate-same-party@1` confirmed pair has a name that stands twice
+   for the party in one election; no group holds both companies of a
+   `successor-name@1` relation, and every shared person its evidence names
+   is still in one group on both companies.
 """
 from __future__ import annotations
 
@@ -110,6 +117,47 @@ def check_review_switch(conn, s: str, applies: bool = None) -> list:
             {"check": "every review-agent decision names a passing score", "without_a_passing_score": int(unscored), "ok": int(unscored) == 0}]
 
 
+def check_ruling_106(conn, s: str) -> list:
+    """Ruling 106's three rules against the tables as they stand."""
+    sole_bad = conn.execute(f"""
+        SELECT count(*) FROM {s}.links l
+        JOIN {s}.rows r ON r.ref IN (l.row_a, l.row_b) AND r.kind = 'organisation'
+        WHERE l.rule = %s AND (r.register <> ALL(%s)
+              OR (SELECT count(*) FROM {s}.org_names o WHERE o.org_key = r.name_key) <> 1
+              OR NOT EXISTS (SELECT 1 FROM {s}.org_names o WHERE o.org_key = r.name_key AND o.entity_ref IN (l.row_a, l.row_b)
+                             AND (o.registered_on IS NULL OR o.registered_on <= coalesce(r.ended_on, r.started_on))
+                             AND (o.removed_on IS NULL OR o.removed_on >= r.started_on)))""",
+                           (rules.RULE_SOLE_COMPANY, list(rules.DONATION_REGISTERS))).fetchone()[0]
+    sole_n = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_SOLE_COMPANY,)).fetchone()[0]
+    twice = conn.execute(f"""
+        WITH c AS (SELECT r.ref, r.name_key, p.party_registered AS party, p.election FROM {s}.rows r JOIN pub.candidates p ON r.ref = 'house:' || p.key
+                   WHERE r.view = 'candidates'),
+             two AS (SELECT name_key, party FROM c GROUP BY name_key, party, election HAVING count(*) > 1)
+        SELECT count(*) FROM {s}.links l JOIN c ON c.ref = l.row_a JOIN two t ON t.name_key = c.name_key AND t.party = c.party
+        WHERE l.rule = %s AND l.grade = 'confirmed'""", (rules.RULE_SAME_PARTY,)).fetchone()[0]
+    joined = conn.execute(f"""
+        SELECT count(*) FROM {s}.links l JOIN {s}.groups a ON a.row_key = l.row_a JOIN {s}.groups b ON b.row_key = l.row_b
+        WHERE l.grade = 'related' AND a.group_id = b.group_id""").fetchone()[0]
+    adrift = conn.execute(f"""
+        SELECT count(*) FROM {s}.links l
+        WHERE l.rule = %s AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(l.evidence->'shared_rows') x
+            JOIN {s}.groups a ON a.row_key = x->>'earlier' JOIN {s}.groups b ON b.row_key = x->>'later'
+            JOIN {s}.rows ra ON ra.ref = x->>'earlier' AND ra.entity_ref = l.evidence->>'earlier'
+            JOIN {s}.rows rb ON rb.ref = x->>'later' AND rb.entity_ref = l.evidence->>'later'
+            WHERE a.group_id = b.group_id)""", (rules.RULE_SUCCESSOR,)).fetchone()[0]
+    related = conn.execute(f"SELECT count(*), count(*) FILTER (WHERE rule <> %s OR relation IS DISTINCT FROM %s) FROM {s}.links WHERE grade = 'related'",
+                           (rules.RULE_SUCCESSOR, rules.RELATION_SUCCEEDED_BY)).fetchone()
+    return [{"check": f"every {rules.RULE_SOLE_COMPANY} link is a donation row and the one company of its name, live in the year",
+             "links": int(sole_n), "not_so": int(sole_bad), "ok": sole_bad == 0},
+            {"check": f"no {rules.RULE_SAME_PARTY} pair confirms a name that stands twice for the party in one election",
+             "confirmed_pairs_of_such_a_name": int(twice), "ok": twice == 0},
+            {"check": "no group holds both rows of a related link (a relation is never an identity)", "related": int(related[0]),
+             "other_rules_or_relations": int(related[1]), "in_one_group": int(joined), "ok": joined == 0 and related[1] == 0},
+            {"check": f"every {rules.RULE_SUCCESSOR} relation still has a person in one group on both companies",
+             "without_one": int(adrift), "ok": adrift == 0}]
+
+
 def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out = []
     if oldconn is not None:
@@ -118,6 +166,7 @@ def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out += check_published(conn, s, pub)
     out += check_rows_current(conn, s)
     out += check_review_switch(conn, s)
+    out += check_ruling_106(conn, s)
     return out
 
 
