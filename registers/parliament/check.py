@@ -28,7 +28,13 @@ expressions, so a flag the load stopped setting cannot pass silently:
   flagged    each flag column's true count is stated, and equals the load's `address_flags` lines for it
   street     no text column of a view (every `text`, `varchar` or `jsonb` column, found by introspection, so a
              column added later is searched too) holds a house number and a street where its
-             `<column>_names_address` flag is false or absent
+             `<column>_names_address` flag is false or absent. The pattern runs over every row once, at the
+             load, after the views are refreshed (load.stamp_scan, `street_scan`: per column the rows scanned,
+             their load stamp and the count found); the check holds that stamp to the view (every text column
+             stamped, the same rows and the same load, nothing found) and scans afresh a fixed sample, the
+             SAMPLE rows of each view first by md5 of their key, as the proof the stamp is honest. A whole
+             scan of every row took 1 min 55 s on 28 October 2026 (683,524 questions, 8,836 long pages) and
+             the board gives a check 120 s, so the check never runs one
 
 Run bare it answers about the live tables in querynz_v4 under the session
 reader; a session's scratch proof passes --database, --schema,
@@ -51,6 +57,7 @@ TABLE = {c: "api_items" for c in capture.API_CORPORA}
 TABLE.update({capture.WRITTEN_QUESTIONS: "written_questions", capture.WAYBACK: "wayback_pages"})
 VIEWS = ("written_questions", "api_items", "wayback_pages")
 FLAG = "_names_address"
+SAMPLE = 5000           # rows of each view the check scans afresh; the load scans every row (load.stamp_scan)
 # a house number and a street, as Postgres reads it (ARE): not after a letter, a digit or a unit's slash, nor after
 # the word a highway's, a law's or a list's number follows; not a year; one to four capitalised words; the street's
 # kind; and not the start of a company's name ("12 Sample Street Limited")
@@ -111,29 +118,52 @@ def view_name(schema: str, v: str) -> tuple:
     return ("pub", f"parliament_{v}") if schema == "parliament" else (schema, f"pub_parliament_{v}")
 
 
+def texts_of(conn, vs: str, vn: str) -> tuple:
+    """(every column, the text columns) of a view, by introspection."""
+    cols = conn.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = %s "
+                        "AND table_name = %s ORDER BY ordinal_position", (vs, vn)).fetchall()
+    return [c for c, _ in cols], [c for c, t in cols if t in ("text", "character varying", "jsonb")]
+
+
+def street_counts(conn, vs: str, vn: str, sample: int = None) -> tuple:
+    """(rows read, {text column: rows holding a street with its flag false or absent}) over the view, or over
+    its first `sample` rows by md5 of the key (a fixed sample: the same rows while the keys stay)."""
+    names, texts = texts_of(conn, vs, vn)
+    parts = ["count(*)"]
+    for c in texts:
+        f = c + FLAG
+        parts.append(f'count(*) FILTER (WHERE "{c}"::text ~ %(p)s'
+                     + (f' AND NOT coalesce("{f}", false))' if f in names else ")"))
+    where = (f' WHERE key IN (SELECT key FROM "{vs}"."{vn}" ORDER BY md5(key) LIMIT %(n)s)'
+             if sample is not None else "")
+    row = conn.execute(f'SELECT {", ".join(parts)} FROM "{vs}"."{vn}"{where}',
+                       {"p": STREET_SQL, "n": sample}).fetchone()
+    return row[0], dict(zip(texts, row[1:]))
+
+
 def shown(conn, schema: str, shared: bool = False) -> dict:
-    """{view: {"rows": n, "flagged": {column: n}, "lines": {column: n}, "street unflagged": {column: n}}}.
+    """{view: {"rows": n, "loaded": the rows' load stamp, "flagged": {column: n}, "lines": {column: n},
+    "sampled": n, "street unflagged": {column: n in the sample}, "scan": {column: (rows, loaded, found)}}}.
     shared: the sample's schema, where the lane's tables carry its name (load.table)."""
-    flags_table = f"{schema}.parliament_address_flags" if shared else f"{schema}.address_flags"
+    pre = f"{schema}.parliament_" if shared else f"{schema}."
     q = lambda sql, *a: conn.execute(sql, a).fetchall()  # noqa: E731
+    stamped = q("SELECT to_regclass(%s)", f"{pre}street_scan")[0][0] is not None     # none before the first load
     out = {}
     for v in VIEWS:
         vs, vn = view_name(schema, v)
-        cols = q("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = %s "
-                 "AND table_name = %s ORDER BY ordinal_position", vs, vn)
-        names = {c for c, _ in cols}
-        texts = [c for c, t in cols if t in ("text", "character varying", "jsonb")]
+        names, _ = texts_of(conn, vs, vn)
         flags = [c for c in names if c.endswith(FLAG)]
-        parts = ["count(*)"] + [f'count(*) FILTER (WHERE "{f}")' for f in flags]
-        for c in texts:
-            f = c + FLAG
-            parts.append(f'count(*) FILTER (WHERE "{c}"::text ~ %(p)s'
-                         + (f' AND NOT coalesce("{f}", false))' if f in names else ")"))
-        row = conn.execute(f'SELECT {", ".join(parts)} FROM "{vs}"."{vn}"', {"p": STREET_SQL}).fetchone()
-        lines = dict(q(f"SELECT column_name, count(*) FROM {flags_table} WHERE table_name = %s "
+        row = conn.execute(f'SELECT count(*), max(loaded_at), '
+                           + ", ".join([f'count(*) FILTER (WHERE "{f}")' for f in flags] or ["0"])
+                           + f' FROM "{vs}"."{vn}"').fetchone()
+        sampled, unflagged = street_counts(conn, vs, vn, SAMPLE)
+        lines = dict(q(f"SELECT column_name, count(*) FROM {pre}address_flags WHERE table_name = %s "
                        "GROUP BY column_name", v))
-        out[v] = {"rows": row[0], "flagged": {f[:-len(FLAG)]: n for f, n in zip(flags, row[1:])},
-                  "lines": lines, "street unflagged": dict(zip(texts, row[1 + len(flags):]))}
+        scan = {c: (n, at, found) for c, n, at, found in
+                (q(f"SELECT column_name, rows, loaded_at, found FROM {pre}street_scan WHERE view_name = %s", v)
+                 if stamped else [])}
+        out[v] = {"rows": row[0], "loaded": row[1], "flagged": {f[:-len(FLAG)]: n for f, n in zip(flags, row[2:])},
+                  "lines": lines, "sampled": sampled, "street unflagged": unflagged, "scan": scan}
     return out
 
 
@@ -145,10 +175,22 @@ def judge_shown(s: dict) -> list:
         for c, n in x["flagged"].items():
             if n != x["lines"].get(c, 0):
                 out.append(f"{v}.{c}: {n} rows flagged but {x['lines'].get(c, 0)} address_flags lines")
+        if not x["scan"]:
+            out.append(f"{v}: the load's whole scan has no line for the view (load.stamp_scan)")
+        flag = lambda c: f"`{c}{FLAG}` false" if c in x["flagged"] else "no flag beside the column"  # noqa: E731
         for c, n in x["street unflagged"].items():
             if n:
-                out.append(f"{v}.{c}: {n} rows hold a street address with "
-                           + (f"`{c}{FLAG}` false" if c in x["flagged"] else "no flag beside the column"))
+                out.append(f"{v}.{c}: {n} rows hold a street address with {flag(c)}")
+            if c not in x["scan"]:
+                if x["scan"]:
+                    out.append(f"{v}.{c}: the load's whole scan has no line for the column")
+                continue
+            rows, at, found = x["scan"][c]
+            if (rows, at) != (x["rows"], x["loaded"]):
+                out.append(f"{v}.{c}: the load's whole scan read {rows} rows of another load, not the "
+                           f"{x['rows']} the view holds")
+            elif found:
+                out.append(f"{v}.{c}: {found} rows hold a street address with {flag(c)} (the load's whole scan)")
     return out
 
 
@@ -210,7 +252,7 @@ def main(argv=None) -> int:
     with db.connect(db.OWNER_KEY if a.owner else db.READ_KEY, a.database) as conn:
         conn.execute("SET statement_timeout = '60s'")
         h = held(conn, a.schema, a.mcp_schema)
-        conn.execute("SET statement_timeout = '300s'")       # one pass of the pattern over each view's text
+        conn.execute("SET statement_timeout = '60s'")        # the pattern over a fixed sample, never every row
         s = shown(conn, a.schema)
     o = outside(M.Client())
     fails = judge(h, o) + judge_shown(s)
@@ -223,7 +265,9 @@ def main(argv=None) -> int:
     for v, x in s.items():
         print(f"parliament: {v}: {x['rows']} rows; names an address by shape: "
               + ", ".join(f"{c} {n}" for c, n in x["flagged"].items())
-              + "; a street with no flag: " + str(sum(x["street unflagged"].values())))
+              + f"; a street with no flag: {sum(x['street unflagged'].values())} in a fixed sample of "
+              f"{x['sampled']}, {sum(f for _, _, f in x['scan'].values())} in the load's whole scan of "
+              f"{min((n for n, _, _ in x['scan'].values()), default=0)}")
     for f in fails:
         print("parliament: FAIL " + f)
     print("parliament: " + ("green" if not fails else f"red, {len(fails)} failure(s)"))

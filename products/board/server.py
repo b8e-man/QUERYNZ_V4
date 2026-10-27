@@ -39,7 +39,7 @@ import urllib.parse
 from support.docstore import landing as docstore
 from products.board import assets
 from products.board import catalogue as cat
-from products.board import db, document, graph, links_view, near, panes, search, state, uses
+from products.board import db, document, graph, links_view, near, panes, people, search, state, uses
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
@@ -69,7 +69,10 @@ def parse_path(p: str) -> list:
         s = s.strip()
         if not s:
             continue
-        if s.startswith("person:"):
+        if s.startswith(people.ENTITY):                # an entity of the people state (ruling 105): entity:<group id>
+            if len(s) > len(people.ENTITY):
+                steps.append(s[:300])
+        elif s.startswith("person:"):
             _, view, key = s.split(":", 2)
             if view in cat.BY_NAME and key:
                 steps.append(s)
@@ -146,6 +149,15 @@ def person_context(conn, v: cat.View, r: dict, q: str, path: list, same=None, bo
             "report": panes.report_href(REPORT_URL, ref), "boxes": boxes}
 
 
+def entity_context(conn, group_id: str):
+    """people.entity, with the near rows resolved for its pane (one query per view)."""
+    ent = people.entity(conn, group_id)
+    if ent is not None:
+        others = {l["row_b"] if l["mine"] == l["row_a"] else l["row_a"] for l in ent["near"]}
+        ent["far"] = people.resolve_refs(conn, others - {ref for ref, _, _ in ent["rows"]})
+    return ent
+
+
 def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes = search.FIRST, near_names: bool = False) -> str:
     """The search tab. `conn` is a session-reader connection to reuse (the
     check passes its own); without one a connection is opened and closed.
@@ -164,6 +176,9 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         words = panes.search_words(q, boxes)
         steps = []
         for step in path:
+            if step.startswith(people.ENTITY):
+                steps.append((people.ENTITY, step[len(people.ENTITY):], None))
+                continue
             person = step.startswith("person:")
             view, key = step.split(":", 2)[1:] if person else step.partition(":")[::2]
             steps.append((person, view, search.row(conn, view, key)))
@@ -176,11 +191,11 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
                 total, trows, hidden = search.table(conn, tv, boxes.upto, boxes.removed)
         cited = [r.get("document") for hits in results.values() if isinstance(hits, list) for _, _, rows in hits for r in rows]
         cited += [r.get("document") for c in (nearby or {}).values() if isinstance(c, dict) for _, r in c.get("rows") or ()]
-        cited += [r.get("document") for _, _, r in steps if r]
+        cited += [r.get("document") for k, _, r in steps if r and k != people.ENTITY]
         docs = document.statuses(conn, cited)          # ruling 86 (4): one query for every "source" link on the page
         shown_rows = [(v, r) for hits in results.values() if isinstance(hits, list) for v, _, rows in hits for r in rows]
         shown_rows += [vr for c in (nearby or {}).values() if isinstance(c, dict) for vr in c.get("rows") or ()]
-        shown_rows += [(cat.BY_NAME[view], r) for _, view, r in steps if r] + [(tv, r) for r in trows or ()]
+        shown_rows += [(cat.BY_NAME[view], r) for k, view, r in steps if r and k != people.ENTITY] + [(tv, r) for r in trows or ()]
         far = search.far_rows(conn, shown_rows, held)  # ruling 92 (2): one query per far view for every key shown
         out = [panes.left_pane(q, search.held_registers(held), boxes)]
         if near_names:
@@ -191,6 +206,9 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
             out.append(panes.table_pane(q, tv, total, trows, boxes._replace(table=tv.name), held, far, hidden))
         for i, (person, view, r) in enumerate(steps):
             so_far = path[:i + 1]
+            if person == people.ENTITY:
+                out.append(panes.entity_pane(entity_context(conn, view), q, so_far, boxes))
+                continue
             v = cat.BY_NAME[view]
             if person:
                 if r is None:
@@ -212,21 +230,24 @@ def render_graph(q: str, centre: str = "", conn=None, boxes: search.Boxes = sear
         held = db.pub_views(conn)
         regs = search.selection(boxes, search.held_registers(held))
         g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None,
-                        removed=boxes.removed)
+                        removed=boxes.removed, people=boxes.people)
         out = [panes.left_pane(q, search.held_registers(held), boxes, action="/graph", title="Graph the connections"),
                graph.pane(g, q, boxes, regs, script=True)]
         return panes.page(q, [], out, "", boxes, tab="graph", db=counter(conn))
 
 
-def graph_answer(q: str, centre: str = "", conn=None, boxes: search.Boxes = search.FIRST) -> dict:
+def graph_answer(q: str, centre: str = "", conn=None, boxes: search.Boxes = search.FIRST, opened: str = "") -> dict:
     """GET /graph.json (ruling 100): the graph tab's graph as data, from the
     same `graph.build` on the product reader (pub only); the canvas asks it
-    with `c`, one row's one hop, as the reader taps."""
+    with `c`, one row's one hop, as the reader taps; `opened`, a group id,
+    answers that entity's rows and their own links (ruling 105)."""
     with RENDER_LOCK, (contextlib.nullcontext(conn) if conn is not None else db.scan_connect()) as conn:
         held = db.pub_views(conn)
         regs = search.selection(boxes, search.held_registers(held))
+        if opened:
+            return graph.opened(people.entity(conn, opened), q, boxes)
         g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None,
-                        removed=boxes.removed)
+                        removed=boxes.removed, people=boxes.people)
         return graph.answer(g, q, boxes)
 
 
@@ -334,7 +355,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             q = (qs.get("q") or [""])[0].strip()[:200]
             boxes = search.boxes_of(qs)
             if url.path == "/graph.json":
-                body = graph.to_json(graph_answer(q, parse_centre((qs.get("c") or [""])[0]), boxes=boxes)).encode("utf-8")
+                body = graph.to_json(graph_answer(q, parse_centre((qs.get("c") or [""])[0]), boxes=boxes,
+                                                  opened=(qs.get("open") or [""])[0][:300])).encode("utf-8")
                 self.send_bytes(body, "application/json; charset=utf-8", "no-store")
                 return
             if url.path == "/graph":

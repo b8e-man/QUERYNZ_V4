@@ -197,3 +197,16 @@ CREATE TABLE IF NOT EXISTS parliament.address_flags (
     shape        text NOT NULL CHECK (shape IN ('street', 'legal', 'numbered')),
     PRIMARY KEY (table_name, key, column_name)
 );
+
+-- the load's whole scan of the published views by check.STREET_SQL, the second pattern (load.stamp_scan): per view
+-- and text column, the rows scanned, their load stamp and how many hold a street with the flag false or absent.
+-- The check holds it to the view and re-scans a fixed sample, never every row (the board gives a check 120 s)
+CREATE TABLE IF NOT EXISTS parliament.street_scan (
+    view_name    text NOT NULL,
+    column_name  text NOT NULL,
+    rows         bigint NOT NULL,
+    loaded_at    timestamptz,                            -- the rows' `loaded_at` (one per load); NULL: no rows
+    found        bigint NOT NULL,
+    scanned_at   timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (view_name, column_name)
+);

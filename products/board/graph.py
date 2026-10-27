@@ -34,7 +34,7 @@ import json
 
 from products.board import assets
 from products.board import catalogue as cat
-from products.board import db, links_view, panes, search
+from products.board import db, links_view, panes, people as people_state, search
 
 MAX_MATCHED = 16        # matched rows drawn; the rest are counted and the search can be narrowed
 PER_VIEW = 8            # matched rows taken from any one view
@@ -80,14 +80,16 @@ def _resolver(conn):
     return resolve
 
 
-def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, removed: bool = True) -> dict:
+def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, removed: bool = True, people: bool = False) -> dict:
     """{'nodes': {id: {v, row, matched, centre, order}}, 'edges': [...],
     'drawn': {kind: n}, 'not_drawn': {kind: n}, 'matched_total', 'unresolved'}.
     An edge is one cause: kind, a, b (node ids), label (plain words), cite
     (the asserting row's id), rule (the links rule id, or None); `lines`
     folds the causes between two rows into one line. `removed` false: a
     removed company is not a matched row (ruling 93); a far end still shows,
-    and a centre opens whatever its status, since its link names the row."""
+    and a centre opens whatever its status, since its link names the row.
+    `people` (ruling 105): the same rows and record relations, no links of
+    a row's own, then folded into the links lane's groups (people.fold)."""
     g = {"nodes": {}, "edges": [], "drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS},
          "not_drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS}, "matched_total": 0, "unresolved": 0, "centre": centre}
     held = db.pub_views(conn)
@@ -166,7 +168,7 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
                     add_edge(rel.kind, nid, me, rel.label, nid)
                     drawn += 1
             g["not_drawn"][rel.kind] += total - drawn
-        if panes.is_suppressed(v, r):                        # a suppressed row's namesakes would say its name
+        if people or panes.is_suppressed(v, r):              # a suppressed row's namesakes would say its name
             continue
         links = links_view.links_of(conn, links_view.ref(v, r["key"]))
         for grade, kind in (("confirmed", CONFIRMED), ("near", NEAR)):
@@ -183,7 +185,7 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
                     add_edge(kind, me, nid, cat.rule_words(l["rule"]), me, str(l["rule"]))     # words, never the id (ruling 84)
                     drawn += 1
             g["not_drawn"][kind] += len(items) - drawn
-    return g
+    return people_state.fold(conn, g, max_nodes=MAX_NODES) if people else g
 
 
 # ── a donor's money, one edge per recipient (ruling 86 (3)) ─────────────────
@@ -745,7 +747,7 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None, l
     for ln in lns:
         colour, dash = KIND[ln["kind"]]
         d = f' stroke-dasharray="{dash}"' if dash else ""
-        title = "; ".join(cause_text(e) for e in ln["causes"])
+        title = line_title(g, ln)
         out.append(f'<path class="edge" d="{path_d(lay["paths"][ln["n"]])}" stroke="{colour}"{d}>'
                    f'<title>{panes.esc(title)}</title></path>')
     for ln in lns:
@@ -761,7 +763,8 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None, l
         v, r = n["v"], n["row"]
         title = node_title(n)
         rad = radius(n)
-        to = panes.href(q, [], boxes, "/graph") + "&" + urllib.parse.urlencode({"c": nid})
+        e = n.get("entity")                 # an entity re-centres on its first row in hand, in the people state
+        to = panes.href(q, [], boxes, "/graph") + "&" + urllib.parse.urlencode({"c": e["in_hand"][0] if e else nid})
         lab = placement["labels"].get(nid)
         text = ""
         if lab:
@@ -875,23 +878,86 @@ def answer(g: dict, q: str, boxes=None, lns: list = None, lay: dict = None) -> d
     for nid, n in sorted(g["nodes"].items(), key=lambda kv: kv[1]["order"]):
         v = n["v"]
         x, y = lay["pos"][nid]
-        nodes.append({"id": nid, "view": v.name, "key": str(n["row"]["key"]), "title": node_title(n),
-                      "register": v.register, "register_name": panes.register_heading(v.register),
-                      "family": cat.FAMILY_OF[v.register], "colour": cat.REGISTER_COLOUR[v.register], "matched": n["matched"], "centre": n["centre"],
-                      "x": x, "y": y, "pane": panes.href(q, [nid], boxes), "grow": grow_href(nid, boxes)})
+        node = {"id": nid, "view": v.name, "key": str(n["row"]["key"]), "title": node_title(n),
+                "register": v.register, "register_name": panes.register_heading(v.register),
+                "family": cat.FAMILY_OF[v.register], "colour": cat.REGISTER_COLOUR[v.register], "matched": n["matched"], "centre": n["centre"],
+                "x": x, "y": y, "pane": panes.href(q, [nid], boxes), "grow": grow_href(nid, boxes)}
+        if g.get("people"):                             # ruling 105: an entity, a lone row, or a row kept apart
+            e = n.get("entity")
+            node["kind"] = "entity" if e else ("lone" if n.get("lone") else "apart")
+            if e:
+                node.update({"count": e["count"], "contested": e["contested"], "group": e["group_id"],
+                             "pane": panes.href(q, [people_state.entity_id(e["group_id"])], boxes),
+                             "open": open_href(e["group_id"], boxes), "grow": ""})
+        nodes.append(node)
     edges = []
     for ln in lns:
         if any("address" in e["kind"] for e in ln["causes"]):     # never drawn by build either (hard limit 15)
             continue
         colour, dash = KIND[ln["kind"]]
+        decided = (g.get("decisions") or {}).get(tuple(sorted((ln["a"], ln["b"])))) or []
         edges.append({"id": "|".join(sorted((ln["a"], ln["b"]))), "source": ln["a"], "target": ln["b"], "kind": ln["kind"],
                       "colour": colour, "dashed": bool(dash), "words": words_of_line(ln),
-                      "title": "; ".join(cause_text(e) for e in ln["causes"]),
+                      "title": line_title(g, ln),
                       "causes": [{"kind": e["kind"], "words": e["label"], "rule": cat.rule_ref(e["rule"]) if e.get("rule") else "",
                                   "cite": panes.href(q, [e["cite"]], boxes),
-                                  "addends": [_addend(x, q, boxes) for x in e.get("addends") or []]} for e in ln["causes"]]})
-    return {"centre": g.get("centre") or "", "nodes": nodes, "edges": edges, "matched_total": g["matched_total"],
-            "drawn": g["drawn"], "not_drawn": g["not_drawn"], "unresolved": g["unresolved"]}
+                                  "addends": [_addend(x, q, boxes) for x in e.get("addends") or []],
+                                  **({"rows": [[ta, tb, panes.href(q, [a], boxes), panes.href(q, [b], boxes)] for ta, tb, a, b in e["rows"]]}
+                                     if e.get("rows") else {})} for e in ln["causes"]],
+                      **({"decisions": [decision_text(d) for d in decided]} if decided else {})})
+    return {"centre": g.get("centre") or "", "mode": "entities" if g.get("people") else "rows", "nodes": nodes, "edges": edges,
+            "matched_total": g["matched_total"], "drawn": g["drawn"], "not_drawn": g["not_drawn"], "unresolved": g["unresolved"]}
+
+
+def line_title(g: dict, ln: dict) -> str:
+    """A line's tooltip: every cause, then any decision on its pair (ruling 105)."""
+    decided = (g.get("decisions") or {}).get(tuple(sorted((ln["a"], ln["b"])))) or []
+    return "; ".join([cause_text(e) for e in ln["causes"]] + [decision_text(d) for d in decided])
+
+
+def decision_text(d: dict) -> str:
+    """A pub.decisions row on a line's pair: "decision: not the same, by review-agent@2 (A and B)"."""
+    return f"decision: {d['verdict']}, by {d['made_by']}" + (f" ({d['rows'][0]} and {d['rows'][1]})" if d.get("rows") else "")
+
+
+def open_href(group_id: str, boxes=None) -> str:
+    """/graph.json for one entity opened (ruling 105): its rows and their own links."""
+    return "/graph.json?" + urllib.parse.urlencode([("open", group_id)] + (boxes.params() if boxes is not None else []))
+
+
+def opened(ent, q: str, boxes=None) -> dict:
+    """An entity opened on the canvas (ruling 105): its rows as children of
+    its node, each in its register's colour, at most people.MAX_CHILDREN,
+    and the group's own links among them labelled with the rule's words, a
+    near one dashed with its reason, a decision on its pair said. The
+    suppressed rows are never in `ent` (people.entity)."""
+    if ent is None:
+        return {"entity": "", "nodes": [], "edges": [], "shown": 0, "total": 0, "why": "no group has that id"}
+    eid = people_state.entity_id(ent["group_id"])
+    drawn = ent["rows"][:people_state.MAX_CHILDREN]
+    id_of = {ref: f"{v.name}:{r['key']}" for ref, v, r in drawn}
+    nodes = [{"id": id_of[ref], "parent": eid, "kind": "child", "view": v.name, "key": str(r["key"]), "title": panes.title_of(v, r),
+              "register": v.register, "register_name": panes.register_heading(v.register), "family": cat.FAMILY_OF[v.register],
+              "colour": cat.REGISTER_COLOUR[v.register], "matched": False, "centre": False,
+              "pane": panes.href(q, [id_of[ref]], boxes), "grow": ""} for ref, v, r in drawn]
+    decided = {}
+    for d in ent["decisions"]:
+        decided.setdefault((d["row_a"], d["row_b"]), []).append(decision_text(d))
+    edges = []
+    for l in ent["links"]:
+        if l["row_a"] not in id_of or l["row_b"] not in id_of:
+            continue
+        kind = CONFIRMED if l["grade"] == "confirmed" else NEAR
+        colour, dash = KIND[kind]
+        words = cat.rule_words(l["rule"])
+        title = [f"{kind}: {words} {cat.rule_ref(l['rule'])}"] + ([f"near because {l['reason']}"] if l.get("reason") and dash else [])
+        edges.append({"id": f"in|{id_of[l['row_a']]}|{id_of[l['row_b']]}|{l['rule']}", "source": id_of[l["row_a"]],
+                      "target": id_of[l["row_b"]], "kind": kind, "colour": colour, "dashed": bool(dash), "words": words,
+                      "title": "; ".join(title + decided.get((l["row_a"], l["row_b"]), [])), "inner": True,
+                      "causes": [{"kind": kind, "words": words, "rule": cat.rule_ref(l["rule"]), "cite": panes.href(q, [id_of[l["row_a"]]], boxes),
+                                  "addends": []}]})
+    return {"entity": eid, "nodes": nodes, "edges": edges, "shown": len(drawn), "total": len(ent["rows"]),
+            "pane": panes.href(q, [eid], boxes)}
 
 
 def to_json(data: dict) -> str:
@@ -918,10 +984,35 @@ def canvas(data: dict, picture: str) -> str:
             f"<noscript>{picture}</noscript>")
 
 
+def switch(q: str, boxes=None, centre: str = "") -> str:
+    """The one control between the graph's two states (ruling 105): rows, or
+    entities; the address carries the state (`g=entities`), so a view reopens in it."""
+    boxes = boxes if boxes is not None else search.FIRST
+    on = boxes.people
+    parts = []
+    for label, people in (("rows", False), ("entities", True)):
+        if people == on:
+            parts.append(f'<strong aria-current="true">{label}</strong>')
+        else:
+            extra = [("c", centre)] if centre else []
+            url = "/graph?" + urllib.parse.urlencode([("q", q)] + extra + boxes._replace(people=people).params())
+            parts.append(f'<a href="{panes.esc(url)}">{label}</a>')
+    return '<p class="switch" id="state">show: ' + " · ".join(parts) + "</p>"
+
+
+PEOPLE_NOTE = ("People: the rows are gathered into the groups the links lane built (pub.groups); one node per group, labelled "
+               "by the fullest filed name among its rows (a display choice, not a link), with its count of rows and registers; "
+               "a row in no group is a lone row; an edge between two entities means some row of one relates to some row of the "
+               "other, and its words list which rows. Near links reach one hop, dashed, with the reason; they never gather. "
+               "A contested group is marked. A row whose name is suppressed is never gathered. Tap an entity to open its rows, "
+               "joined by the links that gathered them; tap it again to close it.")
+
+
 def pane(g: dict, q: str, boxes=None, regs=None, script: bool = False) -> str:
     """`boxes` the check boxes every href carries; `regs` the registers searched (None: all);
     `script`: the canvas with the SVG inside <noscript> (ruling 100), else the SVG alone."""
-    out = ['<section class="pane graph" id="graph">', '<div class="reg">graph</div>']
+    out = ['<section class="pane graph" id="graph">', '<div class="reg">graph' + (" · entities" if g.get("people") else "") + "</div>",
+           switch(q, boxes, g.get("centre") or "")]
     if not g["nodes"]:
         out.append("<h2>Graph</h2>")
         if regs is not None and not regs and not g.get("centre"):
@@ -938,12 +1029,18 @@ def pane(g: dict, q: str, boxes=None, regs=None, script: bool = False) -> str:
                    f' · <a href="{panes.esc(panes.href(q, [], boxes, "/graph"))}">back to the search</a></p>')
     else:
         out.append(f"<h2>{panes.esc(q) if q else 'By field'}</h2>" + panes.narrowed_line(boxes))
-        more = g["matched_total"] - len(matched)
-        out.append(f'<p class="note">{len(matched)} matching rows drawn' + (f"; {more:,} more match: narrow the search or the registers" if more > 0 else "") + "</p>")
+        rows_drawn = sum(len(n["entity"]["in_hand"]) if n.get("entity") else 1 for n in matched)
+        more = g["matched_total"] - rows_drawn
+        out.append(f'<p class="note">{rows_drawn} matching rows drawn' + (f" as {len(matched)} nodes" if g.get("people") else "")
+                   + (f"; {more:,} more match: narrow the search or the registers" if more > 0 else "") + "</p>")
     how = "Click a node to centre on it; an edge's words, where they fit, open the row that asserts it; hover a line for all it says. "
     how = f"<noscript>{how}</noscript>" if script else how
     out.append('<p class="note">Rows are nodes; an edge is a connection the registers themselves assert, or a same-person verdict of the links. '
                f"No edge is made by matching names here. {how}Under the key the edges are listed by the row they reach.</p>")
+    if g.get("people"):
+        out.append(f'<p class="note">{panes.esc(PEOPLE_NOTE)}</p>')
+        out.append(f'<p class="note">{g["entities"]} entities and {g["lone"]} lone rows drawn; {g["inside"]} record relations '
+                   "fell inside one entity and are not drawn.</p>")
     lns = lines(g)
     lay = layout(g, lns)
     placement = place(g, lay, lns)

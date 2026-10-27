@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
 
-**Date:** 2026-10-27, 13:10 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-28, 10:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 counting clean days from 25 October (see Half-done); 5.1
 done; 5.2 closed (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held
 on terms; sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on
@@ -25,19 +25,16 @@ model reading till it returns. **Alarms:** the old estate's ntfy address.
 - Rulings 64 to 102 (99 withdraws 98; 102: limit 15 binds products, not the
   board or the views); fixes 76, 77 in the old repository.
 - Track B: the restore rehearsal equal 25 October (2 h 32 m, en_NZ.UTF-8).
-- Merged 21 to 23 October (`docs/merges/`): sanctions, scan, tenders,
-  regulators, oio, hdc, diaries, grants, redirects, `security-1`,
-  `settlements-1`, 6.3 capture only (ruling 79), fetch gate and scheduler
-  fixes, `fixes-2`, `scan-templates-2`, `release-copy-1`, offsite fix.
+- Merged 21 to 23 October: see `docs/merges/`.
 
 ## Running (headless, from the integrator)
 
-- Nothing at the gate. 28 October 07:50: the fence opens Claude Code's memory folder to the integrator (ruling 103, a0410d1). Merged 27 October (rulings 96 to 102): `mcp-1`
+- 28 October: memory folder opened (103); pull and Beehive load given measured memory; parliament check 36 s; building `board-8` (entity state, 105), `links-3` (three rules, 106). Merged 27 October (rulings 96 to 102): `mcp-1`
   (client, `qv4-mcp` jobs, beehive lane; the adopt landed 1.41 M documents
   live at 11:20), `hansard-1`, `hansard-2`, `diaries-2`, `parliament-1`
   with their ruling-102 fixes and the blocked-pages fix, `board-7` (ruling
   100) and the board entries for every new view; the board's live check
-  green. 25, 26 October: `board-2` to `-6`, four board/report fixes.
+  green.
 
 ## Half-done
 

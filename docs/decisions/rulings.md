@@ -777,3 +777,20 @@ and makes no link by looking. Two decisions taken with it: (1) the group's
 label is the fullest filed name among its rows, a display choice the pane
 says is not a link, until the lane publishes a name; (2) near links reach
 one hop from the entities in view. Built by board-8.
+
+106. Arthur, 28 October, 10:05, on the first three links rules developed
+from the near pairs ("let's develop some links rules as we go"): "1.
+confirm. 2. confirm. 3. confirm, make a new link rule to cover this".
+(1) A donation row's organisation name matching exactly one company on
+the register, live in the donation's year: confirmed to that company.
+(2) Two companies under one name where one carries a year in brackets,
+with at least one person confirmed on both: a "succeeded by" relation
+between the two companies, not an identity; the companies stay separate
+entities and separate groups, and the board shows the lineage as a frame
+around them, the companies in date order, the shared people drawn once.
+The name pattern alone stays near. (3) One candidate name under one
+party in two elections: confirmed as one person, with the seats and years
+as evidence; a new rule, not the near printing rule. The method stands:
+a rule is proposed from a measured gap with its count and twenty pairs
+read on the board, Arthur rules, the lane implements it versioned with
+tests, the groups rebuild. Built by links-3.

@@ -109,7 +109,7 @@ import urllib.parse
 
 from products.board import assets
 from products.board import catalogue as cat
-from products.board import db, document, graph, links_view, near, search, panes, server, uses
+from products.board import db, document, graph, links_view, near, people, search, panes, server, uses
 
 ADDRESS_WORDS = re.compile(r"residential|home_address|street|suburb|postal", re.I)
 #: the comparison's residence vocabulary (checks/comparison.py RESIDENCE_WORDS; tests/test_check_vocabulary.py holds the two equal):
@@ -256,6 +256,7 @@ def problems(conn, term: str = None) -> list:
     out += table_problems(conn, held)
     out += mode_problems(conn)
     out += removed_problems(conn)
+    out += people_problems(conn)
     return out
 
 
@@ -591,6 +592,123 @@ def json_problems(conn, term: str = JSON_TERM) -> list:
         out.append(f"the graph tab's inline data for {term!r} is not the answer /graph.json gives")
     out += suppressed_json_problems(conn)
     return out
+
+
+#: a surname whose rows fall in several of the links lane's groups (ruling 105's live case)
+PEOPLE_TERM = "smith"
+
+
+def people_problems(conn, term: str = PEOPLE_TERM) -> list:
+    """Item 22 (ruling 105), read back from pub.groups, pub.links and
+    pub.names apart from the fold: the people graph gathers the rows in hand
+    into their groups (several entities, lone rows in no group), labels each
+    by the fullest filed name of its shown rows, draws no line inside one
+    node, every near line a near pair of pub.links, dashed, with its reason;
+    an opened entity's rows are its group's; a suppressed row in a group is
+    kept apart and its name is nowhere in the answer."""
+    out = []
+    held = db.pub_views(conn)
+    if not {"groups", "links", "names"} <= held:
+        return ["pub.groups, pub.links or pub.names is not published: the people state has nothing to read"]
+    boxes = search.FIRST._replace(people=True)
+    g = graph.build(conn, term, regs=search.selection(boxes, search.held_registers(held)), people=True)
+    entities = {nid: n for nid, n in g["nodes"].items() if n.get("entity")}
+    lone = [n for n in g["nodes"].values() if n.get("lone")]
+    if len(entities) < 2 or not lone:
+        out.append(f"the people graph for {term!r} has {len(entities)} entities and {len(lone)} lone rows: the fold has nothing to show")
+    refs = {nid: links_view.ref(n["v"], n["row"]["key"]) for nid, n in g["nodes"].items() if not n.get("entity")}
+    for nid, n in entities.items():
+        gid = nid[len(people.ENTITY):]
+        hand = [links_view.ref(*(lambda v, k: (cat.BY_NAME[v], k))(*x.split(":", 1))) for x in n["entity"]["in_hand"]]
+        got = {r["row_key"] for r in db.rows(conn, "select row_key from pub.groups where group_id = %s", (gid,))}
+        if not hand or not set(hand) <= got:
+            out.append(f"the people graph drew {nid} for rows that are not that group's")
+        names = db.rows(conn, "select n.view, n.key, n.name_filed from pub.groups g join pub.names n on n.ref = g.row_key "
+                              "where g.group_id = %s order by g.row_key", (gid,))
+        shown = [" ".join(x["name_filed"].split()) for x in names if x["name_filed"] and x["name_filed"].strip() and not (
+            x["view"] in cat.BY_NAME and (r := search.row(conn, x["view"], x["key"])) and panes.is_suppressed(cat.BY_NAME[x["view"]], r))]
+        best = max(shown, key=lambda x: (len(x.split()), len(x), -shown.index(x)), default="")     # read apart from people.fullest
+        if best and n["title"] != best:
+            out.append(f"the people graph labels {nid} other than the fullest filed name of its rows")
+    for nid, r in refs.items():
+        if g["nodes"][nid].get("lone") and db.rows(conn, "select 1 from pub.groups where row_key = %s", (r,)):
+            out.append(f"the people graph marks {nid} a lone row, but pub.groups holds it")
+    for e in g["edges"]:
+        if e["a"] == e["b"] or e["a"] not in g["nodes"] or e["b"] not in g["nodes"]:
+            out.append(f"the people graph has a {e['kind']} edge inside one node or to no node")
+        if e["kind"] == graph.CONFIRMED:
+            out.append("the people graph draws a confirmed link between two nodes: confirmed links gather, they never join two entities")
+        if e["kind"] == graph.NEAR:
+            for _, _, a, b in e["rows"]:
+                ra, rb = sorted((refs.get(a) or links_view.ref(cat.BY_NAME[a.split(':', 1)[0]], a.split(':', 1)[1]),
+                                 refs.get(b) or links_view.ref(cat.BY_NAME[b.split(':', 1)[0]], b.split(':', 1)[1])))
+                if not db.rows(conn, "select 1 from pub.links where row_a = %s and row_b = %s and grade = 'near'", (ra, rb)):
+                    out.append(f"the people graph draws a near line for {a} and {b}, which pub.links holds no near pair for")
+    data = graph.answer(g, term, boxes)
+    nears = [e for e in data["edges"] if e["kind"] == graph.NEAR]
+    if not nears:
+        out.append(f"the people graph for {term!r} draws no near line: decision 2 has nothing to show")
+    if any(not e["dashed"] or not e["words"] for e in nears):
+        out.append("a near line of the people graph is not dashed or carries no reason")
+    page = server.render_graph(term, conn=conn, boxes=boxes)
+    if inline_data(page).get("mode") != "entities" or 'aria-current="true">entities<' not in page:
+        out.append("the graph tab with g=entities does not open in the entity state, or its switch does not say so")
+    some = next(iter(entities), None)
+    if some:
+        gid = some[len(people.ENTITY):]
+        opened = server.graph_answer(term, conn=conn, boxes=boxes, opened=gid)
+        rows = db.rows(conn, "select count(*) as n from pub.groups where group_id = %s", (gid,))[0]["n"]
+        if not opened["nodes"] or opened["shown"] != min(opened["total"], people.MAX_CHILDREN) or opened["total"] > rows:
+            out.append(f"the opened entity {some} answers {opened['shown']} of {opened['total']} rows for a group of {rows}")
+        if any(n["parent"] != some for n in opened["nodes"]):
+            out.append(f"a row of the opened entity {some} is not its child")
+        ids = {n["id"] for n in opened["nodes"]}
+        if any(e["source"] not in ids or e["target"] not in ids for e in opened["edges"]):
+            out.append(f"the opened entity {some} draws a link to a row outside it")
+        page = server.render(term, [some], conn=conn, boxes=boxes)
+        pane = page[page.find("entity · gathered"):]
+        if (f"<h2>{panes.esc(entities[some]['title'])}</h2>" not in pane or "not a link" not in pane
+                or pane.count('class="row"') < opened["total"] or "The rules that gathered them" not in pane):
+            out.append(f"the entity pane of {some} does not name it, say its name is no link, list its rows and its rules")
+    out += suppressed_people_problems(conn)
+    return out
+
+
+def suppressed_people_problems(conn) -> list:
+    """A suppressed row the links lane gathered, centred in the people
+    state: its node is kept apart, never an entity, and its name columns'
+    values are nowhere in the answer, nor in its group's opened answer.
+    A grouped suppressed row is taken first; the lane gathers none live
+    (28 October 2026), so `tests/test_people.py` holds that case on a fixture."""
+    held = db.pub_views(conn)
+    for v in cat.VIEWS:
+        if not v.suppressed or v.name not in held or not v.names or v.kind != "person":
+            continue
+        rows = db.rows(conn, f"select x.*, x.{v.key_col} as key, g.group_id from pub.{v.name} x left join pub.groups g "
+                             f"on g.row_key = %s || ':' || x.{v.key_col} where x.{v.suppressed} is true "
+                             f"order by g.group_id nulls last, x.{v.key_col} limit 1", (v.register,))
+        if not rows:
+            continue
+        r = rows[0]
+        c = f"{v.name}:{r['key']}"
+        boxes = search.FIRST._replace(people=True)
+        data = server.graph_answer("", c, conn=conn, boxes=boxes)
+        text = graph.to_json(data) + (graph.to_json(server.graph_answer("", conn=conn, boxes=boxes, opened=r["group_id"]))
+                                      if r["group_id"] else "")
+        names = [str(r.get(n)) for n in v.names if r.get(n) not in (None, "") and len(str(r.get(n))) > 2]
+        mine = [n for n in data["nodes"] if n["id"] == c]
+        if not mine or mine[0].get("kind") != "apart":
+            return [f"the people graph centred on a suppressed row of {v.name} does not keep it apart"]
+        ent = people.entity(conn, r["group_id"]) if r["group_id"] else None     # none is grouped live (28 October): the fixture holds that case
+        ref = f"{v.register}:{r['key']}"
+        if ent is not None:
+            text += ent["describe"]["label"]
+            if any(x[0] == ref for x in ent["rows"]) or any(ref in (l["row_a"], l["row_b"]) for l in ent["links"]):
+                return [f"a suppressed row of {v.name} is gathered with its group in the people state (hard limit 16)"]
+        if any(n in text for n in names):
+            return [f"the people graph of a suppressed row of {v.name}, or its group opened, carries its name (hard limit 16)"]
+        return []
+    return ["no published person view holds a suppressed row: the people state's suppression case has nothing to read"]
 
 
 def suppressed_json_problems(conn) -> list:
