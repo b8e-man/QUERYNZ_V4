@@ -12,7 +12,10 @@ plus older versions plus items set aside; the pull's own catch lines come
 across as set-aside lines at stage `pull`. Every text published whole is
 flagged where its shape names an address (shapes.py, ruling 102); the
 flagged rows go to `address_flags` by key and the log counts them by
-column, never printing a value.
+column, never printing a value. Once the views are refreshed, `stamp_scan`
+runs the check's second pattern (check.STREET_SQL) over every row of them
+and writes what it found to `street_scan`: the check holds that stamp to
+the view and re-scans only a fixed sample (the board gives it 120 s).
 
     python -m registers.parliament.load --database querynz_v4_sample --schema scratch_parliament_1_build --mcp-schema scratch_mcp_1_pull2
 """
@@ -28,7 +31,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "parliament"
 PRIVATE = "parliament_private"
 JOB = "qv4-parliament-load"
-TABLES = ("written_questions", "api_items", "wayback_pages", "files", "set_aside", "address_flags")
+TABLES = ("written_questions", "api_items", "wayback_pages", "files", "set_aside", "address_flags",
+          "street_scan")
 PRIVATE_TABLES = ()
 COLUMNS = {"written_questions": read.columns("wq"), "api_items": read.columns("api"),
            "wayback_pages": read.columns("wayback")}
@@ -119,6 +123,24 @@ def load(conn, schema: str, log=print, mcp_schema: str = capture.MCP_SCHEMA) -> 
     return counts["records"]
 
 
+def stamp_scan(conn, schema: str, shared: bool = False) -> dict:
+    """The check's street pattern over every row of the published views (`pub` live, `<schema>.pub_parliament_*`
+    in a proof), written to `street_scan` per view and text column. {view: rows holding a street unflagged}."""
+    from registers.parliament import check
+    name = table(schema, "street_scan", shared)
+    conn.execute(f"DELETE FROM {name}")
+    out = {}
+    for v in check.VIEWS:
+        vs, vn = check.view_name(schema, v)
+        at = conn.execute(f'SELECT max(loaded_at) FROM "{vs}"."{vn}"').fetchone()[0]
+        rows, found = check.street_counts(conn, vs, vn)
+        for c, n in found.items():
+            conn.execute(f"INSERT INTO {name} (view_name, column_name, rows, loaded_at, found) "
+                         "VALUES (%s, %s, %s, %s, %s)", (v, c, rows, at, n))
+        out[v] = sum(found.values())
+    return out
+
+
 def views(conn, schema: str) -> None:
     """The published views over a scratch build, as `<schema>.pub_parliament_*`, so the check reads a proof
     the way it reads `pub`."""
@@ -135,6 +157,7 @@ def publish(conn, staging: str) -> None:
         for t in PRIVATE_TABLES:
             conn.execute(f"INSERT INTO {PRIVATE}.{t} SELECT * FROM {private_of(staging)}.{t}")
         conn.execute(sql("publish.sql"))
+        stamp_scan(conn, SCHEMA)
 
 
 def main(argv=None) -> int:
@@ -151,6 +174,7 @@ def main(argv=None) -> int:
         if a.schema:
             counts = build(conn, a.schema, capture.arrivals(conn, a.mcp_schema), capture.caught(conn, a.mcp_schema))
             views(conn, a.schema)
+            stamp_scan(conn, a.schema)
             conn.commit()
             print("parliament: " + ", ".join(f"{k} {v}" for k, v in counts.items()) + f", into {a.database}.{a.schema}")
             return 0
