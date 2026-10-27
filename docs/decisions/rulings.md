@@ -794,3 +794,32 @@ as evidence; a new rule, not the near printing rule. The method stands:
 a rule is proposed from a measured gap with its count and twenty pairs
 read on the board, Arthur rules, the lane implements it versioned with
 tests, the groups rebuild. Built by links-3.
+
+107. Arthur, 28 October, 12:03, on the gap links-3 measured and queued
+(`one-company-of-several-live-in-the-donation-s-year`: thirty donor rows
+whose organisation name matches several companies, exactly one of them
+live in the donation's year): "do this". A fourth rule: where several
+companies carry the name and exactly one was live in the donation's year,
+the donation row is confirmed to that company; where none or more than
+one was live, the pair stays near with the reason. Built by a links fix
+after links-3 merges; the queue item closes with it.
+
+108. Arthur, 28 October, 12:10, on the board's results pane: "let's bring
+the rows and entities to the results pane. Also, for the general search
+lets have tabs in the pane that allows us to see row entries for each
+search field ie. rows that match first name, rows that match address, etc.
+Let's group these by register, collapsed with a number of results
+displayed, and expandible so the rows can be seen. Same for the 'any field
+may match' setting of the narrow by field fields. For 'all fields must
+match' we dont need to be able to select between field match tabs in the
+results because it is redundant. Let's also enable entity search and when
+the results appear in the results pane let's allow clicking a result to
+open the graph pane to the right". So: the rows and entities switch of
+ruling 105 governs the results pane as well as the graph; the results of
+the search box, and of the fields under "any field may match", are shown
+under one tab per matching field, each tab grouping its rows by register,
+collapsed to a count and expandable; "all fields must match" keeps the
+one list; a search finds entities (the links lane's groups) as well as
+rows; and clicking a result opens the graph beside the results, to the
+right, centred on it, which extends ruling 100's script from the graph
+tab to the results page. Built by board-9.
