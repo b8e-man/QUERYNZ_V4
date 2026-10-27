@@ -32,7 +32,7 @@ model reading till it returns. **Alarms:** the old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- Nothing at the gate. Merged 27 October (rulings 96 to 102): `mcp-1`
+- Nothing at the gate. 28 October 07:50: the fence opens Claude Code's memory folder to the integrator (ruling 103, a0410d1). Merged 27 October (rulings 96 to 102): `mcp-1`
   (client, `qv4-mcp` jobs, beehive lane; the adopt landed 1.41 M documents
   live at 11:20), `hansard-1`, `hansard-2`, `diaries-2`, `parliament-1`
   with their ruling-102 fixes and the blocked-pages fix, `board-7` (ruling
