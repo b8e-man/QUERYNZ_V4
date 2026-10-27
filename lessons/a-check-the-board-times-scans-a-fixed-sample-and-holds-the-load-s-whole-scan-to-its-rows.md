@@ -1,4 +1,4 @@
-A lane check the board runs must not scan every row of a growing table: the load (which has the time) runs the whole scan and stamps the result with its row count and load time, and the check holds that stamp to the rows it sees and re-scans a fixed sample as the proof the stamp is honest.
+A lane check the board times never scans every row of a growing table: the load runs the whole scan and stamps it with row count and load time; the check holds the stamp to the rows it sees and re-scans a fixed sample.
 area: lane checks, the board, module-checks, published views, address flags, parliament
 paid-for-by: 2026-10-28, fix-registers-parliament-1 (1d), the board red every night for "no answer in 120 s"
 
