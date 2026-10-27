@@ -65,7 +65,7 @@ def test_the_page_and_every_script_it_serves_name_no_address_off_the_box():
         assert assets.addresses(assets.read(name)[0].decode("utf-8", "replace")) == [], name
     js = assets.read("graph.js")[0].decode()
     assert "innerHTML" not in js and "eval(" not in js                          # text goes in by textContent
-    assert re.findall(r"fetch\(([^,]*),", js) == ['node.data("grow")']          # the one request: the node's /graph.json href
+    assert sorted(re.findall(r"fetch\(([^,]*),", js)) == ['node.data("grow")', 'node.data("open")']   # the node's /graph.json hrefs alone
 
 
 def test_the_svg_stays_inside_noscript_and_the_key_and_the_list_are_unchanged():

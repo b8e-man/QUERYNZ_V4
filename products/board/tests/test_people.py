@@ -111,3 +111,69 @@ def test_without_groups_every_row_is_lone_and_the_rows_graph_is_unchanged(monkey
 def test_the_fullest_name_is_most_words_then_most_letters_then_first():
     assert people.fullest(["Jane Hart", "Jane Mary Hart", "Jane Marie Hart", ""]) == "Jane Marie Hart"
     assert people.fullest(["A B", "A B"]) == "A B" and people.fullest([]) == ""
+
+
+def test_the_people_answer_carries_the_state_its_entities_and_their_open_hrefs(reads):
+    from products.board import search
+    boxes = search.Boxes(False, ("companies",), people=True)
+    data = graph.answer(people.fold(None, rows_graph()), "hart", boxes)
+    assert data["mode"] == "people"
+    kinds = {n["id"]: n["kind"] for n in data["nodes"]}
+    assert kinds["entity:G1"] == "entity" and kinds["directors:" + D3] == "lone" and kinds["directors:" + S1] == "apart"
+    e = next(n for n in data["nodes"] if n["id"] == "entity:G1")
+    assert e["open"].startswith("/graph.json?open=G1&") and "g=people" in e["open"] and e["contested"]
+    assert e["pane"].startswith("/?") and "entity%3AG1" in e["pane"] and e["count"] == "3 rows, 2 registers"
+    lone = next(n for n in data["nodes"] if n["id"] == "directors:" + D3)
+    assert "g=people" in lone["grow"]                                   # a lone row grows its one hop in the same state
+    role = next(x for x in data["edges"] if x["source"] == "entity:G1")
+    assert [p[0] for p in role["causes"][0]["rows"]] == ["Jane Mary Hart", "Jane Hart"]
+    assert "Hidden Hart" not in graph.to_json(data)
+
+
+def test_an_opened_entity_answers_its_rows_as_children_joined_by_the_rule(monkeypatch):
+    v = cat.BY_NAME["directors"]
+    rows = [(ref("directors", k), v, {"key": k, "full_name": n}) for k, n in ((D1, "Jane Mary Hart"), (D2, "Jane Hart"))]
+    ent = {"group_id": "G1", "rows": rows, "decisions": [],
+           "links": [{"row_a": rows[0][0], "row_b": rows[1][0], "rule": "full-name@1", "grade": "confirmed", "reason": None},
+                     {"row_a": rows[0][0], "row_b": "elsewhere:x", "rule": "name-only@1", "grade": "near", "reason": "r"}]}
+    data = graph.opened(ent, "hart")
+    assert data["entity"] == "entity:G1" and data["shown"] == data["total"] == 2
+    assert all(n["parent"] == "entity:G1" and n["kind"] == "child" for n in data["nodes"])
+    assert len(data["edges"]) == 1 and data["edges"][0]["words"] == cat.rule_words("full-name@1") and not data["edges"][0]["dashed"]
+    assert graph.opened(None, "hart")["nodes"] == []
+
+
+def test_the_switch_is_one_control_and_the_address_carries_the_state():
+    from products.board import search
+    rows_view = graph.switch("hart", search.FIRST)
+    people_view = graph.switch("hart", search.FIRST._replace(people=True))
+    assert 'aria-current="true">rows<' in rows_view and "g=people" in rows_view
+    assert 'aria-current="true">people<' in people_view and "g=people" not in people_view
+    assert search.boxes_of({"g": ["people"]}).people and not search.boxes_of({"g": ["rows"]}).people
+
+
+def test_the_entity_pane_lists_the_rows_the_rules_with_evidence_and_the_near_with_reasons():
+    from products.board import panes
+    v = cat.BY_NAME["directors"]
+    a, b = ref("directors", D1), ref("directors", D2)
+    rows = [(a, v, {"key": D1, "full_name": "Jane Mary Hart"}), (b, v, {"key": D2, "full_name": "Jane Hart"})]
+    far = ref("directors", "c/8/director/f")
+    ent = {"group_id": a, "rows": rows, "near_total": 3,
+           "describe": {"label": "Jane Mary Hart", "count": "2 rows, 1 register", "contested": True, "number": ""},
+           "links": [{"row_a": a, "row_b": b, "rule": "full-name@1", "grade": "confirmed", "reason": None,
+                      "evidence": {"as_filed": ["JANE MARY HART", "Jane Mary Hart"], "middle": "mary"}}],
+           "near": [{"mine": a, "row_a": a, "row_b": far, "rule": "name-only@1", "reason": "no middle name to compare"}],
+           "decisions": [{"row_a": a, "row_b": far, "verdict": "not the same", "made_by": "review-agent@2", "made_at": None}],
+           "far": {far: (v, {"key": "c/8/director/f", "full_name": "Joseph Hart"})}}
+    html = panes.entity_pane(ent, "hart", ["entity:" + a])
+    assert "<h2>Jane Mary Hart</h2>" in html and "not a link" in html and "2 rows, 1 register" in html and "contested" in html
+    assert html.count('class="row"') >= 5                               # two rows, the pair's two ends, the near row
+    assert "same first, middle and last name" in html and "as filed: JANE MARY HART, Jane Mary Hart" in html
+    assert "no middle name to compare" in html and "Joseph Hart" in html and "not the same by review-agent@2" in html
+    assert "and 2 more near links" in html
+    assert "no group has that id" in panes.entity_pane(None, "hart", [])
+
+
+def test_an_entity_step_rides_the_path():
+    from products.board import server
+    assert server.parse_path("entity:companies:c/1|directors:k|entity:") == ["entity:companies:c/1", "directors:k"]

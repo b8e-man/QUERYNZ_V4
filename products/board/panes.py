@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import decimal
 import html
+import json
 import re
 import urllib.parse
 
@@ -1036,6 +1037,104 @@ def person_pane(ctx: dict) -> str:
     out.append("<h3>Possible namesakes, apart</h3>")
     out.append(same_name_section(ctx.get("same") or {}, q, path, ctx.get("same_words") or [], boxes).split("</h3>", 1)[1])
     out.append("</section>")
+    return "\n".join(out)
+
+
+# ── an entity's pane (ruling 105) ───────────────────────────────────────────
+
+ENTITY_LABEL_NOTE = ("name shown is the fullest filed among the group's rows, a display choice and not a link "
+                     "(ruling 105, decision 1)")
+
+def evidence_text(ev) -> str:
+    """What a rule saw (pub.links' evidence), whole, one "field: value" after another."""
+    if isinstance(ev, str):
+        try:
+            ev = json.loads(ev)
+        except ValueError:
+            return ev
+    if not isinstance(ev, dict):
+        return "" if ev is None else str(ev)
+    parts = []
+    for k, x in ev.items():
+        if isinstance(x, list):
+            x = ", ".join(json.dumps(y, ensure_ascii=False, default=str) if isinstance(y, (dict, list)) else str(y) for y in x)
+        elif isinstance(x, dict):
+            x = json.dumps(x, ensure_ascii=False, default=str)
+        parts.append(f"{k.replace('_', ' ')}: {x}")
+    return "; ".join(parts)
+
+
+def entity_pane(ent, q: str, path: list, boxes=None) -> str:
+    """A group the links lane gathered (pub.groups), opened from the graph's
+    people state: its name (the fullest filed, said to be no link), its
+    count, contested where flagged; its rows by register; the rules and
+    evidence that gathered them, each decision on a pair; the near links
+    from its rows, one hop, each with its reason, never gathered. `ent` is
+    people.entity's, with `far`, the near rows resolved; the rows whose name
+    is suppressed are never in it (hard limit 16)."""
+    if ent is None:
+        return '<section class="pane"><div class="reg">entity</div><p class="why">no group has that id in pub.groups: the links lane has rebuilt its groups since this path was saved</p></section>'
+    d = ent["describe"]
+    out = ['<section class="pane">', f'<div class="reg">entity · gathered by the links lane (pub.groups) · {esc(ent["group_id"])}</div>',
+           f"<h2>{esc(d['label'])}</h2>", f'<p class="note">{esc(d["count"])}' + (f" · {esc(d['number'])}" if d.get("number") else "") + "</p>",
+           f'<p class="note">The {esc(ENTITY_LABEL_NOTE)}.</p>']
+    if d["contested"]:
+        out.append('<p class="warn">contested: the watch flagged this group as a whole</p>')
+    at = {ref: (v, r) for ref, v, r in ent["rows"]}
+
+    def a(ref: str) -> str:
+        if ref not in at:
+            return f"<code>{esc(ref)}</code>"
+        v, r = at[ref]
+        return f'<a class="row" href="{esc(href(q, path + [f"{v.name}:{r["key"]}"], boxes))}">{esc(title_of(v, r))}</a>'
+
+    out.append(f'<h3>The rows <span class="count">{len(ent["rows"]):,}</span></h3>')
+    by_reg = {}
+    for ref, v, r in ent["rows"]:
+        by_reg.setdefault(v.register, []).append((v, r))
+    for register, _ in cat.REGISTERS:
+        if register in by_reg:
+            out.append(f'<div class="reg">{register_heading(register)}</div><ul>'
+                       + "".join(row_link(q, path, v, r, meta=v.name, boxes=boxes) for v, r in by_reg[register]) + "</ul>")
+    decided = {}
+    for x in ent["decisions"]:
+        decided.setdefault((x["row_a"], x["row_b"]), []).append(x)
+    own = [l for l in ent["links"] if l["grade"] == "confirmed"]
+    out.append(f'<h3>The rules that gathered them <span class="count">{len(own):,}</span></h3>')
+    if not own:
+        out.append('<p class="why">none among the rows shown</p>')
+    out.append("<ul>")
+    for l in own:
+        ev = evidence_text(l.get("evidence"))
+        out.append(f'<li>{a(l["row_a"])} and {a(l["row_b"])} <span class="meta">{esc(cat.rule_words(l["rule"]))} {esc(cat.rule_ref(l["rule"]))}</span>'
+                   + (f'<div class="meta">evidence: {esc(ev)}</div>' if ev else "")
+                   + "".join(f'<div class="meta">decision: {esc(x["verdict"])} by {esc(x["made_by"])}, {fmt(x.get("made_at"))}</div>'
+                             for x in decided.get((l["row_a"], l["row_b"]), [])) + "</li>")
+    out.append("</ul>")
+    inner_near = [l for l in ent["links"] if l["grade"] != "confirmed"]
+    near = ent["near"]
+    out.append(f'<h3>Near, one hop, never gathered <span class="count">{ent["near_total"]:,}</span></h3>')
+    out.append('<p class="note">A near link is a shared name or circumstance a rule did not take as the same person; it is listed with '
+               "its reason and never joins the rows into the group.</p>")
+    if not near and not inner_near:
+        out.append('<p class="why">none found</p>')
+    out.append("<ul>")
+    far = ent.get("far") or {}
+    for l in inner_near + near:
+        mine = l.get("mine") or l["row_a"]
+        other = l["row_b"] if mine == l["row_a"] else l["row_a"]
+        hit = at.get(other) or far.get(other)
+        target = (f'<a class="row" href="{esc(href(q, path + [f"{hit[0].name}:{hit[1]["key"]}"], boxes))}">{esc(title_of(*hit))}</a>'
+                  if hit else f'<code>{esc(other)}</code> <span class="note">row not found in the published views</span>')
+        why = l.get("reason") or ""
+        out.append(f'<li>{target} <span class="meta">near: {esc(cat.rule_words(l["rule"]))} {esc(cat.rule_ref(l["rule"]))}'
+                   + (f"; because {esc(why)}" if why else "") + f"; from {a(mine)}"
+                   + (" (both rows are in this group)" if other in at else "") + "</span>"
+                   + "".join(f'<div class="meta">decision: {esc(x["verdict"])} by {esc(x["made_by"])}, {fmt(x.get("made_at"))}</div>'
+                             for x in decided.get(tuple(sorted((mine, other))), [])) + "</li>")
+    if ent["near_total"] > len(near):
+        out.append(f'<li class="note">and {ent["near_total"] - len(near):,} more near links from these rows</li>')
+    out.append("</ul></section>")
     return "\n".join(out)
 
 

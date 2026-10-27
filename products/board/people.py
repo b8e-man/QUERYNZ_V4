@@ -39,8 +39,7 @@ MAX_CHILDREN = 40           # rows drawn inside an opened entity; the pane lists
 PANE_ROWS = 1500            # the largest live group is 1,220 rows (28 October 2026)
 NEAR_PER_ROW = 10           # near links drawn per row in hand; the rest counted
 PANE_NEAR = 200
-LABEL_NOTE = ("the name shown is the fullest filed among the group's rows, a display choice and not a link "
-              "(ruling 105, decision 1)")
+LABEL_NOTE = panes.ENTITY_LABEL_NOTE
 CONFIRMED, NEAR = "same person, confirmed", "same person, near"
 
 

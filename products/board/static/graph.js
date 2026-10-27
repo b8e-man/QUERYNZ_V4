@@ -5,6 +5,12 @@
    ringed; soft curved edges in the key's colours, a near verdict dashed. Tap a node
    to grow its one hop, tap it again to fold it; double-tap to open its pane; drag,
    zoom, pan; "spread" runs cola, "tree" returns every node to its layered place.
+   Ruling 105, the people state (the answer's mode "people"): an entity, one node per
+   group of the links lane, is a rounded square labelled with its name and its count,
+   a contested one with a dashed border; a lone row a circle with a dotted border.
+   Tap an entity to open it as a compound node, its rows inside it in their register
+   colours joined by the links that gathered them, labelled with the rule; tap it
+   again to close it. A near line carries its reason on the line.
    Colours of the page come from the one stylesheet (read off the canvas's box);
    the nodes' and edges' come with the data (catalogue). Text goes in by
    textContent only. Nothing here asks anything of any other address. */
@@ -25,13 +31,23 @@
   var grown = {};                                  // node id -> true while its one hop is open
   var BASE = "\u0000first";
 
+  var people = first.mode === "people";
+  var opened = {};                                 // entity id -> true while its rows are open inside it
   function nodeData(n) {
-    return { id: n.id, label: n.title, colour: n.colour, register: n.register_name, family: n.family, view: n.view,
-             pane: n.pane, grow: n.grow, tx: n.x, ty: n.y, matched: n.matched, centre: n.centre };
+    var d = { id: n.id, label: n.title, name: n.title, colour: n.colour, register: n.register_name, family: n.family, view: n.view,
+              pane: n.pane, grow: n.grow, tx: n.x, ty: n.y, matched: n.matched, centre: n.centre, kind: n.kind || "row" };
+    if (n.kind === "entity") {
+      d.label = n.title + "\n" + n.count;
+      d.count = n.count; d.open = n.open; d.contested = !!n.contested;
+    }
+    if (n.parent) d.parent = n.parent;
+    return d;
   }
   function edgeData(e) {
-    return { id: e.id, source: e.source, target: e.target, colour: e.colour, kind: e.kind,
-             words: e.words, title: e.title, causes: e.causes };
+    var d = { id: e.id, source: e.source, target: e.target, colour: e.colour, kind: e.kind,
+              words: e.words, title: e.title, causes: e.causes, decisions: e.decisions || [] };
+    if (people && (e.dashed || e.inner)) d.label = e.words;     // a near line's reason, an opened entity's rule
+    return d;
   }
   // the node colours on the canvas now, by family of register, each family's registers on hover
   var legend = document.getElementById("legend");
@@ -71,11 +87,20 @@
       { selector: "node[?centre]", style: { width: 34, height: 34, "border-width": 4, "border-color": ink } },
       { selector: "node.grown", style: { "border-width": 3, "border-color": accent } },
       { selector: "node:selected", style: { "border-width": 3, "border-color": ink } },
+      { selector: "node[kind = \"entity\"]", style: { shape: "round-rectangle", width: 34, height: 34, "text-wrap": "wrap",
+          "border-width": 3, "border-color": ink } },
+      { selector: "node[?contested]", style: { "border-style": "dashed", "border-color": accent, "border-width": 4 } },
+      { selector: "node[kind = \"lone\"]", style: { "border-style": "dotted", "border-width": 2, "border-color": ink } },
+      { selector: "node[kind = \"child\"]", style: { width: 18, height: 18 } },
+      { selector: "node:parent", style: { "background-opacity": 0.14, "text-valign": "top", "text-margin-y": -4,
+          padding: 14, "border-width": 2, "border-color": ink } },
       { selector: "edge", style: {
           width: 2, "line-color": "data(colour)", "curve-style": "unbundled-bezier",
           "control-point-distances": 18, "control-point-weights": 0.5, "line-opacity": 0.9 } },
       { selector: "edge[?dashed]", style: { "line-style": "dashed", "line-dash-pattern": [6, 4] } },
-      { selector: "edge.hover", style: { width: 4, "line-opacity": 1 } }
+      { selector: "edge.hover", style: { width: 4, "line-opacity": 1 } },
+      { selector: "edge[label]", style: { label: "data(label)", "font-size": "8px", color: ink, "text-rotation": "autorotate",
+          "text-outline-color": surface, "text-outline-width": 2, "text-wrap": "ellipsis", "text-max-width": "140px" } }
     ]
   });
 
@@ -124,6 +149,41 @@
       });
     }
     relegend();
+  }
+
+  // an entity opened as a compound node: its rows inside it, joined by the links that gathered them; tapped again, closed
+  function toggleOpen(node) {
+    var id = node.id();
+    if (opened[id]) {
+      delete opened[id];
+      cy.remove(node.children());
+      node.data("label", node.data("name") + "\n" + node.data("count"));
+      relegend();
+      return;
+    }
+    opened[id] = true;
+    fetch(node.data("open"), { credentials: "same-origin" })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (data) {
+        if (!opened[id] || cy.getElementById(id).empty()) return;
+        var at = node.position(), n = data.nodes.length, r = 30 + 9 * Math.sqrt(n), added = [];
+        data.nodes.forEach(function (c, i) {
+          if (!cy.getElementById(c.id).empty()) return;
+          var a = 2 * Math.PI * i / Math.max(n, 1), d = nodeData(c);
+          d.parent = id;
+          added.push({ group: "nodes", data: d, position: { x: at.x + r * Math.cos(a), y: at.y + r * Math.sin(a) } });
+        });
+        data.edges.forEach(function (e) {
+          if (!cy.getElementById(e.id).empty()) return;
+          var d = edgeData(e);
+          d.dashed = e.dashed;
+          added.push({ group: "edges", data: d });
+        });
+        cy.add(added);
+        node.data("label", node.data("name") + " \u00b7 " + (data.shown < data.total ? data.shown + " of " + data.total + " rows drawn" : node.data("count")));
+        relegend();
+      })
+      .catch(function () { delete opened[id]; say("the board could not open " + node.data("name")); });
   }
 
   function grow(node) {
@@ -178,20 +238,34 @@
     tip.hidden = false;
   }
 
-  cy.on("onetap", "node", function (evt) { grow(evt.target); });
+  cy.on("onetap", "node", function (evt) {
+    var k = evt.target.data("kind");
+    if (k === "entity") toggleOpen(evt.target);
+    else if (k !== "child") grow(evt.target);
+  });
   cy.on("dbltap", "node", function (evt) { window.location.href = evt.target.data("pane"); });
   cy.on("mouseover", "edge", function (evt) {
     var e = evt.target;
     e.addClass("hover");
-    showTip(evt, [e.data("words")].concat(e.data("causes").map(function (c) {
-      return c.kind + ": " + c.words + (c.rule ? " " + c.rule : "");
-    })));
+    var lines = [e.data("words")];
+    e.data("causes").forEach(function (c) {
+      lines.push(c.kind + ": " + c.words + (c.rule ? " " + c.rule : ""));
+      (c.rows || []).slice(0, 6).forEach(function (p) { lines.push("  rows: " + p[0] + " \u2014 " + p[1]); });
+      if (c.rows && c.rows.length > 6) lines.push("  and " + (c.rows.length - 6) + " more pairs of rows");
+    });
+    showTip(evt, lines.concat(e.data("decisions")));
   });
   cy.on("mouseout", "edge", function (evt) { evt.target.removeClass("hover"); tip.hidden = true; });
   cy.on("mouseover", "node", function (evt) {
     var n = evt.target;
-    showTip(evt, [n.data("label"), n.data("register") + " · " + n.data("view"),
-                  grown[n.id()] ? "tap to fold its one hop" : "tap to grow its one hop; double-tap to open its pane"]);
+    var k = n.data("kind"), how;
+    if (k === "entity") how = [n.data("count") + (n.data("contested") ? "; contested: the watch flagged this group" : ""),
+                               "the name is the fullest filed among its rows, not a link",
+                               opened[n.id()] ? "tap to close its rows" : "tap to open its rows; double-tap to open its pane"];
+    else if (k === "child") how = ["a row of this entity; double-tap to open its pane"];
+    else how = [(k === "lone" ? "a lone row: in no group" : k === "apart" ? "kept apart: its name is suppressed" : n.data("register") + " \u00b7 " + n.data("view")),
+                grown[n.id()] ? "tap to fold its one hop" : "tap to grow its one hop; double-tap to open its pane"];
+    showTip(evt, [n.data("name"), n.data("register") + " \u00b7 " + n.data("view")].concat(how));
   });
   cy.on("mouseout", "node", function () { tip.hidden = true; });
 

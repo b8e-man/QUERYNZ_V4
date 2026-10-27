@@ -69,7 +69,10 @@ def parse_path(p: str) -> list:
         s = s.strip()
         if not s:
             continue
-        if s.startswith("person:"):
+        if s.startswith(people.ENTITY):                # an entity of the people state (ruling 105): entity:<group id>
+            if len(s) > len(people.ENTITY):
+                steps.append(s[:300])
+        elif s.startswith("person:"):
             _, view, key = s.split(":", 2)
             if view in cat.BY_NAME and key:
                 steps.append(s)
@@ -146,6 +149,15 @@ def person_context(conn, v: cat.View, r: dict, q: str, path: list, same=None, bo
             "report": panes.report_href(REPORT_URL, ref), "boxes": boxes}
 
 
+def entity_context(conn, group_id: str):
+    """people.entity, with the near rows resolved for its pane (one query per view)."""
+    ent = people.entity(conn, group_id)
+    if ent is not None:
+        others = {l["row_b"] if l["mine"] == l["row_a"] else l["row_a"] for l in ent["near"]}
+        ent["far"] = people.resolve_refs(conn, others - {ref for ref, _, _ in ent["rows"]})
+    return ent
+
+
 def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes = search.FIRST, near_names: bool = False) -> str:
     """The search tab. `conn` is a session-reader connection to reuse (the
     check passes its own); without one a connection is opened and closed.
@@ -164,6 +176,9 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         words = panes.search_words(q, boxes)
         steps = []
         for step in path:
+            if step.startswith(people.ENTITY):
+                steps.append((people.ENTITY, step[len(people.ENTITY):], None))
+                continue
             person = step.startswith("person:")
             view, key = step.split(":", 2)[1:] if person else step.partition(":")[::2]
             steps.append((person, view, search.row(conn, view, key)))
@@ -176,11 +191,11 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
                 total, trows, hidden = search.table(conn, tv, boxes.upto, boxes.removed)
         cited = [r.get("document") for hits in results.values() if isinstance(hits, list) for _, _, rows in hits for r in rows]
         cited += [r.get("document") for c in (nearby or {}).values() if isinstance(c, dict) for _, r in c.get("rows") or ()]
-        cited += [r.get("document") for _, _, r in steps if r]
+        cited += [r.get("document") for k, _, r in steps if r and k != people.ENTITY]
         docs = document.statuses(conn, cited)          # ruling 86 (4): one query for every "source" link on the page
         shown_rows = [(v, r) for hits in results.values() if isinstance(hits, list) for v, _, rows in hits for r in rows]
         shown_rows += [vr for c in (nearby or {}).values() if isinstance(c, dict) for vr in c.get("rows") or ()]
-        shown_rows += [(cat.BY_NAME[view], r) for _, view, r in steps if r] + [(tv, r) for r in trows or ()]
+        shown_rows += [(cat.BY_NAME[view], r) for k, view, r in steps if r and k != people.ENTITY] + [(tv, r) for r in trows or ()]
         far = search.far_rows(conn, shown_rows, held)  # ruling 92 (2): one query per far view for every key shown
         out = [panes.left_pane(q, search.held_registers(held), boxes)]
         if near_names:
@@ -191,6 +206,9 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
             out.append(panes.table_pane(q, tv, total, trows, boxes._replace(table=tv.name), held, far, hidden))
         for i, (person, view, r) in enumerate(steps):
             so_far = path[:i + 1]
+            if person == people.ENTITY:
+                out.append(panes.entity_pane(entity_context(conn, view), q, so_far, boxes))
+                continue
             v = cat.BY_NAME[view]
             if person:
                 if r is None:

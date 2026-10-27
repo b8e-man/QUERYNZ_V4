@@ -665,6 +665,11 @@ def people_problems(conn, term: str = PEOPLE_TERM) -> list:
         ids = {n["id"] for n in opened["nodes"]}
         if any(e["source"] not in ids or e["target"] not in ids for e in opened["edges"]):
             out.append(f"the opened entity {some} draws a link to a row outside it")
+        page = server.render(term, [some], conn=conn, boxes=boxes)
+        pane = page[page.find("entity · gathered"):]
+        if (f"<h2>{panes.esc(entities[some]['title'])}</h2>" not in pane or "not a link" not in pane
+                or pane.count('class="row"') < opened["total"] or "The rules that gathered them" not in pane):
+            out.append(f"the entity pane of {some} does not name it, say its name is no link, list its rows and its rules")
     out += suppressed_people_problems(conn)
     return out
 

@@ -1,39 +1,37 @@
 # board: where it stands
 
-**Date:** 2026-10-27. **Step:** 4.9 second version, rulings 80 to 102,
-`products/board/`. **Session:** fix-products-board-2, carrying
-`integrate/diaries-parliament` and 1i's board commit (f43b5d1, as 5e3584f).
-**Merge request:** `fix-products-board-2`.
+**Date:** 2026-10-28. **Step:** 4.9 second version, rulings 80 to 105,
+`products/board/`. **Session:** board-8 (ruling 105, the graph's people
+state). **Merge request:** `board-8`.
 
 ## Done
 
-- Hansard, Beehive, Hansard's daily PDF (1h, 1i): as before.
-- Parliament (ruling 101, 102): "Parliament: written questions, bills,
-  papers and archived pages" just before Hansard. Written questions (main
-  view), API items, archived pages; texts whole with an address-flag note;
-  withdrawn rows struck; versions said; hash plus Parliament's id where
-  no address. One Relation, member_id to Hansard's member_id.
-- Ministers' diaries (ruling 102): "Ministers' diaries: who met the
-  minister" after the Beehive. Releases (main view) cite the PDF or "file
-  name only: no address served"; meetings whole as released, four flag
-  notes, the release as parent, no person and no edge.
-- New View data: `flags`, `served`, `cite`, `no_url`.
-- Proof on the scratch builds in the sample: every column present, panes
-  render. Fast tier green in 47 s.
+- Rulings 80 to 102: as before (fix-products-board-2).
+- Ruling 105, the people state: "show: rows · people" above the graph,
+  the state in the address (`g=people`). One node per `pub.groups` group,
+  labelled by the fullest filed name with "n rows, n registers"; lone rows
+  dotted; edges lifted to group ends; near links one hop from the matched
+  rows, dashed, reason on the line; contested dashed border; decisions on
+  their lines. Tap an entity to open its rows inside it (40 at most),
+  again to close. Double-tap opens the entity pane (`entity:<group_id>`).
+- Suppressed rows are never gathered: own node, no near link, no count.
+- Cost, live: the fold adds 20 to 28 ms and drops the rows state's own
+  links step (130 to 155 ms), so a people graph costs about 0.1 s less
+  than the rows graph of the same search (smith 1.98 s against 2.06 s).
+  Opening the largest group (1,220 rows) costs 80 to 150 ms.
+- Check item 22; `tests/test_people.py`; fast tier green in 57 s.
 
 ## Known limits
 
 - 32 registers share 14 colours, by family (queue item
   `graph-node-colours-by-family`).
-- No pointer and no edge from a Hansard turn or a written question to the
-  House's member row: `pub.members` carries no member id.
-- Section text, question and reply text are not searched; a diary's
-  location is not searched.
-- A release's meetings are in day, then the provider's row order (the
-  times are text as released).
-- No published suppressed-name list covers Hansard's or Parliament's text.
+- No published suppressed row sits in a group today, so the live check
+  centres an ungrouped one; the grouped case is held on a fixture.
+- An entity's rows of one register read alike in its pane (a director's
+  title is the name alone).
+- A donor folded by filed name (ruling 86 (3)) is folded by its first row.
 
 ## Next
 
-1. The integrator gates this after hansard-2 with 1i, and restarts
-   `qv4-board` at the release. No table or unit changes.
+1. The integrator merges `session/board-8` and restarts `qv4-board` at
+   the release. No table or unit changes.
