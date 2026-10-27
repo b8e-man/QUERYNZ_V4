@@ -757,3 +757,9 @@ checkout the session runs in (`fence.MEMORY`); a build, fix or question
 session is unchanged. The morning's lesson stands with its last paragraph
 reworded. Making the V3 and V4 folders one is Arthur's own line in his
 terminal, handed the same morning.
+
+104. Arthur, 28 October, 07:55, on the line that would make the V3 and
+V4 memory folders one: "we dont need any notes from v3 we have those.
+that is deprecated". The line is withdrawn. The V4 memory folder is the
+only one a session keeps; the V3 folder is left as it is and never
+merged, linked or read for the new estate.
