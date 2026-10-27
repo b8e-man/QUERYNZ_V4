@@ -19,6 +19,8 @@ from registers.parliament import capture, check, read, shapes
 
 LANE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(LANE))
+BLOCKED_PAGE = "305c71248c2acf5dd8080a331ce516b192e190f2b20e3e4b03fb265273dfd87d"    # sample.list: the refusal
+GOOD_PAGE = "2b86adf70ab2e30c8b367845d1760d0466bddf69741f33cd1289a8f6d8866655"       # sample.list: a feature page
 WQ, BILLS, SUBS, WAYBACK = ("parliament-written-questions", "parliament-bills", "parliament-sc-submissions",
                             "parliament-wayback")
 
@@ -165,6 +167,25 @@ def test_a_record_of_the_wrong_shape_is_set_aside():
     assert [w for _, _, w in res.set_aside] == ["no `documentType`"]
 
 
+REFUSAL = ("Unauthorized Request Blocked Unauthorized Request Blocked Unauthorized Activity Detected &nbsp; You are "
+           "seeing this page because we have detected unauthorized activity. If you believe that there has been some "
+           "mistake, Click to e-mail our website-security team and describe your case. Case Number:")
+
+
+def test_an_archived_refusal_is_set_aside_as_blocked_and_a_page_naming_it_is_read():
+    """Hard limit 6: a challenged read is a failed read. The refusal is known by its title and its short text,
+    never by a phrase on a page of content."""
+    res, (sha,) = _read(WAYBACK, _rec(WAYBACK, 10, html_title="Unauthorized Request Blocked", text=REFUSAL))
+    assert res.set_aside == [(sha, "recognise", read.BLOCKED)] and not res.rows["wayback_pages"]
+    assert res.counts["blocked"] == 1 and res.files == [(sha, WAYBACK, res.files[0][2], 0, "set aside")]
+    page = "Members asked about the Unauthorized Request Blocked notice. " + "word " * 300
+    res, _ = _read(WAYBACK, _rec(WAYBACK, 11, html_title="New Zealand Parliament - Debates", text=page))
+    assert not res.set_aside and len(res.rows["wayback_pages"]) == 1
+    res, _ = _read(WAYBACK, _rec(WAYBACK, 12, html_title="Unauthorized Request Blocked", text=page))
+    assert [w for _, _, w in res.set_aside] == [read.refused({"html_title": "Unauthorized Request Blocked"})]
+    assert res.set_aside[0][2] != read.BLOCKED and "hard limit 6" in res.set_aside[0][2]
+
+
 def test_the_views_carry_every_text_whole_with_its_flag_beside_it():
     """Ruling 102: nothing withheld in a view; each text published whole has `<column>_names_address` next to it."""
     sql = open(os.path.join(LANE, "publish.sql"), encoding="utf-8").read().lower()
@@ -183,7 +204,8 @@ def test_the_views_carry_every_text_whole_with_its_flag_beside_it():
 
 def _held(**kw):
     h = {c: {"cursor": 100, "arrivals": 100, "documents": 120, "caught": 0, "records": 100, "served": 100,
-             "older versions": 20, "files set aside": 0, "set aside": 0, "fields unread": 0, "words": 5000}
+             "older versions": 20, "files set aside": 0, "set aside": 0, "blocked": 0, "fields unread": 0,
+             "words": 5000}
          for c in capture.CORPORA}
     for c, v in kw.items():
         h[c].update(v)
@@ -212,6 +234,10 @@ def test_the_check_is_green_when_the_counts_agree_and_names_each_failure():
     assert any("still serves" in f for f in check.judge(_held(**{WQ: {"served": 99}}), o))
     assert any("words" in f for f in check.judge(_held(**{BILLS: {"words": 3000}}), o))
     assert check.judge(_held(**{SUBS: {"fields unread": 2}}), o) == [f"{SUBS}: 2 fields unread"]
+    blocked = {"records": 90, "served": 90, "files set aside": 10, "blocked": 10}
+    assert check.judge(_held(**{WAYBACK: blocked}), o) == []                     # stated on the line, not a failure
+    assert any("still serves and 0 blocked" in f
+               for f in check.judge(_held(**{WAYBACK: {**blocked, "blocked": 0, "set aside": 10}}), o))
     h = _held()
     h["_wq"].update({"number repeated": 3, "replied": 50})
     assert len(check.judge(h, o)) == 2
@@ -258,7 +284,9 @@ def filled():
 
 
 def test_every_sample_document_is_read_and_every_row_keeps_the_contract(filled):
-    assert len(filled["files"]) == len(filled["items"]) and not filled["set_aside"]
+    assert len(filled["files"]) == len(filled["items"])
+    assert [(r["item"], r["stage"], r["reason"]) for r in filled["set_aside"]] == [(BLOCKED_PAGE, "recognise",
+                                                                                     read.BLOCKED)]
     today = dt.date.today()
     for t in ("written_questions", "api_items", "wayback_pages"):
         for r in filled[t]:
@@ -279,6 +307,18 @@ def test_the_sample_holds_its_hard_cases(filled):
     assert {r["doc_type"] for r in wb} >= {"other", "features"} and all(r["text"] for r in wb)
     assert any(r["url"] and r["url"].split("/")[-2].endswith(" ") and not r["record_id"].endswith(" ")
                for r in api)                                                     # an id served with a trailing space, read
+
+
+def test_the_real_refusal_is_set_aside_and_the_real_page_beside_it_is_published(filled):
+    """The document of an archived refusal (sample.list) is set aside as blocked through the lane's load and kept
+    in the store; a real feature page is read and published. Fails if read.refused is taken out."""
+    from support.docstore.landing import path_for
+    files = {r["sha256"]: r["status"] for r in filled["files"]}
+    assert files[BLOCKED_PAGE] == "set aside" and os.path.exists(path_for(BLOCKED_PAGE))
+    assert BLOCKED_PAGE not in {r["document"] for r in filled["wayback_pages"]}
+    assert BLOCKED_PAGE not in {r["document"] for r in filled["views"]["wayback_pages"]}
+    assert files[GOOD_PAGE] == "read" and GOOD_PAGE in {r["document"] for r in filled["views"]["wayback_pages"]}
+    assert not any(r["html_title"] == read.REFUSAL_TITLE for r in filled["views"]["wayback_pages"])
 
 
 def test_every_published_row_cites_its_document(filled):
