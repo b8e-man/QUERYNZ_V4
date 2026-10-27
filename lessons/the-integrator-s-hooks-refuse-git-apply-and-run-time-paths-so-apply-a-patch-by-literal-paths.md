@@ -16,11 +16,11 @@ and any DROP or TRUNCATE text are refused outright: the first two are not
 needed, the last is Arthur's own line in his own terminal.
 
 Outside the repository the scope hook allows the scratch folder, the
-inbox's merge-requests, the `qv4-` unit folder and the working copies, and
-nothing else: the harness's memory folder under `~/.claude/projects/` is
-not on the list (Arthur, 28 October 2026: leave it so). What an integrator
-wants to remember across sessions goes here, as a lesson, where every
-session's search finds it.
+inbox's merge-requests, the `qv4-` unit folder, the working copies and,
+since ruling 103 (28 October 2026), Claude Code's memory folder for the
+checkout a founding or integrator session runs in; nothing else. A fix or
+build session has no memory folder the fence allows: what it learns goes
+here, as a lesson, where every session's search finds it.
 
 Why: each shape above was tried once on 27 October and refused; the hooks
 stay on (hard limit 24), so the cost is only in finding the passing shape,

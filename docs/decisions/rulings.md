@@ -745,3 +745,15 @@ December 2018 made the monthly releases from January 2019 and some
 ministers released earlier months back to October 2017; the provider
 holds what the site published, and the lane holds everything its source
 holds.
+
+103. Arthur, 28 October, 07:05, on the scope hook's refusal of the
+integrator's memory file (Claude Code's per-folder notes under
+`~/.claude/projects/-home-user-querynzv4/memory/`, outside the repository
+and so outside the fence): asked why, offered the lesson instead, took it,
+then on learning the folder exists and holds the old estate's 80 notes:
+"I want you to be using that memory". So the fence opens that one folder
+to a founding or integrator session, the folder Claude Code keeps for the
+checkout the session runs in (`fence.MEMORY`); a build, fix or question
+session is unchanged. The morning's lesson stands with its last paragraph
+reworded. Making the V3 and V4 folders one is Arthur's own line in his
+terminal, handed the same morning.
