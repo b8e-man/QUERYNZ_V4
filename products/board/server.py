@@ -39,7 +39,7 @@ import urllib.parse
 from support.docstore import landing as docstore
 from products.board import assets
 from products.board import catalogue as cat
-from products.board import db, document, graph, links_view, near, panes, search, state, uses
+from products.board import db, document, graph, links_view, near, panes, people, search, state, uses
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
@@ -212,21 +212,24 @@ def render_graph(q: str, centre: str = "", conn=None, boxes: search.Boxes = sear
         held = db.pub_views(conn)
         regs = search.selection(boxes, search.held_registers(held))
         g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None,
-                        removed=boxes.removed)
+                        removed=boxes.removed, people=boxes.people)
         out = [panes.left_pane(q, search.held_registers(held), boxes, action="/graph", title="Graph the connections"),
                graph.pane(g, q, boxes, regs, script=True)]
         return panes.page(q, [], out, "", boxes, tab="graph", db=counter(conn))
 
 
-def graph_answer(q: str, centre: str = "", conn=None, boxes: search.Boxes = search.FIRST) -> dict:
+def graph_answer(q: str, centre: str = "", conn=None, boxes: search.Boxes = search.FIRST, opened: str = "") -> dict:
     """GET /graph.json (ruling 100): the graph tab's graph as data, from the
     same `graph.build` on the product reader (pub only); the canvas asks it
-    with `c`, one row's one hop, as the reader taps."""
+    with `c`, one row's one hop, as the reader taps; `opened`, a group id,
+    answers that entity's rows and their own links (ruling 105)."""
     with RENDER_LOCK, (contextlib.nullcontext(conn) if conn is not None else db.scan_connect()) as conn:
         held = db.pub_views(conn)
         regs = search.selection(boxes, search.held_registers(held))
+        if opened:
+            return graph.opened(people.entity(conn, opened), q, boxes)
         g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None,
-                        removed=boxes.removed)
+                        removed=boxes.removed, people=boxes.people)
         return graph.answer(g, q, boxes)
 
 
@@ -334,7 +337,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             q = (qs.get("q") or [""])[0].strip()[:200]
             boxes = search.boxes_of(qs)
             if url.path == "/graph.json":
-                body = graph.to_json(graph_answer(q, parse_centre((qs.get("c") or [""])[0]), boxes=boxes)).encode("utf-8")
+                body = graph.to_json(graph_answer(q, parse_centre((qs.get("c") or [""])[0]), boxes=boxes,
+                                                  opened=(qs.get("open") or [""])[0][:300])).encode("utf-8")
                 self.send_bytes(body, "application/json; charset=utf-8", "no-store")
                 return
             if url.path == "/graph":
