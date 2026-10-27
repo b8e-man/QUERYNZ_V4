@@ -117,14 +117,14 @@ def test_the_people_answer_carries_the_state_its_entities_and_their_open_hrefs(r
     from products.board import search
     boxes = search.Boxes(False, ("companies",), people=True)
     data = graph.answer(people.fold(None, rows_graph()), "hart", boxes)
-    assert data["mode"] == "people"
+    assert data["mode"] == "entities"
     kinds = {n["id"]: n["kind"] for n in data["nodes"]}
     assert kinds["entity:G1"] == "entity" and kinds["directors:" + D3] == "lone" and kinds["directors:" + S1] == "apart"
     e = next(n for n in data["nodes"] if n["id"] == "entity:G1")
-    assert e["open"].startswith("/graph.json?open=G1&") and "g=people" in e["open"] and e["contested"]
+    assert e["open"].startswith("/graph.json?open=G1&") and "g=entities" in e["open"] and e["contested"]
     assert e["pane"].startswith("/?") and "entity%3AG1" in e["pane"] and e["count"] == "3 rows, 2 registers"
     lone = next(n for n in data["nodes"] if n["id"] == "directors:" + D3)
-    assert "g=people" in lone["grow"]                                   # a lone row grows its one hop in the same state
+    assert "g=entities" in lone["grow"]                                   # a lone row grows its one hop in the same state
     role = next(x for x in data["edges"] if x["source"] == "entity:G1")
     assert [p[0] for p in role["causes"][0]["rows"]] == ["Jane Mary Hart", "Jane Hart"]
     assert "Hidden Hart" not in graph.to_json(data)
@@ -147,9 +147,9 @@ def test_the_switch_is_one_control_and_the_address_carries_the_state():
     from products.board import search
     rows_view = graph.switch("hart", search.FIRST)
     people_view = graph.switch("hart", search.FIRST._replace(people=True))
-    assert 'aria-current="true">rows<' in rows_view and "g=people" in rows_view
-    assert 'aria-current="true">people<' in people_view and "g=people" not in people_view
-    assert search.boxes_of({"g": ["people"]}).people and not search.boxes_of({"g": ["rows"]}).people
+    assert 'aria-current="true">rows<' in rows_view and "g=entities" in rows_view
+    assert 'aria-current="true">entities<' in people_view and "g=entities" not in people_view
+    assert search.boxes_of({"g": ["entities"]}).people and not search.boxes_of({"g": ["rows"]}).people
 
 
 def test_the_entity_pane_lists_the_rows_the_rules_with_evidence_and_the_near_with_reasons():

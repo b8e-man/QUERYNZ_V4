@@ -5,7 +5,7 @@
    ringed; soft curved edges in the key's colours, a near verdict dashed. Tap a node
    to grow its one hop, tap it again to fold it; double-tap to open its pane; drag,
    zoom, pan; "spread" runs cola, "tree" returns every node to its layered place.
-   Ruling 105, the people state (the answer's mode "people"): an entity, one node per
+   Ruling 105, the entity state (the answer's mode "entities"): an entity, one node per
    group of the links lane, is a rounded square labelled with its name and its count,
    a contested one with a dashed border; a lone row a circle with a dotted border.
    Tap an entity to open it as a compound node, its rows inside it in their register
@@ -31,7 +31,7 @@
   var grown = {};                                  // node id -> true while its one hop is open
   var BASE = "\u0000first";
 
-  var people = first.mode === "people";
+  var people = first.mode === "entities";
   var opened = {};                                 // entity id -> true while its rows are open inside it
   function nodeData(n) {
     var d = { id: n.id, label: n.title, name: n.title, colour: n.colour, register: n.register_name, family: n.family, view: n.view,

@@ -651,8 +651,8 @@ def people_problems(conn, term: str = PEOPLE_TERM) -> list:
     if any(not e["dashed"] or not e["words"] for e in nears):
         out.append("a near line of the people graph is not dashed or carries no reason")
     page = server.render_graph(term, conn=conn, boxes=boxes)
-    if inline_data(page).get("mode") != "people" or 'aria-current="true">people<' not in page:
-        out.append("the graph tab with g=people does not open in the people state, or its switch does not say so")
+    if inline_data(page).get("mode") != "entities" or 'aria-current="true">entities<' not in page:
+        out.append("the graph tab with g=entities does not open in the entity state, or its switch does not say so")
     some = next(iter(entities), None)
     if some:
         gid = some[len(people.ENTITY):]

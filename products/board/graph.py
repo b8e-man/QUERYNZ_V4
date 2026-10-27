@@ -905,7 +905,7 @@ def answer(g: dict, q: str, boxes=None, lns: list = None, lay: dict = None) -> d
                                   **({"rows": [[ta, tb, panes.href(q, [a], boxes), panes.href(q, [b], boxes)] for ta, tb, a, b in e["rows"]]}
                                      if e.get("rows") else {})} for e in ln["causes"]],
                       **({"decisions": [decision_text(d) for d in decided]} if decided else {})})
-    return {"centre": g.get("centre") or "", "mode": "people" if g.get("people") else "rows", "nodes": nodes, "edges": edges,
+    return {"centre": g.get("centre") or "", "mode": "entities" if g.get("people") else "rows", "nodes": nodes, "edges": edges,
             "matched_total": g["matched_total"], "drawn": g["drawn"], "not_drawn": g["not_drawn"], "unresolved": g["unresolved"]}
 
 
@@ -986,11 +986,11 @@ def canvas(data: dict, picture: str) -> str:
 
 def switch(q: str, boxes=None, centre: str = "") -> str:
     """The one control between the graph's two states (ruling 105): rows, or
-    people; the address carries the state (`g=people`), so a view reopens in it."""
+    entities; the address carries the state (`g=entities`), so a view reopens in it."""
     boxes = boxes if boxes is not None else search.FIRST
     on = boxes.people
     parts = []
-    for label, people in (("rows", False), ("people", True)):
+    for label, people in (("rows", False), ("entities", True)):
         if people == on:
             parts.append(f'<strong aria-current="true">{label}</strong>')
         else:
@@ -1011,7 +1011,7 @@ PEOPLE_NOTE = ("People: the rows are gathered into the groups the links lane bui
 def pane(g: dict, q: str, boxes=None, regs=None, script: bool = False) -> str:
     """`boxes` the check boxes every href carries; `regs` the registers searched (None: all);
     `script`: the canvas with the SVG inside <noscript> (ruling 100), else the SVG alone."""
-    out = ['<section class="pane graph" id="graph">', '<div class="reg">graph' + (" · people" if g.get("people") else "") + "</div>",
+    out = ['<section class="pane graph" id="graph">', '<div class="reg">graph' + (" · entities" if g.get("people") else "") + "</div>",
            switch(q, boxes, g.get("centre") or "")]
     if not g["nodes"]:
         out.append("<h2>Graph</h2>")

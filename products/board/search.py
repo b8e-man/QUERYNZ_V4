@@ -401,7 +401,7 @@ class Boxes(NamedTuple):
     page appended; `mode`, how the fields combine (ruling 92 (6): "all",
     else "any", written only when "any"); `removed`, "show removed
     companies" (ruling 93: unticked on the first view, `removed=1` only when
-    ticked); `people`, the graph's people state (ruling 105: `g=people` only
+    ticked); `people`, the graph's people state (ruling 105: `g=entities` only
     when on, so a view reopens in its state). All travel as query parameters on every href (`params`)."""
     all: bool = True
     ticked: tuple = ()
@@ -423,7 +423,7 @@ class Boxes(NamedTuple):
         return dict(self.fields)
 
 
-PEOPLE = "people"    # the graph's people state (ruling 105), `g=people`
+PEOPLE = "entities"  # the graph's entity state (ruling 105), `g=entities`; "people" in the code is the state's name
 FIRST = Boxes()     # the first view of either tab: "search all" ticked, every register unticked
 
 

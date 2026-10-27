@@ -7,8 +7,8 @@ state). **Merge request:** `board-8`.
 ## Done
 
 - Rulings 80 to 102: as before (fix-products-board-2).
-- Ruling 105, the people state: "show: rows · people" above the graph,
-  the state in the address (`g=people`). One node per `pub.groups` group,
+- Ruling 105, the entity state: "show: rows · people" above the graph,
+  the state in the address (`g=entities`). One node per `pub.groups` group,
   labelled by the fullest filed name with "n rows, n registers"; lone rows
   dotted; edges lifted to group ends; near links one hop from the matched
   rows, dashed, reason on the line; contested dashed border; decisions on
