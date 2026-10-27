@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
 
-**Date:** 2026-10-27, 09:15 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-27, 13:10 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 counting clean days from 25 October (see Half-done); 5.1
 done; 5.2 closed (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held
 on terms; sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on
@@ -22,7 +22,6 @@ model reading till it returns. **Alarms:** the old estate's ntfy address.
 - 4.2/4.3 links: 2.82 M links, 2.32 M groups, rebuilt after `coupled-1`
   (ruling 73); the agent scores and applies nothing (ruling 69).
   4.4 site version 3. 4.9 board 87 views. 5.1 the report shape, tranche 3.
-- 5.2 closed (ten templates, ruling 65); 5.5 `qv4-companies-monitor`.
 - Rulings 64 to 102 (99 withdraws 98; 102: limit 15 binds products, not the
   board or the views); fixes 76, 77 in the old repository.
 - Track B: the restore rehearsal equal 25 October (2 h 32 m, en_NZ.UTF-8).
@@ -33,13 +32,12 @@ model reading till it returns. **Alarms:** the old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- Gates in order: `hansard-2` with the board's Beehive entries (running);
-  the adopt rewrite (2,000 documents a second, not 21); `diaries-2` +
-  `parliament-1` with their ruling-102 fixes and the board entries for
-  their five views (`fix-products-board-2`, building). Merged 27 October:
-  `mcp-1` (client, `qv4-mcp` jobs, beehive lane, 1.41 M documents),
-  `hansard-1`, `board-7` (ruling 100). 25, 26 October: `board-2` to `-6`,
-  four board/report fixes (rulings 80 to 94).
+- Nothing at the gate. Merged 27 October (rulings 96 to 102): `mcp-1`
+  (client, `qv4-mcp` jobs, beehive lane; the adopt landed 1.41 M documents
+  live at 11:20), `hansard-1`, `hansard-2`, `diaries-2`, `parliament-1`
+  with their ruling-102 fixes and the blocked-pages fix, `board-7` (ruling
+  100) and the board entries for every new view; the board's live check
+  green. 25, 26 October: `board-2` to `-6`, four board/report fixes.
 
 ## Half-done
 
