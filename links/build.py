@@ -17,8 +17,13 @@ pairs (a name carried by 300 rows would otherwise be 44,850 links).
   and on the amendment that replaces it).
 - `official-number@1`: a company shareholder's NZBN to the company; a
   liquidation notice's company number to the company.
-- `organisation-name@1`: a donation row's organisation name to the
-  companies carrying it, near (the row has no official number).
+- `organisation-sole-company@1` (ruling 106): a donation row's organisation
+  name to the one company carrying it, live in the donation's year,
+  confirmed; `organisation-name@1`, near, where several companies carry the
+  name or the one was not live, and for a declared interest's organisation.
+- `successor-name@1` (ruling 106): two companies under one name, one with
+  a year in brackets, and a person confirmed on both: related, "succeeded
+  by", never an identity (the groups follow confirmed links only).
 - `name-only@1`: every other shared first and last name, near, with the
   reason; one star per name over the confirmed components.
 
@@ -149,7 +154,7 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
         ON CONFLICT DO NOTHING""", {"rule": rules.RULE_NUMBER})
     out[rules.RULE_NUMBER] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_NUMBER,)).fetchone()[0]
     log(f"links.build: {rules.RULE_NUMBER}: {out[rules.RULE_NUMBER]} ({time.monotonic() - t0:.0f} s)")
-    # an organisation donor's name to the companies carrying it: near, with whether each was alive on the date
+    # a declared interest's organisation name to the companies carrying it: near, with whether each was alive on the date
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
         SELECT least(r.ref, o.entity_ref), greatest(r.ref, o.entity_ref), %(rule)s,
@@ -161,21 +166,29 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
         FROM {s}.rows r
         JOIN (SELECT n.org_key, n.entity_ref, n.registered_on, n.removed_on, count(*) OVER (PARTITION BY n.org_key) AS n
               FROM {s}.org_names n) o ON o.org_key = r.name_key
-        WHERE r.kind = 'organisation' AND r.register IN ('party_returns', 'candidate_returns', 'disclosures', 'mp_interests')
-        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_ORG_NAME, "one": rules.NEAR_ORG_NAME + "; one company carries this name",
-                                     "many": rules.NEAR_ORG_NAME + "; several companies carry this name"})
+        WHERE r.kind = 'organisation' AND r.register = 'mp_interests'
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_ORG_NAME, "one": rules.NEAR_ORG_ONE, "many": rules.NEAR_ORG_SEVERAL})
+    # a donation row's organisation name: confirmed to the one company of the name live in its year, near otherwise (ruling 106 (1))
+    out[rules.RULE_SOLE_COMPANY] = sole_company_links(conn, s)
+    log(f"links.build: {rules.RULE_SOLE_COMPANY}: {out[rules.RULE_SOLE_COMPANY]} ({time.monotonic() - t0:.0f} s)")
     out[rules.RULE_ORG_NAME] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_ORG_NAME,)).fetchone()[0]
     log(f"links.build: {rules.RULE_ORG_NAME}: {out[rules.RULE_ORG_NAME]} ({time.monotonic() - t0:.0f} s)")
     conn.commit()
     # the rules of links-2: the House's own rows to their seats; declared interests to companies and the member's own directorships;
     # the donation registers' named circumstances; companies under one name; one candidate under two printings
     for name, step in ((rules.RULE_SEAT, seat_links), (rules.RULE_DECLARED, declared_links), ("donor rules", donor_links),
-                       (rules.RULE_COMPANY_NAME, company_name_links), (rules.RULE_NAME_FORM, name_form_links)):
+                       (rules.RULE_COMPANY_NAME, company_name_links), (rules.RULE_SAME_PARTY, same_party_links),
+                       (rules.RULE_NAME_FORM, name_form_links)):
         out[name] = step(conn, s)
         log(f"links.build: {name}: {out[name]} ({time.monotonic() - t0:.0f} s)")
     out[rules.RULE_NUMBER] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_NUMBER,)).fetchone()[0]
+    # every confirmed link is made: the components they make (and the decisions) are what the two last steps read
+    comp, _ = components(conn, s)
+    # related: a company and its successor under one name, a person confirmed on both (ruling 106 (2)); never followed by the groups
+    out[rules.RULE_SUCCESSOR] = successor_links(conn, s, comp)
+    log(f"links.build: {rules.RULE_SUCCESSOR}: {out[rules.RULE_SUCCESSOR]} ({time.monotonic() - t0:.0f} s)")
     # near: every other shared first and last name, one star per name over the confirmed components
-    out[rules.RULE_NAME_ONLY] = near_links(conn, s, log, reader=reader)
+    out[rules.RULE_NAME_ONLY] = near_links(conn, s, log, reader=reader, comp=comp)
     conn.commit()
     conn.execute(f"ANALYZE {s}.links")
     conn.commit()
@@ -189,6 +202,44 @@ _PLACE = "lower(regexp_replace(translate(coalesce({x}, ''), 'āēīōūĀĒĪŌ�
 
 def _count(conn, s: str, rule: str) -> int:
     return conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rule,)).fetchone()[0]
+
+
+def _insert_judged(conn, s: str, pairs: list) -> None:
+    """Store what a pure rule returned: [(row, other, {rule, grade, reason, evidence})]."""
+    with conn.cursor() as w:
+        w.executemany(f"INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason, relation) "
+                      f"VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s) ON CONFLICT DO NOTHING",
+                      [(*links.pair(a, b), j["rule"], json.dumps(j["evidence"], default=str), j["grade"], j["reason"], j.get("relation"))
+                       for a, b, j in pairs])
+
+
+def sole_company_links(conn, s: str) -> dict:
+    """`organisation-sole-company@1` (ruling 106 (1)): each donation row's
+    organisation name against every company on the register under the name
+    key, judged by `rules.sole_company`: confirmed to the one company live
+    in the donation's year, near under `organisation-name@1` otherwise, the
+    reason saying which. The row carries no official number; a declared
+    interest (`mp_interests`) is not a donation and is not read here."""
+    facts = conn.execute(f"""
+        SELECT r.ref, r.name_filed, r.name_key, r.started_on, r.ended_on,
+               jsonb_agg(jsonb_build_object('entity_ref', o.entity_ref, 'number', c.number, 'name', c.name,
+                                            'registered_on', o.registered_on, 'removed_on', o.removed_on) ORDER BY o.entity_ref)
+        FROM {s}.rows r JOIN {s}.org_names o ON o.org_key = r.name_key
+        LEFT JOIN pub.companies c ON c.key = substr(o.entity_ref, length('companies:') + 1)
+        WHERE r.kind = 'organisation' AND r.register = ANY(%s)
+        GROUP BY 1, 2, 3, 4, 5""", (list(rules.DONATION_REGISTERS),)).fetchall()
+    pairs = []
+    for ref, filed, key, start, end, companies in facts:
+        row = {"ref": ref, "name_filed": filed, "name_key": key, "started_on": start, "ended_on": end}
+        pairs += [(ref, j["entity_ref"], j) for j in rules.sole_company(row, companies)]
+    _insert_judged(conn, s, pairs)
+    conn.commit()
+    tally: dict = {}
+    for _, _, j in pairs:
+        tally[j["reason"] or "confirmed"] = tally.get(j["reason"] or "confirmed", 0) + 1
+    return {"donation_rows_with_a_company_of_the_name": len(facts), "confirmed": tally.pop("confirmed", 0),
+            "near_several": tally.get(rules.NEAR_ORG_SEVERAL, 0), "near_registered_after": tally.get(rules.NEAR_ORG_NOT_YET, 0),
+            "near_removed_before": tally.get(rules.NEAR_ORG_GONE, 0)}
 
 
 def seat_links(conn, s: str) -> dict:
@@ -407,11 +458,77 @@ def company_name_links(conn, s: str) -> dict:
     return {"same_name": int(same), "same_name_apart_from_a_year": int(total - same), "links": int(total)}
 
 
+def successor_links(conn, s: str, comp: dict) -> dict:
+    """`successor-name@1` (ruling 106 (2)), related: every pair of companies
+    under one name key where one carries a year in brackets (every pair, not
+    the star `company-name@1` stores, because a relation does not chain),
+    judged by `rules.successor` against the people on each: a director or
+    shareholder row on each company in one confirmed component (`comp`, the
+    groups' own walk over the confirmed links and decisions). A pair that
+    relates leaves the `company-name@1` near star; the rest stay near."""
+    pairs = conn.execute(f"""
+        SELECT o.entity_ref, o.org_key, o.registered_on, o.removed_on, co.name, m.entity_ref, m.org_key, m.registered_on, m.removed_on, cm.name
+        FROM (SELECT entity_ref, org_key, registered_on, removed_on, trim(regexp_replace(org_key, '\\s*\\(\\d{{4}}\\)\\s*', ' ', 'g')) AS bare
+              FROM {s}.org_names WHERE org_key ~ '\\(\\d{{4}}\\)') o
+        JOIN {s}.org_names m ON m.org_key = o.bare
+        LEFT JOIN pub.companies co ON co.key = substr(o.entity_ref, length('companies:') + 1)
+        LEFT JOIN pub.companies cm ON cm.key = substr(m.entity_ref, length('companies:') + 1)
+        WHERE o.bare <> '' AND o.bare <> o.org_key AND m.entity_ref <> o.entity_ref""").fetchall()
+    companies = sorted({p[0] for p in pairs} | {p[5] for p in pairs})
+    people: dict = {}
+    for ref, entity, filed in conn.execute(f"""SELECT ref, entity_ref, name_filed FROM {s}.rows
+                                               WHERE entity_ref = ANY(%s) AND view IN ('directors', 'shareholders') AND kind = 'person'""",
+                                           (companies,)).fetchall():
+        if ref in comp:
+            people.setdefault(entity, {}).setdefault(comp[ref], []).append((ref, filed))
+    judged, sharing = [], 0
+    for ea, ka, ra, xa, na, eb, kb, rb, xb, nb in pairs:
+        pa, pb = people.get(ea, {}), people.get(eb, {})
+        shared = [{"a": a_ref, "b": b_ref, "group": g, "name": filed}
+                  for g in sorted(set(pa) & set(pb)) for (a_ref, filed), (b_ref, _) in [(pa[g][0], pb[g][0])]]
+        sharing += bool(shared)
+        j = rules.successor({"entity_ref": ea, "org_key": ka, "name": na, "registered_on": ra, "removed_on": xa},
+                            {"entity_ref": eb, "org_key": kb, "name": nb, "registered_on": rb, "removed_on": xb}, shared)
+        if j:
+            judged.append((ea, eb, j))
+    _insert_judged(conn, s, judged)
+    conn.execute(f"""DELETE FROM {s}.links n USING {s}.links r
+                     WHERE n.rule = %s AND r.rule = %s AND n.row_a = r.row_a AND n.row_b = r.row_b""",
+                 (rules.RULE_COMPANY_NAME, rules.RULE_SUCCESSOR))
+    conn.commit()
+    left = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s AND reason = %s",
+                        (rules.RULE_COMPANY_NAME, rules.NEAR_COMPANY_YEAR)).fetchone()[0]
+    return {"pairs_under_one_name_apart_from_a_year": len(pairs), "sharing_a_confirmed_person": sharing, "related": len(judged),
+            "company_name_year_pairs_left_near": int(left)}
+
+
+def same_party_links(conn, s: str) -> dict:
+    """`candidate-same-party@1` (ruling 106 (3)): the House's candidate rows
+    of one name key and one registered party in more than one election,
+    judged by `rules.same_party_candidates`: one person, confirmed, unless
+    two of the rows stand in one election. A party not registered (the
+    House's own label only) is not judged."""
+    found = conn.execute(f"""
+        SELECT r.name_key, c.party_registered,
+               jsonb_agg(jsonb_build_object('ref', r.ref, 'election', c.election, 'electorate', e.name, 'list_place', c.list_place,
+                                            'name_filed', r.name_filed, 'name_key', r.name_key, 'party', c.party_registered) ORDER BY r.ref)
+        FROM {s}.rows r JOIN pub.candidates c ON r.ref = 'house:' || c.key
+        LEFT JOIN pub.electorates e ON e.key = c.electorate
+        WHERE r.view = 'candidates' AND coalesce(c.party_registered, '') <> ''
+        GROUP BY 1, 2 HAVING count(DISTINCT c.election) > 1 OR count(*) > count(DISTINCT c.election)""").fetchall()
+    judged = [x for _, _, rows_ in found for x in rules.same_party_candidates(rows_)]
+    _insert_judged(conn, s, judged)
+    conn.commit()
+    conf = sum(1 for *_, j in judged if j["grade"] == "confirmed")
+    return {"names_in_one_party_in_two_elections": len(found), "confirmed": conf, "near_two_in_one_election": len(judged) - conf}
+
+
 def name_form_links(conn, s: str) -> dict:
     """`candidate-name-form@1`, near: the House rows (candidacies, seats) of
     one first and last name for one party across different elections, where
     the printings differ (a middle name on one printing only, or none on
-    either), one star per name and party. A pair whose two printings both
+    either), one star per name and party. Two candidacies under one printing
+    are `candidate-same-party@1`'s (ruling 106) and are left out here. A pair whose two printings both
     carry middle names that differ is left out: those are two names."""
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
@@ -432,6 +549,7 @@ def name_form_links(conn, s: str) -> dict:
               WHERE party IS NOT NULL AND party <> '' GROUP BY 1, 2 HAVING count(DISTINCT election) > 1) k ON k.fl_key = r.fl_key AND k.party = r.party
         JOIN {s}.rows m ON m.ref = k.ref
         WHERE r.ref <> k.ref AND r.election <> m.election AND NOT (m.has_middle AND r.has_middle AND m.full_key <> r.full_key)
+          AND NOT (m.view = 'candidates' AND r.view = 'candidates' AND m.name_key = r.name_key)   -- one printing: candidate-same-party@1 judges it
         ON CONFLICT DO NOTHING""", {"rule": rules.RULE_NAME_FORM, "reason": rules.NEAR_NAME_FORM})
     conn.commit()
     row = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE (evidence->>'same_printing')::boolean) FROM {s}.links WHERE rule = %s""",
@@ -480,12 +598,13 @@ def components(conn, s: str) -> tuple:
     return {x: find(x) for x in list(parent)}, last
 
 
-def near_links(conn, s: str, log=print, reader=None) -> int:
+def near_links(conn, s: str, log=print, reader=None, comp: dict = None) -> int:
     """One star of near links per first-and-last name, between the confirmed
     components it spans (their anchors), with the reason for each pair. The
     names are read through `reader`, a second connection (lesson: a
     server-side cursor and writes should not share one connection)."""
-    comp, _ = components(conn, s)
+    if comp is None:
+        comp, _ = components(conn, s)
     n = 0
     t0 = time.monotonic()
     reader = reader or conn

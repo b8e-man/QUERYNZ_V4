@@ -156,6 +156,38 @@ hundreds of notices. (The first run's page said 669,863 groups "over
 2,251,437 rows" from the build log; measurement 6 itself counted groups
 twice, fixed in this run.)
 
+## 7. Ruling 106's three rules, 28 October 2026 (links-3)
+
+`scratch_links_3` on the real published tables: the rows gathered once, built
+with the code before the rules (before) and with them (after) over the same
+rows; the live decisions copied in. Groups 681,628 → 681,815, rows in groups
+2,315,125 → 2,315,735, contested 52,085 → 52,085, largest 1,220 → 1,220.
+
+- `organisation-sole-company@1`: 315 donation rows (party returns, candidate
+  returns, declarations) have a company of their name. 262 confirmed (one
+  company of the name, live in the year); near: 70 pairs (30 rows) several
+  companies (every one of the 30 has exactly one live: queue item
+  `one-company-of-several-live-in-the-donation-s-year`), 20 removed before
+  the year, 3 registered after it. The 2,195 declared-interest pairs
+  (`mp_interests`) are not donations and stay as they were. 418 rows (262
+  donations, 156 companies) now sit in 156 groups; 178 of them were in 87
+  groups before; none contested.
+- `successor-name@1` (related, "succeeded by"): judged on every pair the name
+  pattern makes, 17,366 (the near star stores 13,635); 951 share a person
+  confirmed on both (2,935 shared people, 639 with more than one), 3
+  ordered by key because the registration dates are equal. The 928 star
+  pairs among them leave `company-name@1`, 12,707 stay near. In 86 the
+  company carrying the year was registered first (renamed when the new one
+  took the plain name). No group holds both companies of any (check 6).
+- `candidate-same-party@1`: 206 names under one party in more than one
+  election, 282 confirmed pairs, none refused (no name stands twice for a
+  party in one election today). `candidate-name-form@1` 402 → 180 (143 same
+  printing, members' seats; 37 different printings). 488 candidate rows in
+  206 groups; 118 were in 88 groups before (each seat to its candidacy);
+  3 contested before and after.
+- Test pairs redrawn: `two-candidates-one-election` 0 of 1 in one group (two people, as it should);
+  `member-and-candidacy` 144 of 144 (one person, as it should).
+
 ## Track C: the review agent scored on the test pairs, 20 October 2026
 
 Run `score-1` in `scratch_review` on the real published tables (`links.scores`,
