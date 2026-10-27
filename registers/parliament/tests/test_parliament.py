@@ -214,16 +214,29 @@ def _held(**kw):
 
 
 def test_the_check_on_the_views_names_a_street_with_its_flag_false_and_an_unflagged_column():
-    ok = {"written_questions": {"rows": 9, "flagged": {"question_text": 2, "reply_text": 1},
-                                "lines": {"question_text": 2, "reply_text": 1},
-                                "street unflagged": {"question_text": 0, "reply_text": 0, "title": 0}}}
+    at = dt.datetime(2026, 10, 28, 4, 30)
+    scan = {"question_text": (9, at, 0), "reply_text": (9, at, 0), "title": (9, at, 0)}
+    ok = {"written_questions": {"rows": 9, "loaded": at, "flagged": {"question_text": 2, "reply_text": 1},
+                                "lines": {"question_text": 2, "reply_text": 1}, "sampled": 9,
+                                "street unflagged": {"question_text": 0, "reply_text": 0, "title": 0}, "scan": scan}}
     assert check.judge_shown(ok) == []
     bad = {"written_questions": {**ok["written_questions"], "lines": {"question_text": 2},
                                  "street unflagged": {"question_text": 1, "reply_text": 0, "title": 3}}}
     fails = check.judge_shown(bad)
     assert len(fails) == 3 and any("`question_text_names_address` false" in f for f in fails)
     assert any("title: 3 rows hold a street address with no flag" in f for f in fails)
-    assert check.judge_shown({"api_items": {"rows": 1, "flagged": {}, "lines": {}, "street unflagged": {}}})
+    assert check.judge_shown({"api_items": {"rows": 1, "loaded": at, "flagged": {}, "lines": {}, "sampled": 1,
+                                            "street unflagged": {}, "scan": {}}}) == [
+        "api_items: the view carries no `_names_address` flag",
+        "api_items: the load's whole scan has no line for the view (load.stamp_scan)"]
+    # the load's whole scan: a column it has no line for, a scan of other rows, a street it found
+    for stamp, says in (({k: v for k, v in scan.items() if k != "title"}, "title: the load's whole scan has no line"),
+                        ({**scan, "reply_text": (8, at, 0)}, "reply_text: the load's whole scan read 8 rows of another"),
+                        ({**scan, "title": (9, at - dt.timedelta(days=1), 0)}, "title: the load's whole scan read 9"),
+                        ({**scan, "reply_text": (9, at, 2)}, "reply_text: 2 rows hold a street address with "
+                                                             "`reply_text_names_address` false (the load's whole")):
+        fails = check.judge_shown({"written_questions": {**ok["written_questions"], "scan": stamp}})
+        assert len(fails) == 1 and says in fails[0], fails
 
 
 def test_the_check_is_green_when_the_counts_agree_and_names_each_failure():
@@ -274,6 +287,7 @@ def filled():
             cur = conn.execute(sql)
             return [dict(zip([d[0] for d in cur.description], r)) for r in cur]
         conn.execute(L.sql("publish.sql", schema, shared=True).replace("pub.", f"{schema}.pub_"))
+        L.stamp_scan(conn, schema, shared=True)                                  # as publish does after the views
         conn.commit()
         out = {"items": items, "conn": conn, "schema": schema}
         for t in ("written_questions", "api_items", "wayback_pages", "files", "set_aside"):
@@ -354,16 +368,70 @@ def test_postgres_s_street_pattern_reads_the_made_up_shapes_as_the_lane_does(fil
 
 def test_the_check_fails_on_a_planted_street_whose_flag_is_false(filled):
     """The mutant: one question's text made a street address with its flag left false, in a rolled-back
-    transaction. The check over the view must see it; the counts before must be clean."""
+    transaction. The check's fresh sample (every row, in the sample database) sees it; the load's whole scan,
+    run again, says the same. The counts before must be clean."""
     conn, s = filled["conn"], filled["schema"]
     assert check.judge_shown(check.shown(conn, s, shared=True)) == []
     key = filled["written_questions"][0]["key"]
     conn.execute(f"UPDATE {s}.parliament_written_questions SET question_text = 'Visit 12 Sample Street.', "
                  "question_text_names_address = false WHERE key = %s", (key,))
     fails = check.judge_shown(check.shown(conn, s, shared=True))
+    from registers.parliament import load as L
+    L.stamp_scan(conn, s, shared=True)
+    stamped = check.judge_shown(check.shown(conn, s, shared=True))
     conn.rollback()
-    assert fails == ["written_questions.question_text: 1 rows hold a street address with "
-                     "`question_text_names_address` false"]
+    one = "written_questions.question_text: 1 rows hold a street address with `question_text_names_address` false"
+    assert fails == [one]
+    assert stamped == [one, one + " (the load's whole scan)"]
+
+
+def test_the_check_scans_a_fixed_sample_never_every_row(filled, monkeypatch):
+    """The check answers inside the board's 120 s because the street pattern runs over SAMPLE rows of a view,
+    never all of them: every statement it sends carrying the pattern is bounded by the sample. And with the
+    sample cut to one row, a street planted outside that row is missed by the fresh scan and caught by the
+    load's whole scan. Fails if shown() scans every row again."""
+    conn, s = filled["conn"], filled["schema"]
+    sent = []
+
+    class Spy:
+        def execute(self, sql, params=None):
+            sent.append((sql, params))
+            return conn.execute(sql, params)
+    check.shown(Spy(), s, shared=True)
+    pattern = [(sql, p) for sql, p in sent if isinstance(p, dict) and p.get("p") == check.STREET_SQL]
+    assert len(pattern) == len(check.VIEWS)
+    for sql, p in pattern:
+        assert "ORDER BY md5(key) LIMIT %(n)s" in sql and p["n"] == check.SAMPLE == 5000, sql
+    assert not any(check.STREET_SQL in str(p) for sql, p in sent if (sql, p) not in pattern)
+
+    monkeypatch.setattr(check, "SAMPLE", 1)
+    first = conn.execute(f"SELECT key FROM {s}.pub_parliament_written_questions ORDER BY md5(key) LIMIT 1").fetchone()[0]
+    other = next(r["key"] for r in filled["written_questions"] if r["key"] != first)
+    conn.execute(f"UPDATE {s}.parliament_written_questions SET reply_text = 'Visit 12 Sample Street.', "
+                 "reply_text_names_address = false WHERE key = %s", (other,))
+    fresh = check.judge_shown(check.shown(conn, s, shared=True))
+    from registers.parliament import load as L
+    L.stamp_scan(conn, s, shared=True)
+    stamped = check.judge_shown(check.shown(conn, s, shared=True))
+    conn.rollback()
+    assert fresh == []
+    assert stamped == ["written_questions.reply_text: 1 rows hold a street address with "
+                       "`reply_text_names_address` false (the load's whole scan)"]
+
+
+def test_the_check_fails_without_the_load_s_whole_scan_or_with_another_load_s(filled):
+    conn, s = filled["conn"], filled["schema"]
+    conn.execute(f"UPDATE {s}.parliament_street_scan SET loaded_at = loaded_at - interval '1 day' "
+                 "WHERE view_name = 'api_items'")
+    other = check.judge_shown(check.shown(conn, s, shared=True))
+    conn.execute(f"DELETE FROM {s}.parliament_street_scan")
+    none = check.judge_shown(check.shown(conn, s, shared=True))
+    conn.execute(f"DROP TABLE {s}.parliament_street_scan")
+    gone = check.judge_shown(check.shown(conn, s, shared=True))
+    conn.rollback()
+    assert other and all(f.startswith("api_items.") and "another load" in f for f in other)
+    assert none == [f"{v}: the load's whole scan has no line for the view (load.stamp_scan)" for v in check.VIEWS]
+    assert gone == none
 
 
 def test_arrivals_mark_a_record_that_holds_no_place_withdrawn(filled):
