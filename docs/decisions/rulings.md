@@ -763,3 +763,17 @@ V4 memory folders one: "we dont need any notes from v3 we have those.
 that is deprecated". The line is withdrawn. The V4 memory folder is the
 only one a session keeps; the V3 folder is left as it is and never
 merged, linked or read for the new estate.
+
+105. Arthur, 28 October, 09:20, on the board's graph: an entity state,
+switchable and separate from the rows graph, that collapses a search's
+rows into entities by the links lane's own groups ("collapse all rows
+using the rules in the links lane. At least all rows we are able to
+collapse. We also want to see where near-links exist"). The integrator's
+design agreed: one node per `pub.groups` group, a lone row shown as a
+lone row, record relations lifted to the group, near links as dashed
+edges with their reason, contested groups marked, tap to open a group as
+a compound node of its rows; the board reads `pub.groups` and `pub.links`
+and makes no link by looking. Two decisions taken with it: (1) the group's
+label is the fullest filed name among its rows, a display choice the pane
+says is not a link, until the lane publishes a name; (2) near links reach
+one hop from the entities in view. Built by board-8.
