@@ -13,6 +13,8 @@ recorded in `links.measurements`. None had ever been run.
    match exactly one company alive on the donation date; and, beside them,
    the companies a member declared (`mp_interests`) on the return's date.
 6. The shape of the groups: sizes, and any group that contradicts itself.
+7. Ruling 106's three rules: what each confirmed or related, what it left
+   near and why, and the groups they touch.
 """
 from __future__ import annotations
 
@@ -177,8 +179,27 @@ def m6_groups(conn, s: str) -> dict:
     return out
 
 
+def m7_ruling_106(conn, s: str) -> dict:
+    out = {"links": [{"rule": r, "grade": g, "reason": why, "links": int(n)} for r, g, why, n in conn.execute(f"""
+        SELECT rule, grade, reason, count(*) FROM {s}.links WHERE rule = ANY(%s) GROUP BY 1, 2, 3 ORDER BY 1, 2, 3""",
+        ([rules.RULE_SOLE_COMPANY, rules.RULE_ORG_NAME, rules.RULE_SUCCESSOR, rules.RULE_COMPANY_NAME, rules.RULE_SAME_PARTY, rules.RULE_NAME_FORM],)).fetchall()]}
+    row = conn.execute(f"""SELECT count(DISTINCT r.ref) FROM {s}.links l JOIN {s}.rows r ON r.ref IN (l.row_a, l.row_b) AND r.kind = 'organisation'
+                           WHERE l.rule = %s""", (rules.RULE_SOLE_COMPANY,)).fetchone()
+    out["donation_rows_confirmed_to_a_company"] = int(row[0])
+    row = conn.execute(f"""SELECT count(*), coalesce(sum((evidence->>'shared_people')::int), 0), count(*) FILTER (WHERE (evidence->>'shared_people')::int > 1),
+                                  count(*) FILTER (WHERE evidence->>'order' <> 'by registration date')
+                           FROM {s}.links WHERE rule = %s""", (rules.RULE_SUCCESSOR,)).fetchone()
+    out["successions"] = {"related": int(row[0]), "shared_people": int(row[1]), "with_more_than_one_shared_person": int(row[2]),
+                          "ordered_by_key_not_date": int(row[3])}
+    row = conn.execute(f"""SELECT count(*), count(DISTINCT g.group_id) FROM {s}.links l JOIN {s}.groups g ON g.row_key IN (l.row_a, l.row_b)
+                           WHERE l.rule = %s AND l.grade = 'confirmed'""", (rules.RULE_SAME_PARTY,)).fetchone()
+    out["candidates"] = {"row_ends_of_confirmed_pairs": int(row[0]), "groups_they_sit_in": int(row[1])}
+    return out
+
+
 MEASURES = (("1 name repeats", m1_name_repeats), ("2 shared addresses", m2_shared_addresses), ("3 rule error", m3_rule_error),
-            ("4 rule reach", m4_rule_reach), ("5 company names", m5_company_names), ("6 group shape", m6_groups))
+            ("4 rule reach", m4_rule_reach), ("5 company names", m5_company_names), ("6 group shape", m6_groups),
+            ("7 ruling 106", m7_ruling_106))
 
 
 def run(conn, s: str, log=print, only: str = None) -> dict:

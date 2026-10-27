@@ -3,7 +3,8 @@
 the old decisions copied and mapped, the test pairs and the six
 measurements (plan 4.2 and 4.3).
 
-- links: a pair of rows, the rule, the evidence, a grade (confirmed or near).
+- links: a pair of rows, the rule, the evidence, a grade (confirmed, near,
+  or related: two entities and the relation between them, ruling 106).
 - decisions: a remembered ruling on a pair: same, not the same, contested.
   Each says who or what made it and on what evidence. Only ever added to.
 - groups: rows gathered into people by following confirmed links, minus
@@ -32,7 +33,7 @@ import re
 HERE = os.path.dirname(os.path.abspath(__file__))
 TABLES_SQL = os.path.join(HERE, "tables.sql")
 PUBLISH_SQL = os.path.join(HERE, "publish.sql")
-GRADES = ("confirmed", "near")
+GRADES = ("confirmed", "near", "related")   # related (ruling 106): a relation between two entities, never an identity
 VERDICTS = ("same", "not the same", "contested")
 MAKERS = re.compile(r"^(review-agent@\d+|correction:\S+|suppression:\S+|old-estate:\S+|person:\S+)$")
 SCHEMA = "links"

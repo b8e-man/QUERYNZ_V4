@@ -196,3 +196,102 @@ def test_a_scratch_schema_is_made_and_links_itself_never_is():
     with pytest.raises(ValueError):
         links.ensure_schema(c, "scratch; drop")
     assert "scratch_x_pub.links" in links.publish_ddl("scratch_x", "scratch_x_pub")
+
+
+# ruling 106 (links-3): each rule on rows shaped as the live tables filed them (28 October 2026)
+
+def _co(ref, number, name, registered, removed=None):
+    return {"entity_ref": f"companies:companies/{ref}", "number": number, "name": name, "registered_on": registered, "removed_on": removed}
+
+
+def test_a_donation_name_confirms_to_the_one_company_live_in_its_year():
+    gift = {"ref": "party_returns:x", "name_filed": "JBSR Limited", "name_key": "jbsr", "started_on": "2022-01-01", "ended_on": "2022-12-31"}
+    [j] = rules.sole_company(gift, [_co("1", "7679857", "JBSR LIMITED", "2019-08-26")])
+    assert (j["rule"], j["grade"], j["reason"]) == (rules.RULE_SOLE_COMPANY, "confirmed", None)
+    assert (j["evidence"]["company_number"], j["evidence"]["date"], j["evidence"]["registered_on"], j["evidence"]["removed_on"]) == \
+        ("7679857", "2022-01-01", "2019-08-26", None)
+    # registered within the year counts: the return dates the gift by its year
+    late = dict(gift, started_on="2025-01-01", ended_on="2025-12-31")
+    assert rules.sole_company(late, [_co("2", "9320124", "RIVERSTONE INVESTMENTS (NZ) LIMITED", "2025-02-17")])[0]["grade"] == "confirmed"
+    # a dated declaration is a year of one day
+    dated = {"ref": "disclosures:y", "name_filed": "Atom Data NZ Limited", "started_on": "2026-09-07", "ended_on": None}
+    assert rules.sole_company(dated, [_co("3", "9249560", "ATOM DATA NZ LIMITED", "2024-06-10")])[0]["grade"] == "confirmed"
+    assert rules.sole_company(dated, [_co("3", "9249560", "ATOM DATA NZ LIMITED", "2026-09-08")])[0]["reason"] == rules.NEAR_ORG_NOT_YET
+
+
+def test_a_donation_name_stays_near_where_the_one_company_was_gone_or_several_carry_it():
+    # the live case: "NZ National Party" on a 2023 candidate return keys to a company removed in 2020
+    gift = {"ref": "candidate_returns:z", "name_filed": "NZ National Party", "started_on": "2023-01-01", "ended_on": "2023-12-31"}
+    [j] = rules.sole_company(gift, [_co("4", "1438536", "NEW ZEALAND NATIONAL PARTY LIMITED", "2003-11-04", "2020-01-28")])
+    assert (j["rule"], j["grade"], j["reason"]) == (rules.RULE_ORG_NAME, "near", rules.NEAR_ORG_GONE)
+    two = rules.sole_company(dict(gift, name_filed="Porter Group"), [_co("5", "1", "PORTER GROUP LIMITED", "1954-02-22"),
+                                                                     _co("6", "2", "PORTER GROUP LIMITED", "2001-01-01", "2010-01-01")])
+    assert [(x["grade"], x["reason"]) for x in two] == [("near", rules.NEAR_ORG_SEVERAL)] * 2
+    assert two[0]["evidence"]["companies_alive_on_date"] == 1     # one alive of two still is not one company of the name
+    assert rules.NEAR_ORG_SEVERAL == "a name match to a company; the donation row carries no official number; several companies carry this name"
+
+
+def _company(ref, key, registered, removed=None, name=None):
+    return {"entity_ref": f"companies:companies/{ref}", "org_key": key, "name": name, "registered_on": registered, "removed_on": removed}
+
+
+def test_a_successor_name_with_a_person_on_both_is_related_and_never_an_identity():
+    old_ = _company("9429030000001", "speirs foods lp", "2009-03-02", "2019-06-30", "SPEIRS FOODS LP")
+    new_ = _company("9429046968548", "speirs foods (2018) lp", "2018-08-15", None, "SPEIRS FOODS (2018) LP")
+    shared = [{"a": "companies:companies/9429046968548/director/1", "b": "companies:companies/9429030000001/director/7", "group": "g1", "name": "x"}]
+    j = rules.successor(new_, old_, shared)
+    assert (j["rule"], j["grade"], j["relation"]) == (rules.RULE_SUCCESSOR, "related", "succeeded by")
+    assert j["grade"] not in ("confirmed", "near") and "related" in links.GRADES
+    # read from the earlier registered to the later, whichever came first in the call
+    ev = j["evidence"]
+    assert (ev["earlier"], ev["later"], ev["registered"]) == (old_["entity_ref"], new_["entity_ref"], ["2009-03-02", "2018-08-15"])
+    assert ev["shared_rows"] == [{"earlier": shared[0]["b"], "later": shared[0]["a"], "group": "g1", "name": "x"}]
+    assert rules.successor(old_, new_, [dict(a=shared[0]["b"], b=shared[0]["a"], group="g1", name="x")])["evidence"] == ev
+
+
+def test_the_name_pattern_alone_stays_near_and_the_names_must_fit():
+    old_ = _company("1", "ponsonby u3a", "2001-01-01")
+    new_ = _company("2", "ponsonby u3a (2017)", "2018-01-24")
+    assert rules.successor(old_, new_, []) is None                       # no person on both: company-name@1 keeps it near
+    p = [{"a": "a", "b": "b", "group": "g", "name": "n"}]
+    assert rules.successor(new_, _company("3", "ponsonby u3a (2019)", "2019-01-01"), p) is None   # both carry a year
+    assert rules.successor(old_, _company("4", "ponsonby u3a", "2019-01-01"), p) is None           # neither does: one name, company-name@1
+    assert rules.successor(_company("5", "onehunga club (2018)", "2018-05-30"), old_, p) is None   # another name
+    assert rules.bare_name("speirs foods (2018) lp") == "speirs foods lp" and rules.bare_name("(2018)") == ""
+
+
+def test_the_tables_carry_the_third_grade_and_the_view_never_shows_it_confirmed():
+    sql = links.tables_sql()
+    assert "CHECK (grade IN ('confirmed', 'near', 'related'))" in sql and "ALTER TABLE links.links ADD COLUMN IF NOT EXISTS relation " in sql
+    assert "links_relation_graded CHECK ((grade = 'related') = (relation IS NOT NULL))" in sql
+    pub = links.publish_sql()
+    assert "l.relation\nFROM links.links l" in pub                        # appended last: CREATE OR REPLACE VIEW keeps the columns before it
+    import inspect
+    from links import build
+    assert "WHERE grade = 'confirmed'" in inspect.getsource(build.components)   # the groups walk confirmed links only
+
+
+def _cand(ref, election, electorate=None, list_place=None, filed="UPSTON, Louise", party="National Party"):
+    return {"ref": f"house:candidates/{ref}", "election": election, "electorate": electorate, "list_place": list_place,
+            "name_filed": filed, "name_key": "louise upston", "party": party}
+
+
+def test_one_candidate_name_for_one_party_in_two_elections_is_one_person():
+    rows_ = [_cand("ge-2023/taupo/1", "ge-2023", "Taupō", 9), _cand("ge-2020/taupo/1", "ge-2020", "Taupō", 18)]
+    [(a, b, j)] = rules.same_party_candidates(rows_)
+    assert (j["rule"], j["grade"], j["reason"]) == (rules.RULE_SAME_PARTY, "confirmed", None)
+    assert (a, b) == ("house:candidates/ge-2020/taupo/1", "house:candidates/ge-2023/taupo/1")
+    ev = j["evidence"]
+    assert (ev["party"], ev["elections"], ev["seats"]) == ("National Party", ["ge-2020", "ge-2023"], ["Taupō, list 18", "Taupō, list 9"])
+    three = rules.same_party_candidates(rows_ + [_cand("ge-2026/x/1", "ge-2026", None, 12)])
+    assert [j["grade"] for *_, j in three] == ["confirmed", "confirmed"] and three[1][2]["evidence"]["seats"][1] == "list 12"
+    assert rules.same_party_candidates(rows_[:1]) == []
+
+
+def test_two_of_the_name_for_the_party_in_one_election_and_no_pair_confirms():
+    rows_ = [_cand("ge-2020/a/1", "ge-2020", "Ōhāriu"), _cand("ge-2023/a/1", "ge-2023", "Ōhāriu"), _cand("ge-2023/b/1", "ge-2023", "Rongotai")]
+    out = rules.same_party_candidates(rows_)
+    assert [(j["grade"], j["reason"]) for *_, j in out] == [("near", rules.NEAR_SAME_ELECTION)] * 2
+    assert out[0][2]["evidence"]["elections_with_two_of_this_name"] == ["ge-2023"]
+    # two in one election and never another: still near, still said
+    assert [j["grade"] for *_, j in rules.same_party_candidates(rows_[1:])] == ["near"]

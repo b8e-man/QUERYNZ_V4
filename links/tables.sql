@@ -10,16 +10,31 @@ CREATE TABLE IF NOT EXISTS links.links (
     row_b        text NOT NULL,
     rule         text NOT NULL,            -- the rule that joined them, by name and version: 'full-name@1'
     evidence     jsonb NOT NULL,           -- what the rule saw, enough to show a reader
-    grade        text NOT NULL CHECK (grade IN ('confirmed', 'near')),
+    grade        text NOT NULL CONSTRAINT links_grade_check CHECK (grade IN ('confirmed', 'near', 'related')),
     reason       text,                     -- for a near link: why it is only near
     built_at     timestamptz NOT NULL DEFAULT now(),
+    relation     text,                     -- for a related link (ruling 106): what the one row is to the other, read row by row in `evidence`
     CONSTRAINT links_pair_order CHECK (row_a < row_b),
+    CONSTRAINT links_relation_graded CHECK ((grade = 'related') = (relation IS NOT NULL)),
     UNIQUE (row_a, row_b, rule)
 );
 CREATE INDEX IF NOT EXISTS links_row_b ON links.links (row_b);
 -- a rebuild deletes and refills millions of rows; autovacuum's truncation of the emptied pages took an exclusive lock
 -- against the refill and deadlocked it twice (20 October 2026). The pages are reused on the next build.
 ALTER TABLE links.links SET (vacuum_truncate = off);
+-- The third grade (ruling 106, links-3): a relation between two rows that is not an identity ('succeeded by'). A table made
+-- before it has the two-grade check and no `relation`; the check is replaced once, only where it still lacks the grade.
+ALTER TABLE links.links ADD COLUMN IF NOT EXISTS relation text;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'links.links'::regclass AND conname = 'links_grade_check'
+                   AND pg_get_constraintdef(oid) LIKE '%related%') THEN
+        ALTER TABLE links.links DROP CONSTRAINT IF EXISTS links_grade_check;
+        ALTER TABLE links.links ADD CONSTRAINT links_grade_check CHECK (grade IN ('confirmed', 'near', 'related'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'links.links'::regclass AND conname = 'links_relation_graded') THEN
+        ALTER TABLE links.links ADD CONSTRAINT links_relation_graded CHECK ((grade = 'related') = (relation IS NOT NULL));
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS links.decisions (
     decision_id  bigserial PRIMARY KEY,
