@@ -122,6 +122,9 @@ RULE_WORDS = {
     "member-and-party-donor": "a member's name on a donation to the member's own party, in the term",
     "own-return": "a donor in the candidate's own name, on the candidate's own return",
     "coupled-name": "one of the people a donation filed as two names",
+    "organisation-sole-company": "a donation's organisation name and the one company of the name live in its year",   # ruling 106 (1)
+    "successor-name": "a company succeeded by another of its name with a year in brackets, a person on both",        # ruling 106 (2), related
+    "candidate-same-party": "one candidate name standing for one party in two elections",                            # ruling 106 (3)
 }
 
 

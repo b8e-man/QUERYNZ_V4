@@ -1,14 +1,16 @@
 """The board's page, served on the local network only (design rule 7;
 hard limit 13), with the least machinery that works: the standard
 library's HTTP server, one page per request. Script runs on the graph tab
-alone (ruling 100), from the board's own /static/ files; every page carries
-a content security policy that lets it ask nothing of any other address.
+(ruling 100) and on the search tab's graph beside the results (ruling 108),
+from the board's own /static/ files; every page carries a content security
+policy that lets it ask nothing of any other address.
 Routes:
 
   GET  /?q=<term>&p=<view:key|view:key|person:view:key…>&all=<0|1>&r=<register>…&first=&middle=&last=&address=&org=&year=
                     the search tab: the left pane (check boxes, the search box, the fields of the expanded search,
                     ruling 82), the results beside it with the near matches below them (ruling 83), then one pane per
-                    step of the path
+                    step of the path; ruling 108: the results under one tab per field matched, in rows or entities
+                    (`g=entities`), and an empty graph pane beside them that a click on a result fills from /graph.json
   GET  /graph?q=<term>&all=<0|1>&r=<register>…&c=<view:key>   the graph tab: the matching rows as nodes, the
                     connections their registers assert as edges, one hop; `c` re-centres on one row; the picture is
                     a Cytoscape canvas (ruling 100) with the SVG inside <noscript>
@@ -169,7 +171,7 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         asked = boxes.asked()
         asking = bool(q or asked) and bool(regs)
         results = search.search(conn, q, limit=search.RESULTS_LIMIT, registers=regs, fields=asked, mode=boxes.mode,
-                                removed=boxes.removed) if asking else {}
+                                removed=boxes.removed, tabs=True) if asking else {}
         nearby = near.near(conn, q, asked, registers=regs, held=held, mode=boxes.mode, removed=boxes.removed) if asking else None     # ruling 83, below the exact results
         pinned = {(p["view"], p["key"]) for p in state.pins(conn)}
         same = same_name_memo(conn)
@@ -200,8 +202,13 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         out = [panes.left_pane(q, search.held_registers(held), boxes)]
         if near_names:
             out.append(panes.near_names_pane(q, near.near_names(conn, q, asked, registers=regs, held=held), boxes))
+        ents = None
+        if boxes.people and asking:                    # ruling 108 (1): the entity state on the results pane
+            hits = [(v, r) for hits in results.values() if isinstance(hits, list) for v, _, rows in hits for r in rows]
+            ents = people.gather(conn, hits, people.named_groups(conn, q, asked, regs))     # ruling 108 (3): entity search
         if q or asked or tv is None:                   # with a table open and nothing asked, the table sits beside the search
-            out.append(panes.results_pane(q, results, held, regs, boxes, words, nearby, docs, far))
+            pane = panes.results_pane(q, results, held, regs, boxes, words, nearby, docs, far, ents)
+            out.append(f'<div class="duo">{pane}{graph.side_pane(boxes)}</div>' if asking else pane)     # ruling 108 (4)
         if tv is not None:
             out.append(panes.table_pane(q, tv, total, trows, boxes._replace(table=tv.name), held, far, hidden))
         for i, (person, view, r) in enumerate(steps):

@@ -16,7 +16,7 @@ import urllib.parse
 
 from products.board import catalogue as cat
 from products.board import document
-from products.board.search import FIELD_LABEL, FIELDS, MODES, field_words, words_of
+from products.board.search import FIELD_LABEL, FIELDS, MODES, TABS, field_words, words_of
 from products.board.search import add_alternative as search_add, drop_alternative as search_drop
 from products.board.search import FIRST as FIRST_BOXES, TABLE_MAX as TABLE_MAX_N, TABLE_PAGE as TABLE_PAGE_N
 
@@ -116,6 +116,30 @@ div.cy{height:66vh;min-height:26rem;color:#e8eaed;background:#161a20;outline-col
 .legend{font-size:12px;color:#aab1bc;margin:0 0 .3rem}
 .legend span.swatch{display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 .3rem 0 .8rem;vertical-align:middle}
 div.tip{position:absolute;z-index:3;max-width:250px;pointer-events:none;font-size:12px;color:#e8eaed;background:#232833;border:1px solid #5a6270;border-radius:3px;padding:.3rem .45rem}
+div.ftabs{margin-top:.5rem}
+div.ftabs input.ft{position:absolute;opacity:0;width:1px;height:1px}
+div.ftabs label{display:inline-block;margin:0 .2rem .3rem 0;padding:.2rem .55rem;border:1px solid #5a6270;border-radius:4px;cursor:pointer;font-size:13px}
+div.ftabs input.ft:checked+label{background:#1d3a5f;color:#e8eaed;border-color:#8cb8ff}
+div.ftabs input.ft:focus-visible+label{outline:2px solid #8cb8ff}
+div.ftab{display:none;border-top:1px solid #3a404c}
+#ft-first:checked~#ftab-first{display:block}
+#ft-middle:checked~#ftab-middle{display:block}
+#ft-last:checked~#ftab-last{display:block}
+#ft-address:checked~#ftab-address{display:block}
+#ft-org:checked~#ftab-org{display:block}
+#ft-year:checked~#ftab-year{display:block}
+#ft-number:checked~#ftab-number{display:block}
+#ft-other:checked~#ftab-other{display:block}
+details.regs{border-top:1px solid #3a404c;padding:.3rem 0}
+details.regs summary{cursor:pointer;font-size:13px;font-weight:600}
+article.hit[data-graph]{cursor:pointer}
+article.hit.on{background:#1d3a5f}
+article.entity{border-left:3px solid #8cb8ff;padding-left:.5rem}
+div.duo{display:flex;gap:.75rem;align-items:flex-start;flex:0 0 auto}
+.pane.side{display:none;flex:0 0 40rem;max-width:40rem;position:sticky;top:3.75rem}
+.pane.side.on{display:block}
+.pane.side div.cy{height:60vh;min-height:20rem}
+@media (max-width:75rem){div.duo{flex-direction:column}.pane.side{position:static;flex-basis:auto;width:46rem;max-width:calc(100vw - 2rem)}}
 """
 TEXT_FLOOR = 4.5         # the common accessibility floor for text (WCAG 2 AA)
 EDGE_FLOOR = 3.0         # for a line or a mark that is not text (WCAG 2 non-text contrast)
@@ -703,7 +727,8 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: di
     `why`, for a near match, says which kind it is (ruling 83); `far`, the
     rows its key columns name (search.far_rows, ruling 92 (2))."""
     link = f'<a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], boxes))}"><strong>{mark(title_of(v, r), words)}</strong></a>'
-    out = ['<article class="hit">'] + ([f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
+    out = [f'<article class="hit" data-graph="{esc(graph_href(f"{v.name}:{r["key"]}", boxes))}">'] + (
+           [f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
            f'<div>{struck(v, r, link)} '
            f'<span class="meta">{esc(v.name)}</span></div>']
     if is_suppressed(v, r):
@@ -731,14 +756,154 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: di
     return "".join(out)
 
 
+def graph_href(nid: str, boxes=None) -> str:
+    """/graph.json centred on one row, the check boxes carried and with them the state (ruling 105's `g=entities`):
+    a node's one hop on the graph tab, and the graph a result opens beside the results (ruling 108 (4))."""
+    return "/graph.json?" + urllib.parse.urlencode([("c", nid)] + (boxes.params() if boxes is not None else []))
+
+
+RESULTS_ENTITY_NOTE = ("The groups the links lane built (pub.groups) that the matching rows fall in, and those whose rows "
+                       "carry the name searched (pub.names), each with its count of rows and registers; the board makes no "
+                       "link by looking. The ")
+TAB_FIELDS_NOTE = ("A tab for each field that matched, its count the rows under it; a row matching several fields is under each. "
+                   "Each register opens to its rows.")
+
+
+def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None) -> str:
+    """One entity in the results pane (ruling 108 (1)): its name (the fullest
+    filed, people.describe), "n rows, n registers", contested marked, the
+    registers named, the rows of this search it holds; its link opens its
+    pane, a click on it the graph beside the results, centred on it."""
+    centre = f"{in_hand[0][0].name}:{in_hand[0][1]['key']}" if in_hand else e.get("centre") or ""
+    link = f'<a class="row" href="{esc(href(q, ["entity:" + e["group_id"]], boxes))}"><strong>{mark(e["label"], words)}</strong></a>'
+    out = [f'<article class="hit entity"{f" data-graph={chr(34)}{esc(graph_href(centre, boxes))}{chr(34)}" if centre else ""}>',
+           f'<div>{link} <span class="meta">entity</span></div>',
+           f'<div class="note">{esc(e["count"])}' + (' · <span class="warn">contested</span>' if e["contested"] else "") + "</div>",
+           f'<div class="meta">{esc("; ".join(e.get("registers_named") or []))}</div>']
+    if in_hand:
+        shown = ", ".join(esc(title_of(v, r)) for v, r in in_hand[:5])
+        more = f" and {len(in_hand) - 5:,} more" if len(in_hand) > 5 else ""
+        out.append(f'<div class="meta">matching here: {shown}{more}</div>')
+    else:
+        out.append('<div class="meta">found by its rows\' filed name (pub.names), no row heading this list</div>')
+    out.append("</article>")
+    return "".join(out)
+
+
+def _register_rows(q, register, plain, hits, words, boxes, docs, far, collapsed: bool, hidden: int = 0) -> list:
+    """One register's rows under a results heading; with `collapsed`, a
+    details element closed to its name and count (ruling 108 (2))."""
+    total = sum(n for _, n, _ in hits)
+    body = []
+    for v, n, rows in hits:
+        body.append(f'<div class="view"><strong>{esc(v.name)}</strong> <span class="count">{n:,}</span></div>')
+        for r in rows:
+            body.append(hit(q, v, r, words, boxes, docs=docs, far=far))
+        if n > len(rows):
+            body.append(f'<p class="note">and {n - len(rows):,} more in {esc(v.name)}; narrow the search</p>')
+    if collapsed:
+        return [f'<details class="regs"><summary>{esc(plain)} <span class="count">{total:,}</span>{hidden_line(hidden)}</summary>']\
+            + body + ["</details>"]
+    return [f'<h3>{esc(plain)} <span class="count">{total:,}</span>{hidden_line(hidden)}</h3>'] + body
+
+
+def _entities_part(q, rows, ents: dict, words, boxes, tab: str = None) -> tuple:
+    """(html lines, ids of the rows gathered): the entities `rows` [(v, r)]
+    fall in, then those the entity search found under `tab` (ruling 108 (3)),
+    most rows of this search first; RESULT_ENTITIES at most, the rest counted."""
+    from products.board.people import RESULT_ENTITIES
+    hand, gathered = {}, set()
+    for v, r in rows:
+        gid = ents["group"].get(f"{v.name}:{r['key']}")
+        if gid is not None:
+            hand.setdefault(gid, []).append((v, r))
+            gathered.add(f"{v.name}:{r['key']}")
+    named = [g for g, t in ents.get("named", {}).items() if g not in hand and (tab is None or tab in t)]
+    gids = sorted(hand, key=lambda g: (-len(hand[g]), -ents["entity"][g]["rows"], ents["entity"][g]["label"], g)) \
+        + sorted(named, key=lambda g: (-ents["entity"][g]["rows"], ents["entity"][g]["label"], g))
+    out = [f'<h3>Entities <span class="count">{len(gids):,}</span></h3>']
+    if not gids:
+        out.append('<p class="why">none found: no matching row is in a group</p>')
+    for g in gids[:RESULT_ENTITIES]:
+        out.append(entity_hit(q, ents["entity"][g], hand.get(g, []), words, boxes))
+    if len(gids) > RESULT_ENTITIES:
+        out.append(f'<p class="note">and {len(gids) - RESULT_ENTITIES:,} more entities; narrow the search</p>')
+    return out, gathered
+
+
+def _listing(q, by_reg: dict, regs: tuple, held: set, boxes, words, docs, far, hidden: dict, ents: dict = None,
+             tab: str = None, collapsed: bool = False, asked: dict = None) -> list:
+    """The results under one tab, or the one list: by register in the
+    catalogue's order. In the entity state (`ents`, people.gather) the
+    entities first, then the rows in no group, as rows (ruling 108 (1))."""
+    out = []
+    if ents is not None:
+        rows = [(v, r) for register, _ in cat.REGISTERS for v, _, rs in by_reg.get(register, []) for r in rs]
+        part, gathered = _entities_part(q, rows, ents, words, boxes, tab)
+        out += part
+        out.append('<h3>Rows in no group</h3>')
+        by_reg = {reg: [(v, n, [r for r in rs if f"{v.name}:{r['key']}" not in gathered]) for v, n, rs in by_reg.get(reg, [])]
+                  for reg, _ in cat.REGISTERS}
+        by_reg = {reg: [(v, n, rs) for v, n, rs in hits if rs] for reg, hits in by_reg.items()}
+        if not any(by_reg.values()):
+            out.append('<p class="why">none: every row shown is in an entity above</p>')
+    for register, plain in cat.REGISTERS:
+        if register not in regs:
+            continue
+        hits = by_reg.get(register, [])
+        present = [v for v in cat.views_of(register) if v.name in held]
+        hid = sum(n for x, n in (hidden or {}).items() if x in {v.name for v in present})
+        if collapsed or ents is not None:
+            if hits:
+                out += _register_rows(q, register, plain, hits, words, boxes, docs, far, collapsed, hid)
+            continue
+        if not present:
+            out.append(f'<h3>{esc(plain)} <span class="count">0</span></h3><p class="why">not held</p>')
+            continue
+        if not hits:
+            out.append(f'<h3>{esc(plain)} <span class="count">0</span>{hidden_line(hid)}</h3>')
+            lacking = [label for f, label in FIELDS if (asked or {}).get(f) and not any(holds(v, f) for v in present)]
+            if getattr(boxes, "mode", "all") == "any" and len(lacking) < len(asked or {}):
+                lacking = []                                  # any field: a register holding one of them was searched
+            out.append(f'<p class="why">none found{": none of its views holds a column for " + esc(", ".join(lacking)) if lacking else ""}</p>')
+            continue
+        out += _register_rows(q, register, plain, hits, words, boxes, docs, far, False, hid)
+    return out
+
+
+def tabbed(results: dict, ents: dict = None) -> list:
+    """[(tab, label, rows under it, {register: [(view, count under the tab, its rows)]})]
+    for the tabs with a row, or with an entity the entity search found under it
+    (ruling 108 (2), (3)), in search.TABS order; the counts are each view's
+    `_n_<tab>` (search.tab_sql), the whole count, not the rows shown."""
+    named = {t for ts in ((ents or {}).get("named") or {}).values() for t in ts}
+    out = []
+    for t, label in TABS:
+        by_reg, n = {}, 0
+        for register, _ in cat.REGISTERS:
+            for v, _, rows in results.get(register, []):
+                k = int(rows[0].get(f"_n_{t}") or 0) if rows else 0
+                if k:
+                    by_reg.setdefault(register, []).append((v, k, [r for r in rows if r.get(f"_tab_{t}")]))
+                    n += k
+        if n or t in named:
+            out.append((t, label, n, by_reg))
+    return out
+
+
 def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(), near: dict = None, docs: dict = None,
-                 far: dict = None) -> str:
+                 far: dict = None, ents: dict = None) -> str:
     """The wider pane beside the left one: every matching row, grouped by
     register with the register's count, over `regs`, the registers searched
     (search.selection); `boxes` the check boxes every href carries, and the
     filled fields (ruling 82); `near`, the near matches below (ruling 83);
-    `docs`, the cited documents' states (document.statuses, ruling 86 (4))."""
-    out = ['<section class="pane wide" id="results">', '<div class="reg">results</div>']
+    `docs`, the cited documents' states (document.statuses, ruling 86 (4)).
+    Ruling 108: where the search ran with tabs (`results['tabs']`, the
+    search box alone or "any field may match"), one tab per field matched,
+    each register under it closed to its name and count; `ents`
+    (people.gather) the entity state, entities first, then the rows in no
+    group. A click on a result opens the graph beside the pane (graph.js)."""
+    out = ['<section class="pane wide" id="results">', '<div class="reg">results' + (" · entities" if ents is not None else "") + "</div>"]
     asked = boxes.asked() if boxes is not None else {}
     if not boxes.all and not regs:
         out.append(f"<h2>Results</h2><p class=\"why\">{NOTHING_TICKED}</p></section>")
@@ -746,38 +911,62 @@ def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(),
     if not q and not asked:
         out.append("<h2>Results</h2><p class=\"why\">Type a name, an address or a number in the search box.</p></section>")
         return "\n".join(out)
+    out.append(results_switch(q, boxes))
     out.append(f"<h2>{esc(q) if q else 'By field'}</h2>")
     out.append(f'<p class="note">searched: {"every held register" if boxes.all else esc(", ".join(REGISTER_NAME.get(x, x) for x in regs))}</p>')
     out.append(narrowed_line(boxes))
     if asked.get("year") and not re.fullmatch(r"\d{4}", asked["year"].strip()):
         out.append('<p class="warn">a year is four digits: nothing was searched</p>')
-    for register, plain in cat.REGISTERS:
-        if register not in regs:
-            continue
-        hits = results.get(register, [])
-        present = [v for v in cat.views_of(register) if v.name in held]
-        total = sum(n for _, n, _ in hits)
-        hidden = sum(n for x, n in (results.get("hidden") or {}).items() if x in {v.name for v in present})
-        out.append(f'<h3>{esc(plain)} <span class="count">{total:,}</span>{hidden_line(hidden)}</h3>')
-        if not present:
-            out.append('<p class="why">not held</p>')
-            continue
-        if not hits:
-            lacking = [label for f, label in FIELDS if asked.get(f) and not any(holds(v, f) for v in present)]
-            if getattr(boxes, "mode", "all") == "any" and len(lacking) < len(asked):
-                lacking = []                                  # any field: a register holding one of them was searched
-            out.append(f'<p class="why">none found{": none of its views holds a column for " + esc(", ".join(lacking)) if lacking else ""}</p>')
-            continue
-        for v, n, rows in hits:
-            out.append(f'<div class="view"><strong>{esc(v.name)}</strong> <span class="count">{n:,}</span></div>')
-            for r in rows:
-                out.append(hit(q, v, r, words, boxes, docs=docs, far=far))
-            if n > len(rows):
-                out.append(f'<p class="note">and {n - len(rows):,} more in {esc(v.name)}; narrow the search</p>')
+    if ents is not None:
+        out.append(f'<p class="note">{esc(RESULTS_ENTITY_NOTE)}{esc(ENTITY_LABEL_NOTE)}. A row whose name is suppressed is never gathered.</p>')
+    hidden = results.get("hidden") or {}
+    tabs = tabbed(results, ents) if results.get("tabs") else None
+    if tabs is None:
+        out += _listing(q, results, regs, held, boxes, words, docs, far, hidden, ents, asked=asked)
+    elif not tabs:
+        out.append('<p class="why">none found</p>')
+    else:
+        out.append(register_totals(results, regs, held, hidden))
+        out.append(f'<p class="note">{esc(TAB_FIELDS_NOTE)}</p><div class="ftabs">')
+        for i, (t, label, n, _) in enumerate(tabs):
+            out.append(f'<input type="radio" class="ft" name="ftab" id="ft-{t}"{" checked" if i == 0 else ""}>'
+                       f'<label for="ft-{t}">{esc(label)} <span class="count">{n:,}</span></label>')
+        for t, label, n, by_reg in tabs:
+            out.append(f'<div class="ftab" id="ftab-{t}">')
+            out += _listing(q, by_reg, regs, held, boxes, words, docs, far, {}, ents, tab=t, collapsed=True)
+            out.append("</div>")
+        out.append("</div>")
     if near is not None:
         out.append(near_section(q, near, words, boxes, docs, far))
     out.append("</section>")
     return "\n".join(out)
+
+
+def register_totals(results: dict, regs: tuple, held: set, hidden: dict) -> str:
+    """Above the tabs: each register searched that matched, with its count of
+    rows matched and its removed rows hidden (ruling 93), the one place the
+    tabs' registers are counted whole."""
+    parts = []
+    for register, plain in cat.REGISTERS:
+        hits = (results.get(register) or []) if register in regs else []
+        n = sum(x for _, x, _ in hits)
+        names = {v.name for v in cat.views_of(register) if v.name in held}
+        hid = sum(x for k, x in (hidden or {}).items() if k in names)
+        if n or hid:
+            parts.append(f'<span class="regtotal">{esc(plain)} <span class="count">{n:,}</span>{hidden_line(hid)}</span>')
+    return '<p class="meta">matched: ' + (" · ".join(parts) or "none") + "</p>"
+
+
+def results_switch(q: str, boxes) -> str:
+    """Ruling 105's one switch, on the results pane too (ruling 108 (1)):
+    rows or entities, the state in the address (`g=entities`), the path dropped."""
+    parts = []
+    for label, on in (("rows", False), ("entities", True)):
+        if on == bool(getattr(boxes, "people", False)):
+            parts.append(f'<strong aria-current="true">{label}</strong>')
+        else:
+            parts.append(f'<a href="{esc(href(q, [], boxes._replace(people=on)))}">{label}</a>')
+    return '<p class="switch" id="state">show: ' + " · ".join(parts) + "</p>"
 
 
 def holds(v: cat.View, field: str) -> bool:
