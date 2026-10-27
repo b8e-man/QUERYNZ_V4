@@ -159,6 +159,20 @@ def test_only_a_main_session_may_place_a_qv4_job_file_and_never_another(fake_rep
     assert run(fake_repo, write(f"{unit_dir}/qv4-checks-board.service"))[0] == 2
 
 
+def test_a_main_session_may_write_the_harness_memory_folder_and_a_build_session_may_not(fake_repo):
+    # ruling 103 (28 October): the integrator keeps Claude Code's memory for the checkout it runs in
+    memory = os.path.join(os.path.expanduser("~/.claude/projects"),
+                          "".join(c if c.isalnum() else "-" for c in fake_repo), "memory")
+    for w in ("founding", "integrator"):
+        set_scope(fake_repo, scope_text(weight=w, folders=()))
+        assert run(fake_repo, write(f"{memory}/integrator-hook-traps.md"))[0] == 0, w
+        assert run(fake_repo, bash(f"printf '%s\\n' '- [x](x.md) - y' >> {memory}/MEMORY.md"))[0] == 0, w
+        assert run(fake_repo, write(f"{os.path.dirname(memory)}/other.md"))[0] == 2, w
+    set_scope(fake_repo, scope_text())
+    rc, err = run(fake_repo, write(f"{memory}/x.md"))
+    assert rc == 2 and "outside the repository" in err
+
+
 def test_build_session_cannot_touch_the_stop_list_or_the_old_folder(fake_repo):
     assert run(fake_repo, write("/home/user/querynzv4-work/live/stop-list.md"))[0] == 2
     rc, err = run(fake_repo, write(f"{OLD}/ops/systemd/MANIFEST.json"))

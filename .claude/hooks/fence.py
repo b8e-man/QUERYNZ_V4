@@ -51,6 +51,11 @@ REF_COPY = os.environ.get("QV4_REF_COPY") or "/home/user/qnz3-ref"
 # there only under the `qv4-` prefix (hard limit 23); step 2's installer takes
 # over once it exists
 UNIT_DIR = os.environ.get("QV4_UNIT_DIR") or os.path.expanduser("~/.config/systemd/user")
+# Claude Code keeps its notes per start folder under ~/.claude/projects/<slug>/memory,
+# the slug being the folder's path with every non-alphanumeric character a dash; a
+# founding or integrator session writes the one for the checkout it runs in (ruling 103)
+MEMORY = os.environ.get("QV4_MEMORY") or os.path.join(
+    os.path.expanduser("~/.claude/projects"), "".join(c if c.isalnum() else "-" for c in REPO), "memory")
 # the only paths in the live old folder a founding session may write: the two
 # freeze commits of step 1.5 and what the old pre-push gate asks for with them
 OLD_LIVE_FREEZE = [

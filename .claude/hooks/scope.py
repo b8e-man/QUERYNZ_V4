@@ -24,8 +24,10 @@ and judges every write the tools would make:
                                 repository and the step 1.5 freeze paths in
                                 the live old folder; for a founding or
                                 integrator session a `qv4-` job file in the
-                                user unit folder; an integrator may also
-                                tidy the working copies under querynzv4-work
+                                user unit folder, and Claude Code's memory
+                                folder for the checkout (ruling 103); an
+                                integrator may also tidy the working copies
+                                under querynzv4-work
 
 Edit/Write/MultiEdit/NotebookEdit are judged by file_path; Bash by the write
 scan in fence.py. A scope file the hook cannot parse refuses everything but a
@@ -92,6 +94,8 @@ def judge(target: str, scope: dict, session_id: str) -> str:
         if os.path.basename(path).startswith("qv4-"):
             return ""
         return f"`{path}` is a job file without the qv4- prefix: the new estate never touches one (hard limit 23)"
+    if main and fence.under(path, fence.MEMORY):
+        return ""
     if weight == "founding":
         if fence.under(path, os.path.dirname(fence.STOP_LIST)):
             return ""
