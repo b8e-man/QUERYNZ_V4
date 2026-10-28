@@ -160,3 +160,48 @@ def test_the_settlement_map_read_back_holds_and_catches_each_planted_fault(name)
             blanked["reasons"] = []
             blanked["grade"] = "confirmed"
             assert any("shown as none found" in p for p in caught(blanked)), name
+
+
+def test_a_near_link_between_two_group_ids_is_found_from_two_other_rows_and_the_row_lookup_would_miss_it(monkeypatch):
+    """The links lane stores name-only@1 as a star between groups and moves
+    its centre when it rebuilds (links/spec.md, "contract for readers"). A
+    live link between two group ids is read from a director row of each
+    group that is neither end: the check finds it, the walk reaches the
+    other group's row by it with the link's own reason, and the lookup by
+    the two rows themselves (the mutation) finds nothing."""
+    with pub() as c:
+        got = db.rows(c, """select l.reason, x.key as x, y.ref as y from pub.links l
+                              join pub.groups ga on ga.row_key = l.row_a and ga.group_id = l.row_a
+                              join pub.groups gb on gb.row_key = l.row_b and gb.group_id = l.row_b
+                              cross join lateral (select n.key from pub.groups m join pub.names n on n.ref = m.row_key and n.view = 'directors'
+                                                  where m.group_id = l.row_a and m.row_key <> l.row_a limit 1) x
+                              cross join lateral (select m.row_key as ref from pub.groups m join pub.names n on n.ref = m.row_key and n.view = 'directors'
+                                                  where m.group_id = l.row_b and m.row_key <> l.row_b limit 1) y
+                             where l.rule = 'name-only@1' limit 1""")
+        if not got:
+            pytest.skip("no name-only link joins two groups with a director row beside each end today")
+        f = got[0]
+        x = db.rows(c, "select ref from pub.names where view = 'directors' and key = %s", (f["x"],))[0]["ref"]
+        assert check.link_between(c, ["name-only@1"], x, f["y"])[0]["grade"] == "near"
+        assert check.link_between(c, ["name-only@1"], f["y"], x)[0]["reason"] == f["reason"]
+        import os
+        import tempfile
+        d = tempfile.mkdtemp()
+        with open(os.path.join(d, "template.toml"), "w", encoding="utf-8") as fh:
+            fh.write('name = "t"\ntitle = "T"\nquestion = "Which?"\njoin = "j"\nversion = "0"\nowner = "test"\n'
+                     '[[reads]]\nview = "directors"\nlicence = "CC BY 4.0"\n'
+                     '[[steps]]\nview = "directors"\nlabel = "director"\nwhere = { key = ["' + f["x"] + '"] }\n'
+                     '[[steps]]\nview = "directors"\nlabel = "namesake"\nby = "link"\nrule = "name-only@1"\n')
+        t = tpl.load(d)
+        have = {"directors": db.pub_columns(c, "directors")}
+
+        def reached() -> dict:
+            text, params = plan.sql(t, SET, "directors", None, have)
+            return {"companies:" + r["s1__key"]: r for r in db.rows(c, text, params)}
+
+        walk = reached()
+        assert f["y"] in walk and walk[f["y"]]["s1__grade"] == "near" and walk[f["y"]]["s1__reason"] == f["reason"]
+        monkeypatch.setattr(plan, "MEMBERS", "(select {ref} as k)")    # the mutation: back to the two rows themselves
+        monkeypatch.setattr(plan, "GROUP_ROWS", "select {ref} as k, true as own")
+        assert check.link_between(c, ["name-only@1"], x, f["y"]) == []
+        assert f["y"] not in reached()
