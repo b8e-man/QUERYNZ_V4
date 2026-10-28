@@ -972,3 +972,20 @@ section keeps a shared first and last name, a shared registered address
 and a shared official number over the groups. Built by the next board
 fix after board-13.
 
+119. Arthur, 29 October, 12:50, shown the Rank Group search (one group
+and eight lone rows: five shareholder rows naming RANK GROUP LIMITED as
+the holder, two Holdings (2010) holders, a Commerce Commission party) and
+offered a merge recorded as a decision: "i dont want a merge for rank
+group, I want an option to collapse the results into a single entity for
+the purpose of the graph view and I want this option to be available for
+all organisations". So the collapse section (ruling 112) gains a fold by
+hand: a reader ticks organisation entities in the results and collapses
+them into one entity for this view; the graph draws them as one node
+and the dossier lists the members as the entities they are. Like every
+collapse it is a display choice for the page, said as such on the entry,
+never a link and never a decision; the address carries it so the view
+reopens folded, and a saved path keeps it. Offered on every organisation
+entity, whatever its register; a person entity is not folded by hand
+(a person's identity is the links lane's and the review's). Built by
+board-14.
+

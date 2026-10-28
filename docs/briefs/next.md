@@ -516,6 +516,38 @@ bulk until the build is done. A lane's request for readings is answered
 with the store's sample and a note; the hashes it sets aside are the queue
 for later, one command.
 
+## board-14
+
+Build session, Opus, scope `products/board/`, after board-13 merges.
+Ruling 119: a fold by hand for organisations. Launched headless by the
+integrator, or on node2: `cd /home/user/querynzv4 && bin/start-session board-14 products/board`.
+
+```text
+You are a build session for QueryNZV4, running as Opus on node2, in the
+working copy the launcher made for you, scope products/board/. Read
+docs/PLAN.md, docs/plan/core.md, products/board/spec.md, rulings 105 to
+112 and 117 to 119 in docs/decisions/rulings.md, products/board/collapse.py
+and docs/status/board.md. Build ruling 119: in the results pane every
+organisation entity (a group or a lone row whose view the catalogue
+marks "organisation") carries a tick box; the collapse section gains
+"collapse the ticked into one", which folds the ticked entities into one
+entry for this view, named by the fullest name among them
+(collapse.label), the entry saying "collapsed here by hand; not a link"
+(collapse.words), its dossier listing the members as the entities they
+are (dossier.gather_fold), and the graph drawing the fold as one node
+with the same words (collapse.fold_graph). The fold is carried in the
+address so the view reopens folded and a saved path (board.paths) keeps
+it; a fold is never written anywhere else, never a link, never a
+decision, and the board still makes no link by looking. A person entity
+has no tick box. Test it on the search "Rank Group": the group Rank
+Group Limited, the five RANK GROUP LIMITED shareholder-holder rows and
+the Commerce Commission row fold into one node; the twenty other Rank
+Group companies stay apart unless ticked. Each tranche with a test that
+fails on main and passes on your branch, and the live render measured.
+Never print a home address or a suppressed name. Push the branch, raise
+the merge request board-14, write docs/status/board.md.
+```
+
 ## fix-products-board-6
 
 Fix session, Opus, scope `products/board/`. The card
