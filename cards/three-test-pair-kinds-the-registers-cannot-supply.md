@@ -49,3 +49,14 @@ amount on both) finds none. The charities kind still waits on a charities
 lane publishing; the monthly-file kind stays unsupplied. The one-person side
 is therefore 144 pairs, 142 of them politicians the lane's own identifier
 joins; the review agent's pass mark is measured on those, and said so.
+
+**After charities published (fix-links-1, ruling 114, 28 October).** The
+links rows now read `pub.charity_officers` (586,095 people). The feed's
+`OfficerId` is the view's own key: 589,366 identifiers on 589,366 rows,
+none repeated. It keys one officer row, not a person: one person on two
+charities, or across two returns, carries two identifiers. So the
+charities kind supplies **no** one-person pair, not hundreds
+(`links/measurements.md` section 10). The register's officer rows hold no
+other per-person identifier. The one-person side stays 144 pairs, 142 of
+them politicians, and the review agent's switch stays off. The card stays
+open: no kind is supplied yet.

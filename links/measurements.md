@@ -259,6 +259,74 @@ link is never walked). 15 s for measurement 9.
   back transaction, each turned items 6 and 8 red: a refiled relation five
   years apart (1), one with no shared person (1).
 
+## 10. Ruling 114's views and registers, 28 October 2026 (fix-links-1, second fix)
+
+A session may no longer write the live database (`support.db` refuses the
+owner login there), and the sample database publishes no views the rows can
+read, so this is a read-only run of the new code over the live published
+views through the read login, nothing written: the eight views through
+`rows.row_record` as the gather reads them, the bodies through
+`rows.BODY_SQL`, the donation rows through `rules.sole_body`, the near and
+full-name links estimated against the live groups (a row joins the group of
+any row of its full name with a middle name, as rule 1 makes them).
+Measurement 10 in `measure.py` counts the same from the tables after the
+first live build.
+
+**People.** The rows grow 2,861,853 → 3,619,802 (+757,949) and the name
+keys 1,010,393 → 1,339,246 (+328,853). No existing view loses a row to the
+new set-aside (a bare initial, or a name that is nothing outside brackets).
+
+| View | Read | Written | Set aside | Name keys | Near pairs added | Full-name links added |
+| --- | --- | --- | --- | --- | --- | --- |
+| charity officers (people; 3,271 body corporate not read) | 586,095 | 586,095 | 0 | 424,218 | 259,520 | 124,072 |
+| Gazette celebrants | 159,502 | 159,502 | 0 | 37,678 | 104,634 | 35,787 |
+| Gazette receivers and administrators | 6,045 | 6,045 | 0 | 687 | 2,261 | 3,681 |
+| party board roles | 2,876 | 2,876 | 0 | 116 | 2,850 | 8 |
+| local election candidates (204 rows for several candidates name nobody) | 1,979 | 1,976 | 3 "(combined)" | 1,560 | 1,134 | 0 (politician) |
+| building practitioner decisions | 264 | 261 | 3 suppressed | 224 | 173 | 14 |
+| limited partnership partners (people; 3,573 bodies not read) | 139 | 139 | 0 | 126 | 38 | 49 |
+| councillor interests | 56 | 56 | 0 | 15 | 51 | 0 (politician) |
+| **all eight** | | **757,949** | | | **373,477** | **166,841** |
+
+Each view's figures are with that view alone added. Party board roles are
+one row per captured page, so 116 names make 2,850 near pairs. Local
+candidates and councillors are politicians to the rules (near by name,
+never confirmed), as MPs and candidates are.
+
+**Organisations.** `links.bodies`: 1,920,468 Companies Office rows (every
+register `pub.companies` holds), 53,271 societies and 3,380 limited
+partnerships (every one the same body as a Companies Office row by NZBN,
+with the same number and dates), 46,139 charities (31,532 the same body as
+a Companies Office row: 29,384 by the NZBN the charities register carries,
+the rest by the company, society or trust-board number it carries where its
+legal structure names that register; 14,607 charities alone). Donation rows
+with a body of their name: 315, as before. **292 confirmed, the same 292
+pairs as @1** (262 `organisation-sole-company@2`, 30
+`organisation-one-live-company@2`); 0 new, 0 lost. By the body's register:
+companies 276, incorporated societies 12, other incorporated bodies 2 (a
+limited partnership the published partnerships register does not carry),
+limited partnerships 1, charitable trust boards 1 (also a registered
+charity). Near 63 (40 another was live, 20 removed before the year, 3
+registered after it); 6 now name "the companies and incorporated societies
+registers". Of the 550 organisation and estate donation rows, 235 have no body of
+their name on any of the four: party branches and electorate committees,
+unions, private trusts; none is a charity's other name. Why no charity is
+new: the societies, partnerships and trust boards the rule needed were
+already rows of `pub.companies`, and no donor's name is a charity's alone.
+
+**Time and memory.** The read-only pass over all 27 views took 48 s; the
+bodies' SQL 9 s. The three live `qv4-links-build` runs of 28 October peaked
+at 958 to 969 MB of the 4,096 declared, in 18 to 27 minutes. The build
+holds in memory the components of the confirmed links (rows +26%,
+confirmed links about +7%) and streams the rest; the bodies are copied
+without a set in memory. Estimate: under 1.4 GB, within the declared 4 GB.
+
+**Test pairs.** The charities officer identifier keys one officer row:
+589,366 identifiers on 589,366 rows, none repeated. One person on two
+charities, or across two returns, carries two identifiers, so it supplies
+no one-person pair (card `three-test-pair-kinds-the-registers-cannot-supply`).
+The review agent's switch stays off.
+
 ## Track C: the review agent scored on the test pairs, 20 October 2026
 
 Run `score-1` in `scratch_review` on the real published tables (`links.scores`,
@@ -294,8 +362,9 @@ reached the model, and it kept both. So the model's own rate of wrongly
 splitting one person is measured on 2 pairs, which is no measurement. The
 registers hold no other one-person kind yet (card
 `three-test-pair-kinds-the-registers-cannot-supply`); the charities officer
-identifier will supply hundreds once a charities lane publishes, and the
-switch should stay off until the model has been scored on them.
+identifier was expected to supply hundreds once a charities lane published;
+it supplies none (section 10: it keys a row, not a person), and the switch
+stays off.
 
 **The model alone**, on the 181 two-people pairs the screen left it: 111
 caught (61.3 per 100; rare 54.1, middling 75.4, common 54.5), 70 kept. Its
