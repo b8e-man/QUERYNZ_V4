@@ -20,11 +20,13 @@
 - Tranche 2: the dossier head and the result cards say what the entity
   is ("director and shareholder, charity trustee"), never row counts,
   register counts or view names; a single-row card says its row's fact.
+- Tranche 3: the register table sorts every column both ways from its
+  heading, in SQL, the sort in the address (`ts=`); rows one line, three
+  lines or whole, and column widths, kept for the browser session.
 
 ## Half-done
 
-- Tranche 3 (table sort and resize), tranche 4 (the entity graph
-  fault): not started.
+- Tranche 4 (the entity graph fault): not started.
 
 ## Known limits
 

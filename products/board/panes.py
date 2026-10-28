@@ -98,9 +98,17 @@ details.near summary{font-weight:600;cursor:pointer}
 .nearwhy{font-size:12px;color:#ffb26b}
 .pane.uses{flex:0 0 78rem;max-width:78rem}
 .pane.table{flex:0 0 72rem;max-width:72rem}
-table.grid{border-collapse:collapse;font-size:12px;table-layout:fixed;width:100%}
-table.grid th,table.grid td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:.1rem .4rem;border-top:1px solid #3a404c;text-align:left}
-table.grid th{color:#aab1bc;font-weight:normal}
+table.grid{border-collapse:collapse;font-size:12px}
+table.grid th,table.grid td{padding:.1rem .4rem;border-top:1px solid #3a404c;text-align:left;vertical-align:top}
+table.grid th{color:#aab1bc;font-weight:normal;white-space:nowrap}
+table.grid th>div.th{resize:horizontal;overflow:hidden;width:9rem;min-width:3rem}
+table.grid th:first-child>div.th{width:16rem}
+table.grid a.dir{text-decoration:none;color:#aab1bc;margin-left:.15rem}
+table.grid a.dir.on{color:#e8eaee}
+table.grid td>div.c{width:0;min-width:100%;overflow:hidden;line-height:1.35em}
+table.grid[data-lines="1"] td>div.c{white-space:nowrap;text-overflow:ellipsis;max-height:1.35em}
+table.grid[data-lines="3"] td>div.c{white-space:normal;overflow-wrap:anywhere;max-height:4.05em}
+table.grid[data-lines="all"] td>div.c{white-space:normal;overflow-wrap:anywhere}
 header span.db{margin-left:auto;font-size:12px;font-variant-numeric:tabular-nums;cursor:help}
 svg rect.bg{fill:#161a20}
 svg text{font:11px system-ui,sans-serif;fill:#e8eaed;paint-order:stroke;stroke:#161a20;stroke-width:3px}
@@ -608,16 +616,18 @@ def near_names_pane(q: str, data: dict, boxes) -> str:
 
 # ── a register as a table (ruling 92 (5)) ─────────────────────────────────
 
-CELL_CHARS = 40      # a cell's text is cut here, the whole value in its hover title
 
 
-def table_href(q: str, boxes, register: str = "", view: str = "", upto: int = 0) -> str:
+def table_href(q: str, boxes, register: str = "", view: str = "", upto: int = 0, sort: str = None) -> str:
     """The search tab with a register's table open: its main view (the first
     of its views the catalogue lists; the server takes the first published
     one, main_view, where it is not; the chooser offers the rest), or
-    `view`, from row 1 to upto + 100."""
+    `view`, from row 1 to upto + 100; `sort` (ruling 117 (3)) its sort, else
+    the open table's own where it is the same view, so "more" keeps it."""
     view = view or cat.main_view_of(register)
-    b = (boxes or FIRST_BOXES)._replace(table=view, upto=upto)
+    b = boxes or FIRST_BOXES
+    sort = (b.sort if b.table == view else "") if sort is None else sort
+    b = b._replace(table=view, upto=upto, sort=sort)
     return href(q, [], b) + "#table"
 
 
@@ -627,10 +637,20 @@ def main_view(register: str, held: set):
     return first if first.name in held else next((v for v in cat.views_of(register) if v.name in held), None)
 
 
-def one_line(text: str) -> tuple:
-    """(the cell's text cut to CELL_CHARS, escaped, the whole value for its title, escaped): one line, always."""
+CELL_MAX = 2000     # a cell holds its whole value up to here, for the reader to wrap (ruling 117 (3)); past it cut, the whole on hover
+#: the reader's controls above a table (static/table.js; ruling 117 (3)): the rows' height, and a word that a heading's
+#: right edge drags its column's width; both kept for this browser session alone, nothing sent or written
+TABLE_CONTROLS = ('<p class="note tablectl">rows: <select id="table-lines" title="the rows\' height: long values clip to it or wrap">'
+                  '<option value="1">one line, long values clipped</option><option value="3">three lines, wrapped</option>'
+                  '<option value="all">whole values, wrapped</option></select> · drag a heading\'s right edge to widen its column '
+                  '(kept for this browser session)</p>')
+
+
+def whole(text: str) -> tuple:
+    """(the cell's whole text on one line, escaped, cut only past CELL_MAX; the whole value for its title, escaped):
+    the browser clips it to the row's height or wraps it, as the reader sets (ruling 117 (3))."""
     t = " ".join(str(text).split())
-    return esc(t if len(t) <= CELL_CHARS else t[:CELL_CHARS - 1] + "…"), esc(t)
+    return esc(t if len(t) <= CELL_MAX else t[:CELL_MAX - 1] + "…"), esc(t)
 
 
 def plain(value, column: str = "") -> str:
@@ -654,31 +674,48 @@ def table_pane(q: str, v: cat.View, total: int, rows: list, boxes, held: set = (
         out.append('<p class="note">views: ' + " · ".join(
             f"<strong>{esc(w.name)}</strong>" if w.name == v.name else f'<a href="{esc(table_href(q, boxes, view=w.name))}">{esc(w.name)}</a>'
             for w in others) + "</p>")
-    out.append(f'<p class="note">rows 1 to {len(rows):,} of {total:,}, in the view order ({esc(v.default_order)}); one line each, '
-               "the whole value on hover; a name the register suppresses reads " + SUPPRESSED + ".</p>")
-    cols = [("title", "")] + [(label, c) for label, c in v.fields]
-    out.append('<table class="grid"><tr>' + "".join(f"<th>{esc(label)}</th>" for label, _ in cols) + "</tr>")
+    cols = [("title", "title")] + [(label, c) for label, c in v.fields]
+    label_of = dict((c, label) for label, c in cols)
+    key, desc = boxes.sort.lstrip("-"), boxes.sort.startswith("-")
+    order = (f"sorted by {esc(label_of[key])}, {'descending' if desc else 'ascending'}" if key in label_of
+             else f"in the view order ({esc(v.default_order)})")
+    out.append(f'<p class="note">rows 1 to {len(rows):,} of {total:,}, {order}; a heading sorts by its column (the sort is in the '
+               "address); one line each, the whole value on hover; a name the register suppresses reads " + SUPPRESSED + ".</p>")
+    out.append(TABLE_CONTROLS)
+    heads = []
+    for label, c in cols:
+        on = "ascending" if key == c and not desc else "descending" if key == c else ""
+        flip = f"-{c}" if on == "ascending" else c
+        heads.append(f'<th data-col="{esc(c)}"' + (f' aria-sort="{on}"' if on else "")
+                     + f'><div class="th"><a href="{esc(table_href(q, boxes, view=v.name, sort=flip))}">{esc(label)}</a> '
+                     f'<a class="dir{" on" if on == "ascending" else ""}" href="{esc(table_href(q, boxes, view=v.name, sort=c))}" '
+                     f'title="sort ascending">▲</a><a class="dir{" on" if on == "descending" else ""}" '
+                     f'href="{esc(table_href(q, boxes, view=v.name, sort="-" + c))}" title="sort descending">▼</a></div></th>')
+    out.append(f'<table class="grid" data-view="{esc(v.name)}" data-lines="1"><tr>' + "".join(heads) + "</tr>")
     for r in rows:
         cells = []
-        t, full = one_line(title_of(v, r))
+        t, full = whole(title_of(v, r))
         a = f'<a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], boxes))}">{t}</a>'
-        cells.append(f'<td title="{full}">{struck(v, r, a)}</td>')
+        cells.append(f'<td title="{full}"><div class="c">{struck(v, r, a)}</div></td>')
         for _, c in cols[1:]:
             p = cat.pointers(v).get(c)
             x = r.get(c)
             if far is not None and p and x not in (None, ""):
                 fr = far.get((p[0], p[1], str(x)))
                 if fr is None:
-                    t, _ = one_line(f"{x} {NOT_HELD_ROW}")
-                    cells.append(f'<td title="{esc(x)}">{t}</td>')
+                    t, _ = whole(f"{x} {NOT_HELD_ROW}")
+                    cells.append(f'<td title="{esc(x)}"><div class="c">{t}</div></td>')
                 else:
-                    t, _ = one_line(title_of(cat.BY_NAME[p[0]], fr))
-                    cells.append(f'<td title="{esc(x)}"><a class="row" href="{esc(href(q, [f"{p[0]}:{fr["key"]}"], boxes))}">{t}</a></td>')
+                    t, _ = whole(title_of(cat.BY_NAME[p[0]], fr))
+                    cells.append(f'<td title="{esc(x)}"><div class="c"><a class="row" href="{esc(href(q, [f"{p[0]}:{fr["key"]}"], boxes))}">'
+                                 f'{t}</a></div></td>')
                 continue
-            t, full = one_line(plain(shown(v, r, c), c))
-            cells.append(f'<td title="{full}">{t}</td>')
+            t, full = whole(plain(shown(v, r, c), c))
+            cells.append(f'<td title="{full}"><div class="c">{t}</div></td>')
         out.append("<tr>" + "".join(cells) + "</tr>")
     out.append("</table>")
+    from products.board import assets
+    out.append(f'<script src="{esc(assets.url("table.js"))}" defer></script>')
     if len(rows) < total:
         upto = boxes.upto + TABLE_PAGE_N
         if upto < TABLE_MAX_N:
