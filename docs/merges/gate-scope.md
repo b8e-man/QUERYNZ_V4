@@ -4,3 +4,6 @@ raised: 2026-10-28
 
 ## Result (integrator, 28 October 18:45 NZDT)
 Merged 8101c63, gate green at the first run (the last full run of the old shape: 27 minutes). `bin/merge-gate` now runs the fast tier for the whole repository, then the slow tests of the modules the branch touches and of their readers (links/, checks/, products/ when a lane's publish.sql, pane.md, tables.sql, spec.md or profiles change), then the staging load; a branch touching support/, bin/, .claude/, the root tests, the plan or the test configuration still runs every slow test. The plan's row for the gate reworded; a toy test in tests/test_launcher_and_gate.py proves the four cases. Released.
+
+## Result (integrator, 28 October 19:47 NZDT, second part)
+Merged 3d1401a as `integrate/gate-scope-2`, gate green at the first run (a full run, since bin/ was touched: 27 minutes). The contract flag now applies only to a publishing module (registers/*, keys, links): a reader's own spec.md or pane.md pulls in that module's slow tests alone, not every reader's. Toy case `reader-spec` added to tests/test_launcher_and_gate.py. Released.
