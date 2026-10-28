@@ -850,3 +850,15 @@ namesakes, its enterprise members) comes back on the board as the board's
 own pane for an entity, built from the published views and the links
 lane's tables alone, and opens under the graph when a result or a node is
 chosen. Built by board-11.
+
+111. Arthur, 28 October, 16:50, on the results pane after ruling 108 and
+the dossier of ruling 110: "we dont need the rows section in the results
+pane because your handling of the entities section was so elegant. All
+rows will be visible in the dossier. We also no longer need the graph tab
+at the top navigation". So the results pane lists entities only (groups,
+then lone rows as single-row entities), in every state; the rows and
+entities switch governs the graph alone; a row is reached through its
+entity's dossier; and the graph tab leaves the top navigation, the graph
+living beside the results (108) with the dossier under it (110). The graph
+tab's address still answers, redirected to the search page with the graph
+open, so a saved path keeps working. Built by board-12, after board-11.
