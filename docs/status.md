@@ -34,8 +34,7 @@ model reading till it returns. **Alarms:** the old estate's ntfy address.
 
 ## Half-done
 
-- 4.5: refused by a gate 20 to 25 October (card `the-site-build-s-compare-
-  gate-…`); 25 October Arthur's `--allow-drop` run accepted version
+- 4.5: 25 October Arthur's `--allow-drop` run accepted version
   `2026-10-25T1004`, nine gates green. Next: seven clean days,
   checkpoint, export test, the switch after 7 November. Comparison 25
   October: 29,366 differences, 0 uncarded.
