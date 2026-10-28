@@ -1,6 +1,6 @@
 # Where the build stands
 
-Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
+Overwritten at every close; under 3 KB.
 
 **Date:** 2026-10-29, 10:55 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
@@ -13,7 +13,7 @@ model reading till it returns. **Alarms:** the old estate's ntfy address.
 
 ## Done
 
-- Steps 0 to 3 closed (ruling 60); 1.4's positive half observed (ruling 70).
+- Steps 0 to 3 closed (ruling 60); 1.4's positive half observed (70).
 - 4.1, fifteen lanes merged: donations (ruling 66), parties, party
   finance, gazette (207,133 notices), house, companies (1.92 M), expenses
   and interests, societies, candidate returns, charities (46,131; ruling
