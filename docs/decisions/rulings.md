@@ -823,3 +823,16 @@ one list; a search finds entities (the links lane's groups) as well as
 rows; and clicking a result opens the graph beside the results, to the
 right, centred on it, which extends ruling 100's script from the graph
 tab to the results page. Built by board-9.
+
+109. Arthur, 28 October, 16:05, on the fifth rule proposed from the
+Christopher & Banks case (two companies under one name with no year in
+brackets, one removed in December 2024 and the other registered in March
+2025, the same people on both): "name the companies with your current
+convention with '(delisted/refiled same year)'". The integrator's reading:
+the pair is a succession like the year-in-brackets pattern (ruling 106
+(2)), and its relation is labelled in Arthur's words, "delisted/refiled
+same year", where the board and the report print the relation; "same year"
+read as within twelve months of each other, either order of removal and
+registration, so that the case that raised it falls in. The rule needs a
+person confirmed on both companies, as successor-name@1 does; the name
+alone stays near. Built by a links fix.
