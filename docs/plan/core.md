@@ -139,7 +139,7 @@ A session must be able to find out within a minute whether its change works. The
 | Tier | Holds | Runs against | Run by |
 | --- | --- | --- | --- |
 | Fast | Unit and contract tests; the one-way import test; the spec check; the reading-limit check; each module's own tests | The sample and stored readings. No graphics card, no network, no full table | Any fix or build session, as often as it likes |
-| Full, at a merge: the merge gate | The fast tier for the whole repository; every test marked slow; the outside check and product checks of each module the branch touches | The modules the branch touches, loaded into a staging schema of the real database and moved into place on a pass. A long load runs as a job | The integrator. During step 1, the founding session |
+| Full, at a merge: the merge gate | The fast tier for the whole repository; the tests marked slow of the modules the branch touches and of the modules that read what they publish (every slow test when the branch touches support/, bin/, .claude/, the root tests, the plan or the test configuration; ruling 113); the outside check and product checks of each module the branch touches | The modules the branch touches, loaded into a staging schema of the real database and moved into place on a pass. A long load runs as a job | The integrator. During step 1, the founding session |
 | Full, nightly | Everything: every outside check, every product check, the comparisons | The real database | The checks board. A failure raises a card or an alarm; it does not block a merge |
 
 - **A session never waits on the full tier.** It raises its merge request and carries on; the result comes back in the same file. A source that is down, or a difference from the frozen site, never blocks an unrelated merge.
