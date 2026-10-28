@@ -39,9 +39,10 @@ MAX_ROUNDS = 3              # queries past the first that follow a chain's new e
 MAX_COMPANIES = 8           # companies drawn in one frame; the rest counted
 MAX_FRAMES = 6              # frames drawn in one picture; the rest counted
 MAX_PEOPLE = 12             # shared people drawn in one frame; the rest counted
-WORDS = ("A lineage frame is the links lane's related grade (ruling 106 (2)): companies under one name, one carrying a "
-         "year in brackets, with a person confirmed on both. It is a relation, never one entity: each company stays its "
-         "own node, in date order of registration, and the people on both are drawn once inside the frame.")
+WORDS = ("A lineage frame is the links lane's related grade: companies under one name, one carrying a year in brackets "
+         "(ruling 106 (2)) or one removed and the other registered within twelve months (ruling 109), with a person "
+         "confirmed on both. It is a relation, never one entity: each company stays its own node, in date order of "
+         "registration, and the people on both are drawn once inside the frame.")
 
 
 def evidence(l: dict) -> dict:

@@ -1122,8 +1122,9 @@ def links_section(links: dict, group: dict, q: str, path: list, resolve, boxes=N
 
 
 RELATED_NOTE = ("A related link is a relation the links lane found between two companies, never one entity: companies under "
-                "one name, one carrying a year in brackets, with a person confirmed on both (ruling 106 (2)). Read in date "
-                "order of registration. The graph draws it as a lineage frame.")
+                "one name, one carrying a year in brackets (ruling 106 (2)), or one removed and the other registered within "
+                "twelve months (ruling 109), with a person confirmed on both. Read in date order of registration. The graph "
+                "draws it as a lineage frame.")
 
 
 def related_section(links: list, mine: set, q: str, path: list, resolve, boxes=None, heading: str = "h3") -> str:
