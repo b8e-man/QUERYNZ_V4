@@ -16,7 +16,7 @@ import urllib.parse
 
 from products.board import catalogue as cat
 from products.board import document
-from products.board.search import FIELD_LABEL, FIELDS, MODES, TABS, field_words, words_of
+from products.board.search import COLLAPSE, FIELD_LABEL, FIELDS, MODES, TABS, field_words, words_of
 from products.board.search import add_alternative as search_add, drop_alternative as search_drop
 from products.board.search import FIRST as FIRST_BOXES, TABLE_MAX as TABLE_MAX_N, TABLE_PAGE as TABLE_PAGE_N
 
@@ -133,6 +133,10 @@ div.ftab{display:none;border-top:1px solid #3a404c}
 #ft-other:checked~#ftab-other{display:block}
 details.regs{border-top:1px solid #3a404c;padding:.3rem 0}
 details.regs summary{cursor:pointer;font-size:13px;font-weight:600}
+details.collapse{border:1px solid #3a404c;border-radius:4px;padding:.3rem .6rem;margin:.5rem 0}
+details.collapse summary{cursor:pointer;font-weight:600}
+details.collapse label{font-size:13px}
+.fold{color:#ffb26b;font-size:12px;font-style:italic}
 article.hit[data-graph]{cursor:pointer}
 article.hit.on{background:#1d3a5f}
 article.entity{border-left:3px solid #8cb8ff;padding-left:.5rem}
@@ -780,6 +784,17 @@ def dossier_href(d: str, q: str = "", boxes=None, tab: str = "/") -> str:
     return tab + "?" + urllib.parse.urlencode([("q", q)] + (boxes.params() if boxes is not None else []) + [("d", d)])
 
 
+GRAPH_OPEN = "gv"           # ruling 111: the search page with the graph beside the results drawn now (the graph tab's old address)
+
+
+def graph_open_href(q: str, boxes=None, d: str = "", opened: bool = True) -> str:
+    """The search page with the graph open beside the results (ruling 111):
+    centred on `d`, whose dossier opens under it, else the whole search; the
+    graph tab's old address answers with this (server.graph_redirect)."""
+    return "/?" + urllib.parse.urlencode([("q", q)] + (boxes.params() if boxes is not None else []) + ([("d", d)] if d else [])
+                                         + ([(GRAPH_OPEN, "1")] if opened else []))
+
+
 def dossier_link(d: str, q: str, boxes=None) -> str:
     return f' · <a class="dos" href="{esc(dossier_href(d, q, boxes))}">dossier</a>'
 
@@ -790,114 +805,203 @@ def graph_href(nid: str, boxes=None) -> str:
     return "/graph.json?" + urllib.parse.urlencode([("c", nid)] + (boxes.params() if boxes is not None else []))
 
 
-RESULTS_ENTITY_NOTE = ("The groups the links lane built (pub.groups) that the matching rows fall in, and those whose rows "
-                       "carry the name searched (pub.names), each with its count of rows and registers; the board makes no "
-                       "link by looking. The ")
-TAB_FIELDS_NOTE = ("A tab for each field that matched, its count the rows under it; a row matching several fields is under each. "
-                   "Each register opens to its rows.")
+RESULTS_ENTITY_NOTE = ("Entities only (ruling 111): the groups the links lane built (pub.groups) that the matching rows fall in, "
+                       "and those whose rows carry the name searched (pub.names), each with its count of rows and registers; "
+                       "then each matching row in no group, as an entity of one row. A row is read in its entity's dossier. "
+                       "The board makes no link by looking. The ")
+TAB_FIELDS_NOTE = ("A tab for each field that matched, its count the entities under it; an entity one of whose rows matched "
+                   "several fields is under each.")
+LONE_WORDS = "single-row entity"
 
 
-def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None) -> str:
+def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None, why: str = "") -> str:
     """One entity in the results pane (ruling 108 (1)): its name (the fullest
     filed, people.describe), "n rows, n registers", contested marked, the
     registers named (ruling 110 (1): the rows of this search it holds are
-    not listed, they all carry the one name); its link opens its pane, a
-    click on it the graph beside the results, centred on it."""
+    not listed, they all carry the one name); its name opens its dossier
+    (ruling 111), a click on it the graph beside the results, centred on it."""
     centre = f"{in_hand[0][0].name}:{in_hand[0][1]['key']}" if in_hand else e.get("centre") or ""
-    link = f'<a class="row" href="{esc(href(q, ["entity:" + e["group_id"]], boxes))}"><strong>{mark(e["label"], words)}</strong></a>'
     d = "entity:" + e["group_id"]
+    link = f'<a class="row" href="{esc(dossier_href(d, q, boxes))}"><strong>{mark(e["label"], words)}</strong></a>'
     out = [f'<article class="hit entity"{f" data-graph={chr(34)}{esc(graph_href(centre, boxes))}{chr(34)}" if centre else ""}'
-           f' data-dossier="{esc(d)}">',
+           f' data-dossier="{esc(d)}">'] + ([f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
            f'<div>{link} <span class="meta">entity</span>{dossier_link(d, q, boxes)}</div>',
            f'<div class="note">{esc(e["count"])}' + (' · <span class="warn">contested</span>' if e["contested"] else "")
            + (f' · <span class="lineage" title="{esc("a related company: " + "; ".join(e["related"]) + ", never one entity (ruling 106 (2))")}">'
               "related</span>" if e.get("related") else "") + "</div>",
            f'<div class="meta">{esc("; ".join(e.get("registers_named") or []))}</div>']
-    if not in_hand:                                    # ruling 110 (1): the rows in hand are not listed, they share the name
+    if not in_hand and not why:                        # ruling 110 (1): the rows in hand are not listed, they share the name
         out.append('<div class="meta">found by its rows\' filed name (pub.names), no row heading this list</div>')
     out.append("</article>")
     return "".join(out)
 
 
-def _register_rows(q, register, plain, hits, words, boxes, docs, far, collapsed: bool, hidden: int = 0) -> list:
-    """One register's rows under a results heading; with `collapsed`, a
-    details element closed to its name and count (ruling 108 (2))."""
-    total = sum(n for _, n, _ in hits)
-    body = []
-    for v, n, rows in hits:
-        body.append(f'<div class="view"><strong>{esc(v.name)}</strong> <span class="count">{n:,}</span></div>')
-        for r in rows:
-            body.append(hit(q, v, r, words, boxes, docs=docs, far=far))
-        if n > len(rows):
-            body.append(f'<p class="note">and {n - len(rows):,} more in {esc(v.name)}; narrow the search</p>')
-    if collapsed:
-        return [f'<details class="regs"><summary>{esc(plain)} <span class="count">{total:,}</span>{hidden_line(hidden)}</summary>']\
-            + body + ["</details>"]
-    return [f'<h3>{esc(plain)} <span class="count">{total:,}</span>{hidden_line(hidden)}</h3>'] + body
+def lone_hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "") -> str:
+    """A matching row in no group, listed as the entity of one row it is
+    (ruling 111): its title, its register, "1 row, 1 register", the fields it
+    matched under "any field may match" (ruling 92 (6)); no field of the row,
+    which its dossier shows. A suppressed row's title is the suppressed word
+    (hard limit 16)."""
+    d = f"{v.name}:{r['key']}"
+    link = f'<a class="row" href="{esc(dossier_href(d, q, boxes))}"><strong>{mark(title_of(v, r), words)}</strong></a>'
+    out = [f'<article class="hit entity lone" data-graph="{esc(graph_href(d, boxes))}" data-dossier="{esc(d)}">'] + (
+           [f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
+           f'<div>{struck(v, r, link)} <span class="meta">{LONE_WORDS}</span>{dossier_link(d, q, boxes)}</div>',
+           '<div class="note">1 row, 1 register' + (
+               f' · <span class="lineage" title="{esc("a related company: " + str(r["_related"]) + ", never one entity (ruling 106 (2))")}">'
+               "related</span>" if r.get("_related") else "") + "</div>",
+           f'<div class="meta">{esc(REGISTER_NAME.get(v.register, v.register))} · {esc(v.name)}</div>']
+    if is_suppressed(v, r):
+        out.append(f'<div class="warn">{SUPPRESSED}: the row and its figures stay (hard limit 16)</div>')
+    matched = [FIELD_LABEL[k[len("_matched_"):]] for k in r if k.startswith("_matched_") and r[k]]
+    if matched:
+        out.append(f'<div class="nearwhy">matched: {esc(", ".join(matched))}</div>')     # ruling 92 (6), any field
+    out.append("</article>")
+    return "".join(out)
 
 
-def _entities_part(q, rows, ents: dict, words, boxes, tab: str = None) -> tuple:
-    """(html lines, ids of the rows gathered): the entities `rows` [(v, r)]
-    fall in, then those the entity search found under `tab` (ruling 108 (3)),
-    most rows of this search first; RESULT_ENTITIES at most, the rest counted."""
-    from products.board.people import RESULT_ENTITIES
-    hand, gathered = {}, set()
+def entries(rows, ents: dict, tab: str = None) -> list:
+    """The entities `rows` [(v, r)] make, in the order the pane lists them
+    (ruling 111): the groups they fall in, most rows of this search first,
+    then those the entity search found under `tab` (ruling 108 (3)), then
+    each row in no group as an entity of one row, in the rows' own order.
+    Each {'id': the dossier's d, 'group': id or None, 'in_hand': [(v, r)]}."""
+    hand, order, lone = {}, [], []
     for v, r in rows:
         gid = ents["group"].get(f"{v.name}:{r['key']}")
-        if gid is not None:
+        if gid is None:
+            lone.append({"id": f"{v.name}:{r['key']}", "group": None, "in_hand": [(v, r)]})
+        else:
             hand.setdefault(gid, []).append((v, r))
-            gathered.add(f"{v.name}:{r['key']}")
     named = [g for g, t in ents.get("named", {}).items() if g not in hand and (tab is None or tab in t)]
-    gids = sorted(hand, key=lambda g: (-len(hand[g]), -ents["entity"][g]["rows"], ents["entity"][g]["label"], g)) \
-        + sorted(named, key=lambda g: (-ents["entity"][g]["rows"], ents["entity"][g]["label"], g))
-    out = [f'<h3>Entities <span class="count">{len(gids):,}</span></h3>']
-    if not gids:
-        out.append('<p class="why">none found: no matching row is in a group</p>')
-    for g in gids[:RESULT_ENTITIES]:
-        out.append(entity_hit(q, ents["entity"][g], hand.get(g, []), words, boxes))
-    if len(gids) > RESULT_ENTITIES:
-        out.append(f'<p class="note">and {len(gids) - RESULT_ENTITIES:,} more entities; narrow the search</p>')
-    return out, gathered
+    E = ents["entity"]
+    gids = sorted(hand, key=lambda g: (-len(hand[g]), -E[g]["rows"], E[g]["label"], g)) \
+        + sorted(named, key=lambda g: (-E[g]["rows"], E[g]["label"], g))
+    return [{"id": "entity:" + g, "group": g, "in_hand": hand.get(g, [])} for g in gids] + lone
 
 
-def _listing(q, by_reg: dict, regs: tuple, held: set, boxes, words, docs, far, hidden: dict, ents: dict = None,
-             tab: str = None, collapsed: bool = False, asked: dict = None) -> list:
-    """The results under one tab, or the one list: by register in the
-    catalogue's order. In the entity state (`ents`, people.gather) the
-    entities first, then the rows in no group, as rows (ruling 108 (1))."""
+def fold_hit(q: str, x: dict, ents: dict, words, boxes=None) -> str:
+    """A folded entry of the collapse section (ruling 112): the fullest name
+    among its members, "n entities, n rows", the registers, and the word that
+    it is collapsed here and not a link; its dossier lists the members as the
+    entities they are; a click opens the graph beside the results on its first."""
+    by, members = x["fold"]
+    labels, titles, rows, registers, contested = [], [], 0, [], False
+    for m in members:
+        if m["group"] is not None:
+            e = ents["entity"][m["group"]]
+            labels.append(e["label"])
+            rows += e["rows"]
+            registers += e.get("registers_named") or []
+            contested = contested or e["contested"]
+        else:
+            v, r = m["in_hand"][0]
+            titles.append(title_of(v, r))
+            rows += 1
+            registers.append(REGISTER_NAME.get(v.register, v.register))
+    from products.board import collapse
+    lead = members[0]
+    centre = (f"{lead['in_hand'][0][0].name}:{lead['in_hand'][0][1]['key']}" if lead["in_hand"]
+              else ents["entity"][lead["group"]].get("centre") or "")
+    link = f'<a class="row" href="{esc(dossier_href(x["id"], q, boxes))}"><strong>{mark(collapse.label(labels, titles), words)}</strong></a>'
+    return (f'<article class="hit entity folded"{f" data-graph={chr(34)}{esc(graph_href(centre, boxes))}{chr(34)}" if centre else ""}'
+            f' data-dossier="{esc(x["id"])}">'
+            f'<div>{link} <span class="meta">collapsed here</span>{dossier_link(x["id"], q, boxes)}</div>'
+            f'<div class="note">{len(members)} entities, {rows:,} row{"s" if rows != 1 else ""}'
+            + (' · <span class="warn">contested</span>' if contested else "") + "</div>"
+            f'<div class="fold">{esc(collapse.words(by))}</div>'
+            f'<div class="meta">{esc("; ".join(dict.fromkeys(registers)))}</div></article>')
+
+
+def collapse_section(q: str, boxes) -> str:
+    """Ruling 112: above the entities, a closed "collapse" section opening to
+    the fixed criteria, each a box the reader ticks to fold the listed
+    entities further for this view; the links lane's groups ticked and fixed.
+    A GET form carrying the page's address but its `cl`, so the view reopens
+    folded; the summary names what is ticked while it stays closed."""
+    from products.board import collapse
+    on = set(getattr(boxes, "collapse", ()) or ())
+    keep = "".join(f'<input type="hidden" name="{k}" value="{esc(v)}">' for k, v in [("q", q)] + boxes._replace(collapse=()).params())
+    items = []
+    for c, label, _ in collapse.CRITERIA:
+        if c == "groups":
+            items.append(f'<label><input type="checkbox" checked disabled> {esc(label)}</label>')
+        else:
+            items.append(f'<label><input type="checkbox" name="{COLLAPSE}" value="{c}"{" checked" if c in on else ""}> {esc(label)}</label>')
+    ticked = [collapse.WORD[c] for c in collapse.CHOICES if c in on]
+    return (f'<details class="collapse" id="collapse"><summary>collapse'
+            + (f' <span class="note">by {esc(", ".join(ticked))}</span>' if ticked else "") + "</summary>"
+            f'<form method="get" action="/">{keep}' + "".join(f"<div>{i}</div>" for i in items)
+            + f'<button>apply</button></form><p class="note">{esc(collapse.NOTE)}</p></details>')
+
+
+def entry_hit(q: str, x: dict, ents: dict, words, boxes=None, why: str = "") -> str:
+    if x.get("fold"):
+        return fold_hit(q, x, ents, words, boxes)
+    if x["group"] is not None:
+        return entity_hit(q, ents["entity"][x["group"]], x["in_hand"], words, boxes, why)
+    v, r = x["in_hand"][0]
+    return lone_hit(q, v, r, words, boxes, why)
+
+
+def _entity_list(q, xs: list, ents: dict, words, boxes, cut: int = 0) -> list:
+    """The entities, groups first and then the single-row ones, each part
+    capped at RESULT_ENTITIES and RESULT_LONE with the rest counted; `cut`,
+    the rows that matched but were not read (past each view's first 50),
+    so not gathered: said, never counted as entities."""
+    from products.board.people import RESULT_ENTITIES, RESULT_LONE
+    groups = [x for x in xs if x["group"] is not None or x.get("fold")]
+    lone = [x for x in xs if x["group"] is None and not x.get("fold")]
+    out = [f'<h3>Entities <span class="count">{len(xs):,}{"+" if cut else ""}</span></h3>']
+    if not xs:
+        out.append('<p class="why">none found</p>')
+    for x in groups[:RESULT_ENTITIES]:
+        out.append(entry_hit(q, x, ents, words, boxes))
+    if len(groups) > RESULT_ENTITIES:
+        out.append(f'<p class="note">and {len(groups) - RESULT_ENTITIES:,} more entities; narrow the search</p>')
+    if lone:
+        out.append(f'<h4>Single-row entities: rows in no group <span class="count">{len(lone):,}</span></h4>')
+    for x in lone[:RESULT_LONE]:
+        out.append(entry_hit(q, x, ents, words, boxes))
+    if len(lone) > RESULT_LONE:
+        out.append(f'<p class="note">and {len(lone) - RESULT_LONE:,} more single-row entities; narrow the search</p>')
+    if cut:
+        out.append(f'<p class="note">{cut:,} more matching rows were not read (the first {RESULTS_SHOWN} of each view are), '
+                   "so they are in none of the entities counted; narrow the search</p>")
+    return out
+
+
+RESULTS_SHOWN = 50          # search.RESULTS_LIMIT: rows read per view, of which the entities are made
+
+
+def _flat(by_reg: dict) -> tuple:
+    """([(v, r)] in the catalogue's register order, rows matched but not read)."""
+    rows, cut = [], 0
+    for register, _ in cat.REGISTERS:
+        for v, n, rs in by_reg.get(register, []) if isinstance(by_reg.get(register), list) else []:
+            rows += [(v, r) for r in rs]
+            cut += max(n - len(rs), 0)
+    return rows, cut
+
+
+def _empty_registers(by_reg: dict, regs: tuple, held: set, boxes, hidden: dict, asked: dict = None) -> list:
+    """For the one list: each register searched that matched nothing, and why (not held; no column for a field)."""
     out = []
-    if ents is not None:
-        rows = [(v, r) for register, _ in cat.REGISTERS for v, _, rs in by_reg.get(register, []) for r in rs]
-        part, gathered = _entities_part(q, rows, ents, words, boxes, tab)
-        out += part
-        out.append('<h3>Rows in no group</h3>')
-        by_reg = {reg: [(v, n, [r for r in rs if f"{v.name}:{r['key']}" not in gathered]) for v, n, rs in by_reg.get(reg, [])]
-                  for reg, _ in cat.REGISTERS}
-        by_reg = {reg: [(v, n, rs) for v, n, rs in hits if rs] for reg, hits in by_reg.items()}
-        if not any(by_reg.values()):
-            out.append('<p class="why">none: every row shown is in an entity above</p>')
     for register, plain in cat.REGISTERS:
-        if register not in regs:
+        if register not in regs or by_reg.get(register):
             continue
-        hits = by_reg.get(register, [])
         present = [v for v in cat.views_of(register) if v.name in held]
         hid = sum(n for x, n in (hidden or {}).items() if x in {v.name for v in present})
-        if collapsed or ents is not None:
-            if hits:
-                out += _register_rows(q, register, plain, hits, words, boxes, docs, far, collapsed, hid)
-            continue
         if not present:
-            out.append(f'<h3>{esc(plain)} <span class="count">0</span></h3><p class="why">not held</p>')
+            out.append(f'<div class="meta">{esc(plain)}: not held</div>')
             continue
-        if not hits:
-            out.append(f'<h3>{esc(plain)} <span class="count">0</span>{hidden_line(hid)}</h3>')
-            lacking = [label for f, label in FIELDS if (asked or {}).get(f) and not any(holds(v, f) for v in present)]
-            if getattr(boxes, "mode", "all") == "any" and len(lacking) < len(asked or {}):
-                lacking = []                                  # any field: a register holding one of them was searched
-            out.append(f'<p class="why">none found{": none of its views holds a column for " + esc(", ".join(lacking)) if lacking else ""}</p>')
-            continue
-        out += _register_rows(q, register, plain, hits, words, boxes, docs, far, False, hid)
-    return out
+        lacking = [label for f, label in FIELDS if (asked or {}).get(f) and not any(holds(v, f) for v in present)]
+        if getattr(boxes, "mode", "all") == "any" and len(lacking) < len(asked or {}):
+            lacking = []                                  # any field: a register holding one of them was searched
+        out.append(f'<div class="meta">{esc(plain)} <span class="count">0</span>{hidden_line(hid)}'
+                   f'{": none of its views holds a column for " + esc(", ".join(lacking)) if lacking else ": none found"}</div>')
+    return ['<details class="regs"><summary>registers without a match '
+            f'<span class="count">{len(out)}</span></summary>'] + out + ["</details>"] if out else []
 
 
 def tabbed(results: dict, ents: dict = None) -> list:
@@ -921,18 +1025,22 @@ def tabbed(results: dict, ents: dict = None) -> list:
 
 
 def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(), near: dict = None, docs: dict = None,
-                 far: dict = None, ents: dict = None) -> str:
-    """The wider pane beside the left one: every matching row, grouped by
-    register with the register's count, over `regs`, the registers searched
-    (search.selection); `boxes` the check boxes every href carries, and the
-    filled fields (ruling 82); `near`, the near matches below (ruling 83);
-    `docs`, the cited documents' states (document.statuses, ruling 86 (4)).
-    Ruling 108: where the search ran with tabs (`results['tabs']`, the
-    search box alone or "any field may match"), one tab per field matched,
-    each register under it closed to its name and count; `ents`
-    (people.gather) the entity state, entities first, then the rows in no
-    group. A click on a result opens the graph beside the pane (graph.js)."""
-    out = ['<section class="pane wide" id="results">', '<div class="reg">results' + (" · entities" if ents is not None else "") + "</div>"]
+                 far: dict = None, ents: dict = None, fold=None) -> str:
+    """The wider pane beside the left one (ruling 111): the entities the
+    matching rows make, never a row, over `regs`, the registers searched
+    (search.selection); `ents`, people.gather over the rows shown; `boxes`
+    the check boxes every href carries, and the filled fields (ruling 82);
+    `near`, the near matches below (ruling 83), as entities too. Ruling 108:
+    where the search ran with tabs (`results['tabs']`, the search box alone
+    or "any field may match"), one tab per field matched, each holding the
+    entities one of whose rows matched it, its count those entities. A click
+    on a result opens the graph beside the pane and the dossier under it
+    (graph.js); its name opens the dossier without script. Ruling 112: the
+    collapse section above the entities; `fold`, the criteria ticked applied
+    to a list of entries (collapse.folder), else the entries as they are."""
+    ents = ents if ents is not None else {"group": {}, "entity": {}, "named": {}}
+    fold = fold or (lambda xs: xs)
+    out = ['<section class="pane wide" id="results">', '<div class="reg">results · entities</div>']
     asked = boxes.asked() if boxes is not None else {}
     if not boxes.all and not regs:
         out.append(f"<h2>Results</h2><p class=\"why\">{NOTHING_TICKED}</p></section>")
@@ -940,41 +1048,48 @@ def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(),
     if not q and not asked:
         out.append("<h2>Results</h2><p class=\"why\">Type a name, an address or a number in the search box.</p></section>")
         return "\n".join(out)
-    out.append(results_switch(q, boxes))
     out.append(f"<h2>{esc(q) if q else 'By field'}</h2>")
     out.append(f'<p class="note">searched: {"every held register" if boxes.all else esc(", ".join(REGISTER_NAME.get(x, x) for x in regs))}</p>')
     out.append(narrowed_line(boxes))
     if asked.get("year") and not re.fullmatch(r"\d{4}", asked["year"].strip()):
         out.append('<p class="warn">a year is four digits: nothing was searched</p>')
-    if ents is not None:
-        out.append(f'<p class="note">{esc(RESULTS_ENTITY_NOTE)}{esc(ENTITY_LABEL_NOTE)}. A row whose name is suppressed is never gathered.</p>')
+    out.append(f'<p class="note">{esc(RESULTS_ENTITY_NOTE)}{esc(ENTITY_LABEL_NOTE)}. A row whose name is suppressed is never gathered.</p>')
+    out.append(collapse_section(q, boxes))
     hidden = results.get("hidden") or {}
     tabs = tabbed(results, ents) if results.get("tabs") else None
     if tabs is None:
-        out += _listing(q, results, regs, held, boxes, words, docs, far, hidden, ents, asked=asked)
+        rows, cut = _flat(results)
+        out.append(register_totals(results, regs, held, hidden))
+        out += _entity_list(q, fold(entries(rows, ents)), ents, words, boxes, cut)
+        out += _empty_registers(results, regs, held, boxes, hidden, asked)
     elif not tabs:
         out.append('<p class="why">none found</p>')
     else:
         out.append(register_totals(results, regs, held, hidden))
-        out.append(f'<p class="note">{esc(TAB_FIELDS_NOTE)}</p><div class="ftabs">')
-        for i, (t, label, n, _) in enumerate(tabs):
-            out.append(f'<input type="radio" class="ft" name="ftab" id="ft-{t}"{" checked" if i == 0 else ""}>'
-                       f'<label for="ft-{t}">{esc(label)} <span class="count">{n:,}</span></label>')
+        listed = []
         for t, label, n, by_reg in tabs:
+            rows, _ = _flat(by_reg)
+            xs = fold(entries(rows, ents, t))
+            listed.append((t, label, xs, n > len(rows), max(n - len(rows), 0)))
+        out.append(f'<p class="note">{esc(TAB_FIELDS_NOTE)}</p><div class="ftabs">')
+        for i, (t, label, xs, more, _) in enumerate(listed):
+            out.append(f'<input type="radio" class="ft" name="ftab" id="ft-{t}"{" checked" if i == 0 else ""}>'
+                       f'<label for="ft-{t}">{esc(label)} <span class="count">{len(xs):,}{"+" if more else ""}</span></label>')
+        for t, label, xs, more, cut in listed:
             out.append(f'<div class="ftab" id="ftab-{t}">')
-            out += _listing(q, by_reg, regs, held, boxes, words, docs, far, {}, ents, tab=t, collapsed=True)
+            out += _entity_list(q, xs, ents, words, boxes, cut)
             out.append("</div>")
         out.append("</div>")
     if near is not None:
-        out.append(near_section(q, near, words, boxes, docs, far))
+        out.append(near_section(q, near, words, boxes, ents))
     out.append("</section>")
     return "\n".join(out)
 
 
 def register_totals(results: dict, regs: tuple, held: set, hidden: dict) -> str:
-    """Above the tabs: each register searched that matched, with its count of
-    rows matched and its removed rows hidden (ruling 93), the one place the
-    tabs' registers are counted whole."""
+    """Above the entities: each register searched that matched, with its
+    count of rows matched and its removed rows hidden (ruling 93), the one
+    place rows are counted, never listed (ruling 111)."""
     parts = []
     for register, plain in cat.REGISTERS:
         hits = (results.get(register) or []) if register in regs else []
@@ -983,19 +1098,7 @@ def register_totals(results: dict, regs: tuple, held: set, hidden: dict) -> str:
         hid = sum(x for k, x in (hidden or {}).items() if k in names)
         if n or hid:
             parts.append(f'<span class="regtotal">{esc(plain)} <span class="count">{n:,}</span>{hidden_line(hid)}</span>')
-    return '<p class="meta">matched: ' + (" · ".join(parts) or "none") + "</p>"
-
-
-def results_switch(q: str, boxes) -> str:
-    """Ruling 105's one switch, on the results pane too (ruling 108 (1)):
-    rows or entities, the state in the address (`g=entities`), the path dropped."""
-    parts = []
-    for label, on in (("rows", False), ("entities", True)):
-        if on == bool(getattr(boxes, "people", False)):
-            parts.append(f'<strong aria-current="true">{label}</strong>')
-        else:
-            parts.append(f'<a href="{esc(href(q, [], boxes._replace(people=on)))}">{label}</a>')
-    return '<p class="switch" id="state">show: ' + " · ".join(parts) + "</p>"
+    return '<p class="meta">rows matched: ' + (" · ".join(parts) or "none") + "</p>"
 
 
 def holds(v: cat.View, field: str) -> bool:
@@ -1014,10 +1117,13 @@ NEAR_NONE_FROM_BOX = ("the plain box matches words in any order, so a reversed n
                       "use the name fields to see reversed names apart")
 
 
-def near_section(q: str, near: dict, words, boxes=None, docs: dict = None, far: dict = None) -> str:
+def near_section(q: str, near: dict, words, boxes=None, ents: dict = None) -> str:
     """Near matches (ruling 83), below the exact results and never among
     them or in their count: a details element, closed until clicked, with
-    its two classes, each row saying which, capped with the whole count."""
+    its two classes, each saying which, capped with the whole count; each
+    near row listed as its entity (`ents`, people.gather), or as an entity
+    of one row, never as a row (ruling 111)."""
+    ents = ents if ents is not None else {"group": {}, "entity": {}, "named": {}}
     total = sum(near.get(k, {}).get("total", 0) for k, _, _ in NEAR_CLASSES)
     plain = len((q or "").split()) >= 2
     out = [f'<details class="near" id="near"><summary>Near matches <span class="count">{total:,}</span>'
@@ -1034,8 +1140,8 @@ def near_section(q: str, near: dict, words, boxes=None, docs: dict = None, far: 
         if not c.get("rows"):
             out.append('<p class="why">none found</p>')
             continue
-        for v, r in c["rows"]:
-            out.append(hit(q, v, r, words, boxes, why=why, docs=docs, far=far))
+        for x in entries(c["rows"], {**ents, "named": {}}):
+            out.append(entry_hit(q, x, ents, words, boxes, why=why))
         shown_n = len(c["rows"])
         if c["total"] > shown_n:
             out.append(f'<p class="note">and {c["total"] - shown_n:,}{" or more" if c.get("more") else ""} more; narrow the search</p>')
@@ -1506,10 +1612,11 @@ def db_counter(answer) -> str:
 
 
 def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: str = "search", db=None) -> str:
-    """The page: three tabs, search (`/`, as before) and graph (`/graph`),
-    each an href carrying the term and the registers checked (ruling 80),
-    and use cases (`/uses`, ruling 87); the database connection counter at
-    the bar's end (ruling 90; `db`, db.connections' answer, None reads "db ?")."""
+    """The page: two tabs, search (`/`, as before, an href carrying the term
+    and the registers checked, ruling 80) and use cases (`/uses`, ruling 87);
+    the graph tab left the bar (ruling 111), its graph lives beside the
+    results; the database connection counter at the bar's end (ruling 90;
+    `db`, db.connections' answer, None reads "db ?")."""
     save = ""
     if path:
         save = (f'<form class="inline" method="post" action="/save"><input type="hidden" name="q" value="{esc(q)}">'
@@ -1518,7 +1625,6 @@ def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: st
                 f'<input name="name" placeholder="name this path" size="18"> <button>save path</button></form>')
     msg = f'<span class="note">{esc(message)}</span>' if message else ""
     tabs = (f'<nav class="tabs"><a class="{"on" if tab == "search" else ""}" href="{esc(href(q, [] if tab != "search" else path, boxes))}">search</a> '
-            f'<a class="{"on" if tab == "graph" else ""}" href="{esc(href(q, [], boxes, "/graph"))}">graph</a> '
             f'<a class="{"on" if tab == "uses" else ""}" href="/uses">use cases</a></nav>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ board</title>"
             f"<style>{CSS}</style></head><body><header><h1>QueryNZ board</h1>{tabs}"

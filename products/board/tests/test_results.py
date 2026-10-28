@@ -57,18 +57,27 @@ def test_the_rows_in_one_group_are_one_entity_and_a_suppressed_row_is_never_gath
     assert "Hidden" not in repr(ents)
 
 
-def test_the_entity_state_lists_entities_then_the_lone_rows_as_rows(reads):
+ROW_CARD = re.compile(r'<article class="hit"|<table class="f">|class="cite')     # a row's own card: its fields, its citation
+
+
+@pytest.mark.parametrize("state", [False, True])
+def test_the_results_list_entities_alone_in_either_state(reads, state):
+    """Ruling 111: groups first, then each row in no group as an entity of one
+    row; no row's card anywhere in the pane, whichever state the switch is in."""
     ents = people.gather(None, hits())
-    boxes = search.FIRST._replace(people=True)
+    boxes = search.FIRST._replace(people=state)
     html = panes.results_pane("hart", results_of([r for _, r in hits()]), {"directors"}, ("companies",), boxes, ents=ents)
-    entities, lone = html.index("<h3>Entities"), html.index("<h3>Rows in no group</h3>")
+    entities, lone = html.index("<h3>Entities"), html.index("<h4>Single-row entities")
+    assert '<span class="count">3</span></h3>' in html                                     # G1, then Joe Hart and the suppressed row
     assert entities < html.index('class="hit entity"') < lone
-    assert html.count('class="hit entity"') == 1 and "2 registers" in html
+    assert html.count('class="hit entity') == 3 and html.count('class="hit entity lone"') == 2 and "2 registers" in html
+    assert not ROW_CARD.search(html) and "Rows in no group" not in html
     assert "matching here" not in html and html[:lone].count("Jane Hart") == 0                 # ruling 110 (1): no list of the rows' names
     after = html[lone:]
-    assert "Joe Hart" in after and panes.SUPPRESSED in after                               # the lone row and the suppressed one, as rows
+    assert "Joe Hart" in after and panes.SUPPRESSED in after and after.count("1 row, 1 register") == 2
     assert "Jane Mary Hart" not in after and "Hidden" not in html
-    assert 'aria-current="true">entities<' in html and "g=entities" not in html.split('aria-current')[0]
+    assert f'data-dossier="directors:{D3}"' in after and 'data-dossier="entity:G1"' in html[:lone]
+    assert 'id="state"' not in html                                                       # the switch is the graph's alone (ruling 111)
 
 
 def test_an_entity_the_name_search_found_is_listed_after_those_in_hand_and_under_its_tab(reads):
@@ -83,19 +92,26 @@ def test_an_entity_the_name_search_found_is_listed_after_those_in_hand_and_under
         assert tab.index("Jane Mary Hart") < tab.index("Joe Hart") and "no row heading this list" in tab and "contested" in tab
 
 
-def test_tabs_by_the_field_matched_each_register_closed_with_its_count():
+def test_tabs_hold_entities_and_count_them(reads):
+    """Ruling 111: each tab holds the entities one of whose rows matched its
+    field, its count those entities, "+" where rows matched past those read."""
     rs = [row(D1, "Jane Hart", _tab_last=True), row(D2, "Hart Jane", _tab_first=True, _tab_last=True), row(D3, "Elsewhere", _tab_other=True)]
     res = results_of(rs, last=120, first=1, other=1)
     res["tabs"] = search.BOX
-    html = panes.results_pane("hart", res, {"directors"}, ("companies",), search.FIRST)
-    labels = re.findall(r'<label for="ft-(\w+)">([^<]*)<span class="count">([\d,]+)</span>', html)
-    assert labels == [("first", "first name ", "1"), ("last", "last name ", "120"), ("other", "elsewhere in the row ", "1")]
+    lone = panes.results_pane("hart", res, {"directors"}, ("companies",), search.FIRST)          # nothing gathered: three of one row
+    labels = re.findall(r'<label for="ft-(\w+)">([^<]*)<span class="count">([\d,+]+)</span>', lone)
+    assert labels == [("first", "first name ", "1"), ("last", "last name ", "2+"), ("other", "elsewhere in the row ", "1")]
+    ents = people.gather(None, [(DIRECTORS, r) for r in rs])
+    html = panes.results_pane("hart", res, {"directors"}, ("companies",), search.FIRST, ents=ents)
+    labels = re.findall(r'<label for="ft-(\w+)">([^<]*)<span class="count">([\d,+]+)</span>', html)
+    assert labels == [("first", "first name ", "1"), ("last", "last name ", "1+"), ("other", "elsewhere in the row ", "1")]
     assert html.count('type="radio" class="ft"') == 3 and html.count(" checked>") == 1
     last = html[html.index('id="ftab-last"'):html.index('id="ftab-other"')]
-    assert last.count('<details class="regs"><summary>') == 1 and '<span class="count">120</span>' in last
-    assert "Jane Hart" in last and "Hart Jane" in last and "Elsewhere" not in last            # a row under two fields is under each
-    assert "<details" not in html.split('id="ftab-first"')[0].split('class="ftabs"')[0]
-    for t in ("first", "last", "other"):                                                      # the sheet shows the checked tab's rows alone
+    assert last.count('data-dossier="entity:G1"') == 1 and "Elsewhere" not in last              # D1 and D2: one entity
+    assert "118 more matching rows were not read" in last and not ROW_CARD.search(html)
+    first = html[html.index('id="ftab-first"'):html.index('id="ftab-last"')]
+    assert 'data-dossier="entity:G1"' in first                                                 # under every field one of its rows matched
+    for t in ("first", "last", "other"):                                                      # the sheet shows the checked tab's alone
         assert f"#ft-{t}:checked~#ftab-{t}{{display:block}}" in panes.CSS
 
 
@@ -106,7 +122,7 @@ def test_all_fields_must_match_has_no_tabs_and_any_field_has_one_per_filled_fiel
     assert search.tab_mode("hart", {}, search.ALL) == search.BOX and search.tab_mode("", {}, search.ANY) is None
     res = results_of([row(D1, "Jane Hart")])
     html = panes.results_pane("", res, {"directors"}, ("companies",), search.FIRST._replace(fields=tuple(both.items())))
-    assert 'class="ftabs"' not in html and "<details class=\"regs\"" not in html and "<h3>" in html
+    assert 'class="ftabs"' not in html and "<h3>Entities" in html and not ROW_CARD.search(html)
 
 
 @pytest.mark.parametrize("tabs", [search.BOX, search.BY_FIELD])
@@ -137,7 +153,7 @@ def test_a_box_word_need_only_begin_a_name_word_in_its_place():
 
 def test_every_result_carries_the_graph_it_opens_in_the_state_the_address_carries():
     boxes = search.FIRST._replace(people=True)
-    html = panes.hit("hart", DIRECTORS, row(D1, "Jane Hart"), ["hart"], boxes)
+    html = panes.lone_hit("hart", DIRECTORS, row(D1, "Jane Hart"), ["hart"], boxes)
     url = re.search(r'data-graph="([^"]*)"', html).group(1).replace("&amp;", "&")
     qs = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
     assert url.startswith("/graph.json?") and qs["c"] == [f"directors:{D1}"] and qs["g"] == ["entities"]
@@ -180,3 +196,42 @@ def test_an_entity_is_found_by_the_key_it_matched_under_that_field_and_never_by_
     assert "like" not in seen["sql"] and "~" not in seen["sql"]                                  # equality on the indexed keys only
     with_box = people.named_groups(None, "mary", {"first": "jane", "last": "hart"})
     assert set(with_box) == {"G2"}                                                               # fields and the box: the box's words too
+
+
+def test_the_switch_is_on_the_graph_pane_alone_and_keeps_the_dossier_and_the_open_graph():
+    """Ruling 111: the rows and entities switch governs the graph alone; it
+    sits on the graph's pane, keeps `g=entities` in the address, the dossier
+    chosen and the graph open where it was."""
+    side = graph.side_pane(search.FIRST, "directors:a", q="hart", chosen="entity:G1")
+    assert side.count('id="state"') == 1 and 'aria-current="true">rows<' in side
+    url = re.search(r'id="state">show: .*?<a href="([^"]*)">entities</a>', side).group(1).replace("&amp;", "&")
+    qs = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
+    assert url.startswith("/?") and qs["g"] == ["entities"] and qs["d"] == ["entity:G1"] and "gv" not in qs
+    opened = graph.side_pane(search.FIRST._replace(people=True), g=graph_sample(), q="hart", chosen="")
+    assert 'data-inline="1"' in opened and 'class="pane side on"' in opened and "<svg" in opened
+    back = re.search(r'id="state">show: <a href="([^"]*)">rows</a>', opened).group(1).replace("&amp;", "&")
+    assert "g=" not in back and "gv=1" in back
+    assert "on the graph tab" not in side and "/graph?" not in side + opened
+
+
+def graph_sample():
+    v = DIRECTORS
+    return {"nodes": {f"directors:{D1}": {"v": v, "row": row(D1, "Jane Hart"), "matched": True, "centre": False, "order": 0,
+                                          "parent": None}},
+            "edges": [], "drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS}, "not_drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS},
+            "matched_total": 1, "unresolved": 0, "centre": ""}
+
+
+def test_the_bar_has_no_graph_tab_and_the_old_address_answers_with_the_search_page_and_the_graph_open():
+    from products.board import server
+    page = panes.page("hart", [], [], "", search.FIRST)
+    assert ">search</a>" in page and ">use cases</a>" in page and ">graph</a>" not in page and 'href="/graph' not in page
+    old = urllib.parse.parse_qs("q=Graeme+Hart&all=0&r=companies&r=party_returns&g=entities&c=directors%3Ac%2F1%2Fdirector%2Fa")
+    to = server.graph_redirect(old)
+    qs = urllib.parse.parse_qs(urllib.parse.urlsplit(to).query)
+    assert to.startswith("/?") and qs["q"] == ["Graeme Hart"] and qs["r"] == ["companies", "party_returns"]
+    assert qs["all"] == ["0"] and qs["g"] == ["entities"] and qs["d"] == [f"directors:{D1}"] and qs["gv"] == ["1"]
+    assert search.boxes_of(qs) == search.boxes_of(old)                                           # the same boxes and state
+    plain = urllib.parse.parse_qs(urllib.parse.urlsplit(server.graph_redirect({"q": ["hart"], "tab": ["graph"]})).query)
+    assert plain == {"q": ["hart"], "all": ["1"], "gv": ["1"]}                                  # the whole search, no centre
+    assert "d" not in urllib.parse.parse_qs(server.graph_redirect({"c": ["nosuchview:1"]}).split("?")[1])

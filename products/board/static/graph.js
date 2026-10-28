@@ -15,7 +15,10 @@
    the nodes' and edges' come with the data (catalogue). Text goes in by
    textContent only. Nothing here asks anything of any other address.
    Ruling 108 (4): on the search tab the same canvas sits in a pane beside the results
-   (#side), empty until a result is clicked; the click asks /graph.json centred on that
+   (#side), empty until a result is clicked (ruling 111: the board's one graph, the graph
+   tab gone; the tab's old address lands with #side's data-inline, the graph drawn from
+   the page's own data at once, and the rows and entities switch, on this pane alone,
+   keeps the dossier chosen in its links); the click asks /graph.json centred on that
    row or entity, in the state the address carries, and mounts the canvas afresh. A
    result's links other than its title keep their own work, and a click with a key held
    opens the title's pane as before.
@@ -32,7 +35,11 @@
    `d=` (history.replaceState), so a reload or a saved address reopens the dossier, which
    the server renders, and the graph beside the results, which this draws from #side's
    data-start. The answer is the board's own escaped HTML, parsed apart (DOMParser) and
-   moved in whole; it carries no script and the policy runs none. */
+   moved in whole; it carries no script and the policy runs none.
+   Ruling 112, the collapse section: a node folded by the criteria ticked (kind "fold") is a
+   rounded square with a double border, labelled with its name, its count and the words
+   "collapsed here by …; not a link"; a tap opens its dossier (the members, each the entity it
+   is) and grows nothing. */
 (function () {
   "use strict";
   var holder = document.getElementById("cy");
@@ -41,6 +48,14 @@
   if (typeof cytoscapeCola !== "undefined") { try { cytoscape.use(cytoscapeCola); } catch (e) { /* registered already */ } }
   var tip = document.getElementById("tip");
   var cy = null;
+
+  function keepChosen(id) {                        // ruling 111: the switch on the graph's pane reopens on the dossier chosen
+    Array.prototype.forEach.call(document.querySelectorAll("#state a"), function (a) {
+      var u = new URL(a.getAttribute("href"), window.location.href);
+      u.searchParams.set("d", id);
+      a.setAttribute("href", u.pathname + u.search);
+    });
+  }
 
   var dossierAsked = 0;
   function showDossier(id) {                       // ruling 110: the dossier under the graph, one fetch, no reload
@@ -58,6 +73,7 @@
         var u = new URL(window.location.href);
         u.searchParams.set("d", id);
         history.replaceState(null, "", u.toString());
+        keepChosen(id);
       })
       .catch(function () {
         if (mine !== dossierAsked) return;
@@ -93,6 +109,11 @@
       d.label = n.title + "\n" + n.count;
       d.count = n.count; d.open = n.open; d.contested = !!n.contested;
     }
+    if (n.kind === "fold") {                       // ruling 112: collapsed here for this view, never a link
+      d.label = n.title + "\n" + n.count + "\n" + n.words;
+      d.count = n.count; d.words = n.words;
+    }
+    d.dossier = n.dossier || n.id;
     if (n.parent) d.parent = n.parent;
     return d;
   }
@@ -144,6 +165,9 @@
       { selector: "node[kind = \"entity\"]", style: { shape: "round-rectangle", width: 34, height: 34, "text-wrap": "wrap",
           "border-width": 3, "border-color": ink } },
       { selector: "node[?contested]", style: { "border-style": "dashed", "border-color": accent, "border-width": 4 } },
+      { selector: "node[kind = \"fold\"]", style: { shape: "round-rectangle", width: 38, height: 38, "text-wrap": "wrap",
+                                                    "text-max-width": "150px", "border-style": "double", "border-width": 5,
+                                                    "border-color": ink } },
       { selector: "node[kind = \"lone\"]", style: { "border-style": "dotted", "border-width": 2, "border-color": ink } },
       { selector: "node[kind = \"child\"]", style: { width: 18, height: 18 } },
       { selector: "node:parent", style: { "background-opacity": 0.14, "text-valign": "top", "text-margin-y": -4,
@@ -307,8 +331,8 @@
   cy.on("onetap", "node", function (evt) {
     var k = evt.target.data("kind");
     if (k === "entity") toggleOpen(evt.target);
-    else if (k !== "child" && k !== "lineage") grow(evt.target);
-    if (k !== "lineage") showDossier(evt.target.id());
+    else if (k !== "child" && k !== "lineage" && k !== "fold") grow(evt.target);
+    if (k !== "lineage") showDossier(evt.target.data("dossier") || evt.target.id());
   });
   cy.on("dbltap", "node", function (evt) { if (evt.target.data("pane")) window.location.href = evt.target.data("pane"); });
   cy.on("mouseover", "edge", function (evt) {
@@ -336,6 +360,7 @@
                                "the name is the fullest filed among its rows, not a link",
                                opened[n.id()] ? "tap to close its rows" : "tap to open its rows; double-tap to open its pane"];
     else if (k === "child") how = ["a row of this entity; double-tap to open its pane"];
+    else if (k === "fold") how = [n.data("count"), n.data("words"), "tap to open its dossier: its members, each the entity it is"];
     else how = [(k === "lone" ? "a lone row: in no group" : k === "apart" ? "kept apart: its name is suppressed" : n.data("register") + " \u00b7 " + n.data("view")),
                 grown[n.id()] ? "tap to fold its one hop" : "tap to grow its one hop; double-tap to open its pane"];
     if (n.data("stands")) how.unshift("one person on both companies: stands for " + n.data("stands") + " rows");
@@ -355,19 +380,21 @@
   if (!side || !results) { mount(JSON.parse(source.textContent)); return; }
 
   // ruling 108 (4): a result clicked opens its graph beside the results
-  var title = document.getElementById("side-title"), pane = document.getElementById("side-pane"),
-      tab = document.getElementById("side-tab"), asked = 0;
+  var title = document.getElementById("side-title"), pane = document.getElementById("side-pane"), asked = 0;
   function draw(url, label, paneHref) {
     var mine = ++asked;
     side.classList.add("on");
-    title.textContent = label || "Graph";
-    pane.href = paneHref || "#";
-    tab.href = url.replace("/graph.json?", "/graph?");
+    if (title) title.textContent = label || "Graph";
+    if (pane) pane.href = paneHref || "#";
     side.scrollIntoView({ block: "nearest" });
     fetch(url, { credentials: "same-origin" })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (data) { if (mine === asked) mount(data); })
-      .catch(function () { if (mine === asked) say("the board could not answer for " + title.textContent); });
+      .catch(function () {                         // say() lives inside mount, out of reach here
+        if (mine !== asked) return;
+        tip.textContent = "the board could not answer for " + (label || "this result");
+        tip.hidden = false; tip.style.left = "1rem"; tip.style.top = "1rem";
+      });
   }
   function open(hit) {
     var row = hit.querySelector("a.row");
@@ -385,11 +412,14 @@
     evt.preventDefault();
     open(hit);
   });
-  if (side.getAttribute("data-start")) {            // ruling 110: an address with d= reopens its graph beside the results
+  if (side.getAttribute("data-inline")) {           // ruling 111: the graph tab's old address, the graph drawn by the server
+    mount(JSON.parse(source.textContent));
+  } else if (side.getAttribute("data-start")) {     // ruling 110: an address with d= reopens its graph beside the results
     var named = document.querySelector("#dossier h2");
     draw(side.getAttribute("data-start"), named ? named.textContent : "", "");
   }
-  document.getElementById("side-close").onclick = function () {
+  var close = document.getElementById("side-close");
+  if (close) close.onclick = function () {
     side.classList.remove("on");
     Array.prototype.forEach.call(results.querySelectorAll("article.hit.on"), function (a) { a.classList.remove("on"); });
   };

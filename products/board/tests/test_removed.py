@@ -73,7 +73,7 @@ def test_the_count_line_says_how_many_were_hidden():
     hits = {"companies": [(COMPANIES, 2, [row("1", "ACME LIMITED", "Registered"), row("2", "ACME TWO LIMITED", "registered")])],
             "held": held, "hidden": {"companies": 3}}
     html = panes.results_pane("acme", hits, held, ("companies",), search.Boxes(False, ("companies",)), ["acme"])
-    assert re.search(r'<span class="count">2</span> <span class="note">3 removed hidden</span></h3>', html)
+    assert re.search(r'<span class="count">2</span> <span class="note">3 removed hidden</span></span>', html)
     shown = dict(hits, hidden={})
     html = panes.results_pane("acme", shown, held, ("companies",), search.Boxes(False, ("companies",), removed=True), ["acme"])
     assert "removed hidden" not in html

@@ -38,7 +38,7 @@ def test_the_search_tab_marks_maori_as_maori_in_the_registers_checked_only():
         html = server.render("Maori", [], conn=conn, boxes=search.Boxes(False, ("iwi_directory",)))
     results = html[html.index('id="results"'):]
     assert "<mark>Māori</mark>" in results                        # "Maori" typed marks "Māori" filed
-    assert "<strong>iwi_directory_entities</strong>" in results
+    assert "· iwi_directory_entities</div>" in results                # ruling 111: its single-row entities name their view
     assert "Registered political parties" not in results           # an unchecked register is not searched
 
 
@@ -302,3 +302,62 @@ def test_the_dossier_check_goes_red_when_a_disclosure_is_added_to_the_year(monke
         real = dossier.addends
         monkeypatch.setattr(dossier, "addends", lambda x: [dict(a, not_added="") if a["amount"] is not None else a for a in real(x)])
         assert any("sums" in p for p in check.dossier_problems(conn))
+
+
+def test_the_entities_only_check_goes_red_when_a_row_reaches_the_results_pane(monkeypatch):
+    """Item 26 can fail on the real tables: a row in no group listed by its card, as before ruling 111."""
+    from products.board import panes
+    with db.read_connect() as conn:
+        assert check.entities_only_problems(conn) == []
+        monkeypatch.setattr(panes, "lone_hit", lambda q, v, r, words, boxes=None, why="": panes.hit(q, v, r, words, boxes, why))
+        assert any("row cards outside a dossier" in p for p in check.entities_only_problems(conn))
+
+
+def test_a_saved_path_from_before_and_the_graph_tab_s_old_address_still_open(monkeypatch):
+    """Ruling 111 (2): a path saved before the graph tab left the bar opens from the saved list as it did, and the
+    tab's old address, as a bookmark holds it, answers 303 to the search page on the same query and state with the
+    graph drawn beside the results and the dossier of its centre under it; so does /?tab=graph. On a scratch
+    server on 127.0.0.1, the saved path planted in this session's scratch schema in the sample."""
+    import http.client
+    import threading
+    import urllib.parse
+    from products.board import state
+    from support import db as sdb
+    schema = "scratch_board_12"
+    monkeypatch.setattr(db, "STATE", f"querynz_v4_sample/{schema}")
+    with sdb.connect(sdb.OWNER_KEY, "querynz_v4_sample") as c:
+        c.execute(f"create schema if not exists {schema}")
+        c.commit()
+    state.apply()
+    with db.read_connect() as conn:
+        key = db.rows(conn, "select key from pub.party_return_donors where donor ilike 'graeme%%hart%%' order by key limit 1")[0]["key"]
+    name = f"before board-12 {time.time():.0f}"
+    state.save_path(name, "Graeme Hart", [f"party_return_donors:{key}"])
+    httpd = server.Server(("127.0.0.1", 0), server.Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+
+    def get(path):
+        c = http.client.HTTPConnection("127.0.0.1", httpd.server_address[1], timeout=60)
+        c.request("GET", path)
+        r = c.getresponse()
+        return r.status, r.getheader("Location"), r.read().decode("utf-8")
+    try:
+        status, _, saved = get("/saved")
+        assert status == 200
+        link = re.search(r'<a class="row" href="([^"]*)">' + re.escape(name) + "</a>", saved).group(1).replace("&amp;", "&")
+        status, _, page = get(link)
+        assert status == 200 and 'id="results"' in page and "row not found" not in page and "<h3>Citation</h3>" in page
+        old = "/graph?" + urllib.parse.urlencode([("q", "Graeme Hart"), ("all", "1"), ("g", "entities"),
+                                                  ("c", f"party_return_donors:{key}")])
+        status, to, _ = get(old)
+        qs = urllib.parse.parse_qs(urllib.parse.urlsplit(to).query)
+        assert status == 303 and to.startswith("/?") and qs["q"] == ["Graeme Hart"] and qs["g"] == ["entities"]
+        assert qs["d"] == [f"party_return_donors:{key}"] and qs["gv"] == ["1"]
+        status, _, landed = get(to)
+        side = landed[landed.index('<div class="sidecol">'):]
+        assert status == 200 and 'data-inline="1"' in side and 'id="dossier"' in side and ">graph</a>" not in landed
+        assert check.inline_data(side).get("mode") == "entities" and check.inline_data(side)["nodes"]
+        status, to, _ = get("/?tab=graph&q=hart")
+        assert status == 303 and urllib.parse.parse_qs(urllib.parse.urlsplit(to).query) == {"q": ["hart"], "all": ["1"], "gv": ["1"]}
+    finally:
+        httpd.shutdown()

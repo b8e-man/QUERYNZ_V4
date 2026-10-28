@@ -186,7 +186,7 @@ def test_the_results_pane_says_which_fields_narrowed_the_search():
     html = panes.results_pane("", {}, held, ("party_returns", "contract_disclosures"), b, ["phillip", "mills"], None)
     assert "narrowed by: first name “Phillip”, last name “Mills”" in html
     party, acc = html.split("Party donation")[1].split("Agency contract")
-    assert "none found</p>" in party                                                      # it holds names: none matched
+    assert "none found</div>" in party                                                    # it holds names: none matched
     assert "none of its views holds a column for first name, last name" in acc           # ACC's costs name nobody
     assert panes.search_words("graeme", b) == ["graeme", "phillip", "mills"]
 

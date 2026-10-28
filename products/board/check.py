@@ -17,7 +17,7 @@ tables through the session reader, never the sample:
      one director's other roles open. Each pane cites its document.
   6. The search tab (rulings 80, 81): with "search all" off, the known name
      is found with only its register ticked, and not with it unticked.
-  7. The graph tab (ruling 80): the known donor row is drawn with at least
+  7. The graph (ruling 80; beside the results since ruling 111): the known donor row is drawn with at least
      one money edge; every edge's far end is a row that exists; no edge type
      is an address; every relation column the catalogue names exists in its
      view and in the view it is matched to (with 3). Ruling 84: on that
@@ -84,8 +84,9 @@ tables through the session reader, never the sample:
      count of one or more, a link adding it as an alternative, and says a
      variant is never a link; the search with that alternative finds at
      least the rows of either name (near_names_problems).
- 21. The canvas (ruling 100): the graph tab carries the canvas, its data
-     inline, the SVG inside <noscript> and the key; neither the page nor
+ 21. The canvas (ruling 100): the graph beside the results (the graph tab's
+     old address landed, ruling 111) carries the canvas, its data
+     inline, the SVG inside <noscript> and the key; neither that graph nor
      any file /static/ serves names an address off the box but in a
      licence comment (assets.addresses); every listed file reads, any other
      name does not. For JSON_TERM ("hart") the answer /graph.json gives has
@@ -114,7 +115,25 @@ tables through the session reader, never the sample:
      on the pane; the search tab with `d=` carries the dossier under the
      graph beside the results with the graph's start, the graph tab carries
      it under the graph, and an entity result lists no "matching here"
-     (ruling 110 (1)) (dossier_problems).
+     (ruling 110 (1)) (dossier_problems). Ruling 111: a director's company in
+     its dossier reads as the company's name (with 16), and the graph tab's
+     old address with `d=` lands on the graph drawn beside the results with
+     the dossier under it.
+ 26. Entities only (ruling 111): in both states, under the box's tabs, "any
+     field" and "all fields", the results pane lists entities alone, never a
+     row's card (its fields, its citation) outside a dossier; each tab's
+     count is the entities its rows make, read apart from people.gather
+     (with 23); the switch sits once, on the graph's pane; no graph tab; the
+     tab's old address lands on the search page with the graph drawn, in
+     the state it carried (entities_only_problems).
+ 27. The collapse section (ruling 112): with every criterion ticked, for
+     COLLAPSE_TERM in both states, the section is closed above the entities
+     with each criterion ticked, fewer entries are listed than unfolded,
+     every folded entry and folded node says "collapsed here by …; not a
+     link" and nothing that reads as confirmed, a fold's members are each a
+     group pub.groups holds and its dossier lists them as their own
+     entities, and pub.groups and pub.links hold the same rows, counted and
+     hashed, before and after (collapse_problems).
 
   python -m products.board check [--term NAME]      exit 1 on any failure
 """
@@ -130,7 +149,7 @@ import urllib.parse
 
 from products.board import assets
 from products.board import catalogue as cat
-from products.board import db, document, dossier, graph, links_view, near, people, search, panes, server, uses
+from products.board import collapse, db, document, dossier, graph, links_view, near, people, search, panes, server, uses
 
 ADDRESS_WORDS = re.compile(r"residential|home_address|street|suburb|postal", re.I)
 #: the comparison's residence vocabulary (checks/comparison.py RESIDENCE_WORDS; tests/test_check_vocabulary.py holds the two equal):
@@ -241,10 +260,11 @@ def problems(conn, term: str = None) -> list:
         others = [r for r in search.held_registers(held) if r != "party_returns"]
         only = server.render(term, [], conn=conn, boxes=search.Boxes(False, ("party_returns",)))     # "search all" off, the one register on
         without = server.render(term, [], conn=conn, boxes=search.Boxes(False, tuple(others)))
-        if "<strong>party_return_donors</strong>" not in only or "<mark>" not in only:
-            out.append(f"the search tab with only party_returns checked did not show {term!r} in party_return_donors, marked")
-        if "<strong>party_return_donors</strong>" in without:
-            out.append("the search tab with party_returns unchecked still searched party_return_donors")
+        party = f'<span class="regtotal">{panes.esc(panes.REGISTER_NAME["party_returns"])} <span class="count">'     # ruling 111: rows counted, never listed
+        if party not in only or "<mark>" not in only:
+            out.append(f"the search tab with only party_returns checked did not count {term!r} in party returns, marked")
+        if party in without:
+            out.append("the search tab with party_returns unchecked still searched party returns")
     # 7. the graph tab
     if any("address" in k for k, _, _ in cat.EDGE_KINDS) or any("address" in r.kind for v in cat.VIEWS for r in v.relations):
         out.append("an edge type named for an address exists (hard limit 15)")
@@ -283,6 +303,8 @@ def problems(conn, term: str = None) -> list:
     out += results_problems(conn)
     out += lineage_problems(conn)
     out += dossier_problems(conn)
+    out += entities_only_problems(conn)
+    out += collapse_problems(conn)
     return out
 
 
@@ -348,10 +370,131 @@ def dossier_problems(conn) -> list:
     if "matching here" in tab:
         out.append("an entity result lists the names of the rows it holds (ruling 110 (1) removed that line)")
     centre = f"{x['rows'][0][1].name}:{x['rows'][0][2]['key']}" if x.get("rows") else ""
-    gtab = server.render_graph("", centre, conn=conn, chosen=d, read=conn)
-    under = gtab[gtab.find('<div class="stack">'):]
-    if under.find('id="graph"') < 0 or not (0 <= under.find('id="graph"') < under.find('id="dossier"')):
-        out.append("the graph tab with d= does not carry the dossier under the graph")
+    gtab = server.render_graph("", centre, conn=conn, chosen=d, read=conn)    # ruling 111: the old graph tab's address, landed
+    under = gtab[gtab.find('<div class="sidecol">'):]
+    if 'data-inline="1"' not in under or not (0 <= under.find('id="side"') < under.find('id="dossier"')) \
+            or f'data-chosen="{html.escape(d)}"' not in under:
+        out.append("the graph tab's old address with d= does not land on the graph drawn beside the results with the dossier under it")
+    return out
+
+
+#: a row's own card, which ruling 111 keeps out of the results pane: an article that is no entity, a row's fields, its citation
+ROW_CARD = re.compile(r'<article class="hit"(?! entity)|<table class="f">|<code title="[0-9a-f]{64}">')
+
+
+def results_section(page: str) -> str:
+    """The results pane of a page alone, up to the graph and dossier beside it."""
+    at = page.find('id="results"')
+    if at < 0:
+        return ""
+    end = page.find('<div class="sidecol">', at)
+    return page[at:end if end >= 0 else page.find("</main>", at)]
+
+
+def entities_only_problems(conn) -> list:
+    """Item 26 (ruling 111): in both states of the switch, the box alone
+    (tabs), "any field may match" and "all fields must match", the results
+    pane holds entities alone, no row's card outside a dossier, and no
+    rows and entities switch, which sits once on the graph's pane; the bar
+    has no graph tab; the graph tab's old address answers with the search
+    page on the same query and state with the graph drawn beside the results."""
+    out = []
+    both = (("first", KNOWN_REVERSED[0]), ("last", KNOWN_REVERSED[1]))
+    pages = [(f"{RESULTS_TERM!r} in rows", server.render(RESULTS_TERM, [], conn=conn)),
+             (f"{RESULTS_TERM!r} in entities", server.render(RESULTS_TERM, [], conn=conn, boxes=search.FIRST._replace(people=True))),
+             ("any field", server.render("", [], conn=conn, boxes=search.FIRST._replace(fields=both, mode=search.ANY))),
+             ("all fields", server.render("", [], conn=conn, boxes=search.FIRST._replace(fields=both)))]
+    for what, page in pages:
+        res = results_section(page)
+        cards = ROW_CARD.findall(res)
+        if not res or cards:
+            out.append(f"the results pane for {what} shows {len(cards)} row cards outside a dossier (ruling 111)")
+        if res.count("<article") != res.count('<article class="hit entity'):
+            out.append(f"the results pane for {what} lists something that is not an entity")
+        if not res.count('<article class="hit entity'):
+            out.append(f"the results pane for {what} lists no entity")
+        if 'id="state"' in res or page.count('id="state"') != 1 or page.find('id="state"') < page.find('id="side"'):
+            out.append(f"the rows and entities switch for {what} is not on the graph's pane alone")
+        if 'href="/graph' in page or ">graph</a>" in page:
+            out.append(f"the page for {what} still offers the graph tab")
+    qs = urllib.parse.parse_qs(f"q={RESULTS_TERM}&all=0&r=companies&g=entities&c=directors%3Ax")
+    to = urllib.parse.parse_qs(urllib.parse.urlsplit(server.graph_redirect(qs)).query)
+    if search.boxes_of(to) != search.boxes_of(qs) or to.get("gv") != ["1"] or to.get("d") != ["directors:x"] or to.get("q") != [RESULTS_TERM]:
+        out.append("the graph tab's old address does not land on the search page on the same query and state with the graph open")
+    landed = server.render(RESULTS_TERM, [], conn=conn, boxes=search.boxes_of(to), graph_open=True)
+    side = landed[landed.find('<div class="sidecol">'):]
+    if 'data-inline="1"' not in side or "<svg" not in noscript_picture(side) or inline_data(side).get("mode") != "entities":
+        out.append("the search page with gv=1 does not draw the graph beside the results in the state the address carries")
+    return out
+
+
+#: item 27's live case: a name several of the links lane's groups carry, so a fold by name has something to fold
+COLLAPSE_TERM = "John Smith"
+FINGERPRINT = ("select (select count(*) from pub.groups) as groups, "
+               "(select coalesce(sum(hashtext(row_key || group_id || contested::text)), 0) from pub.groups) as groups_hash, "
+               "(select count(*) from pub.links) as links, "
+               "(select coalesce(sum(hashtext(row_a || row_b || rule || grade)), 0) from pub.links) as links_hash")
+CONFIRMED_WORDS = re.compile(r"\bconfirmed\b|same person|\blinked\b|\ba link\b(?!;)", re.I)
+
+
+def collapse_problems(conn) -> list:
+    """Item 27 (ruling 112): with every criterion ticked, for COLLAPSE_TERM in
+    both states, the results fold fewer entries than they list unfolded,
+    every folded entry and folded node says "collapsed here … not a link"
+    and nothing that reads as confirmed, its members are distinct groups of
+    pub.groups (the fold changed no group), the dossier of a fold lists its
+    members as their own entities, and pub.groups and pub.links hold the same
+    rows, counted and hashed, before and after (the board's reader cannot
+    write, and a statement that tried would turn this red)."""
+    out = []
+    before = db.rows(conn, FINGERPRINT)[0]
+    every = search.FIRST._replace(collapse=search.COLLAPSE_CHOICES)
+    folded_any = False
+    for people_state in (False, True):
+        boxes = every._replace(people=people_state)
+        plain = results_section(server.render(COLLAPSE_TERM, [], conn=conn, boxes=boxes._replace(collapse=())))
+        page = server.render(COLLAPSE_TERM, [], conn=conn, boxes=boxes)
+        res = results_section(page)
+        if '<details class="collapse" id="collapse">' not in res or res.find('id="collapse"') > res.find("<h3>Entities"):
+            out.append("the collapse section is not a closed section above the entities")
+        for c in search.COLLAPSE_CHOICES:
+            if f'name="cl" value="{c}" checked' not in res:
+                out.append(f"the collapse section does not show {c!r} ticked when the address carries it")
+        if res.count("<article") >= plain.count("<article"):
+            out.append(f"every criterion ticked folds nothing for {COLLAPSE_TERM!r} ({res.count('<article')} entries, "
+                       f"{plain.count('<article')} unfolded)")
+        for art in re.findall(r'<article class="hit entity folded".*?</article>', res, re.S):
+            folded_any = True
+            said = re.search(r'<div class="fold">(.*?)</div>', art)
+            if not said or not said.group(1).startswith("collapsed here by ") or not said.group(1).endswith("; not a link"):
+                out.append("a folded entry does not say it is collapsed here and not a link")
+            if CONFIRMED_WORDS.search(re.sub(r"<[^>]+>", " ", art).replace("; not a link", "")):
+                out.append("a folded entry reads as confirmed")
+        d = re.search(r'class="hit entity folded"[^>]* data-dossier="([^"]*)"', res)
+        if d:
+            fid = html.unescape(d.group(1))
+            members = collapse.parse(fid)[1]
+            gids = [m[len(people.ENTITY):] for m in members if m.startswith(people.ENTITY)]
+            got = db.rows(conn, "select group_id, count(*) as n from pub.groups where group_id = any(%s) group by 1", (gids,))
+            if len(got) != len(set(gids)):
+                out.append(f"a fold's members are not each a group pub.groups holds: {len(got)} of {len(set(gids))}")
+            pane = dossier.pane(dossier.gather(conn, fid))
+            listed = re.findall(r'<li><a class="row" href="([^"]*)"', pane)
+            if len(listed) < 2 or not all("d=" in h for h in listed) or "never written" not in pane:
+                out.append("the dossier of a fold does not list its members, each opening its own dossier")
+        data = server.graph_answer(COLLAPSE_TERM, conn=conn, boxes=boxes)
+        for n in data["nodes"]:
+            if n.get("kind") == "fold" and (not n["words"].endswith("; not a link") or CONFIRMED_WORDS.search(n["words"].replace("; not a link", ""))):
+                out.append("a folded node on the graph does not say it is collapsed here and not a link")
+        if any(e["kind"] == graph.CONFIRMED and (e["source"].startswith(collapse.PREFIX) or e["target"].startswith(collapse.PREFIX))
+               for e in data["edges"]):
+            out.append("a folded node draws a confirmed line")
+    if not folded_any:
+        out.append(f"no folded entry for {COLLAPSE_TERM!r}: item 27 has nothing to read")
+    after = db.rows(conn, FINGERPRINT)[0]
+    if after != before:
+        out.append(f"pub.groups or pub.links changed while the collapse section folded ({before} then {after}); "
+                   "a links rebuild would also do this: run the check again once it is done")
     return out
 
 
@@ -512,11 +655,21 @@ def results_problems(conn) -> list:
                 if r.get(f"_tab_{t}") and not re.search(r"\b" + RESULTS_TERM, (r.get(col) or "").lower()):
                     out.append(f"directors row {r['key']} is under the {t} tab without the word in its {col}")
     page = server.render(RESULTS_TERM, [], conn=conn)
-    for t, label in search.TABS:
+    named = people.named_groups(conn, RESULTS_TERM, registers=regs)
+    for t, label in search.TABS:                       # ruling 111: a tab counts entities, read here apart from people.gather
         total = sum(int(rs[0].get(f"_n_{t}") or 0) for reg in regs for _, _, rs in res.get(reg, []) if rs)
-        shown = re.search(rf'<label for="ft-{t}">[^<]*<span class="count">([\d,]+)</span>', page)
-        if (int(shown.group(1).replace(",", "")) if shown else 0) != total:
-            out.append(f"the {t} tab says {shown.group(1) if shown else 'nothing'}, its views count {total:,}")
+        under = [(v, r) for reg in regs for v, _, rs in res.get(reg, []) for r in rs if r.get(f"_tab_{t}")]
+        grp = {x["row_key"]: x["group_id"] for x in db.rows(conn, "select row_key, group_id from pub.groups where row_key = any(%s)",
+                                                         ([links_view.ref(v, r["key"]) for v, r in under if not panes.is_suppressed(v, r)],))}
+        gids = {grp[links_view.ref(v, r["key"])] for v, r in under if links_view.ref(v, r["key"]) in grp and not panes.is_suppressed(v, r)}
+        lone = sum(1 for v, r in under if panes.is_suppressed(v, r) or links_view.ref(v, r["key"]) not in grp)
+        want = len(gids | {g for g, ts in named.items() if t in ts}) + lone
+        shown = re.search(rf'<label for="ft-{t}">[^<]*<span class="count">([\d,]+)(\+?)</span>', page)
+        if not total and not shown:
+            continue
+        if not shown or int(shown.group(1).replace(",", "")) != want or bool(shown.group(2)) != (total > len(under)):
+            out.append(f"the {t} tab says {shown.group(1) + shown.group(2) if shown else 'nothing'} entities; its rows make "
+                       f"{want:,} ({total:,} rows matched, {len(under):,} read)")
     if 'id="side"' not in page or page.count("<article") != page.count("data-graph="):
         out.append("the results page lacks the graph beside it, or a result carries no graph to open (ruling 108 (4))")
     both = (("first", "graeme"), ("last", "hart"))
@@ -612,8 +765,8 @@ def mode_problems(conn) -> list:
         out.append(f"any field found {total(some)} rows, all fields {total(every)}: any must find at least what all finds")
     page = server.render("", [], conn=conn, boxes=search.Boxes(False, ("party_returns",), asked, mode=search.ANY))
     res = page[page.index('id="results"'):page.index('id="near"') if 'id="near"' in page else len(page)]
-    if res.count('<article class="hit" ') != res.count('<div class="nearwhy">matched: '):
-        out.append("under any field, a result does not say which field it matched")
+    if res.count('<article class="hit entity lone" ') != res.count('<div class="nearwhy">matched: '):
+        out.append("under any field, a single-row entity does not say which field its row matched")
     if 'value="any" checked' not in page:
         out.append("the selector does not show any field checked when it was asked")
     return out
@@ -706,12 +859,11 @@ def far_problems(conn, held: set, columns: dict) -> list:
     pane = server.render("", [f"directors:{d['key']}"], conn=conn)
     if want not in pane:
         out.append(f"the row pane of directors:{d['key']} does not show its company's name linked with the key on hover")
-    results = server.render("", [], conn=conn, boxes=search.Boxes(False, ("companies",), (("last", d["last_name"]),)))
-    results = results[results.index('id="results"'):]
-    cells = re.findall(r"<th>company</th><td>(.*?)</td>", results)
+    dos = dossier.pane(dossier.gather(conn, f"directors:{d['key']}"))      # ruling 111: a row is read in its dossier
+    cells = re.findall(r"company: (.*?)(?: · |</div>)", dos)
     if not cells or not all(c.startswith('<a class="row"') or c.endswith(f"{panes.NOT_HELD_ROW}</span>") for c in cells):
-        out.append(f"the results pane for last name {d['last_name']!r} shows a director's company other than by name or as not held")
-    if re.search(r"<td>companies/\d+</td>", results + pane):
+        out.append(f"the dossier of directors:{d['key']} shows a director's company other than by name or as not held")
+    if re.search(r"<td>companies/\d+</td>|company: companies/", pane + dos):
         out.append("a company key is shown bare, not as the company's name")
     return out
 
@@ -833,7 +985,7 @@ def svg_graph(page: str) -> tuple:
     """(node ids, node places, Counter of (line title, colour)) read back from
     the SVG inside the page's <noscript>, from what it draws alone."""
     picture = noscript_picture(page)
-    ids = {urllib.parse.unquote_plus(c) for c in re.findall(r'<a href="/graph\?[^"]*?&amp;c=([^"&]+)">', picture)}
+    ids = {urllib.parse.unquote_plus(c) for c in re.findall(r'<a href="/\?[^"]*?&amp;d=([^"&]+)&amp;gv=1">', picture)}     # ruling 111
     places = {(float(x), float(y)) for x, y in re.findall(r'<circle class="[a-z]+" cx="([\d.-]+)" cy="([\d.-]+)"', picture)}
     lines = collections.Counter((html.unescape(title), colour) for colour, title in
                                 re.findall(r'<path class="edge" d="[^"]*" stroke="(#[0-9a-f]+)"[^>]*><title>(.*?)</title>', picture, re.S))
@@ -844,10 +996,11 @@ def json_problems(conn, term: str = JSON_TERM) -> list:
     """Item 21 (ruling 100)."""
     out = []
     page = server.render_graph(term, conn=conn)
+    page = page[page.find('<div class="sidecol">'):]   # ruling 111: the graph beside the results (a row's key in a result's data may hold a URL)
     if "<noscript>" not in page or 'id="cy"' not in page:
-        out.append(f"the graph tab for {term!r} carries no canvas, or no <noscript> picture")
+        out.append(f"the graph beside the results for {term!r} carries no canvas, or no <noscript> picture")
     for a in assets.addresses(page):
-        out.append(f"the graph tab for {term!r} names an address off the box: {a[:80]}")
+        out.append(f"the graph beside the results for {term!r} names an address off the box: {a[:80]}")
     for name in assets.FILES:
         found = assets.read(name)
         if found is None or not found[0]:
@@ -1248,7 +1401,10 @@ def field_problems(conn, held: set, columns: dict, types: dict) -> list:
             out.append(f"a donor row filed {last.upper()} {first.upper()} is under Near matches: the donor form fixes no order")
         page = server.render("", [], conn=conn, boxes=search.Boxes(False, ("party_returns",), tuple(asked.items())))
         at = page.find('<details class="near"')
-        first_seen = page.find(urllib.parse.urlencode({"p": sorted(refs)[0]}) + "&")
+        one = sorted(refs)[0]                          # ruling 111: listed as its entity, its group's or its own of one row
+        grp = db.rows(conn, "select group_id from pub.groups where row_key = %s",
+                      (links_view.ref(cat.BY_NAME["party_return_donors"], one.split(":", 1)[1]),))
+        first_seen = page.find(f'data-dossier="{html.escape(people.entity_id(grp[0]["group_id"]) if grp else one)}"')
         if first_seen < 0 or (at >= 0 and first_seen > at):
             out.append(f"the donor filed {last.upper()} {first.upper()} is not shown among the exact results")
     office = db.rows(conn, "select key, line_2, line_3 from pub.company_addresses where line_1 ~* '^level [0-9]+$' "

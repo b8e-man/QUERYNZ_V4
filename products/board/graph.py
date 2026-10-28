@@ -34,6 +34,7 @@ import json
 
 from products.board import assets
 from products.board import catalogue as cat
+from products.board import collapse as folding
 from products.board import db, lineage, links_view, panes, people as people_state, search
 
 MAX_MATCHED = 16        # matched rows drawn; the rest are counted and the search can be narrowed
@@ -80,7 +81,8 @@ def _resolver(conn):
     return resolve
 
 
-def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, removed: bool = True, people: bool = False) -> dict:
+def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, removed: bool = True, people: bool = False,
+          collapse: tuple = ()) -> dict:
     """{'nodes': {id: {v, row, matched, centre, order}}, 'edges': [...],
     'drawn': {kind: n}, 'not_drawn': {kind: n}, 'matched_total', 'unresolved'}.
     An edge is one cause: kind, a, b (node ids), label (plain words), cite
@@ -89,7 +91,9 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
     removed company is not a matched row (ruling 93); a far end still shows,
     and a centre opens whatever its status, since its link names the row.
     `people` (ruling 105): the same rows and record relations, no links of
-    a row's own, then folded into the links lane's groups (people.fold)."""
+    a row's own, then folded into the links lane's groups (people.fold).
+    `collapse` (ruling 112): the collapse section's criteria, folding the
+    nodes further for this view, as the results fold (collapse.fold_graph)."""
     g = {"nodes": {}, "edges": [], "drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS},
          "not_drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS}, "matched_total": 0, "unresolved": 0, "centre": centre}
     held = db.pub_views(conn)
@@ -186,7 +190,8 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
                     drawn += 1
             g["not_drawn"][kind] += len(items) - drawn
     lineage.draw(conn, g, add_node, add_edge, people_state.resolve_refs)     # ruling 106 (2): the related grade, as frames
-    return people_state.fold(conn, g, max_nodes=MAX_NODES) if people else g
+    out = people_state.fold(conn, g, max_nodes=MAX_NODES) if people else g
+    return folding.fold_graph(conn, out, collapse, g["nodes"]) if collapse else out
 
 
 # ── a donor's money, one edge per recipient (ruling 86 (3)) ─────────────────
@@ -662,7 +667,7 @@ def place(g: dict, lay: dict, lns: list) -> dict:
     for nid, n in order:
         x, y = pos[nid]
         rad = radius(n)
-        name, reg = node_title(n), n["v"].register.replace("_", " ")
+        name, reg = node_title(n), ("collapsed here, not a link" if n.get("fold") else n["v"].register.replace("_", " "))
         others = [b for k, b in circle.items() if k != nid] + bands
         labels[nid] = None
         tries = [(k, True) for k in LABEL_LENGTHS] + [(k, False) for k in LABEL_LENGTHS[-2:]]
@@ -772,7 +777,7 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None, l
         title = node_title(n)
         rad = radius(n)
         e = n.get("entity")                 # an entity re-centres on its first row in hand, in the people state
-        to = panes.href(q, [], boxes, "/graph") + "&" + urllib.parse.urlencode({"c": e["in_hand"][0] if e else nid})
+        to = panes.graph_open_href(q, boxes, n["fold"]["dossier"] if n.get("fold") else e["in_hand"][0] if e else nid)     # ruling 111
         lab = placement["labels"].get(nid)
         text = ""
         if lab:
@@ -780,7 +785,8 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None, l
             text = f'<text x="{lx:.1f}" y="{y1:.1f}" text-anchor="{anchor}">{panes.esc(t1)}</text>'
             if t2:
                 text += f'<text class="reg" x="{lx:.1f}" y="{y2:.1f}" text-anchor="{anchor}">{panes.esc(t2)}</text>'
-        out.append(f'<a href="{panes.esc(to)}"><title>{panes.esc(title)} · {panes.esc(panes.register_heading(v.register))} · {panes.esc(v.name)}</title>'
+        how = f' · {n["fold"]["count"]} · {n["fold"]["words"]}' if n.get("fold") else ""
+        out.append(f'<a href="{panes.esc(to)}"><title>{panes.esc(title)} · {panes.esc(panes.register_heading(v.register))} · {panes.esc(v.name)}{panes.esc(how)}</title>'
                    f'<circle class="{"matched" if n["matched"] else "other"}" cx="{x:.1f}" cy="{y:.1f}" r="{rad}"/>{text}</a>')
     out.append("</svg></div>")
     return "".join(out)
@@ -908,6 +914,10 @@ def answer(g: dict, q: str, boxes=None, lns: list = None, lay: dict = None) -> d
                 node.update({"count": e["count"], "contested": e["contested"], "group": e["group_id"],
                              "pane": panes.href(q, [people_state.entity_id(e["group_id"])], boxes),
                              "open": open_href(e["group_id"], boxes), "grow": ""})
+        f = n.get("fold")
+        if f:                                           # ruling 112: collapsed here, never a link; its dossier lists the members
+            node.update({"kind": "fold", "count": f["count"], "words": f["words"], "members": f["members"], "grow": "",
+                         "dossier": f["dossier"], "pane": panes.dossier_href(f["dossier"], q, boxes), "open": ""})
         if nid in parent:
             node["parent"] = parent[nid]
         if n.get("stands_for"):
@@ -1009,31 +1019,41 @@ def canvas(data: dict, picture: str) -> str:
 
 
 SIDE_NOTE = ("Click a result to draw its graph here, centred on it, in the state the switch above shows: rows, or the "
-             "entities the links lane gathered. A click with a key held opens the result's pane instead.")
+             "entities the links lane gathered. A click with a key held opens the result's dossier instead.")
 
 
-def side_pane(boxes=None, centre: str = "") -> str:
-    """The graph beside the results (ruling 108 (4)): the canvas of ruling 100,
+def side_pane(boxes=None, centre: str = "", g: dict = None, q: str = "", regs=None, chosen: str = "") -> str:
+    """The graph beside the results (ruling 108 (4)), the board's one graph
+    since the graph tab left the bar (ruling 111): the canvas of ruling 100,
     empty and hidden until a result is clicked, then filled by graph.js from
     /graph.json centred on that result (its `data-graph`, panes.graph_href),
-    in the state the address carries. Without script it never shows: each
-    result's link opens its pane, and the graph tab stays. `centre`, the row
-    of the dossier the address opens (ruling 110): graph.js draws it at once."""
+    in the state the switch above it shows, which is the graph's alone
+    (ruling 111). `centre`, the row of the dossier the address opens (ruling
+    110): graph.js draws it at once. `g`, a graph built for an address with
+    `gv=1` (the graph tab's old address, redirected): drawn now, its data
+    inline and its SVG inside <noscript>, as the graph tab drew it."""
     people = bool(getattr(boxes, "people", False))
+    head = (f'<div class="reg">graph beside the results{" · entities" if people else ""}</div>'
+            + switch(q, boxes, chosen, opened=g is not None))
+    if g is not None:
+        return (f'<section class="pane side on" id="side" aria-live="polite" data-inline="1">{head}'
+                + "\n".join(body(g, q, boxes, regs, script=True)) + "</section>")
     empty = {"centre": "", "mode": "entities" if people else "rows", "nodes": [], "edges": [], "matched_total": 0,
              "drawn": {}, "not_drawn": {}, "unresolved": 0}
     start = f' data-start="{panes.esc(panes.graph_href(centre, boxes))}"' if centre else ""
-    return (f'<section class="pane side" id="side" aria-live="polite"{start}>'
-            f'<div class="reg">graph beside the results{" · entities" if people else ""}</div>'
+    return (f'<section class="pane side" id="side" aria-live="polite"{start}>{head}'
             '<h2 id="side-title">Graph</h2>'
-            '<p class="note"><a id="side-pane" href="#">its pane</a> · <a id="side-tab" href="/graph">on the graph tab</a> · '
+            '<p class="note"><a id="side-pane" href="#">its dossier</a> · '
             '<button type="button" id="side-close">close</button></p>'
             f'<p class="note">{panes.esc(SIDE_NOTE)}</p>' + canvas(empty, "") + "</section>")
 
 
-def switch(q: str, boxes=None, centre: str = "") -> str:
-    """The one control between the graph's two states (ruling 105): rows, or
-    entities; the address carries the state (`g=entities`), so a view reopens in it."""
+def switch(q: str, boxes=None, chosen: str = "", opened: bool = False) -> str:
+    """The one control between the graph's two states (ruling 105), on the
+    graph's pane alone (ruling 111): rows, or entities; the address carries
+    the state (`g=entities`), so a view reopens in it, with the dossier
+    chosen (`d=`, which graph.js keeps current) and the graph open (`gv=1`)
+    where it was."""
     boxes = boxes if boxes is not None else search.FIRST
     on = boxes.people
     parts = []
@@ -1041,8 +1061,7 @@ def switch(q: str, boxes=None, centre: str = "") -> str:
         if people == on:
             parts.append(f'<strong aria-current="true">{label}</strong>')
         else:
-            extra = [("c", centre)] if centre else []
-            url = "/graph?" + urllib.parse.urlencode([("q", q)] + extra + boxes._replace(people=people).params())
+            url = panes.graph_open_href(q, boxes._replace(people=people), chosen, opened)
             parts.append(f'<a href="{panes.esc(url)}">{label}</a>')
     return '<p class="switch" id="state">show: ' + " · ".join(parts) + "</p>"
 
@@ -1058,22 +1077,29 @@ PEOPLE_NOTE = ("People: the rows are gathered into the groups the links lane bui
 def pane(g: dict, q: str, boxes=None, regs=None, script: bool = False) -> str:
     """`boxes` the check boxes every href carries; `regs` the registers searched (None: all);
     `script`: the canvas with the SVG inside <noscript> (ruling 100), else the SVG alone."""
-    out = ['<section class="pane graph" id="graph">', '<div class="reg">graph' + (" · entities" if g.get("people") else "") + "</div>",
-           switch(q, boxes, g.get("centre") or "")]
+    return "\n".join(['<section class="pane graph" id="graph">', '<div class="reg">graph' + (" · entities" if g.get("people") else "")
+                      + "</div>", switch(q, boxes, g.get("centre") or "", opened=True)] + body(g, q, boxes, regs, script) + ["</section>"])
+
+
+def body(g: dict, q: str, boxes=None, regs=None, script: bool = False) -> list:
+    """The graph's parts under its switch: heading, notes, the picture (the
+    canvas with the SVG inside <noscript>, or the SVG alone), the key and the
+    lines listed; `pane` wraps it alone, `side_pane` beside the results."""
+    out = []
     if not g["nodes"]:
         out.append("<h2>Graph</h2>")
         if regs is not None and not regs and not g.get("centre"):
-            out.append(f'<p class="why">{panes.NOTHING_TICKED}</p>' + key_table(g) + "</section>")
-            return "\n".join(out)
+            out.append(f'<p class="why">{panes.NOTHING_TICKED}</p>' + key_table(g))
+            return out
         out.append('<p class="why">' + ("none found" if (q or g.get("centre") or (boxes is not None and boxes.fields)) else "Type a name, an address or a number in the search box.") + "</p>")
-        out.append(key_table(g) + "</section>")
-        return "\n".join(out)
+        out.append(key_table(g))
+        return out
     matched = [n for n in g["nodes"].values() if n["matched"]]
     if g.get("centre"):
         n = matched[0]
         out.append(f"<h2>{panes.esc(node_title(n))}</h2>")
         out.append(f'<p class="note">centred on one row; <a href="{panes.esc(panes.href(q, [g["centre"]], boxes))}">its pane</a>'
-                   f' · <a href="{panes.esc(panes.href(q, [], boxes, "/graph"))}">back to the search</a></p>')
+                   f' · <a href="{panes.esc(panes.graph_open_href(q, boxes))}">the whole search</a></p>')
     else:
         out.append(f"<h2>{panes.esc(q) if q else 'By field'}</h2>" + panes.narrowed_line(boxes))
         rows_drawn = sum(len(n["entity"]["in_hand"]) if n.get("entity") else 1 for n in matched)
@@ -1115,5 +1141,4 @@ def pane(g: dict, q: str, boxes=None, regs=None, script: bool = False) -> str:
     if g["unresolved"]:
         out.append(f'<p class="note">{g["unresolved"]} linked rows were not found in the published views and are not drawn</p>')
     out.append(edge_list(g, lns, placement, q, boxes))
-    out.append("</section>")
-    return "\n".join(out)
+    return out

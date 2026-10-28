@@ -521,7 +521,10 @@ class Boxes(NamedTuple):
     else "any", written only when "any"); `removed`, "show removed
     companies" (ruling 93: unticked on the first view, `removed=1` only when
     ticked); `people`, the graph's people state (ruling 105: `g=entities` only
-    when on, so a view reopens in its state). All travel as query parameters on every href (`params`)."""
+    when on, so a view reopens in its state); `collapse`, the collapse
+    section's criteria ticked (ruling 112, `cl=name&cl=number…`, collapse.CHOICES
+    order; the links lane's groups always on and never written). All travel
+    as query parameters on every href (`params`)."""
     all: bool = True
     ticked: tuple = ()
     fields: tuple = ()
@@ -530,19 +533,22 @@ class Boxes(NamedTuple):
     mode: str = "all"
     removed: bool = False
     people: bool = False
+    collapse: tuple = ()
 
     def params(self) -> list:
         table = [("t", self.table), ("o", str(self.upto))] if self.table else []
         mode = [("mode", self.mode)] if self.mode != ALL else []
         removed = [("removed", "1")] if self.removed else []
         return ([("all", "1" if self.all else "0")] + [("r", x) for x in self.ticked] + removed + list(self.fields)
-                + mode + table + ([("g", PEOPLE)] if self.people else []))
+                + mode + table + ([("g", PEOPLE)] if self.people else []) + [(COLLAPSE, x) for x in self.collapse])
 
     def asked(self) -> dict:
         return dict(self.fields)
 
 
 PEOPLE = "entities"  # the graph's entity state (ruling 105), `g=entities`; "people" in the code is the state's name
+COLLAPSE = "cl"     # the collapse section's criteria (ruling 112), one `cl=` per criterion ticked
+COLLAPSE_CHOICES = ("name", "full", "address", "number")     # in the section's order (collapse.CRITERIA)
 FIRST = Boxes()     # the first view of either tab: "search all" ticked, every register unticked
 
 
@@ -563,7 +569,8 @@ def boxes_of(qs: dict) -> Boxes:
     upto = min(max(int(o) // TABLE_PAGE * TABLE_PAGE, 0), TABLE_MAX - TABLE_PAGE) if o.isdigit() and table else 0
     mode = ANY if (qs.get("mode") or [""])[0] == ANY else ALL
     removed = "1" in (qs.get("removed") or [])
-    return Boxes("1" in alls if alls else not ticked, ticked, fields, table, upto, mode, removed, (qs.get("g") or [""])[0] == PEOPLE)
+    return Boxes("1" in alls if alls else not ticked, ticked, fields, table, upto, mode, removed, (qs.get("g") or [""])[0] == PEOPLE,
+                 tuple(c for c in COLLAPSE_CHOICES if c in set(qs.get(COLLAPSE) or ())))
 
 
 def selection(boxes: Boxes, held: list) -> tuple:
