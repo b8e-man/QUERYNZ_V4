@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS links.links (
     reason       text,                     -- for a near link: why it is only near
     built_at     timestamptz NOT NULL DEFAULT now(),
     relation     text,                     -- for a related link (ruling 106): what the one row is to the other, read row by row in `evidence`
-    CONSTRAINT links_pair_order CHECK (row_a < row_b),
+    CONSTRAINT links_pair_order CHECK ((row_a COLLATE "C") < row_b),   -- bytes: Python's order (links.ORDER)
     CONSTRAINT links_relation_graded CHECK ((grade = 'related') = (relation IS NOT NULL)),
     UNIQUE (row_a, row_b, rule)
 );
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS links.decisions (
     made_by      text NOT NULL,            -- 'review-agent@2', 'correction:<id>', 'suppression:<id>', 'old-estate:<ledger id>', or a person
     made_on      jsonb NOT NULL,           -- the evidence the decision rested on
     made_at      timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT decisions_pair_order CHECK (row_a < row_b)
+    CONSTRAINT decisions_pair_order CHECK ((row_a COLLATE "C") < row_b)
 );
 CREATE INDEX IF NOT EXISTS decisions_rows ON links.decisions (row_a, row_b);
 -- only ever added to: no UPDATE, no DELETE
@@ -182,9 +182,34 @@ CREATE TABLE IF NOT EXISTS links.test_pairs (
     basis        jsonb NOT NULL,           -- what makes the truth known
     drawn_at     timestamptz NOT NULL DEFAULT now(),
     seed         integer NOT NULL,
-    CONSTRAINT test_pairs_order CHECK (row_a < row_b),
+    CONSTRAINT test_pairs_order CHECK ((row_a COLLATE "C") < row_b),
     UNIQUE (kind, row_a, row_b)
 );
+
+-- The pair order is bytes (fix-links-5, 28 October 2026): a table made before compares under the database's collation
+-- (en_NZ.UTF-8, which ignores spaces and punctuation and folds case), where Python's order and the CHECK disagreed on
+-- refs with capitals, spaces or punctuation. Each CHECK is replaced once, where it lacks COLLATE "C". Links and test pairs
+-- are regenerable and a stored pair the bytes order the other way round is turned round in place (three live links of
+-- 28 October); a decision is never edited (only ever added to), so one out of order stops the job here, loudly.
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'links.links'::regclass AND conname = 'links_pair_order'
+                   AND pg_get_constraintdef(oid) LIKE '%COLLATE "C"%') THEN
+        ALTER TABLE links.links DROP CONSTRAINT IF EXISTS links_pair_order;
+        UPDATE links.links SET row_a = row_b, row_b = row_a WHERE NOT ((row_a COLLATE "C") < row_b);
+        ALTER TABLE links.links ADD CONSTRAINT links_pair_order CHECK ((row_a COLLATE "C") < row_b);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'links.test_pairs'::regclass AND conname = 'test_pairs_order'
+                   AND pg_get_constraintdef(oid) LIKE '%COLLATE "C"%') THEN
+        ALTER TABLE links.test_pairs DROP CONSTRAINT IF EXISTS test_pairs_order;
+        UPDATE links.test_pairs SET row_a = row_b, row_b = row_a WHERE NOT ((row_a COLLATE "C") < row_b);
+        ALTER TABLE links.test_pairs ADD CONSTRAINT test_pairs_order CHECK ((row_a COLLATE "C") < row_b);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'links.decisions'::regclass AND conname = 'decisions_pair_order'
+                   AND pg_get_constraintdef(oid) LIKE '%COLLATE "C"%') THEN
+        ALTER TABLE links.decisions DROP CONSTRAINT IF EXISTS decisions_pair_order;
+        ALTER TABLE links.decisions ADD CONSTRAINT decisions_pair_order CHECK ((row_a COLLATE "C") < row_b);
+    END IF;
+END $$;
 
 -- The measurements, one row each per build.
 CREATE TABLE IF NOT EXISTS links.measurements (

@@ -243,19 +243,25 @@ def check_ruling_109(conn, s: str) -> list:
 
 def check_ruling_114(conn, s: str) -> list:
     """Ruling 114 against the tables as they stand (SQL apart from `rules.sole_body`)."""
+    # The bodies are read for the confirmed links' name keys only (every body of those keys, every row of those bodies): a
+    # body's liveness reads its own rows alone, so this is the whole table's answer, and the window over all two million
+    # bodies ran past the check's 300 s on live (28 October 2026).
     row = conn.execute(f"""
-        WITH x AS (SELECT b.*, bool_or(b.register <> 'charities') OVER (PARTITION BY b.body) AS formed FROM {s}.bodies b),
-             bd AS (SELECT body, min(registered_on) AS reg, bool_or(removed_on IS NOT NULL OR removal_undated) AS removed, max(removed_on) AS removed_on
-                    FROM x WHERE register <> 'charities' OR NOT formed GROUP BY body),
-             c AS (SELECT l.link_id, l.rule, r.ref, CASE WHEN r.ref = l.row_a THEN l.row_b ELSE l.row_a END AS linked, r.name_key,
+        WITH c AS MATERIALIZED (
+                   SELECT l.link_id, l.rule, r.ref, CASE WHEN r.ref = l.row_a THEN l.row_b ELSE l.row_a END AS linked, r.name_key,
                           r.started_on AS st, coalesce(r.ended_on, r.started_on) AS en, r.register = ANY(%(reg)s) AS donation
                    FROM {s}.links l JOIN {s}.rows r ON r.ref IN (l.row_a, l.row_b) AND r.kind = 'organisation'
                    WHERE l.rule = ANY(%(rules)s) AND l.grade = 'confirmed'),
+             k AS MATERIALIZED (SELECT DISTINCT b.org_key, b.body FROM {s}.bodies b WHERE b.org_key IN (SELECT name_key FROM c)),
+             x AS (SELECT b.*, bool_or(b.register <> 'charities') OVER (PARTITION BY b.body) AS formed
+                   FROM {s}.bodies b WHERE b.body IN (SELECT body FROM k)),
+             bd AS (SELECT body, min(registered_on) AS reg, bool_or(removed_on IS NOT NULL OR removal_undated) AS removed, max(removed_on) AS removed_on
+                    FROM x WHERE register <> 'charities' OR NOT formed GROUP BY body),
              n AS (SELECT c.link_id, k.body,
                           (bd.reg IS NULL OR c.en IS NULL OR bd.reg <= c.en)
                             AND (NOT bd.removed OR (bd.removed_on IS NOT NULL AND (c.st IS NULL OR bd.removed_on >= c.st))) AS live,
                           (bd.reg IS NULL OR c.en IS NULL OR bd.reg <= c.en) AND bd.removed AND bd.removed_on IS NULL AS unknown
-                   FROM c JOIN (SELECT DISTINCT org_key, body FROM {s}.bodies) k ON k.org_key = c.name_key JOIN bd ON bd.body = k.body),
+                   FROM c JOIN k ON k.org_key = c.name_key JOIN bd ON bd.body = k.body),
              p AS (SELECT c.link_id, c.rule, c.donation, c.linked, count(DISTINCT n.body) AS named,
                           coalesce(bool_or(n.body = c.linked AND n.live), false) AS linked_live,
                           count(*) FILTER (WHERE n.body <> c.linked AND (n.live OR n.unknown)) AS others

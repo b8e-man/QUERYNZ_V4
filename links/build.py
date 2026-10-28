@@ -98,12 +98,12 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     # rule 1: the full name with a middle name
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least(m.ref, r.ref), greatest(m.ref, r.ref), %(rule)s,
+        SELECT least(m.ref COLLATE "C", r.ref), greatest(m.ref COLLATE "C", r.ref), %(rule)s,
                jsonb_build_object('full_name', r.full_key, 'middle', r.middle, 'as_filed', jsonb_build_array(m.name_filed, r.name_filed),
                                   'registers', jsonb_build_array(m.register, r.register)),
                'confirmed', NULL
         FROM {s}.rows r
-        JOIN (SELECT full_key, min(ref) AS ref FROM {s}.rows
+        JOIN (SELECT full_key, min(ref COLLATE "C") COLLATE "default" AS ref FROM {s}.rows
               WHERE kind = 'person' AND has_middle AND NOT politician GROUP BY full_key HAVING count(*) > 1) k ON k.full_key = r.full_key
         JOIN {s}.rows m ON m.ref = k.ref
         WHERE r.kind = 'person' AND r.has_middle AND NOT r.politician AND r.ref <> k.ref""", {"rule": rules.RULE_FULL})
@@ -121,13 +121,13 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     conn.execute(f"ANALYZE {s}.name_at_address")
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT DISTINCT ON (least(m.ref, r.ref), greatest(m.ref, r.ref))
-               least(m.ref, r.ref), greatest(m.ref, r.ref), %(rule)s,
+        SELECT DISTINCT ON (least(m.ref COLLATE "C", r.ref), greatest(m.ref COLLATE "C", r.ref))
+               least(m.ref COLLATE "C", r.ref), greatest(m.ref COLLATE "C", r.ref), %(rule)s,
                jsonb_build_object('first_last', r.fl_key, 'shared_address', r.address_key, 'companies_at_address', r.companies_at,
                                   'as_filed', jsonb_build_array(m.name_filed, r.name_filed), 'registers', jsonb_build_array(m.register, r.register)),
                'confirmed', NULL
         FROM {s}.name_at_address r
-        JOIN (SELECT fl_key, address_key, min(ref) AS ref FROM {s}.name_at_address GROUP BY 1, 2 HAVING count(DISTINCT ref) > 1) k
+        JOIN (SELECT fl_key, address_key, min(ref COLLATE "C") COLLATE "default" AS ref FROM {s}.name_at_address GROUP BY 1, 2 HAVING count(DISTINCT ref) > 1) k
              ON k.fl_key = r.fl_key AND k.address_key = r.address_key
         JOIN {s}.name_at_address m ON m.ref = k.ref AND m.address_key = k.address_key
         WHERE r.ref <> k.ref
@@ -138,7 +138,7 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     # the lane's own join: a seat and the candidacy that won it
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least('house:' || m.key, 'house:' || m.candidate), greatest('house:' || m.key, 'house:' || m.candidate), %(rule)s,
+        SELECT least(('house:' || m.key) COLLATE "C", 'house:' || m.candidate), greatest(('house:' || m.key) COLLATE "C", 'house:' || m.candidate), %(rule)s,
                jsonb_build_object('join', 'pub.members.candidate', 'election', m.election, 'electorate', m.electorate),
                'confirmed', NULL
         FROM pub.members m JOIN pub.candidates c ON c.key = m.candidate
@@ -146,7 +146,7 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     # the lane's own join: the filing candidate on an original candidate return and on the amendment the Commission says replaces it
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least('candidate_returns:' || o.key, 'candidate_returns:' || n.key), greatest('candidate_returns:' || o.key, 'candidate_returns:' || n.key), %(rule)s,
+        SELECT least(('candidate_returns:' || o.key) COLLATE "C", 'candidate_returns:' || n.key), greatest(('candidate_returns:' || o.key) COLLATE "C", 'candidate_returns:' || n.key), %(rule)s,
                jsonb_build_object('join', 'pub.candidate_return_totals.replaced_by', 'year', o.year, 'electorate', o.electorate,
                                   'as_filed', jsonb_build_array(a.name_filed, b.name_filed), 'registers', jsonb_build_array('candidate_returns', 'candidate_returns')),
                'confirmed', NULL
@@ -158,14 +158,14 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     # the number is the link
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least('companies:' || sh.key, 'companies:' || c.key), greatest('companies:' || sh.key, 'companies:' || c.key), %(rule)s,
+        SELECT least(('companies:' || sh.key) COLLATE "C", 'companies:' || c.key), greatest(('companies:' || sh.key) COLLATE "C", 'companies:' || c.key), %(rule)s,
                jsonb_build_object('number', 'NZBN', 'value', sh.holder_nzbn, 'holder', sh.name, 'company', c.name), 'confirmed', NULL
         FROM pub.shareholders sh JOIN pub.companies c ON c.nzbn = sh.holder_nzbn
         WHERE sh.shareholder_type = 'company' AND sh.holder_nzbn IS NOT NULL AND sh.holder_nzbn <> ''
         ON CONFLICT DO NOTHING""", {"rule": rules.RULE_NUMBER})
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least('gazette:' || l.key, 'companies:' || c.key), greatest('gazette:' || l.key, 'companies:' || c.key), %(rule)s,
+        SELECT least(('gazette:' || l.key) COLLATE "C", 'companies:' || c.key), greatest(('gazette:' || l.key) COLLATE "C", 'companies:' || c.key), %(rule)s,
                jsonb_build_object('number', 'company number', 'value', l.company_number, 'notice', l.notice, 'company', c.name), 'confirmed', NULL
         FROM pub.gazette_liquidations l JOIN pub.companies c ON c.number = l.company_number AND c.register = 'companies'
         WHERE l.company_number IS NOT NULL AND l.company_number <> ''
@@ -175,7 +175,7 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     # a declared interest's organisation name to the companies carrying it: near, with whether each was alive on the date
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least(r.ref, o.entity_ref), greatest(r.ref, o.entity_ref), %(rule)s,
+        SELECT least(r.ref COLLATE "C", o.entity_ref), greatest(r.ref COLLATE "C", o.entity_ref), %(rule)s,
                jsonb_build_object('name', r.name_filed, 'organisation_key', r.name_key, 'date', r.started_on,
                                   'alive_on_date', (o.registered_on IS NULL OR o.registered_on <= coalesce(r.ended_on, r.started_on, current_date))
                                                    AND (o.removed_on IS NULL OR o.removed_on >= coalesce(r.started_on, current_date)),
@@ -253,7 +253,7 @@ def body_links(conn, s: str) -> dict:
     rows_of: dict = {}
     for body, ref, register, kind, number, name, reg, rem, undated in conn.execute(f"""
             SELECT body, entity_ref, register, kind, number, name, registered_on, removed_on, removal_undated FROM {s}.bodies
-            WHERE body = ANY(%s) ORDER BY body, entity_ref""", (sorted({b for m in matched for b in m[5]}),)).fetchall():
+            WHERE body = ANY(%s) ORDER BY body COLLATE "C", entity_ref COLLATE "C" """, (sorted({b for m in matched for b in m[5]}),)).fetchall():
         rows_of.setdefault(body, {})[ref] = {"entity_ref": ref, "register": register, "kind": kind, "number": number, "name": name,
                                              "registered_on": reg, "removed_on": rem, "removal_undated": undated}
     pairs = []
@@ -309,7 +309,7 @@ def seat_links(conn, s: str) -> dict:
               OR {_PLACE.format(x='p.electorate')} = {_PLACE.format(x='t.electorate_name')})""")
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least(f.row_ref, f.seat_ref), greatest(f.row_ref, f.seat_ref), %(rule)s,
+        SELECT least(f.row_ref COLLATE "C", f.seat_ref), greatest(f.row_ref COLLATE "C", f.seat_ref), %(rule)s,
                jsonb_build_object('seat', f.seat_key, 'election', f.election, 'route', f.route, 'electorate', f.electorate_name,
                                   'term', jsonb_build_array(f.from_on, f.to_on), 'row', f.view, 'dated', jsonb_build_array(f.started_on, f.ended_on),
                                   'printed_electorate', f.printed_electorate, 'as_filed', f.name_filed, 'members_fitting', u.members,
@@ -405,7 +405,7 @@ def declared_links(conn, s: str) -> dict:
     directors of that name sit on the declared company."""
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least(r.ref, 'companies:' || c.key), greatest(r.ref, 'companies:' || c.key), %(rule)s,
+        SELECT least(r.ref COLLATE "C", 'companies:' || c.key), greatest(r.ref COLLATE "C", 'companies:' || c.key), %(rule)s,
                jsonb_build_object('number', 'company number', 'value', c.number, 'declared', r.name_filed, 'company', c.name,
                                   'registers', jsonb_build_array('mp_interests', 'companies')), 'confirmed', NULL
         FROM {s}.rows r JOIN pub.mp_interests i ON r.ref = 'mp_interests:' || i.key
@@ -421,13 +421,13 @@ def declared_links(conn, s: str) -> dict:
         WHERE i.view = 'mp_interests' AND i.kind = 'organisation'
           AND (o.registered_on IS NULL OR o.registered_on <= i.started_on) AND (o.removed_on IS NULL OR o.removed_on >= i.started_on)
         UNION
-        SELECT least(l.row_a, l.row_b), i.entity_ref, i.name_filed, i.started_on, greatest(l.row_a, l.row_b), 1
-        FROM {s}.links l JOIN {s}.rows i ON i.ref = least(l.row_a, l.row_b) AND i.view = 'mp_interests'
+        SELECT l.row_a, i.entity_ref, i.name_filed, i.started_on, l.row_b, 1        -- row_a is the smaller ref (the pair-order CHECK)
+        FROM {s}.links l JOIN {s}.rows i ON i.ref = l.row_a AND i.view = 'mp_interests'
         WHERE l.rule = %(number)s""", {"number": rules.RULE_NUMBER})
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT DISTINCT ON (least(m.ref, d.ref), greatest(m.ref, d.ref))
-               least(m.ref, d.ref), greatest(m.ref, d.ref), %(rule)s,
+        SELECT DISTINCT ON (least(m.ref COLLATE "C", d.ref), greatest(m.ref COLLATE "C", d.ref))
+               least(m.ref COLLATE "C", d.ref), greatest(m.ref COLLATE "C", d.ref), %(rule)s,
                jsonb_build_object('declared', dc.declared, 'declaration', dc.declared_ref, 'as_at', dc.as_at, 'company', dc.company_ref,
                                   'directors_of_this_name_on_it', n.names, 'role', jsonb_build_array(d.started_on, d.ended_on),
                                   'as_filed', jsonb_build_array(m.name_filed, d.name_filed), 'registers', jsonb_build_array('mp_interests', 'companies')),
@@ -438,10 +438,10 @@ def declared_links(conn, s: str) -> dict:
         JOIN (SELECT d2.entity_ref, d2.fl_key, count(DISTINCT CASE WHEN d2.has_middle THEN d2.full_key END) + (count(*) FILTER (WHERE NOT d2.has_middle) > 0)::int AS names
               FROM {s}.rows d2 WHERE d2.view = 'directors' GROUP BY 1, 2) n ON n.entity_ref = d.entity_ref AND n.fl_key = d.fl_key
         WHERE dc.companies_alive = 1 AND NOT (m.has_middle AND d.has_middle AND m.full_key <> d.full_key)
-        ORDER BY least(m.ref, d.ref), greatest(m.ref, d.ref), d.started_on DESC NULLS LAST
+        ORDER BY least(m.ref COLLATE "C", d.ref), greatest(m.ref COLLATE "C", d.ref), d.started_on DESC NULLS LAST
         ON CONFLICT DO NOTHING""", {"rule": rules.RULE_DECLARED, "two": rules.NEAR_DECLARED_TWO})
     conn.commit()
-    row = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE grade = 'confirmed'), count(DISTINCT least(row_a, row_b)) FILTER (WHERE grade = 'confirmed')
+    row = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE grade = 'confirmed'), count(DISTINCT row_a) FILTER (WHERE grade = 'confirmed')
                            FROM {s}.links WHERE rule = %s""", (rules.RULE_DECLARED,)).fetchone()
     return {"declarations_with_a_company_number": int(numbered), "links": int(row[0]), "confirmed": int(row[1]), "near_two_directors": int(row[0] - row[1]),
             "returns_joined_to_a_directorship": int(row[2])}
@@ -464,7 +464,7 @@ def donor_links(conn, s: str) -> dict:
     out = {}
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least(d.ref, p.ref), greatest(d.ref, p.ref), %(rule)s,
+        SELECT least(d.ref COLLATE "C", p.ref), greatest(d.ref COLLATE "C", p.ref), %(rule)s,
                jsonb_build_object('as_filed', d.name_filed, 'part', p.name_filed, 'name_key', p.name_key,
                                   'part_number', substring(p.ref FROM '#([0-9]+)$')::int,
                                   'parts', count(*) OVER (PARTITION BY d.ref), 'registers', jsonb_build_array(d.register, p.register)),
@@ -475,13 +475,13 @@ def donor_links(conn, s: str) -> dict:
     out[rules.RULE_COUPLED] = _count(conn, s, rules.RULE_COUPLED)
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least(m.ref, r.ref), greatest(m.ref, r.ref), %(rule)s,
+        SELECT least(m.ref COLLATE "C", r.ref), greatest(m.ref COLLATE "C", r.ref), %(rule)s,
                jsonb_build_object('name_key', r.name_key, 'as_filed', jsonb_build_array(m.name_filed, r.name_filed),
                                   'same_party', m.entity_ref = r.entity_ref, 'dated', jsonb_build_array(m.started_on, r.started_on),
                                   'registers', jsonb_build_array(m.register, r.register)),
                'near', %(reason)s
         FROM {s}.rows r
-        JOIN (SELECT name_key, min(ref) AS ref FROM {s}.rows WHERE kind IN ('organisation', 'estate')
+        JOIN (SELECT name_key, min(ref COLLATE "C") COLLATE "default" AS ref FROM {s}.rows WHERE kind IN ('organisation', 'estate')
               AND register IN ('party_returns', 'candidate_returns', 'disclosures') GROUP BY 1 HAVING count(*) > 1) k ON k.name_key = r.name_key
         JOIN {s}.rows m ON m.ref = k.ref
         WHERE r.kind IN ('organisation', 'estate') AND r.register IN ('party_returns', 'candidate_returns', 'disclosures') AND r.ref <> k.ref
@@ -489,7 +489,7 @@ def donor_links(conn, s: str) -> dict:
     out[rules.RULE_FILED_NAME] = _count(conn, s, rules.RULE_FILED_NAME)
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least(d.ref, c.ref), greatest(d.ref, c.ref), %(rule)s,
+        SELECT least(d.ref COLLATE "C", c.ref), greatest(d.ref COLLATE "C", c.ref), %(rule)s,
                jsonb_build_object('return', c.ref, 'election', c.election, 'electorate', c.electorate,
                                   'as_filed', jsonb_build_array(d.name_filed, c.name_filed), 'registers', jsonb_build_array('candidate_returns', 'candidate_returns')),
                'near', %(reason)s
@@ -499,8 +499,8 @@ def donor_links(conn, s: str) -> dict:
     out[rules.RULE_OWN_RETURN] = _count(conn, s, rules.RULE_OWN_RETURN)
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT DISTINCT ON (least(d.ref, p.ref), greatest(d.ref, p.ref))
-               least(d.ref, p.ref), greatest(d.ref, p.ref), %(rule)s,
+        SELECT DISTINCT ON (least(d.ref COLLATE "C", p.ref), greatest(d.ref COLLATE "C", p.ref))
+               least(d.ref COLLATE "C", p.ref), greatest(d.ref COLLATE "C", p.ref), %(rule)s,
                jsonb_build_object('party', coalesce(pr.party, ds.party), 'year', coalesce(pr.year, extract(year FROM ds.given_on)::int),
                                   'politician', p.view, 'election', p.election, 'term', jsonb_build_array(p.started_on, p.ended_on),
                                   'as_filed', jsonb_build_array(d.name_filed, p.name_filed), 'registers', jsonb_build_array(d.register, 'house')),
@@ -524,7 +524,7 @@ def company_name_links(conn, s: str) -> dict:
     name. The number is the only confirmation of a company."""
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least(m.entity_ref, o.entity_ref), greatest(m.entity_ref, o.entity_ref), %(rule)s,
+        SELECT least(m.entity_ref COLLATE "C", o.entity_ref), greatest(m.entity_ref COLLATE "C", o.entity_ref), %(rule)s,
                jsonb_build_object('name_key', o.org_key, 'registered', jsonb_build_array(m.registered_on, o.registered_on),
                                   'removed', jsonb_build_array(m.removed_on, o.removed_on),
                                   'alive_together', coalesce(m.removed_on, 'infinity') >= coalesce(o.registered_on, '-infinity')
@@ -532,21 +532,21 @@ def company_name_links(conn, s: str) -> dict:
                                   'companies_of_this_name', k.n, 'registers', jsonb_build_array('companies', 'companies')),
                'near', %(reason)s
         FROM {s}.org_names o
-        JOIN (SELECT org_key, min(entity_ref) AS entity_ref, count(*) AS n FROM {s}.org_names GROUP BY 1 HAVING count(*) > 1) k ON k.org_key = o.org_key
+        JOIN (SELECT org_key, min(entity_ref COLLATE "C") COLLATE "default" AS entity_ref, count(*) AS n FROM {s}.org_names GROUP BY 1 HAVING count(*) > 1) k ON k.org_key = o.org_key
         JOIN {s}.org_names m ON m.entity_ref = k.entity_ref AND m.org_key = k.org_key
         WHERE o.entity_ref <> k.entity_ref
         ON CONFLICT DO NOTHING""", {"rule": rules.RULE_COMPANY_NAME, "reason": rules.NEAR_COMPANY_SAME})
     same = _count(conn, s, rules.RULE_COMPANY_NAME)
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least(m.entity_ref, o.entity_ref), greatest(m.entity_ref, o.entity_ref), %(rule)s,
+        SELECT least(m.entity_ref COLLATE "C", o.entity_ref), greatest(m.entity_ref COLLATE "C", o.entity_ref), %(rule)s,
                jsonb_build_object('name_key', o.bare, 'as_keyed', jsonb_build_array(m.org_key, o.org_key),
                                   'registered', jsonb_build_array(m.registered_on, o.registered_on), 'removed', jsonb_build_array(m.removed_on, o.removed_on),
                                   'registers', jsonb_build_array('companies', 'companies')),
                'near', %(reason)s
         FROM (SELECT entity_ref, org_key, registered_on, removed_on, trim(regexp_replace(org_key, '\\s*\\(\\d{{4}}\\)\\s*', ' ', 'g')) AS bare
               FROM {s}.org_names WHERE org_key ~ '\\(\\d{{4}}\\)') o
-        JOIN (SELECT org_key, min(entity_ref) AS entity_ref FROM {s}.org_names GROUP BY 1) k ON k.org_key = o.bare
+        JOIN (SELECT org_key, min(entity_ref COLLATE "C") COLLATE "default" AS entity_ref FROM {s}.org_names GROUP BY 1) k ON k.org_key = o.bare
         JOIN {s}.org_names m ON m.entity_ref = k.entity_ref AND m.org_key = k.org_key
         WHERE o.bare <> '' AND o.bare <> o.org_key
         ON CONFLICT DO NOTHING""", {"rule": rules.RULE_COMPANY_NAME, "reason": rules.NEAR_COMPANY_YEAR})
@@ -619,7 +619,7 @@ def refiled_links(conn, s: str, comp: dict) -> dict:
     `company-name@1` near star; the rest stay near."""
     pairs = conn.execute(f"""
         SELECT a.entity_ref, a.org_key, a.registered_on, a.removed_on, ca.name, b.entity_ref, b.org_key, b.registered_on, b.removed_on, cb.name
-        FROM {s}.org_names a JOIN {s}.org_names b ON b.org_key = a.org_key AND b.entity_ref > a.entity_ref
+        FROM {s}.org_names a JOIN {s}.org_names b ON b.org_key = a.org_key AND b.entity_ref COLLATE "C" > a.entity_ref
         LEFT JOIN pub.companies ca ON ca.key = substr(a.entity_ref, length('companies:') + 1)
         LEFT JOIN pub.companies cb ON cb.key = substr(b.entity_ref, length('companies:') + 1)
         WHERE a.org_key !~ '\\(\\d{{4}}\\)' AND a.org_key <> '' AND (a.removed_on IS NOT NULL OR b.removed_on IS NOT NULL)""").fetchall()
@@ -652,7 +652,7 @@ def same_party_links(conn, s: str) -> dict:
     found = conn.execute(f"""
         SELECT r.name_key, c.party_registered,
                jsonb_agg(jsonb_build_object('ref', r.ref, 'election', c.election, 'electorate', e.name, 'list_place', c.list_place,
-                                            'name_filed', r.name_filed, 'name_key', r.name_key, 'party', c.party_registered) ORDER BY r.ref)
+                                            'name_filed', r.name_filed, 'name_key', r.name_key, 'party', c.party_registered) ORDER BY r.ref COLLATE "C")
         FROM {s}.rows r JOIN pub.candidates c ON r.ref = 'house:' || c.key
         LEFT JOIN pub.electorates e ON e.key = c.electorate
         WHERE r.view = 'candidates' AND coalesce(c.party_registered, '') <> ''
@@ -673,7 +673,7 @@ def name_form_links(conn, s: str) -> dict:
     carry middle names that differ is left out: those are two names."""
     conn.execute(f"""
         INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least(m.ref, r.ref), greatest(m.ref, r.ref), %(rule)s,
+        SELECT least(m.ref COLLATE "C", r.ref), greatest(m.ref COLLATE "C", r.ref), %(rule)s,
                jsonb_build_object('party', r.party, 'elections', jsonb_build_array(m.election, r.election),
                                   'electorates', jsonb_build_array(m.electorate, r.electorate), 'as_filed', jsonb_build_array(m.name_filed, r.name_filed),
                                   'same_printing', m.name_key = r.name_key, 'registers', jsonb_build_array('house', 'house'))
@@ -682,7 +682,7 @@ def name_form_links(conn, s: str) -> dict:
               LEFT JOIN pub.candidates c ON x.view = 'candidates' AND x.ref = 'house:' || c.key
               LEFT JOIN pub.members mm ON x.view = 'members' AND x.ref = 'house:' || mm.key
               WHERE x.view IN ('candidates', 'members') AND x.fl_key IS NOT NULL) r
-        JOIN (SELECT fl_key, party, min(ref) AS ref FROM (SELECT x.fl_key, coalesce(c.party_registered, mm.party_registered) AS party, x.ref, x.election
+        JOIN (SELECT fl_key, party, min(ref COLLATE "C") COLLATE "default" AS ref FROM (SELECT x.fl_key, coalesce(c.party_registered, mm.party_registered) AS party, x.ref, x.election
                                                            FROM {s}.rows x
                                                            LEFT JOIN pub.candidates c ON x.view = 'candidates' AND x.ref = 'house:' || c.key
                                                            LEFT JOIN pub.members mm ON x.view = 'members' AND x.ref = 'house:' || mm.key
@@ -751,9 +751,9 @@ def near_links(conn, s: str, log=print, reader=None, comp: dict = None) -> int:
     reader = reader or conn
     with reader.cursor(name="links_near_names") as cur:
         cur.itersize = 20000
-        cur.execute(f"""SELECT fl_key, array_agg(ref ORDER BY ref), array_agg(full_key ORDER BY ref), array_agg(has_middle ORDER BY ref),
-                               array_agg(middle ORDER BY ref), array_agg(politician ORDER BY ref), array_agg(name_filed ORDER BY ref),
-                               array_agg(register ORDER BY ref)
+        cur.execute(f"""SELECT fl_key, array_agg(ref ORDER BY ref COLLATE "C"), array_agg(full_key ORDER BY ref COLLATE "C"), array_agg(has_middle ORDER BY ref COLLATE "C"),
+                               array_agg(middle ORDER BY ref COLLATE "C"), array_agg(politician ORDER BY ref COLLATE "C"), array_agg(name_filed ORDER BY ref COLLATE "C"),
+                               array_agg(register ORDER BY ref COLLATE "C")
                         FROM {s}.rows WHERE kind = 'person' AND fl_key IS NOT NULL AND view <> ALL(%s)
                         GROUP BY fl_key HAVING count(*) > 1""", (list(lrows.MEMBER_DAY_VIEWS),))
         with conn.cursor() as w:
