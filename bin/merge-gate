@@ -30,8 +30,9 @@ WORK = os.environ.get("QV4_WORK") or "/home/user/querynzv4-work"
 ROOTS = ("keys", "support", "registers", "links", "products", "checks")
 #: a change here runs every slow test: everything imports or runs through these
 WHOLE = ("bin/", ".claude/", "tests/", "docs/plan/", "support/", "pytest.ini", "conftest.py", "pyproject.toml")
-#: a module's contract with its readers: changing one runs the readers' slow tests too
+#: a publishing module's contract with its readers: changing one runs the readers' slow tests too
 CONTRACT = ("publish.sql", "pane.md", "tables.sql", "spec.md", "profile-proposed.jsonl")
+PUBLISHERS = ("registers/", "keys", "links")      # the modules whose pub views others read; products and checks only read
 READERS = ("links", "checks", "products")
 
 
@@ -56,7 +57,7 @@ def slow_targets(repo: str, branch: str, base: str = "main"):
         m = module_of(f)
         if m:
             touched.add(m)
-            if os.path.basename(f) in CONTRACT:
+            if os.path.basename(f) in CONTRACT and (m.startswith("registers/") or m in PUBLISHERS):
                 contract = True
     targets = sorted(touched)
     if contract:
