@@ -22,6 +22,16 @@ Known to be two people:
   with `rules.sole_company` and the groups, and the review agent, which
   reads people, does not score them (`ORG_KINDS`).
 
+- `companies-refiled-within-twelve-months` and
+  `companies-one-name-beyond-twelve-months` (ruling 109): two companies under
+  one name key with no year in brackets, the earlier removed, the later
+  registered within twelve months of the removal or beyond them, each with a
+  director or shareholder row (the pairs `refiled-name@1` can judge). Two
+  companies are two bodies whatever relates them, so "two people" again;
+  measurement 3 judges them with `rules.refiled` and the groups, and counts
+  any that relate beyond the twelve months or with no shared person
+  (`COMPANY_KINDS`; the review agent does not score them).
+
 Known to be one person:
 - `member-and-candidacy`: a seat and the candidacy the official result says
   won it (the house lane's own join).
@@ -60,8 +70,11 @@ KINDS = {
     "candidate-across-amended-return": "one person",
     "donor-across-amended-candidate-return": "one person",
     "donor-and-company-not-live": "two people",
+    "companies-refiled-within-twelve-months": "two people",
+    "companies-one-name-beyond-twelve-months": "two people",
 }
-ORG_KINDS = ("donor-and-company-not-live",)    # a donation row and a company entity: not a pair of people rows
+COMPANY_KINDS = ("companies-refiled-within-twelve-months", "companies-one-name-beyond-twelve-months")   # two company entities
+ORG_KINDS = ("donor-and-company-not-live",) + COMPANY_KINDS    # not a pair of people rows
 NOT_SUPPLIED = {
     "same-role-across-monthly-files": "the companies lane keeps one row per role across the monthly files, and the file carries no role identifier",
     "same-charity-officer-across-returns": "the charities register is captured and not yet published",
@@ -152,6 +165,31 @@ def candidates_donor_company_not_live(conn, s: str) -> list:
                         (list(rules.DONATION_REGISTERS),)).fetchall()
 
 
+def _companies_one_name(conn, s: str, within: bool) -> list:
+    """Two companies under one name key with no year in brackets, the earlier
+    registered removed, each with a person row; the later registered within
+    twelve months of the removal (`within`) or beyond them."""
+    return conn.execute(f"""
+        WITH p AS (SELECT DISTINCT entity_ref FROM {s}.rows WHERE view IN ('directors', 'shareholders') AND kind = 'person'),
+             o AS (SELECT n.* FROM {s}.org_names n JOIN p USING (entity_ref) WHERE n.org_key !~ '\\(\\d{{4}}\\)' AND n.org_key <> ''),
+             x AS (SELECT e.entity_ref AS earlier, t.entity_ref AS later, e.org_key, e.registered_on AS e_reg, e.removed_on, t.registered_on AS t_reg
+                   FROM o e JOIN o t ON t.org_key = e.org_key AND t.entity_ref <> e.entity_ref
+                   WHERE e.removed_on IS NOT NULL AND t.registered_on IS NOT NULL
+                     AND (e.registered_on < t.registered_on OR (e.registered_on = t.registered_on AND t.removed_on IS NULL)))
+        SELECT least(earlier, later), greatest(earlier, later), NULL,
+               jsonb_build_object('name_key', org_key, 'earlier', earlier, 'later', later, 'removed_on', removed_on, 'refiled_on', t_reg,
+                                  'gap_days', t_reg - removed_on)
+        FROM x WHERE (t_reg BETWEEN removed_on - interval '12 months' AND removed_on + interval '12 months') = %s""", (within,)).fetchall()
+
+
+def candidates_companies_refiled(conn, s: str) -> list:
+    return _companies_one_name(conn, s, True)
+
+
+def candidates_companies_apart(conn, s: str) -> list:
+    return _companies_one_name(conn, s, False)
+
+
 DRAWERS = {
     "two-directors-one-company": candidates_two_directors,
     "two-candidates-one-election": candidates_two_candidates,
@@ -160,6 +198,8 @@ DRAWERS = {
     "candidate-across-amended-return": candidates_candidate_amended,
     "donor-across-amended-candidate-return": candidates_donor_candidate_amended,
     "donor-and-company-not-live": candidates_donor_company_not_live,
+    "companies-refiled-within-twelve-months": candidates_companies_refiled,
+    "companies-one-name-beyond-twelve-months": candidates_companies_apart,
 }
 
 

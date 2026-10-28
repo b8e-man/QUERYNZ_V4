@@ -22,9 +22,10 @@ SECTION_ORDER_GRADE = {"confirmed": 0, "near": 1}
 #: met a related link, after the template's section that lists companies: a relation between two entities, stated in words,
 #: never listed with the confirmed (one entity) or the near (perhaps one)
 RELATED_SECTION = {"name": "related", "heading": "Related companies: one succeeded by another",
-                   "text": "Each line is two companies, two entities, in date order: the earlier succeeded by the later, under one name, one "
-                           "with a year in brackets, with a person the links confirm on both. A relation between two companies, never "
-                           "the same company; neither is walked from the other, so each has its own report."}
+                   "text": "Each line is two companies, two entities, in date order, under one name: the earlier succeeded by the later "
+                           "where one carries a year in brackets, or delisted and refiled where one was removed and the other registered "
+                           "within twelve months (ruling 109); in each a person the links confirm on both. A relation between two "
+                           "companies, never the same company; neither is walked from the other, so each has its own report."}
 FILE_VIEWS = frozenset({"directors", "shareholders", "company_addresses", "companies"})   # rows dated by the monthly files they were seen in
 _FILES = {"at": 0.0, "first": None, "last": None}
 FILES_TTL_S = 3600

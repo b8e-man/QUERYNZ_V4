@@ -220,6 +220,45 @@ largest 1,220 → 1,220.
   the year (1), a second company of the name made live (4), a ruling 106
   link relabelled as this rule's (1).
 
+## 9. Ruling 109's rule, 28 October 2026 (fix-links-2)
+
+`scratch_fix_links_2` in querynz_v4: `links.org_names`, `rows`, `groups`
+and `decisions` copied from the live tables with the `company-name@1` and
+`successor-name@1` links; `refiled-name@1` built over them with the people's
+components read from the live groups (the groups do not change: a related
+link is never walked). 15 s for measurement 9.
+
+- Companies under one name key with no year in brackets, one of the two
+  removed: 85,763 pairs. **12,607** have the other registered within twelve
+  months of the removal, before or after it. 7 of those have a director or
+  shareholder row on both companies, 5,559 on one only; **2 share a
+  confirmed person, and 2 relate**: CHATHAM ROCK PHOSPHATE LIMITED 1819800
+  (registered 2006-06-07, removed 2026-07-31) → 9446991 (registered
+  2026-07-31, same day), 4 people on both; PACIFIC HYGIENE LIMITED 564741
+  (registered 1992-11-10, removed 2026-07-31) → 9444168 (registered
+  2026-07-13, 18 days before the removal), 3 people on both.
+  `company-name@1` near 87,891 → 87,889.
+- Why so few: the published register keeps people for 759,286 of 820,830
+  registered companies and for 3,360 of 1,099,638 removed ones. A removed
+  company keeps its people only where a monthly file the companies lane
+  holds still listed it (both related pairs were removed on 2026-07-31).
+  Christopher & Banks Limited 3482091 (removed 2024-12-18) has no director
+  or shareholder row in `pub.directors` or `pub.shareholders`, and
+  `pub.company_lookup_roles` is empty, so no person can be confirmed on
+  both; it stays near (`company-name@1`). Queued:
+  `a-refiled-company-whose-removed-half-has-no-people`.
+- Test pairs: two new kinds, `companies-refiled-within-twelve-months` (7
+  drawn, every pair the registers supply) and
+  `companies-one-name-beyond-twelve-months` (2), both "two people" (two
+  bodies). Measurement 3: 0 in one group; 2 related, 0 related beyond the
+  twelve months, 0 related with no shared person.
+- Checks (`check.py`): item 6 now reads both relations (953 related, 0 in
+  one group, 0 of another rule or relation, 0 without a person in one group
+  on both); item 8, new, 2 refiled relations, 0 outside the twelve months,
+  0 names that do not fit, 0 with no shared person. Planted in a rolled-
+  back transaction, each turned items 6 and 8 red: a refiled relation five
+  years apart (1), one with no shared person (1).
+
 ## Track C: the review agent scored on the test pairs, 20 October 2026
 
 Run `score-1` in `scratch_review` on the real published tables (`links.scores`,

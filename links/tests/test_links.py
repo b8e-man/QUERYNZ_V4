@@ -82,7 +82,8 @@ def test_the_groups_never_join_two_companies_through_a_relation():
     On the real engine (a schema of the sample database, rolled back): a
     table made before the third grade takes it, a related link must name its
     relation, and two companies related by succession stay out of one group
-    while the confirmed link between their two directors joins."""
+    while the confirmed link between their two directors joins; so do two
+    companies related as refiled (ruling 109)."""
     import support.db as db
     from links import build, rules
     if not os.path.exists(os.path.join(db.CRED_DIR, "v4.env")):
@@ -104,8 +105,10 @@ def test_the_groups_never_join_two_companies_through_a_relation():
                                                   WHERE conrelid = '{s}.links'::regclass AND conname = 'links_grade_check'""").fetchone()[0]
             conn.execute(f"""INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason, relation) VALUES
                 ('companies:companies/1', 'companies:companies/2', %s, '{{}}', 'related', NULL, 'succeeded by'),
-                ('companies:companies/1/director/a', 'companies:companies/2/director/b', %s, '{{}}', 'confirmed', NULL, NULL)""",
-                         (rules.RULE_SUCCESSOR, rules.RULE_FULL))
+                ('companies:companies/1/director/a', 'companies:companies/2/director/b', %s, '{{}}', 'confirmed', NULL, NULL),
+                ('companies:companies/3', 'companies:companies/4', %s, '{{}}', 'related', NULL, %s),
+                ('companies:companies/3/director/c', 'companies:companies/4/director/d', %s, '{{}}', 'confirmed', NULL, NULL)""",
+                         (rules.RULE_SUCCESSOR, rules.RULE_FULL, rules.RULE_REFILED, rules.RELATION_REFILED, rules.RULE_FULL))
             with pytest.raises(psycopg.errors.CheckViolation):
                 with raw.transaction():
                     conn.execute(f"INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade) VALUES ('x:1', 'x:2', %s, '{{}}', 'related')",
@@ -114,5 +117,7 @@ def test_the_groups_never_join_two_companies_through_a_relation():
             g = dict(conn.execute(f"SELECT row_key, group_id FROM {s}.groups").fetchall())
             assert g["companies:companies/1/director/a"] == g["companies:companies/2/director/b"]
             assert "companies:companies/1" not in g and "companies:companies/2" not in g
+            assert g["companies:companies/3/director/c"] == g["companies:companies/4/director/d"]
+            assert "companies:companies/3" not in g and "companies:companies/4" not in g
         finally:
             raw.rollback()

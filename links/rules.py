@@ -36,6 +36,16 @@ One more, ruling 107 (28 October 2026), from the gap links-3 measured:
    saying another was live. Where none or more than one was live, every
    pair stays near under `organisation-name@1` and the reason says which.
 
+One more, ruling 109 (28 October 2026), from the Christopher & Banks case:
+
+7. `refiled-name@1`: two companies under one name key, neither with a year
+   in brackets, the earlier registered removed and the later registered
+   within twelve months of that removal, before or after it, and a person
+   confirmed on both (as rule 4). Related, "delisted/refiled same year",
+   earlier to later: a relation between two entities, never an identity,
+   and the groups never follow it. The name alone, or the name with the
+   dates and no shared person, stays near (`company-name@1`).
+
 Everything else that shares a name is near, with the reason. A
 politician's row (a candidate, a member, a declared-interests return)
 joined to the director register by name is near whatever the name
@@ -94,6 +104,10 @@ NEAR_SAME_ELECTION = ("two candidate rows of this name stand for the party in on
 GRADE_RELATED = "related"           # neither an identity nor a near identity: a relation between two rows, named in `relation`
 RELATION_SUCCEEDED_BY = "succeeded by"   # read from the earlier registered company to the later
 SHARED_SHOWN = 20                   # shared people listed in a successor's evidence; the count is always whole
+# Ruling 109 (28 October 2026): Arthur's words for the relation, exactly; "same year" read as within twelve months, either order
+RULE_REFILED = "refiled-name@1"     # two companies under one name, no year in brackets, removed and registered within twelve months, a person on both
+RELATION_REFILED = "delisted/refiled same year"   # read from the earlier registered (the one removed) to the later
+REFILED_MONTHS = 12
 DONATION_REGISTERS = ("party_returns", "candidate_returns", "disclosures")
 NEAR_ORG_SEVERAL = NEAR_ORG_NAME + "; several companies carry this name"
 NEAR_ORG_NOT_YET = NEAR_ORG_NAME + "; one company carries this name, but it was registered after the donation's year"
@@ -292,6 +306,61 @@ def successor(a: dict, b: dict, shared: list) -> dict | None:
                          "registered": [str(_d(first.get("registered_on")) or "") or None, str(_d(then.get("registered_on")) or "") or None],
                          "removed": [str(_d(first.get("removed_on")) or "") or None, str(_d(then.get("removed_on")) or "") or None],
                          "order": "by registration date" if known else "registration dates equal or missing: by key",
+                         "shared_people": len({p["group"] for p in people}), "shared_rows": people[:SHARED_SHOWN],
+                         "registers": ["companies", "companies"]}}
+
+
+def _months_after(d: dt.date, months: int) -> dt.date:
+    """`d` moved by whole calendar months, the day held to the month's last (29 February plus twelve months is 28 February)."""
+    y, m = divmod(d.month - 1 + months, 12)
+    y, m = d.year + y, m + 1
+    last = (dt.date(y + m // 12, m % 12 + 1, 1) - dt.timedelta(days=1)).day
+    return dt.date(y, m, min(d.day, last))
+
+
+def within_months(removed, registered, months: int = REFILED_MONTHS) -> bool:
+    """True when `registered` falls within `months` calendar months of `removed`, before or after it; False when either is unknown."""
+    removed, registered = _d(removed), _d(registered)
+    if removed is None or registered is None:
+        return False
+    return _months_after(removed, -months) <= registered <= _months_after(removed, months)
+
+
+def refiled(a: dict, b: dict, shared: list) -> dict | None:
+    """`refiled-name@1` (ruling 109): a relation, never an identity. Two
+    companies under one name key where neither carries a year in brackets;
+    the earlier registered was removed, and the later was registered within
+    twelve calendar months of that removal, before or after it ("same year",
+    either order); and at least one person confirmed on both, as
+    `successor` reads it. Related, `relation` "delisted/refiled same year"
+    (Arthur's words), read from the earlier registered company to the later.
+    Equal registration dates put the removed one first. The evidence is
+    `successor`'s, with the removal date, the refiling's registration date
+    and the gap in days (negative where the new company was registered
+    before the old was removed). None when the names, the dates or the
+    people do not fit: the name alone stays near (`company-name@1`).
+    `a`, `b`, `shared` as `successor` takes them."""
+    ka, kb = a.get("org_key") or "", b.get("org_key") or ""
+    if ka != kb or not ka or ka != bare_name(ka):
+        return None
+    if not shared:
+        return None
+    first, then = sorted((a, b), key=lambda c: (_d(c.get("registered_on")) or dt.date.max, c.get("removed_on") is None, c["entity_ref"]))
+    removed, registered = _d(first.get("removed_on")), _d(then.get("registered_on"))
+    if not within_months(removed, registered):
+        return None
+    ra, rb = _d(first.get("registered_on")), _d(then.get("registered_on"))
+    flip = first is b
+    people = [{"earlier": x["b" if flip else "a"], "later": x["a" if flip else "b"], "group": x.get("group"), "name": x.get("name")}
+              for x in sorted(shared, key=lambda x: (x.get("group") or "", x["a"], x["b"]))]
+    return {"rule": RULE_REFILED, "grade": GRADE_RELATED, "relation": RELATION_REFILED, "reason": None,
+            "evidence": {"earlier": first["entity_ref"], "later": then["entity_ref"], "relation": RELATION_REFILED,
+                         "names": [first.get("name") or first.get("org_key"), then.get("name") or then.get("org_key")],
+                         "name_key": ka,
+                         "registered": [str(ra) if ra else None, str(rb) if rb else None],
+                         "removed": [str(removed), str(_d(then.get("removed_on")) or "") or None],
+                         "removed_on": str(removed), "refiled_on": str(registered), "gap_days": (registered - removed).days,
+                         "order": "by registration date" if ra is not None and ra != rb else "registration dates equal or missing: the removed one first",
                          "shared_people": len({p["group"] for p in people}), "shared_rows": people[:SHARED_SHOWN],
                          "registers": ["companies", "companies"]}}
 
