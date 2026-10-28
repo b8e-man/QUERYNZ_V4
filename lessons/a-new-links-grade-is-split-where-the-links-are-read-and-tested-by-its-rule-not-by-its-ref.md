@@ -1,4 +1,4 @@
-A new grade on `pub.links` is split out at the one function that reads the links, never folded into near, and the test that it never reads as near keys on the link's rule, not on the other row's ref, because another reach (an officer on both) may meet that row near for its own true reason.
+A new grade on `pub.links` is split out at the one function that reads the links, never folded into near; the test that it never reads as near keys on the link's rule, not the other row's ref, which another reach may meet near.
 area: subject reports, products/report, walk, links grades, pub.links, related, successor-name, presentation rules
 paid-for-by: 2026-10-28, fix-products-report-1, ruling 106 (2): the report read `related` (succeeded by) as near
 
