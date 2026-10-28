@@ -42,6 +42,7 @@ MANY_AT = 300               # a group of more rows than this is shown by view (t
 VIEW_ROWS = 50              # rows read per view in the many-rows shape, newest first; the rest a page of this many at a time
 KEYS_FIRST = 2000           # a view with at most this many of the group's rows is read by its keys taken first (view_rows)
 TIMELINE_ROWS = 40          # the newest rows the many-rows timeline lists; the rest counted, and reached by view
+FOLD_GATHERED = 20          # a fold's members whose own dossier is gathered and shown under their names; the rest open their own
 OPEN_AT = 40                # a register's rows open on the pane up to this many; past it closed to its name and count
 NO_CLAIMS = "No claims lane has published yet: there is no claims section until one does"
 NOT_A_LINK = ("Built from the published views and the links lane's tables alone (pub.groups, pub.links, pub.names, "
@@ -159,7 +160,7 @@ def gather(conn, d: str, report_url: str = "", view: str = "", offset: int = 0) 
     if not d:
         return {"kind": "none", "chosen": "", "why": "nothing chosen: click a result or tap a node"}
     if d.startswith(collapse.PREFIX):
-        return gather_fold(conn, d)
+        return gather_fold(conn, d, report_url)
     via = ""
     if d.startswith(ENTITY):
         gid = d[len(ENTITY):]
@@ -351,11 +352,15 @@ def gather_many(conn, gid: str, n: int, contested: bool, d: str, via: str, repor
                          "report": panes.report_href(report_url, gid)})
 
 
-def gather_fold(conn, d: str) -> dict:
+def gather_fold(conn, d: str, report_url: str = "") -> dict:
     """A folded entry of the collapse section (ruling 112): its members as the
     entities they are, each its name, counts, registers and its own dossier;
-    the criteria that folded them, said to be no link. Reads pub.groups and
-    the rows by key; writes nothing. A suppressed member is counted, never named."""
+    the criteria that folded them, said to be no link. The first FOLD_GATHERED
+    members carry their own dossier's data ('dossier': `gather` of the member,
+    an entity's or a lone row's), so the pane shows what each member's records
+    say under its name without another click; the rest open their own.
+    Reads pub.groups and the rows by key; writes nothing. A suppressed member
+    is counted, never named."""
     by, ids = collapse.parse(d)
     gids = [m[len(ENTITY):] for m in ids if m.startswith(ENTITY)]
     ents = people.gather(conn, [], {g: set() for g in gids})
@@ -379,23 +384,50 @@ def gather_fold(conn, d: str) -> dict:
         members.append({"id": m, "label": panes.title_of(v, r), "what": facts.what_it_is([(v, r)]), "rows": 1, "contested": False,
                         "registers": [panes.REGISTER_NAME.get(v.register, v.register)]})
         centre = centre or m
+    opened = set()
+    for m in members[:FOLD_GATHERED]:                    # the member's own dossier, as its own address opens it
+        own = gather(conn, m["id"], report_url)
+        if own.get("kind") not in ("entity", "row"):
+            continue
+        key = own.get("group_id") or m["id"]
+        if key in opened:                                # a fold of rows: six rows of one group open one dossier, shown once
+            m["shown_above"] = True
+            continue
+        opened.add(key)
+        m["dossier"] = own
     return {"kind": "fold", "chosen": d, "by": by, "members": members, "hidden": hidden, "centre": centre,
             "label": collapse.label([x["label"] for x in members if x["id"].startswith(ENTITY)],
                                     [x["label"] for x in members if not x["id"].startswith(ENTITY)]) or "collapsed here"}
 
 
 def fold_pane(x: dict, q: str = "", boxes=None) -> str:
-    """The dossier of a folded entry: the members listed as the entities they are, each opening its own dossier."""
+    """The dossier of a folded entry: the members listed as the entities they
+    are, each opening its own dossier, and under each member's name what its
+    records say (its own dossier's timeline, and its money where it has any),
+    for the first FOLD_GATHERED members; the rest are listed and open their own."""
     out = [_head(x["chosen"], q, boxes), '<div class="reg">dossier · collapsed here, for this view alone</div>',
            f"<h2>{panes.esc(x['label'])}</h2>",
            f'<p class="fold">{panes.esc(collapse.words(x["by"]))}</p>',
            f'<p class="small">{len(x["members"])} entities. {panes.esc(collapse.NOTE)}</p>',
-           f'<h3 id="d-members">Its members, each the entity it is <span class="count">{len(x["members"])}</span></h3><ul>']
-    for m in x["members"]:
+           f'<h3 id="d-members">Its members, each the entity it is <span class="count">{len(x["members"])}</span></h3><ul class="members">']
+    for i, m in enumerate(x["members"]):
         out.append(f'<li><a class="row" href="{panes.esc(href(m["id"], q, boxes))}">{panes.esc(m["label"])}</a> '
                    f'<div class="what">{panes.esc(m["what"])}' + (' · <span class="warn">contested</span>' if m["contested"] else "")
-                   + f'</div><div class="meta">from {panes.esc("; ".join(m["registers"]))}</div></li>')
+                   + f'</div><div class="meta">from {panes.esc("; ".join(m["registers"]))}</div>')
+        own = m.get("dossier")
+        if m.get("shown_above"):
+            out.append('<div class="note">one of the records shown under its entity above</div>')
+        if own:                                           # what this member's records say, under its name
+            out.append('<div class="member-rows">')
+            out += timeline(own, q, boxes, ident=f"m{i}-rows")
+            if own.get("many") or addends(own):
+                out += money(own, q, boxes, ident=f"m{i}-money")
+            out.append("</div>")
+        out.append("</li>")
     out.append("</ul>")
+    if len(x["members"]) > FOLD_GATHERED:
+        out.append(f'<p class="note">the records of the first {FOLD_GATHERED} members are shown here; '
+                   f'the other {len(x["members"]) - FOLD_GATHERED} open their own dossier</p>')
     if x["hidden"]:
         out.append(f'<p class="note">{x["hidden"]} more member{"s" if x["hidden"] != 1 else ""} not named: suppressed, or no longer held</p>')
     out.append("</section>")
@@ -571,7 +603,7 @@ def whole_words(x: dict) -> str:
     return out
 
 
-def timeline_many(x: dict, q, boxes) -> list:
+def timeline_many(x: dict, q, boxes, ident: str = "d-rows") -> list:
     """The many-rows shape (ruling 108's): the newest rows, the rest counted;
     then every view collapsed to its count and expandable, its head the fact
     the view's rows say over all of them (ruling 117), its page of rows
@@ -579,7 +611,7 @@ def timeline_many(x: dict, q, boxes) -> list:
     shown = sum(c for _, c in x["views"])
     newest = sorted(x["rows"], key=lambda rv: (first_date(rv[1], rv[2]) or dt.date.min, rv[1].name, str(rv[2]["key"])),
                     reverse=True)[:TIMELINE_ROWS]
-    out = [f'<h3 id="d-rows">What the records say <span class="count">{len(x["views"]):,}</span></h3>',
+    out = [f'<h3 id="{ident}">What the records say <span class="count">{len(x["views"]):,}</span></h3>',
            f'<p class="note">{panes.esc(whole_words(x))}. Each heading below is one kind of record over all of them, '
            f'and opens to its records newest first, {VIEW_ROWS} at a time.</p>',
            f'<h4>The newest {len(newest):,}</h4><ol class="timeline newest">']
@@ -620,19 +652,20 @@ def timeline_many(x: dict, q, boxes) -> list:
     return out
 
 
-def timeline(x: dict, q, boxes) -> list:
+def timeline(x: dict, q, boxes, ident: str = "d-rows") -> list:
     """The rows folded by what they say about the entity (ruling 117), one
-    entry per fact in date order, each row as filed closed under its fact."""
+    entry per fact in date order, each row as filed closed under its fact.
+    `ident` is the heading's id: a fold's pane carries one timeline per member."""
     if x.get("many"):
-        return timeline_many(x, q, boxes)
+        return timeline_many(x, q, boxes, ident)
     fs = facts.fold(x)
-    return ([f'<h3 id="d-rows">What the records say <span class="count">{len(fs):,}</span></h3>', '<ol class="facts">']
+    return ([f'<h3 id="{ident}">What the records say <span class="count">{len(fs):,}</span></h3>', '<ol class="facts">']
             + [fact_item(x, f, q, boxes) for f in fs] + ["</ol>"])
 
 
-def money(x: dict, q, boxes) -> list:
+def money(x: dict, q, boxes, ident: str = "d-money") -> list:
     adds = addends(x)
-    out = ['<h3 id="d-money">Money, as filed</h3>', f'<p class="note">{panes.esc(MONEY_NOTE)}</p>', "<h4>Donations, by year</h4>"]
+    out = [f'<h3 id="{ident}">Money, as filed</h3>', f'<p class="note">{panes.esc(MONEY_NOTE)}</p>', "<h4>Donations, by year</h4>"]
     if x.get("many"):
         out += money_many(x, adds, q, boxes)
     elif not adds:

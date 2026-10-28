@@ -553,6 +553,8 @@ def collapse_problems(conn) -> list:
             listed = re.findall(r'<li><a class="row" href="([^"]*)"', pane)
             if len(listed) < 2 or not all("d=" in h for h in listed) or "never written" not in pane:
                 out.append("the dossier of a fold does not list its members, each opening its own dossier")
+            if pane.count("What the records say") < min(len(listed), dossier.FOLD_GATHERED):
+                out.append("the dossier of a fold does not show each member's records under its name")
         data = server.graph_answer(COLLAPSE_TERM, conn=conn, boxes=boxes)
         for n in data["nodes"]:
             if n.get("kind") == "fold" and (not n["words"].endswith("; not a link") or CONFIRMED_WORDS.search(n["words"].replace("; not a link", ""))):
