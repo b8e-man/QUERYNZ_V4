@@ -132,3 +132,27 @@ CREATE TABLE IF NOT EXISTS {s}.timetable (
 -- the timetable the clock last served the job under (`queue.clock_of`): a job with no row, or
 -- whose timetable differs, takes its NEXT slot (card the-scheduler-s-worker-runs-the-main-checkout-…)
 ALTER TABLE {s}.timetable ADD COLUMN IF NOT EXISTS clock text;
+
+-- Ruling 115: a job stopped at its memory ceiling has its working figure raised here, never in
+-- jobs.toml (the repository's declared figure); the working figure is the larger of the declared
+-- figure and the job's latest applied raise. A raise over the box's budget is recorded, not applied.
+CREATE TABLE IF NOT EXISTS {s}.memory_raises (
+    id               bigserial PRIMARY KEY,
+    at               timestamptz NOT NULL DEFAULT now(),
+    job              text NOT NULL,
+    run_id           text NOT NULL,                    -- the run stopped at its ceiling
+    queue_id         bigint NOT NULL,                  -- the row that run served
+    origin_queue_id  bigint NOT NULL,                  -- the first row of the chain: at most two raises re-run per origin
+    peak_mb          int NOT NULL,                     -- measured at the stop: a floor on the need, not the need
+    ceiling_mb       int NOT NULL,                     -- the ceiling it crossed
+    held_gb          real NOT NULL,                    -- the working figure it ran under
+    raised_gb        real NOT NULL,                    -- twice the ceiling, rounded up to the next 0.5 GB
+    budget_gb        real,                             -- the box's memory less the reserve, at the raise
+    applied          boolean NOT NULL,                 -- false: over the budget, the working figure unchanged
+    requeued_id      bigint,                           -- the row queued again (a pieced job's own row); NULL = stays failed
+    note             text NOT NULL                     -- what was done, in words
+);
+CREATE INDEX IF NOT EXISTS memory_raises_job ON {s}.memory_raises (job, id);
+CREATE INDEX IF NOT EXISTS memory_raises_requeued ON {s}.memory_raises (requeued_id);
+ALTER TABLE {s}.runs ADD COLUMN IF NOT EXISTS working_mb int;     -- the working figure the run was placed and capped under
+ALTER TABLE {s}.runs ADD COLUMN IF NOT EXISTS raise_id bigint;    -- a re-run: the raise that queued it

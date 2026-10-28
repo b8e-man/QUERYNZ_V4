@@ -70,14 +70,18 @@ def begin(job_type: str, lane: str = "-", *, args: dict | None = None, card: str
 def finish(run_id: str, *, outcome: str, n_in: int | None = None, n_out: int | None = None,
            served_model: str | None = None, error: str | None = None, note: str | None = None,
            calls: int | None = None, calls_failed: int | None = None, peak_mb: int | None = None,
-           declared_mb: int | None = None, ledger: pathlib.Path | None = None) -> None:
+           declared_mb: int | None = None, working_mb: int | None = None, rerun_of_raise: int | None = None,
+           ledger: pathlib.Path | None = None) -> None:
     """Record that a run ENDED. `peak_mb` is the run's measured peak memory
     and `declared_mb` what its job declared; a peak above the declaration is
-    flagged so the figure is corrected (step 2.6)."""
+    flagged so the figure is corrected (step 2.6). `working_mb` is the figure
+    the run was placed and capped under, the declared one or a memory raise's
+    (ruling 115); `rerun_of_raise` names the raise that queued a re-run."""
     _append({"kind": "end", "run_id": run_id, "at": _now(), "outcome": outcome, "n_in": n_in, "n_out": n_out,
              "served_model": served_model, "error": error, "note": note, "calls": calls, "calls_failed": calls_failed,
              "peak_mb": peak_mb, "declared_mb": declared_mb,
-             "over_declared": (peak_mb is not None and declared_mb is not None and peak_mb > declared_mb)}, ledger)
+             "over_declared": (peak_mb is not None and declared_mb is not None and peak_mb > declared_mb),
+             "working_mb": working_mb, "rerun_of_raise": rerun_of_raise}, ledger)
 
 
 def placement(card: str, action: str, job_type: str | None, why: str, profile: str | None = None,
@@ -109,12 +113,19 @@ class Run:
     declared_mb: int | None = None
     note: str | None = None
     error: str | None = None
+    working_mb: int | None = None
+    rerun_of_raise: int | None = None
     args: dict = dataclasses.field(default_factory=dict)
 
     @property
     def unfinished(self) -> bool:
         """A start with no end. The job died, was killed, or the box went down."""
         return self.finished is None
+
+    @property
+    def rerun(self) -> bool:
+        """Queued again by a memory raise (ruling 115)."""
+        return self.rerun_of_raise is not None
 
     @property
     def model_is_known(self) -> bool:
@@ -159,7 +170,8 @@ def runs(ledger: pathlib.Path | None = None) -> list[Run]:
                        requested_model=s.get("requested_model"), served_model=e.get("served_model"),
                        outcome=e.get("outcome"), n_in=e.get("n_in"), n_out=e.get("n_out"), calls=e.get("calls"),
                        calls_failed=e.get("calls_failed"), peak_mb=e.get("peak_mb"), declared_mb=e.get("declared_mb"),
-                       note=e.get("note"), error=e.get("error"), args=s.get("args") or {}))
+                       note=e.get("note"), error=e.get("error"), working_mb=e.get("working_mb"),
+                       rerun_of_raise=e.get("rerun_of_raise"), args=s.get("args") or {}))
     return out
 
 

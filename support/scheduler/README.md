@@ -2,7 +2,7 @@
 
 The one service that places every job on a graphics card or on the
 processor. `python -m support.scheduler` is the command line (`check`,
-`tables`, `status`, `enqueue`, `probe`, `worker`, `report`, `rereads`).
+`tables`, `status`, `enqueue`, `probe`, `worker`, `report`, `memory`, `rereads`).
 The module docstring in `__init__.py` names the pieces; `spec.md` is the
 five-line spec; `jobs.toml` is the job catalogue (every `qv4-` job, the founding four on the
 queue's clock among them) and `profiles.toml` the four model profiles of

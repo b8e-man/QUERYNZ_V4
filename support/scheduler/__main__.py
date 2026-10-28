@@ -8,6 +8,7 @@
   python -m support.scheduler probe                 this box's hardware profile
   python -m support.scheduler worker --name N [--box B] [--once] [--hide-program P ...]
   python -m support.scheduler report                the qv4-scheduler-report job
+  python -m support.scheduler memory                the memory raises jobs.toml has not folded yet (ruling 115)
   python -m support.scheduler hold-profile          the standing job that keeps a profile on a card
   python -m support.scheduler rehearse ...          the rehearsal jobs (sleep, burn memory)
   python -m support.scheduler reread-piece SHA      one document of a re-read (qv4-reread)
@@ -40,7 +41,7 @@ def main(argv=None) -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("check")
-    for name in ("tables", "status", "report"):
+    for name in ("tables", "status", "report", "memory"):
         p = sub.add_parser(name)
         p.add_argument("--database", default="querynz_v4")
         p.add_argument("--schema", default=SCHEMA)
@@ -111,8 +112,16 @@ def main(argv=None) -> int:
         print(json.dumps(st, default=str, indent=1))
         return 0
     if a.cmd == "report":
-        from support.scheduler.worker import report
-        print(report(_conn(a.database), a.schema))
+        from support.scheduler.worker import memory_lines, report
+        conn = _conn(a.database)
+        print(report(conn, a.schema))
+        for line in memory_lines(q.unfolded_raises(conn, a.schema)):
+            print(line)
+        return 0
+    if a.cmd == "memory":
+        from support.scheduler.worker import memory_lines
+        for line in memory_lines(q.unfolded_raises(_conn(a.database), a.schema)):
+            print(line)
         return 0
     if a.cmd == "enqueue":
         registry = reg.load()

@@ -44,6 +44,7 @@ class Result:
     outcome: str                # ok | failed | refused
     error: str | None = None
     stopped_for: str | None = None   # memory | deadline | lease | stop | None
+    run_id: str | None = None        # set by the worker once the run is recorded
 
 
 def pss_mb(pid: int) -> int:
