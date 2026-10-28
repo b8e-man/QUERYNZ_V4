@@ -62,7 +62,7 @@ def load_text(text: str):
 @pytest.mark.parametrize("name", (TENDER,) + PROCUREMENT)
 def test_each_template_loads_under_the_contract_and_the_rules(name):
     t = tpl.by_name(name)
-    assert t.question.endswith("?") and t.limits and t.version == "1.0"
+    assert t.question.endswith("?") and t.limits and t.version == ("1.1" if name in PROCUREMENT else "1.0")
     assert all(r.licence and r.attribution and r.refresh for r in t.reads)
     assert rules.template_problems(t) == [] and public_site_problems(t) == []
     assert os.path.exists(os.path.join(t.folder, "limits.md"))

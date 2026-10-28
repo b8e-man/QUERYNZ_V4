@@ -23,6 +23,42 @@ CONTESTED_WHOLE = "the group this row belongs to is contested as a whole: the wa
 #: 2.8 million nested loop); a union of the two directions lets it use the key indexes on each
 LINKS_BOTH_WAYS = ("select row_a as this, row_b as other, grade, reason, rule, decision, link_id from pub.links "
                    "union all select row_b, row_a, grade, reason, rule, decision, link_id from pub.links")
+#: the rules the links lane draws as a star between groups, whose centre it moves when it likes (links/spec.md, "contract
+#: for readers"): a reader finds such a link between the two rows' groups, never between the two rows. Every other rule,
+#: the confirmed ones included, is read between the rows
+STARS = ("name-only@1",)
+#: a row's group: its pub.groups group id, a row in no group its own
+GROUP_OF = "coalesce((select g.group_id from pub.groups g where g.row_key = {ref}), {ref})"
+#: every row of a row's group, the row itself included (a row in no group is the only one)
+MEMBERS = "(select {ref} as k union select m.row_key from pub.groups m where m.group_id = " + GROUP_OF + ")"
+#: the same, in the walk, where the row's group is already joined as `{group}`: (row, whether it is the row itself)
+GROUP_ROWS = "select {ref} as k, true as own union all select m.row_key, false from pub.groups m where m.group_id = {group} and m.row_key <> {ref}"
+
+
+def star_sql(x: str) -> str:
+    return f"{x} in ({', '.join(repr(r) for r in STARS)})"
+
+
+def reached(i: int, ref: str, cond: str) -> str:
+    """The joins by which a link of the step's rules reaches rows from
+    `ref`. A star rule's link (`STARS`) is read between the two rows'
+    groups: from any row of this row's group (`k<i>`), landing on every row
+    of the other end's group; any other rule's link is read from the row
+    itself to the row at its other end. Either way `r<i>.other` is the row
+    reached, and the line's grade, reason and rule are that link's. Each
+    read is one row's key (`offset 0` keeps the planner from turning the
+    lookup into a hash of every link: four million rows joined to the groups
+    twice ran past the ten-minute limit)."""
+    star = star_sql(f"l{i}.rule")
+    return (f"left join pub.groups ha{i} on ha{i}.row_key = {ref}\n"
+            f"cross join lateral ({GROUP_ROWS.format(ref=ref, group=f'ha{i}.group_id')}) k{i}\n"
+            f"cross join lateral (select * from ({LINKS_BOTH_WAYS}) l where l.this = k{i}.k and {cond} "
+            f"and (k{i}.own or {star_sql('l.rule')}) offset 0) l{i}\n"
+            f"left join pub.groups hy{i} on {star} and hy{i}.row_key = l{i}.other\n"
+            f"left join pub.groups hb{i} on hb{i}.group_id = hy{i}.group_id\n"
+            f"cross join lateral (select coalesce(hb{i}.row_key, l{i}.other) as other) r{i}")
+
+
 #: a name as the lanes' and the links' folds compare it (`check.loose`): lower case, macrons off, a legal ending off,
 #: letters and digits only
 LEGAL_ENDING = r"\m(limited|ltd|incorporated|inc|tapui)\M"
@@ -153,17 +189,18 @@ def sql(t: Template, settings: dict, start: str, limit: int | None = None, have:
                          + _land(i, view, f"gb{i}.row_key"))
             select.append(f"(ga{i}.contested or gb{i}.contested) as s{i}__contested")
             select.append(f"ga{i}.group_id as s{i}__group")
-        else:   # a direct confirmed link, or a link of a named rule (or rules)
-            cond = f"l{i}.this = {pref}"
-            if s.by == "person":
-                cond += f" and l{i}.grade = 'confirmed'"
-            elif len(s.rules) > 1:
-                cond += f" and l{i}.rule = any(%s)"
+        elif s.by == "person":   # chains "direct": a confirmed link between the two rows themselves
+            joins.append(f"join ({LINKS_BOTH_WAYS}) l{i} on l{i}.this = {pref} and l{i}.grade = 'confirmed'\n" + _land(i, view, f"l{i}.other"))
+        else:   # a link of a named rule (or rules), read between the two rows' groups
+            if len(s.rules) > 1:
+                cond = "l.rule = any(%s)"
                 join_params.append(list(s.rules))
             else:
-                cond += f" and l{i}.rule = %s"
+                cond = "l.rule = %s"
                 join_params.append(s.rules[0] if s.rules else s.rule)
-            joins.append(f"join ({LINKS_BOTH_WAYS}) l{i} on {cond}\n" + _land(i, view, f"l{i}.other"))
+            joins.append(reached(i, pref, cond) + "\n" + _land(i, view, f"r{i}.other"))
+            where.append(f"r{i}.other <> {pref}")
+        if s.by == "link" or (s.by == "person" and chains != "follow"):
             select += [f"l{i}.grade as s{i}__grade", f"l{i}.reason as s{i}__reason", f"l{i}.rule as s{i}__rule",
                        f"l{i}.decision as s{i}__decision", f"l{i}.link_id as s{i}__link"]
         if s.optional:   # a filter on an optional step joins nothing rather than dropping the line
