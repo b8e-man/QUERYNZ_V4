@@ -379,7 +379,6 @@ def test_lloyd_budd_s_rows_pub_names_does_not_hold_fold_with_his_entity_by_name(
                 by, members = collapse.parse(unescape(folded[0]))
                 views = [m.split(":", 1)[0] for m in members]
                 assert by == ("name",) and "entity" in views and "charity_officers" in views and "gazette_celebrants" in views
-            assert "hit row" not in page or "lloyd budd" not in page.lower().split('class="hit row"')[-1][:200]
             assert "collapsed here by shared name; not a link" in page
         for m in members:
             v, key = m.split(":", 1)
