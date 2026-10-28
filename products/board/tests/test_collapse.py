@@ -236,3 +236,34 @@ def test_the_graph_answer_carries_the_fold_s_words_and_its_dossier():
 def test_a_fold_is_named_by_its_groups_before_a_row_s_title_with_its_year():
     assert collapse.label(["John Clive Smith"], ["John Smith · ge-2020 · Hauraki"]) == "John Clive Smith"
     assert collapse.label([], ["ACME LIMITED", "ACME HOLDINGS LIMITED"]) == "ACME HOLDINGS LIMITED"
+
+
+OFFICERS, CELEBRANTS = cat.BY_NAME["charity_officers"], cat.BY_NAME["gazette_celebrants"]
+
+
+def test_a_row_pub_names_does_not_hold_is_keyed_from_its_own_name_columns():
+    """charity_officers and gazette_celebrants are no view of the links lane: pub.names holds none of their rows,
+    so each is keyed from its declared Name (parts, ruling 85) in pub.names' own shape and folds with the entity."""
+    officer = {"key": "o1", "full_name": "Jane Mary HART", "first_name": "Jane", "middle_name": "Mary", "last_name": "HART",
+               "suppressed": False}
+    celebrant = {"key": "c1", "surname": "HART", "given_names": "Jāne Mary", "organisation": None}
+    other = {"key": "c2", "surname": "Jane", "given_names": "Hart", "organisation": None}        # family-given read right: not Jane Hart
+    hidden = {**officer, "key": "o2", "suppressed": True}
+    xs = GROUPS[:2] + [entry(2, OFFICERS, officer), entry(3, CELEBRANTS, celebrant), entry(4, CELEBRANTS, other),
+                       entry(5, OFFICERS, hidden)]
+    (f,) = folded(xs, ("name",))
+    assert [m["id"] for m in f["fold"][1]] == ["entity:G1", "entity:G2", "charity_officers:o1", "gazette_celebrants:c1"]
+    (f,) = folded(xs, ("full",))
+    assert [m["id"] for m in f["fold"][1]] == ["entity:G1", "charity_officers:o1", "gazette_celebrants:c1"]
+    assert collapse.row_name_keys(CELEBRANTS, celebrant) == ("jane hart", "jane mary hart", True) == NAMES["companies:g1a"][1:]
+    assert collapse.row_name_keys(OFFICERS, hidden) is None
+    assert collapse.row_name_keys(CELEBRANTS, {**celebrant, "surname": "HART TRUST"}) is None     # an organisation word abstains
+    assert collapse.row_name_keys(OFFICERS, {**officer, "first_name": "Jane (Janey)"})[0] == "jane hart"
+
+
+def test_a_row_pub_names_holds_is_never_re_read_from_its_columns():
+    """A directors row pub.names keys as Jane Hart keeps that key even where its columns would say otherwise."""
+    xs = [GROUPS[1], entry(1, DIRECTORS, person("d4", "Jane Hart", first_name="Jane", last_name="Hart")),
+          entry(2, OFFICERS, {"key": "o1", "first_name": "Joe", "last_name": "Bloggs", "full_name": "Joe Bloggs", "suppressed": False})]
+    (f,) = folded(xs, ("name",))                                                          # d4 is Joe Bloggs in pub.names, not Jane Hart
+    assert [m["id"] for m in f["fold"][1]] == ["directors:d4", "charity_officers:o1"]
