@@ -32,7 +32,7 @@ import json
 import re
 
 from products.board import catalogue as cat
-from products.board import db, links_view, panes, search
+from products.board import db, fold as names, links_view, panes, search
 
 ENTITY = "entity:"
 MAX_CHILDREN = 40           # rows drawn inside an opened entity; the pane lists every row
@@ -355,3 +355,140 @@ def entity(conn, gid: str) -> dict:
     return {"group_id": gid, "describe": d, "rows": rows, "links": own, "near": near[:PANE_NEAR],
             "near_total": len({(l["row_a"], l["row_b"], l["rule"]) for l in near}),
             "decisions": decisions_of(conn, [m["ref"] for m in shown]), "hidden": hidden}
+
+
+# ── the results pane's entity state (ruling 108) ────────────────────────────
+
+RESULT_ENTITIES = 50        # entities listed under one tab of the results pane; the rest counted
+
+
+def gather(conn, hits, named: dict = None) -> dict:
+    """The groups the results' rows fall in (ruling 108 (1)), for the
+    results pane to list: `hits` [(view, row)] the rows the search shows;
+    `named` {group_id: {tab}} the groups the entity search found by name
+    (ruling 108 (3), `named_groups`). {'group': {node id: group_id} for the
+    rows in a group, 'entity': {group_id: people.describe plus 'registers_named'
+    and 'centre', a node id of one of its shown rows for the graph}}. A row
+    whose name is suppressed is never gathered (hard limit 16): it maps to
+    no group and the pane shows it as a row. Three queries by key on an
+    index (groups_pkey, groups_group with rows_pkey, the suppressing views'
+    keys), whatever the number of rows."""
+    named = named or {}
+    refs = {}
+    for v, r in hits:
+        if not panes.is_suppressed(v, r):
+            refs[f"{v.name}:{r['key']}"] = links_view.ref(v, r["key"])
+    grp = groups_of(conn, refs.values())
+    gids = {gid for gid, _ in grp.values()} | set(named)
+    members = members_of(conn, gids)
+    hidden = suppressed_refs(conn, [m for ms in members.values() for m in ms])
+    contested = {gid: c for gid, c in grp.values()}
+    if set(named) - set(contested):
+        for r in db.rows(conn, "select group_id, bool_or(contested) as c from pub.groups where group_id = any(%s) group by 1",
+                         (sorted(set(named) - set(contested)),)):
+            contested[r["group_id"]] = bool(r["c"])
+    order = {r: i for i, (r, _) in enumerate(cat.REGISTERS)}
+    entity = {}
+    for gid in gids:
+        shown = [m for m in members.get(gid, []) if m["ref"] not in hidden]
+        if not shown:
+            continue                                   # a group of suppressed rows alone names nobody
+        d = describe(gid, members.get(gid, []), hidden, contested.get(gid, False))
+        d["registers_named"] = [panes.REGISTER_NAME.get(x, x) for x in sorted({m["register"] for m in shown},
+                                                                             key=lambda x: (order.get(x, len(order)), x))]
+        d["centre"] = next((f"{m['view']}:{m['key']}" for m in shown if m["view"] in cat.BY_NAME), "")
+        entity[gid] = d
+    group = {nid: grp[ref][0] for nid, ref in refs.items() if ref in grp and ref not in hidden and grp[ref][0] in entity}
+    return {"group": group, "entity": entity, "named": {g: set(t) for g, t in named.items() if g in entity}}
+
+
+# ── entity search (ruling 108 (3)) ──────────────────────────────────────────
+
+NAMED_ROWS = 5000           # pub.names rows read for one search; past it the count is said, not hidden
+
+
+def key_fold(s: str) -> str:
+    """links/rows.py's `fold`, the fold pub.names' fl_key and full_key are
+    written in: diacritics off, lower, apostrophes out, spaces squashed.
+    Products may not import links/ (imports run one way); check item 23 and
+    tests/test_real.py hold it to the published keys."""
+    return " ".join(names.fold_diacritics(s or "").lower().replace("'", "").replace("\u2019", "").split())
+
+
+def name_keys(term: str = "", fields: dict = None) -> dict:
+    """{'fl': key, 'full': key, 'person': key, 'org': key} for pub.names'
+    indexed columns (rows_fl, rows_full, rows_name), read from the search box
+    as the links lane reads a filed name (keys.names.person_name: honorifics
+    off, "Family, Given" turned round, a one-word name a family name), or from
+    the name fields when they are filled (first and last, with a middle;
+    organisation). A key that cannot be read is absent. Each word's first
+    alternative alone (ruling 92 (4)'s variants are not keys)."""
+    fields = {f: search.base_term(x) for f, x in (fields or {}).items() if (x or "").strip()}
+    out = {}
+    if fields:
+        first, middle, last = fields.get("first", ""), fields.get("middle", ""), fields.get("last", "")
+        if first and last:
+            givens = names.squash(f"{first} {middle}").split()
+            out["fl"] = key_fold(f"{givens[0]} {last}")
+            if len(givens) > 1:
+                out["full"] = key_fold(" ".join(givens + [last]))
+        if fields.get("org"):
+            out["org"] = names.organisation_key(fields["org"])
+        return out
+    term = search.base_term(term)
+    if not term.strip() or search.is_number(term):
+        return out
+    n = names.person_name(term)
+    if n.given and n.family:
+        out["fl"] = key_fold(f"{n.given} {n.family}")
+        if n.middle:
+            out["full"] = key_fold(n.full)
+    out["person"] = names.person_key(term)
+    out["org"] = names.organisation_key(term)
+    return {k: x for k, x in out.items() if x}
+
+
+def named_groups(conn, term: str = "", fields: dict = None, registers=None) -> dict:
+    """{group_id: {tab}}: the groups holding a row whose filed name carries
+    the name searched (ruling 108 (3)), read against pub.names by its indexed
+    keys (name_keys) and folded into pub.groups by row key: one query on
+    rows_fl, rows_full, rows_name and groups_pkey. The tab is the field the
+    key matched: the first and last names (fl_key), with the middle
+    (full_key), the organisation (an organisation's name_key), the last name
+    alone or the first and last (a person's order-free name_key). With the
+    fields filled and the box too, a name must also carry every word of the
+    box. A row whose name is suppressed never finds its group (hard limit 16:
+    pub.names leaves it out, and the views that can suppress are asked again).
+    Only the registers searched. The board makes no link here: the groups
+    are the links lane's."""
+    keys = name_keys(term, fields)
+    if not keys:
+        return {}
+    sql = ("select n.ref, n.view, n.key, n.register, n.kind, n.name_filed, n.has_middle, g.group_id, "
+           "n.fl_key = %(fl)s as by_fl, n.full_key = %(full)s as by_full, n.name_key = %(person)s and n.kind = 'person' as by_person, "
+           "n.name_key = %(org)s and n.kind <> 'person' as by_org "
+           "from pub.names n join pub.groups g on g.row_key = n.ref "
+           "where (n.fl_key = %(fl)s or n.full_key = %(full)s or n.name_key = %(person)s or n.name_key = %(org)s)"
+           + (" and n.register = any(%(regs)s)" if registers is not None else "") + " limit %(limit)s")
+    found = db.rows(conn, sql, {"fl": keys.get("fl"), "full": keys.get("full"), "person": keys.get("person"),
+                                "org": keys.get("org"), "regs": list(registers or []), "limit": NAMED_ROWS})
+    if fields and any((x or "").strip() for x in fields.values()) and search.words_of(term):
+        words = search.words_of(search.base_term(term))
+        found = [r for r in found if all(re.search(r"\b" + re.escape(w), key_fold(r["name_filed"])) for w in words)]
+    hidden = suppressed_refs(conn, [{"ref": r["ref"], "view": r["view"], "key": r["key"]} for r in found])
+    out = {}
+    for r in found:
+        if r["ref"] in hidden:
+            continue
+        tabs = set()
+        if r["by_fl"]:
+            tabs |= {"first", "last"}
+        if r["by_full"]:
+            tabs |= {"first", "last"} | ({"middle"} if r["has_middle"] else set())
+        if r["by_person"]:
+            tabs |= {"last"} if len(keys.get("person", "").split()) == 1 else {"first", "last"}
+        if r["by_org"]:
+            tabs.add("org")
+        if tabs:
+            out.setdefault(r["group_id"], set()).update(tabs)
+    return out

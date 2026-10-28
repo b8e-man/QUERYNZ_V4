@@ -97,6 +97,58 @@ def person_name(raw: str) -> PersonName:
     return PersonName(squash(raw), toks[0], " ".join(toks[1:-1]), toks[-1], inverted)
 
 
+
+# the keys pub.names is indexed on (ruling 108: entity search)
+
+_TRAIL_NOISE = re.compile(r"\s*(?:\((?:chair|contact|attn|att|per)[^)]*\)|!+|\.+)\s*$", re.I)
+
+
+_PAREN_INC = re.compile(r"\(\s*(inc|incorporated)\.?\s*\)", re.I)
+
+
+_CORP_SUFFIXES = (" limited", " ltd", " incorporated", " inc")
+
+
+def clean_corporate(name: str) -> str:
+    """Filing noise that is never part of a legal name: '(Inc)' spelled out,
+    a trailing '(contact …)', bangs and dots."""
+    s = _PAREN_INC.sub("INCORPORATED", squash(name))
+    return _TRAIL_NOISE.sub("", s).strip(" ,;")
+
+
+def organisation_key(name: str) -> str:
+    """The organisation fold: lower, diacritics decomposed, possessive and a
+    leading 'the' off, corporate suffixes off, 'nz ' → 'new zealand '.
+    An apostrophe is not a spelling (Talley's is Talleys). ' party' is NOT
+    folded: a region must never match a party."""
+    o = fold_diacritics(clean_corporate(name)).lower().strip()
+    if o.endswith("'s"):
+        o = o[:-2].strip()
+    o = _APOS.sub("", o)
+    if o.startswith("the "):
+        o = o[4:]
+    for suf in _CORP_SUFFIXES:
+        if o.endswith(suf):
+            o = o[: -len(suf)]
+    o = o.strip(" .,")
+    if o.startswith("nz "):
+        o = "new zealand " + o[3:]
+    return squash(o)
+
+
+def person_key(raw: str) -> str:
+    """The comparison key for a person: diacritics decomposed, lower,
+    apostrophes out, punctuation to spaces; a bare two- or three-word name
+    is order-free. Initials, nicknames and spellings never fold."""
+    n = person_name(raw)
+    s = fold_diacritics(n.full).lower()
+    s = _APOS.sub("", s)
+    toks = re.sub(r"[^a-z0-9]+", " ", s).split()
+    if 2 <= len(toks) <= 3 and all(len(w) > 1 and w.isalpha() for w in toks):
+        toks = sorted(toks)
+    return " ".join(toks)
+
+
 # ── from keys/addresses.py ──
 
 _PO_BOX = re.compile(r"\b(p\.?\s*o\.?\s*box|po\s*box|private\s*bag|pobox)\s*(\d+)", re.I)

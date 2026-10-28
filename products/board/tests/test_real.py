@@ -2,12 +2,13 @@
 the outside check is green, a search is quick, a four-pane walk renders,
 the search tab marks a macron-folded word in the registers checked only,
 and the graph tab draws a busy row quickly with every far end real."""
+import re
 import time
 
 import pytest
 
 from products.board import catalogue as cat
-from products.board import check, db, graph, search, server
+from products.board import assets, check, db, graph, people, search, server
 
 pytestmark = pytest.mark.slow
 
@@ -72,7 +73,9 @@ def test_near_matches_render_closed_below_the_results_within_three_seconds():
         mills = server.render("", [], conn=conn, boxes=search.Boxes(True, (), (("first", "Phillip"), ("last", "Mills"))))
     exact, below = html.split('<details class="near" id="near">')
     assert "directors" in below and "near: given name and surname reversed" in below
-    assert "narrowed by: first name" in exact and "<script" not in html
+    assert "narrowed by: first name" in exact
+    scripts = re.findall(r'<script\b[^>]*\bsrc="([^"]*)"', html)                    # ruling 108: the graph beside the results,
+    assert scripts == [assets.url(n) for n in assets.SCRIPTS]                            # from the board's own files alone
     exact, below = mills.split('<details class="near" id="near">')
     assert "party_return_donors" in exact and "near: given name and surname reversed" not in below
 
@@ -200,3 +203,32 @@ def test_removed_companies_against_fixture_rows_under_both_settings():
     assert [r["key"] for r in got[False]] == ["a", "d"] and got[False][0]["total"] == 3 and got[False][0]["hidden"] == 2
     assert [r["key"] for r in got[True]] == ["a", "b"] and got[True][0]["total"] == 5 and "hidden" not in got[True][0]
     assert len(only_removed) == 1 and only_removed[0]["key"] is None and only_removed[0]["hidden"] == 1
+
+
+def test_the_tabbed_search_answers_within_two_seconds_in_both_states():
+    """Ruling 108: the search with the results pane's tabs, and the entity state's gathering and entity search on top
+    of it, inside the search's floor."""
+    with db.read_connect() as conn:
+        regs = search.held_registers(db.pub_views(conn))
+        t = time.time()
+        res = search.search(conn, "Graeme Hart", limit=search.RESULTS_LIMIT, registers=regs, tabs=True)
+        rows_state = time.time() - t
+        hits = [(v, r) for reg in regs for v, _, rs in res.get(reg, []) for r in rs]
+        ents = people.gather(conn, hits, people.named_groups(conn, "Graeme Hart", registers=regs))
+        both = time.time() - t
+    assert res["tabs"] == search.BOX and rows_state < 2.0 and both < 2.0, (rows_state, both)
+    assert ents["entity"] and ents["named"]                       # he is gathered, and found by name
+
+
+def test_the_entity_search_finds_a_group_no_row_of_the_list_heads():
+    """Ruling 108 (3): with every register's list cut to one row, the groups found by name are still listed."""
+    with db.read_connect() as conn:
+        regs = search.held_registers(db.pub_views(conn))
+        res = search.search(conn, "Graeme Hart", limit=1, registers=regs, tabs=True)
+        hits = [(v, r) for reg in regs for v, _, rs in res.get(reg, []) for r in rs]
+        named = people.named_groups(conn, "Graeme Hart", registers=regs)
+        ents = people.gather(conn, hits, named)
+    in_hand = set(ents["group"].values())
+    assert set(ents["named"]) - in_hand                            # a group no row in hand falls in, found by its rows' name
+    for gid in set(ents["named"]) - in_hand:
+        assert ents["entity"][gid]["label"] and ents["entity"][gid]["centre"]

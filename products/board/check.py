@@ -207,7 +207,8 @@ def problems(conn, term: str = None) -> list:
                     if directors and directors[0]:
                         walk.append(f"directors:{directors[0][0]['key']}")
         html = server.render(term, server.parse_path("|".join(walk)), conn=conn)
-        if html.count('<section class="pane') != len(walk) + 2:     # the left pane and the results, then the walk
+        panes_n = html.count('<section class="pane') - html.count('<section class="pane side"')     # ruling 108: the graph beside
+        if panes_n != len(walk) + 2:     # the left pane and the results, then the walk
             out.append(f"the walk from {term!r} rendered {html.count('<section class=\"pane')} panes, expected {len(walk) + 2}")
         if "<h3>Citation</h3>" not in html and walk:
             out.append("a pane in the walk carries no citation")
@@ -257,6 +258,112 @@ def problems(conn, term: str = None) -> list:
     out += mode_problems(conn)
     out += removed_problems(conn)
     out += people_problems(conn)
+    out += results_problems(conn)
+    return out
+
+
+#: ruling 108's live cases: a word that begins surnames, given names and company names; a person the links lane gathered
+RESULTS_TERM, RESULTS_PERSON, RESULTS_FL = "hart", "Graeme Hart", "graeme hart"
+_FOLD = "translate(lower({}), 'āēīōūĀĒĪŌŪ', 'aeiouaeiou')"
+
+
+def suppressed_results_problems(conn, held: set) -> list:
+    """A suppressed row in the results' entity state (hard limit 16): a
+    search never matches one by name, so it is taken from its view (a grouped
+    one first) and handed to people.gather with a row of its group, or alone:
+    it is gathered into no group, and the pane shows it as a row with no name."""
+    for v in cat.VIEWS:
+        if not v.suppressed or v.name not in held or not v.names or v.kind != "person":
+            continue
+        rows = db.rows(conn, f"select x.*, x.{v.key_col} as key, g.group_id from pub.{v.name} x left join pub.groups g "
+                             f"on g.row_key = %s || ':' || x.{v.key_col} where x.{v.suppressed} is true "
+                             f"order by g.group_id nulls last, x.{v.key_col} limit 1", (v.register,))
+        if not rows:
+            continue
+        r = rows[0]
+        ents = people.gather(conn, [(v, r)])
+        if f"{v.name}:{r['key']}" in ents["group"]:
+            return [f"the results' entity state gathers a suppressed row of {v.name} (hard limit 16)"]
+        pane = panes.results_pane("x", {v.register: [(v, 1, [r])], "hidden": {}, "tabs": None}, held, (v.register,),
+                                  search.FIRST._replace(people=True), ents=ents)
+        names = [str(r.get(n)) for n in v.names if r.get(n) not in (None, "") and len(str(r.get(n))) > 2]
+        if panes.SUPPRESSED not in pane or any(panes.esc(n) in pane for n in names):
+            return [f"the results' entity state shows a suppressed row of {v.name} other than as a row with no name"]
+        return []
+    return ["no published person view holds a suppressed row: the results' suppression case has nothing to read"]
+
+
+def results_problems(conn) -> list:
+    """Item 23 (ruling 108), read back apart from the search: the search box's
+    tabs, one per field matched, and the directors' last-name and first-name
+    counts equal a count of pub.directors' own columns; every row under a tab
+    carries the word in that field; "all fields must match" shows no tabs and
+    "any field" one per filled field; in the entity state every row gathered
+    is in that group of pub.groups and no suppressed row is; the entity search
+    finds groups holding a pub.names row whose fl_key is the name's; the
+    board's fold writes pub.names' keys as the lane wrote them; every result
+    carries the graph it opens, and the page the pane beside it."""
+    out = []
+    held = db.pub_views(conn)
+    regs = search.held_registers(held)
+    res = search.search(conn, RESULTS_TERM, limit=search.RESULTS_LIMIT, registers=regs, tabs=True, removed=search.FIRST.removed)
+    if res.get("tabs") != search.BOX:
+        out.append(f"the search box alone for {RESULTS_TERM!r} did not run with tabs")
+    d = [x for x in res.get("companies", []) if x[0].name == "directors"]
+    if not d:
+        out.append(f"a search for {RESULTS_TERM!r} found no directors row")
+    else:
+        v, n, rows = d[0]
+        word = r"\m" + RESULTS_TERM
+        hay = _FOLD.format("concat_ws(' ', " + ", ".join(v.search) + ")")
+        got = db.rows(conn, f"select count(*) as n, count(*) filter (where {_FOLD.format('last_name')} ~ %s) as last, "
+                            f"count(*) filter (where {_FOLD.format('first_name')} ~ %s) as first from pub.directors "
+                            f"where {hay} ~ %s and not coalesce(suppressed, false)", (word, word, word))[0]
+        mine = (n, int(rows[0].get("_n_last") or 0), int(rows[0].get("_n_first") or 0))
+        if mine != (got["n"], got["last"], got["first"]):
+            out.append(f"the directors' tabs for {RESULTS_TERM!r} count (rows, last, first) {mine}, pub.directors {tuple(got.values())}")
+        for r in rows:
+            for t, col in (("last", "last_name"), ("first", "first_name")):
+                if r.get(f"_tab_{t}") and not re.search(r"\b" + RESULTS_TERM, (r.get(col) or "").lower()):
+                    out.append(f"directors row {r['key']} is under the {t} tab without the word in its {col}")
+    page = server.render(RESULTS_TERM, [], conn=conn)
+    for t, label in search.TABS:
+        total = sum(int(rs[0].get(f"_n_{t}") or 0) for reg in regs for _, _, rs in res.get(reg, []) if rs)
+        shown = re.search(rf'<label for="ft-{t}">[^<]*<span class="count">([\d,]+)</span>', page)
+        if (int(shown.group(1).replace(",", "")) if shown else 0) != total:
+            out.append(f"the {t} tab says {shown.group(1) if shown else 'nothing'}, its views count {total:,}")
+    if 'id="side"' not in page or page.count("<article") != page.count("data-graph="):
+        out.append("the results page lacks the graph beside it, or a result carries no graph to open (ruling 108 (4))")
+    both = (("first", "graeme"), ("last", "hart"))
+    if 'class="ftabs"' in server.render("", [], conn=conn, boxes=search.FIRST._replace(fields=both)):
+        out.append("all fields must match shows tabs")
+    anyp = server.render("", [], conn=conn, boxes=search.FIRST._replace(fields=both, mode=search.ANY))
+    if sorted(re.findall(r'<label for="ft-(\w+)">', anyp)) != ["first", "last"]:
+        out.append(f"any field may match shows the tabs {re.findall(r'<label for=.ft-(\w+).>', anyp)}, not first and last")
+    hits = [(v, r) for reg in regs for v, _, rs in res.get(reg, []) for r in rs]
+    ents = people.gather(conn, hits)
+    for nid, gid in ents["group"].items():
+        v, r = next((v, r) for v, r in hits if f"{v.name}:{r['key']}" == nid)
+        if panes.is_suppressed(v, r):
+            out.append(f"the entity state gathered {nid}, whose name is suppressed")
+        if not db.rows(conn, "select 1 from pub.groups where row_key = %s and group_id = %s", (links_view.ref(v, r["key"]), gid)):
+            out.append(f"the entity state put {nid} in {gid}, which pub.groups does not")
+    if not ents["group"]:
+        out.append(f"the entity state for {RESULTS_TERM!r} gathered no row")
+    out += suppressed_results_problems(conn, held)
+    named = people.named_groups(conn, RESULTS_PERSON, registers=regs)
+    if not named:
+        out.append(f"the entity search for {RESULTS_PERSON!r} found no group")
+    for gid in sorted(named)[:20]:
+        if not db.rows(conn, "select 1 from pub.groups g join pub.names n on n.ref = g.row_key where g.group_id = %s and n.fl_key = %s",
+                       (gid, RESULTS_FL)):
+            out.append(f"the entity search found {gid}, which holds no row named {RESULTS_FL!r}")
+    for r in db.rows(conn, "select name_filed, fl_key from pub.names where view = 'party_return_donors' and kind = 'person' "
+                           "and fl_key is not null and name_filed !~ '[()]' order by ref limit 50"):
+        if people.name_keys(r["name_filed"]).get("fl") != r["fl_key"]:
+            out.append(f"the board's fold reads a filed name's first and last as {people.name_keys(r['name_filed']).get('fl')!r}, "
+                       f"pub.names {r['fl_key']!r}")
+            break
     return out
 
 
@@ -265,9 +372,10 @@ REMOVED_TERM = "fletcher"
 
 
 def register_count(page: str, register: str) -> tuple:
-    """(count, removed hidden) on a register's count line in the results pane."""
+    """(count, removed hidden) on a register's count line in the results pane: its heading in the one list, or
+    its total above the tabs (ruling 108)."""
     got = re.search(re.escape(panes.esc(dict(cat.REGISTERS)[register])) + r' <span class="count">([\d,]+)</span>'
-                    r'(?: <span class="note">([\d,]+) removed hidden</span>)?</h3>', page)
+                    r'(?: <span class="note">([\d,]+) removed hidden</span>)?(?:</h3>|</span>)', page)
     if not got:
         return None, None
     return int(got.group(1).replace(",", "")), int((got.group(2) or "0").replace(",", ""))
@@ -311,7 +419,7 @@ def mode_problems(conn) -> list:
     """19. Ruling 92 (6), on the live registers."""
     out = []
     asked = (("first", KNOWN_REVERSED[0]), ("last", KNOWN_REVERSED[1]))
-    total = lambda res: sum(n for k, hits in res.items() if k not in ("held", "hidden") for _, n, _ in hits)
+    total = lambda res: sum(n for k, hits in res.items() if isinstance(hits, list) for _, n, _ in hits)
     every = search.search(conn, "", limit=search.RESULTS_LIMIT, registers=("party_returns", "companies"), fields=dict(asked))
     some = search.search(conn, "", limit=search.RESULTS_LIMIT, registers=("party_returns", "companies"), fields=dict(asked),
                          mode=search.ANY)
@@ -319,7 +427,7 @@ def mode_problems(conn) -> list:
         out.append(f"any field found {total(some)} rows, all fields {total(every)}: any must find at least what all finds")
     page = server.render("", [], conn=conn, boxes=search.Boxes(False, ("party_returns",), asked, mode=search.ANY))
     res = page[page.index('id="results"'):page.index('id="near"') if 'id="near"' in page else len(page)]
-    if res.count('<article class="hit">') != res.count('<div class="nearwhy">matched: '):
+    if res.count('<article class="hit" ') != res.count('<div class="nearwhy">matched: '):
         out.append("under any field, a result does not say which field it matched")
     if 'value="any" checked' not in page:
         out.append("the selector does not show any field checked when it was asked")
@@ -646,8 +754,19 @@ def people_problems(conn, term: str = PEOPLE_TERM) -> list:
                     out.append(f"the people graph draws a near line for {a} and {b}, which pub.links holds no near pair for")
     data = graph.answer(g, term, boxes)
     nears = [e for e in data["edges"] if e["kind"] == graph.NEAR]
-    if not nears:
-        out.append(f"the people graph for {term!r} draws no near line: decision 2 has nothing to show")
+    if not nears:                      # the lane's near pairs move with each rebuild (mid-rebuild on 28 October none reached a smith row)
+        other = near_term(conn)
+        if other:
+            g2 = graph.build(conn, other, regs=search.selection(boxes, search.held_registers(held)), people=True)
+            for e in g2["edges"]:
+                if e["kind"] == graph.NEAR:
+                    for _, _, a, b in e["rows"]:
+                        ra, rb = sorted(links_view.ref(cat.BY_NAME[x.split(":", 1)[0]], x.split(":", 1)[1]) for x in (a, b))
+                        if not db.rows(conn, "select 1 from pub.links where row_a = %s and row_b = %s and grade = 'near'", (ra, rb)):
+                            out.append(f"the people graph draws a near line for {a} and {b}, which pub.links holds no near pair for")
+            nears = [e for e in graph.answer(g2, other, boxes)["edges"] if e["kind"] == graph.NEAR]
+        if not nears:
+            out.append(f"the people graph for {term!r}, and for a row of a near pair, draws no near line: decision 2 has nothing to show")
     if any(not e["dashed"] or not e["words"] for e in nears):
         out.append("a near line of the people graph is not dashed or carries no reason")
     page = server.render_graph(term, conn=conn, boxes=boxes)
@@ -672,6 +791,19 @@ def people_problems(conn, term: str = PEOPLE_TERM) -> list:
             out.append(f"the entity pane of {some} does not name it, say its name is no link, list its rows and its rules")
     out += suppressed_people_problems(conn)
     return out
+
+
+def near_term(conn, tries: int = 8) -> str:
+    """A search term whose people graph has a near line to draw: the filed
+    name of a director in one of pub.links' near pairs of two rows in no one group, the
+    rarest of the first `tries` (by name_key, so its row heads its view's
+    list); "" when none."""
+    found = db.rows(conn, "select n.name_filed, (select count(*) from pub.names m where m.name_key = n.name_key) as k "
+                          "from (select row_a from pub.links x where grade = 'near' and row_a <> row_b and row_a like 'companies:%%' "
+                          "and not exists (select 1 from pub.groups ga join pub.groups gb on gb.group_id = ga.group_id "
+                          "where ga.row_key = x.row_a and gb.row_key = x.row_b) order by row_a limit %s) l join pub.names n on n.ref = l.row_a where n.kind = 'person' and n.view = 'directors' "
+                          "order by k, n.ref limit 1", (tries,))
+    return found[0]["name_filed"] if found else ""
 
 
 def suppressed_people_problems(conn) -> list:
@@ -881,7 +1013,7 @@ def _names(v, r) -> list:
 
 
 def _hits(res) -> list:
-    return [(v, r) for reg, found in res.items() if reg not in ("held", "hidden") for v, _, rows in found for r in rows]
+    return [(v, r) for reg, found in res.items() if isinstance(found, list) for v, _, rows in found for r in rows]
 
 
 def field_problems(conn, held: set, columns: dict, types: dict) -> list:

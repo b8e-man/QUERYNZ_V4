@@ -853,8 +853,8 @@ def key_table(g: dict) -> str:
 # ── the canvas (ruling 100): the same graph as data, for the page's script ──
 
 def grow_href(nid: str, boxes=None) -> str:
-    """/graph.json centred on one row, the check boxes carried."""
-    return "/graph.json?" + urllib.parse.urlencode([("c", nid)] + (boxes.params() if boxes is not None else []))
+    """/graph.json centred on one row, the check boxes carried (panes.graph_href: a result's graph is the same address)."""
+    return panes.graph_href(nid, boxes)
 
 
 def _addend(x: dict, q: str, boxes=None) -> dict:
@@ -982,6 +982,27 @@ def canvas(data: dict, picture: str) -> str:
             'their registers assert as curved edges coloured by kind"></div><div id="tip" class="tip" hidden></div></div>'
             f'<script type="application/json" id="graph-data">{to_json(data)}</script>{assets.tags()}'
             f"<noscript>{picture}</noscript>")
+
+
+SIDE_NOTE = ("Click a result to draw its graph here, centred on it, in the state the switch above shows: rows, or the "
+             "entities the links lane gathered. A click with a key held opens the result's pane instead.")
+
+
+def side_pane(boxes=None) -> str:
+    """The graph beside the results (ruling 108 (4)): the canvas of ruling 100,
+    empty and hidden until a result is clicked, then filled by graph.js from
+    /graph.json centred on that result (its `data-graph`, panes.graph_href),
+    in the state the address carries. Without script it never shows: each
+    result's link opens its pane, and the graph tab stays."""
+    people = bool(getattr(boxes, "people", False))
+    empty = {"centre": "", "mode": "entities" if people else "rows", "nodes": [], "edges": [], "matched_total": 0,
+             "drawn": {}, "not_drawn": {}, "unresolved": 0}
+    return ('<section class="pane side" id="side" aria-live="polite">'
+            f'<div class="reg">graph beside the results{" · entities" if people else ""}</div>'
+            '<h2 id="side-title">Graph</h2>'
+            '<p class="note"><a id="side-pane" href="#">its pane</a> · <a id="side-tab" href="/graph">on the graph tab</a> · '
+            '<button type="button" id="side-close">close</button></p>'
+            f'<p class="note">{panes.esc(SIDE_NOTE)}</p>' + canvas(empty, "") + "</section>")
 
 
 def switch(q: str, boxes=None, centre: str = "") -> str:
