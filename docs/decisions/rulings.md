@@ -909,3 +909,18 @@ pairs (links/measurements.md). The views that name people and bodies in
 one column with no split (court judgment, FMA, WorkSafe, Commerce
 Commission and Overseas Investment parties) wait on a rule for telling a
 person from a body, carded, not built.
+
+115. Arthur, 28 October, 20:20, told that three jobs died overnight for
+guessed memory figures and were measured and corrected by hand the next
+morning: "we should be doing this at the time of failure and then
+rerunning the job if the failure is trivial". So a job stopped at its
+memory ceiling is not left failed for a session to repair: the worker
+records the peak it measured, raises the job's working memory figure from
+it (the raise and the measurement logged, kept outside the repository so
+the next run uses it, and shown by the scheduler report until the
+integrator folds it into jobs.toml), and queues the job again at once, as
+long as the raised figure fits the box's budget and the job has not been
+raised twice already for one failure; past that, or for any other failure,
+the job stays failed and red as now. A trivial failure is one the
+scheduler itself caused by a figure it holds; a job's own error is never
+re-run by this.
