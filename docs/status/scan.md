@@ -1,6 +1,6 @@
 # scan: where it stands
 
-**Date:** 2026-10-21. **Step:** 6.1, the register-scan shape, `products/scan/`.
+**Date:** 2026-10-28. **Step:** 6.1, the register-scan shape, `products/scan/`.
 **Merge request:** `scan-1` (raised). **Port:** 8450 (beside the report's 8440).
 
 ## Done
@@ -31,6 +31,10 @@
   (direct links, not in force) the society scan takes about two minutes.
 - Fast tier 22 tests (fixtures; the mutant check plants ten faults and the
   rules catch each); slow tests 9 s; one-way and reading-limit tests green.
+- fix-products-scan-1 (29 Oct): a name-only@1 link is read between the two
+  rows' groups (links contract for readers), every other rule between the
+  rows; procurement templates 1.1. 30 stored lines stay red until a re-run:
+  queue `two-groups-away-from-a-name-star-s-centre`.
 
 ## Carded
 

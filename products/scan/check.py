@@ -158,6 +158,21 @@ def check_run(pub, st, t: tpl.Template, settings: dict) -> list:
     return out_
 
 
+def link_between(pub, rules: list, a: str, b: str) -> list:
+    """The links of `rules` between two rows as the links lane's contract
+    asks a reader to find them (links/spec.md): a star rule's link
+    (`plan.STARS`) between the two rows' pub.groups groups (a row in no group
+    is its own), so a rebuild that moves a star's centre changes nothing a
+    stored line says; any other rule's link between the two rows. Confirmed
+    first: [{grade, reason, rule}]."""
+    ma, mb = plan.MEMBERS.format(ref="%(a)s"), plan.MEMBERS.format(ref="%(b)s")
+    star = plan.star_sql("rule")
+    return db.rows(pub, f"select grade, reason, rule from pub.links where rule = any(%(rules)s) and ("
+                        f"(not {star} and ((row_a = %(a)s and row_b = %(b)s) or (row_a = %(b)s and row_b = %(a)s))) or "
+                        f"({star} and ((row_a in {ma} and row_b in {mb}) or (row_a in {mb} and row_b in {ma})))) "
+                        f"order by grade = 'confirmed' desc, link_id", {"a": a, "b": b, "rules": list(rules)})
+
+
 def proving(pub, st) -> list:
     """The two proving scans on the real tables: what each must show, read
     back from the tables today (the join holds, the grade is the rule's)."""
@@ -195,8 +210,7 @@ def proving(pub, st) -> list:
             if ln["grade"] != "near" or not any("organisation-name@1" in x for x in ln["reasons"]):
                 out_.append(f"donors-named-as-companies: line {ln['n']} is {ln['grade']} or lacks the rule's reason")
                 break
-            got = db.rows(pub, "select grade from pub.links where rule = 'organisation-name@1' and ((row_a = %s and row_b = %s) or (row_a = %s and row_b = %s))",
-                          (donor["ref"], company["ref"], company["ref"], donor["ref"]))
+            got = link_between(pub, ["organisation-name@1"], donor["ref"], company["ref"])
             if not got or got[0]["grade"] != "near":
                 out_.append(f"donors-named-as-companies: line {ln['n']}: no near organisation-name link joins the donor and the company today")
                 break
@@ -275,8 +289,7 @@ def templates_proving(pub, scan: str, lines: list) -> list:
         elif scan in ("procurement-directors-donors", "procurement-shareholders-donors"):
             donor, person, co, su, aw = ln["steps"]
             pview = person["view"]
-            link = db.rows(pub, "select grade from pub.links where rule = any(%s) and ((row_a = %s and row_b = %s) or (row_a = %s and row_b = %s))",
-                           (["full-name@1", "name-only@1"], donor["ref"], person["ref"], person["ref"], donor["ref"]))
+            link = link_between(pub, ["full-name@1", "name-only@1"], donor["ref"], person["ref"])
             if not link:
                 out_.append(f"{scan}: line {n}: no full-name or name-only link joins the donor and the {person['label']} today")
             elif link[0]["grade"] != "confirmed" and not any(x.startswith(person["label"] + ":") for x in ln["reasons"]):
