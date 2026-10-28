@@ -909,3 +909,33 @@ pairs (links/measurements.md). The views that name people and bodies in
 one column with no split (court judgment, FMA, WorkSafe, Commerce
 Commission and Overseas Investment parties) wait on a rule for telling a
 person from a body, carded, not built.
+
+115. Arthur, 28 October, 20:20, told that three jobs died overnight for
+guessed memory figures and were measured and corrected by hand the next
+morning: "we should be doing this at the time of failure and then
+rerunning the job if the failure is trivial". So a job stopped at its
+memory ceiling is not left failed for a session to repair: the worker
+records the peak it measured, raises the job's working memory figure from
+it (the raise and the measurement logged, kept outside the repository so
+the next run uses it, and shown by the scheduler report until the
+integrator folds it into jobs.toml), and queues the job again at once, as
+long as the raised figure fits the box's budget and the job has not been
+raised twice already for one failure; past that, or for any other failure,
+the job stays failed and red as now. A trivial failure is one the
+scheduler itself caused by a figure it holds; a job's own error is never
+re-run by this.
+
+116. Arthur, 28 October, 20:33, told that no MCP-fed view (Hansard
+speeches, written questions, Beehive releases, ministers' diary releases)
+joins a member row, and offered a links rule of the seat-and-window kind:
+"add this to the other links lane work and do it". So the links lane gains
+a rule confirming a speech turn's, a written question's asker's and
+answering minister's, a Beehive release's tagged minister's and a diary
+release's minister's printed name, honorific stripped, to the one member
+sitting in the House on that day (`pub.members` by its from and ended
+dates); several or none stays near with the reason. Measured first as
+ruling 106's method asks and built in the links fix that follows
+fix-links-3 (ruling 114) in the same copy. The list members who filled a
+vacancy after an election are missing from `pub.members` (card of 28
+October) and are the expected abstentions until the house lane carries
+them.
