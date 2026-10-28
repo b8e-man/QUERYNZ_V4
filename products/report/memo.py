@@ -14,7 +14,7 @@ import urllib.parse
 from products.report import catalogue as cat
 from products.report import contract, rows
 
-GRADE_WORD = {"confirmed": "confirmed", "near": "near"}
+GRADE_WORD = {"confirmed": "confirmed", "near": "near", "related": "related"}
 CSS = """
 body{margin:0;font:14px/1.45 system-ui,sans-serif;color:#222;background:#f4f4f2}
 header{display:flex;gap:1rem;align-items:center;padding:.5rem 1rem;background:#fff;border-bottom:1px solid #ddd}
@@ -60,7 +60,11 @@ def _line_text(it: dict) -> str:
     if it.get("reason"):
         extra.append(f"near: {it['reason']}")
     if it.get("rule"):
-        extra.append(f"rule {it['rule']}")
+        extra.append(_rule(it["rule"]))
+    if it.get("grade") == "related":
+        extra.append(_people_text(it))
+        if it.get("order") and it["order"] != "by registration date":
+            extra.append(f"date order: {it['order']}")
     if it.get("replaced_by"):
         extra.append(f"from a return since replaced; the amendment is document {str(it['replaced_by'])[:12]}…; never summed")
     if it.get("via") and it["via"] != "start":
@@ -84,6 +88,33 @@ def _line_text(it: dict) -> str:
     if it.get("note") and it["view"] in ("shareholders", "directors", "disclosures", "gazette_company_notices", "charity_officers"):
         extra.append(it["note"])
     return line + ("".join("\n      " + x for x in extra) if extra else "")
+
+
+def _rule(rule) -> str:
+    """A rule as a line names it: a links rule in words, "rule: a company
+    succeeded by … (links rule successor-name, version 1)"; the walk's own
+    (through-officer, same-name, chain, …) as before, "rule through-officer",
+    the words the templates' tests read."""
+    words = cat.rule_text(rule)
+    return f"rule: {words}" if words != str(rule or "") else f"rule {rule}"
+
+
+def _people_text(it: dict, cite=lambda p: f" [{p.get('cite', '?')}]") -> str:
+    """The persons the links confirmed on both companies of a related link, by
+    their rows on this side; the hidden counted, never named."""
+    n = it.get("shared_people") or 0
+    names = ", ".join(f"{p['title']}{cite(p)}" for p in it.get("people", []))
+    bits = [f"{n:,} {'person' if n == 1 else 'people'} on both: " + (names or "none shown")]
+    if it.get("people_hidden"):
+        bits.append(f"{it['people_hidden']:,} whose name is suppressed or whose row is not found, not named")
+    more = n - len(it.get("people", [])) - (it.get("people_hidden") or 0)
+    if more > 0:
+        bits.append(f"and {more:,} more")
+    return "; ".join(bits)
+
+
+def _counts(sec: dict) -> str:
+    return f"{sec['related']} related" if sec.get("name") == "related" else f"{sec['confirmed']} confirmed, {sec['near']} near"
 
 
 def _reaches_text(w: dict) -> list:
@@ -186,7 +217,7 @@ def text(report: dict) -> str:
     if not report["flags"]:
         out.append("  none: this template carries no rules")
     for sec in report["sections"]:
-        out += ["", sec["heading"].upper() + f"  ({sec['confirmed']} confirmed, {sec['near']} near)"]
+        out += ["", sec["heading"].upper() + f"  ({_counts(sec)})"]
         if sec.get("text"):
             out.append(f"  {sec['text']}")
         if not sec["items"]:
@@ -246,9 +277,13 @@ def _li(it: dict, template_name: str = "subject") -> str:
     out = [f'<li>{"<span class=\"warn\">new</span> " if it.get("new") else ""}<span class="grade {esc(it["grade"])}">{esc(GRADE_WORD.get(it["grade"], it["grade"]))}</span>{esc(it["statement"])} '
            f'<span class="dates">({esc(it["dates"]["text"])})</span> <span class="cite">[{esc(it.get("cite", "?"))}]</span>']
     if it.get("reason"):
-        out.append(f'<span class="reason">near: {esc(it["reason"])}' + (f" · rule {esc(it['rule'])}" if it.get("rule") else "") + "</span>")
+        out.append(f'<span class="reason">near: {esc(it["reason"])}' + (f" · {esc(_rule(it['rule']))}" if it.get("rule") else "") + "</span>")
     elif it.get("rule"):
-        out.append(f'<span class="reason">rule {esc(it["rule"])}</span>')
+        out.append(f'<span class="reason">{esc(_rule(it["rule"]))}</span>')
+    if it.get("grade") == "related":
+        out.append(f'<span class="reason">{esc(_people_text(it))}</span>')
+        if it.get("order") and it["order"] != "by registration date":
+            out.append(f'<span class="reason">date order: {esc(it["order"])}</span>')
     if it.get("replaced_by"):
         out.append(f'<span class="reason">from a return since replaced; the amendment is document <code>{esc(str(it["replaced_by"])[:12])}…</code>; never summed</span>')
     if it.get("via"):
@@ -308,7 +343,7 @@ def html_body(report: dict) -> str:
         out.append("<li>none: this template carries no rules</li>")
     out.append("</ul>")
     for sec in report["sections"]:
-        out.append(f'<h3>{esc(sec["heading"])} <span class="meta">{sec["confirmed"]} confirmed, {sec["near"]} near</span></h3>')
+        out.append(f'<h3>{esc(sec["heading"])} <span class="meta">{esc(_counts(sec))}</span></h3>')
         if sec.get("text"):
             out.append(f'<p class="note">{esc(sec["text"])}</p>')
         if not sec["items"]:

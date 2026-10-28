@@ -15,7 +15,11 @@ a report that breaks one is refused by the surface rather than printed:
      registered office, or a company's own registered name (a company named
      "1 SHEA TERRACE LIMITED" is shown as the register names it);
   8. a near connection carries its reason;
-  9. a flag keeps the contract: fired cites, clear names its sources, blocked says why.
+  9. a flag keeps the contract: fired cites, clear names its sources, blocked says why;
+ 10. a related link (ruling 106 (2)) is a relation, never an identity and never
+     near: it states its relation, the two companies are two refs in its
+     statement's order, it carries no near reason, it sits in the related
+     section alone, and the persons on both are cited and checked like any item.
 
 Whose words a rule reads. Rules 3 and 4 read the report's own words: the
 statement pattern's text, the reasons, the notes, the flags. A register's
@@ -123,6 +127,7 @@ def _items(report: dict):
     for s in report.get("sections", []):
         for it in s["items"]:
             yield it
+            yield from it.get("people", ())
 
 
 def problems(report: dict) -> list:
@@ -159,9 +164,19 @@ def problems(report: dict) -> list:
             out.append(f"{ref}: an address-shaped statement outside the registered-office view (rule 7)")
         if it.get("grade") == "near" and not it.get("reason"):
             out.append(f"{ref}: near with no reason (rule 8)")
-        if it.get("grade") not in ("confirmed", "near"):
+        if it.get("grade") == "related":
+            if not it.get("relation"):
+                out.append(f"{ref}: related with no relation (rule 10)")
+            if it.get("reason"):
+                out.append(f"{ref}: related carries a near reason, worded as perhaps one (rule 10)")
+            if not it.get("earlier") or not it.get("later") or it["earlier"] == it["later"]:
+                out.append(f"{ref}: related without two companies in date order (rule 10)")
+        elif it.get("grade") not in ("confirmed", "near"):
             out.append(f"{ref}: grade {it.get('grade')!r}")
     for s in report.get("sections", []):
+        for it in s["items"]:
+            if (it.get("grade") == "related") != (s["name"] == "related"):
+                out.append(f"{it.get('ref', '?')}: grade {it.get('grade')!r} in section {s['name']} (rule 10)")
         if not s["items"]:
             if not s.get("blank") or not BLANK_OK.match(s["blank"]):
                 out.append(f"section {s['name']}: empty without 'none found in …' or 'not held: …' (rule 5)")
