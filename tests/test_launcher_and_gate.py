@@ -124,3 +124,64 @@ def test_gate_refuses_to_merge_from_a_dirty_or_wrong_checkout(toy):
     sh(["git", "checkout", "-q", "green"], repo)
     p = sh([sys.executable, "bin/merge-gate", "green"], repo, env, check=False)
     assert p.returncode == 1 and "must be on main" in p.stderr
+
+
+def _toy_module(toy, folder, name):
+    """A module whose one slow test leaves a marker file in the work folder when it runs."""
+    repo = toy["repo"]
+    os.makedirs(os.path.join(repo, folder, "tests"), exist_ok=True)
+    with open(os.path.join(repo, folder, "tests", f"test_{name}.py"), "w") as f:
+        f.write("import os, pytest\n\n@pytest.mark.slow\ndef test_slow():\n"
+                f"    open(os.path.join(os.environ['QV4_WORK'], 'ran-{name}'), 'w').write('x')\n")
+    with open(os.path.join(repo, folder, "x.py"), "w") as f:
+        f.write("X = 1\n")
+
+
+def _commit_all(toy, msg):
+    repo = toy["repo"]
+    sh(["git", "-c", "user.email=t@t", "-c", "user.name=t", "add", "-A"], repo)
+    sh(["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", msg], repo)
+
+
+def _branch_touching(toy, branch, path, text):
+    repo = toy["repo"]
+    sh(["git", "checkout", "-q", "-b", branch], repo)
+    os.makedirs(os.path.dirname(os.path.join(repo, path)), exist_ok=True)
+    with open(os.path.join(repo, path), "w") as f:
+        f.write(text)
+    _commit_all(toy, branch)
+    sh(["git", "checkout", "-q", "main"], repo)
+
+
+def _ran(toy):
+    work = toy["work"]
+    out = {n for n in ("a", "b") if os.path.exists(os.path.join(work, f"ran-{n}"))}
+    for n in out:
+        os.remove(os.path.join(work, f"ran-{n}"))
+    return out
+
+
+def test_gate_runs_the_slow_tests_of_the_touched_modules_and_their_readers_only(toy):
+    # ruling 113: changed in isolation, tested in isolation; a contract change reaches the readers; support/ reaches all
+    repo, work, env = toy["repo"], toy["work"], toy["env"]
+    os.makedirs(work, exist_ok=True)
+    with open(os.path.join(repo, "pytest.ini"), "w") as f:
+        f.write("[pytest]\ntestpaths = tests registers products support\naddopts = -p no:cacheprovider -q\nmarkers =\n    slow: slow\n")
+    _toy_module(toy, "registers/a", "a")
+    _toy_module(toy, "products/b", "b")
+    _commit_all(toy, "modules")
+    _branch_touching(toy, "inner", "registers/a/x.py", "X = 2\n")
+    _branch_touching(toy, "contract", "registers/a/publish.sql", "-- a view\n")
+    _branch_touching(toy, "shared", "support/thing/x.py", "X = 3\n")
+    _branch_touching(toy, "docs-only", "docs/briefs/note.md", "a note\n")
+    assert sh([sys.executable, "bin/merge-gate", "inner", "--no-merge"], repo, env).stdout.startswith("GREEN")
+    assert _ran(toy) == {"a"}, "a change inside one module runs that module's slow tests alone"
+    assert sh([sys.executable, "bin/merge-gate", "contract", "--no-merge"], repo, env).stdout.startswith("GREEN")
+    assert _ran(toy) == {"a", "b"}, "a contract change runs the readers' slow tests too"
+    assert sh([sys.executable, "bin/merge-gate", "shared", "--no-merge"], repo, env).stdout.startswith("GREEN")
+    assert _ran(toy) == {"a", "b"}, "a change under support/ runs every slow test"
+    p = sh([sys.executable, "bin/merge-gate", "docs-only", "--no-merge"], repo, env)
+    assert p.stdout.startswith("GREEN") and _ran(toy) == set(), "no module touched: no slow test runs"
+    log = open(os.path.join(work, "gate", "inner.log")).read()
+    assert "--- fast tier, whole repository ---" in log and "--- slow tests: registers/a ---" in log
+

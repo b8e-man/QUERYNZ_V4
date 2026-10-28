@@ -876,3 +876,18 @@ entry, never a link and never written: the links lane's rules alone make
 links (plan 4.9), and the dossier of a folded entry shows its members as
 the entities they are. The address carries the chosen criteria. Built by
 board-12 with ruling 111.
+
+113. Arthur, 28 October, 18:12, on the merge gate's twenty-five minutes
+("why does it take so long?"): "the idea of the service architecture was
+to enable things to be changed in isolation without the need to test
+everything". So the gate at a merge runs the fast tier for the whole
+repository (the contract tests, the one-way import test, the spec and
+reading-limit checks), then the slow tests of the modules the branch
+touches and of the modules that read what they publish (a change to a
+lane's publish.sql, pane.md, tables.sql or profiles runs the slow tests of
+links/, checks/ and every product), then the staging load. A branch that
+touches support/, bin/, .claude/, the root tests, the plan or the test
+configuration still runs every slow test, because everything imports or
+runs through those. Every other slow test runs in the nightly full tier,
+as the plan's table already has it. The plan's row for the gate is
+reworded to say this.

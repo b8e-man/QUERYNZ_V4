@@ -9,9 +9,16 @@ failure. On a pass it merges the branch into main in the main checkout with
 a merge commit; with --no-merge it only reports. The run's output is kept
 at <work>/gate/<branch>.log. Exit 0 = merged (or would merge), 1 = refused.
 
-The full tier at a merge (1b.7): every test, the slow ones included, then
-the staging load of the modules the branch touches that carry a load.py
-(support/staging). It must be run from a clean main checkout on the main
+The full tier at a merge (1b.7, ruling 113): the fast tier for the whole
+repository (every test not marked slow: the contract tests, the one-way
+import test, the spec and reading-limit checks), then the slow tests of the
+modules the branch touches and of the modules that read what they publish
+(a change to a lane's publish.sql, pane.md, tables.sql, spec.md or profiles
+runs the slow tests of links/, checks/ and products/), then the staging
+load of the touched modules that carry a load.py (support/staging). A
+branch touching support/, bin/, .claude/, the root tests, the plan or the
+test configuration runs every slow test, because everything imports or runs
+through those. It must be run from a clean main checkout on the main
 branch. Stdlib only."""
 import os
 import re
@@ -20,6 +27,41 @@ import subprocess
 import sys
 
 WORK = os.environ.get("QV4_WORK") or "/home/user/querynzv4-work"
+ROOTS = ("keys", "support", "registers", "links", "products", "checks")
+#: a change here runs every slow test: everything imports or runs through these
+WHOLE = ("bin/", ".claude/", "tests/", "docs/plan/", "support/", "pytest.ini", "conftest.py", "pyproject.toml")
+#: a module's contract with its readers: changing one runs the readers' slow tests too
+CONTRACT = ("publish.sql", "pane.md", "tables.sql", "spec.md", "profile-proposed.jsonl")
+READERS = ("links", "checks", "products")
+
+
+def module_of(path: str):
+    parts = path.split("/")
+    if parts[0] not in ROOTS:
+        return None
+    if parts[0] in ("keys", "links"):
+        return parts[0]
+    return "/".join(parts[:2]) if len(parts) > 2 else None
+
+
+def slow_targets(repo: str, branch: str, base: str = "main"):
+    """Where the slow tests run (ruling 113): None means the whole
+    repository; a list names the folders; an empty list means no slow test
+    applies (the branch touched no module and nothing everything depends on)."""
+    files = git(repo, "diff", "--name-only", f"{base}...{branch}").split("\n")
+    touched, contract = set(), False
+    for f in (x.strip() for x in files if x.strip()):
+        if f.startswith(WHOLE) or f in WHOLE:
+            return None
+        m = module_of(f)
+        if m:
+            touched.add(m)
+            if os.path.basename(f) in CONTRACT:
+                contract = True
+    targets = sorted(touched)
+    if contract:
+        targets += [r for r in READERS if os.path.isdir(os.path.join(repo, r)) and r not in targets]
+    return [t for t in targets if not any(t != o and t.startswith(o + "/") for o in targets)]
 
 
 def die(msg: str) -> None:
@@ -84,11 +126,22 @@ def main() -> int:
     git(repo, "worktree", "add", "--detach", gate_dir, branch)
     staging = None
     try:
-        p = subprocess.run([python_for(repo), "-m", "pytest", "-p", "no:cacheprovider", "-q"],
-                           cwd=gate_dir, capture_output=True, text=True,
-                           env={**os.environ, "CLAUDE_PROJECT_DIR": gate_dir})
+        env = {**os.environ, "CLAUDE_PROJECT_DIR": gate_dir}
+        py = python_for(repo)
+        p = subprocess.run([py, "-m", "pytest", "-p", "no:cacheprovider", "-q", "-m", "not slow"],
+                           cwd=gate_dir, capture_output=True, text=True, env=env)
         with open(log, "w", encoding="utf-8") as f:
-            f.write(p.stdout + p.stderr)
+            f.write("--- fast tier, whole repository ---\n" + p.stdout + p.stderr)
+        if p.returncode == 0:
+            targets = slow_targets(repo, branch)
+            where = "the whole repository" if targets is None else (", ".join(targets) or "nothing: no module touched")
+            if targets is None or targets:
+                p = subprocess.run([py, "-m", "pytest", "-p", "no:cacheprovider", "-q", "-m", "slow", *(targets or [])],
+                                   cwd=gate_dir, capture_output=True, text=True, env=env)
+                if p.returncode == 5:                      # no slow test collected there: nothing to refuse on
+                    p.returncode = 0
+            with open(log, "a", encoding="utf-8") as f:
+                f.write(f"\n--- slow tests: {where} ---\n" + p.stdout + p.stderr)
         if p.returncode == 0:
             staging = load_touched(repo, branch, gate_dir)
             if staging is not None:
