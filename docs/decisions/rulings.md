@@ -891,3 +891,21 @@ configuration still runs every slow test, because everything imports or
 runs through those. Every other slow test runs in the nightly full tier,
 as the plan's table already has it. The plan's row for the gate is
 reworded to say this.
+
+114. Arthur, 28 October, 20:07, shown that the links lane reads 21 of
+the published views and the ones it does not ("are there any other
+registers that are not in the links lane?"): "do the links fix for the
+people views and organisation registers. Card the mixed views rule". So
+one links fix reads into the lane's rows the eight people views it left
+out (charity officers, Gazette celebrants, Gazette receivers and
+administrators, limited partnership partners, party board roles, local
+election candidates, building practitioner decisions, councillor
+interests) and the three organisation registers (charities, societies,
+limited partnerships) as bodies the organisation rules may confirm a
+donor's organisation name to, by the same one-body-live-in-the-year test
+the company rules apply; the measurements are run again and the review
+agent's switch stays off until it is scored on the charities officer
+pairs (links/measurements.md). The views that name people and bodies in
+one column with no split (court judgment, FMA, WorkSafe, Commerce
+Commission and Overseas Investment parties) wait on a rule for telling a
+person from a body, carded, not built.
