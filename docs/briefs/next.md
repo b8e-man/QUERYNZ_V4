@@ -516,6 +516,31 @@ bulk until the build is done. A lane's request for readings is answered
 with the store's sample and a note; the hashes it sets aside are the queue
 for later, one command.
 
+## fix-products-board-6
+
+Fix session, Opus, scope `products/board/`. The card
+`the-graph-tab-s-fold-is-mislabelled-in-rows-mode-and-cites-the-superseded-filing`
+(29 October). On node2: `cd /home/user/querynzv4 && bin/fix products/board`,
+then start Claude in the copy it makes and paste:
+
+```text
+You are a fix session for QueryNZV4, running as Opus on node2, in the
+working copy the launcher made for you, scope products/board/. Read
+docs/PLAN.md, docs/plan/core.md, products/board/spec.md, rulings 105 to
+112 and 117 in docs/decisions/rulings.md, and the card
+cards/the-graph-tab-s-fold-is-mislabelled-in-rows-mode-and-cites-the-superseded-filing.md.
+Fix its three faults: (1) the graph tab defaults to entities mode when a
+collapse is ticked, and the fold's label and colour come from the whole
+fold, not the member that sorts first; (2) when causes merge into one
+edge, cite the latest filing, never one marked not in the latest file;
+(3) the "N more match: narrow the search" note is not shown when every
+matching row is drawn inside a fold. Each with a test that fails on main
+and passes on your branch, and the live render of the search "Arthur
+Falls" with "a shared first and last name" ticked, measured. Never print
+a home address or a suppressed name. Push the branch, raise the merge
+request fix-products-board-6, close the card in it.
+```
+
 ## founding
 
 Launcher, on node2 in `/home/user/querynzv4`: `bin/start-session --main founding`
