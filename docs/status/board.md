@@ -41,3 +41,5 @@
 
 1. The integrator merges `session/board-13` and restarts `qv4-board` at
    the release. No table, unit or setting changes.
+2. The integrator merges `fix/products-board-5` (a fold's dossier shows each
+   member's records under its name, 29 October) and restarts `qv4-board`.
