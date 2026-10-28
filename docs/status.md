@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
 
-**Date:** 2026-10-28, 23:25 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-29, 06:05 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 counting clean days from 25 October (see Half-done); 5.1
 done; 5.2 closed (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held
 on terms; sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on
@@ -29,7 +29,7 @@ model reading till it returns. **Alarms:** the old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- 28 October (rulings 103 to 116): memory folder opened; jobs given measured memory, and a job killed at its ceiling is now raised and re-run by the worker (115; worker restart owed after the links build); the board's entity state, results pane, lineage frame, dossier and collapse live (105 to 112); the gate tests in isolation (113); five links rules live (106, 107, 109), the lane reads the eight left-out people views and four organisation registers (114) and joins speeches, questions, releases and diaries to the sitting member (116; live since 22:47 by a hand build). At the gate: fix-links-5 (byte order of refs), held by readers' live tests being fixed in three sessions (board dossier, scan, templates). Arthur's: four items in docs/merges/fix-links-3.md and the cards. 27 October: rulings 96 to 102 merged (the MCP lanes, `board-7`).
+- 28 October (rulings 103 to 116): memory folder opened; jobs given measured memory, and a job killed at its ceiling is now raised and re-run by the worker (115; worker restart owed after the links build); the board's entity state, results pane, lineage frame, dossier and collapse live (105 to 112); the gate tests in isolation (113); five links rules live (106, 107, 109), the lane reads the eight left-out people views and four organisation registers (114) and joins speeches, questions, releases and diaries to the sitting member (116; live since 22:47 by a hand build). 29 October to 06:00: the readers mended for the lane's new shape (board dossier by view, scan and templates through groups, the report reads a name's star through its centre; all 160 prohibition rows with a namesake now reached), ruling 117 live (`board-13`: the dossier states facts and folds same-fact rows, the table sorts and resizes, one entity drawing), fix-links-5 merged (byte order of refs). Nothing at the gate. Next build: celebrant rows under one reference; a date column in the Gazette notices table. Arthur's: four items in docs/merges/fix-links-3.md and the cards. 27 October: rulings 96 to 102 merged (the MCP lanes, `board-7`).
 
 ## Half-done
 
