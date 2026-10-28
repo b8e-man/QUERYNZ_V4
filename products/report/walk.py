@@ -42,7 +42,7 @@ import re
 from products.report import catalogue as cat
 from products.report import db, rows
 
-LIMITS = {"members": 300, "links": 400, "related_people": 20, "roles": 200, "entities": 40, "second": 300, "expand": 12,
+LIMITS = {"members": 300, "links": 400, "star": 400, "related_people": 20, "roles": 200, "entities": 40, "second": 300, "expand": 12,
           "officers": 12, "officer_rows": 40, "office": 20, "chain": 4, "chain_holders": 25, "chain_companies": 40}
 SETTINGS = {"hub_roles": 50, "hub_holdings": 50, "busy_address": 50, "thousand_address": 1000,
             "through_people": "near"}   # design: a connection through more than one person is near, never confirmed
@@ -55,6 +55,11 @@ RELATION_UNSTATED = "related (the link states no relation)"
 NEAR_THROUGH_PEOPLE = "a connection that passes through more than one person is listed as near, never confirmed (the design's default)"
 NEAR_CONTESTED_GROUP = "the group this row belongs to is contested as a whole: the watch flagged it"
 NEAR_THROUGH_NEAR = "reached through a near link: {reason}"
+NEAR_NAMESAKE = "shares the subject's first and last name and no rule joins the two: a namesake, near, never confirmed"
+#: the near rule the links lane draws as a star, one link per pair of name-sharing components, from the centre's anchor to every other
+#: component's anchor (links/spec.md, the contract for readers); the walk reads every star through its centre, so what it shows never
+#: depends on which row the lane made the centre
+NAME_ONLY = "name-only@1"
 NEAR_BY_NAME = "the release prints a name only, so these rows are matched to the subject by name: near, never confirmed"
 NO_GROUP_FOR_FILED = "a filed row ({view}): no confirmed link names a person row, so there is no group to take; every same name elsewhere is a namesake, apart"
 ADOPTED_GROUP = "a filed row ({view}): the group shown is that of the person row a confirmed link names, {via}"
@@ -196,8 +201,9 @@ def group_of(conn, ref: str) -> dict:
         return {"built": True, "why": "this row is in no group: no confirmed link reaches it", "rows": [ref], "size": 1,
                 "contested": False, "omitted": 0, "group_id": None, "settings": None}
     g = mine[0]
-    got = db.rows(conn, "select row_key, count(*) over () as total from pub.groups where group_id = %s order by row_key limit %s",
-                  (g["group_id"], LIMITS["members"]))
+    # the group's id first, then byte order (the database's collation need not put the id first, and the limit would drop it)
+    got = db.rows(conn, "select row_key, count(*) over () as total from pub.groups where group_id = %s "
+                        'order by row_key = group_id desc, row_key collate "C" limit %s', (g["group_id"], LIMITS["members"]))
     size = got[0]["total"] if got else 1
     return {"built": True, "why": "", "group_id": g["group_id"], "contested": bool(g.get("contested")), "settings": g.get("settings"),
             "rows": [x["row_key"] for x in got], "size": size, "omitted": max(0, size - len(got))}
@@ -223,7 +229,54 @@ def links_of(conn, refs: list) -> dict:
         out[grade].append({"this": this, "other": other, "rule": l["rule"], "evidence": l.get("evidence"), "grade": grade,
                            "reason": l.get("reason"), "watch": l.get("watch") or [], "decision": l.get("decision"),
                            "relation": l.get("relation") or (ev.get("relation") if isinstance(ev, dict) else None)})
+    star, star_omitted = star_links(conn, out["near"], mine | {l["other"] for g in ("confirmed", "near", "related") for l in out[g]})
+    out["near"] += star
+    out["omitted"] += star_omitted
     return out
+
+
+def _star_key(evidence) -> str | None:
+    return evidence.get("first_last") if isinstance(evidence, dict) else None
+
+
+def star_links(conn, near: list, seen: set) -> tuple:
+    """The rest of each name-only star a row of the refs is a spoke of: for
+    every `name-only@1` link the refs carry, the other end's own
+    `name-only@1` links of the same name key (the evidence's `first_last`;
+    an anchor row carries one name, so a link with no key is of its star),
+    each other end once, near with NEAR_NAMESAKE, the hop through the centre
+    in `path` (the subject's row, the centre, the namesake). When a row of
+    the refs is itself the centre, its spokes are already in `near` and
+    each answers with its one link back, which is skipped. Returns
+    (links, links past LIMITS["star"])."""
+    hops = {}
+    for l in near:
+        if l["rule"] == NAME_ONLY:
+            hops.setdefault(l["other"], l)
+    if not hops:
+        return [], 0
+    ends = sorted(hops)
+    got = db.rows(conn, "select *, count(*) over () as total from pub.links where rule = %s and (row_a = any(%s) or row_b = any(%s)) "
+                        'order by row_a collate "C", row_b collate "C" limit %s', (NAME_ONLY, ends, ends, LIMITS["star"]))
+    total = got[0]["total"] if got else 0
+    seen = set(seen) | set(hops)
+    out = []
+    for m in got:
+        if m["row_a"] in hops and m["row_b"] in hops:
+            continue
+        centre, other = (m["row_a"], m["row_b"]) if m["row_a"] in hops else (m["row_b"], m["row_a"])
+        if other in seen:
+            continue
+        first = hops[centre]
+        k1, k2 = _star_key(first.get("evidence")), _star_key(m.get("evidence"))
+        if k1 and k2 and k1 != k2:
+            continue
+        seen.add(other)
+        path = [first["this"], centre, other]
+        out.append({"this": first["this"], "other": other, "rule": NAME_ONLY, "evidence": dict(m.get("evidence") or {}, path=path),
+                    "grade": "near", "reason": NEAR_NAMESAKE, "watch": m.get("watch") or [], "decision": m.get("decision"),
+                    "relation": None, "path": path})
+    return out, max(0, total - len(got))
 
 
 def resolve(conn, ref: str, cache: dict):
@@ -540,7 +593,7 @@ def link_item(conn, l: dict, cache: dict, allowed: set, skipped: list, via: str 
         return None   # a per-category expense line: the named route's filter holds for a link too (totals and money outside the total only)
     ev, e = rows.entity_of(conn, v, r)
     it = item(v, r, rows.title(ev, e) if e else None, via=via or l["this"], rule=l["rule"], evidence=l.get("evidence"),
-              watch=l.get("watch") or [], decision=l.get("decision"))
+              watch=l.get("watch") or [], decision=l.get("decision"), **({"path": l["path"]} if l.get("path") else {}))
     if e:
         it["entity"] = item(ev, e)
     if l["grade"] == "near":
