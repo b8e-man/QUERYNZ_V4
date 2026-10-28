@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
 
-**Date:** 2026-10-28, 13:45 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-28, 15:15 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 counting clean days from 25 October (see Half-done); 5.1
 done; 5.2 closed (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held
 on terms; sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on
@@ -29,7 +29,7 @@ model reading till it returns. **Alarms:** the old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- 28 October: memory folder opened (103); pull and Beehive load given measured memory; parliament check 36 s; live: `board-8` (entity state, 105), `board-9` (results pane, 108); merged: `links-3` (three rules, 106) and the fourth donor rule (107), the links build queued 13:45. Nothing building. Merged 27 October (rulings 96 to 102): `mcp-1`
+- 28 October: memory folder opened (103); pull and Beehive load given measured memory; parliament check 36 s; live: `board-8` (entity state, 105), `board-9` (results pane, 108), `board-10` (lineage frame, 106); four links rules live (106, 107; 681,833 groups). At the gate, refused once and reopened: `fix-products-report-3` (reports read the related grade). Merged 27 October (rulings 96 to 102): `mcp-1`
   (client, `qv4-mcp` jobs, beehive lane; the adopt landed 1.41 M documents
   live at 11:20), `hansard-1`, `hansard-2`, `diaries-2`, `parliament-1`
   with their ruling-102 fixes and the blocked-pages fix, `board-7` (ruling
