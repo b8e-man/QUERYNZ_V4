@@ -15,6 +15,12 @@ Ruling 107: `organisation-one-live-company@1` confirms a donation row to the one
 donation's year (`rules.one_live_company`, reached through `rules.sole_company`); none or more than one live stays near, the reason saying which.
 Ruling 109: `refiled-name@1`, related, "delisted/refiled same year": two companies under one name with no year in brackets, the earlier
 removed and the later registered within twelve months of it (either side), a person confirmed on both (`rules.refiled`, `build.refiled_links`).
+Ruling 114: the rows read eight more people views (charity officers, Gazette celebrants and practitioners, limited partnership partners,
+party board roles, local election candidates, building practitioner decisions, councillor interests); `organisation-sole-company@2` and
+`organisation-one-live-company@2` look a donor's organisation name up on the companies, societies, limited partnerships and charities
+registers together (`links.bodies`, `rules.sole_body`, `build.body_links`), a body on two registers counted once; @1 is no longer built.
+Ruling 116: `member-on-the-day@1` reads a speech turn, a written question's asker and minister (two rows, refs `#asker` and `#minister`), a Beehive release's minister and a diary release's minister, titles off (`rows.MEMBER_TITLES`, `rows.member_name`),
+and confirms each to the one member sitting on its day (`rules.member_on_the_day`, `build.member_day_links`); two or none stays near; these rows take no `name-only@1` star.
 `coupled-name@1` (ruling 73): a donation row filed as two people ("Craig & Shayne Greenlees", `keys.names.is_joint_name`) stays one row and
 gains a part row per person (`keys.names.joint_parts`; ref `<donor ref>#<n>`, `part_of` the donor), each joined to the donor, near;
 the other rules read a part as any person row. An organisation is never cut on "&"; initials ("M and J Patterson") are not judged.

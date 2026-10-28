@@ -24,6 +24,18 @@ read, and what each row's entity is:
 | mp_interests      | mp_interest_returns                   | name (politician)        | -                   |
 | mp_interests      | mp_interests (directorships, business interests) | the declared organisation | the member's return |
 | expenses          | mp_expenses, minister_expenses        | member (politician)      | -                   |
+| charities         | charity_officers (kind person)        | first, middle, last_name | charity_key         |
+| gazette           | gazette_celebrants                    | given_names, surname     | -                   |
+| gazette           | gazette_practitioners                 | name                     | -                   |
+| limited_partnerships | limited_partnership_partners (kind person) | first, middle_names, last_name | partnership_key |
+| party_boards      | party_board_roles                     | name                     | party               |
+| local_elections   | local_election_returns                | candidate_as_listed (politician) | -           |
+| building_practitioners | building_practitioner_decisions  | name                     | -                   |
+| councillor_interests | councillor_interests               | member (politician)      | -                   |
+
+The last eight are ruling 114's (28 October 2026). A name that is nothing
+outside its brackets ("(combined)") or a bare initial ("J.") is set aside
+with its reason, as a suppressed or withheld name is.
 
 An expense line is a figure under a member's name; it is a row here so a
 product can reach the register through the one reading of names.
@@ -54,7 +66,10 @@ from keys import names as kn
 
 import links
 
-#: (register, view, sql) — each query yields: key, name, entity_key, started_on, ended_on, election, electorate, document, suppressed
+#: the asker of a written question, as its title prints it: "57693 (2025). Francisco Hernandez to the Minister of Housing"
+WQ_ASKER = r"""nullif(split_part(substring(title from '^[0-9]+ \([0-9]{4}\)\. (.* to the .*)$'), ' to the ', 1), '')"""
+#: (register, view, sql) — each query yields: key, name, entity_key, started_on, ended_on, election, electorate, document, suppressed,
+#: first, middle, last; and, for a view of ROLE_VIEWS, the role, which makes the row's ref `<ref>#<role>`
 SOURCES = (
     ("companies", "directors", """
         SELECT key, full_name AS name, 'companies:' || entity_key, appointed_on AS started_on, ended_on, NULL AS election, NULL AS electorate,
@@ -126,20 +141,147 @@ SOURCES = (
     ("expenses", "minister_expenses", """
         SELECT key, member AS name, NULL, period_start, period_end, NULL, NULL, document, false, NULL, NULL, NULL
         FROM pub.minister_expenses WHERE member IS NOT NULL AND member <> ''"""),
+    # ruling 114: the eight people views the lane left out. A charity's officer, read from the feed's name parts;
+    # an officer that is a body corporate is the view's own `kind` and is not a person row
+    ("charities", "charity_officers", """
+        SELECT key, full_name AS name, 'charities:' || charity_key, started_on, ended_on, NULL, NULL, document, suppressed,
+               first_name, middle_name, last_name
+        FROM pub.charity_officers WHERE kind = 'person'"""),
+    # a celebrant is filed surname first in two fields; the organisation is text, not an entity
+    ("gazette", "gazette_celebrants", """
+        SELECT key, trim(coalesce(given_names, '') || ' ' || coalesce(surname, '')) AS name, NULL, coalesce(period_from, published_on),
+               period_to, NULL, NULL, document, false, given_names, NULL, surname
+        FROM pub.gazette_celebrants WHERE coalesce(surname, '') <> ''"""),
+    ("gazette", "gazette_practitioners", """
+        SELECT key, name, NULL, published_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.gazette_practitioners WHERE name IS NOT NULL AND name <> ''"""),
+    # a general partner may be a body: the view's own `kind` says which, and only a person is read
+    ("limited_partnerships", "limited_partnership_partners", """
+        SELECT key, full_name AS name, 'limited_partnerships:' || partnership_key, started_on, ended_on, NULL, NULL, document, suppressed,
+               first_name, middle_names, last_name
+        FROM pub.limited_partnership_partners WHERE kind = 'person'"""),
+    ("party_boards", "party_board_roles", """
+        SELECT key, name, 'parties:' || party, captured_on, last_captured_on, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.party_board_roles WHERE name IS NOT NULL AND name <> ''"""),
+    # a local candidate as the council lists the return ("SURNAME, Given (Independent)"); a row for several candidates names nobody
+    ("local_elections", "local_election_returns", """
+        SELECT key, candidate_as_listed AS name, NULL, make_date(election_year, 1, 1), make_date(election_year, 12, 31), NULL, NULL,
+               document, false, NULL, NULL, NULL
+        FROM pub.local_election_returns WHERE candidate_as_listed IS NOT NULL AND candidate_as_listed <> ''"""),
+    ("building_practitioners", "building_practitioner_decisions", """
+        SELECT key, name, NULL, decided_on, NULL::date, NULL, NULL, document, suppressed, NULL, NULL, NULL
+        FROM pub.building_practitioner_decisions WHERE name IS NOT NULL AND name <> ''"""),
+    # the register's `as_at` is published as text and is blank on every row today: no date is read
+    ("councillor_interests", "councillor_interests", """
+        SELECT key, member AS name, NULL, NULL::date, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.councillor_interests WHERE member IS NOT NULL AND member <> ''"""),
+    # ruling 116: the member a speech turn, a written question, a Beehive release and a diary release names, as printed, dated by
+    # its day, under no entity (a turn belongs to no body). The Speaker's chair prints no name and is no row
+    ("hansard", "hansard_speeches", """
+        SELECT key, member_name AS name, NULL, sitting_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.hansard_speeches WHERE member_name IS NOT NULL AND member_name <> ''"""),
+    # a written question is two rows, the asker (the name the title prints before " to the ") and the answering minister,
+    # each its own ref, `<question ref>#asker` and `#minister`, under the question's view and key; a withdrawn question
+    # names no asker, and "No Minister" names nobody
+    ("parliament", "parliament_written_questions", f"""
+        SELECT key, {WQ_ASKER} AS name, NULL, question_released_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL,
+               'asker' AS role
+        FROM pub.parliament_written_questions WHERE {WQ_ASKER} IS NOT NULL
+        UNION ALL
+        SELECT key, minister_name, NULL, question_released_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL, 'minister'
+        FROM pub.parliament_written_questions WHERE coalesce(minister_name, '') NOT IN ('', 'No Minister')"""),
+    ("beehive", "beehive_release_ministers", """
+        SELECT key, name, NULL, published_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.beehive_release_ministers WHERE name IS NOT NULL AND name <> ''"""),
+    # a diary release is dated by the last day of the month it is released for (the minister held office through it), else
+    # by its last entry where the month is not printed
+    ("ministers_diaries", "minister_diary_releases", """
+        SELECT key, minister AS name, NULL,
+               CASE WHEN month ~ '^[0-9]{4}-[0-9]{2}$' THEN (to_date(month, 'YYYY-MM') + interval '1 month' - interval '1 day')::date
+                    ELSE last_on END,
+               NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.minister_diary_releases WHERE minister IS NOT NULL AND minister <> ''"""),
 )
-#: the filing candidate is a politician; a declared interest is the member's own (a sole trade in the member's name is not a director row)
-POLITICIAN_VIEWS = {"candidates", "members", "mp_interest_returns", "candidate_return_totals", "mp_expenses", "minister_expenses", "mp_interests"}
+#: the filing candidate is a politician; a declared interest is the member's own (a sole trade in the member's name is not a director row);
+#: a local candidate and a councillor are candidates and members of an elected body, held to the same stricter join (ruling 114)
+POLITICIAN_VIEWS = {"candidates", "members", "mp_interest_returns", "candidate_return_totals", "mp_expenses", "minister_expenses", "mp_interests",
+                    "local_election_returns", "councillor_interests"}
 DECLARED_VIEWS = {"mp_interests"}       # the name is read out of a declared entry's text
+#: ruling 116: the views whose printed name is a member of the House on the row's day (`member-on-the-day@1`). Each is a
+#: politician's row; its name is read with MEMBER_TITLES off, and it is joined by that rule alone, never the name-only star
+MEMBER_DAY_VIEWS = ("hansard_speeches", "parliament_written_questions", "beehive_release_ministers", "minister_diary_releases")
+POLITICIAN_VIEWS |= set(MEMBER_DAY_VIEWS)
+ROLE_VIEWS = {"parliament_written_questions"}     # one view row, two people: the asker and the minister
+#: The titles these views print before a member's name, before or after the comma ("Edmonds, Hon Barbara", "Hon Dr Ayesha
+#: Verrall", "Dr The Rt Hon Lockwood Smith"), and the post-nominals they print, with or without a comma ("Hon Judith Collins
+#: KC"). The one list (tests/test_member_day.py): `keys.names.strip_honorifics` takes a title off the front only, and no
+#: post-nominal without its comma, so "Bishop, Hon Chris" keys as "chris hon bishop" there (lesson of 26 October).
+MEMBER_TITLES = ("the rt hon", "rt hon", "rt. hon", "right honourable", "the hon", "hon", "honourable", "dr", "sir", "dame")
+MEMBER_POST_NOMINALS = ("kc", "qc", "mp", "jp", "onzm", "cnzm", "dnzm", "knzm", "gnzm", "mnzm", "qso", "qsm")
 #: the donation views, where a coupled filed name is one donor joined to each person it names (ruling 73)
 DONATION_VIEWS = {"party_return_donors", "candidate_return_donors", "disclosures", "disclosure_items"}
 _DASHES = (" – ", " — ", " - ")
 _TRAILING_NOTE = re.compile(r"\s*\([^()]*\)\s*$")      # "(not trading)", "(inactive, and in process of de-registration)"
 _BRACKETED = re.compile(r"\s*\([^()]*\)")
+_NOT_LETTER = re.compile(r"[\W\d_]+")
 
 ADDRESS_SQL = """
     SELECT key, entity_key, started_on, last_file, in_latest, care_of, line_1, line_2, line_3, line_4, postcode
     FROM pub.company_addresses"""
 COMPANY_SQL = "SELECT key, name, registered_on, removed_on FROM pub.companies WHERE name IS NOT NULL"
+#: ruling 114: every body on the four registers the donation rules read, and the one entity each is. A society or a limited
+#: partnership is its Companies Office row by NZBN; a charity by NZBN, else by the company, society or trust board number its
+#: register carries where its legal structure names that register and the number is one row there, else a society by NZBN.
+#: A charity re-registered after a deregistration is registered: the old date is not its removal.
+BODY_SQL = """
+    WITH cz AS (SELECT nzbn, key FROM pub.companies WHERE nzbn IS NOT NULL AND nzbn <> ''),
+         cn AS (SELECT number, register, min(key) AS key FROM pub.companies
+                WHERE register IN ('companies', 'other_incorporated', 'charitable_trust_board') AND number IS NOT NULL AND number <> ''
+                GROUP BY 1, 2 HAVING count(*) = 1),
+         sz AS (SELECT s.nzbn, s.key FROM pub.societies s LEFT JOIN cz ON cz.nzbn = s.nzbn
+                WHERE s.nzbn IS NOT NULL AND s.nzbn <> '' AND cz.key IS NULL)
+    SELECT 'companies:' || c.key, 'companies', c.register, c.number, c.nzbn, c.name, c.registered_on, c.removed_on,
+           c.removed_on IS NULL AND coalesce(c.status, '') ~* '^(removed|dissolved|deregistered|closed|cancelled)', 'companies:' || c.key
+    FROM pub.companies c WHERE c.name IS NOT NULL
+    UNION ALL
+    SELECT 'societies:' || s.key, 'societies', NULL, s.number, s.nzbn, s.name, s.registered_on, s.removed_on,
+           s.removed_on IS NULL AND coalesce(s.status, '') ~* '^(removed|dissolved|deregistered)', coalesce('companies:' || cz.key, 'societies:' || s.key)
+    FROM pub.societies s LEFT JOIN cz ON cz.nzbn = s.nzbn WHERE s.name IS NOT NULL
+    UNION ALL
+    SELECT 'limited_partnerships:' || l.key, 'limited_partnerships', NULL, l.number, l.nzbn, l.name, l.registered_on, NULL::date,
+           coalesce(l.status, '') ~* '^removed', coalesce('companies:' || cz.key, 'limited_partnerships:' || l.key)
+    FROM pub.limited_partnerships l LEFT JOIN cz ON cz.nzbn = l.nzbn WHERE l.name IS NOT NULL AND NOT coalesce(l.name_withheld, false)
+    UNION ALL
+    SELECT 'charities:' || ch.key, 'charities', NULL, ch.number, ch.nzbn, ch.name, ch.registered_on,
+           CASE WHEN coalesce(ch.status, '') ~* '^registered' THEN NULL ELSE ch.deregistered_on END,
+           ch.deregistered_on IS NULL AND coalesce(ch.status, '') ~* '^(deregistered|removed)',
+           coalesce('companies:' || cz.key, 'companies:' || cn.key, 'societies:' || sz.key, 'charities:' || ch.key)
+    FROM pub.charities ch
+    LEFT JOIN cz ON cz.nzbn = ch.nzbn
+    LEFT JOIN cn ON cn.number = ch.incorporation_number
+         AND cn.register = CASE ch.legal_structure WHEN 'Company' THEN 'companies' WHEN 'Incorporated Society' THEN 'other_incorporated'
+                                WHEN 'Charitable Trusts incorporated under the Charitable Trusts Act' THEN 'charitable_trust_board' END
+    LEFT JOIN sz ON sz.nzbn = ch.nzbn
+    WHERE ch.name IS NOT NULL"""
+#: the registers whose rows make the bodies: refilling any of them refills `bodies` whole
+BODY_LANES = ("companies", "societies", "limited_partnerships", "charities")
+
+
+_TITLE = "|".join(re.escape(t).replace(r"\ ", r"\s+") for t in sorted(MEMBER_TITLES, key=len, reverse=True))
+_LEAD_TITLES = re.compile(rf"^(?:(?:{_TITLE})\.?(?:\s+|$))+", re.I)
+_POST_NOMINALS = re.compile(rf"(?:,?\s+(?:{'|'.join(MEMBER_POST_NOMINALS)})\.?)+\s*$", re.I)
+
+
+def member_name(printed: str) -> str:
+    """A member's name as these views print it, the titles off wherever they
+    sit (MEMBER_TITLES): "Edmonds, Hon Barbara" → "Edmonds, Barbara", "Hon Dr
+    Ayesha Verrall" → "Ayesha Verrall", "Hon Judith Collins KC" → "Judith
+    Collins". The words of the name are kept as printed."""
+    s = _POST_NOMINALS.sub("", kn.squash(printed))
+    family, comma, given = s.partition(",")
+    if comma:
+        return f"{family.strip()}, {_LEAD_TITLES.sub('', given.strip())}".strip(" ,")
+    return _LEAD_TITLES.sub("", s).strip()
 
 
 def fold(s: str) -> str:
@@ -183,7 +325,8 @@ def read_name(name: str, first: str = None, middle: str = None, last: str = None
 
 def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple | None:
     """The row to write, or None with the reason counted in `catch`."""
-    key, name, entity, started, ended, election, electorate, document, suppressed, first, middle, last = r
+    key, name, entity, started, ended, election, electorate, document, suppressed, first, middle, last = r[:12]
+    ref = links.ref(register, key) + (f"#{r[12]}" if view in ROLE_VIEWS else "")
     if view in DECLARED_VIEWS:
         name = declared_name(name)
     if suppressed or not name or name == "name suppressed":
@@ -191,6 +334,23 @@ def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple 
         if catch is not None:
             catch[reason] = catch.get(reason, 0) + 1
         return None
+    letters = _NOT_LETTER.sub("", _BRACKETED.sub("", name))
+    if len(letters) < 2:
+        # nothing outside brackets ("(combined)"), or one letter ("J."): a bare initial names nobody and gets no key
+        reason = "a bare initial" if letters else "no name"
+        if catch is not None:
+            catch[reason] = catch.get(reason, 0) + 1
+        return None
+    if view in MEMBER_DAY_VIEWS:
+        # a member, as printed: the row keeps the printed name and is keyed with the titles off; never an organisation
+        bare = member_name(name)
+        if len(_NOT_LETTER.sub("", _BRACKETED.sub("", bare))) < 2:
+            if catch is not None:
+                catch["a title and no name"] = catch.get("a title and no name", 0) + 1
+            return None
+        read = read_name(bare)
+        return (ref, register, view, key, "person", name, read["given"], read["middle"], read["family"], read["name_key"], read["fl_key"],
+                read["full_key"], read["has_middle"], entity, started, ended, election, electorate, True, document, None)
     kind = kn.name_kind(name)
     if kind == "person" and view in DONATION_VIEWS and kn.is_joint_name(name) is True:
         # one donor, two people: read as nobody alone; its part rows carry the people (part_records)
@@ -201,7 +361,7 @@ def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple 
     else:
         read = {"given": None, "middle": None, "family": None, "name_key": kn.organisation_key(name),
                 "fl_key": None, "full_key": None, "has_middle": False}
-    return (links.ref(register, key), register, view, key, kind, name, read["given"], read["middle"], read["family"],
+    return (ref, register, view, key, kind, name, read["given"], read["middle"], read["family"],
             read["name_key"], read["fl_key"], read["full_key"], read["has_middle"], entity, started, ended, election, electorate,
             view in POLITICIAN_VIEWS, document, None)
 
@@ -232,6 +392,26 @@ def address_record(r: tuple) -> tuple | None:
     return (links.ref("companies", entity_key), k, "registered office", started_on, last_file, in_latest, region, key)
 
 
+def gather_bodies(conn, reader, w, schema: str) -> int:
+    """Empty and refill `<schema>.bodies` (ruling 114) from BODY_SQL, each
+    row under the one organisation key; a name with no key is no row. Each
+    view's key is its own, so a row comes once (no set of the two million
+    held in memory: a repeat would fail the table's key, loudly)."""
+    conn.execute(f"DELETE FROM {schema}.bodies")
+    n = 0
+    with reader.cursor(name="links_bodies") as cur:
+        cur.itersize = 20000
+        cur.execute(BODY_SQL)
+        with w.copy(f"COPY {schema}.bodies (entity_ref, org_key, register, kind, number, nzbn, name, registered_on, removed_on, "
+                    f"removal_undated, body) FROM STDIN") as copy:
+            for ref, register, kind, number, nzbn, name, reg, rem, undated, body in cur:
+                k = kn.organisation_key(name)
+                if k:
+                    copy.write_row((ref, k, register, kind, number, nzbn, name, reg, rem, bool(undated), body))
+                    n += 1
+    return n
+
+
 def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
     """Wipe and refill `<schema>.rows`, `.entity_addresses`, `.org_names` from
     `pub`, in one transaction on `conn`. `reader` is a second connection the
@@ -239,7 +419,8 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
     share one connection (the next fetch waits behind the open COPY).
     `registers`, when given, names the registers to refill (rule 10); the
     rest of the rows stand, and the offices and company names are refilled
-    only when `companies` is among them."""
+    only when `companies` is among them; `.bodies` (ruling 114) when any of
+    BODY_LANES is."""
     reader = reader or conn
     t0 = time.monotonic()
     conn.execute(links.ddl(schema))
@@ -249,6 +430,7 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
     if unknown:
         raise ValueError(f"no such register in links.rows: {sorted(unknown)}")
     companies_too = registers is None or "companies" in registers
+    bodies_too = registers is None or bool(registers & set(BODY_LANES))
     with conn.cursor() as w:
         if registers is None:
             conn.execute(f"DELETE FROM {schema}.rows")
@@ -287,8 +469,13 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
             if parts:
                 counts[f"{register}.{view}.parts"] = parts
             log(f"links.rows: {register}.{view}: {n} rows, {read - n} set aside {catch}, {parts} coupled-name parts ({time.monotonic() - t0:.0f} s)")
+        if bodies_too:
+            counts["bodies"] = gather_bodies(conn, reader, w, schema)
+            log(f"links.rows: bodies: {counts['bodies']} ({time.monotonic() - t0:.0f} s)")
         if not companies_too:
             conn.execute(f"ANALYZE {schema}.rows")
+            if bodies_too:
+                conn.execute(f"ANALYZE {schema}.bodies")
             conn.commit()
             counts["seconds"] = round(time.monotonic() - t0, 1)
             counts["registers"] = sorted(registers)
@@ -324,6 +511,7 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
     conn.execute(f"ANALYZE {schema}.rows")
     conn.execute(f"ANALYZE {schema}.entity_addresses")
     conn.execute(f"ANALYZE {schema}.org_names")
+    conn.execute(f"ANALYZE {schema}.bodies")
     conn.commit()
     counts["seconds"] = round(time.monotonic() - t0, 1)
     return counts

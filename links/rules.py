@@ -46,6 +46,29 @@ One more, ruling 109 (28 October 2026), from the Christopher & Banks case:
    and the groups never follow it. The name alone, or the name with the
    dates and no shared person, stays near (`company-name@1`).
 
+One more, ruling 114 (28 October 2026), the organisation rules widened:
+
+8. `organisation-sole-company@2` and `organisation-one-live-company@2`: rules
+   3 and 6 with the name looked up on the companies, societies, limited
+   partnerships and charities registers together, a body on two of them
+   counted once, each body live by its own register's dates
+   (`sole_body`). @1 is kept as it was and no longer built (`RETIRED`).
+
+One more, ruling 116 (28 October 2026), of the seat-and-window kind:
+
+9. `member-on-the-day@1`: a speech turn's speaker, a written question's
+   asker and its answering minister, a Beehive release's tagged minister
+   and a diary release's minister, each as printed with its titles off
+   (`links.rows.MEMBER_TITLES`), and the one member row (`pub.members`)
+   of the same first and last name sitting in the House on the row's day
+   (from its from date, up to but not including its end: one term's end is
+   the next term's start). Confirmed. Two or more members of the name
+   sitting on the day, or none (a member of the name sat at another time),
+   stays near, the reason saying which; a name no member carries, or a day
+   before the first term the members view holds, makes no link (the view
+   could not have seen it). Middle names that differ on both rows take the
+   member out. Parliament's member id rides in the evidence, never decides.
+
 Everything else that shares a name is near, with the reason. A
 politician's row (a candidate, a member, a declared-interests return)
 joined to the director register by name is near whatever the name
@@ -121,6 +144,35 @@ NEAR_ORG_OTHER_LIVE = NEAR_ORG_SEVERAL + "; this one was not live in the donatio
 
 NEAR_COUPLED = ("the Commission filed this donor as two people on one line; this person is one of the names in it, read from the filed "
                 "string, not an identifier; the donor stays one row (ruling 73)")
+
+# Ruling 114 (28 October 2026): the donor's organisation name looked up on four registers together, not the companies register
+# alone. A changed test is a new version: @1 stays what it meant (`sole_company`, `one_live_company`, the companies alone) and a
+# stored @1 link still reads as that; the build makes @2 (`sole_body`). The near grade stays `organisation-name@1`.
+RULE_SOLE_BODY = "organisation-sole-company@2"      # one body of the name across the four registers, live in the donation's year
+RULE_ONE_LIVE_BODY = "organisation-one-live-company@2"   # several bodies of the name, exactly one live in the donation's year
+RULE_MEMBER_DAY = "member-on-the-day@1"           # a member's printed name and the one member of the name sitting on the row's day
+NEAR_DAY_TWO = "two or more members of this name sat in the House on the row's day, and the row does not say which"
+NEAR_DAY_NONE = ("a member of this name sat in the House, but not on the row's day; the members view holds every member an election "
+                 "returned and the by-election winners, not a list member who filled a vacancy")
+#: what a member-on-the-day row came to, for the counts
+DAY_ONE, DAY_TWO, DAY_NONE, DAY_NO_MEMBER, DAY_BEFORE, DAY_UNDATED = (
+    "one member sitting", "two or more members sitting", "no member of the name sitting on the day", "no member of the name",
+    "before the members view's first term", "no day")
+RETIRED = {RULE_SOLE_COMPANY, RULE_ONE_LIVE}        # built no longer (ruling 114); kept so a stored link of the version reads as it meant
+#: a body is read from four registers (`links.rows.BODY_SQL`); a Companies Office row's own register (`pub.companies.register`) is its kind
+FORMATION_REGISTERS = ("companies", "societies", "limited_partnerships")   # the registers a body is formed on; a charity's is its status
+REGISTER_WORDS = {"companies": "companies", "other_incorporated": "other incorporated bodies", "charitable_trust_board": "charitable trust boards",
+                  "public_sector": "public sector bodies", "retirement_village": "retirement villages", "societies": "incorporated societies",
+                  "limited_partnerships": "limited partnerships", "charities": "charities"}
+NEAR_BODY_NOT_YET = "one body carries this name, but it was registered after the donation's year"
+NEAR_BODY_GONE = "one body carries this name, but it was removed before the donation's year"
+NEAR_BODY_UNDATED = ("one body carries this name, and its register says it was removed but publishes no date, so whether it was live in "
+                     "the donation's year is not known")
+NEAR_BODY_NONE_LIVE = "several bodies carry this name, and none of them was live in the donation's year"
+NEAR_BODY_MANY_LIVE = "several bodies carry this name, and more than one of them was live in the donation's year"
+NEAR_BODY_OTHER_LIVE = "several bodies carry this name; this one was not live in the donation's year, and the one that was is confirmed"
+NEAR_BODY_UNDATED_SEVERAL = ("several bodies carry this name, and a register says one was removed but publishes no date, so which was "
+                             "live in the donation's year is not known")
 
 
 def same_full_name(a: dict, b: dict) -> bool:
@@ -267,6 +319,129 @@ def one_live_company(row: dict, companies: list) -> list:
     return out
 
 
+def body_dates(rows: list) -> dict:
+    """A body's registered and removed dates from its register rows (ruling
+    114): the rows of the registers it is formed on (companies, societies,
+    limited partnerships) where it has any, else its charities row; a
+    charity's deregistration ends its charitable status, not a company or a
+    society. Registered: the earliest. Removed where any of those rows says
+    so (a removal date, or `removal_undated`: the status says removed and no
+    date is published), on the latest date published."""
+    used = [r for r in rows if r.get("register") in FORMATION_REGISTERS] or list(rows)
+    regs = [d for d in (_d(r.get("registered_on")) for r in used) if d]
+    gone = [r for r in used if r.get("removed_on") or r.get("removal_undated")]
+    dated = [d for d in (_d(r.get("removed_on")) for r in gone) if d]
+    return {"registered_on": min(regs) if regs else None, "removed": bool(gone), "removed_on": max(dated) if dated else None,
+            "removal_undated": bool(gone) and not dated}
+
+
+def body_live(dates: dict, start, end):
+    """True or False as `_live` reads a company (registered by the year's end,
+    not removed before its start, an unknown date not counting against); None
+    where the body was removed on a date no register publishes: not known."""
+    reg = dates["registered_on"]
+    if not (reg is None or end is None or reg <= end):
+        return False
+    if not dates["removed"]:
+        return True
+    if dates["removed_on"] is None:
+        return None
+    return start is None or dates["removed_on"] >= start
+
+
+def _register_word(r: dict, regs: set) -> str:
+    """A body row's register in words: a Companies Office row by its own register, the twin of a society or a
+    limited partnership by that register's name."""
+    k = (r.get("kind") or r["register"]) if r["register"] == "companies" else r["register"]
+    if k == "other_incorporated":
+        k = next((x for x in ("societies", "limited_partnerships") if x in regs), k)
+    return REGISTER_WORDS.get(k, k)
+
+
+def registers_named(bodies: list) -> list:
+    """The registers whose rows carry the name, in words, each once, in REGISTER_WORDS' order."""
+    order = list(REGISTER_WORDS.values())
+    words = set()
+    for b in bodies:
+        regs = {r["register"] for r in b["rows"]}
+        words |= {_register_word(r, regs) for r in b["rows"] if r.get("named")}
+    return sorted(words, key=lambda w: (order.index(w) if w in order else len(order), w))
+
+
+def body_reason(words: list, tail: str) -> str:
+    """The near reason of ruling 114, naming the registers that hold the name."""
+    regs = words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
+    return f"a name match on the {regs} register{'s' if len(words) > 1 else ''}; the donation row carries no official number; {tail}"
+
+
+def sole_body(row: dict, bodies: list) -> list:
+    """`organisation-sole-company@2` and `organisation-one-live-company@2`
+    (ruling 114): a donation row's organisation name looked up on the
+    companies, societies, limited partnerships and charities registers
+    together. A body on two registers as one thing (a society, a limited
+    partnership or a charity whose register carries a Companies Office
+    body's NZBN, or its company number) is one body, counted once, its
+    `entity_ref` the Companies Office row where it has one. Each body is live
+    in the donation's year by `body_dates` and `body_live`. Exactly one body
+    of the name, live: confirmed, `organisation-sole-company@2`. Several,
+    exactly one live and none whose removal is undated: that one confirmed,
+    `organisation-one-live-company@2`, the others near saying another was
+    live. Otherwise every pair near under `organisation-name@1`, the reason
+    naming the registers that hold the name and saying which. The evidence
+    keeps @1's keys (company, company_number, companies_of_that_name, …,
+    "company" read as the body) and adds the body's `register`, its rows on
+    every register (`registers`) and `registers_holding_the_name`.
+    `bodies`: [{"body": entity_ref, "rows": [{entity_ref, register, kind,
+    number, name, registered_on, removed_on, removal_undated, named}]}]."""
+    start, end = _year(row)
+    words = registers_named(bodies)
+    considered = []
+    for b in sorted(bodies, key=lambda b: b["body"]):
+        regs = {r["register"] for r in b["rows"]}
+        head = next((r for r in b["rows"] if r["entity_ref"] == b["body"]), b["rows"][0])
+        named = next((r for r in sorted(b["rows"], key=lambda r: r["entity_ref"] != b["body"]) if r.get("named")), head)
+        dates = body_dates(b["rows"])
+        considered.append({
+            "entity_ref": b["body"], "company_number": head.get("number"), "company": named.get("name") or head.get("name"),
+            "register": _register_word(head, regs),
+            "registered_on": str(dates["registered_on"]) if dates["registered_on"] else None,
+            "removed_on": str(dates["removed_on"]) if dates["removed_on"] else None, "removal_undated": dates["removal_undated"],
+            "live_in_year": body_live(dates, start, end), "_registered": dates["registered_on"],
+            "registers": [{"register": _register_word(r, set()), "entity_ref": r["entity_ref"], "number": r.get("number"), "name": r.get("name"),
+                           "registered_on": str(_d(r["registered_on"])) if r.get("registered_on") else None,
+                           "removed_on": str(_d(r["removed_on"])) if r.get("removed_on") else None,
+                           "carries_the_name": bool(r.get("named"))} for r in sorted(b["rows"], key=lambda r: r["entity_ref"])]})
+    live = [x for x in considered if x["live_in_year"] is True]
+    unknown = [x for x in considered if x["live_in_year"] is None]
+    the_one = live[0] if len(live) == 1 and not unknown else None
+    several = len(considered) > 1
+    summary = [{k: x[k] for k in ("entity_ref", "company_number", "company", "register", "registered_on", "removed_on", "live_in_year")}
+               for x in considered]
+    out = []
+    for x in considered:
+        ev = {"name": row.get("name_filed"), "organisation_key": row.get("name_key"), "date": str(start) if start else None,
+              "year": [str(start) if start else None, str(end) if end else None], "company": x["company"],
+              "company_number": x["company_number"], "registered_on": x["registered_on"], "removed_on": x["removed_on"],
+              "alive_on_date": x["live_in_year"], "companies_of_that_name": len(considered), "register": x["register"],
+              "registers": x["registers"], "registers_holding_the_name": words}
+        if several:
+            ev.update(companies_alive_on_date=len(live), companies_considered=summary,
+                      live_in_year=the_one["company_number"] if the_one else None)
+        if the_one is x:
+            out.append({"entity_ref": x["entity_ref"], "rule": RULE_ONE_LIVE_BODY if several else RULE_SOLE_BODY, "grade": "confirmed",
+                        "reason": None, "evidence": ev})
+            continue
+        if not several:
+            reg = x["_registered"]
+            tail = (NEAR_BODY_UNDATED if x["live_in_year"] is None
+                    else NEAR_BODY_NOT_YET if reg is not None and end is not None and reg > end else NEAR_BODY_GONE)
+        else:
+            tail = (NEAR_BODY_OTHER_LIVE if the_one else NEAR_BODY_UNDATED_SEVERAL if unknown and len(live) <= 1
+                    else NEAR_BODY_MANY_LIVE if len(live) > 1 else NEAR_BODY_NONE_LIVE)
+        out.append({"entity_ref": x["entity_ref"], "rule": RULE_ORG_NAME, "grade": "near", "reason": body_reason(words, tail), "evidence": ev})
+    return out
+
+
 _YEAR = re.compile(r"\s*\(\d{4}\)\s*")
 
 
@@ -402,3 +577,38 @@ def _seat(r: dict) -> str:
     if r.get("list_place") is not None:
         bits.append(f"list {r['list_place']}")
     return ", ".join(bits) or "no seat printed"
+
+
+def sitting(member: dict, day) -> bool:
+    """A member sits from `from_on` up to, not on, `to_on` (None while
+    sitting): the term an election ends is followed by the one it begins on
+    the same polling day, so one person's two terms never both cover a day."""
+    return member["from_on"] <= day and (member["to_on"] is None or day < member["to_on"])
+
+
+def member_on_the_day(row: dict, members: list, held_from) -> tuple:
+    """`member-on-the-day@1` (ruling 116). `row`: ref, fl_key, full_key,
+    has_middle, day, and its evidence so far (`evidence`); `members`: every
+    member row of the row's first and last name (ref, key, election,
+    full_key, has_middle, from_on, to_on); `held_from`: the first day of the
+    first term the members view holds. Returns (what it came to, [(member
+    ref, {rule, grade, reason, evidence})])."""
+    day = row.get("day")
+    if day is None:
+        return DAY_UNDATED, []
+    if held_from is None or day < held_from:
+        return DAY_BEFORE, []
+    named = [m for m in members if m["fl_key"] == row["fl_key"]
+             and not (m.get("has_middle") and row.get("has_middle") and m["full_key"] != row["full_key"])]
+    if not named:
+        return DAY_NO_MEMBER, []
+    on = [m for m in named if sitting(m, day)]
+    out = []
+    for m in (on or named):
+        ev = dict(row.get("evidence") or {}, day=day, member=m["key"], election=m.get("election"), term=[m["from_on"], m["to_on"]],
+                  members_of_the_name=len(named), members_sitting=len(on), sitting=[x["key"] for x in on])
+        if len(on) == 1:
+            out.append((m["ref"], {"rule": RULE_MEMBER_DAY, "grade": "confirmed", "reason": None, "evidence": ev}))
+        else:
+            out.append((m["ref"], {"rule": RULE_MEMBER_DAY, "grade": "near", "reason": NEAR_DAY_TWO if on else NEAR_DAY_NONE, "evidence": ev}))
+    return (DAY_ONE if len(on) == 1 else DAY_TWO if on else DAY_NONE), out

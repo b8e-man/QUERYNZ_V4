@@ -25,6 +25,11 @@ pairs (a name carried by 300 rows would otherwise be 44,850 links).
   organisation name carried by several companies, exactly one live in the
   donation's year: confirmed to that one; near where none or more than one
   was live, the reason saying which.
+- `organisation-sole-company@2` and `organisation-one-live-company@2`
+  (ruling 114): the two rules above with the name looked up on the
+  companies, societies, limited partnerships and charities registers
+  together (`bodies`), a body on two of them counted once; they replace @1
+  in the build (`body_links`).
 - `successor-name@1` (ruling 106): two companies under one name, one with
   a year in brackets, and a person confirmed on both: related, "succeeded
   by", never an identity (the groups follow confirmed links only).
@@ -32,6 +37,10 @@ pairs (a name carried by 300 rows would otherwise be 44,850 links).
   with a year in brackets, the earlier removed and the later registered
   within twelve months of it, and a person confirmed on both: related,
   "delisted/refiled same year", never an identity.
+- `member-on-the-day@1` (ruling 116): a speech turn, a written question's
+  asker and minister, a Beehive release's minister and a diary release's
+  minister, to the one member sitting on the row's day; near where two or
+  none sat (`member_day_links`). These rows take no `name-only@1` star.
 - `name-only@1`: every other shared first and last name, near, with the
   reason; one star per name over the confirmed components.
 
@@ -51,6 +60,7 @@ import sys
 import time
 
 import links
+from links import rows as lrows
 from links import rules
 
 RULE_SOURCE = "source-identifier@1"
@@ -176,19 +186,20 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
               FROM {s}.org_names n) o ON o.org_key = r.name_key
         WHERE r.kind = 'organisation' AND r.register = 'mp_interests'
         ON CONFLICT DO NOTHING""", {"rule": rules.RULE_ORG_NAME, "one": rules.NEAR_ORG_ONE, "many": rules.NEAR_ORG_SEVERAL})
-    # a donation row's organisation name: confirmed to the one company of the name live in its year, near otherwise (ruling 106 (1))
-    # and to the one of several companies of the name live in its year (ruling 107)
-    out[rules.RULE_SOLE_COMPANY] = sole_company_links(conn, s)
-    log(f"links.build: {rules.RULE_SOLE_COMPANY}, {rules.RULE_ONE_LIVE}: {out[rules.RULE_SOLE_COMPANY]} ({time.monotonic() - t0:.0f} s)")
+    # a donation row's organisation name: confirmed to the one body of the name live in its year, or the one of several live in it,
+    # on the companies, societies, limited partnerships and charities registers together (ruling 114: @2 of rulings 106 (1) and 107)
+    out[rules.RULE_SOLE_BODY] = body_links(conn, s)
+    log(f"links.build: {rules.RULE_SOLE_BODY}, {rules.RULE_ONE_LIVE_BODY}: {out[rules.RULE_SOLE_BODY]} ({time.monotonic() - t0:.0f} s)")
     out[rules.RULE_ORG_NAME] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_ORG_NAME,)).fetchone()[0]
     log(f"links.build: {rules.RULE_ORG_NAME}: {out[rules.RULE_ORG_NAME]} ({time.monotonic() - t0:.0f} s)")
     conn.commit()
     # the rules of links-2: the House's own rows to their seats; declared interests to companies and the member's own directorships;
     # the donation registers' named circumstances; companies under one name; one candidate under two printings
-    for name, step in ((rules.RULE_SEAT, seat_links), (rules.RULE_DECLARED, declared_links), ("donor rules", donor_links),
+    for name, step in ((rules.RULE_SEAT, seat_links), (rules.RULE_MEMBER_DAY, member_day_links), (rules.RULE_DECLARED, declared_links),
+                       ("donor rules", donor_links),
                        (rules.RULE_COMPANY_NAME, company_name_links), (rules.RULE_SAME_PARTY, same_party_links),
                        (rules.RULE_NAME_FORM, name_form_links)):
-        out[name] = step(conn, s)
+        out[name] = step(conn, s, reader=reader) if step is member_day_links else step(conn, s)
         log(f"links.build: {name}: {out[name]} ({time.monotonic() - t0:.0f} s)")
     out[rules.RULE_NUMBER] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_NUMBER,)).fetchone()[0]
     # every confirmed link is made: the components they make (and the decisions) are what the two last steps read
@@ -225,39 +236,46 @@ def _insert_judged(conn, s: str, pairs: list) -> None:
                        for a, b, j in pairs])
 
 
-def sole_company_links(conn, s: str) -> dict:
-    """`organisation-sole-company@1` (ruling 106 (1)) and
-    `organisation-one-live-company@1` (ruling 107): each donation row's
-    organisation name against every company on the register under the name
-    key, judged by `rules.sole_company` (which hands several companies to
-    `rules.one_live_company`): confirmed to the one company, or the one of
-    several, live in the donation's year; near under `organisation-name@1`
-    otherwise, the reason saying which. The row carries no official number;
-    a declared interest (`mp_interests`) is not a donation and is not read here."""
-    facts = conn.execute(f"""
-        SELECT r.ref, r.name_filed, r.name_key, r.started_on, r.ended_on,
-               jsonb_agg(jsonb_build_object('entity_ref', o.entity_ref, 'number', c.number, 'name', c.name,
-                                            'registered_on', o.registered_on, 'removed_on', o.removed_on) ORDER BY o.entity_ref)
-        FROM {s}.rows r JOIN {s}.org_names o ON o.org_key = r.name_key
-        LEFT JOIN pub.companies c ON c.key = substr(o.entity_ref, length('companies:') + 1)
+def body_links(conn, s: str) -> dict:
+    """`organisation-sole-company@2` and `organisation-one-live-company@2`
+    (ruling 114): each donation row's organisation name against every body
+    on the four registers (`bodies`) under the name key, a body on two
+    registers counted once, judged by `rules.sole_body` with all of each
+    body's register rows (their dates decide whether it was live); near under
+    `organisation-name@1` otherwise, the reason naming the registers that hold
+    the name. It replaces @1's step (the companies alone, built until ruling
+    114); a declared interest (`mp_interests`) is not a donation."""
+    matched = conn.execute(f"""
+        SELECT r.ref, r.name_filed, r.name_key, r.started_on, r.ended_on, array_agg(DISTINCT b.body), array_agg(DISTINCT b.entity_ref)
+        FROM {s}.rows r JOIN {s}.bodies b ON b.org_key = r.name_key
         WHERE r.kind = 'organisation' AND r.register = ANY(%s)
         GROUP BY 1, 2, 3, 4, 5""", (list(rules.DONATION_REGISTERS),)).fetchall()
+    rows_of: dict = {}
+    for body, ref, register, kind, number, name, reg, rem, undated in conn.execute(f"""
+            SELECT body, entity_ref, register, kind, number, name, registered_on, removed_on, removal_undated FROM {s}.bodies
+            WHERE body = ANY(%s) ORDER BY body, entity_ref""", (sorted({b for m in matched for b in m[5]}),)).fetchall():
+        rows_of.setdefault(body, {})[ref] = {"entity_ref": ref, "register": register, "kind": kind, "number": number, "name": name,
+                                             "registered_on": reg, "removed_on": rem, "removal_undated": undated}
     pairs = []
-    for ref, filed, key, start, end, companies in facts:
+    for ref, filed, key, start, end, bodies, named in matched:
         row = {"ref": ref, "name_filed": filed, "name_key": key, "started_on": start, "ended_on": end}
-        pairs += [(ref, j["entity_ref"], j) for j in rules.sole_company(row, companies)]
+        named = set(named)
+        judged = rules.sole_body(row, [{"body": b, "rows": [dict(r, named=r["entity_ref"] in named) for r in rows_of[b].values()]}
+                                       for b in bodies])
+        pairs += [(ref, j["entity_ref"], j) for j in judged]
     _insert_judged(conn, s, pairs)
     conn.commit()
     tally: dict = {}
     for _, _, j in pairs:
-        k = j["rule"] if j["grade"] == "confirmed" else j["reason"]
+        k = j["rule"] if j["grade"] == "confirmed" else j["reason"].split("; ")[-1]
         tally[k] = tally.get(k, 0) + 1
-    several = {ref for ref, _, j in pairs if j["evidence"].get("companies_of_that_name", 1) > 1}
-    return {"donation_rows_with_a_company_of_the_name": len(facts), "confirmed": tally.get(rules.RULE_SOLE_COMPANY, 0),
-            "near_registered_after": tally.get(rules.NEAR_ORG_NOT_YET, 0), "near_removed_before": tally.get(rules.NEAR_ORG_GONE, 0),
-            "rows_with_several_companies": len(several), "confirmed_one_live_of_several": tally.get(rules.RULE_ONE_LIVE, 0),
-            "near_another_was_live": tally.get(rules.NEAR_ORG_OTHER_LIVE, 0), "near_none_live": tally.get(rules.NEAR_ORG_NONE_LIVE, 0),
-            "near_more_than_one_live": tally.get(rules.NEAR_ORG_MANY_LIVE, 0)}
+    by_register: dict = {}
+    for _, _, j in pairs:
+        if j["grade"] == "confirmed":
+            by_register[j["evidence"]["register"]] = by_register.get(j["evidence"]["register"], 0) + 1
+    return {"donation_rows_with_a_body_of_the_name": len(matched), "confirmed": tally.get(rules.RULE_SOLE_BODY, 0),
+            "confirmed_one_live_of_several": tally.get(rules.RULE_ONE_LIVE_BODY, 0), "confirmed_by_register": by_register,
+            "near": {k: n for k, n in tally.items() if k not in (rules.RULE_SOLE_BODY, rules.RULE_ONE_LIVE_BODY)}}
 
 
 def seat_links(conn, s: str) -> dict:
@@ -312,6 +330,67 @@ def seat_links(conn, s: str) -> dict:
                             (rules.RULE_SEAT,)).fetchall()
     return {"links": int(row[0]), "confirmed": int(row[1]), "near_ambiguous": int(row[0] - row[1]), "rows_joined": int(row[2]),
             "rows_no_seat_fits": {v: int(n) for v, n in unjoined}}
+
+
+#: what a member-on-the-day row is, by its view (a written question's row by its ref's role)
+MEMBER_DAY_ROLES = {"hansard_speeches": "speaker of the turn", "beehive_release_ministers": "minister the release is tagged with",
+                    "minister_diary_releases": "minister whose diary it is", "asker": "asker of the question",
+                    "minister": "minister who answers the question"}
+#: Parliament's own member id where a view carries it: the speaker of a turn and the asker of a question (never the minister)
+MEMBER_IDS = (("hansard_speeches", "pub.hansard_speeches", "member_id", ""), ("parliament_written_questions", "pub.parliament_written_questions",
+                                                                           "member_id", " AND r.ref LIKE '%%#asker'"))
+
+
+def member_day_links(conn, s: str, reader=None, members: str = "pub.members") -> dict:
+    """`member-on-the-day@1` (ruling 116): each row of `rows.MEMBER_DAY_VIEWS`
+    judged by `rules.member_on_the_day` against the member rows of its first
+    and last name and their terms (`members`: the House's view, whose end is
+    `ended_on`, else `to_by`). The rows are streamed through `reader` and
+    the links copied in; one link a row and member, so no star. Returns what
+    each view's rows came to."""
+    reader = reader or conn
+    mem: dict = {}
+    for ref, fl, full, mid, key, election, from_on, to_on in conn.execute(f"""
+            SELECT r.ref, r.fl_key, r.full_key, r.has_middle, m.key, m.election, m.from_on, coalesce(m.ended_on, m.to_by)
+            FROM {s}.rows r JOIN {members} m ON r.ref = 'house:' || m.key WHERE r.view = 'members' AND r.fl_key IS NOT NULL""").fetchall():
+        mem.setdefault(fl, []).append({"ref": ref, "fl_key": fl, "full_key": full, "has_middle": mid, "key": key, "election": election,
+                                       "from_on": from_on, "to_on": to_on})
+    held_from = min((m["from_on"] for ms in mem.values() for m in ms if m["from_on"]), default=None)
+    ids = [(v, t, c, w) for v, t, c, w in MEMBER_IDS if conn.execute("SELECT to_regclass(%s)", (t,)).fetchone()[0]]
+    id_col = "coalesce(" + ", ".join(f"i{n}.{c}" for n, (_, _, c, _) in enumerate(ids)) + ", NULL)" if ids else "NULL"
+    joins = " ".join(f"LEFT JOIN {t} i{n} ON r.view = '{v}'{w} AND i{n}.key = r.key" for n, (v, t, _, w) in enumerate(ids))
+    tally: dict = {}
+    n = 0
+
+    def flush(w, batch):
+        # a copy a batch, between two fetches: the cursor and the copy may then share one connection
+        with w.copy(f"COPY {s}.links (row_a, row_b, rule, evidence, grade, reason) FROM STDIN") as copy:
+            for b in batch:
+                copy.write_row(b)
+        return len(batch)
+    with reader.cursor(name="links_member_day") as cur, conn.cursor() as w:
+        cur.itersize = 20000
+        cur.execute(f"""SELECT r.ref, r.register, r.view, r.fl_key, r.full_key, r.has_middle, r.name_filed, r.started_on, {id_col}
+                        FROM {s}.rows r {joins} WHERE r.view = ANY(%s)""", (list(lrows.MEMBER_DAY_VIEWS),))
+        batch = []
+        while True:
+            got_rows = cur.fetchmany(20000)
+            if not got_rows:
+                break
+            for ref, register, view, fl, full, mid, filed, day, member_id in got_rows:
+                role = ref.rsplit("#", 1)[1] if view in lrows.ROLE_VIEWS else view
+                row = {"ref": ref, "fl_key": fl, "full_key": full, "has_middle": mid, "day": day,
+                       "evidence": {"row": view, "role": MEMBER_DAY_ROLES[role], "as_printed": filed, "name_read": lrows.member_name(filed),
+                                    "parliament_member_id": member_id, "registers": [register, "house"]}}
+                got, judged = rules.member_on_the_day(row, mem.get(fl, []), held_from)
+                k = f"{view}#{role}" if view in lrows.ROLE_VIEWS else view
+                tally.setdefault(k, {})[got] = tally.get(k, {}).get(got, 0) + 1
+                batch += [(*links.pair(ref, other), j["rule"], json.dumps(j["evidence"], default=str), j["grade"], j["reason"])
+                          for other, j in judged]
+            n += flush(w, batch)
+            batch = []
+    conn.commit()
+    return {"links": n, "held_from": str(held_from), "rows": tally}
 
 
 def declared_links(conn, s: str) -> dict:
@@ -675,7 +754,8 @@ def near_links(conn, s: str, log=print, reader=None, comp: dict = None) -> int:
         cur.execute(f"""SELECT fl_key, array_agg(ref ORDER BY ref), array_agg(full_key ORDER BY ref), array_agg(has_middle ORDER BY ref),
                                array_agg(middle ORDER BY ref), array_agg(politician ORDER BY ref), array_agg(name_filed ORDER BY ref),
                                array_agg(register ORDER BY ref)
-                        FROM {s}.rows WHERE kind = 'person' AND fl_key IS NOT NULL GROUP BY fl_key HAVING count(*) > 1""")
+                        FROM {s}.rows WHERE kind = 'person' AND fl_key IS NOT NULL AND view <> ALL(%s)
+                        GROUP BY fl_key HAVING count(*) > 1""", (list(lrows.MEMBER_DAY_VIEWS),))
         with conn.cursor() as w:
             batch = []
             for fl, refs, fulls, mids, middles, pols, filed, regs in cur:
