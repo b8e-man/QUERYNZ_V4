@@ -405,3 +405,26 @@ def test_a_board_made_name_key_equals_pub_names_key_for_the_rows_pub_names_holds
                     assert collapse.row_name_keys(v, r) == (n["fl_key"], n["full_key"], n["has_middle"]), r["key"]
                     seen += 1
             assert seen, view
+
+
+LLOYD = "charities:charities/officers/1684473"
+
+
+def test_lloyd_budd_s_dossier_reads_as_facts_folded_by_what_the_rows_say():
+    """Ruling 117 (1) and (2), live: his three rows are two facts, the five celebrant lists one near entry,
+    the candidacy another; no entry names a register, a view or a row count."""
+    from products.board import dossier
+    with db.read_connect() as conn:
+        t = time.time()
+        x = dossier.gather(conn, people.entity_id(LLOYD))
+        page = dossier.pane(x, "lloyd budd", search.FIRST)
+        took = time.time() - t
+    says = [unescape(re.sub(r"<[^>]+>", "", s)) for s in re.findall(r'<div class="say">(.*?)</div>', page)]
+    assert "Director and shareholder of BUDD CONSULTANCY LIMITED since 4 December 2025" in says
+    assert "Trustee of Keystone New Zealand Property Education Trust since 11 March 2025" in says
+    assert "Lloyd Budd: marriage celebrant, listed 2020 to 2025" in says
+    assert any(s.startswith("Lloyd Sam BUDD: candidate, Whangārei, 2026") for s in says)
+    assert page.count('<li class="fact"') == 2 and page.count('<li class="fact near"') == 2
+    assert "five Gazette lists" in page and took < 2.0
+    for s in says:
+        assert not re.search(r"\b\d+ rows?\b|registers?\b|single-row|gazette_celebrants|charity_officers|directors\b", s), s
