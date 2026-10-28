@@ -961,3 +961,14 @@ charity and his company, and the graph renders differently with and
 without the name fold; the node that stands for a group must be chosen by
 an order every answer shares (the lineage lesson of 28 October), in the
 entity state too. Built by one board session.
+
+118. Arthur, 29 October, 12:30, on the board's collapse section (ruling
+112), told that "a shared full name, with middle names" is the links
+lane's own rule 1 (`full-name@1`, ruling 221) and so folds nothing the
+always-on groups have not, except pairs the lane holds apart on purpose
+(a politician's row, a decided or contested pair): "let's drop the
+redundant shared full name option". So the criterion leaves the list; the
+section keeps a shared first and last name, a shared registered address
+and a shared official number over the groups. Built by the next board
+fix after board-13.
+

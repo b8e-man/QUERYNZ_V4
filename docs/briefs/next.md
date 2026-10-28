@@ -527,14 +527,17 @@ then start Claude in the copy it makes and paste:
 You are a fix session for QueryNZV4, running as Opus on node2, in the
 working copy the launcher made for you, scope products/board/. Read
 docs/PLAN.md, docs/plan/core.md, products/board/spec.md, rulings 105 to
-112 and 117 in docs/decisions/rulings.md, and the card
+112, 117 and 118 in docs/decisions/rulings.md, and the card
 cards/the-graph-tab-s-fold-is-mislabelled-in-rows-mode-and-cites-the-superseded-filing.md.
 Fix its three faults: (1) the graph tab defaults to entities mode when a
 collapse is ticked, and the fold's label and colour come from the whole
 fold, not the member that sorts first; (2) when causes merge into one
 edge, cite the latest filing, never one marked not in the latest file;
 (3) the "N more match: narrow the search" note is not shown when every
-matching row is drawn inside a fold. Each with a test that fails on main
+matching row is drawn inside a fold. And (4), ruling 118: drop the
+criterion "a shared full name, with middle names" from the collapse
+section (collapse.CRITERIA, search.COLLAPSE_CHOICES, their tests); an
+address carrying `cl=full` is read without it. Each with a test that fails on main
 and passes on your branch, and the live render of the search "Arthur
 Falls" with "a shared first and last name" ticked, measured. Never print
 a home address or a suppressed name. Push the branch, raise the merge
