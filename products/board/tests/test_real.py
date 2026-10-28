@@ -270,7 +270,8 @@ def test_the_lineage_check_goes_red_when_a_frame_merges_its_companies(monkeypatc
 
 
 def test_the_dossier_of_the_largest_group_and_of_graeme_hart_answers_well_inside_the_floor():
-    """Ruling 110: the dossier reads by row key and group id; its cost for the largest group (1,220 rows on 28 October)
+    """Ruling 110: the dossier reads by row key and group id; its cost for the largest group (30,836 rows on 28 October,
+    read by view past dossier.MANY_AT: 0.52 s, where gathering every row took 4.4 s and a 58.7 MB page)
     and for every group and lone row of "Graeme Hart", and on top of a search page with it open."""
     from products.board import dossier
     with db.read_connect() as conn:
@@ -303,6 +304,18 @@ def test_the_dossier_check_goes_red_when_a_disclosure_is_added_to_the_year(monke
         real = dossier.addends
         monkeypatch.setattr(dossier, "addends", lambda x: [dict(a, not_added="") if a["amount"] is not None else a for a in real(x)])
         assert any("sums" in p for p in check.dossier_problems(conn))
+
+
+def test_the_dossier_check_goes_red_when_a_view_drops_out_of_the_largest_group_s_count(monkeypatch):
+    """Item 25 against the live tables, past dossier.MANY_AT: each view's count is held to the group's rows counted apart."""
+    from products.board import dossier
+    with db.read_connect() as conn:
+        n = db.rows(conn, "select count(*) as n from pub.groups group by group_id order by 1 desc limit 1")[0]["n"]
+        assert n > dossier.MANY_AT
+        real = dossier.counted
+        monkeypatch.setattr(dossier, "counted", lambda conn, gid: (lambda c: dict(c, views=c["views"][:-1]))(real(conn, gid)))
+        found = check.dossier_problems(conn)
+        assert any("does not count each of its catalogued rows once across its views" in p for p in found)
 
 
 def test_the_entities_only_check_goes_red_when_a_row_reaches_the_results_pane(monkeypatch):

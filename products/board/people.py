@@ -36,7 +36,7 @@ from products.board import db, fold as names, lineage, links_view, panes, search
 
 ENTITY = "entity:"
 MAX_CHILDREN = 40           # rows drawn inside an opened entity; the pane lists every row
-PANE_ROWS = 1500            # the largest live group is 1,220 rows (28 October 2026)
+PANE_ROWS = 1500            # the entity pane's rows; the dossier reads a group past dossier.MANY_AT by view (30,836 rows, 28 October 2026)
 NEAR_PER_ROW = 10           # near links drawn per row in hand; the rest counted
 PANE_NEAR = 200
 LABEL_NOTE = panes.ENTITY_LABEL_NOTE
