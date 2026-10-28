@@ -32,7 +32,7 @@ import json
 import re
 
 from products.board import catalogue as cat
-from products.board import db, fold as names, lineage, links_view, panes, search
+from products.board import db, facts, fold as names, lineage, links_view, panes, search
 
 ENTITY = "entity:"
 MAX_CHILDREN = 40           # rows drawn inside an opened entity; the pane lists every row
@@ -212,6 +212,38 @@ def describe(gid: str, members: list, hidden: set, contested: bool, resolved: di
     return {"group_id": gid, "label": label or f"group {gid}", "rows": len(shown), "registers": len(registers),
             "count": count_words(len(shown), len(registers)), "contested": contested,
             "kinds": sorted({m["kind"] for m in shown if m["kind"]})}
+
+
+CARD_KEYS = 2000            # rows of one view read for the entity cards' words on one page; past it the line's noun alone
+
+
+def what_of(conn, members: dict, hidden: set) -> dict:
+    """{group_id: 'director and shareholder, charity trustee'}: what each
+    entity is (ruling 117 (2)), from its shown rows' words (facts.what_it_is).
+    A view whose word reads a column (a charity officer's role, a celebrant's
+    statute) is read by key, one query per view; every other by its line's
+    noun, no read."""
+    want = {}
+    for ms in members.values():
+        for m in ms:
+            v = cat.BY_NAME.get(m["view"] or "")
+            if v is not None and m["ref"] not in hidden and facts.card_columns(v):
+                want.setdefault(v.name, set()).add(m["key"])
+    read = {}
+    for view, keys in want.items():
+        v = cat.BY_NAME[view]
+        if len(keys) > CARD_KEYS:
+            continue
+        cols = ", ".join(sorted(set(facts.card_columns(v))))
+        for r in db.rows(conn, f"select {v.key_col}::text as key, {cols} from pub.{v.name} where {v.key_col}::text = any(%s)",
+                         (sorted(keys),)):
+            read[(view, r["key"])] = r
+    out = {}
+    for gid, ms in members.items():
+        pairs = [(cat.BY_NAME[m["view"]], read.get((m["view"], m["key"]))) for m in ms
+                 if m["ref"] not in hidden and m["view"] in cat.BY_NAME]
+        out[gid] = facts.what_it_is(pairs)
+    return out
 
 
 # ── the fold ────────────────────────────────────────────────────────────────
@@ -403,6 +435,9 @@ def gather(conn, hits, named: dict = None) -> dict:
                                                                              key=lambda x: (order.get(x, len(order)), x))]
         d["centre"] = next((f"{m['view']}:{m['key']}" for m in shown if m["view"] in cat.BY_NAME), "")
         entity[gid] = d
+    what = what_of(conn, {gid: members.get(gid, []) for gid in entity}, hidden)
+    for gid, d in entity.items():                      # ruling 117 (2): what the entity is, not how many rows it has
+        d["what"] = what.get(gid, "")
     related = lineage.related_refs(conn, [m["ref"] for gid in entity for m in members.get(gid, []) if m["ref"] not in hidden])
     for gid, d in entity.items():                      # ruling 106 (2): an entity with a related link says so, in a word
         d["related"] = sorted({related[m["ref"]] for m in members.get(gid, []) if m["ref"] in related})

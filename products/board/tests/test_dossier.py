@@ -136,7 +136,7 @@ def test_near_links_carry_their_reasons_and_a_suppressed_far_row_is_never_named(
     near = section(html, "d-near")
     assert "Jane Hartley" in near and "because the two rows share a name" in near
     decided = section(html, "d-decided")
-    assert "not the same" in decided and "1 decision on a pair" in decided and "contested" in decided
+    assert "not the same" in decided and "one decision recorded on a pair" in decided and "contested" in decided
     assert "Hidden Person" not in html
 
 
@@ -145,7 +145,7 @@ def test_a_row_in_a_group_opens_its_group_and_a_lone_row_its_own(reads):
     assert x["kind"] == "entity" and x["via"] == "Jane Hart" and len(x["rows"]) == len(ROWS)
     lone = dossier.gather(None, "party_return_donors:lone", "http://report")
     html = dossier.pane(lone)
-    assert lone["kind"] == "row" and "a lone row: in no group" in html and "<h2>Lone Donor</h2>" in html
+    assert lone["kind"] == "row" and "In no group: no links rule joins this record to another" in html and "<h2>Lone Donor</h2>" in html
     assert "$250.00, the sum of 1 filed amount" in html and "http://report/report/party_returns:lone" in html
 
 
@@ -225,9 +225,9 @@ def test_an_entity_of_3000_rows_over_three_views_is_shown_by_view_each_row_count
     assert x["many"] and [(v.name, k) for v, k in x["views"]] == want                           # the catalogue's register order
     sections = re.findall(r'<details class="dview" data-view="(\w+)" data-count="(\d+)">', page)
     assert [(v, int(k)) for v, k in sections] == want
-    assert "3,000 rows across 3 views" in page and sum(k for _, k in x["names"]) == 3000
+    assert "3,000 records of 3 kinds" in page and sum(k for _, k in x["names"]) == 3000
     assert page.count('<li><span class="when">') == 3 * dossier.VIEW_ROWS < 3000                   # a page per view read, not 3,000
-    assert page.count('<li class="newest">') == dossier.TIMELINE_ROWS and "and 2,960 more rows" in page
+    assert page.count('<li class="newest">') == dossier.TIMELINE_ROWS and "and 2,960 more records" in page
     newest = re.findall(r'<li class="newest"><span class="when">([\d-]+)</span>', page)
     assert newest == sorted(newest, reverse=True) and newest[0] == "2004-12-04"                # hansard's 1,800th day, the newest
     assert "Hidden Person" not in page and "suppressed" not in section(page, "d-rows")          # hard limit 16: unnamed and uncounted

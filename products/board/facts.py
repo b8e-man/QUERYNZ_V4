@@ -54,7 +54,7 @@ class Says:
 
 ROLE_HELD = dict(held=True, end="ended_on")
 SAYS = {
-    "directors": Says("director", role="role_type", start="appointed_on", counted=("filing", "filings"), flags=(("in_latest", "in the latest file"),), **ROLE_HELD),
+    "directors": Says("director", start="appointed_on", counted=("filing", "filings"), flags=(("in_latest", "in the latest file"),), **ROLE_HELD),
     "shareholders": Says("shareholder", detail=(("{} shares", "shares"),), counted=("filing", "filings"), flags=(("in_latest", "in the latest file"),)),
     "company_lookup_roles": Says("", role="role_type", start="started_on", **ROLE_HELD),
     "company_lookup_holdings": Says("shareholder", detail=(("{} shares", "shares"),), start="started_on", **ROLE_HELD),
@@ -81,16 +81,16 @@ SAYS = {
                        detail=(("{}", "party"), ("list place", "list_place"), ("{} votes", "votes"))),
     "members": Says("member of Parliament", where=("electorate",), body=False, start="from_on", end="ended_on", held=True,
                     detail=(("{}", "party"), ("by {}", "route"))),
-    "hansard_speeches": Says("spoke in the House", event=("", {}, ""), counted=("speech", "speeches"), what="subject"),
-    "parliament_written_questions": Says("named on written questions to ministers", body=False, event=("", {}, ""),
+    "hansard_speeches": Says("spoke in the House", card="speaks in the House", event=("", {}, ""), counted=("speech", "speeches"), what="subject"),
+    "parliament_written_questions": Says("named on written questions to ministers", card="on written questions", body=False, event=("", {}, ""),
                                          counted=("question", "questions"), what="title"),
-    "beehive_release_ministers": Says("named on Beehive releases", event=("", {}, ""), counted=("release", "releases"), what="title"),
-    "minister_diary_releases": Says("minister's diary released", event=("", {}, ""), counted=("month", "months"), what="month"),
-    "mp_expenses": Says("expenses filed as a member", event=("", {}, ""), counted=("expense line", "expense lines"), what="category"),
-    "minister_expenses": Says("expenses filed as a minister", event=("", {}, ""), counted=("expense line", "expense lines"), what="category"),
-    "mp_interest_returns": Says("return of pecuniary interests filed", event=("", {}, ""), counted=("return", "returns"),
+    "beehive_release_ministers": Says("named on Beehive releases", card="on Beehive releases", event=("", {}, ""), counted=("release", "releases"), what="title"),
+    "minister_diary_releases": Says("minister's diary released", card="minister's diary released", event=("", {}, ""), counted=("month", "months"), what="month"),
+    "mp_expenses": Says("expenses filed as a member", card="member's expenses filed", event=("", {}, ""), counted=("expense line", "expense lines"), what="category"),
+    "minister_expenses": Says("expenses filed as a minister", card="minister's expenses filed", event=("", {}, ""), counted=("expense line", "expense lines"), what="category"),
+    "mp_interest_returns": Says("return of pecuniary interests filed", card="declares interests", event=("", {}, ""), counted=("return", "returns"),
                                 detail=(("{}", "party"),)),
-    "mp_interests": Says("declared interest", where=("heading",), body=False, event=("", {}, ""), counted=("declaration", "declarations")),
+    "mp_interests": Says("declared interest", card="declares interests", where=("heading",), body=False, event=("", {}, ""), counted=("declaration", "declarations")),
     "party_return_donors": Says("donor", where=("party",), to="to", body=False, event=("", {}, ""),
                                 counted=("donation in a party return", "donations in party returns")),
     "candidate_return_donors": Says("donor to a candidate", where=("surname", "electorate"), body=False, event=("", {}, ""),
@@ -98,7 +98,7 @@ SAYS = {
     "disclosures": Says("donor", where=("party",), to="to", body=False, event=("", {}, ""),
                         counted=("large-donation disclosure", "large-donation disclosures")),
     "disclosure_items": Says("contributor to a large donation", body=False, event=("", {}, ""), counted=("item", "items")),
-    "candidate_return_totals": Says("candidate return filed", where=("electorate",), event=("", {}, ""), counted=("return", "returns")),
+    "candidate_return_totals": Says("candidate return filed", card="candidate return filed", where=("electorate",), event=("", {}, ""), counted=("return", "returns")),
     "building_practitioner_decisions": Says("subject of a Building Practitioners Board decision", where=("decision_kind",),
                                             event=("", {}, ""), counted=("decision", "decisions")),
     "court_judgment_parties": Says("", role="role", where=("court",), event=("", {}, ""), counted=("judgment", "judgments"), what="citation"),
@@ -421,12 +421,15 @@ def card_word(v: cat.View, r: dict | None) -> str:
     s = says_of(v)
     if s is None:
         return ""
-    noun = noun_of(v, r, s) if r is not None else (s.noun or "")
-    if s.card and r is not None and s.role and r.get(s.role) not in (None, ""):
-        return s.card.format(role=_plain(r[s.role]).lower())
-    if s.card and "{role}" in s.card and not noun:
-        return ""
-    return (noun or "").lower() if noun and noun[:1].isupper() and not noun.isupper() and " " not in noun else noun
+    role = _lower(_plain(r[s.role])) if r is not None and s.role and r.get(s.role) not in (None, "") else ""
+    if s.card:
+        return s.card.format(role=role) if "{role}" not in s.card or role else (s.noun if not s.role else "")
+    return role or (noun_of(v, r, s) if r is not None else s.noun)
+
+
+def _lower(s: str) -> str:
+    """'Board Member' reads 'board member'; an acronym ('MP') and a proper name in a fixed noun stay as written."""
+    return " ".join(w.lower() if w[:1].isupper() and w[1:].islower() else w for w in s.split(" "))
 
 
 def what_it_is(pairs) -> str:
@@ -492,3 +495,12 @@ def name_of(v: cat.View, r: dict) -> str:
     if v.title and v.title[0] in v.names and r.get(v.title[0]) not in (None, ""):
         return str(r[v.title[0]])
     return panes.title_of(v, r)
+
+
+def lone_words(v: cat.View, r: dict) -> str:
+    """A single-row entity's card (ruling 117 (2)): what its one row says, as a
+    sentence without its body (the card reads no far row), escaped HTML;
+    '' where no line names its view, the row's title being its name."""
+    if says_of(v) is None:
+        return ""
+    return sentence(fold({"rows": [(f"{v.register}:{r['key']}", v, r)]})[0], cap=False)

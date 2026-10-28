@@ -39,7 +39,7 @@ def test_the_search_tab_marks_maori_as_maori_in_the_registers_checked_only():
         html = server.render("Maori", [], conn=conn, boxes=search.Boxes(False, ("iwi_directory",)))
     results = html[html.index('id="results"'):]
     assert "<mark>Māori</mark>" in results                        # "Maori" typed marks "Māori" filed
-    assert "· iwi_directory_entities</div>" in results                # ruling 111: its single-row entities name their view
+    assert "· iwi_directory_entities</div>" not in results            # ruling 117 (2): a card names no view
     assert "Registered political parties" not in results           # an unchecked register is not searched
 
 
@@ -428,3 +428,15 @@ def test_lloyd_budd_s_dossier_reads_as_facts_folded_by_what_the_rows_say():
     assert "five Gazette lists" in page and took < 2.0
     for s in says:
         assert not re.search(r"\b\d+ rows?\b|registers?\b|single-row|gazette_celebrants|charity_officers|directors\b", s), s
+
+
+def test_lloyd_budd_s_results_say_what_he_is_never_counts_or_views():
+    """Ruling 117 (2), live: the entity card reads what he is; the single-row cards read what their row says."""
+    with db.read_connect() as conn:
+        page = server.render("lloyd budd", [], conn=conn, boxes=search.FIRST)
+    results = page[page.index('id="results"'):page.index('class="sidecol"') if 'class="sidecol"' in page else len(page)]
+    whats = [unescape(re.sub(r"<[^>]+>", "", w)) for w in re.findall(r'<div class="what">(.*?)</div>', results)]
+    assert "director and shareholder, charity trustee" in whats
+    assert len({w for w in whats if w.startswith("marriage celebrant, listed")}) == 5          # each tab lists them; five lists, five days
+    assert any(w.startswith("candidate, ") for w in whats)
+    assert not re.search(r"\d rows?, \d registers?|1 row, 1 register|single-row entity", results)

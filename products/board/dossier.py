@@ -372,7 +372,7 @@ def gather_fold(conn, d: str) -> dict:
             if e is None:
                 hidden += 1
                 continue
-            members.append({"id": m, "label": e["label"], "count": e["count"], "rows": e["rows"], "contested": e["contested"],
+            members.append({"id": m, "label": e["label"], "what": e.get("what") or "", "rows": e["rows"], "contested": e["contested"],
                             "registers": e.get("registers_named") or []})
             centre = centre or e.get("centre") or ""
             continue
@@ -382,7 +382,7 @@ def gather_fold(conn, d: str) -> dict:
             hidden += 1
             continue
         v = cat.BY_NAME[view]
-        members.append({"id": m, "label": panes.title_of(v, r), "count": people.count_words(1, 1), "rows": 1, "contested": False,
+        members.append({"id": m, "label": panes.title_of(v, r), "what": facts.what_it_is([(v, r)]), "rows": 1, "contested": False,
                         "registers": [panes.REGISTER_NAME.get(v.register, v.register)]})
         centre = centre or m
     return {"kind": "fold", "chosen": d, "by": by, "members": members, "hidden": hidden, "centre": centre,
@@ -392,17 +392,15 @@ def gather_fold(conn, d: str) -> dict:
 
 def fold_pane(x: dict, q: str = "", boxes=None) -> str:
     """The dossier of a folded entry: the members listed as the entities they are, each opening its own dossier."""
-    rows = sum(m["rows"] for m in x["members"])
     out = [_head(x["chosen"], q, boxes), '<div class="reg">dossier · collapsed here, for this view alone</div>',
            f"<h2>{panes.esc(x['label'])}</h2>",
            f'<p class="fold">{panes.esc(collapse.words(x["by"]))}</p>',
-           f'<p class="note">{len(x["members"])} entities, {rows:,} row{"s" if rows != 1 else ""}. {panes.esc(collapse.NOTE)}</p>',
+           f'<p class="small">{len(x["members"])} entities. {panes.esc(collapse.NOTE)}</p>',
            f'<h3 id="d-members">Its members, each the entity it is <span class="count">{len(x["members"])}</span></h3><ul>']
     for m in x["members"]:
         out.append(f'<li><a class="row" href="{panes.esc(href(m["id"], q, boxes))}">{panes.esc(m["label"])}</a> '
-                   f'<span class="meta">{"entity" if m["id"].startswith(ENTITY) else "single-row entity"}</span>'
-                   f'<div class="note">{panes.esc(m["count"])}' + (' · <span class="warn">contested</span>' if m["contested"] else "")
-                   + f'</div><div class="meta">{panes.esc("; ".join(m["registers"]))}</div></li>')
+                   f'<div class="what">{panes.esc(m["what"])}' + (' · <span class="warn">contested</span>' if m["contested"] else "")
+                   + f'</div><div class="meta">from {panes.esc("; ".join(m["registers"]))}</div></li>')
     out.append("</ul>")
     if x["hidden"]:
         out.append(f'<p class="note">{x["hidden"]} more member{"s" if x["hidden"] != 1 else ""} not named: suppressed, or no longer held</p>')
@@ -570,12 +568,12 @@ def page_href(d: str, q: str, boxes, view: str, offset: int) -> str:
 
 
 def whole_words(x: dict) -> str:
-    """'30,836 rows across 9 views', and the rows no catalogued view holds said
+    """'30,836 records of 9 kinds', and the records the board cannot read said
     beside it; a suppressed row is neither counted nor named on the page (hard limit 16)."""
     n, k = sum(c for _, c in x["views"]), len(x["views"])
-    out = f"{n:,} row{'s' if n != 1 else ''} across {k} view{'s' if k != 1 else ''}"
+    out = f"{n:,} record{'s' if n != 1 else ''} of {k} kind{'s' if k != 1 else ''}"
     if x.get("unread"):
-        out += f"; {x['unread']:,} more no catalogued view holds"
+        out += f"; {x['unread']:,} more the board does not read"
     return out
 
 
@@ -597,7 +595,7 @@ def timeline_many(x: dict, q, boxes) -> list:
         out.append(f'<li class="newest"><span class="when">{panes.esc(when_text(v, r))}</span> {panes.struck(v, r, line)}</li>')
     out.append("</ol>")
     if shown > len(newest):
-        out.append(f'<p class="note">and {shown - len(newest):,} more rows: each heading below lists them</p>')
+        out.append(f'<p class="note">and {shown - len(newest):,} more records: each heading below lists them</p>')
     by_view = {}
     for ref, v, r in x["rows"]:
         by_view.setdefault(v.name, []).append((ref, v, r))
@@ -766,7 +764,7 @@ def decided(x: dict, q, boxes) -> list:
     out = ['<h3 id="d-decided">Contested and decisions</h3>',
            '<p class="warn">contested: the watch flagged this group as a whole</p>' if d.get("contested")
            else '<p class="note">not contested: the watch has not flagged this group</p>' if x["kind"] == "entity" else
-           '<p class="note">a lone row: in no group, so nothing to contest</p>']
+           '<p class="note">in no group, so nothing to contest</p>']
     shown = []
     for z in x["decisions"]:
         a, b = mine.get(z["row_a"]) or far.get(z["row_a"]), mine.get(z["row_b"]) or far.get(z["row_b"])
@@ -774,7 +772,7 @@ def decided(x: dict, q, boxes) -> list:
             continue                                   # an end suppressed or not held: the decision names nobody here
         shown.append(f'<li>{_a(q, boxes, *a, cls="plain")} and {_a(q, boxes, *b, cls="plain")}: <strong>{panes.esc(z["verdict"])}</strong>'
                      f' <span class="meta">by {panes.esc(z["made_by"])}, {panes.fmt(z.get("made_at"))}</span></li>')
-    out.append(f'<p class="note">{len(shown):,} decision{"s" if len(shown) != 1 else ""} on a pair of these rows (pub.decisions)</p>')
+    out.append(f'<p class="note">{facts.count_words(len(shown), "decision", "decisions")} recorded on a pair of these records</p>')
     if shown:
         out += ["<ul>"] + shown + ["</ul>"]
     return out
@@ -800,26 +798,22 @@ def pane(x: dict, q: str = "", boxes=None) -> str:
                 f'<p class="why">{panes.esc(x["why"])}</p></section>')
     d = x["describe"]
     entity = x["kind"] == "entity"
-    out = [head, '<div class="reg">dossier · ' + ("entity · gathered by the links lane (pub.groups) · " + panes.esc(x["group_id"])
-                                                  if entity else "a lone row: in no group") + "</div>",
-           f"<h2>{panes.esc(d['label'])}</h2>",
-           f'<p class="note">{panes.esc(d["count"])}' + (f" · {panes.esc(d['number'])}" if d.get("number") else "")
+    what = facts.what_it_is([(v, r) for _, v, r in x["rows"]] + [(v, None) for v, _ in x.get("views") or ()])
+    out = [head, '<div class="reg">dossier</div>', f"<h2>{panes.esc(d['label'])}</h2>",
+           f'<p class="what">{panes.esc(what)}' + (f" · {panes.esc(d['number'])}" if d.get("number") else "")
            + (' · <span class="warn">contested</span>' if d.get("contested") else "") + "</p>"]
     if x.get("many"):
-        out.append(f'<p class="note whole">{panes.esc(whole_words(x))}</p>')
-    if entity:
-        out.append(f'<p class="note">The {panes.esc(panes.ENTITY_LABEL_NOTE)}.</p>')
-    if x.get("via"):
-        out.append(f'<p class="note">opened from the row {panes.esc(x["via"])}, one of its rows</p>')
+        out.append(f'<p class="small whole">{panes.esc(whole_words(x))}</p>')
     links = [f'<a href="{panes.esc(x["report"])}">the full subject report</a>'] if x.get("report") else \
         ['<span class="note">no report server named (QV4_REPORT_URL)</span>']
     if entity:
         links.append(f'<a href="{panes.esc(panes.href(q, [people.entity_id(x["group_id"])], boxes))}">its entity pane</a>')
-    out.append('<p class="note">' + " · ".join(links) + "</p>")
-    out.append(f'<p class="note">{panes.esc(NOT_A_LINK)} {panes.esc(NO_CLAIMS)}.</p>')
+    out.append('<p class="small">' + (f"Gathered by the links lane's rules. The {panes.esc(panes.ENTITY_LABEL_NOTE)}. " if entity
+                                      else "In no group: no links rule joins this record to another. ")
+               + (f'Opened from {panes.esc(x["via"])}, one of its records. ' if x.get("via") else "") + " · ".join(links) + "</p>")
     out.append(f'<h3 id="d-names">Names as filed <span class="count">{len(x["names"]):,}</span></h3><ul>'
-               + "".join(f'<li>{panes.esc(n)} <span class="count">{k:,} row{"s" if k != 1 else ""}</span></li>' for n, k in x["names"])
-               + "</ul>")
+               + "".join(f'<li>{panes.esc(n)} <span class="small">on {panes.esc(facts.count_words(k, "record", "records"))}</span></li>'
+                         for n, k in x["names"]) + "</ul>")
     out += timeline(x, q, boxes)
     out += money(x, q, boxes)
     mine = {ref: (v, r) for ref, v, r in x["rows"]}
@@ -829,6 +823,7 @@ def pane(x: dict, q: str = "", boxes=None) -> str:
         out.append('<h3 id="related">Related companies <span class="count">0</span></h3><p class="why">none found</p>')
     out += near_part(x, q, boxes)
     out += decided(x, q, boxes)
+    out.append(f'<p class="small">{panes.esc(NOT_A_LINK)} {panes.esc(NO_CLAIMS)}.</p>')
     out.append("</section>")
     return "\n".join(out)
 

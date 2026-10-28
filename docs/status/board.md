@@ -17,11 +17,14 @@
   row as filed stays closed under its fact. The many-rows dossier keeps
   its shape; each view's heading is its fact with its years (SQL).
   Largest group 0.56 s before, 0.8 s after.
+- Tranche 2: the dossier head and the result cards say what the entity
+  is ("director and shareholder, charity trustee"), never row counts,
+  register counts or view names; a single-row card says its row's fact.
 
 ## Half-done
 
-- Tranche 2 (wording: header, entity card, lone card), tranche 3 (table
-  sort and resize), tranche 4 (the entity graph fault): not started.
+- Tranche 3 (table sort and resize), tranche 4 (the entity graph
+  fault): not started.
 
 ## Known limits
 

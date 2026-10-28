@@ -152,6 +152,11 @@ div.sidecol,div.stack{display:flex;flex-direction:column;gap:.75rem;flex:0 0 aut
 ol.timeline{padding-left:1.2rem}
 ol.timeline li{margin:.3rem 0}
 .when{color:#aab1bc;font-size:12px}
+ol.facts{padding-left:1.2rem}
+ol.facts>li{margin:.5rem 0}
+.say{font-size:15px}
+.small,.what{color:#aab1bc;font-size:12px}
+details.asfiled>summary{color:#aab1bc;font-size:12px;cursor:pointer}
 table.money td{vertical-align:top;padding:.2rem .4rem .2rem 0}
 @media (max-width:75rem){div.duo{flex-direction:column}.pane.side,.sidecol>.pane.side,.pane.dossier{position:static;flex-basis:auto;width:46rem;max-width:calc(100vw - 2rem)}}
 """
@@ -806,17 +811,16 @@ def graph_href(nid: str, boxes=None) -> str:
 
 
 RESULTS_ENTITY_NOTE = ("Entities only (ruling 111): the groups the links lane built (pub.groups) that the matching rows fall in, "
-                       "and those whose rows carry the name searched (pub.names), each with its count of rows and registers; "
+                       "and those whose rows carry the name searched (pub.names), each with what it is (ruling 117); "
                        "then each matching row in no group, as an entity of one row. A row is read in its entity's dossier. "
                        "The board makes no link by looking. The ")
 TAB_FIELDS_NOTE = ("A tab for each field that matched, its count the entities under it; an entity one of whose rows matched "
                    "several fields is under each.")
-LONE_WORDS = "single-row entity"
 
 
 def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None, why: str = "") -> str:
     """One entity in the results pane (ruling 108 (1)): its name (the fullest
-    filed, people.describe), "n rows, n registers", contested marked, the
+    filed, people.describe), what it is (ruling 117 (2), people.what_of), contested marked, the
     registers named (ruling 110 (1): the rows of this search it holds are
     not listed, they all carry the one name); its name opens its dossier
     (ruling 111), a click on it the graph beside the results, centred on it."""
@@ -825,11 +829,11 @@ def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None, why: str = "")
     link = f'<a class="row" href="{esc(dossier_href(d, q, boxes))}"><strong>{mark(e["label"], words)}</strong></a>'
     out = [f'<article class="hit entity"{f" data-graph={chr(34)}{esc(graph_href(centre, boxes))}{chr(34)}" if centre else ""}'
            f' data-dossier="{esc(d)}">'] + ([f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
-           f'<div>{link} <span class="meta">entity</span>{dossier_link(d, q, boxes)}</div>',
-           f'<div class="note">{esc(e["count"])}' + (' · <span class="warn">contested</span>' if e["contested"] else "")
+           f'<div>{link}{dossier_link(d, q, boxes)}</div>',
+           f'<div class="what">{esc(e.get("what") or "")}' + (' · <span class="warn">contested</span>' if e["contested"] else "")
            + (f' · <span class="lineage" title="{esc("a related company: " + "; ".join(e["related"]) + ", never one entity (ruling 106 (2))")}">'
               "related</span>" if e.get("related") else "") + "</div>",
-           f'<div class="meta">{esc("; ".join(e.get("registers_named") or []))}</div>']
+           f'<div class="meta">from {esc("; ".join(e.get("registers_named") or []))}</div>']
     if not in_hand and not why:                        # ruling 110 (1): the rows in hand are not listed, they share the name
         out.append('<div class="meta">found by its rows\' filed name (pub.names), no row heading this list</div>')
     out.append("</article>")
@@ -838,19 +842,21 @@ def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None, why: str = "")
 
 def lone_hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "") -> str:
     """A matching row in no group, listed as the entity of one row it is
-    (ruling 111): its title, its register, "1 row, 1 register", the fields it
+    (ruling 111): its title, what it is (ruling 117 (2)), its register, the fields it
     matched under "any field may match" (ruling 92 (6)); no field of the row,
     which its dossier shows. A suppressed row's title is the suppressed word
     (hard limit 16)."""
+    from products.board import facts               # facts reads panes: imported here, as fold_hit imports collapse
     d = f"{v.name}:{r['key']}"
-    link = f'<a class="row" href="{esc(dossier_href(d, q, boxes))}"><strong>{mark(title_of(v, r), words)}</strong></a>'
+    name = facts.name_of(v, r) if v.kind == "person" else title_of(v, r)
+    link = f'<a class="row" href="{esc(dossier_href(d, q, boxes))}"><strong>{mark(name, words)}</strong></a>'
     out = [f'<article class="hit entity lone" data-graph="{esc(graph_href(d, boxes))}" data-dossier="{esc(d)}">'] + (
            [f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
-           f'<div>{struck(v, r, link)} <span class="meta">{LONE_WORDS}</span>{dossier_link(d, q, boxes)}</div>',
-           '<div class="note">1 row, 1 register' + (
+           f'<div>{struck(v, r, link)}{dossier_link(d, q, boxes)}</div>',
+           f'<div class="what">{facts.lone_words(v, r) if not is_suppressed(v, r) else ""}' + (
                f' · <span class="lineage" title="{esc("a related company: " + str(r["_related"]) + ", never one entity (ruling 106 (2))")}">'
                "related</span>" if r.get("_related") else "") + "</div>",
-           f'<div class="meta">{esc(REGISTER_NAME.get(v.register, v.register))} · {esc(v.name)}</div>']
+           f'<div class="meta">from {esc(REGISTER_NAME.get(v.register, v.register))}</div>']
     if is_suppressed(v, r):
         out.append(f'<div class="warn">{SUPPRESSED}: the row and its figures stay (hard limit 16)</div>')
     matched = [FIELD_LABEL[k[len("_matched_"):]] for k in r if k.startswith("_matched_") and r[k]]
@@ -886,20 +892,20 @@ def fold_hit(q: str, x: dict, ents: dict, words, boxes=None) -> str:
     it is collapsed here and not a link; its dossier lists the members as the
     entities they are; a click opens the graph beside the results on its first."""
     by, members = x["fold"]
-    labels, titles, rows, registers, contested = [], [], 0, [], False
+    from products.board import collapse, facts
+    labels, titles, whats, registers, contested = [], [], [], [], False
     for m in members:
         if m["group"] is not None:
             e = ents["entity"][m["group"]]
             labels.append(e["label"])
-            rows += e["rows"]
+            whats += [w for w in (e.get("what") or "").split(", ") if w]
             registers += e.get("registers_named") or []
             contested = contested or e["contested"]
         else:
             v, r = m["in_hand"][0]
             titles.append(title_of(v, r))
-            rows += 1
+            whats += [w for w in facts.what_it_is([(v, r)]).split(", ") if w and not is_suppressed(v, r)]
             registers.append(REGISTER_NAME.get(v.register, v.register))
-    from products.board import collapse
     lead = members[0]
     centre = (f"{lead['in_hand'][0][0].name}:{lead['in_hand'][0][1]['key']}" if lead["in_hand"]
               else ents["entity"][lead["group"]].get("centre") or "")
@@ -907,10 +913,10 @@ def fold_hit(q: str, x: dict, ents: dict, words, boxes=None) -> str:
     return (f'<article class="hit entity folded"{f" data-graph={chr(34)}{esc(graph_href(centre, boxes))}{chr(34)}" if centre else ""}'
             f' data-dossier="{esc(x["id"])}">'
             f'<div>{link} <span class="meta">collapsed here</span>{dossier_link(x["id"], q, boxes)}</div>'
-            f'<div class="note">{len(members)} entities, {rows:,} row{"s" if rows != 1 else ""}'
+            f'<div class="what">{esc(", ".join(dict.fromkeys(whats)))}'
             + (' · <span class="warn">contested</span>' if contested else "") + "</div>"
             f'<div class="fold">{esc(collapse.words(by))}</div>'
-            f'<div class="meta">{esc("; ".join(dict.fromkeys(registers)))}</div></article>')
+            f'<div class="meta">{len(members)} entities, from {esc("; ".join(dict.fromkeys(registers)))}</div></article>')
 
 
 def collapse_section(q: str, boxes) -> str:

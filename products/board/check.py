@@ -382,10 +382,10 @@ def many_problems(conn, gid: str, n: int, x: dict, page: str) -> list:
         out.append(f"the dossier of {gid} does not count each of its catalogued rows once across its views")
     if sum(k for _, k in x.get("names") or ()) != shown:
         out.append(f"the dossier of {gid} does not count each row once under the names as filed")
-    if f'class="note whole">{html.escape(dossier.whole_words(x))}' not in page or f"{shown:,} rows across {len(sections)} view" not in page:
-        out.append(f"the dossier of {gid} does not say its whole count, {shown:,} rows across {len(sections)} views")
+    if f'class="small whole">{html.escape(dossier.whole_words(x))}' not in page or f"{shown:,} records of {len(sections)} kind" not in page:
+        out.append(f"the dossier of {gid} does not say its whole count, {shown:,} records of {len(sections)} kinds")
     newest = page.count('<li class="newest">')
-    if newest != min(shown, dossier.TIMELINE_ROWS) or (shown > newest and f"and {shown - newest:,} more rows" not in page):
+    if newest != min(shown, dossier.TIMELINE_ROWS) or (shown > newest and f"and {shown - newest:,} more records" not in page):
         out.append(f"the dossier of {gid} lists {newest} newest rows and does not say how many more")
     if page.count('<li><span class="when">') != len(x["rows"]) or any(
             sum(1 for _, v, _ in x["rows"] if v.name == view) > min(k, dossier.VIEW_ROWS) for view, k in sections):
