@@ -47,7 +47,7 @@ import urllib.parse
 from support.docstore import landing as docstore
 from products.board import assets
 from products.board import catalogue as cat
-from products.board import db, document, dossier, graph, lineage, links_view, near, panes, people, search, state, uses
+from products.board import collapse, db, document, dossier, graph, lineage, links_view, near, panes, people, search, state, uses
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
@@ -175,6 +175,8 @@ def dossier_of(conn, chosen: str, q: str, boxes) -> tuple:
     if not chosen:
         return dossier.placeholder(q, boxes), ""
     x = dossier.gather(conn, chosen, REPORT_URL)
+    if x["kind"] == "fold":                            # ruling 112: the graph centres on the fold's first member
+        return dossier.pane(x, q, boxes), x["centre"] if not x["centre"].startswith(people.ENTITY) else ""
     centre = chosen if not chosen.startswith(people.ENTITY) and x["kind"] != "suppressed" else \
         next((f"{v.name}:{r['key']}" for _, v, r in x.get("rows") or ()), "")
     return dossier.pane(x, q, boxes), centre
@@ -244,10 +246,11 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         chosen = dossier.parse(chosen)
         dos, centre = dossier_of(conn, chosen, q, boxes)
         if q or asked or tv is None or graph_open:    # with a table open and nothing asked, the table sits beside the search
-            pane = panes.results_pane(q, results, held, regs, boxes, words, nearby, ents=ents)
+            pane = panes.results_pane(q, results, held, regs, boxes, words, nearby, ents=ents,
+                                      fold=collapse.folder(conn, boxes.collapse))     # ruling 112: a display choice, read only
             if asking or graph_open:                   # ruling 108 (4); ruling 110: the dossier under the graph
                 g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=asked if regs else None,
-                                removed=boxes.removed, people=boxes.people) if graph_open else None
+                                removed=boxes.removed, people=boxes.people, collapse=boxes.collapse) if graph_open else None
                 side = graph.side_pane(boxes, centre, g, q, regs, chosen)
                 out.append(f'<div class="duo">{pane}<div class="sidecol">{side}{dos}</div></div>')
             else:
@@ -308,7 +311,7 @@ def graph_answer(q: str, centre: str = "", conn=None, boxes: search.Boxes = sear
         if opened:
             return graph.opened(people.entity(conn, opened), q, boxes)
         g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None,
-                        removed=boxes.removed, people=boxes.people)
+                        removed=boxes.removed, people=boxes.people, collapse=boxes.collapse)
         return graph.answer(g, q, boxes)
 
 

@@ -38,7 +38,7 @@ def test_the_search_tab_marks_maori_as_maori_in_the_registers_checked_only():
         html = server.render("Maori", [], conn=conn, boxes=search.Boxes(False, ("iwi_directory",)))
     results = html[html.index('id="results"'):]
     assert "<mark>Māori</mark>" in results                        # "Maori" typed marks "Māori" filed
-    assert "<strong>iwi_directory_entities</strong>" in results
+    assert "· iwi_directory_entities</div>" in results                # ruling 111: its single-row entities name their view
     assert "Registered political parties" not in results           # an unchecked register is not searched
 
 

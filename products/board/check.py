@@ -17,7 +17,7 @@ tables through the session reader, never the sample:
      one director's other roles open. Each pane cites its document.
   6. The search tab (rulings 80, 81): with "search all" off, the known name
      is found with only its register ticked, and not with it unticked.
-  7. The graph tab (ruling 80): the known donor row is drawn with at least
+  7. The graph (ruling 80; beside the results since ruling 111): the known donor row is drawn with at least
      one money edge; every edge's far end is a row that exists; no edge type
      is an address; every relation column the catalogue names exists in its
      view and in the view it is matched to (with 3). Ruling 84: on that
@@ -84,8 +84,9 @@ tables through the session reader, never the sample:
      count of one or more, a link adding it as an alternative, and says a
      variant is never a link; the search with that alternative finds at
      least the rows of either name (near_names_problems).
- 21. The canvas (ruling 100): the graph tab carries the canvas, its data
-     inline, the SVG inside <noscript> and the key; neither the page nor
+ 21. The canvas (ruling 100): the graph beside the results (the graph tab's
+     old address landed, ruling 111) carries the canvas, its data
+     inline, the SVG inside <noscript> and the key; neither that graph nor
      any file /static/ serves names an address off the box but in a
      licence comment (assets.addresses); every listed file reads, any other
      name does not. For JSON_TERM ("hart") the answer /graph.json gives has
@@ -125,6 +126,14 @@ tables through the session reader, never the sample:
      (with 23); the switch sits once, on the graph's pane; no graph tab; the
      tab's old address lands on the search page with the graph drawn, in
      the state it carried (entities_only_problems).
+ 27. The collapse section (ruling 112): with every criterion ticked, for
+     COLLAPSE_TERM in both states, the section is closed above the entities
+     with each criterion ticked, fewer entries are listed than unfolded,
+     every folded entry and folded node says "collapsed here by …; not a
+     link" and nothing that reads as confirmed, a fold's members are each a
+     group pub.groups holds and its dossier lists them as their own
+     entities, and pub.groups and pub.links hold the same rows, counted and
+     hashed, before and after (collapse_problems).
 
   python -m products.board check [--term NAME]      exit 1 on any failure
 """
@@ -140,7 +149,7 @@ import urllib.parse
 
 from products.board import assets
 from products.board import catalogue as cat
-from products.board import db, document, dossier, graph, links_view, near, people, search, panes, server, uses
+from products.board import collapse, db, document, dossier, graph, links_view, near, people, search, panes, server, uses
 
 ADDRESS_WORDS = re.compile(r"residential|home_address|street|suburb|postal", re.I)
 #: the comparison's residence vocabulary (checks/comparison.py RESIDENCE_WORDS; tests/test_check_vocabulary.py holds the two equal):
@@ -295,6 +304,7 @@ def problems(conn, term: str = None) -> list:
     out += lineage_problems(conn)
     out += dossier_problems(conn)
     out += entities_only_problems(conn)
+    out += collapse_problems(conn)
     return out
 
 
@@ -415,6 +425,76 @@ def entities_only_problems(conn) -> list:
     side = landed[landed.find('<div class="sidecol">'):]
     if 'data-inline="1"' not in side or "<svg" not in noscript_picture(side) or inline_data(side).get("mode") != "entities":
         out.append("the search page with gv=1 does not draw the graph beside the results in the state the address carries")
+    return out
+
+
+#: item 27's live case: a name several of the links lane's groups carry, so a fold by name has something to fold
+COLLAPSE_TERM = "John Smith"
+FINGERPRINT = ("select (select count(*) from pub.groups) as groups, "
+               "(select coalesce(sum(hashtext(row_key || group_id || contested::text)), 0) from pub.groups) as groups_hash, "
+               "(select count(*) from pub.links) as links, "
+               "(select coalesce(sum(hashtext(row_a || row_b || rule || grade)), 0) from pub.links) as links_hash")
+CONFIRMED_WORDS = re.compile(r"\bconfirmed\b|same person|\blinked\b|\ba link\b(?!;)", re.I)
+
+
+def collapse_problems(conn) -> list:
+    """Item 27 (ruling 112): with every criterion ticked, for COLLAPSE_TERM in
+    both states, the results fold fewer entries than they list unfolded,
+    every folded entry and folded node says "collapsed here … not a link"
+    and nothing that reads as confirmed, its members are distinct groups of
+    pub.groups (the fold changed no group), the dossier of a fold lists its
+    members as their own entities, and pub.groups and pub.links hold the same
+    rows, counted and hashed, before and after (the board's reader cannot
+    write, and a statement that tried would turn this red)."""
+    out = []
+    before = db.rows(conn, FINGERPRINT)[0]
+    every = search.FIRST._replace(collapse=search.COLLAPSE_CHOICES)
+    folded_any = False
+    for people_state in (False, True):
+        boxes = every._replace(people=people_state)
+        plain = results_section(server.render(COLLAPSE_TERM, [], conn=conn, boxes=boxes._replace(collapse=())))
+        page = server.render(COLLAPSE_TERM, [], conn=conn, boxes=boxes)
+        res = results_section(page)
+        if '<details class="collapse" id="collapse">' not in res or res.find('id="collapse"') > res.find("<h3>Entities"):
+            out.append("the collapse section is not a closed section above the entities")
+        for c in search.COLLAPSE_CHOICES:
+            if f'name="cl" value="{c}" checked' not in res:
+                out.append(f"the collapse section does not show {c!r} ticked when the address carries it")
+        if res.count("<article") >= plain.count("<article"):
+            out.append(f"every criterion ticked folds nothing for {COLLAPSE_TERM!r} ({res.count('<article')} entries, "
+                       f"{plain.count('<article')} unfolded)")
+        for art in re.findall(r'<article class="hit entity folded".*?</article>', res, re.S):
+            folded_any = True
+            said = re.search(r'<div class="fold">(.*?)</div>', art)
+            if not said or not said.group(1).startswith("collapsed here by ") or not said.group(1).endswith("; not a link"):
+                out.append("a folded entry does not say it is collapsed here and not a link")
+            if CONFIRMED_WORDS.search(re.sub(r"<[^>]+>", " ", art).replace("; not a link", "")):
+                out.append("a folded entry reads as confirmed")
+        d = re.search(r'class="hit entity folded"[^>]* data-dossier="([^"]*)"', res)
+        if d:
+            fid = html.unescape(d.group(1))
+            members = collapse.parse(fid)[1]
+            gids = [m[len(people.ENTITY):] for m in members if m.startswith(people.ENTITY)]
+            got = db.rows(conn, "select group_id, count(*) as n from pub.groups where group_id = any(%s) group by 1", (gids,))
+            if len(got) != len(set(gids)):
+                out.append(f"a fold's members are not each a group pub.groups holds: {len(got)} of {len(set(gids))}")
+            pane = dossier.pane(dossier.gather(conn, fid))
+            listed = re.findall(r'<li><a class="row" href="([^"]*)"', pane)
+            if len(listed) < 2 or not all("d=" in h for h in listed) or "never written" not in pane:
+                out.append("the dossier of a fold does not list its members, each opening its own dossier")
+        data = server.graph_answer(COLLAPSE_TERM, conn=conn, boxes=boxes)
+        for n in data["nodes"]:
+            if n.get("kind") == "fold" and (not n["words"].endswith("; not a link") or CONFIRMED_WORDS.search(n["words"].replace("; not a link", ""))):
+                out.append("a folded node on the graph does not say it is collapsed here and not a link")
+        if any(e["kind"] == graph.CONFIRMED and (e["source"].startswith(collapse.PREFIX) or e["target"].startswith(collapse.PREFIX))
+               for e in data["edges"]):
+            out.append("a folded node draws a confirmed line")
+    if not folded_any:
+        out.append(f"no folded entry for {COLLAPSE_TERM!r}: item 27 has nothing to read")
+    after = db.rows(conn, FINGERPRINT)[0]
+    if after != before:
+        out.append(f"pub.groups or pub.links changed while the collapse section folded ({before} then {after}); "
+                   "a links rebuild would also do this: run the check again once it is done")
     return out
 
 

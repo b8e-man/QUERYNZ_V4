@@ -34,6 +34,7 @@ import json
 
 from products.board import assets
 from products.board import catalogue as cat
+from products.board import collapse as folding
 from products.board import db, lineage, links_view, panes, people as people_state, search
 
 MAX_MATCHED = 16        # matched rows drawn; the rest are counted and the search can be narrowed
@@ -80,7 +81,8 @@ def _resolver(conn):
     return resolve
 
 
-def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, removed: bool = True, people: bool = False) -> dict:
+def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, removed: bool = True, people: bool = False,
+          collapse: tuple = ()) -> dict:
     """{'nodes': {id: {v, row, matched, centre, order}}, 'edges': [...],
     'drawn': {kind: n}, 'not_drawn': {kind: n}, 'matched_total', 'unresolved'}.
     An edge is one cause: kind, a, b (node ids), label (plain words), cite
@@ -89,7 +91,9 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
     removed company is not a matched row (ruling 93); a far end still shows,
     and a centre opens whatever its status, since its link names the row.
     `people` (ruling 105): the same rows and record relations, no links of
-    a row's own, then folded into the links lane's groups (people.fold)."""
+    a row's own, then folded into the links lane's groups (people.fold).
+    `collapse` (ruling 112): the collapse section's criteria, folding the
+    nodes further for this view, as the results fold (collapse.fold_graph)."""
     g = {"nodes": {}, "edges": [], "drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS},
          "not_drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS}, "matched_total": 0, "unresolved": 0, "centre": centre}
     held = db.pub_views(conn)
@@ -186,7 +190,8 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
                     drawn += 1
             g["not_drawn"][kind] += len(items) - drawn
     lineage.draw(conn, g, add_node, add_edge, people_state.resolve_refs)     # ruling 106 (2): the related grade, as frames
-    return people_state.fold(conn, g, max_nodes=MAX_NODES) if people else g
+    out = people_state.fold(conn, g, max_nodes=MAX_NODES) if people else g
+    return folding.fold_graph(conn, out, collapse, g["nodes"]) if collapse else out
 
 
 # ── a donor's money, one edge per recipient (ruling 86 (3)) ─────────────────
@@ -662,7 +667,7 @@ def place(g: dict, lay: dict, lns: list) -> dict:
     for nid, n in order:
         x, y = pos[nid]
         rad = radius(n)
-        name, reg = node_title(n), n["v"].register.replace("_", " ")
+        name, reg = node_title(n), ("collapsed here, not a link" if n.get("fold") else n["v"].register.replace("_", " "))
         others = [b for k, b in circle.items() if k != nid] + bands
         labels[nid] = None
         tries = [(k, True) for k in LABEL_LENGTHS] + [(k, False) for k in LABEL_LENGTHS[-2:]]
@@ -772,7 +777,7 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None, l
         title = node_title(n)
         rad = radius(n)
         e = n.get("entity")                 # an entity re-centres on its first row in hand, in the people state
-        to = panes.graph_open_href(q, boxes, e["in_hand"][0] if e else nid)     # ruling 111: centred beside the results
+        to = panes.graph_open_href(q, boxes, n["fold"]["dossier"] if n.get("fold") else e["in_hand"][0] if e else nid)     # ruling 111
         lab = placement["labels"].get(nid)
         text = ""
         if lab:
@@ -780,7 +785,8 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None, l
             text = f'<text x="{lx:.1f}" y="{y1:.1f}" text-anchor="{anchor}">{panes.esc(t1)}</text>'
             if t2:
                 text += f'<text class="reg" x="{lx:.1f}" y="{y2:.1f}" text-anchor="{anchor}">{panes.esc(t2)}</text>'
-        out.append(f'<a href="{panes.esc(to)}"><title>{panes.esc(title)} · {panes.esc(panes.register_heading(v.register))} · {panes.esc(v.name)}</title>'
+        how = f' · {n["fold"]["count"]} · {n["fold"]["words"]}' if n.get("fold") else ""
+        out.append(f'<a href="{panes.esc(to)}"><title>{panes.esc(title)} · {panes.esc(panes.register_heading(v.register))} · {panes.esc(v.name)}{panes.esc(how)}</title>'
                    f'<circle class="{"matched" if n["matched"] else "other"}" cx="{x:.1f}" cy="{y:.1f}" r="{rad}"/>{text}</a>')
     out.append("</svg></div>")
     return "".join(out)
@@ -908,6 +914,10 @@ def answer(g: dict, q: str, boxes=None, lns: list = None, lay: dict = None) -> d
                 node.update({"count": e["count"], "contested": e["contested"], "group": e["group_id"],
                              "pane": panes.href(q, [people_state.entity_id(e["group_id"])], boxes),
                              "open": open_href(e["group_id"], boxes), "grow": ""})
+        f = n.get("fold")
+        if f:                                           # ruling 112: collapsed here, never a link; its dossier lists the members
+            node.update({"kind": "fold", "count": f["count"], "words": f["words"], "members": f["members"], "grow": "",
+                         "dossier": f["dossier"], "pane": panes.dossier_href(f["dossier"], q, boxes), "open": ""})
         if nid in parent:
             node["parent"] = parent[nid]
         if n.get("stands_for"):

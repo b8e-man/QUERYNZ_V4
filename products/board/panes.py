@@ -16,7 +16,7 @@ import urllib.parse
 
 from products.board import catalogue as cat
 from products.board import document
-from products.board.search import FIELD_LABEL, FIELDS, MODES, TABS, field_words, words_of
+from products.board.search import COLLAPSE, FIELD_LABEL, FIELDS, MODES, TABS, field_words, words_of
 from products.board.search import add_alternative as search_add, drop_alternative as search_drop
 from products.board.search import FIRST as FIRST_BOXES, TABLE_MAX as TABLE_MAX_N, TABLE_PAGE as TABLE_PAGE_N
 
@@ -133,6 +133,10 @@ div.ftab{display:none;border-top:1px solid #3a404c}
 #ft-other:checked~#ftab-other{display:block}
 details.regs{border-top:1px solid #3a404c;padding:.3rem 0}
 details.regs summary{cursor:pointer;font-size:13px;font-weight:600}
+details.collapse{border:1px solid #3a404c;border-radius:4px;padding:.3rem .6rem;margin:.5rem 0}
+details.collapse summary{cursor:pointer;font-weight:600}
+details.collapse label{font-size:13px}
+.fold{color:#ffb26b;font-size:12px;font-style:italic}
 article.hit[data-graph]{cursor:pointer}
 article.hit.on{background:#1d3a5f}
 article.entity{border-left:3px solid #8cb8ff;padding-left:.5rem}
@@ -876,7 +880,64 @@ def entries(rows, ents: dict, tab: str = None) -> list:
     return [{"id": "entity:" + g, "group": g, "in_hand": hand.get(g, [])} for g in gids] + lone
 
 
+def fold_hit(q: str, x: dict, ents: dict, words, boxes=None) -> str:
+    """A folded entry of the collapse section (ruling 112): the fullest name
+    among its members, "n entities, n rows", the registers, and the word that
+    it is collapsed here and not a link; its dossier lists the members as the
+    entities they are; a click opens the graph beside the results on its first."""
+    by, members = x["fold"]
+    labels, titles, rows, registers, contested = [], [], 0, [], False
+    for m in members:
+        if m["group"] is not None:
+            e = ents["entity"][m["group"]]
+            labels.append(e["label"])
+            rows += e["rows"]
+            registers += e.get("registers_named") or []
+            contested = contested or e["contested"]
+        else:
+            v, r = m["in_hand"][0]
+            titles.append(title_of(v, r))
+            rows += 1
+            registers.append(REGISTER_NAME.get(v.register, v.register))
+    from products.board import collapse
+    lead = members[0]
+    centre = (f"{lead['in_hand'][0][0].name}:{lead['in_hand'][0][1]['key']}" if lead["in_hand"]
+              else ents["entity"][lead["group"]].get("centre") or "")
+    link = f'<a class="row" href="{esc(dossier_href(x["id"], q, boxes))}"><strong>{mark(collapse.label(labels, titles), words)}</strong></a>'
+    return (f'<article class="hit entity folded"{f" data-graph={chr(34)}{esc(graph_href(centre, boxes))}{chr(34)}" if centre else ""}'
+            f' data-dossier="{esc(x["id"])}">'
+            f'<div>{link} <span class="meta">collapsed here</span>{dossier_link(x["id"], q, boxes)}</div>'
+            f'<div class="note">{len(members)} entities, {rows:,} row{"s" if rows != 1 else ""}'
+            + (' · <span class="warn">contested</span>' if contested else "") + "</div>"
+            f'<div class="fold">{esc(collapse.words(by))}</div>'
+            f'<div class="meta">{esc("; ".join(dict.fromkeys(registers)))}</div></article>')
+
+
+def collapse_section(q: str, boxes) -> str:
+    """Ruling 112: above the entities, a closed "collapse" section opening to
+    the fixed criteria, each a box the reader ticks to fold the listed
+    entities further for this view; the links lane's groups ticked and fixed.
+    A GET form carrying the page's address but its `cl`, so the view reopens
+    folded; the summary names what is ticked while it stays closed."""
+    from products.board import collapse
+    on = set(getattr(boxes, "collapse", ()) or ())
+    keep = "".join(f'<input type="hidden" name="{k}" value="{esc(v)}">' for k, v in [("q", q)] + boxes._replace(collapse=()).params())
+    items = []
+    for c, label, _ in collapse.CRITERIA:
+        if c == "groups":
+            items.append(f'<label><input type="checkbox" checked disabled> {esc(label)}</label>')
+        else:
+            items.append(f'<label><input type="checkbox" name="{COLLAPSE}" value="{c}"{" checked" if c in on else ""}> {esc(label)}</label>')
+    ticked = [collapse.WORD[c] for c in collapse.CHOICES if c in on]
+    return (f'<details class="collapse" id="collapse"><summary>collapse'
+            + (f' <span class="note">by {esc(", ".join(ticked))}</span>' if ticked else "") + "</summary>"
+            f'<form method="get" action="/">{keep}' + "".join(f"<div>{i}</div>" for i in items)
+            + f'<button>apply</button></form><p class="note">{esc(collapse.NOTE)}</p></details>')
+
+
 def entry_hit(q: str, x: dict, ents: dict, words, boxes=None, why: str = "") -> str:
+    if x.get("fold"):
+        return fold_hit(q, x, ents, words, boxes)
     if x["group"] is not None:
         return entity_hit(q, ents["entity"][x["group"]], x["in_hand"], words, boxes, why)
     v, r = x["in_hand"][0]
@@ -889,8 +950,8 @@ def _entity_list(q, xs: list, ents: dict, words, boxes, cut: int = 0) -> list:
     the rows that matched but were not read (past each view's first 50),
     so not gathered: said, never counted as entities."""
     from products.board.people import RESULT_ENTITIES, RESULT_LONE
-    groups = [x for x in xs if x["group"] is not None]
-    lone = [x for x in xs if x["group"] is None]
+    groups = [x for x in xs if x["group"] is not None or x.get("fold")]
+    lone = [x for x in xs if x["group"] is None and not x.get("fold")]
     out = [f'<h3>Entities <span class="count">{len(xs):,}{"+" if cut else ""}</span></h3>']
     if not xs:
         out.append('<p class="why">none found</p>')
@@ -964,7 +1025,7 @@ def tabbed(results: dict, ents: dict = None) -> list:
 
 
 def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(), near: dict = None, docs: dict = None,
-                 far: dict = None, ents: dict = None) -> str:
+                 far: dict = None, ents: dict = None, fold=None) -> str:
     """The wider pane beside the left one (ruling 111): the entities the
     matching rows make, never a row, over `regs`, the registers searched
     (search.selection); `ents`, people.gather over the rows shown; `boxes`
@@ -974,8 +1035,11 @@ def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(),
     or "any field may match"), one tab per field matched, each holding the
     entities one of whose rows matched it, its count those entities. A click
     on a result opens the graph beside the pane and the dossier under it
-    (graph.js); its name opens the dossier without script."""
+    (graph.js); its name opens the dossier without script. Ruling 112: the
+    collapse section above the entities; `fold`, the criteria ticked applied
+    to a list of entries (collapse.folder), else the entries as they are."""
     ents = ents if ents is not None else {"group": {}, "entity": {}, "named": {}}
+    fold = fold or (lambda xs: xs)
     out = ['<section class="pane wide" id="results">', '<div class="reg">results · entities</div>']
     asked = boxes.asked() if boxes is not None else {}
     if not boxes.all and not regs:
@@ -990,12 +1054,13 @@ def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(),
     if asked.get("year") and not re.fullmatch(r"\d{4}", asked["year"].strip()):
         out.append('<p class="warn">a year is four digits: nothing was searched</p>')
     out.append(f'<p class="note">{esc(RESULTS_ENTITY_NOTE)}{esc(ENTITY_LABEL_NOTE)}. A row whose name is suppressed is never gathered.</p>')
+    out.append(collapse_section(q, boxes))
     hidden = results.get("hidden") or {}
     tabs = tabbed(results, ents) if results.get("tabs") else None
     if tabs is None:
         rows, cut = _flat(results)
         out.append(register_totals(results, regs, held, hidden))
-        out += _entity_list(q, entries(rows, ents), ents, words, boxes, cut)
+        out += _entity_list(q, fold(entries(rows, ents)), ents, words, boxes, cut)
         out += _empty_registers(results, regs, held, boxes, hidden, asked)
     elif not tabs:
         out.append('<p class="why">none found</p>')
@@ -1004,7 +1069,7 @@ def results_pane(q: str, results: dict, held: set, regs: tuple, boxes, words=(),
         listed = []
         for t, label, n, by_reg in tabs:
             rows, _ = _flat(by_reg)
-            xs = entries(rows, ents, t)
+            xs = fold(entries(rows, ents, t))
             listed.append((t, label, xs, n > len(rows), max(n - len(rows), 0)))
         out.append(f'<p class="note">{esc(TAB_FIELDS_NOTE)}</p><div class="ftabs">')
         for i, (t, label, xs, more, _) in enumerate(listed):

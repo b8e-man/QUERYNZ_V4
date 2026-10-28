@@ -35,7 +35,7 @@ import re
 import urllib.parse
 
 from products.board import catalogue as cat
-from products.board import db, document, graph, lineage, links_view, panes, people, search
+from products.board import collapse, db, document, graph, lineage, links_view, panes, people, search
 
 ENTITY = people.ENTITY
 OPEN_AT = 40                # a register's rows open on the pane up to this many; past it closed to its name and count
@@ -50,8 +50,13 @@ ROLE_KINDS = ("role",)
 
 def parse(d: str) -> str:
     """The chosen entity or row from the address (`d=`): `entity:<group id>`,
-    or `<view>:<key>` of a catalogued view; '' for anything else."""
-    d = (d or "").strip()[:300]
+    `<view>:<key>` of a catalogued view, or a fold of the collapse section
+    (`fold:<criteria>:<members>`, collapse.fold_id); '' for anything else."""
+    d = (d or "").strip()
+    if d.startswith(collapse.PREFIX):                  # ruling 112: a folded entry of the collapse section
+        d = d[:8000]
+        return d if collapse.parse(d) else ""
+    d = d[:300]
     if d.startswith(ENTITY):
         return d if len(d) > len(ENTITY) else ""
     view, _, key = d.partition(":")
@@ -148,6 +153,8 @@ def gather(conn, d: str, report_url: str = "") -> dict:
     d = parse(d)
     if not d:
         return {"kind": "none", "chosen": "", "why": "nothing chosen: click a result or tap a node"}
+    if d.startswith(collapse.PREFIX):
+        return gather_fold(conn, d)
     via = ""
     if d.startswith(ENTITY):
         gid = d[len(ENTITY):]
@@ -173,6 +180,59 @@ def gather(conn, d: str, report_url: str = "") -> dict:
     return finish(conn, {**ent, "kind": "entity", "chosen": d, "via": via,
                          "report": panes.report_href(report_url, gid if gid in refs else (refs[0] if refs else gid)),
                          "names": count_names([(names.get(ref) or panes.title_of(v, r)) for ref, v, r in ent["rows"]])})
+
+
+def gather_fold(conn, d: str) -> dict:
+    """A folded entry of the collapse section (ruling 112): its members as the
+    entities they are, each its name, counts, registers and its own dossier;
+    the criteria that folded them, said to be no link. Reads pub.groups and
+    the rows by key; writes nothing. A suppressed member is counted, never named."""
+    by, ids = collapse.parse(d)
+    gids = [m[len(ENTITY):] for m in ids if m.startswith(ENTITY)]
+    ents = people.gather(conn, [], {g: set() for g in gids})
+    members, hidden, centre = [], 0, ""
+    for m in ids:
+        if m.startswith(ENTITY):
+            e = ents["entity"].get(m[len(ENTITY):])
+            if e is None:
+                hidden += 1
+                continue
+            members.append({"id": m, "label": e["label"], "count": e["count"], "rows": e["rows"], "contested": e["contested"],
+                            "registers": e.get("registers_named") or []})
+            centre = centre or e.get("centre") or ""
+            continue
+        view, _, key = m.partition(":")
+        r = search.row(conn, view, key) if view in cat.BY_NAME else None
+        if r is None or panes.is_suppressed(cat.BY_NAME[view], r):
+            hidden += 1
+            continue
+        v = cat.BY_NAME[view]
+        members.append({"id": m, "label": panes.title_of(v, r), "count": people.count_words(1, 1), "rows": 1, "contested": False,
+                        "registers": [panes.REGISTER_NAME.get(v.register, v.register)]})
+        centre = centre or m
+    return {"kind": "fold", "chosen": d, "by": by, "members": members, "hidden": hidden, "centre": centre,
+            "label": collapse.label([x["label"] for x in members if x["id"].startswith(ENTITY)],
+                                    [x["label"] for x in members if not x["id"].startswith(ENTITY)]) or "collapsed here"}
+
+
+def fold_pane(x: dict, q: str = "", boxes=None) -> str:
+    """The dossier of a folded entry: the members listed as the entities they are, each opening its own dossier."""
+    rows = sum(m["rows"] for m in x["members"])
+    out = [_head(x["chosen"], q, boxes), '<div class="reg">dossier · collapsed here, for this view alone</div>',
+           f"<h2>{panes.esc(x['label'])}</h2>",
+           f'<p class="fold">{panes.esc(collapse.words(x["by"]))}</p>',
+           f'<p class="note">{len(x["members"])} entities, {rows:,} row{"s" if rows != 1 else ""}. {panes.esc(collapse.NOTE)}</p>',
+           f'<h3 id="d-members">Its members, each the entity it is <span class="count">{len(x["members"])}</span></h3><ul>']
+    for m in x["members"]:
+        out.append(f'<li><a class="row" href="{panes.esc(href(m["id"], q, boxes))}">{panes.esc(m["label"])}</a> '
+                   f'<span class="meta">{"entity" if m["id"].startswith(ENTITY) else "single-row entity"}</span>'
+                   f'<div class="note">{panes.esc(m["count"])}' + (' · <span class="warn">contested</span>' if m["contested"] else "")
+                   + f'</div><div class="meta">{panes.esc("; ".join(m["registers"]))}</div></li>')
+    out.append("</ul>")
+    if x["hidden"]:
+        out.append(f'<p class="note">{x["hidden"]} more member{"s" if x["hidden"] != 1 else ""} not named: suppressed, or no longer held</p>')
+    out.append("</section>")
+    return "".join(out)
 
 
 def lone(conn, d: str, ref: str, v: cat.View, r: dict, report_url: str) -> dict:
@@ -449,6 +509,8 @@ def _head(chosen: str, q: str, boxes, hidden: bool = False) -> str:
 
 def pane(x: dict, q: str = "", boxes=None) -> str:
     """The dossier's pane (`gather`'s data), the section graph.js puts under the graph."""
+    if x["kind"] == "fold":
+        return fold_pane(x, q, boxes)
     head = _head(x.get("chosen") or "", q, boxes)
     if x["kind"] in ("none", "suppressed"):
         return (head + '<div class="reg">dossier</div><h2>Dossier</h2>'
