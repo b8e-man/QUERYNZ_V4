@@ -1,4 +1,4 @@
-Pick the node that stands for several rows by an order every answer shares (the person's row on the earliest company), never by which row this answer happened to draw: the canvas merges answers by node id, so a grown hop drew the same person twice.
+Pick the node that stands for several rows by an order every answer shares (the person's row on the earliest company), never by which row this answer drew: the canvas merges answers by node id, so a grown hop drew one person twice.
 area: board, graph, canvas
 paid-for-by: board-10, 28 October 2026
 
