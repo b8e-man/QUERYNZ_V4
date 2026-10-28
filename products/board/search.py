@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import NamedTuple
 
@@ -32,16 +33,24 @@ def _conn():
     return c
 
 
-def _scan(v, words, number, limit, exclude_key, whole=False, fields=None, mode="all", removed=True):
-    got = view_sql(v, words, number, limit, exclude_key, whole, fields, mode, removed)
+#: each view's last scan in seconds: the scans are queued longest first, so the three workers finish together
+#: (the written questions' text alone takes a third of a second; queued last, the whole search waited on it)
+LAST_SCAN = {}
+
+
+def _scan(v, words, number, limit, exclude_key, whole=False, fields=None, mode="all", removed=True, tabs=None):
+    got = view_sql(v, words, number, limit, exclude_key, whole, fields, mode, removed, tabs)
     if got is None:
         return v, []
     sql, params = got
+    t = time.monotonic()
     try:
         return v, db.rows(_conn(), sql, params)
     except Exception:
         _local.conn = None     # a broken connection is dropped; the next scan reopens
         raise
+    finally:
+        LAST_SCAN[v.name] = time.monotonic() - t
 MACRON_FROM, MACRON_TO = cat.MACRONS
 
 
@@ -113,16 +122,17 @@ def field_words(value: str) -> list:
     return [a for a in (_alternatives(w) for w in re.split(r"[\s,;.]+", cat.fold_term(value or ""))) if a]
 
 
-def phrase(value: str) -> str:
+def phrase(value: str, prefix: bool = False) -> str:
     """The pattern for a field's words in a row, together and whole: de lu matches DE LU, never DELUCA;
-    a word with alternatives matches any of them in its place."""
-    return r"\m" + r"\s+".join(word_re(w) for w in field_words(value)) + r"\M"
+    a word with alternatives matches any of them in its place. With `prefix` the last word need only
+    begin a word, as the search box reads it (hart finds HARTLEY; ruling 108's tabs)."""
+    return r"\m" + r"\s+".join(word_re(w) for w in field_words(value)) + (r"\w*" if prefix else r"\M")
 
 
-def whole_words(expr: str, value: str) -> tuple:
-    """Every word of `value` a whole word of `expr`."""
+def whole_words(expr: str, value: str, prefix: bool = False) -> tuple:
+    """Every word of `value` a whole word of `expr` (with `prefix`, the beginning of one)."""
     ws = field_words(value)
-    return " and ".join(f"{expr} ~ %s" for _ in ws), [r"\m" + word_re(w) + r"\M" for w in ws]
+    return " and ".join(f"{expr} ~ %s" for _ in ws), [r"\m" + word_re(w) + ("" if prefix else r"\M") for w in ws]
 
 
 #: post-nominals and a trailing "MP" are not part of a name (keys.names._POST, through the board's copy)
@@ -132,7 +142,7 @@ _POST_SQL = fold._POST.pattern.replace(r"\b", r"\y")
 _TAIL = r"(?:\s*\([^)]*\)|,?\s+(?:kc|qc|mp|jp|onzm|cnzm|dnzm|knzm|mnzm|qso|qsm)\M\.?)*\W*$"
 
 
-def name_patterns(field: str, value: str, order: str) -> tuple:
+def name_patterns(field: str, value: str, order: str, prefix: bool = False) -> tuple:
     """(no comma, with a comma, one word) patterns for a name field over a
     one-string name read in its view's order (ruling 85), applied after an
     honorific is cut from the front and post-nominals from the end.
@@ -145,8 +155,9 @@ def name_patterns(field: str, value: str, order: str) -> tuple:
     so a first name is any word after the first and a middle name any after
     the second); AMBIGUOUS lets a first or last name be any word, and a
     middle name any word but the first of a name of three words or more.
-    A one-word name is matched by a first or last name (None for a middle)."""
-    p = phrase(value)
+    A one-word name is matched by a first or last name (None for a middle).
+    `prefix`: the word need only begin the name's word (the search box's reading)."""
+    p = phrase(value, prefix)
     if field == "first":
         comma, one = r",\s*" + p, p
         plain = {cat.GIVEN_FAMILY: r"^\W*" + p + r"\S*\s+\S", cat.FAMILY_GIVEN: r"\S\s+\S*" + p}.get(order, p)
@@ -165,25 +176,25 @@ def stripped_sql(col: str) -> str:
     return f"regexp_replace(regexp_replace({fold_sql(col)}, %s, ''), %s, '')"
 
 
-def _name_whole(g: cat.Name, want: dict) -> tuple:
+def _name_whole(g: cat.Name, want: dict, prefix: bool = False) -> tuple:
     """A one-string name: every name field asked, by name_patterns in the Name's order."""
     n = stripped_sql(g.whole)
     parts, params = [], []
     for f in NAME_FIELDS:
         if not want.get(f):
             continue
-        plain, comma, one = name_patterns(f, want[f], g.order)
+        plain, comma, one = name_patterns(f, want[f], g.order, prefix)
         alt = f"({n} !~ ',' and {n} ~ %s) or ({n} ~ ',' and {n} ~ %s)"
         ps = [_HON_SQL, _POST_SQL, _HON_SQL, _POST_SQL, plain, _HON_SQL, _POST_SQL, _HON_SQL, _POST_SQL, comma]
         if one:
             alt += f" or ({n} !~ %s and {n} ~ %s)"
             ps += [_HON_SQL, _POST_SQL, r"\S\s+\S", _HON_SQL, _POST_SQL, one]
         parts.append(f"({fold_sql(g.whole)} ~ %s and (" + alt + "))")     # the cheap whole-word test first
-        params += [phrase(want[f])] + ps
+        params += [phrase(want[f], prefix)] + ps
     return " and ".join(parts), params
 
 
-def _name_parts(g: cat.Name, want: dict):
+def _name_parts(g: cat.Name, want: dict, prefix: bool = False):
     """A name held in parts: each name field matches whole words of its own
     column; with one column for every given name, a middle name is any of
     them but the first. None when the parts cannot hold a field asked for."""
@@ -191,7 +202,7 @@ def _name_parts(g: cat.Name, want: dict):
     for f in NAME_FIELDS:
         if not want.get(f):
             continue
-        p = phrase(want[f])
+        p = phrase(want[f], prefix)
         if f == "first" and (g.first or g.given):
             parts.append(f"{fold_sql(g.first or g.given)} ~ %s")
             params.append(p)
@@ -219,11 +230,11 @@ ALL, ANY = "all", "any"
 MODES = ((ALL, "all fields must match"), (ANY, "any field may match"))
 
 
-def _name_clause(fs: cat.Fields, want: dict):
+def _name_clause(fs: cat.Fields, want: dict, prefix: bool = False):
     """The name fields asked, over every Name of the view (any one of them, all the fields in that one)."""
     alts, aps = [], []
     for g in fs.names:
-        got = _name_whole(g, want) if g.whole else _name_parts(g, want)
+        got = _name_whole(g, want, prefix) if g.whole else _name_parts(g, want, prefix)
         if got:
             alts.append("(" + got[0] + ")")
             aps += got[1]
@@ -296,6 +307,72 @@ def matched_sql(v: cat.View, fields: dict) -> tuple:
     return "".join(exprs), params
 
 
+#: the results pane's tabs (ruling 108): one per field a hit matched on, then a number matched exactly, then a
+#: hit whose words fell only in search columns no field reads
+NUMBER, OTHER = "number", "other"
+TABS = FIELDS + ((NUMBER, "number"), (OTHER, "elsewhere in the row"))
+TAB_LABEL = dict(TABS)
+BOX, BY_FIELD = "box", "fields"
+
+
+def tab_mode(term: str, fields: dict, mode: str):
+    """Which tabs the results pane shows (ruling 108 (2)): BY_FIELD, one per
+    filled field, under "any field may match"; BOX, one per field the search
+    box's words matched, for the box alone; None under "all fields must
+    match" with a field filled (one list), or when nothing is asked."""
+    filled = {f: x for f, x in (fields or {}).items() if (x or "").strip()}
+    if filled:
+        return BY_FIELD if mode == ANY else None
+    return BOX if (words_of(term or "") or is_number(term or "")) else None
+
+
+def box_clauses(v: cat.View, words: list, number: str = None) -> list:
+    """[(tab, clause, params)] for the search box's words over one view
+    (ruling 108 (2)): a field's tab where any word begins a word of the
+    columns catalogue.FIELDS_OF names for it, read as the expanded search
+    reads each field (a name in its places, an organisation, an address,
+    a year of four digits); the number tab where the number equals an
+    official-number column. A field the view holds no column for has no tab."""
+    fs = cat.fields_of(v)
+    out = []
+    for f in NAME_FIELDS:
+        alts, ps = [], []
+        for w in words:
+            got = _name_clause(fs, {f: w}, prefix=True)
+            if got:
+                alts.append(got[0])
+                ps += got[1]
+        if alts:
+            out.append((f, "(" + " or ".join(alts) + ")", ps))
+    alts, ps = [], []
+    for w in words:
+        if fs.organisation:
+            c, p = whole_words(fold_sql("concat_ws(' ', " + ", ".join(fs.organisation) + ")"), w, prefix=True)
+            alts.append("(" + c + ")")
+            ps += p
+        for col in fs.named:
+            c, p = whole_words(fold_sql(col), w, prefix=True)
+            alts.append(f"({fold_sql(col)} ~ %s and {c})")
+            ps += [ORG_WORDS_SQL] + p
+    if alts:
+        out.append(("org", "(" + " or ".join(alts) + ")", ps))
+    if fs.address and words:
+        expr = fold_sql("concat_ws(' ', " + ", ".join(fs.address) + ")")
+        alts, ps = [], []
+        for w in words:
+            c, p = whole_words(expr, w, prefix=True)
+            alts.append("(" + c + ")")
+            ps += p
+        out.append(("address", "(" + " or ".join(alts) + ")", ps))
+    years = [y for y in (year_of(w) for w in words) if y is not None]
+    if years and (fs.year or fs.dates):
+        alts = [f"{c} = any(%s)" for c in fs.year] + [f"extract(year from {c}) = any(%s)" for c in fs.dates]
+        out.append(("year", "(" + " or ".join(alts) + ")", [years] * len(alts)))
+    if number and v.numbers:
+        out.append((NUMBER, "(" + " or ".join(f"{c} = %s" for c in v.numbers) + ")", [number] * len(v.numbers)))
+    return out
+
+
 def match_sql(v: cat.View, words: list, number: str = None, whole: bool = False, fields: dict = None, mode: str = ALL):
     """(clause, params): the search box's words (each begins a word of the
     row's search columns; with `whole`, is a whole word) or its number, "and"
@@ -351,7 +428,7 @@ def removed_sql(v: cat.View, removed: bool = True) -> tuple:
 
 
 def view_sql(v: cat.View, words: list, number: str = None, limit: int = LIMIT, exclude_key: str = None,
-             whole: bool = False, fields: dict = None, mode: str = ALL, removed: bool = True):
+             whole: bool = False, fields: dict = None, mode: str = ALL, removed: bool = True, tabs: str = None):
     """(sql, params): the matching rows of one view with the view's total
     as `total` on every row. Each word must begin a word in the row's
     search columns ("hart" finds HART and HARTLEY); with `whole`, each must
@@ -362,7 +439,8 @@ def view_sql(v: cat.View, words: list, number: str = None, limit: int = LIMIT, e
     `removed` false (ruling 93) a view catalogue.REMOVED_OF names leaves its
     removed rows out in the SQL, before the limit, and every row carries
     `hidden`, the count left out; when none is left to show, one row with no
-    key carries the counts (search() drops it)."""
+    key carries the counts (search() drops it). `tabs` (ruling 108 (2),
+    tab_mode): tab_sql."""
     got = match_sql(v, words, number, whole, fields, mode)
     if got is None:
         return None
@@ -372,6 +450,8 @@ def view_sql(v: cat.View, words: list, number: str = None, limit: int = LIMIT, e
     g, gp = guard_sql(v, exclude_key)
     sel, sp = matched_sql(v, fields) if mode == ANY and fields else ("", [])
     rx = None if removed else removed_expr(v)
+    if tabs:
+        return tab_sql(v, clause, params, g, gp, sel, sp, rx, limit, words, number, fields, tabs)
     if rx:
         sql = (f"with m as (select *, {rx[0]} as _removed{sel} from pub.{v.name} where {clause}{g}), "
                "h as (select count(*) filter (where not _removed) as total, count(*) filter (where _removed) as hidden from m) "
@@ -381,6 +461,45 @@ def view_sql(v: cat.View, words: list, number: str = None, limit: int = LIMIT, e
     sql = (f"select *, {v.key_col} as key, count(*) over () as total{sel} from pub.{v.name} where {clause}{g} "
            f"order by {v.default_order} nulls last, {v.key_col} limit %s")
     return sql, sp + params + gp + [limit]
+
+
+def tab_sql(v: cat.View, clause: str, params: list, g: str, gp: list, sel: str, sp: list, rx, limit: int,
+            words: list, number: str, fields: dict, tabs: str) -> tuple:
+    """(sql, params): view_sql's rows under the results pane's tabs (ruling
+    108 (2)), one query. Every matching row carries `_tab_<tab>` for each tab
+    of the view, true where it matched that field (BY_FIELD: the
+    `_matched_<field>` of "any field may match"; BOX: box_clauses, and OTHER
+    where none did), and every row the counts: `total`, `hidden` (ruling 93),
+    and `_n_<tab>`, the rows under each tab. The rows returned are the first
+    `limit` in the view's order under each tab, so a row matching several
+    fields comes once and every tab has its own first rows. When none is
+    left to show, one row with no key carries the counts."""
+    if tabs == BY_FIELD:
+        own = [f for f, c, _ in field_clauses(v, fields, ANY) if c is not None]
+        names = [fs[0] for fs in own]
+        tsel, tp, other = "", [], ""
+        alias = "".join(f", _matched_{t} as _tab_{t}" for t in names)
+    else:
+        got = box_clauses(v, words, number)
+        names = [t for t, _, _ in got]
+        tsel = "".join(f", coalesce({c}, false) as _tab_{t}" for t, c, _ in got)
+        tp = [p for _, _, ps in got for p in ps]
+        other = ", not (" + (" or ".join(f"_tab_{t}" for t in names) or "false") + f") as _tab_{OTHER}"
+        names.append(OTHER)
+        alias = ""
+    if not names:
+        names, other = [OTHER], f", true as _tab_{OTHER}"
+    order = f"{v.default_order} nulls last, {v.key_col}"
+    rm = f", {rx[0]} as _removed" if rx else ", false as _removed"
+    sql = (f"with m as (select *{rm}{sel}{tsel} from pub.{v.name} where {clause}{g}), "
+           f"k as (select *{alias}{other} from m where not _removed), "
+           "c as (select count(*) as total, (select count(*) from m where _removed) as hidden"
+           + "".join(f", count(*) filter (where _tab_{t}) as _n_{t}" for t in names) + " from k), "
+           "w as (select *" + "".join(f", row_number() over (partition by _tab_{t} order by {order}) as _r_{t}" for t in names)
+           + " from k) "
+           f"select s.*, s.{v.key_col} as key, c.* from c left join lateral (select * from w where "
+           + " or ".join(f"(_tab_{t} and _r_{t} <= %s)" for t in names) + f" order by {order}) s on true")
+    return sql, (rx[1] if rx else []) + sp + tp + params + gp + [limit] * len(names)
 
 
 def held_registers(held: set) -> list:
@@ -455,7 +574,7 @@ def selection(boxes: Boxes, held: list) -> tuple:
 
 
 def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = None, whole: bool = False,
-           registers=None, fields: dict = None, mode: str = ALL, removed: bool = True) -> dict:
+           registers=None, fields: dict = None, mode: str = ALL, removed: bool = True, tabs: bool = False) -> dict:
     """{register: [(view, total, rows)]} for the views that matched, plus
     'held' (the pub views present) so the caller can say "not held", and
     'hidden', {view: removed rows left out} when `removed` is false (ruling
@@ -463,7 +582,9 @@ def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = N
     `registers`, when given, scans only those registers' views; `fields`,
     the filled fields of the expanded search ({parameter: value}), narrow it
     (ruling 82): a view with no column for one of them is not scanned;
-    `mode` ANY: a row matches on any filled field (ruling 92 (6))."""
+    `mode` ANY: a row matches on any filled field (ruling 92 (6)); `tabs`:
+    the rows carry the results pane's tab flags and counts (ruling 108 (2),
+    tab_sql) wherever tab_mode names tabs, and 'tabs' says which."""
     words = words_of(term)
     number = re.sub(r"\s", "", term) if is_number(term) else None
     fields = {f: x for f, x in (fields or {}).items() if (x or "").strip()}
@@ -471,7 +592,10 @@ def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = N
     out = {}
     wanted = [v for v in (views or cat.VIEWS) if v.name in held and (words or number or fields)
               and (registers is None or v.register in registers)]
-    futures = [_pool.submit(_scan, v, words, number, limit, exclude_key, whole, fields, mode, removed) for v in wanted]
+    tm = tab_mode(term, fields, mode) if tabs else None
+    longest = sorted(wanted, key=lambda v: -LAST_SCAN.get(v.name, 1.0))     # an unmeasured view first: it may be long
+    futures = {v.name: _pool.submit(_scan, v, words, number, limit, exclude_key, whole, fields, mode, removed, tm) for v in longest}
+    futures = [futures[v.name] for v in wanted]                             # read back in the catalogue's order
     hidden = {}
     for f in futures:
         v, found = f.result()
@@ -483,6 +607,8 @@ def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = N
             out.setdefault(v.register, []).append((v, int(found[0]["total"]), found))
     out["held"] = held
     out["hidden"] = hidden
+    if tabs:
+        out["tabs"] = tm                   # only when asked: callers that read every register key are unchanged
     return out
 
 

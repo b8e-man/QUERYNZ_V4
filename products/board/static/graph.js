@@ -13,18 +13,26 @@
    again to close it. A near line carries its reason on the line.
    Colours of the page come from the one stylesheet (read off the canvas's box);
    the nodes' and edges' come with the data (catalogue). Text goes in by
-   textContent only. Nothing here asks anything of any other address. */
+   textContent only. Nothing here asks anything of any other address.
+   Ruling 108 (4): on the search tab the same canvas sits in a pane beside the results
+   (#side), empty until a result is clicked; the click asks /graph.json centred on that
+   row or entity, in the state the address carries, and mounts the canvas afresh. A
+   result's links other than its title keep their own work, and a click with a key held
+   opens the title's pane as before. */
 (function () {
   "use strict";
   var holder = document.getElementById("cy");
   var source = document.getElementById("graph-data");
   if (!holder || !source || typeof cytoscape === "undefined") return;
   if (typeof cytoscapeCola !== "undefined") { try { cytoscape.use(cytoscapeCola); } catch (e) { /* registered already */ } }
-  var first = JSON.parse(source.textContent);
+  var tip = document.getElementById("tip");
+  var cy = null;
+
+  function mount(first) {
+  if (cy) { cy.destroy(); cy = null; }
   holder.parentNode.classList.add("on");          // the canvas shows only once this runs; <noscript> holds the SVG
   var sheet = getComputedStyle(holder);
   var ink = sheet.color, surface = sheet.backgroundColor, accent = sheet.outlineColor;
-  var tip = document.getElementById("tip");
 
   // which views (a tap's answer, or the first) brought each element: an element stays while one of them is open
   var by = {};                                     // id -> {source id: true}
@@ -71,7 +79,7 @@
   }
   function own(id, from) { (by[id] = by[id] || {})[from] = true; }
 
-  var cy = cytoscape({
+  cy = cytoscape({
     container: holder,
     elements: [],
     minZoom: 0.1, maxZoom: 4,
@@ -269,10 +277,45 @@
   });
   cy.on("mouseout", "node", function () { tip.hidden = true; });
 
-  document.getElementById("spread").addEventListener("click", spread);
-  document.getElementById("tree").addEventListener("click", tree);
+  document.getElementById("spread").onclick = spread;
+  document.getElementById("tree").onclick = tree;
 
   merge(first, BASE, null);
   fitAll();
   window.boardGraph = cy;                           // for a look from the browser's console, and the headless check
+  }
+
+  var side = document.getElementById("side"), results = document.getElementById("results");
+  if (!side || !results) { mount(JSON.parse(source.textContent)); return; }
+
+  // ruling 108 (4): a result clicked opens its graph beside the results
+  var title = document.getElementById("side-title"), pane = document.getElementById("side-pane"),
+      tab = document.getElementById("side-tab"), asked = 0;
+  function open(hit) {
+    var mine = ++asked, row = hit.querySelector("a.row");
+    Array.prototype.forEach.call(results.querySelectorAll("article.hit.on"), function (a) { a.classList.remove("on"); });
+    hit.classList.add("on");
+    side.classList.add("on");
+    title.textContent = row ? row.textContent : "Graph";
+    pane.href = row ? row.getAttribute("href") : "#";
+    tab.href = hit.getAttribute("data-graph").replace("/graph.json?", "/graph?");
+    side.scrollIntoView({ block: "nearest" });
+    fetch(hit.getAttribute("data-graph"), { credentials: "same-origin" })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (data) { if (mine === asked) mount(data); })
+      .catch(function () { if (mine === asked) say("the board could not answer for " + title.textContent); });
+  }
+  results.addEventListener("click", function (evt) {
+    if (evt.button !== 0 || evt.ctrlKey || evt.metaKey || evt.shiftKey || evt.altKey) return;
+    var hit = evt.target.closest("article.hit[data-graph]");
+    if (!hit) return;
+    var a = evt.target.closest("a");
+    if (a && a !== hit.querySelector("a.row")) return;   // a source, a citation or a far row keeps its own link
+    evt.preventDefault();
+    open(hit);
+  });
+  document.getElementById("side-close").onclick = function () {
+    side.classList.remove("on");
+    Array.prototype.forEach.call(results.querySelectorAll("article.hit.on"), function (a) { a.classList.remove("on"); });
+  };
 })();
