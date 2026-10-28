@@ -81,3 +81,16 @@ The search page's three seconds with every register is as before (the card on se
 
 ## Result (integrator, 29 October 05:32 NZDT)
 Merged 13f97a6 as `integrate/board-13`, gate green at the first run (the board's slow tests). Released; `qv4-board` restarted and answering. Ruling 117's four parts live: the dossier folds same-fact rows and states facts, the result cards say what an entity is, the table sorts and the reader sets row height and column width, the entity graph is one drawing from the whole group in both fold states. Branch and working copy retired. The slow-search card stands with its new measurement.
+
+## Note (integrator, 29 October 13:05 NZDT)
+
+Gated a second time by mistake: the request stayed in the inbox after the
+05:32 merge (the inbox keeps a merged request; docs/merges holds the record),
+and the integrator read it as waiting. The first run refused on the branch's
+own stale `lessons/INDEX.md`; regenerated on the branch (f482cfa), the second
+run was green and the merge (93562e8) changed nothing in main. The branch
+`session/board-13` was recreated on origin by that push; the safety hook
+refuses a deleting push, so Arthur deletes it:
+`cd /home/user/querynzv4 && git push origin --delete session/board-13`.
+Rulings 118 to 120 arrived the same morning: `fix-products-board-6` and
+`board-14` carry them (docs/briefs/next.md).
