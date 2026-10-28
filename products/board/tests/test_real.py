@@ -266,3 +266,39 @@ def test_the_lineage_check_goes_red_when_a_frame_merges_its_companies(monkeypatc
     monkeypatch.setattr(people.lineage, "relabel", merged)
     with db.read_connect() as conn:
         assert any("merged" in p for p in check.lineage_problems(conn))
+
+
+def test_the_dossier_of_the_largest_group_and_of_graeme_hart_answers_well_inside_the_floor():
+    """Ruling 110: the dossier reads by row key and group id; its cost for the largest group (1,220 rows on 28 October)
+    and for every group and lone row of "Graeme Hart", and on top of a search page with it open."""
+    from products.board import dossier
+    with db.read_connect() as conn:
+        gid = db.rows(conn, "select group_id from pub.groups group by 1 order by count(*) desc, 1 limit 1")[0]["group_id"]
+        hart = [people.entity_id(r["group_id"]) for r in db.rows(conn, "select distinct g.group_id from pub.names n join pub.groups g "
+                                                                       "on g.row_key = n.ref where n.fl_key = 'graeme hart' order by 1")]
+        hart += [f"{r['view']}:{r['key']}" for r in db.rows(conn, "select n.view, n.key from pub.names n left join pub.groups g on g.row_key = n.ref "
+                                                                  "where n.fl_key = 'graeme hart' and g.row_key is null order by 1, 2 limit 3")]
+        assert len(hart) >= 3
+        for d in [people.entity_id(gid)] + hart:
+            t = time.time()
+            x = dossier.gather(conn, d)
+            page = dossier.pane(x)
+            assert time.time() - t < 1.0, d
+            assert x["kind"] in ("entity", "row") and x["rows"] and 'id="d-money"' in page
+        boxes = search.FIRST._replace(people=True)
+        t = time.time()
+        server.render("Graeme Hart", [], conn=conn, boxes=boxes)
+        plain = time.time() - t
+        t = time.time()
+        page = server.render("Graeme Hart", [], conn=conn, boxes=boxes, chosen=hart[0])
+        assert time.time() - t < plain + 0.5 and 'id="d-rows"' in page and "matching here" not in page
+
+
+def test_the_dossier_check_goes_red_when_a_disclosure_is_added_to_the_year(monkeypatch):
+    """Item 25 against the live tables, with the dossier's money made to add what it must only list."""
+    from products.board import dossier
+    with db.read_connect() as conn:
+        assert check.dossier_problems(conn) == []
+        real = dossier.addends
+        monkeypatch.setattr(dossier, "addends", lambda x: [dict(a, not_added="") if a["amount"] is not None else a for a in real(x)])
+        assert any("sums" in p for p in check.dossier_problems(conn))

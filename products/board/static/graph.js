@@ -25,7 +25,14 @@
    order left to right (each its own node, never one entity) and the people on both,
    drawn once beneath them; a tap on the frame does nothing, its members tap as ever; a
    grown hop that brings a frame for nodes already drawn moves them into it, and a frame
-   folded away lets its members go rather than taking them with it. */
+   folded away lets its members go rather than taking them with it.
+   Ruling 110, the dossier: a result clicked or a node tapped (not a lineage frame) asks
+   /dossier for that entity or row (the result's data-dossier, the node's id) and puts the
+   pane it answers in place of #dossier under the graph, with no reload; the address takes
+   `d=` (history.replaceState), so a reload or a saved address reopens the dossier, which
+   the server renders, and the graph beside the results, which this draws from #side's
+   data-start. The answer is the board's own escaped HTML, parsed apart (DOMParser) and
+   moved in whole; it carries no script and the policy runs none. */
 (function () {
   "use strict";
   var holder = document.getElementById("cy");
@@ -34,6 +41,33 @@
   if (typeof cytoscapeCola !== "undefined") { try { cytoscape.use(cytoscapeCola); } catch (e) { /* registered already */ } }
   var tip = document.getElementById("tip");
   var cy = null;
+
+  var dossierAsked = 0;
+  function showDossier(id) {                       // ruling 110: the dossier under the graph, one fetch, no reload
+    var box = document.getElementById("dossier");
+    if (!box || !id || box.getAttribute("data-chosen") === id) return;
+    var mine = ++dossierAsked;
+    fetch(box.getAttribute("data-base") + "&d=" + encodeURIComponent(id), { credentials: "same-origin" })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(function (text) {
+        if (mine !== dossierAsked) return;
+        var fresh = new DOMParser().parseFromString(text, "text/html").getElementById("dossier");
+        if (!fresh) throw new Error("no dossier in the answer");
+        var now = document.getElementById("dossier");
+        now.parentNode.replaceChild(document.importNode(fresh, true), now);
+        var u = new URL(window.location.href);
+        u.searchParams.set("d", id);
+        history.replaceState(null, "", u.toString());
+      })
+      .catch(function () {
+        if (mine !== dossierAsked) return;
+        var now = document.getElementById("dossier"), p = document.createElement("p");
+        p.className = "why";
+        p.textContent = "the board could not open the dossier";
+        now.hidden = false;
+        now.replaceChildren(p);
+      });
+  }
 
   function mount(first) {
   if (cy) { cy.destroy(); cy = null; }
@@ -274,6 +308,7 @@
     var k = evt.target.data("kind");
     if (k === "entity") toggleOpen(evt.target);
     else if (k !== "child" && k !== "lineage") grow(evt.target);
+    if (k !== "lineage") showDossier(evt.target.id());
   });
   cy.on("dbltap", "node", function (evt) { if (evt.target.data("pane")) window.location.href = evt.target.data("pane"); });
   cy.on("mouseover", "edge", function (evt) {
@@ -322,29 +357,38 @@
   // ruling 108 (4): a result clicked opens its graph beside the results
   var title = document.getElementById("side-title"), pane = document.getElementById("side-pane"),
       tab = document.getElementById("side-tab"), asked = 0;
-  function open(hit) {
-    var mine = ++asked, row = hit.querySelector("a.row");
-    Array.prototype.forEach.call(results.querySelectorAll("article.hit.on"), function (a) { a.classList.remove("on"); });
-    hit.classList.add("on");
+  function draw(url, label, paneHref) {
+    var mine = ++asked;
     side.classList.add("on");
-    title.textContent = row ? row.textContent : "Graph";
-    pane.href = row ? row.getAttribute("href") : "#";
-    tab.href = hit.getAttribute("data-graph").replace("/graph.json?", "/graph?");
+    title.textContent = label || "Graph";
+    pane.href = paneHref || "#";
+    tab.href = url.replace("/graph.json?", "/graph?");
     side.scrollIntoView({ block: "nearest" });
-    fetch(hit.getAttribute("data-graph"), { credentials: "same-origin" })
+    fetch(url, { credentials: "same-origin" })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (data) { if (mine === asked) mount(data); })
       .catch(function () { if (mine === asked) say("the board could not answer for " + title.textContent); });
   }
+  function open(hit) {
+    var row = hit.querySelector("a.row");
+    Array.prototype.forEach.call(results.querySelectorAll("article.hit.on"), function (a) { a.classList.remove("on"); });
+    hit.classList.add("on");
+    if (hit.getAttribute("data-graph")) draw(hit.getAttribute("data-graph"), row ? row.textContent : "", row ? row.getAttribute("href") : "");
+    showDossier(hit.getAttribute("data-dossier"));
+  }
   results.addEventListener("click", function (evt) {
     if (evt.button !== 0 || evt.ctrlKey || evt.metaKey || evt.shiftKey || evt.altKey) return;
-    var hit = evt.target.closest("article.hit[data-graph]");
+    var hit = evt.target.closest("article.hit[data-dossier]");
     if (!hit) return;
     var a = evt.target.closest("a");
-    if (a && a !== hit.querySelector("a.row")) return;   // a source, a citation or a far row keeps its own link
+    if (a && a !== hit.querySelector("a.row") && !a.classList.contains("dos")) return;   // a source, a citation or a far row keeps its own link
     evt.preventDefault();
     open(hit);
   });
+  if (side.getAttribute("data-start")) {            // ruling 110: an address with d= reopens its graph beside the results
+    var named = document.querySelector("#dossier h2");
+    draw(side.getAttribute("data-start"), named ? named.textContent : "", "");
+  }
   document.getElementById("side-close").onclick = function () {
     side.classList.remove("on");
     Array.prototype.forEach.call(results.querySelectorAll("article.hit.on"), function (a) { a.classList.remove("on"); });

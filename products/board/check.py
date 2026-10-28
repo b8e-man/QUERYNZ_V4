@@ -104,6 +104,17 @@ tables through the session reader, never the sample:
      companies of the frame; the answer puts the frame before its children,
      the lineage line neither dashed nor near's colour; the row's pane and
      the entity pane list it under "Related companies" (lineage_problems).
+ 25. The dossier (ruling 110): for the largest pub.groups group its
+     dossier holds every row of the group but the suppressed, each once on
+     the timeline, and its names as filed count those rows once; for the
+     group with the most party-return rows, each year's sum is the sum of
+     the views' own amounts filed for those rows, read apart by SQL (a
+     replaced row, a row with no amount and every disclosure left out); a
+     suppressed person row chosen is never gathered and its name is nowhere
+     on the pane; the search tab with `d=` carries the dossier under the
+     graph beside the results with the graph's start, the graph tab carries
+     it under the graph, and an entity result lists no "matching here"
+     (ruling 110 (1)) (dossier_problems).
 
   python -m products.board check [--term NAME]      exit 1 on any failure
 """
@@ -119,7 +130,7 @@ import urllib.parse
 
 from products.board import assets
 from products.board import catalogue as cat
-from products.board import db, document, graph, links_view, near, people, search, panes, server, uses
+from products.board import db, document, dossier, graph, links_view, near, people, search, panes, server, uses
 
 ADDRESS_WORDS = re.compile(r"residential|home_address|street|suburb|postal", re.I)
 #: the comparison's residence vocabulary (checks/comparison.py RESIDENCE_WORDS; tests/test_check_vocabulary.py holds the two equal):
@@ -217,9 +228,10 @@ def problems(conn, term: str = None) -> list:
                     if directors and directors[0]:
                         walk.append(f"directors:{directors[0][0]['key']}")
         html = server.render(term, server.parse_path("|".join(walk)), conn=conn)
-        panes_n = html.count('<section class="pane') - html.count('<section class="pane side"')     # ruling 108: the graph beside
+        panes_n = html.count('<section class="pane') - html.count('<section class="pane side"') \
+            - html.count('<section class="pane dossier"')     # ruling 108: the graph beside; ruling 110: the dossier under it
         if panes_n != len(walk) + 2:     # the left pane and the results, then the walk
-            out.append(f"the walk from {term!r} rendered {html.count('<section class=\"pane')} panes, expected {len(walk) + 2}")
+            out.append(f"the walk from {term!r} rendered {panes_n} panes, expected {len(walk) + 2}")
         if "<h3>Citation</h3>" not in html and walk:
             out.append("a pane in the walk carries no citation")
         if len(walk) < 3:
@@ -270,6 +282,76 @@ def problems(conn, term: str = None) -> list:
     out += people_problems(conn)
     out += results_problems(conn)
     out += lineage_problems(conn)
+    out += dossier_problems(conn)
+    return out
+
+
+#: item 25's money: the gift views summed by SQL apart from the dossier, a replaced row and a row with no amount left out
+DOSSIER_SUMS = (("party_return_donors", "party_returns"), ("candidate_return_donors", "candidate_returns"))
+
+
+def dossier_sums(conn, refs) -> dict:
+    """{year: sum} of the amounts the gift views file for `refs`, read by SQL apart from the dossier."""
+    out = {}
+    for view, register in DOSSIER_SUMS:
+        keys = [r.split(":", 1)[1] for r in refs if r.startswith(register + ":")]
+        if keys:
+            for r in db.rows(conn, f"select year, sum(amount) as total from pub.{view} where key = any(%s) and amount is not null "
+                                   "and replaced_by is null group by year", (keys,)):
+                out[r["year"]] = out.get(r["year"], decimal.Decimal(0)) + decimal.Decimal(r["total"])
+    return out
+
+
+def dossier_problems(conn) -> list:
+    """Item 25 (ruling 110)."""
+    out = []
+    big = db.rows(conn, "select group_id, count(*) as n from pub.groups group by 1 order by 2 desc, 1 limit 1")
+    if not big:
+        return ["pub.groups holds no group: the dossier has nothing to gather"]
+    gid, n = big[0]["group_id"], int(big[0]["n"])
+    x = dossier.gather(conn, people.entity_id(gid))
+    page = dossier.pane(x)
+    if x["kind"] != "entity" or len(x["rows"]) + len(x["hidden"]) != n:
+        out.append(f"the dossier of {gid} holds {len(x.get('rows') or ())} rows and {len(x.get('hidden') or ())} suppressed of {n}")
+    if page.count('<li><span class="when">') != len(x.get("rows") or ()):
+        out.append(f"the dossier of {gid} does not put each of its rows once on the timeline")
+    if sum(k for _, k in x.get("names") or ()) != len(x.get("rows") or ()):
+        out.append(f"the dossier of {gid} does not count each row once under the names as filed")
+    money = db.rows(conn, "select group_id from pub.groups where row_key like 'party_returns:%%' group by 1 order by count(*) desc, 1 limit 1")
+    if money:
+        m = dossier.gather(conn, people.entity_id(money[0]["group_id"]))
+        got = {y: total for y, _, total, k in dossier.by_year(dossier.addends(m)) if k}
+        want = dossier_sums(conn, [ref for ref, _, _ in m["rows"]])
+        if got != want:
+            out.append(f"the dossier of {money[0]['group_id']} sums {got} by year where the views file {want}")
+    else:
+        out.append("no group holds a party-return row: the dossier's money has nothing to sum")
+    held = db.pub_views(conn)
+    for v in cat.VIEWS:                                # a suppressed person row, chosen: never gathered, never named
+        if not v.suppressed or v.name not in held or not v.names or v.kind != "person":
+            continue
+        r = db.rows(conn, f"select *, {v.key_col} as key from pub.{v.name} where {v.suppressed} is true order by {v.key_col} limit 1")
+        if r:
+            names = [str(r[0].get(c)) for c in v.names if r[0].get(c) not in (None, "") and len(str(r[0].get(c))) > 2]
+            s = dossier.gather(conn, f"{v.name}:{r[0]['key']}")
+            if s["kind"] != "suppressed" or any(nm in dossier.pane(s) for nm in names):
+                out.append(f"a suppressed row of {v.name}, chosen, is gathered or named by the dossier (hard limit 16)")
+            break
+    d = people.entity_id(gid)
+    label = x["describe"]["label"] if x.get("describe") else ""
+    one = x["rows"][0][1].register if x.get("rows") else ""
+    boxes = search.Boxes(False, (one,), people=True)
+    tab = server.render(label, [], conn=conn, boxes=boxes, chosen=d)
+    side = tab[tab.find('<div class="sidecol">'):]
+    if 'id="dossier"' not in side or f'data-chosen="{html.escape(d)}"' not in side or 'data-start="/graph.json?' not in side:
+        out.append("the search tab with d= does not carry the dossier under the graph beside the results, with the graph's start")
+    if "matching here" in tab:
+        out.append("an entity result lists the names of the rows it holds (ruling 110 (1) removed that line)")
+    centre = f"{x['rows'][0][1].name}:{x['rows'][0][2]['key']}" if x.get("rows") else ""
+    gtab = server.render_graph("", centre, conn=conn, chosen=d, read=conn)
+    under = gtab[gtab.find('<div class="stack">'):]
+    if under.find('id="graph"') < 0 or not (0 <= under.find('id="graph"') < under.find('id="dossier"')):
+        out.append("the graph tab with d= does not carry the dossier under the graph")
     return out
 
 

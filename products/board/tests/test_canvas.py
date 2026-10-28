@@ -11,7 +11,7 @@ import os
 import re
 import threading
 
-from products.board import assets, check, graph, panes, search, server
+from products.board import assets, check, dossier, graph, panes, search, server
 from products.board import catalogue as cat
 from products.board.tests.test_graph import sample
 
@@ -65,7 +65,10 @@ def test_the_page_and_every_script_it_serves_name_no_address_off_the_box():
         assert assets.addresses(assets.read(name)[0].decode("utf-8", "replace")) == [], name
     js = assets.read("graph.js")[0].decode()
     assert "innerHTML" not in js and "eval(" not in js                          # text goes in by textContent
-    assert sorted(re.findall(r"fetch\(([^,]*),", js)) == ['hit.getAttribute("data-graph")', 'node.data("grow")', 'node.data("open")']
+    assert sorted(re.findall(r"fetch\(([^,]*),", js)) == ['box.getAttribute("data-base") + "&d=" + encodeURIComponent(id)',
+                                                         'node.data("grow")', 'node.data("open")', 'url']
+    assert "draw(hit.getAttribute(\"data-graph\")" in js and "draw(side.getAttribute(\"data-start\")" in js   # `url`: the server's /graph.json
+    assert dossier.base("x", search.FIRST).startswith("/dossier?")                    # ruling 110: the dossier's fetch, the board's own path
     # the node's /graph.json hrefs, and a result's (ruling 108 (4)), which the server writes as /graph.json alone
     assert "data-graph" in js and panes.graph_href("companies:c1").startswith("/graph.json?")
 
