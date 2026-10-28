@@ -21,7 +21,7 @@ node2. Branch `fix/support-scheduler-1`, merge request
   other failure as before. Placement and the ceiling use the working
   figure, read from the table each tick. `report` and the new `memory`
   subcommand list raises jobs.toml has not folded; the run record carries
-  `working_mb` and `rerun_of_raise`. Seven slow tests and five fast, each
+  `working_mb` and `rerun_of_raise`. Seven slow tests and eight fast, each
   seen failing on its mutant.
 
 ## Waits on the integrator, at the merge (node2, /home/user/querynzv4)
