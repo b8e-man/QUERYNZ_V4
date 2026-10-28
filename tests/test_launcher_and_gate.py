@@ -174,6 +174,7 @@ def test_gate_runs_the_slow_tests_of_the_touched_modules_and_their_readers_only(
     _branch_touching(toy, "contract", "registers/a/publish.sql", "-- a view\n")
     _branch_touching(toy, "shared", "support/thing/x.py", "X = 3\n")
     _branch_touching(toy, "docs-only", "docs/briefs/note.md", "a note\n")
+    _branch_touching(toy, "reader-spec", "products/b/spec.md", "reads: pub.a\n")
     assert sh([sys.executable, "bin/merge-gate", "inner", "--no-merge"], repo, env).stdout.startswith("GREEN")
     assert _ran(toy) == {"a"}, "a change inside one module runs that module's slow tests alone"
     assert sh([sys.executable, "bin/merge-gate", "contract", "--no-merge"], repo, env).stdout.startswith("GREEN")
@@ -182,6 +183,8 @@ def test_gate_runs_the_slow_tests_of_the_touched_modules_and_their_readers_only(
     assert _ran(toy) == {"a", "b"}, "a change under support/ runs every slow test"
     p = sh([sys.executable, "bin/merge-gate", "docs-only", "--no-merge"], repo, env)
     assert p.stdout.startswith("GREEN") and _ran(toy) == set(), "no module touched: no slow test runs"
+    assert sh([sys.executable, "bin/merge-gate", "reader-spec", "--no-merge"], repo, env).stdout.startswith("GREEN")
+    assert _ran(toy) == {"b"}, "a product's own spec is not a contract others read: its slow tests alone"
     log = open(os.path.join(work, "gate", "inner.log")).read()
     assert "--- fast tier, whole repository ---" in log and "--- slow tests: registers/a ---" in log
 
