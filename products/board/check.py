@@ -107,7 +107,14 @@ tables through the session reader, never the sample:
      the entity pane list it under "Related companies" (lineage_problems).
  25. The dossier (ruling 110): for the largest pub.groups group its
      dossier holds every row of the group but the suppressed, each once on
-     the timeline, and its names as filed count those rows once; for the
+     the timeline, and its names as filed count those rows once; past
+     dossier.MANY_AT rows (ruling 116's ministers) it is shown by view, and
+     every row is counted once across the views' counts on the page, each
+     equal to the group's rows of that view counted apart, the suppressed
+     counted and never named, the whole count said, the names as filed
+     counting the shown rows once (many_problems); its page is gathered and
+     rendered inside two seconds and its money by year equals the views'
+     own sums for the group read apart (dossier_sums); for the
      group with the most party-return rows, each year's sum is the sum of
      the views' own amounts filed for those rows, read apart by SQL (a
      replaced row, a row with no amount and every disclosure left out); a
@@ -145,6 +152,7 @@ import html
 import json
 import re
 import sys
+import time
 import urllib.parse
 
 from products.board import assets
@@ -312,15 +320,76 @@ def problems(conn, term: str = None) -> list:
 DOSSIER_SUMS = (("party_return_donors", "party_returns"), ("candidate_return_donors", "candidate_returns"))
 
 
-def dossier_sums(conn, refs) -> dict:
-    """{year: sum} of the amounts the gift views file for `refs`, read by SQL apart from the dossier."""
+DOSSIER_FLOOR_S = 2.0       # the page of the largest group, gathered and rendered
+
+
+def dossier_sums(conn, refs=(), gid: str = "") -> dict:
+    """{year: sum} of the amounts the gift views file for `refs`, or for every
+    row of the group `gid`, read by SQL apart from the dossier."""
     out = {}
     for view, register in DOSSIER_SUMS:
-        keys = [r.split(":", 1)[1] for r in refs if r.startswith(register + ":")]
-        if keys:
-            for r in db.rows(conn, f"select year, sum(amount) as total from pub.{view} where key = any(%s) and amount is not null "
-                                   "and replaced_by is null group by year", (keys,)):
-                out[r["year"]] = out.get(r["year"], decimal.Decimal(0)) + decimal.Decimal(r["total"])
+        if gid:
+            found = db.rows(conn, f"select d.year, sum(d.amount) as total from pub.groups g join pub.{view} d "
+                                  f"on g.row_key = '{register}:' || d.key where g.group_id = %s and d.amount is not null "
+                                  "and d.replaced_by is null group by d.year", (gid,))
+        else:
+            keys = [r.split(":", 1)[1] for r in refs if r.startswith(register + ":")]
+            found = db.rows(conn, f"select year, sum(amount) as total from pub.{view} where key = any(%s) and amount is not null "
+                                  "and replaced_by is null group by year", (keys,)) if keys else []
+        for r in found:
+            out[r["year"]] = out.get(r["year"], decimal.Decimal(0)) + decimal.Decimal(r["total"])
+    return out
+
+
+def whole_problems(gid: str, n: int, x: dict, page: str) -> list:
+    """Item 25 for a group of at most dossier.MANY_AT rows: every row held, once on the timeline, once under the names."""
+    out = []
+    if x["kind"] != "entity" or len(x["rows"]) + len(x["hidden"]) != n:
+        out.append(f"the dossier of {gid} holds {len(x.get('rows') or ())} rows and {len(x.get('hidden') or ())} suppressed of {n}")
+    if page.count('<li><span class="when">') != len(x.get("rows") or ()):
+        out.append(f"the dossier of {gid} does not put each of its rows once on the timeline")
+    if sum(k for _, k in x.get("names") or ()) != len(x.get("rows") or ()):
+        out.append(f"the dossier of {gid} does not count each row once under the names as filed")
+    return out
+
+
+def many_problems(conn, gid: str, n: int, x: dict, page: str) -> list:
+    """Item 25 for a group of more than dossier.MANY_AT rows (ruling 116's
+    ministers): each view's count on the page equals the group's rows of
+    that view counted here apart (pub.groups by pub.names' view) less the
+    suppressed, every view once; those counts, the suppressed and the
+    unread add to the group's rows; the names as filed count the shown rows
+    once; the page says the whole count; each view's section lists at most
+    its page of rows, and the timeline the newest."""
+    out = []
+    if x.get("kind") != "entity" or not x.get("many"):
+        return [f"the dossier of {gid} ({n:,} rows) is not shown by view"]
+    apart = {r["view"]: int(r["n"]) for r in db.rows(conn, "select n.view, count(*) as n from pub.groups g left join pub.names n "
+                                                         "on n.ref = g.row_key where g.group_id = %s group by 1", (gid,))}
+    sections = [(html.unescape(v), int(k)) for v, k in re.findall(r'<details class="dview" data-view="([^"]*)" data-count="(\d+)"', page)]
+    on_page = dict(sections)
+    shown = sum(k for _, k in sections)
+    if len(on_page) != len(sections):
+        out.append(f"the dossier of {gid} shows a view twice")
+    if shown + x["hidden_count"] + x["unread"] != n:
+        out.append(f"the dossier of {gid} counts {shown:,} rows by view, {x['hidden_count']:,} suppressed and "
+                   f"{x['unread']:,} unread, of {n:,}")
+    for view, k in apart.items():
+        got = on_page.get(view, 0)                     # less than the group's only by its suppressed rows, never shown
+        if view in cat.BY_NAME and got + (x.get("hidden_by") or {}).get(view, 0) != k:
+            out.append(f"the dossier of {gid} counts {on_page.get(view, 0):,} rows of {view} where the group holds {k:,}")
+    if sum(on_page.values()) + x["hidden_count"] != sum(k for v, k in apart.items() if v in cat.BY_NAME):
+        out.append(f"the dossier of {gid} does not count each of its catalogued rows once across its views")
+    if sum(k for _, k in x.get("names") or ()) != shown:
+        out.append(f"the dossier of {gid} does not count each row once under the names as filed")
+    if f'class="note whole">{html.escape(dossier.whole_words(x))}' not in page or f"{shown:,} rows across {len(sections)} view" not in page:
+        out.append(f"the dossier of {gid} does not say its whole count, {shown:,} rows across {len(sections)} views")
+    newest = page.count('<li class="newest">')
+    if newest != min(shown, dossier.TIMELINE_ROWS) or (shown > newest and f"and {shown - newest:,} more rows" not in page):
+        out.append(f"the dossier of {gid} lists {newest} newest rows and does not say how many more")
+    if page.count('<li><span class="when">') != len(x["rows"]) or any(
+            sum(1 for _, v, _ in x["rows"] if v.name == view) > min(k, dossier.VIEW_ROWS) for view, k in sections):
+        out.append(f"the dossier of {gid} lists a view's rows other than once each, a page at a time")
     return out
 
 
@@ -331,19 +400,21 @@ def dossier_problems(conn) -> list:
     if not big:
         return ["pub.groups holds no group: the dossier has nothing to gather"]
     gid, n = big[0]["group_id"], int(big[0]["n"])
+    t = time.time()
     x = dossier.gather(conn, people.entity_id(gid))
     page = dossier.pane(x)
-    if x["kind"] != "entity" or len(x["rows"]) + len(x["hidden"]) != n:
-        out.append(f"the dossier of {gid} holds {len(x.get('rows') or ())} rows and {len(x.get('hidden') or ())} suppressed of {n}")
-    if page.count('<li><span class="when">') != len(x.get("rows") or ()):
-        out.append(f"the dossier of {gid} does not put each of its rows once on the timeline")
-    if sum(k for _, k in x.get("names") or ()) != len(x.get("rows") or ()):
-        out.append(f"the dossier of {gid} does not count each row once under the names as filed")
+    took = time.time() - t
+    if took > DOSSIER_FLOOR_S:
+        out.append(f"the dossier of {gid} ({n:,} rows) took {took:.2f} s, past the {DOSSIER_FLOOR_S:.0f}-second floor")
+    out += many_problems(conn, gid, n, x, page) if n > dossier.MANY_AT else whole_problems(gid, n, x, page)
+    want = dossier_sums(conn, gid=gid)
+    if x.get("kind") == "entity" and dossier.sums(x) != want:
+        out.append(f"the dossier of {gid} sums {dossier.sums(x)} by year where the views file {want}")
     money = db.rows(conn, "select group_id from pub.groups where row_key like 'party_returns:%%' group by 1 order by count(*) desc, 1 limit 1")
     if money:
         m = dossier.gather(conn, people.entity_id(money[0]["group_id"]))
-        got = {y: total for y, _, total, k in dossier.by_year(dossier.addends(m)) if k}
-        want = dossier_sums(conn, [ref for ref, _, _ in m["rows"]])
+        got = dossier.sums(m)
+        want = dossier_sums(conn, [ref for ref, _, _ in m["rows"]]) if not m.get("many") else dossier_sums(conn, gid=money[0]["group_id"])
         if got != want:
             out.append(f"the dossier of {money[0]['group_id']} sums {got} by year where the views file {want}")
     else:
