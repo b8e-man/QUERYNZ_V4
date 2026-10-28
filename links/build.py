@@ -28,6 +28,10 @@ pairs (a name carried by 300 rows would otherwise be 44,850 links).
 - `successor-name@1` (ruling 106): two companies under one name, one with
   a year in brackets, and a person confirmed on both: related, "succeeded
   by", never an identity (the groups follow confirmed links only).
+- `refiled-name@1` (ruling 109): two companies under one name, neither
+  with a year in brackets, the earlier removed and the later registered
+  within twelve months of it, and a person confirmed on both: related,
+  "delisted/refiled same year", never an identity.
 - `name-only@1`: every other shared first and last name, near, with the
   reason; one star per name over the confirmed components.
 
@@ -192,6 +196,9 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     # related: a company and its successor under one name, a person confirmed on both (ruling 106 (2)); never followed by the groups
     out[rules.RULE_SUCCESSOR] = successor_links(conn, s, comp)
     log(f"links.build: {rules.RULE_SUCCESSOR}: {out[rules.RULE_SUCCESSOR]} ({time.monotonic() - t0:.0f} s)")
+    # related: a company removed and refiled under its name within twelve months, a person confirmed on both (ruling 109)
+    out[rules.RULE_REFILED] = refiled_links(conn, s, comp)
+    log(f"links.build: {rules.RULE_REFILED}: {out[rules.RULE_REFILED]} ({time.monotonic() - t0:.0f} s)")
     # near: every other shared first and last name, one star per name over the confirmed components
     out[rules.RULE_NAME_ONLY] = near_links(conn, s, log, reader=reader, comp=comp)
     conn.commit()
@@ -469,6 +476,25 @@ def company_name_links(conn, s: str) -> dict:
     return {"same_name": int(same), "same_name_apart_from_a_year": int(total - same), "links": int(total)}
 
 
+def company_people(conn, s: str, comp: dict, companies) -> dict:
+    """{company entity_ref: {component anchor: [(row ref, name as filed)]}}: the director and
+    shareholder rows on each company that sit in a confirmed component (`comp`)."""
+    people: dict = {}
+    for ref, entity, filed in conn.execute(f"""SELECT ref, entity_ref, name_filed FROM {s}.rows
+                                               WHERE entity_ref = ANY(%s) AND view IN ('directors', 'shareholders') AND kind = 'person'""",
+                                           (sorted(companies),)).fetchall():
+        if ref in comp:
+            people.setdefault(entity, {}).setdefault(comp[ref], []).append((ref, filed))
+    return people
+
+
+def shared_people(people: dict, ea: str, eb: str) -> list:
+    """The people confirmed on both companies, one row on each per component, as `rules.successor` and `rules.refiled` take them."""
+    pa, pb = people.get(ea, {}), people.get(eb, {})
+    return [{"a": a_ref, "b": b_ref, "group": g, "name": filed}
+            for g in sorted(set(pa) & set(pb)) for (a_ref, filed), (b_ref, _) in [(pa[g][0], pb[g][0])]]
+
+
 def successor_links(conn, s: str, comp: dict) -> dict:
     """`successor-name@1` (ruling 106 (2)), related: every pair of companies
     under one name key where one carries a year in brackets (every pair, not
@@ -485,18 +511,10 @@ def successor_links(conn, s: str, comp: dict) -> dict:
         LEFT JOIN pub.companies co ON co.key = substr(o.entity_ref, length('companies:') + 1)
         LEFT JOIN pub.companies cm ON cm.key = substr(m.entity_ref, length('companies:') + 1)
         WHERE o.bare <> '' AND o.bare <> o.org_key AND m.entity_ref <> o.entity_ref""").fetchall()
-    companies = sorted({p[0] for p in pairs} | {p[5] for p in pairs})
-    people: dict = {}
-    for ref, entity, filed in conn.execute(f"""SELECT ref, entity_ref, name_filed FROM {s}.rows
-                                               WHERE entity_ref = ANY(%s) AND view IN ('directors', 'shareholders') AND kind = 'person'""",
-                                           (companies,)).fetchall():
-        if ref in comp:
-            people.setdefault(entity, {}).setdefault(comp[ref], []).append((ref, filed))
+    people = company_people(conn, s, comp, {p[0] for p in pairs} | {p[5] for p in pairs})
     judged, sharing = [], 0
     for ea, ka, ra, xa, na, eb, kb, rb, xb, nb in pairs:
-        pa, pb = people.get(ea, {}), people.get(eb, {})
-        shared = [{"a": a_ref, "b": b_ref, "group": g, "name": filed}
-                  for g in sorted(set(pa) & set(pb)) for (a_ref, filed), (b_ref, _) in [(pa[g][0], pb[g][0])]]
+        shared = shared_people(people, ea, eb)
         sharing += bool(shared)
         j = rules.successor({"entity_ref": ea, "org_key": ka, "name": na, "registered_on": ra, "removed_on": xa},
                             {"entity_ref": eb, "org_key": kb, "name": nb, "registered_on": rb, "removed_on": xb}, shared)
@@ -511,6 +529,39 @@ def successor_links(conn, s: str, comp: dict) -> dict:
                         (rules.RULE_COMPANY_NAME, rules.NEAR_COMPANY_YEAR)).fetchone()[0]
     return {"pairs_under_one_name_apart_from_a_year": len(pairs), "sharing_a_confirmed_person": sharing, "related": len(judged),
             "company_name_year_pairs_left_near": int(left)}
+
+
+def refiled_links(conn, s: str, comp: dict) -> dict:
+    """`refiled-name@1` (ruling 109), related: every pair of companies under
+    one name key with no year in brackets where one of the two was removed
+    (every pair, not the star `company-name@1` stores), judged by
+    `rules.refiled` on the dates and the people on each, as
+    `successor_links` finds them. A pair that relates leaves the
+    `company-name@1` near star; the rest stay near."""
+    pairs = conn.execute(f"""
+        SELECT a.entity_ref, a.org_key, a.registered_on, a.removed_on, ca.name, b.entity_ref, b.org_key, b.registered_on, b.removed_on, cb.name
+        FROM {s}.org_names a JOIN {s}.org_names b ON b.org_key = a.org_key AND b.entity_ref > a.entity_ref
+        LEFT JOIN pub.companies ca ON ca.key = substr(a.entity_ref, length('companies:') + 1)
+        LEFT JOIN pub.companies cb ON cb.key = substr(b.entity_ref, length('companies:') + 1)
+        WHERE a.org_key !~ '\\(\\d{{4}}\\)' AND a.org_key <> '' AND (a.removed_on IS NOT NULL OR b.removed_on IS NOT NULL)""").fetchall()
+    within = [p for p in pairs if rules.within_months(p[3], p[7]) or rules.within_months(p[8], p[2])]
+    people = company_people(conn, s, comp, {p[0] for p in within} | {p[5] for p in within})
+    judged, sharing = [], 0
+    for ea, ka, ra, xa, na, eb, kb, rb, xb, nb in within:
+        shared = shared_people(people, ea, eb)
+        sharing += bool(shared)
+        j = rules.refiled({"entity_ref": ea, "org_key": ka, "name": na, "registered_on": ra, "removed_on": xa},
+                          {"entity_ref": eb, "org_key": kb, "name": nb, "registered_on": rb, "removed_on": xb}, shared)
+        if j:
+            judged.append((ea, eb, j))
+    _insert_judged(conn, s, judged)
+    conn.execute(f"""DELETE FROM {s}.links n USING {s}.links r
+                     WHERE n.rule = %s AND r.rule = %s AND n.row_a = r.row_a AND n.row_b = r.row_b""",
+                 (rules.RULE_COMPANY_NAME, rules.RULE_REFILED))
+    conn.commit()
+    return {"pairs_under_one_name_one_removed": len(pairs), "removed_and_registered_within_twelve_months": len(within),
+            "with_people_on_both": sum(1 for p in within if people.get(p[0]) and people.get(p[5])),
+            "sharing_a_confirmed_person": sharing, "related": len(judged)}
 
 
 def same_party_links(conn, s: str) -> dict:

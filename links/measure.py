@@ -18,16 +18,22 @@ recorded in `links.measurements`. None had ever been run.
 8. Ruling 107's rule: the donation rows whose name several companies carry,
    by how many of them were live in the year; what it confirmed, to how many
    companies, and the groups those rows sit in.
+9. Ruling 109's rule: companies under one name key with no year in
+   brackets, one removed, by whether the other was registered within twelve
+   months of the removal, has people, and shares a confirmed person; what
+   `refiled-name@1` related, every pair listed; and any relation beyond the
+   twelve months or with no shared person, which must be none.
 """
 from __future__ import annotations
 
+import datetime as dt
 import json
 import sys
 import time
 
 import links
 from links import rules
-from links.pairs import ORG_KINDS
+from links.pairs import COMPANY_KINDS, ORG_KINDS
 
 BAND_SQL = "CASE WHEN n <= 5 THEN 'rare' WHEN n <= 50 THEN 'middling' ELSE 'common' END"
 
@@ -92,6 +98,24 @@ def _org_judgment(conn, s: str, a: str, b: str):
     return next((j for j in judged if j["entity_ref"] == company), None)
 
 
+def _company_judgment(conn, s: str, a: str, b: str):
+    """(what `rules.refiled` says about two companies of one name, within the twelve months, a person shared) from the facts the
+    build reads, the people's components read from the groups as built."""
+    co = {e: {"entity_ref": e, "org_key": k, "registered_on": r, "removed_on": m} for e, k, r, m in conn.execute(
+        f"SELECT entity_ref, org_key, registered_on, removed_on FROM {s}.org_names WHERE entity_ref IN (%s, %s)", (a, b)).fetchall()}
+    if len(co) < 2:
+        return None
+    people: dict = {}
+    for ref, entity, filed, g in conn.execute(f"""SELECT r.ref, r.entity_ref, r.name_filed, g.group_id FROM {s}.rows r JOIN {s}.groups g ON g.row_key = r.ref
+                                                  WHERE r.entity_ref IN (%s, %s) AND r.view IN ('directors', 'shareholders') AND r.kind = 'person'""",
+                                               (a, b)).fetchall():
+        people.setdefault(entity, {}).setdefault(g, []).append((ref, filed))
+    from links.build import shared_people
+    shared = shared_people(people, a, b)
+    first, then = sorted(co.values(), key=lambda c: (c["registered_on"] or dt.date.max, c["removed_on"] is None, c["entity_ref"]))
+    return rules.refiled(co[a], co[b], shared), rules.within_months(first["removed_on"], then["registered_on"]), bool(shared)
+
+
 def m3_rule_error(conn, s: str) -> dict:
     """Each test pair against the rules directly and against the groups as built."""
     hubs = {k: int(n) for k, n in conn.execute(f"SELECT address_key, n FROM {s}.address_counts WHERE n > {rules.HUB_FLOOR}").fetchall()}
@@ -102,7 +126,22 @@ def m3_rule_error(conn, s: str) -> dict:
     for kind, truth, band in conn.execute(f"SELECT DISTINCT kind, truth, band FROM {s}.test_pairs ORDER BY 1, 3").fetchall():
         n = confirmed_direct = confirmed_group = identical_full = 0
         by_rule: dict = {}
+        wrongly = {"related_by_relation": {}, "related_beyond_twelve_months": 0, "related_without_a_shared_person": 0}
         for a, b in conn.execute(f"SELECT row_a, row_b FROM {s}.test_pairs WHERE kind = %s AND band = %s", (kind, band)).fetchall():
+            if kind in COMPANY_KINDS:     # two companies of one name: judged by ruling 109's rule; a relation is never an identity
+                got = _company_judgment(conn, s, a, b)
+                if got is None:
+                    continue
+                j, within, shared = got
+                n += 1
+                if j:
+                    wrongly["related_by_relation"][j["relation"]] = wrongly["related_by_relation"].get(j["relation"], 0) + 1
+                    wrongly["related_beyond_twelve_months"] += not within
+                    wrongly["related_without_a_shared_person"] += not shared
+                g = conn.execute(f"""SELECT ga.group_id = gb.group_id FROM {s}.groups ga, {s}.groups gb
+                                     WHERE ga.row_key = %s AND gb.row_key = %s""", (a, b)).fetchone()
+                confirmed_group += bool(g and g[0])
+                continue
             if kind in ORG_KINDS:     # a donation row and a company: judged by ruling 106 and 107's rule, not the people rules
                 j = _org_judgment(conn, s, a, b)
                 if j is None:
@@ -139,7 +178,8 @@ def m3_rule_error(conn, s: str) -> dict:
                                             "confirmed_by_the_rules_directly": confirmed_direct, "confirmed_by_rule": by_rule,
                                             "in_one_group_as_built": confirmed_group,
                                             "pairs_with_identical_full_name_and_middle": identical_full,
-                                            "error_rate_direct": round(err_direct, 4), "error_rate_as_built": round(err_group, 4)})
+                                            "error_rate_direct": round(err_direct, 4), "error_rate_as_built": round(err_group, 4),
+                                            **(wrongly if kind in COMPANY_KINDS else {})})
     r = conn.execute(f"""SELECT agent, verdict, count(*), bool_or(web_searched) FROM {s}.readings GROUP BY 1, 2 ORDER BY 1, 2""").fetchall()
     out["agent_reading_of_confirmed_links"] = {"note": "an agent's judgment of the evidence, not a measurement against a known answer",
                                                "verdicts": [{"agent": a, "verdict": v, "links": int(n), "web_searched": bool(w)} for a, v, n, w in r]}
@@ -245,9 +285,49 @@ def m8_ruling_107(conn, s: str) -> dict:
     return out
 
 
+def m9_ruling_109(conn, s: str) -> dict:
+    """Ruling 109: the gap and what `refiled-name@1` related, counted in SQL apart from the rule."""
+    row = conn.execute(f"""
+        WITH o AS (SELECT * FROM {s}.org_names WHERE org_key !~ '\\(\\d{{4}}\\)' AND org_key <> ''),
+             p AS (SELECT a.entity_ref AS ea, b.entity_ref AS eb,
+                          (a.removed_on IS NOT NULL AND b.registered_on BETWEEN a.removed_on - interval '12 months' AND a.removed_on + interval '12 months')
+                          OR (b.removed_on IS NOT NULL AND a.registered_on BETWEEN b.removed_on - interval '12 months' AND b.removed_on + interval '12 months') AS within
+                   FROM o a JOIN o b ON b.org_key = a.org_key AND b.entity_ref > a.entity_ref
+                   WHERE a.removed_on IS NOT NULL OR b.removed_on IS NOT NULL),
+             w AS (SELECT ea, eb FROM p WHERE within),
+             pe AS (SELECT DISTINCT r.entity_ref, g.group_id FROM {s}.rows r LEFT JOIN {s}.groups g ON g.row_key = r.ref
+                    WHERE r.entity_ref IN (SELECT ea FROM w UNION SELECT eb FROM w) AND r.view IN ('directors', 'shareholders') AND r.kind = 'person'),
+             has AS (SELECT DISTINCT entity_ref FROM pe),
+             sh AS (SELECT DISTINCT w.ea, w.eb FROM w JOIN pe x ON x.entity_ref = w.ea JOIN pe y ON y.entity_ref = w.eb AND y.group_id = x.group_id)
+        SELECT (SELECT count(*) FROM p), (SELECT count(*) FROM w),
+               (SELECT count(*) FROM w WHERE ea IN (SELECT entity_ref FROM has) AND eb IN (SELECT entity_ref FROM has)),
+               (SELECT count(*) FROM w WHERE (ea IN (SELECT entity_ref FROM has)) <> (eb IN (SELECT entity_ref FROM has))),
+               (SELECT count(*) FROM sh)""").fetchone()
+    out = {"pairs_under_one_name_no_year_one_removed": int(row[0]), "removed_and_registered_within_twelve_months": int(row[1]),
+           "within_with_people_on_both": int(row[2]), "within_with_people_on_one_only": int(row[3]),
+           "within_sharing_a_confirmed_person": int(row[4])}
+    out["removed_companies_with_a_person_row"] = [{"removed": bool(r), "companies": int(n), "with_a_person_row": int(w)} for r, n, w in conn.execute(f"""
+        SELECT o.removed_on IS NOT NULL, count(*), count(*) FILTER (WHERE EXISTS (
+            SELECT 1 FROM {s}.rows r WHERE r.entity_ref = o.entity_ref AND r.view IN ('directors', 'shareholders') AND r.kind = 'person'))
+        FROM {s}.org_names o GROUP BY 1 ORDER BY 1""").fetchall()]
+    out["related"] = [{"earlier": [en, enum, str(ereg), str(erem)], "later": [ln, lnum, str(lreg)], "gap_days": int(gap), "shared_people": int(sp)}
+                      for en, enum, ereg, erem, ln, lnum, lreg, gap, sp in conn.execute(f"""
+        SELECT ce.name, ce.number, e.registered_on, e.removed_on, ct.name, ct.number, t.registered_on, t.registered_on - e.removed_on,
+               (l.evidence->>'shared_people')::int
+        FROM {s}.links l JOIN {s}.org_names e ON e.entity_ref = l.evidence->>'earlier' JOIN {s}.org_names t ON t.entity_ref = l.evidence->>'later'
+        LEFT JOIN pub.companies ce ON 'companies:' || ce.key = e.entity_ref LEFT JOIN pub.companies ct ON 'companies:' || ct.key = t.entity_ref
+        WHERE l.rule = %s ORDER BY e.org_key, e.entity_ref""", (rules.RULE_REFILED,)).fetchall()]
+    out["related_beyond_twelve_months"] = sum(1 for r in out["related"] if r["later"][2] == "None" or r["earlier"][3] == "None") + int(conn.execute(f"""
+        SELECT count(*) FROM {s}.links l JOIN {s}.org_names e ON e.entity_ref = l.evidence->>'earlier' JOIN {s}.org_names t ON t.entity_ref = l.evidence->>'later'
+        WHERE l.rule = %s AND (t.registered_on < e.removed_on - interval '12 months' OR t.registered_on > e.removed_on + interval '12 months')""",
+        (rules.RULE_REFILED,)).fetchone()[0])
+    out["related_without_a_shared_person"] = sum(1 for r in out["related"] if r["shared_people"] < 1)
+    return out
+
+
 MEASURES = (("1 name repeats", m1_name_repeats), ("2 shared addresses", m2_shared_addresses), ("3 rule error", m3_rule_error),
             ("4 rule reach", m4_rule_reach), ("5 company names", m5_company_names), ("6 group shape", m6_groups),
-            ("7 ruling 106", m7_ruling_106), ("8 ruling 107", m8_ruling_107))
+            ("7 ruling 106", m7_ruling_106), ("8 ruling 107", m8_ruling_107), ("9 ruling 109", m9_ruling_109))
 
 
 def run(conn, s: str, log=print, only: str = None) -> dict:

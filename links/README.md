@@ -13,6 +13,8 @@ Ruling 106: `organisation-sole-company@1` and `candidate-same-party@1` confirm; 
 ("succeeded by" between two companies, never an identity; `components` walks confirmed links only).
 Ruling 107: `organisation-one-live-company@1` confirms a donation row to the one of several companies of its name live in the
 donation's year (`rules.one_live_company`, reached through `rules.sole_company`); none or more than one live stays near, the reason saying which.
+Ruling 109: `refiled-name@1`, related, "delisted/refiled same year": two companies under one name with no year in brackets, the earlier
+removed and the later registered within twelve months of it (either side), a person confirmed on both (`rules.refiled`, `build.refiled_links`).
 `coupled-name@1` (ruling 73): a donation row filed as two people ("Craig & Shayne Greenlees", `keys.names.is_joint_name`) stays one row and
 gains a part row per person (`keys.names.joint_parts`; ref `<donor ref>#<n>`, `part_of` the donor), each joined to the donor, near;
 the other rules read a part as any person row. An organisation is never cut on "&"; initials ("M and J Patterson") are not judged.
