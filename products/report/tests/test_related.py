@@ -178,3 +178,15 @@ def test_the_rules_106_and_107_added_are_named_in_words_as_the_board_names_them(
     for rid in set(board) & set(cat.RULE_WORDS):
         assert cat.RULE_WORDS[rid] == board[rid], rid
     assert set(board) <= set(cat.RULE_WORDS), sorted(set(board) - set(cat.RULE_WORDS))
+
+
+def test_the_walks_own_rules_print_as_before_and_only_a_links_rule_takes_words():
+    # the templates' real tests read "rule through-officer" (11-healthcare, 12-property): the gate refused the words' colon on them
+    base = {"ref": "x:1", "view": "companies", "grade": "near", "statement": "ACME LIMITED", "dates": {"text": "registered 2001"},
+            "reason": "reached through Jane DOE, an officer on the subject"}
+    for rid in ("through-officer", "same-name", "chain", "official-number"):
+        line = memo._line_text(dict(base, rule=rid))
+        assert f"rule {rid}" in line and "rule: " not in line, line
+        assert f"rule {rid}" in memo._li(dict(base, rule=rid, cite=1))
+    line = memo._line_text(dict(base, rule="name-only@1"))
+    assert f"rule: {cat.RULE_WORDS['name-only']} (links rule name-only, version 1)" in line and "rule name-only@" not in line

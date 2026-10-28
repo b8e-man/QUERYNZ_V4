@@ -60,7 +60,7 @@ def _line_text(it: dict) -> str:
     if it.get("reason"):
         extra.append(f"near: {it['reason']}")
     if it.get("rule"):
-        extra.append(f"rule: {cat.rule_text(it['rule'])}")
+        extra.append(_rule(it["rule"]))
     if it.get("grade") == "related":
         extra.append(_people_text(it))
         if it.get("order") and it["order"] != "by registration date":
@@ -88,6 +88,15 @@ def _line_text(it: dict) -> str:
     if it.get("note") and it["view"] in ("shareholders", "directors", "disclosures", "gazette_company_notices", "charity_officers"):
         extra.append(it["note"])
     return line + ("".join("\n      " + x for x in extra) if extra else "")
+
+
+def _rule(rule) -> str:
+    """A rule as a line names it: a links rule in words, "rule: a company
+    succeeded by … (links rule successor-name, version 1)"; the walk's own
+    (through-officer, same-name, chain, …) as before, "rule through-officer",
+    the words the templates' tests read."""
+    words = cat.rule_text(rule)
+    return f"rule: {words}" if words != str(rule or "") else f"rule {rule}"
 
 
 def _people_text(it: dict, cite=lambda p: f" [{p.get('cite', '?')}]") -> str:
@@ -268,9 +277,9 @@ def _li(it: dict, template_name: str = "subject") -> str:
     out = [f'<li>{"<span class=\"warn\">new</span> " if it.get("new") else ""}<span class="grade {esc(it["grade"])}">{esc(GRADE_WORD.get(it["grade"], it["grade"]))}</span>{esc(it["statement"])} '
            f'<span class="dates">({esc(it["dates"]["text"])})</span> <span class="cite">[{esc(it.get("cite", "?"))}]</span>']
     if it.get("reason"):
-        out.append(f'<span class="reason">near: {esc(it["reason"])}' + (f" · rule: {esc(cat.rule_text(it['rule']))}" if it.get("rule") else "") + "</span>")
+        out.append(f'<span class="reason">near: {esc(it["reason"])}' + (f" · {esc(_rule(it['rule']))}" if it.get("rule") else "") + "</span>")
     elif it.get("rule"):
-        out.append(f'<span class="reason">rule: {esc(cat.rule_text(it["rule"]))}</span>')
+        out.append(f'<span class="reason">{esc(_rule(it["rule"]))}</span>')
     if it.get("grade") == "related":
         out.append(f'<span class="reason">{esc(_people_text(it))}</span>')
         if it.get("order") and it["order"] != "by registration date":

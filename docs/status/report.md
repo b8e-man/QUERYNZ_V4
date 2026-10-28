@@ -20,7 +20,13 @@
 - The memo names every links rule in words (`catalogue.RULE_WORDS`, held
   equal to the board's), including ruling 106's three rules and ruling 107's.
   The walk's own rules (same-name, official-number, chain …) print as before.
-- Checks: `tests/test_related.py` (6 tests; both mutations turn it red);
+- Refused at the gate 28 October 15:10, then fixed: the memo had printed every
+  rule as "rule: X", so the walk's own read "rule: through-officer", and two
+  templates' real tests (11-healthcare, 12-property) look for "rule
+  through-officer". `memo._rule` now gives a links rule in words and the walk's
+  own rules as before; the walk was not at fault. Pinned by a 7th test in
+  `tests/test_related.py` (red when the colon returns).
+- Checks: `tests/test_related.py` (7 tests; both mutations turn it red);
   `QV4_INTEGRATOR=1 bin/fast products/report` green in 43.6 s;
   `python -m products.report check` green in 80 s, with the new
   `routes_related` on a live succession; `test_real.py`, the templates'
