@@ -24,6 +24,18 @@ read, and what each row's entity is:
 | mp_interests      | mp_interest_returns                   | name (politician)        | -                   |
 | mp_interests      | mp_interests (directorships, business interests) | the declared organisation | the member's return |
 | expenses          | mp_expenses, minister_expenses        | member (politician)      | -                   |
+| charities         | charity_officers (kind person)        | first, middle, last_name | charity_key         |
+| gazette           | gazette_celebrants                    | given_names, surname     | -                   |
+| gazette           | gazette_practitioners                 | name                     | -                   |
+| limited_partnerships | limited_partnership_partners (kind person) | first, middle_names, last_name | partnership_key |
+| party_boards      | party_board_roles                     | name                     | party               |
+| local_elections   | local_election_returns                | candidate_as_listed (politician) | -           |
+| building_practitioners | building_practitioner_decisions  | name                     | -                   |
+| councillor_interests | councillor_interests               | member (politician)      | -                   |
+
+The last eight are ruling 114's (28 October 2026). A name that is nothing
+outside its brackets ("(combined)") or a bare initial ("J.") is set aside
+with its reason, as a suppressed or withheld name is.
 
 An expense line is a figure under a member's name; it is a row here so a
 product can reach the register through the one reading of names.
@@ -126,15 +138,52 @@ SOURCES = (
     ("expenses", "minister_expenses", """
         SELECT key, member AS name, NULL, period_start, period_end, NULL, NULL, document, false, NULL, NULL, NULL
         FROM pub.minister_expenses WHERE member IS NOT NULL AND member <> ''"""),
+    # ruling 114: the eight people views the lane left out. A charity's officer, read from the feed's name parts;
+    # an officer that is a body corporate is the view's own `kind` and is not a person row
+    ("charities", "charity_officers", """
+        SELECT key, full_name AS name, 'charities:' || charity_key, started_on, ended_on, NULL, NULL, document, suppressed,
+               first_name, middle_name, last_name
+        FROM pub.charity_officers WHERE kind = 'person'"""),
+    # a celebrant is filed surname first in two fields; the organisation is text, not an entity
+    ("gazette", "gazette_celebrants", """
+        SELECT key, trim(coalesce(given_names, '') || ' ' || coalesce(surname, '')) AS name, NULL, coalesce(period_from, published_on),
+               period_to, NULL, NULL, document, false, given_names, NULL, surname
+        FROM pub.gazette_celebrants WHERE coalesce(surname, '') <> ''"""),
+    ("gazette", "gazette_practitioners", """
+        SELECT key, name, NULL, published_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.gazette_practitioners WHERE name IS NOT NULL AND name <> ''"""),
+    # a general partner may be a body: the view's own `kind` says which, and only a person is read
+    ("limited_partnerships", "limited_partnership_partners", """
+        SELECT key, full_name AS name, 'limited_partnerships:' || partnership_key, started_on, ended_on, NULL, NULL, document, suppressed,
+               first_name, middle_names, last_name
+        FROM pub.limited_partnership_partners WHERE kind = 'person'"""),
+    ("party_boards", "party_board_roles", """
+        SELECT key, name, 'parties:' || party, captured_on, last_captured_on, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.party_board_roles WHERE name IS NOT NULL AND name <> ''"""),
+    # a local candidate as the council lists the return ("SURNAME, Given (Independent)"); a row for several candidates names nobody
+    ("local_elections", "local_election_returns", """
+        SELECT key, candidate_as_listed AS name, NULL, make_date(election_year, 1, 1), make_date(election_year, 12, 31), NULL, NULL,
+               document, false, NULL, NULL, NULL
+        FROM pub.local_election_returns WHERE candidate_as_listed IS NOT NULL AND candidate_as_listed <> ''"""),
+    ("building_practitioners", "building_practitioner_decisions", """
+        SELECT key, name, NULL, decided_on, NULL::date, NULL, NULL, document, suppressed, NULL, NULL, NULL
+        FROM pub.building_practitioner_decisions WHERE name IS NOT NULL AND name <> ''"""),
+    # the register's `as_at` is published as text and is blank on every row today: no date is read
+    ("councillor_interests", "councillor_interests", """
+        SELECT key, member AS name, NULL, NULL::date, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.councillor_interests WHERE member IS NOT NULL AND member <> ''"""),
 )
-#: the filing candidate is a politician; a declared interest is the member's own (a sole trade in the member's name is not a director row)
-POLITICIAN_VIEWS = {"candidates", "members", "mp_interest_returns", "candidate_return_totals", "mp_expenses", "minister_expenses", "mp_interests"}
+#: the filing candidate is a politician; a declared interest is the member's own (a sole trade in the member's name is not a director row);
+#: a local candidate and a councillor are candidates and members of an elected body, held to the same stricter join (ruling 114)
+POLITICIAN_VIEWS = {"candidates", "members", "mp_interest_returns", "candidate_return_totals", "mp_expenses", "minister_expenses", "mp_interests",
+                    "local_election_returns", "councillor_interests"}
 DECLARED_VIEWS = {"mp_interests"}       # the name is read out of a declared entry's text
 #: the donation views, where a coupled filed name is one donor joined to each person it names (ruling 73)
 DONATION_VIEWS = {"party_return_donors", "candidate_return_donors", "disclosures", "disclosure_items"}
 _DASHES = (" – ", " — ", " - ")
 _TRAILING_NOTE = re.compile(r"\s*\([^()]*\)\s*$")      # "(not trading)", "(inactive, and in process of de-registration)"
 _BRACKETED = re.compile(r"\s*\([^()]*\)")
+_NOT_LETTER = re.compile(r"[\W\d_]+")
 
 ADDRESS_SQL = """
     SELECT key, entity_key, started_on, last_file, in_latest, care_of, line_1, line_2, line_3, line_4, postcode
@@ -188,6 +237,13 @@ def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple 
         name = declared_name(name)
     if suppressed or not name or name == "name suppressed":
         reason = "suppressed or withheld" if suppressed or name == "name suppressed" else "no name"
+        if catch is not None:
+            catch[reason] = catch.get(reason, 0) + 1
+        return None
+    letters = _NOT_LETTER.sub("", _BRACKETED.sub("", name))
+    if len(letters) < 2:
+        # nothing outside brackets ("(combined)"), or one letter ("J."): a bare initial names nobody and gets no key
+        reason = "a bare initial" if letters else "no name"
         if catch is not None:
             catch[reason] = catch.get(reason, 0) + 1
         return None
