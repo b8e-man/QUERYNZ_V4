@@ -167,3 +167,101 @@ def test_the_page_carries_the_dossier_under_the_graph_and_the_results_a_plain_li
     assert "d=directors%3A" + D1.replace("/", "%2F") in html
     assert 'id="dossier"' in dossier.placeholder("hart", search.FIRST) and "hidden" in dossier.placeholder()
     assert dossier.base("hart", search.FIRST).startswith("/dossier?q=hart")
+
+
+# ── many rows (ruling 116's ministers): counted in SQL, shown by view ───────
+
+MANY_GID = "hansard:t/0"
+MANY = [("hansard_speeches", 1800, "Brown, Hon Simeon", "sitting_on"),
+        ("parliament_written_questions", 1000, "Hon Simeon Brown", "question_released_on"),
+        ("beehive_release_ministers", 200, "Simeon Brown", "published_on")]
+
+
+def many_rows():
+    """3,000 rows over three views, a day apart, and one suppressed director (hard limit 16)."""
+    out = {}
+    for view, n, name, col in MANY:
+        out[view] = [{"key": f"{view[0]}/{i}", col: dt.date(2000, 1, 1) + dt.timedelta(days=i), "member_name": name,
+                      "name": name, "title": f"question {i}", "_name": name} for i in range(n)]
+    out["directors"] = [{"key": "c/7/director/s", "full_name": "Hidden Person", "suppressed": True, "_name": "Hidden Person"}]
+    return out
+
+
+@pytest.fixture
+def many(monkeypatch):
+    held = many_rows()
+    date = {view: col for view, _, _, col in MANY}
+
+    def rows(conn, sql, params=()):
+        if sql.startswith("select count(*) as n, bool_or(contested)"):
+            return [{"n": sum(len(x) for x in held.values()), "contested": False}]
+        if sql.startswith("select n.view, n.name_filed, count(*)"):
+            return [{"view": v, "name_filed": x[0]["_name"], "n": len(x)} for v, x in held.items() if x]
+        if sql.startswith("select n.view, count(*)"):                               # the check's count, apart
+            return [{"view": v, "n": len(x)} for v, x in held.items()]
+        if sql.startswith("select n.name_filed, count(*)") and "pub.directors r" in sql:
+            return [{"name_filed": r["_name"], "n": 1} for r in held["directors"] if r["suppressed"]]
+        hit = re.search(r"from pub\.(\w+) r\b", sql)
+        if sql.startswith(("select r.*", "with k as")) and hit:
+            limit, offset = params[-2:]
+            got = sorted(held[hit.group(1)], key=lambda r: (r[date[hit.group(1)]], r["key"]), reverse=True)
+            return [dict(r) for r in got[offset:offset + limit]]
+        return []
+    monkeypatch.setattr(dossier.db, "rows", rows)
+    monkeypatch.setattr(dossier.document, "statuses", lambda conn, shas: {})
+    monkeypatch.setattr(dossier.lineage, "related_of", lambda conn, refs: [])
+    return held
+
+
+def test_an_entity_of_3000_rows_over_three_views_is_shown_by_view_each_row_counted_once(many):
+    from products.board import check
+    x = dossier.gather(None, "entity:" + MANY_GID)
+    page = dossier.pane(x, "brown", search.FIRST)
+    order = [r for r, _ in cat.REGISTERS]
+    want = sorted([(view, n) for view, n, _, _ in MANY], key=lambda vn: order.index(V[vn[0]].register))
+    assert x["many"] and [(v.name, k) for v, k in x["views"]] == want                           # the catalogue's register order
+    sections = re.findall(r'<details class="dview" data-view="(\w+)" data-count="(\d+)">', page)
+    assert [(v, int(k)) for v, k in sections] == want
+    assert "3,000 rows across 3 views" in page and sum(k for _, k in x["names"]) == 3000
+    assert page.count('<li><span class="when">') == 3 * dossier.VIEW_ROWS < 3000                   # a page per view read, not 3,000
+    assert page.count('<li class="newest">') == dossier.TIMELINE_ROWS and "and 2,960 more rows" in page
+    newest = re.findall(r'<li class="newest"><span class="when">([\d-]+)</span>', page)
+    assert newest == sorted(newest, reverse=True) and newest[0] == "2004-12-04"                # hansard's 1,800th day, the newest
+    assert "Hidden Person" not in page and "suppressed" not in section(page, "d-rows")          # hard limit 16: unnamed and uncounted
+    assert x["hidden_count"] == 1 and check.many_problems(None, MANY_GID, 3001, x, page) == []
+
+
+def test_a_view_of_a_many_rows_dossier_pages_to_the_rest(many):
+    x = dossier.gather(None, "entity:" + MANY_GID, "", "parliament_written_questions", 50)
+    page = dossier.pane(x, "brown", search.FIRST)
+    assert '<details class="dview" data-view="parliament_written_questions" data-count="1000" open>' in page
+    assert "rows 51 to 100 of 1,000, newest first" in page and "the newer 50" in page and "the next 50 of 900 older" in page
+    assert "dv=parliament_written_questions&amp;do=100" in page and "dv=hansard_speeches&amp;do=50" in page
+
+
+def test_the_check_goes_red_when_a_view_drops_out_of_the_count(many, monkeypatch):
+    from products.board import check
+    real = dossier.counted
+    monkeypatch.setattr(dossier, "counted", lambda conn, gid: dict(real(conn, gid), views=real(conn, gid)["views"][:-1]))
+    x = dossier.gather(None, "entity:" + MANY_GID)
+    gone, k = real(None, MANY_GID)["views"][-1]
+    found = check.many_problems(None, MANY_GID, 3001, x, dossier.pane(x))
+    assert any(f"counts {3000 - k:,} rows by view" in p for p in found)
+    assert any(f"counts 0 rows of {gone.name} where the group holds {k:,}" in p for p in found)
+
+
+def test_a_group_at_the_many_rows_line_is_shown_whole_as_before(many, monkeypatch):
+    many["parliament_written_questions"][:] = many["parliament_written_questions"][:dossier.MANY_AT]
+    for v in ("hansard_speeches", "beehive_release_ministers", "directors"):
+        many[v].clear()
+    asked = []
+    monkeypatch.setattr(people, "entity", lambda conn, gid: asked.append(gid))
+    assert dossier.gather(None, "entity:" + MANY_GID)["kind"] == "none" and asked == [MANY_GID]   # people.entity: the whole path
+    many["directors"].append(many_rows()["directors"][0])                                           # one past the line
+    assert dossier.gather(None, "entity:" + MANY_GID)["many"] and asked == [MANY_GID]
+
+
+def test_a_view_s_page_is_read_from_the_address_and_a_bad_offset_is_the_first_page():
+    assert server.dossier_page({"dv": ["hansard_speeches"], "do": ["50"]}) == ("hansard_speeches", 50)
+    assert server.dossier_page({"do": ["-5"]}) == ("", 0) and server.dossier_page({"do": ["x"]}) == ("", 0)
+    assert dossier.page_href("entity:g", "brown", search.FIRST, "hansard_speeches", 50).startswith("/?q=brown")
