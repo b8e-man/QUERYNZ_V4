@@ -354,10 +354,37 @@ def fold(conn, g: dict, near: bool = True, max_nodes: int = 120) -> dict:
             k = tuple(sorted((node_of[a], node_of[b])))
             out["decisions"].setdefault(k, []).append({"verdict": d["verdict"], "made_by": d["made_by"],
                                                       "made_at": d["made_at"], "rows": (title[a], title[b])})
+    stand_for(conn, out, members, hidden)
     out["lineage"] = lineage.relabel(g.get("lineage"), node_of)     # ruling 106 (2): each company its own node, a person once
     out["entities"] = sum(1 for n in out["nodes"].values() if n.get("entity"))
     out["lone"] = sum(1 for n in out["nodes"].values() if n.get("lone"))
     return out
+
+
+def stand_for(conn, out: dict, members: dict, hidden: set) -> None:
+    """Each entity node's row, the one that stands for its group (its
+    register's colour, its family, its grow and pane addresses): the group's
+    first shown row by ref in byte order, read by key where this answer did
+    not draw it, so every answer draws one entity alike (ruling 117 (4), the
+    lineage lesson of 28 October); it was the first row in hand, which
+    swapped with the row an answer started from."""
+    want = {}
+    for eid, n in out["nodes"].items():
+        e = n.get("entity")
+        if not e:
+            continue
+        shown = sorted((m for m in members.get(e["group_id"], []) if m["ref"] not in hidden and m["view"] in cat.BY_NAME),
+                       key=lambda m: m["ref"].encode())
+        if shown and links_view.ref(n["v"], n["row"]["key"]) != shown[0]["ref"]:
+            want[eid] = shown[0]
+    by_view = {}
+    for m in want.values():
+        by_view.setdefault(m["view"], set()).add(m["key"])
+    rows = {view: rows_by_key(conn, view, keys) for view, keys in by_view.items()}
+    for eid, m in want.items():
+        r = rows.get(m["view"], {}).get(m["key"])
+        if r is not None:
+            out["nodes"][eid].update({"v": cat.BY_NAME[m["view"]], "row": r})
 
 
 def graph_title(n: dict) -> str:

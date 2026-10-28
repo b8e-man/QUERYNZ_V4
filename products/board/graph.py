@@ -41,6 +41,7 @@ MAX_MATCHED = 16        # matched rows drawn; the rest are counted and the searc
 PER_VIEW = 8            # matched rows taken from any one view
 PER_RELATION = 10       # neighbours drawn per relation (or per links grade) per matched row
 MAX_NODES = 120
+CENTRE_GROUP = 40       # rows of a centred row's group drawn as the centre in the entity state, the first by ref (ruling 117 (4))
 MAX_FILED = 200         # rows read per donor name per view, for its money edges (ruling 86 (3)); more is said, not hidden
 KIND = {name: (colour, dash) for name, colour, dash in cat.EDGE_KINDS}
 CONFIRMED, NEAR = "same person, confirmed", "same person, near"
@@ -81,6 +82,29 @@ def _resolver(conn):
     return resolve
 
 
+def group_rows(conn, v: cat.View, r: dict) -> list:
+    """[(view, row)]: in the entity state, the shown rows of the group a
+    centred row is in, the first CENTRE_GROUP by ref in byte order (those
+    whose register asserts a connection before the rest), so every
+    row of one entity opens the same graph (ruling 117 (4): the entity's
+    connections were the one hop of whichever row the answer started at,
+    his charity from one row, his company from another); [] for a row in
+    no group, or whose name is suppressed (hard limit 16: never gathered)."""
+    if panes.is_suppressed(v, r):
+        return []
+    ref = links_view.ref(v, r["key"])
+    hit = people_state.groups_of(conn, [ref]).get(ref)
+    if hit is None:
+        return []
+    members = people_state.members_of(conn, [hit[0]])[hit[0]]
+    hidden = people_state.suppressed_refs(conn, members)
+    asserts = {v.name for v in cat.VIEWS if v.relations} | set(INCOMING)
+    shown = sorted((m for m in members if m["ref"] not in hidden),       # a row whose register asserts a connection first, then by ref
+                   key=lambda m: (m["view"] not in asserts, m["ref"].encode()))[:CENTRE_GROUP]
+    found = people_state.resolve_refs(conn, [m["ref"] for m in shown], {hit[0]: shown})
+    return [found[m["ref"]] for m in shown if m["ref"] in found]
+
+
 def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, removed: bool = True, people: bool = False,
           collapse: tuple = ()) -> dict:
     """{'nodes': {id: {v, row, matched, centre, order}}, 'edges': [...],
@@ -103,6 +127,8 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
         r = search.row(conn, view, key) if view in held else None
         if r:
             matched.append((cat.BY_NAME[view], r))
+            if people:                                  # ruling 117 (4): the entity's hop, whichever of its rows was tapped
+                matched = group_rows(conn, cat.BY_NAME[view], r) or matched
         g["matched_total"] = len(matched)
     elif q or fields:
         res = search.search(conn, q, limit=PER_VIEW, registers=regs, fields=fields, removed=removed)
@@ -143,6 +169,15 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
         return nid
 
     resolve = _resolver(conn)
+    asked = {}
+
+    def rows_of(far, column, value):
+        """_rows once per far view, column and value in one build: an entity's rows name one member, one company, often."""
+        k = (far.name, column, str(value))
+        if k not in asked:
+            asked[k] = _rows(conn, far, column, value, PER_RELATION)
+        return asked[k]
+
     for name, nid in donors.items():
         gifts(conn, g, nid, name, held, add_node, add_edge)
     for v, r in matched:
@@ -152,7 +187,7 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
             far = cat.BY_NAME[rel.view]
             if value in (None, "") or far.name not in held:
                 continue
-            total, rows = _rows(conn, far, rel.to_column, value, PER_RELATION)
+            total, rows = rows_of(far, rel.to_column, value)
             drawn = 0
             for fr in rows:
                 nid = add_node(far, fr, me)
@@ -164,7 +199,7 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
             value = r.get(rel.to_column)
             if value in (None, "") or src.name not in held:
                 continue
-            total, rows = _rows(conn, src, rel.column, value, PER_RELATION)
+            total, rows = rows_of(src, rel.column, value)
             drawn = 0
             for sr in rows:
                 nid = add_node(src, sr, me)

@@ -440,3 +440,32 @@ def test_lloyd_budd_s_results_say_what_he_is_never_counts_or_views():
     assert len({w for w in whats if w.startswith("marriage celebrant, listed")}) == 5          # each tab lists them; five lists, five days
     assert any(w.startswith("candidate, ") for w in whats)
     assert not re.search(r"\d rows?, \d registers?|1 row, 1 register|single-row entity", results)
+
+
+def test_lloyd_budd_s_entity_graph_is_one_drawing_from_every_row_and_in_both_states():
+    """Ruling 117 (4), live: opened from his charity officer's row, his director's row or his shareholder's row,
+    with the name fold and without, the entity is one node standing for one row, joined to his charity and his
+    company; the fold lifts every plain node and line to its folded ends and adds none."""
+    e, fid = people.entity_id(LLOYD), collapse.PREFIX + people.entity_id(LLOYD)
+    seen = {}
+    with db.read_connect() as conn:
+        centres = sorted(f"{m['view']}:{m['key']}" for m in people.members_of(conn, [LLOYD])[LLOYD])
+        assert len(centres) == 3
+        for cl in ((), ("name",)):
+            for c in centres:
+                t = time.time()
+                d = server.graph_answer("lloyd budd", c, conn=conn, boxes=search.FIRST._replace(people=True, collapse=cl))
+                assert time.time() - t < 2.0
+                seen[(cl, c)] = ({n["id"]: n["view"] for n in d["nodes"]}, {(l["source"], l["target"], l["kind"]) for l in d["edges"]}, d)
+    for cl, me in (((), e), (("name",), fid)):
+        drawings = [seen[(cl, c)][:2] for c in centres]
+        assert all(x == drawings[0] for x in drawings), cl                          # the same from every row
+        nodes, lines = drawings[0]
+        assert nodes[me] == "charity_officers"                                      # his first row by ref stands for him
+        ends = {b for a, b, k in lines if a == me and k == "role"} | {a for a, b, k in lines if b == me and k == "role"}
+        assert {n for n in ends if n.startswith("charities:")} and {n for n in ends if n.startswith("companies:")}
+    pn, pl, _ = seen[((), centres[0])]
+    fn, fl, fd = seen[(("name",), centres[0])]
+    members = set(next(n for n in fd["nodes"] if n["id"] == fid)["members"])
+    to = {nid: (fid if nid in members else nid) for nid in pn}
+    assert set(to.values()) == set(fn) and {(to[a], to[b], k) for a, b, k in pl if to[a] != to[b]} == fl
