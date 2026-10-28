@@ -863,7 +863,7 @@ living beside the results (108) with the dossier under it (110). The graph
 tab's address still answers, redirected to the search page with the graph
 open, so a saved path keeps working. Built by board-12, after board-11.
 
-112. Arthur, 28 October, 16:45, on the results pane: "at the top of
+112. Arthur, 28 October, 16:43, on the results pane: "at the top of
 results, let's have an expandable 'collapse' section that opens collapse
 options. These let us collapse rows based on criteria like shared names".
 So the results pane carries, above the entities, a closed section
