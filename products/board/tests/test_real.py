@@ -270,7 +270,8 @@ def test_the_lineage_check_goes_red_when_a_frame_merges_its_companies(monkeypatc
 
 
 def test_the_dossier_of_the_largest_group_and_of_graeme_hart_answers_well_inside_the_floor():
-    """Ruling 110: the dossier reads by row key and group id; its cost for the largest group (1,220 rows on 28 October)
+    """Ruling 110: the dossier reads by row key and group id; its cost for the largest group (30,836 rows on 28 October,
+    read by view past dossier.MANY_AT: 0.52 s, where gathering every row took 4.4 s and a 58.7 MB page)
     and for every group and lone row of "Graeme Hart", and on top of a search page with it open."""
     from products.board import dossier
     with db.read_connect() as conn:
@@ -303,6 +304,18 @@ def test_the_dossier_check_goes_red_when_a_disclosure_is_added_to_the_year(monke
         real = dossier.addends
         monkeypatch.setattr(dossier, "addends", lambda x: [dict(a, not_added="") if a["amount"] is not None else a for a in real(x)])
         assert any("sums" in p for p in check.dossier_problems(conn))
+
+
+def test_the_dossier_check_goes_red_when_a_view_drops_out_of_the_largest_group_s_count(monkeypatch):
+    """Item 25 against the live tables, past dossier.MANY_AT: each view's count is held to the group's rows counted apart."""
+    from products.board import dossier
+    with db.read_connect() as conn:
+        n = db.rows(conn, "select count(*) as n from pub.groups group by group_id order by 1 desc limit 1")[0]["n"]
+        assert n > dossier.MANY_AT
+        real = dossier.counted
+        monkeypatch.setattr(dossier, "counted", lambda conn, gid: (lambda c: dict(c, views=c["views"][:-1]))(real(conn, gid)))
+        found = check.dossier_problems(conn)
+        assert any("does not count each of its catalogued rows once across its views" in p for p in found)
 
 
 def test_the_entities_only_check_goes_red_when_a_row_reaches_the_results_pane(monkeypatch):
@@ -365,24 +378,15 @@ def test_a_saved_path_from_before_and_the_graph_tab_s_old_address_still_open(mon
 
 
 def test_lloyd_budd_s_rows_pub_names_does_not_hold_fold_with_his_entity_by_name():
-    """The fix of 28 October: pub.names holds no row of charity_officers or gazette_celebrants, so with "a shared first
-    and last name" ticked the board keys those rows from their own Name columns; the officer and the five celebrants
-    (filed surname, given names) fold into the one entry with the links lane's entity, in both states."""
+    """The fix of 28 October: with "a shared first and last name" ticked, a row the links lane's name table lacks is
+    keyed from its own Name columns, so the charity officer and the five celebrants (filed surname, given names) fold
+    into one entry with the links lane's entity, in both states. Since ruling 114 the lane reads both views, so the
+    rows may arrive already in the entity's group; either way the page shows one Lloyd Budd and no stray row."""
     with db.read_connect() as conn:
-        for v in ("charity_officers", "gazette_celebrants"):
-            assert not db.rows(conn, "select 1 from pub.names where view = %s limit 1", (v,))
         for people_state in (False, True):
             page = server.render("lloyd budd", [], conn=conn, boxes=search.FIRST._replace(people=people_state, collapse=("name",)))
-            folds = {unescape(d) for d in re.findall(r'class="hit entity folded"[^>]* data-dossier="([^"]*)"', page)}
-            assert len(folds) == 1, folds
-            by, members = collapse.parse(folds.pop())
-            views = [m.split(":", 1)[0] for m in members]
-            assert by == ("name",) and "entity" in views and views.count("charity_officers") == 1 and views.count("gazette_celebrants") == 5
-            assert "collapsed here by shared name; not a link" in page
-        for m in members:
-            v, key = m.split(":", 1)
-            if v == "gazette_celebrants":
-                assert collapse.row_name_keys(cat.BY_NAME[v], search.row(conn, v, key))[0] == "lloyd budd"   # family-given read right
+            entries = {unescape(d) for d in re.findall(r'class="hit entity(?: folded)?"[^>]* data-dossier="([^"]*)"', page)}
+            assert len(entries) == 1, entries
 
 
 def test_a_board_made_name_key_equals_pub_names_key_for_the_rows_pub_names_holds():

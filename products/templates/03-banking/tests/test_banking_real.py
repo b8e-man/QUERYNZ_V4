@@ -24,13 +24,16 @@ COMMON = ("group-standing", "hubs-met", "replaced-return")
 HEADING = re.compile(r"^([A-Z][A-Z ,':]+?)  \((\d+) confirmed, (\d+) near\)$")
 ENDINGS = "HOW EACH COMPANY ENDED: REGISTER STATUS AND GAZETTE NOTICES, DATED"
 BESIDE = "THE PEOPLE THEY SAT BESIDE, AND THE COMPANIES THOSE PEOPLE SHARE WITH THEM"
+#: the group's director row taken is one on a liquidated company: its smallest director row need not be (since 28 October a
+#: group's id can be a charity officer's row, and the first director row in it sat on a company never liquidated)
 TWICE_LIQUIDATED = """
     with grp as (select g.group_id, d.entity_key from pub.groups g join pub.directors d on 'companies:' || d.key = g.row_key
                  where not coalesce(g.contested, false)),
          agg as (select group_id, count(distinct entity_key) cos, count(distinct l.register_key) liq
                  from grp left join pub.gazette_liquidations l on l.register_key = grp.entity_key group by 1)
-    select min(g.row_key) from pub.groups g
-    where g.group_id = (select min(group_id) from agg where cos between 2 and 10 and liq >= 2) and g.row_key like 'companies:%/director/%'"""
+    select min(g.row_key) from pub.groups g join pub.directors d on 'companies:' || d.key = g.row_key
+    where g.group_id = (select min(group_id) from agg where cos between 2 and 10 and liq >= 2)
+      and exists (select 1 from pub.gazette_liquidations l where l.register_key = d.entity_key)"""
 
 
 def one(sql: str) -> str:
