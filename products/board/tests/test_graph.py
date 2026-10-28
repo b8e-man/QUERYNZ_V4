@@ -229,7 +229,7 @@ def test_the_picture_is_svg_with_hrefs_and_no_script():
     html = graph.pane(sample(), "doe", search.Boxes(False, ("party_returns",)))
     assert "<script" not in html and "<svg" in html and "</svg>" in html
     assert html[:html.index("<h3>Key")].count('<path class="edge"') == 3 and 'stroke-dasharray="6 4"' in html     # near is dashed
-    assert "/graph?q=doe&amp;p=&amp;all=0&amp;r=party_returns&amp;c=companies%3Ac1" in html          # a node re-centres
+    assert "/?q=doe&amp;all=0&amp;r=party_returns&amp;d=companies%3Ac1&amp;gv=1" in html            # a node re-centres beside the results
     assert 'href="/?q=doe&amp;p=party_return_donors%3Ad1&amp;all=0&amp;r=party_returns"' in html     # a number cites the asserting row
     assert "Secret Person" not in html and "name suppressed" in html                      # hard limit 16 on every surface
     assert "ACME &lt;LIMITED&gt;" in html

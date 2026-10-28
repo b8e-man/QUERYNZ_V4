@@ -201,6 +201,7 @@ def finish(conn, x: dict) -> dict:
     x["bodies"] = bodies(conn, x["rows"])
     x["interests"] = interests_of(conn, x["rows"])
     x["docs"] = document.statuses(conn, [r.get("document") for _, _, r in x["rows"]] + [r.get("document") for _, r in x["interests"]])
+    x["pointed"] = search.far_rows(conn, [(v, r) for _, v, r in x["rows"]] + list(x["interests"]))    # ruling 92 (2), one query per far view
     return x
 
 
@@ -269,14 +270,18 @@ def dates_text(v: cat.View, r: dict) -> str:
     return " · ".join(f"{panes.esc(label)} {panes.fmt(r.get(c))}" for label, c in v.dates if r.get(c) not in (None, ""))
 
 
-def fields_text(v: cat.View, r: dict) -> str:
-    """Every field the view shows, whole, its flag beside it (ruling 102)."""
+def fields_text(v: cat.View, r: dict, pointed: dict = None, q: str = "", boxes=None) -> str:
+    """Every field the view shows, whole, its flag beside it (ruling 102); a
+    column naming another view's row as that row's name, linked, the key on
+    hover (ruling 92 (2), panes.far_cell, from `pointed`, search.far_rows):
+    since ruling 111 the dossier is where a row is read."""
     parts = []
     for label, c in v.fields:
         x = panes.shown(v, r, c)
         if x in (None, ""):
             continue
-        parts.append(f"{panes.esc(label)}: {panes.fmt(x, c)}{panes.flag_notes(v, r, c)}")
+        cell = panes.far_cell(v, r, c, pointed, q, [], boxes)
+        parts.append(f"{panes.esc(label)}: {cell if cell is not None else panes.fmt(x, c)}{panes.flag_notes(v, r, c)}")
     return " · ".join(parts)
 
 
@@ -309,7 +314,7 @@ def timeline(x: dict, q, boxes) -> list:
                         f'{panes.struck(v, r, _a(q, boxes, v, r))} <span class="meta">{panes.esc(v.name)}</span>'
                         + (f'<div>{role}</div>' if role else "")
                         + (f'<div class="meta">{dates_text(v, r)}</div>' if dates_text(v, r) else "")
-                        + (f'<div class="meta">{fields_text(v, r)}</div>' if fields_text(v, r) else "")
+                        + (f'<div class="meta">{fields}</div>' if (fields := fields_text(v, r, x.get("pointed"), q, boxes)) else "")
                         + panes.citation_line(v, r, x["docs"]) + "</li>")
         body.append("</ol>")
         if len(items) > OPEN_AT:
@@ -376,7 +381,7 @@ def money(x: dict, q, boxes) -> list:
         out.append(f'<div class="view"><strong>{panes.esc(y if y is not None else "year not stated")}</strong> '
                    f'<span class="count">{len(years[y]):,}</span></div><ul>')
         for v, r in years[y]:
-            out.append(f'<li>{_a(q, boxes, v, r, "plain")}<div class="meta">{fields_text(v, r)}</div>'
+            out.append(f'<li>{_a(q, boxes, v, r, "plain")}<div class="meta">{fields_text(v, r, x.get("pointed"), q, boxes)}</div>'
                        + panes.citation_line(v, r, x["docs"]) + "</li>")
         out.append("</ul>")
     return out

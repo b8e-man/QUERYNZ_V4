@@ -363,7 +363,8 @@ def entity(conn, gid: str) -> dict:
 
 # ── the results pane's entity state (ruling 108) ────────────────────────────
 
-RESULT_ENTITIES = 50        # entities listed under one tab of the results pane; the rest counted
+RESULT_ENTITIES = 50        # entities (groups) listed under one tab of the results pane; the rest counted
+RESULT_LONE = 100           # single-row entities listed under one tab (ruling 111); the rest counted
 
 
 def gather(conn, hits, named: dict = None) -> dict:

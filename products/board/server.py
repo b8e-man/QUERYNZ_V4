@@ -1,7 +1,7 @@
 """The board's page, served on the local network only (design rule 7;
 hard limit 13), with the least machinery that works: the standard
-library's HTTP server, one page per request. Script runs on the graph tab
-(ruling 100) and on the search tab's graph beside the results (ruling 108),
+library's HTTP server, one page per request. Script runs on the search tab's
+graph beside the results (rulings 100, 108, 111),
 from the board's own /static/ files; every page carries a content security
 policy that lets it ask nothing of any other address.
 Routes:
@@ -11,12 +11,15 @@ Routes:
                     ruling 82), the results beside it with the near matches below them (ruling 83), then one pane per
                     step of the path; ruling 108: the results under one tab per field matched, in rows or entities
                     (`g=entities`), and an empty graph pane beside them that a click on a result fills from /graph.json
-  GET  /graph?q=<term>&all=<0|1>&r=<register>…&c=<view:key>   the graph tab: the matching rows as nodes, the
-                    connections their registers assert as edges, one hop; `c` re-centres on one row; the picture is
-                    a Cytoscape canvas (ruling 100) with the SVG inside <noscript>
+  GET  /?…&gv=1      ruling 111: the search page with the graph beside the results drawn now (the matching rows as
+                    nodes, the connections their registers assert as edges, one hop; centred on `d` where given; a
+                    Cytoscape canvas, ruling 100, with the SVG inside <noscript>)
+  GET  /graph?q=&…&c=<view:key>   the graph tab's old address (the tab left the bar, ruling 111): a 303 to the
+                    search page on the same query, boxes and state with the graph open (`gv=1`), centred on `c`; so
+                    does `/?tab=graph…`
   GET  /graph.json?c=<view:key>&all=&r=…   the same graph as data (graph.answer): one row's one hop, for the canvas's taps
   GET  /dossier?d=<entity:group id|view:key>&q=&all=&r=…   the dossier's pane alone (ruling 110, dossier.py), which
-                    graph.js puts under the graph when a result is clicked or a node tapped; `d=` on / and /graph
+                    graph.js puts under the graph when a result is clicked or a node tapped; `d=` on /
                     opens a page with that dossier under its graph, so a view reopens with it
   GET  /static/<name>  the board's own files (assets.FILES), with a long cache header; 404 for any other name
   GET  /pinned      the pinned panes       GET /saved     the saved paths
@@ -184,13 +187,15 @@ def render_dossier(chosen: str, q: str = "", conn=None, boxes: search.Boxes = se
 
 
 def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes = search.FIRST, near_names: bool = False,
-           chosen: str = "") -> str:
+           chosen: str = "", graph_open: bool = False) -> str:
     """The search tab. `conn` is a session-reader connection to reuse (the
     check passes its own); without one a connection is opened and closed.
     `boxes`: the form's check boxes, carried on every href (ruling 81);
     `near_names`: the near-names pane beside the search pane (ruling 92 (4));
     `chosen` (`d=`), the entity or row whose dossier opens under the graph
-    beside the results (ruling 110), the graph centred on it."""
+    beside the results (ruling 110), the graph centred on it; `graph_open`
+    (`gv=1`, ruling 111: the graph tab's old address lands here), the graph
+    beside the results built now, centred on `chosen` or the whole search."""
     with RENDER_LOCK, (contextlib.nullcontext(conn) if conn is not None else db.read_connect()) as conn:
         held = db.pub_views(conn)
         regs = search.selection(boxes, search.held_registers(held))
@@ -217,13 +222,10 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
             tv = tv if tv.name in held else panes.main_view(tv.register, held)
             if tv is not None:
                 total, trows, hidden = search.table(conn, tv, boxes.upto, boxes.removed)
-        cited = [r.get("document") for hits in results.values() if isinstance(hits, list) for _, _, rows in hits for r in rows]
-        cited += [r.get("document") for c in (nearby or {}).values() if isinstance(c, dict) for _, r in c.get("rows") or ()]
-        cited += [r.get("document") for k, _, r in steps if r and k != people.ENTITY]
+        # ruling 111: the results list entities, so only the path's panes and the table cite a document or name a far row
+        cited = [r.get("document") for k, _, r in steps if r and k != people.ENTITY]
         docs = document.statuses(conn, cited)          # ruling 86 (4): one query for every "source" link on the page
-        shown_rows = [(v, r) for hits in results.values() if isinstance(hits, list) for v, _, rows in hits for r in rows]
-        shown_rows += [vr for c in (nearby or {}).values() if isinstance(c, dict) for vr in c.get("rows") or ()]
-        shown_rows += [(cat.BY_NAME[view], r) for k, view, r in steps if r and k != people.ENTITY] + [(tv, r) for r in trows or ()]
+        shown_rows = [(cat.BY_NAME[view], r) for k, view, r in steps if r and k != people.ENTITY] + [(tv, r) for r in trows or ()]
         far = search.far_rows(conn, shown_rows, held)  # ruling 92 (2): one query per far view for every key shown
         listed = [(v, r) for hits in results.values() if isinstance(hits, list) for v, _, rows in hits for r in rows
                   if v.kind == "organisation" and not panes.is_suppressed(v, r)]
@@ -235,15 +237,19 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         if near_names:
             out.append(panes.near_names_pane(q, near.near_names(conn, q, asked, registers=regs, held=held), boxes))
         ents = None
-        if boxes.people and asking:                    # ruling 108 (1): the entity state on the results pane
+        if asking:                                     # ruling 111: the results pane lists entities alone, in either state
             hits = [(v, r) for hits in results.values() if isinstance(hits, list) for v, _, rows in hits for r in rows]
+            hits += [vr for c in (nearby or {}).values() if isinstance(c, dict) for vr in c.get("rows") or ()]
             ents = people.gather(conn, hits, people.named_groups(conn, q, asked, regs))     # ruling 108 (3): entity search
         chosen = dossier.parse(chosen)
         dos, centre = dossier_of(conn, chosen, q, boxes)
-        if q or asked or tv is None:                   # with a table open and nothing asked, the table sits beside the search
-            pane = panes.results_pane(q, results, held, regs, boxes, words, nearby, docs, far, ents)
-            if asking:                                 # ruling 108 (4); ruling 110: the dossier under the graph
-                out.append(f'<div class="duo">{pane}<div class="sidecol">{graph.side_pane(boxes, centre)}{dos}</div></div>')
+        if q or asked or tv is None or graph_open:    # with a table open and nothing asked, the table sits beside the search
+            pane = panes.results_pane(q, results, held, regs, boxes, words, nearby, ents=ents)
+            if asking or graph_open:                   # ruling 108 (4); ruling 110: the dossier under the graph
+                g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=asked if regs else None,
+                                removed=boxes.removed, people=boxes.people) if graph_open else None
+                side = graph.side_pane(boxes, centre, g, q, regs, chosen)
+                out.append(f'<div class="duo">{pane}<div class="sidecol">{side}{dos}</div></div>')
             else:
                 out.append(pane)
                 if chosen:
@@ -273,20 +279,22 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
 
 
 def render_graph(q: str, centre: str = "", conn=None, boxes: search.Boxes = search.FIRST, chosen: str = "", read=None) -> str:
-    """The graph tab, on the product reader (pub only); the check passes its own connection.
-    Ruling 110: under the graph the dossier of `chosen` (`d=`), else of the
-    row the graph centres on (a node clicked without script), on the session
-    reader (`read`, else one opened), whose citations read the store's records."""
-    with RENDER_LOCK, (contextlib.nullcontext(conn) if conn is not None else db.scan_connect()) as conn, \
-            (contextlib.nullcontext(read) if read is not None else db.read_connect()) as read:
-        held = db.pub_views(conn)
-        regs = search.selection(boxes, search.held_registers(held))
-        g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None,
-                        removed=boxes.removed, people=boxes.people)
-        out = [panes.left_pane(q, search.held_registers(held), boxes, action="/graph", title="Graph the connections"),
-               f'<div class="stack">{graph.pane(g, q, boxes, regs, script=True)}'
-               f'{dossier_of(read, dossier.parse(chosen) or centre, q, boxes)[0]}</div>']
-        return panes.page(q, [], out, "", boxes, tab="graph", db=counter(conn))
+    """What the graph tab's old address opens (ruling 111): the search page
+    with the graph beside the results drawn now, centred on `centre` (`c=`)
+    with its dossier under it, else the whole search. `read`, the check's
+    session-reader connection (else `conn`, else one opened)."""
+    return render(q, [], conn=read if read is not None else conn, boxes=boxes, chosen=chosen or centre, graph_open=True)
+
+
+def graph_redirect(qs: dict) -> str:
+    """The address the graph tab's old address answers with (ruling 111):
+    `/graph?q=&…&c=&d=` and `/?tab=graph…`, as saved before the tab left the
+    bar, become the search page on the same query, check boxes and state
+    (`g=entities`), the graph open beside the results (`gv=1`), centred on
+    `d`, else `c`, whose dossier opens under it."""
+    q = (qs.get("q") or [""])[0].strip()[:200]
+    d = dossier.parse((qs.get("d") or [""])[0]) or parse_centre((qs.get("c") or [""])[0])
+    return panes.graph_open_href(q, search.boxes_of(qs), d)
 
 
 def graph_answer(q: str, centre: str = "", conn=None, boxes: search.Boxes = search.FIRST, opened: str = "") -> dict:
@@ -416,12 +424,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if url.path == "/dossier":
                 self.send_html(render_dossier(chosen, q, boxes=boxes))
                 return
-            if url.path == "/graph":
-                self.send_html(render_graph(q, parse_centre((qs.get("c") or [""])[0]), boxes=boxes, chosen=chosen))
+            if url.path == "/graph" or (qs.get("tab") or [""])[0] == "graph":     # ruling 111: the tab left the bar
+                self.redirect(graph_redirect(qs))
                 return
             path = parse_path((qs.get("p") or [""])[0])
             self.send_html(render(q, path, (qs.get("m") or [""])[0][:100], boxes=boxes, near_names="1" in (qs.get("near") or []),
-                                  chosen=chosen))
+                                  chosen=chosen, graph_open="1" in (qs.get(panes.GRAPH_OPEN) or [])))
         except Exception as exc:          # the page says what failed; the server stays up
             self.send_html(f"<p>the board could not answer: {panes.esc(type(exc).__name__)}: {panes.esc(exc)}</p>", 500)
 

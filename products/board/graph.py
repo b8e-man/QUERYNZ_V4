@@ -772,7 +772,7 @@ def svg(g: dict, q: str, boxes=None, lns: list = None, placement: dict = None, l
         title = node_title(n)
         rad = radius(n)
         e = n.get("entity")                 # an entity re-centres on its first row in hand, in the people state
-        to = panes.href(q, [], boxes, "/graph") + "&" + urllib.parse.urlencode({"c": e["in_hand"][0] if e else nid})
+        to = panes.graph_open_href(q, boxes, e["in_hand"][0] if e else nid)     # ruling 111: centred beside the results
         lab = placement["labels"].get(nid)
         text = ""
         if lab:
@@ -1009,31 +1009,41 @@ def canvas(data: dict, picture: str) -> str:
 
 
 SIDE_NOTE = ("Click a result to draw its graph here, centred on it, in the state the switch above shows: rows, or the "
-             "entities the links lane gathered. A click with a key held opens the result's pane instead.")
+             "entities the links lane gathered. A click with a key held opens the result's dossier instead.")
 
 
-def side_pane(boxes=None, centre: str = "") -> str:
-    """The graph beside the results (ruling 108 (4)): the canvas of ruling 100,
+def side_pane(boxes=None, centre: str = "", g: dict = None, q: str = "", regs=None, chosen: str = "") -> str:
+    """The graph beside the results (ruling 108 (4)), the board's one graph
+    since the graph tab left the bar (ruling 111): the canvas of ruling 100,
     empty and hidden until a result is clicked, then filled by graph.js from
     /graph.json centred on that result (its `data-graph`, panes.graph_href),
-    in the state the address carries. Without script it never shows: each
-    result's link opens its pane, and the graph tab stays. `centre`, the row
-    of the dossier the address opens (ruling 110): graph.js draws it at once."""
+    in the state the switch above it shows, which is the graph's alone
+    (ruling 111). `centre`, the row of the dossier the address opens (ruling
+    110): graph.js draws it at once. `g`, a graph built for an address with
+    `gv=1` (the graph tab's old address, redirected): drawn now, its data
+    inline and its SVG inside <noscript>, as the graph tab drew it."""
     people = bool(getattr(boxes, "people", False))
+    head = (f'<div class="reg">graph beside the results{" · entities" if people else ""}</div>'
+            + switch(q, boxes, chosen, opened=g is not None))
+    if g is not None:
+        return (f'<section class="pane side on" id="side" aria-live="polite" data-inline="1">{head}'
+                + "\n".join(body(g, q, boxes, regs, script=True)) + "</section>")
     empty = {"centre": "", "mode": "entities" if people else "rows", "nodes": [], "edges": [], "matched_total": 0,
              "drawn": {}, "not_drawn": {}, "unresolved": 0}
     start = f' data-start="{panes.esc(panes.graph_href(centre, boxes))}"' if centre else ""
-    return (f'<section class="pane side" id="side" aria-live="polite"{start}>'
-            f'<div class="reg">graph beside the results{" · entities" if people else ""}</div>'
+    return (f'<section class="pane side" id="side" aria-live="polite"{start}>{head}'
             '<h2 id="side-title">Graph</h2>'
-            '<p class="note"><a id="side-pane" href="#">its pane</a> · <a id="side-tab" href="/graph">on the graph tab</a> · '
+            '<p class="note"><a id="side-pane" href="#">its dossier</a> · '
             '<button type="button" id="side-close">close</button></p>'
             f'<p class="note">{panes.esc(SIDE_NOTE)}</p>' + canvas(empty, "") + "</section>")
 
 
-def switch(q: str, boxes=None, centre: str = "") -> str:
-    """The one control between the graph's two states (ruling 105): rows, or
-    entities; the address carries the state (`g=entities`), so a view reopens in it."""
+def switch(q: str, boxes=None, chosen: str = "", opened: bool = False) -> str:
+    """The one control between the graph's two states (ruling 105), on the
+    graph's pane alone (ruling 111): rows, or entities; the address carries
+    the state (`g=entities`), so a view reopens in it, with the dossier
+    chosen (`d=`, which graph.js keeps current) and the graph open (`gv=1`)
+    where it was."""
     boxes = boxes if boxes is not None else search.FIRST
     on = boxes.people
     parts = []
@@ -1041,8 +1051,7 @@ def switch(q: str, boxes=None, centre: str = "") -> str:
         if people == on:
             parts.append(f'<strong aria-current="true">{label}</strong>')
         else:
-            extra = [("c", centre)] if centre else []
-            url = "/graph?" + urllib.parse.urlencode([("q", q)] + extra + boxes._replace(people=people).params())
+            url = panes.graph_open_href(q, boxes._replace(people=people), chosen, opened)
             parts.append(f'<a href="{panes.esc(url)}">{label}</a>')
     return '<p class="switch" id="state">show: ' + " · ".join(parts) + "</p>"
 
@@ -1058,22 +1067,29 @@ PEOPLE_NOTE = ("People: the rows are gathered into the groups the links lane bui
 def pane(g: dict, q: str, boxes=None, regs=None, script: bool = False) -> str:
     """`boxes` the check boxes every href carries; `regs` the registers searched (None: all);
     `script`: the canvas with the SVG inside <noscript> (ruling 100), else the SVG alone."""
-    out = ['<section class="pane graph" id="graph">', '<div class="reg">graph' + (" · entities" if g.get("people") else "") + "</div>",
-           switch(q, boxes, g.get("centre") or "")]
+    return "\n".join(['<section class="pane graph" id="graph">', '<div class="reg">graph' + (" · entities" if g.get("people") else "")
+                      + "</div>", switch(q, boxes, g.get("centre") or "", opened=True)] + body(g, q, boxes, regs, script) + ["</section>"])
+
+
+def body(g: dict, q: str, boxes=None, regs=None, script: bool = False) -> list:
+    """The graph's parts under its switch: heading, notes, the picture (the
+    canvas with the SVG inside <noscript>, or the SVG alone), the key and the
+    lines listed; `pane` wraps it alone, `side_pane` beside the results."""
+    out = []
     if not g["nodes"]:
         out.append("<h2>Graph</h2>")
         if regs is not None and not regs and not g.get("centre"):
-            out.append(f'<p class="why">{panes.NOTHING_TICKED}</p>' + key_table(g) + "</section>")
-            return "\n".join(out)
+            out.append(f'<p class="why">{panes.NOTHING_TICKED}</p>' + key_table(g))
+            return out
         out.append('<p class="why">' + ("none found" if (q or g.get("centre") or (boxes is not None and boxes.fields)) else "Type a name, an address or a number in the search box.") + "</p>")
-        out.append(key_table(g) + "</section>")
-        return "\n".join(out)
+        out.append(key_table(g))
+        return out
     matched = [n for n in g["nodes"].values() if n["matched"]]
     if g.get("centre"):
         n = matched[0]
         out.append(f"<h2>{panes.esc(node_title(n))}</h2>")
         out.append(f'<p class="note">centred on one row; <a href="{panes.esc(panes.href(q, [g["centre"]], boxes))}">its pane</a>'
-                   f' · <a href="{panes.esc(panes.href(q, [], boxes, "/graph"))}">back to the search</a></p>')
+                   f' · <a href="{panes.esc(panes.graph_open_href(q, boxes))}">the whole search</a></p>')
     else:
         out.append(f"<h2>{panes.esc(q) if q else 'By field'}</h2>" + panes.narrowed_line(boxes))
         rows_drawn = sum(len(n["entity"]["in_hand"]) if n.get("entity") else 1 for n in matched)
@@ -1115,5 +1131,4 @@ def pane(g: dict, q: str, boxes=None, regs=None, script: bool = False) -> str:
     if g["unresolved"]:
         out.append(f'<p class="note">{g["unresolved"]} linked rows were not found in the published views and are not drawn</p>')
     out.append(edge_list(g, lns, placement, q, boxes))
-    out.append("</section>")
-    return "\n".join(out)
+    return out

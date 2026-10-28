@@ -205,7 +205,7 @@ def test_the_boxes_ride_every_href_so_search_all_off_and_on_loses_no_tick():
         row = panes.row_pane(ctx(v, director(), boxes=b, parent=("Company", "companies", company)))
         person = panes.person_pane(ctx(v, director(), boxes=b, group={"built": False, "why": "no links built yet"}))
         hit = panes.hit("doe", v, director(), ["doe"], b)
-        page = "".join(panes.page("doe", ["directors:k"], [row], "", b, tab=t) for t in ("search", "graph"))
+        page = "".join(panes.page("doe", ["directors:k"], [row], "", b, tab=t) for t in ("search", "uses"))
         g = {"nodes": {"directors:a": {"v": v, "row": director(key="a"), "matched": True, "centre": False, "order": 0, "parent": None},
                        "companies:c": {"v": cat.BY_NAME["companies"], "row": company, "matched": False, "centre": False, "order": 1, "parent": "directors:a"}},
              "edges": [{"kind": "role", "a": "directors:a", "b": "companies:c", "label": "Director", "cite": "directors:a"}],
@@ -213,10 +213,10 @@ def test_the_boxes_ride_every_href_so_search_all_off_and_on_loses_no_tick():
              "matched_total": 1, "unresolved": 0, "centre": ""}
         picture = graph.pane(g, "doe", b, tuple(ticks))
         links = hrefs(row + person + hit + page + picture)
-        assert any("/graph?" in h and "c=companies" in h for h in links)          # a node re-centres
-        assert any(h.startswith("/graph?") for h in hrefs(page)) and any(h.startswith("/?") for h in hrefs(page))   # both tabs
+        assert any("gv=1" in h and "d=companies" in h for h in links)              # a node re-centres beside the results
+        assert not any(h.startswith("/graph") for h in hrefs(page)) and any(h.startswith("/?") for h in hrefs(page))   # ruling 111: no graph tab
         switched = [h for h in links if carried(h) == b._replace(people=not b.people)]     # the state switch (ruling 105)
-        assert len(switched) == 1 and "/graph?" in switched[0]
+        assert len(switched) == 1 and switched[0].startswith("/?") and "gv=1" in switched[0]
         links = [h for h in links if h not in switched]
         assert len(links) >= 8 and all(carried(h) == b for h in links), [h for h in links if carried(h) != b]
         pin = row[row.index('action="/pin"'):]
