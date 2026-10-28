@@ -15,7 +15,8 @@
    decisions), so the board reads what was built.
 4. The rows have read every published view they name as it stands now:
    each view counted again equals what the last gather read, and the
-   catch log reconciles (read = written + set aside).
+   catch log reconciles (read = written + set aside); ruling 114's eight
+   people views among them.
 5. No reading of the review agent has become a decision while the apply
    switch (`links.SETTINGS["review_applies"]`) is off, and every decision
    the agent made names a passing score of the judgment that made it
@@ -38,6 +39,14 @@
    twelve months of the removal (either side of it), and every one still
    has a person in one group on both companies (item 6's check, over both
    relations).
+9. Ruling 114, counted in SQL apart from the Python: every
+   `organisation-sole-company@2` and `organisation-one-live-company@2` link
+   is a donation row and a body carrying its name key on one of the four
+   registers, live in the donation's year by its own register's dates (the
+   formation registers' where it has any, else its charity row's), and no
+   other body of the name was live or removed on an undated day; the sole
+   rule has one body of the name, the one-live rule several. And a body is
+   counted once: no NZBN names two bodies.
 """
 from __future__ import annotations
 
@@ -226,6 +235,43 @@ def check_ruling_109(conn, s: str) -> list:
              "no_shared_person_in_evidence": nobody, "ok": names == 0 and outside == 0 and order == 0 and nobody == 0}]
 
 
+def check_ruling_114(conn, s: str) -> list:
+    """Ruling 114 against the tables as they stand (SQL apart from `rules.sole_body`)."""
+    row = conn.execute(f"""
+        WITH x AS (SELECT b.*, bool_or(b.register <> 'charities') OVER (PARTITION BY b.body) AS formed FROM {s}.bodies b),
+             bd AS (SELECT body, min(registered_on) AS reg, bool_or(removed_on IS NOT NULL OR removal_undated) AS removed, max(removed_on) AS removed_on
+                    FROM x WHERE register <> 'charities' OR NOT formed GROUP BY body),
+             c AS (SELECT l.link_id, l.rule, r.ref, CASE WHEN r.ref = l.row_a THEN l.row_b ELSE l.row_a END AS linked, r.name_key,
+                          r.started_on AS st, coalesce(r.ended_on, r.started_on) AS en, r.register = ANY(%(reg)s) AS donation
+                   FROM {s}.links l JOIN {s}.rows r ON r.ref IN (l.row_a, l.row_b) AND r.kind = 'organisation'
+                   WHERE l.rule = ANY(%(rules)s) AND l.grade = 'confirmed'),
+             n AS (SELECT c.link_id, k.body,
+                          (bd.reg IS NULL OR c.en IS NULL OR bd.reg <= c.en)
+                            AND (NOT bd.removed OR (bd.removed_on IS NOT NULL AND (c.st IS NULL OR bd.removed_on >= c.st))) AS live,
+                          (bd.reg IS NULL OR c.en IS NULL OR bd.reg <= c.en) AND bd.removed AND bd.removed_on IS NULL AS unknown
+                   FROM c JOIN (SELECT DISTINCT org_key, body FROM {s}.bodies) k ON k.org_key = c.name_key JOIN bd ON bd.body = k.body),
+             p AS (SELECT c.link_id, c.rule, c.donation, c.linked, count(DISTINCT n.body) AS named,
+                          coalesce(bool_or(n.body = c.linked AND n.live), false) AS linked_live,
+                          count(*) FILTER (WHERE n.body <> c.linked AND (n.live OR n.unknown)) AS others
+                   FROM c LEFT JOIN n ON n.link_id = c.link_id GROUP BY 1, 2, 3, 4)
+        SELECT count(*), count(*) FILTER (WHERE rule = %(one)s), count(*) FILTER (WHERE NOT donation), count(*) FILTER (WHERE NOT linked_live),
+               count(*) FILTER (WHERE others > 0), count(*) FILTER (WHERE rule = %(sole)s AND named <> 1),
+               count(*) FILTER (WHERE rule = %(one)s AND named < 2), count(*) FILTER (WHERE linked NOT LIKE 'companies:%%')
+        FROM p""", {"reg": list(rules.DONATION_REGISTERS), "rules": [rules.RULE_SOLE_BODY, rules.RULE_ONE_LIVE_BODY],
+                    "one": rules.RULE_ONE_LIVE_BODY, "sole": rules.RULE_SOLE_BODY}).fetchone()
+    n, one, not_donation, not_live, others, sole_not_one, one_of_one, off_companies = (int(x) for x in row)
+    twice = int(conn.execute(f"""SELECT count(*) FROM (SELECT nzbn FROM {s}.bodies WHERE coalesce(nzbn, '') <> ''
+                                 GROUP BY nzbn HAVING count(DISTINCT body) > 1) d""").fetchone()[0])
+    return [{"check": f"every {rules.RULE_SOLE_BODY} and {rules.RULE_ONE_LIVE_BODY} link is a donation row and the one body of its name "
+                      f"live in its year, on the four registers together",
+             "confirmed": n, "of_which_one_of_several": one, "confirmed_off_the_companies_office": off_companies,
+             "not_a_donation_row": not_donation, "linked_body_not_live_or_not_of_the_name": not_live,
+             "another_body_live_or_undated": others, "sole_rule_with_other_than_one_body": sole_not_one,
+             "one_live_rule_with_one_body": one_of_one,
+             "ok": not_donation == 0 and not_live == 0 and others == 0 and sole_not_one == 0 and one_of_one == 0},
+            {"check": "a body on two registers is one body: no NZBN names two bodies", "nzbns_on_two_bodies": twice, "ok": twice == 0}]
+
+
 def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out = []
     if oldconn is not None:
@@ -237,6 +283,7 @@ def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out += check_ruling_106(conn, s)
     out += check_ruling_107(conn, s)
     out += check_ruling_109(conn, s)
+    out += check_ruling_114(conn, s)
     return out
 
 

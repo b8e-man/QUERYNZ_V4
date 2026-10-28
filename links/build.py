@@ -25,6 +25,11 @@ pairs (a name carried by 300 rows would otherwise be 44,850 links).
   organisation name carried by several companies, exactly one live in the
   donation's year: confirmed to that one; near where none or more than one
   was live, the reason saying which.
+- `organisation-sole-company@2` and `organisation-one-live-company@2`
+  (ruling 114): the two rules above with the name looked up on the
+  companies, societies, limited partnerships and charities registers
+  together (`bodies`), a body on two of them counted once; they replace @1
+  in the build (`body_links`).
 - `successor-name@1` (ruling 106): two companies under one name, one with
   a year in brackets, and a person confirmed on both: related, "succeeded
   by", never an identity (the groups follow confirmed links only).
@@ -176,10 +181,10 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
               FROM {s}.org_names n) o ON o.org_key = r.name_key
         WHERE r.kind = 'organisation' AND r.register = 'mp_interests'
         ON CONFLICT DO NOTHING""", {"rule": rules.RULE_ORG_NAME, "one": rules.NEAR_ORG_ONE, "many": rules.NEAR_ORG_SEVERAL})
-    # a donation row's organisation name: confirmed to the one company of the name live in its year, near otherwise (ruling 106 (1))
-    # and to the one of several companies of the name live in its year (ruling 107)
-    out[rules.RULE_SOLE_COMPANY] = sole_company_links(conn, s)
-    log(f"links.build: {rules.RULE_SOLE_COMPANY}, {rules.RULE_ONE_LIVE}: {out[rules.RULE_SOLE_COMPANY]} ({time.monotonic() - t0:.0f} s)")
+    # a donation row's organisation name: confirmed to the one body of the name live in its year, or the one of several live in it,
+    # on the companies, societies, limited partnerships and charities registers together (ruling 114: @2 of rulings 106 (1) and 107)
+    out[rules.RULE_SOLE_BODY] = body_links(conn, s)
+    log(f"links.build: {rules.RULE_SOLE_BODY}, {rules.RULE_ONE_LIVE_BODY}: {out[rules.RULE_SOLE_BODY]} ({time.monotonic() - t0:.0f} s)")
     out[rules.RULE_ORG_NAME] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_ORG_NAME,)).fetchone()[0]
     log(f"links.build: {rules.RULE_ORG_NAME}: {out[rules.RULE_ORG_NAME]} ({time.monotonic() - t0:.0f} s)")
     conn.commit()
@@ -225,39 +230,46 @@ def _insert_judged(conn, s: str, pairs: list) -> None:
                        for a, b, j in pairs])
 
 
-def sole_company_links(conn, s: str) -> dict:
-    """`organisation-sole-company@1` (ruling 106 (1)) and
-    `organisation-one-live-company@1` (ruling 107): each donation row's
-    organisation name against every company on the register under the name
-    key, judged by `rules.sole_company` (which hands several companies to
-    `rules.one_live_company`): confirmed to the one company, or the one of
-    several, live in the donation's year; near under `organisation-name@1`
-    otherwise, the reason saying which. The row carries no official number;
-    a declared interest (`mp_interests`) is not a donation and is not read here."""
-    facts = conn.execute(f"""
-        SELECT r.ref, r.name_filed, r.name_key, r.started_on, r.ended_on,
-               jsonb_agg(jsonb_build_object('entity_ref', o.entity_ref, 'number', c.number, 'name', c.name,
-                                            'registered_on', o.registered_on, 'removed_on', o.removed_on) ORDER BY o.entity_ref)
-        FROM {s}.rows r JOIN {s}.org_names o ON o.org_key = r.name_key
-        LEFT JOIN pub.companies c ON c.key = substr(o.entity_ref, length('companies:') + 1)
+def body_links(conn, s: str) -> dict:
+    """`organisation-sole-company@2` and `organisation-one-live-company@2`
+    (ruling 114): each donation row's organisation name against every body
+    on the four registers (`bodies`) under the name key, a body on two
+    registers counted once, judged by `rules.sole_body` with all of each
+    body's register rows (their dates decide whether it was live); near under
+    `organisation-name@1` otherwise, the reason naming the registers that hold
+    the name. It replaces @1's step (the companies alone, built until ruling
+    114); a declared interest (`mp_interests`) is not a donation."""
+    matched = conn.execute(f"""
+        SELECT r.ref, r.name_filed, r.name_key, r.started_on, r.ended_on, array_agg(DISTINCT b.body), array_agg(DISTINCT b.entity_ref)
+        FROM {s}.rows r JOIN {s}.bodies b ON b.org_key = r.name_key
         WHERE r.kind = 'organisation' AND r.register = ANY(%s)
         GROUP BY 1, 2, 3, 4, 5""", (list(rules.DONATION_REGISTERS),)).fetchall()
+    rows_of: dict = {}
+    for body, ref, register, kind, number, name, reg, rem, undated in conn.execute(f"""
+            SELECT body, entity_ref, register, kind, number, name, registered_on, removed_on, removal_undated FROM {s}.bodies
+            WHERE body = ANY(%s) ORDER BY body, entity_ref""", (sorted({b for m in matched for b in m[5]}),)).fetchall():
+        rows_of.setdefault(body, {})[ref] = {"entity_ref": ref, "register": register, "kind": kind, "number": number, "name": name,
+                                             "registered_on": reg, "removed_on": rem, "removal_undated": undated}
     pairs = []
-    for ref, filed, key, start, end, companies in facts:
+    for ref, filed, key, start, end, bodies, named in matched:
         row = {"ref": ref, "name_filed": filed, "name_key": key, "started_on": start, "ended_on": end}
-        pairs += [(ref, j["entity_ref"], j) for j in rules.sole_company(row, companies)]
+        named = set(named)
+        judged = rules.sole_body(row, [{"body": b, "rows": [dict(r, named=r["entity_ref"] in named) for r in rows_of[b].values()]}
+                                       for b in bodies])
+        pairs += [(ref, j["entity_ref"], j) for j in judged]
     _insert_judged(conn, s, pairs)
     conn.commit()
     tally: dict = {}
     for _, _, j in pairs:
-        k = j["rule"] if j["grade"] == "confirmed" else j["reason"]
+        k = j["rule"] if j["grade"] == "confirmed" else j["reason"].split("; ")[-1]
         tally[k] = tally.get(k, 0) + 1
-    several = {ref for ref, _, j in pairs if j["evidence"].get("companies_of_that_name", 1) > 1}
-    return {"donation_rows_with_a_company_of_the_name": len(facts), "confirmed": tally.get(rules.RULE_SOLE_COMPANY, 0),
-            "near_registered_after": tally.get(rules.NEAR_ORG_NOT_YET, 0), "near_removed_before": tally.get(rules.NEAR_ORG_GONE, 0),
-            "rows_with_several_companies": len(several), "confirmed_one_live_of_several": tally.get(rules.RULE_ONE_LIVE, 0),
-            "near_another_was_live": tally.get(rules.NEAR_ORG_OTHER_LIVE, 0), "near_none_live": tally.get(rules.NEAR_ORG_NONE_LIVE, 0),
-            "near_more_than_one_live": tally.get(rules.NEAR_ORG_MANY_LIVE, 0)}
+    by_register: dict = {}
+    for _, _, j in pairs:
+        if j["grade"] == "confirmed":
+            by_register[j["evidence"]["register"]] = by_register.get(j["evidence"]["register"], 0) + 1
+    return {"donation_rows_with_a_body_of_the_name": len(matched), "confirmed": tally.get(rules.RULE_SOLE_BODY, 0),
+            "confirmed_one_live_of_several": tally.get(rules.RULE_ONE_LIVE_BODY, 0), "confirmed_by_register": by_register,
+            "near": {k: n for k, n in tally.items() if k not in (rules.RULE_SOLE_BODY, rules.RULE_ONE_LIVE_BODY)}}
 
 
 def seat_links(conn, s: str) -> dict:

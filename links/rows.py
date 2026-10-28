@@ -189,6 +189,42 @@ ADDRESS_SQL = """
     SELECT key, entity_key, started_on, last_file, in_latest, care_of, line_1, line_2, line_3, line_4, postcode
     FROM pub.company_addresses"""
 COMPANY_SQL = "SELECT key, name, registered_on, removed_on FROM pub.companies WHERE name IS NOT NULL"
+#: ruling 114: every body on the four registers the donation rules read, and the one entity each is. A society or a limited
+#: partnership is its Companies Office row by NZBN; a charity by NZBN, else by the company, society or trust board number its
+#: register carries where its legal structure names that register and the number is one row there, else a society by NZBN.
+#: A charity re-registered after a deregistration is registered: the old date is not its removal.
+BODY_SQL = """
+    WITH cz AS (SELECT nzbn, key FROM pub.companies WHERE nzbn IS NOT NULL AND nzbn <> ''),
+         cn AS (SELECT number, register, min(key) AS key FROM pub.companies
+                WHERE register IN ('companies', 'other_incorporated', 'charitable_trust_board') AND number IS NOT NULL AND number <> ''
+                GROUP BY 1, 2 HAVING count(*) = 1),
+         sz AS (SELECT s.nzbn, s.key FROM pub.societies s LEFT JOIN cz ON cz.nzbn = s.nzbn
+                WHERE s.nzbn IS NOT NULL AND s.nzbn <> '' AND cz.key IS NULL)
+    SELECT 'companies:' || c.key, 'companies', c.register, c.number, c.nzbn, c.name, c.registered_on, c.removed_on,
+           c.removed_on IS NULL AND coalesce(c.status, '') ~* '^(removed|dissolved|deregistered|closed|cancelled)', 'companies:' || c.key
+    FROM pub.companies c WHERE c.name IS NOT NULL
+    UNION ALL
+    SELECT 'societies:' || s.key, 'societies', NULL, s.number, s.nzbn, s.name, s.registered_on, s.removed_on,
+           s.removed_on IS NULL AND coalesce(s.status, '') ~* '^(removed|dissolved|deregistered)', coalesce('companies:' || cz.key, 'societies:' || s.key)
+    FROM pub.societies s LEFT JOIN cz ON cz.nzbn = s.nzbn WHERE s.name IS NOT NULL
+    UNION ALL
+    SELECT 'limited_partnerships:' || l.key, 'limited_partnerships', NULL, l.number, l.nzbn, l.name, l.registered_on, NULL::date,
+           coalesce(l.status, '') ~* '^removed', coalesce('companies:' || cz.key, 'limited_partnerships:' || l.key)
+    FROM pub.limited_partnerships l LEFT JOIN cz ON cz.nzbn = l.nzbn WHERE l.name IS NOT NULL AND NOT coalesce(l.name_withheld, false)
+    UNION ALL
+    SELECT 'charities:' || ch.key, 'charities', NULL, ch.number, ch.nzbn, ch.name, ch.registered_on,
+           CASE WHEN coalesce(ch.status, '') ~* '^registered' THEN NULL ELSE ch.deregistered_on END,
+           ch.deregistered_on IS NULL AND coalesce(ch.status, '') ~* '^(deregistered|removed)',
+           coalesce('companies:' || cz.key, 'companies:' || cn.key, 'societies:' || sz.key, 'charities:' || ch.key)
+    FROM pub.charities ch
+    LEFT JOIN cz ON cz.nzbn = ch.nzbn
+    LEFT JOIN cn ON cn.number = ch.incorporation_number
+         AND cn.register = CASE ch.legal_structure WHEN 'Company' THEN 'companies' WHEN 'Incorporated Society' THEN 'other_incorporated'
+                                WHEN 'Charitable Trusts incorporated under the Charitable Trusts Act' THEN 'charitable_trust_board' END
+    LEFT JOIN sz ON sz.nzbn = ch.nzbn
+    WHERE ch.name IS NOT NULL"""
+#: the registers whose rows make the bodies: refilling any of them refills `bodies` whole
+BODY_LANES = ("companies", "societies", "limited_partnerships", "charities")
 
 
 def fold(s: str) -> str:
@@ -288,6 +324,26 @@ def address_record(r: tuple) -> tuple | None:
     return (links.ref("companies", entity_key), k, "registered office", started_on, last_file, in_latest, region, key)
 
 
+def gather_bodies(conn, reader, w, schema: str) -> int:
+    """Empty and refill `<schema>.bodies` (ruling 114) from BODY_SQL, each
+    row under the one organisation key; a name with no key is no row. Each
+    view's key is its own, so a row comes once (no set of the two million
+    held in memory: a repeat would fail the table's key, loudly)."""
+    conn.execute(f"DELETE FROM {schema}.bodies")
+    n = 0
+    with reader.cursor(name="links_bodies") as cur:
+        cur.itersize = 20000
+        cur.execute(BODY_SQL)
+        with w.copy(f"COPY {schema}.bodies (entity_ref, org_key, register, kind, number, nzbn, name, registered_on, removed_on, "
+                    f"removal_undated, body) FROM STDIN") as copy:
+            for ref, register, kind, number, nzbn, name, reg, rem, undated, body in cur:
+                k = kn.organisation_key(name)
+                if k:
+                    copy.write_row((ref, k, register, kind, number, nzbn, name, reg, rem, bool(undated), body))
+                    n += 1
+    return n
+
+
 def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
     """Wipe and refill `<schema>.rows`, `.entity_addresses`, `.org_names` from
     `pub`, in one transaction on `conn`. `reader` is a second connection the
@@ -295,7 +351,8 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
     share one connection (the next fetch waits behind the open COPY).
     `registers`, when given, names the registers to refill (rule 10); the
     rest of the rows stand, and the offices and company names are refilled
-    only when `companies` is among them."""
+    only when `companies` is among them; `.bodies` (ruling 114) when any of
+    BODY_LANES is."""
     reader = reader or conn
     t0 = time.monotonic()
     conn.execute(links.ddl(schema))
@@ -305,6 +362,7 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
     if unknown:
         raise ValueError(f"no such register in links.rows: {sorted(unknown)}")
     companies_too = registers is None or "companies" in registers
+    bodies_too = registers is None or bool(registers & set(BODY_LANES))
     with conn.cursor() as w:
         if registers is None:
             conn.execute(f"DELETE FROM {schema}.rows")
@@ -343,8 +401,13 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
             if parts:
                 counts[f"{register}.{view}.parts"] = parts
             log(f"links.rows: {register}.{view}: {n} rows, {read - n} set aside {catch}, {parts} coupled-name parts ({time.monotonic() - t0:.0f} s)")
+        if bodies_too:
+            counts["bodies"] = gather_bodies(conn, reader, w, schema)
+            log(f"links.rows: bodies: {counts['bodies']} ({time.monotonic() - t0:.0f} s)")
         if not companies_too:
             conn.execute(f"ANALYZE {schema}.rows")
+            if bodies_too:
+                conn.execute(f"ANALYZE {schema}.bodies")
             conn.commit()
             counts["seconds"] = round(time.monotonic() - t0, 1)
             counts["registers"] = sorted(registers)
@@ -380,6 +443,7 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
     conn.execute(f"ANALYZE {schema}.rows")
     conn.execute(f"ANALYZE {schema}.entity_addresses")
     conn.execute(f"ANALYZE {schema}.org_names")
+    conn.execute(f"ANALYZE {schema}.bodies")
     conn.commit()
     counts["seconds"] = round(time.monotonic() - t0, 1)
     return counts

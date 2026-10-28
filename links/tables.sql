@@ -148,6 +148,24 @@ CREATE TABLE IF NOT EXISTS links.org_names (
 );
 CREATE INDEX IF NOT EXISTS org_names_key ON links.org_names (org_key);
 
+-- Bodies by the organisation key on four registers (ruling 114): every row of pub.companies (all its registers), pub.societies,
+-- pub.limited_partnerships and pub.charities, each with its own register's dates, and `body`, the one entity it is: a row whose
+-- register carries a Companies Office body's NZBN (or a charity its company number) is that body. The donation rules
+-- `organisation-sole-company@2` and `organisation-one-live-company@2` read it; the company rules read org_names. Regenerable.
+CREATE TABLE IF NOT EXISTS links.bodies (
+    entity_ref   text NOT NULL,            -- the row on its own register: 'companies:…', 'societies:…', 'limited_partnerships:…', 'charities:…'
+    org_key      text NOT NULL,
+    register     text NOT NULL,            -- companies | societies | limited_partnerships | charities
+    kind         text,                     -- a Companies Office row's own register (pub.companies.register); NULL on the others
+    number       text, nzbn text, name text,
+    registered_on date, removed_on date,   -- a charity's: registered and deregistered as a charity
+    removal_undated boolean NOT NULL DEFAULT false,   -- the status says removed, dissolved or deregistered and no date is published
+    body         text NOT NULL,            -- the entity: the Companies Office row where the body has one, else this row
+    PRIMARY KEY (entity_ref, org_key)
+);
+CREATE INDEX IF NOT EXISTS bodies_key ON links.bodies (org_key);
+CREATE INDEX IF NOT EXISTS bodies_body ON links.bodies (body);
+
 -- The watch: signs that a confirmed link covers two people. Regenerable.
 CREATE TABLE IF NOT EXISTS links.watch (
     link_id      bigint PRIMARY KEY,

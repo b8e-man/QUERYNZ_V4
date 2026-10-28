@@ -23,6 +23,11 @@ recorded in `links.measurements`. None had ever been run.
    months of the removal, has people, and shares a confirmed person; what
    `refiled-name@1` related, every pair listed; and any relation beyond the
    twelve months or with no shared person, which must be none.
+10. Ruling 114: the eight people views' rows, name keys, links and groups;
+   the bodies on the four registers and how many fold onto another row; the
+   organisation rules' links by the body's register, every confirmation to
+   a body off the companies register listed; and the charities officer
+   identifier's repeats (none: it keys a row, not a person).
 """
 from __future__ import annotations
 
@@ -87,14 +92,20 @@ def _addr_keys(conn, s: str, entity_ref: str) -> set:
 
 
 def _org_judgment(conn, s: str, a: str, b: str):
-    """What `rules.sole_company` says about a donation row and one company of its name, from the facts the build reads."""
+    """What the build's rule (`rules.sole_body`, ruling 114) says about a donation row and one company of its name, from the
+    facts the build reads: every body of the name on the four registers, with all its register rows."""
     donor, company = (a, b) if not a.startswith("companies:") else (b, a)
     row = conn.execute(f"SELECT ref, name_filed, name_key, started_on, ended_on FROM {s}.rows WHERE ref = %s", (donor,)).fetchone()
     if not row:
         return None
-    companies = [{"entity_ref": e, "number": None, "name": None, "registered_on": r, "removed_on": m} for e, r, m in conn.execute(
-        f"SELECT entity_ref, registered_on, removed_on FROM {s}.org_names WHERE org_key = %s ORDER BY entity_ref", (row[2],)).fetchall()]
-    judged = rules.sole_company(dict(zip(("ref", "name_filed", "name_key", "started_on", "ended_on"), row)), companies)
+    rows_of: dict = {}
+    for body, ref, register, kind, number, name, reg, rem, undated, named in conn.execute(f"""
+            SELECT b.body, b.entity_ref, b.register, b.kind, b.number, b.name, b.registered_on, b.removed_on, b.removal_undated, b.org_key = %s
+            FROM {s}.bodies b WHERE b.body IN (SELECT body FROM {s}.bodies WHERE org_key = %s) ORDER BY 1, 2""", (row[2], row[2])).fetchall():
+        rows_of.setdefault(body, []).append({"entity_ref": ref, "register": register, "kind": kind, "number": number, "name": name,
+                                             "registered_on": reg, "removed_on": rem, "removal_undated": undated, "named": named})
+    judged = rules.sole_body(dict(zip(("ref", "name_filed", "name_key", "started_on", "ended_on"), row)),
+                             [{"body": b, "rows": rs} for b, rs in rows_of.items()])
     return next((j for j in judged if j["entity_ref"] == company), None)
 
 
@@ -325,9 +336,57 @@ def m9_ruling_109(conn, s: str) -> dict:
     return out
 
 
+NEW_PEOPLE_VIEWS = ("charity_officers", "gazette_celebrants", "gazette_practitioners", "limited_partnership_partners", "party_board_roles",
+                    "local_election_returns", "building_practitioner_decisions", "councillor_interests")
+
+
+def m10_ruling_114(conn, s: str) -> dict:
+    """Ruling 114: what the eight people views brought (rows, name keys, the links that reach their rows) and what the
+    organisation rules confirm on the four registers together, by the body's register; and whether the charities officer
+    identifier repeats across rows (the one-person test pairs measurement 3 waited on)."""
+    out = {"people_views": []}
+    for view in NEW_PEOPLE_VIEWS:
+        r = conn.execute(f"""SELECT count(*), count(DISTINCT name_key), count(*) FILTER (WHERE fl_key IS NOT NULL), count(*) FILTER (WHERE has_middle)
+                             FROM {s}.rows WHERE view = %s""", (view,)).fetchone()
+        c = conn.execute(f"SELECT read, written, set_aside, reasons FROM {s}.rows_catch WHERE view = %s", (view,)).fetchone()
+        l = dict(((rule, grade), int(n)) for rule, grade, n in conn.execute(f"""
+            SELECT l.rule, l.grade, count(DISTINCT l.link_id) FROM {s}.links l JOIN {s}.rows r ON r.ref IN (l.row_a, l.row_b)
+            WHERE r.view = %s GROUP BY 1, 2""", (view,)).fetchall())
+        g = conn.execute(f"""SELECT count(*), count(DISTINCT g.group_id) FROM {s}.rows r JOIN {s}.groups g ON g.row_key = r.ref
+                             WHERE r.view = %s""", (view,)).fetchone()
+        out["people_views"].append({"view": view, "rows": int(r[0]), "name_keys": int(r[1]), "first_and_last": int(r[2]), "with_middle": int(r[3]),
+                                    "catch": {"read": c[0], "written": c[1], "set_aside": c[2], "reasons": c[3]} if c else None,
+                                    "near_name_only_links": l.get((rules.RULE_NAME_ONLY, "near"), 0),
+                                    "confirmed_full_name_links": l.get((rules.RULE_FULL, "confirmed"), 0),
+                                    "rows_in_groups": int(g[0]), "groups": int(g[1])})
+    out["rows"], out["name_keys"] = (int(x) for x in conn.execute(f"SELECT count(*), count(DISTINCT name_key) FROM {s}.rows").fetchone())
+    out["bodies"] = [{"register": r, "rows": int(n), "folded_onto_another_row": int(f)} for r, n, f in conn.execute(f"""
+        SELECT register, count(*), count(*) FILTER (WHERE body <> entity_ref) FROM {s}.bodies GROUP BY 1 ORDER BY 1""").fetchall()]
+    out["organisation_links"] = [{"rule": r, "grade": g, "reason": why, "register": reg, "links": int(n)} for r, g, why, reg, n in conn.execute(f"""
+        SELECT l.rule, l.grade, l.reason, l.evidence->>'register', count(*) FROM {s}.links l JOIN {s}.rows r ON r.ref IN (l.row_a, l.row_b)
+        WHERE l.rule = ANY(%s) AND r.kind = 'organisation' AND r.register = ANY(%s) GROUP BY 1, 2, 3, 4 ORDER BY 1, 2, 3, 4""",
+        ([rules.RULE_SOLE_BODY, rules.RULE_ONE_LIVE_BODY, rules.RULE_ORG_NAME, rules.RULE_SOLE_COMPANY, rules.RULE_ONE_LIVE],
+         list(rules.DONATION_REGISTERS))).fetchall()]
+    out["confirmed_off_the_companies_register"] = [
+        {"donor": d, "body": b, "register": reg, "number": num, "year": y, "rule": r} for d, b, reg, num, y, r in conn.execute(f"""
+        SELECT l.evidence->>'name', l.evidence->>'company', l.evidence->>'register', l.evidence->>'company_number',
+               substr(l.evidence->>'date', 1, 4), l.rule
+        FROM {s}.links l WHERE l.rule = ANY(%s) AND l.grade = 'confirmed'
+          AND (l.evidence->>'register' <> 'companies' OR jsonb_path_exists(l.evidence, '$.registers[*] ? (@.register != "companies")'))
+        ORDER BY 3, 1, 5""", ([rules.RULE_SOLE_BODY, rules.RULE_ONE_LIVE_BODY],)).fetchall()]
+    if conn.execute("SELECT to_regclass('pub.charity_officers')").fetchone()[0] is None:     # the sample database publishes no charities
+        return out
+    n, ids = conn.execute("SELECT count(*), count(DISTINCT key) FROM pub.charity_officers").fetchone()
+    out["charity_officer_identifier"] = {"rows": int(n), "distinct_officer_ids": int(ids), "ids_on_more_than_one_row": int(n) - int(ids),
+                                         "note": "the feed's OfficerId keys one officer row: one person on two charities, or across two "
+                                                 "returns, carries two ids, so the identifier supplies no one-person pair"}
+    return out
+
+
 MEASURES = (("1 name repeats", m1_name_repeats), ("2 shared addresses", m2_shared_addresses), ("3 rule error", m3_rule_error),
             ("4 rule reach", m4_rule_reach), ("5 company names", m5_company_names), ("6 group shape", m6_groups),
-            ("7 ruling 106", m7_ruling_106), ("8 ruling 107", m8_ruling_107), ("9 ruling 109", m9_ruling_109))
+            ("7 ruling 106", m7_ruling_106), ("8 ruling 107", m8_ruling_107), ("9 ruling 109", m9_ruling_109),
+            ("10 ruling 114", m10_ruling_114))
 
 
 def run(conn, s: str, log=print, only: str = None) -> dict:
