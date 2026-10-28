@@ -9,7 +9,7 @@ sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
 8450); 6.2 `tenders-1` and templates 1 to 3 merged; 6.3's four source
 lines have lanes. Track C measured; B and E closed. **Boxes:** node2 is the
 estate; node1 offline indefinitely (Arthur, 25 October): ruling 79 holds
-model reading till it returns. **Alarms:** the old estate's ntfy address.
+model reading till it returns. **Alarms:** the old ntfy address.
 
 ## Done
 
