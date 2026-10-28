@@ -85,10 +85,10 @@ def candidates_two_directors(conn, s: str) -> list:
     """(row_a, row_b, fl_key, basis) for every pair of director rows with one
     first and last name on one company whose roles stand at once."""
     return conn.execute(f"""
-        SELECT least(a.ref, b.ref), greatest(a.ref, b.ref), a.fl_key,
+        SELECT least(a.ref COLLATE "C", b.ref), greatest(a.ref COLLATE "C", b.ref), a.fl_key,
                jsonb_build_object('company', a.entity_ref, 'a', jsonb_build_object('name', a.name_filed, 'from', a.started_on, 'to', a.ended_on),
                                   'b', jsonb_build_object('name', b.name_filed, 'from', b.started_on, 'to', b.ended_on))
-        FROM {s}.rows a JOIN {s}.rows b ON b.entity_ref = a.entity_ref AND b.fl_key = a.fl_key AND a.ref < b.ref
+        FROM {s}.rows a JOIN {s}.rows b ON b.entity_ref = a.entity_ref AND b.fl_key = a.fl_key AND a.ref COLLATE "C" < b.ref
         JOIN pub.directors da ON 'companies:' || da.key = a.ref AND da.in_latest
         JOIN pub.directors db ON 'companies:' || db.key = b.ref AND db.in_latest
         WHERE a.view = 'directors' AND b.view = 'directors' AND a.fl_key IS NOT NULL""").fetchall()
@@ -96,24 +96,24 @@ def candidates_two_directors(conn, s: str) -> list:
 
 def candidates_two_candidates(conn, s: str) -> list:
     return conn.execute(f"""
-        SELECT least(a.ref, b.ref), greatest(a.ref, b.ref), a.fl_key,
+        SELECT least(a.ref COLLATE "C", b.ref), greatest(a.ref COLLATE "C", b.ref), a.fl_key,
                jsonb_build_object('election', a.election, 'a', jsonb_build_object('name', a.name_filed, 'electorate', a.electorate),
                                   'b', jsonb_build_object('name', b.name_filed, 'electorate', b.electorate))
-        FROM {s}.rows a JOIN {s}.rows b ON b.election = a.election AND b.name_key = a.name_key AND a.ref < b.ref
+        FROM {s}.rows a JOIN {s}.rows b ON b.election = a.election AND b.name_key = a.name_key AND a.ref COLLATE "C" < b.ref
         WHERE a.view = 'candidates' AND b.view = 'candidates' AND a.electorate IS NOT NULL AND b.electorate IS NOT NULL
           AND a.electorate <> b.electorate""").fetchall()
 
 
 def candidates_member_candidacy(conn, s: str) -> list:
     return conn.execute("""
-        SELECT least('house:' || m.key, 'house:' || m.candidate), greatest('house:' || m.key, 'house:' || m.candidate),
+        SELECT least(('house:' || m.key) COLLATE "C", 'house:' || m.candidate), greatest(('house:' || m.key) COLLATE "C", 'house:' || m.candidate),
                c.name_key, jsonb_build_object('join', 'pub.members.candidate', 'election', m.election, 'electorate', m.electorate)
         FROM pub.members m JOIN pub.candidates c ON c.key = m.candidate""").fetchall()
 
 
 def candidates_donor_amended(conn, s: str) -> list:
     return conn.execute(f"""
-        SELECT least(a.ref, b.ref), greatest(a.ref, b.ref), a.fl_key,
+        SELECT least(a.ref COLLATE "C", b.ref), greatest(a.ref COLLATE "C", b.ref), a.fl_key,
                jsonb_build_object('original_return', o.key, 'amended_return', o.replaced_by, 'donor', a.name_filed, 'amount', pa.amount)
         FROM pub.party_return_totals o
         JOIN pub.party_return_donors pa ON pa.return_key = o.key
@@ -126,7 +126,7 @@ def candidates_donor_amended(conn, s: str) -> list:
 def candidates_candidate_amended(conn, s: str) -> list:
     """The candidate's own row on an original return and on the amendment that replaces it."""
     return conn.execute(f"""
-        SELECT least(a.ref, b.ref), greatest(a.ref, b.ref), a.fl_key,
+        SELECT least(a.ref COLLATE "C", b.ref), greatest(a.ref COLLATE "C", b.ref), a.fl_key,
                jsonb_build_object('original_return', o.key, 'amended_return', n.key, 'candidate', a.name_filed, 'year', o.year, 'electorate', o.electorate)
         FROM pub.candidate_return_totals o
         JOIN pub.candidate_return_totals n ON n.key = o.replaced_by || '/declaration'
@@ -137,7 +137,7 @@ def candidates_candidate_amended(conn, s: str) -> list:
 
 def candidates_donor_candidate_amended(conn, s: str) -> list:
     return conn.execute(f"""
-        SELECT least(a.ref, b.ref), greatest(a.ref, b.ref), a.fl_key,
+        SELECT least(a.ref COLLATE "C", b.ref), greatest(a.ref COLLATE "C", b.ref), a.fl_key,
                jsonb_build_object('original_return', o.key, 'amended_return', n.key, 'donor', a.name_filed, 'amount', pa.amount)
         FROM pub.candidate_return_totals o
         JOIN pub.candidate_return_totals n ON n.key = o.replaced_by || '/declaration'
@@ -154,7 +154,7 @@ def candidates_donor_company_not_live(conn, s: str) -> list:
     which no director row carries, so rare."""
     from links import rules
     return conn.execute(f"""
-        SELECT least(r.ref, o.entity_ref), greatest(r.ref, o.entity_ref), NULL,
+        SELECT least(r.ref COLLATE "C", o.entity_ref), greatest(r.ref COLLATE "C", o.entity_ref), NULL,
                jsonb_build_object('donor', r.name_filed, 'date', r.started_on, 'year', jsonb_build_array(r.started_on, coalesce(r.ended_on, r.started_on)),
                                   'company', o.entity_ref, 'registered_on', o.registered_on, 'removed_on', o.removed_on,
                                   'why', CASE WHEN o.registered_on > coalesce(r.ended_on, r.started_on) THEN 'registered after the year'
@@ -176,7 +176,7 @@ def _companies_one_name(conn, s: str, within: bool) -> list:
                    FROM o e JOIN o t ON t.org_key = e.org_key AND t.entity_ref <> e.entity_ref
                    WHERE e.removed_on IS NOT NULL AND t.registered_on IS NOT NULL
                      AND (e.registered_on < t.registered_on OR (e.registered_on = t.registered_on AND t.removed_on IS NULL)))
-        SELECT least(earlier, later), greatest(earlier, later), NULL,
+        SELECT least(earlier COLLATE "C", later), greatest(earlier COLLATE "C", later), NULL,
                jsonb_build_object('name_key', org_key, 'earlier', earlier, 'later', later, 'removed_on', removed_on, 'refiled_on', t_reg,
                                   'gap_days', t_reg - removed_on)
         FROM x WHERE (t_reg BETWEEN removed_on - interval '12 months' AND removed_on + interval '12 months') = %s""", (within,)).fetchall()

@@ -99,8 +99,16 @@ def publish_ddl(schema: str = SCHEMA, pub: str = "pub") -> str:
     return publish_sql().replace("links.", f"{schema}.").replace("pub.", f"{pub}.")
 
 
+#: The lane's one order of refs, everywhere: bytes, which for UTF-8 is Python's code-point order. `pair` and the
+#: union-find compare in Python; every SQL least, greatest, min and ORDER BY over refs, and the pair-order CHECKs in
+#: tables.sql, compare COLLATE "C". The database's own collation (en_NZ.UTF-8) ignores spaces and punctuation and folds
+#: case at its first level ('x:a' < 'x:A' there, not in Python), which broke the pair-order CHECK on 28 October 2026
+#: (fix-links-5). A smallest ref joined on again is handed back COLLATE "default": an index serves only its own collation.
+ORDER = 'COLLATE "C"'
+
+
 def pair(a: str, b: str) -> tuple:
-    """The ordered pair the tables store: the smaller key first."""
+    """The ordered pair the tables store: the smaller key first, by code point (`ORDER`)."""
     if a == b:
         raise ValueError("a link joins two different rows")
     return (a, b) if a < b else (b, a)

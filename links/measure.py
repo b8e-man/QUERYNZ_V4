@@ -304,7 +304,7 @@ def m9_ruling_109(conn, s: str) -> dict:
              p AS (SELECT a.entity_ref AS ea, b.entity_ref AS eb,
                           (a.removed_on IS NOT NULL AND b.registered_on BETWEEN a.removed_on - interval '12 months' AND a.removed_on + interval '12 months')
                           OR (b.removed_on IS NOT NULL AND a.registered_on BETWEEN b.removed_on - interval '12 months' AND b.removed_on + interval '12 months') AS within
-                   FROM o a JOIN o b ON b.org_key = a.org_key AND b.entity_ref > a.entity_ref
+                   FROM o a JOIN o b ON b.org_key = a.org_key AND b.entity_ref COLLATE "C" > a.entity_ref
                    WHERE a.removed_on IS NOT NULL OR b.removed_on IS NOT NULL),
              w AS (SELECT ea, eb FROM p WHERE within),
              pe AS (SELECT DISTINCT r.entity_ref, g.group_id FROM {s}.rows r LEFT JOIN {s}.groups g ON g.row_key = r.ref
@@ -328,7 +328,7 @@ def m9_ruling_109(conn, s: str) -> dict:
                (l.evidence->>'shared_people')::int
         FROM {s}.links l JOIN {s}.org_names e ON e.entity_ref = l.evidence->>'earlier' JOIN {s}.org_names t ON t.entity_ref = l.evidence->>'later'
         LEFT JOIN pub.companies ce ON 'companies:' || ce.key = e.entity_ref LEFT JOIN pub.companies ct ON 'companies:' || ct.key = t.entity_ref
-        WHERE l.rule = %s ORDER BY e.org_key, e.entity_ref""", (rules.RULE_REFILED,)).fetchall()]
+        WHERE l.rule = %s ORDER BY e.org_key, e.entity_ref COLLATE "C" """, (rules.RULE_REFILED,)).fetchall()]
     out["related_beyond_twelve_months"] = sum(1 for r in out["related"] if r["later"][2] == "None" or r["earlier"][3] == "None") + int(conn.execute(f"""
         SELECT count(*) FROM {s}.links l JOIN {s}.org_names e ON e.entity_ref = l.evidence->>'earlier' JOIN {s}.org_names t ON t.entity_ref = l.evidence->>'later'
         WHERE l.rule = %s AND (t.registered_on < e.removed_on - interval '12 months' OR t.registered_on > e.removed_on + interval '12 months')""",
