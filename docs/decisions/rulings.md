@@ -824,7 +824,7 @@ rows; and clicking a result opens the graph beside the results, to the
 right, centred on it, which extends ruling 100's script from the graph
 tab to the results page. Built by board-9.
 
-109. Arthur, 28 October, 16:05, on the fifth rule proposed from the
+109. Arthur, 28 October, 16:20, on the fifth rule proposed from the
 Christopher & Banks case (two companies under one name with no year in
 brackets, one removed in December 2024 and the other registered in March
 2025, the same people on both): "name the companies with your current
