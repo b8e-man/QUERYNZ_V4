@@ -18,9 +18,10 @@ Routes:
                     search page on the same query, boxes and state with the graph open (`gv=1`), centred on `c`; so
                     does `/?tab=graph…`
   GET  /graph.json?c=<view:key>&all=&r=…   the same graph as data (graph.answer): one row's one hop, for the canvas's taps
-  GET  /dossier?d=<entity:group id|view:key>&q=&all=&r=…   the dossier's pane alone (ruling 110, dossier.py), which
+  GET  /dossier?d=<entity:group id|view:key>&q=&all=&r=…&dv=&do=   the dossier's pane alone (ruling 110, dossier.py), which
                     graph.js puts under the graph when a result is clicked or a node tapped; `d=` on /
-                    opens a page with that dossier under its graph, so a view reopens with it
+                    opens a page with that dossier under its graph, so a view reopens with it; `dv=`, `do=` on
+                    either: one view of a many-rows dossier paged from that offset
   GET  /static/<name>  the board's own files (assets.FILES), with a long cache header; 404 for any other name
   GET  /pinned      the pinned panes       GET /saved     the saved paths
   POST /pin         pin a pane             POST /save     save the path walked
@@ -169,12 +170,13 @@ def entity_context(conn, group_id: str):
     return ent
 
 
-def dossier_of(conn, chosen: str, q: str, boxes) -> tuple:
+def dossier_of(conn, chosen: str, q: str, boxes, view: str = "", offset: int = 0) -> tuple:
     """(the dossier's pane, the row its graph centres on) for `chosen`
-    (ruling 110); the placeholder graph.js fills, and no centre, when nothing is chosen."""
+    (ruling 110); the placeholder graph.js fills, and no centre, when nothing is chosen.
+    `view` and `offset` page one view's rows of a many-rows dossier (`dv=`, `do=`)."""
     if not chosen:
         return dossier.placeholder(q, boxes), ""
-    x = dossier.gather(conn, chosen, REPORT_URL)
+    x = dossier.gather(conn, chosen, REPORT_URL, view, offset)
     if x["kind"] == "fold":                            # ruling 112: the graph centres on the fold's first member
         return dossier.pane(x, q, boxes), x["centre"] if not x["centre"].startswith(people.ENTITY) else ""
     centre = chosen if not chosen.startswith(people.ENTITY) and x["kind"] != "suppressed" else \
@@ -182,14 +184,20 @@ def dossier_of(conn, chosen: str, q: str, boxes) -> tuple:
     return dossier.pane(x, q, boxes), centre
 
 
-def render_dossier(chosen: str, q: str = "", conn=None, boxes: search.Boxes = search.FIRST) -> str:
+def dossier_page(qs: dict) -> tuple:
+    """(view, offset) from `dv=` and `do=`: one view of a many-rows dossier, paged."""
+    at = (qs.get("do") or ["0"])[0]
+    return (qs.get("dv") or [""])[0][:100], min(int(at), 10_000_000) if at.isdigit() else 0
+
+
+def render_dossier(chosen: str, q: str = "", conn=None, boxes: search.Boxes = search.FIRST, view: str = "", offset: int = 0) -> str:
     """GET /dossier (ruling 110): the pane alone, on the session reader (the citations read the store's records)."""
     with RENDER_LOCK, (contextlib.nullcontext(conn) if conn is not None else db.read_connect()) as conn:
-        return dossier_of(conn, dossier.parse(chosen), q, boxes)[0]
+        return dossier_of(conn, dossier.parse(chosen), q, boxes, view, offset)[0]
 
 
 def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes = search.FIRST, near_names: bool = False,
-           chosen: str = "", graph_open: bool = False) -> str:
+           chosen: str = "", graph_open: bool = False, page: tuple = ("", 0)) -> str:
     """The search tab. `conn` is a session-reader connection to reuse (the
     check passes its own); without one a connection is opened and closed.
     `boxes`: the form's check boxes, carried on every href (ruling 81);
@@ -197,7 +205,8 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
     `chosen` (`d=`), the entity or row whose dossier opens under the graph
     beside the results (ruling 110), the graph centred on it; `graph_open`
     (`gv=1`, ruling 111: the graph tab's old address lands here), the graph
-    beside the results built now, centred on `chosen` or the whole search."""
+    beside the results built now, centred on `chosen` or the whole search;
+    `page` (`dv=`, `do=`), one view of a many-rows dossier paged from that offset."""
     with RENDER_LOCK, (contextlib.nullcontext(conn) if conn is not None else db.read_connect()) as conn:
         held = db.pub_views(conn)
         regs = search.selection(boxes, search.held_registers(held))
@@ -244,7 +253,7 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
             hits += [vr for c in (nearby or {}).values() if isinstance(c, dict) for vr in c.get("rows") or ()]
             ents = people.gather(conn, hits, people.named_groups(conn, q, asked, regs))     # ruling 108 (3): entity search
         chosen = dossier.parse(chosen)
-        dos, centre = dossier_of(conn, chosen, q, boxes)
+        dos, centre = dossier_of(conn, chosen, q, boxes, *page)
         if q or asked or tv is None or graph_open:    # with a table open and nothing asked, the table sits beside the search
             pane = panes.results_pane(q, results, held, regs, boxes, words, nearby, ents=ents,
                                       fold=collapse.folder(conn, boxes.collapse))     # ruling 112: a display choice, read only
@@ -424,15 +433,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_bytes(body, "application/json; charset=utf-8", "no-store")
                 return
             chosen = (qs.get("d") or [""])[0]
+            page = dossier_page(qs)
             if url.path == "/dossier":
-                self.send_html(render_dossier(chosen, q, boxes=boxes))
+                self.send_html(render_dossier(chosen, q, boxes=boxes, view=page[0], offset=page[1]))
                 return
             if url.path == "/graph" or (qs.get("tab") or [""])[0] == "graph":     # ruling 111: the tab left the bar
                 self.redirect(graph_redirect(qs))
                 return
             path = parse_path((qs.get("p") or [""])[0])
             self.send_html(render(q, path, (qs.get("m") or [""])[0][:100], boxes=boxes, near_names="1" in (qs.get("near") or []),
-                                  chosen=chosen, graph_open="1" in (qs.get(panes.GRAPH_OPEN) or [])))
+                                  chosen=chosen, graph_open="1" in (qs.get(panes.GRAPH_OPEN) or []), page=page))
         except Exception as exc:          # the page says what failed; the server stays up
             self.send_html(f"<p>the board could not answer: {panes.esc(type(exc).__name__)}: {panes.esc(exc)}</p>", 500)
 
