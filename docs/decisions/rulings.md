@@ -851,7 +851,7 @@ own pane for an entity, built from the published views and the links
 lane's tables alone, and opens under the graph when a result or a node is
 chosen. Built by board-11.
 
-111. Arthur, 28 October, 16:50, on the results pane after ruling 108 and
+111. Arthur, 28 October, 16:39, on the results pane after ruling 108 and
 the dossier of ruling 110: "we dont need the rows section in the results
 pane because your handling of the entities section was so elegant. All
 rows will be visible in the dossier. We also no longer need the graph tab
