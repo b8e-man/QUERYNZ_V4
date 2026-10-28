@@ -29,12 +29,8 @@ model reading till it returns. **Alarms:** the old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- 28 October: memory folder opened (103); pull and Beehive load given measured memory; parliament check 36 s; live on the board: entity state (105), results pane (108), lineage frame (106), the dossier (110); five links rules live (106, 107, 109; the fifth relates 2 pairs, queue item for Arthur); reports read the related grade; the gate tests in isolation (113, two merges); `board-12` live (111, 112); the collapse folds rows the links lane's name table lacks (celebrants, charity officers). Nothing at the gate. Open for Arthur: a links fix reading charity officers and celebrants; the refiled-company queue item. Merged 27 October (rulings 96 to 102): `mcp-1`
-  (client, `qv4-mcp` jobs, beehive lane; the adopt landed 1.41 M documents
-  live at 11:20), `hansard-1`, `hansard-2`, `diaries-2`, `parliament-1`
-  with their ruling-102 fixes and the blocked-pages fix, `board-7` (ruling
-  100) and the board entries for every new view; the board's live check
-  green.
+- 28 October: memory folder opened (103); pull and Beehive load given measured memory; parliament check 36 s; live on the board: entity state (105), results pane (108), lineage frame (106), the dossier (110); five links rules live (106, 107, 109; the fifth relates 2 pairs, queue item for Arthur); reports read the related grade; the gate tests in isolation (113, two merges); `board-12` live (111, 112); the collapse folds rows the links lane's name table lacks (celebrants, charity officers). Nothing at the gate. Open for Arthur: a links fix reading charity officers and celebrants; the refiled-company queue item. 27 October (rulings 96 to 102): `mcp-1`, `hansard-1`, `hansard-2`,
+  `diaries-2`, `parliament-1`, `board-7` merged with their fixes; board check green.
 
 ## Half-done
 
