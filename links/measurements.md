@@ -327,6 +327,82 @@ charities, or across two returns, carries two identifiers, so it supplies
 no one-person pair (card `three-test-pair-kinds-the-registers-cannot-supply`).
 The review agent's switch stays off.
 
+## 11. Ruling 116's rule, the member on the day, 28 October 2026 (fix-links-1, fourth fix)
+
+Measured before the build, read-only on live through the read login,
+through the code of this fix (`rows.SOURCES`, `rows.row_record`,
+`rules.member_on_the_day`) against `pub.members` as it stands (243 rows:
+the 2020 and 2023 general elections and the 2025 Tāmaki Makaurau
+by-election, so the first day it holds is 17 October 2020). Nothing was
+written. Measurement 11 (`measure.m11_ruling_116`) counts the same from
+the tables after the build.
+
+**The match is by first and last name** (`fl_key`), the titles off
+(`rows.MEMBER_TITLES`): the House files middle names the other views do
+not print ("SEYMOUR, David Breen", "Seymour, Hon David"), so the full name
+key would miss them; middle names that differ on both rows take the
+member out. A member sits from `from_on` up to, not on, `to_by` (no row
+carries `ended_on`): the polling day begins the new term, so a re-elected
+member's two terms never both cover a day.
+
+| Rows of | Rows | One member sitting (confirmed) | Two or more | A member of the name, another time (near) | No member of the name | Before 17 Oct 2020 |
+| --- | --- | --- | --- | --- | --- | --- |
+| hansard_speeches (a turn with a name; 7,145 Speaker turns print none) | 40,098 | 37,874 | 0 | 958 | 1,266 | 0 |
+| parliament_written_questions, the asker (8,678 withdrawn questions name none) | 674,846 | 267,757 | 0 | 19,877 | 32,051 | 355,161 |
+| parliament_written_questions, the minister | 674,846 | 314,262 | 0 | 0 | 5,423 | 355,161 |
+| beehive_release_ministers | 5,742 | 5,742 | 0 | 0 | 0 | 0 |
+| minister_diary_releases (dated by the month's last day) | 2,560 | 1,911 | 0 | 0 | 30 | 619 |
+
+No row finds two members. A day before 17 October 2020 makes no link:
+the members view holds no term then, so it could not have seen the
+member (the 2003 to 2020 questions, the 2017 to 2020 diaries).
+
+**The names that most often find none** on a day the view holds (every
+one there is; fewer than twenty a view): askers Francisco Hernandez
+29,013, Camilla Belich 13,974, Dr Tracey McLellan 2,135, Dr Lawrence
+Xu-Nan 1,731, Shanan Halbert 1,498, Vanushi Walters 1,051, Sam Uffindell
+566, Glen Bennett 445, Mike Davidson 303, Harete Hipango 235, Benjamin
+Doyle 231, Celia Wade-Brown 216, Dan Rosewarne 213, Tama Potaka 208,
+Georgie Dansey 109; speakers the same people and Laura McClure 142, Nancy
+Lu 128, Dr David Wilson 72; ministers and diaries "Hon Kiritapu Allan"
+(5,423 and 30). Belich, McLellan, Halbert, Walters and Bennett are in
+the view for the 2020 term only, Uffindell and Potaka for 2023 only
+(each came in at a 2022 by-election the view lacks); the rest are not in
+it at all. These are the card's members (list members who filled a
+vacancy, by-election winners the view lacks), the expected abstentions.
+No honorific form is left: no key of the 1,398,092 rows carries a title
+word. One name form: the House files "ALLAN, Kiri"; "Kiritapu" is not
+"Kiri" under the one reading of names, and is never guessed.
+
+**Parliament's member id**, carried in the evidence: 133 ids on the
+confirmed turns and askers, none naming two members, no member under two
+ids. The name-and-day rule and Parliament's own id agree on every row
+where both exist.
+
+**Ten confirmed pairs a view** (as printed → the member row):
+
+| View | Pairs |
+| --- | --- |
+| hansard_speeches | Leary, Ingrid → LEARY, Ingrid (ge-2023 Taieri, 21 Nov 2024); Peters, Rt Hon Winston → PETERS, Winston (ge-2023 list); Anderson, Miles → ANDERSON, Miles (Waitaki); Bayly, Hon Andrew → BAYLY, Andrew (list); Luxon, Rt Hon Christopher → LUXON, Christopher (Botany); Carter, Kahurangi → CARTER, Kahurangi (list); Jones, Hon Shane → JONES, Shane Geoffrey (list); Seymour, Hon David → SEYMOUR, David Breen (Epsom); Kuriger, Barbara → KURIGER, Barbara (Taranaki-King Country); Hipkins, Rt Hon Chris → HIPKINS, Chris (Remutaka) |
+| written questions, asker | Debbie Ngarewa-Packer → NGAREWA-PACKER, Debbie (Te Tai Hauāuru); Tangi Utikere → UTIKERE, Tangi (Palmerston North); Ricardo Menéndez March → MENENDEZ MARCH, Ricardo (list); Teanau Tuiono → TUIONO, Teanau (list); Hon Dr Ayesha Verrall → VERRALL, Ayesha (list); Hon Willow-Jean Prime → PRIME, Willow-Jean (list); Chlöe Swarbrick → SWARBRICK, Chlöe (Auckland Central); Rawiri Waititi → WAITITI, Rawiri (Waiariki); Simeon Brown → BROWN, Simeon (ge-2020 Pakuranga); Dr Shane Reti → RETI, Shane (ge-2020 list) |
+| written questions, minister | Rt Hon Winston Peters → PETERS, Winston (list); Hon Tama Potaka → POTAKA, Tama William (Hamilton West); Hon Simeon Brown → BROWN, Simeon (Pakuranga); Hon David Seymour → SEYMOUR, David Breen (Epsom); Hon Mark Patterson → PATTERSON, Mark (list); Hon Chris Bishop → BISHOP, Chris (Hutt South); Hon Simon Watts → WATTS, Simon (North Shore); Hon Mark Mitchell → MITCHELL, Mark (Whangaparāoa); Hon Judith Collins → COLLINS, Judith (Papakura); Hon Michael Wood → WOOD, Michael Philip (ge-2020 Mt Roskill) |
+| beehive_release_ministers | Rt Hon Christopher Luxon → LUXON, Christopher (Botany); Hon Mark Patterson → PATTERSON, Mark (list); Hon Todd McClay → McCLAY, Todd (Rotorua); Hon Andrew Hoggard → HOGGARD, Andrew John (list); Hon Shane Jones → JONES, Shane Geoffrey (list); Hon Casey Costello → COSTELLO, Casey (list); Hon Brooke van Velden → VAN VELDEN, Brooke (Tāmaki); Hon Judith Collins KC → COLLINS, Judith (Papakura); Hon Erica Stanford → STANFORD, Erica (East Coast Bays); Hon Tama Potaka → POTAKA, Tama William (Hamilton West) |
+| minister_diary_releases | Hon Chris Bishop → BISHOP, Chris (Hutt South, June 2026); Hon Karen Chhour → CHHOUR, Karen (list); Hon Chris Penk → PENK, Chris (Kaipara ki Mahurangi); Hon Dr Shane Reti → RETI, Shane (Whangārei); Hon Andrew Little → LITTLE, Andrew (ge-2020 list, January 2021); Hon Paul Goldsmith → GOLDSMITH, Paul (list); Hon Nicole McKee → McKEE, Nicole (list); Hon Louise Upston → UPSTON, Louise (Taupō); Hon Dr Megan Woods → WOODS, Megan (ge-2020 Wigram); Hon Kelvin Davis → DAVIS, Kelvin (ge-2020 Te Tai Tokerau) |
+
+**Volume, time and memory.** Rows 3,618,803 → 5,016,895 (+1,398,092,
++39%; the written questions 1,349,692 of them). Reading every source
+read-only through server cursors: 48 s for the 27 views, 69 s for the 31.
+The rule over the new rows, read-only: 28 s, 277 MB peak for the whole
+process. Links to come: 627,546 confirmed and 20,835 near, one a row (no
+star); the rows take no `name-only@1` star, so the near step does not
+grow. The build holds the confirmed components in memory: about 628,000
+more rows there (about +150 MB). From the three runs of 28 October
+(958 to 969 MB of 4,096): about 1.2 GB, so `memory_gb = 4` still covers
+it; time about three minutes more on 18 to 27. The sample database holds
+none of these views (six questions and three release ministers in a
+scratch schema), so these figures are live and read-only, as section 10's
+were; read the first run's `peak_mb`.
+
 ## Track C: the review agent scored on the test pairs, 20 October 2026
 
 Run `score-1` in `scratch_review` on the real published tables (`links.scores`,

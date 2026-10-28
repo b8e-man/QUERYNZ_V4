@@ -2,12 +2,12 @@
 
 **Date:** 2026-10-28. **Step:** 4.2 and 4.3, `links/`. **Merge requests:**
 `links-1`, `review-1`, `links-2`, `fixes-1`, `coupled-1`, `links-3`,
-`fix-links-1`, `fix-links-2` (merged), `fix-links-3` (raised; detail in
-`docs/merges/` or `merge-requests/`).
+`fix-links-1`, `fix-links-2` (merged), `fix-links-3`, `fix-links-4` (raised;
+detail in `docs/merges/` or `merge-requests/`).
 
 ## Done
 
-- Rows: 27 published views, a catch log per view; `check.py` fails when a
+- Rows: 31 published views, a catch log per view; `check.py` fails when a
   lane has loaded rows the links have not read.
 - Rules: `full-name@1`, `name-and-address@1`, `seat-and-window@1`,
   `declared-directorship@1`, `official-number@1` confirmed; near with a
@@ -26,6 +26,11 @@
   `pub.companies` rows; no donor names a charity alone). Check item 9 and
   measurement 10 new. The charities officer id supplies no one-person test
   pair (it keys a row).
+- `fix-links-4` (ruling 116), proved read-only on live: speech turns,
+  written questions (asker and minister, two rows each), Beehive release
+  ministers and diary releases read (+1,398,092 rows);
+  `member-on-the-day@1` confirms 627,546 to the one member sitting on the
+  day, 20,835 near, none two. Check item 10, measurement 11.
 - Track C (`review-1`): the agent scored, applies nothing; switch off.
 
 ## Carded / queued
@@ -38,9 +43,10 @@
 
 ## Next
 
-1. Integrator: merge `fix-links-3`; `links.ddl()` makes `links.bodies`
-   (tables.sql; publish.sql unchanged); queue `qv4-links-build`, then
-   `python -m links.check` live and read the run's `peak_mb`.
+1. Integrator: merge `fix-links-3` then `fix-links-4` (one branch);
+   `links.ddl()` makes `links.bodies`; queue `qv4-links-build`, then
+   `python -m links.check` live; read `peak_mb` (about 1.2 GB expected).
 2. Board and report: the rule words for `organisation-sole-company` say
    "company"; a body may now be a charity or a society.
-3. House rows before ge-2020 and list-vacancy members find no seat.
+3. House rows before ge-2020 and list-vacancy members find no seat or
+   member (the members view's card); 710,322 question rows are older.
