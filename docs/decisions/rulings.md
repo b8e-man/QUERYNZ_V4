@@ -924,3 +924,18 @@ raised twice already for one failure; past that, or for any other failure,
 the job stays failed and red as now. A trivial failure is one the
 scheduler itself caused by a figure it holds; a job's own error is never
 re-run by this.
+
+116. Arthur, 28 October, 20:33, told that no MCP-fed view (Hansard
+speeches, written questions, Beehive releases, ministers' diary releases)
+joins a member row, and offered a links rule of the seat-and-window kind:
+"add this to the other links lane work and do it". So the links lane gains
+a rule confirming a speech turn's, a written question's asker's and
+answering minister's, a Beehive release's tagged minister's and a diary
+release's minister's printed name, honorific stripped, to the one member
+sitting in the House on that day (`pub.members` by its from and ended
+dates); several or none stays near with the reason. Measured first as
+ruling 106's method asks and built in the links fix that follows
+fix-links-3 (ruling 114) in the same copy. The list members who filled a
+vacancy after an election are missing from `pub.members` (card of 28
+October) and are the expected abstentions until the house lane carries
+them.
