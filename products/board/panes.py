@@ -50,6 +50,7 @@ main{display:flex;gap:.75rem;padding:.75rem;overflow-x:auto;align-items:flex-sta
 .reg{font-size:11px;color:#aab1bc;text-transform:uppercase;letter-spacing:.04em}
 .note,.why{font-size:12px;color:#aab1bc;font-style:italic}
 .warn{color:#ffb26b;font-weight:600}
+.lineage{color:#80f040;font-weight:600}
 table.f{border-collapse:collapse;width:100%;font-size:13px}
 table.f th{text-align:left;font-weight:normal;color:#aab1bc;vertical-align:top;padding:.1rem .5rem .1rem 0;width:40%}
 table.f td{padding:.1rem 0;vertical-align:top;word-break:break-word}
@@ -173,6 +174,12 @@ def luminance(hexcolour: str) -> float:
         c = int(h[i:i + 2], 16) / 255
         out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
     return 0.2126 * out[0] + 0.7152 * out[1] + 0.0722 * out[2]
+
+
+def over(colour: str, surface: str, opacity: float) -> str:
+    """`colour` laid at `opacity` over `surface`, as the canvas fills a compound node (a lineage frame)."""
+    c, b = (colour.lstrip("#"), surface.lstrip("#"))
+    return "#" + "".join(f"{round(int(c[i:i + 2], 16) * opacity + int(b[i:i + 2], 16) * (1 - opacity)):02x}" for i in (0, 2, 4))
 
 
 def contrast(a: str, b: str) -> float:
@@ -730,7 +737,9 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: di
     out = [f'<article class="hit" data-graph="{esc(graph_href(f"{v.name}:{r["key"]}", boxes))}">'] + (
            [f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
            f'<div>{struck(v, r, link)} '
-           f'<span class="meta">{esc(v.name)}</span></div>']
+           f'<span class="meta">{esc(v.name)}</span>' + (
+               f' · <span class="lineage" title="{esc("a related company: " + str(r["_related"]) + ", never one entity (ruling 106 (2))")}">'
+               "related</span>" if r.get("_related") else "") + "</div>"]
     if is_suppressed(v, r):
         out.append(f'<div class="warn">{SUPPRESSED}: the row and its figures stay (hard limit 16)</div>')
     out += [f'<div class="note">{esc(line)}</div>' for line in says_of(v, r)]
@@ -778,7 +787,9 @@ def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None) -> str:
     link = f'<a class="row" href="{esc(href(q, ["entity:" + e["group_id"]], boxes))}"><strong>{mark(e["label"], words)}</strong></a>'
     out = [f'<article class="hit entity"{f" data-graph={chr(34)}{esc(graph_href(centre, boxes))}{chr(34)}" if centre else ""}>',
            f'<div>{link} <span class="meta">entity</span></div>',
-           f'<div class="note">{esc(e["count"])}' + (' · <span class="warn">contested</span>' if e["contested"] else "") + "</div>",
+           f'<div class="note">{esc(e["count"])}' + (' · <span class="warn">contested</span>' if e["contested"] else "")
+           + (f' · <span class="lineage" title="{esc("a related company: " + "; ".join(e["related"]) + ", never one entity (ruling 106 (2))")}">'
+              "related</span>" if e.get("related") else "") + "</div>",
            f'<div class="meta">{esc("; ".join(e.get("registers_named") or []))}</div>']
     if in_hand:
         shown = ", ".join(esc(title_of(v, r)) for v, r in in_hand[:5])
@@ -1065,7 +1076,7 @@ def links_section(links: dict, group: dict, q: str, path: list, resolve, boxes=N
     if not links.get("built"):
         out.append(f'<p class="why">{esc(links.get("why"))}</p>')
         return "\n".join(out)
-    if not links["confirmed"] and not links["near"]:
+    if not links["confirmed"] and not links["near"] and not links.get("related"):
         out.append('<p class="why">none found: no rule joined this row to another</p>')
     for grade in ("confirmed", "near"):
         if not links[grade]:
@@ -1086,6 +1097,47 @@ def links_section(links: dict, group: dict, q: str, path: list, resolve, boxes=N
                 for d in l.get("decisions") or []:
                     out.append(f'<li class="meta">decision: {esc(d.get("verdict"))} by {esc(d.get("made_by"))}, {fmt(d.get("made_at"))}</li>')
             out.append("</ul>")
+    if links.get("related"):
+        mine = {l["link"]["row_a"] if l["other"] == l["link"]["row_b"] else l["link"]["row_b"] for l in links["related"]}
+        out.append(related_section([l["link"] for l in links["related"]], mine, q, path, resolve, boxes))
+    return "\n".join(out)
+
+
+RELATED_NOTE = ("A related link is a relation the links lane found between two companies, never one entity: companies under "
+                "one name, one carrying a year in brackets, with a person confirmed on both (ruling 106 (2)). Read in date "
+                "order of registration. The graph draws it as a lineage frame.")
+
+
+def related_section(links: list, mine: set, q: str, path: list, resolve, boxes=None, heading: str = "h3") -> str:
+    """The related links (pub.links' related grade) of a row or of an
+    entity's rows `mine`, under their own heading: the relation read in date
+    order, the other company and the years, the people on both (each row of
+    theirs on this side, suppressed ones counted, never named)."""
+    from products.board import lineage
+    items = lineage.pane_items(links, mine, resolve)
+    out = [f'<{heading} id="related">Related companies <span class="count">{len(items):,}</span></{heading}>',
+           f'<p class="note">{esc(RELATED_NOTE)}</p>', "<ul>"]
+    for x in items:
+        if x["other_hit"]:
+            tv, tr = x["other_hit"]
+            other = f'<a class="row" href="{esc(href(q, path + [f"{tv.name}:{tr["key"]}"], boxes))}">{esc(title_of(tv, tr))}</a>'
+        else:
+            other = f'<code>{esc(x["other"])}</code> <span class="note">row not found in the published views</span>'
+        mine_y, other_y = x["years"]
+        if x["earlier"]:
+            line = f'this company ({esc(mine_y or "?")}) <strong>{esc(x["relation"])}</strong> {other} ({esc(other_y or "?")})'
+        else:
+            line = f'{other} ({esc(other_y or "?")}) <strong>{esc(x["relation"])}</strong> this company ({esc(mine_y or "?")})'
+        names = ", ".join(f'<a href="{esc(href(q, path + [f"{v.name}:{r["key"]}"], boxes))}">{esc(title_of(v, r))}</a>' for v, r in x["people"])
+        more = x["shared_people"] - len(x["people"]) - x["hidden"]
+        people = (f'on both: {names}' if names else "on both: none shown") + (
+            f'; {x["hidden"]:,} whose name is suppressed or whose row is not found, not named' if x["hidden"] else "") + (
+            f"; and {more:,} more" if more > 0 else "")
+        out.append(f'<li class="related">{line} <span class="meta">{esc(cat.rule_words(x["rule"]))} {esc(cat.rule_ref(x["rule"]))}'
+                   + (f'; {esc(x["order"])}' if x["order"] else "") + "</span>"
+                   + f'<div class="meta">{x["shared_people"]:,} {"person" if x["shared_people"] == 1 else "people"} {people}</div>'
+                   + (f'<div class="meta">decision: {esc(x["decision"])}</div>' if x["decision"] else "") + "</li>")
+    out.append("</ul>")
     return "\n".join(out)
 
 
@@ -1300,7 +1352,10 @@ def entity_pane(ent, q: str, path: list, boxes=None) -> str:
                    + "".join(f'<div class="meta">decision: {esc(x["verdict"])} by {esc(x["made_by"])}, {fmt(x.get("made_at"))}</div>'
                              for x in decided.get((l["row_a"], l["row_b"]), [])) + "</li>")
     out.append("</ul>")
-    inner_near = [l for l in ent["links"] if l["grade"] != "confirmed"]
+    far = ent.get("far") or {}
+    if ent.get("related"):                             # ruling 106 (2): under its own heading, never with near
+        out.append(related_section(ent["related"], set(at), q, path, lambda ref: at.get(ref) or far.get(ref), boxes))
+    inner_near = [l for l in ent["links"] if l["grade"] not in ("confirmed", "related")]
     near = ent["near"]
     out.append(f'<h3>Near, one hop, never gathered <span class="count">{ent["near_total"]:,}</span></h3>')
     out.append('<p class="note">A near link is a shared name or circumstance a rule did not take as the same person; it is listed with '

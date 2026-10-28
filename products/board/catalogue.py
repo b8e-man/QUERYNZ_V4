@@ -51,7 +51,7 @@ class Relation:
 #: the edge types the graph draws, in the key's order, with their colour and stroke (ruling 86 (1): night mode):
 #: the categorical palette's dark blue, orange and aqua, with yellow, magenta and violet stepped lighter so that
 #: every pair, not only neighbours in the key, is 15 or more apart in OKLab (x100) and each is 3:1 or more on the
-#: picture's surface (tests/test_night.py); same person shares one hue, solid or dashed. Every edge also carries its words, its tooltip and its line in the list.
+#: picture's surface (tests/test_night.py); same person shares one hue, solid or dashed; lineage, a lime 19 apart from every other. Every edge also carries its words, its tooltip and its line in the list.
 EDGE_KINDS = (
     ("money", "#3987e5", ""),
     ("role", "#d95926", ""),
@@ -60,6 +60,7 @@ EDGE_KINDS = (
     ("dealing", "#e87ba4", ""),
     ("same person, confirmed", "#d4ccff", ""),
     ("same person, near", "#d4ccff", "6 4"),
+    ("lineage", "#80f040", ""),          # pub.links' related grade (ruling 106 (2)): earlier company to later, inside its frame
 )
 RELATION_KINDS = ("money", "role", "candidacy", "declaration", "dealing")   # what a catalogue line may declare; the two same-person kinds come from pub.links
 
@@ -125,6 +126,7 @@ RULE_WORDS = {
     "organisation-sole-company": "a donation's organisation name and the one company of the name live in its year",   # ruling 106 (1)
     "successor-name": "a company succeeded by another of its name with a year in brackets, a person on both",        # ruling 106 (2), related
     "candidate-same-party": "one candidate name standing for one party in two elections",                            # ruling 106 (3)
+    "organisation-one-live-company": "a donation's organisation name and the one of several companies of the name live in its year",   # ruling 107
 }
 
 

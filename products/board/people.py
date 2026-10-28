@@ -32,7 +32,7 @@ import json
 import re
 
 from products.board import catalogue as cat
-from products.board import db, fold as names, links_view, panes, search
+from products.board import db, fold as names, lineage, links_view, panes, search
 
 ENTITY = "entity:"
 MAX_CHILDREN = 40           # rows drawn inside an opened entity; the pane lists every row
@@ -322,6 +322,7 @@ def fold(conn, g: dict, near: bool = True, max_nodes: int = 120) -> dict:
             k = tuple(sorted((node_of[a], node_of[b])))
             out["decisions"].setdefault(k, []).append({"verdict": d["verdict"], "made_by": d["made_by"],
                                                       "made_at": d["made_at"], "rows": (title[a], title[b])})
+    out["lineage"] = lineage.relabel(g.get("lineage"), node_of)     # ruling 106 (2): each company its own node, a person once
     out["entities"] = sum(1 for n in out["nodes"].values() if n.get("entity"))
     out["lone"] = sum(1 for n in out["nodes"].values() if n.get("lone"))
     return out
@@ -336,7 +337,8 @@ def graph_title(n: dict) -> str:
 def entity(conn, gid: str) -> dict:
     """{'group_id', 'describe', 'rows': [(ref, view, row)] shown rows in
     register order, 'links': the group's own links among shown rows,
-    'near': near links from its rows (at most PANE_NEAR), 'decisions'}; the
+    'near': near links from its rows (at most PANE_NEAR), 'related': the
+    related links of its rows (lineage.related_of), 'decisions'}; the
     suppressed rows left out entirely. None when no group has that id."""
     found = db.rows(conn, "select contested from pub.groups where row_key = %s", (gid,))
     if not found:
@@ -354,6 +356,7 @@ def entity(conn, gid: str) -> dict:
     d["number"] = number_of(own)
     return {"group_id": gid, "describe": d, "rows": rows, "links": own, "near": near[:PANE_NEAR],
             "near_total": len({(l["row_a"], l["row_b"], l["rule"]) for l in near}),
+            "related": lineage.related_of(conn, [m["ref"] for m in shown]),          # ruling 106 (2): one query by key
             "decisions": decisions_of(conn, [m["ref"] for m in shown]), "hidden": hidden}
 
 
@@ -398,6 +401,9 @@ def gather(conn, hits, named: dict = None) -> dict:
                                                                              key=lambda x: (order.get(x, len(order)), x))]
         d["centre"] = next((f"{m['view']}:{m['key']}" for m in shown if m["view"] in cat.BY_NAME), "")
         entity[gid] = d
+    related = lineage.related_refs(conn, [m["ref"] for gid in entity for m in members.get(gid, []) if m["ref"] not in hidden])
+    for gid, d in entity.items():                      # ruling 106 (2): an entity with a related link says so, in a word
+        d["related"] = sorted({related[m["ref"]] for m in members.get(gid, []) if m["ref"] in related})
     group = {nid: grp[ref][0] for nid, ref in refs.items() if ref in grp and ref not in hidden and grp[ref][0] in entity}
     return {"group": group, "entity": entity, "named": {g: set(t) for g, t in named.items() if g in entity}}
 
