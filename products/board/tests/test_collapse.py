@@ -184,6 +184,7 @@ def test_the_results_pane_holds_the_section_closed_and_the_folded_entry_says_so(
 def test_the_fold_s_dossier_lists_its_members_as_the_entities_they_are(monkeypatch):
     monkeypatch.setattr(people, "gather", lambda conn, hits, named=None: ents_of(GROUPS))
     monkeypatch.setattr(dossier.search, "row", lambda conn, v, k: company(k, "ACME LIMITED") if v == "companies" else None)
+    monkeypatch.setattr(dossier, "FOLD_GATHERED", 0)          # the listing alone; test_dossier covers the members' records
     d = collapse.fold_id(["entity:G1", "entity:G2", "companies:companies/c1"], {"name"})
     x = dossier.gather(None, d)
     page = dossier.pane(x, "hart")

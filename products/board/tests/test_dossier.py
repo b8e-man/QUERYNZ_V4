@@ -268,3 +268,27 @@ def test_a_view_s_page_is_read_from_the_address_and_a_bad_offset_is_the_first_pa
     assert server.dossier_page({"dv": ["hansard_speeches"], "do": ["50"]}) == ("hansard_speeches", 50)
     assert server.dossier_page({"do": ["-5"]}) == ("", 0) and server.dossier_page({"do": ["x"]}) == ("", 0)
     assert dossier.page_href("entity:g", "brown", search.FIRST, "hansard_speeches", 50).startswith("/?q=brown")
+
+
+def test_a_fold_s_dossier_shows_each_member_s_records_under_its_name(reads, monkeypatch):
+    """Ruling 112's fold, Arthur 2026-10-29: the row data under the entity names. A fold of an entity and a lone row:
+    each member carries its own dossier's data, the pane prints its timeline under its name, after its link, with
+    its company named; the member links the check reads stay; every heading id on the page is unique."""
+    from products.board import collapse
+    gid = ROWS[1][0]
+    monkeypatch.setattr(people, "gather", lambda conn, hits, named=None: {
+        "group": {}, "named": {},
+        "entity": {gid: {"label": "Jane Mary Hart", "what": "director", "rows": 7, "contested": True,
+                         "registers_named": ["Companies, directors and shareholders"], "centre": "directors:" + D1}}})
+    fid = collapse.fold_id(["entity:" + gid, "party_return_donors:lone"], ("name",))
+    x = dossier.gather(None, fid, "http://report")
+    assert x["kind"] == "fold" and [m["id"] for m in x["members"]] == ["entity:" + gid, "party_return_donors:lone"]
+    assert x["members"][0]["dossier"]["kind"] == "entity" and x["members"][1]["dossier"]["kind"] == "row"
+    html = dossier.pane(x, "hart", search.FIRST)
+    links = re.findall(r'<li><a class="row" href="([^"]*)"', html)
+    assert len(links) == 2 and all("d=" in h for h in links) and "never written" in html
+    assert html.count("What the records say") == 2 and "ONE LIMITED" in html
+    assert html.index("Jane Mary Hart</a>") < html.index("ONE LIMITED") < html.index(x["members"][1]["label"] + "</a>")
+    ids = re.findall(r' id="([^"]+)"', html)
+    assert len(ids) == len(set(ids))
+    assert "the records of the first" not in html          # two members: both gathered, nothing left to a click
