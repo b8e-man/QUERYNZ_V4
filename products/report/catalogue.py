@@ -286,6 +286,7 @@ RULE_WORDS = {
     "successor-name": "a company succeeded by another of its name with a year in brackets, a person on both",        # ruling 106 (2), related
     "candidate-same-party": "one candidate name standing for one party in two elections",                            # ruling 106 (3)
     "organisation-one-live-company": "a donation's organisation name and the one of several companies of the name live in its year",   # ruling 107
+    "refiled-name": "a company removed and another of its name registered within twelve months, a person on both",   # ruling 109, related
 }
 
 
