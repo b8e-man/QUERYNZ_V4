@@ -140,7 +140,16 @@ div.duo{display:flex;gap:.75rem;align-items:flex-start;flex:0 0 auto}
 .pane.side{display:none;flex:0 0 40rem;max-width:40rem;position:sticky;top:3.75rem}
 .pane.side.on{display:block}
 .pane.side div.cy{height:60vh;min-height:20rem}
-@media (max-width:75rem){div.duo{flex-direction:column}.pane.side{position:static;flex-basis:auto;width:46rem;max-width:calc(100vw - 2rem)}}
+div.sidecol,div.stack{display:flex;flex-direction:column;gap:.75rem;flex:0 0 auto}
+.sidecol>.pane,.stack>.pane{flex:none}
+.sidecol>.pane.side{position:static;width:40rem}
+.pane.dossier{width:40rem;max-width:40rem}
+.stack>.pane.graph,.stack>.pane.dossier{width:64rem;max-width:64rem}
+ol.timeline{padding-left:1.2rem}
+ol.timeline li{margin:.3rem 0}
+.when{color:#aab1bc;font-size:12px}
+table.money td{vertical-align:top;padding:.2rem .4rem .2rem 0}
+@media (max-width:75rem){div.duo{flex-direction:column}.pane.side,.sidecol>.pane.side,.pane.dossier{position:static;flex-basis:auto;width:46rem;max-width:calc(100vw - 2rem)}}
 """
 TEXT_FLOOR = 4.5         # the common accessibility floor for text (WCAG 2 AA)
 EDGE_FLOOR = 3.0         # for a line or a mark that is not text (WCAG 2 non-text contrast)
@@ -734,10 +743,10 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: di
     `why`, for a near match, says which kind it is (ruling 83); `far`, the
     rows its key columns name (search.far_rows, ruling 92 (2))."""
     link = f'<a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], boxes))}"><strong>{mark(title_of(v, r), words)}</strong></a>'
-    out = [f'<article class="hit" data-graph="{esc(graph_href(f"{v.name}:{r["key"]}", boxes))}">'] + (
+    out = [f'<article class="hit" data-graph="{esc(graph_href(f"{v.name}:{r["key"]}", boxes))}" data-dossier="{esc(f"{v.name}:{r["key"]}")}">'] + (
            [f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
            f'<div>{struck(v, r, link)} '
-           f'<span class="meta">{esc(v.name)}</span>' + (
+           f'<span class="meta">{esc(v.name)}</span>' + dossier_link(f"{v.name}:{r['key']}", q, boxes) + (
                f' · <span class="lineage" title="{esc("a related company: " + str(r["_related"]) + ", never one entity (ruling 106 (2))")}">'
                "related</span>" if r.get("_related") else "") + "</div>"]
     if is_suppressed(v, r):
@@ -765,6 +774,16 @@ def hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", docs: di
     return "".join(out)
 
 
+def dossier_href(d: str, q: str = "", boxes=None, tab: str = "/") -> str:
+    """The page with the dossier of `d` (an entity:<group id> or a view:key) open
+    under its graph (ruling 110): a result's plain link where script does not run."""
+    return tab + "?" + urllib.parse.urlencode([("q", q)] + (boxes.params() if boxes is not None else []) + [("d", d)])
+
+
+def dossier_link(d: str, q: str, boxes=None) -> str:
+    return f' · <a class="dos" href="{esc(dossier_href(d, q, boxes))}">dossier</a>'
+
+
 def graph_href(nid: str, boxes=None) -> str:
     """/graph.json centred on one row, the check boxes carried and with them the state (ruling 105's `g=entities`):
     a node's one hop on the graph tab, and the graph a result opens beside the results (ruling 108 (4))."""
@@ -786,8 +805,10 @@ def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None) -> str:
     click on it the graph beside the results, centred on it."""
     centre = f"{in_hand[0][0].name}:{in_hand[0][1]['key']}" if in_hand else e.get("centre") or ""
     link = f'<a class="row" href="{esc(href(q, ["entity:" + e["group_id"]], boxes))}"><strong>{mark(e["label"], words)}</strong></a>'
-    out = [f'<article class="hit entity"{f" data-graph={chr(34)}{esc(graph_href(centre, boxes))}{chr(34)}" if centre else ""}>',
-           f'<div>{link} <span class="meta">entity</span></div>',
+    d = "entity:" + e["group_id"]
+    out = [f'<article class="hit entity"{f" data-graph={chr(34)}{esc(graph_href(centre, boxes))}{chr(34)}" if centre else ""}'
+           f' data-dossier="{esc(d)}">',
+           f'<div>{link} <span class="meta">entity</span>{dossier_link(d, q, boxes)}</div>',
            f'<div class="note">{esc(e["count"])}' + (' · <span class="warn">contested</span>' if e["contested"] else "")
            + (f' · <span class="lineage" title="{esc("a related company: " + "; ".join(e["related"]) + ", never one entity (ruling 106 (2))")}">'
               "related</span>" if e.get("related") else "") + "</div>",

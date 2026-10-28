@@ -357,7 +357,8 @@ def entity(conn, gid: str) -> dict:
     return {"group_id": gid, "describe": d, "rows": rows, "links": own, "near": near[:PANE_NEAR],
             "near_total": len({(l["row_a"], l["row_b"], l["rule"]) for l in near}),
             "related": lineage.related_of(conn, [m["ref"] for m in shown]),          # ruling 106 (2): one query by key
-            "decisions": decisions_of(conn, [m["ref"] for m in shown]), "hidden": hidden}
+            "decisions": decisions_of(conn, [m["ref"] for m in shown]), "hidden": hidden,
+            "names": {m["ref"]: m["name"] for m in shown}}                         # the names as filed, for the dossier (ruling 110)
 
 
 # ── the results pane's entity state (ruling 108) ────────────────────────────
