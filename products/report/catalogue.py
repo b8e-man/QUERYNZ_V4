@@ -262,3 +262,38 @@ def fold(term: str) -> str:
 
 #: the board's name for the fold; search.words_of, copied from the board, calls it so
 fold_term = fold
+
+
+#: the links lane's rules in plain words, keyed by the rule id `pub.links` carries without its version: the
+#: board's words (products/board/catalogue.py RULE_WORDS, ruling 84), held equal to them by tests/test_related.py
+#: for every id both carry; the walk's own rules (same-name, official-number, chain, ...) are not links rules.
+RULE_WORDS = {
+    "full-name": "same first, middle and last name",
+    "name-and-address": "same first and last name, and their companies filed the same registered office",
+    "name-only": "same name, nothing else",
+    "company-name": "two companies under one name",
+    "seat-and-window": "a row the House published and the seat whose term covers it",
+    "official-number": "the same official number (NZBN or company number)",
+    "organisation-name": "a donation's organisation name is a company's name",
+    "declared-directorship": "a member's declared company has a director of the member's name",
+    "candidate-name-form": "one name for one party's candidate across elections",
+    "filed-name": "two donations filed under one organisation name",
+    "source-identifier": "the register's own identifier joins the two rows",
+    "member-and-party-donor": "a member's name on a donation to the member's own party, in the term",
+    "own-return": "a donor in the candidate's own name, on the candidate's own return",
+    "coupled-name": "one of the people a donation filed as two names",
+    "organisation-sole-company": "a donation's organisation name and the one company of the name live in its year",   # ruling 106 (1)
+    "successor-name": "a company succeeded by another of its name with a year in brackets, a person on both",        # ruling 106 (2), related
+    "candidate-same-party": "one candidate name standing for one party in two elections",                            # ruling 106 (3)
+    "organisation-one-live-company": "a donation's organisation name and the one of several companies of the name live in its year",   # ruling 107
+}
+
+
+def rule_text(rule) -> str:
+    """A links rule as the memo names it: "a company succeeded by … (links rule
+    successor-name, version 1)"; a rule that is not a links rule (the walk's
+    own: same-name, official-number, chain, …, which carry no version) as it is."""
+    rid, at, version = str(rule or "").partition("@")
+    if not at or rid not in RULE_WORDS:
+        return str(rule or "")
+    return f"{RULE_WORDS[rid]} (links rule {rid}, version {version})"

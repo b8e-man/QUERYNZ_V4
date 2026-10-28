@@ -72,7 +72,7 @@ def test_an_officers_near_links_are_listed_beside_the_confirmed_each_with_the_li
     monkeypatch.setattr(build.walk, "walk", lambda *a, **k: w)
     r = build.build(None, START, tpl.by_name("subject"), held={v.name for v in cat.VIEWS})
     text = memo.text(r)
-    assert "ROBERTON LIMITED: In Liquidation LTD" in text and "the officer's own link to this row is near" in text and "rule name-only@1" in text
+    assert "ROBERTON LIMITED: In Liquidation LTD" in text and "the officer's own link to this row is near" in text and f"rule: {cat.RULE_WORDS['name-only']} (links rule name-only, version 1)" in text
     assert r["problems"] == []
 
 

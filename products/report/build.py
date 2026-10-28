@@ -18,6 +18,13 @@ from products.report import catalogue as cat
 from products.report import contract, rules, template as tpl, walk
 
 SECTION_ORDER_GRADE = {"confirmed": 0, "near": 1}
+#: the shape's own section for the links lane's third grade (ruling 106 (2)), added to every template's report when the walk
+#: met a related link, after the template's section that lists companies: a relation between two entities, stated in words,
+#: never listed with the confirmed (one entity) or the near (perhaps one)
+RELATED_SECTION = {"name": "related", "heading": "Related companies: one succeeded by another",
+                   "text": "Each line is two companies, two entities, in date order: the earlier succeeded by the later, under one name, one "
+                           "with a year in brackets, with a person the links confirm on both. A relation between two companies, never "
+                           "the same company; neither is walked from the other, so each has its own report."}
 FILE_VIEWS = frozenset({"directors", "shareholders", "company_addresses", "companies"})   # rows dated by the monthly files they were seen in
 _FILES = {"at": 0.0, "first": None, "last": None}
 FILES_TTL_S = 3600
@@ -233,6 +240,8 @@ def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | st
                "new": sum(1 for it in items if it.get("new")) if since else None,
                "cannot_say": sum(1 for it in items if it.get("new") is None) if since else None}
         report["sections"].append(sec)
+    if w.get("related"):
+        report["sections"].insert(_related_at(report["sections"]), related_section(w["related"], since))
     if since:
         report["new"] = sum(s["new"] for s in report["sections"])
         report["cannot_say"] = sum(s["cannot_say"] for s in report["sections"])
@@ -242,7 +251,7 @@ def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | st
     report["flags"] = apply_rules(report, t)
     # citations, numbered once per row
     number = {}
-    for it in [report["subject"]] + report["members"] + [it for s in report["sections"] for it in s["items"]]:
+    for it in [report["subject"]] + report["members"] + [x for s in report["sections"] for it in s["items"] for x in [it] + it.get("people", [])]:
         c = it["citation"]
         key = (c["view"], c["key"])
         if key not in number:
@@ -253,10 +262,33 @@ def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | st
     return report
 
 
+def _related_at(sections: list) -> int:
+    """Where the related section goes: after the first section that lists
+    companies, else last."""
+    for i, s in enumerate(sections):
+        if "companies" in s["views"]:
+            return i + 1
+    return len(sections)
+
+
+def related_section(items: list, since: dt.date | None) -> dict:
+    """The related links as their own section, earliest company first: never
+    counted confirmed or near."""
+    items = sorted(items, key=lambda it: (it["earlier"], it["later"]))
+    for it in items:
+        it["new"] = is_new(it, since)
+        for p in it.get("people", []):
+            p["new"] = is_new(p, since)
+    return {**RELATED_SECTION, "views": ["companies"], "items": items, "confirmed": 0, "near": 0, "related": len(items),
+            "omitted": 0, "omitted_views": [], "blank": None, "not_held": [], "own": None, "statuses": [], "changed": False,
+            "new": sum(1 for it in items if it.get("new")) if since else None,
+            "cannot_say": sum(1 for it in items if it.get("new") is None) if since else None}
+
+
 def public(report: dict) -> dict:
     """The report without the rows themselves, for saving and for JSON."""
     def strip(it):
-        return {k: v for k, v in it.items() if k != "row"}
+        return {k: ([strip(p) for p in v] if k == "people" else v) for k, v in it.items() if k != "row"}
     out = dict(report)
     if report.get("subject"):
         out["subject"] = strip(report["subject"])

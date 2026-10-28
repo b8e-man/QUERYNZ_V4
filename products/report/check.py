@@ -44,6 +44,11 @@ tables through the product reader, never the sample:
      number with its officers; a director's namesake charity officer near
      by name; a charity's returns newest first, dated 'period to'; a
      template naming charities as not held loads and says it is published.
+ 10b. The related grade (`routes_related`, ruling 106 (2)), on a related link
+     taken from pub.links at run time: from each of the two companies the
+     report lists the other under the related heading, the two in the
+     evidence's date order with the relation in words and the rule named in
+     words; never as an entity of the walk, confirmed or near by the link.
 
  11. The start page's name search (ruling 92 item 7), over HTTP on the
      page's own server on a passing port: the done-when company's name
@@ -523,6 +528,35 @@ def routes_4(conn, subject, held: set) -> list:
     return out
 
 
+def routes_related(conn, subject, held: set) -> list:
+    """A related link read as a relation, from both ends: never an identity,
+    never near, the companies in date order, under its own heading."""
+    out = []
+    got = db.rows(conn, "select row_a, row_b, rule, relation, evidence->>'earlier' as earlier, evidence->>'later' as later from pub.links "
+                        "where grade = 'related' and row_a like 'companies:%%' and row_b like 'companies:%%' order by row_a, row_b limit 1")
+    if not got:
+        return ["no related link in pub.links: the related route cannot be checked"]
+    l = got[0]
+    for start, other in ((l["earlier"], l["later"]), (l["later"], l["earlier"])):
+        r = build.build(conn, start, subject, held)
+        out += [f"{start}: {p}" for p in r["problems"]]
+        rel = [it for s in r["sections"] if s["name"] == "related" for it in s["items"] if it["ref"] == other]
+        if not rel:
+            out.append(f"{start}: the related company {other} is not listed under the related heading")
+            continue
+        it = rel[0]
+        if it["grade"] != "related" or it.get("reason") or (it["earlier"], it["later"]) != (l["earlier"], l["later"]):
+            out.append(f"{start}: the related company is not graded related in the evidence's date order ({it['grade']}, {it.get('reason')!r})")
+        elif f" {l['relation'] or it['relation']} " not in it["statement"]:
+            out.append(f"{start}: the related line does not state its relation ({it['statement']!r})")
+        w = walk.walk(conn, start, {v for v in subject.views if v in held}, depth=subject.depth, buckets=subject.buckets)
+        if other in {e["ref"] for e in w["entities"]} or [x for x in w["confirmed"] + w["near"] if x["ref"] == other and x.get("rule") == l["rule"]]:
+            out.append(f"{start}: the walk takes the related company {other} as an entity, confirmed or near")
+        if cat.RULE_WORDS["successor-name"] not in memo.text(r):
+            out.append(f"{start}: the memo does not name the successor rule in words")
+    return out
+
+
 def problems(conn, ref: str = None) -> list:
     out = []
     held = db.pub_views(conn)
@@ -587,6 +621,7 @@ def problems(conn, ref: str = None) -> list:
     out += routes(conn, subject, held)
     out += routes_3(conn, subject, held)
     out += routes_4(conn, subject, held)
+    out += routes_related(conn, subject, held)
     # 6. the memo prints
     text = memo.text(r)
     html = memo.html_body(r)

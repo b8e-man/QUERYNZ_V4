@@ -36,16 +36,21 @@ counted (lesson L708 of the old estate: a cut-off chain must say it goes on).
 Reads `pub.*` only, on the product reader."""
 from __future__ import annotations
 
+import datetime as dt
 import re
 
 from products.report import catalogue as cat
 from products.report import db, rows
 
-LIMITS = {"members": 300, "links": 400, "roles": 200, "entities": 40, "second": 300, "expand": 12,
+LIMITS = {"members": 300, "links": 400, "related_people": 20, "roles": 200, "entities": 40, "second": 300, "expand": 12,
           "officers": 12, "officer_rows": 40, "office": 20, "chain": 4, "chain_holders": 25, "chain_companies": 40}
 SETTINGS = {"hub_roles": 50, "hub_holdings": 50, "busy_address": 50, "thousand_address": 1000,
             "through_people": "near"}   # design: a connection through more than one person is near, never confirmed
 BUCKETS = ("members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain")
+#: the third grade of `pub.links` (ruling 106 (2)): two entities and what the one is to the other. Never an identity and never
+#: near: the other company is listed as itself under its own heading (build.RELATED_SECTION), never walked, never an entity of the walk
+RELATED = "related"
+RELATION_UNSTATED = "related (the link states no relation)"
 
 NEAR_THROUGH_PEOPLE = "a connection that passes through more than one person is listed as near, never confirmed (the design's default)"
 NEAR_CONTESTED_GROUP = "the group this row belongs to is contested as a whole: the watch flagged it"
@@ -199,21 +204,25 @@ def group_of(conn, ref: str) -> dict:
 
 
 def links_of(conn, refs: list) -> dict:
-    """{'built', 'confirmed': [...], 'near': [...], 'omitted'}: every link
-    touching any of the refs; each: this, other, rule, evidence, grade,
-    reason, watch, decision."""
+    """{'built', 'confirmed': [...], 'near': [...], 'related': [...], 'omitted'}:
+    every link touching any of the refs; each: this, other, rule, evidence,
+    grade, reason, watch, decision, relation. A related link (ruling 106 (2))
+    is kept apart, never with the near: two entities, never perhaps one. A
+    grade this reader does not know is near, never confirmed."""
     if not links_built(conn) or not refs:
-        return {"built": links_built(conn), "confirmed": [], "near": [], "omitted": 0}
+        return {"built": links_built(conn), "confirmed": [], "near": [], "related": [], "omitted": 0}
     got = db.rows(conn, "select *, count(*) over () as total from pub.links where row_a = any(%s) or row_b = any(%s) "
                         "order by grade, rule, row_a, row_b limit %s", (refs, refs, LIMITS["links"]))
     total = got[0]["total"] if got else 0
     mine = set(refs)
-    out = {"built": True, "confirmed": [], "near": [], "omitted": max(0, total - len(got))}
+    out = {"built": True, "confirmed": [], "near": [], "related": [], "omitted": max(0, total - len(got))}
     for l in got:
         this, other = (l["row_a"], l["row_b"]) if l["row_a"] in mine else (l["row_b"], l["row_a"])
-        grade = l["grade"] if l["grade"] in ("confirmed", "near") else "near"
+        grade = l["grade"] if l["grade"] in ("confirmed", "near", RELATED) else "near"
+        ev = l.get("evidence") or {}
         out[grade].append({"this": this, "other": other, "rule": l["rule"], "evidence": l.get("evidence"), "grade": grade,
-                           "reason": l.get("reason"), "watch": l.get("watch") or [], "decision": l.get("decision")})
+                           "reason": l.get("reason"), "watch": l.get("watch") or [], "decision": l.get("decision"),
+                           "relation": l.get("relation") or (ev.get("relation") if isinstance(ev, dict) else None)})
     return out
 
 
@@ -539,6 +548,61 @@ def link_item(conn, l: dict, cache: dict, allowed: set, skipped: list, via: str 
     return it
 
 
+def related_item(conn, l: dict, cache: dict, allowed: set, skipped: list) -> dict | None:
+    """A related link (ruling 106 (2)) as the report states it: the other
+    company as itself, graded `related`, never confirmed and never near (no
+    reason: nothing says the two may be one). The statement is the relation
+    in words with the two companies in the evidence's date order
+    (`evidence.earlier`, then `evidence.later`; by registration date, then
+    key, where the evidence names no order), and `people` the persons the
+    links lane confirmed on both (`evidence.shared_rows`, one per group),
+    each by their own row on this side, cited; a row suppressed, not found or
+    outside the template is counted in `people_hidden`, never named, and no
+    name is taken from the evidence. The other company is not walked: its
+    rows are its own report's."""
+    hit, here = resolve(conn, l["other"], cache), resolve(conn, l["this"], cache)
+    if not hit or not here:
+        return None
+    (v, r), (hv, hr) = hit, here
+    if v.name not in allowed:
+        skipped.append(v.name)
+        return None
+    ev = l.get("evidence") if isinstance(l.get("evidence"), dict) else {}
+    relation = l.get("relation") or RELATION_UNSTATED
+    pair = {l["this"]: (hv, hr), l["other"]: (v, r)}
+    if {ev.get("earlier"), ev.get("later")} == set(pair):
+        earlier, later = ev["earlier"], ev["later"]
+    else:
+        def when(x):
+            pv, pr = pair[x]
+            return (pr.get(pv.start) or dt.date.max if pv.start else dt.date.max, x)
+        earlier, later = sorted(pair, key=when)
+    def named(x):
+        pv, pr = pair[x]
+        d = pr.get(pv.start) if pv.start else None
+        return f"{rows.title(pv, pr)} (registered {rows.fmt(d, pv.start)})" if d else f"{rows.title(pv, pr)} (registration date not stated)"
+    it = item(v, r, rows.title(hv, hr), via=l["this"], rule=l["rule"], evidence=ev, watch=l.get("watch") or [], decision=l.get("decision"))
+    it.update(grade=RELATED, reason=None, relation=relation, earlier=earlier, later=later, this_is_earlier=earlier == l["this"],
+              order=ev.get("order"), statement=f"{named(earlier)} {relation} {named(later)}")
+    side = "earlier" if earlier == l["this"] else "later"
+    people, hidden, groups = [], 0, set()
+    shared = [p for p in (ev.get("shared_rows") or []) if isinstance(p, dict)]
+    for p in shared[:LIMITS["related_people"]]:
+        g = p.get("group") or p.get(side)
+        if g in groups:
+            continue
+        groups.add(g)
+        phit = resolve(conn, p.get(side) or "", cache)
+        if not phit or phit[0].name not in allowed or rows.is_suppressed(*phit):
+            hidden += 1
+            continue
+        pv, pr = phit
+        people.append(item(pv, pr, rows.title(hv, hr), via=l["this"], rule=l["rule"]))
+    it["people"], it["people_hidden"] = people, hidden
+    it["shared_people"] = max(int(ev.get("shared_people") or 0), len(people) + hidden)
+    return it
+
+
 def current_role(r: dict) -> bool:
     """A role row still in the latest file with no end filed."""
     return bool(r.get("in_latest", True)) and not r.get("ended_on")
@@ -815,7 +879,7 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
     sev, se = rows.entity_of(conn, sv, sr)
     out = {"found": True, "start": item(sv, sr, rows.title(sev, se) if se else None), "settings": dict(SETTINGS), "limits": dict(LIMITS), "skipped": skipped,
            "members": [], "confirmed": [], "near": [], "entities": [], "roles": [], "pointing": [], "second": [], "named": [], "hubs": [],
-           "officers": [], "office": [], "chain": [], "chain_stats": {},
+           "officers": [], "office": [], "chain": [], "chain_stats": {}, "related": [],
            "officers_followed": 0, "officers_omitted": 0, "office_companies": 0, "office_listed": 0}
     if sv.name not in allowed:
         out["start_outside_template"] = True
@@ -882,6 +946,18 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
             out["near"].append(it)
             if not it.get("missing") and it["kind"] == "organisation":
                 out["entities"].append(dict(it, hop=it["dates"]))
+    related_pairs = set()
+
+    def add_related(links):   # each pair once, whichever end the walk met it from; never an entity, never walked
+        for l in links:
+            pair = frozenset((l["this"], l["other"]))
+            if pair in related_pairs:
+                continue
+            related_pairs.add(pair)
+            it = related_item(conn, l, cache, allowed, skipped)
+            if it:
+                out["related"].append(it)
+    add_related(L["related"])
     # an organisation start is its own entity (a person start with child rows was added with the members, above)
     if sv.kind == "organisation" and sv.name in allowed and sv.name in ROLES_ON:
         out["entities"].insert(0, item(sv, sr))
@@ -967,6 +1043,7 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
                 elif it["grade"] == "confirmed" and l["grade"] == "confirmed":
                     pass
                 out["near" if it["grade"] == "near" else "confirmed"].append(it)
+            add_related(EL["related"])
             out["links_omitted"] += EL["omitted"]
     if depth < 2:
         out["second"] = []
