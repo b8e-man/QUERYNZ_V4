@@ -27,6 +27,11 @@
    for the party in one election; no group holds both companies of a
    `successor-name@1` relation, and every shared person its evidence names
    is still in one group on both companies.
+7. Ruling 107, counted in SQL apart from the Python: no donation row is
+   confirmed to a company by name (`organisation-sole-company@1`,
+   `organisation-one-live-company@1`) unless that company was live in the
+   donation's year and no other company of the name was; and every
+   `organisation-one-live-company@1` link has several companies of its name.
 """
 from __future__ import annotations
 
@@ -158,6 +163,38 @@ def check_ruling_106(conn, s: str) -> list:
              "without_one": int(adrift), "ok": adrift == 0}]
 
 
+def check_ruling_107(conn, s: str) -> list:
+    """Ruling 107 against the tables as they stand: a donation row confirmed to
+    a company by name has exactly one company of its name live in its year,
+    and it is the linked one. Live as `rules.sole_company` reads it: registered
+    by the year's end, not removed before its start, an unknown date not
+    counting against."""
+    live = ("(o.registered_on IS NULL OR coalesce(r.ended_on, r.started_on) IS NULL OR o.registered_on <= coalesce(r.ended_on, r.started_on)) "
+            "AND (o.removed_on IS NULL OR r.started_on IS NULL OR o.removed_on >= r.started_on)")
+    row = conn.execute(f"""
+        WITH c AS (
+            SELECT l.rule, r.ref,
+                   (SELECT count(*) FROM {s}.org_names o WHERE o.org_key = r.name_key) AS named,
+                   (SELECT count(*) FROM {s}.org_names o WHERE o.org_key = r.name_key AND {live}) AS live,
+                   EXISTS (SELECT 1 FROM {s}.org_names o WHERE o.org_key = r.name_key AND o.entity_ref IN (l.row_a, l.row_b) AND {live}) AS linked_live,
+                   r.register = ANY(%(reg)s) AS donation
+            FROM {s}.links l JOIN {s}.rows r ON r.ref IN (l.row_a, l.row_b) AND r.kind = 'organisation'
+            WHERE l.rule = ANY(%(rules)s) AND l.grade = 'confirmed')
+        SELECT count(*), count(*) FILTER (WHERE rule = %(one)s),
+               count(*) FILTER (WHERE NOT linked_live), count(*) FILTER (WHERE live > 1),
+               count(*) FILTER (WHERE NOT donation), count(*) FILTER (WHERE rule = %(one)s AND named < 2),
+               count(DISTINCT ref) FILTER (WHERE rule = %(one)s)
+        FROM c""", {"reg": list(rules.DONATION_REGISTERS), "rules": [rules.RULE_SOLE_COMPANY, rules.RULE_ONE_LIVE],
+                    "one": rules.RULE_ONE_LIVE}).fetchone()
+    n, one, not_live, two_live, not_donation, one_of_one, one_rows = (int(x) for x in row)
+    return [{"check": f"no donation row confirms by name to a company not live in its year, or where two companies of the name were live "
+                      f"({rules.RULE_SOLE_COMPANY}, {rules.RULE_ONE_LIVE})",
+             "confirmed": n, "of_which_one_of_several": one, "donation_rows_one_of_several": one_rows,
+             "linked_company_not_live": not_live, "more_than_one_live": two_live, "not_a_donation_row": not_donation,
+             "one_of_several_with_one_company_of_the_name": one_of_one,
+             "ok": not_live == 0 and two_live == 0 and not_donation == 0 and one_of_one == 0}]
+
+
 def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out = []
     if oldconn is not None:
@@ -167,6 +204,7 @@ def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out += check_rows_current(conn, s)
     out += check_review_switch(conn, s)
     out += check_ruling_106(conn, s)
+    out += check_ruling_107(conn, s)
     return out
 
 

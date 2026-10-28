@@ -28,6 +28,14 @@ Three more, ruling 106 (28 October 2026), each from a measured near gap:
    where two rows of the name stand for the party in one election, no pair
    of that name and party confirms, near with the reason.
 
+One more, ruling 107 (28 October 2026), from the gap links-3 measured:
+
+6. `organisation-one-live-company@1`: a donation row's organisation name
+   carried by several companies on the register, exactly one of them live
+   in the donation's year. Confirmed to that one; the others stay near,
+   saying another was live. Where none or more than one was live, every
+   pair stays near under `organisation-name@1` and the reason says which.
+
 Everything else that shares a name is near, with the reason. A
 politician's row (a candidate, a member, a declared-interests return)
 joined to the director register by name is near whatever the name
@@ -91,6 +99,11 @@ NEAR_ORG_SEVERAL = NEAR_ORG_NAME + "; several companies carry this name"
 NEAR_ORG_NOT_YET = NEAR_ORG_NAME + "; one company carries this name, but it was registered after the donation's year"
 NEAR_ORG_GONE = NEAR_ORG_NAME + "; one company carries this name, but it was removed before the donation's year"
 NEAR_ORG_ONE = NEAR_ORG_NAME + "; one company carries this name"      # a declared interest (mp_interests), not a donation: unchanged
+# Ruling 107 (28 October 2026): several companies of the name, judged by which were live in the donation's year.
+RULE_ONE_LIVE = "organisation-one-live-company@1"   # a donation row's organisation name and the one of several companies live in its year
+NEAR_ORG_NONE_LIVE = NEAR_ORG_SEVERAL + ", and none of them was live in the donation's year"
+NEAR_ORG_MANY_LIVE = NEAR_ORG_SEVERAL + ", and more than one of them was live in the donation's year"
+NEAR_ORG_OTHER_LIVE = NEAR_ORG_SEVERAL + "; this one was not live in the donation's year, and the one that was is confirmed"
 
 NEAR_COUPLED = ("the Commission filed this donor as two people on one line; this person is one of the names in it, read from the filed "
                 "string, not an identifier; the donor stays one row (ruling 73)")
@@ -160,7 +173,20 @@ def _d(x):
     return dt.date.fromisoformat(str(x)[:10])
 
 
-def sole_company(row: dict, companies: list) -> dict:
+def _year(row: dict) -> tuple:
+    """A donation row's year as (start, end): `started_on` .. `ended_on` as the
+    row files them; a dated declaration is a year of one day."""
+    start = _d(row.get("started_on"))
+    return start, _d(row.get("ended_on")) or start
+
+
+def _live(c: dict, start, end) -> tuple:
+    """(registered by the year's end, not removed before its start); an unknown date does not count against."""
+    reg, rem = _d(c.get("registered_on")), _d(c.get("removed_on"))
+    return ((reg is None or end is None or reg <= end), (rem is None or start is None or rem >= start))
+
+
+def sole_company(row: dict, companies: list) -> list:
     """`organisation-sole-company@1` (ruling 106 (1)): a donation row's
     organisation name and the companies on the register under that name key
     (every one, live or not). Confirmed when exactly one company carries the
@@ -168,30 +194,62 @@ def sole_company(row: dict, companies: list) -> dict:
     year's end and not removed before its start (`started_on` .. `ended_on`
     as the row files them; a dated declaration is a year of one day).
     Otherwise near under `organisation-name@1`, the reason saying which:
-    several companies, or the one registered after, or removed before.
+    the one registered after, or removed before. Several companies of the
+    name are judged by `one_live_company` (ruling 107).
     `companies`: [{entity_ref, number, name, registered_on, removed_on}]."""
-    start = _d(row.get("started_on"))
-    end = _d(row.get("ended_on")) or start
-    def live(c):
-        reg, rem = _d(c.get("registered_on")), _d(c.get("removed_on"))
-        return ((reg is None or end is None or reg <= end), (rem is None or start is None or rem >= start))
+    if len(companies) > 1:
+        return one_live_company(row, companies)
+    start, end = _year(row)
     out = []
     for c in companies:
-        registered_in_time, not_removed = live(c)
+        registered_in_time, not_removed = _live(c, start, end)
         ev = {"name": row.get("name_filed"), "organisation_key": row.get("name_key"), "date": str(start) if start else None,
               "year": [str(start) if start else None, str(end) if end else None], "company": c.get("name"),
               "company_number": c.get("number"), "registered_on": str(_d(c["registered_on"])) if c.get("registered_on") else None,
               "removed_on": str(_d(c["removed_on"])) if c.get("removed_on") else None,
               "alive_on_date": registered_in_time and not_removed, "companies_of_that_name": len(companies)}
-        if len(companies) == 1 and registered_in_time and not_removed:
+        if registered_in_time and not_removed:
             out.append({"entity_ref": c["entity_ref"], "rule": RULE_SOLE_COMPANY, "grade": "confirmed", "reason": None, "evidence": ev})
             continue
-        if len(companies) > 1:
-            ev["companies_alive_on_date"] = sum(1 for x in companies if all(live(x)))
-            reason = NEAR_ORG_SEVERAL
-        else:
-            reason = NEAR_ORG_NOT_YET if not registered_in_time else NEAR_ORG_GONE
+        reason = NEAR_ORG_NOT_YET if not registered_in_time else NEAR_ORG_GONE
         out.append({"entity_ref": c["entity_ref"], "rule": RULE_ORG_NAME, "grade": "near", "reason": reason, "evidence": ev})
+    return out
+
+
+def one_live_company(row: dict, companies: list) -> list:
+    """`organisation-one-live-company@1` (ruling 107): a donation row's
+    organisation name carried by several companies on the register. Each
+    company is live in the donation's year as `sole_company` reads it
+    (registered by the year's end, not removed before its start). Exactly
+    one live: that pair is confirmed, and each other company's pair stays
+    near under `organisation-name@1` saying another was live. None, or more
+    than one: every pair stays near, the reason saying which. The evidence
+    on every pair names the companies considered (number, name, registered
+    and removed dates, live or not), the one live in the year when there is
+    one, and the donation's date and year.
+    `companies`: [{entity_ref, number, name, registered_on, removed_on}]."""
+    start, end = _year(row)
+    considered = []
+    for c in sorted(companies, key=lambda c: c["entity_ref"]):
+        considered.append({"entity_ref": c["entity_ref"], "company_number": c.get("number"), "company": c.get("name"),
+                           "registered_on": str(_d(c["registered_on"])) if c.get("registered_on") else None,
+                           "removed_on": str(_d(c["removed_on"])) if c.get("removed_on") else None,
+                           "live_in_year": all(_live(c, start, end))})
+    live = [x for x in considered if x["live_in_year"]]
+    the_one = live[0] if len(live) == 1 else None
+    out = []
+    for x in considered:
+        ev = {"name": row.get("name_filed"), "organisation_key": row.get("name_key"), "date": str(start) if start else None,
+              "year": [str(start) if start else None, str(end) if end else None], "company": x["company"],
+              "company_number": x["company_number"], "registered_on": x["registered_on"], "removed_on": x["removed_on"],
+              "alive_on_date": x["live_in_year"], "companies_of_that_name": len(considered),
+              "companies_alive_on_date": len(live), "companies_considered": considered,
+              "live_in_year": the_one["company_number"] if the_one else None}
+        if the_one is x:
+            out.append({"entity_ref": x["entity_ref"], "rule": RULE_ONE_LIVE, "grade": "confirmed", "reason": None, "evidence": ev})
+            continue
+        reason = NEAR_ORG_OTHER_LIVE if the_one else (NEAR_ORG_NONE_LIVE if not live else NEAR_ORG_MANY_LIVE)
+        out.append({"entity_ref": x["entity_ref"], "rule": RULE_ORG_NAME, "grade": "near", "reason": reason, "evidence": ev})
     return out
 
 

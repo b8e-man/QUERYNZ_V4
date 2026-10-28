@@ -188,6 +188,38 @@ rows; the live decisions copied in. Groups 681,628 → 681,815, rows in groups
 - Test pairs redrawn: `two-candidates-one-election` 0 of 1 in one group (two people, as it should);
   `member-and-candidacy` 144 of 144 (one person, as it should).
 
+## 8. Ruling 107's rule, 28 October 2026 (fix-links-1)
+
+`scratch_fix_links_1` on the real published tables, as in 7: the rows
+gathered once (2.86 M rows from nineteen views, 5,694 live decisions copied
+in), built with main's code (before, which equals links-3's after: 681,815
+groups) and with this rule (after) over the same rows. Groups 681,815 →
+681,832, rows in groups 2,315,735 → 2,315,782, contested 52,085 → 52,085,
+largest 1,220 → 1,220.
+
+- `organisation-one-live-company@1`: 30 donation rows have a name several
+  companies carry; in all 30 exactly one was live in the year (none with
+  no live company, none with two). **30 confirmed**, to 18 companies; the
+  other 40 pairs of those rows stay near under `organisation-name@1`, "this
+  one was not live in the donation's year, and the one that was is
+  confirmed". `organisation-name@1`'s "several companies" pairs 792 → 722
+  (all `mp_interests`, unchanged). The 48 rows (30 donations, 18
+  companies): 1 in a group before, 48 in 18 groups after; none contested.
+  Christopher & Banks Limited is two companies: 3482091 (removed
+  2024-12-18) takes the 2022 and 2023 gifts, 9321019 (registered
+  2025-03-06) the 2025 and 2026 ones.
+- Test pairs: a new kind, `donor-and-company-not-live` (a donation row and
+  a company of its name the register shows was not live in the year): 63
+  drawn (40 from this rule's names, 23 from ruling 106's one company), 63
+  measured, 0 confirmed by the rules, 0 in one group. The company is not a
+  row of `links.rows`, so measurement 3 judges these with
+  `rules.sole_company`; the review agent does not score them.
+- Check 7 (`check.py`): 292 confirmed donation-to-company links, 0 to a
+  company not live in the year, 0 where two were live. Planted in a rolled-
+  back transaction, each turned it red: the linked company registered after
+  the year (1), a second company of the name made live (4), a ruling 106
+  link relabelled as this rule's (1).
+
 ## Track C: the review agent scored on the test pairs, 20 October 2026
 
 Run `score-1` in `scratch_review` on the real published tables (`links.scores`,

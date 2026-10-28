@@ -15,6 +15,9 @@ recorded in `links.measurements`. None had ever been run.
 6. The shape of the groups: sizes, and any group that contradicts itself.
 7. Ruling 106's three rules: what each confirmed or related, what it left
    near and why, and the groups they touch.
+8. Ruling 107's rule: the donation rows whose name several companies carry,
+   by how many of them were live in the year; what it confirmed, to how many
+   companies, and the groups those rows sit in.
 """
 from __future__ import annotations
 
@@ -24,6 +27,7 @@ import time
 
 import links
 from links import rules
+from links.pairs import ORG_KINDS
 
 BAND_SQL = "CASE WHEN n <= 5 THEN 'rare' WHEN n <= 50 THEN 'middling' ELSE 'common' END"
 
@@ -76,6 +80,18 @@ def _addr_keys(conn, s: str, entity_ref: str) -> set:
     return {r[0] for r in conn.execute(f"SELECT address_key FROM {s}.entity_addresses WHERE entity_ref = %s", (entity_ref,)).fetchall()}
 
 
+def _org_judgment(conn, s: str, a: str, b: str):
+    """What `rules.sole_company` says about a donation row and one company of its name, from the facts the build reads."""
+    donor, company = (a, b) if not a.startswith("companies:") else (b, a)
+    row = conn.execute(f"SELECT ref, name_filed, name_key, started_on, ended_on FROM {s}.rows WHERE ref = %s", (donor,)).fetchone()
+    if not row:
+        return None
+    companies = [{"entity_ref": e, "number": None, "name": None, "registered_on": r, "removed_on": m} for e, r, m in conn.execute(
+        f"SELECT entity_ref, registered_on, removed_on FROM {s}.org_names WHERE org_key = %s ORDER BY entity_ref", (row[2],)).fetchall()]
+    judged = rules.sole_company(dict(zip(("ref", "name_filed", "name_key", "started_on", "ended_on"), row)), companies)
+    return next((j for j in judged if j["entity_ref"] == company), None)
+
+
 def m3_rule_error(conn, s: str) -> dict:
     """Each test pair against the rules directly and against the groups as built."""
     hubs = {k: int(n) for k, n in conn.execute(f"SELECT address_key, n FROM {s}.address_counts WHERE n > {rules.HUB_FLOOR}").fetchall()}
@@ -87,6 +103,18 @@ def m3_rule_error(conn, s: str) -> dict:
         n = confirmed_direct = confirmed_group = identical_full = 0
         by_rule: dict = {}
         for a, b in conn.execute(f"SELECT row_a, row_b FROM {s}.test_pairs WHERE kind = %s AND band = %s", (kind, band)).fetchall():
+            if kind in ORG_KINDS:     # a donation row and a company: judged by ruling 106 and 107's rule, not the people rules
+                j = _org_judgment(conn, s, a, b)
+                if j is None:
+                    continue
+                n += 1
+                if j["grade"] == "confirmed":
+                    confirmed_direct += 1
+                    by_rule[j["rule"]] = by_rule.get(j["rule"], 0) + 1
+                g = conn.execute(f"""SELECT ga.group_id = gb.group_id FROM {s}.groups ga, {s}.groups gb
+                                     WHERE ga.row_key = %s AND gb.row_key = %s""", (a, b)).fetchone()
+                confirmed_group += bool(g and g[0])
+                continue
             ra = conn.execute(f"SELECT {cols} FROM {s}.rows WHERE ref = %s", (a,)).fetchone()
             rb = conn.execute(f"SELECT {cols} FROM {s}.rows WHERE ref = %s", (b,)).fetchone()
             if not ra or not rb:
@@ -197,9 +225,29 @@ def m7_ruling_106(conn, s: str) -> dict:
     return out
 
 
+def m8_ruling_107(conn, s: str) -> dict:
+    out = {"links": [{"rule": r, "grade": g, "reason": why, "links": int(n)} for r, g, why, n in conn.execute(f"""
+        SELECT l.rule, l.grade, l.reason, count(*) FROM {s}.links l JOIN {s}.rows r ON r.ref IN (l.row_a, l.row_b)
+        WHERE l.rule = ANY(%s) AND r.kind = 'organisation' AND r.register = ANY(%s) AND (l.evidence->>'companies_of_that_name')::int > 1
+        GROUP BY 1, 2, 3 ORDER BY 1, 2, 3""", ([rules.RULE_ONE_LIVE, rules.RULE_ORG_NAME], list(rules.DONATION_REGISTERS))).fetchall()]}
+    out["donation_rows_by_companies_live_in_the_year"] = [{"live": int(k), "rows": int(n)} for k, n in conn.execute(f"""
+        SELECT live, count(*) FROM (
+            SELECT DISTINCT r.ref, (l.evidence->>'companies_alive_on_date')::int AS live FROM {s}.links l JOIN {s}.rows r ON r.ref IN (l.row_a, l.row_b)
+            WHERE l.rule = ANY(%s) AND r.kind = 'organisation' AND r.register = ANY(%s) AND (l.evidence->>'companies_of_that_name')::int > 1) x
+        GROUP BY 1 ORDER BY 1""", ([rules.RULE_ONE_LIVE, rules.RULE_ORG_NAME], list(rules.DONATION_REGISTERS))).fetchall()]
+    row = conn.execute(f"""
+        SELECT count(*), count(DISTINCT r.ref), count(DISTINCT CASE WHEN r.ref = l.row_a THEN l.row_b ELSE l.row_a END),
+               count(DISTINCT g.group_id)
+        FROM {s}.links l JOIN {s}.rows r ON r.ref IN (l.row_a, l.row_b) AND r.kind = 'organisation'
+        LEFT JOIN {s}.groups g ON g.row_key = r.ref
+        WHERE l.rule = %s AND l.grade = 'confirmed'""", (rules.RULE_ONE_LIVE,)).fetchone()
+    out["confirmed"] = {"links": int(row[0]), "donation_rows": int(row[1]), "companies": int(row[2]), "groups_the_rows_sit_in": int(row[3])}
+    return out
+
+
 MEASURES = (("1 name repeats", m1_name_repeats), ("2 shared addresses", m2_shared_addresses), ("3 rule error", m3_rule_error),
             ("4 rule reach", m4_rule_reach), ("5 company names", m5_company_names), ("6 group shape", m6_groups),
-            ("7 ruling 106", m7_ruling_106))
+            ("7 ruling 106", m7_ruling_106), ("8 ruling 107", m8_ruling_107))
 
 
 def run(conn, s: str, log=print, only: str = None) -> dict:

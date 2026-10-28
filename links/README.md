@@ -11,6 +11,8 @@ The rules: two confirm by name (`rules.py`); `seat-and-window@1` and `declared-d
 the rest (`filed-name`, `own-return`, `member-and-party-donor`, `company-name`, `candidate-name-form`, `organisation-name`, `coupled-name`) are near, each with its reason.
 Ruling 106: `organisation-sole-company@1` and `candidate-same-party@1` confirm; `successor-name@1` is the one rule of the third grade, `related`
 ("succeeded by" between two companies, never an identity; `components` walks confirmed links only).
+Ruling 107: `organisation-one-live-company@1` confirms a donation row to the one of several companies of its name live in the
+donation's year (`rules.one_live_company`, reached through `rules.sole_company`); none or more than one live stays near, the reason saying which.
 `coupled-name@1` (ruling 73): a donation row filed as two people ("Craig & Shayne Greenlees", `keys.names.is_joint_name`) stays one row and
 gains a part row per person (`keys.names.joint_parts`; ref `<donor ref>#<n>`, `part_of` the donor), each joined to the donor, near;
 the other rules read a part as any person row. An organisation is never cut on "&"; initials ("M and J Patterson") are not judged.

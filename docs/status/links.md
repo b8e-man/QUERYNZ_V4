@@ -1,8 +1,8 @@
 # links: where it stands
 
 **Date:** 2026-10-28. **Step:** 4.2 and 4.3, `links/`. **Merge requests:**
-`links-1`, `review-1`, `links-2`, `fixes-1`, `coupled-1` (merged), `links-3`
-(raised; the detail of each is in `docs/merges/` or `merge-requests/`).
+`links-1`, `review-1`, `links-2`, `fixes-1`, `coupled-1`, `links-3` (merged),
+`fix-links-1` (raised; the detail of each is in `docs/merges/` or `merge-requests/`).
 
 ## Done
 
@@ -23,6 +23,12 @@
   party, two elections). Groups 681,628 → 681,815, contested unchanged.
   `check.py` 33 of 33, four new checks, three proved to fail on planted
   faults.
+- `fix-links-1` (ruling 107), in `scratch_fix_links_1`:
+  `organisation-one-live-company@1` confirms 30 donation rows to 18
+  companies, the one of several of the name live in the year; the other 40
+  pairs stay near. Groups 681,815 → 681,832. `check.py` 34 of 34, check 7
+  proved red on three planted faults; test pair kind
+  `donor-and-company-not-live` 63 drawn, 0 joined.
 - Track C (`review-1`): the agent scored, applies nothing; ruling 69 holds
   its splits for after the build.
 
@@ -31,15 +37,13 @@
 - Open: `a-coupled-donor-s-part-ref-is-found-through-pub-names`; the review
   agent's splits and the three structure questions, held for after the
   build (rulings 69, 75).
-- Queue: `one-company-of-several-live-in-the-donation-s-year` (30 donation
-  rows, each with exactly one live company of several).
 
 ## Next
 
-1. Integrator: merge `links-3`, then run `qv4-links-build` (tables.sql adds
-   `links.relation` and widens the grade check in place; publish.sql
-   appends `pub.links.relation`); `check.py` live. `scratch_links_3` and
-   `scratch_links_3_pub` are Arthur's to drop.
+1. Integrator: merge `fix-links-1`, then run `qv4-links-build` (it also
+   carries links-3's three rules if not yet run); `check.py` live.
+   `scratch_links_3`, `scratch_fix_links_1` and their `_pub` schemas are
+   Arthur's to drop.
 2. Board (a later session): draw `related` links as a frame around the two
    companies in date order, the shared people once.
 3. House rows before ge-2020 and list-vacancy members find no seat (house

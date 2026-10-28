@@ -224,11 +224,45 @@ def test_a_donation_name_stays_near_where_the_one_company_was_gone_or_several_ca
     gift = {"ref": "candidate_returns:z", "name_filed": "NZ National Party", "started_on": "2023-01-01", "ended_on": "2023-12-31"}
     [j] = rules.sole_company(gift, [_co("4", "1438536", "NEW ZEALAND NATIONAL PARTY LIMITED", "2003-11-04", "2020-01-28")])
     assert (j["rule"], j["grade"], j["reason"]) == (rules.RULE_ORG_NAME, "near", rules.NEAR_ORG_GONE)
-    two = rules.sole_company(dict(gift, name_filed="Porter Group"), [_co("5", "1", "PORTER GROUP LIMITED", "1954-02-22"),
-                                                                     _co("6", "2", "PORTER GROUP LIMITED", "2001-01-01", "2010-01-01")])
-    assert [(x["grade"], x["reason"]) for x in two] == [("near", rules.NEAR_ORG_SEVERAL)] * 2
-    assert two[0]["evidence"]["companies_alive_on_date"] == 1     # one alive of two still is not one company of the name
     assert rules.NEAR_ORG_SEVERAL == "a name match to a company; the donation row carries no official number; several companies carry this name"
+
+
+# ruling 107 (fix-links-1): several companies of the name, exactly one live in the donation's year (28 October 2026)
+
+def test_one_of_several_companies_live_in_the_year_confirms_and_the_others_stay_near():
+    gift = {"ref": "candidate_returns:z", "name_filed": "Porter Group", "name_key": "porter group",
+            "started_on": "2023-01-01", "ended_on": "2023-12-31"}
+    two = rules.sole_company(gift, [_co("5", "1", "PORTER GROUP LIMITED", "1954-02-22"),
+                                    _co("6", "2", "PORTER GROUP LIMITED", "2001-01-01", "2010-01-01")])
+    assert [(x["entity_ref"], x["rule"], x["grade"], x["reason"]) for x in two] == [
+        ("companies:companies/5", rules.RULE_ONE_LIVE, "confirmed", None),
+        ("companies:companies/6", rules.RULE_ORG_NAME, "near", rules.NEAR_ORG_OTHER_LIVE)]
+    ev = two[0]["evidence"]
+    assert (ev["date"], ev["year"], ev["live_in_year"], ev["companies_alive_on_date"], ev["companies_of_that_name"]) == \
+        ("2023-01-01", ["2023-01-01", "2023-12-31"], "1", 1, 2)
+    assert [(c["company_number"], c["registered_on"], c["removed_on"], c["live_in_year"]) for c in ev["companies_considered"]] == \
+        [("1", "1954-02-22", None, True), ("2", "2001-01-01", "2010-01-01", False)]
+    assert two[1]["evidence"]["companies_considered"] == ev["companies_considered"]
+    # removed within the year was live in it; registered the day after a one-day declaration was not
+    edge = rules.one_live_company({"started_on": "2026-04-08", "ended_on": None},
+                                  [_co("7", "3", "X LIMITED", "2026-04-09"), _co("8", "4", "X LIMITED", "1990-01-01", "2026-04-08")])
+    assert [(x["entity_ref"][-1], x["grade"]) for x in edge] == [("7", "near"), ("8", "confirmed")]
+
+
+def test_none_or_more_than_one_live_stays_near_and_says_which():
+    gift = {"ref": "party_returns:x", "name_filed": "Atlas Limited", "started_on": "2020-01-01", "ended_on": "2020-12-31"}
+    none = rules.one_live_company(gift, [_co("1", "1", "ATLAS LIMITED", "1980-01-01", "2010-01-01"),
+                                         _co("2", "2", "ATLAS LIMITED", "2021-03-01")])
+    assert [(x["rule"], x["grade"], x["reason"]) for x in none] == [(rules.RULE_ORG_NAME, "near", rules.NEAR_ORG_NONE_LIVE)] * 2
+    assert none[0]["evidence"]["live_in_year"] is None and none[0]["evidence"]["companies_alive_on_date"] == 0
+    many = rules.one_live_company(gift, [_co("1", "1", "ATLAS LIMITED", "1980-01-01"), _co("2", "2", "ATLAS LIMITED", "2019-03-01"),
+                                         _co("3", "3", "ATLAS LIMITED", "2021-03-01")])
+    assert [(x["grade"], x["reason"]) for x in many] == [("near", rules.NEAR_ORG_MANY_LIVE)] * 3
+    assert many[0]["evidence"]["companies_alive_on_date"] == 2
+    assert not any(x["grade"] == "confirmed" for x in none + many)
+    # one company of the name is still ruling 106's, never this rule's
+    [one] = rules.sole_company(gift, [_co("4", "9", "ATLAS LIMITED", "1980-01-01")])
+    assert one["rule"] == rules.RULE_SOLE_COMPANY
 
 
 def _company(ref, key, registered, removed=None, name=None):
