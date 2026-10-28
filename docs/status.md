@@ -23,7 +23,7 @@ model reading till it returns. **Alarms:** the old estate's ntfy address.
   4.4 site version 3. 4.9 board 87 views. 5.1 the report shape, tranche 3.
 - Rulings 64 to 117 (102: limit 15 binds products, not the board).
 - Track B: the restore rehearsal equal 25 October (2 h 32 m).
-- Merged 21 to 29 October: see `docs/merges/`.
+- Merges 21 to 29 October: `docs/merges/`.
 
 ## Running (headless, from the integrator)
 
@@ -36,7 +36,7 @@ model reading till it returns. **Alarms:** the old estate's ntfy address.
   build: celebrant rows under one reference; a Gazette date column.
 - Arthur's Qwen3.8-Flash-Next experiment runs on both cards since 11:17
   (port 8040, 4 slots of 16k); the frozen product's two model servers and
-  the worker are stopped; `qv4-experiment-restore.timer` restores at 05:30.
+  the worker are stopped; `qv4-experiment-restore` restores them at 05:30.
 - node2 rebooted six times 07:36 to 09:11 on 29 October (Arthur's
   overclocking test); hardware clock 18 h 36 m behind.
 
