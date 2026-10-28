@@ -41,7 +41,7 @@ import urllib.parse
 from support.docstore import landing as docstore
 from products.board import assets
 from products.board import catalogue as cat
-from products.board import db, document, graph, links_view, near, panes, people, search, state, uses
+from products.board import db, document, graph, lineage, links_view, near, panes, people, search, state, uses
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
@@ -156,6 +156,9 @@ def entity_context(conn, group_id: str):
     ent = people.entity(conn, group_id)
     if ent is not None:
         others = {l["row_b"] if l["mine"] == l["row_a"] else l["row_a"] for l in ent["near"]}
+        for l in ent.get("related") or []:                # ruling 106 (2): the other company and the people on both
+            others |= {l["row_a"], l["row_b"]} | {p.get(k) for p in lineage.evidence(l).get("shared_rows") or []
+                                                  for k in ("earlier", "later") if p.get(k)}
         ent["far"] = people.resolve_refs(conn, others - {ref for ref, _, _ in ent["rows"]})
     return ent
 
@@ -199,6 +202,12 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         shown_rows += [vr for c in (nearby or {}).values() if isinstance(c, dict) for vr in c.get("rows") or ()]
         shown_rows += [(cat.BY_NAME[view], r) for k, view, r in steps if r and k != people.ENTITY] + [(tv, r) for r in trows or ()]
         far = search.far_rows(conn, shown_rows, held)  # ruling 92 (2): one query per far view for every key shown
+        listed = [(v, r) for hits in results.values() if isinstance(hits, list) for v, _, rows in hits for r in rows
+                  if v.kind == "organisation" and not panes.is_suppressed(v, r)]
+        related = lineage.related_refs(conn, [links_view.ref(v, r["key"]) for v, r in listed])     # ruling 106 (2): the word
+        for v, r in listed:
+            if links_view.ref(v, r["key"]) in related:
+                r["_related"] = related[links_view.ref(v, r["key"])]
         out = [panes.left_pane(q, search.held_registers(held), boxes)]
         if near_names:
             out.append(panes.near_names_pane(q, near.near_names(conn, q, asked, registers=regs, held=held), boxes))

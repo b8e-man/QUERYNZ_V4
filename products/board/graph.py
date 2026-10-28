@@ -34,7 +34,7 @@ import json
 
 from products.board import assets
 from products.board import catalogue as cat
-from products.board import db, links_view, panes, people as people_state, search
+from products.board import db, lineage, links_view, panes, people as people_state, search
 
 MAX_MATCHED = 16        # matched rows drawn; the rest are counted and the search can be narrowed
 PER_VIEW = 8            # matched rows taken from any one view
@@ -185,6 +185,7 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
                     add_edge(kind, me, nid, cat.rule_words(l["rule"]), me, str(l["rule"]))     # words, never the id (ruling 84)
                     drawn += 1
             g["not_drawn"][kind] += len(items) - drawn
+    lineage.draw(conn, g, add_node, add_edge, people_state.resolve_refs)     # ruling 106 (2): the related grade, as frames
     return people_state.fold(conn, g, max_nodes=MAX_NODES) if people else g
 
 
@@ -347,6 +348,9 @@ def side_of(g: dict, lns: list) -> tuple:
         if a["matched"] and b["matched"]:
             line_side[ln["n"]] = "mid"
             continue
+        if not a["matched"] and not b["matched"]:      # a lineage frame's line between two far rows (ruling 106 (2)): drawn straight
+            line_side[ln["n"]] = "loose"
+            continue
         m, o = (ln["a"], ln["b"]) if a["matched"] else (ln["b"], ln["a"])
         first = ln["causes"][0]
         s = "beside" if first["kind"] in (CONFIRMED, NEAR) else ("up" if first["a"] == m else "down")
@@ -396,7 +400,7 @@ def layout(g: dict, lns: list = None) -> dict:
     node_side, line_side = side_of(g, lns)
     m_of = {}                                       # a non-matched node -> its matched neighbours
     for ln in lns:
-        if line_side[ln["n"]] != "mid":
+        if line_side[ln["n"]] not in ("mid", "loose"):
             m, o = (ln["a"], ln["b"]) if g["nodes"][ln["a"]]["matched"] else (ln["b"], ln["a"])
             m_of.setdefault(o, []).append(m)
     for nid, n in g["nodes"].items():
@@ -455,6 +459,8 @@ def layout(g: dict, lns: list = None) -> dict:
     bars, mid_lines = {}, []
     for ln in lns:
         s = line_side[ln["n"]]
+        if s == "loose":
+            continue
         if s == "mid":
             a, b = sorted((ln["a"], ln["b"]), key=lambda m: xm[m])
             if not any(xm[a] < pos[o][0] < xm[b] for o in pos if o not in tier_of and o not in (a, b)):
@@ -530,7 +536,9 @@ def layout(g: dict, lns: list = None) -> dict:
     for k in bars:
         paths.update(paths_of(k, y0, yc[k], ys))
     for ln in lns:
-        if ln["n"] not in paths:                                 # beside, or two neighbours, on the middle line
+        if line_side[ln["n"]] == "loose":                         # two far rows: straight from one to the other
+            paths[ln["n"]] = [(pos[ln["a"]][0], ys[ln["a"]]), (pos[ln["b"]][0], ys[ln["b"]])]
+        elif ln["n"] not in paths:                               # beside, or two neighbours, on the middle line
             paths[ln["n"]] = [(pos[ln["a"]][0], y0), (pos[ln["b"]][0], y0)]
     paths = {n: [(round(x, 1), round(y, 1)) for x, y in p] for n, p in paths.items()}
     bands = []
@@ -874,10 +882,21 @@ def answer(g: dict, q: str, boxes=None, lns: list = None, lay: dict = None) -> d
     row that asserts it (a money edge's addends under it, ruling 86 (3))."""
     lns = lines(g) if lns is None else lns
     lay = layout(g, lns) if lay is None else lay
-    nodes = []
+    frames = [f for f in g.get("lineage") or [] if f["companies"]]
+    parent = {}
+    for f in frames:                                   # a node sits in the first frame that holds it
+        for x in f["companies"] + f["people"]:
+            if x in g["nodes"]:
+                parent.setdefault(x, f["id"])
+    framed = lineage.places(frames, max([y for _, y in lay["pos"].values()] or [0]) + 120, lay["w"])
+    nodes = [{"id": f["id"], "kind": "lineage", "title": f["label"], "relation": f["relation"], "years": f["years"],
+              "colour": lineage.COLOUR, "register": "", "register_name": "lineage", "family": "", "view": "", "key": "",
+              "matched": False, "centre": False, "pane": "", "grow": "", "shared_people": f["shared_people"],
+              "people_drawn": len(f["people"]), "hidden": f["hidden"], "cut": f["cut"],
+              "x": framed.get(f["companies"][0], (0, 0))[0], "y": framed.get(f["companies"][0], (0, 0))[1]} for f in frames]
     for nid, n in sorted(g["nodes"].items(), key=lambda kv: kv[1]["order"]):
         v = n["v"]
-        x, y = lay["pos"][nid]
+        x, y = framed.get(nid) or lay["pos"][nid]
         node = {"id": nid, "view": v.name, "key": str(n["row"]["key"]), "title": node_title(n),
                 "register": v.register, "register_name": panes.register_heading(v.register),
                 "family": cat.FAMILY_OF[v.register], "colour": cat.REGISTER_COLOUR[v.register], "matched": n["matched"], "centre": n["centre"],
@@ -889,6 +908,10 @@ def answer(g: dict, q: str, boxes=None, lns: list = None, lay: dict = None) -> d
                 node.update({"count": e["count"], "contested": e["contested"], "group": e["group_id"],
                              "pane": panes.href(q, [people_state.entity_id(e["group_id"])], boxes),
                              "open": open_href(e["group_id"], boxes), "grow": ""})
+        if nid in parent:
+            node["parent"] = parent[nid]
+        if n.get("stands_for"):
+            node["stands_for"] = len(n["stands_for"])
         nodes.append(node)
     edges = []
     for ln in lns:
@@ -906,7 +929,8 @@ def answer(g: dict, q: str, boxes=None, lns: list = None, lay: dict = None) -> d
                                      if e.get("rows") else {})} for e in ln["causes"]],
                       **({"decisions": [decision_text(d) for d in decided]} if decided else {})})
     return {"centre": g.get("centre") or "", "mode": "entities" if g.get("people") else "rows", "nodes": nodes, "edges": edges,
-            "matched_total": g["matched_total"], "drawn": g["drawn"], "not_drawn": g["not_drawn"], "unresolved": g["unresolved"]}
+            "matched_total": g["matched_total"], "drawn": g["drawn"], "not_drawn": g["not_drawn"], "unresolved": g["unresolved"],
+            "frames_cut": g.get("lineage_cut", 0)}
 
 
 def line_title(g: dict, ln: dict) -> str:
@@ -947,7 +971,7 @@ def opened(ent, q: str, boxes=None) -> dict:
     for l in ent["links"]:
         if l["row_a"] not in id_of or l["row_b"] not in id_of:
             continue
-        kind = CONFIRMED if l["grade"] == "confirmed" else NEAR
+        kind = CONFIRMED if l["grade"] == "confirmed" else lineage.KIND if l["grade"] == lineage.GRADE else NEAR
         colour, dash = KIND[kind]
         words = cat.rule_words(l["rule"])
         title = [f"{kind}: {words} {cat.rule_ref(l['rule'])}"] + ([f"near because {l['reason']}"] if l.get("reason") and dash else [])
@@ -1062,6 +1086,14 @@ def pane(g: dict, q: str, boxes=None, regs=None, script: bool = False) -> str:
         out.append(f'<p class="note">{panes.esc(PEOPLE_NOTE)}</p>')
         out.append(f'<p class="note">{g["entities"]} entities and {g["lone"]} lone rows drawn; {g["inside"]} record relations '
                    "fell inside one entity and are not drawn.</p>")
+    frames = [f for f in g.get("lineage") or [] if f["companies"]]
+    if frames:
+        cut = g.get("lineage_cut", 0)
+        out.append(f'<p class="note">{panes.esc(lineage.WORDS)} {len(frames)} frame{"s" if len(frames) != 1 else ""} drawn'
+                   + (f", {cut:,} more not drawn" if cut else "") + ": "
+                   + "; ".join(panes.esc(f["label"]) + (f' ({f["hidden"]} on both whose name is suppressed, not drawn)' if f["hidden"] else "")
+                               for f in frames)
+                   + (". Without script the frame is the lineage line between the companies." if not script else ".") + "</p>")
     lns = lines(g)
     lay = layout(g, lns)
     placement = place(g, lay, lns)

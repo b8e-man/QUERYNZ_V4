@@ -18,7 +18,14 @@
    (#side), empty until a result is clicked; the click asks /graph.json centred on that
    row or entity, in the state the address carries, and mounts the canvas afresh. A
    result's links other than its title keep their own work, and a click with a key held
-   opens the title's pane as before. */
+   opens the title's pane as before.
+   Ruling 106 (2), the links lane's related grade: a lineage frame, a compound node in the
+   lime of the key's "lineage" line with a double border (the near colour and dash stay
+   near's alone), labelled with the relation and the years, around the companies in date
+   order left to right (each its own node, never one entity) and the people on both,
+   drawn once beneath them; a tap on the frame does nothing, its members tap as ever; a
+   grown hop that brings a frame for nodes already drawn moves them into it, and a frame
+   folded away lets its members go rather than taking them with it. */
 (function () {
   "use strict";
   var holder = document.getElementById("cy");
@@ -44,6 +51,10 @@
   function nodeData(n) {
     var d = { id: n.id, label: n.title, name: n.title, colour: n.colour, register: n.register_name, family: n.family, view: n.view,
               pane: n.pane, grow: n.grow, tx: n.x, ty: n.y, matched: n.matched, centre: n.centre, kind: n.kind || "row" };
+    if (n.kind === "lineage") {
+      d.shared = n.shared_people; d.drawnPeople = n.people_drawn; d.hidden = n.hidden; d.cut = n.cut;
+    }
+    if (n.stands_for) d.stands = n.stands_for;
     if (n.kind === "entity") {
       d.label = n.title + "\n" + n.count;
       d.count = n.count; d.open = n.open; d.contested = !!n.contested;
@@ -54,7 +65,7 @@
   function edgeData(e) {
     var d = { id: e.id, source: e.source, target: e.target, colour: e.colour, kind: e.kind,
               words: e.words, title: e.title, causes: e.causes, decisions: e.decisions || [] };
-    if (people && (e.dashed || e.inner)) d.label = e.words;     // a near line's reason, an opened entity's rule
+    if ((people && (e.dashed || e.inner)) || e.kind === "lineage") d.label = e.words;     // a near line's reason, an opened entity's rule, a relation
     return d;
   }
   // the node colours on the canvas now, by family of register, each family's registers on hover
@@ -62,6 +73,7 @@
   function relegend() {
     var seen = {}, order = [];
     cy.nodes().forEach(function (n) {
+      if (n.data("kind") === "lineage") return;       // a frame is no register's
       var f = n.data("family");
       if (!seen[f]) { seen[f] = { colour: n.data("colour"), registers: {} }; order.push(f); }
       seen[f].registers[n.data("register")] = true;
@@ -102,10 +114,16 @@
       { selector: "node[kind = \"child\"]", style: { width: 18, height: 18 } },
       { selector: "node:parent", style: { "background-opacity": 0.14, "text-valign": "top", "text-margin-y": -4,
           padding: 14, "border-width": 2, "border-color": ink } },
+      { selector: "node[kind = \"lineage\"]", style: { shape: "round-rectangle", "background-color": "data(colour)",
+          "background-opacity": 0.10, "border-style": "double", "border-width": 6, "border-color": "data(colour)",
+          "text-valign": "top", "text-halign": "center", "text-margin-y": -6, "font-size": "11px", "font-weight": "bold",
+          "text-wrap": "wrap", "text-max-width": "320px", padding: 22, width: 40, height: 40 } },
       { selector: "edge", style: {
           width: 2, "line-color": "data(colour)", "curve-style": "unbundled-bezier",
           "control-point-distances": 18, "control-point-weights": 0.5, "line-opacity": 0.9 } },
       { selector: "edge[?dashed]", style: { "line-style": "dashed", "line-dash-pattern": [6, 4] } },
+      { selector: "edge[kind = \"lineage\"]", style: { width: 3, "control-point-distances": -34, "target-arrow-shape": "triangle",
+          "target-arrow-color": "data(colour)", "arrow-scale": 1.1 } },
       { selector: "edge.hover", style: { width: 4, "line-opacity": 1 } },
       { selector: "edge[label]", style: { label: "data(label)", "font-size": "8px", color: ink, "text-rotation": "autorotate",
           "text-outline-color": surface, "text-outline-width": 2, "text-wrap": "ellipsis", "text-max-width": "140px" } }
@@ -135,6 +153,11 @@
       added.push({ group: "edges", data: d });
     });
     cy.add(added);
+    data.nodes.forEach(function (n) {                // a frame this answer brings around nodes drawn before it
+      if (!n.parent) return;
+      var el = cy.getElementById(n.id), frame = cy.getElementById(n.parent);
+      if (!el.empty() && !frame.empty() && el.data("parent") !== n.parent && !el.isParent()) el.move({ parent: n.parent });
+    });
     relegend();
   }
 
@@ -153,6 +176,7 @@
         var el = cy.getElementById(id);
         if (el.empty()) return;
         if (el.isNode() && grown[id]) queue.push(id);
+        if (el.isNode() && el.data("kind") === "lineage") el.children().move({ parent: null });     // its members may stay
         el.remove();
       });
     }
@@ -222,7 +246,7 @@
   }
 
   function tree() {
-    cy.nodes().forEach(function (n) { n.animate({ position: { x: n.data("tx"), y: n.data("ty") } }, { duration: 400 }); });
+    cy.nodes().forEach(function (n) { if (n.data("kind") === "lineage") return; n.animate({ position: { x: n.data("tx"), y: n.data("ty") } }, { duration: 400 }); });
     setTimeout(fitAll, 430);
   }
 
@@ -249,9 +273,9 @@
   cy.on("onetap", "node", function (evt) {
     var k = evt.target.data("kind");
     if (k === "entity") toggleOpen(evt.target);
-    else if (k !== "child") grow(evt.target);
+    else if (k !== "child" && k !== "lineage") grow(evt.target);
   });
-  cy.on("dbltap", "node", function (evt) { window.location.href = evt.target.data("pane"); });
+  cy.on("dbltap", "node", function (evt) { if (evt.target.data("pane")) window.location.href = evt.target.data("pane"); });
   cy.on("mouseover", "edge", function (evt) {
     var e = evt.target;
     e.addClass("hover");
@@ -267,12 +291,19 @@
   cy.on("mouseover", "node", function (evt) {
     var n = evt.target;
     var k = n.data("kind"), how;
+    if (k === "lineage") {
+      showTip(evt, [n.data("name"), "a relation the links lane found, never one entity: each company is its own node, in date order of registration",
+                    n.data("shared") + " people on both" + (n.data("drawnPeople") < n.data("shared") ? ", " + n.data("drawnPeople") + " drawn" : "") +
+                    (n.data("hidden") ? "; " + n.data("hidden") + " whose name is suppressed, not drawn" : "")]);
+      return;
+    }
     if (k === "entity") how = [n.data("count") + (n.data("contested") ? "; contested: the watch flagged this group" : ""),
                                "the name is the fullest filed among its rows, not a link",
                                opened[n.id()] ? "tap to close its rows" : "tap to open its rows; double-tap to open its pane"];
     else if (k === "child") how = ["a row of this entity; double-tap to open its pane"];
     else how = [(k === "lone" ? "a lone row: in no group" : k === "apart" ? "kept apart: its name is suppressed" : n.data("register") + " \u00b7 " + n.data("view")),
                 grown[n.id()] ? "tap to fold its one hop" : "tap to grow its one hop; double-tap to open its pane"];
+    if (n.data("stands")) how.unshift("one person on both companies: stands for " + n.data("stands") + " rows");
     showTip(evt, [n.data("name"), n.data("register") + " \u00b7 " + n.data("view")].concat(how));
   });
   cy.on("mouseout", "node", function () { tip.hidden = true; });

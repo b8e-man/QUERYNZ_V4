@@ -34,6 +34,7 @@ def reads(monkeypatch):
     monkeypatch.setattr(people, "members_of", lambda conn, gids: {g: members[g] for g in gids})
     monkeypatch.setattr(people, "suppressed_refs", lambda conn, ms: {m["ref"] for m in ms if m["name"] == "Hidden Hart"})
     monkeypatch.setattr(people.db, "rows", lambda conn, sql, params=(): [{"group_id": "G2", "c": True}])
+    monkeypatch.setattr(people.lineage, "related_refs", lambda conn, refs: {})
     return grp
 
 

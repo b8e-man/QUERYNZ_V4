@@ -94,6 +94,16 @@ tables through the session reader, never the sample:
      and the page's inline data is that answer; no edge is an address; a
      row the register suppresses, centred, keeps its name out of the
      answer (json_problems).
+ 24. The lineage frame (ruling 106 (2)): for a company of LINEAGE_NAMES
+     in a related link of pub.links, read by key, the graph centred on it
+     draws its frame in both states: the companies in date order of
+     registration (pub.companies' own dates, read apart from the evidence),
+     each its own node, no two in one pub.groups group or one entity node;
+     every pair of the frame's companies a line is drawn for a related pair
+     of pub.links; each shared person drawn once and joined to two
+     companies of the frame; the answer puts the frame before its children,
+     the lineage line neither dashed nor near's colour; the row's pane and
+     the entity pane list it under "Related companies" (lineage_problems).
 
   python -m products.board check [--term NAME]      exit 1 on any failure
 """
@@ -259,6 +269,99 @@ def problems(conn, term: str = None) -> list:
     out += removed_problems(conn)
     out += people_problems(conn)
     out += results_problems(conn)
+    out += lineage_problems(conn)
+    return out
+
+
+#: item 24's live cases, from links-3's sample of twenty succession pairs (company names, the plain form)
+LINEAGE_NAMES = ("ANDERSON LLOYD TRUSTEE COMPANY LIMITED", "WALKER DAVEY TRUSTEE SERVICES LIMITED", "BBW TRUSTEES LIMITED",
+                 "VULCAN TRUSTEE CO LIMITED", "PAREMATA CONSTRUCTION LIMITED", "ROSS PROPERTIES LIMITED")
+
+
+def lineage_case(conn) -> tuple:
+    """(company node id, its related links) for the first company of
+    LINEAGE_NAMES, by name in pub.companies (pub.names carries no company
+    row), with a related link in pub.links by row key; ("", []) when none."""
+    from products.board import lineage
+    v = cat.BY_NAME["companies"]
+    found = db.rows(conn, "select key, name from pub.companies where name = any(%s) order by key", (list(LINEAGE_NAMES),))
+    for name in LINEAGE_NAMES:
+        for r in (x for x in found if x["name"] == name):
+            links = lineage.related_of(conn, [links_view.ref(v, r["key"])])
+            if links:
+                return f"companies:{r['key']}", links
+    return "", []
+
+
+def lineage_problems(conn) -> list:
+    """Item 24 (ruling 106 (2))."""
+    from products.board import lineage
+    out = []
+    centre, links = lineage_case(conn)
+    if not centre:
+        return [f"no company of {', '.join(LINEAGE_NAMES)} has a related link in pub.links: the lineage frame has nothing to show"]
+    for people_state in (False, True):
+        state = "entity" if people_state else "rows"
+        g = graph.build(conn, "", centre=centre, people=people_state)
+        frames = [f for f in g.get("lineage") or [] if f["companies"]]
+        mine = [f for f in frames if any(centre == c or centre in (g["nodes"].get(c, {}).get("entity") or {}).get("in_hand", [])
+                                         for c in f["companies"])]
+        if not mine:
+            out.append(f"the {state} graph centred on {centre} draws no lineage frame around it")
+            continue
+        f = mine[0]
+        if len(set(f["companies"])) != len(f["companies"]) or len(f["companies"]) < 2:
+            out.append(f"the {state} graph's frame {f['id']} draws {len(f['companies'])} companies as {len(set(f['companies']))} nodes: merged")
+        refs = []
+        for c in f["companies"]:
+            n = g["nodes"][c]
+            if n.get("entity") and len(n["entity"]["in_hand"]) > 1 and sum(x in n["entity"]["in_hand"] for x in f["companies"]) > 1:
+                out.append(f"the {state} graph's frame {f['id']} holds an entity standing for two of its companies")
+            refs.append(links_view.ref(n["v"], n["row"]["key"]))
+        gids = db.rows(conn, "select group_id, count(*) as n from pub.groups where row_key = any(%s) group by 1 having count(*) > 1", (refs,))
+        if gids:
+            out.append(f"pub.groups holds two companies of the frame {f['id']} in one group: a relation became an identity")
+        dates = {r["key"]: r["registered_on"] for r in db.rows(conn, "select key, registered_on from pub.companies where key = any(%s)",
+                                                                  ([links_view.split_ref(r)[1] for r in refs],))}
+        seq = [str(dates.get(links_view.split_ref(r)[1]) or "") for r in refs]
+        if any(a and b and a > b for a, b in zip(seq, seq[1:])):
+            out.append(f"the {state} graph's frame {f['id']} is not in date order of registration: {seq}")
+        for e in g["edges"]:
+            if e["kind"] != lineage.KIND:
+                continue
+            for a, b in ([(x[2], x[3]) for x in e["rows"]] if e.get("rows") else [(e["a"], e["b"])]):     # an entity's line keeps its rows
+                ra, rb = (links_view.ref(cat.BY_NAME[x.split(":", 1)[0]], x.split(":", 1)[1]) for x in (a, b))
+                if not db.rows(conn, "select 1 from pub.links where row_a = %s and row_b = %s and grade = 'related'", tuple(sorted((ra, rb)))):
+                    out.append(f"the {state} graph draws a lineage line for {ra} and {rb}, which pub.links holds no related pair for")
+        if len(set(f["people"])) != len(f["people"]):
+            out.append(f"the {state} graph's frame {f['id']} draws a shared person twice")
+        for p in f["people"]:
+            joined = {e["b"] if e["a"] == p else e["a"] for e in g["edges"] if p in (e["a"], e["b"])} & set(f["companies"])
+            if len(joined) < 2:
+                out.append(f"the {state} graph's frame {f['id']} draws a shared person {p} joined to {len(joined)} of its companies")
+        data = graph.answer(g, "")
+        at = {n["id"]: i for i, n in enumerate(data["nodes"])}
+        kids = [n for n in data["nodes"] if n.get("parent") == f["id"]]
+        if f["id"] not in at or not kids or any(at[n["id"]] < at[f["id"]] for n in kids):
+            out.append(f"the {state} answer does not put the frame {f['id']} before its children")
+        for e in data["edges"]:
+            if e["kind"] == lineage.KIND and (e["dashed"] or e["colour"] == graph.KIND[graph.NEAR][0]):
+                out.append("a lineage line is dashed or in the near colour: near's style is near's alone")
+        named = graph.to_json(data)
+        for x in links:
+            for p in lineage.evidence(x).get("shared_rows") or []:
+                for k in ("earlier", "later"):
+                    hit = people.resolve_refs(conn, [p[k]]).get(p[k]) if p.get(k) else None
+                    if hit and panes.is_suppressed(*hit) and panes.title_of(*hit) in named:
+                        out.append(f"the {state} answer names a suppressed person on both companies of {f['id']}")
+    page = server.render("", [centre], conn=conn)
+    if "Related companies" not in page or "succeeded by" not in page:
+        out.append(f"the row pane of {centre} does not list its related link under Related companies")
+    grp = db.rows(conn, "select group_id from pub.groups where row_key = %s", (links_view.ref(cat.BY_NAME["companies"], centre.split(":", 1)[1]),))
+    if grp:
+        page = server.render("", [people.ENTITY + grp[0]["group_id"]], conn=conn)
+        if "Related companies" not in page:
+            out.append(f"the entity pane of {centre}'s group does not list its related link under Related companies")
     return out
 
 
