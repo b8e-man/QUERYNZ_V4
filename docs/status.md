@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB. Detail: `docs/merges/`.
 
-**Date:** 2026-10-28, 20:05 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-28, 21:35 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 counting clean days from 25 October (see Half-done); 5.1
 done; 5.2 closed (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held
 on terms; sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on
@@ -29,7 +29,7 @@ model reading till it returns. **Alarms:** the old estate's ntfy address.
 
 ## Running (headless, from the integrator)
 
-- 28 October: memory folder opened (103); pull and Beehive load given measured memory; parliament check 36 s; live on the board: entity state (105), results pane (108), lineage frame (106), the dossier (110); five links rules live (106, 107, 109; the fifth relates 2 pairs, queue item for Arthur); reports read the related grade; the gate tests in isolation (113, two merges); `board-12` live (111, 112); the collapse folds rows the links lane's name table lacks (celebrants, charity officers). Nothing at the gate. Open for Arthur: a links fix reading charity officers and celebrants; the refiled-company queue item. 27 October (rulings 96 to 102): `mcp-1`, `hansard-1`, `hansard-2`,
+- 28 October: memory folder opened (103); pull and Beehive load given measured memory; parliament check 36 s; live on the board: entity state (105), results pane (108), lineage frame (106), the dossier (110); five links rules live (106, 107, 109; the fifth relates 2 pairs, queue item for Arthur); reports read the related grade; the gate tests in isolation (113, two merges); `board-12` live (111, 112); the collapse folds rows the lane's name table lacks; the links lane reads the eight left-out people views and four organisation registers (114) and joins speeches, questions, releases and diaries to the sitting member (116; build queued 21:35); a job killed at its memory ceiling is raised and re-run by the worker (115; worker restart owed after the offsite copy). Nothing at the gate. Open for Arthur: the refiled-company queue item; the Kiri Allan name form; the sample database lacks the lane's views. 27 October (rulings 96 to 102): `mcp-1`, `hansard-1`, `hansard-2`,
   `diaries-2`, `parliament-1`, `board-7` merged with their fixes; board check green.
 
 ## Half-done
