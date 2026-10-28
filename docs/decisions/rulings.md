@@ -836,3 +836,17 @@ read as within twelve months of each other, either order of removal and
 registration, so that the case that raised it falls in. The rule needs a
 person confirmed on both companies, as successor-name@1 does; the name
 alone stays near. Built by a links fix.
+
+110. Arthur, 28 October, 16:35, on the entities results of ruling 108:
+"'matching here: Arthur William YOUNG, Arthur William YOUNG, Arthur William
+YOUNG, Arthur William YOUNG, Arthur William YOUNG and 5 more' listing the
+matches isnt helpful because they are all the same name. remove this from
+the entities result display. Let's bring back the dossier and open this
+under the graph". So the "matching here" line leaves an entity result; and
+the dossier of the old estate (gui/src/components/DossierView.tsx in the
+reference copy: one page for one entity, its names as seen, its claims with
+their sentences, its roles and companies, its money as a time series, its
+namesakes, its enterprise members) comes back on the board as the board's
+own pane for an entity, built from the published views and the links
+lane's tables alone, and opens under the graph when a result or a node is
+chosen. Built by board-11.
