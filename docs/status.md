@@ -34,9 +34,9 @@ model reading till it returns. **Alarms:** the old estate's ntfy address.
   dossier shows each member's records) merged. Nothing at the gate.
   Cards: three board display faults under a fold; the slow search. Next
   build: celebrant rows under one reference; a Gazette date column.
-- Arthur's Qwen3.8-Flash-Next experiment: shards verified, engine built,
-  `qv4-experiment-qwen38` installed, not started: it stops the frozen
-  product's two model servers, so it starts on his word only.
+- Arthur's Qwen3.8-Flash-Next experiment runs on both cards since 11:17
+  (port 8040, 4 slots of 16k); the frozen product's two model servers and
+  the worker are stopped; `qv4-experiment-restore.timer` restores at 05:30.
 - node2 rebooted six times 07:36 to 09:11 on 29 October (Arthur's
   overclocking test); hardware clock 18 h 36 m behind.
 
