@@ -523,8 +523,10 @@ class Boxes(NamedTuple):
     ticked); `people`, the graph's people state (ruling 105: `g=entities` only
     when on, so a view reopens in its state); `collapse`, the collapse
     section's criteria ticked (ruling 112, `cl=name&cl=number…`, collapse.CHOICES
-    order; the links lane's groups always on and never written). All travel
-    as query parameters on every href (`params`)."""
+    order; the links lane's groups always on and never written); `sort`, the
+    open table's sort (ruling 117 (3), `ts=<column>` ascending, `ts=-<column>`
+    descending, a column of `table_columns` alone). All travel as query
+    parameters on every href (`params`)."""
     all: bool = True
     ticked: tuple = ()
     fields: tuple = ()
@@ -534,9 +536,10 @@ class Boxes(NamedTuple):
     removed: bool = False
     people: bool = False
     collapse: tuple = ()
+    sort: str = ""
 
     def params(self) -> list:
-        table = [("t", self.table), ("o", str(self.upto))] if self.table else []
+        table = ([("t", self.table), ("o", str(self.upto))] + ([("ts", self.sort)] if self.sort else [])) if self.table else []
         mode = [("mode", self.mode)] if self.mode != ALL else []
         removed = [("removed", "1")] if self.removed else []
         return ([("all", "1" if self.all else "0")] + [("r", x) for x in self.ticked] + removed + list(self.fields)
@@ -569,8 +572,28 @@ def boxes_of(qs: dict) -> Boxes:
     upto = min(max(int(o) // TABLE_PAGE * TABLE_PAGE, 0), TABLE_MAX - TABLE_PAGE) if o.isdigit() and table else 0
     mode = ANY if (qs.get("mode") or [""])[0] == ANY else ALL
     removed = "1" in (qs.get("removed") or [])
+    sort = (qs.get("ts") or [""])[0]
+    sort = sort if table and sort.lstrip("-") in table_columns(cat.BY_NAME[table]) and sort.count("-") <= 1 else ""
     return Boxes("1" in alls if alls else not ticked, ticked, fields, table, upto, mode, removed, (qs.get("g") or [""])[0] == PEOPLE,
-                 tuple(c for c in COLLAPSE_CHOICES if c in set(qs.get(COLLAPSE) or ())))
+                 tuple(c for c in COLLAPSE_CHOICES if c in set(qs.get(COLLAPSE) or ())), sort)
+
+
+def table_columns(v: cat.View) -> tuple:
+    """The columns a register table shows and sorts by (ruling 117 (3)): 'title', then the View's fields."""
+    return ("title",) + tuple(c for _, c in v.fields)
+
+
+def table_order(v: cat.View, sort: str = "") -> str:
+    """The table's ORDER BY: the column `sort` names (`-` before it, descending;
+    'title' the title's columns in order), nulls last, the key last so a page
+    is stable; the view's own order where `sort` names no column of the
+    table. Only a column `table_columns` lists reaches the SQL."""
+    col, desc = sort.lstrip("-"), sort.startswith("-")
+    if col not in table_columns(v):
+        return f"{v.default_order} nulls last, {v.key_col}"
+    cols = v.title if col == "title" else (col,)
+    way = "desc" if desc else "asc"
+    return ", ".join(f"{c} {way} nulls last" for c in cols) + f", {v.key_col} {way}"
 
 
 def selection(boxes: Boxes, held: list) -> tuple:
@@ -619,9 +642,10 @@ def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = N
     return out
 
 
-def table(conn, v: cat.View, upto: int = 0, removed: bool = True) -> tuple:
+def table(conn, v: cat.View, upto: int = 0, removed: bool = True, sort: str = "") -> tuple:
     """(count of the rows shown, the first upto + TABLE_PAGE rows, the count
-    left out) of one view in its default order (ruling 92 (5)): every row, a
+    left out) of one view in its default order (ruling 92 (5)), or sorted by
+    one column in SQL under the page's limit (ruling 117 (3), table_order): every row, a
     suppressed one included, for the pane to show as panes.shown() does;
     with `removed` false, a removed company's row left out (ruling 93)."""
     rx = None if removed else removed_expr(v)
@@ -632,7 +656,7 @@ def table(conn, v: cat.View, upto: int = 0, removed: bool = True) -> tuple:
         got = {"n": db.rows(conn, f"select count(*) as n from pub.{v.name}")[0]["n"], "hidden": 0}
     rc, rp = removed_sql(v, removed)
     rows = db.rows(conn, f"select *, {v.key_col} as key from pub.{v.name} where true{rc} "
-                         f"order by {v.default_order} nulls last, {v.key_col} limit %s", rp + [min(upto, TABLE_MAX - TABLE_PAGE) + TABLE_PAGE])
+                         f"order by {table_order(v, sort)} limit %s", rp + [min(upto, TABLE_MAX - TABLE_PAGE) + TABLE_PAGE])
     return int(got["n"]), rows, int(got["hidden"])
 
 

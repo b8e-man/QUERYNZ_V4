@@ -150,7 +150,7 @@ def test_the_section_is_closed_below_the_results_capped_and_never_in_the_exact_c
     assert below.count('class="nearwhy">near: given name and surname reversed') == near.NEAR_LIMIT
     assert "and 15 more" in below and "Near matches <span class=\"count\">40</span>" in below
     assert "<mark>MILLS</mark> <mark>PHILLIP</mark>" in below and "d=party_return_donors%3Ak0" in below     # ruling 111: its dossier
-    assert '<article class="hit"' not in html and "1 row, 1 register" in below                       # an entity of one row, never a row
+    assert '<article class="hit"' not in html and 'class="hit entity lone"' in below and "1 row, 1 register" not in below                       # an entity of one row, never a row
     assert "not tried: fill the address field" in below
 
 

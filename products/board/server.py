@@ -232,7 +232,7 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
             tv = cat.BY_NAME[boxes.table]
             tv = tv if tv.name in held else panes.main_view(tv.register, held)
             if tv is not None:
-                total, trows, hidden = search.table(conn, tv, boxes.upto, boxes.removed)
+                total, trows, hidden = search.table(conn, tv, boxes.upto, boxes.removed, boxes.sort if boxes.table == tv.name else "")
         # ruling 111: the results list entities, so only the path's panes and the table cite a document or name a far row
         cited = [r.get("document") for k, _, r in steps if r and k != people.ENTITY]
         docs = document.statuses(conn, cited)          # ruling 86 (4): one query for every "source" link on the page
@@ -269,7 +269,7 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         elif chosen:
             out.append(dos)
         if tv is not None:
-            out.append(panes.table_pane(q, tv, total, trows, boxes._replace(table=tv.name), held, far, hidden))
+            out.append(panes.table_pane(q, tv, total, trows, boxes._replace(table=tv.name, sort=boxes.sort if boxes.table == tv.name else ""), held, far, hidden))
         for i, (person, view, r) in enumerate(steps):
             so_far = path[:i + 1]
             if person == people.ENTITY:

@@ -70,11 +70,13 @@ def test_the_results_list_entities_alone_in_either_state(reads, state):
     entities, lone = html.index("<h3>Entities"), html.index("<h4>Single-row entities")
     assert '<span class="count">3</span></h3>' in html                                     # G1, then Joe Hart and the suppressed row
     assert entities < html.index('class="hit entity"') < lone
-    assert html.count('class="hit entity') == 3 and html.count('class="hit entity lone"') == 2 and "2 registers" in html
+    assert html.count('class="hit entity') == 3 and html.count('class="hit entity lone"') == 2 and "2 registers" not in html
+    assert 'class="what">declares interests, director</div>' in html                      # ruling 117 (2): what it is, not its counts
     assert not ROW_CARD.search(html) and "Rows in no group" not in html
     assert "matching here" not in html and html[:lone].count("Jane Hart") == 0                 # ruling 110 (1): no list of the rows' names
     after = html[lone:]
-    assert "Joe Hart" in after and panes.SUPPRESSED in after and after.count("1 row, 1 register") == 2
+    assert "Joe Hart" in after and panes.SUPPRESSED in after and after.count('class="what">director</div>') == 1
+    assert "1 row, 1 register" not in html and "single-row entity" not in html and "· directors</div>" not in html
     assert "Jane Mary Hart" not in after and "Hidden" not in html
     assert f'data-dossier="directors:{D3}"' in after and 'data-dossier="entity:G1"' in html[:lone]
     assert 'id="state"' not in html                                                       # the switch is the graph's alone (ruling 111)

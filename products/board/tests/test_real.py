@@ -39,7 +39,7 @@ def test_the_search_tab_marks_maori_as_maori_in_the_registers_checked_only():
         html = server.render("Maori", [], conn=conn, boxes=search.Boxes(False, ("iwi_directory",)))
     results = html[html.index('id="results"'):]
     assert "<mark>Māori</mark>" in results                        # "Maori" typed marks "Māori" filed
-    assert "· iwi_directory_entities</div>" in results                # ruling 111: its single-row entities name their view
+    assert "· iwi_directory_entities</div>" not in results            # ruling 117 (2): a card names no view
     assert "Registered political parties" not in results           # an unchecked register is not searched
 
 
@@ -405,3 +405,67 @@ def test_a_board_made_name_key_equals_pub_names_key_for_the_rows_pub_names_holds
                     assert collapse.row_name_keys(v, r) == (n["fl_key"], n["full_key"], n["has_middle"]), r["key"]
                     seen += 1
             assert seen, view
+
+
+LLOYD = "charities:charities/officers/1684473"
+
+
+def test_lloyd_budd_s_dossier_reads_as_facts_folded_by_what_the_rows_say():
+    """Ruling 117 (1) and (2), live: his three rows are two facts, the five celebrant lists one near entry,
+    the candidacy another; no entry names a register, a view or a row count."""
+    from products.board import dossier
+    with db.read_connect() as conn:
+        t = time.time()
+        x = dossier.gather(conn, people.entity_id(LLOYD))
+        page = dossier.pane(x, "lloyd budd", search.FIRST)
+        took = time.time() - t
+    says = [unescape(re.sub(r"<[^>]+>", "", s)) for s in re.findall(r'<div class="say">(.*?)</div>', page)]
+    assert "Director and shareholder of BUDD CONSULTANCY LIMITED since 4 December 2025" in says
+    assert "Trustee of Keystone New Zealand Property Education Trust since 11 March 2025" in says
+    assert "Lloyd Budd: marriage celebrant, listed 2020 to 2025" in says
+    assert any(s.startswith("Lloyd Sam BUDD: candidate, Whangārei, 2026") for s in says)
+    assert page.count('<li class="fact"') == 2 and page.count('<li class="fact near"') == 2
+    assert "five Gazette lists" in page and took < 2.0
+    for s in says:
+        assert not re.search(r"\b\d+ rows?\b|registers?\b|single-row|gazette_celebrants|charity_officers|directors\b", s), s
+
+
+def test_lloyd_budd_s_results_say_what_he_is_never_counts_or_views():
+    """Ruling 117 (2), live: the entity card reads what he is; the single-row cards read what their row says."""
+    with db.read_connect() as conn:
+        page = server.render("lloyd budd", [], conn=conn, boxes=search.FIRST)
+    results = page[page.index('id="results"'):page.index('class="sidecol"') if 'class="sidecol"' in page else len(page)]
+    whats = [unescape(re.sub(r"<[^>]+>", "", w)) for w in re.findall(r'<div class="what">(.*?)</div>', results)]
+    assert "director and shareholder, charity trustee" in whats
+    assert len({w for w in whats if w.startswith("marriage celebrant, listed")}) == 5          # each tab lists them; five lists, five days
+    assert any(w.startswith("candidate, ") for w in whats)
+    assert not re.search(r"\d rows?, \d registers?|1 row, 1 register|single-row entity", results)
+
+
+def test_lloyd_budd_s_entity_graph_is_one_drawing_from_every_row_and_in_both_states():
+    """Ruling 117 (4), live: opened from his charity officer's row, his director's row or his shareholder's row,
+    with the name fold and without, the entity is one node standing for one row, joined to his charity and his
+    company; the fold lifts every plain node and line to its folded ends and adds none."""
+    e, fid = people.entity_id(LLOYD), collapse.PREFIX + people.entity_id(LLOYD)
+    seen = {}
+    with db.read_connect() as conn:
+        centres = sorted(f"{m['view']}:{m['key']}" for m in people.members_of(conn, [LLOYD])[LLOYD])
+        assert len(centres) == 3
+        for cl in ((), ("name",)):
+            for c in centres:
+                t = time.time()
+                d = server.graph_answer("lloyd budd", c, conn=conn, boxes=search.FIRST._replace(people=True, collapse=cl))
+                assert time.time() - t < 2.0
+                seen[(cl, c)] = ({n["id"]: n["view"] for n in d["nodes"]}, {(l["source"], l["target"], l["kind"]) for l in d["edges"]}, d)
+    for cl, me in (((), e), (("name",), fid)):
+        drawings = [seen[(cl, c)][:2] for c in centres]
+        assert all(x == drawings[0] for x in drawings), cl                          # the same from every row
+        nodes, lines = drawings[0]
+        assert nodes[me] == "charity_officers"                                      # his first row by ref stands for him
+        ends = {b for a, b, k in lines if a == me and k == "role"} | {a for a, b, k in lines if b == me and k == "role"}
+        assert {n for n in ends if n.startswith("charities:")} and {n for n in ends if n.startswith("companies:")}
+    pn, pl, _ = seen[((), centres[0])]
+    fn, fl, fd = seen[(("name",), centres[0])]
+    members = set(next(n for n in fd["nodes"] if n["id"] == fid)["members"])
+    to = {nid: (fid if nid in members else nid) for nid in pn}
+    assert set(to.values()) == set(fn) and {(to[a], to[b], k) for a, b, k in pl if to[a] != to[b]} == fl

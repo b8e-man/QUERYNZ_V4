@@ -32,7 +32,7 @@ import json
 import re
 
 from products.board import catalogue as cat
-from products.board import db, fold as names, lineage, links_view, panes, search
+from products.board import db, facts, fold as names, lineage, links_view, panes, search
 
 ENTITY = "entity:"
 MAX_CHILDREN = 40           # rows drawn inside an opened entity; the pane lists every row
@@ -214,6 +214,38 @@ def describe(gid: str, members: list, hidden: set, contested: bool, resolved: di
             "kinds": sorted({m["kind"] for m in shown if m["kind"]})}
 
 
+CARD_KEYS = 2000            # rows of one view read for the entity cards' words on one page; past it the line's noun alone
+
+
+def what_of(conn, members: dict, hidden: set) -> dict:
+    """{group_id: 'director and shareholder, charity trustee'}: what each
+    entity is (ruling 117 (2)), from its shown rows' words (facts.what_it_is).
+    A view whose word reads a column (a charity officer's role, a celebrant's
+    statute) is read by key, one query per view; every other by its line's
+    noun, no read."""
+    want = {}
+    for ms in members.values():
+        for m in ms:
+            v = cat.BY_NAME.get(m["view"] or "")
+            if v is not None and m["ref"] not in hidden and facts.card_columns(v):
+                want.setdefault(v.name, set()).add(m["key"])
+    read = {}
+    for view, keys in want.items():
+        v = cat.BY_NAME[view]
+        if len(keys) > CARD_KEYS:
+            continue
+        cols = ", ".join(sorted(set(facts.card_columns(v))))
+        for r in db.rows(conn, f"select {v.key_col}::text as key, {cols} from pub.{v.name} where {v.key_col}::text = any(%s)",
+                         (sorted(keys),)):
+            read[(view, r["key"])] = r
+    out = {}
+    for gid, ms in members.items():
+        pairs = [(cat.BY_NAME[m["view"]], read.get((m["view"], m["key"]))) for m in ms
+                 if m["ref"] not in hidden and m["view"] in cat.BY_NAME]
+        out[gid] = facts.what_it_is(pairs)
+    return out
+
+
 # ── the fold ────────────────────────────────────────────────────────────────
 
 def fold(conn, g: dict, near: bool = True, max_nodes: int = 120) -> dict:
@@ -322,10 +354,37 @@ def fold(conn, g: dict, near: bool = True, max_nodes: int = 120) -> dict:
             k = tuple(sorted((node_of[a], node_of[b])))
             out["decisions"].setdefault(k, []).append({"verdict": d["verdict"], "made_by": d["made_by"],
                                                       "made_at": d["made_at"], "rows": (title[a], title[b])})
+    stand_for(conn, out, members, hidden)
     out["lineage"] = lineage.relabel(g.get("lineage"), node_of)     # ruling 106 (2): each company its own node, a person once
     out["entities"] = sum(1 for n in out["nodes"].values() if n.get("entity"))
     out["lone"] = sum(1 for n in out["nodes"].values() if n.get("lone"))
     return out
+
+
+def stand_for(conn, out: dict, members: dict, hidden: set) -> None:
+    """Each entity node's row, the one that stands for its group (its
+    register's colour, its family, its grow and pane addresses): the group's
+    first shown row by ref in byte order, read by key where this answer did
+    not draw it, so every answer draws one entity alike (ruling 117 (4), the
+    lineage lesson of 28 October); it was the first row in hand, which
+    swapped with the row an answer started from."""
+    want = {}
+    for eid, n in out["nodes"].items():
+        e = n.get("entity")
+        if not e:
+            continue
+        shown = sorted((m for m in members.get(e["group_id"], []) if m["ref"] not in hidden and m["view"] in cat.BY_NAME),
+                       key=lambda m: m["ref"].encode())
+        if shown and links_view.ref(n["v"], n["row"]["key"]) != shown[0]["ref"]:
+            want[eid] = shown[0]
+    by_view = {}
+    for m in want.values():
+        by_view.setdefault(m["view"], set()).add(m["key"])
+    rows = {view: rows_by_key(conn, view, keys) for view, keys in by_view.items()}
+    for eid, m in want.items():
+        r = rows.get(m["view"], {}).get(m["key"])
+        if r is not None:
+            out["nodes"][eid].update({"v": cat.BY_NAME[m["view"]], "row": r})
 
 
 def graph_title(n: dict) -> str:
@@ -403,6 +462,9 @@ def gather(conn, hits, named: dict = None) -> dict:
                                                                              key=lambda x: (order.get(x, len(order)), x))]
         d["centre"] = next((f"{m['view']}:{m['key']}" for m in shown if m["view"] in cat.BY_NAME), "")
         entity[gid] = d
+    what = what_of(conn, {gid: members.get(gid, []) for gid in entity}, hidden)
+    for gid, d in entity.items():                      # ruling 117 (2): what the entity is, not how many rows it has
+        d["what"] = what.get(gid, "")
     related = lineage.related_refs(conn, [m["ref"] for gid in entity for m in members.get(gid, []) if m["ref"] not in hidden])
     for gid, d in entity.items():                      # ruling 106 (2): an entity with a related link says so, in a word
         d["related"] = sorted({related[m["ref"]] for m in members.get(gid, []) if m["ref"] in related})

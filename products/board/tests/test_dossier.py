@@ -101,21 +101,24 @@ def test_an_entity_s_dossier_has_its_name_its_names_as_filed_and_every_section(r
     html = dossier.pane(x, "hart", search.FIRST)
     assert "<h2>Jane Mary Hart</h2>" in html and panes.esc(panes.ENTITY_LABEL_NOTE) in html and "contested" in html
     assert x["names"] == [("Jane Hart", 6), ("Jane Mary Hart", 1)]                     # a row counted once, most rows first
-    assert re.findall(r'<h3 id="([\w-]+)"', html) == ["d-names", "d-rows", "d-roles", "d-money", "related", "d-near", "d-decided"]
+    assert re.findall(r'<h3 id="([\w-]+)"', html) == ["d-names", "d-rows", "d-money", "related", "d-near", "d-decided"]
     assert f'href="http://report/report/{ROWS[1][0]}"' in html                       # the group's own row, the report's path
     assert "No claims lane" in html
 
 
-def test_the_rows_run_by_register_in_date_order_each_with_its_role_its_company_and_its_pane(reads):
+def test_the_rows_fold_into_facts_in_date_order_each_row_as_filed_under_its_fact(reads):
+    """Ruling 117: one entry per thing the rows say, in date order, the row as filed closed under it."""
     html = dossier.pane(dossier.gather(None, "entity:" + ROWS[1][0]), "hart", search.FIRST)
     rows = section(html, "d-rows")
-    assert rows.index("Party donation and loan returns") < rows.index("Large-donation disclosures") < rows.index("Companies, directors")
-    co = rows[rows.index("Companies, directors"):]
-    assert co.index("2001-02-03") < co.index("TWO LIMITED") < co.index("2010-05-01") < co.index("ONE LIMITED")
-    assert "director of" in co and panes.href("hart", [f"directors:{D2}"], search.FIRST).replace("&", "&amp;") in co
+    says = re.findall(r'<div class="say">(.*?)</div>', rows)
+    text = [re.sub(r"<[^>]+>", "", s) for s in says]
+    assert text == ["Director of TWO LIMITED since 3 February 2001", "Director of ONE LIMITED since 1 May 2010",
+                    "Donor to Party A, 2020 to 2021"]                                       # a return's rows and a disclosure say one thing
+    assert rows.count('<li class="fact"') == 3 and rows.count('<li><span class="when">') == len(ROWS)   # every row once, as filed
+    assert panes.href("hart", [f"directors:{D2}"], search.FIRST).replace("&", "&amp;") in rows
     assert '<span class="when">2020</span>' in rows                                   # a year filed alone is a year, not 1 January
-    roles = section(html, "d-roles")
-    assert roles.index("TWO LIMITED") < roles.index("ONE LIMITED") and roles.count("<li>") == 2
+    donor = rows[rows.index("Donor to Party A"):]
+    assert "four donations in party returns" in donor and "large-donation disclosure" in donor
 
 
 def test_money_sums_by_year_only_the_filed_amounts_the_view_lets_be_added(reads):
@@ -133,7 +136,7 @@ def test_near_links_carry_their_reasons_and_a_suppressed_far_row_is_never_named(
     near = section(html, "d-near")
     assert "Jane Hartley" in near and "because the two rows share a name" in near
     decided = section(html, "d-decided")
-    assert "not the same" in decided and "1 decision on a pair" in decided and "contested" in decided
+    assert "not the same" in decided and "one decision recorded on a pair" in decided and "contested" in decided
     assert "Hidden Person" not in html
 
 
@@ -142,7 +145,7 @@ def test_a_row_in_a_group_opens_its_group_and_a_lone_row_its_own(reads):
     assert x["kind"] == "entity" and x["via"] == "Jane Hart" and len(x["rows"]) == len(ROWS)
     lone = dossier.gather(None, "party_return_donors:lone", "http://report")
     html = dossier.pane(lone)
-    assert lone["kind"] == "row" and "a lone row: in no group" in html and "<h2>Lone Donor</h2>" in html
+    assert lone["kind"] == "row" and "In no group: no links rule joins this record to another" in html and "<h2>Lone Donor</h2>" in html
     assert "$250.00, the sum of 1 filed amount" in html and "http://report/report/party_returns:lone" in html
 
 
@@ -222,9 +225,9 @@ def test_an_entity_of_3000_rows_over_three_views_is_shown_by_view_each_row_count
     assert x["many"] and [(v.name, k) for v, k in x["views"]] == want                           # the catalogue's register order
     sections = re.findall(r'<details class="dview" data-view="(\w+)" data-count="(\d+)">', page)
     assert [(v, int(k)) for v, k in sections] == want
-    assert "3,000 rows across 3 views" in page and sum(k for _, k in x["names"]) == 3000
+    assert "3,000 records of 3 kinds" in page and sum(k for _, k in x["names"]) == 3000
     assert page.count('<li><span class="when">') == 3 * dossier.VIEW_ROWS < 3000                   # a page per view read, not 3,000
-    assert page.count('<li class="newest">') == dossier.TIMELINE_ROWS and "and 2,960 more rows" in page
+    assert page.count('<li class="newest">') == dossier.TIMELINE_ROWS and "and 2,960 more records" in page
     newest = re.findall(r'<li class="newest"><span class="when">([\d-]+)</span>', page)
     assert newest == sorted(newest, reverse=True) and newest[0] == "2004-12-04"                # hansard's 1,800th day, the newest
     assert "Hidden Person" not in page and "suppressed" not in section(page, "d-rows")          # hard limit 16: unnamed and uncounted
