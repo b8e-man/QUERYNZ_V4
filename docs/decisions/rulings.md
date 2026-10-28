@@ -850,3 +850,29 @@ namesakes, its enterprise members) comes back on the board as the board's
 own pane for an entity, built from the published views and the links
 lane's tables alone, and opens under the graph when a result or a node is
 chosen. Built by board-11.
+
+111. Arthur, 28 October, 16:39, on the results pane after ruling 108 and
+the dossier of ruling 110: "we dont need the rows section in the results
+pane because your handling of the entities section was so elegant. All
+rows will be visible in the dossier. We also no longer need the graph tab
+at the top navigation". So the results pane lists entities only (groups,
+then lone rows as single-row entities), in every state; the rows and
+entities switch governs the graph alone; a row is reached through its
+entity's dossier; and the graph tab leaves the top navigation, the graph
+living beside the results (108) with the dossier under it (110). The graph
+tab's address still answers, redirected to the search page with the graph
+open, so a saved path keeps working. Built by board-12, after board-11.
+
+112. Arthur, 28 October, 16:43, on the results pane: "at the top of
+results, let's have an expandable 'collapse' section that opens collapse
+options. These let us collapse rows based on criteria like shared names".
+So the results pane carries, above the entities, a closed section
+"collapse" that opens to a fixed list of criteria a reader may tick to
+fold the entities further for this view: a shared first and last name, a
+shared full name, a shared registered address, a shared official number,
+and the links lane's groups (the default, always on). A collapse chosen
+here is a display choice for this page, said as such on every folded
+entry, never a link and never written: the links lane's rules alone make
+links (plan 4.9), and the dossier of a folded entry shows its members as
+the entities they are. The address carries the chosen criteria. Built by
+board-12 with ruling 111.

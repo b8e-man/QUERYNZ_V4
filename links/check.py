@@ -32,6 +32,12 @@
    `organisation-one-live-company@1`) unless that company was live in the
    donation's year and no other company of the name was; and every
    `organisation-one-live-company@1` link has several companies of its name.
+8. Ruling 109, counted in SQL apart from the Python: every
+   `refiled-name@1` relation is two companies under one name key with no
+   year in brackets, the earlier removed and the later registered within
+   twelve months of the removal (either side of it), and every one still
+   has a person in one group on both companies (item 6's check, over both
+   relations).
 """
 from __future__ import annotations
 
@@ -145,21 +151,22 @@ def check_ruling_106(conn, s: str) -> list:
         WHERE l.grade = 'related' AND a.group_id = b.group_id""").fetchone()[0]
     adrift = conn.execute(f"""
         SELECT count(*) FROM {s}.links l
-        WHERE l.rule = %s AND NOT EXISTS (
+        WHERE l.rule = ANY(%s) AND NOT EXISTS (
             SELECT 1 FROM jsonb_array_elements(l.evidence->'shared_rows') x
             JOIN {s}.groups a ON a.row_key = x->>'earlier' JOIN {s}.groups b ON b.row_key = x->>'later'
             JOIN {s}.rows ra ON ra.ref = x->>'earlier' AND ra.entity_ref = l.evidence->>'earlier'
             JOIN {s}.rows rb ON rb.ref = x->>'later' AND rb.entity_ref = l.evidence->>'later'
-            WHERE a.group_id = b.group_id)""", (rules.RULE_SUCCESSOR,)).fetchone()[0]
-    related = conn.execute(f"SELECT count(*), count(*) FILTER (WHERE rule <> %s OR relation IS DISTINCT FROM %s) FROM {s}.links WHERE grade = 'related'",
-                           (rules.RULE_SUCCESSOR, rules.RELATION_SUCCEEDED_BY)).fetchone()
+            WHERE a.group_id = b.group_id)""", ([rules.RULE_SUCCESSOR, rules.RULE_REFILED],)).fetchone()[0]
+    related = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE (rule, relation) NOT IN ((%s, %s), (%s, %s)) OR relation IS NULL)
+                               FROM {s}.links WHERE grade = 'related'""",
+                           (rules.RULE_SUCCESSOR, rules.RELATION_SUCCEEDED_BY, rules.RULE_REFILED, rules.RELATION_REFILED)).fetchone()
     return [{"check": f"every {rules.RULE_SOLE_COMPANY} link is a donation row and the one company of its name, live in the year",
              "links": int(sole_n), "not_so": int(sole_bad), "ok": sole_bad == 0},
             {"check": f"no {rules.RULE_SAME_PARTY} pair confirms a name that stands twice for the party in one election",
              "confirmed_pairs_of_such_a_name": int(twice), "ok": twice == 0},
             {"check": "no group holds both rows of a related link (a relation is never an identity)", "related": int(related[0]),
              "other_rules_or_relations": int(related[1]), "in_one_group": int(joined), "ok": joined == 0 and related[1] == 0},
-            {"check": f"every {rules.RULE_SUCCESSOR} relation still has a person in one group on both companies",
+            {"check": f"every {rules.RULE_SUCCESSOR} and {rules.RULE_REFILED} relation still has a person in one group on both companies",
              "without_one": int(adrift), "ok": adrift == 0}]
 
 
@@ -195,6 +202,30 @@ def check_ruling_107(conn, s: str) -> list:
              "ok": not_live == 0 and two_live == 0 and not_donation == 0 and one_of_one == 0}]
 
 
+def check_ruling_109(conn, s: str) -> list:
+    """Ruling 109 against the tables as they stand: a refiled relation's two
+    companies carry one name key with no year in brackets, the earlier
+    registered was removed, and the later was registered within twelve
+    months of that removal, before or after it (SQL's month arithmetic, as
+    `rules.within_months` reads it)."""
+    row = conn.execute(f"""
+        SELECT count(*),
+               count(*) FILTER (WHERE e.org_key IS NULL OR t.org_key IS NULL OR e.org_key <> t.org_key OR e.org_key ~ '\\(\\d{{4}}\\)'),
+               count(*) FILTER (WHERE e.removed_on IS NULL OR t.registered_on IS NULL
+                                  OR t.registered_on < e.removed_on - interval '12 months' OR t.registered_on > e.removed_on + interval '12 months'),
+               count(*) FILTER (WHERE e.registered_on > t.registered_on),
+               count(*) FILTER (WHERE coalesce((l.evidence->>'shared_people')::int, 0) < 1)
+        FROM {s}.links l
+        LEFT JOIN {s}.org_names e ON e.entity_ref = l.evidence->>'earlier'
+        LEFT JOIN {s}.org_names t ON t.entity_ref = l.evidence->>'later'
+        WHERE l.rule = %s""", (rules.RULE_REFILED,)).fetchone()
+    n, names, outside, order, nobody = (int(x) for x in row)
+    return [{"check": f"every {rules.RULE_REFILED} relation is one name with no year in brackets, the earlier removed and the later "
+                      f"registered within twelve months of it, with a person on both",
+             "related": n, "names_do_not_fit": names, "outside_twelve_months": outside, "later_registered_first": order,
+             "no_shared_person_in_evidence": nobody, "ok": names == 0 and outside == 0 and order == 0 and nobody == 0}]
+
+
 def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out = []
     if oldconn is not None:
@@ -205,6 +236,7 @@ def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out += check_review_switch(conn, s)
     out += check_ruling_106(conn, s)
     out += check_ruling_107(conn, s)
+    out += check_ruling_109(conn, s)
     return out
 
 

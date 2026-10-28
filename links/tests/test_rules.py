@@ -294,6 +294,47 @@ def test_the_name_pattern_alone_stays_near_and_the_names_must_fit():
     assert rules.bare_name("speirs foods (2018) lp") == "speirs foods lp" and rules.bare_name("(2018)") == ""
 
 
+def test_a_refiled_name_with_a_person_on_both_is_related_in_arthur_s_words():
+    # Christopher & Banks Limited (ruling 109): 3482091 removed 2024-12-18, 9321019 registered 2025-03-06
+    old_ = _company("9429031010443", "christopher & banks", "2011-07-28", "2024-12-18", "CHRISTOPHER & BANKS LIMITED")
+    new_ = _company("9429052661174", "christopher & banks", "2025-03-06", None, "CHRISTOPHER & BANKS LIMITED")
+    shared = [{"a": "companies:companies/9429052661174/director/1", "b": "companies:companies/9429031010443/director/7", "group": "g1", "name": "x"}]
+    j = rules.refiled(new_, old_, shared)
+    assert (j["rule"], j["grade"], j["relation"]) == (rules.RULE_REFILED, "related", "delisted/refiled same year")
+    ev = j["evidence"]
+    assert (ev["earlier"], ev["later"], ev["removed_on"], ev["refiled_on"], ev["gap_days"]) == (
+        old_["entity_ref"], new_["entity_ref"], "2024-12-18", "2025-03-06", 78)
+    assert ev["shared_rows"] == [{"earlier": shared[0]["b"], "later": shared[0]["a"], "group": "g1", "name": "x"}]
+    assert ev["shared_people"] == 1 and ev["order"] == "by registration date"
+    assert rules.refiled(old_, new_, [dict(a=shared[0]["b"], b=shared[0]["a"], group="g1", name="x")])["evidence"] == ev
+    # either order: Pacific Hygiene Limited, 9444168 registered 2026-07-13 before 564741 was removed 2026-07-31
+    a = _company("9429038920622", "pacific hygiene", "1992-11-10", "2026-07-31")
+    b = _company("9429053809063", "pacific hygiene", "2026-07-13")
+    assert rules.refiled(a, b, shared)["evidence"]["gap_days"] == -18
+    # a successor's name is not this rule's, nor this one successor's
+    assert rules.successor(old_, new_, shared) is None
+
+
+def test_a_refiled_name_needs_a_person_on_both_and_the_twelve_months():
+    old_ = _company("1", "harbour 5", "2001-01-01", "2024-02-29")
+    p = [{"a": "a", "b": "b", "group": "g", "name": "n"}]
+    assert rules.refiled(old_, _company("2", "harbour 5", "2025-02-28"), p) is not None          # the last day of the twelve months
+    assert rules.refiled(old_, _company("2", "harbour 5", "2025-03-01"), p) is None              # a day past it
+    assert rules.refiled(old_, _company("2", "harbour 5", "2023-02-28"), p) is not None          # twelve months before the removal
+    assert rules.refiled(old_, _company("2", "harbour 5", "2023-02-27"), p) is None
+    assert rules.refiled(old_, _company("2", "harbour 5", "2024-06-01"), []) is None             # no person on both: company-name@1 keeps it near
+    assert rules.refiled(_company("1", "harbour 5", "2001-01-01"), _company("2", "harbour 5", "2024-06-01"), p) is None   # neither removed
+    # the later registered removed and the earlier still live is no refiling
+    assert rules.refiled(_company("1", "harbour 5", "2001-01-01"), _company("2", "harbour 5", "2024-01-01", "2024-06-01"), p) is None
+    assert rules.refiled(old_, _company("2", "harbour 6", "2024-06-01"), p) is None             # another name
+    assert rules.refiled(_company("1", "harbour 5 (2001)", "2001-01-01", "2024-02-29"),
+                         _company("2", "harbour 5 (2001)", "2024-06-01"), p) is None             # a year in brackets: not this rule
+    assert rules.refiled(old_, _company("2", "harbour 5", None), p) is None                     # a date unknown never relates
+    # equal registration dates: the removed one is the earlier
+    j = rules.refiled(_company("2", "harbour 5", "2020-01-01"), _company("1", "harbour 5", "2020-01-01", "2020-05-01"), p)
+    assert j["evidence"]["earlier"] == "companies:companies/1" and j["evidence"]["order"].startswith("registration dates equal")
+
+
 def test_the_tables_carry_the_third_grade_and_the_view_never_shows_it_confirmed():
     sql = links.tables_sql()
     assert "CHECK (grade IN ('confirmed', 'near', 'related'))" in sql and "ALTER TABLE links.links ADD COLUMN IF NOT EXISTS relation " in sql
