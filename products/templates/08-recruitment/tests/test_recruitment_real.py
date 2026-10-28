@@ -101,15 +101,13 @@ def test_the_most_shared_name_keeps_its_namesakes_apart_and_never_confirmed():
     assert ident["confirmed"] == 0
     assert all(x.startswith("  - [near]") for x in ident["lines"])
     assert m["flags"]["namesake-exposure"]["status"] == "fired"
-    assert m["flags"]["bankruptcy"]["status"] == "blocked"
+    assert m["flags"]["bankruptcy"]["status"] == "blocked" or (m["flags"]["bankruptcy"]["status"] == "fired"
+                                                              and m["flags"]["bankruptcy"]["severity"] == "amber")   # the star read through its centre (fix-products-report-4)
     marks = m["flags"]["charity-integrity-marks"]   # read since fix-templates-1: an officer row by name is near, so a mark on one is amber
     assert marks["status"] == "clear" or (marks["status"] == "fired" and marks["severity"] == "amber"), marks
     assert "not held: Charities register and officers" not in m["text"]   # held since charities-3; the key superseded at fix-report-2
 
 
-@pytest.mark.xfail(strict=True, reason="cards/the-report-walk-reads-a-namesake-star-one-hop-so-a-spoke-sees-only-the-centre.md: since 28 October the "
-                                        "name-only@1 star is centred on a building practitioner row, so the subject's group holds one near link, "
-                                        "to a view the template does not read; the walk must follow the star through its centre")
 def test_the_most_shared_name_lists_its_namesakes_whichever_row_carries_the_star():
     ident = memo(one(MOST_SHARED))["sections"]["WHO THIS IS, AND THE NAMESAKES SET APART"]
     assert ident["near"] > 0
