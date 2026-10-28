@@ -989,3 +989,11 @@ entity, whatever its register; a person entity is not folded by hand
 (a person's identity is the links lane's and the review's). Built by
 board-14.
 
+120. Arthur, 29 October, 13:00, on the graph's two states (ruling 105's
+rows and entities switch, left governing the graph alone by ruling 111):
+"entities only, the rows mode leaves". So the graph has one state, the
+entities of the links lane's groups with lone rows as single-row
+entities; the rows mode, its switch and its address value leave the
+board, an address naming it opening the entities graph. Built by the next
+board fix.
+

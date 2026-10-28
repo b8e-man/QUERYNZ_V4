@@ -559,11 +559,12 @@ then start Claude in the copy it makes and paste:
 You are a fix session for QueryNZV4, running as Opus on node2, in the
 working copy the launcher made for you, scope products/board/. Read
 docs/PLAN.md, docs/plan/core.md, products/board/spec.md, rulings 105 to
-112, 117 and 118 in docs/decisions/rulings.md, and the card
+112 and 117 to 120 in docs/decisions/rulings.md, and the card
 cards/the-graph-tab-s-fold-is-mislabelled-in-rows-mode-and-cites-the-superseded-filing.md.
-Fix its three faults: (1) the graph tab defaults to entities mode when a
-collapse is ticked, and the fold's label and colour come from the whole
-fold, not the member that sorts first; (2) when causes merge into one
+Fix its three faults: (1) is overtaken by ruling 120: the graph has one
+state, entities; the rows mode, its switch and its address value leave
+(an address naming it opens the entities graph), and the fold's label
+and colour come from the whole fold, not the member that sorts first; (2) when causes merge into one
 edge, cite the latest filing, never one marked not in the latest file;
 (3) the "N more match: narrow the search" note is not shown when every
 matching row is drawn inside a fold. And (4), ruling 118: drop the
