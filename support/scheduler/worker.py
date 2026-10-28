@@ -17,6 +17,16 @@ reserve for the database and the standing services, up to its declared
 cap. A job needing a model profile is claimed only while a card on this
 box holds that profile.
 
+A JOB STOPPED AT ITS MEMORY CEILING (ruling 115) failed by a figure the
+scheduler holds, so the worker records a raise (`queue.raise_memory`): the
+working figure goes to twice the ceiling crossed, rounded up to the next
+0.5 GB, and the job is queued again at once, unless the raised figure is
+over the box's budget (its memory less the reserve) or its first row has
+been raised twice already; then it stays failed and alarmed, with the note.
+The working figure is the larger of the declared one and the latest applied
+raise, read from the table every tick, and placement and the ceiling use
+it. No other failure is re-run by this.
+
 A DELIBERATE STOP (SIGTERM) tells each running child to stop, gives the
 leased rows back with their progress, marks the worker `stopped`, and
 raises no alarm.
@@ -102,6 +112,8 @@ def _connect(database: str):
 class Running:
     def __init__(self, claim: dict, jt: reg.JobType):
         self.claim, self.jt = claim, jt
+        self.memory_gb = jt.memory_gb             # the working figure at the claim (ruling 115)
+        self.rerun: dict | None = None            # the memory raise that queued this row, if any
         self.started = time.monotonic()
         self.last_renew = time.monotonic()    # across every piece of the claim, so short pieces still renew
         self.thread: threading.Thread | None = None
@@ -133,6 +145,7 @@ class Worker:
         self.profile: dict = {}
         self.probed_at = 0.0
         self.running: dict[int, Running] = {}
+        self.raised: dict[str, float] = {}         # per job, its latest applied memory raise (ruling 115)
         self.lock = threading.Lock()
         self.stopping = False
         self.ticks = 0
@@ -188,11 +201,29 @@ class Worker:
             self.log(f"catalogue reloaded: {len(registry)} job types, {len(profiles)} profiles")
         self.registry, self.profiles, self.rules = registry, profiles, rules
 
+    def read_raises(self) -> None:
+        """The working figures, from the table: a restart, or the other
+        worker, places by the same raises."""
+        raised = q.working_figures(self.conn, self.schema)
+        with self.lock:
+            self.raised = raised
+
+    def working_gb(self, jt: reg.JobType) -> float:
+        """The larger of the declared figure and the job's latest applied raise."""
+        with self.lock:
+            return max(jt.memory_gb, self.raised.get(jt.name, 0.0))
+
+    def memory_budget_gb(self) -> float | None:
+        """The most one job may hold on this box: its memory less the reserve
+        for the database and the standing services. None before a probe."""
+        total = (self.profile or {}).get("memory_total_gb")
+        return None if not total else float(total) - self.rules.memory_reserve_gb
+
     def available_gb(self) -> float:
         m = pb.meminfo()
         avail = m.get("memory_available_gb", 0.0)
         with self.lock:
-            committed = sum(r.jt.memory_gb for r in self.running.values())
+            committed = sum(r.memory_gb for r in self.running.values())
         return avail - self.rules.memory_reserve_gb - committed
 
     def cards_here(self) -> list[dict]:
@@ -213,7 +244,8 @@ class Worker:
         for jt in self.registry.values():
             if not jt.enabled or pb.missing_programs(self.profile, jt.requires):
                 continue
-            fits = int(free // jt.memory_gb) if jt.memory_gb > 0 else jt.concurrency
+            mem = self.working_gb(jt)
+            fits = int(free // mem) if mem > 0 else jt.concurrency
             if counts.get(jt.name, 0) >= min(jt.concurrency, max(fits, 0)):
                 continue
             if jt.profile:
@@ -229,6 +261,7 @@ class Worker:
         q.tables(self.conn, self.schema)
         self.probe()
         q.register(self.conn, self.schema, self.name, self.box, self.profile)
+        self.read_raises()
         self.log(f"running from {REPO} at {_git(REPO, 'rev-parse', '--short=12', 'HEAD')[1] or '?'}")
         self.log(f"registered on {self.box}: {self.profile.get('cores')} cores, {self.profile.get('memory_total_gb')} GB, "
                  f"{len(self.profile.get('cards') or [])} card(s), programs missing: "
@@ -261,6 +294,7 @@ class Worker:
         if self.cards_manager:
             self.cards_manager.tick(self, now)
         self._reap_threads()
+        self.read_raises()
         if not self.stopping:
             elig = self.eligible()
             # The clock is read again here, not reused from the top of the tick: the card manager
@@ -308,6 +342,7 @@ class Worker:
     def _launch(self, claim: dict) -> None:
         jt = self.registry[claim["job"]]
         r = Running(claim, jt)
+        r.memory_gb = self.working_gb(jt)
         with self.lock:
             self.running[claim["id"]] = r
         r.thread = threading.Thread(target=self._run_job, args=(r,), name=f"job-{claim['id']}", daemon=True)
@@ -348,11 +383,14 @@ class Worker:
             # the card that held the profile when the job was claimed no longer does: do not run a
             # doomed child; the job goes back and is claimed again when a card holds it
             return runner.Result(None, 0.0, 0, "failed", f"no card on {self.box} holds profile {jt.profile} now", "lease")
+        raise_id = r.rerun["id"] if r.rerun else None
+        working_mb = int(r.memory_gb * 1024)
         run_id = runs.begin(jt.name, box=self.box, queue_id=claim["id"], card=None,
                             requested_model=self.profiles[jt.profile].model if jt.profile else None,
-                            args={"piece": piece["key"] if piece else None, "worker": self.name})
+                            args={"piece": piece["key"] if piece else None, "worker": self.name, "rerun_of_raise": raise_id})
         q.run_begin(conn, self.schema, run_id, job=jt.name, worker=self.name, box=self.box, qid=claim["id"],
-                    piece=piece["piece"] if piece else None, declared_mb=int(jt.memory_gb * 1024))
+                    piece=piece["piece"] if piece else None, declared_mb=int(jt.memory_gb * 1024), working_mb=working_mb,
+                    raise_id=raise_id)
         # The renewal clock lives on the claim (`r.last_renew`), not on the piece: a run of
         # pieces each shorter than lease_seconds / 3 used to never renew, and the 90 s lease
         # lapsed under pass one of the trial (card the-worker-s-lease-lapses-under-a-run-of-short-pieces).
@@ -367,10 +405,11 @@ class Worker:
             return True
 
         res = runner.run(self._argv(jt, [piece["key"]] if piece else []), deadline_s=jt.needs.deadline_s,
-                         ceiling_mb=runner.ceiling_for(jt.memory_gb), query_timeout_s=jt.needs.query_timeout_s,
+                         ceiling_mb=runner.ceiling_for(r.memory_gb), query_timeout_s=jt.needs.query_timeout_s,
                          env=self._env(r, run_id, piece), cwd=REPO, tick=tick, log=self.log, nice=jt.nice)
+        res.run_id = run_id
         runs.finish(run_id, outcome=res.outcome, error=res.error, peak_mb=res.peak_mb, declared_mb=int(jt.memory_gb * 1024),
-                    note=res.stopped_for)
+                    note=res.stopped_for, working_mb=working_mb, rerun_of_raise=raise_id)
         q.run_end(conn, self.schema, run_id, outcome=res.outcome, exit_code=res.code, error=res.error, detail=res.stopped_for,
                   peak_mb=res.peak_mb)
         if res.peak_mb > jt.memory_gb * 1024:
@@ -378,11 +417,25 @@ class Worker:
                      f"flagged, correct the figure")
         return res
 
+    def _raise_memory(self, conn, r: Running, res: runner.Result, pieced: bool) -> dict:
+        """A run stopped at its ceiling: record the raise and, within the
+        budget and the two raises, queue the job again (ruling 115)."""
+        rz = q.raise_memory(conn, self.schema, job=r.jt.name, run_id=res.run_id, qid=r.claim["id"], peak_mb=res.peak_mb,
+                            ceiling_mb=runner.ceiling_for(r.memory_gb), held_gb=r.memory_gb,
+                            budget_gb=self.memory_budget_gb(), pieced=pieced, registry=self.registry)
+        if rz["applied"]:
+            with self.lock:
+                self.raised[r.jt.name] = max(self.raised.get(r.jt.name, 0.0), rz["raised_gb"])
+        self.log(f"row {r.claim['id']} ({r.jt.name}): stopped at {res.peak_mb} MB over its ceiling of "
+                 f"{runner.ceiling_for(r.memory_gb)} MB; memory raise {rz['id']}: {rz['note']}")
+        return rz
+
     def _run_job(self, r: Running) -> None:
         conn = None
         try:
             conn = self._connect()
             jt, claim = r.jt, r.claim
+            r.rerun = q.raise_for_row(conn, self.schema, claim["id"])
             if jt.pieces:
                 failed, in_a_row = 0, 0
                 while True:
@@ -398,6 +451,12 @@ class Worker:
                         return
                     q.finish_piece(conn, self.schema, claim["id"], claim["token"], piece["piece"], ok=res.outcome == "ok",
                                    seconds=res.seconds, detail=res.error or "")
+                    if res.stopped_for == "memory":
+                        rz = self._raise_memory(conn, r, res, pieced=True)
+                        if rz["requeued_id"]:
+                            q.requeue(conn, self.schema, claim["id"], claim["token"],
+                                      detail=f"memory raise {rz['id']}: {rz['note']}")
+                            return
                     if res.outcome != "ok":
                         failed += 1
                         in_a_row += 1
@@ -423,9 +482,13 @@ class Worker:
                 if res.stopped_for == "lease":
                     q.requeue(conn, self.schema, claim["id"], claim["token"], detail="worker stopping or lease lost")
                     return
-                q.complete(conn, self.schema, claim["id"], claim["token"], outcome=res.outcome, detail=res.error or "")
-                if res.outcome != "ok":
-                    self.alarm(f"qv4 {self.box}: {jt.name} failed", f"row {claim['id']}: {res.error}")
+                rz = self._raise_memory(conn, r, res, pieced=False) if res.stopped_for == "memory" else None
+                detail = res.error or ""
+                if rz:
+                    detail += f"; memory raise {rz['id']}: {rz['note']}"
+                q.complete(conn, self.schema, claim["id"], claim["token"], outcome=res.outcome, detail=detail)
+                if res.outcome != "ok" and not (rz and rz["requeued_id"]):
+                    self.alarm(f"qv4 {self.box}: {jt.name} failed", f"row {claim['id']}: {detail}")
             self.log(f"row {claim['id']} ({jt.name}) finished: {r.outcome or 'see record'}")
         except Exception:  # noqa: BLE001
             self.log(f"row {r.claim['id']} failed inside the worker:\n" + traceback.format_exc())
@@ -442,13 +505,34 @@ class Worker:
                 pass
 
 
-def report(conn, schema: str = SCHEMA, path: str = None) -> str:
+def report(conn, schema: str = SCHEMA, path: str = None, registry: dict = None) -> str:
     """The `qv4-scheduler-report` job: the scheduler's state for the checks
     board, as JSON under <live>/checks/."""
     path = path or os.path.join(LIVE, "checks", "scheduler.json")
     st = q.status(conn, schema)
+    st["memory_raises"] = q.unfolded_raises(conn, schema, registry)
     st["written"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(st, f, default=str, indent=1)
     return path
+
+
+def memory_lines(raises: list[dict]) -> list[str]:
+    """The raises not yet folded into jobs.toml, one line each, then what to
+    fold per job: the largest applied raise (ruling 115)."""
+    if not raises:
+        return ["memory: no raise waits to be folded into jobs.toml"]
+    out = [f"memory: {len(raises)} raise(s) not yet folded into jobs.toml"]
+    fold: dict[str, float] = {}
+    for x in raises:
+        declared = "not in the catalogue" if x["declared_gb"] is None else f"declared {x['declared_gb']:g} GB"
+        out.append(f"  raise {x['id']} {x['job']}: {declared}, held {x['held_gb']:g} GB, peak {x['peak_mb']} MB over its "
+                   f"ceiling of {x['ceiling_mb']} MB, raised to {x['raised_gb']:g} GB"
+                   f"{'' if x['applied'] else ' (NOT applied)'}, run {x['run_id']}, row {x['queue_id']}, "
+                   f"{x['at'].astimezone(dt.timezone.utc):%Y-%m-%d %H:%M} UTC: {x['note']}")
+        if x["applied"] and x["declared_gb"] is not None:
+            fold[x["job"]] = max(fold.get(x["job"], 0.0), float(x["raised_gb"]))
+    for job, gb in sorted(fold.items()):
+        out.append(f"  fold: [jobs.{job}] memory_gb = {gb:g}")
+    return out

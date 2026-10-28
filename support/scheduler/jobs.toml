@@ -1161,7 +1161,7 @@ nice = 10
 [jobs.qv4-ministers-diaries-load]
 description = "Ministers' diaries: rebuild the lane's tables from the MCP's parliament-diaries documents, publish pub.minister_diary_releases and pub.minister_diary_entries on green. Nightly at 04:20 NZDT, after the pull and the Beehive load (ruling 96; diaries-2, 27 October 2026)."
 needs = "processor"
-memory_gb = 1.0
+memory_gb = 1.5   # measured 1,127 MB peak on 28 October under a 1.0 figure (ceiling 1,280 MB); raised before it crossed
 deadline_s = 1800
 query_timeout_s = 600
 class = "due"

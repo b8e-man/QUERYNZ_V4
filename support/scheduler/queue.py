@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import math
 import os
 import uuid
 
@@ -481,11 +482,11 @@ def demands(conn, schema: str, registry: dict = None, *, now=None) -> dict[str, 
 # ── runs in the database (the record that moves with it) ─────────────────────
 
 def run_begin(conn, schema: str, run_id: str, *, job: str, worker: str, box: str, qid: int = None, piece: int = None,
-              card: int = None, declared_mb: int = None, now=None) -> None:
+              card: int = None, declared_mb: int = None, working_mb: int = None, raise_id: int = None, now=None) -> None:
     with conn.transaction():
-        conn.execute(f"INSERT INTO {schema}.runs (run_id, queue_id, piece, job, worker, box, card, started_at, declared_mb) "
-                     f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (run_id) DO NOTHING",
-                     (run_id, qid, piece, job, worker, box, card, _now(now), declared_mb))
+        conn.execute(f"INSERT INTO {schema}.runs (run_id, queue_id, piece, job, worker, box, card, started_at, declared_mb, "
+                     f"working_mb, raise_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (run_id) DO NOTHING",
+                     (run_id, qid, piece, job, worker, box, card, _now(now), declared_mb, working_mb, raise_id))
 
 
 def run_end(conn, schema: str, run_id: str, *, outcome: str, exit_code: int = None, error: str = None, detail: str = None,
@@ -500,6 +501,98 @@ def over_declared(conn, schema: str) -> list[dict]:
     rows = conn.execute(f"SELECT run_id, job, peak_mb, declared_mb FROM {schema}.runs WHERE peak_mb > declared_mb "
                         f"ORDER BY finished_at DESC LIMIT 50").fetchall()
     return [{"run_id": r[0], "job": r[1], "peak_mb": r[2], "declared_mb": r[3]} for r in rows]
+
+
+# ── memory raises (ruling 115) ───────────────────────────────────────────────
+# A job stopped at its memory ceiling failed by a figure the scheduler holds,
+# not by its own error, so the worker raises the figure and queues it again.
+# The working figure lives here, never in jobs.toml: it is the larger of the
+# declared figure and the job's latest applied raise, read from the table at
+# every tick, so a restarted worker (or the other box's) places by it too.
+
+RAISES_PER_ORIGIN = 2
+
+
+def raised_figure_gb(ceiling_mb: int) -> float:
+    """Twice the ceiling crossed, rounded up to the next 0.5 GB: the peak at a
+    kill is a floor on the need, not the need."""
+    return math.ceil(2 * ceiling_mb / 512) * 0.5
+
+
+def working_figures(conn, schema: str) -> dict[str, float]:
+    """Per job, the figure of its latest applied raise."""
+    rows = conn.execute(f"SELECT DISTINCT ON (job) job, raised_gb FROM {schema}.memory_raises WHERE applied "
+                        f"ORDER BY job, id DESC").fetchall()
+    return {r[0]: float(r[1]) for r in rows}
+
+
+def raise_for_row(conn, schema: str, qid: int) -> dict | None:
+    """The raise that queued row `qid` again (a re-run), or None."""
+    r = conn.execute(f"SELECT id, origin_queue_id, raised_gb FROM {schema}.memory_raises WHERE requeued_id = %s "
+                     f"ORDER BY id DESC LIMIT 1", (qid,)).fetchone()
+    return {"id": r[0], "origin_queue_id": r[1], "raised_gb": float(r[2])} if r else None
+
+
+def raise_memory(conn, schema: str, *, job: str, run_id: str, qid: int, peak_mb: int, ceiling_mb: int, held_gb: float,
+                 budget_gb: float | None, pieced: bool = False, registry: dict = None, now=None) -> dict:
+    """Record the raise for a run stopped at `ceiling_mb` on row `qid`, and
+    queue the job again unless the raised figure is over `budget_gb` or the
+    row's origin has had RAISES_PER_ORIGIN raises already. A pieced job's row
+    is its own re-run (the worker gives it back with its progress); a
+    standing service's next copy is queued by `enqueue_standing`. Returns
+    the raise: id, raised_gb, applied, requeued_id, note."""
+    raised = raised_figure_gb(ceiling_mb)
+    prior = raise_for_row(conn, schema, qid)
+    origin = prior["origin_queue_id"] if prior else qid
+    with conn.transaction():
+        row = conn.execute(f"SELECT args, cls, priority, standing FROM {schema}.queue WHERE id = %s", (qid,)).fetchone()
+        done = conn.execute(f"SELECT count(*) FROM {schema}.memory_raises WHERE origin_queue_id = %s", (origin,)).fetchone()[0]
+        applied = budget_gb is None or raised <= budget_gb
+        requeued = None
+        if not applied:
+            note = (f"stays failed: {raised:g} GB is over the box's budget of {budget_gb:g} GB (its memory less the reserve); "
+                    f"the working figure stays {held_gb:g} GB")
+        elif done >= RAISES_PER_ORIGIN:
+            note = (f"stays failed: raised {done} times already for row {origin}; the next run takes {raised:g} GB")
+        elif row is None:
+            note = f"stays failed: row {qid} is gone; the next run takes {raised:g} GB"
+        elif row[3]:
+            note = f"standing service: its next copy runs at {raised:g} GB"
+        elif pieced:
+            requeued = qid
+            note = f"row {qid} given back with its pieces' progress, to run at {raised:g} GB"
+        else:
+            requeued = enqueue(conn, schema, job, args=row[0], cls=row[1], priority=row[2],
+                               created_by=f"memory raise of row {qid}", registry=registry, now=now)
+            note = f"queued again as row {requeued} at {raised:g} GB"
+        rid = conn.execute(
+            f"INSERT INTO {schema}.memory_raises (at, job, run_id, queue_id, origin_queue_id, peak_mb, ceiling_mb, held_gb, "
+            f"raised_gb, budget_gb, applied, requeued_id, note) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            f"RETURNING id", (_now(now), job, run_id, qid, origin, peak_mb, ceiling_mb, held_gb, raised, budget_gb, applied,
+                              requeued, note)).fetchone()[0]
+    return {"id": rid, "raised_gb": raised, "applied": applied, "requeued_id": requeued, "origin_queue_id": origin,
+            "note": note}
+
+
+def unfolded_raises(conn, schema: str, registry: dict = None) -> list[dict]:
+    """Every raise jobs.toml has not caught up with: its declared figure is
+    below the raised one. The integrator folds them at a merge; a raise is
+    folded when the declared figure is at least the raised figure."""
+    registry = registry if registry is not None else reg.load()
+    if conn.execute("SELECT to_regclass(%s)", (f"{schema}.memory_raises",)).fetchone()[0] is None:
+        return []                                  # the table is not made yet (the worker makes it at start)
+    rows = conn.execute(f"SELECT id, at, job, run_id, queue_id, peak_mb, ceiling_mb, held_gb, raised_gb, budget_gb, applied, "
+                        f"requeued_id, note FROM {schema}.memory_raises ORDER BY job, id").fetchall()
+    keys = ("id", "at", "job", "run_id", "queue_id", "peak_mb", "ceiling_mb", "held_gb", "raised_gb", "budget_gb", "applied",
+            "requeued_id", "note")
+    out = []
+    for r in rows:
+        d = dict(zip(keys, r))
+        jt = registry.get(d["job"])
+        d["declared_gb"] = jt.memory_gb if jt else None
+        if d["declared_gb"] is None or d["declared_gb"] < float(d["raised_gb"]):
+            out.append(d)
+    return out
 
 
 # ── cards and swaps ──────────────────────────────────────────────────────────

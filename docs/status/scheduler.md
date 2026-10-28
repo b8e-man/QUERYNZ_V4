@@ -1,39 +1,43 @@
 # scheduler: where step 2 stands
 
-Last close: release-copy-1, 23 October 2026, node2. Branch
-`session/release-copy-1`, merge request `release-copy-1`. Scope
-`support/scheduler`, `support/installer`.
+Last close: fix-support-scheduler-1 (second sitting), 28 October 2026,
+node2. Branch `fix/support-scheduler-1`, merge request
+`fix-support-scheduler-1`. Scope `support/scheduler`.
 
 ## Done
 
 - Step 2 on one box (session 2, 18 October): the four founding jobs on the
-  queue's clock, no `qv4-` timer left; the model server built from source
-  beside the copy (`installer build`); `embed()` proven live.
+  queue's clock; the model server built from source beside the copy.
 - fix-support-scheduler-1 (23 October): a job new to the catalogue waits
   for its next slot.
-- release-copy-1 (this close), the card's second half: the worker and
-  every job run from the release copy `/home/user/querynzv4-release` (one
-  pushed commit of origin/main, detached, its own `.venv`), moved by
-  `python -m support.installer release` after every push; the catalogue
-  reloads only at a commit of origin/main; the installer refuses the worker
-  unit until the copy exists. Proven on a scratch clone of origin (made,
-  rerun, refused an untracked file) and in tests that fail on their mutants.
-  Nothing installed or restarted on the box; the copy is not made.
+- release-copy-1 (23 October): the worker and every job run from the
+  release copy `/home/user/querynzv4-release`, moved by
+  `python -m support.installer release` after every push.
+- fix-support-scheduler-1 (this close, ruling 115): a run stopped at its
+  memory ceiling raises the job's working figure to twice the ceiling,
+  rounded up to 0.5 GB, in `scheduler.memory_raises` (never jobs.toml), and
+  queues the job again at once; at most two raises per first row, never
+  over the box's memory less the reserve (recorded, not applied); every
+  other failure as before. Placement and the ceiling use the working
+  figure, read from the table each tick. `report` and the new `memory`
+  subcommand list raises jobs.toml has not folded; the run record carries
+  `working_mb` and `rerun_of_raise`. Seven slow tests and eight fast, each
+  seen failing on its mutant.
 
 ## Waits on the integrator, at the merge (node2, /home/user/querynzv4)
 
-1. Push main, then `.venv/bin/python -m support.installer release`.
-2. `.venv/bin/python -m support.installer apply --units --only qv4-worker@.service`.
-3. With the worker idle: `systemctl --user restart qv4-worker@node2`; its
-   journal names the copy and the commit.
-4. Replace the stop/start interim in `docs/briefs/next.md`; close the card.
+1. Fold nothing by hand now; after a night, `python -m support.scheduler
+   memory` names any `memory_gb` to fold into jobs.toml.
+2. Release, then with the worker idle restart `qv4-worker@node2`: its
+   start runs `queue.tables`, which makes `memory_raises` and the two
+   `runs` columns (the gate's staging does not: no load.py here).
+3. `qv4-scheduler-report` runs from the release copy hourly; no restart.
 
 ## Not done
 
-- The product surfaces' units (`qv4-board`, `qv4-report`,
-  `qv4-site-preview`, `qv4-scan`) still name the main checkout (outside
-  this fence).
-- The two-box proofs stay owed on node1 (cards/node1-setup-as-the-second-box.md).
+- checks/scheduler.py still counts the killed run of a re-run that came
+  good as a failed run for 24 h (outside this fence; noted in the request).
+- The two-box proofs stay owed on node1.
 
 ## Next
 

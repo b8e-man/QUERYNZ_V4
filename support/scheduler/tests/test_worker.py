@@ -110,8 +110,9 @@ def test_a_job_past_its_ceiling_is_stopped_and_flagged_and_the_box_stays_up(conn
     assert wait_for(lambda: row(conn, s, qid)["state"] == "failed", 60)
     r = conn.execute(f"SELECT outcome, detail, peak_mb, declared_mb, error FROM {s}.runs WHERE queue_id = %s", (qid,)).fetchone()
     assert r[0] == "failed" and r[1] == "memory" and r[2] > r[3] and "over its ceiling" in r[4]
-    assert q.over_declared(conn, s)[0]["job"] == "qv4-rehearsal-burn"
-    assert w.alarms and "qv4-rehearsal-burn failed" in w.alarms[0][0]
+    assert q.over_declared(conn, s)[-1]["job"] == "qv4-rehearsal-burn"
+    # ruling 115: the stop raises the job's working figure and queues it again (test_memory_raise_worker.py)
+    assert conn.execute(f"SELECT requeued_id FROM {s}.memory_raises WHERE queue_id = %s", (qid,)).fetchone()[0] > qid
 
 
 def test_a_worker_stopped_mid_job_loses_at_most_one_piece_and_the_other_finishes(conn, s):
