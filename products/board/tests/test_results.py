@@ -63,7 +63,8 @@ def test_the_entity_state_lists_entities_then_the_lone_rows_as_rows(reads):
     html = panes.results_pane("hart", results_of([r for _, r in hits()]), {"directors"}, ("companies",), boxes, ents=ents)
     entities, lone = html.index("<h3>Entities"), html.index("<h3>Rows in no group</h3>")
     assert entities < html.index('class="hit entity"') < lone
-    assert html.count('class="hit entity"') == 1 and "2 registers" in html and "matching here: Jane Hart, Jane Mary Hart" in html
+    assert html.count('class="hit entity"') == 1 and "2 registers" in html
+    assert "matching here" not in html and html[:lone].count("Jane Hart") == 0                 # ruling 110 (1): no list of the rows' names
     after = html[lone:]
     assert "Joe Hart" in after and panes.SUPPRESSED in after                               # the lone row and the suppressed one, as rows
     assert "Jane Mary Hart" not in after and "Hidden" not in html
@@ -79,7 +80,7 @@ def test_an_entity_the_name_search_found_is_listed_after_those_in_hand_and_under
     for t in ("first", "last"):
         tab = html[html.index(f'id="ftab-{t}"'):]
         tab = tab[:tab.index("</div>\n<div") if "</div>\n<div" in tab else len(tab)]
-        assert tab.index("Jane Hart") < tab.index("Joe Hart") and "no row heading this list" in tab and "contested" in tab
+        assert tab.index("Jane Mary Hart") < tab.index("Joe Hart") and "no row heading this list" in tab and "contested" in tab
 
 
 def test_tabs_by_the_field_matched_each_register_closed_with_its_count():

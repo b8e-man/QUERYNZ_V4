@@ -781,8 +781,9 @@ TAB_FIELDS_NOTE = ("A tab for each field that matched, its count the rows under 
 def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None) -> str:
     """One entity in the results pane (ruling 108 (1)): its name (the fullest
     filed, people.describe), "n rows, n registers", contested marked, the
-    registers named, the rows of this search it holds; its link opens its
-    pane, a click on it the graph beside the results, centred on it."""
+    registers named (ruling 110 (1): the rows of this search it holds are
+    not listed, they all carry the one name); its link opens its pane, a
+    click on it the graph beside the results, centred on it."""
     centre = f"{in_hand[0][0].name}:{in_hand[0][1]['key']}" if in_hand else e.get("centre") or ""
     link = f'<a class="row" href="{esc(href(q, ["entity:" + e["group_id"]], boxes))}"><strong>{mark(e["label"], words)}</strong></a>'
     out = [f'<article class="hit entity"{f" data-graph={chr(34)}{esc(graph_href(centre, boxes))}{chr(34)}" if centre else ""}>',
@@ -791,11 +792,7 @@ def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None) -> str:
            + (f' · <span class="lineage" title="{esc("a related company: " + "; ".join(e["related"]) + ", never one entity (ruling 106 (2))")}">'
               "related</span>" if e.get("related") else "") + "</div>",
            f'<div class="meta">{esc("; ".join(e.get("registers_named") or []))}</div>']
-    if in_hand:
-        shown = ", ".join(esc(title_of(v, r)) for v, r in in_hand[:5])
-        more = f" and {len(in_hand) - 5:,} more" if len(in_hand) > 5 else ""
-        out.append(f'<div class="meta">matching here: {shown}{more}</div>')
-    else:
+    if not in_hand:                                    # ruling 110 (1): the rows in hand are not listed, they share the name
         out.append('<div class="meta">found by its rows\' filed name (pub.names), no row heading this list</div>')
     out.append("</article>")
     return "".join(out)
