@@ -1,6 +1,7 @@
 # The report walk reads a namesake star one hop, so a spoke sees only the centre
 kind: blocker
-state: open
+state: closed
+closed: 2026-10-29
 use-case: every template's namesakes section and every Gazette source joined by name (02, 03, 04, 05, 06, 07, 08, 11, 12, 13)
 session: fix-products-templates-1
 opened: 2026-10-28
@@ -42,3 +43,5 @@ Closes when: the strict xfail
 `test_the_most_shared_name_lists_its_namesakes_whichever_row_carries_the_star`
 in `products/templates/08-recruitment/tests/test_recruitment_real.py`
 passes (it then fails as XPASS and is unmarked).
+
+Closed 29 October 2026 by fix-products-report-4: the walk follows a name-only star through its centre; all 160 prohibition rows with a namesake are reached from every namesake (70 before); the recruitment xfail lifted at the merge.
