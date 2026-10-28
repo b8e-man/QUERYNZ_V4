@@ -1,6 +1,7 @@
 # The report walk reads a namesake star one hop, so a spoke sees only the centre
 kind: blocker
 state: closed
+closed: 2026-10-29
 use-case: every template's namesakes section and every Gazette source joined by name (02, 03, 04, 05, 06, 07, 08, 11, 12, 13)
 session: fix-products-templates-1
 opened: 2026-10-28
