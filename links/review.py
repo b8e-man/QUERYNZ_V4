@@ -372,8 +372,10 @@ def score(conn, s: str, *, url: str = None, model: str = None, run_id: str = Non
     use every slot of the profile. Then `report`."""
     run_id = run_id or new_run_id("score")
     agent = agent_name(model)
-    q = f"SELECT pair_id, kind, truth, band, row_a, row_b FROM {s}.test_pairs WHERE NOT EXISTS (SELECT 1 FROM {s}.readings r WHERE r.run_id = %s AND r.pair_id = test_pairs.pair_id)"
-    args = [run_id]
+    from links.pairs import ORG_KINDS     # a donation row and a company: the agent reads people, so these are not its to score
+    q = (f"SELECT pair_id, kind, truth, band, row_a, row_b FROM {s}.test_pairs WHERE NOT EXISTS (SELECT 1 FROM {s}.readings r "
+         f"WHERE r.run_id = %s AND r.pair_id = test_pairs.pair_id) AND kind <> ALL(%s)")
+    args = [run_id, list(ORG_KINDS)]
     if kind:
         q += " AND kind = %s"
         args.append(kind)

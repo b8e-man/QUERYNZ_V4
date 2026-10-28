@@ -13,6 +13,15 @@ Known to be two people:
 - `two-candidates-one-election`: two candidacies with one name at one
   election in different electorates.
 
+- `donor-and-company-not-live` (ruling 107): a donation row filed under an
+  organisation name and a company of that name the register shows was not
+  live in the donation's year (registered after its end, or removed before
+  its start). A company that did not exist then gave nothing then. Here
+  "two people" reads two bodies, the table's word for two entities. The
+  company is not a row of `links.rows`, so measurement 3 judges these pairs
+  with `rules.sole_company` and the groups, and the review agent, which
+  reads people, does not score them (`ORG_KINDS`).
+
 Known to be one person:
 - `member-and-candidacy`: a seat and the candidacy the official result says
   won it (the house lane's own join).
@@ -50,7 +59,9 @@ KINDS = {
     "donor-across-amended-return": "one person",
     "candidate-across-amended-return": "one person",
     "donor-across-amended-candidate-return": "one person",
+    "donor-and-company-not-live": "two people",
 }
+ORG_KINDS = ("donor-and-company-not-live",)    # a donation row and a company entity: not a pair of people rows
 NOT_SUPPLIED = {
     "same-role-across-monthly-files": "the companies lane keeps one row per role across the monthly files, and the file carries no role identifier",
     "same-charity-officer-across-returns": "the charities register is captured and not yet published",
@@ -124,6 +135,23 @@ def candidates_donor_candidate_amended(conn, s: str) -> list:
         WHERE o.replaced_by IS NOT NULL AND a.kind = 'person' AND b.kind = 'person'""").fetchall()
 
 
+def candidates_donor_company_not_live(conn, s: str) -> list:
+    """A donation row and each company of its name not live in the donation's
+    year, as `rules.sole_company` reads live; the band is the donor name's,
+    which no director row carries, so rare."""
+    from links import rules
+    return conn.execute(f"""
+        SELECT least(r.ref, o.entity_ref), greatest(r.ref, o.entity_ref), NULL,
+               jsonb_build_object('donor', r.name_filed, 'date', r.started_on, 'year', jsonb_build_array(r.started_on, coalesce(r.ended_on, r.started_on)),
+                                  'company', o.entity_ref, 'registered_on', o.registered_on, 'removed_on', o.removed_on,
+                                  'why', CASE WHEN o.registered_on > coalesce(r.ended_on, r.started_on) THEN 'registered after the year'
+                                              ELSE 'removed before the year' END)
+        FROM {s}.rows r JOIN {s}.org_names o ON o.org_key = r.name_key
+        WHERE r.kind = 'organisation' AND r.register = ANY(%s)
+          AND (o.registered_on > coalesce(r.ended_on, r.started_on) OR o.removed_on < r.started_on)""",
+                        (list(rules.DONATION_REGISTERS),)).fetchall()
+
+
 DRAWERS = {
     "two-directors-one-company": candidates_two_directors,
     "two-candidates-one-election": candidates_two_candidates,
@@ -131,6 +159,7 @@ DRAWERS = {
     "donor-across-amended-return": candidates_donor_amended,
     "candidate-across-amended-return": candidates_candidate_amended,
     "donor-across-amended-candidate-return": candidates_donor_candidate_amended,
+    "donor-and-company-not-live": candidates_donor_company_not_live,
 }
 
 
