@@ -4,11 +4,12 @@ the search tab marks a macron-folded word in the registers checked only,
 and the graph tab draws a busy row quickly with every far end real."""
 import re
 import time
+from html import unescape
 
 import pytest
 
 from products.board import catalogue as cat
-from products.board import assets, check, db, graph, people, search, server
+from products.board import assets, check, collapse, db, graph, links_view, panes, people, search, server
 
 pytestmark = pytest.mark.slow
 
@@ -361,3 +362,42 @@ def test_a_saved_path_from_before_and_the_graph_tab_s_old_address_still_open(mon
         assert status == 303 and urllib.parse.parse_qs(urllib.parse.urlsplit(to).query) == {"q": ["hart"], "all": ["1"], "gv": ["1"]}
     finally:
         httpd.shutdown()
+
+
+def test_lloyd_budd_s_rows_pub_names_does_not_hold_fold_with_his_entity_by_name():
+    """The fix of 28 October: pub.names holds no row of charity_officers or gazette_celebrants, so with "a shared first
+    and last name" ticked the board keys those rows from their own Name columns; the officer and the five celebrants
+    (filed surname, given names) fold into the one entry with the links lane's entity, in both states."""
+    with db.read_connect() as conn:
+        for v in ("charity_officers", "gazette_celebrants"):
+            assert not db.rows(conn, "select 1 from pub.names where view = %s limit 1", (v,))
+        for people_state in (False, True):
+            page = server.render("lloyd budd", [], conn=conn, boxes=search.FIRST._replace(people=people_state, collapse=("name",)))
+            folds = {unescape(d) for d in re.findall(r'class="hit entity folded"[^>]* data-dossier="([^"]*)"', page)}
+            assert len(folds) == 1, folds
+            by, members = collapse.parse(folds.pop())
+            views = [m.split(":", 1)[0] for m in members]
+            assert by == ("name",) and "entity" in views and views.count("charity_officers") == 1 and views.count("gazette_celebrants") == 5
+            assert "collapsed here by shared name; not a link" in page
+        for m in members:
+            v, key = m.split(":", 1)
+            if v == "gazette_celebrants":
+                assert collapse.row_name_keys(cat.BY_NAME[v], search.row(conn, v, key))[0] == "lloyd budd"   # family-given read right
+
+
+def test_a_board_made_name_key_equals_pub_names_key_for_the_rows_pub_names_holds():
+    """row_name_keys reads a row as the links lane does: on directors rows (parts) and candidates rows (a whole name,
+    the Commission's "SURNAME, Given"), its keys are pub.names' own."""
+    with db.read_connect() as conn:
+        for view, where in (("directors", "last_name ilike 'budd'"), ("candidates", "name ilike 'budd,%%'")):
+            v = cat.BY_NAME[view]
+            rows = db.rows(conn, f"select *, {v.key_col} as key from pub.{view} where {where} limit 60")
+            names = {n["ref"]: n for n in db.rows(conn, "select ref, kind, fl_key, full_key, has_middle from pub.names where ref = any(%s)",
+                                                 ([links_view.ref(v, r["key"]) for r in rows],))}
+            seen = 0
+            for r in rows:
+                n = names.get(links_view.ref(v, r["key"]))
+                if n and n["kind"] == "person" and not panes.is_suppressed(v, r):
+                    assert collapse.row_name_keys(v, r) == (n["fl_key"], n["full_key"], n["has_middle"]), r["key"]
+                    seen += 1
+            assert seen, view

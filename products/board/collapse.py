@@ -2,7 +2,9 @@
 tick above the results, each folding the listed entities further for this
 view alone. The links lane's groups are the default and always on (the
 entities themselves, ruling 111); the others are a shared first and last
-name (pub.names' `fl_key`, the folded key the entity search reads), a
+name (pub.names' `fl_key`, the folded key the entity search reads; a row
+of a view the links lane does not read is keyed the same way from its own
+Name columns, row_name_keys), a
 shared full name with middle names (`full_key` where `has_middle`), a
 shared registered address (a company's registered office from
 pub.company_addresses, read by the organisation's own key; never a
@@ -68,6 +70,45 @@ def chosen(values) -> tuple:
 
 # ── keys ────────────────────────────────────────────────────────────────────
 
+#: links/rows.py's reading: a nickname or a footnote mark in brackets is no name
+_BRACKETED = re.compile(r"\s*\([^()]*\)")
+
+
+def row_name_keys(v: cat.View, r: dict):
+    """(fl_key, full_key, has_middle) read from a row's own first declared
+    Name (catalogue Fields.names, read in its order, ruling 85) as the links
+    lane reads a name (links/rows.py read_name): for a row of a view pub.names
+    does not hold, so a board-made key and pub.names' key for one name are
+    equal. Only the first Name, the row's subject: a second names an alias
+    or another party (a mortgagor beside the mortgagee). None where the row
+    is suppressed, names nobody, or carries an organisation word (abstain:
+    the lane's weak-surname exception is not copied, so such a name stays apart)."""
+    names = cat.fields_of(v).names
+    if not names or panes.is_suppressed(v, r):
+        return None
+    g = names[0]
+    if g.whole:
+        raw = str(r.get(g.whole) or "")
+        if g.order == cat.FAMILY_GIVEN and "," not in raw:
+            toks = fold.strip_honorifics(raw).split()
+            raw = f"{toks[0]}, {' '.join(toks[1:])}" if len(toks) > 1 else raw
+        whole = raw
+    else:
+        first, middle = str(r.get(g.first or g.given) or ""), str(r.get(g.middle) or "") if g.first else ""
+        whole = " ".join(p for p in (first, middle, str(r.get(g.last) or "")) if p)
+    if not whole.strip() or whole.strip().lower() == "name suppressed" or fold.ORG_WORDS.search(whole):
+        return None
+    if g.whole:
+        n = fold.person_name(_BRACKETED.sub("", whole))
+        given, mid, family = n.given, n.middle, n.family
+    else:
+        givens = fold.squash(_BRACKETED.sub("", f"{first} {middle}")).split()
+        given, mid, family = (givens[0] if givens else ""), " ".join(givens[1:]), fold.squash(str(r.get(g.last) or ""))
+    fl = people.key_fold(f"{given} {family}") if given and family else None
+    full = people.key_fold(" ".join(p for p in (given, mid, family) if p)) or None
+    return fl, full, bool(mid)
+
+
 def number_keys(v: cat.View, r: dict) -> set:
     """An organisation row's own official numbers, each with its namespace; a person's row has none."""
     if v.kind != "organisation" or panes.is_suppressed(v, r):
@@ -115,11 +156,13 @@ def keys(conn, units: list, criteria: tuple) -> dict:
     """{unit id: {criterion: {key}}} for the criteria ticked. A unit is
     {'id', 'group': group id or None, 'rows': [(view, row)] in hand}. A
     group's name keys are its shown members' (pub.names, the suppressed left
-    out); a lone row's its own, unless suppressed. Reads only."""
+    out); a lone row's its own, unless suppressed: pub.names' entry by ref,
+    else, for a view the links lane does not read, its own Name columns
+    (row_name_keys). Reads only."""
     out = {u["id"]: {c: set() for c in criteria} for u in units}
     if not criteria or not units:
         return out
-    refs = {}
+    refs, own = {}, {}
     if {"name", "full"} & set(criteria):
         members = people.members_of(conn, {u["group"] for u in units if u["group"]})
         hidden = people.suppressed_refs(conn, [m for ms in members.values() for m in ms])
@@ -127,19 +170,31 @@ def keys(conn, units: list, criteria: tuple) -> dict:
             if u["group"]:
                 mine = [m["ref"] for m in members.get(u["group"], []) if m["ref"] not in hidden]
             else:
-                mine = [links_view.ref(v, r["key"]) for v, r in u["rows"] if not panes.is_suppressed(v, r)]
+                mine = []
+                for v, r in u["rows"]:
+                    if not panes.is_suppressed(v, r):
+                        mine.append(links_view.ref(v, r["key"]))
+                        own[mine[-1]] = (v, r)
             for ref in mine:
                 refs.setdefault(ref, set()).add(u["id"])
+        named = []
         if refs:
-            for n in db.rows(conn, "select ref, kind, fl_key, full_key, has_middle from pub.names where ref = any(%s)",
-                             (sorted(refs),)):
-                if n["kind"] != "person":
-                    continue
-                for uid in refs.get(n["ref"], ()):
-                    if "name" in criteria and n["fl_key"]:
-                        out[uid]["name"].add(n["fl_key"])
-                    if "full" in criteria and n["full_key"] and n["has_middle"]:
-                        out[uid]["full"].add(n["full_key"])
+            named = db.rows(conn, "select ref, kind, fl_key, full_key, has_middle from pub.names where ref = any(%s)",
+                            (sorted(refs),))
+        held = {n["ref"] for n in named}
+        for ref, vr in own.items():             # a row pub.names holds no entry of: its own Name columns
+            if ref not in held:
+                got = row_name_keys(*vr)
+                if got:
+                    named.append({"ref": ref, "kind": "person", "fl_key": got[0], "full_key": got[1], "has_middle": got[2]})
+        for n in named:
+            if n["kind"] != "person":
+                continue
+            for uid in refs.get(n["ref"], ()):
+                if "name" in criteria and n["fl_key"]:
+                    out[uid]["name"].add(n["fl_key"])
+                if "full" in criteria and n["full_key"] and n["has_middle"]:
+                    out[uid]["full"].add(n["full_key"])
     if "number" in criteria:
         for u in units:
             for v, r in u["rows"]:

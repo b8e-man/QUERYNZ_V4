@@ -1,8 +1,8 @@
 # board: where it stands
 
 **Date:** 2026-10-28. **Step:** 4.9 second version, rulings 80 to 112,
-`products/board/`. **Session:** board-12 (rulings 111, 112).
-**Merge request:** `board-12`.
+`products/board/`. **Session:** fix-products-board-1 (after board-12).
+**Merge request:** `fix-products-board-3`.
 
 ## Done
 
@@ -21,6 +21,12 @@
   official number (an organisation's own). `cl=` rides every href. A
   folded entry says "collapsed here by …; not a link"; its dossier lists
   its members; the graph folds the same way. Reads only.
+- Fix (fix-products-board-1): a row of a view pub.names holds none of
+  (charity_officers, gazette_celebrants) is keyed for "name" and "full"
+  from its own first declared Name, read as the links lane reads it
+  (`collapse.row_name_keys`); a suppressed row or one with an
+  organisation word gets no key. "lloyd budd" by name: 17 entries to 3,
+  the officer and five celebrants fold with his entity.
 - The dossier names a pointed row (a director's company), never its key.
 - Check items 26 and 27; items 6, 9, 16, 19, 21, 23, 25 moved to
   entities. `tests/test_collapse.py`; live tests in `test_real.py`.
@@ -35,5 +41,5 @@
 
 ## Next
 
-1. The integrator merges `session/board-12` and restarts `qv4-board` at
-   the release. No table, unit or setting changes.
+1. The integrator merges `fix/products-board-1` and restarts `qv4-board`
+   at the release. No table, unit or setting changes.

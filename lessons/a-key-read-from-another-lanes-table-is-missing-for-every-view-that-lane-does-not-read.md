@@ -1,0 +1,6 @@
+A key a surface reads from another lane's table exists only for the rows that lane reads: check which views it covers, and key the rest from the row itself in the same shape, or they silently never match.
+area: board, collapse, names, lanes
+
+Why: board-12's collapse section read every row's name keys from pub.names by ref. pub.names is the links lane's table and holds only the person-bearing views links/spec.md names; charity_officers and gazette_celebrants have 0 rows there. So "a shared first and last name" folded Lloyd Budd's two links-lane entities and left his charity officer row and five Gazette celebrant rows apart, with no error: a missing key looks like a different name. The fixture tests passed because every fixture row was in the fixture pub.names.
+
+How to apply: when a feature joins on a key from another lane's table, count that table's rows per view before trusting it (`select view, count(*) … group by 1`) and list the views the surface can show that it lacks. Key those from the row's own declared columns with the lane's own reading, and hold the two equal on live rows the lane does hold (test_real: a board-made key equals pub.names' key). Put a fixture row of an uncovered view in the tests. A fallback reading should abstain where it cannot copy the lane exactly (here: an organisation word means no key).
