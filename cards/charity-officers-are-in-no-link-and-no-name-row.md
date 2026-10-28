@@ -26,3 +26,12 @@ companies-register or societies row as `official-number@1`, confirmed. When
 both land, the shape's `NAME_JOIN_TO` entry for `charity_officers` comes
 out (a fix in `products/report/walk.py`) and the number join may stay or
 go; the charities section's text in the subject template changes with it.
+
+2026-10-28, fix-products-report-1: since ruling 114's links build joins
+charity officers, `python -m products.report check` reports one problem on
+main as on this branch: for one director, "a charity officer of the
+director's name is listed by neither name nor the person's own charity".
+The walk's charity bridge (`walk.NAME_JOIN_TO`, "no link joins the
+Charities Register's officers") was written before that build and no longer
+describes it. To fix: retire the bridge for charity officers now that the
+links lane joins them, and change the check to expect the joined rows.

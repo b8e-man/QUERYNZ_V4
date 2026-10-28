@@ -88,18 +88,26 @@ def test_a_company_with_only_a_removal_notice_is_not_an_insolvency():
     assert m["flags"]["register-removals"]["status"] == "fired" and m["flags"]["register-removals"]["severity"] == "info"
 
 
+MOST_SHARED = """
+    with pair as (select lower(first_name) f, lower(last_name) l from pub.directors where in_latest
+                  group by 1, 2 order by count(distinct lower(coalesce(middle_names, ''))) desc limit 1)
+    select 'companies:' || min(d.key) from pub.directors d join pair on lower(d.first_name) = pair.f and lower(d.last_name) = pair.l
+    where d.in_latest and not coalesce(d.suppressed, false) and d.middle_names is not null"""
+
+
 def test_the_most_shared_name_keeps_its_namesakes_apart_and_never_confirmed():
-    ref = one("""
-        with pair as (select lower(first_name) f, lower(last_name) l from pub.directors where in_latest
-                      group by 1, 2 order by count(distinct lower(coalesce(middle_names, ''))) desc limit 1)
-        select 'companies:' || min(d.key) from pub.directors d join pair on lower(d.first_name) = pair.f and lower(d.last_name) = pair.l
-        where d.in_latest and not coalesce(d.suppressed, false) and d.middle_names is not null""")
-    m = memo(ref)
+    m = memo(one(MOST_SHARED))
     ident = m["sections"]["WHO THIS IS, AND THE NAMESAKES SET APART"]
-    assert ident["confirmed"] == 0 and ident["near"] > 0
+    assert ident["confirmed"] == 0
     assert all(x.startswith("  - [near]") for x in ident["lines"])
     assert m["flags"]["namesake-exposure"]["status"] == "fired"
-    assert m["flags"]["bankruptcy"]["status"] == "blocked"
+    assert m["flags"]["bankruptcy"]["status"] == "blocked" or (m["flags"]["bankruptcy"]["status"] == "fired"
+                                                              and m["flags"]["bankruptcy"]["severity"] == "amber")   # the star read through its centre (fix-products-report-4)
     marks = m["flags"]["charity-integrity-marks"]   # read since fix-templates-1: an officer row by name is near, so a mark on one is amber
     assert marks["status"] == "clear" or (marks["status"] == "fired" and marks["severity"] == "amber"), marks
     assert "not held: Charities register and officers" not in m["text"]   # held since charities-3; the key superseded at fix-report-2
+
+
+def test_the_most_shared_name_lists_its_namesakes_whichever_row_carries_the_star():
+    ident = memo(one(MOST_SHARED))["sections"]["WHO THIS IS, AND THE NAMESAKES SET APART"]
+    assert ident["near"] > 0

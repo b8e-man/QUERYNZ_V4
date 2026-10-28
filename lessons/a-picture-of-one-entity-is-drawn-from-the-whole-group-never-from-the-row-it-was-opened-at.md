@@ -1,0 +1,7 @@
+Draw an entity from its whole group, by an order the group alone fixes, never from the row it was opened at: Lloyd Budd showed his charity from one row, his company from another.
+area: board, graph, entity state, collapse
+paid-for-by: board-13, 29 October 2026
+
+Why: ruling 117 (4). In the entity state a graph centred on one of a person's rows drew that row's one hop and folded it into his entity, so the entity's connections were that row's: opened from his charity officer's row it showed the charity, from his director's row the company. The entity node also took the first row in hand as its stand-in (its colour, its grow address), which changed with the answer. The collapse section named a graph fold `fold:<n>`, its place in the answer, so two answers gave one id to two folds and the canvas, which adds a node only when its id is new, kept the wrong one. The 28 October lesson (pick the node that stands for several rows by a shared order) had been applied to the lineage frame, not to the entity or the fold.
+
+How to apply: wherever a node stands for a group, take the group's rows (capped, chosen by an order of the set: rows that assert a connection first, then ref in byte order), choose the stand-in the same way, and name a fold by a member chosen the same way. Test by opening the picture from every row of one group and in both states of any switch, and compare node ids and edges, on a fixture and live. Memoise the relation lookups when a group is drawn at once: a minister's 40 rows asked one member id 29 times (2.3 s to 0.6 s).

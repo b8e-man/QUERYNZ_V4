@@ -34,6 +34,7 @@ Each licence file is the package's own `LICENSE`, beside the file it covers.
 
 - `webcola-name.js`: WebCola names itself `cola`; cytoscape-cola looks for `webcola`.
 - `graph.js`: the canvas (ruling 100) of the graph beside the search tab's results (rulings 108, 111; the graph tab left the bar).
+- `table.js`: a register table's row height (one line clipped, three lines or whole values wrapped) and column widths, kept for the browser session (ruling 117 (3)); it sends nothing.
 
 To change a version: replace the file and its licence, update this table
 and the test's sha256 in the same commit.

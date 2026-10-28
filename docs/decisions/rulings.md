@@ -939,3 +939,25 @@ fix-links-3 (ruling 114) in the same copy. The list members who filled a
 vacancy after an election are missing from `pub.members` (card of 28
 October) and are the expected abstentions until the house lane carries
 them.
+
+117. Arthur, 29 October, 04:00 to 04:20, on the board's dossier and
+table ("the dossier needs more richness"; "I want to know what the rows
+say, not where the rows are"; "lets run with this"). Four parts. (1) A
+dossier folds the rows that say the same thing about the entity into one
+entry: a director of one company across several filings is one line with
+its span and last filing; five celebrant list entries are one line with
+the years listed; the dates, the role and the source go in the small text,
+and the boilerplate ("single-row entity", "1 row, 1 register", a view's
+name) goes. (2) A dossier states facts about the entity, never the shape
+of the database: no register names, row counts or view names in the entry
+text; an entry reads "Trustee of Keystone New Zealand Property Education
+Trust since 11 March 2025", "candidate, Whangārei, 2026 general election";
+where it came from is the citation in the small text, one line. (3) The
+table display: every column sortable ascending or descending from its
+heading, and the rows' height adjustable so long values wrap or clip as
+the reader chooses; column width adjustable with it. (4) A fault seen
+with it: Lloyd Budd's entity shows one connection that swaps between his
+charity and his company, and the graph renders differently with and
+without the name fold; the node that stands for a group must be chosen by
+an order every answer shares (the lineage lesson of 28 October), in the
+entity state too. Built by one board session.

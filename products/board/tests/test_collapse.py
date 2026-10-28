@@ -175,7 +175,7 @@ def test_the_results_pane_holds_the_section_closed_and_the_folded_entry_says_so(
     assert section.count('type="hidden" name="cl"') == 0                                  # the boxes themselves carry cl
     assert html.index('id="collapse"') < html.index("<h3>Entities")
     assert plain.count('class="hit entity"') == 3 and html.count('class="hit entity folded"') == 1
-    assert "collapsed here by shared name; not a link" in html and "3 entities, 6 rows" in html
+    assert "collapsed here by shared name; not a link" in html and ">3 entities, from " in html and "6 rows" not in html
     assert '<span class="count">1</span></h3>' in html                                    # the entities counted after the fold
     d = re.search(r'class="hit entity folded"[^>]* data-dossier="([^"]*)"', html).group(1)
     assert collapse.parse(panes.html.unescape(d)) == (("name",), ["entity:G1", "entity:G3", "entity:G2"])     # most rows first
@@ -190,7 +190,7 @@ def test_the_fold_s_dossier_lists_its_members_as_the_entities_they_are(monkeypat
     assert x["kind"] == "fold" and x["centre"] == "directors:g1a" and len(x["members"]) == 3
     assert "collapsed here by shared name; not a link" in page and "never written" in page
     assert page.count('<a class="row" href="/?q=hart') == 3 and "d=entity%3AG1" in page and "d=companies%3Acompanies%2Fc1" in page
-    assert page.count("single-row entity") == 1
+    assert "single-row entity" not in page and "rows, " not in page
 
 
 def graph_of():

@@ -91,7 +91,7 @@ def test_parameters_stand_in_the_order_of_their_places():
                        '[[steps]]\nview = "companies"\nlabel = "company"\nby = "row"\non = ["entity_key", "key"]\noptional = true\nwhere = { status = "y" }\n'))
     assert t.steps[1].rules == ("full-name@1", "name-only@1") and t.steps[1].rule == "full-name@1, name-only@1"
     text, params = plan.sql(t, SET, "party_return_donors", limit=5)
-    assert "l1.rule = any(%s)" in text and "left join pub.companies s2 on s2.key = s1.entity_key and s2.status = %s" in text
+    assert "l.rule = any(%s)" in text and "left join pub.companies s2 on s2.key = s1.entity_key and s2.status = %s" in text
     assert params == [["full-name@1", "name-only@1"], "y", "x", 5]
     places = [m.start() for m in re.finditer("%s", text)]
     assert places == sorted(places) and text.index("any(%s)") < text.index("s2.status = %s") < text.index("s0.party = %s")

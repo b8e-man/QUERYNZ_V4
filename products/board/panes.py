@@ -98,9 +98,17 @@ details.near summary{font-weight:600;cursor:pointer}
 .nearwhy{font-size:12px;color:#ffb26b}
 .pane.uses{flex:0 0 78rem;max-width:78rem}
 .pane.table{flex:0 0 72rem;max-width:72rem}
-table.grid{border-collapse:collapse;font-size:12px;table-layout:fixed;width:100%}
-table.grid th,table.grid td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:.1rem .4rem;border-top:1px solid #3a404c;text-align:left}
-table.grid th{color:#aab1bc;font-weight:normal}
+table.grid{border-collapse:collapse;font-size:12px}
+table.grid th,table.grid td{padding:.1rem .4rem;border-top:1px solid #3a404c;text-align:left;vertical-align:top}
+table.grid th{color:#aab1bc;font-weight:normal;white-space:nowrap}
+table.grid th>div.th{resize:horizontal;overflow:hidden;width:9rem;min-width:3rem}
+table.grid th:first-child>div.th{width:16rem}
+table.grid a.dir{text-decoration:none;color:#aab1bc;margin-left:.15rem}
+table.grid a.dir.on{color:#e8eaee}
+table.grid td>div.c{width:0;min-width:100%;overflow:hidden;line-height:1.35em}
+table.grid[data-lines="1"] td>div.c{white-space:nowrap;text-overflow:ellipsis;max-height:1.35em}
+table.grid[data-lines="3"] td>div.c{white-space:normal;overflow-wrap:anywhere;max-height:4.05em}
+table.grid[data-lines="all"] td>div.c{white-space:normal;overflow-wrap:anywhere}
 header span.db{margin-left:auto;font-size:12px;font-variant-numeric:tabular-nums;cursor:help}
 svg rect.bg{fill:#161a20}
 svg text{font:11px system-ui,sans-serif;fill:#e8eaed;paint-order:stroke;stroke:#161a20;stroke-width:3px}
@@ -152,6 +160,11 @@ div.sidecol,div.stack{display:flex;flex-direction:column;gap:.75rem;flex:0 0 aut
 ol.timeline{padding-left:1.2rem}
 ol.timeline li{margin:.3rem 0}
 .when{color:#aab1bc;font-size:12px}
+ol.facts{padding-left:1.2rem}
+ol.facts>li{margin:.5rem 0}
+.say{font-size:15px}
+.small,.what{color:#aab1bc;font-size:12px}
+details.asfiled>summary{color:#aab1bc;font-size:12px;cursor:pointer}
 table.money td{vertical-align:top;padding:.2rem .4rem .2rem 0}
 @media (max-width:75rem){div.duo{flex-direction:column}.pane.side,.sidecol>.pane.side,.pane.dossier{position:static;flex-basis:auto;width:46rem;max-width:calc(100vw - 2rem)}}
 """
@@ -603,16 +616,18 @@ def near_names_pane(q: str, data: dict, boxes) -> str:
 
 # ── a register as a table (ruling 92 (5)) ─────────────────────────────────
 
-CELL_CHARS = 40      # a cell's text is cut here, the whole value in its hover title
 
 
-def table_href(q: str, boxes, register: str = "", view: str = "", upto: int = 0) -> str:
+def table_href(q: str, boxes, register: str = "", view: str = "", upto: int = 0, sort: str = None) -> str:
     """The search tab with a register's table open: its main view (the first
     of its views the catalogue lists; the server takes the first published
     one, main_view, where it is not; the chooser offers the rest), or
-    `view`, from row 1 to upto + 100."""
+    `view`, from row 1 to upto + 100; `sort` (ruling 117 (3)) its sort, else
+    the open table's own where it is the same view, so "more" keeps it."""
     view = view or cat.main_view_of(register)
-    b = (boxes or FIRST_BOXES)._replace(table=view, upto=upto)
+    b = boxes or FIRST_BOXES
+    sort = (b.sort if b.table == view else "") if sort is None else sort
+    b = b._replace(table=view, upto=upto, sort=sort)
     return href(q, [], b) + "#table"
 
 
@@ -622,10 +637,20 @@ def main_view(register: str, held: set):
     return first if first.name in held else next((v for v in cat.views_of(register) if v.name in held), None)
 
 
-def one_line(text: str) -> tuple:
-    """(the cell's text cut to CELL_CHARS, escaped, the whole value for its title, escaped): one line, always."""
+CELL_MAX = 2000     # a cell holds its whole value up to here, for the reader to wrap (ruling 117 (3)); past it cut, the whole on hover
+#: the reader's controls above a table (static/table.js; ruling 117 (3)): the rows' height, and a word that a heading's
+#: right edge drags its column's width; both kept for this browser session alone, nothing sent or written
+TABLE_CONTROLS = ('<p class="note tablectl">rows: <select id="table-lines" title="the rows\' height: long values clip to it or wrap">'
+                  '<option value="1">one line, long values clipped</option><option value="3">three lines, wrapped</option>'
+                  '<option value="all">whole values, wrapped</option></select> · drag a heading\'s right edge to widen its column '
+                  '(kept for this browser session)</p>')
+
+
+def whole(text: str) -> tuple:
+    """(the cell's whole text on one line, escaped, cut only past CELL_MAX; the whole value for its title, escaped):
+    the browser clips it to the row's height or wraps it, as the reader sets (ruling 117 (3))."""
     t = " ".join(str(text).split())
-    return esc(t if len(t) <= CELL_CHARS else t[:CELL_CHARS - 1] + "…"), esc(t)
+    return esc(t if len(t) <= CELL_MAX else t[:CELL_MAX - 1] + "…"), esc(t)
 
 
 def plain(value, column: str = "") -> str:
@@ -649,31 +674,48 @@ def table_pane(q: str, v: cat.View, total: int, rows: list, boxes, held: set = (
         out.append('<p class="note">views: ' + " · ".join(
             f"<strong>{esc(w.name)}</strong>" if w.name == v.name else f'<a href="{esc(table_href(q, boxes, view=w.name))}">{esc(w.name)}</a>'
             for w in others) + "</p>")
-    out.append(f'<p class="note">rows 1 to {len(rows):,} of {total:,}, in the view order ({esc(v.default_order)}); one line each, '
-               "the whole value on hover; a name the register suppresses reads " + SUPPRESSED + ".</p>")
-    cols = [("title", "")] + [(label, c) for label, c in v.fields]
-    out.append('<table class="grid"><tr>' + "".join(f"<th>{esc(label)}</th>" for label, _ in cols) + "</tr>")
+    cols = [("title", "title")] + [(label, c) for label, c in v.fields]
+    label_of = dict((c, label) for label, c in cols)
+    key, desc = boxes.sort.lstrip("-"), boxes.sort.startswith("-")
+    order = (f"sorted by {esc(label_of[key])}, {'descending' if desc else 'ascending'}" if key in label_of
+             else f"in the view order ({esc(v.default_order)})")
+    out.append(f'<p class="note">rows 1 to {len(rows):,} of {total:,}, {order}; a heading sorts by its column (the sort is in the '
+               "address); one line each, the whole value on hover; a name the register suppresses reads " + SUPPRESSED + ".</p>")
+    out.append(TABLE_CONTROLS)
+    heads = []
+    for label, c in cols:
+        on = "ascending" if key == c and not desc else "descending" if key == c else ""
+        flip = f"-{c}" if on == "ascending" else c
+        heads.append(f'<th data-col="{esc(c)}"' + (f' aria-sort="{on}"' if on else "")
+                     + f'><div class="th"><a href="{esc(table_href(q, boxes, view=v.name, sort=flip))}">{esc(label)}</a> '
+                     f'<a class="dir{" on" if on == "ascending" else ""}" href="{esc(table_href(q, boxes, view=v.name, sort=c))}" '
+                     f'title="sort ascending">▲</a><a class="dir{" on" if on == "descending" else ""}" '
+                     f'href="{esc(table_href(q, boxes, view=v.name, sort="-" + c))}" title="sort descending">▼</a></div></th>')
+    out.append(f'<table class="grid" data-view="{esc(v.name)}" data-lines="1"><tr>' + "".join(heads) + "</tr>")
     for r in rows:
         cells = []
-        t, full = one_line(title_of(v, r))
+        t, full = whole(title_of(v, r))
         a = f'<a class="row" href="{esc(href(q, [f"{v.name}:{r["key"]}"], boxes))}">{t}</a>'
-        cells.append(f'<td title="{full}">{struck(v, r, a)}</td>')
+        cells.append(f'<td title="{full}"><div class="c">{struck(v, r, a)}</div></td>')
         for _, c in cols[1:]:
             p = cat.pointers(v).get(c)
             x = r.get(c)
             if far is not None and p and x not in (None, ""):
                 fr = far.get((p[0], p[1], str(x)))
                 if fr is None:
-                    t, _ = one_line(f"{x} {NOT_HELD_ROW}")
-                    cells.append(f'<td title="{esc(x)}">{t}</td>')
+                    t, _ = whole(f"{x} {NOT_HELD_ROW}")
+                    cells.append(f'<td title="{esc(x)}"><div class="c">{t}</div></td>')
                 else:
-                    t, _ = one_line(title_of(cat.BY_NAME[p[0]], fr))
-                    cells.append(f'<td title="{esc(x)}"><a class="row" href="{esc(href(q, [f"{p[0]}:{fr["key"]}"], boxes))}">{t}</a></td>')
+                    t, _ = whole(title_of(cat.BY_NAME[p[0]], fr))
+                    cells.append(f'<td title="{esc(x)}"><div class="c"><a class="row" href="{esc(href(q, [f"{p[0]}:{fr["key"]}"], boxes))}">'
+                                 f'{t}</a></div></td>')
                 continue
-            t, full = one_line(plain(shown(v, r, c), c))
-            cells.append(f'<td title="{full}">{t}</td>')
+            t, full = whole(plain(shown(v, r, c), c))
+            cells.append(f'<td title="{full}"><div class="c">{t}</div></td>')
         out.append("<tr>" + "".join(cells) + "</tr>")
     out.append("</table>")
+    from products.board import assets
+    out.append(f'<script src="{esc(assets.url("table.js"))}" defer></script>')
     if len(rows) < total:
         upto = boxes.upto + TABLE_PAGE_N
         if upto < TABLE_MAX_N:
@@ -806,17 +848,16 @@ def graph_href(nid: str, boxes=None) -> str:
 
 
 RESULTS_ENTITY_NOTE = ("Entities only (ruling 111): the groups the links lane built (pub.groups) that the matching rows fall in, "
-                       "and those whose rows carry the name searched (pub.names), each with its count of rows and registers; "
+                       "and those whose rows carry the name searched (pub.names), each with what it is (ruling 117); "
                        "then each matching row in no group, as an entity of one row. A row is read in its entity's dossier. "
                        "The board makes no link by looking. The ")
 TAB_FIELDS_NOTE = ("A tab for each field that matched, its count the entities under it; an entity one of whose rows matched "
                    "several fields is under each.")
-LONE_WORDS = "single-row entity"
 
 
 def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None, why: str = "") -> str:
     """One entity in the results pane (ruling 108 (1)): its name (the fullest
-    filed, people.describe), "n rows, n registers", contested marked, the
+    filed, people.describe), what it is (ruling 117 (2), people.what_of), contested marked, the
     registers named (ruling 110 (1): the rows of this search it holds are
     not listed, they all carry the one name); its name opens its dossier
     (ruling 111), a click on it the graph beside the results, centred on it."""
@@ -825,11 +866,11 @@ def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None, why: str = "")
     link = f'<a class="row" href="{esc(dossier_href(d, q, boxes))}"><strong>{mark(e["label"], words)}</strong></a>'
     out = [f'<article class="hit entity"{f" data-graph={chr(34)}{esc(graph_href(centre, boxes))}{chr(34)}" if centre else ""}'
            f' data-dossier="{esc(d)}">'] + ([f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
-           f'<div>{link} <span class="meta">entity</span>{dossier_link(d, q, boxes)}</div>',
-           f'<div class="note">{esc(e["count"])}' + (' · <span class="warn">contested</span>' if e["contested"] else "")
+           f'<div>{link}{dossier_link(d, q, boxes)}</div>',
+           f'<div class="what">{esc(e.get("what") or "")}' + (' · <span class="warn">contested</span>' if e["contested"] else "")
            + (f' · <span class="lineage" title="{esc("a related company: " + "; ".join(e["related"]) + ", never one entity (ruling 106 (2))")}">'
               "related</span>" if e.get("related") else "") + "</div>",
-           f'<div class="meta">{esc("; ".join(e.get("registers_named") or []))}</div>']
+           f'<div class="meta">from {esc("; ".join(e.get("registers_named") or []))}</div>']
     if not in_hand and not why:                        # ruling 110 (1): the rows in hand are not listed, they share the name
         out.append('<div class="meta">found by its rows\' filed name (pub.names), no row heading this list</div>')
     out.append("</article>")
@@ -838,19 +879,21 @@ def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None, why: str = "")
 
 def lone_hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "") -> str:
     """A matching row in no group, listed as the entity of one row it is
-    (ruling 111): its title, its register, "1 row, 1 register", the fields it
+    (ruling 111): its title, what it is (ruling 117 (2)), its register, the fields it
     matched under "any field may match" (ruling 92 (6)); no field of the row,
     which its dossier shows. A suppressed row's title is the suppressed word
     (hard limit 16)."""
+    from products.board import facts               # facts reads panes: imported here, as fold_hit imports collapse
     d = f"{v.name}:{r['key']}"
-    link = f'<a class="row" href="{esc(dossier_href(d, q, boxes))}"><strong>{mark(title_of(v, r), words)}</strong></a>'
+    name = facts.name_of(v, r) if v.kind == "person" else title_of(v, r)
+    link = f'<a class="row" href="{esc(dossier_href(d, q, boxes))}"><strong>{mark(name, words)}</strong></a>'
     out = [f'<article class="hit entity lone" data-graph="{esc(graph_href(d, boxes))}" data-dossier="{esc(d)}">'] + (
            [f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
-           f'<div>{struck(v, r, link)} <span class="meta">{LONE_WORDS}</span>{dossier_link(d, q, boxes)}</div>',
-           '<div class="note">1 row, 1 register' + (
+           f'<div>{struck(v, r, link)}{dossier_link(d, q, boxes)}</div>',
+           f'<div class="what">{facts.lone_words(v, r) if not is_suppressed(v, r) else ""}' + (
                f' · <span class="lineage" title="{esc("a related company: " + str(r["_related"]) + ", never one entity (ruling 106 (2))")}">'
                "related</span>" if r.get("_related") else "") + "</div>",
-           f'<div class="meta">{esc(REGISTER_NAME.get(v.register, v.register))} · {esc(v.name)}</div>']
+           f'<div class="meta">from {esc(REGISTER_NAME.get(v.register, v.register))}</div>']
     if is_suppressed(v, r):
         out.append(f'<div class="warn">{SUPPRESSED}: the row and its figures stay (hard limit 16)</div>')
     matched = [FIELD_LABEL[k[len("_matched_"):]] for k in r if k.startswith("_matched_") and r[k]]
@@ -886,20 +929,20 @@ def fold_hit(q: str, x: dict, ents: dict, words, boxes=None) -> str:
     it is collapsed here and not a link; its dossier lists the members as the
     entities they are; a click opens the graph beside the results on its first."""
     by, members = x["fold"]
-    labels, titles, rows, registers, contested = [], [], 0, [], False
+    from products.board import collapse, facts
+    labels, titles, whats, registers, contested = [], [], [], [], False
     for m in members:
         if m["group"] is not None:
             e = ents["entity"][m["group"]]
             labels.append(e["label"])
-            rows += e["rows"]
+            whats += [w for w in (e.get("what") or "").split(", ") if w]
             registers += e.get("registers_named") or []
             contested = contested or e["contested"]
         else:
             v, r = m["in_hand"][0]
             titles.append(title_of(v, r))
-            rows += 1
+            whats += [w for w in facts.what_it_is([(v, r)]).split(", ") if w and not is_suppressed(v, r)]
             registers.append(REGISTER_NAME.get(v.register, v.register))
-    from products.board import collapse
     lead = members[0]
     centre = (f"{lead['in_hand'][0][0].name}:{lead['in_hand'][0][1]['key']}" if lead["in_hand"]
               else ents["entity"][lead["group"]].get("centre") or "")
@@ -907,10 +950,10 @@ def fold_hit(q: str, x: dict, ents: dict, words, boxes=None) -> str:
     return (f'<article class="hit entity folded"{f" data-graph={chr(34)}{esc(graph_href(centre, boxes))}{chr(34)}" if centre else ""}'
             f' data-dossier="{esc(x["id"])}">'
             f'<div>{link} <span class="meta">collapsed here</span>{dossier_link(x["id"], q, boxes)}</div>'
-            f'<div class="note">{len(members)} entities, {rows:,} row{"s" if rows != 1 else ""}'
+            f'<div class="what">{esc(", ".join(dict.fromkeys(whats)))}'
             + (' · <span class="warn">contested</span>' if contested else "") + "</div>"
             f'<div class="fold">{esc(collapse.words(by))}</div>'
-            f'<div class="meta">{esc("; ".join(dict.fromkeys(registers)))}</div></article>')
+            f'<div class="meta">{len(members)} entities, from {esc("; ".join(dict.fromkeys(registers)))}</div></article>')
 
 
 def collapse_section(q: str, boxes) -> str:

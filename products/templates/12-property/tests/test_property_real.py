@@ -27,16 +27,27 @@ NOT_HELD = ("land-titles", "overseas-investment", "building-consents", "court-ju
             "real-estate-authority", "building-practitioners", "past-roles")
 #: a going development company with one to four current directors, one of whom has confirmed rows as director of two or more
 #: companies in liquidation or receivership
+#: Starts from the failed companies, which are few, and keeps the groups holding two or more of them, before it meets the
+#: development companies; starting from those walked every group a director of one sat in (a minister's holds 30,836 rows
+#: since 28 October) and passed ten minutes. The same subject either way: 1.4 s on live.
 SERIAL = """
-    with c as (select c.key from pub.companies c where c.status = 'Registered' and c.name ~* 'develop' and c.name !~ '^[0-9]'
-               and (select count(*) from pub.directors d where d.entity_key = c.key and d.in_latest) between 1 and 4)
+    with failed as (select g.group_id from pub.companies c2
+                    join pub.directors d2 on d2.entity_key = c2.key and d2.in_latest
+                    join pub.groups g on g.row_key = 'companies:' || d2.key
+                    where c2.status ~* 'liquidation|receivership'
+                    group by 1 having count(distinct d2.entity_key) >= 2),
+         c as (select c.key, g.group_id from failed f
+               join pub.groups g on g.group_id = f.group_id and g.row_key like 'companies:%/director/%'
+               join pub.directors d on 'companies:' || d.key = g.row_key and d.in_latest
+               join pub.companies c on c.key = d.entity_key
+               where c.status = 'Registered' and c.name ~* 'develop' and c.name !~ '^[0-9]'
+                 and (select count(*) from pub.directors x where x.entity_key = c.key and x.in_latest) between 1 and 4)
     select 'companies:' || c.key from c
-    join pub.directors d on d.entity_key = c.key and d.in_latest
-    join pub.groups g on g.row_key = 'companies:' || d.key
-    join pub.groups g2 on g2.group_id = g.group_id and g2.row_key <> g.row_key
-    join pub.directors d2 on 'companies:' || d2.key = g2.row_key and d2.in_latest and d2.entity_key <> c.key
-    join pub.companies c2 on c2.key = d2.entity_key and c2.status ~* 'liquidation|receivership'
-    group by c.key having count(distinct c2.key) >= 2 order by c.key limit 1"""
+    where (select count(distinct d2.entity_key) from pub.groups g2
+           join pub.directors d2 on 'companies:' || d2.key = g2.row_key and d2.in_latest and d2.entity_key <> c.key
+           join pub.companies c2 on c2.key = d2.entity_key and c2.status ~* 'liquidation|receivership'
+           where g2.group_id = c.group_id) >= 2
+    order by c.key limit 1"""
 #: a company with a Gazette liquidation the latest file does not show yet
 NEWER = """
     select 'companies:' || c.key from pub.companies c join pub.gazette_liquidations l on l.register_key = c.key

@@ -303,7 +303,7 @@ def fold_entries(conn, xs: list, criteria: tuple, memo: dict = None) -> list:
 def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
     """The graph beside the results folded the same way (ruling 112): its
     entity, lone and row nodes sharing a key of a ticked criterion become
-    one node `fold:<n>`, carrying the first member as its representative and
+    one node `fold:<member>`, carrying the member `stands_for` names as its representative and
     `fold` ({'words', 'members': [node ids], 'count'}), the same words as the
     results; edges are lifted to the folded ends, one inside a fold dropped
     and counted (`inside`), duplicates merged. A node kept apart (its name
@@ -328,11 +328,12 @@ def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
         return g
     node_of = {nid: nid for nid in g["nodes"]}
     nodes = {}
-    for i, (ms, by) in enumerate(sets):
-        fid = f"{PREFIX}{i + 1}"
+    for ms, by in sets:
+        lead_id = stands_for(ms)
+        fid = f"{PREFIX}{lead_id}"                     # ruling 117 (4): named by its member, never by its place in this answer
         for m in ms:
             node_of[m] = fid
-        lead = g["nodes"][ms[0]]
+        lead = g["nodes"][lead_id]
         titles = [g["nodes"][m].get("title") or panes.title_of(g["nodes"][m]["v"], g["nodes"][m]["row"]) for m in ms]
         grouped = [t for m, t in zip(ms, titles) if g["nodes"][m].get("entity")]
         rows = sum((g["nodes"][m].get("entity") or {}).get("rows", 1) for m in ms)
@@ -366,6 +367,15 @@ def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
         if a != b:
             out["decisions"].setdefault(tuple(sorted((a, b))), []).extend(ds)
     return out
+
+
+def stands_for(ms: list) -> str:
+    """The member that stands for a fold on the graph, by an order every answer
+    shares: an entity first (a group outlives the rows an answer drew), then
+    by id in byte order. The fold was `fold:<n>`, its place in this answer, so
+    two answers gave one id to two folds and the canvas, which adds a node
+    only when its id is new, swapped them."""
+    return min(ms, key=lambda m: (not m.startswith(people.ENTITY), m.encode()))
 
 
 def member_dossier(n: dict, nid: str) -> str:

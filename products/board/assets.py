@@ -22,6 +22,7 @@ FILES = {
     "cytoscape.min.js": JS,             # Cytoscape 3.34.0
     "cytoscape-cola.js": JS,            # cytoscape-cola 2.5.1
     "graph.js": JS,                     # the board's: the canvas beside the results (rulings 100, 108, 111)
+    "table.js": JS,                     # the board's: a register table's row height and column widths (ruling 117 (3))
     "LICENSE.cytoscape": TEXT,
     "LICENSE.cytoscape-cola": TEXT,
     "LICENSE.webcola": TEXT,

@@ -61,7 +61,8 @@ def test_a_person_step_compiles_to_the_groups_under_follow_and_to_a_confirmed_li
 def test_a_link_step_to_an_organisation_lands_by_the_register_prefix_and_a_row_step_by_its_columns():
     t = tpl.by_name("donors-named-as-companies")
     text, params = plan.sql(t, SETTINGS, "disclosures", limit=5)
-    assert "l1.rule = %s" in text and params == ["organisation-name@1", 5]
+    assert "l.rule = %s" in text and params == ["organisation-name@1", 5]
+    assert "l.this = k1.k" in text and "pub.groups m where m.group_id = ha1.group_id" in text and "hb1.group_id = hy1.group_id" in text
     assert "like 'companies:%%'" in text and "split_part(" in text and "pub.names" not in text
     t2 = tpl.by_name("society-officers-liquidations")
     text, _ = plan.sql(t2, SETTINGS, "society_officers")

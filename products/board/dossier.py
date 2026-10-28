@@ -35,9 +35,13 @@ import re
 import urllib.parse
 
 from products.board import catalogue as cat
-from products.board import collapse, db, document, graph, lineage, links_view, panes, people, search
+from products.board import collapse, db, document, facts, graph, lineage, links_view, panes, people, search
 
 ENTITY = people.ENTITY
+MANY_AT = 300               # a group of more rows than this is shown by view (the many-rows shape); at or under it, whole as before
+VIEW_ROWS = 50              # rows read per view in the many-rows shape, newest first; the rest a page of this many at a time
+KEYS_FIRST = 2000           # a view with at most this many of the group's rows is read by its keys taken first (view_rows)
+TIMELINE_ROWS = 40          # the newest rows the many-rows timeline lists; the rest counted, and reached by view
 OPEN_AT = 40                # a register's rows open on the pane up to this many; past it closed to its name and count
 NO_CLAIMS = "No claims lane has published yet: there is no claims section until one does"
 NOT_A_LINK = ("Built from the published views and the links lane's tables alone (pub.groups, pub.links, pub.names, "
@@ -45,7 +49,6 @@ NOT_A_LINK = ("Built from the published views and the links lane's tables alone 
 MONEY_NOTE = ("As filed: each year's sum is of the amounts filed in the rows listed under it that the view lets be added "
               "(a return's donations); a disclosure is listed beside them and never added, its gift is also in that "
               "year's return; a row replaced by an amendment, or with no amount, is listed and not added. Nothing else is summed.")
-ROLE_KINDS = ("role",)
 
 
 def parse(d: str) -> str:
@@ -144,12 +147,14 @@ def interests_of(conn, rows: list) -> list:
     return sorted(own.values(), key=lambda x: (x[1].get("as_at") or dt.date.min, str(x[1]["key"])))
 
 
-def gather(conn, d: str, report_url: str = "") -> dict:
+def gather(conn, d: str, report_url: str = "", view: str = "", offset: int = 0) -> dict:
     """The dossier's data for `d` (parse): {'kind': entity | row | suppressed
     | none, 'chosen', 'why', 'group_id', 'describe', 'rows' [(ref, view,
     row)], 'names', 'links', 'near', 'near_total', 'related', 'decisions',
     'far' (rows the links name, resolved), 'bodies', 'interests', 'docs',
-    'report', 'via' (the title of the row chosen when it opened its group)}."""
+    'report', 'via' (the title of the row chosen when it opened its group)};
+    a group of more than MANY_AT rows is read by view (gather_many), `view`
+    and `offset` paging that view's rows."""
     d = parse(d)
     if not d:
         return {"kind": "none", "chosen": "", "why": "nothing chosen: click a result or tap a node"}
@@ -172,6 +177,9 @@ def gather(conn, d: str, report_url: str = "") -> dict:
         if hit is None:
             return lone(conn, d, ref, v, r, report_url)
         gid, via = hit[0], panes.title_of(v, r)
+    size = db.rows(conn, "select count(*) as n, bool_or(contested) as contested from pub.groups where group_id = %s", (gid,))
+    if size and int(size[0]["n"] or 0) > MANY_AT:
+        return gather_many(conn, gid, int(size[0]["n"]), bool(size[0]["contested"]), d, via, report_url, view, offset)
     ent = people.entity(conn, gid)
     if ent is None:
         return {"kind": "none", "chosen": d, "why": "no group has that id in pub.groups: the links lane has rebuilt its groups since"}
@@ -180,6 +188,167 @@ def gather(conn, d: str, report_url: str = "") -> dict:
     return finish(conn, {**ent, "kind": "entity", "chosen": d, "via": via,
                          "report": panes.report_href(report_url, gid if gid in refs else (refs[0] if refs else gid)),
                          "names": count_names([(names.get(ref) or panes.title_of(v, r)) for ref, v, r in ent["rows"]])})
+
+
+# ── many rows: counted in SQL, read by view ─────────────────────────────────
+
+def hidden_sql(v: cat.View) -> str:
+    """The SQL test, on the view's row `r`, that its name is suppressed or
+    hidden (hard limit 16), as panes.is_suppressed reads it."""
+    out = []
+    if v.suppressed:
+        out.append(f"coalesce(r.{v.suppressed}::text, '') not in ('', 'false')")
+    if v.hide_names:
+        out.append(f"coalesce(r.{v.hide_names[0]}::text, '') ~* '{v.hide_names[1].replace(chr(39), chr(39) * 2)}'")
+    return "(" + " or ".join(out) + ")" if out else "false"
+
+
+def date_sql(v: cat.View) -> str:
+    """The row's first date as first_date reads it, in SQL: its dated columns,
+    then a gift view's year columns, then a `year` field, as a date."""
+    parts = [f"r.{c}::date" for _, c in v.dates]
+    gift = cat.GIFT_OF.get(v.name)
+    years = [c for c in (gift.years if gift else ()) if c not in {c for _, c in v.dates}]
+    if not gift and "year" in {c for _, c in v.fields}:
+        years.append("year")
+    parts += [f"make_date(r.{c}::int, 1, 1)" for c in years]
+    return f"coalesce({', '.join(parts)})" if parts else "null::date"
+
+
+def _of_group(v: cat.View) -> str:
+    return (f"from pub.groups g join pub.names n on n.ref = g.row_key join pub.{v.name} r on r.{v.key_col}::text = n.key "
+            "where g.group_id = %s and n.view = %s")
+
+
+def counted(conn, gid: str) -> dict:
+    """The group's rows counted in SQL, none gathered: {'views': [(view, rows
+    shown)] in the catalogue's register order, 'names': [(name as filed,
+    rows)] over the shown rows, 'hidden' and 'hidden_by' {view: rows} (suppressed: for the check's sums alone, never shown),
+    'unread' (rows no catalogued view holds)}. One query for the group, one
+    more per view that can suppress."""
+    by = {}
+    for r in db.rows(conn, "select n.view, n.name_filed, count(*) as n from pub.groups g left join pub.names n on n.ref = g.row_key "
+                           "where g.group_id = %s group by 1, 2", (gid,)):
+        by.setdefault(r["view"], {})[r["name_filed"] or ""] = int(r["n"])
+    hidden = unread = 0
+    hidden_by = {}
+    for view in [w for w in by if w is not None and w in cat.BY_NAME]:
+        v = cat.BY_NAME[view]
+        if not (v.suppressed or v.hide_names):
+            continue
+        for r in db.rows(conn, f"select n.name_filed, count(*) as n {_of_group(v)} and {hidden_sql(v)} group by 1", (gid, view)):
+            k = int(r["n"])
+            by[view][r["name_filed"] or ""] -= k
+            hidden += k
+            hidden_by[view] = hidden_by.get(view, 0) + k
+    names, views = {}, []
+    order = {r: i for i, (r, _) in enumerate(cat.REGISTERS)}
+    for view, filed in by.items():
+        if view is None or view not in cat.BY_NAME:
+            unread += sum(filed.values())
+            continue
+        n = sum(filed.values())
+        if n:
+            views.append((cat.BY_NAME[view], n))
+        for name, k in filed.items():
+            if k > 0:
+                names[name] = names.get(name, 0) + k
+    views.sort(key=lambda vn: (order.get(vn[0].register, len(order)), -vn[1], vn[0].name))
+    return {"views": views, "names": tally(names.items()),
+            "hidden": hidden, "hidden_by": hidden_by, "unread": unread}
+
+
+def tally(pairs) -> list:
+    """count_names over (name as filed, rows) pairs already counted."""
+    n = {}
+    for x, k in pairs:
+        x = re.sub(r"\s+", " ", x or "").strip() or "no name filed"
+        n[x] = n.get(x, 0) + k
+    return sorted(n.items(), key=lambda kv: (-kv[1], kv[0].lower(), kv[0]))
+
+
+def view_rows(conn, gid: str, v: cat.View, offset: int = 0, count: int = 0, limit: int = VIEW_ROWS) -> list:
+    """[(ref, view, row)]: the group's shown rows of one view, newest first, a
+    page of `limit` from `offset`. A view of up to KEYS_FIRST rows in the
+    group is read by its keys taken first (a computed view, mp_expenses,
+    is planned badly through the join: 0.20 s against 0.02 s for 147 rows),
+    a larger one through the join (29,365 written questions: 0.14 s against 0.19 s)."""
+    if count and count <= KEYS_FIRST:
+        sql = (f"with k as materialized (select n.key from pub.groups g join pub.names n on n.ref = g.row_key "
+               f"where g.group_id = %s and n.view = %s) select r.*, r.{v.key_col} as key from pub.{v.name} r "
+               f"where r.{v.key_col}::text in (select key from k) and not {hidden_sql(v)} ")
+    else:
+        sql = f"select r.*, r.{v.key_col} as key {_of_group(v)} and not {hidden_sql(v)} "
+    d = date_sql(v)
+    sql = sql.replace("select r.*,", f"select r.*, min({d}) over () as _first_day, max({d}) over () as _last_day,", 1)
+    return [(links_view.ref(v, r["key"]), v, r) for r in
+            db.rows(conn, sql + f"order by {d} desc nulls last, r.{v.key_col} limit %s offset %s",
+                    (gid, v.name, limit, max(0, offset)))]
+
+
+def spans(rows: list) -> dict:
+    """{view: (first day, last day)} over every shown row of the group of each
+    view, as view_rows reads them beside its page (window aggregates over the
+    rows it sorts anyway): a many-rows section's head says the years its
+    records run (ruling 117)."""
+    out = {}
+    for _, v, r in rows:
+        if v.name not in out and (r.get("_first_day") or r.get("_last_day")):
+            out[v.name] = (r.get("_first_day"), r.get("_last_day"))
+    return out
+
+
+def money_counted(conn, gid: str, views) -> list:
+    """[(year or None, sum of the amounts added, how many added, rows filed)]
+    over every shown gift row of the group, summed in SQL as addends adds:
+    an amount filed, the row not replaced, the view one that adds."""
+    years = {}
+    for v, _ in views:
+        gift = cat.GIFT_OF.get(v.name)
+        if gift is None:
+            continue
+        added = (f"r.{gift.amount} is not null" + (f" and r.{gift.replaced} is null" if gift.replaced else "")) if gift.added else "false"
+        year = "coalesce(" + ", ".join(f"extract(year from r.{c})::int" if c in {c for _, c in v.dates} else f"r.{c}::int"
+                                       for c in gift.years) + ")"
+        for r in db.rows(conn, f"select {year} as year, count(*) as rows, count(*) filter (where {added}) as n, "
+                               f"sum(r.{gift.amount}) filter (where {added}) as total {_of_group(v)} and not {hidden_sql(v)} group by 1",
+                         (gid, v.name)):
+            y = years.setdefault(r["year"], [decimal.Decimal(0), 0, 0])
+            y[0] += decimal.Decimal(r["total"] or 0)
+            y[1] += int(r["n"])
+            y[2] += int(r["rows"])
+    return [(y, *years[y]) for y in sorted(years, key=lambda y: (y is None, y or 0))]
+
+
+def gather_many(conn, gid: str, n: int, contested: bool, d: str, via: str, report_url: str, view: str = "", offset: int = 0) -> dict:
+    """A group of more than MANY_AT rows (ruling 116's members hold tens of
+    thousands): its rows counted by view and its names and money counted
+    in SQL over every row; the newest VIEW_ROWS of each view read (`view`
+    from `offset`), from which the timeline, roles, links and citations
+    are drawn. The results pane's shape (ruling 108): by view, each
+    collapsed to its count. A suppressed row is never read, named or
+    counted on the page; its number is kept for the check alone ('hidden_count')."""
+    c = counted(conn, gid)
+    rows, pages = [], {}
+    for v, k in c["views"]:
+        at = min(max(0, offset), max(0, k - 1)) if v.name == view else 0
+        pages[v.name] = at
+        rows += view_rows(conn, gid, v, at, k)
+    refs = [ref for ref, _, _ in rows]
+    shown = sum(k for _, k in c["views"])
+    registers = {v.register for v, _ in c["views"]}
+    own = people.links_among(conn, refs)
+    near = people.near_of(conn, refs)
+    describe = {"group_id": gid, "label": people.fullest(nm for nm, _ in c["names"]) or f"group {gid}",
+                "rows": shown, "registers": len(registers), "count": people.count_words(shown, len(registers)),
+                "contested": contested, "number": people.number_of(own)}
+    return finish(conn, {"kind": "entity", "many": True, "chosen": d, "via": via, "group_id": gid, "total": n,
+                         "describe": describe, "rows": rows, "views": c["views"], "pages": pages, "opened": view if view in pages else "",
+                         "hidden_count": c["hidden"], "hidden_by": c["hidden_by"], "unread": c["unread"], "hidden": set(), "names": c["names"],
+                         "money_counted": money_counted(conn, gid, c["views"]), "spans": spans(rows),
+                         "links": own, "near": near[:people.PANE_NEAR], "near_total": len({(l["row_a"], l["row_b"], l["rule"]) for l in near}),
+                         "related": lineage.related_of(conn, refs), "decisions": people.decisions_of(conn, refs),
+                         "report": panes.report_href(report_url, gid)})
 
 
 def gather_fold(conn, d: str) -> dict:
@@ -197,7 +366,7 @@ def gather_fold(conn, d: str) -> dict:
             if e is None:
                 hidden += 1
                 continue
-            members.append({"id": m, "label": e["label"], "count": e["count"], "rows": e["rows"], "contested": e["contested"],
+            members.append({"id": m, "label": e["label"], "what": e.get("what") or "", "rows": e["rows"], "contested": e["contested"],
                             "registers": e.get("registers_named") or []})
             centre = centre or e.get("centre") or ""
             continue
@@ -207,7 +376,7 @@ def gather_fold(conn, d: str) -> dict:
             hidden += 1
             continue
         v = cat.BY_NAME[view]
-        members.append({"id": m, "label": panes.title_of(v, r), "count": people.count_words(1, 1), "rows": 1, "contested": False,
+        members.append({"id": m, "label": panes.title_of(v, r), "what": facts.what_it_is([(v, r)]), "rows": 1, "contested": False,
                         "registers": [panes.REGISTER_NAME.get(v.register, v.register)]})
         centre = centre or m
     return {"kind": "fold", "chosen": d, "by": by, "members": members, "hidden": hidden, "centre": centre,
@@ -217,17 +386,15 @@ def gather_fold(conn, d: str) -> dict:
 
 def fold_pane(x: dict, q: str = "", boxes=None) -> str:
     """The dossier of a folded entry: the members listed as the entities they are, each opening its own dossier."""
-    rows = sum(m["rows"] for m in x["members"])
     out = [_head(x["chosen"], q, boxes), '<div class="reg">dossier · collapsed here, for this view alone</div>',
            f"<h2>{panes.esc(x['label'])}</h2>",
            f'<p class="fold">{panes.esc(collapse.words(x["by"]))}</p>',
-           f'<p class="note">{len(x["members"])} entities, {rows:,} row{"s" if rows != 1 else ""}. {panes.esc(collapse.NOTE)}</p>',
+           f'<p class="small">{len(x["members"])} entities. {panes.esc(collapse.NOTE)}</p>',
            f'<h3 id="d-members">Its members, each the entity it is <span class="count">{len(x["members"])}</span></h3><ul>']
     for m in x["members"]:
         out.append(f'<li><a class="row" href="{panes.esc(href(m["id"], q, boxes))}">{panes.esc(m["label"])}</a> '
-                   f'<span class="meta">{"entity" if m["id"].startswith(ENTITY) else "single-row entity"}</span>'
-                   f'<div class="note">{panes.esc(m["count"])}' + (' · <span class="warn">contested</span>' if m["contested"] else "")
-                   + f'</div><div class="meta">{panes.esc("; ".join(m["registers"]))}</div></li>')
+                   f'<div class="what">{panes.esc(m["what"])}' + (' · <span class="warn">contested</span>' if m["contested"] else "")
+                   + f'</div><div class="meta">from {panes.esc("; ".join(m["registers"]))}</div></li>')
     out.append("</ul>")
     if x["hidden"]:
         out.append(f'<p class="note">{x["hidden"]} more member{"s" if x["hidden"] != 1 else ""} not named: suppressed, or no longer held</p>')
@@ -258,7 +425,9 @@ def finish(conn, x: dict) -> dict:
                                               for k in ("earlier", "later") if p.get(k)}
     far = people.resolve_refs(conn, others - mine - set(x.get("hidden") or ()))
     x["far"] = {ref: hit for ref, hit in far.items() if not panes.is_suppressed(*hit)}
-    x["bodies"] = bodies(conn, x["rows"])
+    near_rows = [(ref, *x["far"][ref]) for ref in sorted(x["far"])]
+    x["bodies"] = bodies(conn, x["rows"] + near_rows)          # ruling 117: a near row's fact names its body too
+    x["referred"] = facts.refer(conn, x["rows"] + near_rows)
     x["interests"] = interests_of(conn, x["rows"])
     x["docs"] = document.statuses(conn, [r.get("document") for _, _, r in x["rows"]] + [r.get("document") for _, r in x["interests"]])
     x["pointed"] = search.far_rows(conn, [(v, r) for _, v, r in x["rows"]] + list(x["interests"]))    # ruling 92 (2), one query per far view
@@ -297,6 +466,14 @@ def addends(x: dict) -> list:
         out.append({"year": graph.year_of(gift, r), "amount": r.get(gift.amount), "what": gift.what, "not_added": why,
                     "v": v, "r": r, "to": x["bodies"].get((v.name, str(r["key"]), rel)) if rel is not None else None})
     return sorted(out, key=lambda a: (a["year"] or 0, a["v"].name, str(a["r"]["key"])))
+
+
+def sums(x: dict) -> dict:
+    """{year: the sum added}, for the years where something is added: in SQL
+    over every row for a many-rows dossier, from the listed addends else."""
+    if x.get("many"):
+        return {y: total for y, total, k, _ in x["money_counted"] if k}
+    return {y: total for y, _, total, k in by_year(addends(x)) if k}
 
 
 def sum_words(total, n: int) -> str:
@@ -355,67 +532,110 @@ def role_text(x: dict, v: cat.View, r: dict, q, boxes) -> str:
     return "; ".join(out)
 
 
-def timeline(x: dict, q, boxes) -> list:
-    out = [f'<h3 id="d-rows">The rows, by register, in date order <span class="count">{len(x["rows"]):,}</span></h3>']
-    by_reg = {}
-    for ref, v, r in x["rows"]:
-        by_reg.setdefault(v.register, []).append((v, r))
-    for register, plain in cat.REGISTERS:
-        items = sorted(by_reg.get(register, []), key=lambda vr: (first_date(*vr) is None, first_date(*vr) or dt.date.min,
-                                                                  vr[0].name, str(vr[1]["key"])))
-        if not items:
-            continue
-        head = (f'{panes.esc(plain)} <span class="count">{len(items):,}</span> · '
-                f'<a href="{panes.esc(panes.table_href(q, boxes, register=register))}">its register</a>')
-        body = ["<ol class=\"timeline\">"]
-        for v, r in items:
-            role = role_text(x, v, r, q, boxes)
-            body.append(f'<li><span class="when">{panes.esc(when_text(v, r))}</span> '
-                        f'{panes.struck(v, r, _a(q, boxes, v, r))} <span class="meta">{panes.esc(v.name)}</span>'
-                        + (f'<div>{role}</div>' if role else "")
-                        + (f'<div class="meta">{dates_text(v, r)}</div>' if dates_text(v, r) else "")
-                        + (f'<div class="meta">{fields}</div>' if (fields := fields_text(v, r, x.get("pointed"), q, boxes)) else "")
-                        + panes.citation_line(v, r, x["docs"]) + "</li>")
-        body.append("</ol>")
-        if len(items) > OPEN_AT:
-            out += [f'<details class="regs"><summary>{head}</summary>'] + body + ["</details>"]
-        else:
-            out += [f'<h4>{head}</h4>'] + body
+def row_item(x: dict, v: cat.View, r: dict, q, boxes) -> str:
+    """One row as filed, under its fact: its date, its pane, its role, its dates, its fields and its citation."""
+    role = role_text(x, v, r, q, boxes)
+    return (f'<li><span class="when">{panes.esc(when_text(v, r))}</span> '
+            f'{panes.struck(v, r, _a(q, boxes, v, r))}'
+            + (f'<div>{role}</div>' if role else "")
+            + (f'<div class="meta">{dates_text(v, r)}</div>' if dates_text(v, r) else "")
+            + (f'<div class="meta">{fields}</div>' if (fields := fields_text(v, r, x.get("pointed"), q, boxes)) else "")
+            + panes.citation_line(v, r, x["docs"]) + "</li>")
+
+
+def fact_item(x: dict, f: dict, q, boxes, bare: bool = False) -> str:
+    """One fact (ruling 117): the sentence, the small line (dates, roles,
+    counts), the citation line, and the rows as filed closed under it."""
+    small = facts.small(f)
+    return (f'<li class="fact" data-rows="{len(f["rows"])}"><div class="say">'
+            f'{facts.sentence(f, lambda fv, fr: _a(q, boxes, fv, fr, "plain"), bare=bare)}</div>'
+            + (f'<div class="small">{small}</div>' if small else "")
+            + facts.cite(f, x["docs"])
+            + '<details class="asfiled"><summary>as filed</summary><ol class="timeline">'
+            + "".join(row_item(x, v, r, q, boxes) for _, v, r in f["rows"]) + "</ol></details></li>")
+
+
+def page_href(d: str, q: str, boxes, view: str, offset: int) -> str:
+    """The search page with the dossier of `d` under its graph, one view's rows
+    paged from `offset` (the many-rows shape's way to the rest)."""
+    return href(d, q, boxes) + "&" + urllib.parse.urlencode([("dv", view), ("do", max(0, offset))])
+
+
+def whole_words(x: dict) -> str:
+    """'30,836 records of 9 kinds', and the records the board cannot read said
+    beside it; a suppressed row is neither counted nor named on the page (hard limit 16)."""
+    n, k = sum(c for _, c in x["views"]), len(x["views"])
+    out = f"{n:,} record{'s' if n != 1 else ''} of {k} kind{'s' if k != 1 else ''}"
+    if x.get("unread"):
+        out += f"; {x['unread']:,} more the board does not read"
     return out
 
 
-def roles(x: dict, q, boxes) -> list:
-    """The companies and bodies the rows hold a role on, one line each, in
-    date order of the role's first date, the roles and their dates listed."""
-    on = {}
-    for _, v, r in x["rows"]:
-        for i, rel in enumerate(v.relations):
-            if rel.kind not in ROLE_KINDS:
-                continue
-            hit = x["bodies"].get((v.name, str(r["key"]), i))
-            if hit:
-                on.setdefault((hit[0].name, str(hit[1]["key"])), (hit, []))[1].append((rel, v, r))
-    order = sorted(on.values(), key=lambda e: (min((first_date(v, r) or dt.date.max) for _, v, r in e[1]),
-                                               panes.title_of(*e[0]).lower()))
-    out = [f'<h3 id="d-roles">Companies and bodies it holds a role on <span class="count">{len(order):,}</span></h3>']
-    if not order:
-        out.append('<p class="why">none: no row here names a company or body by a role its register asserts</p>')
-        return out
-    out.append("<ol>")
-    for (fv, fr), held in order:
-        lines = "; ".join(f'{panes.esc(rel.label)} ({_a(q, boxes, v, r, "plain")}'
-                          + (f", {dates_text(v, r)}" if dates_text(v, r) else ", no dates filed") + ")" for rel, v, r in held)
-        out.append(f'<li>{_a(q, boxes, fv, fr)} <span class="meta">{panes.esc(fv.name)}</span>'
-                   + (f' · <span class="note">{panes.esc(panes.WITHDRAWN)}</span>' if panes.is_withdrawn(fv, fr) else "")
-                   + f'<div class="meta">{lines}</div></li>')
+def timeline_many(x: dict, q, boxes) -> list:
+    """The many-rows shape (ruling 108's): the newest rows, the rest counted;
+    then every view collapsed to its count and expandable, its head the fact
+    the view's rows say over all of them (ruling 117), its page of rows
+    folded by what they say, newest first, a page at a time."""
+    shown = sum(c for _, c in x["views"])
+    newest = sorted(x["rows"], key=lambda rv: (first_date(rv[1], rv[2]) or dt.date.min, rv[1].name, str(rv[2]["key"])),
+                    reverse=True)[:TIMELINE_ROWS]
+    out = [f'<h3 id="d-rows">What the records say <span class="count">{len(x["views"]):,}</span></h3>',
+           f'<p class="note">{panes.esc(whole_words(x))}. Each heading below is one kind of record over all of them, '
+           f'and opens to its records newest first, {VIEW_ROWS} at a time.</p>',
+           f'<h4>The newest {len(newest):,}</h4><ol class="timeline newest">']
+    for ref, v, r in newest:
+        f = {**facts.fold(x, [(ref, v, r)], apart=True)[0], "first": None}          # the day is said once, before it
+        line = f'<a class="plain" href="{panes.esc(_row_href(q, boxes, v, r))}">{facts.sentence(f)}</a>'
+        out.append(f'<li class="newest"><span class="when">{panes.esc(when_text(v, r))}</span> {panes.struck(v, r, line)}</li>')
     out.append("</ol>")
+    if shown > len(newest):
+        out.append(f'<p class="note">and {shown - len(newest):,} more records: each heading below lists them</p>')
+    by_view = {}
+    for ref, v, r in x["rows"]:
+        by_view.setdefault(v.name, []).append((ref, v, r))
+    for v, count in x["views"]:
+        at = x["pages"].get(v.name, 0)
+        items = by_view.get(v.name, [])
+        first, last = (x.get("spans") or {}).get(v.name, (None, None))
+        nouns = []
+        for _, _, r in items:
+            n = facts.card_word(v, r) or ""
+            if n and n not in nouns:
+                nouns.append(n)
+        say, many = facts.view_words(v, count, first, last, nouns)
+        head = (f'{say} <span class="small">{many} · {panes.esc(panes.REGISTER_NAME.get(v.register, v.register))} · '
+                f'<a href="{panes.esc(panes.table_href(q, boxes, register=v.register))}">its register</a></span>')
+        span = f"rows {at + 1:,} to {at + len(items):,} of {count:,}, newest first" if items else "no rows"
+        nav = []
+        if at > 0:
+            nav.append(f'<a href="{panes.esc(page_href(x["chosen"], q, boxes, v.name, at - VIEW_ROWS))}">the newer {min(VIEW_ROWS, at):,}</a>')
+        if at + len(items) < count:
+            nav.append(f'<a href="{panes.esc(page_href(x["chosen"], q, boxes, v.name, at + VIEW_ROWS))}">'
+                       f'the next {min(VIEW_ROWS, count - at - len(items)):,} of {count - at - len(items):,} older</a>')
+        lines = sorted(facts.fold(x, items, apart=True), key=lambda f: (f["last"] or f["first"] or dt.date.min), reverse=True)
+        out += [f'<details class="dview" data-view="{panes.esc(v.name)}" data-count="{count}"'
+                + (" open" if x.get("opened") == v.name else "") + f'><summary>{head}</summary>',
+                f'<p class="note">{panes.esc(span)}' + (" · " + " · ".join(nav) if nav else "") + "</p>",
+                '<ol class="facts">'] + [fact_item(x, f, q, boxes, bare=True) for f in lines] + ["</ol></details>"]
     return out
+
+
+def timeline(x: dict, q, boxes) -> list:
+    """The rows folded by what they say about the entity (ruling 117), one
+    entry per fact in date order, each row as filed closed under its fact."""
+    if x.get("many"):
+        return timeline_many(x, q, boxes)
+    fs = facts.fold(x)
+    return ([f'<h3 id="d-rows">What the records say <span class="count">{len(fs):,}</span></h3>', '<ol class="facts">']
+            + [fact_item(x, f, q, boxes) for f in fs] + ["</ol>"])
 
 
 def money(x: dict, q, boxes) -> list:
     adds = addends(x)
     out = ['<h3 id="d-money">Money, as filed</h3>', f'<p class="note">{panes.esc(MONEY_NOTE)}</p>', "<h4>Donations, by year</h4>"]
-    if not adds:
+    if x.get("many"):
+        out += money_many(x, adds, q, boxes)
+    elif not adds:
         out.append('<p class="why">none: no row here is a donation in a return or a disclosure</p>')
     else:
         out.append('<table class="money"><tr><th>year</th><th>sum of filed amounts added</th><th>rows</th></tr>')
@@ -447,33 +667,88 @@ def money(x: dict, q, boxes) -> list:
     return out
 
 
+def money_many(x: dict, adds: list, q, boxes) -> list:
+    """The many-rows shape's donations: each year's sum and counts in SQL over
+    every row; the addends among the rows read listed, the rest counted."""
+    if not x["money_counted"]:
+        return ['<p class="why">none: no row here is a donation in a return or a disclosure</p>']
+    listed = {}
+    for a in adds:
+        listed.setdefault(a["year"], []).append(a)
+    out = ['<p class="note">Each year summed over every row of the group; the rows listed are those read below, the rest counted.</p>',
+           '<table class="money"><tr><th>year</th><th>sum of filed amounts added</th><th>rows</th></tr>']
+    for y, total, n, filed in x["money_counted"]:
+        items = listed.get(y, [])
+        out.append(f'<tr><td>{panes.esc(y if y is not None else "year not stated")}</td><td>{sum_words(total, n)}</td><td><ul>'
+                   + "".join(f'<li>{panes.fmt(a["amount"], "amount")} {panes.esc(a["what"])} '
+                             + (f'to {_a(q, boxes, *a["to"], cls="plain")} ' if a["to"] else "")
+                             + f'· {_a(q, boxes, a["v"], a["r"], "plain")}'
+                             + (f' <span class="note">{panes.esc(a["not_added"])}</span>' if a["not_added"] else "") + "</li>"
+                             for a in items)
+                   + (f'<li class="note">and {filed - len(items):,} more rows filed this year, under their view above</li>'
+                      if filed > len(items) else "") + "</ul></td></tr>")
+    out.append("</table>")
+    return out
+
+
 def near_part(x: dict, q, boxes) -> list:
+    """The near links, folded by what the far rows say (ruling 117): five
+    celebrant lists under one name are one entry, said of the name as filed,
+    never of the entity; the rule, its reason and the row it leaves from in
+    the small line."""
     mine = {ref: (v, r) for ref, v, r in x["rows"]}
     far = x.get("far") or {}
     hidden = set(x.get("hidden") or ())
     inner = [l for l in x["links"] if l["grade"] not in ("confirmed", "related")]
-    out = [f'<h3 id="d-near">Near matches, never gathered <span class="count">{x["near_total"] + len(inner):,}</span></h3>',
-           '<p class="note">A near link is a shared name or circumstance a rule did not take as the same person, '
-           "listed with its reason; it never joins the rows.</p>"]
-    items = []
+    groups, lost = {}, []
     for l in inner + list(x["near"]):
         m = l.get("mine") or l["row_a"]
         other = l["row_b"] if m == l["row_a"] else l["row_a"]
         if other in hidden:
             continue
         hit = mine.get(other) or far.get(other)
-        target = _a(q, boxes, *hit) if hit else f'<code>{panes.esc(other)}</code> <span class="note">row not found in the published views, or its name is suppressed</span>'
-        frm = _a(q, boxes, *mine[m], cls="plain") if m in mine else f"<code>{panes.esc(m)}</code>"
-        why = l.get("reason") or ""
-        items.append(f'<li>{target} <span class="meta">near: {panes.esc(cat.rule_words(l["rule"]))} {panes.esc(cat.rule_ref(l["rule"]))}'
-                     + (f"; because {panes.esc(why)}" if why else "") + f"; from {frm}"
-                     + (" (both rows are here)" if other in mine else "") + "</span></li>")
-    if not items:
+        if not hit:
+            lost.append(other)
+            continue
+        v, r = hit
+        g = groups.setdefault((facts.key_of(x, other, v, r), facts.name_of(v, r), str(l["rule"])), {"rows": [], "links": [], "from": []})
+        if other not in {ref for ref, _, _ in g["rows"]}:
+            g["rows"].append((other, v, r))
+        g["links"].append(l)
+        if m not in g["from"]:
+            g["from"].append(m)
+    entries = []
+    for (_, name, rule), g in groups.items():
+        f = facts.fold(x, g["rows"])[0]
+        f["rows"] = sorted(g["rows"], key=lambda rv: (facts.first_day(rv[1], rv[2]) or dt.date.max, str(rv[2]["key"])))
+        reasons = []
+        for l in g["links"]:
+            if l.get("reason") and l["reason"] not in reasons:
+                reasons.append(l["reason"])
+        frm = ", ".join(_a(q, boxes, *mine[m], cls="plain") if m in mine else f"<code>{panes.esc(m)}</code>" for m in g["from"])
+        both = any(ref in mine for ref, _, _ in g["rows"])
+        _, v0, r0 = f["rows"][0]
+        small = facts.small(f)
+        entries.append((f["first"] or dt.date.max, name.lower(),
+                        f'<li class="fact near"><div class="say"><a class="row" href="{panes.esc(_row_href(q, boxes, v0, r0))}">'
+                        f'{panes.esc(name)}</a>: {facts.sentence(f, lambda fv, fr: _a(q, boxes, fv, fr, "plain"), cap=False)}</div>'
+                        f'<div class="small">near, never gathered: {panes.esc(cat.rule_words(rule))} {panes.esc(cat.rule_ref(rule))}'
+                        + (f"; because {panes.esc('; '.join(reasons))}" if reasons else "") + f"; from {frm}"
+                        + (" (both rows are here)" if both else "") + (f" · {small}" if small else "") + "</div>"
+                        + facts.cite(f, x["docs"]) + "</li>"))
+    entries.sort(key=lambda e: (e[0], e[1]))
+    for other in lost:
+        entries.append((dt.date.max, "", f'<li class="fact near"><code>{panes.esc(other)}</code> <span class="note">row not found '
+                                         "in the published views, or its name is suppressed</span></li>"))
+    out = [f'<h3 id="d-near">Near matches, never gathered <span class="count">{len(entries):,}</span></h3>',
+           '<p class="note">A near link is a shared name or circumstance a rule did not take as the same person, '
+           "listed with its reason; it never joins the rows. Each line is what the other record says of the name it files.</p>"]
+    if not entries:
         out.append('<p class="why">none found</p>')
-    else:
-        out += ["<ul>"] + items + (["<li class=\"note\">and %s more near links from these rows</li>" % f"{x['near_total'] - len(x['near']):,}"]
-                                   if x["near_total"] > len(x["near"]) else []) + ["</ul>"]
-    return out
+        return out
+    more = x["near_total"] - len(x["near"])
+    return out + ['<ol class="facts">'] + [e[2] for e in entries] + (
+        [f'<li class="note">and {more:,} more near links from these rows, not read here</li>'] if more > 0 else []) + ["</ol>"]
 
 
 def decided(x: dict, q, boxes) -> list:
@@ -483,7 +758,7 @@ def decided(x: dict, q, boxes) -> list:
     out = ['<h3 id="d-decided">Contested and decisions</h3>',
            '<p class="warn">contested: the watch flagged this group as a whole</p>' if d.get("contested")
            else '<p class="note">not contested: the watch has not flagged this group</p>' if x["kind"] == "entity" else
-           '<p class="note">a lone row: in no group, so nothing to contest</p>']
+           '<p class="note">in no group, so nothing to contest</p>']
     shown = []
     for z in x["decisions"]:
         a, b = mine.get(z["row_a"]) or far.get(z["row_a"]), mine.get(z["row_b"]) or far.get(z["row_b"])
@@ -491,7 +766,7 @@ def decided(x: dict, q, boxes) -> list:
             continue                                   # an end suppressed or not held: the decision names nobody here
         shown.append(f'<li>{_a(q, boxes, *a, cls="plain")} and {_a(q, boxes, *b, cls="plain")}: <strong>{panes.esc(z["verdict"])}</strong>'
                      f' <span class="meta">by {panes.esc(z["made_by"])}, {panes.fmt(z.get("made_at"))}</span></li>')
-    out.append(f'<p class="note">{len(shown):,} decision{"s" if len(shown) != 1 else ""} on a pair of these rows (pub.decisions)</p>')
+    out.append(f'<p class="note">{facts.count_words(len(shown), "decision", "decisions")} recorded on a pair of these records</p>')
     if shown:
         out += ["<ul>"] + shown + ["</ul>"]
     return out
@@ -517,26 +792,23 @@ def pane(x: dict, q: str = "", boxes=None) -> str:
                 f'<p class="why">{panes.esc(x["why"])}</p></section>')
     d = x["describe"]
     entity = x["kind"] == "entity"
-    out = [head, '<div class="reg">dossier · ' + ("entity · gathered by the links lane (pub.groups) · " + panes.esc(x["group_id"])
-                                                  if entity else "a lone row: in no group") + "</div>",
-           f"<h2>{panes.esc(d['label'])}</h2>",
-           f'<p class="note">{panes.esc(d["count"])}' + (f" · {panes.esc(d['number'])}" if d.get("number") else "")
+    what = facts.what_it_is([(v, r) for _, v, r in x["rows"]] + [(v, None) for v, _ in x.get("views") or ()])
+    out = [head, '<div class="reg">dossier</div>', f"<h2>{panes.esc(d['label'])}</h2>",
+           f'<p class="what">{panes.esc(what)}' + (f" · {panes.esc(d['number'])}" if d.get("number") else "")
            + (' · <span class="warn">contested</span>' if d.get("contested") else "") + "</p>"]
-    if entity:
-        out.append(f'<p class="note">The {panes.esc(panes.ENTITY_LABEL_NOTE)}.</p>')
-    if x.get("via"):
-        out.append(f'<p class="note">opened from the row {panes.esc(x["via"])}, one of its rows</p>')
+    if x.get("many"):
+        out.append(f'<p class="small whole">{panes.esc(whole_words(x))}</p>')
     links = [f'<a href="{panes.esc(x["report"])}">the full subject report</a>'] if x.get("report") else \
         ['<span class="note">no report server named (QV4_REPORT_URL)</span>']
     if entity:
         links.append(f'<a href="{panes.esc(panes.href(q, [people.entity_id(x["group_id"])], boxes))}">its entity pane</a>')
-    out.append('<p class="note">' + " · ".join(links) + "</p>")
-    out.append(f'<p class="note">{panes.esc(NOT_A_LINK)} {panes.esc(NO_CLAIMS)}.</p>')
+    out.append('<p class="small">' + (f"Gathered by the links lane's rules. The {panes.esc(panes.ENTITY_LABEL_NOTE)}. " if entity
+                                      else "In no group: no links rule joins this record to another. ")
+               + (f'Opened from {panes.esc(x["via"])}, one of its records. ' if x.get("via") else "") + " · ".join(links) + "</p>")
     out.append(f'<h3 id="d-names">Names as filed <span class="count">{len(x["names"]):,}</span></h3><ul>'
-               + "".join(f'<li>{panes.esc(n)} <span class="count">{k:,} row{"s" if k != 1 else ""}</span></li>' for n, k in x["names"])
-               + "</ul>")
+               + "".join(f'<li>{panes.esc(n)} <span class="small">on {panes.esc(facts.count_words(k, "record", "records"))}</span></li>'
+                         for n, k in x["names"]) + "</ul>")
     out += timeline(x, q, boxes)
-    out += roles(x, q, boxes)
     out += money(x, q, boxes)
     mine = {ref: (v, r) for ref, v, r in x["rows"]}
     if x.get("related"):
@@ -545,6 +817,7 @@ def pane(x: dict, q: str = "", boxes=None) -> str:
         out.append('<h3 id="related">Related companies <span class="count">0</span></h3><p class="why">none found</p>')
     out += near_part(x, q, boxes)
     out += decided(x, q, boxes)
+    out.append(f'<p class="small">{panes.esc(NOT_A_LINK)} {panes.esc(NO_CLAIMS)}.</p>')
     out.append("</section>")
     return "\n".join(out)
 
