@@ -19,3 +19,11 @@ two-second test (`test_a_search_answers_within_two_seconds`) searches
 Owner: board. Measure first without other load; then read the group's
 size and label in SQL in `people.gather` as the dossier now does past
 `dossier.MANY_AT`, and look at the scan of the speech and question views.
+
+29 October (board-13): the scan alone for "Graeme Hart" over every held
+register, tabs on, now sits at the floor on main's code and board-13's
+alike (1.88 to 1.99 s, three runs; the entity gather 0.02 s), so
+`test_the_tabbed_search_answers_within_two_seconds_in_both_states`
+fails some runs (2.02 s in one). After the Parliament lane's reload at
+04:30 the written questions' 825 MB heap was read cold and the scan
+timed out at 21 s for some minutes (the live board answered 500).

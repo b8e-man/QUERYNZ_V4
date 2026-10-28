@@ -279,28 +279,22 @@ def view_rows(conn, gid: str, v: cat.View, offset: int = 0, count: int = 0, limi
                f"where r.{v.key_col}::text in (select key from k) and not {hidden_sql(v)} ")
     else:
         sql = f"select r.*, r.{v.key_col} as key {_of_group(v)} and not {hidden_sql(v)} "
+    d = date_sql(v)
+    sql = sql.replace("select r.*,", f"select r.*, min({d}) over () as _first_day, max({d}) over () as _last_day,", 1)
     return [(links_view.ref(v, r["key"]), v, r) for r in
-            db.rows(conn, sql + f"order by {date_sql(v)} desc nulls last, r.{v.key_col} limit %s offset %s",
+            db.rows(conn, sql + f"order by {d} desc nulls last, r.{v.key_col} limit %s offset %s",
                     (gid, v.name, limit, max(0, offset)))]
 
 
-def spans(conn, gid: str, views) -> dict:
-    """{view: (first day, last day)} over every shown row of the group, in SQL
-    by the view's dates as first_date reads them: a many-rows section's
-    head says the years its records run (ruling 117)."""
+def spans(rows: list) -> dict:
+    """{view: (first day, last day)} over every shown row of the group of each
+    view, as view_rows reads them beside its page (window aggregates over the
+    rows it sorts anyway): a many-rows section's head says the years its
+    records run (ruling 117)."""
     out = {}
-    for v, count in views:
-        d = date_sql(v)
-        if d == "null::date":
-            continue
-        if count <= KEYS_FIRST:                        # as view_rows: a small view by its keys taken first (mp_expenses 0.13 s to 0.02 s)
-            frm = (f"from pub.{v.name} r where r.{v.key_col}::text in (select n.key from pub.groups g join pub.names n "
-                   f"on n.ref = g.row_key where g.group_id = %s and n.view = %s)")
-        else:
-            frm = _of_group(v)
-        got = db.rows(conn, f"select min({d}) as a, max({d}) as b {frm} and not {hidden_sql(v)}", (gid, v.name))
-        if got:
-            out[v.name] = (got[0]["a"], got[0]["b"])
+    for _, v, r in rows:
+        if v.name not in out and (r.get("_first_day") or r.get("_last_day")):
+            out[v.name] = (r.get("_first_day"), r.get("_last_day"))
     return out
 
 
@@ -351,7 +345,7 @@ def gather_many(conn, gid: str, n: int, contested: bool, d: str, via: str, repor
     return finish(conn, {"kind": "entity", "many": True, "chosen": d, "via": via, "group_id": gid, "total": n,
                          "describe": describe, "rows": rows, "views": c["views"], "pages": pages, "opened": view if view in pages else "",
                          "hidden_count": c["hidden"], "hidden_by": c["hidden_by"], "unread": c["unread"], "hidden": set(), "names": c["names"],
-                         "money_counted": money_counted(conn, gid, c["views"]), "spans": spans(conn, gid, c["views"]),
+                         "money_counted": money_counted(conn, gid, c["views"]), "spans": spans(rows),
                          "links": own, "near": near[:people.PANE_NEAR], "near_total": len({(l["row_a"], l["row_b"], l["rule"]) for l in near}),
                          "related": lineage.related_of(conn, refs), "decisions": people.decisions_of(conn, refs),
                          "report": panes.report_href(report_url, gid)})
