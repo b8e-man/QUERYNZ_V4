@@ -38,23 +38,28 @@ def built(conn) -> bool:
 
 
 def links_of(conn, r: str) -> dict:
-    """{'built': bool, 'why': str, 'confirmed': [...], 'near': [...]}; each
-    link: other (ref), register, rule, evidence, reason, decisions (list)."""
+    """{'built': bool, 'why': str, 'confirmed': [...], 'near': [...],
+    'related': [...]}; each link: other (ref), register, rule, evidence,
+    reason, decisions (list); a related one (ruling 106 (2)) also its
+    `relation` and `link`, the pub.links row whole. A grade the board does
+    not know reads near, never confirmed."""
     if not built(conn):
-        return {"built": False, "why": NOT_BUILT, "confirmed": [], "near": []}
+        return {"built": False, "why": NOT_BUILT, "confirmed": [], "near": [], "related": []}
     found = db.rows(conn, "select * from pub.links where row_a = %s or row_b = %s order by grade, rule, row_a, row_b limit 500", (r, r))
     decisions = {}
     if db.has_relation(conn, "pub", "decisions"):
         for d in db.rows(conn, "select * from pub.decisions where row_a = %s or row_b = %s order by made_at", (r, r)):
             other = d["row_b"] if d["row_a"] == r else d["row_a"]
             decisions.setdefault(other, []).append(d)
-    out = {"built": True, "why": "", "confirmed": [], "near": []}
+    out = {"built": True, "why": "", "confirmed": [], "near": [], "related": []}
     for l in found:
         other = l["row_b"] if l["row_a"] == r else l["row_a"]
         register, _ = split_ref(other)
-        out[l["grade"] if l["grade"] in ("confirmed", "near") else "near"].append({
+        grade = l["grade"] if l["grade"] in ("confirmed", "near", "related") else "near"
+        out[grade].append({
             "other": other, "register": register, "rule": l["rule"], "evidence": l.get("evidence"),
-            "reason": l.get("reason"), "decisions": decisions.get(other, [])})
+            "reason": l.get("reason"), "decisions": decisions.get(other, []),
+            **({"relation": l.get("relation"), "link": l} if grade == "related" else {})})
     return out
 
 

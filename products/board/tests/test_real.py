@@ -232,3 +232,37 @@ def test_the_entity_search_finds_a_group_no_row_of_the_list_heads():
     assert set(ents["named"]) - in_hand                            # a group no row in hand falls in, found by its rows' name
     for gid in set(ents["named"]) - in_hand:
         assert ents["entity"][gid]["label"] and ents["entity"][gid]["centre"]
+
+
+def test_a_succession_is_one_frame_in_both_states_within_the_floor():
+    """Ruling 106 (2): a company of links-3's sample, centred, draws its lineage frame in date order with its people
+    on both, in the rows and the entity state, and the lineage step costs the graph little (one query by key, and
+    one more for a chain's new ends)."""
+    from products.board import lineage
+    with db.read_connect() as conn:
+        centre, links = check.lineage_case(conn)
+        assert centre and links
+        for people_state in (False, True):
+            t = time.time()
+            g = graph.build(conn, "", centre=centre, people=people_state)
+            assert time.time() - t < 2.0
+            f = next(f for f in g["lineage"] if f["companies"])
+            assert len(set(f["companies"])) == len(f["companies"]) >= 2 and f["people"]
+        t = time.time()
+        found = lineage.chain(conn, [links_ref for l in links for links_ref in (l["row_a"], l["row_b"])])
+        assert time.time() - t < 0.5 and found
+
+
+def test_the_lineage_check_goes_red_when_a_frame_merges_its_companies(monkeypatch):
+    """Item 24 can fail on the real tables: two companies of the frame drawn as one node."""
+    from products.board import lineage
+    real = lineage.relabel
+
+    def merged(frames, node_of):
+        out = real(frames, node_of)
+        for f in out:
+            f["companies"] = [f["companies"][0]] * len(f["companies"])
+        return out
+    monkeypatch.setattr(people.lineage, "relabel", merged)
+    with db.read_connect() as conn:
+        assert any("merged" in p for p in check.lineage_problems(conn))
