@@ -37,6 +37,10 @@ pairs (a name carried by 300 rows would otherwise be 44,850 links).
   with a year in brackets, the earlier removed and the later registered
   within twelve months of it, and a person confirmed on both: related,
   "delisted/refiled same year", never an identity.
+- `member-on-the-day@1` (ruling 116): a speech turn, a written question's
+  asker and minister, a Beehive release's minister and a diary release's
+  minister, to the one member sitting on the row's day; near where two or
+  none sat (`member_day_links`). These rows take no `name-only@1` star.
 - `name-only@1`: every other shared first and last name, near, with the
   reason; one star per name over the confirmed components.
 
@@ -56,6 +60,7 @@ import sys
 import time
 
 import links
+from links import rows as lrows
 from links import rules
 
 RULE_SOURCE = "source-identifier@1"
@@ -190,10 +195,11 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     conn.commit()
     # the rules of links-2: the House's own rows to their seats; declared interests to companies and the member's own directorships;
     # the donation registers' named circumstances; companies under one name; one candidate under two printings
-    for name, step in ((rules.RULE_SEAT, seat_links), (rules.RULE_DECLARED, declared_links), ("donor rules", donor_links),
+    for name, step in ((rules.RULE_SEAT, seat_links), (rules.RULE_MEMBER_DAY, member_day_links), (rules.RULE_DECLARED, declared_links),
+                       ("donor rules", donor_links),
                        (rules.RULE_COMPANY_NAME, company_name_links), (rules.RULE_SAME_PARTY, same_party_links),
                        (rules.RULE_NAME_FORM, name_form_links)):
-        out[name] = step(conn, s)
+        out[name] = step(conn, s, reader=reader) if step is member_day_links else step(conn, s)
         log(f"links.build: {name}: {out[name]} ({time.monotonic() - t0:.0f} s)")
     out[rules.RULE_NUMBER] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_NUMBER,)).fetchone()[0]
     # every confirmed link is made: the components they make (and the decisions) are what the two last steps read
@@ -324,6 +330,67 @@ def seat_links(conn, s: str) -> dict:
                             (rules.RULE_SEAT,)).fetchall()
     return {"links": int(row[0]), "confirmed": int(row[1]), "near_ambiguous": int(row[0] - row[1]), "rows_joined": int(row[2]),
             "rows_no_seat_fits": {v: int(n) for v, n in unjoined}}
+
+
+#: what a member-on-the-day row is, by its view (a written question's row by its ref's role)
+MEMBER_DAY_ROLES = {"hansard_speeches": "speaker of the turn", "beehive_release_ministers": "minister the release is tagged with",
+                    "minister_diary_releases": "minister whose diary it is", "asker": "asker of the question",
+                    "minister": "minister who answers the question"}
+#: Parliament's own member id where a view carries it: the speaker of a turn and the asker of a question (never the minister)
+MEMBER_IDS = (("hansard_speeches", "pub.hansard_speeches", "member_id", ""), ("parliament_written_questions", "pub.parliament_written_questions",
+                                                                           "member_id", " AND r.ref LIKE '%%#asker'"))
+
+
+def member_day_links(conn, s: str, reader=None, members: str = "pub.members") -> dict:
+    """`member-on-the-day@1` (ruling 116): each row of `rows.MEMBER_DAY_VIEWS`
+    judged by `rules.member_on_the_day` against the member rows of its first
+    and last name and their terms (`members`: the House's view, whose end is
+    `ended_on`, else `to_by`). The rows are streamed through `reader` and
+    the links copied in; one link a row and member, so no star. Returns what
+    each view's rows came to."""
+    reader = reader or conn
+    mem: dict = {}
+    for ref, fl, full, mid, key, election, from_on, to_on in conn.execute(f"""
+            SELECT r.ref, r.fl_key, r.full_key, r.has_middle, m.key, m.election, m.from_on, coalesce(m.ended_on, m.to_by)
+            FROM {s}.rows r JOIN {members} m ON r.ref = 'house:' || m.key WHERE r.view = 'members' AND r.fl_key IS NOT NULL""").fetchall():
+        mem.setdefault(fl, []).append({"ref": ref, "fl_key": fl, "full_key": full, "has_middle": mid, "key": key, "election": election,
+                                       "from_on": from_on, "to_on": to_on})
+    held_from = min((m["from_on"] for ms in mem.values() for m in ms if m["from_on"]), default=None)
+    ids = [(v, t, c, w) for v, t, c, w in MEMBER_IDS if conn.execute("SELECT to_regclass(%s)", (t,)).fetchone()[0]]
+    id_col = "coalesce(" + ", ".join(f"i{n}.{c}" for n, (_, _, c, _) in enumerate(ids)) + ", NULL)" if ids else "NULL"
+    joins = " ".join(f"LEFT JOIN {t} i{n} ON r.view = '{v}'{w} AND i{n}.key = r.key" for n, (v, t, _, w) in enumerate(ids))
+    tally: dict = {}
+    n = 0
+
+    def flush(w, batch):
+        # a copy a batch, between two fetches: the cursor and the copy may then share one connection
+        with w.copy(f"COPY {s}.links (row_a, row_b, rule, evidence, grade, reason) FROM STDIN") as copy:
+            for b in batch:
+                copy.write_row(b)
+        return len(batch)
+    with reader.cursor(name="links_member_day") as cur, conn.cursor() as w:
+        cur.itersize = 20000
+        cur.execute(f"""SELECT r.ref, r.register, r.view, r.fl_key, r.full_key, r.has_middle, r.name_filed, r.started_on, {id_col}
+                        FROM {s}.rows r {joins} WHERE r.view = ANY(%s)""", (list(lrows.MEMBER_DAY_VIEWS),))
+        batch = []
+        while True:
+            got_rows = cur.fetchmany(20000)
+            if not got_rows:
+                break
+            for ref, register, view, fl, full, mid, filed, day, member_id in got_rows:
+                role = ref.rsplit("#", 1)[1] if view in lrows.ROLE_VIEWS else view
+                row = {"ref": ref, "fl_key": fl, "full_key": full, "has_middle": mid, "day": day,
+                       "evidence": {"row": view, "role": MEMBER_DAY_ROLES[role], "as_printed": filed, "name_read": lrows.member_name(filed),
+                                    "parliament_member_id": member_id, "registers": [register, "house"]}}
+                got, judged = rules.member_on_the_day(row, mem.get(fl, []), held_from)
+                k = f"{view}#{role}" if view in lrows.ROLE_VIEWS else view
+                tally.setdefault(k, {})[got] = tally.get(k, {}).get(got, 0) + 1
+                batch += [(*links.pair(ref, other), j["rule"], json.dumps(j["evidence"], default=str), j["grade"], j["reason"])
+                          for other, j in judged]
+            n += flush(w, batch)
+            batch = []
+    conn.commit()
+    return {"links": n, "held_from": str(held_from), "rows": tally}
 
 
 def declared_links(conn, s: str) -> dict:
@@ -687,7 +754,8 @@ def near_links(conn, s: str, log=print, reader=None, comp: dict = None) -> int:
         cur.execute(f"""SELECT fl_key, array_agg(ref ORDER BY ref), array_agg(full_key ORDER BY ref), array_agg(has_middle ORDER BY ref),
                                array_agg(middle ORDER BY ref), array_agg(politician ORDER BY ref), array_agg(name_filed ORDER BY ref),
                                array_agg(register ORDER BY ref)
-                        FROM {s}.rows WHERE kind = 'person' AND fl_key IS NOT NULL GROUP BY fl_key HAVING count(*) > 1""")
+                        FROM {s}.rows WHERE kind = 'person' AND fl_key IS NOT NULL AND view <> ALL(%s)
+                        GROUP BY fl_key HAVING count(*) > 1""", (list(lrows.MEMBER_DAY_VIEWS),))
         with conn.cursor() as w:
             batch = []
             for fl, refs, fulls, mids, middles, pols, filed, regs in cur:

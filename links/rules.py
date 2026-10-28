@@ -54,6 +54,21 @@ One more, ruling 114 (28 October 2026), the organisation rules widened:
    counted once, each body live by its own register's dates
    (`sole_body`). @1 is kept as it was and no longer built (`RETIRED`).
 
+One more, ruling 116 (28 October 2026), of the seat-and-window kind:
+
+9. `member-on-the-day@1`: a speech turn's speaker, a written question's
+   asker and its answering minister, a Beehive release's tagged minister
+   and a diary release's minister, each as printed with its titles off
+   (`links.rows.MEMBER_TITLES`), and the one member row (`pub.members`)
+   of the same first and last name sitting in the House on the row's day
+   (from its from date, up to but not including its end: one term's end is
+   the next term's start). Confirmed. Two or more members of the name
+   sitting on the day, or none (a member of the name sat at another time),
+   stays near, the reason saying which; a name no member carries, or a day
+   before the first term the members view holds, makes no link (the view
+   could not have seen it). Middle names that differ on both rows take the
+   member out. Parliament's member id rides in the evidence, never decides.
+
 Everything else that shares a name is near, with the reason. A
 politician's row (a candidate, a member, a declared-interests return)
 joined to the director register by name is near whatever the name
@@ -135,6 +150,14 @@ NEAR_COUPLED = ("the Commission filed this donor as two people on one line; this
 # stored @1 link still reads as that; the build makes @2 (`sole_body`). The near grade stays `organisation-name@1`.
 RULE_SOLE_BODY = "organisation-sole-company@2"      # one body of the name across the four registers, live in the donation's year
 RULE_ONE_LIVE_BODY = "organisation-one-live-company@2"   # several bodies of the name, exactly one live in the donation's year
+RULE_MEMBER_DAY = "member-on-the-day@1"           # a member's printed name and the one member of the name sitting on the row's day
+NEAR_DAY_TWO = "two or more members of this name sat in the House on the row's day, and the row does not say which"
+NEAR_DAY_NONE = ("a member of this name sat in the House, but not on the row's day; the members view holds every member an election "
+                 "returned and the by-election winners, not a list member who filled a vacancy")
+#: what a member-on-the-day row came to, for the counts
+DAY_ONE, DAY_TWO, DAY_NONE, DAY_NO_MEMBER, DAY_BEFORE, DAY_UNDATED = (
+    "one member sitting", "two or more members sitting", "no member of the name sitting on the day", "no member of the name",
+    "before the members view's first term", "no day")
 RETIRED = {RULE_SOLE_COMPANY, RULE_ONE_LIVE}        # built no longer (ruling 114); kept so a stored link of the version reads as it meant
 #: a body is read from four registers (`links.rows.BODY_SQL`); a Companies Office row's own register (`pub.companies.register`) is its kind
 FORMATION_REGISTERS = ("companies", "societies", "limited_partnerships")   # the registers a body is formed on; a charity's is its status
@@ -554,3 +577,38 @@ def _seat(r: dict) -> str:
     if r.get("list_place") is not None:
         bits.append(f"list {r['list_place']}")
     return ", ".join(bits) or "no seat printed"
+
+
+def sitting(member: dict, day) -> bool:
+    """A member sits from `from_on` up to, not on, `to_on` (None while
+    sitting): the term an election ends is followed by the one it begins on
+    the same polling day, so one person's two terms never both cover a day."""
+    return member["from_on"] <= day and (member["to_on"] is None or day < member["to_on"])
+
+
+def member_on_the_day(row: dict, members: list, held_from) -> tuple:
+    """`member-on-the-day@1` (ruling 116). `row`: ref, fl_key, full_key,
+    has_middle, day, and its evidence so far (`evidence`); `members`: every
+    member row of the row's first and last name (ref, key, election,
+    full_key, has_middle, from_on, to_on); `held_from`: the first day of the
+    first term the members view holds. Returns (what it came to, [(member
+    ref, {rule, grade, reason, evidence})])."""
+    day = row.get("day")
+    if day is None:
+        return DAY_UNDATED, []
+    if held_from is None or day < held_from:
+        return DAY_BEFORE, []
+    named = [m for m in members if m["fl_key"] == row["fl_key"]
+             and not (m.get("has_middle") and row.get("has_middle") and m["full_key"] != row["full_key"])]
+    if not named:
+        return DAY_NO_MEMBER, []
+    on = [m for m in named if sitting(m, day)]
+    out = []
+    for m in (on or named):
+        ev = dict(row.get("evidence") or {}, day=day, member=m["key"], election=m.get("election"), term=[m["from_on"], m["to_on"]],
+                  members_of_the_name=len(named), members_sitting=len(on), sitting=[x["key"] for x in on])
+        if len(on) == 1:
+            out.append((m["ref"], {"rule": RULE_MEMBER_DAY, "grade": "confirmed", "reason": None, "evidence": ev}))
+        else:
+            out.append((m["ref"], {"rule": RULE_MEMBER_DAY, "grade": "near", "reason": NEAR_DAY_TWO if on else NEAR_DAY_NONE, "evidence": ev}))
+    return (DAY_ONE if len(on) == 1 else DAY_TWO if on else DAY_NONE), out

@@ -47,6 +47,12 @@
    other body of the name was live or removed on an undated day; the sole
    rule has one body of the name, the one-live rule several. And a body is
    counted once: no NZBN names two bodies.
+10. Ruling 116, counted in SQL apart from the Python: every confirmed
+   `member-on-the-day@1` link joins a row of the four member views to a
+   member row of its first and last name who sat in the House on the
+   row's day (from the term's start, up to and not on its end), and no
+   other member of the name sat on that day; no row is confirmed to two
+   members.
 """
 from __future__ import annotations
 
@@ -272,6 +278,31 @@ def check_ruling_114(conn, s: str) -> list:
             {"check": "a body on two registers is one body: no NZBN names two bodies", "nzbns_on_two_bodies": twice, "ok": twice == 0}]
 
 
+def check_ruling_116(conn, s: str, members: str = "pub.members") -> list:
+    """Ruling 116 against the tables as they stand (SQL apart from `rules.member_on_the_day`)."""
+    row = conn.execute(f"""
+        WITH m AS (SELECT r.ref, r.fl_key, r.full_key, r.has_middle, mm.from_on, coalesce(mm.ended_on, mm.to_by) AS to_on
+                   FROM {s}.rows r JOIN {members} mm ON r.ref = 'house:' || mm.key WHERE r.view = 'members'),
+             l AS (SELECT link_id, row_a, row_b FROM {s}.links WHERE rule = %(rule)s AND grade = 'confirmed'),
+             c AS (SELECT l.link_id, x.ref, x.fl_key, x.full_key, x.has_middle, x.started_on AS day,
+                          CASE WHEN x.ref = l.row_a THEN l.row_b ELSE l.row_a END AS linked
+                   FROM l JOIN {s}.rows x ON x.ref IN (l.row_a, l.row_b) AND x.view = ANY(%(views)s)),
+             p AS (SELECT c.link_id, c.ref,
+                          coalesce(bool_or(m.ref = c.linked), false) AS of_the_name,
+                          coalesce(bool_or(m.ref = c.linked AND m.from_on <= c.day AND (m.to_on IS NULL OR c.day < m.to_on)), false) AS sat,
+                          count(m.ref) FILTER (WHERE m.ref <> c.linked AND m.from_on <= c.day AND (m.to_on IS NULL OR c.day < m.to_on)
+                                               AND NOT (m.has_middle AND c.has_middle AND m.full_key <> c.full_key)) AS others
+                   FROM c LEFT JOIN m ON m.fl_key = c.fl_key GROUP BY 1, 2)
+        SELECT (SELECT count(*) FROM l), count(*), count(*) FILTER (WHERE NOT of_the_name), count(*) FILTER (WHERE NOT sat),
+               count(*) FILTER (WHERE others > 0), count(*) - count(DISTINCT ref)
+        FROM p""", {"rule": rules.RULE_MEMBER_DAY, "views": list(rows.MEMBER_DAY_VIEWS)}).fetchone()
+    n, judged, not_named, not_sat, others, twice = (int(x) for x in row)
+    return [{"check": f"every confirmed {rules.RULE_MEMBER_DAY} link is a member view's row and the one member of its name sitting on its day",
+             "confirmed": n, "of_a_member_view_row": judged, "not_a_member_of_the_row_s_name": not_named,
+             "member_not_sitting_on_the_day": not_sat, "another_member_of_the_name_sitting": others, "rows_confirmed_to_two_members": twice,
+             "ok": n == judged and not_named == 0 and not_sat == 0 and others == 0 and twice == 0}]
+
+
 def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out = []
     if oldconn is not None:
@@ -284,6 +315,7 @@ def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out += check_ruling_107(conn, s)
     out += check_ruling_109(conn, s)
     out += check_ruling_114(conn, s)
+    out += check_ruling_116(conn, s)
     return out
 
 

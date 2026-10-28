@@ -37,6 +37,7 @@ import sys
 import time
 
 import links
+from links import rows as lrows
 from links import rules
 from links.pairs import COMPANY_KINDS, ORG_KINDS
 
@@ -383,10 +384,62 @@ def m10_ruling_114(conn, s: str) -> dict:
     return out
 
 
+def m11_ruling_116(conn, s: str) -> dict:
+    """Ruling 116: what each member view's rows came to under `member-on-the-day@1` (a written question's asker and minister
+    apart): one member sitting, two or more, a member of the name at another time only, no member of the name, a day before
+    the members view's first term; the twenty printed names that most often find no member on a day the view holds; ten
+    confirmed pairs a view, named; and whether Parliament's member id, carried in the evidence, ever names two members."""
+    held = conn.execute(f"SELECT min(started_on) FROM {s}.rows WHERE view = 'members'").fetchone()[0]
+    conn.execute(f"""CREATE TEMP TABLE m11 ON COMMIT DROP AS
+        WITH l AS (SELECT row_a AS ref, grade, reason FROM {s}.links WHERE rule = %(rule)s
+                   UNION ALL SELECT row_b, grade, reason FROM {s}.links WHERE rule = %(rule)s),
+             g AS (SELECT ref, bool_or(grade = 'confirmed') AS one, bool_or(reason = %(two)s) AS two, bool_or(reason = %(none)s) AS none
+                   FROM l GROUP BY ref)
+        SELECT r.ref, r.name_filed, r.started_on,
+               r.view || CASE WHEN r.view = ANY(%(roles)s) THEN '#' || substring(r.ref from '#([a-z]+)$') ELSE '' END AS row_of,
+               CASE WHEN g.one THEN %(d_one)s WHEN g.two THEN %(d_two)s WHEN g.none THEN %(d_none)s WHEN r.started_on IS NULL THEN %(d_undated)s
+                    WHEN %(held)s::date IS NULL OR r.started_on < %(held)s::date THEN %(d_before)s
+                    ELSE %(d_no)s END AS came_to
+        FROM {s}.rows r LEFT JOIN g ON g.ref = r.ref
+        WHERE r.view = ANY(%(views)s) AND r.part_of IS NULL""",
+                 {"rule": rules.RULE_MEMBER_DAY, "two": rules.NEAR_DAY_TWO, "none": rules.NEAR_DAY_NONE, "held": held,
+                  "d_one": rules.DAY_ONE, "d_two": rules.DAY_TWO, "d_none": rules.DAY_NONE, "d_undated": rules.DAY_UNDATED,
+                  "d_before": rules.DAY_BEFORE, "d_no": rules.DAY_NO_MEMBER, "views": list(lrows.MEMBER_DAY_VIEWS),
+                  "roles": sorted(lrows.ROLE_VIEWS)})
+    out = {"held_from": str(held), "rows": {}, "finding_none": {}, "confirmed_pairs": {}}
+    for row_of, came_to, n in conn.execute("SELECT row_of, came_to, count(*) FROM m11 GROUP BY 1, 2 ORDER BY 1, 2").fetchall():
+        out["rows"].setdefault(row_of, {"rows": 0})[came_to] = int(n)
+        out["rows"][row_of]["rows"] += int(n)
+    for row_of, name, n in conn.execute("""
+            SELECT row_of, name_filed, n FROM (SELECT row_of, name_filed, count(*) AS n,
+                                                      row_number() OVER (PARTITION BY row_of ORDER BY count(*) DESC, name_filed) AS i
+                                               FROM m11 WHERE came_to IN (%s, %s) GROUP BY 1, 2) t WHERE i <= 20 ORDER BY 1, 3 DESC, 2""",
+                                        (rules.DAY_NONE, rules.DAY_NO_MEMBER)).fetchall():
+        out["finding_none"].setdefault(row_of, []).append([name, int(n)])
+    for row_of, name, member, key, day in conn.execute(f"""
+            WITH t AS (SELECT * FROM (SELECT ref, row_of, name_filed, started_on,
+                                             row_number() OVER (PARTITION BY row_of ORDER BY md5(ref)) AS i FROM m11 WHERE came_to = %s) a
+                       WHERE i <= 10)
+            SELECT t.row_of, t.name_filed, m.name_filed, m.key, t.started_on
+            FROM t JOIN {s}.links l ON l.rule = %s AND l.grade = 'confirmed' AND t.ref IN (l.row_a, l.row_b)
+            JOIN {s}.rows m ON m.ref IN (l.row_a, l.row_b) AND m.view = 'members' ORDER BY 1, 5, 2""",
+                                                         (rules.DAY_ONE, rules.RULE_MEMBER_DAY)).fetchall():
+        out["confirmed_pairs"].setdefault(row_of, []).append([name, member, key, str(day)])
+    ids, two, keys_two = (int(x) for x in conn.execute(f"""
+        WITH i AS (SELECT l.evidence->>'parliament_member_id' AS id, m.fl_key FROM {s}.links l
+                   JOIN {s}.rows m ON m.ref IN (l.row_a, l.row_b) AND m.view = 'members'
+                   WHERE l.rule = %s AND l.grade = 'confirmed' AND l.evidence->>'parliament_member_id' IS NOT NULL)
+        SELECT count(DISTINCT id), (SELECT count(*) FROM (SELECT id FROM i GROUP BY 1 HAVING count(DISTINCT fl_key) > 1) a),
+               (SELECT count(*) FROM (SELECT fl_key FROM i GROUP BY 1 HAVING count(DISTINCT id) > 1) b) FROM i""",
+                                                          (rules.RULE_MEMBER_DAY,)).fetchone())
+    out["parliament_member_ids"] = {"ids_on_confirmed_rows": ids, "ids_naming_two_members": two, "members_under_two_ids": keys_two}
+    return out
+
+
 MEASURES = (("1 name repeats", m1_name_repeats), ("2 shared addresses", m2_shared_addresses), ("3 rule error", m3_rule_error),
             ("4 rule reach", m4_rule_reach), ("5 company names", m5_company_names), ("6 group shape", m6_groups),
             ("7 ruling 106", m7_ruling_106), ("8 ruling 107", m8_ruling_107), ("9 ruling 109", m9_ruling_109),
-            ("10 ruling 114", m10_ruling_114))
+            ("10 ruling 114", m10_ruling_114), ("11 ruling 116", m11_ruling_116))
 
 
 def run(conn, s: str, log=print, only: str = None) -> dict:

@@ -66,7 +66,10 @@ from keys import names as kn
 
 import links
 
-#: (register, view, sql) — each query yields: key, name, entity_key, started_on, ended_on, election, electorate, document, suppressed
+#: the asker of a written question, as its title prints it: "57693 (2025). Francisco Hernandez to the Minister of Housing"
+WQ_ASKER = r"""nullif(split_part(substring(title from '^[0-9]+ \([0-9]{4}\)\. (.* to the .*)$'), ' to the ', 1), '')"""
+#: (register, view, sql) — each query yields: key, name, entity_key, started_on, ended_on, election, electorate, document, suppressed,
+#: first, middle, last; and, for a view of ROLE_VIEWS, the role, which makes the row's ref `<ref>#<role>`
 SOURCES = (
     ("companies", "directors", """
         SELECT key, full_name AS name, 'companies:' || entity_key, appointed_on AS started_on, ended_on, NULL AS election, NULL AS electorate,
@@ -172,12 +175,49 @@ SOURCES = (
     ("councillor_interests", "councillor_interests", """
         SELECT key, member AS name, NULL, NULL::date, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
         FROM pub.councillor_interests WHERE member IS NOT NULL AND member <> ''"""),
+    # ruling 116: the member a speech turn, a written question, a Beehive release and a diary release names, as printed, dated by
+    # its day, under no entity (a turn belongs to no body). The Speaker's chair prints no name and is no row
+    ("hansard", "hansard_speeches", """
+        SELECT key, member_name AS name, NULL, sitting_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.hansard_speeches WHERE member_name IS NOT NULL AND member_name <> ''"""),
+    # a written question is two rows, the asker (the name the title prints before " to the ") and the answering minister,
+    # each its own ref, `<question ref>#asker` and `#minister`, under the question's view and key; a withdrawn question
+    # names no asker, and "No Minister" names nobody
+    ("parliament", "parliament_written_questions", f"""
+        SELECT key, {WQ_ASKER} AS name, NULL, question_released_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL,
+               'asker' AS role
+        FROM pub.parliament_written_questions WHERE {WQ_ASKER} IS NOT NULL
+        UNION ALL
+        SELECT key, minister_name, NULL, question_released_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL, 'minister'
+        FROM pub.parliament_written_questions WHERE coalesce(minister_name, '') NOT IN ('', 'No Minister')"""),
+    ("beehive", "beehive_release_ministers", """
+        SELECT key, name, NULL, published_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.beehive_release_ministers WHERE name IS NOT NULL AND name <> ''"""),
+    # a diary release is dated by the last day of the month it is released for (the minister held office through it), else
+    # by its last entry where the month is not printed
+    ("ministers_diaries", "minister_diary_releases", """
+        SELECT key, minister AS name, NULL,
+               CASE WHEN month ~ '^[0-9]{4}-[0-9]{2}$' THEN (to_date(month, 'YYYY-MM') + interval '1 month' - interval '1 day')::date
+                    ELSE last_on END,
+               NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.minister_diary_releases WHERE minister IS NOT NULL AND minister <> ''"""),
 )
 #: the filing candidate is a politician; a declared interest is the member's own (a sole trade in the member's name is not a director row);
 #: a local candidate and a councillor are candidates and members of an elected body, held to the same stricter join (ruling 114)
 POLITICIAN_VIEWS = {"candidates", "members", "mp_interest_returns", "candidate_return_totals", "mp_expenses", "minister_expenses", "mp_interests",
                     "local_election_returns", "councillor_interests"}
 DECLARED_VIEWS = {"mp_interests"}       # the name is read out of a declared entry's text
+#: ruling 116: the views whose printed name is a member of the House on the row's day (`member-on-the-day@1`). Each is a
+#: politician's row; its name is read with MEMBER_TITLES off, and it is joined by that rule alone, never the name-only star
+MEMBER_DAY_VIEWS = ("hansard_speeches", "parliament_written_questions", "beehive_release_ministers", "minister_diary_releases")
+POLITICIAN_VIEWS |= set(MEMBER_DAY_VIEWS)
+ROLE_VIEWS = {"parliament_written_questions"}     # one view row, two people: the asker and the minister
+#: The titles these views print before a member's name, before or after the comma ("Edmonds, Hon Barbara", "Hon Dr Ayesha
+#: Verrall", "Dr The Rt Hon Lockwood Smith"), and the post-nominals they print, with or without a comma ("Hon Judith Collins
+#: KC"). The one list (tests/test_member_day.py): `keys.names.strip_honorifics` takes a title off the front only, and no
+#: post-nominal without its comma, so "Bishop, Hon Chris" keys as "chris hon bishop" there (lesson of 26 October).
+MEMBER_TITLES = ("the rt hon", "rt hon", "rt. hon", "right honourable", "the hon", "hon", "honourable", "dr", "sir", "dame")
+MEMBER_POST_NOMINALS = ("kc", "qc", "mp", "jp", "onzm", "cnzm", "dnzm", "knzm", "gnzm", "mnzm", "qso", "qsm")
 #: the donation views, where a coupled filed name is one donor joined to each person it names (ruling 73)
 DONATION_VIEWS = {"party_return_donors", "candidate_return_donors", "disclosures", "disclosure_items"}
 _DASHES = (" – ", " — ", " - ")
@@ -227,6 +267,23 @@ BODY_SQL = """
 BODY_LANES = ("companies", "societies", "limited_partnerships", "charities")
 
 
+_TITLE = "|".join(re.escape(t).replace(r"\ ", r"\s+") for t in sorted(MEMBER_TITLES, key=len, reverse=True))
+_LEAD_TITLES = re.compile(rf"^(?:(?:{_TITLE})\.?(?:\s+|$))+", re.I)
+_POST_NOMINALS = re.compile(rf"(?:,?\s+(?:{'|'.join(MEMBER_POST_NOMINALS)})\.?)+\s*$", re.I)
+
+
+def member_name(printed: str) -> str:
+    """A member's name as these views print it, the titles off wherever they
+    sit (MEMBER_TITLES): "Edmonds, Hon Barbara" → "Edmonds, Barbara", "Hon Dr
+    Ayesha Verrall" → "Ayesha Verrall", "Hon Judith Collins KC" → "Judith
+    Collins". The words of the name are kept as printed."""
+    s = _POST_NOMINALS.sub("", kn.squash(printed))
+    family, comma, given = s.partition(",")
+    if comma:
+        return f"{family.strip()}, {_LEAD_TITLES.sub('', given.strip())}".strip(" ,")
+    return _LEAD_TITLES.sub("", s).strip()
+
+
 def fold(s: str) -> str:
     return " ".join(kn.fold_diacritics(s or "").lower().replace("'", "").replace("’", "").split())
 
@@ -268,7 +325,8 @@ def read_name(name: str, first: str = None, middle: str = None, last: str = None
 
 def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple | None:
     """The row to write, or None with the reason counted in `catch`."""
-    key, name, entity, started, ended, election, electorate, document, suppressed, first, middle, last = r
+    key, name, entity, started, ended, election, electorate, document, suppressed, first, middle, last = r[:12]
+    ref = links.ref(register, key) + (f"#{r[12]}" if view in ROLE_VIEWS else "")
     if view in DECLARED_VIEWS:
         name = declared_name(name)
     if suppressed or not name or name == "name suppressed":
@@ -283,6 +341,16 @@ def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple 
         if catch is not None:
             catch[reason] = catch.get(reason, 0) + 1
         return None
+    if view in MEMBER_DAY_VIEWS:
+        # a member, as printed: the row keeps the printed name and is keyed with the titles off; never an organisation
+        bare = member_name(name)
+        if len(_NOT_LETTER.sub("", _BRACKETED.sub("", bare))) < 2:
+            if catch is not None:
+                catch["a title and no name"] = catch.get("a title and no name", 0) + 1
+            return None
+        read = read_name(bare)
+        return (ref, register, view, key, "person", name, read["given"], read["middle"], read["family"], read["name_key"], read["fl_key"],
+                read["full_key"], read["has_middle"], entity, started, ended, election, electorate, True, document, None)
     kind = kn.name_kind(name)
     if kind == "person" and view in DONATION_VIEWS and kn.is_joint_name(name) is True:
         # one donor, two people: read as nobody alone; its part rows carry the people (part_records)
@@ -293,7 +361,7 @@ def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple 
     else:
         read = {"given": None, "middle": None, "family": None, "name_key": kn.organisation_key(name),
                 "fl_key": None, "full_key": None, "has_middle": False}
-    return (links.ref(register, key), register, view, key, kind, name, read["given"], read["middle"], read["family"],
+    return (ref, register, view, key, kind, name, read["given"], read["middle"], read["family"],
             read["name_key"], read["fl_key"], read["full_key"], read["has_middle"], entity, started, ended, election, electorate,
             view in POLITICIAN_VIEWS, document, None)
 
