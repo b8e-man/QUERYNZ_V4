@@ -387,14 +387,6 @@ def test_lloyd_budd_s_rows_pub_names_does_not_hold_fold_with_his_entity_by_name(
             page = server.render("lloyd budd", [], conn=conn, boxes=search.FIRST._replace(people=people_state, collapse=("name",)))
             entries = {unescape(d) for d in re.findall(r'class="hit entity(?: folded)?"[^>]* data-dossier="([^"]*)"', page)}
             assert len(entries) == 1, entries
-<<<<<<< HEAD
-            assert "collapsed here by shared name; not a link" in page
-        for m in members:
-            v, key = m.split(":", 1)
-            if v == "gazette_celebrants":
-                assert collapse.row_name_keys(cat.BY_NAME[v], search.row(conn, v, key))[0] == "lloyd budd"   # family-given read right
-=======
->>>>>>> main
 
 
 def test_a_board_made_name_key_equals_pub_names_key_for_the_rows_pub_names_holds():
