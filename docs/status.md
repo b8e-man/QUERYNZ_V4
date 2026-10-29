@@ -28,15 +28,12 @@ model reading till it returns. **Alarms:** the old ntfy address.
 
 ## Running (headless, from the integrator)
 
-- 30 October: `flash-next-1` 08:16 (Flash-Next on Radiance under a unit,
-  ruling 121), `candidate-returns-3` 08:58 (the Commission's spreadsheet
-  rows published where no return is read), `site-4` 09:30 (a Commission
-  row's citation; the filed party label), the support follow-up 09:58
-  (the gate marks itself; `qv4-candidate-returns-load` nightly 02:40;
-  memory reserve 40 GB; rewalk 1 GB). Released; inbox empty.
-- MCP lanes green: the pull and the four loads nightly since 29 October;
-  the rewalk ran 3 h on 29 October after two memory failures. The MCP
-  lists a twelfth corpus, `courts` (4,688): queue item, no lane reads it.
+- 30 October merges: `flash-next-1` 08:16 (121), `candidate-returns-3`
+  08:58 (the Commission's rows), `site-4` 09:30 (its citation; the filed
+  label), support follow-up 09:58 (the gate marks itself; the returns
+  load nightly 02:40). Released; inbox empty.
+- MCP lanes green nightly. A twelfth corpus, `courts` (4,897), is a
+  listing (queue item).
 - `links-4` merged 11:18 (ruling 123, `pub.entities`, 2.6 M entities);
   DDL applied, `qv4-links-build` queued (row 850); the board catalogues
   the view in the next merge. `links-5` launched 11:22 (ruling 125:
