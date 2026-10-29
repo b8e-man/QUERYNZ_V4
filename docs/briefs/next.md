@@ -566,6 +566,43 @@ bulk until the build is done. A lane's request for readings is answered
 with the store's sample and a note; the hashes it sets aside are the queue
 for later, one command.
 
+## links-5
+
+Build session, Fable, scope `links/`. Ruling 125: the organisation rules run
+on every row that names a body, time-aware. Starts after `links-4` merges
+(one session on `links/` at a time). Launched headless by the integrator, or
+on node2: `cd /home/user/querynzv4 && bin/start-session links-5 links/`.
+
+```text
+You are a build session for QueryNZV4, running as Fable on node2, in the
+working copy the launcher made for you, scope links/. Read docs/PLAN.md,
+docs/plan/core.md, links/spec.md, links/pane.md, docs/status/links.md,
+and ruling 125 (30 October) in docs/decisions/rulings.md. Build what it
+says: organisation-sole-company@3 and organisation-one-live-company@3
+run on every organisation-named row of every people view the lane reads
+(shareholders, directors, MPs' interests, charity and society officers,
+the Gazette views, local election returns, and the donor and disclosure
+rows as now), same grades and reasons as @2. "Alive" is judged on the
+row's own date, not today: a body registered on or before that date and
+not removed before it counts; one removed before it or registered after
+it does not. The date is the donation's return period, the interests
+return's date, the officer's appointment, the shareholding's filing. A
+row with no date of its own stays near with the reason "undated".
+pub.shareholders carries no date today (1,170 organisation-named rows,
+none dated in links.rows): leave those near as undated and raise a card
+for the companies lane to publish the shareholding's filing date; do
+not reach into registers/. Measured today: MPs' interests 2,139 rows
+with exactly one body under the name and 239 with one live body of
+several; shareholders 76 and 5; society officers 16; charity officers
+18; directors 2. Record what the time-aware rule gives, by view, in
+your status file, and keep the lane's measurement table. Tests that
+fail on main and pass on your branch, including one where the one live
+company today was not alive on the row's date. No model, nothing
+fetched. Never print a home address or a suppressed name. Push your
+branch, raise links-5, update docs/status/links.md; the integrator
+queues qv4-links-build after the merge.
+```
+
 ## links-4
 
 LAUNCHED 30 October 10:35, headless, for the entities view alone (ruling 123;

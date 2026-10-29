@@ -1061,3 +1061,22 @@ one-live-company rule of ruling 114 (PFR Limited, CC63933, no NZBN, is
 folded to PFR LIMITED 9272440; the charities page calls it a company).
 So the rule is not made: it would draw the strangers. The item leaves
 the queue.
+
+125. Arthur, 30 October, 10:45, on the queue item "whether the
+organisation rules run on every row that names a body": "yes it should
+run and it should run corpus wide. However it needs to be time-aware":
+"exactly one that is still alive" means alive at the time of the
+donation. So `organisation-sole-company` and
+`organisation-one-live-company` run, as `@3`, on every organisation-named
+row of every people view the links lane reads (shareholders, directors,
+MPs' interests, charity and society officers, the Gazette views, local
+election returns, the donor and disclosure rows as now), and "alive" is
+judged on the row's own date: the donation's return period, the interests
+return's date, the officer's appointment, the shareholding's filing. A
+body alive on that day counts whether or not it is alive today; one
+removed before it or registered after it does not. A row with no date
+of its own stays near, with the reason "undated"; the lane takes the
+date from the view where the view carries one it has not read
+(shareholders: 1,170 rows, none dated in `links.rows` today). Built by
+`links-5` after `links-4` merges, measured against the queue item's
+figures.
