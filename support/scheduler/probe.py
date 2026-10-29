@@ -34,7 +34,7 @@ import urllib.request
 # plus the new estate's own model server (installed beside the old one).
 PROGRAMS = ("pdftotext", "pdftoppm", "pdfinfo", "tesseract", "xvfb-run", "google-chrome", "psql", "pg_dump", "gpg",
             "pg_restore", "initdb", "zstd",
-            "rocm-smi", "llama-server", "qv4-llama-server", "qv4-llama-server-built", "qv4-llama-server-teleocr")
+            "rocm-smi", "llama-server", "qv4-llama-server", "qv4-llama-server-built", "qv4-llama-server-teleocr", "radiance")
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 QV4_LLAMA = os.environ.get("QV4_LLAMA_SERVER") or os.path.join(LIVE, "llama", "bin", "llama-server")
 QV4_LLAMA_BUILT = os.environ.get("QV4_LLAMA_SERVER_BUILT") or os.path.join(LIVE, "llama", "built", "bin", "llama-server")
@@ -43,6 +43,9 @@ QV4_LLAMA_BUILT = os.environ.get("QV4_LLAMA_SERVER_BUILT") or os.path.join(LIVE,
 QV4_LLAMA_TELEOCR = os.environ.get("QV4_LLAMA_SERVER_TELEOCR") or os.path.join(LIVE, "llama", "built-teleocr", "llama-server")
 # the estate's own model servers, at fixed places, not on the PATH
 FIXED = {"qv4-llama-server": QV4_LLAMA, "qv4-llama-server-built": QV4_LLAMA_BUILT, "qv4-llama-server-teleocr": QV4_LLAMA_TELEOCR}
+# Radiance (ruling 121) runs in a container under its own unit: the box has it when the installer has placed the
+# unit and podman is there to run it. The path reported is the unit's.
+RADIANCE_UNIT = os.path.join(os.environ.get("QV4_UNIT_DIR") or os.path.expanduser("~/.config/systemd/user"), "qv4-radiance.service")
 OLD_LLAMA = "/home/user/llama.cpp/build/bin/llama-server"      # the frozen product's build (baseline); never touched
 REAL_FS = {"ext4", "xfs", "btrfs", "ntfs3", "fuseblk", "vfat", "exfat", "f2fs"}
 
@@ -157,6 +160,8 @@ def programs(names=PROGRAMS, which=None) -> dict:
     for n in names:
         if n in FIXED:
             out[n] = FIXED[n] if os.path.exists(FIXED[n]) else None
+        elif n == "radiance":
+            out[n] = RADIANCE_UNIT if os.path.exists(RADIANCE_UNIT) and which("podman") else None
         elif n == "llama-server":
             out[n] = which(n) or (OLD_LLAMA if os.path.exists(OLD_LLAMA) else None)
         else:
