@@ -1101,3 +1101,19 @@ check, not the source. Ruling 131 (legal documents capture-and-hold)
 and the lane's suppression lever are unchanged. Built by a fix on
 `support/mcpsource` (the download step, the corpus's shape), then
 `courts-2` once the files are landed. The queue item closes.
+
+127. Arthur, 30 October, 11:35, asked what "its own courtsofnz fetching
+becomes the check" meant: "retire anything we currently do with courts
+and rely on the mcp exclusively". So ruling 126's second part is
+replaced: the courts lane's one source is the MCP's `courts` corpus. The
+lane's own capture (`registers/courts/capture.py`, the proposed job
+`qv4-courts-capture`, never installed) is retired, not kept as a check;
+the lane fetches nothing from courtsofnz, the JDO or any court site. The
+lane reads judgments, media releases and case pages from the MCP's
+files in the document store by hash, and its listing is the corpus's
+records. What is already held stays held (captured documents are never
+deleted): the 148 courtsofnz judgments and 205 Waitangi Tribunal
+documents copied from the old estate remain in the store, but the lane
+rebuilds its tables from the MCP's documents alone, and a held file the
+MCP does not carry is a gap to report to the provider, not a row. Built
+by `courts-2`.

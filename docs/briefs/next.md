@@ -612,8 +612,8 @@ first full download run will cost in calls.
 
 ## courts-2
 
-Build session, Fable, scope `registers/courts/`. Ruling 126's second part:
-the MCP's `courts` corpus is the lane's primary source. Starts after
+Build session, Fable, scope `registers/courts/`. Ruling 127: the MCP's
+`courts` corpus is the lane's only source; its own capture is retired. Starts after
 `fix-support-mcpsource-2` merges and the first download run has landed the
 files. Brief to be filled in by the integrator then.
 
