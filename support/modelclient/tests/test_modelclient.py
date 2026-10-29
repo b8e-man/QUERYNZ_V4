@@ -141,3 +141,38 @@ def test_a_short_answer_is_an_error_not_a_silent_gap(tmp_path):
         mc.embed(EURL, lane="search", model="bge-m3-q8", texts=TEXTS, post=one_short, get=holds(), ledger=ledger)
     rec = json.loads(open(ledger).read().splitlines()[-1])
     assert rec["ok"] is False
+
+
+def test_a_chat_call_reads_the_served_model_back_before_sending(tmp_path):
+    """Ruling 121: Radiance echoes the requested name in its answer, so the
+    answer alone would let a call for Qwen3.6 through to Flash-Next."""
+    ledger = str(tmp_path / "calls.jsonl")
+    sent = []
+    echo = lambda url, body, timeout: sent.append(body) or {"model": body["model"], "choices": [], "usage": {}}  # noqa: E731
+    holds = lambda name: (lambda url, timeout: {"data": [{"id": name}]})  # noqa: E731
+    with pytest.raises(mc.WrongModel):
+        mc.chat(URL, lane="any", model="qwen3.6-35b-a3b-q4km", messages=MSGS, post=echo, get=holds("qwen4exp"), ledger=ledger)
+    assert sent == [], "nothing is sent to a server holding another model"
+    out = mc.chat(URL, lane="any", model="qwen4exp", messages=MSGS, post=echo, get=holds("qwen4exp"), ledger=ledger)
+    assert out["model"] == "qwen4exp" and len(sent) == 1
+    lines = [json.loads(l) for l in open(ledger)]
+    assert lines[0]["ok"] is False and lines[0]["model_mismatch"] and lines[1]["read_back"] == "qwen4exp"
+
+
+def test_radiance_s_answer_shape_is_accepted(tmp_path):
+    """The answer Radiance 1.13 gives (system_fingerprint, timings, reasoning
+    token details) passes as an OpenAI-style chat answer."""
+    ledger = str(tmp_path / "calls.jsonl")
+    answer_ = {"id": "chatcmpl-0ea8", "object": "chat.completion", "created": 1793257205, "model": "qwen4exp",
+               "system_fingerprint": "radiance-1.13.0",
+               "choices": [{"index": 0, "message": {"role": "assistant", "content": "OK"}, "logprobs": None,
+                            "finish_reason": "stop"}],
+               "usage": {"prompt_tokens": 15, "completion_tokens": 2, "total_tokens": 17,
+                         "prompt_tokens_details": {"cached_tokens": 0}, "completion_tokens_details": {"reasoning_tokens": 0}},
+               "timings": {"prompt_n": 15, "prompt_ms": 67.8}}
+    out = mc.chat(URL, lane="board", model="qwen4exp", messages=MSGS, post=lambda *a: answer_,
+                  get=lambda url, timeout: {"object": "list", "data": [{"id": "qwen4exp", "owned_by": "radiance"}]},
+                  ledger=ledger)
+    assert out["choices"][0]["message"]["content"] == "OK"
+    line = json.loads(open(ledger).read().splitlines()[-1])
+    assert line["ok"] and line["prompt_tokens"] == 15 and line["completion_tokens"] == 2
