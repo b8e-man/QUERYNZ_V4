@@ -33,12 +33,39 @@ memory_reserve_gb = 40        # step 2.5: kept for the database and the standing
 lease_seconds = 90            # step 2.8: a running job renews its lease well inside this
 policy = "priority-ordered-round-robin"
 
+# THE STANDING SERVER'S NIGHT WINDOW (ruling 129, 30 October 2026). Flash-Next
+# on Radiance holds both of node2's cards (56.0 GB over the two, measured 30
+# October) and the page reader (4.8 GB) fits on neither beside it: card 0 had
+# 2.3 GB free and card 1 4.2 GB. So between these local hours, when a job on
+# `profile` is queued and no piece of a view on `standing` (text-reader,
+# review) is running or leased, the card manager stops the standing server's
+# unit, waits until the cards no longer hold its model, and loads `profile`
+# on `card` for the queued pieces; the standing server's OTHER card is held
+# reserved meanwhile, so the frozen product's OCR server (querynz-vision-ocr,
+# :8032, 4.7 GB over both cards, never touched) keeps its room. When the page
+# queue is empty, or a text-reader or review piece is due, or the window ends,
+# whichever is first, the manager unloads `profile`, starts the unit again and
+# waits for the model to read back. Every stop and start is a swap-ledger
+# line with its reason and the measured seconds (Radiance starts in 21.6 s).
+# Outside the window the standing server is never stopped or planned (ruling
+# 121). The frozen release runs at 06:15 NZDT and never calls Flash-Next. The
+# hours are local time in `timezone`, so the clock change moves nothing here.
+[night_window]
+start_local = "22:00"
+end_local = "05:45"
+timezone = "Pacific/Auckland"
+standing = "flash-next"
+profile = "page-reader"
+card = 1
+
 # Step 2.9: the cards the carve-out holds. The planner never evicts these.
 # Ruling 121 (29 October 2026): the frozen chat model (querynz-agent-llm,
 # :8020) left the carve-out, and qv4-radiance holds both of node2's cards
-# as the standing profile flash-next, which the planner never plans. The
-# frozen OCR server (querynz-vision-ocr, :8032) keeps its room inside
-# Radiance's --gpu-headroom-mib on each card, so no card is reserved here.
+# as the standing profile flash-next, which the planner never plans (inside
+# the night window above the card manager, not the planner, takes them for
+# the page reader and gives them back). The frozen OCR server
+# (querynz-vision-ocr, :8032) keeps its room inside Radiance's
+# --gpu-headroom-mib on each card, so no card is reserved here.
 # node1 is out (ruling 55); a reservation for it goes here when it returns.
 
 # ── the founding jobs, on the queue's clock (step 2.12) ─────────────────────

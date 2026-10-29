@@ -1,7 +1,8 @@
 [Unit]
 Description=QueryNZV4 model server — Qwen3.8-Flash-Next on Radiance across both cards, 127.0.0.1:8060 (ruling 121)
 # The estate's text-reader and review model on node2 (profiles.toml, profile flash-next). A standing server, not a
-# worker's child: the card manager reads its model back and records the load; it never starts or stops it.
+# worker's child: the card manager reads its model back and records the load. It stops and starts this unit in one
+# case only, the night window of jobs.toml [night_window] (ruling 129: 22:00 to 05:45 NZDT, for the page reader).
 # --gpu-headroom-mib leaves 2.5 GiB of each card unclaimed for the frozen product's OCR server (hard limit 23); the
 # frozen chat model left the carve-out by ruling 121 and is Arthur's to disable. This unit names neither.
 After=network-online.target
