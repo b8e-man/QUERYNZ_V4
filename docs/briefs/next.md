@@ -566,6 +566,47 @@ bulk until the build is done. A lane's request for readings is answered
 with the store's sample and a note; the hashes it sets aside are the queue
 for later, one command.
 
+## fix-support-scheduler-3
+
+Fix session, Fable, scope `support/scheduler/`. Ruling 129: the standing
+server's night window. Launched headless by the integrator 30 October, or on
+node2: `cd /home/user/querynzv4 && bin/fix support/scheduler`.
+
+```text
+You are a fix session for QueryNZV4, running as Fable on node2, in the
+working copy the launcher made for you, scope support/scheduler/. Read
+docs/PLAN.md, docs/plan/core.md, support/scheduler/spec.md, cards.py
+(the standing-server section, ruling 121), policy.py, profiles.toml,
+jobs.toml, and rulings 121, 128 and 129 (30 October) in
+docs/decisions/rulings.md. Build ruling 129: a night window in which the
+card manager may stop the standing server qv4-radiance for the page
+reader and start it again. Rules: the window is 22:00 to 05:45 NZDT,
+its hours in jobs.toml's top section; inside it, when a page-reader job
+(profile page-reader) is queued and no piece of a view on flash-next
+(text-reader, review) is running or leased, the manager stops the unit
+with systemctl --user stop qv4-radiance.service, waits until the cards
+no longer hold its model, loads page-reader on one card (the other
+stays free for the frozen product's OCR server, which is never
+touched), and the planner runs the page pieces; when the page queue is
+empty, or at the window's end, or when a text-reader piece becomes due
+with none left to do, the manager unloads page-reader and starts the
+unit again, waits for the model to read back on :8060, and marks the
+cards standing as today. Outside the window the standing server is
+never stopped or planned (ruling 121 holds). Each stop and start is a
+swap-ledger line with its reason and the measured seconds. A failure to
+start the unit again is a card for the integrator and an alarm line,
+and the manager keeps trying each tick. Tests on the fake worker: the
+window opens and closes by the clock, a text piece in flight blocks
+the stop, the OCR server's card is never taken, the restart is
+retried. Measured figures today: Radiance 56.0 GB over both cards, the
+OCR server 4.7 GB, page-reader 4.8 GB; Radiance starts in 21.6 s. No
+model is called by the tests. Never print a home address or a
+suppressed name. Push your branch and raise fix-support-scheduler-3 in
+/home/user/querynzv4-work/inbox/merge-requests/ (if the fence refuses,
+leave it in your scratch folder and say so). Finish by telling the
+integrator what closed and what the first night will do.
+```
+
 ## fix-support-mcpsource-2
 
 Fix session, Fable, scope `support/mcpsource/`. Ruling 126: the pull lands

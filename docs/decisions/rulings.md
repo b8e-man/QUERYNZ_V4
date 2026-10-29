@@ -1143,3 +1143,19 @@ as concerns in their reports and briefs: the hard limits on suppressed
 names and home addresses stand as rules of the build, applied without
 comment. Built by `courts-2`; the reading infrastructure (page reader
 and text reader jobs on node2) is queued by the integrator.
+
+129. Arthur, 30 October, 12:10, on the queue item "where the page reader
+runs on node2 while Flash-Next holds both cards": "let's take the
+opportunity to set up the flash next deactivation and reactivation". So
+the scheduler gains a night window for the standing server: between
+22:00 and 05:45 NZDT (the frozen release runs at 06:15 and never calls
+Flash-Next, ruling 121), when page-reader work is queued and no
+text-reader or review piece is running, the card manager stops
+`qv4-radiance`, loads `page-reader` on a card for the queued page
+pieces, and starts `qv4-radiance` again when the page queue is empty or
+the window ends, whichever is first; it never stops the frozen product's
+OCR server. Outside the window the standing server is never touched,
+as ruling 121 says. Every stop and start is a line in the swap ledger
+with its reason. The board's chat pane says the model is not running
+while it is down (ruling 122). The window's hours live in jobs.toml.
+Built by a fix on `support/scheduler`. The queue item closes.
