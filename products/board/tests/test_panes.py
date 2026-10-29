@@ -215,9 +215,7 @@ def test_the_boxes_ride_every_href_so_search_all_off_and_on_loses_no_tick():
         links = hrefs(row + person + hit + page + picture)
         assert any("gv=1" in h and "d=companies" in h for h in links)              # a node re-centres beside the results
         assert not any(h.startswith("/graph") for h in hrefs(page)) and any(h.startswith("/?") for h in hrefs(page))   # ruling 111: no graph tab
-        switched = [h for h in links if carried(h) == b._replace(people=not b.people)]     # the state switch (ruling 105)
-        assert len(switched) == 1 and switched[0].startswith("/?") and "gv=1" in switched[0]
-        links = [h for h in links if h not in switched]
+        assert not any("g=" in h for h in links)                                  # the graph has one state (ruling 120)
         assert len(links) >= 8 and all(carried(h) == b for h in links), [h for h in links if carried(h) != b]
         pin = row[row.index('action="/pin"'):]
         sent = urllib.parse.parse_qs(urllib.parse.urlencode(re.findall(r'<input type="hidden" name="(all|r)" value="([^"]*)">', pin)))

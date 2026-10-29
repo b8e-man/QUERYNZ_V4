@@ -9,13 +9,13 @@ Routes:
   GET  /?q=<term>&p=<view:key|view:key|person:view:key…>&all=<0|1>&r=<register>…&first=&middle=&last=&address=&org=&year=
                     the search tab: the left pane (check boxes, the search box, the fields of the expanded search,
                     ruling 82), the results beside it with the near matches below them (ruling 83), then one pane per
-                    step of the path; ruling 108: the results under one tab per field matched, in rows or entities
-                    (`g=entities`), and an empty graph pane beside them that a click on a result fills from /graph.json
+                    step of the path; ruling 108: the results under one tab per field matched, as entities
+                    (rulings 111, 120), and an empty graph pane beside them that a click on a result fills from /graph.json
   GET  /?…&gv=1      ruling 111: the search page with the graph beside the results drawn now (the matching rows as
                     nodes, the connections their registers assert as edges, one hop; centred on `d` where given; a
                     Cytoscape canvas, ruling 100, with the SVG inside <noscript>)
   GET  /graph?q=&…&c=<view:key>   the graph tab's old address (the tab left the bar, ruling 111): a 303 to the
-                    search page on the same query, boxes and state with the graph open (`gv=1`), centred on `c`; so
+                    search page on the same query and boxes with the graph open (`gv=1`), centred on `c`; so
                     does `/?tab=graph…`
   GET  /graph.json?c=<view:key>&all=&r=…   the same graph as data (graph.answer): one row's one hop, for the canvas's taps
   GET  /dossier?d=<entity:group id|view:key>&q=&all=&r=…&dv=&do=   the dossier's pane alone (ruling 110, dossier.py), which
@@ -259,7 +259,7 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
                                       fold=collapse.folder(conn, boxes.collapse))     # ruling 112: a display choice, read only
             if asking or graph_open:                   # ruling 108 (4); ruling 110: the dossier under the graph
                 g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=asked if regs else None,
-                                removed=boxes.removed, people=boxes.people, collapse=boxes.collapse) if graph_open else None
+                                removed=boxes.removed, collapse=boxes.collapse) if graph_open else None
                 side = graph.side_pane(boxes, centre, g, q, regs, chosen)
                 out.append(f'<div class="duo">{pane}<div class="sidecol">{side}{dos}</div></div>')
             else:
@@ -301,8 +301,8 @@ def render_graph(q: str, centre: str = "", conn=None, boxes: search.Boxes = sear
 def graph_redirect(qs: dict) -> str:
     """The address the graph tab's old address answers with (ruling 111):
     `/graph?q=&…&c=&d=` and `/?tab=graph…`, as saved before the tab left the
-    bar, become the search page on the same query, check boxes and state
-    (`g=entities`), the graph open beside the results (`gv=1`), centred on
+    bar, become the search page on the same query and check boxes (a `g=` is
+    dropped: the graph has one state, ruling 120), the graph open beside the results (`gv=1`), centred on
     `d`, else `c`, whose dossier opens under it."""
     q = (qs.get("q") or [""])[0].strip()[:200]
     d = dossier.parse((qs.get("d") or [""])[0]) or parse_centre((qs.get("c") or [""])[0])
@@ -320,7 +320,7 @@ def graph_answer(q: str, centre: str = "", conn=None, boxes: search.Boxes = sear
         if opened:
             return graph.opened(people.entity(conn, opened), q, boxes)
         g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None,
-                        removed=boxes.removed, people=boxes.people, collapse=boxes.collapse)
+                        removed=boxes.removed, collapse=boxes.collapse)
         return graph.answer(g, q, boxes)
 
 

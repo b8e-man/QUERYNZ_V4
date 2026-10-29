@@ -115,16 +115,16 @@ def test_the_fullest_name_is_most_words_then_most_letters_then_first():
 
 def test_the_people_answer_carries_the_state_its_entities_and_their_open_hrefs(reads):
     from products.board import search
-    boxes = search.Boxes(False, ("companies",), people=True)
+    boxes = search.Boxes(False, ("companies",))
     data = graph.answer(people.fold(None, rows_graph()), "hart", boxes)
     assert data["mode"] == "entities"
     kinds = {n["id"]: n["kind"] for n in data["nodes"]}
     assert kinds["entity:G1"] == "entity" and kinds["directors:" + D3] == "lone" and kinds["directors:" + S1] == "apart"
     e = next(n for n in data["nodes"] if n["id"] == "entity:G1")
-    assert e["open"].startswith("/graph.json?open=G1&") and "g=entities" in e["open"] and e["contested"]
+    assert e["open"].startswith("/graph.json?open=G1&") and "r=companies" in e["open"] and e["contested"]
     assert e["pane"].startswith("/?") and "entity%3AG1" in e["pane"] and e["count"] == "3 rows, 2 registers"
     lone = next(n for n in data["nodes"] if n["id"] == "directors:" + D3)
-    assert "g=entities" in lone["grow"]                                   # a lone row grows its one hop in the same state
+    assert "r=companies" in lone["grow"] and "g=" not in lone["grow"]     # a lone row grows its one hop with the boxes
     role = next(x for x in data["edges"] if x["source"] == "entity:G1")
     assert [p[0] for p in role["causes"][0]["rows"]] == ["Jane Mary Hart", "Jane Hart"]
     assert "Hidden Hart" not in graph.to_json(data)
@@ -141,15 +141,6 @@ def test_an_opened_entity_answers_its_rows_as_children_joined_by_the_rule(monkey
     assert all(n["parent"] == "entity:G1" and n["kind"] == "child" for n in data["nodes"])
     assert len(data["edges"]) == 1 and data["edges"][0]["words"] == cat.rule_words("full-name@1") and not data["edges"][0]["dashed"]
     assert graph.opened(None, "hart")["nodes"] == []
-
-
-def test_the_switch_is_one_control_and_the_address_carries_the_state():
-    from products.board import search
-    rows_view = graph.switch("hart", search.FIRST)
-    people_view = graph.switch("hart", search.FIRST._replace(people=True))
-    assert 'aria-current="true">rows<' in rows_view and "g=entities" in rows_view
-    assert 'aria-current="true">entities<' in people_view and "g=entities" not in people_view
-    assert search.boxes_of({"g": ["entities"]}).people and not search.boxes_of({"g": ["rows"]}).people
 
 
 def test_the_entity_pane_lists_the_rows_the_rules_with_evidence_and_the_near_with_reasons():
@@ -177,3 +168,14 @@ def test_the_entity_pane_lists_the_rows_the_rules_with_evidence_and_the_near_wit
 def test_an_entity_step_rides_the_path():
     from products.board import server
     assert server.parse_path("entity:companies:c/1|directors:k|entity:") == ["entity:companies:c/1", "directors:k"]
+
+
+def test_an_entity_s_merged_causes_cite_the_latest_filing_never_one_not_in_the_latest_file(reads):
+    """The card of 29 October, fault 2: two rows of one entity assert one connection; the row found first is the
+    July filing, not in the latest file, and the August one is cited."""
+    g = rows_graph()
+    g["nodes"]["directors:" + D1]["row"].update(in_latest=False, last_file="companies-2026-07")
+    g["nodes"]["directors:" + D2]["row"].update(in_latest=True, last_file="companies-2026-08")
+    lifted = next(e for e in people.fold(None, g)["edges"] if e["a"] == "entity:G1")
+    assert lifted["cite"] == "directors:" + D2 and [r[2] for r in lifted["rows"]] == ["directors:" + D1, "directors:" + D2]
+    assert people.filing({"row": {"in_latest": None, "last_file": None}}) > people.filing({"row": {"in_latest": False, "last_file": "z"}})

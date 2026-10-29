@@ -85,12 +85,18 @@ def test_a_shared_first_and_last_name_folds_the_groups_that_share_it():
     assert collapse.words(by) == "collapsed here by shared name; not a link"
 
 
-def test_a_shared_full_name_folds_only_names_with_middle_names():
-    (f,) = folded(GROUPS, ("full",))
-    assert [m["id"] for m in f["fold"][1]] == ["entity:G1", "entity:G3"]                 # G2's full key has no middle name
-    bloggs = [entry(0, DIRECTORS, person("d4", "Joe Bloggs")), entry(1, DIRECTORS, person("d5", "Joe Bloggs"))]
-    assert len(folded(bloggs, ("name",))) == 1 and folded(bloggs, ("full",)) == []        # one full key, but no middle name
-    assert collapse.words(f["fold"][0]) == "collapsed here by shared full name; not a link"
+def test_the_shared_full_name_left_the_list_and_an_address_naming_it_is_read_without_it():
+    """Ruling 118: a shared full name with middle names is the links lane's rule 1, so it leaves the section;
+    `cl=full` on a saved address is read without it, and a fold's dossier address naming it alone is no fold."""
+    assert "full" not in collapse.CHOICES and "full" not in search.COLLAPSE_CHOICES
+    assert [c for c, _, _ in collapse.CRITERIA] == ["groups", "name", "address", "number"]
+    assert search.boxes_of({"cl": ["full", "name"]}).collapse == ("name",) and search.boxes_of({"cl": ["full"]}).collapse == ()
+    assert collapse.chosen(["full"]) == () and collapse.parse("fold:full:entity:G1,entity:G3") is None
+    assert folded(GROUPS, ("full",)) == [] and not SAID                                    # nothing ticked that the section knows
+    html = panes.results_pane("hart", {"companies": [(DIRECTORS, 1, [person("g1a", "Jane Mary Hart")])], "held": {"directors"},
+                                       "hidden": {}, "tabs": None}, {"directors"}, ("companies",),
+                              search.boxes_of({"q": ["hart"], "cl": ["full"]}), ents=ents_of(GROUPS))
+    assert 'value="full"' not in html and "middle names" not in html
 
 
 def test_a_shared_registered_address_folds_companies_and_never_asks_for_a_person_s():
@@ -164,14 +170,14 @@ def test_the_results_pane_holds_the_section_closed_and_the_folded_entry_says_so(
     ents["group"] = {f"directors:{k}": g for g, k in (("G1", "g1a"), ("G2", "g2a"), ("G3", "g3a"))}
     rows = [r for x in GROUPS for _, r in x["in_hand"]]
     res = {"companies": [(DIRECTORS, 3, rows)], "held": {"directors"}, "hidden": {}, "tabs": None}
-    boxes = search.FIRST._replace(collapse=("name",), people=True)
+    boxes = search.FIRST._replace(collapse=("name",))
     plain = panes.results_pane("hart", res, {"directors"}, ("companies",), boxes._replace(collapse=()), ents=ents)
     html = panes.results_pane("hart", res, {"directors"}, ("companies",), boxes, ents=ents,
                               fold=collapse.folder(None, boxes.collapse))
     assert '<details class="collapse" id="collapse"><summary>collapse' in html and "<details class=\"collapse\" id=\"collapse\" open" not in html
     section = html[html.index('id="collapse"'):html.index("</details>", html.index('id="collapse"'))]
     assert 'checked disabled> the links lane' in section and 'name="cl" value="name" checked' in section
-    assert 'name="cl" value="number">' in section and 'name="g" value="entities"' in section and 'name="cl" value="name"' in section
+    assert 'name="cl" value="number">' in section and 'name="g"' not in section and 'name="cl" value="name"' in section
     assert section.count('type="hidden" name="cl"') == 0                                  # the boxes themselves carry cl
     assert html.index('id="collapse"') < html.index("<h3>Entities")
     assert plain.count('class="hit entity"') == 3 and html.count('class="hit entity folded"') == 1
@@ -226,7 +232,7 @@ def test_the_graph_answer_carries_the_fold_s_words_and_its_dossier():
     out = collapse.fold_graph(None, g, ("name",), rows)
     out.update({"drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS}, "not_drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS},
                 "matched_total": 3, "unresolved": 0, "centre": ""})
-    data = graph.answer(out, "hart", search.FIRST._replace(people=True, collapse=("name",)))
+    data = graph.answer(out, "hart", search.FIRST._replace(collapse=("name",)))
     (n,) = [n for n in data["nodes"] if n.get("kind") == "fold"]
     assert n["words"] == "collapsed here by shared name; not a link" and n["dossier"].startswith("fold:name:")
     assert "d=fold%3Aname%3A" in n["pane"] and n["grow"] == ""
@@ -254,8 +260,6 @@ def test_a_row_pub_names_does_not_hold_is_keyed_from_its_own_name_columns():
                        entry(5, OFFICERS, hidden)]
     (f,) = folded(xs, ("name",))
     assert [m["id"] for m in f["fold"][1]] == ["entity:G1", "entity:G2", "charity_officers:o1", "gazette_celebrants:c1"]
-    (f,) = folded(xs, ("full",))
-    assert [m["id"] for m in f["fold"][1]] == ["entity:G1", "charity_officers:o1", "gazette_celebrants:c1"]
     assert collapse.row_name_keys(CELEBRANTS, celebrant) == ("jane hart", "jane mary hart", True) == NAMES["companies:g1a"][1:]
     assert collapse.row_name_keys(OFFICERS, hidden) is None
     assert collapse.row_name_keys(CELEBRANTS, {**celebrant, "surname": "HART TRUST"}) is None     # an organisation word abstains
@@ -268,3 +272,65 @@ def test_a_row_pub_names_holds_is_never_re_read_from_its_columns():
           entry(2, OFFICERS, {"key": "o1", "first_name": "Joe", "last_name": "Bloggs", "full_name": "Joe Bloggs", "suppressed": False})]
     (f,) = folded(xs, ("name",))                                                          # d4 is Joe Bloggs in pub.names, not Jane Hart
     assert [m["id"] for m in f["fold"][1]] == ["directors:d4", "charity_officers:o1"]
+
+
+def falls_graph():
+    """The card of 29 October in small: one charity entity and two shareholder rows of one holder in one company,
+    the July filing (not in the latest file) found before the August one, folded by "a shared first and last name"."""
+    n = lambda v, r, order, matched=True, **kw: {"v": v, "row": r, "matched": matched, "centre": False, "order": order,
+                                                  "parent": None, **kw}
+    held = lambda key, latest, last: {"key": key, "entity_key": "companies/c1", "name": "Joe BLOGGS", "suppressed": False,
+                                      "in_latest": latest, "last_file": last}
+    officer = {"key": "o9", "full_name": "Joe Bloggs", "suppressed": False}
+    nodes = {"entity:G9": n(OFFICERS, officer, 0, title="Joe Bloggs",
+                            entity={"group_id": "G9", "in_hand": ["charity_officers:o9"], "rows": 1, "count": "1 row, 1 register"}),
+             "shareholders:s1": n(SHAREHOLDERS, held("s1", False, "companies-2026-07"), 1, lone=True),
+             "shareholders:s2": n(SHAREHOLDERS, held("s2", True, "companies-2026-08"), 2, lone=True),
+             "companies:companies/c1": n(COMPANIES, company("companies/c1", "SIMPLE LIMITED"), 3, matched=False, lone=True)}
+    edges = [{"kind": "role", "a": s, "b": "companies:companies/c1", "label": "shareholder of", "cite": s, "rule": None}
+             for s in ("shareholders:s1", "shareholders:s2")]
+    rows = {**nodes, "charity_officers:o9": {"v": OFFICERS, "row": officer}}
+    g = {"nodes": nodes, "edges": edges, "people": True, "inside": 0, "decisions": {}, "lineage": [], "centre": "",
+         "drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS}, "not_drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS},
+         "matched_total": 3, "unresolved": 0, "entities": 1, "lone": 3}
+    return g, rows
+
+
+@pytest.fixture
+def one_name(monkeypatch):
+    monkeypatch.setattr(collapse, "keys", lambda conn, units, criteria: {
+        u["id"]: {"name": {"joe bloggs"}} for u in units if not u["id"].startswith("companies:")})
+
+
+def test_a_graph_fold_is_typed_and_coloured_by_the_whole_fold_never_its_first_member(one_name):
+    """Ruling 120 with the card's fault 1: the entity sorts first, but two of the fold's three rows are a company's."""
+    g, rows = falls_graph()
+    out = collapse.fold_graph(None, g, ("name",), rows)
+    (fid,) = [k for k, x in out["nodes"].items() if x.get("fold")]
+    assert fid == "fold:entity:G9"                                                       # still named by its member
+    assert out["nodes"][fid]["v"].register == "companies" and out["nodes"][fid]["title"] == "Joe Bloggs"
+    from products.board import graph
+    (n,) = [n for n in graph.answer(out, "bloggs", search.FIRST)["nodes"] if n.get("kind") == "fold"]
+    assert n["register"] == "companies" and n["colour"] == cat.REGISTER_COLOUR["companies"]
+
+
+def test_causes_merged_into_one_edge_cite_the_latest_filing(one_name):
+    """The card's fault 2: two shareholdings folded into one edge cite the August filing, never the July one."""
+    g, rows = falls_graph()
+    out = collapse.fold_graph(None, g, ("name",), rows)
+    (e,) = out["edges"]
+    assert e["cite"] == "shareholders:s2"
+    g["edges"].reverse()                                                                  # whichever was found first
+    assert collapse.fold_graph(None, g, ("name",), rows)["edges"][0]["cite"] == "shareholders:s2"
+
+
+def test_no_more_match_note_when_every_matching_row_is_drawn_inside_a_fold(one_name):
+    """The card's fault 3: three rows match and all three are drawn, folded into one node."""
+    from products.board import graph
+    g, rows = falls_graph()
+    out = collapse.fold_graph(None, g, ("name",), rows)
+    text = "".join(graph.body(out, "bloggs", search.FIRST))
+    assert "3 matching rows drawn as 1 nodes" in text and "more match" not in text
+    g["matched_total"] = 5
+    out = collapse.fold_graph(None, g, ("name",), rows)
+    assert "2 more match: narrow the search" in "".join(graph.body(out, "bloggs", search.FIRST))

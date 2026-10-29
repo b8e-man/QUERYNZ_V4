@@ -1,6 +1,6 @@
-"""The results pane of ruling 108, on fixtures: the rows and entities switch
-governs it (entities first, then the rows in no group, a suppressed row never
-gathered); tabs by the field a hit matched, for the search box and for "any
+"""The results pane of ruling 108, on fixtures: entities alone (ruling 111;
+the graph's one state, ruling 120: groups first, then the rows in no group, a
+suppressed row never gathered); tabs by the field a hit matched, for the search box and for "any
 field may match", each register closed to its name and count, none for "all
 fields must match"; every result carries the graph it opens beside the pane."""
 import re
@@ -60,12 +60,11 @@ def test_the_rows_in_one_group_are_one_entity_and_a_suppressed_row_is_never_gath
 ROW_CARD = re.compile(r'<article class="hit"|<table class="f">|class="cite')     # a row's own card: its fields, its citation
 
 
-@pytest.mark.parametrize("state", [False, True])
-def test_the_results_list_entities_alone_in_either_state(reads, state):
+def test_the_results_list_entities_alone(reads):
     """Ruling 111: groups first, then each row in no group as an entity of one
-    row; no row's card anywhere in the pane, whichever state the switch is in."""
+    row; no row's card anywhere in the pane."""
     ents = people.gather(None, hits())
-    boxes = search.FIRST._replace(people=state)
+    boxes = search.FIRST
     html = panes.results_pane("hart", results_of([r for _, r in hits()]), {"directors"}, ("companies",), boxes, ents=ents)
     entities, lone = html.index("<h3>Entities"), html.index("<h4>Single-row entities")
     assert '<span class="count">3</span></h3>' in html                                     # G1, then Joe Hart and the suppressed row
@@ -79,7 +78,7 @@ def test_the_results_list_entities_alone_in_either_state(reads, state):
     assert "1 row, 1 register" not in html and "single-row entity" not in html and "· directors</div>" not in html
     assert "Jane Mary Hart" not in after and "Hidden" not in html
     assert f'data-dossier="directors:{D3}"' in after and 'data-dossier="entity:G1"' in html[:lone]
-    assert 'id="state"' not in html                                                       # the switch is the graph's alone (ruling 111)
+    assert 'id="state"' not in html                                                       # no switch anywhere (ruling 120)
 
 
 def test_an_entity_the_name_search_found_is_listed_after_those_in_hand_and_under_its_tab(reads):
@@ -87,7 +86,7 @@ def test_an_entity_the_name_search_found_is_listed_after_those_in_hand_and_under
     assert ents["entity"]["G2"]["contested"] and ents["named"] == {"G2": {"first", "last"}}
     res = results_of([row(D1, "Jane Hart", _tab_last=True, _tab_first=True)], last=1, first=1)
     res["tabs"] = search.BOX
-    html = panes.results_pane("hart", res, {"directors"}, ("companies",), search.FIRST._replace(people=True), ents=ents)
+    html = panes.results_pane("hart", res, {"directors"}, ("companies",), search.FIRST, ents=ents)
     for t in ("first", "last"):
         tab = html[html.index(f'id="ftab-{t}"'):]
         tab = tab[:tab.index("</div>\n<div") if "</div>\n<div" in tab else len(tab)]
@@ -153,16 +152,16 @@ def test_a_box_word_need_only_begin_a_name_word_in_its_place():
     assert not re.search(plain, "jane hartley") and re.search(plain, "jane hart")
 
 
-def test_every_result_carries_the_graph_it_opens_in_the_state_the_address_carries():
-    boxes = search.FIRST._replace(people=True)
+def test_every_result_carries_the_graph_it_opens_with_the_boxes_and_no_state():
+    boxes = search.FIRST._replace(collapse=("name",))
     html = panes.lone_hit("hart", DIRECTORS, row(D1, "Jane Hart"), ["hart"], boxes)
     url = re.search(r'data-graph="([^"]*)"', html).group(1).replace("&amp;", "&")
     qs = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
-    assert url.startswith("/graph.json?") and qs["c"] == [f"directors:{D1}"] and qs["g"] == ["entities"]
+    assert url.startswith("/graph.json?") and qs["c"] == [f"directors:{D1}"] and qs["cl"] == ["name"] and "g" not in qs
 
 
-def test_the_side_pane_is_the_canvas_empty_hidden_and_in_the_state():
-    side = graph.side_pane(search.FIRST._replace(people=True))
+def test_the_side_pane_is_the_canvas_empty_hidden_and_in_the_entities_state():
+    side = graph.side_pane(search.FIRST)
     assert 'class="pane side"' in side and 'id="cy"' in side and 'id="graph-data"' in side and "entities" in side
     data = side[side.index('id="graph-data">') + len('id="graph-data">'):side.index("</script>")]
     assert '"nodes":[]' in data and '"mode":"entities"' in data
@@ -200,20 +199,21 @@ def test_an_entity_is_found_by_the_key_it_matched_under_that_field_and_never_by_
     assert set(with_box) == {"G2"}                                                               # fields and the box: the box's words too
 
 
-def test_the_switch_is_on_the_graph_pane_alone_and_keeps_the_dossier_and_the_open_graph():
-    """Ruling 111: the rows and entities switch governs the graph alone; it
-    sits on the graph's pane, keeps `g=entities` in the address, the dossier
-    chosen and the graph open where it was."""
+def test_the_graph_has_one_state_entities_and_no_switch():
+    """Ruling 120: the rows mode, its switch and its address value leave; an
+    address naming either state (`g=rows`, `g=entities`) opens the entities
+    graph, the boxes read as without it and no href carries `g=`."""
     side = graph.side_pane(search.FIRST, "directors:a", q="hart", chosen="entity:G1")
-    assert side.count('id="state"') == 1 and 'aria-current="true">rows<' in side
-    url = re.search(r'id="state">show: .*?<a href="([^"]*)">entities</a>', side).group(1).replace("&amp;", "&")
-    qs = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
-    assert url.startswith("/?") and qs["g"] == ["entities"] and qs["d"] == ["entity:G1"] and "gv" not in qs
-    opened = graph.side_pane(search.FIRST._replace(people=True), g=graph_sample(), q="hart", chosen="")
+    opened = graph.side_pane(search.FIRST, g=graph_sample(), q="hart", chosen="")
+    for pane in (side, opened):
+        assert 'id="state"' not in pane and "aria-current" not in pane and ">rows</a>" not in pane and "g=" not in pane
+        assert "graph beside the results · entities" in pane
     assert 'data-inline="1"' in opened and 'class="pane side on"' in opened and "<svg" in opened
-    back = re.search(r'id="state">show: <a href="([^"]*)">rows</a>', opened).group(1).replace("&amp;", "&")
-    assert "g=" not in back and "gv=1" in back
-    assert "on the graph tab" not in side and "/graph?" not in side + opened
+    assert "the switch" not in side and "on the graph tab" not in side and "/graph?" not in side + opened
+    for g in (["rows"], ["entities"]):
+        assert search.boxes_of({"q": ["hart"], "cl": ["name"], "g": g}) == search.boxes_of({"q": ["hart"], "cl": ["name"]})
+    assert "people" not in search.Boxes._fields and "g" not in dict(search.FIRST._replace(collapse=("name",)).params())
+    assert "people" not in graph.build.__code__.co_varnames[:graph.build.__code__.co_argcount] and not hasattr(graph, "switch")
 
 
 def graph_sample():
@@ -232,8 +232,8 @@ def test_the_bar_has_no_graph_tab_and_the_old_address_answers_with_the_search_pa
     to = server.graph_redirect(old)
     qs = urllib.parse.parse_qs(urllib.parse.urlsplit(to).query)
     assert to.startswith("/?") and qs["q"] == ["Graeme Hart"] and qs["r"] == ["companies", "party_returns"]
-    assert qs["all"] == ["0"] and qs["g"] == ["entities"] and qs["d"] == [f"directors:{D1}"] and qs["gv"] == ["1"]
-    assert search.boxes_of(qs) == search.boxes_of(old)                                           # the same boxes and state
+    assert qs["all"] == ["0"] and "g" not in qs and qs["d"] == [f"directors:{D1}"] and qs["gv"] == ["1"]
+    assert search.boxes_of(qs) == search.boxes_of(old)                                           # the same boxes; the state is one
     plain = urllib.parse.parse_qs(urllib.parse.urlsplit(server.graph_redirect({"q": ["hart"], "tab": ["graph"]})).query)
     assert plain == {"q": ["hart"], "all": ["1"], "gv": ["1"]}                                  # the whole search, no centre
     assert "d" not in urllib.parse.parse_qs(server.graph_redirect({"c": ["nosuchview:1"]}).split("?")[1])
