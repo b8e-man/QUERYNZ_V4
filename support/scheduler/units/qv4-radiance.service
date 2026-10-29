@@ -1,0 +1,52 @@
+[Unit]
+Description=QueryNZV4 model server — Qwen3.8-Flash-Next on Radiance across both cards, 127.0.0.1:8060 (ruling 121)
+# The estate's text-reader and review model on node2 (profiles.toml, profile flash-next). A standing server, not a
+# worker's child: the card manager reads its model back and records the load; it never starts or stops it.
+# --gpu-headroom-mib leaves 2.5 GiB of each card unclaimed for the frozen product's OCR server (hard limit 23); the
+# frozen chat model left the carve-out by ruling 121 and is Arthur's to disable. This unit names neither.
+After=network-online.target
+Wants=network-online.target
+# a server that cannot start says so three times in ten minutes (each failure alarms) and then stops trying
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=notify
+NotifyAccess=all
+Environment=PODMAN_SYSTEMD_UNIT=%n
+# The pinned host pool needs memlock unlimited; the user manager's own limit is unlimited on node2. The pool is 11 GiB
+# a rank, not the experiment's 10: started after the OCR server, Radiance counts that server's ~2.2 GiB a card as
+# already held AND keeps the 2.5 GiB headroom, and at 10 GiB the experts were 0.44 GiB short (out of memory at start,
+# 29 October 20:16). At 11 GiB it starts whichever of the two comes up first on a boot.
+LimitMEMLOCK=infinity
+# Rootless podman drops the render nodes when given /dev/dri whole: each card's node is passed by itself. The
+# container listens on every address inside; the publish binds the loopback only. The n-gram table is read from the
+# model file on disk (--ngram-placement disk: 24-28 GB of host memory rather than 91). Thinking is off by default;
+# a profile that wants it (review) says so per request, and a request wins.
+ExecStart=/usr/bin/podman run --cidfile=%t/%n.ctr-id --cgroups=no-conmon --rm --sdnotify=conmon --replace -d \
+  --name qv4-radiance \
+  --device /dev/kfd --device /dev/dri/renderD128 --device /dev/dri/renderD129 \
+  --ipc host \
+  --security-opt seccomp=unconfined --cap-add=SYS_PTRACE \
+  --ulimit memlock=-1:-1 \
+  -e HIP_VISIBLE_DEVICES=0,1 \
+  -p 127.0.0.1:8060:8060 \
+  -v /home/user/models/radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad:/model.rad:ro \
+  docker.io/stilldeadcode/radiance:latest \
+  --model /model.rad --served-model-name qwen4exp \
+  --tp 2 --tp-wire exact \
+  --max-model-len 16384 --max-num-seqs 16 --kv-cache-dtype fp8 \
+  --placement expert_tiered --host-pool-mib 11264 --gpu-headroom-mib 2560 \
+  --ngram-placement disk --num-speculative-tokens 3 --draft-window adaptive \
+  --max-num-batched-tokens 4096 --checkpoint-policy tip-only \
+  --chat-template-kwargs '{"enable_thinking":false}' \
+  --host 0.0.0.0 --port 8060
+ExecStop=/usr/bin/podman stop --ignore -t 30 --cidfile=%t/%n.ctr-id
+ExecStopPost=/usr/bin/podman rm -f --ignore -t 10 --cidfile=%t/%n.ctr-id
+TimeoutStartSec=300
+TimeoutStopSec=60
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=default.target

@@ -20,10 +20,23 @@ which is allowed: it is a program, not the frozen product's servers.
 
 Ports: 8110 + card index, far from the carve-out's 8020/8032/8090 and the
 product's 8300/8301.
+
+A STANDING SERVER IS NOT A CHILD (ruling 121). Radiance serves Flash-Next on
+both of node2's cards from its own unit, `qv4-radiance`, so a boot brings it
+back without a worker. Its profile names the unit, the port and the number
+of cards; the manager asks that port every tick, reads the model back, and
+marks the cards as holding the profile when it answers with the profile's
+model, or as held and reserved when it does not (starting, stopped, wrong
+model). The planner sees those cards as reserved and never plans them; a
+load of a standing profile, or of a view on one, is never acted on. The
+standing load is recorded in the swap ledger when this worker first sees
+the server answer, with the time since the unit started when it saw the
+server down before (a measured load), and a `died` line when it stops.
 """
 from __future__ import annotations
 
 import os
+import re
 import signal
 import subprocess
 import time
@@ -72,6 +85,20 @@ def server_argv(binary: str, prof: reg.Profile, card: int, port: int, models_dir
     return argv
 
 
+def unit_active_seconds(unit: str) -> float | None:
+    """Seconds since a user unit last became active, from systemd's own
+    monotonic clock; None when it cannot say."""
+    try:
+        r = subprocess.run(["systemctl", "--user", "show", "-p", "ActiveEnterTimestampMonotonic", "--value", unit],
+                           capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    m = re.match(r"\s*(\d+)", r.stdout or "")
+    if r.returncode or not m or int(m.group(1)) == 0:
+        return None
+    return round(time.clock_gettime(time.CLOCK_MONOTONIC) - int(m.group(1)) / 1e6, 1)
+
+
 class Server:
     def __init__(self, proc: subprocess.Popen, prof: reg.Profile, card: int, port: int, started: float):
         self.proc, self.prof, self.card, self.port, self.started = proc, prof, card, port, started
@@ -81,7 +108,8 @@ class Manager:
     """One per worker. Pure decisions come from `policy.plan`; this performs
     them on this box's cards and keeps the `cards` table true."""
 
-    def __init__(self, *, popen=None, ask=None, models_dir: str = None, log=None, reservations: list = None):
+    def __init__(self, *, popen=None, ask=None, models_dir: str = None, log=None, reservations: list = None,
+                 active_seconds=None):
         self.popen = popen or subprocess.Popen
         self.ask = ask or pb.ask_server
         self.models_dir = models_dir
@@ -90,6 +118,9 @@ class Manager:
         self.round_done: frozenset = frozenset()
         self.holder_since: dict[int, float] = {}
         self.failed_loads: dict[str, tuple] = {}     # profile → the box's programs when its load failed here
+        self.active_seconds = active_seconds or unit_active_seconds
+        self.standing_seen: dict[str, bool] = {}     # standing profile → answering at the last look (absent: not yet looked)
+        self.skipped_loads: set[str] = set()         # standing profiles a planned load was refused for, logged once
         self.log = log
         self.worker = None
 
@@ -130,6 +161,56 @@ class Manager:
                     q.record_swap(worker.conn, worker.schema, worker.box, c["index"], "stray", "a server this worker did not start "
                                   "answers on the card's port", served_model=stray["served"], by_worker=worker.name, ok=False)
             q.upsert_card(worker.conn, worker.schema, worker.box, c["index"], **fields)
+        self.mark_standing(worker)
+
+    # ── standing servers (ruling 121) ────────────────────────────────────────
+
+    def standing_profiles(self, worker) -> list[reg.Profile]:
+        """The standing servers this box runs: the profile's program is here."""
+        progs = worker.profile.get("programs") or {}
+        return [p for p in worker.profiles.values() if p.standing and progs.get(p.binary)]
+
+    def standing_cards(self, worker, prof: reg.Profile) -> list[int]:
+        reserved = {r.key for r in self.reservations}
+        idx = sorted(c["index"] for c in worker.profile.get("cards") or [] if f"{worker.box}:{c['index']}" not in reserved)
+        return [i for i in idx if i not in self.servers][:prof.cards]
+
+    def mark_standing(self, worker) -> None:
+        """Read each standing server's model back and mark its cards."""
+        for prof in self.standing_profiles(worker):
+            a = self.ask(prof.port)
+            up = bool(a["healthy"]) and a["served"] == prof.model
+            was = self.standing_seen.get(prof.name)
+            idx = self.standing_cards(worker, prof)
+            for card in idx:
+                if up:
+                    q.upsert_card(worker.conn, worker.schema, worker.box, card, profile=prof.name, port=prof.port, pid=None,
+                                  holder=None, draining=False, slots=prof.slots, slots_busy=None, reserved=False,
+                                  reserved_why=None, worker=worker.name)
+                else:
+                    why = (f"{prof.unit} holds this card for {prof.name}; it answers on :{prof.port} with {a['served']!r}, "
+                           f"not {prof.model!r}" if a["served"] else f"{prof.unit} holds this card for {prof.name}; "
+                           f"not answering on :{prof.port}")
+                    q.upsert_card(worker.conn, worker.schema, worker.box, card, profile=None, port=None, pid=None, holder=None,
+                                  draining=False, slots=None, slots_busy=None, reserved=True, reserved_why=why,
+                                  worker=worker.name)
+            if up and was is not True:
+                seconds = self.active_seconds(prof.unit) if was is False else None
+                for card in idx:
+                    q.record_swap(worker.conn, worker.schema, worker.box, card, "load",
+                                  f"standing: {prof.unit} serves {prof.model} on :{prof.port} across {len(idx)} card(s)",
+                                  to_profile=prof.name, by_worker=worker.name, load_seconds=seconds, served_model=a["served"],
+                                  ok=True, detail="seen answering after it was down" if was is False else "seen answering")
+                runs.placement(",".join(f"{worker.box}:{c}" for c in idx), "standing", None, f"{prof.unit} answering", prof.name)
+                self.log(f"cards {idx}: {prof.name} answering on :{prof.port} ({prof.unit})"
+                         + (f", {seconds:.0f}s after the unit started" if seconds is not None else ""))
+            elif not up and was is True:
+                for card in idx:
+                    q.record_swap(worker.conn, worker.schema, worker.box, card, "died",
+                                  f"standing: {prof.unit} stopped answering with {prof.model}", from_profile=prof.name,
+                                  by_worker=worker.name, served_model=a["served"], ok=False)
+                self.log(f"cards {idx}: {prof.name} not answering on :{prof.port}; held for {prof.unit}")
+            self.standing_seen[prof.name] = up
 
     # ── the tick ─────────────────────────────────────────────────────────────
 
@@ -138,8 +219,9 @@ class Manager:
         for c in q.cards(worker.conn, worker.schema, worker.box):
             if c["worker"] != worker.name and not c["reserved"]:
                 continue                      # another worker's card on this box
-            if c["reserved"]:
-                out.append(policy.Held(f"{worker.box}:{c['card']}", None, reserved=True, loaded=None))
+            if c["reserved"] or (c["profile"] in worker.profiles and worker.profiles[c["profile"]].standing):
+                # a fixed reservation, or a standing server's card: never planned
+                out.append(policy.Held(f"{worker.box}:{c['card']}", None, reserved=True, loaded=c["profile"]))
                 continue
             in_flight = 0
             if c["card"] in self.servers:
@@ -174,7 +256,7 @@ class Manager:
                 continue
             if jt.profile and self.failed_loads.get(jt.profile) == key:
                 continue
-            prof = worker.profiles.get(jt.profile) if jt.profile else None
+            prof = reg.server_of(worker.profiles, jt.profile) if jt.profile in worker.profiles else None
             if prof is not None and prof.binary and not progs.get(prof.binary):
                 continue                  # its profile's own server is not on this box
             out.add(jt.name)
@@ -183,6 +265,7 @@ class Manager:
     def tick(self, worker, now) -> None:
         now_s = now.timestamp()
         self._reap_dead_servers(worker)
+        self.mark_standing(worker)
         demands = q.demands(worker.conn, worker.schema, worker.registry, now=now)
         measured = q.measured_load_seconds(worker.conn, worker.schema)
         profiles = {n: (p if p.load_seconds is not None or n not in measured else
@@ -212,6 +295,14 @@ class Manager:
     def apply(self, worker, d: policy.Decision, now_s: float) -> None:
         card = int(d.card.rsplit(":", 1)[1])
         if d.action == policy.KEEP:
+            return
+        prof = worker.profiles.get(d.profile)
+        if d.action == policy.LOAD and prof is not None and (prof.standing or prof.on):
+            # its own unit serves it; the worker starts no server for it, on any card
+            if d.profile not in self.skipped_loads:
+                self.log(f"card {card}: a load of {d.profile} is not acted on: "
+                         f"{reg.server_of(worker.profiles, d.profile).unit} serves it")
+                self.skipped_loads.add(d.profile)
             return
         runs.placement(d.card, d.action, d.job_type, d.why, d.profile)
         if d.action == policy.DRAIN:

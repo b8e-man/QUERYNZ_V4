@@ -75,8 +75,11 @@ def test_the_model_server_is_copied_beside_never_over(tmp_path):
 def test_the_profiles_weights_are_planned_by_file():
     plan = inst.plan_models(reg.profiles(), "/nowhere")
     planned = {p["profile"] for p in plan}
-    assert planned == set(reg.profiles()), "every profile in the catalogue is planned"
-    assert {"text-reader", "review", "embedding", "page-reader"} <= planned, "the four founding profiles are among them"
+    profs = reg.profiles()
+    assert planned == {n for n, p in profs.items() if not p.on}, "every profile with weights of its own is planned"
+    assert {"flash-next", "embedding", "page-reader"} <= planned, \
+        "the founding profiles are among them; the text reader and review are views on flash-next (ruling 121)"
+    assert [p["file"] for p in plan if p["profile"] == "flash-next"] == ["/nowhere/radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad"]
     assert all(p["present"] is False for p in plan if p["file"].startswith("/nowhere/")), "nothing is under /nowhere"
     assert all(p["file"].startswith("/nowhere/") for p in plan if not p["profile"].startswith("trial-")), \
         "the founding profiles' weights are relative to the models folder; only the trial's name the second disk"

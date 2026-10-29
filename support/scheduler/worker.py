@@ -226,6 +226,11 @@ class Worker:
             committed = sum(r.memory_gb for r in self.running.values())
         return avail - self.rules.memory_reserve_gb - committed
 
+    def serving(self, profile: str) -> str:
+        """The profile a card must hold for a job on `profile`: a view's
+        standing server, otherwise the profile itself."""
+        return reg.server_of(self.profiles, profile).name if profile in self.profiles else profile
+
     def cards_here(self) -> list[dict]:
         return q.cards(self.conn, self.schema, self.box)
 
@@ -249,7 +254,8 @@ class Worker:
             if counts.get(jt.name, 0) >= min(jt.concurrency, max(fits, 0)):
                 continue
             if jt.profile:
-                if not any(c["profile"] == jt.profile and not c["draining"] and c["port"] and not c["reserved"] for c in cards):
+                on = self.serving(jt.profile)
+                if not any(c["profile"] == on and not c["draining"] and c["port"] and not c["reserved"] for c in cards):
                     continue
             out.append(jt.name)
         return out
@@ -368,13 +374,20 @@ class Worker:
             env["QV4_PIECE"] = str(piece["piece"])
             env["QV4_PIECE_KEY"] = piece["key"]
         if r.jt.profile:
-            card = next((c for c in self.cards_here() if c["profile"] == r.jt.profile and c["port"] and not c["draining"]), None)
+            on = self.serving(r.jt.profile)
+            card = next((c for c in self.cards_here() if c["profile"] == on and c["port"] and not c["draining"]
+                         and not c.get("reserved")), None)
             if card:
                 env["QV4_MODEL_URL"] = f"http://127.0.0.1:{card['port']}/v1/chat/completions"
                 env["QV4_MODEL_PORT"] = str(card["port"])
                 env["QV4_CARD"] = str(card["card"])
-            env["QV4_MODEL"] = self.profiles[r.jt.profile].model
+            prof = self.profiles[r.jt.profile]
+            env["QV4_MODEL"] = prof.model
             env["QV4_PROFILE"] = r.jt.profile
+            # what every request on this profile says (ruling 121: the reader's thinking off, review's on with a
+            # budget); a job merges it into its call
+            env["QV4_MODEL_REQUEST"] = json.dumps({"temperature": prof.temperature, "max_tokens": prof.max_tokens,
+                                                   **prof.request_fields}, sort_keys=True)
         return env
 
     def _run_one(self, conn, r: Running, piece: dict | None) -> runner.Result:

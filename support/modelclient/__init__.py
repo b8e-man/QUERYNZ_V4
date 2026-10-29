@@ -15,6 +15,16 @@ calls ledger, which never holds the prompt.
 Raises `Refused` before any bytes leave the box, `WrongModel` after an
 answer from the wrong model (the answer is discarded). Stdlib only; a
 caller may pass `post` for a test.
+
+THE SERVED MODEL IS READ BACK, ON A CHAT CALL TOO (ruling 121). Radiance
+answers whatever name a request asks for and echoes it in the answer's
+`model` field (measured 29 October 2026: a call for
+"qwen3.6-35b-a3b-q4km" to the Flash-Next server came back 200 with that
+name), as llama-server's embeddings answer does. So before the prompt is
+sent, the server's model list (`/v1/models`) is asked what it holds, and a
+call to a server holding another model is refused with nothing sent; the
+answer's own name must agree as well. A test that passes `post` and no
+`get` is not read back (it has no server to ask).
 """
 import datetime as dt
 import json
@@ -68,7 +78,7 @@ def _record(entry: dict, ledger: str = None) -> None:
 
 
 def chat(url: str, *, lane: str, model: str, messages: list, extra: dict = None, timeout: float = 300.0,
-         post=None, ledger: str = None) -> dict:
+         post=None, ledger: str = None, get=None) -> dict:
     if not model:
         raise Refused(f"{lane}: every call names its model")
     entry = {"at": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "lane": lane, "model": model,
@@ -80,6 +90,19 @@ def chat(url: str, *, lane: str, model: str, messages: list, extra: dict = None,
         raise Refused(f"{lane}: {why}")
     body = {"model": model, "messages": messages, **(extra or {})}
     t0 = time.monotonic()
+    if post is None or get is not None:
+        try:
+            held = served_model(url, min(timeout, 10.0), get)
+        except Exception as exc:  # noqa: BLE001 — recorded, then re-raised
+            entry.update(ok=False, error=f"read-back: {type(exc).__name__}: {str(exc)[:200]}",
+                         seconds=round(time.monotonic() - t0, 1))
+            _record(entry, ledger)
+            raise
+        if not held or held.strip() != model.strip():
+            entry.update(ok=False, served_model=held, model_mismatch=True, read_back=True)
+            _record(entry, ledger)
+            raise WrongModel(model, held, lane)
+        entry["read_back"] = held
     try:
         out = (post or _post)(url, body, timeout)
     except Exception as exc:  # noqa: BLE001 — recorded, then re-raised
