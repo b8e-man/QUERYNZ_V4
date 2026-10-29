@@ -842,7 +842,7 @@ def dossier_link(d: str, q: str, boxes=None) -> str:
 
 
 def graph_href(nid: str, boxes=None) -> str:
-    """/graph.json centred on one row, the check boxes carried and with them the state (ruling 105's `g=entities`):
+    """/graph.json centred on one row, the check boxes carried:
     a node's one hop on the graph tab, and the graph a result opens beside the results (ruling 108 (4))."""
     return "/graph.json?" + urllib.parse.urlencode([("c", nid)] + (boxes.params() if boxes is not None else []))
 

@@ -97,7 +97,7 @@ tables through the session reader, never the sample:
      answer (json_problems).
  24. The lineage frame (ruling 106 (2)): for a company of LINEAGE_NAMES
      in a related link of pub.links, read by key, the graph centred on it
-     draws its frame in both states: the companies in date order of
+     draws its frame (the graph has one state, entities: ruling 120): the companies in date order of
      registration (pub.companies' own dates, read apart from the evidence),
      each its own node, no two in one pub.groups group or one entity node;
      every pair of the frame's companies a line is drawn for a related pair
@@ -126,15 +126,15 @@ tables through the session reader, never the sample:
      its dossier reads as the company's name (with 16), and the graph tab's
      old address with `d=` lands on the graph drawn beside the results with
      the dossier under it.
- 26. Entities only (ruling 111): in both states, under the box's tabs, "any
+ 26. Entities only (ruling 111): under the box's tabs, "any
      field" and "all fields", the results pane lists entities alone, never a
      row's card (its fields, its citation) outside a dossier; each tab's
      count is the entities its rows make, read apart from people.gather
-     (with 23); the switch sits once, on the graph's pane; no graph tab; the
-     tab's old address lands on the search page with the graph drawn, in
-     the state it carried (entities_only_problems).
+     (with 23); no rows and entities switch anywhere (ruling 120); no graph
+     tab; the tab's old address, `g=rows` on it, lands on the search page
+     with the entities graph drawn (entities_only_problems).
  27. The collapse section (ruling 112): with every criterion ticked, for
-     COLLAPSE_TERM in both states, the section is closed above the entities
+     COLLAPSE_TERM, the section is closed above the entities
      with each criterion ticked, fewer entries are listed than unfolded,
      every folded entry and folded node says "collapsed here by …; not a
      link" and nothing that reads as confirmed, a fold's members are each a
@@ -283,15 +283,16 @@ def problems(conn, term: str = None) -> list:
     else:
         centre = f"party_return_donors:{donor[0]['key']}"
         g = graph.build(conn, "", centre=centre)
-        if centre not in g["nodes"] or g["drawn"]["money"] < 1:
+        if centre not in {r for nid in g["nodes"] for r in rows_drawn(g, nid)} or g["drawn"]["money"] < 1:
             out.append(f"the graph of {centre} drew no money edge")
         for e in g["edges"]:
             if "address" in e["kind"]:
                 out.append(f"the graph drew an address edge: {e}")
         for nid in g["nodes"]:
-            view, _, key = nid.partition(":")
-            if search.row(conn, view, key) is None:
-                out.append(f"the graph drew a node for {nid}, which is not a row of pub.{view}")
+            for rid in rows_drawn(g, nid):
+                view, _, key = rid.partition(":")
+                if search.row(conn, view, key) is None:
+                    out.append(f"the graph drew a node for {rid}, which is not a row of pub.{view}")
         page = server.render_graph("", centre, conn=conn)
         if "<svg" not in noscript_picture(page) or 'id="cy"' not in page or 'id="graph-data"' not in page or "<h3>Key</h3>" not in page:
             out.append("the graph tab did not render its canvas, its data, the SVG inside <noscript> and the key (ruling 100)")
@@ -314,6 +315,11 @@ def problems(conn, term: str = None) -> list:
     out += entities_only_problems(conn)
     out += collapse_problems(conn)
     return out
+
+
+def rows_drawn(g: dict, nid: str) -> list:
+    """The rows one node of the entities graph (ruling 120, its one state) stands for: an entity's in hand, else its own."""
+    return list((g["nodes"][nid].get("entity") or {}).get("in_hand") or [nid])
 
 
 #: item 25's money: the gift views summed by SQL apart from the dossier, a replaced row and a row with no amount left out
@@ -433,7 +439,7 @@ def dossier_problems(conn) -> list:
     d = people.entity_id(gid)
     label = x["describe"]["label"] if x.get("describe") else ""
     one = x["rows"][0][1].register if x.get("rows") else ""
-    boxes = search.Boxes(False, (one,), people=True)
+    boxes = search.Boxes(False, (one,))
     tab = server.render(label, [], conn=conn, boxes=boxes, chosen=d)
     side = tab[tab.find('<div class="sidecol">'):]
     if 'id="dossier"' not in side or f'data-chosen="{html.escape(d)}"' not in side or 'data-start="/graph.json?' not in side:
@@ -463,16 +469,15 @@ def results_section(page: str) -> str:
 
 
 def entities_only_problems(conn) -> list:
-    """Item 26 (ruling 111): in both states of the switch, the box alone
-    (tabs), "any field may match" and "all fields must match", the results
-    pane holds entities alone, no row's card outside a dossier, and no
-    rows and entities switch, which sits once on the graph's pane; the bar
-    has no graph tab; the graph tab's old address answers with the search
-    page on the same query and state with the graph drawn beside the results."""
+    """Item 26 (ruling 111): the box alone (tabs), "any field may match" and
+    "all fields must match", the results pane holds entities alone, no
+    row's card outside a dossier, and no rows and entities switch on the
+    page (ruling 120: the graph has one state); the bar has no graph tab;
+    the graph tab's old address, naming the rows state, answers with the
+    search page on the same query with the entities graph drawn beside the results."""
     out = []
     both = (("first", KNOWN_REVERSED[0]), ("last", KNOWN_REVERSED[1]))
-    pages = [(f"{RESULTS_TERM!r} in rows", server.render(RESULTS_TERM, [], conn=conn)),
-             (f"{RESULTS_TERM!r} in entities", server.render(RESULTS_TERM, [], conn=conn, boxes=search.FIRST._replace(people=True))),
+    pages = [(f"{RESULTS_TERM!r}", server.render(RESULTS_TERM, [], conn=conn)),
              ("any field", server.render("", [], conn=conn, boxes=search.FIRST._replace(fields=both, mode=search.ANY))),
              ("all fields", server.render("", [], conn=conn, boxes=search.FIRST._replace(fields=both)))]
     for what, page in pages:
@@ -484,18 +489,19 @@ def entities_only_problems(conn) -> list:
             out.append(f"the results pane for {what} lists something that is not an entity")
         if not res.count('<article class="hit entity'):
             out.append(f"the results pane for {what} lists no entity")
-        if 'id="state"' in res or page.count('id="state"') != 1 or page.find('id="state"') < page.find('id="side"'):
-            out.append(f"the rows and entities switch for {what} is not on the graph's pane alone")
+        if 'id="state"' in page or ">rows</a>" in page:
+            out.append(f"the page for {what} still offers the rows and entities switch (ruling 120)")
         if 'href="/graph' in page or ">graph</a>" in page:
             out.append(f"the page for {what} still offers the graph tab")
-    qs = urllib.parse.parse_qs(f"q={RESULTS_TERM}&all=0&r=companies&g=entities&c=directors%3Ax")
+    qs = urllib.parse.parse_qs(f"q={RESULTS_TERM}&all=0&r=companies&g=rows&c=directors%3Ax")
     to = urllib.parse.parse_qs(urllib.parse.urlsplit(server.graph_redirect(qs)).query)
-    if search.boxes_of(to) != search.boxes_of(qs) or to.get("gv") != ["1"] or to.get("d") != ["directors:x"] or to.get("q") != [RESULTS_TERM]:
-        out.append("the graph tab's old address does not land on the search page on the same query and state with the graph open")
+    if (search.boxes_of(to) != search.boxes_of(qs) or to.get("gv") != ["1"] or to.get("d") != ["directors:x"]
+            or to.get("q") != [RESULTS_TERM] or "g" in to):
+        out.append("the graph tab's old address does not land on the search page on the same query with the graph open and no state")
     landed = server.render(RESULTS_TERM, [], conn=conn, boxes=search.boxes_of(to), graph_open=True)
     side = landed[landed.find('<div class="sidecol">'):]
     if 'data-inline="1"' not in side or "<svg" not in noscript_picture(side) or inline_data(side).get("mode") != "entities":
-        out.append("the search page with gv=1 does not draw the graph beside the results in the state the address carries")
+        out.append("the search page with gv=1, from an address naming the rows state, does not draw the entities graph beside the results")
     return out
 
 
@@ -509,8 +515,8 @@ CONFIRMED_WORDS = re.compile(r"\bconfirmed\b|same person|\blinked\b|\ba link\b(?
 
 
 def collapse_problems(conn) -> list:
-    """Item 27 (ruling 112): with every criterion ticked, for COLLAPSE_TERM in
-    both states, the results fold fewer entries than they list unfolded,
+    """Item 27 (ruling 112): with every criterion ticked, for COLLAPSE_TERM,
+    the results fold fewer entries than they list unfolded,
     every folded entry and folded node says "collapsed here … not a link"
     and nothing that reads as confirmed, its members are distinct groups of
     pub.groups (the fold changed no group), the dossier of a fold lists its
@@ -521,47 +527,46 @@ def collapse_problems(conn) -> list:
     before = db.rows(conn, FINGERPRINT)[0]
     every = search.FIRST._replace(collapse=search.COLLAPSE_CHOICES)
     folded_any = False
-    for people_state in (False, True):
-        boxes = every._replace(people=people_state)
-        plain = results_section(server.render(COLLAPSE_TERM, [], conn=conn, boxes=boxes._replace(collapse=())))
-        page = server.render(COLLAPSE_TERM, [], conn=conn, boxes=boxes)
-        res = results_section(page)
-        if '<details class="collapse" id="collapse">' not in res or res.find('id="collapse"') > res.find("<h3>Entities"):
-            out.append("the collapse section is not a closed section above the entities")
-        for c in search.COLLAPSE_CHOICES:
-            if f'name="cl" value="{c}" checked' not in res:
-                out.append(f"the collapse section does not show {c!r} ticked when the address carries it")
-        if res.count("<article") >= plain.count("<article"):
-            out.append(f"every criterion ticked folds nothing for {COLLAPSE_TERM!r} ({res.count('<article')} entries, "
-                       f"{plain.count('<article')} unfolded)")
-        for art in re.findall(r'<article class="hit entity folded".*?</article>', res, re.S):
-            folded_any = True
-            said = re.search(r'<div class="fold">(.*?)</div>', art)
-            if not said or not said.group(1).startswith("collapsed here by ") or not said.group(1).endswith("; not a link"):
-                out.append("a folded entry does not say it is collapsed here and not a link")
-            if CONFIRMED_WORDS.search(re.sub(r"<[^>]+>", " ", art).replace("; not a link", "")):
-                out.append("a folded entry reads as confirmed")
-        d = re.search(r'class="hit entity folded"[^>]* data-dossier="([^"]*)"', res)
-        if d:
-            fid = html.unescape(d.group(1))
-            members = collapse.parse(fid)[1]
-            gids = [m[len(people.ENTITY):] for m in members if m.startswith(people.ENTITY)]
-            got = db.rows(conn, "select group_id, count(*) as n from pub.groups where group_id = any(%s) group by 1", (gids,))
-            if len(got) != len(set(gids)):
-                out.append(f"a fold's members are not each a group pub.groups holds: {len(got)} of {len(set(gids))}")
-            pane = dossier.pane(dossier.gather(conn, fid))
-            listed = re.findall(r'<li><a class="row" href="([^"]*)"', pane)
-            if len(listed) < 2 or not all("d=" in h for h in listed) or "never written" not in pane:
-                out.append("the dossier of a fold does not list its members, each opening its own dossier")
-            if pane.count("What the records say") < min(len(listed), dossier.FOLD_GATHERED):
-                out.append("the dossier of a fold does not show each member's records under its name")
-        data = server.graph_answer(COLLAPSE_TERM, conn=conn, boxes=boxes)
-        for n in data["nodes"]:
-            if n.get("kind") == "fold" and (not n["words"].endswith("; not a link") or CONFIRMED_WORDS.search(n["words"].replace("; not a link", ""))):
-                out.append("a folded node on the graph does not say it is collapsed here and not a link")
-        if any(e["kind"] == graph.CONFIRMED and (e["source"].startswith(collapse.PREFIX) or e["target"].startswith(collapse.PREFIX))
-               for e in data["edges"]):
-            out.append("a folded node draws a confirmed line")
+    boxes = every
+    plain = results_section(server.render(COLLAPSE_TERM, [], conn=conn, boxes=boxes._replace(collapse=())))
+    page = server.render(COLLAPSE_TERM, [], conn=conn, boxes=boxes)
+    res = results_section(page)
+    if '<details class="collapse" id="collapse">' not in res or res.find('id="collapse"') > res.find("<h3>Entities"):
+        out.append("the collapse section is not a closed section above the entities")
+    for c in search.COLLAPSE_CHOICES:
+        if f'name="cl" value="{c}" checked' not in res:
+            out.append(f"the collapse section does not show {c!r} ticked when the address carries it")
+    if res.count("<article") >= plain.count("<article"):
+        out.append(f"every criterion ticked folds nothing for {COLLAPSE_TERM!r} ({res.count('<article')} entries, "
+                   f"{plain.count('<article')} unfolded)")
+    for art in re.findall(r'<article class="hit entity folded".*?</article>', res, re.S):
+        folded_any = True
+        said = re.search(r'<div class="fold">(.*?)</div>', art)
+        if not said or not said.group(1).startswith("collapsed here by ") or not said.group(1).endswith("; not a link"):
+            out.append("a folded entry does not say it is collapsed here and not a link")
+        if CONFIRMED_WORDS.search(re.sub(r"<[^>]+>", " ", art).replace("; not a link", "")):
+            out.append("a folded entry reads as confirmed")
+    d = re.search(r'class="hit entity folded"[^>]* data-dossier="([^"]*)"', res)
+    if d:
+        fid = html.unescape(d.group(1))
+        members = collapse.parse(fid)[1]
+        gids = [m[len(people.ENTITY):] for m in members if m.startswith(people.ENTITY)]
+        got = db.rows(conn, "select group_id, count(*) as n from pub.groups where group_id = any(%s) group by 1", (gids,))
+        if len(got) != len(set(gids)):
+            out.append(f"a fold's members are not each a group pub.groups holds: {len(got)} of {len(set(gids))}")
+        pane = dossier.pane(dossier.gather(conn, fid))
+        listed = re.findall(r'<li><a class="row" href="([^"]*)"', pane)
+        if len(listed) < 2 or not all("d=" in h for h in listed) or "never written" not in pane:
+            out.append("the dossier of a fold does not list its members, each opening its own dossier")
+        if pane.count("What the records say") < min(len(listed), dossier.FOLD_GATHERED):
+            out.append("the dossier of a fold does not show each member's records under its name")
+    data = server.graph_answer(COLLAPSE_TERM, conn=conn, boxes=boxes)
+    for n in data["nodes"]:
+        if n.get("kind") == "fold" and (not n["words"].endswith("; not a link") or CONFIRMED_WORDS.search(n["words"].replace("; not a link", ""))):
+            out.append("a folded node on the graph does not say it is collapsed here and not a link")
+    if any(e["kind"] == graph.CONFIRMED and (e["source"].startswith(collapse.PREFIX) or e["target"].startswith(collapse.PREFIX))
+           for e in data["edges"]):
+        out.append("a folded node draws a confirmed line")
     if not folded_any:
         out.append(f"no folded entry for {COLLAPSE_TERM!r}: item 27 has nothing to read")
     after = db.rows(conn, FINGERPRINT)[0]
@@ -598,9 +603,8 @@ def lineage_problems(conn) -> list:
     centre, links = lineage_case(conn)
     if not centre:
         return [f"no company of {', '.join(LINEAGE_NAMES)} has a related link in pub.links: the lineage frame has nothing to show"]
-    for people_state in (False, True):
-        state = "entity" if people_state else "rows"
-        g = graph.build(conn, "", centre=centre, people=people_state)
+    for state in ("entity",):                    # the graph's one state (ruling 120)
+        g = graph.build(conn, "", centre=centre)
         frames = [f for f in g.get("lineage") or [] if f["companies"]]
         mine = [f for f in frames if any(centre == c or centre in (g["nodes"].get(c, {}).get("entity") or {}).get("in_hand", [])
                                          for c in f["companies"])]
@@ -686,7 +690,7 @@ def suppressed_results_problems(conn, held: set) -> list:
         if f"{v.name}:{r['key']}" in ents["group"]:
             return [f"the results' entity state gathers a suppressed row of {v.name} (hard limit 16)"]
         pane = panes.results_pane("x", {v.register: [(v, 1, [r])], "hidden": {}, "tabs": None}, held, (v.register,),
-                                  search.FIRST._replace(people=True), ents=ents)
+                                  search.FIRST, ents=ents)
         names = [str(r.get(n)) for n in v.names if r.get(n) not in (None, "") and len(str(r.get(n))) > 2]
         if panes.SUPPRESSED not in pane or any(panes.esc(n) in pane for n in names):
             return [f"the results' entity state shows a suppressed row of {v.name} other than as a row with no name"]
@@ -1089,9 +1093,13 @@ def json_problems(conn, term: str = JSON_TERM) -> list:
         out.append(f"the graph.json for {term!r} has {len(data['nodes'])} nodes and {len(data['edges'])} edges: nothing to hold")
     ids, places, lines = svg_graph(page)
     got_ids = {n["id"] for n in data["nodes"]}
-    if got_ids != ids:
+    boxes = search.FIRST                                # the answer's own build: an SVG entity opens on its first row in hand
+    g = graph.build(conn, term, regs=search.selection(boxes, search.held_registers(db.pub_views(conn))), removed=boxes.removed)
+    opens = {nid: n["fold"]["dossier"] if n.get("fold") else n["entity"]["in_hand"][0] if n.get("entity") else nid
+             for nid, n in g["nodes"].items()}
+    if got_ids != set(opens) or set(opens.values()) != ids:
         out.append(f"the graph.json for {term!r} has {len(got_ids)} nodes, the SVG {len(ids)}; "
-                   f"{len(got_ids - ids)} only in the JSON, {len(ids - got_ids)} only in the SVG")
+                   f"{len(got_ids - set(opens))} only in the JSON, {len(ids - set(opens.values()))} only in the SVG")
     if {(round(n["x"], 1), round(n["y"], 1)) for n in data["nodes"]} != places:
         out.append(f"the graph.json for {term!r} places its nodes other than the SVG's layered layout (ruling 92 (1))")
     got_lines = collections.Counter((e["title"], e["colour"]) for e in data["edges"])
@@ -1129,8 +1137,8 @@ def people_problems(conn, term: str = PEOPLE_TERM) -> list:
     held = db.pub_views(conn)
     if not {"groups", "links", "names"} <= held:
         return ["pub.groups, pub.links or pub.names is not published: the people state has nothing to read"]
-    boxes = search.FIRST._replace(people=True)
-    g = graph.build(conn, term, regs=search.selection(boxes, search.held_registers(held)), people=True)
+    boxes = search.FIRST
+    g = graph.build(conn, term, regs=search.selection(boxes, search.held_registers(held)))
     entities = {nid: n for nid, n in g["nodes"].items() if n.get("entity")}
     lone = [n for n in g["nodes"].values() if n.get("lone")]
     if len(entities) < 2 or not lone:
@@ -1168,7 +1176,7 @@ def people_problems(conn, term: str = PEOPLE_TERM) -> list:
     if not nears:                      # the lane's near pairs move with each rebuild (mid-rebuild on 28 October none reached a smith row)
         other = near_term(conn)
         if other:
-            g2 = graph.build(conn, other, regs=search.selection(boxes, search.held_registers(held)), people=True)
+            g2 = graph.build(conn, other, regs=search.selection(boxes, search.held_registers(held)))
             for e in g2["edges"]:
                 if e["kind"] == graph.NEAR:
                     for _, _, a, b in e["rows"]:
@@ -1181,8 +1189,8 @@ def people_problems(conn, term: str = PEOPLE_TERM) -> list:
     if any(not e["dashed"] or not e["words"] for e in nears):
         out.append("a near line of the people graph is not dashed or carries no reason")
     page = server.render_graph(term, conn=conn, boxes=boxes)
-    if inline_data(page).get("mode") != "entities" or 'aria-current="true">entities<' not in page:
-        out.append("the graph tab with g=entities does not open in the entity state, or its switch does not say so")
+    if inline_data(page).get("mode") != "entities" or 'id="state"' in page:
+        out.append("the graph tab's old address does not open the entities graph, or the page still carries a switch")
     some = next(iter(entities), None)
     if some:
         gid = some[len(people.ENTITY):]
@@ -1234,7 +1242,7 @@ def suppressed_people_problems(conn) -> list:
             continue
         r = rows[0]
         c = f"{v.name}:{r['key']}"
-        boxes = search.FIRST._replace(people=True)
+        boxes = search.FIRST
         data = server.graph_answer("", c, conn=conn, boxes=boxes)
         text = graph.to_json(data) + (graph.to_json(server.graph_answer("", conn=conn, boxes=boxes, opened=r["group_id"]))
                                       if r["group_id"] else "")

@@ -248,6 +248,22 @@ def what_of(conn, members: dict, hidden: set) -> dict:
 
 # ── the fold ────────────────────────────────────────────────────────────────
 
+def filing(n) -> tuple:
+    """How late the filing a row node stands for is, for ordering: a row marked
+    not in the latest file first, then by its last file; a row unknown here earliest."""
+    r = (n or {}).get("row")
+    return (r.get("in_latest") is not False, str(r.get("last_file") or "")) if r else (False, "")
+
+
+def cite_latest(kept: dict, e: dict, rows: dict) -> None:
+    """Causes merging into one edge (two shareholdings of one holder in one
+    company, filed in two months) cite the latest filing, never one marked
+    not in the latest file: `kept` takes `e`'s cite where `e`'s row is later.
+    `rows`, the rows graph's nodes, by the cite's row id."""
+    if filing(rows.get(e.get("cite"))) > filing(rows.get(kept.get("cite"))):
+        kept["cite"] = e["cite"]
+
+
 def fold(conn, g: dict, near: bool = True, max_nodes: int = 120) -> dict:
     """The people graph from the rows graph `g` (graph.build with links off).
     Row nodes in one group become one node, `entity:<group_id>`, carrying
@@ -304,6 +320,7 @@ def fold(conn, g: dict, near: bool = True, max_nodes: int = 120) -> dict:
         k = (e["kind"], min(a, b), max(a, b), e["label"], e.get("rule"))
         if k in seen:
             seen[k]["rows"].append(pair)
+            cite_latest(seen[k], e, rows)
             return
         x = {**e, "a": a, "b": b, "rows": [pair]}
         seen[k] = x
