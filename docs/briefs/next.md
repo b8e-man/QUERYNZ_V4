@@ -566,6 +566,39 @@ bulk until the build is done. A lane's request for readings is answered
 with the store's sample and a note; the hashes it sets aside are the queue
 for later, one command.
 
+## links-4
+
+Build session, Fable, scope `links/`. Waits on Arthur's word on three queue
+items of 30 October (ruling 106's method, each measured with twenty named
+pairs): the organisation rules on every row that names a body; bodies under
+one name on different registers; an entities view. Launched headless by the
+integrator once he has ruled, or on node2:
+`cd /home/user/querynzv4 && bin/start-session links-4 links/`.
+
+```text
+You are a build session for QueryNZV4, running as Fable on node2, in the
+working copy the launcher made for you, scope links/. Read docs/PLAN.md,
+docs/plan/core.md, links/spec.md, docs/status/links.md, and in
+docs/decisions/rulings.md the rulings of 30 October on the three queue
+items named under "## links-4" in docs/briefs/next.md: do what each
+ruling says and nothing it refused. (1) If ruled: organisation-sole-
+company@3 and organisation-one-live-company@3 run on every organisation-
+named row of every people view the lane reads (shareholders, directors,
+MPs' interests, charity and society officers, the Gazette views), same
+grades and reasons; several live bodies stays near. (2) If ruled: a near
+rule body-name@1 over links.bodies, bodies under one name key on
+different registers, one star per name as company-name@1 draws it, never
+confirmed. (3) If ruled: pub.entities, one row per entity (group id or
+lone row ref, kind, the display name by the one ordering every reader
+shares, rows, registers, contested, politician), built beside
+pub.groups, in pane.md and spec.md. Each with tests that fail on main;
+measure each rule's count against the queue item's figures and record
+it in your status file. No model, nothing fetched. Never print a home
+address or a suppressed name. Push your branch, raise links-4, update
+docs/status/links.md; the integrator queues qv4-links-build after the
+merge.
+```
+
 ## site-4
 
 MERGED 30 October 09:30 (8e8321a; record in docs/merges/site-4.md).
