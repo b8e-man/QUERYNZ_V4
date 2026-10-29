@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-29, 18:55 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-29, 19:55 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
@@ -22,7 +22,7 @@ model reading till it returns. **Alarms:** the old ntfy address.
   the agent scores and applies nothing (ruling 69). 4.4 site version 3.
   4.9 board 87 views. 5.1 the report shape, tranche 3.
 - Rulings 64 to 122 (102: limit 15 binds products, not the board).
-- Track B: restore rehearsal equal, 25 October. Merges: `docs/merges/`.
+- Track B: restore rehearsal equal. Merges: `docs/merges/`.
 
 ## Running (headless, from the integrator)
 
@@ -40,7 +40,7 @@ model reading till it returns. **Alarms:** the old ntfy address.
   re-read clean; the old estate's seven relations wait on his scrub.
 - Ruling 122 (18:45): a right-hand chat pane on the board, Flash-Next
   through the model client, tools over the board's own search.
-  `board-15` launched headless 18:55.
+  `board-15` merged 19:21; unit installed, board restarted; live.
 
 ## Half-done
 
@@ -50,6 +50,6 @@ model reading till it returns. **Alarms:** the old ntfy address.
   rows 939, ...). 29 October's build passed with `--allow-drop`: the links
   rebuild folded 33 "Surname, First" and "Limited" donor pages into their
   other forms ($1.63 M moved). The switch after 7 November.
-- Waits on Arthur: letters (Dunedin, Te Puni Kōkiri, Police); rulings
+- Waits on Arthur: letters (Dunedin, TPK, Police); rulings
   69, 75; sample-schema drops; near links between group ids (queue).
   node1's return: fence first (10.0.0.1, never the VIP), ruling 57, 94.

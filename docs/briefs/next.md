@@ -564,6 +564,8 @@ flash-next-1, write docs/status/flash-next.md.
 
 ## board-15
 
+MERGED 29 October 19:21 (4bfad35; record in docs/merges/board-15.md).
+
 Build session, Opus, scope `products/board/`. Ruling 122: a permanent
 right-hand chat pane on the board. Launched headless by the integrator,
 or on node2: `cd /home/user/querynzv4 && bin/start-session board-15 products/board`.
