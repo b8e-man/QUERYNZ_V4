@@ -550,6 +550,10 @@ the merge request board-14, write docs/status/board.md.
 
 ## fix-products-board-6
 
+Launched headless by the integrator on 29 October at 14:53 (copy
+`fix-products-board-1`, branch `fix/products-board-1`); `board-14` starts
+after it merges, since both change `products/board/collapse.py`.
+
 Fix session, Opus, scope `products/board/`. The card
 `the-graph-tab-s-fold-is-mislabelled-in-rows-mode-and-cites-the-superseded-filing`
 (29 October). On node2: `cd /home/user/querynzv4 && bin/fix products/board`,

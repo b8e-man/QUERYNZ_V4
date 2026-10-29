@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-29, 13:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-29, 15:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
@@ -18,28 +18,28 @@ model reading till it returns. **Alarms:** the old ntfy address.
   finance, gazette (207,133 notices), house, companies (1.92 M), expenses
   and interests, societies, candidate returns, charities (46,131; ruling
   64), party boards (72: not on the site), OpenLaw (HELD), courts (148).
-- 4.2/4.3 links: 2.82 M links, 2.32 M groups, rebuilt after `coupled-1`
-  (ruling 73); the agent scores and applies nothing (ruling 69).
-  4.4 site version 3. 4.9 board 87 views. 5.1 the report shape, tranche 3.
+- 4.2/4.3 links: 3.07 M confirmed, 725 K groups (fix-links-5, 29 Oct);
+  the agent scores and applies nothing (ruling 69). 4.4 site version 3.
+  4.9 board 87 views. 5.1 the report shape, tranche 3.
 - Rulings 64 to 120 (102: limit 15 binds products, not the board).
 - Track B: restore rehearsal equal, 25 October. Merges: `docs/merges/`.
 
 ## Running (headless, from the integrator)
 
-- 28 October, rulings 103 to 116 merged (board's entity state, dossier,
-  collapse; five links rules, eight more people views, the sitting member
-  joined). 29 October: readers mended; fix-links-5, fix-products-board-5,
-  `board-13` (117: the dossier states facts) merged; gate empty. Briefs
-  ready: `fix-products-board-6` (118, 120: full-name criterion goes,
-  graph entities only), `board-14` (119: a fold by hand for
-  organisations). Pinned to 30 October: an entities view from the lane;
-  the donor name rule on every organisation row; same-name bodies.
-- Arthur's Qwen3.8-Flash-Next experiment holds both cards since 11:17:
-  llama.cpp peaks at 38 tok/s over 8 streams; Radiance (a container,
-  port 8060) is next. The frozen product's two model servers and the
-  worker are stopped; `qv4-experiment-restore` restores them at 05:30.
-- node2 rebooted six times 07:36 to 09:11 on 29 October (Arthur's
-  overclocking test); hardware clock since set.
+- 29 October: readers mended; fix-links-5, fix-products-board-5,
+  `board-13` (117) merged by 13:00. 15:00: the inbox is empty, every
+  branch on main, release copy at 9d788fb. `fix-products-board-6` (118,
+  120) launched headless 14:53 as Opus; `board-14` (119) follows its
+  merge, same module. Pinned to 30 October: an entities view from the
+  lane; the donor name rule on organisation rows; same-name bodies.
+- Arthur's Qwen3.8-Flash-Next experiment: Radiance 846 tok/s at 16
+  streams; node2 rebooted 14:34 for the PCIe fix (both cards now 32 GT/s
+  x16); the frozen product's servers and the worker are back, the
+  experiment units gone. Resume on his word.
+- Card: the overclocking test (six reboots 07:36 to 09:11) gave the
+  database bad reads. querynz_v4's six hit tables re-read clean after the
+  cold boot; the old estate's seven relations are unverified (his scrub).
+- Nightly full tier red at 05:02 (6 failed) before the day's merges.
 
 ## Half-done
 

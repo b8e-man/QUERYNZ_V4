@@ -1,0 +1,66 @@
+--- a/support/scheduler/jobs.toml
++++ b/support/scheduler/jobs.toml
+@@ -86,22 +86,9 @@
+ at_utc = "15:30"
+ nice = 10
+ 
+-[jobs.qv4-offsite-dump]
+-description = "The nightly off-site copy of querynz_v4 (plan 1.8, until track B): dump, encrypt, send. 03:05 NZDT, after the old estate's push (01:38) is well under way."
+-needs = "processor"
+-memory_gb = 1.5
+-deadline_s = 3600
+-query_timeout_s = 1800
+-class = "due"
+-priority = 14
+-command = ["python", "-m", "support.offsite"]
+-requires = ["pg_dump", "gpg"]
+-at_utc = "14:05"
+-nice = 10
+-
+-# Track B (merge request offsite-2a). The copy replaces the step 1.8 dump
+-# above once offsite-2b has restored a copy from the bucket to equality;
+-# until then both run (the integrator kept the dump at the merge, 19 October).
++# Track B (offsite-2a, offsite-2b): the copy replaced the step 1.8 dump of
++# querynz_v4 once a copy restored from the bucket to equality (19 October).
++
+ [jobs.qv4-offsite-copy]
+ description = "The off-site copy (track B, ruling 21): every table and file tree the delete rule keeps, changes nightly and a full checkpoint on Sunday; the press graph frozen (sent when it moves, or every 28 days). Replaces the step 1.8 dump of querynz_v4 once its restore from the bucket is proven. 21:00 NZDT, finished before the old estate's push (01:38) takes the link; a run cut off at its deadline resumes the next night."
+ needs = "processor"
+@@ -109,7 +96,7 @@
+ deadline_s = 16200
+ query_timeout_s = 7200
+ class = "due"
+-priority = 16
++priority = 14
+ command = ["python", "-m", "support.offsite", "copy"]
+ requires = ["pg_dump", "gpg", "zstd"]
+ at_utc = "08:00"
+--- a/support/scheduler/tests/test_registry.py
++++ b/support/scheduler/tests/test_registry.py
+@@ -231,13 +231,15 @@
+ def test_the_four_founding_jobs_are_on_the_queues_clock_in_utc():
+     """Step 2.12: the founding timers' jobs, with the deadlines their units
+     carried, a query limit under each, and their times in UTC (the units
+-    held NZDT: 07:30, 09:00/21:00, 04:30, 03:05)."""
++    held NZDT: 07:30, 09:00/21:00, 04:30; the off-site dump's 03:05 became
++    track B's copy at 21:00)."""
+     cat = reg.load()
+     want = {"qv4-checks-board": (("18:30",), 3600), "qv4-checks-heartbeat": (("20:00", "08:00"), 300),
+-            "qv4-full-tier": (("15:30",), 7200), "qv4-offsite-dump": (("14:05",), 3600)}
++            "qv4-full-tier": (("15:30",), 7200), "qv4-offsite-copy": (("08:00",), 16200)}
+     for name, (times, deadline) in want.items():
+         jt = cat[name]
+         assert jt.at_utc == times and jt.needs.deadline_s == deadline and jt.cls == "due" and jt.enabled, name
+         assert 0 < jt.needs.query_timeout_s < jt.needs.deadline_s, name
+         assert jt.needs.needs == "processor" and not jt.every_s and not jt.wanted, name
+-    assert cat["qv4-offsite-dump"].requires == ("pg_dump", "gpg"), "node1 once lacked a program and nobody knew"
++    assert cat["qv4-offsite-copy"].requires == ("pg_dump", "gpg", "zstd"), "node1 once lacked a program and nobody knew"
++    assert "qv4-offsite-dump" not in cat, "the step 1.8 dump was retired by track B (offsite-2b)"
+--- a/support/scheduler/spec.md
++++ b/support/scheduler/spec.md
+@@ -2,4 +2,4 @@
+ reads: the box (rocm-smi, /proc, the programs); the document store and the reader store for a re-read; `pub.party_return_totals` to compare a re-read; the model profiles' weights under the models folder
+ publishes: nothing in `pub`; `<live>/checks/scheduler.json` for the checks board (the `qv4-scheduler-report` job); the swap ledger and run records, readable by the session reader
+ outside check: each loaded card answers with the model its profile names (read back from the card at every load; a wrong answer is a failed swap)
+-jobs: `qv4-worker@<box>` (standing, one per box); on the queue's clock `qv4-scheduler-report` hourly and the four founding jobs `qv4-checks-board`, `qv4-checks-heartbeat`, `qv4-full-tier`, `qv4-offsite-dump` (their code is `checks/` and `support/offsite`; their clock is here); `qv4-reread`, `qv4-reread-pages` and `qv4-embed` on demand in pieces; the rehearsal jobs when queued
++jobs: `qv4-worker@<box>` (standing, one per box); on the queue's clock `qv4-scheduler-report` hourly and the four founding jobs `qv4-checks-board`, `qv4-checks-heartbeat`, `qv4-full-tier`, `qv4-offsite-copy` (track B, which replaced the founding `qv4-offsite-dump`) and `qv4-offsite-rehearsal` (their code is `checks/` and `support/offsite`; their clock is here); `qv4-reread`, `qv4-reread-pages` and `qv4-embed` on demand in pieces; the rehearsal jobs when queued
