@@ -40,3 +40,9 @@ template's label grouping); Christchurch Central 2020 has two Webbs, which the t
 For the site: a row with `read_from` 'commission' wants its own citation label (the cite file says "EC candidate return (declaration)") and its
 evidence text writes "donations $0.00" from the empty return columns (`render.cites`, `r.get('donations') or 0`); it should state the
 Commission's figures, or none.
+Site-4 (2026-10-30): the site's part is done. A Commission row's citation file carries its own label ("EC candidate returns
+summary (the Commission's spreadsheet row; no return read)") and states the Commission's figures from the `commission_*` columns
+(409 of the 675 state a $0.00 the Commission printed, 266 other figures, none read from the empty return columns). Filed party
+labels now group the home page's race sections, so this cause on the home page fell 311 → 270 (frozen 2026-10-30T0617, both builds
+in scratch); the rest is unchanged: donor 1,412, pickers 542, subject 919, electorate 3, electorates 2. What remains waits on Part A
+from the scans' readings (ruling 79), the window (2017) and Christchurch Central 2020's two Webbs. Owner: candidate-returns.

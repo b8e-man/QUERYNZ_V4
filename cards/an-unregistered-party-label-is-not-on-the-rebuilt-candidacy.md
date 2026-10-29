@@ -41,3 +41,21 @@ by-election list) and 19 carry an unregistered label with "no
 registration live then answers to it" (Money Free Party NZ, Te Pāti Hira,
 NAP, …). Still needs the site: show the label where the registration is
 null.
+
+## 2026-10-30 (site-4)
+
+The site shows the label as filed where the official result prints none:
+from the return joined to the candidacy (year, electorate, surname, the
+money's join) or, where no return is read, the Commission's summary row;
+`party_filed_from` says which (`result`, `return`, `commission`) and
+`party_filed_basis` says it is the filed label. Of the 135 candidacies
+(51 in 2020, 84 in 2023): 34 from a read return, 71 from a Commission
+row, 30 blank. Measured against the frozen 2026-10-30T0617, main's code
+and site-4's built in scratch from its listing: this cause 106 → 20,
+all person pages. What remains: 13 where the Commission's row itself
+leaves the party cell blank and the frozen site wrote "Independent" (the
+template does not infer a label from a blank; whether a blank cell means
+Independent is the candidate-returns lane's to read off the spreadsheet,
+not the site's to guess); 7 with no return and no Commission row joined
+(a "Return not received" row is not published, or no row). Owner now:
+candidate-returns, for the blank cells.
