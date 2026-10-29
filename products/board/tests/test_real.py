@@ -324,7 +324,7 @@ def test_the_entities_only_check_goes_red_when_a_row_reaches_the_results_pane(mo
     from products.board import panes
     with db.read_connect() as conn:
         assert check.entities_only_problems(conn) == []
-        monkeypatch.setattr(panes, "lone_hit", lambda q, v, r, words, boxes=None, why="": panes.hit(q, v, r, words, boxes, why))
+        monkeypatch.setattr(panes, "lone_hit", lambda q, v, r, words, boxes=None, why="", tick=False: panes.hit(q, v, r, words, boxes, why))
         assert any("row cards outside a dossier" in p for p in check.entities_only_problems(conn))
 
 
@@ -469,3 +469,85 @@ def test_lloyd_budd_s_entity_graph_is_one_drawing_from_every_row_and_in_both_sta
     members = set(next(n for n in fd["nodes"] if n["id"] == fid)["members"])
     to = {nid: (fid if nid in members else nid) for nid in pn}
     assert set(to.values()) == set(fn) and {(to[a], to[b], k) for a, b, k in pl if to[a] != to[b]} == fl
+
+
+def ticked_in(res: str) -> dict:
+    """{tick box value: the name its result shows} for each result carrying a tick box."""
+    out = {}
+    for a in re.findall(r"<article .*?</article>", res, re.S):
+        t = re.search(r'class="tick" name="hk" value="([^"]*)"', a)
+        if t:
+            out[unescape(t.group(1))] = unescape(re.sub(r"<[^>]+>", "", re.search(r"<strong>(.*?)</strong>", a).group(1)))
+    return out
+
+
+def test_rank_group_folds_by_hand_into_one_entry_and_one_node_and_the_rest_stay_apart():
+    """Ruling 119 on the real tables: the search "Rank Group" offers a tick
+    box on each organisation and none on a person or a document; the group
+    Rank Group Limited, the five RANK GROUP LIMITED holder rows and the
+    Commerce Commission party, ticked, fold into one entry and one graph
+    node, collapsed here by hand, and the other Rank Group companies stay
+    apart; the address reopens it."""
+    import urllib.parse
+    with db.read_connect() as conn:
+        plain = server.render("Rank Group", [], conn=conn)
+        ticks = ticked_in(plain[plain.index('id="results"'):])
+        (group,) = [t for t, name in ticks.items() if t.startswith(people.ENTITY) and name.startswith("Rank Group Limited")]
+        holders = sorted(t for t, name in ticks.items() if t.startswith("shareholders:") and name == "RANK GROUP LIMITED")
+        comcom = sorted(t for t in ticks if t.startswith("commerce_commission_parties:"))
+        fold = (group, *holders, *comcom)
+        companies = sorted(set(ticks) - set(fold))         # the other Rank Group organisations: 14 on 29 October
+        assert len(holders) == 5 and len(comcom) == 1 and len(companies) >= 10, (len(holders), len(comcom), len(companies))
+        assert not [t for t in ticks if t.startswith(("directors:", "minister_diary_entries:", "gazette_notices:", "beehive_"))]
+        boxes = search.boxes_of(urllib.parse.parse_qs("all=1&" + urllib.parse.urlencode([("hk", m) for m in fold])))
+        t = time.time()
+        page = server.render("Rank Group", [], conn=conn, boxes=boxes, graph_open=True)
+        took = time.time() - t
+        g = graph.build(conn, "Rank Group", regs=search.selection(boxes, search.held_registers(db.pub_views(conn))), hand=boxes.hand)
+        res = page[page.index('id="results"'):page.index('<div class="sidecol">')]
+        lead = unescape(re.search(r'<article class="hit entity folded" data-graph="([^"]*)"', res).group(1))
+        centre = urllib.parse.parse_qs(urllib.parse.urlsplit(lead).query)["c"][0]
+        t = time.time()
+        clicked = graph.build(conn, "", centre=centre, hand=search.boxes_of(urllib.parse.parse_qs(urllib.parse.urlsplit(lead).query)).hand)
+        took_click = time.time() - t
+        elsewhere = graph.build(conn, "", centre=companies[0], hand=boxes.hand)
+    assert [n["fold"]["members"] for n in clicked["nodes"].values() if n.get("fold")] == [list(fold)]   # the entry's click opens the fold
+    assert not [n for n in elsewhere["nodes"].values() if n.get("fold") and n["fold"]["by"] == ["hand"]]
+    assert took_click < 5.0, took_click
+    res = page[page.index('id="results"'):page.index('<div class="sidecol">')]
+    assert "collapsed here by hand; not a link" in res and 'class="hit entity folded"' in res
+    left = ticked_in(res)
+    assert not set(fold) & set(left) and set(companies) <= set(left)                    # the other companies stay apart, still offered
+    folds = [n for n in g["nodes"].values() if n.get("fold")]
+    assert len(folds) == 1 and folds[0]["fold"]["words"] == "collapsed here by hand; not a link"
+    assert set(folds[0]["fold"]["members"]) == set(fold), sorted(set(fold) ^ set(folds[0]["fold"]["members"]))
+    assert not set(companies) & set(folds[0]["fold"]["members"])
+    assert took < 10.0, took
+
+
+def test_a_path_saved_with_a_fold_by_hand_reopens_folded(monkeypatch):
+    """Ruling 119: a path saved while a fold by hand is open keeps it; from the
+    saved list it reopens folded. The path planted in this session's scratch schema in the sample."""
+    import urllib.parse
+    from products.board import state
+    from support import db as sdb
+    schema = "scratch_board_14"
+    monkeypatch.setattr(db, "STATE", f"querynz_v4_sample/{schema}")
+    with sdb.connect(sdb.OWNER_KEY, "querynz_v4_sample") as c:
+        c.execute(f"create schema if not exists {schema}")
+        c.commit()
+    state.apply()
+    state.apply()                                                                       # applied twice, as the integrator may: no error
+    with db.read_connect() as conn:
+        plain = server.render("Rank Group", [], conn=conn)
+        ticks = ticked_in(plain[plain.index('id="results"'):])
+        fold = sorted(t for t, name in ticks.items() if t.startswith("shareholders:") and name == "RANK GROUP LIMITED")
+        boxes = search.boxes_of(urllib.parse.parse_qs("all=1&" + urllib.parse.urlencode([("hk", m) for m in fold])))
+        name = f"rank by hand {time.time():.0f}"
+        state.save_path(name, "Rank Group", [fold[0]], urllib.parse.urlencode(boxes.params()))
+        saved = panes.paths_pane(state.paths(conn))
+        link = unescape(re.search(r'<a class="row" href="([^"]*)">' + re.escape(name) + "</a>", saved).group(1))
+        qs = urllib.parse.parse_qs(urllib.parse.urlsplit(link).query)
+        page = server.render("Rank Group", server.parse_path(qs["p"][0]), conn=conn, boxes=search.boxes_of(qs))
+    assert search.boxes_of(qs).hand == boxes.hand and len(fold) == 5
+    assert "collapsed here by hand; not a link" in page[page.index('id="results"'):]

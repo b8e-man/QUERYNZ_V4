@@ -398,6 +398,7 @@
     if (evt.button !== 0 || evt.ctrlKey || evt.metaKey || evt.shiftKey || evt.altKey) return;
     var hit = evt.target.closest("article.hit[data-dossier]");
     if (!hit) return;
+    if (evt.target.closest("input")) return;           // ruling 119: a tick box ticks, it opens nothing
     var a = evt.target.closest("a");
     if (a && a !== hit.querySelector("a.row") && !a.classList.contains("dos")) return;   // a source, a citation or a far row keeps its own link
     evt.preventDefault();
