@@ -117,7 +117,7 @@ def test_each_build_copies_the_new_rows_and_re_reads_withdrawn_at():
 def test_the_build_brings_the_copy_level_and_maps_it_before_promoting(monkeypatch):
     seen = []
     for mod, name in ((build_all.rows, "gather"), (build_all.build, "build_links"), (build_all.build, "build_watch"),
-                      (build_all.build, "build_groups"), (build_all.pairs, "draw")):
+                      (build_all.build, "build_groups"), (build_all.build, "build_entities"), (build_all.pairs, "draw")):
         monkeypatch.setattr(mod, name, lambda *a, _n=name, **k: seen.append(_n) or {})
     monkeypatch.setattr(build_all.measure, "run", lambda *a, **k: seen.append("measure") or {})
     monkeypatch.setattr(build_all.old, "copy_ledgers", lambda o, c, s, log=None: seen.append("copy") or {})
@@ -129,6 +129,7 @@ def test_the_build_brings_the_copy_level_and_maps_it_before_promoting(monkeypatc
             return _Cur([(1,)])
     build_all.run(Conn(), Conn(), "s", log=lambda *a: None, oldconn=object())
     assert seen.index("gather") < seen.index("copy") < seen.index("map") < seen.index("promote")
+    assert seen.index("build_groups") < seen.index("build_entities") < seen.index("draw")   # the entities follow the groups (ruling 123)
 
 
 def _anchor(i, version, key, band="accept", withdrawn=None):

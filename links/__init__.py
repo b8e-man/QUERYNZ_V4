@@ -9,6 +9,9 @@ measurements (plan 4.2 and 4.3).
   Each says who or what made it and on what evidence. Only ever added to.
 - groups: rows gathered into people by following confirmed links, minus
   the decisions. Rebuilt whenever either table changes; edited by nobody.
+- entities (ruling 123): one row per entity, a group or a row in no
+  group, with the display name every reader shares (pane.md). Rebuilt
+  with the groups; edited by nobody.
 
 Two settings are ruled from measurement and have a default until then:
 `chain` (follow chains of confirmed links; a flagged group is contested

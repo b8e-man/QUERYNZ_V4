@@ -47,3 +47,13 @@ FROM links.rows;
 -- The old estate's judgments, copied exactly and mapped beside (contract: links, 5).
 CREATE OR REPLACE VIEW pub.old_decisions AS
 SELECT old_id, source, verdict, row_a, row_b, mapped_how, copied, copied_at FROM links.old_decisions;
+
+-- One row per entity (ruling 123): a group, or a row in no group as a single-row
+-- entity. `entity_id` is the group id or the lone row's ref; `display_name` is
+-- chosen by the one ordering every reader shares (links/pane.md: the most
+-- words, then the most characters, then the smallest ref COLLATE "C", among
+-- the entity's rows of pub.names); `registers` is sorted; `contested` is the
+-- group's; `politician` where any row is. A reader draws the entity from here
+-- and never re-derives its name. Built whole beside pub.groups.
+CREATE OR REPLACE VIEW pub.entities AS
+SELECT entity_id, kind, display_name, rows, registers, contested, politician, built_at FROM links.entities;
