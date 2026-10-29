@@ -568,6 +568,8 @@ for later, one command.
 
 ## links-5
 
+LAUNCHED 30 October 11:22, headless, from the merged main.
+
 Build session, Fable, scope `links/`. Ruling 125: the organisation rules run
 on every row that names a body, time-aware. Starts after `links-4` merges
 (one session on `links/` at a time). Launched headless by the integrator, or
@@ -605,9 +607,7 @@ queues qv4-links-build after the merge.
 
 ## links-4
 
-LAUNCHED 30 October 10:35, headless, for the entities view alone (ruling 123;
-the brief as run is in the integrator's scratch folder, brief-links-4.txt).
-The two other items are not yet ruled.
+MERGED 30 October 11:18 (b5099ba; record in docs/merges/links-4.md).
 
 Build session, Fable, scope `links/`. Waited on Arthur's word on three queue
 items of 30 October (ruling 106's method, each measured with twenty named

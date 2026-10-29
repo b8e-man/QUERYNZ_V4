@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-30, 10:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-30, 11:30 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
@@ -22,7 +22,8 @@ model reading till it returns. **Alarms:** the old ntfy address.
 - 4.2/4.3 links: 3.07 M confirmed, 725 K groups (fix-links-5, 29 Oct);
   the agent scores and applies nothing (ruling 69). 4.4 site version 3.
   4.9 board 87 views, chat pane (122). 5.1 the report shape, tranche 3.
-- Rulings 64 to 122 (102: limit 15 binds products, not the board).
+- Rulings 64 to 125 (102: limit 15 binds products, not the board; 123:
+  pub.entities; 125: organisation rules on every row, time-aware).
 - Track B: restore rehearsal equal. Merges: `docs/merges/`.
 
 ## Running (headless, from the integrator)
@@ -36,10 +37,13 @@ model reading till it returns. **Alarms:** the old ntfy address.
 - MCP lanes green: the pull and the four loads nightly since 29 October;
   the rewalk ran 3 h on 29 October after two memory failures. The MCP
   lists a twelfth corpus, `courts` (4,688): queue item, no lane reads it.
-- Board work pinned to 30 October (an entities view from the links lane;
-  the donor name rule on organisation rows; same-name bodies, ruling
-  119): measured proposals next, under ruling 106. Courts: 87 judgments
-  wait on a load job.
+- `links-4` merged 11:18 (ruling 123, `pub.entities`, 2.6 M entities);
+  DDL applied, `qv4-links-build` queued (row 850); the board catalogues
+  the view in the next merge. `links-5` launched 11:22 (ruling 125:
+  organisation rules on every row naming a body, alive on the row's own
+  date; shareholders undated till the companies lane publishes a filing
+  date). Same-name bodies across registers: no rule (124). Courts: 87
+  judgments wait on a load job.
 
 ## Half-done
 
