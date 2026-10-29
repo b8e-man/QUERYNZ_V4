@@ -33,7 +33,7 @@ model reading till it returns. **Alarms:** the old ntfy address.
   label), support follow-up 09:58 (the gate marks itself; the returns
   load nightly 02:40). Released; inbox empty.
 - MCP lanes green nightly. A twelfth corpus, `courts` (4,897), is a
-  listing (queue item).
+  listing whose files the MCP now serves (queue item).
 - `links-4` merged 11:18 (ruling 123, `pub.entities`, 2.6 M entities);
   DDL applied, `qv4-links-build` queued (row 850); the board catalogues
   the view in the next merge. `links-5` launched 11:22 (ruling 125:
