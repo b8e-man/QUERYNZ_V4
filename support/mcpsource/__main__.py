@@ -6,12 +6,15 @@
     python -m support.mcpsource --corpus beehive        one corpus
     python -m support.mcpsource --retry-caught          each catch line asked for again
     python -m support.mcpsource --rewalk                every corpus walked again to its cursor (changes in place)
+    python -m support.mcpsource --no-files              the records and change feeds only; no file fetched
     python -m support.mcpsource --adopt SCHEMA          the integrator, once: a session's pull carried live
                                                         (resumable: a rerun after a kill finishes the rest)
 
-Prints counts only, never a record (hard limit 11). Exit 1 when the run is
-red: a corpus failed, a record was caught, or a field is new to us; for
---adopt, a count of the source and the live record that differs.
+The files a record points at (ruling 126) are fetched after the records of
+every corpus, in what is left of --budget-s. Prints counts only, never a
+record (hard limit 11). Exit 1 when the run is red: a corpus failed, a
+record or a file was caught, or a field is new to us; for --adopt, a count
+of the source and the live record that differs.
 """
 import argparse
 import sys
@@ -40,6 +43,7 @@ def main(argv=None) -> int:
     ap.add_argument("--store", default="docs", help="the adopt's store schema on --database (a scratch one for a proof)")
     ap.add_argument("--batch", type=int, default=M.ADOPT_BATCH, help="the adopt's documents per batch")
     ap.add_argument("--no-changes", action="store_true", help="the cursor only; skip the change feed")
+    ap.add_argument("--no-files", action="store_true", help="skip the download step (the files records point at)")
     a = ap.parse_args(argv)
     from support import db, jobrun
     if a.adopt:
@@ -71,7 +75,7 @@ def main(argv=None) -> int:
                 return 0
             try:
                 res = M.pull_all(conn, client, a.schema, only=a.corpus, log=log, budget_s=a.budget_s,
-                                 pause_s=a.pause_s, rewalk=a.rewalk, follow=not a.no_changes)
+                                 pause_s=a.pause_s, rewalk=a.rewalk, follow=not a.no_changes, files=not a.no_files)
             except (M.McpError, M.ShapeError) as e:     # `corpora` itself did not answer: a red run, recorded
                 detail = f"`corpora` failed: {type(e).__name__}: {e}"[:2000]
                 print(f"{M.SOURCE}: RED: {detail}")
@@ -85,6 +89,8 @@ def main(argv=None) -> int:
     print(f"{M.SOURCE}: {'ok' if ok else 'RED'}: {detail}")
     figures = {f"{k}_{f}": v.get(f) for k, v in res.items() for f in ("landed", "held", "caught", "drift", "to")
                if f in v}
+    figures.update({f"{k}_files_{f}": v["files"].get(f) for k, v in res.items() if v.get("files")
+                    for f in ("landed", "held", "caught", "waiting", "calls")})
     if a.runs or a.database == "querynz_v4":
         jobrun.record(M.JOB, ok, detail[:2000], started, figures, path=a.runs)
     return 0 if ok else 1
