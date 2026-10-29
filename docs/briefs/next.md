@@ -457,6 +457,8 @@ off the public site (6.2 row 2; 6.4 is Arthur's question).
 
 ## candidate-returns-3
 
+MERGED 30 October 08:58 (402dd42; record in docs/merges/candidate-returns-3.md).
+
 Build session, Opus, scope `registers/candidate_returns/`. Step 4.5: the
 Commission's spreadsheet figures published as rows where no return is read
 (card `electorate-money-waits-on-the-candidate-returns-lane`; no model, no
@@ -563,6 +565,49 @@ Reading (Arthur, 20 October, ruling 62): no page-reader job is queued in
 bulk until the build is done. A lane's request for readings is answered
 with the store's sample and a note; the hashes it sets aside are the queue
 for later, one command.
+
+## site-4
+
+Build session, Opus, scope `products/published_site/`. Step 4.5: two causes
+the template owns, now that candidate-returns-3 is merged: a Commission
+spreadsheet row's citation and evidence text (never "donations $0.00" from
+the empty return columns), and the filed party label on a candidacy the
+official result prints no party for. Launched headless by the integrator
+30 October, or on node2: `cd /home/user/querynzv4 && bin/start-session site-4 products/published_site`.
+
+```text
+You are a build session for QueryNZV4, running as Opus on node2, in the
+working copy the launcher made for you, scope products/published_site/.
+Read docs/PLAN.md, docs/plan/core.md, your module's spec.md,
+docs/status/site.md, registers/candidate_returns/pane.md and publish.sql
+(the rows with read_from 'commission', merged as candidate-returns-3),
+the cards cards/electorate-money-waits-on-the-candidate-returns-lane.md
+(its 30 October note) and
+cards/an-unregistered-party-label-is-not-on-the-rebuilt-candidacy.md, and
+checks/comparison.py where it names "candidate-returns-not-held" and
+"unregistered-label-not-on-candidacy". Two causes of step 4.5 are the
+template's now. (1) A pub.candidate_return_totals row with read_from
+'commission' is the Commission's spreadsheet figure with no return read:
+its citation file must say so (its own label, not "EC candidate return
+(declaration)") and its evidence text must state the Commission's figures
+from the commission_* columns, or none, never "donations $0.00" from the
+empty return columns (render.cites). (2) Where the official result prints
+no party for a candidacy (51 in 2020, 84 in 2023; pub.candidacies party
+null), the person and electorate pages show the label as filed from the
+candidate's return or the Commission's row, joined the way the template
+already joins returns to candidacies (year, electorate, surname), and say
+it is the filed label; a candidacy with neither stays blank, as now.
+Measure as site-2 did: build the site in your scratch schema from the
+latest frozen day in /home/user/querynzv4-work/live/checks/comparison/days/
+and run checks/comparison.py base and branch; record in your status file
+what each cause's count was and is, by page kind, and what remains. No
+model, no reading, no fetch; nothing on the public site (hard limit 21);
+the version-3 fall gate as it is. Each tranche with a test that fails on
+main and passes on your branch. Never print a home address or a suppressed
+name. Push your branch, raise the merge request site-4 (if the inbox
+refuses you, leave it in your scratch folder and say so), update
+docs/status/site.md.
+```
 
 ## flash-next-1
 
