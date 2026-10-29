@@ -707,7 +707,7 @@ docs/status/courts.md.
 
 ## links-5
 
-LAUNCHED 30 October 11:22, headless, from the merged main.
+MERGED 30 October 12:03 (62b65c0; record in docs/merges/links-5.md).
 
 Build session, Fable, scope `links/`. Ruling 125: the organisation rules run
 on every row that names a body, time-aware. Starts after `links-4` merges

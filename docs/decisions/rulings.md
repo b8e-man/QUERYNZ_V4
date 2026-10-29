@@ -1118,7 +1118,7 @@ rebuilds its tables from the MCP's documents alone, and a held file the
 MCP does not carry is a gap to report to the provider, not a row. Built
 by `courts-2`.
 
-128. Arthur, 30 October, 11:45, on the reading of the courts' PDFs,
+128. Arthur, 30 October, 11:33, on the reading of the courts' PDFs,
 four answers. (1) "add things": a reading of a court document produces,
 beyond the caption's fields (citation, court, registry, case numbers,
 date, judges, parties and roles, paragraphs, outcome), every person and
@@ -1144,7 +1144,7 @@ names and home addresses stand as rules of the build, applied without
 comment. Built by `courts-2`; the reading infrastructure (page reader
 and text reader jobs on node2) is queued by the integrator.
 
-129. Arthur, 30 October, 12:10, on the queue item "where the page reader
+129. Arthur, 30 October, 11:41, on the queue item "where the page reader
 runs on node2 while Flash-Next holds both cards": "let's take the
 opportunity to set up the flash next deactivation and reactivation". So
 the scheduler gains a night window for the standing server: between
