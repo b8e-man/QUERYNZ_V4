@@ -24,3 +24,7 @@ and confirms each to the one member sitting on its day (`rules.member_on_the_day
 `coupled-name@1` (ruling 73): a donation row filed as two people ("Craig & Shayne Greenlees", `keys.names.is_joint_name`) stays one row and
 gains a part row per person (`keys.names.joint_parts`; ref `<donor ref>#<n>`, `part_of` the donor), each joined to the donor, near;
 the other rules read a part as any person row. An organisation is never cut on "&"; initials ("M and J Patterson") are not judged.
+Ruling 123: `pub.entities`, one row per entity (`build.build_entities`, after the groups; `links.entities`): a group, or a row in no group
+as a single-row entity; `entity_id` the group id or the lone row's ref; the display name by the one ordering every reader shares, written
+in `pane.md` (the most words, then the most characters, then the smallest ref by bytes, among the entity's rows of `pub.names`; a group of
+bodies alone is named from `links.bodies` the same way); `check.py` item 11 counts the view against the groups and the lone rows.

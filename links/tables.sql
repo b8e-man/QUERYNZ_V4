@@ -264,3 +264,22 @@ CREATE TABLE IF NOT EXISTS links.scores (
     figures      jsonb NOT NULL,           -- by truth and band: pairs, wrongly split, caught; the pass mark and whether it passed
     passed       boolean NOT NULL
 );
+
+-- One row per entity (ruling 123, 30 October 2026): a group of `links.groups`, or a row of `links.rows` in no group (a
+-- single-row entity). `entity_id` is the group id (the group's smallest row key, bytes) or the lone row's ref; `kind` as
+-- the rows carry it (person, organisation, estate); `display_name` is chosen by the one ordering every reader shares,
+-- written in pane.md (a name among the entity's rows of `links.rows`, the most words, then the most characters, then the
+-- smallest ref COLLATE "C"; a group holding no such row, two bodies joined by their official number, takes its name
+-- from `links.bodies` the same way); `rows` the row count; `registers` the distinct registers, sorted COLLATE "C";
+-- `contested` from the groups; `politician` where any row is. Rebuilt whole with the groups; edited by nobody. Regenerable.
+CREATE TABLE IF NOT EXISTS links.entities (
+    entity_id    text PRIMARY KEY,         -- the group id, or a lone row's ref
+    kind         text NOT NULL CHECK (kind IN ('person', 'organisation', 'estate')),
+    display_name text NOT NULL,
+    rows         integer NOT NULL,
+    registers    text[] NOT NULL,
+    contested    boolean NOT NULL DEFAULT false,
+    politician   boolean NOT NULL DEFAULT false,
+    built_at     timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE links.entities SET (vacuum_truncate = off);   -- rebuilt whole, as links.links is (the deadlock of 20 October 2026)
