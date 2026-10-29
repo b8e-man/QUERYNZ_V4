@@ -259,7 +259,7 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
                                       fold=collapse.folder(conn, boxes.collapse, boxes.hand, ents))     # rulings 112, 119: a display choice, read only
             if asking or graph_open:                   # ruling 108 (4); ruling 110: the dossier under the graph
                 g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=asked if regs else None,
-                                removed=boxes.removed, collapse=boxes.collapse) if graph_open else None
+                                removed=boxes.removed, collapse=boxes.collapse, hand=boxes.hand) if graph_open else None
                 side = graph.side_pane(boxes, centre, g, q, regs, chosen)
                 out.append(f'<div class="duo">{pane}<div class="sidecol">{side}{dos}</div></div>')
             else:
@@ -320,7 +320,7 @@ def graph_answer(q: str, centre: str = "", conn=None, boxes: search.Boxes = sear
         if opened:
             return graph.opened(people.entity(conn, opened), q, boxes)
         g = graph.build(conn, q if regs else "", regs=regs, centre=centre, fields=boxes.asked() if regs else None,
-                        removed=boxes.removed, collapse=boxes.collapse)
+                        removed=boxes.removed, collapse=boxes.collapse, hand=boxes.hand)
         return graph.answer(g, q, boxes)
 
 

@@ -93,7 +93,8 @@ def group_rows(conn, v: cat.View, r: dict) -> list:
     return [found[m["ref"]] for m in shown if m["ref"] in found]
 
 
-def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, removed: bool = True, collapse: tuple = ()) -> dict:
+def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, removed: bool = True, collapse: tuple = (),
+          hand: tuple = ()) -> dict:
     """{'nodes': {id: {v, row, matched, centre, order}}, 'edges': [...],
     'drawn': {kind: n}, 'not_drawn': {kind: n}, 'matched_total', 'unresolved'}.
     An edge is one cause: kind, a, b (node ids), label (plain words), cite
@@ -104,7 +105,8 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
     The graph has one state, entities (ruling 120; the rows state left): the
     rows and their record relations, no links of a row's own, folded into
     the links lane's groups (people.fold, ruling 105). `collapse` (ruling 112): the collapse section's criteria, folding the
-    nodes further for this view, as the results fold (collapse.fold_graph)."""
+    nodes further for this view, as the results fold (collapse.fold_graph); `hand` (ruling 119), the folds by hand, each
+    drawn as one node."""
     g = {"nodes": {}, "edges": [], "drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS},
          "not_drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS}, "matched_total": 0, "unresolved": 0, "centre": centre}
     held = db.pub_views(conn)
@@ -194,7 +196,7 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
             g["not_drawn"][rel.kind] += total - drawn
     lineage.draw(conn, g, add_node, add_edge, people_state.resolve_refs)     # ruling 106 (2): the related grade, as frames
     out = people_state.fold(conn, g, max_nodes=MAX_NODES)
-    return folding.fold_graph(conn, out, collapse, g["nodes"]) if collapse else out
+    return folding.fold_graph(conn, out, collapse, g["nodes"], hand) if collapse or hand else out
 
 
 # ── a donor's money, one edge per recipient (ruling 86 (3)) ─────────────────

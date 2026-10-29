@@ -412,7 +412,7 @@ def fold_entries(conn, xs: list, criteria: tuple, memo: dict = None) -> list:
     return out
 
 
-def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
+def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None, hand: tuple = ()) -> dict:
     """The graph beside the results folded the same way (ruling 112): its
     entity, lone and row nodes sharing a key of a ticked criterion become
     one node `fold:<member>`, named by the member `stands_for` names, its
@@ -423,8 +423,12 @@ def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
     results; edges are lifted to the folded ends, one inside a fold dropped
     and counted (`inside`), duplicates merged. A node kept apart (its name
     suppressed) or in a lineage frame is never folded. `rows_of`, the rows
-    graph's nodes before the people fold, for an entity's rows in hand."""
-    if not criteria or not g["nodes"]:
+    graph's nodes before the people fold, for an entity's rows in hand.
+    `hand` (ruling 119): the folds by hand, each made first of the
+    organisation nodes it names (`organisations`, as the results read them),
+    one node saying "collapsed here by hand; not a link"; a node so folded is
+    left out of the criteria's folds, and a person node is never folded by hand."""
+    if not (criteria or hand) or not g["nodes"]:
         return g
     framed = {x for f in g.get("lineage") or [] for x in list(f.get("companies") or []) + list(f.get("people") or [])}
     rows_of = rows_of or g["nodes"]
@@ -434,11 +438,23 @@ def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
             continue
         e = n.get("entity")
         if e:
-            hand = [(rows_of[h]["v"], rows_of[h]["row"]) for h in e.get("in_hand") or () if h in rows_of]
-            units.append({"id": nid, "group": e["group_id"], "rows": hand or [(n["v"], n["row"])]})
+            held = [(rows_of[h]["v"], rows_of[h]["row"]) for h in e.get("in_hand") or () if h in rows_of]
+            units.append({"id": nid, "group": e["group_id"], "rows": held or [(n["v"], n["row"])]})
         else:
             units.append({"id": nid, "group": None, "rows": [(n["v"], n["row"])]})
-    sets = union([u["id"] for u in units], keys(conn, units, criteria), criteria)
+    sets = []
+    if hand:
+        xs = [{"id": u["id"], "group": u["group"], "in_hand": u["rows"]} for u in units]
+        ents = {"entity": {u["group"]: g["nodes"][u["id"]]["entity"] for u in units if u["group"]}}
+        orgs, order, taken = organisations(conn, xs, ents), {u["id"]: i for i, u in enumerate(units)}, set()
+        for f in hand:
+            ms = sorted({m for m in f if m in orgs and m not in taken}, key=order.get)
+            if len(ms) > 1:
+                taken |= set(ms)
+                sets.append((ms, {HAND}))
+        units = [u for u in units if u["id"] not in taken]
+    if criteria:
+        sets += union([u["id"] for u in units], keys(conn, units, criteria), criteria)
     if not sets:
         return g
     node_of = {nid: nid for nid in g["nodes"]}

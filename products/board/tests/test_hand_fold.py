@@ -171,3 +171,44 @@ def test_the_fold_s_dossier_lists_its_members_as_the_entities_they_are(monkeypat
     assert x["kind"] == "fold" and len(x["members"]) == len(FOLD) and x["label"] == "Rank Group Limited via Graeme Hart"
     assert "collapsed here by hand; not a link" in page and "never written" in page
     assert page.count('<a class="row" href="/?q=Rank+Group') == len(FOLD)
+
+
+def rank_graph():
+    """The graph beside the results: the group's node, the five holders, the
+    Commerce Commission party, a Rank Group company not ticked, and a person holder, each a row node."""
+    n = lambda v, r, order, **kw: {"v": v, "row": r, "matched": True, "centre": False, "order": order, "parent": None, **kw}
+    e = ENTS["entity"][GROUP]
+    nodes = {people.entity_id(GROUP): n(DONORS, {"key": "g1", "donor": "Rank Group Limited"}, 0, title=e["label"],
+                                        entity={**e, "in_hand": ["party_return_donors:g1"]}, lone=False)}
+    for i, x in enumerate(rank()[1:], 1):
+        if x["group"] is None and x["in_hand"][0][0].name != "directors":
+            v, r = x["in_hand"][0]
+            nodes[x["id"]] = n(v, r, i, lone=True)
+    target = "companies:companies/9429031575157"
+    edges = [{"kind": "role", "a": f"shareholders:companies/c{i}/shareholder/{i}", "b": target, "label": "shareholder of",
+              "cite": "x", "rule": None} for i in range(1, 6)]
+    rows = {"party_return_donors:g1": {"v": DONORS, "row": {"key": "g1", "donor": "Rank Group Limited"}}}
+    return {"nodes": nodes, "edges": edges, "people": True, "inside": 0, "decisions": {}, "lineage": []}, rows
+
+
+def test_the_graph_draws_the_fold_by_hand_as_one_node_with_the_same_words():
+    from products.board import graph
+    g, rows = rank_graph()
+    out = collapse.fold_graph(None, g, (), rows, (FOLD,))
+    (fid,) = [k for k, x in out["nodes"].items() if x.get("fold")]
+    f = out["nodes"][fid]["fold"]
+    assert fid == "fold:" + people.entity_id(GROUP) and f["members"] == list(FOLD)
+    assert f["words"] == "collapsed here by hand; not a link" and out["nodes"][fid]["title"] == "Rank Group Limited via Graeme Hart"
+    assert "companies:companies/9429031575157" in out["nodes"] and "shareholders:companies/c9/shareholder/9" in out["nodes"]
+    assert len(out["nodes"]) == len(g["nodes"]) - len(FOLD) + 1
+    assert len(out["edges"]) == 1 and out["inside"] == 0                               # the five holders' edges, one line from the fold
+    assert collapse.parse(f["dossier"]) == (("hand",), list(FOLD))
+    out.update({"drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS}, "not_drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS},
+                "matched_total": len(g["nodes"]), "unresolved": 0, "centre": ""})
+    data = graph.answer(out, "Rank Group", search.FIRST._replace(hand=(FOLD,)))
+    (node,) = [x for x in data["nodes"] if x.get("kind") == "fold"]
+    assert node["words"] == "collapsed here by hand; not a link" and node["dossier"].startswith("fold:hand:")
+    assert "collapsed here by hand; not a link" in graph.svg(out, "Rank Group", search.FIRST)
+    persons = ("shareholders:companies/c9/shareholder/9", people.entity_id(GROUP))
+    assert collapse.fold_graph(None, g, (), rows, (persons,)) is g                   # a person node is never folded by hand
+    assert all(s.lstrip().lower().startswith("select") for s in SAID)
