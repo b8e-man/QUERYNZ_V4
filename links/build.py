@@ -821,6 +821,57 @@ def build_groups(conn, s: str, log=print) -> dict:
     return out
 
 
+def build_entities(conn, s: str, log=print) -> dict:
+    """Rebuild `<schema>.entities` whole from the groups and the rows (ruling
+    123): one row per entity, a group or a row in no group. The display name
+    is chosen by the one ordering every reader shares (pane.md): among the
+    entity's rows of `<schema>.rows`, the filed name with the most words,
+    then the most characters (whitespace folded to one space), then the
+    smallest ref by bytes; a group holding no such row (two bodies joined by
+    their official number) takes its name from `<schema>.bodies` the same
+    way, and is an organisation. The kind is the kind of the row that gives
+    the name; the registers are the distinct registers of the rows, sorted by
+    bytes; contested is the group's; politician where any row is."""
+    t0 = time.monotonic()
+    conn.execute(f"DELETE FROM {s}.entities")
+    conn.execute(f"""
+        INSERT INTO {s}.entities (entity_id, kind, display_name, rows, registers, contested, politician, built_at)
+        WITH member AS (
+            SELECT g.group_id AS entity_id, g.row_key AS ref, g.contested FROM {s}.groups g
+            UNION ALL
+            SELECT r.ref, r.ref, false FROM {s}.rows r WHERE NOT EXISTS (SELECT 1 FROM {s}.groups g WHERE g.row_key = r.ref)),
+        named AS (
+            SELECT m.entity_id, m.ref, m.contested, r.kind, r.politician, r.ref IS NOT NULL AS filed,
+                   btrim(regexp_replace(coalesce(r.name_filed, b.name, ''), '\\s+', ' ', 'g')) AS name,
+                   split_part(m.ref, ':', 1) {links.ORDER} AS register
+            FROM member m
+            LEFT JOIN {s}.rows r ON r.ref = m.ref
+            LEFT JOIN {s}.bodies b ON r.ref IS NULL AND b.entity_ref = m.ref),
+        chosen AS (
+            SELECT DISTINCT ON (entity_id) entity_id, name, kind
+            FROM named
+            ORDER BY entity_id, filed DESC, array_length(string_to_array(name, ' '), 1) DESC NULLS LAST, length(name) DESC,
+                     ref {links.ORDER}),
+        counted AS (
+            SELECT entity_id, count(*) AS rows, array_agg(DISTINCT register ORDER BY register) AS registers,
+                   bool_or(contested) AS contested, coalesce(bool_or(politician), false) AS politician
+            FROM named GROUP BY entity_id)
+        SELECT c.entity_id, coalesce(ch.kind, 'organisation'), ch.name, c.rows, c.registers, c.contested, c.politician, now()
+        FROM counted c JOIN chosen ch USING (entity_id)""")
+    conn.execute(f"ANALYZE {s}.entities")
+    conn.commit()
+    row = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE rows > 1), count(*) FILTER (WHERE rows = 1),
+                                  count(*) FILTER (WHERE kind = 'person'), count(*) FILTER (WHERE kind = 'organisation'),
+                                  count(*) FILTER (WHERE kind = 'estate'), count(*) FILTER (WHERE contested),
+                                  count(*) FILTER (WHERE politician), coalesce(sum(rows), 0)
+                           FROM {s}.entities""").fetchone()
+    out = {"entities": int(row[0]), "groups": int(row[1]), "lone_rows": int(row[2]), "person": int(row[3]),
+           "organisation": int(row[4]), "estate": int(row[5]), "contested": int(row[6]), "politician": int(row[7]),
+           "rows": int(row[8]), "seconds": round(time.monotonic() - t0, 1)}
+    log(f"links.build: entities: {out}")
+    return out
+
+
 def build_watch(conn, s: str, log=print) -> dict:
     """The watch over every confirmed name link: regions apart (the current
     appointments' registered offices sit in different postcode regions), a
@@ -888,6 +939,7 @@ def build_all(conn, s: str, log=print, reader=None) -> dict:
     out = {"links": build_links(conn, s, log, reader=reader)}
     out["watch"] = build_watch(conn, s, log)
     out["groups"] = build_groups(conn, s, log)
+    out["entities"] = build_entities(conn, s, log)
     return out
 
 
@@ -912,7 +964,7 @@ def main(argv=None) -> int:
             if "--watch" in argv:
                 print(json.dumps(build_watch(conn, s)))
             if "--groups" in argv:
-                print(json.dumps(build_groups(conn, s)))
+                print(json.dumps({"groups": build_groups(conn, s), "entities": build_entities(conn, s)}))
     return 0
 
 

@@ -1,6 +1,6 @@
 """The whole links build in order, for the merge gate's staging step and the
-proposed `qv4-links-build` job: rows, links, watch, groups, test pairs, the
-six measurements. At each build the copy of the old ledgers is brought
+proposed `qv4-links-build` job: rows, links, watch, groups, entities (ruling
+123), test pairs, the six measurements. At each build the copy of the old ledgers is brought
 level with the old database (the new rows, the withdrawals re-read),
 mapped onto the rows just gathered, and promoted (`links.old`), so the
 outside check compares like with like.
@@ -28,6 +28,7 @@ def run(conn, reader, s: str, log=print, oldconn=None) -> dict:
         out["promote"] = old.promote(conn, s, log)
     out["watch"] = build.build_watch(conn, s, log)
     out["groups"] = build.build_groups(conn, s, log)
+    out["entities"] = build.build_entities(conn, s, log)
     out["pairs"] = pairs.draw(conn, s, log=log)
     out["measurements"] = {k: v.get("seconds") for k, v in measure.run(conn, s, log).items()}
     return out

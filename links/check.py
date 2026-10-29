@@ -12,7 +12,7 @@
    the day director address suppression begins (plan 4.3: an address a
    director substituted after that day must never confirm a link).
 3. The published views answer with the tables' counts (links, groups,
-   decisions), so the board reads what was built.
+   decisions, entities), so the board reads what was built.
 4. The rows have read every published view they name as it stands now:
    each view counted again equals what the last gather read, and the
    catch log reconciles (read = written + set aside); ruling 114's eight
@@ -53,6 +53,12 @@
    row's day (from the term's start, up to and not on its end), and no
    other member of the name sat on that day; no row is confirmed to two
    members.
+11. Ruling 123, counted in SQL apart from the Python: the published
+   entities are the groups and the lone rows, one each: their count equals
+   the count of groups plus the count of rows in no group, every group id
+   and every lone row's ref is an entity and nothing else is, the rows they
+   count sum to the grouped rows plus the lone rows, every kind is person,
+   organisation or estate, and no display name is blank.
 """
 from __future__ import annotations
 
@@ -101,7 +107,7 @@ def check_addresses(conn, s: str) -> list:
 
 def check_published(conn, s: str, pub: str = "pub") -> list:
     out = []
-    for view, table in (("links", "links"), ("groups", "groups"), ("decisions", "decisions")):
+    for view, table in (("links", "links"), ("groups", "groups"), ("decisions", "decisions"), ("entities", "entities")):
         exists = conn.execute("SELECT 1 FROM information_schema.views WHERE table_schema = %s AND table_name = %s", (pub, view)).fetchone()
         if not exists:
             out.append({"check": f"{pub}.{view} published", "ok": False, "note": "view missing"})
@@ -309,6 +315,35 @@ def check_ruling_116(conn, s: str, members: str = "pub.members") -> list:
              "ok": n == judged and not_named == 0 and not_sat == 0 and others == 0 and twice == 0}]
 
 
+def check_entities(conn, s: str, pub: str = "pub") -> list:
+    """Ruling 123 against the tables as they stand (SQL apart from
+    `build.build_entities`): one entity per group and per lone row, no more
+    and no fewer, their rows summing to the rows there are."""
+    exists = conn.execute("SELECT 1 FROM information_schema.views WHERE table_schema = %s AND table_name = 'entities'", (pub,)).fetchone()
+    if not exists:
+        return [{"check": f"{pub}.entities is the groups plus the lone rows", "ok": False, "note": "view missing"}]
+    row = conn.execute(f"""
+        WITH g AS (SELECT group_id, count(*) AS n FROM {s}.groups GROUP BY group_id),
+             lone AS (SELECT r.ref FROM {s}.rows r WHERE NOT EXISTS (SELECT 1 FROM {s}.groups x WHERE x.row_key = r.ref)),
+             e AS (SELECT entity_id, kind, display_name, rows FROM {pub}.entities)
+        SELECT (SELECT count(*) FROM e), (SELECT count(*) FROM g), (SELECT count(*) FROM lone),
+               (SELECT count(*) FROM g WHERE NOT EXISTS (SELECT 1 FROM e WHERE e.entity_id = g.group_id)),
+               (SELECT count(*) FROM lone WHERE NOT EXISTS (SELECT 1 FROM e WHERE e.entity_id = lone.ref)),
+               (SELECT count(*) FROM e WHERE NOT EXISTS (SELECT 1 FROM g WHERE g.group_id = e.entity_id)
+                                        AND NOT EXISTS (SELECT 1 FROM lone WHERE lone.ref = e.entity_id)),
+               (SELECT coalesce(sum(rows), 0) FROM e), (SELECT coalesce(sum(n), 0) FROM g),
+               (SELECT count(*) FROM e WHERE kind NOT IN ('person', 'organisation', 'estate')),
+               (SELECT count(*) FROM e WHERE btrim(display_name) = '')""").fetchone()
+    n, groups, lone, groups_missing, lone_missing, neither, rows_sum, grouped_rows, other_kinds, blank = (int(x) for x in row)
+    return [{"check": f"{pub}.entities is the groups plus the lone rows, one row each (ruling 123)",
+             "entities": n, "groups": groups, "lone_rows": lone, "groups_without_an_entity": groups_missing,
+             "lone_rows_without_an_entity": lone_missing, "entities_that_are_neither": neither,
+             "rows_counted": rows_sum, "rows_grouped_plus_lone": grouped_rows + lone,
+             "kinds_outside_the_three": other_kinds, "blank_display_names": blank,
+             "ok": n == groups + lone and groups_missing == 0 and lone_missing == 0 and neither == 0
+                   and rows_sum == grouped_rows + lone and other_kinds == 0 and blank == 0}]
+
+
 def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out = []
     if oldconn is not None:
@@ -322,6 +357,7 @@ def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out += check_ruling_109(conn, s)
     out += check_ruling_114(conn, s)
     out += check_ruling_116(conn, s)
+    out += check_entities(conn, s, pub)
     return out
 
 
