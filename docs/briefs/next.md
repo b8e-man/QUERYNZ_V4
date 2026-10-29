@@ -455,6 +455,54 @@ shareholders-donors` (6); a shape diff over ten scan files to apply at the
 merge (`patch -p1`; the hooks refuse `git apply`). The award join stays
 off the public site (6.2 row 2; 6.4 is Arthur's question).
 
+## candidate-returns-3
+
+Build session, Opus, scope `registers/candidate_returns/`. Step 4.5: the
+Commission's spreadsheet figures published as rows where no return is read
+(card `electorate-money-waits-on-the-candidate-returns-lane`; no model, no
+reading, ruling 79 untouched). Launched headless by the integrator 30 October,
+or on node2: `cd /home/user/querynzv4 && bin/start-session candidate-returns-3 registers/candidate_returns`.
+
+```text
+You are a build session for QueryNZV4, running as Opus on node2, in the
+working copy the launcher made for you, scope registers/candidate_returns/.
+Read docs/PLAN.md, docs/plan/core.md, your lane's spec.md, pane.md,
+commission.py, publish.sql, load.py and check.py, docs/status/candidate-returns.md,
+the card cards/electorate-money-waits-on-the-candidate-returns-lane.md, and
+checks/comparison.py where it names "candidate-returns-not-held". The
+comparison with the frozen site (step 4.5) counts 5,133 differences a day
+under that cause, and the card says what clears most of them without any
+model reading: the Commission's own summary spreadsheet rows published as
+rows where no return is read. The lane holds 2,151 Commission rows
+(candidate_returns.commission, 2020: 1,184, 2023: 967); 1,346 of them join
+no row of pub.candidate_return_totals by year, electorate and surname.
+Build: publish one pub.candidate_return_totals row per Commission row that
+no read return covers, carrying the candidate, electorate, party and year
+as the Commission lists them and its donations, expenses and (2023) loans
+figures in the columns the template already reads as the headline, marked
+plainly as the Commission's figure with no return read (a `read_from` or
+`source` value the pane and the template can tell apart; say which in
+pane.md), with a stable key that does not collide with a read return's
+and a citation to the spreadsheet document (its hash, sheet and row). A
+return read later replaces the Commission's row for that candidate; the
+replacement rule is in publish.sql, not in the template. Keep the catch
+log reconciling and the outside check (the spreadsheet against each read
+return) as it is. Measure: build the site in your scratch schema as
+site-2 did and run checks/comparison.py against the latest frozen day in
+/home/user/querynzv4-work/live/checks/comparison/days/; record in your
+status file how many of the cause's differences fall, by page kind, and
+what remains (the donor pages wait on the scans' readings under ruling 79;
+say so, do not read). Propose the nightly qv4-candidate-returns-load job
+in your spec for the integrator; queue nothing live. No model is called;
+no document is read; nothing is fetched. Each tranche with a test that
+fails on main and passes on your branch, on the real rows. Never print a
+home address or a suppressed name (a donor's address lives in
+candidate_returns_private and never enters your session). Push your
+branch, raise the merge request candidate-returns-3 (if the inbox refuses
+you, leave it in your scratch folder and say so), update
+docs/status/candidate-returns.md.
+```
+
 ## candidate-returns
 
 Merged (`docs/merges/candidate-returns-1`): 1,105 returns by hash, 372
