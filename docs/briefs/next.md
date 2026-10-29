@@ -518,6 +518,9 @@ for later, one command.
 
 ## board-14
 
+Launched headless by the integrator on 29 October at 15:56 (copy `board-14`,
+branch `session/board-14`, from e58a404 with fix-products-board-6 in).
+
 Build session, Opus, scope `products/board/`, after board-13 merges.
 Ruling 119: a fold by hand for organisations. Launched headless by the
 integrator, or on node2: `cd /home/user/querynzv4 && bin/start-session board-14 products/board`.
@@ -550,9 +553,7 @@ the merge request board-14, write docs/status/board.md.
 
 ## fix-products-board-6
 
-Launched headless by the integrator on 29 October at 14:48 (copy
-`fix-products-board-1`, branch `fix/products-board-1`); `board-14` starts
-after it merges, since both change `products/board/collapse.py`.
+MERGED 29 October 15:53 (e58a404; record in docs/merges/fix-products-board-6.md).
 
 Fix session, Opus, scope `products/board/`. The card
 `the-graph-tab-s-fold-is-mislabelled-in-rows-mode-and-cites-the-superseded-filing`

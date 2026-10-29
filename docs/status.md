@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-29, 14:55 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-29, 15:55 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
@@ -27,15 +27,16 @@ model reading till it returns. **Alarms:** the old ntfy address.
 ## Running (headless, from the integrator)
 
 - 29 October: readers mended; fix-links-5, fix-products-board-5,
-  `board-13` (117) merged by 13:00. 14:55: the inbox is empty, every
-  branch on main, release copy at 9d788fb. `fix-products-board-6` (118,
-  120) launched headless 14:48 as Opus; `board-14` (119) follows its
-  merge, same module. Pinned to 30 October: an entities view from the
-  lane; the donor name rule on organisation rows; same-name bodies.
-- Arthur's Qwen3.8-Flash-Next experiment: Radiance 846 tok/s at 16
-  streams; node2 rebooted 14:34 for the PCIe fix (both cards now 32 GT/s
-  x16); the frozen product's servers and the worker are back, the
-  experiment units gone. Resume on his word.
+  `board-13` (117) merged by 13:00; `fix-products-board-6` (118, 120;
+  the graph is entities only) merged 15:53, board restarted. `board-14`
+  (119, a fold by hand) launched headless 15:54 as Opus. Pinned to 30
+  October: an entities view from the lane; the donor name rule on
+  organisation rows; same-name bodies.
+- Arthur's Qwen3.8-Flash-Next experiment resumed 15:00 (his word):
+  Radiance on both cards, port 8060; the carve-out servers and the worker
+  stopped by the holder unit; restore at 05:30. Found: ~650 tok/s
+  pooled at 16 slots, prefill caps near 10k tok/s (compute), host RAM
+  cut 91 to 24 GB. Results: the integrator's scratch `exp/`.
 - Card: the overclocking test (six reboots 07:36 to 09:11) gave the
   database bad reads. querynz_v4's six hit tables re-read clean after the
   cold boot; the old estate's seven relations are unverified (his scrub).
