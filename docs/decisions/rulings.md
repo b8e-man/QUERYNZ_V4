@@ -1117,3 +1117,29 @@ documents copied from the old estate remain in the store, but the lane
 rebuilds its tables from the MCP's documents alone, and a held file the
 MCP does not carry is a gap to report to the provider, not a row. Built
 by `courts-2`.
+
+128. Arthur, 30 October, 11:45, on the reading of the courts' PDFs,
+four answers. (1) "add things": a reading of a court document produces,
+beyond the caption's fields (citation, court, registry, case numbers,
+date, judges, parties and roles, paragraphs, outcome), every person and
+body the document names with the role the text gives each (party,
+counsel, witness, judge, company, agency), counsel for each party, and a
+one-line summary; these are read by the text-reader model (Flash-Next,
+ruling 121) through the reader contract, one reading per document,
+stamped with the model and version, and feed the links lane as rows like
+any register's. (2) "everything": every kind of document the MCP's
+courts corpus carries is read: judgments, hearing transcripts, counsel's
+submissions, media releases and the case pages (which carry the court,
+the case name and the dates the records lack), each under its own
+profile with recognition markers before its reader is built. (3) "this
+makes sense": the queue item "whether model reading starts on node2
+alone" is answered: ruling 79's hold is lifted for node2 alone; model
+reading runs at night, off the frozen product's release window, one
+profile swap at a time, the daily release never waiting on a reading;
+the page reader (GLM-OCR) reads a page with no text layer, Flash-Next
+reads text. (4) Nothing built here is shown to anyone; the build is
+internal. Sessions stop raising "held", "not shown" or "legal review"
+as concerns in their reports and briefs: the hard limits on suppressed
+names and home addresses stand as rules of the build, applied without
+comment. Built by `courts-2`; the reading infrastructure (page reader
+and text reader jobs on node2) is queued by the integrator.
