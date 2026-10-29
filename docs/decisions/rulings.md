@@ -1012,3 +1012,22 @@ himself. `querynz-vision-ocr` stays, with card room left for it. Built
 by `flash-next-1`; the frozen product's OCR server and the daily release
 are untouched (limits 19 to 23).
 
+122. Arthur, 29 October, 18:45: "put a permanent right hand pane that
+allows chat about the corpus in the querynz board interface". So the
+board gains a chat pane: a right-hand pane on every page of the board, in
+which Arthur asks questions of the published registers in plain words and
+a local model answers from them with a citation to each row it draws on.
+The shape, the integrator's reading of the word: the model is Flash-Next
+on Radiance (ruling 121), called by the board's server through
+`support.modelclient` (hard limit 10, the calls ledger, the model named
+and read back); the browser still talks to nothing but the board. The
+model reads the corpus only through the board's own search, row and
+dossier functions, offered to it as tools, on the product reader and the
+pub views alone, the same columns the field search reads, so a suppressed
+name never reaches it and ruling 102 applies as it does to the board. It
+answers from what the tools return and cites each fact as a row of a
+view; a line it cannot cite it says is uncited. The thread lives in the
+browser for the sitting; the server keeps no table of questions and logs
+no question text, as the search log already does not. With the model
+not running the pane says so and the board works as before. The spec's
+"no model" line changes to this. Built by `board-15`.

@@ -562,6 +562,75 @@ reading. Push session/flash-next-1, raise the merge request
 flash-next-1, write docs/status/flash-next.md.
 ```
 
+## board-15
+
+Build session, Opus, scope `products/board/`. Ruling 122: a permanent
+right-hand chat pane on the board. Launched headless by the integrator,
+or on node2: `cd /home/user/querynzv4 && bin/start-session board-15 products/board`.
+
+```text
+You are a build session for QueryNZV4, running as Opus on node2, in the
+working copy the launcher made for you, scope products/board/. Read
+docs/PLAN.md, docs/plan/core.md, products/board/spec.md, rulings 80, 86,
+100, 102, 111, 121 and 122 in docs/decisions/rulings.md,
+products/board/server.py, products/board/panes.py (page, left_pane, CSS),
+products/board/search.py (search, row, table), products/board/dossier.py
+(gather), products/board/assets.py, support/modelclient/__init__.py and
+docs/contracts/model-client.md, and docs/status/board.md. Build ruling
+122: a chat pane fixed to the right-hand edge of every page the board
+serves (search, use cases, pinned, saved paths, a dossier), always open,
+about 26rem wide, sticky, the page's own panes flowing in the width left;
+a question box at its foot, the thread above it, the newest turn in view.
+The thread lives in the browser (sessionStorage) and is posted whole with
+each new question to a new route of the board (`/chat`, JSON over POST,
+same origin; the content security policy stays as it is, the page asks
+nothing of any other address); the server keeps no table and its log
+line carries no question text. The server answers each question by
+calling the chat model through support.modelclient.chat (lane
+"board-chat"; the address from QV4_CHAT_URL, default
+http://127.0.0.1:8060/v1/chat/completions, the model from QV4_CHAT_MODEL,
+default qwen4exp; put both in units/qv4-board.service) with tools the
+model may call, at most six rounds a question: `registers` (the
+catalogue: each register held, its views, its row count), `search` (the
+board's own search over the pub views, the same term and register
+selection a reader could type, results grouped by register with each
+row's view, key and title and the entity groups, cut to a size), `row`
+(one row's shown fields, through panes.shown so a suppressed or withheld
+value never leaves, its source citation, and its far rows), and
+`dossier` (an entity's rows and money as dossier.gather gives them).
+Every tool reads on the product reader, pub views only, the columns
+catalogue.FIELDS_OF declares and an address only from ADDRESS_COLUMNS,
+exactly as the field search does; the one-way test must still pass. The
+system prompt tells the model what the estate is, that it answers only
+from what the tools return, that every fact is cited as [view:key] and a
+line it cannot cite is marked uncited, that it never guesses a link
+between people (same name is not the same person), and that it says
+plainly when the registers do not hold the answer. The server turns each
+[view:key] in the answer into the board's own row link (panes.href with
+that one step), so a citation opens the row's pane in the main page;
+unknown citations are shown struck with "not a row". When the model
+server is down or answers with a different model, the pane says "the
+chat model is not running" and nothing else changes; the pane never
+blocks the page. Rendering: the dark scheme in panes.CSS, every text
+colour at 4.5:1 (panes.contrast_problems must stay clean); a small
+chat.js in static/, listed in assets.FILES, no library. Change spec.md:
+the jobs line "no capture, no fetch, no model" becomes "no capture, no
+fetch; the chat pane alone calls the chat model through
+support.modelclient"; record the route, the env names and the tools.
+Add check items to `python -m products.board check`: every page carries
+the pane; /chat with the model up asked "which registers hold Rank Group
+Limited?" answers within 30 s with at least one citation that resolves to
+a real published row; with the model unreachable (point the URL at a
+closed port) /chat answers 200 with the not-running line; the check
+reports "model not running, chat item skipped" rather than failing when
+QV4_CHAT_URL answers nothing, so the gate stays green without the model.
+Measure the live answer time of three real questions and record them in
+your status file. Each tranche with a test that fails on main and passes
+on your branch. Never print a home address or a suppressed name. Push
+the branch, raise the merge request board-15 (if the inbox refuses you,
+leave it in your scratch folder and say so), write docs/status/board.md.
+```
+
 ## board-14
 
 MERGED 29 October 16:42 (b9c06a5; record in docs/merges/board-14.md).
