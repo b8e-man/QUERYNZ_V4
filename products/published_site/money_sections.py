@@ -171,8 +171,13 @@ def party_funding(ctx, race_don: list) -> list:
             parts["public"] += v
         total = F.money(sum(parts.values()))
         if total:
-            out.append({"party": name, "key": key, "total": total, "by_year": {y: F.money(v) for y, v in sorted(by_year.items())},
+            out.append({"party": name, "key": key, "registered": True, "total": total, "by_year": {y: F.money(v) for y, v in sorted(by_year.items())},
                         "parts": {k: F.money(v) for k, v in parts.items()}})
+    for p in race_don:                    # a label no registration answers to has its candidates' money and nothing else
+        if p["key"] or p["name"] == "no party listed" or not p["total"]:
+            continue
+        out.append({"party": p["name"], "key": None, "registered": False, "total": p["total"], "by_year": dict(p["by_year"]),
+                    "parts": {"party": 0.0, "candidates": p["total"], "public": 0.0}})
     return sorted(out, key=lambda p: (-p["total"], p["party"]))
 
 

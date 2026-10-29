@@ -156,10 +156,12 @@ def home(ctx: Context) -> dict:
                 "party_transfers": "candidate-return donor lines whose filed name is a party (its registered name, first name, abbreviation or a name the parties lane "
                                    "published) or a committee, branch or club naming one party and a committee word; the row keeps its filed name on every page (ruling 253) "
                                    "and is counted here as the party's own money reaching its candidates",
-                "race_donations": "candidates' declared donations (the Commission's table as the headline) by the party the results give the candidate, by election year",
+                "race_donations": "candidates' declared donations (the Commission's table as the headline) by the party the results give the candidate, or, where the results print none, the label as filed on the "
+                                  "candidate's return or the Commission's row (party_filed_from on the candidate), by election year",
                 "race_spend": "candidates' election expenses by the same party and year; candidates counts every candidate in the results, with_figure those with a return held",
                 "party_funding": "one figure per party and year: the party's own declared total, its candidates' declared donations and its broadcasting allocation; "
-                                 "the three parts are named and the disclosures are never added",
+                                 "the three parts are named and the disclosures are never added; a label no registration answers to "
+                                 "(registered false) carries its candidates' donations only",
                 "donor_categories": "the parts of the party returns held singly per year", "party_spend": "party expense returns as the Commission tabulates them",
                 "race_public": "broadcasting allocation per party, final decision", "public_money": "broadcasting allocation per election year",
                 "promoter_spend": "promoter expense returns with the people on the register", "donors_sighted": "declaration-only donors in covered years"}},
@@ -434,6 +436,17 @@ def size_bands(ctx: Context) -> dict:
     return out
 
 
+COMMISSION_ROW = "EC candidate returns summary (the Commission's spreadsheet row; no return read)"
+
+
+def commission_figures(r: dict) -> str:
+    """A Commission row's evidence: the spreadsheet's own figures, never the return's columns, which are empty
+    because no return was read; a figure the row does not print is left out, and a row with none says so."""
+    figs = [f"{name} ${float(r[col]):,.2f}" for name, col in (("donations", "commission_donations"), ("expenses", "commission_expenses"),
+                                                             ("loans", "commission_loans")) if r.get(col) is not None]
+    return ("the Commission's figures: " + ", ".join(figs)) if figs else "the Commission's row prints no figures"
+
+
 def cites(ctx: Context) -> dict:
     out = {}
 
@@ -461,8 +474,12 @@ def cites(ctx: Context) -> dict:
     for ckey, x in ctx.cm.rows():
         r = x["return"]
         who = CM.display(ctx.cm.candidate_of(ckey) if ckey else None, r)
-        put(f"candidate_returns:{r['key']}", r["document"], r.get("page"), r.get("place"), "EC candidate return (declaration)", read_from=r.get("read_from"),
-            text=f"{who}, {r.get('electorate')} {r.get('year')}: donations ${float(r.get('donations') or 0):,.2f}, expenses ${float(r.get('expenses') or 0):,.2f}")
+        if r.get("read_from") == "commission":
+            put(f"candidate_returns:{r['key']}", r["document"], r.get("page"), r.get("place"), COMMISSION_ROW, read_from="commission",
+                text=f"{who}, {r.get('electorate')} {r.get('year')}: {commission_figures(r)}")
+        else:
+            put(f"candidate_returns:{r['key']}", r["document"], r.get("page"), r.get("place"), "EC candidate return (declaration)", read_from=r.get("read_from"),
+                text=f"{who}, {r.get('electorate')} {r.get('year')}: donations ${float(r.get('donations') or 0):,.2f}, expenses ${float(r.get('expenses') or 0):,.2f}")
         for d in x["donors"]:
             put(f"candidate_returns:{d['key']}", d["document"], d.get("page"), d.get("ordinal"), "EC candidate return (Part A)", read_from=d.get("read_from"),
                 text=f"{d.get('donor')}: ${float(d.get('amount') or 0):,.2f} to {who} ({r.get('electorate')} {r.get('year')})")
@@ -498,10 +515,31 @@ def _money_of(ctx: Context, c: dict) -> dict:
     return out
 
 
+FILED_LABEL = {"result": None,
+               "return": "the label as filed on the candidate's return; the official result prints no party for this candidacy",
+               "commission": "the label as filed, from the Commission's candidate-returns summary row (no return read); the official result prints no party "
+                             "for this candidacy"}
+
+
+def party_filed(ctx: Context, c: dict) -> tuple:
+    """A candidacy's party label and where it came from: the official result's, or, where the result prints none, the
+    label as filed on the return joined to it (year, electorate, surname, as the money), or on the Commission's row
+    standing in for an unread return. Neither: (None, None), shown blank."""
+    if c.get("party"):
+        return c["party"], "result"
+    x = ctx.cm.of(c["key"]) if c.get("key") else None
+    label = ((x or {}).get("return") or {}).get("party")
+    if label and str(label).strip():
+        return str(label).strip(), ("commission" if x["return"].get("read_from") == "commission" else "return")
+    return None, None
+
+
 def _candidate_row(ctx: Context, c: dict, sitting: set) -> dict:
     k = ctx.idx.key(c.get("party_registered"))
+    label, came = party_filed(ctx, c)
     row = {"candidate": c.get("name"), "display": c.get("display_name") or c.get("name"), "name_key": c.get("name_key"),
-           "party": ctx.idx.name(k) or None, "party_filed": c.get("party"), "party_registered": bool(k),
+           "party": ctx.idx.name(k) or None, "party_filed": label, "party_filed_from": came, "party_filed_basis": FILED_LABEL.get(came),
+           "party_registered": bool(k),
            "list_place": c.get("list_place"), "votes": c.get("votes"), "poll_cancelled": bool(c.get("poll_cancelled")),
            "elected": None, "sitting_mp": (c.get("name_key") or "") in sitting,
            "page": paths.path("subject", "person", c.get("display_name") or c.get("name")) if (c.get("display_name") or c.get("name")) else None,
@@ -747,9 +785,10 @@ def subject_people(ctx: Context) -> dict:
                                      "cite": ctx.cite(c.get("list_document") or c.get("document"), c.get("page"), c.get("list_place_cite") or c.get("place"))})
             continue
         money = _money_of(ctx, c)
+        label, came = party_filed(ctx, c)
         p["candidacies"].append({"election": c.get("election"), "year": F.year_of(elections[c["election"]].get("polled_on")) or 2026,
                                  "electorate": c.get("electorate"), "electorate_name": e_names.get(c.get("electorate")), "party": ctx.idx.name(k) or c.get("party"),
-                                 "party_filed": c.get("party"), "list_place": c.get("list_place"), "votes": c.get("votes"), "route": "electorate",
+                                 "party_filed": label, "party_filed_from": came, "party_filed_basis": FILED_LABEL.get(came), "list_place": c.get("list_place"), "votes": c.get("votes"), "route": "electorate",
                                  "declared": money["declared"], "declared_basis": money["declared_basis"], "expenses": money["expenses"], "expenses_basis": money["expenses_basis"],
                                  "loans": money["loans"], "return_held": money["return_held"], "return_ref": money["return_ref"], "return_cite": money["return_cite"],
                                  "itemised_n": money["itemised_n"], "itemised_total": money["itemised_total"], "weaker": money["weaker"],
