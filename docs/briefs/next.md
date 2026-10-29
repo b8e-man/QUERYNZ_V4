@@ -568,7 +568,11 @@ for later, one command.
 
 ## links-4
 
-Build session, Fable, scope `links/`. Waits on Arthur's word on three queue
+LAUNCHED 30 October 10:35, headless, for the entities view alone (ruling 123;
+the brief as run is in the integrator's scratch folder, brief-links-4.txt).
+The two other items are not yet ruled.
+
+Build session, Fable, scope `links/`. Waited on Arthur's word on three queue
 items of 30 October (ruling 106's method, each measured with twenty named
 pairs): the organisation rules on every row that names a body; bodies under
 one name on different registers; an entities view. Launched headless by the

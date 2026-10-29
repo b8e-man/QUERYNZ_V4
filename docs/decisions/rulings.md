@@ -1031,3 +1031,17 @@ browser for the sitting; the server keeps no table of questions and logs
 no question text, as the search log already does not. With the model
 not running the pane says so and the board works as before. The spec's
 "no model" line changes to this. Built by `board-15`.
+
+123. Arthur, 30 October, 10:20, on the queue item "whether the links
+lane publishes an entities view": "build it". So the links lane
+publishes `pub.entities`, one row per entity: the group id or the lone
+row's ref as `entity_id`, the kind (person, organisation, estate), the
+display name chosen by the one ordering every reader shares (the fullest
+filed name, then the earliest row), the row count, the registers, whether
+contested, whether a politician; a lone row is a single-row entity. Built
+by `qv4-links-build` beside `pub.groups`, in the lane's pane.md and
+spec.md; the board, scan, report and site read it in the fixes that
+follow (rulings 117 (4), 119, 120). Built by `links-4`. The two other
+items of 30 October (the organisation rules on every row naming a body;
+bodies under one name across registers) are not yet ruled: Arthur asked
+what they mean.
