@@ -1,0 +1,5 @@
+Radiance's --gpu-headroom-mib is kept on top of what is already resident, so a headroom sized for another server's room counts that server twice when it is up first: size the host pool so the server starts in either order.
+area: model serving, scheduler, units, the frozen OCR server
+paid-for-by: 29 October 2026, qv4-radiance's first start (out of memory, 20:16)
+
+The experiment's shape (host pool 10 GiB a rank, headroom 2.5 GiB) ran by hand because the container started before the frozen OCR server came back at 17:17. Started as a unit after it, Radiance measured 3.45 GiB a card "already held" (the OCR server's ~2.2 GiB and the driver), kept the 2.5 GiB headroom as well, and the experts were 0.44 GiB short: "startup stopped: out of memory". A pool of 11 GiB a rank starts it (21.6 s), at about 2 GB more host memory. The startup report's VRAM budget block names every term; read it before changing a figure. A unit that cannot start also needs StartLimitBurst, or the OnFailure alarm fires every RestartSec.
