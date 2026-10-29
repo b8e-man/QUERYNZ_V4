@@ -497,7 +497,7 @@ def test_rank_group_folds_by_hand_into_one_entry_and_one_node_and_the_rest_stay_
         comcom = sorted(t for t in ticks if t.startswith("commerce_commission_parties:"))
         fold = (group, *holders, *comcom)
         companies = sorted(set(ticks) - set(fold))         # the other Rank Group organisations: 14 on 29 October
-        assert len(holders) == 5 and len(comcom) == 1 and len(companies) >= 10, (len(holders), len(comcom), len(companies))
+        assert len(holders) == 5 and len(comcom) >= 1 and len(companies) >= 10, (len(holders), len(comcom), len(companies))   # comcom: 1 on 29 Oct, 2 on 30 Oct (the lane's data moves)
         assert not [t for t in ticks if t.startswith(("directors:", "minister_diary_entries:", "gazette_notices:", "beehive_"))]
         boxes = search.boxes_of(urllib.parse.parse_qs("all=1&" + urllib.parse.urlencode([("hk", m) for m in fold])))
         t = time.time()
