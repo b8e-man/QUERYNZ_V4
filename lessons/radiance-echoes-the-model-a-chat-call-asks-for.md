@@ -1,0 +1,5 @@
+Radiance answers a chat call for any model name and echoes that name in the answer's `model` field, so a chat client must read the served model back from `/v1/models` before it sends, as it already did for embeddings.
+area: model client, model serving, scheduler, board chat
+paid-for-by: 29 October 2026, flash-next-1's first probe of the Radiance server on :8060
+
+Seen 29 October 2026: a call to the Flash-Next server (Radiance 1.13.0) naming "qwen3.6-35b-a3b-q4km" came back 200 with `"model": "qwen3.6-35b-a3b-q4km"` and a real answer; a call naming nothing came back `qwen4exp`. llama-server's chat answer carries its own name, which is why `support.modelclient.chat` trusted the answer; Radiance's does not. Until the read-back patch (merge request flash-next-1) is applied, every lane's check on the answer passes whatever name it asks for. The patch asks `/v1/models` first and refuses with nothing sent; proven live against :8060 the same evening. The worker's path was safe because the card manager reads the model back when it marks the cards.

@@ -34,14 +34,12 @@ lease_seconds = 90            # step 2.8: a running job renews its lease well in
 policy = "priority-ordered-round-robin"
 
 # Step 2.9: the cards the carve-out holds. The planner never evicts these.
-# The baseline (docs/baseline.md): node2 card 0 holds querynz-agent-llm
-# (:8020, 2x50k) and querynz-vision-ocr (:8032). Card 1 is free since
-# querynz-llm@1 was stopped in 1.4 batch 2. node1 is out (ruling 55).
-[[reservations]]
-box = "node2"
-card = 0
-holder = "querynz-agent-llm, querynz-vision-ocr"
-why = "the carve-out's chat model and page reader (step 2.9); a fixed reservation, never touched"
+# Ruling 121 (29 October 2026): the frozen chat model (querynz-agent-llm,
+# :8020) left the carve-out, and qv4-radiance holds both of node2's cards
+# as the standing profile flash-next, which the planner never plans. The
+# frozen OCR server (querynz-vision-ocr, :8032) keeps its room inside
+# Radiance's --gpu-headroom-mib on each card, so no card is reserved here.
+# node1 is out (ruling 55); a reservation for it goes here when it returns.
 
 # ── the founding jobs, on the queue's clock (step 2.12) ─────────────────────
 # Installed by the founding session as systemd timers on node2 (local time,
@@ -368,6 +366,18 @@ query_timeout_s = 30
 class = "whenever"
 priority = 95
 command = ["python", "-m", "support.scheduler", "rehearse", "model"]
+can_share = true
+
+[jobs.qv4-rehearsal-bench]
+description = "Eight synthetic page-sized requests (4,000 tokens each, unique) at once through the text-reader profile and the model client: prompt and completion tokens a second through the worker's own path (ruling 121). Reads no document."
+needs = "model-profile"
+profile = "text-reader"
+memory_gb = 0.3
+deadline_s = 900
+query_timeout_s = 30
+class = "whenever"
+priority = 89
+command = ["python", "-m", "support.scheduler", "rehearse", "bench", "--streams", "8", "--prompt-tokens", "4000"]
 can_share = true
 
 [jobs.qv4-rehearsal-review]

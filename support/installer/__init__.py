@@ -16,7 +16,9 @@ Seven steps, each a plan before it is an action:
                 is SUPERSEDED (step 2.12: the clock is the queue's): disabled,
                 removed, and the slot it served handed over so nothing runs
                 twice; its service unit stays for a hand run. The worker
-                instance for this box is enabled. The worker's unit runs
+                instance for this box is enabled, and so is every standing
+                service (one with an `[Install]` section: `qv4-radiance`,
+                a product's surface), so a boot brings it back. The worker's unit runs
                 from the release copy (`release.py`); it is refused, and
                 the unit on the box left as it is, until that copy exists.
   release       the release copy: one pushed commit of origin/main,
@@ -229,7 +231,20 @@ def install_units(repo: str = REPO, unit_dir: str = UNIT_DIR, box: str = None, s
             inst = f"qv4-worker@{box or os.uname().nodename}.service"
             sh(["systemctl", "--user", "enable", "--now", inst])
             done.append({"unit": inst, "action": "enabled"})
+        for name, path in unit_sources(repo).items():
+            # a standing service (a model server, a product's surface): enabled, so a boot brings it back
+            if (name.endswith(".service") and "@" not in name and name not in refused and (not only or name in only)
+                    and standing(open(path, encoding="utf-8").read())):
+                sh(["systemctl", "--user", "enable", "--now", name])
+                done.append({"unit": name, "action": "enabled"})
     return done
+
+
+def standing(text: str) -> bool:
+    """A service that runs on its own and comes back on a boot: it carries
+    an `[Install]` section. A timer's service has none (the timer or the
+    queue starts it); a template is enabled by its instance."""
+    return any(line.strip() == "[Install]" for line in text.splitlines())
 
 
 # ── the model server, beside the old one ─────────────────────────────────────

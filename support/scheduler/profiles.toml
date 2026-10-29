@@ -1,4 +1,6 @@
-# THE MODEL PROFILES (plan step 2.15): a model plus its settings on a card.
+# THE MODEL PROFILES (plan step 2.15): a model plus its settings on a card. Two kinds beside the
+# llama-server ones the worker loads: a STANDING server its own unit runs (`unit`, `port`, `cards`), and a
+# VIEW on one (`on`, `request`), ruling 121.
 #
 # A card holds one profile at a time (hard limit 25); jobs naming the loaded
 # profile run together up to its `slots`. `context` is PER REQUEST; the
@@ -22,30 +24,54 @@
 [server]
 binary = "built"
 
-[profiles.text-reader]
-model = "qwen3.6-35b-a3b-q4km"
-weights = ["Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf"]
-slots = 2
-context = 50000
+# FLASH-NEXT ON RADIANCE (ruling 121, 29 October 2026): on node2 Qwen3.8-Flash-Next replaces Qwen3.6 as the text
+# reader and review model. A STANDING server: its own unit `qv4-radiance` (support/scheduler/units/) runs Radiance in
+# a container across both cards as ONE profile; the card manager reads its model back and marks both cards, and
+# never starts, stops or plans it. The unit holds the server's settings (slots, context bound, pool, headroom);
+# `flags` is empty because no llama-server is started for it, and a test holds the unit and this block equal.
+# Measured 29 October 20:18 with the unit started after the frozen OCR server: rocm-smi --showpids 56.06 GB for
+# radiance over the two cards (26.1 GiB a card; 29.3 and 27.9 GiB used of 31.9 with the OCR server and driver), host
+# RSS 28.4 GiB (11 GiB a rank of pinned experts); 21.6 s from `systemctl --user start` to qwen4exp read back on :8060.
+[profiles.flash-next]
+model = "qwen4exp"
+binary = "radiance"
+unit = "qv4-radiance.service"
+port = 8060
+cards = 2
+weights = ["radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad"]
+slots = 16
+context = 16384
 temperature = 0.0
-max_tokens = 16000
-memory_gb = 25.2
-measured_geometry = "50000x2"      # node2 card 0, rocm-smi 2026-09-22 (the old document-read job type)
-# no thinking for a reader: the budget flag alone still thought (measured 18 Oct: 200 tokens of reasoning, empty content)
-flags = ["-fa", "on", "--jinja", "--reasoning-format", "auto", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
-used_for = "Turning text into rows; the old job type was document-read"
+max_tokens = 8192
+memory_gb = 26.1
+host_memory_gb = 28.4
+measured_geometry = "16384x16"
+load_seconds = 21.6
+flags = []
+used_for = "The standing server the text reader and review are views on (ruling 121)"
+
+# The text reader and review are VIEWS on flash-next: the same model on the same cards, sharing its 16 slots; what
+# differs is what each request says (`request`, handed to the job as QV4_MODEL_REQUEST). Radiance takes a request's
+# own chat_template_kwargs over the server's default (thinking off) and closes the reasoning at thinking_token_budget.
+[profiles.text-reader]
+on = "flash-next"
+model = "qwen4exp"
+slots = 16
+context = 16384
+temperature = 0.0
+max_tokens = 8192
+request = {chat_template_kwargs = {enable_thinking = false}}
+used_for = "Turning text into rows; the old job type was document-read. No thinking for a reader (lessons/a-reader-profile-turns-thinking-off.md)"
 
 [profiles.review]
-model = "qwen3.6-35b-a3b-q4km"
-weights = ["Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf"]
-slots = 2
-context = 50000
+on = "flash-next"
+model = "qwen4exp"
+slots = 16
+context = 16384
 temperature = 0.2
 max_tokens = 6144
-memory_gb = 25.2
-measured_geometry = "50000x2"      # the old reasoning settings ran at this geometry on :8020
-flags = ["-fa", "on", "--jinja", "--reasoning-format", "auto", "--reasoning-budget", "2048"]
-used_for = "The review agent; answering questions in products"
+request = {chat_template_kwargs = {enable_thinking = true}, thinking_token_budget = 2048}
+used_for = "The review agent; answering questions in products. Thinking on, closed at 2,048 tokens so the answer is never all reasoning"
 
 [profiles.embedding]
 model = "bge-m3-q8"

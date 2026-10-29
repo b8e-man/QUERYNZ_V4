@@ -35,6 +35,7 @@ needs nothing installed to read its own catalogue.
 from __future__ import annotations
 
 import dataclasses
+import json
 import os
 import pathlib
 import tomllib
@@ -69,6 +70,24 @@ class Profile:
     dpi: int | None                 # page readers: dots per inch the pages are rendered at
     used_for: str
     binary: str | None = None       # the model server program this profile needs, by the probe's name; None = the [server] setting
+    # A STANDING server (ruling 121): its own qv4- unit runs it on `port` across `cards` cards; the card manager
+    # reads its model back and marks the cards, and never starts or stops it.
+    unit: str | None = None
+    port: int | None = None
+    cards: int = 1
+    host_memory_gb: float | None = None     # measured: the server's resident host memory (Radiance pins experts there)
+    # A VIEW on a standing server: the same model on the same cards, with its own per-request settings
+    # (`request`, sent with every call: the reader's thinking off, review's on with a budget).
+    on: str | None = None
+    request: str = "{}"             # JSON, so the dataclass stays frozen and hashable
+
+    @property
+    def request_fields(self) -> dict:
+        return json.loads(self.request or "{}")
+
+    @property
+    def standing(self) -> bool:
+        return bool(self.unit)
 
     @property
     def total_context(self) -> int:
@@ -181,8 +200,20 @@ def profiles(path: pathlib.Path | None = None) -> dict[str, Profile]:
             load_seconds=None if b.get("load_seconds") is None else float(b["load_seconds"]),
             flags=tuple(b.get("flags") or ()), embedding=bool(b.get("embedding", False)),
             dpi=None if b.get("dpi") is None else int(b["dpi"]), used_for=(b.get("used_for") or "").strip(),
-            binary=str(b["binary"]) if b.get("binary") else None)
+            binary=str(b["binary"]) if b.get("binary") else None,
+            unit=str(b["unit"]) if b.get("unit") else None,
+            port=None if b.get("port") is None else int(b["port"]), cards=int(b.get("cards", 1)),
+            host_memory_gb=None if b.get("host_memory_gb") is None else float(b["host_memory_gb"]),
+            on=str(b["on"]) if b.get("on") else None,
+            request=json.dumps(b.get("request") or {}, sort_keys=True))
     return out
+
+
+def server_of(profs: dict[str, Profile], name: str) -> Profile:
+    """The profile physically on the card for `name`: a view's standing
+    server, otherwise the profile itself."""
+    p = profs[name]
+    return profs.get(p.on, p) if p.on else p
 
 
 SERVER_BINARIES = ("copy", "built")
@@ -271,8 +302,26 @@ def problems(path: pathlib.Path | None = None, profiles_path: pathlib.Path | Non
             out.append(f"profile {p.name!r}: a profile name is lower-case letters, digits and -")
         if not p.model:
             out.append(f"profile {p.name}: names no model (the client refuses a call that names none)")
-        if not p.weights:
+        if p.on:
+            srv = profs.get(p.on)
+            if srv is None or not srv.standing:
+                out.append(f"profile {p.name}: is a view on {p.on!r}, which is not a standing server in profiles.toml")
+            else:
+                if p.model != srv.model:
+                    out.append(f"profile {p.name}: a view demands {p.model!r} but its server {srv.name} serves {srv.model!r}")
+                if p.context > srv.context:
+                    out.append(f"profile {p.name}: a request's context {p.context:,} is over its server's {srv.context:,}")
+            if p.weights or p.binary or p.unit:
+                out.append(f"profile {p.name}: a view names no weights, server or unit of its own; its server does")
+        elif not p.weights:
             out.append(f"profile {p.name}: names no weights file")
+        if p.unit:
+            if not p.unit.startswith(PREFIX):
+                out.append(f"profile {p.name}: its unit {p.unit!r} lacks the {PREFIX} prefix (hard limit 23)")
+            if not p.port:
+                out.append(f"profile {p.name}: a standing server names the port it answers on")
+            if not p.binary:
+                out.append(f"profile {p.name}: a standing server names its program (binary), so a box without it never claims")
         if p.max_tokens and p.context and p.headroom < 1024:
             out.append(f"profile {p.name}: max_tokens {p.max_tokens:,} against a per-request context of "
                        f"{p.context:,} leaves {p.headroom:,} tokens for the prompt")
@@ -288,6 +337,8 @@ def warnings(path: pathlib.Path | None = None, profiles_path: pathlib.Path | Non
     that fails on work not yet done gets switched off."""
     out: list[str] = []
     for p in profiles(profiles_path).values():
+        if p.on:
+            continue                  # a view's memory and load time are its server's
         fit = p.memory_is_for_this_geometry
         if p.memory_gb is None:
             out.append(f"profile {p.name}: no measured memory_gb — load it at {p.geometry} and record one")

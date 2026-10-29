@@ -197,10 +197,12 @@ def test_the_same_profile_is_a_free_handover_and_other_settings_are_a_load(tmp_p
 def test_the_shipped_catalogue_is_green():
     """Against the estate's own files: every job carries qv4-, names a real
     profile, keeps its query time limit under its deadline; the four
-    profiles of step 2.15 are there and card 0 on node2 is reserved."""
+    profiles of step 2.15 are there, and no card is reserved: ruling 121 took
+    the frozen chat model out of the carve-out and qv4-radiance holds both
+    of node2's cards as a standing profile the planner never plans."""
     assert reg.problems() == []
     assert set(reg.profiles()) >= {"text-reader", "review", "embedding", "page-reader"}
-    assert [r.key for r in reg.reservations()] == ["node2:0"]
+    assert reg.reservations() == []
     jobs = reg.load()
     assert all(n.startswith("qv4-") for n in jobs)
     assert jobs["qv4-reread"].pieces and jobs["qv4-reread"].profile == "text-reader"
