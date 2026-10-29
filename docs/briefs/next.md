@@ -566,6 +566,57 @@ bulk until the build is done. A lane's request for readings is answered
 with the store's sample and a note; the hashes it sets aside are the queue
 for later, one command.
 
+## fix-support-mcpsource-2
+
+Fix session, Fable, scope `support/mcpsource/`. Ruling 126: the pull lands
+every file a record points at. Launched headless by the integrator 30
+October, or on node2: `cd /home/user/querynzv4 && bin/fix support/mcpsource`.
+
+```text
+You are a fix session for QueryNZV4, running as Fable on node2, in the
+working copy the launcher made for you, scope support/mcpsource/. Read
+docs/PLAN.md, docs/plan/core.md, support/mcpsource/spec.md and README.md,
+and rulings 96 and 126 (30 October) in docs/decisions/rulings.md. Build
+ruling 126's first part: a download step. The MCP now has a tool
+`download` (arguments record_id, corpus, format; format "raw" returns a
+meta block and the file as an embedded resource, a base64 blob, with
+delivered_sha256 and captured_sha256) and resources qnz-pdf://<corpus>/
+<seq>, qnz-html://<corpus>/<seq>, qnz-text://<corpus>/<seq>; its readme
+is the resource qnz://readme. Use the tool or the raw resources, never
+qnz-text (the text is ours to read from the bytes, one reading per
+document). For every record of every corpus whose record carries a
+capture block with a sha256 and a content type (today the courts
+corpus: case pages, judgment PDFs, media releases), fetch the file,
+refuse it when the hash differs from the record's, and land it through
+the same `land` the records use, by hash, named by the record's source
+url, source query-nz, with the record's content type; a file already
+held by hash is never fetched again (the tool is metered per call).
+One request at a time, the pull's pause between them, resumable
+(record per corpus where the download step is up to, like the cursor),
+inside the nightly budget, and run after the records of all corpora so
+a short budget still lands the listings. Record arrivals and catches as
+the records have them. Add the courts corpus's shape to shapes.json
+from the records (fields: id, url, kind, fetched_at, http_status,
+sha256, path, bytes, content_type, case_slug, court, case_name,
+discovered_via, date, updated_at, capture, file). Tests on the fake
+server for: hash match lands, hash mismatch is caught, a held file is
+not fetched, resume after a budget stop; the live shape test extended
+to the new tool. Update spec.md (the job's description gains the
+files; memory and deadline figures revisited) and README.md. No model.
+Never print a home address or a suppressed name. Push your branch and
+raise fix-support-mcpsource-2 in /home/user/querynzv4-work/inbox/
+merge-requests/ (if the fence refuses, leave it in your scratch folder
+and say so). Finish by telling the integrator what closed and what the
+first full download run will cost in calls.
+```
+
+## courts-2
+
+Build session, Fable, scope `registers/courts/`. Ruling 126's second part:
+the MCP's `courts` corpus is the lane's primary source. Starts after
+`fix-support-mcpsource-2` merges and the first download run has landed the
+files. Brief to be filled in by the integrator then.
+
 ## links-5
 
 LAUNCHED 30 October 11:22, headless, from the merged main.

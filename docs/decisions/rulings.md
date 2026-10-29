@@ -1080,3 +1080,24 @@ date from the view where the view carries one it has not read
 (shareholders: 1,170 rows, none dated in `links.rows` today). Built by
 `links-5` after `links-4` merges, measured against the queue item's
 figures.
+
+126. Arthur, 30 October, 11:25, shown that the ingest MCP now delivers
+its captured files (a `download` tool and the `qnz-pdf://`, `qnz-html://`
+and `qnz-text://` resources, the bytes as fetched with the sha256 checked
+against the record): "the mcp will be our primary source for courts. We
+should be ingesting everything from the MCP". So two things. First, the
+pull (ruling 96) lands not only every record of every corpus but every
+file a record points at: `support/mcpsource` gains a download step that
+takes each record's file as raw bytes through the MCP, checks the hash
+against the record, and lands it as a document by hash under the
+record's source URL, one file at a time, resumable, inside the nightly
+budget; the text is ours to read from the bytes (one reading per
+document), never taken from the MCP's text resource. The tool is metered
+per call, so a run takes new files only and never a file already held.
+Second, the courts lane's primary source is the MCP's `courts` corpus:
+the lane reads judgments, media releases and case pages from those
+documents by hash, and its own fetching from courtsofnz becomes the
+check, not the source. Ruling 131 (legal documents capture-and-hold)
+and the lane's suppression lever are unchanged. Built by a fix on
+`support/mcpsource` (the download step, the corpus's shape), then
+`courts-2` once the files are landed. The queue item closes.
