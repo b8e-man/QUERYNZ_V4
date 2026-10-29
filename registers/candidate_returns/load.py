@@ -280,3 +280,34 @@ def publish(conn, staging: str) -> None:
             cols = ", ".join(COLUMNS_OF[t])
             conn.execute(f"INSERT INTO {PRIVATE}.{t} ({cols}) SELECT {cols} FROM {private_of(staging)}.{t}")
         conn.execute(sql("publish.sql"))
+
+
+def main(argv=None) -> int:
+    """The nightly job's entry (`python -m registers.candidate_returns.load`, `qv4-candidate-returns-load`): stage
+    under `staging_candidate_returns_load`, then publish, as the merge gate's staging step does; `--schema` builds
+    there and stops (a scratch proof)."""
+    import argparse
+    import sys
+    ap = argparse.ArgumentParser(prog="registers.candidate_returns.load")
+    ap.add_argument("--database", default="querynz_v4")
+    ap.add_argument("--schema", help="build here and stop (a scratch proof); default: stage and publish")
+    a = ap.parse_args(argv)
+    from support import db
+    with db.connect(db.OWNER_KEY, a.database) as conn:
+        conn.execute("SET statement_timeout = '600s'")
+        if a.schema:
+            rows = load(conn, a.schema)
+            conn.commit()
+            print(f"candidate_returns: {rows} rows into {a.database}.{a.schema}")
+            return 0
+        staging = "staging_candidate_returns_load"
+        load(conn, staging)
+        conn.commit()
+        publish(conn, staging)
+        conn.commit()
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())

@@ -624,3 +624,14 @@ def test_a_scanner_s_text_layer_stands_only_on_its_printed_total():
     assert scanned.row is None and read.SCANNER in scanned.set_aside[0][1]
     from registers.candidate_returns import replay
     assert replay.rereads({"b" * 64: {"year": 2020, "set_aside": scanned.set_aside}}) == [("b" * 64, 2020, "declaration", [1])]
+
+
+def test_the_load_module_has_the_nightly_job_s_command_line_entry():
+    """`python -m registers.candidate_returns.load` is `qv4-candidate-returns-load`'s command (lane spec): it parses
+    its options and stops before any connection when asked for help."""
+    import pytest
+    from registers.candidate_returns import load as L
+    assert callable(getattr(L, "main", None))
+    with pytest.raises(SystemExit) as e:
+        L.main(["--help"])
+    assert e.value.code == 0
