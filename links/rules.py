@@ -69,6 +69,21 @@ One more, ruling 116 (28 October 2026), of the seat-and-window kind:
    could not have seen it). Middle names that differ on both rows take the
    member out. Parliament's member id rides in the evidence, never decides.
 
+One more, ruling 125 (30 October 2026), the organisation rules on every row:
+
+10. `organisation-sole-company@3` and `organisation-one-live-company@3`: rule
+   8 run on every organisation-named row of every people view the lane
+   reads (a shareholder, a director, a declared interest, a charity or
+   society officer, a Gazette row, a local election return, and the donor
+   and disclosure rows as before), "live" judged on the row's own date and
+   never today: a body registered on or before that date and not removed
+   before it counts; one removed before it or registered after it does
+   not. The date is the row's own (`started_on` .. `ended_on`: the
+   donation's return period, the interests return's date, the officer's
+   appointment, the shareholding's filing). A row with no date of its own
+   stays near, the reason "undated" (`body_on_date`). @2 is kept as it was
+   and no longer built (`RETIRED`).
+
 Everything else that shares a name is near, with the reason. A
 politician's row (a candidate, a member, a declared-interests return)
 joined to the director register by name is near whatever the name
@@ -158,21 +173,52 @@ NEAR_DAY_NONE = ("a member of this name sat in the House, but not on the row's d
 DAY_ONE, DAY_TWO, DAY_NONE, DAY_NO_MEMBER, DAY_BEFORE, DAY_UNDATED = (
     "one member sitting", "two or more members sitting", "no member of the name sitting on the day", "no member of the name",
     "before the members view's first term", "no day")
-RETIRED = {RULE_SOLE_COMPANY, RULE_ONE_LIVE}        # built no longer (ruling 114); kept so a stored link of the version reads as it meant
+RETIRED = {RULE_SOLE_COMPANY, RULE_ONE_LIVE,         # built no longer (ruling 114); kept so a stored link of the version reads as it meant
+           RULE_SOLE_BODY, RULE_ONE_LIVE_BODY}        # built no longer (ruling 125): @3 judges every organisation-named row on its own date
 #: a body is read from four registers (`links.rows.BODY_SQL`); a Companies Office row's own register (`pub.companies.register`) is its kind
 FORMATION_REGISTERS = ("companies", "societies", "limited_partnerships")   # the registers a body is formed on; a charity's is its status
 REGISTER_WORDS = {"companies": "companies", "other_incorporated": "other incorporated bodies", "charitable_trust_board": "charitable trust boards",
                   "public_sector": "public sector bodies", "retirement_village": "retirement villages", "societies": "incorporated societies",
                   "limited_partnerships": "limited partnerships", "charities": "charities"}
-NEAR_BODY_NOT_YET = "one body carries this name, but it was registered after the donation's year"
-NEAR_BODY_GONE = "one body carries this name, but it was removed before the donation's year"
-NEAR_BODY_UNDATED = ("one body carries this name, and its register says it was removed but publishes no date, so whether it was live in "
-                     "the donation's year is not known")
-NEAR_BODY_NONE_LIVE = "several bodies carry this name, and none of them was live in the donation's year"
-NEAR_BODY_MANY_LIVE = "several bodies carry this name, and more than one of them was live in the donation's year"
-NEAR_BODY_OTHER_LIVE = "several bodies carry this name; this one was not live in the donation's year, and the one that was is confirmed"
-NEAR_BODY_UNDATED_SEVERAL = ("several bodies carry this name, and a register says one was removed but publishes no date, so which was "
-                             "live in the donation's year is not known")
+#: The near tails, one per outcome, worded for the row's date: a donation row's is its year ("in the donation's year", as
+#: ruling 114 wrote them); any other row's is its own date ("on the row's date", ruling 125). `{live}` and `{date}` are the
+#: two phrasings; the @2 constants below are the templates filled for a donation row, byte for byte as ruling 114 stored them.
+BODY_TAILS = {
+    "not_yet": "one body carries this name, but it was registered after {date}",
+    "gone": "one body carries this name, but it was removed before {date}",
+    "undated_body": "one body carries this name, and its register says it was removed but publishes no date, so whether it was live "
+                    "{live} is not known",
+    "none_live": "several bodies carry this name, and none of them was live {live}",
+    "many_live": "several bodies carry this name, and more than one of them was live {live}",
+    "other_live": "several bodies carry this name; this one was not live {live}, and the one that was is confirmed",
+    "undated_several": "several bodies carry this name, and a register says one was removed but publishes no date, so which was "
+                       "live {live} is not known",
+}
+WHEN_DONATION = {"live": "in the donation's year", "date": "the donation's year", "row": "donation row"}
+WHEN_ROW = {"live": "on the row's date", "date": "the row's date", "row": "row"}
+NEAR_BODY_NOT_YET = BODY_TAILS["not_yet"].format(**WHEN_DONATION)
+NEAR_BODY_GONE = BODY_TAILS["gone"].format(**WHEN_DONATION)
+NEAR_BODY_UNDATED = BODY_TAILS["undated_body"].format(**WHEN_DONATION)
+NEAR_BODY_NONE_LIVE = BODY_TAILS["none_live"].format(**WHEN_DONATION)
+NEAR_BODY_MANY_LIVE = BODY_TAILS["many_live"].format(**WHEN_DONATION)
+NEAR_BODY_OTHER_LIVE = BODY_TAILS["other_live"].format(**WHEN_DONATION)
+NEAR_BODY_UNDATED_SEVERAL = BODY_TAILS["undated_several"].format(**WHEN_DONATION)
+# Ruling 125 (30 October 2026): the two rules on every organisation-named row, judged on the row's own date. A changed test is a
+# new version: @2 stays what it meant (`sole_body`: the donation rows, a row with no date not counting against) and a stored @2
+# link still reads as that; the build makes @3 (`body_on_date`). The near grade stays `organisation-name@1`.
+RULE_SOLE_BODY_DATED = "organisation-sole-company@3"      # one body of the name across the four registers, live on the row's own date
+RULE_ONE_LIVE_BODY_DATED = "organisation-one-live-company@3"   # several bodies of the name, exactly one live on the row's own date
+NEAR_BODY_UNDATED_ROW = "undated: the row carries no date of its own, so whether a body of the name was live on it is not judged"
+#: what a row's date is, by view, for the evidence (ruling 125's words); a view not named here is "the row's date"
+VIEW_DATE = {"party_return_donors": "the return's year", "candidate_return_donors": "the return's year",
+             "disclosures": "the day the donation was given, else received", "disclosure_items": "the contribution's first date",
+             "promoter_people": "the return's year", "mp_interests": "the interests return's date",
+             "directors": "the appointment", "shareholders": "the shareholding's filing (not published today)",
+             "society_officers": "the appointment", "charity_officers": "the appointment", "limited_partnership_partners": "the appointment",
+             "gazette_prohibitions": "the prohibition's start", "gazette_appointments": "the appointment's start",
+             "gazette_liquidators": "the notice's date", "gazette_bankruptcies": "the event's date", "gazette_celebrants": "the period's start",
+             "gazette_practitioners": "the notice's date", "local_election_returns": "the election year",
+             "building_practitioner_decisions": "the decision's date", "party_board_roles": "the capture"}
 
 
 def same_full_name(a: dict, b: dict) -> bool:
@@ -368,10 +414,10 @@ def registers_named(bodies: list) -> list:
     return sorted(words, key=lambda w: (order.index(w) if w in order else len(order), w))
 
 
-def body_reason(words: list, tail: str) -> str:
-    """The near reason of ruling 114, naming the registers that hold the name."""
+def body_reason(words: list, tail: str, when: dict = WHEN_DONATION) -> str:
+    """The near reason of ruling 114, naming the registers that hold the name; `when` words the row (a donation row, or any row)."""
     regs = words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
-    return f"a name match on the {regs} register{'s' if len(words) > 1 else ''}; the donation row carries no official number; {tail}"
+    return f"a name match on the {regs} register{'s' if len(words) > 1 else ''}; the {when['row']} carries no official number; {tail}"
 
 
 def sole_body(row: dict, bodies: list) -> list:
@@ -392,8 +438,37 @@ def sole_body(row: dict, bodies: list) -> list:
     "company" read as the body) and adds the body's `register`, its rows on
     every register (`registers`) and `registers_holding_the_name`.
     `bodies`: [{"body": entity_ref, "rows": [{entity_ref, register, kind,
-    number, name, registered_on, removed_on, removal_undated, named}]}]."""
+    number, name, registered_on, removed_on, removal_undated, named}]}].
+    Kept as ruling 114 built it (RETIRED): an undated row does not count
+    against a body. The build makes @3, `body_on_date`."""
+    return _judge_bodies(row, bodies, 2)
+
+
+def body_on_date(row: dict, bodies: list) -> list:
+    """`organisation-sole-company@3` and `organisation-one-live-company@3`
+    (ruling 125): `sole_body` on every organisation-named row of every
+    people view, "live" judged on the row's own date and never today. The
+    row's date is `started_on` .. `ended_on` as the view files it (the
+    donation's return period; the interests return's date; the officer's
+    appointment; a shareholding's filing, which `pub.shareholders` does not
+    publish today): a body registered on or before the window's end and not
+    removed before its start was live. A row with no `started_on` is undated:
+    every pair stays near with the reason "undated" (`NEAR_BODY_UNDATED_ROW`),
+    whatever the bodies' dates. The grades and the reasons are @2's, worded
+    for the row ("on the row's date"; a donation row keeps "in the donation's
+    year"); the evidence adds `dated`, `date_is` (what the view's date is,
+    `VIEW_DATE`), `row_view`, `row_register` and `outcome` (sole, one_live,
+    undated_row, or the near tail's name in `BODY_TAILS`).
+    `row`: {ref, register, view, name_filed, name_key, started_on, ended_on}."""
+    return _judge_bodies(row, bodies, 3)
+
+
+def _judge_bodies(row: dict, bodies: list, version: int) -> list:
     start, end = _year(row)
+    donation = version == 2 or row.get("register") in DONATION_REGISTERS
+    when = WHEN_DONATION if donation else WHEN_ROW
+    sole_rule, one_rule = (RULE_SOLE_BODY, RULE_ONE_LIVE_BODY) if version == 2 else (RULE_SOLE_BODY_DATED, RULE_ONE_LIVE_BODY_DATED)
+    undated_row = version == 3 and start is None
     words = registers_named(bodies)
     considered = []
     for b in sorted(bodies, key=lambda b: b["body"]):
@@ -406,7 +481,7 @@ def sole_body(row: dict, bodies: list) -> list:
             "register": _register_word(head, regs),
             "registered_on": str(dates["registered_on"]) if dates["registered_on"] else None,
             "removed_on": str(dates["removed_on"]) if dates["removed_on"] else None, "removal_undated": dates["removal_undated"],
-            "live_in_year": body_live(dates, start, end), "_registered": dates["registered_on"],
+            "live_in_year": None if undated_row else body_live(dates, start, end), "_registered": dates["registered_on"],
             "registers": [{"register": _register_word(r, set()), "entity_ref": r["entity_ref"], "number": r.get("number"), "name": r.get("name"),
                            "registered_on": str(_d(r["registered_on"])) if r.get("registered_on") else None,
                            "removed_on": str(_d(r["removed_on"])) if r.get("removed_on") else None,
@@ -424,21 +499,32 @@ def sole_body(row: dict, bodies: list) -> list:
               "company_number": x["company_number"], "registered_on": x["registered_on"], "removed_on": x["removed_on"],
               "alive_on_date": x["live_in_year"], "companies_of_that_name": len(considered), "register": x["register"],
               "registers": x["registers"], "registers_holding_the_name": words}
+        if version == 3:
+            ev.update(dated=not undated_row, date_is=VIEW_DATE.get(row.get("view"), "the row's date"),
+                      row_view=row.get("view"), row_register=row.get("register"))
         if several:
             ev.update(companies_alive_on_date=len(live), companies_considered=summary,
                       live_in_year=the_one["company_number"] if the_one else None)
         if the_one is x:
-            out.append({"entity_ref": x["entity_ref"], "rule": RULE_ONE_LIVE_BODY if several else RULE_SOLE_BODY, "grade": "confirmed",
+            if version == 3:
+                ev["outcome"] = "one_live" if several else "sole"
+            out.append({"entity_ref": x["entity_ref"], "rule": one_rule if several else sole_rule, "grade": "confirmed",
                         "reason": None, "evidence": ev})
             continue
-        if not several:
+        if undated_row:
+            outcome, tail = "undated_row", NEAR_BODY_UNDATED_ROW
+        elif not several:
             reg = x["_registered"]
-            tail = (NEAR_BODY_UNDATED if x["live_in_year"] is None
-                    else NEAR_BODY_NOT_YET if reg is not None and end is not None and reg > end else NEAR_BODY_GONE)
+            outcome = ("undated_body" if x["live_in_year"] is None
+                       else "not_yet" if reg is not None and end is not None and reg > end else "gone")
         else:
-            tail = (NEAR_BODY_OTHER_LIVE if the_one else NEAR_BODY_UNDATED_SEVERAL if unknown and len(live) <= 1
-                    else NEAR_BODY_MANY_LIVE if len(live) > 1 else NEAR_BODY_NONE_LIVE)
-        out.append({"entity_ref": x["entity_ref"], "rule": RULE_ORG_NAME, "grade": "near", "reason": body_reason(words, tail), "evidence": ev})
+            outcome = ("other_live" if the_one else "undated_several" if unknown and len(live) <= 1
+                       else "many_live" if len(live) > 1 else "none_live")
+        if not undated_row:
+            tail = BODY_TAILS[outcome].format(**when)
+        if version == 3:
+            ev["outcome"] = outcome
+        out.append({"entity_ref": x["entity_ref"], "rule": RULE_ORG_NAME, "grade": "near", "reason": body_reason(words, tail, when), "evidence": ev})
     return out
 
 

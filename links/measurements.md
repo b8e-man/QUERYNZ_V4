@@ -403,6 +403,98 @@ none of these views (six questions and three release ministers in a
 scratch schema), so these figures are live and read-only, as section 10's
 were; read the first run's `peak_mb`.
 
+## 12. Ruling 125's rule, the organisation rules on every row, judged on the row's date, 30 October 2026 (links-5)
+
+Measured before the build, read-only on live through the read login,
+through the code of this session (`rules.body_on_date` over every
+organisation-named row of `links.rows`, 5,642 rows in fourteen views,
+against `links.bodies` as it stands: 3,339 rows have a body of their name,
+1,178 bodies), 1 s, nothing written. Measurement 12
+(`measure.m12_ruling_125`) counts the same from the tables after the build.
+
+**The date is the row's own**, `started_on` .. `ended_on` as the view files
+it: a donation's return year or its given day, an interests return's date,
+an officer's appointment, a director's appointment, a Gazette notice's
+date; a body registered on or before the window's end and not removed
+before its start was live. `pub.shareholders` publishes no filing date, so
+every holder row is undated and stays near (card
+`pub-shareholders-publishes-no-filing-date-so-every-organisation-named-holding-stays-undated`).
+
+| View | Rows | Dated | With a body of the name | One body of the name: live on the date (confirmed, sole) / registered after / removed before | Several bodies: one live on the date (confirmed) / more than one / none | Undated rows (near, "undated") |
+| --- | --- | --- | --- | --- | --- | --- |
+| mp_interests | 3,593 | 3,593 | 2,529 | 2,190: **2,039** / 64 / 87 | 339: **259** / 46 / 34 | 0 |
+| shareholders | 1,170 | 0 | 446 | 0 | 0 | 446 (484 near links) |
+| party_return_donors | 291 | 291 | 185 | 167: **163** / 3 / 1 | 18: **18** / 0 / 0 | 0 |
+| directors | 154 | 154 | 3 | 3: **2** / 0 / 1 | 0 | 0 |
+| disclosures | 151 | 151 | 96 | 84: **83** / 0 / 1 | 12: **12** / 0 / 0 | 0 |
+| candidate_return_donors | 87 | 87 | 34 | 34: **16** / 0 / 18 | 0 | 0 |
+| society_officers | 77 | 77 | 26 | 24: **24** / 0 / 0 | 2: **1** / 1 / 0 | 0 |
+| charity_officers | 77 | 75 | 19 | 17: **15** / 1 / 1 | 0 | 2 |
+| gazette_appointments | 10 | 1 | 1 | 0 | 0 | 1 (several bodies) |
+| gazette_celebrants 21, gazette_bankruptcies 6, gazette_liquidators 2, local_election_returns 2, gazette_practitioners 1 | 32 | 32 | 0 | | | |
+
+**Confirmed: 2,632 rows, one link each** (2,342 `organisation-sole-company@3`,
+290 `organisation-one-live-company@3`), where @2 confirmed 292 (the donor
+and disclosure rows, unchanged: party donors 181 of 291, candidate donors
+16 of 87, disclosures 95 of 151, the same pairs). By the body's register:
+companies 2,577, incorporated societies 28, limited partnerships 20,
+charitable trust boards 5, other incorporated bodies 2. Near: 1,182 links
+under `organisation-name@1` (mp_interests 624: another was live 307,
+removed before 87, registered after 64, none live 72, more than one 94;
+shareholders 484 undated; the donors' 63 as before; directors 1, society
+officers 4, charity officers 4, gazette_appointments 2). The declared
+interests' old near step (every company of the name on the companies
+register, 2,917 links) is replaced: the same rows now take 2,922 links,
+2,298 of them confirmed.
+
+**Against the queue item's figures** (MPs' interests 2,139 rows with
+exactly one body and 239 with one live body of several; shareholders 76
+and 5; society officers 16; charity officers 18; directors 2). Those were
+counted with "live" as today. Counted the same way here (a body with no
+removal date and no undated removal), the rows with exactly one body of
+the name are 2,190 for the interests, 410 for the holders, 24 for society
+officers, 19 for charity officers and 3 for directors, of which live today
+1,557, 395, 20, 16 and 2, and the several-with-one-live-today 232, 3, 1, 0
+and 0; the item's method is not written down and is not reproduced
+exactly. The time-aware figures above are the rule's. The direction is the
+ruling's: on the row's date the interests confirm 2,298 rows (2,039 +
+259), more than today's count, because a return of 2006 to 2017 names
+companies since removed, which were live when declared (87 rows whose one
+body was removed before the return and 64 registered after it stay near,
+with the reason).
+
+**The case the brief names, on live: 33 rows** where the one body of the
+name live today was not the one alive on the row's date, and the rule
+confirms the one that was: the disclosures of Christopher & Banks Ltd
+(12 May 2022, 13 March 2023, 13 June 2023) to company 3482091 (registered
+2011, removed 18 December 2024), not 9321019 (registered 6 March 2025),
+ruling 109's own pair; and in the interests returns Ivory Limited (2016,
+2017: 3751657, removed 2017, not 8263494 of 2021), Bakshi Enterprises
+Limited (2012 to 2017: 1135334, removed 2017, not 9297701 of 2024), Oriwa
+Limited (2012 to 2016: 2243068, removed 2016, not 8160042 of 2021), Malachy
+Properties Limited (2006, 2007: 1133623, removed 2010, not 8758427 of
+2023), AMP Limited (2006: 853993, removed 2022, not 8695766 of 2023).
+Judged today every one of these would be joined to the wrong company.
+
+**Ten confirmed pairs off the donor views** (the row's name → the body):
+mp_interests: Spire Investments Limited → 358292; Cameron Brewer
+Communications Limited → 5718068; CGCA Jackson Limited → 3380713; Waipuke
+Farming Limited → 8298020; Heartland Group Holdings → 6937955 (the one of
+several live); Genesis Energy Limited → 936775 (the one of several live);
+directors: Peel Forest Outdoor Pursuits Charitable Trust → trust board
+655493; society officers: Bowls Orewa Inc → society 223215, Tauranga Indoor
+Bowls Association → society 594273; charity officers: Public Trust → 926556,
+The Lions Club of Invercargill South Incorporated → society 225674 (removed
+2022, live at the 2014 appointment).
+
+**Volume, time and memory.** The rule reads 3,339 rows and 1,178 bodies
+and judges them in 1 s; the build's step is the same code over the same
+rows, 2,632 confirmed and 1,182 near links where it stored 292 and 2,980,
+so the links table and the build's time and memory do not move. The
+groups gain the 2,340 newly confirmed rows (interests, officers, directors)
+folded into their bodies' entities; `pub.entities` loses about that many
+organisation entities.
+
 ## Track C: the review agent scored on the test pairs, 20 October 2026
 
 Run `score-1` in `scratch_review` on the real published tables (`links.scores`,

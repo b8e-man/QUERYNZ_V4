@@ -150,8 +150,9 @@ CREATE INDEX IF NOT EXISTS org_names_key ON links.org_names (org_key);
 
 -- Bodies by the organisation key on four registers (ruling 114): every row of pub.companies (all its registers), pub.societies,
 -- pub.limited_partnerships and pub.charities, each with its own register's dates, and `body`, the one entity it is: a row whose
--- register carries a Companies Office body's NZBN (or a charity its company number) is that body. The donation rules
--- `organisation-sole-company@2` and `organisation-one-live-company@2` read it; the company rules read org_names. Regenerable.
+-- register carries a Companies Office body's NZBN (or a charity its company number) is that body. The organisation rules
+-- `organisation-sole-company@3` and `organisation-one-live-company@3` (ruling 125: every organisation-named row, on its own date)
+-- read it; the company rules read org_names. Regenerable.
 CREATE TABLE IF NOT EXISTS links.bodies (
     entity_ref   text NOT NULL,            -- the row on its own register: 'companies:…', 'societies:…', 'limited_partnerships:…', 'charities:…'
     org_key      text NOT NULL,
