@@ -17,9 +17,9 @@
    Ruling 108 (4): on the search tab the same canvas sits in a pane beside the results
    (#side), empty until a result is clicked (ruling 111: the board's one graph, the graph
    tab gone; the tab's old address lands with #side's data-inline, the graph drawn from
-   the page's own data at once, and the rows and entities switch, on this pane alone,
-   keeps the dossier chosen in its links); the click asks /graph.json centred on that
-   row or entity, in the state the address carries, and mounts the canvas afresh. A
+   the page's own data at once); the click asks /graph.json centred on that
+   row or entity, in the graph's one state, entities (ruling 120: the rows state and its
+   switch left), and mounts the canvas afresh. A
    result's links other than its title keep their own work, and a click with a key held
    opens the title's pane as before.
    Ruling 106 (2), the links lane's related grade: a lineage frame, a compound node in the
@@ -49,14 +49,6 @@
   var tip = document.getElementById("tip");
   var cy = null;
 
-  function keepChosen(id) {                        // ruling 111: the switch on the graph's pane reopens on the dossier chosen
-    Array.prototype.forEach.call(document.querySelectorAll("#state a"), function (a) {
-      var u = new URL(a.getAttribute("href"), window.location.href);
-      u.searchParams.set("d", id);
-      a.setAttribute("href", u.pathname + u.search);
-    });
-  }
-
   var dossierAsked = 0;
   function showDossier(id) {                       // ruling 110: the dossier under the graph, one fetch, no reload
     var box = document.getElementById("dossier");
@@ -73,7 +65,6 @@
         var u = new URL(window.location.href);
         u.searchParams.set("d", id);
         history.replaceState(null, "", u.toString());
-        keepChosen(id);
       })
       .catch(function () {
         if (mine !== dossierAsked) return;

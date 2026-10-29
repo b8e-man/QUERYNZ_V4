@@ -50,9 +50,10 @@ def test_the_graph_of_a_busy_company_is_quick_and_every_far_end_is_a_row():
         g = graph.build(conn, "", centre=f"companies:{c}")
         assert time.time() - t < 5.0
         assert g["drawn"]["role"] >= 1 and len(g["nodes"]) <= graph.MAX_NODES
-        for nid in g["nodes"]:
-            view, _, key = nid.partition(":")
-            assert search.row(conn, view, key) is not None, nid
+        for nid in g["nodes"]:                                  # an entity stands for its rows in hand (ruling 120)
+            for rid in check.rows_drawn(g, nid):
+                view, _, key = rid.partition(":")
+                assert search.row(conn, view, key) is not None, rid
 
 
 def test_the_field_search_is_quick_and_a_last_name_is_a_whole_word():
@@ -101,7 +102,8 @@ def test_a_known_donor_with_returns_in_two_years_gets_one_party_edge_whose_total
         assert check.gift_problems(conn) == []
     money = [e for e in g["edges"] if e["kind"] == "money"]
     assert len(money) == 1 and money[0]["b"].startswith("parties:")
-    assert sum(1 for n in g["nodes"] if n.startswith("party_return_donors:")) == 1     # one donor node, not one per row
+    donors = [n for n in g["nodes"] if any(r.split(":", 1)[0] in cat.GIFT_OF for r in check.rows_drawn(g, n))]
+    assert len(donors) == 1                                                             # one donor node, not one per row
     assert len(money[0]["addends"]) >= 2
 
 
@@ -237,18 +239,17 @@ def test_the_entity_search_finds_a_group_no_row_of_the_list_heads():
 
 def test_a_succession_is_one_frame_in_both_states_within_the_floor():
     """Ruling 106 (2): a company of links-3's sample, centred, draws its lineage frame in date order with its people
-    on both, in the rows and the entity state, and the lineage step costs the graph little (one query by key, and
+    on both, in the graph's one state (ruling 120), and the lineage step costs the graph little (one query by key, and
     one more for a chain's new ends)."""
     from products.board import lineage
     with db.read_connect() as conn:
         centre, links = check.lineage_case(conn)
         assert centre and links
-        for people_state in (False, True):
-            t = time.time()
-            g = graph.build(conn, "", centre=centre, people=people_state)
-            assert time.time() - t < 2.0
-            f = next(f for f in g["lineage"] if f["companies"])
-            assert len(set(f["companies"])) == len(f["companies"]) >= 2 and f["people"]
+        t = time.time()
+        g = graph.build(conn, "", centre=centre)
+        assert time.time() - t < 2.0
+        f = next(f for f in g["lineage"] if f["companies"])
+        assert len(set(f["companies"])) == len(f["companies"]) >= 2 and f["people"]
         t = time.time()
         found = lineage.chain(conn, [links_ref for l in links for links_ref in (l["row_a"], l["row_b"])])
         assert time.time() - t < 0.5 and found
@@ -287,7 +288,7 @@ def test_the_dossier_of_the_largest_group_and_of_graeme_hart_answers_well_inside
             page = dossier.pane(x)
             assert time.time() - t < 1.0, d
             assert x["kind"] in ("entity", "row") and x["rows"] and 'id="d-money"' in page
-        boxes = search.FIRST._replace(people=True)
+        boxes = search.FIRST
         t = time.time()
         server.render("Graeme Hart", [], conn=conn, boxes=boxes)
         plain = time.time() - t
@@ -361,11 +362,11 @@ def test_a_saved_path_from_before_and_the_graph_tab_s_old_address_still_open(mon
         link = re.search(r'<a class="row" href="([^"]*)">' + re.escape(name) + "</a>", saved).group(1).replace("&amp;", "&")
         status, _, page = get(link)
         assert status == 200 and 'id="results"' in page and "row not found" not in page and "<h3>Citation</h3>" in page
-        old = "/graph?" + urllib.parse.urlencode([("q", "Graeme Hart"), ("all", "1"), ("g", "entities"),
+        old = "/graph?" + urllib.parse.urlencode([("q", "Graeme Hart"), ("all", "1"), ("g", "rows"),
                                                   ("c", f"party_return_donors:{key}")])
         status, to, _ = get(old)
         qs = urllib.parse.parse_qs(urllib.parse.urlsplit(to).query)
-        assert status == 303 and to.startswith("/?") and qs["q"] == ["Graeme Hart"] and qs["g"] == ["entities"]
+        assert status == 303 and to.startswith("/?") and qs["q"] == ["Graeme Hart"] and "g" not in qs     # ruling 120
         assert qs["d"] == [f"party_return_donors:{key}"] and qs["gv"] == ["1"]
         status, _, landed = get(to)
         side = landed[landed.index('<div class="sidecol">'):]
@@ -380,13 +381,12 @@ def test_a_saved_path_from_before_and_the_graph_tab_s_old_address_still_open(mon
 def test_lloyd_budd_s_rows_pub_names_does_not_hold_fold_with_his_entity_by_name():
     """The fix of 28 October: with "a shared first and last name" ticked, a row the links lane's name table lacks is
     keyed from its own Name columns, so the charity officer and the five celebrants (filed surname, given names) fold
-    into one entry with the links lane's entity, in both states. Since ruling 114 the lane reads both views, so the
+    into one entry with the links lane's entity. Since ruling 114 the lane reads both views, so the
     rows may arrive already in the entity's group; either way the page shows one Lloyd Budd and no stray row."""
     with db.read_connect() as conn:
-        for people_state in (False, True):
-            page = server.render("lloyd budd", [], conn=conn, boxes=search.FIRST._replace(people=people_state, collapse=("name",)))
-            entries = {unescape(d) for d in re.findall(r'class="hit entity(?: folded)?"[^>]* data-dossier="([^"]*)"', page)}
-            assert len(entries) == 1, entries
+        page = server.render("lloyd budd", [], conn=conn, boxes=search.FIRST._replace(collapse=("name",)))
+        entries = {unescape(d) for d in re.findall(r'class="hit entity(?: folded)?"[^>]* data-dossier="([^"]*)"', page)}
+        assert len(entries) == 1, entries
 
 
 def test_a_board_made_name_key_equals_pub_names_key_for_the_rows_pub_names_holds():
@@ -454,14 +454,14 @@ def test_lloyd_budd_s_entity_graph_is_one_drawing_from_every_row_and_in_both_sta
         for cl in ((), ("name",)):
             for c in centres:
                 t = time.time()
-                d = server.graph_answer("lloyd budd", c, conn=conn, boxes=search.FIRST._replace(people=True, collapse=cl))
+                d = server.graph_answer("lloyd budd", c, conn=conn, boxes=search.FIRST._replace(collapse=cl))
                 assert time.time() - t < 2.0
                 seen[(cl, c)] = ({n["id"]: n["view"] for n in d["nodes"]}, {(l["source"], l["target"], l["kind"]) for l in d["edges"]}, d)
     for cl, me in (((), e), (("name",), fid)):
         drawings = [seen[(cl, c)][:2] for c in centres]
         assert all(x == drawings[0] for x in drawings), cl                          # the same from every row
         nodes, lines = drawings[0]
-        assert nodes[me] == "charity_officers"                                      # his first row by ref stands for him
+        assert cl or nodes[me] == "charity_officers"                                # his first row by ref stands for him; a fold is typed whole
         ends = {b for a, b, k in lines if a == me and k == "role"} | {a for a, b, k in lines if b == me and k == "role"}
         assert {n for n in ends if n.startswith("charities:")} and {n for n in ends if n.startswith("companies:")}
     pn, pl, _ = seen[((), centres[0])]

@@ -62,7 +62,7 @@ CENTRES = ["charity_officers:" + OFFICER["key"], "directors:" + DIRECTOR["key"],
 
 
 def test_every_row_of_the_entity_opens_the_same_entity_with_the_same_connections(reads):
-    seen = [drawn(graph.build(None, "", centre=c, people=True)) for c in CENTRES]
+    seen = [drawn(graph.build(None, "", centre=c)) for c in CENTRES]
     assert seen[0] == seen[1] == seen[2]
     nodes, edges = seen[0]
     e = people.entity_id(G)
@@ -70,19 +70,15 @@ def test_every_row_of_the_entity_opens_the_same_entity_with_the_same_connections
     assert {(e, "charities:charities/1", "role"), (e, "companies:companies/9", "role")} <= edges
 
 
-def test_the_rows_state_still_draws_one_row_s_hop():
-    """The fix is the entity state's: a row opened in the rows state draws its own hop, as before."""
-    assert graph.group_rows.__doc__ and "entity state" in graph.group_rows.__doc__
-
-
 def test_the_name_fold_draws_the_same_entity_with_the_same_connections(reads):
     for c in CENTRES:
-        plain = graph.build(None, "", centre=c, people=True)
-        folded = graph.build(None, "", centre=c, people=True, collapse=("name",))
+        plain = graph.build(None, "", centre=c)
+        folded = graph.build(None, "", centre=c, collapse=("name",))
         pn, pe = drawn(plain)
         fn, fe = drawn(folded)
         fid = collapse.PREFIX + people.entity_id(G)
-        assert fid in fn and fn[fid] == pn[people.entity_id(G)]                # named by its entity, the same row standing for it
+        assert fid in fn and pn[people.entity_id(G)] == "charity_officers"     # named by its entity
+        assert fn[fid] == "directors"          # ruling 120: typed by the whole fold, two company rows of four, not by its entity's first
         members = set(folded["nodes"][fid]["fold"]["members"])
         to = {nid: (fid if nid in members else nid) for nid in pn}
         assert set(to.values()) == set(fn)                                      # every node drawn, folded or as it was
@@ -99,5 +95,5 @@ def test_a_search_drawing_his_rows_in_any_order_stands_the_entity_for_its_first_
     """The search's own order (the companies before the charities in the catalogue) never picks the entity's row."""
     for order in ([("directors", DIRECTOR), ("charity_officers", OFFICER)], [("shareholders", SHARE)]):
         monkeypatch.setattr(graph.search, "search", lambda conn, q, **kw: {V[v].register: [(V[v], 1, [r])] for v, r in order})
-        g = graph.build(None, "lloyd budd", people=True)
+        g = graph.build(None, "lloyd budd")
         assert g["nodes"][people.entity_id(G)]["v"].name == "charity_officers", order

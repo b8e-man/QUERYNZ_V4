@@ -5,12 +5,14 @@ entities themselves, ruling 111); the others are a shared first and last
 name (pub.names' `fl_key`, the folded key the entity search reads; a row
 of a view the links lane does not read is keyed the same way from its own
 Name columns, row_name_keys), a
-shared full name with middle names (`full_key` where `has_middle`), a
 shared registered address (a company's registered office from
 pub.company_addresses, read by the organisation's own key; never a
 person's address: a person's row is never asked) and a shared official
 number (an organisation row's own NZBN, company, charity or incorporation
-number, never a number a row names for someone else).
+number, never a number a row names for someone else). A shared full name
+with middle names left the list (ruling 118): it is the links lane's own
+rule 1 and folded nothing the groups had not; an address carrying `cl=full`
+is read without it.
 
 A fold here is a display choice for this page. It is never a link and
 never written: this module only reads (pub.names, pub.groups through
@@ -32,7 +34,6 @@ from products.board import db, fold, links_view, panes, people, search
 #: (criterion, what the section says beside its box, the word a folded entry carries); "groups" is always on
 CRITERIA = (("groups", "the links lane's groups (always on: the entities themselves)", ""),
             ("name", "a shared first and last name", "shared name"),
-            ("full", "a shared full name, with middle names", "shared full name"),
             ("address", "a shared registered address (a company's registered office; never a person's address)",
              "shared registered address"),
             ("number", "a shared official number (an organisation's own NZBN, company, charity or incorporation number)",
@@ -163,7 +164,7 @@ def keys(conn, units: list, criteria: tuple) -> dict:
     if not criteria or not units:
         return out
     refs, own = {}, {}
-    if {"name", "full"} & set(criteria):
+    if "name" in criteria:
         members = people.members_of(conn, {u["group"] for u in units if u["group"]})
         hidden = people.suppressed_refs(conn, [m for ms in members.values() for m in ms])
         for u in units:
@@ -179,22 +180,20 @@ def keys(conn, units: list, criteria: tuple) -> dict:
                 refs.setdefault(ref, set()).add(u["id"])
         named = []
         if refs:
-            named = db.rows(conn, "select ref, kind, fl_key, full_key, has_middle from pub.names where ref = any(%s)",
+            named = db.rows(conn, "select ref, kind, fl_key from pub.names where ref = any(%s)",
                             (sorted(refs),))
         held = {n["ref"] for n in named}
         for ref, vr in own.items():             # a row pub.names holds no entry of: its own Name columns
             if ref not in held:
                 got = row_name_keys(*vr)
                 if got:
-                    named.append({"ref": ref, "kind": "person", "fl_key": got[0], "full_key": got[1], "has_middle": got[2]})
+                    named.append({"ref": ref, "kind": "person", "fl_key": got[0]})
         for n in named:
             if n["kind"] != "person":
                 continue
             for uid in refs.get(n["ref"], ()):
-                if "name" in criteria and n["fl_key"]:
+                if n["fl_key"]:
                     out[uid]["name"].add(n["fl_key"])
-                if "full" in criteria and n["full_key"] and n["has_middle"]:
-                    out[uid]["full"].add(n["full_key"])
     if "number" in criteria:
         for u in units:
             for v, r in u["rows"]:
@@ -303,8 +302,11 @@ def fold_entries(conn, xs: list, criteria: tuple, memo: dict = None) -> list:
 def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
     """The graph beside the results folded the same way (ruling 112): its
     entity, lone and row nodes sharing a key of a ticked criterion become
-    one node `fold:<member>`, carrying the member `stands_for` names as its representative and
-    `fold` ({'words', 'members': [node ids], 'count'}), the same words as the
+    one node `fold:<member>`, named by the member `stands_for` names, its
+    name the fullest of every member's and its register (type and colour)
+    the one most of every member's rows in hand are in (`drawn_as`), and
+    `fold` ({'words', 'members': [node ids], 'count', 'in_hand': the matching
+    rows its matched members hold, for the "more match" note}), the same words as the
     results; edges are lifted to the folded ends, one inside a fold dropped
     and counted (`inside`), duplicates merged. A node kept apart (its name
     suppressed) or in a lineage frame is never folded. `rows_of`, the rows
@@ -333,7 +335,7 @@ def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
         fid = f"{PREFIX}{lead_id}"                     # ruling 117 (4): named by its member, never by its place in this answer
         for m in ms:
             node_of[m] = fid
-        lead = g["nodes"][lead_id]
+        lead = {**g["nodes"][lead_id], **dict(zip(("v", "row"), drawn_as(g["nodes"], ms, rows_of)))}
         titles = [g["nodes"][m].get("title") or panes.title_of(g["nodes"][m]["v"], g["nodes"][m]["row"]) for m in ms]
         grouped = [t for m, t in zip(ms, titles) if g["nodes"][m].get("entity")]
         rows = sum((g["nodes"][m].get("entity") or {}).get("rows", 1) for m in ms)
@@ -342,6 +344,8 @@ def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
                       "matched": any(g["nodes"][m]["matched"] for m in ms), "centre": any(g["nodes"][m]["centre"] for m in ms),
                       "fold": {"words": words(by), "members": ms, "by": sorted(by),
                                "count": f"{len(ms)} entities, {rows:,} row{'s' if rows != 1 else ''}",
+                               "in_hand": sum(len((g["nodes"][m].get("entity") or {}).get("in_hand") or [m])
+                                              for m in ms if g["nodes"][m]["matched"]),
                                "dossier": fold_id([member_dossier(g["nodes"][m], m) for m in ms], by)}}
     out = {**g, "nodes": {}, "edges": [], "inside": g.get("inside", 0), "folds": len(sets)}
     for nid, n in sorted(g["nodes"].items(), key=lambda kv: kv[1]["order"]):
@@ -357,6 +361,7 @@ def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
         k = (e["kind"], min(a, b), max(a, b), e["label"], e.get("rule"))
         if k in seen:
             seen[k].setdefault("rows", []).extend(e.get("rows") or [])
+            people.cite_latest(seen[k], e, rows_of)
             continue
         x = {**e, "a": a, "b": b}
         seen[k] = x
@@ -369,13 +374,37 @@ def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
     return out
 
 
+def member_order(m: str) -> tuple:
+    """A fold's members in an order every answer shares: an entity first, then by id in byte order."""
+    return (not m.startswith(people.ENTITY), m.encode())
+
+
 def stands_for(ms: list) -> str:
-    """The member that stands for a fold on the graph, by an order every answer
+    """The member whose id names a fold on the graph, by an order every answer
     shares: an entity first (a group outlives the rows an answer drew), then
     by id in byte order. The fold was `fold:<n>`, its place in this answer, so
     two answers gave one id to two folds and the canvas, which adds a node
     only when its id is new, swapped them."""
-    return min(ms, key=lambda m: (not m.startswith(people.ENTITY), m.encode()))
+    return min(ms, key=member_order)
+
+
+def drawn_as(nodes: dict, ms: list, rows_of: dict) -> tuple:
+    """(view, row) a fold is typed and coloured by, from the whole fold: the
+    register most of its members' rows in hand are in (a tie to the
+    catalogue's order), and of that register the first such row, the members
+    in `stands_for`'s order. The member that sorts first stood for the fold,
+    so seven rows, six of them a company's, were drawn as a charity."""
+    rows = []
+    for m in sorted(ms, key=member_order):
+        n = nodes[m]
+        hand = [(rows_of[h]["v"], rows_of[h]["row"]) for h in (n.get("entity") or {}).get("in_hand") or () if h in rows_of]
+        rows += hand or [(n["v"], n["row"])]
+    count = {}
+    for v, _ in rows:
+        count[v.register] = count.get(v.register, 0) + 1
+    order = {r: i for i, (r, _) in enumerate(cat.REGISTERS)}
+    most = min(count, key=lambda r: (-count[r], order.get(r, len(order)), r))
+    return next((v, r) for v, r in rows if v.register == most)
 
 
 def member_dossier(n: dict, nid: str) -> str:
