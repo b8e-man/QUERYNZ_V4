@@ -17,3 +17,6 @@ CREATE TABLE IF NOT EXISTS {schema}.paths (
     path        text NOT NULL,            -- the panes walked: view:key, one per line
     made_at     timestamptz NOT NULL DEFAULT now()
 );
+-- ruling 119: the check boxes the path was saved under, as its address carries them (search.Boxes.params, the folds
+-- by hand among them), so a saved path reopens as it was seen; '' for a path saved before, which opens as the first view
+ALTER TABLE {schema}.paths ADD COLUMN IF NOT EXISTS boxes text NOT NULL DEFAULT '';

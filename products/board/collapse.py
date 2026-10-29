@@ -22,7 +22,19 @@ they are (dossier.gather_fold). The links lane's rules alone make links
 (plan 4.9). A row whose name is suppressed is never folded (hard limit 16):
 it carries no key. The address carries the criteria ticked (`cl=`,
 search.Boxes.collapse), so a view reopens folded; the graph beside the
-results folds the same way (`fold_graph`) with the same words on the node."""
+results folds the same way (`fold_graph`) with the same words on the node.
+
+A fold by hand (ruling 119): the reader ticks organisation entities in the
+results (`organisations`: a group the links lane read as an organisation, a
+row of a view the catalogue marks "organisation", or a row naming an
+organisation by its own column or by pub.names' kind) and collapses the
+ticked into one entry for this view (`hand_fold`), named by the fullest
+name among them (`label`), saying "collapsed here by hand; not a link"; the
+graph draws it as one node (`fold_graph`). A person entity is never folded
+by hand, whatever the address names: a person's identity is the links
+lane's and the review's. The fold travels in the address alone (`hf=`,
+search.Boxes.hand), and in a saved path's address; never a link, never a
+decision, never written anywhere else."""
 from __future__ import annotations
 
 import re
@@ -39,16 +51,25 @@ CRITERIA = (("groups", "the links lane's groups (always on: the entities themsel
             ("number", "a shared official number (an organisation's own NZBN, company, charity or incorporation number)",
              "shared official number"))
 CHOICES = search.COLLAPSE_CHOICES     # the address's order; tests/test_collapse.py holds it to CRITERIA
-WORD = {c: w for c, _, w in CRITERIA}
+HAND = "hand"                         # ruling 119: the fold by hand, said before any criterion
+ORDER = (HAND,) + CHOICES             # how a fold's words and its dossier address name what joined it
+WORD = {c: w for c, _, w in CRITERIA} | {HAND: "hand"}
 PREFIX = "fold:"
 MAX_MEMBERS = 100           # members named in a folded entry's dossier address; the entry counts every one
 NOTE = ("A fold here is a display choice for this page alone: never a link, never written to any table. The links lane's "
         "rules alone make links; the dossier of a folded entry lists its members as the entities they are.")
 
+HAND_NOTE = ("tick two or more organisations in the results and collapse them into one entry for this view, by hand; "
+             "a person is not collapsed by hand (a person's identity is the links lane's and the review's).")
+
 #: an organisation row's own official numbers: (column, the number's namespace); any other `numbers` column
 #: (a holder's, a body's, a mortgagee's, a bill's, an id) names someone or something else and never folds
 OWN_NUMBERS = {"nzbn": "NZBN", "company_number": "company number", "charity_number": "charity number",
                "incorporation_number": "incorporation number"}
+
+#: a row of a person view that names an organisation by its own column (column, the value that says so): the
+#: Companies Office's holder type; a row of any other person view is an organisation only where pub.names says so
+ORG_ROWS = {"shareholders": ("shareholder_type", "company")}
 
 
 def label(group_labels, row_titles) -> str:
@@ -60,7 +81,7 @@ def label(group_labels, row_titles) -> str:
 
 def words(by) -> str:
     """'collapsed here by shared name; not a link' for the criteria that joined an entry."""
-    return "collapsed here by " + " and ".join(WORD[c] for c in CHOICES if c in by) + "; not a link"
+    return "collapsed here by " + " and ".join(WORD[c] for c in ORDER if c in by) + "; not a link"
 
 
 def chosen(values) -> tuple:
@@ -239,7 +260,7 @@ def union(ids: list, ks: dict, criteria: tuple) -> list:
 
 def fold_id(members: list, by) -> str:
     """The dossier's address for a folded entry: fold:<criteria>:<member ids, each quoted, comma-joined>."""
-    return PREFIX + "+".join(c for c in CHOICES if c in by) + ":" + ",".join(urllib.parse.quote(m, safe="") for m in members[:MAX_MEMBERS])
+    return PREFIX + "+".join(c for c in ORDER if c in by) + ":" + ",".join(urllib.parse.quote(m, safe="") for m in members[:MAX_MEMBERS])
 
 
 def parse(d: str):
@@ -247,21 +268,112 @@ def parse(d: str):
     if not d.startswith(PREFIX):
         return None
     crit, _, rest = d[len(PREFIX):].partition(":")
-    by = chosen(crit.split("+"))
+    by = tuple(c for c in ORDER if c in set(crit.split("+")))
     members = [urllib.parse.unquote(m) for m in rest.split(",") if m][:MAX_MEMBERS]
     return (by, members) if by and len(members) > 1 else None
 
 
-def folder(conn, criteria: tuple):
-    """fold_entries for one page: the keys read once per entry across the
-    tabs (an entity under several tabs is asked once); None when nothing is ticked."""
-    if not criteria:
-        return None
-    memo = {}
+def folder(conn, criteria: tuple, hand: tuple = (), ents: dict = None):
+    """The results' entries for one page: each organisation entity marked
+    `org` (its tick box, ruling 119), the folds by hand made, then the
+    criteria ticked folded (fold_entries); the keys and kinds read once per
+    entry across the tabs (an entity under several tabs is asked once)."""
+    memo, kinds = {}, {}
 
     def fold(xs):
-        return fold_entries(conn, xs, criteria, memo)
+        orgs = organisations(conn, xs, ents, kinds)
+        xs = [{**x, "org": True} if x["id"] in orgs else x for x in xs]
+        xs = hand_fold(xs, hand, orgs) if hand else xs
+        return fold_entries(conn, xs, criteria, memo) if criteria else xs
     return fold
+
+
+# ── the fold by hand (ruling 119) ───────────────────────────────────────────
+
+def names_kinds(conn, refs) -> dict:
+    """{ref: pub.names' kind} for the refs given; one query by key, none when there are none."""
+    refs = sorted(set(refs))
+    if not refs:
+        return {}
+    return {r["ref"]: r["kind"] for r in db.rows(conn, "select ref, kind from pub.names where ref = any(%s)", (refs,))}
+
+
+def organisation_row(v: cat.View, r: dict, kind: str = "") -> bool:
+    """Whether a row is an organisation's: its view's kind, its own column
+    (ORG_ROWS), else pub.names' `kind` (a donor's row, a figure, is read there).
+    A suppressed row never is (hard limit 16)."""
+    if panes.is_suppressed(v, r):
+        return False
+    if v.kind == "organisation" or kind == "organisation":
+        return True
+    col, value = ORG_ROWS.get(v.name, ("", None))
+    return bool(col) and str(r.get(col) or "").strip().lower() == value
+
+
+def organisation_group(e: dict, rows: list) -> bool:
+    """Whether a group is an organisation: the links lane's kinds of its
+    shown rows (pub.names) all organisation; with none (organisations
+    joined by number, which pub.names does not hold), every row in hand an
+    organisation's. An empty group, or one with a person's row, is not."""
+    kinds = set((e or {}).get("kinds") or ())
+    if kinds:
+        return kinds == {"organisation"}
+    return bool(e) and bool(rows) and all(organisation_row(v, r) for v, r in rows)
+
+
+def organisations(conn, xs: list, ents: dict = None, memo: dict = None) -> set:
+    """The ids of the entries that are organisation entities, the ones a
+    reader may tick (ruling 119): a group by organisation_group, a lone row
+    by organisation_row, pub.names' kind read in one query for the rows
+    neither their view nor their own column settles; `memo` keeps the kinds read across the tabs. A fold is not offered."""
+    memo = {} if memo is None else memo
+    ask = {links_view.ref(v, r["key"]) for x in xs if x["group"] is None and not x.get("fold") for v, r in x["in_hand"][:1]
+           if v.kind != "organisation" and v.name not in ORG_ROWS and not panes.is_suppressed(v, r)} - set(memo)
+    if ask:
+        got = names_kinds(conn, ask)
+        memo.update({ref: got.get(ref, "") for ref in ask})
+    out = set()
+    for x in xs:
+        if x.get("fold"):
+            continue
+        if x["group"] is not None:
+            if organisation_group(((ents or {}).get("entity") or {}).get(x["group"]), x["in_hand"]):
+                out.add(x["id"])
+        elif x["in_hand"]:
+            v, r = x["in_hand"][0]
+            if organisation_row(v, r, memo.get(links_view.ref(v, r["key"]), "")):
+                out.add(x["id"])
+    return out
+
+
+def hand_fold(xs: list, folds: tuple, orgs: set) -> list:
+    """The results' entries with each fold by hand made: the organisation
+    entities a fold names that are listed here become one entry {'id':
+    fold_id, 'fold': (('hand',), [the member entries]), 'hand': the fold as
+    the address names it} at its first member's place, the members in the
+    list's order; an id named by an earlier fold, a person or an id not
+    listed is left as it is, and a fold left with fewer than two folds
+    nothing. Nothing is written."""
+    by_id = {x["id"]: x for x in xs}
+    order = {x["id"]: i for i, x in enumerate(xs)}
+    taken, lead = set(), {}
+    for f in folds:
+        ms = sorted({m for m in f if m in orgs and m in by_id and m not in taken and not by_id[m].get("fold")}, key=order.get)
+        if len(ms) > 1:
+            taken |= set(ms)
+            lead[ms[0]] = (ms, f)
+    if not lead:
+        return xs
+    out = []
+    for x in xs:
+        if x["id"] in lead:
+            ms, f = lead[x["id"]]
+            members = [by_id[m] for m in ms]
+            out.append({"id": fold_id(ms, {HAND}), "group": None, "in_hand": [vr for m in members for vr in m["in_hand"]],
+                        "fold": ((HAND,), members), "hand": f})
+        elif x["id"] not in taken:
+            out.append(x)
+    return out
 
 
 def fold_entries(conn, xs: list, criteria: tuple, memo: dict = None) -> list:
@@ -269,13 +381,14 @@ def fold_entries(conn, xs: list, criteria: tuple, memo: dict = None) -> list:
     ticked: each set of two or more becomes one entry {'id': fold_id,
     'fold': (by, [the member entries])} at its first member's place; the
     rest are as they were. Nothing is written."""
-    if not criteria or len(xs) < 2:
+    plain = [x for x in xs if not x.get("fold")]        # a fold by hand stays as the reader made it
+    if not criteria or len(plain) < 2:
         return xs
     memo = {} if memo is None else memo
-    units = [{"id": x["id"], "group": x["group"], "rows": x["in_hand"]} for x in xs]
+    units = [{"id": x["id"], "group": x["group"], "rows": x["in_hand"]} for x in plain]
     fresh = [u for u in units if u["id"] not in memo]
     memo.update(keys(conn, fresh, criteria) if fresh else {})
-    sets = union([x["id"] for x in xs], memo, criteria)
+    sets = union([x["id"] for x in plain], memo, criteria)
     if not sets:
         return xs
     by_id = {x["id"]: x for x in xs}
@@ -299,7 +412,7 @@ def fold_entries(conn, xs: list, criteria: tuple, memo: dict = None) -> list:
     return out
 
 
-def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
+def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None, hand: tuple = ()) -> dict:
     """The graph beside the results folded the same way (ruling 112): its
     entity, lone and row nodes sharing a key of a ticked criterion become
     one node `fold:<member>`, named by the member `stands_for` names, its
@@ -310,8 +423,12 @@ def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
     results; edges are lifted to the folded ends, one inside a fold dropped
     and counted (`inside`), duplicates merged. A node kept apart (its name
     suppressed) or in a lineage frame is never folded. `rows_of`, the rows
-    graph's nodes before the people fold, for an entity's rows in hand."""
-    if not criteria or not g["nodes"]:
+    graph's nodes before the people fold, for an entity's rows in hand.
+    `hand` (ruling 119): the folds by hand, each made first of the
+    organisation nodes it names (`organisations`, as the results read them),
+    one node saying "collapsed here by hand; not a link"; a node so folded is
+    left out of the criteria's folds, and a person node is never folded by hand."""
+    if not (criteria or hand) or not g["nodes"]:
         return g
     framed = {x for f in g.get("lineage") or [] for x in list(f.get("companies") or []) + list(f.get("people") or [])}
     rows_of = rows_of or g["nodes"]
@@ -321,11 +438,23 @@ def fold_graph(conn, g: dict, criteria: tuple, rows_of: dict = None) -> dict:
             continue
         e = n.get("entity")
         if e:
-            hand = [(rows_of[h]["v"], rows_of[h]["row"]) for h in e.get("in_hand") or () if h in rows_of]
-            units.append({"id": nid, "group": e["group_id"], "rows": hand or [(n["v"], n["row"])]})
+            held = [(rows_of[h]["v"], rows_of[h]["row"]) for h in e.get("in_hand") or () if h in rows_of]
+            units.append({"id": nid, "group": e["group_id"], "rows": held or [(n["v"], n["row"])]})
         else:
             units.append({"id": nid, "group": None, "rows": [(n["v"], n["row"])]})
-    sets = union([u["id"] for u in units], keys(conn, units, criteria), criteria)
+    sets = []
+    if hand:
+        xs = [{"id": u["id"], "group": u["group"], "in_hand": u["rows"]} for u in units]
+        ents = {"entity": {u["group"]: g["nodes"][u["id"]]["entity"] for u in units if u["group"]}}
+        orgs, order, taken = organisations(conn, xs, ents), {u["id"]: i for i, u in enumerate(units)}, set()
+        for f in hand:
+            ms = sorted({m for m in f if m in orgs and m not in taken}, key=order.get)
+            if len(ms) > 1:
+                taken |= set(ms)
+                sets.append((ms, {HAND}))
+        units = [u for u in units if u["id"] not in taken]
+    if criteria:
+        sets += union([u["id"] for u in units], keys(conn, units, criteria), criteria)
     if not sets:
         return g
     node_of = {nid: nid for nid in g["nodes"]}

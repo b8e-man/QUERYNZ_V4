@@ -178,7 +178,8 @@ def test_the_results_pane_holds_the_section_closed_and_the_folded_entry_says_so(
     section = html[html.index('id="collapse"'):html.index("</details>", html.index('id="collapse"'))]
     assert 'checked disabled> the links lane' in section and 'name="cl" value="name" checked' in section
     assert 'name="cl" value="number">' in section and 'name="g"' not in section and 'name="cl" value="name"' in section
-    assert section.count('type="hidden" name="cl"') == 0                                  # the boxes themselves carry cl
+    criteria = section[:section.index("</form>")]
+    assert criteria.count('type="hidden" name="cl"') == 0                                 # the boxes themselves carry cl
     assert html.index('id="collapse"') < html.index("<h3>Entities")
     assert plain.count('class="hit entity"') == 3 and html.count('class="hit entity folded"') == 1
     assert "collapsed here by shared name; not a link" in html and ">3 entities, from " in html and "6 rows" not in html

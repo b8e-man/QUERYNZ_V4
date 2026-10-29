@@ -93,7 +93,8 @@ def group_rows(conn, v: cat.View, r: dict) -> list:
     return [found[m["ref"]] for m in shown if m["ref"] in found]
 
 
-def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, removed: bool = True, collapse: tuple = ()) -> dict:
+def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, removed: bool = True, collapse: tuple = (),
+          hand: tuple = ()) -> dict:
     """{'nodes': {id: {v, row, matched, centre, order}}, 'edges': [...],
     'drawn': {kind: n}, 'not_drawn': {kind: n}, 'matched_total', 'unresolved'}.
     An edge is one cause: kind, a, b (node ids), label (plain words), cite
@@ -104,7 +105,8 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
     The graph has one state, entities (ruling 120; the rows state left): the
     rows and their record relations, no links of a row's own, folded into
     the links lane's groups (people.fold, ruling 105). `collapse` (ruling 112): the collapse section's criteria, folding the
-    nodes further for this view, as the results fold (collapse.fold_graph)."""
+    nodes further for this view, as the results fold (collapse.fold_graph); `hand` (ruling 119), the folds by hand, each
+    drawn as one node."""
     g = {"nodes": {}, "edges": [], "drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS},
          "not_drawn": {k: 0 for k, _, _ in cat.EDGE_KINDS}, "matched_total": 0, "unresolved": 0, "centre": centre}
     held = db.pub_views(conn)
@@ -123,6 +125,8 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
                 g["matched_total"] += total
                 matched.extend((v, r) for r in rows)
         matched = matched[:MAX_MATCHED]
+    if hand:                                                # ruling 119: a fold by hand is drawn whole, to be one node
+        matched += fold_rows(conn, hand, matched, bool(centre))
     donors = {}                                             # a donor name as filed -> its node (ruling 86 (3))
     node_of = {}                                            # each matched row -> the node it is drawn as
     for v, r in matched:
@@ -194,7 +198,39 @@ def build(conn, q: str, regs=None, centre: str = "", fields: dict = None, remove
             g["not_drawn"][rel.kind] += total - drawn
     lineage.draw(conn, g, add_node, add_edge, people_state.resolve_refs)     # ruling 106 (2): the related grade, as frames
     out = people_state.fold(conn, g, max_nodes=MAX_NODES)
-    return folding.fold_graph(conn, out, collapse, g["nodes"]) if collapse else out
+    return folding.fold_graph(conn, out, collapse, g["nodes"], hand) if collapse or hand else out
+
+
+def fold_rows(conn, hand: tuple, matched: list, centred: bool) -> list:
+    """[(view, row)] of the folds by hand (ruling 119) not already among
+    `matched`: on the search's graph every fold's members; on a centred
+    graph the folds that name the centre (its row, or its group's entity)
+    alone, so a fold's entry, which centres on its first member, opens the
+    fold. An entity member is drawn as its group's rows (group_rows); a
+    member that names no row draws nothing. Reads only."""
+    have = {node_id(v, r) for v, r in matched}
+    if centred:
+        refs = [links_view.ref(v, r["key"]) for v, r in matched if not panes.is_suppressed(v, r)]
+        mine = have | {people_state.entity_id(gid) for gid, _ in people_state.groups_of(conn, refs).values()}
+        hand = [f for f in hand if mine & set(f)]
+    want = list(dict.fromkeys(m for f in hand for m in f if m not in have))
+    gids = [m[len(people_state.ENTITY):] for m in want if m.startswith(people_state.ENTITY)]
+    members = people_state.members_of(conn, gids) if gids else {}
+    out = []
+    for m in want:
+        if m.startswith(people_state.ENTITY):
+            first = next((x for x in members.get(m[len(people_state.ENTITY):], []) if x["view"] in cat.BY_NAME), None)
+            r = search.row(conn, first["view"], first["key"]) if first else None
+            got = group_rows(conn, cat.BY_NAME[first["view"]], r) if r else []
+        else:
+            view, _, key = m.partition(":")
+            r = search.row(conn, view, key) if view in cat.BY_NAME else None
+            got = [(cat.BY_NAME[view], r)] if r else []
+        for v, r in got:
+            if node_id(v, r) not in have:
+                have.add(node_id(v, r))
+                out.append((v, r))
+    return out
 
 
 # ── a donor's money, one edge per recipient (ruling 86 (3)) ─────────────────
