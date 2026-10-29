@@ -35,14 +35,33 @@ the run and the cursor holds. A field the recorded shapes (`shapes.json`)
 do not hold is landed (the bytes are whole) and logged in `drift`, and the
 run is red until a register carries it.
 
+The files (ruling 126). A record whose `capture` block carries a sha256 and
+that names a content type points at a file the provider captured (today
+the courts corpus: case pages, judgment PDFs, media releases). When such a
+record lands, the pointer goes to `files` (state `waiting`). After the
+records and change feeds of every corpus, the download step takes the
+waiting pointers in order, one request at a time with the pull's pause,
+inside what is left of the run's budget: a file whose hash the store
+already holds is landed again from disk under the record's url and never
+fetched (the tool is metered per call); the rest are asked for with the
+`download` tool, format `raw` (never the text resource: the text is ours to
+read from the bytes, one reading per document), and the bytes are refused
+when their sha256 is not the record's (a catch line, stage `file`). A file
+lands by hash, named by the record's `url`, source `query-nz`, with the
+record's content type and the capture's fetch time. A run that stops on
+its budget leaves the rest waiting for the next night.
+
     pull(conn, client, corpus)            one corpus, from its stored cursor
-    pull_all(conn, client)                every corpus `corpora` names, then each one's change feed
+    pull_all(conn, client)                every corpus `corpora` names, then each one's change feed, then the files
     follow_changes(conn, client, corpus)  the MCP's `changes` from the stamp followed last
+    download_files(conn, client, corpus)  the waiting file pointers of one corpus, fetched and landed
     python -m support.mcpsource [--database D] [--schema S] [--corpus C …]
 
 Tests: support/mcpsource/tests/ (a fake server; the live shape, slow).
 """
+import base64
 import datetime as dt
+import hashlib
 import json
 import os
 import re
@@ -72,6 +91,26 @@ def record_bytes(record: dict) -> bytes:
 
 def record_name(corpus: str, record_id: str) -> str:
     return f"{corpus}/{record_id}"
+
+
+_SHA = re.compile(r"^[0-9a-f]{64}$")
+
+
+def file_pointer(record: dict):
+    """(url, content_type, sha256, bytes) for the file a record points at:
+    a `capture` block with a sha256, a content type (the record's or the
+    block's) and an http(s) `url`; None where the record points at none."""
+    cap = record.get("capture")
+    if not isinstance(cap, dict):
+        return None
+    sha = cap.get("sha256")
+    ctype = record.get("content_type") or cap.get("content_type")
+    url = record.get("url") or cap.get("url")
+    if not (isinstance(sha, str) and _SHA.match(sha) and isinstance(ctype, str) and ctype.strip()
+            and isinstance(url, str) and url.startswith(("http://", "https://"))):
+        return None
+    size = cap.get("bytes", record.get("bytes"))
+    return url, ctype.strip(), sha, size if isinstance(size, int) else None
 
 
 def shapes(path: str = None) -> dict:
@@ -171,14 +210,19 @@ class Tables:
         self.conn.execute(f"UPDATE {self.t('cursors')} SET changes_since = %s WHERE corpus = %s", (stamp, corpus))
 
     def commit_page(self, corpus: str, cursor: int, total, arrivals: list, catches: list, drift: dict,
-                    move: bool = True) -> None:
-        """The page's arrival rows, catch lines and drift, and the cursor
-        moved past it (unless `move` is false: a re-walk), in one transaction."""
+                    move: bool = True, files: list = None) -> None:
+        """The page's arrival rows, file pointers, catch lines and drift, and
+        the cursor moved past it (unless `move` is false: a re-walk), in one
+        transaction."""
         with self.conn.transaction():
             with self.conn.cursor() as cur:
                 if arrivals:
                     cur.executemany(f"INSERT INTO {self.t('arrivals')} (corpus, seq, record_id, url, sha256, new) "
                                     "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (corpus, seq, sha256) DO NOTHING", arrivals)
+                if files:
+                    cur.executemany(f"INSERT INTO {self.t('files')} (corpus, seq, record_sha256, record_id, url, "
+                                    "content_type, capture_sha256, bytes) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
+                                    "ON CONFLICT (corpus, seq, record_sha256) DO NOTHING", files)
                 if catches:
                     cur.executemany(f"INSERT INTO {self.t('catch')} (corpus, seq, record_id, stage, reason) "
                                     "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (corpus, seq, stage) "
@@ -211,6 +255,7 @@ def land_record(conn, corpus: str, record: dict, fetched_at: str, root: str = No
 def _land_page(conn, corpus: str, recs: list, shape: dict, root, land, log):
     at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     arrivals, catches, drift, n = [], [], {}, {"landed": 0, "held": 0, "caught": 0}
+    files = []
     for r in recs:
         for d in drift_of(r, shape):
             first, k = drift.get(d, (r["seq"], 0))
@@ -237,7 +282,10 @@ def _land_page(conn, corpus: str, recs: list, shape: dict, root, land, log):
         url = r.get("url") if isinstance(r.get("url"), str) else None
         arrivals.append((corpus, r["seq"], rid, url, sha, new))
         n["landed" if new else "held"] += 1
-    return arrivals, catches, drift, n
+        fp = file_pointer(r)
+        if fp:
+            files.append((corpus, r["seq"], sha, rid, fp[0], fp[1], fp[2], fp[3]))
+    return arrivals, catches, drift, n, files
 
 
 def pull(conn, client, corpus: str, schema: str = SCHEMA, limit: int = PAGE, pause_s: float = PAUSE_S,
@@ -275,9 +323,9 @@ def pull(conn, client, corpus: str, schema: str = SCHEMA, limit: int = PAGE, pau
         out["total"] = page.get("total")
         if not recs:
             break
-        arrivals, catches, drift, n = _land_page(conn, corpus, recs, shape, root, land, log)
+        arrivals, catches, drift, n, files = _land_page(conn, corpus, recs, shape, root, land, log)
         cursor += len(recs)
-        t.commit_page(corpus, cursor, page.get("total"), arrivals, catches, drift, move=not rewalk)
+        t.commit_page(corpus, cursor, page.get("total"), arrivals, catches, drift, move=not rewalk, files=files)
         if rewalk:
             t.set_rewalk_at(corpus, cursor)
         out["pages"] += 1
@@ -358,8 +406,8 @@ def follow_changes(conn, client, corpus: str, schema: str = SCHEMA, limit: int =
         cursor += len(recs)
         taken = [r for r in recs if r["seq"] < upto]
         newest = max([newest] + [r["updated_at"] for r in recs])
-        arrivals, catches, drift, n = _land_page(conn, corpus, taken, shape, root, land, log)
-        t.commit_page(corpus, upto, page.get("total"), arrivals, catches, drift, move=False)
+        arrivals, catches, drift, n, files = _land_page(conn, corpus, taken, shape, root, land, log)
+        t.commit_page(corpus, upto, page.get("total"), arrivals, catches, drift, move=False, files=files)
         out["pages"] += 1
         out["changes"] += len(taken)
         out["changed"] += n["landed"]
@@ -374,33 +422,198 @@ def follow_changes(conn, client, corpus: str, schema: str = SCHEMA, limit: int =
     return out
 
 
-def retry_caught(conn, client, schema: str = SCHEMA, root: str = None, land=None, log=None, sleep=time.sleep) -> dict:
-    """Each unresolved catch line asked for again by its place (one record a request) and landed; resolved when it lands."""
+def retry_caught(conn, client, schema: str = SCHEMA, root: str = None, land=None, held=None, log=None,
+                 sleep=time.sleep) -> dict:
+    """Each unresolved catch line asked for again (one request each) and
+    landed; resolved when it lands. A record's line (stage shape or land) is
+    asked for by its place; a file's (stage `file`) by its pointer, through
+    `download` again."""
     t = Tables(conn, schema)
-    rows = conn.execute(f"SELECT corpus, seq FROM {t.t('catch')} WHERE resolved_at IS NULL ORDER BY corpus, seq").fetchall()
+    rows = conn.execute(f"SELECT corpus, seq, stage FROM {t.t('catch')} WHERE resolved_at IS NULL "
+                        "ORDER BY corpus, seq").fetchall()
     n = {"asked": 0, "landed": 0}
-    for corpus, seq in rows:
+    for corpus, seq, stage in rows:
+        if stage == "file":
+            for fp in conn.execute(f"SELECT corpus, seq, record_sha256, record_id, url, content_type, capture_sha256 "
+                                   f"FROM {t.t('files')} WHERE corpus = %s AND seq = %s AND state = 'caught'",
+                                   (corpus, seq)).fetchall():
+                n["asked"] += 1
+                state, _ = _take_file(conn, client, t, fp, root, land, held, log, sleep)
+                if state in ("landed", "held"):
+                    with conn.transaction():
+                        conn.execute(f"UPDATE {t.t('catch')} SET resolved_at = now() WHERE corpus = %s AND seq = %s "
+                                     "AND stage = 'file'", (corpus, seq))
+                    n["landed"] += 1
+            continue
         page = client.call_retrying("records", {"corpus": corpus, "cursor": seq, "limit": 1, "include_text": True},
                                     sleep=sleep, log=log)
         recs = check_page(page, corpus, seq)[:1]
         n["asked"] += 1
         if not recs:
             continue
-        arrivals, catches, drift, k = _land_page(conn, corpus, recs, shapes().get(corpus), root, land, log)
+        arrivals, catches, drift, k, files = _land_page(conn, corpus, recs, shapes().get(corpus), root, land, log)
         if arrivals:
+            t.commit_page(corpus, seq, None, arrivals, [], {}, move=False, files=files)
             with conn.transaction():
-                conn.execute(f"INSERT INTO {t.t('arrivals')} (corpus, seq, record_id, url, sha256, new) "
-                             "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (corpus, seq, sha256) DO NOTHING", arrivals[0])
                 conn.execute(f"UPDATE {t.t('catch')} SET resolved_at = now() WHERE corpus = %s AND seq = %s", (corpus, seq))
             n["landed"] += 1
     return n
 
 
-def pull_all(conn, client, schema: str = SCHEMA, only=None, log=None, follow: bool = True, **kw) -> dict:
+# ── the files (ruling 126) ───────────────────────────────────────────────────
+
+FILE_FORMAT = "raw"
+
+
+def file_of(parts: list):
+    """(meta, bytes) from a `download` answer's content parts: the meta
+    block is the JSON of its text part, the bytes are the base64 blob of
+    its embedded resource. ShapeError when either is missing."""
+    meta, data = None, None
+    for p in parts:
+        if p.get("type") == "text" and meta is None:
+            try:
+                got = json.loads(p.get("text", ""))
+            except ValueError:
+                continue
+            if isinstance(got, dict):
+                meta = got
+        elif p.get("type") == "resource" and isinstance(p.get("resource"), dict) and data is None:
+            blob = p["resource"].get("blob")
+            if isinstance(blob, str):
+                try:
+                    data = base64.b64decode(blob, validate=True)
+                except ValueError as e:
+                    raise ShapeError(f"the file's blob is not base64: {e}")
+    if data is None:
+        raise ShapeError("the download answer carries no embedded resource with a blob: "
+                         f"{[p.get('type') for p in parts]}")
+    return meta or {}, data
+
+
+def _stamp(value):
+    """`value` when it is an ISO 8601 moment, else None."""
+    if not isinstance(value, str):
+        return None
+    try:
+        dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return value
+
+
+def _held_bytes(conn, sha: str, root: str = None):
+    """The bytes of a document the store already holds by hash, or None."""
+    from support.docstore.landing import documents_of, read_bytes
+    if sha not in documents_of([sha], conn):
+        return None
+    try:
+        return read_bytes(sha, root=root)
+    except OSError:
+        return None
+
+
+def _take_file(conn, client, t: "Tables", fp: tuple, root, land, held, log, sleep) -> tuple:
+    """One file pointer (a `files` row) taken: ('landed' | 'held' | 'caught',
+    calls made). Held: the store has the hash, the bytes are landed again
+    from disk under the record's url, no request. Landed: fetched through
+    `download`, hash checked, landed. Caught: the hash is not the record's,
+    the answer is not the MCP's shape, or the landing failed; a catch line
+    with stage `file`, the row marked caught."""
+    corpus, seq, rsha, rid, url, ctype, want = fp
+    if land is None:
+        from support.docstore.landing import land
+    if held is None:
+        held = lambda sha: _held_bytes(conn, sha, root)         # noqa: E731
+    data, calls, why, new = held(want), 0, None, False
+    fetched_at = None
+    if data is None:
+        calls = 1
+        try:
+            parts = client.call_retrying("download", {"record_id": rid, "corpus": corpus, "format": FILE_FORMAT},
+                                         sleep=sleep, log=log, parts=True)
+            meta, data = file_of(parts)
+            got = hashlib.sha256(data).hexdigest()
+            if got != want:
+                why = (f"hash differs: the record promises {want[:12]}…, the bytes are {got[:12]}… "
+                       f"({len(data)} bytes; the MCP's delivered_sha256 {str(meta.get('delivered_sha256'))[:12]}…)")
+                data = None
+            cap = meta.get("capture") if isinstance(meta.get("capture"), dict) else {}
+            fetched_at = _stamp(cap.get("fetched_at"))                  # the provider's fetch time, where it is one
+        except (McpError, ShapeError) as e:
+            if isinstance(e, McpError) and e.transient:
+                raise                                             # the server is away: the run stops, the row waits
+            why = f"{type(e).__name__}: {str(e)[:300]}"
+            data = None
+    if data is not None:
+        try:
+            ref, new = land(data, name=url, source=SOURCE, conn=conn, name_kind="url", content_type=ctype,
+                            fetched_at=fetched_at, root=root)
+            assert ref.sha256 == want
+        except Exception as exc:  # noqa: BLE001 — one file's failure is a catch line, not the night's end
+            why = f"{type(exc).__name__}: {str(exc)[:300]}"
+            data = None
+    state = "caught" if data is None else ("landed" if calls else "held")
+    with conn.transaction():
+        conn.execute(f"UPDATE {t.t('files')} SET state = %s, calls = calls + %s, done_at = now() "
+                     "WHERE corpus = %s AND seq = %s AND record_sha256 = %s", (state, calls, corpus, seq, rsha))
+        if state == "caught":
+            conn.execute(f"INSERT INTO {t.t('catch')} (corpus, seq, record_id, stage, reason) VALUES (%s, %s, %s, 'file', %s) "
+                         "ON CONFLICT (corpus, seq, stage) DO UPDATE SET reason = EXCLUDED.reason, at = now(), "
+                         "resolved_at = NULL", (corpus, seq, rid, why))
+            if log:
+                log(f"mcpsource: {corpus} seq {seq}: file not landed ({why[:160]})")
+    return state, calls
+
+
+def files_waiting(conn, schema: str = SCHEMA) -> dict:
+    t = Tables(conn, schema)
+    return {r[0]: r[1] for r in conn.execute(f"SELECT corpus, count(*) FROM {t.t('files')} WHERE state = 'waiting' "
+                                             "GROUP BY corpus")}
+
+
+def download_files(conn, client, corpus: str, schema: str = SCHEMA, pause_s: float = PAUSE_S, budget_s: float = None,
+                   root: str = None, land=None, held=None, log=None, sleep=time.sleep, clock=time.monotonic,
+                   max_files: int = None) -> dict:
+    """The waiting file pointers of `corpus`, in order of place, each taken
+    (`_take_file`) and its row updated in its own transaction, so a run that
+    stops on its budget (or the server going away) resumes at the next
+    waiting row. The pause falls between requests only; a held file costs
+    none. Returns the counts."""
+    t = Tables(conn, schema)
+    t0 = clock()
+    out = {"landed": 0, "held": 0, "caught": 0, "calls": 0, "stopped": "end"}
+    rows = conn.execute(f"SELECT corpus, seq, record_sha256, record_id, url, content_type, capture_sha256 "
+                        f"FROM {t.t('files')} WHERE corpus = %s AND state = 'waiting' ORDER BY seq, added_at",
+                        (corpus,)).fetchall()
+    out["waiting"] = len(rows)
+    called = False
+    for fp in rows:
+        if budget_s is not None and clock() - t0 > budget_s:
+            out["stopped"] = "budget"
+            break
+        if max_files is not None and out["landed"] + out["caught"] + out["held"] >= max_files:
+            out["stopped"] = "file limit"
+            break
+        if called and pause_s:
+            sleep(pause_s)
+        state, calls = _take_file(conn, client, t, fp, root, land, held, log, sleep)
+        called = bool(calls)
+        out[state] += 1
+        out["calls"] += calls
+        out["waiting"] -= 1
+    return out
+
+
+def pull_all(conn, client, schema: str = SCHEMA, only=None, log=None, follow: bool = True, files: bool = True,
+             **kw) -> dict:
     """Every corpus `corpora` names (or `only`), each from its cursor, then
-    (with `follow`) each one's change feed from the stamp followed last:
-    {corpus: counts}. A corpus that fails is recorded with its error and
-    the others still run."""
+    (with `follow`) each one's change feed from the stamp followed last,
+    then (with `files`) the files its records point at, in what is left of
+    `budget_s` after the records of every corpus, so a short budget still
+    lands the listings: {corpus: counts}. A corpus that fails is recorded
+    with its error and the others still run."""
+    t0 = time.monotonic()
     listing = client.call_retrying("corpora", {}, log=log, sleep=kw.get("sleep", time.sleep))
     corpora = listing.get("corpora") if isinstance(listing, dict) else None
     if not isinstance(corpora, list) or not all(isinstance(c, dict) and "name" in c for c in corpora):
@@ -424,7 +637,7 @@ def pull_all(conn, client, schema: str = SCHEMA, only=None, log=None, follow: bo
                          "held": 0, "caught": 0, "drift": 0, "total": want, "stopped": "nothing new"}
             continue
         try:
-            res[name] = pull(conn, client, name, schema, log=log, **kw)
+            res[name] = pull(conn, client, name, schema, log=log, **{k: v for k, v in kw.items() if k != "held"})
         except (McpError, ShapeError) as e:
             res[name] = {"corpus": name, "error": f"{type(e).__name__}: {e}"[:500]}
         res[name]["source_cursor"] = want
@@ -441,6 +654,24 @@ def pull_all(conn, client, schema: str = SCHEMA, only=None, log=None, follow: bo
             res[name]["changes"] = ch
             res[name]["caught"] += ch["caught"]
             res[name]["drift"] += ch["drift"]
+    if files and not kw.get("rewalk"):
+        waiting = files_waiting(conn, schema)
+        for name in [c["name"] for c in corpora if (not only or c["name"] in only)]:
+            if name not in res or "error" in res[name] or not waiting.get(name):
+                continue
+            left = None if kw.get("budget_s") is None else max(0.0, kw["budget_s"] - (time.monotonic() - t0))
+            if left == 0.0:
+                res[name]["files"] = {"landed": 0, "held": 0, "caught": 0, "calls": 0, "waiting": waiting[name],
+                                      "stopped": "budget"}
+                continue
+            try:
+                fl = download_files(conn, client, name, schema, budget_s=left, log=log,
+                                    **{k: v for k, v in kw.items() if k in ("sleep", "pause_s", "land", "root", "held")})
+            except (McpError, ShapeError) as e:
+                res[name]["error"] = f"files: {type(e).__name__}: {e}"[:500]
+                continue
+            res[name]["files"] = fl
+            res[name]["caught"] += fl["caught"]
     return res
 
 
@@ -555,17 +786,20 @@ def summary(res: dict) -> str:
         if "error" in r:
             parts.append(f"{name}: FAILED {r['error'][:160]}")
         else:
-            ch = r.get("changes") or {}
+            ch, fl = r.get("changes") or {}, r.get("files") or {}
             parts.append(f"{name}: {r['from']}→{r['to']} of {r.get('source_cursor', r.get('total'))}, "
                          f"{r['landed']} landed, {r['held']} held, {r['caught']} caught, {r['drift']} drift ({r['stopped']})"
                          + (f"; changes since {ch['since']}: {ch['changed']} changed, {ch['unchanged']} unchanged "
-                            f"({ch.get('stopped')})" if ch else ""))
+                            f"({ch.get('stopped')})" if ch else "")
+                         + (f"; files: {fl['landed']} landed, {fl['held']} held, {fl['caught']} caught, "
+                            f"{fl['waiting']} waiting, {fl['calls']} calls ({fl['stopped']})" if fl else ""))
     return "; ".join(parts)
 
 
 def outcome(res: dict) -> bool:
     """Green when every corpus answered and reached the MCP's cursor with
-    nothing caught and no field new to us."""
+    nothing caught (a record or a file) and no field new to us. Files left
+    waiting on the budget are not red: the next night takes them."""
     for r in res.values():
         if "error" in r or r["caught"] or r["drift"]:
             return False

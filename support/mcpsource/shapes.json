@@ -149,6 +149,89 @@
    }
   }
  },
+ "courts": {
+  "fields": {
+   "bytes": [
+    "int"
+   ],
+   "capture": [
+    "dict"
+   ],
+   "case_name": [
+    "str"
+   ],
+   "case_slug": [
+    "str"
+   ],
+   "content_type": [
+    "str"
+   ],
+   "court": [
+    "str"
+   ],
+   "date": [
+    "str"
+   ],
+   "discovered_via": [
+    "str"
+   ],
+   "fetched_at": [
+    "str"
+   ],
+   "file": [
+    "str"
+   ],
+   "http_status": [
+    "int"
+   ],
+   "id": [
+    "str"
+   ],
+   "kind": [
+    "str"
+   ],
+   "path": [
+    "str"
+   ],
+   "seq": [
+    "int"
+   ],
+   "sha256": [
+    "str"
+   ],
+   "text": [
+    "str"
+   ],
+   "updated_at": [
+    "str"
+   ],
+   "url": [
+    "str"
+   ]
+  },
+  "items": {
+   "capture": {
+    "bytes": [
+     "int"
+    ],
+    "fetched_at": [
+     "str"
+    ],
+    "http_status": [
+     "int"
+    ],
+    "path": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ],
+    "url": [
+     "str"
+    ]
+   }
+  }
+ },
  "parliament-bills": {
   "fields": {
    "_collected": [

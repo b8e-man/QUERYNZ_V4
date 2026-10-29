@@ -52,3 +52,25 @@ CREATE TABLE IF NOT EXISTS mcpsource.drift (
     seen_at    timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (corpus, field, type)
 );
+
+-- one row per file a record points at (a `capture` block with a sha256 and a `content_type`; ruling 126), written
+-- when the record lands, so the download step knows where it is up to: `state` waiting until the file is landed by
+-- hash under the record's url (landed: fetched through the MCP; held: the hash was already in the store, no call
+-- made), or caught (its catch line has stage `file`). A changed record is a second row with its own record hash
+CREATE TABLE IF NOT EXISTS mcpsource.files (
+    corpus         text NOT NULL,
+    seq            bigint NOT NULL,
+    record_sha256  text NOT NULL,                  -- the record document the pointer was read from
+    record_id      text NOT NULL,
+    url            text NOT NULL,                  -- the record's `url`: the file's name in the store
+    content_type   text NOT NULL,
+    capture_sha256 text NOT NULL CHECK (capture_sha256 ~ '^[0-9a-f]{64}$'),   -- the hash the record promises
+    bytes          bigint,                         -- the size the record promises
+    state          text NOT NULL DEFAULT 'waiting' CHECK (state IN ('waiting', 'landed', 'held', 'caught')),
+    calls          integer NOT NULL DEFAULT 0,     -- `download` calls spent on it (the tool is metered)
+    added_at       timestamptz NOT NULL DEFAULT now(),
+    done_at        timestamptz,
+    PRIMARY KEY (corpus, seq, record_sha256)
+);
+CREATE INDEX IF NOT EXISTS mcpsource_files_waiting ON mcpsource.files (corpus, seq) WHERE state = 'waiting';
+CREATE INDEX IF NOT EXISTS mcpsource_files_hash ON mcpsource.files (capture_sha256);
