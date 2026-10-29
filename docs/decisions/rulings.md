@@ -997,3 +997,18 @@ entities; the rows mode, its switch and its address value leave the
 board, an address naming it opening the entities graph. Built by the next
 board fix.
 
+121. Arthur, 29 October, 17:15, on the Qwen3.8-Flash-Next experiment's
+results (Radiance on both cards: ~650 tok/s pooled at 16 slots, prefill
+near 10,000 prompt tokens a second, 24 GB of host RAM): "on this node
+let's use the qwen flash next model to replace qwen 3.6", and, asked
+about hard limit 22 and the frozen product's chat model on card 0: "the
+frozen product was follow the money and that doesnt need any chat
+model". So on node2 Flash-Next, served by Radiance, replaces Qwen3.6 as
+the estate's text-reader and review model, and `querynz-agent-llm` (port
+8020) leaves the carve-out: the daily release (`ops/pi_release.py`) never
+calls it, and its callers (reviewer, research, the old board, the
+gateway, sweep, crawler) were stopped at step 1.4. Arthur disables it
+himself. `querynz-vision-ocr` stays, with card room left for it. Built
+by `flash-next-1`; the frozen product's OCR server and the daily release
+are untouched (limits 19 to 23).
+

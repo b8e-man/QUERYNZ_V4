@@ -516,6 +516,52 @@ bulk until the build is done. A lane's request for readings is answered
 with the store's sample and a note; the hashes it sets aside are the queue
 for later, one command.
 
+## flash-next-1
+
+Build session, Opus, scope `support/scheduler/ support/installer/`. Ruling
+121 (29 October): Qwen3.8-Flash-Next, served by Radiance on both cards,
+replaces Qwen3.6 as node2's text-reader and review model. The container
+runs now by hand (`radiance-fn`, port 8060, model `qwen4exp`); a reboot
+loses it until this session's unit exists. Read first:
+`/home/user/querynzv4-work/scratch/integrator-9d788fb/exp/results.md` and
+`start-radiance-ngram-disk.sh` beside it. On node2:
+`cd /home/user/querynzv4 && bin/start-session flash-next-1 support/scheduler support/installer`
+
+```text
+You are a build session for QueryNZV4, running as Opus on node2, in the
+working copy the launcher made for you, scope support/scheduler/ and
+support/installer/. Read docs/PLAN.md, docs/plan/core.md, the two
+modules' spec.md, support/scheduler/profiles.toml, ruling 121 and
+rulings 25 and 79 in docs/decisions/rulings.md, and the integrator's
+experiment record at
+/home/user/querynzv4-work/scratch/integrator-9d788fb/exp/results.md with
+the start script beside it. Build, in tranches each with a test that
+fails on main: (1) a user unit qv4-radiance (installed by
+support.installer like every qv4- unit, enabled, restarts the container
+on boot) that runs Radiance with the recorded shape: image
+docker.io/stilldeadcode/radiance:latest, model
+/home/user/models/radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad, both
+cards (render nodes passed one by one), memlock unlimited, --tp 2, 16
+slots, --max-model-len 16384, --max-num-batched-tokens 4096,
+--draft-window adaptive, --checkpoint-policy tip-only, --ngram-placement
+disk, --host-pool-mib 10240, --gpu-headroom-mib 2560 (the frozen
+product's OCR server keeps its room: hard limit 23), port 8060 on
+127.0.0.1 only; (2) a profile flash-next in profiles.toml naming its own
+server (binary = radiance), both cards as one profile, memory figures
+measured with rocm-smi and the host RSS, load_seconds measured;
+text-reader and review repoint to it (model name qwen4exp, thinking off
+for the reader, on with a budget for review) and the qwen3.6 profiles
+leave; the swaps table records the standing load (rows 514 and 515 are
+the integrator's by hand); (3) the model client accepts Radiance's
+OpenAI-style answers and refuses any other model name; a page of 4k
+tokens at 8 streams measured through the worker's own path. Never
+touch the frozen product's units or program (limits 19 to 23);
+querynz-agent-llm stays stopped and is Arthur's. Ruling 79 still holds
+bulk model reading until node1 returns: build and prove, queue no
+reading. Push session/flash-next-1, raise the merge request
+flash-next-1, write docs/status/flash-next.md.
+```
+
 ## board-14
 
 MERGED 29 October 16:42 (b9c06a5; record in docs/merges/board-14.md).

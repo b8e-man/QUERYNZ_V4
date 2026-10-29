@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-29, 16:45 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-29, 17:20 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
@@ -32,11 +32,11 @@ model reading till it returns. **Alarms:** the old ntfy address.
   hand) merged 16:42; board restarted; inbox empty. Pinned to 30
   October: an entities view; the donor rule on organisations; same-name
   bodies. Courts: 87 landed judgments wait on a load job.
-- Arthur's Qwen3.8-Flash-Next experiment resumed 15:00 (his word):
-  Radiance on both cards, port 8060; the carve-out servers and the worker
-  stopped by the holder unit; restore at 05:30. Found: ~650 tok/s
-  pooled at 16 slots, prefill caps near 10k tok/s (compute), host RAM
-  cut 91 to 24 GB; results in the integrator's scratch.
+- Ruling 121 (17:15): Flash-Next on Radiance replaces Qwen3.6 on node2;
+  the frozen chat model leaves the carve-out (Arthur disables it). Radiance
+  holds both cards (port 8060, 2.5 GB left each for the frozen OCR); OCR
+  and worker back 17:17; restore cancelled. By hand till `flash-next-1`
+  builds its unit: a reboot loses it. Results in the integrator's scratch.
 - Card: the overclocking test's reboots gave the database bad reads;
   querynz_v4's six hit tables re-read clean after the cold boot; the old
   estate's seven relations are unverified (his scrub).
