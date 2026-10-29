@@ -19,6 +19,10 @@ Ruling 114: the rows read eight more people views (charity officers, Gazette cel
 party board roles, local election candidates, building practitioner decisions, councillor interests); `organisation-sole-company@2` and
 `organisation-one-live-company@2` look a donor's organisation name up on the companies, societies, limited partnerships and charities
 registers together (`links.bodies`, `rules.sole_body`, `build.body_links`), a body on two registers counted once; @1 is no longer built.
+Ruling 125: `organisation-sole-company@3` and `organisation-one-live-company@3` (`rules.body_on_date`, `build.body_links`) run on every
+organisation-named row of every people view (a shareholder, a director, a declared interest, an officer, a Gazette row, a local election return,
+the donor and disclosure rows), "live" judged on the row's own date (`started_on` .. `ended_on`), never today; a row with no date stays near,
+"undated" (`pub.shareholders` today); @2 is no longer built, and the declared interests' near step on the companies register alone is gone.
 Ruling 116: `member-on-the-day@1` reads a speech turn, a written question's asker and minister (two rows, refs `#asker` and `#minister`), a Beehive release's minister and a diary release's minister, titles off (`rows.MEMBER_TITLES`, `rows.member_name`),
 and confirms each to the one member sitting on its day (`rules.member_on_the_day`, `build.member_day_links`); two or none stays near; these rows take no `name-only@1` star.
 `coupled-name@1` (ruling 73): a donation row filed as two people ("Craig & Shayne Greenlees", `keys.names.is_joint_name`) stays one row and
