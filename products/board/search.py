@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 import threading
 import time
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from typing import NamedTuple
 
@@ -524,7 +525,11 @@ class Boxes(NamedTuple):
     section's criteria ticked (ruling 112, `cl=name&cl=number…`, collapse.CHOICES
     order; the links lane's groups always on and never written); `sort`, the
     open table's sort (ruling 117 (3), `ts=<column>` ascending, `ts=-<column>`
-    descending, a column of `table_columns` alone). All travel as query
+    descending, a column of `table_columns` alone); `hand`, the folds made
+    by hand (ruling 119), each a tuple of the entities' ids folded into one
+    entry for this view, one `hf=` per fold, the ids quoted and comma-joined;
+    the boxes ticked in the results (`hk=`, one per entity) join the address
+    as one more fold and are never written back. All travel as query
     parameters on every href (`params`). The graph has one state, entities
     (ruling 120): the rows state, its switch and its `g=` left, and an
     address naming either (`g=rows`, `g=entities`) is read without it."""
@@ -537,13 +542,15 @@ class Boxes(NamedTuple):
     removed: bool = False
     collapse: tuple = ()
     sort: str = ""
+    hand: tuple = ()
 
     def params(self) -> list:
         table = ([("t", self.table), ("o", str(self.upto))] + ([("ts", self.sort)] if self.sort else [])) if self.table else []
         mode = [("mode", self.mode)] if self.mode != ALL else []
         removed = [("removed", "1")] if self.removed else []
         return ([("all", "1" if self.all else "0")] + [("r", x) for x in self.ticked] + removed + list(self.fields)
-                + mode + table + [(COLLAPSE, x) for x in self.collapse])
+                + mode + table + [(COLLAPSE, x) for x in self.collapse]
+                + [(HAND, ",".join(urllib.parse.quote(m, safe="") for m in f)) for f in self.hand])
 
     def asked(self) -> dict:
         return dict(self.fields)
@@ -551,6 +558,34 @@ class Boxes(NamedTuple):
 
 COLLAPSE = "cl"     # the collapse section's criteria (ruling 112), one `cl=` per criterion ticked
 COLLAPSE_CHOICES = ("name", "address", "number")     # in the section's order (collapse.CRITERIA); `full` left (ruling 118)
+HAND, TICKED = "hf", "hk"     # ruling 119: a fold by hand, one `hf=` per fold; the results' tick boxes, one `hk=` per entity ticked
+HAND_FORM = "handfold"     # the collapse section's form the tick boxes belong to
+HAND_FOLDS, HAND_MEMBERS = 20, 100     # folds by hand one address carries, and entities one fold names, at most
+
+
+def hand_member(m: str) -> str:
+    """An id a fold by hand may name: an entity (`entity:<group id>`) or a catalogued view's row (`<view>:<key>`); '' else."""
+    m = (m or "").strip()[:300]
+    view, _, key = m.partition(":")
+    return m if key and (view == "entity" or view in cat.BY_NAME) else ""
+
+
+def hand_of(qs: dict) -> tuple:
+    """The folds by hand from the address: each `hf=` value, then the boxes
+    ticked (`hk=`) as one more fold; a fold of fewer than two ids, or one the
+    address already carries, is dropped."""
+    out = []
+
+    def add(ids):
+        f = tuple(dict.fromkeys(x for x in map(hand_member, ids) if x))[:HAND_MEMBERS]
+        if len(f) > 1 and f not in out and len(out) < HAND_FOLDS:
+            out.append(f)
+    for v in qs.get(HAND) or ():
+        add(urllib.parse.unquote(m) for m in v.split(","))
+    add(qs.get(TICKED) or ())
+    return tuple(out)
+
+
 FIRST = Boxes()     # the first view of either tab: "search all" ticked, every register unticked
 
 
@@ -574,7 +609,7 @@ def boxes_of(qs: dict) -> Boxes:
     sort = (qs.get("ts") or [""])[0]
     sort = sort if table and sort.lstrip("-") in table_columns(cat.BY_NAME[table]) and sort.count("-") <= 1 else ""
     return Boxes("1" in alls if alls else not ticked, ticked, fields, table, upto, mode, removed,
-                 tuple(c for c in COLLAPSE_CHOICES if c in set(qs.get(COLLAPSE) or ())), sort)
+                 tuple(c for c in COLLAPSE_CHOICES if c in set(qs.get(COLLAPSE) or ())), sort, hand_of(qs))
 
 
 def table_columns(v: cat.View) -> tuple:

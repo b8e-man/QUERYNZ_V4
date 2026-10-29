@@ -16,7 +16,7 @@ import urllib.parse
 
 from products.board import catalogue as cat
 from products.board import document
-from products.board.search import COLLAPSE, FIELD_LABEL, FIELDS, MODES, TABS, field_words, words_of
+from products.board.search import COLLAPSE, FIELD_LABEL, FIELDS, HAND_FORM, MODES, TABS, TICKED, field_words, words_of
 from products.board.search import add_alternative as search_add, drop_alternative as search_drop
 from products.board.search import FIRST as FIRST_BOXES, TABLE_MAX as TABLE_MAX_N, TABLE_PAGE as TABLE_PAGE_N
 
@@ -144,6 +144,8 @@ details.regs summary{cursor:pointer;font-size:13px;font-weight:600}
 details.collapse{border:1px solid #3a404c;border-radius:4px;padding:.3rem .6rem;margin:.5rem 0}
 details.collapse summary{cursor:pointer;font-weight:600}
 details.collapse label{font-size:13px}
+details.collapse form#handfold{margin-top:.4rem}
+input.tick{margin:0 .3rem 0 0;vertical-align:middle}
 .fold{color:#ffb26b;font-size:12px;font-style:italic}
 article.hit[data-graph]{cursor:pointer}
 article.hit.on{background:#1d3a5f}
@@ -855,7 +857,14 @@ TAB_FIELDS_NOTE = ("A tab for each field that matched, its count the entities un
                    "several fields is under each.")
 
 
-def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None, why: str = "") -> str:
+def tick_box(d: str) -> str:
+    """Ruling 119: the box an organisation entity carries, ticked to collapse it by hand with others (the collapse
+    section's form, `form=`); a person entity carries none."""
+    return (f'<input type="checkbox" class="tick" name="{TICKED}" value="{esc(d)}" form="{HAND_FORM}" '
+            'title="tick to collapse by hand with other ticked organisations (collapse section)"> ')
+
+
+def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None, why: str = "", tick: bool = False) -> str:
     """One entity in the results pane (ruling 108 (1)): its name (the fullest
     filed, people.describe), what it is (ruling 117 (2), people.what_of), contested marked, the
     registers named (ruling 110 (1): the rows of this search it holds are
@@ -866,7 +875,7 @@ def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None, why: str = "")
     link = f'<a class="row" href="{esc(dossier_href(d, q, boxes))}"><strong>{mark(e["label"], words)}</strong></a>'
     out = [f'<article class="hit entity"{f" data-graph={chr(34)}{esc(graph_href(centre, boxes))}{chr(34)}" if centre else ""}'
            f' data-dossier="{esc(d)}">'] + ([f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
-           f'<div>{link}{dossier_link(d, q, boxes)}</div>',
+           f'<div>{tick_box(d) if tick else ""}{link}{dossier_link(d, q, boxes)}</div>',
            f'<div class="what">{esc(e.get("what") or "")}' + (' · <span class="warn">contested</span>' if e["contested"] else "")
            + (f' · <span class="lineage" title="{esc("a related company: " + "; ".join(e["related"]) + ", never one entity (ruling 106 (2))")}">'
               "related</span>" if e.get("related") else "") + "</div>",
@@ -877,7 +886,7 @@ def entity_hit(q: str, e: dict, in_hand: list, words, boxes=None, why: str = "")
     return "".join(out)
 
 
-def lone_hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "") -> str:
+def lone_hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "", tick: bool = False) -> str:
     """A matching row in no group, listed as the entity of one row it is
     (ruling 111): its title, what it is (ruling 117 (2)), its register, the fields it
     matched under "any field may match" (ruling 92 (6)); no field of the row,
@@ -889,7 +898,7 @@ def lone_hit(q: str, v: cat.View, r: dict, words, boxes=None, why: str = "") -> 
     link = f'<a class="row" href="{esc(dossier_href(d, q, boxes))}"><strong>{mark(name, words)}</strong></a>'
     out = [f'<article class="hit entity lone" data-graph="{esc(graph_href(d, boxes))}" data-dossier="{esc(d)}">'] + (
            [f'<div class="nearwhy">near: {esc(why)}</div>'] if why else []) + [
-           f'<div>{struck(v, r, link)}{dossier_link(d, q, boxes)}</div>',
+           f'<div>{tick_box(d) if tick else ""}{struck(v, r, link)}{dossier_link(d, q, boxes)}</div>',
            f'<div class="what">{facts.lone_words(v, r) if not is_suppressed(v, r) else ""}' + (
                f' · <span class="lineage" title="{esc("a related company: " + str(r["_related"]) + ", never one entity (ruling 106 (2))")}">'
                "related</span>" if r.get("_related") else "") + "</div>",
@@ -952,8 +961,15 @@ def fold_hit(q: str, x: dict, ents: dict, words, boxes=None) -> str:
             f'<div>{link} <span class="meta">collapsed here</span>{dossier_link(x["id"], q, boxes)}</div>'
             f'<div class="what">{esc(", ".join(dict.fromkeys(whats)))}'
             + (' · <span class="warn">contested</span>' if contested else "") + "</div>"
-            f'<div class="fold">{esc(collapse.words(by))}</div>'
+            f'<div class="fold">{esc(collapse.words(by))}'
+            + (f' · <a class="unfold" href="{esc(unfold_href(q, boxes, x["hand"]))}">unfold</a>' if x.get("hand") and boxes is not None else "")
+            + "</div>"
             f'<div class="meta">{len(members)} entities, from {esc("; ".join(dict.fromkeys(registers)))}</div></article>')
+
+
+def unfold_href(q: str, boxes, f: tuple) -> str:
+    """The page without one fold by hand (ruling 119): the address carries every other fold and box as it was."""
+    return href(q, [], boxes._replace(hand=tuple(x for x in boxes.hand if x != f))) + "#results"
 
 
 def collapse_section(q: str, boxes) -> str:
@@ -972,19 +988,26 @@ def collapse_section(q: str, boxes) -> str:
         else:
             items.append(f'<label><input type="checkbox" name="{COLLAPSE}" value="{c}"{" checked" if c in on else ""}> {esc(label)}</label>')
     ticked = [collapse.WORD[c] for c in collapse.CHOICES if c in on]
+    hand = len(getattr(boxes, "hand", ()) or ())
+    if hand:
+        ticked.insert(0, f"hand ({hand})")
+    whole = "".join(f'<input type="hidden" name="{k}" value="{esc(v)}">' for k, v in [("q", q)] + boxes.params())
     return (f'<details class="collapse" id="collapse"><summary>collapse'
             + (f' <span class="note">by {esc(", ".join(ticked))}</span>' if ticked else "") + "</summary>"
             f'<form method="get" action="/">{keep}' + "".join(f"<div>{i}</div>" for i in items)
-            + f'<button>apply</button></form><p class="note">{esc(collapse.NOTE)}</p></details>')
+            + f'<button>apply</button></form>'
+            f'<form method="get" action="/" id="{HAND_FORM}">{whole}<button>collapse the ticked into one</button> '
+            f'<span class="note">{esc(collapse.HAND_NOTE)}</span></form>'
+            f'<p class="note">{esc(collapse.NOTE)}</p></details>')
 
 
 def entry_hit(q: str, x: dict, ents: dict, words, boxes=None, why: str = "") -> str:
     if x.get("fold"):
         return fold_hit(q, x, ents, words, boxes)
     if x["group"] is not None:
-        return entity_hit(q, ents["entity"][x["group"]], x["in_hand"], words, boxes, why)
+        return entity_hit(q, ents["entity"][x["group"]], x["in_hand"], words, boxes, why, x.get("org", False))
     v, r = x["in_hand"][0]
-    return lone_hit(q, v, r, words, boxes, why)
+    return lone_hit(q, v, r, words, boxes, why, x.get("org", False))
 
 
 def _entity_list(q, xs: list, ents: dict, words, boxes, cut: int = 0) -> list:
