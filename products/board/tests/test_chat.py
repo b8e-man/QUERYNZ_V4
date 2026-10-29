@@ -111,7 +111,21 @@ def test_at_most_six_rounds_the_last_asked_to_answer(tmp_path, monkeypatch):
     got = chat.ask([{"role": "user", "content": "q"}], connect=Conn, url="http://127.0.0.1:9/x", model="m", post=post,
                    ledger=str(tmp_path / "l"))
     assert chat.ROUNDS == 6 and len(bodies) == 6 and got["answer"] == "done"
-    assert bodies[-1].get("tool_choice") == "none" and all("tool_choice" not in b for b in bodies[:-1])
+    assert "tools" not in bodies[-1] and all("tools" in b for b in bodies[:-1])     # the last round offers no tool
+    assert bodies[-1]["messages"][-1] == {"role": "system", "content": chat.ANSWER_NOW}
+
+
+def test_a_tool_call_written_as_text_is_not_an_answer(tmp_path):
+    post = lambda url, body, timeout: reply("<tool_call>\n<function=row>\n<parameter=ref>x</parameter>\n</function>\n</tool_call>")
+    got = chat.ask([{"role": "user", "content": "q"}], connect=Conn, url="http://127.0.0.1:9/x", model="m", post=post,
+                   ledger=str(tmp_path / "l"))
+    assert got["answer"] == "(the model gave no answer)"
+
+
+def test_the_system_prompt_asks_for_concise_prose_and_no_spiel():
+    s = chat.SYSTEM
+    assert "one to three plain sentences" in s and "Do not describe the registers" in s and "No preamble" in s
+    assert "links lane's group" not in s
 
 
 @pytest.mark.parametrize("failure", ["refused", "wrong model"])

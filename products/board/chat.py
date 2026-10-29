@@ -61,6 +61,9 @@ SEARCH_ENTITIES = 15        # entity groups the search tool lists
 DOSSIER_ROWS = 40           # rows the dossier tool lists
 TEXT_CHARS = 1200           # a long text column, cut, in the row tool
 ANSWER_TOKENS = 1500
+CHILD_ROWS = 25             # rows of each join (a company's directors, its shareholders) the row tool lists
+ANSWER_NOW = ("No more lookups: answer now from the tool results above, in the style the system message asks, "
+              "citing rows as [view:key]. Write prose, not a tool call.")
 #: a column whose name says it holds an address: read only where catalogue.ADDRESS_COLUMNS lists it
 ADDRESS_NAME = re.compile(r"address|residential|street|suburb|postal", re.I)
 WITHHELD_ADDRESS = "not passed to the chat: the lane's shape check says it names an address"
@@ -78,10 +81,16 @@ example [companies:9429037782269]. Several rows: [view:key][view:key]. A line yo
 "(uncited)" at its end.
 
 Never guess a link between people: the same name in two registers is not the same person. Say two rows belong \
-together only where the tools show them in one entity group, and say it is the links lane's group. Treat a \
+together only where the tools show them in one entity group. Treat a \
 suppressed name as suppressed; never try to recover it.
 
-When the registers do not hold the answer, say so plainly. Be short: plain sentences or a short list, no tables."""
+When the registers do not hold the answer, say so in one sentence.
+
+Answer in very concise prose: one to three plain sentences carrying the facts asked for, each cited inline, and \
+nothing else. Do not describe the registers, the estate, the links lane, your tools or your search, and do not \
+explain how you found the answer or what else the registers hold, unless the question asks. No preamble, no \
+heading, no closing remark, no table; a list only when the question asks for several items, one short line each. \
+Arthur reads many answers a day: the shortest correct answer is the right one."""
 
 TOOLS = [
     {"type": "function", "function": {
@@ -242,10 +251,31 @@ def tool_row(conn, ref: str = "") -> dict:
         fr = pointed.get((fv, fc, str(x)))
         far.append({"field": labels.get(c, c), "ref": ref_of(cat.BY_NAME[fv], fr), "title": panes.title_of(cat.BY_NAME[fv], fr)}
                    if fr else {"field": labels.get(c, c), "value": plain(x), "note": "row not held"})
+    under = []                                     # the rows the pane lists under this one: a company's directors, shareholders
+    for j, total, rows in search.children(conn, v, r, limit=CHILD_ROWS):
+        if not total:
+            continue
+        jv = cat.BY_NAME[j.view]
+        under.append({"join": j.label, "view": j.view, "total": total, "shown": len(rows),
+                      "rows": [child_of(jv, x) for x in rows]})
     return {"ref": ref_of(v, r), "register": v.register, "title": panes.title_of(v, r),
             "suppressed": panes.is_suppressed(v, r), "withdrawn_by_source": panes.is_withdrawn(v, r),
             "fields": fields, "citation": {k: x for k, x in cite.items() if x not in (None, "")},
-            "far_rows": far, "says": panes.says_of(v, r), "note": v.note}
+            "far_rows": far, "rows_under": under, "says": panes.says_of(v, r), "note": v.note}
+
+
+def child_of(v: cat.View, r: dict) -> dict:
+    """A joined row as one line: its ref, its title (a suppressed name stays
+    suppressed through panes.shown) and its dates and plain fields set."""
+    out = {"ref": ref_of(v, r), "title": panes.title_of(v, r)}
+    for label, c in v.fields:
+        x = value_of(v, r, c)
+        if x not in (None, "") and x is not True and x is not False:
+            out[label] = x
+    for label, c in v.dates:
+        if r.get(c) not in (None, ""):
+            out[label] = plain(r.get(c))
+    return out
 
 
 def tool_dossier(conn, id: str = "") -> dict:   # noqa: A002 — the tool's own parameter name
@@ -339,8 +369,9 @@ def ask(thread: list, connect=None, url: str = None, model: str = None, post=Non
         for i in range(ROUNDS):
             last = i == ROUNDS - 1
             extra = {"tools": TOOLS, "max_tokens": ANSWER_TOKENS, "temperature": 0.2}
-            if last:
-                extra["tool_choice"] = "none"
+            if last:                               # no tool offered and told so: with tools offered and refused the model wrote a raw tool call as its answer
+                del extra["tools"]
+                messages.append({"role": "system", "content": ANSWER_NOW})
             try:
                 out = modelclient.chat(url, lane=LANE, model=model, messages=messages, extra=extra, timeout=CALL_S,
                                        post=post, ledger=ledger)
@@ -353,6 +384,7 @@ def ask(thread: list, connect=None, url: str = None, model: str = None, post=Non
             if not calls or last:
                 text = (msg.get("content") or "").strip()
                 text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
+                text = re.sub(r"<tool_call>.*?(</tool_call>|\Z)", "", text, flags=re.S).strip()   # a tool call written as text is not an answer
                 return {"ok": True, "answer": text or "(the model gave no answer)", "rounds": i + 1, "tools": used,
                         "seconds": round(time.monotonic() - t0, 1)}
             messages.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": calls})
