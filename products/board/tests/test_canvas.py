@@ -59,7 +59,7 @@ def test_the_page_and_every_script_it_serves_name_no_address_off_the_box():
     html = page_with_canvas()
     assert assets.addresses(html) == []
     srcs = re.findall(r'<script\b[^>]*\bsrc="([^"]*)"', html)
-    assert srcs == [assets.url(n) for n in assets.SCRIPTS]                      # every script is the board's own
+    assert srcs == [assets.url(n) for n in assets.SCRIPTS] + [assets.url("chat.js")]     # every script is the board's own; ruling 122's pane last
     assert not re.search(r'<(?:link|img|iframe)\b', html)
     for name in assets.FILES:
         assert assets.addresses(assets.read(name)[0].decode("utf-8", "replace")) == [], name

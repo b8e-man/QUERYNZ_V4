@@ -168,6 +168,21 @@ ol.facts>li{margin:.5rem 0}
 .small,.what{color:#aab1bc;font-size:12px}
 details.asfiled>summary{color:#aab1bc;font-size:12px;cursor:pointer}
 table.money td{vertical-align:top;padding:.2rem .4rem .2rem 0}
+body.chat-on{padding-right:26rem}
+aside.chat{position:fixed;top:0;right:0;bottom:0;width:26rem;box-sizing:border-box;display:flex;flex-direction:column;z-index:4;background:#161a20;border-left:1px solid #3a404c;padding:.5rem .75rem}
+aside.chat h2{font-size:15px;margin:.25rem 0}
+aside.chat .chathead{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+aside.chat div.thread{flex:1 1 auto;overflow-y:auto;margin:.4rem 0;padding-right:.2rem}
+aside.chat div.turn{margin:.4rem 0;padding:.35rem .5rem;border-radius:4px;white-space:pre-wrap;word-break:break-word;font-size:13px}
+aside.chat div.turn.user{background:#232833;color:#e8eaed}
+aside.chat div.turn.assistant{background:#0e1014;color:#e8eaed;border:1px solid #3a404c}
+aside.chat div.turn.note{color:#ffb26b;font-style:italic}
+aside.chat div.turn .when{display:block}
+aside.chat a.cite{font-size:12px}
+aside.chat s.cite{color:#ffb26b;font-size:12px}
+aside.chat form.ask{display:flex;flex-direction:column;gap:.35rem;flex:none}
+aside.chat textarea{font:inherit;font-size:13px;color:#e8eaed;background:#232833;border:1px solid #5a6270;border-radius:3px;padding:.35rem;resize:vertical}
+aside.chat form.ask button{align-self:flex-end}
 @media (max-width:75rem){div.duo{flex-direction:column}.pane.side,.sidecol>.pane.side,.pane.dossier{position:static;flex-basis:auto;width:46rem;max-width:calc(100vw - 2rem)}}
 """
 TEXT_FLOOR = 4.5         # the common accessibility floor for text (WCAG 2 AA)
@@ -1678,6 +1693,28 @@ def db_counter(answer) -> str:
     return f'<span class="db" title="{esc(title)}">db {sum(by.values())}/{esc(answer.get("max"))}</span>'
 
 
+CHAT_NOTE = ("A model on the boxes answers from the published registers alone, through the board's own search, rows and "
+             "dossiers; each fact cites its row, which opens here. The same name is not the same person. The thread stays in "
+             "this browser tab; the board keeps no question.")
+
+
+def chat_pane() -> str:
+    """The chat pane (ruling 122), fixed to the right-hand edge of every
+    page, always open: the thread above, the question box at its foot.
+    static/chat.js keeps the thread in sessionStorage and posts it to /chat;
+    without script the pane says so and the page is unchanged."""
+    from products.board import assets
+    return ('<aside class="chat" id="chat" aria-label="chat about the registers">'
+            '<div class="chathead"><h2>Ask the registers</h2><button type="button" id="chat-new">new thread</button></div>'
+            f'<p class="note">{esc(CHAT_NOTE)}</p>'
+            '<div class="thread" id="chat-thread" aria-live="polite"><noscript><p class="note">the chat needs the board\'s own '
+            'script</p></noscript></div>'
+            '<form class="ask" id="chat-form" autocomplete="off"><textarea id="chat-q" rows="3" maxlength="2000" '
+            'placeholder="ask about the registers, e.g. which registers hold Rank Group Limited?" aria-label="your question">'
+            '</textarea><button type="submit" id="chat-ask">ask</button></form>'
+            f'<script src="{esc(assets.url("chat.js"))}" defer></script></aside>')
+
+
 def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: str = "search", db=None) -> str:
     """The page: two tabs, search (`/`, as before, an href carrying the term
     and the registers checked, ruling 80) and use cases (`/uses`, ruling 87);
@@ -1694,6 +1731,6 @@ def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: st
     tabs = (f'<nav class="tabs"><a class="{"on" if tab == "search" else ""}" href="{esc(href(q, [] if tab != "search" else path, boxes))}">search</a> '
             f'<a class="{"on" if tab == "uses" else ""}" href="/uses">use cases</a></nav>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ board</title>"
-            f"<style>{CSS}</style></head><body><header><h1>QueryNZ board</h1>{tabs}"
+            f"<style>{CSS}</style></head><body class=\"chat-on\"><header><h1>QueryNZ board</h1>{tabs}"
             f"{save}<a href=\"/pinned\">pinned</a><a href=\"/saved\">saved paths</a>{msg}{db_counter(db)}</header>"
-            f"<main>{''.join(panes)}</main></body></html>")
+            f"<main>{''.join(panes)}</main>{chat_pane()}</body></html>")
