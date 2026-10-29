@@ -30,6 +30,9 @@ Routes:
   GET  /uses        the use cases tab (ruling 87): the plan's table, read at render time, with what the data holds for each;
                     each name opens its interface on its own server in a new browser tab (ruling 89)
   GET  /health      'ok' and the port, for the launcher
+  POST /chat        the chat pane (ruling 122, chat.py): JSON {"thread": [{role, content}…]}, the whole thread the
+                    browser keeps, the newest a question; JSON back, the answer with its citations made row links.
+                    Nothing is kept and no question text is logged
 
 Every page's bar ends with the database's connections in use over its
 maximum, by login on hover (ruling 90). The read connection is opened per
@@ -39,6 +42,7 @@ from __future__ import annotations
 
 import contextlib
 import http.server
+import json
 import os
 import socketserver
 import sys
@@ -48,13 +52,15 @@ import urllib.parse
 from support.docstore import landing as docstore
 from products.board import assets
 from products.board import catalogue as cat
-from products.board import collapse, db, document, dossier, graph, lineage, links_view, near, panes, people, search, state, uses
+from products.board import chat, collapse, db, document, dossier, graph, lineage, links_view, near, panes, people, search, state, uses
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
 REPORT_URL = os.environ.get("QV4_REPORT_URL") or ""    # the subject report's server; unset, no pane offers a report
 MAX_PANES = 12
 RENDER_LOCK = threading.Lock()      # one page at a time: every session's bin/q shares the server's connections
+chat.LOCK = RENDER_LOCK             # the chat's tools take their turn with the pages; its model calls hold no lock
+CHAT_BODY = 200_000                 # the posted thread, at most (chat.THREAD_TURNS turns of chat.TURN_CHARS are read)
 #: every page asks nothing of any address but the board's own (ruling 100; hard limit 13): scripts only from /static/,
 #: the page's data inline as JSON (never run), the canvas's taps to /graph.json
 POLICY = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
@@ -446,9 +452,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception as exc:          # the page says what failed; the server stays up
             self.send_html(f"<p>the board could not answer: {panes.esc(type(exc).__name__)}: {panes.esc(exc)}</p>", 500)
 
+    def send_chat(self, length: int):
+        """POST /chat (ruling 122): always 200 with JSON, the pane says what failed; nothing of the question is logged."""
+        raw = self.rfile.read(min(length, CHAT_BODY))
+        try:
+            body = json.loads(raw.decode("utf-8", "replace")) if length <= CHAT_BODY else {}
+            answer = chat.respond(body)
+        except Exception as exc:  # noqa: BLE001 — the pane shows it; the page is untouched
+            answer = {"ok": False, "answer": f"the chat could not answer: {type(exc).__name__}",
+                      "parts": [{"t": f"the chat could not answer: {type(exc).__name__}"}]}
+        self.send_bytes(json.dumps(answer, ensure_ascii=False, default=str).encode("utf-8"),
+                        "application/json; charset=utf-8", "no-store")
+
     def do_POST(self):
         url = urllib.parse.urlsplit(self.path)
         length = int(self.headers.get("Content-Length") or 0)
+        if url.path == "/chat":
+            if (self.headers.get("Content-Type") or "").split(";")[0].strip() != "application/json":
+                self.send_bytes(b'{"ok":false,"answer":"JSON only"}', "application/json; charset=utf-8", "no-store", 415)
+                return
+            self.send_chat(length)
+            return
         form = urllib.parse.parse_qs(self.rfile.read(min(length, 65536)).decode("utf-8", "replace"))
         get = lambda k: (form.get(k) or [""])[0]
         try:
