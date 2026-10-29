@@ -30,17 +30,17 @@ model reading till it returns. **Alarms:** the old ntfy address.
   `board-13` (117) merged by 13:00; `fix-products-board-6` (118, 120;
   the graph is entities only) merged 15:53, board restarted. `board-14`
   (119, a fold by hand) launched headless 15:54 as Opus. Pinned to 30
-  October: an entities view from the lane; the donor name rule on
-  organisation rows; same-name bodies.
+  October: an entities view; the donor rule on organisations; same-name
+  bodies.
 - Arthur's Qwen3.8-Flash-Next experiment resumed 15:00 (his word):
   Radiance on both cards, port 8060; the carve-out servers and the worker
   stopped by the holder unit; restore at 05:30. Found: ~650 tok/s
   pooled at 16 slots, prefill caps near 10k tok/s (compute), host RAM
-  cut 91 to 24 GB. Results: the integrator's scratch `exp/`.
+  cut 91 to 24 GB; results in the integrator's scratch.
 - Card: the overclocking test (six reboots 07:36 to 09:11) gave the
   database bad reads. querynz_v4's six hit tables re-read clean after the
   cold boot; the old estate's seven relations are unverified (his scrub).
-- Nightly full tier red at 05:02 (6 failed) before the day's merges.
+- Nightly full tier red at 05:02 before the day's merges.
 
 ## Half-done
 
