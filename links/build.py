@@ -28,8 +28,16 @@ pairs (a name carried by 300 rows would otherwise be 44,850 links).
 - `organisation-sole-company@2` and `organisation-one-live-company@2`
   (ruling 114): the two rules above with the name looked up on the
   companies, societies, limited partnerships and charities registers
-  together (`bodies`), a body on two of them counted once; they replace @1
-  in the build (`body_links`).
+  together (`bodies`), a body on two of them counted once; they replaced
+  @1 in the build.
+- `organisation-sole-company@3` and `organisation-one-live-company@3`
+  (ruling 125): @2 run on every organisation-named row of every people
+  view (a shareholder, a director, a declared interest, an officer, a
+  Gazette row, a local election return, the donor and disclosure rows),
+  "live" judged on the row's own date, never today; a row with no date
+  stays near, "undated". They replace @2 in the build (`body_links`), and
+  the declared interests' `organisation-name@1` step, which judged on the
+  companies register alone.
 - `successor-name@1` (ruling 106): two companies under one name, one with
   a year in brackets, and a person confirmed on both: related, "succeeded
   by", never an identity (the groups follow confirmed links only).
@@ -172,24 +180,12 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
         ON CONFLICT DO NOTHING""", {"rule": rules.RULE_NUMBER})
     out[rules.RULE_NUMBER] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_NUMBER,)).fetchone()[0]
     log(f"links.build: {rules.RULE_NUMBER}: {out[rules.RULE_NUMBER]} ({time.monotonic() - t0:.0f} s)")
-    # a declared interest's organisation name to the companies carrying it: near, with whether each was alive on the date
-    conn.execute(f"""
-        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least(r.ref COLLATE "C", o.entity_ref), greatest(r.ref COLLATE "C", o.entity_ref), %(rule)s,
-               jsonb_build_object('name', r.name_filed, 'organisation_key', r.name_key, 'date', r.started_on,
-                                  'alive_on_date', (o.registered_on IS NULL OR o.registered_on <= coalesce(r.ended_on, r.started_on, current_date))
-                                                   AND (o.removed_on IS NULL OR o.removed_on >= coalesce(r.started_on, current_date)),
-                                  'companies_of_that_name', o.n),
-               'near', CASE WHEN o.n = 1 THEN %(one)s ELSE %(many)s END
-        FROM {s}.rows r
-        JOIN (SELECT n.org_key, n.entity_ref, n.registered_on, n.removed_on, count(*) OVER (PARTITION BY n.org_key) AS n
-              FROM {s}.org_names n) o ON o.org_key = r.name_key
-        WHERE r.kind = 'organisation' AND r.register = 'mp_interests'
-        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_ORG_NAME, "one": rules.NEAR_ORG_ONE, "many": rules.NEAR_ORG_SEVERAL})
-    # a donation row's organisation name: confirmed to the one body of the name live in its year, or the one of several live in it,
-    # on the companies, societies, limited partnerships and charities registers together (ruling 114: @2 of rulings 106 (1) and 107)
-    out[rules.RULE_SOLE_BODY] = body_links(conn, s)
-    log(f"links.build: {rules.RULE_SOLE_BODY}, {rules.RULE_ONE_LIVE_BODY}: {out[rules.RULE_SOLE_BODY]} ({time.monotonic() - t0:.0f} s)")
+    # every organisation-named row (ruling 125: a donation row, a declared interest, a holding, a directorship, an officer, a Gazette
+    # row, a local election return): confirmed to the one body of its name live on the row's own date, or the one of several live
+    # on it, on the companies, societies, limited partnerships and charities registers together (@3 of rulings 106 (1), 107, 114)
+    out[rules.RULE_SOLE_BODY_DATED] = body_links(conn, s)
+    log(f"links.build: {rules.RULE_SOLE_BODY_DATED}, {rules.RULE_ONE_LIVE_BODY_DATED}: {out[rules.RULE_SOLE_BODY_DATED]} "
+        f"({time.monotonic() - t0:.0f} s)")
     out[rules.RULE_ORG_NAME] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_ORG_NAME,)).fetchone()[0]
     log(f"links.build: {rules.RULE_ORG_NAME}: {out[rules.RULE_ORG_NAME]} ({time.monotonic() - t0:.0f} s)")
     conn.commit()
@@ -237,45 +233,62 @@ def _insert_judged(conn, s: str, pairs: list) -> None:
 
 
 def body_links(conn, s: str) -> dict:
-    """`organisation-sole-company@2` and `organisation-one-live-company@2`
-    (ruling 114): each donation row's organisation name against every body
-    on the four registers (`bodies`) under the name key, a body on two
-    registers counted once, judged by `rules.sole_body` with all of each
-    body's register rows (their dates decide whether it was live); near under
-    `organisation-name@1` otherwise, the reason naming the registers that hold
-    the name. It replaces @1's step (the companies alone, built until ruling
-    114); a declared interest (`mp_interests`) is not a donation."""
+    """`organisation-sole-company@3` and `organisation-one-live-company@3`
+    (ruling 125): every organisation-named row of every people view against
+    every body on the four registers (`bodies`) under its name key, a body on
+    two registers counted once, judged by `rules.body_on_date` with all of
+    each body's register rows (their dates decide whether it was live on the
+    row's own date); near under `organisation-name@1` otherwise, the reason
+    naming the registers that hold the name and saying which, or "undated"
+    where the row carries no date (`pub.shareholders` today). It replaces
+    @2's step (the donation rows alone, ruling 114) and the declared
+    interests' near step on the companies register alone. Returns the counts
+    by view."""
     matched = conn.execute(f"""
-        SELECT r.ref, r.name_filed, r.name_key, r.started_on, r.ended_on, array_agg(DISTINCT b.body), array_agg(DISTINCT b.entity_ref)
+        SELECT r.ref, r.register, r.view, r.name_filed, r.name_key, r.started_on, r.ended_on,
+               array_agg(DISTINCT b.body), array_agg(DISTINCT b.entity_ref)
         FROM {s}.rows r JOIN {s}.bodies b ON b.org_key = r.name_key
-        WHERE r.kind = 'organisation' AND r.register = ANY(%s)
-        GROUP BY 1, 2, 3, 4, 5""", (list(rules.DONATION_REGISTERS),)).fetchall()
+        WHERE r.kind = 'organisation'
+        GROUP BY 1, 2, 3, 4, 5, 6, 7""").fetchall()
     rows_of: dict = {}
     for body, ref, register, kind, number, name, reg, rem, undated in conn.execute(f"""
             SELECT body, entity_ref, register, kind, number, name, registered_on, removed_on, removal_undated FROM {s}.bodies
-            WHERE body = ANY(%s) ORDER BY body COLLATE "C", entity_ref COLLATE "C" """, (sorted({b for m in matched for b in m[5]}),)).fetchall():
+            WHERE body = ANY(%s) ORDER BY body COLLATE "C", entity_ref COLLATE "C" """, (sorted({b for m in matched for b in m[7]}),)).fetchall():
         rows_of.setdefault(body, {})[ref] = {"entity_ref": ref, "register": register, "kind": kind, "number": number, "name": name,
                                              "registered_on": reg, "removed_on": rem, "removal_undated": undated}
-    pairs = []
-    for ref, filed, key, start, end, bodies, named in matched:
-        row = {"ref": ref, "name_filed": filed, "name_key": key, "started_on": start, "ended_on": end}
+    pairs, by_view = [], {}
+    for ref, register, view, filed, key, start, end, bodies, named in matched:
+        row = {"ref": ref, "register": register, "view": view, "name_filed": filed, "name_key": key, "started_on": start, "ended_on": end}
         named = set(named)
-        judged = rules.sole_body(row, [{"body": b, "rows": [dict(r, named=r["entity_ref"] in named) for r in rows_of[b].values()]}
-                                       for b in bodies])
+        judged = rules.body_on_date(row, [{"body": b, "rows": [dict(r, named=r["entity_ref"] in named) for r in rows_of[b].values()]}
+                                          for b in bodies])
         pairs += [(ref, j["entity_ref"], j) for j in judged]
+        v = by_view.setdefault(view, {"rows_with_a_body_of_the_name": 0, "undated_rows": 0, "confirmed": 0,
+                                      "confirmed_one_live_of_several": 0, "near": {}})
+        v["rows_with_a_body_of_the_name"] += 1
+        v["undated_rows"] += start is None
+        for j in judged:
+            if j["rule"] == rules.RULE_SOLE_BODY_DATED:
+                v["confirmed"] += 1
+            elif j["rule"] == rules.RULE_ONE_LIVE_BODY_DATED:
+                v["confirmed_one_live_of_several"] += 1
+            else:
+                k = j["evidence"]["outcome"]
+                v["near"][k] = v["near"].get(k, 0) + 1
     _insert_judged(conn, s, pairs)
     conn.commit()
-    tally: dict = {}
-    for _, _, j in pairs:
-        k = j["rule"] if j["grade"] == "confirmed" else j["reason"].split("; ")[-1]
-        tally[k] = tally.get(k, 0) + 1
     by_register: dict = {}
     for _, _, j in pairs:
         if j["grade"] == "confirmed":
             by_register[j["evidence"]["register"]] = by_register.get(j["evidence"]["register"], 0) + 1
-    return {"donation_rows_with_a_body_of_the_name": len(matched), "confirmed": tally.get(rules.RULE_SOLE_BODY, 0),
-            "confirmed_one_live_of_several": tally.get(rules.RULE_ONE_LIVE_BODY, 0), "confirmed_by_register": by_register,
-            "near": {k: n for k, n in tally.items() if k not in (rules.RULE_SOLE_BODY, rules.RULE_ONE_LIVE_BODY)}}
+    out = {"rows_with_a_body_of_the_name": len(matched), "undated_rows": sum(1 for m in matched if m[5] is None),
+           "confirmed": sum(v["confirmed"] for v in by_view.values()),
+           "confirmed_one_live_of_several": sum(v["confirmed_one_live_of_several"] for v in by_view.values()),
+           "confirmed_by_register": by_register, "near": {}, "by_view": {v: by_view[v] for v in sorted(by_view)}}
+    for v in by_view.values():
+        for k, n in v["near"].items():
+            out["near"][k] = out["near"].get(k, 0) + n
+    return out
 
 
 def seat_links(conn, s: str) -> dict:

@@ -123,10 +123,10 @@ RULE_WORDS = {
     "member-and-party-donor": "a member's name on a donation to the member's own party, in the term",
     "own-return": "a donor in the candidate's own name, on the candidate's own return",
     "coupled-name": "one of the people a donation filed as two names",
-    "organisation-sole-company": "a donation's organisation name and the one body of the name on the companies, societies, partnerships and charities registers, live in its year",   # rulings 106 (1), 114
+    "organisation-sole-company": "a row's organisation name and the one body of the name on the companies, societies, partnerships and charities registers, live on the row's own date",   # rulings 106 (1), 114, 125
     "successor-name": "a company succeeded by another of its name with a year in brackets, a person on both",        # ruling 106 (2), related
     "candidate-same-party": "one candidate name standing for one party in two elections",                            # ruling 106 (3)
-    "organisation-one-live-company": "a donation's organisation name and the one of several bodies of the name live in its year",   # rulings 107, 114
+    "organisation-one-live-company": "a row's organisation name and the one of several bodies of the name live on the row's own date",   # rulings 107, 114, 125
     "refiled-name": "a company removed and another of its name registered within twelve months, a person on both",   # ruling 109, related
     "member-on-the-day": "a member's printed name, titles off, and the one member of that name sitting in the House on the row's day",   # ruling 116
 }
@@ -1494,7 +1494,7 @@ REFERENCE_REGISTERS = {
 #: the links views the board reads once links/ publishes them (plan step 4.9: a search table published by links)
 LINKS_VIEWS = {"links": "pub.links", "groups": "pub.groups", "decisions": "pub.decisions"}
 #: every view the links module publishes: read through LINKS_VIEWS and the search table, never catalogued as a register view
-LINKS_PUBLISHED = frozenset({"links", "groups", "decisions", "names", "old_decisions"})
+LINKS_PUBLISHED = frozenset({"links", "groups", "decisions", "names", "old_decisions", "entities"})   # entities: ruling 123 (links-4); the board reads it in the fix that follows
 
 
 #: ruling 92 (2): shown columns holding another view's key that no parent tuple or Relation names, as data:

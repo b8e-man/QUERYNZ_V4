@@ -39,14 +39,16 @@
    twelve months of the removal (either side of it), and every one still
    has a person in one group on both companies (item 6's check, over both
    relations).
-9. Ruling 114, counted in SQL apart from the Python: every
-   `organisation-sole-company@2` and `organisation-one-live-company@2` link
-   is a donation row and a body carrying its name key on one of the four
-   registers, live in the donation's year by its own register's dates (the
-   formation registers' where it has any, else its charity row's), and no
-   other body of the name was live or removed on an undated day; the sole
-   rule has one body of the name, the one-live rule several. And a body is
-   counted once: no NZBN names two bodies.
+9. Rulings 114 and 125, counted in SQL apart from the Python: every
+   `organisation-sole-company@3` and `organisation-one-live-company@3` link
+   (and any @2 still stored) is an organisation-named row of a people view
+   and a body carrying its name key on one of the four registers, live on
+   the row's own date (`started_on` .. `ended_on`, never today) by its own
+   register's dates (the formation registers' where it has any, else its
+   charity row's), the row dated (an undated row is never confirmed), and
+   no other body of the name was live or removed on an undated day; the
+   sole rule has one body of the name, the one-live rule several. And a
+   body is counted once: no NZBN names two bodies.
 10. Ruling 116, counted in SQL apart from the Python: every confirmed
    `member-on-the-day@1` link joins a row of the four member views to a
    member row of its first and last name who sat in the House on the
@@ -248,14 +250,15 @@ def check_ruling_109(conn, s: str) -> list:
 
 
 def check_ruling_114(conn, s: str) -> list:
-    """Ruling 114 against the tables as they stand (SQL apart from `rules.sole_body`)."""
+    """Rulings 114 and 125 against the tables as they stand (SQL apart from `rules.body_on_date`): the @3 links, and any
+    @2 link still stored, are each an organisation-named row and the one body of its name live on the row's own date."""
     # The bodies are read for the confirmed links' name keys only (every body of those keys, every row of those bodies): a
     # body's liveness reads its own rows alone, so this is the whole table's answer, and the window over all two million
     # bodies ran past the check's 300 s on live (28 October 2026).
     row = conn.execute(f"""
         WITH c AS MATERIALIZED (
                    SELECT l.link_id, l.rule, r.ref, CASE WHEN r.ref = l.row_a THEN l.row_b ELSE l.row_a END AS linked, r.name_key,
-                          r.started_on AS st, coalesce(r.ended_on, r.started_on) AS en, r.register = ANY(%(reg)s) AS donation
+                          r.started_on AS st, coalesce(r.ended_on, r.started_on) AS en, r.started_on IS NOT NULL AS dated
                    FROM {s}.links l JOIN {s}.rows r ON r.ref IN (l.row_a, l.row_b) AND r.kind = 'organisation'
                    WHERE l.rule = ANY(%(rules)s) AND l.grade = 'confirmed'),
              k AS MATERIALIZED (SELECT DISTINCT b.org_key, b.body FROM {s}.bodies b WHERE b.org_key IN (SELECT name_key FROM c)),
@@ -268,25 +271,27 @@ def check_ruling_114(conn, s: str) -> list:
                             AND (NOT bd.removed OR (bd.removed_on IS NOT NULL AND (c.st IS NULL OR bd.removed_on >= c.st))) AS live,
                           (bd.reg IS NULL OR c.en IS NULL OR bd.reg <= c.en) AND bd.removed AND bd.removed_on IS NULL AS unknown
                    FROM c JOIN k ON k.org_key = c.name_key JOIN bd ON bd.body = k.body),
-             p AS (SELECT c.link_id, c.rule, c.donation, c.linked, count(DISTINCT n.body) AS named,
+             p AS (SELECT c.link_id, c.rule, c.dated, c.linked, count(DISTINCT n.body) AS named,
                           coalesce(bool_or(n.body = c.linked AND n.live), false) AS linked_live,
                           count(*) FILTER (WHERE n.body <> c.linked AND (n.live OR n.unknown)) AS others
                    FROM c LEFT JOIN n ON n.link_id = c.link_id GROUP BY 1, 2, 3, 4)
-        SELECT count(*), count(*) FILTER (WHERE rule = %(one)s), count(*) FILTER (WHERE NOT donation), count(*) FILTER (WHERE NOT linked_live),
-               count(*) FILTER (WHERE others > 0), count(*) FILTER (WHERE rule = %(sole)s AND named <> 1),
-               count(*) FILTER (WHERE rule = %(one)s AND named < 2), count(*) FILTER (WHERE linked NOT LIKE 'companies:%%')
-        FROM p""", {"reg": list(rules.DONATION_REGISTERS), "rules": [rules.RULE_SOLE_BODY, rules.RULE_ONE_LIVE_BODY],
-                    "one": rules.RULE_ONE_LIVE_BODY, "sole": rules.RULE_SOLE_BODY}).fetchone()
-    n, one, not_donation, not_live, others, sole_not_one, one_of_one, off_companies = (int(x) for x in row)
+        SELECT count(*), count(*) FILTER (WHERE rule = ANY(%(one)s)), count(*) FILTER (WHERE NOT dated), count(*) FILTER (WHERE NOT linked_live),
+               count(*) FILTER (WHERE others > 0), count(*) FILTER (WHERE rule = ANY(%(sole)s) AND named <> 1),
+               count(*) FILTER (WHERE rule = ANY(%(one)s) AND named < 2), count(*) FILTER (WHERE linked NOT LIKE 'companies:%%'),
+               (SELECT count(*) FROM {s}.links l WHERE l.rule = ANY(%(rules)s) AND l.grade = 'confirmed') - count(*)
+        FROM p""", {"rules": [rules.RULE_SOLE_BODY, rules.RULE_ONE_LIVE_BODY, rules.RULE_SOLE_BODY_DATED, rules.RULE_ONE_LIVE_BODY_DATED],
+                    "one": [rules.RULE_ONE_LIVE_BODY, rules.RULE_ONE_LIVE_BODY_DATED],
+                    "sole": [rules.RULE_SOLE_BODY, rules.RULE_SOLE_BODY_DATED]}).fetchone()
+    n, one, undated, not_live, others, sole_not_one, one_of_one, off_companies, not_a_row = (int(x) for x in row)
     twice = int(conn.execute(f"""SELECT count(*) FROM (SELECT nzbn FROM {s}.bodies WHERE coalesce(nzbn, '') <> ''
                                  GROUP BY nzbn HAVING count(DISTINCT body) > 1) d""").fetchone()[0])
-    return [{"check": f"every {rules.RULE_SOLE_BODY} and {rules.RULE_ONE_LIVE_BODY} link is a donation row and the one body of its name "
-                      f"live in its year, on the four registers together",
+    return [{"check": f"every {rules.RULE_SOLE_BODY_DATED} and {rules.RULE_ONE_LIVE_BODY_DATED} link (and any @2) is an organisation-named "
+                      f"row, dated, and the one body of its name live on the row's own date, on the four registers together",
              "confirmed": n, "of_which_one_of_several": one, "confirmed_off_the_companies_office": off_companies,
-             "not_a_donation_row": not_donation, "linked_body_not_live_or_not_of_the_name": not_live,
+             "not_an_organisation_row": not_a_row, "undated_row": undated, "linked_body_not_live_or_not_of_the_name": not_live,
              "another_body_live_or_undated": others, "sole_rule_with_other_than_one_body": sole_not_one,
              "one_live_rule_with_one_body": one_of_one,
-             "ok": not_donation == 0 and not_live == 0 and others == 0 and sole_not_one == 0 and one_of_one == 0},
+             "ok": not_a_row == 0 and undated == 0 and not_live == 0 and others == 0 and sole_not_one == 0 and one_of_one == 0},
             {"check": "a body on two registers is one body: no NZBN names two bodies", "nzbns_on_two_bodies": twice, "ok": twice == 0}]
 
 
