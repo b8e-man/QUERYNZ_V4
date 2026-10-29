@@ -1045,3 +1045,19 @@ follow (rulings 117 (4), 119, 120). Built by `links-4`. The two other
 items of 30 October (the organisation rules on every row naming a body;
 bodies under one name across registers) are not yet ruled: Arthur asked
 what they mean.
+
+124. Arthur, 30 October, 11:05, on the queue item "whether bodies under
+one name on different registers are linked": "go check the 20 online and
+see if there might be a mismatch; if not, make the rule". Checked, on
+the registers' own pages and in `links.bodies`: a name shared across
+registers is not one body. Each charity in the twenty is the same body
+as exactly one of the companies under its name, shown by the shared NZBN
+(The Base Limited, CC43093, is company 1471605; both pages carry
+9429035602033), and the three or four other companies under the name
+are strangers with other NZBNs, mostly removed. The same-body case is
+already folded: `links.bodies` gives 31,532 of 46,139 charities their
+company as the one entity, 29,391 by NZBN and 2,141 without one by the
+one-live-company rule of ruling 114 (PFR Limited, CC63933, no NZBN, is
+folded to PFR LIMITED 9272440; the charities page calls it a company).
+So the rule is not made: it would draw the strangers. The item leaves
+the queue.
