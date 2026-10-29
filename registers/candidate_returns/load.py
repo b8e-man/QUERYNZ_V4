@@ -37,7 +37,7 @@ RETURN_COLUMNS = ("key", "document", "page", "place", "donations", "part_a", "pa
                   "candidate_as_printed", "party_as_printed", "electorate_as_printed", "read_from", "reader", "profile",
                   "profile_version", "loaded_at", "donors_check", "issue")
 COMMISSION_COLUMNS = ("key", "source", "file", "file_name", "year", "surname", "given_names", "electorate", "party",
-                      "donations", "expenses", "loans", "received", "link", "problems")
+                      "donations", "expenses", "loans", "received", "link", "problems", "sheet")
 DONOR_COLUMNS = ("key", "return_key", "document", "page", "place", "ordinal", "donor", "amount", "dates", "contributions",
                  "read_from", "reader", "profile", "profile_version", "loaded_at", "issue")
 COLUMNS_OF = {"files": FILE_COLUMNS, "returns": RETURN_COLUMNS, "commission": COMMISSION_COLUMNS,
@@ -133,14 +133,14 @@ def build(landed: dict, st: Statements, store: rd.Store, data_of, loaded_at: str
         out.commission.append({"key": k, "source": "listing", "file": page_sha, "file_name": "listing", "year": r.year,
                                "surname": r.surname, "given_names": r.given, "electorate": r.electorate, "party": r.party,
                                "donations": r.donations, "expenses": r.expenses, "loans": None, "received": True,
-                               "link": r.href or None, "problems": "; ".join(r.problems) or None})
+                               "link": r.href or None, "problems": "; ".join(r.problems) or None, "sheet": None})
     for y, (sha, name, rows) in st.sheets.items():
         for r in rows:
             out.commission.append({"key": sheet_key[id(r)], "source": "spreadsheet", "file": sha, "file_name": name,
                                    "year": r.year, "surname": r.surname, "given_names": r.given,
                                    "electorate": r.electorate, "party": r.party, "donations": r.donations,
                                    "expenses": r.expenses, "loans": r.loans, "received": r.received, "link": None,
-                                   "problems": "; ".join(r.problems) or None})
+                                   "problems": "; ".join(r.problems) or None, "sheet": r.sheet})
     for sha, why in st.catch:
         out.set_aside.append((sha, "commission", why))
     for r in j.sheet_no_document:
@@ -280,3 +280,34 @@ def publish(conn, staging: str) -> None:
             cols = ", ".join(COLUMNS_OF[t])
             conn.execute(f"INSERT INTO {PRIVATE}.{t} ({cols}) SELECT {cols} FROM {private_of(staging)}.{t}")
         conn.execute(sql("publish.sql"))
+
+
+def main(argv=None) -> int:
+    """The nightly job's entry (`python -m registers.candidate_returns.load`, `qv4-candidate-returns-load`): stage
+    under `staging_candidate_returns_load`, then publish, as the merge gate's staging step does; `--schema` builds
+    there and stops (a scratch proof)."""
+    import argparse
+    import sys
+    ap = argparse.ArgumentParser(prog="registers.candidate_returns.load")
+    ap.add_argument("--database", default="querynz_v4")
+    ap.add_argument("--schema", help="build here and stop (a scratch proof); default: stage and publish")
+    a = ap.parse_args(argv)
+    from support import db
+    with db.connect(db.OWNER_KEY, a.database) as conn:
+        conn.execute("SET statement_timeout = '600s'")
+        if a.schema:
+            rows = load(conn, a.schema)
+            conn.commit()
+            print(f"candidate_returns: {rows} rows into {a.database}.{a.schema}")
+            return 0
+        staging = "staging_candidate_returns_load"
+        load(conn, staging)
+        conn.commit()
+        publish(conn, staging)
+        conn.commit()
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())

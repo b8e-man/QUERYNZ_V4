@@ -32,6 +32,7 @@ an empty spreadsheet.
 import csv
 import html as H
 import io
+import os
 import re
 import unicodedata
 import zipfile
@@ -69,6 +70,7 @@ class SheetRow:
     line: int                  # the row's place in the file, from 1 (the header is 1)
     problems: tuple = ()
     received: bool = True      # False where the Commission writes "Return not received"
+    sheet: str = ""            # the workbook's tab the row was read from, as named there ('' for a csv)
 
 
 MONEY = re.compile(r"^\$?\s*(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d{1,2}))?$")
@@ -155,7 +157,8 @@ HEADERS = {"year": "year", "electorate": "electorate", "lastname": "surname", "f
 NOT_RECEIVED = re.compile(r"^\s*(?:return\s+)?not\s+received\s*$", re.I)
 
 
-def _xlsx_cells(data: bytes) -> list:
+def _xlsx_cells(data: bytes) -> tuple:
+    """(rows, the tab's name) of the workbook's first worksheet part."""
     try:
         z = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile as e:
@@ -180,7 +183,24 @@ def _xlsx_cells(data: bytes) -> list:
             vals[col] = text or ""
         width = max((_col(k) for k in vals), default=0)
         rows.append([vals.get(_name(i), "") for i in range(1, width + 1)])
-    return rows
+    return rows, _tab(z, sheet[0])
+
+
+REL = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+
+
+def _tab(z, part: str) -> str:
+    """The name the workbook gives the worksheet part (`xl/worksheets/sheet1.xml`), through its relationships;
+    the part's own name where the workbook does not say."""
+    try:
+        rels = ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
+        target = {r.get("Id"): r.get("Target", "").lstrip("/").removeprefix("xl/") for r in rels}
+        for s in ET.fromstring(z.read("xl/workbook.xml")).iter(f"{{{NS['m']}}}sheet"):
+            if "xl/" + target.get(s.get(REL), "") == part:
+                return s.get("name") or ""
+    except (KeyError, ET.ParseError):
+        pass
+    return os.path.splitext(os.path.basename(part))[0]
 
 
 def _col(letters: str) -> int:
@@ -215,7 +235,7 @@ def _number_cell(v: str) -> str:
 
 def spreadsheet_rows(data: bytes, name: str, year: int = None) -> list:
     """`year` for a spreadsheet with no year column (2020's)."""
-    cells = _xlsx_cells(data) if name.lower().endswith(".xlsx") else _csv_cells(data)
+    cells, tab = _xlsx_cells(data) if name.lower().endswith(".xlsx") else (_csv_cells(data), "")
     head_at = next((i for i, r in enumerate(cells[:10])
                     if sum(1 for c in r if re.sub(r"[^a-z]", "", c.lower()) in HEADERS) >= 4), None)
     if head_at is None:
@@ -242,5 +262,5 @@ def spreadsheet_rows(data: bytes, name: str, year: int = None) -> list:
         y = get("year")
         y = int(float(y)) if re.match(r"^\d{4}(\.0)?$", y) else (year or 0)
         out.append(SheetRow(y, get("electorate"), get("surname"), get("given"), get("party"), figs["donations"],
-                            figs["expenses"], figs["loans"] if "loans" in cols else None, i, tuple(problems), received))
+                            figs["expenses"], figs["loans"] if "loans" in cols else None, i, tuple(problems), received, tab))
     return out

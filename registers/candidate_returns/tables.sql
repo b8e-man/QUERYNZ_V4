@@ -67,7 +67,8 @@ CREATE TABLE IF NOT EXISTS candidate_returns.commission (
     loans         numeric(14,2),
     received      boolean NOT NULL DEFAULT true,    -- false where the Commission writes "Return not received"
     link          text,                             -- the listing row's link, as written
-    problems      text
+    problems      text,
+    sheet         text                              -- the workbook's tab the spreadsheet row was read from ('' for a csv)
 );
 
 -- the catch log: one line for every item the lane could not take to a row, with the stage and the reason
@@ -107,3 +108,5 @@ ALTER TABLE candidate_returns.donors ADD COLUMN IF NOT EXISTS place text;
 -- ruling 66: the difference a reconciliation admitted, named on the row
 ALTER TABLE candidate_returns.returns ADD COLUMN IF NOT EXISTS issue text;
 ALTER TABLE candidate_returns.donors ADD COLUMN IF NOT EXISTS issue text;
+-- candidate-returns-3: the spreadsheet row's tab, for the citation of a Commission row published with no return read
+ALTER TABLE candidate_returns.commission ADD COLUMN IF NOT EXISTS sheet text;

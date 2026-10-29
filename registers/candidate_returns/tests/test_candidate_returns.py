@@ -181,6 +181,32 @@ def test_a_listing_row_takes_the_link_that_carries_text():
     assert (r.donations, r.expenses, r.year, r.electorate) == (2000.0, 0.0, 2023, "Ōtaki")
 
 
+def _workbook(tab: str) -> bytes:
+    import io, zipfile
+    m = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    cells = [["Year", "Electorate", "LastName", "FirstName", "Party", "Donations", "Expenses"],
+             ["2020", "Example Electorate", "ROE", "Jane", "P", "1500", "NIL"]]
+    rows = "".join(f'<row r="{i}">' + "".join(f'<c r="{chr(65 + j)}{i}" t="inlineStr"><is><t>{v}</t></is></c>'
+                                              for j, v in enumerate(row)) + "</row>" for i, row in enumerate(cells, 1))
+    b = io.BytesIO()
+    with zipfile.ZipFile(b, "w") as z:
+        z.writestr("xl/workbook.xml", f'<workbook xmlns="{m}" xmlns:r="{r}"><sheets>'
+                                      f'<sheet name="{tab}" sheetId="1" r:id="rId7"/></sheets></workbook>')
+        z.writestr("xl/_rels/workbook.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/'
+                                                 'relationships"><Relationship Id="rId7" Target="worksheets/sheet1.xml"/>'
+                                                 '</Relationships>')
+        z.writestr("xl/worksheets/sheet1.xml", f'<worksheet xmlns="{m}"><sheetData>{rows}</sheetData></worksheet>')
+    return b.getvalue()
+
+
+def test_a_spreadsheet_row_names_the_workbook_s_tab_and_a_csv_none():
+    (row,) = commission.spreadsheet_rows(_workbook("2020 returns"), "x.xlsx")
+    assert (row.surname, row.donations, row.expenses, row.line, row.sheet) == ("ROE", 1500.0, 0.0, 2, "2020 returns")
+    (row,) = commission.spreadsheet_rows(b"Year,Electorate,LastName,FirstName,Donations\n2020,E,ROE,J,1\n", "x.csv")
+    assert row.sheet == ""
+
+
 def test_the_spreadsheet_s_own_typing_and_a_challenge_page():
     data = ("Year,Electorate,LastName,FirstName,Party, Donations , Expenses ,Total loans\n"
             '2023,Ōtaki,ROE,Jane,Example," $4,250,00 "," $20.895.09 ",NIL\n'
@@ -319,18 +345,99 @@ def test_the_outside_check_runs_on_the_sample(filled):
     assert any(e[0] == c["text 2020 form, parts sum, equal to the spreadsheet"] for e in res["equal"])
 
 
-def test_the_published_views_build_on_the_lane_s_tables(filled):
+def _published(filled) -> list:
     from registers.candidate_returns import load
     conn, schema = filled["conn"], filled["schema"]
-    view = load.sql("publish.sql", schema, shared=True).replace("pub.", f"{schema}.pub_")
-    conn.execute(view)
-    n = conn.execute(f"SELECT count(*) FROM {schema}.pub_candidate_return_totals").fetchone()[0]
-    assert n == len(filled["returns"])
+    conn.execute(load.sql("publish.sql", schema, shared=True).replace("pub.", f"{schema}.pub_"))
+    cur = conn.execute(f"SELECT * FROM {schema}.pub_candidate_return_totals")
+    return [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
+
+
+def _uncovered(files: list, returns: list, commission: list) -> dict:
+    """The Commission's spreadsheet rows with figures that no read current (or unlisted) return is placed on."""
+    read_ = {r["document"] for r in returns}
+    covered = {f["sheet_key"] for f in files if f["document"] in read_ and f["status"] in ("current", "unlisted")}
+    return {c["key"]: c for c in commission if c["source"] == "spreadsheet" and c["received"] and c["key"] not in covered}
+
+
+def test_the_published_views_build_on_the_lane_s_tables(filled):
+    conn, schema = filled["conn"], filled["schema"]
+    rows = _published(filled)
+    assert sorted(r["key"] for r in rows if r["read_from"] != "commission") == sorted(r["key"] for r in filled["returns"])
     cols = [d[0] for d in conn.execute(f"SELECT * FROM {schema}.pub_candidate_return_totals LIMIT 0").description]
     assert not any("address" in c for c in cols)
-    assert cols[-1] == "issue"
+    assert cols[-3:] == ["issue", "sheet", "sheet_row"]                 # a view gains columns only at its end
     cols = [d[0] for d in conn.execute(f"SELECT * FROM {schema}.pub_candidate_return_donors LIMIT 0").description]
     assert cols[-1] == "issue"
+
+
+def test_the_spreadsheet_rows_carry_their_tab_for_the_citation(filled):
+    sheets = [c for c in filled["commission"] if c["source"] == "spreadsheet"]
+    assert {c["year"] for c in sheets} == {2020, 2023} and len(sheets) > 1000       # the real spreadsheets, whole
+    assert all(c["sheet"] for c in sheets), "an xlsx row with no tab named"
+    assert all(c["sheet"] is None for c in filled["commission"] if c["source"] == "listing")
+
+
+def test_a_commission_row_is_published_for_every_spreadsheet_row_no_read_return_covers(filled):
+    rows = _published(filled)
+    com = {r["key"]: r for r in rows if r["read_from"] == "commission"}
+    want = _uncovered(filled["files"], filled["returns"], filled["commission"])
+    assert set(com) == set(want) and len(com) > 600                     # the real spreadsheets' rows, not a handful
+    read_keys = {r["key"] for r in rows if r["read_from"] != "commission"}
+    assert not read_keys & set(com) and not any(k.endswith("/declaration") for k in com)
+    for k, r in com.items():
+        c = want[k]
+        assert r["document"] == c["file"] == r["commission_file"] and r["commission_key"] == k
+        assert (r["year"], r["surname"], r["given_names"], r["electorate"], r["party"]) == \
+            (c["year"], c["surname"], c["given_names"], c["electorate"], c["party"])
+        assert (r["commission_donations"], r["commission_expenses"], r["commission_loans"]) == \
+            (c["donations"], c["expenses"], c["loans"])
+        assert r["donations"] is r["expenses"] is r["loans"] is r["part_a"] is r["donations_check"] is None   # nothing read
+        assert r["status"] == "current" and r["replaced_by"] is None and r["placed_by"] == "spreadsheet row"
+        assert r["sheet"] == c["sheet"] and r["sheet_row"] == int(k.split("/")[1]) and r["page"] is None
+        assert r["place"] == f"sheet {c['sheet']}, row {r['sheet_row']}"
+    # the 2023 spreadsheet's loans are carried; a "Return not received" row is not published
+    assert any(r["commission_loans"] is not None for r in com.values() if r["year"] == 2023)
+    assert not any(c["key"] in com for c in filled["commission"] if not c["received"])
+
+
+def test_no_candidate_has_both_a_read_return_and_a_commission_row(filled):
+    seen = {}
+    for r in _published(filled):
+        if r["status"] == "replaced" or r["replaced_by"]:
+            continue
+        k = (r["year"], commission.fold(r["electorate"] or ""), commission.fold(r["surname"] or ""))
+        seen.setdefault(k, set()).add(r["read_from"] == "commission")
+    assert not [k for k, kinds in seen.items() if kinds == {True, False}]
+
+
+class _Undo(Exception):
+    pass
+
+
+def test_a_return_read_later_replaces_the_commission_s_row(filled):
+    """The rule is the view's: withdraw one read current return and its spreadsheet row comes back as the
+    Commission's; read it again and the Commission's row goes. A replaced return read covers nothing."""
+    conn, schema = filled["conn"], filled["schema"]
+    c = _cases()
+    files = {f["document"]: f for f in filled["files"]}
+    sha = c["text 2020 form, parts sum, equal to the spreadsheet"]
+    sheet_key = files[sha]["sheet_key"]
+    keys = lambda: {r["key"] for r in _published(filled)}
+    assert sheet_key and sheet_key not in keys() and f"{sha}/declaration" in keys()
+    try:
+        with conn.transaction():
+            conn.execute(f"DELETE FROM {schema}.candidate_returns_returns WHERE document = %s", (sha,))
+            assert sheet_key in keys() and f"{sha}/declaration" not in keys()
+            conn.execute(f"UPDATE {schema}.candidate_returns_files SET status = 'replaced' WHERE document <> %s "
+                         f"AND sheet_key IS NOT NULL", (sha,))
+            covered_by_replaced = {f["sheet_key"] for f in filled["files"] if f["sheet_key"] and f["document"] != sha
+                                   and f["document"] in {r["document"] for r in filled["returns"]}}
+            assert covered_by_replaced and covered_by_replaced <= keys()
+            raise _Undo
+    except _Undo:
+        pass
+    assert sheet_key not in keys()
 
 
 def test_the_scan_route_never_calls_a_model(monkeypatch):
@@ -517,3 +624,14 @@ def test_a_scanner_s_text_layer_stands_only_on_its_printed_total():
     assert scanned.row is None and read.SCANNER in scanned.set_aside[0][1]
     from registers.candidate_returns import replay
     assert replay.rereads({"b" * 64: {"year": 2020, "set_aside": scanned.set_aside}}) == [("b" * 64, 2020, "declaration", [1])]
+
+
+def test_the_load_module_has_the_nightly_job_s_command_line_entry():
+    """`python -m registers.candidate_returns.load` is `qv4-candidate-returns-load`'s command (lane spec): it parses
+    its options and stops before any connection when asked for help."""
+    import pytest
+    from registers.candidate_returns import load as L
+    assert callable(getattr(L, "main", None))
+    with pytest.raises(SystemExit) as e:
+        L.main(["--help"])
+    assert e.value.code == 0
