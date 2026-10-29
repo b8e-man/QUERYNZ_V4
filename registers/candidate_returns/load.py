@@ -37,7 +37,7 @@ RETURN_COLUMNS = ("key", "document", "page", "place", "donations", "part_a", "pa
                   "candidate_as_printed", "party_as_printed", "electorate_as_printed", "read_from", "reader", "profile",
                   "profile_version", "loaded_at", "donors_check", "issue")
 COMMISSION_COLUMNS = ("key", "source", "file", "file_name", "year", "surname", "given_names", "electorate", "party",
-                      "donations", "expenses", "loans", "received", "link", "problems")
+                      "donations", "expenses", "loans", "received", "link", "problems", "sheet")
 DONOR_COLUMNS = ("key", "return_key", "document", "page", "place", "ordinal", "donor", "amount", "dates", "contributions",
                  "read_from", "reader", "profile", "profile_version", "loaded_at", "issue")
 COLUMNS_OF = {"files": FILE_COLUMNS, "returns": RETURN_COLUMNS, "commission": COMMISSION_COLUMNS,
@@ -133,14 +133,14 @@ def build(landed: dict, st: Statements, store: rd.Store, data_of, loaded_at: str
         out.commission.append({"key": k, "source": "listing", "file": page_sha, "file_name": "listing", "year": r.year,
                                "surname": r.surname, "given_names": r.given, "electorate": r.electorate, "party": r.party,
                                "donations": r.donations, "expenses": r.expenses, "loans": None, "received": True,
-                               "link": r.href or None, "problems": "; ".join(r.problems) or None})
+                               "link": r.href or None, "problems": "; ".join(r.problems) or None, "sheet": None})
     for y, (sha, name, rows) in st.sheets.items():
         for r in rows:
             out.commission.append({"key": sheet_key[id(r)], "source": "spreadsheet", "file": sha, "file_name": name,
                                    "year": r.year, "surname": r.surname, "given_names": r.given,
                                    "electorate": r.electorate, "party": r.party, "donations": r.donations,
                                    "expenses": r.expenses, "loans": r.loans, "received": r.received, "link": None,
-                                   "problems": "; ".join(r.problems) or None})
+                                   "problems": "; ".join(r.problems) or None, "sheet": r.sheet})
     for sha, why in st.catch:
         out.set_aside.append((sha, "commission", why))
     for r in j.sheet_no_document:
