@@ -566,6 +566,8 @@ for later, one command.
 
 ## flash-next-1
 
+MERGED 30 October 08:16 (838e048; record in docs/merges/flash-next-1.md).
+
 Build session, Opus, scope `support/scheduler/ support/installer/`. Ruling
 121 (29 October): Qwen3.8-Flash-Next, served by Radiance on both cards,
 replaces Qwen3.6 as node2's text-reader and review model. The container
