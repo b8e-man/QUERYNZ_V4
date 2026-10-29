@@ -1,4 +1,4 @@
-A function a page calls on the session reader can read a schema the product reader may not (the dossier's `document.statuses` reads `docs`), so before offering it as a tool on the product reader run it once there against the real tables, and make that read close quietly on a refused grant rather than fail the whole tool.
+Run a page's function once on the product reader against the real tables before offering it as a tool there: an inner read of another schema is refused on that login, so close that read quietly rather than fail the tool.
 area: products/board, chat, product reader, docstore, tools
 
 Why: board-15 offered `dossier.gather` to the chat model as a tool on the product reader (ruling 122: pub only). Its last step reads the store's records through `support.docstore.landing.documents_of`, which queries `docs.documents`; the product reader is refused (`InsufficientPrivilege`) and every dossier the model asked for failed. The pure tests could not see it: they never open a connection. A probe on the real tables did, before any code was written around it.
