@@ -151,7 +151,7 @@ def test_person_pane_keeps_namesakes_apart():
 def test_page_wraps_panes_with_the_search_and_the_save_form():
     html = panes.page("doe", ["directors:k"], ["<section class=\"pane\">x</section>"], "pinned")
     assert 'name="q" value="doe"' in html and 'action="/save"' in html and "pinned" in html
-    assert "<script" not in html
+    assert re.findall(r'<script src="([^"?]*)', html) == ["/static/chat.js"]     # ruling 122: the chat pane is the one script
 
 
 def test_every_pane_offers_a_report_from_here_only_when_a_report_server_is_named():

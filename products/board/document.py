@@ -79,10 +79,18 @@ UNREADABLE = ("the store's record cannot be read here: support.docstore has no d
 def records(conn, shas) -> dict:
     """{sha: {'kind', 'source', 'withdrawn'}} through the store's own reader
     (support.docstore.landing.documents_of; a product never queries `docs`,
-    the one-way test). None when the store offers no such reader: every
-    document then stays closed."""
+    the one-way test). None when the store offers no such reader, or the
+    connection may not read it (the product reader, which the chat pane's
+    dossier tool reads on, ruling 122): every document then stays closed."""
     reader = getattr(landing, "documents_of", None)
-    return reader(shas, conn) if reader else None
+    if not reader:
+        return None
+    try:
+        return reader(shas, conn)
+    except Exception as exc:  # noqa: BLE001 — only a refusal of the grant is a closed store; anything else is raised
+        if type(exc).__name__ == "InsufficientPrivilege":
+            return None
+        raise
 
 
 def statuses(conn, shas) -> dict:

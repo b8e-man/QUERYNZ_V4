@@ -61,7 +61,8 @@ def test_seventeen_rows_in_the_plan_s_order_with_17_after_15(tmp_path):
     first = html[html.index("<tr><td>1</td>"):html.index("<tr><td>2</td>")]
     for cell in ("Follow the Money", "Reporters, the public", "Who funds parties and candidates, and what followed", "Published site", "<td>4</td>"):
         assert cell in first
-    assert 'class="on" href="/uses">use cases</a>' in html and "<script" not in html
+    assert 'class="on" href="/uses">use cases</a>' in html
+    assert re.findall(r'<script src="([^"?]*)', html) == ["/static/chat.js"]     # ruling 122's chat pane is the one script
 
 
 def test_each_row_carries_its_templates_and_the_registers_its_reference_names_held_or_not(tmp_path):

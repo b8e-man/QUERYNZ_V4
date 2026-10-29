@@ -141,6 +141,15 @@ tables through the session reader, never the sample:
      group pub.groups holds and its dossier lists them as their own
      entities, and pub.groups and pub.links hold the same rows, counted and
      hashed, before and after (collapse_problems).
+ 28. The chat pane (ruling 122): every page the board serves (search, a
+     dossier, use cases, pinned, saved paths) carries the pane once, its
+     script listed; with the chat model up at QV4_CHAT_URL, POST /chat asked
+     CHAT_QUESTION answers within CHAT_FLOOR_S with at least one citation,
+     each resolving to a real published row; with the model's address at a
+     closed port, POST /chat answers 200 with "the chat model is not
+     running". Where QV4_CHAT_URL answers nothing (or another model), the
+     check says "model not running, chat item skipped" and stays green
+     (chat_problems).
 
   python -m products.board check [--term NAME]      exit 1 on any failure
 """
@@ -149,15 +158,19 @@ from __future__ import annotations
 import collections
 import decimal
 import html
+import http.client
 import json
 import re
+import socket
 import sys
+import threading
 import time
 import urllib.parse
 
+from support import modelclient
 from products.board import assets
 from products.board import catalogue as cat
-from products.board import collapse, db, document, dossier, graph, links_view, near, people, search, panes, server, uses
+from products.board import chat, collapse, db, document, dossier, graph, links_view, near, people, search, panes, server, uses
 
 ADDRESS_WORDS = re.compile(r"residential|home_address|street|suburb|postal", re.I)
 #: the comparison's residence vocabulary (checks/comparison.py RESIDENCE_WORDS; tests/test_check_vocabulary.py holds the two equal):
@@ -314,7 +327,87 @@ def problems(conn, term: str = None) -> list:
     out += dossier_problems(conn)
     out += entities_only_problems(conn)
     out += collapse_problems(conn)
+    out += chat_problems(conn)
     return out
+
+
+#: what the check says that is not a problem (the chat item skipped without its model); printed by main
+NOTES = []
+CHAT_TERM = "Rank Group Limited"
+CHAT_QUESTION = f"which registers hold {CHAT_TERM}?"
+CHAT_FLOOR_S = 30.0
+CHAT_MARK = '<aside class="chat" id="chat"'
+
+
+def closed_port() -> int:
+    """A loopback port nothing listens on: bound, read and let go."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def post_chat(port: int, question: str) -> tuple:
+    c = http.client.HTTPConnection("127.0.0.1", port, timeout=120)
+    try:
+        c.request("POST", "/chat", json.dumps({"thread": [{"role": "user", "content": question}]}),
+                  {"Content-Type": "application/json"})
+        r = c.getresponse()
+        return r.status, json.loads(r.read() or b"{}")
+    finally:
+        c.close()
+
+
+def chat_problems(conn) -> list:
+    """Item 28 (ruling 122)."""
+    out = []
+    gid = db.rows(conn, "select group_id from pub.groups limit 1")
+    pages = {"search": server.render(CHAT_TERM, [], conn=conn), "use cases": server.render_uses(),
+             "pinned": server.render_list("pinned"), "saved paths": server.render_list("saved")}
+    if gid:
+        pages["a dossier"] = server.render("", [], conn=conn, chosen=people.entity_id(gid[0]["group_id"]))
+    for name, page in pages.items():
+        if page.count(CHAT_MARK) != 1 or f'src="{assets.url("chat.js")}"' not in page:
+            out.append(f"the {name} page does not carry the chat pane once with its script (ruling 122)")
+    if "chat.js" not in assets.FILES:
+        out.append("static/chat.js is not listed in assets.FILES")
+    httpd = server.Server(("127.0.0.1", 0), server.Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    port, url = httpd.server_address[1], chat.URL
+    try:
+        chat.URL = f"http://127.0.0.1:{closed_port()}/v1/chat/completions"
+        status, body = post_chat(port, CHAT_QUESTION)
+        if status != 200 or body.get("answer") != chat.NOT_RUNNING or body.get("ok") is not False:
+            out.append(f"/chat with the model unreachable answered {status} {str(body.get('answer'))[:80]!r}, not 200 and {chat.NOT_RUNNING!r}")
+        chat.URL = url
+        try:
+            served = modelclient.served_model(url, timeout=5.0)
+        except Exception:  # noqa: BLE001 — nothing answers at the address
+            served = None
+        if served != chat.MODEL:
+            NOTES.append(f"model not running, chat item skipped ({url} serves {served or 'nothing'}, {chat.MODEL} wanted)")
+            return out
+        t0 = time.monotonic()
+        status, body = post_chat(port, CHAT_QUESTION)
+        took = time.monotonic() - t0
+        if status != 200 or not body.get("ok"):
+            out.append(f"/chat asked {CHAT_QUESTION!r} with the model up answered {status} {str(body.get('answer'))[:80]!r}")
+        elif took > CHAT_FLOOR_S:
+            out.append(f"/chat asked {CHAT_QUESTION!r} took {took:.1f} s, over {CHAT_FLOOR_S:.0f} s")
+        cited = [p["c"] for p in body.get("parts") or () if "c" in p]
+        if body.get("ok") and not cited:
+            out.append(f"/chat asked {CHAT_QUESTION!r} answered with no citation that resolves to a published row")
+        for ref in cited:
+            view, _, key = ref.partition(":")
+            if search.row(conn, view, key) is None:
+                out.append(f"/chat cited {ref}, which is not a row of pub.{view}")
+        NOTES.append(f"chat: {CHAT_QUESTION!r} answered in {took:.1f} s, {len(cited)} citation(s) resolved, "
+                     f"{len([p for p in body.get('parts') or () if 'x' in p])} struck")
+    finally:
+        chat.URL = url
+        httpd.shutdown()
+        httpd.server_close()
+    return out
+
 
 
 def rows_drawn(g: dict, nid: str) -> list:
@@ -1529,6 +1622,8 @@ def main(argv=None) -> int:
         bad = problems(conn, term)
     for b in bad:
         print("PROBLEM " + b)
+    for n in NOTES:
+        print("NOTE " + n)
     print("products.board check: " + ("green" if not bad else f"{len(bad)} problem(s)"))
     return 1 if bad else 0
 

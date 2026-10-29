@@ -77,7 +77,7 @@ def test_near_matches_render_closed_below_the_results_within_three_seconds():
     assert "directors" in below and "near: given name and surname reversed" in below
     assert "narrowed by: first name" in exact
     scripts = re.findall(r'<script\b[^>]*\bsrc="([^"]*)"', html)                    # ruling 108: the graph beside the results,
-    assert scripts == [assets.url(n) for n in assets.SCRIPTS]                            # from the board's own files alone
+    assert scripts == [assets.url(n) for n in assets.SCRIPTS] + [assets.url("chat.js")]  # the board's own files alone; ruling 122's pane last
     exact, below = mills.split('<details class="near" id="near">')
     assert "party_return_donors" in exact and "near: given name and surname reversed" not in below
 
