@@ -5,7 +5,7 @@
 -- filings is a fact about the filing.
 --
 -- Then one row per row of the Commission's newest summary spreadsheet that no read return covers (candidate-returns-3):
--- `read_from` is 'commission', the return's own figures (donations … loans, the parts, the checks) are NULL because
+-- `read_from` is 'commission', the return's own figures (donations … loans, the parts, the checks) are NULL, typed numeric(14,2) as the table is so the union keeps the view's types, because
 -- nothing was read, and the Commission's figures stand in commission_donations, commission_expenses and
 -- commission_loans, the headline columns. It cites the spreadsheet: `document` is its hash, `place` its tab and row,
 -- `sheet` and `sheet_row` the same apart. Its key is the Commission row's own (<spreadsheet sha256>/<row>), never a
@@ -30,8 +30,8 @@ UNION ALL
 SELECT c.key, c.file, NULL::integer, concat_ws(', ', 'sheet ' || nullif(c.sheet, ''), 'row ' || split_part(c.key, '/', 2)),
        c.year, c.surname, c.given_names, c.electorate, c.party,
        'current', NULL, 'spreadsheet row',
-       NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric, NULL,
-       NULL::numeric, NULL::numeric, NULL::numeric, NULL, NULL::numeric, NULL, NULL,
+       NULL::numeric(14,2), NULL::numeric(14,2), NULL::numeric(14,2), NULL::numeric(14,2), NULL,
+       NULL::numeric(14,2), NULL::numeric(14,2), NULL::numeric(14,2), NULL, NULL::numeric(14,2), NULL, NULL,
        c.donations, c.expenses, c.loans,
        c.file, c.key,
        'commission', 'registers.candidate_returns.commission.spreadsheet_rows', 'ec-candidate-returns-summary',
