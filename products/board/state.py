@@ -36,11 +36,12 @@ def pin(view: str, key: str, title: str, note: str = "") -> int:
     return pin_id
 
 
-def save_path(name: str, query: str, path: list) -> int:
+def save_path(name: str, query: str, path: list, boxes: str = "") -> int:
+    """A path saved, with `boxes`, the check boxes of its address as a query string (ruling 119: a fold by hand rides it)."""
     _, schema = db.state_target()
     with db.state_connect() as conn:
-        cur = conn.execute(f"insert into {schema}.paths (name, query, path) values (%s, %s, %s) returning path_id",
-                           (name[:200] or "(unnamed)", query[:500], "\n".join(path)))
+        cur = conn.execute(f"insert into {schema}.paths (name, query, path, boxes) values (%s, %s, %s, %s) returning path_id",
+                           (name[:200] or "(unnamed)", query[:500], "\n".join(path), boxes[:16000]))
         path_id = cur.fetchone()[0]
         conn.commit()
     return path_id

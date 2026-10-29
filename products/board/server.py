@@ -462,7 +462,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return
             if url.path == "/save":
                 if path:
-                    state.save_path(get("name").strip(), q, path)
+                    state.save_path(get("name").strip(), q, path, urllib.parse.urlencode(boxes.params()))     # ruling 119
                     self.redirect(panes.href(q, path, boxes) + "&m=path+saved")
                     return
             self.send_html("<p>nothing to do</p>", 400)

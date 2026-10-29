@@ -18,7 +18,7 @@ from products.board import catalogue as cat
 from products.board import document
 from products.board.search import COLLAPSE, FIELD_LABEL, FIELDS, HAND_FORM, MODES, TABS, TICKED, field_words, words_of
 from products.board.search import add_alternative as search_add, drop_alternative as search_drop
-from products.board.search import FIRST as FIRST_BOXES, TABLE_MAX as TABLE_MAX_N, TABLE_PAGE as TABLE_PAGE_N
+from products.board.search import boxes_of, FIRST as FIRST_BOXES, TABLE_MAX as TABLE_MAX_N, TABLE_PAGE as TABLE_PAGE_N
 
 SUPPRESSED = "name suppressed"
 NOTHING_TICKED = "tick a register, or search all"     # "search all" off and no register ticked: nothing is searched (ruling 81)
@@ -1652,7 +1652,8 @@ def paths_pane(paths: list) -> str:
     out.append("<ul>")
     for p in paths:
         steps = [s for s in (p.get("path") or "").split("\n") if s]
-        out.append(f'<li><a class="row" href="{esc(href(p.get("query") or "", steps))}">{esc(p["name"])}</a> '
+        boxes = boxes_of(urllib.parse.parse_qs(p["boxes"])) if p.get("boxes") else None     # ruling 119: the folds it was seen under
+        out.append(f'<li><a class="row" href="{esc(href(p.get("query") or "", steps, boxes))}">{esc(p["name"])}</a> '
                    f'<span class="meta">{len(steps)} panes from “{esc(p.get("query"))}”, {fmt(p.get("made_at"))}</span></li>')
     out.append("</ul></section>")
     return "\n".join(out)

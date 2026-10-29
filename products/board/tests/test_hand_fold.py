@@ -212,3 +212,18 @@ def test_the_graph_draws_the_fold_by_hand_as_one_node_with_the_same_words():
     persons = ("shareholders:companies/c9/shareholder/9", people.entity_id(GROUP))
     assert collapse.fold_graph(None, g, (), rows, (persons,)) is g                   # a person node is never folded by hand
     assert all(s.lstrip().lower().startswith("select") for s in SAID)
+
+
+def test_a_saved_path_keeps_the_fold_and_one_saved_before_opens_as_it_did():
+    from products.board import state
+    boxes = search.FIRST._replace(hand=(FOLD,))
+    saved = urllib.parse.urlencode(boxes.params())
+    page = panes.paths_pane([{"name": "rank", "query": "Rank Group", "path": "companies:companies/1", "made_at": None, "boxes": saved},
+                             {"name": "old", "query": "doe", "path": "directors:k", "made_at": None}])
+    rank_href, old_href = (unescape(h) for h in re.findall(r'<a class="row" href="([^"]*)">', page))
+    assert search.boxes_of(urllib.parse.parse_qs(urllib.parse.urlsplit(rank_href).query)).hand == (FOLD,)
+    assert old_href == "/?q=doe&p=directors%3Ak"                                      # a path saved before: no boxes, as it was
+    sql = state.tables_sql("board")
+    assert "ADD COLUMN IF NOT EXISTS boxes text NOT NULL DEFAULT ''" in sql
+    statements = re.sub(r"--[^\n]*", "", sql)
+    assert not re.search(r"\b(delete|update|drop)\b", statements, re.I)                # only ever added to

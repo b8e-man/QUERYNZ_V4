@@ -1,0 +1,5 @@
+A fold the reader makes over the results must bring its own members into the graph: the graph draws its first 16 matched rows, not the results' list, so a fold tested only on fixtures folds nothing live.
+area: board, graph, collapse, results pane
+paid-for-by: board-14, 29 October 2026
+
+Why: ruling 119. The fold by hand passed every fixture test, the results pane folded the Rank Group search live, and the graph beside it drew no fold: `graph.build` keeps `MAX_MATCHED` (16) rows of the search, and for "Rank Group" all sixteen were the group's donor rows, so the five holder rows and the Commerce Commission party were never nodes. The fix draws the fold's members whatever the cut (`graph.fold_rows`): every fold on the search's graph, and on a centred graph the folds naming the centre, so the folded entry's click opens the fold. A live test that asserts the fold node's members (`test_real.py`) caught it; a test asserting only "some fold node exists" would have too, and one on fixtures could not.
