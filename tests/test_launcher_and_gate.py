@@ -188,3 +188,21 @@ def test_gate_runs_the_slow_tests_of_the_touched_modules_and_their_readers_only(
     log = open(os.path.join(work, "gate", "inner.log")).read()
     assert "--- fast tier, whole repository ---" in log and "--- slow tests: registers/a ---" in log
 
+
+
+def test_gate_runs_as_the_integrator_when_the_checkout_carries_that_scope(toy):
+    """30 October 2026: a support merge was refused after 27 minutes because the gate passed the shell's
+    environment unmarked, and support.db's live guard refuses the owner login to an unmarked session. The gate
+    is the integrator's step: it sets QV4_INTEGRATOR=1 itself when the checkout running it has an integrator
+    or founding scope, and nothing when a build copy runs it."""
+    repo, env = toy["repo"], toy["env"]
+    env = {**env, "QV4_INTEGRATOR": ""}
+    _branch_with_test(toy, "marked", "import os\n\ndef test_marked():\n    assert os.environ.get('QV4_INTEGRATOR') == '1'\n")
+    with open(os.path.join(repo, ".scope"), "w") as f:
+        f.write("name: t\nweight: build\nscratch: /tmp/x\nfolders:\n  support/\n")
+    p = sh([sys.executable, "bin/merge-gate", "marked", "--no-merge"], repo, env, check=False)
+    assert p.returncode == 1 and p.stdout.startswith("REFUSED marked"), "a build copy's gate carries no mark"
+    with open(os.path.join(repo, ".scope"), "w") as f:
+        f.write("name: integrator\nweight: integrator\nscratch: /tmp/x\nfolders:\n  .\n")
+    p = sh([sys.executable, "bin/merge-gate", "marked", "--no-merge"], repo, env, check=False)
+    assert p.returncode == 0 and p.stdout.startswith("GREEN marked"), p.stdout + p.stderr

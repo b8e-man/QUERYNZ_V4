@@ -26,6 +26,9 @@ import shutil
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _session import read_scope  # noqa: E402
+
 WORK = os.environ.get("QV4_WORK") or "/home/user/querynzv4-work"
 ROOTS = ("keys", "support", "registers", "links", "products", "checks")
 #: a change here runs every slow test: everything imports or runs through these
@@ -95,7 +98,19 @@ def load_touched(repo: str, branch: str, gate_dir: str):
     if not os.path.exists(py) or not os.path.exists(os.path.join(cred_dir, "v4.env")) or os.environ.get("QV4_NO_DB"):
         return None
     return subprocess.run([py, "-m", "support.staging", branch], cwd=gate_dir, capture_output=True, text=True,
-                          env={**os.environ, "CLAUDE_PROJECT_DIR": gate_dir})
+                          env={**os.environ, "CLAUDE_PROJECT_DIR": gate_dir, **gate_mark(repo)})
+
+
+def gate_mark(repo: str) -> dict:
+    """The integrator's mark for the gate's own runs (support.db's live
+    guard refuses the owner login to an unmarked session; a product's live
+    test writes its state on it): set when the checkout running the gate
+    carries an integrator or founding scope, else nothing. The gate is the
+    integrator's step, so its tests run as the integrator, not as the
+    session that typed the command (30 October 2026: a support merge was
+    refused after 27 minutes for want of the mark)."""
+    weight = (read_scope(os.path.join(repo, ".scope")) or {}).get("weight", "")
+    return {"QV4_INTEGRATOR": "1"} if weight in ("integrator", "founding") else {}
 
 
 def main() -> int:
@@ -127,7 +142,7 @@ def main() -> int:
     git(repo, "worktree", "add", "--detach", gate_dir, branch)
     staging = None
     try:
-        env = {**os.environ, "CLAUDE_PROJECT_DIR": gate_dir}
+        env = {**os.environ, "CLAUDE_PROJECT_DIR": gate_dir, **gate_mark(repo)}
         py = python_for(repo)
         p = subprocess.run([py, "-m", "pytest", "-p", "no:cacheprovider", "-q", "-m", "not slow"],
                            cwd=gate_dir, capture_output=True, text=True, env=env)

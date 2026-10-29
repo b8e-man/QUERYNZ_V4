@@ -29,7 +29,7 @@ min_queue_to_evict = 8        # rule 5's floor until the profile's load time is 
 max_wait_seconds = 1800       # rule 6: a small job gets its card after 30 minutes regardless
 piece_seconds = 300           # rule 7: a piece is a few minutes
 due_horizon_seconds = 7200    # rule 8: a due job goes ahead of bulk work this close to its time
-memory_reserve_gb = 24        # step 2.5: kept for the database and the standing services
+memory_reserve_gb = 40        # step 2.5: kept for the database and the standing services (Flash-Next's host pool holds 31 GB of it, ruling 121, 30 October)
 lease_seconds = 90            # step 2.8: a running job renews its lease well inside this
 policy = "priority-ordered-round-robin"
 
@@ -1135,7 +1135,7 @@ nice = 10
 [jobs.qv4-mcp-rewalk]
 description = "Weekly: walk every corpus again from 0 to its cursor, landing records the MCP changed in place with their stamp unmoved (its change feed cannot show them). Resumes where the last stopped; also the fix when the pull reports the MCP counting fewer records than taken (ruling 96). The catalogue has no weekday, so every seven days from its first run."
 needs = "processor"
-memory_gb = 0.3
+memory_gb = 1.0   # declared 0.3, killed at 622 MB on 29 October: the walk holds every corpus's page list
 deadline_s = 14400
 query_timeout_s = 60
 class = "whenever"
@@ -1190,4 +1190,16 @@ class = "due"
 priority = 88
 command = ["python", "-m", "registers.parliament.load"]
 at_utc = "15:30"
+nice = 10
+
+[jobs.qv4-candidate-returns-load]
+description = "Candidate returns (step 4.1): rebuild the lane's tables from the held files by hash and the stored readings, publish pub.candidate_return_totals (read returns, then the Commission's spreadsheet rows where none is read, candidate-returns-3) and pub.candidate_return_donors; fetches nothing, calls no model; raises when the catch log does not reconcile. Nightly at 02:40 NZDT, before the site build (lane spec)."
+needs = "processor"
+memory_gb = 1.0
+deadline_s = 1800
+query_timeout_s = 600
+class = "due"
+priority = 102
+command = ["python", "-m", "registers.candidate_returns.load"]
+at_utc = "13:40"
 nice = 10
