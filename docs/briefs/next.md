@@ -518,8 +518,7 @@ for later, one command.
 
 ## board-14
 
-Launched headless by the integrator on 29 October at 15:56 (copy `board-14`,
-branch `session/board-14`, from e58a404 with fix-products-board-6 in).
+MERGED 29 October 16:42 (b9c06a5; record in docs/merges/board-14.md).
 
 Build session, Opus, scope `products/board/`, after board-13 merges.
 Ruling 119: a fold by hand for organisations. Launched headless by the

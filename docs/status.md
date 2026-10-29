@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-29, 15:55 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-29, 16:45 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
@@ -28,19 +28,18 @@ model reading till it returns. **Alarms:** the old ntfy address.
 
 - 29 October: readers mended; fix-links-5, fix-products-board-5,
   `board-13` (117) merged by 13:00; `fix-products-board-6` (118, 120;
-  the graph is entities only) merged 15:53, board restarted. `board-14`
-  (119, a fold by hand) launched headless 15:54 as Opus. Pinned to 30
+  the graph is entities only) merged 15:53; `board-14` (119, a fold by
+  hand) merged 16:42; board restarted; inbox empty. Pinned to 30
   October: an entities view; the donor rule on organisations; same-name
-  bodies.
+  bodies. Courts: 87 landed judgments wait on a load job.
 - Arthur's Qwen3.8-Flash-Next experiment resumed 15:00 (his word):
   Radiance on both cards, port 8060; the carve-out servers and the worker
   stopped by the holder unit; restore at 05:30. Found: ~650 tok/s
   pooled at 16 slots, prefill caps near 10k tok/s (compute), host RAM
   cut 91 to 24 GB; results in the integrator's scratch.
-- Card: the overclocking test (six reboots 07:36 to 09:11) gave the
-  database bad reads. querynz_v4's six hit tables re-read clean after the
-  cold boot; the old estate's seven relations are unverified (his scrub).
-- Nightly full tier red at 05:02 before the day's merges.
+- Card: the overclocking test's reboots gave the database bad reads;
+  querynz_v4's six hit tables re-read clean after the cold boot; the old
+  estate's seven relations are unverified (his scrub).
 
 ## Half-done
 
