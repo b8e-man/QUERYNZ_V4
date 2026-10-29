@@ -568,6 +568,8 @@ for later, one command.
 
 ## site-4
 
+MERGED 30 October 09:30 (8e8321a; record in docs/merges/site-4.md).
+
 Build session, Opus, scope `products/published_site/`. Step 4.5: two causes
 the template owns, now that candidate-returns-3 is merged: a Commission
 spreadsheet row's citation and evidence text (never "donations $0.00" from

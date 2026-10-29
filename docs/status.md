@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-29, 19:55 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-30, 10:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
@@ -16,40 +16,40 @@ model reading till it returns. **Alarms:** the old ntfy address.
 - Steps 0 to 3 closed (ruling 60); 1.4's positive half seen (70).
 - 4.1, fifteen lanes merged: donations (ruling 66), parties, party
   finance, gazette (207,133 notices), house, companies (1.92 M), expenses
-  and interests, societies, candidate returns, charities (46,131; ruling
-  64), party boards (72: not on the site), OpenLaw (HELD), courts (148).
+  and interests, societies, candidate returns (413 read returns and 675
+  Commission rows), charities (46,131; ruling 64), party boards (72: not
+  on the site), OpenLaw (HELD), courts (148).
 - 4.2/4.3 links: 3.07 M confirmed, 725 K groups (fix-links-5, 29 Oct);
   the agent scores and applies nothing (ruling 69). 4.4 site version 3.
-  4.9 board 87 views. 5.1 the report shape, tranche 3.
+  4.9 board 87 views, chat pane (122). 5.1 the report shape, tranche 3.
 - Rulings 64 to 122 (102: limit 15 binds products, not the board).
 - Track B: restore rehearsal equal. Merges: `docs/merges/`.
 
 ## Running (headless, from the integrator)
 
-- 29 October: fix-links-5, fix-products-board-5, `board-13` (117),
-  `fix-products-board-6` (118, 120), `board-14` (119) merged by 16:42;
-  board restarted; inbox empty. Pinned to 30
-  October: entities view; donor rule; same-name bodies. Courts: 87
-  judgments wait on a load job.
-- Ruling 121 (17:15): Flash-Next on Radiance replaces Qwen3.6 on node2;
-  the frozen chat model leaves the carve-out (Arthur disables it). Radiance
-  holds both cards (port 8060, 2.5 GB left each for the frozen OCR); OCR
-  and worker back 17:17; restore cancelled. By hand till `flash-next-1`
-  builds its unit: a reboot loses it. Results in the integrator's scratch.
-- Card: the overclock reboots gave the database bad reads; querynz_v4
-  re-read clean; the old estate's seven relations wait on his scrub.
-- Ruling 122 (18:45): a right-hand chat pane on the board, Flash-Next
-  through the model client, tools over the board's own search.
-  `board-15` merged 19:21; unit installed, board restarted; live.
+- 30 October: `flash-next-1` 08:16 (Flash-Next on Radiance under a unit,
+  ruling 121), `candidate-returns-3` 08:58 (the Commission's spreadsheet
+  rows published where no return is read), `site-4` 09:30 (a Commission
+  row's citation; the filed party label), the support follow-up 09:58
+  (the gate marks itself; `qv4-candidate-returns-load` nightly 02:40;
+  memory reserve 40 GB; rewalk 1 GB). Released; inbox empty.
+- MCP lanes green: the pull and the four loads nightly since 29 October;
+  the rewalk ran 3 h on 29 October after two memory failures. The MCP
+  lists a twelfth corpus, `courts` (4,688): queue item, no lane reads it.
+- Board work pinned to 30 October (an entities view from the links lane;
+  the donor name rule on organisation rows; same-name bodies, ruling
+  119): measured proposals next, under ruling 106. Courts: 87 judgments
+  wait on a load job.
 
 ## Half-done
 
 - 4.5: the comparison has run daily since 22 October; 0 uncarded every
-  day but 23 October. No day is clean: 7,216 differences under 17 causes
-  where the new side is wrong (candidate returns not held 5,133, Part A
-  rows 939, ...). 29 October's build passed with `--allow-drop`: the links
-  rebuild folded 33 "Surname, First" and "Limited" donor pages into their
-  other forms ($1.63 M moved). The switch after 7 November.
-- Waits on Arthur: letters (Dunedin, TPK, Police); rulings
-  69, 75; sample-schema drops; near links between group ids (queue).
-  node1's return: fence first (10.0.0.1, never the VIP), ruling 57, 94.
+  day but 23 October. 30 October (built 08:00, before the day's merges):
+  29,186 differences, 7,216 where the new side is wrong (candidate
+  returns not held 5,133, Part A rows 939, ...). site-4's own measure
+  with both merges: 28,497 and 5,153; 31 October's run is the first to
+  carry them. The switch after 7 November.
+- Waits on Arthur: letters (Dunedin, TPK, Police); rulings 69, 75;
+  model reading on node2 alone (queue); sample-schema drops; near links
+  between group ids; the courts corpus (queue). node1's return: fence
+  first (10.0.0.1, never the VIP), ruling 57, 94.
