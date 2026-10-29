@@ -62,8 +62,29 @@ DOSSIER_ROWS = 40           # rows the dossier tool lists
 TEXT_CHARS = 1200           # a long text column, cut, in the row tool
 ANSWER_TOKENS = 1500
 CHILD_ROWS = 25             # rows of each join (a company's directors, its shareholders) the row tool lists
+PROMPT_CHARS = 22000        # the messages' size past which the next round is the last: JSON of keys reads at ~2.6 chars a token (measured), the model holds 16,384
 ANSWER_NOW = ("No more lookups: answer now from the tool results above, in the style the system message asks, "
               "citing rows as [view:key]. Write prose, not a tool call.")
+RESULT_OF = "Result of "
+
+
+def text_call(text: str):
+    """(tool name, arguments) when the model wrote a tool call as text in
+    Radiance's template shape (<tool_call><function=name><parameter=k>v
+    </parameter>...), which Flash-Next does at the round with no tool
+    offered; else None."""
+    m = re.search(r"<function=(\w+)>(.*?)(</function>|\Z)", text, re.S)
+    if not m or m.group(1) not in CALLS:
+        return None
+    args = {}
+    for k, v in re.findall(r"<parameter=(\w+)>\s*(.*?)\s*</parameter>", m.group(2), re.S):
+        try:
+            args[k] = json.loads(v)
+        except ValueError:
+            args[k] = v
+    return m.group(1), args
+
+
 #: a column whose name says it holds an address: read only where catalogue.ADDRESS_COLUMNS lists it
 ADDRESS_NAME = re.compile(r"address|residential|street|suburb|postal", re.I)
 WITHHELD_ADDRESS = "not passed to the chat: the lane's shape check says it names an address"
@@ -177,16 +198,15 @@ def tool_registers(conn) -> dict:
         if _COUNTS["answer"] is not None and time.monotonic() - _COUNTS["at"] < COUNTS_S:
             return _COUNTS["answer"]
         held = db.pub_views(conn)
-        out = []
+        out, not_held = {}, []                     # compact: {register: {view: rows}}; the model reads it whole
         for register, words in cat.REGISTERS:
             views = [v for v in cat.views_of(register) if v.name in held]
             if not views:
-                out.append({"register": register, "name": words, "held": False})
+                not_held.append(register)
                 continue
-            out.append({"register": register, "name": words, "held": True,
-                        "views": [{"view": v.name, "kind": v.kind,
-                                   "rows": int(db.rows(conn, f"select count(*) as n from pub.{v.name}")[0]["n"])} for v in views]})
-        _COUNTS.update(at=time.monotonic(), answer={"registers": out})
+            out[register] = {v.name: int(db.rows(conn, f"select count(*) as n from pub.{v.name}")[0]["n"]) for v in views}
+        _COUNTS.update(at=time.monotonic(), answer={"registers": out, "not_held": not_held,
+                                                     "note": "search takes register names; a view's rows are cited view:key"})
         return _COUNTS["answer"]
 
 
@@ -195,7 +215,8 @@ def tool_search(conn, term: str = "", registers=None, **fields) -> dict:
     held = db.pub_views(conn)
     regs = search.held_registers(held)
     if registers:
-        regs = [r for r in regs if r in set(registers)]
+        asked_regs = {cat.BY_NAME[x].register if x in cat.BY_NAME else x for x in registers}    # a view's name stands for its register
+        regs = [r for r in regs if r in asked_regs]
     asked = {f: " ".join(str(fields.get(f) or "").split())[:search.FIELD_MAX] for f, _ in search.FIELDS if fields.get(f)}
     if not regs:
         return {"error": "no register of that name is held; call registers for the names"}
@@ -324,7 +345,33 @@ def call_tool(conn, name: str, arguments) -> str:
     except Exception as exc:  # noqa: BLE001 — said to the model, which may try again
         out = {"error": f"the tool failed: {type(exc).__name__}"}
     s = json.dumps(plain(out), ensure_ascii=False, separators=(",", ":"))
+    if len(s) > RESULT_CHARS and isinstance(out, dict) and out.get("by_register"):
+        out, s = shrink_search(plain(out))
     return s if len(s) <= RESULT_CHARS else s[:RESULT_CHARS] + '…"(cut: ask a narrower question or open one row)"'
+
+
+def shrink_search(out: dict) -> tuple:
+    """A search answer made to fit RESULT_CHARS whole: the entity groups
+    first (they are the answer most often), then each view's rows halved
+    until the JSON fits, `shown` saying how many of `rows_matching` are
+    listed. A cut mid-JSON left the model with broken results, and it
+    searched again and again (30 October)."""
+    order = ["term", "fields", "entity_groups", "entity_groups_more", "by_register", "note"]
+    out = {k: out[k] for k in order if k in out} | {k: x for k, x in out.items() if k not in order}
+    s = json.dumps(out, ensure_ascii=False, separators=(",", ":"))
+    while len(s) > RESULT_CHARS:
+        shrunk = False
+        for views in out["by_register"].values():
+            for v in views:
+                rows = v.get("rows") or []
+                if len(rows) > 1:
+                    v["rows"] = rows[:max(1, len(rows) // 2)]
+                    v["shown"] = len(v["rows"])
+                    shrunk = True
+        if not shrunk:
+            break
+        s = json.dumps(out, ensure_ascii=False, separators=(",", ":"))
+    return out, s
 
 
 LOCK = threading.Lock()     # the server's RENDER_LOCK, set by server.py: one page or tool at a time on the connections
@@ -367,7 +414,7 @@ def ask(thread: list, connect=None, url: str = None, model: str = None, post=Non
     conn = None
     try:
         for i in range(ROUNDS):
-            last = i == ROUNDS - 1
+            last = i == ROUNDS - 1 or sum(len(str(m.get("content") or "")) for m in messages) > PROMPT_CHARS
             extra = {"tools": TOOLS, "max_tokens": ANSWER_TOKENS, "temperature": 0.2}
             if last:                               # no tool offered and told so: with tools offered and refused the model wrote a raw tool call as its answer
                 del extra["tools"]
@@ -382,8 +429,25 @@ def ask(thread: list, connect=None, url: str = None, model: str = None, post=Non
             msg = ((out.get("choices") or [{}])[0].get("message")) or {}
             calls = msg.get("tool_calls") or []
             if not calls or last:
-                text = (msg.get("content") or "").strip()
-                text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
+                text = re.sub(r"<think>.*?</think>", "", (msg.get("content") or ""), flags=re.S).strip()
+                written = text_call(text)
+                if written and not messages[-1].get("content", "").startswith(RESULT_OF):   # once: the call it wrote is run, then it answers
+                    name, args = written
+                    used.append(name)
+                    if conn is None:
+                        conn = (connect or db.scan_connect)()
+                    messages.append({"role": "assistant", "content": text})
+                    messages.append({"role": "user", "content": f"{RESULT_OF}{name}: {call_tool(conn, name, args)}\n\n{ANSWER_NOW}"})
+                    extra.pop("tools", None)
+                    try:
+                        out = modelclient.chat(url, lane=LANE, model=model, messages=messages, extra=extra, timeout=CALL_S,
+                                               post=post, ledger=ledger)
+                    except Exception as exc:  # noqa: BLE001
+                        if down(exc):
+                            return {"ok": False, "answer": NOT_RUNNING, "rounds": i + 1, "tools": used, "seconds": round(time.monotonic() - t0, 1)}
+                        raise
+                    msg = ((out.get("choices") or [{}])[0].get("message")) or {}
+                    text = re.sub(r"<think>.*?</think>", "", (msg.get("content") or ""), flags=re.S).strip()
                 text = re.sub(r"<tool_call>.*?(</tool_call>|\Z)", "", text, flags=re.S).strip()   # a tool call written as text is not an answer
                 return {"ok": True, "answer": text or "(the model gave no answer)", "rounds": i + 1, "tools": used,
                         "seconds": round(time.monotonic() - t0, 1)}

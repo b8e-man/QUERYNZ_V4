@@ -115,8 +115,20 @@ def test_at_most_six_rounds_the_last_asked_to_answer(tmp_path, monkeypatch):
     assert bodies[-1]["messages"][-1] == {"role": "system", "content": chat.ANSWER_NOW}
 
 
-def test_a_tool_call_written_as_text_is_not_an_answer(tmp_path):
-    post = lambda url, body, timeout: reply("<tool_call>\n<function=row>\n<parameter=ref>x</parameter>\n</function>\n</tool_call>")
+def test_a_tool_call_written_as_text_is_run_once_then_the_model_answers(tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.setitem(chat.CALLS, "row", lambda conn, ref="": seen.append(ref) or {"ref": ref, "title": "A ROW"})
+    written = "<tool_call>\n<function=row>\n<parameter=ref>\ncompanies:1\n</parameter>\n</function>\n</tool_call>"
+    answers = iter([reply(written), reply("A row [companies:1].")])
+    bodies = []
+    post = lambda url, body, timeout: bodies.append(body) or next(answers)
+    got = chat.ask([{"role": "user", "content": "q"}], connect=Conn, url="http://127.0.0.1:9/x", model="m", post=post,
+                   ledger=str(tmp_path / "l"))
+    assert got["answer"] == "A row [companies:1]." and seen == ["companies:1"] and got["tools"] == ["row"]
+    assert "tools" not in bodies[1] and bodies[1]["messages"][-1]["content"].startswith("Result of row: ")
+    assert chat.text_call("<function=search><parameter=registers>[\"a\"]</parameter><parameter=term>x</parameter></function>") == ("search", {"registers": ["a"], "term": "x"})
+    assert chat.text_call("plain words") is None
+    answers = iter([reply(written), reply(written)])              # written twice: once run, then it is no answer
     got = chat.ask([{"role": "user", "content": "q"}], connect=Conn, url="http://127.0.0.1:9/x", model="m", post=post,
                    ledger=str(tmp_path / "l"))
     assert got["answer"] == "(the model gave no answer)"
@@ -186,3 +198,27 @@ def test_post_chat_answers_200_with_the_not_running_line_and_logs_no_question(mo
     err = capsys.readouterr().err
     assert "POST /chat" in err and "Zebedee" not in err
     assert "Zebedee" not in (tmp_path / "ledger.jsonl").read_text()
+
+
+def test_a_long_search_answer_is_shrunk_by_rows_and_stays_whole_json():
+    rows = [{"ref": f"companies:{i}", "title": "A COMPANY WITH A LONG NAME LIMITED " * 3} for i in range(60)]
+    out = {"term": "x", "fields": {}, "by_register": {"companies": [{"view": "companies", "rows_matching": 60, "shown": 60, "rows": rows}]},
+           "entity_groups": [{"id": "entity:1", "name": "A Company"}], "entity_groups_more": 0, "note": "n"}
+    shrunk, s = chat.shrink_search(out)
+    got = json.loads(s)                                   # whole JSON, never cut mid-way
+    assert len(s) <= chat.RESULT_CHARS and list(got)[:3] == ["term", "fields", "entity_groups"]
+    v = got["by_register"]["companies"][0]
+    assert v["rows_matching"] == 60 and v["shown"] == len(v["rows"]) < 60
+
+
+def test_the_loop_ends_early_when_the_prompt_is_large(tmp_path, monkeypatch):
+    big = "x" * (chat.PROMPT_CHARS // 2)
+    monkeypatch.setitem(chat.CALLS, "registers", lambda conn: {"registers": big})
+    bodies = []
+
+    def post(url, body, timeout):
+        bodies.append(body)
+        return reply("done") if "tools" not in body else reply(calls=[("registers", {})])
+    got = chat.ask([{"role": "user", "content": "q"}], connect=Conn, url="http://127.0.0.1:9/x", model="m", post=post,
+                   ledger=str(tmp_path / "l"))
+    assert got["answer"] == "done" and len(bodies) < chat.ROUNDS and "tools" not in bodies[-1]
