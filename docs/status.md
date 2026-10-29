@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-29, 17:20 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-29, 18:55 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
@@ -21,25 +21,26 @@ model reading till it returns. **Alarms:** the old ntfy address.
 - 4.2/4.3 links: 3.07 M confirmed, 725 K groups (fix-links-5, 29 Oct);
   the agent scores and applies nothing (ruling 69). 4.4 site version 3.
   4.9 board 87 views. 5.1 the report shape, tranche 3.
-- Rulings 64 to 120 (102: limit 15 binds products, not the board).
+- Rulings 64 to 122 (102: limit 15 binds products, not the board).
 - Track B: restore rehearsal equal, 25 October. Merges: `docs/merges/`.
 
 ## Running (headless, from the integrator)
 
-- 29 October: readers mended; fix-links-5, fix-products-board-5,
-  `board-13` (117) merged by 13:00; `fix-products-board-6` (118, 120;
-  the graph is entities only) merged 15:53; `board-14` (119, a fold by
-  hand) merged 16:42; board restarted; inbox empty. Pinned to 30
-  October: an entities view; the donor rule on organisations; same-name
-  bodies. Courts: 87 landed judgments wait on a load job.
+- 29 October: fix-links-5, fix-products-board-5, `board-13` (117),
+  `fix-products-board-6` (118, 120), `board-14` (119) merged by 16:42;
+  board restarted; inbox empty. Pinned to 30
+  October: entities view; donor rule; same-name bodies. Courts: 87
+  judgments wait on a load job.
 - Ruling 121 (17:15): Flash-Next on Radiance replaces Qwen3.6 on node2;
   the frozen chat model leaves the carve-out (Arthur disables it). Radiance
   holds both cards (port 8060, 2.5 GB left each for the frozen OCR); OCR
   and worker back 17:17; restore cancelled. By hand till `flash-next-1`
   builds its unit: a reboot loses it. Results in the integrator's scratch.
-- Card: the overclocking test's reboots gave the database bad reads;
-  querynz_v4's six hit tables re-read clean after the cold boot; the old
-  estate's seven relations are unverified (his scrub).
+- Card: the overclock reboots gave the database bad reads; querynz_v4
+  re-read clean; the old estate's seven relations wait on his scrub.
+- Ruling 122 (18:45): a right-hand chat pane on the board, Flash-Next
+  through the model client, tools over the board's own search.
+  `board-15` launched headless 18:55.
 
 ## Half-done
 
