@@ -224,7 +224,40 @@ def test_write_shape_out_of_scope_refused_in_scope_allowed(fake_repo, shape):
 
 
 UNRESOLVABLE_SHAPES = ["patch -p1 < fix.diff", "git stash pop", "git stash apply", "git clean -fd",
-                       "git reset --hard HEAD~1", "git apply fix.diff", "git am mbox"]
+                       "git reset --hard HEAD~1", "git apply fix.diff", "git am mbox"]      # fix.diff does not exist
+
+
+def _diff(*files) -> str:
+    """A unified diff in the session's scratch folder writing `files` (a/ b/ prefixed)."""
+    os.makedirs("/tmp/qv4-test-scratch", exist_ok=True)
+    path = os.path.join("/tmp/qv4-test-scratch", "fix.diff")
+    with open(path, "w") as f:
+        for p in files:
+            f.write(f"--- a/{p}\n+++ b/{p}\n@@ -0,0 +1 @@\n+x\n")
+    return path
+
+
+READABLE_DIFFS = [
+    # shape, an in-scope file, an out-of-scope file (both as the diff names them)
+    ("patch -p1 < {d}", "support/scheduler/x.py", "registers/gazette/x.py"),
+    ("patch -p1 -i {d}", "support/scheduler/x.py", "registers/gazette/x.py"),
+    ("patch -i {d}", "support/scheduler/x.py", "registers/gazette/x.py"),      # strip 0: `a/` is kept, so a/… is refused as outside
+    ("git apply {d}", "support/scheduler/x.py", "registers/gazette/x.py"),
+    ("git apply --directory=support {d}", "scheduler/x.py", "../registers/gazette/x.py"),
+]
+
+
+@pytest.mark.parametrize("shape,inside,outside", READABLE_DIFFS)
+def test_a_readable_diff_is_read_for_the_files_it_writes(fake_repo, shape, inside, outside):
+    rc, err = run(fake_repo, bash(shape.format(d=_diff(inside))))
+    if shape == "patch -i {d}":
+        assert rc == 2 and "outside this session's scope" in err, shape
+    else:
+        assert rc == 0, f"in-scope diff refused: {shape!r} ({err})"
+    rc, err = run(fake_repo, bash(shape.format(d=_diff(inside, outside))))
+    assert rc == 2 and "outside this session's scope" in err, f"out-of-scope diff passed: {shape!r} ({err})"
+    rc, err = run(fake_repo, bash(shape.format(d="/tmp/qv4-test-scratch/none.diff")))
+    assert rc == 2 and "cannot see which files" in err, shape
 
 
 @pytest.mark.parametrize("shape", UNRESOLVABLE_SHAPES)

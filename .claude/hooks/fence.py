@@ -16,8 +16,9 @@ edit past it. What it sees:
   `perl -e`). A PYTHON BODY IS PARSED with `ast`: the paths that reach a write
   call are the targets, and a path it cannot resolve statically REFUSES.
   REFUSED OUTRIGHT: a target carrying an unexpanded `$VAR` or a backtick;
-  `patch` with no file; `git stash pop/apply`, `git clean`, `git reset
-  --hard`, `git apply`, `git am`, `git checkout .`.
+  `patch` or `git apply` whose diff cannot be read (a readable diff is
+  read for the files it writes); `git stash pop/apply`, `git clean`,
+  `git reset --hard`, `git am`, `git checkout .`.
   KNOWN LIMITS (not seen, by design): `bash script.sh` / `python script.py`;
   a path a non-python body builds at run time; `xargs` / `find -exec` /
   `find -delete` fan-out; `subprocess` inside a body; `COPY … TO 'file'`.
@@ -486,6 +487,51 @@ def _body_targets(body: str, root: str) -> list:
     return out
 
 
+
+DIFF_MAX_BYTES = 4 * 1024 * 1024
+
+
+def diff_targets(path: str, strip: int = 1, base: str = None) -> list:
+    """The files a unified diff at `path` writes: each `+++ b/<file>` (a
+    deleted file's `--- a/<file>`, a `rename to <file>`), `strip` leading
+    components dropped, resolved against `base`. [] when the file cannot
+    be read or names nothing, so the caller refuses as before. The hook
+    then sees a `patch` or `git apply` whole instead of refusing it."""
+    try:
+        if os.path.getsize(path) > DIFF_MAX_BYTES:
+            return []
+        with open(path, encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except OSError:
+        return []
+    out = []
+    for m in re.finditer(r"^(?:\+\+\+ |--- |rename to )(\S+)", text, re.M):
+        name = m.group(1)
+        if name.startswith("/dev/"):
+            continue
+        parts = name.split("/")
+        if strip and len(parts) > strip:
+            parts = parts[strip:]
+        elif strip:
+            parts = parts[-1:]
+        rel_ = "/".join(parts)
+        full = rel_ if os.path.isabs(rel_) else os.path.normpath(os.path.join(base or REPO, rel_))
+        if full not in out:
+            out.append(full)
+    return out
+
+
+def _strip_level(flags: list, default: int) -> int:
+    """`-pN`, `-p N` or `--strip=N` among `flags`, else `default`."""
+    for k, x in enumerate(flags):
+        m = re.match(r"^-p(\d+)$", x) or re.match(r"^--strip=(\d+)$", x)
+        if m:
+            return int(m.group(1))
+        if x in ("-p", "--strip") and k + 1 < len(flags) and flags[k + 1].isdigit():
+            return int(flags[k + 1])
+    return default
+
+
 def _resolve_against(t: str, cwd: str) -> str:
     if not t or t.startswith(UNRESOLVABLE) or t.startswith(("/", "~")):
         return t
@@ -622,7 +668,14 @@ def bash_targets(cmd: str, depth: int = 0, cwd: str = None, root: str = None) ->
             if args:
                 out.append(args[0])
             elif not outs:
-                out.append(UNRESOLVABLE + "patch (the files are inside the diff)")
+                opts = toks[start:i]
+                diff = next((toks[k + 1] for k in range(start, i - 1) if toks[k] in ("-i", "--input")), None)
+                if diff is None and i + 1 < len(toks) and toks[i] == "<" and not _is_op(toks[i + 1]):
+                    diff = toks[i + 1]                       # `patch -p1 < fix.diff`: the diff is the standard input
+                into = next((toks[k + 1] for k in range(start, i - 1) if toks[k] in ("-d", "--directory")), None)
+                base = _cd_to(here[0], into) if into else here[0]
+                found = diff_targets(_resolve_against(diff, here[0]), _strip_level(opts, 0), base) if diff and "$" not in diff else []
+                out.extend(found or [UNRESOLVABLE + "patch (the files are inside the diff, and the diff could not be read)"])
             continue
         if base == "sed":
             j = i + 1
@@ -708,7 +761,22 @@ def bash_targets(cmd: str, depth: int = 0, cwd: str = None, root: str = None) ->
             elif sub in ("mv", "rm"):
                 args, i, _ = _positional(toks, j + 1)
                 out.extend(args)
-            elif sub in ("stash", "clean", "apply", "am") or (sub == "reset" and "--hard" in toks[j:]):
+            elif sub == "apply":
+                start = j + 1
+                args, i, _ = _positional(toks, start, takes_arg=("--directory", "--exclude", "--include", "--build-fake-ancestor", "-p", "--whitespace"))
+                opts = toks[start:i]
+                into = next((x.split("=", 1)[1] for x in opts if x.startswith("--directory=")), None)
+                into = into or next((toks[k + 1] for k in range(start, i - 1) if toks[k] == "--directory"), None)
+                base = _cd_to(here[0], into) if into else here[0]
+                found = []
+                for a in args:
+                    got = [] if "$" in a else diff_targets(_resolve_against(a, here[0]), _strip_level(opts, 1), base)
+                    if not got:
+                        found = []
+                        break
+                    found.extend(got)
+                out.extend(found or [UNRESOLVABLE + "git apply (the files are inside the diff, and the diff could not be read)"])
+            elif sub in ("stash", "clean", "am") or (sub == "reset" and "--hard" in toks[j:]):
                 args, i, _ = _positional(toks, j + 1)
                 if sub != "stash" or (args and args[0] in ("pop", "apply")):
                     out.append(UNRESOLVABLE + f"git {sub} (the files it writes are not named in the command)")
