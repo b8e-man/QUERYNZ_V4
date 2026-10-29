@@ -28,3 +28,15 @@ candidate-money gate re-sums the Commission's figures by SQL. Measured against t
 fell to 7,077. What remains is the lane's coverage: the frozen site took the Commission's spreadsheet for every candidate (about 1,139 with figures
 across 2017, 2020 and 2023); the lane publishes read returns only (2020: 211, 2022: 3, 2023: 166) and holds no 2017. Still needs: the Commission's
 table rows published as rows where no return is read (or the returns read), and 2017 if the window keeps it. Owner: candidate-returns.
+
+Candidate-returns-3 (2026-10-30): the lane publishes the Commission's spreadsheet row where no return is read (675 rows: 2020 363, 2023 312;
+`read_from` 'commission', the Commission's figures in the `commission_*` headline columns, the return's own columns NULL, cited by the
+spreadsheet's hash, sheet and row). Measured against the frozen 2026-10-29T0616, base and branch built in scratch from the same listing: this
+cause 5,133 → 3,189 (electorate 776 → 3, electorates 206 → 2, home 627 → 311, person and party pages 1,570 → 919; donor 1,412 and pickers 542
+unchanged); rebuilt-side-wrong 7,216 → 5,280; total 29,186 → 28,619 (cite-key +675, one per new row; nil-return-is-a-zero +740, the
+Commission's NIL now $0.00 where the frozen left a blank). What remains: the donor pages, pickers and person pages' donations received wait
+on Part A from the scans' readings (ruling 79); the home page's party race totals carry 2017 and the frozen party labels (the window and the
+template's label grouping); Christchurch Central 2020 has two Webbs, which the template's surname join rightly refuses. Owner now: site.
+For the site: a row with `read_from` 'commission' wants its own citation label (the cite file says "EC candidate return (declaration)") and its
+evidence text writes "donations $0.00" from the empty return columns (`render.cites`, `r.get('donations') or 0`); it should state the
+Commission's figures, or none.
