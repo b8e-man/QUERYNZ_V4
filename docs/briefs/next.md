@@ -612,10 +612,57 @@ first full download run will cost in calls.
 
 ## courts-2
 
-Build session, Fable, scope `registers/courts/`. Ruling 127: the MCP's
-`courts` corpus is the lane's only source; its own capture is retired. Starts after
-`fix-support-mcpsource-2` merges and the first download run has landed the
-files. Brief to be filled in by the integrator then.
+Build session, Fable, scope `registers/courts/`. Rulings 126 to 128: the
+MCP's `courts` corpus is the lane's only source, its own capture is
+retired, every document kind is read, and the reading adds model-read
+fields. Starts after `fix-support-mcpsource-2` merges and the first
+download run has landed the files. Launched headless by the integrator, or
+on node2: `cd /home/user/querynzv4 && bin/start-session courts-2 registers/courts`.
+
+```text
+You are a build session for QueryNZV4, running as Fable on node2, in the
+working copy the launcher made for you, scope registers/courts/. Read
+docs/PLAN.md, docs/plan/core.md, registers/courts/spec.md, read.py,
+caption.py, suppress.py, pane.md, docs/status/courts.md,
+support/mcpsource/spec.md (the records and the files it lands), the
+reader contract support/docread, support/profiles, and rulings 126, 127
+and 128 (30 October) in docs/decisions/rulings.md. Build them. (1) The
+lane's only source is the MCP's courts corpus: its listing is the
+corpus's records in the document store (source query-nz, names
+courts/<id>), and its documents are the files the pull landed by hash
+under the record's url. Retire capture.py and the proposed job
+qv4-courts-capture; delete nothing from the store; a document the old
+listing holds that the corpus lacks is a line in the catch log, not a
+row. The case page carries the court, the case name and the dates the
+records lack: read it, and join it to its PDFs by case_slug. (2) Every
+kind is read under its own profile, recognised by shape before its
+reader is built (profiles before readers): judgment, hearing transcript,
+counsel's submission, media release, case page. Measure the recognition
+markers on the landed files and record the counts. (3) The reading of
+each document keeps the caption's deterministic fields (citation, court,
+registry, case numbers, date, judges, parties and roles, numbered
+paragraphs, outcome) and adds, read by the text-reader model
+(Flash-Next through support.modelclient, one reading per document,
+stamped with the model and version, stored by hash): every person and
+body the document names with the role the text gives each (party,
+counsel, witness, judge, company, agency), counsel for each party, and
+a one-line summary. Publish them as rows the links lane can read
+(pub.court_people or the like: name as filed, role, document, place),
+listed in pane.md; the deterministic fields stay as they are. A page
+with no text layer goes through the page reader (profile page-reader)
+as the disclosures lane does. (4) Suppression is unchanged: suppress.py
+and the ledger apply to every name the reading produces, model-read
+names included, on every document of a citation. Jobs: propose
+qv4-courts-load (deterministic, nightly after the pull) and
+qv4-courts-read (model-profile text-reader, class whenever, one piece
+per document without a stored reading) in spec.md; the integrator
+installs and queues them. Build in tranches, each with a test that
+fails on main; the lane's fast tier green; check.py counts every record
+of the corpus as a document read, a document waiting on a reader, or a
+catch-log line. No fetch of any court site. Never print a home address
+or a suppressed name. Push your branch, raise courts-2, update
+docs/status/courts.md.
+```
 
 ## links-5
 
