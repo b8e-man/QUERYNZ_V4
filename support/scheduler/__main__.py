@@ -10,7 +10,7 @@
   python -m support.scheduler report                the qv4-scheduler-report job
   python -m support.scheduler memory                the memory raises jobs.toml has not folded yet (ruling 115)
   python -m support.scheduler hold-profile          the standing job that keeps a profile on a card
-  python -m support.scheduler rehearse ...          the rehearsal jobs (sleep, burn memory)
+  python -m support.scheduler rehearse ...          the rehearsal jobs (sleep, burn memory; bench: pages at once)
   python -m support.scheduler reread-piece SHA      one document of a re-read (qv4-reread)
   python -m support.scheduler read-pages SHA --profile SLUG   every image page of one document (qv4-read-pages)
   python -m support.scheduler embed-piece SHA       one document of a bulk embedding (qv4-embed)
@@ -71,9 +71,13 @@ def main(argv=None) -> int:
     p.add_argument("--no-cards", action="store_true", help="do not manage this box's cards")
     sub.add_parser("hold-profile")
     p = sub.add_parser("rehearse")
-    p.add_argument("what", choices=("sleep", "burn", "fail", "model", "served", "page"))
+    p.add_argument("what", choices=("sleep", "burn", "fail", "model", "served", "page", "bench"))
     p.add_argument("--seconds", type=float, default=5.0)
     p.add_argument("--mb", type=int, default=50)
+    p.add_argument("--streams", type=int, default=8, help="bench: requests at once")
+    p.add_argument("--prompt-tokens", type=int, default=4000, help="bench: a page's size, in tokens")
+    p.add_argument("--answer-tokens", type=int, default=128, help="bench: the answer's budget")
+    p.add_argument("--out", help="bench: also write the result here")
     p.add_argument("key", nargs="?")
     p = sub.add_parser("reread-piece")
     p.add_argument("key", help="the document's sha256")
@@ -173,14 +177,28 @@ def main(argv=None) -> int:
             # one real call through the model client to the card the worker gave us;
             # the client refuses an answer from any model but the profile's
             from support import modelclient
+            # the profile's own request (QV4_MODEL_REQUEST: thinking off for the reader, on with a budget for
+            # review), so the rehearsal proves the call a lane on that profile makes
+            extra = {"temperature": 0.0, **json.loads(os.environ.get("QV4_MODEL_REQUEST") or "{}")}
+            extra["max_tokens"] = min(int(extra.get("max_tokens") or 300), 300) if "thinking_token_budget" not in extra \
+                else int(extra["thinking_token_budget"]) + 300
             out = modelclient.chat(os.environ["QV4_MODEL_URL"], lane="rehearsal", model=os.environ["QV4_MODEL"],
                                    messages=[{"role": "user", "content": "Reply with the single word READY."}],
-                                   extra={"temperature": 0.0, "max_tokens": 300}, timeout=300)
+                                   extra=extra, timeout=300)
             msg = out["choices"][0]["message"]
             content, thought = (msg.get("content") or "").strip(), (msg.get("reasoning_content") or "").strip()
             print(f"rehearsal: {out.get('model')} answered {len(content)} chars of content and {len(thought)} of reasoning "
                   f"on card {os.environ.get('QV4_CARD')} ({os.environ.get('QV4_PROFILE')})")
             return 0 if (content or thought) else 4
+        if a.what == "bench":
+            # page-sized requests at once through the model client, from what the worker set (ruling 121)
+            from support.scheduler import bench
+            res = bench.from_env(a.streams, a.prompt_tokens, a.answer_tokens, out_path=a.out)
+            print(f"bench: {res['streams']} streams, {res['answered']} answered, {res['wall_seconds']} s; "
+                  f"{res['prompt_tokens_a_second']} prompt and {res['completion_tokens_a_second']} completion tokens a second")
+            if not res["size_ok"]:
+                print(f"bench: the server counted {res['prompt_tokens_each']} prompt tokens for {a.prompt_tokens} asked")
+            return 0 if res["answered"] == res["streams"] and res["size_ok"] else 4
         if a.what == "served":
             # the profile is loaded and advertises the model the catalogue names (read back, never assumed)
             from support.scheduler import probe
