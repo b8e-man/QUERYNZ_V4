@@ -698,6 +698,9 @@ first full download run will cost in calls.
 
 ## courts-2
 
+LAUNCHED headless by the integrator, 30 October 17:10, after the first pull
+run (row 856, ended 17:04: 5,510 of 5,611 files landed, 88 held, 13 caught).
+
 Build session, Fable, scope `registers/courts/`. Rulings 126 to 128: the
 MCP's `courts` corpus is the lane's only source, its own capture is
 retired, every document kind is read, and the reading adds model-read
