@@ -23,6 +23,7 @@ PUBLISHED_AT_20_OCTOBER = {
     "sanctions_lists", "sanctions_listings",   # sanctions-1 (21 October), catalogued once published
     "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "building_practitioners",   # sanctions-1 (21 October)
     "court_judgments", "court_judgment_parties",   # courts-1 (21 October), catalogued at the next merge
+    "court_documents", "court_cases", "court_case_links", "court_people",   # courts-2 (30 October), catalogued at the next merge (31 October)
     "hansard_sittings", "hansard_sections", "hansard_speeches",   # hansard-1 (26 October, ruling 96), catalogued at fix-products-board-1h
     "beehive_releases", "beehive_release_ministers", "beehive_release_annotations",   # mcp-1 (27 October, ruling 96), catalogued at fix-products-board-1i
     "hansard_days",   # hansard-2 (27 October), catalogued at fix-products-board-1i, which carries it
