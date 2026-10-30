@@ -1,32 +1,42 @@
-# beehive and mcpsource: where they stand
+# beehive: where it stands
 
-Session mcp-1 (Opus), 26 to 27 October 2026, node2. Ruling 96. Merge request
-`mcp-1` (in `/home/user/querynzv4-work/scratch/mcp-1/mcp-1.md`: the fence
-refused the inbox link).
+**Date:** 2026-10-31. **Session:** beehive-2 (Fable, scope `registers/beehive/`). **Merge request:** `beehive-2`.
+Arthur, 31 October 08:40: ingest everything in the MCP; a pipeline that reads names and the other
+important information from it.
 
 ## Done
 
-- `support/mcpsource`: stdlib client; the pull (cursor per corpus, 200 a
-  page, one request at a time, each record landed whole by hash as source
-  `query-nz`, named `<corpus>/<id>` and by url), then the MCP's change feed;
-  red when the MCP counts fewer records than taken; resumable `--rewalk`
-  (the MCP re-renders `text` without moving `updated_at`); arrivals, catch
-  log, drift against `shapes.json` (eleven corpora). Tests on a fake server;
-  live shape test.
-- Pulls into `querynz_v4_sample.scratch_mcp_1_pull2`, 27 October 05:30:
-  958,097 records, 1,411,057 documents, eleven corpora; nothing caught, no
-  drift; the last run green with cursors held where nothing arrived.
-- `registers/beehive`: built in `scratch_mcp_1_beehive`, check green: 56,211
-  releases (52,273 MCP records, 24,405 captured not yet read by the provider,
-  24,368 of those read from the old estate's page; 3,938 old-estate-only);
-  10,254 older versions; topics and quotes kept as the source's model output.
-- Old estate's Beehive pages exported once (55,358 lines, e6511b9f…, pinned).
-- Position `registers/beehive/position/beehive.md` for docs/legal/positions/.
+- The lane (mcp-1, merged eb55a4d): every record of the MCP's beehive corpus, the site's ministers and
+  portfolios, the provider's topics and quotes as the source's annotation; live, 66,588 releases.
+- The text reader (beehive-2): profile `beehive-release-body` v1 first, recognised from the record's
+  fields and measured on every live row (66,571 records; 66,461 with a body of 20+ words, 94 under,
+  16 none; `profile-proposed.jsonl`). `model_read.py`: Flash-Next through `support.modelclient`,
+  temperature 0, thinking off, one reading per document hash stored in the reader store with the
+  model, the prompt's hash and the settings, replayed by every load and never remade; every person
+  and body named with kind (person, company, agency, body, place), role, the role as the text says
+  it, the organisation a person is of, and one summary line. Two attempts, then set aside at stage
+  read with the reason as a stored reading (never a failed row, never asked again); a body under 20
+  words set aside without a call. The site's tagged ministers are not re-read.
+- The load replays: `beehive.people` → `pub.beehive_people` (the links lane reads it, ruling 123);
+  `releases.reading`, `summary`, `names`, `read_model`. The check accounts for names read, documents
+  read, waiting, set aside at read, not read (the old estate's 17 rows), and fails on a reading
+  under another profile version than the load expects.
+- The sample: 63 records of every type across 1995 to 2026 read once through the model (96 s wall,
+  four abreast; a piece's median 4.8 s) and stored: 62 read, 644 names (body 171, place 155, person
+  148, agency 139, company 31; of the persons: minister 55, mentioned 45, appointee 15, official 11),
+  1 set aside (no body). Fast tier green, 46.6 s, 24 tests.
+- `--pieces` on live: 66,399 releases waiting, newest first, in 0.6 s.
+
+## Waiting
+
+- The integrator: the profile line appended to the ledger; `qv4-beehive-read` in `jobs.toml` (the
+  block is in the request; validated against the registry, priority 28 free); the pieces queued; the
+  view catalogued on the board in the merge after.
+- No live release has a reading until `qv4-beehive-read` runs; the night's load after picks them up.
 
 ## Next
 
-- The integrator: schemas, profiles, the position, the jobs
-  (`qv4-mcp-adopt` once, `qv4-mcp-pull`, `qv4-mcp-rewalk`, `qv4-beehive-load`).
-- `parliament-1`, `diaries-2`, `hansard-2` read the other corpora from the
-  same pull record, each taking a record's current version as the one the
-  pull saw last (never the highest `seq`).
+1. After the first run: read ten releases' names and roles against the pages; the share of places
+   and "mentioned" names (a quarter and a third of the sample's) may want a tighter prompt, a new
+   profile version.
+2. The links lane reads `pub.beehive_people` (its own session; a name is never a link here).

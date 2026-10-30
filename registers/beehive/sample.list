@@ -9,3 +9,59 @@ ea4c87d3a9f2ebddcd53846ac13958c3b874558dd008fc9cac1f17751e3e917c a page
 09c697d41a5a8eab6ddb713f57b29787ea030ea8be9b16f485f9feac7f31625c a capture the provider has not yet read
 f4cc85cd89314e3c8bbf911261d5841253243f3224ada5b45db3d5195c7586ef the oldest release, 1999
 6f198bf6eff23c4af4efafce5bd30aeb19be886495ac97a7eba173ac04ff3d22 a 2026 release
+# the text reader's sample (beehive-2, 31 October 2026): about one of each type across the years, every one read once
+# through the model and its reading stored by hash; the fast tier replays them (ruling 50)
+40ea87d9c40ef8e6615f506a842f2c6337044bc552b7a762ddc38631ee926d5c the text reader's sample: a feature of 1995
+ce7f361f160db02881440afe680e354e47418b9418d2240fd2f50f2b6e35cabb the text reader's sample: a feature of 1998
+4497d169fd1ada104918ca48bb64cc3020ccdcddf7aaf4163222f6144b6e700c the text reader's sample: a feature of 2001
+5d5f48c9d35e1725dc771bafe20bfbd45ede7a806d278762d45c4c78674755d6 the text reader's sample: a feature of 2006
+bb89b538e58c9ec5ad5f787b9c7214ae7507d79afdc5a32afb6546f3bdaabb0a the text reader's sample: a feature of 2010
+6ee6f14d3da09668ea7fb7e1c8ca0eee6833640743d90ddbe96cc91aa3536e21 the text reader's sample: a feature of 2014
+2ea601d310aa78d5b0fd4ad5c12020106bf41fc9581f9e3a7c42a3092a5c9604 the text reader's sample: a feature of 2018
+77e69c7bc6aec3f1655c8b24d7044527342d5a599425fc5a31597ff749dd9535 the text reader's sample: a feature of 2020
+e477ef6547b3333f281c34d2626c8334dd3c2825eb64e91168b634d017ccf311 the text reader's sample: a feature of 2023
+fa96ebd5d7ebcc51a957a9cf38d47c3b2c4bbf05cba2ae67e157b9b56dcb9d4e the text reader's sample: a feature with no date
+56ab1f03e63e05bf0e50dc206a6da1b5cfa65cd86845531428bc468d1ad38eeb the text reader's sample: a page of 2000
+54efe3d7fdeb02af6aa75907259376735e2d548c716a839d2c34437c4c4a7a77 the text reader's sample: a page of 2001
+043be5e112f4a64ce6452147c01f2a39573d74fd791e03b37a77932cc7bcd935 the text reader's sample: a page of 2002
+5d16f0f30abc6058f18a0c209dc99f3c5cc1fc25f4229aec8f3ae7628eeb93d8 the text reader's sample: a page of 2005
+55fa54729e5e32e69baa1ada98b14a2dc50d1519f71d0cf13ce7d4d595b69ea3 the text reader's sample: a page with no date
+08fe266b9f80d8d5dd84168896e47ae014126e6cc0af702ca0c2f9e6405221f6 the text reader's sample: a release of 1996
+34f80627cc53e687aada8b89153c3da0b13beed6759e24833bc796837fe05624 the text reader's sample: a release of 1999
+1c00a167ba686e6fc2f4c5f8aeb6e409ac6e84d837b398808945c00bb723f03f the text reader's sample: a release of 2002
+932567e9fbb9e7c6680ef02a6787fa9d6453d3f906af852627c86beb8c1cd85c the text reader's sample: a release of 2005
+d2748cd64f457a9dbbc8882ab9f884c54d8e0ee762d997107b59d5428a053c41 the text reader's sample: a release of 2006
+30d67c0516b620b0ec2bb1721416731e09d2aa3c37846aaf54ef9f991fa9b844 the text reader's sample: a release of 2007
+40450f46ccfaa56b4d8dae2c1320edbd75b7e6d172688de115231f4f112642d7 the text reader's sample: a release of 2008
+ab56919355289292f37d430fbd05abf7815908481f042567986f9438ed71f445 the text reader's sample: a release of 2009
+6a57caf048bb3a79f632ccbe7798f93f162f031065c356f332550cb0e6390bed the text reader's sample: a release of 2010
+b123793a9da12faf19b892aa5a04584bfe7b4ee02466df6eebaea4eabd96eb56 the text reader's sample: a release of 2011
+85496a46080f81b0896d3015e7137205e02036bdd9ec860f2a54b40ad4e21753 the text reader's sample: a release of 2012
+58474f7532971a8cc86a0cfa266d963786d2888ef58306ec95af448ee82ebdcd the text reader's sample: a release of 2013
+29e3d198d689c3fc5e43ef8f7d9249d8d8c9396250c9b4aa0320ed9934a0c2a5 the text reader's sample: a release of 2014
+b0e432322af5d44d41897aeeda7681d456b556b61c93ff1ffcb44fa30c5dd407 the text reader's sample: a release of 2015
+3a4cef98937386a421b230ebb7a7e9a7623ee7153a94f936c573e16271e5cbc5 the text reader's sample: a release of 2016
+fb38a7f5110f7040d15cac1020378d0c9b601ed67b34cda9d02e633e8edb3b46 the text reader's sample: a release of 2017
+d6950b8b694c3d015357c21c782b246aa45e6cd69fbeecd56e4269ea67bea456 the text reader's sample: a release of 2018
+0eee30cd515d3a68aaba733fab28e48c21ddb82cf9066f6235a484603872ef6a the text reader's sample: a release of 2019
+aaffb875ba6cb90771cb71743870f40b4feffbdb583f6c6242af549f3735021b the text reader's sample: a release of 2020
+a7cf2197baa87529fa32076c53f47e2c6dd34e71fb5e8a0bc40bb8d5ceb38ab6 the text reader's sample: a release of 2021
+e8a800562c822b8b5eb856f415d8046270f24437e3aac66c2f609388401730b0 the text reader's sample: a release of 2022
+eb7d52690e5afdf1ef28e773c2affa96ff84e570e8295f283c2e29f63f2bf3ef the text reader's sample: a release of 2023
+91db351128b505bc46181a5c55fa03ee27227b2cfb0688a677f5197d7513a101 the text reader's sample: a release of 2024
+5e315d586adcc7e6cbc57b2fedd8f306eaa54662d259ef5c2eb461365c70e86a the text reader's sample: a release of 2025
+e2f9a3d9f70ea30b0403829a349197d9462ce3a4d5641139a55cbf119e951da2 the text reader's sample: a release of 2026
+f847e7d859110ae25b88ae36c981d52f0bf20f7fa6bbdc941a5bee3e788a2b21 the text reader's sample: a speech of 1996
+4749dd5f8f4f5b93622f593913b03d5e4934b4a68229bd952dcde2ae79958346 the text reader's sample: a speech of 1999
+2beab693035e99b8a66f1fc17ef731459f9ebce6cc70ea8bc93fb72e2d83ca47 the text reader's sample: a speech of 2002
+d13cea294575f6d30c81daaa5dd0b5e69481e3b4759c703a36bc70303989a2ac the text reader's sample: a speech of 2005
+a10ea9663ebb2bc3eabc1ea7dc1f48ba2f6402e3cb0157f90d43dee759ee587f the text reader's sample: a speech of 2008
+de7ec41206e454ede58000513cf0f7a747be4ff57417df58fd37bb5401ef4f52 the text reader's sample: a speech of 2011
+572ce9c4ab016be4949db46ca7980d9057a4c3e49f5db84fe97b0b11136fa3fd the text reader's sample: a speech of 2014
+1e35186ca3180b48894b8a740bee6a2632efeb9619b1d97789bde630b237c6b9 the text reader's sample: a speech of 2017
+12a3d5db26ece0e134c85b3e4aa8fb93492994989e53e3197483254810f0638a the text reader's sample: a speech of 2019
+e52728a4da9fa11dde872d0d9011978f90bed2f739cb2fcd106d940384c18a0f the text reader's sample: a speech of 2020
+fa975c1d64c615e49f5e0d2a4518f5fae06be8c5b5ac9234a472f2630c439665 the text reader's sample: a speech of 2022
+9a5bd2c4cfa4feddd7ab08f5b8a41f7fdf68d77a93d62a9fa30a1c0ecbddd73b the text reader's sample: a speech of 2024
+97cadf8828400884ea8801443c5a7b6eab01729d93d27d314530abf8bb87ccd3 the text reader's sample: a speech of 2026
+69fcf319db5894d97247e4f175212cf7ea03a3bc81b36944066bc22e39b7a328 the text reader's sample: a speech with no date

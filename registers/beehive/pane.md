@@ -20,3 +20,18 @@ MCP's reading replaces it once the provider reads the page. The body
 is not in any view; the board's document opener shows the record whole
 (ruling 88). Every row notes that the estate did not fetch the page: the
 provider captured it off-estate (ruling 78).
+
+The text reader's work (Arthur, 31 October 2026), counts only, never a
+name: `select reading, count(*) from beehive.releases group by 1` (read,
+waiting: text reader, set aside, not read: old estate export) and
+`select count(*), count(distinct document) from beehive.people`, with
+`select kind, count(*) from beehive.people group by 1` and the same by
+`role`: names read, documents read, documents waiting, documents set aside
+at read (the reason in `beehive.set_aside`, stage `read`). A release's
+pane shows its one-line summary and the model that made it (`summary`,
+`read_model`), then the names the reader found (`pub.beehive_people`:
+name as printed, kind, role, the role as the text says it, the
+organisation a person is of), set apart under "Names the text reader
+found (ours, model-made, never a link)". The site's tagged ministers stay
+in their own list above and are not re-read. `python -m
+registers.beehive.check` holds the account.

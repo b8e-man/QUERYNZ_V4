@@ -9,8 +9,12 @@
   read       every distinct document the pull landed is a release, an older version or a set-aside line
   measured   the MCP's n_docs against the records taken (at least 99%); its corpus_words against the words
              of the MCP records' `text` the releases hold (`text_words`), within 1%
-  clean      no pull catch line, no set-aside line, no release with a field the lane has no column for, and no
-             model-made field the record names outside topics and quotes
+  clean      no pull catch line, no set-aside line but the text reader's (stage read: a body too short, or no
+             usable answer after the attempts, with the reason), no release with a field the lane has no column
+             for, and no model-made field the record names outside topics and quotes
+  reading    the text reader's account: names read, documents read, documents waiting, set aside at read, not read
+             (the old estate's rows); every people row under the profile version the load expects
+             (model_read.profile_version), and no waiting document with a reading stored under another version
 
 Run bare it answers about the live tables in querynz_v4 under the session
 reader (lesson: a lane check run bare answers about the live tables); a
@@ -23,6 +27,8 @@ import argparse
 import sys
 
 from support import mcpsource as M
+from support import reader as rd
+from registers.beehive import model_read
 
 FLOOR = 0.99
 WORDS_TOLERANCE = 0.01
@@ -40,12 +46,35 @@ def held(conn, schema: str, mcp_schema: str) -> dict:
         "old estate releases": q(f"SELECT count(*) FROM {schema}.releases WHERE origin = 'old estate'"),
         "old estate only": q(f"SELECT count(*) FROM {schema}.releases WHERE mcp_document IS NULL"),
         "older versions": q(f"SELECT count(*) FROM {schema}.files WHERE status = 'older version'"),
-        "set aside": q(f"SELECT count(*) FROM {schema}.set_aside"),
+        "set aside": q(f"SELECT count(*) FROM {schema}.set_aside WHERE stage <> 'read'"),
         "files set aside": q(f"SELECT count(*) FROM {schema}.files WHERE status = 'set aside'"),
         "fields unread": q(f"SELECT count(*) FROM {schema}.releases WHERE cardinality(fields_unread) > 0"),
         "annotated outside": q(f"SELECT count(*) FROM {schema}.releases WHERE annotation_fields <> '{{}}' "
                                "AND NOT annotation_fields <@ ARRAY['topics', 'quotes']"),
         "words": q(f"SELECT coalesce(sum(text_words), 0) FROM {schema}.releases WHERE mcp_document IS NOT NULL"),
+        **reading_account(conn, schema),
+    }
+
+
+def reading_account(conn, schema: str, shared: bool = False, store: rd.Store = None) -> dict:
+    """The text reader's figures from the loaded tables, and the reader
+    store asked, for each waiting document, whether a reading sits under
+    another profile version than the load expects."""
+    t = (lambda name: f"{schema}.beehive_{name}") if shared else (lambda name: f"{schema}.{name}")
+    q = lambda sql, *a: conn.execute(sql, a).fetchone()[0]  # noqa: E731
+    version = model_read.profile_version()
+    store = store or rd.Store()
+    waiting = [r[0] for r in conn.execute(f"SELECT document FROM {t('releases')} WHERE reading = %s", (model_read.WAIT_TEXT,))]
+    return {
+        "names read": q(f"SELECT count(*) FROM {t('people')}"),
+        "documents read": q(f"SELECT count(*) FROM {t('releases')} WHERE reading = 'read'"),
+        "documents waiting": len(waiting),
+        "set aside at read": q(f"SELECT count(*) FROM {t('releases')} WHERE reading = 'set aside'"),
+        "not read": q(f"SELECT count(*) FROM {t('releases')} WHERE reading = %s", model_read.NOT_A_RECORD),
+        "profile version expected": version,
+        "names under another version": q(f"SELECT count(*) FROM {t('people')} WHERE profile <> %s OR profile_version <> %s",
+                                         model_read.PROFILE, version),
+        "waiting with a reading under another version": sum(1 for d in waiting if model_read.stored_under_other_versions(d, version, store)),
     }
 
 
@@ -76,6 +105,12 @@ def judge(h: dict, o: dict) -> list:
     for k in ("caught", "set aside", "fields unread", "annotated outside"):
         if h[k]:
             out.append(f"clean: {h[k]} {k}")
+    expect = f"{model_read.PROFILE}@{h.get('profile version expected') or model_read.profile_version()}"
+    if h.get("names under another version"):
+        out.append(f"reading: {h['names under another version']} people rows under a profile other than {expect}, which the load expects")
+    if h.get("waiting with a reading under another version"):
+        out.append(f"reading: {h['waiting with a reading under another version']} waiting documents have a reading stored under "
+                   f"another profile version than {expect}: re-read, or the load expects the wrong version")
     return out
 
 

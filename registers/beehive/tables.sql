@@ -43,6 +43,12 @@ CREATE TABLE IF NOT EXISTS beehive.releases (
     mcp_state        text CHECK (mcp_state IN ('read', 'captured only')),   -- NULL: the MCP has no record of the page
     mcp_document     text CHECK (mcp_document ~ '^[0-9a-f]{64}$'),           -- the MCP record's document, where it has one
     source_note      text NOT NULL,
+    -- the text reader's reading of the body (model_read.py; profile beehive-release-body): replayed from the reader
+    -- store, never made at the load. `reading`: read | waiting: text reader | set aside | not read: old estate export
+    reading          text NOT NULL DEFAULT 'waiting: text reader',
+    summary          text,                                  -- the reader's one line; NULL until read
+    names            integer NOT NULL DEFAULT 0,            -- rows in people
+    read_model       text,                                  -- the served model that read it
     document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
     page             integer NOT NULL DEFAULT 1,
     place            text NOT NULL,                         -- `record`: the whole JSON document
@@ -122,6 +128,33 @@ CREATE TABLE IF NOT EXISTS beehive.release_quotes (
     profile_version  integer NOT NULL,
     loaded_at        timestamptz NOT NULL
 );
+
+-- one row per person or body the text reader found a release naming, with the role the text gives it (Arthur,
+-- 31 October 2026): a name as the document prints it, never a link, never a claim; the rows the links lane reads
+-- (ruling 123). From a stored model reading only; the load never calls a model. The site's tagged ministers are
+-- release_ministers, not re-read
+CREATE TABLE IF NOT EXISTS beehive.people (
+    key              text PRIMARY KEY,                      -- <document sha256>/person/<n>
+    name             text NOT NULL,                         -- as printed
+    kind             text NOT NULL CHECK (kind IN ('person', 'company', 'agency', 'body', 'place')),
+    role             text NOT NULL,                         -- model_read.ROLES: minister, official, chief executive, chair, appointee, recipient, award, …
+    role_text        text,                                  -- the role as the text says it: "Minister of Finance", "chair of the board"
+    "of"             text,                                  -- for a person, the organisation the text says they are of
+    release          text NOT NULL,                         -- releases.key
+    published_on     date,                                  -- the release's day
+    type             text,                                  -- the release's type
+    document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page             integer NOT NULL DEFAULT 1,
+    place            text NOT NULL,                         -- text reader, name <n>
+    read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader           text NOT NULL,                         -- the lane's model reader and its version
+    model            text NOT NULL,                         -- the served model that read it
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL
+);
+CREATE INDEX IF NOT EXISTS people_release ON beehive.people (release);
+CREATE INDEX IF NOT EXISTS people_document ON beehive.people (document);
 
 -- every document read: each version of each record, and which one the release is read from
 CREATE TABLE IF NOT EXISTS beehive.files (

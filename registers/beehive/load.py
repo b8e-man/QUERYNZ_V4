@@ -7,7 +7,11 @@ each night's pull. `fill` in sample.py uses the same pieces.
 Every beehive record the pull has taken (support/mcpsource's arrivals) is
 read by its hash from the document store. Items in (the documents) equal
 releases plus older versions plus items set aside; the pull's own catch
-lines come across as set-aside lines at stage `pull`.
+lines come across as set-aside lines at stage `pull`. The text reader's
+stored readings (model_read.py) are replayed into `people` and the
+release's `reading`, `summary`, `names` and `read_model`; a release with
+none is "waiting: text reader"; one set aside by the reader is a set-aside
+line at stage `read`. No model is called here.
 
     python -m registers.beehive.load --database querynz_v4_sample --schema scratch_mcp_1_beehive --mcp-schema scratch_mcp_1_pull
 """
@@ -17,25 +21,27 @@ import sys
 
 from support import jobrun
 from support.docstore.landing import read_bytes
-from registers.beehive import capture, read
+from registers.beehive import capture, model_read, read
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "beehive"
 PRIVATE = "beehive_private"
 JOB = "qv4-beehive-load"
-TABLES = ("releases", "release_ministers", "release_portfolios", "release_topics", "release_quotes", "files", "set_aside")
+TABLES = ("releases", "release_ministers", "release_portfolios", "release_topics", "release_quotes", "people", "files", "set_aside")
 PRIVATE_TABLES = ("texts",)
 COLUMNS = {
     "releases": ("key", "url", "type", "final_url", "http_status", "kind", "captured_sha256", "captured_at",
                  "capture_status", "provider_file", "provider_path", "model", "extracted_at", "annotation_fields",
                  "annotation_generator", "annotation_created_at", "updated_at", "title", "published_at", "published_on",
                  "word_count", "text_words", "ministers", "portfolios", "topics", "quotes", "fields_unread", "versions", "seq",
-                 "origin", "mcp_state", "mcp_document", "source_note", "document", "page", "place", "read_from", "reader", "profile", "profile_version",
-                 "loaded_at"),
+                 "origin", "mcp_state", "mcp_document", "source_note", "reading", "summary", "names", "read_model",
+                 "document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at"),
     "release_ministers": ("key", "release", "ordinal", "name", "slug"),
     "release_portfolios": ("key", "release", "ordinal", "portfolio"),
     "release_topics": ("key", "release", "ordinal", "topic", "model_made", "made_by"),
     "release_quotes": ("key", "release", "ordinal", "quote", "speaker", "model_made", "made_by"),
+    "people": ("key", "name", "kind", "role", "role_text", "of", "release", "published_on", "type", "document", "page", "place",
+               "read_from", "reader", "model", "profile", "profile_version", "loaded_at"),
 }
 STAMP = ("document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at")
 for _t in ("release_ministers", "release_portfolios", "release_topics", "release_quotes"):
@@ -78,18 +84,22 @@ def _copy(conn, name: str, cols: tuple, rows) -> None:
 
 
 def build(conn, schema: str, items: list, caught: list = (), shared: bool = False, get_bytes=read_bytes,
-          old=None) -> dict:
+          old=None, store=None) -> dict:
     """items: [(sha256, seq, record id)]; caught: the pull's catch lines
     [(seq, stage, reason)]; old: the old estate's export (sha256, name), or
-    None. Wipes and fills `schema`; returns the counts."""
+    None; store: the reader store the text reader's readings are replayed
+    from (never a model call). Wipes and fills `schema`; returns the counts."""
     create_tables(conn, schema, shared)
     res = read.read(items, get_bytes)
     if old:
         read.read_old(get_bytes(old[0]), old[0], res)
         res.files.append((old[0], None, None, "read"))
+    people, aside, n = model_read.replay(res.releases, {k: b for k, b, _ in res.texts}, store)
+    res.set_aside += aside
+    res.counts.update(n)
     for t, rows in (("releases", res.releases), ("release_ministers", res.ministers),
                     ("release_portfolios", res.portfolios), ("release_topics", res.topics),
-                    ("release_quotes", res.quotes)):
+                    ("release_quotes", res.quotes), ("people", people)):
         _copy(conn, table(schema, t, shared), COLUMNS[t], (tuple(r[c] for c in COLUMNS[t]) for r in rows))
     _copy(conn, table(schema, "files", shared), ("sha256", "record_id", "seq", "status"), res.files)
     _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason"),
