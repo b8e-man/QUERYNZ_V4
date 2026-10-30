@@ -734,18 +734,47 @@ priority = 39
 command = ["python", "-m", "registers.party_boards.load", "--job"]
 nice = 10
 
-# ── step 5.4, the senior courts' judgments (courts-1; card the-courts-lane-s-edits-outside-its-fence) ──
-[jobs.qv4-courts-capture]
-description = "Step 5.4: each senior court's RSS feed on courtsofnz.govt.nz, the case pages it links and the judgment PDFs not held, plus the listed judgments whose old file is gone; through the fetch gate, five seconds apart, each fetched once. Daily at 03:30 NZDT, at most an hour."
+# ── step 5.4, the senior courts (courts-2; rulings 126, 127, 128) ──
+[jobs.qv4-courts-load]
+description = "Courts: rebuild the lane's tables from the MCP's courts corpus (every record a documents row: read, waiting on a reader, set aside or caught), replay the stored text-reader readings, publish pub.court_people and the rest on a green check. Nightly at 04:40 NZDT, after the pull."
 needs = "processor"
-memory_gb = 0.5
-deadline_s = 4500
-query_timeout_s = 60
+memory_gb = 3.0   # unmeasured: the beehive load's figure; measure on the first night
+deadline_s = 1800
+query_timeout_s = 600
 class = "due"
-priority = 32
-command = ["python", "-m", "registers.courts.capture", "--budget-s", "3600"]
-at_utc = "14:30"
+priority = 32   # 85 was taken (integrator); the retired capture job's slot
+command = ["python", "-m", "registers.courts.load", "--publish"]
+at_utc = "15:40"
 nice = 10
+
+[jobs.qv4-courts-read]
+description = "Courts: the text reader's reading of one document (piece key sha256) through the text-reader profile: every person and body named with its role, counsel for each party, a one-line summary; stored by hash, replayed by the next load. Keys from python -m registers.courts.model_read --pieces."
+needs = "model-profile"
+profile = "text-reader"
+memory_gb = 0.5
+deadline_s = 900
+query_timeout_s = 300
+class = "whenever"
+priority = 26   # 22 was taken (integrator)
+command = ["python", "-m", "registers.courts.model_read", "--piece"]
+pieces = true
+can_share = true
+concurrency = 4
+
+[jobs.qv4-courts-pages]
+description = "Courts: the page reader over one document with no text layer (piece key sha256), every page as an image through the page-reader profile; the next load reads the stored pages."
+needs = "model-profile"
+profile = "page-reader"
+memory_gb = 1.5
+deadline_s = 1800
+query_timeout_s = 300
+class = "whenever"
+priority = 27   # 22 was taken (integrator)
+command = ["python", "-m", "registers.courts.read", "--pages"]
+requires = ["pdftoppm"]
+pieces = true
+can_share = false
+concurrency = 1
 
 # ── step 5.3, limited partnerships and the Building Practitioners Board's decisions (sanctions-1; card the-partnerships-and-board-decisions-jobs-into-the-catalogue) ──
 # The sanctions lists have no job: all three are held on their publishers' terms.
