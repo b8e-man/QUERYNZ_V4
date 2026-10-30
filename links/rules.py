@@ -368,17 +368,42 @@ def one_live_company(row: dict, companies: list) -> list:
 def body_dates(rows: list) -> dict:
     """A body's registered and removed dates from its register rows (ruling
     114): the rows of the registers it is formed on (companies, societies,
-    limited partnerships) where it has any, else its charities row; a
+    limited partnerships) where it has any, else its charities rows; a
     charity's deregistration ends its charitable status, not a company or a
-    society. Registered: the earliest. Removed where any of those rows says
-    so (a removal date, or `removal_undated`: the status says removed and no
-    date is published), on the latest date published."""
-    used = [r for r in rows if r.get("register") in FORMATION_REGISTERS] or list(rows)
+    society. Registered: the earliest. Removed where any of the formation
+    rows says so (a removal date, or `removal_undated`: the status says
+    removed and no date is published), on the latest date published. A
+    body's charities rows, where they decide, are its registrations in turn
+    (one NZBN, deregistered and registered again under a new charity
+    number): removed only where the last registered says so (the latest
+    `registered_on`, none counting earliest, then the largest `entity_ref`
+    by bytes). The same in SQL: `body_dates_sql`."""
+    used = [r for r in rows if r.get("register") in FORMATION_REGISTERS]
+    if used:
+        decide = used
+    else:
+        used = list(rows)
+        decide = [max(used, key=lambda r: (_d(r.get("registered_on")) or dt.date.min, r["entity_ref"]))] if used else []
     regs = [d for d in (_d(r.get("registered_on")) for r in used) if d]
-    gone = [r for r in used if r.get("removed_on") or r.get("removal_undated")]
+    gone = [r for r in decide if r.get("removed_on") or r.get("removal_undated")]
     dated = [d for d in (_d(r.get("removed_on")) for r in gone) if d]
     return {"registered_on": min(regs) if regs else None, "removed": bool(gone), "removed_on": max(dated) if dated else None,
             "removal_undated": bool(gone) and not dated}
+
+
+def body_dates_sql(s: str) -> str:
+    """`body_dates` as two CTEs over `<s>.bodies` for the bodies a CTE `k`
+    names (`k.body`): `x` (each row, `formed`, `last_registered`) and `bd`
+    (`body`, `reg`, `removed`, `removed_on`), for the check and measurement
+    12, which judge every body apart from the build."""
+    return f"""x AS (SELECT b.*, bool_or(b.register <> 'charities') OVER (PARTITION BY b.body) AS formed,
+                     row_number() OVER (PARTITION BY b.body ORDER BY b.registered_on DESC NULLS LAST, b.entity_ref COLLATE "C" DESC) = 1
+                       AS last_registered
+              FROM {s}.bodies b WHERE b.body IN (SELECT body FROM k)),
+        bd AS (SELECT body, min(registered_on) AS reg,
+                      coalesce(bool_or(removed_on IS NOT NULL OR removal_undated) FILTER (WHERE formed OR last_registered), false) AS removed,
+                      max(removed_on) FILTER (WHERE formed OR last_registered) AS removed_on
+               FROM x WHERE register <> 'charities' OR NOT formed GROUP BY body)"""
 
 
 def body_live(dates: dict, start, end):

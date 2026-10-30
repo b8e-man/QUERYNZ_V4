@@ -229,39 +229,60 @@ ADDRESS_SQL = """
     SELECT key, entity_key, started_on, last_file, in_latest, care_of, line_1, line_2, line_3, line_4, postcode
     FROM pub.company_addresses"""
 COMPANY_SQL = "SELECT key, name, registered_on, removed_on FROM pub.companies WHERE name IS NOT NULL"
+
+
+def nzbn_sql(col: str) -> str:
+    """An NZBN as a register publishes it, read as none where it is blank or
+    all zeros: the charities register prints `0000000000000` where it holds
+    none (35 rows, 30 October 2026), and nothing joins on it."""
+    return f"CASE WHEN {col} ~ '^0*$' THEN NULL ELSE {col} END"
+
+
 #: ruling 114: every body on the four registers the donation rules read, and the one entity each is. A society or a limited
 #: partnership is its Companies Office row by NZBN; a charity by NZBN, else by the company, society or trust board number its
 #: register carries where its legal structure names that register and the number is one row there, else a society by NZBN.
-#: A charity re-registered after a deregistration is registered: the old date is not its removal.
-BODY_SQL = """
-    WITH cz AS (SELECT nzbn, key FROM pub.companies WHERE nzbn IS NOT NULL AND nzbn <> ''),
+#: A charity re-registered after a deregistration is registered: the old date is not its removal. An NZBN names one entity,
+#: so the charities of one NZBN (deregistered, then registered again under a new charity number) are one body (`cf`): the
+#: Companies Office row where there is one, else the society, else the earliest charities row (the earliest registered, then
+#: the smallest key by bytes), the number read for the join being the earliest row's; the check "no NZBN names two bodies"
+#: holds it. An all-zero NZBN is none (`nzbn_sql`).
+_CN_JOIN = """LEFT JOIN cn ON cn.number = {ch}.incorporation_number
+         AND cn.register = CASE {ch}.legal_structure WHEN 'Company' THEN 'companies' WHEN 'Incorporated Society' THEN 'other_incorporated'
+                                WHEN 'Charitable Trusts incorporated under the Charitable Trusts Act' THEN 'charitable_trust_board' END"""
+BODY_SQL = f"""
+    WITH cz AS (SELECT nzbn, key FROM pub.companies WHERE {nzbn_sql('nzbn')} IS NOT NULL),
          cn AS (SELECT number, register, min(key) AS key FROM pub.companies
                 WHERE register IN ('companies', 'other_incorporated', 'charitable_trust_board') AND number IS NOT NULL AND number <> ''
                 GROUP BY 1, 2 HAVING count(*) = 1),
          sz AS (SELECT s.nzbn, s.key FROM pub.societies s LEFT JOIN cz ON cz.nzbn = s.nzbn
-                WHERE s.nzbn IS NOT NULL AND s.nzbn <> '' AND cz.key IS NULL)
-    SELECT 'companies:' || c.key, 'companies', c.register, c.number, c.nzbn, c.name, c.registered_on, c.removed_on,
+                WHERE {nzbn_sql('s.nzbn')} IS NOT NULL AND cz.key IS NULL),
+         cf AS (SELECT DISTINCT ON (f.nzbn) f.nzbn,
+                       coalesce('companies:' || cz.key, 'companies:' || cn.key, 'societies:' || sz.key, 'charities:' || f.key) AS body
+                FROM pub.charities f
+                LEFT JOIN cz ON cz.nzbn = f.nzbn
+                {_CN_JOIN.format(ch='f')}
+                LEFT JOIN sz ON sz.nzbn = f.nzbn
+                WHERE {nzbn_sql('f.nzbn')} IS NOT NULL AND f.name IS NOT NULL
+                ORDER BY f.nzbn, f.registered_on NULLS FIRST, f.key COLLATE "C")
+    SELECT 'companies:' || c.key, 'companies', c.register, c.number, {nzbn_sql('c.nzbn')}, c.name, c.registered_on, c.removed_on,
            c.removed_on IS NULL AND coalesce(c.status, '') ~* '^(removed|dissolved|deregistered|closed|cancelled)', 'companies:' || c.key
     FROM pub.companies c WHERE c.name IS NOT NULL
     UNION ALL
-    SELECT 'societies:' || s.key, 'societies', NULL, s.number, s.nzbn, s.name, s.registered_on, s.removed_on,
+    SELECT 'societies:' || s.key, 'societies', NULL, s.number, {nzbn_sql('s.nzbn')}, s.name, s.registered_on, s.removed_on,
            s.removed_on IS NULL AND coalesce(s.status, '') ~* '^(removed|dissolved|deregistered)', coalesce('companies:' || cz.key, 'societies:' || s.key)
     FROM pub.societies s LEFT JOIN cz ON cz.nzbn = s.nzbn WHERE s.name IS NOT NULL
     UNION ALL
-    SELECT 'limited_partnerships:' || l.key, 'limited_partnerships', NULL, l.number, l.nzbn, l.name, l.registered_on, NULL::date,
+    SELECT 'limited_partnerships:' || l.key, 'limited_partnerships', NULL, l.number, {nzbn_sql('l.nzbn')}, l.name, l.registered_on, NULL::date,
            coalesce(l.status, '') ~* '^removed', coalesce('companies:' || cz.key, 'limited_partnerships:' || l.key)
     FROM pub.limited_partnerships l LEFT JOIN cz ON cz.nzbn = l.nzbn WHERE l.name IS NOT NULL AND NOT coalesce(l.name_withheld, false)
     UNION ALL
-    SELECT 'charities:' || ch.key, 'charities', NULL, ch.number, ch.nzbn, ch.name, ch.registered_on,
+    SELECT 'charities:' || ch.key, 'charities', NULL, ch.number, {nzbn_sql('ch.nzbn')}, ch.name, ch.registered_on,
            CASE WHEN coalesce(ch.status, '') ~* '^registered' THEN NULL ELSE ch.deregistered_on END,
            ch.deregistered_on IS NULL AND coalesce(ch.status, '') ~* '^(deregistered|removed)',
-           coalesce('companies:' || cz.key, 'companies:' || cn.key, 'societies:' || sz.key, 'charities:' || ch.key)
+           coalesce(cf.body, 'companies:' || cn.key, 'charities:' || ch.key)
     FROM pub.charities ch
-    LEFT JOIN cz ON cz.nzbn = ch.nzbn
-    LEFT JOIN cn ON cn.number = ch.incorporation_number
-         AND cn.register = CASE ch.legal_structure WHEN 'Company' THEN 'companies' WHEN 'Incorporated Society' THEN 'other_incorporated'
-                                WHEN 'Charitable Trusts incorporated under the Charitable Trusts Act' THEN 'charitable_trust_board' END
-    LEFT JOIN sz ON sz.nzbn = ch.nzbn
+    LEFT JOIN cf ON cf.nzbn = ch.nzbn
+    {_CN_JOIN.format(ch='ch')}
     WHERE ch.name IS NOT NULL"""
 #: the registers whose rows make the bodies: refilling any of them refills `bodies` whole
 BODY_LANES = ("companies", "societies", "limited_partnerships", "charities")

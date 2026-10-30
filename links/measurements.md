@@ -495,6 +495,40 @@ groups gain the 2,340 newly confirmed rows (interests, officers, directors)
 folded into their bodies' entities; `pub.entities` loses about that many
 organisation entities.
 
+## 13. The bodies' NZBNs, 30 October 2026 (fix-links-6)
+
+Read-only on live through the session reader, before any change, against
+`links.bodies` as the @3 build of 30 October left it (2,023,825 rows) and
+the four published registers.
+
+**The red item.** Check item 9's second line, "no NZBN names two bodies",
+counts 2: `0000000000000` on 35 rows, 35 bodies (all charities; three of
+them under a Companies Office trust board by their incorporation number,
+32 their own body), and `9429049642469` on 2 rows, 2 bodies (CC58580,
+registered 2020-11-09, deregistered 2023-02-20; CC61425, registered
+2023-07-12 under a changed name; no Companies Office or society row
+carries it; the two names key apart).
+
+**The shapes.** `pub.charities.nzbn`: 29,893 of thirteen digits, 16,211
+null, 35 all zeros, nothing else; the companies, societies and limited
+partnerships registers publish no all-zero and no non-thirteen-digit NZBN.
+Of the 46,139 charities none lacks a name or a registration date.
+
+**NZBNs under several charity numbers.** 956 NZBNs on 1,944 charities rows
+(two to four numbers each: deregistered on one day in 2008 and registered
+again years later is the common shape). 955 of them already fold onto one
+body, a Companies Office row by NZBN; one (above) did not. So the rule
+"the charities of one NZBN are one body" moves one row today and holds
+the 955 as they are.
+
+**The new `BODY_SQL` on live** (read-only, 8 s): 2,023,825 rows, the same
+count; 0 all-zero NZBNs (35 rows now carry none, every other row's NZBN
+unchanged); 0 NZBNs on two bodies; CC61425's body is CC58580; one row's
+body moved. No row of `links.rows` names either academy, no link touches
+either charity number or any of the 35 placeholder rows, so the confirmed,
+near and related counts do not move at the rebuild; check item 9's second
+line becomes 0 and every item is green.
+
 ## Track C: the review agent scored on the test pairs, 20 October 2026
 
 Run `score-1` in `scratch_review` on the real published tables (`links.scores`,

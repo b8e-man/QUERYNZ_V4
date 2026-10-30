@@ -465,10 +465,7 @@ def m12_ruling_125(conn, s: str) -> dict:
                        FROM {s}.rows r LEFT JOIN {s}.bodies b ON b.org_key = r.name_key
                        WHERE r.kind = 'organisation' GROUP BY 1, 2, 3, 4, 5, 6),
                  k AS (SELECT DISTINCT b.org_key, b.body FROM {s}.bodies b WHERE b.org_key IN (SELECT name_key FROM r)),
-                 x AS (SELECT b.*, bool_or(b.register <> 'charities') OVER (PARTITION BY b.body) AS formed
-                       FROM {s}.bodies b WHERE b.body IN (SELECT body FROM k)),
-                 bd AS (SELECT body, min(registered_on) AS reg, bool_or(removed_on IS NOT NULL OR removal_undated) AS removed, max(removed_on) AS removed_on
-                        FROM x WHERE register <> 'charities' OR NOT formed GROUP BY body),
+                 {rules.body_dates_sql(s)},
                  live AS (SELECT r.ref, count(*) FILTER (WHERE (bd.reg IS NULL OR bd.reg <= r.en)
                                                            AND (NOT bd.removed OR (bd.removed_on IS NOT NULL AND bd.removed_on >= r.st))) AS n
                           FROM r JOIN k ON k.org_key = r.name_key JOIN bd ON bd.body = k.body WHERE r.st IS NOT NULL GROUP BY 1)
