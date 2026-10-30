@@ -382,3 +382,21 @@ def test_a_mutant_is_caught(which, what, old, new):
     else:
         c, r = C, _module("qv4_courts_read_mutant", os.path.join(HERE, "read.py"), old, new)
     assert properties(c, r), f"the mutant '{what}' passed every property: a check that cannot fail"
+
+
+def test_a_court_code_has_one_spelling_and_a_transcript_s_court_line_with_the_case_number_beside_it_names_the_court():
+    from registers.courts import caption as C
+    assert C.court_code("NZEMPC") == "NZEmpC" and C.court_code("nzsc") == "NZSC" and C.court_code("NZXYZ") == "NZXYZ"
+    assert C.file_citation("2021-NZEMPC-77-Judgment.pdf") == "[2021] NZEmpC 77"
+    page = "IN THE EMPLOYMENT COURT OF NEW ZEALAND\nAUCKLAND REGISTRY\n[2021] NZEMPC 77\nEMPC 12/2021\n\nBETWEEN   SAMPLE BODY LIMITED\n" \
+           "                 Plaintiff\nAND       A PUBLIC AGENCY\n                 Defendant\n\nHearing: 1 June 2021\n\nJudgment: 2 June 2021\n\nJUDGMENT OF THE COURT\n[1] Text.\n"
+    j = C.parse({1: page}, "2021-NZEMPC-77.pdf")
+    assert j.court == "NZEmpC" and j.citation == "[2021] NZEmpC 77" and j.court_name == "EMPLOYMENT COURT"
+    assert not any("file name" in n for n in j.notes), "one spelling: the file name agrees with the text"
+    # a hearing transcript's cover sheet: the court line with the case number beside it, no citation anywhere
+    cover = "IN THE SUPREME COURT OF NEW ZEALAND                               SC 12/2016\n\n\n           BETWEEN                SAMPLE BODY LIMITED\n" \
+            "                                                                   Appellant\n\n               AND                A PUBLIC AGENCY\n" \
+            "                                                            Respondent\n\nHearing: 1 June 2016\n"
+    t = C.parse({1: cover}, "transcript.pdf")
+    assert t.court_name == "SUPREME COURT" and t.court == "NZSC" and t.citation is None and t.status == "unparsed"
+    assert t.case_numbers == ["SC 12/2016"]

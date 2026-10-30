@@ -33,7 +33,7 @@ import getpass
 import re
 import sys
 
-from registers.courts import caption
+from registers.courts import model_read
 from registers.courts import load as L
 
 _SHA = re.compile(r"^[0-9a-f]{64}$")
@@ -77,7 +77,8 @@ def reach(conn, schema: str, t: dict, shared: bool = False) -> dict:
         f"count(*) FILTER (WHERE p.withheld) FROM {P} p JOIN {J} j ON j.key = p.judgment WHERE {w}", args).fetchone()
     rsql, rargs = _reach_sql(schema, t, shared)
     docs = conn.execute(f"SELECT count(*) FROM ({rsql}) r", rargs).fetchone()[0]
-    names = conn.execute(f"SELECT count(*) FILTER (WHERE NOT withheld AND name IS NOT NULL AND role NOT IN ('judge', 'counsel', 'agency')), "
+    kept = model_read.kept_sql()
+    names = conn.execute(f"SELECT count(*) FILTER (WHERE NOT withheld AND name IS NOT NULL AND NOT {kept}), "
                          f"count(*) FILTER (WHERE withheld) FROM {N} WHERE document IN ({rsql})", rargs).fetchone()
     return {"judgments": judgments, "names to withhold": to_withhold, "already withheld": already,
             "documents reached": docs, "model-read names to withhold": names[0], "model-read names already withheld": names[1]}
@@ -99,10 +100,9 @@ def withhold(conn, schema: str, t: dict, reason: str, shared: bool = False) -> i
                  f"ELSE suppression_kinds || ARRAY['ledger'] END WHERE {w}", (f"suppression order: {reason}",) + args)
     # the text reader's names on every document the order reaches, the court's officers and the Crown apart
     rsql, rargs = _reach_sql(schema, t, shared)
-    crown = caption.CROWN.pattern
-    named = (f"SELECT key FROM {N} WHERE document IN ({rsql}) AND NOT withheld AND name IS NOT NULL "
-             f"AND role NOT IN ('judge', 'counsel', 'agency') AND upper(name) !~ %s")
-    nargs = rargs + (crown,)
+    kept = model_read.kept_sql()                   # the load's own keep rule (hard limit 16), one rule for both
+    named = f"SELECT key FROM {N} WHERE document IN ({rsql}) AND NOT withheld AND name IS NOT NULL AND NOT {kept}"
+    nargs = rargs
     conn.execute(f"INSERT INTO {W} (key, name, capacity) SELECT key, name, NULL FROM {N} WHERE key IN ({named}) "
                  "ON CONFLICT (key) DO NOTHING", nargs)
     n += conn.execute(f"UPDATE {N} SET name = NULL, for_party = NULL, withheld = true WHERE key IN ({named})", nargs).rowcount

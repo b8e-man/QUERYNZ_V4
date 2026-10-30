@@ -389,6 +389,12 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
         if reading is None:
             doc["outcome"] = WAIT_TEXT
             continue
+        if reading.get("unusable"):
+            # the text reader's answers held no object (model_read.ATTEMPTS of them): the caption's rows stand, the
+            # record is set aside at stage read with the reason, and the check accounts for it there
+            doc["outcome"] = "set aside"
+            res.set_aside.append((doc["key"], "read", reading["unusable"]))
+            continue
         doc.update(summary=reading["summary"], model=reading["model"], model_reader=reading["reader"])
         hide = _hidden_for(doc, suppressed, orders)
         for row in model_read.people_rows(sha, reading, doc, slug, version, now):
