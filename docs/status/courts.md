@@ -1,7 +1,7 @@
 # courts: where it stands
 
 **Date:** 2026-10-30. **Step:** 5.4 items 2 and 3, `registers/courts/`. **Session:** courts-2.
-**Merge request:** `courts-2` (raised again 30 October evening after the integrator's refusal of 18:44).
+**Merge request:** `courts-2` (raised again 30 October after the integrator's refusal of 18:44).
 
 ## Done
 
@@ -33,7 +33,7 @@
 
 - The integrator: profiles, the three jobs, the read pieces queued. No document has a model reading until
   `qv4-courts-read` runs.
-- The provider: 80 judgments of the old listing (NZCA 37, NZHC 43; 2025–2026) the corpus lacks (card).
+- The provider: 80 judgments of the old listing (NZCA 37, NZHC 43; 2025–26) the corpus lacks (card).
 
 ## Carded
 
