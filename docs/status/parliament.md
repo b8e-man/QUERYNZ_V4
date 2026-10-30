@@ -28,7 +28,9 @@ records lane is on main since 27 October; the text reader is on branch
   `pub.parliament_people`; the check counts read, waiting, set aside at
   read, names by kind and role, and fails on another profile version.
   `--pieces` and `--piece`; job `qv4-parliament-read` proposed in the
-  merge request. Proven on the fixed sample read once (sample.list).
+  merge request. Proven on the fixed sample read once (sample.list): 20
+  pages (109 requests, 2,861 names), 46 questions (184 alone, 15 in two
+  batches); fast tier green, 56 s.
 - Measured on live, 31 October: pages 21,989 (3,554 over the budget,
   35,579 requests, 11 the rule cannot split: binary files served as
   pages, set aside at read); questions 683,524 (1 over the budget,
