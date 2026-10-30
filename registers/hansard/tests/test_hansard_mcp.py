@@ -77,10 +77,10 @@ def test_each_day_is_one_row_its_text_goes_only_to_the_sink_and_each_old_subject
                                ("2025-01-02/4", "(continued on Wednesday, 3 January 2025)"),
                                ("2025-01-02/5", "Third Reading"),
                                ("2025-01-02/6", None)]}
-    r = read_mcp.read_days([(s, None, None) for s in shas], get, subjects, lambda k, t: texts.__setitem__(k, t))
+    r = read_mcp.read_days([(s, None, None) for s in shas], get, subjects, lambda k, t, sha: texts.__setitem__(k, t))
     assert sorted(texts) == ["2003-02-11", "2025-01-02", "2025-01-03"] and r.set_aside == []
     assert all("text" not in row for row in r.days)
-    by = {s["key"]: (s["found"], s["neighbour"]) for s in r.day_sections}
+    by = {s["key"]: (s["found"], s["neighbour"]) for s in r.day_subjects}
     assert by == {"2025-01-02/1": ("own day", None), "2025-01-02/2": ("own day", None),
                   "2025-01-02/3": ("neighbouring day", "2025-01-03"),
                   "2025-01-02/4": ("continuation note", None), "2025-01-02/5": ("not found", None),
@@ -97,12 +97,12 @@ def test_each_day_is_one_row_its_text_goes_only_to_the_sink_and_each_old_subject
 
 def test_a_record_whose_sitting_date_is_not_its_pdf_s_day_is_set_aside():
     shas, get = _store(_day("2025-01-02", "x", sitting_date="2025-01-03"))
-    r = read_mcp.read_days([(shas[0], None, None)], get, {}, lambda k, t: None)
+    r = read_mcp.read_days([(shas[0], None, None)], get, {}, lambda k, t, sha: None)
     assert r.days == [] and "not the day its PDF's address names" in r.set_aside[0][2]
 
 
 def test_an_old_day_the_mcp_lacks_is_counted():
-    r = read_mcp.read_days([], lambda s: b"", {"2025-01-02": [("2025-01-02/1", "x")]}, lambda k, t: None)
+    r = read_mcp.read_days([], lambda s: b"", {"2025-01-02": [("2025-01-02/1", "x")]}, lambda k, t, sha: None)
     assert r.counts["old days the MCP lacks"] == 1
 
 
@@ -175,13 +175,8 @@ def test_the_reader_s_figures_never_read_the_private_twin():
 # --- the filled sample --------------------------------------------------------------------
 
 @pytest.fixture(scope="module")
-def filled():
-    if os.environ.get("QV4_NO_DB") or not os.path.exists(os.path.join(db.CRED_DIR, "v4.env")):
-        pytest.skip("no sample database environment here (QV4_NO_DB, or no credential file)")
-    from support import sample
-    from registers.hansard.tests.test_hansard_lane import _schema
-    schema = _schema()
-    sample.fill_schema(schema, lambda: db.connect(db.OWNER_KEY, "querynz_v4_sample"), REPO, log=lambda *a: None)
+def filled(sample_schema):
+    schema = sample_schema
     with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
         cur = conn.execute(f"SELECT * FROM {schema}.hansard_days ORDER BY key")
         days = [dict(zip([d[0] for d in cur.description], r)) for r in cur]

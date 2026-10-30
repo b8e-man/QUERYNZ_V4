@@ -18,7 +18,7 @@ last is read (`items` come in the order the pull landed them, never by the
 highest `seq`) and the others are `files` rows marked "older version".
 
 For a day the old transcript's sections also hold, each old section's
-subject is looked for in the day's text (`day_sections`): found in the day's
+subject is looked for in the day's text (`day_subjects`): found in the day's
 own text; else in the text of one of the three held days either side (a
 sitting under urgency runs past midnight, and the old page carried the whole
 sitting where the PDF is one calendar day); a "(continued on …)" note is the
@@ -27,7 +27,7 @@ folded first: case, quotes and dashes, a hyphen broken over a line, runs of
 whitespace (pdftotext -layout pads and wraps).
 
     read_index(items, get_bytes)                        → Result
-    read_days(items, get_bytes, subjects, sink)         → Result
+    read_days(items, get_bytes, subjects, sink)         → Result   sink(day, text, sha256) takes each day's text as it passes
 """
 import datetime as dt
 import json
@@ -53,7 +53,7 @@ NEAR = 3                                          # held days either side looked
 class Result:
     index_pages: list = field(default_factory=list)
     days: list = field(default_factory=list)
-    day_sections: list = field(default_factory=list)
+    day_subjects: list = field(default_factory=list)
     files: list = field(default_factory=list)          # (sha256, name, kind, status)
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
     counts: dict = field(default_factory=dict)
@@ -193,7 +193,7 @@ def where(subject: str, own: str, near: list) -> tuple:
 
 
 def read_days(items, get_bytes, subjects: dict, sink, loaded_at: str = None) -> Result:
-    """subjects: {day: [(section key, subject)]} from the old transcript; sink(key, text) takes each day's text."""
+    """subjects: {day: [(section key, subject)]} from the old transcript; sink(key, text, sha) takes each day's text."""
     loaded_at = loaded_at or dt.datetime.now().astimezone().isoformat(timespec="seconds")
     res = Result()
     chosen = current(DAYS, items, get_bytes, res)
@@ -216,7 +216,7 @@ def read_days(items, get_bytes, subjects: dict, sink, loaded_at: str = None) -> 
         pick = lambda k: cap.get(k) if cap.get(k) is not None else rec.get(k)   # noqa: E731
         if d in want:
             folded[d] = fold(text)
-        sink(d, text)
+        sink(d, text, sha)
         res.days.append({
             "key": d, "sitting_on": d, "title": _str(rec.get("title")), "pdf_url": rec["url"],
             "pdf_sha256": _str(pick("sha256")), "pdf_bytes": _int(pick("bytes")), "http_status": _int(pick("http_status")),
@@ -235,7 +235,7 @@ def read_days(items, get_bytes, subjects: dict, sink, loaded_at: str = None) -> 
         for key, subject in subjects[d]:
             found, other = where(subject, folded[d], near)
             n[found] += 1
-            res.day_sections.append({"key": key, "sitting_on": d, "found": found, "neighbour": other,
+            res.day_subjects.append({"key": key, "sitting_on": d, "found": found, "neighbour": other,
                                      "document": row["document"]})
         row["old_sections"] = len(subjects[d])
         row["old_subjects"] = len(subjects[d]) - n["continuation note"] - n["no subject"]
