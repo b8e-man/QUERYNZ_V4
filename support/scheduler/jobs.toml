@@ -677,6 +677,7 @@ command = ["python", "-m", "support.scheduler", "read-pages", "--profile", "ec-c
 requires = ["pdftoppm"]
 pieces = true
 can_share = false
+concurrency = 3   # rows side by side on the page reader's three slots (30 October)
 
 [jobs.qv4-site-compare]
 description = "Step 4.5: pair today's frozen release with the rebuilt version built from its listing, read every published file of the ten kinds on both sides figure by figure (no tolerance on money), group every difference by its cause, and write the day record and the clean-day ledger under <live>/checks/comparison/. Exits 1 when a difference has no cause card, or when no rebuilt version exists for today's listing. After qv4-site-build."

@@ -90,7 +90,7 @@ used_for = "Search: prompt cache off, many copies per card"
 [profiles.page-reader]
 model = "glm-ocr"
 weights = ["vision-glm-ocr/GLM-OCR-Q8_0.gguf", "vision-glm-ocr/mmproj-GLM-OCR-Q8_0.gguf"]
-slots = 1
+slots = 3   # 1 until 30 October; three documents at once on the one card the night window gives (Arthur, 16:00)
 context = 32768
 temperature = 0.0
 max_tokens = 8000
