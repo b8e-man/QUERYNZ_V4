@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS {s}.swaps (
     at            timestamptz NOT NULL DEFAULT now(),
     box           text NOT NULL,
     card          int NOT NULL,
-    action        text NOT NULL,                       -- load | handover | release | drain | unload | failed
+    action        text NOT NULL,                       -- load | handover | release | drain | unload | failed | died | stray | stop | start (the night window, ruling 129)
     from_profile  text,
     to_profile    text,
     job           text,

@@ -1,0 +1,4 @@
+Every wait in the card manager runs on the manager's injected clock and sleep, never time.monotonic and time.sleep directly: a test that takes a wrong path into a wait (a load on a card whose port never answers) must fail at the fake clock's timeout, not hang for the real one.
+area: scheduler, cards, tests
+
+Seen 30 October 2026 while building the night window (ruling 129): a mutant that let the page reader take the held card sent a test into `_wait_ready` on a port the fake never answers, and the test sat in `time.sleep(2)` towards the 900-second load timeout until it was killed. The night window's own waits (the cards' release after a stop, the model's read-back after a start) were on `self.clock` and `self.sleep` from the start and failed in milliseconds; the older load wait was moved onto them. A test that hangs is worse than one that fails: it is read as "still running" and nothing says which rule it broke.

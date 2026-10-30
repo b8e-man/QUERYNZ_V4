@@ -78,6 +78,7 @@ class Demand:
     waiting_since: float | None = None    # when it first had work and no card (rule 6)
     due_at: float | None = None           # the nearest due time among its queued work (rule 8)
     item_seconds: float | None = None     # measured seconds per item (rule 9)
+    leased: int = 0                       # rows a worker holds now (the night window asks, ruling 129)
 
 
 @dataclasses.dataclass(frozen=True)

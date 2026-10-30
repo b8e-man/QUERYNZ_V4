@@ -450,7 +450,8 @@ def enqueue_standing(conn, schema: str, registry: dict = None, *, now=None, crea
 def demands(conn, schema: str, registry: dict = None, *, now=None) -> dict[str, Demand]:
     """Per job type: how much work waits (queued instances, plus the pieces
     left on leased ones), its most urgent class, when it first waited, its
-    nearest due time, and its measured seconds per item from the last runs."""
+    nearest due time, its measured seconds per item from the last runs, and
+    how many of its rows a worker holds now (`leased`)."""
     registry = registry if registry is not None else reg.load()
     t = _now(now)
     rows = conn.execute(
@@ -458,8 +459,10 @@ def demands(conn, schema: str, registry: dict = None, *, now=None) -> dict[str, 
         f"WHERE state IN ('queued', 'leased') AND (not_before IS NULL OR not_before <= %s)", (t,)).fetchall()
     acc: dict[str, dict] = {}
     for job, state, cls, created, due, left in rows:
-        a = acc.setdefault(job, {"depth": 0, "cls": "whenever", "since": None, "due": None})
+        a = acc.setdefault(job, {"depth": 0, "cls": "whenever", "since": None, "due": None, "leased": 0})
         a["depth"] += int(left)
+        if state == LEASED:
+            a["leased"] += 1
         if CLASS_RANK.get(cls, 2) < CLASS_RANK[a["cls"]]:
             a["cls"] = cls
         if state == QUEUED and (a["since"] is None or created < a["since"]):
@@ -475,7 +478,7 @@ def demands(conn, schema: str, registry: dict = None, *, now=None) -> dict[str, 
         item = secs.get(job)
         item = float(item) if item is not None else (jt.item_seconds if jt else None)
         out[job] = Demand(a["depth"], a["cls"], a["since"].timestamp() if a["since"] else None,
-                          a["due"].timestamp() if a["due"] else None, item)
+                          a["due"].timestamp() if a["due"] else None, item, a["leased"])
     return out
 
 

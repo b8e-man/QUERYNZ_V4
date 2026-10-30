@@ -41,7 +41,7 @@ import pathlib
 import tomllib
 
 from support.jobspec import JobNeeds, validate
-from support.scheduler import probe
+from support.scheduler import night, probe
 
 HERE = pathlib.Path(__file__).resolve().parent
 JOBS = HERE / "jobs.toml"
@@ -265,6 +265,18 @@ def reservations(path: pathlib.Path | None = None) -> list[Reservation]:
                         why=str(r.get("why") or "")) for r in (_raw(path or JOBS).get("reservations") or [])]
 
 
+def night_window(path: pathlib.Path | None = None) -> night.Window | None:
+    """The standing server's night window (ruling 129), from jobs.toml's
+    `[night_window]` section; None when the catalogue has none, and then the
+    standing server is never stopped."""
+    b = _raw(path or JOBS).get("night_window")
+    if not b:
+        return None
+    return night.Window(start=str(b.get("start_local") or ""), end=str(b.get("end_local") or ""),
+                        timezone=str(b.get("timezone") or "Pacific/Auckland"), standing=str(b.get("standing") or ""),
+                        profile=str(b.get("profile") or ""), card=int(b.get("card", -1)))
+
+
 def problems(path: pathlib.Path | None = None, profiles_path: pathlib.Path | None = None) -> list[str]:
     """Everything wrong with the catalogue. Empty list = green. Each rule is
     a shape that has already cost this estate something."""
@@ -329,6 +341,25 @@ def problems(path: pathlib.Path | None = None, profiles_path: pathlib.Path | Non
             out.append(f"profile {p.name}: slots and context from 1")
         if p.binary and p.binary not in probe.PROGRAMS:
             out.append(f"profile {p.name}: binary {p.binary!r} is not a program the probe looks for, so no box would ever load it")
+    w = night_window(path)
+    if w is not None:
+        # ruling 129: the window's hours and its two profiles, checked before a worker reads them
+        for label, v in (("start_local", w.start), ("end_local", w.end)):
+            if not night.valid_hhmm(v):
+                out.append(f"night_window: {label} {v!r} is not HH:MM")
+        if night.valid_hhmm(w.start) and night.valid_hhmm(w.end) and w.start == w.end:
+            out.append("night_window: start_local and end_local are the same minute, so the window never opens")
+        if not night.known_zone(w.timezone):
+            out.append(f"night_window: timezone {w.timezone!r} is not a zone this box knows")
+        st = profs.get(w.standing)
+        if st is None or not st.standing:
+            out.append(f"night_window: standing {w.standing!r} is not a standing server in profiles.toml")
+        pr = profs.get(w.profile)
+        if pr is None or pr.standing or pr.on:
+            out.append(f"night_window: profile {w.profile!r} is not a profile the worker loads itself (a server of its own, "
+                       f"not a standing server or a view)")
+        if w.card < 0:
+            out.append("night_window: card names the card index the profile is loaded on")
     return out
 
 
