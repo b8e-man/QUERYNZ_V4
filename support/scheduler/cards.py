@@ -32,9 +32,29 @@ load of a standing profile, or of a view on one, is never acted on. The
 standing load is recorded in the swap ledger when this worker first sees
 the server answer, with the time since the unit started when it saw the
 server down before (a measured load), and a `died` line when it stops.
+
+THE NIGHT WINDOW (ruling 129) is the one time the manager touches that unit.
+Inside the hours of jobs.toml `[night_window]` (22:00 to 05:45 NZDT), when
+page-reader work is queued and no piece of a view on the standing profile is
+running or leased, the manager stops the unit, waits until the port is down
+and the cards have released the model (measured with rocm-smi), holds the
+standing server's other card reserved for the frozen product's OCR server,
+and leaves the window's card cold; the planner then loads the page reader
+there and runs the pieces. When the page queue is empty, or a text-reader or
+review piece is due, or the window closes, the page reader drains (never
+killed), is unloaded, the unit is started again, the model is read back on
+its port, and the cards are marked standing as today. Each stop and start is
+a `stop` or `start` line in the swap ledger with its reason and the measured
+seconds; a start that fails is a `failed` line, an alarm and a note in the
+inbox for the integrator, and the manager tries again each tick. Outside the
+window the unit is never stopped or planned. A marker file under <live>
+records a stop until the start, so a worker restarted in between starts the
+unit again rather than leaving it down. The clock half is `night.py`.
 """
 from __future__ import annotations
 
+import datetime as dt
+import json
 import os
 import re
 import signal
@@ -42,6 +62,7 @@ import subprocess
 import time
 
 from support.scheduler import LIVE
+from support.scheduler import night
 from support.scheduler import policy
 from support.scheduler import probe as pb
 from support.scheduler import queue as q
@@ -52,6 +73,14 @@ PORT_BASE = 8110
 LOAD_TIMEOUT_S = 900          # a 21 GB load from a cold page cache takes minutes
 STOP_GRACE_S = 20             # the server hangs ~45 s after TERM; 20 s then KILL (old lesson)
 LOGS = os.path.join(LIVE, "scheduler", "servers")
+# the night window (ruling 129)
+STOP_TIMEOUT_S = 150          # the unit's TimeoutStopSec (60) and podman's own 30, then the cards' release
+START_TIMEOUT_S = 330         # the unit's TimeoutStartSec (300); Radiance answered in 21.6 s on 29 October
+RELEASE_SLACK_GB = 2.0        # a card has released the model when its used memory is within this of (total - the model)
+NIGHT_REST_S = 900            # after a start, no new stop for this long: a page row given back for two minutes is not a new night
+NIGHT_MARK = os.path.join(LIVE, "scheduler", "night-window.json")
+INBOX_CARDS = os.environ.get("QV4_INBOX_CARDS") or "/home/user/querynzv4-work/inbox/cards"
+_CATALOGUE = object()
 
 
 def server_binary(profile_programs: dict, prefer: str = None, profile: reg.Profile = None) -> str | None:
@@ -99,6 +128,17 @@ def unit_active_seconds(unit: str) -> float | None:
     return round(time.clock_gettime(time.CLOCK_MONOTONIC) - int(m.group(1)) / 1e6, 1)
 
 
+def systemctl_user(verb: str, unit: str, timeout: float = START_TIMEOUT_S + 30) -> int:
+    """`systemctl --user <verb> <unit>`: the return code, non-zero on any
+    failure. `start` and `stop` block until the unit is up or gone (the unit
+    is Type=notify), so the measured seconds around a call are real."""
+    try:
+        r = subprocess.run(["systemctl", "--user", verb, unit], capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError):
+        return -1
+    return r.returncode
+
+
 class Server:
     def __init__(self, proc: subprocess.Popen, prof: reg.Profile, card: int, port: int, started: float):
         self.proc, self.prof, self.card, self.port, self.started = proc, prof, card, port, started
@@ -109,11 +149,27 @@ class Manager:
     them on this box's cards and keeps the `cards` table true."""
 
     def __init__(self, *, popen=None, ask=None, models_dir: str = None, log=None, reservations: list = None,
-                 active_seconds=None):
+                 active_seconds=None, window=_CATALOGUE, systemctl=None, read_cards=None, clock=None, sleep=None,
+                 mark: str = None, inbox: str = None):
         self.popen = popen or subprocess.Popen
         self.ask = ask or pb.ask_server
         self.models_dir = models_dir
         self.reservations = reservations if reservations is not None else reg.reservations()
+        # the night window (ruling 129): the window from the catalogue, and what acting on it needs, all injectable
+        self.window: night.Window | None = reg.night_window() if window is _CATALOGUE else window
+        self.systemctl = systemctl or systemctl_user
+        self.read_cards = read_cards or pb.cards
+        self.clock = clock or time.monotonic
+        self.sleep = sleep or time.sleep
+        self.mark = mark or NIGHT_MARK
+        self.inbox = inbox or INBOX_CARDS
+        self.night_state = "standing"                # standing | page | closing | restarting
+        self.night_reason: str | None = None
+        self.night_page_card: int | None = None
+        self.night_hold_cards: list[int] = []
+        self.night_rest_until = 0.0                  # epoch seconds before which no new stop is attempted
+        self.night_alarmed = False                   # one alarm and one note per failed-start episode
+        self.night_logged: set[str] = set()          # lines said once per state
         self.servers: dict[int, Server] = {}
         self.round_done: frozenset = frozenset()
         self.holder_since: dict[int, float] = {}
@@ -130,6 +186,7 @@ class Manager:
         self.worker = worker
         self.log = self.log or worker.log
         self.register_cards(worker)
+        self.night_recover(worker)
 
     def register_cards(self, worker) -> None:
         """This box's cards, from the probe. A card this worker did not load
@@ -178,6 +235,8 @@ class Manager:
     def mark_standing(self, worker) -> None:
         """Read each standing server's model back and mark its cards."""
         for prof in self.standing_profiles(worker):
+            if self.night_holds(prof.name):
+                continue              # the night window holds its cards; night_tick marks them (ruling 129)
             a = self.ask(prof.port)
             up = bool(a["healthy"]) and a["served"] == prof.model
             was = self.standing_seen.get(prof.name)
@@ -191,6 +250,8 @@ class Manager:
                     why = (f"{prof.unit} holds this card for {prof.name}; it answers on :{prof.port} with {a['served']!r}, "
                            f"not {prof.model!r}" if a["served"] else f"{prof.unit} holds this card for {prof.name}; "
                            f"not answering on :{prof.port}")
+                    if self.night_state == "restarting" and self.window and prof.name == self.window.standing:
+                        why += "; it did not start again after the night window (ruling 129); the worker tries again each tick"
                     q.upsert_card(worker.conn, worker.schema, worker.box, card, profile=None, port=None, pid=None, holder=None,
                                   draining=False, slots=None, slots_busy=None, reserved=True, reserved_why=why,
                                   worker=worker.name)
@@ -224,7 +285,7 @@ class Manager:
                 out.append(policy.Held(f"{worker.box}:{c['card']}", None, reserved=True, loaded=c["profile"]))
                 continue
             in_flight = 0
-            if c["card"] in self.servers:
+            if c["card"] in self.servers and c["port"]:
                 a = self.ask(c["port"])
                 if a["total"]:
                     in_flight = a["total"] - max(a["free"], 0)
@@ -265,19 +326,29 @@ class Manager:
     def tick(self, worker, now) -> None:
         now_s = now.timestamp()
         self._reap_dead_servers(worker)
-        self.mark_standing(worker)
         demands = q.demands(worker.conn, worker.schema, worker.registry, now=now)
+        self.night_tick(worker, now, demands)
+        self.mark_standing(worker)
         measured = q.measured_load_seconds(worker.conn, worker.schema)
         profiles = {n: (p if p.load_seconds is not None or n not in measured else
                         reg.Profile(**{**p.__dict__, "load_seconds": measured[n]})) for n, p in worker.profiles.items()}
         held = self.held(worker, now_s)
         if not held:
             return
+        eligible = self.claimable(worker)
+        if self.night_state == "page":
+            eligible &= self._jobs_on(worker, {self.window.profile})     # the window's card is for the page reader
+        elif self.night_state == "closing":
+            eligible -= self._jobs_on(worker, {self.window.profile})     # nothing new is placed while it drains
         decisions, self.round_done = policy.plan(now=now_s, held=held, queues=demands, registry=worker.registry,
                                                  profiles=profiles, rules=worker.rules, round_done=self.round_done,
-                                                 eligible=self.claimable(worker))
+                                                 eligible=eligible)
         for d in decisions:
             self.apply(worker, d, now_s)
+        if self.night_state == "closing" and self.night_page_card is not None:
+            # a release above clears the flag, and the worker claims after this tick: the page card stays draining
+            # until the page reader is unloaded, so a piece given back is not claimed again on it
+            q.upsert_card(worker.conn, worker.schema, worker.box, self.night_page_card, draining=True)
 
     def _reap_dead_servers(self, worker) -> None:
         for card, s in list(self.servers.items()):
@@ -289,6 +360,334 @@ class Manager:
                 q.upsert_card(worker.conn, worker.schema, worker.box, card, profile=None, port=None, pid=None, holder=None,
                               draining=False, slots=None, slots_busy=None)
                 del self.servers[card]
+
+    # ── the night window (ruling 129) ────────────────────────────────────────
+
+    def night_profile(self, worker) -> reg.Profile | None:
+        """The standing profile the window may stop, when this box runs it."""
+        w = self.window
+        if w is None:
+            return None
+        prof = worker.profiles.get(w.standing)
+        if prof is None or not prof.standing or not (worker.profile.get("programs") or {}).get(prof.binary):
+            return None
+        return prof
+
+    def night_holds(self, name: str) -> bool:
+        """Whether the window holds this standing profile's cards right now."""
+        return self.window is not None and name == self.window.standing and self.night_state in ("page", "closing")
+
+    def _jobs_on(self, worker, profiles: set[str]) -> set[str]:
+        return {n for n, jt in worker.registry.items() if jt.profile in profiles}
+
+    def _views(self, worker, standing: str) -> set[str]:
+        return {n for n, p in worker.profiles.items() if p.on == standing}
+
+    def _page_depth(self, worker, demands: dict) -> int:
+        """Pieces waiting for the window's profile, among the job types this box may claim."""
+        jobs = self._jobs_on(worker, {self.window.profile}) & self.claimable(worker)
+        return sum(demands[n].depth for n in jobs if n in demands)
+
+    def _page_running(self, worker) -> int:
+        with worker.lock:
+            return sum(1 for r in worker.running.values() if r.jt.profile == self.window.profile)
+
+    def _views_busy(self, worker, demands: dict, standing: str) -> str | None:
+        """A piece of a view on the standing server running here or leased anywhere: the stop waits."""
+        views = self._views(worker, standing)
+        with worker.lock:
+            running = sorted(r.jt.name for r in worker.running.values() if r.jt.profile in views)
+        if running:
+            return f"{running[0]} is running here"
+        leased = sorted(n for n in self._jobs_on(worker, views) if n in demands and demands[n].leased > 0)
+        if leased:
+            return f"{leased[0]} has {demands[leased[0]].leased} row(s) leased"
+        return None
+
+    def _views_due(self, worker, demands: dict, standing: str, now_s: float) -> str | None:
+        """A view piece that is due (rule 8: someone waiting, or due within the horizon): the window closes early."""
+        views = self._views(worker, standing)
+        for n in sorted(self._jobs_on(worker, views)):
+            d = demands.get(n)
+            if d is None or d.depth <= 0:
+                continue
+            if d.cls == "waiting":
+                return f"{n} has {d.depth} waiting-class piece(s) queued"
+            if d.cls == "due" and d.due_at is not None and d.due_at - now_s <= worker.rules.due_horizon_seconds:
+                return f"{n} is due in {max(0.0, d.due_at - now_s):.0f}s"
+        return None
+
+    def _once(self, key: str, msg: str) -> None:
+        if key not in self.night_logged:
+            self.night_logged.add(key)
+            self.log(msg)
+
+    def night_tick(self, worker, now: dt.datetime, demands: dict) -> None:
+        """One look at the clock and the queue: open the window, close it, or keep trying to start the unit."""
+        w, prof = self.window, self.night_profile(worker)
+        if w is None or prof is None:
+            return
+        now_s = now.timestamp()
+        inside = night.in_window(now, w)
+        if self.night_state == "standing":
+            if not inside or now_s < self.night_rest_until:
+                return
+            depth = self._page_depth(worker, demands)
+            if depth <= 0:
+                return
+            busy = self._views_busy(worker, demands, prof.name)
+            if busy:
+                self._once("busy", f"night window: {depth} page piece(s) wait but {busy}; {prof.unit} stays up")
+                return
+            if not self.standing_seen.get(prof.name):
+                self._once("down", f"night window: {prof.unit} is not answering on :{prof.port}, so there is nothing to "
+                                   f"stop; the page reader waits for it (ruling 121: the worker does not start it)")
+                return
+            self._night_stop(worker, prof, now, depth)
+        elif self.night_state == "page":
+            reason = None
+            if not inside:
+                reason = f"the window closed at {w.end} {w.timezone}"
+            elif self._page_depth(worker, demands) <= 0:
+                reason = "the page queue is empty"
+            else:
+                reason = self._views_due(worker, demands, prof.name, now_s)
+            if reason is None:
+                return
+            self.night_state, self.night_reason = "closing", reason
+            self.night_logged.clear()
+            self.log(f"night window: closing ({reason}); {w.profile} drains and {prof.unit} starts again")
+            self._night_close(worker, prof, now)
+        elif self.night_state == "closing":
+            self._night_close(worker, prof, now)
+        elif self.night_state == "restarting":
+            if self.standing_seen.get(prof.name):
+                self.log(f"night window: {prof.unit} is answering again; cards standing as today")
+                self._night_done(now)
+                return
+            self._night_start(worker, prof, now)
+
+    def _wait_released(self, prof: reg.Profile, idx: list[int], timeout: float = STOP_TIMEOUT_S) -> bool:
+        """True once the port is down and each card has released the model
+        (its used memory is within RELEASE_SLACK_GB of total less the
+        model's measured share). A card read that fails is not data: then
+        the port alone decides, as `systemctl stop` blocks until the
+        container is gone."""
+        t0 = self.clock()
+        need = (prof.memory_gb or 0.0)
+        while True:
+            a = self.ask(prof.port)
+            cards = self.read_cards()
+            freed = cards is None or all(
+                c.get("memory_used_gb") is None or c.get("memory_total_gb") is None
+                or c["memory_used_gb"] <= c["memory_total_gb"] - need + RELEASE_SLACK_GB
+                for c in cards if c.get("index") in idx)
+            if not a["healthy"] and freed:
+                return True
+            if self.clock() - t0 >= timeout:
+                return False
+            self.sleep(2)
+
+    def _wait_standing(self, prof: reg.Profile, timeout: float = START_TIMEOUT_S) -> str | None:
+        """The model the port answers with once it is the profile's, or the
+        last thing it answered with when the timeout passes."""
+        t0 = self.clock()
+        last = None
+        while True:
+            a = self.ask(prof.port)
+            if a["healthy"] and a["served"] == prof.model:
+                return a["served"]
+            last = a["served"] or last
+            if self.clock() - t0 >= timeout:
+                return last
+            self.sleep(2)
+
+    def _night_stop(self, worker, prof: reg.Profile, now: dt.datetime, depth: int) -> None:
+        w = self.window
+        idx = self.standing_cards(worker, prof)
+        if w.card not in idx:
+            self._once("card", f"night window: card {w.card} is not one of {prof.name}'s cards {idx}; the window cannot open")
+            return
+        why = (f"night window (ruling 129): {depth} page piece(s) queued for {w.profile}, no text-reader or review piece "
+               f"running or leased; {prof.unit} stopped for the page reader on card {w.card}")
+        self.log(f"night window: stopping {prof.unit}: {depth} page piece(s) queued for {w.profile}")
+        t0 = self.clock()
+        rc = self.systemctl("stop", prof.unit)
+        released = self._wait_released(prof, idx) if rc == 0 else False
+        seconds = round(self.clock() - t0, 1)
+        if not released:
+            detail = f"systemctl stop returned {rc}" if rc else f"the cards still hold the model after {seconds:.0f}s"
+            for card in idx:
+                q.record_swap(worker.conn, worker.schema, worker.box, card, "failed", why, from_profile=prof.name,
+                              by_worker=worker.name, load_seconds=seconds, ok=False, detail=detail)
+            self.log(f"night window: stop of {prof.unit} FAILED: {detail}; starting it again, no new stop for {NIGHT_REST_S}s")
+            self.systemctl("reset-failed", prof.unit)
+            self.systemctl("start", prof.unit)
+            self.standing_seen[prof.name] = False          # mark_standing records its return as a measured load
+            self.night_rest_until = now.timestamp() + NIGHT_REST_S
+            return
+        for card in idx:
+            q.record_swap(worker.conn, worker.schema, worker.box, card, "stop", why, from_profile=prof.name,
+                          by_worker=worker.name, load_seconds=seconds, ok=True,
+                          detail=f"{prof.unit} stopped; the cards released {prof.model} in {seconds:.1f}s")
+        runs.placement(",".join(f"{worker.box}:{c}" for c in idx), "stop", None, why, prof.name)
+        hold = [c for c in idx if c != w.card]
+        cold = dict(profile=None, port=None, pid=None, holder=None, holder_since=None, draining=False, slots=None,
+                    slots_busy=None, worker=worker.name)
+        for card in hold:
+            q.upsert_card(worker.conn, worker.schema, worker.box, card, reserved=True,
+                          reserved_why=f"night window: held for the frozen product's OCR server (:8032, hard limit 23) while "
+                                       f"{prof.unit} is stopped; the page reader takes card {w.card}", **cold)
+        q.upsert_card(worker.conn, worker.schema, worker.box, w.card, reserved=False, reserved_why=None, **cold)
+        self.night_page_card, self.night_hold_cards = w.card, hold
+        self.standing_seen[prof.name] = False
+        self.night_state, self.night_reason, self.night_alarmed = "page", None, False
+        self.night_logged.clear()
+        self._write_mark(worker, prof, now, why)
+        self.log(f"night window: {prof.unit} stopped in {seconds:.1f}s; card {w.card} free for {w.profile}, "
+                 f"card(s) {hold} held for the OCR server")
+
+    def _night_close(self, worker, prof: reg.Profile, now: dt.datetime) -> None:
+        w, card = self.window, self.night_page_card
+        if card is not None and self._page_running(worker):
+            q.upsert_card(worker.conn, worker.schema, worker.box, card, draining=True)
+            self._once("drain", f"night window: a {w.profile} piece is in flight on card {card}; draining, not killing, "
+                                f"before {prof.unit} starts")
+            return
+        if card is not None:
+            self.unload(worker, card, f"night window: {self.night_reason}; {prof.unit} starts again")
+        self._night_start(worker, prof, now)
+
+    def _night_start(self, worker, prof: reg.Profile, now: dt.datetime) -> None:
+        idx = self.standing_cards(worker, prof)
+        why = f"night window (ruling 129): {self.night_reason}; {prof.unit} started again"
+        self.log(f"night window: starting {prof.unit}: {self.night_reason}")
+        t0 = self.clock()
+        self.systemctl("reset-failed", prof.unit)          # three failed starts in ten minutes would otherwise refuse a fourth
+        rc = self.systemctl("start", prof.unit)
+        served = self._wait_standing(prof) if rc == 0 else None
+        seconds = round(self.clock() - t0, 1)
+        if served == prof.model:
+            for card in idx:
+                q.upsert_card(worker.conn, worker.schema, worker.box, card, profile=prof.name, port=prof.port, pid=None,
+                              holder=None, holder_since=None, draining=False, slots=prof.slots, slots_busy=None,
+                              reserved=False, reserved_why=None, worker=worker.name)
+                q.record_swap(worker.conn, worker.schema, worker.box, card, "start", why, to_profile=prof.name,
+                              by_worker=worker.name, load_seconds=seconds, served_model=served, ok=True,
+                              detail=f"{prof.unit} answering with {served!r} on :{prof.port} after {seconds:.1f}s")
+            runs.placement(",".join(f"{worker.box}:{c}" for c in idx), "start", None, why, prof.name)
+            self.standing_seen[prof.name] = True
+            self.log(f"night window: {prof.unit} answering again in {seconds:.1f}s; cards {idx} standing as today")
+            self._night_done(now)
+            return
+        if rc:
+            detail = f"systemctl start returned {rc}"
+        elif served:
+            detail = f"after {seconds:.0f}s :{prof.port} answers with {served!r}, not {prof.model!r}"
+        else:
+            detail = f"not answering on :{prof.port} after {seconds:.0f}s"
+        for card in idx:
+            q.record_swap(worker.conn, worker.schema, worker.box, card, "failed", why, to_profile=prof.name,
+                          by_worker=worker.name, load_seconds=seconds, served_model=served, ok=False, detail=detail)
+            q.upsert_card(worker.conn, worker.schema, worker.box, card, profile=None, port=None, pid=None, holder=None,
+                          holder_since=None, draining=False, slots=None, slots_busy=None, reserved=True,
+                          reserved_why=f"{prof.unit} holds this card for {prof.name}; it did not start again after the "
+                                       f"night window ({detail}); the worker tries again each tick", worker=worker.name)
+        self.standing_seen[prof.name] = False
+        self.night_state = "restarting"
+        self.log(f"night window: {prof.unit} did NOT start again: {detail}; trying again each tick")
+        if not self.night_alarmed:
+            self.night_alarmed = True
+            note = self._night_note(worker, prof, now, detail)
+            worker.alarm(f"qv4 {worker.box}: {prof.unit} did not start after the night window",
+                         f"{detail}; the text reader and review have no card until it answers; the worker tries again "
+                         f"each tick; the integrator's note is {note}")
+
+    def _night_done(self, now: dt.datetime) -> None:
+        self.night_state, self.night_reason = "standing", None
+        self.night_page_card, self.night_hold_cards = None, []
+        self.night_logged.clear()
+        self.night_alarmed = False
+        self.night_rest_until = now.timestamp() + NIGHT_REST_S
+        try:
+            os.remove(self.mark)
+        except OSError:
+            pass
+
+    def _write_mark(self, worker, prof: reg.Profile, now: dt.datetime, why: str) -> None:
+        """The stop, on disk until the start: a worker restarted in between
+        finds it and starts the unit again instead of leaving it down."""
+        try:
+            os.makedirs(os.path.dirname(self.mark), exist_ok=True)
+            with open(self.mark, "w", encoding="utf-8") as f:
+                json.dump({"unit": prof.unit, "standing": prof.name, "page_card": self.night_page_card,
+                           "hold_cards": self.night_hold_cards, "since": now.isoformat(timespec="seconds"),
+                           "worker": worker.name, "why": why}, f, indent=1)
+        except OSError as e:
+            self.log(f"night window: could not write {self.mark}: {e}")
+
+    def night_recover(self, worker) -> None:
+        """At start: a marker left by a stop with no start means the window
+        held the cards when the last worker died. The unit is started again
+        on the first tick, whatever the clock says."""
+        if not os.path.exists(self.mark):
+            return
+        try:
+            with open(self.mark, encoding="utf-8") as f:
+                m = json.load(f)
+        except (OSError, ValueError):
+            m = {}
+        prof = self.night_profile(worker)
+        if prof is None:
+            self.log(f"night window: {self.mark} says {m.get('unit', '?')} was stopped by {m.get('worker', '?')} and not "
+                     f"started again, but this catalogue has no window for it; the integrator starts it")
+            worker.alarm(f"qv4 {worker.box}: {m.get('unit', 'a standing unit')} may be down",
+                         f"the night window's marker is on disk with no window in the catalogue to act on it; check the unit")
+            return
+        self.night_page_card = m.get("page_card", self.window.card)
+        self.night_hold_cards = list(m.get("hold_cards") or [])
+        self.night_state = "closing"
+        self.night_reason = f"the worker restarted while the window held the cards (stopped {m.get('since', '?')})"
+        self.log(f"night window: {self.mark} found; {prof.unit} starts again on the first tick")
+
+    def _night_note(self, worker, prof: reg.Profile, now: dt.datetime, detail: str) -> str:
+        """A note for the integrator in the inbox (outside git), the way a
+        question session leaves a fault: the integrator files the card. It
+        names the unit, the failure and the commands to look with, and
+        nothing about any person."""
+        local = now.astimezone(self.window.zone) if self.window else now
+        path = os.path.join(self.inbox, f"{local:%Y-%m-%d}-{prof.unit.replace('.service', '')}-did-not-start-after-the-night-window.md")
+        lines = [
+            f"# {prof.unit} did not start again after the night window (ruling 129)",
+            "kind: blocker",
+            f"raised: {local:%Y-%m-%d %H:%M %Z} by the worker {worker.name} on {worker.box} (support.scheduler.cards)",
+            f"blocks: every text-reader and review job (no card holds {prof.name}); the board's chat pane says the model "
+            f"is not running (ruling 122)",
+            "",
+            f"The card manager stopped {prof.unit} inside the night window for the page reader and could not start it "
+            f"again: {detail}. It keeps trying each tick (reset-failed, then start, then the model read back on "
+            f":{prof.port} for up to {START_TIMEOUT_S} s), holds the standing cards reserved meanwhile, and records "
+            f"each try as a failed swap. This note is written once per episode.",
+            "",
+            "On node2, in /home/user/querynzv4:",
+            "",
+            f"    systemctl --user status {prof.unit}",
+            f"    journalctl --user -u {prof.unit} -n 80 --no-pager",
+            "    rocm-smi --showpids",
+            "    .venv/bin/python -m support.scheduler status | head -60",
+            "",
+            "A stray server on a card (rocm-smi lists it) would leave Radiance short of its pool; the frozen "
+            "product's OCR server (querynz-vision-ocr, :8032) is never the thing to stop.",
+            "",
+        ]
+        text = "\n".join(lines)
+        try:
+            os.makedirs(self.inbox, exist_ok=True)
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(text)
+        except OSError as e:
+            self.log(f"night window: could not write the integrator's note {path}: {e}")
+        return path
 
     # ── acting ───────────────────────────────────────────────────────────────
 
@@ -393,15 +792,15 @@ class Manager:
         return True
 
     def _wait_ready(self, proc, port: int, prof: reg.Profile, timeout: float = LOAD_TIMEOUT_S) -> tuple[str | None, float]:
-        t0 = time.monotonic()
-        while time.monotonic() - t0 < timeout:
+        t0 = self.clock()
+        while self.clock() - t0 < timeout:
             if proc.poll() is not None:
-                return None, time.monotonic() - t0
+                return None, self.clock() - t0
             a = self.ask(port)
             if a["healthy"] and a["served"]:
-                return a["served"], time.monotonic() - t0
-            time.sleep(2)
-        return None, time.monotonic() - t0
+                return a["served"], self.clock() - t0
+            self.sleep(2)
+        return None, self.clock() - t0
 
     def _stop(self, proc) -> None:
         for sig in (signal.SIGTERM, signal.SIGKILL):

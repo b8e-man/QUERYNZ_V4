@@ -15,7 +15,10 @@ card or on the processor (plan step 2). Extended from the old fleet service
     runner.py     one job or piece as a child process: memory ceiling,
                   deadline, query time limit, peak memory
     cards.py      what each card holds; the model server beside the old
-                  one; every swap in the ledger with its reason
+                  one; every swap in the ledger with its reason; the
+                  standing server's night window acted on (ruling 129)
+    night.py      the night window's clock: whether a moment is inside
+                  the hours of jobs.toml [night_window]; pure
     worker.py     the worker: one per box (two on node2 for the rehearsal)
 
 The job contract is docs/contracts/job.md; `support.jobspec` is the

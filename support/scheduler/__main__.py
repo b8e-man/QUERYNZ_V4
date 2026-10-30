@@ -98,6 +98,8 @@ def main(argv=None) -> int:
             print("PROBLEM " + x)
         for x in warns:
             print("warning " + x)
+        w = reg.night_window()
+        print(f"night window: {w}" if w else "night window: none; the standing server is never stopped")
         print(f"scheduler: {len(reg.load())} job types, {len(reg.profiles())} profiles, "
               f"{'green' if not probs else str(len(probs)) + ' problem(s)'}")
         return 1 if probs else 0

@@ -27,7 +27,8 @@ binary = "built"
 # FLASH-NEXT ON RADIANCE (ruling 121, 29 October 2026): on node2 Qwen3.8-Flash-Next replaces Qwen3.6 as the text
 # reader and review model. A STANDING server: its own unit `qv4-radiance` (support/scheduler/units/) runs Radiance in
 # a container across both cards as ONE profile; the card manager reads its model back and marks both cards, and
-# never starts, stops or plans it. The unit holds the server's settings (slots, context bound, pool, headroom);
+# never plans it. It stops and starts the unit in one case only: the night window of jobs.toml `[night_window]`
+# (ruling 129), for the page reader. The unit holds the server's settings (slots, context bound, pool, headroom);
 # `flags` is empty because no llama-server is started for it, and a test holds the unit and this block equal.
 # Measured 29 October 20:18 with the unit started after the frozen OCR server: rocm-smi --showpids 56.06 GB for
 # radiance over the two cards (26.1 GiB a card; 29.3 and 27.9 GiB used of 31.9 with the OCR server and driver), host
