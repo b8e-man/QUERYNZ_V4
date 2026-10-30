@@ -45,7 +45,11 @@ policy = "priority-ordered-round-robin"
 # :8032, 4.7 GB over both cards, never touched) keeps its room. When the page
 # queue is empty, or a text-reader or review piece is due, or the window ends,
 # whichever is first, the manager unloads `profile`, starts the unit again and
-# waits for the model to read back. Every stop and start is a swap-ledger
+# waits for the model to read back. The OTHER card: since 30 October the page
+# profile loads beside the frozen OCR server there too when the card's free
+# memory, measured after the stop, covers it (cards.py; spec.md on rule 25).
+# Arthur's word moves the hours without a commit: `python -m support.scheduler
+# night open [--until HH:MM]` and `night close` (night.py). Every stop and start is a swap-ledger
 # line with its reason and the measured seconds (Radiance starts in 21.6 s).
 # Outside the window the standing server is never stopped or planned (ruling
 # 121). The frozen release runs at 06:15 NZDT and never calls Flash-Next. The
@@ -677,7 +681,7 @@ command = ["python", "-m", "support.scheduler", "read-pages", "--profile", "ec-c
 requires = ["pdftoppm"]
 pieces = true
 can_share = false
-concurrency = 3   # rows side by side on the page reader's three slots (30 October)
+concurrency = 3   # rows side by side on EACH page reader's three slots (30 October): the worker's cap is per card holding the profile
 
 [jobs.qv4-site-compare]
 description = "Step 4.5: pair today's frozen release with the rebuilt version built from its listing, read every published file of the ten kinds on both sides figure by figure (no tolerance on money), group every difference by its cause, and write the day record and the clean-day ledger under <live>/checks/comparison/. Exits 1 when a difference has no cause card, or when no rebuilt version exists for today's listing. After qv4-site-build."

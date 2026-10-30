@@ -298,6 +298,27 @@ def test_a_job_holding_two_cards_keeps_both_while_nobody_waits(cat):
     assert [d.action for d in ds] == [KEEP, KEEP]
 
 
+def test_a_bulk_job_holding_one_card_spreads_to_a_card_that_comes_free_later(cat):
+    """Rule 9 on every tick, not only the first: on 30 October the page
+    reader held card 1 all evening while card 0, freed by hand, sat idle,
+    because only a job type taken THIS tick took the idle cards."""
+    held = [Held("n:0", "doc", since=100), Held("n:1", None)]
+    ds, _ = plan(cat, now=300, held=held, queues={"doc": 999})
+    assert one(ds, "n:0").action == KEEP
+    assert one(ds, "n:1").action == LOAD and one(ds, "n:1").job_type == "doc" and "rule 9" in one(ds, "n:1").why
+    # with the profile already on the free card (released earlier) it is a handover, not a load
+    ds, _ = plan(cat, now=300, held=[Held("n:0", "doc", since=100), Held("n:1", None, loaded="qwen-50k")], queues={"doc": 999})
+    assert one(ds, "n:1").action == HANDOVER and one(ds, "n:1").job_type == "doc"
+
+
+def test_a_resident_job_with_one_item_left_or_company_waiting_does_not_spread(cat):
+    held = [Held("n:0", "doc", since=100), Held("n:1", None)]
+    ds, _ = plan(cat, now=300, held=held, queues={"doc": 1})
+    assert one(ds, "n:1").job_type is None
+    ds, _ = plan(cat, now=300, held=held, queues={"doc": 999, "rev": 5})
+    assert one(ds, "n:1").job_type == "rev", "somebody else waiting takes the free card, as before"
+
+
 # ── sharing a profile, and reserved cards ────────────────────────────────────
 
 def test_a_job_whose_profile_is_already_loaded_shares_it_rather_than_waiting(cat):

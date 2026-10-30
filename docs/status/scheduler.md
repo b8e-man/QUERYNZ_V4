@@ -1,55 +1,49 @@
 # scheduler: where step 2 stands
 
-Last close: fix-support-scheduler-3 (ruling 129), 30 October 2026, node2.
-Branch `fix/support-scheduler-1`, merge request `fix-support-scheduler-3`.
-Scope `support/scheduler`.
+Last close: fix-support-scheduler-5 (three cards of 30 October), 30 October
+2026 22:45, node2. Branch `fix/support-scheduler-1`, merge request
+`fix-support-scheduler-5`. Scope `support/scheduler`.
 
 ## Done
 
-- Step 2 on one box (session 2, 18 October): the four founding jobs on the
-  queue's clock; the model server built from source beside the copy.
-- fix-support-scheduler-1 (23 October): a job new to the catalogue waits
-  for its next slot.
-- release-copy-1 (23 October): the worker and every job run from the
-  release copy `/home/user/querynzv4-release`, moved by
-  `python -m support.installer release` after every push.
-- fix-support-scheduler-2 (ruling 115): a run stopped at its memory
-  ceiling raises the job's working figure to twice the ceiling, rounded up
-  to 0.5 GB, in `scheduler.memory_raises` (never jobs.toml), and queues the
-  job again at once; at most two raises per first row. Placement and the
-  ceiling use the working figure. `memory` lists raises not yet folded.
-
-- fix-support-scheduler-3 (this close, ruling 129): the standing server's
-  night window. jobs.toml `[night_window]` (22:00 to 05:45 Pacific/Auckland,
-  flash-next stopped for page-reader on card 1); `night.py` is the clock;
-  `cards.Manager.night_tick` stops `qv4-radiance` when page work is queued
-  and no text-reader or review piece is running or leased, waits for the
-  cards to release the model, holds card 0 for the frozen OCR server, lets
-  the planner load the page reader on card 1, and starts the unit again when
-  the page queue is empty, a view piece is due, or the window closes; every
-  stop and start a `stop`/`start` swap line with measured seconds; a failed
-  start is a `failed` line, one alarm, one inbox note, retried each tick; a
-  marker under <live>/scheduler survives a worker restart. Fourteen fast
-  tests on the fake worker, four mutants seen failing.
+- Step 2 on one box (session 2, 18 October); the release copy (23 October);
+  memory raises (fix-2, ruling 115); the night window (fix-3, ruling 129:
+  `[night_window]`, `night.py`, `cards.Manager.night_tick`, the stop/start
+  swap lines, the marker under <live>).
+- fix-support-scheduler-5 (this close): (a) inside the window the page
+  reader also loads on card 0 beside the frozen OCR server when the card's
+  free memory, read after Flash-Next releases, covers 4.8 + 2.0 GB
+  (`cards.BESIDE_HEADROOM_GB`); else the card is held; the stop line carries
+  the figures; only the page profile goes there; a failed beside load holds
+  the card, not the profile. Rule 9 spreads a resident bulk job to a card
+  idle on any tick. The worker picks the least-loaded card holding the
+  profile per piece (`Worker.pick_card`), caps a job type per card, and
+  `max_parallel` is 8. (b) `python -m support.scheduler night open
+  [--until HH:MM]` / `night close` / `night`: Arthur's word, one file
+  `<live>/scheduler/night-word.json`, honoured until the window would close
+  anyway; the ledger names who gave it. (c) every Manager in the tests keeps
+  its markers under the test folder (conftest). Fast tier green (127 tests,
+  5 s); eight mutants seen failing.
 
 ## Waits on the integrator, at the merge (node2, /home/user/querynzv4)
 
-1. Release, then with the worker idle restart `qv4-worker@node2` so the
-   manager reads the window (the catalogue reloads on the probe's clock, but
-   the manager's injected pieces are built at start).
-2. Queue the page work (`qv4-read-pages-candidates`, `qv4-read-pages`, the
-   disclosures pages) before 22:00; the first night opens at 22:00 NZDT.
-3. The morning after: `python -m support.scheduler status` shows the
-   `stop`/`start` lines and their seconds; a `failed` start is also a note
-   in the inbox's cards folder.
-4. After a night, `python -m support.scheduler memory` names any
-   `memory_gb` to fold into jobs.toml (ruling 115, unchanged).
+1. Push main, `.venv/bin/python -m support.installer release`, then with
+   the worker idle `systemctl --user restart qv4-worker@node2` (the
+   manager's night state and the worker's card choice are built at start).
+2. The first night after: `python -m support.scheduler status` should show
+   two `load` lines for page-reader (cards 0 and 1) after the `stop` lines,
+   card 0's stop detail with its free-memory figures, and `night` says where
+   the window stands. Arthur's early open is now `python -m
+   support.scheduler night open` on node2, never a commit.
+3. Fold any `memory` raises as before (ruling 115).
 
 ## Not done
 
-- checks/scheduler.py still counts the killed run of a re-run that came
-  good as a failed run for 24 h (outside this fence; noted in the request).
+- checks/scheduler.py still counts a killed run that came good as failed
+  for 24 h (outside this fence).
 - The two-box proofs stay owed on node1.
+- Whether `page-reader` at `slots = 3` needs a larger `memory_gb` than the
+  4.8 measured at 32768x1 is unmeasured; the headroom covers it tonight.
 
 ## Next
 
