@@ -1228,6 +1228,20 @@ command = ["python", "-m", "registers.beehive.load"]
 at_utc = "15:00"
 nice = 10
 
+[jobs.qv4-hansard-read]
+description = "Hansard: the text reader's reading of one sitting day (piece key sha256 of the MCP's debates record) through the text-reader profile: the day split by profile hansard-day into pieces of at most 40,000 characters, every person and body a speech names with its kind, role and 'of', one summary a piece; the pieces stored at page p and joined at page 1 under the day's hash, replayed by the next load. Keys from python -m registers.hansard.model_read --pieces."
+needs = "model-profile"
+profile = "text-reader"
+memory_gb = 0.5
+deadline_s = 7200
+query_timeout_s = 300
+class = "whenever"
+priority = 29   # 26 is qv4-courts-read's; after beehive (28), before parliament (Arthur's order, 31 October)
+command = ["python", "-m", "registers.hansard.model_read", "--piece"]
+pieces = true
+can_share = true
+concurrency = 4
+
 [jobs.qv4-hansard-load]
 description = "Hansard: rebuild the lane's tables from the old export and the MCP's hansard index and daily-PDF documents, publish pub.hansard_sittings, sections, speeches and days on green. Nightly at 04:15 NZDT, after the pull and beside the Beehive load (rulings 96, 97; hansard-2)."
 needs = "processor"
@@ -1251,6 +1265,21 @@ priority = 87
 command = ["python", "-m", "registers.ministers_diaries.load"]
 at_utc = "15:20"
 nice = 10
+
+# ── step 4.1, parliament: the text reader (parliament-2; Arthur's common rules for the MCP names readers, 31 October 2026) ──
+[jobs.qv4-parliament-read]
+description = "Parliament: the text reader's reading of one piece (key sha256) through the text-reader profile: an archived parliament.nz page (in pieces when over the profile's budget, joined under its hash) or a batch of up to 16 written questions of one year and number range in one request; every person and body named with kind, role and the organisation they are of, one summary line; stored by hash, replayed by the next load into parliament.people. Keys from python -m registers.parliament.model_read --pieces (the pages first, newest first, then the questions' batch leaders)."
+needs = "model-profile"
+profile = "text-reader"
+memory_gb = 0.5
+deadline_s = 3600   # a 29-piece page: its pieces four at a time, eight rounds; 20 to 35 minutes under a shared server
+query_timeout_s = 300
+class = "whenever"
+priority = 103   # 28 is qv4-beehive-read's and 30 to 102 are taken: last of the readers (Arthur's order, 31 October)
+command = ["python", "-m", "registers.parliament.model_read", "--piece"]
+pieces = true
+can_share = true
+concurrency = 4
 
 [jobs.qv4-parliament-load]
 description = "Parliament: rebuild the lane's tables from the MCP's seven parliament corpora, publish pub.parliament_written_questions, pub.parliament_api_items and pub.parliament_wayback_pages on green. Nightly at 04:30 NZDT, after the pull (ruling 96; parliament-1, 27 October 2026)."
