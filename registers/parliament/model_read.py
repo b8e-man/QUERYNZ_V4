@@ -270,8 +270,9 @@ def ask(docs: list, *, url: str, model: str, post=None, request: dict = None, ti
         attempt: int = 1, sleep: float = None) -> tuple:
     """docs: [(key, header, text)]. (parsed answer by key or None, served model). One call; the client reads
     the served model back and refuses another. The second attempt, after an answer that missed a document,
-    asks for the object alone; there is no third. A 429 (the server's slots are full, shared by every lane)
-    waits BUSY_WAIT_S and asks again, up to BUSY_TRIES times: a busy server is not a failed read."""
+    asks for the object alone; there is no third. A 429 (the server's slots are full, shared by every lane) or
+    a server not answering (a connection refused or reset while it loads) waits BUSY_WAIT_S and asks again, up
+    to BUSY_TRIES times: a busy or loading server is not a failed read. Any other HTTP error raises."""
     extra = {"temperature": 0.0, "max_tokens": MAX_TOKENS, "chat_template_kwargs": {"enable_thinking": False}}
     for k, v in (request or {}).items():
         if k not in ("temperature", "max_tokens"):
@@ -285,8 +286,9 @@ def ask(docs: list, *, url: str, model: str, post=None, request: dict = None, ti
                                    messages=[{"role": "system", "content": PROMPT}, {"role": "user", "content": body}],
                                    extra=extra, timeout=timeout, post=post)
             break
-        except urllib.error.HTTPError as exc:
-            if exc.code != 429 or busy == BUSY_TRIES:
+        except (urllib.error.URLError, ConnectionError) as exc:      # HTTPError is a URLError
+            code = getattr(exc, "code", None)
+            if (code is not None and code != 429) or busy == BUSY_TRIES:
                 raise
             time.sleep(BUSY_WAIT_S if sleep is None else sleep)
     answer = (out["choices"][0]["message"]["content"] or "").strip()

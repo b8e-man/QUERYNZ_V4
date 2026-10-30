@@ -291,3 +291,12 @@ def test_a_busy_server_is_waited_for_and_asked_again_never_a_failed_read():
         raise urllib.error.HTTPError(url, 500, "Server Error", {}, None)
     with pytest.raises(urllib.error.HTTPError):
         M.ask([("d1", "h", "t")], url=URL, model="qwen4exp", post=refused, sleep=0)
+    calls.clear()
+
+    def loading(url, body, timeout):
+        calls.append(body)
+        if len(calls) < 2:
+            raise urllib.error.URLError(ConnectionResetError(104, "Connection reset by peer"))
+        return {"model": body["model"], "choices": [{"message": {"content": answer}}], "usage": {}}
+    parsed, _ = M.ask([("d1", "h", "t")], url=URL, model="qwen4exp", post=loading, sleep=0)
+    assert len(calls) == 2 and "d1" in parsed, "a server loading is waited for"
