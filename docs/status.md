@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-30, 13:55 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-30, 15:40 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
@@ -31,12 +31,12 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
   every row, alive on the row's own date; built 12:33), the MCP download
   step 13:07 (126, `mcpsource.files`), the night window 13:48 (129).
   Released; inbox empty.
-- Night window: 22:00 to 05:45 NZDT Radiance stops for the page reader on
-  card 1 when page work is queued; first night tonight. Queued: 653
-  candidate returns (row 854), 10 disclosure scans (855). At 13:49 the
-  probe listed the processor's graphics as a card 2 and the page reader
-  ran on it; reserved by hand, server killed; fixed 14:35 (4f57fdf).
-- MCP lanes green nightly. The `courts` corpus (4,946 records, each one
+- Night window (129): Radiance stops for the page reader on card 1 when
+  page work is queued. Opened at 15:37 on Arthur's word (start 15:00 by
+  8e9567c; back to 22:00 once rows 854 and 855, 663 documents, are read:
+  card). At 13:49 the probe listed the processor's graphics as a card 2
+  and the page reader ran on it; reserved, killed; fixed 14:35 (4f57fdf).
+- MCP lanes green. The `courts` corpus (4,946 records, each one
   a file): a pull queued 13:49 (row 856) lands the listing and fetches the
   files (1.5 GB, 2.5 to 4 h); `courts-2` starts after.
 - `links.check` 12:4x: one red, a placeholder NZBN of thirteen zeros
