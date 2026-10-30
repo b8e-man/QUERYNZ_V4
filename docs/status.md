@@ -35,7 +35,7 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
   8e9567c; 22:00 again once rows 854, 860, 861 are read: card). 16:07
   the reader took three slots and three rows (6038992); 855 done; 139
   of 658 documents read by 17:09, about 1.6 a minute. 13:49 the probe
-  listed the processor's graphics as a card 2; fixed 14:35 (4f57fdf).
+  listed the processor's graphics as a card; fixed 14:35 (4f57fdf).
 - MCP lanes green. `courts` pull (row 856) ended 17:04: 5,510 of 5,611
   files landed, 88 held, 13 caught (hash mismatch; RED). `courts-2`
   launched headless 17:10 from its working copy, scope registers/courts.
@@ -51,5 +51,5 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
   the Commission's rows. The switch after 7 November.
 - Waits on Arthur: letters (Dunedin, TPK, Police); rulings 69, 75;
   sample-schema drops; near links between group ids; the display-name
-  fold; remote branch deletions. node1's return: fence
-  first (10.0.0.1, never the VIP), ruling 57, 94.
+  fold; remote branch deletions. node1's return: fence first (10.0.0.1,
+  never the VIP), ruling 57, 94.
