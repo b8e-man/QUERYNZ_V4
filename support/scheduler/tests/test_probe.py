@@ -136,3 +136,25 @@ def test_the_real_profile_of_this_box_holds_cards_and_programs():
     assert set(p["programs"]) == set(probe.PROGRAMS)
     assert any(d["mount"] == "/" for d in p["disks"])
     assert os.path.exists(p["programs"]["pdftotext"] or "/nonexistent") or p["programs"]["pdftotext"] is None
+
+
+# 30 October 2026, node2, 13:49: rocm-smi listed the processor's own graphics as a third device for one tick
+# (card the-probe-lists-the-processor-s-own-graphics-as-a-card); the planner loaded the page reader on it
+RYZEN = json.loads(ROCM)
+RYZEN["card2"] = {"VRAM Total Memory (B)": str(2 * 1024 ** 3), "VRAM Total Used Memory (B)": "104857600",
+                  "Card Series": "AMD Ryzen 9 9950X 16-Core Processor"}
+RYZEN = json.dumps(RYZEN)
+
+
+def test_the_processors_own_graphics_is_not_a_card():
+    """A device is a card only when its product is not a processor and its
+    memory is at or above the floor; what was dropped is reported."""
+    dropped = []
+    got = probe.cards(RYZEN, dropped=dropped)
+    assert [c["index"] for c in got] == [0, 1]
+    assert [(d["index"], d["product"], d["memory_total_gb"]) for d in dropped] == [(2, "AMD Ryzen 9 9950X 16-Core Processor", 2.0)]
+    small = json.dumps({"card0": {"VRAM Total Memory (B)": str(4 * 1024 ** 3), "VRAM Total Used Memory (B)": "0",
+                                  "Card Series": "AMD Radeon 780M Graphics"}})
+    assert probe.cards(small) == [], "a device under the floor is not a card, whatever its name"
+    assert probe.cards(RYZEN.replace("card2", "card7")) == probe.cards(ROCM)
+    assert probe.CARD_FLOOR_GB == 8.0

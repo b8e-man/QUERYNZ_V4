@@ -139,6 +139,12 @@ def systemctl_user(verb: str, unit: str, timeout: float = START_TIMEOUT_S + 30) 
     return r.returncode
 
 
+# the reservation written on a `cards` row whose card the probe no longer lists (card
+# the-probe-lists-the-processor-s-own-graphics-as-a-card): never planned; cleared when the card is listed again
+STALE_WHY = ("the probe does not list this card: the row was written from a device that has gone "
+             "(card the-probe-lists-the-processor-s-own-graphics-as-a-card)")
+
+
 class Server:
     def __init__(self, proc: subprocess.Popen, prof: reg.Profile, card: int, port: int, started: float):
         self.proc, self.prof, self.card, self.port, self.started = proc, prof, card, port, started
@@ -218,7 +224,38 @@ class Manager:
                     q.record_swap(worker.conn, worker.schema, worker.box, c["index"], "stray", "a server this worker did not start "
                                   "answers on the card's port", served_model=stray["served"], by_worker=worker.name, ok=False)
             q.upsert_card(worker.conn, worker.schema, worker.box, c["index"], **fields)
+        self.reconcile_listing(worker)
         self.mark_standing(worker)
+
+    def reconcile_listing(self, worker) -> None:
+        """Keep the `cards` rows true to the probe's listing. A row whose card
+        the probe no longer lists is reserved with `STALE_WHY`, so the planner
+        never loads there (30 October: the processor's own graphics was listed
+        for one tick, its row stayed, and the page reader ran on the
+        processor); that reservation, and only that one, is cleared when the
+        card is listed again. A failed probe (None) is not data and marks
+        nothing. Another live worker's cards are left alone."""
+        listed = worker.profile.get("cards")
+        if listed is None:
+            return
+        idx = {c["index"] for c in listed}
+        fixed = {r.key for r in self.reservations}
+        live_others = {w["name"] for w in q.workers(worker.conn, worker.schema)
+                       if w["name"] != worker.name and w["state"] == "up"
+                       and (q.utcnow() - w["last_seen"]).total_seconds() < worker.alarm_after_s}
+        for row in q.cards(worker.conn, worker.schema, worker.box):
+            if row["worker"] in live_others and not row["reserved"]:
+                continue
+            if row["card"] not in idx and row["reserved_why"] != STALE_WHY:
+                self.log(f"card {row['card']}: not listed by the probe ({row['product']!r}, {row['memory_total_gb']} GB)"
+                         f"{'; the hand reservation is replaced' if row['reserved'] else ''}; the row is reserved so it is "
+                         f"never planned")
+                q.upsert_card(worker.conn, worker.schema, worker.box, row["card"], reserved=True, reserved_why=STALE_WHY,
+                              worker=worker.name)
+            elif row["card"] in idx and row["reserved_why"] == STALE_WHY and f"{worker.box}:{row['card']}" not in fixed:
+                self.log(f"card {row['card']}: listed by the probe again; the stale reservation is cleared")
+                q.upsert_card(worker.conn, worker.schema, worker.box, row["card"], reserved=False, reserved_why=None,
+                              worker=worker.name)
 
     # ── standing servers (ruling 121) ────────────────────────────────────────
 
@@ -326,6 +363,7 @@ class Manager:
     def tick(self, worker, now) -> None:
         now_s = now.timestamp()
         self._reap_dead_servers(worker)
+        self.reconcile_listing(worker)
         demands = q.demands(worker.conn, worker.schema, worker.registry, now=now)
         self.night_tick(worker, now, demands)
         self.mark_standing(worker)

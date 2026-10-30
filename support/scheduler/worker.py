@@ -158,6 +158,11 @@ class Worker:
             if h in p.get("programs", {}):
                 p["programs"][h] = None
         p["worker"] = self.name
+        dropped = p.get("devices_dropped") or []
+        if dropped and dropped != (self.profile.get("devices_dropped") or []):
+            # the probe's log line: what rocm-smi listed that is not a card (said when it changes, not every probe)
+            self.log("probe: not a card, dropped: " + "; ".join(
+                f"index {d['index']} {d.get('product')!r} {d.get('memory_total_gb')} GB" for d in dropped))
         self.profile, self.probed_at = p, time.monotonic()
         return p
 
