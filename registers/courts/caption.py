@@ -42,9 +42,9 @@ from dataclasses import dataclass, field
 VERSION = "registers.courts.caption 1"
 
 COURTS = {"SUPREME COURT": "NZSC", "COURT OF APPEAL": "NZCA", "HIGH COURT": "NZHC", "DISTRICT COURT": "NZDC"}
-CITE = re.compile(r"\[(\d{4})\]\s+(NZ[A-Z]{2,5})\s+(\d{1,5})\b")
-CITE_LINE = re.compile(r"^\s*\[(\d{4})\]\s+(NZ[A-Z]{2,5})\s+(\d{1,5})\s*$")
-FILE_CITE = re.compile(r"(\d{4})-(NZ[A-Z]{2,5})-(\d{1,5})(?:[^0-9].*)?\.pdf$", re.I)
+CITE = re.compile(r"\[(\d{4})\]\s+(NZ[A-Za-z]{2,6})\s+(\d{1,5})\b")
+CITE_LINE = re.compile(r"^\s*\[(\d{4})\]\s+(NZ[A-Za-z]{2,6})\s+(\d{1,5})\s*$")
+FILE_CITE = re.compile(r"(\d{4})-(NZ[A-Za-z]{2,6})-(\d{1,5})(?:[^0-9].*)?\.pdf$", re.I)
 COURT_LINE = re.compile(r"^\s*IN THE ([A-ZĀĒĪŌŪ ]+?) OF NEW ZEALAND\s*$", re.M)
 REO_LINE = re.compile(r"^\s*I TE K[OŌ]TI\b", re.M)
 REGISTRY = re.compile(r"^\s*([A-ZĀĒĪŌŪ'’\- ]{3,40}?) REGISTRY\s*$")
@@ -571,13 +571,27 @@ def _role_key(role: str) -> tuple:
     return ords, bases
 
 
+#: a criminal caption prints no role: its sides are the prosecutor and the defendant, and the counsel lines name them
+#: by the stage ("for Applicant", "for Appellant", "for Respondent"; the Crown's line names no role _BASE takes)
+CRIMINAL_SIDES = {"appellant", "applicant", "respondent", "defendant", "prosecutor"}
+ORDINAL = {o.lower(): n for n, o in enumerate(_ORD[3:-1].split("|"), 1)}
+
+
 def roles_unaccounted(j: Judgment) -> list:
     """The roles the counsel lines are "for" that no party of the caption
     holds: a party the caption grammar missed. "for Appellants" is held by a
     First and a Second Appellant; "for Second and Third Respondents" needs
-    both."""
+    both. In a criminal caption (no printed role) the stage's words are
+    held by its two sides, an ordinal by that many defendants."""
     held = [_role_key(p.role) for p in j.parties]
     out = []
+    if j.caption_shape == "criminal":
+        defendants = sum(1 for p in j.parties if p.role == "Defendant")
+        for r in j.counsel_roles:
+            ords, bases = _role_key(r)
+            if not held or not bases <= CRIMINAL_SIDES or max((ORDINAL.get(o, 99) for o in ords), default=1) > max(defendants, 1):
+                out.append(r)
+        return out
     for r in j.counsel_roles:
         ords, bases = _role_key(r)
         for b in bases:
