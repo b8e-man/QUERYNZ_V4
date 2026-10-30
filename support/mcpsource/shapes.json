@@ -1175,14 +1175,32 @@
   },
   "items": {
    "capture": {
+    "bytes": [
+     "int"
+    ],
     "doc_type": [
+     "str"
+    ],
+    "fetched_at": [
      "str"
     ],
     "kind": [
      "str"
     ],
+    "path": [
+     "str"
+    ],
+    "sha256": [
+     "str"
+    ],
+    "snapshot_url": [
+     "str"
+    ],
     "snapshots": [
      "int"
+    ],
+    "status": [
+     "str"
     ],
     "ts": [
      "str"
