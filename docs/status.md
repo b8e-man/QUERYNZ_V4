@@ -13,7 +13,7 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
 
 ## Done
 
-- Steps 0 to 3 closed (60); 1.4's positive half seen (70); track B equal.
+- Steps 0 to 3 closed (60); 1.4's positive half seen (70).
 - 4.1, fifteen lanes merged: donations (66), parties, party finance,
   gazette, house, companies (1.92 M), expenses and interests, societies,
   candidate returns, charities (64), party boards, OpenLaw (HELD), courts.
