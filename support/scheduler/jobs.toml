@@ -51,7 +51,7 @@ policy = "priority-ordered-round-robin"
 # 121). The frozen release runs at 06:15 NZDT and never calls Flash-Next. The
 # hours are local time in `timezone`, so the clock change moves nothing here.
 [night_window]
-start_local = "15:00"   # 22:00 by ruling 129; opened from 15:00 on Arthur's word, 30 October, for the page backlog; back to 22:00 after
+start_local = "22:00"   # ruling 129 (opened from 15:00 on Arthur's word on 30 October for the page backlog; restored 21:20)
 end_local = "05:45"
 timezone = "Pacific/Auckland"
 standing = "flash-next"
