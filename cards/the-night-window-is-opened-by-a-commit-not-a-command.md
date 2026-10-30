@@ -17,3 +17,7 @@ Owed: (1) the integrator puts the start back to 22:00 (ruling 129) once rows 854
 route; (2) a scheduler fix so Arthur's word is one command on node2 (say `python -m support.scheduler night open`
 writing a marker under `<live>/scheduler/` that `night_window()` honours until the window would close, with the
 ledger line saying who opened it), never a commit.
+
+21:20, 30 October: (1) done. The window closed itself at 21:14 (page queue empty; Radiance back on :8060 at 21:14,
+both cards flash-next); `start_local` is 22:00 again by 07bad0d with the pinning test, released; no restart needed.
+(2) stands.

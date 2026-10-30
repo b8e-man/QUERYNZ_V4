@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-30, 19:50 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-30, 21:30 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet; 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
@@ -30,16 +30,15 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
   `pub.entities`, 2.6 M), `links-5` 12:03 (125, organisation rules alive
   on the row's own date), the MCP download step 13:07 (126), the night
   window 13:48 (129). Released; inbox empty.
-- Night window (129): Radiance stops for the page reader on card 1 when
-  page work is queued. Opened 15:37 on Arthur's word (start 15:00 by
-  8e9567c; 22:00 again once rows 854, 860, 861 are read: card); three
-  slots and three rows since 16:07 (6038992); 855 done.
+- Night window (129): opened 15:37 on Arthur's word for the page backlog
+  (685 documents, rows 854/855/860/861; a second reader by hand on card
+  0 from 19:25); closed itself 21:14, Radiance back; 22:00 restored
+  (07bad0d). `qv4-courts-read` row 865 reading since 21:16 (15 a
+  minute; 5,589 pieces, done about 03:30); `courts-pages` 866 done.
 - MCP lanes green; `courts` pull (row 856) done 17:04, 13 caught.
   `courts-2` merged 19:40 (7cdc8ab: one source, every kind by shape,
-  names by the text reader); `qv4-courts-read` row 865 (5,589 pieces)
-  and `-pages` 866 (4) wait for their cards; board next merge.
-- 19:25: a second page reader by hand on card 0 beside the frozen
-  OCR server (Arthur), rows 860/861 from the tail; both cards full.
+  names by the text reader; `pub.court_people` fills at the 04:40
+  load after row 865); views on the board next merge.
 - `links.check`: one red, a placeholder NZBN and one NZBN under two
   charity numbers (card, a links fix).
 
