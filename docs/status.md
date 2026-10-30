@@ -35,7 +35,7 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
   card 1 when page work is queued; first night tonight. Queued: 653
   candidate returns (row 854), 10 disclosure scans (855). At 13:49 the
   probe listed the processor's graphics as a card 2 and the page reader
-  ran on it; reserved by hand, server killed (card; a scheduler fix).
+  ran on it; reserved by hand, server killed; fixed 14:35 (4f57fdf).
 - MCP lanes green nightly. The `courts` corpus (4,946 records, each one
   a file): a pull queued 13:49 (row 856) lands the listing and fetches the
   files (1.5 GB, 2.5 to 4 h); `courts-2` starts after.

@@ -568,6 +568,8 @@ for later, one command.
 
 ## fix-support-scheduler-4
 
+MERGED 30 October 14:35 (4f57fdf; record in docs/merges/fix-support-scheduler-4.md).
+
 Fix session, Fable, scope `support/scheduler/`. The probe listed the processor's
 own graphics as a card and the page reader ran on it (card
 `the-probe-lists-the-processor-s-own-graphics-as-a-card`). Launched headless by
