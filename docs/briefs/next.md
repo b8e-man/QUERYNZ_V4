@@ -609,6 +609,8 @@ integrator what closed and what the first night will do.
 
 ## fix-support-mcpsource-2
 
+MERGED 30 October 13:07 (00266ae; record in docs/merges/fix-support-mcpsource-2.md).
+
 Fix session, Fable, scope `support/mcpsource/`. Ruling 126: the pull lands
 every file a record points at. Launched headless by the integrator 30
 October, or on node2: `cd /home/user/querynzv4 && bin/fix support/mcpsource`.
