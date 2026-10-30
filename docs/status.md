@@ -3,7 +3,7 @@
 Overwritten at every close; under 3 KB.
 
 **Date:** 2026-10-30, 19:50 NZDT. **Step:** 4 built through 4.4 and 4.9;
-4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
+4.5 comparing daily, no clean day yet; 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
 8450); 6.2 `tenders-1` and templates 1 to 3 merged; 6.3's four source
@@ -38,8 +38,8 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
   `courts-2` merged 19:40 (7cdc8ab: one source, every kind by shape,
   names by the text reader); `qv4-courts-read` row 865 (5,589 pieces)
   and `-pages` 866 (4) wait for their cards; views on the board next.
-- 19:25: a second page reader by hand on card 0 beside the frozen OCR
-  server (Arthur), rows 860/861 from the tail; both cards full.
+- 19:25: a second page reader by hand on card 0 beside the frozen
+  OCR server (Arthur), rows 860/861 from the tail; both cards full.
 - `links.check`: one red, a placeholder NZBN and one NZBN under two
   charity numbers (card, a links fix).
 
