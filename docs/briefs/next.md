@@ -566,7 +566,48 @@ bulk until the build is done. A lane's request for readings is answered
 with the store's sample and a note; the hashes it sets aside are the queue
 for later, one command.
 
+## fix-support-scheduler-4
+
+Fix session, Fable, scope `support/scheduler/`. The probe listed the processor's
+own graphics as a card and the page reader ran on it (card
+`the-probe-lists-the-processor-s-own-graphics-as-a-card`). Launched headless by
+the integrator 30 October, or on node2: `cd /home/user/querynzv4 && bin/fix support/scheduler`.
+
+```text
+You are a fix session for QueryNZV4, running as Fable on node2, in the
+working copy the launcher made for you, scope support/scheduler/. Read
+docs/PLAN.md, docs/plan/core.md, support/scheduler/spec.md, probe.py
+(cards), cards.py (register_cards, held, the night window), queue.py
+(cards, upsert_card) and the card
+cards/the-probe-lists-the-processor-s-own-graphics-as-a-card.md. Fix
+that card. What happened: at 13:49 on 30 October, the first tick after
+the night-window merge with page work queued, rocm-smi listed a third
+device on node2 for one tick (index 2, product "AMD Ryzen 9 9950X
+16-Core Processor", 2.0 GB: the processor's own graphics); the probe
+passed it as a card, register_cards wrote the row, the planner saw a
+cold card and loaded page-reader on it, and the server ran on the
+processor. The integrator reserved the row by hand and killed the
+server; rows 854 and 855 wait for tonight's window. Build: (1) the probe
+keeps a device only when it is a discrete card: its product is not a
+processor and its memory is at or above a floor (8 GB; the R9700 has
+31.9), and says in its log line what it dropped; (2) register_cards
+marks a scheduler.cards row whose card the probe no longer lists as
+reserved with a reason naming this, so a stale row is never planned,
+and clears that reservation when the card is listed again; (3) a fast
+test for each on the fake worker, with a probe payload carrying the
+Ryzen device, each seen failing on main's code; (4) the integrator's
+hand reservation on (node2, 2) is replaced by yours on the first tick.
+Nothing else in the window logic changes; ruling 121's tests stand. No
+model is called by the tests. Never print a home address or a
+suppressed name. Push your branch and raise fix-support-scheduler-4 in
+/home/user/querynzv4-work/inbox/merge-requests/ (if the fence refuses,
+leave it in your scratch folder and say so). Finish by telling the
+integrator what closed, in a few lines.
+```
+
 ## fix-support-scheduler-3
+
+MERGED 30 October 13:48 (44ecfec; record in docs/merges/fix-support-scheduler-3.md).
 
 Fix session, Fable, scope `support/scheduler/`. Ruling 129: the standing
 server's night window. Launched headless by the integrator 30 October, or on

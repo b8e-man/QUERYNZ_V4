@@ -2,55 +2,54 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-30, 11:30 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-30, 13:55 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
 8450); 6.2 `tenders-1` and templates 1 to 3 merged; 6.3's four source
 lines have lanes. Track C measured; B and E closed. **Boxes:** node2 is the
-estate; node1 offline indefinitely (Arthur, 25 October): ruling 79 holds
-model reading till it returns. **Alarms:** the old ntfy address.
+estate; node1 offline indefinitely (Arthur, 25 October); model reading
+runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
 
 ## Done
 
-- Steps 0 to 3 closed (ruling 60); 1.4's positive half seen (70).
-- 4.1, fifteen lanes merged: donations (ruling 66), parties, party
-  finance, gazette (207,133 notices), house, companies (1.92 M), expenses
-  and interests, societies, candidate returns (413 read returns and 675
-  Commission rows), charities (46,131; ruling 64), party boards (72: not
-  on the site), OpenLaw (HELD), courts (148).
+- Steps 0 to 3 closed (60); 1.4's positive half seen (70); track B equal.
+- 4.1, fifteen lanes merged: donations (66), parties, party finance,
+  gazette, house, companies (1.92 M), expenses and interests, societies,
+  candidate returns, charities (64), party boards, OpenLaw (HELD), courts.
 - 4.2/4.3 links: 3.07 M confirmed, 725 K groups (fix-links-5, 29 Oct);
   the agent scores and applies nothing (ruling 69). 4.4 site version 3.
   4.9 board 87 views, chat pane (122). 5.1 the report shape, tranche 3.
-- Rulings 64 to 125 (102: limit 15 binds products, not the board; 123:
-  pub.entities; 125: organisation rules on every row, time-aware).
-- Track B: restore rehearsal equal. Merges: `docs/merges/`.
+- Rulings 64 to 129 (102: limit 15 binds products, not the board; 123:
+  pub.entities; 125 to 129: time-aware rules, MCP courts, reading, night).
 
 ## Running (headless, from the integrator)
 
 - 30 October merges: `flash-next-1` 08:16 (121), `candidate-returns-3`
-  08:58 (the Commission's rows), `site-4` 09:30 (its citation; the filed
-  label), support follow-up 09:58 (the gate marks itself; the returns
-  load nightly 02:40). Released; inbox empty.
-- MCP lanes green nightly. A twelfth corpus, `courts` (4,897), is a
-  listing; files served since 11:40 (queue).
-- `links-4` merged 11:18 (ruling 123, `pub.entities`, 2.6 M entities);
-  DDL applied, `qv4-links-build` queued (row 850); the board catalogues
-  the view in the next merge. `links-5` launched 11:22 (ruling 125:
-  organisation rules on every row naming a body, alive on the row's own
-  date; shareholders undated till the companies lane publishes a filing
-  date). Same-name bodies across registers: no rule (124). Courts: 87
-  judgments wait on a load job.
+  08:58, `site-4` 09:30, support follow-up 09:58, `links-4` 11:18 (123,
+  `pub.entities`, 2.6 M), `links-5` 12:03 (125, organisation rules on
+  every row, alive on the row's own date; built 12:33), the MCP download
+  step 13:07 (126, `mcpsource.files`), the night window 13:48 (129).
+  Released; inbox empty.
+- Night window: 22:00 to 05:45 NZDT Radiance stops for the page reader on
+  card 1 when page work is queued; first night tonight. Queued: 653
+  candidate returns (row 854), 10 disclosure scans (855). At 13:49 the
+  probe listed the processor's graphics as a card 2 and the page reader
+  ran on it; reserved by hand, server killed (card; a scheduler fix).
+- MCP lanes green nightly. The `courts` corpus (4,946 records, each one
+  a file): a pull queued 13:49 (row 856) lands the listing and fetches the
+  files (1.5 GB, 2.5 to 4 h); `courts-2` starts after.
+- `links.check` 12:4x: one red, a placeholder NZBN of thirteen zeros
+  and one NZBN under two charity numbers (card, a links fix).
 
 ## Half-done
 
-- 4.5: the comparison has run daily since 22 October; 0 uncarded every
-  day but 23 October. 30 October (built 08:00, before the day's merges):
-  29,186 differences, 7,216 where the new side is wrong (candidate
-  returns not held 5,133, Part A rows 939, ...). site-4's own measure
-  with both merges: 28,497 and 5,153; 31 October's run is the first to
-  carry them. The switch after 7 November.
+- 4.5: the comparison runs daily since 22 October, 0 uncarded every day
+  but 23 October. 30 October (08:00, before the day's merges): 29,186
+  differences, 7,216 the new side wrong (candidate returns not held
+  5,133, Part A rows 939); 31 October's run first carries site-4 and
+  the Commission's rows. The switch after 7 November.
 - Waits on Arthur: letters (Dunedin, TPK, Police); rulings 69, 75;
-  model reading on node2 alone (queue); sample-schema drops; near links
-  between group ids; the courts corpus (queue). node1's return: fence
+  sample-schema drops; near links between group ids; the display-name
+  fold; remote branch deletions. node1's return: fence
   first (10.0.0.1, never the VIP), ruling 57, 94.
