@@ -382,7 +382,7 @@ def test_each_party_year_equals_the_frozen_site_or_has_a_card(filled):
     uncarded = [d for d in out["differ"] if f"{d['party']} {d['year']}" not in cards]
     assert uncarded == [], "differences from the frozen site with no card: " + "; ".join(
         f"{d['party']} {d['year']} ours {d['ours']:.2f} frozen {d['frozen']:.2f}" for d in uncarded)
-    assert len(out["equal"]) >= 13   # 15 until 21 October (ACT New Zealand 2026, its card); 14 until 22 October (the Green Party 2026 moved on that day's release, its card)
+    assert len(out["equal"]) >= 12   # 15 until 21 October (ACT New Zealand 2026, its card); 14 until 22 October (the Green Party 2026, its card); 13 until 31 October (the National Party 2026 moved on that day's release, its card)
 
 
 def test_the_published_views_build_on_the_lane_s_tables(filled):
