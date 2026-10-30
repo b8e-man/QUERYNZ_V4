@@ -41,11 +41,21 @@ from dataclasses import dataclass, field
 
 VERSION = "registers.courts.caption 1"
 
-COURTS = {"SUPREME COURT": "NZSC", "COURT OF APPEAL": "NZCA", "HIGH COURT": "NZHC", "DISTRICT COURT": "NZDC"}
+COURTS = {"SUPREME COURT": "NZSC", "COURT OF APPEAL": "NZCA", "HIGH COURT": "NZHC", "DISTRICT COURT": "NZDC",
+          "EMPLOYMENT COURT": "NZEmpC", "ENVIRONMENT COURT": "NZEnvC", "FAMILY COURT": "NZFC"}
+#: one spelling of each court code, however a citation or a file name cases it ("NZEMPC" in a file name is NZEmpC)
+COURT_CODES = {c.upper(): c for c in ("NZSC", "NZCA", "NZHC", "NZDC", "NZFC", "NZYC", "NZEmpC", "NZEnvC", "NZERA", "NZCC",
+                                      "NZHRRT", "NZIPT", "NZACC", "NZLCRO", "NZDT", "NZTT", "NZREADT", "NZMVDT", "NZSSAA", "NZIACDT")}
+
+
+def court_code(code: str) -> str:
+    """The court's code in its one spelling; a code not in the list as the citation printed it."""
+    return COURT_CODES.get((code or "").upper(), code)
 CITE = re.compile(r"\[(\d{4})\]\s+(NZ[A-Za-z]{2,6})\s+(\d{1,5})\b")
 CITE_LINE = re.compile(r"^\s*\[(\d{4})\]\s+(NZ[A-Za-z]{2,6})\s+(\d{1,5})\s*$")
 FILE_CITE = re.compile(r"(\d{4})-(NZ[A-Za-z]{2,6})-(\d{1,5})(?:[^0-9].*)?\.pdf$", re.I)
-COURT_LINE = re.compile(r"^\s*IN THE ([A-ZĀĒĪŌŪ ]+?) OF NEW ZEALAND\s*$", re.M)
+#: the court line; a hearing transcript's cover sheet prints the case number beside it on the same line
+COURT_LINE = re.compile(r"^\s*IN THE ([A-ZĀĒĪŌŪ ]+?) OF NEW ZEALAND\b[^\n]*$", re.M)
 REO_LINE = re.compile(r"^\s*I TE K[OŌ]TI\b", re.M)
 REGISTRY = re.compile(r"^\s*([A-ZĀĒĪŌŪ'’\- ]{3,40}?) REGISTRY\s*$")
 CASE_NO = re.compile(r"\b(SC \d{1,4}/\d{4}|CA ?\d{1,4}/\d{4}|(?:CIV|CRI|CRC|CIVP)-\d{4}-\d{3}-\d{1,6})\b")
@@ -67,10 +77,13 @@ PLURAL = re.compile(r"(?:Appellants|Respondents|Applicants|Plaintiffs|Defendants
                     r"Informants|Prosecutors|Referrers|Debtors|Creditors|Parties)\b", re.I)
 #: an anonymised party: an initial or two, an initial with a case number, "MR N"; flagged, never expanded
 ANON = re.compile(r"^(?:[A-Z]{1,3}|[A-Z]{1,3} \([A-Z0-9 ,/]{3,40}\)|(?:MR|MS|MRS|MISS|DR) [A-Z])$")
-#: the Crown and the public prosecutors: a suppression order never covers them
+#: the Crown and the public prosecutors: a suppression order never covers them. The pattern is matched on the
+#: upper-cased name both by Python (re.match) and by Postgres (`~`, model_read.kept_sql), so it is written in the
+#: part of the dialect both share: anchored at both ends, no \b (a backspace to Postgres, which is why the check
+#: and the load disagreed on 31 October 2026), no \d, no flags
 CROWN = re.compile(r"^(?:THE KING|THE QUEEN|R|THE CROWN|CROWN|HIS MAJESTY THE KING|NEW ZEALAND POLICE|POLICE|"
-                   r"(?:THE )?ATTORNEY[- ]GENERAL\b.*|(?:THE )?SOLICITOR[- ]GENERAL\b.*|COMMISSIONER OF INLAND REVENUE|"
-                   r"COMMISSIONER OF POLICE|SERIOUS FRAUD OFFICE|DIRECTOR OF THE SERIOUS FRAUD OFFICE)$")
+                   r"(?:THE )?ATTORNEY[- ]GENERAL(?:[^A-Z0-9].*)?|(?:THE )?SOLICITOR[- ]GENERAL(?:[^A-Z0-9].*)?|"
+                   r"COMMISSIONER OF INLAND REVENUE|COMMISSIONER OF POLICE|SERIOUS FRAUD OFFICE|DIRECTOR OF THE SERIOUS FRAUD OFFICE)$")
 _PREV_OPEN = re.compile(r"(?:,|&|\(|-|\b(?:AND|OF|ON|THE|TE|O|NGĀTI|NGATI|NGĀ|NGA|ME|MŌ|MO|KI|FOR|IN|AS|BY|TO|AT|A))$")
 _CURR_CONT = re.compile(r"^(?:\(|&|AND\b|ME\b|OF\b|TRUST\b|TRUSTEES?\b|INCORPORATED\b|INC\b|LIMITED\b|LTD\b|BOARD\b|"
                         r"COMPANY\b|PARTNERSHIP\b|SOCIETY\b|CORPORATION\b|AUTHORITY\b|COUNCIL\b|ASSOCIATION\b|"
@@ -162,7 +175,7 @@ def _upper_ratio(s: str) -> float:
 
 def file_citation(name: str):
     m = FILE_CITE.search(name or "")
-    return f"[{m.group(1)}] {m.group(2).upper()} {m.group(3)}" if m else None
+    return f"[{m.group(1)}] {court_code(m.group(2))} {m.group(3)}" if m else None
 
 
 def banner_of(page1: str) -> str:
@@ -453,7 +466,7 @@ def parse(pages: dict, file_name: str = "") -> Judgment:
     if cl:
         out.court_name = cl.group(1).strip()
     start = cl.end() if cl else 0
-    header_lines = []
+    header_lines = [cl.group(0)[cl.end(1) - cl.start():]] if cl else []    # a case number printed beside the court line
     for ln in head[start:].splitlines():
         if PARTY_LABEL.match(ln) or LABEL.match(ln) or ln.strip() in ("v", "V"):
             break
@@ -461,7 +474,7 @@ def parse(pages: dict, file_name: str = "") -> Judgment:
     for ln in header_lines:
         m = CITE_LINE.match(ln)
         if m and not out.citation:
-            out.citation, out.court = f"[{m.group(1)}] {m.group(2)} {m.group(3)}", m.group(2)
+            out.citation, out.court = f"[{m.group(1)}] {court_code(m.group(2))} {m.group(3)}", court_code(m.group(2))
         r = REGISTRY.match(ln)
         if r and not out.registry:
             out.registry = r.group(1).strip()
@@ -471,7 +484,7 @@ def parse(pages: dict, file_name: str = "") -> Judgment:
         # the citation on a line with other text (a case number beside it), still after the court line
         m = CITE.search("\n".join(header_lines))
         if m:
-            out.citation, out.court = f"[{m.group(1)}] {m.group(2)} {m.group(3)}", m.group(2)
+            out.citation, out.court = f"[{m.group(1)}] {court_code(m.group(2))} {m.group(3)}", court_code(m.group(2))
     if out.citation is None and fc:
         out.citation, out.court = fc, fc.split()[1]
         out.notes.append("citation from the file name")
@@ -479,6 +492,8 @@ def parse(pages: dict, file_name: str = "") -> Judgment:
         out.notes.append(f"the file name says {fc}")
     if out.court_name and COURTS.get(out.court_name) and out.court and COURTS[out.court_name] != out.court:
         out.notes.append(f"the court line says {out.court_name}")
+    if out.court is None and COURTS.get(out.court_name):
+        out.court = COURTS[out.court_name]          # no citation (a transcript's cover sheet): the court line names the court
 
     cap, labelled = _caption_lines(p1, cl.end()) if cl and cl.end() <= len(p1) else _caption_lines(head, start)
     nxt = [l for l in (pages.get(2) or "").splitlines() if l.strip()]

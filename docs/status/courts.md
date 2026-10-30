@@ -1,47 +1,40 @@
 # courts: where it stands
 
-**Date:** 2026-10-30. **Step:** 5.4 items 2 and 3, `registers/courts/`. **Session:** courts-2.
-**Merge request:** `courts-2` (raised again 30 October after the integrator's refusal of 18:44).
+**Date:** 2026-10-31. **Step:** 5.4 items 2 and 3, `registers/courts/`. **Session:** fix-registers-courts-1 (fix).
+**Merge request:** `fix-registers-courts-1` (branch `fix/registers-courts-1`).
 
 ## Done
 
-- One source (rulings 126, 127): the MCP's courts corpus as `support/mcpsource` landed it, 5,611 records,
-  each file by hash. Nothing fetched; `qv4-courts-capture` retired; the old capture tables gone; the old
-  listing read only for the gap report.
-- Recognised by shape before any reader, measured on every record (11 profiles): case pages 2,686; NZSC
-  1,803; NZCA 342; NZHC civil 147, criminal 32; other courts 6; media releases 287; submissions 166;
-  transcripts 83; synopses 37; scanned 4; 13 caught by the pull; 5 set aside. One `judgment_pdf` in six
-  is not a judgment.
-- The case page read (court, name, citation, case numbers, dates, judges, summary, result, links), joined
-  to its PDFs by url and `case_slug`: `courts.cases`, `courts.case_links`, `courts.documents` (every
-  record with its outcome).
-- The text reader (`model_read.py`): Flash-Next through `support.modelclient`, one reading per document,
-  stamped and stored by hash, replayed by every load: names with roles, counsel per party, a summary →
-  `courts.people` → `pub.court_people` for the links lane.
-- Suppression reaches every name on every document of a citation and its case, model-read included.
-- A document is its bytes (the refusal of 18:44, `cases_pkey`): a file the corpus holds under several
-  records (three pairs on live) is read once, under the plainest url; a case, its links, a judgment, its
-  parties, paragraphs and people are emitted once; every sharing record's `documents` row carries the
-  reading; `read._once` asserts every key once before the COPY; `check.py` counts the sharing records.
-- Full corpus built with this code into a scratch schema (204 s): 5,611 accounted for (text reader 5,589,
-  page reader 4, set aside 5, caught 13); judgments 2,329 (parsed 2,224), parties 7,870, cases 2,685,
-  links 4,548; 1,061 names withheld under 445 flagged judgments; listing gap 80. Check green, after the
-  counsel-role rule learned the 2004–2012 NZSC criminal leave shape ("for Applicant", "for Crown").
-- Fast tier green (86.5 s; 50 tests; one xfail until a reading exists).
+- Live since the merge of courts-2 (30 October 19:40): `qv4-courts-read` read 5,587 of 5,589 pieces in its first
+  night (19:43–03:52); `qv4-courts-pages` read the scanned pages; the 04:40 `qv4-courts-load` built its staging
+  schema and refused to publish on 76 check failures.
+- The refusal's cause, measured: the keep rule under a suppression (hard limit 16) ran as Python in the load and as
+  SQL in the check and the lever, and the Crown pattern held `\b`, a word boundary to Python and a backspace to
+  Postgres. One rule now: `model_read.KEPT_ROLES` + `caption.CROWN` (dialect-neutral), `kept_under_suppression`
+  for the load, `kept_sql` for the check and the lever, pattern inlined. Whole corpus through this branch: old SQL
+  flagged 75 of 6,797 names on documents a suppression reaches, every one an Attorney-/Solicitor-General shape; the
+  one rule flags 0; check failures 0.
+- The two failed pieces: the model's answer hit the 4,096-token cap (about 95 entries, JSON cut mid-item). Salvaged
+  now to the complete entries, stamped `truncated`; a name the model repeats is listed once; an answer with no
+  object is asked once more on half the excerpt, then stored `unusable` so the piece ends done and the next load
+  sets the record aside at stage `read`. No piece loops.
+- Court code in one spelling (`NZEmpC`, not `NZEMPC`); a transcript's cover sheet (court line with the case number
+  beside it, no citation) now names its court: the 18 `?` were 17 hearing transcripts of 2008–2018 (98–383 pages)
+  recognised as NZSC judgments by shape, and one 2004 leave decision; all unparsed, Supreme Court by the court line.
+- Six lane tests green against the real store: the scanned record is read from pixels once its page readings exist
+  (profile by shape, caption partial: the pixel text prints name over role with no BETWEEN); the suppression tests
+  use the one rule; a new test holds Python and Postgres to the same answer on every sample name and the Crown's shapes.
+- Fast tier green (82 s; 60 s target missed, recorded).
 
 ## Waiting
 
-- The integrator: profiles, the three jobs, the read pieces queued. No document has a model reading until
-  `qv4-courts-read` runs.
-- The provider: 80 judgments of the old listing (NZCA 37, NZHC 43; 2025–26) the corpus lacks (card).
-
-## Carded
-
-`the-mcp-s-courts-corpus-lacks-80-judgments-the-old-listing-names`, `four-courts-files-no-shape-recognises`;
-open from courts-1: Waitangi Tribunal and District Court (the corpus has neither), High Court outcomes.
+- The integrator: merge, rerun `qv4-courts-load`; expect the check green and `pub.court_people` filled. The two
+  pieces re-queued read as truncated readings.
+- The 31 October pull grew the corpus to 5,941 records: 179 set aside at recognise, 150 waiting on the text reader,
+  12 on the page reader (measured in this session's scratch build; not this fix's).
 
 ## Next
 
-1. After the first `qv4-courts-read` run: people rows on live, the xfail green; read ten documents'
-   summaries and roles against the PDFs.
-2. The links lane reads `pub.court_people` (its own session).
+1. Read ten documents' summaries and roles against the PDFs (courts-2's item 1, still open).
+2. The transcripts the shape recogniser files as NZSC judgments (17 of them): a profile question, carded by whoever
+   next touches the profiles.

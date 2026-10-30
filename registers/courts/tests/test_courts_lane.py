@@ -13,7 +13,7 @@ import re
 import pytest
 
 from support import db, lane, rowcontract, sample
-from registers.courts import check, suppress
+from registers.courts import check, model_read, suppress
 from registers.courts import load as L
 from registers.courts import read as R
 
@@ -31,6 +31,9 @@ NZSC_122 = "0ddd4acc531ff87ac7b27f6d66bb02704b261eb1c1308b096f0bbb4c7c7b5e20"
 RIMMER_PAGE = "6f262b5310827c8b99a694671d55eb09f7d3291e39fe5ae9ac0b9e7010d58bd4".replace("6f262b53", "6f262b53")
 RIMMER_URL = "https://www.courtsofnz.govt.nz/cases/rimmer-v-wilton"
 MR_122 = "26e369d4a7ee4719b28d8e296cbc8f5f05266ad9dc3e398762c53eff9a5e927f"
+#: the record whose PDF has no text layer on page 1: it waits for the page reader until the shared store holds its page
+#: readings (qv4-courts-pages ran on live on 30 October 2026), then is read from pixels like any other
+SCANNED_RECORD = "839d101ae7a9a7bfc66d99f71b9669d2842aebeb3fa4fc799392785c36e64a77"
 
 
 def test_the_lane_folder_is_complete():
@@ -90,8 +93,10 @@ def test_every_record_of_the_sample_is_a_document_row_read_waiting_set_aside_or_
     by = {}
     for d in filled["documents"]:
         by[d["outcome"]] = by.get(d["outcome"], 0) + 1
-    assert by.get("caught") == 2 and by.get("set aside") == 1 and by.get(R.WAIT_PAGES) == 1, by
-    assert by.get("read", 0) + by.get(R.WAIT_TEXT, 0) == len(listed) - 4
+    assert by.get("caught") == 2 and by.get("set aside") == 1, by
+    assert by.get("read", 0) + by.get(R.WAIT_TEXT, 0) + by.get(R.WAIT_PAGES, 0) == len(listed) - 3
+    scanned = next(d for d in filled["documents"] if d["record"] == SCANNED_RECORD)
+    assert scanned["read_from"] == "pixels" and scanned["outcome"] in (R.WAIT_PAGES, "read", R.WAIT_TEXT), scanned["outcome"]
     stages = {(a["item"], a["stage"]) for a in filled["aside"]}
     for caught in (d for d in filled["documents"] if d["outcome"] == "caught"):
         assert (caught["key"], "pull") in stages and caught["state"] == "caught", caught["key"][-30:]
@@ -113,8 +118,8 @@ def test_every_record_of_the_sample_is_a_document_row_read_waiting_set_aside_or_
 def test_each_kind_is_recognised_by_shape_and_its_sheet_read(filled):
     prof = {d["profile"]: d for d in filled["documents"] if d["profile"]}
     assert {"courts-case-page", "courts-media-release", "courts-hearing-transcript", "courts-counsel-submission", "courts-case-synopsis",
-            "courts-nzsc-judgment", "courts-nzca-judgment", "courts-nzhc-civil-judgment", "courts-nzhc-criminal-judgment", "courts-judgment",
-            "courts-scanned-document"} <= set(prof)
+            "courts-nzsc-judgment", "courts-nzca-judgment", "courts-nzhc-civil-judgment", "courts-nzhc-criminal-judgment",
+            "courts-judgment"} <= set(prof)
     mr = _doc(filled, sha=MR_122)
     assert (mr["citation"], mr["case_numbers"], mr["dated"]) == ("[2026] NZSC 122", ["SC 97/2025"], dt.date(2026, 9, 4))
     assert prof["courts-hearing-transcript"]["citation"].endswith("NZSC Trans 3") and prof["courts-hearing-transcript"]["pages"] > 50
@@ -125,8 +130,13 @@ def test_each_kind_is_recognised_by_shape_and_its_sheet_read(filled):
     assert misfiled, "a press summary the MCP filed as a judgment is a release by shape"
     empc = prof["courts-judgment"]
     assert empc["citation"].split()[1] == "NZEmpC"
-    scanned = prof["courts-scanned-document"]
-    assert scanned["outcome"] == R.WAIT_PAGES and scanned["read_from"] == "pixels"
+    scanned = next(d for d in filled["documents"] if d["record"] == SCANNED_RECORD)
+    assert scanned["read_from"] == "pixels"
+    if scanned["outcome"] == R.WAIT_PAGES:
+        assert scanned["profile"] == "courts-scanned-document", "no page reading stored: recognised by its lack of text alone"
+    else:
+        # the page reader's stored readings stand in for the text layer: recognised by shape and read like any other
+        assert scanned["profile"] in R.JUDGMENT_SLUGS and scanned["citation"] and scanned["dated"], scanned["profile"]
 
 
 def test_the_case_page_carries_the_court_the_name_and_the_dates_and_joins_its_files_by_slug(filled):
@@ -169,7 +179,14 @@ def test_every_judgment_s_citation_agrees_with_its_file_name_and_its_date_is_a_r
         if m:
             assert j["citation"] == f"[{m.group(1)}] {m.group(2)} {m.group(3)}", j["document"][:12]
         assert dt.date(2000, 1, 1) <= j["judgment_date"] <= dt.date.today(), j["document"][:12]
-        assert j["status"] == "parsed" and j["paragraphs"] > 0, j["document"][:12]
+        assert j["court"] == j["citation"].split()[1] and j["court"] == j["court"].upper().replace("NZEMPC", "NZEmpC"), j["document"][:12]
+        if j["read_from"] == "pixels":
+            # the page reader's text prints the caption as name over role with no BETWEEN/AND labels: the caption's
+            # parties are the one thing the parse may lack there; the citation, the court and the date are read
+            assert j["status"] in ("parsed", "partial") and set(j["missing"]) <= {"parties"}, j["document"][:12]
+        else:
+            assert j["status"] == "parsed", j["document"][:12]
+        assert j["paragraphs"] > 0, j["document"][:12]
 
 
 def test_paragraphs_are_indexed_in_sequence_to_the_judgment_s_last(filled):
@@ -194,11 +211,36 @@ def test_a_suppressed_judgment_publishes_no_name_but_the_crown_s_and_a_printed_i
             assert not p["withheld"] and p["name"], p["key"][:12]
     docs = {j["document"] for j in filled["judgments"] if j["suppression"]}
     for n in filled["people"]:
-        if n["document"] in docs and n["role"] not in ("judge", "counsel", "agency"):
-            assert n["withheld"] and n["name"] is None, n["key"][:12]
+        if n["document"] in docs:
+            if model_read.kept_under_suppression(n):
+                assert not n["withheld"] and n["name"], n["key"][:12]
+            else:
+                assert n["withheld"] and n["name"] is None, n["key"][:12]
     withheld = {p["key"] for p in filled["parties"] if p["withheld"]} | {n["key"] for n in filled["people"] if n["withheld"]} \
         | {c["key"] for c in filled["cases"] if c["withheld"]}
     assert withheld == {p["key"] for p in filled["private"]}
+
+
+def test_the_keep_rule_reads_the_same_in_python_and_in_postgres_on_every_model_read_name_and_on_the_crown_s_shapes(filled):
+    """The load applies model_read.kept_under_suppression, the check and the lever model_read.kept_sql; one rule.
+    Measured on every name the sample's text reader found, and on the Crown's printed shapes (no person's name)."""
+    conn, schema = filled["conn"], filled["schema"]
+    shapes = [("party", "Attorney-General"), ("party", "The Attorney-General of New Zealand"), ("party", "Solicitor-General"),
+              ("other", "Attorney-Generals Road Trust"), ("party", "R"), ("party", "Riverside Holdings Limited"), ("party", "The Queen"),
+              ("party", "The King"), ("party", "His Majesty the King"), ("party", "Police"), ("party", "New Zealand Police"),
+              ("party", "Commissioner of Police"), ("company", "Crown Lane Limited"), ("witness", "A Witness"), ("judge", "Able J"),
+              ("counsel", "P Q Rowe KC"), ("agency", "A City Council"), ("party", "Commissioner of Inland Revenue"), ("party", "Rex")]
+    shapes += [(n["role"], n["name"]) for n in filled["people"] if n["name"]]
+    rows = conn.execute(f"SELECT v.role, v.name, {model_read.kept_sql('v.')} FROM (VALUES {', '.join('(%s, %s)' for _ in shapes)}) "
+                        "AS v(role, name)", tuple(x for pair in shapes for x in pair)).fetchall()
+    assert tuple(rows[0][:2]) == shapes[0], "the columns come back as sent"
+    assert len(rows) == len(shapes) >= 19
+    disagree = [i for i, (role, name, sql) in enumerate(rows) if sql != model_read.kept_under_suppression({"role": role, "name": name})]
+    assert disagree == [], f"{len(disagree)} of {len(rows)} names: python and postgres read the keep rule differently (first at index {disagree[0]})"
+    kept_by = {(role, name): sql for role, name, sql in rows}
+    assert kept_by[("party", "Attorney-General")] and kept_by[("party", "R")] and not kept_by[("party", "Riverside Holdings Limited")]
+    assert not kept_by[("party", "Rex")] and not kept_by[("other", "Attorney-Generals Road Trust")] and kept_by[("agency", "A City Council")]
+    assert check.account(conn, schema, shared=True)["failures"] == []
 
 
 def test_the_text_reader_s_rows_where_a_reading_is_stored_and_waiting_where_not(filled):
@@ -226,7 +268,8 @@ def test_no_published_view_reads_the_private_table():
 def test_the_lane_s_check_passes_on_the_sample(filled):
     out = check.account(filled["conn"], filled["schema"], shared=True)
     assert out["failures"] == []
-    assert out["status"] == {"parsed": 10} and out["roles short"] <= 2
+    assert out["status"].get("parsed") == 10 and set(out["status"]) <= {"parsed", "partial"} and out["roles short"] <= 2
+    assert out["status"].get("partial", 0) == sum(j["read_from"] == "pixels" and j["status"] == "partial" for j in filled["judgments"])
     assert set(out["outcomes"]) <= {"read", R.WAIT_PAGES, R.WAIT_TEXT, "set aside", "caught"}
 
 
@@ -247,8 +290,7 @@ def test_the_lever_dry_runs_by_default_and_withholds_on_execute_across_the_case(
         assert rows and all(r["name"] is None and r["withheld"] for r in rows)
         assert q(f"SELECT case_name, suppression FROM {t('cases')} WHERE url = %s", RIMMER_URL) == [{"case_name": None, "suppression": True}]
         assert q(f"SELECT count(*) n FROM {t('people')} WHERE document IN (%s, %s, %s) AND NOT withheld AND name IS NOT NULL "
-                 "AND role NOT IN ('judge', 'counsel', 'agency') AND upper(name) !~ %s",
-                 NZSC_122, MR_122, RIMMER_PAGE, R.caption.CROWN.pattern)[0]["n"] == 0
+                 f"AND NOT {model_read.kept_sql()}", NZSC_122, MR_122, RIMMER_PAGE)[0]["n"] == 0
         j = q(f"SELECT suppression, withheld, suppression_kinds FROM {t('judgments')} WHERE document = %s", NZSC_122)[0]
         assert j["suppression"] and j["withheld"].startswith("suppression order: test order") and "ledger" in j["suppression_kinds"]
         assert suppress.run(conn, "[2026] NZSC 122", "again", schema=schema, shared=True)["already withheld"] == len(rows)
