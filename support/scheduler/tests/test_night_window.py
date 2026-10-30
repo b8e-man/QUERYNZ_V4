@@ -10,6 +10,7 @@ Everything is faked: systemctl, the card memory, the ports, the clock. No
 model is called and no second passes."""
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 import json
 import os
@@ -273,14 +274,15 @@ def opened(kit):
 
 def test_the_shipped_window_is_22_00_to_05_45_nzdt_for_the_page_reader_on_card_1():
     w = reg.night_window()
-    assert (w.start, w.end, w.timezone, w.standing, w.profile, w.card) == ("22:00", "05:45", "Pacific/Auckland", "flash-next",
+    # 30 October 2026: the start stands at 15:00 on Arthur's word for the page backlog; 22:00 again after (ruling 129)
+    assert (w.start, w.end, w.timezone, w.standing, w.profile, w.card) == ("15:00", "05:45", "Pacific/Auckland", "flash-next",
                                                                             "page-reader", 1)
     assert reg.problems() == []
     assert reg.profiles()[w.profile].memory_gb == 4.8 and reg.profiles()[w.standing].load_seconds == 21.6
 
 
 def test_the_window_opens_and_closes_by_the_local_clock_in_summer_and_winter():
-    w = reg.night_window()
+    w = dataclasses.replace(reg.night_window(), start="22:00")     # the ruling's hours, whatever start the catalogue carries today
     assert not night.in_window(nz(30, 21, 59), w)
     assert night.in_window(nz(30, 22, 0), w)
     assert night.in_window(nz(31, 2, 0), w)
