@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-30, 15:40 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-30, 17:15 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
@@ -26,19 +26,19 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
 ## Running (headless, from the integrator)
 
 - 30 October merges: `flash-next-1` 08:16 (121), `candidate-returns-3`
-  08:58, `site-4` 09:30, support follow-up 09:58, `links-4` 11:18 (123,
-  `pub.entities`, 2.6 M), `links-5` 12:03 (125, organisation rules on
-  every row, alive on the row's own date; built 12:33), the MCP download
-  step 13:07 (126, `mcpsource.files`), the night window 13:48 (129).
-  Released; inbox empty.
+  08:58, `site-4` 09:30, support 09:58, `links-4` 11:18 (123,
+  `pub.entities`, 2.6 M), `links-5` 12:03 (125, organisation rules alive
+  on the row's own date), the MCP download step 13:07 (126), the night
+  window 13:48 (129), the probe fix 14:35. Released; inbox empty.
 - Night window (129): Radiance stops for the page reader on card 1 when
-  page work is queued. Opened at 15:37 on Arthur's word (start 15:00 by
-  8e9567c; back to 22:00 once rows 854 and 855, 663 documents, are read:
-  card). At 13:49 the probe listed the processor's graphics as a card 2
-  and the page reader ran on it; reserved, killed; fixed 14:35 (4f57fdf).
-- MCP lanes green. The `courts` corpus (4,946 records, each one
-  a file): a pull queued 13:49 (row 856) lands the listing and fetches the
-  files (1.5 GB, 2.5 to 4 h); `courts-2` starts after.
+  page work is queued. Opened 15:37 on Arthur's word (start 15:00 by
+  8e9567c; 22:00 again once rows 854, 860, 861 are read: card). 16:07
+  the reader took three slots and three rows (6038992); 855 done; 139
+  of 658 documents read by 17:09, about 1.6 a minute. 13:49 the probe
+  listed the processor's graphics as a card 2; fixed 14:35 (4f57fdf).
+- MCP lanes green. `courts` pull (row 856) ended 17:04: 5,510 of 5,611
+  files landed, 88 held, 13 caught (hash mismatch; RED). `courts-2`
+  launched headless 17:10 from its working copy, scope registers/courts.
 - `links.check` 12:4x: one red, a placeholder NZBN of thirteen zeros
   and one NZBN under two charity numbers (card, a links fix).
 
