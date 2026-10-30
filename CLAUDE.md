@@ -3,8 +3,9 @@
 An estate of New Zealand public records. It copies public registers, builds
 registers where none exists, links rows across them, answers questions from
 them with a citation, and checks itself. The spine is the joined registers;
-people, products and the board are views of it. The first product is Follow
-the Money, rebuilt here and compared with the frozen site. Nothing goes on
+people, products and the board are views of it. Seventeen use cases sit on
+it as templates (docs/plan/design.md); none is the estate's purpose, and the
+frozen site is one of them, kept running as a reference. Nothing goes on
 the public site without Arthur's word.
 
 The plan is the master. `docs/PLAN.md` is its index and names what each

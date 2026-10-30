@@ -2,7 +2,7 @@
 
 An estate of New Zealand public records that does five things: it **copies** public registers, **builds** registers where none exists, **links** rows across them, **answers** questions from them with a citation, and **checks** itself. Everything else is support.
 
-This is a capability build-out. Plan and build as if customers exist for every use case. Billing, accounts and metering are out. The first product is Follow the Money, rebuilt on the new estate and compared with the frozen site.
+This is a capability build-out. Plan and build as if customers exist for every use case. Billing, accounts and metering are out. One template, the frozen site's, is rebuilt on the new estate and compared with it; it has no precedence over the other sixteen.
 
 **The core architectural change** (Arthur, 16 October): a rich spine made of multiple joined registers. Everything above — the links, the products, the board — is a view of that spine, and the spine is what later work resolves against. See "Notes from Arthur, 16 October 2026" in the reference section.
 
