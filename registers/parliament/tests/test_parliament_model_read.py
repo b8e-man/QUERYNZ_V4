@@ -29,10 +29,19 @@ def _answer(**docs) -> str:
 
 
 def _server(answers, calls: list):
-    """answers: a string for every call, or a list taken in order."""
+    """answers: a string for every call, a list taken in order, or a dict by the piece number in the header
+    ("part p of n"; the pieces of a split document are asked several at a time)."""
+    import threading
+    lock = threading.Lock()
+
     def post(url, body, timeout):
-        calls.append(body)
-        text = answers.pop(0) if isinstance(answers, list) else answers
+        with lock:
+            calls.append(body)
+            if isinstance(answers, dict):
+                part = body["messages"][1]["content"].split(", part ")[1].split(" of ")[0]
+                text = answers[int(part)]
+            else:
+                text = answers.pop(0) if isinstance(answers, list) else answers
         return {"model": body["model"], "choices": [{"message": {"content": text}}],
                 "usage": {"prompt_tokens": 10, "completion_tokens": 5}}
     return post
@@ -180,14 +189,14 @@ def test_a_document_over_the_budget_is_read_in_pieces_and_joined_under_the_one_h
     text = ("A sentence of the debate goes here. " * 30)
     pieces = M.pieces_of(text, 300)
     assert len(pieces) >= 3
-    answers = [_answer(d1={"summary": f"Part {i}.", "people": [{"name": f"Person {i}", "kind": "person", "role": "member"}]})
-               for i in range(1, len(pieces) + 1)]
+    answers = {i: _answer(d1={"summary": f"Part {i}.", "people": [{"name": f"Person {i}", "kind": "person", "role": "member"}]})
+               for i in range(1, len(pieces) + 1)}
     with tempfile.TemporaryDirectory() as td:
         store = rd.Store(td)
         got = M.read_split(A, pieces, profile=M.WAYBACK, version=2, url=URL, model="qwen4exp", store=store,
                            post=_server(answers, calls))
         assert len(calls) == len(pieces)
-        assert "part 1 of %d" % len(pieces) in calls[0]["messages"][1]["content"]
+        assert any("part 1 of %d" % len(pieces) in c["messages"][1]["content"] for c in calls)
         assert got["pieces"] == len(pieces) and got["summary"] == "Part 1."
         assert [p["piece"] for p in got["people"]] == list(range(1, len(pieces) + 1))
         rows = M.people_rows(A, got, {"source_table": "wayback_pages", "source_key": "k", "dated": None,
@@ -202,7 +211,7 @@ def test_a_document_over_the_budget_is_read_in_pieces_and_joined_under_the_one_h
 def test_a_piece_answered_with_nothing_twice_makes_the_whole_document_unusable_naming_the_piece():
     calls = []
     pieces = ["First piece sentence.", "Second piece sentence."]
-    answers = [_answer(d1={"summary": "One.", "people": []}), "nothing", "nothing"]
+    answers = {1: _answer(d1={"summary": "One.", "people": []}), 2: "nothing"}
     with tempfile.TemporaryDirectory() as td:
         store = rd.Store(td)
         got = M.read_split(A, pieces, profile=M.WAYBACK, version=2, url=URL, model="qwen4exp", store=store,
@@ -263,3 +272,22 @@ def test_every_sample_document_of_each_profile_is_within_the_budget_or_splits_by
     assert unsplit == {NOT_PROSE}, "the one document the rule cannot split is the WAV file served as a page; the load sets it aside at read"
     assert seen[M.WAYBACK] >= 10 and seen[M.WQ] >= 30, seen
     assert longest[M.WAYBACK][1] >= 20 and longest[M.WQ][1] == 2, (longest, "the sample holds the largest page and the longest question")
+
+
+def test_a_busy_server_is_waited_for_and_asked_again_never_a_failed_read():
+    import urllib.error
+    calls = []
+    answer = _answer(d1={"summary": "s", "people": []})
+
+    def post(url, body, timeout):
+        calls.append(body)
+        if len(calls) < 3:
+            raise urllib.error.HTTPError(url, 429, "Too Many Requests", {}, None)
+        return {"model": body["model"], "choices": [{"message": {"content": answer}}], "usage": {}}
+    parsed, served = M.ask([("d1", M.HEADER[M.WQ], "QUESTION: q\nREPLY: r")], url=URL, model="qwen4exp", post=post, sleep=0)
+    assert len(calls) == 3 and "d1" in parsed and served == "qwen4exp"
+
+    def refused(url, body, timeout):
+        raise urllib.error.HTTPError(url, 500, "Server Error", {}, None)
+    with pytest.raises(urllib.error.HTTPError):
+        M.ask([("d1", "h", "t")], url=URL, model="qwen4exp", post=refused, sleep=0)

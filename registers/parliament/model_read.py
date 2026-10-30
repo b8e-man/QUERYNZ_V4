@@ -46,6 +46,7 @@ not yet stored, so a later piece for a question already read replays in
 a moment. The text goes to the model and nowhere else (hard limit 10: the
 server is on this box; limit 11: no text is printed or logged here).
 """
+import concurrent.futures as cf
 import datetime as dt
 import functools
 import hashlib
@@ -72,6 +73,8 @@ PROFILE_OF = {v: k for k, v in TABLE_OF.items()}
 DEFAULT_BUDGET = 24000
 BATCH_DOCS = 16                  # written questions in one request at most; the batch is one year's number range
 ATTEMPTS = 2
+BUSY_WAIT_S, BUSY_TRIES = 30, 40      # a 429 is the server saying its slots are full: wait, politely, up to 20 minutes
+PIECE_STREAMS = 4                     # the pieces of one split page read this many at a time (a 29-piece page inside one job piece)
 KINDS = ("person", "company", "agency", "body", "other")
 ROLES = ("member", "minister", "official", "witness", "submitter", "other")
 UNUSABLE = "the text reader answered with no usable object for the document in %d attempts"
@@ -264,10 +267,11 @@ def parse_answer(text: str):
 
 # ── the call ─────────────────────────────────────────────────────────────────────────────────────────────────
 def ask(docs: list, *, url: str, model: str, post=None, request: dict = None, timeout: float = 900.0,
-        attempt: int = 1) -> tuple:
+        attempt: int = 1, sleep: float = None) -> tuple:
     """docs: [(key, header, text)]. (parsed answer by key or None, served model). One call; the client reads
     the served model back and refuses another. The second attempt, after an answer that missed a document,
-    asks for the object alone; there is no third."""
+    asks for the object alone; there is no third. A 429 (the server's slots are full, shared by every lane)
+    waits BUSY_WAIT_S and asks again, up to BUSY_TRIES times: a busy server is not a failed read."""
     extra = {"temperature": 0.0, "max_tokens": MAX_TOKENS, "chat_template_kwargs": {"enable_thinking": False}}
     for k, v in (request or {}).items():
         if k not in ("temperature", "max_tokens"):
@@ -275,9 +279,16 @@ def ask(docs: list, *, url: str, model: str, post=None, request: dict = None, ti
     body = f"DOCUMENTS: {len(docs)}\n\n" + "\n\n".join(f"[document {k}] {h}\n{t}" for k, h, t in docs)
     if attempt > 1:
         body = "Answer with the one JSON object only: no words before or after it, no code fence.\n\n" + body
-    out = modelclient.chat(url, lane=LANE, model=model,
-                           messages=[{"role": "system", "content": PROMPT}, {"role": "user", "content": body}],
-                           extra=extra, timeout=timeout, post=post)
+    for busy in range(BUSY_TRIES + 1):
+        try:
+            out = modelclient.chat(url, lane=LANE, model=model,
+                                   messages=[{"role": "system", "content": PROMPT}, {"role": "user", "content": body}],
+                                   extra=extra, timeout=timeout, post=post)
+            break
+        except urllib.error.HTTPError as exc:
+            if exc.code != 429 or busy == BUSY_TRIES:
+                raise
+            time.sleep(BUSY_WAIT_S if sleep is None else sleep)
     answer = (out["choices"][0]["message"]["content"] or "").strip()
     return parse_answer(answer), out.get("model") or model
 
@@ -348,38 +359,40 @@ def read_batch(docs: list, *, profile: str, version: int, url: str = None, model
 
 def read_split(sha256: str, pieces: list, *, profile: str, version: int, url: str = None, model: str = None,
                store: rd.Store = None, post=None, request: dict = None) -> dict:
-    """A document over the budget: each piece one request, the readings joined under the one hash (each name
-    says its piece; the summary is the first piece's). A piece the model answers twice with nothing makes the
-    whole document's reading `unusable`, the piece named."""
+    """A document over the budget: each piece one request, PIECE_STREAMS of them at a time, the readings joined
+    under the one hash (each name says its piece; the summary is the first piece's). A piece the model answers
+    twice with nothing makes the whole document's reading `unusable`, the piece named."""
     store = store or rd.Store()
     model = model or TEXT_MODEL
     url = url or URL
     key = key_for(sha256, profile, version, model)
     if store.has(key):
         return {**_unpack(store.get(key)), "replayed": True}
-    people, summary, truncated, served, attempts = [], None, False, None, 0
     n = len(pieces)
-    for p, text in enumerate(pieces, 1):
-        answer = None
+
+    def one(p: int) -> tuple:
+        """(piece number, the answer or None, served model, attempts)."""
+        served = None
         for attempt in range(1, ATTEMPTS + 1):
-            parsed, served = ask([("d1", f"{HEADER[profile]}, part {p} of {n}", text)], url=url, model=model,
+            parsed, served = ask([("d1", f"{HEADER[profile]}, part {p} of {n}", pieces[p - 1])], url=url, model=model,
                                  post=post, request=request, attempt=attempt)
-            attempts = max(attempts, attempt)
             if parsed and "d1" in parsed:
-                answer = parsed["d1"]
-                break
-        made = dt.datetime.now().astimezone().isoformat(timespec="seconds")
-        if answer is None:
-            reading = _unusable(sha256, profile, version, served or model, made,
-                                f"{UNUSABLE % ATTEMPTS} (piece {p} of {n})")
-            store.put(reading)
-            return {**_unpack(reading), "replayed": False}
-        people += [{**x, "piece": p} for x in answer["people"]]
-        summary = summary or answer["summary"]
-        truncated = truncated or answer["truncated"]
+                return p, parsed["d1"], served, attempt
+        return p, None, served, ATTEMPTS
+    with cf.ThreadPoolExecutor(min(PIECE_STREAMS, n)) as ex:
+        got = sorted(ex.map(one, range(1, n + 1)))
+    served = next((s for _, _, s, _ in got if s), None) or model
+    attempts = max(a for _, _, _, a in got)
     made = dt.datetime.now().astimezone().isoformat(timespec="seconds")
-    reading = _reading(sha256, profile, version, served or model,
-                       {"summary": summary, "people": people, "pieces": n, "truncated": truncated}, made, 1, attempts)
+    failed = [p for p, a, _, _ in got if a is None]
+    if failed:
+        reading = _unusable(sha256, profile, version, served, made, f"{UNUSABLE % ATTEMPTS} (piece {failed[0]} of {n})")
+        store.put(reading)
+        return {**_unpack(reading), "replayed": False}
+    people = [{**x, "piece": p} for p, a, _, _ in got for x in a["people"]]
+    reading = _reading(sha256, profile, version, served,
+                       {"summary": next((a["summary"] for _, a, _, _ in got if a["summary"]), None), "people": people,
+                        "pieces": n, "truncated": any(a["truncated"] for _, a, _, _ in got)}, made, 1, attempts)
     store.put(reading)
     return {**_unpack(reading), "replayed": False}
 
