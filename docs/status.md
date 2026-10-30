@@ -29,7 +29,7 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
   08:58, `site-4` 09:30, support 09:58, `links-4` 11:18 (123,
   `pub.entities`, 2.6 M), `links-5` 12:03 (125, organisation rules alive
   on the row's own date), the MCP download step 13:07 (126), the night
-  window 13:48 (129), the probe fix 14:35. Released; inbox empty.
+  window 13:48 (129). Released; inbox empty.
 - Night window (129): Radiance stops for the page reader on card 1 when
   page work is queued. Opened 15:37 on Arthur's word (start 15:00 by
   8e9567c; 22:00 again once rows 854, 860, 861 are read: card); three
