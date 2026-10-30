@@ -17,6 +17,7 @@ connection drops (the server slows under its own arrivals: 45 s a call on
 
     c = Client()                       # http://127.0.0.1:8646/mcp, the tunnel unit qv4-mcp-tunnel
     c.call("corpora", {})              # the tool's answer, parsed from its JSON text
+    c.call("download", {…}, parts=True)   # the answer's content parts whole (a file comes as an embedded resource)
 """
 import http.client
 import itertools
@@ -63,12 +64,18 @@ def messages_of(body: str, content_type: str) -> list:
     return out
 
 
-def tool_answer(result: dict):
-    """A `tools/call` result's answer: the structured content when given,
-    else the JSON in its first text part (or the text itself)."""
+def tool_parts(result: dict) -> list:
+    """A `tools/call` result's content parts, whole; a tool error is raised with its text."""
     if result.get("isError"):
         text = " ".join(p.get("text", "") for p in result.get("content", []) if p.get("type") == "text")
         raise McpError(f"tool error: {text[:500]}")
+    return [p for p in result.get("content", []) if isinstance(p, dict)]
+
+
+def tool_answer(result: dict):
+    """A `tools/call` result's answer: the structured content when given,
+    else the JSON in its first text part (or the text itself)."""
+    tool_parts(result)
     if result.get("structuredContent") is not None:
         sc = result["structuredContent"]
         return sc.get("result", sc) if isinstance(sc, dict) and set(sc) == {"result"} else sc
@@ -131,22 +138,24 @@ class Client:
         self._post({"jsonrpc": "2.0", "method": "notifications/initialized"})
         return result or {}
 
-    def call(self, tool: str, arguments: dict):
-        """One tool call, one request."""
+    def call(self, tool: str, arguments: dict, parts: bool = False):
+        """One tool call, one request: the tool's answer, or with `parts`
+        its content parts whole (text and embedded resources)."""
         if self.session is None:
             self.connect()
         self.calls += 1
         _, result = self._request("tools/call", {"name": tool, "arguments": arguments})
-        return tool_answer(result or {})
+        return tool_parts(result or {}) if parts else tool_answer(result or {})
 
-    def call_retrying(self, tool: str, arguments: dict, tries: int = 6, wait_s: float = 30.0, sleep=time.sleep, log=None):
+    def call_retrying(self, tool: str, arguments: dict, tries: int = 6, wait_s: float = 30.0, sleep=time.sleep, log=None,
+                      parts: bool = False):
         """`call`, asked again after a wait when the failure is the
         server's slowness or a dropped connection; the wait doubles each
         time (30 s, 60 s, … at most 10 minutes). A failure that is not
         transient, or the last try's, is raised with its text."""
         for attempt in range(1, tries + 1):
             try:
-                return self.call(tool, arguments)
+                return self.call(tool, arguments, parts=parts)
             except McpError as e:
                 if not e.transient or attempt == tries:
                     raise

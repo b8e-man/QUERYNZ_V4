@@ -5,6 +5,7 @@ are made in a scratch schema of the sample database; the documents land
 through the real landing wrapper into a temporary store root (one test)
 or a recording stand-in (the rest). The live shape test is slow (the
 network)."""
+import hashlib
 import json
 import os
 import urllib.error
@@ -14,9 +15,9 @@ import pytest
 from support import db
 from support import mcpsource as M
 from support.mcpsource import client as C
-from support.mcpsource.tests.fake import FakeServer, client_for, corpus_of, made_record
+from support.mcpsource.tests.fake import FakeServer, client_for, corpus_of, file_bytes, made_record
 
-CORPORA = ("beehive", "parliament-bills", "parliament-bills-historical", "parliament-diaries",
+CORPORA = ("beehive", "courts", "parliament-bills", "parliament-bills-historical", "parliament-diaries",
            "parliament-hansard-debates", "parliament-hansard-index", "parliament-sc-reports", "parliament-sc-submissions",
            "parliament-sops", "parliament-wayback",
            "parliament-written-questions")
@@ -37,7 +38,7 @@ class Lands:
                  kind_hint=""):
         import hashlib
         self.calls += 1
-        assert source == "query-nz" and content_type == "application/json"
+        assert source == "query-nz" and content_type
         if name in self.fail_names:
             raise OSError("the store said no")
         sha = hashlib.sha256(data).hexdigest()
@@ -46,6 +47,10 @@ class Lands:
         if sha not in self.names.setdefault(name, []):
             self.names[name].append(sha)
         return type("Ref", (), {"sha256": sha})(), new
+
+    def held(self, sha):
+        """The stand-in for the store's own lookup by hash: the bytes, or None."""
+        return self.docs.get(sha)
 
 
 # ── without a database ───────────────────────────────────────────────────────
@@ -111,6 +116,31 @@ def test_each_corpus_s_recorded_shape_is_no_drift_and_a_new_field_is(corpus):
         assert M.drift_of({**rec, "word_count": "312"}, shape) == [("word_count", "str")]
 
 
+def test_a_record_points_at_a_file_only_with_a_capture_hash_a_content_type_and_a_url():
+    rec = made_record("courts", 4, M.shapes()["courts"])
+    url, ctype, sha, size = M.file_pointer(rec)
+    assert (url, ctype, size) == (rec["url"], "application/pdf", len(file_bytes("courts", 4)))
+    assert sha == rec["capture"]["sha256"] == rec["sha256"]
+    assert M.file_pointer(made_record("beehive", 1, M.shapes()["beehive"])) is None          # a hash, no content type
+    assert M.file_pointer({**rec, "content_type": ""}) is None
+    assert M.file_pointer({**rec, "capture": {**rec["capture"], "sha256": "abc"}}) is None
+    assert M.file_pointer({**rec, "url": "pages/x.html", "capture": {**rec["capture"], "url": None}}) is None
+
+
+def test_a_download_answer_is_its_meta_block_and_the_blob_and_a_textless_one_is_refused():
+    data = file_bytes("courts", 2)
+    import base64
+    parts = [{"type": "text", "text": json.dumps({"delivered_sha256": "x", "capture": {"fetched_at": "t"}})},
+             {"type": "resource", "resource": {"uri": "qnz-pdf://courts/2", "mimeType": "application/pdf",
+                                               "blob": base64.b64encode(data).decode()}}]
+    meta, got = M.file_of(parts)
+    assert got == data and meta["capture"]["fetched_at"] == "t"
+    with pytest.raises(M.ShapeError, match="no embedded resource"):
+        M.file_of(parts[:1])
+    with pytest.raises(M.ShapeError, match="not base64"):
+        M.file_of([{"type": "resource", "resource": {"uri": "u", "blob": "@@"}}])
+
+
 def test_a_page_out_of_place_is_refused():
     recs = corpus_of("parliament-bills", 4)
     page = {"records": recs[1:3], "cursor": 1, "next_cursor": 3, "total": 4}
@@ -143,7 +173,7 @@ def _count(conn, t, where=""):
 
 
 def test_every_corpus_is_pulled_whole_and_a_second_run_lands_nothing(conn):
-    served = {c: corpus_of(c, n) for c, n in zip(CORPORA, (450, 7, 6, 30, 5, 12, 4, 3, 2, 9, 401))}
+    served = {c: corpus_of(c, n) for c, n in zip(CORPORA, (450, 5, 7, 6, 30, 5, 12, 4, 3, 2, 9, 401))}
     server, lands = FakeServer(served), Lands()
     res = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
     assert M.outcome(res), M.summary(res)
@@ -307,6 +337,113 @@ def test_the_real_landing_wrapper_keeps_one_document_per_bytes(conn, tmp_path):
     assert read_bytes(shas[0], root=str(tmp_path)) == M.record_bytes(recs[0])
 
 
+# ── the files (ruling 126) ───────────────────────────────────────────────────
+
+def _files(conn, where=""):
+    return conn.execute(f"SELECT seq, state, calls FROM {TEST_SCHEMA}.files {where} ORDER BY seq").fetchall()
+
+
+def test_a_file_whose_hash_is_the_record_s_lands_under_the_record_s_url_after_every_corpus_s_records(conn):
+    served = {"courts": corpus_of("courts", 4), "parliament-bills": corpus_of("parliament-bills", 3)}
+    server, lands = FakeServer(served), Lands()
+    res = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, held=lands.held, sleep=no_sleep)
+    assert M.outcome(res), M.summary(res)
+    fl = res["courts"]["files"]
+    assert (fl["landed"], fl["held"], fl["caught"], fl["waiting"], fl["calls"], fl["stopped"]) == (4, 0, 0, 0, 4, "end")
+    assert "files" not in res["parliament-bills"]                                   # no record of it points at a file
+    # the download calls come after the last records call of every corpus, one a request, format raw
+    calls = [(m, a) for m, a in server.requests if m == "tools/call"]
+    names = [a and ("download" if "record_id" in a else "page") for _, a in calls]
+    assert names.index("download") > max(i for i, n in enumerate(names) if n == "page")
+    assert all(a["format"] == "raw" for a in server.downloads) and len(server.downloads) == 4
+    # landed by hash, named by the record's url, with the record's content type
+    rec = served["courts"][2]
+    sha = lands.names[rec["url"]]
+    assert len(sha) == 2 and lands.docs[sha[1]] == file_bytes("courts", 2) and sha[1] == rec["capture"]["sha256"]
+    assert sha[0] == lands.names[f"courts/{rec['id']}"][0]                            # the record, under the same url
+    assert _files(conn) == [(0, "landed", 1), (1, "landed", 1), (2, "landed", 1), (3, "landed", 1)]
+    assert _count(conn, "catch") == 0
+    # a second night: nothing waits, no call is made
+    before = len(server.downloads)
+    again = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, held=lands.held, sleep=no_sleep)
+    assert "files" not in again["courts"] and len(server.downloads) == before and M.outcome(again)
+
+
+def test_bytes_whose_hash_is_not_the_record_s_are_refused_and_caught_then_landed_on_a_retry(conn):
+    served = {"courts": corpus_of("courts", 3)}
+    server, lands = FakeServer(served), Lands()
+    server.file_hook = lambda rec, data: data + b"\n% a trailing change" if rec["seq"] == 1 else data
+    res = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, held=lands.held, sleep=no_sleep)
+    fl = res["courts"]["files"]
+    assert (fl["landed"], fl["caught"], fl["calls"]) == (2, 1, 3) and res["courts"]["caught"] == 1 and not M.outcome(res)
+    assert served["courts"][1]["url"] not in lands.names or len(lands.names[served["courts"][1]["url"]]) == 1   # the record only
+    caught = conn.execute(f"SELECT seq, stage, reason FROM {TEST_SCHEMA}.catch").fetchall()
+    assert len(caught) == 1 and caught[0][:2] == (1, "file") and "hash differs" in caught[0][2]
+    assert _files(conn, "WHERE seq = 1") == [(1, "caught", 1)]
+    # the next night does not ask for it again (metered); --retry-caught does, and it lands once the bytes are right
+    M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, held=lands.held, sleep=no_sleep)
+    assert len(server.downloads) == 3
+    server.file_hook = None
+    n = M.retry_caught(conn, client_for(server), TEST_SCHEMA, land=lands, held=lands.held, sleep=no_sleep)
+    assert n == {"asked": 1, "landed": 1} and len(server.downloads) == 4
+    assert _files(conn, "WHERE seq = 1") == [(1, "landed", 2)] and _count(conn, "catch", "WHERE resolved_at IS NULL") == 0
+    assert lands.docs[lands.names[served["courts"][1]["url"]][-1]] == file_bytes("courts", 1)
+
+
+def test_a_file_the_store_already_holds_is_named_from_disk_and_never_fetched(conn):
+    served = {"courts": corpus_of("courts", 3)}
+    server, lands = FakeServer(served), Lands()
+    data = file_bytes("courts", 2)                                     # the courts lane landed this judgment itself
+    lands(data, name="https://elsewhere.test/2026-NZSC-1.pdf", source="query-nz", conn=conn, content_type="application/pdf")
+    res = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, held=lands.held, sleep=no_sleep)
+    fl = res["courts"]["files"]
+    assert (fl["landed"], fl["held"], fl["calls"]) == (2, 1, 2) and M.outcome(res)
+    assert [a["record_id"] for a in server.downloads] == [served["courts"][0]["id"], served["courts"][1]["id"]]
+    sha = served["courts"][2]["capture"]["sha256"]
+    assert lands.names[served["courts"][2]["url"]][-1] == sha and len(lands.docs) == 3 + 3     # three records, three files
+    assert _files(conn, "WHERE seq = 2") == [(2, "held", 0)]
+    # a changed record pointing at the same file: a second pointer, found held, no call
+    rec = dict(served["courts"][2])
+    rec["seq"], rec["case_name"] = 3, "renamed"
+    served["courts"].append(rec)
+    again = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, held=lands.held, sleep=no_sleep)
+    assert again["courts"]["files"] == {"landed": 0, "held": 1, "caught": 0, "calls": 0, "waiting": 0, "stopped": "end"}
+
+
+def test_a_run_stopped_by_its_budget_leaves_the_rest_waiting_and_the_next_resumes_there(conn):
+    served = {"courts": corpus_of("courts", 5)}
+    server, lands = FakeServer(served), Lands()
+    M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, held=lands.held, sleep=no_sleep, files=False)
+    assert M.files_waiting(conn, TEST_SCHEMA) == {"courts": 5} and not server.downloads
+    ticks = iter(range(100))
+    part = M.download_files(conn, client_for(server), "courts", TEST_SCHEMA, land=lands, held=lands.held, sleep=no_sleep,
+                            budget_s=2.5, clock=lambda: next(ticks))             # the clock moves a second a look
+    assert (part["landed"], part["waiting"], part["stopped"], part["calls"]) == (2, 3, "budget", 2)
+    assert [s for _, s, _ in _files(conn)] == ["landed"] * 2 + ["waiting"] * 3
+    none = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, held=lands.held, sleep=no_sleep, budget_s=0)
+    assert none["courts"]["files"]["stopped"] == "budget" and none["courts"]["files"]["waiting"] == 3 and M.outcome(none)
+    rest = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, held=lands.held, sleep=no_sleep)
+    assert rest["courts"]["files"] == {"landed": 3, "held": 0, "caught": 0, "calls": 3, "waiting": 0, "stopped": "end"}
+    assert [a["record_id"] for a in server.downloads] == [r["id"] for r in served["courts"]]     # each once, in order
+
+
+def test_a_file_lands_through_the_real_landing_wrapper_by_hash_under_the_record_s_url(conn, tmp_path):
+    from support.docstore.landing import documents_of, find_by_name, read_bytes
+    recs = corpus_of("courts", 1)
+    tag = os.urandom(4).hex()
+    recs[0]["id"] = recs[0]["url"] = recs[0]["capture"]["url"] = f"{recs[0]['url']}-{tag}.pdf"
+    server = FakeServer({"courts": recs})
+    res = M.pull_all(conn, client_for(server), TEST_SCHEMA, root=str(tmp_path), sleep=no_sleep)
+    assert res["courts"]["files"]["landed"] == 1, M.summary(res)
+    sha = recs[0]["capture"]["sha256"]
+    assert sha in find_by_name(recs[0]["url"], conn) and read_bytes(sha, root=str(tmp_path)) == file_bytes("courts", 0)
+    assert documents_of([sha], conn)[sha]["kind"] == "pdf"
+    # the same bytes again under the same name: held, no request
+    conn.execute(f"UPDATE {TEST_SCHEMA}.files SET state = 'waiting'")
+    again = M.download_files(conn, client_for(server), "courts", TEST_SCHEMA, root=str(tmp_path), sleep=no_sleep)
+    assert again == {"landed": 0, "held": 1, "caught": 0, "calls": 0, "waiting": 0, "stopped": "end"}
+
+
 # ── the live server's shape (the network: slow) ──────────────────────────────
 
 @pytest.mark.slow
@@ -330,3 +467,31 @@ def test_the_live_server_still_serves_the_recorded_shape(corpus):
             assert isinstance(r.get("id"), str) and r["id"], f"{corpus} seq {r['seq']} has no id"
             drift |= set(M.drift_of(r, shape))
     assert not drift, f"{corpus}: fields the recorded shape does not hold: {sorted(drift)}"
+
+
+@pytest.mark.slow
+def test_the_live_server_still_delivers_a_file_as_recorded():
+    """One `download` (metered) of the first record of the courts corpus
+    that points at a file, format raw: the answer carries a meta text part
+    and an embedded resource whose blob is the record's bytes by hash."""
+    c = M.Client(timeout=120)
+    try:
+        page = c.call_retrying("records", {"corpus": "courts", "cursor": 0, "limit": 20, "include_text": False},
+                               tries=3, wait_s=10)
+    except C.McpError as e:
+        pytest.skip(f"the MCP is not reachable through the tunnel: {e.why[:120]}")
+    rec = next((r for r in M.check_page(page, "courts", 0) if M.file_pointer(r)), None)
+    assert rec is not None, "no record of the first twenty points at a file"
+    url, ctype, sha, size = M.file_pointer(rec)
+    parts = c.call_retrying("download", {"record_id": rec["id"], "corpus": "courts", "format": "raw"}, tries=3,
+                            wait_s=10, parts=True)
+    meta, data = M.file_of(parts)
+    assert hashlib.sha256(data).hexdigest() == sha and (size is None or len(data) == size)
+    for k in ("corpus", "seq", "record_id", "kind", "format", "content_type", "delivered_bytes", "delivered_sha256",
+              "captured_sha256", "sha256_matches_capture", "resource_uri", "capture"):
+        assert k in meta, f"the meta block lost {k}: {sorted(meta)}"
+    assert meta["delivered_sha256"] == meta["captured_sha256"] == sha and meta["sha256_matches_capture"] is True
+    assert meta["content_type"].split(";")[0] == ctype.split(";")[0] and meta["seq"] == rec["seq"]   # the meta drops the charset
+    res = next(p["resource"] for p in parts if p.get("type") == "resource")
+    assert res["uri"] == meta["resource_uri"] and res["uri"].startswith(("qnz-pdf://courts/", "qnz-html://courts/"))
+    assert res.get("mimeType") == ctype.split(";")[0]
