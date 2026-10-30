@@ -14,12 +14,11 @@
   is not a judgment.
 - The case page read (court, name, citation, case numbers, dates, judges, summary, result, links), joined
   to its PDFs by url and `case_slug`: `courts.cases`, `courts.case_links`, `courts.documents` (every
-  record with its outcome: read, waiting on a reader, set aside, caught).
+  record with its outcome).
 - The text reader (`model_read.py`): Flash-Next through `support.modelclient`, one reading per document,
   stamped and stored by hash, replayed by every load: names with roles, counsel per party, a summary →
-  `courts.people` → `pub.court_people` for the links lane. The deterministic fields stay.
-- Suppression reaches every name on every document of a citation and its case page, model-read names
-  and the case name included.
+  `courts.people` → `pub.court_people` for the links lane.
+- Suppression reaches every name on every document of a citation and its case, model-read included.
 - A document is its bytes (the refusal of 18:44, `cases_pkey`): a file the corpus holds under several
   records (three pairs on live) is read once, under the plainest url; a case, its links, a judgment, its
   parties, paragraphs and people are emitted once; every sharing record's `documents` row carries the
@@ -28,7 +27,7 @@
   page reader 4, set aside 5, caught 13); judgments 2,329 (parsed 2,224), parties 7,870, cases 2,685,
   links 4,548; 1,061 names withheld under 445 flagged judgments; listing gap 80. Check green, after the
   counsel-role rule learned the 2004–2012 NZSC criminal leave shape ("for Applicant", "for Crown").
-- Fast tier green (86.5 s; 50 tests; one xfail until a text-reader reading exists).
+- Fast tier green (86.5 s; 50 tests; one xfail until a reading exists).
 
 ## Waiting
 
@@ -45,4 +44,4 @@ open from courts-1: Waitangi Tribunal and District Court (the corpus has neither
 
 1. After the first `qv4-courts-read` run: people rows on live, the xfail green; read ten documents'
    summaries and roles against the PDFs.
-2. The links lane reads `pub.court_people` (its own card, its session).
+2. The links lane reads `pub.court_people` (its own session).
