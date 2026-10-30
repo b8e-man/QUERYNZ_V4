@@ -8,7 +8,7 @@ Overwritten at every close; under 3 KB.
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
 8450); 6.2 `tenders-1` and templates 1 to 3 merged; 6.3's four source
 lines have lanes. Track C measured; B and E closed. **Boxes:** node2 is the
-estate; node1 offline indefinitely (Arthur, 25 October); model reading
+estate; node1 offline indefinitely (Arthur, 25 Oct); model reading
 runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
 
 ## Done
@@ -37,7 +37,7 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
 - MCP lanes green; `courts` pull (row 856) done 17:04, 13 caught.
   `courts-2` merged 19:40 (7cdc8ab: one source, every kind by shape,
   names by the text reader); `qv4-courts-read` row 865 (5,589 pieces)
-  and `-pages` 866 (4) wait for their cards; views on the board next.
+  and `-pages` 866 (4) wait for their cards; board next merge.
 - 19:25: a second page reader by hand on card 0 beside the frozen
   OCR server (Arthur), rows 860/861 from the tail; both cards full.
 - `links.check`: one red, a placeholder NZBN and one NZBN under two
