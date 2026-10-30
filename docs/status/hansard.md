@@ -1,33 +1,39 @@
 # hansard: where it stands
 
-**Date:** 2026-10-27. **Rulings:** 96, 97. **Lane:** `registers/hansard/`. **Session:** hansard-2.
-**Merge request:** `hansard-2` (raised).
+**Date:** 2026-10-31. **Rulings:** 96, 97, 130 (pending: the common rules of 31 October). **Lane:**
+`registers/hansard/`. **Session:** hansard-3 (Fable). **Merge request:** `hansard-3` (raised).
 
 ## Done
 
-- hansard-1: the old estate's transcripts exported once (137 sitting days to 2026-09-23, 3,923 sections, 47,243
-  turns); merged 1a35c33.
-- hansard-2, the MCP (no model, nothing fetched): `read_mcp.py` reads `parliament-hansard-index` into
-  `index_pages` and `parliament-hansard-debates` into `days` (one per sitting day: the PDF's address and the
-  provider's hash, pages, words) with the text in `hansard_private.day_texts`; `pub.hansard_days`, no text;
-  `pub.hansard_sittings` and `pub.hansard_days` each say where the day is also held. Two profiles proposed.
-- Whole build from mcp-1's pull (`querynz_v4_sample.scratch_hansard_2_full`, 15 s): 1,862 days (2003-02-11 to
-  2026-09-23), 137 both, 1,725 MCP only (1,724 before 2024-11-20, and 2026-07-30), 0 old days missing; 383 index
-  pages, matching 0 sittings (the index holds www.parliament.nz pages only). Words 94,602,760, equal to the MCP's
-  `measure`. Old subjects in the same day's PDF text 3,691 of 3,885 (95.0%), worst day 57.1%; floors 90% and 50%
-  per day; the misses are eight urgency sittings whose later days the MCP lacks (card).
-- `check.py` on that build: red only for 383 of 387 index records taken (four arrived after the pull).
-- Fast tier `registers/hansard` green; root tests green; a mutation turns the reader's test red.
-- Card `the-mcp-holds-no-pdf-for-an-urgency-sitting-s-later-days-and-its-hansard-index-names-no-transcript`;
-  lesson `profile-a-corpus-s-addresses-before-joining-on-them-its-label-is-not-its-contents`.
+- hansard-1: the old transcripts exported once (137 days, 3,923 sections, 47,243 turns); merged 1a35c33.
+- hansard-2: the MCP's index and daily PDFs (1,862 days, texts private); merged 3063cc7.
+- hansard-3, the split (profile `hansard-day` v1, `split.py`, no model): two layouts (final 1,827 days, draft 35);
+  every one of 1,862 days split, 0 set aside; 38,472 sections, 613,481 turns, 538,115 with a member from the old
+  roster. Proved on the 137 days both hold: member turns more than the old lists on 129 days (53,690 against
+  40,098: the old lists skip an oral question's question line and most debate speakers, e.g. 2 of 20 on a third
+  reading), fewer on the 8 urgency sittings whose later days the MCP lacks; sections equal on 16 (the old made a row
+  per parent heading). `pub.hansard_speeches` carries the split's turns for the 1,725 MCP-only days (the spec's
+  waiting item closes); `pub.hansard_day_sections` new.
+- The names reader (`model_read.py`): Flash-Next through the model client, 40,000 characters a piece (measured
+  4.0 to 4.8 characters a token; a 39,199-character piece used 9,717 prompt tokens of 16,384), one piece per
+  section, cut at turns, paragraphs, lines; pieces stored at page p, joined at page 1; truncated answers salvaged,
+  unusable ones stored after two attempts. `people` → `pub.hansard_people`; `readings` one per piece.
+- `check.py`: the split and reader figures (counted; fails on a reading under another profile version, an
+  unaccounted day, a turn without its section); green on the whole corpus in `scratch_hansard_3_full` (65 s build).
+- Fast tier `registers/hansard` green in 92 s, 55 tests; the sample's five days read once (125 pieces, 1,697 names:
+  person 594, body 489, other 275, agency 256, company 83; 0 unusable, 0 cut); a day alone on the server reads in 2
+  to 5 minutes, shared with other lanes' pieces in 25 to 43.
+- Lesson `a-split-rule-is-proved-against-printed-lines-not-the-old-estate-s-derived-counts`.
 
 ## For the integrator
 
-- Append the two profiles in `profile-proposed.jsonl`; queue `qv4-hansard-load` nightly 04:15 NZDT (spec).
-- `hansard_private` is now used: keep it out of the session reader's grants.
-- `pub.hansard_days` goes on the board in the merge after this one.
+- Append `hansard-day` v1 from `profile-proposed.jsonl`; queue `qv4-hansard-read` (block in the merge request);
+  `qv4-hansard-load` unchanged. `pub.hansard_people` and `pub.hansard_day_sections` go on the board in the merge after.
+- Arthur's to drop when done: `querynz_v4_sample.scratch_hansard_3_full` (+ `_private`).
 
 ## Next
 
-- Speech turns after 2026-09-23 wait on the provider splitting its debates text by section and speaker.
-- Arthur asks the provider the card's two questions.
+- After the first `qv4-hansard-read` run: people rows on live; read ten pieces' names against the PDF text.
+- 3,176 sections (8.3%) have no speaker turn (cover lines, 678,052 chars in all) yet cost a piece each; a rule
+  version that skips them saves ~7% of the 45,237 pieces. Not changed here: it would re-key the stored readings.
+- The links lane reads `pub.hansard_people` (its own session; ruling 123).

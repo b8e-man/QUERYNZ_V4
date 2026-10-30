@@ -3,6 +3,8 @@
 -- the export's hash, the sitting day and section, and the page's own address. Rebuilt whole on every load.
 -- The MCP's rows (hansard-2) read the records support/mcpsource landed and cite the record's hash and the page's or
 -- PDF's address. `hansard_private` holds each day's text as the provider's pdftotext gave it: shown on the board only.
+-- hansard-3: the split of each day's text into sections and turns (day_sections, day_turns), and the text reader's
+-- names (readings, people), by profile hansard-day.
 
 CREATE SCHEMA IF NOT EXISTS hansard;
 CREATE SCHEMA IF NOT EXISTS hansard_private;
@@ -169,6 +171,18 @@ CREATE TABLE IF NOT EXISTS hansard.days (
     old_sections     integer,                        -- the old transcript's sections for the day; NULL: not held there
     old_subjects     integer,                        -- of those, with a subject that is not a continuation note
     subjects_in_text integer,                        -- of those, the subject found in this day's text
+    layout           text,                           -- the split's layout: final | draft; NULL where it could not split
+    parliament       integer,                        -- from the cover, else by the election before the day
+    sections         integer,                        -- the split's counts (hansard-3): sections, speaker turns, turns
+    turns            integer,                        --   with a member id, turns with none, distinct member ids
+    attributed       integer,
+    unattributed     integer,
+    speakers         integer,
+    split_rule       text,                           -- split.RULE
+    reading          text NOT NULL DEFAULT 'waiting: text reader',   -- read | waiting: text reader | set aside: <why>
+    pieces           integer,                        -- the joined reading's pieces, names, unusable pieces
+    names            integer,
+    unusable_pieces  integer,
     source_note      text NOT NULL,
     document         text NOT NULL,                  -- the record landed by sha256
     page             integer NOT NULL,
@@ -182,7 +196,7 @@ CREATE TABLE IF NOT EXISTS hansard.days (
 
 -- one per old section on a day both sources hold: where its subject is found. No text; check.py reads it under
 -- the reader login (the texts are private)
-CREATE TABLE IF NOT EXISTS hansard.day_sections (
+CREATE TABLE IF NOT EXISTS hansard.day_subjects (
     key              text PRIMARY KEY,               -- hansard.sections.key
     sitting_on       date NOT NULL,
     found            text NOT NULL CHECK (found IN ('own day', 'neighbouring day', 'continuation note',
@@ -190,6 +204,116 @@ CREATE TABLE IF NOT EXISTS hansard.day_sections (
     neighbour        date,                           -- the held day whose text has it, for 'neighbouring day'
     document         text NOT NULL                   -- the day's record
 );
+
+-- one per section of a day's text as the split rule of profile hansard-day cut it (split.py): the heading run, the
+-- proceeding, subject and bill it names, and its counts. No text: the reader re-splits the landed record
+CREATE TABLE IF NOT EXISTS hansard.day_sections (
+    key              text PRIMARY KEY,               -- <sitting day>/<section index>
+    sitting_on       date NOT NULL,
+    section_index    integer NOT NULL,               -- from 0
+    layout           text NOT NULL,
+    heading          text,                           -- the heading lines as printed, ' / ' between
+    proceeding       text,
+    subject          text,
+    bill_title       text,
+    chars            integer NOT NULL,
+    turns            integer NOT NULL,
+    attributed       integer NOT NULL,
+    unattributed     integer NOT NULL,
+    source_note      text NOT NULL,
+    document         text NOT NULL,
+    page             integer NOT NULL,
+    place            text NOT NULL,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- one per speaker turn the split found: the speaker line as printed, its brackets read, the member matched to the
+-- old roster within the day's Parliament, or only a role. Published for the days the old transcript does not hold
+CREATE TABLE IF NOT EXISTS hansard.day_turns (
+    key              text PRIMARY KEY,               -- <sitting day>/<section index>/<ordinal>
+    section          text NOT NULL,                  -- hansard.day_sections.key
+    sitting_on       date NOT NULL,
+    section_index    integer NOT NULL,
+    ordinal          integer NOT NULL,               -- from 1
+    label            text NOT NULL,                  -- the speaker as printed: 'Hon CHRIS BISHOP', 'CHAIRPERSON'
+    name             text,                           -- the person named: the label, or the chair's name in brackets
+    role_text        text,                           -- the brackets: 'Leader of the House', 'Labour—Mana'
+    party            text,
+    electorate       text,
+    role             text,                           -- Speaker, Deputy Speaker, Assistant Speaker, Chairperson, Clerk, Member (unattributed)
+    first_speech     boolean NOT NULL,               -- the name was printed in capitals
+    member_id        text,                           -- Parliament's id, from the old roster
+    roster_name      text,
+    match_basis      text,                           -- full | given | surname; NULL when not matched
+    in_roster        boolean NOT NULL,
+    chars            integer NOT NULL,
+    source_note      text NOT NULL,
+    document         text NOT NULL,
+    page             integer NOT NULL,
+    place            text NOT NULL,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS day_turns_member ON hansard.day_turns (member_id);
+CREATE INDEX IF NOT EXISTS day_turns_day ON hansard.day_turns (sitting_on);
+
+-- one per piece of a day's joined text-reader reading (model_read.py): its summary and counts
+CREATE TABLE IF NOT EXISTS hansard.readings (
+    key              text PRIMARY KEY,               -- <document sha256>/piece/<p>
+    day              text NOT NULL,                  -- hansard.days.key
+    sitting_on       date NOT NULL,
+    piece            integer NOT NULL,
+    section          text,                           -- hansard.day_sections.key
+    part             integer,
+    parts            integer,
+    chars            integer,
+    turns            integer,
+    names            integer NOT NULL,
+    summary          text,
+    truncated        boolean NOT NULL,
+    unusable         text,
+    model            text NOT NULL,
+    reader           text NOT NULL,
+    made_at          text,
+    document         text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- one per person or body a speech names, as the text reader read it (the common rules of 31 October 2026): the
+-- rows the links lane reads through pub.hansard_people. Never a link, never a claim; from stored readings only
+CREATE TABLE IF NOT EXISTS hansard.people (
+    key              text PRIMARY KEY,               -- <document sha256>/person/<n>
+    name             text NOT NULL,                  -- as printed
+    kind             text NOT NULL,                  -- person | company | agency | body | other
+    role             text,                           -- the role as the text says it
+    role_text        text,
+    "of"             text,                           -- the organisation a person is of, where the text says
+    day              text NOT NULL,                  -- the document's own key: hansard.days.key
+    sitting_on       date NOT NULL,
+    section          text,                           -- the piece's section: hansard.day_sections.key
+    piece            integer NOT NULL,
+    source_note      text NOT NULL,
+    document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page             integer NOT NULL,
+    place            text NOT NULL,                  -- 'text reader, piece p, name n'
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    model            text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS people_day ON hansard.people (day);
+CREATE INDEX IF NOT EXISTS people_name ON hansard.people (upper(name));
 
 CREATE TABLE IF NOT EXISTS hansard_private.day_texts (
     key              text PRIMARY KEY,               -- hansard.days.key
