@@ -35,3 +35,12 @@ SELECT p.key, p.citation_url, p.snapshot_url, p.archived_at, p.dated, p.html_tit
        p.text, p.text_names_address, p.text_words, p.captured_at, p.captured_sha256, p.capture_status, p.capture,
        p.served, p.versions, p.source_note, p.document, p.page, p.place, p.read_from, p.reader, p.profile, p.profile_version, p.loaded_at
 FROM parliament.wayback_pages p;
+
+-- every person and body the text reader found an archived page or a written question naming (ruling 123: the
+-- links lane reads it); the asking member and the Minister of a question are that view's own columns, not rows
+-- here. Never a link, never a claim
+CREATE OR REPLACE VIEW pub.parliament_people AS
+SELECT n.key, n.name, n.name_names_address, n.kind, n.role, n.role_text, n.role_text_names_address,
+       n.of_organisation, n.of_organisation_names_address, n.source_table, n.source_key, n.dated, n.citation_url,
+       n.document, n.page, n.place, n.read_from, n.reader, n.model, n.profile, n.profile_version, n.loaded_at
+FROM parliament.people n;

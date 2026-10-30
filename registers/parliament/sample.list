@@ -16,3 +16,65 @@ a3b27b220d2c8c65f700e87b88ad360164fd7cf7367c40ce77ad35239f8e6357 a call for subm
 c90a270e810201d7f40e7f053b0146ab825d38c6df25f7f198afaee8f7f65db6 an archived page whose text holds a NUL
 ea90ebe9b3a61ae6fd8b9315299e52c85ef0e24eb2443955db6dd7290d5c81cf a historical bill whose number is empty
 4f88f1894fcd48181d46eb760e97c24185d8479e2235b3ac20e6ec07b22daa70 a call for submissions whose id ends in a space
+# the text reader's fixed sample (parliament-2, 31 October 2026): read once through Flash-Next, replayed by the fast tier
+# (ruling 50). Archived pages of several sizes, the two largest among them (split into 29 pieces), and written questions
+# across the years, the longest among them (split into 2); the questions were read half alone and half in batches so
+# the seconds a document could be measured both ways. Hashes only; the comment says the case, never whose it is.
+bd8aa66a094898f9804bcbff0ded85b563a1a79453dbfe4a0d1421c99e5bd6c1 the largest archived page (676,240 chars, a week's debates), 29 pieces
+163ae0a2fe30c62fc0c065d1c42b783f390d8b9661a4b663c8d2cc94514f6d84 an archived page of 670,240 chars, 29 pieces
+1885bd2f03f3f509c098f791fccd51bb66db93d0d27e2b5ecdcf638a34282828 an archived debate page of 155,081 chars, 7 pieces
+3d630aa31e12e80404e20c378ad533a9ff8127ae4f510a79a3ad77acad9476c3 an archived debate page of 188,825 chars whose text marks speaker turns, 10 pieces
+00ec8a67d1b689de2581a1a438af5b28f0d9fe8542fdb2412ec57fa908ea770c an archived 2006 debate page of 175,722 chars with no turn marks, 8 pieces
+459bc1f0b6761f6510d147a63feaa518631ca92e1b728b23be5de18159f9e3f4 an archived bill reading page of 57,105 chars, 3 pieces
+c8bedc11497286f18910a8c5b6ed7bb7f0d3135eba17b1ddf0e3f856c522ab50 an archived page of 64,870 chars, 3 pieces
+2fa44ad9ccc422776a4b1302e0bbe2d676951a6e40921918e39589e2a16da7b4 an archived bill reading page of 52,749 chars, 3 pieces
+3e1b3df3e42fac9c77ece173867640b43a91290cda2546cf6b1ebbb39bc71a44 an archived page of 88,286 chars with turn marks, 5 pieces
+a3a1a8ac18b99ba50a6f8776aaef257e7af8a55f1b418b76afe904d1ab9496d7 an archived page of 83,556 chars, 4 pieces
+4019ac1970bf6ad571420e512945c70c0996ce1049ae1714aea0e1ec5267fa0c an archived page of 10,003 chars, whole
+1a126b8ceeedd9410282f43b8dce5680de2d0c7e9fc3a4889685989e52edcad8 an archived page of 3,079 chars, whole
+57b3f351149ab6a5062fd92cf38c4fece324b16a6ffa354b359f9d3fd14e36a3 an archived page of 1,804 chars, whole
+ea77f2e3d1b9ba41952a4b4dbdc223eeb43c3a48cc0245cc8143b0b284e8364a an archived page of 2,239 chars, whole
+cd2534b022069a80017bed4ce229c0be366423fc63c523877a249c345616868e an archived page of 1,996 chars, whole
+247d34a55c1393926762446b598e668941e835c2cadf0f654afacb3d530f2891 an archived page of 1,583 chars, whole
+ae975f797f8a5fb6d7e5e6da6ebd26a0cd41c80e764142c13b97c87c4597e38d an archived page of 10,091 chars, whole
+02ee065c58fa574515d3988df6f3d976dfe4e80730adfb3e281204ba27e97e30 an archived page of 3,579 chars, whole
+c312dd4a82f3b657f8f81494055de80305938f93cdd5017ce95110410c3de7b3 the longest written question and reply (31,178 chars), 2 pieces
+7f41d5f0c3db18abac739b99a435e52ad7114bf09d88156b18f19deffc1cc7c9 a written question whose reply is 16,751 chars, whole
+4fd90f00bbd651468c7fa23e014982b9f4bf8de6332e7cff38543b42c7de7536 a written question whose reply is 16,211 chars, whole
+9c49aa8fe91575c312245cd1be1a4ab8a05b586f36e8628d52d8a427b2586c3f a written question whose reply is 16,146 chars, whole
+b9a052eaca4b63a6f66326b67be07d757b9977ba52c81510b4b096d158de8fa2 a written question of 2010, read alone
+80728475d5d204e6a2afd6a9b89048caed344f3e6dfda641765f018ae462be12 a written question of 2021, read alone
+77887f24d0f3b97d1fb3ef20de93d6d4968efe29df93421890c2976725566033 a written question of 2017, read alone
+abaf96c62e99d8573d27b13c296b13909567be2afd7d98aa81ecc8ae18c1af19 a written question of 2010, read alone
+bbafdcdf259cc2d062a1dfd32427d3d580e1153686a94e7eb6be75af652187d5 a written question of 2019, read alone
+44be92144b88f178e75e06ea3cfedb53685620346c70eda091ad23abe875a904 a written question of 2010, read alone
+462262c196e90581fe30419b3bc38f9c2996088c632852f3db12bdf793df7a7c a written question of 2018, read alone
+e58f0a430d41b6c99bcf01cf9aa5d282c9a86b15cf4861e087080953e3e4c23f a written question of 2024, read alone
+f062d2e566f8fdf459e586319998909970baf56b4189be08c1fcc9081e17099c a written question of 2026, read alone
+806c919dffbc81ef4fd005525e1a25b1f28ee305f60464835a90b85425c3f356 a written question of 2018, read alone
+90a7d041b865226de342ccbc0229b0701af4f734aecae5537cf585abe79a2b0a a written question of 2019, read alone
+070fced2311c06756802190a73cd5be6b0c17ebc9b130d5e4a27b5723463d76c a written question of 2009, read alone
+7f07709e959392d4608f75a91dbcb2f8f7d7c0fa445d41de011a52b22e18dd3d a written question of 2020, read alone
+5fa927da86a546520e78fb7c503bc6ea71c8fcbb1733091eb694bc0a7eb597f2 a written question of 2026, read alone
+5b7a2297c57157203825a95de0408f7676882f1cc57bad0d45c0f934522121be a written question of 2024, read alone
+0be18150b9b5d6e71e573617cf43d5cc6223a347faca64412eefb6027d92adac a written question of 2021, read alone
+d91e4e4962ca161f07ffa4462760010c5d647c7d8c83ab6f48713c95c1627133 a written question of 2024, read alone
+288e5f69541af05366d73022b5e6d673badc669c2aa94027a080cae78d773606 a written question of 2023, read alone
+7cf3b9dc2a1f64574ae6953e0e71c9a19f98fc01f9c631a2d1ab54643265b0b1 a written question of 2024, read in a batch
+4fe52b6a340467be03ea6fe11e486b0ad085835d21eb3610244129f68feb618b a written question of 2018, read in a batch
+179322a1199cc794435d54910cd72a5e73831b19103fc8fd2efd505232c559ce a written question of 2026, read in a batch
+f18aa0c59bd6ef3681a9378a72ad9b755c537c0b4bcb611bd2bd62d5a2e2ff76 a written question of 2021, read in a batch
+7d463f23c1a9e820c5e177b9ac10be7aa4d2b1f13027e85509002a7c736958ba a written question of 2022 whose reply is 1,382 chars, read in a batch
+7ec15eb25fe16212007c009dcd88bd98e7923a76f141b019929c39a69e411aad a written question of 2006 with 36 chars of text, read in a batch
+2f3311f38ef5daa07fffaf605c181e7272cd964a3e79559e3d5f2f7a72ca4495 a written question of 2024, read in a batch
+97e387cf21419723cebfebaea65787f56f8d99f032c800b5e38933aadbee4b56 a written question of 2026, read in a batch
+b55a739228c1f5f8d962570d43538e443165ab7ccaa939c6157eeade328c2207 a written question of 2019, read in a batch
+c4cf745eb779f7c78be5cdf9cf62025bb85387e378e683d93bc10e67b63616f5 a written question of 2011, read in a batch
+8bded48117a50341f7d1a5f53885ac9e1262d7b54f1a41ba5159bbd44ea36198 a written question of 2026, read in a batch
+e8147c6603e16b4fe48fc9ae7cc3da7f05063c8fa95ad3907e2d53105423ec84 a written question of 2020, read in a batch
+3bebff45b56216e75f3c71d7789f18569ddeab7b22a05279d7c2292c4378a24a a written question of 2021, read in a batch
+ba48a4e8b6f25d5c78c58aca0cf35895de3198d7a2485c743d2428e9c2466ab0 a written question of 2016, read in a batch
+09f354fd6ec6c7a39eb528c79ef422d61257968f23d9c73f2d9cbd4714f6e2b9 a written question of 2026, read in a batch
+106025b83d017a99b986203587b64071d949489e5f7d629671a2190d89c783a3 a written question of 2014, read in a batch
+2ba5fa4d47af661b88fad54b6cbc7f473c7b2f3ac26168b5fe9ca14196e25dcb a written question of 2019, read in a batch
+c6173fb651616271a5f9b358fc354302fbf0f002f129f7af4fa0c999ae58ea6f a written question of 2019, read in a batch

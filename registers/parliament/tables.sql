@@ -177,7 +177,9 @@ CREATE TABLE IF NOT EXISTS parliament.files (
     corpus      text NOT NULL,
     record_id   text,
     seq         bigint,
-    status      text NOT NULL CHECK (status IN ('read', 'older version', 'set aside')),
+    status      text NOT NULL CHECK (status IN ('read', 'older version', 'older text', 'set aside')),
+                                                     -- older text: an archived page's older version whose text differs from the
+                                                     -- version read, so the text reader reads it as its own document
     PRIMARY KEY (sha256, corpus)
 );
 
@@ -210,3 +212,56 @@ CREATE TABLE IF NOT EXISTS parliament.street_scan (
     scanned_at   timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (view_name, column_name)
 );
+
+-- the text reader's reading of each document (model_read.py; one reading per document hash, replayed from the
+-- reader store at every load): what it read, how many pieces, how many names, and the one summary line. A
+-- document without a reading is waiting on `qv4-parliament-read`; one whose reading is unusable, or whose text
+-- the profile cannot split, is in `set_aside` at stage `read`
+CREATE TABLE IF NOT EXISTS parliament.readings (
+    document          text PRIMARY KEY CHECK (document ~ '^[0-9a-f]{64}$'),
+    source_table      text NOT NULL,                   -- written_questions | wayback_pages
+    source_key        text NOT NULL,                   -- the document's own row's key
+    dated             date,                            -- the document's own day: the question's release, the page's snapshot
+    citation_url      text,
+    pieces            integer NOT NULL,                -- 1, or the pieces a text over the budget was cut into
+    names             integer NOT NULL,
+    summary           text,                            -- the reader's one line; names nobody
+    truncated         boolean NOT NULL DEFAULT false,  -- an answer cut at the token cap: the complete entries kept
+    batch             integer,                         -- documents that shared the request
+    model             text NOT NULL,                   -- the served model
+    reader            text NOT NULL,
+    profile           text NOT NULL,
+    profile_version   integer NOT NULL,
+    made_at           text,                            -- when the reading was made
+    loaded_at         timestamptz NOT NULL
+);
+
+-- every person and body the text reader found a document naming: name as printed, kind, role, the role in the
+-- text's words, the organisation a person is "of"; keyed <document sha256>/person/<n>; never a link, never a
+-- claim. Each text column published whole carries `<column>_names_address` beside it (hard limit 15 by the flag)
+CREATE TABLE IF NOT EXISTS parliament.people (
+    key                      text PRIMARY KEY,
+    name                     text NOT NULL,
+    name_names_address       boolean NOT NULL,
+    kind                     text NOT NULL,           -- person | company | agency | body | other
+    role                     text NOT NULL,           -- member | minister | official | witness | submitter | other
+    role_text                text,                    -- the role as the text gives it
+    role_text_names_address  boolean NOT NULL,
+    of_organisation          text,                    -- the organisation the person is "of", as the text says
+    of_organisation_names_address boolean NOT NULL,
+    source_table             text NOT NULL,           -- written_questions | wayback_pages
+    source_key               text NOT NULL,           -- the document's own row's key
+    dated                    date,                    -- the document's own day
+    citation_url             text,
+    document                 text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page                     integer NOT NULL DEFAULT 1,
+    place                    text NOT NULL,           -- text reader, piece p, name n
+    read_from                text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader                   text NOT NULL,
+    model                    text NOT NULL,
+    profile                  text NOT NULL,
+    profile_version          integer NOT NULL,
+    loaded_at                timestamptz NOT NULL
+);
+CREATE INDEX IF NOT EXISTS parliament_people_document ON parliament.people (document);
+CREATE INDEX IF NOT EXISTS parliament_people_name ON parliament.people (upper(name));

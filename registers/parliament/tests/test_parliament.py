@@ -21,6 +21,9 @@ LANE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(LANE))
 BLOCKED_PAGE = "305c71248c2acf5dd8080a331ce516b192e190f2b20e3e4b03fb265273dfd87d"    # sample.list: the refusal
 GOOD_PAGE = "2b86adf70ab2e30c8b367845d1760d0466bddf69741f33cd1289a8f6d8866655"       # sample.list: a feature page
+NOT_PROSE = "c90a270e810201d7f40e7f053b0146ab825d38c6df25f7f198afaee8f7f65db6"       # sample.list: a WAV file served as a page
+LARGEST_PAGE = "bd8aa66a094898f9804bcbff0ded85b563a1a79453dbfe4a0d1421c99e5bd6c1"    # sample.list: 676,240 chars, 29 pieces
+LONGEST_QUESTION = "c312dd4a82f3b657f8f81494055de80305938f93cdd5017ce95110410c3de7b3"  # sample.list: 31,178 chars, 2 pieces
 WQ, BILLS, SUBS, WAYBACK = ("parliament-written-questions", "parliament-bills", "parliament-sc-submissions",
                             "parliament-wayback")
 
@@ -188,16 +191,44 @@ def test_an_archived_refusal_is_set_aside_as_blocked_and_a_page_naming_it_is_rea
 
 def test_the_views_carry_every_text_whole_with_its_flag_beside_it():
     """Ruling 102: nothing withheld in a view; each text published whole has `<column>_names_address` next to it."""
+    from registers.parliament import load as L
     sql = open(os.path.join(LANE, "publish.sql"), encoding="utf-8").read().lower()
-    views = dict(zip(("wq", "api", "wayback"), sql.split("create or replace view")[1:]))
-    assert len(views) == 3
+    views = dict(zip(("wq", "api", "wayback", "people"), sql.split("create or replace view")[1:]))
+    assert len(views) == 4 and "pub.parliament_people" in views["people"]
+    flagged = {**read.FLAGGED, "people": L.PEOPLE_FLAGGED}
     for shape, v in views.items():
         body = v.split(" from ")[0]
-        for col in read.FLAGGED[shape]:
+        for col in flagged[shape]:
             assert re.search(rf"\.{col}, \w\.{col}_names_address\b", body), (shape, col)
         assert "citation_url" in body and "document" in body and "_private" not in body
         for col in rowcontract.FORBIDDEN_COLUMNS:
             assert f" {col}," not in body
+
+
+def test_an_older_snapshot_whose_text_differs_is_a_document_of_its_own_and_one_whose_text_is_the_same_is_not():
+    """Older snapshots of one url are versions of one document: the newest served version is read; an older one is
+    read by the text reader only where its text differs. A written question's older versions are never opened."""
+    old = _rec(WAYBACK, 20, text="The first snapshot's words. Many of them.")
+    same = {**old, "snapshots": 2}                                   # re-rendered later, the text unchanged: of the two older snapshots with one text, the later is read
+    changed = {**old, "text": "The page was rewritten later. Different words."}
+    store = _store(old, same, changed)
+    s_old, s_same, s_changed = list(store)
+    res = read.read([(WAYBACK, s_old, 1, old["id"], True), (WAYBACK, s_same, 1, old["id"], True),
+                     (WAYBACK, s_changed, 1, old["id"], True)], store.__getitem__)
+    assert len(res.rows["wayback_pages"]) == 1 and res.rows["wayback_pages"][0]["document"] == s_changed
+    assert {f[0]: f[4] for f in res.files} == {s_same: read.OLDER_TEXT, s_old: "older version", s_changed: "read"}
+    assert res.older == [("wayback_pages", old["id"], s_same)] and res.counts[read.OLDER_TEXT] == 1
+    assert res.counts["older versions"] == 2 and res.counts["records"] == 1
+    q = _rec(WQ, 21, replyText="")
+    q2 = {**q, "text": "another provider render"}
+    store = _store(q, q2)
+    opened = []
+
+    def get(sha):
+        opened.append(sha)
+        return store[sha]
+    res = read.read([(WQ, list(store)[0], 1, q["id"], True), (WQ, list(store)[1], 2, q["id"], True)], get)
+    assert res.older == [] and opened == [list(store)[1]], "the older question is listed, never opened"
 
 
 # ── the outside check's judgement ────────────────────────────────────────────
@@ -290,22 +321,33 @@ def filled():
         L.stamp_scan(conn, schema, shared=True)                                  # as publish does after the views
         conn.commit()
         out = {"items": items, "conn": conn, "schema": schema}
-        for t in ("written_questions", "api_items", "wayback_pages", "files", "set_aside"):
+        for t in ("written_questions", "api_items", "wayback_pages", "files", "set_aside", "readings", "people"):
             out[t] = q(f"SELECT * FROM {schema}.parliament_{t}")
         out["views"] = {v: q(f"SELECT * FROM {schema}.pub_parliament_{v}")
-                        for v in ("written_questions", "api_items", "wayback_pages")}
+                        for v in ("written_questions", "api_items", "wayback_pages", "people")}
+        # the sample's tables carry the lane's name: the check's read counts and the pieces command read them
+        # through a schema of views named plainly
+        plain = f"{schema}_plain"
+        conn.execute(f"CREATE SCHEMA IF NOT EXISTS {plain}")
+        for t in ("written_questions", "wayback_pages", "files", "set_aside", "readings", "people"):
+            conn.execute(f"CREATE OR REPLACE VIEW {plain}.{t} AS SELECT * FROM {schema}.parliament_{t}")
+        conn.commit()
+        out["plain"] = plain
         yield out
 
 
 def test_every_sample_document_is_read_and_every_row_keeps_the_contract(filled):
+    from registers.parliament import model_read as M
     assert len(filled["files"]) == len(filled["items"])
-    assert [(r["item"], r["stage"], r["reason"]) for r in filled["set_aside"]] == [(BLOCKED_PAGE, "recognise",
-                                                                                     read.BLOCKED)]
+    aside = sorted((r["item"], r["stage"], r["reason"]) for r in filled["set_aside"])
+    assert aside == sorted([(BLOCKED_PAGE, "recognise", read.BLOCKED),
+                            (NOT_PROSE, "read", M.CANNOT_SPLIT % M.budget(M.WAYBACK))])
     today = dt.date.today()
-    for t in ("written_questions", "api_items", "wayback_pages"):
+    for t in ("written_questions", "api_items", "wayback_pages", "people"):
         for r in filled[t]:
             assert rowcontract.validate({**r, "loaded_at": r["loaded_at"].isoformat()}, today) == [], (t, r["key"])
-            assert r["fields_unread"] == [], (t, r["key"], r["fields_unread"])
+            if t != "people":
+                assert r["fields_unread"] == [], (t, r["key"], r["fields_unread"])
 
 
 def test_the_sample_holds_its_hard_cases(filled):
@@ -451,3 +493,92 @@ def test_arrivals_mark_a_record_that_holds_no_place_withdrawn(filled):
     conn.rollback()
     assert {(rid, served) for _, _, _, rid, served in got} == {("q0", True), ("gone", False), ("q2", True)}
     assert [g[3] for g in got][-1] == "q2" and got[-1][2] == 1                    # landed last: its new place
+
+
+# ── the text reader's readings, replayed ─────────────────────────────────────
+
+def test_the_stored_readings_are_replayed_into_people_rows_and_every_document_is_read_waiting_or_set_aside(filled):
+    """The fixed sample was read once through Flash-Next (sample.list); the load replays those readings and never
+    calls a model. Counted, never printed: names by kind and role, pieces, and that each people row cites its
+    document and its source row."""
+    from registers.parliament import model_read as M
+    people, readings = filled["people"], filled["readings"]
+    assert len(readings) >= 40 and len(people) >= 100, (len(readings), len(people))
+    by_doc = {r["document"]: r for r in readings}
+    assert by_doc[LARGEST_PAGE]["pieces"] >= 20 and by_doc[LONGEST_QUESTION]["pieces"] == 2
+    assert NOT_PROSE not in by_doc and BLOCKED_PAGE not in by_doc
+    keys = {t: {r["key"] for r in filled[t]} for t in ("written_questions", "wayback_pages")}
+    for r in readings:
+        assert r["source_key"] in keys[r["source_table"]], r["document"]
+        assert r["names"] == sum(1 for p in people if p["document"] == r["document"])
+        assert r["profile"] == M.PROFILE_OF[r["source_table"]] and r["profile_version"] == read.PROFILE_VERSION[
+            "wq" if r["source_table"] == "written_questions" else "wayback"]
+        assert r["model"] and r["reader"] == M.READER
+    pieces = {}
+    for p in people:
+        assert p["kind"] in M.KINDS and p["role"] in M.ROLES and p["name"] and p["document"] in by_doc
+        assert re.fullmatch(r"text reader, piece \d+, name \d+", p["place"]) and p["read_from"] == "text"
+        assert p["key"] == f"{p['document']}/person/{p['place'].rsplit(' ', 1)[1]}"
+        assert p["source_key"] == by_doc[p["document"]]["source_key"] and p["dated"] == by_doc[p["document"]]["dated"]
+        pieces[p["document"]] = max(pieces.get(p["document"], 0), int(p["place"].split(",")[1].split()[1]))
+    assert pieces[LARGEST_PAGE] >= 10, "names from the later pieces of the largest page are joined under its hash"
+    assert {p["kind"] for p in people} >= {"person", "agency"} and {p["role"] for p in people} >= {"member", "minister"}
+    assert any(p["of_organisation"] for p in people) and any(p["role_text"] for p in people)
+    assert any(p["source_table"] == "written_questions" for p in people) and any(p["source_table"] == "wayback_pages" for p in people)
+    assert all(r["dated"] for r in readings if r["source_table"] == "written_questions")
+    # the counts the check states, on the sample schema
+    conn, s, plain = filled["conn"], filled["schema"], filled["plain"]
+    r = check.read_counts(conn, plain)
+    assert check.judge_read(r) == []
+    wq, wb = r["written_questions"], r["wayback_pages"]
+    assert wq["documents"] == len(filled["written_questions"]) and wq["read"] + wq["waiting"] == wq["documents"]
+    assert wb["set aside at read"] == 1 and wb["read"] + wb["waiting"] + 1 == wb["documents"]
+    assert wq["names"] + wb["names"] == len(people) and r["_version"]["rows under another version"] == 0
+    # a reading stored under another profile version than the load expects fails the check
+    conn.execute(f"UPDATE {s}.parliament_people SET profile_version = 1 WHERE key = %s", (people[0]["key"],))
+    fails = check.judge_read(check.read_counts(conn, plain))
+    conn.rollback()
+    assert len(fails) == 1 and "another profile version" in fails[0]
+
+
+def test_the_people_view_carries_each_text_whole_with_its_flag_and_cites_the_document(filled):
+    from registers.parliament import load as L
+    own = {r["key"]: r for r in filled["people"]}
+    rows = filled["views"]["people"]
+    assert len(rows) == len(own) > 0
+    for r in rows:
+        for col in L.PEOPLE_FLAGGED:
+            assert r[col] == own[r["key"]][col] and r[f"{col}_names_address"] == shapes.names(r[col]), (r["key"], col)
+        assert len(r["document"]) == 64 and r["source_table"] in ("written_questions", "wayback_pages")
+        assert r["citation_url"] is None or r["citation_url"].startswith(("https://www.parliament.nz/", "http://www.parliament.nz"))
+    lines = filled["conn"].execute(f"SELECT count(*) FROM {filled['schema']}.parliament_address_flags "
+                                   "WHERE table_name = 'people'").fetchone()[0]
+    assert lines == sum(sum(1 for c in L.PEOPLE_FLAGGED if r[f"{c}_names_address"]) for r in rows)
+
+
+def test_the_pieces_command_lists_every_waiting_page_then_the_questions_batch_leaders_and_a_stored_reading_drops_out(filled):
+    """`--pieces`: the archived pages without a reading, newest first, then one leader per year-and-number-range
+    batch of written questions; a document set aside at read is not waiting; a document read is not listed."""
+    import tempfile
+    from support import reader as rd
+    from registers.parliament import model_read as M
+    conn, plain = filled["conn"], filled["plain"]
+    waiting = M.waiting(conn, plain)
+    docs = {r["document"] for r in filled["readings"]}
+    listed = [sha for sha, _ in waiting]
+    assert not (set(listed) & docs) and NOT_PROSE not in listed and BLOCKED_PAGE not in listed
+    profiles_ = [p for _, p in waiting]
+    assert profiles_ == sorted(profiles_, key=lambda p: p != M.WAYBACK), "the pages before the questions"
+    wq_rows = {r["document"]: r for r in filled["written_questions"]}
+    buckets = {M._bucket(r["question_year"], r["question_number"]) for r in wq_rows.values() if r["document"] not in docs}
+    assert len([p for p in profiles_ if p == M.WQ]) == len(buckets)
+    # the other way: with an empty store every served page and every batch is waiting
+    with tempfile.TemporaryDirectory() as td:
+        all_waiting = M.waiting(conn, plain, store=rd.Store(td))
+    pages = [r["document"] for r in filled["wayback_pages"] if r["served"] and r["document"] != NOT_PROSE]
+    assert sorted(sha for sha, p in all_waiting if p == M.WAYBACK) == sorted(pages)
+    at = {r["document"]: r["archived_at"] for r in filled["wayback_pages"]}
+    order = [at[sha] for sha, p in all_waiting if p == M.WAYBACK]
+    assert order == sorted(order, reverse=True), "newest first"
+    buckets = {M._bucket(r["question_year"], r["question_number"]) for r in wq_rows.values()}
+    assert len([p for _, p in all_waiting if p == M.WQ]) == len(buckets)
