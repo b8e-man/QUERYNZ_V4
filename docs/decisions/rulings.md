@@ -1159,3 +1159,40 @@ as ruling 121 says. Every stop and start is a line in the swap ledger
 with its reason. The board's chat pane says the model is not running
 while it is down (ruling 122). The window's hours live in jobs.toml.
 Built by a fix on `support/scheduler`. The queue item closes.
+
+130. Arthur, 31 October, 08:40 to 09:50, on the MCP's documents: "we want
+to ingest everything in the MCP ... a pipeline that is continuously
+gathering, ingesting, OCRing and reading names"; "we just want to get
+through all these documents as quickly as possible. prioritise them. some
+of the bigger docs may need a bigger context window so make sure the
+reading jobs are prepared for that. It should be a document profile
+check"; "dont rely on a 6 hourly poll. just get everything the MCP has
+now so we have a backlog"; "we are doing a bulk ingest. times have
+nothing to do with anything"; "we are getting the records and the pdfs
+and we are taking the text out of the pdfs, queueing the scans and photos
+for OCR, and then extracting the information from the pdf text. we are
+not asking the mcp for document text unless it indicates it already has
+it". So: (a) reading every document the MCP holds is the current focus,
+in this order: courts (the reader exists), beehive releases, Hansard, the
+archived parliament.nz pages, the ministers' diaries' free text, written
+questions; the parliament papers (submissions, committee reports, bills,
+SOPs) when the provider has captured their files. (b) A document profile
+carries the reader's context budget in characters (under the text-reader
+profile's 16,384-token request, the answer's room reserved) and its split
+rule (by paragraph, heading, speaker turn, page); a reader never excerpts:
+a document over the budget is read in pieces by the rule and the readings
+joined under the one hash, a document the rule cannot split is set aside
+at read, named, and the profile test holds every landed document of the
+profile to its budget or its rule. (c) The readers take every person and
+body named, kind, the role as the text states it, the organisation a
+person is of, and a summary; the relations the text states between the
+named (counsel for a party, appointed to a body, director of, paid by,
+dated) follow in each reader's next sitting, as rows the links lane can
+read, never a link. (d) The pull is run by hand whenever Arthur asks and
+every six hours by the clock; the backlog is the store's. (e) The page
+reader loads whenever OCR work is queued, by the scheduler's lever, not
+by the clock; the night window is that lever's default, nothing more.
+(f) Text is taken from the landed PDFs by the lane; the MCP's text
+resource is never asked for; a record's own `text` field is read as the
+record's. The readers of beehive-2, hansard-3 and parliament-2 and the
+courts fixes of 31 October are built on this.
