@@ -290,3 +290,81 @@ def test_a_profile_naming_its_own_server_loads_with_it_and_never_with_another(ki
     assert m.load(w, 1, policy.Decision("n:1", policy.LOAD, "ocr", "test", "tele"), 0.0) is True
     assert procs[0].argv[0] == str(patched) and procs[0].kw["env"]["LD_LIBRARY_PATH"].split(":")[0] == str(patched.parent)
     assert cards.server_binary(programs, "copy", w.profiles["bge"]) == programs["qv4-llama-server"], "a profile without one keeps the setting"
+
+
+# ── a device that is not a card (card the-probe-lists-the-processor-s-own-graphics-as-a-card) ─────────────
+
+def _upserts(w, since=0):
+    """card → the fields of each `cards` upsert after `since`, in order."""
+    out = []
+    for s, p in w.conn.sql[since:]:
+        if "INSERT INTO s.cards" in s:
+            cols = s[s.index("(") + 1:s.index(")")].split(", ")
+            out.append(dict(zip(cols, p)))
+    return out
+
+
+def _row(card, **more):
+    base = {"box": "n", "card": card, "reserved": False, "reserved_why": None, "worker": "w", "profile": None, "port": None,
+            "holder": None, "draining": False, "memory_total_gb": 31.9, "memory_used_gb": 1.8, "product": "AMD Radeon AI PRO R9700"}
+    return {**base, **more}
+
+
+def test_the_processors_graphics_in_the_probe_listing_is_not_registered(kit):
+    """30 October 13:49: rocm-smi listed the processor's own graphics (index 2, 2.0 GB) for one tick; the row
+    was written, the planner saw a cold card, and the page reader ran on the processor."""
+    from support.scheduler import probe
+    from support.scheduler.tests.test_probe import RYZEN
+    m, w, answers, procs = kit
+    w.profile["cards"] = probe.cards(RYZEN)
+    n = len(w.conn.sql)
+    m.register_cards(w)
+    assert sorted(u["card"] for u in _upserts(w, n)) == [0, 1]
+
+
+def test_a_row_whose_card_the_probe_no_longer_lists_is_reserved_and_never_planned(kit, monkeypatch):
+    """The stale row (node2, 2), reserved by the integrator's hand, takes this reservation on the first tick;
+    `held` shows it reserved, so the planner never loads there."""
+    m, w, answers, procs = kit
+    w.alarm_after_s = 300
+    rows = [_row(0), _row(1), _row(2, reserved=True, reserved_why="reserved by hand: the processor's graphics, see the card",
+                                 product="AMD Ryzen 9 9950X 16-Core Processor", memory_total_gb=2.0, memory_used_gb=0.1)]
+    monkeypatch.setattr(cards.q, "workers", lambda conn, schema: [])
+    monkeypatch.setattr(cards.q, "cards", lambda conn, schema, box=None: rows)
+    w.profile["cards"] = [{"index": 0, "memory_total_gb": 31.9, "memory_used_gb": 26.0, "product": "AMD Radeon AI PRO R9700"},
+                          {"index": 1, "memory_total_gb": 31.9, "memory_used_gb": 1.8, "product": "AMD Radeon AI PRO R9700"}]
+    n = len(w.conn.sql)
+    m.register_cards(w)
+    stale = [u for u in _upserts(w, n) if u["card"] == 2]
+    assert stale and stale[-1]["reserved"] is True and stale[-1]["reserved_why"] == cards.STALE_WHY
+    assert "card 2: not listed by the probe" in " ".join(w.logs)
+    rows[2].update(reserved=True, reserved_why=cards.STALE_WHY)
+    held = {h.card: h for h in m.held(w, 0.0)}
+    assert held["n:2"].reserved and not held["n:0"].reserved
+    # said once: a second tick with the same listing writes nothing for the stale row
+    n = len(w.conn.sql)
+    m.reconcile_listing(w)
+    assert not [u for u in _upserts(w, n) if u["card"] == 2]
+    # a failed probe is not data: it marks nothing stale
+    rows[2].update(reserved=False, reserved_why=None)
+    w.profile["cards"] = None
+    n = len(w.conn.sql)
+    m.reconcile_listing(w)
+    assert not _upserts(w, n)
+
+
+def test_a_stale_reservation_clears_when_the_probe_lists_the_card_again(kit, monkeypatch):
+    m, w, answers, procs = kit
+    w.alarm_after_s = 300
+    rows = [_row(0), _row(1, reserved=True, reserved_why=cards.STALE_WHY),
+            _row(5, reserved=True, reserved_why="held for the frozen product's OCR server")]
+    monkeypatch.setattr(cards.q, "workers", lambda conn, schema: [])
+    monkeypatch.setattr(cards.q, "cards", lambda conn, schema, box=None: rows)
+    w.profile["cards"] = [{"index": 0, "memory_total_gb": 31.9, "memory_used_gb": 26.0, "product": "AMD Radeon AI PRO R9700"},
+                          {"index": 1, "memory_total_gb": 31.9, "memory_used_gb": 1.8, "product": "AMD Radeon AI PRO R9700"},
+                          {"index": 5, "memory_total_gb": 31.9, "memory_used_gb": 1.8, "product": "AMD Radeon AI PRO R9700"}]
+    n = len(w.conn.sql)
+    m.register_cards(w)
+    cleared = [u for u in _upserts(w, n) if u["card"] == 1 and "reserved" in u]
+    assert cleared and cleared[-1]["reserved"] is False and cleared[-1]["reserved_why"] is None
+    assert not [u for u in _upserts(w, n) if u["card"] == 5 and "reserved" in u], "a reservation that is not this one stands"

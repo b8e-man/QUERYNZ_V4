@@ -48,6 +48,12 @@ FIXED = {"qv4-llama-server": QV4_LLAMA, "qv4-llama-server-built": QV4_LLAMA_BUIL
 RADIANCE_UNIT = os.path.join(os.environ.get("QV4_UNIT_DIR") or os.path.expanduser("~/.config/systemd/user"), "qv4-radiance.service")
 OLD_LLAMA = "/home/user/llama.cpp/build/bin/llama-server"      # the frozen product's build (baseline); never touched
 REAL_FS = {"ext4", "xfs", "btrfs", "ntfs3", "fuseblk", "vfat", "exfat", "f2fs"}
+# A DEVICE IS A CARD only when it is discrete: its product is not a processor and its memory is at or above the
+# floor. On 30 October 2026 rocm-smi listed the processor's own graphics (index 2, "AMD Ryzen 9 9950X 16-Core
+# Processor", 2.0 GB) on node2 for one tick; the row was written, the planner saw a cold card, and the page reader
+# ran on the processor (card the-probe-lists-the-processor-s-own-graphics-as-a-card). The R9700 has 31.9 GB.
+CARD_FLOOR_GB = 8.0
+PROCESSOR = re.compile(r"processor|\bcpu\b|\bapu\b|\bryzen\b|\bepyc\b|\bathlon\b|\bcore\(tm\)", re.I)
 
 
 def _sh(cmd: list[str], timeout: int = 20) -> str | None:
@@ -96,10 +102,20 @@ def pressure(text: str = None) -> dict:
     return out
 
 
-def cards(payload: str = None, run=None) -> list[dict] | None:
+def is_card(device: dict) -> bool:
+    """A discrete card: not a processor by name, and at or above the memory
+    floor. Unknown memory fails the floor: a device whose size cannot be
+    read is not given a model."""
+    total = device.get("memory_total_gb")
+    return not PROCESSOR.search(device.get("product") or "") and total is not None and total >= CARD_FLOOR_GB
+
+
+def cards(payload: str = None, run=None, dropped: list | None = None) -> list[dict] | None:
     """Each graphics card: index, product, total and used memory in GB, from
     `rocm-smi --showmeminfo vram --showproductname --json`. None when the
-    tool failed or is absent (not an empty box)."""
+    tool failed or is absent (not an empty box). A device that is not a
+    card (`is_card`) is left out and, when a `dropped` list is given,
+    appended to it so the caller can say what it dropped."""
     if payload is None:
         payload = (run or _sh)(["rocm-smi", "--showmeminfo", "vram", "--showproductname", "--json"])
         if payload is None:
@@ -122,8 +138,12 @@ def cards(payload: str = None, run=None) -> list[dict] | None:
             used_gb = round(int(used) / 1024 ** 3, 1) if used is not None else None
         except (TypeError, ValueError):
             total_gb = used_gb = None
-        out.append({"index": int(m.group(1)), "product": v.get("Card Series") or v.get("Card series"),
-                    "memory_total_gb": total_gb, "memory_used_gb": used_gb})
+        device = {"index": int(m.group(1)), "product": v.get("Card Series") or v.get("Card series"),
+                  "memory_total_gb": total_gb, "memory_used_gb": used_gb}
+        if is_card(device):
+            out.append(device)
+        elif dropped is not None:
+            dropped.append(device)
     return out
 
 
@@ -184,11 +204,12 @@ def llama_version(path: str, run=None) -> str | None:
 def profile(box: str = None, run=None) -> dict:
     """The whole hardware profile of this box, now."""
     progs = programs()
+    dropped: list[dict] = []
     return {
         "box": box or socket.gethostname(), "host": socket.gethostname(),
         "probed_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "cores": os.cpu_count(), **meminfo(), "pressure": pressure(),
-        "cards": cards(run=run), "disks": disks(), "programs": progs,
+        "cards": cards(run=run, dropped=dropped), "devices_dropped": dropped, "disks": disks(), "programs": progs,
         "llama_server": {"old": llama_version(progs.get("llama-server")), "qv4": llama_version(progs.get("qv4-llama-server"))},
         "python": os.sys.version.split()[0],
     }
