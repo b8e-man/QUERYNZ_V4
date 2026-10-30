@@ -2,8 +2,8 @@
 
 **Date:** 2026-10-30. **Step:** 4.2 and 4.3, `links/`. **Merge requests:**
 `links-1`, `review-1`, `links-2`, `fixes-1`, `coupled-1`, `links-3`,
-`fix-links-1` to `-5`, `links-4` (merged), `links-5` (raised 30 October;
-detail in `docs/merges/` or `merge-requests/`).
+`fix-links-1` to `-5`, `links-4`, `links-5` (merged), `fix-links-6` (raised
+30 October; detail in `docs/merges/` or `merge-requests/`).
 
 ## Done
 
@@ -14,20 +14,18 @@ detail in `docs/merges/` or `merge-requests/`).
   seven near with a named reason, two related (rulings 106, 109); the
   watch; `pub.entities` (ruling 123, check item 11).
 - `links-5` (ruling 125): `organisation-sole-company@3` and
-  `organisation-one-live-company@3` (`rules.body_on_date`,
-  `build.body_links`) on every organisation-named row of every people
-  view, "live" judged on the row's own date, never today; a row with no
-  date stays near, "undated". @2 retired; the declared interests' near step
-  on the companies register alone is gone; check item 9 and measurement 12
-  follow. Measured read-only on live (measurements.md §12), confirmed rows
-  by view: MPs' interests 2,039 sole + 259 one-live-of-several (of 3,593;
-  87 removed before and 64 registered after the return stay near); party
-  donors 181, disclosures 95, candidate donors 16 (as @2, same pairs);
-  society officers 25; charity officers 15; directors 2; shareholders 0 of
-  1,170 (all undated, 484 near). 2,632 confirmed where @2 had 292. 33 rows
-  (Christopher & Banks, Ivory, Oriwa, AMP, …) name a company whose one
-  live namesake today is the wrong one: the rule confirms the one alive
-  on the date.
+  `organisation-one-live-company@3` on every organisation-named row of
+  every people view, "live" judged on the row's own date; an undated row
+  stays near. Measured on live (measurements.md §12): 2,632 confirmed
+  where @2 had 292; shareholders all undated (no filing date published).
+- `fix-links-6`: an all-zero NZBN is none in `links.bodies` (35 charities
+  rows); the charities of one NZBN are one body, the earliest row where no
+  Companies Office or society row is (CC58580 and CC61425); a body's
+  charities rows are its registrations in turn, removed only where the last
+  registered is (`rules.body_dates`, `body_dates_sql` for the check and
+  measurement 12). Measured on live (measurements.md §13): check item 9's
+  second line goes 2 → 0; 2,023,825 bodies rows before and after, one body
+  moved, no link touches it.
 - Track C (`review-1`): the agent scored, applies nothing; switch off.
 
 ## Carded / queued
@@ -43,11 +41,5 @@ detail in `docs/merges/` or `merge-requests/`).
 
 ## Next
 
-1. Integrator: merge `links-5` (no DDL: no table or view changes); queue
-   `qv4-links-build`, then `python -m links.check` live. The board's and
-   report's rule words for `organisation-sole-company` and
-   `organisation-one-live-company` (`products/*/catalogue.py`, keyed without
-   the version) still say "a donation's organisation name": reword for
-   every organisation-named row, on the row's date, in the merge after.
-2. Check item 9's second line is red on live, from the data: 35 charities
-   carry the NZBN `0000000000000`, and CC58580 and CC61425 share one.
+1. Integrator: merge `fix-links-6` (no DDL); queue `qv4-links-build`, then
+   `python -m links.check` live: `nzbns_on_two_bodies` 0, every item green.
