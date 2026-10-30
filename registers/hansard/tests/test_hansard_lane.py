@@ -148,23 +148,13 @@ def test_the_check_fails_below_either_members_floor_and_without_pub_members():
 # --- the filled sample ---------------------------------------------------------------
 
 def _schema() -> str:
-    for base in (os.environ.get("CLAUDE_PROJECT_DIR"), REPO):
-        try:
-            with open(os.path.join(base or "", ".scope"), encoding="utf-8") as f:
-                for line in f:
-                    if line.startswith("name:"):
-                        return sample.scratch_name(line.split(":", 1)[1].strip())
-        except OSError:
-            continue
-    return "scratch_gate_hansard"
+    from registers.hansard.tests.conftest import schema_name
+    return schema_name()
 
 
 @pytest.fixture(scope="module")
-def filled():
-    if os.environ.get("QV4_NO_DB") or not os.path.exists(os.path.join(db.CRED_DIR, "v4.env")):
-        pytest.skip("no sample database environment here (QV4_NO_DB, or no credential file)")
-    schema = _schema()
-    sample.fill_schema(schema, lambda: db.connect(db.OWNER_KEY, "querynz_v4_sample"), REPO, log=lambda *a: None)
+def filled(sample_schema):
+    schema = sample_schema
     with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
         def q(sql):
             cur = conn.execute(sql)
@@ -176,7 +166,12 @@ def filled():
                "turns": q(f"SELECT * FROM {schema}.hansard_turns"),
                "members": q(f"SELECT * FROM {schema}.hansard_members"),
                "old": q(f"SELECT * FROM {schema}.hansard_old_speeches"),
-               "aside": q(f"SELECT * FROM {schema}.hansard_set_aside")}
+               "aside": q(f"SELECT * FROM {schema}.hansard_set_aside"),
+               "days": q(f"SELECT * FROM {schema}.hansard_days ORDER BY key"),
+               "day_sections": q(f"SELECT * FROM {schema}.hansard_day_sections ORDER BY sitting_on, section_index"),
+               "day_turns": q(f"SELECT * FROM {schema}.hansard_day_turns ORDER BY sitting_on, section_index, ordinal"),
+               "readings": q(f"SELECT * FROM {schema}.hansard_readings ORDER BY key"),
+               "people": q(f"SELECT * FROM {schema}.hansard_people ORDER BY key")}
 
 
 def test_every_listed_day_is_held_and_nothing_is_set_aside(filled):
@@ -222,7 +217,90 @@ def test_the_published_views_build_on_the_lane_s_tables_and_the_index_join_is_em
     n = conn.execute(f"SELECT count(*), count(member_id) FROM {schema}.hansard_pub_hansard_speeches").fetchone()
     s = conn.execute(f"SELECT count(*), count(index_lastmod) FROM {schema}.hansard_pub_hansard_sittings").fetchone()
     cols = [d[0] for d in conn.execute(f"SELECT * FROM {schema}.hansard_pub_hansard_sections LIMIT 0").description]
+    mcp_only = {str(d["key"]) for d in filled["days"]} - {s["key"] for s in filled["sittings"]}
+    split_turns = [t for t in filled["day_turns"] if str(t["sitting_on"]) in mcp_only]
+    by_from = dict(conn.execute(f"SELECT turns_from, count(*) FROM {schema}.hansard_pub_hansard_speeches GROUP BY 1").fetchall())
+    people = conn.execute(f"SELECT count(*), count(url), count(proceeding) FROM {schema}.hansard_pub_hansard_people").fetchone()
     conn.rollback()
-    assert n == (len(filled["turns"]), sum(1 for t in filled["turns"] if t["member_id"]))
+    assert n == (len(filled["turns"]) + len(split_turns),
+                 sum(1 for t in filled["turns"] if t["member_id"]) + sum(1 for t in split_turns if t["member_id"]))
+    assert by_from.get("the old estate's speaker list") == len(filled["turns"])
+    assert by_from.get("the split of the daily PDF's text (hansard-day)", 0) == len(split_turns) > 0
     assert s == (len(filled["sittings"]), 0)
     assert "text" in cols and "old_id" not in cols and "old_status" not in cols
+    assert people[0] == len(filled["people"]) == people[1], "every people row joins its day; the view carries the PDF's address"
+
+
+# --- the split (hansard-3, profile hansard-day) --------------------------------------------
+
+def test_every_sample_day_is_split_and_counted_and_nothing_is_set_aside_at_read(filled):
+    from registers.hansard import split as S
+    days = {d["key"]: d for d in filled["days"]}
+    assert len(days) == 5 and all(d["split_rule"] == S.RULE for d in days.values())
+    assert {d["layout"] for d in days.values()} == {"final", "draft"} and days["2026-09-23"]["layout"] == "draft"
+    assert days["2003-02-11"]["parliament"] == 47 and days["2024-11-20"]["parliament"] == 54
+    assert [a for a in filled["aside"] if a["stage"] == "read"] == []
+    for key, d in days.items():
+        secs = [s for s in filled["day_sections"] if str(s["sitting_on"]) == key]
+        turns = [t for t in filled["day_turns"] if str(t["sitting_on"]) == key]
+        assert (d["sections"], d["turns"], d["attributed"]) == (len(secs), len(turns), sum(1 for t in turns if t["member_id"]))
+        assert sum(s["turns"] for s in secs) == len(turns) and d["sections"] >= 5 and d["turns"] >= 100
+        assert {t["section"] for t in turns} <= {s["key"] for s in secs}
+    assert any(t["role"] == "Speaker" for t in filled["day_turns"]) and any(t["party"] for t in filled["day_turns"])
+    assert all(t["in_roster"] == (t["member_id"] is not None) for t in filled["day_turns"])
+    matched = sum(1 for t in filled["day_turns"] if t["name"] and t["member_id"])
+    named = sum(1 for t in filled["day_turns"] if t["name"])
+    assert matched / named > 0.95, "nearly every printed speaker is in the old roster (Parliaments 47 to 54)"
+
+
+def test_the_split_rows_keep_the_row_contract_and_cite_the_day_s_record(filled):
+    today = dt.date.today()
+    docs = {d["key"]: d["document"] for d in filled["days"]}
+    for t in ("day_sections", "day_turns", "people"):
+        for r in filled[t]:
+            row = {k: r[k] for k in ("key", "document", "page", "place", "reader", "profile", "profile_version", "read_from")}
+            row["loaded_at"] = r["loaded_at"].isoformat()
+            assert rowcontract.validate(row, today) == [], (t, r["key"])
+            assert row["document"] == docs[str(r["sitting_on"])] and row["profile"] == "hansard-day"
+
+
+def test_every_landed_sample_day_is_within_the_profile_s_budget_or_its_split_rule(filled):
+    """The profile check of the common rules: every document of profile hansard-day is read whole in pieces that
+    fit the reader's budget; none is excerpted and none is left over the budget (sizes recorded in the profile)."""
+    import json
+    from support.docstore.landing import read_bytes
+    from registers.hansard import model_read as M, split as S
+    budget = M.budget_of()
+    for d in filled["days"]:
+        rec = json.loads(read_bytes(d["document"]))
+        day = S.split(rec["text"], d["key"])
+        pieces = S.pieces_of(day, budget)
+        assert len(rec["text"]) > budget and pieces, d["key"]
+        assert max(p.chars for p in pieces) <= budget and S.unsplittable(day, budget) == [], d["key"]
+        assert sum(p.chars for p in pieces) >= 0.99 * sum(len(s.text) for s in day.sections), "read whole, never excerpted"
+
+
+def test_the_text_reader_s_names_where_a_reading_is_stored_and_waiting_where_not(filled):
+    from registers.hansard import model_read as M
+    days = filled["days"]
+    read = [d for d in days if d["reading"] == "read"]
+    waiting = [d for d in days if d["reading"] == M.__dict__.get("WAIT_TEXT", "waiting: text reader") or d["reading"].startswith("waiting")]
+    assert len(read) + len(waiting) == len(days)
+    for d in read:
+        rows = [p for p in filled["people"] if p["day"] == d["key"]]
+        pieces = [r for r in filled["readings"] if r["day"] == d["key"]]
+        assert d["names"] == len(rows) == sum(r["names"] for r in pieces) and d["pieces"] == len(pieces)
+        assert all(r["kind"] in M.KINDS for r in rows) and all(r["place"].startswith("text reader, piece ") for r in rows)
+        assert all(r["model"] == "qwen4exp" and r["reader"] == M.READER for r in rows)
+        assert all(r["section"] is None or r["section"].startswith(d["key"] + "/") for r in rows)
+    if waiting:
+        pytest.xfail(f"{len(waiting)} sample days have no stored text-reader reading yet (qv4-hansard-read): "
+                     f"{[d['key'] for d in waiting][:5]}")
+    assert sum(d["names"] for d in read) > 0
+
+
+def test_the_check_s_split_figures_are_green_on_the_sample(filled):
+    sp = check.split_held(filled["conn"], filled["schema"], shared=True)
+    assert check.split_failed(sp) == []
+    assert sp["days split"] == 5 and sp["days unaccounted"] == 0 and sp["both"]["days"] == 3
+    assert sp["both"]["member turns more"] >= 2, "the split finds more member turns than the old speaker lists"

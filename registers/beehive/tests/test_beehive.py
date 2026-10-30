@@ -88,7 +88,7 @@ def test_a_field_the_lane_does_not_know_is_listed_not_dropped():
 def test_the_published_views_never_carry_the_body_or_an_address_column():
     sql = open(os.path.join(LANE, "publish.sql"), encoding="utf-8").read().lower()
     views = sql.split("create or replace view")[1:]
-    assert len(views) == 3
+    assert len(views) == 4
     for v in views:
         assert "body_text" not in v and "beehive_private" not in v and " text," not in v
         assert "citation_url" in v and "document" in v
@@ -130,18 +130,19 @@ def filled():
         conn.execute(L.sql("publish.sql", schema, shared=True).replace("pub.", f"{schema}.pub_"))
         conn.commit()
         views = {}
-        for v in ("beehive_releases", "beehive_release_ministers", "beehive_release_annotations"):
+        for v in ("beehive_releases", "beehive_release_ministers", "beehive_release_annotations", "beehive_people"):
             cur = conn.execute(f"SELECT * FROM {schema}.pub_{v}")
             views[v] = [dict(zip([d[0] for d in cur.description], r)) for r in cur]
-        yield {"items": items, "views": views, **{t: q(t) for t in ("releases", "release_ministers", "release_portfolios",
-                                                    "release_topics", "release_quotes", "files", "set_aside")},
+        yield {"items": items, "views": views, "conn": conn, "schema": schema,
+               **{t: q(t) for t in ("releases", "release_ministers", "release_portfolios", "release_topics", "release_quotes",
+                                    "people", "files", "set_aside")},
                "texts": q("texts", schema + "_private")}
 
 
 def test_every_sample_document_is_read_and_every_row_keeps_the_contract(filled):
-    assert len(filled["files"]) == len(filled["items"]) and not filled["set_aside"]
+    assert len(filled["files"]) == len(filled["items"]) and not [a for a in filled["set_aside"] if a["stage"] != "read"]
     today = dt.date.today()
-    for t in ("releases", "release_ministers", "release_portfolios", "release_topics", "release_quotes"):
+    for t in ("releases", "release_ministers", "release_portfolios", "release_topics", "release_quotes", "people"):
         for r in filled[t]:
             row = {**r, "loaded_at": r["loaded_at"].isoformat()}
             assert rowcontract.validate(row, today) == [], (t, r["key"])
@@ -244,3 +245,61 @@ def test_the_old_estate_reads_a_page_the_mcp_lacks_or_holds_only_as_a_capture():
     assert (o["origin"], o["mcp_state"], o["mcp_document"]) == ("old estate", None, None)
     for row in res.releases:
         assert rowcontract.validate(row) == [], row["key"]
+
+
+# ── the text reader's readings, replayed ─────────────────────────────────────
+
+def test_the_text_reader_s_rows_where_a_reading_is_stored_and_waiting_where_not(filled):
+    """Every sample release has a stored reading (read once through the
+    model, 31 October 2026); the load replays it and never asks. A missing
+    one names its document for a re-read."""
+    from registers.beehive import model_read as M
+    rel = filled["releases"]
+    states = {r["reading"] for r in rel}
+    assert states <= {"read", M.WAIT_TEXT, "set aside", M.NOT_A_RECORD}, states
+    by_doc = {}
+    for n in filled["people"]:
+        by_doc.setdefault(n["document"], []).append(n)
+    for r in rel:
+        rows = by_doc.get(r["document"], [])
+        if r["reading"] == "read":
+            assert r["summary"] and r["read_model"] and r["names"] == len(rows), r["key"]
+        else:
+            assert r["summary"] is None and r["names"] == 0 and not rows, r["key"]
+        if r["reading"] == "set aside":
+            assert any(a["item"] == r["key"] and a["stage"] == "read" for a in filled["set_aside"]), r["key"]
+    read = [r for r in rel if r["reading"] == "read"]
+    assert len(read) >= 50 and sum(r["names"] for r in read) >= 300, "the sample's readings are stored (ruling 50)"
+    assert any(r["reading"] == "set aside" for r in rel), "a record with no body is set aside at read, never waiting"
+    for n in filled["people"]:
+        assert n["kind"] in M.KINDS and n["role"] in M.ROLES and n["name"] and n["place"].startswith("text reader, name "), n["key"]
+        assert n["reader"] == M.READER and n["model"] and n["profile"] == M.PROFILE and n["profile_version"] == M.profile_version()
+        assert n["of"] is None or n["kind"] == "person"
+    waiting = sorted(r["document"][:12] for r in rel if r["reading"] == M.WAIT_TEXT)
+    if waiting:
+        pytest.xfail(f"{len(waiting)} sample documents have no stored text-reader reading yet (qv4-beehive-read): {waiting[:4]}")
+
+
+def test_the_people_view_cites_the_release_and_carries_no_text(filled):
+    v = filled["views"]["beehive_people"]
+    assert len(v) == len(filled["people"]) and v
+    by = {r["key"]: r for r in filled["releases"]}
+    for n in v:
+        rel = by[n["release"]]
+        assert n["citation_url"] == rel["url"] and n["document"] == rel["document"] and n["published_on"] == rel["published_on"]
+        assert not {"body_text", "text", "summary", "address"} & set(n)
+    assert {n["kind"] for n in v} >= {"person", "agency"}
+    assert all(n["model"] and n["reader"] for n in v)
+
+
+def test_the_check_s_reading_account_is_green_on_the_sample(filled):
+    from registers.beehive import check
+    h = check.reading_account(filled["conn"], filled["schema"], shared=True)
+    assert h["names read"] == len(filled["people"]) and h["documents read"] >= 50
+    assert h["names under another version"] == 0 and h["waiting with a reading under another version"] == 0
+    assert h["documents read"] + h["documents waiting"] + h["set aside at read"] + h["not read"] == len(filled["releases"])
+    o = {"records": 1000, "n_docs": 1000, "corpus_words": 501000}
+    assert check.judge(_held(**{"names under another version": 2}), o) == [
+        "reading: 2 people rows under a profile other than beehive-release-body@" + str(h["profile version expected"]) + ", which the load expects"]
+    assert any("waiting documents have a reading stored under another" in f
+               for f in check.judge(_held(**{"waiting with a reading under another version": 1}), o))

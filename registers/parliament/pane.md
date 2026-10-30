@@ -1,6 +1,6 @@
 # Parliament's records, on the board
 
-Three panes, one per published view. Every row notes that the estate did
+Four panes, one per published view. Every row notes that the estate did
 not fetch parliament.nz: the provider captured it off-estate, through a
 challenge the estate may not pass (ruling 78, hard limit 6).
 
@@ -45,3 +45,19 @@ run of its fields) is shown the same way.
 A record the MCP no longer serves (`served` false) is shown struck through
 with "withdrawn by the source"; a record served in more than one version
 says "read from the version taken last, of N".
+
+**A name the text reader found** (`pub.parliament_people`): every person and
+body an archived page or a written question and its reply names, as the
+text prints it, with kind (person, company, agency, body, other), role
+(member, minister, official, witness, submitter, other), the role in the
+text's own words (`role_text`) and the organisation a person is "of"
+(`of_organisation`), each text with its `_names_address` flag beside it;
+the document's own table and key (`source_table`, `source_key`), its day,
+its page address where the record gives one, and the place "text reader,
+piece p, name n" (a page over the reader's budget was read in pieces). The
+asking member and the Minister of a question are that pane's own columns,
+not rows here. Read by Flash-Next (profile `text-reader`), one reading per
+document; a name is never a link: the links lane reads this view (ruling
+123). A document with no row here is waiting on `qv4-parliament-read`, or
+set aside at read (a WAV file served as a page cannot be split; the check
+counts them).

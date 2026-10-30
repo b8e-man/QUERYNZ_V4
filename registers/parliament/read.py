@@ -55,7 +55,17 @@ from registers.parliament import shapes
 READER = "registers.parliament.read"
 PROFILE = {"wq": "mcp-parliament-written-question", "api": "mcp-parliament-api-item",
            "wayback": "mcp-parliament-wayback-page"}
-PROFILE_VERSION = 1
+OLDER_TEXT = "older text"       # files: an archived page's older version whose text differs from the version read
+
+
+def profile_version(shape: str) -> int:
+    """The profile's newest version: the ledger's, or the lane's proposed line until the integrator appends it
+    (the written questions and the archived pages are at 2, with the text reader's budget; the API items at 1)."""
+    from registers.parliament import model_read
+    return model_read.profile_version(PROFILE[shape])
+
+
+PROFILE_VERSION = {shape: profile_version(shape) for shape in PROFILE}
 SITE = "https://www.parliament.nz"
 SOURCE_NOTE = ("a record of the query-nz ingest MCP's {corpus} corpus: captured off-estate by Arthur's provider "
                "(ruling 78); the estate never fetched parliament.nz")
@@ -136,6 +146,7 @@ class Result:
     flags: list = field(default_factory=list)          # (table, key, column, shape): a text naming an address
     files: list = field(default_factory=list)          # (sha256, corpus, record id, seq, status)
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
+    older: list = field(default_factory=list)          # (table, key, sha256): older versions whose text differs
     counts: dict = field(default_factory=dict)
 
     def emit(self, table: str, row: dict) -> None:
@@ -143,6 +154,11 @@ class Result:
 
     def emit_flag(self, flag: tuple) -> None:
         self.flags.append(flag)
+
+    def emit_older(self, table: str, row: dict) -> None:
+        """An archived page's older version whose text differs from the version read: a document of its own for
+        the text reader (the load replays its reading); not a row of the table. Kept here for the proof."""
+        self.older.append((table, row["key"], row["document"]))
 
 
 def _str(v):
@@ -238,7 +254,10 @@ def recognise(shape: str, rec) -> str:
     return ""
 
 
-def read_one(corpus: str, sha: str, rec: dict, seq, versions: int, served: bool, loaded_at: str, out) -> None:
+def read_one(corpus: str, sha: str, rec: dict, seq, versions: int, served: bool, loaded_at: str, out,
+             older: bool = False) -> None:
+    """One record to its row. `older`: an archived page's older version whose text differs from the version
+    read: the row goes to `out.emit_older`, a document for the text reader, never a row of the table."""
     shape = shape_of(corpus)
     rid = str(rec["id"]).strip()
     odd = []
@@ -266,7 +285,7 @@ def read_one(corpus: str, sha: str, rec: dict, seq, versions: int, served: bool,
     for col in FLAGGED[shape]:
         found = shapes.shape(row[col])
         row[f"{col}_names_address"] = found is not None
-        if found:
+        if found and not older:
             out.emit_flag((TABLE[shape], row["key"], col, found))
             k = f"{TABLE[shape]}.{col} names an address"
             out.counts[k] = out.counts.get(k, 0) + 1
@@ -277,8 +296,31 @@ def read_one(corpus: str, sha: str, rec: dict, seq, versions: int, served: bool,
                 "served": served,
                 "source_note": WAYBACK_NOTE if shape == "wayback" else SOURCE_NOTE.format(corpus=corpus),
                 "document": sha, "page": 1, "place": "record", "read_from": "text", "reader": READER,
-                "profile": PROFILE[shape], "profile_version": PROFILE_VERSION, "loaded_at": loaded_at})
-    out.emit(TABLE[shape], row)
+                "profile": PROFILE[shape], "profile_version": PROFILE_VERSION[shape], "loaded_at": loaded_at})
+    if older:
+        out.emit_older(TABLE[shape], row)
+    else:
+        out.emit(TABLE[shape], row)
+
+
+def older_text(corpus: str, sha: str, texts: set, opened: dict, get_bytes, loaded_at: str, out) -> bool:
+    """Older snapshots of one archived page are versions of one document: the newest served version is read,
+    and an older one only where its text differs from the newest's and from every later version's (then it is
+    a document of its own for the text reader, given to `out.emit_older`). `texts`: the normalised texts seen
+    so far, added to. A written question's older versions are the provider's re-rendered `text` with the
+    question and reply unchanged: never opened. True when the older version is read."""
+    if texts is None:
+        return False
+    try:
+        rec = opened.pop(sha) if sha in opened else json.loads(get_bytes(sha))
+    except (OSError, ValueError):
+        return False
+    if not isinstance(rec, dict) or recognise("wayback", rec) or _norm(rec.get("text")) in texts:
+        return False
+    texts.add(_norm(rec.get("text")))
+    read_one(corpus, sha, rec, None, 1, False, loaded_at, out, older=True)
+    out.counts[OLDER_TEXT] = out.counts.get(OLDER_TEXT, 0) + 1
+    return True
 
 
 def read(items, get_bytes, loaded_at: str = None, out: Result = None) -> Result:
@@ -311,13 +353,17 @@ def read(items, get_bytes, loaded_at: str = None, out: Result = None) -> Result:
     for (corpus, rid), shas in by_record.items():
         sha = shas[-1]                         # the version the pull landed last
         seq, _, served = info[(corpus, sha)]
-        out.files += [(s, corpus, rid, info[(corpus, s)][0], "older version") for s in shas[:-1]]
         try:
             rec = opened.pop(sha) if sha in opened else json.loads(get_bytes(sha))
         except (OSError, ValueError) as e:
+            out.files += [(s, corpus, rid, info[(corpus, s)][0], "older version") for s in shas[:-1]]
             out.set_aside.append((sha, "open", f"{type(e).__name__}: {str(e)[:200]}"))
             out.files.append((sha, corpus, rid, seq, "set aside"))
             continue
+        texts = {_norm(rec.get("text"))} if shape_of(corpus) == "wayback" else None
+        for s in reversed(shas[:-1]):          # the later snapshot first: an earlier one with the same text is a copy
+            out.files.append((s, corpus, rid, info[(corpus, s)][0],
+                              OLDER_TEXT if older_text(corpus, s, texts, opened, get_bytes, loaded_at, out) else "older version"))
         why = recognise(shape_of(corpus), rec)
         if not why and str(rec["id"]).strip() != rid.strip():       # an id may end in a space (one call for submissions)
             why = "the arrival names another record"
@@ -334,6 +380,6 @@ def read(items, get_bytes, loaded_at: str = None, out: Result = None) -> Result:
             n["withdrawn by the source"] = n.get("withdrawn by the source", 0) + 1
     n["documents"] = len(last)
     n["records"] = sum(1 for f in out.files if f[4] == "read")
-    n["older versions"] = sum(1 for f in out.files if f[4] == "older version")
+    n["older versions"] = sum(1 for f in out.files if f[4] in ("older version", OLDER_TEXT))
     n["set aside"] = len(out.set_aside)
     return out

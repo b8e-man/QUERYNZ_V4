@@ -15,6 +15,17 @@ every record's `text`). Against these, for each of the seven corpora:
              records' `text` the rows hold (`text_words`, served records only), within 1%
   clean      no pull catch line, no set-aside line, no row with a field the lane has no column for
 
+And for the text reader (model_read.py; Arthur's common rules, 31 October 2026), per source table:
+
+  read       the documents with a stored reading replayed into `readings` and `people`, the names read (by kind
+             and role on the line), the documents waiting on `qv4-parliament-read`, and the documents set aside
+             at stage read (the profile cannot split the text; the reader found it unusable), each stated;
+             waiting is read plus set aside taken from the served documents
+  version    every readings and people row carries the profile version the load expects
+             (read.PROFILE_VERSION): a reading stored under another version fails
+  papers     the bills, committee papers and SOPs are metadata records whose files the provider has not
+             captured: nothing to read, stated as "waiting on the provider's capture", no reader
+
 And for the written questions:
 
   unique     every served question's number and year unique within its Parliament
@@ -55,7 +66,8 @@ WORDS_TOLERANCE = 0.01
 REPLY_FLOOR = 0.99
 TABLE = {c: "api_items" for c in capture.API_CORPORA}
 TABLE.update({capture.WRITTEN_QUESTIONS: "written_questions", capture.WAYBACK: "wayback_pages"})
-VIEWS = ("written_questions", "api_items", "wayback_pages")
+VIEWS = ("written_questions", "api_items", "wayback_pages", "people")
+READ_TABLES = ("written_questions", "wayback_pages")
 FLAG = "_names_address"
 SAMPLE = 5000           # rows of each view the check scans afresh; the load scans every row (load.stamp_scan)
 # a house number and a street, as Postgres reads it (ARE): not after a letter, a digit or a unit's slash, nor after
@@ -92,11 +104,12 @@ def held(conn, schema: str, mcp_schema: str) -> dict:
             "caught": q(f"SELECT count(*) FROM {mcp_schema}.catch WHERE corpus = %s AND resolved_at IS NULL", c),
             "records": q(f"SELECT count(*) FROM {schema}.{t} WHERE true{where}", *args),
             "served": q(f"SELECT count(*) FROM {schema}.{t} WHERE served{where}", *args),
-            "older versions": q(f"SELECT count(*) FROM {schema}.files WHERE corpus = %s AND status = 'older version'", c),
+            "older versions": q(f"SELECT count(*) FROM {schema}.files WHERE corpus = %s AND status IN ('older version', %s)",
+                                c, read.OLDER_TEXT),
             "files set aside": q(f"SELECT count(*) FROM {schema}.files WHERE corpus = %s AND status = 'set aside'", c),
             "set aside": q(f"SELECT count(*) FROM {schema}.set_aside WHERE item LIKE %s", f"{c} seq %")
                          + q(f"SELECT count(*) FROM {schema}.set_aside s JOIN {schema}.files f ON f.sha256 = s.item "
-                             "WHERE f.corpus = %s AND s.reason <> %s", c, read.BLOCKED),
+                             "WHERE f.corpus = %s AND s.reason <> %s AND s.stage <> 'read'", c, read.BLOCKED),
             "blocked": q(f"SELECT count(*) FROM {schema}.set_aside s JOIN {schema}.files f ON f.sha256 = s.item "
                          "WHERE f.corpus = %s AND s.reason = %s", c, read.BLOCKED),
             "fields unread": q(f"SELECT count(*) FROM {schema}.{t} WHERE cardinality(fields_unread) > 0{where}", *args),
@@ -110,6 +123,50 @@ def held(conn, schema: str, mcp_schema: str) -> dict:
         "replied": q(f"SELECT count(*) FROM {wq} WHERE served AND reply_present"),
         "withdrawn": q(f"SELECT count(*) FROM {wq} WHERE NOT served"),
     }
+    return out
+
+
+def read_counts(conn, schema: str) -> dict:
+    """{table: {"documents", "read", "names", "waiting", "set aside at read", "truncated", "pieces", "by kind",
+    "by role"}} and, under `_version`, the readings and people rows stamped with another profile version than
+    the load expects."""
+    q = lambda sql, *a: conn.execute(sql, a).fetchone()[0]  # noqa: E731
+    out = {}
+    for t in READ_TABLES:
+        older = (read.OLDER_TEXT,) if t == "wayback_pages" else ()
+        extra = (f" + (SELECT count(*) FROM {schema}.files WHERE corpus = 'parliament-wayback' AND status = %s)"
+                 if older else "")
+        docs = q(f"SELECT (SELECT count(*) FROM {schema}.{t} WHERE served){extra}", *older)
+        aside = q(f"SELECT count(*) FROM {schema}.set_aside s WHERE s.stage = 'read' AND EXISTS "
+                  f"(SELECT 1 FROM {schema}.{t} r WHERE r.document = s.item"
+                  + (f" UNION SELECT 1 FROM {schema}.files f WHERE f.sha256 = s.item AND f.status = %s)" if older else ")"),
+                  *older)
+        rd_ = conn.execute(f"SELECT count(*), coalesce(sum(names), 0), count(*) FILTER (WHERE truncated), "
+                           f"coalesce(sum(pieces), 0) FROM {schema}.readings WHERE source_table = %s", (t,)).fetchone()
+        kinds = dict(conn.execute(f"SELECT kind, count(*) FROM {schema}.people WHERE source_table = %s GROUP BY kind "
+                                  "ORDER BY 2 DESC", (t,)).fetchall())
+        roles = dict(conn.execute(f"SELECT role, count(*) FROM {schema}.people WHERE source_table = %s GROUP BY role "
+                                  "ORDER BY 2 DESC", (t,)).fetchall())
+        out[t] = {"documents": docs, "read": rd_[0], "names": int(rd_[1]), "truncated": rd_[2], "pieces": int(rd_[3]),
+                  "set aside at read": aside, "waiting": docs - rd_[0] - aside, "by kind": kinds, "by role": roles}
+    want = {"written_questions": read.PROFILE_VERSION["wq"], "wayback_pages": read.PROFILE_VERSION["wayback"]}
+    other = 0
+    for t, v in want.items():
+        other += q(f"SELECT count(*) FROM {schema}.readings WHERE source_table = %s AND profile_version <> %s", t, v)
+        other += q(f"SELECT count(*) FROM {schema}.people WHERE source_table = %s AND profile_version <> %s", t, v)
+    out["_version"] = {"expected": want, "rows under another version": other}
+    return out
+
+
+def judge_read(r: dict) -> list:
+    out = []
+    for t in READ_TABLES:
+        x = r[t]
+        if x["waiting"] < 0:
+            out.append(f"{t}: {x['read']} read and {x['set aside at read']} set aside at read for {x['documents']} documents")
+    if r["_version"]["rows under another version"]:
+        out.append(f"text reader: {r['_version']['rows under another version']} readings or people rows under another "
+                   f"profile version than the load expects ({r['_version']['expected']})")
     return out
 
 
@@ -252,16 +309,27 @@ def main(argv=None) -> int:
     with db.connect(db.OWNER_KEY if a.owner else db.READ_KEY, a.database) as conn:
         conn.execute("SET statement_timeout = '60s'")
         h = held(conn, a.schema, a.mcp_schema)
+        r = read_counts(conn, a.schema)
         conn.execute("SET statement_timeout = '60s'")        # the pattern over a fixed sample, never every row
         s = shown(conn, a.schema)
     o = outside(M.Client())
-    fails = judge(h, o) + judge_shown(s)
+    fails = judge(h, o) + judge_read(r) + judge_shown(s)
     for c in capture.CORPORA:
         print(f"parliament: {c}: held " + ", ".join(f"{k} {v}" for k, v in h[c].items())
               + "; the MCP " + ", ".join(f"{k} {v}" for k, v in o[c].items()))
     w = h["_wq"]
     print("parliament: written questions " + ", ".join(f"{k} {v}" for k, v in w.items())
           + (f", replied share {w['replied'] / w['served']:.2%}" if w["served"] else ""))
+    for t in READ_TABLES:
+        x = r[t]
+        print(f"parliament: text reader, {t}: {x['documents']} documents, {x['read']} read ({x['pieces']} pieces, "
+              f"{x['truncated']} answers cut at the token cap), {x['names']} names read, {x['waiting']} waiting on "
+              f"qv4-parliament-read, {x['set aside at read']} set aside at read; by kind "
+              + ", ".join(f"{k} {n}" for k, n in x["by kind"].items()) + "; by role "
+              + ", ".join(f"{k} {n}" for k, n in x["by role"].items()))
+    print(f"parliament: text reader, api_items: the bills, committee papers and SOPs are metadata records whose files "
+          f"the provider has not captured: waiting on the provider's capture, no reader; profile versions expected "
+          f"{r['_version']['expected']}, rows under another {r['_version']['rows under another version']}")
     for v, x in s.items():
         print(f"parliament: {v}: {x['rows']} rows; names an address by shape: "
               + ", ".join(f"{c} {n}" for c, n in x["flagged"].items())

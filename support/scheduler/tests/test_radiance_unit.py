@@ -45,12 +45,14 @@ def test_the_unit_runs_the_recorded_image_and_model_read_only():
 
 
 def test_the_recorded_serving_shape():
-    """The experiment's shape, but for the pool: 11 GiB a rank, because at 10
-    the server started after the OCR server ran out of card memory."""
+    """The experiment's shape, but for the bound and the pool: 32k and 20 GiB a
+    rank since 31 October (the bulk ingest: at 16k and 11 GiB the KV cache was
+    22,652 tokens and three requests ran at a time; a bigger pool moves
+    experts off-card and the KV cache takes the VRAM they leave: 524,396)."""
     argv = _exec_start()
-    want = {"--tp": "2", "--max-num-seqs": "16", "--max-model-len": "16384", "--max-num-batched-tokens": "4096",
+    want = {"--tp": "2", "--max-num-seqs": "16", "--max-model-len": "32768", "--max-num-batched-tokens": "4096",
             "--draft-window": "adaptive", "--checkpoint-policy": "tip-only", "--ngram-placement": "disk",
-            "--host-pool-mib": "11264", "--gpu-headroom-mib": "2560", "--placement": "expert_tiered",
+            "--host-pool-mib": "20480", "--gpu-headroom-mib": "2560", "--placement": "expert_tiered",
             "--kv-cache-dtype": "fp8", "--port": "8060", "--served-model-name": "qwen4exp"}
     assert {k: _flag(argv, k) for k in want} == want
 

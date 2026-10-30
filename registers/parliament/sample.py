@@ -9,14 +9,15 @@ called, nothing is fetched.
 Every module fills one shared scratch schema, so this lane's tables there
 carry its name (`parliament_written_questions`, …; load.table).
 """
+import json
 import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(HERE)))
 
-from support.docstore.landing import path_for  # noqa: E402
-from registers.parliament import capture, load as L  # noqa: E402
+from support.docstore.landing import path_for, read_bytes  # noqa: E402
+from registers.parliament import capture, load as L, model_read  # noqa: E402
 
 
 def fill(conn, schema: str, items: list) -> int:
@@ -26,6 +27,14 @@ def fill(conn, schema: str, items: list) -> int:
             raise LookupError(f"parliament/sample.list names {sha}, which is not in the document store: "
                               "run the pull (python -m support.mcpsource)")
     corpus = capture.corpora_of(conn, shas)
+    for sha in [s for s in shas if s not in corpus]:
+        # landed after the sample database's copy of the store's names: the record's own shape says which corpus
+        # of the two the text reader reads (a question has questionNumber; an archived page has snapshot_url)
+        profile = model_read._profile_of_record(json.loads(read_bytes(sha)))
+        if profile == model_read.WQ:
+            corpus[sha] = capture.WRITTEN_QUESTIONS
+        elif profile == model_read.WAYBACK:
+            corpus[sha] = capture.WAYBACK
     missing = [s for s in shas if s not in corpus]
     if missing:
         raise LookupError(f"parliament/sample.list names {missing[0]}, which has no `<corpus>/<id>` name in the store")
