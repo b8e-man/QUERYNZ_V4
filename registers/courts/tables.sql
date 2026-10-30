@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS courts.documents (
     outcome           text NOT NULL,                   -- read | waiting: page reader | waiting: text reader | set aside | caught
     pages             integer,
     read_from         text,                            -- text | pixels | mixed
-    text_chars        integer,                         -- characters of text read (text layer, or page readings)
+    text_chars        integer,                         -- characters of text read (text layer, or page readings; a case page's text as sent to the model)
+    pieces            integer,                         -- pieces the text reader needs by the profile's reading rule (1 = whole; ruling 130); NULL when not read by text
     citation          text,                            -- the neutral citation the document carries, where it carries one
     case_numbers      text[] NOT NULL DEFAULT '{}',
     dated             date,                            -- the date the document prints (judgment, release, hearing)

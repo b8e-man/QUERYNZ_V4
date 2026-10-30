@@ -39,10 +39,11 @@ import datetime as dt
 import re
 from dataclasses import dataclass, field
 
-VERSION = "registers.courts.caption 1"
+VERSION = "registers.courts.caption 2"
 
 COURTS = {"SUPREME COURT": "NZSC", "COURT OF APPEAL": "NZCA", "HIGH COURT": "NZHC", "DISTRICT COURT": "NZDC",
-          "EMPLOYMENT COURT": "NZEmpC", "ENVIRONMENT COURT": "NZEnvC", "FAMILY COURT": "NZFC"}
+          "EMPLOYMENT COURT": "NZEmpC", "ENVIRONMENT COURT": "NZEnvC", "FAMILY COURT": "NZFC",
+          "EMPLOYMENT RELATIONS AUTHORITY": "NZERA", "HUMAN RIGHTS REVIEW TRIBUNAL": "NZHRRT"}
 #: one spelling of each court code, however a citation or a file name cases it ("NZEMPC" in a file name is NZEmpC)
 COURT_CODES = {c.upper(): c for c in ("NZSC", "NZCA", "NZHC", "NZDC", "NZFC", "NZYC", "NZEmpC", "NZEnvC", "NZERA", "NZCC",
                                       "NZHRRT", "NZIPT", "NZACC", "NZLCRO", "NZDT", "NZTT", "NZREADT", "NZMVDT", "NZSSAA", "NZIACDT")}
@@ -56,13 +57,29 @@ CITE_LINE = re.compile(r"^\s*\[(\d{4})\]\s+(NZ[A-Za-z]{2,6})\s+(\d{1,5})\s*$")
 FILE_CITE = re.compile(r"(\d{4})-(NZ[A-Za-z]{2,6})-(\d{1,5})(?:[^0-9].*)?\.pdf$", re.I)
 #: the court line; a hearing transcript's cover sheet prints the case number beside it on the same line
 COURT_LINE = re.compile(r"^\s*IN THE ([A-ZĀĒĪŌŪ ]+?) OF NEW ZEALAND\b[^\n]*$", re.M)
+#: the same without "OF NEW ZEALAND": the District Court ("IN THE DISTRICT COURT AT …"), the Employment Relations Authority,
+#: the Human Rights Review Tribunal and any tribunal or authority (fix-2, 31 October 2026). An explicit alternation first:
+#: a lazy class alone matched COURT inside COURT OF APPEAL (lesson); "IN THE MATTER OF THE … TRIBUNAL" is a subject, not a court
+COURT_LINE_BARE = re.compile(r"^\s*IN THE (SUPREME COURT|COURT OF APPEAL|HIGH COURT|DISTRICT COURT|EMPLOYMENT COURT|FAMILY COURT|"
+                             r"YOUTH COURT|ENVIRONMENT COURT|CORONERS COURT|MĀORI LAND COURT|MAORI LAND COURT|"
+                             r"EMPLOYMENT RELATIONS AUTHORITY|HUMAN RIGHTS REVIEW TRIBUNAL|(?!MATTER\b)[A-ZĀĒĪŌŪ' ]+? (?:TRIBUNAL|AUTHORITY))"
+                             r"(?= AT\b|\s{2,}|\s*$)[^\n]*$", re.M)
+
+
+def court_line(text: str):
+    """The court line's match (group 1 the court's name), with or without "OF NEW ZEALAND", or None."""
+    return COURT_LINE.search(text or "") or COURT_LINE_BARE.search(text or "")
 REO_LINE = re.compile(r"^\s*I TE K[OŌ]TI\b", re.M)
 REGISTRY = re.compile(r"^\s*([A-ZĀĒĪŌŪ'’\- ]{3,40}?) REGISTRY\s*$")
 CASE_NO = re.compile(r"\b(SC \d{1,4}/\d{4}|CA ?\d{1,4}/\d{4}|(?:CIV|CRI|CRC|CIVP)-\d{4}-\d{3}-\d{1,6})\b")
 #: a label: a known one anywhere, or any capitalised word or two at the left margin ending in a colon
 #: ("Further hearing:", "Sentencing hearing:"); a party's name sits in the right-hand column, never at the margin
 LABEL = re.compile(r"^\s*(?:(?:Hearings?|Court|Counsel|Appearances|Judgments?|Sentence|Sentenced|Plea|Verdict|Date|"
-                   r"Delivered|Submissions|Representation|Solicitors|Ruling|Decision|Minute|Trial|Result|On the papers)\s*:"
+                   r"Delivered|Submissions|Representation|Solicitors|Ruling|Decision|Minute|Trial|Result|On the papers|"
+                   # the Employment Relations Authority's and the tribunals' labels (fix-2)
+                   r"Member of Authority|Representatives?|Investigation(?: Meeting)?|Submissions? [Rr]eceived|Information [Rr]eceived|"
+                   r"Determination|Date of [Dd]etermination|Date of [Dd]ecision|BEFORE|REPRESENTATION|DATE OF HEARING|DATE OF DECISION|"
+                   r"DATE OF LAST SUBMISSIONS|HEARD AT|Decision No|Reference No)\s*:"
                    r"|\s{0,6}[A-Z][a-z]+(?:[ /][a-z(][a-z)]+){0,3}\s*:(?:\s|$))")
 PARTY_LABEL = re.compile(r"^\s*(AND IN THE MATTER OF|IN THE MATTER OF|IN THE MATTER|AND BETWEEN|BETWEEN|UNDER|AND)\b(?:\s{2,}(.*\S))?\s*$")
 _ORD = r"(?:First|Second|Third|Fourth|Fifth|Sixth|Seventh|Eighth|Ninth|Tenth|Eleventh|Twelfth|Thirteenth|Fourteenth|Fifteenth)"
@@ -96,7 +113,10 @@ BODY_SUPPRESS = re.compile(r"\border\w*\s+(?:prohibiting|suppressing|for\s+(?:pe
                            r"\b(?:permanent|interim|final)\s+(?:name\s+)?suppression\b|\bname\s+suppression\b|"
                            r"\bsuppression\s+(?:of\s+(?:the\s+|his\s+|her\s+|their\s+)?name|order)|"
                            r"\bsuppress(?:es|ed|ing)?\s+(?:the\s+|his\s+|her\s+|their\s+)?(?:names?|identity|identifying)|"
-                           r"\bprohibit(?:s|ed|ing)?\s+(?:the\s+)?publication", re.I)
+                           r"\bprohibit(?:s|ed|ing)?\s+(?:the\s+)?publication|"
+                           # the Employment Relations Authority's and the tribunals' wording (fix-2: measured on 292 determinations
+                           # and 507 tribunal decisions, 31 October 2026)
+                           r"\bnon-publication\s+orders?\b|\borders?\s+(?:for|of)\s+non-publication\b|\b(?:is|are|be|been)\s+anonymi[sz]ed\b", re.I)
 STATUTE = re.compile(r"\bSS?\s?(\d{2,3}[A-Z]?)\b(?:\([0-9a-z]+\))*\s+(?:OF\s+THE\s+)?CRIMINAL PROCEDURE ACT 2011", re.I)
 #: a numbered paragraph: "[12]" at the left margin, followed by words; not "[2024] NZSC 161" (a citation in a
 #: footnote) and not a paragraph quoted from another judgment (indented, or out of the sequence)
@@ -106,7 +126,7 @@ RUNHEAD = re.compile(r"\[(\d{4})\]\s+NZ[A-Z]{2,5}\s+\d{1,5}\s+\[(\d{1,2}\s+[A-Z]
 DELIVERED = re.compile(r"This (?:judgment|decision|ruling) was delivered by (?:me|the Court|Justice [^\n]{1,40}?) on\s+(\d{1,2} [A-Z][a-z]+ \d{4})")
 HEADING = re.compile(r"^\s*((?:\(?ORAL\)?\s+|RESERVED\s+|INTERLOCUTORY\s+|COSTS\s+|SUPPLEMENTARY\s+|FURTHER\s+)?"
                      r"(?:JUDGMENT|JUDGMENTS|SENTENCING NOTES|SENTENCING REMARKS|NOTES ON SENTENCING|REASONS FOR JUDGMENT|"
-                     r"REASONS|MINUTE|RULING|DECISION|RESULT)(?:\s+\(No \d+\))?)\s+OF\s+(.{2,90}?)\s*$", re.M)
+                     r"REASONS|MINUTE|RULING|DECISION|RESULT|DETERMINATION)(?:\s+\(No \d+\))?)\s+OF\s+(.{2,90}?)\s*$", re.M)
 OUTCOME = re.compile(r"\b(cross-appeal|appeals?|applications?|application for leave to appeal|leave to appeal|"
                      r"application for an extension of time(?: to appeal)?|application for recall|application for judicial review|"
                      r"claim|proceeding|charge|conviction|sentence)\b[^.;\n]{0,80}?\b(?:is|are)\s+(?:therefore\s+|accordingly\s+)?"
@@ -180,7 +200,7 @@ def file_citation(name: str):
 
 def banner_of(page1: str) -> str:
     """The text above the court line: a suppression banner when there is one."""
-    m = COURT_LINE.search(page1 or "")
+    m = court_line(page1)
     return page1[:m.start()] if m else ""
 
 
@@ -443,11 +463,25 @@ def _label_value(page: str, label: str) -> str:
         col = len(m.group(1))
         out = [m.group(2).strip()]
         for nxt in lines[i + 1:i + 6]:
-            if not nxt.strip() or LABEL.match(nxt) or len(nxt) - len(nxt.lstrip()) < col - 2:
+            # the wrapped lines sit under the value; a label on a line of its own (the Tribunal's BEFORE:, REPRESENTATION:)
+            # has its values on the lines beneath it, to the next blank line or label
+            if not nxt.strip() or LABEL.match(nxt) or (out[0] and len(nxt) - len(nxt.lstrip()) < col - 2):
                 break
             out.append(nxt.strip())
         return " ".join(x for x in out if x)
     return None
+
+
+#: a tribunal's date line, the label with or without its colon: "DATE OF DECISION 25 June 2023", "Date of Minute:", "Date of
+#: Reasons for Decision:", "Date of Costs Decision:", "Dated 25 June 2023", "Decision issued on"; never the hearing's or the
+#: last submissions' date
+DATED_LINE = re.compile(r"^\s*(?:Date of (?!Hearing|Last Submissions|Oral)(?:[A-Za-z]+ ){0,4}?(?:Determination|Decision|Minute|Ruling|Judgment|Order)|"
+                        r"Dated|Decision issued on|Determination issued on)\s*:?\s*(\d{1,2} [A-Z][a-z]+ \d{4})", re.M | re.I)
+
+
+def _dated_line(head: str):
+    m = DATED_LINE.search(head or "")
+    return m.group(1) if m else None
 
 
 def _counsel_roles(page: str) -> list:
@@ -462,7 +496,7 @@ def parse(pages: dict, file_name: str = "") -> Judgment:
     p1 = pages.get(1) or ""
     # a caption longer than a page runs on: read the caption from pages 1 and 2 together
     head = p1 + "\n" + (pages.get(2) or "")
-    cl = COURT_LINE.search(head)
+    cl = court_line(head)
     if cl:
         out.court_name = cl.group(1).strip()
     start = cl.end() if cl else 0
@@ -523,14 +557,17 @@ def parse(pages: dict, file_name: str = "") -> Judgment:
         out.caption_shape = "none"
 
     out.hearing = _label_value(head, "Hearing")
-    court = _label_value(head, "Court")
+    court = (_label_value(head, "Court") or _label_value(head, "Member of Authority") or _label_value(head, "Before")
+             or _label_value(head, "Coram"))
     hd = HEADING.search(head)
     if hd:
         out.heading = re.sub(r"\s+", " ", hd.group(1)).strip("() ").upper()
         if not court:
             court = hd.group(2).strip()
     out.judges = re.sub(r"\s+", " ", court).strip() if court else None
-    jl = _label_value(head, "Judgment") or _label_value(head, "Sentence") or _label_value(head, "Sentenced")
+    jl = (_label_value(head, "Judgment") or _label_value(head, "Sentence") or _label_value(head, "Sentenced")
+          or _label_value(head, "Date of Determination") or _label_value(head, "Determination") or _label_value(head, "Date of Decision")
+          or _label_value(head, "Decision") or _dated_line(head))
     for basis, val in (("label", jl), ("delivered", (DELIVERED.search(head) or [None, None])[1])):
         d = _date(val)
         if d:
