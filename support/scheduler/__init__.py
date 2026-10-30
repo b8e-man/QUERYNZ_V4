@@ -18,7 +18,8 @@ card or on the processor (plan step 2). Extended from the old fleet service
                   one; every swap in the ledger with its reason; the
                   standing server's night window acted on (ruling 129)
     night.py      the night window's clock: whether a moment is inside
-                  the hours of jobs.toml [night_window]; pure
+                  the hours of jobs.toml [night_window], or Arthur's word
+                  (`night open` / `night close`) says so; pure
     worker.py     the worker: one per box (two on node2 for the rehearsal)
 
 The job contract is docs/contracts/job.md; `support.jobspec` is the

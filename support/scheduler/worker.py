@@ -15,7 +15,11 @@ lacks is never claimed. Parallelism is worked out, not fixed: a job gets
 as many parallel workers as fit in the box's available memory after the
 reserve for the database and the standing services, up to its declared
 cap. A job needing a model profile is claimed only while a card on this
-box holds that profile.
+box holds that profile; its cap (`concurrency`) is per card holding the
+profile, and each piece runs against the card with the fewest of this
+worker's jobs on it (`pick_card`), so two page readers are both fed (card
+one-page-reader-at-a-time-while-card-0-holds-the-ocr-server, 30 October:
+every piece went to the first card holding the profile).
 
 A JOB STOPPED AT ITS MEMORY CEILING (ruling 115) failed by a figure the
 scheduler holds, so the worker records a raise (`queue.raise_memory`): the
@@ -114,6 +118,7 @@ class Running:
         self.claim, self.jt = claim, jt
         self.memory_gb = jt.memory_gb             # the working figure at the claim (ruling 115)
         self.rerun: dict | None = None            # the memory raise that queued this row, if any
+        self.card: int | None = None              # the card the current piece runs against (pick_card)
         self.started = time.monotonic()
         self.last_renew = time.monotonic()    # across every piece of the claim, so short pieces still renew
         self.thread: threading.Thread | None = None
@@ -123,7 +128,7 @@ class Running:
 class Worker:
     def __init__(self, name: str, box: str = None, *, database: str = "querynz_v4", schema: str = SCHEMA,
                  registry: dict = None, profiles: dict = None, rules: reg.Queueing = None, tick_s: float = 5.0,
-                 probe_every_s: int = 600, alarm_after_s: int = 300, hide_programs=(), max_parallel: int = 4,
+                 probe_every_s: int = 600, alarm_after_s: int = 300, hide_programs=(), max_parallel: int = 8,
                  log=None, connect=None, alarm=None, cards_manager=None):
         self.name, self.box = name, box or pb.profile().get("host")
         self.database, self.schema = database, schema
@@ -239,6 +244,33 @@ class Worker:
     def cards_here(self) -> list[dict]:
         return q.cards(self.conn, self.schema, self.box)
 
+    def cards_holding(self, profile: str, cards: list[dict] = None) -> list[dict]:
+        """The cards on this box a job on `profile` may run against now:
+        holding its serving profile, answering on a port, not draining, not
+        reserved."""
+        on = self.serving(profile)
+        return [c for c in (cards if cards is not None else self.cards_here())
+                if c["profile"] == on and c["port"] and not c["draining"] and not c.get("reserved")]
+
+    def pick_card(self, r: Running) -> dict | None:
+        """The card this run's next piece goes to: of the cards holding the
+        profile, the one with the fewest of this worker's other jobs on it,
+        the lowest index on a tie; None when no card holds it. Recorded on
+        the run, so the pieces of one job and its concurrent rows are spread
+        over every card holding the profile, not sent to the first."""
+        cards = self.cards_holding(r.jt.profile)
+        if not cards:
+            r.card = None
+            return None
+        with self.lock:
+            load = {}
+            for other in self.running.values():
+                if other is not r and other.card is not None:
+                    load[other.card] = load.get(other.card, 0) + 1
+        card = min(cards, key=lambda c: (load.get(c["card"], 0), c["card"]))
+        r.card = card["card"]
+        return card
+
     def eligible(self) -> list[str]:
         """The job types this worker may claim right now."""
         free = self.available_gb()
@@ -256,12 +288,15 @@ class Worker:
                 continue
             mem = self.working_gb(jt)
             fits = int(free // mem) if mem > 0 else jt.concurrency
-            if counts.get(jt.name, 0) >= min(jt.concurrency, max(fits, 0)):
-                continue
+            cap = jt.concurrency
             if jt.profile:
-                on = self.serving(jt.profile)
-                if not any(c["profile"] == on and not c["draining"] and c["port"] and not c["reserved"] for c in cards):
+                holding = self.cards_holding(jt.profile, cards)
+                if not holding:
                     continue
+                # the cap is per card holding the profile: three rows on each of two page readers, not three in all
+                cap = jt.concurrency * len(holding)
+            if counts.get(jt.name, 0) >= min(cap, max(fits, 0)):
+                continue
             out.append(jt.name)
         return out
 
@@ -372,16 +407,14 @@ class Worker:
             argv[0] = sys.executable
         return argv
 
-    def _env(self, r: Running, run_id: str, piece: dict | None) -> dict:
+    def _env(self, r: Running, run_id: str, piece: dict | None, card: dict | None = None) -> dict:
         env = {"QV4_RUN_ID": run_id, "QV4_JOB": r.jt.name, "QV4_QUEUE_ID": str(r.claim["id"]), "QV4_WORKER": self.name,
                "QV4_BOX": self.box, "QV4_ARGS": json.dumps(r.claim.get("args") or {}), "PYTHONUNBUFFERED": "1"}
         if piece:
             env["QV4_PIECE"] = str(piece["piece"])
             env["QV4_PIECE_KEY"] = piece["key"]
         if r.jt.profile:
-            on = self.serving(r.jt.profile)
-            card = next((c for c in self.cards_here() if c["profile"] == on and c["port"] and not c["draining"]
-                         and not c.get("reserved")), None)
+            card = card or self.pick_card(r)
             if card:
                 env["QV4_MODEL_URL"] = f"http://127.0.0.1:{card['port']}/v1/chat/completions"
                 env["QV4_MODEL_PORT"] = str(card["port"])
@@ -397,13 +430,14 @@ class Worker:
 
     def _run_one(self, conn, r: Running, piece: dict | None) -> runner.Result:
         jt, claim = r.jt, r.claim
-        if jt.profile and not self._env(r, "", piece).get("QV4_MODEL_URL"):
+        card = self.pick_card(r) if jt.profile else None
+        if jt.profile and card is None:
             # the card that held the profile when the job was claimed no longer does: do not run a
             # doomed child; the job goes back and is claimed again when a card holds it
             return runner.Result(None, 0.0, 0, "failed", f"no card on {self.box} holds profile {jt.profile} now", "lease")
         raise_id = r.rerun["id"] if r.rerun else None
         working_mb = int(r.memory_gb * 1024)
-        run_id = runs.begin(jt.name, box=self.box, queue_id=claim["id"], card=None,
+        run_id = runs.begin(jt.name, box=self.box, queue_id=claim["id"], card=f"{self.box}:{card['card']}" if card else None,
                             requested_model=self.profiles[jt.profile].model if jt.profile else None,
                             args={"piece": piece["key"] if piece else None, "worker": self.name, "rerun_of_raise": raise_id})
         q.run_begin(conn, self.schema, run_id, job=jt.name, worker=self.name, box=self.box, qid=claim["id"],
@@ -424,7 +458,7 @@ class Worker:
 
         res = runner.run(self._argv(jt, [piece["key"]] if piece else []), deadline_s=jt.needs.deadline_s,
                          ceiling_mb=runner.ceiling_for(r.memory_gb), query_timeout_s=jt.needs.query_timeout_s,
-                         env=self._env(r, run_id, piece), cwd=REPO, tick=tick, log=self.log, nice=jt.nice)
+                         env=self._env(r, run_id, piece, card), cwd=REPO, tick=tick, log=self.log, nice=jt.nice)
         res.run_id = run_id
         runs.finish(run_id, outcome=res.outcome, error=res.error, peak_mb=res.peak_mb, declared_mb=int(jt.memory_gb * 1024),
                     note=res.stopped_for, working_mb=working_mb, rerun_of_raise=raise_id)

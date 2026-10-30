@@ -17,6 +17,18 @@ hours are local time in a named zone (NZDT and NZST both), because the
 window is placed against the frozen release's local clock, not UTC; the
 manager's clock is UTC, as every time in the scheduler is. The acting half
 is `cards.Manager.night_tick`.
+
+ARTHUR'S WORD ON THE WINDOW (card the-night-window-is-opened-by-a-commit-
+not-a-command, 30 October): `python -m support.scheduler night open
+[--until HH:MM]` and `night close` on node2 write one small file under
+<live>/scheduler/ (`cards.NIGHT_WORD`), the word: `open` makes the moment
+count as inside the window from now until the window would close anyway
+(or until HH:MM local, if that is sooner); `closed` makes the rest of an
+open window count as outside. The word names who gave it, and the swap
+ledger's stop line repeats that. The hours in jobs.toml are never edited
+for it, and nothing is committed or released. A word whose `until` has
+passed is stale and means nothing. `word()` builds one, `inside()` reads
+the clock and the word together; both pure.
 """
 from __future__ import annotations
 
@@ -106,3 +118,76 @@ def opens_at(now: dt.datetime, w: Window) -> dt.datetime:
     if start_today < t:
         start_today = (start_today + dt.timedelta(days=1)).replace(hour=s // 60, minute=s % 60)
     return start_today.astimezone(dt.timezone.utc)
+
+
+# ── Arthur's word: open early, close early ───────────────────────────────────
+
+WORD_STATES = ("open", "closed")
+
+
+def _parse(iso: str | None) -> dt.datetime | None:
+    try:
+        t = dt.datetime.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return None
+    return t if t.tzinfo else t.replace(tzinfo=dt.timezone.utc)
+
+
+def word(state: str, now: dt.datetime, w: Window, by: str, until_local: str | None = None, host: str = "") -> dict:
+    """The word as written: `open` holds until the window would close anyway
+    (`closes_at`), or until `until_local` (HH:MM in the window's zone, the
+    next such minute) when that is sooner; `closed` holds until the same
+    close. `capped` says when an asked-for hour was later than the close."""
+    if state not in WORD_STATES:
+        raise ValueError(f"a word is one of {WORD_STATES}, not {state!r}")
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=dt.timezone.utc)
+    close = closes_at(now, w)
+    until, capped = close, False
+    if until_local:
+        if not valid_hhmm(until_local):
+            raise ValueError(f"--until {until_local!r} is not HH:MM")
+        t = local(now, w)
+        m = _minutes(until_local)
+        asked = t.replace(hour=m // 60, minute=m % 60, second=0, microsecond=0)
+        if asked <= t:
+            asked += dt.timedelta(days=1)
+        asked = asked.astimezone(dt.timezone.utc)
+        if asked < close:
+            until = asked
+        else:
+            capped = True
+    return {"state": state, "at": now.astimezone(dt.timezone.utc).isoformat(timespec="seconds"),
+            "until": until.isoformat(timespec="seconds"), "by": by, "host": host, "capped": capped,
+            "until_local": until.astimezone(w.zone).strftime("%H:%M %Z")}
+
+
+def word_holds(wd: dict | None, now: dt.datetime) -> bool:
+    """Whether a word still speaks: a known state, and its `until` not yet
+    passed. Anything else (no file, a torn file, a stale word) is silence."""
+    if not wd or wd.get("state") not in WORD_STATES:
+        return False
+    until = _parse(wd.get("until"))
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=dt.timezone.utc)
+    return until is not None and now < until
+
+
+def describe(wd: dict, w: Window) -> str:
+    """One line for the ledger and the log: who, what, when, until when."""
+    at = _parse(wd.get("at"))
+    when = at.astimezone(w.zone).strftime("%H:%M %Z") if at else "?"
+    verb, cmd = ("opened early", "night open") if wd.get("state") == "open" else ("closed early", "night close")
+    return f"{verb} by {wd.get('by') or '?'} at {when} ({cmd}), until {wd.get('until_local') or wd.get('until')}"
+
+
+def inside(now: dt.datetime, w: Window, wd: dict | None = None) -> tuple[bool, str | None]:
+    """Whether the moment counts as inside the window once the word is
+    heard: the clock's answer, overridden by a word that still holds. The
+    second value names the word when it decided, else None."""
+    by_clock = in_window(now, w)
+    if not word_holds(wd, now):
+        return by_clock, None
+    if wd["state"] == "open":
+        return True, (None if by_clock else describe(wd, w))
+    return False, (describe(wd, w) if by_clock else None)
