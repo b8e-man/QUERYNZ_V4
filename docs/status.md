@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-30, 17:15 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-10-30, 18:50 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet (Half-done); 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
@@ -38,7 +38,8 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
   listed the processor's graphics as a card; fixed 14:35 (4f57fdf).
 - MCP lanes green. `courts` pull (row 856) ended 17:04: 5,510 of 5,611
   files landed, 88 held, 13 caught (hash mismatch; RED). `courts-2`
-  launched headless 17:10, scope registers/courts.
+  ran 17:10 to 17:57; refused 18:44 (staging load: a case keyed by a
+  hash two records share); relaunched 18:46 to fix and raise again.
 - `links.check` 12:4x: one red, a placeholder NZBN of thirteen zeros
   and one NZBN under two charity numbers (card, a links fix).
 
