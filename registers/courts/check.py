@@ -67,6 +67,11 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
             elif profile == R.CASE_PAGE and doc not in cased:
                 out["failures"].append(f"{key[-40:]}: a case page read with no case row")
     out["sheets with a fact read"] = len(sheets)
+    # a document is its bytes: a file under several records is read once, each record's row carrying the reading
+    out["records sharing a file"] = q(f"SELECT count(*) - count(DISTINCT document) FROM {t('documents')} WHERE document IS NOT NULL")[0][0]
+    for sha, n in q(f"SELECT document, count(*) FROM {t('cases')} GROUP BY 1 HAVING count(*) > 1") + \
+            q(f"SELECT document, count(*) FROM {t('judgments')} GROUP BY 1 HAVING count(*) > 1"):
+        out["failures"].append(f"{sha[:12]}…: a file read {n} times")
     aside = q(f"SELECT stage, count(*) FROM {t('set_aside')} GROUP BY 1 ORDER BY 1")
     out["set aside"] = dict(aside)
     out["status"] = dict(q(f"SELECT status, count(*) FROM {t('judgments')} GROUP BY 1 ORDER BY 1"))
@@ -130,15 +135,15 @@ def roles_short(conn, schema: str, shared: bool = False, limit: int = ROLES_SAMP
     from support.docread.read import TEXT_MODEL
     from registers.courts import caption
     store, out = rd.Store(), []
-    rows = conn.execute(f"SELECT key, document, profile, profile_version FROM {L.table(schema, 'judgments', shared)} "
+    rows = conn.execute(f"SELECT key, document, profile, profile_version, caption_shape FROM {L.table(schema, 'judgments', shared)} "
                         f"ORDER BY md5(key) LIMIT %s", (limit,)).fetchall()
-    for key, doc, slug, version in rows:
+    for key, doc, slug, version, shape in rows:
         try:
             texts = {p: store.get(rd.reading_key(doc, p, TEXT_MODEL, {"tool": "pdftotext -layout"}, slug, version)).text
                      for p in (1, 2)}
         except rd.MissingReading:
             continue
-        j = caption.Judgment(counsel_roles=caption._counsel_roles(texts[1] + "\n" + texts[2]))
+        j = caption.Judgment(counsel_roles=caption._counsel_roles(texts[1] + "\n" + texts[2]), caption_shape=shape)
         j.parties = [caption.Party(name="", role=r[0], position=0, block=0) for r in conn.execute(
             f"SELECT role FROM {L.table(schema, 'judgment_parties', shared)} WHERE judgment = %s", (key,))]
         if caption.roles_unaccounted(j):
@@ -158,7 +163,8 @@ def main(argv=None) -> int:
     print(f"corpus {capture.CORPUS}: {out['records']} records" + (f" ({out['taken by the pull']} taken by the pull)" if "taken by the pull" in out else ""))
     for k in ("outcomes", "profiles", "set aside", "status", "courts", "missing", "parties", "people", "cases", "suppression"):
         print(f"{k}: " + ", ".join(f"{a} {b}" for a, b in out[k].items()))
-    print(f"sheets with a fact read: {out['sheets with a fact read']}; roles short: {out['roles short']} (tolerated {ROLES_TOLERATED})")
+    print(f"sheets with a fact read: {out['sheets with a fact read']}; records sharing a file: {out['records sharing a file']}; "
+          f"roles short: {out['roles short']} (tolerated {ROLES_TOLERATED})")
     for f in out["failures"]:
         print("FAIL " + f)
     return 1 if out["failures"] else 0

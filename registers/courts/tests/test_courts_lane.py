@@ -100,6 +100,14 @@ def test_every_record_of_the_sample_is_a_document_row_read_waiting_set_aside_or_
     noise = [d for d in filled["documents"] if "++resource++" in d["url"]][0]
     assert noise["outcome"] in ("set aside", "caught"), "crawl noise is never read"
     assert not any(a["stage"] == "listing" for a in filled["aside"]), "the gap report is the live check's, not the sample's"
+    # a document is its bytes: the case page the corpus holds under two record urls is one case row, two documents rows
+    twice = [d for d in filled["documents"] if d["url"].endswith("?searchterm=None")]
+    assert len(twice) == 1
+    plain = _doc(filled, url=twice[0]["url"].split("/?")[0])
+    assert plain["document"] == twice[0]["document"] and plain["outcome"] == twice[0]["outcome"] in ("read", R.WAIT_TEXT)
+    assert plain["profile"] == twice[0]["profile"] == "courts-case-page"
+    assert len([c for c in filled["cases"] if c["document"] == plain["document"]]) == 1
+    assert [c["url"] for c in filled["cases"] if c["document"] == plain["document"]] == [plain["url"]]
 
 
 def test_each_kind_is_recognised_by_shape_and_its_sheet_read(filled):

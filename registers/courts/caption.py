@@ -571,13 +571,27 @@ def _role_key(role: str) -> tuple:
     return ords, bases
 
 
+#: a criminal caption prints no role: its sides are the prosecutor and the defendant, and the counsel lines name them
+#: by the stage ("for Applicant", "for Appellant", "for Respondent"; the Crown's line names no role _BASE takes)
+CRIMINAL_SIDES = {"appellant", "applicant", "respondent", "defendant", "prosecutor"}
+ORDINAL = {o.lower(): n for n, o in enumerate(_ORD[3:-1].split("|"), 1)}
+
+
 def roles_unaccounted(j: Judgment) -> list:
     """The roles the counsel lines are "for" that no party of the caption
     holds: a party the caption grammar missed. "for Appellants" is held by a
     First and a Second Appellant; "for Second and Third Respondents" needs
-    both."""
+    both. In a criminal caption (no printed role) the stage's words are
+    held by its two sides, an ordinal by that many defendants."""
     held = [_role_key(p.role) for p in j.parties]
     out = []
+    if j.caption_shape == "criminal":
+        defendants = sum(1 for p in j.parties if p.role == "Defendant")
+        for r in j.counsel_roles:
+            ords, bases = _role_key(r)
+            if not held or not bases <= CRIMINAL_SIDES or max((ORDINAL.get(o, 99) for o in ords), default=1) > max(defendants, 1):
+                out.append(r)
+        return out
     for r in j.counsel_roles:
         ords, bases = _role_key(r)
         for b in bases:

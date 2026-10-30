@@ -23,3 +23,5 @@ b67c626d95a28da05ccd71a51ad31ad61c9c4eaaea6f184b2d9e6c5f5b4152ba an Employment C
 ecd3d7da1ba4591562305314a0f9df5a52ed0954449134951ff8b3db9e18a639 a court's hearing schedule: no shape recognised, a catch-log line at recognise
 6733b63810f6b3c60f6581652648d02d711d333f411dd41491ab66b209a747dd crawl noise: a stylesheet served as a case page, set aside at recognise
 9ac347866801249a8a7660d869cb19d667bb405a1b3061f07fbda810f941c66a a record whose file the pull caught (hash differs): a catch-log line, stage pull
+c71b3776965ee5c189cf195f2611ed6b620f52a91ca39199d4ffae1491847d5f a case page the corpus holds under two record urls: the plain one, read once for both
+f876842e1dee7141008e1a3507b34cebc3b6bbe8a8a2550ac0b75645712e8482 the same case page under its url with ?searchterm=None: its row takes the other's reading, no second case row

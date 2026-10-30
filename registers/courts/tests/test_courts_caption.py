@@ -212,6 +212,27 @@ def test_the_counsel_roles_are_held_by_the_parties_or_reported():
     assert C.roles_unaccounted(j) == ["Third Respondent"]
 
 
+def test_a_criminal_caption_s_counsel_lines_name_its_sides_by_the_stage():
+    """A Supreme Court leave judgment of 2005 to 2012: "X v THE QUEEN", no printed role, and "for Applicant" and
+    "for Crown" on the counsel lines (23 of the live check's 200 before this; a role no party holds is still reported)."""
+    p = "\n".join(["IN THE SUPREME COURT OF NEW ZEALAND", " " * 66 + "SC 59/2099", " " * 62 + "[2099] NZSC 80", "",
+                   " " * 36 + "TAMA RIWAI", "", " " * 40 + "v", "", " " * 36 + "THE QUEEN", "",
+                   "Hearing:        24 November 2099", "Court:          Able CJ, Baker and Carter JJ",
+                   "Counsel:        J Haigh KC for Applicant", "                B J Horsley for Crown",
+                   "Judgment:       8 December 2099", "", "         JUDGMENT OF THE COURT", "",
+                   "   The application for leave to appeal is dismissed.", "[1]  The applicant seeks leave."]) + "\n"
+    j = parse(p)
+    assert j.caption_shape == "criminal" and [x.role for x in j.parties] == ["Defendant", "Prosecutor"] or \
+        [x.role for x in j.parties] == ["Prosecutor", "Defendant"]
+    assert j.counsel_roles == ["Applicant"] and C.roles_unaccounted(j) == []
+    j.counsel_roles = ["Second Appellant"]
+    assert C.roles_unaccounted(j) == ["Second Appellant"], "an ordinal needs that many defendants"
+    j.counsel_roles = ["Intervener"]
+    assert C.roles_unaccounted(j) == ["Intervener"], "a side the criminal caption has no word for is still reported"
+    j.parties = []
+    assert C.roles_unaccounted(j) == ["Intervener"]
+
+
 # --- suppression, paragraphs, outcome -----------------------------------------------
 
 def test_a_banner_flags_suppression_and_its_kinds_are_a_closed_list():

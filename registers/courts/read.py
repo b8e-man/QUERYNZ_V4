@@ -74,6 +74,9 @@ COURT_CODES = {"SUPREME COURT": "NZSC", "COURT OF APPEAL": "NZCA", "HIGH COURT":
 WITHHELD_MARKER = "a suppression marker in the judgment"
 WAIT_PAGES = "waiting: page reader"
 WAIT_TEXT = "waiting: text reader"
+#: what a documents row takes from the row of the record its file was read under
+SHARED_READING = ("profile", "profile_version", "outcome", "pages", "read_from", "text_chars", "citation", "case_numbers",
+                  "dated", "summary", "model", "model_reader")
 
 # ── the shapes ────────────────────────────────────────────────────────────────────────────────────────────────
 PRESS = re.compile(r"This (?:summary|media release) is provided to assist|^\s*MEDIA RELEASE\s*$|^\s*PRESS SUMMARY\s*$", re.M)
@@ -308,6 +311,8 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
     scanned_version = profile_version(SCANNED)
     parsed, sheets, pages_read = [], [], {}
     by_url = {e["url"]: e for e in entries if e.get("url")}
+    primary = _primary_entries(entries)     # a document is its bytes: one entry is read per file, however many records point at it
+    primary_doc, shared = {}, []            # sha → the documents row of the entry read; the other records' rows, filled after
     for e in entries:
         doc = {"key": e["record_id"], "record": e["record"], "seq": e.get("seq"), "kind": e.get("kind"),
                "case_slug": e.get("case_slug"), "url": e["url"], "content_type": e.get("content_type"),
@@ -317,6 +322,11 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
                "model": None, "model_reader": None, "loaded_at": now}
         res.documents.append(doc)
         sha = e.get("capture")
+        if sha and primary[sha] is not e:
+            shared.append(doc)
+            continue
+        if sha:
+            primary_doc[sha] = doc
         data = data_of(sha) if sha else None
         if data is None:
             doc["outcome"] = "caught"
@@ -373,9 +383,8 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
     rows(res, parsed, orders, now)
     # the text reader's stored readings, replayed: people and the summary; a document without one waits
     suppressed = _suppressed(res, sheets, orders)
-    docs_by_sha = {d["document"]: d for d in res.documents if d.get("document")}
     for sha, (slug, version, texts) in pages_read.items():
-        doc = docs_by_sha[sha]
+        doc = primary_doc[sha]
         reading = model_read.stored(sha, slug, version, store)
         if reading is None:
             doc["outcome"] = WAIT_TEXT
@@ -394,15 +403,61 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
             if c["case_name"] is not None:
                 res.withheld.append((c["key"], c["case_name"], None))
                 c["case_name"] = None
+    # a record whose file another record was read for: its row carries that reading, and its own catch-log line where
+    # the file was set aside or caught, so every record is accounted for once and the file's rows are emitted once
+    for doc in shared:
+        first = primary_doc[doc["document"]]
+        doc.update({k: first[k] for k in SHARED_READING})
+        for item, stage, reason in [a for a in res.set_aside if a[0] == first["key"]]:
+            res.set_aside.append((doc["key"], stage, f"{reason}; the same file as record {first['key']}"))
+    _once(res)
     n_in, n_out = len(entries), sum(1 for d in res.documents if d["outcome"] in ("read", WAIT_PAGES, WAIT_TEXT, "set aside", "caught"))
     if n_in != n_out:
         raise AssertionError(f"courts: {n_in} records in, {n_out} accounted for: the reading does not reconcile")
     res.counts = {"records": n_in, **{k: sum(1 for d in res.documents if d["outcome"] == k)
                                    for k in ("read", WAIT_PAGES, WAIT_TEXT, "set aside", "caught")},
+                  "shared": len(shared),
                   "judgments": len(res.judgments), "parties": len(res.parties), "cases": len(res.cases),
                   "people": len(res.people), "withheld": len(res.withheld), "set_aside": len(res.set_aside),
                   **{s: sum(1 for x in res.judgments if x["status"] == s) for s in ("parsed", "partial", "unparsed")}}
     return res
+
+
+def _primary_entries(entries: list) -> dict:
+    """sha256 → the one entry read for that file. The corpus holds the same
+    bytes under more than one record (a case page with and without
+    `?searchterm=None`; a PDF under two file names), and every row keyed by
+    the file's hash (a case, its links, a judgment, its parties and
+    paragraphs, a person) is emitted once: the record with the plainest url
+    (no query string, then the shortest, then the lowest record id) is read,
+    and the others' documents rows take its reading."""
+    out = {}
+    for e in entries:
+        sha = e.get("capture")
+        if sha and (sha not in out or _plainness(e) < _plainness(out[sha])):
+            out[sha] = e
+    return out
+
+
+def _plainness(e: dict) -> tuple:
+    url = e.get("url") or ""
+    return ("?" in url, len(url), e.get("record_id") or "")
+
+
+def _once(res: Result) -> None:
+    """Every key once, asserted here rather than at the COPY: the merge gate
+    of 30 October died on `cases_pkey` with three files under two records each."""
+    import collections
+    for name in ("documents", "cases", "case_links", "judgments", "parties", "people"):
+        twice = [k for k, n in collections.Counter(r["key"] for r in getattr(res, name)).items() if n > 1]
+        if twice:
+            raise AssertionError(f"courts: {len(twice)} {name} key(s) emitted more than once ({twice[0][:12]}…): a file is read once")
+    twice = [k for k, n in collections.Counter((j, num) for j, num, _, _ in res.paragraphs).items() if n > 1]
+    if twice:
+        raise AssertionError(f"courts: paragraph {twice[0][1]} of {twice[0][0][:12]}… emitted more than once")
+    twice = [k for k, n in collections.Counter(k for k, _, _ in res.withheld).items() if n > 1]
+    if twice:
+        raise AssertionError(f"courts: withheld key {twice[0][:12]}… emitted more than once")
 
 
 def _page_text_for_model(page: dict) -> dict:

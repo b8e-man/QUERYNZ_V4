@@ -1,7 +1,7 @@
 # courts: where it stands
 
 **Date:** 2026-10-30. **Step:** 5.4 items 2 and 3, `registers/courts/`. **Session:** courts-2.
-**Merge request:** `courts-2` (raised).
+**Merge request:** `courts-2` (raised again, 30 October evening, after the integrator's refusal of 18:44).
 
 ## Done
 
@@ -22,7 +22,22 @@
   `courts.people`, published as `pub.court_people` for the links lane. The deterministic fields stay.
 - Suppression reaches every name on every document of a citation and of its case page, model-read names
   and the case name included (`suppress.py`, the ledger, `check.py`).
-- Fast tier green (84.6 s; one xfail: no stored text-reader reading yet). 48 tests.
+- A document is its bytes (the refusal of 18:44: the gate's staging load died on `cases_pkey`). The corpus holds the
+  same file under more than one record (a case page with and without `?searchterm=None`, a 2006 judgment under two
+  file names, a crawl-noise pair: three on live); the file is read once, under the record with the plainest url, so a
+  case, its links, a judgment, its parties, paragraphs and people are emitted once, and every sharing record's
+  `documents` row carries that reading. `read._once` asserts every key once before the COPY; `check.py` counts the
+  records sharing a file; the sample holds the live pair.
+- The full corpus built with the branch's code (`scratch_courts_2_full` in the sample database, the records read from
+  the live store: the live owner login is refused to a session): 5,611 records in 204 s, every one accounted for
+  (waiting on the text reader 5,589, on the page reader 4, set aside 5, caught 13; 3 share a file); judgments 2,329
+  (parsed 2,224, partial 24, unparsed 81), parties 7,870, cases 2,685 with 4,548 links (2,922 to a held file),
+  withheld 1,061 names under 445 flagged judgments; the old listing's gap 80. Check green.
+- The check's counsel-role rule knows the criminal shape: a 2004–2012 Supreme Court leave judgment prints "X v THE
+  QUEEN" with no role and "for Applicant", "for Crown" on the counsel lines; 23 of the live check's 200 were short
+  (tolerated 2) until the sides were held by the stage's words. One remains (a party "in person" beside plural
+  respondents), within the tolerance.
+- Fast tier green (86.5 s; one xfail: no stored text-reader reading yet). 50 tests.
 
 ## Waiting
 

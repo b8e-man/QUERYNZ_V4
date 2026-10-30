@@ -209,6 +209,45 @@ def test_without_a_stored_model_reading_the_document_waits_and_nothing_is_asked(
     assert res.documents[0]["outcome"] == R.WAIT_TEXT and res.people == [] and res.judgments[0]["citation"] == "[2099] NZSC 7"
 
 
+def test_a_file_under_several_records_is_read_once_and_every_record_s_row_carries_the_reading(monkeypatch):
+    """The corpus holds the same bytes under more than one record (the merge
+    gate of 30 October: a case page with and without `?searchterm=None`, a
+    judgment under two file names), and every row keyed by the file's hash
+    is emitted once; each record is still its own documents row."""
+    pages = {SHA: {1: JUDGMENT}, SHA2: {1: RELEASE}}
+    monkeypatch.setattr(R, "_texts_of", lambda data, sha, store, v: (pages[sha], "text", []))
+    monkeypatch.setattr(R, "page_total", lambda data: 1)
+    import support.docread.read as DR
+    monkeypatch.setattr(DR, "read_document", lambda *a, **k: None)
+    u1, u2, u3, u4 = _entries()
+    entries = [{**u3, "record_id": "u3b", "record": "6" * 64, "seq": 5, "url": URL + "/?searchterm=None"},   # listed first on purpose
+               u1, u2, u3, {**u1, "record_id": "u1b", "record": "7" * 64, "seq": 6, "url": u1["url"].replace(".pdf", "_000.pdf")},
+               u4, {**u4, "record_id": "u4b", "record": "8" * 64, "seq": 7, "url": u4["url"].replace(".pdf", "_000.pdf")}]
+    data = {SHA: _pdf_bytes(JUDGMENT), SHA2: _pdf_bytes(RELEASE), SHA3: CASE_PAGE.encode()}
+    people = [{"name": "Sample Person", "kind": "person", "role": "party", "role_text": "respondent", "for": None}]
+    with tempfile.TemporaryDirectory() as td:
+        store = _fake_store(td, {SHA: ("courts-nzsc-judgment", {"summary": "A judgment.", "people": people})})
+        res = R.read(entries, [], store=store, data_of=lambda sha: data.get(sha))
+    assert len(res.cases) == 1 and len(res.judgments) == 1 and len(res.parties) == 2 and len(res.people) == 1
+    assert res.counts["records"] == 7 and res.counts["shared"] == 3 and res.counts["read"] == 2 and res.counts["caught"] == 2
+    assert len(res.case_links) == res.cases[0]["links"] and len(res.paragraphs) == 2
+    assert res.cases[0]["url"] == URL, "the plain url is the one read, whichever the pull listed first"
+    assert res.judgments[0]["source_url"].endswith("/2099-NZSC-7.pdf")
+    for name in ("documents", "cases", "case_links", "judgments", "parties", "people"):
+        keys = [r["key"] for r in getattr(res, name)]
+        assert len(keys) == len(set(keys)), name
+    docs = {d["key"]: d for d in res.documents}
+    assert len(docs) == 7
+    for a, b in (("u3", "u3b"), ("u1", "u1b"), ("u4", "u4b")):
+        assert docs[a]["document"] == docs[b]["document"] and docs[a]["url"] != docs[b]["url"]
+        assert all(docs[a][k] == docs[b][k] for k in R.SHARED_READING), (a, b)
+    assert docs["u1"]["outcome"] == "read" and docs["u1b"]["summary"] == "A judgment."
+    assert docs["u3"]["outcome"] == R.WAIT_TEXT and docs["u4b"]["outcome"] == "caught"
+    lines = {(item, stage) for item, stage, _ in res.set_aside}
+    assert ("u4", "pull") in lines and ("u4b", "pull") in lines, "a caught file is a catch-log line for each record"
+    assert not any(item in ("u1b", "u3b") for item, _, _ in res.set_aside), "a read file is no line"
+
+
 def test_the_old_listing_s_judgments_the_corpus_lacks_are_catch_log_lines_not_rows():
     entries = [{"sha256": SHA, "source": "courtsofnz.govt.nz", "ref": "court:2099 NZSC 7", "url": "https://x/2099-NZSC-7.pdf"},
                {"sha256": SHA2, "source": "courtsofnz.govt.nz", "ref": "court:2099 NZSC 8", "url": "https://x/2099-NZSC-8.pdf"},
