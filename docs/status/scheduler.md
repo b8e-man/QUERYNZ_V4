@@ -13,16 +13,11 @@ Scope `support/scheduler`.
 - release-copy-1 (23 October): the worker and every job run from the
   release copy `/home/user/querynzv4-release`, moved by
   `python -m support.installer release` after every push.
-- fix-support-scheduler-1 (this close, ruling 115): a run stopped at its
-  memory ceiling raises the job's working figure to twice the ceiling,
-  rounded up to 0.5 GB, in `scheduler.memory_raises` (never jobs.toml), and
-  queues the job again at once; at most two raises per first row, never
-  over the box's memory less the reserve (recorded, not applied); every
-  other failure as before. Placement and the ceiling use the working
-  figure, read from the table each tick. `report` and the new `memory`
-  subcommand list raises jobs.toml has not folded; the run record carries
-  `working_mb` and `rerun_of_raise`. Seven slow tests and eight fast, each
-  seen failing on its mutant.
+- fix-support-scheduler-2 (ruling 115): a run stopped at its memory
+  ceiling raises the job's working figure to twice the ceiling, rounded up
+  to 0.5 GB, in `scheduler.memory_raises` (never jobs.toml), and queues the
+  job again at once; at most two raises per first row. Placement and the
+  ceiling use the working figure. `memory` lists raises not yet folded.
 
 - fix-support-scheduler-3 (this close, ruling 129): the standing server's
   night window. jobs.toml `[night_window]` (22:00 to 05:45 Pacific/Auckland,
