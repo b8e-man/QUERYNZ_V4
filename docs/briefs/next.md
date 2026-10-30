@@ -705,6 +705,13 @@ fields. Starts after `fix-support-mcpsource-2` merges and the first
 download run has landed the files. Launched headless by the integrator, or
 on node2: `cd /home/user/querynzv4 && bin/start-session courts-2 registers/courts`.
 
+Measured 30 October 14:40, during the first download run: the corpus holds
+5,611 file pointers, not 4,946 records; it carries crawl noise (a case
+page's `++resource++courts-contenttypes.css`, its `sendto_form`, both served
+as 75 KB of HTML) and a few records whose delivered bytes do not match the
+record's hash (`mcpsource.files` state `caught`, 7 by 14:20). The lane's
+recognise step sets both kinds aside by shape, not by name.
+
 ```text
 You are a build session for QueryNZV4, running as Fable on node2, in the
 working copy the launcher made for you, scope registers/courts/. Read
