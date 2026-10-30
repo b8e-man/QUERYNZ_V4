@@ -42,9 +42,9 @@ from dataclasses import dataclass, field
 VERSION = "registers.courts.caption 1"
 
 COURTS = {"SUPREME COURT": "NZSC", "COURT OF APPEAL": "NZCA", "HIGH COURT": "NZHC", "DISTRICT COURT": "NZDC"}
-CITE = re.compile(r"\[(\d{4})\]\s+(NZ[A-Z]{2,5})\s+(\d{1,5})\b")
-CITE_LINE = re.compile(r"^\s*\[(\d{4})\]\s+(NZ[A-Z]{2,5})\s+(\d{1,5})\s*$")
-FILE_CITE = re.compile(r"(\d{4})-(NZ[A-Z]{2,5})-(\d{1,5})(?:[^0-9].*)?\.pdf$", re.I)
+CITE = re.compile(r"\[(\d{4})\]\s+(NZ[A-Za-z]{2,6})\s+(\d{1,5})\b")
+CITE_LINE = re.compile(r"^\s*\[(\d{4})\]\s+(NZ[A-Za-z]{2,6})\s+(\d{1,5})\s*$")
+FILE_CITE = re.compile(r"(\d{4})-(NZ[A-Za-z]{2,6})-(\d{1,5})(?:[^0-9].*)?\.pdf$", re.I)
 COURT_LINE = re.compile(r"^\s*IN THE ([A-ZĀĒĪŌŪ ]+?) OF NEW ZEALAND\s*$", re.M)
 REO_LINE = re.compile(r"^\s*I TE K[OŌ]TI\b", re.M)
 REGISTRY = re.compile(r"^\s*([A-ZĀĒĪŌŪ'’\- ]{3,40}?) REGISTRY\s*$")

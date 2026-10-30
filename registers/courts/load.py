@@ -1,16 +1,21 @@
 """Loading (plan 1b.7). The merge gate's staging step calls `load` to build
 this lane's reading under a staging schema of the real database, and
 `publish` to move it into the lane's own tables in one transaction and
-refresh the published views. `fill` in sample.py uses the same pieces.
+refresh the published views; `qv4-courts-load` runs the same nightly after
+the pull. `fill` in sample.py uses the same pieces.
 
-The listing is landed from the store (capture.py exported it once), every
-listed file copied in by hash, the capture job's landed judgments added,
-the documents read (read.py), and the rows copied in. The ledger of
-suppression orders and the capture job's tables are the lane's own records
-and are never wiped: a staging build reads the orders from the lane's real
-schema, so an order recorded today binds the next build.
+The listing is the MCP's courts corpus (capture.records: one entry per
+record, the version the pull saw last); every file is read from the store
+by hash (read.py); the stored model readings are replayed; the rows are
+copied in. The ledger of suppression orders is the lane's own record and is
+never wiped: a staging build reads the orders from the lane's real schema,
+so an order recorded today binds the next build.
+
+    python -m registers.courts.load [--database querynz_v4] [--schema staging_courts_load] [--publish]
 """
+import argparse
 import os
+import sys
 
 from support import jobrun
 from registers.courts import capture, read
@@ -18,20 +23,29 @@ from registers.courts import capture, read
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "courts"
 PRIVATE = "courts_private"
+JOB = "qv4-courts-load"
 #: the reading's tables, rebuilt at every load
-TABLES = ("judgments", "judgment_parties", "paragraphs", "files", "set_aside")
+TABLES = ("documents", "cases", "case_links", "judgments", "judgment_parties", "paragraphs", "people", "set_aside")
 PRIVATE_TABLES = ("withheld_names",)
-#: the lane's records, never wiped
-RECORDS = ("suppression_orders", "captures", "feeds", "capture_log")
+#: the lane's record, never wiped
+RECORDS = ("suppression_orders",)
+STAMP = ("document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at")
 COLUMNS = {
+    "documents": ("key", "record", "seq", "kind", "case_slug", "url", "content_type", "fetched_at", "document", "state",
+                  "profile", "profile_version", "outcome", "pages", "read_from", "text_chars", "citation", "case_numbers",
+                  "dated", "summary", "model", "model_reader", "loaded_at"),
+    "cases": ("key", "case_slug", "url", "case_name", "citation", "case_numbers", "court", "summary", "result", "judges",
+              "date_of_judgment", "date_of_hearing", "suppression", "withheld", "links") + STAMP,
+    "case_links": ("key", "case", "position", "section", "label", "href", "linked_document", "document", "page", "place"),
     "judgments": ("key", "citation", "court", "court_name", "registry", "case_numbers", "judgment_date", "date_basis",
                   "hearing", "judges", "heading", "caption_shape", "outcome", "paragraphs", "parties", "suppression",
-                  "suppression_kinds", "withheld", "status", "missing", "unrecognised", "notes", "source", "source_url",
-                  "source_note", "document", "page", "place", "read_from", "reader", "profile", "profile_version",
-                  "loaded_at"),
+                  "suppression_kinds", "withheld", "status", "missing", "unrecognised", "notes", "case_slug", "source",
+                  "source_url", "source_note") + STAMP,
     "judgment_parties": ("key", "judgment", "citation", "position", "block", "role", "name", "withheld", "anonymised",
-                         "crown", "confidence", "capacity", "document", "page", "place", "read_from", "reader",
-                         "profile", "profile_version", "loaded_at"),
+                         "crown", "confidence", "capacity") + STAMP,
+    "people": ("key", "name", "kind", "role", "role_text", "for_party", "citation", "case_slug", "document_kind", "dated",
+               "withheld", "document", "page", "place", "read_from", "reader", "model", "profile", "profile_version",
+               "loaded_at"),
 }
 
 
@@ -59,13 +73,15 @@ def capture_tables_sql(schema: str = SCHEMA, shared: bool = False) -> str:
 
 def create_tables(conn, schema: str, shared: bool = False) -> None:
     """The reading's tables as tables.sql has them now, made again on every
-    build; the records are created if absent and never dropped."""
+    build (each dropped and created); the record is created if absent and
+    never dropped."""
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {private_of(schema)}")
+    remove = "DROP TABLE IF EXISTS {} CASCADE"
     for t in TABLES:
-        conn.execute(f"DROP TABLE IF EXISTS {table(schema, t, shared)} CASCADE")
+        conn.execute(remove.format(table(schema, t, shared)))
     for t in PRIVATE_TABLES:
-        conn.execute(f"DROP TABLE IF EXISTS {table(private_of(schema), t, shared)} CASCADE")
+        conn.execute(remove.format(table(private_of(schema), t, shared)))
     conn.execute(sql("tables.sql", schema, shared))
 
 
@@ -81,54 +97,41 @@ def orders(conn, schema: str = SCHEMA, shared: bool = False) -> list:
     return [{"citation": r[0], "document": r[1], "reason": r[2]} for r in cur]
 
 
-def captured(conn, schema: str = SCHEMA, shared: bool = False) -> list:
-    """[(entry, sha)] of the judgments the capture job landed."""
-    cur = conn.execute(f"SELECT url, citation, document, captured_at::text FROM {table(schema, 'captures', shared)} "
-                       "WHERE document IS NOT NULL ORDER BY url")
-    return [({"source": "capture", "ref": c, "url": u, "file": os.path.basename(u), "captured_at": at,
-              "note": "captured once from www.courtsofnz.govt.nz through the fetch gate"}, d) for u, c, d, at in cur]
-
-
-def build(conn, schema: str, entries: list, held: list, aside: list, ledger: list, only=None,
-          shared: bool = False, store=None) -> dict:
-    """entries: the listing; held: [(entry, DocumentRef or sha)] of documents in
-    the store; aside: [(item, why)] from capture; ledger: the orders. Wipes and
-    fills `schema`; returns the counts."""
+def build(conn, schema: str, entries: list, caught: list, ledger: list, shared: bool = False, store=None,
+          old_listing: list = None) -> dict:
+    """entries: the corpus's records (capture.records); caught: the pull's
+    catch lines; ledger: the orders. Wipes and fills `schema`; returns the
+    counts."""
     create_tables(conn, schema, shared)
-    docs = [({**e, "note": e.get("note") or capture.LISTING_NOTE}, getattr(r, "sha256", r)) for e, r in held]
-    res = read.read(docs, ledger, store=store)
-    listed = {e["sha256"]: e for e in entries if only is None or e["sha256"] in only}
-    not_held = {sha for sha, _ in aside}
-    files = list(res.files) + [(sha, e["source"], e["ref"], e["url"], None, "not held", e.get("pages"))
-                               for sha, e in listed.items() if sha in not_held]
-    _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason"),
-          [(i, "capture", w) for i, w in aside] + list(res.set_aside))
-    _copy(conn, table(schema, "files", shared), ("document", "source", "ref", "url", "profile", "outcome", "pages"), files)
-    for t, rows in (("judgments", res.judgments), ("judgment_parties", res.parties)):
+    res = read.read(entries, ledger, store=store)
+    gap = capture.old_listing_gap(old_listing if old_listing is not None else capture.old_listing(), entries)
+    aside = list(res.set_aside) + [(rid, "pull", f"the pull's catch line at seq {seq}, stage {stage}: {reason}")
+                                   for rid, seq, stage, reason in caught if rid] + list(gap)
+    _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason"), aside)
+    for t, rows in (("documents", res.documents), ("cases", res.cases), ("case_links", res.case_links),
+                    ("judgments", res.judgments), ("judgment_parties", res.parties), ("people", res.people)):
         _copy(conn, table(schema, t, shared), COLUMNS[t], (tuple(r.get(c) for c in COLUMNS[t]) for r in rows))
     _copy(conn, table(schema, "paragraphs", shared), ("judgment", "number", "page", "document"), res.paragraphs)
     _copy(conn, table(private_of(schema), "withheld_names", shared), ("key", "name", "capacity"), res.withheld)
-    return {**res.counts, "listed": len(listed), "not_held": len(not_held)}
+    return {**res.counts, "pull_caught": len(caught), "old_listing_gap": len(gap)}
 
 
-def load(conn, schema: str, log=print) -> int:
-    """The listing landed, its files copied in, the captures added, all read,
-    under `schema`. Returns the judgment count."""
+def load(conn, schema: str, log=print, mcp_schema: str = capture.MCP_SCHEMA) -> int:
+    """The corpus's records read from the store under `schema`. Returns the
+    count of documents read."""
     started = jobrun.now()
-    conn.execute(capture_tables_sql(SCHEMA))           # the records live in the lane's own schema
-    _, entries = capture.land_listing(conn)
-    held, aside = capture.copy_all(conn, entries, log=log)
-    held += captured(conn)
-    counts = build(conn, schema, entries, held, aside, orders(conn))
+    conn.execute(capture_tables_sql(SCHEMA))           # the record lives in the lane's own schema
+    entries = capture.records(conn, mcp_schema)
+    counts = build(conn, schema, entries, capture.caught(conn, mcp_schema), orders(conn))
     detail = ", ".join(f"{k} {v}" for k, v in counts.items()) + f", into {schema}"
     log("courts: " + detail)
-    jobrun.record("qv4-courts-load", True, detail, started, counts)
-    return counts["judgments"]
+    jobrun.record(JOB, True, detail, started, counts)
+    return counts["read"]
 
 
 def publish(conn, staging: str) -> None:
     """The lane's reading wiped and refilled from the staged one, and the
-    views refreshed, in one transaction (contract: the lane). The records are
+    views refreshed, in one transaction (contract: the lane). The record is
     not touched."""
     with conn.transaction():
         create_tables(conn, SCHEMA)
@@ -140,3 +143,33 @@ def publish(conn, staging: str) -> None:
         from registers.courts import suppress
         suppress.apply_all(conn, SCHEMA)
         conn.execute(sql("publish.sql"))
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(prog="registers.courts.load", description="Build the courts lane from the MCP's corpus.")
+    ap.add_argument("--database", default="querynz_v4")
+    ap.add_argument("--schema", default="staging_courts_load", help="the staging schema to build into")
+    ap.add_argument("--mcp-schema", default=capture.MCP_SCHEMA)
+    ap.add_argument("--publish", action="store_true", help="after a green check, move the staged reading into place")
+    a = ap.parse_args(argv)
+    from support import db
+    from registers.courts import check
+    with db.connect(db.OWNER_KEY, a.database) as conn:
+        conn.execute("SET statement_timeout = '600s'")
+        load(conn, a.schema, mcp_schema=a.mcp_schema)
+        conn.commit()
+        out = check.account(conn, a.schema)
+        for f in out["failures"]:
+            print("FAIL " + f)
+        if a.publish:
+            if out["failures"]:
+                print("not published: the check failed")
+                return 1
+            publish(conn, a.schema)
+            conn.commit()
+            print(f"published from {a.schema}")
+    return 1 if out["failures"] else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

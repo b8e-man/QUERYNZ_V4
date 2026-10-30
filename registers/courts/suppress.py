@@ -13,11 +13,13 @@ withhold, the names already withheld); never a name.
 
 `--execute`: records the order in `courts.suppression_orders` (a ledger:
 nothing deletes from it), then, in one transaction, withholds every name
-the order reaches: the name and its capacity move to
-`courts_private.withheld_names`, the published row keeps its role, its
-position and its citation with the name NULL, and the judgment row is
-marked `suppression` with the order's reason. The Crown's name and an
-initial the court printed stay. Every later build reads the ledger
+the order reaches: a caption's party names, every name the text reader
+produced on every document of the citation (`courts.people`: judges,
+counsel, a public agency and the Crown apart), and the case page's case
+name; the name and its capacity move to `courts_private.withheld_names`,
+the published row keeps its role, its position and its citation with the
+name NULL, and the judgment row is marked `suppression` with the order's
+reason. The Crown's name and an initial the court printed stay. Every later build reads the ledger
 (load.py), so the order outlives the rebuild; `publish` applies it again
 after the swap, so an order made during a merge binds too. The published
 views read only these tables, so every product that reads them is bound.
@@ -31,10 +33,11 @@ import getpass
 import re
 import sys
 
+from registers.courts import caption
 from registers.courts import load as L
 
 _SHA = re.compile(r"^[0-9a-f]{64}$")
-_CITATION = re.compile(r"^\[\d{4}\] NZ[A-Z]{2,5} \d{1,5}$")
+_CITATION = re.compile(r"^\[\d{4}\] NZ[A-Za-z]{2,6} \d{1,5}$")
 
 
 def target(ref: str) -> dict:
@@ -52,20 +55,38 @@ def _where(t: dict) -> tuple:
     return "j.citation = %s", (t["citation"],)
 
 
+def _reach_sql(schema: str, t: dict, shared: bool):
+    """The documents the order reaches: the named document, or every
+    document of the citation (judgments, releases, transcripts, case pages
+    with it in their title), and every document of their case pages' slugs."""
+    D = L.table(schema, "documents", shared)
+    if t["document"]:
+        return (f"SELECT document FROM {D} WHERE document = %s", (t["document"],))
+    return (f"WITH c AS (SELECT document, case_slug FROM {D} WHERE citation = %s AND document IS NOT NULL) "
+            f"SELECT document FROM c UNION SELECT d.document FROM {D} d JOIN c ON c.case_slug = d.case_slug "
+            f"WHERE c.case_slug IS NOT NULL AND d.document IS NOT NULL", (t["citation"],))
+
+
 def reach(conn, schema: str, t: dict, shared: bool = False) -> dict:
     """What the order reaches, as counts."""
-    J, P = L.table(schema, "judgments", shared), L.table(schema, "judgment_parties", shared)
+    J, P, N = L.table(schema, "judgments", shared), L.table(schema, "judgment_parties", shared), L.table(schema, "people", shared)
     w, args = _where(t)
     judgments = conn.execute(f"SELECT count(*) FROM {J} j WHERE {w}", args).fetchone()[0]
     to_withhold, already = conn.execute(
         f"SELECT count(*) FILTER (WHERE NOT p.withheld AND NOT p.crown AND NOT p.anonymised AND p.name IS NOT NULL), "
         f"count(*) FILTER (WHERE p.withheld) FROM {P} p JOIN {J} j ON j.key = p.judgment WHERE {w}", args).fetchone()
-    return {"judgments": judgments, "names to withhold": to_withhold, "already withheld": already}
+    rsql, rargs = _reach_sql(schema, t, shared)
+    docs = conn.execute(f"SELECT count(*) FROM ({rsql}) r", rargs).fetchone()[0]
+    names = conn.execute(f"SELECT count(*) FILTER (WHERE NOT withheld AND name IS NOT NULL AND role NOT IN ('judge', 'counsel', 'agency')), "
+                         f"count(*) FILTER (WHERE withheld) FROM {N} WHERE document IN ({rsql})", rargs).fetchone()
+    return {"judgments": judgments, "names to withhold": to_withhold, "already withheld": already,
+            "documents reached": docs, "model-read names to withhold": names[0], "model-read names already withheld": names[1]}
 
 
 def withhold(conn, schema: str, t: dict, reason: str, shared: bool = False) -> int:
     """Withhold the names the order reaches; returns how many. Call inside a transaction."""
-    J, P = L.table(schema, "judgments", shared), L.table(schema, "judgment_parties", shared)
+    J, P, N, C = (L.table(schema, "judgments", shared), L.table(schema, "judgment_parties", shared),
+                  L.table(schema, "people", shared), L.table(schema, "cases", shared))
     W = L.table(L.private_of(schema), "withheld_names", shared)
     w, args = _where(t)
     reached = f"SELECT p.key FROM {P} p JOIN {J} j ON j.key = p.judgment WHERE {w} " \
@@ -76,6 +97,20 @@ def withhold(conn, schema: str, t: dict, reason: str, shared: bool = False) -> i
     conn.execute(f"UPDATE {J} j SET suppression = true, withheld = %s, "
                  "suppression_kinds = CASE WHEN 'ledger' = ANY(suppression_kinds) THEN suppression_kinds "
                  f"ELSE suppression_kinds || ARRAY['ledger'] END WHERE {w}", (f"suppression order: {reason}",) + args)
+    # the text reader's names on every document the order reaches, the court's officers and the Crown apart
+    rsql, rargs = _reach_sql(schema, t, shared)
+    crown = caption.CROWN.pattern
+    named = (f"SELECT key FROM {N} WHERE document IN ({rsql}) AND NOT withheld AND name IS NOT NULL "
+             f"AND role NOT IN ('judge', 'counsel', 'agency') AND upper(name) !~ %s")
+    nargs = rargs + (crown,)
+    conn.execute(f"INSERT INTO {W} (key, name, capacity) SELECT key, name, NULL FROM {N} WHERE key IN ({named}) "
+                 "ON CONFLICT (key) DO NOTHING", nargs)
+    n += conn.execute(f"UPDATE {N} SET name = NULL, for_party = NULL, withheld = true WHERE key IN ({named})", nargs).rowcount
+    cases = f"SELECT key FROM {C} WHERE document IN ({rsql}) AND case_name IS NOT NULL"
+    conn.execute(f"INSERT INTO {W} (key, name, capacity) SELECT key, case_name, NULL FROM {C} WHERE key IN ({cases}) "
+                 "ON CONFLICT (key) DO NOTHING", rargs)
+    n += conn.execute(f"UPDATE {C} SET case_name = NULL, suppression = true, withheld = %s WHERE key IN ({cases})",
+                      (f"suppression order: {reason}",) + rargs).rowcount
     return n
 
 
