@@ -1,27 +1,49 @@
 # parliament: where it stands
 
-Sessions parliament-1, fix-registers-parliament-1 (Opus), 27 and 28 October
-2026, node2. Rulings 96, 101, 102. On main since 27 October.
+Sessions parliament-1, fix-registers-parliament-1 (27, 28 October 2026),
+parliament-2 (31 October, Fable, node2). Rulings 96, 101, 102, 123, 128;
+ruling 130 (the common rules for the MCP names readers) pending. The
+records lane is on main since 27 October; the text reader is on branch
+`session/parliament-2`, merge request `parliament-2`.
 
 ## Done
 
-- `registers/parliament`: `written_questions`, `api_items`, `wayback_pages`,
-  `files`, `set_aside`, `address_flags`, `street_scan`, read by hash from
-  the version the pull landed last; three pub views carrying the text whole
-  with `<column>_names_address` beside it (ruling 102); the check per corpus
-  against the MCP's `corpora` and `measure`.
-- Fix 1c (merged 132aa81): parliament.nz's archived refusal pages are set
-  aside as `blocked` (hard limit 6).
-- Fix 1d (merge request `fix-registers-parliament-1d`): the check took
-  1 min 55 s on the live tables and the board gives 120 s. The second
-  street pattern now runs over every row at the load, after the views
-  refresh (`load.stamp_scan`, 99 s), into `street_scan`; the check holds
-  that stamp to each view (same rows, same load, nothing found) and re-scans
-  a fixed sample of 5,000 rows per view. Live: 36 s.
+- `registers/parliament`: `written_questions`, `api_items`,
+  `wayback_pages`, `files`, `set_aside`, `address_flags`, `street_scan`;
+  three pub views with the text whole and `<column>_names_address` beside
+  it (ruling 102); the check per corpus against the MCP's `corpora` and
+  `measure`; parliament.nz's archived refusals set aside as blocked.
+- parliament-2: `model_read.py`, the text reader (Flash-Next, profile
+  `text-reader`, temperature 0): every person and body an archived page
+  or a written question and its reply names, kind, role, role_text, "of",
+  one summary line; one reading per document hash; a page over the
+  24,000-character budget read in pieces by the profile's split rule
+  (speaker turn, else paragraph, else sentence) and joined; several
+  questions of one year-and-number batch in one request, keyed back; an
+  answer cut at the token cap salvaged; a missing document asked once
+  more alone, then stored unusable. Profiles `mcp-parliament-wayback-page`
+  and `mcp-parliament-written-question` at version 2 with the measured
+  sizes, budget and split rule (`profile-proposed.jsonl`). The load
+  replays the stored readings into `readings` and `people`;
+  `pub.parliament_people`; the check counts read, waiting, set aside at
+  read, names by kind and role, and fails on another profile version.
+  `--pieces` and `--piece`; job `qv4-parliament-read` proposed in the
+  merge request. Proven on the fixed sample read once (sample.list): 20
+  pages (109 requests, 2,861 names), 46 questions (184 alone, 15 in two
+  batches); fast tier green, 56 s.
+- Measured on live, 31 October: pages 21,989 (3,554 over the budget,
+  35,579 requests, 11 the rule cannot split: binary files served as
+  pages, set aside at read); questions 683,524 (1 over the budget,
+  420,616 older versions never opened).
 
 ## Next
 
-- At the merge the staging load writes the first `street_scan`; until then
-  the check is red with "the load's whole scan has no line for the view".
-- Check red on wayback: 10,067 documents taken, 8,836 records read (the
-  pull grew; the next load reads them).
+- The integrator: append the two profile lines; install
+  `qv4-parliament-read`; enqueue `--pieces` (pages first, newest first,
+  then the questions' batch leaders); the next `qv4-parliament-load`
+  picks the readings up; catalogue `pub.parliament_people` on the board in
+  the merge after.
+- The papers (sc-submissions, sc-reports, bills, SOPs) wait on the
+  provider's capture of their files: no reader.
+- An archived page's older snapshot whose text differs is read as its own
+  document (`files` status `older text`); none exist today.

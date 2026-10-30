@@ -12,7 +12,13 @@ plus older versions plus items set aside; the pull's own catch lines come
 across as set-aside lines at stage `pull`. Every text published whole is
 flagged where its shape names an address (shapes.py, ruling 102); the
 flagged rows go to `address_flags` by key and the log counts them by
-column, never printing a value. Once the views are refreshed, `stamp_scan`
+column, never printing a value. The text reader's stored readings
+(model_read.py, one per document hash in the reader store) are replayed
+as each written question and archived page is read: its names go to
+`people`, its summary to `readings`; a document without a reading is
+waiting on `qv4-parliament-read`; one whose reading is unusable, or whose
+text the profile cannot split, is set aside at stage `read`, named. No
+model is called here. Once the views are refreshed, `stamp_scan`
 runs the check's second pattern (check.STREET_SQL) over every row of them
 and writes what it found to `street_scan`: the check holds that stamp to
 the view and re-scans only a fixed sample (the board gives it 120 s).
@@ -24,19 +30,29 @@ import os
 import sys
 
 from support import jobrun
+from support import reader as rd
 from support.docstore.landing import read_bytes
-from registers.parliament import capture, read
+from registers.parliament import capture, model_read as M, read, shapes
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "parliament"
 PRIVATE = "parliament_private"
 JOB = "qv4-parliament-load"
 TABLES = ("written_questions", "api_items", "wayback_pages", "files", "set_aside", "address_flags",
-          "street_scan")
+          "street_scan", "readings", "people")
 PRIVATE_TABLES = ()
+PEOPLE_FLAGGED = ("name", "role_text", "of_organisation")      # published whole, flagged (hard limit 15 by the flag)
 COLUMNS = {"written_questions": read.columns("wq"), "api_items": read.columns("api"),
-           "wayback_pages": read.columns("wayback")}
+           "wayback_pages": read.columns("wayback"),
+           "readings": ("document", "source_table", "source_key", "dated", "citation_url", "pieces", "names", "summary",
+                        "truncated", "batch", "model", "reader", "profile", "profile_version", "made_at", "loaded_at"),
+           "people": ("key", "name", "name_names_address", "kind", "role", "role_text", "role_text_names_address",
+                      "of_organisation", "of_organisation_names_address", "source_table", "source_key", "dated",
+                      "citation_url", "document", "page", "place", "read_from", "reader", "model", "profile",
+                      "profile_version", "loaded_at")}
 BATCH = 20000
+READ = "read"       # the set-aside stage of a document the text reader could not read
+SHAPE_OF = {"written_questions": "wq", "wayback_pages": "wayback"}
 
 
 def private_of(schema: str) -> str:
@@ -75,17 +91,83 @@ def _copy(conn, name: str, cols: tuple, rows) -> None:
             cp.write_row(row)
 
 
-class Sink(read.Result):
-    """read.Result whose rows go to the tables in batches as they are read."""
+def document_of(t: str, row: dict) -> dict:
+    """What a people row says of its document: the row's key, its own day (the question's release, the page's
+    snapshot) and its address."""
+    if t == "written_questions":
+        return {"source_table": t, "source_key": row["key"], "dated": row.get("question_released_on"),
+                "citation_url": None}
+    day = (row.get("dated") or "")[:10]
+    if not read._iso_day(day):
+        day = (row.get("archived_at") or "")[:10] or None
+    return {"source_table": t, "source_key": row["key"], "dated": day or None, "citation_url": row.get("citation_url")}
 
-    def __init__(self, conn, schema: str, shared: bool):
+
+class Sink(read.Result):
+    """read.Result whose rows go to the tables in batches as they are read, and which replays each written
+    question's and archived page's stored text-reader reading into `people` and `readings` as its row passes
+    (`pick`), never calling a model."""
+
+    def __init__(self, conn, schema: str, shared: bool, store: rd.Store = None):
         super().__init__()
         self.conn, self.schema, self.shared = conn, schema, shared
+        self.store = store or rd.Store()
+        self.rows["readings"], self.rows["people"] = [], []
+        self.now = None
 
     def emit(self, t: str, row: dict) -> None:
         self.rows[t].append(row)
+        if t in M.PROFILE_OF:
+            self.pick(t, row)
         if len(self.rows[t]) >= BATCH:
             self.flush(t)
+
+    def emit_older(self, t: str, row: dict) -> None:
+        """An archived page's older version whose text differs: a document for the text reader, not a row."""
+        super().emit_older(t, row)
+        self.pick(t, row)
+
+    def pick(self, t: str, row: dict) -> None:
+        """The document's stored reading, replayed: people rows and a readings row; else waiting, or set aside
+        at stage read when the profile cannot split its text or the reader found it unusable."""
+        profile = M.PROFILE_OF[t]
+        version = read.PROFILE_VERSION[SHAPE_OF[t]]
+        sha = row["document"]
+        c = self.counts
+        try:
+            M.pieces_of(M.document_text(profile, row), M.budget(profile))
+        except M.CannotSplit as exc:
+            self.set_aside.append((sha, READ, str(exc)))
+            c[f"{t}: set aside at read"] = c.get(f"{t}: set aside at read", 0) + 1
+            return
+        reading = M.stored(sha, profile, version, self.store)
+        if reading is None:
+            c[f"{t}: waiting on the text reader"] = c.get(f"{t}: waiting on the text reader", 0) + 1
+            return
+        if reading["unusable"]:
+            self.set_aside.append((sha, READ, reading["unusable"]))
+            c[f"{t}: set aside at read"] = c.get(f"{t}: set aside at read", 0) + 1
+            return
+        doc = document_of(t, row)
+        now = self.now or row["loaded_at"]
+        for p in M.people_rows(sha, reading, doc, profile, version, now):
+            for col in PEOPLE_FLAGGED:
+                found = shapes.shape(p[col])
+                p[f"{col}_names_address"] = found is not None
+                if found:
+                    self.emit_flag(("people", p["key"], col, found))
+                    c[f"people.{col} names an address"] = c.get(f"people.{col} names an address", 0) + 1
+            self.rows["people"].append(p)
+        self.rows["readings"].append({**doc, "document": sha, "pieces": reading["pieces"] or 1, "names": len(reading["people"]),
+                                      "summary": reading["summary"], "truncated": bool(reading["truncated"]),
+                                      "batch": reading.get("batch"), "model": reading["model"], "reader": reading["reader"],
+                                      "profile": profile, "profile_version": version, "made_at": reading["made_at"],
+                                      "loaded_at": now})
+        c[f"{t}: read by the text reader"] = c.get(f"{t}: read by the text reader", 0) + 1
+        c["names"] = c.get("names", 0) + len(reading["people"])
+        for name in ("people", "readings"):
+            if len(self.rows[name]) >= BATCH:
+                self.flush(name)
 
 
     def flush(self, t: str) -> None:
@@ -98,12 +180,14 @@ class Sink(read.Result):
             self.flush(t)
 
 
-def build(conn, schema: str, items: list, caught: list = (), shared: bool = False, get_bytes=read_bytes) -> dict:
+def build(conn, schema: str, items: list, caught: list = (), shared: bool = False, get_bytes=read_bytes,
+          store: rd.Store = None) -> dict:
     """items: [(corpus, sha256, seq, record id, served)]; caught: the pull's
     catch lines [(corpus, seq, stage, reason)]. Wipes and fills `schema`;
-    returns the counts."""
+    returns the counts. `store`: the reader store the text reader's
+    readings are replayed from (the shared one by default)."""
     create_tables(conn, schema, shared)
-    sink = Sink(conn, schema, shared)
+    sink = Sink(conn, schema, shared, store)
     read.read(items, get_bytes, out=sink)
     sink.close()
     _copy(conn, table(schema, "files", shared), ("sha256", "corpus", "record_id", "seq", "status"), sink.files)
