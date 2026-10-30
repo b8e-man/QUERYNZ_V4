@@ -28,6 +28,7 @@ import sys
 
 from registers.courts import capture
 from registers.courts import load as L
+from registers.courts import model_read
 from registers.courts import read as R
 
 ROLES_TOLERATED = 2
@@ -98,15 +99,16 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
                "WHERE j.suppression AND p.name IS NOT NULL AND NOT p.crown AND NOT p.anonymised")
     for (k,) in leaked:
         out["failures"].append(f"{k[:12]}…{k[64:]}: a name published in a judgment under suppression")
-    # a model-read name on a document a suppression reaches: the judgment's own, or a document of its citation or case
+    # a model-read name on a document a suppression reaches: the judgment's own, or a document of its citation or case;
+    # the keep rule is the load's own (model_read.kept_sql), one rule for both
+    kept = model_read.kept_sql("n.")
     reach = q(f"""
         WITH s AS (SELECT document, citation, case_slug FROM {t('judgments')} WHERE suppression)
         SELECT n.key FROM {t('people')} n
-         WHERE n.name IS NOT NULL AND n.role NOT IN ('judge', 'counsel', 'agency')
+         WHERE n.name IS NOT NULL AND NOT {kept}
            AND (n.document IN (SELECT document FROM s)
                 OR (n.citation IS NOT NULL AND n.citation IN (SELECT citation FROM s WHERE citation IS NOT NULL))
-                OR (n.case_slug IS NOT NULL AND n.case_slug IN (SELECT case_slug FROM s WHERE case_slug IS NOT NULL)))
-           AND upper(n.name) !~ %s""", R.caption.CROWN.pattern)
+                OR (n.case_slug IS NOT NULL AND n.case_slug IN (SELECT case_slug FROM s WHERE case_slug IS NOT NULL)))""")
     for (k,) in reach:
         out["failures"].append(f"{k[:12]}…{k[64:]}: a model-read name published on a document a suppression reaches")
     shown = q(f"SELECT count(*) FROM {t('judgment_parties')} WHERE withheld AND (name IS NOT NULL OR capacity IS NOT NULL)")[0][0]

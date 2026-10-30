@@ -668,7 +668,7 @@ nice = 10
 description = "Every image page of one candidate return through the page-reader profile, stored under the reader contract's stamp and the candidate-returns lane's scan profile (card: 713 returns set aside at stage read wait on a reading). One piece per document; the lane picks the readings up on its next load. Queued by the integrator after candidate-returns-1."
 needs = "model-profile"
 profile = "page-reader"
-memory_gb = 1.5
+memory_gb = 4   # the scheduler report of 31 October: raise 2, peak 1,931 MB over the 1.5 GB ceiling on row 860
 deadline_s = 1800
 query_timeout_s = 300
 class = "whenever"
@@ -1284,7 +1284,7 @@ concurrency = 4
 [jobs.qv4-parliament-load]
 description = "Parliament: rebuild the lane's tables from the MCP's seven parliament corpora, publish pub.parliament_written_questions, pub.parliament_api_items and pub.parliament_wayback_pages on green. Nightly at 04:30 NZDT, after the pull (ruling 96; parliament-1, 27 October 2026)."
 needs = "processor"
-memory_gb = 2.0
+memory_gb = 3.0   # peak 2,393 MB on 31 October (run 27aa46b9) passed the 2 GB declared
 deadline_s = 3600
 query_timeout_s = 600
 class = "due"

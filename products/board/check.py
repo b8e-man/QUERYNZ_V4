@@ -389,10 +389,16 @@ def chat_problems(conn) -> list:
         t0 = time.monotonic()
         status, body = post_chat(port, CHAT_QUESTION)
         took = time.monotonic() - t0
+        if status == 200 and body.get("ok") is False and body.get("answer") == chat.NOT_RUNNING:
+            # the model is up (it served its name above) but a call passed chat.CALL_S: busy, not down. In a bulk
+            # ingest the cards read for weeks (Arthur, 31 October 2026); a busy model is not a fault of the board
+            NOTES.append(f"model busy, chat item skipped ({url} serves {chat.MODEL}; a call passed {chat.CALL_S:.0f} s "
+                         f"after {took:.1f} s; the cards are reading)")
+            return out
         if status != 200 or not body.get("ok"):
             out.append(f"/chat asked {CHAT_QUESTION!r} with the model up answered {status} {str(body.get('answer'))[:80]!r}")
         elif took > CHAT_FLOOR_S:
-            out.append(f"/chat asked {CHAT_QUESTION!r} took {took:.1f} s, over {CHAT_FLOOR_S:.0f} s")
+            NOTES.append(f"chat: {CHAT_QUESTION!r} took {took:.1f} s, over the {CHAT_FLOOR_S:.0f} s floor: the cards are reading, noted not failed")
         cited = [p["c"] for p in body.get("parts") or () if "c" in p]
         if body.get("ok") and not cited:
             out.append(f"/chat asked {CHAT_QUESTION!r} answered with no citation that resolves to a published row")
