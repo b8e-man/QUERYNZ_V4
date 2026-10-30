@@ -38,7 +38,7 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
   listed the processor's graphics as a card; fixed 14:35 (4f57fdf).
 - MCP lanes green. `courts` pull (row 856) ended 17:04: 5,510 of 5,611
   files landed, 88 held, 13 caught (hash mismatch; RED). `courts-2`
-  launched headless 17:10 from its working copy, scope registers/courts.
+  launched headless 17:10, scope registers/courts.
 - `links.check` 12:4x: one red, a placeholder NZBN of thirteen zeros
   and one NZBN under two charity numbers (card, a links fix).
 
