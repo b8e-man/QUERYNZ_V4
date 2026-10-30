@@ -18,8 +18,8 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
   gazette, house, companies (1.92 M), expenses and interests, societies,
   candidate returns, charities (64), party boards, OpenLaw (HELD), courts.
 - 4.2/4.3 links: 3.07 M confirmed, 725 K groups (fix-links-5, 29 Oct);
-  the agent scores and applies nothing (ruling 69). 4.4 site version 3.
-  4.9 board 87 views, chat pane (122). 5.1 the report shape, tranche 3.
+  the agent applies nothing (ruling 69). 4.4 site version 3. 4.9 board
+  87 views, chat pane (122). 5.1 the report shape, tranche 3.
 - Rulings 64 to 129 (102: limit 15 binds products, not the board; 123:
   pub.entities; 125 to 129: time-aware rules, MCP courts, reading, night).
 
