@@ -3,6 +3,10 @@ Description=QueryNZV4 model server — Qwen3.8-Flash-Next on Radiance across bot
 # The estate's text-reader and review model on node2 (profiles.toml, profile flash-next). A standing server, not a
 # worker's child: the card manager reads its model back and records the load. It stops and starts this unit in one
 # case only, the night window of jobs.toml [night_window] (ruling 129: 22:00 to 05:45 NZDT, for the page reader).
+# Shape of 31 October (Arthur: a bulk ingest, every MCP document read): the KV cache was 22,652 tokens (2.0 GB) at the
+# 16k bound with 11 GiB of experts a rank in the host pool, so 3 requests ran and 4 waited while the cards sat at 5%;
+# the pool is 20 GiB a rank (experts off-card cost nothing measurable, 29 October) and the bound 32k, so the KV cache
+# takes the VRAM the experts left.
 # --gpu-headroom-mib leaves 2.5 GiB of each card unclaimed for the frozen product's OCR server (hard limit 23); the
 # frozen chat model left the carve-out by ruling 121 and is Arthur's to disable. This unit names neither.
 After=network-online.target
@@ -36,8 +40,8 @@ ExecStart=/usr/bin/podman run --cidfile=%t/%n.ctr-id --cgroups=no-conmon --rm --
   docker.io/stilldeadcode/radiance:latest \
   --model /model.rad --served-model-name qwen4exp \
   --tp 2 --tp-wire exact \
-  --max-model-len 16384 --max-num-seqs 16 --kv-cache-dtype fp8 \
-  --placement expert_tiered --host-pool-mib 11264 --gpu-headroom-mib 2560 \
+  --max-model-len 32768 --max-num-seqs 16 --kv-cache-dtype fp8 \
+  --placement expert_tiered --host-pool-mib 20480 --gpu-headroom-mib 2560 \
   --ngram-placement disk --num-speculative-tokens 3 --draft-window adaptive \
   --max-num-batched-tokens 4096 --checkpoint-policy tip-only \
   --chat-template-kwargs '{"enable_thinking":false}' \
