@@ -1201,6 +1201,21 @@ command = ["python", "-m", "support.mcpsource", "--rewalk", "--budget-s", "12600
 every_s = 604800
 nice = 10
 
+# ── the Beehive's text reader (beehive-2; Arthur, 31 October 2026 08:40) ──
+[jobs.qv4-beehive-read]
+description = "Beehive: the text reader's reading of one release (piece key sha256, the MCP record's hash) through the text-reader profile: every person and body named with kind, role, the role as the text says it, the organisation a person is of, and a one-line summary; stored by hash, replayed by the next qv4-beehive-load. Keys from python -m registers.beehive.model_read --pieces (every release waiting, newest first)."
+needs = "model-profile"
+profile = "text-reader"
+memory_gb = 0.5
+deadline_s = 600
+query_timeout_s = 60
+class = "whenever"
+priority = 28
+command = ["python", "-m", "registers.beehive.model_read", "--piece"]
+pieces = true
+can_share = true
+concurrency = 4
+
 [jobs.qv4-beehive-load]
 description = "Beehive: rebuild the lane's tables from the MCP's beehive documents and the old estate's export, publish pub.beehive_releases and its tables on green. Nightly at 04:00 NZDT, after the pull (ruling 96)."
 needs = "processor"
