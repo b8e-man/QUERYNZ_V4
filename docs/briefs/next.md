@@ -698,6 +698,7 @@ first full download run will cost in calls.
 
 ## courts-2
 
+MERGED 30 October 19:40 as 7cdc8ab (docs/merges/courts-2.md; rows 865 and 866 queued).
 LAUNCHED headless by the integrator, 30 October 17:10, after the first pull
 run (row 856, ended 17:04: 5,510 of 5,611 files landed, 88 held, 13 caught).
 

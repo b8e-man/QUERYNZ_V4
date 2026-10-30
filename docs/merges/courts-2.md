@@ -1,8 +1,8 @@
 # courts-2: the courts lane reads the MCP's corpus only, every kind by shape, names by the text reader (rulings 126, 127, 128)
-branch: session/courts-2 (pushed, 0e9f54f; three commits on main's 6038992; main has since moved to c7b8616, board only)
+branch: session/courts-2 (pushed, 9c3122b; four commits on main's 6038992; main had moved to c7b8616, board only, at the first raising)
 session: courts-2 (build, Fable, scope registers/courts/)
 raised: 2026-10-30
-claims: registers/courts/ whole: capture.py (the corpus's arrival record: `records`, `caught`, `old_listing_gap`; no fetch), read.py (`recognise` by shape, `case_page`, `sheet`, `read`, `read_pages`), model_read.py (new: the text reader's reading through `support.modelclient`, `--pieces`, `--piece <sha>`), load.py, suppress.py, check.py, tables.sql (**DDL: new tables `documents`, `cases`, `case_links`, `people`; `judgments` gains `case_slug`; the capture tables `captures`, `feeds`, `capture_log` are gone**), publish.sql (new views `pub.court_people`, `pub.court_cases`, `pub.court_case_links`, `pub.court_documents`; `pub.court_judgments` gains `case_slug`), caption.py (citation regex admits `NZEmpC`), sample.py, sample.list (20 corpus records), profile-proposed.jsonl (11 lines), spec.md, pane.md, README.md, tests (test_courts_capture.py deleted; test_courts_shapes.py and test_courts_model_read.py new; test_courts_lane.py rewritten); docs/status/courts.md; two cards; one lesson (regenerate lessons/INDEX.md and the card board at the merge).
+claims: registers/courts/ whole: capture.py (the corpus's arrival record: `records`, `caught`, `old_listing_gap`; no fetch), read.py (`recognise` by shape, `case_page`, `sheet`, `read`, `read_pages`), model_read.py (new: the text reader's reading through `support.modelclient`, `--pieces`, `--piece <sha>`), load.py, suppress.py, check.py, tables.sql (**DDL: new tables `documents`, `cases`, `case_links`, `people`; `judgments` gains `case_slug`; the capture tables `captures`, `feeds`, `capture_log` are gone**), publish.sql (new views `pub.court_people`, `pub.court_cases`, `pub.court_case_links`, `pub.court_documents`; `pub.court_judgments` gains `case_slug`), caption.py (citation regex admits `NZEmpC`), sample.py, sample.list (22 corpus records: the case page the corpus holds under two urls joined it), profile-proposed.jsonl (11 lines), spec.md, pane.md, README.md, tests (test_courts_capture.py deleted; test_courts_shapes.py and test_courts_model_read.py new; test_courts_lane.py rewritten); docs/status/courts.md; two cards; one lesson (regenerate lessons/INDEX.md and the card board at the merge).
 No DDL by hand: the load drops and recreates the reading's tables; `courts.suppression_orders` is never dropped.
 
 ## For the integrator, at the merge
@@ -71,7 +71,7 @@ Suppression (unchanged in principle, wider in reach): a banner, an order in the 
 
 ## Checks
 
-Fast tier for registers/courts: green in 84.6 s (target 60 s missed, recorded; the sample fill takes 42 s), 48 tests, one xfail (`test_courts_lane`: the text reader's rows, which pass once a sample document has a stored reading). Each tranche's tests fail on main (the modules `model_read`, `recognise`, `case_page` do not exist there; the lane test asks for the corpus records). `check.py` green on the sample ({"parsed": 10}; caught 2, set aside 1, waiting on the page reader 1; the lever across a case reaches 3 documents). Root checks: the lane shape test green. No live load was run (no owner session needed; the integrator's staging step is the first).
+Fast tier for registers/courts: green in 86.5 s (target 60 s missed, recorded; the sample fill takes 43 s), 50 tests, one xfail (`test_courts_lane`: the text reader's rows, which pass once a sample document has a stored reading). Each tranche's tests fail on main (the modules `model_read`, `recognise`, `case_page` do not exist there; the lane test asks for the corpus records). `check.py` green on the sample ({"parsed": 10}; caught 2, set aside 1, waiting on the page reader 1; the lever across a case reaches 3 documents). Root checks: the lane shape test green. The full corpus was built with the branch's code into `scratch_courts_2_full` of the sample database (the live owner login is refused to a session by `support.db`'s guard; the records came from the live store through the read-only login, the files from the document store): figures under Result.
 
 ## Carded
 
@@ -84,7 +84,7 @@ No District Court, no Waitangi Tribunal (the corpus has neither; their courts-1 
 
 Lesson: `a-source-s-kind-field-is-a-hint-recognise-every-document-by-its-own-shape-before-building-its-reader`.
 
-## Result
+## Result (30 October, 18:44: refused)
 
 REFUSED 30 October 2026, 18:44 (gate on integrate branch 594ae5b: every test green, including every slow test since
 the catalogue and the profiles file changed; the staging load failed). `python -m registers.courts.load --schema
@@ -97,3 +97,63 @@ more than one record: three landed hashes sit under two record urls each (one pa
 priorities 32, 26 and 27: the request's 85 and 22 were taken). The session is relaunched headless in its working
 copy to key a case once however many records share its bytes, run the load against the live store before raising,
 and raise `courts-2` again.
+
+## Result
+
+Raised again 30 October 2026, 19:04, from session/courts-2 at 9c3122b (one commit on 0e9f54f, all inside
+`registers/courts/`; profiles and catalogue untouched, `profile-proposed.jsonl` unchanged).
+
+What changed. A document is its bytes: `read.read` reads one entry per file (`_primary_entries`: the record with the
+plainest url, no query string, then the shortest, then the lowest id), so a case, its links, a judgment, its parties,
+paragraphs and people are emitted once however many records point at the hash; every sharing record is still its own
+`documents` row carrying that reading (`read.SHARED_READING`), with its own catch-log line where the file was set
+aside or caught, and `counts["shared"]` says how many. `read._once` asserts every key of every table once before the
+COPY. `check.py` counts the records sharing a file and fails on a file with two case or judgment rows. The unit test
+`test_a_file_under_several_records_is_read_once_and_every_record_s_row_carries_the_reading` fails on 0e9f54f (two
+cases rows, two judgments, four parties from seven records) and passes here; the sample now holds the live pair (the
+case page with and without `?searchterm=None`) and the lane test asserts one case row for the two records. The other
+keys were looked at: `documents` is keyed by record id (one per record already), `people` was built from a dict by
+hash (once already), `set_aside` has no key; `judgments`, `judgment_parties`, `paragraphs` and the private
+`withheld_names` collided the same way as `cases` and `case_links` and are fixed by the same change (the 2006 NZCA
+judgment under `…limited.pdf` and `…limited_000.pdf` was the judgment pair on live).
+
+The full corpus, built twice with this code (204 and 208 s; `scratch_courts_2_full`): records 5,611 (5,611 taken by the
+pull), every one accounted for: waiting on the text reader 5,589, on the page reader 4, set aside 5, caught 13;
+records sharing a file 3 (the three hashes of the refusal, each under two records, outcomes equal within each pair).
+Profiles: case pages 2,686; NZSC 1,803; NZCA 342; NZHC civil 147, criminal 32; other courts 6; media releases 287;
+submissions 166; transcripts 83; synopses 37; scanned 4; none 18. Judgments 2,329 (parsed 2,224, partial 24, unparsed
+81; NZSC 1,788, NZCA 340, NZHC 178, NZEmpC 4, NZREADT 1, unread court 18); parties 7,870 (withheld 578, anonymised
+303, Crown 1,124); cases 2,685 (1,628 with a citation, 1,644 with a judgment date), links 4,548 of which 2,922 to a
+held file; suppression: 445 judgments flagged (banner 404, order in the text 134, CPA s 203 153, …), 483 cases
+withheld, 1,061 names in the private table, no ledger order; catch log 202 lines (listing 80, parse 105, read 79,
+pull 26, recognise 5); the old listing's gap 80. People 0: no document has a text-reader reading until
+`qv4-courts-read` runs.
+
+The check found a second thing the gate would have hit after the COPY: 23 of the 200 sampled judgments short on the
+counsel-role rule (tolerated 2). 22 were Supreme Court criminal leave judgments of 2004 to 2012: the caption "X v THE
+QUEEN" prints no role (the reader's criminal shape names the sides Prosecutor and Defendant) and the counsel lines say
+"for Applicant" and "for Crown". `caption.roles_unaccounted` now holds the stage's words by the criminal caption's
+two sides (an ordinal by that many defendants; any other word still reported) and `check.roles_short` passes the
+caption shape through; a caption test covers it. Roles short now 1 (a party "in person" beside plural respondents),
+within the tolerance. The second build's check: green, no failure line (the first's one failure was this rule).
+
+Fast tier green, 86.5 s, 50 tests, one xfail (as before). Nothing fetched; no name or address printed.
+
+## Result (integrator)
+
+Merged 30 October 2026, 19:40, as 7cdc8ab (integrate branch 7d50baf on the session's 9c3122b; gate green: every
+test, every slow test since the catalogue and the profiles file changed, the staging load in 206 s and published:
+records 5,611, waiting on the text reader 5,589, on the page reader 4, set aside 5, caught 13, shared 3, judgments
+2,329, parties 7,870, cases 2,685, withheld 1,061, listing gap 80). Three gates: 18:11 refused on
+`support/profiles/tests/test_profiles.py`, which pins the shipped profile count (146 → 153 for the seven new slugs,
+moved in an integrator commit); 18:44 refused on the staging load (`cases_pkey`, above; the session fixed it,
+9c3122b); 19:12 green. Each gate ran with `QV4_LIVE` on a mirror of the live folder without the night marker (the
+window was open; the scheduler's fast tests read it otherwise: card). Integrator commits: the 11 profiles appended
+and the proposed file removed; `qv4-courts-capture` out of the catalogue, `qv4-courts-load` (04:40 NZDT),
+`qv4-courts-read` and `qv4-courts-pages` in at priorities 32, 26 and 27 (85 and 22 were taken; check green, 89 job
+types); `docs/status/courts.md` trimmed from 4,548 bytes to 3,000; lessons index and board regenerated. Pushed and
+released (no worker restart owed: the catalogue reloads on the probe's clock; no systemd timer exists for a due job,
+the worker runs them). Queued 19:43: `qv4-courts-read` row 865 with 5,589 pieces and `qv4-courts-pages` row 866 with
+4. Neither runs until its card is free: the night window holds the page reader for the candidate-return backlog and
+Radiance (text-reader) is down until it closes. The new views go on the board in the next merge (ruling 123).
+Working copy `courts-2` and the local branch retired; `session/courts-2` on the remote is Arthur's to delete.
