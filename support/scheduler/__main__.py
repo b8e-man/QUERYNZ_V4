@@ -4,11 +4,15 @@
   python -m support.scheduler tables [--database D] create the scheduler's tables (querynz_v4 by default)
   python -m support.scheduler status [--database D] the queue, the workers, the cards, the last swaps and runs
   python -m support.scheduler enqueue JOB [--class C] [--args JSON] [--pieces K ...] [--due ISO]
+                                                    (a pieced job with no --pieces needs a pieces_command in jobs.toml)
   python -m support.scheduler cancel ID --why WHY
   python -m support.scheduler probe                 this box's hardware profile
   python -m support.scheduler worker --name N [--box B] [--once] [--hide-program P ...]
   python -m support.scheduler report                the qv4-scheduler-report job
   python -m support.scheduler memory                the memory raises jobs.toml has not folded yet (ruling 115)
+  python -m support.scheduler night [status]        the night window (ruling 129) and Arthur's word on it, if any
+  python -m support.scheduler night open [--until HH:MM]   open the window now, until it would close anyway (or HH:MM local)
+  python -m support.scheduler night close           close an open window now; or withdraw an early open
   python -m support.scheduler hold-profile          the standing job that keeps a profile on a card
   python -m support.scheduler rehearse ...          the rehearsal jobs (sleep, burn memory; bench: pages at once)
   python -m support.scheduler reread-piece SHA      one document of a re-read (qv4-reread)
@@ -34,6 +38,102 @@ def _conn(database: str):
     conn = db.connect(db.OWNER_KEY, database, autocommit=True)
     conn.execute("SET statement_timeout = 30000")
     return conn
+
+
+def night_word(what: str, *, until: str = None, by: str = "cli", now: dt.datetime = None, path: str = None,
+               out=print) -> int:
+    """Arthur's word on the night window (card the-night-window-is-opened-by-
+    a-commit-not-a-command): one file under <live>/scheduler/, read by the
+    worker's card manager each tick; the stop line in the swap ledger names
+    who gave it. `open` outside the window counts as inside until the window
+    would close anyway, or until HH:MM local if sooner; `close` inside the
+    window (by clock or by word) counts as outside until that close, and
+    outside it only withdraws an early open. Never a commit, never an edit
+    of jobs.toml or the release copy."""
+    import socket
+    from support.scheduler import cards, night
+    w = reg.night_window()
+    path = path or cards.NIGHT_WORD
+    now = now or dt.datetime.now(dt.timezone.utc)
+    if w is None:
+        out("night window: none in jobs.toml; there is nothing to open or close")
+        return 2
+    try:
+        with open(path, encoding="utf-8") as f:
+            wd = json.load(f)
+    except (OSError, ValueError):
+        wd = None
+    holds = night.word_holds(wd, now)
+    by_clock = night.in_window(now, w)
+    inside, line = night.inside(now, w, wd if holds else None)
+    local = now.astimezone(w.zone)
+    if what == "status":
+        out(f"night window: {w}")
+        out(f"now {local:%H:%M %Z}: {'inside' if inside else 'outside'} by the clock"
+            + (f"; the word says otherwise: {line}" if line else "")
+            + (f"; the word still holds: {night.describe(wd, w)}" if holds and not line else ""))
+        if wd is not None and not holds:
+            out(f"a stale word is in {path} ({wd.get('state')!r} by {wd.get('by')!r}); the worker removes it on its next tick")
+        out(f"the window next closes at {night.closes_at(now, w).astimezone(w.zone):%a %H:%M %Z}"
+            + ("" if inside else f"; it next opens at {night.opens_at(now, w).astimezone(w.zone):%a %H:%M %Z}"))
+        return 0
+    if what == "open":
+        if inside:
+            out(f"night window: already open ({'by the clock' if by_clock else line}); nothing written")
+            return 0
+        wd = night.word("open", now, w, by, until, host=socket.gethostname())
+        _write_word(path, wd)
+        out(f"night window: opened by {by} at {local:%H:%M %Z}, until {wd['until_local']}"
+            + (" (the hour asked for is past the window's own close, so the close holds)" if wd["capped"] else "")
+            + f"; the worker on this box acts on its next tick when page work is queued and no text piece runs. Written {path}")
+        return 0
+    if what == "close":
+        if holds and wd.get("state") == "open" and not by_clock:
+            os.remove(path)
+            out(f"night window: the early open by {wd.get('by')} is withdrawn; the window is closed until "
+                f"{night.opens_at(now, w).astimezone(w.zone):%a %H:%M %Z}. Removed {path}")
+            return 0
+        if not inside:
+            out("night window: not open; nothing to close")
+            return 0
+        wd = night.word("closed", now, w, by, None, host=socket.gethostname())
+        _write_word(path, wd)
+        out(f"night window: closed by {by} at {local:%H:%M %Z} until it would have closed anyway ({wd['until_local']}); "
+            f"the page reader drains and the standing server starts again on the worker's next tick. Written {path}")
+        return 0
+    return 2
+
+
+def row_lines(recent: list[dict]) -> list[str]:
+    """One plain line per queued or leased row (31 October): its pieces'
+    source (listed / command), the runner's in-flight figure against the
+    pieces running, and the rows its `then` queued. Read before the JSON."""
+    out = []
+    for r in recent:
+        if r["state"] not in ("queued", "leased"):
+            continue
+        line = f"row {r['id']} {r['job']} {r['state']}" + (f" on {r['lease_owner']}" if r.get("lease_owner") else "")
+        if r.get("pieces_source"):
+            line += f": pieces {r['pieces_done']}/{r['pieces_total']} ({r['pieces_source']})"
+            if r["state"] == "leased":
+                cap = r.get("in_flight")
+                line += f", in flight {cap if cap is not None else '?'} ({r.get('pieces_running', 0)} running)"
+        elif r.get("pieces_total"):
+            line += f": pieces {r['pieces_done']}/{r['pieces_total']}"
+        if r.get("then_of"):
+            line += f"; then of row {r['then_of']}"
+        if r.get("then_rows"):
+            line += f"; then rows {', '.join(str(x) for x in r['then_rows'])}"
+        out.append(line)
+    return out
+
+
+def _write_word(path: str, wd: dict) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(wd, f, indent=1)
+    os.replace(tmp, path)
 
 
 def main(argv=None) -> int:
@@ -70,6 +170,10 @@ def main(argv=None) -> int:
     p.add_argument("--hide-program", action="append", default=[], help="rehearsal: pretend this box lacks a program")
     p.add_argument("--no-cards", action="store_true", help="do not manage this box's cards")
     sub.add_parser("hold-profile")
+    p = sub.add_parser("night")
+    p.add_argument("what", nargs="?", default="status", choices=("status", "open", "close"))
+    p.add_argument("--until", help="open: HH:MM local in the window's zone; capped at the window's own close")
+    p.add_argument("--by", default=os.environ.get("USER") or "cli", help="who gives the word (the ledger line names them)")
     p = sub.add_parser("rehearse")
     p.add_argument("what", choices=("sleep", "burn", "fail", "model", "served", "page", "bench"))
     p.add_argument("--seconds", type=float, default=5.0)
@@ -115,6 +219,8 @@ def main(argv=None) -> int:
         return 0
     if a.cmd == "status":
         st = q.status(_conn(a.database), a.schema)
+        for line in row_lines(st["recent"]):
+            print(line)
         print(json.dumps(st, default=str, indent=1))
         return 0
     if a.cmd == "report":
@@ -135,9 +241,15 @@ def main(argv=None) -> int:
             print(f"no job type {a.job!r} in the catalogue", file=sys.stderr)
             return 2
         due = dt.datetime.fromisoformat(a.due) if a.due else None
-        qid = q.enqueue(_conn(a.database), a.schema, a.job, args=json.loads(a.args), cls=a.cls, due_at=due, pieces=a.pieces,
-                        created_by=a.by, registry=registry)
-        print(f"queued {a.job} as row {qid}" + (f" with {len(a.pieces)} pieces" if a.pieces else ""))
+        try:
+            qid = q.enqueue(_conn(a.database), a.schema, a.job, args=json.loads(a.args), cls=a.cls, due_at=due, pieces=a.pieces,
+                            created_by=a.by, registry=registry)
+        except ValueError as exc:
+            print(f"not queued: {exc}", file=sys.stderr)
+            return 2
+        jt = registry[a.job]
+        print(f"queued {a.job} as row {qid}" + (f" with {len(a.pieces)} pieces" if a.pieces
+                                                else "; its pieces_command lists the pieces at the claim" if jt.pieces else ""))
         return 0
     if a.cmd == "cancel":
         ok = q.cancel(_conn(a.database), a.schema, a.id, a.why)
@@ -157,6 +269,8 @@ def main(argv=None) -> int:
             return 0
         w.run_forever()
         return 0
+    if a.cmd == "night":
+        return night_word(a.what, until=a.until, by=a.by)
     if a.cmd == "hold-profile":
         # the standing job that keeps a profile resident: it does nothing but
         # hold its lease; the card manager keeps the profile loaded for it

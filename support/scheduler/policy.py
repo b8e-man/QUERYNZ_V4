@@ -31,7 +31,11 @@ is findable at all. The worker acts on the decisions (`cards.py`).
 9. A BULK JOB TAKES EVERY FREE CARD but gives cards back when others queue.
    The swap cost in rule 5 is the measured load time of each profile (from
    the swap ledger), not a fixed number; the queue floor is the fallback
-   until a profile's load time has been measured.
+   until a profile's load time has been measured. "Every free card" holds
+   on every tick, not only the one the job was first placed on: a bulk job
+   already holding one card spreads to a card that comes free later while
+   nobody else waits (30 October: the page reader ran on one card all
+   evening while the other, freed by hand, sat idle).
 
 A reserved card (step 2.9) is accounted for every tick and never planned.
 """
@@ -289,8 +293,12 @@ def plan(*, now: float, held: list[Held], queues: dict,
 
     # ── rule 9: a bulk job takes every free card, and gives cards back ───────
     idle = [i for i, dcs in enumerate(out) if dcs.action == KEEP and dcs.job_type is None and dcs.why == "no job type has queued work"]
-    if idle and taken_this_tick:
+    if idle:
         bulk = [n for n in taken_this_tick if demands[n].depth > 1]
+        if not waiting_now() and not shared_by:
+            # an idle card means nobody else has work at all: a bulk job already holding a card takes it too
+            bulk += sorted((n for n in kept if n not in bulk and demands.get(n, Demand(0)).depth > 1),
+                           key=lambda n: (registry[n].priority, n))
         for i in idle:
             if not bulk:
                 break

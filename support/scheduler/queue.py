@@ -14,10 +14,20 @@ applied to jobs in general:
      unlikely.
   3. The claim is `FOR UPDATE SKIP LOCKED`: two workers never pick one row.
 
-PIECES (rule 7). A long job is enqueued with a list of piece keys; a worker
-takes the pieces one at a time under the job's lease, each recording its
-own progress, so a worker stopped mid-job loses at most the piece it was
-on and the other worker finishes the rest.
+PIECES (rule 7). A long job is enqueued with a list of piece keys, or, since
+31 October, with none when its job type names a `pieces_command`: the worker
+runs that at the claim and the lines it prints are the pieces (`add_pieces`),
+none meaning nothing waiting. A worker runs the pieces under the job's lease,
+several at once (`in_flight`), each recording its own progress, so a worker
+stopped mid-job loses at most the pieces in flight and the other worker
+finishes the rest.
+
+THEN (31 October). A job type may name `then`: when a row of it finishes,
+`then_rows` queues one row of each named job, class whenever and no pieces,
+unless one is already queued or leased (one in flight), and the finished
+row's detail says which ("then: queued row N" / "then: qv4-x already queued
+as row M"). So a lane's load queues its readers, and a load whose views a
+scan reads queues the scan re-run, with no hand on it.
 
 THE CLOCK BELONGS TO THE SCHEDULER (2.12). A timetabled job's next slot is
 enqueued by whichever worker notices first; a unique index on (job, slot)
@@ -138,24 +148,44 @@ def silent_workers(conn, schema: str, *, after_s: int, me: str, now=None) -> lis
 
 # ── enqueue, claim, renew, complete, reap ────────────────────────────────────
 
+def pieces_source_for(jt, pieces: list) -> str | None:
+    """Where a row's pieces come from: 'listed' when keys are given, 'command'
+    when the job type names a pieces_command the worker runs at the claim,
+    None for a job not cut into pieces. A pieced job with neither is refused:
+    the row would be claimed and finish having done nothing."""
+    if pieces:
+        return "listed"
+    if jt is None or not jt.pieces:
+        return None
+    if jt.pieces_command:
+        return "command"
+    raise ValueError(f"{jt.name} is cut into pieces and names no pieces_command: give the pieces at the enqueue "
+                     f"(--pieces K ...) or add pieces_command to its jobs.toml block")
+
+
 def enqueue(conn, schema: str, job: str, *, args: dict = None, cls: str = None, priority: int = None,
             due_at=None, not_before=None, pieces: list = None, created_by: str = "", standing: bool = False,
-            timetable_slot=None, registry: dict = None, now=None) -> int | None:
+            timetable_slot=None, registry: dict = None, now=None, then_of: int = None) -> int | None:
     """Queue one instance of `job`. `pieces` is a list of piece keys (rule
-    7). A timetabled instance names its `timetable_slot`; a second enqueue of
-    the same slot returns None (the unique index: two workers, one slot)."""
+    7); a pieced job may be queued with none when its type names a
+    `pieces_command` (`pieces_source_for`). A timetabled instance names its
+    `timetable_slot`; a second enqueue of the same slot returns None (the
+    unique index: two workers, one slot). `then_of` is the finished row
+    whose `then` queued this one."""
     registry = registry if registry is not None else reg.load()
     jt = registry.get(job)
     cls = cls or (jt.cls if jt else "whenever")
     priority = priority if priority is not None else (jt.priority if jt else 99)
     pieces = list(pieces or [])
+    source = pieces_source_for(jt, pieces)
     with conn.transaction():
         row = conn.execute(
             f"INSERT INTO {schema}.queue (job, args, cls, priority, state, due_at, not_before, created_at, created_by, "
-            f"pieces_total, standing, timetable_slot) VALUES (%s, %s::jsonb, %s, %s, 'queued', %s, %s, %s, %s, %s, %s, %s) "
+            f"pieces_total, standing, timetable_slot, pieces_source, then_of) "
+            f"VALUES (%s, %s::jsonb, %s, %s, 'queued', %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             f"ON CONFLICT (job, timetable_slot) WHERE timetable_slot IS NOT NULL DO NOTHING RETURNING id",
             (job, json.dumps(args or {}), cls, priority, due_at, not_before, _now(now), created_by, len(pieces),
-             standing, timetable_slot)).fetchone()
+             standing, timetable_slot, source, then_of)).fetchone()
         if row is None:
             return None
         qid = row[0]
@@ -185,11 +215,12 @@ def claim(conn, schema: str, worker: str, eligible: list, *, lease_s: int, now=N
             f"  started_at = COALESCE(q.started_at, %s), attempts = attempts + 1"
             f" FROM pick WHERE q.id = pick.id"
             f" RETURNING q.id, q.job, q.args, q.cls, q.priority, q.due_at, q.attempts, q.pieces_total, q.pieces_done, "
-            f" q.standing, q.timetable_slot",
+            f" q.standing, q.timetable_slot, q.pieces_source",
             (list(eligible), t, list(exclude_ids or []), token, worker, t + dt.timedelta(seconds=lease_s), t)).fetchone()
     if row is None:
         return None
-    keys = ("id", "job", "args", "cls", "priority", "due_at", "attempts", "pieces_total", "pieces_done", "standing", "timetable_slot")
+    keys = ("id", "job", "args", "cls", "priority", "due_at", "attempts", "pieces_total", "pieces_done", "standing", "timetable_slot",
+            "pieces_source")
     out = dict(zip(keys, row))
     out["token"] = token
     return out
@@ -296,6 +327,72 @@ def finish_piece(conn, schema: str, qid: int, token, piece: int, *, ok: bool, se
                          f"done_at = %s, seconds = %s, detail = %s WHERE queue_id = %s AND piece = %s",
                          (_now(now), seconds, detail[:500], qid, piece))
     return True
+
+
+def add_pieces(conn, schema: str, qid: int, token, keys: list, now=None) -> int:
+    """The pieces a job's `pieces_command` printed, set on a leased row that
+    has none (31 October), under the fence. Returns how many were set; -1
+    when the lease is not this worker's, 0 when the row has pieces already
+    (a row given back keeps its progress; the command is not run again)."""
+    with conn.transaction():
+        own = conn.execute(f"SELECT pieces_total FROM {schema}.queue WHERE id = %s AND lease_token = %s AND state = 'leased'",
+                           (qid, token)).fetchone()
+        if own is None:
+            return -1
+        if own[0]:
+            return 0
+        for i, key in enumerate(keys, 1):
+            conn.execute(f"INSERT INTO {schema}.pieces (queue_id, piece, key) VALUES (%s, %s, %s)", (qid, i, str(key)))
+        conn.execute(f"UPDATE {schema}.queue SET pieces_total = %s, pieces_source = 'command' WHERE id = %s", (len(keys), qid))
+    return len(keys)
+
+
+def set_in_flight(conn, schema: str, qid: int, n: int | None) -> None:
+    """The pieces the runner keeps in flight on a leased row, for `status`."""
+    with conn.transaction():
+        conn.execute(f"UPDATE {schema}.queue SET in_flight = %s WHERE id = %s", (n, qid))
+
+
+def pieces_running(conn, schema: str, qid: int) -> list[dict]:
+    rows = conn.execute(f"SELECT piece, key, worker, started_at FROM {schema}.pieces WHERE queue_id = %s AND state = 'running' "
+                        f"ORDER BY piece", (qid,)).fetchall()
+    return [dict(zip(("piece", "key", "worker", "started_at"), r)) for r in rows]
+
+
+def then_rows(conn, schema: str, qid: int, jt, *, registry: dict = None, now=None, created_by: str = "") -> list[str]:
+    """A row of `jt` has finished: queue one row of each job its `then`
+    names, class whenever and no pieces (the job's pieces_command lists them
+    at the claim), unless a row of that job is queued or leased already (one
+    in flight). The lines say what happened and are appended to the finished
+    row's detail; the new row's `then_of` is `qid`. A named job the catalogue
+    lacks is a line, never an exception: `check` refuses the catalogue, the
+    worker does not die on it."""
+    if not jt.then:
+        return []
+    registry = registry if registry is not None else reg.load()
+    lines = []
+    with conn.transaction():
+        conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s::text))", ("scheduler.then",))
+        for name in jt.then:
+            if name not in registry:
+                lines.append(f"then: {name} is not in the catalogue; not queued")
+                continue
+            have = conn.execute(f"SELECT id, state FROM {schema}.queue WHERE job = %s AND state IN ('queued', 'leased') "
+                                f"ORDER BY id LIMIT 1", (name,)).fetchone()
+            if have:
+                lines.append(f"then: {name} already {'queued' if have[1] == QUEUED else 'running'} as row {have[0]}")
+                continue
+            try:
+                new = enqueue(conn, schema, name, cls="whenever", created_by=created_by or f"then of row {qid}",
+                              registry=registry, now=now, then_of=qid)
+            except ValueError as exc:
+                lines.append(f"then: {name} not queued: {exc}")
+                continue
+            lines.append(f"then: queued row {new}" if len(jt.then) == 1 else f"then: {name} queued as row {new}")
+        if lines:
+            conn.execute(f"UPDATE {schema}.queue SET detail = concat_ws(' | ', NULLIF(detail, ''), %s::text) WHERE id = %s",
+                         (" | ".join(lines)[:2000], qid))
+    return lines
 
 
 def pieces_left(conn, schema: str, qid: int) -> dict:
@@ -645,16 +742,24 @@ def status(conn, schema: str, limit: int = 20) -> dict:
     counts = dict(conn.execute(f"SELECT state, count(*) FROM {schema}.queue GROUP BY state").fetchall())
     by_job = conn.execute(f"SELECT job, state, count(*) FROM {schema}.queue WHERE state IN ('queued', 'leased') "
                           f"GROUP BY job, state ORDER BY job").fetchall()
-    recent = conn.execute(f"SELECT id, job, state, lease_owner, pieces_done, pieces_total, outcome, created_at, finished_at "
-                          f"FROM {schema}.queue ORDER BY id DESC LIMIT %s", (limit,)).fetchall()
+    recent = conn.execute(f"SELECT id, job, state, lease_owner, pieces_done, pieces_total, outcome, created_at, finished_at, "
+                          f"pieces_source, in_flight, then_of FROM {schema}.queue ORDER BY id DESC LIMIT %s", (limit,)).fetchall()
+    ids = [r[0] for r in recent]
+    running = dict(conn.execute(f"SELECT queue_id, count(*) FROM {schema}.pieces WHERE state = 'running' AND queue_id = ANY(%s) "
+                                f"GROUP BY queue_id", (ids,)).fetchall()) if ids else {}
+    thens: dict[int, list] = {}
+    if ids:
+        for then_of, qid in conn.execute(f"SELECT then_of, id FROM {schema}.queue WHERE then_of = ANY(%s) ORDER BY id", (ids,)).fetchall():
+            thens.setdefault(then_of, []).append(qid)
     swaps = conn.execute(f"SELECT at, box, card, action, from_profile, to_profile, job, load_seconds, served_model, ok, why "
                          f"FROM {schema}.swaps ORDER BY id DESC LIMIT %s", (limit,)).fetchall()
     runs_ = conn.execute(f"SELECT run_id, job, worker, started_at, finished_at, outcome, peak_mb, declared_mb, error "
                          f"FROM {schema}.runs ORDER BY started_at DESC LIMIT %s", (limit,)).fetchall()
     return {"queue": {k: int(v) for k, v in counts.items()},
             "waiting": [{"job": j, "state": s, "n": int(n)} for j, s, n in by_job],
-            "recent": [dict(zip(("id", "job", "state", "lease_owner", "pieces_done", "pieces_total", "outcome", "created_at",
-                                 "finished_at"), r)) for r in recent],
+            "recent": [{**dict(zip(("id", "job", "state", "lease_owner", "pieces_done", "pieces_total", "outcome", "created_at",
+                                     "finished_at", "pieces_source", "in_flight", "then_of"), r)),
+                        "pieces_running": int(running.get(r[0], 0)), "then_rows": thens.get(r[0], [])} for r in recent],
             "workers": workers(conn, schema), "cards": cards(conn, schema),
             "swaps": [dict(zip(("at", "box", "card", "action", "from_profile", "to_profile", "job", "load_seconds",
                                 "served_model", "ok", "why"), r)) for r in swaps],

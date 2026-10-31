@@ -6,7 +6,11 @@ by name (hard limit 16): it is found through its company, where its name
 reads "name suppressed".
 
 Until links/ publishes the search table across registers, this is a scan
-of each view; at October 2026 sizes the whole scan takes about a second."""
+of each view, one statement per view on three connections; at 31 October
+2026 sizes (103 views) the statements add to about two seconds of the
+server's time, the search answering in under one. Each statement tests
+the words loosely over the row's text as held before the fold is computed
+(prefilter_sql): the fold was two thirds of every scan."""
 from __future__ import annotations
 
 import re
@@ -72,6 +76,23 @@ def words_of(term: str) -> list:
 def word_re(w: str) -> str:
     """A word as a pattern: "garry|gareth" matches either in the word's place."""
     alts = [re.escape(x) for x in w.split("|") if x]
+    return alts[0] if len(alts) == 1 else "(?:" + "|".join(alts) + ")"
+
+
+#: a folded letter as the raw characters it folds from (the macron fold, cat.MACRONS, both cases; `~*` reads
+#: the case of an ASCII letter itself); 'k' also from the Kelvin sign, which lower() folds to k
+_LOOSE = {a: f"[{a}{m}{M}]" for a, m, M in zip(MACRON_TO[:5], MACRON_FROM[:5], MACRON_FROM[5:])} | {"k": "[k\u212a]"}
+
+
+def loose_re(w: str) -> str:
+    """The pattern that finds, in a row's text as held, every word the fold
+    would turn into `w` (word_re), with no fold applied: a case-insensitive
+    test (`~*`) in which each vowel also stands for its macron forms. It
+    holds a superset of the fold's matches, so it may be tested first and
+    costs a third of translate(lower(…)) (fold_sql), whose two function
+    calls over every row of every view were the search's cost on 31 October
+    2026 (companies, 1.9 million rows: 0.26 s of 0.56 s in the fold)."""
+    alts = ["".join(_LOOSE.get(c, re.escape(c)) for c in x) for x in w.split("|") if x]
     return alts[0] if len(alts) == 1 else "(?:" + "|".join(alts) + ")"
 
 
@@ -397,6 +418,19 @@ def match_sql(v: cat.View, words: list, number: str = None, whole: bool = False,
     return (clause or "true"), params
 
 
+def prefilter_sql(v: cat.View, words: list, number: str = None, whole: bool = False) -> tuple:
+    """(clause, params): the search box's words tested loosely (loose_re) over
+    the row's search columns unfolded, "and"-ed after the exact test, which
+    every row passing it still meets: the planner runs the cheaper test
+    first, so the fold is computed only for the rows that can match. ("", [])
+    with a number, whose rows match a number column the words need not
+    reach, or with no words."""
+    if not words or number:
+        return "", []
+    raw = "concat_ws(' ', " + ", ".join(v.search) + ")"
+    return "".join(f" and {raw} ~* %s" for _ in words), [r"\m" + loose_re(w) + (r"\M" if whole else "") for w in words]
+
+
 def guard_sql(v: cat.View, exclude_key: str = None) -> tuple:
     """A suppressed or revoked row is never matched by name (hard limit 16)."""
     clause, params = "", []
@@ -441,7 +475,8 @@ def view_sql(v: cat.View, words: list, number: str = None, limit: int = LIMIT, e
     removed rows out in the SQL, before the limit, and every row carries
     `hidden`, the count left out; when none is left to show, one row with no
     key carries the counts (search() drops it). `tabs` (ruling 108 (2),
-    tab_mode): tab_sql."""
+    tab_mode): tab_sql. The words' loose test (prefilter_sql) rides after
+    the guard in every shape; the exact test's parameters come first."""
     got = match_sql(v, words, number, whole, fields, mode)
     if got is None:
         return None
@@ -449,6 +484,8 @@ def view_sql(v: cat.View, words: list, number: str = None, limit: int = LIMIT, e
     if not words and not number and clause == "true":
         clause = "false"                 # nothing asked finds nothing
     g, gp = guard_sql(v, exclude_key)
+    pre, pp = prefilter_sql(v, words, number, whole)
+    g, gp = g + pre, gp + pp
     sel, sp = matched_sql(v, fields) if mode == ANY and fields else ("", [])
     rx = None if removed else removed_expr(v)
     if tabs:

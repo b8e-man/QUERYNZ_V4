@@ -156,3 +156,10 @@ CREATE INDEX IF NOT EXISTS memory_raises_job ON {s}.memory_raises (job, id);
 CREATE INDEX IF NOT EXISTS memory_raises_requeued ON {s}.memory_raises (requeued_id);
 ALTER TABLE {s}.runs ADD COLUMN IF NOT EXISTS working_mb int;     -- the working figure the run was placed and capped under
 ALTER TABLE {s}.runs ADD COLUMN IF NOT EXISTS raise_id bigint;    -- a re-run: the raise that queued it
+
+-- 31 October: the chain runs itself. `pieces_source` says where a pieced row's pieces came from ('listed' at the
+-- enqueue, 'command' from the job's pieces_command run at the claim); `then_of` names the finished row whose `then`
+-- queued this one; `in_flight` is the pieces the runner keeps running at once on a leased row (its figure, not a count).
+ALTER TABLE {s}.queue ADD COLUMN IF NOT EXISTS pieces_source text;
+ALTER TABLE {s}.queue ADD COLUMN IF NOT EXISTS then_of bigint;
+ALTER TABLE {s}.queue ADD COLUMN IF NOT EXISTS in_flight int;

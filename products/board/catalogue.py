@@ -257,6 +257,7 @@ PARLIAMENT_NOTE = ("the estate did not fetch parliament.nz: the query-nz provide
                    "through a challenge the estate may not pass (hard limit 6)")
 #: the flag note beside a text a lane's shapes say names an address (ruling 102): the board shows it whole
 NAMES_ADDRESS = "names an address by its shape: a product keeps it off its own surface (hard limit 15); the board shows it whole"
+READER_NOTE = ("a name the text reader found in the document, as the document prints it; not a link to any person: the links lane reads this view (rulings 123, 130)")
 #: a row served in more than one version (registers/parliament/pane.md)
 VERSIONS = Say("read from the version taken last, of {versions}", "versions", above=1)
 
@@ -677,10 +678,33 @@ VIEWS: tuple[View, ...] = (
                  ("of them in the PDF's text", "subjects_in_text"), ("source", "source_note")),
          dates=(("sitting day", "sitting_on"),), urls=("citation_url",),
          joins=(Join("The sitting's pane (the old transcript's sections)", "hansard_sittings", "sitting_on",
-                     key_column="sitting_on", order="sitting_on"),),
+                     key_column="sitting_on", order="sitting_on"),
+                Join("Sections the split found (hansard-day)", "hansard_day_sections", "sitting_on",
+                     key_column="sitting_on", order="section_index"),
+                Join("People the text reader named", "hansard_people", "sitting_on", key_column="sitting_on", order="key")),
          title_format="{sitting_on} · daily PDF",
          note="captured and read off-estate by the query-nz provider (ruling 78); pdftotext's text, no section or "
               "speaker split. The text is in no view: \"source\" opens the landed record whole (ruling 88, the board only)",
+         default_order="sitting_on"),
+    View("hansard_day_sections", "hansard", "document", ("heading", "sitting_on"),
+         search=("heading", "subject", "bill_title"),
+         fields=(("proceeding", "proceeding"), ("subject", "subject"), ("bill", "bill_title"), ("layout", "layout"),
+                 ("order in the day", "section_index"), ("characters", "chars"), ("speech turns", "turns"),
+                 ("of them a member's", "attributed"), ("a role's only", "unattributed"), ("Parliament", "parliament"),
+                 ("note", "note"), ("source", "source_note")),
+         dates=(("sitting day", "sitting_on"),), urls=("url",),
+         title_format="{heading} · {sitting_on}",
+         note="a section of the daily PDF's text, split by the hansard-day rule (hansard-3, 31 October): a run of "
+              "centred headings and the turns under it; the text is in no view, \"source\" opens the record whole (ruling 88)",
+         default_order="sitting_on"),
+    View("hansard_people", "hansard", "person", ("name", "role"),
+         search=("name",),
+         fields=(("kind", "kind"), ("role", "role"), ("role, as the text says", "role_text"), ("of", "of"),
+                 ("proceeding", "proceeding"), ("subject", "subject"), ("bill", "bill_title"), ("piece", "piece"),
+                 ("Parliament", "parliament"), ("model", "model")),
+         dates=(("sitting day", "sitting_on"),), urls=("url",),
+         names=("name",),
+         note=READER_NOTE + "; the speakers are pub.hansard_speeches, not rows here",
          default_order="sitting_on"),
     # ── parliament (the ingest MCP's parliament corpora, rulings 96, 101, 102; pane.md: parliament) ──
     View("parliament_written_questions", "parliament", "document", ("title",),
@@ -745,6 +769,16 @@ VIEWS: tuple[View, ...] = (
          title_format="{html_title} · archived {dated}",
          note=PARLIAMENT_NOTE + "; read from the Internet Archive's copy, not the live page",
          default_order="dated"),
+    View("parliament_people", "parliament", "person", ("name", "role"),
+         search=("name",),
+         fields=(("kind", "kind"), ("role", "role"), ("role, as the text says", "role_text"), ("of", "of_organisation"),
+                 ("read from (table)", "source_table"), ("read from (key)", "source_key"), ("model", "model")),
+         dates=(("day, the document's", "dated"),), urls=("citation_url",),
+         names=("name",),
+         flags=(("name", "name_names_address", NAMES_ADDRESS), ("role_text", "role_text_names_address", NAMES_ADDRESS),
+                ("of_organisation", "of_organisation_names_address", NAMES_ADDRESS)),
+         note=READER_NOTE + "; an archived page or a written question (parliament-2, 31 October)",
+         default_order="dated"),
     # ── beehive (the ingest MCP's beehive corpus and the old estate's export, ruling 96; pane.md: beehive) ──
     View("beehive_releases", "beehive", "document", ("title", "type"),
          search=("title", "type"),
@@ -756,7 +790,8 @@ VIEWS: tuple[View, ...] = (
                  ("captured", "captured_at"), ("source", "source_note")),
          dates=(("day, the record's own", "published_on"),), urls=("citation_url",),
          joins=(Join("Ministers the site tags it with, in order", "beehive_release_ministers", "release", order="ordinal"),
-                Join(ANNOTATION, "beehive_release_annotations", "release", order="annotation, ordinal")),
+                Join(ANNOTATION, "beehive_release_annotations", "release", order="annotation, ordinal"),
+                Join("People the text reader named", "beehive_people", "release", order="key")),
          title_format="{title} · {type}",
          says=(Say("read from the newest of {versions} versions", "versions", above=1),
                Say("the title, day and words are the old estate's: its scraper's reading, original not held",
@@ -786,6 +821,16 @@ VIEWS: tuple[View, ...] = (
          title_format=ANNOTATION + " · {annotation}: {value}",
          note=ANNOTATION + ": the query-nz provider's model made it off-estate. Shown as the provider's, never a finding "
               "of the estate, never a link and never read into the graph (ruling 96)",
+         default_order="published_on"),
+    View("beehive_people", "beehive", "person", ("name", "role"),
+         search=("name",),
+         fields=(("kind", "kind"), ("role", "role"), ("role, as the text says", "role_text"), ("of", "of"),
+                 ("release", "title"), ("type", "type"), ("read from", "read_from"), ("model", "model")),
+         dates=(("the release's day", "published_on"),), urls=("citation_url",),
+         names=("name",),
+         parent=("Release", "beehive_releases", "release"),
+         title_format='{name} · in "{title}" · {published_on}',
+         note=READER_NOTE + "; the site's tagged ministers are pub.beehive_release_ministers, not rows here (beehive-2, 31 October)",
          default_order="published_on"),
     # ── ministers_diaries (the ingest MCP's parliament-diaries corpus, rulings 96, 102; pane.md: ministers_diaries) ──
     View("minister_diary_releases", "ministers_diaries", "document", ("minister", "file_name"),
@@ -1370,7 +1415,10 @@ FIELDS_OF = {
     "party_board_roles": Fields(names=(Name("name", order=GIVEN_FAMILY), Name("name_as_declared", order=GIVEN_FAMILY)),   # a party's page, ordinary text
                                 organisation=("party",)),
     "party_board_pages": Fields(organisation=("party",)),
-    "court_people": Fields(names=(Name("name", order=AMBIGUOUS),)),   # as the text reader found it in the document: the lane states no order
+    "court_people": Fields(names=(Name("name", order=AMBIGUOUS),)),
+    "beehive_people": Fields(names=(Name("name", order=AMBIGUOUS),)),   # the text reader's names (31 October): the lane states no order
+    "hansard_people": Fields(names=(Name("name", order=AMBIGUOUS),)),
+    "parliament_people": Fields(names=(Name("name", order=AMBIGUOUS),)),   # as the text reader found it in the document: the lane states no order
     "court_judgment_parties": Fields(names=(Name("name", order=AMBIGUOUS),),   # an intitulement in capitals: the lane states no order
                                      named=("name",)),
     "limited_partnerships": Fields(organisation=("name",), address=("registered_office",)),

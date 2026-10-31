@@ -196,18 +196,17 @@ def many(monkeypatch):
     date = {view: col for view, _, _, col in MANY}
 
     def rows(conn, sql, params=()):
-        if sql.startswith("select count(*) as n, bool_or(contested)"):
-            return [{"n": sum(len(x) for x in held.values()), "contested": False}]
-        if sql.startswith("select n.view, n.name_filed, count(*)"):
-            return [{"view": v, "name_filed": x[0]["_name"], "n": len(x)} for v, x in held.items() if x]
+        if sql.startswith("select n.view, n.name_filed, count(*) as n, array_agg(n.key)"):      # the group's one statement
+            return [{"view": v, "name_filed": x[0]["_name"], "n": len(x), "keys": [r["key"] for r in x], "contested": False}
+                    for v, x in held.items() if x]
         if sql.startswith("select n.view, count(*)"):                               # the check's count, apart
             return [{"view": v, "n": len(x)} for v, x in held.items()]
-        if sql.startswith("select n.name_filed, count(*)") and "pub.directors r" in sql:
-            return [{"name_filed": r["_name"], "n": 1} for r in held["directors"] if r["suppressed"]]
+        if sql.startswith("select r.key::text as key from pub.directors r"):        # the suppressed, by the group's keys
+            return [{"key": r["key"]} for r in held["directors"] if r["suppressed"] and r["key"] in set(params[0])]
         hit = re.search(r"from pub\.(\w+) r\b", sql)
-        if sql.startswith(("select r.*", "with k as")) and hit:
-            limit, offset = params[-2:]
-            got = sorted(held[hit.group(1)], key=lambda r: (r[date[hit.group(1)]], r["key"]), reverse=True)
+        if sql.startswith("with d as materialized (select r.") and hit:            # a view's page, by the group's keys
+            keys, limit, offset = set(params[0]), *params[-2:]
+            got = sorted((r for r in held[hit.group(1)] if r["key"] in keys), key=lambda r: (r[date[hit.group(1)]], r["key"]), reverse=True)
             return [dict(r) for r in got[offset:offset + limit]]
         return []
     monkeypatch.setattr(dossier.db, "rows", rows)

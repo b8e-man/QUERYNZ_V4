@@ -384,3 +384,52 @@ def test_a_row_from_before_the_clock_was_recorded_is_served_as_before(conn, s, t
 def test_a_job_with_no_timetable_is_untouched_by_the_clock(conn, s, cat):
     assert q.enqueue_due(conn, s, cat, now=T0, created_by="node2") == []
     assert conn.execute(f"SELECT count(*) FROM {s}.timetable").fetchone()[0] == 0
+
+
+def test_pieces_from_a_command_then_rows_and_the_status_fields_against_the_tables(conn, s, cat, tmp_path):
+    """31 October: a pieced row queued with no pieces (its type names a
+    pieces_command) takes them at the claim under the fence; a finished
+    row's `then` queues one row each, one in flight, and writes the lines
+    into its detail; `status` reads the source, the in-flight figure, the
+    running pieces and the then rows."""
+    import dataclasses
+    cat["cpu"] = dataclasses.replace(cat["cpu"], then=("doc", "emb"))
+    with pytest.raises(ValueError, match="names no pieces_command"):
+        q.enqueue(conn, s, "doc", registry={**cat, "doc": dataclasses.replace(cat["doc"], pieces_command=())}, now=secs(0))
+    load = q.enqueue(conn, s, "cpu", registry=cat, now=secs(0))
+    c = q.claim(conn, s, "w1", ALL, lease_s=60, now=secs(1))
+    assert c["pieces_source"] is None
+    assert q.complete(conn, s, load, c["token"], outcome="ok", detail="done", now=secs(2))
+    doc, emb = load + 1, load + 2
+    assert q.then_rows(conn, s, load, cat["cpu"], registry=cat, now=secs(3)) == [f"then: doc queued as row {doc}",
+                                                                                f"then: emb queued as row {emb}"]
+    row = conn.execute(f"SELECT detail, state FROM {s}.queue WHERE id = %s", (load,)).fetchone()
+    assert row == (f"done | then: doc queued as row {doc} | then: emb queued as row {emb}", "done")
+    new = conn.execute(f"SELECT job, cls, pieces_total, pieces_source, then_of, created_by FROM {s}.queue WHERE id = %s", (doc,)).fetchone()
+    assert new == ("doc", "whenever", 0, "command", load, f"then of row {load}")
+    # a second finish while both are still queued: one in flight each, nothing new
+    load2 = q.enqueue(conn, s, "cpu", registry=cat, now=secs(4))
+    c2 = q.claim(conn, s, "w1", ["cpu"], lease_s=60, now=secs(5))
+    q.complete(conn, s, load2, c2["token"], outcome="ok", now=secs(6))
+    assert q.then_rows(conn, s, load2, cat["cpu"], registry=cat, now=secs(7)) == [f"then: doc already queued as row {doc}",
+                                                                                 f"then: emb already queued as row {emb}"]
+    assert conn.execute(f"SELECT count(*) FROM {s}.queue").fetchone()[0] == 4
+    # the reader is claimed with no pieces and takes them from its command's lines, under the fence
+    cd = q.claim(conn, s, "w1", ["doc"], lease_s=60, now=secs(8))
+    assert cd["id"] == doc and cd["pieces_total"] == 0 and cd["pieces_source"] == "command"
+    assert q.add_pieces(conn, s, doc, uuid.uuid4(), ["x"], now=secs(9)) == -1, "not this worker's lease"
+    assert q.add_pieces(conn, s, doc, cd["token"], ["k1", "k2", "k3"], now=secs(9)) == 3
+    assert q.add_pieces(conn, s, doc, cd["token"], ["again"], now=secs(9)) == 0, "a row with pieces keeps them"
+    assert q.pieces_left(conn, s, doc) == {"todo": 3, "running": 0, "done": 0, "failed": 0}
+    assert conn.execute(f"SELECT pieces_total, pieces_source FROM {s}.queue WHERE id = %s", (doc,)).fetchone() == (3, "command")
+    q.set_in_flight(conn, s, doc, 2)
+    q.next_piece(conn, s, doc, cd["token"], "w1", now=secs(10))
+    q.next_piece(conn, s, doc, cd["token"], "w1", now=secs(10))
+    assert [p["key"] for p in q.pieces_running(conn, s, doc)] == ["k1", "k2"]
+    st = q.status(conn, s)
+    by = {r["id"]: r for r in st["recent"]}
+    assert (by[doc]["pieces_source"], by[doc]["in_flight"], by[doc]["pieces_running"], by[doc]["then_of"]) == ("command", 2, 2, load)
+    assert by[load]["then_rows"] == [doc, emb] and by[emb]["then_rows"] == [] and by[emb]["pieces_source"] is None
+    # a then naming a job the catalogue lacks is a line, not an exception
+    gone = dataclasses.replace(cat["cpu"], then=("nowhere",))
+    assert q.then_rows(conn, s, load2, gone, registry=cat, now=secs(11)) == ["then: nowhere is not in the catalogue; not queued"]

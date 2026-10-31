@@ -15,7 +15,7 @@ from products.report import catalogue as cat
 from products.report import memo, search, server
 
 BOARD = os.path.join(os.path.dirname(__file__), "..", "..", "board")
-COPIED = ("fold_sql", "_alternatives", "words_of", "word_re", "is_number", "guard_sql")
+COPIED = ("fold_sql", "_alternatives", "words_of", "word_re", "is_number", "guard_sql", "loose_re", "prefilter_sql")
 REF_WORDING = re.compile(r"register:key|as the board names", re.I)
 
 
@@ -52,9 +52,9 @@ def board_sql():
     path = os.path.join(BOARD, "search.py")
     theirs = pieces(path)
     ns = {"re": re, "cat": types.SimpleNamespace(View=object),
-          "MACRON_FROM": search.MACRON_FROM, "MACRON_TO": search.MACRON_TO}
+          "MACRON_FROM": search.MACRON_FROM, "MACRON_TO": search.MACRON_TO, "_LOOSE": search._LOOSE}
     exec(constants(path), ns)
-    for name in ("fold_sql", "word_re", "match_sql", "guard_sql", "view_sql"):
+    for name in ("fold_sql", "word_re", "loose_re", "prefilter_sql", "match_sql", "guard_sql", "view_sql"):
         exec(theirs[name], ns)
     return ns["view_sql"]
 

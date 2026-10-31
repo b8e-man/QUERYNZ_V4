@@ -80,6 +80,10 @@ class Profile:
     # (`request`, sent with every call: the reader's thinking off, review's on with a budget).
     on: str | None = None
     request: str = "{}"             # JSON, so the dataclass stays frozen and hashable
+    # The requests the server is worth keeping open at once, MEASURED (31 October: eight streams of beehive pieces
+    # read 155 a minute on Flash-Next, sixteen 145): the ceiling on pieces in flight across every row on the profile.
+    # None = the server's slots. A view may state its own; else its server's.
+    streams: int | None = None
 
     @property
     def request_fields(self) -> dict:
@@ -135,6 +139,14 @@ class JobType:
     pieces: bool                    # cut into pieces, each recording progress (rule 7)
     item_seconds: float | None      # measured seconds per item; a guess until the run records say
     enabled: bool
+    # THE CHAIN RUNS ITSELF (31 October). `pieces_command`: argv run by the worker in the job's environment when a
+    # pieced row is claimed with no pieces listed; it prints one piece key a line, nothing meaning nothing waiting.
+    # `then`: the jobs queued (one row each, class whenever, no pieces) when a row of this job finishes, one in
+    # flight per named job. `threads`: the requests one piece keeps open itself (the hansard reader's --threads), so
+    # a row's in-flight count is pieces x threads against the profile's streams.
+    pieces_command: tuple[str, ...] = ()
+    then: tuple[str, ...] = ()
+    threads: int = 1
 
     @property
     def name(self) -> str:
@@ -205,7 +217,8 @@ def profiles(path: pathlib.Path | None = None) -> dict[str, Profile]:
             port=None if b.get("port") is None else int(b["port"]), cards=int(b.get("cards", 1)),
             host_memory_gb=None if b.get("host_memory_gb") is None else float(b["host_memory_gb"]),
             on=str(b["on"]) if b.get("on") else None,
-            request=json.dumps(b.get("request") or {}, sort_keys=True))
+            request=json.dumps(b.get("request") or {}, sort_keys=True),
+            streams=None if b.get("streams") is None else int(b["streams"]))
     return out
 
 
@@ -214,6 +227,17 @@ def server_of(profs: dict[str, Profile], name: str) -> Profile:
     server, otherwise the profile itself."""
     p = profs[name]
     return profs.get(p.on, p) if p.on else p
+
+
+def streams_of(profs: dict[str, Profile], name: str) -> int:
+    """The pieces worth keeping in flight on `name` at once, across every
+    row and every view on its server: the profile's measured `streams`, else
+    its server's, else the server's slots (the server queues past them)."""
+    p = profs[name]
+    if p.streams:
+        return p.streams
+    srv = server_of(profs, name)
+    return srv.streams or srv.slots
 
 
 SERVER_BINARIES = ("copy", "built")
@@ -239,6 +263,8 @@ def load(path: pathlib.Path | None = None) -> dict[str, JobType]:
             can_share=bool(b.get("can_share", False)), prefers_memory=bool(b.get("prefers_memory", False)),
             concurrency=int(b.get("concurrency", 1)))
         cmd = b.get("command") or []
+        pcmd = b.get("pieces_command") or []
+        then = b.get("then") or []
         out[name] = JobType(
             needs=needs, description=(b.get("description") or "").strip(), priority=int(b.get("priority", 99)),
             cls=str(b.get("class") or "whenever"), command=tuple([cmd] if isinstance(cmd, str) else cmd),
@@ -246,7 +272,9 @@ def load(path: pathlib.Path | None = None) -> dict[str, JobType]:
             nice=int(b.get("nice", 0)),
             wanted=int(b.get("wanted", 0)), pieces=bool(b.get("pieces", False)),
             item_seconds=None if b.get("item_seconds") is None else float(b["item_seconds"]),
-            enabled=bool(b.get("enabled", True)))
+            enabled=bool(b.get("enabled", True)),
+            pieces_command=tuple([pcmd] if isinstance(pcmd, str) else pcmd),
+            then=tuple([then] if isinstance(then, str) else then), threads=int(b.get("threads", 1)))
     return out
 
 
@@ -305,6 +333,28 @@ def problems(path: pathlib.Path | None = None, profiles_path: pathlib.Path | Non
             out.append(f"{jt.name}: a standing service has no timetable")
         if jt.wanted and jt.pieces:
             out.append(f"{jt.name}: a standing service is not cut into pieces")
+        if jt.pieces_command and not jt.pieces:
+            out.append(f"{jt.name}: pieces_command on a job that is not cut into pieces (pieces = true)")
+        if jt.threads < 1:
+            out.append(f"{jt.name}: threads from 1")
+        if jt.threads > 1 and not jt.pieces:
+            out.append(f"{jt.name}: threads says what one piece keeps open; the job is not cut into pieces")
+        if jt.pieces and jt.profile and jt.profile in profs:
+            streams = streams_of(profs, jt.profile)
+            if jt.concurrency * jt.threads > streams:
+                out.append(f"{jt.name}: concurrency {jt.concurrency} x threads {jt.threads} = "
+                           f"{jt.concurrency * jt.threads} pieces in flight on one row is over profile {jt.profile}'s "
+                           f"{streams} streams")
+        for t in jt.then:
+            if t not in jts:
+                out.append(f"{jt.name}: then names {t!r}, which is not in the catalogue")
+            elif t == jt.name:
+                out.append(f"{jt.name}: then names itself")
+            elif jts[t].pieces and not jts[t].pieces_command:
+                out.append(f"{jt.name}: then names {t!r}, a pieced job with no pieces_command, so a row of it queued with "
+                           f"no pieces would be refused")
+            elif jts[t].wanted or jts[t].every_s or jts[t].at_utc:
+                out.append(f"{jt.name}: then names {t!r}, which has a clock or a wanted count of its own")
     prios = [jt.priority for jt in jts.values()]
     if len(set(prios)) != len(prios):
         dupes = sorted({p for p in prios if prios.count(p) > 1})
@@ -339,6 +389,11 @@ def problems(path: pathlib.Path | None = None, profiles_path: pathlib.Path | Non
                        f"{p.context:,} leaves {p.headroom:,} tokens for the prompt")
         if p.slots < 1 or p.context < 1:
             out.append(f"profile {p.name}: slots and context from 1")
+        if p.streams is not None and p.streams < 1:
+            out.append(f"profile {p.name}: streams from 1")
+        if p.streams and p.streams > server_of(profs, p.name).slots and (p.on is None or p.on in profs):
+            out.append(f"profile {p.name}: streams {p.streams} is over its server's {server_of(profs, p.name).slots} slots: "
+                       f"the server would queue the rest")
         if p.binary and p.binary not in probe.PROGRAMS:
             out.append(f"profile {p.name}: binary {p.binary!r} is not a program the probe looks for, so no box would ever load it")
     w = night_window(path)

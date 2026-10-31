@@ -1,13 +1,18 @@
 # board: where it stands
 
-**Date:** 2026-10-29. **Step:** 4.9 second version, rulings 80 to 122,
-`products/board/`. **Session:** board-15 (ruling 122, two tranches).
-**Merge request:** `board-15` (inbox).
+**Date:** 2026-10-31. **Step:** 4.9 second version, rulings 80 to 122,
+`products/board/`. **Session:** fix-products-board-1 (the timing floors).
+**Merge request:** `fix-products-board-7` (inbox).
 
 ## Done
 
 - Rulings 80 to 120: as before (board-8 to board-14, fix-products-board-1
   to -6).
+- fix-products-board-7 (31 October): the search's statements test the
+  words loosely over the text as held before the fold; the dossier reads
+  a group's keys once. Live, readers running: search 1.9–2.0 s → 0.65 s,
+  dossier of the largest group 0.85–1.0 s → 0.40 s. Statement counts
+  pinned (`tests/test_statements.py`). Floors unchanged.
 - Ruling 122: a chat pane fixed to the right-hand edge of every page,
   26rem, always open; the thread in the browser tab (sessionStorage),
   posted whole to `POST /chat`. The server (`chat.py`) asks the chat model

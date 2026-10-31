@@ -40,7 +40,6 @@ from products.board import collapse, db, document, facts, graph, lineage, links_
 ENTITY = people.ENTITY
 MANY_AT = 300               # a group of more rows than this is shown by view (the many-rows shape); at or under it, whole as before
 VIEW_ROWS = 50              # rows read per view in the many-rows shape, newest first; the rest a page of this many at a time
-KEYS_FIRST = 2000           # a view with at most this many of the group's rows is read by its keys taken first (view_rows)
 TIMELINE_ROWS = 40          # the newest rows the many-rows timeline lists; the rest counted, and reached by view
 FOLD_GATHERED = 20          # a fold's members whose own dossier is gathered and shown under their names; the rest open their own
 OPEN_AT = 40                # a register's rows open on the pane up to this many; past it closed to its name and count
@@ -111,7 +110,9 @@ def year_of(v: cat.View, r: dict):
 def bodies(conn, rows: list) -> dict:
     """{(view, key of the row, relation index): (far view, far row)}: the
     company or body each row's relations name, one query per far view and
-    column over every row at once."""
+    column over every row at once; a relation matched to a column many far
+    rows share reads one row per value, not every row (a member's 10,000
+    turns were read to keep one, 31 October 2026)."""
     want = {}
     for _, v, r in rows:
         for i, rel in enumerate(v.relations):
@@ -122,8 +123,12 @@ def bodies(conn, rows: list) -> dict:
     for (view, column), values in want.items():
         fv = cat.BY_NAME[view]
         col = fv.key_col if column == "key" else column
-        for fr in db.rows(conn, f"select *, {fv.key_col} as key from pub.{fv.name} where {col}::text = any(%s)",
-                          (sorted(values),)):
+        if col == fv.key_col:
+            sql = f"select *, {fv.key_col} as key from pub.{fv.name} where {col}::text = any(%s)"
+        else:                                          # a column many rows share (a member's turns): the first row of each value, by its index
+            sql = (f"select r.*, r.{fv.key_col} as key from unnest(%s::text[]) x(x), "
+                   f"lateral (select * from pub.{fv.name} where {col}::text = x.x limit 1) r")
+        for fr in db.rows(conn, sql, (sorted(values),)):
             found.setdefault((view, column, str(fr.get(col) if column != "key" else fr["key"])), (fv, fr))
     out = {}
     for _, v, r in rows:
@@ -178,9 +183,9 @@ def gather(conn, d: str, report_url: str = "", view: str = "", offset: int = 0) 
         if hit is None:
             return lone(conn, d, ref, v, r, report_url)
         gid, via = hit[0], panes.title_of(v, r)
-    size = db.rows(conn, "select count(*) as n, bool_or(contested) as contested from pub.groups where group_id = %s", (gid,))
-    if size and int(size[0]["n"] or 0) > MANY_AT:
-        return gather_many(conn, gid, int(size[0]["n"]), bool(size[0]["contested"]), d, via, report_url, view, offset)
+    c = counted(conn, gid)                         # one statement: the group's size, and past MANY_AT its counts and keys
+    if c["total"] > MANY_AT:
+        return gather_many(conn, gid, c, d, via, report_url, view, offset)
     ent = people.entity(conn, gid)
     if ent is None:
         return {"kind": "none", "chosen": d, "why": "no group has that id in pub.groups: the links lane has rebuilt its groups since"}
@@ -216,32 +221,42 @@ def date_sql(v: cat.View) -> str:
     return f"coalesce({', '.join(parts)})" if parts else "null::date"
 
 
-def _of_group(v: cat.View) -> str:
-    return (f"from pub.groups g join pub.names n on n.ref = g.row_key join pub.{v.name} r on r.{v.key_col}::text = n.key "
-            "where g.group_id = %s and n.view = %s")
-
-
 def counted(conn, gid: str) -> dict:
     """The group's rows counted in SQL, none gathered: {'views': [(view, rows
     shown)] in the catalogue's register order, 'names': [(name as filed,
-    rows)] over the shown rows, 'hidden' and 'hidden_by' {view: rows} (suppressed: for the check's sums alone, never shown),
-    'unread' (rows no catalogued view holds)}. One query for the group, one
-    more per view that can suppress."""
-    by = {}
-    for r in db.rows(conn, "select n.view, n.name_filed, count(*) as n from pub.groups g left join pub.names n on n.ref = g.row_key "
+    rows)] over the shown rows, 'keys' {view: [key]} the shown rows' keys,
+    'hidden' and 'hidden_by' {view: rows} (suppressed: for the check's sums alone, never shown),
+    'unread' (rows no catalogued view holds), 'total' (every row of the
+    group) and 'contested'}. One statement for the group (pub.groups joined
+    to pub.names once, by group id, the keys gathered per view and name),
+    then one per view that can suppress, by those keys: the group's 30,849
+    rows are never joined again (31 October 2026: the join ran once per
+    view and once per gift view, 0.08 s each)."""
+    by, keys, filed_of = {}, {}, {}
+    total, contested = 0, False
+    for r in db.rows(conn, "select n.view, n.name_filed, count(*) as n, array_agg(n.key) filter (where n.key is not null) as keys, "
+                           "bool_or(g.contested) as contested from pub.groups g left join pub.names n on n.ref = g.row_key "
                            "where g.group_id = %s group by 1, 2", (gid,)):
+        total += int(r["n"])
+        contested = contested or bool(r["contested"])
         by.setdefault(r["view"], {})[r["name_filed"] or ""] = int(r["n"])
+        if r["view"] is not None and r["view"] in cat.BY_NAME:
+            keys.setdefault(r["view"], []).extend(r["keys"] or [])
+            filed_of.setdefault(r["view"], {}).update({k: r["name_filed"] or "" for k in r["keys"] or []})
     hidden = unread = 0
     hidden_by = {}
-    for view in [w for w in by if w is not None and w in cat.BY_NAME]:
+    for view, ks in keys.items():
         v = cat.BY_NAME[view]
-        if not (v.suppressed or v.hide_names):
+        if not (v.suppressed or v.hide_names) or not ks:
             continue
-        for r in db.rows(conn, f"select n.name_filed, count(*) as n {_of_group(v)} and {hidden_sql(v)} group by 1", (gid, view)):
-            k = int(r["n"])
-            by[view][r["name_filed"] or ""] -= k
-            hidden += k
-            hidden_by[view] = hidden_by.get(view, 0) + k
+        found = {str(r["key"]) for r in db.rows(conn, f"select r.{v.key_col}::text as key from pub.{v.name} r "
+                                                     f"where r.{v.key_col}::text = any(%s) and {hidden_sql(v)}", (ks,))}
+        if found:
+            keys[view] = [k for k in ks if k not in found]
+            for k in found:
+                by[view][filed_of[view][k]] -= 1
+            hidden += len(found)
+            hidden_by[view] = hidden_by.get(view, 0) + len(found)
     names, views = {}, []
     order = {r: i for i, (r, _) in enumerate(cat.REGISTERS)}
     for view, filed in by.items():
@@ -255,8 +270,8 @@ def counted(conn, gid: str) -> dict:
             if k > 0:
                 names[name] = names.get(name, 0) + k
     views.sort(key=lambda vn: (order.get(vn[0].register, len(order)), -vn[1], vn[0].name))
-    return {"views": views, "names": tally(names.items()),
-            "hidden": hidden, "hidden_by": hidden_by, "unread": unread}
+    return {"views": views, "names": tally(names.items()), "keys": keys,
+            "hidden": hidden, "hidden_by": hidden_by, "unread": unread, "total": total, "contested": contested}
 
 
 def tally(pairs) -> list:
@@ -268,23 +283,25 @@ def tally(pairs) -> list:
     return sorted(n.items(), key=lambda kv: (-kv[1], kv[0].lower(), kv[0]))
 
 
-def view_rows(conn, gid: str, v: cat.View, offset: int = 0, count: int = 0, limit: int = VIEW_ROWS) -> list:
-    """[(ref, view, row)]: the group's shown rows of one view, newest first, a
-    page of `limit` from `offset`. A view of up to KEYS_FIRST rows in the
-    group is read by its keys taken first (a computed view, mp_expenses,
-    is planned badly through the join: 0.20 s against 0.02 s for 147 rows),
-    a larger one through the join (29,365 written questions: 0.14 s against 0.19 s)."""
-    if count and count <= KEYS_FIRST:
-        sql = (f"with k as materialized (select n.key from pub.groups g join pub.names n on n.ref = g.row_key "
-               f"where g.group_id = %s and n.view = %s) select r.*, r.{v.key_col} as key from pub.{v.name} r "
-               f"where r.{v.key_col}::text in (select key from k) and not {hidden_sql(v)} ")
-    else:
-        sql = f"select r.*, r.{v.key_col} as key {_of_group(v)} and not {hidden_sql(v)} "
-    d = date_sql(v)
-    sql = sql.replace("select r.*,", f"select r.*, min({d}) over () as _first_day, max({d}) over () as _last_day,", 1)
-    return [(links_view.ref(v, r["key"]), v, r) for r in
-            db.rows(conn, sql + f"order by {d} desc nulls last, r.{v.key_col} limit %s offset %s",
-                    (gid, v.name, limit, max(0, offset)))]
+def view_rows(conn, v: cat.View, keys: list, offset: int = 0, limit: int = VIEW_ROWS) -> list:
+    """[(ref, view, row)]: the group's shown rows of one view (`keys`, from
+    counted), newest first, a page of `limit` from `offset`. The keys and
+    dates alone are read and sorted (a narrow pass over the view's key
+    index), then the page's rows by key (an array, so a view built as a
+    union reads each part by its index); the first and last day of every
+    row ride each row (`_first_day`, `_last_day`, spans). The 29,365 written
+    questions of ruling 116's largest group: 0.11 s against 0.17 s through
+    the join, whose sort of the whole rows spilled to disk (31 October 2026)."""
+    if not keys:
+        return []
+    d, h = date_sql(v), hidden_sql(v)
+    sql = (f"with d as materialized (select r.{v.key_col}::text as key, {d} as d from pub.{v.name} r "
+           f"where r.{v.key_col}::text = any(%s) and not {h}), "
+           "b as (select min(d) as _first_day, max(d) as _last_day from d), "
+           "p as materialized (select key from d order by d desc nulls last, key limit %s offset %s) "
+           f"select r.*, b._first_day, b._last_day, r.{v.key_col} as key from pub.{v.name} r cross join b "
+           f"where r.{v.key_col}::text = any(array(select key from p)) order by {d} desc nulls last, r.{v.key_col}")
+    return [(links_view.ref(v, r["key"]), v, r) for r in db.rows(conn, sql, (list(keys), limit, max(0, offset)))]
 
 
 def spans(rows: list) -> dict:
@@ -299,21 +316,22 @@ def spans(rows: list) -> dict:
     return out
 
 
-def money_counted(conn, gid: str, views) -> list:
+def money_counted(conn, views, keys: dict) -> list:
     """[(year or None, sum of the amounts added, how many added, rows filed)]
-    over every shown gift row of the group, summed in SQL as addends adds:
-    an amount filed, the row not replaced, the view one that adds."""
+    over every shown gift row of the group (`keys`, from counted), summed in
+    SQL as addends adds: an amount filed, the row not replaced, the view one
+    that adds."""
     years = {}
     for v, _ in views:
         gift = cat.GIFT_OF.get(v.name)
-        if gift is None:
+        if gift is None or not keys.get(v.name):
             continue
         added = (f"r.{gift.amount} is not null" + (f" and r.{gift.replaced} is null" if gift.replaced else "")) if gift.added else "false"
         year = "coalesce(" + ", ".join(f"extract(year from r.{c})::int" if c in {c for _, c in v.dates} else f"r.{c}::int"
                                        for c in gift.years) + ")"
         for r in db.rows(conn, f"select {year} as year, count(*) as rows, count(*) filter (where {added}) as n, "
-                               f"sum(r.{gift.amount}) filter (where {added}) as total {_of_group(v)} and not {hidden_sql(v)} group by 1",
-                         (gid, v.name)):
+                               f"sum(r.{gift.amount}) filter (where {added}) as total from pub.{v.name} r "
+                               f"where r.{v.key_col}::text = any(%s) and not {hidden_sql(v)} group by 1", (list(keys[v.name]),)):
             y = years.setdefault(r["year"], [decimal.Decimal(0), 0, 0])
             y[0] += decimal.Decimal(r["total"] or 0)
             y[1] += int(r["n"])
@@ -321,20 +339,20 @@ def money_counted(conn, gid: str, views) -> list:
     return [(y, *years[y]) for y in sorted(years, key=lambda y: (y is None, y or 0))]
 
 
-def gather_many(conn, gid: str, n: int, contested: bool, d: str, via: str, report_url: str, view: str = "", offset: int = 0) -> dict:
+def gather_many(conn, gid: str, c: dict, d: str, via: str, report_url: str, view: str = "", offset: int = 0) -> dict:
     """A group of more than MANY_AT rows (ruling 116's members hold tens of
-    thousands): its rows counted by view and its names and money counted
-    in SQL over every row; the newest VIEW_ROWS of each view read (`view`
-    from `offset`), from which the timeline, roles, links and citations
-    are drawn. The results pane's shape (ruling 108): by view, each
-    collapsed to its count. A suppressed row is never read, named or
-    counted on the page; its number is kept for the check alone ('hidden_count')."""
-    c = counted(conn, gid)
+    thousands), `c` its counts (counted): its rows counted by view and its
+    names and money counted in SQL over every row; the newest VIEW_ROWS of
+    each view read (`view` from `offset`), from which the timeline, roles,
+    links and citations are drawn. The results pane's shape (ruling 108):
+    by view, each collapsed to its count. A suppressed row is never read,
+    named or counted on the page; its number is kept for the check alone
+    ('hidden_count')."""
     rows, pages = [], {}
     for v, k in c["views"]:
         at = min(max(0, offset), max(0, k - 1)) if v.name == view else 0
         pages[v.name] = at
-        rows += view_rows(conn, gid, v, at, k)
+        rows += view_rows(conn, v, c["keys"].get(v.name, []), at)
     refs = [ref for ref, _, _ in rows]
     shown = sum(k for _, k in c["views"])
     registers = {v.register for v, _ in c["views"]}
@@ -342,11 +360,11 @@ def gather_many(conn, gid: str, n: int, contested: bool, d: str, via: str, repor
     near = people.near_of(conn, refs)
     describe = {"group_id": gid, "label": people.fullest(nm for nm, _ in c["names"]) or f"group {gid}",
                 "rows": shown, "registers": len(registers), "count": people.count_words(shown, len(registers)),
-                "contested": contested, "number": people.number_of(own)}
-    return finish(conn, {"kind": "entity", "many": True, "chosen": d, "via": via, "group_id": gid, "total": n,
+                "contested": c["contested"], "number": people.number_of(own)}
+    return finish(conn, {"kind": "entity", "many": True, "chosen": d, "via": via, "group_id": gid, "total": c["total"],
                          "describe": describe, "rows": rows, "views": c["views"], "pages": pages, "opened": view if view in pages else "",
                          "hidden_count": c["hidden"], "hidden_by": c["hidden_by"], "unread": c["unread"], "hidden": set(), "names": c["names"],
-                         "money_counted": money_counted(conn, gid, c["views"]), "spans": spans(rows),
+                         "money_counted": money_counted(conn, c["views"], c["keys"]), "spans": spans(rows),
                          "links": own, "near": near[:people.PANE_NEAR], "near_total": len({(l["row_a"], l["row_b"], l["rule"]) for l in near}),
                          "related": lineage.related_of(conn, refs), "decisions": people.decisions_of(conn, refs),
                          "report": panes.report_href(report_url, gid)})
