@@ -14,13 +14,15 @@ Forms version 47bbeae00d63: 1,859,701 name forms (people 1,843,415; organisation
 | parliament-wayback | 23,052 | 1,816,108 | streamed |
 | hansard | 1,862 | 1,759,082 | 748 |
 | courts | 6,395 | 313,134 | 784 |
-| beehive | running: 50,500 of 66,571 at 23:58 | | |
+| beehive | 66,571 | 473,971 | finished 00:03 |
 
 ## Scheduled
 
 Commit 86cfc87, released 23:57. Each lane's load now queues its name pass. The courts pass queues the courts reader. A links build queues a rebuild of the forms, which queues every lane's pass; a whole scan under new forms removes that lane's sightings under the old forms.
 
-Open: a name the readers find reaches pub.names only when links.rows refills, by hand or by a links build. No nightly refill is wired.
+Names reach pub.names when their load publishes them (Arthur, 1 November; commit 1fe593c, released 00:25). Each of the 19 loads whose register feeds pub.names queues its own register's refill of links.rows; the other registers stand. A reader lane runs load, then names refill, then name pass, then (courts) the reader. The courts refill by hand took 16.7 s and 76 MB. Refills and the links build take one lock, so they run one at a time.
+
+48,218 distinct name forms were sighted at least once.
 
 ## Units and serving
 
@@ -32,4 +34,4 @@ Readers running: hansard (row 940), parliament (941), beehive (942).
 
 None so far.
 
-Last updated 2026-10-31 23:59.
+Last updated 2026-11-01 00:26.
