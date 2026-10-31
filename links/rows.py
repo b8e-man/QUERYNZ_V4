@@ -201,6 +201,47 @@ SOURCES = (
                     ELSE last_on END,
                NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
         FROM pub.minister_diary_releases WHERE minister IS NOT NULL AND minister <> ''"""),
+    # 31 October 2026 (Arthur: "make sure all names go into pub.names with references to where they are sighted"): every
+    # published view that names a person or body. The text readers' names, each row citing its document, page and place
+    # through its view and key; a withheld or suppressed name is set aside, never a row; a name whose shape names an
+    # address is not read
+    ("beehive", "beehive_people", """
+        SELECT key, name, NULL, published_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.beehive_people WHERE name IS NOT NULL AND name <> ''"""),
+    ("hansard", "hansard_people", """
+        SELECT key, name, NULL, sitting_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.hansard_people WHERE name IS NOT NULL AND name <> ''"""),
+    ("parliament", "parliament_people", """
+        SELECT key, name, NULL, dated, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.parliament_people WHERE name IS NOT NULL AND name <> '' AND NOT coalesce(name_names_address, false)"""),
+    ("courts", "court_people", """
+        SELECT key, name, NULL, dated, NULL::date, NULL, NULL, document, coalesce(suppressed, false), NULL, NULL, NULL
+        FROM pub.court_people WHERE name IS NOT NULL AND name <> ''"""),
+    ("courts", "court_judgment_parties", """
+        SELECT key, name, NULL, judgment_date, NULL::date, NULL, NULL, document, coalesce(withheld, false) OR coalesce(anonymised, false),
+               NULL, NULL, NULL
+        FROM pub.court_judgment_parties WHERE name IS NOT NULL AND name <> ''"""),
+    ("commerce_commission", "commerce_commission_parties", """
+        SELECT key, name, NULL, NULL::date, NULL::date, NULL, NULL, document, coalesce(withheld, false), NULL, NULL, NULL
+        FROM pub.commerce_commission_parties WHERE name IS NOT NULL AND name <> ''"""),
+    ("fma", "fma_parties", """
+        SELECT key, name, NULL, NULL::date, NULL::date, NULL, NULL, document, coalesce(withheld, false), NULL, NULL, NULL
+        FROM pub.fma_parties WHERE name IS NOT NULL AND name <> ''"""),
+    ("worksafe", "worksafe_parties", """
+        SELECT key, name, NULL, NULL::date, NULL::date, NULL, NULL, document, coalesce(withheld, false), NULL, NULL, NULL
+        FROM pub.worksafe_parties WHERE name IS NOT NULL AND name <> ''"""),
+    ("overseas_investment", "overseas_investment_parties", """
+        SELECT key, name, NULL, NULL::date, NULL::date, NULL, NULL, document, coalesce(withheld, false), NULL, NULL, NULL
+        FROM pub.overseas_investment_parties WHERE name IS NOT NULL AND name <> ''"""),
+    ("sanctions", "sanctions_listings", """
+        SELECT key, name, NULL, designated_on, ended_on, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.sanctions_listings WHERE name IS NOT NULL AND name <> ''"""),
+    ("tenders", "award_suppliers", """
+        SELECT key, business_name, NULL, awarded_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.award_suppliers WHERE business_name IS NOT NULL AND business_name <> ''"""),
+    ("iwi_directory", "iwi_directory_entities", """
+        SELECT key, name, NULL, NULL::date, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.iwi_directory_entities WHERE name IS NOT NULL AND name <> ''"""),
 )
 #: the filing candidate is a politician; a declared interest is the member's own (a sole trade in the member's name is not a director row);
 #: a local candidate and a councillor are candidates and members of an elected body, held to the same stricter join (ruling 114)
