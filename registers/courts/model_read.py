@@ -9,18 +9,31 @@ hash in the reader store and replayed from there by every load (ruling 50:
 the fast tier calls no model). A document without a stored reading is
 "waiting: text reader" in `courts.documents`; this module's job reads it.
 
+The whole document is read, never an excerpt (ruling 130). A document
+longer than its profile's budget is read in pieces by the profile's split
+rule (`pieces.py`: the caption first and whole, then runs of numbered
+paragraphs; pages for a transcript), each piece one model call whose
+answer is stored as its own reading (page = the piece's number), so a job
+stopped at its deadline resumes at the next piece; the pieces' people are
+joined under the one hash, a name listed once across them, and the
+document's summary is made from the pieces' summaries in one more call.
+The joined reading is stored as the document's and replayed by every load.
+A document the rule cannot split never reaches here: the load sets it
+aside at stage `read`, named.
+
     python -m registers.courts.model_read --pieces [--database D]   the documents waiting, one key a line (for the integrator's enqueue)
     python -m registers.courts.model_read --piece SHA256            one piece of qv4-courts-read (QV4_MODEL_URL, QV4_MODEL from the worker)
     python -m registers.courts.model_read --piece SHA256 --wait     from a session: wait for the standing server to come back
 
 The reading's text goes to the model and nowhere else (hard limit 10: the
 server is on this box; limit 11: no page text is printed or logged here).
-An answer cut off at the token cap (a document naming a hundred people) is
+An answer cut off at the token cap (a piece naming a hundred people) is
 salvaged: the complete entries are kept and the reading is stamped
-`truncated`. An answer with no JSON object at all is asked once more on a
-shorter excerpt; still none, and an `unusable` reading is stored with the
-reason, so the piece ends done, the next load sets the document aside at
-stage `read`, and no job loops on it.
+`truncated`. An answer with no JSON object at all is asked once more, for
+the object alone; still none, and the piece's reading is stored `unusable`;
+a document none of whose pieces answered is stored `unusable` with the
+reason, so the job's piece ends done, the next load sets the document
+aside at stage `read`, and no job loops on it.
 
 The keep rule under a suppression (hard limit 16) is written once here:
 `kept_under_suppression` for the load, `kept_sql` for the check and the
@@ -37,13 +50,13 @@ import urllib.error
 
 from support import modelclient
 from support import reader as rd
+from registers.courts import pieces as PC
 
-READER = "registers.courts.model_read 1"
+READER = "registers.courts.model_read 2"
 LANE = "courts"
 TEXT_MODEL = os.environ.get("QV4_COURTS_TEXT_MODEL") or "qwen4exp"      # profiles.toml [profiles.text-reader] model
 URL = os.environ.get("QV4_MODEL_URL") or "http://127.0.0.1:8060/v1/chat/completions"
-HEAD_CHARS, TAIL_CHARS = 28000, 4000   # about 8,000 tokens of text; the text-reader profile's context is 16,384 with MAX_TOKENS to answer in
-MAX_TOKENS = 4096
+MAX_TOKENS = 4096           # the answer's room inside the text-reader profile's 16,384-token context; the budget is the profile's
 ROLES = ("party", "counsel", "witness", "judge", "company", "agency", "other")
 KINDS = ("person", "body")
 #: the roles a suppression never withholds: the court's officers and a public agency (the Crown is caption.CROWN)
@@ -64,26 +77,30 @@ PROMPT = (
     "is kind body, role agency; a party to the case is role party whatever its kind. Keep initials, honorifics and "
     "spelling as printed; never expand an initial or a pseudonym; never add an address, an age or a date of birth; "
     "never name anyone the text does not name. The summary describes the document in neutral words and names nobody.")
+PART = ("This is part {i} of {n} of one document (part 1 holds its caption; a later part opens with the document's first lines for "
+        "context). List every person and body THIS PART names, each once, with the role the document gives it; the summary is of this part.")
+SUMMARY_PROMPT = ("You are given the one-sentence summaries of the parts of one New Zealand court document, in order. Answer with ONE JSON "
+                  'object and nothing else: {"summary": "<one sentence, at most 40 words, saying what the whole document is and what it '
+                  'decides or concerns, in neutral words, naming nobody>"}')
 _JSON = re.compile(r"\{.*\}", re.S)
 
 
-def settings(prompt: str = PROMPT) -> dict:
-    return {"prompt_sha": hashlib.sha256(prompt.encode()).hexdigest()[:16], "head_chars": HEAD_CHARS,
-            "tail_chars": TAIL_CHARS, "temperature": 0.0, "max_tokens": MAX_TOKENS, "thinking": False}
+def settings(rule: dict, prompt: str = PROMPT) -> dict:
+    """What the reading was made under: the prompt, the profile's budget
+    and split rule, the context head, the decoding. Part of the key."""
+    return {"prompt_sha": hashlib.sha256(prompt.encode()).hexdigest()[:16],
+            "summary_prompt_sha": hashlib.sha256(SUMMARY_PROMPT.encode()).hexdigest()[:16],
+            "budget_chars": rule["budget_chars"], "split": rule["split"], "context_chars": PC.CONTEXT_CHARS,
+            "temperature": 0.0, "max_tokens": MAX_TOKENS, "thinking": False}
 
 
-def key_for(sha256: str, profile: str, version: int, model: str = TEXT_MODEL) -> str:
-    return rd.reading_key(sha256, 1, model, settings(), profile, version)
+def key_for(sha256: str, profile: str, version: int, model: str = TEXT_MODEL, rule: dict = None) -> str:
+    return rd.reading_key(sha256, 1, model, settings(rule or PC.rule_of(profile)), profile, version)
 
 
-def excerpt(texts: dict, head: int = HEAD_CHARS, tail: int = TAIL_CHARS) -> str:
-    """The document's text for the model: every page in order, the head and
-    the tail when it is long (a judgment's caption, counsel and judges are at
-    the front; its result and the names it ends on at the back)."""
-    body = "\n\n".join(f"[page {p}]\n{texts[p]}" for p in sorted(texts) if (texts[p] or "").strip())
-    if len(body) <= head + tail:
-        return body
-    return body[:head] + "\n\n[… pages omitted …]\n\n" + body[-tail:]
+def piece_key(sha256: str, profile: str, version: int, model: str, rule: dict, i: int, n: int) -> str:
+    """A piece's own reading: page = its number, the settings saying which of how many."""
+    return rd.reading_key(sha256, i, model, {**settings(rule), "piece": i, "of": n}, profile, version)
 
 
 def parse_answer(text: str):
@@ -111,11 +128,14 @@ def parse_answer(text: str):
         if (name.upper(), role) in seen:        # each once (the prompt's rule); a model that loops repeats a name
             continue
         seen.add((name.upper(), role))
-        people.append({"name": name, "kind": kind, "role": role,
-                       "role_text": (re.sub(r"\s+", " ", str(item.get("role_text") or "")).strip() or None),
-                       "for": for_party})
+        entry = {"name": name, "kind": kind, "role": role,
+                 "role_text": (re.sub(r"\s+", " ", str(item.get("role_text") or "")).strip() or None),
+                 "for": for_party}
+        if isinstance(item.get("part"), int):
+            entry["part"] = item["part"]
+        people.append(entry)
     summary = re.sub(r"\s+", " ", str(body.get("summary") or "")).strip() or None
-    return {"summary": summary, "people": people, "truncated": truncated}
+    return {"summary": summary, "people": people, "truncated": truncated, "parts": body.get("parts") or 1}
 
 
 def _object(text: str):
@@ -150,82 +170,165 @@ def _object(text: str):
     return None, False
 
 
-def ask(texts: dict, *, url: str, model: str, post=None, request: dict = None, timeout: float = 900.0,
-        attempt: int = 1) -> tuple:
-    """(parsed answer or None, served model). One call; the client reads the
-    served model back and refuses another. The second attempt, after an
-    answer with no object, sends half the excerpt and asks for the object
-    alone; there is no third."""
-    extra = {"temperature": 0.0, "max_tokens": MAX_TOKENS, "chat_template_kwargs": {"enable_thinking": False}}
+def _chat(system: str, user: str, *, url: str, model: str, post=None, request: dict = None, timeout: float = 900.0,
+          max_tokens: int = MAX_TOKENS) -> tuple:
+    extra = {"temperature": 0.0, "max_tokens": max_tokens, "chat_template_kwargs": {"enable_thinking": False}}
     for k, v in (request or {}).items():
         if k not in ("temperature", "max_tokens"):
             extra.setdefault(k, v)
-    if attempt == 1:
-        user = "DOCUMENT TEXT:\n\n" + excerpt(texts)
-    else:
-        user = ("Answer with the one JSON object only: no words before or after it, no code fence.\n\nDOCUMENT TEXT:\n\n"
-                + excerpt(texts, HEAD_CHARS // 2, TAIL_CHARS // 2))
     out = modelclient.chat(url, lane=LANE, model=model,
-                           messages=[{"role": "system", "content": PROMPT}, {"role": "user", "content": user}],
+                           messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
                            extra=extra, timeout=timeout, post=post)
-    answer = (out["choices"][0]["message"]["content"] or "").strip()
-    return parse_answer(answer), out.get("model") or model
+    return (out["choices"][0]["message"]["content"] or "").strip(), out.get("model") or model
 
 
-def read_one(sha256: str, texts: dict, *, profile: str, version: int, url: str = None, model: str = None,
-             store: rd.Store = None, post=None, request: dict = None) -> dict:
-    """The document read once and stored; a stored reading is replayed, never
-    remade. After ATTEMPTS answers with no usable object an `unusable`
-    reading is stored (the load sets the document aside); nothing raises."""
-    store = store or rd.Store()
-    model = model or TEXT_MODEL
-    key = key_for(sha256, profile, version, model)
+def ask(text: str, *, url: str, model: str, post=None, request: dict = None, timeout: float = 900.0,
+        attempt: int = 1, part: tuple = (1, 1)) -> tuple:
+    """(parsed answer or None, served model) for one piece's text. One call;
+    the client reads the served model back and refuses another. The second
+    attempt, after an answer with no object, sends the same piece and asks
+    for the object alone; there is no third."""
+    i, n = part
+    lead = (PART.format(i=i, n=n) + "\n\n") if n > 1 else ""
+    if attempt > 1:
+        lead = "Answer with the one JSON object only: no words before or after it, no code fence.\n\n" + lead
+    answer, served = _chat(PROMPT, lead + "DOCUMENT TEXT:\n\n" + text, url=url, model=model, post=post, request=request, timeout=timeout)
+    return parse_answer(answer), served
+
+
+def summarise(summaries: list, *, url: str, model: str, post=None, request: dict = None, timeout: float = 300.0):
+    """One sentence for the whole from its parts' sentences, or None."""
+    user = "\n".join(f"Part {i}: {s}" for i, s in enumerate(summaries, 1) if s)
+    if not user:
+        return None
+    answer, _ = _chat(SUMMARY_PROMPT, user, url=url, model=model, post=post, request=request, timeout=timeout, max_tokens=256)
+    m = _JSON.search(answer or "")
+    if not m:
+        return None
+    try:
+        body = json.loads(m.group(0))
+    except ValueError:
+        return None
+    s = re.sub(r"\s+", " ", str((body or {}).get("summary") or "")).strip() if isinstance(body, dict) else ""
+    return s or None
+
+
+def _read_piece(sha256: str, text: str, i: int, n: int, *, profile: str, version: int, rule: dict, url: str, model: str,
+                store: rd.Store, post, request) -> tuple:
+    """(parsed or None, served model, calls made: 0 for a replay). A piece's
+    reading is stored under its own key and never remade; an unusable piece
+    is stored too, so nothing asks it again."""
+    key = piece_key(sha256, profile, version, model, rule, i, n)
     if store.has(key):
-        return {**_unpack(store.get(key)), "replayed": True}
+        got = store.get(key)
+        return (None if (got.checks or {}).get("unusable") else parse_answer(got.text)), got.model, 0
     parsed = served = None
     for attempt in range(1, ATTEMPTS + 1):
-        parsed, served = ask(texts, url=url or URL, model=model, post=post, request=request, attempt=attempt)
+        parsed, served = ask(text, url=url, model=model, post=post, request=request, attempt=attempt, part=(i, n))
         if parsed is not None:
             break
     made = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+    piece_settings = {**settings(rule), "piece": i, "of": n}
     if parsed is None:
-        reading = rd.Reading(sha256, 1, READER, served or model, settings(), profile, version, "text", "",
-                             checks={"people": 0, "summary": False, "unusable": UNUSABLE % ATTEMPTS, "attempts": ATTEMPTS}, made_at=made)
+        reading = rd.Reading(sha256, i, READER, served or model, piece_settings, profile, version, "text", "",
+                             checks={"people": 0, "summary": False, "unusable": UNUSABLE % ATTEMPTS, "attempts": ATTEMPTS, "chars": len(text)}, made_at=made)
     else:
-        reading = rd.Reading(sha256, 1, READER, served, settings(), profile, version, "text",
+        reading = rd.Reading(sha256, i, READER, served, piece_settings, profile, version, "text",
                              json.dumps(parsed, ensure_ascii=False, sort_keys=True), rows=parsed["people"],
                              checks={"people": len(parsed["people"]), "summary": bool(parsed["summary"]),
-                                     "truncated": bool(parsed.get("truncated")), "attempts": attempt}, made_at=made)
+                                     "truncated": bool(parsed.get("truncated")), "attempts": attempt, "chars": len(text)}, made_at=made)
     store.put(reading)
-    return {**_unpack(reading), "replayed": False}
+    return parsed, served, attempt
+
+
+def read_one(sha256: str, texts: dict, *, profile: str, version: int, url: str = None, model: str = None,
+             store: rd.Store = None, post=None, request: dict = None, rule: dict = None) -> dict:
+    """The document read once and stored; a stored reading is replayed, never
+    remade. The whole document, in pieces by the profile's rule where it is
+    longer than the budget; the pieces' people joined, a name once across
+    them; the summary from the parts' summaries in one more call. After
+    ATTEMPTS answers with no usable object on every piece an `unusable`
+    reading is stored (the load sets the document aside); nothing raises
+    but for a document the rule cannot split (the load never sends one)."""
+    store = store or rd.Store()
+    model = model or TEXT_MODEL
+    url = url or URL
+    rule = rule or PC.rule_of(profile)
+    key = key_for(sha256, profile, version, model, rule)
+    if store.has(key):
+        return {**_unpack(store.get(key)), "replayed": True}
+    parts, why = PC.plan(texts, rule)
+    if parts is None:
+        raise ValueError(f"{sha256[:12]}: the text reader cannot read it: {why}")
+    n = len(parts)
+    answers, served, calls, replayed = [], None, 0, 0
+    for i, text in enumerate(parts, 1):
+        parsed, got_model, made = _read_piece(sha256, text, i, n, profile=profile, version=version, rule=rule, url=url,
+                                              model=model, store=store, post=post, request=request)
+        served = got_model or served
+        replayed += made == 0
+        calls += made
+        answers.append(parsed)
+    made = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+    answered = [a for a in answers if a is not None]
+    if not answered:
+        reading = rd.Reading(sha256, 1, READER, served or model, settings(rule), profile, version, "text", "",
+                             checks={"people": 0, "summary": False, "unusable": UNUSABLE % ATTEMPTS, "attempts": ATTEMPTS, "pieces": n}, made_at=made)
+        store.put(reading)
+        return {**_unpack(reading), "replayed": False, "pieces": n, "calls": calls}
+    people, seen = [], set()
+    for i, a in enumerate(answers, 1):
+        for p in (a or {"people": []})["people"]:
+            if (p["name"].upper(), p["role"]) in seen:
+                continue
+            seen.add((p["name"].upper(), p["role"]))
+            people.append({**p, "part": i})
+    if n == 1:
+        summary = answered[0]["summary"]
+    else:
+        summary = summarise([a["summary"] if a else None for a in answers], url=url, model=model, post=post, request=request)
+        calls += 1
+        if not summary:
+            summary = next((a["summary"] for a in answered if a["summary"]), None)
+    joined = {"summary": summary, "people": people, "truncated": any(a.get("truncated") for a in answered), "parts": n,
+              "parts_unusable": n - len(answered)}
+    reading = rd.Reading(sha256, 1, READER, served, settings(rule), profile, version, "text",
+                         json.dumps(joined, ensure_ascii=False, sort_keys=True), rows=people,
+                         checks={"people": len(people), "summary": bool(summary), "truncated": joined["truncated"], "pieces": n,
+                                 "parts_unusable": joined["parts_unusable"]}, made_at=made)
+    store.put(reading)
+    return {**_unpack(reading), "replayed": False, "pieces": n, "calls": calls, "pieces_replayed": replayed}
 
 
 def _unpack(reading: rd.Reading) -> dict:
-    parsed = parse_answer(reading.text) or {"summary": None, "people": [], "truncated": False}
+    parsed = parse_answer(reading.text) or {"summary": None, "people": [], "truncated": False, "parts": 1}
     return {"summary": parsed["summary"], "people": parsed["people"], "model": reading.model, "reader": reading.reader,
-            "made_at": reading.made_at, "key": reading.key,
+            "made_at": reading.made_at, "key": reading.key, "parts": parsed.get("parts") or 1,
             "truncated": bool(parsed.get("truncated") or (reading.checks or {}).get("truncated")),   # the stored object is whole
             "unusable": (reading.checks or {}).get("unusable")}
 
 
-def stored(sha256: str, profile: str, version: int, store: rd.Store, model: str = TEXT_MODEL):
+def stored(sha256: str, profile: str, version: int, store: rd.Store, model: str = TEXT_MODEL, rule: dict = None):
     """The stored reading, unpacked, or None: the load replays and never asks."""
-    key = key_for(sha256, profile, version, model)
+    key = key_for(sha256, profile, version, model, rule)
     if not store.has(key):
         return None
     return _unpack(store.get(key))
 
 
 def people_rows(sha256: str, reading: dict, doc: dict, profile: str, version: int, now: str) -> list:
-    """One row per person or body the reading names, in the reading's order."""
+    """One row per person or body the reading names, in the reading's order;
+    the place names the part of a document read in pieces."""
     from registers.courts.read import KIND_OF
     out = []
+    parts = reading.get("parts") or 1
     for n, p in enumerate(reading["people"], 1):
+        place = f"text reader, name {n}" if parts == 1 else f"text reader, part {p.get('part') or 1} of {parts}, name {n}"
         out.append({"key": f"{sha256}/person/{n}", "name": p["name"], "kind": p["kind"], "role": p["role"],
                     "role_text": p.get("role_text"), "for_party": p.get("for"), "citation": doc.get("citation"),
                     "case_slug": doc.get("case_slug"), "document_kind": KIND_OF.get(profile, "document"),
                     "dated": doc.get("dated"), "withheld": False, "document": sha256, "page": 1,
-                    "place": f"text reader, name {n}", "read_from": "text", "reader": reading["reader"],
+                    "place": place, "read_from": "text", "reader": reading["reader"],
                     "model": reading["model"], "profile": profile, "profile_version": version, "loaded_at": now})
     return out
 
@@ -253,8 +356,8 @@ def kept_sql(alias: str = "") -> str:
 # ── the job ───────────────────────────────────────────────────────────────────────────────────────────────────
 def waiting(conn, schema: str = "courts") -> list:
     """The documents waiting on the text reader, the kinds people ask about
-    first: judgments, releases, transcripts, submissions, synopses, then case
-    pages. [(sha256, profile, profile_version, url)]."""
+    first: judgments and determinations, releases, transcripts, submissions,
+    synopses, then case pages. [(sha256, profile, profile_version, url)]."""
     from registers.courts.read import WAIT_TEXT, JUDGMENT_SLUGS, RELEASE, TRANSCRIPT, SUBMISSION, SYNOPSIS, CASE_PAGE
     rank = {**{s: 0 for s in JUDGMENT_SLUGS}, RELEASE: 1, TRANSCRIPT: 2, SUBMISSION: 3, SYNOPSIS: 4, CASE_PAGE: 5}
     rows = conn.execute(f"SELECT DISTINCT document, profile, profile_version, url FROM {schema}.documents "
@@ -266,7 +369,8 @@ def piece(sha256: str, *, url: str, model: str, store: rd.Store = None, conn=Non
           wait_s: float = 0.0) -> dict:
     """One piece of `qv4-courts-read`: the document's text (text layer, or
     its stored page readings), its profile as the load recognised it, one
-    call, one stored reading. Counts and the hash only."""
+    call per part of the document, one stored reading. Counts and the hash
+    only."""
     from support.docstore.landing import read_bytes
     from registers.courts import read as R
     store = store or rd.Store()
@@ -286,11 +390,12 @@ def piece(sha256: str, *, url: str, model: str, store: rd.Store = None, conn=Non
     if slug is None or slug == R.SCANNED:
         raise RuntimeError(f"{sha256[:12]}: not readable by the text reader: {why}")
     version = R.profile_version(slug)
+    rule = PC.rule_of(slug)
     deadline = time.monotonic() + wait_s
     while True:
         try:
             got = read_one(sha256, texts, profile=slug, version=version, url=url, model=model, store=store, post=post,
-                           request=request)
+                           request=request, rule=rule)
             break
         except (urllib.error.URLError, ConnectionError, modelclient.WrongModel) as exc:
             if time.monotonic() >= deadline:
@@ -299,6 +404,7 @@ def piece(sha256: str, *, url: str, model: str, store: rd.Store = None, conn=Non
             time.sleep(60)
     return {"document": sha256, "profile": f"{slug}@{version}", "model": got["model"], "people": len(got["people"]),
             "summary": bool(got["summary"]), "replayed": got["replayed"], "chars": sum(len(t) for t in texts.values()),
+            "pieces": got.get("pieces") or got.get("parts") or 1, "calls": got.get("calls", 0),
             "truncated": got.get("truncated", False), "unusable": got.get("unusable")}
 
 
@@ -330,8 +436,9 @@ def main(argv=None) -> int:
             if conn is not None:
                 conn.close()
         print(f"courts read: {line['document'][:12]} {line['profile']} by {line['model']}: {line['people']} name(s), "
-              f"summary {line['summary']}, {'replayed' if line['replayed'] else 'read now'}, {line['chars']} chars"
-              + (", answer cut at the token cap: the complete entries kept" if line["truncated"] else "")
+              f"summary {line['summary']}, {'replayed' if line['replayed'] else 'read now'}, {line['chars']} chars in "
+              f"{line['pieces']} piece(s), {line['calls']} call(s)"
+              + (", an answer cut at the token cap: the complete entries kept" if line["truncated"] else "")
               + (f"; UNUSABLE: {line['unusable']}; the next load sets the document aside" if line["unusable"] else ""))
         return 0
     print(__doc__)

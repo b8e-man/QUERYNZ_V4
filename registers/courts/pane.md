@@ -5,7 +5,10 @@ One pane, counts only (never a party's name, never a judgment's text, never a su
 - **The corpus, accounted for:** `select outcome, count(*) from courts.documents group by 1`: read, waiting: page reader,
   waiting: text reader, set aside, caught. `python -m registers.courts.check` holds it to the pull's arrivals.
 - **By profile:** `select profile, count(*) from courts.documents group by 1 order by 2 desc`: judgments by court,
-  case pages, media releases, transcripts, submissions, synopses, scanned documents.
+  determinations and tribunal decisions, case pages, media releases, transcripts, submissions, synopses, scanned documents.
+- **The reader's pieces (ruling 130):** `select profile, count(*), sum(pieces), count(*) filter (where pieces > 1) from courts.documents
+  where outcome in ('read', 'waiting: text reader') group by 1`: documents, the calls the text reader makes, documents over
+  the budget; `select count(*) from courts.set_aside where stage = 'read' and reason like 'the text reader cannot%'`: unsplittable.
 - **Held and read:** `select status, count(*) from courts.judgments group by 1`: parsed, partial, unparsed; the per-field
   missing counts and the roles the counsel lines name that no party holds, from the check.
 - **The text reader's work:** `select count(*), count(*) filter (where withheld), count(distinct document) from courts.people`

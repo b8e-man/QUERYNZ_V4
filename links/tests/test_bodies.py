@@ -8,6 +8,7 @@ shapes the registers file; a slow test builds and checks on the real engine
 (a sample-database schema, rolled back) and turns check item 9 red on
 planted faults."""
 import os
+import re
 
 import pytest
 
@@ -88,6 +89,38 @@ def test_the_body_dates_take_the_formation_registers_over_the_charity():
     rows = [_r("companies:c", "companies", "1995-01-01", kind="companies"), _r("charities:x", "charities", "2009-01-01", "2014-01-01")]
     assert rules.body_dates(rows) == {"registered_on": rules._d("1995-01-01"), "removed": False, "removed_on": None, "removal_undated": False}
     assert rules.body_dates(rows[1:])["removed_on"] == rules._d("2014-01-01")
+
+
+def test_the_charities_of_one_nzbn_are_one_body_removed_only_where_the_last_registered_is():
+    """One NZBN under two charity numbers (fix-links-6): deregistered in February 2023, registered again in July 2023 under
+    a new name and number. The body's charities rows are its registrations in turn, so it is removed only where the last
+    registered says so; a 2024 row naming the new name confirms to the body, which is the earliest row."""
+    rows = [_r("charities:charities/CC1", "charities", "2020-11-09", "2023-02-20", number="CC1", name="TAMA ACADEMY", named=False),
+            _r("charities:charities/CC2", "charities", "2023-07-12", number="CC2", name="TAGATA ACADEMY")]
+    assert rules.body_dates(rows) == {"registered_on": rules._d("2020-11-09"), "removed": False, "removed_on": None, "removal_undated": False}
+    assert rules.body_dates(rows[::-1]) == rules.body_dates(rows)                                     # whichever order the rows come
+    assert rules.body_dates([rows[0], dict(rows[1], removed_on="2025-01-01")]) == \
+        {"registered_on": rules._d("2020-11-09"), "removed": True, "removed_on": rules._d("2025-01-01"), "removal_undated": False}
+    assert rules.body_dates([rows[0], dict(rows[1], removal_undated=True)])["removal_undated"] is True
+    # the last registered: the latest date, a row with no date counting earliest, then the largest ref by bytes
+    assert rules.body_dates([rows[0], dict(rows[1], registered_on=None)]) == \
+        {"registered_on": rules._d("2020-11-09"), "removed": True, "removed_on": rules._d("2023-02-20"), "removal_undated": False}
+    assert rules.body_dates([dict(rows[0], registered_on="2023-07-12"), rows[1]])["removed"] is False
+    assert rules.body_dates([dict(rows[0], entity_ref="charities:charities/CC3", registered_on="2023-07-12"), rows[1]])["removed"] is True
+    # a formation row still decides over every charities row
+    formed = [_r("companies:c", "companies", "1995-01-01", "2000-01-01", kind="companies")] + rows
+    assert rules.body_dates(formed)["removed_on"] == rules._d("2000-01-01")
+    body = {"body": "charities:charities/CC1", "rows": rows}
+    row = dict(DECLARED, name_filed="Tagata Academy", name_key="tagata academy", started_on="2024-03-31")
+    [j] = rules.body_on_date(row, [body])
+    assert (j["entity_ref"], j["rule"], j["grade"], j["evidence"]["outcome"]) == \
+        ("charities:charities/CC1", rules.RULE_SOLE_BODY_DATED, "confirmed", "sole")
+    assert (j["evidence"]["company"], j["evidence"]["company_number"], j["evidence"]["registered_on"], j["evidence"]["removed_on"]) == \
+        ("TAGATA ACADEMY", "CC1", "2020-11-09", None)
+    assert [x["entity_ref"] for x in j["evidence"]["registers"]] == ["charities:charities/CC1", "charities:charities/CC2"]
+    # before the first registration: not yet; between the two: the earlier registration stood
+    assert rules.body_on_date(dict(row, started_on="2019-06-30"), [body])[0]["evidence"]["outcome"] == "not_yet"
+    assert rules.body_on_date(dict(row, started_on="2023-04-30"), [body])[0]["grade"] == "confirmed"
 
 
 # ── ruling 125 (links-5): the rules on every organisation-named row, judged on the row's own date ──────────────────
@@ -260,5 +293,158 @@ def test_the_build_confirms_by_body_and_check_nine_goes_red_on_planted_faults():
             # planted: the society row folded apart from its Companies Office twin (two bodies, one NZBN)
             conn.execute(f"UPDATE {s}.bodies SET body = 'societies:s1' WHERE entity_ref = 'societies:s1'")
             assert [r["ok"] for r in check.check_ruling_114(conn, s)] == [False, False]
+        finally:
+            raw.rollback()
+
+
+# ── the bodies' NZBNs on the real engine (fix-links-6) ─────────────────────
+
+#: the four registers `rows.BODY_SQL` reads, as stubs with the columns it reads
+BODY_STUBS = {
+    "companies": "key text, nzbn text, number text, register text, name text, registered_on date, removed_on date, status text",
+    "societies": "key text, nzbn text, number text, name text, registered_on date, removed_on date, status text",
+    "limited_partnerships": "key text, nzbn text, number text, name text, registered_on date, status text, name_withheld boolean",
+    "charities": ("key text, nzbn text, number text, name text, registered_on date, deregistered_on date, status text, legal_structure text, "
+                  "incorporation_number text"),
+}
+TRUST_ACT = "Charitable Trusts incorporated under the Charitable Trusts Act"
+ZERO = "0000000000000"
+
+
+class _PubCur:
+    """A client-side cursor (the build's server-side one cannot fetch behind the COPY on the one connection the test has)."""
+
+    def __init__(self, cur, fix):
+        self._c, self._f, self.itersize = cur, fix, None
+
+    def execute(self, q, *a, **k):
+        self._c.execute(self._f(q), *a, **k)
+        return self
+
+    def executemany(self, q, *a, **k):
+        return self._c.executemany(self._f(q), *a, **k)
+
+    def __iter__(self):
+        return iter(self._c)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *e):
+        self._c.close()
+
+    def __getattr__(self, n):
+        return getattr(self._c, n)
+
+
+class _Pub:
+    """The real connection in one transaction the test rolls back, `pub.` read from the scratch stubs."""
+
+    def __init__(self, conn, pub):
+        self.conn, self.pub = conn, pub
+
+    def fix(self, q):
+        return re.sub(r"\bpub\.", f"{self.pub}.", q)
+
+    def execute(self, q, *a, **k):
+        return self.conn.execute(self.fix(q), *a, **k)
+
+    def cursor(self, *a, name=None, **k):
+        return _PubCur(self.conn.cursor(*a, **k), self.fix)
+
+    def commit(self):
+        pass
+
+    def __getattr__(self, n):
+        return getattr(self.conn, n)
+
+
+@pytest.mark.slow
+def test_an_all_zero_nzbn_is_none_and_the_charities_of_one_nzbn_are_one_body_on_the_engine():
+    """`rows.gather_bodies` over stub registers shaped like the live fault (30 October 2026): three charities carrying the
+    placeholder `0000000000000` (one a trust board by its number), one NZBN under two charity numbers with no Companies
+    Office row, one under two charity numbers that is a company, and one that is a society. Then the build confirms a
+    2024 row naming the re-registered charity's new name to the one body, check item 9 is green on both lines, and goes
+    red when the body is split or the placeholder put back."""
+    import support.db as db
+    from links import build, check, rows
+    if not os.path.exists(os.path.join(db.CRED_DIR, "v4.env")):
+        pytest.skip("no credential file on this box")
+    s, p = "scratch_links_bodies_nzbn_test", "scratch_links_bodies_nzbn_pub"
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as raw:
+        conn = _Pub(_NoCommit(raw), p)
+        try:
+            conn.execute(f"CREATE SCHEMA {s}")
+            conn.execute(f"CREATE SCHEMA {p}")
+            conn.execute(links.ddl(s))
+            for table, cols in BODY_STUBS.items():
+                conn.execute(f"CREATE TABLE {p}.{table} ({cols})")
+            conn.execute(f"""INSERT INTO {p}.companies VALUES
+                ('companies/9429000000001', '9429000000001', '2731452', 'charitable_trust_board', 'KOWHAI TRUST BOARD', '2010-01-01', NULL, 'Registered'),
+                ('companies/9429000000002', '9429000000002', '700', 'companies', 'RATA HOLDINGS LIMITED', '2000-01-01', NULL, 'Registered')""")
+            conn.execute(f"""INSERT INTO {p}.societies VALUES
+                ('societies/600', '9429000000040', '600', 'MOA SOCIETY INCORPORATED', '1970-01-01', NULL, 'Registered')""")
+            conn.execute(f"""INSERT INTO {p}.limited_partnerships VALUES
+                ('lp/1', '9429000000050', 'LP1', 'KAURI LP', '2012-01-01', 'Registered', false)""")
+            conn.execute(f"""INSERT INTO {p}.charities VALUES
+                ('charities/CC20', %(z)s, 'CC20', 'KOWHAI TRUST', '2015-01-01', NULL, 'Registered', %(t)s, '2731452'),
+                ('charities/CC21', %(z)s, 'CC21', 'NIKAU SOCIETY', '2016-01-01', NULL, 'Registered', NULL, NULL),
+                ('charities/CC22', %(z)s, 'CC22', 'PUKA SOCIETY', '2017-01-01', NULL, 'Registered', NULL, NULL),
+                ('charities/CC30', '9429000000030', 'CC30', 'TAMA ACADEMY', '2020-11-09', '2023-02-20', 'Deregistered', NULL, NULL),
+                ('charities/CC31', '9429000000030', 'CC31', 'TAGATA ACADEMY', '2023-07-12', NULL, 'Registered', %(t)s, NULL),
+                ('charities/CC10', '9429000000002', 'CC10', 'RATA FOUNDATION', '2005-01-01', '2008-06-30', 'Deregistered', NULL, NULL),
+                ('charities/CC11', '9429000000002', 'CC11', 'RATA FOUNDATION', '2010-01-01', NULL, 'Registered', 'Company', '700'),
+                ('charities/CC40', '9429000000040', 'CC40', 'MOA SOCIETY', '2009-01-01', '2012-01-01', 'Deregistered', NULL, NULL),
+                ('charities/CC41', '9429000000040', 'CC41', 'MOA SOCIETY', NULL, NULL, 'Registered', NULL, NULL)""", {"z": ZERO, "t": TRUST_ACT})
+            with raw.cursor() as w:
+                assert rows.gather_bodies(conn, conn, w, s) == 13
+            bodies = {ref: (nzbn, body) for ref, nzbn, body in conn.execute(f"SELECT entity_ref, nzbn, body FROM {s}.bodies").fetchall()}
+            assert len(bodies) == 13
+            # line 1: the placeholder is no NZBN; the rows stand, each its own body unless its number joins a Companies Office row
+            assert {bodies[f"charities:charities/CC2{i}"] for i in (0, 1, 2)} == \
+                {(None, "companies:companies/9429000000001"), (None, "charities:charities/CC21"), (None, "charities:charities/CC22")}
+            assert conn.execute(f"SELECT count(*) FROM {s}.bodies WHERE nzbn ~ '^0+$'").fetchone()[0] == 0
+            # line 2: the charities of one NZBN are one body: the earliest charities row, else the company, else the society
+            assert bodies["charities:charities/CC30"] == bodies["charities:charities/CC31"] == ("9429000000030", "charities:charities/CC30")
+            assert bodies["charities:charities/CC10"] == bodies["charities:charities/CC11"] == ("9429000000002", "companies:companies/9429000000002")
+            assert bodies["charities:charities/CC40"] == bodies["charities:charities/CC41"] == ("9429000000040", "societies:societies/600")
+            assert bodies["societies:societies/600"] == ("9429000000040", "societies:societies/600")
+            assert bodies["limited_partnerships:lp/1"] == ("9429000000050", "limited_partnerships:lp/1")
+            assert conn.execute(f"SELECT count(*) FROM (SELECT nzbn FROM {s}.bodies WHERE nzbn IS NOT NULL GROUP BY nzbn HAVING count(DISTINCT body) > 1) d"
+                                ).fetchone()[0] == 0
+            # the build: a 2024 return naming the new name, a 2022 one naming the old, confirm to the one body; the company
+            # under two charity numbers and the trust board behind a placeholder confirm as before
+            conn.execute(f"""INSERT INTO {s}.rows (ref, register, view, key, kind, name_filed, name_key, started_on, ended_on) VALUES
+                ('mp_interests:i2', 'mp_interests', 'mp_interests', 'i2', 'organisation', 'Tagata Academy', 'tagata academy', '2024-03-31', NULL),
+                ('mp_interests:i3', 'mp_interests', 'mp_interests', 'i3', 'organisation', 'Tama Academy', 'tama academy', '2022-01-31', NULL),
+                ('mp_interests:i4', 'mp_interests', 'mp_interests', 'i4', 'organisation', 'Tagata Academy', 'tagata academy', '2019-06-30', NULL),
+                ('party_returns:d4', 'party_returns', 'party_return_donors', 'd4', 'organisation', 'Rata Foundation', 'rata foundation', '2023-01-01', '2023-12-31'),
+                ('mp_interests:i5', 'mp_interests', 'mp_interests', 'i5', 'organisation', 'Kowhai Trust', 'kowhai trust', '2024-01-31', NULL)""")
+            got = build.body_links(conn, s)
+            assert (got["confirmed"], got["confirmed_one_live_of_several"], got["near"]) == (4, 0, {"not_yet": 1})
+            links_ = {(a, b): (r, g, o) for a, b, r, g, o in conn.execute(f"SELECT row_a, row_b, rule, grade, evidence->>'outcome' FROM {s}.links").fetchall()}
+            assert links_[("charities:charities/CC30", "mp_interests:i2")] == (rules.RULE_SOLE_BODY_DATED, "confirmed", "sole")
+            assert links_[("charities:charities/CC30", "mp_interests:i3")] == (rules.RULE_SOLE_BODY_DATED, "confirmed", "sole")
+            assert links_[("charities:charities/CC30", "mp_interests:i4")] == (rules.RULE_ORG_NAME, "near", "not_yet")
+            assert links_[("companies:companies/9429000000002", "party_returns:d4")] == (rules.RULE_SOLE_BODY_DATED, "confirmed", "sole")
+            assert links_[("companies:companies/9429000000001", "mp_interests:i5")] == (rules.RULE_SOLE_BODY_DATED, "confirmed", "sole")
+            assert not any("charities:charities/CC31" in k for k in links_)
+            item = check.check_ruling_114(conn, s)
+            assert [r["ok"] for r in item] == [True, True] and item[0]["confirmed"] == 4 and item[1]["nzbns_on_two_bodies"] == 0, item
+            # the check reads the body's registrations in turn as the build does: a removal of the last registered after
+            # the row's date keeps the row live; before it, the linked body was not live
+            conn.execute(f"UPDATE {s}.bodies SET removed_on = '2025-01-01' WHERE entity_ref = 'charities:charities/CC31'")
+            assert check.check_ruling_114(conn, s)[0]["ok"]
+            conn.execute(f"UPDATE {s}.bodies SET removed_on = '2024-01-01' WHERE entity_ref = 'charities:charities/CC31'")
+            assert check.check_ruling_114(conn, s)[0]["linked_body_not_live_or_not_of_the_name"] == 1
+            conn.execute(f"UPDATE {s}.bodies SET removed_on = NULL WHERE entity_ref = 'charities:charities/CC31'")
+            # planted: the later charity number its own body again (one NZBN, two bodies)
+            conn.execute(f"UPDATE {s}.bodies SET body = entity_ref WHERE entity_ref = 'charities:charities/CC31'")
+            assert check.check_ruling_114(conn, s)[1] == {"check": "a body on two registers is one body: no NZBN names two bodies",
+                                                          "nzbns_on_two_bodies": 1, "ok": False}
+            conn.execute(f"UPDATE {s}.bodies SET body = 'charities:charities/CC30' WHERE entity_ref = 'charities:charities/CC31'")
+            # planted: the placeholder put back on its three rows (one "NZBN", three bodies)
+            conn.execute(f"UPDATE {s}.bodies SET nzbn = %s WHERE register = 'charities' AND nzbn IS NULL", (ZERO,))
+            assert check.check_ruling_114(conn, s)[1]["nzbns_on_two_bodies"] == 1
         finally:
             raw.rollback()

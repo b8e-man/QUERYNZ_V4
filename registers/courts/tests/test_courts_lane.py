@@ -93,15 +93,25 @@ def test_every_record_of_the_sample_is_a_document_row_read_waiting_set_aside_or_
     by = {}
     for d in filled["documents"]:
         by[d["outcome"]] = by.get(d["outcome"], 0) + 1
-    assert by.get("caught") == 2 and by.get("set aside") == 1, by
-    assert by.get("read", 0) + by.get(R.WAIT_TEXT, 0) + by.get(R.WAIT_PAGES, 0) == len(listed) - 3
+    assert by.get("caught") == 2 and by.get("set aside") == 2, by
+    assert by.get("read", 0) + by.get(R.WAIT_TEXT, 0) + by.get(R.WAIT_PAGES, 0) == len(listed) - 4
     scanned = next(d for d in filled["documents"] if d["record"] == SCANNED_RECORD)
     assert scanned["read_from"] == "pixels" and scanned["outcome"] in (R.WAIT_PAGES, "read", R.WAIT_TEXT), scanned["outcome"]
     stages = {(a["item"], a["stage"]) for a in filled["aside"]}
     for caught in (d for d in filled["documents"] if d["outcome"] == "caught"):
         assert (caught["key"], "pull") in stages and caught["state"] == "caught", caught["key"][-30:]
-    schedule = [d for d in filled["documents"] if d["outcome"] == "set aside"][0]
+    schedule = [d for d in filled["documents"] if d["outcome"] == "set aside" and d["profile"] is None][0]
     assert "scheduled" in schedule["url"] and (schedule["key"], "recognise") in stages
+    # the 16-page determination whose text layer numbers no paragraph: over the budget, the rule cannot split it; its sheet is still read
+    unsplit = [d for d in filled["documents"] if d["outcome"] == "set aside" and d["profile"] == R.ERA][0]
+    assert unsplit["pieces"] is None and unsplit["text_chars"] > 34000 and unsplit["dated"] and unsplit["citation"] and (unsplit["key"], "read") in stages
+    assert any(a["item"] == unsplit["key"] and a["reason"].startswith("the text reader cannot read it:") for a in filled["aside"])
+    # every document the text reader reads, or waits for, has its piece count by its profile's rule (the check holds it too)
+    for d in filled["documents"]:
+        if d["outcome"] in ("read", R.WAIT_TEXT):
+            assert d["pieces"] >= 1, d["document"][:12]
+            assert (d["pieces"] == 1) == (d["text_chars"] <= 34000) or d["pieces"] > 1, d["document"][:12]
+    assert max(d["pieces"] or 0 for d in filled["documents"]) >= 7, "the sample holds documents read in many pieces"
     noise = [d for d in filled["documents"] if "++resource++" in d["url"]][0]
     assert noise["outcome"] in ("set aside", "caught"), "crawl noise is never read"
     assert not any(a["stage"] == "listing" for a in filled["aside"]), "the gap report is the live check's, not the sample's"
@@ -119,11 +129,24 @@ def test_each_kind_is_recognised_by_shape_and_its_sheet_read(filled):
     prof = {d["profile"]: d for d in filled["documents"] if d["profile"]}
     assert {"courts-case-page", "courts-media-release", "courts-hearing-transcript", "courts-counsel-submission", "courts-case-synopsis",
             "courts-nzsc-judgment", "courts-nzca-judgment", "courts-nzhc-civil-judgment", "courts-nzhc-criminal-judgment",
-            "courts-judgment"} <= set(prof)
+            "courts-judgment", R.ERA, R.HRRT, R.TRIBUNAL, R.NZDC} <= set(prof)
     mr = _doc(filled, sha=MR_122)
     assert (mr["citation"], mr["case_numbers"], mr["dated"]) == ("[2026] NZSC 122", ["SC 97/2025"], dt.date(2026, 9, 4))
-    assert prof["courts-hearing-transcript"]["citation"].endswith("NZSC Trans 3") and prof["courts-hearing-transcript"]["pages"] > 50
-    assert prof["courts-counsel-submission"]["case_numbers"] == ["SC 21/2022"]
+    transcripts = [d for d in filled["documents"] if d["profile"] == "courts-hearing-transcript"]
+    assert len(transcripts) == 3 and all(t["pieces"] >= 2 for t in transcripts) and sorted(t["pages"] >= 50 for t in transcripts) == [False, True, True]
+    assert sorted(bool(t["citation"] and t["citation"].endswith("NZSC Trans 3")) for t in transcripts) == [False, False, True], \
+        "one carries its Trans citation; the cover-sheet one (2016) and the two-column one (2004) carry none and are transcripts by their speakers"
+    subs = [d for d in filled["documents"] if d["profile"] == "courts-counsel-submission"]
+    assert [(d["case_numbers"], d["outcome"] in ("read", R.WAIT_TEXT), d["pieces"]) for d in subs] == [(["SC 21/2022"], True, 4)], \
+        "the 38-page submission numbers its paragraphs with a bare number two spaces before the text: four pieces (read once stored)"
+    # the kinds of 30 and 31 October: each by its shape, its court code in the judgment row
+    courts = {j["profile"]: j["court"] for j in filled["judgments"]}
+    assert courts[R.ERA] == "NZERA" and courts[R.HRRT] == "NZHRRT" and courts[R.NZDC] == "NZACC", courts
+    assert {j["court"] for j in filled["judgments"] if j["profile"] == R.TRIBUNAL} == {"NZLCDT", "NZIACDT", "NZSSAA"}
+    era = [j for j in filled["judgments"] if j["profile"] == R.ERA]
+    assert sum(j["suppression"] for j in era) == 1 and all(j["status"] == "parsed" for j in era), "one determination orders non-publication in its text"
+    hrrt = [j for j in filled["judgments"] if j["profile"] == R.HRRT]
+    assert all(j["status"] == "parsed" for j in hrrt) and sum(j["suppression"] for j in hrrt) >= 1
     jdo = [d for d in filled["documents"] if "jdo_documents" in d["url"]][0]
     assert jdo["profile"] == "courts-nzca-judgment", "recognised by its court line, not its opaque name"
     misfiled = [d for d in filled["documents"] if d["kind"] == "judgment_pdf" and d["profile"] == "courts-media-release"]
@@ -177,21 +200,33 @@ def test_every_judgment_s_citation_agrees_with_its_file_name_and_its_date_is_a_r
         name = os.path.basename(j["source_url"])
         m = re.match(r"(\d{4})-(NZ[A-Za-z]{2,6})-(\d+)", name)
         if m:
-            assert j["citation"] == f"[{m.group(1)}] {m.group(2)} {m.group(3)}", j["document"][:12]
-        assert dt.date(2000, 1, 1) <= j["judgment_date"] <= dt.date.today(), j["document"][:12]
+            # the tribunals pad the number ("[2023] NZSSAA 08" is printed; the file is named -8-): the figures agree
+            y, court, n = j["citation"].replace("[", "").replace("]", "").split()
+            assert (y, court, int(n)) == (m.group(1), m.group(2), int(m.group(3))), j["document"][:12]
+        if j["judgment_date"] is not None or j["profile"] != R.TRIBUNAL:
+            assert dt.date(2000, 1, 1) <= j["judgment_date"] <= dt.date.today(), j["document"][:12]
         assert j["court"] == j["citation"].split()[1] and j["court"] == j["court"].upper().replace("NZEMPC", "NZEmpC"), j["document"][:12]
         if j["read_from"] == "pixels":
             # the page reader's text prints the caption as name over role with no BETWEEN/AND labels: the caption's
             # parties are the one thing the parse may lack there; the citation, the court and the date are read
             assert j["status"] in ("parsed", "partial") and set(j["missing"]) <= {"parties"}, j["document"][:12]
+        elif j["profile"] == R.TRIBUNAL:
+            # the tribunals' layouts vary (71 files of nine bodies): the citation and the court are read; parties and the date may not be
+            assert set(j["missing"]) <= {"parties", "judgment_date"}, j["document"][:12]
         else:
             assert j["status"] == "parsed", j["document"][:12]
-        assert j["paragraphs"] > 0, j["document"][:12]
+        if j["paragraphs"] == 0:
+            # its text layer numbers no paragraph: the paragraphs rule could not split it either, so it is set aside at read
+            doc = _doc(filled, sha=j["document"])
+            assert doc["outcome"] == "set aside" and doc["pieces"] is None and doc["text_chars"] > 34000, j["document"][:12]
 
 
 def test_paragraphs_are_indexed_in_sequence_to_the_judgment_s_last(filled):
     by = {p["judgment"]: p for p in filled["paragraphs"]}
     for j in filled["judgments"]:
+        if j["paragraphs"] == 0:
+            assert j["key"] not in by, j["document"][:12]
+            continue
         assert by[j["key"]]["n"] == by[j["key"]]["top"] == j["paragraphs"], j["document"][:12]
 
 
@@ -268,8 +303,10 @@ def test_no_published_view_reads_the_private_table():
 def test_the_lane_s_check_passes_on_the_sample(filled):
     out = check.account(filled["conn"], filled["schema"], shared=True)
     assert out["failures"] == []
-    assert out["status"].get("parsed") == 10 and set(out["status"]) <= {"parsed", "partial"} and out["roles short"] <= 2
-    assert out["status"].get("partial", 0) == sum(j["read_from"] == "pixels" and j["status"] == "partial" for j in filled["judgments"])
+    assert out["status"].get("parsed") >= 15 and set(out["status"]) <= {"parsed", "partial"} and out["roles short"] <= 2
+    assert out["status"].get("partial", 0) <= 4 and all(j["profile"] in (R.TRIBUNAL, "courts-nzsc-judgment") for j in filled["judgments"] if j["status"] == "partial")
+    assert out["pieces"]["total pieces"] >= 60 and out["pieces"]["documents over the budget"] >= 12 and out["pieces"]["cannot split (set aside at read)"] == 1
+    assert out["pieces by profile"]["courts-hearing-transcript"] >= 10 and out["pieces by profile"]["courts-case-page"] == 3
     assert set(out["outcomes"]) <= {"read", R.WAIT_PAGES, R.WAIT_TEXT, "set aside", "caught"}
 
 
