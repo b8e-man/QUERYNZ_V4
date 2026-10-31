@@ -139,6 +139,7 @@ class Running:
         self.thread: threading.Thread | None = None
         self.outcome: str | None = None
         self.in_flight = 0                        # pieces (children) running now; 1 for a job not cut into pieces
+        self.pieced = False                       # its pieces are counted on their cards (Worker.card_pieces)
         self.cap: int | None = None               # the runner's N, as last worked out and written to the row
         self.lost = False                         # the lease was lost: every child's tick says stop
 
@@ -173,6 +174,7 @@ class Worker:
         self.stopping = False
         self.ticks = 0
         self.retry_pause_s = 5.0                   # after one failed piece, before the next is started
+        self.card_pieces: dict = {}                 # card index → pieces in flight on it, every row (pick_card)
 
     # ── pieces in flight (31 October) ────────────────────────────────────────
 
@@ -191,6 +193,12 @@ class Worker:
             streams = self.streams_of(r.jt.profile)
             if streams:
                 on = self.serving(r.jt.profile)
+                # a server the worker starts runs on ONE card, so its streams are per card: two cards holding the
+                # profile take twice the pieces (1 November 2026, Qwen 3.6 one copy a card); a standing server
+                # across several cards is one server and its streams are its own
+                srv = self.profiles.get(on)
+                if srv is not None and not srv.standing:
+                    streams *= max(1, len(self.cards_holding(r.jt.profile)))
                 with self.lock:
                     others = sum(o.in_flight * o.jt.threads for o in self.running.values()
                                  if o is not r and o.jt.profile and self.serving(o.jt.profile) == on)
@@ -305,9 +313,11 @@ class Worker:
             r.card = None
             return None
         with self.lock:
-            load = {}
+            # pieces in flight on each card (1 November 2026: a row's own pieces were all sent to the lowest card,
+            # since only OTHER rows were counted), and each other row that is not cut into pieces
+            load = dict(self.card_pieces)
             for other in self.running.values():
-                if other is not r and other.card is not None:
+                if other is not r and other.card is not None and not other.pieced:
                     load[other.card] = load.get(other.card, 0) + 1
         card = min(cards, key=lambda c: (load.get(c["card"], 0), c["card"]))
         r.card = card["card"]
@@ -590,13 +600,20 @@ class Worker:
         run_id, working_mb = self._begin_run(conn, r, piece, card)
         argv = self._argv(jt.command, [piece["key"]])
         env = self._env(r, run_id, piece, card)
+        c = card["card"] if card else None
         with self.lock:
             r.in_flight += 1
+            r.pieced = True
+            if c is not None:
+                self.card_pieces[c] = self.card_pieces.get(c, 0) + 1
 
         def go():
             res = runner.run(argv, deadline_s=jt.needs.deadline_s, ceiling_mb=runner.ceiling_for(r.memory_gb),
                              query_timeout_s=jt.needs.query_timeout_s, env=env, cwd=REPO,
                              tick=lambda: not (self.stopping or r.lost), log=self.log, nice=jt.nice)
+            if c is not None:
+                with self.lock:
+                    self.card_pieces[c] = max(0, self.card_pieces.get(c, 0) - 1)
             results.put((piece, res, run_id, working_mb))
 
         threading.Thread(target=go, name=f"piece-{r.claim['id']}-{piece['piece']}", daemon=True).start()

@@ -24,6 +24,11 @@ from dataclasses import asdict, dataclass, field
 
 READ_FROM = ("text", "pixels")
 STORE = os.environ.get("QV4_READINGS") or "/home/user/querynzv4-work/live/readings"
+#: a reading made by an earlier model stands for one by the model that replaced it (Arthur, 1 November 2026: the
+#: text reader moved from Flash-Next on Radiance to Qwen 3.6 35B-A3B; the Flash-Next readings already made are kept
+#: and only unread documents go to Qwen 3.6). Asked for a key under the new model, the store answers with the
+#: earlier model's reading when there is no new one; a new reading is always stored under its own model.
+EARLIER_MODELS = {"qwen3.6-35b-a3b-q4km": ("qwen4exp",)}
 
 
 def settings_hash(settings: dict) -> str:
@@ -89,8 +94,21 @@ class Store:
         os.replace(tmp, p)
         return p
 
+    def _found(self, key: str) -> str:
+        """The key a reading is stored under: `key` itself, else the same key under an earlier model
+        (EARLIER_MODELS), else `key` (missing)."""
+        if os.path.exists(self._path(key)):
+            return key
+        parts = key.split("/")
+        if len(parts) >= 5:
+            for old in EARLIER_MODELS.get(parts[3], ()):
+                alt = "/".join(parts[:3] + [old] + parts[4:])
+                if os.path.exists(self._path(alt)):
+                    return alt
+        return key
+
     def get(self, key: str) -> Reading:
-        p = self._path(key)
+        p = self._path(self._found(key))
         try:
             with open(p, encoding="utf-8") as f:
                 return Reading(**json.load(f))
@@ -98,7 +116,7 @@ class Store:
             raise MissingReading(f"no stored reading for {key}: ask for a re-read of document {key.split('/')[0]}") from None
 
     def has(self, key: str) -> bool:
-        return os.path.exists(self._path(key))
+        return os.path.exists(self._path(self._found(key)))
 
 
 def replay_or_read(store: Store, key: str, read=None) -> Reading:

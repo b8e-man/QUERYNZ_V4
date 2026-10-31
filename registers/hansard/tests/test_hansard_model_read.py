@@ -66,7 +66,8 @@ def test_the_pieces_join_into_one_reading_at_page_one_that_the_load_picks_up():
         assert joined.key != M.piece_key(SHA, 1, "hansard-day", 1, "qwen4exp"), "piece 1 and the joined reading are two keys"
         stored = M.stored(SHA, "hansard-day", 1, store)
         assert [p["piece"] for p in stored["pieces"]] == [p.number for p in pieces]
-        assert M.stored(SHA, "hansard-day", 2, store) is None
+        assert M.stored(SHA, "hansard-day", 2, store)["key"] == joined.key, "a later version replays the day read whole (1 November)"
+        assert M.stored(SHA, "hansard-day", 2, store, model="other-model") is not None
         rows = M.people_rows(SHA, stored, {"key": "2024-11-20"}, "hansard-day", 1, "2026-10-31T10:00:00+13:00")
         assert len(rows) == 2 * len(pieces) and rows[0]["key"] == f"{SHA}/person/1" and rows[-1]["key"] == f"{SHA}/person/{2 * len(pieces)}"
         assert rows[0]["place"] == "text reader, piece 1, name 1" and rows[2]["place"] == "text reader, piece 2, name 3"
@@ -177,3 +178,18 @@ def test_whole_sections_pack_into_one_request_and_a_name_keeps_its_section():
                "reader": "r", "model": "m"}
     rows = M.people_rows(SHA, reading, {"key": "2024-11-20"}, "hansard-day", 2, "now")
     assert [r["section"] for r in rows] == [f"2024-11-20/{p.ids[1]}", f"2024-11-20/{p.ids[0]}", f"2024-11-20/{p.section}"]
+
+
+def test_a_day_read_whole_under_an_earlier_version_is_replayed_not_read_again(tmp_path):
+    """Arthur, 1 November 2026: the readings already made are kept; hansard-day 2 only packed the requests."""
+    store = rd.Store(str(tmp_path))
+    sha = "ab" * 32
+    piece_reading = rd.Reading(sha, 1, M.READER, "qwen4exp", {"piece": 1}, "hansard-day", 1, "text", '{"people": []}')
+    joined = rd.Reading(sha, 1, M.READER, "qwen4exp", {"joined": True}, "hansard-day", 1, "text",
+                        json.dumps({"pieces": [{"number": 1, "section": 1, "names": [{"name": "Jane Doe"}]}]}),
+                        checks={"names": 1})
+    store.put(piece_reading)
+    store.put(joined)
+    got = M.stored(sha, "hansard-day", 2, store)
+    assert got is not None and got["pieces"][0]["names"][0]["name"] == "Jane Doe" and got["key"] == joined.key
+    assert M.stored("cd" * 32, "hansard-day", 2, store) is None

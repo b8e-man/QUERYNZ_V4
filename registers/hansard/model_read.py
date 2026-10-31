@@ -49,7 +49,7 @@ from registers.hansard import split as S
 READER = "registers.hansard.model_read 1"
 LANE = "hansard"
 PROFILE = "hansard-day"
-TEXT_MODEL = os.environ.get("QV4_HANSARD_TEXT_MODEL") or "qwen4exp"      # profiles.toml [profiles.text-reader] model
+TEXT_MODEL = os.environ.get("QV4_HANSARD_TEXT_MODEL") or "qwen3.6-35b-a3b-q4km"      # profiles.toml [profiles.text-reader] model (Qwen 3.6 from 1 November 2026; Flash-Next readings stand: support.reader.EARLIER_MODELS)
 URL = os.environ.get("QV4_MODEL_URL") or "http://127.0.0.1:8060/v1/chat/completions"
 #: characters of speech per request. The text-reader context is 16,384 tokens; MAX_TOKENS answer; the prompt about
 #: 420 tokens; Hansard English measured at 4.3 characters a token on the sample (31 October 2026), so 40,000
@@ -266,12 +266,41 @@ def join(sha256: str, readings: list, *, profile: str, version: int, model: str,
     return reading
 
 
-def stored(sha256: str, profile: str, version: int, store: rd.Store, model: str = TEXT_MODEL):
-    """The day's joined reading, unpacked ({pieces: [...], names, ...}), or None: the load replays, never asks."""
-    key = key_for(sha256, profile, version, model)
-    if not store.has(key):
+def earlier_joined(sha256: str, profile: str, version: int, store: rd.Store):
+    """The day's joined reading under the latest EARLIER version of the profile, or None (Arthur, 1 November 2026: the
+    readings already made are kept). hansard-day 2 only packed whole sections into fewer requests; a day read whole
+    under 1 is a reading of the same day by the same rules, so it stands until the day is read under the current one.
+    A joined reading is told from a piece's (both at page 1) by its text: {"pieces": [...]}."""
+    folder = os.path.dirname(store._path(key_for(sha256, profile, version)))
+    try:
+        names = os.listdir(folder)
+    except OSError:
         return None
-    r = store.get(key)
+    best = None
+    for n in names:
+        m = re.match(rf"p1__{re.escape(profile)}@(\d+)__.*\.json$", n)
+        if not m or int(m.group(1)) >= version or (best and int(m.group(1)) <= best[0]):
+            continue
+        try:
+            with open(os.path.join(folder, n), encoding="utf-8") as f:
+                r = rd.Reading(**json.load(f))
+            if isinstance(json.loads(r.text).get("pieces"), list):
+                best = (int(m.group(1)), r)
+        except (OSError, ValueError, TypeError, AttributeError):
+            continue
+    return best[1] if best else None
+
+
+def stored(sha256: str, profile: str, version: int, store: rd.Store, model: str = TEXT_MODEL):
+    """The day's joined reading, unpacked ({pieces: [...], names, ...}), or None: the load replays, never asks. A day
+    with no reading under `version` replays its reading under an earlier one (earlier_joined)."""
+    key = key_for(sha256, profile, version, model)
+    if store.has(key):
+        r = store.get(key)
+    else:
+        r = earlier_joined(sha256, profile, version, store)
+        if r is None:
+            return None
     try:
         pieces = json.loads(r.text)["pieces"]
     except (ValueError, KeyError, TypeError):
@@ -327,6 +356,14 @@ def piece(sha256: str, *, url: str, model: str, store: rd.Store = None, post=Non
         raise RuntimeError(f"{sha256[:12]} ({day_key}): {len(over)} piece(s) over the budget after every cut "
                            f"(piece {over[0].number}, {over[0].chars} chars)")
     deadline = time.monotonic() + wait_s
+    if not store.has(key_for(sha256, PROFILE, version, model)):
+        old = earlier_joined(sha256, PROFILE, version, store)
+        if old is not None:      # read whole under an earlier version: kept, not read again (1 November 2026)
+            got = json.loads(old.text)["pieces"]
+            return {"document": sha256, "day": day_key, "layout": day.layout, "profile": f"{PROFILE}@{old.profile_version}",
+                    "model": old.model, "pieces": len(got), "replayed": len(got), "names": (old.checks or {}).get("names"),
+                    "unusable": (old.checks or {}).get("unusable"), "truncated": (old.checks or {}).get("truncated"),
+                    "chars": (old.checks or {}).get("chars"), "seconds": 0.0, "chars_per_token": None}
 
     def one(p):
         while True:

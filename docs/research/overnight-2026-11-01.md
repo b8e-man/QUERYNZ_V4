@@ -2,6 +2,15 @@
 
 Arthur approved this night's work at 23:45 on 31 October. This report is updated each half hour; the last update time is at the foot.
 
+## Arthur's approvals, 1 November, before bed
+
+Asked and answered in chat:
+
+1. Switch the text reader to Qwen 3.6 35B-A3B Q4_K_M, one copy on each card; Radiance (Flash-Next) stopped, not removed. The review agent moves to Qwen 3.6 too, thinking on.
+2. If Qwen 3.6 measures worse on the same 20 documents per lane (warm speed, answers cut, names found), put Radiance back without asking and report the figures.
+3. Keep the Flash-Next readings already made; Qwen 3.6 reads only unread documents.
+4. Give each reader the names the name pass already found and ask the model only for new ones; the found names stay logged in links.sightings. Release once it passes the 20-document test per lane without losing names.
+
 ## The name pass
 
 Every name in pub.names is looked for, by exact match, in each lane's documents before the model reads them (links/sightings.py). Found names go to links.sightings; pub.name_sightings is the published view.

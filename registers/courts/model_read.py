@@ -54,7 +54,7 @@ from registers.courts import pieces as PC
 
 READER = "registers.courts.model_read 2"
 LANE = "courts"
-TEXT_MODEL = os.environ.get("QV4_COURTS_TEXT_MODEL") or "qwen4exp"      # profiles.toml [profiles.text-reader] model
+TEXT_MODEL = os.environ.get("QV4_COURTS_TEXT_MODEL") or "qwen3.6-35b-a3b-q4km"      # profiles.toml [profiles.text-reader] model (Qwen 3.6 from 1 November 2026; Flash-Next readings stand: support.reader.EARLIER_MODELS)
 URL = os.environ.get("QV4_MODEL_URL") or "http://127.0.0.1:8060/v1/chat/completions"
 MAX_TOKENS = 4096           # the answer's room inside the text-reader profile's 16,384-token context; the budget is the profile's
 ROLES = ("party", "counsel", "witness", "judge", "company", "agency", "other")
