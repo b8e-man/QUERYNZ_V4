@@ -28,3 +28,12 @@ def test_a_role_or_a_phrase_filed_as_a_name_is_no_form():
         assert S.forms_of("organisation", phrase, None, None, None) == set(), phrase
     assert S.forms_of("organisation", "New Zealand First", None, None, None) == {"new zealand first"}
     assert S.forms_of("organisation", "Supreme Court of New Zealand", None, None, None) == set()
+
+
+def test_every_lane_dates_its_documents_and_the_view_carries_the_date():
+    from links import sightings as S
+    assert set(S.DATED) == set(S.LANES), "a lane scanned with no date source"
+    assert all(q.count("%s") == 0 and " GROUP BY 1" in q for q in S.DATED.values()), "one date per document"
+    view = S.DDL[S.DDL.index("CREATE OR REPLACE VIEW pub.name_sightings"):]
+    assert "d.dated" in view and "LEFT JOIN links.sightings_done d" in view, "the view carries the document's date"
+    assert all(q.count(",") >= 2 for q in S.STREAMED.values()), "a streamed lane reads its date with its text"

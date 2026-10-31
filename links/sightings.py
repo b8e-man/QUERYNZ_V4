@@ -4,6 +4,7 @@ pub.names before reading the docs with the model").
 
     python -m links.sightings forms                      # the name forms, from links.rows (pub.names)
     python -m links.sightings scan --lane hansard [--limit N] [--workers 4]
+    python -m links.sightings dates                      # each scanned document's own date, where it has none
     python -m links.sightings counts
 
 THE FORMS. One normalised form per way a name of `pub.names` is printed: a person's full name as filed (given,
@@ -18,7 +19,10 @@ kept; every run of 2 to MAX_WORDS words is looked up, the longest form at a plac
 after it. One row in `links.sightings` per name found: the document (sha256), the lane, the form, the text as the
 document prints it, its character offsets, the form's kind. No model; no network; the same text gives the same
 rows. `links.sightings_done` records each document scanned under the forms' version, so a run resumes and a
-rebuilt form list rescans.
+rebuilt form list rescans, and the document's own date (`dated`: a release's publication, a sitting day, a question's
+release, a page's archived date, a decision's date; Arthur, 1 November 2026: "add a date to the name sightings. This
+is important"). The date is kept once per document, not on each of its sightings; `pub.name_sightings` carries it on
+every row by the join on (document, lane, version), the done table's key.
 
 THE LIMITS. A sighting carries the name only, never the text around it, so an address in the text is never copied;
 a suppressed or withheld name is never a row of `pub.names` and so never a form. A name that only a document's
@@ -70,9 +74,12 @@ CREATE TABLE IF NOT EXISTS links.sightings_done (
     done_at   timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (document, lane, version)
 );
+ALTER TABLE links.sightings_done ADD COLUMN IF NOT EXISTS dated date;
 CREATE OR REPLACE VIEW pub.name_sightings AS
-    SELECT s.document, s.lane, s.form, s.printed, s.start_at, s.end_at, s.kind, f.rows AS names_rows, s.version, s.found_at
-    FROM links.sightings s JOIN links.name_forms f USING (form);
+    SELECT s.document, s.lane, s.form, s.printed, s.start_at, s.end_at, s.kind, f.rows AS names_rows, s.version, s.found_at,
+           d.dated
+    FROM links.sightings s JOIN links.name_forms f USING (form)
+    LEFT JOIN links.sightings_done d ON d.document = s.document AND d.lane = s.lane AND d.version = s.version;
 """
 
 
@@ -193,6 +200,39 @@ def documents(conn, lane: str) -> list:
     return out
 
 
+#: each lane's document date, one per document (the earliest where a register gives one document two)
+DATED = {
+    "beehive": "SELECT document, min(published_on) AS dated FROM pub.beehive_releases WHERE document IS NOT NULL GROUP BY 1",
+    "hansard": "SELECT document, min(sitting_on) AS dated FROM pub.hansard_days WHERE document IS NOT NULL GROUP BY 1",
+    "parliament-wayback": "SELECT document, min(dated)::date AS dated FROM pub.parliament_wayback_pages WHERE document IS NOT NULL "
+                          "AND dated ~ '^\\d{4}-\\d{2}-\\d{2}$' GROUP BY 1",
+    "parliament-questions": "SELECT document, min(question_released_on) AS dated FROM pub.parliament_written_questions "
+                            "WHERE document IS NOT NULL GROUP BY 1",
+    "courts": "SELECT document, min(dated) AS dated FROM pub.court_documents WHERE document IS NOT NULL GROUP BY 1",
+}
+
+
+def dates_of(conn, lane: str, docs=None) -> dict:
+    """{document: date} for the lane, or for `docs` only."""
+    if docs is not None:
+        docs = list(docs)
+        if not docs:
+            return {}
+        q = f"SELECT * FROM ({DATED[lane]}) x WHERE x.document = ANY(%s)"
+        return dict(conn.execute(q, (docs,)).fetchall())
+    return dict(conn.execute(DATED[lane]).fetchall())
+
+
+def date_done(conn, lane: str, log=print) -> int:
+    """Fill `dated` on the lane's done rows that have none (the rows scanned before the column; a document whose date its
+    register gave later). Returns the rows dated."""
+    n = conn.execute(f"UPDATE links.sightings_done d SET dated = x.dated FROM ({DATED[lane]}) x "
+                     "WHERE d.document = x.document AND d.lane = %s AND d.dated IS NULL AND x.dated IS NOT NULL", (lane,)).rowcount
+    conn.commit()
+    log(f"sightings {lane}: {n:,} documents dated")
+    return n
+
+
 def text_of(conn, lane: str, sha: str) -> str:
     from support.docstore.landing import read_bytes
     if lane == "beehive":
@@ -225,9 +265,10 @@ def text_of(conn, lane: str, sha: str) -> str:
 #: lanes whose text is a column of a published view: read with the document in one streamed query, not looked up one
 #: document at a time (the views carry no index on `document`: 31 October 2026, 31 and 223 documents a minute)
 STREAMED = {
-    "parliament-wayback": "SELECT document, text FROM pub.parliament_wayback_pages WHERE document IS NOT NULL AND coalesce(text, '') <> ''",
-    "parliament-questions": "SELECT document, concat_ws(E'\\n\\n', title, question_text, reply_text) FROM pub.parliament_written_questions "
-                            "WHERE document IS NOT NULL",
+    "parliament-wayback": "SELECT document, text, CASE WHEN dated ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN dated::date END "
+                          "FROM pub.parliament_wayback_pages WHERE document IS NOT NULL AND coalesce(text, '') <> ''",
+    "parliament-questions": "SELECT document, concat_ws(E'\\n\\n', title, question_text, reply_text), question_released_on "
+                            "FROM pub.parliament_written_questions WHERE document IS NOT NULL",
 }
 
 
@@ -247,7 +288,7 @@ def scan_streamed(lane: str, limit: int = None, log=print, batch: int = 500) -> 
         with rconn.cursor(name="texts") as cur:
             cur.itersize = 2000
             cur.execute(STREAMED[lane])
-            for sha, text in cur:
+            for sha, text, dated in cur:
                 if sha in done:
                     continue
                 done.add(sha)
@@ -255,7 +296,7 @@ def scan_streamed(lane: str, limit: int = None, log=print, batch: int = 500) -> 
                 text = text or ""
                 hits = scan(text, forms)
                 rows += [(sha, lane, f, text[a:b], a, b, forms[f], version) for f, a, b in hits]
-                dones.append((sha, lane, version, len(text), len(hits), round(time.monotonic() - t, 3)))
+                dones.append((sha, lane, version, len(text), len(hits), round(time.monotonic() - t, 3), dated))
                 n += 1
                 found += len(hits)
                 chars += len(text)
@@ -268,6 +309,7 @@ def scan_streamed(lane: str, limit: int = None, log=print, batch: int = 500) -> 
                 if limit and n >= limit:
                     break
         _write(conn, rows, dones)
+        date_done(conn, lane, log)
         if not limit:
             drop_old(conn, lane, version, log)
         out = {"lane": lane, "documents": n, "sightings": found, "chars": chars, "seconds": round(time.monotonic() - t0, 1),
@@ -294,8 +336,8 @@ def _write(conn, rows: list, dones: list) -> None:
                 for r in rows:
                     cp.write_row(r)
         if dones:
-            cur.executemany("INSERT INTO links.sightings_done (document, lane, version, chars, found, seconds) VALUES (%s, %s, %s, %s, %s, %s) "
-                            "ON CONFLICT DO NOTHING", dones)
+            cur.executemany("INSERT INTO links.sightings_done (document, lane, version, chars, found, seconds, dated) "
+                            "VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING", dones)
     conn.commit()
 
 
@@ -312,6 +354,7 @@ def scan_lane(lane: str, limit: int = None, log=print) -> dict:
         docs = [d for d in documents(conn, lane) if d not in done]
         if limit:
             docs = docs[:limit]
+        dates = dates_of(conn, lane, docs)
         log(f"sightings {lane}: {len(forms):,} forms (version {version}), {len(docs):,} documents to scan, {len(done):,} done")
         n = found = chars = 0
         t0 = time.monotonic()
@@ -328,8 +371,9 @@ def scan_lane(lane: str, limit: int = None, log=print) -> dict:
                     with cur.copy("COPY links.sightings (document, lane, form, printed, start_at, end_at, kind, version) FROM STDIN") as cp:
                         for f, a, b in hits:
                             cp.write_row((sha, lane, f, text[a:b], a, b, forms[f], version))
-                cur.execute("INSERT INTO links.sightings_done (document, lane, version, chars, found, seconds) VALUES (%s, %s, %s, %s, %s, %s) "
-                            "ON CONFLICT DO NOTHING", (sha, lane, version, len(text), len(hits), round(time.monotonic() - t, 3)))
+                cur.execute("INSERT INTO links.sightings_done (document, lane, version, chars, found, seconds, dated) "
+                            "VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                            (sha, lane, version, len(text), len(hits), round(time.monotonic() - t, 3), dates.get(sha)))
             conn.commit()
             n += 1
             found += len(hits)
@@ -337,6 +381,7 @@ def scan_lane(lane: str, limit: int = None, log=print) -> dict:
             if n % 500 == 0:
                 el = time.monotonic() - t0
                 log(f"sightings {lane}: {n:,}/{len(docs):,} documents, {found:,} sightings, {chars / el / 1e6:.1f} M chars/s")
+        date_done(conn, lane, log)
         if not limit:
             drop_old(conn, lane, version, log)
         out = {"lane": lane, "documents": n, "sightings": found, "chars": chars, "seconds": round(time.monotonic() - t0, 1),
@@ -360,6 +405,14 @@ def main(argv=None) -> int:
         limit = int(argv[argv.index("--limit") + 1]) if "--limit" in argv else None
         for lane in lanes:
             scan_lane(lane, limit)
+        return 0
+    if argv[:1] == ["dates"]:
+        with db.connect(db.OWNER_KEY, "querynz_v4") as conn:
+            conn.execute("SET statement_timeout = 0")
+            conn.execute(DDL)
+            conn.commit()
+            for lane in LANES:
+                date_done(conn, lane)
         return 0
     if argv[:1] == ["counts"]:
         with db.connect(db.READ_KEY, "querynz_v4") as conn:
