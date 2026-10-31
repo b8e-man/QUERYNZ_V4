@@ -37,3 +37,11 @@ def test_every_lane_dates_its_documents_and_the_view_carries_the_date():
     view = S.DDL[S.DDL.index("CREATE OR REPLACE VIEW pub.name_sightings"):]
     assert "d.dated" in view and "LEFT JOIN links.sightings_done d" in view, "the view carries the document's date"
     assert all(q.count(",") >= 2 for q in S.STREAMED.values()), "a streamed lane reads its date with its text"
+
+
+def test_a_short_form_no_longer_swallows_the_start_of_a_name_and_a_name_inside_a_longer_one_is_no_sighting():
+    forms = {"dr duncan": "person", "duncan webb": "person", "john michael key": "person", "michael key": "person"}
+    text = "Gully—\n   Hon Dr Duncan Webb: Are you sure? JOHN Michael Key replied."
+    hits = S.scan(text, forms)
+    assert [h[0] for h in hits] == ["dr duncan", "duncan webb", "john michael key"]
+    assert [text[a:b] for _, a, b in hits] == ["Dr Duncan", "Duncan Webb", "JOHN Michael Key"]

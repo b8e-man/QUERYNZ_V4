@@ -132,22 +132,28 @@ def forms_of(kind: str, name_filed: str, given: str, middle: str, family: str) -
     return {f for f in out if len(f) >= MIN_CHARS and 2 <= len(f.split()) <= MAX_WORDS and not generic(f)}
 
 
+#: the scan's rule, part of the version a document is scanned under, so a change of rule rescans every lane.
+#: 2 (1 November 2026): a name that overlaps another without lying inside it is kept. Rule 1 took the longest form at
+#: each place left to right and skipped past it, so a short form swallowed the start of a real name: "Hon Dr Duncan
+#: Webb" gave "dr duncan" (one register row) and never "duncan webb" (6,003 rows).
+SCAN_RULE = "2"
+
+
 def scan(text: str, forms) -> list:
-    """[(form, start, end)] for every form found in the text, longest first at each place, no overlaps."""
+    """[(form, start, end)] for every form found in the text: the longest form at each place, kept unless it lies wholly
+    inside a longer one already found (so "michael key" is no sighting inside "john michael key"); two forms that only
+    overlap are both kept. In order of place."""
     ws = words_of(text)
-    out, i, n = [], 0, len(ws)
-    while i < n:
-        hit = None
+    out, n, reach = [], len(ws), -1
+    for i in range(n):
         for k in range(min(MAX_WORDS, n - i), 1, -1):
             f = " ".join(w for w, _, _ in ws[i:i + k])
             if f in forms:
-                hit = (f, ws[i][1], ws[i + k - 1][2], k)
+                end = ws[i + k - 1][2]
+                if end > reach:
+                    out.append((f, ws[i][1], end))
+                    reach = end
                 break
-        if hit:
-            out.append(hit[:3])
-            i += hit[3]
-        else:
-            i += 1
     return out
 
 
@@ -178,7 +184,7 @@ def build_forms(conn, log=print) -> dict:
 def load_forms(conn) -> tuple:
     rows = conn.execute("SELECT form, kind FROM links.name_forms").fetchall()
     forms = {f: k for f, k in rows}
-    version = hashlib.sha256("\n".join(sorted(forms)).encode()).hexdigest()[:12]
+    version = hashlib.sha256((f"scan rule {SCAN_RULE}\n" + "\n".join(sorted(forms))).encode()).hexdigest()[:12]
     return forms, version
 
 
