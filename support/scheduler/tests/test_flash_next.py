@@ -128,7 +128,7 @@ def test_the_shipped_flash_next_profile_is_the_standing_radiance_server_on_both_
     p = reg.profiles()["flash-next"]
     assert (p.model, p.binary, p.unit, p.port, p.cards) == ("qwen4exp", "radiance", "qv4-radiance.service", 8060, 2)
     assert p.weights == ("radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad",)
-    assert p.geometry == "32768x8" and p.measured_geometry == p.geometry   # 32k since 31 October (the bulk ingest; the unit test says why)
+    assert p.geometry == "32768x16" and p.measured_geometry == p.geometry   # 32k since 31 October (the bulk ingest; the unit test says why)
     assert p.memory_gb and p.host_memory_gb and p.load_seconds, "memory and load time are measured, not left empty"
 
 
