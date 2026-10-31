@@ -707,7 +707,13 @@ def test_check_holds_concurrency_times_threads_under_the_profiles_streams(tmp_pa
 def test_the_shipped_catalogue_wires_the_chain():
     jts, profs = reg.load(), reg.profiles()
     assert reg.problems() == []
-    assert jts["qv4-courts-load"].then == ("qv4-courts-read",)
+    # the name pass sits between the load and its reader (31 October 2026): load, sightings, reader
+    assert jts["qv4-courts-load"].then == ("qv4-sightings-courts",)
+    assert jts["qv4-sightings-courts"].then == ("qv4-courts-read",)
+    for lane in ("beehive", "hansard", "parliament"):
+        assert jts[f"qv4-{lane}-load"].then == (f"qv4-sightings-{lane}",), lane
+    assert jts["qv4-links-build"].then == ("qv4-sightings-forms",)
+    assert set(jts["qv4-sightings-forms"].then) == {f"qv4-sightings-{x}" for x in ("beehive", "hansard", "parliament", "courts")}
     assert jts["qv4-courts-read"].pieces_command == ("python", "-m", "registers.courts.model_read", "--pieces")
     assert jts["qv4-courts-read"].concurrency * jts["qv4-courts-read"].threads <= reg.streams_of(profs, "text-reader") == 8
     for load in ("qv4-disclosures-load", "qv4-candidate-returns-load", "qv4-tenders-load", "qv4-iwi-directory-load", "qv4-charities-load"):

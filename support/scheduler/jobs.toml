@@ -273,6 +273,7 @@ class = "whenever"
 priority = 36
 command = ["python", "-m", "links.build_all"]
 nice = 10
+then = ["qv4-sightings-forms"]   # the forms follow pub.names (31 October 23:55)
 
 [jobs.qv4-links-review]
 description = "Track C: the review agent reads test pairs (mode score) or watched confirmed links (mode watched, the default) through the review profile and records its verdicts in links.readings; applies nothing while the switch is off."
@@ -770,7 +771,7 @@ at_utc = "15:40"
 nice = 10
 # the load's readers follow it with no hand on them (31 October); qv4-courts-pages joins this list when the courts
 # lane prints its page-reader waits (`python -m registers.courts.read --pages --pieces`, named in fix-support-scheduler-6)
-then = ["qv4-courts-read"]
+then = ["qv4-sightings-courts"]   # the name pass first, then the reader (31 October 23:55)
 
 [jobs.qv4-courts-read]
 description = "Courts: the text reader's reading of one document (piece key sha256) through the text-reader profile: every person and body named with its role, counsel for each party, a one-line summary; stored by hash, replayed by the next load. Keys from python -m registers.courts.model_read --pieces."
@@ -1258,6 +1259,7 @@ priority = 85
 command = ["python", "-m", "registers.beehive.load"]
 at_utc = "15:00"
 nice = 10
+then = ["qv4-sightings-beehive"]   # the name pass over the lane's documents after each load (31 October 23:55)
 
 [jobs.qv4-hansard-read]
 description = "Hansard: the text reader's reading of one sitting day (piece key sha256 of the MCP's debates record) through the text-reader profile: the day split by profile hansard-day into pieces of at most 40,000 characters, every person and body a speech names with its kind, role and 'of', one summary a piece; the pieces stored at page p and joined at page 1 under the day's hash, replayed by the next load. Keys from python -m registers.hansard.model_read --pieces."
@@ -1284,6 +1286,7 @@ priority = 86
 command = ["python", "-m", "registers.hansard.load"]
 at_utc = "15:15"
 nice = 10
+then = ["qv4-sightings-hansard"]   # the name pass over the lane's documents after each load (31 October 23:55)
 
 [jobs.qv4-ministers-diaries-load]
 description = "Ministers' diaries: rebuild the lane's tables from the MCP's parliament-diaries documents, publish pub.minister_diary_releases and pub.minister_diary_entries on green. Nightly at 04:20 NZDT, after the pull and the Beehive load (ruling 96; diaries-2, 27 October 2026)."
@@ -1323,6 +1326,7 @@ priority = 88
 command = ["python", "-m", "registers.parliament.load"]
 at_utc = "15:30"
 nice = 10
+then = ["qv4-sightings-parliament"]   # the name pass over the lane's documents after each load (31 October 23:55)
 
 [jobs.qv4-candidate-returns-load]
 description = "Candidate returns (step 4.1): rebuild the lane's tables from the held files by hash and the stored readings, publish pub.candidate_return_totals (read returns, then the Commission's spreadsheet rows where none is read, candidate-returns-3) and pub.candidate_return_donors; fetches nothing, calls no model; raises when the catch log does not reconcile. Nightly at 02:40 NZDT, before the site build (lane spec)."
@@ -1335,4 +1339,64 @@ priority = 102
 command = ["python", "-m", "registers.candidate_returns.load"]
 at_utc = "13:40"
 then = ["qv4-scan-rerun"]   # a scan template reads a view this load publishes (31 October): the stale scan lines are re-run, not left for a hand
+nice = 10
+
+# ── the deterministic name pass (Arthur, 31 October 2026, 23:40; approved for the night at 23:45) ──
+# Every name of pub.names found in each lane's documents by exact match before the model reads them (links/sightings.py).
+# A load queues its lane's pass; the courts pass queues the courts reader. The forms are rebuilt after a links build.
+[jobs.qv4-sightings-forms]
+description = "The name pass: the forms of every pub.names name (links.name_forms), rebuilt after a links build; then each lane's pass, which rescans under the new forms and removes the old version's sightings."
+needs = "processor"
+memory_gb = 2.0   # 0.5 GB measured for a scan holding the forms, 31 October; the build holds them twice
+deadline_s = 900
+query_timeout_s = 600
+class = "whenever"
+priority = 16
+command = ["python", "-m", "links.sightings", "forms"]
+then = ["qv4-sightings-beehive", "qv4-sightings-hansard", "qv4-sightings-parliament", "qv4-sightings-courts"]
+nice = 10
+
+[jobs.qv4-sightings-courts]
+description = "The name pass over the courts documents not yet scanned under the current forms (links.sightings), then the courts reader."
+needs = "processor"
+memory_gb = 1.0   # 0.5 GB measured, 31 October
+deadline_s = 3600
+query_timeout_s = 600
+class = "whenever"
+priority = 17
+command = ["python", "-m", "links.sightings", "scan", "--lane", "courts"]
+then = ["qv4-courts-read"]
+nice = 10
+
+[jobs.qv4-sightings-beehive]
+description = "The name pass over the Beehive releases not yet scanned under the current forms (links.sightings)."
+needs = "processor"
+memory_gb = 1.0
+deadline_s = 3600
+query_timeout_s = 600
+class = "whenever"
+priority = 18
+command = ["python", "-m", "links.sightings", "scan", "--lane", "beehive"]
+nice = 10
+
+[jobs.qv4-sightings-hansard]
+description = "The name pass over the Hansard days not yet scanned under the current forms (links.sightings)."
+needs = "processor"
+memory_gb = 1.0
+deadline_s = 3600
+query_timeout_s = 600
+class = "whenever"
+priority = 19
+command = ["python", "-m", "links.sightings", "scan", "--lane", "hansard"]
+nice = 10
+
+[jobs.qv4-sightings-parliament]
+description = "The name pass over the archived parliament pages and the written questions not yet scanned under the current forms (links.sightings)."
+needs = "processor"
+memory_gb = 1.0
+deadline_s = 3600
+query_timeout_s = 600
+class = "whenever"
+priority = 104
+command = ["python", "-m", "links.sightings", "scan", "--lane", "parliament-wayback", "--lane", "parliament-questions"]
 nice = 10

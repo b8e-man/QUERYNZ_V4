@@ -268,10 +268,23 @@ def scan_streamed(lane: str, limit: int = None, log=print, batch: int = 500) -> 
                 if limit and n >= limit:
                     break
         _write(conn, rows, dones)
+        if not limit:
+            drop_old(conn, lane, version, log)
         out = {"lane": lane, "documents": n, "sightings": found, "chars": chars, "seconds": round(time.monotonic() - t0, 1),
                "version": version}
         log(json.dumps(out))
         return out
+
+
+def drop_old(conn, lane: str, version: str, log=print) -> int:
+    """A lane's sightings under any other version of the forms: regenerable, removed once the lane is scanned whole under
+    this one (the forms changed: the next pass found every name again)."""
+    n = conn.execute("DELETE FROM links.sightings WHERE lane = %s AND version <> %s", (lane, version)).rowcount
+    conn.execute("DELETE FROM links.sightings_done WHERE lane = %s AND version <> %s", (lane, version))
+    conn.commit()
+    if n:
+        log(f"sightings {lane}: {n:,} sightings under an older version of the forms removed")
+    return n
 
 
 def _write(conn, rows: list, dones: list) -> None:
@@ -324,6 +337,8 @@ def scan_lane(lane: str, limit: int = None, log=print) -> dict:
             if n % 500 == 0:
                 el = time.monotonic() - t0
                 log(f"sightings {lane}: {n:,}/{len(docs):,} documents, {found:,} sightings, {chars / el / 1e6:.1f} M chars/s")
+        if not limit:
+            drop_old(conn, lane, version, log)
         out = {"lane": lane, "documents": n, "sightings": found, "chars": chars, "seconds": round(time.monotonic() - t0, 1),
                "version": version}
         log(json.dumps(out))
@@ -338,9 +353,13 @@ def main(argv=None) -> int:
             build_forms(conn)
         return 0
     if argv[:1] == ["scan"]:
-        lane = argv[argv.index("--lane") + 1]
+        lanes = [argv[i + 1] for i, a in enumerate(argv) if a == "--lane"]
+        if not lanes or any(x not in LANES for x in lanes):
+            print(f"scan takes --lane, one or more of {', '.join(LANES)}", file=sys.stderr)
+            return 2
         limit = int(argv[argv.index("--limit") + 1]) if "--limit" in argv else None
-        scan_lane(lane, limit)
+        for lane in lanes:
+            scan_lane(lane, limit)
         return 0
     if argv[:1] == ["counts"]:
         with db.connect(db.READ_KEY, "querynz_v4") as conn:
