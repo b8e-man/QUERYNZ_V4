@@ -7,6 +7,7 @@
                                                     (a pieced job with no --pieces needs a pieces_command in jobs.toml)
   python -m support.scheduler cancel ID --why WHY
   python -m support.scheduler probe                 this box's hardware profile
+python -m support.scheduler saturation [--hours H] the share of the clock the cards had work (target 95%)
   python -m support.scheduler worker --name N [--box B] [--once] [--hide-program P ...]
   python -m support.scheduler report                the qv4-scheduler-report job
   python -m support.scheduler memory                the memory raises jobs.toml has not folded yet (ruling 115)
@@ -159,6 +160,11 @@ def main(argv=None) -> int:
     p.add_argument("--why", required=True)
     p.add_argument("--database", default="querynz_v4")
     p.add_argument("--schema", default=SCHEMA)
+    p = sub.add_parser("saturation")
+    p.add_argument("--database", default="querynz_v4")
+    p.add_argument("--schema", default=SCHEMA)
+    p.add_argument("--hours", type=float, default=24.0)
+    p.add_argument("--box")
     sub.add_parser("probe")
     p = sub.add_parser("worker")
     p.add_argument("--name", required=True)
@@ -207,6 +213,14 @@ def main(argv=None) -> int:
         print(f"scheduler: {len(reg.load())} job types, {len(reg.profiles())} profiles, "
               f"{'green' if not probs else str(len(probs)) + ' problem(s)'}")
         return 1 if probs else 0
+    if a.cmd == "saturation":
+        from support.scheduler import saturation
+        import support.db as db
+        with db.connect(db.READ_KEY, a.database) as conn:
+            r = saturation.report(conn, a.schema, a.hours, a.box)
+        for line in saturation.lines(r):
+            print(line)
+        return 0 if r["ok"] else 1
     if a.cmd == "probe":
         from support.scheduler import probe
         print(json.dumps(probe.profile(), indent=1))

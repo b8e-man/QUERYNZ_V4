@@ -174,6 +174,29 @@ STALE_WHY = ("the probe does not list this card: the row was written from a devi
              "(card the-probe-lists-the-processor-s-own-graphics-as-a-card)")
 
 
+#: how long a standing server that was answering may give no answer before its cards are marked dead (1 November 2026)
+STANDING_GRACE_S = 180.0
+#: the watchdog (1 November 2026, Arthur: the cards working 95% of the time): a standing server dead this long while its
+#: unit still runs and model work waits is restarted, and again no sooner than WATCH_RETRY_S after
+WATCH_AFTER_S = 120.0
+WATCH_RETRY_S = 900.0
+#: one sample of the cards a minute (scheduler.card_samples): whether any card had work
+SAMPLE_EVERY_S = 60.0
+SAMPLES_DDL = """
+CREATE TABLE IF NOT EXISTS {s}.card_samples (
+    at                timestamptz NOT NULL DEFAULT now(),
+    box               text NOT NULL,
+    working           boolean,          -- a request in flight on a standing server, or a card held by a job; NULL = no answer
+    standing          text,             -- the standing profile answering, if any
+    requests_running  int,
+    requests_waiting  int,
+    cards_held        int,              -- cards a (non-standing) job holds
+    model_work_queued int,              -- items of model-profile jobs waiting
+    note              text,
+    PRIMARY KEY (box, at)
+);
+"""
+
 class Server:
     def __init__(self, proc: subprocess.Popen, prof: reg.Profile, card: int, port: int, started: float):
         self.proc, self.prof, self.card, self.port, self.started = proc, prof, card, port, started
@@ -215,6 +238,11 @@ class Manager:
         self.failed_loads: dict[str, tuple] = {}     # profile → the box's programs when its load failed here
         self.active_seconds = active_seconds or unit_active_seconds
         self.standing_seen: dict[str, bool] = {}     # standing profile → answering at the last look (absent: not yet looked)
+        self.standing_quiet: dict[str, float] = {}    # standing profile → when it first failed to answer, while it was up
+        self.standing_died_at: dict[str, float] = {}  # standing profile → when mark_standing found it dead (not a deliberate stop)
+        self.watch_restarted_at: dict[str, float] = {}
+        self.sampled_at: float | None = None
+        self.samples_ready = False
         self.skipped_loads: set[str] = set()         # standing profiles a planned load was refused for, logged once
         self.log = log
         self.worker = None
@@ -326,6 +354,17 @@ class Manager:
             a = self.ask(prof.port)
             up = bool(a["healthy"]) and a["served"] == prof.model
             was = self.standing_seen.get(prof.name)
+            if up:
+                self.standing_quiet.pop(prof.name, None)
+                self.standing_died_at.pop(prof.name, None)
+            elif was is True and not a["served"]:
+                # a server that was up and now gives no answer at all may be in one of its pauses (Radiance stops logging
+                # and answering for 20 s and more under load, 1 November 2026: 13 false deaths on 31 October, and the
+                # card marked dead from 16:00 to 21:25 while it answered thousands of requests). It is dead only after
+                # STANDING_GRACE_S of silence; a wrong model answering is never a pause
+                first = self.standing_quiet.setdefault(prof.name, self.clock())
+                if self.clock() - first < STANDING_GRACE_S:
+                    continue
             idx = self.standing_cards(worker, prof)
             for card in idx:
                 if up:
@@ -357,6 +396,7 @@ class Manager:
                                   f"standing: {prof.unit} stopped answering with {prof.model}", from_profile=prof.name,
                                   by_worker=worker.name, served_model=a["served"], ok=False)
                 self.log(f"cards {idx}: {prof.name} not answering on :{prof.port}; held for {prof.unit}")
+                self.standing_died_at[prof.name] = self.clock()
             self.standing_seen[prof.name] = up
 
     # ── the tick ─────────────────────────────────────────────────────────────
@@ -411,6 +451,71 @@ class Manager:
             out.add(jt.name)
         return out
 
+    # ── the cards' working time (1 November 2026) ─────────────────────────────
+
+    def model_work(self, worker, demands: dict) -> int:
+        """Items of model-profile jobs waiting (queued, or pieces left on leased rows)."""
+        return sum(int(getattr(d, "depth", 0) or 0) for job, d in (demands or {}).items()
+                   if job in worker.registry and worker.registry[job].profile)
+
+    def watchdog(self, worker, demands: dict) -> None:
+        """Restart a standing server that mark_standing found dead WATCH_AFTER_S ago, when its unit still runs (a hang,
+        not a deliberate stop: a stopped unit is never started here), the night window does not hold it and model work
+        waits. Every restart is a swap-ledger line (hard limit 25)."""
+        for prof in self.standing_profiles(worker):
+            died = self.standing_died_at.get(prof.name)
+            if died is None or self.night_holds(prof.name) or self.clock() - died < WATCH_AFTER_S:
+                continue
+            last = self.watch_restarted_at.get(prof.name)
+            if last is not None and self.clock() - last < WATCH_RETRY_S:
+                continue
+            waiting = self.model_work(worker, demands)
+            if not waiting or self.systemctl("is-active", prof.unit) != 0:
+                continue
+            silent = round(self.clock() - died + STANDING_GRACE_S)
+            self.watch_restarted_at[prof.name] = self.clock()
+            rc = self.systemctl("restart", prof.unit)
+            for card in self.standing_cards(worker, prof):
+                q.record_swap(worker.conn, worker.schema, worker.box, card, "start",
+                              f"watchdog: {prof.unit} silent about {silent} s with its unit running and {waiting} model "
+                              f"item(s) waiting; restarted", from_profile=prof.name, to_profile=prof.name,
+                              by_worker=worker.name, ok=rc == 0, detail=f"systemctl restart exit {rc}")
+            self.log(f"watchdog: {prof.unit} restarted after about {silent} s of silence (exit {rc})")
+
+    def sample(self, worker, demands: dict) -> None:
+        """One row a minute in card_samples: whether any card on this box had work. A standing server is working when
+        it reports a request in flight; a card a job holds is working. A server in one of its pauses gives no metrics:
+        the row records working NULL, and the report reads it as the row before it."""
+        if self.sampled_at is not None and self.clock() - self.sampled_at < SAMPLE_EVERY_S:
+            return
+        self.sampled_at = self.clock()
+        running = waiting = None
+        standing = None
+        for prof in self.standing_profiles(worker):
+            if not self.standing_seen.get(prof.name) and prof.name not in self.standing_quiet:
+                continue
+            standing = prof.name
+            text = pb.get(f"http://127.0.0.1:{prof.port}/metrics", timeout=5.0)
+            if text:
+                running = sum(int(float(x)) for x in re.findall(r"^vllm:num_requests_running\{[^}]*\}\s+(\S+)", text, re.M))
+                waiting = sum(int(float(x)) for x in re.findall(r"^vllm:num_requests_waiting\{[^}]*\}\s+(\S+)", text, re.M))
+        try:
+            held = sum(1 for c in q.cards(worker.conn, worker.schema, worker.box)
+                       if c.get("holder") and not c.get("reserved"))
+        except Exception:  # noqa: BLE001 — a sample is a measurement, never a reason for the tick to fail
+            held = None
+        working = True if (running or held) else (False if running == 0 or (standing is None and held == 0) else None)
+        try:
+            if not self.samples_ready:
+                worker.conn.execute(SAMPLES_DDL.format(s=worker.schema))
+                self.samples_ready = True
+            worker.conn.execute(
+                f"INSERT INTO {worker.schema}.card_samples (box, working, standing, requests_running, requests_waiting, "
+                f"cards_held, model_work_queued) VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                (worker.box, working, standing, running, waiting, held, self.model_work(worker, demands)))
+        except Exception as e:  # noqa: BLE001
+            self.log(f"card sample not written: {type(e).__name__}: {str(e)[:120]}")
+
     def tick(self, worker, now) -> None:
         now_s = now.timestamp()
         self._reap_dead_servers(worker)
@@ -418,6 +523,8 @@ class Manager:
         demands = q.demands(worker.conn, worker.schema, worker.registry, now=now)
         self.night_tick(worker, now, demands)
         self.mark_standing(worker)
+        self.watchdog(worker, demands)
+        self.sample(worker, demands)
         measured = q.measured_load_seconds(worker.conn, worker.schema)
         profiles = {n: (p if p.load_seconds is not None or n not in measured else
                         reg.Profile(**{**p.__dict__, "load_seconds": measured[n]})) for n, p in worker.profiles.items()}

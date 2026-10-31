@@ -326,3 +326,76 @@ def test_a_job_on_a_view_is_eligible_on_its_servers_card_and_gets_its_request(ca
     req = json.loads(env["QV4_MODEL_REQUEST"])
     assert req["chat_template_kwargs"] == {"enable_thinking": True} and req["thinking_token_budget"] == 2048
     assert req["temperature"] == 0.2 and req["max_tokens"] == 6144
+
+
+def test_a_standing_server_silent_for_less_than_the_grace_is_in_a_pause_not_dead(mgr):
+    """Radiance stops answering for 20 s and more under load (1 November 2026: 13 false deaths on 31 October). A server
+    that was up and gives no answer is dead only after cards.STANDING_GRACE_S of silence."""
+    m, w, answers, started = mgr
+    now = [1000.0]
+    m.clock = lambda: now[0]
+    m.start(w)
+    n = len(swaps(w))
+    answers.update(healthy=False, served=None)
+    for t in (0, 30, 90, 170):
+        now[0] = 1000.0 + t
+        m.mark_standing(w)
+    assert len(swaps(w)) == n and not upserts(w)[0]["reserved"], "a pause keeps the cards"
+    answers.update(healthy=True, served="qwen4exp")
+    now[0] = 1175.0
+    m.mark_standing(w)
+    assert len(swaps(w)) == n, "back from a pause is no load"
+    answers.update(healthy=False, served=None)
+    now[0] = 1200.0
+    m.mark_standing(w)
+    now[0] = 1200.0 + cards.STANDING_GRACE_S
+    m.mark_standing(w)
+    assert [s for s in swaps(w)[n:] if s[3] == "died"] and upserts(w)[0]["reserved"], "silent past the grace: dead"
+
+
+class _D:
+    def __init__(self, depth):
+        self.depth = depth
+
+
+def _watch_kit(mgr, active=0):
+    m, w, answers, started = mgr
+    now = [1000.0]
+    calls = []
+    m.clock = lambda: now[0]
+    m.systemctl = lambda verb, unit, **kw: calls.append((verb, unit)) or (active if verb == "is-active" else 0)
+    m.start(w)
+    answers.update(healthy=False, served=None)
+    now[0] = 1100.0
+    m.mark_standing(w)
+    now[0] = 1100.0 + cards.STANDING_GRACE_S
+    m.mark_standing(w)                     # dead: recorded
+    return m, w, now, calls
+
+
+def test_the_watchdog_restarts_a_hung_standing_server_once_work_waits_and_records_the_swap(mgr):
+    m, w, now, calls = _watch_kit(mgr)
+    job = next(j for j, t in w.registry.items() if t.profile)
+    now[0] += cards.WATCH_AFTER_S - 1
+    m.watchdog(w, {job: _D(5)})
+    assert ("restart", "qv4-radiance.service") not in calls, "not before WATCH_AFTER_S"
+    now[0] += 1
+    m.watchdog(w, {})
+    assert ("restart", "qv4-radiance.service") not in calls, "no work waiting: no restart"
+    m.watchdog(w, {job: _D(5)})
+    assert calls.count(("restart", "qv4-radiance.service")) == 1
+    starts = [s for s in swaps(w) if s[3] == "start" and "watchdog" in s[7]]
+    assert len(starts) == 2, "one swap line a card"
+    m.watchdog(w, {job: _D(5)})
+    assert calls.count(("restart", "qv4-radiance.service")) == 1, "not again before WATCH_RETRY_S"
+    now[0] += cards.WATCH_RETRY_S
+    m.watchdog(w, {job: _D(5)})
+    assert calls.count(("restart", "qv4-radiance.service")) == 2
+
+
+def test_the_watchdog_never_starts_a_unit_that_was_stopped(mgr):
+    m, w, now, calls = _watch_kit(mgr, active=3)
+    job = next(j for j, t in w.registry.items() if t.profile)
+    now[0] += cards.WATCH_AFTER_S
+    m.watchdog(w, {job: _D(5)})
+    assert ("restart", "qv4-radiance.service") not in calls and ("is-active", "qv4-radiance.service") in calls
