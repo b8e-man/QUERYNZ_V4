@@ -37,19 +37,46 @@ THE NIGHT WINDOW (ruling 129) is the one time the manager touches that unit.
 Inside the hours of jobs.toml `[night_window]` (22:00 to 05:45 NZDT), when
 page-reader work is queued and no piece of a view on the standing profile is
 running or leased, the manager stops the unit, waits until the port is down
-and the cards have released the model (measured with rocm-smi), holds the
-standing server's other card reserved for the frozen product's OCR server,
-and leaves the window's card cold; the planner then loads the page reader
-there and runs the pieces. When the page queue is empty, or a text-reader or
-review piece is due, or the window closes, the page reader drains (never
-killed), is unloaded, the unit is started again, the model is read back on
-its port, and the cards are marked standing as today. Each stop and start is
-a `stop` or `start` line in the swap ledger with its reason and the measured
-seconds; a start that fails is a `failed` line, an alarm and a note in the
-inbox for the integrator, and the manager tries again each tick. Outside the
-window the unit is never stopped or planned. A marker file under <live>
-records a stop until the start, so a worker restarted in between starts the
-unit again rather than leaving it down. The clock half is `night.py`.
+and the cards have released the model (measured with rocm-smi), and leaves
+the window's card cold; the planner then loads the page reader there and
+runs the pieces. When the page queue is empty, or a text-reader or review
+piece is due, or the window closes, the page reader drains (never killed),
+is unloaded, the unit is started again, the model is read back on its port,
+and the cards are marked standing as today. Each stop and start is a `stop`
+or `start` line in the swap ledger with its reason and the measured seconds;
+a start that fails is a `failed` line, an alarm and a note in the inbox for
+the integrator, and the manager tries again each tick. Outside the window
+the unit is never stopped or planned. A marker file under <live> records a
+stop until the start, so a worker restarted in between starts the unit
+again rather than leaving it down. The clock half is `night.py`.
+
+A PAGE READER BESIDE THE FROZEN PRODUCT'S OCR SERVER (card one-page-reader-
+at-a-time-while-card-0-holds-the-ocr-server, 30 October). The standing
+server's other card carries the frozen product's OCR server (:8032, about
+5 GB; hard limit 23: never touched) and until 30 October was held reserved
+for it all night, so the page backlog ran on one card while 20 GB sat free
+on the other. Now, at the stop, each such card's free memory is read
+(rocm-smi, after the standing model has released) and where it covers the
+page profile's measured memory plus `BESIDE_HEADROOM_GB` the card is left
+cold and NOT reserved, so the planner (rule 9: a bulk job takes every free
+card) loads the page reader there too; where it does not cover, the card is
+reserved for the OCR server as before, and the stop line says which. Only
+the window's page profile may load on such a card: the tick's eligible set
+is the page jobs while the window holds, and `apply` refuses any other
+profile there. A load that fails on such a card (out of memory beside the
+other server) reserves that card for the rest of the night and is NOT
+remembered against the profile, so the window's own card keeps reading.
+What rule 25 means here is written in spec.md: a card holds one model
+profile OF OURS at a time; the OCR server is another estate's program, not
+a profile, and the card's memory, measured, is the only thing that says
+whether a profile of ours fits beside it. The worker spreads the pieces of
+a pieced job, and its concurrent rows, over every card holding the profile
+(`Worker.pick_card`), not the first.
+
+ARTHUR'S WORD (card the-night-window-is-opened-by-a-commit-not-a-command):
+`python -m support.scheduler night open [--until HH:MM]` and `night close`
+write `NIGHT_WORD` under <live>/scheduler/; `_inside` hears it each tick and
+the stop line names who gave it. Nothing in jobs.toml moves for it.
 """
 from __future__ import annotations
 
@@ -79,6 +106,8 @@ START_TIMEOUT_S = 330         # the unit's TimeoutStartSec (300); Radiance answe
 RELEASE_SLACK_GB = 2.0        # a card has released the model when its used memory is within this of (total - the model)
 NIGHT_REST_S = 900            # after a start, no new stop for this long: a page row given back for two minutes is not a new night
 NIGHT_MARK = os.path.join(LIVE, "scheduler", "night-window.json")
+NIGHT_WORD = os.path.join(LIVE, "scheduler", "night-word.json")    # Arthur's word: `night open` / `night close`
+BESIDE_HEADROOM_GB = 2.0      # a page profile loads beside another estate's server only with this much over its measured memory
 INBOX_CARDS = os.environ.get("QV4_INBOX_CARDS") or "/home/user/querynzv4-work/inbox/cards"
 _CATALOGUE = object()
 
@@ -156,7 +185,7 @@ class Manager:
 
     def __init__(self, *, popen=None, ask=None, models_dir: str = None, log=None, reservations: list = None,
                  active_seconds=None, window=_CATALOGUE, systemctl=None, read_cards=None, clock=None, sleep=None,
-                 mark: str = None, inbox: str = None):
+                 mark: str = None, inbox: str = None, word: str = None):
         self.popen = popen or subprocess.Popen
         self.ask = ask or pb.ask_server
         self.models_dir = models_dir
@@ -168,11 +197,15 @@ class Manager:
         self.clock = clock or time.monotonic
         self.sleep = sleep or time.sleep
         self.mark = mark or NIGHT_MARK
+        self.word = word or NIGHT_WORD
         self.inbox = inbox or INBOX_CARDS
         self.night_state = "standing"                # standing | page | closing | restarting
         self.night_reason: str | None = None
-        self.night_page_card: int | None = None
-        self.night_hold_cards: list[int] = []
+        self.night_page_cards: list[int] = []        # the cards the page reader may load on tonight (the window's, then any beside)
+        self.night_beside_cards: list[int] = []      # of those, the cards another estate's server also sits on
+        self.night_hold_cards: list[int] = []        # the cards held reserved for the frozen product's OCR server
+        self.night_word_said: str | None = None      # the word as last logged
+        self.night_since: dt.datetime | None = None  # when the unit was stopped (the marker's `since`)
         self.night_rest_until = 0.0                  # epoch seconds before which no new stop is attempted
         self.night_alarmed = False                   # one alarm and one note per failed-start episode
         self.night_logged: set[str] = set()          # lines said once per state
@@ -383,10 +416,11 @@ class Manager:
                                                  eligible=eligible)
         for d in decisions:
             self.apply(worker, d, now_s)
-        if self.night_state == "closing" and self.night_page_card is not None:
-            # a release above clears the flag, and the worker claims after this tick: the page card stays draining
-            # until the page reader is unloaded, so a piece given back is not claimed again on it
-            q.upsert_card(worker.conn, worker.schema, worker.box, self.night_page_card, draining=True)
+        if self.night_state == "closing":
+            # a release above clears the flag, and the worker claims after this tick: the page cards stay draining
+            # until the page reader is unloaded, so a piece given back is not claimed again on them
+            for card in self.night_page_cards:
+                q.upsert_card(worker.conn, worker.schema, worker.box, card, draining=True)
 
     def _reap_dead_servers(self, worker) -> None:
         for card, s in list(self.servers.items()):
@@ -460,13 +494,47 @@ class Manager:
             self.night_logged.add(key)
             self.log(msg)
 
+    def read_word(self) -> dict | None:
+        """Arthur's word on the window, from `NIGHT_WORD`; None when there is
+        none or it cannot be read (a torn file is silence, not a window)."""
+        try:
+            with open(self.word, encoding="utf-8") as f:
+                wd = json.load(f)
+        except (OSError, ValueError):
+            return None
+        return wd if isinstance(wd, dict) else None
+
+    def _inside(self, now: dt.datetime) -> tuple[bool, str | None]:
+        """Inside the window, by the clock and by the word. A stale word is
+        removed and said once; a word that decides is said once."""
+        wd, passed = self.read_word(), None
+        if wd is not None and not night.word_holds(wd, now):
+            try:
+                os.remove(self.word)
+            except OSError:
+                pass
+            if wd.get("state") in night.WORD_STATES:
+                passed = f"the word ({night.describe(wd, self.window)}) has run out"
+            self.log(f"night window: the word in {self.word} ({wd.get('state')!r} by {wd.get('by')!r}, until "
+                     f"{wd.get('until_local') or wd.get('until')}) has passed; removed")
+            wd = None
+        inside, line = night.inside(now, self.window, wd)
+        if passed and not inside and self.night_state in ("page", "closing"):
+            line = passed                  # an early open that ran out before the clock's window: the close says so
+        said = line or (night.describe(wd, self.window) if wd else None)
+        if said != self.night_word_said:
+            self.night_word_said = said
+            if said:
+                self.log(f"night window: {said}")
+        return inside, line
+
     def night_tick(self, worker, now: dt.datetime, demands: dict) -> None:
         """One look at the clock and the queue: open the window, close it, or keep trying to start the unit."""
         w, prof = self.window, self.night_profile(worker)
         if w is None or prof is None:
             return
         now_s = now.timestamp()
-        inside = night.in_window(now, w)
+        inside, word_line = self._inside(now)
         if self.night_state == "standing":
             if not inside or now_s < self.night_rest_until:
                 return
@@ -481,11 +549,11 @@ class Manager:
                 self._once("down", f"night window: {prof.unit} is not answering on :{prof.port}, so there is nothing to "
                                    f"stop; the page reader waits for it (ruling 121: the worker does not start it)")
                 return
-            self._night_stop(worker, prof, now, depth)
+            self._night_stop(worker, prof, now, depth, word_line)
         elif self.night_state == "page":
             reason = None
             if not inside:
-                reason = f"the window closed at {w.end} {w.timezone}"
+                reason = word_line or f"the window closed at {w.end} {w.timezone}"
             elif self._page_depth(worker, demands) <= 0:
                 reason = "the page queue is empty"
             else:
@@ -505,20 +573,25 @@ class Manager:
                 return
             self._night_start(worker, prof, now)
 
-    def _wait_released(self, prof: reg.Profile, idx: list[int], timeout: float = STOP_TIMEOUT_S) -> bool:
-        """True once the port is down and each card has released the model
-        (its used memory is within RELEASE_SLACK_GB of total less the
-        model's measured share). A card read that fails is not data: then
+    def _wait_released(self, prof: reg.Profile, idx: list[int], timeout: float = STOP_TIMEOUT_S,
+                       before: list[dict] | None = None) -> bool:
+        """True once the port is down and each card has released the model:
+        its used memory has fallen by the model's measured share, within
+        RELEASE_SLACK_GB, from what it was before the stop (`before`, read
+        from the box just before); with no such reading, to within the
+        slack of total less the model's share, which assumes nothing else
+        of size sits on the card. A card read that fails is not data: then
         the port alone decides, as `systemctl stop` blocks until the
         container is gone."""
         t0 = self.clock()
         need = (prof.memory_gb or 0.0)
+        was = {c.get("index"): c.get("memory_used_gb") for c in (before or []) if c.get("memory_used_gb") is not None}
         while True:
             a = self.ask(prof.port)
             cards = self.read_cards()
             freed = cards is None or all(
                 c.get("memory_used_gb") is None or c.get("memory_total_gb") is None
-                or c["memory_used_gb"] <= c["memory_total_gb"] - need + RELEASE_SLACK_GB
+                or c["memory_used_gb"] <= (was[c["index"]] if c.get("index") in was else c["memory_total_gb"]) - need + RELEASE_SLACK_GB
                 for c in cards if c.get("index") in idx)
             if not a["healthy"] and freed:
                 return True
@@ -540,18 +613,34 @@ class Manager:
                 return last
             self.sleep(2)
 
-    def _night_stop(self, worker, prof: reg.Profile, now: dt.datetime, depth: int) -> None:
+    def covers(self, reading: dict | None, prof: reg.Profile) -> tuple[bool, str]:
+        """Whether a card's free memory, as read from the box, covers a
+        profile's measured memory plus the headroom; and the figures, for
+        the ledger. No reading, or no measured figure, does not cover."""
+        if reading is None or reading.get("memory_total_gb") is None or reading.get("memory_used_gb") is None:
+            return False, "the card's memory could not be read"
+        if prof.memory_gb is None:
+            return False, f"{prof.name} has no measured memory_gb"
+        free = round(float(reading["memory_total_gb"]) - float(reading["memory_used_gb"]), 1)
+        need = round(float(prof.memory_gb) + BESIDE_HEADROOM_GB, 1)
+        figures = (f"{free:.1f} GB free of {reading['memory_total_gb']} GB; {prof.name} needs {prof.memory_gb} GB "
+                   f"+ {BESIDE_HEADROOM_GB} GB headroom = {need:.1f} GB")
+        return free >= need, figures
+
+    def _night_stop(self, worker, prof: reg.Profile, now: dt.datetime, depth: int, word_line: str | None = None) -> None:
         w = self.window
         idx = self.standing_cards(worker, prof)
         if w.card not in idx:
             self._once("card", f"night window: card {w.card} is not one of {prof.name}'s cards {idx}; the window cannot open")
             return
         why = (f"night window (ruling 129): {depth} page piece(s) queued for {w.profile}, no text-reader or review piece "
-               f"running or leased; {prof.unit} stopped for the page reader on card {w.card}")
+               f"running or leased; {prof.unit} stopped for the page reader on card {w.card}"
+               + (f"; {word_line}" if word_line else ""))
         self.log(f"night window: stopping {prof.unit}: {depth} page piece(s) queued for {w.profile}")
+        before = self.read_cards()                     # what each card held with the standing model on it
         t0 = self.clock()
         rc = self.systemctl("stop", prof.unit)
-        released = self._wait_released(prof, idx) if rc == 0 else False
+        released = self._wait_released(prof, idx, before=before) if rc == 0 else False
         seconds = round(self.clock() - t0, 1)
         if not released:
             detail = f"systemctl stop returned {rc}" if rc else f"the cards still hold the model after {seconds:.0f}s"
@@ -564,35 +653,75 @@ class Manager:
             self.standing_seen[prof.name] = False          # mark_standing records its return as a measured load
             self.night_rest_until = now.timestamp() + NIGHT_REST_S
             return
+        # the other cards: another estate's server sits on each (the frozen product's OCR server); the card's
+        # memory, read now that the standing model has gone, says whether the page profile fits beside it
+        page_prof = worker.profiles.get(w.profile)
+        readings = {c.get("index"): c for c in (self.read_cards() or [])}
+        beside, hold, verdicts = [], [], {}
         for card in idx:
+            if card == w.card:
+                continue
+            ok, figures = self.covers(readings.get(card), page_prof) if page_prof else (False, f"no profile {w.profile!r}")
+            verdicts[card] = figures
+            (beside if ok else hold).append(card)
+        for card in idx:
+            if card == w.card:
+                detail = f"{prof.unit} stopped; the cards released {prof.model} in {seconds:.1f}s; the page reader takes this card"
+            elif card in beside:
+                detail = (f"{prof.unit} stopped; the cards released {prof.model} in {seconds:.1f}s; the frozen product's OCR "
+                          f"server stays on this card and {verdicts[card]}: {w.profile} may load beside it")
+            else:
+                detail = (f"{prof.unit} stopped; the cards released {prof.model} in {seconds:.1f}s; held for the frozen "
+                          f"product's OCR server: {verdicts[card]}, which does not cover it")
             q.record_swap(worker.conn, worker.schema, worker.box, card, "stop", why, from_profile=prof.name,
-                          by_worker=worker.name, load_seconds=seconds, ok=True,
-                          detail=f"{prof.unit} stopped; the cards released {prof.model} in {seconds:.1f}s")
+                          by_worker=worker.name, load_seconds=seconds, ok=True, detail=detail)
         runs.placement(",".join(f"{worker.box}:{c}" for c in idx), "stop", None, why, prof.name)
-        hold = [c for c in idx if c != w.card]
         cold = dict(profile=None, port=None, pid=None, holder=None, holder_since=None, draining=False, slots=None,
                     slots_busy=None, worker=worker.name)
         for card in hold:
             q.upsert_card(worker.conn, worker.schema, worker.box, card, reserved=True,
                           reserved_why=f"night window: held for the frozen product's OCR server (:8032, hard limit 23) while "
-                                       f"{prof.unit} is stopped; the page reader takes card {w.card}", **cold)
-        q.upsert_card(worker.conn, worker.schema, worker.box, w.card, reserved=False, reserved_why=None, **cold)
-        self.night_page_card, self.night_hold_cards = w.card, hold
+                                       f"{prof.unit} is stopped; its free memory does not cover {w.profile} ({verdicts[card]})",
+                          **cold)
+        for card in [w.card] + beside:
+            q.upsert_card(worker.conn, worker.schema, worker.box, card, reserved=False, reserved_why=None, **cold)
+        self.night_page_cards, self.night_beside_cards, self.night_hold_cards = [w.card] + beside, beside, hold
+        self.night_since = now
         self.standing_seen[prof.name] = False
         self.night_state, self.night_reason, self.night_alarmed = "page", None, False
         self.night_logged.clear()
         self._write_mark(worker, prof, now, why)
-        self.log(f"night window: {prof.unit} stopped in {seconds:.1f}s; card {w.card} free for {w.profile}, "
-                 f"card(s) {hold} held for the OCR server")
+        self.log(f"night window: {prof.unit} stopped in {seconds:.1f}s; card {w.card} free for {w.profile}"
+                 + (f", card(s) {beside} free for it beside the OCR server" if beside else "")
+                 + (f", card(s) {hold} held for the OCR server" if hold else ""))
+
+    def _hold_beside(self, worker, card: int, detail: str) -> None:
+        """A load beside the other estate's server failed: that card is held
+        for the rest of the night; the window's own card keeps reading."""
+        w = self.window
+        self.night_beside_cards = [c for c in self.night_beside_cards if c != card]
+        self.night_page_cards = [c for c in self.night_page_cards if c != card]
+        if card not in self.night_hold_cards:
+            self.night_hold_cards.append(card)
+        q.upsert_card(worker.conn, worker.schema, worker.box, card, reserved=True, profile=None, port=None, pid=None,
+                      holder=None, holder_since=None, draining=False, slots=None, slots_busy=None, worker=worker.name,
+                      reserved_why=f"night window: held for the frozen product's OCR server (:8032, hard limit 23); a load of "
+                                   f"{w.profile} beside it failed ({detail}); not tried again tonight")
+        self.log(f"card {card}: the load of {w.profile} beside the OCR server failed ({detail}); the card is held for the "
+                 f"rest of the night and card(s) {self.night_page_cards} keep reading")
+        prof = self.night_profile(worker)
+        if self.night_state in ("page", "closing") and prof is not None and self.night_since is not None:
+            self._write_mark(worker, prof, self.night_since, f"{w.profile} failed to load beside the OCR server on card {card}")
 
     def _night_close(self, worker, prof: reg.Profile, now: dt.datetime) -> None:
-        w, card = self.window, self.night_page_card
-        if card is not None and self._page_running(worker):
-            q.upsert_card(worker.conn, worker.schema, worker.box, card, draining=True)
-            self._once("drain", f"night window: a {w.profile} piece is in flight on card {card}; draining, not killing, "
+        w, page = self.window, list(self.night_page_cards)
+        if page and self._page_running(worker):
+            for card in page:
+                q.upsert_card(worker.conn, worker.schema, worker.box, card, draining=True)
+            self._once("drain", f"night window: a {w.profile} piece is in flight on card(s) {page}; draining, not killing, "
                                 f"before {prof.unit} starts")
             return
-        if card is not None:
+        for card in page:
             self.unload(worker, card, f"night window: {self.night_reason}; {prof.unit} starts again")
         self._night_start(worker, prof, now)
 
@@ -643,7 +772,7 @@ class Manager:
 
     def _night_done(self, now: dt.datetime) -> None:
         self.night_state, self.night_reason = "standing", None
-        self.night_page_card, self.night_hold_cards = None, []
+        self.night_page_cards, self.night_beside_cards, self.night_hold_cards = [], [], []
         self.night_logged.clear()
         self.night_alarmed = False
         self.night_rest_until = now.timestamp() + NIGHT_REST_S
@@ -658,7 +787,8 @@ class Manager:
         try:
             os.makedirs(os.path.dirname(self.mark), exist_ok=True)
             with open(self.mark, "w", encoding="utf-8") as f:
-                json.dump({"unit": prof.unit, "standing": prof.name, "page_card": self.night_page_card,
+                json.dump({"unit": prof.unit, "standing": prof.name, "page_card": self.window.card,
+                           "page_cards": self.night_page_cards, "beside_cards": self.night_beside_cards,
                            "hold_cards": self.night_hold_cards, "since": now.isoformat(timespec="seconds"),
                            "worker": worker.name, "why": why}, f, indent=1)
         except OSError as e:
@@ -682,7 +812,8 @@ class Manager:
             worker.alarm(f"qv4 {worker.box}: {m.get('unit', 'a standing unit')} may be down",
                          f"the night window's marker is on disk with no window in the catalogue to act on it; check the unit")
             return
-        self.night_page_card = m.get("page_card", self.window.card)
+        self.night_page_cards = list(m.get("page_cards") or [m.get("page_card", self.window.card)])
+        self.night_beside_cards = list(m.get("beside_cards") or [])
         self.night_hold_cards = list(m.get("hold_cards") or [])
         self.night_state = "closing"
         self.night_reason = f"the worker restarted while the window held the cards (stopped {m.get('since', '?')})"
@@ -741,6 +872,11 @@ class Manager:
                          f"{reg.server_of(worker.profiles, d.profile).unit} serves it")
                 self.skipped_loads.add(d.profile)
             return
+        if d.action == policy.LOAD and card in self.night_beside_cards and self.window and d.profile != self.window.profile:
+            # another estate's server sits on this card: only the window's page profile goes beside it
+            self._once(f"beside-{card}-{d.profile}", f"card {card}: a load of {d.profile} is not acted on: the frozen "
+                       f"product's OCR server sits on this card and only {self.window.profile} may load beside it")
+            return
         runs.placement(d.card, d.action, d.job_type, d.why, d.profile)
         if d.action == policy.DRAIN:
             q.upsert_card(worker.conn, worker.schema, worker.box, card, draining=True)
@@ -770,7 +906,10 @@ class Manager:
         self.log(f"card {card}: load of {prof.name} FAILED: {detail}")
         q.record_swap(worker.conn, worker.schema, worker.box, card, "failed", d.why, to_profile=prof.name, job=d.job_type,
                       by_worker=worker.name, ok=False, detail=detail, **more)
-        if remember:
+        if card in self.night_beside_cards:
+            # beside another estate's server the fault is the card's room, not the profile: hold the card, not the profile
+            self._hold_beside(worker, card, detail)
+        elif remember:
             self.failed_loads[prof.name] = self._programs_key(worker)
         return False
 

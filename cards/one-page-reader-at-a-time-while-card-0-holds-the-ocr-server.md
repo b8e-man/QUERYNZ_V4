@@ -1,10 +1,10 @@
 # The page backlog runs on one card: a second page reader cannot stand beside the OCR server on card 0
 kind: finding
-state: open
+state: closed
 use-case: -
 session: integrator-9d788fb
 opened: 2026-10-30
-closed:
+closed: 2026-10-30
 
 30 October 15:50, Arthur: why is one card idle? During the night window card 0 is held for the frozen product's
 OCR server (:8032, 4.7 GB; hard limit 23) and the page reader (GLM-OCR, 4.8 GB) runs on card 1 alone, while
@@ -27,3 +27,16 @@ refuses to stop that unit; the card had 21 GB free, so nothing needed stopping),
 scheduler's rows replayed the stored readings in seconds. The backlog that would have ended near 02:00 ended 21:14.
 The fix owed stands: the planner should do this itself (a page profile on card 0 beside the OCR server when memory
 covers it; pieces of one job across two cards).
+
+22:45, 30 October, fix-support-scheduler-5 (branch fix/support-scheduler-1): done. At the stop the card manager reads
+each other card's memory after Flash-Next has released and, where the free memory covers the page profile's measured
+4.8 GB plus 2.0 GB headroom, leaves the card cold and unreserved, so the planner loads the page reader there too (rule 9
+now spreads a resident bulk job to a card that comes free on any tick, not only the first); otherwise the card is held
+as before, and the stop line in the swap ledger carries the figures either way. Only the page profile may load beside
+the OCR server; a load that fails there holds that card for the night and is not remembered against the profile, so
+card 1 keeps reading. The worker sends each piece to the card holding the profile with the fewest of its jobs, and its
+cap for a job type is `concurrency` per card holding the profile. What rule 25 means on card 0 is in spec.md. Measured
+from tonight's rereads journal (documents read per quarter hour): one slot on card 1 about 15, three slots about 23, and
+the hand reader on card 0 added about 24 beside them, so the second card doubled the pace where two extra slots gave
+1.5x; three slots stay. Tests on the fake worker: two readers loaded and ledgered, the refusal at 5.9 GB free, the
+exact-headroom boundary, the failed beside load, pieces spread, nothing outside the window; eight mutants seen failing.
