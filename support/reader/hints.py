@@ -8,10 +8,22 @@ from support import db
 #: names first kept (a long name is the least likely to be found again by the model in another form)
 MAX_NAMES = 400
 HEAD = "NAMES ALREADY FOUND"
-RULE = (" The user message may end with a list headed NAMES ALREADY FOUND: names an exact-match pass has already found in "
-        "this text. Do not list any name in that list again, nor another form of it (a surname alone, a title and a "
-        "surname, initials); list only the people and bodies the text names that the list does not hold. An empty "
-        "people list is a correct answer when the list holds every name.")
+#: from 09:53 to the fix on 1 November 2026 the list was "do not list these again": the model then gave no kind or role for a
+#: handed-over name and the name pass records none, so a reading lost "Chris Bishop, minister, Housing Minister"
+#: (Arthur: "an unintended negative outcome"). The list is now help against a missed name, never a list to leave out.
+RULE = (" The user message may end with a list headed NAMES ALREADY FOUND: names an exact-match pass has found in this "
+        "text. The list is help so that no name is missed; it is not a list to leave out. List every name in it that "
+        "the text names, each once, with its kind and role by the rules above, as you would if the list were not there; "
+        "then list every other person and body the text names that the list does not hold.")
+#: a role in words must stand alone (Arthur, 1 November 2026: "administering the Levy" tells nothing, "the levy" is a
+#: plain noun, like "looking at the tree"). A person's name is never written into a role: the "of" and "for" fields
+#: carry the link, and a name inside a role would escape a court's suppression.
+ROLE_WORDS = (" A role written in words must say what it refers to without the rest of the text: where the text calls a "
+              "thing by a plain noun (the levy, the scheme, the fund, the contract, the project, the review, the board, "
+              "the bill), write what the text says that thing is, in the text's own words, e.g. \"administering the "
+              "Infrastructure Funding and Financing levy for the Te Awa Lakes development\", not \"administering the "
+              "Levy\". Add nothing the text does not say. Never write a person's name into a role: \"counsel for the "
+              "respondent\" stays as written.")
 
 
 def sighted(document: str, conn=None) -> list:

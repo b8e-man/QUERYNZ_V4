@@ -112,7 +112,7 @@ PROMPT_WITH_SUMMARY = (
 PROMPT = (PROMPT_WITH_SUMMARY
           .replace('  "summary": "<one sentence, at most 40 words, saying what the document is about; it names nobody>",\n', '')
           .replace(" The summary describes the document in neutral words.", "")
-          + hints.RULE)
+          + hints.RULE + hints.ROLE_WORDS)
 assert PROMPT.count("summary") == 0, "the summary is gone from the prompt"
 #: the names the name pass found in the documents being read, set by piece() (each piece is its own process)
 HINT: list = []
