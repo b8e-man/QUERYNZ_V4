@@ -742,7 +742,7 @@ class = "due"
 priority = 38
 command = ["python", "-m", "registers.charities.load", "--job"]
 at_utc = "17:30"
-then = ["qv4-scan-rerun"]   # a scan template reads a view this load publishes (31 October): the stale scan lines are re-run, not left for a hand
+then = ["qv4-scan-rerun", "qv4-names-charities"]   # the stale scan lines re-run (31 October); its names into pub.names (1 November)
 nice = 10
 # ── party boards, the declared tier (ruling 72): read from the held party-website capture, no fetch; a reload when the lane changes ──
 
@@ -756,6 +756,7 @@ class = "whenever"
 priority = 39
 command = ["python", "-m", "registers.party_boards.load", "--job"]
 nice = 10
+then = ["qv4-names-party-boards"]   # its names into pub.names (1 November)
 
 # ── step 5.4, the senior courts (courts-2; rulings 126, 127, 128) ──
 [jobs.qv4-courts-load]
@@ -771,7 +772,7 @@ at_utc = "15:40"
 nice = 10
 # the load's readers follow it with no hand on them (31 October); qv4-courts-pages joins this list when the courts
 # lane prints its page-reader waits (`python -m registers.courts.read --pages --pieces`, named in fix-support-scheduler-6)
-then = ["qv4-sightings-courts"]   # the name pass first, then the reader (31 October 23:55)
+then = ["qv4-names-courts"]   # its names into pub.names (1 November)
 
 [jobs.qv4-courts-read]
 description = "Courts: the text reader's reading of one document (piece key sha256) through the text-reader profile: every person and body named with its role, counsel for each party, a one-line summary; stored by hash, replayed by the next load. Keys from python -m registers.courts.model_read --pieces."
@@ -828,6 +829,7 @@ priority = 54
 command = ["python", "-m", "registers.limited_partnerships.load", "--job"]
 at_utc = "17:50"
 nice = 10
+then = ["qv4-names-limited-partnerships"]   # its names into pub.names (1 November)
 
 [jobs.qv4-building-practitioners-capture]
 description = "Step 5.3: the Building Practitioners Board's published decisions list (about 80 pages) and its documents, through the fetch gate 5 s apart, each fetched once. The spec asks for Sunday 23:00 NZDT weekly; the catalogue has no weekday, so it runs nightly at 23:00 NZDT (about 7 minutes) until the lane or the scheduler carries the day."
@@ -852,6 +854,7 @@ priority = 56
 command = ["python", "-m", "registers.building_practitioners.load", "--job"]
 at_utc = "17:40"
 nice = 10
+then = ["qv4-names-building-practitioners"]   # its names into pub.names (1 November)
 
 # ── step 6.1, the register scan's re-run (scan-1; card the-scan-rerun-job-into-the-catalogue). It runs after the
 # links' build, which runs after each lane load, so a scan is re-run once the views it read have loaded; the runner
@@ -891,7 +894,7 @@ class = "due"
 priority = 58
 command = ["python", "-m", "registers.tenders.load", "--job"]
 at_utc = "17:30"
-then = ["qv4-scan-rerun"]   # a scan template reads a view this load publishes (31 October): the stale scan lines are re-run, not left for a hand
+then = ["qv4-scan-rerun", "qv4-names-tenders"]   # the stale scan lines re-run (31 October); its names into pub.names (1 November)
 nice = 10
 
 # ── step 5.3, the regulator actions (regulators-1; card the-regulator-lanes-jobs-into-the-catalogue). The clock is NZDT (UTC+13) until 5 April 2027. ──
@@ -919,6 +922,7 @@ priority = 62
 command = ["python", "-m", "registers.commerce_commission.load", "--job"]
 at_utc = "17:20"
 nice = 10
+then = ["qv4-names-commerce-commission"]   # its names into pub.names (1 November)
 
 [jobs.qv4-fma-capture]
 description = "Step 5.3: the Financial Markets Authority's warnings, alerts and enforcement cases, through the fetch gate 5 s apart; a full pass of the listing weekly, then the changed items only. Nightly at 23:00 NZDT, at most 4 hours."
@@ -943,6 +947,7 @@ priority = 64
 command = ["python", "-m", "registers.fma.load", "--job"]
 at_utc = "17:25"
 nice = 10
+then = ["qv4-names-fma"]   # its names into pub.names (1 November)
 
 [jobs.qv4-worksafe-capture]
 description = "Step 5.3: WorkSafe New Zealand's court summaries and enforceable undertakings, through the fetch gate 5 s apart; a full pass of the listing weekly, then the changed items only. Nightly at 23:30 NZDT, at most 4 hours."
@@ -967,6 +972,7 @@ priority = 66
 command = ["python", "-m", "registers.worksafe.load", "--job"]
 at_utc = "17:30"
 nice = 10
+then = ["qv4-names-worksafe"]   # its names into pub.names (1 November)
 
 # ── step 5.3, the overseas investment decisions (oio-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
 [jobs.qv4-overseas-investment-capture]
@@ -992,6 +998,7 @@ priority = 68
 command = ["python", "-m", "registers.overseas_investment.load", "--job"]
 at_utc = "17:35"
 nice = 10
+then = ["qv4-names-overseas-investment"]   # its names into pub.names (1 November)
 
 # ── step 6.3, the grants (grants-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
 [jobs.qv4-grants-capture]
@@ -1041,7 +1048,7 @@ class = "due"
 priority = 72
 command = ["python", "-m", "registers.iwi_directory.load", "--job"]
 at_utc = "17:35"
-then = ["qv4-scan-rerun"]   # a scan template reads a view this load publishes (31 October): the stale scan lines are re-run, not left for a hand
+then = ["qv4-scan-rerun", "qv4-names-iwi-directory"]   # the stale scan lines re-run (31 October); its names into pub.names (1 November)
 nice = 10
 
 [jobs.qv4-settlement-commitments-watch]
@@ -1139,6 +1146,7 @@ class = "due"
 command = ["python", "-m", "registers.councillor_interests.load", "--job"]
 at_utc = "17:50"
 priority = 80
+then = ["qv4-names-councillor-interests"]   # its names into pub.names (1 November)
 
 # ── step 6.3, local election candidate returns (local-elections-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
 [jobs.qv4-local-elections-listings]
@@ -1176,6 +1184,7 @@ priority = 83
 command = ["python", "-m", "registers.local_elections.load", "--job"]
 at_utc = "17:40"
 nice = 10
+then = ["qv4-names-local-elections"]   # its names into pub.names (1 November)
 
 # ── disclosures (fix-registers-disclosures-1, 23 October): the Commission's two listings are re-fetched by the old job at
 # 03:34 NZDT and cited by hash, so the lane loads nightly after the frozen release (06:16) and before the build (08:00) ──
@@ -1189,7 +1198,7 @@ class = "due"
 priority = 84
 command = ["python", "-m", "registers.disclosures.load", "--job"]
 at_utc = "18:40"
-then = ["qv4-scan-rerun"]   # a scan template reads a view this load publishes (31 October): the stale scan lines are re-run, not left for a hand
+then = ["qv4-scan-rerun", "qv4-names-disclosures"]   # the stale scan lines re-run (31 October); its names into pub.names (1 November)
 nice = 10
 
 # Ruling 96 (mcp-1, 27 October 2026): the ingest MCP as a source. The pull
@@ -1259,7 +1268,7 @@ priority = 85
 command = ["python", "-m", "registers.beehive.load"]
 at_utc = "15:00"
 nice = 10
-then = ["qv4-sightings-beehive"]   # the name pass over the lane's documents after each load (31 October 23:55)
+then = ["qv4-names-beehive"]   # its names into pub.names (1 November)
 
 [jobs.qv4-hansard-read]
 description = "Hansard: the text reader's reading of one sitting day (piece key sha256 of the MCP's debates record) through the text-reader profile: the day split by profile hansard-day into pieces of at most 40,000 characters, every person and body a speech names with its kind, role and 'of', one summary a piece; the pieces stored at page p and joined at page 1 under the day's hash, replayed by the next load. Keys from python -m registers.hansard.model_read --pieces."
@@ -1286,7 +1295,7 @@ priority = 86
 command = ["python", "-m", "registers.hansard.load"]
 at_utc = "15:15"
 nice = 10
-then = ["qv4-sightings-hansard"]   # the name pass over the lane's documents after each load (31 October 23:55)
+then = ["qv4-names-hansard"]   # its names into pub.names (1 November)
 
 [jobs.qv4-ministers-diaries-load]
 description = "Ministers' diaries: rebuild the lane's tables from the MCP's parliament-diaries documents, publish pub.minister_diary_releases and pub.minister_diary_entries on green. Nightly at 04:20 NZDT, after the pull and the Beehive load (ruling 96; diaries-2, 27 October 2026)."
@@ -1299,6 +1308,7 @@ priority = 87
 command = ["python", "-m", "registers.ministers_diaries.load"]
 at_utc = "15:20"
 nice = 10
+then = ["qv4-names-ministers-diaries"]   # its names into pub.names (1 November)
 
 # ── step 4.1, parliament: the text reader (parliament-2; Arthur's common rules for the MCP names readers, 31 October 2026) ──
 [jobs.qv4-parliament-read]
@@ -1326,7 +1336,7 @@ priority = 88
 command = ["python", "-m", "registers.parliament.load"]
 at_utc = "15:30"
 nice = 10
-then = ["qv4-sightings-parliament"]   # the name pass over the lane's documents after each load (31 October 23:55)
+then = ["qv4-names-parliament"]   # its names into pub.names (1 November)
 
 [jobs.qv4-candidate-returns-load]
 description = "Candidate returns (step 4.1): rebuild the lane's tables from the held files by hash and the stored readings, publish pub.candidate_return_totals (read returns, then the Commission's spreadsheet rows where none is read, candidate-returns-3) and pub.candidate_return_donors; fetches nothing, calls no model; raises when the catch log does not reconcile. Nightly at 02:40 NZDT, before the site build (lane spec)."
@@ -1338,7 +1348,7 @@ class = "due"
 priority = 102
 command = ["python", "-m", "registers.candidate_returns.load"]
 at_utc = "13:40"
-then = ["qv4-scan-rerun"]   # a scan template reads a view this load publishes (31 October): the stale scan lines are re-run, not left for a hand
+then = ["qv4-scan-rerun", "qv4-names-candidate-returns"]   # the stale scan lines re-run (31 October); its names into pub.names (1 November)
 nice = 10
 
 # ── the deterministic name pass (Arthur, 31 October 2026, 23:40; approved for the night at 23:45) ──
@@ -1399,4 +1409,221 @@ query_timeout_s = 600
 class = "whenever"
 priority = 104
 command = ["python", "-m", "links.sightings", "scan", "--lane", "parliament-wayback", "--lane", "parliament-questions"]
+nice = 10
+
+# ── a lane's names into pub.names as soon as its load publishes them (Arthur, 1 November 2026) ──
+# Each load queues its own register's refill of links.rows (pub.names is a view on it); a reader lane's refill then
+# queues its name pass. links.rows takes a lock, so refills and the links build run one at a time.
+
+[jobs.qv4-names-charities]
+description = "The charities register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register charities); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 105
+command = ["python", "-m", "links.rows", "--register", "charities"]
+nice = 10
+
+[jobs.qv4-names-party-boards]
+description = "The party_boards register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register party_boards); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 106
+command = ["python", "-m", "links.rows", "--register", "party_boards"]
+nice = 10
+
+[jobs.qv4-names-courts]
+description = "The courts register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register courts); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 107
+command = ["python", "-m", "links.rows", "--register", "courts"]
+then = ["qv4-sightings-courts"]
+nice = 10
+
+[jobs.qv4-names-limited-partnerships]
+description = "The limited_partnerships register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register limited_partnerships); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 108
+command = ["python", "-m", "links.rows", "--register", "limited_partnerships"]
+nice = 10
+
+[jobs.qv4-names-building-practitioners]
+description = "The building_practitioners register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register building_practitioners); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 109
+command = ["python", "-m", "links.rows", "--register", "building_practitioners"]
+nice = 10
+
+[jobs.qv4-names-tenders]
+description = "The tenders register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register tenders); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 110
+command = ["python", "-m", "links.rows", "--register", "tenders"]
+nice = 10
+
+[jobs.qv4-names-commerce-commission]
+description = "The commerce_commission register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register commerce_commission); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 111
+command = ["python", "-m", "links.rows", "--register", "commerce_commission"]
+nice = 10
+
+[jobs.qv4-names-fma]
+description = "The fma register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register fma); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 112
+command = ["python", "-m", "links.rows", "--register", "fma"]
+nice = 10
+
+[jobs.qv4-names-worksafe]
+description = "The worksafe register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register worksafe); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 113
+command = ["python", "-m", "links.rows", "--register", "worksafe"]
+nice = 10
+
+[jobs.qv4-names-overseas-investment]
+description = "The overseas_investment register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register overseas_investment); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 114
+command = ["python", "-m", "links.rows", "--register", "overseas_investment"]
+nice = 10
+
+[jobs.qv4-names-iwi-directory]
+description = "The iwi_directory register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register iwi_directory); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 115
+command = ["python", "-m", "links.rows", "--register", "iwi_directory"]
+nice = 10
+
+[jobs.qv4-names-councillor-interests]
+description = "The councillor_interests register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register councillor_interests); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 116
+command = ["python", "-m", "links.rows", "--register", "councillor_interests"]
+nice = 10
+
+[jobs.qv4-names-local-elections]
+description = "The local_elections register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register local_elections); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 117
+command = ["python", "-m", "links.rows", "--register", "local_elections"]
+nice = 10
+
+[jobs.qv4-names-disclosures]
+description = "The disclosures register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register disclosures); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 118
+command = ["python", "-m", "links.rows", "--register", "disclosures"]
+nice = 10
+
+[jobs.qv4-names-beehive]
+description = "The beehive register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register beehive); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 119
+command = ["python", "-m", "links.rows", "--register", "beehive"]
+then = ["qv4-sightings-beehive"]
+nice = 10
+
+[jobs.qv4-names-hansard]
+description = "The hansard register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register hansard); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 120
+command = ["python", "-m", "links.rows", "--register", "hansard"]
+then = ["qv4-sightings-hansard"]
+nice = 10
+
+[jobs.qv4-names-ministers-diaries]
+description = "The ministers_diaries register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register ministers_diaries); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 121
+command = ["python", "-m", "links.rows", "--register", "ministers_diaries"]
+nice = 10
+
+[jobs.qv4-names-parliament]
+description = "The parliament register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register parliament); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 122
+command = ["python", "-m", "links.rows", "--register", "parliament"]
+then = ["qv4-sightings-parliament"]
+nice = 10
+
+[jobs.qv4-names-candidate-returns]
+description = "The candidate_returns register's names refilled into links.rows, so pub.names carries what its load has just published (links.rows --register candidate_returns); the other registers' rows stand."
+needs = "processor"
+memory_gb = 2.0
+deadline_s = 1800
+query_timeout_s = 900
+class = "whenever"
+priority = 123
+command = ["python", "-m", "links.rows", "--register", "candidate_returns"]
 nice = 10

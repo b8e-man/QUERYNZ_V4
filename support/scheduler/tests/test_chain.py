@@ -708,16 +708,24 @@ def test_the_shipped_catalogue_wires_the_chain():
     jts, profs = reg.load(), reg.profiles()
     assert reg.problems() == []
     # the name pass sits between the load and its reader (31 October 2026): load, sightings, reader
-    assert jts["qv4-courts-load"].then == ("qv4-sightings-courts",)
+    # a reader lane: load, its names into pub.names, the name pass, then (courts) the reader (1 November)
+    for lane in ("courts", "beehive", "hansard", "parliament"):
+        assert jts[f"qv4-{lane}-load"].then == (f"qv4-names-{lane}",), lane
+        assert jts[f"qv4-names-{lane}"].then == (f"qv4-sightings-{lane}",), lane
     assert jts["qv4-sightings-courts"].then == ("qv4-courts-read",)
-    for lane in ("beehive", "hansard", "parliament"):
-        assert jts[f"qv4-{lane}-load"].then == (f"qv4-sightings-{lane}",), lane
+    # every names job refills one register and is queued by that register's load
+    names = [n for n in jts if n.startswith("qv4-names-")]
+    assert len(names) == 19
+    for n in names:
+        lane = n.removeprefix("qv4-names-")
+        assert n in jts[f"qv4-{lane}-load"].then, n
+        assert jts[n].command == ("python", "-m", "links.rows", "--register", lane.replace("-", "_")), n
     assert jts["qv4-links-build"].then == ("qv4-sightings-forms",)
     assert set(jts["qv4-sightings-forms"].then) == {f"qv4-sightings-{x}" for x in ("beehive", "hansard", "parliament", "courts")}
     assert jts["qv4-courts-read"].pieces_command == ("python", "-m", "registers.courts.model_read", "--pieces")
     assert jts["qv4-courts-read"].concurrency * jts["qv4-courts-read"].threads <= reg.streams_of(profs, "text-reader") == 8
     for load in ("qv4-disclosures-load", "qv4-candidate-returns-load", "qv4-tenders-load", "qv4-iwi-directory-load", "qv4-charities-load"):
-        assert jts[load].then == ("qv4-scan-rerun",), load
+        assert jts[load].then[0] == "qv4-scan-rerun", load
     assert jts["qv4-scan-rerun"].cls == "whenever" and not jts["qv4-scan-rerun"].then
     assert jts["qv4-mcp-pull"].then == (), "the loads stay on their nightly clock"
 

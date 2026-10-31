@@ -485,6 +485,9 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
     BODY_LANES is."""
     reader = reader or conn
     t0 = time.monotonic()
+    # one refill of the rows at a time: a lane's own refill after its load and the links build wait for each other
+    # (1 November 2026) rather than deleting under each other
+    conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"{schema}.rows",))
     conn.execute(links.ddl(schema))
     counts = {}
     registers = set(registers) if registers else None
