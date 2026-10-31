@@ -12,7 +12,7 @@ import support.profiles as pr
 
 def test_the_shipped_profiles_load_and_carry_no_address():
     cur = pr.current()
-    assert len(cur) == 155 and "ec-party-return-text" in cur and "mcp-hansard-debates-record" in cur and "mcp-diary-entry" in cur and "mcp-parliament-wayback-page" in cur and "courts-case-page" in cur   # 153: hansard-2's two, the diary profile and the three parliament profiles (27 October); courts-2's seven (30 October); beehive-2's release body, hansard-3's day, parliament-2's two at version 2 replace theirs (31 October)
+    assert len(cur) == 159 and "ec-party-return-text" in cur and "mcp-hansard-debates-record" in cur and "mcp-diary-entry" in cur and "mcp-parliament-wayback-page" in cur and "courts-case-page" in cur   # 153: hansard-2's two, the diary profile and the three parliament profiles (27 October); courts-2's seven (30 October); beehive-2's release body, hansard-3's day, parliament-2's two at version 2 replace theirs (31 October); courts-2's four new kinds, ten versions bumped (fix-registers-courts-2, 31 October)
     assert cur["ec-party-return-scan"]["version"] == 5 and cur["ec-party-return-scan"]["ocr"]["trial"]["ruling"] == 60   # the trial verdict, 19 October
     hist = pr.history("ec-party-return-scan")
     assert [h["version"] for h in hist] == [1, 2, 3, 4, 5]
