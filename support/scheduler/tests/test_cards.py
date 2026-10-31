@@ -176,6 +176,23 @@ def test_a_reserved_card_is_registered_reserved_and_a_keep_does_nothing(kit):
     assert len(w.conn.sql) == n
 
 
+def test_a_hold_for_a_standing_server_no_longer_in_the_profiles_is_cleared(kit, monkeypatch):
+    """1 November 2026: both cards stayed held all night for qv4-radiance after flash-next left profiles.toml."""
+    m, w, answers, procs = kit
+    w.alarm_after_s = 300
+    gone = "qv4-radiance.service holds this card for flash-next; not answering on :8060"
+    rows = [_row(0, reserved=True, reserved_why=gone), _row(5, reserved=True, reserved_why="held for the frozen product's OCR server")]
+    monkeypatch.setattr(cards.q, "workers", lambda conn, schema: [])
+    monkeypatch.setattr(cards.q, "cards", lambda conn, schema, box=None: rows)
+    w.profile["cards"] = [{"index": 0, "memory_total_gb": 31.9, "memory_used_gb": 4.0, "product": "AMD Radeon AI PRO R9700"},
+                          {"index": 5, "memory_total_gb": 31.9, "memory_used_gb": 1.8, "product": "AMD Radeon AI PRO R9700"}]
+    n = len(w.conn.sql)
+    m.register_cards(w)
+    cleared = [u for u in _upserts(w, n) if u["card"] == 0 and "reserved" in u]
+    assert cleared and cleared[-1]["reserved"] is False and cleared[-1]["reserved_why"] is None
+    assert not [u for u in _upserts(w, n) if u["card"] == 5 and "reserved" in u], "another reservation stands"
+
+
 def test_stop_all_unloads_every_server_this_worker_started(kit):
     m, w, answers, procs = kit
     answers["will_serve"] = "M"

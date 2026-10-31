@@ -237,6 +237,7 @@ class Manager:
                        and (q.utcnow() - w["last_seen"]).total_seconds() < worker.alarm_after_s}
         owned_by_other = {c["card"]: c["worker"] for c in q.cards(worker.conn, worker.schema, worker.box)
                           if c["worker"] in live_others and not c["reserved"]}
+        held_why = {c["card"]: c["reserved_why"] for c in q.cards(worker.conn, worker.schema, worker.box) if c["reserved"]}
         for c in worker.profile.get("cards") or []:
             key = f"{worker.box}:{c['index']}"
             if c["index"] in owned_by_other:
@@ -249,7 +250,13 @@ class Manager:
                           slots=None, slots_busy=None)
             if key in reserved:
                 fields.update(reserved=True, reserved_why=reserved[key].why)
-            elif c["index"] not in self.servers:
+            elif self.retired_standing_hold(worker, held_why.get(c["index"])):
+                # a hold written for a standing server since taken out of profiles.toml (1 November 2026: both cards
+                # held all night for a Radiance no longer there); any other reservation in the table stands
+                fields.update(reserved=False, reserved_why=None)
+                self.log(f"card {c['index']}: cleared a hold for a standing server no longer in profiles.toml: "
+                         f"{held_why.get(c['index'])}")
+            if key not in reserved and c["index"] not in self.servers:
                 stray = self.ask(PORT_BASE + c["index"])
                 if stray["healthy"]:
                     self.log(f"card {c['index']}: a stray server answers on :{PORT_BASE + c['index']} ({stray['served']!r}); "
@@ -259,6 +266,15 @@ class Manager:
             q.upsert_card(worker.conn, worker.schema, worker.box, c["index"], **fields)
         self.reconcile_listing(worker)
         self.mark_standing(worker)
+
+    @staticmethod
+    def retired_standing_hold(worker, why) -> bool:
+        """`why` is mark_standing's hold for a standing profile that profiles.toml no longer has as standing."""
+        m = re.match(r"\S+ holds this card for (\S+);", why or "")
+        if not m:
+            return False
+        p = worker.profiles.get(m.group(1))
+        return p is None or not p.standing
 
     def reconcile_listing(self, worker) -> None:
         """Keep the `cards` rows true to the probe's listing. A row whose card
