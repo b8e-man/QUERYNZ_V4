@@ -32,7 +32,7 @@ RECORDS = ("suppression_orders",)
 STAMP = ("document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at")
 COLUMNS = {
     "documents": ("key", "record", "seq", "kind", "case_slug", "url", "content_type", "fetched_at", "document", "state",
-                  "profile", "profile_version", "outcome", "pages", "read_from", "text_chars", "citation", "case_numbers",
+                  "profile", "profile_version", "outcome", "pages", "read_from", "text_chars", "pieces", "citation", "case_numbers",
                   "dated", "summary", "model", "model_reader", "loaded_at"),
     "cases": ("key", "case_slug", "url", "case_name", "citation", "case_numbers", "court", "summary", "result", "judges",
               "date_of_judgment", "date_of_hearing", "suppression", "withheld", "links") + STAMP,

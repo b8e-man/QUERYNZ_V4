@@ -38,6 +38,7 @@ and its role stay; the name goes to the private table only.
     python -m registers.courts.read --pages SHA    the page-reader piece (qv4-courts-pages)
 """
 import datetime as dt
+import functools
 import html as H
 import os
 import re
@@ -50,49 +51,74 @@ from support.docread import pages as P
 from support.docread.pagereader import page_total
 from registers.courts import caption
 from registers.courts import capture as CAP
+from registers.courts import pieces as PC
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
-READER = "registers.courts.read 2"
+READER = "registers.courts.read 3"
 CAPTION_READER = caption.VERSION
 
 #: the profiles, by the kind of document they read
 CASE_PAGE, RELEASE, TRANSCRIPT, SUBMISSION, SYNOPSIS, SCANNED = (
     "courts-case-page", "courts-media-release", "courts-hearing-transcript", "courts-counsel-submission",
     "courts-case-synopsis", "courts-scanned-document")
+#: the new kinds of 30 and 31 October 2026 (fix-2; ruling 130): the Employment Relations Authority's determinations
+#: (determinations.era.govt.nz), the Human Rights Review Tribunal's decisions, the other tribunals' and authorities'
+#: decisions and the District Court's judgments (justice.govt.nz/assets/Documents/Decisions)
+ERA, HRRT, TRIBUNAL, NZDC = "courts-era-determination", "courts-hrrt-decision", "courts-tribunal-decision", "courts-nzdc-judgment"
 JUDGMENT_PROFILES = {"SUPREME COURT": "courts-nzsc-judgment", "COURT OF APPEAL": "courts-nzca-judgment",
-                     "HIGH COURT": None, "OTHER": "courts-judgment"}
+                     "HIGH COURT": None, "DISTRICT COURT": NZDC, "OTHER": "courts-judgment"}
 NZHC = {"civil": "courts-nzhc-civil-judgment", "criminal": "courts-nzhc-criminal-judgment"}
 JUDGMENT_SLUGS = {"courts-nzsc-judgment", "courts-nzca-judgment", "courts-nzhc-civil-judgment",
-                  "courts-nzhc-criminal-judgment", "courts-judgment"}
+                  "courts-nzhc-criminal-judgment", "courts-judgment", ERA, HRRT, TRIBUNAL, NZDC}
 KIND_OF = {CASE_PAGE: "case page", RELEASE: "media release", TRANSCRIPT: "hearing transcript",
            SUBMISSION: "counsel submission", SYNOPSIS: "case synopsis", SCANNED: "scanned document",
-           **{s: "judgment" for s in JUDGMENT_SLUGS}}
+           **{s: "judgment" for s in JUDGMENT_SLUGS}, ERA: "determination", HRRT: "tribunal decision", TRIBUNAL: "tribunal decision"}
+#: every profile the text reader reads (every courts profile but the scanned one): each carries a reading rule
+TEXT_READ_SLUGS = {CASE_PAGE, RELEASE, TRANSCRIPT, SUBMISSION, SYNOPSIS} | JUDGMENT_SLUGS
 COURT_CODES = {"SUPREME COURT": "NZSC", "COURT OF APPEAL": "NZCA", "HIGH COURT": "NZHC", "DISTRICT COURT": "NZDC",
                "EMPLOYMENT COURT": "NZEmpC", "FAMILY COURT": "NZFC", "ENVIRONMENT COURT": "NZEnvC",
-               "CORONERS COURT": "NZCorC", "MĀORI LAND COURT": "NZMLC", "MAORI LAND COURT": "NZMLC"}
+               "CORONERS COURT": "NZCorC", "MĀORI LAND COURT": "NZMLC", "MAORI LAND COURT": "NZMLC",
+               "EMPLOYMENT RELATIONS AUTHORITY": "NZERA", "HUMAN RIGHTS REVIEW TRIBUNAL": "NZHRRT"}
+#: the citation codes of the courts: a citation with any other code on a document with no court line is a tribunal's
+COURT_CITE_CODES = {"NZSC", "NZCA", "NZHC", "NZDC", "NZFC", "NZYC", "NZEmpC", "NZEnvC", "NZMLC", "NZMAC", "NZCorC", "NZCMAC"}
 WITHHELD_MARKER = "a suppression marker in the judgment"
 WAIT_PAGES = "waiting: page reader"
 WAIT_TEXT = "waiting: text reader"
 #: what a documents row takes from the row of the record its file was read under
-SHARED_READING = ("profile", "profile_version", "outcome", "pages", "read_from", "text_chars", "citation", "case_numbers",
+SHARED_READING = ("profile", "profile_version", "outcome", "pages", "read_from", "text_chars", "pieces", "citation", "case_numbers",
                   "dated", "summary", "model", "model_reader")
 
 # ── the shapes ────────────────────────────────────────────────────────────────────────────────────────────────
 PRESS = re.compile(r"This (?:summary|media release) is provided to assist|^\s*MEDIA RELEASE\s*$|^\s*PRESS SUMMARY\s*$", re.M)
 TRANS_CITE = re.compile(r"\[(\d{4})\]\s+NZ[A-Za-z]{2,6}\s+Trans\s+(\d{1,4})\b")
 TRANS_WORD = re.compile(r"\bTRANSCRIPT\b")
-SPEAKER = re.compile(r"^\s*(?:[A-Z][A-Za-zĀĒĪŌŪāēīōū'’\-]+ )?(?:J|CJ|KC|QC|P)?:\s", re.M)
+#: a speaker's line in a transcript: "ELIAS CJ:", "WILLIAM YOUNG J:", "MR HODDER QC:", "MS HARDING:"; never a label ("Hearing:",
+#: "Date of Hearing:", "Decision No:"), whose word runs straight into its colon with no judge's or counsel's suffix
+SPEAKER = re.compile(r"^\s*(?:(?:MR|MS|MRS|MISS|DR|SIR|DAME|JUSTICE) )?(?:[A-Z][A-Za-zĀĒĪŌŪāēīōū'’\-]+ ){0,2}(?:J|CJ|KC|QC|P|SC|JJ)?:\s", re.M)
 SUBMISSIONS = re.compile(r"\bSUBMISSIONS?\b|\bOUTLINE OF (?:ORAL )?ARGUMENT\b|\bSYNOPSIS OF (?:ORAL )?ARGUMENT\b|\bCHRONOLOGY\b|"
                          r"Submissions? (?:of|for|on behalf of) the\b|Outline of (?:Oral )?Argument", re.M | re.I)
 SYNOPSIS_WORDS = re.compile(r"This synopsis is provided|CASE SYNOPSIS|CASE SUMMARY|^\s*SYNOPSIS\s*$", re.M | re.I)
 JUDGMENT_HEADING = re.compile(r"^\s*(?:\(?ORAL\)?\s+|RESERVED\s+|INTERLOCUTORY\s+|COSTS\s+|SUPPLEMENTARY\s+|FURTHER\s+|RESULT\s+)?"
-                              r"(JUDGMENT|SENTENCING NOTES|SENTENCING REMARKS|SENTENCE|DECISION|RULING|REASONS|MINUTE|FINDINGS?)\b", re.M)
-LABELS = re.compile(r"^\s*(Hearings?|Court|Counsel|Appearances|Judgments?|Appearance|Before|Coram|Date of Hearing|Decision|Witnesses)\s*:", re.M)
+                              r"(JUDGMENT|SENTENCING NOTES|SENTENCING REMARKS|SENTENCE|DECISION|RULING|REASONS|MINUTE|FINDINGS?|DETERMINATION)\b", re.M)
+LABELS = re.compile(r"^\s*(Hearings?|Court|Counsel|Appearances|Judgments?|Appearance|Before|Coram|Date of Hearing|Decision|Witnesses|"
+                    r"Member of Authority|Representatives|Representation|Investigation Meeting|Determination|Date of Determination)\s*:", re.M)
 #: a court line with or without "OF NEW ZEALAND", and with a case number after it on the same line (older files)
 COURT = re.compile(r"^\s*IN THE (SUPREME COURT|COURT OF APPEAL|HIGH COURT|DISTRICT COURT|EMPLOYMENT COURT|FAMILY COURT|"
                    r"ENVIRONMENT COURT|CORONERS COURT|CORONER'S COURT|MĀORI LAND COURT|MAORI LAND COURT|"
-                   r"[A-ZĀĒĪŌŪ ]+? (?:COURT|TRIBUNAL|AUTHORITY))\b", re.M)
+                   r"EMPLOYMENT RELATIONS AUTHORITY|HUMAN RIGHTS REVIEW TRIBUNAL|(?!MATTER\b)[A-ZĀĒĪŌŪ' ]+? (?:COURT|TRIBUNAL|AUTHORITY))\b", re.M)
+#: a tribunal's opening with no court line: "BEFORE THE … TRIBUNAL|AUTHORITY", or "IN THE MATTER OF …" lines
+TRIBUNAL_OPEN = re.compile(r"^\s*(?:BEFORE THE (?!MATTER\b)[A-ZĀĒĪŌŪ' ]+?(?:TRIBUNAL|AUTHORITY|BOARD|COMMITTEE)\b|(?:AND )?IN THE MATTER\b)", re.M)
+#: the Human Rights Review Tribunal's and the tribunals' upper-case labels
+UPPER_LABELS = re.compile(r"^\s*(?:BEFORE|REPRESENTATION|DATE OF HEARING|DATE OF DECISION|DATE OF LAST SUBMISSIONS|HEARD AT)\s*:", re.M)
+#: a hearing transcript's cover sheet: Appearances (a judgment prints Counsel), no heading, no citation
+APPEARANCES = re.compile(r"^\s*Appearances\s*:", re.M)
+TRANSCRIPT_PAGES = 20
+# the transcripts of 2004–2008 (filed in the case-information folders) print the speaker in a left column with no colon,
+# "Elias CJ", "Mr Smith", "Tipping J", three or more spaces before the words; measured on 21 such files: 58 to 2,138 lines
+# (at least two a page); on 30 judgments, determinations, decisions or submissions of each profile: 13 at most
+SPEAKER_COLUMN = re.compile(r"^(?:(?:Mr|Ms|Mrs|Miss|Dr|Sir|Dame) )?[A-Z][A-Za-zĀĒĪŌŪāēīōū'’\-]+(?: (?:J|CJ|P))?\s{3,}\S", re.M)
+SPEAKER_COLUMN_LINES = 50
 #: case numbers as every court prints them: SC 6/2004, SC CIV 7/2004, CA94/05, CIV-2026-404-1, CIV2017-091-000902, EMPC 230/2021
 CASE_NUMBER = re.compile(r"\b(?:SC|CA|EMPC|SC CIV|SC CRI|CA CIV|CA CRI)\s?\d{1,4}/(?:\d{4}|\d{2})\b|"
                          r"\b(?:CIV|CRI|CRC|CIVP)[- ]?\d{4}-\d{3}-\d{1,6}\b|\bCSU-\d{4}-[A-Z]{3}-\d{6}\b", re.I)
@@ -118,13 +144,18 @@ class Result:
     counts: dict = field(default_factory=dict)
 
 
-def profile_version(slug: str) -> int:
-    """The ledger's version; until the integrator appends it, the lane's
-    proposed line (merge request courts-2)."""
+@functools.lru_cache(maxsize=None)
+def profile_of(slug: str) -> dict:
+    """The profile's newest line: the ledger's, or the lane's proposed line
+    (`profile-proposed.jsonl`) until the integrator appends it at the merge."""
     held = [p for p in (profiles.profile(slug), profiles.profile(slug, path=PROPOSED)) if p]
     if not held:
         raise LookupError(f"no document profile {slug}")
-    return max(int(p["version"]) for p in held)
+    return max(held, key=lambda p: int(p["version"]))
+
+
+def profile_version(slug: str) -> int:
+    return int(profile_of(slug)["version"])
 
 
 # ── the case page ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -215,15 +246,42 @@ def recognise(entry: dict, data: bytes, texts: dict = None) -> tuple:
     speakers = len(SPEAKER.findall(head))
     cl = COURT.search(p1)
     court_text = cl.group(1).strip() if cl else None
-    numbered = bool(_cite_line(head) or CASE_NUMBER.search(head))
+    cite_codes = {caption.court_code(m.group(2)) for m in caption.CITE.finditer(head)}
+    # a citation on its own line or a case number; under a court line, a citation beside a label counts too (the District
+    # Court's ACC appeals print "[2024] NZACC 153" against a label and number their files ACR nn/yy)
+    numbered = bool(_cite_line(head) or CASE_NUMBER.search(head) or (court_text and cite_codes))
     heading = bool(JUDGMENT_HEADING.search(head))
     labels = bool(LABELS.search(head))
+    # the Employment Relations Authority and the Human Rights Review Tribunal, by their court lines (their labels and
+    # 'Submissions received' took them for counsel's submissions before fix-2)
+    if court_text == "EMPLOYMENT RELATIONS AUTHORITY" and ("NZERA" in cite_codes or heading or labels):
+        return ERA, "the Authority's court line with its citation, its DETERMINATION heading or its labels"
+    if court_text == "HUMAN RIGHTS REVIEW TRIBUNAL" and ("NZHRRT" in cite_codes or heading or UPPER_LABELS.search(head)):
+        return HRRT, "the Tribunal's court line with its citation, its DECISION heading or its upper-case labels"
     if SYNOPSIS_WORDS.search(p1) and not heading:
         return SYNOPSIS, "a synopsis's own words on page 1"
     if PRESS.search(p1):
         return RELEASE, "a press summary's own words on page 1"
     if TRANS_CITE.search(head) or (TRANS_WORD.search(p1) and speakers >= 1) or (speakers >= 6 and not heading):
         return TRANSCRIPT, "a transcript's citation, its word with speaker lines, or speaker lines under a caption"
+    # a transcript's cover sheet (2008–2018): the case number beside the court line, Appearances, no heading, no
+    # citation, and the speakers' lines: three within the first six pages, or ten in a long document (17 were filed as
+    # Supreme Court judgments; a Court of Appeal judgment with a long caption and no speaker anywhere is not one)
+    if court_text and CASE_NUMBER.search(head) and not heading and not _cite_line(head):
+        whole = "\n".join(texts[p] or "" for p in sorted(texts))
+        if APPEARANCES.search(head):
+            early = len(SPEAKER.findall("\n".join(texts.get(p) or "" for p in range(1, 7))))
+            everywhere = len(SPEAKER.findall(whole)) if len(texts) >= TRANSCRIPT_PAGES else 0
+            if early >= 3 or everywhere >= 10:
+                return TRANSCRIPT, "a cover sheet with the case number beside the court line, Appearances, no judgment heading or citation, and speakers' lines: a hearing transcript"
+        # the two-column transcripts of 2004–2008: the speaker in the left column, no colon, at least two lines a page
+        column = len(SPEAKER_COLUMN.findall(whole))
+        if column >= SPEAKER_COLUMN_LINES and column >= 2 * len(texts):
+            return TRANSCRIPT, "a cover sheet with the case number beside the court line and the speakers in a left column on every page: a hearing transcript of 2004–2008"
+    # a tribunal or authority with no court line, by a citation of its own code
+    if ((court_text is None or court_text.endswith(("TRIBUNAL", "AUTHORITY"))) and cite_codes - COURT_CITE_CODES
+            and (heading or TRIBUNAL_OPEN.search(p1) or UPPER_LABELS.search(head) or labels)):
+        return TRIBUNAL, "a tribunal's or authority's citation code with its opening, heading or labels and no court's court line"
     if SUBMISSIONS.search(head) and not (heading and labels):
         return SUBMISSION, "counsel's submissions, an outline of argument or a chronology: the word with no judgment heading"
     if court_text and numbered and (heading or labels):
@@ -234,7 +292,7 @@ def recognise(entry: dict, data: bytes, texts: dict = None) -> tuple:
         slug = JUDGMENT_PROFILES.get(court_text) or JUDGMENT_PROFILES["OTHER"]
         return slug, f"court line {court_text}, a citation or case number, a judgment heading or its labels"
     if not court_text and _cite_line(head) and (heading or labels):
-        return JUDGMENT_PROFILES["OTHER"], "a neutral citation and a judgment heading with no court line (a tribunal)"
+        return JUDGMENT_PROFILES["OTHER"], "a neutral citation and a judgment heading with no court line"
     if court_text and numbered and re.search(r"^\s*(BETWEEN|AND|Between|And)\b", head, re.M):
         return SUBMISSION, "a caption with no judgment heading or labels: a filed document (submissions)"
     return None, "no shape recognised: not a judgment, release, transcript, submission, synopsis or case page"
@@ -318,7 +376,7 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
                "case_slug": e.get("case_slug"), "url": e["url"], "content_type": e.get("content_type"),
                "fetched_at": e.get("fetched_at"), "document": e.get("capture"), "state": e.get("state"),
                "profile": None, "profile_version": None, "outcome": None, "pages": None, "read_from": None,
-               "text_chars": None, "citation": None, "case_numbers": [], "dated": None, "summary": None,
+               "text_chars": None, "pieces": None, "citation": None, "case_numbers": [], "dated": None, "summary": None,
                "model": None, "model_reader": None, "loaded_at": now}
         res.documents.append(doc)
         sha = e.get("capture")
@@ -341,12 +399,15 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
                 res.set_aside.append((e["record_id"], "recognise", why))
                 continue
             version = profile_version(slug)
-            doc.update(profile=slug, profile_version=version, pages=1, read_from="text", text_chars=len(data))
             page = case_page(data, e["url"])
+            text = _page_text_for_model(page)
+            doc.update(profile=slug, profile_version=version, pages=1, read_from="text", text_chars=sum(len(t) for t in text.values()))
             _case_rows(res, e, sha, page, slug, version, by_url, now)
             doc.update(citation=page["citation"], case_numbers=page["case_numbers"],
                        dated=_case_date(page["sections"].get("Date of Judgment")))
-            pages_read[sha] = (slug, version, _page_text_for_model(page))
+            if not _plan(res, doc, text, slug):
+                continue
+            pages_read[sha] = (slug, version, text)
             doc["outcome"] = "read"
             continue
         texts, how, unread = _texts_of(data, sha, store, scanned_version)
@@ -378,6 +439,8 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
             sh = sheet(texts, slug)
             sheets.append((e, sha, slug, sh))
             doc.update(citation=sh["citation"], case_numbers=sh["case_numbers"], dated=sh["dated"])
+        if not _plan(res, doc, texts, slug):
+            continue
         pages_read[sha] = (slug, version, texts)
         doc["outcome"] = "read"
     rows(res, parsed, orders, now)
@@ -427,6 +490,20 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
                   "people": len(res.people), "withheld": len(res.withheld), "set_aside": len(res.set_aside),
                   **{s: sum(1 for x in res.judgments if x["status"] == s) for s in ("parsed", "partial", "unparsed")}}
     return res
+
+
+def _plan(res: Result, doc: dict, texts: dict, slug: str) -> bool:
+    """The text reader's pieces for the document by its profile's rule
+    (ruling 130): the count goes on the row; a document the rule cannot
+    split is set aside at stage read, named, and never waits on the reader.
+    The deterministic rows (the caption's, the case page's) stand."""
+    parts, why = PC.plan(texts, PC.rule_of(slug))
+    if parts is None:
+        doc.update(pieces=None, outcome="set aside")
+        res.set_aside.append((doc["key"], "read", f"the text reader cannot read it: {why}"))
+        return False
+    doc["pieces"] = len(parts)
+    return True
 
 
 def _primary_entries(entries: list) -> dict:

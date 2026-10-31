@@ -18,6 +18,11 @@ account.
   4. Every role a counsel line is "for" held by a party of the caption
      (`caption.roles_unaccounted`), re-read from the stored readings of a
      fixed sample of judgments: more than `ROLES_TOLERATED` short fails.
+  5. The profile check (ruling 130): every document read by the text reader,
+     or waiting on it, has its piece count by its profile's reading rule; a
+     document under a whole rule is within its budget; a document the rule
+     cannot split is counted set aside at read, never waiting. The counts of
+     documents by pieces needed, and the pieces by profile, are printed.
 
     account(conn, schema, shared=False)    dict
     python -m registers.courts.check [--schema courts] [--database querynz_v4] [--sample]
@@ -29,6 +34,7 @@ import sys
 from registers.courts import capture
 from registers.courts import load as L
 from registers.courts import model_read
+from registers.courts import pieces as PC
 from registers.courts import read as R
 
 ROLES_TOLERATED = 2
@@ -68,6 +74,8 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
             elif profile == R.CASE_PAGE and doc not in cased:
                 out["failures"].append(f"{key[-40:]}: a case page read with no case row")
     out["sheets with a fact read"] = len(sheets)
+    # the profile check: pieces by the profile's reading rule (ruling 130)
+    out["pieces"], out["pieces by profile"] = _pieces(conn, t, docs, out["failures"])
     # a document is its bytes: a file under several records is read once, each record's row carrying the reading
     out["records sharing a file"] = q(f"SELECT count(*) - count(DISTINCT document) FROM {t('documents')} WHERE document IS NOT NULL")[0][0]
     for sha, n in q(f"SELECT document, count(*) FROM {t('cases')} GROUP BY 1 HAVING count(*) > 1") + \
@@ -125,6 +133,37 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
     return out
 
 
+def _pieces(conn, t, docs: list, failures: list) -> tuple:
+    bands = {"1": 0, "2": 0, "3-5": 0, "6-10": 0, "over 10": 0}
+    by_profile, total, over = {}, 0, 0
+    rows = conn.execute(f"SELECT key, profile, pieces, text_chars FROM {t('documents')} WHERE outcome IN ('read', %s) AND document IS NOT NULL",
+                        (R.WAIT_TEXT,)).fetchall()
+    rules = {}
+    for key, profile, pieces, chars in rows:
+        if profile not in rules:
+            try:
+                rules[profile] = PC.rule_of(profile)
+            except LookupError as exc:
+                rules[profile] = None
+                failures.append(str(exc))
+        rule = rules[profile]
+        if pieces is None or pieces < 1:
+            failures.append(f"{key[-40:]}: read by the text reader with no piece plan by its profile's rule")
+            continue
+        if rule and rule["split"] == "whole" and (pieces != 1 or (chars or 0) > rule["budget_chars"]):
+            failures.append(f"{key[-40:]}: a whole-rule document of {chars} characters in {pieces} piece(s), over the budget of {rule['budget_chars']}")
+        band = "1" if pieces == 1 else "2" if pieces == 2 else "3-5" if pieces <= 5 else "6-10" if pieces <= 10 else "over 10"
+        bands[band] += 1
+        total += pieces
+        over += pieces > 1
+        by_profile[profile] = by_profile.get(profile, 0) + pieces
+    bands["documents over the budget"] = over
+    bands["total pieces"] = total
+    bands["cannot split (set aside at read)"] = conn.execute(
+        f"SELECT count(*) FROM {t('set_aside')} WHERE stage = 'read' AND reason LIKE 'the text reader cannot read it:%%'").fetchone()[0]
+    return bands, dict(sorted(by_profile.items(), key=lambda kv: -kv[1]))
+
+
 def _exists(conn, name: str) -> bool:
     return conn.execute("SELECT to_regclass(%s) IS NOT NULL", (name,)).fetchone()[0]
 
@@ -163,7 +202,7 @@ def main(argv=None) -> int:
         conn.execute("SET statement_timeout = '120s'")
         out = account(conn, schema, shared)
     print(f"corpus {capture.CORPUS}: {out['records']} records" + (f" ({out['taken by the pull']} taken by the pull)" if "taken by the pull" in out else ""))
-    for k in ("outcomes", "profiles", "set aside", "status", "courts", "missing", "parties", "people", "cases", "suppression"):
+    for k in ("outcomes", "profiles", "pieces", "pieces by profile", "set aside", "status", "courts", "missing", "parties", "people", "cases", "suppression"):
         print(f"{k}: " + ", ".join(f"{a} {b}" for a, b in out[k].items()))
     print(f"sheets with a fact read: {out['sheets with a fact read']}; records sharing a file: {out['records sharing a file']}; "
           f"roles short: {out['roles short']} (tolerated {ROLES_TOLERATED})")
