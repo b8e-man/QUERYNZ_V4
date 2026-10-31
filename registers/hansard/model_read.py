@@ -54,8 +54,10 @@ URL = os.environ.get("QV4_MODEL_URL") or "http://127.0.0.1:8060/v1/chat/completi
 #: characters of speech per request. The text-reader context is 16,384 tokens; MAX_TOKENS answer; the prompt about
 #: 420 tokens; Hansard English measured at 4.3 characters a token on the sample (31 October 2026), so 40,000
 #: characters is about 9,300 tokens and the request about 13,800 of the 16,384
-BUDGET = 40000
-MAX_TOKENS = 4096
+#: 31 October 2026, 22:40, for speed: about 20,000 tokens of text and 11,000 to answer in the 32,768-token slot
+#: (Radiance --max-model-len 32768); the chunk trial of 22:35 measured 20,000 tokens as the fastest size with no answer cut
+BUDGET = 84000
+MAX_TOKENS = 11000
 ATTEMPTS = 2
 #: a day's pieces in flight at once (the job runs `concurrency` days at once besides; the text-reader profile has 16 slots)
 THREADS = int(os.environ.get("QV4_HANSARD_THREADS") or 2)
@@ -76,7 +78,9 @@ PROMPT = (
     "kind company; a ministry, department, Crown entity, council, police or court is kind agency; any other organisation "
     "is kind body; a named individual is kind person; use other when the kind cannot be told. Keep spelling, initials and "
     "honorifics as printed; never expand an initial; never add an address, an age or any fact the text does not state; "
-    "never name anyone the text does not name. A role or party alone (\"the Minister\", \"National\") is not a name.")
+    "never name anyone the text does not name. A role or party alone (\"the Minister\", \"National\") is not a name. "
+    "When the text is marked in sections ([SECTION 12] and so on), give each name the number of the section it is named "
+    "in as \"section\": 12, and list a name once in each section that names it.")
 _JSON = re.compile(r"\{.*\}", re.S)
 
 
@@ -168,10 +172,17 @@ def parse_answer(text: str):
             continue
         kind = (str(item.get("kind") or "other").strip().lower())
         kind = kind if kind in KINDS else "other"
-        if (name.upper(), kind) in seen:
+        try:
+            section = int(item.get("section")) if item.get("section") not in (None, "", "null") else None
+        except (TypeError, ValueError):
+            section = None
+        if (name.upper(), kind, section) in seen:
             continue
-        seen.add((name.upper(), kind))
-        names.append({"name": name, "kind": kind, "role": _clean(item.get("role")), "of": _clean(item.get("of"))})
+        seen.add((name.upper(), kind, section))
+        entry = {"name": name, "kind": kind, "role": _clean(item.get("role")), "of": _clean(item.get("of"))}
+        if section is not None:
+            entry["section"] = section
+        names.append(entry)
     return {"summary": _clean(body.get("summary")), "names": names, "truncated": truncated}
 
 
@@ -213,7 +224,7 @@ def read_piece(sha256: str, piece: S.Piece, *, profile: str, version: int, url: 
         if parsed is not None:
             break
     made = dt.datetime.now().astimezone().isoformat(timespec="seconds")
-    checks = {"piece": piece.number, "section": piece.section, "part": piece.part, "parts": piece.parts,
+    checks = {"piece": piece.number, "section": piece.section, "ids": list(piece.ids), "part": piece.part, "parts": piece.parts,
               "chars": piece.chars, "turns": piece.turns, "attempts": attempt,
               "prompt_tokens": usage.get("prompt_tokens"), "completion_tokens": usage.get("completion_tokens")}
     if parsed is None:
@@ -232,7 +243,7 @@ def read_piece(sha256: str, piece: S.Piece, *, profile: str, version: int, url: 
 def _unpack(reading: rd.Reading) -> dict:
     parsed = parse_answer(reading.text) or {"summary": None, "names": [], "truncated": False}
     c = reading.checks or {}
-    return {"piece": reading.page, "section": c.get("section"), "part": c.get("part"), "parts": c.get("parts"),
+    return {"piece": reading.page, "section": c.get("section"), "ids": c.get("ids") or [], "part": c.get("part"), "parts": c.get("parts"),
             "chars": c.get("chars"), "turns": c.get("turns"), "summary": parsed["summary"], "names": parsed["names"],
             "truncated": bool(parsed.get("truncated") or c.get("truncated")), "unusable": c.get("unusable"),
             "model": reading.model, "reader": reading.reader, "made_at": reading.made_at, "key": reading.key}
@@ -240,7 +251,7 @@ def _unpack(reading: rd.Reading) -> dict:
 
 def join(sha256: str, readings: list, *, profile: str, version: int, model: str, store: rd.Store) -> rd.Reading:
     """The day's one reading: every piece's reading in order under page 1 and the `joined` settings."""
-    pieces = [{k: r.get(k) for k in ("piece", "section", "part", "parts", "chars", "turns", "summary", "names",
+    pieces = [{k: r.get(k) for k in ("piece", "section", "ids", "part", "parts", "chars", "turns", "summary", "names",
                                       "truncated", "unusable", "model", "made_at")} for r in readings]
     names = sum(len(p["names"]) for p in pieces)
     reading = rd.Reading(sha256, 1, READER, model, settings(joined=True), profile, version, "text",
@@ -273,11 +284,13 @@ def people_rows(sha256: str, reading: dict, day: dict, profile: str, version: in
     """One row per name a piece's reading holds, numbered through the day's pieces in order."""
     out, n = [], 0
     for p in reading["pieces"]:
+        ids = set(p.get("ids") or [])
         for item in p["names"]:
             n += 1
+            sec = item.get("section") if item.get("section") in ids else p["section"]
             out.append({"key": f"{sha256}/person/{n}", "name": item["name"], "kind": item["kind"],
                         "role": item.get("role"), "role_text": item.get("role"), "of": item.get("of"),
-                        "day": day["key"], "sitting_on": day["key"], "section": f"{day['key']}/{p['section']}",
+                        "day": day["key"], "sitting_on": day["key"], "section": f"{day['key']}/{sec}",
                         "piece": p["piece"], "document": sha256, "page": 1,
                         "place": f"text reader, piece {p['piece']}, name {n}", "read_from": "text",
                         "reader": reading["reader"], "model": p.get("model") or reading["model"], "profile": profile,
@@ -308,7 +321,7 @@ def piece(sha256: str, *, url: str, model: str, store: rd.Store = None, post=Non
     day = S.split(rec.get("text") or "", day_key)
     if day.reason:
         raise RuntimeError(f"{sha256[:12]} ({day_key}): the profile cannot split it: {day.reason}")
-    pieces = S.pieces_of(day, budget)
+    pieces = S.packed(S.pieces_of(day, budget), budget)
     over = [p for p in pieces if p.chars > budget]
     if over:
         raise RuntimeError(f"{sha256[:12]} ({day_key}): {len(over)} piece(s) over the budget after every cut "

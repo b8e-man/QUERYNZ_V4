@@ -430,11 +430,12 @@ def counts(day: Day) -> dict:
 class Piece:
     number: int                 # from 1
     section: int                # the section's index
-    sections: int               # sections covered (a piece never crosses a section; kept for symmetry)
+    sections: int               # sections covered: 1, or more when whole sections are packed (packed())
     part: int                   # 1 for a whole section; the part number when the section was cut
     parts: int
     text: str
     turns: int                  # speaker turns inside it
+    ids: tuple = ()             # the section indexes a packed piece holds, each marked [SECTION n] in its text
 
     @property
     def chars(self) -> int:
@@ -506,6 +507,39 @@ def pieces_of(day: Day, budget: int) -> list:
             lo = sum(len(x) for x in chunks[:k - 1])
             turns = sum(1 for t in sec.turns if lo <= t.start < lo + len(c))
             out.append(Piece(len(out) + 1, sec.index, 1, k, len(chunks), "\n".join(c), turns))
+    return out
+
+
+MARK = "[SECTION {}]"
+
+
+def packed(pieces: list, budget: int) -> list:
+    """Consecutive whole sections joined into one piece while the joined text, markers included, stays within the
+    budget; a section cut into parts stays its own piece. A packed piece marks each section [SECTION n] so the
+    reader can say which section a name is in. Renumbered from 1."""
+    out, run = [], []
+
+    def flush():
+        if not run:
+            return
+        if len(run) == 1:
+            p = run[0]
+            out.append(Piece(len(out) + 1, p.section, 1, p.part, p.parts, p.text, p.turns))
+        else:
+            text = "\n\n".join(MARK.format(p.section) + "\n" + p.text for p in run)
+            out.append(Piece(len(out) + 1, run[0].section, len(run), 1, 1, text, sum(p.turns for p in run),
+                             tuple(p.section for p in run)))
+        run.clear()
+    for p in pieces:
+        if p.parts > 1:
+            flush()
+            out.append(Piece(len(out) + 1, p.section, 1, p.part, p.parts, p.text, p.turns))
+            continue
+        size = sum(len(MARK.format(q.section)) + 2 + q.chars for q in run + [p])
+        if run and size > budget:
+            flush()
+        run.append(p)
+    flush()
     return out
 
 

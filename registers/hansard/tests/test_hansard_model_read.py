@@ -122,7 +122,7 @@ def test_the_whole_day_as_one_piece_of_the_job_reads_every_piece_and_joins_them(
     with tempfile.TemporaryDirectory() as td:
         store = rd.Store(td)
         line = M.piece(SHA, url=URL, model="qwen4exp", store=store, post=_server(_answer("Sample Person"), calls))
-        n = len(S.pieces_of(S.split(final_text(), "2024-11-20"), M.budget_of()))
+        n = len(S.packed(S.pieces_of(S.split(final_text(), "2024-11-20"), M.budget_of()), M.budget_of()))
         assert line["pieces"] == n == len(calls) and line["names"] == n and line["replayed"] == 0 and line["layout"] == "final"
         assert line["profile"] == f"hansard-day@{M.profile_version()}" and line["chars_per_token"]
         again = M.piece(SHA, url=URL, model="qwen4exp", store=store, post=_server("{}", calls))
@@ -152,5 +152,28 @@ def test_the_budget_fits_the_profile_s_context():
     """40,000 characters at the measured 4.0 characters a token (the worst piece of the sample, 31 October 2026)
     is 10,000 tokens; with the prompt and the answer the request stays under the text-reader context of 16,384."""
     prompt_tokens = len(M.PROMPT) / 4
-    assert M.BUDGET / 4.0 + prompt_tokens + M.MAX_TOKENS <= 16384
+    assert M.BUDGET / 4.3 + prompt_tokens + M.MAX_TOKENS <= 32768
     assert M.budget_of() == M.BUDGET == M.settings()["budget_chars"]
+
+
+def test_whole_sections_pack_into_one_request_and_a_name_keeps_its_section():
+    """31 October 2026, for speed: consecutive whole sections share one request within the budget, each marked
+    [SECTION n]; the reader's "section" puts the name on its own section, and a section number the piece does
+    not hold falls back to the piece's first section."""
+    d = S.split(final_text(), "2024-11-20")
+    whole = S.pieces_of(d, M.BUDGET)
+    packed = S.packed(whole, M.BUDGET)
+    assert len(whole) > 1 and len(packed) < len(whole)
+    p = packed[0]
+    assert p.sections == len(p.ids) > 1 and all(S.MARK.format(i) in p.text for i in p.ids) and p.chars <= M.BUDGET
+    tiny = S.packed(whole, max(q.chars for q in whole) + 20)
+    assert all(q.chars <= max(x.chars for x in whole) + 20 for q in tiny) and len(tiny) >= len(packed)
+    ans = json.dumps({"summary": "s", "names": [{"name": "Ann Bee", "kind": "person", "section": p.ids[1]},
+                                                  {"name": "Ann Bee", "kind": "person", "section": p.ids[0]},
+                                                  {"name": "Cee Dee", "kind": "person", "section": 999}]})
+    parsed = M.parse_answer(ans)
+    assert len(parsed["names"]) == 3, "a name once in each section that names it"
+    reading = {"pieces": [{"piece": 1, "section": p.section, "ids": list(p.ids), "names": parsed["names"]}],
+               "reader": "r", "model": "m"}
+    rows = M.people_rows(SHA, reading, {"key": "2024-11-20"}, "hansard-day", 2, "now")
+    assert [r["section"] for r in rows] == [f"2024-11-20/{p.ids[1]}", f"2024-11-20/{p.ids[0]}", f"2024-11-20/{p.section}"]
