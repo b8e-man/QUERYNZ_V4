@@ -134,12 +134,14 @@ SOURCES = (
     ("mp_interests", "mp_interests", """
         SELECT key, text AS name, 'mp_interests:' || member_return, as_at, NULL::date, NULL, NULL, document, withheld, NULL, NULL, NULL
         FROM pub.mp_interests WHERE category IN ('directorships', 'business-interests') AND text IS NOT NULL AND text <> ''"""),
-    # an expense line is a figure under a member's name, for the period of the release
+    # an expense line is a figure under a member's name, for the period of the release; the name as the lane reads it
+    # (given-first: two workbooks print "Seymour David", surname first with no comma, 1 November 2026), the printed
+    # form where the lane read none
     ("expenses", "mp_expenses", """
-        SELECT key, member AS name, NULL, period_start, period_end, NULL, NULL, document, false, NULL, NULL, NULL
+        SELECT key, coalesce(name, member) AS name, NULL, period_start, period_end, NULL, NULL, document, false, NULL, NULL, NULL
         FROM pub.mp_expenses WHERE member IS NOT NULL AND member <> ''"""),
     ("expenses", "minister_expenses", """
-        SELECT key, member AS name, NULL, period_start, period_end, NULL, NULL, document, false, NULL, NULL, NULL
+        SELECT key, coalesce(name, member) AS name, NULL, period_start, period_end, NULL, NULL, document, false, NULL, NULL, NULL
         FROM pub.minister_expenses WHERE member IS NOT NULL AND member <> ''"""),
     # ruling 114: the eight people views the lane left out. A charity's officer, read from the feed's name parts;
     # an officer that is a body corporate is the view's own `kind` and is not a person row

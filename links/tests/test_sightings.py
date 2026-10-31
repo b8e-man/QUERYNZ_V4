@@ -45,3 +45,15 @@ def test_a_short_form_no_longer_swallows_the_start_of_a_name_and_a_name_inside_a
     hits = S.scan(text, forms)
     assert [h[0] for h in hits] == ["dr duncan", "duncan webb", "john michael key"]
     assert [text[a:b] for _, a, b in hits] == ["Dr Duncan", "Duncan Webb", "JOHN Michael Key"]
+
+
+def test_a_title_or_office_filed_in_front_of_the_given_names_is_no_part_of_a_persons_form():
+    assert S.forms_of("person", "Dr Andrew WEST", "Dr Andrew", None, "West") == {"andrew west"}
+    assert S.forms_of("person", "Dr WEST", "Dr", None, "West") == set(), "a title and a surname is no name"
+    assert S.forms_of("person", "Judge GIBSON", "Judge", None, "Gibson") == set()
+    assert S.forms_of("person", "Rt Hon Sir John KEY", "Rt Hon Sir John", None, "Key") == {"john key"}
+    assert S.forms_of("organisation", "Justice and Electoral Committee", None, None, None) == {"justice and electoral committee"}
+
+
+def test_a_hyphenated_given_name_keeps_its_whole_first_name_in_the_given_and_family_form():
+    assert S.forms_of("person", "Aiden-Lee JOHNSON", "Aiden-Lee", "Mark", "Johnson") == {"aiden lee mark johnson", "aiden lee johnson"}

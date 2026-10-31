@@ -122,10 +122,20 @@ def generic(form: str) -> bool:
     return w[0] in ARTICLES or all(x in GENERIC for x in w)
 
 
+#: words a register files in front of a person's given names that are a title or an office, not a name ("Dr Andrew West",
+#: given "Dr", family "West"; "Judge Gibson"; "Sir Fay"): never the start of a person's form (1 November 2026: 2,312
+#: forms opened with one, 145,692 sightings)
+TITLES = {"dr", "mr", "mrs", "ms", "miss", "mx", "hon", "rt", "the", "sir", "dame", "judge", "justice", "professor", "prof",
+          "rev", "reverend", "father", "cr", "councillor", "lady", "lord", "honourable", "right"}
+
+
 def forms_of(kind: str, name_filed: str, given: str, middle: str, family: str) -> set:
     out = set()
     if kind == "person" and family:
-        g = (given or "").split()
+        g = (given or "").split()           # as filed: "Aiden-Lee" stays one given name, its form "aiden lee johnson"
+        while g and norm(g[0]) in TITLES:
+            g = g[1:]
+        given = " ".join(g)
         out.add(norm(" ".join(x for x in (given, middle, family) if x)))
         if g:
             out.add(norm(f"{g[0]} {family}"))

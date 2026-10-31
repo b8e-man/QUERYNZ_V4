@@ -45,10 +45,33 @@ def now() -> str:
     return dt.datetime.now().astimezone().isoformat(timespec="seconds")
 
 
-def person(printed: str) -> str:
-    """The name without its footnote markers or a trailing 'MP', given-first, honorifics off (keys.names)."""
+#: words that open a surname ("van de Molen Tim")
+_PARTICLES = {"van", "de", "der", "den", "von", "le", "la", "du", "di", "da", "te", "o", "mac", "st"}
+
+
+def person(printed: str, surname_first: bool = False) -> str:
+    """The name without its footnote markers or a trailing 'MP', given-first, honorifics off (keys.names).
+    `surname_first`: a table that prints every name with no comma, surname first ("Seymour David"; two Parliamentary
+    Service workbooks, 1 November 2026, checked against the member roster: 77 of 123 names match read surname-first,
+    none given-first). The surname is the first word with any particles before it; the given names are the rest."""
     s = _MP.sub("", _MARKS.sub("", printed or "")).strip()
-    return names.person_name(s).display if s else None
+    if not s:
+        return None
+    if surname_first and "," not in s:
+        w = s.split()
+        i = 0
+        while i < len(w) - 2 and w[i].lower() in _PARTICLES:
+            i += 1
+        if len(w) > i + 1:
+            s = " ".join(w[:i + 1]) + ", " + " ".join(w[i + 1:])
+    return names.person_name(s).display
+
+
+def surname_first(t) -> bool:
+    """Every member line of the table prints its name with no comma (the publisher's other workbooks print
+    "Surname, Given"; these print "Surname Given")."""
+    got = [ln.name for ln in t.lines if ln.kind == "member" and ln.name]
+    return bool(got) and not any("," in n for n in got)
 
 
 def _iso(d):
@@ -102,6 +125,7 @@ def release_rows(data: bytes, sha256: str, kind: str, meta: dict = None, loaded_
                 "label_differs": differs_from_label, "url": meta.get("url"),
                 "columns": " | ".join(f"{c.heading} [{c.role}]" for c in t.columns), **stamp})
             heading = {c.col: c for c in t.columns}
+            reversed_names = surname_first(t)
             for ln in t.lines:
                 lkey = f"{sha256}/sheet{si}/row{ln.row}"
                 if ln.kind == "member":
@@ -109,7 +133,7 @@ def release_rows(data: bytes, sha256: str, kind: str, meta: dict = None, loaded_
                     party, pbasis = parties.party_name(ln.party) if ln.party else (None, "unresolved")
                     out["lines"].append({
                         "key": lkey, "release": rkey, "document": sha256, "page": si, "place": f"{sname}!R{ln.row}",
-                        "member": ln.name, "name": person(ln.name), "party_printed": ln.party_printed,
+                        "member": ln.name, "name": person(ln.name, reversed_names), "party_printed": ln.party_printed,
                         "party_label": ln.party, "party": party, "party_basis": pbasis,
                         "marks": " ".join(ln.marks) or None, "categories_sum": csum, "total": total, "check": chk,
                         **stamp})
