@@ -327,7 +327,8 @@ def check_entities(conn, s: str, pub: str = "pub") -> list:
         return [{"check": f"{pub}.entities is the groups plus the lone rows", "ok": False, "note": "view missing"}]
     row = conn.execute(f"""
         WITH g AS (SELECT group_id, count(*) AS n FROM {s}.groups GROUP BY group_id),
-             lone AS (SELECT r.ref FROM {s}.rows r WHERE NOT EXISTS (SELECT 1 FROM {s}.groups x WHERE x.row_key = r.ref)),
+             lone AS (SELECT r.ref FROM {s}.rows r WHERE NOT EXISTS (SELECT 1 FROM {s}.groups x WHERE x.row_key = r.ref)
+                                                       AND NOT (r.view = ANY(%(model_views)s))),
              e AS (SELECT entity_id, kind, display_name, rows FROM {pub}.entities)
         SELECT (SELECT count(*) FROM e), (SELECT count(*) FROM g), (SELECT count(*) FROM lone),
                (SELECT count(*) FROM g WHERE NOT EXISTS (SELECT 1 FROM e WHERE e.entity_id = g.group_id)),
@@ -336,7 +337,7 @@ def check_entities(conn, s: str, pub: str = "pub") -> list:
                                         AND NOT EXISTS (SELECT 1 FROM lone WHERE lone.ref = e.entity_id)),
                (SELECT coalesce(sum(rows), 0) FROM e), (SELECT coalesce(sum(n), 0) FROM g),
                (SELECT count(*) FROM e WHERE kind NOT IN ('person', 'organisation', 'estate')),
-               (SELECT count(*) FROM e WHERE btrim(display_name) = '')""").fetchone()
+               (SELECT count(*) FROM e WHERE btrim(display_name) = '')""", {"model_views": sorted(rows.MODEL_VIEWS)}).fetchone()
     n, groups, lone, groups_missing, lone_missing, neither, rows_sum, grouped_rows, other_kinds, blank = (int(x) for x in row)
     return [{"check": f"{pub}.entities is the groups plus the lone rows, one row each (ruling 123)",
              "entities": n, "groups": groups, "lone_rows": lone, "groups_without_an_entity": groups_missing,
@@ -345,6 +346,20 @@ def check_entities(conn, s: str, pub: str = "pub") -> list:
              "kinds_outside_the_three": other_kinds, "blank_display_names": blank,
              "ok": n == groups + lone and groups_missing == 0 and lone_missing == 0 and neither == 0
                    and rows_sum == grouped_rows + lone and other_kinds == 0 and blank == 0}]
+
+
+def check_model_tier(conn, s: str) -> list:
+    """A name a text reader's model read (links.rows.MODEL_VIEWS) is its own tier (1 November 2026): no confirmed link
+    touches one and no group holds one."""
+    row = conn.execute(f"""
+        SELECT (SELECT count(*) FROM {s}.links l WHERE l.grade = 'confirmed'
+                  AND EXISTS (SELECT 1 FROM {s}.rows r WHERE r.ref IN (l.row_a, l.row_b) AND r.view = ANY(%(mv)s))),
+               (SELECT count(*) FROM {s}.groups g JOIN {s}.rows r ON r.ref = g.row_key WHERE r.view = ANY(%(mv)s))""",
+                       {"mv": sorted(rows.MODEL_VIEWS)}).fetchone()
+    confirmed, grouped = int(row[0]), int(row[1])
+    return [{"check": "a model's name is near only: no confirmed link touches one, no group holds one",
+             "confirmed_links_touching_a_model_row": confirmed, "model_rows_in_a_group": grouped,
+             "ok": confirmed == 0 and grouped == 0}]
 
 
 def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
@@ -361,6 +376,7 @@ def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out += check_ruling_114(conn, s)
     out += check_ruling_116(conn, s)
     out += check_entities(conn, s, pub)
+    out += check_model_tier(conn, s)
     return out
 
 

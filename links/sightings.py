@@ -7,7 +7,8 @@ pub.names before reading the docs with the model").
     python -m links.sightings dates                      # each scanned document's own date, where it has none
     python -m links.sightings counts
 
-THE FORMS. One normalised form per way a name of `pub.names` is printed: a person's full name as filed (given,
+THE FORMS. One normalised form per way a name of `pub.names` is printed, from a register's filing only (never a name a
+text reader's model read: links.rows.MODEL_VIEWS, 1 November 2026): a person's full name as filed (given,
 middle, family) and its given-and-family form; an organisation's name as filed. Normalised: macrons folded, lower
 case, every run of other than a letter or digit one space. A form of one word, or under MIN_CHARS characters, is
 not a form (it finds noise, not a name). `links.name_forms` holds each form with its kind and the count of
@@ -38,6 +39,7 @@ import time
 import unicodedata
 
 from support import db
+from links.rows import MODEL_VIEWS
 
 SCHEMA = "links"
 MIN_CHARS = 6
@@ -164,7 +166,9 @@ def build_forms(conn, log=print) -> dict:
     t = time.monotonic()
     with conn.cursor(name="forms") as cur:
         cur.itersize = 50000
-        cur.execute("SELECT kind, name_filed, given, middle, family FROM links.rows")
+        # a register's filing only: a name a model read is no form (links.rows.MODEL_VIEWS)
+        cur.execute("SELECT kind, name_filed, given, middle, family FROM links.rows WHERE NOT (view = ANY(%s))",
+                    (sorted(MODEL_VIEWS),))
         for kind, filed, given, middle, family in cur:
             for f in forms_of(kind, filed, given, middle, family):
                 counts[f] = counts.get(f, 0) + 1

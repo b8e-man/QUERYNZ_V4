@@ -198,6 +198,10 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
         out[name] = step(conn, s, reader=reader) if step is member_day_links else step(conn, s)
         log(f"links.build: {name}: {out[name]} ({time.monotonic() - t0:.0f} s)")
     out[rules.RULE_NUMBER] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_NUMBER,)).fetchone()[0]
+    # a name a text reader's model read is its own, lower tier (Arthur, 1 November 2026): whatever rule matched it, a link
+    # that touches one is near, never confirmed, so a model's row never joins a group nor carries one entity to another
+    out["model_rows_near_only"] = model_tier(conn, s)
+    log(f"links.build: model rows near only: {out['model_rows_near_only']} ({time.monotonic() - t0:.0f} s)")
     # every confirmed link is made: the components they make (and the decisions) are what the two last steps read
     comp, _ = components(conn, s)
     # related: a company and its successor under one name, a person confirmed on both (ruling 106 (2)); never followed by the groups
@@ -213,6 +217,19 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     conn.commit()
     out["seconds"] = round(time.monotonic() - t0, 1)
     return out
+
+
+MODEL_TIER = "a name a text reader's model read: near, never confirmed (its own tier, 1 November 2026)"
+
+
+def model_tier(conn, s: str) -> int:
+    """Turn every confirmed link that touches a row of links.rows.MODEL_VIEWS to near, with MODEL_TIER as its reason."""
+    n = conn.execute(f"""UPDATE {s}.links l SET grade = 'near', reason = %s
+                         WHERE l.grade = 'confirmed'
+                           AND EXISTS (SELECT 1 FROM {s}.rows r WHERE r.ref IN (l.row_a, l.row_b) AND r.view = ANY(%s))""",
+                     (MODEL_TIER, sorted(lrows.MODEL_VIEWS))).rowcount
+    conn.commit()
+    return n
 
 
 #: an electorate name as the House and the Commission print it, folded for equality (macrons to plain letters, letters only)
@@ -836,7 +853,8 @@ def build_groups(conn, s: str, log=print) -> dict:
 
 def build_entities(conn, s: str, log=print) -> dict:
     """Rebuild `<schema>.entities` whole from the groups and the rows (ruling
-    123): one row per entity, a group or a row in no group. The display name
+    123): one row per entity, a group or a row in no group (never a lone row a text reader's model read: it is cited
+    evidence of its own tier, not an entity, 1 November 2026). The display name
     is chosen by the one ordering every reader shares (pane.md): among the
     entity's rows of `<schema>.rows`, the filed name with the most words,
     then the most characters (whitespace folded to one space), then the
@@ -852,7 +870,8 @@ def build_entities(conn, s: str, log=print) -> dict:
         WITH member AS (
             SELECT g.group_id AS entity_id, g.row_key AS ref, g.contested FROM {s}.groups g
             UNION ALL
-            SELECT r.ref, r.ref, false FROM {s}.rows r WHERE NOT EXISTS (SELECT 1 FROM {s}.groups g WHERE g.row_key = r.ref)),
+            SELECT r.ref, r.ref, false FROM {s}.rows r WHERE NOT EXISTS (SELECT 1 FROM {s}.groups g WHERE g.row_key = r.ref)
+                                                          AND NOT (r.view = ANY(%(model_views)s))),
         named AS (
             SELECT m.entity_id, m.ref, m.contested, r.kind, r.politician, r.ref IS NOT NULL AS filed,
                    btrim(regexp_replace(coalesce(r.name_filed, b.name, ''), '\\s+', ' ', 'g')) AS name,
@@ -870,7 +889,7 @@ def build_entities(conn, s: str, log=print) -> dict:
                    bool_or(contested) AS contested, coalesce(bool_or(politician), false) AS politician
             FROM named GROUP BY entity_id)
         SELECT c.entity_id, coalesce(ch.kind, 'organisation'), ch.name, c.rows, c.registers, c.contested, c.politician, now()
-        FROM counted c JOIN chosen ch USING (entity_id)""")
+        FROM counted c JOIN chosen ch USING (entity_id)""", {"model_views": sorted(lrows.MODEL_VIEWS)})
     conn.execute(f"ANALYZE {s}.entities")
     conn.commit()
     row = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE rows > 1), count(*) FILTER (WHERE rows = 1),

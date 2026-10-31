@@ -187,3 +187,49 @@ def test_the_entities_are_the_groups_and_the_lone_rows_named_by_the_shared_order
             assert not check.check_entities(conn, s, f"{s}_pub")[0]["ok"]
         finally:
             raw.rollback()
+
+
+@pytest.mark.slow
+def test_a_name_a_model_read_is_near_only_never_in_a_group_and_never_an_entity_of_its_own():
+    """On the real engine (1 November 2026): a confirmed link that touches a row of links.rows.MODEL_VIEWS is turned
+    near with the tier's reason; the groups then leave the model's row out; it is no lone entity; both checks agree,
+    and the tier check fails when a confirmed link to a model's row is put back."""
+    import support.db as db
+    from links import rules
+    if not os.path.exists(os.path.join(db.CRED_DIR, "v4.env")):
+        pytest.skip("no credential file on this box")
+    s = "scratch_links_model_tier_test"
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as raw:
+        conn = _NoCommit(raw)
+        try:
+            conn.execute(f"CREATE SCHEMA {s}")
+            conn.execute(f"CREATE SCHEMA {s}_pub")
+            conn.execute(links.ddl(s))
+            conn.execute(links.publish_ddl(s, f"{s}_pub"))
+            for ref, reg, view, key, name in (("companies:c/1", "companies", "directors", "c/1", "Jane Roe"),
+                                              ("societies:s/1", "societies", "officers", "s/1", "Jane Roe"),
+                                              ("beehive:d/person/1", "beehive", "beehive_people", "d/person/1", "Jane Roe"),
+                                              ("hansard:h/person/1", "hansard", "hansard_people", "h/person/1", "Coalition Government")):
+                conn.execute(f"""INSERT INTO {s}.rows (ref, register, view, key, kind, name_filed, name_key, politician)
+                                 VALUES (%s, %s, %s, %s, 'person', %s, %s, false)""", (ref, reg, view, key, name, name.lower()))
+            for a, b in (("companies:c/1", "societies:s/1"), ("companies:c/1", "beehive:d/person/1")):
+                a, b = links.pair(a, b)
+                conn.execute(f"INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade) VALUES (%s, %s, %s, '{{}}', 'confirmed')",
+                             (a, b, rules.RULE_FULL))
+            assert build.model_tier(conn, s) == 1
+            grades = dict(((a, b), (g, r)) for a, b, g, r in conn.execute(f"SELECT row_a, row_b, grade, reason FROM {s}.links").fetchall())
+            assert grades[links.pair("companies:c/1", "beehive:d/person/1")] == ("near", build.MODEL_TIER)
+            assert grades[links.pair("companies:c/1", "societies:s/1")][0] == "confirmed", "a register's link stands"
+            quiet = lambda *_: None
+            build.build_groups(conn, s, log=quiet)
+            grouped = {r[0] for r in conn.execute(f"SELECT row_key FROM {s}.groups").fetchall()}
+            assert grouped == {"companies:c/1", "societies:s/1"}
+            out = build.build_entities(conn, s, log=quiet)
+            ents = {r[0] for r in conn.execute(f"SELECT entity_id FROM {s}.entities").fetchall()}
+            assert out["entities"] == 1 and not ents & {"beehive:d/person/1", "hansard:h/person/1"}, ents
+            assert check.check_entities(conn, s, f"{s}_pub")[0]["ok"]
+            assert check.check_model_tier(conn, s)[0]["ok"]
+            conn.execute(f"UPDATE {s}.links SET grade = 'confirmed' WHERE row_b = 'companies:c/1' OR row_a = 'companies:c/1'")
+            assert not check.check_model_tier(conn, s)[0]["ok"], "the check sees a confirmed link to a model's row"
+        finally:
+            raw.rollback()

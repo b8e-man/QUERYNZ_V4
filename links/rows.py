@@ -261,6 +261,11 @@ MEMBER_TITLES = ("the rt hon", "rt hon", "rt. hon", "right honourable", "the hon
 MEMBER_POST_NOMINALS = ("kc", "qc", "mp", "jp", "onzm", "cnzm", "dnzm", "knzm", "gnzm", "mnzm", "qso", "qsm")
 #: the donation views, where a coupled filed name is one donor joined to each person it names (ruling 73)
 DONATION_VIEWS = {"party_return_donors", "candidate_return_donors", "disclosures", "disclosure_items"}
+#: the views whose names a model read out of a document's text (the four text readers), not a register's filing. Their
+#: rows are cited evidence of their own tier (Arthur, 1 November 2026: "are you comfortable that we arent polluting the
+#: graph?" ... "do those things"): never a name form for the name pass (links.sightings), so one model mistake is not
+#: copied into every document that prints the same string
+MODEL_VIEWS = frozenset({"beehive_people", "hansard_people", "parliament_people", "court_people"})
 _DASHES = (" – ", " — ", " - ")
 _TRAILING_NOTE = re.compile(r"\s*\([^()]*\)\s*$")      # "(not trading)", "(inactive, and in process of de-registration)"
 _BRACKETED = re.compile(r"\s*\([^()]*\)")
@@ -509,6 +514,12 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
                 continue
             n = read = parts = 0
             catch: dict = {}
+            aside = {}
+            if view in MODEL_VIEWS:
+                # a model's name enters only where its own document prints it (links.model_check)
+                from links import model_check
+                model_check.check_view(conn, reader, view, sql, schema, log)
+                aside = model_check.set_aside(conn, view, schema)
             with reader.cursor(name=f"links_rows_{view}") as cur:
                 cur.itersize = 20000
                 cur.execute(sql)
@@ -517,6 +528,10 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
                             f"FROM STDIN") as copy:
                     for r in cur:
                         read += 1
+                        why = aside.get((r[7], r[1])) if aside else None
+                        if why:
+                            catch[why] = catch.get(why, 0) + 1
+                            continue
                         rec = row_record(register, view, r, catch)
                         if rec:
                             copy.write_row(rec)
