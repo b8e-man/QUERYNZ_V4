@@ -60,6 +60,23 @@ Warm window 23:52 to 00:14, from live/checks/serving-metrics.jsonl (the model wa
 - 07:16: fixed (commit 67d4839: a hold for a standing server no longer in the profiles is cleared at registration; any other reservation stands), released, worker restarted. Both cards loaded Qwen 3.6 in 10 s and 4 s; card use 98 to 99% (Radiance: 3%); card memory 87% and 80%.
 - The nightly loads, names refills and name passes ran on time through the night (they need no model).
 
+## Qwen 3.6 measured, and rolled back (08:52)
+
+Same documents, Flash-Next's stored reading against Qwen 3.6 read now (live/checks/ab-2026-11-01/ab.jsonl):
+
+| Lane | Documents | Names, Flash-Next | Names, Qwen 3.6 | Days cut at the token cap |
+| --- | --- | --- | --- | --- |
+| beehive | 20 | 118 | 99 | 0 and 0 |
+| hansard | 15 | 5,127 | 4,873 | 2 and 7 |
+
+The run stopped at its 50-minute limit before parliament and courts.
+
+Speed, 08:09 to 08:15 with no comparison running: Qwen 3.6 generated 256 tokens a second on two cards (Flash-Next 130 on both), cards 96% busy, but its answers run longer, so documents came slower: beehive 1.9 a minute (Flash-Next 3.3), parliament 1.3 (2.3), hansard 0.48 days (0.5), courts 1.75. A short window, but it agrees with 07:27 to 07:45.
+
+By the rule Arthur approved (fewer names, more answers cut), Flash-Next is back: commit 625a313, Radiance answering 08:52, the worker holding both cards for it, the night window restored. Kept: the worker's per-card fixes, the store's earlier-model rule, hansard's replay of days read under version 1, and the fix for a retired standing server's hold. The Qwen 3.6 readings made between 07:16 and 08:50 stay on disk; Flash-Next does not use them, so those documents are read again.
+
+The name hint (option 3) was not built.
+
 ## Faults and restarts
 
 - Standing, outside tonight's scope, failing on earlier nights too: qv4-charities-capture and qv4-tenancy-tribunal-capture, each "exit 1" with no message.
@@ -67,4 +84,4 @@ Warm window 23:52 to 00:14, from live/checks/serving-metrics.jsonl (the model wa
 - qv4-sightings-courts peaked at 1,036 MB against 1,024 declared; the figure wants raising.
 - The board's chat calls Radiance's address (:8060) and does not answer while Qwen 3.6 serves.
 
-Last updated 2026-11-01 07:20.
+Last updated 2026-11-01 08:55.
