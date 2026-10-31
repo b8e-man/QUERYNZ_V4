@@ -44,7 +44,6 @@ import urllib.error
 from support import modelclient
 from support import profiles
 from support import reader as rd
-from support.reader import hints
 from registers.hansard import split as S
 
 READER = "registers.hansard.model_read 1"
@@ -82,15 +81,10 @@ PROMPT_WITH_SUMMARY = (
     "never name anyone the text does not name. A role or party alone (\"the Minister\", \"National\") is not a name. "
     "When the text is marked in sections ([SECTION 12] and so on), give each name the number of the section it is named "
     "in as \"section\": 12, and list a name once in each section that names it.")
-#: the prompt from 1 November 2026 (Arthur): no summary, and the names the name pass found handed over so the model lists
-#: only the rest (support.reader.hints); readings under the prompt with the summary stand (rd.supersede below)
-PROMPT = (PROMPT_WITH_SUMMARY
-          .replace('{"summary": "<one sentence, at most 40 words, saying what this piece of the debate is about, naming nobody>",\n'
-                   ' "names": ', '{"names": ')
-          + hints.RULE + hints.ROLE_WORDS)
-assert PROMPT.count("summary") == 0, "the summary is gone from the prompt"
-#: the names the name pass found in the day being read, set by piece() (each piece is its own process)
-HINT: list = []
+#: the prompt from 1 November 2026 (Arthur): as before, with a role that says what it refers to (rd.ROLE_WORDS). From
+#: 09:53 to the morning's release the summary was dropped and the name pass's names handed over; both were taken back
+#: (the handed-over names came back with no role). Readings under the earlier prompt stand (rd.supersede).
+PROMPT = PROMPT_WITH_SUMMARY + rd.ROLE_WORDS
 _JSON = re.compile(r"\{.*\}", re.S)
 
 
@@ -210,19 +204,15 @@ def ask(text: str, *, url: str, model: str, post=None, request: dict = None, tim
         if k not in ("temperature", "max_tokens"):
             extra.setdefault(k, v)
     if attempt == 1:
-        sent = text
         user = "DEBATE TEXT:\n\n" + text
     else:
-        sent = text[:len(text) // 2]
         user = ("Answer with the one JSON object only: no words before or after it, no code fence.\n\nDEBATE TEXT:\n\n"
-                + sent)
-    given = hints.for_text(HINT, sent)
-    user += hints.block(given)
+                + text[:len(text) // 2])
     out = modelclient.chat(url, lane=LANE, model=model,
                            messages=[{"role": "system", "content": PROMPT}, {"role": "user", "content": user}],
                            extra=extra, timeout=timeout, post=post)
     answer = (out["choices"][0]["message"]["content"] or "").strip()
-    return parse_answer(answer), out.get("model") or model, {**(out.get("usage") or {}), "hint_names": len(given)}
+    return parse_answer(answer), out.get("model") or model, out.get("usage") or {}
 
 
 def read_piece(sha256: str, piece: S.Piece, *, profile: str, version: int, url: str = None, model: str = None,
@@ -244,8 +234,7 @@ def read_piece(sha256: str, piece: S.Piece, *, profile: str, version: int, url: 
     made = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     checks = {"piece": piece.number, "section": piece.section, "ids": list(piece.ids), "part": piece.part, "parts": piece.parts,
               "chars": piece.chars, "turns": piece.turns, "attempts": attempt,
-              "prompt_tokens": usage.get("prompt_tokens"), "completion_tokens": usage.get("completion_tokens"),
-              "hint_names": usage.get("hint_names", 0)}
+              "prompt_tokens": usage.get("prompt_tokens"), "completion_tokens": usage.get("completion_tokens")}
     if parsed is None:
         reading = rd.Reading(sha256, piece.number, READER, served or model, settings(), profile, version, "text", "",
                              checks={**checks, "names": 0, "summary": False, "unusable": UNUSABLE % ATTEMPTS}, made_at=made)
@@ -363,7 +352,6 @@ def piece(sha256: str, *, url: str, model: str, store: rd.Store = None, post=Non
     store = store or rd.Store()
     threads = THREADS if threads is None else threads
     rec = json.loads(read_bytes(sha256))
-    HINT[:] = hints.sighted(sha256)
     day_key = rec.get("sitting_date") or ""
     version = profile_version()
     budget = budget_of()

@@ -37,7 +37,6 @@ import urllib.error
 from support import modelclient
 from support import profiles
 from support import reader as rd
-from support.reader import hints
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -76,17 +75,10 @@ PROMPT_WITH_SUMMARY = (
     "place. Keep spelling, honorifics and macrons as printed; never expand an initial; never add an address, an age or "
     "a date of birth; never name anyone the text does not name. The summary describes the release in neutral words "
     "and names nobody.")
-#: the prompt from 1 November 2026 (Arthur): no summary (answer tokens are the readers' cost), and the names the name
-#: pass found handed over so the model lists only the rest (support.reader.hints). Readings made under the prompt
-#: with the summary stand until a document is read again (rd.supersede below).
-PROMPT = (PROMPT_WITH_SUMMARY
-          .replace('{"summary": "<one sentence, at most 40 words, saying what the release announces or concerns>",\n'
-                   ' "people": ', '{"people": ')
-          .replace(" The summary describes the release in neutral words and names nobody.", "")
-          + hints.RULE + hints.ROLE_WORDS)
-assert PROMPT.count("summary") == 0, "the summary is gone from the prompt"
-#: the names the name pass found in the document being read, set by piece() (each piece is its own process)
-HINT: list = []
+#: the prompt from 1 November 2026 (Arthur): as before, with a role that says what it refers to (rd.ROLE_WORDS). From
+#: 09:53 to the morning's release the summary was dropped and the name pass's names handed over; both were taken back
+#: (the handed-over names came back with no role). Readings under the earlier prompt stand (rd.supersede).
+PROMPT = PROMPT_WITH_SUMMARY + rd.ROLE_WORDS
 NUDGE = "Your answer held no JSON object. Answer again with the ONE JSON object described, and nothing else."
 _JSON = re.compile(r"\{.*\}", re.S)
 
@@ -196,9 +188,7 @@ def ask(title, body: str, *, url: str, model: str, post=None, request: dict = No
         if k not in ("temperature", "max_tokens"):
             extra.setdefault(k, v)
     text = excerpt(title, body)
-    given = hints.for_text(HINT, text)
-    ask.last_hint = len(given)
-    messages = [{"role": "system", "content": PROMPT}, {"role": "user", "content": text + hints.block(given)}]
+    messages = [{"role": "system", "content": PROMPT}, {"role": "user", "content": text}]
     served, parsed, n, chars = model, None, 0, 0
     for n in range(1, ATTEMPTS + 1):
         out = modelclient.chat(url, lane=LANE, model=model, messages=messages, extra=extra, timeout=timeout, post=post)
@@ -240,7 +230,7 @@ def read_one(sha256: str, title, body: str, *, version: int, url: str = None, mo
         reading = rd.Reading(sha256, 1, READER, served, settings(), PROFILE, version, "text",
                              json.dumps(parsed, ensure_ascii=False, sort_keys=True), rows=parsed["people"],
                              checks={"usable": True, "attempts": attempts, "people": len(parsed["people"]),
-                                     "summary": bool(parsed["summary"]), "hint_names": getattr(ask, "last_hint", 0),
+                                     "summary": bool(parsed["summary"]),
                                      "answer_chars": chars}, made_at=now)
     store.put(reading)
     return {**_unpack(reading), "replayed": False}
@@ -368,7 +358,6 @@ def piece(sha256: str, *, url: str, model: str, store: rd.Store = None, post=Non
     if why and not why.startswith("no body") and not why.startswith("body under"):
         raise RuntimeError(f"{sha256[:12]}: not a beehive record: {why}")
     title, body = rec.get("title"), rec.get("body_text") if isinstance(rec.get("body_text"), str) else ""
-    HINT[:] = hints.sighted(sha256)
     deadline = time.monotonic() + wait_s
     t0 = time.monotonic()
     while True:

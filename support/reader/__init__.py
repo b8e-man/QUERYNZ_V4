@@ -24,6 +24,13 @@ from dataclasses import asdict, dataclass, field
 
 READ_FROM = ("text", "pixels")
 STORE = os.environ.get("QV4_READINGS") or "/home/user/querynzv4-work/live/readings"
+#: a role in words must stand alone (Arthur, 1 November 2026: "administering the Levy" tells nothing, "the levy" is a
+#: plain noun, like "looking at the tree"). A person's name is never written into a role: the "of" and "for" fields
+#: carry the link, and a name inside a role would escape a court's suppression.
+ROLE_WORDS = (" A role in words must say what it refers to: where the text calls a thing by a plain noun (the levy, the "
+              "scheme, the fund, the contract, the project, the bill), write what the text says it is, in the text's "
+              "words, e.g. \"administering the Infrastructure Funding and Financing levy for the Te Awa Lakes "
+              "development\", not \"administering the Levy\". Add nothing; never write a person's name into a role.")
 #: a reading made by an earlier model stands for one by the model that replaced it (Arthur, 1 November 2026: the
 #: text reader moved from Flash-Next on Radiance to Qwen 3.6 35B-A3B; the Flash-Next readings already made are kept
 #: and only unread documents go to Qwen 3.6). Asked for a key under the new model, the store answers with the

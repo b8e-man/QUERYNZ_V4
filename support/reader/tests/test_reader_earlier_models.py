@@ -38,9 +38,3 @@ def test_a_reading_under_superseded_settings_stands_for_the_new_ones(tmp_path):
     assert not s.has(rd.reading_key("e" * 64, 1, "qwen4exp", {"prompt_sha": "other"}, "beehive-release", 2))
     s.put(rd.Reading("e" * 64, 1, "t 1", "qwen4exp", new, "beehive-release", 2, "text", "fresh"))
     assert s.get(rd.reading_key("e" * 64, 1, "qwen4exp", new, "beehive-release", 2)).text == "fresh"
-
-
-def test_hints_keep_only_names_printed_in_this_text_longest_first():
-    from support.reader import hints
-    assert hints.for_text(["Jane Doe", "Acme Limited", "Not Here"], "Jane Doe of Acme Limited said") == ["Acme Limited", "Jane Doe"]
-    assert hints.block([]) == "" and hints.block(["A B"]).endswith("NAMES ALREADY FOUND\nA B")
