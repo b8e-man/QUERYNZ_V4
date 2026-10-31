@@ -51,7 +51,7 @@ def test_the_register_sits_by_the_house_and_takes_the_house_s_colour():
     assert "hansard" not in dict(cat.NOT_HELD)
     assert cat.main_view_of("hansard") == "hansard_sittings"
     assert [v.name for v in cat.views_of("hansard")] == ["hansard_sittings", "hansard_sections", "hansard_speeches",
-                                                         "hansard_days"]
+                                                         "hansard_days", "hansard_day_sections", "hansard_people"]
 
 
 def test_a_sitting_day_is_titled_with_its_parliament_and_volume_and_cites_the_transcript():
