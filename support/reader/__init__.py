@@ -29,6 +29,17 @@ STORE = os.environ.get("QV4_READINGS") or "/home/user/querynzv4-work/live/readin
 #: and only unread documents go to Qwen 3.6). Asked for a key under the new model, the store answers with the
 #: earlier model's reading when there is no new one; a new reading is always stored under its own model.
 EARLIER_MODELS = {"qwen3.6-35b-a3b-q4km": ("qwen4exp",)}
+#: settings that replaced earlier ones (Arthur, 1 November 2026: the readers' prompts dropped the summary and take the
+#: names the name pass found): {new settings hash: (earlier hashes, …)}. A reading made under the earlier settings stands
+#: for one under the new until the document is read again; registered by each lane with `supersede`.
+SUCCESSORS: dict = {}
+
+
+def supersede(new: dict, old: dict) -> None:
+    """Readings made under the settings `old` stand for readings under `new` (the store falls back to them)."""
+    n, o = settings_hash(new), settings_hash(old)
+    if n != o and o not in SUCCESSORS.setdefault(n, ()):
+        SUCCESSORS[n] = SUCCESSORS[n] + (o,)
 
 
 def settings_hash(settings: dict) -> str:
@@ -101,10 +112,13 @@ class Store:
             return key
         parts = key.split("/")
         if len(parts) >= 5:
-            for old in EARLIER_MODELS.get(parts[3], ()):
-                alt = "/".join(parts[:3] + [old] + parts[4:])
-                if os.path.exists(self._path(alt)):
-                    return alt
+            models = (parts[3],) + EARLIER_MODELS.get(parts[3], ())
+            hashes = (parts[4],) + SUCCESSORS.get(parts[4], ())
+            for m in models:
+                for h in hashes:
+                    alt = "/".join(parts[:3] + [m, h] + parts[5:])
+                    if alt != key and os.path.exists(self._path(alt)):
+                        return alt
         return key
 
     def get(self, key: str) -> Reading:

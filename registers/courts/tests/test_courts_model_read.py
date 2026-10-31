@@ -95,8 +95,8 @@ def test_a_document_over_the_budget_is_read_in_pieces_joined_under_the_one_hash(
     with tempfile.TemporaryDirectory() as td:
         store = rd.Store(td)
         got = M.read_one(SHA, texts, profile=NZSC, version=3, url=URL, model="qwen4exp", store=store, post=_answering(by_part, calls), rule=RULE)
-        assert got["pieces"] == n and got["calls"] == n + 1, "one call a piece and one for the summary"
-        assert got["summary"] == "The whole document, summarised from its parts."
+        assert got["pieces"] == n and got["calls"] == n, "one call a piece; no summary is joined (1 November 2026)"
+        assert got["summary"] == "Part 1 summary.", "a part that still answers a summary: the first is kept"
         names = [(p["name"], p["role"]) for p in got["people"]]
         assert names.count(("Sample Person", "party")) == 1 and names.count(("Able CJ", "judge")) == 1, "a name once across pieces"
         assert [p["name"] for p in got["people"] if p["role"] == "witness"] == [f"Witness {i}" for i in range(1, n + 1)]
@@ -109,12 +109,12 @@ def test_a_document_over_the_budget_is_read_in_pieces_joined_under_the_one_hash(
                 assert "IN THE SUPREME COURT" in user and "[1]  Words" in user and "[…]" not in user, "the caption first, whole"
             else:
                 assert "[…]" in user and "IN THE SUPREME COURT" in user, "a later piece opens with the document's first lines"
-        assert calls[n]["messages"][0]["content"] == M.SUMMARY_PROMPT and "Part 1: Part 1 summary." in calls[n]["messages"][1]["content"]
+        assert len(calls) == n, "no call to join summaries"
         # every piece's reading is stored on its own, so a stopped job resumes: a second run makes no call
         for i in range(1, n + 1):
             assert store.has(M.piece_key(SHA, NZSC, 3, "qwen4exp", RULE, i, n))
         again = M.read_one(SHA, texts, profile=NZSC, version=3, url=URL, model="qwen4exp", store=store, post=_server("{}", calls), rule=RULE)
-        assert again["replayed"] and len(calls) == n + 1
+        assert again["replayed"] and len(calls) == n
         rows = M.people_rows(SHA, M.stored(SHA, NZSC, 3, store, rule=RULE), {"citation": "[2099] NZSC 7"}, NZSC, 3, "now")
         assert rows[0]["place"] == f"text reader, part 1 of {n}, name 1" and rows[-1]["place"].startswith(f"text reader, part {n} of {n}")
 
@@ -133,7 +133,7 @@ def test_a_job_stopped_between_pieces_resumes_at_the_next_piece():
                           post=_answering(by_part, calls), request=None)
         assert len(calls) == 2
         got = M.read_one(SHA, texts, profile=NZSC, version=3, url=URL, model="qwen4exp", store=store, post=_answering(by_part, calls), rule=RULE)
-        assert got["calls"] == n - 2 + 1 and got["pieces_replayed"] == 2 and len(got["people"]) == n
+        assert got["calls"] == n - 2 and got["pieces_replayed"] == 2 and len(got["people"]) == n
 
 
 def test_an_answer_with_no_usable_object_is_asked_once_more_then_stored_unusable_and_the_piece_ends():
@@ -161,7 +161,7 @@ def test_one_unusable_piece_among_several_leaves_the_others_readings_standing():
     with tempfile.TemporaryDirectory() as td:
         store = rd.Store(td)
         got = M.read_one(SHA, texts, profile=NZSC, version=3, url=URL, model="qwen4exp", store=store, post=_answering(by_part, calls), rule=RULE)
-        assert got["calls"] == n + 1 + 1, "piece 2 asked twice, then the summary"
+        assert got["calls"] == n + 1, "piece 2 asked twice; no summary call"
         assert len(got["people"]) == n - 1 and not got["unusable"]
         assert json.loads(store.get(M.key_for(SHA, NZSC, 3, "qwen4exp", RULE)).text)["parts_unusable"] == 1
 

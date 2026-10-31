@@ -50,6 +50,7 @@ import urllib.error
 
 from support import modelclient
 from support import reader as rd
+from support.reader import hints
 from registers.courts import pieces as PC
 
 READER = "registers.courts.model_read 2"
@@ -63,7 +64,7 @@ KINDS = ("person", "body")
 KEPT_ROLES = ("judge", "counsel", "agency")
 ATTEMPTS = 2
 UNUSABLE = "the text reader answered with no usable JSON object in %d attempts"
-PROMPT = (
+PROMPT_WITH_SUMMARY = (
     "You read one New Zealand court document: a judgment, a media release, a hearing transcript, counsel's submissions, "
     "a case synopsis or a court's case web page. Answer with ONE JSON object and nothing else:\n"
     '{"summary": "<one sentence, at most 40 words, saying what the document is and what it decides or concerns>",\n'
@@ -77,8 +78,19 @@ PROMPT = (
     "is kind body, role agency; a party to the case is role party whatever its kind. Keep initials, honorifics and "
     "spelling as printed; never expand an initial or a pseudonym; never add an address, an age or a date of birth; "
     "never name anyone the text does not name. The summary describes the document in neutral words and names nobody.")
+#: the prompt from 1 November 2026 (Arthur): no summary (and so no extra call to join the parts' summaries), and the
+#: names the name pass found handed over so the model lists only the rest (support.reader.hints); readings under the
+#: prompt with the summary stand (rd.supersede in key_for)
+PROMPT = (PROMPT_WITH_SUMMARY
+          .replace('{"summary": "<one sentence, at most 40 words, saying what the document is and what it decides or concerns>",\n'
+                   ' "people": ', '{"people": ')
+          .replace(" The summary describes the document in neutral words and names nobody.", "")
+          + hints.RULE)
+assert PROMPT.count("summary") == 0, "the summary is gone from the prompt"
+#: the names the name pass found in the document being read, set by piece() (each piece is its own process)
+HINT: list = []
 PART = ("This is part {i} of {n} of one document (part 1 holds its caption; a later part opens with the document's first lines for "
-        "context). List every person and body THIS PART names, each once, with the role the document gives it; the summary is of this part.")
+        "context). List every person and body THIS PART names, each once, with the role the document gives it.")
 SUMMARY_PROMPT = ("You are given the one-sentence summaries of the parts of one New Zealand court document, in order. Answer with ONE JSON "
                   'object and nothing else: {"summary": "<one sentence, at most 40 words, saying what the whole document is and what it '
                   'decides or concerns, in neutral words, naming nobody>"}')
@@ -95,7 +107,9 @@ def settings(rule: dict, prompt: str = PROMPT) -> dict:
 
 
 def key_for(sha256: str, profile: str, version: int, model: str = TEXT_MODEL, rule: dict = None) -> str:
-    return rd.reading_key(sha256, 1, model, settings(rule or PC.rule_of(profile)), profile, version)
+    rule = rule or PC.rule_of(profile)
+    rd.supersede(settings(rule), settings(rule, PROMPT_WITH_SUMMARY))
+    return rd.reading_key(sha256, 1, model, settings(rule), profile, version)
 
 
 def piece_key(sha256: str, profile: str, version: int, model: str, rule: dict, i: int, n: int) -> str:
@@ -192,7 +206,10 @@ def ask(text: str, *, url: str, model: str, post=None, request: dict = None, tim
     lead = (PART.format(i=i, n=n) + "\n\n") if n > 1 else ""
     if attempt > 1:
         lead = "Answer with the one JSON object only: no words before or after it, no code fence.\n\n" + lead
-    answer, served = _chat(PROMPT, lead + "DOCUMENT TEXT:\n\n" + text, url=url, model=model, post=post, request=request, timeout=timeout)
+    given = hints.for_text(HINT, text)
+    ask.last_hint = len(given)
+    answer, served = _chat(PROMPT, lead + "DOCUMENT TEXT:\n\n" + text + hints.block(given), url=url, model=model, post=post,
+                           request=request, timeout=timeout)
     return parse_answer(answer), served
 
 
@@ -236,7 +253,8 @@ def _read_piece(sha256: str, text: str, i: int, n: int, *, profile: str, version
         reading = rd.Reading(sha256, i, READER, served, piece_settings, profile, version, "text",
                              json.dumps(parsed, ensure_ascii=False, sort_keys=True), rows=parsed["people"],
                              checks={"people": len(parsed["people"]), "summary": bool(parsed["summary"]),
-                                     "truncated": bool(parsed.get("truncated")), "attempts": attempt, "chars": len(text)}, made_at=made)
+                                     "truncated": bool(parsed.get("truncated")), "attempts": attempt, "chars": len(text),
+                                     "hint_names": getattr(ask, "last_hint", 0)}, made_at=made)
     store.put(reading)
     return parsed, served, attempt
 
@@ -283,13 +301,9 @@ def read_one(sha256: str, texts: dict, *, profile: str, version: int, url: str =
                 continue
             seen.add((p["name"].upper(), p["role"]))
             people.append({**p, "part": i})
-    if n == 1:
-        summary = answered[0]["summary"]
-    else:
-        summary = summarise([a["summary"] if a else None for a in answers], url=url, model=model, post=post, request=request)
-        calls += 1
-        if not summary:
-            summary = next((a["summary"] for a in answered if a["summary"]), None)
+    # no summary is asked from 1 November 2026, so no call joins the parts' summaries; a part read under the earlier
+    # prompt may still carry one, and the first such is kept
+    summary = next((a["summary"] for a in answered if a.get("summary")), None)
     joined = {"summary": summary, "people": people, "truncated": any(a.get("truncated") for a in answered), "parts": n,
               "parts_unusable": n - len(answered)}
     reading = rd.Reading(sha256, 1, READER, served, settings(rule), profile, version, "text",
@@ -390,6 +404,7 @@ def piece(sha256: str, *, url: str, model: str, store: rd.Store = None, conn=Non
     if slug is None or slug == R.SCANNED:
         raise RuntimeError(f"{sha256[:12]}: not readable by the text reader: {why}")
     version = R.profile_version(slug)
+    HINT[:] = hints.sighted(sha256)
     rule = PC.rule_of(slug)
     deadline = time.monotonic() + wait_s
     while True:

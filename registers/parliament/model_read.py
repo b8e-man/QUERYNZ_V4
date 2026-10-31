@@ -59,6 +59,7 @@ import urllib.error
 
 from support import modelclient, profiles
 from support import reader as rd
+from support.reader import hints
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
@@ -80,7 +81,7 @@ ROLES = ("member", "minister", "official", "witness", "submitter", "other")
 UNUSABLE = "the text reader answered with no usable object for the document in %d attempts"
 CANNOT_SPLIT = "the profile cannot split the text: no speaker turn, paragraph end or sentence end inside the budget of %d characters"
 HEADER = {WAYBACK: "an archived parliament.nz page", WQ: "a written question to a Minister and the Minister's reply"}
-PROMPT = (
+PROMPT_WITH_SUMMARY = (
     "You read documents of the New Zealand Parliament: archived parliament.nz pages (debates, committee pages, "
     "member pages, news, bills) and written questions with the Minister's reply. A request carries one or more "
     "documents, each under a line [document dK]; a long page may come as one part of several. Answer with ONE JSON "
@@ -106,6 +107,15 @@ PROMPT = (
     "and the answering Minister are known already: list them only where the text names them in another "
     "connection; list the third parties the question and the reply name. A page's menus and navigation name "
     "nobody. The summary describes the document in neutral words.")
+#: the prompt from 1 November 2026 (Arthur): no summary, and the names the name pass found handed over so the model lists
+#: only the rest (support.reader.hints); readings under the prompt with the summary stand (rd.supersede below)
+PROMPT = (PROMPT_WITH_SUMMARY
+          .replace('  "summary": "<one sentence, at most 40 words, saying what the document is about; it names nobody>",\n', '')
+          .replace(" The summary describes the document in neutral words.", "")
+          + hints.RULE)
+assert PROMPT.count("summary") == 0, "the summary is gone from the prompt"
+#: the names the name pass found in the documents being read, set by piece() (each piece is its own process)
+HINT: list = []
 _JSON = re.compile(r"\{.*\}", re.S)
 # the boundaries a split may fall on, in the order the profile prefers them
 TURN = re.compile(r"(?:(?:Rt )?Hon |Dr |)(?:[A-ZĀĒĪŌŪ][A-ZĀĒĪŌŪ'’\-]+ ){1,4}\([^()]{3,90}\):")
@@ -142,6 +152,13 @@ def budget(slug: str) -> int:
 def settings(profile: str, prompt: str = PROMPT) -> dict:
     return {"prompt_sha": hashlib.sha256(prompt.encode()).hexdigest()[:16], "budget_chars": budget(profile),
             "temperature": 0.0, "max_tokens": MAX_TOKENS, "thinking": False}
+
+
+for _p in (WAYBACK, WQ):
+    try:
+        rd.supersede(settings(_p), settings(_p, PROMPT_WITH_SUMMARY))
+    except LookupError:      # a profile not in the ledger yet (a test's empty ledger)
+        pass
 
 
 def key_for(sha256: str, profile: str, version: int, model: str = TEXT_MODEL) -> str:
@@ -280,6 +297,9 @@ def ask(docs: list, *, url: str, model: str, post=None, request: dict = None, ti
     body = f"DOCUMENTS: {len(docs)}\n\n" + "\n\n".join(f"[document {k}] {h}\n{t}" for k, h, t in docs)
     if attempt > 1:
         body = "Answer with the one JSON object only: no words before or after it, no code fence.\n\n" + body
+    given = hints.for_text(HINT, body)
+    ask.last_hint = len(given)
+    body += hints.block(given)
     for busy in range(BUSY_TRIES + 1):
         try:
             out = modelclient.chat(url, lane=LANE, model=model,
@@ -302,7 +322,7 @@ def _reading(sha256: str, profile: str, version: int, served: str, parsed: dict,
                       rows=parsed["people"],
                       checks={"people": len(parsed["people"]), "summary": bool(parsed["summary"]),
                               "pieces": parsed["pieces"], "truncated": bool(parsed["truncated"]), "batch": batch,
-                              "attempts": attempts}, made_at=made)
+                              "attempts": attempts, "hint_names": getattr(ask, "last_hint", 0)}, made_at=made)
 
 
 def _unusable(sha256: str, profile: str, version: int, served: str, made: str, why: str) -> rd.Reading:
@@ -514,6 +534,7 @@ def piece(sha256: str, *, url: str, model: str, store: rd.Store = None, conn=Non
     texts = {sha256: document_text(profile, rec)}
     for m in docs[1:]:
         texts[m] = document_text(profile, _record(m))
+    HINT[:] = sorted({n for d in docs for n in hints.sighted(d)})   # its own connection: a failed look-up never aborts the reader's
     t0 = time.monotonic()
     deadline = time.monotonic() + wait_s
     got = {}
