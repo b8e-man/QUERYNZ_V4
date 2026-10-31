@@ -1,10 +1,10 @@
 # The bodies check is red: a placeholder NZBN of thirteen zeros and one NZBN under two charity numbers
 kind: finding
-state: open
+state: closed
 use-case: -
 session: integrator-9d788fb
 opened: 2026-10-30
-closed:
+closed: 2026-10-30 (fix-links-6: an all-zero NZBN is none; the charities of one NZBN are one body, the earliest row; the check's count becomes 0 at the next `qv4-links-build`)
 
 `python -m links.check` on live after the @3 build (30 October, 12:4x) has one red item: "a body on two
 registers is one body: no NZBN names two bodies", `nzbns_on_two_bodies: 2`. Every other item is green.
