@@ -92,6 +92,8 @@ def searched_views() -> list:
 # ── from products/board/search.py ──
 
 MACRON_FROM, MACRON_TO = cat.MACRONS
+#: a folded letter as the raw characters it folds from (the board's _LOOSE, copied; test_search holds it equal)
+_LOOSE = {a: f"[{a}{m}{M}]" for a, m, M in zip(MACRON_TO[:5], MACRON_FROM[:5], MACRON_FROM[5:])} | {"k": "[k\u212a]"}
 
 
 def fold_sql(expr: str) -> str:
@@ -132,6 +134,31 @@ def guard_sql(v: cat.View, exclude_key: str = None) -> tuple:
     return clause, params
 
 
+def loose_re(w: str) -> str:
+    """The pattern that finds, in a row's text as held, every word the fold
+    would turn into `w` (word_re), with no fold applied: a case-insensitive
+    test (`~*`) in which each vowel also stands for its macron forms. It
+    holds a superset of the fold's matches, so it may be tested first and
+    costs a third of translate(lower(…)) (fold_sql), whose two function
+    calls over every row of every view were the search's cost on 31 October
+    2026 (companies, 1.9 million rows: 0.26 s of 0.56 s in the fold)."""
+    alts = ["".join(_LOOSE.get(c, re.escape(c)) for c in x) for x in w.split("|") if x]
+    return alts[0] if len(alts) == 1 else "(?:" + "|".join(alts) + ")"
+
+
+def prefilter_sql(v: cat.View, words: list, number: str = None, whole: bool = False) -> tuple:
+    """(clause, params): the search box's words tested loosely (loose_re) over
+    the row's search columns unfolded, "and"-ed after the exact test, which
+    every row passing it still meets: the planner runs the cheaper test
+    first, so the fold is computed only for the rows that can match. ("", [])
+    with a number, whose rows match a number column the words need not
+    reach, or with no words."""
+    if not words or number:
+        return "", []
+    raw = "concat_ws(' ', " + ", ".join(v.search) + ")"
+    return "".join(f" and {raw} ~* %s" for _ in words), [r"\m" + loose_re(w) + (r"\M" if whole else "") for w in words]
+
+
 # ── the board's match_sql and view_sql, without the expanded search's fields (ruling 82) and their mode
 #    (ruling 92 (6)), which the report does not offer: its search is mode ALL with no fields ──
 
@@ -153,6 +180,8 @@ def view_sql(v: Searched, words: list, number: str = None, limit: int = LIMIT) -
     """(sql, params): the matching rows of one view with the view's total as `total` on every row."""
     clause, params = match_sql(v, words, number)
     g, gp = guard_sql(v)
+    pre, pp = prefilter_sql(v, words, number)
+    g, gp = g + pre, gp + pp
     sql = (f"select *, {v.key_col} as key, count(*) over () as total from pub.{v.name} where {clause}{g} "
            f"order by {v.default_order} nulls last, {v.key_col} limit %s")
     return sql, params + gp + [limit]
