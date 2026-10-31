@@ -61,6 +61,7 @@ slots = 16
 context = 32768
 temperature = 0.0
 max_tokens = 8192
+streams = 8   # measured 31 October 13:44-15:50: 8 streams of beehive pieces 155 a minute (median call 2.6 s, p90 4.3); 16 streams 145 a minute (median 6.6 s): no gain past 8 to 10 for short documents. The cap on pieces in flight across every row on this server, each row's concurrency x threads within it
 request = {chat_template_kwargs = {enable_thinking = false}}
 used_for = "Turning text into rows; the old job type was document-read. No thinking for a reader (lessons/a-reader-profile-turns-thinking-off.md)"
 

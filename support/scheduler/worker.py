@@ -10,12 +10,31 @@ urgent job it can run, which it runs under the runner's limits with the
 lease renewed as it goes. Losing a box means one worker stops pulling and
 its leases lapse; the other finishes the work.
 
+A PIECED ROW RUNS ITS PIECES SEVERAL AT ONCE (31 October). Measured on live
+that day: three reader rows each running pieces one after another gave the
+standing server 3 to 4 requests at a time and 7 a minute; eight hand streams
+of the same pieces read 155 a minute, sixteen 145. So the row's runner
+(`_run_pieces`) keeps N pieces in flight, each a `--piece KEY` child with its
+own run record, where N = min(the job's `concurrency`, (the profile's
+`streams` less every other row's pieces in flight on the same server) //
+the job's `threads`), never under 1, worked out again before every piece
+starts and written to the row (`in_flight`, shown by `status`). The lease
+and the piece records are kept by the runner thread on the one connection;
+the children only run. A row claimed with no pieces runs its type's
+`pieces_command` first and its lines are the pieces; none means the row is
+done at once ("nothing waiting"). A finished row queues its type's `then`
+jobs, one in flight each (`queue.then_rows`).
+
 WHAT A WORKER MAY RUN (2.3, 2.5). A job whose required programs this box
 lacks is never claimed. Parallelism is worked out, not fixed: a job gets
 as many parallel workers as fit in the box's available memory after the
 reserve for the database and the standing services, up to its declared
 cap. A job needing a model profile is claimed only while a card on this
-box holds that profile.
+box holds that profile; its cap (`concurrency`) is per card holding the
+profile, and each piece runs against the card with the fewest of this
+worker's jobs on it (`pick_card`), so two page readers are both fed (card
+one-page-reader-at-a-time-while-card-0-holds-the-ocr-server, 30 October:
+every piece went to the first card holding the profile).
 
 A JOB STOPPED AT ITS MEMORY CEILING (ruling 115) failed by a figure the
 scheduler holds, so the worker records a raise (`queue.raise_memory`): the
@@ -114,16 +133,20 @@ class Running:
         self.claim, self.jt = claim, jt
         self.memory_gb = jt.memory_gb             # the working figure at the claim (ruling 115)
         self.rerun: dict | None = None            # the memory raise that queued this row, if any
+        self.card: int | None = None              # the card the current piece runs against (pick_card)
         self.started = time.monotonic()
         self.last_renew = time.monotonic()    # across every piece of the claim, so short pieces still renew
         self.thread: threading.Thread | None = None
         self.outcome: str | None = None
+        self.in_flight = 0                        # pieces (children) running now; 1 for a job not cut into pieces
+        self.cap: int | None = None               # the runner's N, as last worked out and written to the row
+        self.lost = False                         # the lease was lost: every child's tick says stop
 
 
 class Worker:
     def __init__(self, name: str, box: str = None, *, database: str = "querynz_v4", schema: str = SCHEMA,
                  registry: dict = None, profiles: dict = None, rules: reg.Queueing = None, tick_s: float = 5.0,
-                 probe_every_s: int = 600, alarm_after_s: int = 300, hide_programs=(), max_parallel: int = 4,
+                 probe_every_s: int = 600, alarm_after_s: int = 300, hide_programs=(), max_parallel: int = 8,
                  log=None, connect=None, alarm=None, cards_manager=None):
         self.name, self.box = name, box or pb.profile().get("host")
         self.database, self.schema = database, schema
@@ -149,6 +172,30 @@ class Worker:
         self.lock = threading.Lock()
         self.stopping = False
         self.ticks = 0
+        self.retry_pause_s = 5.0                   # after one failed piece, before the next is started
+
+    # ── pieces in flight (31 October) ────────────────────────────────────────
+
+    def streams_of(self, profile: str) -> int | None:
+        """The pieces worth keeping in flight on `profile` across every row
+        on its server (the profile's measured `streams`, else its slots)."""
+        return reg.streams_of(self.profiles, profile) if profile in self.profiles else None
+
+    def in_flight_cap(self, r: Running) -> int:
+        """N for this row now: the job's concurrency, cut to what the
+        profile's streams leave after every other row's pieces in flight on
+        the same server (each counted times its job's threads), divided by
+        this job's own threads; never under 1, so a row always moves."""
+        cap = r.jt.concurrency
+        if r.jt.profile:
+            streams = self.streams_of(r.jt.profile)
+            if streams:
+                on = self.serving(r.jt.profile)
+                with self.lock:
+                    others = sum(o.in_flight * o.jt.threads for o in self.running.values()
+                                 if o is not r and o.jt.profile and self.serving(o.jt.profile) == on)
+                cap = min(cap, (streams - others) // max(1, r.jt.threads))
+        return max(1, cap)
 
     # ── the box ──────────────────────────────────────────────────────────────
 
@@ -239,6 +286,33 @@ class Worker:
     def cards_here(self) -> list[dict]:
         return q.cards(self.conn, self.schema, self.box)
 
+    def cards_holding(self, profile: str, cards: list[dict] = None) -> list[dict]:
+        """The cards on this box a job on `profile` may run against now:
+        holding its serving profile, answering on a port, not draining, not
+        reserved."""
+        on = self.serving(profile)
+        return [c for c in (cards if cards is not None else self.cards_here())
+                if c["profile"] == on and c["port"] and not c["draining"] and not c.get("reserved")]
+
+    def pick_card(self, r: Running) -> dict | None:
+        """The card this run's next piece goes to: of the cards holding the
+        profile, the one with the fewest of this worker's other jobs on it,
+        the lowest index on a tie; None when no card holds it. Recorded on
+        the run, so the pieces of one job and its concurrent rows are spread
+        over every card holding the profile, not sent to the first."""
+        cards = self.cards_holding(r.jt.profile)
+        if not cards:
+            r.card = None
+            return None
+        with self.lock:
+            load = {}
+            for other in self.running.values():
+                if other is not r and other.card is not None:
+                    load[other.card] = load.get(other.card, 0) + 1
+        card = min(cards, key=lambda c: (load.get(c["card"], 0), c["card"]))
+        r.card = card["card"]
+        return card
+
     def eligible(self) -> list[str]:
         """The job types this worker may claim right now."""
         free = self.available_gb()
@@ -256,12 +330,15 @@ class Worker:
                 continue
             mem = self.working_gb(jt)
             fits = int(free // mem) if mem > 0 else jt.concurrency
-            if counts.get(jt.name, 0) >= min(jt.concurrency, max(fits, 0)):
-                continue
+            cap = jt.concurrency
             if jt.profile:
-                on = self.serving(jt.profile)
-                if not any(c["profile"] == on and not c["draining"] and c["port"] and not c["reserved"] for c in cards):
+                holding = self.cards_holding(jt.profile, cards)
+                if not holding:
                     continue
+                # the cap is per card holding the profile: three rows on each of two page readers, not three in all
+                cap = jt.concurrency * len(holding)
+            if counts.get(jt.name, 0) >= min(cap, max(fits, 0)):
+                continue
             out.append(jt.name)
         return out
 
@@ -366,22 +443,20 @@ class Worker:
             for qid in done:
                 del self.running[qid]
 
-    def _argv(self, jt: reg.JobType, extra: list[str]) -> list[str]:
-        argv = list(jt.command) + list(extra)
+    def _argv(self, command, extra: list[str]) -> list[str]:
+        argv = list(command) + list(extra)
         if argv and argv[0] == "python":
             argv[0] = sys.executable
         return argv
 
-    def _env(self, r: Running, run_id: str, piece: dict | None) -> dict:
+    def _env(self, r: Running, run_id: str, piece: dict | None, card: dict | None = None) -> dict:
         env = {"QV4_RUN_ID": run_id, "QV4_JOB": r.jt.name, "QV4_QUEUE_ID": str(r.claim["id"]), "QV4_WORKER": self.name,
                "QV4_BOX": self.box, "QV4_ARGS": json.dumps(r.claim.get("args") or {}), "PYTHONUNBUFFERED": "1"}
         if piece:
             env["QV4_PIECE"] = str(piece["piece"])
             env["QV4_PIECE_KEY"] = piece["key"]
         if r.jt.profile:
-            on = self.serving(r.jt.profile)
-            card = next((c for c in self.cards_here() if c["profile"] == on and c["port"] and not c["draining"]
-                         and not c.get("reserved")), None)
+            card = card or self.pick_card(r)
             if card:
                 env["QV4_MODEL_URL"] = f"http://127.0.0.1:{card['port']}/v1/chat/completions"
                 env["QV4_MODEL_PORT"] = str(card["port"])
@@ -395,36 +470,23 @@ class Worker:
                                                    **prof.request_fields}, sort_keys=True)
         return env
 
-    def _run_one(self, conn, r: Running, piece: dict | None) -> runner.Result:
+    def _begin_run(self, conn, r: Running, piece: dict | None, card: dict | None) -> tuple[str, int]:
+        """The run's two records (the journal and the table) before the child
+        starts. Returns (run_id, working_mb)."""
         jt, claim = r.jt, r.claim
-        if jt.profile and not self._env(r, "", piece).get("QV4_MODEL_URL"):
-            # the card that held the profile when the job was claimed no longer does: do not run a
-            # doomed child; the job goes back and is claimed again when a card holds it
-            return runner.Result(None, 0.0, 0, "failed", f"no card on {self.box} holds profile {jt.profile} now", "lease")
         raise_id = r.rerun["id"] if r.rerun else None
         working_mb = int(r.memory_gb * 1024)
-        run_id = runs.begin(jt.name, box=self.box, queue_id=claim["id"], card=None,
+        run_id = runs.begin(jt.name, box=self.box, queue_id=claim["id"], card=f"{self.box}:{card['card']}" if card else None,
                             requested_model=self.profiles[jt.profile].model if jt.profile else None,
                             args={"piece": piece["key"] if piece else None, "worker": self.name, "rerun_of_raise": raise_id})
         q.run_begin(conn, self.schema, run_id, job=jt.name, worker=self.name, box=self.box, qid=claim["id"],
                     piece=piece["piece"] if piece else None, declared_mb=int(jt.memory_gb * 1024), working_mb=working_mb,
                     raise_id=raise_id)
-        # The renewal clock lives on the claim (`r.last_renew`), not on the piece: a run of
-        # pieces each shorter than lease_seconds / 3 used to never renew, and the 90 s lease
-        # lapsed under pass one of the trial (card the-worker-s-lease-lapses-under-a-run-of-short-pieces).
-        def tick() -> bool:
-            if self.stopping:
-                return False
-            if time.monotonic() - r.last_renew >= self.rules.lease_seconds / 3:
-                r.last_renew = time.monotonic()
-                if not q.renew(conn, self.schema, claim["id"], claim["token"], lease_s=self.rules.lease_seconds):
-                    self.log(f"row {claim['id']}: lease lost; stopping the child")
-                    return False
-            return True
+        return run_id, working_mb
 
-        res = runner.run(self._argv(jt, [piece["key"]] if piece else []), deadline_s=jt.needs.deadline_s,
-                         ceiling_mb=runner.ceiling_for(r.memory_gb), query_timeout_s=jt.needs.query_timeout_s,
-                         env=self._env(r, run_id, piece), cwd=REPO, tick=tick, log=self.log, nice=jt.nice)
+    def _end_run(self, conn, r: Running, res: runner.Result, run_id: str, working_mb: int) -> None:
+        jt = r.jt
+        raise_id = r.rerun["id"] if r.rerun else None
         res.run_id = run_id
         runs.finish(run_id, outcome=res.outcome, error=res.error, peak_mb=res.peak_mb, declared_mb=int(jt.memory_gb * 1024),
                     note=res.stopped_for, working_mb=working_mb, rerun_of_raise=raise_id)
@@ -433,6 +495,41 @@ class Worker:
         if res.peak_mb > jt.memory_gb * 1024:
             self.log(f"{jt.name} run {run_id}: peak {res.peak_mb} MB passed its declared {int(jt.memory_gb * 1024)} MB: "
                      f"flagged, correct the figure")
+
+    def _renew_if_due(self, conn, r: Running) -> bool:
+        """Renew the row's lease when a third of it has passed. The clock is
+        the claim's, not a piece's (card the-worker-s-lease-lapses-under-a-
+        run-of-short-pieces). False, and `r.lost`, when the lease is gone."""
+        if r.lost:
+            return False
+        if time.monotonic() - r.last_renew >= self.rules.lease_seconds / 3:
+            r.last_renew = time.monotonic()
+            if not q.renew(conn, self.schema, r.claim["id"], r.claim["token"], lease_s=self.rules.lease_seconds):
+                self.log(f"row {r.claim['id']}: lease lost; stopping the child(ren)")
+                r.lost = True
+                return False
+        return True
+
+    def _run_one(self, conn, r: Running, piece: dict | None) -> runner.Result:
+        """One child on the job thread (a job not cut into pieces): the lease
+        is renewed from the child's tick."""
+        jt = r.jt
+        card = self.pick_card(r) if jt.profile else None
+        if jt.profile and card is None:
+            # the card that held the profile when the job was claimed no longer does: do not run a
+            # doomed child; the job goes back and is claimed again when a card holds it
+            return runner.Result(None, 0.0, 0, "failed", f"no card on {self.box} holds profile {jt.profile} now", "lease")
+        run_id, working_mb = self._begin_run(conn, r, piece, card)
+
+        def tick() -> bool:
+            if self.stopping:
+                return False
+            return self._renew_if_due(conn, r)
+
+        res = runner.run(self._argv(jt.command, [piece["key"]] if piece else []), deadline_s=jt.needs.deadline_s,
+                         ceiling_mb=runner.ceiling_for(r.memory_gb), query_timeout_s=jt.needs.query_timeout_s,
+                         env=self._env(r, run_id, piece, card), cwd=REPO, tick=tick, log=self.log, nice=jt.nice)
+        self._end_run(conn, r, res, run_id, working_mb)
         return res
 
     def _raise_memory(self, conn, r: Running, res: runner.Result, pieced: bool) -> dict:
@@ -448,6 +545,153 @@ class Worker:
                  f"{runner.ceiling_for(r.memory_gb)} MB; memory raise {rz['id']}: {rz['note']}")
         return rz
 
+    # ── the pieces command and the concurrent runner (31 October) ────────────
+
+    def _pieces_command(self, conn, r: Running) -> tuple[list[str], str | None]:
+        """Run the job's `pieces_command` in the job's environment and read
+        the piece keys from its output, one a line, blank lines and repeats
+        dropped (its stderr flows to the journal). Recorded as a run with
+        piece 0. Returns (keys, error): an error means the row fails."""
+        jt = r.jt
+        card = self.pick_card(r) if jt.profile else None
+        run_id, working_mb = self._begin_run(conn, r, {"piece": 0, "key": "pieces_command"}, card)
+        env = dict(os.environ)
+        env.update(self._env(r, run_id, None, card))
+        env.pop("QV4_PIECE", None)
+        if jt.needs.query_timeout_s:
+            env["PGOPTIONS"] = f"-c statement_timeout={int(jt.needs.query_timeout_s) * 1000}"
+        t0 = time.monotonic()
+        keys, error, code = [], None, None
+        try:
+            p = subprocess.run(self._argv(jt.pieces_command, []), cwd=REPO, env=env, stdout=subprocess.PIPE, text=True,
+                               timeout=jt.needs.deadline_s)
+            code = p.returncode
+            if code:
+                error = f"pieces_command exit {code} (its stderr is in the journal)"
+            else:
+                seen = set()
+                for line in p.stdout.splitlines():
+                    k = line.strip()
+                    if k and k not in seen:
+                        seen.add(k)
+                        keys.append(k)
+        except subprocess.TimeoutExpired:
+            error = f"pieces_command stopped at its deadline of {jt.needs.deadline_s:.0f}s"
+        except (OSError, ValueError) as e:
+            error = f"pieces_command {type(e).__name__}: {str(e)[:300]}"
+        res = runner.Result(code, round(time.monotonic() - t0, 1), 0, "failed" if error else "ok", error)
+        self._end_run(conn, r, res, run_id, working_mb)
+        return keys, error
+
+    def _start_piece(self, conn, r: Running, piece: dict, card: dict | None, results) -> None:
+        """One piece as a child in its own thread; its result goes on
+        `results` for the runner thread, which keeps every record."""
+        jt = r.jt
+        run_id, working_mb = self._begin_run(conn, r, piece, card)
+        argv = self._argv(jt.command, [piece["key"]])
+        env = self._env(r, run_id, piece, card)
+        with self.lock:
+            r.in_flight += 1
+
+        def go():
+            res = runner.run(argv, deadline_s=jt.needs.deadline_s, ceiling_mb=runner.ceiling_for(r.memory_gb),
+                             query_timeout_s=jt.needs.query_timeout_s, env=env, cwd=REPO,
+                             tick=lambda: not (self.stopping or r.lost), log=self.log, nice=jt.nice)
+            results.put((piece, res, run_id, working_mb))
+
+        threading.Thread(target=go, name=f"piece-{r.claim['id']}-{piece['piece']}", daemon=True).start()
+
+    def _run_pieces(self, conn, r: Running) -> None:
+        """The row's pieces, N at a time (`in_flight_cap`, worked out again
+        before each start). The runner stops STARTING pieces, lets the ones
+        in flight finish, and gives the row back when: the worker is
+        stopping; the lease is lost; no card on this box holds the profile
+        any more (a draining card finishes its pieces and takes no more); a
+        piece was stopped at its memory ceiling and the raise re-runs the row
+        (ruling 115); two pieces failed in a row (the environment, not two bad
+        pieces: retried in two minutes). One failed piece pauses the starts
+        for `retry_pause_s`. Otherwise the row completes, done when no piece
+        failed, and its `then` jobs are queued either way."""
+        import queue as pyqueue
+        jt, claim = r.jt, r.claim
+        qid, token = claim["id"], claim["token"]
+        results: pyqueue.Queue = pyqueue.Queue()
+        stop: str | None = None
+        detail, not_before = "", None
+        hold_until, in_a_row = 0.0, 0
+        while True:
+            if stop is None and self.stopping:
+                stop, detail = "stopping", "worker stopping"
+            if stop is None and r.lost:
+                stop, detail = "lease", "worker stopping or lease lost"
+            while stop is None and time.monotonic() >= hold_until:
+                cap = self.in_flight_cap(r)
+                if cap != r.cap:
+                    r.cap = cap
+                    q.set_in_flight(conn, self.schema, qid, cap)
+                if r.in_flight >= cap:
+                    break
+                card = self.pick_card(r) if jt.profile else None
+                if jt.profile and card is None:
+                    stop, detail = "no card", f"no card on {self.box} holds profile {jt.profile} now; given back with its progress"
+                    break
+                piece = q.next_piece(conn, self.schema, qid, token, self.name)
+                if piece is None:
+                    break
+                self._start_piece(conn, r, piece, card, results)
+            if r.in_flight == 0:
+                if stop is None and time.monotonic() < hold_until:
+                    time.sleep(max(0.0, hold_until - time.monotonic()))
+                    self._renew_if_due(conn, r)
+                    continue
+                break
+            due = self.rules.lease_seconds / 3 - (time.monotonic() - r.last_renew)
+            try:
+                piece, res, run_id, working_mb = results.get(timeout=max(0.05, min(due, 1.0)))
+            except pyqueue.Empty:
+                self._renew_if_due(conn, r)
+                continue
+            with self.lock:
+                r.in_flight -= 1
+            self._end_run(conn, r, res, run_id, working_mb)
+            q.finish_piece(conn, self.schema, qid, token, piece["piece"], ok=res.outcome == "ok", seconds=res.seconds,
+                           detail=res.error or "")
+            if res.stopped_for == "lease" and stop is None:
+                stop, detail = "lease", "worker stopping" if self.stopping else "worker stopping or lease lost"
+            if res.stopped_for == "memory":
+                rz = self._raise_memory(conn, r, res, pieced=True)
+                if rz["requeued_id"] and stop is None:
+                    stop, detail = "memory", f"memory raise {rz['id']}: {rz['note']}"
+            if res.outcome != "ok":
+                in_a_row += 1
+                if in_a_row >= 2 and stop is None:
+                    stop = "failures"
+                    detail = f"{in_a_row} pieces failed in a row ({res.error}); retried in 2 minutes"
+                    not_before = q.utcnow() + dt.timedelta(seconds=120)
+                    self.log(f"row {qid} ({jt.name}): {in_a_row} pieces failed in a row; given back for 2 minutes")
+                else:
+                    hold_until = time.monotonic() + self.retry_pause_s
+            else:
+                in_a_row = 0
+            self._renew_if_due(conn, r)
+        q.set_in_flight(conn, self.schema, qid, None)
+        if stop is not None:
+            q.requeue(conn, self.schema, qid, token, detail=detail, not_before=not_before)
+            r.outcome = f"given back: {detail}"
+            return
+        left = q.pieces_left(conn, self.schema, qid)
+        ok = left["failed"] == 0 and left["todo"] == 0
+        r.outcome = "ok" if ok else "failed"
+        q.complete(conn, self.schema, qid, token, outcome=r.outcome, detail=f"pieces done {left['done']}, failed {left['failed']}")
+        if not ok:
+            self.alarm(f"qv4 {self.box}: {jt.name} failed", f"row {qid}: {left['failed']} piece(s) failed")
+        self._then(conn, r)
+
+    def _then(self, conn, r: Running) -> None:
+        """A row has finished: queue its type's `then` jobs (one in flight each)."""
+        for line in q.then_rows(conn, self.schema, r.claim["id"], r.jt, registry=self.registry):
+            self.log(f"row {r.claim['id']} ({r.jt.name}) {line}")
+
     def _run_job(self, r: Running) -> None:
         conn = None
         try:
@@ -455,58 +699,44 @@ class Worker:
             jt, claim = r.jt, r.claim
             r.rerun = q.raise_for_row(conn, self.schema, claim["id"])
             if jt.pieces:
-                failed, in_a_row = 0, 0
-                while True:
-                    if self.stopping:
-                        q.requeue(conn, self.schema, claim["id"], claim["token"], detail="worker stopping")
+                if not claim.get("pieces_total") and jt.pieces_command:
+                    keys, error = self._pieces_command(conn, r)
+                    if error:
+                        r.outcome = "failed"
+                        q.complete(conn, self.schema, claim["id"], claim["token"], outcome="failed", detail=error)
+                        self.alarm(f"qv4 {self.box}: {jt.name} failed", f"row {claim['id']}: {error}")
                         return
-                    piece = q.next_piece(conn, self.schema, claim["id"], claim["token"], self.name)
-                    if piece is None:
-                        break
-                    res = self._run_one(conn, r, piece)
-                    if res.stopped_for in ("lease",):
-                        q.requeue(conn, self.schema, claim["id"], claim["token"], detail="worker stopping or lease lost")
+                    if not keys:
+                        r.outcome = "ok"
+                        q.complete(conn, self.schema, claim["id"], claim["token"], outcome="ok", detail="nothing waiting")
+                        self._then(conn, r)
                         return
-                    q.finish_piece(conn, self.schema, claim["id"], claim["token"], piece["piece"], ok=res.outcome == "ok",
-                                   seconds=res.seconds, detail=res.error or "")
-                    if res.stopped_for == "memory":
-                        rz = self._raise_memory(conn, r, res, pieced=True)
-                        if rz["requeued_id"]:
-                            q.requeue(conn, self.schema, claim["id"], claim["token"],
-                                      detail=f"memory raise {rz['id']}: {rz['note']}")
-                            return
-                    if res.outcome != "ok":
-                        failed += 1
-                        in_a_row += 1
-                        if in_a_row >= 2:
-                            # two pieces failing back to back is the environment (a server gone, a disk full),
-                            # not two bad pieces: give the job back for later rather than burn every piece's attempts
-                            q.requeue(conn, self.schema, claim["id"], claim["token"],
-                                      detail=f"{in_a_row} pieces failed in a row ({res.error}); retried in 2 minutes",
-                                      not_before=q.utcnow() + dt.timedelta(seconds=120))
-                            self.log(f"row {claim['id']} ({jt.name}): {in_a_row} pieces failed in a row; given back for 2 minutes")
-                            return
-                        time.sleep(5)
-                    else:
-                        in_a_row = 0
-                left = q.pieces_left(conn, self.schema, claim["id"])
-                ok = left["failed"] == 0 and left["todo"] == 0
-                q.complete(conn, self.schema, claim["id"], claim["token"], outcome="ok" if ok else "failed",
-                           detail=f"pieces done {left['done']}, failed {left['failed']}")
-                if not ok:
-                    self.alarm(f"qv4 {self.box}: {jt.name} failed", f"row {claim['id']}: {left['failed']} piece(s) failed")
+                    n = q.add_pieces(conn, self.schema, claim["id"], claim["token"], keys)
+                    if n < 0:
+                        self.log(f"row {claim['id']}: lease lost before its pieces were set")
+                        return
+                    self.log(f"row {claim['id']} ({jt.name}): {n} piece(s) from its pieces_command")
+                self._run_pieces(conn, r)
             else:
+                with self.lock:
+                    r.in_flight = 1
                 res = self._run_one(conn, r, None)
+                with self.lock:
+                    r.in_flight = 0
                 if res.stopped_for == "lease":
                     q.requeue(conn, self.schema, claim["id"], claim["token"], detail="worker stopping or lease lost")
+                    r.outcome = "given back"
                     return
                 rz = self._raise_memory(conn, r, res, pieced=False) if res.stopped_for == "memory" else None
                 detail = res.error or ""
                 if rz:
                     detail += f"; memory raise {rz['id']}: {rz['note']}"
+                r.outcome = res.outcome
                 q.complete(conn, self.schema, claim["id"], claim["token"], outcome=res.outcome, detail=detail)
                 if res.outcome != "ok" and not (rz and rz["requeued_id"]):
                     self.alarm(f"qv4 {self.box}: {jt.name} failed", f"row {claim['id']}: {detail}")
+                if res.outcome == "ok":
+                    self._then(conn, r)
             self.log(f"row {claim['id']} ({jt.name}) finished: {r.outcome or 'see record'}")
         except Exception:  # noqa: BLE001
             self.log(f"row {r.claim['id']} failed inside the worker:\n" + traceback.format_exc())
