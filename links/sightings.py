@@ -222,7 +222,73 @@ def text_of(conn, lane: str, sha: str) -> str:
 
 
 # ── the pass ──────────────────────────────────────────────────────────────────────────────────────────────────
+#: lanes whose text is a column of a published view: read with the document in one streamed query, not looked up one
+#: document at a time (the views carry no index on `document`: 31 October 2026, 31 and 223 documents a minute)
+STREAMED = {
+    "parliament-wayback": "SELECT document, text FROM pub.parliament_wayback_pages WHERE document IS NOT NULL AND coalesce(text, '') <> ''",
+    "parliament-questions": "SELECT document, concat_ws(E'\\n\\n', title, question_text, reply_text) FROM pub.parliament_written_questions "
+                            "WHERE document IS NOT NULL",
+}
+
+
+def scan_streamed(lane: str, limit: int = None, log=print, batch: int = 500) -> dict:
+    with db.connect(db.OWNER_KEY, "querynz_v4") as conn, db.connect(db.READ_KEY, "querynz_v4") as rconn:
+        conn.execute("SET statement_timeout = 0")
+        rconn.execute("SET statement_timeout = 0")
+        conn.execute(DDL)
+        conn.commit()
+        forms, version = load_forms(conn)
+        done = {d for (d,) in conn.execute("SELECT document FROM links.sightings_done WHERE lane = %s AND version = %s",
+                                           (lane, version)).fetchall()}
+        log(f"sightings {lane}: {len(forms):,} forms (version {version}), streamed, {len(done):,} done")
+        n = found = chars = 0
+        t0 = time.monotonic()
+        rows, dones = [], []
+        with rconn.cursor(name="texts") as cur:
+            cur.itersize = 2000
+            cur.execute(STREAMED[lane])
+            for sha, text in cur:
+                if sha in done:
+                    continue
+                done.add(sha)
+                t = time.monotonic()
+                text = text or ""
+                hits = scan(text, forms)
+                rows += [(sha, lane, f, text[a:b], a, b, forms[f], version) for f, a, b in hits]
+                dones.append((sha, lane, version, len(text), len(hits), round(time.monotonic() - t, 3)))
+                n += 1
+                found += len(hits)
+                chars += len(text)
+                if len(dones) >= batch:
+                    _write(conn, rows, dones)
+                    rows, dones = [], []
+                    if n % 10000 < batch:
+                        el = time.monotonic() - t0
+                        log(f"sightings {lane}: {n:,} documents, {found:,} sightings, {n / el * 60:.0f} documents a minute")
+                if limit and n >= limit:
+                    break
+        _write(conn, rows, dones)
+        out = {"lane": lane, "documents": n, "sightings": found, "chars": chars, "seconds": round(time.monotonic() - t0, 1),
+               "version": version}
+        log(json.dumps(out))
+        return out
+
+
+def _write(conn, rows: list, dones: list) -> None:
+    with conn.cursor() as cur:
+        if rows:
+            with cur.copy("COPY links.sightings (document, lane, form, printed, start_at, end_at, kind, version) FROM STDIN") as cp:
+                for r in rows:
+                    cp.write_row(r)
+        if dones:
+            cur.executemany("INSERT INTO links.sightings_done (document, lane, version, chars, found, seconds) VALUES (%s, %s, %s, %s, %s, %s) "
+                            "ON CONFLICT DO NOTHING", dones)
+    conn.commit()
+
+
 def scan_lane(lane: str, limit: int = None, log=print) -> dict:
+    if lane in STREAMED:
+        return scan_streamed(lane, limit, log)
     with db.connect(db.OWNER_KEY, "querynz_v4") as conn:
         conn.execute("SET statement_timeout = 0")
         conn.execute(DDL)
