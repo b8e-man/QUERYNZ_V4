@@ -53,10 +53,18 @@ Warm window 23:52 to 00:14, from live/checks/serving-metrics.jsonl (the model wa
 | parliament (row 941) | 751 of 65,809 | 2.3 | 470 |
 | beehive (row 942) | 1,555 of 66,399 | 3.3 | 330 |
 
+## The switch to Qwen 3.6, and the night lost
+
+- 00:56: Radiance stopped and disabled; the switch released (commit 3f5e722); the worker restarted.
+- 00:56 to 07:16: NO reader ran. The old worker, seeing Radiance stop, wrote both cards into the scheduler as held for it; the new worker kept that hold because registration kept any existing reservation, and with Flash-Next gone from the profiles nothing cleared it. Qwen 3.6 never loaded. The half-hourly checks did not fire in that time, so nobody saw it. Six hours of reading lost.
+- 07:16: fixed (commit 67d4839: a hold for a standing server no longer in the profiles is cleared at registration; any other reservation stands), released, worker restarted. Both cards loaded Qwen 3.6 in 10 s and 4 s; card use 98 to 99% (Radiance: 3%); card memory 87% and 80%.
+- The nightly loads, names refills and name passes ran on time through the night (they need no model).
+
 ## Faults and restarts
 
-No unit stopped; nothing restarted.
+- Standing, outside tonight's scope, failing on earlier nights too: qv4-charities-capture and qv4-tenancy-tribunal-capture, each "exit 1" with no message.
+- qv4-mcp-pull failed at 01:58; qv4-full-tier failed at 05:00. Not yet looked at.
+- qv4-sightings-courts peaked at 1,036 MB against 1,024 declared; the figure wants raising.
+- The board's chat calls Radiance's address (:8060) and does not answer while Qwen 3.6 serves.
 
-Standing faults outside tonight's scope, failing the same way on earlier nights: qv4-charities-capture (rows 889, 974, last 23:30) and qv4-tenancy-tribunal-capture (rows 876, 958, last 22:36), each "exit 1" with no message in the run record.
-
-Last updated 2026-11-01 00:16.
+Last updated 2026-11-01 07:20.
