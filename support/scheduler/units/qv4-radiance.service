@@ -40,7 +40,7 @@ ExecStart=/usr/bin/podman run --cidfile=%t/%n.ctr-id --cgroups=no-conmon --rm --
   docker.io/stilldeadcode/radiance:latest \
   --model /model.rad --served-model-name qwen4exp \
   --tp 2 --tp-wire exact \
-  --max-model-len 32768 --max-num-seqs 16 --kv-cache-dtype fp8 \
+  --max-model-len 32768 --max-num-seqs 8 --kv-cache-dtype fp8 \
   --placement expert_tiered --host-pool-mib 20480 --gpu-headroom-mib 2560 \
   --ngram-placement disk --num-speculative-tokens 3 --draft-window adaptive \
   --max-num-batched-tokens 4096 --checkpoint-policy tip-only \

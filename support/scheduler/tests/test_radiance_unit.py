@@ -50,7 +50,7 @@ def test_the_recorded_serving_shape():
     22,652 tokens and three requests ran at a time; a bigger pool moves
     experts off-card and the KV cache takes the VRAM they leave: 524,396)."""
     argv = _exec_start()
-    want = {"--tp": "2", "--max-num-seqs": "16", "--max-model-len": "32768", "--max-num-batched-tokens": "4096",
+    want = {"--tp": "2", "--max-num-seqs": "8", "--max-model-len": "32768", "--max-num-batched-tokens": "4096",
             "--draft-window": "adaptive", "--checkpoint-policy": "tip-only", "--ngram-placement": "disk",
             "--host-pool-mib": "20480", "--gpu-headroom-mib": "2560", "--placement": "expert_tiered",
             "--kv-cache-dtype": "fp8", "--port": "8060", "--served-model-name": "qwen4exp"}
