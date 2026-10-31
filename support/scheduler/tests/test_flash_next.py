@@ -124,40 +124,38 @@ def cat(tmp_path):
 
 # ── the shipped profiles ─────────────────────────────────────────────────────
 
-def _commented_flash_next() -> str:
-    """The flash-next block as profiles.toml keeps it for a rollback: commented out (1 November 2026)."""
-    text = reg.PROFILES.read_text(encoding="utf-8") if hasattr(reg, "PROFILES") else (
-        pathlib.Path(reg.__file__).parent / "profiles.toml").read_text(encoding="utf-8")
-    lines = text.split("# [profiles.flash-next]", 1)[1].split("\n\n", 1)[0].splitlines()
-    return "[profiles.flash-next]\n" + "\n".join(l[2:] if l.startswith("# ") else "" for l in lines[1:])
+def test_the_shipped_flash_next_profile_is_the_standing_radiance_server_on_both_cards():
+    p = reg.profiles()["flash-next"]
+    assert (p.model, p.binary, p.unit, p.port, p.cards) == ("qwen4exp", "radiance", "qv4-radiance.service", 8060, 2)
+    assert p.weights == ("radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad",)
+    assert p.geometry == "32768x16" and p.measured_geometry == p.geometry   # 32k since 31 October (the bulk ingest; the unit test says why)
+    assert p.memory_gb and p.host_memory_gb and p.load_seconds, "memory and load time are measured, not left empty"
 
 
-def test_the_shipped_reader_and_review_run_qwen36_one_copy_a_card_and_flash_next_is_off():
-    """Arthur, 1 November 2026: Qwen 3.6 35B-A3B Q4_K_M, a llama-server the worker starts on each card; the
-    standing Radiance profile is commented out (a standing server not answering holds its cards reserved)."""
+def test_the_reader_and_review_are_views_on_it_and_qwen36_has_left():
     profs = reg.profiles()
     tr, rv = profs["text-reader"], profs["review"]
-    assert "flash-next" not in profs and not any(p.standing for p in profs.values())
-    assert tr.on is None and rv.on is None and tr.model == rv.model == "qwen3.6-35b-a3b-q4km"
-    assert tr.weights == rv.weights == ("Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf",)
-    assert tr.context == 32768 and tr.slots == 8 and tr.streams == 8
-    assert '{"enable_thinking": false}' in tr.flags and "--reasoning-budget" in rv.flags
+    assert tr.on == rv.on == "flash-next" and tr.model == rv.model == "qwen4exp"
+    assert tr.request_fields["chat_template_kwargs"] == {"enable_thinking": False}
+    assert rv.request_fields["chat_template_kwargs"] == {"enable_thinking": True}
+    assert rv.request_fields["thinking_token_budget"] > 0
+    assert not any("qwen3.6" in p.model or any("Qwen3.6" in w for w in p.weights) for p in profs.values())
     assert reg.problems() == []
 
 
-def test_the_rollback_block_and_the_unit_still_agree():
-    """One fact, two files, kept for the rollback: the unit's served name, slots, context bound and port are the
-    commented block's."""
-    import tomllib
-    p = tomllib.loads(_commented_flash_next())["profiles"]["flash-next"]
+def test_the_unit_and_the_profile_agree():
+    """One fact, two files: the unit's served name, slots, context bound and
+    port are the profile's, or the read-back refuses every load."""
+    p = reg.profiles()["flash-next"]
     text = UNIT.read_text(encoding="utf-8")
     body = text.split("ExecStart=", 1)[1].split("\nExecStop=", 1)[0]
     argv = shlex.split(" ".join(l.rstrip("\\").strip() for l in body.splitlines() if not l.lstrip().startswith("#")))
     flag = lambda n: argv[argv.index(n) + 1]  # noqa: E731
-    assert flag("--served-model-name") == p["model"] == "qwen4exp"
-    assert int(flag("--max-num-seqs")) == p["slots"] and int(flag("--max-model-len")) == p["context"]
-    assert flag("-p") == f"127.0.0.1:{p['port']}:{p['port']}"
-    assert p["unit"] == UNIT.name
+    assert flag("--served-model-name") == p.model
+    assert int(flag("--max-num-seqs")) == p.slots and int(flag("--max-model-len")) == p.context
+    assert flag("-p") == f"127.0.0.1:{p.port}:{p.port}"
+    assert p.unit == UNIT.name
+    assert flag("-v").split(":")[0].endswith(p.weights[0])
 
 
 def test_no_card_on_node2_is_reserved_for_the_frozen_chat_model_any_more():

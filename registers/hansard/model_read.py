@@ -49,7 +49,7 @@ from registers.hansard import split as S
 READER = "registers.hansard.model_read 1"
 LANE = "hansard"
 PROFILE = "hansard-day"
-TEXT_MODEL = os.environ.get("QV4_HANSARD_TEXT_MODEL") or "qwen3.6-35b-a3b-q4km"      # profiles.toml [profiles.text-reader] model (Qwen 3.6 from 1 November 2026; Flash-Next readings stand: support.reader.EARLIER_MODELS)
+TEXT_MODEL = os.environ.get("QV4_HANSARD_TEXT_MODEL") or "qwen4exp"      # profiles.toml [profiles.text-reader] model
 URL = os.environ.get("QV4_MODEL_URL") or "http://127.0.0.1:8060/v1/chat/completions"
 #: characters of speech per request. The text-reader context is 16,384 tokens; MAX_TOKENS answer; the prompt about
 #: 420 tokens; Hansard English measured at 4.3 characters a token on the sample (31 October 2026), so 40,000

@@ -70,16 +70,13 @@ policy = "priority-ordered-round-robin"
 # Outside the window the standing server is never stopped or planned (ruling
 # 121). The frozen release runs at 06:15 NZDT and never calls Flash-Next. The
 # hours are local time in `timezone`, so the clock change moves nothing here.
-# The night window is OFF from 1 November 2026: it stops and starts the standing Radiance server, which no longer
-# serves (the text reader runs Qwen 3.6 one copy a card, started by the worker); the page reader takes a card by the
-# planner's rules instead. A rollback to Flash-Next restores these lines.
-# [night_window]
-# start_local = "22:00"   # ruling 129 (opened from 15:00 on Arthur's word on 30 October for the page backlog; restored 21:20)
-# end_local = "05:45"
-# timezone = "Pacific/Auckland"
-# standing = "flash-next"
-# profile = "page-reader"
-# card = 1
+[night_window]
+start_local = "22:00"   # ruling 129 (opened from 15:00 on Arthur's word on 30 October for the page backlog; restored 21:20)
+end_local = "05:45"
+timezone = "Pacific/Auckland"
+standing = "flash-next"
+profile = "page-reader"
+card = 1
 
 # Step 2.9: the cards the carve-out holds. The planner never evicts these.
 # Ruling 121 (29 October 2026): the frozen chat model (querynz-agent-llm,

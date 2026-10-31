@@ -33,57 +33,46 @@ binary = "built"
 # Measured 29 October 20:18 with the unit started after the frozen OCR server: rocm-smi --showpids 56.06 GB for
 # radiance over the two cards (26.1 GiB a card; 29.3 and 27.9 GiB used of 31.9 with the OCR server and driver), host
 # RSS 28.4 GiB (11 GiB a rank of pinned experts); 21.6 s from `systemctl --user start` to qwen4exp read back on :8060.
-# OFF from 1 November 2026 (Qwen 3.6 one copy a card, below): a standing profile whose unit does not answer holds its
-# cards reserved, so the block is commented out, not left. A rollback uncomments it and restarts qv4-radiance.
-# [profiles.flash-next]
-# model = "qwen4exp"
-# binary = "radiance"
-# unit = "qv4-radiance.service"
-# port = 8060
-# cards = 2
-# weights = ["radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad"]
-# slots = 16
-# context = 32768   # 31 October: the 32k bound and a 20 GiB pool a rank, so the KV cache is 524,396 tokens (5.8 GB a card) not 22,652 (the bulk ingest, ruling 130)
-# temperature = 0.0
-# max_tokens = 8192
-# memory_gb = 26.1
-# host_memory_gb = 46.7   # RSS read after the 31 October restart (20 GiB a rank of pinned experts)
-# measured_geometry = "32768x16"
-# load_seconds = 21.6
-# flags = []
-# used_for = "The standing server the text reader and review are views on (ruling 121)"
+[profiles.flash-next]
+model = "qwen4exp"
+binary = "radiance"
+unit = "qv4-radiance.service"
+port = 8060
+cards = 2
+weights = ["radiance/qwen3.8-next-flash-fp8-iq4r-moe.rad"]
+slots = 16
+context = 32768   # 31 October: the 32k bound and a 20 GiB pool a rank, so the KV cache is 524,396 tokens (5.8 GB a card) not 22,652 (the bulk ingest, ruling 130)
+temperature = 0.0
+max_tokens = 8192
+memory_gb = 26.1
+host_memory_gb = 46.7   # RSS read after the 31 October restart (20 GiB a rank of pinned experts)
+measured_geometry = "32768x16"
+load_seconds = 21.6
+flags = []
+used_for = "The standing server the text reader and review are views on (ruling 121)"
 
-# QWEN 3.6 ONE COPY A CARD (Arthur, 1 November 2026): the text reader and review leave Flash-Next on Radiance (ruling
-# 121) for Qwen 3.6 35B-A3B Q4_K_M, which fits whole on one card, so each card runs its own llama-server started by the
-# worker. Measured before: Flash-Next pooled 130 generated tokens a second with the cards 3% busy (experts streamed
-# from host memory and disk). The flash-next block above is commented out for a rollback; qv4-radiance is stopped and
-# disabled.
-# Geometry: 8 slots of 32,768 tokens a card (hansard's packed requests need the whole 32k), the attention cache at
-# 8 bits (-ctk/-ctv q8_0) so it fits beside the frozen OCR server's share of card 0. memory_gb is an estimate
-# (22.3 GB of weights, about 2.6 GB of cache, compute buffers) until rocm-smi measures the running server.
+# The text reader and review are VIEWS on flash-next: the same model on the same cards, sharing its 16 slots; what
+# differs is what each request says (`request`, handed to the job as QV4_MODEL_REQUEST). Radiance takes a request's
+# own chat_template_kwargs over the server's default (thinking off) and closes the reasoning at thinking_token_budget.
 [profiles.text-reader]
-model = "qwen3.6-35b-a3b-q4km"
-weights = ["Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf"]
-slots = 8
+on = "flash-next"
+model = "qwen4exp"
+slots = 16
 context = 32768
 temperature = 0.0
 max_tokens = 8192
-memory_gb = 26.5
-streams = 8   # per card for a server the worker starts (Worker.in_flight_cap multiplies by the cards holding it)
-# no thinking for a reader: the budget flag alone still thought (measured 18 Oct: 200 tokens of reasoning, empty content)
-flags = ["-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0", "--jinja", "--reasoning-format", "auto", "--chat-template-kwargs", "{\"enable_thinking\": false}"]
+streams = 8   # measured 31 October 13:44-15:50: 8 streams of beehive pieces 155 a minute (median call 2.6 s, p90 4.3); 16 streams 145 a minute (median 6.6 s): no gain past 8 to 10 for short documents. The cap on pieces in flight across every row on this server, each row's concurrency x threads within it
 request = {chat_template_kwargs = {enable_thinking = false}}
 used_for = "Turning text into rows; the old job type was document-read. No thinking for a reader (lessons/a-reader-profile-turns-thinking-off.md)"
 
 [profiles.review]
-model = "qwen3.6-35b-a3b-q4km"
-weights = ["Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf"]
-slots = 4
+on = "flash-next"
+model = "qwen4exp"
+slots = 16
 context = 32768
 temperature = 0.2
 max_tokens = 6144
-memory_gb = 25.0
-flags = ["-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0", "--jinja", "--reasoning-format", "auto", "--reasoning-budget", "2048"]
+request = {chat_template_kwargs = {enable_thinking = true}, thinking_token_budget = 2048}
 used_for = "The review agent; answering questions in products. Thinking on, closed at 2,048 tokens so the answer is never all reasoning"
 
 [profiles.embedding]

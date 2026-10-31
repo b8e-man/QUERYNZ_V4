@@ -158,7 +158,7 @@ def test_several_documents_in_one_request_are_each_stored_once_under_their_own_h
         assert got[A]["people"][0]["name"] == "Sample Person" and got[B]["summary"] == "Two." and not got[A]["replayed"]
         assert got[A]["people"][0]["piece"] == 1 and got[A]["pieces"] == 1 and got[A]["batch"] == 2
         one = M.stored(A, M.WQ, 2, store)
-        assert one["model"] == "qwen4exp" and one["reader"] == M.READER and one["key"] == M.key_for(A, M.WQ, 2, "qwen4exp")
+        assert one["model"] == "qwen4exp" and one["reader"] == M.READER and one["key"] == M.key_for(A, M.WQ, 2)
         assert M.stored(A, M.WQ, 1, store) is None, "another profile version is another reading"
         # alone or with others, the key is one: a single document is a batch of one
         again = M.read_batch([(A, "x"), (C, "QUESTION: e\nREPLY: f")], profile=M.WQ, version=2, url=URL, model="qwen4exp",

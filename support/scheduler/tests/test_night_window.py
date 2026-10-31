@@ -310,22 +310,12 @@ def hip(box):
 
 # ── the catalogue ────────────────────────────────────────────────────────────
 
-def test_the_shipped_catalogue_has_no_window_while_qwen_runs_a_copy_a_card():
-    """1 November 2026: the text reader left Radiance for Qwen 3.6 one copy a card, so nothing standing is stopped at
-    night and the window is off (a rollback restores it). The window's own behaviour is held below on the
-    fixture's catalogue, which keeps the ruling's 22:00 to 05:45 for the page reader on card 1."""
-    assert reg.night_window() is None
+def test_the_shipped_window_is_22_00_to_05_45_nzdt_for_the_page_reader_on_card_1():
+    w = reg.night_window()
+    assert (w.start, w.end, w.timezone, w.standing, w.profile, w.card) == ("22:00", "05:45", "Pacific/Auckland", "flash-next",
+                                                                            "page-reader", 1)
     assert reg.problems() == []
-
-
-@pytest.fixture(autouse=True)
-def _fixture_window(request, tmp_path, monkeypatch):
-    """Every other test here reads the window from this file's catalogue, not the shipped one."""
-    if request.node.name.startswith("test_the_shipped_catalogue_has_no_window"):
-        return
-    jp = tmp_path / "jobs-window.toml"
-    jp.write_text(JOBS)
-    monkeypatch.setattr(reg, "JOBS", jp)
+    assert reg.profiles()[w.profile].memory_gb == 4.8 and reg.profiles()[w.standing].load_seconds == 21.6
 
 
 def test_the_window_opens_and_closes_by_the_local_clock_in_summer_and_winter():
