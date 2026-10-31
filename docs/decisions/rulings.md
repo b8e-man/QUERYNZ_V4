@@ -1196,3 +1196,15 @@ by the clock; the night window is that lever's default, nothing more.
 resource is never asked for; a record's own `text` field is read as the
 record's. The readers of beehive-2, hansard-3 and parliament-2 and the
 courts fixes of 31 October are built on this.
+
+131. Arthur, 31 October, 21:20: "the plan is over. terminate the plan
+effective immediatly", after "we tore through an entire estate build in
+days and now you cant do basic configuration tests on the document
+reading" (five merge gates refused that day on live timing floors, an
+uncatalogued view and a copied SQL; four runs of 30 to 40 minutes on a
+box the readers keep busy). The plan's process ends with his word: the
+integrator stopped the running gate (integrate/fix-support-scheduler-6,
+fourth run) at 21:21 and changed nothing else. What replaces the process
+is Arthur's next word. Nothing was deleted: the plan's files, the
+integrate branches, the working copies, the readers' rows and the hand
+streams stand as they were.
