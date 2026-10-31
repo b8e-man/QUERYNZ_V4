@@ -77,6 +77,15 @@ By the rule Arthur approved (fewer names, more answers cut), Flash-Next is back:
 
 The name hint (option 3) was not built.
 
+## Shorter answers: no summary, and the name pass's names handed over (released 09:53)
+
+Arthur, about 09:35: "do both of those things. dont revert if results are poor. just report". Commit 579c51e:
+
+- The four readers (beehive, hansard, parliament, courts) no longer ask for a summary; courts no longer makes the extra call joining its parts' summaries.
+- Each request ends with NAMES ALREADY FOUND: the names the name pass found in that document and printed in that request's text (at most 400, longest first); the model lists only the rest. The found occurrences stay in links.sightings; each reading records hint_names.
+- Readings already made stand: checked on live readings, 51 of 51 beehive, 69 of 69 courts and 401 of 401 parliament old-prompt readings are found by the new keys.
+- Trial on finished documents running (live/checks/prompt-trial-2026-11-01): answer length, names covered, time. Results below when in.
+
 ## Faults and restarts
 
 - Standing, outside tonight's scope, failing on earlier nights too: qv4-charities-capture and qv4-tenancy-tribunal-capture, each "exit 1" with no message.
@@ -84,4 +93,4 @@ The name hint (option 3) was not built.
 - qv4-sightings-courts peaked at 1,036 MB against 1,024 declared; the figure wants raising.
 - The board's chat calls Radiance's address (:8060) and does not answer while Qwen 3.6 serves.
 
-Last updated 2026-11-01 08:55.
+Last updated 2026-11-01 09:56.
