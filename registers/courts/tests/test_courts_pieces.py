@@ -60,8 +60,14 @@ def test_the_proposed_lines_are_the_ledger_s_next_versions_and_say_who_and_when(
         assert p["version"] == (int(ledger[slug]["version"]) if slug in ledger else 0) + 1, slug
         assert p["by"] and p["at"] and p["title"] and p["recognise"] and p["signals"], slug
         assert R.profile_of(slug) is not None and R.profile_version(slug) == p["version"]
-    assert {"courts-era-determination", "courts-hrrt-decision", "courts-tribunal-decision", "courts-nzdc-judgment"} <= set(cur)
-    assert "courts-scanned-document" not in cur, "the scanned profile keys the stored page readings: its version stands"
+    four = {"courts-era-determination", "courts-hrrt-decision", "courts-tribunal-decision", "courts-nzdc-judgment"}
+    if cur:   # before the merge: the proposed file carries the four new kinds
+        assert four <= set(cur)
+        assert "courts-scanned-document" not in cur, "the scanned profile keys the stored page readings: its version stands"
+    else:     # after it: the integrator appended the lines to the ledger and removed the file (31 October)
+        assert four <= set(ledger)
+        assert all(R.profile_version(slug) == int(ledger[slug]["version"]) for slug in four)
+        assert int(ledger["courts-scanned-document"]["version"]) == 1
 
 
 def test_a_short_document_is_one_piece_whatever_the_rule():

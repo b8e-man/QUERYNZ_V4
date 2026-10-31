@@ -66,7 +66,7 @@ def test_the_register_sits_after_hansard_in_the_house_s_family():
     assert dict(cat.REGISTERS)["beehive"] == "Beehive: releases, speeches and features"
     assert cat.FAMILY_OF["beehive"] == "the House" and cat.REGISTER_COLOUR["beehive"] == cat.REGISTER_COLOUR["house"]
     assert cat.main_view_of("beehive") == "beehive_releases"
-    assert [v.name for v in cat.views_of("beehive")] == ["beehive_releases", "beehive_release_ministers",
+    assert [v.name for v in cat.views_of("beehive"), "beehive_people"] == ["beehive_releases", "beehive_release_ministers",
                                                          "beehive_release_annotations"]
     assert "hansard_days" in [v.name for v in cat.views_of("hansard")]
 

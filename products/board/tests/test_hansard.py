@@ -50,7 +50,7 @@ def test_the_register_sits_by_the_house_and_takes_the_house_s_colour():
     assert cat.FAMILY_OF["hansard"] == "the House" and cat.REGISTER_COLOUR["hansard"] == cat.REGISTER_COLOUR["house"]
     assert "hansard" not in dict(cat.NOT_HELD)
     assert cat.main_view_of("hansard") == "hansard_sittings"
-    assert [v.name for v in cat.views_of("hansard")] == ["hansard_sittings", "hansard_sections", "hansard_speeches",
+    assert [v.name for v in cat.views_of("hansard"), "hansard_day_sections", "hansard_people"] == ["hansard_sittings", "hansard_sections", "hansard_speeches",
                                                          "hansard_days"]
 
 
