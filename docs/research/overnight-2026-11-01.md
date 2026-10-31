@@ -86,6 +86,14 @@ Arthur, about 09:35: "do both of those things. dont revert if results are poor. 
 - Readings already made stand: checked on live readings, 51 of 51 beehive, 69 of 69 courts and 401 of 401 parliament old-prompt readings are found by the new keys.
 - Trial on finished documents running (live/checks/prompt-trial-2026-11-01): answer length, names covered, time. Results below when in.
 
+## The database killed, 09:55 to 10:21
+
+systemd-oomd killed postgresql.service at 09:55 (system.slice memory pressure 81.9% over 80% for 20 s, with reclaim). The pressure came from my own scans of the readings store (millions of files): the first trial's candidate search and a find for new readings, at once. I could not restart it (sudo needs a password); Arthur started it at 10:21. Every job on the database stopped for 26 minutes. The trials now choose documents from the database and open readings by key only.
+
+From 10:21 the live readings are the new prompt's: summary false, hint_names set (beehive, 10:21 to 10:25: 9, 1 and 3 names handed over).
+
+First trial, beehive only (the parliament lane crashed on a bug in the script): 20 releases, answers 88% of the old length (10,482 to 9,229 characters); 52 of 58 old names covered (90%), 23 by the handed-over names alone; 44 names the old answers lacked. Second trial running (live/checks/prompt-trial-2026-11-01/trial2.log).
+
 ## Faults and restarts
 
 - Standing, outside tonight's scope, failing on earlier nights too: qv4-charities-capture and qv4-tenancy-tribunal-capture, each "exit 1" with no message.
@@ -93,4 +101,4 @@ Arthur, about 09:35: "do both of those things. dont revert if results are poor. 
 - qv4-sightings-courts peaked at 1,036 MB against 1,024 declared; the figure wants raising.
 - The board's chat calls Radiance's address (:8060) and does not answer while Qwen 3.6 serves.
 
-Last updated 2026-11-01 09:56.
+Last updated 2026-11-01 10:27.
