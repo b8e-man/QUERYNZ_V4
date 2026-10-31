@@ -70,6 +70,7 @@ query_timeout_s = 300
 priority = 1
 command = ["true"]
 pieces = true
+pieces_command = ["true"]
 can_share = true
 
 [jobs.rev]

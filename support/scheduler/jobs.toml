@@ -17,6 +17,22 @@
 # pieces that each record progress (rule 7); the command then takes the
 # piece key as its last argument.
 #
+# THE CHAIN RUNS ITSELF (31 October, Arthur 08:40: "a pipeline that is
+# continuously gathering, ingesting, OCRing and reading names"). A pieced
+# job may name `pieces_command`, a command list the worker runs in the
+# job's environment when a row is claimed with no pieces listed; it prints
+# one piece key a line and the lines are the row's pieces (none: the row is
+# done at once, "nothing waiting", and holds no card). A job may name
+# `then = ["qv4-x", ...]`: when a row of it finishes, one row of each is
+# queued (class whenever, no pieces) unless one is queued or running already.
+# A pieced row runs `concurrency` pieces AT ONCE, cut to the profile's
+# `streams` (profiles.toml) less the other rows' pieces in flight on the same
+# server; `threads` says how many requests one piece keeps open itself (the
+# hansard reader's --threads), so concurrency x threads <= streams is checked.
+# `concurrency` still caps the ROWS of the type a worker runs at once per
+# card holding the profile, so the server sees at most concurrency x rows
+# pieces of one type, and the runner keeps the sum under `streams`.
+#
 # Hard limit 23: every name carries qv4-. `python -m support.scheduler check`
 # refuses a catalogue that breaks a rule.
 
@@ -725,8 +741,10 @@ class = "due"
 priority = 38
 command = ["python", "-m", "registers.charities.load", "--job"]
 at_utc = "17:30"
+then = ["qv4-scan-rerun"]   # a scan template reads a view this load publishes (31 October): the stale scan lines are re-run, not left for a hand
 nice = 10
 # ── party boards, the declared tier (ruling 72): read from the held party-website capture, no fetch; a reload when the lane changes ──
+
 [jobs.qv4-party-boards-load]
 description = "Party boards (ruling 72): read the held party-website capture by its profile into one row per declared board role and publish pub.party_board_roles and pub.party_board_pages; nothing on the site and nothing into the links. No schedule: queued when the lane or its profile changes."
 needs = "processor"
@@ -750,6 +768,9 @@ priority = 32   # 85 was taken (integrator); the retired capture job's slot
 command = ["python", "-m", "registers.courts.load", "--publish"]
 at_utc = "15:40"
 nice = 10
+# the load's readers follow it with no hand on them (31 October); qv4-courts-pages joins this list when the courts
+# lane prints its page-reader waits (`python -m registers.courts.read --pages --pieces`, named in fix-support-scheduler-6)
+then = ["qv4-courts-read"]
 
 [jobs.qv4-courts-read]
 description = "Courts: the text reader's reading of one document (piece key sha256) through the text-reader profile: every person and body named with its role, counsel for each party, a one-line summary; stored by hash, replayed by the next load. Keys from python -m registers.courts.model_read --pieces."
@@ -761,9 +782,10 @@ query_timeout_s = 300
 class = "whenever"
 priority = 26   # 22 was taken (integrator)
 command = ["python", "-m", "registers.courts.model_read", "--piece"]
+pieces_command = ["python", "-m", "registers.courts.model_read", "--pieces"]
 pieces = true
 can_share = true
-concurrency = 4
+concurrency = 8   # pieces in flight on one row (31 October; the text-reader profile's 8 streams); was 4 rows of serial pieces
 
 [jobs.qv4-courts-pages]
 description = "Courts: the page reader over one document with no text layer (piece key sha256), every page as an image through the page-reader profile; the next load reads the stored pages."
@@ -868,9 +890,11 @@ class = "due"
 priority = 58
 command = ["python", "-m", "registers.tenders.load", "--job"]
 at_utc = "17:30"
+then = ["qv4-scan-rerun"]   # a scan template reads a view this load publishes (31 October): the stale scan lines are re-run, not left for a hand
 nice = 10
 
 # ── step 5.3, the regulator actions (regulators-1; card the-regulator-lanes-jobs-into-the-catalogue). The clock is NZDT (UTC+13) until 5 April 2027. ──
+
 [jobs.qv4-commerce-commission-capture]
 description = "Step 5.3: the Commerce Commission's case register (listing and each case's details), through the fetch gate 5 s apart; a full pass of the listing weekly, then the changed items only. Nightly at 22:30 NZDT, at most 4 hours."
 needs = "processor"
@@ -1016,6 +1040,7 @@ class = "due"
 priority = 72
 command = ["python", "-m", "registers.iwi_directory.load", "--job"]
 at_utc = "17:35"
+then = ["qv4-scan-rerun"]   # a scan template reads a view this load publishes (31 October): the stale scan lines are re-run, not left for a hand
 nice = 10
 
 [jobs.qv4-settlement-commitments-watch]
@@ -1163,6 +1188,7 @@ class = "due"
 priority = 84
 command = ["python", "-m", "registers.disclosures.load", "--job"]
 at_utc = "18:40"
+then = ["qv4-scan-rerun"]   # a scan template reads a view this load publishes (31 October): the stale scan lines are re-run, not left for a hand
 nice = 10
 
 # Ruling 96 (mcp-1, 27 October 2026): the ingest MCP as a source. The pull
@@ -1170,6 +1196,7 @@ nice = 10
 # change feed after the cursor; the weekly re-walk finds records changed in
 # place with their stamp unmoved (17,619 written questions on 27 October);
 # the adopt runs once to carry mcp-1's pull from the sample database live.
+
 [jobs.qv4-mcp-adopt]
 description = "Once, before the first nightly pull: re-land mcp-1's pull (sample schema scratch_mcp_1_pull2) into the live docs from the store and copy the cursors, arrivals and stamps. No request to the MCP. Queued by the integrator (ruling 96)."
 needs = "processor"
@@ -1263,4 +1290,5 @@ class = "due"
 priority = 102
 command = ["python", "-m", "registers.candidate_returns.load"]
 at_utc = "13:40"
+then = ["qv4-scan-rerun"]   # a scan template reads a view this load publishes (31 October): the stale scan lines are re-run, not left for a hand
 nice = 10

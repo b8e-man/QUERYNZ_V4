@@ -360,9 +360,11 @@ class Manager:
                 if a["total"]:
                     in_flight = a["total"] - max(a["free"], 0)
             # a job this worker is running against the card's profile is in flight whether or not
-            # it has a request open at this instant: the card is not swapped under it
+            # it has a request open at this instant: the card is not swapped under it; a pieced row
+            # counts its pieces in flight (31 October), at least one
             with worker.lock:
-                busy_jobs = sum(1 for r in worker.running.values() if r.jt.profile and r.jt.profile == c["profile"])
+                busy_jobs = sum(max(1, getattr(r, "in_flight", 0)) for r in worker.running.values()
+                                if r.jt.profile and r.jt.profile == c["profile"])
             in_flight = max(in_flight, busy_jobs)
             out.append(policy.Held(f"{worker.box}:{c['card']}", c["holder"], since=self.holder_since.get(c["card"], now_s),
                                    draining=bool(c["draining"]), in_flight=in_flight, loaded=c["profile"]))

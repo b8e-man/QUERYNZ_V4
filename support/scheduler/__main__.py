@@ -4,6 +4,7 @@
   python -m support.scheduler tables [--database D] create the scheduler's tables (querynz_v4 by default)
   python -m support.scheduler status [--database D] the queue, the workers, the cards, the last swaps and runs
   python -m support.scheduler enqueue JOB [--class C] [--args JSON] [--pieces K ...] [--due ISO]
+                                                    (a pieced job with no --pieces needs a pieces_command in jobs.toml)
   python -m support.scheduler cancel ID --why WHY
   python -m support.scheduler probe                 this box's hardware profile
   python -m support.scheduler worker --name N [--box B] [--once] [--hide-program P ...]
@@ -103,6 +104,30 @@ def night_word(what: str, *, until: str = None, by: str = "cli", now: dt.datetim
     return 2
 
 
+def row_lines(recent: list[dict]) -> list[str]:
+    """One plain line per queued or leased row (31 October): its pieces'
+    source (listed / command), the runner's in-flight figure against the
+    pieces running, and the rows its `then` queued. Read before the JSON."""
+    out = []
+    for r in recent:
+        if r["state"] not in ("queued", "leased"):
+            continue
+        line = f"row {r['id']} {r['job']} {r['state']}" + (f" on {r['lease_owner']}" if r.get("lease_owner") else "")
+        if r.get("pieces_source"):
+            line += f": pieces {r['pieces_done']}/{r['pieces_total']} ({r['pieces_source']})"
+            if r["state"] == "leased":
+                cap = r.get("in_flight")
+                line += f", in flight {cap if cap is not None else '?'} ({r.get('pieces_running', 0)} running)"
+        elif r.get("pieces_total"):
+            line += f": pieces {r['pieces_done']}/{r['pieces_total']}"
+        if r.get("then_of"):
+            line += f"; then of row {r['then_of']}"
+        if r.get("then_rows"):
+            line += f"; then rows {', '.join(str(x) for x in r['then_rows'])}"
+        out.append(line)
+    return out
+
+
 def _write_word(path: str, wd: dict) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = path + ".tmp"
@@ -194,6 +219,8 @@ def main(argv=None) -> int:
         return 0
     if a.cmd == "status":
         st = q.status(_conn(a.database), a.schema)
+        for line in row_lines(st["recent"]):
+            print(line)
         print(json.dumps(st, default=str, indent=1))
         return 0
     if a.cmd == "report":
@@ -214,9 +241,15 @@ def main(argv=None) -> int:
             print(f"no job type {a.job!r} in the catalogue", file=sys.stderr)
             return 2
         due = dt.datetime.fromisoformat(a.due) if a.due else None
-        qid = q.enqueue(_conn(a.database), a.schema, a.job, args=json.loads(a.args), cls=a.cls, due_at=due, pieces=a.pieces,
-                        created_by=a.by, registry=registry)
-        print(f"queued {a.job} as row {qid}" + (f" with {len(a.pieces)} pieces" if a.pieces else ""))
+        try:
+            qid = q.enqueue(_conn(a.database), a.schema, a.job, args=json.loads(a.args), cls=a.cls, due_at=due, pieces=a.pieces,
+                            created_by=a.by, registry=registry)
+        except ValueError as exc:
+            print(f"not queued: {exc}", file=sys.stderr)
+            return 2
+        jt = registry[a.job]
+        print(f"queued {a.job} as row {qid}" + (f" with {len(a.pieces)} pieces" if a.pieces
+                                                else "; its pieces_command lists the pieces at the claim" if jt.pieces else ""))
         return 0
     if a.cmd == "cancel":
         ok = q.cancel(_conn(a.database), a.schema, a.id, a.why)
