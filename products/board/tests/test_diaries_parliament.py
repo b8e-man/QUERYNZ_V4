@@ -107,8 +107,8 @@ def test_the_registers_sit_near_hansard_and_the_beehive_in_the_house_s_family():
         assert reg not in dict(cat.NOT_HELD)
     assert cat.main_view_of("ministers_diaries") == "minister_diary_releases"
     assert cat.main_view_of("parliament") == "parliament_written_questions"
-    assert [v.name for v in cat.views_of("parliament"), "parliament_people"] == ["parliament_written_questions", "parliament_api_items",
-                                                            "parliament_wayback_pages"]
+    assert [v.name for v in cat.views_of("parliament")] == ["parliament_written_questions", "parliament_api_items",
+                                                            "parliament_wayback_pages", "parliament_people"]
 
 
 def test_a_release_is_its_minister_and_month_citing_the_pdf_with_its_meetings_in_order():
