@@ -4,7 +4,8 @@ this lane's tables under a staging schema of the real database, and
 and refresh the published views. `fill` in sample.py uses the same pieces.
 
 Land the four export parts (never run the export: capture.py was run once),
-read each, copy the rows in. Items in equal items out plus items set aside
+and lay the latest monthly package held whole over them (monthly.py: the
+zip, landed once by `capture.py --land-package`), read each, copy the rows in. Items in equal items out plus items set aside
 (read.py says how). About 5.6 million rows: the entities first, so a role
 whose company the package does not name is counted.
 """
@@ -12,7 +13,7 @@ import os
 
 from support import jobrun
 from support.docstore.landing import read_bytes
-from registers.companies import capture, read
+from registers.companies import capture, monthly, read
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "companies"
@@ -77,22 +78,27 @@ def _flat(cols: tuple, rows: list):
         yield tuple(flat.get(c) for c in cols)
 
 
-def build(conn, schema: str, exports: list, aside: list, only=None, shared: bool = False) -> dict:
+def build(conn, schema: str, exports: list, aside: list, only=None, shared: bool = False, package=None) -> dict:
     """exports: [(part, sha256, name)]; aside: [(item, why)] from capture;
     only: the NZBNs and register numbers to read (the sample's), None for
-    all. Wipes and fills `schema`; returns the counts."""
+    all; package: (label, sha256) of the monthly package laid over the
+    export, None for none. Wipes and fills `schema`; returns the counts."""
+    pkg = (package[0], read_bytes(package[1]), package[1]) if package else None
     create_tables(conn, schema, shared)
     _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason", "count"),
           [(i, "capture", w, 1) for i, w in aside])
     counts, entities = {"not_held": len(aside)}, None
     for part, sha, name in sorted(exports, key=lambda e: capture.PARTS.index(e[0])):
-        res = read.read(part, read_bytes(sha), sha, only=only, entities=entities)
+        res = read.read(part, read_bytes(sha), sha, only=only, entities=entities, package=pkg)
         if part == "entities":
             entities = {r["key"] for r in res.rows["entities"]}
         for t in read.TABLE_OF[part]:
             _copy(conn, table(schema, t, shared), COLUMNS[t], _flat(COLUMNS[t], res.rows[t]))
         _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason", "count"), res.set_aside)
         conn.execute(f"INSERT INTO {table(schema, 'files', shared)} VALUES (%s, %s, %s, 'read')", (sha, name, part))
+        if pkg:
+            conn.execute(f"INSERT INTO {table(schema, 'files', shared)} VALUES (%s, %s, %s, 'read')",
+                         (pkg[2], f"{monthly.PACKAGES[pkg[0]][0]} ({part})", part))
         counts.update({f"{part}.{k}" if k in ("lines", "set_aside", "set_aside_lines", "no_entity") else k: v
                        for k, v in res.counts.items()})
         del res
@@ -103,7 +109,8 @@ def load(conn, schema: str, log=print) -> int:
     """The four parts landed and read, under `schema`. Returns the entity count."""
     started = jobrun.now()
     landed, aside = capture.copy_all(conn)
-    counts = build(conn, schema, [(part, ref.sha256, name) for part, ref, name, at in landed], aside)
+    package = capture.latest_package()
+    counts = build(conn, schema, [(part, ref.sha256, name) for part, ref, name, at in landed], aside, package=package)
     detail = ", ".join(f"{k} {v}" for k, v in counts.items()) + f", into {schema}"
     log("companies: " + detail)
     jobrun.record("qv4-companies-load", True, detail, started, counts)

@@ -19,7 +19,12 @@ loader recorded it, is the rows from that file plus the lines it folded into
 another (a catch-log line that carries the count). A reading that does not
 reconcile raises and publishes nothing.
 
-    read(part, data, sha, only=None, entities=None)   Result
+    read(part, data, sha, only=None, entities=None, package=None)   Result
+
+A later monthly package (monthly.py) is laid over the export's lines before
+they are read: `package` is (its label, its bytes, its sha256). A row the
+package carries cites the package's zip and the CSV line; the rest cite the
+export.
     entity_key(register, nzbn, number)
 """
 import datetime as dt
@@ -34,11 +39,12 @@ from dataclasses import dataclass, field
 from keys.dates import filed_date
 from keys.numbers import nzbn as nzbn_ok
 from support import profiles
-from registers.companies import capture
+from registers.companies import capture, monthly
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
 PROFILE = "companies-register-export"
+PACKAGE_PROFILE = "companies-monthly-package"
 READER = "registers.companies.read 1"
 TABLE_OF = {"entities": ("entities", "entity_states"), "directors": ("directors",),
             "shareholders": ("shareholders",), "addresses": ("registered_offices",)}
@@ -135,17 +141,31 @@ def _suffixed(rows: list, order) -> None:
                 r["key"] = f"{k}/{i}"
 
 
-def read(part: str, data: bytes, sha: str, only=None, entities=None, loaded_at: str = None) -> Result:
+def _wanted(line: dict, only) -> bool:
+    """The sample's filter on a line the package added: its NZBN, else its register number."""
+    return (line.get("nzbn") in only) if line.get("nzbn") else (line.get("number") in only)
+
+
+def read(part: str, data: bytes, sha: str, only=None, entities=None, loaded_at: str = None,
+         package=None) -> Result:
     """One export part. `only`: the NZBNs (and register numbers) to read, the
     sample's; None for all. `entities`: the entity keys the entities part
-    gave, to log a role or address whose entity the package does not name."""
+    gave, to log a role or address whose entity the package does not name.
+    `package`: (label, bytes, sha256) of a later monthly package, laid over the export."""
     loaded_at = loaded_at or dt.datetime.now().astimezone().isoformat(timespec="seconds")
     out = Result(header=header_of(data))
+    source = lines_of(data, only)
+    if package:
+        label, pdata, psha = package
+        out.header, source = monthly.merge(part, out.header, source, pdata, psha, label)
+        if only is not None:
+            source = ((n, l) for n, l in source if _wanted(l, only))
     files = out.header["files"]
     latest = files[-1]
     version = profile_version()
     base = {"document": sha, "page": 1, "read_from": "text", "reader": READER, "profile": PROFILE,
             "profile_version": version, "loaded_at": loaded_at}
+    pbase = {**base, "profile": PACKAGE_PROFILE, "profile_version": profile_version(PACKAGE_PROFILE)} if package else base
     stage = part
     lines = 0
     from_lines = 0          # catch-log lines that stand for one export line each
@@ -156,14 +176,16 @@ def read(part: str, data: bytes, sha: str, only=None, entities=None, loaded_at: 
         from_lines += 1
         out.set_aside.append((item, stage, why, 1))
 
-    for n, r in lines_of(data, only):
+    for n, r in source:
         lines += 1
-        item = f"{sha}/line {n}"
+        doc, place, note = r.pop("_doc", None) or sha, r.pop("_place", None) or f"line {n}", r.pop("_note", None)
+        item = f"{doc}/{place}"
+        b = {**(pbase if doc != sha else base), "document": doc}
+        note = note or capture.EXPORT_NOTE
         ek = entity_key(r.get("register") or "companies", r.get("nzbn"), r.get("number"))
         if ek is None:
             aside(item, "no NZBN and no register number: no key")
             continue
-        place = f"line {n}"
         if part == "entities":
             if not r.get("name"):
                 aside(item, "no entity name")
@@ -171,14 +193,14 @@ def read(part: str, data: bytes, sha: str, only=None, entities=None, loaded_at: 
             in_latest = r.get("in_latest") if r.get("in_latest") is not None else r["last_file"] == latest
             for f in r.get("files") or ():
                 in_file[f] += 1
-            row = {"key": ek, **base, "place": place, "filed": {
+            row = {"key": ek, **b, "place": place, "filed": {
                 "register": r["register"], "nzbn": r.get("nzbn"), "number": r.get("number"), "name": r["name"],
                 "entity_type": r.get("type"), "status": r.get("status"),
                 "registered_on": _date(r.get("registered_on"), item, "registered date", out, stage),
                 "removed_on": _date(r.get("removed_on"), item, "removal date", out, stage),
                 "in_latest": in_latest, "first_file": (r.get("files") or [None])[0], "last_file": r["last_file"],
                 "extra": json.dumps(r["extra"], ensure_ascii=False, sort_keys=True) if r.get("extra") else None,
-                "old_id": r.get("old_id"), "source_note": capture.EXPORT_NOTE}}
+                "old_id": r.get("old_id"), "source_note": note}}
             if r.get("nzbn") and not nzbn_ok(r["nzbn"]):
                 out.counts["nzbn_not_gs1"] = out.counts.get("nzbn_not_gs1", 0) + 1
             if r.get("also"):
@@ -186,7 +208,7 @@ def read(part: str, data: bytes, sha: str, only=None, entities=None, loaded_at: 
                                       f"the last is kept", r["also"]))
             out.rows["entities"].append(row)
             for e in r.get("earlier") or ():
-                out.rows["entity_states"].append({"key": f"{ek}/in/{e['file']}", **base, "place": place, "filed": {
+                out.rows["entity_states"].append({"key": f"{ek}/in/{e['file']}", **b, "place": place, "filed": {
                     "entity_key": ek, "file": e["file"], "name": e.get("name") or r["name"],
                     "entity_type": e.get("type"), "status": e.get("status"),
                     "registered_on": _date(e.get("registered_on"), item, "earlier registered date", out, stage),
@@ -222,11 +244,11 @@ def read(part: str, data: bytes, sha: str, only=None, entities=None, loaded_at: 
             if entities is not None and ek not in entities:
                 out.counts["no_entity"] = out.counts.get("no_entity", 0) + 1
             kind = part[:-1]
-            out.rows[part].append({"key": f"{ek}/{kind}/{short(content)}", **base, "place": place, "filed": {
+            out.rows[part].append({"key": f"{ek}/{kind}/{short(content)}", **b, "place": place, "filed": {
                 "entity_key": ek, "nzbn": r["nzbn"], "company_number": r.get("number"), **filed,
                 "in_latest": fs[-1] == latest, "first_file": fs[0], "last_file": fs[-1],
                 "suppressed": bool(r.get("suppressed")), "old_id": r.get("old_id"),
-                "source_note": capture.EXPORT_NOTE}})
+                "source_note": note}})
         elif part == "addresses":
             if not any(r.get(k) for k in _ADDRESS_FIELDS):
                 aside(item, "a registered office line with no address in it")
@@ -236,11 +258,12 @@ def read(part: str, data: bytes, sha: str, only=None, entities=None, loaded_at: 
             started = _date(r.get("start"), item, "start date", out, stage)
             out.rows["registered_offices"].append({
                 "key": f"{ek}/registered-office/{started or 'undated'}/"
-                       f"{short('|'.join(r.get(k) or '' for k in _ADDRESS_FIELDS + ('country',)))}", **base, "place": place, "filed": {
+                       f"{short('|'.join(r.get(k) or '' for k in _ADDRESS_FIELDS + ('country',)))}", **b, "place": place,
+                "_n": n, "_item": item, "filed": {
                     "entity_key": ek, "register": r["register"], "started_on": started,
                     **{k: r.get(k) for k in _ADDRESS_FIELDS}, "country": r.get("country"),
                     "in_latest": bool(r.get("in_latest")), "last_file": r["last_file"],
-                    "source_note": capture.EXPORT_NOTE}})
+                    "source_note": note}})
         else:
             raise ValueError(f"no part {part}")
 
@@ -248,12 +271,12 @@ def read(part: str, data: bytes, sha: str, only=None, entities=None, loaded_at: 
         # the old tables kept a body's registered office again when another field of its row changed: the same
         # address and start twice is one filed fact, so the current line is kept and the others logged
         keep = {}
-        for row in sorted(out.rows["registered_offices"], key=lambda x: (not x["filed"]["in_latest"], x["place"])):
+        for row in sorted(out.rows["registered_offices"], key=lambda x: (not x["filed"]["in_latest"], x["_n"])):
             if row["key"] in keep:
-                aside(f"{sha}/{row['place']}", f"the same registered office as {keep[row['key']]['place']}")
+                aside(row["_item"], f"the same registered office as {keep[row['key']]['place']}")
             else:
                 keep[row["key"]] = row
-        out.rows["registered_offices"] = sorted(keep.values(), key=lambda x: int(x["place"].split()[1]))
+        out.rows["registered_offices"] = sorted(keep.values(), key=lambda x: x["_n"])
 
     tables = TABLE_OF[part]
     order = lambda row: (not row["filed"].get("in_latest", True), json.dumps(row["filed"], sort_keys=True, default=str))
@@ -274,7 +297,13 @@ def read(part: str, data: bytes, sha: str, only=None, entities=None, loaded_at: 
             got = in_file[f]
             if got > stated:
                 raise AssertionError(f"companies {part}: {got} rows from {f}, more than the {stated} it had")
-            if got < stated:
+            if got < stated and out.header["runs"][f].get("package"):
+                folded[f] = stated - got
+                out.set_aside.append((f"{out.header['runs'][f]['package']}/{f}", stage, f"the package repeats {stated - got} of "
+                                      f"the file's {stated} lines (same company and "
+                                      f"{'names and start' if part == 'directors' else 'holder, shares and status' if part == 'shareholders' else 'NZBN'}): "
+                                      f"one row each", stated - got))
+            elif got < stated:
                 folded[f] = stated - got
                 out.set_aside.append((f"{sha}/{f}", stage, f"the old loader folded {stated - got} of the file's "
                                       f"{stated} lines into a line it already held (same company and "

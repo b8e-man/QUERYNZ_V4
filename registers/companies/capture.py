@@ -38,6 +38,13 @@ loader's own counts per file (items in, for the catch log) and the part.
     export(part)          the part's bytes, through the old read-only login
     copy_all(conn)        land the four parts: ([(part, DocumentRef, name, at)], [(item, why)])
     python -m registers.companies.capture --export DIR    write the four parts once
+
+A later package (monthly.py) is held whole: Arthur downloads the zip, it is
+landed once by hash (`--land-package PATH`, which refuses bytes that are not
+the pinned hash in monthly.PACKAGES), and the load reads it from the store.
+
+    latest_package()      (label, sha256) of the latest pinned package in the store, else None
+    python -m registers.companies.capture --land-package PATH    land a pinned package once
 """
 import datetime as dt
 import gzip
@@ -261,8 +268,42 @@ def copy_all(conn, exports: dict = None, log=None) -> tuple:
     return landed, []
 
 
+def latest_package():
+    """(label, sha256) of the latest package monthly.PACKAGES pins whose zip is in the store; None if none is.
+    A pinned package not yet landed is passed over and the load reads the export alone."""
+    from registers.companies import monthly
+    for label in sorted(monthly.PACKAGES, reverse=True):
+        sha = monthly.PACKAGES[label][1]
+        if os.path.exists(path_for(sha)):
+            return label, sha
+    return None
+
+
+def land_package(path: str, connect=None, log=print) -> str:
+    """Land one pinned package from where it was downloaded, once. Returns its label."""
+    from registers.companies import monthly
+    from support.docstore import sha256_file
+    sha = sha256_file(path)
+    label = next((l for l, (_, s, _, _) in monthly.PACKAGES.items() if s == sha), None)
+    if label is None:
+        raise LookupError(f"{path} hashes to {sha}, which monthly.PACKAGES does not pin")
+    name, _, received, _ = monthly.PACKAGES[label]
+    if connect is None:
+        from support import db
+        connect = lambda: db.connect(db.OWNER_KEY, "querynz_v4")
+    with open(path, "rb") as f:
+        data = f.read()
+    with connect() as conn:
+        ref, new = land(data, name=name, source=SOURCE, conn=conn, fetched_at=received, content_type="application/zip")
+    log(f"companies: {'landed' if new else 'held'} {ref.sha256[:12]} {name} ({label})")
+    return label
+
+
 def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
+    if "--land-package" in argv:
+        land_package(argv[argv.index("--land-package") + 1])
+        return 0
     if "--export" not in argv:
         print("usage: python -m registers.companies.capture --export DIR [PART ...]")
         return 2
