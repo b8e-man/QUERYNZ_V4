@@ -97,3 +97,15 @@ vendor in a 2017 sensitive-land decision renders it near and the flag info.
 
 Every held lane the templates did not read is now read, apart from sanctions (published empty) and the licence
 register of building practitioners (held empty until Arthur's decision).
+
+## 9. Past roles from the business-number register in the report
+
+49a203b, 6086cfc. `pub.company_lookup_roles` is a company's people in the report: its roles as the business-number
+register states them, with the register's own start and end dates, confirmed by the company. A role the monthly file
+already holds (`held_key`) is listed once, from the file. A person's name finds a register role no file held, near.
+Ten templates list them beside the directors; `officers-of-record` in five counts them. Verified on the real rows: a
+removed company the files hold no director for lists four directors, two ended 14 November 2016.
+
+`HISTORY` stays off in every template, so no check clears on past roles: 525 of 1.1 million wanted companies are
+answered. Arthur's question, not done: should a namesake's past role at a failed company count in the firing checks
+(earlier failure, serial pattern, phoenix), near and amber, the way current roles already do?
