@@ -535,13 +535,34 @@ def test_the_backfill_stops_at_a_failed_read_and_off_peak(night):
     assert _history(night)["stopped"] == "off-peak ended"
 
 
-def test_a_call_that_gets_no_answer_is_a_recorded_failed_read_that_stops_the_backfill(night):
-    """1 November 2026 22:32: a timeout raised out of the run and the job failed with a traceback; it is a failed read like a block."""
+def test_a_call_that_gets_no_answer_is_recorded_skipped_and_asked_another_night(night):
+    """1 November 2026 22:32 a timeout stopped the night after 1,018 calls; accelerated (2 November) one with no answer is
+    recorded with status 0, skipped, and asked again on a later run; the run goes on."""
     night["answers"][N1] = TimeoutError("timed out")
     night["answers"][N2] = _answer(N2, addresses=[])
     _want(night, N1, N2)
     out = _history(night)
-    assert not out["ok"] and out["calls"] == 1 and "no answer: TimeoutError" in out["stopped"]
+    assert out["ok"] and out["calls"] == 2 and out["no answer"] == 1 and out["answered"] == 1
     T = night["T"]
-    assert night["conn"].execute(f"SELECT status, blocked FROM {T.calls} WHERE nzbn = %s", (N1,)).fetchone()[0] == 0
-    assert night["conn"].execute(f"SELECT count(*) FROM {T.calls} WHERE nzbn = %s", (N2,)).fetchone()[0] == 0, "nothing after it"
+    assert night["conn"].execute(f"SELECT status FROM {T.calls} WHERE nzbn = %s", (N1,)).fetchone()[0] == 0
+    night["answers"][N1] = _answer(N1, addresses=[])
+    again = _history(night)
+    assert again["calls"] == 1 and again["answered"] == 1, "the skipped one is asked on the next run"
+
+
+def test_three_calls_in_a_row_with_no_answer_stop_the_backfill(night, monkeypatch):
+    monkeypatch.setattr(M, "HISTORY_NO_ANSWER_RUN", 2)
+    night["answers"][N1] = TimeoutError("timed out")
+    night["answers"][N2] = TimeoutError("timed out")
+    _want(night, N1, N2)
+    out = _history(night)
+    assert not out["ok"] and out["calls"] == 2 and "2 calls in a row got no answer" in out["stopped"]
+
+
+def test_the_backfill_s_hours_add_six_to_seven_after_the_societies_asks_and_its_floor_is_a_second():
+    at = lambda d, h, m=0: M.dt.datetime(2026, 10, d, h, m, tzinfo=M.NZ)
+    assert M.history_off_peak(at(20, 23)) and M.history_off_peak(at(21, 0, 30)) and M.history_off_peak(at(21, 6, 30))
+    assert not M.history_off_peak(at(21, 3)) and not M.history_off_peak(at(21, 7)) and not M.history_off_peak(at(21, 12))
+    assert not M.history_off_peak(at(21, 22, 30)), "never the Wednesday maintenance window"
+    assert M.HISTORY_FLOOR_S >= 1.0, "the approval's ceiling: one request a second at most"
+    assert M.FLOOR_S == 5.0, "the monitor keeps its own floor"

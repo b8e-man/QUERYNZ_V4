@@ -740,7 +740,7 @@ query_timeout_s = 300
 class = "due"
 priority = 200   # unique; after every other job (1 November 2026)
 command = ["python", "-m", "registers.companies.monitor", "--history", "--budget-s", "10500"]
-at_utc = "09:05"
+at_utc = ["09:05", "17:02"]   # 22:05 and 06:02 NZDT: the two windows of history_off_peak (accelerated 2 November 2026)
 nice = 10
 
 # ── charities (the register's own OData feed; the copy lands in the document store by hash and the lane reads it) ──

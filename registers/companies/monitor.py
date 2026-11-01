@@ -85,7 +85,13 @@ DAILY_LIMIT = 300
 #: ended directorships back to 2007). Its own calls, `why = 'history'`, its own day's limit, the same floor, the same
 #: off-peak hours and the same stop at a failed read; the monitor's limit and its check count the monitor's calls only.
 HISTORY_WHY = "history"
-HISTORY_DAILY_LIMIT = 2000
+#: accelerated 2 November 2026 (Arthur: "Accelerate the past roles acquisition"): the approval's ceiling of one request a
+#: second, over both off-peak windows (`history_off_peak`): 3 h + 1 h at 1 s is 14,400; the day's limit leaves a margin
+HISTORY_FLOOR_S = 1.0
+HISTORY_DAILY_LIMIT = 15000
+#: a call with no answer at all (a timeout, a reset) is recorded, skipped and asked another night; this many in a row stop
+#: the run (the host is down or refusing). A block, a challenge or any HTTP status but 200 and 404 still stops it at once
+HISTORY_NO_ANSWER_RUN = 3
 #: the order the backfill asks in (`companies.history_wanted.rank`): a removed company the Gazette names in a liquidation
 #: notice first, newest removal first (how a company ended, and who ran it, is what a director-history check asks); then
 #: every other removed company removed since 2019, newest first; then every registered company, for its earlier directors
@@ -173,8 +179,15 @@ def off_peak(t: dt.datetime) -> bool:
     return nz.hour >= 22 or nz.hour < 1
 
 
+def history_off_peak(t: dt.datetime) -> bool:
+    """The backfill's hours: the monitor's 22:00 to 01:00, and 06:00 to 07:00 after the societies lane's asks of the same
+    host (01:00 to 06:00) end, so the two never ask the host at once; never the Wednesday maintenance window."""
+    nz = t.astimezone(NZ)
+    return off_peak(t) or nz.hour == 6
+
+
 def fetch_entity(nzbn: str, conn, *, key: str = None, fetch=None, pacer=None, positions_dir: str = None,
-                 ledger_dir: str = None, sleep=time.sleep, clock=time.monotonic):
+                 ledger_dir: str = None, sleep=time.sleep, clock=time.monotonic, floor_s: float = FLOOR_S):
     """One gated call, never two at once. Returns (Fetched, DocumentRef or
     None): the bytes are landed only when the register answered 200 with
     JSON. A refusal raises (fetchgate.Refused); a block comes back as
@@ -182,7 +195,7 @@ def fetch_entity(nzbn: str, conn, *, key: str = None, fetch=None, pacer=None, po
     from support import fetchgate
     url = entity_url(nzbn)
     with _ONE_AT_A_TIME:
-        gap = _LAST["at"] + FLOOR_S - clock()
+        gap = _LAST["at"] + floor_s - clock()
         if gap > 0 and fetch is None:
             sleep(gap)
         try:
@@ -792,11 +805,12 @@ def run_history(conn, schema: str = "companies", shared: bool = False, *, budget
     started, t0 = jobrun.now(), time.monotonic()
     version = profile_version()
     conn.execute(_history_ddl(T))
-    counts = {"calls": 0, "answered": 0, "absent": 0, "changes": 0}
+    counts = {"calls": 0, "answered": 0, "absent": 0, "no answer": 0, "changes": 0}
     stopped = ""
+    skipped, in_a_row = set(), 0
 
     def stop_why():
-        if not anytime and not off_peak(now()):
+        if not anytime and not history_off_peak(now()):
             return "off-peak ended"
         if time.monotonic() - t0 >= budget_s:
             return "budget spent"
@@ -808,7 +822,8 @@ def run_history(conn, schema: str = "companies", shared: bool = False, *, budget
     while not stopped:
         batch = [r[0] for r in conn.execute(
             f"SELECT w.nzbn FROM {T.history_wanted} w WHERE NOT EXISTS (SELECT 1 FROM {T.calls} c "
-            f"WHERE c.nzbn = w.nzbn AND c.status IN (200, 404)) ORDER BY w.rank LIMIT 100").fetchall()]
+            f"WHERE c.nzbn = w.nzbn AND c.status IN (200, 404)) AND NOT (w.nzbn = ANY(%s)) ORDER BY w.rank LIMIT 100",
+            (sorted(skipped),)).fetchall()]
         if not batch:
             stopped = "nothing wanted is left"
             break
@@ -817,7 +832,7 @@ def run_history(conn, schema: str = "companies", shared: bool = False, *, budget
                 break
             key = key or api_key()
             got, ref = fetch_entity(n, conn, key=key, fetch=fetch, pacer=pacer, positions_dir=positions_dir,
-                                    ledger_dir=ledger_dir)
+                                    ledger_dir=ledger_dir, floor_s=HISTORY_FLOOR_S)
             at = now()
             cid = record_call(conn, T, n, at, got.status, ref.sha256 if ref else None, got.blocked, HISTORY_WHY)
             counts["calls"] += 1
@@ -827,6 +842,15 @@ def run_history(conn, schema: str = "companies", shared: bool = False, *, budget
             elif got.status == 404:
                 counts["absent"] += 1
             conn.commit()
+            if got.status == 0 and (got.blocked or "").startswith("no answer"):
+                counts["no answer"] += 1
+                skipped.add(n)
+                in_a_row += 1
+                if in_a_row >= HISTORY_NO_ANSWER_RUN:
+                    stopped = f"a failed read: {in_a_row} calls in a row got no answer, the last at {n}: {got.blocked}"
+                    break
+                continue
+            in_a_row = 0
             if got.blocked or (got.status not in (200, 404)):
                 stopped = f"a failed read at {n}: {got.blocked or f'HTTP {got.status}'}"
                 break
