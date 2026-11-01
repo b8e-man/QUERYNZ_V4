@@ -943,6 +943,25 @@ def above_company(conn, cv: cat.View, crow: dict, it: dict, d: int, allowed: set
         stats["above_directors"] += 1
     if total > len(got):
         out.append({"omitted": total - len(got), "view": "directors", "via": cref})
+    # a limited partnership has general partners, not directors: its current ones, by its business number (read since 1 November 2026)
+    if "partnership" in (crow.get("entity_type") or "").lower() and crow.get("nzbn"):
+        if "limited_partnership_partners" not in allowed:
+            skipped.append("limited_partnership_partners")
+            return out
+        lp = db.rows(conn, "select key from pub.limited_partnerships where nzbn = %s", (str(crow["nzbn"]),))
+        if lp:
+            pv = cat.BY_NAME["limited_partnership_partners"]
+            total, got = rows.rows_where(conn, "limited_partnership_partners", "partnership_key", lp[0]["key"], LIMITS["officer_rows"], "started_on")
+            for r in got:
+                if not r.get("current"):
+                    continue
+                pit = item(pv, r, rows.title(cv, crow), via=cref, above=True, depth=d, through=cref)
+                if it["grade"] == "near":
+                    near(pit, it["reason"], "chain")
+                out.append(pit)
+                stats["above_partners"] = stats.get("above_partners", 0) + 1
+            if total > len(got):
+                out.append({"omitted": total - len(got), "view": "limited_partnership_partners", "via": cref})
     return out
 
 

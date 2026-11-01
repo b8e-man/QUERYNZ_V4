@@ -386,14 +386,21 @@ def partnership_holders(report):
     if _other_start(report):
         return flag("partnership-holders", V, "blocked", "amber", _other_start(report), sources_not_held=(LP_PARTNERS,))
     hit = [it for it in _holders(report) + _chain_holders(report) if PARTNERSHIP.search(_holder_name(it).strip())]
+    above = [it for it in items(report, ("companies",)) if it.get("depth") and "partnership" in ((it.get("row") or {}).get("entity_type") or "").lower()]
+    named = {_holder_name(h).strip().upper() for h in hit}
+    hit += [it for it in above if (it.get("title") or "").strip().upper() not in named]   # a partnership met as holder and as company, once
     if _company_start(report) and "partnership" in (report["subject"]["row"].get("entity_type") or "").lower():
         hit = [report["subject"]] + hit
+    gp = [it for it in items(report, ("limited_partnership_partners",)) if not it.get("suppressed")]
     if hit:
-        return flag("partnership-holders", V, "fired", "amber", f"{len(hit)} limited partnership(s) on the chain, by the register's own words: "
-                    f"{'; '.join(it['title'] for it in hit[:EXAMPLES])}; its general and limited partners are in {LP_PARTNERS}, which is not held",
-                    citations=tuple(it["ref"] for it in hit), sources_not_held=(LP_PARTNERS,))
-    return flag("partnership-holders", V, "blocked", "info", "no holder of record listed is named as a limited partnership, but the limited "
-                "partnerships register is not held, so one named otherwise is not known as one", sources_not_held=(LP_PARTNERS,))
+        shown = (f"; {len(gp)} current general partner(s) of them are listed, as the register states them" if gp else
+                 "; no general partner of them is listed: a partnership named only as a holder is not followed")
+        return flag("partnership-holders", V, "fired", "amber", f"{len(hit)} limited partnership(s) on the chain, by the register's own words "
+                    f"or its entity type: {'; '.join(it['title'] for it in hit[:EXAMPLES])}{shown}; the limited partners are not public",
+                    citations=tuple(it["ref"] for it in hit), sources_held=(LP_HELD,), sources_not_held=(LP_LIMITED,))
+    return flag("partnership-holders", V, "blocked", "info", "no holder of record listed is a limited partnership by its name or, where the "
+                "chain reached it, by the register's entity type; a holder the chain did not follow is not known as one",
+                sources_held=(LP_HELD,), sources_not_held=(LP_LIMITED,))
 
 
 def overseas_holders(report):

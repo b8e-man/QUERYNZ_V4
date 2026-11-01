@@ -140,7 +140,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
-KIND = {"directors": "person", "shareholders": "person", "gazette_prohibitions": "person", "gazette_bankruptcies": "person",
+KIND = {"limited_partnership_partners": "person", "directors": "person", "shareholders": "person", "gazette_prohibitions": "person", "gazette_bankruptcies": "person",
         "members": "person", "candidates": "person", "companies": "organisation", "company_addresses": "place",
         "gazette_company_notices": "organisation", "gazette_liquidations": "organisation", "party_return_donors": "figure", "mp_interests": "figure"}
 THROUGH = "a connection that passes through more than one person is listed as near, never confirmed (the design's default)"
@@ -400,7 +400,7 @@ def test_the_chain_above_is_followed_two_up_with_its_holders_directors_and_notic
     assert t["chain_depth"] == 2
     s = {x["name"]: x for x in t["sections"]}
     assert s["chain"]["sources"] == ["chain"] and set(s["chain"]["views"]) == {"companies", "shareholders", "directors", "gazette_liquidations",
-                                                                              "gazette_company_notices"}
+                                                                              "gazette_company_notices", "limited_partnership_partners"}
     assert not any("chain" in x.get("sources", []) for x in t["sections"] if x["name"] != "chain"), "a chain row is listed in one section"
     assert "never added or turned into a fraction" in s["chain"]["text"] and "the chain goes on" in s["chain"]["text"]
     assert not any("registers reach one" in x for x in t["limits"]) and "carries no business number in the file" not in s["holders"]["text"]
@@ -500,3 +500,18 @@ def test_the_rules_file_imports_nothing_of_the_shape():
     with open(os.path.join(HERE, "rules.py"), encoding="utf-8") as f:
         src = f.read()
     assert not re.search(r"^\s*(from|import)\s+products", src, re.M)
+
+
+def test_a_partnership_up_the_chain_by_its_entity_type_lists_its_general_partners_once():
+    up = dict(it("companies:companies/31", "companies", title="ORCHARD FUND LP", via=HOLDCO["ref"],
+                 row={"key": "companies/31", "status": "Registered", "entity_type": "NZ Limited Partnership"}), depth=1, rule="chain")
+    as_holder = dict(holder("w", "ORCHARD FUND LP", kind="company", shares=10, via=UP1["ref"]), depth=1, rule="chain")
+    gp = dict(it("limited_partnerships:limited_partnerships/31/partner/a/b", "limited_partnership_partners", title="ORCHARD GP LIMITED",
+                 via=up["ref"], row={"current": True}), depth=1, above=True)
+    f = rule("partnership_holders")(company(holders=[JANE, HOLDCO], chain=[UP1, up, as_holder, gp], chain_depth=2))
+    assert f["status"] == "fired" and f["text"].startswith("1 limited partnership(s)"), "met as holder and as company, counted once"
+    assert "1 current general partner(s) of them are listed" in f["text"] and "limited partners are not public" in f["text"]
+    bare = rule("partnership_holders")(company(holders=[JANE, HOLDCO], chain=[UP1, up], chain_depth=2))
+    assert bare["status"] == "fired" and "no general partner of them is listed" in bare["text"]
+    none = rule("partnership_holders")(company(holders=[JANE, HOLDCO], chain=[UP1], chain_depth=2))
+    assert none["status"] == "blocked" and "not known as one" in none["text"]

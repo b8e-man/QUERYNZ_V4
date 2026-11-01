@@ -198,7 +198,7 @@ text = "Every shareholder of record the companies file lists on the company, wit
 [[sections]]
 name = "chain"
 heading = "The holding chain above it: the companies that hold its shares of record, two up, with their holders, directors and notices"
-views = ["companies", "shareholders", "directors", "gazette_liquidations", "gazette_company_notices"]
+views = ["companies", "shareholders", "directors", "gazette_liquidations", "gazette_company_notices", "limited_partnership_partners"]
 sources = ["chain"]
 text = "Started from a company, each company holder of record followed to its own register row: by the business number the file carries for it, confirmed, or by a name only one company in the register carries, near, with its reason. Each company above is listed at its place up the chain with the shares of record it holds in the company below, as filed and never added or turned into a fraction, then its own holders of record, its current directors and the Gazette notices on it, each with that company's grade: the holder's rows, not the entity's. A company met twice is listed once; a holder whose name several companies carry, or none (an overseas company, a trust, a body of another kind), is named and not followed; at two up a company says the chain goes on. A holder of record is shown as the register states it; for whom it holds is in no register held. Started from a person, nothing is listed here: start a report from each company."
 
