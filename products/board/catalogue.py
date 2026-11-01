@@ -307,6 +307,21 @@ VIEWS: tuple[View, ...] = (
          fields=(("name in that file", "name"), ("type", "entity_type"), ("status", "status")),
          dates=(("registered on", "registered_on"), ("removed on", "removed_on")),
          parent=("Company", "companies", "entity_key")),
+    # ── companies, the October 2026 package (2 November 2026): each insolvency appointment the file lists, and each
+    # retirement village's operator and statutory supervisor; never an address ──
+    View("company_insolvencies", "companies", "event", ("entity_name", "insolvency_type"),
+         search=("entity_name", "appointee", "organisation"), numbers=("nzbn",),
+         fields=(("type", "insolvency_type"), ("appointment", "appointment_type"), ("appointee", "appointee"),
+                 ("firm", "organisation"), ("in office", "in_office"), ("after a resolution of solvency", "resolution_of_solvency"),
+                 ("NZBN", "nzbn"), ("file", "last_file")),
+         dates=(("started on", "started_on"), ("appointed on", "appointed_on"), ("vacated on", "vacated_on")),
+         parent=("Company", "companies", "entity_key"), default_order="appointed_on"),
+    View("retirement_villages", "companies", "organisation", ("name",),
+         search=("name", "operator_name", "supervisor_name"), numbers=("number", "operator_number"),
+         fields=(("status", "status"), ("operator", "operator_name"), ("operator number", "operator_number"),
+                 ("statutory supervisor", "supervisor_name"), ("file", "last_file")),
+         dates=(("supervisor appointed", "supervisor_appointed_on"),),
+         parent=("Operator", "companies", "operator_key")),
     # ── companies, step 5.5: the interface's answers (companies-2; pane.md: companies; added at the charities-3 merge) ──
     View("company_lookups", "companies", "organisation", ("name",),
          search=("name",), numbers=("nzbn",),
