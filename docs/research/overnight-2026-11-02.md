@@ -122,3 +122,13 @@ fund's general-partner company lists its two partnerships, confirmed.
 read-back (five pinned donor-director pairs no longer joined by a link): both red at 8c7db4e too. A note is in the
 inbox (`cards/2026-11-01-two-real-tests-red-on-live-data.md`). `products/scan/tests/test_real.py` needs the integrator
 mark to run and was not run.
+
+## 12. A partnership up the ownership chain lists its general partners
+
+The chain reads a partnership's current general partners above it, as it reads a company's current directors, and
+`partnership-holders` in ownership finds a partnership by name or by the register's entity type, once. Verified on the
+real rows: a company held by a partnership lists the partnership's general partner.
+
+Arthur's question: the chain joins a holder to a company by exact name. 1,397 holder rows match a partnership's name
+case-folded; only 290 match exactly, so 1,107 are "not followed; no company of this name". A case fold would follow
+them all (still near); it changes how every holder is joined, so it is his.

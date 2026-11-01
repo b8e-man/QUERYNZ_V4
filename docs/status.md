@@ -29,7 +29,7 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
 - Overnight 1 to 2 November (Arthur's six approvals): `qv4-companies-history`
   from 22:05 (past roles, 1.10 M wanted, 2,000 a night); credit reads
   `pub.company_states`; WorkSafe, the Commission and the FMA read by five
-  templates (82c4418); Board decisions in construction and property (29a5a70); general partners (ddb4d83); OIO in property (bd3d5e8); register past roles listed (6086cfc); a general partner's partnerships (a0dd036). Report: docs/research/overnight-2026-11-02.md.
+  templates (82c4418); Board decisions in construction and property (29a5a70); general partners (ddb4d83); OIO in property (bd3d5e8); register past roles listed (6086cfc); a general partner's partnerships (a0dd036); partnerships up the chain. Report: docs/research/overnight-2026-11-02.md.
 
 - 31 October merges: `fix-registers-courts-1` 10:5x (one keep rule;
   `pub.court_people` 57,096 names), `readers-1` 12:50 (beehive-2,
