@@ -36,6 +36,7 @@ def test_every_lane_dates_its_documents_and_the_view_carries_the_date():
     assert all(q.count("%s") == 0 and " GROUP BY 1" in q for q in S.DATED.values()), "one date per document"
     view = S.DDL[S.DDL.index("CREATE OR REPLACE VIEW pub.name_sightings"):]
     assert "d.dated" in view and "LEFT JOIN links.sightings_done d" in view, "the view carries the document's date"
+    assert "s.document || '/' || s.lane || '/' || s.start_at AS key" in view, "a sighting's key, for the board (2 November 2026)"
     assert all(q.count(",") >= 2 for q in S.STREAMED.values()), "a streamed lane reads its date with its text"
 
 

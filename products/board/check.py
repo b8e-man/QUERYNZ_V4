@@ -1509,12 +1509,21 @@ def landing_names(conn, sha: str) -> list:
     return document.landing.names_of(sha, conn)
 
 
+#: a law's title as a text reader files it in a people view: it ends "Bill", "Act" or "Regulations", a year after it or not
+#: ("Retirement Villages (Retirement Village Residents) Amendment Bill", "... Amendment Act 2018"). With a comma it can be an
+#: inverted person's name ("SMITH, Bill"), so a name with a comma is never read as a title
+LAW_TITLE = re.compile(r"\b(bill|act|regulations)(\s+\d{4})?\s*$")
+
+
 def carries_residence(name: str) -> bool:
     """A person's name with a residence after it ("Jane Doe, Sunrise Rest
     Home"): a residence word in a part of the name that follows a comma, a
     "c/-", a bracket or a dash, behind a part that reads as no organisation.
-    An institution named for what it is ("Waimate Rest Home") is not one."""
+    An institution named for what it is ("Waimate Rest Home") is not one, nor
+    a law's title ("... (Retirement Village Residents) Amendment Bill")."""
     low = cat.fold_term(name or "")
+    if "," not in low and LAW_TITLE.search(low):
+        return False
     for w in RESIDENCE_WORDS:
         i = low.find(w)
         if i < 0:

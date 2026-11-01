@@ -697,6 +697,16 @@ VIEWS: tuple[View, ...] = (
          note="a section of the daily PDF's text, split by the hansard-day rule (hansard-3, 31 October): a run of "
               "centred headings and the turns under it; the text is in no view, \"source\" opens the record whole (ruling 88)",
          default_order="sitting_on"),
+    # ── the name sightings (links/sightings.py; on the board 2 November 2026): a name of pub.names the deterministic pass
+    # found in a document's text; the name only, never the text around it ──
+    View("name_sightings", "links", "document", ("printed", "lane"),
+         search=("form",),
+         fields=(("as printed", "printed"), ("lane", "lane"), ("kind", "kind"), ("register rows that print the name", "names_rows"),
+                 ("from character", "start_at"), ("to character", "end_at"), ("forms version", "version")),
+         dates=(("the document's date", "dated"), ("found", "found_at")),
+         note="a name a register files, found in the document's text by the deterministic pass before any model read it; "
+              "not a link to any person: the same name is not the same person; the name only, never the text around it",
+         default_order="dated"),
     View("hansard_people", "hansard", "person", ("name", "role"),
          search=("name",),
          fields=(("kind", "kind"), ("role", "role"), ("role, as the text says", "role_text"), ("of", "of"),
@@ -1510,6 +1520,7 @@ REGISTERS = (
     ("council_minutes", "Council meetings on InfoCouncil (minutes held by hash, never read)"),
     ("councillor_interests", "Councillors' registers of interests, council by council (off the public site: hard limit 14)"),
     ("local_elections", "Local election candidate returns (listed; held unread until ruling 79 lifts)"),
+    ("links", "Names found in documents: a register's name sighted in a document's text (links/sightings.py; not a link to anyone)"),
 )
 
 #: the graph canvas's node colours (ruling 100), by family of register: 32 registers cannot take 32 colours each 3:1
@@ -1531,7 +1542,7 @@ FAMILIES = (
     ("public money", "#f8e000", ("grants", "tenders", "contract_disclosures")),
     ("regulators", "#c02090", ("commerce_commission", "fma", "worksafe", "building_practitioners", "overseas_investment")),
     ("courts and sanctions", "#b888a0", ("courts", "sanctions")),
-    ("notices and minutes", "#f878f8", ("gazette", "council_minutes")),
+    ("notices and minutes", "#f878f8", ("gazette", "council_minutes", "links")),   # links: the names sighted in documents (2 November 2026)
 )
 #: (register, colour) for every register, in the catalogue's order
 REGISTER_COLOURS = tuple((r, c) for reg, _ in REGISTERS for _, c, regs in FAMILIES for r in regs if r == reg)

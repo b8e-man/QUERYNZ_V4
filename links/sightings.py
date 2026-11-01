@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS links.sightings_done (
 ALTER TABLE links.sightings_done ADD COLUMN IF NOT EXISTS dated date;
 CREATE OR REPLACE VIEW pub.name_sightings AS
     SELECT s.document, s.lane, s.form, s.printed, s.start_at, s.end_at, s.kind, f.rows AS names_rows, s.version, s.found_at,
-           d.dated
+           d.dated, s.document || '/' || s.lane || '/' || s.start_at AS key
     FROM links.sightings s JOIN links.name_forms f USING (form)
     LEFT JOIN links.sightings_done d ON d.document = s.document AND d.lane = s.lane AND d.version = s.version;
 """

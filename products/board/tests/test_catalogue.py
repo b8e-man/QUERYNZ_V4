@@ -28,6 +28,7 @@ PUBLISHED_AT_20_OCTOBER = {
     "beehive_releases", "beehive_release_ministers", "beehive_release_annotations",   # mcp-1 (27 October, ruling 96), catalogued at fix-products-board-1i
     "hansard_days",   # hansard-2 (27 October), catalogued at fix-products-board-1i, which carries it
     "beehive_people", "hansard_day_sections", "hansard_people", "parliament_people",   # the three names readers (31 October), catalogued at the merge after (ruling 123)
+    "name_sightings",   # the links lane's deterministic name pass (31 October), on the board 2 November 2026 (Arthur: "put it on the board")
     "minister_diary_releases", "minister_diary_entries",   # diaries-2 (27 October, rulings 96, 102), catalogued at fix-products-board-2, which carries it
     "parliament_written_questions", "parliament_api_items", "parliament_wayback_pages",   # parliament-1 (27 October, rulings 96, 101, 102), the same
     "candidate_return_totals", "candidate_return_donors",   # candidate-returns-1 (20 October)   # pub.* on 20 October 2026; the outside check compares with the live list
