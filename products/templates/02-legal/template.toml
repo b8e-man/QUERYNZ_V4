@@ -177,6 +177,12 @@ licence = "the business-number register, Creative Commons Attribution 4.0; gener
 attribution = "Companies Office, New Zealand Business Number register"
 refresh = "as the lane re-asks each partnership, stalest first"
 
+[[reads]]
+view = "company_lookup_roles"
+licence = "the business-number register, Creative Commons Attribution 4.0; a role's name and dates only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "company by company, by the history backfill and the monitor"
+
 [[sections]]
 name = "identity"
 heading = "Who the party is, and its namesakes set apart"
@@ -188,7 +194,7 @@ text = "The party is the row above: a company is its NZBN, and a person is the r
 [[sections]]
 name = "officers"
 heading = "Its officers and holders of record, with their dates"
-views = ["directors", "shareholders", "company_addresses", "limited_partnerships", "limited_partnership_partners"]
+views = ["directors", "shareholders", "company_addresses", "limited_partnerships", "limited_partnership_partners", "company_lookup_roles"]
 sources = ["roles", "members", "confirmed"]
 text = "Every director and shareholder the companies file lists on the company, with the dates it files, and its registered office; started from a person, the person's own roles and holdings. A holding is shown as the register states it: a shareholder of record. A nominee or trustee holds for others, and a company holder's own register is not followed here: start a report from it. The file lists current roles only."
 

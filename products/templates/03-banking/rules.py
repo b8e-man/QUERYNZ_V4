@@ -705,6 +705,12 @@ def officers_of_record(report):
     tail = f"; {omitted:,} row(s) past the walk's limit, not listed" if omitted else ""
     text = (f"{len(now)} current director(s) and {len(dirs) - len(now)} past or not in the latest file; "
             f"{len(holders)} holder(s) of record, {sum(1 for it in holders if _current(it))} in the latest file{tail}")
+    reg = [it for it in items(report, ("company_lookup_roles",), ("confirmed",))
+           if it.get("via") == report["subject"]["ref"] and not it.get("suppressed")]
+    if reg:   # the business-number register's roles no monthly file holds (read since 1 November 2026): listed, never a clear's evidence
+        ended = sum(1 for it in reg if (it.get("row") or {}).get("ended_on"))
+        text += (f"; the business-number register states {len(reg)} role(s) no monthly file holds, {len(reg) - ended} with no end "
+                 f"date and {ended} ended, each listed with the register's dates")
     going = GOING_STATUS.match(_status(report["subject"])) and r.get("in_latest", True)
     if not now and not omitted and going:
         return flag("officers-of-record", V, "fired", "amber", f"the companies file names no current director of the company: {text}",

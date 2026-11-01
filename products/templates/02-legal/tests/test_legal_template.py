@@ -139,7 +139,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
-KIND = {"worksafe_parties": "organisation", "commerce_commission_parties": "organisation", "fma_parties": "organisation", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
+KIND = {"company_lookup_roles": "person", "worksafe_parties": "organisation", "commerce_commission_parties": "organisation", "fma_parties": "organisation", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
         "party_return_donors": "figure", "charities": "organisation", "charity_officers": "person", "charity_returns": "figure"}
@@ -588,3 +588,16 @@ def test_a_regulators_listing_naming_the_subject_fires_and_a_namesakes_is_amber_
     hidden = rule("comcom_coverage")(report(regulators=[dict(conf, suppressed=True)]))
     assert hidden["status"] != "fired" and "ACME" not in hidden["text"], "a name the regulator withheld is never shown or counted"
     assert rule("comcom_coverage")(person())["status"] == "clear" and "as it lists them today" in rule("comcom_coverage")(person())["text"]
+
+
+def test_officers_of_record_counts_the_business_number_registers_roles_no_file_holds_and_never_clears_on_them():
+    me = dict(ACME, via=None)
+    past = it("companies:companies/1/role/2/aa", "company_lookup_roles", title="John ROE · Director", via=ACME["ref"],
+              dates="from 16 May 2002; to 14 November 2016", row={"ended_on": "2016-11-14", "role_type": "Director"})
+    still = it("companies:companies/1/role/3/aa", "company_lookup_roles", title="Ann POE · Director", via=ACME["ref"], row={"ended_on": None})
+    f = rule("officers_of_record")(report(subject=me, officers=[past, still]))
+    assert "the business-number register states 2 role(s) no monthly file holds, 1 with no end date and 1 ended" in f["text"]
+    other = rule("officers_of_record")(report(subject=me, officers=[dict(past, via="companies:companies/99")]))
+    assert "business-number register" not in other["text"], "another company's register roles are not the subject's"
+    hidden = rule("officers_of_record")(report(subject=me, officers=[dict(past, suppressed=True)]))
+    assert "business-number register" not in hidden["text"]

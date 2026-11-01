@@ -30,7 +30,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "board", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
+VIEWS = {"company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
          "charities", "charity_officers", "charity_returns"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -119,7 +119,7 @@ def test_its_sections_run_in_the_procurement_leads_order():
     s = {x["name"]: x for x in t["sections"]}
     assert s["identity"]["sources"] == ["near"] and "companies" not in s["identity"]["views"], \
         "an entity is filed in the first section naming its view: a confirmed company never lands with the namesakes"
-    assert s["officers"]["views"] == ["directors", "shareholders", "limited_partnerships", "limited_partnership_partners"] and "roles" in s["officers"]["sources"]
+    assert s["officers"]["views"] == ["directors", "shareholders", "limited_partnerships", "limited_partnership_partners", "company_lookup_roles"] and "roles" in s["officers"]["sources"]
     assert s["phoenix"]["views"] == ["companies"] and "pointing" not in s["phoenix"]["sources"]
     assert s["office"]["views"] == ["company_addresses"]
     assert set(s["people-notices"]["views"]) == {"gazette_prohibitions", "gazette_bankruptcies"}

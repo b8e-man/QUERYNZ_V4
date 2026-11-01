@@ -165,6 +165,12 @@ licence = "copyright the Financial Markets Authority, licensed CC BY 4.0"
 attribution = "Financial Markets Authority"
 refresh = "as the FMA lists them; re-read on the lane's clock"
 
+[[reads]]
+view = "company_lookup_roles"
+licence = "the business-number register, Creative Commons Attribution 4.0; a role's name and dates only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "company by company, by the history backfill and the monitor"
+
 [[sections]]
 name = "identity"
 heading = "The entity, and its namesakes set apart"
@@ -185,7 +191,7 @@ text = "The entity's register status and the day it was registered are in the he
 [[sections]]
 name = "governance"
 heading = "Its governance: directors, holders of record, and the charities its people serve"
-views = ["directors", "shareholders", "society_officers", "companies", "societies", "charities", "charity_officers"]
+views = ["directors", "shareholders", "society_officers", "companies", "societies", "charities", "charity_officers", "company_lookup_roles"]
 sources = ["roles", "members", "confirmed", "chain", "named"]
 text = "Every director and holder of record the companies file lists on the company, and every officer the societies register lists on a society, with the dates each files; started from a person, the person's own roles and holdings and the companies and societies they sit on. A holding is shown as the register states it: a holder of record. A company holder is followed two up the chain, by business number where the file has one, otherwise by a name only one company carries (near), its shares as filed. Then the Charities Register: a company's charity by its business number, confirmed, with its status and the officers the register files on it (a charitable trust board's trustees are filed there); started from a person, each charity officer row that carries the person's name, near: no link joins the register's officers to any other row yet, so each is a namesake's until a rule confirms it."
 

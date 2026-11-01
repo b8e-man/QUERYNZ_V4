@@ -174,6 +174,12 @@ licence = "copyright the Financial Markets Authority, licensed CC BY 4.0"
 attribution = "Financial Markets Authority"
 refresh = "as the FMA lists them; re-read on the lane's clock"
 
+[[reads]]
+view = "company_lookup_roles"
+licence = "the business-number register, Creative Commons Attribution 4.0; a role's name and dates only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "company by company, by the history backfill and the monitor"
+
 [[sections]]
 name = "identity"
 heading = "Who this is, and the namesakes set apart"
@@ -185,7 +191,7 @@ text = "The subject is the row above and the rows confirmed the same person. Eac
 [[sections]]
 name = "companies"
 heading = "Directorships and holdings of record, current and past"
-views = ["companies", "directors", "shareholders"]
+views = ["companies", "directors", "shareholders", "company_lookup_roles"]
 sources = ["members", "confirmed"]
 text = "Each company with the subject's role on it and its dates as the register files them. A holding is shown as the register states it: a shareholder of record. Nobody is called an owner."
 

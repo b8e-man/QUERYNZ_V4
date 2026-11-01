@@ -191,6 +191,12 @@ licence = "Crown copyright, licensed CC BY 4.0; a name the Office withheld is no
 attribution = "Overseas Investment Office, Toitū Te Whenua Land Information New Zealand"
 refresh = "as the Office publishes them; re-read on the lane's clock"
 
+[[reads]]
+view = "company_lookup_roles"
+licence = "the business-number register, Creative Commons Attribution 4.0; a role's name and dates only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "company by company, by the history backfill and the monitor"
+
 [[sections]]
 name = "identity"
 heading = "The entity, and its namesakes set apart"
@@ -210,7 +216,7 @@ text = "The entity's register status, its type and the day it was registered are
 [[sections]]
 name = "principals"
 heading = "Its principals: directors and holders of record, with their dates"
-views = ["directors", "shareholders", "society_officers", "charities", "charity_officers", "charity_returns"]
+views = ["directors", "shareholders", "society_officers", "charities", "charity_officers", "charity_returns", "company_lookup_roles"]
 sources = ["roles", "members", "confirmed", "named"]
 text = "Every director and holder of record the companies file lists on the company, with the dates it files; started from a person, the person's own roles and holdings. A holding is shown as the register states it: a holder of record, with the shares filed. A nominee or a trustee holds for others, and for whom is in no register held. The file lists current roles only. Then the Charities Register: a company's charity by its business number (a developer's trust board), confirmed, with the trustees and annual returns the register files on it, the figures as filed and never added across returns; started from a person, each charity officer row that carries the person's name, near: no link joins the register's officers to any other row yet, so each is a namesake's until a rule confirms it."
 

@@ -133,6 +133,12 @@ view = "charity_returns"
 licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the financial fields under the ruling of 14 August 2026"
 attribution = "Charities Services, Department of Internal Affairs"
 refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "company_lookup_roles"
+licence = "the business-number register, Creative Commons Attribution 4.0; a role's name and dates only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "company by company, by the history backfill and the monitor"
+
 [[sections]]
 name = "identity"
 heading = "The entity, and its namesakes set apart"
@@ -150,7 +156,7 @@ text = "The entity's own status, type, registration date and the latest monthly 
 [[sections]]
 name = "changes"
 heading = "What changed, month by month: directors, holders of record and registered offices, each dated by the file that first shows it"
-views = ["directors", "shareholders", "company_addresses", "company_states"]
+views = ["directors", "shareholders", "company_addresses", "company_states", "company_lookup_roles"]
 sources = ["members", "confirmed", "roles"]
 text = "The grain is the companies register's monthly file, and two files are held: July and August 2026. Each row here is dated by the files that show it: one first shown in the August file arrived between the two files, and one last shown in the July file left between them; that dates a change to a month, not a day. The day the register files beside a row (a director's appointment, an office's start) is printed with it and is the register's own date. The change list itself, newest first, is the flag monthly-changes. A status or name change between the files is published and not yet reachable by this report (carded). The file lists current roles only: a director who left before the July file is not seen."
 
