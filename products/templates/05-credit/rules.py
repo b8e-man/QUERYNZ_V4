@@ -68,8 +68,9 @@ CHANGES_SHOWN = 12        # changes the monthly-changes flag states in its text;
 #: lists current roles only. While False, a check over a person's companies fires on what it sees and never clears.
 HISTORY = False
 #: whether the report can reach a status or name change between files. pub.company_states holds them (5,629 earlier states in the July
-#: file, measured 2026-10-21) and the report's catalogue does not know the view. While False, no change check clears.
-STATES = False
+#: file, measured 2026-10-21); the report's catalogue knows the view since 5.5 and this template reads it since 1 November 2026 (the
+#: overnight's approval 4). While False, no change check clears.
+STATES = True
 #: the monthly files the companies lane holds, measured 2026-10-21 (pub.directors first_file and last_file): a report's own rows cannot
 #: say which files exist (a company new in the later file has no row in the earlier one; a removed one none in the later), so these are
 #: added to the files its rows name; a file loaded later is picked up from the rows. The lane publishes no list of its files (carded).
@@ -93,7 +94,9 @@ MONTHS = ("January", "February", "March", "April", "May", "June", "July", "Augus
 HUB_KINDS = ("professional-director", "nominee", "crown")
 OFFICE_HUBS = ("busy-address", "thousand-address")
 PEOPLE = ("directors", "shareholders")
-CHANGE_VIEWS = ("directors", "shareholders", "company_addresses")
+CHANGE_VIEWS = ("directors", "shareholders", "company_addresses", "company_states")
+#: a status a later file gave a company that turns against it: the order a status change takes in the change list
+ADVERSE_STATUS = re.compile(r"liquidation|receivership|administration|removed|struck", re.I)
 #: the words a fired flag must not carry, the shape's own (rules 3 and 4): a register's name that holds one is not quoted in a flag
 UNSAFE = re.compile(contract.CAUSE.pattern + "|" + contract.OWNER.pattern, re.I)   # noqa: F821  (bound by the loader)
 
@@ -105,6 +108,12 @@ INSOLVENCY_REGISTER = "the Official Assignee's Insolvency Register (interface aw
 NOT_HELD_INSOLVENCY = (INSOLVENCY_REGISTER, "court judgments (step 5.4)")
 SECURITIES = "the Personal Property Securities Register (interface awaited since 19 September 2026)"
 STATES_NOT_REACHED = ("a status or name change between the monthly files (pub.company_states: published, not in the report's catalogue)")
+STATES_HELD = "Companies register earlier states (pub.company_states: a status or name a later monthly file changed)"
+
+
+def _unreached() -> tuple:
+    """The status-and-name half of a change check, named not held while the template cannot read it."""
+    return () if STATES else (STATES_NOT_REACHED,)
 INTERFACE = "the business-number interface's state on the day of the lookup (plan step 5.5, not built)"
 CHANGE_HISTORY = "the companies change history: not held before 16 August 2026, held and unread since (former names, trading names, earlier directors)"
 CREDIT_BUREAU = "credit-bureau defaults and payment records (no lane; not a public register)"
@@ -398,6 +407,23 @@ def _changes(report) -> list:
         if not r.get("in_latest", True) and (r.get("last_file") or latest) < latest:
             nxt = next((x for x in files if x > r["last_file"]), latest)
             out.append((nxt, 5, f"{_name(co)} is not in {_month(nxt)}: last shown in {_month(r['last_file'])}", (co["ref"],)))
+    # a status or a name the company carried in an earlier file that a later file changed (pub.company_states): order 6 a status
+    # that turned against it, 7 any other status, 8 a name; dated to the file after the one that carried the earlier state
+    for it in rows:
+        if it["view"] != "company_states":
+            continue
+        co = _co(report, _company_of(it))
+        if not co or co.get("view") != "companies":
+            continue
+        was, now_ = it["row"], co["row"]
+        f = was.get("file") or first
+        nxt = next((x for x in files if x > f), latest)
+        if _fold(was.get("status") or "") != _fold(now_.get("status") or ""):
+            adverse = bool(ADVERSE_STATUS.search(now_.get("status") or "")) and not ADVERSE_STATUS.search(was.get("status") or "")
+            out.append((nxt, 6 if adverse else 7, f"{_name(co)}'s status changed: {was.get('status')} in {_month(f)}, "
+                        f"{now_.get('status')} in the latest file held", (it["ref"], co["ref"])))
+        if was.get("name") and _fold(was["name"]) != _fold(now_.get("name") or co["title"]):
+            out.append((nxt, 8, f"{_name(co)} was named {was['name']} in {_month(f)}", (it["ref"], co["ref"])))
     out.sort(key=lambda x: (x[0] or "", -x[1]), reverse=True)
     return out
 
@@ -453,22 +479,24 @@ def monthly_changes(report):
     held = f"the files held: {', '.join(files)}" if files else "no monthly file is named by the rows read"
     if len(files) < 2:
         return flag("monthly-changes", V, "blocked", "info", f"{held}: a change between files needs two, so none can be seen; {GRAIN}",
-                    sources_not_held=(STATES_NOT_REACHED, INTERFACE))
+                    sources_not_held=_unreached() + (INTERFACE,))
     ch = _changes(report)
-    tail = (f"; {GRAIN}; {held}; a status or name change between the files is published and not reachable by this report, so the list "
-            f"is not complete")
+    tail = (f"; {GRAIN}; {held}" + ("; a status or name change between the files is read from the earlier states a later file changed"
+                                    if STATES else "; a status or name change between the files is published and not reachable by this "
+                                    "report, so the list is not complete"))
     if ch:
         shown = "; ".join(f"{_month(f)}: {text}" for f, _, text, _ in ch[:CHANGES_SHOWN])
         more = f"; and {len(ch) - CHANGES_SHOWN} more, each in the changes section" if len(ch) > CHANGES_SHOWN else ""
         return flag("monthly-changes", V, "fired", "info", f"{len(ch)} change(s) on {whose} between the monthly files, newest first: {shown}{more}{tail}",
-                    citations=tuple(dict.fromkeys(r for c in ch for r in c[3])), sources_not_held=(STATES_NOT_REACHED, INTERFACE, CHANGE_HISTORY),
+                    citations=tuple(dict.fromkeys(r for c in ch for r in c[3])), sources_held=(FILES_HELD,) + ((STATES_HELD,) if STATES else ()),
+                    sources_not_held=_unreached() + (INTERFACE, CHANGE_HISTORY),
                     scope="entity" if _company_start(report) else "officer-group")
     if _walk_short(report):
         return flag("monthly-changes", V, "blocked", "info", f"no change seen on the companies the walk read, but it stopped before reading every "
-                    f"company the person has a row on{tail}", sources_not_held=(STATES_NOT_REACHED, INTERFACE))
+                    f"company the person has a row on{tail}", sources_not_held=_unreached() + (INTERFACE,))
     return _clear_or(STATES, "monthly-changes", "info", f"no director, holder of record or registered office of {whose} arrived or left between "
-                     f"the monthly files ({held}); {GRAIN}", f"{STATES_NOT_REACHED} cannot be seen",
-                     sources_held=(FILES_HELD,), sources_not_held=(STATES_NOT_REACHED, INTERFACE, CHANGE_HISTORY))
+                     f"the monthly files ({held}), and no status or name a later file changed; {GRAIN}", f"{STATES_NOT_REACHED} cannot be seen",
+                     sources_held=(FILES_HELD, STATES_HELD), sources_not_held=(INTERFACE, CHANGE_HISTORY))
 
 
 def _removed_before(report, change) -> bool:
@@ -497,7 +525,7 @@ def recent_adverse_change(report):
     ch = [c for c in _changes(report) if c[0] == latest]
     views = {ref: it["view"] for ref, it in all_items(report).items()}
     adverse_file = [c for c in ch if (c[1] == 1 and views.get(c[3][0]) == "directors") or (c[1] == 5 and not _removed_before(report, c))
-                    or (c[1] == 3 and "companies share" in c[2])]
+                    or (c[1] == 3 and "companies share" in c[2]) or c[1] == 6]
     bits, cites = [], []
     for it in insolv[:EXAMPLES]:
         bits.append(f"{_name(it)}: {_kind(it)}, {it['dates']['text']}")
@@ -508,23 +536,23 @@ def recent_adverse_change(report):
     cites = [it["ref"] for it in insolv + removal] + [r for c in adverse_file for r in c[3]]
     window = (f"recent is a Gazette notice published on or after {since.isoformat()} ({RECENT_DAYS} days before {as_of.isoformat()}), and a "
               f"change first shown in the latest file held, {_month(latest) if latest else 'none'}, which dates it to a month")
-    gone = [c for c in adverse_file if c[1] == 5]
+    gone = [c for c in adverse_file if c[1] in (5, 6)]
     if bits:
         red = bool(insolv) or bool(gone)
         return flag("recent-adverse-change", V, "fired", "red" if red else "amber",
                     f"{len(insolv)} insolvency notice(s), {len(removal)} removal notice(s) and {len(adverse_file)} adverse change(s) between the "
                     f"files on {'the entity' if _company_start(report) else 'the companies the person has a confirmed row on'}: "
                     + " | ".join(bits) + f"; {window}; side by side, each with its own date",
-                    citations=tuple(dict.fromkeys(cites)), sources_not_held=(STATES_NOT_REACHED, INTERFACE) + NOT_HELD_INSOLVENCY,
+                    citations=tuple(dict.fromkeys(cites)), sources_not_held=_unreached() + (INTERFACE,) + NOT_HELD_INSOLVENCY,
                     scope="entity" if _company_start(report) else "officer-group")
     if _walk_short(report):
         return flag("recent-adverse-change", V, "blocked", "red", f"none seen on the companies the walk read, but it stopped before reading every "
-                    f"company{_short_text(report)}; {window}", sources_not_held=(STATES_NOT_REACHED, INTERFACE))
+                    f"company{_short_text(report)}; {window}", sources_not_held=_unreached() + (INTERFACE,))
     whose = "the entity" if _company_start(report) else "the companies the person has a confirmed row on"
     return _clear_or(STATES, "recent-adverse-change", "red", f"on {whose}: no Gazette insolvency or removal notice in the window, none gone from "
-                     f"the latest file, and no director left nor did an office move to a busy address in it; {window}",
-                     f"{STATES_NOT_REACHED} cannot be seen, nor {INTERFACE}",
-                     sources_held=(GAZETTE_HELD, FILES_HELD), sources_not_held=(STATES_NOT_REACHED, INTERFACE) + NOT_HELD_INSOLVENCY)
+                     f"the latest file, no director left nor did an office move to a busy address in it, and no status turned against it; "
+                     f"{window}", f"{STATES_NOT_REACHED} cannot be seen, nor {INTERFACE}",
+                     sources_held=(GAZETTE_HELD, FILES_HELD, STATES_HELD), sources_not_held=(INTERFACE,) + NOT_HELD_INSOLVENCY)
 
 
 def officer_churn(report):
@@ -877,8 +905,19 @@ def walk_coverage(report):
 # ── what the registers cannot see ───────────────────────────────────────────
 
 def status_name_changes(report):
-    if STATES:
-        return flag("status-name-changes", V, "clear", "amber", "status and name changes between files are read", sources_held=("pub.company_states",))
+    if STATES and not _other_start(report):
+        ch = [c for c in _changes(report) if c[1] in (6, 7, 8)]
+        if ch:
+            return flag("status-name-changes", V, "fired", "red" if any(c[1] == 6 for c in ch) else "amber",
+                        f"{len(ch)} status or name change(s) between the monthly files, newest first: "
+                        + "; ".join(f"{_month(c[0])}: {c[2]}" for c in ch[:CHANGES_SHOWN]) + f"; {GRAIN}",
+                        citations=tuple(dict.fromkeys(r for c in ch for r in c[3])), sources_held=(STATES_HELD,),
+                        sources_not_held=(INTERFACE, CHANGE_HISTORY), scope="entity" if _company_start(report) else "officer-group")
+        if _walk_short(report):
+            return flag("status-name-changes", V, "blocked", "amber", f"none seen on the companies the walk read, but it stopped before "
+                        f"reading every company{_short_text(report)}", sources_not_held=(INTERFACE,))
+        return flag("status-name-changes", V, "clear", "amber", "no status or name of the companies in scope was changed by a later "
+                    f"monthly file; {GRAIN}", sources_held=(STATES_HELD,), sources_not_held=(INTERFACE, CHANGE_HISTORY))
     return flag("status-name-changes", V, "blocked", "amber",
                 "a status change (registered to in liquidation, say) or a name change between the monthly files is published in "
                 "pub.company_states, which the report's catalogue does not know, so this report cannot list it: the status today is shown, "

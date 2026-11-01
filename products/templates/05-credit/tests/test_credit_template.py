@@ -107,7 +107,7 @@ def test_its_sections_run_in_the_credit_analysts_order():
     assert s["identity"]["sources"] == ["near"], "the first section holds the namesakes and nothing confirmed"
     assert not set(s["identity"]["views"]) & (GAZETTE_CO | GAZETTE_PERSON | {"companies"})
     assert s["standing"]["views"][0] == "companies", "every company reached heads the standing section"
-    assert set(s["changes"]["views"]) == {"directors", "shareholders", "company_addresses"} and "roles" in s["changes"]["sources"]
+    assert set(s["changes"]["views"]) == {"directors", "shareholders", "company_addresses", "company_states"} and "roles" in s["changes"]["sources"]
     assert "month, not a day" in s["changes"]["text"] and "monthly-changes" in s["changes"]["text"]
     assert GAZETTE_CO <= set(s["gazette"]["views"]) and "pointing" in s["gazette"]["sources"]
     assert "second" in s["people"]["sources"] and "not a clear" in s["people"]["text"]
@@ -156,7 +156,8 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 KIND = {"directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "companies": "organisation", "societies": "organisation", "company_addresses": "place",
-        "gazette_company_notices": "organisation", "gazette_liquidations": "organisation", "party_return_donors": "figure"}
+        "gazette_company_notices": "organisation", "gazette_liquidations": "organisation", "party_return_donors": "figure",
+        "company_states": "organisation"}
 JUL, AUG, SEP = "companies-2026-07", "companies-2026-08", "companies-2026-09"
 NEAR_PEOPLE = "a connection that passes through more than one person is listed as near, never confirmed (the design's default)"
 
@@ -236,6 +237,23 @@ BANKRUPT = it("gazette:gazette/2024-ba1/person/1", "gazette_bankruptcies", title
 NAMESAKE = it("companies:companies/77/director/q", "directors", grade="near", title="Jane DOE")
 
 
+def state(company, file=JUL, **row):
+    """An earlier state of `company` (pub.company_states): the status and name the file carried before a later file changed it."""
+    base = {"entity_key": company["ref"].split(":", 1)[1], "file": file, "name": company["title"], "status": company["row"]["status"],
+            "entity_type": "LTD"}
+    return it(f"{company['ref']}/in/{file}", "company_states", title=row.get("name", company["title"]), via=company["ref"],
+              row={**base, **row})
+
+
+WAS_REGISTERED = state(GAMMA, status="Registered")          # GAMMA is In Liquidation in the latest file
+WAS_NAMED = state(ACME, name="ACME HOLDINGS LIMITED")        # ACME was renamed; its status is unchanged
+
+
+def turned():
+    """GAMMA from itself: registered in the July file, in liquidation in the August file."""
+    return report(subject=dict(GAMMA, via=None), changes=[WAS_REGISTERED])
+
+
 def report(subject=None, **sections):
     out = {"found": True, "as_of": "2026-10-21", "subject": subject or dict(ACME, via=None), "members": [], "flags": [], "hubs": [],
            "group": {"built": True, "size": 1, "contested": False, "omitted": 0},
@@ -286,10 +304,19 @@ def properties(mod) -> list:
     runs it on each broken copy of the rules and needs it to say something."""
     bad = []
     rl = lambda n: rule(n, mod)   # noqa: E731
-    for name in CHANGE_CHECKS:
-        for r in (quiet(), person(), report()):
-            if rl(name)(r)["status"] == "clear":
-                bad.append(f"status changes unreachable: {name} cleared")
+    if rl("monthly_changes")(turned())["status"] != "fired":
+        bad.append("monthly-changes does not fire on a status a later file changed")
+    for name in ("recent_adverse_change", "status_name_changes"):
+        f = rl(name)(turned())
+        if f["status"] != "fired" or f["severity"] != "red":
+            bad.append(f"a status that turned to liquidation between the files is not a red {name}: {f['status']} {f['severity']}")
+    if "status changed: Registered in the July 2026 file, In Liquidation in the latest file held" not in rl("monthly_changes")(turned())["text"]:
+        bad.append("monthly-changes does not state the status change with both files")
+    n = rl("status_name_changes")(report(changes=[STAY, WAS_NAMED]))
+    if n["status"] != "fired" or n["severity"] != "amber" or "was named ACME HOLDINGS LIMITED" not in n["text"]:
+        bad.append("a name a later file changed is not an amber status-name-changes")
+    if rl("status_name_changes")(quiet())["status"] != "clear":
+        bad.append("a company no later file changed does not clear status-name-changes")
     m = rl("monthly_changes")(busy())
     text = m["text"]
     if m["status"] != "fired":
@@ -366,7 +393,8 @@ def test_the_properties_hold_on_the_rules_as_written():
 
 #: (what the mutant breaks, the text replaced, its replacement): each must be unique in rules.py and caught by properties()
 MUTANTS = (
-    ("status changes are taken as reachable", "STATES = False\n", "STATES = True\n"),
+    ("status changes are not read", "STATES = True\n", "STATES = False\n"),
+    ("a status turning to liquidation is not adverse", " or c[1] == 6]", "]"),
     ("the change list is oldest first", 'out.sort(key=lambda x: (x[0] or "", -x[1]), reverse=True)', 'out.sort(key=lambda x: (x[0] or "", -x[1]))'),
     ("a suppressed name is quoted", '    if it.get("suppressed"):\n        return f"a row whose name is suppressed', '    if False:\n        return f"a row whose name is suppressed'),
     ("the files held are read from the rows alone", "    out = set(FILES_MEASURED)", "    out = set()"),
@@ -420,11 +448,11 @@ def test_monthly_changes_lists_each_change_by_its_file_newest_first_and_never_cl
     assert "Dean WILSON's holding of record changed: 100 shares in the July 2026 file, 80 in the August 2026 file" in t
     assert "an office 67 companies share" in t and OFFICE_LINE not in t
     assert "a row whose name is suppressed" in t and HIDDEN not in t
-    assert "the files held: companies-2026-07, companies-2026-08, companies-2026-09" in t and "not reachable" in t
+    assert "the files held: companies-2026-07, companies-2026-08, companies-2026-09" in t and "read from the earlier states" in t
     assert {GONE["ref"], CAME["ref"], LATER["ref"], HOLD_JUL["ref"], HOLD_AUG["ref"], OLD_OFFICE["ref"], NEW_OFFICE["ref"]} <= set(f["citations"])
     assert STAY["ref"] not in f["citations"], "a director in both files is no change"
     q = rule("monthly_changes")(quiet())
-    assert q["status"] == "blocked" and "no clear is given" in q["text"] and "pub.company_states" in q["text"]
+    assert q["status"] == "clear" and "no status or name a later file changed" in q["text"]
 
 
 def test_monthly_changes_from_a_person_reads_the_persons_companies():
@@ -438,7 +466,7 @@ def test_a_company_gone_from_the_latest_file_is_red_unless_removed_before():
     f = rule("recent_adverse_change")(report(subject=dict(gone, via=None)))
     assert f["status"] == "fired" and f["severity"] == "red" and "is not in the August 2026 file" in f["text"]
     earlier = dict(gone, row=dict(gone["row"], removed_on="2026-05-20"))
-    assert rule("recent_adverse_change")(report(subject=dict(earlier, via=None)))["status"] == "blocked", "the file catching up is not news"
+    assert rule("recent_adverse_change")(report(subject=dict(earlier, via=None)))["status"] == "clear", "the file catching up is not news"
     assert "is not in the August 2026 file" in rule("monthly_changes")(report(subject=dict(earlier, via=None)))["text"]
     s = rule("entity_status")(report(subject=dict(earlier, via=None)))
     assert s["status"] == "fired" and s["severity"] == "red" and "removed 2026-05-20" in s["text"]
@@ -455,7 +483,7 @@ def test_recent_adverse_change_dates_each_fact_and_names_its_window():
     assert "on or after 2026-07-23 (90 days before 2026-10-21)" in f["text"] and "side by side" in f["text"]
     amber = rule("recent_adverse_change")(report(gazette=[REMOVAL]))
     assert amber["status"] == "fired" and amber["severity"] == "amber"
-    assert rule("recent_adverse_change")(quiet())["status"] == "blocked"
+    assert rule("recent_adverse_change")(quiet())["status"] == "clear"
 
 
 def test_officer_churn_counts_arrivals_departures_and_recent_appointments():
@@ -535,12 +563,12 @@ def test_namesake_exposure_declares_the_report_partial_past_fifty():
 
 
 def test_the_registers_not_held_block_and_never_clear():
-    for name in ("status_name_changes", "since_date", "interface_freshness", "past_roles", "change_history", "securities_register",
+    for name in ("since_date", "interface_freshness", "past_roles", "change_history", "securities_register",
                  "insolvency_register", "court_judgments", "credit_bureau", "mortgagee_possession"):
         for r in (busy(), person(), other()):
             assert rule(name)(r)["status"] == "blocked", name
     assert "Personal Property Securities Register" in rule("securities_register")(busy())["text"]
-    assert "pub.company_states" in rule("status_name_changes")(busy())["text"]
+    assert rule("status_name_changes")(busy())["status"] == "clear", "busy() changes no status or name"
     assert "since" in rule("since_date")(busy())["text"]
 
 

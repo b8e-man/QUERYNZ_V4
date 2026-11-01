@@ -79,13 +79,13 @@ def test_a_company_whose_directors_changed_lists_each_change_by_its_file_and_its
     m = memo(ref)
     f = m["flags"]["monthly-changes"]
     assert f["status"] == "fired" and " left as " in f["text"] and " arrived as " in f["text"], f
-    assert "a month and not a day" in f["text"] and "not reachable" in f["text"]
+    assert "a month and not a day" in f["text"] and "read from the earlier states" in f["text"]
     assert m["flags"]["insolvency-notices"]["status"] == "fired" and m["flags"]["insolvency-notices"]["severity"] == "red"
     assert m["flags"]["officer-churn"]["status"] == "fired"
     assert m["sections"][CHANGES]["confirmed"] >= 2
     for name in ("people-failed-companies", "prohibition", "bankruptcy", "other-current-companies"):
         assert m["flags"][name]["status"] == "blocked", f"{name}: from a company its people are not followed"
-    for name in ("status-name-changes", "since-date", "interface-freshness", "securities-register", "insolvency-register", "credit-bureau"):
+    for name in ("since-date", "interface-freshness", "securities-register", "insolvency-register", "credit-bureau"):
         assert m["flags"][name]["status"] == "blocked", name
 
 
@@ -106,3 +106,20 @@ def test_a_director_of_that_company_reads_the_persons_companies_and_the_people_b
     assert m["flags"]["officer-churn"]["status"] == "blocked" and m["flags"]["entity-status"]["status"] == "blocked"
     assert all(x.startswith("  - [near]") for x in m["sections"][PEOPLE]["lines"] if "DIRECTOR of" in x or "shareholder of record" in x), \
         "a connection through another person is never confirmed"
+
+
+TURNED = """
+    select 'companies:' || c.key from pub.companies c join pub.company_states s on s.entity_key = c.key
+    where c.in_latest and s.status ilike 'registered' and c.status ilike 'in liquidation'
+    order by c.key limit 1"""
+
+
+def test_a_company_a_later_file_put_into_liquidation_is_a_red_status_change_on_the_real_rows():
+    """Read on the real tables (1 November 2026): an earlier state in pub.company_states reaches the report, and a status that
+    turned to liquidation between the files is red in status-name-changes and recent-adverse-change and listed in monthly-changes."""
+    m = memo(one(TURNED))
+    f = m["flags"]
+    assert f["status-name-changes"]["status"] == "fired" and f["status-name-changes"]["severity"] == "red", f["status-name-changes"]
+    assert "status changed: Registered in the July 2026 file" in f["status-name-changes"]["text"]
+    assert f["recent-adverse-change"]["status"] == "fired" and f["recent-adverse-change"]["severity"] == "red"
+    assert "status changed" in f["monthly-changes"]["text"]

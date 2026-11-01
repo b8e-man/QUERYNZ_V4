@@ -26,7 +26,7 @@ depth = 2
 
 limits = [
   "The grain is the monthly file: a change between two files is dated to the file that first shows it, a month and not a day. Two files are held, July and August 2026, so a change before the July file is not seen as a change, and nothing after the August file is seen at all until the next file is loaded or step 5.5 checks the entity against the business-number interface.",
-  "A status change and a name change between files are published (pub.company_states) but the report's catalogue does not know that view, so this report cannot list them: the entity's status today is shown, and how it stood in the earlier file is not. The status-change half of every change check is blocked, never clear.",
+  "A status change and a name change between files are read from pub.company_states: the earlier status or name a later monthly file changed, dated to the file after the one that carried it, a month and not a day. A change within one month, or before the first file held, is not seen.",
   "The report takes no \"since\" date and keeps no watched list: it shows every change it can see, each dated, newest first, and the reader picks out what is new to them. Monitoring is the report re-run on the entity.",
   "Started from a company, the report lists its directors and holders of record but does not yet follow them: their other companies, how those stand, and the prohibitions and bankruptcies on them are not read, and those checks are blocked, never clear. Start a report from each director listed.",
   "The companies file lists current roles only, and the roles that left it since July 2026 with no end date: a director who left before the July file is not seen, nor a company the person left, so no check over a person's companies is ever clear.",
@@ -46,6 +46,11 @@ view = "companies"
 licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
 attribution = "Companies Office, New Zealand Business Number register"
 refresh = "monthly file; the interface check of step 5.5 when built"
+[[reads]]
+view = "company_states"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the earlier state a later monthly file changed"
+attribution = "Companies Office"
+refresh = "monthly file"
 [[reads]]
 view = "directors"
 licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
@@ -145,7 +150,7 @@ text = "The entity's own status, type, registration date and the latest monthly 
 [[sections]]
 name = "changes"
 heading = "What changed, month by month: directors, holders of record and registered offices, each dated by the file that first shows it"
-views = ["directors", "shareholders", "company_addresses"]
+views = ["directors", "shareholders", "company_addresses", "company_states"]
 sources = ["members", "confirmed", "roles"]
 text = "The grain is the companies register's monthly file, and two files are held: July and August 2026. Each row here is dated by the files that show it: one first shown in the August file arrived between the two files, and one last shown in the July file left between them; that dates a change to a month, not a day. The day the register files beside a row (a director's appointment, an office's start) is printed with it and is the register's own date. The change list itself, newest first, is the flag monthly-changes. A status or name change between the files is published and not yet reachable by this report (carded). The file lists current roles only: a director who left before the July file is not seen."
 
