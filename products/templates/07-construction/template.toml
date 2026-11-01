@@ -193,6 +193,11 @@ view = "company_lookup_roles"
 licence = "the business-number register, Creative Commons Attribution 4.0; a role's name and dates only, never an address"
 attribution = "Companies Office, New Zealand Business Number register"
 refresh = "company by company, by the history backfill and the monitor"
+[[reads]]
+view = "company_lookup_holdings"
+licence = "the business-number register, Creative Commons Attribution 4.0; a holder's name and dates only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "company by company, by the history backfill and the monitor"
 
 [[sections]]
 name = "identity"
@@ -204,7 +209,7 @@ text = "The entity is the row above: a company is its NZBN, and a person is the 
 [[sections]]
 name = "officers"
 heading = "Its officers and shareholders of record, with their dates"
-views = ["directors", "shareholders", "limited_partnerships", "limited_partnership_partners", "company_lookup_roles"]
+views = ["directors", "shareholders", "limited_partnerships", "limited_partnership_partners", "company_lookup_roles", "company_lookup_holdings"]
 sources = ["members", "confirmed", "roles"]
 text = "Every director and shareholder the companies file lists on the company, with the dates it files; started from a person, the person's own roles and holdings. The near rows after them are the officers of a company that only shares the entity's name, or of a namesake's company, listed so their names can be compared; nothing joins them to the entity. A holding is shown as the register states it: a shareholder of record. The file lists current roles only."
 
@@ -256,7 +261,7 @@ text = "A decision as the Board publishes it, for three years from the decision:
 [[sections]]
 name = "past-roles"
 heading = "Past roles under the name, from the business-number register"
-views = ["company_lookup_roles"]
+views = ["company_lookup_roles", "company_lookup_holdings"]
 sources = ["named", "officers"]
 text = "A role the business-number register states and no monthly file held, under the subject's name or a person's on the company: near, a person with this name and not confirmed to be the subject. One at a company that later failed is an amber warning in the failure checks. The register is read company by company, so most companies' past roles are not yet asked: none listed here is not a finding of none."
 

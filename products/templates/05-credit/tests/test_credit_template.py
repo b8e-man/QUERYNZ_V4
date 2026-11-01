@@ -107,7 +107,7 @@ def test_its_sections_run_in_the_credit_analysts_order():
     assert s["identity"]["sources"] == ["near"], "the first section holds the namesakes and nothing confirmed"
     assert not set(s["identity"]["views"]) & (GAZETTE_CO | GAZETTE_PERSON | {"companies"})
     assert s["standing"]["views"][0] == "companies", "every company reached heads the standing section"
-    assert set(s["changes"]["views"]) == {"directors", "shareholders", "company_addresses", "company_states", "company_lookup_roles"} and "roles" in s["changes"]["sources"]
+    assert set(s["changes"]["views"]) == {"directors", "shareholders", "company_addresses", "company_states", "company_lookup_roles", "company_lookup_holdings"} and "roles" in s["changes"]["sources"]
     assert "month, not a day" in s["changes"]["text"] and "monthly-changes" in s["changes"]["text"]
     assert GAZETTE_CO <= set(s["gazette"]["views"]) and "pointing" in s["gazette"]["sources"]
     assert "second" in s["people"]["sources"] and "not a clear" in s["people"]["text"]

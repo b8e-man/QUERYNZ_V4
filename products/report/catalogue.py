@@ -206,6 +206,12 @@ VIEWS: tuple = (
       statement="{title}: {role} of {entity} ({role_status}), as the business-number register states it",
       note="a role the business-number register states and no monthly file held: a past director with the register's own dates, "
            "back to the company's registration; read company by company by the history backfill, so most companies are not yet asked"),
+    V("company_lookup_holdings", "companies", "person", ("name",), names=("name",), suppressed="suppressed",
+      start="started_on", end="ended_on", entity=("companies", "entity_key"), role="holder_type",
+      statement="{title}: a past holder of record of {entity} ({role}), as the business-number register states it",
+      note="a holding the business-number register states and the monthly file no longer lists: a past holder of record with the "
+           "register's own dates; a holder of record is not an owner; read company by company by the history backfill, so most "
+           "companies are not yet asked"),
     # ── the courts corpus held (registers/courts; into the report 2 November 2026) ─────────────────────────────────
     V("court_judgments", "courts", "event", ("citation",), names=(), on="judgment_date", on_label="judgment",
       statement="{title}: a judgment or decision",

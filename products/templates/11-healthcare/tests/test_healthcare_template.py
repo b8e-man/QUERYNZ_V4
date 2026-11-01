@@ -34,7 +34,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ORDER = ["identity", "standing", "governance", "charity-returns", "overlap", "gazette", "regulators", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "companies", "company_states", "directors", "shareholders", "company_addresses", "societies", "society_officers",
+VIEWS = {"court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "company_lookup_holdings", "companies", "company_states", "directors", "shareholders", "company_addresses", "societies", "society_officers",
          "gazette_liquidations", "gazette_liquidators", "gazette_company_notices", "gazette_appointments", "gazette_prohibitions",
          "gazette_bankruptcies", "worksafe_parties", "commerce_commission_parties", "fma_parties"}
 CHARITY_VIEWS = ("charities", "charity_officers", "charity_returns")

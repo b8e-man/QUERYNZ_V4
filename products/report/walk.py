@@ -119,7 +119,7 @@ CROWN_BODIES = frozenset(cat.fold(x) for x in (
 ROLES_ON = {
     "companies": (("directors", "entity_key", "appointed_on"), ("shareholders", "entity_key", "name"),
                   ("company_addresses", "entity_key", "started_on"), ("company_states", "entity_key", "file"),
-                  ("company_lookup_roles", "entity_key", "ended_on desc"),
+                  ("company_lookup_roles", "entity_key", "ended_on desc"), ("company_lookup_holdings", "entity_key", "ended_on desc"),
                   # the partnerships the company is a general partner of, by its business number; each row titled by its own partnership
                   ("limited_partnership_partners", "body_nzbn", "started_on", "nzbn", True)),
     "societies": (("society_officers", "society_key", "started_on"),),
@@ -135,7 +135,7 @@ ROLES_ON = {
 }
 #: rows of a view that another view already lists: {view: column}; a row with the column set is skipped (a business-number register
 #: role whose `held_key` names the monthly file's own director row is that row, listed once, from the file)
-ALREADY_LISTED = {"company_lookup_roles": "held_key"}
+ALREADY_LISTED = {"company_lookup_roles": "held_key", "company_lookup_holdings": "current"}   # a current holding is the file's holder
 #: name-joined rows that carry their company's failure, if any: {view: the company key column}; a failure is an insolvent status or a
 #: Gazette liquidation notice on the company (Arthur, 2 November 2026: a namesake's past role at a failed company is an amber warning)
 FAILURE_OF = {"company_lookup_roles": "entity_key"}
@@ -163,7 +163,9 @@ NAME_JOIN_TO = (("charity_officers", "full_name", "started_on", NEAR_CHARITY_OFF
                 ("overseas_investment_parties", "name", "decided_on",
                  NEAR_REGULATOR_BY_NAME.format(who="the Overseas Investment Office's applicants and vendors")),
                 ("company_lookup_roles", "full_name", "ended_on",
-                 NEAR_REGULATOR_BY_NAME.format(who="the roles the business-number register states and no monthly file held")))
+                 NEAR_REGULATOR_BY_NAME.format(who="the roles the business-number register states and no monthly file held")),
+                ("company_lookup_holdings", "name", "ended_on",
+                 NEAR_REGULATOR_BY_NAME.format(who="the past holdings the business-number register states")))
 #: the views an officer is a row of, followed one step from an organisation start
 OFFICER_VIEWS = frozenset({"directors", "society_officers", "charity_officers"})
 #: the role views of a person's group that count as "other current companies": kept only when current

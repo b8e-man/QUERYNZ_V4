@@ -64,3 +64,25 @@ def test_a_holder_is_joined_to_its_company_by_name_whatever_the_case(monkeypatch
     assert "upper(name)" in asked[0][0] and asked[0][1] == (["CENTRAL CHERRY ORCHARD LIMITED PARTNERSHIP", "TWIN NAME LIMITED"],)
     assert got["h1"][0]["key"] == "companies/7" and got["h1"][1:] == ("name", 1)
     assert got["h2"] == (None, "name", 2), "two companies whose names differ only in case: not followed, both counted"
+
+
+NOW_HOLDING = {"key": "companies/9429000000001/holding/a/aa", "entity_key": COMPANY["key"], "holder_type": "individual", "name": "Jane DOE",
+               "shares": 100, "allocation": 0, "started_on": None, "ended_on": None, "current": True, "suppressed": False}
+PAST_HOLDING = dict(NOW_HOLDING, key="companies/9429000000001/holding/b/aa", name="John ROE", shares=None, current=False,
+                    started_on="2013-09-23", ended_on="2017-01-26")
+
+
+def test_a_past_holding_the_register_states_is_the_companys_and_a_current_one_is_left_to_the_file(monkeypatch):
+    """pub.company_lookup_holdings (2 November 2026): a holding the register still calls current is the monthly file's holder, listed
+    once from the file; a past one is the company's, with its dates; a person's name finds a past holding elsewhere, near."""
+    v = cat.BY_NAME["company_lookup_holdings"]
+    assert v.register == "companies" and v.entity == ("companies", "entity_key") and v.suppressed == "suppressed" and "past holder" in v.statement
+    assert walk.ALREADY_LISTED["company_lookup_holdings"] == "current"
+    assert "company_lookup_holdings" in [x[0] for x in walk.NAME_JOIN_TO]
+
+    def rows_where(conn, view, column, value, order):
+        return (2, [NOW_HOLDING, PAST_HOLDING]) if view == "company_lookup_holdings" else (0, [])
+    monkeypatch.setattr(walk, "rows_where", rows_where)
+    got = walk.roles_on(None, cat.BY_NAME["companies"], COMPANY, {"company_lookup_holdings"}, [])
+    held = [it for it in got if it.get("view") == "company_lookup_holdings"]
+    assert [it["ref"] for it in held] == ["companies:" + PAST_HOLDING["key"]] and held[0]["via"] == "companies:" + COMPANY["key"]

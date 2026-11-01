@@ -158,6 +158,11 @@ view = "company_lookup_roles"
 licence = "the business-number register, Creative Commons Attribution 4.0; a role's name and dates only, never an address"
 attribution = "Companies Office, New Zealand Business Number register"
 refresh = "company by company, by the history backfill and the monitor"
+[[reads]]
+view = "company_lookup_holdings"
+licence = "the business-number register, Creative Commons Attribution 4.0; a holder's name and dates only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "company by company, by the history backfill and the monitor"
 
 [[sections]]
 name = "identity"
@@ -176,7 +181,7 @@ text = "The entity's own status, type, registration date and the latest monthly 
 [[sections]]
 name = "changes"
 heading = "What changed, month by month: directors, holders of record and registered offices, each dated by the file that first shows it"
-views = ["directors", "shareholders", "company_addresses", "company_states", "company_lookup_roles"]
+views = ["directors", "shareholders", "company_addresses", "company_states", "company_lookup_roles", "company_lookup_holdings"]
 sources = ["members", "confirmed", "roles"]
 text = "The grain is the companies register's monthly file, and two files are held: July and August 2026. Each row here is dated by the files that show it: one first shown in the August file arrived between the two files, and one last shown in the July file left between them; that dates a change to a month, not a day. The day the register files beside a row (a director's appointment, an office's start) is printed with it and is the register's own date. The change list itself, newest first, is the flag monthly-changes. A status or name change between the files is published and not yet reachable by this report (carded). The file lists current roles only: a director who left before the July file is not seen."
 
@@ -206,7 +211,7 @@ text = "A director prohibition or a bankruptcy notice the link rules join to the
 [[sections]]
 name = "past-roles"
 heading = "Past roles under the name, from the business-number register"
-views = ["company_lookup_roles"]
+views = ["company_lookup_roles", "company_lookup_holdings"]
 sources = ["named", "officers"]
 text = "A role the business-number register states and no monthly file held, under the subject's name or a person's on the company: near, a person with this name and not confirmed to be the subject. One at a company that later failed is an amber warning in the failure checks. The register is read company by company, so most companies' past roles are not yet asked: none listed here is not a finding of none."
 

@@ -194,6 +194,11 @@ view = "company_lookup_roles"
 licence = "the business-number register, Creative Commons Attribution 4.0; a role's name and dates only, never an address"
 attribution = "Companies Office, New Zealand Business Number register"
 refresh = "company by company, by the history backfill and the monitor"
+[[reads]]
+view = "company_lookup_holdings"
+licence = "the business-number register, Creative Commons Attribution 4.0; a holder's name and dates only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "company by company, by the history backfill and the monitor"
 
 [[sections]]
 name = "identity"
@@ -220,7 +225,7 @@ text = "Started from a company, each company holder of record followed to its ow
 [[sections]]
 name = "officers"
 heading = "Its directors and registered office, and the directors of the companies a person sits on"
-views = ["directors", "company_addresses", "limited_partnerships", "limited_partnership_partners", "company_lookup_roles"]
+views = ["directors", "company_addresses", "limited_partnerships", "limited_partnership_partners", "company_lookup_roles", "company_lookup_holdings"]
 sources = ["roles", "members", "confirmed", "second"]
 text = "Every director the companies file lists on the company, with the dates it files, and its registered office, flagged when many companies share it. The directors and holders of a company holder further up the chain are in the chain section. Started from a person, the person's own directorships, then the other directors on those companies, each near: a connection through another person is never confirmed."
 

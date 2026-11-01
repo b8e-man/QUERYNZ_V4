@@ -194,6 +194,11 @@ view = "company_lookup_roles"
 licence = "the business-number register, Creative Commons Attribution 4.0; a role's name and dates only, never an address"
 attribution = "Companies Office, New Zealand Business Number register"
 refresh = "company by company, by the history backfill and the monitor"
+[[reads]]
+view = "company_lookup_holdings"
+licence = "the business-number register, Creative Commons Attribution 4.0; a holder's name and dates only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "company by company, by the history backfill and the monitor"
 
 [[sections]]
 name = "identity"
@@ -206,7 +211,7 @@ text = "The subject is the row above and the rows confirmed the same person. Eac
 [[sections]]
 name = "companies"
 heading = "Directorships and holdings of record, current and past"
-views = ["companies", "directors", "shareholders", "company_lookup_roles"]
+views = ["companies", "directors", "shareholders", "company_lookup_roles", "company_lookup_holdings"]
 sources = ["members", "confirmed"]
 text = "Each company with the subject's role on it and its dates as the register files them. A holding is shown as the register states it: a shareholder of record. Nobody is called an owner."
 
