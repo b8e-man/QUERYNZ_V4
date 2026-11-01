@@ -144,3 +144,6 @@ hours reads as a strained host, and politeness comes first. The next run is 22:0
 Case ignored when a holder of record is joined to its company by name (8b51850). Option (b): a namesake's past role
 at a failed company is an amber warning in eight failure checks across seven templates; a repeat check needs two
 failed companies; never red; listed in a past-roles section. Verified on the real rows.
+Correction to 0164ed4's message: on the real director (one failed company under the name) legal's repeat-insolvency
+stays blocked, as a repeat needs two; property's earlier-failure fires amber. The message's legal example predates the
+two-company rule.
