@@ -95,9 +95,10 @@ def test_a_director_on_a_liquidated_and_a_new_company_raises_the_phoenix_flag(pa
 def test_from_the_new_company_the_people_are_listed_and_the_signature_blocks(pair):
     m = memo(f"companies:{pair[2]}")
     for name in ("phoenix-signature", "repeat-failure", "other-current-companies", "prohibition", "bankruptcy"):
-        assert m["flags"][name]["status"] in ("blocked", "fired"), name
-        assert m["flags"][name]["status"] != "clear", f"{name} cleared from a company whose people it never followed"
-    assert "start a report from each person listed" in m["flags"]["phoenix-signature"]["text"] or m["flags"]["phoenix-signature"]["status"] == "fired"
+        f = m["flags"][name]   # from a company the officers the walk followed are read (2 November 2026): a clear says how many
+        assert "start a report from each person" not in f["text"] and "officer" in f["text"], (name, f["text"][:200])
+        assert f["status"] != "clear" or "officer(s) the walk followed one step" in f["text"], name
+    assert m["flags"]["phoenix-signature"]["status"] in ("blocked", "fired"), "the signature never clears while past roles are not held"
 
 
 def test_the_failed_company_itself_is_red(pair):

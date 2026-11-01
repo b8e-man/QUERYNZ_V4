@@ -84,7 +84,9 @@ def test_a_company_whose_directors_changed_lists_each_change_by_its_file_and_its
     assert m["flags"]["officer-churn"]["status"] == "fired"
     assert m["sections"][CHANGES]["confirmed"] >= 2
     for name in ("people-failed-companies", "prohibition", "bankruptcy", "other-current-companies"):
-        assert m["flags"][name]["status"] == "blocked", f"{name}: from a company its people are not followed"
+        f = m["flags"][name]   # from a company the officers the walk followed are read (2 November 2026): a clear says how many
+        assert "start a report from each person" not in f["text"] and "officer" in f["text"], (name, f["text"][:200])
+        assert f["status"] != "clear" or "officer(s) the walk followed one step" in f["text"], name
     for name in ("since-date", "interface-freshness", "securities-register", "insolvency-register", "credit-bureau"):
         assert m["flags"][name]["status"] == "blocked", name
 

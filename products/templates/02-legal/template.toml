@@ -12,13 +12,13 @@ owner = "products/templates/02-legal, step 5.2 (session legal-1)"
 # 2: the person's group, the companies it sits on, and the other people on
 # those companies (near: a connection through another person is never
 # confirmed): the conflict web. From a company the walk lists its officers
-# and holders and does not follow them.
+# and holders and follows each officer one step.
 depth = 2
 
 limits = [
   "The firm's own client and matter list is not an input: the report lists the names a conflict search would compare, and the comparison is the firm's. No flag here says there is no conflict.",
-  "Started from a company, the report lists its officers and holders of record but does not yet follow them: the companies they share, their prohibitions, their insolvency appointments and their society roles are not read, and those checks are blocked, never clear. Start a report from each person listed.",
-  "Court judgments (step 5.4), tribunal and disciplinary findings, the Insolvency Register and the Personal Property Securities Register are not held: what is not held is the last section, and nothing in this report says anything about it.",
+  "Started from a company, the report follows each current officer one step: the officer's other companies, how those ended, the notices on the officer's own record and the officer's society and charity roles are read and listed beside the officer, the officer's and never the company's. A check clears only when every officer was followed; an officer whose name is suppressed or who is past the walk's limit is not followed, and the check is blocked, saying how many. Holders of record are listed and not followed. Who sat beside the officers on their other companies is not read: start a report from an officer for it.",
+  "Court judgments are read as far as the courts corpus holds them, a part of the courts' judgments, so none found is never a clear; the Real Estate Agents Disciplinary Tribunal's and other tribunals' decisions are read only where that corpus carries them. The professional bodies' disciplinary findings, the Insolvency Register and the Personal Property Securities Register are not held: what is not held is the last section, and nothing in this report says anything about it.",
   "A connection is as the register states it: a role, a holding of record, a donation filed under a name. Nothing here says who stands behind a holding or runs a company; a nominee or trustee holds for others.",
   "The party is the row the report starts from and the rows a rule confirms are the same person. A row that only shares the name is a namesake, listed apart, and is not the party until confirmed.",
   "Two facts are shown side by side with their dates. The report never says one followed from the other.",
@@ -32,6 +32,21 @@ limits = [
 ]
 
 # ── what it reads: each view with its licence ───────────────────────────────
+[[reads]]
+view = "grants"
+licence = "Grants as published: the Department of Internal Affairs class 4 grants data (CC BY 4.0) and each society's own list (facts read and cited under the position class-4-society-grant-publications); the licence of each row is on the row"
+attribution = "each row's own attribution (pub.grants.attribution)"
+refresh = "as each funder publishes; the national file quarterly"
+[[reads]]
+view = "society_states"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "councillor_interests"
+licence = "each council's own published summary of its register of members' pecuniary interests (Local Government Act 2002, Part 4 subpart 3), read and cited under the position councillors-registers-of-interests"
+attribution = "the council that publishes the register"
+refresh = "each landing page monthly; a new register document once"
 [[reads]]
 view = "gazette_possessions"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person mortgagor's name and the property stay in the lane's private tables, and a company is named with its register key"
@@ -227,23 +242,23 @@ text = "Every director and shareholder the companies file lists on the company, 
 name = "web"
 heading = "The companies those people share, with dates: the conflict web"
 views = ["companies", "directors", "shareholders"]
-sources = ["members", "confirmed", "near", "second"]
-text = "Each company the person sits on, with its register status and dates, and beneath it the other directors and holders of record on it with their own dates, each near: a connection through another person is never confirmed. These are the names a conflict search compares with the firm's clients and opposing parties. A name on two companies is two rows that share a name. Started from a company, the report does not follow its people: start a report from each officer listed above."
+sources = ["members", "confirmed", "near", "second", "officers"]
+text = "Each company the person sits on, with its register status and dates, and beneath it the other directors and holders of record on it with their own dates, each near: a connection through another person is never confirmed. These are the names a conflict search compares with the firm's clients and opposing parties. A name on two companies is two rows that share a name. Started from a company, the report does not follow its people: start a report from each officer listed above. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "gazette"
 heading = "The Gazette on the company and its people"
 views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_prohibitions", "gazette_bankruptcies"]
-sources = ["members", "confirmed", "near", "pointing"]
+sources = ["members", "confirmed", "near", "pointing", "officers"]
 not_held = ["insolvency"]
-text = "Liquidations, receiverships, administrations, winding-up applications, creditors' notices, deeds of company arrangement, removals, dissolutions and restorations, amalgamations, the Registrar's rectifications and transfers out, each under the company's name with its own date; then on the people, director prohibitions with their term and the person's own insolvency appointments as a practitioner. A removal from the register is not an insolvency. Bankruptcy notices are published but no link rule joins them to a person yet, and a mortgagee's entry into possession is not reachable here: neither can show. Started from a company, its people's notices are not read."
+text = "Liquidations, receiverships, administrations, winding-up applications, creditors' notices, deeds of company arrangement, removals, dissolutions and restorations, amalgamations, the Registrar's rectifications and transfers out, each under the company's name with its own date; then on the people, director prohibitions with their term and the person's own insolvency appointments as a practitioner. A removal from the register is not an insolvency. Bankruptcy notices are published but no link rule joins them to a person yet, and a mortgagee's entry into possession is not reachable here: neither can show. Started from a company, its people's notices are not read. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "money"
 heading = "Charity and society roles, and political money"
-views = ["societies", "society_officers", "charities", "charity_officers", "charity_returns", "party_return_donors", "party_return_loans", "disclosures", "disclosure_items", "candidate_return_donors", "party_return_totals", "candidate_return_totals", "promoters", "promoter_people"]
-sources = ["members", "confirmed", "named", "roles"]
-text = "Incorporated society roles; then the Charities Register: a charity officer row that carries the party's name, near: no link joins the register's officers to any other row yet, and, started from a company, its charity by business number (confirmed) with the officers and annual returns on it, the figures as filed and never added across returns; then donations, loans and promoters' roles. A donation is from the donor the Commission filed it under; a disclosure of a gift a return covers is shown beside it and never added. Started from a company, these are the company's own."
+views = ["societies", "society_officers", "charities", "charity_officers", "charity_returns", "party_return_donors", "party_return_loans", "disclosures", "disclosure_items", "candidate_return_donors", "party_return_totals", "candidate_return_totals", "promoters", "promoter_people", "grants", "society_states", "councillor_interests"]
+sources = ["members", "confirmed", "named", "roles", "officers"]
+text = "Incorporated society roles; then the Charities Register: a charity officer row that carries the party's name, near: no link joins the register's officers to any other row yet, and, started from a company, its charity by business number (confirmed) with the officers and annual returns on it, the figures as filed and never added across returns; then donations, loans and promoters' roles. A donation is from the donor the Commission filed it under; a disclosure of a gift a return covers is shown beside it and never added. Started from a company, these are the company's own. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's. Grants a funder published to the company by its business number, or to the charity by its registration number, as the funder lists them; never added across funders. A society's earlier states, as an earlier monthly file carried them. A councillor's register of interests that carries the subject's name, near by name; the entries are in the document cited, never here."
 
 [[sections]]
 name = "regulators"
@@ -278,4 +293,4 @@ name = "not-held"
 heading = "What is not held"
 views = []
 not_held = ["court_coverage", "insolvency", "securities", "fsp", "sanctions", "linz"]
-text = "Registers a conflict check would read that no lane has published: court judgments and tribunal decisions (step 5.4), the disciplinary findings of the Lawyers and Conveyancers Disciplinary Tribunal and the other professional bodies, the Insolvency Register, the Personal Property Securities Register, a limited partnership's limited partners (the register publishes its general partners, which are read), financial service providers, sanctions lists and land titles. The firm's own client and matter list is not an input. Nothing in this report says anything about them; ask the source."
+text = "Registers a conflict check would read that no lane has published: the courts' judgments the courts corpus does not hold, the disciplinary findings of the Lawyers and Conveyancers Disciplinary Tribunal and the other professional bodies, the Insolvency Register, the Personal Property Securities Register, a limited partnership's limited partners (the register publishes its general partners, which are read), financial service providers, sanctions lists and land titles. The firm's own client and matter list is not an input. Nothing in this report says anything about them; ask the source."

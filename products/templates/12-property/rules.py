@@ -112,7 +112,9 @@ NOT_FOLLOWED_HOLDERS = "a holder of record is listed and not followed: start a r
 #: flag and the memo's not-held line name the same register
 OIO = "Overseas Investment Office decisions (key oio; applicant, vendor, price)"
 CONSENTS = "Building consents, code compliance certificates and council minutes (key building_consents)"
-REA = "Real Estate Authority decisions (key rea; the lane captures and publishes no view yet)"
+REA_HELD = ("the Real Estate Authority's decisions database: every decision it lists, and each licensee, agency or defendant a decision names "
+            "(pub.rea_decisions, pub.rea_parties), matched by name",)
+REA_UNNAMED = "the Authority's decisions that name no licensee (an anonymised decision cannot be matched to anyone)"
 #: the key a director's namesake principal takes beside the director's own: the companies the director's near links reach
 NAMESAKE_KEY = " near-link"
 
@@ -1121,6 +1123,12 @@ land_titles = _not_held("land-titles", "amber", LINZ, "what land the entity or i
 OIO_HELD = ("the Overseas Investment Office's decision summaries: applicants, vendors and consent holders (pub.overseas_investment_parties)",)
 
 
+def _oio_officer(rows) -> str:
+    """How many of the rows an officer's name reached (an officer the walk followed one step): the officer's namesake (2 November 2026)."""
+    n = sum(1 for it in rows if it.get("through"))
+    return f" or with an officer the walk followed ({n} through an officer, never the entity's)" if n else ""
+
+
 def overseas_investment(report):
     """Read since 1 November 2026: the Office's decision summaries name an applicant, a vendor or a consent holder; a namesake is
     info and never the subject's; none clears, as the Office lists its summaries (not every application)."""
@@ -1133,7 +1141,7 @@ def overseas_investment(report):
                     citations=tuple(it["ref"] for it in conf), sources_held=OIO_HELD)
     if near:
         return flag("overseas-investment", V, "fired", "info", f"{len(near)} Overseas Investment Office decision summary(ies) name a party who "
-                    f"shares a name with the subject: " + "; ".join(it["statement"] for it in near[:3]) + "; nothing in a namesake's is the "
+                    f"shares a name with the subject{_oio_officer(near)}: " + "; ".join(it["statement"] for it in near[:3]) + "; nothing in a namesake's is the "
                     "subject's", citations=tuple(it["ref"] for it in near), sources_held=OIO_HELD)
     return flag("overseas-investment", V, "clear", "info", "no Overseas Investment Office decision summary, as the Office lists them, names "
                 "the subject or a person the rules confirm is the subject as an applicant, vendor or consent holder", sources_held=OIO_HELD)
@@ -1143,9 +1151,32 @@ insolvency_register = _not_held("insolvency-register", "amber", INSOLVENCY_REGIS
 
 
 def real_estate_authority(report):
-    """The Real Estate Agents Disciplinary Tribunal's decisions the corpus holds; the Authority's own complaints decisions are not held."""
-    return _tribunal(report, ("NZREADT",), "real-estate-authority", "info", "the Real Estate Agents Disciplinary Tribunal",
-                     "a complaint or a disciplinary finding on a licensee selling the project", (REA,))
+    """The Real Estate Authority's decisions database (read since 2 November 2026): a licensee, agency or defendant a decision names, by
+    name, so near: the subject's own name (a person's, or an agency's registered name) is amber, an officer's (reached through an
+    officer the walk followed) or a namesake's info; none is a clear over the decisions that name someone. The Tribunal's decisions
+    the courts corpus carries are read beside it."""
+    rows = [it for it in items(report, ("rea_parties",), ("confirmed", "near")) if not it.get("suppressed")]
+    own = [it for it in rows if not it.get("through")]
+    officer = [it for it in rows if it.get("through")]
+    court = _tribunal(report, ("NZREADT",), "real-estate-authority", "info", "the Real Estate Agents Disciplinary Tribunal",
+                      "a complaint or a disciplinary finding on a licensee selling the project", ())
+    if own or officer:
+        bits = []
+        if own:
+            bits.append(f"{len(own)} party row(s) in the Authority's decisions carry the subject's name: "
+                        + "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in own[:EXAMPLES]))
+        if officer:
+            bits.append(f"{len(officer)} carry the name of an officer the walk followed, the officer's and not the entity's: "
+                        + "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in officer[:EXAMPLES]))
+        return flag("real-estate-authority", V, "fired", "amber" if own else "info", " | ".join(bits) + "; matched by name, so a namesake's "
+                    "until a rule confirms it; being named is not a finding unless the decision cited says so",
+                    citations=tuple(it["ref"] for it in own + officer), sources_held=REA_HELD, sources_not_held=(REA_UNNAMED,),
+                    scope="near" if own else "officer-group")
+    if court["status"] == "fired":
+        return court
+    return flag("real-estate-authority", V, "clear", "info", "no party row in the Authority's decisions database carries the subject's name or "
+                "the name of an officer the walk followed, and no party row in the Tribunal's decisions the courts corpus holds names them",
+                sources_held=REA_HELD + court["sources_held"], sources_not_held=(REA_UNNAMED,), scope="near")
 BUILDING = ("the licensed building practitioners register (licence, class and discipline)",)
 
 

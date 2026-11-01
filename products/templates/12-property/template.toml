@@ -30,8 +30,9 @@
 # What fix-report-2 let it reach, read since fix-products-templates-1: the
 # not-held keys for the Overseas Investment Office's decisions (`oio`),
 # building consents and council minutes (`building_consents`) and the Real
-# Estate Authority's decisions (`rea`, not held until its lane publishes a
-# view; card the-not-held-list-has-no-key-for-the-property-registers); the
+# Estate Authority's decisions (`rea`, read since 2 November 2026 from the
+# Authority's decisions database, section `rea`; card
+# the-not-held-list-has-no-key-for-the-property-registers); the
 # current directors and the Gazette on each company above in the holding
 # chain (the-chain-reach-reads-nothing-on-the-companies-above); and a
 # director's near links, a namesake's rows listed with the director's reason
@@ -53,7 +54,7 @@ depth = 2
 chain_depth = 2
 
 limits = [
-  "Land titles and their company side (LINZ), building consents and council minutes, court judgments, the Personal Property Securities Register, the Insolvency Register and the Real Estate Authority's decisions are not held: nothing here says what land a developer holds, what it was consented to build, or whether a buyer sued it. No such finding here is a finding of none.",
+  "Land titles and their company side (LINZ), building consents and council minutes, the courts' judgments the courts corpus does not hold, the Personal Property Securities Register and the Insolvency Register are not held: nothing here says what land a developer holds, what it was consented to build, or whether a buyer sued it. No such finding here is a finding of none.",
   "The companies file lists current roles only, and a company removed from the register carries no directors in the file: a principal's earlier special-purpose company that was liquidated and then removed is not seen from the principal, nor its failure. So the serial pattern fires on what it sees and is never clear.",
   "Started from a company, its first twelve directors are followed one step to their other current companies and the notices on those (near: a director's other company is the director's connection, not the entity's); a holder of record is listed and not followed.",
   "The holding chain is followed two companies up, by business number where the file has one, otherwise by a name only one company carries (near). The current directors of a company above and the Gazette on it are listed with the company's grade; they are the holder's, and no check counts them as the entity's or a principal's.",
@@ -77,6 +78,16 @@ kind = "integer"
 means = "days either side of a failure's Gazette date within which a going company is set beside it; not set: every gap is shown"
 
 # ── what it reads: each view with its licence ───────────────────────────────
+[[reads]]
+view = "rea_decisions"
+licence = "the Real Estate Authority's decisions database, read and cited under the position real-estate-authority-decisions"
+attribution = "Te Mana Papawhenua, the Real Estate Authority"
+refresh = "nightly, new decisions only; the reading rebuilt whole at each load"
+[[reads]]
+view = "rea_parties"
+licence = "the Real Estate Authority's decisions database, read and cited under the position real-estate-authority-decisions"
+attribution = "Te Mana Papawhenua, the Real Estate Authority"
+refresh = "nightly, new decisions only; the reading rebuilt whole at each load"
 [[reads]]
 view = "court_judgments"
 licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
@@ -310,6 +321,13 @@ sources = ["named", "members", "confirmed", "near"]
 text = "An applicant, vendor or consent holder as an Overseas Investment Office decision summary names it, with the outcome and the date. The Office publishes summaries of its decisions, not every application. A party that shares a name with the subject and that no rule confirms is near: nothing in it is the subject's."
 
 [[sections]]
+name = "rea"
+heading = "Real Estate Authority decisions"
+views = ["rea_parties", "rea_decisions"]
+sources = ["named", "members", "confirmed", "near", "officers"]
+text = "Each licensee, agency or defendant a decision of the Authority's Complaints Assessment Committee, its Disciplinary Tribunal or a court on appeal names, as the Authority's decisions database lists it; matched by name, so near: a namesake's until a rule confirms it, and a row reached through an officer is the officer's. A decision that names no licensee cannot be matched. The penalty and the reasoning are in the decision cited."
+
+[[sections]]
 name = "courts"
 heading = "Court judgments the corpus holds"
 views = ["court_judgments", "court_judgment_parties", "court_people"]
@@ -320,6 +338,6 @@ text = "A party to a judgment the courts corpus holds, as the judgment's heading
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["linz", "building_consents", "court_coverage", "securities", "insolvency", "rea", "building_practitioners", "company_history", "trusts",
+not_held = ["linz", "building_consents", "court_coverage", "securities", "insolvency", "building_practitioners", "company_history", "trusts",
             "overseas"]
-text = "Registers a developer check would read that no lane has published: land titles and their company side (LINZ: which company is on which title, and since when), building consents, code compliance certificates and council minutes, court judgments (a body corporate's or a buyer's claim, a weathertightness case), the Personal Property Securities Register, the Insolvency Register, the Real Estate Authority's decisions, licensed building practitioners, the companies change history before 16 August 2026, trusts and overseas registers. Nothing in this report says anything about them: no title, decision, consent or judgment here is a finding of none. Ask the source."
+text = "Registers a developer check would read that no lane has published: land titles and their company side (LINZ: which company is on which title, and since when), building consents, code compliance certificates and council minutes, court judgments (a body corporate's or a buyer's claim, a weathertightness case), the Personal Property Securities Register, the Insolvency Register, licensed building practitioners, the companies change history before 16 August 2026, trusts and overseas registers. Nothing in this report says anything about them: no title, decision, consent or judgment here is a finding of none. Ask the source."

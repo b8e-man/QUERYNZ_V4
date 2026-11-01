@@ -188,6 +188,36 @@ VIEWS: tuple = (
       suppressed="suppressed", on="decided_on", on_label="decided",
       statement="{title}: Building Practitioners Board decision {complaint_number}, upheld {upheld}; penalties {penalties}",
       note="a Board decision as published, shown for three years from the decision; a name the Board withholds is not shown"),
+    # ── the Real Estate Authority's decisions database (registers/real_estate_authority, published 2 November 2026): a decision and
+    # each licensee, agency or defendant it names; a suppressed decision's names withheld; the penalty never shown (it can name a
+    # street, `penalty_names_address`), nor the reasoning, nor the complainant ──
+    V("rea_decisions", "rea", "event", ("citation",), names=("citation",), suppressed="suppressed", on="decided_on", on_label="decided",
+      statement="{title}: {decided_by}, {decision}",
+      note="a decision as the Authority's database lists it: the deciding body and its finding; the penalty and the reasoning are in the "
+           "decision cited, never here"),
+    V("rea_parties", "rea", "person", ("name",), names=("name",), suppressed="suppressed", entity=("rea_decisions", "decision_key"),
+      role="role", on="decided_on", on_label="decided",
+      statement="{title}: {role} ({kind}; licence {licence_number}) named in {entity}, {decided_by}: {decision}",
+      note="a licensee, agency or defendant as the decision names it; being named is not a finding against anyone unless the decision "
+           "says so; a name the Authority suppressed is not shown"),
+    # ── grants (registers/grants): a grant as its publisher lists it, joined to a company by its business number or to a charity by
+    # its registration number, both as published ──
+    V("grants", "grants", "figure", ("recipient_as_published", "decided_on"), names=("recipient_as_published",), on="decided_on",
+      on_label="decided", amount="amount_nzd",
+      statement="{title}: a grant of {amount} from {grantor} ({status}); {purpose_as_published}",
+      note="a grant as the funder publishes it, joined by the business or charity number the funder printed; a request declined is "
+           "listed with its status, and no amount is added across funders"),
+    # ── the societies register's earlier states (registers/societies) ──
+    V("society_states", "societies", "organisation", ("name",), names=("name",), as_in="file", start="registered_on", end="removed_on",
+      entity=("societies", "society_key"), role="status",
+      statement="{title}: an earlier state of {entity}, {status}, as the file {file} carried it; a later file changed it",
+      note="the state a monthly file carried before a later file changed it; the day of the change is between the two files' cuts"),
+    # ── councillors' declared interests (registers/councillor_interests): a member's register entry, by category; the entries' text
+    # is never shown (it can name property), only that the register holds an entry under the category ──
+    V("councillor_interests", "councils", "person", ("member",), names=("member",), role="category", on="as_at", on_label="as at",
+      statement="{title}: {role} of {council}; the register of interests holds entries under {category}",
+      note="a councillor's own published summary of the register of members' interests; the entries are in the document cited, never "
+           "here; a name only: a namesake's until a rule confirms it"),
     V("limited_partnerships", "limited_partnerships", "organisation", ("name",), names=("name",), suppressed="name_withheld",
       start="registered_on", statement="{title}: {status} limited partnership, number {number}"),
     V("limited_partnership_partners", "limited_partnerships", "person", ("full_name",), names=("full_name", "first_name", "middle_names",
@@ -256,6 +286,9 @@ REGISTERS = (
     ("overseas_investment", "Overseas Investment Office decision summaries"),
     ("courts", "Court judgments (the courts corpus held)"),
     ("tenders", "Government contract award notices (GETS)"),
+    ("rea", "Real Estate Authority decisions (the Authority's decisions database)"),
+    ("grants", "Grants as their funders publish them"),
+    ("councils", "Councillors' registers of interests"),
 )
 REGISTER_NAME = dict(REGISTERS)
 
@@ -290,12 +323,11 @@ NOT_HELD = (
     ("aged_care_commissioner", "The Aged Care Commissioner's reports"),
     # the registers a property developer check names (property-1); the Real Estate Authority lane captures and publishes no view yet
     ("building_consents", "Building consents, code compliance certificates and council minutes"),
-    ("rea", "Real Estate Authority decisions"),
 )
 NOT_HELD_NAME = dict(NOT_HELD)
 #: not-held keys a template may still cite for a register a lane has since published: {old key: the register}. A template naming one
 #: loads, the key is dropped from its section's blank, and the report says the register is published and the template does not read it
-SUPERSEDED_NOT_HELD = {"charities": "charities"}
+SUPERSEDED_NOT_HELD = {"charities": "charities", "rea": "rea"}   # rea: published 2 November 2026
 
 #: what links/ publishes; read through walk, never as a register view
 LINKS_VIEWS = frozenset({"links", "groups", "decisions", "names", "old_decisions"})

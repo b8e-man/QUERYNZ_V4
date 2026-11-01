@@ -66,8 +66,12 @@ def test_a_farm_company_in_receivership_is_red_on_its_status_and_its_notice_and_
     f = m["flags"]
     assert f["register-status"]["status"] == "fired" and f["register-status"]["severity"] == "red" and "In Receivership" in f["register-status"]["text"]
     assert f["entity-insolvency"]["status"] == "fired" and f["entity-insolvency"]["severity"] == "red"
-    for name in ("officer-group-insolvency", "prohibition", "other-companies", "bankruptcy", "practitioner-repeat"):
-        assert f[name]["status"] == "blocked", name
+    assert f["bankruptcy"]["status"] == "blocked", "no link rule reaches a bankruptcy notice"
+    assert "start a report from each person" not in f["practitioner-repeat"]["text"], "a notice's practitioners, not the officers, block it"
+    for name in ("officer-group-insolvency", "prohibition", "other-companies"):
+        # from a company the officers the walk followed are read (2 November 2026): a clear says how many
+        assert "start a report from each person" not in f[name]["text"] and "officer" in f[name]["text"], (name, f[name]["text"][:200])
+        assert f[name]["status"] != "clear" or "officer(s) the walk followed one step" in f[name]["text"], name
     assert any("DIRECTOR of" in x for x in m["sections"][ROLES]["lines"])
 
 

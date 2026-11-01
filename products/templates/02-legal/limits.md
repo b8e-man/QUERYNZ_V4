@@ -15,20 +15,23 @@ that would lift it is named.
   report says there is no conflict.
   (`a-template-cannot-take-the-firms-client-list`)
 - **The conflict web, from a company.** Started from a company, the report
-  lists its directors, holders of record, registered office and the
-  Gazette notices on it, and does not follow the people: the companies
-  they share, their prohibitions, their insolvency appointments and their
-  society roles are not read. The web section then prints "none found",
-  which is not a clear; the flags block and say to start a report from
-  each person listed. Started from a person (or a donation that takes a
-  person's group) the web is read.
-  (`a-company-start-does-not-follow-its-officers`)
-- **Court judgments, tribunal decisions and disciplinary findings.** None
-  is held (step 5.4); the flags `court-judgments` and
-  `disciplinary-findings` are blocked. The catalogue has no not-held key
-  for disciplinary findings or tribunals, so the section's not-held line
-  names courts only and the text names the rest.
-  (`the-not-held-list-lacks-disciplinary-findings-and-tribunals`)
+  follows each current officer one step (since 2 November 2026): the
+  officer's other companies and what became of them, the Gazette notices
+  on the officer's own record and the officer's society and charity roles
+  are read and listed beside the officer, the officer's and never the
+  company's; a row only the officer's name reaches is set apart as a
+  namesake's. A check clears only when every officer was followed and
+  every link read; an officer whose name is suppressed, or who is past the
+  walk's limit, is not followed, and the check is blocked, saying how
+  many, which is not a clear. Holders of record are listed and not
+  followed, and who sat beside the officers on their other companies is
+  not read. (`a-company-start-follows-its-officers-one-step`)
+- **Court judgments, tribunal decisions and disciplinary findings.** Court
+  judgments are read as far as the courts corpus holds them, a part of the
+  courts' judgments: `court-judgments` fires on a party a judgment names
+  and is blocked on none, never clear. The professional bodies'
+  disciplinary findings are not held, so `disciplinary-findings` is
+  blocked. (`court-judgments-are-read-as-far-as-the-corpus-holds-them`)
 - **Past roles.** The companies file lists current roles only: a company
   the person left, or one struck off with them on it, is not seen. A firm
   that acted for or against such a company cannot see the link here. The

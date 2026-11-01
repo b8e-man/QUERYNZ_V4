@@ -57,10 +57,17 @@ the card that would lift it is named.
   LIMITED (630) is not flagged by its name.
   (`a-holders-count-of-companies-is-not-read-for-a-hub-flag`)
 - **The people on a company, from the company.** Started from a company,
-  the report lists its directors and holders and does not follow them:
-  their prohibitions, seats, candidacies and donations are not read, and
-  `prohibition` and `public-office` block. Start a report from each person
-  listed. (`a-company-start-does-not-follow-its-officers`)
+  the report follows each current officer one step (since 2 November
+  2026): the officer's other companies and what became of them, the
+  Gazette notices on the officer's own record and the officer's society
+  and charity roles are read and listed beside the officer, the officer's
+  and never the company's; a row only the officer's name reaches is set
+  apart as a namesake's. A check clears only when every officer was
+  followed and every link read; an officer whose name is suppressed, or
+  who is past the walk's limit, is not followed, and the check is blocked,
+  saying how many, which is not a clear. Holders of record are listed and
+  not followed, and who sat beside the officers on their other companies
+  is not read. (`a-company-start-follows-its-officers-one-step`)
 - **A member's declared interest in the company.** No link joins a member's
   declaration to a company row yet, so `public-office` cannot fire from a
   company start. (`the-interests-tree-waits-on-the-links-anchoring-interests-to-companies`)

@@ -44,14 +44,20 @@ never red.
 ## What it cannot see
 
 - **The people behind a company, from the company.** Started from a
-  company, the report lists its directors and holders of record and the
-  Gazette notices on it, and does not follow the people: their other
-  companies and how those failed, their prohibitions, bankruptcies and
-  society roles are not read. So from the firm a procurement lead names,
-  the phoenix signature through a person is **blocked, never clear**, and
-  says to start a report from each director listed; from a director it is
-  read across all the person's companies. This is the largest limit here.
-  (`a-company-start-does-not-follow-its-officers`)
+  company, the report follows each current officer one step (since 2
+  November 2026): the officer's other companies and what became of them,
+  the Gazette notices on the officer's own record and the officer's
+  society and charity roles are read and listed beside the officer, the
+  officer's and never the company's; a row only the officer's name reaches
+  is set apart as a namesake's. A check clears only when every officer was
+  followed and every link read; an officer whose name is suppressed, or
+  who is past the walk's limit, is not followed, and the check is blocked,
+  saying how many, which is not a clear. Holders of record are listed and
+  not followed, and who sat beside the officers on their other companies
+  is not read. The phoenix signature through a director reads each
+  followed director's other current companies; a company the director left
+  is not seen, so none found is blocked, never clear.
+  (`a-company-start-follows-its-officers-one-step`)
 - **A shared office alone.** The walk counts the companies at a registered
   office and lists none, so a failed company at the entity's office that
   shares neither its name nor a person is not seen.

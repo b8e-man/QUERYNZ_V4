@@ -27,6 +27,11 @@ limits = [
 
 # ── what it reads: each view with its licence ───────────────────────────────
 [[reads]]
+view = "councillor_interests"
+licence = "each council's own published summary of its register of members' pecuniary interests (Local Government Act 2002, Part 4 subpart 3), read and cited under the position councillors-registers-of-interests"
+attribution = "the council that publishes the register"
+refresh = "each landing page monthly; a new register document once"
+[[reads]]
 view = "court_judgments"
 licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
 attribution = "the courts of New Zealand, from the courts corpus held"
@@ -227,8 +232,8 @@ text = "A notice on a company is listed with that company's name and the notice'
 name = "societies"
 heading = "Charity and society roles"
 views = ["societies", "society_officers", "charities", "charity_officers", "charity_returns"]
-sources = ["members", "confirmed", "named", "roles"]
-text = "Incorporated society roles; then the Charities Register: a charity officer row that carries the subject's name, near: no link joins the register's officers to any other row yet, so each is a namesake's until a rule confirms it; started from a company, its charity by business number (confirmed) with the officers and annual returns on it, the figures as filed and never added across returns."
+sources = ["members", "confirmed", "named", "roles", "officers"]
+text = "Incorporated society roles; then the Charities Register: a charity officer row that carries the subject's name, near: no link joins the register's officers to any other row yet, so each is a namesake's until a rule confirms it; started from a company, its charity by business number (confirmed) with the officers and annual returns on it, the figures as filed and never added across returns. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "money"
@@ -241,9 +246,9 @@ text = "A donation is from the donor the Commission filed it under. A return tha
 [[sections]]
 name = "public"
 heading = "Seats, candidacies and declared interests, where the person is or was a member"
-views = ["members", "candidates", "mp_interest_returns", "mp_interests"]
-sources = ["members", "confirmed"]
-text = "An MP's declared interests are listed under each annual return. MPs' and ministers' expenses are published but this report cannot read them yet. Public appointments in the Gazette are published but no link rule joins them to a person yet, so they are not read."
+views = ["members", "candidates", "mp_interest_returns", "mp_interests", "councillor_interests"]
+sources = ["members", "confirmed", "named"]
+text = "An MP's declared interests are listed under each annual return. MPs' and ministers' expenses are published but this report cannot read them yet. Public appointments in the Gazette are published but no link rule joins them to a person yet, so they are not read. A councillor's register of interests that carries the subject's name, near by name; the entries are in the document cited, never here."
 
 [[sections]]
 name = "regulators"

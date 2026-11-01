@@ -36,11 +36,11 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "standing", "principals", "chain", "history", "serial", "office", "possessions", "people-notices", "gazette", "board", "overseas", "courts", "not-held"]
+ORDER = ["identity", "standing", "principals", "chain", "history", "serial", "office", "possessions", "people-notices", "gazette", "board", "overseas", "rea", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 VIEWS = {"court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "company_lookup_holdings", "overseas_investment_parties", "overseas_investment_decisions", "building_practitioner_decisions", "companies", "company_states", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators",
          "gazette_company_notices", "gazette_possessions", "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies",
-         "society_officers", "charities", "charity_officers", "charity_returns"}
+         "society_officers", "charities", "charity_officers", "charity_returns", "rea_decisions", "rea_parties"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
                    r"beneficial)\b", re.I)
@@ -156,8 +156,9 @@ def test_its_sections_run_in_the_buyers_order():
     assert s["not-held"]["views"] == []
     assert {"linz", "court_coverage", "securities", "insolvency"} <= set(s["not-held"]["not_held"])
     for named in ("land titles", "LINZ", "building consents", "council minutes", "court judgments",
-                  "Personal Property Securities Register", "Insolvency Register", "Real Estate Authority"):
+                  "Personal Property Securities Register", "Insolvency Register"):
         assert named in s["not-held"]["text"], named
+    assert "Real Estate Authority" not in s["not-held"]["text"], "read since 2 November 2026 (section rea)"
     views = {r["view"] for r in t["reads"]}
     for x in t["sections"]:
         assert set(x["views"]) <= views
@@ -179,7 +180,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 KIND = {"company_lookup_holdings": "person", "company_lookup_roles": "person", "overseas_investment_parties": "organisation", "building_practitioner_decisions": "person", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
-        "gazette_possessions": "event", "company_states": "organisation"}
+        "gazette_possessions": "event", "company_states": "organisation", "rea_parties": "person", "rea_decisions": "event"}
 THROUGH = "reached through a person on the subject ({who}): an officer's other role is the officer's connection, not the subject's; near, never confirmed"
 
 
@@ -601,8 +602,7 @@ def test_the_serial_pattern_sets_out_each_failure_in_the_order_registered_with_i
 
 
 #: the catalogue's not-held keys for the property registers (products/report/catalogue.py, NOT_HELD) and the flag that blocks on each
-PROPERTY_KEYS = {"building_consents": ("building_consents", "Building consents, code compliance certificates and council minutes"),
-                 "rea": ("real_estate_authority", "Real Estate Authority decisions")}
+PROPERTY_KEYS = {"building_consents": ("building_consents", "Building consents, code compliance certificates and council minutes")}
 
 
 def test_the_reaches_name_the_property_keys_a_directors_near_links_and_the_companies_above():
@@ -614,6 +614,8 @@ def test_the_reaches_name_the_property_keys_a_directors_near_links_and_the_compa
     for key, (fn, name) in PROPERTY_KEYS.items():
         assert key in s["not-held"]["not_held"] and f'("{key}", "{name}' in cat, key
         assert rule(fn)(report())["sources_not_held"][0].startswith(name), fn
+    # the Real Estate Authority's decisions are read since 2 November 2026: no longer a not-held key, a section of their own
+    assert "rea" not in s["not-held"]["not_held"] and s["rea"]["views"] == ["rea_parties", "rea_decisions"] and "officers" in s["rea"]["sources"]
     assert "directors" in s["chain"]["views"] and "chain" in s["gazette"]["sources"] and "chain" in s["possessions"]["sources"]
     assert "is not read" not in s["gazette"]["text"] and "are not read" not in s["chain"]["text"]
     assert "named" in s["principals"]["sources"] and "charity_officers" in s["principals"]["views"]
@@ -719,3 +721,19 @@ def test_a_namesake_past_holding_at_a_failed_company_counts_as_a_past_role_does(
     assert s["status"] == "fired" and s["severity"] == "amber" and "2 past role(s) or holding(s)" in s["text"]
     assert rule("earlier_failure")(report(principals=[dict(held, failure=None)]))["status"] != "fired" or \
         "holding(s)" not in rule("earlier_failure")(report(principals=[dict(held, failure=None)]))["text"]
+
+
+def test_the_real_estate_authority_reads_the_decisions_by_name_and_an_officers_row_is_the_officers():
+    """2 November 2026: a party row under the subject's name is amber and near; one reached through an officer the walk followed is
+    info and the officer's; a suppressed row is never read; none clears over the decisions that name someone."""
+    own = it("rea:rea_parties/1", "rea_parties", grade="near", title="TANE PROPERTY LIMITED", rule_="same-name")
+    off = it("rea:rea_parties/2", "rea_parties", grade="near", title="Ann TANE", rule_="same-name", through=ANN["ref"], near_link=True)
+    hidden = it("rea:rea_parties/3", "rea_parties", grade="near", title="X", rule_="same-name", suppressed=True)
+    f = rule("real_estate_authority")(report(rea=[own, off]))
+    assert f["status"] == "fired" and f["severity"] == "amber" and f["scope"] == "near" and set(f["citations"]) == {own["ref"], off["ref"]}
+    assert "the officer's and not the entity's" in f["text"]
+    f = rule("real_estate_authority")(report(rea=[off]))
+    assert f["status"] == "fired" and f["severity"] == "info" and f["scope"] == "officer-group"
+    f = rule("real_estate_authority")(report(rea=[hidden]))
+    assert f["status"] == "clear" and f["sources_held"][0].startswith("the Real Estate Authority's decisions database")
+    assert "name no licensee" in f["sources_not_held"][0]

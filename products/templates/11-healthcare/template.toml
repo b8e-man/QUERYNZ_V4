@@ -48,7 +48,7 @@ chain_depth = 2
 limits = [
   "The retirement villages file is not held: which company operates a village, the village's statutory supervisor and when it changed are in no published register. The companies lane carries the village's own row (its name, number, status and registration day) and nothing joins it to an operator; a village row reached here shares a name and is near.",
   "The Charities Register is read: a company's charity by its business number, confirmed, with the officers and annual returns the register files on it (the figures as filed, never added across returns); a charity officer row that carries a person's name, near. No link joins the Charities Register's officers to any other row yet, so such a row is matched by name, a namesake's until a rule confirms it, and a rule over it is amber at most. A charitable trust board's trustees are read from its charity for the register's disqualified mark and are not followed to their other roles.",
-  "The Health and Disability Commissioner's decisions, certification audits, the Ministry of Health's provider registers, the Aged Care Commissioner and court judgments are not held. Nothing in this report says anything about care quality, a complaint, a breach finding or a certification: no such finding here is a finding of none.",
+  "The Health and Disability Commissioner's decisions, certification audits, the Ministry of Health's provider registers, the Aged Care Commissioner and the courts' judgments the courts corpus does not hold are not held. Nothing in this report says anything about care quality, a complaint, a breach finding or a certification: no such finding here is a finding of none.",
   "The registers carry no industry: a company is called care or retirement living here only because its registered name carries such a word, which is a sign to read, not a finding.",
   "Started from a company, its first twelve officers are followed one step to their other current roles (near: an officer's other role is the officer's connection, not the entity's); past that the overlap and the officers' notices are partial, and their checks say so.",
   "The companies file lists current roles only: a role a person left, or a company struck off with them on it, is not seen, so no check over past roles is ever clear.",
@@ -60,6 +60,16 @@ limits = [
 ]
 
 # ── what it reads: each view with its licence ───────────────────────────────
+[[reads]]
+view = "grants"
+licence = "Grants as published: the Department of Internal Affairs class 4 grants data (CC BY 4.0) and each society's own list (facts read and cited under the position class-4-society-grant-publications); the licence of each row is on the row"
+attribution = "each row's own attribution (pub.grants.attribution)"
+refresh = "as each funder publishes; the national file quarterly"
+[[reads]]
+view = "society_states"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
 [[reads]]
 view = "court_judgments"
 licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
@@ -211,9 +221,9 @@ text = "The entity's register status and the day it was registered are in the he
 [[sections]]
 name = "governance"
 heading = "Its governance: directors, holders of record, and the charities its people serve"
-views = ["directors", "shareholders", "society_officers", "companies", "societies", "charities", "charity_officers", "company_lookup_roles", "company_lookup_holdings"]
+views = ["directors", "shareholders", "society_officers", "companies", "societies", "charities", "charity_officers", "company_lookup_roles", "company_lookup_holdings", "grants", "society_states"]
 sources = ["roles", "members", "confirmed", "chain", "named"]
-text = "Every director and holder of record the companies file lists on the company, and every officer the societies register lists on a society, with the dates each files; started from a person, the person's own roles and holdings and the companies and societies they sit on. A holding is shown as the register states it: a holder of record. A company holder is followed two up the chain, by business number where the file has one, otherwise by a name only one company carries (near), its shares as filed. Then the Charities Register: a company's charity by its business number, confirmed, with its status and the officers the register files on it (a charitable trust board's trustees are filed there); started from a person, each charity officer row that carries the person's name, near: no link joins the register's officers to any other row yet, so each is a namesake's until a rule confirms it."
+text = "Every director and holder of record the companies file lists on the company, and every officer the societies register lists on a society, with the dates each files; started from a person, the person's own roles and holdings and the companies and societies they sit on. A holding is shown as the register states it: a holder of record. A company holder is followed two up the chain, by business number where the file has one, otherwise by a name only one company carries (near), its shares as filed. Then the Charities Register: a company's charity by its business number, confirmed, with its status and the officers the register files on it (a charitable trust board's trustees are filed there); started from a person, each charity officer row that carries the person's name, near: no link joins the register's officers to any other row yet, so each is a namesake's until a rule confirms it. Grants a funder published to the company by its business number, or to the charity by its registration number, as the funder lists them; never added across funders. A society's earlier states, as an earlier monthly file carried them."
 
 [[sections]]
 name = "charity-returns"

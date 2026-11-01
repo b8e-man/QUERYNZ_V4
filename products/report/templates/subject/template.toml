@@ -19,6 +19,31 @@ limits = [
 ]
 
 [[reads]]
+view = "rea_decisions"
+licence = "the Real Estate Authority's decisions database, read and cited under the position real-estate-authority-decisions"
+attribution = "Te Mana Papawhenua, the Real Estate Authority"
+refresh = "nightly, new decisions only; the reading rebuilt whole at each load"
+[[reads]]
+view = "rea_parties"
+licence = "the Real Estate Authority's decisions database, read and cited under the position real-estate-authority-decisions"
+attribution = "Te Mana Papawhenua, the Real Estate Authority"
+refresh = "nightly, new decisions only; the reading rebuilt whole at each load"
+[[reads]]
+view = "grants"
+licence = "Grants as published: the Department of Internal Affairs class 4 grants data (CC BY 4.0) and each society's own list (facts read and cited under the position class-4-society-grant-publications); the licence of each row is on the row"
+attribution = "each row's own attribution (pub.grants.attribution)"
+refresh = "as each funder publishes; the national file quarterly"
+[[reads]]
+view = "society_states"
+licence = "Incorporated Societies Register, public under the Incorporated Societies Act 2022"
+attribution = "Companies Office"
+refresh = "as the lane re-reads the register"
+[[reads]]
+view = "councillor_interests"
+licence = "each council's own published summary of its register of members' pecuniary interests (Local Government Act 2002, Part 4 subpart 3), read and cited under the position councillors-registers-of-interests"
+attribution = "the council that publishes the register"
+refresh = "each landing page monthly; a new register document once"
+[[reads]]
 view = "award_notices"
 licence = "CC BY 3.0 NZ"
 attribution = "Ministry of Business, Innovation and Employment, New Zealand Government procurement award notices (GETS open data)"
@@ -260,7 +285,7 @@ refresh = "company by company, by the history backfill and the monitor"
 [[sections]]
 name = "money"
 heading = "Donations, loans and disclosures"
-views = ["party_return_donors", "party_return_loans", "disclosures", "disclosure_items", "candidate_return_donors", "party_return_totals", "candidate_return_totals"]
+views = ["party_return_donors", "party_return_loans", "disclosures", "disclosure_items", "candidate_return_donors", "party_return_totals", "candidate_return_totals", "grants"]
 text = "A donation is from the donor the Commission filed it under. A return that covers a gift is the record; a disclosure of the same gift is shown beside it and never added."
 
 [[sections]]
@@ -272,7 +297,7 @@ text = "A holding is shown as the register states it: a shareholder of record. N
 [[sections]]
 name = "societies"
 heading = "Incorporated societies"
-views = ["societies", "society_officers"]
+views = ["societies", "society_officers", "society_states"]
 
 [[sections]]
 name = "charities"
@@ -289,7 +314,7 @@ not_held = ["insolvency", "court_coverage"]
 [[sections]]
 name = "public"
 heading = "Public roles: appointments, candidacies, seats, declared interests, promoters"
-views = ["gazette_appointments", "candidates", "members", "mp_interest_returns", "mp_interests", "parties", "promoters", "promoter_people"]
+views = ["gazette_appointments", "candidates", "members", "mp_interest_returns", "mp_interests", "parties", "promoters", "promoter_people", "councillor_interests"]
 
 [[sections]]
 name = "expenses"
@@ -302,6 +327,12 @@ name = "regulators"
 heading = "The regulators' listings: WorkSafe, the Commerce Commission, the Financial Markets Authority"
 views = ["worksafe_actions", "worksafe_parties", "commerce_commission_cases", "commerce_commission_parties", "fma_actions", "fma_parties"]
 text = "A listing as the regulator publishes it today: the charge, the case or the warning, never a cause. A party row that shares a name with the subject and that no rule confirms is near: nothing in it is the subject's."
+
+[[sections]]
+name = "rea"
+heading = "Real Estate Authority decisions"
+views = ["rea_parties", "rea_decisions"]
+text = "Each licensee, agency or defendant a decision of the Authority names, as its decisions database lists it; matched by name, so near: a namesake's until a rule confirms it, and a row reached through an officer is the officer's. Being named is not a finding unless the decision cited says so; the penalty and the reasoning are in the decision."
 
 [[sections]]
 name = "board"

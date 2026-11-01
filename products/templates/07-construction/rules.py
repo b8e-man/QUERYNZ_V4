@@ -40,9 +40,11 @@ The builder adds its common rules for every template (group-standing,
 hubs-met, replaced-return); this file carries no copy of them.
 
 Every rule branches on the start: a person, a company, or anything else.
-From a company the walk lists the officers and holders and does not follow
-them (the agriculture lesson), so a check through a person is blocked and
-says to start a report from each person; it does read the companies that
+From a company the walk lists the officers and holders and follows each officer one step (2 November 2026): the
+officer's own records, other companies and notices are read beside the
+officer, the officer's and never the company's, and a check clears only when
+every officer was followed and every link read; an officer not followed
+(suppressed, past the walk's limit) blocks it, saying how many. It also reads the companies that
 share the company's name (the links lane's company-name rule, near), their
 officers, offices and notices. Evidence on confirmed rows is red or amber;
 the same evidence reached only through a near link is amber at most and
@@ -137,8 +139,6 @@ NAME_LOOKED_UP = ("directors", "society_officers", "members", "candidates", "mp_
 CHARITY_HELD = "Charities Register officers (pub.charity_officers), looked up by the person's name"
 CHARITY_BY_NAME = ("no link joins the Charities Register's officers to any other row yet, so each is matched by name and is a namesake's "
                    "until a rule confirms it")
-NOT_FOLLOWED = ("started from a company, the report lists its officers and holders of record but does not follow them to their own links "
-                "and companies yet; start a report from each person listed")
 
 
 flag, items, section, all_items = contract.flag, contract.items, contract.section, contract.all_items   # noqa: F821  (bound by the loader)
@@ -465,8 +465,9 @@ def _phoenix_signature_own(report):
     """MC-C1. From a person: each of the person's companies that failed, dated from its Gazette notice, beside each of the person's
     going companies with its start, whatever the gap, nearest first, counted within 90 and 365 days and cut only by the reader's
     window; red on a confirmed insolvency, amber through a hub, a removal or a near link. From a company: a company of the same name
-    that failed and shares the entity's registered office, beside the entity's start; the signature through a person is blocked,
-    the people not being followed."""
+    that failed and shares the entity's registered office, beside the entity's start; and (2 November 2026) a failure on another
+    current company a director of the entity sits on, beside the entity's registration, amber: the shared person is the director's
+    own confirmed rows, followed one step, and the failed company is the director's, never the entity's."""
     if _other_start(report):
         return flag("phoenix-signature", V, "blocked", "red", _other_start(report), sources_not_held=NOT_HELD_INSOLVENCY, scope="officer-group")
     if _company_start(report):
@@ -485,8 +486,27 @@ def _phoenix_signature_own(report):
                         f"director listed", citations=tuple(dict.fromkeys(r for p in inside for r in p[0]["evidence"] + [p[4]["ref"], p[5]["ref"]])),
                         sources_not_held=NOT_HELD_INSOLVENCY + (CHANGE_HISTORY,), scope="office")
         cut = f" ({_window(report, by_office)})" if by_office else ""
+        fails = sorted((it for it in _of_through(report) if _insolvency(it)), key=_of_when, reverse=True) if _ending(s) == "going" else []
+        if fails:
+            reg = _date(s["row"].get("registered_on"))
+
+            def gap(it):
+                d = _of_when(it)
+                return (f"the entity registered {(reg - d).days:+,} days from the failure" if reg and d != dt.date.min
+                        else "a date is not filed")
+            short = _of_short(report)
+            return flag("phoenix-signature", V, "fired", "amber",
+                        f"{len(fails)} Gazette insolvency notice(s) on {len({it.get('via') for it in fails})} other company(ies) a director of the "
+                        f"entity sits on, the entity going; each failure beside the entity's registration "
+                        f"({reg.isoformat() if reg else 'not filed'}): " + _of_lines(report, fails, lambda it: f"{it['title']}, {it['dates']['text']}; {gap(it)}")
+                        + "; a shared director and a dated failure, side by side: the failed company is the director's, near, and nothing here "
+                        "joins the two" + (f"; {short}" if short else ""),
+                        citations=_of_cite(fails), sources_not_held=NOT_HELD_INSOLVENCY + (CHANGE_HISTORY,), scope="officer-group")
+        none = f"no Gazette insolvency notice on the other current companies of {_of_followed(report)}"
+        gap_ = _of_gap(report)
         return flag("phoenix-signature", V, "blocked", "red",
-                    f"{NOT_FOLLOWED}: the other companies its directors and holders sit on, and how those failed, are not read; of the companies "
+                    f"{none}" + (f", and {gap_}" if gap_ else "") + "; a company a director left, or that was removed with the director on it, "
+                    f"is not seen (the companies file lists current roles only); of the companies "
                     f"that share its name, {len(failed)} failed and none listed had the entity's registered office before its failure{cut}"
                     + (" (see same-name-failed)" if failed else "") + f"; {OFFICE_NEIGHBOURS} are not read either",
                     sources_not_held=(OFFICE_NEIGHBOURS, LIQUIDATOR_OFFICE, CHANGE_HISTORY) + NOT_HELD_INSOLVENCY, scope="officer-group")
@@ -693,9 +713,8 @@ def insolvency_notices(report):
 
 def repeat_failure(report):
     """Two or more of the person's companies failed (an insolvency status or notice), each with its date. Side by side."""
-    if _company_start(report):
-        return flag("repeat-failure", V, "blocked", "red", f"{NOT_FOLLOWED}: whether a director's other companies failed cannot be seen",
-                    sources_not_held=NOT_HELD_INSOLVENCY, scope="officer-group")
+    if _company_start(report):   # the officers the walk followed (2 November 2026)
+        return _of_failed(report, "repeat-failure", "red", fire="amber")
     if _other_start(report):
         return flag("repeat-failure", V, "blocked", "red", _other_start(report), scope="officer-group")
     bad = {c: f for c, f in _failures(report, _companies(report)).items() if f["kind"] == "insolvency"}
@@ -749,9 +768,8 @@ def register_events(report):
 
 def other_current_companies(report):
     """The person's going companies and their states, each with its start: the firms a failed one's people now run."""
-    if _company_start(report):
-        return flag("other-current-companies", V, "blocked", "amber", f"{NOT_FOLLOWED}: the other companies its people sit on are not read",
-                    scope="officer-group")
+    if _company_start(report):   # the officers the walk followed (2 November 2026)
+        return _of_roles(report, "other-current-companies", "amber")
     if _other_start(report):
         return flag("other-current-companies", V, "blocked", "amber", _other_start(report), scope="officer-group")
     conf = _companies(report)
@@ -846,6 +864,8 @@ def _in_force(report, it) -> str:
 def _person_notice(report, rule, view, noun, severity, extra_clear="", not_held=()):
     """A Gazette notice the link rules join to the person by name: confirmed red, near amber, never a suppressed or withheld row;
     blocked from a company, or where the walk left a link unread."""
+    if _company_start(report):   # the officers the walk followed (2 November 2026)
+        return _of_notice(report, rule, (view,), f"Gazette {noun} notice", severity)
     live = [it for it in items(report, (view,)) if not it.get("suppressed")]
     conf = [it for it in live if it["grade"] == "confirmed"]
     nearby = [it for it in live if it["grade"] == "near"]
@@ -858,9 +878,6 @@ def _person_notice(report, rule, view, noun, severity, extra_clear="", not_held=
         return flag(rule, V, "fired", "amber", f"{len(nearby)} Gazette {noun} notice(s) under a name near the person's; a namesake's until "
                     f"confirmed: " + "; ".join(f"{it['title']} ({show(it)}; near: {it.get('reason')})" for it in nearby[:EXAMPLES]),
                     citations=tuple(it["ref"] for it in nearby), sources_not_held=not_held, scope="near")
-    if _company_start(report):
-        return flag(rule, V, "blocked", severity, f"{NOT_FOLLOWED}: a {noun} notice is joined to a director's own row, which is not followed",
-                    sources_not_held=not_held, scope="officer-group")
     if _other_start(report):
         return flag(rule, V, "blocked", severity, _other_start(report), sources_not_held=not_held)
     w = report.get("walk") or {}
@@ -888,6 +905,8 @@ def bankruptcy(report):
 def practitioner_roles(report):
     """The person named as liquidator in Gazette notices: an insolvency practitioner, who is appointed to a failed company and is not
     one of its directors."""
+    if _company_start(report):   # the officers the walk followed (2 November 2026)
+        return _of_practitioner(report, "practitioner-roles", "info")
     live = [it for it in items(report, ("gazette_liquidators",)) if not it.get("suppressed")]
     conf = [it for it in live if it["grade"] == "confirmed"]
     nearby = [it for it in live if it["grade"] == "near"]
@@ -898,9 +917,6 @@ def practitioner_roles(report):
     if nearby:
         return flag("practitioner-roles", V, "fired", "info", f"{len(nearby)} Gazette liquidator appointment(s) under a name near the person's; "
                     "a namesake's until confirmed", citations=tuple(it["ref"] for it in nearby), scope="near")
-    if _company_start(report):
-        return flag("practitioner-roles", V, "blocked", "info", f"{NOT_FOLLOWED}: its officers' appointments as liquidator are not read",
-                    scope="officer-group")
     if _other_start(report):
         return flag("practitioner-roles", V, "blocked", "info", _other_start(report))
     if (report.get("walk") or {}).get("links_omitted"):
@@ -955,6 +971,8 @@ def _company_charities(report) -> list:
 
 
 def society_roles(report):
+    if _company_start(report):   # the officers the walk followed (2 November 2026)
+        return _of_charity(report, "society-roles", "info")
     # the officers of a society the report starts from are that society's, not the subject's roles
     conf = [it for it in items(report, ("society_officers",), ("confirmed",)) if it.get("via") != report["subject"]["ref"]]
     by_name, own = _charity_roles(report), _company_charities(report)
@@ -968,9 +986,6 @@ def society_roles(report):
         return flag("society-roles", V, "fired", "info", " | ".join(bits),
                     citations=tuple(dict.fromkeys([it["ref"] for it in conf + by_name] + [c["ref"] for c, _ in own])),
                     scope="subject" if conf or own else "near")
-    if _company_start(report):
-        return flag("society-roles", V, "blocked", "info", f"{NOT_FOLLOWED}: their society and charity roles are not read; the company "
-                    "has no charity row by its business number", scope="officer-group")
     if _other_start(report):
         return flag("society-roles", V, "blocked", "info", _other_start(report))
     why = _charity_unread(report)
@@ -1073,8 +1088,11 @@ def building_practitioners(report):
                     f"is the subject: {shown}{tail}; a decision states the Board's finding, never a cause", citations=tuple(it["ref"] for it in conf),
                     sources_held=held, sources_not_held=BUILDING)
     if upheld:
+        off = sum(1 for it in upheld if it.get("through"))   # reached by an officer's name: the officer's namesake (2 November 2026)
+        who = "the subject" if not off else (f"an officer the walk followed ({off}), never the entity" if off == len(upheld)
+                                             else f"the subject or an officer the walk followed ({off} through an officer)")
         return flag("building-practitioners", V, "fired", "info", f"{len(upheld)} upheld Board decision(s) against a practitioner who shares a "
-                    f"name with the subject: {'; '.join(it['statement'] for it in upheld[:3])}{tail}; nothing in a namesake's decision is the "
+                    f"name with {who}: {'; '.join(it['statement'] for it in upheld[:3])}{tail}; nothing in a namesake's decision is the "
                     "subject's until the licence number is checked", citations=tuple(it["ref"] for it in upheld), sources_held=held,
                     sources_not_held=BUILDING)
     return flag("building-practitioners", V, "blocked", "amber", f"no upheld Board decision in the three years the Board publishes names "
@@ -1308,6 +1326,249 @@ def _tribunal(report, codes, rule_id, severity, who, what, not_held):
     return flag(rule_id, COURT_V, "blocked", severity, f"no party row in the decisions of {who} the corpus holds names the subject or a person "
                 f"the rules confirm is the subject; {what} cannot all be seen: the corpus holds a part of them, so no clear is given",
                 sources_held=held, sources_not_held=not_held)
+
+
+# ── started from a company: the officers the walk followed (2 November 2026) ────────────────────────────────────────────────
+# The walk follows each current officer of a company start one step (walk.follow_officers): the rows of the officer's group (a
+# confirmed link's), role rows only when current, the companies and societies those sit on and the Gazette notices on them, every
+# one near by the through-people default and carrying `through` (the officer's row on the start); beside them the rows an
+# officer's near link or name alone reaches (`near_link`: a namesake's until a rule confirms it, counted apart). A row reached
+# through an officer is the officer's, never the company's: amber at most, scope officer-group. An officer not followed (a
+# suppressed name, one past the walk's limit) leaves the check blocked and says how many; a check over the officers' companies
+# also waits on past roles (the companies file lists current roles only), as the same check from a person does.
+
+OF_OFFICER_VIEWS = ("directors", "society_officers", "charity_officers")
+OF_ROLE_VIEWS = ("directors", "shareholders", "society_officers", "charity_officers")
+OF_TROUBLED = ("liquidat", "receiver", "administration", "insolv")
+OF_GROUPS = "pub.groups: each officer's confirmed rows, followed one step"
+
+
+def _of_walk(report) -> dict:
+    return report.get("walk") or {}
+
+
+def _of_officers(report) -> dict:
+    """{ref: item} the officers listed on the company the report starts from (its directors; a society's or charity's officers)."""
+    s = report["subject"]["ref"]
+    return {it["ref"]: it for it in items(report, OF_OFFICER_VIEWS, ("confirmed", "near")) if it.get("via") == s
+            and not it.get("through") and it.get("kind", "person") == "person"}
+
+
+def _of_short(report):
+    """Why the walk did not follow every officer of the company, or None when it followed them all."""
+    w = _of_walk(report)
+    if "officers" not in (w.get("buckets") or ()):
+        return "the walk did not follow the company's officers (the officers reach did not run)"
+    hidden = w["officers_suppressed"] if w.get("officers_listed") is not None else sum(1 for o in _of_officers(report).values() if o.get("suppressed"))
+    bits = ([f"{w['officers_omitted']:,} past the walk's limit"] if w.get("officers_omitted") else []) + \
+           ([f"{hidden} whose name is suppressed"] if hidden else [])
+    if not bits:
+        return None
+    return f"the walk followed {w.get('officers_followed', 0)} of the company's officer(s) one step and not {' and '.join(bits)}"
+
+
+def _of_gap(report):
+    """The reason a check over the company's officers cannot clear, or None."""
+    listed = _of_walk(report).get("officers_listed")
+    if (listed == 0) if listed is not None else not _of_officers(report):
+        return "the companies file lists no current officer on the company, so no check over its officers can be given as clear"
+    w = _of_walk(report)
+    if not w.get("links_built"):
+        return "no links are published, so an officer's own rows cannot be reached"
+    if w.get("links_omitted"):
+        return f"the walk left {w['links_omitted']:,} link(s) unread past its limit"
+    return _of_short(report)
+
+
+def _of_through(report, views=None) -> list:
+    """Rows reached through an officer's own confirmed rows: the officer's record, near by the through-people default."""
+    return [it for it in items(report, views, ("confirmed", "near"))
+            if it.get("through") and not it.get("near_link") and not it.get("above") and not it.get("suppressed")]
+
+
+def _of_apart(report, views=None) -> list:
+    """Rows only an officer's near link or name reaches: a namesake's until a rule confirms it, never the officer's own."""
+    return [it for it in items(report, views, ("confirmed", "near"))
+            if it.get("through") and it.get("near_link") and not it.get("above") and not it.get("suppressed")]
+
+
+def _of_current(it) -> bool:
+    return bool(it["row"].get("in_latest", True)) and not it["row"].get("ended_on")
+
+
+def _of_who(report, it) -> str:
+    o = _of_officers(report).get(it.get("through"))
+    if not o:
+        return "an officer"
+    return f"{o['title']} ({o['row'].get('role_type') or 'officer'} of the company, {o['dates']['text']})"
+
+
+def _of_on(it) -> str:
+    return it.get("entity_title") or it["title"]
+
+
+def _of_lines(report, rows, label) -> str:
+    bits = [f"{_of_who(report, it)} | {label(it)}" for it in rows[:EXAMPLES]]
+    return " ; ".join(bits) + (f"; and {len(rows) - EXAMPLES} more" if len(rows) > EXAMPLES else "")
+
+
+def _of_set_apart(rows, noun) -> str:
+    if not rows:
+        return ""
+    ex = "; ".join(f"{_of_on(r)} ({r['dates']['text']}; {r.get('rule') or 'near'})" for r in rows[:EXAMPLES])
+    return (f"; and {len(rows)} {noun} only an officer's near link or name reaches, set apart (a namesake's until a rule confirms it, "
+            f"never the officer's own): {ex}")
+
+
+def _of_followed(report) -> str:
+    return f"the {_of_walk(report).get('officers_followed', 0)} officer(s) the walk followed one step"
+
+
+def _of_cite(*groups) -> tuple:
+    return tuple(dict.fromkeys(it["ref"] for g in groups for it in g))
+
+
+def _of_when(it):
+    r = it["row"]
+    return _date(r.get("event_on")) or _date(r.get("appointed_on")) or _date(r.get("published_on")) or _date(r.get("decided_on")) \
+        or _date(r.get("started_on")) or _date(r.get("appointed_on")) or dt.date.min
+
+
+def _of_none(rule, severity, text, past, held, report, apart, apart_noun, **kw):
+    """What a check over the officers says when nothing was found on their own records: blocked while an officer was not
+    followed, or while past roles are not held for a check over their companies; a namesake's rows only, info; else clear."""
+    also = _of_set_apart(apart, apart_noun)
+    gap = _of_gap(report)
+    if gap:
+        return flag(rule, V, "blocked", severity, f"{text}; but {gap}: no clear is given" + also, scope="officer-group", **kw)
+    if apart:
+        return flag(rule, V, "fired", "info", text + also, citations=_of_cite(apart), scope="near", **kw)
+    if past and not globals().get("HISTORY", False):
+        return flag(rule, V, "blocked", severity, f"{text}; but the companies file lists current roles only, so a company an officer left, "
+                    "or that was removed with the officer on it, is not seen: no clear is given", scope="officer-group", **kw)
+    return flag(rule, V, "clear", severity, text, sources_held=held + (OF_GROUPS,), scope="officer-group", **kw)
+
+
+def _of_failed(report, rule, severity="red", fire="amber"):
+    """The other companies the company's officers sit on that have a Gazette insolvency notice or a status that reads as one,
+    each beside the officer it came through; amber at most: the company is the officer's."""
+    notices = sorted((it for it in _of_through(report) if _insolvency(it)), key=_of_when, reverse=True)
+    status = [it for it in _of_through(report, ("companies",)) if it["ref"] != report["subject"]["ref"]
+              and any(w in (it["row"].get("status") or "").lower() for w in OF_TROUBLED)]
+    apart = [it for it in _of_apart(report) if _insolvency(it)]
+    if notices or status:
+        on = {it.get("via") for it in notices} | {it["ref"] for it in status}
+        text = (f"{len(notices)} Gazette insolvency notice(s) and {len(status)} insolvent status(es) on {len(on)} other company(ies) the "
+                "company's officers sit on, newest first: "
+                + _of_lines(report, notices + status, lambda it: f"{it['title']}, {it['dates']['text']}"
+                            + (f", status {it['row'].get('status')}" if it in status else ""))
+                + "; each company is the officer's, not the company's; two dated facts side by side, nothing joins them")
+        short = _of_short(report)
+        return flag(rule, V, "fired", fire, text + (f"; {short}" if short else "") + _of_set_apart(apart, "insolvency notice(s)"),
+                    citations=_of_cite(notices, status, apart), scope="officer-group")
+    return _of_none(rule, severity, f"no Gazette insolvency notice and no insolvent status on the other current companies of "
+                    f"{_of_followed(report)}", True, ("New Zealand Gazette notices, joined to each company by its number",),
+                    report, apart, "insolvency notice(s)")
+
+
+def _of_notice(report, rule, views, noun, severity="red", never_clear=None):
+    """A notice on an officer's own record (a director prohibition, a bankruptcy): red on an officer's confirmed rows, amber on
+    a row only a near link or name reaches; blocked while an officer was not followed; `never_clear` keeps it blocked when the
+    link rules do not reach the notice at all."""
+    own = sorted(_of_through(report, views), key=_of_when, reverse=True)
+    apart = _of_apart(report, views)
+    if own:
+        return flag(rule, V, "fired", severity, f"{len(own)} {noun}(s) on the record of an officer of the company: "
+                    + _of_lines(report, own, lambda it: f"{it['title']}, {it['dates']['text']}")
+                    + _of_set_apart(apart, f"{noun}(s)"), citations=_of_cite(own, apart), scope="officer-group")
+    if never_clear:
+        return flag(rule, V, "blocked", severity, never_clear + _of_set_apart(apart, f"{noun}(s)"), scope="officer-group")
+    return _of_none(rule, severity, f"no {noun} on the records of {_of_followed(report)}", False,
+                    (f"New Zealand Gazette (pub.{views[0]}), joined by name in pub.links",), report, apart, f"{noun}(s)")
+
+
+def _of_roles(report, rule, severity="amber", noun="other current role(s)", fire=None):
+    """The officers' other current roles: the companies and societies each also sits on, dated, beside the officer."""
+    roles = [it for it in _of_through(report, OF_ROLE_VIEWS) if _of_current(it)]
+    apart = [it for it in _of_apart(report, OF_ROLE_VIEWS) if _of_current(it)]
+    if roles:
+        by = {}
+        for it in roles:
+            by.setdefault(it["through"], []).append(it)
+        return flag(rule, V, "fired", fire or severity, f"{len(by)} of the company's officer(s) hold {len(roles)} {noun} on "
+                    f"{len({_of_on(it) for it in roles})} other organisation(s): "
+                    + _of_lines(report, roles, lambda it: f"{it['row'].get('role_type') or it['view'].replace('_', ' ')[:-1]} of {_of_on(it)}, "
+                                                          f"{it['dates']['text']}")
+                    + "; each role is the officer's, not the company's" + _of_set_apart(apart, "role(s)"),
+                    citations=_of_cite(roles, apart), scope="officer-group")
+    return _of_none(rule, severity, f"none of {_of_followed(report)} holds another current role in the registers read", False,
+                    ("Companies Office companies file (pub.directors, pub.shareholders)", "Incorporated Societies Register officers"),
+                    report, apart, "role(s)")
+
+
+def _of_practitioner(report, rule, severity="info"):
+    """An officer named as liquidator in Gazette notices, joined to the officer by the link rules."""
+    return _of_notice(report, rule, ("gazette_liquidators",), "Gazette liquidator appointment", severity)
+
+
+def _of_charity(report, rule, severity="info"):
+    """The officers' society roles (their confirmed rows) and the charity officer rows that carry an officer's name (set apart);
+    the company's own charity by its business number, with its officer rows."""
+    own = [(c, [it for it in items(report, ("charity_officers",), ("confirmed",)) if it.get("via") == c["ref"]])
+           for c in items(report, ("charities",), ("confirmed",)) if not c.get("through")]
+    roles = [it for it in _of_through(report, ("society_officers", "charity_officers")) if _of_current(it)]
+    apart = _of_apart(report, ("society_officers", "charity_officers"))
+    if roles or own:
+        bits = ([f"the company's charity by its business number: " + "; ".join(f"{c['statement']} ({c['dates']['text']}), {len(o)} officer "
+                                                                              "row(s) on it" for c, o in own[:EXAMPLES])] if own else []) + \
+               ([f"{len(roles)} society or charity role(s) on an officer's own record: "
+                 + _of_lines(report, roles, lambda it: f"{it['statement']} ({it['dates']['text']})")] if roles else [])
+        return flag(rule, V, "fired", severity, " | ".join(bits) + _of_set_apart(apart, "society or charity officer row(s)"),
+                    citations=_of_cite(roles, apart, [c for c, _ in own]), scope="officer-group" if roles else "entity")
+    return _of_none(rule, severity, f"no society or charity officer role on the records of {_of_followed(report)}, and the company has no "
+                    "charity row by its business number", False, ("Incorporated Societies Register officers (pub.society_officers)",
+                    "Charities Register (pub.charities, pub.charity_officers)"), report, apart, "society or charity officer row(s)")
+
+
+def _of_marks(report, rule, severity):
+    """The Charities Register's disqualified mark: on an officer row of the company's own charity (the company's own record), or on
+    a charity officer row reached through an officer (an officer's own, or set apart where only the name meets)."""
+    def marked(it):
+        return it["row"].get("disqualified") is True and not it.get("suppressed")
+    on_charity = [it for it in items(report, ("charity_officers",), ("confirmed",)) if not it.get("through") and not it.get("suppressed")]
+    own = [it for it in on_charity if marked(it)]
+    through = [it for it in _of_through(report, ("charity_officers",)) if marked(it)]
+    apart = [it for it in _of_apart(report, ("charity_officers",)) if marked(it)]
+    if own or through:
+        return flag(rule, V, "fired", severity, f"{len(own)} officer row(s) on the company's own charity and {len(through)} on an officer's "
+                    "own record carry the register's disqualified mark: "
+                    + "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in (own + through)[:EXAMPLES])
+                    + _of_set_apart(apart, "marked charity officer row(s)"),
+                    citations=_of_cite(own, through, apart), scope="entity" if own else "officer-group")
+    return _of_none(rule, severity, (f"the {len(on_charity)} officer row(s) on the company's charity carry no disqualified mark; " if on_charity
+                                     else "") + f"no charity officer row on the company's own charity or on the records of "
+                    f"{_of_followed(report)} carries the register's disqualified mark", False, ("Charities Register officers (pub.charity_officers)",),
+                    report, apart, "marked charity officer row(s)")
+
+
+def _of_companies(report, rule, severity="info", fire=None):
+    """The other companies the company's officers sit on, each beside the officer; the people on those companies are not read."""
+    cos = [it for it in _of_through(report, ("companies",)) if it["ref"] != report["subject"]["ref"]]
+    apart = [it for it in _of_apart(report, ("companies",)) if it["ref"] != report["subject"]["ref"]]
+    if cos:
+        return flag(rule, V, "fired", fire or severity, f"{len(cos)} other company(ies) the company's officers sit on: "
+                    + _of_lines(report, cos, lambda it: f"{it['title']} ({(it['row'].get('status') or 'status not filed')}; {it['dates']['text']})")
+                    + "; each is the officer's, not the company's; the other people on them are not read (the walk follows an officer one "
+                      "step)" + _of_set_apart(apart, "company(ies)"), citations=_of_cite(cos, apart), scope="officer-group")
+    return _of_none(rule, severity, f"none of {_of_followed(report)} sits on another current company", True,
+                    ("Companies Office companies file (pub.directors, pub.companies)",), report, apart, "company(ies)")
+
+
+def _of_beside(rule, severity):
+    """Who sat beside the officers on their other companies is a second step the walk does not take."""
+    return flag(rule, V, "blocked", severity, "the walk follows each officer of the company one step, to the officer's other companies, "
+                "and not on to the people on those: who sat beside the officers elsewhere is not read; start a report from an officer for it",
+                scope="officer-group")
 
 
 RULES = (phoenix_signature, same_name_failed, shared_office, entity_status, insolvency_notices, repeat_failure, register_events,

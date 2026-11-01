@@ -90,7 +90,9 @@ def test_from_the_liquidated_company_its_record_is_red_and_its_people_are_not_cl
     assert m["flags"]["entity-status"]["status"] == "fired" and m["flags"]["entity-status"]["severity"] == "red"
     assert m["flags"]["insolvency-event"]["status"] == "fired" and m["flags"]["insolvency-event"]["severity"] == "red"
     for name in ("sister-company-failure", "other-current-companies", "prohibition", "bankruptcy"):
-        assert m["flags"][name]["status"] != "clear", f"{name} cleared from a company whose people it never followed"
+        f = m["flags"][name]   # from a company the officers the walk followed are read (2 November 2026): a clear says how many
+        assert "start a report from each person" not in f["text"] and "officer" in f["text"], (name, f["text"][:200])
+        assert f["status"] != "clear" or "officer(s) the walk followed one step" in f["text"], name
 
 
 def test_a_board_with_three_directors_appointed_this_year_raises_officer_churn_and_never_clears():

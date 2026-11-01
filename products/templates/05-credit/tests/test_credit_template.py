@@ -145,7 +145,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
         page = f.read()
     assert "namesake" in page and "not a clear" in page and "checkpoint" in page.lower() and "month" in page
     lim = toml()["limits"]
-    assert any("namesake" in x for x in lim) and any("does not yet follow" in x for x in lim) and any("a month and not a day" in x for x in lim)
+    assert any("namesake" in x for x in lim) and any("follows each current officer one step" in x for x in lim) and any("a month and not a day" in x for x in lim)
     assert any("since" in x for x in lim) and any("pub.company_states" in x for x in lim)
     with open(os.path.join(HERE, "checkpoint.list"), encoding="utf-8") as f:
         keys = [x.strip() for x in f if x.strip() and not x.startswith("#")]
@@ -401,8 +401,8 @@ MUTANTS = (
     ("an office move prints the address", "    f\"{_month(nxt)}\" + (f\" filed as from", "    f\"{_month(nxt)} at {new[0]['title'] if new else ''}\" + (f\" filed as from"),
     ("a namesake's notices are red", 'return flag("insolvency-notices", V, "fired", "amber",', 'return flag("insolvency-notices", V, "fired", "red",'),
     ("a removal counts as insolvency", '"deed of company arrangement")\n', '"deed of company arrangement", "removal")\n'),
-    ("a people check clears from a company", '    if _company_start(report):\n        return flag("people-failed-companies"',
-     '    if False:\n        return flag("people-failed-companies"'),
+    ("a people check clears from a company", '    if _company_start(report):   # the officers the walk followed (2 November 2026)\n        return _of_failed(report, "people-failed-companies"',
+     '    if False:\n        return _of_failed(report, "people-failed-companies"'),
     ("every notice is recent", "    recent = [it for it in notes if (_published(it) or dt.date.min) >= since]", "    recent = notes"),
     ("a founding director is churn", " and not founding(it)\n", "\n"),
     ("an ended prohibition is red", "PROHIBITION_RED_ENDED = False", "PROHIBITION_RED_ENDED = True"),
@@ -523,7 +523,7 @@ def test_people_failed_companies_from_a_person_and_blocked_from_a_company():
     assert f["status"] == "fired" and f["severity"] == "red" and "1 of the 2 company(ies)" in f["text"] and "1 are going" in f["text"]
     assert "GAMMA BUILD LIMITED (liquidation, appointed 1 May 2025)" in f["text"]
     c = rule("people_failed_companies")(busy())
-    assert c["status"] == "blocked" and "start a report from each person" in c["text"]
+    assert c["status"] == "blocked" and "no clear is given" in c["text"]   # its officers not followed (2 November 2026)
     o = rule("other_current_companies")(person())
     assert o["status"] == "fired" and "DELTA LIMITED" in o["text"]
 

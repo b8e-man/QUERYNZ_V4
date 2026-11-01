@@ -198,6 +198,7 @@ def build(conn, ref: str, t: tpl.Template, held: set = None, since: dt.date | st
                       "group_omitted": w["group"].get("omitted", 0), "skipped": w.get("skipped", []), "limits": w["limits"], "settings": w["settings"],
                       "start_outside_template": w.get("start_outside_template", False), "buckets": sorted(t.buckets),
                       "officers_followed": w.get("officers_followed", 0), "officers_omitted": w.get("officers_omitted", 0),
+                      "officers_listed": w.get("officers_listed"), "officers_suppressed": w.get("officers_suppressed", 0),
                       "office_companies": w.get("office_companies", 0), "office_listed": w.get("office_listed", 0),
                       "chain_depth": t.chain_depth, "chain": w.get("chain_stats") or {},
                       "chain_notes": [{"text": x["chain_note"], "via": x["via"], "depth": x["depth"]} for x in w.get("chain", []) if "chain_note" in x]}

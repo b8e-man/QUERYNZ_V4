@@ -793,6 +793,11 @@ def charity_arm(report):
     chars = _charities(report)
     by_name = [it for it in items(report, ("charity_officers",)) if it.get("rule") == "same-name" and not it.get("suppressed")]
     if not chars and by_name:
+        if all(it.get("through") for it in by_name):   # reached through an officer the walk followed: the officer's (2 November 2026)
+            return flag("charity-arm", V, "fired", "info", f"{len(by_name)} charity officer row(s) carry the name of an officer the walk "
+                        "followed, near: the officer's and never the entity's, and a namesake's until a rule confirms it: "
+                        + "; ".join(f"{_name(it)}, {it['row'].get('role') or 'officer'} of {_charity_title(it)} ({it['dates']['text']})"
+                                    for it in by_name[:EXAMPLES]), citations=tuple(it["ref"] for it in by_name), scope="officer-group")
         return flag("charity-arm", V, "fired", "info", f"{len(by_name)} charity officer row(s) carry the person's name, near: no link joins the "
                     "Charities Register's officers to any other row yet, so each is a namesake's until a rule confirms it: "
                     + "; ".join(f"{_name(it)}, {it['row'].get('role') or 'officer'} of {_charity_title(it)} ({it['dates']['text']})"

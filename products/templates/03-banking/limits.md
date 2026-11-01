@@ -23,12 +23,17 @@ the card that would lift it is named.
   Register is not held (the interface has waited on approval since 19
   September); the flag `securities-register` is blocked, never clear.
 - **The people behind a company, from the company.** Started from a
-  company, the report lists its directors and holders of record and the
-  Gazette notices on it, and does not follow the people: their other
-  companies, their prohibitions, the people they sat beside and their
-  society roles are not read. Those checks are blocked, and the sections
-  for the person print "none found", which is not a clear. Start a report
-  from each person listed. (`a-company-start-does-not-follow-its-officers`)
+  company, the report follows each current officer one step (since 2
+  November 2026): the officer's other companies and what became of them,
+  the Gazette notices on the officer's own record and the officer's
+  society and charity roles are read and listed beside the officer, the
+  officer's and never the company's; a row only the officer's name reaches
+  is set apart as a namesake's. A check clears only when every officer was
+  followed and every link read; an officer whose name is suppressed, or
+  who is past the walk's limit, is not followed, and the check is blocked,
+  saying how many, which is not a clear. Holders of record are listed and
+  not followed, and who sat beside the officers on their other companies
+  is not read. (`a-company-start-follows-its-officers-one-step`)
 - **Every company of a busy director.** The walk lists 40 companies and
   reads the notices and officers of 12; past those, a status shows and the
   rest is unread. The flag `walk-coverage` fires and the clears that need

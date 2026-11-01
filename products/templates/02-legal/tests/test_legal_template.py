@@ -130,7 +130,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
         page = f.read()
     assert "namesake" in page and "not a clear" in page and "checkpoint" in page.lower() and "client" in page
     lim = toml()["limits"]
-    assert any("namesake" in x for x in lim) and any("not a clear" in x for x in lim) and any("does not yet follow" in x for x in lim)
+    assert any("namesake" in x for x in lim) and any("not a clear" in x for x in lim) and any("follows each current officer one step" in x for x in lim)
     assert any("client and matter list" in x for x in lim)
     with open(os.path.join(HERE, "checkpoint.list"), encoding="utf-8") as f:
         keys = [x.strip() for x in f if x.strip() and not x.startswith("#")]
@@ -260,6 +260,16 @@ def properties(mod) -> list:
     for name in PEOPLE_CHECKS:
         if rl(name)(starts["company"])["status"] == "clear":
             bad.append(f"company start: {name} cleared the people it never followed")
+    # the officers the walk followed (2 November 2026): an officer's record is the officer's, never the company's own
+    on_officer = followed(through(ON_GAMMA), through(GAMMA, via=ON_GAMMA["ref"]), through(RECEIVER), through(PROHIB))
+    for name in PEOPLE_CHECKS:
+        f = rl(name)(on_officer)
+        if f["status"] == "fired" and f["scope"] not in ("officer-group", "near"):
+            bad.append(f"followed officers: {name} gave an officer's record as the company's own ({f['scope']})")
+        if f["status"] == "fired" and f["severity"] == "red" and name != "prohibition":
+            bad.append(f"followed officers: {name} is red on an officer's other company")
+    if rl("prohibition")(on_officer)["status"] != "fired":
+        bad.append("followed officers: a prohibition on an officer's own record did not fire")
         if rl(name)(starts["other"])["status"] == "clear":
             bad.append(f"filed-row start: {name} cleared what it never walked")
     near_only = report(web=nearly(ACME, GAMMA), gazette=nearly(LIQ, RECEIVER))
@@ -313,7 +323,9 @@ MUTANTS = (
      '"notice to creditors", "deed of company arrangement", "removal")\n'),
     ("a deed of company arrangement is not insolvency", '"notice to creditors", "deed of company arrangement")\n', '"notice to creditors")\n'),
     ("a short walk is never short", 'return bool(w.get("entities_not_expanded") or w.get("entities_omitted"))', "return False"),
-    ("a prohibition clears from a company", '    if _company_start(report):\n        return flag("prohibition"', '    if False:\n        return flag("prohibition"'),
+    ("a prohibition clears from a company", '    if _company_start(report):   # the officers the walk followed (2 November 2026)\n        return _of_notice(report, "prohibition"',
+     '    if False:\n        return _of_notice(report, "prohibition"'),
+    ("an officer's prohibition is the company's own", 'citations=_of_cite(own, apart), scope="officer-group")', 'citations=_of_cite(own, apart), scope="entity")'),
     ("a revoked prohibition is counted", 'live = [it for it in items(report, ("gazette_prohibitions",)) if not it.get("suppressed")]',
      'live = list(items(report, ("gazette_prohibitions",)))'),
     ("a flag joins two facts", '"; each is a set of rows that share a name, near, never confirmed one person"', '"; each linked to the person"'),
@@ -386,13 +398,67 @@ def test_the_client_overlap_is_always_blocked_and_counts_the_names_to_compare():
     assert "compare the 2 name(s)" in rule("client_overlap")(hidden)["text"], "a suppressed name is never counted"
 
 
+# ── started from a company: the officers the walk followed one step (2 November 2026) ──────────────────────────────────────
+
+OFFICER = dict(PERSON, via=ACME["ref"])
+THROUGH_OFFICER = "reached through a person on the subject (Jane Mary DOE): an officer's other role is the officer's connection, not the subject's"
+
+
+def through(x, **kw):
+    return {**x, "grade": "near", "reason": THROUGH_OFFICER, "rule": "through-officer", "through": OFFICER["ref"], "depth": 1, **kw}
+
+
+def followed(*rows, omitted=0, buckets=("officers",)):
+    r = company(officers=[OFFICER] + list(rows))
+    r["walk"].update(buckets=list(buckets), officers_followed=1, officers_omitted=omitted)
+    return r
+
+
+def test_from_a_company_the_checks_read_the_officers_the_walk_followed(held):
+    r = followed(through(ON_GAMMA), through(GAMMA, via=ON_GAMMA["ref"]), through(RECEIVER), through(PROHIB), through(LIQUIDATOR))
+    web = rule("conflict_web")(r)
+    assert web["status"] == "fired" and web["severity"] == "info" and "GAMMA BUILD LIMITED" in web["text"] and GAMMA["ref"] in web["citations"]
+    assert "Jane Mary DOE (DIRECTOR of the company" in web["text"] and "the officer's, not the company's" in web["text"]
+    rep = rule("repeat_insolvency")(r)
+    assert rep["status"] == "fired" and rep["severity"] == "amber" and RECEIVER["ref"] in rep["citations"], rep
+    p = rule("prohibition")(r)
+    assert p["status"] == "fired" and p["severity"] == "red" and p["scope"] == "officer-group" and p["citations"] == (PROHIB["ref"],)
+    assert rule("practitioner_roles")(r)["status"] == "fired"
+    assert rule("shared_boards")(r)["status"] == "blocked" and "one step" in rule("shared_boards")(r)["text"]
+    for fn in ("conflict_web", "repeat_insolvency", "prohibition", "shared_boards", "practitioner_roles"):
+        assert "start a report from each person" not in rule(fn)(r)["text"], fn
+        assert not CAUSE.search(rule(fn)(r)["text"]), fn
+
+
+def test_from_a_company_a_clear_needs_every_officer_followed_and_a_namesake_is_set_apart():
+    none = followed()
+    assert rule("prohibition")(none)["status"] == "clear", "nothing on the officer's own record: clear"
+    assert rule("conflict_web")(none)["status"] == "blocked" and "current roles only" in rule("conflict_web")(none)["text"], \
+        "a company an officer left is not seen while past roles are not held"
+    R.HISTORY = True
+    try:
+        assert rule("conflict_web")(none)["status"] == "clear", "with past roles held, no other company is a clear"
+    finally:
+        R.HISTORY = False
+    left = followed(omitted=2)
+    assert rule("prohibition")(left)["status"] == "blocked" and "2 past the walk's limit" in rule("prohibition")(left)["text"]
+    hidden = company(officers=[OFFICER, dict(OFFICER, ref="companies:companies/1/director/s", suppressed=True)])
+    hidden["walk"].update(buckets=["officers"], officers_followed=1, officers_omitted=0)
+    assert "1 whose name is suppressed" in rule("prohibition")(hidden)["text"]
+    apart = followed(through(PROHIB, near_link=True, rule="name-only@1"))
+    f = rule("prohibition")(apart)
+    assert f["status"] == "fired" and f["severity"] == "info" and f["scope"] == "near" and "set apart" in f["text"]
+    assert rule("prohibition")(followed(buckets=()))["status"] == "blocked"
+
+
 def test_the_conflict_web_dates_each_company_and_counts_the_undated(held):
     f = rule("conflict_web")(person())
     assert f["status"] == "fired" and f["severity"] == "info" and f["scope"] == "officer-group"
     assert "3 company(ies) (3 confirmed, 0 through a near link)" in f["text"] and "3 other director(s) and holder(s)" in f["text"]
     assert "1 undated, marked so" in f["text"] and "from 3 March 2011" in f["text"]
     assert set(f["citations"]) == {ACME["ref"], GAMMA["ref"], GOING["ref"], CO_A["ref"], CO_G["ref"], CO_HOLDER["ref"]}
-    assert rule("conflict_web")(company())["status"] == "blocked" and "start a report from each person" in rule("conflict_web")(company())["text"]
+    # a company whose officers the walk did not follow (the fake carries no officers reach) is blocked and says why (2 November 2026)
+    assert rule("conflict_web")(company())["status"] == "blocked" and "no clear is given" in rule("conflict_web")(company())["text"]
     assert rule("conflict_web")(report())["status"] == "clear"
 
 
@@ -546,7 +612,7 @@ def test_the_charity_flags_read_the_register_by_name_and_by_number():
     assert f["status"] == "fired" and "the company's charity by its business number" in f["text"] and "1 officer row(s) on it" in f["text"]
     assert CHARITY["ref"] in f["citations"]
     f = marks(dict(company(money=[CHARITY, TRUSTEE]), template=READS))
-    assert f["status"] == "blocked" and "carry no disqualified mark" in f["text"], "its directors' own charity rows are not read from a company"
+    assert f["status"] == "blocked" and "carry no disqualified mark" in f["text"], "no clear while the officers were not followed"
     for r in (company(money=[CHARITY, TRUSTEE, BANNED]), report(money=[BY_NAME_BANNED])):
         for fn in (marks, roles):
             assert not CAUSE.search(fn(dict(r, template=READS))["text"])

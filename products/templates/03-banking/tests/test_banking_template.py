@@ -122,7 +122,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
         page = f.read()
     assert "namesake" in page and "not a clear" in page and "checkpoint" in page.lower()
     lim = toml()["limits"]
-    assert any("namesake" in x for x in lim) and any("not a clear" in x for x in lim) and any("does not yet follow" in x for x in lim)
+    assert any("namesake" in x for x in lim) and any("not a clear" in x for x in lim) and any("follows each current officer one step" in x for x in lim)
     with open(os.path.join(HERE, "checkpoint.list"), encoding="utf-8") as f:
         keys = [x.strip() for x in f if x.strip() and not x.startswith("#")]
     assert len(keys) == 12 and all(re.match(r"^[a-z_]+:\S+$", k) for k in keys), "twelve register keys, one a line, nothing else"
@@ -278,7 +278,7 @@ MUTANTS = (
     ("a namesake's notices are red", 'return flag("insolvency-notices", V, "fired", "amber",', 'return flag("insolvency-notices", V, "fired", "red",'),
     ("a removal counts as insolvency", '"notice to creditors")\n', '"notice to creditors", "removal")\n'),
     ("a short walk is never short", 'return bool(w.get("entities_not_expanded") or w.get("entities_omitted"))', "return False"),
-    ("a prohibition clears from a company", '    if _company_start(report):\n        return flag("prohibition"', '    if False:\n        return flag("prohibition"'),
+    ("a prohibition clears from a company", '    if _company_start(report):   # the officers the walk followed (2 November 2026)\n        return _of_notice(report, "prohibition"', '    if False:\n        return _of_notice(report, "prohibition"'),
     ("a revoked prohibition is counted", 'live = [it for it in items(report, ("gazette_prohibitions",)) if not it.get("suppressed")]',
      'live = list(items(report, ("gazette_prohibitions",)))'),
     ("a role with no end filed is passed over", "    if unknown:\n", "    if False:\n"),
@@ -402,7 +402,7 @@ def test_a_prohibition_confirmed_is_red_near_amber_revoked_never_counted():
     r = report()
     r["walk"]["links_omitted"] = 4
     assert rule("prohibition")(r)["status"] == "blocked"
-    assert "start a report from each person" in rule("prohibition")(company())["text"]
+    assert "no clear is given" in rule("prohibition")(company())["text"]   # its officers not followed (2 November 2026)
 
 
 def test_shared_boards_counts_names_never_people():

@@ -28,7 +28,7 @@ limits = [
   "The grain is the monthly file: a change between two files is dated to the file that first shows it, a month and not a day. Two files are held, July and August 2026, so a change before the July file is not seen as a change, and nothing after the August file is seen at all until the next file is loaded or step 5.5 checks the entity against the business-number interface.",
   "A status change and a name change between files are read from pub.company_states: the earlier status or name a later monthly file changed, dated to the file after the one that carried it, a month and not a day. A change within one month, or before the first file held, is not seen.",
   "The report takes no \"since\" date and keeps no watched list: it shows every change it can see, each dated, newest first, and the reader picks out what is new to them. Monitoring is the report re-run on the entity.",
-  "Started from a company, the report lists its directors and holders of record but does not yet follow them: their other companies, how those stand, and the prohibitions and bankruptcies on them are not read, and those checks are blocked, never clear. Start a report from each director listed.",
+  "Started from a company, the report follows each current officer one step: the officer's other companies, how those ended, the notices on the officer's own record and the officer's society and charity roles are read and listed beside the officer, the officer's and never the company's. A check clears only when every officer was followed; an officer whose name is suppressed or who is past the walk's limit is not followed, and the check is blocked, saying how many. Holders of record are listed and not followed. Who sat beside the officers on their other companies is not read: start a report from an officer for it.",
   "The companies file lists current roles only, and the roles that left it since July 2026 with no end date: a director who left before the July file is not seen, nor a company the person left, so no check over a person's companies is ever clear.",
   "The companies change history (former names, trading names, earlier directors and offices) is not held before 16 August 2026, and is held but not published since.",
   "The Personal Property Securities Register, the Official Assignee's Insolvency Register, court judgments, credit-bureau defaults and a lender's entry into possession are not held or not reachable: each check that needs one is blocked, never clear.",
@@ -189,24 +189,24 @@ text = "The grain is the companies register's monthly file, and two files are he
 name = "gazette"
 heading = "The Gazette on the entity: winding-up applications, liquidation, receivership, deeds, removals and restorations"
 views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_appointments"]
-sources = ["pointing", "members", "confirmed", "near"]
+sources = ["pointing", "members", "confirmed", "near", "officers"]
 not_held = ["insolvency", "court_coverage"]
-text = "Each Gazette notice on the entity, or on the companies above, under its company's name with the day the notice dates, which says what it dates: a liquidator's appointment, a hearing day, a removal's last day for objections; the day it was filed and published beside. Started from a person, also the person's own appointments as liquidator or to a public office. A removal from the register is not an insolvency, and a restoration reverses a removal."
+text = "Each Gazette notice on the entity, or on the companies above, under its company's name with the day the notice dates, which says what it dates: a liquidator's appointment, a hearing day, a removal's last day for objections; the day it was filed and published beside. Started from a person, also the person's own appointments as liquidator or to a public office. A removal from the register is not an insolvency, and a restoration reverses a removal. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "people"
 heading = "Its people: the people beside them, and their society and charity roles"
 views = ["directors", "shareholders", "societies", "society_officers", "charities", "charity_officers", "charity_returns"]
-sources = ["named", "second", "members", "confirmed", "roles"]
-text = "Started from a person: the other directors and holders of record on the person's companies, each near (a connection through another person is never confirmed), then incorporated society roles, then the Charities Register: a charity officer row that carries the person's name, near (no link joins the register's officers to any other row yet), and a company's charity by business number, confirmed, with the officers and annual returns on it, the figures as filed and never added across returns; the person's companies and their states are in the standing section above. Started from a company, its people are listed in the changes section and are not followed: their other companies and those companies' states are not read, so an empty section here is not a clear; start a report from each director listed."
+sources = ["named", "second", "members", "confirmed", "roles", "officers"]
+text = "Started from a person: the other directors and holders of record on the person's companies, each near (a connection through another person is never confirmed), then incorporated society roles, then the Charities Register: a charity officer row that carries the person's name, near (no link joins the register's officers to any other row yet), and a company's charity by business number, confirmed, with the officers and annual returns on it, the figures as filed and never added across returns; the person's companies and their states are in the standing section above. Started from a company, its people are listed in the changes section and are not followed: their other companies and those companies' states are not read, so an empty section here is not a clear; start a report from each director listed. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "people-notices"
 heading = "Prohibitions and bankruptcies among its people"
 views = ["gazette_prohibitions", "gazette_bankruptcies"]
-sources = ["members", "confirmed", "near"]
+sources = ["members", "confirmed", "near", "officers"]
 not_held = ["insolvency"]
-text = "A director prohibition or a bankruptcy notice the link rules join to the person by name, with its dates; a near row shares the name only. A revoked prohibition and an annulled bankruptcy's name are never shown. Started from a company, its people's notices are not read, so an empty section here is not a clear: start a report from each director listed."
+text = "A director prohibition or a bankruptcy notice the link rules join to the person by name, with its dates; a near row shares the name only. A revoked prohibition and an annulled bankruptcy's name are never shown. Started from a company, its people's notices are not read, so an empty section here is not a clear: start a report from each director listed. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "past-roles"

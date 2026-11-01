@@ -30,7 +30,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "board", "past-roles", "contracts", "possessions", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"gazette_possessions", "award_notices", "award_suppliers", "court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "company_lookup_holdings", "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
+VIEWS = {"gazette_possessions", "award_notices", "award_suppliers", "grants", "court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "company_lookup_holdings", "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
          "charities", "charity_officers", "charity_returns"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -173,7 +173,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
     for want in ("namesake", "not a clear", "checkpoint", "liquidator", "window", "14.2 million"):
         assert want in page, want
     lim = toml()["limits"]
-    assert any("never the phoenix signature" in x for x in lim) and any("does not yet follow" in x for x in lim)
+    assert any("never the phoenix signature" in x for x in lim) and any("follows each current officer one step" in x for x in lim)
     with open(os.path.join(HERE, "checkpoint.list"), encoding="utf-8") as f:
         keys = [x.strip() for x in f if x.strip() and not x.startswith("#")]
     assert len(keys) == 12 and len(set(keys)) == 12 and all(re.match(r"^[a-z_]+:\S+$", k) for k in keys), "twelve register keys, one a line"
@@ -421,8 +421,8 @@ MUTANTS = (
     ("a namesake's pair is red", 'return flag("phoenix-signature", V, "fired", "amber",\n                    f"{len(near_pairs)}',
      'return flag("phoenix-signature", V, "fired", "red",\n                    f"{len(near_pairs)}'),
     ("a short walk is never short", 'return bool(w.get("entities_not_expanded") or w.get("entities_omitted"))', "return False"),
-    ("a person's notice clears from a company", '    if _company_start(report):\n        return flag(rule, V, "blocked", severity',
-     '    if False:\n        return flag(rule, V, "blocked", severity'),
+    ("a person's notice clears from a company", '    if _company_start(report):   # the officers the walk followed (2 November 2026)\n        return _of_notice(report, rule, (view,)',
+     '    if False:\n        return _of_notice(report, rule, (view,)'),
     ("a clear is given though past roles are not held", "    if HISTORY:\n        return flag(rule, V, \"clear\"",
      "    if True:\n        return flag(rule, V, \"clear\""),
     ("a removal is an insolvency", 'kind = "insolvency" if _insolvency(n) else "removal" if _removal(n) else None',
@@ -515,7 +515,7 @@ def test_from_a_company_the_signature_is_a_shared_office_and_a_dated_failure_nev
     assert {SAME["ref"], SAME_LIQ["ref"], SAME_BEFORE["ref"], NEWCO_OFFICE["ref"]} <= set(f["citations"])
     assert "1 Main Road" not in f["text"], "the office is shown in its section, never printed by a flag"
     blocked = rule("phoenix_signature")(from_company(office=[NEWCO_OFFICE]))
-    assert blocked["status"] == "blocked" and "start a report from each person listed" in blocked["text"] and "1 failed" in blocked["text"]
+    assert blocked["status"] == "blocked" and "current roles only" in blocked["text"] and "1 failed" in blocked["text"]   # its officers read (2 November 2026)
     s = rule("same_name_failed")(from_company(office=[NEWCO_OFFICE]))
     assert s["status"] == "fired" and s["severity"] == "amber" and s["scope"] == "near"
     assert "1 with an officer of the same name on both" in s["text"] or "1 of those with an officer of the same name on both" in s["text"]

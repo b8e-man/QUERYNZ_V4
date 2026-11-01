@@ -32,7 +32,7 @@ depth = 2
 limits = [
   "A name is never the phoenix signature: a company that only shares the entity's name is listed near, and the phoenix flag is raised only on a shared person or a shared registered office together with a dated failure.",
   "The phoenix flag sets every dated failure beside every going company whatever the gap, nearest first, and counts those within 90 and 365 days; the window is the reader's setting (`window_days`), and with none set every gap is shown.",
-  "Started from a company, the report lists its officers and holders of record but does not yet follow them: the other companies they sit on, and how those failed, are not read, so the phoenix signature through a shared person is blocked, never clear. Start a report from each director listed; from a person the signature is read across all the person's companies.",
+  "Started from a company, the report follows each current officer one step: the officer's other companies, how those ended, the notices on the officer's own record and the officer's society and charity roles are read and listed beside the officer, the officer's and never the company's. A check clears only when every officer was followed; an officer whose name is suppressed or who is past the walk's limit is not followed, and the check is blocked, saying how many. Holders of record are listed and not followed. Who sat beside the officers on their other companies is not read: start a report from an officer for it. The phoenix signature through a shared director reads each followed director's other current companies; a company the director left is not seen, so none found is blocked, never clear.",
   "The companies that share a registered office with the entity are counted, and listed only when they also share its name or a person: a shared office alone is not seen, so that half of the signature is blocked, never clear.",
   "The companies file lists current roles only: a company the person left, or that was struck off with them on it, is not seen, nor its failure, so no check over a person's companies is ever clear.",
   "The companies change history (former names, trading names, earlier directors and offices) is not held before 16 August 2026 and is held but not published since; a company's earlier name is not seen.",
@@ -55,6 +55,11 @@ kind = "integer"
 means = "days either side of a failure's Gazette date within which a going company is set beside it; not set: every gap is shown"
 
 # ── what it reads: each view with its licence ───────────────────────────────
+[[reads]]
+view = "grants"
+licence = "Grants as published: the Department of Internal Affairs class 4 grants data (CC BY 4.0) and each society's own list (facts read and cited under the position class-4-society-grant-publications); the licence of each row is on the row"
+attribution = "each row's own attribution (pub.grants.attribution)"
+refresh = "as each funder publishes; the national file quarterly"
 [[reads]]
 view = "gazette_possessions"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person mortgagor's name and the property stay in the lane's private tables, and a company is named with its register key"
@@ -217,9 +222,9 @@ text = "Every director and shareholder the companies file lists on the company, 
 name = "phoenix"
 heading = "The phoenix signature: companies that share a person or a name with it, and how each stands"
 views = ["companies"]
-sources = ["members", "confirmed", "near"]
+sources = ["members", "confirmed", "near", "officers"]
 not_held = ["insolvency"]
-text = "Started from a person, each company the person sits on or holds, with its register status and the dates the register files: a failed company (in liquidation, in receivership, in administration, removed) and a going one side by side, its Gazette notices in the Gazette section below under its name; the flags set each dated failure beside each going company's start with the gap in days, nearest first, whatever the gap, and count those within 90 and 365 days. A company reached only by a name it shares is near. Started from a company, its people are not followed: listed here are only the companies that share its name, near, and the signature through a person is blocked; start a report from each director listed above."
+text = "Started from a person, each company the person sits on or holds, with its register status and the dates the register files: a failed company (in liquidation, in receivership, in administration, removed) and a going one side by side, its Gazette notices in the Gazette section below under its name; the flags set each dated failure beside each going company's start with the gap in days, nearest first, whatever the gap, and count those within 90 and 365 days. A company reached only by a name it shares is near. Started from a company, its people are not followed: listed here are only the companies that share its name, near, and the signature through a person is blocked; start a report from each director listed above. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "office"
@@ -232,24 +237,24 @@ text = "Each company's registered office as the companies file states it; a comp
 name = "people-notices"
 heading = "Prohibitions and bankruptcies on its people"
 views = ["gazette_prohibitions", "gazette_bankruptcies"]
-sources = ["members", "confirmed", "near"]
+sources = ["members", "confirmed", "near", "officers"]
 not_held = ["insolvency"]
-text = "A director prohibition or a bankruptcy notice the link rules join to the person by name, with its dates; a near row shares the name only. A revoked prohibition and an annulled bankruptcy's name are never shown. Started from a company, its people's notices are not read: start a report from each director listed."
+text = "A director prohibition or a bankruptcy notice the link rules join to the person by name, with its dates; a near row shares the name only. A revoked prohibition and an annulled bankruptcy's name are never shown. Started from a company, its people's notices are not read: start a report from each director listed. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "people"
 heading = "Its people's other roles: the people beside them, and their society and charity roles"
 views = ["directors", "shareholders", "societies", "society_officers", "charities", "charity_officers", "charity_returns"]
-sources = ["named", "second", "members", "confirmed", "roles"]
-text = "The other directors and holders of record on the person's companies, each near: a connection through another person is never confirmed; then incorporated society roles, then the Charities Register: a charity officer row that carries the person's name, near (no link joins the register's officers to any other row yet), and a company's charity by business number, confirmed, with its officers and annual returns, the figures as filed and never added across returns. The companies themselves, going and failed, with their states, are listed once, in the phoenix section above. Started from a company, its people are not followed."
+sources = ["named", "second", "members", "confirmed", "roles", "officers"]
+text = "The other directors and holders of record on the person's companies, each near: a connection through another person is never confirmed; then incorporated society roles, then the Charities Register: a charity officer row that carries the person's name, near (no link joins the register's officers to any other row yet), and a company's charity by business number, confirmed, with its officers and annual returns, the figures as filed and never added across returns. The companies themselves, going and failed, with their states, are listed once, in the phoenix section above. Started from a company, its people are not followed. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "gazette"
 heading = "The Gazette on the entity itself, and on the companies above"
 views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_appointments"]
-sources = ["pointing", "members", "confirmed", "near"]
+sources = ["pointing", "members", "confirmed", "near", "officers"]
 not_held = ["insolvency"]
-text = "Liquidations (appointed by the shareholders or the court), receiverships, administrations, winding-up applications, creditors' notices, deeds of company arrangement, removals and restorations, dissolutions, amalgamations, rectifications, each under its company's name with its own date, which says what it dates: a liquidator's appointment, a hearing day, a removal's last day for objections. Started from a person, also the person's own appointments as liquidator or to a public office. A removal from the register is not an insolvency."
+text = "Liquidations (appointed by the shareholders or the court), receiverships, administrations, winding-up applications, creditors' notices, deeds of company arrangement, removals and restorations, dissolutions, amalgamations, rectifications, each under its company's name with its own date, which says what it dates: a liquidator's appointment, a hearing day, a removal's last day for objections. Started from a person, also the person's own appointments as liquidator or to a public office. A removal from the register is not an insolvency. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "board"
@@ -268,9 +273,9 @@ text = "A role the business-number register states and no monthly file held, und
 [[sections]]
 name = "contracts"
 heading = "Government contracts awarded"
-views = ["award_notices", "award_suppliers"]
-sources = ["named", "members", "confirmed", "near"]
-text = "A government contract award notice that names the subject as a supplier, as GETS publishes it. The value is the notice's: on a panel or a multi-supplier award it is the whole award's, not this supplier's share. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's. Contracts below the thresholds, direct awards, and most councils' and private clients' contracts carry no GETS notice, so none listed here is not a finding of none."
+views = ["award_notices", "award_suppliers", "grants"]
+sources = ["named", "members", "confirmed", "near", "roles"]
+text = "A government contract award notice that names the subject as a supplier, as GETS publishes it. The value is the notice's: on a panel or a multi-supplier award it is the whole award's, not this supplier's share. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's. Contracts below the thresholds, direct awards, and most councils' and private clients' contracts carry no GETS notice, so none listed here is not a finding of none. Grants a funder published to the company by its business number, or to the charity by its registration number, as the funder lists them; never added across funders."
 
 [[sections]]
 name = "possessions"

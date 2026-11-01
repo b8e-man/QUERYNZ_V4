@@ -92,7 +92,7 @@ def test_the_known_limits_page_exists_and_the_template_states_its_limits():
         page = f.read()
     assert "namesake" in page and "not a clear" in page and "checkpoint" in page.lower()
     lim = toml()["limits"]
-    assert any("namesake" in x for x in lim) and any("not a clear" in x for x in lim) and any("does not yet follow" in x for x in lim)
+    assert any("namesake" in x for x in lim) and any("not a clear" in x for x in lim) and any("follows each current officer one step" in x for x in lim)
 
 
 # ── fixtures ────────────────────────────────────────────────────────────────
@@ -195,7 +195,7 @@ def test_from_a_company_the_officers_checks_are_blocked_never_clear():
     for name in ("officer_group_insolvency", "prohibition", "other_companies", "charity_officer_roles", "practitioner_repeat", "bankruptcy"):
         f = rule(name)(r)
         assert f["status"] == "blocked", (name, f)
-    assert "start a report from each person" in rule("prohibition")(r)["text"]
+    assert "no clear is given" in rule("prohibition")(r)["text"]   # its officers not followed (2 November 2026)
 
 
 def test_from_a_person_the_companies_notices_sit_beside_the_persons_dates_and_are_red():

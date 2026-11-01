@@ -36,7 +36,11 @@ What the contract holds:
   item["depth"], ["through"], ["hop_text"], ["chain_goes_on"]
                              on a chain or officers row: how far up, the row it came through
   report["walk"]["chain"], ["officers_followed"], ["office_companies"]
-                             what the three asked-for reaches did and left out
+                             what the three asked-for reaches did and left out;
+  report["walk"]["officers_listed"], ["officers_suppressed"]
+                             the current officers the company lists (None where the
+                             officers reach did not run) and how many of them are
+                             suppressed (never followed)
 
 Version: VERSION. A template that needs more asks for it here, by a card on
 the report lane; it does not copy the shape's code."""

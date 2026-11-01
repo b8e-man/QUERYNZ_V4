@@ -24,7 +24,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.d
 FLAG = re.compile(r"^  (FIRED|CLEAR|BLOCKED)\s+(red|amber|info)\s+([a-z-]+)@[\d.]+: (.*)$")
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 NOT_HELD = ("land-titles", "building-consents", "court-judgments", "securities-register", "insolvency-register",
-            "real-estate-authority", "building-practitioners", "past-roles")
+            "building-practitioners", "past-roles")   # real-estate-authority: read since 2 November 2026, fired or clear
 #: a going development company with one to four current directors, one of whom has confirmed rows as director of two or more
 #: companies in liquidation or receivership
 #: Starts from the failed companies, which are few, and keeps the groups holding two or more of them, before it meets the
@@ -82,10 +82,12 @@ def memo(ref: str) -> dict:
     for name in NOT_HELD:
         assert flags[name]["status"] == "blocked", name
     assert flags["overseas-investment"]["status"] in ("clear", "fired"), "the Office's decision summaries are read"
+    assert flags["real-estate-authority"]["status"] in ("clear", "fired"), "the Authority's decisions are read"
     for name in ("serial-pattern", "earlier-failure", "possession", "insolvency-notices"):
         assert flags[name]["status"] != "clear", f"{name} cleared: past roles are not held"
     assert "WHAT IS NOT HELD" in text and re.search(r"^  not held: LINZ titles, Building consents, code compliance certificates and "
-                                                   r"council minutes, Court judgments the corpus held does not carry.*Real Estate Authority decisions", text, re.M)
+                                                   r"council minutes, Court judgments the corpus held does not carry", text, re.M)
+    assert not re.search(r"^  not held: .*Real Estate Authority decisions", text, re.M), "read since 2 November 2026"
     return {"text": text, "flags": flags}
 
 

@@ -95,8 +95,9 @@ def test_from_the_company_a_liquidation_names_the_people_checks_block():
     for name in ("repeat-insolvency", "left-before-notice", "prohibition", "shared-boards", "charity-officer-roles"):
         if name == "charity-officer-roles" and "the company's charity by its business number" in m["flags"][name]["text"]:
             continue   # the company's own charity, confirmed by number, fires; its people's roles are still not read
-        assert m["flags"][name]["status"] == "blocked", name
-        assert "start a report from each person" in m["flags"][name]["text"], name
+        f = m["flags"][name]   # from a company the officers the walk followed are read (2 November 2026): a clear says how many
+        assert "start a report from each person" not in f["text"] and "officer" in f["text"], (name, f["text"][:200])
+        assert f["status"] != "clear" or "officer(s) the walk followed one step" in f["text"], name
 
 
 def test_a_company_with_only_a_removal_notice_is_not_an_insolvency_and_nothing_clears_while_past_roles_are_not_held():

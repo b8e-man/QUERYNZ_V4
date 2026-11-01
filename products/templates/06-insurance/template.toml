@@ -24,7 +24,7 @@ depth = 2
 
 limits = [
   "WorkSafe's court summaries and enforceable undertakings, the Commerce Commission's cases and the Financial Markets Authority's warnings and actions are read as each regulator lists them today. Court judgments, the Employment Relations Authority, the Disputes Tribunal and Fire and Emergency New Zealand's notices are not held, so the safety record is never clear: a listing found fires, and none found is blocked.",
-  "Started from a company, the report lists its directors and holders of record but does not yet follow them: their other companies, any of those that failed, and their prohibitions and bankruptcies are not read, and those checks are blocked, never clear. Start a report from each director listed.",
+  "Started from a company, the report follows each current officer one step: the officer's other companies, how those ended, the notices on the officer's own record and the officer's society and charity roles are read and listed beside the officer, the officer's and never the company's. A check clears only when every officer was followed; an officer whose name is suppressed or who is past the walk's limit is not followed, and the check is blocked, saying how many. Holders of record are listed and not followed. Who sat beside the officers on their other companies is not read: start a report from an officer for it.",
   "The companies file lists current roles only: a company a person left, or that was struck off with them on it, is not seen, nor its failure, so no check over a person's companies is ever clear. A director who left the board before July 2026 is not seen either, so officer churn is never clear.",
   "A sister company's failure is dated from its Gazette notice and the person's role on it from the date the companies file states; the two dates are set side by side. The report never says one followed from the other.",
   "The companies change history (former names, trading names, industry classification, earlier directors and offices) is not held before 16 August 2026 and is held but not published since.",
@@ -207,9 +207,9 @@ text = "The entity's register status and the day it was registered are in the he
 name = "solvency"
 heading = "The solvency record: the Gazette on the entity, and on its people's companies"
 views = ["gazette_liquidations", "gazette_company_notices"]
-sources = ["pointing", "members", "confirmed", "near"]
+sources = ["pointing", "members", "confirmed", "near", "officers"]
 not_held = ["insolvency", "securities"]
-text = "Liquidations (appointed by the shareholders or the court), winding-up applications, receiverships, administrations, creditors' notices, deeds of company arrangement, removals and restorations, dissolutions, amalgamations and rectifications, each under its company's name with its own date, which says what it dates: a liquidator's appointment, a hearing day, a removal's last day for objections. Started from a person, the notices on each of the person's companies. A removal from the register is not an insolvency. A lender's entry into possession is published in the Gazette and not yet reachable by this report."
+text = "Liquidations (appointed by the shareholders or the court), winding-up applications, receiverships, administrations, creditors' notices, deeds of company arrangement, removals and restorations, dissolutions, amalgamations and rectifications, each under its company's name with its own date, which says what it dates: a liquidator's appointment, a hearing day, a removal's last day for objections. Started from a person, the notices on each of the person's companies. A removal from the register is not an insolvency. A lender's entry into possession is published in the Gazette and not yet reachable by this report. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "people"
@@ -222,31 +222,31 @@ text = "Every director and shareholder the companies file lists on the company, 
 name = "companies"
 heading = "Their other companies, and how each stands"
 views = ["companies"]
-sources = ["members", "confirmed", "near"]
+sources = ["members", "confirmed", "near", "officers"]
 not_held = ["insolvency"]
-text = "Started from a person, each company the person sits on or holds, with its register status and the dates the register files: a failed company (in liquidation, in receivership, in administration, removed) and a going one side by side, the Gazette notices on each in the solvency section above under its name; the flag sister-company-failure sets each failure's date beside the person's own role on that company. A company reached only by a name it shares, or through a namesake, is near. Started from a company, its people are not followed: listed here are only the companies that share its name, near, and the check is blocked."
+text = "Started from a person, each company the person sits on or holds, with its register status and the dates the register files: a failed company (in liquidation, in receivership, in administration, removed) and a going one side by side, the Gazette notices on each in the solvency section above under its name; the flag sister-company-failure sets each failure's date beside the person's own role on that company. A company reached only by a name it shares, or through a namesake, is near. Started from a company, its people are not followed: listed here are only the companies that share its name, near, and the check is blocked. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "people-notices"
 heading = "Prohibitions and bankruptcies on its people"
 views = ["gazette_prohibitions", "gazette_bankruptcies"]
-sources = ["members", "confirmed", "near"]
+sources = ["members", "confirmed", "near", "officers"]
 not_held = ["insolvency"]
-text = "A director prohibition or a bankruptcy notice the link rules join to the person by name, with its dates; a near row shares the name only. A revoked prohibition and an annulled bankruptcy's name are never shown. Started from a company, its people's notices are not read, and a blank here is not a clear: start a report from each director listed."
+text = "A director prohibition or a bankruptcy notice the link rules join to the person by name, with its dates; a near row shares the name only. A revoked prohibition and an annulled bankruptcy's name are never shown. Started from a company, its people's notices are not read, and a blank here is not a clear: start a report from each director listed. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "beside"
 heading = "The people beside them, and their other roles"
 views = ["directors", "shareholders", "societies", "society_officers", "gazette_appointments", "gazette_liquidators"]
-sources = ["second", "members", "confirmed", "near"]
-text = "The other directors and holders of record on the person's companies, each near: a connection through another person is never confirmed; then incorporated society roles, public appointments in the Gazette, and appointments as a liquidator (an insolvency practitioner is appointed to a failed company and is not one of its officers). Started from a company, its people are not followed."
+sources = ["second", "members", "confirmed", "near", "officers"]
+text = "The other directors and holders of record on the person's companies, each near: a connection through another person is never confirmed; then incorporated society roles, public appointments in the Gazette, and appointments as a liquidator (an insolvency practitioner is appointed to a failed company and is not one of its officers). Started from a company, its people are not followed. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "charities"
 heading = "Registered charities: the business's own, and its people's officer rows by name"
 views = ["charities", "charity_officers", "charity_returns"]
-sources = ["named", "roles", "members", "confirmed"]
-text = "Started from a company, its charity by business number, confirmed, with the officers and annual returns the Charities Register files on it, newest first, the figures as filed and never added across returns. Started from a person, each charity officer row that carries the person's name, near: no link joins the register's officers to any other row yet, so each is a namesake's until a rule confirms it. A charity's officers and returns are as the register files them; nothing here says what a charity has to do with the risk."
+sources = ["named", "roles", "members", "confirmed", "officers"]
+text = "Started from a company, its charity by business number, confirmed, with the officers and annual returns the Charities Register files on it, newest first, the figures as filed and never added across returns. Started from a person, each charity officer row that carries the person's name, near: no link joins the register's officers to any other row yet, so each is a namesake's until a rule confirms it. A charity's officers and returns are as the register files them; nothing here says what a charity has to do with the risk. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "safety"

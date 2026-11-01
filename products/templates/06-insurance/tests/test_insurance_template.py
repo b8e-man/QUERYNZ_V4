@@ -148,7 +148,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
     for want in ("namesake", "not a clear", "checkpoint", "WorkSafe", "never clear", "sister"):
         assert want in page, want
     lim = toml()["limits"]
-    assert any("safety record is never clear" in x for x in lim) and any("does not yet follow" in x for x in lim)
+    assert any("safety record is never clear" in x for x in lim) and any("follows each current officer one step" in x for x in lim)
     with open(os.path.join(HERE, "checkpoint.list"), encoding="utf-8") as f:
         keys = [x.strip() for x in f if x.strip() and not x.startswith("#")]
     assert len(keys) == 12 and len(set(keys)) == 12 and all(re.match(r"^[a-z_]+:\S+$", k) for k in keys), "twelve register keys, one a line"
@@ -386,8 +386,8 @@ MUTANTS = (
     ("a namesake's failure is red", 'return flag("sister-company-failure", V, "fired", "amber",\n                    f"{len(nearby)}',
      'return flag("sister-company-failure", V, "fired", "red",\n                    f"{len(nearby)}'),
     ("a short walk is never short", 'return bool(w.get("entities_not_expanded") or w.get("entities_omitted"))', "return False"),
-    ("a person's notice clears from a company", '    if _company_start(report):\n        return flag(rule, V, "blocked", severity',
-     '    if False:\n        return flag(rule, V, "blocked", severity'),
+    ("a person's notice clears from a company", '    if _company_start(report):   # the officers the walk followed (2 November 2026)\n        return _of_notice(report, rule, (view,)',
+     '    if False:\n        return _of_notice(report, rule, (view,)'),
     ("a clear is given though past roles are not held", "    if HISTORY:\n        return flag(rule, V, \"clear\", severity, text, **kw)",
      "    if True:\n        return flag(rule, V, \"clear\", severity, text, **kw)"),
     ("a revoked prohibition is counted", "live = [it for it in items(report, (view,)) if not it.get(\"suppressed\")]", "live = list(items(report, (view,)))"),
@@ -460,7 +460,7 @@ def test_a_sister_companys_failure_is_dated_from_its_notice_with_the_persons_rol
     h = rule("sister_company_failure")(hub)
     assert h["severity"] == "amber" and "the person is a hub (professional-director)" in h["text"]
     blocked = rule("sister_company_failure")(from_company())
-    assert blocked["status"] == "blocked" and "start a report from each person listed" in blocked["text"]
+    assert blocked["status"] == "blocked" and "no clear is given" in blocked["text"]   # its officers not followed (2 November 2026)
 
 
 def test_the_entitys_own_solvency_record_is_dated_from_each_notice():

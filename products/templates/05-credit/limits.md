@@ -72,14 +72,17 @@ amber at three with a departure.
   adds any file a row names; a change cannot be dated between two days.
   (`the-companies-lane-publishes-no-list-of-its-monthly-files`)
 - **The people behind a company, from the company.** Started from a
-  company, the report lists its directors and holders of record and does not
-  follow them: their other companies and those companies' states, their
-  prohibitions and bankruptcies are not read. `people-failed-companies`,
-  `other-current-companies`, `prohibition` and `bankruptcy` are **blocked,
-  never clear**, and say to start a report from each director listed; the
-  people sections print "none found", which is not a clear, and their text
-  says so. From a director the same checks read across the person's
-  companies. (`a-company-start-does-not-follow-its-officers`)
+  company, the report follows each current officer one step (since 2
+  November 2026): the officer's other companies and what became of them,
+  the Gazette notices on the officer's own record and the officer's
+  society and charity roles are read and listed beside the officer, the
+  officer's and never the company's; a row only the officer's name reaches
+  is set apart as a namesake's. A check clears only when every officer was
+  followed and every link read; an officer whose name is suppressed, or
+  who is past the walk's limit, is not followed, and the check is blocked,
+  saying how many, which is not a clear. Holders of record are listed and
+  not followed, and who sat beside the officers on their other companies
+  is not read. (`a-company-start-follows-its-officers-one-step`)
 - **Past roles.** The companies file lists current roles only, and the
   roles that left it since July 2026 with no end date; a director who left
   before the July file is not seen. `past-roles` is blocked on every report;

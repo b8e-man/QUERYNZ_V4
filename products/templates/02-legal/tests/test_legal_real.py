@@ -68,8 +68,10 @@ def test_a_company_with_a_deed_of_company_arrangement_is_an_insolvency_and_its_p
     f = m["flags"]["insolvency-notices"]
     assert f["status"] == "fired" and f["severity"] == "red" and "deed of company arrangement" in f["text"], f
     assert any("deed of company arrangement" in x for x in m["sections"][GAZETTE]["lines"])
+    # the people checks read the officers the walk followed one step (2 November 2026), and never ask for a second report
     for name in ("conflict-web", "repeat-insolvency", "prohibition", "shared-boards", "practitioner-roles"):
-        assert m["flags"][name]["status"] == "blocked" and "start a report from each person" in m["flags"][name]["text"], name
+        assert "start a report from each person" not in m["flags"][name]["text"], name
+        assert "officer" in m["flags"][name]["text"], name
 
 
 def test_a_company_an_amalgamation_proposal_names_is_flagged_and_not_an_insolvency():

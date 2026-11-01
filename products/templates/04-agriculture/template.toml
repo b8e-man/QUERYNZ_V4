@@ -18,12 +18,12 @@ depth = 1
 limits = [
   "Only the registers the estate has published are read; what is not held is the last section, and nothing in this report says anything about it.",
   "A connection is as the register states it: a role, a holding of record, a donation filed under a name. Nothing here says who stands behind a holding or runs a company.",
-  "Started from a company, the report lists its officers and holders of record but does not yet follow them: their other companies, their prohibitions and their society roles are not read, and those checks are blocked, never clear. Start a second report from each person listed.",
+  "Started from a company, the report follows each current officer one step: the officer's other companies, how those ended, the notices on the officer's own record and the officer's society and charity roles are read and listed beside the officer, the officer's and never the company's. A check clears only when every officer was followed; an officer whose name is suppressed or who is past the walk's limit is not followed, and the check is blocked, saying how many. Holders of record are listed and not followed. Who sat beside the officers on their other companies is not read: start a report from an officer for it.",
   "The counterparty is the row the report starts from. A row that only shares its name is a namesake, listed apart, and is not the counterparty until confirmed.",
   "Two facts are shown side by side with their dates. The report never says one followed from the other.",
-  "A Gazette bankruptcy notice is published but no link rule joins it to a person yet, so this report cannot see one: a blank there is not a clear.",
+  "A Gazette bankruptcy notice is reached by name only (near): no link rule confirms one to a person yet, so a blank there is not a clear.",
   "Sole traders, general partnerships and trusts are not in the companies file and are not held. A limited partnership's own row and its general partners are held; its limited partners are not public.",
-  "The Personal Property Securities Register (security over stock, crops and plant), land titles, the Insolvency Register, court judgments and MPI's prosecutions are not held.",
+  "The Personal Property Securities Register (security over stock, crops and plant), land titles, the Insolvency Register and MPI's prosecutions are not held; court judgments are read only as far as the courts corpus holds them, so none found is never a clear.",
   "A charity officer row is matched to the counterparty by name only: no link joins the Charities Register's officers to any other row yet, so each is a namesake's until a rule confirms it, and the register's disqualified mark on one is amber at most.",
   "A company's registered office is listed and is flagged when many companies share it. No residential address is held in any view read.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
@@ -204,23 +204,23 @@ text = "Every director and shareholder the register files on the company, curren
 name = "gazette"
 heading = "Gazette receiverships, liquidations, winding-up applications, administrations, creditors' notices and removals; bankruptcies and prohibitions"
 views = ["gazette_liquidations", "gazette_company_notices", "gazette_prohibitions", "gazette_bankruptcies"]
-sources = ["members", "confirmed", "near", "pointing"]
+sources = ["members", "confirmed", "near", "pointing", "officers"]
 not_held = ["insolvency", "court_coverage"]
-text = "A notice on a company is listed with that company's name and the notice's own date; the officers' dates are in the section above. The two sit side by side and nothing joins them. A removal from the register is not an insolvency. Bankruptcy notices are published but no link rule joins them to a person yet, so this section cannot show one; and started from a company, its people's prohibitions are not read."
+text = "A notice on a company is listed with that company's name and the notice's own date; the officers' dates are in the section above. The two sit side by side and nothing joins them. A removal from the register is not an insolvency. Bankruptcy notices are published but no link rule joins them to a person yet, so this section cannot show one; and started from a company, its people's prohibitions are not read. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "other-companies"
 heading = "The people's other companies, and what became of them"
 views = ["companies"]
-sources = ["members", "confirmed", "near"]
-text = "Each company with its register status and its dates as the register files them. Started from a person, these are the companies the person has a row on, and their Gazette notices are in the section above. Started from a company, the report does not yet follow its people to their other companies: start a report from each officer listed above."
+sources = ["members", "confirmed", "near", "officers"]
+text = "Each company with its register status and its dates as the register files them. Started from a person, these are the companies the person has a row on, and their Gazette notices are in the section above. Started from a company, the report does not yet follow its people to their other companies: start a report from each officer listed above. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "societies"
 heading = "Charity and society roles"
 views = ["societies", "society_officers", "charities", "charity_officers", "charity_returns"]
-sources = ["roles", "members", "confirmed", "named"]
-text = "Incorporated society roles; then the Charities Register: a charity officer row that carries the counterparty's name, near: no link joins the register's officers to any other row yet; started from a company, its charity by business number (confirmed) with the officers and annual returns on it, the figures as filed and never added across returns. Started from a company, its people's society and charity roles are not read."
+sources = ["roles", "members", "confirmed", "named", "officers"]
+text = "Incorporated society roles; then the Charities Register: a charity officer row that carries the counterparty's name, near: no link joins the register's officers to any other row yet; started from a company, its charity by business number (confirmed) with the officers and annual returns on it, the figures as filed and never added across returns. Started from a company, its people's society and charity roles are not read. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 
 [[sections]]
 name = "money"
@@ -249,4 +249,4 @@ name = "not-held"
 heading = "What is not held"
 views = []
 not_held = ["securities", "linz", "insolvency", "court_coverage", "fsp", "sanctions"]
-text = "Registers a counterparty check would read that no lane has published: security interests over stock, crops and plant; land titles; the Insolvency Register; court judgments; a limited partnership's limited partners (the register publishes its general partners, which are read); sole traders, general partnerships and trusts (the business-number register outside the companies file); MPI prosecutions and animal-tracing enforcement. Nothing in this report says anything about them; ask the source."
+text = "Registers a counterparty check would read that no lane has published: security interests over stock, crops and plant; land titles; the Insolvency Register; the courts' judgments the courts corpus does not hold; a limited partnership's limited partners (the register publishes its general partners, which are read); sole traders, general partnerships and trusts (the business-number register outside the companies file); MPI prosecutions and animal-tracing enforcement. Nothing in this report says anything about them; ask the source."
