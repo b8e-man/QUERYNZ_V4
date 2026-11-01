@@ -35,6 +35,35 @@ def held_counts(conn, schema: str) -> dict:
     return {r[0]: r[1] for r in cur}
 
 
+#: the share of held abstracts the reading may set aside before it is red
+SET_ASIDE_SHARE = 0.01
+
+
+def reading(conn, schema: str, held_schema: str = "real_estate_authority") -> list:
+    """The reading's own checks, under `schema`: every landed abstract read or set aside, at most SET_ASIDE_SHARE set
+    aside, no name or licence number on a suppressed decision's parties, no penalty text on a suppressed decision held
+    for a product to blank by mistake, and every party's decision present. Returns the problems (empty when green)."""
+    one = lambda q, *a: conn.execute(q, a).fetchone()[0]
+    out = []
+    held = one(f"SELECT count(*) FROM {held_schema}.cases WHERE abstract IS NOT NULL")
+    read_n, aside = one(f"SELECT count(*) FROM {schema}.decisions"), one(f"SELECT count(*) FROM {schema}.read_set_aside")
+    if read_n + aside != held:
+        out.append(f"{held} abstracts held, {read_n} read and {aside} set aside")
+    if held and aside > SET_ASIDE_SHARE * held:
+        out.append(f"{aside} of {held} abstracts set aside, over {SET_ASIDE_SHARE:.0%}")
+    leaked = one(f"SELECT count(*) FROM {schema}.parties WHERE suppressed AND (name IS NOT NULL OR licence_number IS NOT NULL)")
+    if leaked:
+        out.append(f"{leaked} parties of suppressed decisions carry a name or a number")
+    pen = one(f"SELECT count(*) FROM {schema}.decisions WHERE suppressed AND penalty IS NOT NULL")
+    if pen:
+        out.append(f"{pen} suppressed decisions carry penalty text")
+    orphans = one(f"SELECT count(*) FROM {schema}.parties p WHERE NOT EXISTS "
+                  f"(SELECT 1 FROM {schema}.decisions d WHERE d.key = p.decision_key)")
+    if orphans:
+        out.append(f"{orphans} parties with no decision")
+    return out
+
+
 def live_counts(years) -> dict:
     from registers.real_estate_authority import capture as C
     import support.fetchgate as fg

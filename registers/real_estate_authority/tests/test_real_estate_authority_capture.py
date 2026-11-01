@@ -161,9 +161,13 @@ def test_an_abstract_gives_its_pdfs_and_their_complaint_numbers():
 
 
 def test_no_table_has_a_column_for_a_name_or_an_address():
-    sql = open(os.path.join(LANE, "tables.sql"), encoding="utf-8").read()
-    cols = re.findall(r"^\s+([a-z_]+)\s+(?:text|date|integer|timestamptz|boolean)", sql, re.M)
+    """The capture's tables hold no name; the reading's (2 November 2026) hold the parties' names as printed and never an
+    address column: an address in a penalty is a flag beside it (ruling 102)."""
+    cols = re.findall(r"^\s+([a-z_]+)\s+(?:text|date|integer|timestamptz|boolean)", C.tables_sql(), re.M)
     assert cols and not [c for c in cols if re.search(r"name|address|licensee|agent|complainant|vendor|buyer", c)]
+    rd = re.findall(r"^\s+([a-z_]+)\s+(?:text|date|integer|timestamptz|boolean|jsonb)", C.reading_sql(), re.M)
+    assert "name" in rd and not [c for c in rd if re.search(r"address|complainant|vendor|buyer|reasoning", c)
+                                 and c != "penalty_names_address"]
 
 
 def test_years_from_2010_oldest_first_and_the_two_still_filling_every_night():
