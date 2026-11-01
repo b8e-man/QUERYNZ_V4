@@ -102,3 +102,11 @@ First trial, beehive only (the parliament lane crashed on a bug in the script): 
 - The board's chat calls Radiance's address (:8060) and does not answer while Qwen 3.6 serves.
 
 Last updated 2026-11-01 10:27.
+
+## Late morning, 1 November: readers, graph safeguards, sightings, the cards' working time
+
+- Readers (a29c927, released 11:50): the summary back; the name hand-over dropped (handed-over names came back with no role, and it saved nothing once fixed); a role names what a plain noun refers to ("administering the Infrastructure Funding and Financing Act levy for the Te Awa Lakes development", not "administering the Levy"); never a person's name in a role. Readings made 09:53 to 11:50 are read again.
+- Sightings: each document's own date on every row of pub.name_sightings (eb7fd97; 779,284 of 782,085 dated); scan rule 2 keeps overlapping names, so "Hon Dr Duncan Webb" is sighted (841860d; hansard speakers 1,255 of 1,256 speaker-days).
+- Graph (bd305db, 0962e57; the links build 12:16 to 13:26): a model's name enters links.rows only where its document prints it (448 set aside, 0.4%; 17 court names whose document would not open); a link touching a model's name is near, never confirmed (17,565 held: full-name 12,568, organisation-sole-company 4,043, organisation-one-live-company 954); no model row in a group or an entity (both checks ok); the name forms from registers only and without titles (1,848,518); the MPs' expenses workbooks that print "Seymour David" read surname-first at the lane's next load.
+- Cards (ef95737, worker restarted 13:28): measured 58 to 63% working since the readers began, the idle time nearly all outages (the model switch 00:56 to 07:16, the rollback's drain, tuning restarts, the database down). A standing server's 20 s pauses no longer mark it dead (180 s grace); a hung Radiance with its unit running and model work waiting is restarted by the worker; one sample a minute in scheduler.card_samples; `python -m support.scheduler saturation` reports the share, target 95%.
+- qv4-mcp-pull red at 13:26 by its own rule: one courts record's bytes differ from the hash the MCP promises (seq 8534).
