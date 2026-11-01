@@ -86,7 +86,7 @@ partners is the register's.
 
 Sanctions stay not held: `pub.sanctions_listings` is published empty, and reading it would print blanks that look
 like a clear. Not yet: ownership's chain still names a holder that is a partnership as filed, and does not follow its
-partners; a company that is a general partner does not yet list its partnerships.
+partners. A company that is a general partner lists its partnerships since c2 (see section 10).
 
 ## 8. The Overseas Investment Office's decision summaries in property
 
@@ -109,3 +109,9 @@ removed company the files hold no director for lists four directors, two ended 1
 `HISTORY` stays off in every template, so no check clears on past roles: 525 of 1.1 million wanted companies are
 answered. Arthur's question, not done: should a namesake's past role at a failed company count in the firing checks
 (earlier failure, serial pattern, phoenix), near and amber, the way current roles already do?
+
+## 10. A company that is a general partner lists its partnerships
+
+The walk joins a company to the partner rows that carry its business number, each titled by its own partnership; a
+partnership's own `officers-of-record` counts only the partners reached through its row. Verified on the real rows: a
+fund's general-partner company lists its two partnerships, confirmed.
