@@ -188,3 +188,9 @@ insurance's status-history says the same of pub.company_states, which credit rea
 
 Reads pub.company_states: an earlier insolvent or removed state amber, another change info, none blocked (the files
 held begin July 2026) (88ebbb7). Real row: a company In Liquidation in the July file and Registered in August, amber.
+
+## 20. Past holdings
+
+pub.company_lookup_holdings in the catalogue and the walk, listed beside the past roles in every template that has
+them; current holdings left to the monthly file (aaab674). No check reads them yet: whether a namesake's past holding in
+a failed company counts like a past role (option b) is Arthur's to say.
