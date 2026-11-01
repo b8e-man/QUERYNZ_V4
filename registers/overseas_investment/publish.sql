@@ -19,5 +19,6 @@ SELECT p.key, p.decision_key, p.ordinal, p.role, p.role_stated,
        CASE WHEN p.withheld THEN 'name withheld' ELSE p.name END AS name,
        p.withheld, p.withheld_by, p.status, p.trust, p.organisation, p.company_number, p.ownership_lines,
        CASE WHEN p.withheld THEN NULL ELSE p.origins END AS origins, p.shares, p.ownership_scope,
-       p.document, p.page, p.place, p.read_from, p.reader, p.profile, p.profile_version, p.loaded_at
+       p.document, p.page, p.place, p.read_from, p.reader, p.profile, p.profile_version, p.loaded_at,
+       (SELECT d.decided_on FROM overseas_investment.decisions d WHERE d.key = p.decision_key) AS decided_on   -- the decision's own date, for a report (1 November 2026)
 FROM overseas_investment.parties p;

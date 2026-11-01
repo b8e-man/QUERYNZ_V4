@@ -18,5 +18,6 @@ CREATE OR REPLACE VIEW pub.worksafe_parties AS
 SELECT p.key, p.action_key, p.ordinal,
        CASE WHEN p.withheld THEN 'name withheld' ELSE p.name END AS name,
        p.withheld, p.withheld_by, p.organisation, p.company_number, p.named_in, p.split_from,
-       p.document, p.page, p.place, p.read_from, p.reader, p.profile, p.profile_version, p.loaded_at
+       p.document, p.page, p.place, p.read_from, p.reader, p.profile, p.profile_version, p.loaded_at,
+       (SELECT a.action_on FROM worksafe.actions a WHERE a.key = p.action_key) AS action_on   -- the listing's own date, for a report (1 November 2026)
 FROM worksafe.parties p;
