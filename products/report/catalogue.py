@@ -201,6 +201,11 @@ VIEWS: tuple = (
       suppressed="withheld", entity=("overseas_investment_decisions", "decision_key"), role="role_stated", on="decided_on",
       on_label="decided", statement="{title}, in Overseas Investment Office decision {entity}",
       note="an applicant, vendor or consent holder as the decision summary names it; a name the Office withheld is not shown"),
+    V("company_lookup_roles", "companies", "person", ("full_name", "role_type"), names=("full_name", "last_name"), suppressed="suppressed",
+      start="started_on", end="ended_on", entity=("companies", "entity_key"), role="role_type",
+      statement="{title}: {role} of {entity} ({role_status}), as the business-number register states it",
+      note="a role the business-number register states and no monthly file held: a past director with the register's own dates, "
+           "back to the company's registration; read company by company by the history backfill, so most companies are not yet asked"),
 )
 BY_NAME = {v.name: v for v in VIEWS}
 

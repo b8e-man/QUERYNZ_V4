@@ -118,7 +118,8 @@ CROWN_BODIES = frozenset(cat.fold(x) for x in (
 #: the register's own rows on an entity: (child view, column holding the entity's key, order[, the entity's column joined, when not its key])
 ROLES_ON = {
     "companies": (("directors", "entity_key", "appointed_on"), ("shareholders", "entity_key", "name"),
-                  ("company_addresses", "entity_key", "started_on"), ("company_states", "entity_key", "file")),
+                  ("company_addresses", "entity_key", "started_on"), ("company_states", "entity_key", "file"),
+                  ("company_lookup_roles", "entity_key", "ended_on desc")),
     "societies": (("society_officers", "society_key", "started_on"),),
     "charities": (("charity_officers", "charity_key", "started_on"), ("charity_returns", "charity_key", "period_end desc")),
     "gazette_liquidations": (("gazette_liquidators", "notice", "ordinal", "notice"),),
@@ -130,6 +131,9 @@ ROLES_ON = {
     "mp_interest_returns": (("mp_interests", "member_return", "key"),),
     "limited_partnerships": (("limited_partnership_partners", "partnership_key", "started_on"),),
 }
+#: rows of a view that another view already lists: {view: column}; a row with the column set is skipped (a business-number register
+#: role whose `held_key` names the monthly file's own director row is that row, listed once, from the file)
+ALREADY_LISTED = {"company_lookup_roles": "held_key"}
 #: entities expanded only when they are the start row: a return's other donors are not the subject's connections
 EXPAND_ONLY_AS_START = frozenset({"party_return_totals", "candidate_return_totals", "disclosures", "mp_interest_returns"})
 #: rows of other views that point at a company by its register key (a possession points twice: as lender and as borrower)
@@ -151,7 +155,9 @@ NAME_JOIN_TO = (("charity_officers", "full_name", "started_on", NEAR_CHARITY_OFF
                 ("commerce_commission_parties", "name", "action_on", NEAR_REGULATOR_BY_NAME.format(who="the Commerce Commission's listed parties")),
                 ("fma_parties", "name", "action_on", NEAR_REGULATOR_BY_NAME.format(who="the Financial Markets Authority's listed parties")),
                 ("overseas_investment_parties", "name", "decided_on",
-                 NEAR_REGULATOR_BY_NAME.format(who="the Overseas Investment Office's applicants and vendors")))
+                 NEAR_REGULATOR_BY_NAME.format(who="the Overseas Investment Office's applicants and vendors")),
+                ("company_lookup_roles", "full_name", "ended_on",
+                 NEAR_REGULATOR_BY_NAME.format(who="the roles the business-number register states and no monthly file held")))
 #: the views an officer is a row of, followed one step from an organisation start
 OFFICER_VIEWS = frozenset({"directors", "society_officers", "charity_officers"})
 #: the role views of a person's group that count as "other current companies": kept only when current
@@ -413,6 +419,8 @@ def roles_on(conn, ev: cat.View, e: dict, allowed: set, skipped: list) -> list:
         cv = cat.BY_NAME[child]
         total, got = rows_where(conn, child, column, e[parent_col], order)
         for r in got:
+            if ALREADY_LISTED.get(child) and r.get(ALREADY_LISTED[child]):
+                continue
             out.append(item(cv, r, rows.title(ev, e), via=rows.ref_of(ev, str(e[ev.key_col]))))
         if total > len(got):
             out.append({"omitted": total - len(got), "view": child, "via": rows.ref_of(ev, str(e[ev.key_col]))})
@@ -543,6 +551,8 @@ def name_joined(conn, people: list, allowed: set, skipped: list) -> tuple:
                 titles = {str(e["key"]): rows.title(ev, e) for e in db.rows(conn, f"select *, {ev.key_col} as key from pub.{ev.name} where {ev.key_col} = any(%s)", (keys,))}
         for r in got:
             r.pop("total", None)
+            if ALREADY_LISTED.get(child) and r.get(ALREADY_LISTED[child]):
+                continue
             name = r.get(col) or ""
             refs = set(wanted.get(cat.fold(name), ())) | set(wanted.get(first_last(name), ()))
             for ref in sorted(refs):
