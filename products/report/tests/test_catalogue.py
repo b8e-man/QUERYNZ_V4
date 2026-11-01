@@ -32,7 +32,7 @@ def test_the_not_held_list_carries_the_health_and_property_keys_and_keeps_the_re
     among them (it is held)."""
     for key, word in (("retirement_villages", "statutory supervisor"), ("hdc", "Health and Disability Commissioner"), ("certification", "rest homes"),
                       ("health_providers", "Ministry of Health"), ("aged_care_commissioner", "Aged Care Commissioner"),
-                      ("oio", "Overseas Investment Office"), ("building_consents", "code compliance"), ("rea", "Real Estate Authority")):
+                      ("building_consents", "code compliance"), ("rea", "Real Estate Authority")):
         assert key in cat.NOT_HELD_NAME and word in cat.NOT_HELD_NAME[key], key
     for key in ("courts", "insolvency", "securities", "linz", "fsp", "sanctions", "tenders", "building_practitioners", "overseas",
                 "trusts", "unincorporated", "company_history", "nzbn_interface", "credit_bureau", "mpi", "fire", "employment",

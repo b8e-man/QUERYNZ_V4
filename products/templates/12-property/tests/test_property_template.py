@@ -36,9 +36,9 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "standing", "principals", "chain", "history", "serial", "office", "possessions", "people-notices", "gazette", "board", "not-held"]
+ORDER = ["identity", "standing", "principals", "chain", "history", "serial", "office", "possessions", "people-notices", "gazette", "board", "overseas", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"building_practitioner_decisions", "companies", "company_states", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators",
+VIEWS = {"overseas_investment_parties", "overseas_investment_decisions", "building_practitioner_decisions", "companies", "company_states", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators",
          "gazette_company_notices", "gazette_possessions", "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies",
          "society_officers", "charities", "charity_officers", "charity_returns"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -46,7 +46,7 @@ CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|co
                    r"beneficial)\b", re.I)
 PRINCIPAL_CHECKS = ("serial_pattern", "earlier_failure", "possession", "insolvency_notices")
 PEOPLE_CHECKS = ("prohibition", "bankruptcy")
-ALWAYS_BLOCKED = ("land_titles", "overseas_investment", "building_consents", "court_judgments", "securities_register", "insolvency_register",
+ALWAYS_BLOCKED = ("land_titles", "building_consents", "court_judgments", "securities_register", "insolvency_register",
                   "real_estate_authority", "past_roles")
 
 
@@ -155,7 +155,7 @@ def test_its_sections_run_in_the_buyers_order():
     assert "officers" in s["people-notices"]["sources"]
     assert s["not-held"]["views"] == []
     assert {"linz", "courts", "securities", "insolvency"} <= set(s["not-held"]["not_held"])
-    for named in ("land titles", "LINZ", "Overseas Investment Office", "building consents", "council minutes", "court judgments",
+    for named in ("land titles", "LINZ", "building consents", "council minutes", "court judgments",
                   "Personal Property Securities Register", "Insolvency Register", "Real Estate Authority"):
         assert named in s["not-held"]["text"], named
     views = {r["view"] for r in t["reads"]}
@@ -176,7 +176,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
-KIND = {"building_practitioner_decisions": "person", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
+KIND = {"overseas_investment_parties": "organisation", "building_practitioner_decisions": "person", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
         "gazette_possessions": "event", "company_states": "organisation"}
@@ -601,8 +601,7 @@ def test_the_serial_pattern_sets_out_each_failure_in_the_order_registered_with_i
 
 
 #: the catalogue's not-held keys for the property registers (products/report/catalogue.py, NOT_HELD) and the flag that blocks on each
-PROPERTY_KEYS = {"oio": ("overseas_investment", "Overseas Investment Office decisions"),
-                 "building_consents": ("building_consents", "Building consents, code compliance certificates and council minutes"),
+PROPERTY_KEYS = {"building_consents": ("building_consents", "Building consents, code compliance certificates and council minutes"),
                  "rea": ("real_estate_authority", "Real Estate Authority decisions")}
 
 
@@ -644,7 +643,8 @@ def test_every_register_not_held_blocks():
         for r in (developer(), person(), report()):
             f = rule(name)(r)
             assert f["status"] == "blocked" and f["text"].startswith("not held: "), name
-    assert "Overseas Investment Office" in rule("overseas_investment")(report())["text"]
+    o = rule("overseas_investment")(report())
+    assert o["status"] == "clear" and "Overseas Investment Office" in o["text"] and "as the Office lists them" in o["text"]
     assert "council minutes" in rule("building_consents")(report())["text"]
 
 
@@ -677,3 +677,14 @@ def test_an_upheld_board_decision_fires_a_namesakes_is_info_and_none_never_clear
     hidden = rule("building_practitioners")(report(board=[dict(dec, suppressed=True)]))
     assert hidden["status"] == "blocked" and "DOE" not in hidden["text"], "a name the Board withholds is never shown or counted"
     assert rule("building_practitioners")(report())["status"] == "blocked"
+
+
+def test_an_overseas_investment_party_naming_the_subject_fires_info_and_a_withheld_name_is_never_shown():
+    p = it("overseas_investment:overseas_investment/2024/1/party/1", "overseas_investment_parties", title="ACME DEVELOPMENTS LIMITED",
+           statement="ACME DEVELOPMENTS LIMITED: Vendor in Overseas Investment Office decision 202400001", dates="decided 3 March 2024")
+    f = rule("overseas_investment")(report(overseas=[p]))
+    assert f["status"] == "fired" and f["severity"] == "info" and "decided 3 March 2024" in f["text"] and f["citations"] == (p["ref"],)
+    n = rule("overseas_investment")(report(overseas=[dict(p, grade="near")]))
+    assert n["status"] == "fired" and "nothing in a namesake's is the subject's" in n["text"]
+    hidden = rule("overseas_investment")(report(overseas=[dict(p, suppressed=True)]))
+    assert hidden["status"] == "clear" and "ACME" not in hidden["text"]

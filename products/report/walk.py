@@ -149,7 +149,9 @@ NAME_JOIN_TO = (("charity_officers", "full_name", "started_on", NEAR_CHARITY_OFF
                  NEAR_REGULATOR_BY_NAME.format(who="the Building Practitioners Board's decisions (a name and a licence number)")),
                 ("worksafe_parties", "name", "action_on", NEAR_REGULATOR_BY_NAME.format(who="WorkSafe's listed parties")),
                 ("commerce_commission_parties", "name", "action_on", NEAR_REGULATOR_BY_NAME.format(who="the Commerce Commission's listed parties")),
-                ("fma_parties", "name", "action_on", NEAR_REGULATOR_BY_NAME.format(who="the Financial Markets Authority's listed parties")))
+                ("fma_parties", "name", "action_on", NEAR_REGULATOR_BY_NAME.format(who="the Financial Markets Authority's listed parties")),
+                ("overseas_investment_parties", "name", "decided_on",
+                 NEAR_REGULATOR_BY_NAME.format(who="the Overseas Investment Office's applicants and vendors")))
 #: the views an officer is a row of, followed one step from an organisation start
 OFFICER_VIEWS = frozenset({"directors", "society_officers", "charity_officers"})
 #: the role views of a person's group that count as "other current companies": kept only when current

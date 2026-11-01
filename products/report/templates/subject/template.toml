@@ -210,6 +210,17 @@ licence = "the business-number register, Creative Commons Attribution 4.0; gener
 attribution = "Companies Office, New Zealand Business Number register"
 refresh = "as the lane re-asks each partnership, stalest first"
 
+[[reads]]
+view = "overseas_investment_decisions"
+licence = "Crown copyright, licensed CC BY 4.0; decision summaries as the Office publishes them, street addresses not in the view"
+attribution = "Overseas Investment Office, Toitū Te Whenua Land Information New Zealand"
+refresh = "as the Office publishes them; re-read on the lane's clock"
+[[reads]]
+view = "overseas_investment_parties"
+licence = "Crown copyright, licensed CC BY 4.0; a name the Office withheld is not shown"
+attribution = "Overseas Investment Office, Toitū Te Whenua Land Information New Zealand"
+refresh = "as the Office publishes them; re-read on the lane's clock"
+
 [[sections]]
 name = "money"
 heading = "Donations, loans and disclosures"
@@ -261,3 +272,9 @@ name = "board"
 heading = "Building Practitioners Board decisions"
 views = ["building_practitioner_decisions"]
 text = "A decision as the Board publishes it, for three years from the decision. The Board names the practitioner and a licence number; no link joins either to another register, so a row that shares the subject's name is near: nothing in it is the subject's until the licence number is checked."
+
+[[sections]]
+name = "overseas"
+heading = "Overseas Investment Office decisions"
+views = ["overseas_investment_decisions", "overseas_investment_parties"]
+text = "A decision summary as the Office publishes it: the applicant, the vendor, the outcome and the date. No link joins a party to another register, so a party that shares the subject's name is near: nothing in it is the subject's."

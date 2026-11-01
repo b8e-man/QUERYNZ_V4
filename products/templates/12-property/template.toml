@@ -53,7 +53,7 @@ depth = 2
 chain_depth = 2
 
 limits = [
-  "Land titles and their company side (LINZ), the Overseas Investment Office's decisions, building consents and council minutes, court judgments, the Personal Property Securities Register, the Insolvency Register and the Real Estate Authority's decisions are not held: nothing here says what land a developer holds, what it was consented to build, or whether a buyer sued it. No such finding here is a finding of none.",
+  "Land titles and their company side (LINZ), building consents and council minutes, court judgments, the Personal Property Securities Register, the Insolvency Register and the Real Estate Authority's decisions are not held: nothing here says what land a developer holds, what it was consented to build, or whether a buyer sued it. No such finding here is a finding of none.",
   "The companies file lists current roles only, and a company removed from the register carries no directors in the file: a principal's earlier special-purpose company that was liquidated and then removed is not seen from the principal, nor its failure. So the serial pattern fires on what it sees and is never clear.",
   "Started from a company, its first twelve directors are followed one step to their other current companies and the notices on those (near: a director's other company is the director's connection, not the entity's); a holder of record is listed and not followed.",
   "The holding chain is followed two companies up, by business number where the file has one, otherwise by a name only one company carries (near). The current directors of a company above and the Gazette on it are listed with the company's grade; they are the holder's, and no check counts them as the entity's or a principal's.",
@@ -180,6 +180,17 @@ licence = "Crown copyright, licensed CC BY 4.0; the Board's own three-year windo
 attribution = "Building Practitioners Board"
 refresh = "as the Board publishes them; re-read on the lane's clock"
 
+[[reads]]
+view = "overseas_investment_decisions"
+licence = "Crown copyright, licensed CC BY 4.0; decision summaries as the Office publishes them, street addresses not in the view"
+attribution = "Overseas Investment Office, Toitū Te Whenua Land Information New Zealand"
+refresh = "as the Office publishes them; re-read on the lane's clock"
+[[reads]]
+view = "overseas_investment_parties"
+licence = "Crown copyright, licensed CC BY 4.0; a name the Office withheld is not shown"
+attribution = "Overseas Investment Office, Toitū Te Whenua Land Information New Zealand"
+refresh = "as the Office publishes them; re-read on the lane's clock"
+
 [[sections]]
 name = "identity"
 heading = "The entity, and its namesakes set apart"
@@ -266,9 +277,16 @@ sources = ["named", "members", "confirmed", "near"]
 text = "A decision as the Board publishes it, for three years from the decision: the complaint, whether it was upheld, the penalties. The Board names the practitioner and a licence number; no link joins either to another register, so a row that shares a name with the subject is near, and nothing in it is the subject's until the licence number is checked."
 
 [[sections]]
+name = "overseas"
+heading = "Overseas Investment Office decisions"
+views = ["overseas_investment_parties"]
+sources = ["named", "members", "confirmed", "near"]
+text = "An applicant, vendor or consent holder as an Overseas Investment Office decision summary names it, with the outcome and the date. The Office publishes summaries of its decisions, not every application. A party that shares a name with the subject and that no rule confirms is near: nothing in it is the subject's."
+
+[[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["linz", "oio", "building_consents", "courts", "securities", "insolvency", "rea", "building_practitioners", "company_history", "trusts",
+not_held = ["linz", "building_consents", "courts", "securities", "insolvency", "rea", "building_practitioners", "company_history", "trusts",
             "overseas"]
-text = "Registers a developer check would read that no lane has published: land titles and their company side (LINZ: which company is on which title, and since when), the Overseas Investment Office's decisions (an applicant, a vendor, a price), building consents, code compliance certificates and council minutes, court judgments (a body corporate's or a buyer's claim, a weathertightness case), the Personal Property Securities Register, the Insolvency Register, the Real Estate Authority's decisions, licensed building practitioners, the companies change history before 16 August 2026, trusts and overseas registers. Nothing in this report says anything about them: no title, decision, consent or judgment here is a finding of none. Ask the source."
+text = "Registers a developer check would read that no lane has published: land titles and their company side (LINZ: which company is on which title, and since when), building consents, code compliance certificates and council minutes, court judgments (a body corporate's or a buyer's claim, a weathertightness case), the Personal Property Securities Register, the Insolvency Register, the Real Estate Authority's decisions, licensed building practitioners, the companies change history before 16 August 2026, trusts and overseas registers. Nothing in this report says anything about them: no title, decision, consent or judgment here is a finding of none. Ask the source."

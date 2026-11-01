@@ -1118,7 +1118,25 @@ def _not_held(rule, severity, register, what):
 
 
 land_titles = _not_held("land-titles", "amber", LINZ, "what land the entity or its principals' companies hold, and the company side of each title")
-overseas_investment = _not_held("overseas-investment", "info", OIO, "whether the developer or a vendor to it applied for or was granted consent")
+OIO_HELD = ("the Overseas Investment Office's decision summaries: applicants, vendors and consent holders (pub.overseas_investment_parties)",)
+
+
+def overseas_investment(report):
+    """Read since 1 November 2026: the Office's decision summaries name an applicant, a vendor or a consent holder; a namesake is
+    info and never the subject's; none clears, as the Office lists its summaries (not every application)."""
+    rows = [it for it in items(report, ("overseas_investment_parties",)) if not it.get("suppressed")]
+    conf = [it for it in rows if it["grade"] == "confirmed"]
+    near = [it for it in rows if it["grade"] == "near"]
+    if conf:
+        return flag("overseas-investment", V, "fired", "info", f"{len(conf)} Overseas Investment Office decision summary(ies) name the subject "
+                    f"or a person the rules confirm is the subject: " + "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in conf[:3]),
+                    citations=tuple(it["ref"] for it in conf), sources_held=OIO_HELD)
+    if near:
+        return flag("overseas-investment", V, "fired", "info", f"{len(near)} Overseas Investment Office decision summary(ies) name a party who "
+                    f"shares a name with the subject: " + "; ".join(it["statement"] for it in near[:3]) + "; nothing in a namesake's is the "
+                    "subject's", citations=tuple(it["ref"] for it in near), sources_held=OIO_HELD)
+    return flag("overseas-investment", V, "clear", "info", "no Overseas Investment Office decision summary, as the Office lists them, names "
+                "the subject or a person the rules confirm is the subject as an applicant, vendor or consent holder", sources_held=OIO_HELD)
 building_consents = _not_held("building-consents", "amber", CONSENTS, "what the project was consented to build, and whether it was signed off")
 court_judgments = _not_held("court-judgments", "amber", "court judgments (the OpenLaw case-law lane and the courts register, step 5.4)",
                             "a body corporate's, a buyer's or a council's claim against the developer, a weathertightness case")

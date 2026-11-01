@@ -194,6 +194,13 @@ VIEWS: tuple = (
       "last_name"), suppressed="suppressed", start="started_on", end="ended_on", entity=("limited_partnerships", "partnership_key"),
       role="kind", statement="{title}: general partner of {entity} ({status})",
       note="a general partner, a person or a body, current or past, as the business-number register states it; the limited partners are not public"),
+    V("overseas_investment_decisions", "overseas_investment", "event", ("case_number", "investment_class"), on="decided_on",
+      on_label="decided", statement="Overseas Investment Office {kind} {title}: {outcome} ({pathway})",
+      note="a decision summary as the Office lists it; street addresses are not in the view"),
+    V("overseas_investment_parties", "overseas_investment", "organisation", ("name", "role_stated"), names=("name",),
+      suppressed="withheld", entity=("overseas_investment_decisions", "decision_key"), role="role_stated", on="decided_on",
+      on_label="decided", statement="{title}, in Overseas Investment Office decision {entity}",
+      note="an applicant, vendor or consent holder as the decision summary names it; a name the Office withheld is not shown"),
 )
 BY_NAME = {v.name: v for v in VIEWS}
 
@@ -216,6 +223,7 @@ REGISTERS = (
     ("fma", "Financial Markets Authority warnings and cases"),
     ("building_board", "Building Practitioners Board decisions"),
     ("limited_partnerships", "Limited partnerships and their general partners"),
+    ("overseas_investment", "Overseas Investment Office decision summaries"),
 )
 REGISTER_NAME = dict(REGISTERS)
 
@@ -249,7 +257,6 @@ NOT_HELD = (
     ("health_providers", "The Ministry of Health's provider registers"),
     ("aged_care_commissioner", "The Aged Care Commissioner's reports"),
     # the registers a property developer check names (property-1); the Real Estate Authority lane captures and publishes no view yet
-    ("oio", "Overseas Investment Office decisions"),
     ("building_consents", "Building consents, code compliance certificates and council minutes"),
     ("rea", "Real Estate Authority decisions"),
 )

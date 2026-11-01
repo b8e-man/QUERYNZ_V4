@@ -23,7 +23,7 @@ pytestmark = pytest.mark.slow
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 FLAG = re.compile(r"^  (FIRED|CLEAR|BLOCKED)\s+(red|amber|info)\s+([a-z-]+)@[\d.]+: (.*)$")
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-NOT_HELD = ("land-titles", "overseas-investment", "building-consents", "court-judgments", "securities-register", "insolvency-register",
+NOT_HELD = ("land-titles", "building-consents", "court-judgments", "securities-register", "insolvency-register",
             "real-estate-authority", "building-practitioners", "past-roles")
 #: a going development company with one to four current directors, one of whom has confirmed rows as director of two or more
 #: companies in liquidation or receivership
@@ -81,9 +81,10 @@ def memo(ref: str) -> dict:
     assert "could not run" not in text, "a rule broke on real rows"
     for name in NOT_HELD:
         assert flags[name]["status"] == "blocked", name
+    assert flags["overseas-investment"]["status"] in ("clear", "fired"), "the Office's decision summaries are read"
     for name in ("serial-pattern", "earlier-failure", "possession", "insolvency-notices"):
         assert flags[name]["status"] != "clear", f"{name} cleared: past roles are not held"
-    assert "WHAT IS NOT HELD" in text and re.search(r"^  not held: LINZ titles, Overseas Investment Office decisions, Building consents, code compliance certificates and "
+    assert "WHAT IS NOT HELD" in text and re.search(r"^  not held: LINZ titles, Building consents, code compliance certificates and "
                                                    r"council minutes, Court judgments, .*Real Estate Authority decisions", text, re.M)
     return {"text": text, "flags": flags}
 
