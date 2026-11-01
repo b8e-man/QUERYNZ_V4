@@ -200,3 +200,11 @@ a failed company counts like a past role (option b) is Arthur's to say.
 A namesake's past holding at a failed company now counts as a past role does (option b): amber, never red, a repeat
 needing two companies (44e1653). Found while verifying: the register writes a person holder surname first, so the name
 join could never meet a director; it now turns the name, never a body's.
+
+## 22. Name orders: one reading, not a turn per view
+
+Arthur asked whether surname-first names were a known problem. They are solved: keys.names reads every order and
+the links and the board use it. The report's own name joins did not; 44e1653's per-view turn was a local copy. Now
+both joins read by keys.names and the turn is gone; the board declares the holdings FAMILY_GIVEN (84ba2f1).
+Board real check red, not from this: pub.name_sightings (carded 1 November) and 7 Hansard people rows whose name
+carries a residence word.
