@@ -162,6 +162,37 @@ view = "promoter_people"
 licence = "Register of Promoters, public under the Electoral Act 1993"
 attribution = "Electoral Commission"
 
+[[reads]]
+view = "worksafe_actions"
+licence = "Crown copyright, licensed CC BY 4.0; a name WorkSafe withheld is not shown"
+attribution = "WorkSafe New Zealand"
+refresh = "as the regulator lists them; re-read on the lane's clock"
+[[reads]]
+view = "worksafe_parties"
+licence = "Crown copyright, licensed CC BY 4.0; a name WorkSafe withheld is not shown"
+attribution = "WorkSafe New Zealand"
+refresh = "as the regulator lists them; re-read on the lane's clock"
+[[reads]]
+view = "commerce_commission_cases"
+licence = "Crown copyright, licensed CC BY 4.0"
+attribution = "Commerce Commission, case register"
+refresh = "as the regulator lists them; re-read on the lane's clock"
+[[reads]]
+view = "commerce_commission_parties"
+licence = "Crown copyright, licensed CC BY 4.0"
+attribution = "Commerce Commission, case register"
+refresh = "as the regulator lists them; re-read on the lane's clock"
+[[reads]]
+view = "fma_actions"
+licence = "copyright the Financial Markets Authority, licensed CC BY 4.0"
+attribution = "Financial Markets Authority"
+refresh = "as the regulator lists them; re-read on the lane's clock"
+[[reads]]
+view = "fma_parties"
+licence = "copyright the Financial Markets Authority, licensed CC BY 4.0"
+attribution = "Financial Markets Authority"
+refresh = "as the regulator lists them; re-read on the lane's clock"
+
 [[sections]]
 name = "money"
 heading = "Donations, loans and disclosures"
@@ -201,3 +232,9 @@ name = "expenses"
 heading = "Expenses the House and the Executive released"
 views = ["mp_expenses", "minister_expenses"]
 text = "The releases print a name only, so these rows are matched by name and are near, never confirmed. Each is the period total as printed, or money the release prints outside its total, shown beside and never added."
+
+[[sections]]
+name = "regulators"
+heading = "The regulators' listings: WorkSafe, the Commerce Commission, the Financial Markets Authority"
+views = ["worksafe_actions", "worksafe_parties", "commerce_commission_cases", "commerce_commission_parties", "fma_actions", "fma_parties"]
+text = "A listing as the regulator publishes it today: the charge, the case or the warning, never a cause. A party row that shares a name with the subject and that no rule confirms is near: nothing in it is the subject's."

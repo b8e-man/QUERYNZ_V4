@@ -34,13 +34,13 @@ ORDER = ["identity", "standing", "solvency", "people", "companies", "people-noti
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 VIEWS = {"companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
-         "charities", "charity_officers", "charity_returns"}
+         "charities", "charity_officers", "charity_returns", "worksafe_parties", "commerce_commission_parties", "fma_parties"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
                    r"beneficial)\b", re.I)
 HISTORY_CHECKS = ("sister_company_failure", "register_events", "other_current_companies")
 PEOPLE_CHECKS = ("sister_company_failure", "other_current_companies", "prohibition", "bankruptcy", "practitioner_roles")
-ALWAYS_BLOCKED = ("safety_record", "regulator_actions", "court_judgments", "tribunals", "change_history", "status_history",
+ALWAYS_BLOCKED = ("safety_record", "court_judgments", "tribunals", "change_history", "status_history",
                   "mortgagee_possession", "insolvency_register", "securities_register")
 
 
@@ -131,7 +131,8 @@ def test_its_sections_run_in_the_underwriters_order():
     assert s["companies"]["views"] == ["companies"]
     assert set(s["people-notices"]["views"]) == {"gazette_prohibitions", "gazette_bankruptcies"}
     assert "second" in s["beside"]["sources"] and "second" not in {x for sec in t["sections"] if sec["name"] != "beside" for x in sec.get("sources", [])}
-    assert s["safety"]["views"] == [] and {"courts", "insolvency", "securities", "fsp"} <= set(s["safety"]["not_held"])
+    assert s["safety"]["views"] == ["worksafe_parties", "commerce_commission_parties", "fma_parties"] and s["safety"]["sources"] == ["members", "confirmed", "near"]
+    assert {"courts", "insolvency", "securities", "fsp"} <= set(s["safety"]["not_held"])
     for named in ("WorkSafe", "enforceable undertakings", "Commerce Commission", "Financial Markets Authority", "court judgments",
                   "Employment Relations Authority", "Disputes Tribunal", "Fire and Emergency", "16 August 2026"):
         assert named in s["safety"]["text"], named
@@ -147,7 +148,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
     for want in ("namesake", "not a clear", "checkpoint", "WorkSafe", "never clear", "sister"):
         assert want in page, want
     lim = toml()["limits"]
-    assert any("safety record is not held" in x for x in lim) and any("does not yet follow" in x for x in lim)
+    assert any("safety record is never clear" in x for x in lim) and any("does not yet follow" in x for x in lim)
     with open(os.path.join(HERE, "checkpoint.list"), encoding="utf-8") as f:
         keys = [x.strip() for x in f if x.strip() and not x.startswith("#")]
     assert len(keys) == 12 and len(set(keys)) == 12 and all(re.match(r"^[a-z_]+:\S+$", k) for k in keys), "twelve register keys, one a line"
@@ -157,7 +158,8 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 KIND = {"directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
-        "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation"}
+        "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
+        "worksafe_parties": "organisation", "commerce_commission_parties": "organisation", "fma_parties": "organisation"}
 THROUGH = "a connection that passes through more than one person is listed as near, never confirmed (the design's default)"
 
 
@@ -358,6 +360,15 @@ def properties(mod) -> list:
             bad.append(f"a namesake's {name} was red")
         if rl(name)(report(people_notices=[row]))["status"] != "fired":
             bad.append(f"a confirmed {name} did not fire")
+    # the regulators' listings
+    listed = it("worksafe:worksafe/1/party/1", "worksafe_parties", title="ACME FREIGHT LIMITED", dates="listed 3 March 2024")
+    s = rl("safety_record")(report(safety=[listed]))
+    if s["status"] != "fired" or s["severity"] != "red":
+        bad.append("a WorkSafe listing naming the subject is not a red safety record")
+    if rl("safety_record")(report())["status"] == "clear":
+        bad.append("the safety record clears though Fire and Emergency's notices are not held")
+    if rl("regulator_actions")(report(safety=[dict(listed, view="fma_parties", ref="fma:fma/1/party/1")]))["status"] != "fired":
+        bad.append("an FMA listing naming the subject is not a regulator action")
     return bad
 
 
@@ -381,8 +392,9 @@ MUTANTS = (
      "    if True:\n        return flag(rule, V, \"clear\", severity, text, **kw)"),
     ("a revoked prohibition is counted", "live = [it for it in items(report, (view,)) if not it.get(\"suppressed\")]", "live = list(items(report, (view,)))"),
     ("a new company's first board is churn", " and not (reg and (start - reg).days <= AT_START_DAYS)", ""),
-    ("the safety record clears", 'return flag("safety-record", V, "blocked", "red",\n',
-     'return flag("safety-record", V, "clear", "red", sources_held=("pub.companies",), text=\n'),
+    ("the safety record clears", '"safety-record", "red", "WorkSafe", not_held=(FIRE,), clears=False)',
+     '"safety-record", "red", "WorkSafe", not_held=(FIRE,), clears=True)'),
+    ("a regulator's listing naming the subject is not a flag", "    if conf:\n        shown", "    if False:\n        shown"),
     ("the entity is never young", "(as_of - reg).days < YOUNG_DAYS]", "(as_of - reg).days < 0]"),
     ("an application dates the failure", "rank = (0 if _appointment(n) else 1, d) if d else None", "rank = (0, d) if d else None"),
     ("the start row's own company can be near", '("confirmed" if it["ref"] == own else it["grade"]) in grades]', 'it["grade"] in grades]'),
@@ -491,9 +503,10 @@ def test_the_safety_record_and_every_register_not_held_block_and_never_clear():
         for r in (person(), from_company(), report()):
             assert rule(name)(r)["status"] == "blocked", name
     s = rule("safety_record")(from_company())
-    assert s["severity"] == "red" and "WorkSafe" in s["text"] and "finding of none" in s["text"]
-    assert any("enforceable undertakings" in x for x in s["sources_not_held"]) and any("Fire and Emergency" in x for x in s["sources_not_held"])
-    assert "Commerce Commission" in rule("regulator_actions")(person())["text"]
+    assert s["severity"] == "red" and "WorkSafe" in s["text"] and "no clear is given" in s["text"]
+    assert any("enforceable undertakings" in x for x in s["sources_held"]) and any("Fire and Emergency" in x for x in s["sources_not_held"])
+    r = rule("regulator_actions")(person())
+    assert r["status"] == "clear" and "Commerce Commission" in r["text"] and any("Financial Markets Authority" in x for x in r["sources_held"])
     assert "Disputes Tribunal" in rule("tribunals")(person())["text"]
     assert "16 August 2026" in rule("change_history")(person())["text"] and "industry classification" in rule("change_history")(person())["text"]
     assert "pub.company_states" in rule("status_history")(person())["text"]
@@ -527,3 +540,29 @@ def test_the_presentation_rules_hold_on_every_flag_from_every_start(held):
 def test_the_rules_file_imports_nothing_of_the_shape():
     src = inspect.getsource(R)
     assert not re.search(r"^\s*(from|import) products", src, re.M)
+
+
+
+def test_a_regulators_listing_naming_the_subject_fires_and_a_namesakes_is_amber_never_the_subjects():
+    conf = it("worksafe:worksafe/1/party/1", "worksafe_parties", title="ACME TRADING LIMITED",
+              statement="ACME TRADING LIMITED: a party named in a listing", dates="listed 3 March 2024")
+    f = rule("safety_record")(report(subject=dict(FAILED, via=None), safety=[conf]))
+    assert f["status"] == "fired" and f["severity"] == "red" and "listed 3 March 2024" in f["text"] and f["citations"] == (conf["ref"],)
+    assert "never a cause" in f["text"]
+    n = rule("safety_record")(report(subject=dict(FAILED, via=None), safety=[dict(conf, grade="near")]))
+    assert n["status"] == "fired" and n["severity"] == "amber" and "nothing in a namesake's listing is the entity's" in n["text"]
+    hidden = rule("safety_record")(report(subject=dict(FAILED, via=None), safety=[dict(conf, suppressed=True)]))
+    assert hidden["status"] != "fired" and "ACME" not in hidden["text"], "a name the regulator withheld is never shown or counted"
+
+
+
+def test_an_fma_listing_naming_the_subject_is_an_amber_regulator_action():
+    conf = it("fma:fma/1/party/1", "fma_parties", title="ACME TRADING LIMITED",
+              statement="ACME TRADING LIMITED: a party named in a listing", dates="listed 3 March 2024")
+    f = rule("regulator_actions")(report(safety=[conf]))
+    assert f["status"] == "fired" and f["severity"] == "amber" and "listed 3 March 2024" in f["text"] and f["citations"] == (conf["ref"],)
+    assert "never a cause" in f["text"]
+    n = rule("regulator_actions")(report(safety=[dict(conf, grade="near")]))
+    assert n["status"] == "fired" and n["severity"] == "amber" and "nothing in a namesake's listing is the entity's" in n["text"]
+    hidden = rule("regulator_actions")(report(safety=[dict(conf, suppressed=True)]))
+    assert hidden["status"] != "fired" and "ACME" not in hidden["text"], "a name the regulator withheld is never shown or counted"

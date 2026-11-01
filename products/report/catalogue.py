@@ -166,6 +166,24 @@ VIEWS: tuple = (
       statement="{title}: registered promoter", note="never an email or an address"),
     V("promoter_people", "party_finance", "person", ("name", "role"), names=("name",), year="year",
       entity=("promoters", "promoter_key"), role="role", statement="{title} of {entity}"),
+    # ── the regulators' listings (step 5.3 lanes; into the report 1 November 2026, the overnight's approval 4) ──────────
+    V("worksafe_actions", "worksafe", "event", ("title",), names=("title",), suppressed="title_withheld", on="action_on",
+      on_label="listed", amount="fine_amount",
+      statement="{title}: WorkSafe {kind}, {court}, {decision}; fine {fine_text}, reparation {reparation_text}",
+      note="a court summary or an enforceable undertaking as WorkSafe lists it today; the offence as stated, never a cause"),
+    V("worksafe_parties", "worksafe", "organisation", ("name",), names=("name",), suppressed="withheld",
+      entity=("worksafe_actions", "action_key"), on="action_on", on_label="listed",
+      statement="{title}: named in WorkSafe's listing \"{entity}\"", note="a party as the listing names it; a name WorkSafe withheld is not shown"),
+    V("commerce_commission_cases", "commerce_commission", "event", ("title",), names=("title",), suppressed="title_withheld",
+      start="opened_on", end="closed_on", statement="{title}: Commerce Commission {kind} ({status}); {outcome}",
+      note="a case as the Commission lists it today"),
+    V("commerce_commission_parties", "commerce_commission", "organisation", ("name",), names=("name", "trading_as"),
+      suppressed="withheld", entity=("commerce_commission_cases", "case_key"), on="action_on", on_label="listed",
+      statement="{title}: named in the Commerce Commission's case \"{entity}\""),
+    V("fma_actions", "fma", "event", ("title",), names=("title",), suppressed="title_withheld", on="action_on", on_label="listed",
+      statement="{title}: Financial Markets Authority {kind}; {outcome}", note="a warning or a case as the FMA lists it today"),
+    V("fma_parties", "fma", "organisation", ("name",), names=("name",), suppressed="withheld", entity=("fma_actions", "action_key"),
+      on="action_on", on_label="listed", statement="{title}: named in the Financial Markets Authority's listing \"{entity}\""),
 )
 BY_NAME = {v.name: v for v in VIEWS}
 
@@ -183,6 +201,9 @@ REGISTERS = (
     ("expenses", "MPs' and ministers' expenses"),
     ("parties", "Registered political parties"),
     ("party_finance", "Registered promoters"),
+    ("worksafe", "WorkSafe prosecutions and enforceable undertakings"),
+    ("commerce_commission", "Commerce Commission cases"),
+    ("fma", "Financial Markets Authority warnings and cases"),
 )
 REGISTER_NAME = dict(REGISTERS)
 
@@ -208,8 +229,6 @@ NOT_HELD = (
     ("company_history", "The companies change history before 16 August 2026"),
     ("nzbn_interface", "The business-number interface, between monthly files (step 5.5)"),
     ("credit_bureau", "Credit-bureau defaults and payment records"),
-    ("worksafe", "WorkSafe prosecutions and enforceable undertakings"),
-    ("regulators", "Commerce Commission and Financial Markets Authority actions"),
     ("mpi", "Ministry for Primary Industries prosecutions and animal-tracing enforcement"),
     ("fire", "Fire and Emergency New Zealand notices"),
     # the registers a health regulator keeps (healthcare-1)

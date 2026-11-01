@@ -32,11 +32,11 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "standing", "governance", "charity-returns", "overlap", "gazette", "not-held"]
+ORDER = ["identity", "standing", "governance", "charity-returns", "overlap", "gazette", "regulators", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 VIEWS = {"companies", "company_states", "directors", "shareholders", "company_addresses", "societies", "society_officers",
          "gazette_liquidations", "gazette_liquidators", "gazette_company_notices", "gazette_appointments", "gazette_prohibitions",
-         "gazette_bankruptcies"}
+         "gazette_bankruptcies", "worksafe_parties", "commerce_commission_parties", "fma_parties"}
 CHARITY_VIEWS = ("charities", "charity_officers", "charity_returns")
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"

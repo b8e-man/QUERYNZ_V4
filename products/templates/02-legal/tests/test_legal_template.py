@@ -26,7 +26,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "officers", "web", "gazette", "money", "not-held"]
+ORDER = ["identity", "officers", "web", "gazette", "money", "regulators", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
@@ -36,7 +36,7 @@ NO_CONFLICT = re.compile(r"\b(no conflict|conflict[- ]free|not conflicted|cleare
 GAZETTE = {"gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_prohibitions", "gazette_bankruptcies"}
 HISTORY_CHECKS = ("company_status", "insolvency_notices", "repeat_insolvency", "amalgamation", "register_events")
 PEOPLE_CHECKS = ("conflict_web", "shared_boards", "repeat_insolvency", "prohibition", "practitioner_roles", "charity_officer_roles", "bankruptcy")
-ALWAYS_BLOCKED = ("client_overlap", "mortgagee_possession", "bankruptcy", "court_judgments", "disciplinary_findings", "comcom_coverage",
+ALWAYS_BLOCKED = ("client_overlap", "mortgagee_possession", "bankruptcy", "court_judgments", "disciplinary_findings",
                   "securities_register")
 
 
@@ -139,7 +139,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
-KIND = {"directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
+KIND = {"worksafe_parties": "organisation", "commerce_commission_parties": "organisation", "fma_parties": "organisation", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
         "party_return_donors": "figure", "charities": "organisation", "charity_officers": "person", "charity_returns": "figure"}
@@ -574,3 +574,17 @@ def test_the_presentation_rules_hold_on_every_flag_from_every_start(held):
 def test_the_rules_file_imports_nothing_of_the_shape():
     src = inspect.getsource(R)
     assert not re.search(r"^\s*(from|import) products", src, re.M)
+
+
+
+def test_a_regulators_listing_naming_the_subject_fires_and_a_namesakes_is_amber_never_the_subjects():
+    conf = it("commerce_commission:commerce_commission/1/party/1", "commerce_commission_parties", title="ACME TRADING LIMITED",
+              statement="ACME TRADING LIMITED: a party named in a listing", dates="listed 3 March 2024")
+    f = rule("comcom_coverage")(report(regulators=[conf]))
+    assert f["status"] == "fired" and f["severity"] == "amber" and "listed 3 March 2024" in f["text"] and f["citations"] == (conf["ref"],)
+    assert "never a cause" in f["text"]
+    n = rule("comcom_coverage")(report(regulators=[dict(conf, grade="near")]))
+    assert n["status"] == "fired" and n["severity"] == "amber" and "nothing in a namesake's listing is the entity's" in n["text"]
+    hidden = rule("comcom_coverage")(report(regulators=[dict(conf, suppressed=True)]))
+    assert hidden["status"] != "fired" and "ACME" not in hidden["text"], "a name the regulator withheld is never shown or counted"
+    assert rule("comcom_coverage")(person())["status"] == "clear" and "as it lists them today" in rule("comcom_coverage")(person())["text"]

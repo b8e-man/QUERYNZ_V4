@@ -26,7 +26,7 @@ ideas and tests, not code, where the held registers can support them:
   walk-coverage            how many companies reached had their notices and officers read
   subject-hub              the person is a professional director, a nominee or the Crown
   past-roles               blocked: current roles only
-  safety-record            blocked, never clear: WorkSafe's prosecutions and enforceable undertakings, Fire and Emergency's notices
+  safety-record            fired on a WorkSafe listing naming the subject; never clear: Fire and Emergency's notices are not held
   regulator-actions, court-judgments, tribunals, change-history, status-history, mortgagee-possession, insolvency-register,
   securities-register      blocked: not held, or published and not reachable
 
@@ -735,17 +735,46 @@ def past_roles(report):
 # ── the safety record, and what else is not held ────────────────────────────
 
 def safety_record(report):
-    """The heart of use case 6, and not held: never clear."""
-    return flag("safety-record", V, "blocked", "red",
-                "the safety record is not held: WorkSafe's prosecutions (the charge, the plea, the fine) and enforceable undertakings, and Fire "
-                "and Emergency New Zealand's notices, are in no published register yet; no prosecution, undertaking or notice in this report "
-                "is a finding of none; this check cannot run", sources_not_held=(WORKSAFE, FIRE))
+    """The heart of use case 6: WorkSafe's listings, read since 1 November 2026; Fire and Emergency's notices are not held, so it never
+    clears."""
+    return _listed(report, ("worksafe_parties",), "safety-record", "red", "WorkSafe", not_held=(FIRE,), clears=False)
 
 
 def regulator_actions(report):
-    return flag("regulator-actions", V, "blocked", "amber",
-                "the Commerce Commission's cases (fair trading, competition, consumer credit) and the Financial Markets Authority's warnings "
-                "and actions are held as documents and not yet read into a register; this check cannot run", sources_not_held=REGULATORS + (FSP,))
+    return _listed(report, ("commerce_commission_parties", "fma_parties"), "regulator-actions", "amber",
+                   "the Commerce Commission or the Financial Markets Authority", not_held=(FSP,))
+
+# ── the regulators' listings (WorkSafe, the Commerce Commission, the FMA; into the report 1 November 2026) ─────────
+
+REG_HELD = {"worksafe_parties": "WorkSafe New Zealand's court summaries and enforceable undertakings as it lists them today (pub.worksafe_parties)",
+            "commerce_commission_parties": "the Commerce Commission's cases as it lists them today (pub.commerce_commission_parties)",
+            "fma_parties": "the Financial Markets Authority's warnings and actions as it lists them today (pub.fma_parties)"}
+REG_EXAMPLES = 3
+
+
+def _listed(report, views, flag_id, severity, what, not_held=(), clears=True):
+    """A regulator's listing that names the entity or a person the rules confirm is the subject (fired at `severity`), one that
+    names only a namesake (amber: nothing in it is the entity's), or none: clear as the listings stand today, or blocked where a
+    register the check also needs is not held."""
+    conf = [it for it in items(report, views, ("confirmed",)) if not it.get("suppressed")]
+    near = [it for it in items(report, views, ("near",)) if not it.get("suppressed")]
+    held = tuple(REG_HELD[v] for v in views)
+    if conf:
+        shown = "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in conf[:REG_EXAMPLES])
+        more = f"; and {len(conf) - REG_EXAMPLES} more, each in the section" if len(conf) > REG_EXAMPLES else ""
+        return flag(flag_id, V, "fired", severity, f"{len(conf)} listing(s) by {what} name the entity or a person the rules confirm "
+                    f"is the subject: {shown}{more}; a listing states what the regulator published, never a cause",
+                    citations=tuple(it["ref"] for it in conf), sources_held=held, sources_not_held=tuple(not_held))
+    if near:
+        return flag(flag_id, V, "fired", "amber", f"{len(near)} listing(s) by {what} name a namesake the rules do not confirm is the "
+                    f"subject: {'; '.join(it['statement'] for it in near[:REG_EXAMPLES])}; nothing in a namesake's listing is the entity's",
+                    citations=tuple(it["ref"] for it in near), sources_held=held, sources_not_held=tuple(not_held))
+    text = f"no listing by {what}, as it lists them today, names the entity or a person the rules confirm is the subject"
+    if clears:
+        return flag(flag_id, V, "clear", severity, text, sources_held=held, sources_not_held=tuple(not_held))
+    return flag(flag_id, V, "blocked", severity, f"{text}; but {'; '.join(not_held)} is not held, so no clear is given",
+                sources_held=held, sources_not_held=tuple(not_held))
+
 
 
 def court_judgments(report):

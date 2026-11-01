@@ -24,7 +24,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.d
 FLAG = re.compile(r"^  (FIRED|CLEAR|BLOCKED)\s+(red|amber|info)\s+([a-z-]+)@[\d.]+: (.*)$")
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 NOT_ADDRESS = "c.name !~ '^[0-9]'"
-SAFETY = ("safety-record", "regulator-actions", "court-judgments", "tribunals", "change-history", "status-history", "mortgagee-possession",
+SAFETY = ("safety-record", "court-judgments", "tribunals", "change-history", "status-history", "mortgagee-possession",
           "insolvency-register", "securities-register")
 #: (director ref, liquidated company key): a director appointed before the liquidator, in a small uncontested group
 HELD_AT = f"""
@@ -66,7 +66,8 @@ def memo(ref: str) -> dict:
     assert "could not run" not in text, "a rule broke on real rows"
     for name in SAFETY:
         assert flags[name]["status"] == "blocked", name
-    assert "THE SAFETY RECORD: WHAT IS NOT HELD" in text and "not held: Court judgments" in text
+    assert flags["regulator-actions"]["status"] in ("clear", "fired"), "the Commission's and the FMA's listings are read"
+    assert "THE SAFETY RECORD AND THE REGULATORS' LISTINGS" in text and "not held: Court judgments" in text
     return {"text": text, "flags": flags}
 
 

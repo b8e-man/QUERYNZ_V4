@@ -15,7 +15,7 @@ can support them:
                            Charities Register yet); from a company, its charity by business number and the officer rows on it
   charity-integrity-marks  the Charities Register's own disqualified mark on an officer row: red on the company's own charity's
                            officers, amber on a row that only carries the subject's name
-  comcom-coverage          blocked: the Commerce Commission's cases are not published
+  comcom-coverage          fired, or clear: a Commerce Commission case or an FMA warning naming the subject
 
 and the ones a board screen adds: subject-hub (the subject is itself a
 professional director or a nominee), register-removals, bankruptcy (blocked
@@ -360,10 +360,40 @@ def charity_integrity_marks(report):
 
 
 def comcom_coverage(report):
-    return flag("comcom-coverage", V, "blocked", "amber",
-                "the Commerce Commission's cases and the Financial Markets Authority's warnings are held but not published (plan step 5.3); "
-                "this check cannot run",
-                sources_not_held=("Commerce Commission cases and FMA warnings (not yet published)",))
+    return _listed(report, ("commerce_commission_parties", "fma_parties"), "comcom-coverage", "amber",
+                   "the Commerce Commission or the Financial Markets Authority")
+
+
+# ── the regulators' listings (WorkSafe, the Commerce Commission, the FMA; into the report 1 November 2026) ─────────
+
+REG_HELD = {"worksafe_parties": "WorkSafe New Zealand's court summaries and enforceable undertakings as it lists them today (pub.worksafe_parties)",
+            "commerce_commission_parties": "the Commerce Commission's cases as it lists them today (pub.commerce_commission_parties)",
+            "fma_parties": "the Financial Markets Authority's warnings and actions as it lists them today (pub.fma_parties)"}
+REG_EXAMPLES = 3
+
+
+def _listed(report, views, flag_id, severity, what, not_held=(), clears=True):
+    """A regulator's listing that names the entity or a person the rules confirm is the subject (fired at `severity`), one that
+    names only a namesake (amber: nothing in it is the entity's), or none: clear as the listings stand today, or blocked where a
+    register the check also needs is not held."""
+    conf = [it for it in items(report, views, ("confirmed",)) if not it.get("suppressed")]
+    near = [it for it in items(report, views, ("near",)) if not it.get("suppressed")]
+    held = tuple(REG_HELD[v] for v in views)
+    if conf:
+        shown = "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in conf[:REG_EXAMPLES])
+        more = f"; and {len(conf) - REG_EXAMPLES} more, each in the section" if len(conf) > REG_EXAMPLES else ""
+        return flag(flag_id, V, "fired", severity, f"{len(conf)} listing(s) by {what} name the entity or a person the rules confirm "
+                    f"is the subject: {shown}{more}; a listing states what the regulator published, never a cause",
+                    citations=tuple(it["ref"] for it in conf), sources_held=held, sources_not_held=tuple(not_held))
+    if near:
+        return flag(flag_id, V, "fired", "amber", f"{len(near)} listing(s) by {what} name a namesake the rules do not confirm is the "
+                    f"subject: {'; '.join(it['statement'] for it in near[:REG_EXAMPLES])}; nothing in a namesake's listing is the entity's",
+                    citations=tuple(it["ref"] for it in near), sources_held=held, sources_not_held=tuple(not_held))
+    text = f"no listing by {what}, as it lists them today, names the entity or a person the rules confirm is the subject"
+    if clears:
+        return flag(flag_id, V, "clear", severity, text, sources_held=held, sources_not_held=tuple(not_held))
+    return flag(flag_id, V, "blocked", severity, f"{text}; but {'; '.join(not_held)} is not held, so no clear is given",
+                sources_held=held, sources_not_held=tuple(not_held))
 
 
 # ── the held registers add ──────────────────────────────────────────────────

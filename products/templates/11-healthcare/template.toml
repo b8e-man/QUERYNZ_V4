@@ -149,6 +149,22 @@ refresh = "daily"
 # the entity's own rows the standing and governance sections, an officer's
 # other roles and the people beside the overlap section, and every Gazette
 # notice the Gazette section.
+[[reads]]
+view = "worksafe_parties"
+licence = "Crown copyright, licensed CC BY 4.0; a name WorkSafe withheld is not shown"
+attribution = "WorkSafe New Zealand"
+refresh = "as WorkSafe lists them; re-read on the lane's clock"
+[[reads]]
+view = "commerce_commission_parties"
+licence = "Crown copyright, licensed CC BY 4.0"
+attribution = "Commerce Commission, case register"
+refresh = "as the Commission lists them; re-read on the lane's clock"
+[[reads]]
+view = "fma_parties"
+licence = "copyright the Financial Markets Authority, licensed CC BY 4.0"
+attribution = "Financial Markets Authority"
+refresh = "as the FMA lists them; re-read on the lane's clock"
+
 [[sections]]
 name = "identity"
 heading = "The entity, and its namesakes set apart"
@@ -196,9 +212,17 @@ not_held = ["insolvency", "courts"]
 text = "Liquidations, winding-up applications, receiverships, administrations, creditors' notices, removals, restorations and the other company notices, each under its company's name with its own date, which says what it dates; then director prohibitions, bankruptcies and public appointments the link rules join to a person by name. A notice on an officer's other company, or on an officer, is the officer's and is listed near; one on a company an officer's near link reaches is a namesake's until a rule confirms it, and is counted apart. A notice on a company above in the holding chain is listed with that company's grade and its place up the chain: the holder's notice, not the entity's. A removal from the register is not an insolvency. A revoked prohibition and an annulled bankruptcy's name are never shown."
 
 [[sections]]
+name = "regulators"
+heading = "The regulators' listings"
+views = ["worksafe_parties", "commerce_commission_parties", "fma_parties"]
+sources = ["members", "confirmed", "near"]
+own = false
+text = "A party named in a regulator's listing as it stands today: WorkSafe's court summaries and enforceable undertakings, the Commerce Commission's cases and the Financial Markets Authority's warnings and actions. A listing states what the regulator published, the charge, the case or the warning, never a cause. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's."
+
+[[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []
 not_held = ["retirement_villages", "hdc", "certification", "health_providers", "aged_care_commissioner", "courts", "tribunals", "disciplinary",
-            "employment", "regulators", "worksafe", "company_history"]
+            "employment", "company_history"]
 text = "Registers an operator's governance record would read that no lane has published: the retirement villages file (each village's operator and statutory supervisor, and when the supervisor changed), the Health and Disability Commissioner's decisions, certification audits of rest homes and hospitals, the Ministry of Health's provider registers, the Aged Care Commissioner's reports, court judgments, the tribunals and disciplinary bodies, the Employment Relations Authority, WorkSafe's prosecutions, the Commerce Commission's cases and the companies change history before 16 August 2026. Nothing in this report says anything about them: no decision, audit, complaint or judgment here is a finding of none. Ask the source."

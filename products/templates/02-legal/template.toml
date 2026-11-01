@@ -155,6 +155,17 @@ refresh = "as the register is published"
 # officers section, and each company the party sits on heads the conflict
 # web with the other people on it beneath. The first section takes only near
 # links: rows that share the party's name and that no rule confirms.
+[[reads]]
+view = "commerce_commission_parties"
+licence = "Crown copyright, licensed CC BY 4.0"
+attribution = "Commerce Commission, case register"
+refresh = "as the Commission lists them; re-read on the lane's clock"
+[[reads]]
+view = "fma_parties"
+licence = "copyright the Financial Markets Authority, licensed CC BY 4.0"
+attribution = "Financial Markets Authority"
+refresh = "as the FMA lists them; re-read on the lane's clock"
+
 [[sections]]
 name = "identity"
 heading = "Who the party is, and its namesakes set apart"
@@ -191,6 +202,14 @@ heading = "Charity and society roles, and political money"
 views = ["societies", "society_officers", "charities", "charity_officers", "charity_returns", "party_return_donors", "party_return_loans", "disclosures", "disclosure_items", "candidate_return_donors", "party_return_totals", "candidate_return_totals", "promoters", "promoter_people"]
 sources = ["members", "confirmed", "named", "roles"]
 text = "Incorporated society roles; then the Charities Register: a charity officer row that carries the party's name, near: no link joins the register's officers to any other row yet, and, started from a company, its charity by business number (confirmed) with the officers and annual returns on it, the figures as filed and never added across returns; then donations, loans and promoters' roles. A donation is from the donor the Commission filed it under; a disclosure of a gift a return covers is shown beside it and never added. Started from a company, these are the company's own."
+
+[[sections]]
+name = "regulators"
+heading = "The regulators' listings"
+views = ["commerce_commission_parties", "fma_parties"]
+sources = ["members", "confirmed", "near"]
+own = false
+text = "A party named in a regulator's listing as it stands today: the Commerce Commission's cases and the Financial Markets Authority's warnings and actions. A listing states what the regulator published, the charge, the case or the warning, never a cause. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's."
 
 [[sections]]
 name = "not-held"

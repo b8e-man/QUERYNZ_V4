@@ -23,7 +23,7 @@ owner = "products/templates/06-insurance, step 5.2 (session insurance-1)"
 depth = 2
 
 limits = [
-  "The safety record is not held: WorkSafe's prosecutions and enforceable undertakings, the Commerce Commission's and the Financial Markets Authority's actions, court judgments, the Employment Relations Authority, the Disputes Tribunal and Fire and Emergency New Zealand's notices. The flags that would read them are blocked, never clear, and nothing in this report says anything about them.",
+  "WorkSafe's court summaries and enforceable undertakings, the Commerce Commission's cases and the Financial Markets Authority's warnings and actions are read as each regulator lists them today. Court judgments, the Employment Relations Authority, the Disputes Tribunal and Fire and Emergency New Zealand's notices are not held, so the safety record is never clear: a listing found fires, and none found is blocked.",
   "Started from a company, the report lists its directors and holders of record but does not yet follow them: their other companies, any of those that failed, and their prohibitions and bankruptcies are not read, and those checks are blocked, never clear. Start a report from each director listed.",
   "The companies file lists current roles only: a company a person left, or that was struck off with them on it, is not seen, nor its failure, so no check over a person's companies is ever clear. A director who left the board before July 2026 is not seen either, so officer churn is never clear.",
   "A sister company's failure is dated from its Gazette notice and the person's role on it from the date the companies file states; the two dates are set side by side. The report never says one followed from the other.",
@@ -129,6 +129,22 @@ view = "charity_returns"
 licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the financial fields under the ruling of 14 August 2026"
 attribution = "Charities Services, Department of Internal Affairs"
 refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "worksafe_parties"
+licence = "Crown copyright, licensed CC BY 4.0; a name WorkSafe withheld is not shown"
+attribution = "WorkSafe New Zealand"
+refresh = "as WorkSafe lists them; re-read on the lane's clock"
+[[reads]]
+view = "commerce_commission_parties"
+licence = "Crown copyright, licensed CC BY 4.0"
+attribution = "Commerce Commission, case register"
+refresh = "as the Commission lists them; re-read on the lane's clock"
+[[reads]]
+view = "fma_parties"
+licence = "copyright the Financial Markets Authority, licensed CC BY 4.0"
+attribution = "Financial Markets Authority"
+refresh = "as the FMA lists them; re-read on the lane's clock"
+
 [[sections]]
 name = "identity"
 heading = "The entity, and its namesakes set apart"
@@ -190,7 +206,8 @@ text = "Started from a company, its charity by business number, confirmed, with 
 
 [[sections]]
 name = "safety"
-heading = "The safety record: what is not held"
-views = []
+heading = "The safety record and the regulators' listings"
+views = ["worksafe_parties", "commerce_commission_parties", "fma_parties"]
+sources = ["members", "confirmed", "near"]
 not_held = ["courts", "insolvency", "securities", "fsp"]
-text = "Registers a safety record would read that no lane has published: WorkSafe New Zealand's prosecutions and enforceable undertakings (the release texts are held and not yet read into a register), the Commerce Commission's cases and the Financial Markets Authority's warnings and actions (held and not yet read), court judgments, the Employment Relations Authority's determinations, the Disputes Tribunal's decisions, Fire and Emergency New Zealand's notices, the companies change history before 16 August 2026 (former names, trading names, industry classification, earlier directors and offices; held but unread since), the Official Assignee's Insolvency Register, the Personal Property Securities Register and the financial service providers register. Nothing in this report says anything about them: no prosecution, undertaking, judgment or determination is a finding of none. Ask the source."
+text = "Above, a party named in WorkSafe's court summaries and enforceable undertakings, the Commerce Commission's cases or the Financial Markets Authority's warnings and actions, as each lists them today: a listing states what the regulator published, never a cause, and a near row is a namesake. Registers a safety record would read that no lane has published: court judgments, the Employment Relations Authority's determinations, the Disputes Tribunal's decisions, Fire and Emergency New Zealand's notices, the companies change history before 16 August 2026 (former names, trading names, industry classification, earlier directors and offices; held but unread since), the Official Assignee's Insolvency Register, the Personal Property Securities Register and the financial service providers register. Nothing in this report says anything about them: no prosecution, undertaking, judgment or determination is a finding of none. Ask the source."

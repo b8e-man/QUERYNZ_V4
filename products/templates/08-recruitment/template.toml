@@ -163,6 +163,17 @@ refresh = "each annual edition"
 # share the subject's name and that no rule confirms, set apart before any
 # record is read. A near Gazette notice is not taken there; it stays in the
 # Gazette section, marked near, because a consultant must see it in place.
+[[reads]]
+view = "commerce_commission_parties"
+licence = "Crown copyright, licensed CC BY 4.0"
+attribution = "Commerce Commission, case register"
+refresh = "as the Commission lists them; re-read on the lane's clock"
+[[reads]]
+view = "fma_parties"
+licence = "copyright the Financial Markets Authority, licensed CC BY 4.0"
+attribution = "Financial Markets Authority"
+refresh = "as the FMA lists them; re-read on the lane's clock"
+
 [[sections]]
 name = "identity"
 heading = "Who this is, and the namesakes set apart"
@@ -207,6 +218,14 @@ heading = "Seats, candidacies and declared interests, where the person is or was
 views = ["members", "candidates", "mp_interest_returns", "mp_interests"]
 sources = ["members", "confirmed"]
 text = "An MP's declared interests are listed under each annual return. MPs' and ministers' expenses are published but this report cannot read them yet. Public appointments in the Gazette are published but no link rule joins them to a person yet, so they are not read."
+
+[[sections]]
+name = "regulators"
+heading = "The regulators' listings"
+views = ["commerce_commission_parties", "fma_parties"]
+sources = ["members", "confirmed", "near"]
+own = false
+text = "A party named in a regulator's listing as it stands today: the Commerce Commission's cases and the Financial Markets Authority's warnings and actions. A listing states what the regulator published, the charge, the case or the warning, never a cause. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's."
 
 [[sections]]
 name = "not-held"
