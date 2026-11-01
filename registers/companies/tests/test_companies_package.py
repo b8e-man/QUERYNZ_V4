@@ -38,13 +38,16 @@ VILLAGES = ("ENTITY_NUMBER,ENTITY_NAME,REGISTRATION_DATE,ENTITY_STATUS,STATUTORY
             "OPERATOR_NAME,OPERATOR_NUMBER,OPERATOR_ADDRESS_1,OPERATOR_ADDRESS_2,OPERATOR_ADDRESS_3,"
             "OPERATOR_ADDRESS_4,OPERATOR_ADDRESS_POSTCODE")
 PUBLIC = "NZBN,ENTITY_NAME,ENTITY_TYPE,ENTITY_STATUS,REGISTRATION_DATE"
+INSOLVENCY = ("NZBN,ENTITY_NAME,START_DATE,INSOLVENCY_TYPE,APPOINTMENT_TYPE,APPOINTEE_FIRST_NAME,APPOINTEE_MIDDLE_NAMES,"
+              "APPOINTEE_LAST_NAME,APPOINTMENT_DATE,APPOINTMENT_VACATED_DATE,ORGANISATION,RESSOLUTION_OF_SOLVENCY")
 
 
 def _zip(files: dict) -> bytes:
     heads = {"companies_core_data.csv": CORE, "companies_director.csv": DIRECTOR,
              "companies_shareholder.csv": HOLDER, "companies_registered_office_address.csv": RO,
              "other_incorporated_entities_core_data.csv": OTHER, "charitable_trust_boards_core_data.csv": TRUSTS,
-             "public_sector_entities_core_data.csv": PUBLIC, "retirement_villages_core_data.csv": VILLAGES}
+             "public_sector_entities_core_data.csv": PUBLIC, "retirement_villages_core_data.csv": VILLAGES,
+             "companies_insolvency.csv": INSOLVENCY}
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as z:
         for name, head in heads.items():
@@ -169,3 +172,50 @@ def test_more_package_rows_than_the_file_s_lines_does_not_reconcile(monkeypatch)
     monkeypatch.setattr(monthly, "merge", short_count)
     with pytest.raises(AssertionError):
         _read("directors", [], _runs("directors", 0, 0), z)
+
+
+# ── the package-only files: insolvency appointments and the villages' operators (2 November 2026) ──────────────
+
+def _pkg(files):
+    return read.read_package((OCT, _zip(files), PSHA))
+
+
+def test_each_insolvency_appointment_is_a_row_with_its_appointee_dates_and_solvency_and_a_repeat_is_one():
+    r = _pkg({"companies_insolvency.csv": [
+        "9429000000001,EXAMPLE LIMITED,05/03/2020,Liquidation,241(2)(a) - Special Resolution of Shareholders,"
+        "Pat,Q,Practitioner,05/03/2020,,EXAMPLE INSOLVENCY LIMITED,Y",
+        "9429000000001,EXAMPLE LIMITED,05/03/2020,Liquidation,283(8) - Vacancy in Office,Ray,,Replacement,"
+        "01/06/2021,,OTHER INSOLVENCY LIMITED,",
+        "9429000000001,EXAMPLE LIMITED,05/03/2020,Liquidation,283(8) - Vacancy in Office,Ray,,Replacement,"
+        "01/06/2021,,OTHER INSOLVENCY LIMITED,",
+        "9429000000002,SECOND LIMITED,10/10/2019,Receivership,,Sam,,Receiver,10/10/2019,30/11/2020,RECEIVERS LIMITED,",
+        ",NO NUMBER LIMITED,01/01/2020,Liquidation,,A,,B,01/01/2020,,X,"]})
+    rows = sorted(r.rows["insolvencies"], key=lambda x: (x["filed"]["nzbn"], x["filed"]["appointed_on"]))
+    assert [(x["filed"]["appointee"], x["filed"]["appointed_on"], x["filed"]["vacated_on"],
+             x["filed"]["resolution_of_solvency"]) for x in rows] == [
+        ("Pat Q Practitioner", "2020-03-05", None, True), ("Ray Replacement", "2021-06-01", None, False),
+        ("Sam Receiver", "2019-10-10", "2020-11-30", False)]
+    first = rows[0]
+    assert first["key"].startswith("companies/9429000000001/insolvency/") and first["filed"]["entity_key"] == "companies/9429000000001"
+    assert first["filed"]["insolvency_type"] == "Liquidation" and first["filed"]["started_on"] == "2020-03-05"
+    assert first["document"] == PSHA and first["place"] == "companies_insolvency.csv line 2"
+    assert first["profile"] == read.PACKAGE_PROFILE and first["filed"]["source_note"] == monthly.NOTE
+    assert len({x["key"] for x in rows}) == 3
+    whys = sorted(w for _, _, w, _ in r.set_aside)
+    assert len(whys) == 2 and "no NZBN" in whys[0] and whys[1].startswith("the same line as companies_insolvency.csv line 3")
+    assert r.counts["insolvencies.lines"] == 5 and r.counts["insolvencies"] == 3 and r.counts["insolvencies.set_aside"] == 2
+
+
+def test_a_village_carries_its_operator_and_supervisor_and_no_address_is_read():
+    r = _pkg({"retirement_villages_core_data.csv": [
+        "2000001,EXAMPLE VILLAGE,01-11-2007,REGISTERED,EXAMPLE SUPERVISOR LIMITED,02-03-2026,"
+        "Level 1 Invented Tower,Supervisorville,,Nowhere,0000,1 Office Road,Officeton,,Nowhere,0000,"
+        "9 Premises Way,Villageton,,Nowhere,0000,EXAMPLE OPERATOR LIMITED,1234567,2 Operator Road,Opton,,Nowhere,0000"]})
+    (v,) = r.rows["villages"]
+    f = v["filed"]
+    assert v["key"] == f["entity_key"] == "companies/retirement_village/2000001"
+    assert (f["operator_name"], f["operator_number"], f["supervisor_name"], f["supervisor_appointed_on"]) == (
+        "EXAMPLE OPERATOR LIMITED", "1234567", "EXAMPLE SUPERVISOR LIMITED", "2026-03-02")
+    text = json.dumps(r.rows, default=str)
+    assert not any(w in text for w in ("Invented", "Premises", "Operator Road", "Office Road"))
+

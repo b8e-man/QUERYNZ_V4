@@ -36,9 +36,25 @@ register between its last file and the package, and no end date is written.
 A line the package repeats (same key) is one row; the file's own line count,
 put in the header's `runs`, makes read.py log the repeats as folded.
 
+Two files the export never carried are read from the package alone (2 November
+2026, Arthur: "alright do it"):
+
+  insolvencies   companies_insolvency.csv: one line per appointment in a
+                 company's liquidation, receivership or voluntary
+                 administration: the type, its start, the appointment's basis,
+                 the appointee (an insolvency practitioner acting in that
+                 office, or the Official Assignee) and the firm, appointed and
+                 vacated, and whether the liquidation followed a resolution of
+                 solvency. The file carries no address
+  villages       retirement_villages_core_data.csv's operator (name and
+                 company number) and statutory supervisor (name and day
+                 appointed). Never the supervisor's, the operator's or the
+                 premises' address
+
     PACKAGES                          {label: (name, sha256, received at, cut)}
     package_lines(zip_bytes, part)    the package's lines in the export's shape, with their places
     merge(part, header, lines, package_bytes, package_sha, label)    (header, lines)
+    insolvency_lines(zip_bytes, label, sha) / village_lines(...)    (line count, lines) of the two package-only files
 """
 import csv
 import datetime as dt
@@ -109,6 +125,57 @@ def shares(raw):
     except ValueError:
         return s
     return str(int(f)) if f == int(f) else repr(f)
+
+
+INSOLVENCY_CSV = "companies_insolvency.csv"
+VILLAGES_CSV = "retirement_villages_core_data.csv"
+
+
+def day(raw):
+    """dd/mm/yyyy or dd-mm-yyyy (the villages' form) → yyyy-mm-dd; None for empty; another form as it stands."""
+    s = _v(raw)
+    if s is None:
+        return None
+    for f in ("%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return dt.datetime.strptime(s, f).date().isoformat()
+        except ValueError:
+            pass
+    return s
+
+
+def insolvency_lines(data: bytes, label: str, sha: str) -> list:
+    """Every appointment line of companies_insolvency.csv, each with `_doc` and `_place`. Appointee names are read as
+    filed: a practitioner in office (or the Official Assignee); the file carries no address."""
+    z = zipfile.ZipFile(io.BytesIO(data))
+    out = []
+    for n, r in csv_rows(z, INSOLVENCY_CSV):
+        first, middle, last = _v(r.get("APPOINTEE_FIRST_NAME")), _v(r.get("APPOINTEE_MIDDLE_NAMES")), _v(r.get("APPOINTEE_LAST_NAME"))
+        out.append({"nzbn": _v(r.get("NZBN")), "entity_name": _v(r.get("ENTITY_NAME")),
+                    "insolvency_type": _v(r.get("INSOLVENCY_TYPE")), "started_on": day(r.get("START_DATE")),
+                    "appointment_type": _v(r.get("APPOINTMENT_TYPE")), "appointee_first_name": first,
+                    "appointee_middle_names": middle, "appointee_last_name": last,
+                    "appointee": " ".join(x for x in (first, middle, last) if x) or None,
+                    "organisation": _v(r.get("ORGANISATION")), "appointed_on": day(r.get("APPOINTMENT_DATE")),
+                    "vacated_on": day(r.get("APPOINTMENT_VACATED_DATE")),
+                    # the file's own header spells it RESSOLUTION_OF_SOLVENCY
+                    "resolution_of_solvency": (_v(r.get("RESSOLUTION_OF_SOLVENCY") or r.get("RESOLUTION_OF_SOLVENCY")) or "").upper() == "Y",
+                    "last_file": label, "_doc": sha, "_place": f"{INSOLVENCY_CSV} line {n}", "_note": NOTE})
+    return out
+
+
+def village_lines(data: bytes, label: str, sha: str) -> list:
+    """Each village's operator and statutory supervisor; the three address blocks are never read."""
+    z = zipfile.ZipFile(io.BytesIO(data))
+    out = []
+    for n, r in csv_rows(z, VILLAGES_CSV):
+        out.append({"number": _v(r.get("ENTITY_NUMBER")), "name": _v(r.get("ENTITY_NAME")),
+                    "status": _v(r.get("ENTITY_STATUS")), "operator_name": _v(r.get("OPERATOR_NAME")),
+                    "operator_number": _v(r.get("OPERATOR_NUMBER")),
+                    "supervisor_name": _v(r.get("STATUTORY_SUPERVISOR_NAME")),
+                    "supervisor_appointed_on": day(r.get("STATUTORY_SUPERVISOR_DATE_APPOINTED")),
+                    "last_file": label, "_doc": sha, "_place": f"{VILLAGES_CSV} line {n}", "_note": NOTE})
+    return out
 
 
 def csv_rows(z: zipfile.ZipFile, name: str):

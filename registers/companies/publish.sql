@@ -35,6 +35,23 @@ SELECT key, entity_key, register, 'registered office'::text AS kind, started_on,
        document, page, place, read_from, reader, profile, profile_version, loaded_at
 FROM companies.registered_offices;
 
+-- each appointment in a company's liquidation, receivership or voluntary administration (the monthly package's
+-- insolvency file). The appointee acts in an office and is named; no address is held
+CREATE OR REPLACE VIEW pub.company_insolvencies AS
+SELECT key, entity_key, nzbn, entity_name, insolvency_type, started_on, appointment_type, appointee_first_name,
+       appointee_middle_names, appointee_last_name, appointee, organisation, appointed_on, vacated_on,
+       vacated_on IS NULL AS in_office, resolution_of_solvency, last_file, source_note,
+       document, page, place, read_from, reader, profile, profile_version, loaded_at
+FROM companies.insolvencies;
+
+-- each retirement village with its operator (its company row where exactly one company carries the operator's number)
+-- and its statutory supervisor. No address of the supervisor, the operator or the premises is held
+CREATE OR REPLACE VIEW pub.retirement_villages AS
+SELECT key, entity_key, number, name, status, operator_name, operator_number, operator_key, operator_nzbn,
+       supervisor_name, supervisor_appointed_on, last_file, source_note,
+       document, page, place, read_from, reader, profile, profile_version, loaded_at
+FROM companies.villages;
+
 -- ── company monitoring (plan 5.5; monitor.py) ────────────────────────────────────────────────────────────────
 -- Each dated difference between an answer of the NZBN register's interface and the state held before it. A
 -- registered office is a company's or society's (shown: hard limit 15); no person's address is a change. A

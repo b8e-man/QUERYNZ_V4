@@ -20,6 +20,7 @@ another (a catch-log line that carries the count). A reading that does not
 reconcile raises and publishes nothing.
 
     read(part, data, sha, only=None, entities=None, package=None)   Result
+    read_package(package, only=None, entities=None)   Result: the package-only files (insolvencies, villages)
 
 A later monthly package (monthly.py) is laid over the export's lines before
 they are read: `package` is (its label, its bytes, its sha256). A row the
@@ -47,7 +48,10 @@ PROFILE = "companies-register-export"
 PACKAGE_PROFILE = "companies-monthly-package"
 READER = "registers.companies.read 1"
 TABLE_OF = {"entities": ("entities", "entity_states"), "directors": ("directors",),
-            "shareholders": ("shareholders",), "addresses": ("registered_offices",)}
+            "shareholders": ("shareholders",), "addresses": ("registered_offices",),
+            "insolvencies": ("insolvencies",), "villages": ("villages",)}
+#: the parts only a monthly package carries (monthly.py); the export has none
+PACKAGE_PARTS = ("insolvencies", "villages")
 _NZBN = re.compile(r'"nzbn": (?:null|"([^"]*)")')
 _NUMBER = re.compile(r'"number": (?:null|"([^"]*)")')
 _ADDRESS_FIELDS = ("care_of", "line_1", "line_2", "line_3", "line_4", "postcode")
@@ -313,4 +317,55 @@ def read(part: str, data: bytes, sha: str, only=None, entities=None, loaded_at: 
                        "set_aside": len(out.set_aside), "set_aside_lines": from_lines,
                        **{f"in {f}": in_file[f] for f in files if in_file.get(f)},
                        **{f"folded in {f}": v for f, v in folded.items()}})
+    return out
+
+
+def read_package(package, only=None, entities=None, loaded_at: str = None) -> Result:
+    """The two files only a monthly package carries, read whole: `package` is (label, bytes, sha256). Every CSV line is
+    a row or a catch-log line: a line repeated exactly (every field the same) is one row and a counted catch-log line;
+    an insolvency line with no NZBN, or a village with no number, is set aside."""
+    label, data, sha = package
+    loaded_at = loaded_at or dt.datetime.now().astimezone().isoformat(timespec="seconds")
+    out = Result(header={"files": [label]})
+    b = {"document": sha, "page": 1, "read_from": "text", "reader": READER, "profile": PACKAGE_PROFILE,
+         "profile_version": profile_version(PACKAGE_PROFILE), "loaded_at": loaded_at}
+    lines = {"insolvencies": monthly.insolvency_lines(data, label, sha), "villages": monthly.village_lines(data, label, sha)}
+    for part, got in lines.items():
+        table = TABLE_OF[part][0]
+        seen, made, aside = {}, 0, 0
+        for r in got:
+            place, note = r.pop("_place"), r.pop("_note")
+            r.pop("_doc", None)
+            item = f"{sha}/{place}"
+            if part == "insolvencies":
+                ek = entity_key("companies", r.get("nzbn"), None)
+                if only is not None and r.get("nzbn") not in only:
+                    continue
+            else:
+                ek = entity_key("retirement_village", None, r.get("number"))
+                if only is not None and r.get("number") not in only:
+                    continue
+            if ek is None:
+                aside += 1
+                out.set_aside.append((item, part, "no NZBN and no register number: no key", 1))
+                continue
+            content = json.dumps(r, sort_keys=True, default=str)
+            if content in seen:
+                aside += 1
+                out.set_aside.append((item, part, f"the same line as {seen[content]}: one row", 1))
+                continue
+            seen[content] = place
+            if entities is not None and ek not in entities:
+                out.counts[f"{part}.no_entity"] = out.counts.get(f"{part}.no_entity", 0) + 1
+            key = f"{ek}/insolvency/{short(content)}" if part == "insolvencies" else ek
+            out.rows[table].append({"key": key, **b, "place": place,
+                                    "filed": {"entity_key": ek, **r, "source_note": note}})
+            made += 1
+        if len({x["key"] for x in out.rows[table]}) != len(out.rows[table]):
+            raise AssertionError(f"companies {table}: two rows share a key")
+        n = made + aside
+        wanted = len(got) if only is None else n
+        if n != wanted:
+            raise AssertionError(f"companies {part} does not reconcile: {len(got)} lines, {made} rows, {aside} set aside")
+        out.counts.update({f"{part}.lines": n, table: made, f"{part}.set_aside": aside})
     return out
