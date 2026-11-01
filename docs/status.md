@@ -28,7 +28,8 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
 
 - Overnight 1 to 2 November (Arthur's six approvals): `qv4-companies-history`
   from 22:05 (past roles, 1.10 M wanted, 2,000 a night); credit reads
-  `pub.company_states`. Report: docs/research/overnight-2026-11-02.md.
+  `pub.company_states`; WorkSafe, the Commission and the FMA read by five
+  templates (82c4418). Report: docs/research/overnight-2026-11-02.md.
 
 - 31 October merges: `fix-registers-courts-1` 10:5x (one keep rule;
   `pub.court_people` 57,096 names), `readers-1` 12:50 (beehive-2,

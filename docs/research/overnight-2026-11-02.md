@@ -39,3 +39,18 @@ reads it. A status a later file turned to liquidation, receivership, administrat
 status-name-changes and recent-adverse-change and listed in monthly-changes; a name change is amber; the change checks
 clear where no later file changed anything. Verified on the real rows: a company Registered in July and In Liquidation
 in August renders red. The report server was restarted on the release.
+
+## 4. WorkSafe, the Commerce Commission and the FMA are read by the templates
+
+82c4418. The catalogue knows the six views of the three lanes (actions or cases, and their parties, each party dated by
+its listing); the three leave the not-held list. Legal, banking and recruitment: `comcom-coverage` fires amber on a
+listing naming the subject or a namesake, and clears on none, as the regulators list them today. Insurance:
+`safety-record` fires red on a WorkSafe listing and stays blocked on none, because Fire and Emergency's notices are not
+held; `regulator-actions` fires or clears. Healthcare shows the three in a regulators section. A name the regulator
+withheld (24 WorkSafe, 80 Commission, 3 FMA) is never shown or counted.
+
+Verified on the real rows: Pacific Edge Limited's FMA warning renders in insurance and legal as near. A party row
+carries a company number 3 times in 3,258, so every match is by name and near; a confirmed listing needs a link rule,
+which is Arthur's.
+
+The history backfill began at 22:05:08: 23 answers by 22:07, every one 200, about 5.6 s apart.
