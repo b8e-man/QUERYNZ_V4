@@ -69,6 +69,14 @@ TERMS_BAR = {
     "Waimakariri District Council": "terms b3ed5bac…: not to 'use a harvesting bot, robot, spider, scraper, or other unauthorised automated means to access the Websites'",
 }
 
+#: the document stores a council's own server redirects its register files to (measured 2 November 2026: the 302s of
+#: 22 October): a redirect from the council's address to one of these is followed once, for that council only
+DOC_HOSTS = {
+    "Hutt City Council": ("hccpublicdocs.azurewebsites.net",),
+    "Porirua City Council": ("storage.googleapis.com",),
+    "Tasman District Council": ("tasmandc-publicdocs.azurewebsites.net",),
+}
+
 #: council → (host, the page that publishes or links the register, a register document's address); None where the
 #: survey found none. From the survey of 22 October 2026 (web search for addresses; pages read through the gate).
 REGISTERS = {
@@ -117,7 +125,7 @@ REGISTERS = {
     "Porirua City Council": ("poriruacity.govt.nz", "https://poriruacity.govt.nz/your-council/mayor-councillors/what-your-council-does/", None),
     "Queenstown-Lakes District Council": ("www.qldc.govt.nz", "https://www.qldc.govt.nz/your-council/elected-members/register-of-interests/", "https://www.qldc.govt.nz/media/5qgdcm2x/2026-register-of-interests-summary.pdf"),
     "Rangitikei District Council": ("www.rangitikei.govt.nz", "https://www.rangitikei.govt.nz/council/mayor-councillors/governance-documents/register-of-members-pecuniary-interests", None),
-    "Rotorua Lakes Council": ("www.rotorualakescouncil.nz", None, None),
+    "Rotorua Lakes Council": ("www.rotorualakescouncil.nz", "https://www.rotorualakescouncil.nz/our-council/news/news?item=id:2q85khsw61cxbyn8wwse", None),
     "Ruapehu District Council": ("www.ruapehudc.govt.nz", "https://www.ruapehudc.govt.nz/our-council/about-our-council/governance-statement/zregister-of-members-pecuniary-interests", None),
     "Selwyn District Council": ("www.selwyn.govt.nz", "https://www.selwyn.govt.nz/your-council/mayor-And-council/meet-your-mayor-and-councilors", None),
     "South Taranaki District Council": ("www.southtaranaki.com", "https://www.southtaranaki.com/our-council/governance/pecuniary-interests-register", None),
@@ -128,12 +136,12 @@ REGISTERS = {
     "Stratford District Council": ("www.stratford.govt.nz", None, "https://www.stratford.govt.nz/repository/libraries/id:2cvuccagl1cxbygm8445/hierarchy/Governance/Summary%20-%20Pecuniary%20Interest%20Summary%20-%20May%202026.pdf"),
     "Taranaki Regional Council": ("www.trc.govt.nz", "https://www.trc.govt.nz/council/council-and-region/elected-councillors", "https://trc.govt.nz/assets/Documents/Plans-policies/2025-Councillor-Pecuniary-Interest-Disclosure.pdf"),
     "Tararua District Council": ("www.tararuadc.govt.nz", "https://www.tararuadc.govt.nz/your-council/council-contacts/register-of-pecuniary-interests-of-elected-members", None),
-    "Tasman District Council": ("www.tasman.govt.nz", "https://www.tasman.govt.nz/my-council/about-us/your-mayor-and-councillors/elected-members-interests-register/", None),
-    "Taupo District Council": ("www.taupodc.govt.nz", "https://www.taupodc.govt.nz/council/governance-documents", None),
+    "Tasman District Council": ("www.tasman.govt.nz", "https://www.tasman.govt.nz/my-council/about-us/your-mayor-and-councillors/elected-and-appointed-members-interests", None),
+    "Taupo District Council": ("www.taupodc.govt.nz", "https://www.taupodc.govt.nz/council/mayor-and-councillors", None),
     "Tauranga City Council": ("www.tauranga.govt.nz", "https://www.tauranga.govt.nz/council/how-the-council-works/governance/code-of-conduct-and-members-interests/mayor-and-councillors-register-of-interests", None),
     "Thames-Coromandel District Council": ("www.tcdc.govt.nz", None, "https://www.tcdc.govt.nz/files/assets/public/v/1/our-council/about-our-council/governance-documents/register-of-pecuniary-and-other-specified-interests-30-mar-2026.pdf"),
-    "Timaru District Council": ("www.timaru.govt.nz", None, "https://www.timaru.govt.nz/__data/assets/pdf_file/0008/728963/Members-Interests-2025-2028.pdf"),
-    "Upper Hutt City Council": ("www.upperhutt.govt.nz", "https://www.upperhutt.govt.nz/Council/About-Your-Council/Elected-members", None),
+    "Timaru District Council": ("www.timaru.govt.nz", "https://www.timaru.govt.nz/council/elected-council-members", "https://www.timaru.govt.nz/__data/assets/pdf_file/0008/728963/Members-Interests-2025-2028.pdf"),
+    "Upper Hutt City Council": ("www.upperhutt.govt.nz", "https://www.upperhutt.govt.nz/council/about-your-council/elected-members-elt", None),
     "Waikato District Council": ("www.waikatodistrict.govt.nz", "https://www.waikatodistrict.govt.nz/your-council/people/mayor-and-councillors", None),
     "Waikato Regional Council": ("www.waikatoregion.govt.nz", "https://www.waikatoregion.govt.nz/council/about-us/councillors/interests-registers/", None),
     "Waimakariri District Council": ("www.waimakariri.govt.nz", "https://waimakariri.govt.nz/your-council/council-boards-and-committees/mayor-and-councillors", None),
@@ -242,9 +250,10 @@ class Tables:
         self.set_aside(host, "host", why)
 
     def last_asked(self, url):
-        """When the url was last asked, and whether as a document; a request that never left the box (a malformed
-        address) is not an ask."""
-        r = self.conn.execute(f"SELECT max(asked_at), bool_or(kind = 'document') FROM {self.T('capture_items')} "
+        """When the url was last asked, and whether a document was landed from it; a request that never left the box
+        (a malformed address) is not an ask. A document asked and not landed (a 404, a redirect) is asked again monthly
+        (2 November 2026: five councils' addresses had failed once and were never asked again)."""
+        r = self.conn.execute(f"SELECT max(asked_at), bool_or(kind = 'document' AND sha256 IS NOT NULL) FROM {self.T('capture_items')} "
                               "WHERE url = %s AND coalesce(why, '') NOT LIKE %s", (url, NOT_SENT + "%")).fetchone()
         return r if r else (None, None)
 
@@ -289,11 +298,11 @@ class Run:
         return True
 
     def due(self, url, kind) -> bool:
-        at, was_doc = self.t.last_asked(url)
+        at, landed_doc = self.t.last_asked(url)
         if at is None:
             return True
-        if kind == "document" or was_doc:
-            return False                                   # a document is asked once
+        if landed_doc:
+            return False                                   # a document landed is asked once; one that failed, monthly
         return (dt.datetime.now(dt.timezone.utc) - at).days >= EVERY_DAYS
 
     def ask(self, council, url, kind, found_on, held, hops=0):
@@ -318,6 +327,9 @@ class Run:
         elif f is not None and f.location and capture_same_site(f.location, url) and hops < 1:
             self.t.item(council, url, kind, found_on, f.status, None, f"HTTP {f.status}: to {f.location} on the same site")
             return self.ask(council, clean_url(f.location), kind, url, held, hops + 1)
+        elif f is not None and f.location and fg.host_of(f.location) in DOC_HOSTS.get(council, ()) and hops < 1:
+            self.t.item(council, url, kind, found_on, f.status, None, f"HTTP {f.status}: to {f.location}, the council's own document store")
+            return self.ask(council, clean_url(f.location), "document", url, held, hops + 1)
         elif f is not None and (f.status != 200 or not f.body):
             why = f"HTTP {f.status}" + (f", redirected to {f.location}: not followed" if f.location else "")
         if why:

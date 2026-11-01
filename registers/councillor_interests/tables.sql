@@ -1,7 +1,8 @@
 -- registers/councillor_interests: every table this lane owns, in `councillor_interests`, in two parts. The capture's
 -- record (capture.py makes it; never wiped): no capture table holds a row of the source; every page and document stays
 -- in the document store verbatim by sha256. The reading's tables (load.py drops and makes them again at every load)
--- come from structured HTML registers only: a PDF register is held and never read (ruling 79). A real-property
+-- come from structured HTML registers (read.py) and, from 2 November 2026, register PDFs and pages read by the text
+-- reader (model_read.py; ruling 128 lifted ruling 79 for node2). A real-property
 -- declaration is never put in a table (queue: may-the-interests-register-s-real-property-declarations-be-shown, answer
 -- no), and a member's home address, phone or email is never kept (hard limit 15): such a category is counted by its
 -- heading and nothing under it is read. So no private twin.
@@ -45,7 +46,7 @@ CREATE TABLE IF NOT EXISTS councillor_interests.registers (
     form             text NOT NULL,                  -- html register | pdf register | per-member files | linked, not found | not yet captured | address failed | not found | not reached | held: its terms bar automated access
     landing_url      text,
     landing_sha256   text,
-    documents_held   integer NOT NULL DEFAULT 0,     -- register documents landed (held, never read)
+    documents_held   integer NOT NULL DEFAULT 0,     -- register documents landed (read by the text reader where they carry text)
     members_read     integer NOT NULL DEFAULT 0,     -- members read from a structured page
     why              text,                           -- not reached: the held host's reason
     loaded_at        timestamptz NOT NULL DEFAULT now()
@@ -58,11 +59,15 @@ CREATE TABLE IF NOT EXISTS councillor_interests.documents (
     url         text NOT NULL,
     found_on    text,
     asked_at    timestamptz NOT NULL,
+    reading     text,                                -- read | waiting: text reader | waiting: page reader | not a register: … | set aside: … (model_read)
+    members     integer NOT NULL DEFAULT 0,          -- members read from it
+    unread_pages integer[] NOT NULL DEFAULT '{}',    -- pages with no text layer, or over the reading budget
     loaded_at   timestamptz NOT NULL DEFAULT now()
 );
 
--- one row per member and published category, from a structured page: the category as published, and its entries'
--- text only where the category is not real property, a home address or a contact
+-- one row per member and published category, from a structured page (read.py) or a register PDF read by the text
+-- reader (model_read.py, 2 November 2026): the category as published, and its entries' text only where the category
+-- is not real property, a home address or a contact
 CREATE TABLE IF NOT EXISTS councillor_interests.interests (
     key              text PRIMARY KEY,               -- <council>/<member>/<category ordinal>
     council          text NOT NULL,
@@ -70,6 +75,7 @@ CREATE TABLE IF NOT EXISTS councillor_interests.interests (
     role             text,                           -- Mayor, Councillor, …, as printed
     category         text NOT NULL,                  -- the heading as published
     entries          text[] NOT NULL DEFAULT '{}',   -- the entries as printed; empty where the page says nil
+    kind             text,                           -- the s 54E kind the text reader typed the category by (a PDF's); NULL from a page
     as_at            text,                           -- the register's date as printed
     document         text NOT NULL,
     page             integer NOT NULL DEFAULT 1,
@@ -77,6 +83,7 @@ CREATE TABLE IF NOT EXISTS councillor_interests.interests (
     url              text NOT NULL,
     read_from        text NOT NULL,
     reader           text NOT NULL,
+    model            text,                           -- the served model that read a PDF; NULL for the page grammar
     profile          text NOT NULL,
     profile_version  integer NOT NULL,
     loaded_at        timestamptz NOT NULL DEFAULT now()

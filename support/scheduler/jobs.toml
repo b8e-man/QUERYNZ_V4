@@ -1160,6 +1160,21 @@ at_utc = "17:50"
 priority = 80
 then = ["qv4-names-councillor-interests"]   # its names into pub.names (1 November)
 
+[jobs.qv4-councillor-interests-read]
+description = "Councils' registers of members' pecuniary interests held as PDFs: the text reader's reading of one register document (piece key sha256) through the text-reader profile, profile interests-register-pdf-text, whole pages in pieces of 34,000 characters: each member, role, every category as printed with its s 54E kind and its entries; real property, homes, addresses, roads, contacts and a spouse's or partner's interests never kept. Stored by hash and piece, replayed by the next qv4-councillor-interests-load (ruling 128 lifted ruling 79's hold for node2; Arthur, 2 November 2026: 'we want to gather and ingest all of this'). A PDF with no text layer waits for the page reader."
+needs = "model-profile"
+profile = "text-reader"
+memory_gb = 0.5
+deadline_s = 1800
+query_timeout_s = 60
+class = "whenever"
+priority = 124   # unique; after every reader of the bulk ingest (2 November 2026)
+command = ["python", "-m", "registers.councillor_interests.model_read", "--piece"]
+pieces = true
+pieces_command = ["python", "-m", "registers.councillor_interests.model_read", "--pieces"]
+can_share = true
+concurrency = 4
+
 # ── step 6.3, local election candidate returns (local-elections-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
 [jobs.qv4-local-elections-listings]
 description = "Step 6.3: every council returns page listings.tsv seeds (66 pages, 43 councils on 22 October 2026, and their sub-listings two deep), asked once each, 5 s apart or each robots file's crawl delay, landed by hash and read for the returns they link (each new one recorded as wanted). Due daily at 22:10 NZDT; the pass itself refuses to start under a week after the last finished one and outside 22:00 to 06:00, so it runs weekly, off-peak, and the other days cost no request. About 150 requests, about 20 minutes."

@@ -30,6 +30,9 @@ STREET = (r"\m\d{1,4}[A-Za-z]?\s+[A-Z][a-z]+(\s+[A-Z][a-z]+)?\s+(Street|St|Road|
           r"Terrace|Tce|Crescent|Cres|Lane|Way|Highway|Hwy|Parade|Quay)\M|\m(PO Box|RD ?\d)\M")
 EMAIL = r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
 PHONE = r"(\+64|\m0)\d{1,2}[ -]?\d{3}[ -]?\d{3,4}\M"
+#: model_read.ROAD in Postgres's words: a road or highway named, numbered or not; a rural delivery; a lot or a deposited plan
+ROAD = (r"\m(Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Place|Pl|Terrace|Tce|Crescent|Cres|Lane|Highway|Hwy|Parade|Quay|"
+        r"Boulevard|Grove|Close|Rise|Esplanade)\M\.?(,|\s*$)|\mState\s+Highway\M|\mRD\s?\d|\mLot\s+\d|\m(DP|SO)\s?\d{3,}")
 CATEGORY = (r"real\s+property|\mland\M|\mproperty\M|\mhomes?\M|address|residen|contact|phone|e-?mail|\mspouse\M|"
             r"\mpartner\M|\mwife\M|\mhusband\M|\mfamily members?\M")
 
@@ -46,6 +49,9 @@ def reading(conn, schema: str = SCHEMA) -> list:
         (f"SELECT count(*) FROM {T('interests')} WHERE category ~* %s", "rows whose category is never read", (CATEGORY,)),
         (f"SELECT count(*) FROM {T('interests')} i, unnest(i.entries) e WHERE e ~ %s OR e ~ %s OR e ~ %s",
          "entries shaped like an address, an email or a phone number", (STREET, EMAIL, PHONE)),
+        (f"SELECT count(*) FROM {T('interests')} WHERE kind = 'real property'", "rows the text reader typed real property", None),
+        (f"SELECT count(*) FROM {T('interests')} i, unnest(i.entries) e WHERE e ~* %s",
+         "entries naming a road, a highway, a rural delivery or a title", (ROAD,)),
     ):
         k = conn.execute(sql, args).fetchone()[0]
         if k:

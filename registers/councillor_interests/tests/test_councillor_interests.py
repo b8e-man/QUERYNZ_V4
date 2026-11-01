@@ -102,7 +102,7 @@ class FakeTables:
         got = [i for i in self.items if i["url"] == url]
         if not got:
             return None, None
-        return max(i["at"] for i in got), any(i["kind"] == "document" for i in got)
+        return max(i["at"] for i in got), any(i["kind"] == "document" and i["sha"] for i in got)
 
     def newest_sha(self, url):
         got = [i for i in self.items if i["url"] == url and i["sha"]]
@@ -196,6 +196,7 @@ def test_the_position_names_every_host_the_lane_asks():
     mine = _hosts(os.path.join(os.path.dirname(os.path.dirname(LANE)), "docs", "legal", "positions", "councillors-registers-of-interests.md"))   # moved there at the merge
     asked = {capture.REGISTERS[c][0] for c in capture.REGISTERS}
     asked |= {re.sub(r"^https?://([^/]+).*$", r"\1", u) for v in capture.REGISTERS.values() for u in v[1:] if u}
+    asked |= {h for hs in capture.DOC_HOSTS.values() for h in hs}
     assert not [h for h in asked if not _covered(h, mine)]
 
 
@@ -265,7 +266,8 @@ def test_the_reading_is_clean_and_goes_red_when_broken(filled):
         problems = check.reading(conn, SAMPLE_SCHEMA)
     finally:
         conn.rollback()
-    assert len(problems) == 3, problems
+    # the street entry is caught twice: shaped like a street address, and naming a road (the PDF reader's guard, 2 November 2026)
+    assert len(problems) == 4, problems
 
 
 def test_links_resolve_against_the_page_s_base_and_are_cleaned():
@@ -296,3 +298,31 @@ def test_a_malformed_address_holds_nothing_and_a_same_site_redirect_is_followed_
     out = r.run()
     assert t.held == {} and out["documents"] == 1 and asked[-1] == "https://invented.govt.nz/r2-moved.pdf"
     assert t.last_asked("https://www.invented.govt.nz/r1.pdf")[0] is not None   # FakeTables keeps every row
+
+
+def test_a_redirect_to_the_council_s_own_document_store_is_followed_and_a_failed_document_asked_again(monkeypatch):
+    """2 November 2026: Hutt's, Porirua's and Tasman's register files redirect to their own storage hosts (DOC_HOSTS),
+    followed once for that council only; a document that failed is asked again a month on, one landed never."""
+    import support.docstore.landing as L
+    store, t = {}, FakeTables()
+    monkeypatch.setattr(L, "read_bytes", lambda sha, root=None: store[sha])
+    land = b'<a href="/r3.pdf">pecuniary</a><a href="/r4.pdf">pecuniary</a>'
+
+    def answers(u):
+        if u.endswith(("r3.pdf", "r4.pdf")):
+            r = _fetched(u, 302)
+            r.location = ("https://docs.invented-store.example/f/r3" if u.endswith("r3.pdf")
+                          else "https://elsewhere.example/r4")
+            return r
+        return _fetched(u, body=b"%PDF-1.4 z" if "invented-store" in u else land)
+    regs = {"Invented District Council": REGS["Invented District Council"]}
+    monkeypatch.setattr(capture, "DOC_HOSTS", {"Invented District Council": ("docs.invented-store.example",)})
+    r, asked = _run(t, answers, store, regs)
+    out = r.run()
+    assert "https://docs.invented-store.example/f/r3" in asked and "https://elsewhere.example/r4" not in asked
+    assert out["documents"] == 1 and t.held == {}
+    r4 = "https://www.invented.govt.nz/r4.pdf"
+    assert not t.last_asked(r4)[1] and not r.due(r4, "document")          # failed today: not again tonight
+    for i in t.items:
+        i["at"] -= dt.timedelta(days=capture.EVERY_DAYS)
+    assert r.due(r4, "document") and not r.due("https://docs.invented-store.example/f/r3", "document")
