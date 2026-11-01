@@ -131,7 +131,7 @@ real rows: a company held by a partnership lists the partnership's general partn
 
 Arthur's question: the chain joins a holder to a company by exact name. 1,397 holder rows match a partnership's name
 case-folded; only 290 match exactly, so 1,107 are "not followed; no company of this name". A case fold would follow
-them all (still near); it changes how every holder is joined, so it is his.
+them all (still near); it changes how every holder is joined, so it is his. Ruled 2 November: ignore case; done.
 
 ## 13. The night's backfill ended at a second timeout
 
