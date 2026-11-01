@@ -176,3 +176,10 @@ read the ERA and the Employment Court; disciplinary-findings (legal) the Lawyers
 Tribunal and the Legal Complaints Review Officer; real-estate-authority (property) the Real Estate Agents Disciplinary
 Tribunal. Confirmed party: the check's severity; near: info; none: blocked (4507eca). Property's abstains on real rows:
 no company or director is linked to a real-estate tribunal party yet.
+
+## 18. Mortgagee possessions in four more templates
+
+Legal, credit, insurance and construction blocked mortgagee-possession on "the catalogue does not know the view";
+it has known it since property read it. Now each reads pub.gazette_possessions: the entity as mortgagor red (credit)
+or amber; as lender, or near, info; from a company none is clear, from a person blocked (6885054). Still stale:
+insurance's status-history says the same of pub.company_states, which credit reads; next.
