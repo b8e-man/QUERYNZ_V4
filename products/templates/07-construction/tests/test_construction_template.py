@@ -551,6 +551,24 @@ def test_other_current_companies_lists_the_going_ones_newest_first(held):
     assert f["status"] == "fired" and "2 registered" in f["text"] and f["text"].index("KEA FORMWORK") < f["text"].index("DELTA")
 
 
+def test_from_a_company_an_officer_s_other_current_role_fires_and_an_ended_one_does_not():
+    """2 November 2026: the officers the walk followed; a role the officer has left (ended, or not in the latest file) is no
+    current role (the mutant that read every role as current went uncaught)."""
+    now = it("companies:companies/7/director/a", "directors", grade="near", title="Jane Mary DOE", entity_title="TUI CONCRETE LIMITED",
+             via=NEWCO_DIRECTOR["ref"], reason=THROUGH, row={"entity_key": "companies/7", "role_type": "DIRECTOR", "in_latest": True})
+    now["through"] = NEWCO_DIRECTOR["ref"]
+    left = it("companies:companies/8/director/a", "directors", grade="near", title="Jane Mary DOE", entity_title="MOA DRAINS LIMITED",
+              via=NEWCO_DIRECTOR["ref"], reason=THROUGH, row={"entity_key": "companies/8", "role_type": "DIRECTOR", "in_latest": False})
+    left["through"] = NEWCO_DIRECTOR["ref"]
+    gone = dict(left, ref="companies:companies/9/director/a", entity_title="WEKA PIPES LIMITED",
+                row={"entity_key": "companies/9", "role_type": "DIRECTOR", "in_latest": True, "ended_on": "2024-03-01"})
+    f = rule("other_current_companies")(from_company(officers=[NEWCO_DIRECTOR, now, left, gone]))
+    assert f["status"] == "fired" and "TUI CONCRETE" in f["text"], f
+    assert "MOA DRAINS" not in f["text"] and "WEKA PIPES" not in f["text"], "a role the officer left is not current"
+    f = rule("other_current_companies")(from_company(officers=[NEWCO_DIRECTOR, left, gone]))
+    assert f["status"] != "fired", f
+
+
 def test_the_registers_not_held_block_and_never_clear():
     for name in ALWAYS_BLOCKED:
         for r in (person(), from_company(), report()):
