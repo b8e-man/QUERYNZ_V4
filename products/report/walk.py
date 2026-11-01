@@ -41,7 +41,7 @@ import re
 
 from products.report import catalogue as cat
 from products.report import db, rows
-from keys import names as kn
+from products.report import fold as kn
 
 LIMITS = {"members": 300, "links": 400, "star": 400, "related_people": 20, "roles": 200, "entities": 40, "second": 300, "expand": 12,
           "officers": 12, "officer_rows": 40, "office": 20, "chain": 4, "chain_holders": 25, "chain_companies": 40}
