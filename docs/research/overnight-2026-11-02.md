@@ -183,3 +183,8 @@ Legal, credit, insurance and construction blocked mortgagee-possession on "the c
 it has known it since property read it. Now each reads pub.gazette_possessions: the entity as mortgagor red (credit)
 or amber; as lender, or near, info; from a company none is clear, from a person blocked (6885054). Still stale:
 insurance's status-history says the same of pub.company_states, which credit reads; next.
+
+## 19. Insurance status-history
+
+Reads pub.company_states: an earlier insolvent or removed state amber, another change info, none blocked (the files
+held begin July 2026) (88ebbb7). Real row: a company In Liquidation in the July file and Registered in August, amber.
