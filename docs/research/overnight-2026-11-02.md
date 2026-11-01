@@ -54,3 +54,16 @@ carries a company number 3 times in 3,258, so every match is by name and near; a
 which is Arthur's.
 
 The history backfill began at 22:05:08: 23 answers by 22:07, every one 200, about 5.6 s apart.
+
+## 5. The Building Practitioners Board's decisions; namesakes in the regulators' listings
+
+29a5a70. `pub.building_practitioner_decisions` (264 decisions, November 2023 to September 2026, the Board's three-year
+window) is read by construction and property. `building-practitioners` fires on an upheld decision against a confirmed
+person (amber in construction, info in property), fires info on a namesake's, and stays blocked on none: the licence
+register itself (`pub.building_practitioners`) is held empty until Arthur's decision, so whether a person holds a licence
+is never cleared.
+
+A fault in section 4, mended here: a person start found no regulator listing, because nothing looked a person's name up
+in a view no link reaches. The walk's name join now reads the Board's decisions and the three regulators' parties, near
+by name; and the new sections had `own = false`, which dropped every row reached through the subject. Verified on the
+real rows: a current director who shares an upheld decision's name renders the decision near and the flag info.
