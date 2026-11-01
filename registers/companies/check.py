@@ -12,7 +12,10 @@ are pinned below, as printed:
 Against them, the lane's own company rows (the five company types, register
 `companies`), from the dates each row files:
 
-  live on a day    registered on or before it, and not removed by it
+  live on a day    registered on or before it, and not removed by it; from
+                   30 September 2026 on, an overseas company (ASIC,
+                   NON_ASIC) is not counted, as the Office no longer counts
+                   it (OVERSEAS_OUT_FROM)
   incorporated     registered in the month
   removed          removed in the month
 
@@ -70,6 +73,13 @@ MONTHS = {
     (2026, 8): (5047, 10523), (2026, 9): (5068, 3983),
 }
 
+#: from this quarter end on, the Companies Office's live count leaves out the overseas companies (ASIC, NON_ASIC), and so
+#: does the lane's (Arthur, 2 November 2026: "alright do it"). The evidence, the October package's build: on 30 June 2026
+#: the lane counted 756,821's figure within 0.02% with them in; on 30 September 2026 it counted 755,021 against 752,292
+#: (+0.36%) with them in, and 752,307 (+0.002%) with the 2,714 live overseas companies out. Earlier quarters keep them
+OVERSEAS_OUT_FROM = "2026-09-30"
+OVERSEAS_TYPES = ("ASIC", "NON_ASIC")
+
 _MONTHS_SQL = """
 SELECT 'i', extract(year FROM registered_on)::int, extract(month FROM registered_on)::int, count(*)
   FROM {t} WHERE register = 'companies' AND registered_on >= %(since)s GROUP BY 2, 3
@@ -114,10 +124,17 @@ def failed(f: dict) -> list:
     return why
 
 
+def _overseas_out(quarter: str) -> str:
+    """The live count's extra condition for a quarter end: the overseas companies out from OVERSEAS_OUT_FROM on."""
+    if quarter < OVERSEAS_OUT_FROM:
+        return ""
+    return " AND coalesce(entity_type, '') NOT IN (" + ", ".join(f"'{t}'" for t in OVERSEAS_TYPES) + ")"
+
+
 def measure(conn, t: str) -> dict:
     """The lane's counts from its entities table `t`: one query each, inside the database."""
     live = ", ".join(f"count(*) FILTER (WHERE register = 'companies' AND registered_on <= DATE '{d}' AND "
-                     f"(removed_on IS NULL OR removed_on > DATE '{d}'))" for d in QUARTERS)
+                     f"(removed_on IS NULL OR removed_on > DATE '{d}'){_overseas_out(d)})" for d in QUARTERS)
     row = conn.execute(f"SELECT (SELECT max(registered_on) FROM {t} WHERE register = 'companies' AND in_latest), "
                        f"{live} FROM {t}").fetchone()
     since = dt.date(*min(MONTHS), 1)

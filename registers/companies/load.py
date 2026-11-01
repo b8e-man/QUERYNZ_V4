@@ -18,7 +18,8 @@ from registers.companies import capture, monthly, read
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "companies"
 PRIVATE = "companies_private"
-TABLES = ("entities", "entity_states", "directors", "shareholders", "registered_offices", "files", "set_aside")
+TABLES = ("entities", "entity_states", "directors", "shareholders", "registered_offices", "insolvencies", "villages",
+          "files", "set_aside")
 PRIVATE_TABLES = ("residential_addresses",)
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at")
 COLUMNS = {
@@ -34,6 +35,12 @@ COLUMNS = {
                      "source_note") + _CITE,
     "registered_offices": ("key", "entity_key", "register", "started_on", "care_of", "line_1", "line_2", "line_3",
                            "line_4", "postcode", "country", "in_latest", "last_file", "source_note") + _CITE,
+    # the package-only files (monthly.py, 2 November 2026)
+    "insolvencies": ("key", "entity_key", "nzbn", "entity_name", "insolvency_type", "started_on", "appointment_type",
+                     "appointee_first_name", "appointee_middle_names", "appointee_last_name", "appointee", "organisation",
+                     "appointed_on", "vacated_on", "resolution_of_solvency", "last_file", "source_note") + _CITE,
+    "villages": ("key", "entity_key", "number", "name", "status", "operator_name", "operator_number", "supervisor_name",
+                 "supervisor_appointed_on", "last_file", "source_note") + _CITE,
 }
 
 
@@ -102,6 +109,24 @@ def build(conn, schema: str, exports: list, aside: list, only=None, shared: bool
         counts.update({f"{part}.{k}" if k in ("lines", "set_aside", "set_aside_lines", "no_entity") else k: v
                        for k, v in res.counts.items()})
         del res
+    if pkg:
+        # the files only the package carries: a company's insolvency appointments, a village's operator and supervisor
+        res = read.read_package(pkg, only=only, entities=entities)
+        for t in ("insolvencies", "villages"):
+            _copy(conn, table(schema, t, shared), COLUMNS[t], _flat(COLUMNS[t], res.rows[t]))
+        _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason", "count"), res.set_aside)
+        for part in read.PACKAGE_PARTS:
+            conn.execute(f"INSERT INTO {table(schema, 'files', shared)} VALUES (%s, %s, %s, 'read')",
+                         (pkg[2], f"{monthly.PACKAGES[pkg[0]][0]} ({part})", part))
+        # a village's operator joined to its company row by the company number, where exactly one company carries it
+        conn.execute(f"UPDATE {table(schema, 'villages', shared)} v SET operator_key = o.key, operator_nzbn = o.nzbn "
+                     f"FROM (SELECT number, min(key) AS key, min(nzbn) AS nzbn FROM {table(schema, 'entities', shared)} "
+                     f"WHERE register = 'companies' AND number IN (SELECT operator_number FROM "
+                     f"{table(schema, 'villages', shared)}) GROUP BY number HAVING count(*) = 1) o "
+                     f"WHERE o.number = v.operator_number")
+        counts.update(res.counts)
+        counts["villages.operator_joined"] = conn.execute(
+            f"SELECT count(*) FROM {table(schema, 'villages', shared)} WHERE operator_key IS NOT NULL").fetchone()[0]
     return counts
 
 

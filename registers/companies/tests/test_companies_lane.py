@@ -166,6 +166,20 @@ def test_the_check_compares_the_last_quarter_before_the_cut_and_each_month():
     assert check.failed(check.figures({}, {}, "2020-01-01"))
 
 
+def test_from_september_2026_the_live_count_leaves_overseas_companies_out_and_earlier_quarters_keep_them():
+    """The Office's 30 September 2026 figure (752,292) is met without the overseas companies (752,307, +0.002%) and missed
+    with them (755,021, +0.36%); 30 June 2026 was met with them (2 November 2026, Arthur: "alright do it")."""
+    assert check.OVERSEAS_OUT_FROM == "2026-09-30" and set(check.OVERSEAS_TYPES) == {"ASIC", "NON_ASIC"}
+    assert check._overseas_out("2026-06-30") == ""
+    cond = check._overseas_out("2026-09-30")
+    assert "NOT IN" in cond and "'ASIC'" in cond and "'NON_ASIC'" in cond
+    assert check._overseas_out("2026-12-31") == cond
+    live = dict(check.QUARTERS, **{"2026-09-30": 752307})
+    assert check.failed(check.figures(live, dict(check.MONTHS), "2026-10-01")) == []
+    live["2026-09-30"] = 755021
+    assert any("2026-09-30" in w for w in check.failed(check.figures(live, dict(check.MONTHS), "2026-10-01")))
+
+
 # --- the filled sample ---------------------------------------------------------------------
 
 def _ent(filled, k):

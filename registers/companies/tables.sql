@@ -135,6 +135,63 @@ CREATE TABLE IF NOT EXISTS companies.registered_offices (
     loaded_at        timestamptz NOT NULL
 );
 
+-- one row per appointment in a company's insolvency, as the monthly package's companies_insolvency.csv files it (a
+-- package-only file, 2 November 2026). The appointee is the practitioner (or the Official Assignee) in that office; the
+-- file carries no address. A line repeated exactly is one row
+CREATE TABLE IF NOT EXISTS companies.insolvencies (
+    key              text PRIMARY KEY,                      -- companies/<nzbn>/insolvency/<12 hex of the line's fields>
+    entity_key       text NOT NULL,
+    nzbn             text NOT NULL,
+    entity_name      text,                                  -- as the file names the company
+    insolvency_type  text,                                  -- Liquidation | Receivership | Voluntary Administration
+    started_on       date,                                  -- the insolvency's start, as filed
+    appointment_type text,                                  -- the appointment's basis as filed ("241(2)(c) - Court", ...)
+    appointee_first_name text,
+    appointee_middle_names text,
+    appointee_last_name text,
+    appointee        text,                                  -- the three names joined
+    organisation     text,                                  -- the appointee's firm, as filed
+    appointed_on     date,
+    vacated_on       date,                                  -- as filed; empty while in office
+    resolution_of_solvency boolean NOT NULL,                -- the file's RESSOLUTION_OF_SOLVENCY = Y
+    last_file        text NOT NULL,
+    source_note      text NOT NULL,
+    document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page             integer NOT NULL DEFAULT 1,
+    place            text NOT NULL,
+    read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL
+);
+
+-- a retirement village's operator and statutory supervisor, as the package's retirement_villages_core_data.csv
+-- files them; the supervisor's, the operator's and the premises' addresses are never read
+CREATE TABLE IF NOT EXISTS companies.villages (
+    key              text PRIMARY KEY,                      -- the village's entity key: companies/retirement_village/<number>
+    entity_key       text NOT NULL,
+    number           text NOT NULL,
+    name             text,
+    status           text,
+    operator_name    text,
+    operator_number  text,                                  -- the operator's company number, as filed
+    operator_key     text,                                  -- the operator's company row, where one company carries the number
+    operator_nzbn    text,
+    supervisor_name  text,
+    supervisor_appointed_on date,
+    last_file        text NOT NULL,
+    source_note      text NOT NULL,
+    document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page             integer NOT NULL DEFAULT 1,
+    place            text NOT NULL,
+    read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL
+);
+
 -- every document the lane took, and what it did with it
 CREATE TABLE IF NOT EXISTS companies.files (
     document   text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
