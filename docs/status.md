@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-10-31, 14:10 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-11-01, 21:45 NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily, no clean day yet; 5.1 done; 5.2 closed
 (ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
 sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
@@ -25,6 +25,10 @@ runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
   ingest, the common reader rules, no excerpts).
 
 ## Running (the bulk ingest of the MCP, ruling 130)
+
+- Overnight 1 to 2 November (Arthur's six approvals): `qv4-companies-history`
+  from 22:05 (past roles, 1.10 M wanted, 2,000 a night); credit reads
+  `pub.company_states`. Report: docs/research/overnight-2026-11-02.md.
 
 - 31 October merges: `fix-registers-courts-1` 10:5x (one keep rule;
   `pub.court_people` 57,096 names), `readers-1` 12:50 (beehive-2,
