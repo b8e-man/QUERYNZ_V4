@@ -30,9 +30,9 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "standing", "solvency", "people", "companies", "people-notices", "beside", "charities", "safety", "past-roles", "courts"]
+ORDER = ["identity", "standing", "solvency", "people", "companies", "people-notices", "beside", "charities", "safety", "past-roles", "possessions", "courts"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
+VIEWS = {"gazette_possessions", "court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
          "charities", "charity_officers", "charity_returns", "worksafe_parties", "commerce_commission_parties", "fma_parties"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -41,7 +41,7 @@ CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|co
 HISTORY_CHECKS = ("sister_company_failure", "register_events", "other_current_companies")
 PEOPLE_CHECKS = ("sister_company_failure", "other_current_companies", "prohibition", "bankruptcy", "practitioner_roles")
 ALWAYS_BLOCKED = ("safety_record", "court_judgments", "tribunals", "change_history", "status_history",
-                  "mortgagee_possession", "insolvency_register", "securities_register")
+                  "insolvency_register", "securities_register")
 
 
 def toml():
@@ -112,10 +112,10 @@ def test_it_names_only_the_views_the_brief_names_each_once_with_its_licence():
     assert len(views) == len(set(views)) and set(views) == VIEWS and t["depth"] == 2
     assert all(r.get("licence") and r.get("attribution") and r.get("refresh") for r in t["reads"])
     assert "registered offices only, never a residential address" in [r for r in t["reads"] if r["view"] == "company_addresses"][0]["licence"]
-    for unreached in ("company_states", "gazette_possessions"):
+    for unreached in ("company_states",):
         assert unreached not in views, "the catalogue does not know it: carded, named in the flags"
     src = open(os.path.join(HERE, "template.toml"), encoding="utf-8").read()
-    assert "the-catalogue-does-not-know-gazette-possessions" in src
+    assert "pub.gazette_possessions is read since 2 November 2026" in src and "pub.company_states is in the catalogue" in src
 
 
 def test_its_sections_run_in_the_underwriters_order():
@@ -126,7 +126,7 @@ def test_its_sections_run_in_the_underwriters_order():
         "an entity is filed in the first section naming its view: a confirmed company never lands with the namesakes"
     assert s["standing"]["views"] == ["company_addresses"]
     assert set(s["solvency"]["views"]) == {"gazette_liquidations", "gazette_company_notices"} and "pointing" in s["solvency"]["sources"]
-    assert "pointing" not in {x for sec in t["sections"] if sec["name"] != "solvency" for x in sec.get("sources", [])}
+    assert "pointing" not in {x for sec in t["sections"] if sec["name"] not in ("solvency", "possessions") for x in sec.get("sources", [])}
     assert s["people"]["views"] == ["directors", "shareholders", "limited_partnerships", "limited_partnership_partners", "company_lookup_roles"] and "roles" in s["people"]["sources"]
     assert s["companies"]["views"] == ["companies"]
     assert set(s["people-notices"]["views"]) == {"gazette_prohibitions", "gazette_bankruptcies"}
@@ -510,7 +510,7 @@ def test_the_safety_record_and_every_register_not_held_block_and_never_clear():
     assert "Disputes Tribunal" in rule("tribunals")(person())["text"]
     assert "16 August 2026" in rule("change_history")(person())["text"] and "industry classification" in rule("change_history")(person())["text"]
     assert "pub.company_states" in rule("status_history")(person())["text"]
-    assert "pub.gazette_possessions" in rule("mortgagee_possession")(person())["text"]
+    assert "pub.gazette_possessions" in rule("mortgagee_possession")(person())["sources_held"][0]
 
 
 def test_a_register_name_with_a_word_of_cause_is_not_quoted_in_a_flag(held):

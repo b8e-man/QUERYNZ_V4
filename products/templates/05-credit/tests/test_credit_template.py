@@ -26,7 +26,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "standing", "changes", "gazette", "people", "people-notices", "past-roles", "courts", "not-held"]
+ORDER = ["identity", "standing", "changes", "gazette", "people", "people-notices", "past-roles", "possessions", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
@@ -154,7 +154,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
-KIND = {"directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
+KIND = {"gazette_possessions": "event", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "companies": "organisation", "societies": "organisation", "company_addresses": "place",
         "gazette_company_notices": "organisation", "gazette_liquidations": "organisation", "party_return_donors": "figure",
         "company_states": "organisation"}
@@ -564,7 +564,7 @@ def test_namesake_exposure_declares_the_report_partial_past_fifty():
 
 def test_the_registers_not_held_block_and_never_clear():
     for name in ("since_date", "interface_freshness", "past_roles", "change_history", "securities_register",
-                 "insolvency_register", "court_judgments", "credit_bureau", "mortgagee_possession"):
+                 "insolvency_register", "court_judgments", "credit_bureau"):
         for r in (busy(), person(), other()):
             assert rule(name)(r)["status"] == "blocked", name
     assert "Personal Property Securities Register" in rule("securities_register")(busy())["text"]
@@ -575,3 +575,24 @@ def test_the_registers_not_held_block_and_never_clear():
 def test_the_rules_file_imports_nothing_of_the_shape():
     src = inspect.getsource(R)
     assert not re.search(r"^\s*(from|import) products", src, re.M)
+
+
+def test_mortgagee_possession_reads_the_gazette_red_on_the_entity_info_as_lender_and_never_clears_a_person():
+    """pub.gazette_possessions (2 November 2026): the entity as mortgagor fires red; a company here as the lender fires info; from a
+    person, a confirmed company as mortgagor fires red and none is blocked, a person mortgagor's name being private; from a company,
+    none is clear."""
+    def poss(n, mortgagor, mortgagee, grade="confirmed"):
+        return it(f"gazette:gazette/2026-mp{n}/possession/1", "gazette_possessions", grade=grade, title=f"LENDER {n} · entry into possession",
+                  dates="entered 15 September 2026", row={"mortgagor_register_key": mortgagor, "mortgagee_register_key": mortgagee})
+    own = poss(1, "companies/1", "companies/9")
+    f = rule("mortgagee_possession")(report(possessions=[own]))
+    assert (f["status"], f["severity"]) == ("fired", "red") and f["citations"] == (own["ref"],) and "the entity" in f["text"]
+    lent = poss(2, "companies/8", "companies/1")
+    g = rule("mortgagee_possession")(report(possessions=[lent]))
+    assert (g["status"], g["severity"]) == ("fired", "info") and "1 with a company here as the lender" in g["text"]
+    assert rule("mortgagee_possession")(report())["status"] == "clear"
+    on_gamma = poss(3, "companies/3", "companies/9")
+    h = rule("mortgagee_possession")(person(changes=[], gazette=[], possessions=[on_gamma]))   # the company row alone, no role via
+    assert (h["status"], h["severity"]) == ("fired", "red") and "a company the person is confirmed on" in h["text"]
+    assert rule("mortgagee_possession")(person())["status"] == "blocked"
+    assert rule("mortgagee_possession")(report(possessions=[poss(4, "companies/1", "companies/9", grade="near")]))["severity"] == "info"

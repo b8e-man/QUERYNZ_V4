@@ -33,6 +33,11 @@ limits = [
 
 # ── what it reads: each view with its licence ───────────────────────────────
 [[reads]]
+view = "gazette_possessions"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person mortgagor's name and the property stay in the lane's private tables, and a company is named with its register key"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
 view = "court_judgments"
 licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
 attribution = "the courts of New Zealand, from the courts corpus held"
@@ -248,6 +253,13 @@ heading = "Past roles under the name, from the business-number register"
 views = ["company_lookup_roles"]
 sources = ["named", "officers"]
 text = "A role the business-number register states and no monthly file held, under the subject's name or a person's on the company: near, a person with this name and not confirmed to be the subject. One at a company that later failed is an amber warning in the failure checks. The register is read company by company, so most companies' past roles are not yet asked: none listed here is not a finding of none."
+
+[[sections]]
+name = "possessions"
+heading = "Mortgagee possessions"
+views = ["gazette_possessions"]
+sources = ["pointing", "members", "confirmed", "near"]
+text = "A lender's entry into possession of a mortgaged property, as the Gazette states it, where the notice names the entity, or a company the person is on, as mortgagor or as lender, with the day of entry. The property and a person mortgagor's name are not shown. A near row is a namesake's or an officer's other company's: nothing in it is the subject's."
 
 [[sections]]
 name = "courts"

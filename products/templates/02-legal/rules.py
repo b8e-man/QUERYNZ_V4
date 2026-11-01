@@ -686,10 +686,47 @@ def register_events(report):
                           "the person has a confirmed row on", sources_held=(NOTICES_HELD,), scope="officer-group")
 
 
+POSSESSIONS_HELD = ("a mortgagee's entry into possession as the Gazette states it, the company mortgagor and lender by register key "
+                    "(pub.gazette_possessions)",)
+POSSESSIONS_NOT_HELD = ("a mortgagee possession whose mortgagor is a person (the name and the property stay in the gazette lane's private "
+                        "tables)", "the Personal Property Securities Register (interface awaited since 19 September 2026)")
+
+
 def mortgagee_possession(report):
-    return flag("mortgagee-possession", V, "blocked", "amber",
-                "a lender's entry into possession of a company's land or goods is published in the Gazette (pub.gazette_possessions), but the "
-                "report's catalogue does not know the view, so this report cannot reach it; this check cannot run", sources_not_held=POSSESSIONS)
+    """A mortgagee's entry into possession, as the Gazette states it (pub.gazette_possessions), where the mortgagor is the entity or a
+    company the rules confirm the person is on: amber; where a company here is the lender, or the row is near: info. From a company,
+    none is clear as the Gazette states them; from a person, none is blocked: a person mortgagor's name stays in the lane's private
+    tables. The property is never shown."""
+    if _other_start(report):
+        return flag("mortgagee-possession", V, "blocked", "amber", _other_start(report), sources_not_held=POSSESSIONS_NOT_HELD)
+    subject = report["subject"]["ref"]
+    mine = ({subject} | {it["ref"] for it in items(report, ("companies",), ("confirmed",))}
+            | {it.get("via") for it in items(report, None, ("confirmed",)) if it.get("via")})
+    def key_of(it, col):
+        k = (it.get("row") or {}).get(col)
+        return f"companies:{k}" if k else None
+    ps = [it for it in items(report, ("gazette_possessions",)) if not it.get("suppressed")]
+    own = [it for it in ps if it["grade"] == "confirmed" and (key_of(it, "mortgagor_register_key") == subject
+                                                               or (_person_start(report) and key_of(it, "mortgagor_register_key") in mine))]
+    lender = [it for it in ps if it not in own and key_of(it, "mortgagee_register_key") in mine]
+    near = [it for it in ps if it not in own and it not in lender]
+    if own:
+        return flag("mortgagee-possession", V, "fired", "amber", f"{len(own)} mortgagee entry(ies) into possession where the mortgagor is "
+                    + ("the entity" if _company_start(report) else "a company the person is confirmed on") + ": "
+                    + "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in own[:3]) + "; the property is not shown",
+                    citations=tuple(it["ref"] for it in own), sources_held=POSSESSIONS_HELD, sources_not_held=POSSESSIONS_NOT_HELD)
+    if lender or near:
+        rows = lender + near
+        return flag("mortgagee-possession", V, "fired", "info", f"{len(rows)} mortgagee entry(ies) into possession reached, none on the "
+                    f"entity or the person's own companies as mortgagor ({len(lender)} with a company here as the lender, {len(near)} near): "
+                    + "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in rows[:3]),
+                    citations=tuple(it["ref"] for it in rows), sources_held=POSSESSIONS_HELD, sources_not_held=POSSESSIONS_NOT_HELD)
+    if _company_start(report):
+        return flag("mortgagee-possession", V, "clear", "amber", "no mortgagee entry into possession in the Gazette names the entity as "
+                    "mortgagor", sources_held=POSSESSIONS_HELD, sources_not_held=POSSESSIONS_NOT_HELD)
+    return flag("mortgagee-possession", V, "blocked", "amber", "no mortgagee entry into possession in the Gazette names a company the "
+                "person is confirmed on as mortgagor; one naming the person as mortgagor is not shown (the name stays in the gazette lane's "
+                "private tables), so no clear is given", sources_held=POSSESSIONS_HELD, sources_not_held=POSSESSIONS_NOT_HELD)
 
 
 # ── the people ──────────────────────────────────────────────────────────────

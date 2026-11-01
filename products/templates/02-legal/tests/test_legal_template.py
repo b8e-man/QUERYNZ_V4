@@ -26,7 +26,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "officers", "web", "gazette", "money", "regulators", "past-roles", "courts", "not-held"]
+ORDER = ["identity", "officers", "web", "gazette", "money", "regulators", "past-roles", "possessions", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
@@ -36,7 +36,7 @@ NO_CONFLICT = re.compile(r"\b(no conflict|conflict[- ]free|not conflicted|cleare
 GAZETTE = {"gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_prohibitions", "gazette_bankruptcies"}
 HISTORY_CHECKS = ("company_status", "insolvency_notices", "repeat_insolvency", "amalgamation", "register_events")
 PEOPLE_CHECKS = ("conflict_web", "shared_boards", "repeat_insolvency", "prohibition", "practitioner_roles", "charity_officer_roles", "bankruptcy")
-ALWAYS_BLOCKED = ("client_overlap", "mortgagee_possession", "bankruptcy", "court_judgments", "disciplinary_findings",
+ALWAYS_BLOCKED = ("client_overlap", "bankruptcy", "court_judgments", "disciplinary_findings",
                   "securities_register")
 
 
@@ -489,7 +489,7 @@ def test_the_registers_not_held_block_and_never_clear():
             assert rule(name)(r)["status"] == "blocked", name
     assert "the corpus holds a part" in rule("court_judgments")(person())["text"]
     assert any("Disciplinary Tribunal" in x for x in rule("disciplinary_findings")(person())["sources_not_held"])
-    assert "pub.gazette_possessions" in rule("mortgagee_possession")(person())["text"]
+    assert "pub.gazette_possessions" in rule("mortgagee_possession")(person())["sources_held"][0]
 
 
 def test_namesake_exposure_declares_the_report_partial_past_fifty():

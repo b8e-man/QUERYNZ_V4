@@ -28,9 +28,9 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "board", "past-roles", "contracts", "courts", "not-held"]
+ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "board", "past-roles", "contracts", "possessions", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"award_notices", "award_suppliers", "court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
+VIEWS = {"gazette_possessions", "award_notices", "award_suppliers", "court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
          "charities", "charity_officers", "charity_returns"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -39,7 +39,7 @@ CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|co
 HISTORY_CHECKS = ("phoenix_signature", "insolvency_notices", "repeat_failure", "register_events", "other_current_companies")
 PEOPLE_CHECKS = ("phoenix_signature", "repeat_failure", "other_current_companies", "prohibition", "bankruptcy", "practitioner_roles", "society_roles")
 ALWAYS_BLOCKED = ("practitioner_repeat", "change_history", "building_practitioners", "insolvency_register", "court_judgments",
-                  "employment_determinations", "securities_register", "mortgagee_possession")
+                  "employment_determinations", "securities_register")
 
 
 def toml():
@@ -109,7 +109,7 @@ def test_it_names_only_the_views_the_brief_names_each_once_with_its_licence():
     assert len(views) == len(set(views)) and set(views) == VIEWS and t["depth"] == 2
     assert all(r.get("licence") and r.get("attribution") and r.get("refresh") for r in t["reads"])
     assert "registered offices only, never a residential address" in [r for r in t["reads"] if r["view"] == "company_addresses"][0]["licence"]
-    for unreached in ("gazette_practitioners", "company_states", "gazette_possessions"):
+    for unreached in ("gazette_practitioners", "company_states"):
         assert unreached not in views, "the catalogue does not know it, or no link reaches it: carded, named in the flags"
 
 
@@ -124,7 +124,7 @@ def test_its_sections_run_in_the_procurement_leads_order():
     assert s["office"]["views"] == ["company_addresses"]
     assert set(s["people-notices"]["views"]) == {"gazette_prohibitions", "gazette_bankruptcies"}
     assert "second" in s["people"]["sources"] and "second" not in {x for sec in t["sections"] if sec["name"] != "people" for x in sec.get("sources", [])}
-    assert "pointing" in s["gazette"]["sources"] and "pointing" not in {x for sec in t["sections"] if sec["name"] != "gazette"
+    assert "pointing" in s["gazette"]["sources"] and "pointing" not in {x for sec in t["sections"] if sec["name"] not in ("gazette", "possessions")
                                                                        for x in sec.get("sources", [])}
     assert {"building_practitioners", "insolvency", "court_coverage"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
     for named in ("building practitioners", "Official Assignee", "court judgments", "Employment Relations Authority", "16 August 2026"):
@@ -558,7 +558,7 @@ def test_the_registers_not_held_block_and_never_clear():
     assert "16 August 2026" in rule("change_history")(person())["text"]
     assert "building practitioner" in rule("building_practitioners")(person())["sources_not_held"][0]
     assert "Employment Relations Authority" in rule("employment_determinations")(person())["text"]
-    assert "pub.gazette_possessions" in rule("mortgagee_possession")(person())["text"]
+    assert "pub.gazette_possessions" in rule("mortgagee_possession")(person())["sources_held"][0]
 
 
 def test_a_register_name_with_a_word_of_cause_is_not_quoted_in_a_flag(held):

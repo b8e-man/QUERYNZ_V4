@@ -56,6 +56,11 @@ means = "days either side of a failure's Gazette date within which a going compa
 
 # ── what it reads: each view with its licence ───────────────────────────────
 [[reads]]
+view = "gazette_possessions"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person mortgagor's name and the property stay in the lane's private tables, and a company is named with its register key"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
 view = "award_notices"
 licence = "CC BY 3.0 NZ"
 attribution = "Ministry of Business, Innovation and Employment, New Zealand Government procurement award notices (GETS open data)"
@@ -261,6 +266,13 @@ heading = "Government contracts awarded"
 views = ["award_notices", "award_suppliers"]
 sources = ["named", "members", "confirmed", "near"]
 text = "A government contract award notice that names the subject as a supplier, as GETS publishes it. The value is the notice's: on a panel or a multi-supplier award it is the whole award's, not this supplier's share. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's. Contracts below the thresholds, direct awards, and most councils' and private clients' contracts carry no GETS notice, so none listed here is not a finding of none."
+
+[[sections]]
+name = "possessions"
+heading = "Mortgagee possessions"
+views = ["gazette_possessions"]
+sources = ["pointing", "members", "confirmed", "near"]
+text = "A lender's entry into possession of a mortgaged property, as the Gazette states it, where the notice names the entity, or a company the person is on, as mortgagor or as lender, with the day of entry. The property and a person mortgagor's name are not shown. A near row is a namesake's or an officer's other company's: nothing in it is the subject's."
 
 [[sections]]
 name = "courts"
