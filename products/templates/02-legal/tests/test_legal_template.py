@@ -26,7 +26,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "officers", "web", "gazette", "money", "regulators", "not-held"]
+ORDER = ["identity", "officers", "web", "gazette", "money", "regulators", "past-roles", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
@@ -601,3 +601,24 @@ def test_officers_of_record_counts_the_business_number_registers_roles_no_file_h
     assert "business-number register" not in other["text"], "another company's register roles are not the subject's"
     hidden = rule("officers_of_record")(report(subject=me, officers=[dict(past, suppressed=True)]))
     assert "business-number register" not in hidden["text"]
+
+
+def _past(n, company, suppressed=False):
+    return it(f"companies:companies/{company}/role/{n}/aa", "company_lookup_roles", grade="near", title="Jane DOE · Director",
+              statement=f"Jane DOE · Director: Director of FAILED {company} LIMITED (INACTIVE), as the business-number register states it",
+              dates="from 2 July 2013; to 27 November 2013", via=PERSON["ref"], suppressed=suppressed,
+              row={"entity_key": f"companies/{company}", "ended_on": "2013-11-27"}) | {
+        "failure": {"status": None, "notice": f"gazette:gazette/2020-x{company}/company/1", "on": "2020-04-24"}}
+
+
+def test_a_namesakes_past_roles_at_failed_companies_warn_amber_and_a_repeat_needs_two():
+    """Arthur, 2 November 2026, option (b)."""
+    base = rule("repeat_insolvency")(report())
+    one = rule("repeat_insolvency")(report(past_roles=[_past(1, 11)]))
+    assert one["status"] == base["status"] and "past role(s)" not in one["text"], "one failed company is not a repeat on its own"
+    two = rule("repeat_insolvency")(report(past_roles=[_past(1, 11), _past(2, 12), _past(2, 12)]))
+    assert two["status"] == "fired" and two["severity"] == "amber" and two["text"].startswith("2 past role(s)")
+    assert "not confirmed to be the subject" in two["text"] and "published 2020-04-24" in two["text"]
+    assert "gazette:gazette/2020-x11/company/1" in two["citations"] and f"on its own finding, {base['status']}" in two["text"]
+    hidden = rule("repeat_insolvency")(report(past_roles=[_past(1, 11), _past(2, 12, suppressed=True)]))
+    assert "past role(s)" not in hidden["text"], "a suppressed name is never counted"

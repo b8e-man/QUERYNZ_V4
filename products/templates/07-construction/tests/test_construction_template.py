@@ -28,7 +28,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "board", "not-held"]
+ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "board", "past-roles", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 VIEWS = {"company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",

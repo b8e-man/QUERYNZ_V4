@@ -136,6 +136,10 @@ ROLES_ON = {
 #: rows of a view that another view already lists: {view: column}; a row with the column set is skipped (a business-number register
 #: role whose `held_key` names the monthly file's own director row is that row, listed once, from the file)
 ALREADY_LISTED = {"company_lookup_roles": "held_key"}
+#: name-joined rows that carry their company's failure, if any: {view: the company key column}; a failure is an insolvent status or a
+#: Gazette liquidation notice on the company (Arthur, 2 November 2026: a namesake's past role at a failed company is an amber warning)
+FAILURE_OF = {"company_lookup_roles": "entity_key"}
+INSOLVENT_STATUS = re.compile(r"liquidation|receiv|administration|statutory management", re.I)
 #: entities expanded only when they are the start row: a return's other donors are not the subject's connections
 EXPAND_ONLY_AS_START = frozenset({"party_return_totals", "candidate_return_totals", "disclosures", "mp_interest_returns"})
 #: rows of other views that point at a company by its register key (a possession points twice: as lender and as borrower)
@@ -561,6 +565,9 @@ def name_joined(conn, people: list, allowed: set, skipped: list) -> tuple:
             keys = sorted({str(r.get(cv.entity[1])) for r in got if r.get(cv.entity[1])})
             if keys:
                 titles = {str(e["key"]): rows.title(ev, e) for e in db.rows(conn, f"select *, {ev.key_col} as key from pub.{ev.name} where {ev.key_col} = any(%s)", (keys,))}
+        failures = {}
+        if child in FAILURE_OF and got:
+            failures = company_failures(conn, sorted({str(r.get(FAILURE_OF[child])) for r in got if r.get(FAILURE_OF[child])}))
         for r in got:
             r.pop("total", None)
             if ALREADY_LISTED.get(child) and r.get(ALREADY_LISTED[child]):
@@ -569,8 +576,27 @@ def name_joined(conn, people: list, allowed: set, skipped: list) -> tuple:
             refs = set(wanted.get(cat.fold(name), ())) | set(wanted.get(first_last(name), ()))
             for ref in sorted(refs):
                 it = near(item(cv, r, titles.get(str(r.get(cv.entity[1]))) if cv.entity else None, via=ref), reason, "same-name")
+                if child in FAILURE_OF:
+                    it["failure"] = failures.get(str(r.get(FAILURE_OF[child])))
                 out.setdefault(ref, []).append(it)
     return out, omitted
+
+
+def company_failures(conn, keys: list) -> dict:
+    """{company key: {"status", "notice", "on"}} for the companies among `keys` that failed: an insolvent status in the latest
+    file, or a Gazette liquidation notice on it (its earliest, with the notice's ref and date). Two queries."""
+    out = {}
+    if not keys:
+        return out
+    for c in db.rows(conn, "select key, status from pub.companies where key = any(%s)", (keys,)):
+        if INSOLVENT_STATUS.search(c.get("status") or ""):
+            out[str(c["key"])] = {"status": c["status"], "notice": None, "on": None}
+    lv = cat.BY_NAME["gazette_liquidations"]
+    for n in db.rows(conn, f"select distinct on (register_key) register_key, {lv.key_col} as key, published_on from pub.gazette_liquidations "
+                           f"where register_key = any(%s) order by register_key, published_on", (keys,)):
+        f = out.setdefault(str(n["register_key"]), {"status": None})
+        f.update(notice=rows.ref_of(lv, str(n["key"])), on=str(n["published_on"]) if n.get("published_on") else None)
+    return out
 
 
 def listable(v: cat.View, r: dict) -> bool:

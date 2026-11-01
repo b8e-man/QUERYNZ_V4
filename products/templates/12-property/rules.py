@@ -483,7 +483,7 @@ def _reach_short(report) -> str:
 
 # ── the serial pattern ──────────────────────────────────────────────────────
 
-def serial_pattern(report):
+def _serial_pattern_own(report):
     """MC-P1, the SPV-serial rule. For each principal, the companies under them, two or more of which failed (a liquidation, a
     receivership, an administration or a removal, each dated from its Gazette notice), set out in the order they were registered,
     each with its life from registration to failure, beside the principal's going companies and the gap in days. Red on a person's
@@ -568,7 +568,7 @@ def _shared_by_directors(report, principals) -> str:
     return f"; {k} of the directors' other companies have two or more of the entity's directors on them" if k else ""
 
 
-def earlier_failure(report):
+def _earlier_failure_own(report):
     """A principal's company that failed, its date beside the entity's start (from a company) or beside each of the person's going
     companies (from a person), the gap in days, nearest first; the window is the reader's. One failure is enough: the serial pattern
     counts the repeats."""
@@ -1171,6 +1171,60 @@ def building_practitioners(report):
 
 
 past_roles = _not_held("past-roles", "amber", CHANGE_HISTORY, f"a principal's past roles and the companies removed with them ({PAST_NOT_HELD})")
+
+
+
+# ── a namesake's past role at a failed company (Arthur, 2 November 2026: option b) ───────────────────────────────
+
+PAST_ROLES_HELD = "the roles the business-number register states and no monthly file held (pub.company_lookup_roles), read company by company"
+PAST_EXAMPLES = 3
+
+
+def _namesake_past_failures(report):
+    """The register roles under the subject's or a principal's name, near, at a company that later failed (an insolvent status or a
+    Gazette liquidation notice, as the walk attaches it); each once."""
+    seen, out = set(), []
+    for it in items(report, ("company_lookup_roles",), ("near",)):
+        if it.get("failure") and not it.get("suppressed") and it["ref"] not in seen:
+            seen.add(it["ref"])
+            out.append(it)
+    return out
+
+
+def _failed_text(it):
+    f = it["failure"]
+    if f.get("notice"):
+        return f"named in a Gazette liquidation notice{' published ' + f['on'] if f.get('on') else ''}"
+    return f"{f['status']} in the latest companies file"
+
+
+def _with_past_failures(f, report, alone=1):
+    """Adds the namesake past roles at failed companies to a failure check: appended to a fired flag; otherwise the flag fires amber,
+    its own finding kept after it, when they are on at least `alone` failed companies (2 for a check that counts repeats). Never red:
+    nothing confirms the namesake is the subject."""
+    hit = _namesake_past_failures(report)
+    if not hit or (f["status"] != "fired" and len({(it.get("row") or {}).get("entity_key") or it["ref"] for it in hit}) < alone):
+        return f
+    bits = "; ".join(f"{it['statement']} ({it['dates']['text']}), {_failed_text(it)}" for it in hit[:PAST_EXAMPLES])
+    more = f"; and {len(hit) - PAST_EXAMPLES} more, each listed" if len(hit) > PAST_EXAMPLES else ""
+    note = (f"{len(hit)} past role(s) the business-number register states under the name, at a company that later failed: {bits}{more}; "
+            "a person with this name, not confirmed to be the subject")
+    cites = tuple(it["ref"] for it in hit) + tuple(it["failure"]["notice"] for it in hit if it["failure"].get("notice"))
+    if f["status"] == "fired":
+        return dict(f, text=f"{f['text']} || {note}", citations=tuple(dict.fromkeys(tuple(f["citations"]) + cites)),
+                    sources_held=tuple(dict.fromkeys(tuple(f["sources_held"]) + (PAST_ROLES_HELD,))))
+    return flag(f["rule"], f["version"], "fired", "amber", f"{note}; on its own finding, {f['status']}: {f['text']}", citations=cites,
+                sources_held=tuple(f["sources_held"]) + (PAST_ROLES_HELD,), sources_not_held=f["sources_not_held"], scope=f["scope"])
+
+
+def serial_pattern(report):
+    """serial-pattern, with a namesake's past role at a failed company as an amber warning (option b, 2 November 2026)."""
+    return _with_past_failures(_serial_pattern_own(report), report, alone=2)   # a repeat needs two
+
+
+def earlier_failure(report):
+    """earlier-failure, with a namesake's past role at a failed company as an amber warning (option b, 2 November 2026)."""
+    return _with_past_failures(_earlier_failure_own(report), report)
 
 
 RULES = (serial_pattern, earlier_failure, entity_status, young_entity, sole_vehicle, professional_office, shared_office, possession,

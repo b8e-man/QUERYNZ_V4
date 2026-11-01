@@ -184,6 +184,13 @@ not_held = ["insolvency"]
 text = "A director prohibition or a bankruptcy notice the link rules join to the person by name, with its dates; a near row shares the name only. A revoked prohibition and an annulled bankruptcy's name are never shown. Started from a company, its people's notices are not read, so an empty section here is not a clear: start a report from each director listed."
 
 [[sections]]
+name = "past-roles"
+heading = "Past roles under the name, from the business-number register"
+views = ["company_lookup_roles"]
+sources = ["named", "officers"]
+text = "A role the business-number register states and no monthly file held, under the subject's name or a person's on the company: near, a person with this name and not confirmed to be the subject. One at a company that later failed is an amber warning in the failure checks. The register is read company by company, so most companies' past roles are not yet asked: none listed here is not a finding of none."
+
+[[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []

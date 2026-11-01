@@ -273,7 +273,7 @@ def entity_insolvency(report):
                 sources_held=(GAZETTE_HELD + ", joined to the company by its number",), sources_not_held=NOT_HELD_INSOLVENCY, scope="entity")
 
 
-def officer_group_insolvency(report):
+def _officer_group_insolvency_own(report):
     """Gazette insolvency notices on the other companies the counterparty's
     people sit on. From a person start these are the person's companies."""
     if _company_start(report):
@@ -708,6 +708,55 @@ def identity(report):
     n = g.get("size", 1)
     return flag("identity", V, "clear", "info", "the counterparty is this one row: no confirmed link reaches it" if n == 1 else
                 f"the counterparty is a group of {n} rows confirmed the same person, not contested", sources_held=("pub.groups", "pub.links"))
+
+
+
+# ── a namesake's past role at a failed company (Arthur, 2 November 2026: option b) ───────────────────────────────
+
+PAST_ROLES_HELD = "the roles the business-number register states and no monthly file held (pub.company_lookup_roles), read company by company"
+PAST_EXAMPLES = 3
+
+
+def _namesake_past_failures(report):
+    """The register roles under the subject's or a principal's name, near, at a company that later failed (an insolvent status or a
+    Gazette liquidation notice, as the walk attaches it); each once."""
+    seen, out = set(), []
+    for it in items(report, ("company_lookup_roles",), ("near",)):
+        if it.get("failure") and not it.get("suppressed") and it["ref"] not in seen:
+            seen.add(it["ref"])
+            out.append(it)
+    return out
+
+
+def _failed_text(it):
+    f = it["failure"]
+    if f.get("notice"):
+        return f"named in a Gazette liquidation notice{' published ' + f['on'] if f.get('on') else ''}"
+    return f"{f['status']} in the latest companies file"
+
+
+def _with_past_failures(f, report, alone=1):
+    """Adds the namesake past roles at failed companies to a failure check: appended to a fired flag; otherwise the flag fires amber,
+    its own finding kept after it, when they are on at least `alone` failed companies (2 for a check that counts repeats). Never red:
+    nothing confirms the namesake is the subject."""
+    hit = _namesake_past_failures(report)
+    if not hit or (f["status"] != "fired" and len({(it.get("row") or {}).get("entity_key") or it["ref"] for it in hit}) < alone):
+        return f
+    bits = "; ".join(f"{it['statement']} ({it['dates']['text']}), {_failed_text(it)}" for it in hit[:PAST_EXAMPLES])
+    more = f"; and {len(hit) - PAST_EXAMPLES} more, each listed" if len(hit) > PAST_EXAMPLES else ""
+    note = (f"{len(hit)} past role(s) the business-number register states under the name, at a company that later failed: {bits}{more}; "
+            "a person with this name, not confirmed to be the subject")
+    cites = tuple(it["ref"] for it in hit) + tuple(it["failure"]["notice"] for it in hit if it["failure"].get("notice"))
+    if f["status"] == "fired":
+        return dict(f, text=f"{f['text']} || {note}", citations=tuple(dict.fromkeys(tuple(f["citations"]) + cites)),
+                    sources_held=tuple(dict.fromkeys(tuple(f["sources_held"]) + (PAST_ROLES_HELD,))))
+    return flag(f["rule"], f["version"], "fired", "amber", f"{note}; on its own finding, {f['status']}: {f['text']}", citations=cites,
+                sources_held=tuple(f["sources_held"]) + (PAST_ROLES_HELD,), sources_not_held=f["sources_not_held"], scope=f["scope"])
+
+
+def officer_group_insolvency(report):
+    """officer-group-insolvency, with a namesake's past role at a failed company as an amber warning (option b, 2 November 2026)."""
+    return _with_past_failures(_officer_group_insolvency_own(report), report)
 
 
 RULES = (identity, register_status, entity_insolvency, officer_group_insolvency, register_removals, prohibition, bankruptcy,

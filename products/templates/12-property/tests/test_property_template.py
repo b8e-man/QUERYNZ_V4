@@ -176,7 +176,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
-KIND = {"overseas_investment_parties": "organisation", "building_practitioner_decisions": "person", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
+KIND = {"company_lookup_roles": "person", "overseas_investment_parties": "organisation", "building_practitioner_decisions": "person", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
         "gazette_possessions": "event", "company_states": "organisation"}
@@ -688,3 +688,16 @@ def test_an_overseas_investment_party_naming_the_subject_fires_info_and_a_withhe
     assert n["status"] == "fired" and "nothing in a namesake's is the subject's" in n["text"]
     hidden = rule("overseas_investment")(report(overseas=[dict(p, suppressed=True)]))
     assert hidden["status"] == "clear" and "ACME" not in hidden["text"]
+
+
+def test_one_namesake_past_role_at_a_failed_company_is_an_amber_earlier_failure_never_red():
+    """Arthur, 2 November 2026, option (b): one failed company is enough for earlier-failure; serial-pattern needs two."""
+    past = it("companies:companies/11/role/1/aa", "company_lookup_roles", grade="near", title="Jane DOE · Director",
+              statement="Jane DOE · Director: Director of FAILED LIMITED (INACTIVE), as the business-number register states it",
+              dates="from 2 July 2013; to 27 November 2013", row={"entity_key": "companies/11"})
+    past["failure"] = {"status": "In Liquidation", "notice": None, "on": None}
+    f = rule("earlier_failure")(report(principals=[past]))
+    assert f["status"] == "fired" and f["severity"] == "amber" and "In Liquidation in the latest companies file" in f["text"]
+    assert f["citations"] == (past["ref"],)
+    s = rule("serial_pattern")(report(principals=[past]))
+    assert "past role(s)" not in s["text"], "a serial pattern needs two failed companies"

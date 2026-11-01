@@ -460,7 +460,7 @@ def _office_pairs(report, failed: dict, going: list) -> list:
 
 # ── the phoenix signature ───────────────────────────────────────────────────
 
-def phoenix_signature(report):
+def _phoenix_signature_own(report):
     """MC-C1. From a person: each of the person's companies that failed, dated from its Gazette notice, beside each of the person's
     going companies with its start, whatever the gap, nearest first, counted within 90 and 365 days and cut only by the reader's
     window; red on a confirmed insolvency, amber through a hub, a removal or a near link. From a company: a company of the same name
@@ -1110,6 +1110,55 @@ def mortgagee_possession(report):
     return flag("mortgagee-possession", V, "blocked", "amber",
                 "a lender's entry into possession of a company's land or goods is published in the Gazette (pub.gazette_possessions), but the "
                 "report's catalogue does not know the view, so this report cannot reach it; this check cannot run", sources_not_held=POSSESSIONS)
+
+
+
+# ── a namesake's past role at a failed company (Arthur, 2 November 2026: option b) ───────────────────────────────
+
+PAST_ROLES_HELD = "the roles the business-number register states and no monthly file held (pub.company_lookup_roles), read company by company"
+PAST_EXAMPLES = 3
+
+
+def _namesake_past_failures(report):
+    """The register roles under the subject's or a principal's name, near, at a company that later failed (an insolvent status or a
+    Gazette liquidation notice, as the walk attaches it); each once."""
+    seen, out = set(), []
+    for it in items(report, ("company_lookup_roles",), ("near",)):
+        if it.get("failure") and not it.get("suppressed") and it["ref"] not in seen:
+            seen.add(it["ref"])
+            out.append(it)
+    return out
+
+
+def _failed_text(it):
+    f = it["failure"]
+    if f.get("notice"):
+        return f"named in a Gazette liquidation notice{' published ' + f['on'] if f.get('on') else ''}"
+    return f"{f['status']} in the latest companies file"
+
+
+def _with_past_failures(f, report, alone=1):
+    """Adds the namesake past roles at failed companies to a failure check: appended to a fired flag; otherwise the flag fires amber,
+    its own finding kept after it, when they are on at least `alone` failed companies (2 for a check that counts repeats). Never red:
+    nothing confirms the namesake is the subject."""
+    hit = _namesake_past_failures(report)
+    if not hit or (f["status"] != "fired" and len({(it.get("row") or {}).get("entity_key") or it["ref"] for it in hit}) < alone):
+        return f
+    bits = "; ".join(f"{it['statement']} ({it['dates']['text']}), {_failed_text(it)}" for it in hit[:PAST_EXAMPLES])
+    more = f"; and {len(hit) - PAST_EXAMPLES} more, each listed" if len(hit) > PAST_EXAMPLES else ""
+    note = (f"{len(hit)} past role(s) the business-number register states under the name, at a company that later failed: {bits}{more}; "
+            "a person with this name, not confirmed to be the subject")
+    cites = tuple(it["ref"] for it in hit) + tuple(it["failure"]["notice"] for it in hit if it["failure"].get("notice"))
+    if f["status"] == "fired":
+        return dict(f, text=f"{f['text']} || {note}", citations=tuple(dict.fromkeys(tuple(f["citations"]) + cites)),
+                    sources_held=tuple(dict.fromkeys(tuple(f["sources_held"]) + (PAST_ROLES_HELD,))))
+    return flag(f["rule"], f["version"], "fired", "amber", f"{note}; on its own finding, {f['status']}: {f['text']}", citations=cites,
+                sources_held=tuple(f["sources_held"]) + (PAST_ROLES_HELD,), sources_not_held=f["sources_not_held"], scope=f["scope"])
+
+
+def phoenix_signature(report):
+    """phoenix-signature, with a namesake's past role at a failed company as an amber warning (option b, 2 November 2026)."""
+    return _with_past_failures(_phoenix_signature_own(report), report)
 
 
 RULES = (phoenix_signature, same_name_failed, shared_office, entity_status, insolvency_notices, repeat_failure, register_events,

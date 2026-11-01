@@ -211,6 +211,13 @@ sources = ["members", "confirmed"]
 text = "A donation is from the donor the Commission filed it under. A return that covers a gift is the record; a disclosure of the same gift is shown beside it and never added. A row filed under a name the counterparty only shares is listed with the namesakes above, not here."
 
 [[sections]]
+name = "past-roles"
+heading = "Past roles under the name, from the business-number register"
+views = ["company_lookup_roles"]
+sources = ["named", "officers"]
+text = "A role the business-number register states and no monthly file held, under the subject's name or a person's on the company: near, a person with this name and not confirmed to be the subject. One at a company that later failed is an amber warning in the failure checks. The register is read company by company, so most companies' past roles are not yet asked: none listed here is not a finding of none."
+
+[[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []

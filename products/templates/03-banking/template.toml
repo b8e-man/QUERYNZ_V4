@@ -229,6 +229,13 @@ sources = ["named", "members", "confirmed", "near"]
 text = "A party named in a regulator's listing as it stands today: the Commerce Commission's cases and the Financial Markets Authority's warnings and actions. A listing states what the regulator published, the charge, the case or the warning, never a cause. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's."
 
 [[sections]]
+name = "past-roles"
+heading = "Past roles under the name, from the business-number register"
+views = ["company_lookup_roles"]
+sources = ["named", "officers"]
+text = "A role the business-number register states and no monthly file held, under the subject's name or a person's on the company: near, a person with this name and not confirmed to be the subject. One at a company that later failed is an amber warning in the failure checks. The register is read company by company, so most companies' past roles are not yet asked: none listed here is not a finding of none."
+
+[[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []

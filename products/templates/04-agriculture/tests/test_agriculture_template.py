@@ -19,7 +19,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "officers", "gazette", "other-companies", "societies", "money", "not-held"]
+ORDER = ["identity", "officers", "gazette", "other-companies", "societies", "money", "past-roles", "not-held"]
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
                    r"beneficial)\b", re.I)
