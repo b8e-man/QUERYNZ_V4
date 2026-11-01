@@ -86,7 +86,7 @@ def public(text: str) -> str:
 
 
 TABLES = ("notices", "celebrants", "prohibitions", "liquidations", "liquidators", "company_notices", "practitioners",
-          "bankruptcies", "appointments", "possessions")
+          "bankruptcies", "appointments", "possessions", "board_interventions")
 
 
 def rows(result, tables=TABLES) -> list:

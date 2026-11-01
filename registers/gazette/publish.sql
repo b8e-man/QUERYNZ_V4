@@ -63,8 +63,15 @@ FROM gazette.bankruptcies;
 -- appointments to public office: the person by name as printed, the office, who appointed and the term
 CREATE OR REPLACE VIEW pub.gazette_appointments AS
 SELECT key, notice, published_on, body, name, role, statute, by_whom, starts_on, ends_on, dated_on, corrigendum, ordinal,
-       document, page, place, read_from, reader, profile, profile_version, loaded_at
+       document, page, place, read_from, reader, profile, profile_version, loaded_at, action, locality, appointee_kind
 FROM gazette.appointments;
+
+-- a school board put under a limited statutory manager, that direction amended or revoked, or the board dissolved and a
+-- commissioner directed (offices.py, 2 November 2026)
+CREATE OR REPLACE VIEW pub.gazette_board_interventions AS
+SELECT key, notice, published_on, action, board, institution_number, statute, directed_by, dated_on, names_notices,
+       revoked_by, corrigendum, document, page, place, read_from, reader, profile, profile_version, loaded_at
+FROM gazette.board_interventions;
 
 -- a mortgagee's entry into possession: the lender and a company borrower by name, land or goods, the day; never the
 -- property, a registration number or a person's name (gazette_private)

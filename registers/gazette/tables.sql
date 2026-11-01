@@ -250,7 +250,40 @@ CREATE TABLE IF NOT EXISTS gazette.appointments (
     reader           text NOT NULL,
     profile          text NOT NULL,
     profile_version  integer NOT NULL,
-    loaded_at        timestamptz NOT NULL
+    loaded_at        timestamptz NOT NULL,
+    -- the office notices offices.py reads (2 November 2026): what the notice does to the office, the town a Justice
+    -- of the Peace's entry ends with (never the rest of the entry: a JP's street and suburb are their home address),
+    -- and whether the appointee is a person or a body (a body appointed to control and manage a reserve)
+    action           text NOT NULL DEFAULT 'appointed' CHECK (action IN ('appointed', 'retired', 'resigned', 'revoked')),
+    locality         text,
+    appointee_kind   text NOT NULL DEFAULT 'person' CHECK (appointee_kind IN ('person', 'body'))
+);
+
+-- one row per notice that puts a school board under a limited statutory manager, amends or revokes that direction,
+-- or dissolves the board and directs a commissioner's appointment (profile gazette-board-intervention, section go;
+-- offices.py). The board as printed and its institution number; who directed, from the signature; the notices it names
+CREATE TABLE IF NOT EXISTS gazette.board_interventions (
+    key                 text PRIMARY KEY,                   -- gazette/<notice>/intervention
+    notice              text NOT NULL,
+    published_on        date,
+    action              text NOT NULL CHECK (action IN ('statutory manager directed', 'statutory manager direction amended',
+                                                        'statutory manager direction revoked', 'board dissolved; commissioner directed')),
+    board               text NOT NULL,
+    institution_number  text,
+    statute             text,
+    directed_by         text,                               -- the signature: the Minister or the Ministry's officer
+    dated_on            date,
+    names_notices       text,                               -- the earlier notices it names, by number, comma-separated
+    revoked_by          text,                               -- the later notice that revokes this direction, where one names it
+    corrigendum         boolean NOT NULL,
+    document            text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page                integer NOT NULL DEFAULT 1,
+    place               text NOT NULL,
+    read_from           text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader              text NOT NULL,
+    profile             text NOT NULL,
+    profile_version     integer NOT NULL,
+    loaded_at           timestamptz NOT NULL
 );
 
 -- one row per notice of a mortgagee's entry into possession of mortgaged land or goods, or its receipt of the income
