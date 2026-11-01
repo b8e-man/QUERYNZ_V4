@@ -22,7 +22,7 @@ import time
 
 from support import jobrun
 from support.docstore.landing import read_bytes
-from registers.councillor_interests import capture, read
+from registers.councillor_interests import capture, model_read, read
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "councillor_interests"
@@ -31,9 +31,9 @@ STAGING = "staging_councillor_interests_load"
 TABLES = ("registers", "documents", "interests", "read_withheld", "read_set_aside")
 COLUMNS = {
     "registers": ("council", "host", "form", "landing_url", "landing_sha256", "documents_held", "members_read", "why"),
-    "documents": ("sha256", "council", "url", "found_on", "asked_at"),
-    "interests": ("key", "council", "member", "role", "category", "entries", "as_at", "document", "page", "place", "url",
-                  "read_from", "reader", "profile", "profile_version"),
+    "documents": ("sha256", "council", "url", "found_on", "asked_at", "reading", "members", "unread_pages"),
+    "interests": ("key", "council", "member", "role", "category", "entries", "kind", "as_at", "document", "page", "place",
+                  "url", "read_from", "reader", "model", "profile", "profile_version"),
     "read_withheld": ("council", "category", "why", "members"),
     "read_set_aside": ("document", "place", "stage", "reason"),
 }
@@ -67,9 +67,11 @@ def _copy(conn, name: str, cols: tuple, rows) -> int:
     return n
 
 
-def build(conn, schema: str, items: list, held: dict, registers: dict = None, read_bytes=read_bytes) -> dict:
+def build(conn, schema: str, items: list, held: dict, registers: dict = None, read_bytes=read_bytes, store=None,
+          version: int = None) -> dict:
     """`items`: the capture's asks, oldest first, as dicts (council, url, kind, found_on, asked_at, sha256, why);
-    `held`: host → why for every held host."""
+    `held`: host → why for every held host. A register PDF's stored text-reader reading is replayed (model_read.replay,
+    never a call); one not yet read waits and is counted."""
     t0 = time.monotonic()
     registers = registers if registers is not None else capture.REGISTERS
     create_tables(conn, schema)
@@ -81,13 +83,18 @@ def build(conn, schema: str, items: list, held: dict, registers: dict = None, re
     docs = {}
     for it in newest.values():
         if it["kind"] == "document" and it["sha256"] not in docs:
-            docs[it["sha256"]] = it
+            docs[it["sha256"]] = dict(it, reading=None, members=0, unread_pages=[])
     rows, withheld, asides, members_of = {}, {}, [], {}
+    model_pages = {}                    # a page that prints a register in another shape: the text reader's (2 November 2026)
     for it in sorted(newest.values(), key=lambda x: x["url"]):
         if it["kind"] != "page":
             continue
         body = read_bytes(it["sha256"])
         if read.recognise(body) != "register":
+            if model_read.page_wanted(it["council"], {d["council"] for d in docs.values()}) \
+                    and not model_read.recognise_page(body, it["url"], registers.get(it["council"], ("",))[0])[0] \
+                    and it["sha256"] not in model_pages:
+                model_pages[it["sha256"]] = dict(it)
             continue
         try:
             out = read.read_register(body, it["sha256"], it["url"])
@@ -102,6 +109,34 @@ def build(conn, schema: str, items: list, held: dict, registers: dict = None, re
         for (cat, why), n in out["withheld"].items():
             k = (it["council"], cat, why)
             withheld[k] = withheld.get(k, 0) + n
+    html_councils = set(members_of) | {it["council"] for it in model_pages.values()}
+    states = {}
+    todo = sorted(docs.items(), key=lambda kv: (kv[1]["council"], kv[0])) + sorted(
+        model_pages.items(), key=lambda kv: (kv[1]["council"], kv[0]))
+    for sha, it in todo:
+        got = model_read.replay(sha, read_bytes(sha), version=version, store=store)
+        it["reading"], it["unread_pages"] = got["state"], got["unread"]
+        head = ("page: " if sha in model_pages else "") + (
+            got["state"] if got["state"].startswith("waiting") else got["state"].split(":")[0])
+        states[head] = states.get(head, 0) + 1
+        if got["state"] != "read":
+            if got["state"].startswith(("not a register", "set aside")):
+                asides.append({"document": sha, "place": None, "stage": "read", "reason": got["state"]})
+            continue
+        it["members"] = len({r["member_no"] for r in got["rows"]})
+        members_of[it["council"]] = members_of.get(it["council"], 0) + it["members"]
+        for r in got["rows"]:
+            key = f"{it['council']}/{r['member']}/{sha[:12]} member {r['member_no']} category {r['category_no']}"
+            rows[key] = {"key": key, "council": it["council"], "member": r["member"], "role": r["role"],
+                         "category": r["category"], "entries": r["entries"], "kind": r["kind"], "as_at": got["as_at"],
+                         "document": sha, "page": int(r["pages"].split("-")[0]),
+                         "place": f"pages {r['pages']}, text reader piece {r['piece']}, member {r['member_no']}, "
+                                  f"category {r['category_no']}",
+                         "url": it["url"], "read_from": "text", "reader": model_read.READER, "model": r["model"],
+                         "profile": got["profile"], "profile_version": got["version"]}
+        for (cat, why), n in got["withheld"].items():
+            k = (it["council"], cat, why)
+            withheld[k] = withheld.get(k, 0) + n
     reg_rows = []
     for council, (host, page, pdf) in registers.items():
         why_failed = None
@@ -110,8 +145,8 @@ def build(conn, schema: str, items: list, held: dict, registers: dict = None, re
         hosts = {capture.site_of(h) for h in held}
         if council in capture.TERMS_BAR:
             form = "held: its terms bar automated access"
-        elif members_of.get(council):
-            form = "html register"
+        elif council in html_councils:
+            form = "html register" if members_of.get(council) else "html register, waiting: text reader"
         elif nd > PER_MEMBER_FILES:
             form = "per-member files"
         elif nd:
@@ -140,6 +175,7 @@ def build(conn, schema: str, items: list, held: dict, registers: dict = None, re
                               [{"council": c, "category": cat, "why": w, "members": n}
                                for (c, cat, w), n in sorted(withheld.items())]),
             "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
+            "documents_by_reading": states,
             "seconds": round(time.monotonic() - t0, 1)}
 
 
@@ -161,8 +197,8 @@ def load(conn, schema: str, log=print) -> int:
     items, held = held_record(conn)
     counts = build(conn, schema, items, held)
     problems = check.reading(conn, schema)
-    log(f"{SCHEMA}: {counts['registers']} councils, {counts['documents']} documents held, {counts['interests']} "
-        f"interests read, {counts['withheld']} categories withheld into {schema}; " + ("; ".join(problems) or "reconciles"))
+    log(f"{SCHEMA}: {counts['registers']} councils, {counts['documents']} documents held "
+        f"({counts['documents_by_reading']}), {counts['interests']} interests read, {counts['withheld']} categories withheld into {schema}; " + ("; ".join(problems) or "reconciles"))
     return counts["registers"]
 
 
@@ -185,8 +221,10 @@ def job(log=print) -> int:
         with conn.transaction():
             counts = build(conn, STAGING, items, held)
         problems = check.reading(conn, STAGING)
-        detail = (f"{counts['registers']} councils, {counts['documents']} documents held, {counts['interests']} interests "
-                  f"read, {counts['withheld']} categories withheld; " + ("; ".join(problems) or "reconciles"))
+        detail = (f"{counts['registers']} councils, {counts['documents']} documents held ("
+                  + ", ".join(f"{k} {v}" for k, v in sorted(counts["documents_by_reading"].items())) + f"), "
+                  f"{counts['interests']} interests read, {counts['withheld']} categories withheld; "
+                  + ("; ".join(problems) or "reconciles"))
         if problems:
             log(f"{SCHEMA}: RED, nothing published: " + detail)
             jobrun.record(JOB, False, "nothing published: " + detail, started, {})
