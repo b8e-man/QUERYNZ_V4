@@ -7,7 +7,9 @@ Description=QueryNZV4 model server — Qwen3.8-Flash-Next on Radiance across bot
 # 16k bound with 11 GiB of experts a rank in the host pool, so 3 requests ran and 4 waited while the cards sat at 5%;
 # the pool is 20 GiB a rank (experts off-card cost nothing measurable, 29 October) and the bound 32k, so the KV cache
 # takes the VRAM the experts left.
-# --gpu-headroom-mib leaves 2.5 GiB of each card unclaimed for the frozen product's OCR server (hard limit 23); the
+# --gpu-headroom-mib 500 and the vision tower in host RAM (Arthur, 1 November 2026: "take the vision tower off, lower
+# the headroom to 500mb"): the estate reads no images here, and the frozen OCR server is counted as already held at
+# start. Was 2.5 GiB of each card unclaimed for the frozen product's OCR server (hard limit 23); the
 # frozen chat model left the carve-out by ruling 121 and is Arthur's to disable. This unit names neither.
 After=network-online.target
 Wants=network-online.target
@@ -41,7 +43,7 @@ ExecStart=/usr/bin/podman run --cidfile=%t/%n.ctr-id --cgroups=no-conmon --rm --
   --model /model.rad --served-model-name qwen4exp \
   --tp 2 --tp-wire exact \
   --max-model-len 32768 --max-num-seqs 16 --kv-cache-dtype fp8 \
-  --placement expert_tiered --host-pool-mib 20480 --gpu-headroom-mib 2560 \
+  --placement expert_tiered --host-pool-mib 20480 --gpu-headroom-mib 500 --vision-tower-placement ram \
   --ngram-placement disk --num-speculative-tokens 3 --draft-window adaptive \
   --max-num-batched-tokens 4096 --checkpoint-policy tip-only \
   --chat-template-kwargs '{"enable_thinking":false}' \
