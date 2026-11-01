@@ -805,11 +805,12 @@ def office_companies(conn, ref: str, office: dict, allowed: set, skipped: list) 
 def resolve_holders(conn, holders: list) -> dict:
     """{holder row key: (company row, how, same-name count)} for company
     holders of record: by business number when the file carries one, else by
-    the exact name when one company of that name is in the register; two
-    queries for the lot."""
+    the name, case ignored (Arthur, 2 November 2026: 1,107 of 1,397 holders
+    named as a partnership differed from its register name only in case), when
+    one company of that name is in the register; two queries for the lot."""
     out = {}
     by_nzbn = {h["key"]: h["holder_nzbn"] for h in holders if h.get("holder_nzbn")}
-    by_name = {h["key"]: (h.get("name") or "").strip() for h in holders if not h.get("holder_nzbn") and (h.get("name") or "").strip()}
+    by_name = {h["key"]: (h.get("name") or "").strip().upper() for h in holders if not h.get("holder_nzbn") and (h.get("name") or "").strip()}
     if by_nzbn:
         found = {r["nzbn"]: r for r in db.rows(conn, "select *, key as key from pub.companies where nzbn = any(%s)", (sorted(set(by_nzbn.values())),))}
         for k, n in by_nzbn.items():
@@ -817,8 +818,8 @@ def resolve_holders(conn, holders: list) -> dict:
                 out[k] = (found[n], "nzbn", 1)
     if by_name:
         found = {}
-        for r in db.rows(conn, "select *, key as key from pub.companies where name = any(%s) order by key", (sorted(set(by_name.values())),)):
-            found.setdefault(r["name"], []).append(r)
+        for r in db.rows(conn, "select *, key as key from pub.companies where upper(name) = any(%s) order by key", (sorted(set(by_name.values())),)):
+            found.setdefault((r["name"] or "").upper(), []).append(r)
         for k, n in by_name.items():
             rows_ = found.get(n, [])
             out[k] = (rows_[0] if len(rows_) == 1 else None, "name", len(rows_))

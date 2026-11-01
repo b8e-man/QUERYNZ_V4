@@ -89,7 +89,7 @@ class ChainDB:
                 out.append({"key": "companies/1/shareholder/h", "entity_key": "companies/1", "name": "PARENT HOLDINGS LIMITED", "shareholder_type": "company",
                             "shares": 100, "allocation_status": "active", "holder_nzbn": None, "in_latest": True, "first_file": "f1", "last_file": "f2", "suppressed": False, "rn": 1, "total": 1})
             return out
-        if "from pub.companies where name = any" in sql:
+        if "from pub.companies where upper(name) = any" in sql:
             return [{"key": "companies/9", "name": "PARENT HOLDINGS LIMITED", "status": "In Liquidation", "entity_type": "LTD", "nzbn": "9", "registered_on": dt.date(2015, 1, 1), "removed_on": None}]
         if "from pub.companies where nzbn" in sql:
             return []

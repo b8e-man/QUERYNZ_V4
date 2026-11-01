@@ -48,3 +48,19 @@ def test_a_company_that_is_a_general_partner_lists_each_partnership_titled_by_th
     assert ("limited_partnership_partners", "body_nzbn", COMPANY["nzbn"]) in asked, "joined by the company's business number"
     assert len(got) == 1 and got[0]["via"] == "companies:" + COMPANY["key"] and "general partner of ACME FUND LP" in got[0]["statement"]
     assert walk.roles_on(None, cat.BY_NAME["companies"], dict(COMPANY, nzbn=None), {"limited_partnership_partners"}, []) == []
+
+
+def test_a_holder_is_joined_to_its_company_by_name_whatever_the_case(monkeypatch):
+    """Arthur, 2 November 2026: ignore case when matching a holder of record to its company by name."""
+    asked = []
+
+    def db_rows(conn, sql, params):
+        asked.append((sql, params))
+        return [{"key": "companies/7", "name": "CENTRAL CHERRY ORCHARD LIMITED PARTNERSHIP", "nzbn": "7"},
+                {"key": "companies/8", "name": "TWIN NAME LIMITED", "nzbn": "8"}, {"key": "companies/9", "name": "Twin Name Limited", "nzbn": "9"}]
+    monkeypatch.setattr(walk.db, "rows", db_rows)
+    got = walk.resolve_holders(None, [{"key": "h1", "name": " Central Cherry Orchard Limited Partnership "},
+                                      {"key": "h2", "name": "twin name limited"}])
+    assert "upper(name)" in asked[0][0] and asked[0][1] == (["CENTRAL CHERRY ORCHARD LIMITED PARTNERSHIP", "TWIN NAME LIMITED"],)
+    assert got["h1"][0]["key"] == "companies/7" and got["h1"][1:] == ("name", 1)
+    assert got["h2"] == (None, "name", 2), "two companies whose names differ only in case: not followed, both counted"
