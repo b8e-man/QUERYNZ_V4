@@ -69,6 +69,7 @@ API_NOTE = "the NZBN register's entity detail, as it answered"
 PROFILE = "nzbn-entity-detail-any-kind"
 READER = "registers.companies.monitor 1"
 JOB = "qv4-companies-monitor"
+HISTORY_JOB = "qv4-companies-history"
 NZ = ZoneInfo("Pacific/Auckland")
 
 BASE = os.environ.get("QV4_NZBN_API_BASE") or "https://api.business.govt.nz/gateway/nzbn/v5"
@@ -77,6 +78,38 @@ KEY_NAME = "NZBN_API_KEY"
 KEY_HEADER = "Ocp-Apim-Subscription-Key"
 #: the interface states no rate limit (portal.api.business.govt.nz/api/nzbn, read 21 October 2026); ours
 DAILY_LIMIT = 300
+#: THE HISTORY BACKFILL (Arthur, 1 November 2026, the overnight's approval 3: "a 20-company sample tonight; if it gives role
+#: history, a qv4- capture job at one request a second at most, off-peak, with each answer saved once"). The monthly
+#: files list current roles only and drop every role of a removed company (1,052,208 removed companies hold none); the
+#: entity detail answers each role with the register's own start and end dates (the eight proof answers of 21 October:
+#: ended directorships back to 2007). Its own calls, `why = 'history'`, its own day's limit, the same floor, the same
+#: off-peak hours and the same stop at a failed read; the monitor's limit and its check count the monitor's calls only.
+HISTORY_WHY = "history"
+HISTORY_DAILY_LIMIT = 2000
+#: the order the backfill asks in (`companies.history_wanted.rank`): a removed company the Gazette names in a liquidation
+#: notice first, newest removal first (how a company ended, and who ran it, is what a director-history check asks); then
+#: every other removed company removed since 2019, newest first; then every registered company, for its earlier directors
+HISTORY_TIERS = (
+    ("a removed company the Gazette names in a liquidation notice",
+     "SELECT e.nzbn, e.removed_on FROM {e} e WHERE e.status = 'Removed' AND e.nzbn IS NOT NULL "
+     "AND e.key IN (SELECT DISTINCT register_key FROM pub.gazette_liquidations WHERE register_key LIKE 'companies/%%') ORDER BY e.removed_on DESC NULLS LAST, e.nzbn"),
+    ("a removed company, removed since 2019",
+     "SELECT e.nzbn, e.removed_on FROM {e} e WHERE e.status = 'Removed' AND e.nzbn IS NOT NULL "
+     "AND e.entity_type IN ('LTD', 'UNLTD', 'COOP', 'ASIC', 'NON_ASIC') AND e.removed_on >= DATE '2019-01-01' "
+     "ORDER BY e.removed_on DESC, e.nzbn"),
+    ("a registered company, for its earlier directors",
+     "SELECT e.nzbn, e.registered_on FROM {e} e WHERE e.status <> 'Removed' AND e.nzbn IS NOT NULL "
+     "AND e.entity_type IN ('LTD', 'UNLTD', 'COOP', 'ASIC', 'NON_ASIC') ORDER BY e.registered_on, e.nzbn"),
+)
+HISTORY_DDL = """
+CREATE TABLE IF NOT EXISTS {t} (
+    nzbn       text PRIMARY KEY,
+    rank       bigint NOT NULL,          -- the order asked in: tier * 10^8 + place in the tier
+    reason     text NOT NULL,
+    queued_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS {i} ON {t} (rank);
+"""
 #: the lane's own floor between calls, the same as the gate's FLOORS for the host; the slower one holds
 FLOOR_S = 5.0
 DEFAULT_BUDGET_S = 1500
@@ -639,7 +672,8 @@ def run(conn, schema: str = "companies", shared: bool = False, *, budget_s: floa
         if time.monotonic() - t0 >= budget_s:
             return "budget spent"
         day = nz_day(now())
-        if conn.execute(f"SELECT count(*) FROM {T.calls} WHERE day = %s", (day,)).fetchone()[0] >= daily_limit:
+        if conn.execute(f"SELECT count(*) FROM {T.calls} WHERE day = %s AND why <> %s",
+                        (day, HISTORY_WHY)).fetchone()[0] >= daily_limit:
             return f"the day's limit of {daily_limit} calls reached"
         return ""
 
@@ -719,8 +753,95 @@ def run(conn, schema: str = "companies", shared: bool = False, *, budget_s: floa
     return {**counts, "stopped": stopped, "ok": ok}
 
 
+def _history_ddl(T) -> str:
+    return HISTORY_DDL.format(t=T.history_wanted, i=T.history_wanted.replace(".", "_") + "_rank")
+
+
+def queue_history(conn, schema: str = "companies", shared: bool = False, log=print) -> dict:
+    """Fill `history_wanted` from HISTORY_TIERS: every entity of the tiers once, at its first tier's place. Regenerable:
+    the table is rebuilt whole; what was asked is in the ledger, never here."""
+    T = Tables(schema, shared)
+    conn.execute(_history_ddl(T))
+    conn.execute(f"TRUNCATE {T.history_wanted}")
+    out = {}
+    for i, (reason, q) in enumerate(HISTORY_TIERS, start=1):
+        n = conn.execute(f"INSERT INTO {T.history_wanted} (nzbn, rank, reason) "
+                         f"SELECT x.nzbn, %s * 100000000::bigint + row_number() OVER (), %s FROM ({q.format(e=T.entities)}) x "
+                         f"ON CONFLICT (nzbn) DO NOTHING", (i, reason)).rowcount
+        out[reason] = n
+        log(f"companies history: tier {i}, {reason}: {n:,} entities")
+    conn.commit()
+    return out
+
+
+def run_history(conn, schema: str = "companies", shared: bool = False, *, budget_s: float = DEFAULT_BUDGET_S,
+                anytime: bool = False, key: str = None, fetch=None, pacer=None, now=None,
+                daily_limit: int = HISTORY_DAILY_LIMIT, positions_dir: str = None, ledger_dir: str = None, log=print,
+                record: bool = True) -> dict:
+    """One night of the backfill: the wanted entities in rank order that no call has answered (200) or found absent
+    (404), one gated call each, until the budget or the backfill's day's limit is spent, off-peak ends, or a read fails."""
+    from support import jobrun
+    T = Tables(schema, shared)
+    now = now or now_nz
+    started, t0 = jobrun.now(), time.monotonic()
+    version = profile_version()
+    conn.execute(_history_ddl(T))
+    counts = {"calls": 0, "answered": 0, "absent": 0, "changes": 0}
+    stopped = ""
+
+    def stop_why():
+        if not anytime and not off_peak(now()):
+            return "off-peak ended"
+        if time.monotonic() - t0 >= budget_s:
+            return "budget spent"
+        if conn.execute(f"SELECT count(*) FROM {T.calls} WHERE day = %s AND why = %s",
+                        (nz_day(now()), HISTORY_WHY)).fetchone()[0] >= daily_limit:
+            return f"the backfill's day's limit of {daily_limit} calls reached"
+        return ""
+
+    while not stopped:
+        batch = [r[0] for r in conn.execute(
+            f"SELECT w.nzbn FROM {T.history_wanted} w WHERE NOT EXISTS (SELECT 1 FROM {T.calls} c "
+            f"WHERE c.nzbn = w.nzbn AND c.status IN (200, 404)) ORDER BY w.rank LIMIT 100").fetchall()]
+        if not batch:
+            stopped = "nothing wanted is left"
+            break
+        for n in batch:
+            if (stopped := stop_why()):
+                break
+            key = key or api_key()
+            got, ref = fetch_entity(n, conn, key=key, fetch=fetch, pacer=pacer, positions_dir=positions_dir,
+                                    ledger_dir=ledger_dir)
+            at = now()
+            cid = record_call(conn, T, n, at, got.status, ref.sha256 if ref else None, got.blocked, HISTORY_WHY)
+            counts["calls"] += 1
+            if ref:
+                counts["changes"] += apply_answer(conn, T, cid, ref.sha256, at, version)
+                counts["answered"] += 1
+            elif got.status == 404:
+                counts["absent"] += 1
+            conn.commit()
+            if got.blocked or (got.status not in (200, 404)):
+                stopped = f"a failed read at {n}: {got.blocked or f'HTTP {got.status}'}"
+                break
+    ok = not stopped.startswith("a failed read")
+    detail = ", ".join(f"{k} {v}" for k, v in counts.items()) + f"; stopped: {stopped}"
+    log("companies history: " + detail)
+    if record:
+        jobrun.record(HISTORY_JOB, ok, detail, started, counts)
+    return {**counts, "stopped": stopped, "ok": ok}
+
+
 def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
+    if "--history" in argv:
+        budget = float(argv[argv.index("--budget-s") + 1]) if "--budget-s" in argv else DEFAULT_BUDGET_S
+        with db.connect(db.OWNER_KEY, "querynz_v4") as conn:
+            conn.execute("SET statement_timeout = '300s'")
+            if "--queue" in argv:
+                queue_history(conn)
+                return 0
+            return 0 if run_history(conn, budget_s=budget, anytime="--anytime" in argv)["ok"] else 1
     if "--night" in argv:
         budget = float(argv[argv.index("--budget-s") + 1]) if "--budget-s" in argv else DEFAULT_BUDGET_S
         with db.connect(db.OWNER_KEY, "querynz_v4") as conn:

@@ -296,6 +296,7 @@ def night(filled, monkeypatch, tmp_path):
                             f"'test', session_user, %s) RETURNING id", (nzbn, name, clock["now"])).fetchone()[0]
 
     yield {"conn": conn, "T": T, "go": go, "ask": ask, "answers": answers, "clock": clock, "store": store,
+           "fetch": fetch, "gate": g,
            "t": lambda n: table(filled["schema"], n, True)}
     conn.rollback()
 
@@ -478,3 +479,55 @@ def test_the_real_answers_against_the_real_lane_give_the_sample_s_one_change():
             r = M.read_answer(read_bytes(sha), sha, at)
             out += [(n, c[0]) for c in M.diff(M.held_state(conn, n, T), M.state_of_answer(r, sha), r)]
     assert out == [("9429041764886", "status")]
+
+
+# ── the history backfill (Arthur, 1 November 2026) ──────────────────────────────────────────────────────────────
+
+def _want(night, *nzbns):
+    conn, T = night["conn"], night["T"]
+    conn.execute(M._history_ddl(T))
+    conn.execute(f"DELETE FROM {T.history_wanted}")
+    for i, n in enumerate(nzbns, start=1):
+        conn.execute(f"INSERT INTO {T.history_wanted} (nzbn, rank, reason) VALUES (%s, %s, 'test')", (n, i))
+
+
+def _history(night, **kw):
+    return M.run_history(_NoCommit(night["conn"]), night["T"].schema, True, key="SECRETKEY", fetch=night["fetch"],
+                         now=lambda: night["clock"]["now"], log=lambda *a: None, **night["gate"], **kw)
+
+
+def test_the_backfill_asks_in_rank_order_once_each_and_reads_ended_roles_with_the_register_s_dates(night):
+    conn, T = night["conn"], night["T"]
+    night["answers"][N1] = _answer(N1, addresses=[], roles=[_role("Ann", "Old", "2007-04-24", "2018-07-06", uid="r-old"),
+                                                         _role("Bea", "Now", "2018-07-06", uid="r-now")])
+    _want(night, N2, N1)                                   # N2 is absent from the register (404)
+    out = _history(night)
+    assert out["ok"] and (out["calls"], out["answered"], out["absent"]) == (2, 1, 1)
+    assert out["stopped"] == "nothing wanted is left"
+    asked = [r[0] for r in conn.execute(f"SELECT nzbn FROM {T.calls} WHERE why = 'history' ORDER BY id").fetchall()]
+    assert asked == [N2, N1]
+    roles = dict(conn.execute(f"SELECT last_name, ended_on FROM {T.lookup_roles} WHERE nzbn = %s", (N1,)).fetchall())
+    assert str(roles["Old"]) == "2018-07-06" and roles["Now"] is None
+    assert _history(night)["calls"] == 0, "an entity answered or found absent is never asked again"
+
+
+def test_the_backfill_keeps_its_own_day_s_limit_and_the_monitor_s_limit_and_check_count_the_monitor_s_calls_only(night):
+    conn, T = night["conn"], night["T"]
+    for n in (N1, N2):
+        night["answers"][n] = _answer(n, addresses=[])
+    _want(night, N1, N2)
+    out = _history(night, daily_limit=1)
+    assert out["calls"] == 1 and "backfill's day's limit" in out["stopped"]
+    night["ask"](N2)
+    assert night["go"](daily_limit=1)["calls"] == 1, "the history call does not spend the monitor's day"
+    assert not any("over the day's limit" in w for w in check.monitor_failed(conn, night["t"], now=night["clock"]["now"]))
+
+
+def test_the_backfill_stops_at_a_failed_read_and_off_peak(night):
+    night["answers"][N1] = 429
+    night["answers"][N2] = _answer(N2, addresses=[])
+    _want(night, N1, N2)
+    out = _history(night)
+    assert not out["ok"] and out["calls"] == 1 and "failed read" in out["stopped"]
+    night["clock"]["now"] = night["clock"]["now"].replace(hour=12)
+    assert _history(night)["stopped"] == "off-peak ended"

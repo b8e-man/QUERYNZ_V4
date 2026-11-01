@@ -152,9 +152,12 @@ def monitor_failed(conn, t, now=None) -> list:
     if n:
         why.append(f"{n} request(s) neither answered by a landed call nor set aside with a reason within "
                    f"{int(M.ANSWER_WITHIN.total_seconds() // 3600)} hours")
-    for day, calls in conn.execute(f"SELECT day, count(*) FROM {t('calls')} GROUP BY day HAVING count(*) > %s "
-                                   f"ORDER BY day", (M.DAILY_LIMIT,)).fetchall():
+    for day, calls in conn.execute(f"SELECT day, count(*) FROM {t('calls')} WHERE why <> %s GROUP BY day "
+                                   f"HAVING count(*) > %s ORDER BY day", (M.HISTORY_WHY, M.DAILY_LIMIT)).fetchall():
         why.append(f"{day}: {calls} calls to the interface, over the day's limit of {M.DAILY_LIMIT}")
+    for day, calls in conn.execute(f"SELECT day, count(*) FROM {t('calls')} WHERE why = %s GROUP BY day "
+                                   f"HAVING count(*) > %s ORDER BY day", (M.HISTORY_WHY, M.HISTORY_DAILY_LIMIT)).fetchall():
+        why.append(f"{day}: {calls} history calls to the interface, over the backfill's day's limit of {M.HISTORY_DAILY_LIMIT}")
     return why
 
 
