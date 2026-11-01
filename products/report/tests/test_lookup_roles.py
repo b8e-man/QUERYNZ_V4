@@ -86,3 +86,10 @@ def test_a_past_holding_the_register_states_is_the_companys_and_a_current_one_is
     got = walk.roles_on(None, cat.BY_NAME["companies"], COMPANY, {"company_lookup_holdings"}, [])
     held = [it for it in got if it.get("view") == "company_lookup_holdings"]
     assert [it["ref"] for it in held] == ["companies:" + PAST_HOLDING["key"]] and held[0]["via"] == "companies:" + COMPANY["key"]
+
+
+def test_a_surname_first_holder_is_turned_to_the_files_order_and_a_body_is_not():
+    """'MCINDOE, Johanna Maria' meets the director 'Johanna Maria MCINDOE' (2 November 2026); a body's name is never turned."""
+    assert walk.given_first("MCINDOE, Johanna Maria") == "Johanna Maria MCINDOE"
+    assert walk.given_first("ACME, BETA AND GAMMA, LIMITED") == "ACME, BETA AND GAMMA, LIMITED" and walk.given_first("ACME LIMITED") == "ACME LIMITED"
+    assert walk.SURNAME_FIRST["company_lookup_holdings"] == ("holder_type", "entity")

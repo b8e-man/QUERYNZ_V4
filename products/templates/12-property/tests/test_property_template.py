@@ -176,7 +176,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
-KIND = {"company_lookup_roles": "person", "overseas_investment_parties": "organisation", "building_practitioner_decisions": "person", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
+KIND = {"company_lookup_holdings": "person", "company_lookup_roles": "person", "overseas_investment_parties": "organisation", "building_practitioner_decisions": "person", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
         "gazette_possessions": "event", "company_states": "organisation"}
@@ -701,3 +701,21 @@ def test_one_namesake_past_role_at_a_failed_company_is_an_amber_earlier_failure_
     assert f["citations"] == (past["ref"],)
     s = rule("serial_pattern")(report(principals=[past]))
     assert "past role(s)" not in s["text"], "a serial pattern needs two failed companies"
+
+
+def test_a_namesake_past_holding_at_a_failed_company_counts_as_a_past_role_does():
+    """Arthur, 2 November 2026: a past holding at a failed company is an amber warning on a namesake, as a past role is (option b);
+    a role and a holding at two failed companies make the serial pattern's two."""
+    held = it("companies:companies/12/holding/a/aa", "company_lookup_holdings", grade="near", title="Jane DOE",
+              statement="Jane DOE: a past holder of record of SUNK LIMITED (individual), as the business-number register states it",
+              dates="from 1 March 2014; to 2 June 2016", row={"entity_key": "companies/12"})
+    held["failure"] = {"status": "In Liquidation", "notice": None, "on": None}
+    f = rule("earlier_failure")(report(principals=[held]))
+    assert f["status"] == "fired" and f["severity"] == "amber" and "holding(s)" in f["text"] and f["citations"] == (held["ref"],)
+    role = it("companies:companies/11/role/1/aa", "company_lookup_roles", grade="near", title="Jane DOE · Director",
+              statement="Jane DOE · Director: Director of FAILED LIMITED (INACTIVE)", row={"entity_key": "companies/11"})
+    role["failure"] = {"status": "In Liquidation", "notice": None, "on": None}
+    s = rule("serial_pattern")(report(principals=[role, held]))
+    assert s["status"] == "fired" and s["severity"] == "amber" and "2 past role(s) or holding(s)" in s["text"]
+    assert rule("earlier_failure")(report(principals=[dict(held, failure=None)]))["status"] != "fired" or \
+        "holding(s)" not in rule("earlier_failure")(report(principals=[dict(held, failure=None)]))["text"]

@@ -138,7 +138,7 @@ ROLES_ON = {
 ALREADY_LISTED = {"company_lookup_roles": "held_key", "company_lookup_holdings": "current"}   # a current holding is the file's holder
 #: name-joined rows that carry their company's failure, if any: {view: the company key column}; a failure is an insolvent status or a
 #: Gazette liquidation notice on the company (Arthur, 2 November 2026: a namesake's past role at a failed company is an amber warning)
-FAILURE_OF = {"company_lookup_roles": "entity_key"}
+FAILURE_OF = {"company_lookup_roles": "entity_key", "company_lookup_holdings": "entity_key"}   # holdings: Arthur, 2 November 2026
 INSOLVENT_STATUS = re.compile(r"liquidation|receiv|administration|statutory management", re.I)
 #: entities expanded only when they are the start row: a return's other donors are not the subject's connections
 EXPAND_ONLY_AS_START = frozenset({"party_return_totals", "candidate_return_totals", "disclosures", "mp_interest_returns"})
@@ -166,6 +166,17 @@ NAME_JOIN_TO = (("charity_officers", "full_name", "started_on", NEAR_CHARITY_OFF
                  NEAR_REGULATOR_BY_NAME.format(who="the roles the business-number register states and no monthly file held")),
                 ("company_lookup_holdings", "name", "ended_on",
                  NEAR_REGULATOR_BY_NAME.format(who="the past holdings the business-number register states")))
+#: name-joined views whose name column puts a person's surname first ('MCINDOE, Johanna Maria'), turned to the file's order before the
+#: join: {view: (its kind column, the kind that is a body and is never turned)}
+SURNAME_FIRST = {"company_lookup_holdings": ("holder_type", "entity")}
+
+
+def given_first(name: str) -> str:
+    """'MCINDOE, Johanna Maria' -> 'Johanna Maria MCINDOE'; a name with no comma, or more than one, as it stands."""
+    parts = (name or "").split(",")
+    return f"{parts[1].strip()} {parts[0].strip()}" if len(parts) == 2 and parts[0].strip() and parts[1].strip() else (name or "")
+
+
 #: the views an officer is a row of, followed one step from an organisation start
 OFFICER_VIEWS = frozenset({"directors", "society_officers", "charity_officers"})
 #: the role views of a person's group that count as "other current companies": kept only when current
@@ -555,7 +566,12 @@ def name_joined(conn, people: list, allowed: set, skipped: list) -> tuple:
             skipped.append(child)
             continue
         cv = cat.BY_NAME[child]
-        folded = f"translate(lower({col}), 'āēīōū', 'aeiou')"
+        named = col
+        if child in SURNAME_FIRST:
+            kind_col, body = SURNAME_FIRST[child]
+            named = (f"(case when {kind_col} <> '{body}' and {col} ~ '^[^,]+,[^,]+$' "
+                     f"then btrim(split_part({col}, ',', 2)) || ' ' || btrim(split_part({col}, ',', 1)) else {col} end)")
+        folded = f"translate(lower({named}), 'āēīōū', 'aeiou')"
         got = db.rows(conn, f"select *, {cv.key_col} as key, count(*) over () as total from pub.{cv.name} "
                             f"where {folded} = any(%s) or split_part({folded}, ' ', 1) || ' ' || regexp_replace({folded}, '^.* ', '') = any(%s) "
                             f"order by {order} desc nulls last, {cv.key_col} limit %s", (sorted(wanted), sorted(wanted), LIMITS["roles"]))
@@ -575,6 +591,8 @@ def name_joined(conn, people: list, allowed: set, skipped: list) -> tuple:
             if ALREADY_LISTED.get(child) and r.get(ALREADY_LISTED[child]):
                 continue
             name = r.get(col) or ""
+            if child in SURNAME_FIRST and r.get(SURNAME_FIRST[child][0]) != SURNAME_FIRST[child][1]:
+                name = given_first(name)
             refs = set(wanted.get(cat.fold(name), ())) | set(wanted.get(first_last(name), ()))
             for ref in sorted(refs):
                 it = near(item(cv, r, titles.get(str(r.get(cv.entity[1]))) if cv.entity else None, via=ref), reason, "same-name")

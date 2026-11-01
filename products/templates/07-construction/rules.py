@@ -1148,7 +1148,8 @@ def mortgagee_possession(report):
 
 # ── a namesake's past role at a failed company (Arthur, 2 November 2026: option b) ───────────────────────────────
 
-PAST_ROLES_HELD = "the roles the business-number register states and no monthly file held (pub.company_lookup_roles), read company by company"
+PAST_ROLES_HELD = ("the roles and past holdings the business-number register states and no monthly file held (pub.company_lookup_roles, "
+                   "pub.company_lookup_holdings), read company by company")
 PAST_EXAMPLES = 3
 
 
@@ -1156,7 +1157,7 @@ def _namesake_past_failures(report):
     """The register roles under the subject's or a principal's name, near, at a company that later failed (an insolvent status or a
     Gazette liquidation notice, as the walk attaches it); each once."""
     seen, out = set(), []
-    for it in items(report, ("company_lookup_roles",), ("near",)):
+    for it in items(report, ("company_lookup_roles", "company_lookup_holdings"), ("near",)):   # holdings: Arthur, 2 November 2026
         if it.get("failure") and not it.get("suppressed") and it["ref"] not in seen:
             seen.add(it["ref"])
             out.append(it)
@@ -1179,7 +1180,7 @@ def _with_past_failures(f, report, alone=1):
         return f
     bits = "; ".join(f"{it['statement']} ({it['dates']['text']}), {_failed_text(it)}" for it in hit[:PAST_EXAMPLES])
     more = f"; and {len(hit) - PAST_EXAMPLES} more, each listed" if len(hit) > PAST_EXAMPLES else ""
-    note = (f"{len(hit)} past role(s) the business-number register states under the name, at a company that later failed: {bits}{more}; "
+    note = (f"{len(hit)} past role(s) or holding(s) the business-number register states under the name, at a company that later failed: {bits}{more}; "
             "a person with this name, not confirmed to be the subject")
     cites = tuple(it["ref"] for it in hit) + tuple(it["failure"]["notice"] for it in hit if it["failure"].get("notice"))
     if f["status"] == "fired":
