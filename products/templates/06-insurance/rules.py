@@ -803,9 +803,8 @@ def _listed(report, views, flag_id, severity, what, not_held=(), clears=True):
 
 
 def tribunals(report):
-    return flag("tribunals", V, "blocked", "amber",
-                "the Employment Relations Authority's determinations (unpaid wages, arrears, penalties) and the Disputes Tribunal's decisions "
-                "are not held: a claim history against the firm cannot be seen here; this check cannot run", sources_not_held=TRIBUNALS)
+    return _tribunal(report, ("NZERA", "NZEmpC"), "tribunals", "amber", "the Employment Relations Authority and the Employment Court",
+                     "a claim history against the firm (unpaid wages, arrears, penalties; the Disputes Tribunal's decisions)", TRIBUNALS[1:])
 
 
 def change_history(report):
@@ -943,6 +942,39 @@ def court_judgments(report):
     return flag("court-judgments", COURT_V, "blocked", "amber", "no party row in a judgment the corpus holds names the subject or a "
                 "person the rules confirm is the subject; the corpus holds a part of the courts' judgments, so no clear is given",
                 sources_held=COURT_HELD, sources_not_held=COURT_NOT_HELD)
+
+
+COURT_CODE = re.compile(r"\[\d{4}\]\s*(NZ[A-Za-z]+)")
+
+
+def _court_of(it):
+    """The court or tribunal code of a party row: the heading's own column, or the citation's ([2024] NZERA 484 is NZERA)."""
+    row = it.get("row") or {}
+    if row.get("court"):
+        return row["court"]
+    m = COURT_CODE.search(str(row.get("citation") or it.get("entity_title") or it.get("statement") or ""))
+    return m.group(1) if m else None
+
+
+def _tribunal(report, codes, rule_id, severity, who, what, not_held):
+    """A tribunal's decisions as the courts corpus holds them (`codes`): a party the rules confirm is the subject fires at `severity`;
+    an officer's or a namesake's fires info; none is blocked, as the corpus holds a part of them and `not_held` is not held."""
+    held = (f"the decisions of {who} as the courts corpus holds them (pub.court_judgment_parties, pub.court_people)",)
+    not_held = tuple(not_held) + (f"the decisions of {who} the courts corpus does not carry",)
+    conf = [it for it in _court_parties(report, ("confirmed",)) if _court_of(it) in codes]
+    near = [it for it in _court_parties(report, ("near",)) if _court_of(it) in codes and it["ref"] not in {c["ref"] for c in conf}]
+    if conf:
+        named = "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in conf[:COURT_EXAMPLES])
+        return flag(rule_id, COURT_V, "fired", severity, f"{len(conf)} party row(s) in the decisions of {who} the corpus holds name the subject "
+                    f"or a person the rules confirm is the subject: {named}; being a party is not a finding against anyone",
+                    citations=tuple(it["ref"] for it in conf), sources_held=held, sources_not_held=not_held)
+    if near:
+        return flag(rule_id, COURT_V, "fired", "info", f"{len(near)} party row(s) in the decisions of {who} the corpus holds, near, name an officer "
+                    f"on the subject or a namesake, not the subject: {'; '.join(it['statement'] for it in near[:COURT_EXAMPLES])}",
+                    citations=tuple(it["ref"] for it in near), sources_held=held, sources_not_held=not_held)
+    return flag(rule_id, COURT_V, "blocked", severity, f"no party row in the decisions of {who} the corpus holds names the subject or a person "
+                f"the rules confirm is the subject; {what} cannot all be seen: the corpus holds a part of them, so no clear is given",
+                sources_held=held, sources_not_held=not_held)
 
 
 RULES = (entity_status, young_entity, insolvency_event, register_events, officer_churn, sister_company_failure, other_current_companies,

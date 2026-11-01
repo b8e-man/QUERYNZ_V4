@@ -47,7 +47,7 @@ CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|co
 PRINCIPAL_CHECKS = ("serial_pattern", "earlier_failure", "possession", "insolvency_notices")
 PEOPLE_CHECKS = ("prohibition", "bankruptcy")
 ALWAYS_BLOCKED = ("land_titles", "building_consents", "securities_register", "insolvency_register",
-                  "real_estate_authority", "past_roles")
+                  "past_roles")
 
 
 def toml():

@@ -181,7 +181,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
-KIND = {"award_suppliers": "organisation", "award_notices": "event", "building_practitioner_decisions": "person", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
+KIND = {"court_judgment_parties": "person", "court_people": "person", "court_judgments": "event", "award_suppliers": "organisation", "award_notices": "event", "building_practitioner_decisions": "person", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
         "party_return_donors": "figure", "charities": "organisation", "charity_officers": "person", "charity_returns": "figure"}
@@ -620,3 +620,20 @@ def test_public_contracts_lists_the_firms_gets_awards_as_info_and_never_a_findin
     assert g["status"] == "fired" and g["severity"] == "info" and "not confirm" in g["text"]
     for r in (report(contracts=[hidden]), person(), report()):
         assert rule("public_contracts")(r)["status"] == "clear"
+
+
+def test_employment_determinations_reads_the_authority_and_the_court_in_the_corpus_and_never_clears():
+    """A confirmed party in an ERA determination or an Employment Court judgment fires amber, the tribunal read from the heading's
+    court or the citation; a party in another court's judgment is not counted; none is blocked (2 November 2026)."""
+    era = it("courts:j1/party/1", "court_judgment_parties", title="ACME BUILD LIMITED", statement="ACME BUILD LIMITED: Respondent in [2024] NZERA 9",
+             row={"court": "NZERA", "role": "Respondent"})
+    empc = it("courts:j2/person/1", "court_people", title="ACME BUILD LIMITED", statement="ACME BUILD LIMITED: party",
+              row={"role": "company", "citation": "[2025] NZEmpC 3"})
+    sc = it("courts:j3/party/1", "court_judgment_parties", title="ACME BUILD LIMITED", row={"court": "NZSC", "role": "Appellant"})
+    f = rule("employment_determinations")(report(courts=[era, empc, sc]))
+    assert f["status"] == "fired" and f["severity"] == "amber" and set(f["citations"]) == {era["ref"], empc["ref"]}
+    assert "Employment Relations Authority" in f["text"] and "not a finding" in f["text"]
+    g = rule("employment_determinations")(report(courts=[sc]))
+    assert g["status"] == "blocked" and "no clear is given" in g["text"] and g["sources_held"] and g["sources_not_held"]
+    n = rule("employment_determinations")(report(courts=[dict(era, grade="near")]))
+    assert n["status"] == "fired" and n["severity"] == "info"

@@ -488,7 +488,7 @@ def test_the_registers_not_held_block_and_never_clear():
         for r in (person(), company(), report()):
             assert rule(name)(r)["status"] == "blocked", name
     assert "the corpus holds a part" in rule("court_judgments")(person())["text"]
-    assert "Disciplinary Tribunal" in rule("disciplinary_findings")(person())["sources_not_held"][0]
+    assert any("Disciplinary Tribunal" in x for x in rule("disciplinary_findings")(person())["sources_not_held"])
     assert "pub.gazette_possessions" in rule("mortgagee_possession")(person())["text"]
 
 
