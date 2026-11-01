@@ -24,7 +24,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.d
 FLAG = re.compile(r"^  (FIRED|CLEAR|BLOCKED)\s+(red|amber|info)\s+([a-z-]+)@[\d.]+: (.*)$")
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 NOT_ADDRESS = "c.name !~ '^[0-9]'"
-SAFETY = ("safety-record", "court-judgments", "tribunals", "change-history", "status-history",
+SAFETY = ("safety-record", "court-judgments", "tribunals", "change-history",
           "insolvency-register", "securities-register")
 #: (director ref, liquidated company key): a director appointed before the liquidator, in a small uncontested group
 HELD_AT = f"""

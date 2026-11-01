@@ -815,10 +815,31 @@ def change_history(report):
                 sources_not_held=(CHANGE_HISTORY,))
 
 
+STATES_HELD = ("the earlier state a later monthly companies file changed, file by file (pub.company_states)",)
+STATES_NOT_HELD = ("a company's status before the earliest monthly file held (July 2026); the day of a change between two files",)
+TROUBLED = re.compile(r"liquidation|receivership|administration|removed|dissolved", re.I)
+
+
 def status_history(report):
-    return flag("status-history", V, "blocked", "info",
-                "the dated history of a company's status, file by file, is published (pub.company_states) but the report's catalogue does not "
-                "know the view, so this report reads only the latest file's status; this check cannot run", sources_not_held=(STATES,))
+    """The entity's earlier states, as a later monthly file changed them (pub.company_states): an earlier liquidation, receivership,
+    administration or removal fires amber; another change (a name, a type, a status) info; none is blocked, the files held beginning
+    July 2026."""
+    if not _company_start(report):
+        return flag("status-history", V, "blocked", "info", "started from a person: the status history is read from a company start "
+                    "(pub.company_states); start a report from each company listed", sources_held=STATES_HELD, sources_not_held=STATES_NOT_HELD)
+    key = (report["subject"].get("row") or {}).get("key")
+    now = (report["subject"].get("row") or {}).get("status") or "not stated"
+    earlier = [it for it in items(report, ("company_states",)) if key and (it.get("row") or {}).get("entity_key") == key
+               and not it.get("suppressed")]
+    if earlier:
+        bits = "; ".join(f"{(it.get('row') or {}).get('status') or 'not stated'} in the file {(it.get('row') or {}).get('file') or 'not stated'}" for it in earlier[:3])
+        troubled = [it for it in earlier if TROUBLED.search(str((it.get("row") or {}).get("status") or ""))]
+        return flag("status-history", V, "fired", "amber" if troubled else "info", f"{len(earlier)} earlier state(s) a later monthly file "
+                    f"changed: {bits}; the status today is {now}; a change is dated to the file, a month and not a day",
+                    citations=tuple(it["ref"] for it in earlier), sources_held=STATES_HELD, sources_not_held=STATES_NOT_HELD)
+    return flag("status-history", V, "blocked", "info", "no status or name change between the monthly files held (pub.company_states); "
+                "the files held begin July 2026 and a change before then is not seen, so no clear is given",
+                sources_held=STATES_HELD, sources_not_held=STATES_NOT_HELD)
 
 
 POSSESSIONS_HELD = ("a mortgagee's entry into possession as the Gazette states it, the company mortgagor and lender by register key "

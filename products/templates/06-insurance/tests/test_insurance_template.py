@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ORDER = ["identity", "standing", "solvency", "people", "companies", "people-notices", "beside", "charities", "safety", "past-roles", "possessions", "courts"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"gazette_possessions", "court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
+VIEWS = {"company_states", "gazette_possessions", "court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
          "charities", "charity_officers", "charity_returns", "worksafe_parties", "commerce_commission_parties", "fma_parties"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -112,10 +112,10 @@ def test_it_names_only_the_views_the_brief_names_each_once_with_its_licence():
     assert len(views) == len(set(views)) and set(views) == VIEWS and t["depth"] == 2
     assert all(r.get("licence") and r.get("attribution") and r.get("refresh") for r in t["reads"])
     assert "registered offices only, never a residential address" in [r for r in t["reads"] if r["view"] == "company_addresses"][0]["licence"]
-    for unreached in ("company_states",):
+    for unreached in ():
         assert unreached not in views, "the catalogue does not know it: carded, named in the flags"
     src = open(os.path.join(HERE, "template.toml"), encoding="utf-8").read()
-    assert "pub.gazette_possessions is read since 2 November 2026" in src and "pub.company_states is in the catalogue" in src
+    assert "pub.gazette_possessions is read since 2 November 2026" in src and "pub.company_states is read since 2 November 2026" in src
 
 
 def test_its_sections_run_in_the_underwriters_order():
@@ -124,7 +124,7 @@ def test_its_sections_run_in_the_underwriters_order():
     s = {x["name"]: x for x in t["sections"]}
     assert s["identity"]["sources"] == ["near"] and "companies" not in s["identity"]["views"], \
         "an entity is filed in the first section naming its view: a confirmed company never lands with the namesakes"
-    assert s["standing"]["views"] == ["company_addresses"]
+    assert s["standing"]["views"] == ["company_addresses", "company_states"]
     assert set(s["solvency"]["views"]) == {"gazette_liquidations", "gazette_company_notices"} and "pointing" in s["solvency"]["sources"]
     assert "pointing" not in {x for sec in t["sections"] if sec["name"] not in ("solvency", "possessions") for x in sec.get("sources", [])}
     assert s["people"]["views"] == ["directors", "shareholders", "limited_partnerships", "limited_partnership_partners", "company_lookup_roles"] and "roles" in s["people"]["sources"]
@@ -156,7 +156,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
-KIND = {"directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
+KIND = {"company_states": "organisation", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
         "worksafe_parties": "organisation", "commerce_commission_parties": "organisation", "fma_parties": "organisation"}
@@ -566,3 +566,20 @@ def test_an_fma_listing_naming_the_subject_is_an_amber_regulator_action():
     assert n["status"] == "fired" and n["severity"] == "amber" and "nothing in a namesake's listing is the entity's" in n["text"]
     hidden = rule("regulator_actions")(report(safety=[dict(conf, suppressed=True)]))
     assert hidden["status"] != "fired" and "ACME" not in hidden["text"], "a name the regulator withheld is never shown or counted"
+
+
+def test_status_history_reads_the_earlier_states_amber_on_a_past_insolvency_and_never_clears():
+    """pub.company_states (2 November 2026): the entity's earlier liquidation, receivership, administration or removal fires amber,
+    another change info, each with its file; another company's state is not the entity's; none is blocked; from a person, blocked."""
+    def state(n, status, entity="companies/2"):
+        return it(f"companies:{entity}/in/companies-2026-07/{n}", "company_states", title="KEA LOGISTICS LIMITED",
+                  row={"entity_key": entity, "status": status, "file": "companies-2026-07"})
+    f = rule("status_history")(from_company(standing=[state(1, "In Liquidation")]))
+    assert (f["status"], f["severity"]) == ("fired", "amber") and "In Liquidation in the file companies-2026-07" in f["text"]
+    assert "the status today is Registered" in f["text"]
+    g = rule("status_history")(from_company(standing=[state(2, "Registered")]))
+    assert (g["status"], g["severity"]) == ("fired", "info")
+    for r in (from_company(standing=[state(3, "In Liquidation", entity="companies/3")]), from_company(), person()):
+        h = rule("status_history")(r)
+        assert h["status"] == "blocked" and "pub.company_states" in h["text"], h["text"]
+    assert "started from a person" in rule("status_history")(person())["text"]

@@ -28,7 +28,7 @@ limits = [
   "The companies file lists current roles only: a company a person left, or that was struck off with them on it, is not seen, nor its failure, so no check over a person's companies is ever clear. A director who left the board before July 2026 is not seen either, so officer churn is never clear.",
   "A sister company's failure is dated from its Gazette notice and the person's role on it from the date the companies file states; the two dates are set side by side. The report never says one followed from the other.",
   "The companies change history (former names, trading names, industry classification, earlier directors and offices) is not held before 16 August 2026 and is held but not published since.",
-  "A company's status is read from the latest companies file; the dated history of its status (pub.company_states) is published and not yet read here. A lender's entry into possession is read as the Gazette states it; a person mortgagor's name and the property stay in the gazette lane's private tables.",
+  "A company's status is read from the latest companies file; an earlier status a later monthly file changed is read from pub.company_states, the files held beginning July 2026. A lender's entry into possession is read as the Gazette states it; a person mortgagor's name and the property stay in the gazette lane's private tables.",
   "The Official Assignee's Insolvency Register, the Personal Property Securities Register and the financial service providers register are not held: the interfaces have waited on approval since 19 September 2026.",
   "The entity is the row the report starts from and the rows a rule confirms are the same. A row that only shares the name is a namesake, set apart with its reason, and is not the entity until confirmed.",
   "A hub (a professional director, a nominee, an address with fifty or more companies) joins many companies: a failure reached through a hub is shown and never raised red.",
@@ -39,7 +39,12 @@ limits = [
 
 # ── what it reads: each view with its licence ───────────────────────────────
 # pub.gazette_possessions is read since 2 November 2026 (mortgagee-possession).
-# pub.company_states is in the catalogue and not yet read here (status-history).
+# pub.company_states is read since 2 November 2026 (status-history).
+[[reads]]
+view = "company_states"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the earlier state a later monthly file changed"
+attribution = "Companies Office"
+refresh = "monthly file"
 [[reads]]
 view = "gazette_possessions"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person mortgagor's name and the property stay in the lane's private tables, and a company is named with its register key"
@@ -189,7 +194,7 @@ text = "The entity is the row above: a company is its NZBN, and a person is the 
 [[sections]]
 name = "standing"
 heading = "Its standing today, its age, and its registered office"
-views = ["company_addresses"]
+views = ["company_addresses", "company_states"]
 sources = ["roles", "members", "confirmed"]
 text = "The entity's register status and the day it was registered are in the header above, as the latest companies file states them, and in the flags entity-status and young-entity. Below, each registered office as the companies file states it; a company's registered address is shown, and no residential address is held. An office that fifty or more companies share is a hub and joins nothing. The dated history of a company's status is published and not yet reachable by this report."
 
