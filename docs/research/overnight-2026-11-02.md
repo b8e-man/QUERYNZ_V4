@@ -115,3 +115,10 @@ answered. Arthur's question, not done: should a namesake's past role at a failed
 The walk joins a company to the partner rows that carry its business number, each titled by its own partnership; a
 partnership's own `officers-of-record` counts only the partners reached through its row. Verified on the real rows: a
 fund's general-partner company lists its two partnerships, confirmed.
+
+## 11. Two real-data tests red, not the night's
+
+`products/board` outside check (pub.name_sightings published, no board entry) and `products/scan`'s procurement
+read-back (five pinned donor-director pairs no longer joined by a link): both red at 8c7db4e too. A note is in the
+inbox (`cards/2026-11-01-two-real-tests-red-on-live-data.md`). `products/scan/tests/test_real.py` needs the integrator
+mark to run and was not run.
