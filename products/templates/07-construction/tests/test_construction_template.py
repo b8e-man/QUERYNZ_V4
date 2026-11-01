@@ -28,9 +28,9 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "not-held"]
+ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "board", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
+VIEWS = {"building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
          "charities", "charity_officers", "charity_returns"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -181,7 +181,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
-KIND = {"directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
+KIND = {"building_practitioner_decisions": "person", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
         "party_return_donors": "figure", "charities": "organisation", "charity_officers": "person", "charity_returns": "figure"}
@@ -587,3 +587,19 @@ def test_the_presentation_rules_hold_on_every_flag_from_every_start(held):
 def test_the_rules_file_imports_nothing_of_the_shape():
     src = inspect.getsource(R)
     assert not re.search(r"^\s*(from|import) products", src, re.M)
+
+
+
+def test_an_upheld_board_decision_fires_a_namesakes_is_info_and_none_never_clears():
+    dec = it("building_board:building_practitioner_decisions/C2-01234", "building_practitioner_decisions", title="Jane DOE",
+             statement="Jane DOE: Building Practitioners Board decision C2-01234, upheld True; penalties fine", dates="decided 3 March 2025",
+             row={"upheld": True})
+    f = rule("building_practitioners")(report(board=[dec]))
+    assert f["status"] == "fired" and f["severity"] == "amber" and "decided 3 March 2025" in f["text"] and f["citations"] == (dec["ref"],)
+    n = rule("building_practitioners")(report(board=[dict(dec, grade="near")]))
+    assert n["status"] == "fired" and n["severity"] == "info" and "licence number is checked" in n["text"]
+    no = rule("building_practitioners")(report(board=[dict(dec, row={"upheld": False})]))
+    assert no["status"] == "blocked" and "1 decision(s) under the name were not upheld" in no["text"]
+    hidden = rule("building_practitioners")(report(board=[dict(dec, suppressed=True)]))
+    assert hidden["status"] == "blocked" and "DOE" not in hidden["text"], "a name the Board withholds is never shown or counted"
+    assert rule("building_practitioners")(report())["status"] == "blocked"

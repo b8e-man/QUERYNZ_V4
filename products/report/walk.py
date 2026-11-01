@@ -68,6 +68,7 @@ NEAR_OFFICER_LINK = "{officer}; and the officer's own link to this row is near: 
 NEAR_SHARED_OFFICE = "shares the registered office with the subject; an office is not a person, and a shared office is no connection on its own"
 NEAR_HOLDER_BY_NAME = "the holder of record is matched to its own register row by name only ({n} company carries the name; the file gives no business number for a holder): near, never confirmed"
 NEAR_CHARITY_OFFICER_BY_NAME = "no link joins the Charities Register's officers to any other row yet, so this officer row is matched to the subject by name: near, never confirmed"
+NEAR_REGULATOR_BY_NAME = "no link joins {who} to any other row yet, so this row is matched to the subject by name: near, never confirmed"
 CHAIN_GOES_ON = "a company holder at the chain's depth limit: its own holders are not listed; the chain goes on"
 NOMINEE = re.compile(r"\b(nominees?|trustees?|custodians?|custodial)\b", re.I)
 CROWN = re.compile(r"\b(her majesty|his majesty|the crown|the sovereign|minister (of|for)|crown entity)\b", re.I)
@@ -142,7 +143,12 @@ NUMBER_JOINS = {"companies": (("charities", "nzbn", "nzbn"),)}
 #: `named` for a member of the group and to `officers` for a followed officer
 NAME_JOIN_FROM = {"directors": "full_name", "society_officers": "full_name", "members": "display_name", "candidates": "display_name",
                   "mp_interest_returns": "name", "promoter_people": "name", "gazette_appointments": "name"}
-NAME_JOIN_TO = (("charity_officers", "full_name", "started_on", NEAR_CHARITY_OFFICER_BY_NAME),)
+NAME_JOIN_TO = (("charity_officers", "full_name", "started_on", NEAR_CHARITY_OFFICER_BY_NAME),
+                ("building_practitioner_decisions", "name", "decided_on",
+                 NEAR_REGULATOR_BY_NAME.format(who="the Building Practitioners Board's decisions (a name and a licence number)")),
+                ("worksafe_parties", "name", "action_on", NEAR_REGULATOR_BY_NAME.format(who="WorkSafe's listed parties")),
+                ("commerce_commission_parties", "name", "action_on", NEAR_REGULATOR_BY_NAME.format(who="the Commerce Commission's listed parties")),
+                ("fma_parties", "name", "action_on", NEAR_REGULATOR_BY_NAME.format(who="the Financial Markets Authority's listed parties")))
 #: the views an officer is a row of, followed one step from an organisation start
 OFFICER_VIEWS = frozenset({"directors", "society_officers", "charity_officers"})
 #: the role views of a person's group that count as "other current companies": kept only when current

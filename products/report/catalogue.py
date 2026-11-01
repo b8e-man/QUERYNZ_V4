@@ -184,6 +184,10 @@ VIEWS: tuple = (
       statement="{title}: Financial Markets Authority {kind}; {outcome}", note="a warning or a case as the FMA lists it today"),
     V("fma_parties", "fma", "organisation", ("name",), names=("name",), suppressed="withheld", entity=("fma_actions", "action_key"),
       on="action_on", on_label="listed", statement="{title}: named in the Financial Markets Authority's listing \"{entity}\""),
+    V("building_practitioner_decisions", "building_board", "person", ("name", "decision_kind"), names=("name",),
+      suppressed="suppressed", on="decided_on", on_label="decided",
+      statement="{title}: Building Practitioners Board decision {complaint_number}, upheld {upheld}; penalties {penalties}",
+      note="a Board decision as published, shown for three years from the decision; a name the Board withholds is not shown"),
 )
 BY_NAME = {v.name: v for v in VIEWS}
 
@@ -204,6 +208,7 @@ REGISTERS = (
     ("worksafe", "WorkSafe prosecutions and enforceable undertakings"),
     ("commerce_commission", "Commerce Commission cases"),
     ("fma", "Financial Markets Authority warnings and cases"),
+    ("building_board", "Building Practitioners Board decisions"),
 )
 REGISTER_NAME = dict(REGISTERS)
 

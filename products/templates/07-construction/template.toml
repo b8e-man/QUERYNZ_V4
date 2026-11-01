@@ -141,6 +141,12 @@ view = "charity_returns"
 licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the financial fields under the ruling of 14 August 2026"
 attribution = "Charities Services, Department of Internal Affairs"
 refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "building_practitioner_decisions"
+licence = "Crown copyright, licensed CC BY 4.0; the Board's own three-year window; a name the Board withholds is not shown"
+attribution = "Building Practitioners Board"
+refresh = "as the Board publishes them; re-read on the lane's clock"
+
 [[sections]]
 name = "identity"
 heading = "The entity, and its namesakes set apart"
@@ -192,6 +198,13 @@ views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators
 sources = ["pointing", "members", "confirmed", "near"]
 not_held = ["insolvency"]
 text = "Liquidations (appointed by the shareholders or the court), receiverships, administrations, winding-up applications, creditors' notices, deeds of company arrangement, removals and restorations, dissolutions, amalgamations, rectifications, each under its company's name with its own date, which says what it dates: a liquidator's appointment, a hearing day, a removal's last day for objections. Started from a person, also the person's own appointments as liquidator or to a public office. A removal from the register is not an insolvency."
+
+[[sections]]
+name = "board"
+heading = "Building Practitioners Board decisions"
+views = ["building_practitioner_decisions"]
+sources = ["named", "members", "confirmed", "near"]
+text = "A decision as the Board publishes it, for three years from the decision: the complaint, whether it was upheld, the penalties. The Board names the practitioner and a licence number; no link joins either to another register, so a row that shares a name with the subject is near, and nothing in it is the subject's until the licence number is checked."
 
 [[sections]]
 name = "not-held"

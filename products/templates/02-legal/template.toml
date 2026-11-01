@@ -207,8 +207,7 @@ text = "Incorporated society roles; then the Charities Register: a charity offic
 name = "regulators"
 heading = "The regulators' listings"
 views = ["commerce_commission_parties", "fma_parties"]
-sources = ["members", "confirmed", "near"]
-own = false
+sources = ["named", "members", "confirmed", "near"]
 text = "A party named in a regulator's listing as it stands today: the Commerce Commission's cases and the Financial Markets Authority's warnings and actions. A listing states what the regulator published, the charge, the case or the warning, never a cause. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's."
 
 [[sections]]

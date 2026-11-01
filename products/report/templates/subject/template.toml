@@ -193,6 +193,12 @@ licence = "copyright the Financial Markets Authority, licensed CC BY 4.0"
 attribution = "Financial Markets Authority"
 refresh = "as the regulator lists them; re-read on the lane's clock"
 
+[[reads]]
+view = "building_practitioner_decisions"
+licence = "Crown copyright, licensed CC BY 4.0; the Board's own three-year window; a name the Board withholds is not shown"
+attribution = "Building Practitioners Board"
+refresh = "as the Board publishes them; re-read on the lane's clock"
+
 [[sections]]
 name = "money"
 heading = "Donations, loans and disclosures"
@@ -238,3 +244,9 @@ name = "regulators"
 heading = "The regulators' listings: WorkSafe, the Commerce Commission, the Financial Markets Authority"
 views = ["worksafe_actions", "worksafe_parties", "commerce_commission_cases", "commerce_commission_parties", "fma_actions", "fma_parties"]
 text = "A listing as the regulator publishes it today: the charge, the case or the warning, never a cause. A party row that shares a name with the subject and that no rule confirms is near: nothing in it is the subject's."
+
+[[sections]]
+name = "board"
+heading = "Building Practitioners Board decisions"
+views = ["building_practitioner_decisions"]
+text = "A decision as the Board publishes it, for three years from the decision. The Board names the practitioner and a licence number; no link joins either to another register, so a row that shares the subject's name is near: nothing in it is the subject's until the licence number is checked."

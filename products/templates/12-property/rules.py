@@ -1125,7 +1125,33 @@ court_judgments = _not_held("court-judgments", "amber", "court judgments (the Op
 securities_register = _not_held("securities-register", "amber", SECURITIES, "the security interests registered against the entity")
 insolvency_register = _not_held("insolvency-register", "amber", INSOLVENCY_REGISTER, "a principal's bankruptcy discharge, no-asset procedure or summary instalment order")
 real_estate_authority = _not_held("real-estate-authority", "info", REA, "a complaint or a disciplinary finding on a licensee selling the project")
-building_practitioners = _not_held("building-practitioners", "info", "the licensed building practitioners register", "whether the builder's people hold a licence")
+BUILDING = ("the licensed building practitioners register (licence, class and discipline)",)
+
+
+def building_practitioners(report):
+    """The Building Practitioners Board's decisions, read since 1 November 2026 (pub.building_practitioner_decisions, the Board's
+    three-year window); the licence register itself is not held, so whether the people hold a licence is never cleared."""
+    rows = [it for it in items(report, ("building_practitioner_decisions",)) if not it.get("suppressed")]
+    upheld = [it for it in rows if (it.get("row") or {}).get("upheld") is True]
+    other = len(rows) - len(upheld)
+    held = ("the Building Practitioners Board's decisions for three years from each (pub.building_practitioner_decisions)",)
+    tail = f"; {other} decision(s) under the name were not upheld" if other else ""
+    conf = [it for it in upheld if it["grade"] == "confirmed"]
+    if conf:
+        shown = "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in conf[:3])
+        return flag("building-practitioners", V, "fired", "info", f"{len(conf)} upheld Board decision(s) against a person the rules confirm "
+                    f"is the subject: {shown}{tail}; a decision states the Board's finding, never a cause", citations=tuple(it["ref"] for it in conf),
+                    sources_held=held, sources_not_held=BUILDING)
+    if upheld:
+        return flag("building-practitioners", V, "fired", "info", f"{len(upheld)} upheld Board decision(s) against a practitioner who shares a "
+                    f"name with the subject: {'; '.join(it['statement'] for it in upheld[:3])}{tail}; nothing in a namesake's decision is the "
+                    "subject's until the licence number is checked", citations=tuple(it["ref"] for it in upheld), sources_held=held,
+                    sources_not_held=BUILDING)
+    return flag("building-practitioners", V, "blocked", "info", f"no upheld Board decision in the three years the Board publishes names "
+                f"the subject or a namesake{tail}; but whether the people hold a building practitioner's licence, and of which class, is in "
+                "the licensed building practitioners register, which is not held, so no clear is given", sources_held=held, sources_not_held=BUILDING)
+
+
 past_roles = _not_held("past-roles", "amber", CHANGE_HISTORY, f"a principal's past roles and the companies removed with them ({PAST_NOT_HELD})")
 
 

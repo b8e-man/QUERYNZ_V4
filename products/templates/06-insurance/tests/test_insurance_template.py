@@ -131,7 +131,7 @@ def test_its_sections_run_in_the_underwriters_order():
     assert s["companies"]["views"] == ["companies"]
     assert set(s["people-notices"]["views"]) == {"gazette_prohibitions", "gazette_bankruptcies"}
     assert "second" in s["beside"]["sources"] and "second" not in {x for sec in t["sections"] if sec["name"] != "beside" for x in sec.get("sources", [])}
-    assert s["safety"]["views"] == ["worksafe_parties", "commerce_commission_parties", "fma_parties"] and s["safety"]["sources"] == ["members", "confirmed", "near"]
+    assert s["safety"]["views"] == ["worksafe_parties", "commerce_commission_parties", "fma_parties"] and s["safety"]["sources"] == ["named", "members", "confirmed", "near"]
     assert {"courts", "insolvency", "securities", "fsp"} <= set(s["safety"]["not_held"])
     for named in ("WorkSafe", "enforceable undertakings", "Commerce Commission", "Financial Markets Authority", "court judgments",
                   "Employment Relations Authority", "Disputes Tribunal", "Fire and Emergency", "16 August 2026"):
