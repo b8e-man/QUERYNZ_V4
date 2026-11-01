@@ -67,3 +67,23 @@ A fault in section 4, mended here: a person start found no regulator listing, be
 in a view no link reaches. The walk's name join now reads the Board's decisions and the three regulators' parties, near
 by name; and the new sections had `own = false`, which dropped every row reached through the subject. Verified on the
 real rows: a current director who shares an upheld decision's name renders the decision near and the flag info.
+
+## 6. A timeout stopped the backfill; mended and restarted
+
+At 22:32 one call to the business-number host timed out, and the run crashed with a traceback after 273 answers. The
+history run and the monitor's run share one fetch, so a call that gets no answer now records a failed read (status 0)
+and stops the run cleanly, as a block does (39848ea, with a test that raises a timeout). The job was queued again at
+22:39 and runs to 01:00 or the day's 2,000.
+
+## 7. Limited partnerships: the general partners are read
+
+ddb4d83. 4,114 partnerships and 4,468 general-partner rows (4,304 bodies, 164 people; limited partners are not public).
+The walk joins a company to its partnership row by business number, and the partnership to its general partners.
+`officers-of-record` in legal, banking, agriculture, construction and ownership lists the general partners: clear when
+one is current, amber when none is, blocked when the walk reached none. Insurance's `officer-churn` stays blocked for a
+partnership: few start dates are stated. Verified on the real rows: a farming partnership's count of current general
+partners is the register's.
+
+Sanctions stay not held: `pub.sanctions_listings` is published empty, and reading it would print blanks that look
+like a clear. Not yet: ownership's chain still names a holder that is a partnership as filed, and does not follow its
+partners; a company that is a general partner does not yet list its partnerships.
