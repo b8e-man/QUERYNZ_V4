@@ -83,6 +83,27 @@ COMPANIES_HELD = "Companies register (pub.companies, pub.directors, pub.sharehol
 NOT_HELD_INSOLVENCY = ("the Insolvency Register (interface awaited since 19 September 2026)", "court judgments (step 5.4)")
 SECURITIES = "the Personal Property Securities Register (interface awaited since 19 September 2026)"
 LP_PARTNERS = "a limited partnership's general and limited partners (the limited partnerships register)"
+
+LP_HELD = "the general partners, current and past, the business-number register states for a limited partnership (pub.limited_partnership_partners)"
+LP_LIMITED = "a limited partnership's limited partners: the register publishes its general partners only"
+
+
+def _general_partners(report, rule, severity):
+    """A limited partnership start: its general partners as the register states them (read since 1 November 2026, through the
+    partnership's row by business number); the limited partners are not public, so they are never counted."""
+    gp = [it for it in items(report, ("limited_partnership_partners",), ("confirmed",)) if not it.get("suppressed")]
+    if not gp:
+        return flag(rule, V, "blocked", severity, "a limited partnership has general and limited partners, not directors; the walk reached no "
+                    "general partner the register states for it, and the limited partners are not public", sources_held=(LP_HELD,),
+                    sources_not_held=(LP_LIMITED,), scope="entity")
+    now = [it for it in gp if (it.get("row") or {}).get("current")]
+    names = "; ".join(it["statement"] for it in now[:3])
+    text = (f"{len(now)} current general partner(s) and {len(gp) - len(now)} past, as the register states them"
+            f"{': ' + names if names else ''}; the limited partners are not public")
+    if not now:
+        return flag(rule, V, "fired", "amber", f"the register names no current general partner: {text}",
+                    citations=tuple(it["ref"] for it in gp), sources_held=(LP_HELD,), sources_not_held=(LP_LIMITED,), scope="entity")
+    return flag(rule, V, "clear", "info", text, sources_held=(LP_HELD,), sources_not_held=(LP_LIMITED,), scope="entity")
 #: the views whose rows the walk looks a person's name up from in the Charities Register (the shape's NAME_JOIN_FROM)
 NAME_LOOKED_UP = ("directors", "society_officers", "members", "candidates", "mp_interest_returns", "promoter_people", "gazette_appointments")
 CHARITY_HELD = "Charities Register officers (pub.charity_officers), looked up by the person's name"
@@ -675,8 +696,7 @@ def officers_of_record(report):
                     sources_held=(COMPANIES_HELD,), scope="entity")
     r = report["subject"]["row"]
     if "partnership" in (r.get("entity_type") or "").lower():
-        return flag("officers-of-record", V, "blocked", "info", "a limited partnership has general and limited partners, not directors, and the "
-                    "limited partnerships register that names them is not held", sources_not_held=(LP_PARTNERS,), scope="entity")
+        return _general_partners(report, "officers-of-record", "info")
     sec = [it for it in section(report, "roles")["items"] if it.get("via") == report["subject"]["ref"]]
     dirs = [it for it in sec if it["view"] == "directors"]
     holders = [it for it in sec if it["view"] == "shareholders"]

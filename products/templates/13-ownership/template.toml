@@ -31,7 +31,7 @@ limits = [
   "On each company above in the chain its holders of record, its current directors and the Gazette notices on it are listed with that company's grade: they are the holder's, not the entity's, and no check counts them as the entity's own. A charitable trust board holding shares of record is followed as a company; its charity's trustees are read only from a report started from it.",
   "A holder of record is the name on the share register and nothing more. For whom a nominee, trustee or custodian holds the shares is in no register held, and New Zealand keeps no register of trusts, nor of the people shares are held for.",
   "Sanctions lists (Foreign Affairs, the United Nations, the Police designations) are not held: the exposure check has no list to read and is blocked, never clear.",
-  "Limited partnerships, overseas registers and the Personal Property Securities Register are not held: a holder that is a limited partnership or an overseas company is named as filed and not followed.",
+  "A limited partnership started from shows its general partners as the register states them; its limited partners are not public. A holder of record that is a limited partnership is named as filed and its partners are not followed from the chain. Overseas registers and the Personal Property Securities Register are not held: a holder that is an overseas company is named as filed and not followed.",
   "The shares on a holder's row are the shares filed for that holding. A parcel held jointly is filed once per holder with the same number of shares, and no row says which rows share a parcel or how many shares the company has issued, so no fraction is computed and none is carried up the chain.",
   "A holding is dated only by the monthly files it was seen in (from July 2026); the register's own allocation dates are not published.",
   "Started from a company, the report lists its directors and holders of record but does not follow the people: their prohibitions, other companies, seats and donations are not read, and those checks are blocked, never clear. Start a report from each person listed.",
@@ -163,6 +163,17 @@ view = "charity_returns"
 licence = "Charities Register open data, Creative Commons Attribution 3.0 New Zealand; the financial fields under the ruling of 14 August 2026"
 attribution = "Charities Services, Department of Internal Affairs"
 refresh = "changes by the feed's modified date; a full copy every 28 days"
+[[reads]]
+view = "limited_partnerships"
+licence = "the business-number register, Creative Commons Attribution 4.0; the registered office is a company's, shown"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "as the lane re-asks each partnership, stalest first"
+[[reads]]
+view = "limited_partnership_partners"
+licence = "the business-number register, Creative Commons Attribution 4.0; general partners only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "as the lane re-asks each partnership, stalest first"
+
 [[sections]]
 name = "identity"
 heading = "The entity, and its namesakes set apart"
@@ -188,7 +199,7 @@ text = "Started from a company, each company holder of record followed to its ow
 [[sections]]
 name = "officers"
 heading = "Its directors and registered office, and the directors of the companies a person sits on"
-views = ["directors", "company_addresses"]
+views = ["directors", "company_addresses", "limited_partnerships", "limited_partnership_partners"]
 sources = ["roles", "members", "confirmed", "second"]
 text = "Every director the companies file lists on the company, with the dates it files, and its registered office, flagged when many companies share it. The directors and holders of a company holder further up the chain are in the chain section. Started from a person, the person's own directorships, then the other directors on those companies, each near: a connection through another person is never confirmed."
 
@@ -219,5 +230,5 @@ text = "Started from a company, its charity by business number (a charitable tru
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["sanctions", "limited_partnerships", "securities", "insolvency", "courts", "fsp", "linz"]
-text = "Registers an anti-money-laundering check would read that no lane has published: the sanctions lists (the Russia Sanctions Act list kept by Foreign Affairs, the United Nations consolidated list, the Police designations under the Terrorism Suppression Act), the limited partnerships register and a partnership's general and limited partners, overseas company registers and an overseas holder's own holders, trusts and their trustees, settlors and the people they hold for (New Zealand keeps no register of trusts, nor of the people shares are held for), the Personal Property Securities Register, the Insolvency Register, court judgments, financial service providers and land titles. Nothing in this report says anything about them; ask the source."
+not_held = ["sanctions", "securities", "insolvency", "courts", "fsp", "linz"]
+text = "Registers an anti-money-laundering check would read that no lane has published: the sanctions lists (the Russia Sanctions Act list kept by Foreign Affairs, the United Nations consolidated list, the Police designations under the Terrorism Suppression Act), a partnership's limited partners (the register publishes its general partners), overseas company registers and an overseas holder's own holders, trusts and their trustees, settlors and the people they hold for (New Zealand keeps no register of trusts, nor of the people shares are held for), the Personal Property Securities Register, the Insolvency Register, court judgments, financial service providers and land titles. Nothing in this report says anything about them; ask the source."

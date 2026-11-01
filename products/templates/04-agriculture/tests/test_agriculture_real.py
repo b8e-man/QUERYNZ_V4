@@ -86,13 +86,16 @@ def test_a_director_of_several_companies_in_liquidation_is_red_with_each_company
     assert m["sections"][OTHER]["confirmed"] >= 3
 
 
-def test_a_farming_limited_partnership_says_its_partners_are_not_held():
+def test_a_farming_limited_partnership_lists_its_general_partners_and_says_the_limited_partners_are_not_public():
     ref = one("""
         select 'companies:' || key from pub.companies where entity_type = 'NZ Limited Partnership' and in_latest
           and name ~* '(farm|dairy|orchard)' order by key limit 1""")
     m = memo(ref)
-    assert m["flags"]["officers-of-record"]["status"] == "blocked" and "partners" in m["flags"]["officers-of-record"]["text"]
-    assert "not held: " in m["text"] and "Limited partnerships' partners" in m["text"]
+    f = m["flags"]["officers-of-record"]
+    assert f["status"] in ("clear", "fired") and "general partner(s)" in f["text"] and "limited partners are not public" in f["text"], f
+    n = int(one(f"""select count(*) from pub.limited_partnership_partners p join pub.limited_partnerships l on l.key = p.partnership_key
+                    where 'companies:companies/' || l.nzbn = '{ref}' and p.current"""))
+    assert f"{n} current general partner(s)" in f["text"], "the count is the register's current general partners, read through the partnership's row"
 
 
 def test_a_company_with_only_a_removal_notice_is_not_an_insolvency():

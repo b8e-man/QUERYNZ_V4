@@ -104,8 +104,8 @@ def test_its_sections_run_in_the_compliance_analysts_order():
     assert "nominee, trustee or custodian" in s["holders"]["text"] and "holder of record" in s["holders"]["text"]
     assert "pointing" in s["gazette"]["sources"] and "insolvency" in s["gazette"]["not_held"]
     assert {"members", "mp_interests", "party_return_donors"} <= set(s["exposure"]["views"])
-    assert {"sanctions", "limited_partnerships", "securities"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
-    for named in ("sanctions lists", "limited partnerships register", "overseas company registers", "trusts", "Personal Property Securities Register"):
+    assert {"sanctions", "securities"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
+    for named in ("sanctions lists", "a partnership's limited partners", "overseas company registers", "trusts", "Personal Property Securities Register"):
         assert named in s["not-held"]["text"], named
     views = {r["view"] for r in t["reads"]}
     for x in t["sections"]:

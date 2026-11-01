@@ -28,9 +28,9 @@ def test_the_catalogue_knows_possessions_states_and_the_not_held_keys():
     assert liq.entity == ("gazette_liquidations", "notice") and liq.entity_col == "notice"
     assert walk.ROLES_ON["gazette_liquidations"][0][:2] == ("gazette_liquidators", "notice")
     for key in ("overseas", "trusts", "employment", "company_history", "disputes", "fire", "unincorporated", "mpi",
-                "credit_bureau", "nzbn_interface", "disciplinary", "tribunals", "limited_partnerships"):
+                "credit_bureau", "nzbn_interface", "disciplinary", "tribunals"):
         assert key in cat.NOT_HELD_NAME, key
-    assert "partners" in cat.NOT_HELD_NAME["limited_partnerships"]
+    assert "limited_partnerships" not in cat.NOT_HELD_NAME and cat.REGISTER_NAME["limited_partnerships"].startswith("Limited partnerships")
     assert not {r for r, _ in cat.REGISTERS} & set(cat.NOT_HELD_NAME)
 
 

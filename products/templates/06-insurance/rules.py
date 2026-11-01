@@ -101,6 +101,27 @@ FSP = "the financial service providers register (interface awaited since 19 Sept
 POSSESSIONS = "a mortgagee's entry into possession (pub.gazette_possessions: published, not in the report's catalogue)"
 STATES = "a company's dated status history (pub.company_states: published, not in the report's catalogue)"
 LP_PARTNERS = "a limited partnership's general and limited partners (the limited partnerships register)"
+
+LP_HELD = "the general partners, current and past, the business-number register states for a limited partnership (pub.limited_partnership_partners)"
+LP_LIMITED = "a limited partnership's limited partners: the register publishes its general partners only"
+
+
+def _general_partners(report, rule, severity):
+    """A limited partnership start: its general partners as the register states them (read since 1 November 2026, through the
+    partnership's row by business number); the limited partners are not public, so they are never counted."""
+    gp = [it for it in items(report, ("limited_partnership_partners",), ("confirmed",)) if not it.get("suppressed")]
+    if not gp:
+        return flag(rule, V, "blocked", severity, "a limited partnership has general and limited partners, not directors; the walk reached no "
+                    "general partner the register states for it, and the limited partners are not public", sources_held=(LP_HELD,),
+                    sources_not_held=(LP_LIMITED,), scope="entity")
+    now = [it for it in gp if (it.get("row") or {}).get("current")]
+    names = "; ".join(it["statement"] for it in now[:3])
+    text = (f"{len(now)} current general partner(s) and {len(gp) - len(now)} past, as the register states them"
+            f"{': ' + names if names else ''}; the limited partners are not public")
+    if not now:
+        return flag(rule, V, "fired", "amber", f"the register names no current general partner: {text}",
+                    citations=tuple(it["ref"] for it in gp), sources_held=(LP_HELD,), sources_not_held=(LP_LIMITED,), scope="entity")
+    return flag(rule, V, "clear", "info", text, sources_held=(LP_HELD,), sources_not_held=(LP_LIMITED,), scope="entity")
 NOT_FOLLOWED = ("started from a company, the report lists its officers and holders of record but does not follow them to their own links "
                 "and companies yet; start a report from each person listed")
 
@@ -488,8 +509,9 @@ def officer_churn(report):
     s = report["subject"]
     r = s["row"]
     if "partnership" in (r.get("entity_type") or "").lower():
-        return flag("officer-churn", V, "blocked", "amber", "a limited partnership has general and limited partners, not directors, and the "
-                    "limited partnerships register that names them is not held", sources_not_held=(LP_PARTNERS,), scope="entity")
+        return flag("officer-churn", V, "blocked", "amber", "a limited partnership has general partners, not directors, and the register "
+                    "states a general partner's start date for few of them, so churn is not read; the partners are listed in the people "
+                    "section", sources_held=(LP_HELD,), sources_not_held=(LP_LIMITED,), scope="entity")
     as_of, reg = _as_of(report), _date(r.get("registered_on"))
     dirs = [it for it in section(report, "people")["items"] if it["view"] == "directors" and it.get("via") == s["ref"]]
     now = [it for it in dirs if _current(it)]

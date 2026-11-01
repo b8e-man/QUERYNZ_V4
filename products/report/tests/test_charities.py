@@ -28,7 +28,7 @@ def test_the_catalogue_knows_the_three_charities_views_and_no_longer_says_the_re
     assert cat.REGISTER_NAME["charities"].startswith("Charities register") and "charities" not in cat.NOT_HELD_NAME
     assert cat.SUPERSEDED_NOT_HELD == {"charities": "charities"}
     assert [c for c, *_ in walk.ROLES_ON["charities"]] == ["charity_officers", "charity_returns"]
-    assert walk.NUMBER_JOINS["companies"] == (("charities", "nzbn", "nzbn"),) and walk.NAME_JOIN_TO[0][0] == "charity_officers"
+    assert walk.NUMBER_JOINS["companies"][0] == ("charities", "nzbn", "nzbn") and walk.NAME_JOIN_TO[0][0] == "charity_officers"
     assert "charity_officers" in walk.OFFICER_VIEWS and "charity_officers" in walk.ROLE_VIEWS
     assert {r.view for r in tpl.by_name("subject").reads} >= {"charities", "charity_officers", "charity_returns"}
     for r in tpl.by_name("subject").reads:
@@ -133,10 +133,11 @@ def test_a_companys_charity_is_joined_by_business_number_and_an_officer_by_a_per
     skipped = []
     got = walk.number_joined(None, [company, other, item()], {"companies", "charities"}, skipped)
     assert [it["ref"] for it in got] == ["charities:charities/CC9"] and got[0]["via"] == "companies:companies/9" and got[0]["grade"] == "confirmed"
-    assert got[0]["rule"] == "official-number" and got[0]["kind"] == "organisation" and got[0]["hop"] == got[0]["dates"] and skipped == []
+    assert got[0]["rule"] == "official-number" and got[0]["kind"] == "organisation" and got[0]["hop"] == got[0]["dates"] and skipped == ["limited_partnerships"]
     near_company = walk.number_joined(None, [dict(other, row={"name": "OTHER LIMITED", "nzbn": "9429000000009"})], {"companies", "charities"}, skipped)
     assert near_company[0]["grade"] == "near" and near_company[0]["reason"] == "a name match"
-    assert walk.number_joined(None, [company], {"companies"}, skipped) == [] and skipped == ["charities"]
+    skipped = []
+    assert walk.number_joined(None, [company], {"companies"}, skipped) == [] and skipped == ["charities", "limited_partnerships"]
     # the name join: a director named Jane Doe reaches both officer rows, near with the by-name reason; a suppressed person reaches nothing
     jane = item(ref="companies:companies/9/director/a", row={"full_name": "Jane DOE"})
     hidden = item(ref="companies:companies/9/director/b", row={"full_name": "Ann ROE"}, suppressed=True)

@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ORDER = ["identity", "standing", "solvency", "people", "companies", "people-notices", "beside", "charities", "safety"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
+VIEWS = {"limited_partnerships", "limited_partnership_partners", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
          "charities", "charity_officers", "charity_returns", "worksafe_parties", "commerce_commission_parties", "fma_parties"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -127,7 +127,7 @@ def test_its_sections_run_in_the_underwriters_order():
     assert s["standing"]["views"] == ["company_addresses"]
     assert set(s["solvency"]["views"]) == {"gazette_liquidations", "gazette_company_notices"} and "pointing" in s["solvency"]["sources"]
     assert "pointing" not in {x for sec in t["sections"] if sec["name"] != "solvency" for x in sec.get("sources", [])}
-    assert s["people"]["views"] == ["directors", "shareholders"] and "roles" in s["people"]["sources"]
+    assert s["people"]["views"] == ["directors", "shareholders", "limited_partnerships", "limited_partnership_partners"] and "roles" in s["people"]["sources"]
     assert s["companies"]["views"] == ["companies"]
     assert set(s["people-notices"]["views"]) == {"gazette_prohibitions", "gazette_bankruptcies"}
     assert "second" in s["beside"]["sources"] and "second" not in {x for sec in t["sections"] if sec["name"] != "beside" for x in sec.get("sources", [])}

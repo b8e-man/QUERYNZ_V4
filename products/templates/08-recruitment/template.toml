@@ -230,5 +230,5 @@ text = "A party named in a regulator's listing as it stands today: the Commerce 
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["courts", "insolvency", "securities", "fsp", "sanctions", "limited_partnerships"]
+not_held = ["courts", "insolvency", "securities", "fsp", "sanctions"]
 text = "Registers a board screen would read that no lane has published. Nothing in this report says anything about them; ask the source."

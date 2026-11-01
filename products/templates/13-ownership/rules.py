@@ -91,6 +91,27 @@ NOT_HELD_INSOLVENCY = ("the Insolvency Register (interface awaited since 19 Sept
 SANCTIONS = ("the Russia Sanctions Act 2022 sanctions register (Foreign Affairs and Trade)", "the United Nations Security Council consolidated list",
              "the Police list of designated terrorist entities (Terrorism Suppression Act 2002)")
 LP_PARTNERS = "the limited partnerships register: a partnership's general and limited partners"
+
+LP_HELD = "the general partners, current and past, the business-number register states for a limited partnership (pub.limited_partnership_partners)"
+LP_LIMITED = "a limited partnership's limited partners: the register publishes its general partners only"
+
+
+def _general_partners(report, rule, severity):
+    """A limited partnership start: its general partners as the register states them (read since 1 November 2026, through the
+    partnership's row by business number); the limited partners are not public, so they are never counted."""
+    gp = [it for it in items(report, ("limited_partnership_partners",), ("confirmed",)) if not it.get("suppressed")]
+    if not gp:
+        return flag(rule, V, "blocked", severity, "a limited partnership has general and limited partners, not directors; the walk reached no "
+                    "general partner the register states for it, and the limited partners are not public", sources_held=(LP_HELD,),
+                    sources_not_held=(LP_LIMITED,), scope="entity")
+    now = [it for it in gp if (it.get("row") or {}).get("current")]
+    names = "; ".join(it["statement"] for it in now[:3])
+    text = (f"{len(now)} current general partner(s) and {len(gp) - len(now)} past, as the register states them"
+            f"{': ' + names if names else ''}; the limited partners are not public")
+    if not now:
+        return flag(rule, V, "fired", "amber", f"the register names no current general partner: {text}",
+                    citations=tuple(it["ref"] for it in gp), sources_held=(LP_HELD,), sources_not_held=(LP_LIMITED,), scope="entity")
+    return flag(rule, V, "clear", "info", text, sources_held=(LP_HELD,), sources_not_held=(LP_LIMITED,), scope="entity")
 OVERSEAS = "overseas company registers: an overseas holder's own holders and directors"
 FOR_WHOM = ("for whom a holder of record holds", "a trust's trustees, settlors and the people it holds for (New Zealand keeps no "
             "register of trusts, nor of the people shares are held for)", LP_PARTNERS, OVERSEAS)
@@ -608,8 +629,7 @@ def officers_of_record(report):
         return flag("officers-of-record", V, "clear", "info", "the subject is a person: its own roles are listed in the holders and officers "
                     "sections", sources_held=(COMPANIES_HELD,), scope="entity")
     if "partnership" in (report["subject"]["row"].get("entity_type") or "").lower():
-        return flag("officers-of-record", V, "blocked", "info", f"a limited partnership has general and limited partners, not directors, and "
-                    f"{LP_PARTNERS} is not held", sources_not_held=(LP_PARTNERS,), scope="entity")
+        return _general_partners(report, "officers-of-record", "info")
     dirs = [it for it in section(report, "officers")["items"] if it["view"] == "directors" and _on_subject(report, it)]
     now = [it for it in dirs if _current(it)]
     omitted = section(report, "officers").get("omitted") or 0

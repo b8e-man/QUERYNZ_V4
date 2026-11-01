@@ -188,6 +188,12 @@ VIEWS: tuple = (
       suppressed="suppressed", on="decided_on", on_label="decided",
       statement="{title}: Building Practitioners Board decision {complaint_number}, upheld {upheld}; penalties {penalties}",
       note="a Board decision as published, shown for three years from the decision; a name the Board withholds is not shown"),
+    V("limited_partnerships", "limited_partnerships", "organisation", ("name",), names=("name",), suppressed="name_withheld",
+      start="registered_on", statement="{title}: {status} limited partnership, number {number}"),
+    V("limited_partnership_partners", "limited_partnerships", "person", ("full_name",), names=("full_name", "first_name", "middle_names",
+      "last_name"), suppressed="suppressed", start="started_on", end="ended_on", entity=("limited_partnerships", "partnership_key"),
+      role="kind", statement="{title}: general partner of {entity} ({status})",
+      note="a general partner, a person or a body, current or past, as the business-number register states it; the limited partners are not public"),
 )
 BY_NAME = {v.name: v for v in VIEWS}
 
@@ -209,6 +215,7 @@ REGISTERS = (
     ("commerce_commission", "Commerce Commission cases"),
     ("fma", "Financial Markets Authority warnings and cases"),
     ("building_board", "Building Practitioners Board decisions"),
+    ("limited_partnerships", "Limited partnerships and their general partners"),
 )
 REGISTER_NAME = dict(REGISTERS)
 
@@ -226,7 +233,6 @@ NOT_HELD = (
     ("linz", "LINZ titles"),
     ("tenders", "Tenders and awards"),
     ("sanctions", "Sanctions lists"),
-    ("limited_partnerships", "Limited partnerships' partners (the partnerships themselves are rows of the companies register)"),
     ("building_practitioners", "Licensed building practitioners"),
     ("overseas", "Overseas company registers"),
     ("trusts", "Trusts: no New Zealand register exists"),

@@ -199,6 +199,17 @@ licence = "Crown copyright, licensed CC BY 4.0; the Board's own three-year windo
 attribution = "Building Practitioners Board"
 refresh = "as the Board publishes them; re-read on the lane's clock"
 
+[[reads]]
+view = "limited_partnerships"
+licence = "the business-number register, Creative Commons Attribution 4.0; the registered office is a company's, shown"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "as the lane re-asks each partnership, stalest first"
+[[reads]]
+view = "limited_partnership_partners"
+licence = "the business-number register, Creative Commons Attribution 4.0; general partners only, never an address"
+attribution = "Companies Office, New Zealand Business Number register"
+refresh = "as the lane re-asks each partnership, stalest first"
+
 [[sections]]
 name = "money"
 heading = "Donations, loans and disclosures"
@@ -208,7 +219,7 @@ text = "A donation is from the donor the Commission filed it under. A return tha
 [[sections]]
 name = "companies"
 heading = "Companies: roles, holdings of record, registered offices, earlier states"
-views = ["companies", "directors", "shareholders", "company_addresses", "company_states"]
+views = ["companies", "directors", "shareholders", "company_addresses", "company_states", "limited_partnerships", "limited_partnership_partners"]
 text = "A holding is shown as the register states it: a shareholder of record. Nobody is called an owner. From a company start, its officers' other current roles, the companies at its office and the holders up its chain are listed near, each with its reason."
 
 [[sections]]

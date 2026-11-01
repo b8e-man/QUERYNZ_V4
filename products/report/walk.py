@@ -128,6 +128,7 @@ ROLES_ON = {
     "disclosures": (("disclosure_items", "declaration", "ordinal"),),
     "promoters": (("promoter_people", "promoter_key", "role"),),
     "mp_interest_returns": (("mp_interests", "member_return", "key"),),
+    "limited_partnerships": (("limited_partnership_partners", "partnership_key", "started_on"),),
 }
 #: entities expanded only when they are the start row: a return's other donors are not the subject's connections
 EXPAND_ONLY_AS_START = frozenset({"party_return_totals", "candidate_return_totals", "disclosures", "mp_interest_returns"})
@@ -138,7 +139,7 @@ POINTING_AT = {"companies": (("gazette_liquidations", "register_key", "published
                              ("gazette_possessions", "mortgagor_register_key", "published_on"))}
 #: rows of another register that are the same entity by an official number, listed as an entity of the walk with the parent's grade:
 #: (child view, child column, parent column); a company's business number is the Charities Register's `nzbn`
-NUMBER_JOINS = {"companies": (("charities", "nzbn", "nzbn"),)}
+NUMBER_JOINS = {"companies": (("charities", "nzbn", "nzbn"), ("limited_partnerships", "nzbn", "nzbn"))}
 #: a person row's name looked for in a view no link reaches yet, as near by name: {person view: its name column}; the rows found go to
 #: `named` for a member of the group and to `officers` for a followed officer
 NAME_JOIN_FROM = {"directors": "full_name", "society_officers": "full_name", "members": "display_name", "candidates": "display_name",

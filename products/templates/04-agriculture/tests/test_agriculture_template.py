@@ -81,7 +81,7 @@ def test_its_sections_run_in_the_credit_managers_order():
     assert set(s["gazette"]["views"]) == GAZETTE and "pointing" in s["gazette"]["sources"]
     assert {"insolvency", "courts"} <= set(s["gazette"]["not_held"]) and {"charities", "charity_officers", "charity_returns"} <= set(s["societies"]["views"])
     assert "named" in s["societies"]["sources"] and not any("charities" in x.get("not_held", []) for x in t["sections"])
-    assert {"securities", "linz", "limited_partnerships"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
+    assert {"securities", "linz"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
     views = {r["view"] for r in t["reads"]}
     for x in t["sections"]:
         assert set(x["views"]) <= views
