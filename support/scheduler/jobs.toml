@@ -245,6 +245,32 @@ command = ["python", "-m", "registers.charities.capture", "--budget-s", "14400"]
 at_utc = "10:30"
 nice = 10
 
+# ── the Gazette's notices after the 20 October export, from DigitalNZ (2 November 2026, Arthur: "fix the gazette notices and
+# appointments gathering & ingestion"); the Gazette's own pages answer with a challenge, so they are never asked ──
+[jobs.qv4-gazette-capture]
+description = "The Gazette: DigitalNZ's records of every Gazette notice not held, through the fetch gate, one request at a time 5 s apart, off-peak; newest first until a page holds nothing new, then each year short of DigitalNZ's count walked back. Each answer landed once by hash; the Gazette's robots file read first for the notices it suppresses (unreadable: no night). At most 400 requests a night. Nightly at 23:40 NZDT."
+needs = "processor"
+memory_gb = 0.5   # 2 November 2026: the export's notice numbers in a set; the trial (20 requests) ran well under it
+deadline_s = 4200
+query_timeout_s = 60
+class = "due"
+priority = 124
+command = ["python", "-m", "registers.gazette.capture", "--night", "--requests", "400", "--budget-s", "3300"]
+at_utc = "10:40"
+nice = 10
+then = ["qv4-gazette-load"]
+
+[jobs.qv4-gazette-load]
+description = "The Gazette: the 20 October export and every landed DigitalNZ answer read by the lane's readers into staging_gazette_load, checked against the Gazette's own counts (registers.gazette.check), and published (pub.gazette_*) only on green. Queued by each qv4-gazette-capture (its `then`); no clock of its own."
+needs = "processor"
+memory_gb = 5.5   # measured 2 November 2026: 4.75 GB peak resident, 2 min 20 s, for 207,433 notices
+deadline_s = 1800
+query_timeout_s = 900
+class = "due"
+priority = 125
+command = ["python", "-m", "registers.gazette.load", "--job"]
+nice = 10
+
 # ── step 4.1, incorporated-society officers (the NZBN register's entity detail) ──
 # One ask per society, 5 s apart, party societies first, then the stalest
 # seventh (about 3,300 a night, about 4.6 hours). The lane checks off-peak

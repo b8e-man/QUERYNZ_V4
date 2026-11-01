@@ -3,11 +3,18 @@ this lane's tables under a staging schema of the real database, and
 `publish` to move the rows into the lane's own tables in one transaction
 and refresh the published views. `fill` in sample.py uses the same pieces.
 
-Land the export (never run it: capture.py was run once), read it, copy the
+Land the export (never run it: capture.py was run once), read it with every
+DigitalNZ answer the capture has landed since (capture.pages_held), copy the
 rows in. Items in equal items out plus items set aside (read.py says how).
+The capture's own record (`capture_pages`, `capture_years`,
+`capture_suppressed`) is never dropped: it is what says which answers to read.
+
+    python -m registers.gazette.load --job    the scheduled load: staged, checked
+                                              (check.reading), published only on green
 """
 import os
 import re
+import sys
 
 from support import jobrun
 from support.docstore.landing import read_bytes
@@ -99,12 +106,15 @@ def _flat(cols: tuple, rows: list):
         yield tuple(flat.get(c) for c in cols)
 
 
-def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool = False) -> dict:
+def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool = False, pages=(),
+          suppressed=()) -> dict:
     """export: (sha256, name); aside: [(item, why)] from capture; only: the
-    notice numbers to read (the sample's), None for all. Wipes and fills
-    `schema`; returns the counts."""
+    notice numbers to read (the sample's), None for all; pages: the landed
+    DigitalNZ answers' hashes, in the order asked; suppressed: the notice
+    numbers never read. Wipes and fills `schema`; returns the counts."""
     create_tables(conn, schema, shared)
-    res = read.read(read_bytes(export[0]), export[0], only=only)
+    res = read.read(read_bytes(export[0]), export[0], only=only, pages=[(p, read_bytes(p)) for p in pages],
+                    suppressed=suppressed)
     joined = join_register(conn, res, schema, shared)
     details = join_possessions(res, joined.pop("_index", None))
     res.uncut += cut.rows(res, ("possessions",))     # the names the join chose to show, cut like every other
@@ -124,6 +134,9 @@ def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool
     _copy(conn, table(private_of(schema), "possession_details", shared), PRIVATE_COLUMNS["possession_details"], details)
     _copy(conn, table(private_of(schema), "uncut", shared), ("key", "col", "value"), res.uncut)
     conn.execute(f"INSERT INTO {table(schema, 'files', shared)} VALUES (%s, %s, 'notices', 'read')", export)
+    for p in dict.fromkeys(pages):
+        conn.execute(f"INSERT INTO {table(schema, 'files', shared)} VALUES (%s, %s, 'digitalnz', 'read') "
+                     "ON CONFLICT DO NOTHING", (p, f"digitalnz-page-{p[:12]}"))
     return {**res.counts, **joined, "not_held": len(aside), "cut": len(res.uncut)}
 
 
@@ -185,16 +198,51 @@ def join_possessions(res, idx) -> list:
     return out
 
 
-def load(conn, schema: str, log=print) -> int:
-    """The export landed and read, under `schema`. Returns the notice count."""
-    started = jobrun.now()
+JOB = "qv4-gazette-load"
+STAGING = "staging_gazette_load"
+
+
+def staged(conn, schema: str) -> dict:
+    """The export and every landed DigitalNZ answer read into `schema`. Returns the counts."""
     landed, aside = capture.copy_all(conn)
     export = next((ref.sha256, name) for kind, ref, name, at in landed if kind == "notices")
-    counts = build(conn, schema, export, aside)
+    pages = [sha for sha, _ in capture.pages_held(conn)]
+    return build(conn, schema, export, aside, pages=pages, suppressed=capture.suppressed_held(conn))
+
+
+def load(conn, schema: str, log=print) -> int:
+    """The export and the landed answers read, under `schema` (the merge gate's staging step). Returns the notice count."""
+    started = jobrun.now()
+    counts = staged(conn, schema)
     detail = ", ".join(f"{k} {v}" for k, v in counts.items()) + f", into {schema}"
     log("gazette: " + detail)
-    jobrun.record("qv4-gazette-load", True, detail, started, counts)
+    jobrun.record(JOB, True, detail, started, counts)
     return counts["notices"]
+
+
+def job(log=print, publish_on_green: bool = True) -> int:
+    """The scheduled load: staged under STAGING, checked against the Gazette's own counts, published only on green."""
+    from support import db
+    from registers.gazette import check
+    started = jobrun.now()
+    with db.connect(db.OWNER_KEY, "querynz_v4") as conn:
+        conn.execute("SET statement_timeout = '900s'")
+        with conn.transaction():
+            counts = staged(conn, STAGING)
+        problems = check.reading(conn, STAGING)
+        detail = (f"{counts['notices']:,} notices ({counts['from_digitalnz']:,} from DigitalNZ, {counts['pages']} answers), "
+                  f"{counts['appointments']:,} appointments, {counts['bankruptcies']:,} bankruptcies, "
+                  f"{counts['liquidations']:,} liquidations, {counts['set_aside']:,} set aside; "
+                  + ("; ".join(problems[:5]) or "reconciles"))
+        if problems:
+            log(f"gazette: RED, nothing published: {detail}")
+            jobrun.record(JOB, False, "nothing published: " + detail, started, counts)
+            return 1
+        if publish_on_green:
+            publish(conn, STAGING)
+    log(f"gazette: {'published' if publish_on_green else 'staged'}: {detail}")
+    jobrun.record(JOB, True, ("published: " if publish_on_green else "staged: ") + detail, started, counts)
+    return 0
 
 
 def publish(conn, staging: str) -> None:
@@ -207,3 +255,15 @@ def publish(conn, staging: str) -> None:
         for t in PRIVATE_TABLES:
             conn.execute(f"INSERT INTO {PRIVATE}.{t} SELECT * FROM {private_of(staging)}.{t}")
         conn.execute(sql("publish.sql"))
+
+
+def main(argv=None) -> int:
+    argv = argv if argv is not None else sys.argv[1:]
+    if "--job" in argv:
+        return job(publish_on_green="--stage-only" not in argv)
+    print("usage: python -m registers.gazette.load --job [--stage-only]")
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
