@@ -157,3 +157,14 @@ reads them: confirmed party amber; an officer's case or a namesake's info; judge
 suppressed names never count; none is blocked, as the corpus is partial. The not-held key `courts` is now
 `court_coverage`, the judgments the corpus does not carry. Five mutants of the check, each caught (dfc55d3).
 Transient: two ownership real tests hit the 30 s statement timeout on an indexed pub.names lookup once; passed on rerun.
+
+## 16. Government contract awards into the report
+
+GETS award notices (29,874 notices, 31,264 supplier rows, 2014 on) were published and linked (16,470 supplier rows
+confirmed to a company) but not read. Now in the catalogue; construction and the shape list them; construction's new
+public-contracts check is info only: a track record, never a finding (b730a6d). Not-held `tenders` is now
+`tender_coverage`, the contracts with no GETS notice.
+
+Fault seen, not mine: each `qv4-names-*` job holds pub.names for about a minute (06:50:15–06:51:23 today). Every
+report's first query waits on it and fails at the 30 s statement timeout; the real-data tests that ran then went red,
+and green on rerun. A live report opened in that minute fails the same way.
