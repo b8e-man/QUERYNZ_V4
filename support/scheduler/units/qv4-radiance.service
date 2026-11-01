@@ -28,7 +28,9 @@ Environment=PODMAN_SYSTEMD_UNIT=%n
 LimitMEMLOCK=infinity
 # Rootless podman drops the render nodes when given /dev/dri whole: each card's node is passed by itself. The
 # container listens on every address inside; the publish binds the loopback only. The n-gram table is read from the
-# model file on disk (--ngram-placement disk: 24-28 GB of host memory rather than 91). Thinking is off by default;
+# model file on disk until 1 November 2026; now in host RAM (--ngram-placement ram, Arthur: "put the ngrams in ram"):
+# measured second by second, steps crawled at about one a second while nvme1n1 read 100-700 MB/s of its rows. Costs
+# about 51 GB of node2's host memory. Thinking is off by default;
 # a profile that wants it (review) says so per request, and a request wins.
 ExecStart=/usr/bin/podman run --cidfile=%t/%n.ctr-id --cgroups=no-conmon --rm --sdnotify=conmon --replace -d \
   --name qv4-radiance \
@@ -44,7 +46,7 @@ ExecStart=/usr/bin/podman run --cidfile=%t/%n.ctr-id --cgroups=no-conmon --rm --
   --tp 2 --tp-wire exact \
   --max-model-len 32768 --max-num-seqs 16 --kv-cache-dtype fp8 \
   --placement expert_tiered --host-pool-mib 20480 --gpu-headroom-mib 500 --vision-tower-placement ram \
-  --ngram-placement disk --num-speculative-tokens 3 --draft-window adaptive \
+  --ngram-placement ram --num-speculative-tokens 3 --draft-window adaptive \
   --max-num-batched-tokens 4096 --checkpoint-policy tip-only \
   --chat-template-kwargs '{"enable_thinking":false}' \
   --host 0.0.0.0 --port 8060
