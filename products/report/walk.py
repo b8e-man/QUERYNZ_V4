@@ -41,6 +41,7 @@ import re
 
 from products.report import catalogue as cat
 from products.report import db, rows
+from keys import names as kn
 
 LIMITS = {"members": 300, "links": 400, "star": 400, "related_people": 20, "roles": 200, "entities": 40, "second": 300, "expand": 12,
           "officers": 12, "officer_rows": 40, "office": 20, "chain": 4, "chain_holders": 25, "chain_companies": 40}
@@ -166,17 +167,6 @@ NAME_JOIN_TO = (("charity_officers", "full_name", "started_on", NEAR_CHARITY_OFF
                  NEAR_REGULATOR_BY_NAME.format(who="the roles the business-number register states and no monthly file held")),
                 ("company_lookup_holdings", "name", "ended_on",
                  NEAR_REGULATOR_BY_NAME.format(who="the past holdings the business-number register states")))
-#: name-joined views whose name column puts a person's surname first ('MCINDOE, Johanna Maria'), turned to the file's order before the
-#: join: {view: (its kind column, the kind that is a body and is never turned)}
-SURNAME_FIRST = {"company_lookup_holdings": ("holder_type", "entity")}
-
-
-def given_first(name: str) -> str:
-    """'MCINDOE, Johanna Maria' -> 'Johanna Maria MCINDOE'; a name with no comma, or more than one, as it stands."""
-    parts = (name or "").split(",")
-    return f"{parts[1].strip()} {parts[0].strip()}" if len(parts) == 2 and parts[0].strip() and parts[1].strip() else (name or "")
-
-
 #: the views an officer is a row of, followed one step from an organisation start
 OFFICER_VIEWS = frozenset({"directors", "society_officers", "charity_officers"})
 #: the role views of a person's group that count as "other current companies": kept only when current
@@ -475,9 +465,41 @@ def rows_where(conn, view: str, column: str, value, order: str) -> tuple:
     return rows.rows_where(conn, view, column, value, LIMITS["roles"], order)
 
 
+def key_fold(s: str) -> str:
+    """The fold pub.names' fl_key and full_key are written in (links/rows.py `fold`; products do not import links/): diacritics
+    decomposed and dropped, lower, apostrophes out, spaces squashed."""
+    return " ".join(kn.fold_diacritics(s or "").lower().replace("'", "").replace("\u2019", "").split())
+
+
+def name_keys(name: str) -> tuple:
+    """(whole, first and last) for a filed name, read by keys.names.person_name as the links lane reads it: honorifics and
+    post-nominals off, 'Family, Given' turned round, a one-word name a family name. Every source's order is read the one way."""
+    n = kn.person_name(name or "")
+    whole = key_fold(n.full)
+    fl = key_fold(f"{n.given} {n.family}") if n.given and n.family else key_fold(n.family)
+    return whole, fl
+
+
 def first_last(name: str) -> str:
-    w = cat.fold(name).split()
-    return f"{w[0]} {w[-1]}" if len(w) > 1 else (w[0] if w else "")
+    return name_keys(name)[1]
+
+
+#: the words of a name column, order-free, for the query that narrows the candidates; keys.names decides the match in Python
+WORDS_SQL = "regexp_split_to_array(translate(lower(replace(replace({col}, '''', ''), '’', '')), 'āēīōū', 'aeiou'), '[^[:alnum:]]+')"
+#: candidates read for each join before keys.names decides: past this many the count is said, never hidden
+CANDIDATES = 2000
+
+
+def name_words(fl: str) -> list:
+    """The words of a first-and-last key the query looks for, macrons folded as WORDS_SQL folds them."""
+    return [w for w in fl.split() if w]
+
+
+def words_clause(col: str, word_lists: list) -> tuple:
+    """(sql, params): rows whose name holds every word of one of the lists, in any order and with any punctuation."""
+    expr = WORDS_SQL.format(col=col)
+    lists = [ws for ws in dict.fromkeys(tuple(w) for w in word_lists) if ws]
+    return "(" + " or ".join(f"{expr} @> %s::text[]" for _ in lists) + ")", [list(ws) for ws in lists]
 
 
 def named_rows(conn, pv: cat.View, p: dict, allowed: set, skipped: list, via: str) -> list:
@@ -492,16 +514,17 @@ def named_rows(conn, pv: cat.View, p: dict, allowed: set, skipped: list, via: st
         if not name or rows.is_suppressed(pv, p):
             continue
         cv = cat.BY_NAME[child]
-        folded = f"translate(lower({col}), 'āēīōū', 'aeiou')"
-        got = db.rows(conn, f"select *, {cv.key_col} as key, count(*) over () as total from pub.{cv.name} "
-                            f"where role = any(%s) and ({folded} = %s or split_part({folded}, ' ', 1) || ' ' || regexp_replace({folded}, '^.* ', '') = %s) "
-                            f"order by period_start desc nulls last, {cv.key_col} limit %s", (list(roles), cat.fold(name), first_last(name), LIMITS["roles"]))
-        total = got[0]["total"] if got else 0
-        for r in got:
-            r.pop("total", None)
+        whole, fl = name_keys(name)
+        if not fl:
+            continue
+        clause, params = words_clause(col, [name_words(fl)])
+        got = db.rows(conn, f"select *, {cv.key_col} as key from pub.{cv.name} where role = any(%s) and {clause} "
+                            f"order by period_start desc nulls last, {cv.key_col} limit %s", [list(roles)] + params + [CANDIDATES])
+        hits = [r for r in got if set(name_keys(r.get(col))) & {whole, fl}]
+        for r in hits[:LIMITS["roles"]]:
             out.append(near(item(cv, r, via=via), NEAR_BY_NAME, "printed-name"))
-        if total > len(got):
-            out.append({"omitted": total - len(got), "view": child, "via": via})
+        if len(hits) > LIMITS["roles"] or len(got) == CANDIDATES:
+            out.append({"omitted": max(1, len(hits) - LIMITS["roles"]), "view": child, "via": via})
     return out
 
 
@@ -546,18 +569,22 @@ def name_joined(conn, people: list, allowed: set, skipped: list) -> tuple:
     whole, or first and last word), for every person item at once, graded
     near by name with the view's reason: a view no link reaches yet prints a
     namesake set apart rather than a blank that reads as a clear. `people`:
-    items of NAME_JOIN_FROM views. Returns ({person ref: [items]}, omitted)."""
-    wanted = {}
+    items of NAME_JOIN_FROM views. Returns ({person ref: [items]}, omitted). Both sides are read by keys.names, whatever
+    order a source files a name in ('MCINDOE, Johanna Maria' meets 'Johanna Maria MCINDOE')."""
+    wanted, words = {}, []
     for p in people:
         col = NAME_JOIN_FROM.get(p["view"])
         name = (p.get("row") or {}).get(col) if col else None
         if not name or p.get("suppressed"):
             continue
-        whole, fl = cat.fold(name), first_last(name)
+        whole, fl = name_keys(name)
         if whole:
             wanted.setdefault(whole, []).append(p["ref"])
         if fl and fl != whole:
             wanted.setdefault(fl, []).append(p["ref"])
+            words.append(name_words(fl))
+        elif fl:
+            words.append(name_words(fl))
     out, omitted = {}, 0
     if not wanted:
         return out, omitted
@@ -566,17 +593,14 @@ def name_joined(conn, people: list, allowed: set, skipped: list) -> tuple:
             skipped.append(child)
             continue
         cv = cat.BY_NAME[child]
-        named = col
-        if child in SURNAME_FIRST:
-            kind_col, body = SURNAME_FIRST[child]
-            named = (f"(case when {kind_col} <> '{body}' and {col} ~ '^[^,]+,[^,]+$' "
-                     f"then btrim(split_part({col}, ',', 2)) || ' ' || btrim(split_part({col}, ',', 1)) else {col} end)")
-        folded = f"translate(lower({named}), 'āēīōū', 'aeiou')"
-        got = db.rows(conn, f"select *, {cv.key_col} as key, count(*) over () as total from pub.{cv.name} "
-                            f"where {folded} = any(%s) or split_part({folded}, ' ', 1) || ' ' || regexp_replace({folded}, '^.* ', '') = any(%s) "
-                            f"order by {order} desc nulls last, {cv.key_col} limit %s", (sorted(wanted), sorted(wanted), LIMITS["roles"]))
-        total = got[0]["total"] if got else 0
-        omitted += max(0, total - len(got))
+        clause, params = words_clause(col, words)
+        if not params:
+            continue
+        found = db.rows(conn, f"select *, {cv.key_col} as key from pub.{cv.name} where {clause} "
+                              f"order by {order} desc nulls last, {cv.key_col} limit %s", params + [CANDIDATES])
+        hits = [r for r in found if any(k in wanted for k in name_keys(r.get(col)))]
+        got = hits[:LIMITS["roles"]]
+        omitted += max(0, len(hits) - len(got)) + (1 if len(found) == CANDIDATES else 0)
         titles = {}
         if cv.entity and got:
             ev = cat.BY_NAME[cv.entity[0]]
@@ -587,13 +611,9 @@ def name_joined(conn, people: list, allowed: set, skipped: list) -> tuple:
         if child in FAILURE_OF and got:
             failures = company_failures(conn, sorted({str(r.get(FAILURE_OF[child])) for r in got if r.get(FAILURE_OF[child])}))
         for r in got:
-            r.pop("total", None)
             if ALREADY_LISTED.get(child) and r.get(ALREADY_LISTED[child]):
                 continue
-            name = r.get(col) or ""
-            if child in SURNAME_FIRST and r.get(SURNAME_FIRST[child][0]) != SURNAME_FIRST[child][1]:
-                name = given_first(name)
-            refs = set(wanted.get(cat.fold(name), ())) | set(wanted.get(first_last(name), ()))
+            refs = {ref for k in name_keys(r.get(col)) for ref in wanted.get(k, ())}
             for ref in sorted(refs):
                 it = near(item(cv, r, titles.get(str(r.get(cv.entity[1]))) if cv.entity else None, via=ref), reason, "same-name")
                 if child in FAILURE_OF:

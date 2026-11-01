@@ -1338,7 +1338,7 @@ FIELDS_OF = {
     "company_states": Fields(organisation=("name",)),
     "company_lookups": Fields(organisation=("name",)),
     "company_lookup_roles": Fields(names=(_P3,)),
-    "company_lookup_holdings": Fields(names=(Name("name", order=AMBIGUOUS),), named=("name",)),   # no row published yet; the lane states no order
+    "company_lookup_holdings": Fields(names=(Name("name", order=FAMILY_GIVEN),), named=("name",)),   # the register's "SURNAME, Given" (every person row, measured 2 November 2026); a body has no comma
     "societies": Fields(organisation=("name",)),
     "society_officers": Fields(names=(_P3,)),
     "society_states": Fields(organisation=("name",)),

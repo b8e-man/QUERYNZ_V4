@@ -108,13 +108,13 @@ class FakeDB:
             return [{"key": "charities/CC9", "name": "ACME CHARITABLE TRUST", "number": "CC9", "status": "Registered", "legal_structure": "Trust",
                      "registered_on": dt.date(2010, 1, 1), "deregistered_on": None, "nzbn": "9429000000009"} for n in params[0] if n == "9429000000009"]
         if "from pub.charity_officers" in sql:
-            names, firsts, limit = params
+            words = params[:-1]   # the walk narrows by a name's words, in any order; keys.names decides (2 November 2026)
             out = []
-            if "jane doe" in names:
+            if ["jane", "doe"] in words:
                 out.append({"key": "charities/officers/1", "charity_key": "charities/CC9", "full_name": "Jane Doe", "first_name": "Jane", "last_name": "Doe",
                             "middle_name": None, "name_note": None, "suppressed": False, "role": "Trustee", "started_on": dt.date(2021, 1, 1), "ended_on": None,
                             "status": "Qualified", "disqualified": False, "total": 2})
-            if "jane doe" in firsts:
+            if ["jane", "doe"] in words:
                 out.append({"key": "charities/officers/2", "charity_key": "charities/CC9", "full_name": "Jane Ann Doe", "first_name": "Jane", "last_name": "Doe",
                             "middle_name": "Ann", "name_note": None, "suppressed": False, "role": "Chair", "started_on": dt.date(2019, 1, 1), "ended_on": None,
                             "status": "Qualified", "disqualified": True, "total": 2})

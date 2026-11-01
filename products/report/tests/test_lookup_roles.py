@@ -88,8 +88,33 @@ def test_a_past_holding_the_register_states_is_the_companys_and_a_current_one_is
     assert [it["ref"] for it in held] == ["companies:" + PAST_HOLDING["key"]] and held[0]["via"] == "companies:" + COMPANY["key"]
 
 
-def test_a_surname_first_holder_is_turned_to_the_files_order_and_a_body_is_not():
-    """'MCINDOE, Johanna Maria' meets the director 'Johanna Maria MCINDOE' (2 November 2026); a body's name is never turned."""
-    assert walk.given_first("MCINDOE, Johanna Maria") == "Johanna Maria MCINDOE"
-    assert walk.given_first("ACME, BETA AND GAMMA, LIMITED") == "ACME, BETA AND GAMMA, LIMITED" and walk.given_first("ACME LIMITED") == "ACME LIMITED"
-    assert walk.SURNAME_FIRST["company_lookup_holdings"] == ("holder_type", "entity")
+def test_the_name_joins_read_every_order_by_the_one_shared_reading():
+    """keys.names reads both sides (2 November 2026): 'MCINDOE, Johanna Maria' meets 'Johanna Maria MCINDOE', a title is not a
+    name, and the walk keeps no turn of its own."""
+    assert walk.name_keys("MCINDOE, Johanna Maria") == walk.name_keys("Johanna Maria MCINDOE") == ("johanna maria mcindoe", "johanna mcindoe")
+    assert walk.name_keys("Hon Dr Jane SMITH")[1] == walk.name_keys("SMITH, Jane")[1] == "jane smith"
+    assert walk.name_keys("Rāwiri WAITITI") == walk.name_keys("Rawiri Waititi")
+    assert not hasattr(walk, "given_first") and not hasattr(walk, "SURNAME_FIRST")
+    sql, params = walk.words_clause("name", [["johanna", "mcindoe"], ["johanna", "mcindoe"], []])
+    assert params == [["johanna", "mcindoe"]] and sql.count("@>") == 1
+
+
+def test_a_surname_first_holding_is_found_for_a_given_first_director(monkeypatch):
+    """The name join, end to end on fakes: the query narrows by the words in any order; keys.names decides."""
+    person = {"ref": "companies:companies/1/director/a", "view": "directors", "suppressed": False,
+              "row": {"full_name": "Johanna Maria MCINDOE"}}
+    rows_seen = []
+
+    def fake_rows(conn, sql, params):
+        rows_seen.append(sql)
+        if "pub.company_lookup_holdings" in sql:
+            assert "@>" in sql and ["johanna", "mcindoe"] in params
+            return [dict(PAST_HOLDING, name="MCINDOE, Johanna Maria", key="companies/2/holding/a/aa", entity_key="companies/2"),
+                    dict(PAST_HOLDING, name="MCINDOE, Johanna", key="companies/3/holding/a/aa", entity_key="companies/3"),
+                    dict(PAST_HOLDING, name="MCINDOE, Peter Johanna", key="companies/4/holding/a/aa", entity_key="companies/4")]
+        return []
+    monkeypatch.setattr(walk.db, "rows", fake_rows)
+    out, omitted = walk.name_joined(None, [person], {"company_lookup_holdings"}, [])
+    got = sorted(it["ref"] for it in out[person["ref"]])
+    assert got == ["companies:companies/2/holding/a/aa", "companies:companies/3/holding/a/aa"], "whole, or first and last; never a middle name"
+    assert all(it["grade"] == "near" for it in out[person["ref"]]) and omitted == 0
