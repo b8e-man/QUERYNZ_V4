@@ -19,7 +19,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "officers", "gazette", "other-companies", "societies", "money", "past-roles", "not-held"]
+ORDER = ["identity", "officers", "gazette", "other-companies", "societies", "money", "past-roles", "courts", "not-held"]
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
                    r"beneficial)\b", re.I)
@@ -79,7 +79,7 @@ def test_its_sections_run_in_the_credit_managers_order():
     assert "roles" in s["officers"]["sources"], "from a company, its directors and holders are the walk's roles"
     assert "second" not in {x for sec in t["sections"] for x in sec.get("sources", [])}, "co-directors are not the counterparty's record"
     assert set(s["gazette"]["views"]) == GAZETTE and "pointing" in s["gazette"]["sources"]
-    assert {"insolvency", "courts"} <= set(s["gazette"]["not_held"]) and {"charities", "charity_officers", "charity_returns"} <= set(s["societies"]["views"])
+    assert {"insolvency", "court_coverage"} <= set(s["gazette"]["not_held"]) and {"charities", "charity_officers", "charity_returns"} <= set(s["societies"]["views"])
     assert "named" in s["societies"]["sources"] and not any("charities" in x.get("not_held", []) for x in t["sections"])
     assert {"securities", "linz"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
     views = {r["view"] for r in t["reads"]}

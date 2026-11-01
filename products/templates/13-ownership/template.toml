@@ -45,6 +45,21 @@ limits = [
 
 # ── what it reads: each view with its licence ───────────────────────────────
 [[reads]]
+view = "court_judgments"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_judgment_parties"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_people"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
 view = "companies"
 licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
 attribution = "Companies Office, New Zealand Business Number register"
@@ -233,8 +248,15 @@ sources = ["named", "roles", "members", "confirmed"]
 text = "Started from a company, its charity by business number (a charitable trust board, an incorporated society or a company the Charities Register carries), confirmed, with the officers and annual returns the register files on it, the figures as filed and never added across returns. Started from a person, each charity officer row that carries the person's name, near: no link joins the register's officers to any other row yet, so each is a namesake's until a rule confirms it. A charity holding shares of record is a holder of record, as the register states it; the people it holds for are in no register held."
 
 [[sections]]
+name = "courts"
+heading = "Court judgments the corpus holds"
+views = ["court_judgments", "court_judgment_parties", "court_people"]
+sources = ["named", "members", "confirmed", "near", "officers"]
+text = "A party to a judgment the courts corpus holds, as the judgment's heading names it or the text reader found it in the document. Being a party is not a finding against anyone: the judgment states what the court decided. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's. A name under a suppression order or withheld is never shown. The corpus holds a part of the courts' judgments (most of the Supreme Court's, some of the High Court's and the Court of Appeal's), so none listed here is not a finding of none."
+
+[[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["sanctions", "securities", "insolvency", "courts", "fsp", "linz"]
+not_held = ["sanctions", "securities", "insolvency", "court_coverage", "fsp", "linz"]
 text = "Registers an anti-money-laundering check would read that no lane has published: the sanctions lists (the Russia Sanctions Act list kept by Foreign Affairs, the United Nations consolidated list, the Police designations under the Terrorism Suppression Act), a partnership's limited partners (the register publishes its general partners), overseas company registers and an overseas holder's own holders, trusts and their trustees, settlors and the people they hold for (New Zealand keeps no register of trusts, nor of the people shares are held for), the Personal Property Securities Register, the Insolvency Register, court judgments, financial service providers and land titles. Nothing in this report says anything about them; ask the source."

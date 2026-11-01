@@ -27,6 +27,21 @@ limits = [
 
 # ── what it reads: each view with its licence ───────────────────────────────
 [[reads]]
+view = "court_judgments"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_judgment_parties"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_people"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
 view = "directors"
 licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
 attribution = "Companies Office"
@@ -200,7 +215,7 @@ name = "gazette"
 heading = "Gazette insolvency, bankruptcy and prohibition notices"
 views = ["gazette_liquidations", "gazette_company_notices", "gazette_prohibitions", "gazette_bankruptcies"]
 sources = ["members", "confirmed", "near", "pointing"]
-not_held = ["insolvency", "courts"]
+not_held = ["insolvency", "court_coverage"]
 text = "A notice on a company is listed with that company's name and the notice's own date; the subject's dates on the company are in the section above. The two sit side by side and nothing joins them. Bankruptcy notices are published but no link rule joins them to a person yet, so this section cannot show one."
 
 [[sections]]
@@ -233,8 +248,15 @@ sources = ["named", "members", "confirmed", "near"]
 text = "A party named in a regulator's listing as it stands today: the Commerce Commission's cases and the Financial Markets Authority's warnings and actions. A listing states what the regulator published, the charge, the case or the warning, never a cause. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's."
 
 [[sections]]
+name = "courts"
+heading = "Court judgments the corpus holds"
+views = ["court_judgments", "court_judgment_parties", "court_people"]
+sources = ["named", "members", "confirmed", "near", "officers"]
+text = "A party to a judgment the courts corpus holds, as the judgment's heading names it or the text reader found it in the document. Being a party is not a finding against anyone: the judgment states what the court decided. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's. A name under a suppression order or withheld is never shown. The corpus holds a part of the courts' judgments (most of the Supreme Court's, some of the High Court's and the Court of Appeal's), so none listed here is not a finding of none."
+
+[[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["courts", "insolvency", "securities", "fsp", "sanctions"]
+not_held = ["court_coverage", "insolvency", "securities", "fsp", "sanctions"]
 text = "Registers a board screen would read that no lane has published. Nothing in this report says anything about them; ask the source."

@@ -30,9 +30,9 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "standing", "solvency", "people", "companies", "people-notices", "beside", "charities", "safety", "past-roles"]
+ORDER = ["identity", "standing", "solvency", "people", "companies", "people-notices", "beside", "charities", "safety", "past-roles", "courts"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
+VIEWS = {"court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
          "charities", "charity_officers", "charity_returns", "worksafe_parties", "commerce_commission_parties", "fma_parties"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -132,7 +132,7 @@ def test_its_sections_run_in_the_underwriters_order():
     assert set(s["people-notices"]["views"]) == {"gazette_prohibitions", "gazette_bankruptcies"}
     assert "second" in s["beside"]["sources"] and "second" not in {x for sec in t["sections"] if sec["name"] != "beside" for x in sec.get("sources", [])}
     assert s["safety"]["views"] == ["worksafe_parties", "commerce_commission_parties", "fma_parties"] and s["safety"]["sources"] == ["named", "members", "confirmed", "near"]
-    assert {"courts", "insolvency", "securities", "fsp"} <= set(s["safety"]["not_held"])
+    assert {"court_coverage", "insolvency", "securities", "fsp"} <= set(s["safety"]["not_held"])
     for named in ("WorkSafe", "enforceable undertakings", "Commerce Commission", "Financial Markets Authority", "court judgments",
                   "Employment Relations Authority", "Disputes Tribunal", "Fire and Emergency", "16 August 2026"):
         assert named in s["safety"]["text"], named

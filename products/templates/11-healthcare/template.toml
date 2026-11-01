@@ -61,6 +61,21 @@ limits = [
 
 # ── what it reads: each view with its licence ───────────────────────────────
 [[reads]]
+view = "court_judgments"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_judgment_parties"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_people"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
 view = "companies"
 licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
 attribution = "Companies Office, New Zealand Business Number register"
@@ -214,7 +229,7 @@ name = "gazette"
 heading = "The Gazette on the entity, its people and its people's companies"
 views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_prohibitions", "gazette_bankruptcies", "gazette_appointments"]
 sources = ["pointing", "members", "confirmed", "near", "roles", "officers", "chain"]
-not_held = ["insolvency", "courts"]
+not_held = ["insolvency", "court_coverage"]
 text = "Liquidations, winding-up applications, receiverships, administrations, creditors' notices, removals, restorations and the other company notices, each under its company's name with its own date, which says what it dates; then director prohibitions, bankruptcies and public appointments the link rules join to a person by name. A notice on an officer's other company, or on an officer, is the officer's and is listed near; one on a company an officer's near link reaches is a namesake's until a rule confirms it, and is counted apart. A notice on a company above in the holding chain is listed with that company's grade and its place up the chain: the holder's notice, not the entity's. A removal from the register is not an insolvency. A revoked prohibition and an annulled bankruptcy's name are never shown."
 
 [[sections]]
@@ -225,9 +240,16 @@ sources = ["named", "members", "confirmed", "near"]
 text = "A party named in a regulator's listing as it stands today: WorkSafe's court summaries and enforceable undertakings, the Commerce Commission's cases and the Financial Markets Authority's warnings and actions. A listing states what the regulator published, the charge, the case or the warning, never a cause. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's."
 
 [[sections]]
+name = "courts"
+heading = "Court judgments the corpus holds"
+views = ["court_judgments", "court_judgment_parties", "court_people"]
+sources = ["named", "members", "confirmed", "near"]
+text = "A party to a judgment the courts corpus holds, as the judgment's heading names it or the text reader found it in the document. Being a party is not a finding against anyone: the judgment states what the court decided. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's. A name under a suppression order or withheld is never shown. The corpus holds a part of the courts' judgments (most of the Supreme Court's, some of the High Court's and the Court of Appeal's), so none listed here is not a finding of none."
+
+[[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["retirement_villages", "hdc", "certification", "health_providers", "aged_care_commissioner", "courts", "tribunals", "disciplinary",
+not_held = ["retirement_villages", "hdc", "certification", "health_providers", "aged_care_commissioner", "court_coverage", "tribunals", "disciplinary",
             "employment", "company_history"]
 text = "Registers an operator's governance record would read that no lane has published: the retirement villages file (each village's operator and statutory supervisor, and when the supervisor changed), the Health and Disability Commissioner's decisions, certification audits of rest homes and hospitals, the Ministry of Health's provider registers, the Aged Care Commissioner's reports, court judgments, the tribunals and disciplinary bodies, the Employment Relations Authority, WorkSafe's prosecutions, the Commerce Commission's cases and the companies change history before 16 August 2026. Nothing in this report says anything about them: no decision, audit, complaint or judgment here is a finding of none. Ask the source."

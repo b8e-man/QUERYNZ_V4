@@ -32,9 +32,9 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "standing", "governance", "charity-returns", "overlap", "gazette", "regulators", "not-held"]
+ORDER = ["identity", "standing", "governance", "charity-returns", "overlap", "gazette", "regulators", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"company_lookup_roles", "companies", "company_states", "directors", "shareholders", "company_addresses", "societies", "society_officers",
+VIEWS = {"court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "companies", "company_states", "directors", "shareholders", "company_addresses", "societies", "society_officers",
          "gazette_liquidations", "gazette_liquidators", "gazette_company_notices", "gazette_appointments", "gazette_prohibitions",
          "gazette_bankruptcies", "worksafe_parties", "commerce_commission_parties", "fma_parties"}
 CHARITY_VIEWS = ("charities", "charity_officers", "charity_returns")
@@ -120,9 +120,9 @@ def test_its_sections_run_in_the_investors_order():
     for named in ("period", "tier", "income", "expenditure", "surplus", "assets", "liabilities", "equity", "audited", "opinion", "newest first"):
         assert named in s["charity-returns"]["text"], named
     assert s["overlap"]["sources"] == ["officers", "second"]
-    assert "officers" in s["gazette"]["sources"] and {"insolvency", "courts"} <= set(s["gazette"]["not_held"])
+    assert "officers" in s["gazette"]["sources"] and {"insolvency", "court_coverage"} <= set(s["gazette"]["not_held"])
     assert "officers" not in {b for x in t["sections"] if x["name"] not in ("overlap", "gazette") for b in x.get("sources", [])}
-    assert s["not-held"]["views"] == [] and "courts" in s["not-held"]["not_held"]
+    assert s["not-held"]["views"] == [] and "court_coverage" in s["not-held"]["not_held"]
     for named in ("retirement villages file", "statutory supervisor", "Health and Disability Commissioner", "certification audits",
                   "Ministry of Health's provider registers", "Aged Care Commissioner", "court judgments"):
         assert named in s["not-held"]["text"], named

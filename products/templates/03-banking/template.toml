@@ -32,6 +32,21 @@ limits = [
 
 # ── what it reads: each view with its licence ───────────────────────────────
 [[reads]]
+view = "court_judgments"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_judgment_parties"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_people"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
 view = "companies"
 licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
 attribution = "Companies Office, New Zealand Business Number register"
@@ -196,7 +211,7 @@ name = "endings"
 heading = "How each company ended: register status and Gazette notices, dated"
 views = ["companies", "gazette_liquidations", "gazette_company_notices"]
 sources = ["members", "confirmed", "near", "pointing"]
-not_held = ["insolvency", "courts"]
+not_held = ["insolvency", "court_coverage"]
 text = "Each company with its register status and the dates the register files, and beneath it the Gazette's notices on it: liquidations, receiverships, administrations, winding-up applications, creditors' notices, removals and restorations, an overseas company ceasing, a society dissolved, each with its own date. The person's dates on the company are in the section above; the two sit side by side and nothing joins them. A removal from the register is not an insolvency."
 
 [[sections]]
@@ -236,8 +251,15 @@ sources = ["named", "officers"]
 text = "A role the business-number register states and no monthly file held, under the subject's name or a person's on the company: near, a person with this name and not confirmed to be the subject. One at a company that later failed is an amber warning in the failure checks. The register is read company by company, so most companies' past roles are not yet asked: none listed here is not a finding of none."
 
 [[sections]]
+name = "courts"
+heading = "Court judgments the corpus holds"
+views = ["court_judgments", "court_judgment_parties", "court_people"]
+sources = ["named", "members", "confirmed", "near", "officers"]
+text = "A party to a judgment the courts corpus holds, as the judgment's heading names it or the text reader found it in the document. Being a party is not a finding against anyone: the judgment states what the court decided. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's. A name under a suppression order or withheld is never shown. The corpus holds a part of the courts' judgments (most of the Supreme Court's, some of the High Court's and the Court of Appeal's), so none listed here is not a finding of none."
+
+[[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["securities", "insolvency", "courts", "fsp", "sanctions", "linz"]
+not_held = ["securities", "insolvency", "court_coverage", "fsp", "sanctions", "linz"]
 text = "Registers a credit check would read that no lane has published: the Personal Property Securities Register (security interests and who holds them; the full picture of a director's history waits on it), the Insolvency Register, court judgments, a limited partnership's limited partners (the register publishes its general partners, which are read), financial service providers, sanctions lists and land titles. Nothing in this report says anything about them; ask the source."

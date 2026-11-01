@@ -33,6 +33,21 @@ limits = [
 
 # ── what it reads: each view with its licence ───────────────────────────────
 [[reads]]
+view = "court_judgments"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_judgment_parties"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_people"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
 view = "companies"
 licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
 attribution = "Companies Office, New Zealand Business Number register"
@@ -235,8 +250,15 @@ sources = ["named", "officers"]
 text = "A role the business-number register states and no monthly file held, under the subject's name or a person's on the company: near, a person with this name and not confirmed to be the subject. One at a company that later failed is an amber warning in the failure checks. The register is read company by company, so most companies' past roles are not yet asked: none listed here is not a finding of none."
 
 [[sections]]
+name = "courts"
+heading = "Court judgments the corpus holds"
+views = ["court_judgments", "court_judgment_parties", "court_people"]
+sources = ["named", "members", "confirmed", "near", "officers"]
+text = "A party to a judgment the courts corpus holds, as the judgment's heading names it or the text reader found it in the document. Being a party is not a finding against anyone: the judgment states what the court decided. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's. A name under a suppression order or withheld is never shown. The corpus holds a part of the courts' judgments (most of the Supreme Court's, some of the High Court's and the Court of Appeal's), so none listed here is not a finding of none."
+
+[[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["courts", "insolvency", "securities", "fsp", "sanctions", "linz"]
+not_held = ["court_coverage", "insolvency", "securities", "fsp", "sanctions", "linz"]
 text = "Registers a conflict check would read that no lane has published: court judgments and tribunal decisions (step 5.4), the disciplinary findings of the Lawyers and Conveyancers Disciplinary Tribunal and the other professional bodies, the Insolvency Register, the Personal Property Securities Register, a limited partnership's limited partners (the register publishes its general partners, which are read), financial service providers, sanctions lists and land titles. The firm's own client and matter list is not an input. Nothing in this report says anything about them; ask the source."

@@ -49,7 +49,7 @@ licence = "CC BY 4.0"
 name = "a"
 heading = "A"
 views = ["companies"]
-not_held = ["charities", "courts"]
+not_held = ["charities", "court_coverage"]
 [[sections]]
 name = "b"
 heading = "B"
@@ -60,16 +60,16 @@ not_held = ["charities"]
     write(d, body)
     t = tpl.load(d)
     assert t.superseded_not_held == (("charities", "charities"),)
-    assert t.sections[0].not_held == ("courts",) and t.sections[1].not_held == ()
+    assert t.sections[0].not_held == ("court_coverage",) and t.sections[1].not_held == ()
     monkeypatch.setattr(build.walk, "walk", lambda *a, **k: canned_walk())
     r = build.build(None, "companies:companies/1", t, held={"companies"})
     assert r["superseded_not_held"] == ["Charities register, officers and annual returns (named 'charities' in the template; published as pub.charities, pub.charity_officers, pub.charity_returns)"]
-    assert r["sections"][0]["not_held"] == ["Court judgments"] and r["sections"][1]["blank"] == "none found"
+    assert r["sections"][0]["not_held"][0].startswith("Court judgments the corpus held does not carry") and r["sections"][1]["blank"] == "none found"
     text = memo.text(r)
     assert "the template names as not held a register that is published and which it does not read: Charities register" in text
     assert "Charities register" not in text.split("NOT HELD (")[1].split("KNOWN LIMITS")[0]
     assert "published and which it does not read" in memo.html_body(r)
-    write(d, body.replace('not_held = ["charities", "courts"]', 'not_held = ["charities", "nowhere"]'))
+    write(d, body.replace('not_held = ["charities", "court_coverage"]', 'not_held = ["charities", "nowhere"]'))
     import pytest
     with pytest.raises(ValueError, match="no such register"):
         tpl.load(d)

@@ -973,10 +973,6 @@ def insolvency_register(report):
                 sources_not_held=(INSOLVENCY_REGISTER,))
 
 
-def court_judgments(report):
-    return flag("court-judgments", V, "blocked", "red",
-                "court judgments are not held yet (plan step 5.4): a creditor's judgment or a winding-up order's reasons cannot be seen; this "
-                "check cannot run", sources_not_held=COURTS)
 
 
 def credit_bureau(report):
@@ -1038,6 +1034,61 @@ def _with_past_failures(f, report, alone=1):
 def people_failed_companies(report):
     """people-failed-companies, with a namesake's past role at a failed company as an amber warning (option b, 2 November 2026)."""
     return _with_past_failures(_people_failed_companies_own(report), report)
+
+
+COURT_V = "1"
+
+# ── the courts corpus held (into the report 2 November 2026) ──────────────────────────────────────────────────────
+
+COURT_VIEWS = ("court_judgment_parties", "court_people")
+COURT_HELD = ("the courts corpus held: the judgments' parties as each heading names them (pub.court_judgment_parties) and the people "
+              "and bodies the text reader found in a court document (pub.court_people)",)
+COURT_NOT_HELD = ("Court judgments the corpus held does not carry: most of the High Court's, the Court of Appeal's and the District "
+                  "Court's, and most tribunals'",)
+COURT_EXAMPLES = 3
+
+
+def _court_parties(report, grades):
+    """A party to a judgment the corpus holds: every row of a judgment's heading, and a court document's person or body read as a
+    party or a company (never its judge, counsel or a witness); withheld and suppressed names never counted; each once."""
+    seen, out = set(), []
+    for it in items(report, COURT_VIEWS, grades):
+        row = it.get("row") or {}
+        if it.get("suppressed") or row.get("withheld") or row.get("anonymised") or it["ref"] in seen:
+            continue
+        if it["ref"].split("/")[-2] == "person" and row.get("role") not in ("party", "company"):
+            continue
+        seen.add(it["ref"])
+        out.append(it)
+    return out
+
+
+def court_judgments(report):
+    """A party the rules confirm is the subject, in a judgment the corpus holds: amber (being a party is not a finding against
+    anyone); a namesake's: info; none: blocked, because the corpus holds a part of the courts' judgments and none is not a finding."""
+    conf = _court_parties(report, ("confirmed",))
+    near = [it for it in _court_parties(report, ("near",)) if it["ref"] not in {c["ref"] for c in conf}]
+    if conf:
+        named = "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in conf[:COURT_EXAMPLES])
+        more = f"; and {len(conf) - COURT_EXAMPLES} more, each in the section" if len(conf) > COURT_EXAMPLES else ""
+        return flag("court-judgments", COURT_V, "fired", "amber", f"{len(conf)} party row(s) in a judgment the corpus holds name the "
+                    f"subject or a person the rules confirm is the subject: {named}{more}; being a party is not a finding against anyone",
+                    citations=tuple(it["ref"] for it in conf), sources_held=COURT_HELD, sources_not_held=COURT_NOT_HELD)
+    officers = [it for it in near if it.get("rule") == "through-officer"]
+    namesakes = [it for it in near if it.get("rule") != "through-officer"]
+    if near:
+        bits = []
+        if officers:
+            bits.append(f"{len(officers)} name a person on the subject (an officer or holder of record): "
+                        f"{'; '.join(it['statement'] for it in officers[:COURT_EXAMPLES])}; an officer's case is the officer's, not the entity's")
+        if namesakes:
+            bits.append(f"{len(namesakes)} name a namesake the rules do not confirm is the subject: "
+                        f"{'; '.join(it['statement'] for it in namesakes[:COURT_EXAMPLES])}; nothing in a namesake's case is the subject's")
+        return flag("court-judgments", COURT_V, "fired", "info", f"{len(near)} party row(s) in a judgment the corpus holds, near: "
+                    + " || ".join(bits), citations=tuple(it["ref"] for it in near), sources_held=COURT_HELD, sources_not_held=COURT_NOT_HELD)
+    return flag("court-judgments", COURT_V, "blocked", "amber", "no party row in a judgment the corpus holds names the subject or a "
+                "person the rules confirm is the subject; the corpus holds a part of the courts' judgments, so no clear is given",
+                sources_held=COURT_HELD, sources_not_held=COURT_NOT_HELD)
 
 
 RULES = (entity_status, monthly_changes, recent_adverse_change, officer_churn, insolvency_notices, register_events, officers_of_record,

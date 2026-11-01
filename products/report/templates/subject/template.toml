@@ -19,6 +19,21 @@ limits = [
 ]
 
 [[reads]]
+view = "court_judgments"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_judgment_parties"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_people"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
 view = "party_return_donors"
 licence = "Electoral Commission party returns: public documents published for inspection under the Electoral Act 1993"
 attribution = "Electoral Commission"
@@ -254,7 +269,7 @@ text = "A charity reached from a company by its business number is confirmed. No
 name = "insolvency"
 heading = "Insolvency, possessions, prohibitions and bankruptcies in the Gazette"
 views = ["gazette_liquidations", "gazette_company_notices", "gazette_possessions", "gazette_liquidators", "gazette_practitioners", "gazette_prohibitions", "gazette_bankruptcies"]
-not_held = ["insolvency", "courts"]
+not_held = ["insolvency", "court_coverage"]
 
 [[sections]]
 name = "public"
@@ -284,3 +299,10 @@ name = "overseas"
 heading = "Overseas Investment Office decisions"
 views = ["overseas_investment_decisions", "overseas_investment_parties"]
 text = "A decision summary as the Office publishes it: the applicant, the vendor, the outcome and the date. No link joins a party to another register, so a party that shares the subject's name is near: nothing in it is the subject's."
+
+[[sections]]
+name = "courts"
+heading = "Court judgments the corpus holds"
+views = ["court_judgments", "court_judgment_parties", "court_people"]
+sources = ["named", "members", "confirmed", "near", "officers"]
+text = "A party to a judgment the courts corpus holds, as the judgment's heading names it or the text reader found it in the document. Being a party is not a finding against anyone: the judgment states what the court decided. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's. A name under a suppression order or withheld is never shown. The corpus holds a part of the courts' judgments (most of the Supreme Court's, some of the High Court's and the Court of Appeal's), so none listed here is not a finding of none."

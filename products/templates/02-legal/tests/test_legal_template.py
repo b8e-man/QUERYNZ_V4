@@ -26,7 +26,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "officers", "web", "gazette", "money", "regulators", "past-roles", "not-held"]
+ORDER = ["identity", "officers", "web", "gazette", "money", "regulators", "past-roles", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
@@ -116,7 +116,7 @@ def test_its_sections_run_in_the_conflicts_clerks_order():
         assert kind in s["gazette"]["text"].lower(), kind
     assert {"charities", "charity_officers", "charity_returns"} <= set(s["money"]["views"]) and "named" in s["money"]["sources"]
     assert not any("charities" in x.get("not_held", []) for x in t["sections"]), "the Charities Register is published and read"
-    assert {"courts", "insolvency", "securities"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
+    assert {"court_coverage", "insolvency", "securities"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
     assert "Disciplinary Tribunal" in s["not-held"]["text"] and "client and matter list" in s["not-held"]["text"]
     views = {r["view"] for r in t["reads"]}
     for x in t["sections"]:
@@ -139,7 +139,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
-KIND = {"company_lookup_roles": "person", "worksafe_parties": "organisation", "commerce_commission_parties": "organisation", "fma_parties": "organisation", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
+KIND = {"court_judgment_parties": "person", "court_people": "person", "court_judgments": "event", "company_lookup_roles": "person", "worksafe_parties": "organisation", "commerce_commission_parties": "organisation", "fma_parties": "organisation", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
         "party_return_donors": "figure", "charities": "organisation", "charity_officers": "person", "charity_returns": "figure"}
@@ -487,7 +487,7 @@ def test_the_registers_not_held_block_and_never_clear():
     for name in ALWAYS_BLOCKED:
         for r in (person(), company(), report()):
             assert rule(name)(r)["status"] == "blocked", name
-    assert "step 5.4" in rule("court_judgments")(person())["text"]
+    assert "the corpus holds a part" in rule("court_judgments")(person())["text"]
     assert "Disciplinary Tribunal" in rule("disciplinary_findings")(person())["sources_not_held"][0]
     assert "pub.gazette_possessions" in rule("mortgagee_possession")(person())["text"]
 
@@ -622,3 +622,22 @@ def test_a_namesakes_past_roles_at_failed_companies_warn_amber_and_a_repeat_need
     assert "gazette:gazette/2020-x11/company/1" in two["citations"] and f"on its own finding, {base['status']}" in two["text"]
     hidden = rule("repeat_insolvency")(report(past_roles=[_past(1, 11), _past(2, 12, suppressed=True)]))
     assert "past role(s)" not in hidden["text"], "a suppressed name is never counted"
+
+
+def test_court_judgments_reads_the_corpus_held_and_never_clears():
+    """Confirmed party: amber, cited; an officer's case or a namesake's: info, each said for what it is; a judge, counsel, a withheld or
+    suppressed name never counts; none: blocked, because the corpus holds a part of the courts' judgments (2 November 2026)."""
+    party = it("courts:j1/party/1", "court_judgment_parties", title="Jane Mary DOE", statement="Jane Mary DOE: Applicant in [2024] NZERA 1",
+               row={"role": "Applicant"})
+    judge = it("courts:j1/person/2", "court_people", title="Jane Mary DOE", statement="Jane Mary DOE: judge", row={"role": "judge"})
+    withheld = it("courts:j1/party/3", "court_judgment_parties", title="Jane Mary DOE", row={"withheld": True})
+    hidden = it("courts:j1/party/4", "court_judgment_parties", title="Jane Mary DOE", suppressed=True)
+    f = rule("court_judgments")(report(courts=[party, judge, withheld, hidden]))
+    assert f["status"] == "fired" and f["severity"] == "amber" and f["citations"] == ("courts:j1/party/1",) and "not a finding" in f["text"]
+    officer = dict(party, grade="near", rule="through-officer")
+    namesake = dict(party, ref="courts:j2/party/1", grade="near")
+    f = rule("court_judgments")(company(courts=[officer, namesake]))
+    assert f["status"] == "fired" and f["severity"] == "info" and "the officer's, not the entity's" in f["text"] and "namesake" in f["text"]
+    for r in (report(courts=[judge, withheld, hidden]), person(), company()):
+        g = rule("court_judgments")(r)
+        assert g["status"] == "blocked" and "no clear is given" in g["text"] and g["sources_held"] and g["sources_not_held"]

@@ -26,7 +26,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "standing", "changes", "gazette", "people", "people-notices", "past-roles", "not-held"]
+ORDER = ["identity", "standing", "changes", "gazette", "people", "people-notices", "past-roles", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned|"
@@ -114,7 +114,7 @@ def test_its_sections_run_in_the_credit_analysts_order():
     assert set(s["people-notices"]["views"]) == GAZETTE_PERSON and "not a clear" in s["people-notices"]["text"]
     assert "second" not in {x for sec in t["sections"] if sec["name"] != "people" for x in sec.get("sources", [])}
     nh = s["not-held"]
-    assert {"securities", "insolvency", "courts"} <= set(nh["not_held"]) and nh["views"] == []
+    assert {"securities", "insolvency", "court_coverage"} <= set(nh["not_held"]) and nh["views"] == []
     for named in ("Personal Property Securities Register", "Insolvency Register", "court judgments", "credit-bureau defaults",
                   "before 16 August 2026", "step 5.5"):
         assert named in nh["text"], named

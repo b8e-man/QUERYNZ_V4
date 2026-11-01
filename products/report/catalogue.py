@@ -206,6 +206,17 @@ VIEWS: tuple = (
       statement="{title}: {role} of {entity} ({role_status}), as the business-number register states it",
       note="a role the business-number register states and no monthly file held: a past director with the register's own dates, "
            "back to the company's registration; read company by company by the history backfill, so most companies are not yet asked"),
+    # ── the courts corpus held (registers/courts; into the report 2 November 2026) ─────────────────────────────────
+    V("court_judgments", "courts", "event", ("citation",), names=(), on="judgment_date", on_label="judgment",
+      statement="{title}: a judgment of the {court_name}",
+      note="a judgment as the courts corpus holds it; a name under a suppression order or withheld is never shown"),
+    V("court_judgment_parties", "courts", "person", ("name",), names=("name",), suppressed="withheld",
+      entity=("court_judgments", "judgment"), role="role", on="judgment_date", on_label="judgment",
+      statement="{title}: {role} in {entity}",
+      note="a party as the judgment's heading names it; being a party is not a finding against anyone"),
+    V("court_people", "courts", "person", ("name",), names=("name",), suppressed="suppressed", role="role_text", on="dated",
+      on_label="dated", statement="{title}: {role_text} in {citation} ({role})",
+      note="a person or body a court document names, read by the text reader: a party, a judge, counsel, a witness or another"),
 )
 BY_NAME = {v.name: v for v in VIEWS}
 
@@ -229,13 +240,14 @@ REGISTERS = (
     ("building_board", "Building Practitioners Board decisions"),
     ("limited_partnerships", "Limited partnerships and their general partners"),
     ("overseas_investment", "Overseas Investment Office decision summaries"),
+    ("courts", "Court judgments (the courts corpus held)"),
 )
 REGISTER_NAME = dict(REGISTERS)
 
 #: registers the plan names that no lane has published yet (step 4.1 and step 5.3), and the registers the
 #: templates must say they cannot see: one list, each with the key a template's section cites in `not_held`
 NOT_HELD = (
-    ("courts", "Court judgments"),
+    ("court_coverage", "Court judgments the corpus held does not carry: most of the High Court's, the Court of Appeal's and the District Court's, and most tribunals'"),
     ("tribunals", "Tribunal decisions (employment, tenancy, environment, coroners)"),
     ("disciplinary", "Disciplinary tribunals' findings (lawyers, conveyancers, the other professional bodies)"),
     ("disputes", "Disputes Tribunal decisions"),

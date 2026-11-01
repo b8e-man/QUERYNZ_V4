@@ -36,9 +36,9 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "standing", "principals", "chain", "history", "serial", "office", "possessions", "people-notices", "gazette", "board", "overseas", "not-held"]
+ORDER = ["identity", "standing", "principals", "chain", "history", "serial", "office", "possessions", "people-notices", "gazette", "board", "overseas", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"company_lookup_roles", "overseas_investment_parties", "overseas_investment_decisions", "building_practitioner_decisions", "companies", "company_states", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators",
+VIEWS = {"court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "overseas_investment_parties", "overseas_investment_decisions", "building_practitioner_decisions", "companies", "company_states", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators",
          "gazette_company_notices", "gazette_possessions", "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies",
          "society_officers", "charities", "charity_officers", "charity_returns"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -46,7 +46,7 @@ CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|co
                    r"beneficial)\b", re.I)
 PRINCIPAL_CHECKS = ("serial_pattern", "earlier_failure", "possession", "insolvency_notices")
 PEOPLE_CHECKS = ("prohibition", "bankruptcy")
-ALWAYS_BLOCKED = ("land_titles", "building_consents", "court_judgments", "securities_register", "insolvency_register",
+ALWAYS_BLOCKED = ("land_titles", "building_consents", "securities_register", "insolvency_register",
                   "real_estate_authority", "past_roles")
 
 
@@ -154,7 +154,7 @@ def test_its_sections_run_in_the_buyers_order():
     assert s["possessions"]["views"] == ["gazette_possessions"] and {"securities", "linz"} <= set(s["possessions"]["not_held"])
     assert "officers" in s["people-notices"]["sources"]
     assert s["not-held"]["views"] == []
-    assert {"linz", "courts", "securities", "insolvency"} <= set(s["not-held"]["not_held"])
+    assert {"linz", "court_coverage", "securities", "insolvency"} <= set(s["not-held"]["not_held"])
     for named in ("land titles", "LINZ", "building consents", "council minutes", "court judgments",
                   "Personal Property Securities Register", "Insolvency Register", "Real Estate Authority"):
         assert named in s["not-held"]["text"], named

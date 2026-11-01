@@ -28,9 +28,9 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "board", "past-roles", "not-held"]
+ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "board", "past-roles", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
+VIEWS = {"court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
          "charities", "charity_officers", "charity_returns"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -126,7 +126,7 @@ def test_its_sections_run_in_the_procurement_leads_order():
     assert "second" in s["people"]["sources"] and "second" not in {x for sec in t["sections"] if sec["name"] != "people" for x in sec.get("sources", [])}
     assert "pointing" in s["gazette"]["sources"] and "pointing" not in {x for sec in t["sections"] if sec["name"] != "gazette"
                                                                        for x in sec.get("sources", [])}
-    assert {"building_practitioners", "insolvency", "courts"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
+    assert {"building_practitioners", "insolvency", "court_coverage"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
     for named in ("building practitioners", "Official Assignee", "court judgments", "Employment Relations Authority", "16 August 2026"):
         assert named in s["not-held"]["text"], named
     views = {r["view"] for r in t["reads"]}

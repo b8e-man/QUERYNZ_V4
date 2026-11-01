@@ -18,7 +18,7 @@ import tomllib
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "companies", "gazette", "societies", "money", "public", "regulators", "not-held"]
+ORDER = ["identity", "companies", "gazette", "societies", "money", "public", "regulators", "courts", "not-held"]
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|behind|owners?|owns|owned)\b", re.I)
 GAZETTE = {"gazette_prohibitions", "gazette_bankruptcies", "gazette_liquidations", "gazette_company_notices"}
@@ -83,7 +83,7 @@ def test_its_sections_run_in_the_consultants_order():
     assert not set(s["identity"]["views"]) & GAZETTE, "a near Gazette notice stays in the Gazette section"
     assert not {"second", "roles"} & set(s["companies"]["sources"]), "co-directors are not the subject's record"
     assert {"charities", "charity_officers", "charity_returns"} <= set(s["societies"]["views"]) and "named" in s["societies"]["sources"]
-    assert not any("charities" in x.get("not_held", []) for x in t["sections"]) and {"insolvency", "courts"} <= set(s["gazette"]["not_held"])
+    assert not any("charities" in x.get("not_held", []) for x in t["sections"]) and {"insolvency", "court_coverage"} <= set(s["gazette"]["not_held"])
     assert s["not-held"]["views"] == [] and s["not-held"]["not_held"]
     views = {r["view"] for r in t["reads"]}
     for x in t["sections"]:

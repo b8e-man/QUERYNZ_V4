@@ -42,6 +42,21 @@ limits = [
 
 # ── what it reads: each view with its licence ───────────────────────────────
 [[reads]]
+view = "court_judgments"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_judgment_parties"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
+view = "court_people"
+licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
+attribution = "the courts of New Zealand, from the courts corpus held"
+refresh = "as the courts corpus lands; read on the lane's clock"
+[[reads]]
 view = "companies"
 licence = "Companies Office bulk data, Creative Commons Attribution 4.0; the register is public under the Companies Act 1993"
 attribution = "Companies Office, New Zealand Business Number register"
@@ -165,7 +180,7 @@ name = "gazette"
 heading = "The Gazette on the entity: winding-up applications, liquidation, receivership, deeds, removals and restorations"
 views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_appointments"]
 sources = ["pointing", "members", "confirmed", "near"]
-not_held = ["insolvency", "courts"]
+not_held = ["insolvency", "court_coverage"]
 text = "Each Gazette notice on the entity, or on the companies above, under its company's name with the day the notice dates, which says what it dates: a liquidator's appointment, a hearing day, a removal's last day for objections; the day it was filed and published beside. Started from a person, also the person's own appointments as liquidator or to a public office. A removal from the register is not an insolvency, and a restoration reverses a removal."
 
 [[sections]]
@@ -191,8 +206,15 @@ sources = ["named", "officers"]
 text = "A role the business-number register states and no monthly file held, under the subject's name or a person's on the company: near, a person with this name and not confirmed to be the subject. One at a company that later failed is an amber warning in the failure checks. The register is read company by company, so most companies' past roles are not yet asked: none listed here is not a finding of none."
 
 [[sections]]
+name = "courts"
+heading = "Court judgments the corpus holds"
+views = ["court_judgments", "court_judgment_parties", "court_people"]
+sources = ["named", "members", "confirmed", "near", "officers"]
+text = "A party to a judgment the courts corpus holds, as the judgment's heading names it or the text reader found it in the document. Being a party is not a finding against anyone: the judgment states what the court decided. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's. A name under a suppression order or withheld is never shown. The corpus holds a part of the courts' judgments (most of the Supreme Court's, some of the High Court's and the Court of Appeal's), so none listed here is not a finding of none."
+
+[[sections]]
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["securities", "insolvency", "courts", "fsp"]
+not_held = ["securities", "insolvency", "court_coverage", "fsp"]
 text = "Registers a credit check would read that no lane has published or this report cannot reach: the Personal Property Securities Register (who holds security over the company's assets, and since when), the Official Assignee's Insolvency Register (bankruptcies, no-asset procedures, summary instalment orders and their discharge; its daily removals check), court judgments (a creditor's judgment, a winding-up order's reasons), credit-bureau defaults and payment records, the companies change history before 16 August 2026 (former names, trading names, earlier directors and offices; held and unread since), the business-number interface's changes between monthly files until step 5.5 is built, a status or name change between the files held (published, not reachable), a lender's entry into possession (published, not reachable), a limited partnership's general partners (published, not read here) and financial service providers. Nothing in this report says anything about them; ask the source."

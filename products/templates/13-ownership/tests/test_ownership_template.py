@@ -25,7 +25,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "holders", "chain", "officers", "gazette", "exposure", "charities", "not-held"]
+ORDER = ["identity", "holders", "chain", "officers", "gazette", "exposure", "charities", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 #: words that would join two facts as cause, or call a holder of record more than that (the shape's rules 3 and 4 hold the full list)
 CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|connected to|associated with|controls?|controlled|behind|"

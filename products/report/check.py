@@ -456,7 +456,7 @@ def routes_4(conn, subject, held: set) -> list:
         out.append("no charity with two to twenty returns and an officer: the charity-start route cannot be checked")
     # a template that still names `charities` as not held loads, and its memo says the register is published and not read
     t = tpl.Template("check-superseded", "check", "0", "check", "", subject.reads,
-                     (tpl.Section("a", "A", ("companies",), not_held=("courts",)),), depth=1, superseded_not_held=(("charities", "charities"),))
+                     (tpl.Section("a", "A", ("companies",), not_held=("court_coverage",)),), depth=1, superseded_not_held=(("charities", "charities"),))
     got = db.rows(conn, "select key from pub.companies where in_latest order by key limit 1")
     if got:
         ref = f"companies:{got[0]['key']}"
