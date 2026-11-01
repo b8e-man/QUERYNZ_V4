@@ -147,3 +147,13 @@ failed companies; never red; listed in a past-roles section. Verified on the rea
 Correction to 0164ed4's message: on the real director (one failed company under the name) legal's repeat-insolvency
 stays blocked, as a repeat needs two; property's earlier-failure fires amber. The message's legal example predates the
 two-company rule.
+
+## 15. Courts into the report (2 November, daytime)
+
+Arthur: "keep building out the missing use case parts". The courts corpus held (4,975 judgments, 13,801 heading
+parties, 45,098 people the text reader found) was published and linked but no template read it. Now the catalogue
+carries the three views, every template and the shape have a courts section, and court-judgments in six templates
+reads them: confirmed party amber; an officer's case or a namesake's info; judges, counsel, witnesses, withheld and
+suppressed names never count; none is blocked, as the corpus is partial. The not-held key `courts` is now
+`court_coverage`, the judgments the corpus does not carry. Five mutants of the check, each caught (dfc55d3).
+Transient: two ownership real tests hit the 30 s statement timeout on an indexed pub.names lookup once; passed on rerun.
