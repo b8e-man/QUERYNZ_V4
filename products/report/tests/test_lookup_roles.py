@@ -27,3 +27,24 @@ def test_a_register_role_the_file_already_holds_is_listed_once_and_a_past_role_i
     assert [it["ref"] for it in roles] == ["companies:" + PAST_ROLE["key"]], "the file's own director is not listed a second time"
     assert roles[0]["via"] == "companies:" + COMPANY["key"]
     assert not walk.roles_on(None, cat.BY_NAME["companies"], COMPANY, set(), skipped) and "company_lookup_roles" in skipped
+
+
+def test_a_company_that_is_a_general_partner_lists_each_partnership_titled_by_the_partnership(monkeypatch):
+    gp = {"key": "limited_partnerships/9429000000002/partner/a/b", "partnership_key": "limited_partnerships/9429000000002", "kind": "body",
+          "full_name": "ACME LIMITED", "body_nzbn": COMPANY["nzbn"], "suppressed": False, "current": True, "status": "Active",
+          "started_on": None, "ended_on": None}
+    asked = []
+
+    def rows_where(conn, view, column, value, order):
+        asked.append((view, column, value))
+        return (1, [gp]) if view == "limited_partnership_partners" else (0, [])
+
+    def db_rows(conn, sql, params):
+        assert "pub.limited_partnerships" in sql and params == (["limited_partnerships/9429000000002"],)
+        return [{"key": "limited_partnerships/9429000000002", "name": "ACME FUND LP", "status": "Registered", "number": "1"}]
+    monkeypatch.setattr(walk, "rows_where", rows_where)
+    monkeypatch.setattr(walk.db, "rows", db_rows)
+    got = walk.roles_on(None, cat.BY_NAME["companies"], COMPANY, {"limited_partnership_partners"}, [])
+    assert ("limited_partnership_partners", "body_nzbn", COMPANY["nzbn"]) in asked, "joined by the company's business number"
+    assert len(got) == 1 and got[0]["via"] == "companies:" + COMPANY["key"] and "general partner of ACME FUND LP" in got[0]["statement"]
+    assert walk.roles_on(None, cat.BY_NAME["companies"], dict(COMPANY, nzbn=None), {"limited_partnership_partners"}, []) == []

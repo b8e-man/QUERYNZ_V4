@@ -119,7 +119,9 @@ CROWN_BODIES = frozenset(cat.fold(x) for x in (
 ROLES_ON = {
     "companies": (("directors", "entity_key", "appointed_on"), ("shareholders", "entity_key", "name"),
                   ("company_addresses", "entity_key", "started_on"), ("company_states", "entity_key", "file"),
-                  ("company_lookup_roles", "entity_key", "ended_on desc")),
+                  ("company_lookup_roles", "entity_key", "ended_on desc"),
+                  # the partnerships the company is a general partner of, by its business number; each row titled by its own partnership
+                  ("limited_partnership_partners", "body_nzbn", "started_on", "nzbn", True)),
     "societies": (("society_officers", "society_key", "started_on"),),
     "charities": (("charity_officers", "charity_key", "started_on"), ("charity_returns", "charity_key", "period_end desc")),
     "gazette_liquidations": (("gazette_liquidators", "notice", "ordinal", "notice"),),
@@ -413,15 +415,25 @@ def roles_on(conn, ev: cat.View, e: dict, allowed: set, skipped: list) -> list:
     for entry in ROLES_ON.get(ev.name, ()):
         child, column, order = entry[:3]
         parent_col = entry[3] if len(entry) > 3 else ev.key_col
+        own_entity = len(entry) > 4 and entry[4]   # the row names its own entity (a partnership), not the row it was reached from
         if child not in allowed:
             skipped.append(child)
             continue
         cv = cat.BY_NAME[child]
+        if e.get(parent_col) in (None, ""):
+            continue
         total, got = rows_where(conn, child, column, e[parent_col], order)
+        titles = {}
+        if own_entity and got:
+            xv = cat.BY_NAME[cv.entity[0]]
+            keys = sorted({str(r.get(cv.entity[1])) for r in got if r.get(cv.entity[1])})
+            titles = {str(x["key"]): rows.title(xv, x) for x in
+                      db.rows(conn, f"select *, {xv.key_col} as key from pub.{xv.name} where {xv.key_col} = any(%s)", (keys,))}
         for r in got:
             if ALREADY_LISTED.get(child) and r.get(ALREADY_LISTED[child]):
                 continue
-            out.append(item(cv, r, rows.title(ev, e), via=rows.ref_of(ev, str(e[ev.key_col]))))
+            title = titles.get(str(r.get(cv.entity[1]))) if own_entity else rows.title(ev, e)
+            out.append(item(cv, r, title, via=rows.ref_of(ev, str(e[ev.key_col]))))
         if total > len(got):
             out.append({"omitted": total - len(got), "view": child, "via": rows.ref_of(ev, str(e[ev.key_col]))})
     return out

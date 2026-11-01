@@ -91,7 +91,8 @@ LP_LIMITED = "a limited partnership's limited partners: the register publishes i
 def _general_partners(report, rule, severity):
     """A limited partnership start: its general partners as the register states them (read since 1 November 2026, through the
     partnership's row by business number); the limited partners are not public, so they are never counted."""
-    gp = [it for it in items(report, ("limited_partnership_partners",), ("confirmed",)) if not it.get("suppressed")]
+    gp = [it for it in items(report, ("limited_partnership_partners",), ("confirmed",))
+          if not it.get("suppressed") and (it.get("via") or "").startswith("limited_partnerships:")]   # its own partners, not those it is one of
     if not gp:
         return flag(rule, V, "blocked", severity, "a limited partnership has general and limited partners, not directors; the walk reached no "
                     "general partner the register states for it, and the limited partners are not public", sources_held=(LP_HELD,),
