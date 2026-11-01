@@ -168,3 +168,11 @@ public-contracts check is info only: a track record, never a finding (b730a6d). 
 Fault seen, not mine: each `qv4-names-*` job holds pub.names for about a minute (06:50:15–06:51:23 today). Every
 report's first query waits on it and fails at the 30 s statement timeout; the real-data tests that ran then went red,
 and green on rerun. A live report opened in that minute fails the same way.
+
+## 17. Tribunal checks read the courts corpus
+
+Four checks called held decisions not held. Now: employment-determinations (construction) and tribunals (insurance)
+read the ERA and the Employment Court; disciplinary-findings (legal) the Lawyers and Conveyancers Disciplinary
+Tribunal and the Legal Complaints Review Officer; real-estate-authority (property) the Real Estate Agents Disciplinary
+Tribunal. Confirmed party: the check's severity; near: info; none: blocked (4507eca). Property's abstains on real rows:
+no company or director is linked to a real-estate tribunal party yet.
