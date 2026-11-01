@@ -185,9 +185,15 @@ def fetch_entity(nzbn: str, conn, *, key: str = None, fetch=None, pacer=None, po
         gap = _LAST["at"] + FLOOR_S - clock()
         if gap > 0 and fetch is None:
             sleep(gap)
-        got = fetchgate.open_url(url, timeout=30, headers={KEY_HEADER: key or api_key(),
-                                                           "Accept": "application/json"},
-                                 pacer=pacer, fetch=fetch, positions_dir=positions_dir, ledger_dir=ledger_dir)
+        try:
+            got = fetchgate.open_url(url, timeout=30, headers={KEY_HEADER: key or api_key(),
+                                                               "Accept": "application/json"},
+                                     pacer=pacer, fetch=fetch, positions_dir=positions_dir, ledger_dir=ledger_dir)
+        except OSError as exc:
+            # no answer at all (a timeout, a refused or reset connection, DNS; 1 November 2026 22:32, a timeout crashed the
+            # history run): a failed read, recorded as status 0 and stopping the run like a block, never retried in it
+            got = fetchgate.Fetched(url=url, status=0, body=b"", final_url=url,
+                                    blocked=f"no answer: {type(exc).__name__}: {str(exc)[:200]}")
         _LAST["at"] = clock()
     if got.blocked or got.status != 200:
         return got, None

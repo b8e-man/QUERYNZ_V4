@@ -283,6 +283,8 @@ def night(filled, monkeypatch, tmp_path):
         if n not in answers:
             return 404, b"", url
         a = answers[n]
+        if isinstance(a, BaseException):
+            raise a
         return (a, b"", url) if isinstance(a, int) else (200, json.dumps(a).encode(), url)
 
     def go(**kw):
@@ -531,3 +533,15 @@ def test_the_backfill_stops_at_a_failed_read_and_off_peak(night):
     assert not out["ok"] and out["calls"] == 1 and "failed read" in out["stopped"]
     night["clock"]["now"] = night["clock"]["now"].replace(hour=12)
     assert _history(night)["stopped"] == "off-peak ended"
+
+
+def test_a_call_that_gets_no_answer_is_a_recorded_failed_read_that_stops_the_backfill(night):
+    """1 November 2026 22:32: a timeout raised out of the run and the job failed with a traceback; it is a failed read like a block."""
+    night["answers"][N1] = TimeoutError("timed out")
+    night["answers"][N2] = _answer(N2, addresses=[])
+    _want(night, N1, N2)
+    out = _history(night)
+    assert not out["ok"] and out["calls"] == 1 and "no answer: TimeoutError" in out["stopped"]
+    T = night["T"]
+    assert night["conn"].execute(f"SELECT status, blocked FROM {T.calls} WHERE nzbn = %s", (N1,)).fetchone()[0] == 0
+    assert night["conn"].execute(f"SELECT count(*) FROM {T.calls} WHERE nzbn = %s", (N2,)).fetchone()[0] == 0, "nothing after it"
