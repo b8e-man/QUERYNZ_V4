@@ -194,3 +194,9 @@ held begin July 2026) (88ebbb7). Real row: a company In Liquidation in the July 
 pub.company_lookup_holdings in the catalogue and the walk, listed beside the past roles in every template that has
 them; current holdings left to the monthly file (aaab674). No check reads them yet: whether a namesake's past holding in
 a failed company counts like a past role (option b) is Arthur's to say.
+
+## 21. Arthur's ruling: past holdings, amber on a namesake
+
+A namesake's past holding at a failed company now counts as a past role does (option b): amber, never red, a repeat
+needing two companies (44e1653). Found while verifying: the register writes a person holder surname first, so the name
+join could never meet a director; it now turns the name, never a body's.
