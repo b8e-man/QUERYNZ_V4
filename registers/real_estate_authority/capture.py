@@ -147,9 +147,18 @@ def years_to_list(today: dt.date, listed: set) -> list:
 
 # ── the lane's tables ─────────────────────────────────────────────────────────
 
+#: the line in tables.sql that begins the reading's tables: the capture makes only the tables above it
+READING = "-- ── the reading"
+
+
 def tables_sql(schema: str = SCHEMA) -> str:
     with open(os.path.join(HERE, "tables.sql"), encoding="utf-8") as f:
-        return f.read().replace(f"{SCHEMA}.", f"{schema}.")
+        return f.read().split(READING)[0].replace(f"{SCHEMA}.", f"{schema}.")
+
+
+def reading_sql(schema: str = SCHEMA) -> str:
+    with open(os.path.join(HERE, "tables.sql"), encoding="utf-8") as f:
+        return (READING + f.read().split(READING, 1)[1]).replace(f"{SCHEMA}.", f"{schema}.")
 
 
 class Tables:

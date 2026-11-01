@@ -711,6 +711,18 @@ command = ["python", "-m", "registers.real_estate_authority.capture", "--budget-
 at_utc = "10:00"
 nice = 10
 
+[jobs.qv4-real-estate-authority-load]
+description = "Step 5.3 (Arthur, 2 November 2026: \"alright do it\"): every landed abstract read deterministically into pub.rea_decisions and pub.rea_parties, built in staging, checked (every abstract read or set aside, at most 1% aside, no name on a suppressed decision), published only on green. Daily at 06:35 NZDT, after the night's capture."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 900
+query_timeout_s = 600
+class = "due"
+priority = 124   # unique; a daily load after its capture
+command = ["python", "-m", "registers.real_estate_authority.load", "--job"]
+at_utc = "17:35"
+nice = 10
+
 [jobs.qv4-read-pages-candidates]
 description = "Every image page of one candidate return through the page-reader profile, stored under the reader contract's stamp and the candidate-returns lane's scan profile (card: 713 returns set aside at stage read wait on a reading). One piece per document; the lane picks the readings up on its next load. Queued by the integrator after candidate-returns-1."
 needs = "model-profile"
