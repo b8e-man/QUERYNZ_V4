@@ -355,41 +355,55 @@ def published_texts(conn, schema: str, shared: bool) -> list:
     return out
 
 
+def gather(conn, schema: str, members: list = None) -> tuple:
+    """(rows, figures) of the lane's tables under `schema` on `conn`; the house lane's members from pub.members on the
+    same connection unless given."""
+    from registers.gazette.load import table
+    # the sample's shared schema names the lane's tables `gazette_…`; a lane or staging schema does not
+    shared = conn.execute("SELECT to_regclass(%s) IS NOT NULL", (table(schema, "notices", True),)).fetchone()[0]
+    rows = conn.execute(f"SELECT notice, title, format FROM {table(schema, 'notices', shared)}").fetchall()
+    acted = conn.execute(f"SELECT notice, supersedes FROM {table(schema, 'notices', shared)} WHERE supersedes IS NOT NULL").fetchall()
+    marked = [n for (n,) in conn.execute(
+        f"SELECT DISTINCT notice FROM {table(schema, 'prohibitions', shared)} WHERE superseded_by IS NOT NULL")]
+    joined = dict(conn.execute(f"SELECT register_match, count(*) FROM {table(schema, 'liquidations', shared)} GROUP BY 1").fetchall())
+    company_joined = defaultdict(dict)
+    for kind, match, n in conn.execute(
+            f"SELECT kind, register_match, count(*) FROM {table(schema, 'company_notices', shared)} GROUP BY 1, 2"):
+        company_joined[kind][match] = n
+    cel = table(schema, "celebrants", shared)
+    tables = dict(zip(("rows", "named_elsewhere"), conn.execute(
+        f"WITH o AS (SELECT DISTINCT lower(surname) AS s, lower(given_names) AS g FROM {cel} WHERE list_shape <> 'table') "
+        f"SELECT count(*), count(o.s) FROM {cel} t LEFT JOIN o ON o.s = lower(t.surname) AND o.g = lower(t.given_names) "
+        f"WHERE t.list_shape = 'table'").fetchone()))
+    appointees = conn.execute(f"SELECT notice, name, role FROM {table(schema, 'appointments', shared)}").fetchall()
+    taken = conn.execute(f"SELECT mortgagee_kind, mortgagee_register_match, entered_on IS NOT NULL, mortgagor_kind, "
+                         f"mortgagor IS NOT NULL FROM {table(schema, 'possessions', shared)}").fetchall()
+    texts = published_texts(conn, schema, shared)
+    annulled_shown = conn.execute(f"SELECT count(*) FROM {table(schema, 'bankruptcies', shared)} "
+                                  f"WHERE kind = 'annulment' AND withheld_by IS NULL").fetchone()[0]
+    if members is None:
+        members = ([n for (n,) in conn.execute("SELECT name FROM pub.members")]
+                   if conn.execute("SELECT to_regclass('pub.members') IS NOT NULL").fetchone()[0] else [])
+    return rows, figures(rows, acted, marked, joined, company_joined, annulled_shown, appointees, members, tables, taken, texts)
+
+
+def reading(conn, schema: str) -> list:
+    """What fails, for the scheduled load: [] when the staged tables may be published."""
+    return failed(gather(conn, schema)[1])
+
+
 def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     schema = argv[argv.index("--schema") + 1] if "--schema" in argv else "gazette"
     database = argv[argv.index("--database") + 1] if "--database" in argv else "querynz_v4"
     from support import db
-    from registers.gazette.load import table
-    with db.connect(db.READ_KEY if database == "querynz_v4" else db.OWNER_KEY, database) as conn:
-        conn.execute("SET statement_timeout = '60s'")
-        # the sample's shared schema names the lane's tables `gazette_…`; a lane or staging schema does not
-        shared = conn.execute("SELECT to_regclass(%s) IS NOT NULL", (table(schema, "notices", True),)).fetchone()[0]
-        rows = conn.execute(f"SELECT notice, title, format FROM {table(schema, 'notices', shared)}").fetchall()
-        acted = conn.execute(f"SELECT notice, supersedes FROM {table(schema, 'notices', shared)} WHERE supersedes IS NOT NULL").fetchall()
-        marked = [n for (n,) in conn.execute(
-            f"SELECT DISTINCT notice FROM {table(schema, 'prohibitions', shared)} WHERE superseded_by IS NOT NULL")]
-        joined = dict(conn.execute(f"SELECT register_match, count(*) FROM {table(schema, 'liquidations', shared)} GROUP BY 1").fetchall())
-        company_joined = defaultdict(dict)
-        for kind, match, n in conn.execute(
-                f"SELECT kind, register_match, count(*) FROM {table(schema, 'company_notices', shared)} GROUP BY 1, 2"):
-            company_joined[kind][match] = n
-        cel = table(schema, "celebrants", shared)
-        tables = dict(zip(("rows", "named_elsewhere"), conn.execute(
-            f"WITH o AS (SELECT DISTINCT lower(surname) AS s, lower(given_names) AS g FROM {cel} WHERE list_shape <> 'table') "
-            f"SELECT count(*), count(o.s) FROM {cel} t LEFT JOIN o ON o.s = lower(t.surname) AND o.g = lower(t.given_names) "
-            f"WHERE t.list_shape = 'table'").fetchone()))
-        appointees = conn.execute(f"SELECT notice, name, role FROM {table(schema, 'appointments', shared)}").fetchall()
-        taken = conn.execute(f"SELECT mortgagee_kind, mortgagee_register_match, entered_on IS NOT NULL, mortgagor_kind, "
-                             f"mortgagor IS NOT NULL FROM {table(schema, 'possessions', shared)}").fetchall()
-        texts = published_texts(conn, schema, shared)
-        annulled_shown = conn.execute(f"SELECT count(*) FROM {table(schema, 'bankruptcies', shared)} "
-                                      f"WHERE kind = 'annulment' AND withheld_by IS NULL").fetchone()[0]
     with db.connect(db.READ_KEY, "querynz_v4") as conn:       # the house lane's members, always from the published estate
         conn.execute("SET statement_timeout = '60s'")
         members = ([n for (n,) in conn.execute("SELECT name FROM pub.members")]
                    if conn.execute("SELECT to_regclass('pub.members') IS NOT NULL").fetchone()[0] else [])
-    f = figures(rows, acted, marked, joined, company_joined, annulled_shown, appointees, members, tables, taken, texts)
+    with db.connect(db.READ_KEY if database == "querynz_v4" else db.OWNER_KEY, database) as conn:
+        conn.execute("SET statement_timeout = '60s'")
+        rows, f = gather(conn, schema, members)
     print(f"{len(rows)} notices published. The Gazette's own numbering, closed years "
           f"({CLOSED_FROM}-{CLOSED_TO}): highest number against numbers held")
     for y, (top, held) in f["numbering"].items():

@@ -32,7 +32,13 @@ recognised as a celebrant list gives records or a catch-log line; and the
 counts are asserted, so a reading that does not reconcile raises and
 publishes nothing.
 
-    read(export_bytes, export_sha, only=None)   Result
+Since 2 November 2026 the notices after the export come from DigitalNZ's
+answers (capture.py), read by the same readers: a notice the export holds
+is read from the export, any other from the newest answer that carries it,
+and each row names its own document. A notice the Gazette suppresses is
+never read.
+
+    read(export_bytes, export_sha, only=None, pages=(), suppressed=())   Result
 """
 import datetime as dt
 import hashlib
@@ -141,19 +147,36 @@ def lines_of(data: bytes, only=None) -> list:
     return out
 
 
-def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None) -> Result:
+def pick(lines: list) -> tuple:
+    """One notice's lines, from the export and from DigitalNZ's landed answers → (the line read, [(line, why)]).
+    The export's copy is read where it holds one, so a notice's rows do not change under it; else the newest
+    DigitalNZ answer's (the pages come in the order they were asked)."""
+    old = [l for l in lines if "_document" not in l]
+    dnz = [l for l in lines if "_document" in l]
+    if old:
+        kept, others = notices.pick(old)
+        return kept, others + [(l, "held in the export: the old estate's capture of the notice is read") for l in dnz]
+    return dnz[-1], [(l, "asked again from DigitalNZ: the newest answer is read") for l in dnz[:-1]]
+
+
+def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None, pages=(), suppressed=()) -> Result:
+    """`pages`: [(sha256, bytes)] of the landed DigitalNZ answers, in the order asked; `suppressed`: notice numbers
+    the Gazette's robots file disallows, never read."""
     loaded_at = loaded_at or dt.datetime.now().astimezone().isoformat(timespec="seconds")
     out = Result()
     ev, cv = profile_version(EXPORT_PROFILE), profile_version(CELEBRANT_PROFILE)
     pv, lv = profile_version(PROHIBITION_PROFILE), profile_version(LIQUIDATION_PROFILE)
-    base = {"document": export_sha, "page": 1, "read_from": "text", "loaded_at": loaded_at}
+    base0 = {"document": export_sha, "page": 1, "read_from": "text", "loaded_at": loaded_at}
 
     held = lines_of(export_bytes, set(only) if only is not None else None)
+    for sha, data in pages:
+        held += [l for l in capture.lines_of_page(data, sha) if only is None or l["notice"] in only]
+    suppressed = set(suppressed)
     by = defaultdict(list)
     for line in held:
         by[line["notice"]].append(line)
 
-    twice = 0
+    twice = hidden = 0
     acted = []                                         # (notice, action, [notice numbers it acts on])
     recognised = with_records = wholly_aside = 0
     prohibited = prohibited_read = prohibited_aside = 0
@@ -169,13 +192,21 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
     orgs = None                                         # the celebrant organisation vocabulary, made before the first table
     # the printed celebrant tables last: they are cut by the organisations every other list prints
     for nid in sorted(by, key=lambda n: (any(celebrants.is_table(l["text"]) for l in by[n]), n)):
-        line, others = notices.pick(by[nid])
+        if nid in suppressed:
+            hidden += len(by[nid])
+            for l in by[nid]:
+                out.set_aside.append((f"{l.get('_document', export_sha)}/notice {nid}", "notices",
+                                      "suppressed: the Gazette's robots file disallows the notice, so it is never read"))
+            continue
+        line, others = pick(by[nid])
         for o, why in others:
             twice += 1
-            out.set_aside.append((f"{export_sha}/notice {nid} article {o['article']}", "notices", why))
+            out.set_aside.append((f"{o.get('_document', export_sha)}/notice {nid} article {o['article']}", "notices", why))
+        doc = line.get("_document", export_sha)
+        base = {**base0, "document": doc}
         num = notices.number(nid)
         if num is None:
-            out.set_aside.append((f"{export_sha}/notice {nid}", "notices", "not a Gazette notice number"))
+            out.set_aside.append((f"{doc}/notice {nid}", "notices", "not a Gazette notice number"))
             continue
         year, code, n = num
         fmt, status, records, supersedes = NOT_READ, NOT_READ, 0, None
@@ -185,7 +216,7 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
             fmt, reader, profile, version = PROHIBITION_PROFILE, READER_PROHIBITIONS, PROHIBITION_PROFILE, pv
             got = prohibitions.read(line["text"])
             for place, why in got.unread:
-                out.set_aside.append((f"{export_sha}/notice {nid} {place}", "prohibitions", why))
+                out.set_aside.append((f"{doc}/notice {nid} {place}", "prohibitions", why))
             for x in got.persons:
                 key = f"gazette/{nid}/prohibition/{x.ordinal}"
                 out.prohibitions.append({
@@ -212,13 +243,13 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                 prohibited_aside += 1
                 status = "set aside"
                 if not got.unread:
-                    out.set_aside.append((f"{export_sha}/notice {nid}", "prohibitions", "recognised, and no person read"))
+                    out.set_aside.append((f"{doc}/notice {nid}", "prohibitions", "recognised, and no person read"))
         elif liquidations.recognise(code, line["title"], line["text"]):
             liquidated += 1
             fmt, reader, profile, version = LIQUIDATION_PROFILE, READER_LIQUIDATIONS, LIQUIDATION_PROFILE, lv
             got = liquidations.read(line["title"], line["text"])
             for place, why in got.unread:
-                out.set_aside.append((f"{export_sha}/notice {nid} {place}", "liquidations", why))
+                out.set_aside.append((f"{doc}/notice {nid} {place}", "liquidations", why))
             stamp = {**base, "reader": READER_LIQUIDATIONS, "profile": LIQUIDATION_PROFILE, "profile_version": lv}
             for c in got.companies:
                 out.liquidations.append({
@@ -243,7 +274,7 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                 liquidated_aside += 1
                 status = "set aside"
                 if not got.unread:
-                    out.set_aside.append((f"{export_sha}/notice {nid}", "liquidations", "recognised, and no company read"))
+                    out.set_aside.append((f"{doc}/notice {nid}", "liquidations", "recognised, and no company read"))
         elif celebrants.recognise(line["title"], line["text"]):     # before the readers by section: a list filed under ar is still a list
             recognised += 1
             fmt, reader, profile, version = CELEBRANT_PROFILE, READER_CELEBRANTS, CELEBRANT_PROFILE, cv
@@ -251,7 +282,7 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                 orgs = celebrants.organisations(c["filed"]["organisation"] for c in out.celebrants)
             got = celebrants.read(line["text"], orgs if celebrants.is_table(line["text"]) else None)
             for place, why in got.unread:
-                out.set_aside.append((f"{export_sha}/notice {nid} {place}", "celebrants", why))
+                out.set_aside.append((f"{doc}/notice {nid} {place}", "celebrants", why))
             taken = got.records if got.action else []
             seen = defaultdict(int)
             for rec in taken:
@@ -277,14 +308,14 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                 wholly_aside += 1
                 status = "set aside"
                 if not got.unread:
-                    out.set_aside.append((f"{export_sha}/notice {nid}", "celebrants", "recognised, and no record read"))
+                    out.set_aside.append((f"{doc}/notice {nid}", "celebrants", "recognised, and no record read"))
         elif (hit := next((x for x in COMPANY_READERS if x[0].recognise(code, line["title"], line["text"])), None)):
             mod, profile, reader, kind = hit
             fmt, version = profile, cv_of[profile]
             company[kind][0] += 1
             got = mod.read(line["title"], line["text"])
             for place, why in got.unread:
-                out.set_aside.append((f"{export_sha}/notice {nid} {place}", kind, why))
+                out.set_aside.append((f"{doc}/notice {nid} {place}", kind, why))
             stamp = {**base, "reader": reader, "profile": profile, "profile_version": version}
             for c in got.companies:
                 out.company_notices.append({
@@ -312,13 +343,13 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                 company[kind][2] += 1
                 status = "set aside"
                 if not got.unread:
-                    out.set_aside.append((f"{export_sha}/notice {nid}", kind, "recognised, and no company read"))
+                    out.set_aside.append((f"{doc}/notice {nid}", kind, "recognised, and no company read"))
         elif (slug := bankruptcies.kind_of(code, line["title"], line["text"])):
             fmt, reader, profile, version = slug, READER_BANKRUPTCIES, slug, bv_of[slug]
             bankrupt[slug][0] += 1
             got = bankruptcies.read(slug, line["title"], line["text"])
             for place, why in got.unread:
-                out.set_aside.append((f"{export_sha}/notice {nid} {place}", "bankruptcies", why))
+                out.set_aside.append((f"{doc}/notice {nid} {place}", "bankruptcies", why))
             for x in got.persons:
                 key = f"gazette/{nid}/person/{x.ordinal}"
                 out.bankruptcies.append({
@@ -340,13 +371,13 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                 bankrupt[slug][2] += 1
                 status = "set aside"
                 if not got.unread:
-                    out.set_aside.append((f"{export_sha}/notice {nid}", "bankruptcies", "recognised, and no person read"))
+                    out.set_aside.append((f"{doc}/notice {nid}", "bankruptcies", "recognised, and no person read"))
         elif possessions.recognise(code, line["title"], line["text"]):
             fmt, reader, profile, version = possessions.PROFILE, READER_POSSESSIONS, possessions.PROFILE, mv
             possessed[0] += 1
             got = possessions.read(line["title"], line["text"])
             for place, why in got.unread:
-                out.set_aside.append((f"{export_sha}/notice {nid} {place}", "possessions", why))
+                out.set_aside.append((f"{doc}/notice {nid} {place}", "possessions", why))
             lender, borrower = got.mortgagee, got.mortgagor
             out.possessions.append({
                 "key": f"gazette/{nid}/possession", **base, "place": f"notice {nid} possession",
@@ -371,7 +402,7 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
             appointed[0] += 1
             got = appointments.read(line["title"], line["text"])
             for place, why in got.unread:
-                out.set_aside.append((f"{export_sha}/notice {nid} {place}", "appointments", why))
+                out.set_aside.append((f"{doc}/notice {nid} {place}", "appointments", why))
             for x in got.people:
                 out.appointments.append({
                     "key": f"gazette/{nid}/appointee/{x.ordinal}", **base, "place": f"notice {nid} appointee {x.ordinal}",
@@ -391,7 +422,7 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                       "format": fmt, "status": status, "records": records, "supersedes": supersedes,
                       "title": line["title"],
                       "published_on": line["published_on"], "url": line["url"], "old_type": line.get("old_type"),
-                      "article": line["article"], "source_note": capture.EXPORT_NOTE},
+                      "article": line["article"], "source_note": line.get("_note", capture.EXPORT_NOTE)},
         })
 
     # a revocation, a substitution or a variation marks the rows of the notice it names
@@ -405,7 +436,7 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
                     p["filed"]["superseded_by"], p["filed"]["superseded_how"] = nid, {
                         "revocation": "revoked", "substitution": "revoked and replaced", "variation": "varied"}[how]
 
-    if len(out.notices) + twice + sum(1 for i, s, w in out.set_aside if w == "not a Gazette notice number") != len(held):
+    if len(out.notices) + twice + hidden + sum(1 for i, s, w in out.set_aside if w == "not a Gazette notice number") != len(held):
         raise AssertionError(f"the export does not reconcile: {len(held)} lines, {len(out.notices)} notices, {twice} second captures")
     if with_records + wholly_aside != recognised:
         raise AssertionError(f"the celebrant lists do not reconcile: {recognised} recognised, {with_records} read, {wholly_aside} set aside")
@@ -439,6 +470,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None)
     # every published text cut before any property it names; the uncut value is held privately (hard limit 15)
     out.uncut = cut.rows(out)
     out.counts = {"lines": len(held), "notices": len(out.notices), "captured_twice": twice,
+                  "pages": len(pages), "from_digitalnz": sum(1 for r in out.notices if r["document"] != export_sha),
+                  "suppressed": hidden,
                   "celebrant_lists": recognised, "celebrant_lists_read": with_records,
                   "celebrant_lists_set_aside": wholly_aside, "celebrants": len(out.celebrants),
                   "celebrant_addresses": len(out.addresses), "prohibition_notices": prohibited,
