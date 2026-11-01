@@ -87,3 +87,13 @@ partners is the register's.
 Sanctions stay not held: `pub.sanctions_listings` is published empty, and reading it would print blanks that look
 like a clear. Not yet: ownership's chain still names a holder that is a partnership as filed, and does not follow its
 partners; a company that is a general partner does not yet list its partnerships.
+
+## 8. The Overseas Investment Office's decision summaries in property
+
+bd3d5e8. 1,295 decision summaries and 2,911 parties (applicants, vendors, consent holders). `overseas-investment` fires
+info on a party naming the subject or a namesake, and clears on none, as the Office lists its summaries, not every
+application. A name the Office withheld is never shown. Verified on the real rows: a company the Office names as a
+vendor in a 2017 sensitive-land decision renders it near and the flag info.
+
+Every held lane the templates did not read is now read, apart from sanctions (published empty) and the licence
+register of building practitioners (held empty until Arthur's decision).
