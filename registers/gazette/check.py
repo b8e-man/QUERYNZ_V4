@@ -56,7 +56,7 @@ import re
 import sys
 from collections import defaultdict
 
-from registers.gazette import cut, dissolutions, notices, possessions
+from registers.gazette import appointments, cut, dissolutions, notices, offices, possessions
 from registers.gazette import register as R
 
 CELEBRANT = "gazette-celebrant-list"
@@ -167,6 +167,30 @@ def members_check(appointees, members) -> dict:
     return {"honourable": seen, "members": held, "members_known": len(surnames)}
 
 
+#: a reserve notice, by its title: a body appointed to control and manage a reserve (the profile reads the text to be sure)
+RESERVE_TITLE = re.compile(r"appoint\w*.*control\s+and\s+manage|control\s+and\s+manage.*appoint", re.I)
+
+
+def office_figures(rows) -> dict:
+    """rows: [(notice, title, format)]. Every notice whose title puts it in an office family (offices.py) taken by that
+    family's profile, read or set aside with its reason; a reserve notice so titled taken by the reserve profile."""
+    out = {}
+    for n, t, f in rows:
+        code = (notices.number(n) or (0, ""))[1]
+        fam = offices.family(code, t or "", "")
+        if fam is None and code == "ln" and RESERVE_TITLE.search(t or ""):
+            fam = offices.RESERVE
+        if fam is None or appointments.recognise(code, t or "", ""):
+            continue
+        e = out.setdefault(fam, {"titled": 0, "taken": 0, "not_read": []})
+        e["titled"] += 1
+        if f == fam:
+            e["taken"] += 1
+        else:
+            e["not_read"].append(n)
+    return out
+
+
 def possession_figures(rows, taken) -> dict:
     """rows: [(notice, title, format)]; taken: [(mortgagee_kind, mortgagee_register_match, entered, mortgagor_kind,
     mortgagor shown)] over the published possession rows."""
@@ -245,7 +269,7 @@ def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulle
     if appointees is not None and members is not None:
         app["members"] = members_check(appointees, members)
     out = {"numbering": numbering, "celebrants": cel, "prohibitions": pro, "liquidations": liq, "company": company,
-           "bankruptcies": bank, "appointments": app}
+           "bankruptcies": bank, "appointments": app, "offices": office_figures(rows)}
     if taken is not None:
         out["possessions"] = possession_figures(rows, taken)
     if tables is not None:
@@ -306,6 +330,9 @@ def failed(f: dict) -> list:
             elif m["honourable"] and m["members"] < MEMBERS_FLOOR * m["honourable"]:
                 why.append(f"{m['members']} of {m['honourable']} 'Honourable' appointees since {MEMBERS_FROM} are Members of "
                            f"Parliament by surname, below {MEMBERS_FLOOR:.0%}")
+    for fam, e in sorted((f.get("offices") or {}).items()):
+        for n in e["not_read"][:20]:
+            why.append(f"{n}: titled as the {fam} family and not taken by its profile")
     m = f.get("possessions")
     if m is not None:
         if not m["rows"]:
@@ -375,7 +402,8 @@ def gather(conn, schema: str, members: list = None) -> tuple:
         f"WITH o AS (SELECT DISTINCT lower(surname) AS s, lower(given_names) AS g FROM {cel} WHERE list_shape <> 'table') "
         f"SELECT count(*), count(o.s) FROM {cel} t LEFT JOIN o ON o.s = lower(t.surname) AND o.g = lower(t.given_names) "
         f"WHERE t.list_shape = 'table'").fetchone()))
-    appointees = conn.execute(f"SELECT notice, name, role FROM {table(schema, 'appointments', shared)}").fetchall()
+    appointees = conn.execute(f"SELECT notice, name, role FROM {table(schema, 'appointments', shared)} "
+                              f"WHERE profile = %s", (APPOINTMENT,)).fetchall()
     taken = conn.execute(f"SELECT mortgagee_kind, mortgagee_register_match, entered_on IS NOT NULL, mortgagor_kind, "
                          f"mortgagor IS NOT NULL FROM {table(schema, 'possessions', shared)}").fetchall()
     texts = published_texts(conn, schema, shared)
@@ -454,6 +482,8 @@ def main(argv=None) -> int:
     if m:
         print(f"  against the house lane's members: {m['members']} of {m['honourable']} 'Honourable' appointees (not judges) "
               f"since {MEMBERS_FROM} are Members of Parliament by surname")
+    for fam, e in sorted((f.get("offices") or {}).items()):
+        print(f"Office notices, {fam}: {e['titled']:,} titled, {e['taken']:,} taken by the profile")
     print(f"Published text: {len(texts):,} distinct values in every text column, "
           f"{sum(len(v) for v in f['carried'].values()):,} notices naming a street address or a property reference")
     why = failed(f)

@@ -50,7 +50,7 @@ from dataclasses import dataclass, field
 
 from keys.dates import filed_date
 from support import profiles
-from registers.gazette import (appointments, bankruptcies, capture, celebrants, companyacts, creditors, cut, dissolutions, liquidations, notices, overseas,
+from registers.gazette import (appointments, bankruptcies, capture, celebrants, companyacts, creditors, cut, dissolutions, liquidations, notices, offices, overseas,
                                possessions, prohibitions, receiverships, removals, restorations, windingup)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -99,6 +99,7 @@ class Result:
     bankruptcies: list = field(default_factory=list)
     bankruptcy_addresses: list = field(default_factory=list)   # (bankruptcy key, address, formerly)
     appointments: list = field(default_factory=list)
+    board_interventions: list = field(default_factory=list)
     possessions: list = field(default_factory=list)     # names and the property in `_private`, moved out at the join
     uncut: list = field(default_factory=list)          # (row key, column, the value before cut.py cut it)
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
@@ -159,6 +160,80 @@ def pick(lines: list) -> tuple:
     return dnz[-1], [(l, "asked again from DigitalNZ: the newest answer is read") for l in dnz[:-1]]
 
 
+def _office_row(out, fam, version, nid, line, base, ordinal, name, role, body, *, statute=None, by_whom=None, starts_on=None,
+                ends_on=None, dated_on=None, corrigendum=False, action="appointed", locality=None, kind="person"):
+    out.appointments.append({
+        "key": f"gazette/{nid}/appointee/{ordinal}", **base, "place": f"notice {nid} appointee {ordinal}",
+        "reader": offices.READER, "profile": fam, "profile_version": version,
+        "filed": {"notice": nid, "published_on": line["published_on"], "body": body, "name": name, "role": role,
+                  "statute": statute, "by_whom": by_whom, "starts_on": starts_on, "ends_on": ends_on, "dated_on": dated_on,
+                  "corrigendum": corrigendum, "ordinal": ordinal, "action": action, "locality": locality,
+                  "appointee_kind": kind},
+    })
+
+
+def _read_office(out, fam, version, nid, line, base, doc) -> tuple:
+    """One office notice read by its family (offices.py) into appointments or board_interventions: (records, unread)."""
+    title, text = line["title"], line["text"]
+    unread = []
+    if fam == offices.JUDICIAL:
+        got = offices.judicial(title, text)
+        unread = got.unread
+        for x in got.people:
+            _office_row(out, fam, version, nid, line, base, x.ordinal, x.name, x.role, got.body, statute=got.statute,
+                        by_whom=got.by_whom, starts_on=got.starts_on, ends_on=got.ends_on, dated_on=got.dated_on,
+                        corrigendum=got.corrigendum)
+        records = len(got.people)
+    elif fam == offices.JP:
+        got = offices.jp_list(title, text)
+        unread = got.unread
+        action = {"appointed": "appointed", "retired": "retired", "resigned": "resigned"}[got.kind]
+        for ordinal, name, town in got.people:
+            _office_row(out, fam, version, nid, line, base, ordinal, name, offices.jp_role(got.kind), "Justices of the Peace",
+                        statute=got.statute, by_whom="Governor-General" if got.kind == "appointed" else None,
+                        dated_on=got.dated_on, corrigendum=got.corrigendum, action=action, locality=town)
+        records = len(got.people)
+    elif fam == offices.MENTAL_HEALTH:
+        people, unread = offices.mental_health(text)
+        d = offices.LQ._DATED.search(text or "")
+        for i, (name, area) in enumerate(people, start=1):
+            _office_row(out, fam, version, nid, line, base, i, name, "Director of Area Mental Health Services",
+                        area or "Area Mental Health Services", statute="Mental Health (Compulsory Assessment and Treatment) Act 1992",
+                        by_whom="the Director-General of Health", dated_on=offices.LQ._date(d.group("d")) if d else None,
+                        corrigendum=bool(offices.LQ._CORRIGENDUM.match(title or "")))
+        records = len(people)
+    elif fam == offices.RESERVE:
+        got = offices.reserve(title, text)
+        if got:
+            body, what = got
+            d = offices.LQ._DATED.search(text or "")
+            _office_row(out, fam, version, nid, line, base, 1, body, what, "a reserve under the Reserves Act 1977",
+                        statute="Reserves Act 1977", dated_on=offices.LQ._date(d.group("d")) if d else None,
+                        corrigendum=bool(offices.LQ._CORRIGENDUM.match(title or "")),
+                        action="revoked" if what.endswith("revoked") else "appointed", kind="body")
+        else:
+            unread = [("body", "no body appointed to control and manage a reserve the reader can take")]
+        records = 1 if got else 0
+    else:
+        got = offices.intervention(title, text)
+        if got.board:
+            out.board_interventions.append({
+                "key": f"gazette/{nid}/intervention", **base, "place": f"notice {nid} intervention",
+                "reader": offices.READER, "profile": fam, "profile_version": version,
+                "filed": {"notice": nid, "published_on": line["published_on"], "action": got.action, "board": got.board,
+                          "institution_number": got.institution_number, "statute": got.statute,
+                          "directed_by": got.directed_by, "dated_on": got.dated_on,
+                          "names_notices": ", ".join(n for n in got.names_notices if n != nid) or None,
+                          "revoked_by": None, "corrigendum": got.corrigendum},
+            })
+        else:
+            unread = [("board", "no school board the reader can take")]
+        records = 1 if got.board else 0
+    for place, why in unread:
+        out.set_aside.append((f"{doc}/notice {nid} {place}", "offices", why))
+    return records, bool(unread)
+
+
 def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None, pages=(), suppressed=()) -> Result:
     """`pages`: [(sha256, bytes)] of the landed DigitalNZ answers, in the order asked; `suppressed`: notice numbers
     the Gazette's robots file disallows, never read."""
@@ -187,6 +262,8 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None,
     bankrupt = defaultdict(lambda: [0, 0, 0])           # profile → [recognised, read, set aside]
     appointed = [0, 0, 0]                               # recognised, read, set aside
     av = profile_version(APPOINTMENT_PROFILE)
+    office = defaultdict(lambda: [0, 0, 0])             # offices.py profile → [recognised, read, set aside]
+    ov = {p: profile_version(p) for p in offices.PROFILES}
     mv = profile_version(possessions.PROFILE)
     possessed = [0, 0, 0]                               # recognised, read, set aside
     orgs = None                                         # the celebrant organisation vocabulary, made before the first table
@@ -410,11 +487,17 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None,
                     "filed": {"notice": nid, "published_on": line["published_on"], "body": got.body, "name": x.name,
                               "role": x.role, "statute": got.statute, "by_whom": got.by_whom, "starts_on": got.starts_on,
                               "ends_on": got.ends_on, "dated_on": got.dated_on, "corrigendum": got.corrigendum,
-                              "ordinal": x.ordinal},
+                              "ordinal": x.ordinal, "action": "appointed", "locality": None, "appointee_kind": "person"},
                 })
             records = len(got.people)
             appointed[1 if records else 2] += 1
             status = ("read, part set aside" if len(got.unread) else "read") if records else "set aside"
+        elif (fam := offices.family(code, line["title"], line["text"])):
+            fmt, reader, profile, version = fam, offices.READER, fam, ov[fam]
+            office[fam][0] += 1
+            records, unread = _read_office(out, fam, ov[fam], nid, line, base, doc)
+            office[fam][1 if records else 2] += 1
+            status = ("read, part set aside" if unread else "read") if records else "set aside"
         out.notices.append({
             "key": f"gazette/{nid}", **base, "place": f"notice {nid}",
             "reader": reader, "profile": profile, "profile_version": version,
@@ -453,6 +536,16 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None,
         if not f["withheld_by"]:
             later = sorted(a for a in annulled.get(_person_key(f), []) if (f["event_on"] or f["published_on"] or "") <= a[0])
             f["withheld_by"] = later[0][1] if later else None
+    # a revocation marks the direction it names, by notice number
+    directions = {r["filed"]["notice"]: r for r in out.board_interventions if r["filed"]["action"] != "statutory manager direction revoked"}
+    for r in out.board_interventions:
+        if r["filed"]["action"] == "statutory manager direction revoked":
+            for n in (r["filed"]["names_notices"] or "").split(", "):
+                if n in directions and not directions[n]["filed"]["revoked_by"]:
+                    directions[n]["filed"]["revoked_by"] = r["filed"]["notice"]
+    for slug, (n, ok, aside) in office.items():
+        if ok + aside != n:
+            raise AssertionError(f"the {slug} notices do not reconcile: {n} recognised, {ok} read, {aside} set aside")
     if possessed[1] + possessed[2] != possessed[0]:
         raise AssertionError(f"the possession notices do not reconcile: {possessed}")
     if appointed[1] + appointed[2] != appointed[0]:
@@ -489,6 +582,10 @@ def read(export_bytes: bytes, export_sha: str, only=None, loaded_at: str = None,
                   "bankruptcies_withheld": sum(1 for b in out.bankruptcies if b["filed"]["withheld_by"]),
                   "appointment_notices": appointed[0], "appointment_notices_read": appointed[1],
                   "appointment_notices_set_aside": appointed[2], "appointments": len(out.appointments),
+                  **{f"{k.split('gazette-')[1].replace('-', '_')}_notices{s}": v[i] for k, v in sorted(office.items())
+                     for i, s in enumerate(("", "_read", "_set_aside"))},
+                  "office_holders": sum(1 for a in out.appointments if a["profile"] in offices.PROFILES),
+                  "board_interventions": len(out.board_interventions),
                   "possession_notices": possessed[0], "possession_notices_read": possessed[1],
                   "possession_notices_set_aside": possessed[2],
                   "set_aside": len(out.set_aside), "cut": len(out.uncut),
