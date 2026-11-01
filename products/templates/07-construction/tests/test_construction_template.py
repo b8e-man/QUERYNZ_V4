@@ -28,9 +28,9 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "board", "past-roles", "courts", "not-held"]
+ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "board", "past-roles", "contracts", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
+VIEWS = {"award_notices", "award_suppliers", "court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
          "charities", "charity_officers", "charity_returns"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -181,7 +181,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
-KIND = {"building_practitioner_decisions": "person", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
+KIND = {"award_suppliers": "organisation", "award_notices": "event", "building_practitioner_decisions": "person", "directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
         "party_return_donors": "figure", "charities": "organisation", "charity_officers": "person", "charity_returns": "figure"}
@@ -603,3 +603,20 @@ def test_an_upheld_board_decision_fires_a_namesakes_is_info_and_none_never_clear
     hidden = rule("building_practitioners")(report(board=[dict(dec, suppressed=True)]))
     assert hidden["status"] == "blocked" and "DOE" not in hidden["text"], "a name the Board withholds is never shown or counted"
     assert rule("building_practitioners")(report())["status"] == "blocked"
+
+
+def test_public_contracts_lists_the_firms_gets_awards_as_info_and_never_a_finding():
+    """Confirmed supplier rows: info, counted with the agencies and newest first; a namesake's: info, said for what it is; a suppressed
+    name never counts; none: clear as GETS publishes them (2 November 2026)."""
+    old = it("tenders:tenders/historic/1/a", "award_suppliers", title="ACME BUILD LIMITED", statement="ACME BUILD LIMITED: a supplier awarded Old",
+             row={"awarded_on": "2016-01-01", "posting_agency": "Agency A"})
+    new = it("tenders:tenders/current/2/a", "award_suppliers", title="ACME BUILD LIMITED", statement="ACME BUILD LIMITED: a supplier awarded New",
+             row={"awarded_on": "2025-01-01", "posting_agency": "Agency B"})
+    hidden = it("tenders:tenders/current/3/a", "award_suppliers", title="ACME BUILD LIMITED", suppressed=True, row={"posting_agency": "Agency C"})
+    f = rule("public_contracts")(report(contracts=[old, new, hidden]))
+    assert f["status"] == "fired" and f["severity"] == "info" and f["text"].startswith("2 government contract")
+    assert "from 2 agency(ies)" in f["text"] and f["text"].index("awarded New") < f["text"].index("awarded Old") and f["sources_not_held"]
+    g = rule("public_contracts")(report(contracts=[dict(new, grade="near")]))
+    assert g["status"] == "fired" and g["severity"] == "info" and "not confirm" in g["text"]
+    for r in (report(contracts=[hidden]), person(), report()):
+        assert rule("public_contracts")(r)["status"] == "clear"

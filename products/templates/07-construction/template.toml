@@ -56,6 +56,16 @@ means = "days either side of a failure's Gazette date within which a going compa
 
 # ── what it reads: each view with its licence ───────────────────────────────
 [[reads]]
+view = "award_notices"
+licence = "CC BY 3.0 NZ"
+attribution = "Ministry of Business, Innovation and Employment, New Zealand Government procurement award notices (GETS open data)"
+refresh = "as GETS publishes its award notices; read on the lane's clock"
+[[reads]]
+view = "award_suppliers"
+licence = "CC BY 3.0 NZ"
+attribution = "Ministry of Business, Innovation and Employment, New Zealand Government procurement award notices (GETS open data)"
+refresh = "as GETS publishes its award notices; read on the lane's clock"
+[[reads]]
 view = "court_judgments"
 licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
 attribution = "the courts of New Zealand, from the courts corpus held"
@@ -246,6 +256,13 @@ sources = ["named", "officers"]
 text = "A role the business-number register states and no monthly file held, under the subject's name or a person's on the company: near, a person with this name and not confirmed to be the subject. One at a company that later failed is an amber warning in the failure checks. The register is read company by company, so most companies' past roles are not yet asked: none listed here is not a finding of none."
 
 [[sections]]
+name = "contracts"
+heading = "Government contracts awarded"
+views = ["award_notices", "award_suppliers"]
+sources = ["named", "members", "confirmed", "near"]
+text = "A government contract award notice that names the subject as a supplier, as GETS publishes it. The value is the notice's: on a panel or a multi-supplier award it is the whole award's, not this supplier's share. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's. Contracts below the thresholds, direct awards, and most councils' and private clients' contracts carry no GETS notice, so none listed here is not a finding of none."
+
+[[sections]]
 name = "courts"
 heading = "Court judgments the corpus holds"
 views = ["court_judgments", "court_judgment_parties", "court_people"]
@@ -256,5 +273,5 @@ text = "A party to a judgment the courts corpus holds, as the judgment's heading
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["building_practitioners", "insolvency", "court_coverage", "securities", "tenders"]
-text = "Registers a subcontractor check would read that no lane has published: the licensed building practitioners register (whether the firm's people hold a licence, and any discipline), the Official Assignee's Insolvency Register (bankruptcies, no-asset procedures and summary instalment orders, and their discharge), court judgments, the Employment Relations Authority's determinations (unpaid wages and arrears), the companies change history before 16 August 2026 (former names, trading names, earlier directors and offices; held but unread since), the Personal Property Securities Register, a lender's entry into possession, a limited partnership's limited partners (the register publishes its general partners, which are read), and tenders and awards. Nothing in this report says anything about them; ask the source."
+not_held = ["building_practitioners", "insolvency", "court_coverage", "securities", "tender_coverage"]
+text = "Registers a subcontractor check would read that no lane has published: the licensed building practitioners register (whether the firm's people hold a licence, and any discipline), the Official Assignee's Insolvency Register (bankruptcies, no-asset procedures and summary instalment orders, and their discharge), court judgments, the Employment Relations Authority's determinations (unpaid wages and arrears), the companies change history before 16 August 2026 (former names, trading names, earlier directors and offices; held but unread since), the Personal Property Securities Register, a lender's entry into possession, a limited partnership's limited partners (the register publishes its general partners, which are read), and contracts awarded without a GETS award notice. Nothing in this report says anything about them; ask the source."

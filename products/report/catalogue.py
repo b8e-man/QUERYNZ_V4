@@ -208,7 +208,7 @@ VIEWS: tuple = (
            "back to the company's registration; read company by company by the history backfill, so most companies are not yet asked"),
     # ── the courts corpus held (registers/courts; into the report 2 November 2026) ─────────────────────────────────
     V("court_judgments", "courts", "event", ("citation",), names=(), on="judgment_date", on_label="judgment",
-      statement="{title}: a judgment of the {court_name}",
+      statement="{title}: a judgment or decision",
       note="a judgment as the courts corpus holds it; a name under a suppression order or withheld is never shown"),
     V("court_judgment_parties", "courts", "person", ("name",), names=("name",), suppressed="withheld",
       entity=("court_judgments", "judgment"), role="role", on="judgment_date", on_label="judgment",
@@ -217,6 +217,14 @@ VIEWS: tuple = (
     V("court_people", "courts", "person", ("name",), names=("name",), suppressed="suppressed", role="role_text", on="dated",
       on_label="dated", statement="{title}: {role_text} in {citation} ({role})",
       note="a person or body a court document names, read by the text reader: a party, a judge, counsel, a witness or another"),
+    # ── government contract awards, as GETS publishes its award notices (registers/tenders; into the report 2 November 2026) ──
+    V("award_notices", "tenders", "event", ("title",), names=(), on="awarded_on", on_label="awarded", amount="value_nzd",
+      statement="{title}: awarded by {posting_agency}, {amount}",
+      note="a contract award notice as GETS publishes it; the value is the notice's, as published, and can be the whole panel's"),
+    V("award_suppliers", "tenders", "organisation", ("business_name",), names=("business_name",), entity=("award_notices", "notice_key"),
+      on="awarded_on", on_label="awarded", amount="notice_value_nzd",
+      statement="{title}: a supplier awarded {entity}, by {posting_agency}",
+      note="a supplier a GETS award notice names; the notice's value is the whole award's, not this supplier's share"),
 )
 BY_NAME = {v.name: v for v in VIEWS}
 
@@ -241,6 +249,7 @@ REGISTERS = (
     ("limited_partnerships", "Limited partnerships and their general partners"),
     ("overseas_investment", "Overseas Investment Office decision summaries"),
     ("courts", "Court judgments (the courts corpus held)"),
+    ("tenders", "Government contract award notices (GETS)"),
 )
 REGISTER_NAME = dict(REGISTERS)
 
@@ -256,7 +265,7 @@ NOT_HELD = (
     ("securities", "The Personal Property Securities Register"),
     ("fsp", "Financial service providers"),
     ("linz", "LINZ titles"),
-    ("tenders", "Tenders and awards"),
+    ("tender_coverage", "Contracts awarded without a GETS award notice: under the thresholds, direct awards, and most councils' and private clients' contracts"),
     ("sanctions", "Sanctions lists"),
     ("building_practitioners", "Licensed building practitioners"),
     ("overseas", "Overseas company registers"),

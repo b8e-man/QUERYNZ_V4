@@ -19,6 +19,16 @@ limits = [
 ]
 
 [[reads]]
+view = "award_notices"
+licence = "CC BY 3.0 NZ"
+attribution = "Ministry of Business, Innovation and Employment, New Zealand Government procurement award notices (GETS open data)"
+refresh = "as GETS publishes its award notices; read on the lane's clock"
+[[reads]]
+view = "award_suppliers"
+licence = "CC BY 3.0 NZ"
+attribution = "Ministry of Business, Innovation and Employment, New Zealand Government procurement award notices (GETS open data)"
+refresh = "as GETS publishes its award notices; read on the lane's clock"
+[[reads]]
 view = "court_judgments"
 licence = "New Zealand court judgments are published for reuse; a name under a suppression order or withheld is never shown"
 attribution = "the courts of New Zealand, from the courts corpus held"
@@ -299,6 +309,13 @@ name = "overseas"
 heading = "Overseas Investment Office decisions"
 views = ["overseas_investment_decisions", "overseas_investment_parties"]
 text = "A decision summary as the Office publishes it: the applicant, the vendor, the outcome and the date. No link joins a party to another register, so a party that shares the subject's name is near: nothing in it is the subject's."
+
+[[sections]]
+name = "contracts"
+heading = "Government contracts awarded"
+views = ["award_notices", "award_suppliers"]
+sources = ["named", "members", "confirmed", "near"]
+text = "A government contract award notice that names the subject as a supplier, as GETS publishes it. The value is the notice's: on a panel or a multi-supplier award it is the whole award's, not this supplier's share. A near row shares a name with the subject and no rule confirms it: nothing in it is the subject's. Contracts below the thresholds, direct awards, and most councils' and private clients' contracts carry no GETS notice, so none listed here is not a finding of none."
 
 [[sections]]
 name = "courts"

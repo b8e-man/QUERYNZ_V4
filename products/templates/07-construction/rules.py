@@ -32,6 +32,7 @@ code, where the held registers can support them:
   walk-coverage          how many companies reached had their notices and officers read
   subject-hub            the person is a professional director, a nominee or the Crown
   past-roles, change-history  blocked: current roles only; the change history is not held before 16 August 2026
+  public-contracts       government contract award notices (GETS) naming the firm as a supplier: listed, info, never a finding
   building-practitioners, insolvency-register, court-judgments, employment-determinations, securities-register,
   mortgagee-possession   blocked: not held, or published and not reachable
 
@@ -1212,7 +1213,34 @@ def court_judgments(report):
                 sources_held=COURT_HELD, sources_not_held=COURT_NOT_HELD)
 
 
+# ── government contracts awarded, as GETS publishes them (into the report 2 November 2026) ──────────────────────────
+
+CONTRACTS_HELD = ("government contract award notices as GETS publishes them, 2014 on (pub.award_notices, pub.award_suppliers)",)
+CONTRACTS_NOT_HELD = ("contracts awarded without a GETS award notice: under the thresholds, direct awards, and most councils' and "
+                      "private clients' contracts",)
+
+
+def public_contracts(report):
+    """Award notices naming the subject, or a person the rules confirm is the subject, as a supplier: info, with the count, the newest
+    and the agencies; a namesake's: info, said for what it is; none: clear as GETS publishes them. A track record, never a finding."""
+    conf = [it for it in items(report, ("award_suppliers",), ("confirmed",)) if not it.get("suppressed")]
+    near = [it for it in items(report, ("award_suppliers",), ("near",)) if not it.get("suppressed")]
+    if conf:
+        conf.sort(key=lambda it: str((it.get("row") or {}).get("awarded_on") or ""), reverse=True)
+        agencies = sorted({(it.get("row") or {}).get("posting_agency") for it in conf} - {None, ""})
+        return flag("public-contracts", V, "fired", "info", f"{len(conf)} government contract award notice(s) name the subject as a "
+                    f"supplier, from {len(agencies)} agency(ies); newest: " + "; ".join(f"{it['statement']} ({it['dates']['text']})" for it in conf[:3])
+                    + "; a notice's value is the whole award's", citations=tuple(it["ref"] for it in conf),
+                    sources_held=CONTRACTS_HELD, sources_not_held=CONTRACTS_NOT_HELD)
+    if near:
+        return flag("public-contracts", V, "fired", "info", f"{len(near)} government contract award notice(s) name a supplier the rules "
+                    f"do not confirm is the subject: {'; '.join(it['statement'] for it in near[:3])}; nothing in a namesake's is the subject's",
+                    citations=tuple(it["ref"] for it in near), sources_held=CONTRACTS_HELD, sources_not_held=CONTRACTS_NOT_HELD)
+    return flag("public-contracts", V, "clear", "info", "no government contract award notice, as GETS publishes them, names the subject "
+                "as a supplier", sources_held=CONTRACTS_HELD, sources_not_held=CONTRACTS_NOT_HELD)
+
+
 RULES = (phoenix_signature, same_name_failed, shared_office, entity_status, insolvency_notices, repeat_failure, register_events,
          other_current_companies, officers_of_record, young_entity, prohibition, bankruptcy, practitioner_roles, practitioner_repeat,
          society_roles, namesake_exposure, walk_coverage, subject_hub, past_roles, change_history, building_practitioners,
-         insolvency_register, court_judgments, employment_determinations, securities_register, mortgagee_possession)
+         insolvency_register, court_judgments, employment_determinations, securities_register, mortgagee_possession, public_contracts)
