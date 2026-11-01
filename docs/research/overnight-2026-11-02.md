@@ -138,3 +138,9 @@ them all (still near); it changes how every holder is joined, so it is his. Rule
 At 00:18 a call timed out again; the mended run recorded it as a failed read and stopped cleanly after 1,019 calls
 (1,018 answered). The night's total: 1,292 calls, all but the two timeouts answered. Not restarted: two timeouts in two
 hours reads as a strained host, and politeness comes first. The next run is 22:05 tonight, from where it stopped.
+
+## 14. Arthur's rulings of 2 November, done
+
+Case ignored when a holder of record is joined to its company by name (8b51850). Option (b): a namesake's past role
+at a failed company is an amber warning in eight failure checks across seven templates; a repeat check needs two
+failed companies; never red; listed in a past-roles section. Verified on the real rows.
