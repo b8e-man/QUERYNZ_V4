@@ -208,3 +208,10 @@ the links and the board use it. The report's own name joins did not; 44e1653's p
 both joins read by keys.names and the turn is gone; the board declares the holdings FAMILY_GIVEN (84ba2f1).
 Board real check red, not from this: pub.name_sightings (carded 1 November) and 7 Hansard people rows whose name
 carries a residence word.
+
+## 23. The board's two reds, closed
+
+pub.name_sightings is on the board (register `links`, keyed by document, lane and offset). The six Hansard
+"residence" rows were bill and Act titles the reader filed among the people; the check now reads a law's title as no
+person's name (617036e). The board's outside check is green. The 1 November card's first item is done; its second
+(the scan's procurement read-back) stands.
