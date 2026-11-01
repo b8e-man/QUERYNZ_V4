@@ -52,7 +52,7 @@ def test_the_recorded_serving_shape():
     argv = _exec_start()
     want = {"--tp": "2", "--max-num-seqs": "16", "--max-model-len": "32768", "--max-num-batched-tokens": "4096",
             "--draft-window": "adaptive", "--checkpoint-policy": "tip-only", "--ngram-placement": "ram",
-            "--host-pool-mib": "20480", "--gpu-headroom-mib": "500", "--placement": "expert_tiered", "--vision-tower-placement": "ram",
+            "--host-pool-mib": "13312", "--gpu-headroom-mib": "500", "--placement": "expert_tiered", "--vision-tower-placement": "ram",
             "--kv-cache-dtype": "fp8", "--port": "8060", "--served-model-name": "qwen4exp"}
     assert {k: _flag(argv, k) for k in want} == want
 

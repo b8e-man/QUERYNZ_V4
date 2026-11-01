@@ -30,7 +30,8 @@ LimitMEMLOCK=infinity
 # container listens on every address inside; the publish binds the loopback only. The n-gram table is read from the
 # model file on disk until 1 November 2026; now in host RAM (--ngram-placement ram, Arthur: "put the ngrams in ram"):
 # measured second by second, steps crawled at about one a second while nvme1n1 read 100-700 MB/s of its rows. Costs
-# about 51 GB of node2's host memory. Thinking is off by default;
+# about 51 GB of node2's host memory; the host pool then fell from 20 GiB to 13 GiB a rank (out of memory at 20:31: Radiance
+# killed at 94 GB anonymous; the cards hold 70% of the experts and the ~9 GiB a rank left over fit 13 GiB). Thinking is off by default;
 # a profile that wants it (review) says so per request, and a request wins.
 ExecStart=/usr/bin/podman run --cidfile=%t/%n.ctr-id --cgroups=no-conmon --rm --sdnotify=conmon --replace -d \
   --name qv4-radiance \
@@ -45,7 +46,7 @@ ExecStart=/usr/bin/podman run --cidfile=%t/%n.ctr-id --cgroups=no-conmon --rm --
   --model /model.rad --served-model-name qwen4exp \
   --tp 2 --tp-wire exact \
   --max-model-len 32768 --max-num-seqs 16 --kv-cache-dtype fp8 \
-  --placement expert_tiered --host-pool-mib 20480 --gpu-headroom-mib 500 --vision-tower-placement ram \
+  --placement expert_tiered --host-pool-mib 13312 --gpu-headroom-mib 500 --vision-tower-placement ram \
   --ngram-placement ram --num-speculative-tokens 3 --draft-window adaptive \
   --max-num-batched-tokens 4096 --checkpoint-policy tip-only \
   --chat-template-kwargs '{"enable_thinking":false}' \
