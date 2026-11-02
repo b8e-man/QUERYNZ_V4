@@ -313,5 +313,5 @@ person's name (617036e). The board's outside check is green. The 1 November card
   so it hit its 30-minute deadline and the night's search never ran. It now re-asks only an estate we hold; none is
   left, so the 21:00 run on 3 November goes straight through to the search. A test, and its mutant caught.
 - Failed reads tonight, source side, no change made: grants (the lottery page answered 403: a block, a failed read),
-  tenancy tribunal (three transport failures in a row), local elections files (3 failed), tenders refresh and
-  charities capture (exit 1).
+  tenancy tribunal (three transport failures in a row), local elections files (3 failed); tenders and charities
+  both answered 403 (a block, a failed read).
