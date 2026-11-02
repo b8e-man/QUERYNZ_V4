@@ -342,3 +342,9 @@ Arthur since 1 November 08:45: his decision); the owner login's 20-connection li
   "not linked". Dunedin and Gisborne alternate 200 and 403 on the same shapes: the source's. Tenancy Tribunal: every
   order download reset since 24 October 00:24, after about 20,000 PDFs, while the listings answer 200: the host bars
   the documents path; the lane stops after three resets a night, as it should. No change.
+- Track 2 merged: the High Court's "… continued over" captions are followed to page 2 (two of the four; 27 judgments
+  across the corpus gain parties they had missed, none loses one); the other two are the court's own printing (counsel
+  for an unlisted intervener; an appeal captioned Plaintiff and Defendant), named as exceptions with their reasons; the
+  tolerance stays at 2. The courts reader is now also queued by each MCP pull: it reads what the pull lands, and a red
+  load had left 6,447 documents unread (row 1271 queued by hand at 07:2x). The MCP's courts corpus: 14,550, ours 14,528
+  at the 07:00 pull.
