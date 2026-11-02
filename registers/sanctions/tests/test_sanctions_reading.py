@@ -1,9 +1,10 @@
 """The three readings' rules on hand-made documents (every name invented),
-a mutant check of those rules, the hold on each list, a load into the sample
-database from hand-made documents and the check over it, and, only when
-QV4_SANCTIONS_LIVE=1 and marked slow, the UN's and Police's real lists read
-in memory from the publisher and kept nowhere (the lists are held on their
-terms, so nothing real is in the store to fill from). No model is called."""
+a mutant check of those rules, the authorisation of each list (ruling 132),
+the capture's politeness (weekly by the record, nothing fetched twice, a block
+a failed read of one list), a load into the sample database from hand-made
+documents and the check over it, and, marked slow, the real lists as landed,
+read from the document store by the hashes sample.list names. No model is
+called and nothing is fetched."""
 import collections
 import datetime as dt
 import os
@@ -72,8 +73,13 @@ def rules(mod) -> list:
         broken.append("police: an identifier listed twice is set aside")
     mf = mod.read_document("mfat-russia", F.mfat_xlsx(), C, 1, "2026-09-09")
     mk = {r["list_ref"]: r for r in mf["rows"]}
-    if mf["stated"] != 3 or len(mf["rows"]) != 3 or len(mf["set_aside"]) != 1 or mf["skipped"] != 2:
-        broken.append("mfat: listings, the Total row's figure, an Asset counted, an unknown Type set aside")
+    if mf["stated"] is not None or len(mf["rows"]) != 3 or len(mf["set_aside"]) != 1 or mf["skipped"] != 2:
+        broken.append("mfat: listings, an Asset and the Total row counted, an unknown Type set aside, no listing count")
+    if "First name 1" not in (mf["stated_where"] or ""):
+        broken.append("mfat: the Total row's tally named with its column")
+    off = mod.read_document("mfat-russia", F.mfat_xlsx(total=3), C, 1, "2026-09-09")
+    if not any(a["stage"] == "total" and a["place"] == "document" for a in off["set_aside"]):
+        broken.append("mfat: a Total row tally the rows do not hold is set aside against the document")
     iv = mk.get("RUS-0001")
     if not iv or iv["name"] != "Ivan Inventovich Examplov" or iv["aliases"] != ["Ivan Examplof", "I. Examplov"]:
         broken.append("mfat: names and aliases as published")
@@ -98,7 +104,7 @@ MUTANTS = {
                                        'countries=once((a.findtext("CITY") or "") + " " + (a.findtext("COUNTRY") or "") for a in e.findall(f"{tag}_ADDRESS"))'),
     "un: no reference kept": ('            if not ref:\n                out["set_aside"].append(aside("un-sc", sha, place, "key", "no REFERENCE_NUMBER"))\n                continue\n',
                               '            ref = ref or "none"\n'),
-    "un: aliases not deduplicated": ('row["aliases"] = [a for a in once(row["aliases"]) if a != name]',
+    "un: aliases not deduplicated": ('row["aliases"] = [a for a in once(row["aliases"]) if a != row["name"]]',
                                      'row["aliases"] = [text(a) for a in row["aliases"] if text(a)]'),
     "police: aliases as listings": ("return base, int(((d - base) * 100).quantize(Decimal(1)))", "return s, 0"),
     "police: the ID with a space dropped": ('s = re.sub(r"\\s+", "", str(v or ""))', 's = str(v or "").strip()'),
@@ -108,6 +114,9 @@ MUTANTS = {
                                        'add(listing("nz-police-tsa", f"{kind}/{base}", kind, "designated"'),
     "police: twice listed kept": ('        if row["key"] in seen:\n', '        if False:\n'),
     "mfat: the Total row as a listing": ('MFAT_COUNTED = ("asset", "total")', 'MFAT_COUNTED = ("asset",)'),
+    "mfat: a tally not reconciled": ("if n != got:", "if False:"),
+    "mfat: the Total row's figure taken as the listing count": ('n, got = int(float(v)), filled[k]',
+                                                               'n, got = int(float(v)), filled[k]; out["stated"] = n'),
     "mfat: unknown types read as entities": ("kind = MFAT_KINDS.get(typ)", 'kind = MFAT_KINDS.get(typ, "entity")'),
     "mfat: a repeated identifier overwritten": ('ref = uid if seen[uid] == 1 else', 'ref = uid if True else'),
 }
@@ -134,14 +143,37 @@ def test_each_mutant_is_caught(name):
 # ── the hold ──────────────────────────────────────────────────────────────────
 
 class FakeTables:
-    def __init__(self):
+    def __init__(self, last=None, held=None, versions=()):
         self.landed_rows, self.asides = [], []
+        self.last, self._held, self._versions = last, held or {}, set(versions)
 
     def landed(self, *a):
         self.landed_rows.append(a)
 
     def set_aside(self, *a):
         self.asides.append(a)
+
+    def last_asked(self, list_id):
+        return self.last
+
+    def held(self, list_id):
+        return self._held
+
+    def versions(self, list_id, role="list"):
+        return self._versions
+
+
+NOW = dt.datetime(2026, 11, 2, 23, 0, tzinfo=capture.NZ)
+
+
+def _ok(body):
+    return types.SimpleNamespace(status=200, body=body, final_url="", blocked="")
+
+
+def _run(t, opener, lists, **kw):
+    return capture.Run(t, land_fn=lambda d, **k: (types.SimpleNamespace(sha256="d" * 64), True), lists=lists,
+                       opener=opener, authorised=lambda l: "2026-11-02 ruling 132", anytime=True,
+                       sleep=lambda s: None, now=lambda: NOW, log=lambda m: None, **kw).run()
 
 
 def test_a_held_list_asks_nothing_and_an_authorised_one_is_fetched():
@@ -161,9 +193,93 @@ def test_a_held_list_asks_nothing_and_an_authorised_one_is_fetched():
     assert asked[-1] == capture.UN_XML and t.landed_rows[-1][4] == "2026-10-20T23:00:05.952Z"
 
 
-def test_the_real_position_authorises_nothing():
+def test_the_real_position_authorises_all_three_by_ruling_132():
+    import support.fetchgate as fg
+    assert os.path.exists(os.path.join(fg.POSITIONS_DIR, "sanctions-lists.md"))
     for l in capture.LISTS:
-        assert capture.authorisation(l, os.path.join(LANE, "position")) is None
+        got = capture.authorisation(l, fg.POSITIONS_DIR)
+        assert got and "ruling 132" in got, l
+    assert capture.authorisation("un-sc", os.path.join(LANE, "no-such-folder")) is None
+
+
+def test_a_block_on_one_list_is_a_failed_read_and_the_next_list_is_asked():
+    asked = []
+
+    def opener(url, timeout):
+        asked.append(url)
+        if "mfat.govt.nz" in url:
+            return types.SimpleNamespace(status=403, body=b"Incapsula incident", final_url=url, blocked="challenge: incapsula")
+        return _ok(F.UN_XML)
+
+    t = FakeTables()
+    out = _run(t, opener, ("mfat-russia", "un-sc"))
+    # MFAT: its first request is walled; nothing more is asked of it; the UN is asked and landed
+    assert [u for u in asked if "mfat" in u] == [capture.DOCS["mfat-russia"]["terms-of-use"]]
+    assert asked[-1] == capture.UN_XML and t.landed_rows[-1][0] == "un-sc"
+    assert out["failed"] == {"mfat-russia": "challenge: incapsula"} and out["stopped"].startswith("stopped:")
+    assert any(a[0] == "mfat-russia" and a[2] == "fetch" for a in t.asides)
+
+
+def test_a_wall_page_in_place_of_the_workbook_is_a_failed_read():
+    def opener(url, timeout):
+        return _ok(b"<html>please wait</html>" if url == capture.MFAT_FILE else b"<p>Updated 9 September 2026</p>")
+
+    t = FakeTables(held={"terms-of-use": {capture.DOCS["mfat-russia"]["terms-of-use"]: None},
+                         "copyright": {capture.DOCS["mfat-russia"]["copyright"]: None}})
+    out = _run(t, opener, ("mfat-russia",))
+    assert "mfat-russia" in out["failed"] and not any(r[1] == "list" for r in t.landed_rows)
+
+
+def test_the_cadence_is_weekly_by_the_record():
+    asked = []
+    opener = lambda url, timeout: asked.append(url) or _ok(F.UN_XML)
+    out = _run(FakeTables(last=NOW - dt.timedelta(days=3)), opener, ("un-sc",))
+    assert asked == [] and out["not_due"] == 1
+    out = _run(FakeTables(last=NOW - dt.timedelta(days=3)), opener, ("un-sc",), due_now=True)
+    assert asked and out["not_due"] == 0
+    asked.clear()
+    out = _run(FakeTables(last=NOW - dt.timedelta(days=7)), opener, ("un-sc",))
+    assert asked[-1] == capture.UN_XML and out["landed"] >= 1
+
+
+def test_nothing_is_fetched_twice():
+    asked = []
+    wb = "https://www.police.govt.nz/sites/default/files/publications/designated-entities-2-october-2026.xlsx"
+    page = b'<a href="/sites/default/files/publications/designated-entities-2-october-2026.xlsx">x</a>'
+    opener = lambda url, timeout: asked.append(url) or _ok(page if "1267" in url else b"<p>Updated 9 September 2026</p>")
+    copyright_url = capture.DOCS["nz-police-tsa"]["copyright"]
+    out = _run(FakeTables(held={"list": {wb: "2026-10-02"}, "copyright": {copyright_url: None}}), opener,
+               ("nz-police-tsa",))
+    assert wb not in asked and copyright_url not in asked and out["unchanged"] == 1
+    asked.clear()
+    mfat_terms = {r: {u: None} for r, u in capture.DOCS["mfat-russia"].items()}
+    out = _run(FakeTables(held=mfat_terms, versions={"2026-09-09"}), opener, ("mfat-russia",))
+    assert asked == [capture.MFAT_PAGE] and out["unchanged"] == 1
+
+
+def test_the_un_xml_is_asked_with_one_redirect_hop_and_nothing_else_is(monkeypatch):
+    seen = []
+    import support.fetchgate as fg
+    monkeypatch.setattr(fg, "open_url", lambda url, **k: seen.append((url, k.get("follow"))) or _ok(F.UN_XML))
+    r = capture.Run(FakeTables(), land_fn=lambda d, **k: (types.SimpleNamespace(sha256="d" * 64), True))
+    r.opener(capture.UN_XML, 10)
+    r.opener(capture.POLICE_UN_PAGE, 10)
+    assert seen == [(capture.UN_XML, 1), (capture.POLICE_UN_PAGE, 0)]
+
+
+def test_no_identity_document_survives_in_a_published_value():
+    assert read.no_documents("Abu Example (Exampleland passport no. X1234567, issued 1 May 2014)") == "Abu Example"
+    assert read.no_documents("Minister of Examples; passport X1234567") == "Minister of Examples"
+    assert read.no_documents("Passport X1234567") is None
+    assert read.no_documents("Invented Person (also Persson)") == "Invented Person (also Persson)"
+    row = read.listing("un-sc", "X", "individual", "designated", "A Name", sha=A, place="p", version=1, list_version=None,
+                       aliases=["B Name (national identity card 123)"], positions=["Passport 999"], birth_dates=["1960"])
+    assert row["aliases"] == ["B Name"] and row["positions"] == [] and "123" not in repr(row)
+
+
+def test_the_mfat_page_names_its_day():
+    assert capture.mfat_day(b"<h2>Russia Sanctions Register</h2><p>Last updated: <b>9 September 2026</b></p>") == "2026-09-09"
+    assert capture.mfat_day(b"<p>No date here 2026</p>") is None
 
 
 def test_only_mfat_comes_by_hand_and_only_as_a_workbook(tmp_path):
@@ -231,38 +347,51 @@ def test_the_check_reads_each_list_against_its_own_figure(built):
     finally:
         conn.rollback()
     assert not check.outside(conn, SAMPLE_SCHEMA, today=dt.date(2026, 12, 1), shared=True)["lists"]["un-sc"]["ok"]
+    # MFAT: a Total row tally the rows do not hold, or a version that is not the page's day, is red
+    ra = load.table(SAMPLE_SCHEMA, "read_set_aside", True)
+    conn.execute(f"INSERT INTO {ra} (list_id, document, place, stage, reason) VALUES ('mfat-russia', %s, 'document', "
+                 "'total', 'a tally off')", (C,))
+    try:
+        assert not check.outside(conn, SAMPLE_SCHEMA, today=dt.date(2026, 10, 22), shared=True)["lists"]["mfat-russia"]["ok"]
+    finally:
+        conn.rollback()
+    conn.execute(f"UPDATE {t} SET version = NULL WHERE list_id = 'mfat-russia'")
+    try:
+        assert not check.outside(conn, SAMPLE_SCHEMA, today=dt.date(2026, 10, 22), shared=True)["lists"]["mfat-russia"]["ok"]
+    finally:
+        conn.rollback()
 
 
-# ── the real lists, read in memory, never kept (slow; only on request) ────────
+# ── the real lists, as landed (ruling 132): the documents sample.list names, from the store (slow) ─────────
 
-LIVE = pytest.mark.skipif(os.environ.get("QV4_SANCTIONS_LIVE") != "1",
-                          reason="the lists are held on their terms: read live only on request (QV4_SANCTIONS_LIVE=1)")
+def _real():
+    from registers.sanctions import sample
+    from support.docstore.landing import read_bytes
+    with open(os.path.join(LANE, "sample.list"), encoding="utf-8") as f:
+        items = [l.strip() for l in f if l.startswith("key: ")]
+    try:
+        docs = sample.docs_of(items)
+    except LookupError as exc:
+        pytest.skip(str(exc))
+    return docs, read_bytes
 
 
 @pytest.mark.slow
-@LIVE
-def test_the_un_list_read_live_reconciles():
-    f = __import__("support.fetchgate", fromlist=["x"]).open_url(capture.UN_XML, timeout=120,
-                                                                 positions_dir=os.path.join(LANE, "position"))
-    assert not f.blocked and f.status == 200
-    out = read.read_document("un-sc", f.body, "0" * 64, 1)
-    assert out["items"] == len(out["rows"]) + len(out["set_aside"]) and len(out["rows"]) > 900
+@pytest.mark.parametrize("list_id", capture.LISTS)
+def test_the_real_list_as_landed_reconciles(list_id):
+    docs, read_bytes = _real()
+    if list_id not in docs:
+        pytest.skip(f"{list_id}: no document landed (sample.list names none: a failed read)")
+    sha, version = docs[list_id]["list"]
+    extra = read_bytes(docs[list_id]["page-1373"]) if docs[list_id].get("page-1373") else None
+    out = read.read_document(list_id, read_bytes(sha), sha, read.profile_version(list_id), version, extra)
+    items_aside = [a for a in out["set_aside"] if a["place"] != "document"]
+    assert out["items"] == len(out["rows"]) + len(items_aside) + out["skipped"]
     assert len({r["key"] for r in out["rows"]}) == len(out["rows"])
-
-
-@pytest.mark.slow
-@LIVE
-def test_the_police_list_read_live_reconciles_and_is_held_to_its_page():
-    fg = __import__("support.fetchgate", fromlist=["x"])
-    pos = os.path.join(LANE, "position")
-    page = fg.open_url(capture.POLICE_UN_PAGE, timeout=60, positions_dir=pos)
-    p1373 = fg.open_url(capture.POLICE_1373_PAGE, timeout=60, positions_dir=pos)
-    url, day = capture.police_workbook(page.body)
-    wb = fg.open_url(url, timeout=120, positions_dir=pos)
-    out = read.read_document("nz-police-tsa", wb.body, "0" * 64, 1, day, p1373.body)
-    assert out["items"] == len(out["rows"]) + len(out["set_aside"]) + out["skipped"]
-    cur = sum(1 for r in out["rows"] if r["key"].startswith("sanctions/nz-police-tsa/1373/") and r["status"] == "designated")
-    # 21 October 2026: the workbook held 21 current 1373 designations and the page said 22. This test records the
-    # figures; the lane's check is what goes red on the difference.
-    assert out["stated"] is not None and cur > 0
-    assert collections.Counter(r["status"] for r in out["rows"])["designated"] > 400
+    floor = {"un-sc": 900, "nz-police-tsa": 400, "mfat-russia": 500}[list_id]
+    assert collections.Counter(r["status"] for r in out["rows"])["designated"] > floor
+    carrying = [r["key"] for r in out["rows"] if read._DOC.search(repr({k: v for k, v in r.items() if k not in ("basis", "regime")}))]
+    assert carrying == [], f"{len(carrying)} rows carry an identity-document phrase"
+    if list_id == "nz-police-tsa":
+        cur = sum(1 for r in out["rows"] if r["key"].startswith("sanctions/nz-police-tsa/1373/") and r["status"] == "designated")
+        assert out["stated"] is not None and cur > 0

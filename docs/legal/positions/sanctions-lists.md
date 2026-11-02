@@ -9,16 +9,24 @@ Police list of designated terrorist entities (Terrorism Suppression Act
 2002). Lane: `registers/sanctions`. `unsolprodfiles.blob.core.windows.net`
 is named for one document only: `scsanctions.un.org`'s XML redirects to a
 signed copy there. `legislation.govt.nz` is named for statute text only.
-Draft, held in the lane's folder; the integrator moves it to
-`docs/legal/positions/`. Read 21 October 2026 by sanctions-1; the pages
-cited are held by sha256 in the session's scratch folder and land with each
-list's first authorised run.
+Read 21 October 2026 by sanctions-1; the pages cited land with each list's
+first authorised run.
 
-**Finding: each list's terms bar the capture as briefed. All three are held**
-until the line `authorised: <list> <date> <how>` is added below, by Arthur's
-decision (queue items, no default). MFAT's register alone may come in now,
-downloaded in a browser by a person, because its terms bar the robot and not
-the copy.
+**Finding: each list's terms bar the capture as first briefed, and Arthur
+ruled to copy all three (ruling 132, 2 November 2026: "copy: ... the
+sanctions lists").** The lane leaves its hold and runs politely at the
+lists' own cadence: one request at a time, 10 s apart, off-peak, weekly,
+nothing fetched twice. A challenge, a block or a bot wall met on any list is
+still a failed read: logged, set aside, never got around (hard limit 6), and
+the run moves on to the next list. MFAT's workbook may still be landed by a
+person's hand (`capture.py --file`) when the script is walled off. The
+lawyer (track G) is asked, before anything is sold, whether the UN's and
+Police's terms can bind lists published so that the law can be complied
+with (question 2 below).
+
+authorised: un-sc 2026-11-02 ruling 132 (Arthur): fetched by script through the gate, weekly
+authorised: nz-police-tsa 2026-11-02 ruling 132 (Arthur): fetched by script through the gate, weekly
+authorised: mfat-russia 2026-11-02 ruling 132 (Arthur): fetched by script through the gate, weekly; the bot wall is a failed read; by hand otherwise
 
 1. **Is the page open?** MFAT: the register page answered 200; the
    workbook sits behind Incapsula (a bot wall). The one public crawler of it
@@ -46,7 +54,8 @@ the copy.
    through automated tools (including the use of scripts, web-crawlers,
    robots or screen-scrapers)". This session's script read four MFAT pages
    (the sanctions page, the register page, the copyright and terms pages)
-   before the terms were read; no more is asked by script. UN: the terms
+   before the terms were read. Ruling 132 copies the register by script
+   regardless; the bot wall in front of the workbook is never got around. UN: the terms
    above, accepted by use. Police: the copyright statement above.
 4. **What does privacy law, or the statute, limit?** The lists name people
    because a government or the Security Council designated them; publishing
@@ -61,4 +70,5 @@ the copy.
 
 Crawl delay: Police and the UN site 10 s; MFAT none. Floor: one request at a
 time, 10 s apart, off-peak, weekly; a 403, 429, 5xx or challenge stops the
-run. Author: sanctions-1 (Opus), 21 October 2026.
+run on that list, and the next list is asked. Author: sanctions-1 (Opus),
+21 October 2026; the hold lifted by ruling 132, 2 November 2026.

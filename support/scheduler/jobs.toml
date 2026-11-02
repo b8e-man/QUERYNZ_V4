@@ -856,7 +856,7 @@ can_share = false
 concurrency = 1
 
 # ── step 5.3, limited partnerships and the Building Practitioners Board's decisions (sanctions-1; card the-partnerships-and-board-decisions-jobs-into-the-catalogue) ──
-# The sanctions lists have no job: all three are held on their publishers' terms.
+# The sanctions lists' two jobs follow the Board's (ruling 132 lifted their hold).
 [jobs.qv4-limited-partnerships-capture]
 description = "Step 5.3: one NZBN entity-detail call per registered limited partnership in pub.companies, through the fetch gate with our key, 5 s apart, at most 600 a night, the stalest first; the capture itself skips Wednesday (the interface's maintenance window). Nightly at 21:00 NZDT, at most 55 minutes."
 needs = "processor"
@@ -918,6 +918,34 @@ command = ["python", "-m", "registers.building_practitioners.load", "--job"]
 at_utc = "17:40"
 nice = 10
 then = ["qv4-names-building-practitioners"]   # its names into pub.names (1 November)
+
+# ── step 5.3, the sanctions lists (ruling 132, 2 November 2026: "copy: ... the sanctions lists"). The catalogue has
+# no weekday, so the capture runs nightly and keeps the weekly cadence itself: a list asked within 6.5 days is not
+# asked again; MFAT's workbook only when its page names a new day, Police's only when its page links a new file.
+# 23:30 NZDT is 22:30 NZST, so the capture's own off-peak test (22:00 to 06:00) holds all year. ──
+[jobs.qv4-sanctions-capture]
+description = "Step 5.3 (ruling 132): the three sanctions lists (MFAT's Russia Sanctions Register, the UN Security Council consolidated list, the Police designated terrorist entities workbook and its 1373 page) through the fetch gate, one request at a time, 10 s apart, off-peak, each list weekly, nothing fetched twice (about ten requests a week). A challenge or a bot wall is a failed read of that list, set aside, never got around (hard limit 6); the next list is asked. Nightly at 23:30 NZDT."
+needs = "processor"
+memory_gb = 0.2
+deadline_s = 1200
+query_timeout_s = 60
+class = "due"
+priority = 141
+command = ["python", "-m", "registers.sanctions.capture"]
+at_utc = "10:30"
+nice = 10
+
+[jobs.qv4-sanctions-load]
+description = "Step 5.3 (ruling 132): nothing when the newest landed list documents are the ones published, else the three lists read in staging, checked, published only on green. Nightly at 06:35 NZDT."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 900
+query_timeout_s = 600
+class = "due"
+priority = 142
+command = ["python", "-m", "registers.sanctions.load", "--job"]
+at_utc = "17:35"
+nice = 10
 
 # ── step 6.1, the register scan's re-run (scan-1; card the-scan-rerun-job-into-the-catalogue). It runs after the
 # links' build, which runs after each lane load, so a scan is re-run once the views it read have loaded; the runner

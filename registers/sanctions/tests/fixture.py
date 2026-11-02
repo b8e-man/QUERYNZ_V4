@@ -108,7 +108,7 @@ _MFAT_HEAD = {1: "Unique Identifier", 2: "Type", 3: "First name", 4: "Middle nam
               15: "General Rationale for Sanction", 16: "Asset Freeze", 17: "Travel Ban"}
 
 
-def mfat_xlsx(total: int = 3) -> bytes:
+def mfat_xlsx(total: int = 1) -> bytes:
     rows = {1: {1: "Russia Sanctions Register"}, 3: _MFAT_HEAD,
             4: {1: "RUS-0001", 2: "Individual", 3: "Ivan", 4: "Inventovich", 5: "Examplov", 7: "Ivan Examplof; I. Examplov",
                 8: "1 Hidden Street, Moscow", 9: 22000, 10: "Russia", 11: "000000", 12: "03/03/2022", 14: "Sanctioned",
