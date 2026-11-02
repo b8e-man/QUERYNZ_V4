@@ -2,58 +2,37 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-11-01, 21:45 NZDT. **Step:** 4 built through 4.4 and 4.9;
-4.5 comparing daily, no clean day yet; 5.1 done; 5.2 closed
-(ten templates); 5.3 eight lanes merged (OpenLaw, HDC held on terms;
-sanctions lists held); 5.4, 5.5 merged; 6.1 merged (the scan on port
-8450); 6.2 `tenders-1` and templates 1 to 3 merged; 6.3's four source
-lines have lanes. Track C measured; B and E closed. **Boxes:** node2 is the
-estate; node1 offline indefinitely (Arthur, 25 Oct); model reading
-runs on node2 alone (ruling 128). **Alarms:** the old ntfy address.
+**Date:** 2026-11-02, 15:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
+4.5 comparing daily; 5.1 to 5.5 done; 6.1 to 6.3 merged; step 8
+(docs/plan/step-8.md) planned 2 November, parts 8.1 to 8.7 running in
+parallel. **Boxes:** node2 is the estate; node1 offline (Arthur, 25 Oct);
+model reading on node2 alone (ruling 128). **Alarms:** the old ntfy address.
 
 ## Done
 
-- Steps 0 to 3 closed (60); 1.4's positive half seen (70).
-- 4.1, fifteen lanes merged: donations (66), parties, party finance,
-  gazette, house, companies (1.92 M), expenses and interests, societies,
-  candidate returns, charities (64), party boards, OpenLaw (HELD), courts.
-- 4.2/4.3 links: 3.07 M confirmed, 725 K groups (fix-links-5, 29 Oct);
-  the agent applies nothing (ruling 69). 4.4 site version 3. 4.9 board
-  87 views, chat pane (122). 5.1 the report shape, tranche 3.
-- Rulings 64 to 130 (102: limit 15 binds products, not the board; 123:
-  pub.entities; 126 to 129: MCP courts, reading, night; 130: the bulk
-  ingest, the common reader rules, no excerpts).
+- Steps 0 to 3 closed; 4.1 fifteen lanes; links 3.07 M confirmed (29 Oct);
+  board 92 views; the report shape and ten templates; rulings 64 to 130.
+- 2 November (report: docs/research/overnight-2026-11-02.md §24):
+  October companies package published, cut 30 September, with
+  pub.company_insolvencies and pub.retirement_villages (82bb7f2); past
+  roles at 14,000 a night (744298d); the Gazette from DigitalNZ nightly
+  and its office families (58e545e); the REA's decisions (95ec600); the
+  councils' register PDFs queued (row 1159); company starts follow their
+  officers in eight templates (2cc05c9); 8.4: the Insolvency Register and
+  the PPSR surveyed, no open bulk read (484f2d7, two blockers).
 
-## Running (the bulk ingest of the MCP, ruling 130)
+## Running
 
-- Overnight 1 to 2 November (Arthur's six approvals): `qv4-companies-history`
-  from 22:05 (past roles, 1.10 M wanted, 2,000 a night); credit reads
-  `pub.company_states`; WorkSafe, the Commission and the FMA read by five
-  templates (82c4418); Board decisions in construction and property (29a5a70); general partners (ddb4d83); OIO in property (bd3d5e8); register past roles listed (6086cfc); a general partner's partnerships (a0dd036); partnerships up the chain; case fold (8b51850); namesake past failures amber (0164ed4); courts corpus in the report, court-judgments reads it (dfc55d3); GETS awards and construction public-contracts (b730a6d); four tribunal checks read the corpus (4507eca); mortgagee-possession reads the Gazette in four more templates (6885054); insurance status-history reads company_states (88ebbb7); past holdings listed beside past roles (aaab674); a namesake's failed past holding amber (44e1653); the report's name joins read by keys.names (84ba2f1); name sightings on the board (617036e). 2 November day: past roles at 14,000 a night (744298d); October companies package published, with insolvency appointments and villages (82bb7f2); Gazette from DigitalNZ, office families (58e545e); REA decisions (95ec600); councils' register PDFs queued (2fef5d0); company starts follow officers (2cc05c9); step 8 planned and running (ec4f17f). Report: docs/research/overnight-2026-11-02.md §24.
-
-- 31 October merges: `fix-registers-courts-1` 10:5x (one keep rule;
-  `pub.court_people` 57,096 names), `readers-1` 12:50 (beehive-2,
-  hansard-3, parliament-2: the names readers; Radiance at 32,768
-  tokens, 200 tok/s a request). Released.
-- Readers queued 13:44: hansard row 940 (1,857 days), parliament 941
-  (65,809 pieces), beehive 942 (66,399 releases); courts row 936
-  (511) done 12:26. Views catalogued in the merge after.
-- Gating `integrate/courts-2`: fix-registers-courts-2 (whole documents
-  in pieces, ERA/HRRT/tribunal/NZDC kinds, every courts document read
-  again: 10,600 calls), fix-links-6 (an all-zero NZBN is none; one
-  body per NZBN; the pull every six hours), the four views. Then
-  `fix-support-scheduler-5` (8 rows in parallel; worker restart).
-- Missing from the MCP: parliament papers' attachments (sc-submissions
-  1,335, sc-reports 1,000, bills, SOPs) are metadata only until the
-  provider captures them; courts outside NZSC/NZCA/NZHC only as the
-  provider began (ERA 292, HRRT 389, tribunals 71, NZDC 10).
+- Step 8: 8.1 templates read the new registers; 8.2 two links rules
+  measured for Arthur; 8.3 LINZ; 8.5 the scan's red and lobbying; 8.6
+  archive search 7.1 and the first batch; 8.7 council minutes.
+- The bulk ingest of the MCP (ruling 130): the beehive, hansard,
+  parliament and courts readers; `qv4-councillor-interests-read`.
 
 ## Half-done
 
-- 4.5: the comparison runs daily since 22 October, 0 uncarded every day
-  but 23 October. 30 October: 29,186 differences, 7,216 the new side
-  wrong (candidate returns not held 5,133). The switch after 7 November.
-- Waits on Arthur: letters (Dunedin, TPK, Police); rulings 69, 75;
-  sample-schema drops (`scratch_hansard_3_full`); the 15 unsplittable
-  courts documents (courts-2 item 5); remote branch deletions. node1's
-  return: fence first (10.0.0.1, never the VIP), ruling 57, 94.
+- 4.5: the comparison daily since 22 October; the switch after 7 November.
+- Waits on Arthur: the Insolvency Register API subscription and the PPSR
+  account (8.4's cards); letters (Dunedin, TPK, Police); rulings 69, 75;
+  the 15 unsplittable courts documents; node1's return (fence first,
+  10.0.0.1, never the VIP).
