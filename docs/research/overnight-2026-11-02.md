@@ -259,5 +259,8 @@ person's name (617036e). The board's outside check is green. The 1 November card
   0 problems over 13 scans.
 - 8.6 (e641666, 453ff4c): the search-only rule live with its test; batch 1 9,031 of 10,000 landed in staging. Arthur
   (2 November): "use the 4tb HDD": the text goes as compressed files on /mnt/hdd2 with the catalogue only in the
-  database (option 1); the 1-million sample spread over the dump comes first. In build.
+  database (option 1); built (2af5315, merged 5b61ce7). The 1-million sample (every 90th row, 1840 to 2001, 188 papers):
+  956,344 landed, 1,046 disk bytes and 255 catalogue bytes an item; 4.4% have no text, so about 86.7 M land: 91 GB of
+  files on /mnt/hdd2 and 22 GB of catalogue. Keyword index sized on the sample: tantivy 92 GB, 0.03 to 4 ms warm;
+  SQLite FTS5 153 GB, 2 to 105 ms; equal hit counts. Full run and engine not yet started or chosen.
 - 8.7 council minutes: in build.
