@@ -83,13 +83,42 @@ def item_heading(line: str):
     return None
 
 
+#: a running head or foot: a line among a page's first or last EDGE non-blank lines, the same (digits aside) on at
+#: least half the pages and on three or more ("CONFIRMED", the council's name and the meeting's date). A line any
+#: skip or the reading turns on is never one, so a public-excluded banner repeated on every page still starts its skip.
+EDGE = 4
+
+
+def _form(line: str) -> str:
+    return re.sub(r"\d+", "#", " ".join(line.split())).lower()
+
+
+def running_heads(texts: dict) -> set:
+    on = Counter()
+    for p in texts:
+        body = [l for l in (texts[p] or "").splitlines() if l.strip()]
+        on.update({_form(l) for l in body[:EDGE] + body[-EDGE:]})
+    floor = max(3, (len(texts) + 1) // 2)
+    return {f for f, n in on.items() if n >= floor}
+
+
+def _turns_on(line: str) -> bool:
+    return bool(BANNER.match(line) or EXCLUDE.search(line) or READMIT.search(line) or FORUM.search(line)
+                or _RES.match(line) or _MOVED.match(line) or _SECONDED.match(line) or _OUTCOME.match(line)
+                or _VOTES.match(line) or _LABEL.match(line) or item_heading(line))
+
+
 def lines_of(texts: dict) -> list:
-    """[(page, line)] of every page with text, page-number lines dropped."""
-    out = []
+    """[(page, line)] of every page with text, page-number lines and running heads and feet dropped."""
+    heads, out = running_heads(texts), []
     for p in sorted(texts):
-        for line in (texts[p] or "").splitlines():
-            if not _PAGE.match(line):
-                out.append((p, line.rstrip()))
+        raw = (texts[p] or "").splitlines()
+        body = [i for i, l in enumerate(raw) if l.strip()]
+        edge = set(body[:EDGE] + body[-EDGE:])
+        for i, line in enumerate(raw):
+            if _PAGE.match(line) or (i in edge and _form(line) in heads and not _turns_on(line)):
+                continue
+            out.append((p, line.rstrip()))
     return out
 
 
@@ -410,7 +439,11 @@ def read_standard(texts: dict) -> dict:
         if k not in seen:
             seen.add(k)
             uniq.append(a)
-    return {"attendance": uniq, "declarations": declarations(kept), "resolutions": resolutions(kept),
+    # a RESOLUTION line with its mover and seconder but no words before the next (Far North prints one so, then the
+    # carried resolution under the next number): nothing as moved to publish, counted
+    res = resolutions(kept)
+    skipped["resolutions with no text"] = sum(1 for r in res if not r["text"])
+    return {"attendance": uniq, "declarations": declarations(kept), "resolutions": [r for r in res if r["text"]],
             "skipped": dict(skipped)}
 
 

@@ -84,7 +84,7 @@ def profile_version(slug: str = PROFILE) -> int:
 
 def settings(prompt: str = PROMPT) -> dict:
     return {"prompt_sha": hashlib.sha256(prompt.encode()).hexdigest()[:16], "budget_chars": BUDGET_CHARS, "split": SPLIT,
-            "temperature": 0.0, "max_tokens": MAX_TOKENS, "thinking": False, "attempts": ATTEMPTS, "skips": "minutes.sections 1"}
+            "temperature": 0.0, "max_tokens": MAX_TOKENS, "thinking": False, "attempts": ATTEMPTS, "skips": "minutes.sections 2 (running heads dropped)"}
 
 
 def key_for(sha256: str, piece: int, version: int, model: str = TEXT_MODEL) -> str:

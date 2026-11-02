@@ -242,3 +242,25 @@ def test_the_load_reads_each_landed_minutes_pdf_into_the_ledger_and_its_rows(pdf
     r = [x for x in out["resolutions"] if x["number"] == "2026/3"][0]
     assert r["text_names_address"] and r["document"] == SHA and r["page"] == 2 and r["meeting_key"].endswith("_AGN")
     assert all(x["key"].startswith(SHA + "/") for t in ("attendance", "resolutions", "declarations") for x in out[t])
+
+
+def test_a_running_head_is_dropped_but_never_a_line_a_skip_turns_on():
+    head = "Minutes of the Sample District Council {} October 2026"
+    words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo", "lima"]
+    texts = {p: "\n".join(["CONFIRMED", head.format(p), "PUBLIC EXCLUDED"]
+                          + [f"{w} {words[(i + p) % 12]}" for i, w in enumerate(words)] + ["CARRIED", f"Page {p}"])
+             for p in range(1, 5)}
+    kept = [l for _p, l in M.lines_of(texts)]
+    assert "CONFIRMED" not in kept and not any(l.startswith("Minutes of the Sample") for l in kept)
+    assert kept.count("PUBLIC EXCLUDED") == 4 and kept.count("CARRIED") == 4 and "alpha delta" in kept
+    # a head must be on three pages: a two-page document keeps its lines
+    assert "CONFIRMED" in [l for _p, l in M.lines_of({1: texts[1], 2: texts[2]})]
+
+
+def test_a_resolution_with_no_text_is_counted_not_kept():
+    text = ("PRESENT\nCr A Sample, Cr B Sample\n"
+            "6.2  FUNDING APPLICATION\nRESOLUTION 2026/5\nMoved: Cr A Sample\nSeconded: Cr B Sample\n\n"
+            "RESOLUTION 2026/6\nThat the board approve the sum of $10.\nMoved: Cr A Sample\nSeconded: Cr B Sample\nCARRIED\n")
+    got = M.read_standard({1: text})
+    assert [r["number"] for r in got["resolutions"]] == ["2026/6"]
+    assert got["skipped"]["resolutions with no text"] == 1
