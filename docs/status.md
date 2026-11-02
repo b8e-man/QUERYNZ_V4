@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-11-02, 15:00 NZDT. **Step:** 4 built through 4.4 and 4.9;
+**Date:** 2026-11-02, evening NZDT. **Step:** 4 built through 4.4 and 4.9;
 4.5 comparing daily; 5.1 to 5.5 done; 6.1 to 6.3 merged; step 8
 (docs/plan/step-8.md) planned 2 November, parts 8.1 to 8.7 running in
 parallel. **Boxes:** node2 is the estate; node1 offline (Arthur, 25 Oct);
@@ -23,9 +23,8 @@ model reading on node2 alone (ruling 128). **Alarms:** the old ntfy address.
 
 ## Running
 
-- Step 8: 8.1 templates read the new registers; 8.2 two links rules
-  measured for Arthur; 8.3 LINZ; 8.5 the scan's red and lobbying; 8.6
-  archive search 7.1 and the first batch; 8.7 council minutes.
+- Step 8 (report §25): 8.1, 8.3, 8.4, 8.5 merged; 8.6 text to /mnt/hdd2
+  (Arthur), the 1 M sample first; 8.7 council minutes; LINZ titles 22:30.
 - The bulk ingest of the MCP (ruling 130): the beehive, hansard,
   parliament and courts readers; `qv4-councillor-interests-read`.
 

@@ -239,3 +239,23 @@ person's name (617036e). The board's outside check is green. The 1 November card
 - Two samples printed one address-like detail into an agent's session (a councillor's property row, a JP's road); neither
   was repeated or committed; the published rows pass the lanes' address checks.
 - Step 8 planned (ec4f17f, docs/plan/step-8.md) and its parts 8.1 to 8.6 running in parallel; 8.7 (council minutes) in flight.
+
+## 25. Step 8's merges, afternoon of 2 November
+
+- 8.1 (ca8c000): the ten templates read pub.company_insolvencies on the company and on each director's other companies
+  (a solvent winding-up listed, never a failure), the retirement villages (healthcare: one operator, 38 villages), the
+  Gazette's appointments by name (legal, recruitment), and the beside step answers in legal and banking.
+- 8.2 (4fe1536, docs/research/links-2026-11-02.md): link rules 1a to 2b measured; Arthur's to rule.
+- 8.3 (007df21): registers/linz; 54,735 place names published and on the board; titles (2.46 M) and owners (5.75 M) pull
+  from 22:30 (qv4-linz-capture).
+- 8.4 (484f2d7, 68216b5): the Insolvency Register lane built on fakes, nightly at 21:00 once Arthur places its key file;
+  a whole first copy about three weeks at one call per 5 s. The PPSR needs an account and a fee per search: carded.
+- 8.5 (879a828, 0f0db3a): the scans re-run after the links and companies loads (the 11 stale scans cleared, qv4-scan-rerun
+  row 1163). Two lobbying scans: meetings to GETS suppliers, 26,958 lines (run 570, 0 problems). Their first runs were
+  red for applying hard limit 15: the outside check counted the address flags filtered to false as address reads; it no
+  longer does, and a flag filtered to true or carried as a column is still refused (test, two mutants caught). The
+  donors scan (45 lines on its first run) now hits the 10-minute statement limit; being measured.
+- 8.6 (e641666, 453ff4c): the search-only rule live with its test; batch 1 9,031 of 10,000 landed in staging. Arthur
+  (2 November): "use the 4tb HDD": the text goes as compressed files on /mnt/hdd2 with the catalogue only in the
+  database (option 1); the 1-million sample spread over the dump comes first. In build.
+- 8.7 council minutes: in build.
