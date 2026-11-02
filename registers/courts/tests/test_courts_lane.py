@@ -13,7 +13,7 @@ import re
 import pytest
 
 from support import db, lane, rowcontract, sample
-from registers.courts import check, model_read, suppress
+from registers.courts import caption, check, model_read, suppress
 from registers.courts import load as L
 from registers.courts import read as R
 
@@ -304,6 +304,7 @@ def test_the_lane_s_check_passes_on_the_sample(filled):
     out = check.account(filled["conn"], filled["schema"], shared=True)
     assert out["failures"] == []
     assert out["status"].get("parsed") >= 15 and set(out["status"]) <= {"parsed", "partial"} and out["roles short"] <= 2
+    assert set(out["roles the source's own"].values()) <= {caption.INTERVENER_UNLISTED, caption.APPEAL_UNDER_FIRST_INSTANCE}
     assert out["status"].get("partial", 0) <= 4 and all(j["profile"] in (R.TRIBUNAL, "courts-nzsc-judgment") for j in filled["judgments"] if j["status"] == "partial")
     assert out["pieces"]["total pieces"] >= 60 and out["pieces"]["documents over the budget"] >= 12 and out["pieces"]["cannot split (set aside at read)"] == 1
     assert out["pieces by profile"]["courts-hearing-transcript"] >= 10 and out["pieces by profile"]["courts-case-page"] == 3

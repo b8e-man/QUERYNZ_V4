@@ -25,6 +25,13 @@
 - Profile versions bumped in `profile-proposed.jsonl` (14 lines) so every document reads again; old readings stay.
 - Sample: 9 records added for the new kinds, two for the transcripts, one unsplittable determination.
 
+- 3 November: the 04:40 load went red on 4 judgments whose counsel lines named a role no party held (tolerated 2).
+  Two were the grammar's: a High Court caption marked "… continued over" whose page 2 runs straight on with no AND
+  (206321cbde64, e49f25c9c029; 27 judgments of the corpus gain their missed parties, none loses one). Two are the
+  court's own printing, now counted apart with a reason by `caption.roles_source_exception`, never as short: an
+  intervener the caption does not list (f777bcfc4279) and an appeal captioned Plaintiff and Defendant (03dbc4b5b673).
+  The tolerance stays 2; the sample's short count falls to 0 at the next load.
+
 ## Waiting
 
 - The integrator: merge, append the 14 proposed profile lines to `support/profiles/profiles.jsonl`, reload,

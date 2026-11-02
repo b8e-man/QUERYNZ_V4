@@ -335,7 +335,7 @@ def _emit(out: list, lines: list, role: str, block: int) -> None:
                          confidence="low" if low else "high", capacity=capacity))
 
 
-OVER = re.compile(r"^\s*\(?\s*(?:continued\s+|cont(?:['’]?d|\.)\s+|turn\s+|please\s+turn\s+)?over(?:leaf)?\b[^A-Za-z]*\)?\s*$", re.I)
+OVER = re.compile(r"^\s*(?:…|\.{2,})?\s*\(?\s*(?:continued\s+|cont(?:['’]?d|\.)\s+|turn\s+|please\s+turn\s+)?over(?:leaf)?\b[^A-Za-z]*\)?\s*$", re.I)
 
 
 def _caption_lines(text: str, start: int) -> tuple:
@@ -350,6 +350,16 @@ def _caption_lines(text: str, start: int) -> tuple:
             continue
         out.append(ln)
     return out, False
+
+
+def _marked_over(text: str) -> bool:
+    """Whether the caption, from the court line to its first label, carries a "continued over" line."""
+    for ln in text.splitlines():
+        if LABEL.match(ln):
+            return False
+        if OVER.match(ln) and ln.strip():
+            return True
+    return False
 
 
 def _between(lines: list) -> tuple:
@@ -535,8 +545,10 @@ def parse(pages: dict, file_name: str = "") -> Judgment:
         # a caption longer than its page: it runs on at the top of page 2 to the first label
         cap += _caption_lines(pages.get(2) or "", 0)[0]
         out.notes.append("caption continued on page 2")
-    elif cl and cl.end() <= len(p1) and nxt and PARTY_LABEL.match(nxt[0]):
-        # the caption runs on over the page ("Continued over"): its blocks continue at the top of page 2
+    elif cl and cl.end() <= len(p1) and nxt and (PARTY_LABEL.match(nxt[0]) or _marked_over(p1[cl.end():])):
+        # the caption runs on over the page ("Continued over"): its blocks continue at the top of page 2, with an AND
+        # or, where page 1 says so, straight on with the last block's next name and role (the High Court's
+        # "… continued over" above the Hearing label, page 2 opening on "… / Fourth Defendants")
         more = []
         for l in nxt:
             if LABEL.match(l) or HEADING.match(l) or PARA.match(l):
@@ -652,3 +664,29 @@ def roles_unaccounted(j: Judgment) -> list:
                 out.append(r)
                 break
     return out
+
+
+#: the source's own inconsistencies: a counsel line "for" a role the caption truly does not hold, the court's
+#: printing and not a party the grammar missed; counted apart, each judgment with its reason, never as a parse miss
+INTERVENER_UNLISTED = "counsel for an intervener the caption does not list (leave to intervene given after the caption was set)"
+APPEAL_UNDER_FIRST_INSTANCE = ("an appeal whose caption keeps the first instance's Plaintiff and Defendant while its counsel "
+                               "lines name the appellant and the respondent")
+
+
+def roles_source_exception(j: Judgment, short: list = None) -> str:
+    """The reason a judgment's unaccounted counsel roles are the source's own
+    printing, or None (then they are a parse miss). Two shapes only, each
+    whole: every unaccounted role is an Intervener, in a caption that lists
+    none; or a BETWEEN caption of Plaintiff and Defendant only whose every
+    counsel line is for the Appellant or the Respondent, with no ordinal,
+    and none of them held."""
+    short = roles_unaccounted(j) if short is None else short
+    if not short:
+        return None
+    held = set().union(*(_role_key(p.role)[1] for p in j.parties)) if j.parties else set()
+    if all(b and b <= {"intervener", "intervenor"} for _, b in map(_role_key, short)) and not held & {"intervener", "intervenor"}:
+        return INTERVENER_UNLISTED
+    if (j.caption_shape == "between" and held == {"plaintiff", "defendant"} and sorted(short) == sorted(j.counsel_roles)
+            and all(not o and b and b <= {"appellant", "respondent"} for o, b in map(_role_key, j.counsel_roles))):
+        return APPEAL_UNDER_FIRST_INSTANCE
+    return None

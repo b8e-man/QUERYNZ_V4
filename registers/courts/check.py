@@ -17,7 +17,11 @@ account.
      fails; a withheld name present in a published table fails.
   4. Every role a counsel line is "for" held by a party of the caption
      (`caption.roles_unaccounted`), re-read from the stored readings of a
-     fixed sample of judgments: more than `ROLES_TOLERATED` short fails.
+     fixed sample of judgments: more than `ROLES_TOLERATED` short fails. A
+     judgment whose unaccounted roles are the court's own printing (an
+     intervener the caption does not list; an appeal captioned Plaintiff and
+     Defendant) is counted apart with its reason
+     (`caption.roles_source_exception`), never as short.
   5. The profile check (ruling 130): every document read by the text reader,
      or waiting on it, has its piece count by its profile's reading rule; a
      document under a whole rule is within its budget; a document the rule
@@ -126,8 +130,10 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
         out["failures"].append(f"{shown} withheld names still in a published table")
     orders = q(f"SELECT count(*) FROM {t('suppression_orders')}")[0][0] if _exists(conn, t("suppression_orders")) else 0
     out["suppression"]["orders in the ledger"] = orders
-    short = roles_short(conn, schema, shared)
+    short, excepted = roles_review(conn, schema, shared)
     out["roles short"] = len(short)
+    # the source's own printing (caption.roles_source_exception): each judgment counted with its reason, never tolerated
+    out["roles the source's own"] = {k[:12]: reason for k, reason in excepted}
     if len(short) > ROLES_TOLERATED:
         out["failures"].append(f"{len(short)} judgments whose counsel lines name a role no party holds (tolerated {ROLES_TOLERATED})")
     return out
@@ -169,13 +175,21 @@ def _exists(conn, name: str) -> bool:
 
 
 def roles_short(conn, schema: str, shared: bool = False, limit: int = ROLES_SAMPLE) -> list:
-    """Judgments whose counsel lines name a role no party holds, re-read from
-    the stored text-layer readings of a fixed sample (by md5 of the key; the
-    counsel lines are never stored)."""
+    """Judgments whose counsel lines name a role no party holds and the
+    source's own printing does not account for."""
+    return roles_review(conn, schema, shared, limit)[0]
+
+
+def roles_review(conn, schema: str, shared: bool = False, limit: int = ROLES_SAMPLE) -> tuple:
+    """(short, excepted): judgments whose counsel lines name a role no party
+    holds, re-read from the stored text-layer readings of a fixed sample (by
+    md5 of the key; the counsel lines are never stored), split into the parse
+    misses and the (key, reason) pairs that are the source's own printing
+    (`caption.roles_source_exception`)."""
     from support import reader as rd
     from support.docread.read import TEXT_MODEL
     from registers.courts import caption
-    store, out = rd.Store(), []
+    store, out, excepted = rd.Store(), [], []
     rows = conn.execute(f"SELECT key, document, profile, profile_version, caption_shape FROM {L.table(schema, 'judgments', shared)} "
                         f"ORDER BY md5(key) LIMIT %s", (limit,)).fetchall()
     for key, doc, slug, version, shape in rows:
@@ -187,9 +201,14 @@ def roles_short(conn, schema: str, shared: bool = False, limit: int = ROLES_SAMP
         j = caption.Judgment(counsel_roles=caption._counsel_roles(texts[1] + "\n" + texts[2]), caption_shape=shape)
         j.parties = [caption.Party(name="", role=r[0], position=0, block=0) for r in conn.execute(
             f"SELECT role FROM {L.table(schema, 'judgment_parties', shared)} WHERE judgment = %s", (key,))]
-        if caption.roles_unaccounted(j):
-            out.append(key)
-    return out
+        short = caption.roles_unaccounted(j)
+        if short:
+            reason = caption.roles_source_exception(j, short)
+            if reason:
+                excepted.append((key, reason))
+            else:
+                out.append(key)
+    return out, excepted
 
 
 def main(argv=None) -> int:
@@ -206,6 +225,8 @@ def main(argv=None) -> int:
         print(f"{k}: " + ", ".join(f"{a} {b}" for a, b in out[k].items()))
     print(f"sheets with a fact read: {out['sheets with a fact read']}; records sharing a file: {out['records sharing a file']}; "
           f"roles short: {out['roles short']} (tolerated {ROLES_TOLERATED})")
+    for k, reason in out["roles the source's own"].items():
+        print(f"roles the source's own: {k}… {reason}")
     for f in out["failures"]:
         print("FAIL " + f)
     return 1 if out["failures"] else 0
