@@ -12,6 +12,7 @@ card or an alarm there; it never blocks a merge. Stdlib only."""
 import datetime as dt
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -22,6 +23,23 @@ import _session as S  # noqa: E402
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 RECORD = os.path.join(LIVE, "checks", "full-tier-last.json")
 JOB = "qv4-full-tier"
+SNAPSHOT = os.path.join(os.path.dirname(LIVE), "full-tier-snapshot")
+
+
+def snapshot(repo: str, where: str = SNAPSHOT) -> tuple[str, str]:
+    """A detached copy of the checkout's HEAD, made fresh: the suite runs on one commit whole. On 3 November 2026 the
+    tier ran in a checkout that three releases rewrote under it, and four of its ten failures were that alone."""
+    subprocess.run(["git", "-C", repo, "worktree", "remove", "--force", where], capture_output=True)
+    shutil.rmtree(where, ignore_errors=True)
+    subprocess.run(["git", "-C", repo, "worktree", "prune"], capture_output=True)
+    head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+    subprocess.run(["git", "-C", repo, "worktree", "add", "--detach", where, head], capture_output=True, check=True)
+    return where, head
+
+
+def failures(out: list[str]) -> list[str]:
+    """Every FAILED and ERROR line of pytest's short summary, whatever the count: the tail alone once lost them."""
+    return [l for l in out if l.startswith(("FAILED ", "ERROR "))]
 
 
 def main() -> int:
@@ -31,13 +49,17 @@ def main() -> int:
         py = sys.executable
     started = dt.datetime.now().astimezone()
     t0 = time.monotonic()
-    p = subprocess.run([py, "-m", "pytest", "-p", "no:cacheprovider"], cwd=repo, capture_output=True, text=True,
-                       env={**os.environ, "CLAUDE_PROJECT_DIR": repo})
+    where, head = snapshot(repo)
+    try:
+        p = subprocess.run([py, "-m", "pytest", "-p", "no:cacheprovider", "-rfE"], cwd=where, capture_output=True,
+                           text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": where})
+    finally:
+        subprocess.run(["git", "-C", repo, "worktree", "remove", "--force", where], capture_output=True)
     seconds = round(time.monotonic() - t0, 1)
     out = (p.stdout + p.stderr).strip().splitlines()
     summary = next((l for l in reversed(out) if "passed" in l or "failed" in l or "error" in l), out[-1] if out else "")
     rec = {"at": started.isoformat(timespec="seconds"), "seconds": seconds, "ok": p.returncode == 0,
-           "summary": summary, "tail": out[-30:], "host": os.uname().nodename}
+           "summary": summary, "commit": head, "failures": failures(out), "tail": out[-30:], "host": os.uname().nodename}
     os.makedirs(os.path.dirname(RECORD), exist_ok=True)
     tmp = RECORD + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:

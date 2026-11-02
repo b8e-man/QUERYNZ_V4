@@ -368,3 +368,10 @@ Arthur since 1 November 08:45: his decision); the owner login's 20-connection li
   way, so the index's two Pss raises (7.5 and 19 GB) no longer hold it at 19 GB. The chain tests' fake runner took the
   old signature (four failed on 3bb271b); fixed, the pull's pin now says it queues the reader and never a load. Lesson
   filed. Track 5 (the full tier's ten failures, run on code before the morning's merges) launched.
+- Track 5 merged (b15c08c): of the full tier's ten failures, two were real data the October companies file moved
+  (re-pinned to facts that still hold: the monitor's one change against the August state; credit's change dated to the
+  file after the row's own); one was the board catalogue behind the council views (fixed by c53044e); three were the
+  box under load at the 07:24 stall; four were template 13 rewritten under the running suite. The full tier now tests a
+  detached snapshot of its checkout's HEAD, made fresh and removed after (three releases rewrote the checkout under the
+  06:57 run), and records every FAILED and ERROR line and the commit, not the last 30 lines alone. Credit's text named
+  two files and called status changes unreachable; it now says what is held.

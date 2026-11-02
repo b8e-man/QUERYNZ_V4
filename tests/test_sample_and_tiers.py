@@ -172,3 +172,32 @@ def test_the_full_tier_record_reaches_the_board(tmp_path):
     json.dump({"at": (now - dt.timedelta(hours=30)).isoformat(), "seconds": 40.0, "ok": False, "summary": "1 failed"}, open(p, "w"))
     r = full_tier.check(now=now, path=p)
     assert not r["ok"] and all(not i["ok"] for i in r["items"])
+
+
+def _full_tier_module():
+    import importlib.machinery, importlib.util
+    path = os.path.join(REPO, "bin", "full-tier")
+    loader = importlib.machinery.SourceFileLoader("full_tier_script", path)
+    spec = importlib.util.spec_from_loader("full_tier_script", loader)
+    mod = importlib.util.module_from_spec(spec)
+    loader.exec_module(mod)
+    return mod
+
+
+def test_the_full_tier_runs_on_a_snapshot_a_release_cannot_rewrite(tmp_path):
+    """3 November 2026: the tier ran in a checkout that three releases rewrote under it; four of its ten failures were
+    that alone. It now tests a detached copy of the commit it was given."""
+    ft = _full_tier_module()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git = lambda *a: subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True, text=True).stdout.strip()
+    git("init", "-q")
+    (repo / "a.txt").write_text("one")
+    git("add", "a.txt")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "one")
+    where, head = ft.snapshot(str(repo), str(tmp_path / "snap"))
+    assert head == git("rev-parse", "HEAD")
+    (repo / "a.txt").write_text("two")                       # a release rewrites the checkout mid-run
+    assert open(os.path.join(where, "a.txt")).read() == "one"
+    out = ["x", "FAILED a.py::t - boom", "ERROR b.py::u", "1 failed, 1 error in 2s"] + ["noise"] * 40
+    assert ft.failures(out) == ["FAILED a.py::t - boom", "ERROR b.py::u"]
