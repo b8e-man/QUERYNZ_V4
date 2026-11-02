@@ -16,7 +16,9 @@ where the held registers can support them:
   holder-hubs          a holder of record the walk flagged as a hub; blocked otherwise, because how many companies a holder holds is not read
   partnership-holders  a holder of record named as a limited partnership: its partners are not held
   overseas-holders     a holder of record named with an overseas company form: its own register is not held
-  sanctions-lists      blocked, never clear: no sanctions list is held, so the exposure check has nothing to read
+  sanctions-lists      blocked, never clear: the three lists copied by ruling 132 (pub.sanctions_lists, pub.sanctions_listings),
+                       read where the report carries them; a listing on the report fires as the same name and nothing more; an
+                       empty list and a list with no name in common read the same, so none found is never a clear
   public-office        a seat or candidacy confirmed to a person, or a member's declared interest naming the company (the domestic list of
                        politically exposed persons that rides on this use case); from a company its people are not followed
   political-money      donations and loans filed under the subject's name
@@ -91,6 +93,9 @@ GAZETTE_HELD = "New Zealand Gazette liquidation and company notices (pub.gazette
 NOT_HELD_INSOLVENCY = ("the Insolvency Register (interface awaited since 19 September 2026)", "court judgments (step 5.4)")
 SANCTIONS = ("the Russia Sanctions Act 2022 sanctions register (Foreign Affairs and Trade)", "the United Nations Security Council consolidated list",
              "the Police list of designated terrorist entities (Terrorism Suppression Act 2002)")
+#: the lists' published views (ruling 132, 2 November 2026; registers/sanctions): one line per list read, and its listings
+SANCTIONS_VIEWS = ("sanctions_lists", "sanctions_listings")
+SANCTIONS_HELD = ("the sanctions lists copied by ruling 132 (pub.sanctions_lists, pub.sanctions_listings): " + "; ".join(SANCTIONS),)
 LP_PARTNERS = "the limited partnerships register: a partnership's general and limited partners"
 
 LP_HELD = "the general partners, current and past, the business-number register states for a limited partnership (pub.limited_partnership_partners)"
@@ -439,10 +444,45 @@ def _screened(report) -> int:
     return len({it["ref"] for it in all_items(report).values() if it["kind"] in ("person", "organisation") and it["view"] != "company_addresses"})
 
 
+def _sanctions_state(report) -> str:
+    """Where the three lists stand for this report, from what the report carries: `unread` (the template does not read both
+    views: the report's catalogue does not know them yet), `unpublished` (read, and not on the database), or `read`."""
+    reads = {r.get("view") for r in (report.get("template") or {}).get("reads", [])}
+    if not set(SANCTIONS_VIEWS) <= reads:
+        return "unread"
+    if set(SANCTIONS_VIEWS) & set(report.get("views_not_published") or ()):
+        return "unpublished"
+    return "read"
+
+
 def sanctions_lists(report):
-    return flag("sanctions-lists", V, "blocked", "red",
-                f"no sanctions list is held, so the exposure check has nothing to read and is never clear: {_screened(report):,} name(s) on this "
-                f"report would be screened against {'; '.join(SANCTIONS)}", sources_not_held=SANCTIONS)
+    """Blocked, never clear. The three lists are copied (ruling 132, 2 November 2026) into pub.sanctions_lists and
+    pub.sanctions_listings; a listing reaches a report only where the links lane puts a name on this report beside it, and it
+    is then shown as the same name and nothing more. No listing on the report is never a clear: an empty list (none loaded
+    before the first load, 4 November 2026) and a list with no name in common read the same on the report."""
+    lists = "; ".join(SANCTIONS)
+    screened = f"{_screened(report):,} name(s) on this report would be screened against {lists}"
+    hits = [it for it in items(report, SANCTIONS_VIEWS[1:]) if not it.get("suppressed")]
+    state = _sanctions_state(report)
+    if hits:
+        return flag("sanctions-lists", V, "fired", "red",
+                    f"{len(hits)} listing(s) carry a name on this report: {'; '.join(it['statement'] for it in hits[:EXAMPLES])}; the same name "
+                    f"is not the listed party until the list's own identifiers and particulars agree",
+                    citations=tuple(it["ref"] for it in hits), sources_held=SANCTIONS_HELD)
+    if state == "unread":
+        why = (f"the lists are copied (ruling 132) into {' and '.join('pub.' + v for v in SANCTIONS_VIEWS)}, but this report does not "
+               f"read them yet, so the exposure check has nothing to read and is never clear")
+        held = ()
+    elif state == "unpublished":
+        missing = sorted(set(SANCTIONS_VIEWS) & set(report.get("views_not_published") or ()))
+        why = f"{', '.join('pub.' + v for v in missing)} is not published, so no list is loaded and the exposure check is never clear"
+        held = ()
+    else:
+        why = ("no listing carries a name on this report; a list not yet loaded (the first load is 4 November 2026) and a list with no "
+               "name in common read the same here, so this is never a clear")
+        held = SANCTIONS_HELD
+    return flag("sanctions-lists", V, "blocked", "red", f"{why}: {screened}",
+                sources_held=held, sources_not_held=() if held else SANCTIONS)
 
 
 def public_office(report):

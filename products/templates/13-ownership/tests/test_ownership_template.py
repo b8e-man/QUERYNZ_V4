@@ -104,7 +104,8 @@ def test_its_sections_run_in_the_compliance_analysts_order():
     assert "nominee, trustee or custodian" in s["holders"]["text"] and "holder of record" in s["holders"]["text"]
     assert "pointing" in s["gazette"]["sources"] and "insolvency" in s["gazette"]["not_held"]
     assert {"members", "mp_interests", "party_return_donors"} <= set(s["exposure"]["views"])
-    assert {"sanctions", "securities"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []
+    assert "securities" in s["not-held"]["not_held"] and s["not-held"]["views"] == []
+    assert "sanctions" not in s["not-held"]["not_held"] and "copied by ruling 132" in s["not-held"]["text"], "ruling 132: the lists are held"
     for named in ("sanctions lists", "a partnership's limited partners", "overseas company registers", "trusts", "Personal Property Securities Register"):
         assert named in s["not-held"]["text"], named
     views = {r["view"] for r in t["reads"]}
@@ -142,7 +143,8 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 
 KIND = {"limited_partnership_partners": "person", "directors": "person", "shareholders": "person", "gazette_prohibitions": "person", "gazette_bankruptcies": "person",
         "members": "person", "candidates": "person", "companies": "organisation", "company_addresses": "place",
-        "gazette_company_notices": "organisation", "gazette_liquidations": "organisation", "party_return_donors": "figure", "mp_interests": "figure"}
+        "gazette_company_notices": "organisation", "gazette_liquidations": "organisation", "party_return_donors": "figure", "mp_interests": "figure",
+        "sanctions_listings": "person"}
 THROUGH = "a connection that passes through more than one person is listed as near, never confirmed (the design's default)"
 FILES = "undated; in the files from companies-2026-07 to companies-2026-08"
 
@@ -236,6 +238,15 @@ def person(**sections):
     return report(holders=sections.pop("holders", [BETA, CO_HOLDER]), **sections)
 
 
+READS_BOTH = [{"view": "sanctions_lists"}, {"view": "sanctions_listings"}]
+#: (where the lists stand, the template's reads, the views not published)
+SANCTIONS_STATES = (("unread by the report", [{"view": "companies"}], []),
+                    ("unpublished", READS_BOTH, ["sanctions_listings"]),
+                    ("read, nothing on the report", READS_BOTH, []))
+LISTING = it("sanctions:mfat-russia/1", "sanctions_listings", grade="near", title="ACME TRADING LIMITED · organisation",
+             row={"list_id": "mfat-russia", "kind": "organisation", "status": "designated"})
+
+
 def flags_of(mod, r):
     return [fn(r) for fn in mod.RULES]
 
@@ -260,7 +271,14 @@ def properties(mod) -> list:
             if rl(name)(r)["status"] == "clear":
                 bad.append(f"{start}: {name} cleared: nothing held can clear it")
         if rl("sanctions_lists")(r)["status"] != "blocked":
-            bad.append(f"{start}: sanctions-lists did not block: no list is held")
+            bad.append(f"{start}: sanctions-lists did not block: no listing is on the report")
+        for state, reads, unpublished in SANCTIONS_STATES:
+            if rl("sanctions_lists")(dict(r, template={"reads": reads}, views_not_published=unpublished))["status"] != "blocked":
+                bad.append(f"{start}: sanctions-lists did not block with the lists {state}")
+    # a listing on the report is said, cited, and is the same name and nothing more
+    listed = rl("sanctions_lists")(dict(company(exposure=[LISTING]), template={"reads": READS_BOTH}, views_not_published=[]))
+    if listed["status"] != "fired" or LISTING["ref"] not in listed["citations"]:
+        bad.append("a listing on the report went unsaid")
     # the chain above: the holder's rows, never the company's own
     up = company(holders=[JANE, HOLDCO], chain=CHAIN, chain_depth=2, chain_notes=[CHAIN_NOTE])
     if rl("insolvency_notices")(up)["severity"] == "red" or UP2_REC["ref"] not in rl("insolvency_notices")(up)["citations"]:
@@ -328,8 +346,9 @@ def test_the_properties_hold_on_the_rules_as_written():
 
 #: (what the mutant breaks, the text replaced, its replacement): each must be unique in rules.py and caught by properties()
 MUTANTS = (
-    ("the sanctions check clears", 'return flag("sanctions-lists", V, "blocked", "red",',
-     'return flag("sanctions-lists", V, "clear", "red", sources_held=("pub.links",), text='),
+    ("the sanctions check clears", 'return flag("sanctions-lists", V, "blocked", "red", f"{why}: {screened}",\n                sources_held=held,',
+     'return flag("sanctions-lists", V, "clear", "red", f"{why}: {screened}",\n                sources_held=SANCTIONS_HELD,'),
+    ("a listing on the report goes unsaid", 'hits = [it for it in items(report, SANCTIONS_VIEWS[1:])', 'hits = [it for it in items(report, ())'),
     ("the holders of record are taken for the people held for", 'return flag("ultimate-holders", V, "blocked", "red", f"{counted}.',
      'return flag("ultimate-holders", V, "clear", "red", sources_held=("pub.shareholders",), text=f"{counted}.'),
     ("a company holder is not seen", "companies = [it for it in holders if _is_company_holder(it)]", "companies = []"),
@@ -445,6 +464,31 @@ def test_sanctions_name_the_three_lists_and_count_the_names_a_screen_would_read(
     assert f["status"] == "blocked" and f["severity"] == "red" and len(f["sources_not_held"]) == 3
     assert "4 name(s) on this report" in f["text"], "the company, two holders and a director"
     assert "Russia Sanctions Act" in f["text"] and "United Nations" in f["text"] and "Terrorism Suppression Act" in f["text"]
+
+
+def test_sanctions_say_where_the_lists_stand_and_never_say_not_held():
+    """Ruling 132 (2 November 2026) copied the three lists into pub.sanctions_lists and pub.sanctions_listings; the first live load is
+    4 November 2026. Unread by the report, unpublished, and read with no listing on the report: each blocked, each in its own words,
+    none saying the lists are not held; read with nothing found names the lists as held and says an empty list reads the same."""
+    base = company(holders=[JANE])
+    text = {}
+    for state, reads, unpublished in SANCTIONS_STATES:
+        f = rule("sanctions_lists")(dict(base, template={"reads": reads}, views_not_published=unpublished))
+        assert f["status"] == "blocked" and f["severity"] == "red", state
+        assert "not held" not in f["text"] and "no sanctions list is held" not in f["text"], state
+        text[state] = f
+    assert "ruling 132" in text["unread by the report"]["text"] and "does not read them yet" in text["unread by the report"]["text"]
+    assert "pub.sanctions_listings is not published" in text["unpublished"]["text"]
+    empty = text["read, nothing on the report"]
+    assert "not yet loaded" in empty["text"] and "never a clear" in empty["text"] and "4 November 2026" in empty["text"]
+    assert empty["sources_held"] and "pub.sanctions_listings" in empty["sources_held"][0] and not empty["sources_not_held"]
+
+
+def test_a_listing_on_the_report_fires_as_the_same_name_and_nothing_more():
+    f = rule("sanctions_lists")(dict(company(exposure=[LISTING, dict(LISTING, ref="sanctions:hidden", suppressed=True)]),
+                                     template={"reads": READS_BOTH}, views_not_published=[]))
+    assert f["status"] == "fired" and f["severity"] == "red" and f["citations"] == (LISTING["ref"],)
+    assert "same name is not the listed party" in f["text"] and not CAUSE.search(f["text"])
 
 
 def test_public_office_a_seat_is_amber_a_declaration_naming_the_company_fires_and_a_company_start_blocks():

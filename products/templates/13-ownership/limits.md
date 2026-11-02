@@ -29,10 +29,16 @@ the card that would lift it is named.
   register held, and New Zealand keeps no register of trusts, nor of the
   people shares are held for. A holder can hold for others without saying
   so in its name.
-- **Sanctions.** No sanctions list is held (Foreign Affairs' Russia
-  Sanctions Act register, the United Nations consolidated list, the Police
-  designations). `sanctions-lists` is **blocked, never clear**, and counts
-  the names a screen would read. The lists are to be acquired (plan 5.3).
+- **Sanctions.** The three lists (Foreign Affairs' Russia Sanctions Act
+  register, the United Nations consolidated list, the Police designations)
+  are copied by ruling 132 (2 November 2026) into `pub.sanctions_lists` and
+  `pub.sanctions_listings`; the first live load is 4 November 2026.
+  `sanctions-lists` is **blocked, never clear**, and counts the names a
+  screen would read; it says which of three states it is in: the report
+  does not read the views yet, a view is not published, or the views are
+  read and no listing is on the report. In the last, a list not yet loaded
+  and a list with no name in common read the same, so it is not a clear. A
+  listing on the report fires as the same name and nothing more.
 - **Limited partnerships and overseas companies.** Neither register is
   held. A holder named as a limited partnership, or with an overseas
   company form (Pty Ltd, Pte Ltd, LLC, B.V., AG …), is flagged by its name;

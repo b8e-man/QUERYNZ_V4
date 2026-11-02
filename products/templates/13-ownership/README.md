@@ -12,7 +12,7 @@ team: "who ultimately owns or controls this, and are they exposed".
   holding chain above, two companies up, by name (near) or business number
   (confirmed), with each company's holders, directors and notices; its directors and registered office; the Gazette;
   public office and political money; registered charities (a company's
-  by business number, a person's officer rows by name, near); what is not held, sanctions lists,
+  by business number, a person's officer rows by name, near); what is not read, the sanctions lists (copied by ruling 132, not yet read here),
   limited partnerships, overseas registers, trusts and the securities
   register named); its limits.
 - `rules.py`: nineteen flags. The chain names each company holder and
