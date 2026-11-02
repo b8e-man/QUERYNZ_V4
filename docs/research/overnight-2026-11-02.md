@@ -215,3 +215,27 @@ pub.name_sightings is on the board (register `links`, keyed by document, lane an
 "residence" rows were bill and Act titles the reader filed among the people; the check now reads a law's title as no
 person's name (617036e). The board's outside check is green. The 1 November card's first item is done; its second
 (the scan's procurement read-back) stands.
+
+## 24. The day of 2 November: registers brought current, and step 8
+
+- Past roles (744298d): the backfill at the approval's one request a second, a second window 06:00 to 07:00, 15,000 a day,
+  a call with no answer skipped; about 14,000 a night against 2,000 (52,615 liquidated companies in about four nights).
+- The October 2026 companies package (d706458, 2c4443d, published 82bb7f2): cut 30 September; 1,930,745 entities,
+  1,206,299 directors, 17,715 state changes since August; 26,791 directors and 42,200 holdings gone between the files;
+  pub.company_insolvencies 109,586 appointments; pub.retirement_villages 514. The outside check leaves overseas companies
+  out from the 30 September quarter (the Office's count does; Arthur: "alright do it"): 752,307 against 752,292.
+- The Gazette (f9300ae, 6446f16, published 58e545e): gazette.govt.nz challenges, so notices after the 20 October export come
+  from DigitalNZ (Arthur: "na digitalnz is fine"), nightly; 300 notices 16 to 30 October; the bankruptcy lists ended in
+  December 2018 (the readers miss nothing); the office families read: appointments 3,156 to 9,591 and
+  pub.gazette_board_interventions 1,345.
+- The Real Estate Authority (75c55ad, 95ec600): 3,062 decisions, 1,571 parties, 7 suppressed naming no one.
+- The councils' registers (fa8e930, queued row 1159): the PDFs read by the text reader; a sample of 685 rows across eleven
+  councils against 56 at one; the full read about 474 pieces.
+- The templates (2cc05c9, 366e097): a company start reads what the walk followed through each officer in eight templates;
+  grants, society states, councillors' interests and the REA read.
+- A red of the morning (84ba2f1) closed: products import only support/, so the report's name reading is its own copy held
+  equal to keys/ (3be7171). Three jobs had taken priority 124 and the scheduler kept its last good catalogue from 10:46 to
+  11:16 (2fef5d0).
+- Two samples printed one address-like detail into an agent's session (a councillor's property row, a JP's road); neither
+  was repeated or committed; the published rows pass the lanes' address checks.
+- Step 8 planned (ec4f17f, docs/plan/step-8.md) and its parts 8.1 to 8.6 running in parallel; 8.7 (council minutes) in flight.
