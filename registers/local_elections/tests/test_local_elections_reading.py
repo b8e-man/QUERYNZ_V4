@@ -117,8 +117,16 @@ class FakeTables:
     def want(self, council, url, listing_url, year):
         if url not in [w[0] for w in self._wanted] and url not in self.files:
             self._wanted.append((url, council, year))
+            self.listed_from = {**getattr(self, "listed_from", {}), url: listing_url}
             return 1
         return 0
+
+    def not_linked(self, listing_url, urls):
+        gone = [w for w in self._wanted if getattr(self, "listed_from", {}).get(w[0]) == listing_url
+                and w[0] not in urls and w[0] not in self.files]
+        for w in gone:
+            self.files[w[0]] = "not linked"
+        return len(gone)
 
     def wanted(self):
         return sorted([w for w in self._wanted if w[0] not in self.files], key=lambda w: (w[2] or 9999, w[1], w[0]))
@@ -243,3 +251,39 @@ def test_a_file_at_the_size_cap_is_never_landed_cut_short(monkeypatch):
     capture.Run(t, land_fn=lambda *a, **k: (landed.append(1), (Ref, True))[1],
                 fetch_fn=lambda u, m: (Got(b"x" * 10), "landed", None), clock=NIGHT, log=lambda *a: None).files()
     assert landed == [] and t.files["https://a.govt.nz/big.pdf"] == "too large"
+
+
+BASED = ("<html><head><title>Local elections 2022</title><base href=\"https://www.kaipara.govt.nz/\" /></head><body>"
+         "<main><h1>Local elections 2022</h1><h3>Mayor</h3><ul><li><a href=\"uploads/elections/Local%20Elections%202022/"
+         "KpDC_Mayor%20-%20SMITH,%20Jane.pdf\">SMITH Jane - electoral donations and expenses</a></li></ul></main>"
+         "</body></html>").encode()
+KU = "https://www.kaipara.govt.nz/council/local-elections/local-elections-2022"
+
+
+def test_a_relative_link_is_read_against_the_page_s_own_base():
+    """Kaipara's page carries <base href="https://www.kaipara.govt.nz/">: its returns are under /uploads/, and the
+    page's own folder answered 403 to every one (2 November 2026)."""
+    got = [r["file_url"] for r in rows(BASED, url=KU)["rows"]]
+    assert got == ["https://www.kaipara.govt.nz/uploads/elections/Local%20Elections%202022/KpDC_Mayor%20-%20SMITH,%20Jane.pdf"]
+    assert [r["file_url"] for r in rows(BASED.replace(b'<base href="https://www.kaipara.govt.nz/" />', b""), url=KU)["rows"]] \
+        == ["https://www.kaipara.govt.nz/council/local-elections/uploads/elections/Local%20Elections%202022/"
+            "KpDC_Mayor%20-%20SMITH,%20Jane.pdf"]
+
+
+def test_a_wanted_file_its_page_no_longer_links_is_not_asked():
+    stale = "https://www.kaipara.govt.nz/council/local-elections/uploads/elections/Local%20Elections%202022/old.pdf"
+    other = "https://www.kaipara.govt.nz/elsewhere/kept.pdf"
+    t = FakeTables([])
+    t.want("Kaipara District Council", stale, KU, 2022)
+    t.want("Kaipara District Council", other, "https://www.kaipara.govt.nz/elsewhere", 2022)
+    capture.Run(t, land_fn=lambda *a, **k: (Ref, True), fetch_fn=lambda u, m: (Got(BASED), "landed", None),
+                clock=NIGHT, log=lambda *a: None, anytime=True,
+                seed_list=[("Kaipara District Council", [2022], KU)]).listings()
+    assert t.files.get(stale) == "not linked" and other not in t.files
+    assert [w[0] for w in t.wanted()][-1].startswith("https://www.kaipara.govt.nz/uploads/elections/")
+    empty = FakeTables([])
+    empty.want("Kaipara District Council", stale, KU, 2022)
+    capture.Run(empty, land_fn=lambda *a, **k: (Ref, True), fetch_fn=lambda u, m: (Got(b"<main></main>"), "landed", None),
+                clock=NIGHT, log=lambda *a: None, anytime=True,
+                seed_list=[("Kaipara District Council", [2022], KU)]).listings()
+    assert stale not in empty.files      # a page that reads to nothing retires nothing

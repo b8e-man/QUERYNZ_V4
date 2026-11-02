@@ -129,6 +129,14 @@ class Tables:
             f"INSERT INTO {self.T('capture_files')} (url, council, listing_url, election_year, state) "
             f"VALUES (%s, %s, %s, %s, 'wanted') ON CONFLICT (url) DO NOTHING", (url, council, listing_url, year)).rowcount
 
+    def not_linked(self, listing_url, urls) -> int:
+        """A wanted file the page that named it no longer links (an address it moved, or one read wrongly before)
+        is not asked: 'not linked', kept, never deleted."""
+        return self.conn.execute(
+            f"UPDATE {self.T('capture_files')} SET state = 'not linked', why = 'the listing no longer links it', "
+            f"at = now() WHERE listing_url = %s AND state = 'wanted' AND NOT (url = ANY(%s))",
+            (listing_url, list(urls))).rowcount
+
     def days_since_listings(self):
         r = self.conn.execute(f"SELECT max(finished_at) FROM {self.T('capture_passes')} WHERE mode = 'listings'").fetchone()
         if not r or r[0] is None:
@@ -235,6 +243,8 @@ class Run:
                 for row in out["rows"]:
                     if row["election_year"] is None or row["election_year"] >= read.WINDOW_FROM:
                         rows += self.t.want(council, row["file_url"], u, row["election_year"])
+                if out["rows"]:     # a page that reads to nothing retires nothing: a reader at fault is not a move
+                    self.t.not_linked(u, [row["file_url"] for row in out["rows"]])
                 if depth < MAX_DEPTH:
                     queue += [(f, depth + 1) for f in out["follow"] if f not in seen and fg.host_of(f) == fg.host_of(u)]
         note = f"{rows} returns new to the capture"
