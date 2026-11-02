@@ -288,3 +288,12 @@ person's name (617036e). The board's outside check is green. The 1 November card
   whole-text join does not). On the board (c549cb9). products.scan check: 0 problems over 15 scans.
 - The Papers Past ingest (row 1169) waited because the worker, started on 1 November, did not know `gzip` and `ionice`;
   the worker was restarted after the diaries load and the ingest leased.
+- The Insolvency Register: Arthur placed the key file. The first live calls all answered 404, which the lane reads as an
+  empty month: the API's version belongs in its path (`/v5`), as the NZBN API's does (44949bb, the fake server pins it).
+  The search cursor reset; 18 calls then saw 1,180 estates from 1990 and 1991. Nightly from 21:00. The schema had not
+  been made on the live database; made with the standard grants.
+- The model server's watchdog (f01fb1c, Arthur: "make the gpu watchdog too"): qv4-radiance-watchdog.timer every two
+  minutes; a warm, active server with requests in flight and no token for ten minutes is restarted and alarmed; a
+  stopped unit is never started (the night window); three restarts in six hours, then an alarm only.
+- For the morning: the owner login's limit is 20 connections and the worker holds about ten, so test runs in a session
+  meet "too many connections" (two worker tests failed on it at 21:00). Raising the limit is a superuser's change.
