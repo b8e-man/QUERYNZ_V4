@@ -178,9 +178,21 @@ class Judgment:
         return "partial" if self.citation and self.court else "unparsed"
 
 
+#: the years a court document can be dated in: the colony's first courts to 2100. A date outside is the printer's slip,
+#: never the document's date (the Environment Court printed "17 October 3023" on a 2023 filing, 3 November 2026). The
+#: upper bound is not next year because the lane's own invented documents are dated 2099, so they are never mistaken
+#: for real ones.
+EARLIEST_YEAR = 1840
+LATEST_YEAR = 2100
+
+
+def possible_year(y: int) -> bool:
+    return EARLIEST_YEAR <= y <= LATEST_YEAR
+
+
 def _date(s: str):
     m = DATE.search(s or "")
-    if not m:
+    if not m or not possible_year(int(m.group(3))):
         return None
     try:
         return dt.date(int(m.group(3)), MONTHS[m.group(2)], int(m.group(1)))

@@ -480,3 +480,18 @@ def test_a_court_code_has_one_spelling_and_a_transcript_s_court_line_with_the_ca
     t = C.parse({1: cover}, "transcript.pdf")
     assert t.court_name == "SUPREME COURT" and t.court == "NZSC" and t.citation is None and t.status == "unparsed"
     assert t.case_numbers == ["SC 12/2016"]
+
+
+def test_a_printers_slip_year_is_never_a_date_and_the_address_date_stands():
+    """3 November 2026: an Environment Court filing printed "17 October 3023"; the lane published it dated 3023. A year
+    no court document can carry is refused, and the date its own address carries stands in."""
+    import datetime as dt
+    from registers.courts import caption, read
+    assert caption._date("17 October 3023") is None
+    assert caption._date("17 October 1839") is None
+    assert caption._date("17 October 2023") == dt.date(2023, 10, 17)
+    assert read._impossible_date("Minute\n17 October 3023\n") and not read._impossible_date("17 October 2023")
+    url = "https://environmentcourt.govt.nz/assets/Documents/Publications/2023-10-17-Muaupoko-legal-subs-for-24-October-EC-hearing.pdf"
+    assert read._url_date(url) == dt.date(2023, 10, 17)
+    assert read._url_date("https://environmentcourt.govt.nz/2023-10-17/file.pdf") is None    # the file's own name only
+    assert read._url_date("https://x.nz/3023-10-17-a.pdf") is None

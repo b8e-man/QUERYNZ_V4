@@ -298,7 +298,26 @@ def recognise(entry: dict, data: bytes, texts: dict = None) -> tuple:
     return None, "no shape recognised: not a judgment, release, transcript, submission, synopsis or case page"
 
 
-# ── the deterministic readers of the smaller kinds ────────────────────────────────────────────────────────────
+_URL_DATE = re.compile(r"(?<!\d)((?:18|19|20)\d\d)-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])(?!\d)")
+
+
+def _impossible_date(page: str) -> bool:
+    """Page 1 prints a date whose year no court document can carry (caption.possible_year)."""
+    return any(not caption.possible_year(int(m.group(3))) for m in caption.DATE.finditer(page))
+
+
+def _url_date(url: str):
+    """The ISO date a document's own address carries (environmentcourt.govt.nz names its files by it), or None."""
+    m = _URL_DATE.search(url.rsplit("/", 1)[-1])
+    if not m or not caption.possible_year(int(m.group(1))):
+        return None
+    try:
+        return dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return None
+
+
+# ── the deterministic readers of the smaller kinds────────────────────────────────────────────────────────────
 def sheet(texts: dict, slug: str) -> dict:
     """What a release, transcript, submission or synopsis prints on its
     face: citation, case numbers, the date it prints, a suppression marker."""
@@ -439,6 +458,8 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
             sh = sheet(texts, slug)
             sheets.append((e, sha, slug, sh))
             doc.update(citation=sh["citation"], case_numbers=sh["case_numbers"], dated=sh["dated"])
+        if doc.get("dated") is None and _impossible_date(texts.get(1) or ""):
+            doc["dated"] = _url_date(e.get("url") or "")       # the face's date is a slip; the address's date stands
         if not _plan(res, doc, texts, slug):
             continue
         pages_read[sha] = (slug, version, texts)
