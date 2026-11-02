@@ -270,6 +270,7 @@ class = "due"
 priority = 125
 command = ["python", "-m", "registers.gazette.load", "--job"]
 nice = 10
+then = ["qv4-scan-rerun"]   # society-officers-liquidations reads pub.gazette_liquidations (2 November 2026)
 
 # ── step 4.1, incorporated-society officers (the NZBN register's entity detail) ──
 # One ask per society, 5 s apart, party societies first, then the stalest
@@ -299,7 +300,7 @@ class = "whenever"
 priority = 36
 command = ["python", "-m", "links.build_all"]
 nice = 10
-then = ["qv4-sightings-forms"]   # the forms follow pub.names (31 October 23:55)
+then = ["qv4-sightings-forms", "qv4-scan-rerun"]   # the forms follow pub.names (31 October 23:55); the stale scans re-run on the new links (2 November 2026: the procurement read-back red)
 
 [jobs.qv4-links-review]
 description = "Track C: the review agent reads test pairs (mode score) or watched confirmed links (mode watched, the default) through the review profile and records its verdicts in links.readings; applies nothing while the switch is off."

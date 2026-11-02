@@ -720,7 +720,8 @@ def test_the_shipped_catalogue_wires_the_chain():
         lane = n.removeprefix("qv4-names-")
         assert n in jts[f"qv4-{lane}-load"].then, n
         assert jts[n].command == ("python", "-m", "links.rows", "--register", lane.replace("-", "_")), n
-    assert jts["qv4-links-build"].then == ("qv4-sightings-forms",)
+    assert jts["qv4-links-build"].then == ("qv4-sightings-forms", "qv4-scan-rerun")   # the stale scans re-run on new links (2 November 2026)
+    assert "qv4-scan-rerun" in jts["qv4-gazette-load"].then
     assert set(jts["qv4-sightings-forms"].then) == {f"qv4-sightings-{x}" for x in ("beehive", "hansard", "parliament", "courts")}
     assert jts["qv4-courts-read"].pieces_command == ("python", "-m", "registers.courts.model_read", "--pieces")
     assert jts["qv4-courts-read"].concurrency * jts["qv4-courts-read"].threads <= reg.streams_of(profs, "text-reader") == 8

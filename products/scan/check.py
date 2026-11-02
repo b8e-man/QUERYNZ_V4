@@ -109,11 +109,20 @@ def check_template(pub, t: tpl.Template, held: set) -> list:
     return out_
 
 
-def check_run(pub, st, t: tpl.Template, settings: dict) -> list:
+def stale_line(name: str, x: dict) -> str:
+    """The one problem a stale scan gives: which views loaded since its run, and that a re-run is owed. Its lines are not read
+    back against today's tables: a row a register has reloaded since cites another document, and a link the links lane has
+    rebuilt since joins other rows; the re-run (qv4-scan-rerun) is the answer, not twenty mismatches."""
+    return f"{name}: stale: {', '.join(x['stale'])} loaded since run {x['run_id']}; a re-run is owed (qv4-scan-rerun)"
+
+
+def check_run(pub, st, t: tpl.Template, settings: dict, moved: dict = None) -> list:
     out_ = []
     r = state.latest(st, t.name)
     if not r:
         return [f"{t.name}: no finished run"]
+    if moved and moved.get("stale") and not moved.get("never_run"):
+        return [stale_line(t.name, moved)]
     if r.get("problems"):
         out_.append(f"{t.name}: run {r['run_id']} recorded {len(r['problems'])} problems: {r['problems'][0]}")
     if (r.get("settings") or {}).get("chains", {}).get("value") != settings["chains"]["value"] or \
@@ -443,6 +452,11 @@ def main(argv=None) -> int:
         pub.autocommit = True
         held = db.pub_views(pub)
         names = [n for n in tpl.folders() if not only or n == only]
+        try:
+            moved = {x["scan"]: x for x in R.stale(pub, st)}
+        except Exception as exc:
+            moved = {}
+            problems.append(f"the stale rule could not answer: {type(exc).__name__}: {exc}")
         for name in names:
             try:
                 t = tpl.by_name(name)
@@ -450,8 +464,10 @@ def main(argv=None) -> int:
                 problems.append(f"{name}: does not load: {exc}")
                 continue
             problems += check_template(pub, t, held)
-            problems += check_run(pub, st, t, settings)
+            problems += check_run(pub, st, t, settings, moved.get(name))
         for name in names:
+            if (moved.get(name) or {}).get("stale"):
+                continue   # reported stale by check_run; its read-back waits for the re-run
             r = state.latest(st, name) if name in TEMPLATES_PROVED + TEMPLATES_CHAINED else None
             if r and name in TEMPLATES_PROVED:
                 problems += templates_proving(pub, name, list(state.all_lines(st, r["run_id"])))
