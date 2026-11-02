@@ -1,4 +1,4 @@
-A page reader prints one space where the text layer kept a column, so a skip keyed on an item heading (a public forum, a public-excluded part) misses on a scan: tidy the page reader's text back into the heading shape before any rule runs, and test it on real documents rasterised, not invented ones.
+A page reader prints one space where the text layer kept a column, so a skip keyed on an item heading misses on a scan: restore the heading shape before any rule runs, and test on real documents rasterised.
 area: reading, page reader, scans, council minutes, hard limit 16, skips before readers
 paid-for-by: 2026-11-02, council minutes scans fork of integrator-9d788fb (registers/council_minutes)
 
