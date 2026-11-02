@@ -1208,3 +1208,29 @@ fourth run) at 21:21 and changed nothing else. What replaces the process
 is Arthur's next word. Nothing was deleted: the plan's files, the
 integrate branches, the working copies, the readers' rows and the hand
 streams stand as they were.
+
+132. Arthur, 2 November, on the copy decisions: "copy: Building
+practitioners register & the sanctions lists. leave the others carded."
+The licensed building practitioners register and the sanctions lists
+(the Police designated terrorist entities list, the UN consolidated list,
+MFAT's Russia Sanctions Register) are copied: their lanes leave their
+hold and run, politely, at their stated cadence. The HDC decisions and
+OpenLaw stay carded and held. The queue items
+`whether-the-building-practitioners-register-may-be-copied-at-all`,
+`whether-to-ask-police-to-let-us-copy-the-designated-terrorist-entities-list`,
+`whether-to-ask-the-un-to-let-us-copy-its-sanctions-list` and
+`whether-to-ask-mfat-to-let-a-script-fetch-the-russia-sanctions-register`
+close on this ruling. A challenge or a block met on any of them is still a
+failed read (hard limit 6).
+
+133. Arthur, 2 November: "card gets awards". The GETS award files stay
+on their card (`the-ministry-s-gets-files-answer-403`) until the
+ministry answers his 22 October letter.
+
+134. Arthur, 2 November, on the PPSR: "I have requested." The account is
+requested; the card stays open until it is in place.
+
+135. Arthur, 2 November: "we will rotate all keys after all the lanes are
+set up." A key supplied through chat is placed and used; its rotation
+waits for the one pass over every key once the lanes are built (with
+ruling 270 of the old estate), and is not raised as a task before then.
