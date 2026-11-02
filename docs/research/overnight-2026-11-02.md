@@ -315,3 +315,23 @@ person's name (617036e). The board's outside check is green. The 1 November card
 - Failed reads tonight, source side, no change made: grants (the lottery page answered 403: a block, a failed read),
   tenancy tribunal (three transport failures in a row), local elections files (3 failed); tenders and charities
   both answered 403 (a block, a failed read).
+
+## 28. Morning of 3 November: the plan, in parallel
+
+Published overnight: building practitioners (4,372 practitioners, 788 decisions; 42,091 on the register, about nine
+more nights at tonight's budget), council minutes (1,388 meetings, 963 minutes: 13,012 attendees, 5,883 resolutions,
+396 declarations), the Gazette (207,548 notices). Fixed (3edb6a7): the insolvency and papers_past sample lists had no
+loader, which stopped the shared sample and errored 118 tests in the 05:00 full tier; a fast test now finds it.
+
+Tracks, each a fix session in its own worktree, merged and released by the integrator:
+
+| Track | Module | What |
+| --- | --- | --- |
+| 1 | registers/papers_past | The index's memory: PSS grew about 260 MB per million documents to 9.6 GB at 35M; file-mapped segments or real growth. Retry row 1212 (19 GB) cancelled until then |
+| 2 | registers/courts | The load's red: four judgments whose counsel lines name a role no party holds (tolerated 2); the cause, not the tolerance |
+| 3 | products/board, templates/13 | The three council views and the building practitioners' new fields catalogued; template 13's sanctions rule reads the lists |
+| 4 | tenancy_tribunal, local_elections | Ours or the source's: every order fetch failed in transport; three files failed |
+| 5 | (after row 1268) | The full tier's four failures, named by its rerun |
+
+The integrator's own: merges and releases; the alarm channel (ntfy.sh's free daily quota is spent, nothing has reached
+Arthur since 1 November 08:45: his decision); the owner login's 20-connection limit (a superuser's change).
