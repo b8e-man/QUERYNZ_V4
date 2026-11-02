@@ -1,0 +1,3 @@
+# registers/papers_past/sample.list: hashes and key: lines only. The reading is tested on fake dump lines; the dump itself
+# (124 GiB) is never copied into the sample.
+key: papers_past EP19040730.2.115.3
