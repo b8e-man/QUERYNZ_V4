@@ -297,3 +297,21 @@ person's name (617036e). The board's outside check is green. The 1 November card
   stopped unit is never started (the night window); three restarts in six hours, then an alarm only.
 - For the morning: the owner login's limit is 20 connections and the worker holds about ten, so test runs in a session
   meet "too many connections" (two worker tests failed on it at 21:00). Raising the limit is a superuser's change.
+
+## 27. Midnight, 2 to 3 November
+
+- The sanctions lists (ruling 132) merged and released (e015726): the hold lifted; a weekly capture by its own record,
+  nothing fetched twice, a block fails that one list only; qv4-sanctions-capture (141, 23:30 NZDT) and
+  qv4-sanctions-load (142, 06:35 NZDT). In the sample database: MFAT Russia 1,918 listings, UN 1,007, Police 494
+  current and 317 ended; 10 requests, none challenged. MFAT's workbook profile at version 2 (its Total row tallies one
+  column, not listings); identity-document phrases cut from every value. Police's check is red by design: its page says
+  22 current designations, its workbook holds 21 (as on 21 October). Template 13's sanctions rule still says no list is
+  held: its own session.
+- Papers Past: the ingest finished at 21:25 (1h42m); the index failed at once, tantivy missing from the release's venv.
+  Installed there; queued again as row 1208, running since 00:00. Lesson filed.
+- Insolvency (42bd833): the first removals run listed 1,511 estates back to the API's start and re-asked each at 5 s,
+  so it hit its 30-minute deadline and the night's search never ran. It now re-asks only an estate we hold; none is
+  left, so the 21:00 run on 3 November goes straight through to the search. A test, and its mutant caught.
+- Failed reads tonight, source side, no change made: grants (the lottery page answered 403: a block, a failed read),
+  tenancy tribunal (three transport failures in a row), local elections files (3 failed), tenders refresh and
+  charities capture (exit 1).
