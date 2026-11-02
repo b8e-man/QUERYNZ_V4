@@ -489,10 +489,167 @@ def m12_ruling_125(conn, s: str) -> dict:
     return out
 
 
+#: step 8.2 (2 November 2026): the categories of a member's return the lane does not read for a body, and which side of the
+#: entry's dash names it ("Te Karetu Farm Limited – agriculture": before; "Rugby World Cup tickets – HSBC": after). The real
+#: property category is never read: its text is a place
+DECLARED_SIDES = {"employment": "before", "seeking-government-funding": "before", "debts-owed-by-member": "before",
+                  "debts-owed-to-member": "before", "trusts": "whole", "retirement-schemes": "whole",
+                  "managed-investment-schemes": "both", "payments-for-activities": "both", "gifts": "after",
+                  "directorships": "before", "business-interests": "before"}
+READ_NOW = ("directorships", "business-interests")       # the lane's DECLARED reading today (links/rows.py ROW_SQL)
+
+
+def declared_body(text: str, side: str) -> list:
+    """The body names an entry's text offers on its side of the first dash, each with the side it came from."""
+    t = " ".join((text or "").split())
+    for sep in lrows._DASHES:
+        if sep in t:
+            before, after = t.split(sep, 1)
+            break
+    else:
+        before, after = t, ""
+    after = after.split(" – ")[0]
+    out = []
+    if side in ("before", "both", "whole"):
+        out.append(("before", lrows._TRAILING_NOTE.sub("", before if side != "whole" else t).strip(" .,;:")))
+    if side in ("after", "both") and after:
+        out.append(("after", lrows._TRAILING_NOTE.sub("", after).strip(" .,;:")))
+    return [(s, n) for s, n in out if n]
+
+
+def m13_declared_bodies(conn, s: str = "links", sample: int = 20, seed: str = "8.2") -> dict:
+    """Step 8.2's first rule: a member's declared interest to the body it names, by the one organisation key against
+    `links.bodies`, judged on the return's date (`as_at`) as ruling 125's organisation rules judge a row: by category and side,
+    the entries, those with a body of the name, exactly one, of which live on the date, several with one live, none live; for
+    the two categories the lane reads today, what the build already did (confirmed to a company, near). Twenty entries matched
+    to exactly one body live on the date, drawn by a fixed hash, from the categories not read today."""
+    from keys import names as kn
+    entries = conn.execute("SELECT key, member, category, text, as_at FROM pub.mp_interests WHERE category = ANY(%s) AND NOT withheld",
+                           (list(DECLARED_SIDES),)).fetchall()
+    keyed = []
+    for key, member, cat, text, as_at in entries:
+        for side, name in declared_body(text, DECLARED_SIDES[cat]):
+            k = kn.organisation_key(name)
+            if k:
+                keyed.append((key, member, cat, side, name, k, as_at))
+    bodies: dict = {}
+    for body, org_key, register, number, bname, reg, rem, undated in conn.execute(
+            "SELECT DISTINCT body, org_key, register, number, name, registered_on, removed_on, removal_undated FROM links.bodies "
+            "WHERE org_key = ANY(%s)", (sorted({k[5] for k in keyed}),)).fetchall():
+        bodies.setdefault(org_key, {}).setdefault(body, (register, number, bname, reg, rem, undated))
+
+    def live(b, on):
+        register, number, bname, reg, rem, undated = b
+        # removed on no stated day is never live (the organisation rules' `NOT removed OR removed_on >= start`)
+        return on is not None and (reg is None or reg <= on) and not undated and (rem is None or rem >= on)
+
+    by: dict = {}
+    hits = []
+    for key, member, cat, side, name, k, as_at in keyed:
+        bs = bodies.get(k, {})
+        n_live = sum(1 for b in bs.values() if live(b, as_at))
+        row = by.setdefault((cat, side), {"entries": 0, "with_a_body_of_the_name": 0, "exactly_one_body": 0, "of_which_live_on_the_date": 0,
+                                          "several_one_live": 0, "several_more_live": 0, "none_live": 0, "by_register_of_the_one": {}})
+        row["entries"] += 1
+        if bs:
+            row["with_a_body_of_the_name"] += 1
+        if len(bs) == 1:
+            row["exactly_one_body"] += 1
+            if n_live == 1:
+                row["of_which_live_on_the_date"] += 1
+                reg = next(iter(bs.values()))[0]
+                row["by_register_of_the_one"][reg] = row["by_register_of_the_one"].get(reg, 0) + 1
+                if cat not in READ_NOW:
+                    hits.append((key, member, cat, side, name, next(iter(bs.values()))))
+        elif bs:
+            row["several_one_live" if n_live == 1 else ("several_more_live" if n_live > 1 else "none_live")] += 1
+    import hashlib
+    hits.sort(key=lambda h: hashlib.sha256((seed + h[0] + h[3]).encode()).hexdigest())
+    pairs = [{"member": h[1], "category": h[2], "side": h[3], "as_printed": h[4], "body_register": h[5][0], "body_number": h[5][1],
+              "body_name": h[5][2], "entry": f"mp_interests:{h[0]}"} for h in hits[:sample]]
+    done = dict(conn.execute("""
+        SELECT x.category, count(DISTINCT x.key) FILTER (WHERE l.grade = 'confirmed') FROM pub.mp_interests x
+        LEFT JOIN pub.links l ON ('mp_interests:' || x.key) IN (l.row_a, l.row_b) AND (l.row_a LIKE 'companies:%%' OR l.row_b LIKE 'companies:%%')
+        WHERE x.category = ANY(%s) GROUP BY 1""", (list(READ_NOW),)).fetchall())
+    return {"by_category_and_side": [{"category": c, "side": sd, "read_today": c in READ_NOW, **v} for (c, sd), v in sorted(by.items())],
+            "confirmed_to_a_company_by_the_build_today": {c: int(n) for c, n in done.items()},
+            "candidates_not_read_today": len(hits), "pairs": pairs,
+            "note": "live on the date: registered on or before the return's date and not removed before it, by the body's register's "
+                    "dates in links.bodies; entries the return withholds are not read; real property is never read"}
+
+
+def m14_charity_officers(conn, s: str = "links", sample: int = 20, seed: str = "8.2") -> dict:
+    """Step 8.2's second rule: a charity officer and a director (or a society officer) of the same body, the charity being
+    that company or society by a shared business number (ruling 124: a charity is its company only by shared NZBN), with the
+    same first and last name key: by register of the body, the officers, those on a body with officers in the other register,
+    with exactly one same-name officer there, several, none; of the one, the full name equal or apart, and what pub.links holds
+    between the two rows today. Twenty pairs drawn by a fixed hash."""
+    zero = "9429000000000"
+    rows = conn.execute(f"""
+        WITH co AS (SELECT n.ref, n.name_filed, n.fl_key, n.full_key, n.has_middle, c.nzbn, c.number AS charity_number
+                    FROM pub.names n JOIN pub.charity_officers o ON n.ref = 'charities:' || o.key
+                    JOIN pub.charities c ON c.key = o.charity_key
+                    WHERE n.view = 'charity_officers' AND n.kind = 'person' AND n.fl_key IS NOT NULL),
+             other AS (SELECT n.ref, n.view, n.name_filed, n.fl_key, n.full_key, n.has_middle, split_part(n.ref, '/', 2) AS nzbn
+                       FROM pub.names n WHERE n.view IN ('directors', 'society_officers') AND n.kind = 'person' AND n.fl_key IS NOT NULL
+                       AND split_part(n.ref, '/', 2) IN (SELECT nzbn FROM co WHERE nzbn IS NOT NULL AND nzbn <> '{zero}')),
+             body AS (SELECT DISTINCT nzbn, view FROM other),
+             m AS (SELECT co.ref, co.name_filed, co.charity_number, co.nzbn, co.full_key, co.has_middle, o.view, o.ref AS oref,
+                          o.name_filed AS oname, o.full_key AS ofull, o.has_middle AS omid,
+                          count(*) OVER (PARTITION BY co.ref, o.view) AS same
+                   FROM co JOIN other o ON o.nzbn = co.nzbn AND o.fl_key = co.fl_key)
+        SELECT 'totals', NULL::text, (SELECT count(*) FROM co), (SELECT count(*) FROM co WHERE nzbn IS NOT NULL AND nzbn <> '{zero}'),
+               NULL::bigint, NULL::bigint, NULL::text, NULL::text, NULL::text, NULL::text, NULL::text, NULL::text, NULL::text, NULL::text, NULL::bigint
+        UNION ALL
+        SELECT 'body', b.view, count(DISTINCT co.ref), NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+        FROM co JOIN body b ON b.nzbn = co.nzbn GROUP BY b.view
+        UNION ALL
+        SELECT 'pair', m.view, NULL, NULL, m.same, (SELECT count(*) FROM pub.links l WHERE (l.row_a = m.ref AND l.row_b = m.oref)
+                                                    OR (l.row_a = m.oref AND l.row_b = m.ref)),
+               (SELECT string_agg(DISTINCT l.grade || ':' || l.rule, ',') FROM pub.links l WHERE (l.row_a = m.ref AND l.row_b = m.oref)
+                                                    OR (l.row_a = m.oref AND l.row_b = m.ref)),
+               m.ref, m.oref, m.name_filed, m.oname, m.charity_number, m.nzbn,
+               CASE WHEN m.full_key = m.ofull THEN 'equal' WHEN m.has_middle AND m.omid THEN 'middle names differ' ELSE 'one has no middle name' END,
+               NULL
+        FROM m""").fetchall()
+    out = {"charity_officers": 0, "on_a_charity_with_a_business_number": 0, "on_a_body_with_officers_in": {}, "by_view": {}, "pairs": []}
+    pairs = []
+    for r in rows:
+        if r[0] == "totals":
+            out["charity_officers"], out["on_a_charity_with_a_business_number"] = int(r[2]), int(r[3])
+        elif r[0] == "body":
+            out["on_a_body_with_officers_in"][r[1]] = int(r[2])
+        else:
+            view, same, linked, grades, ref, oref, name, oname, cnum, nzbn, full = r[1], r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11], r[12], r[13]
+            v = out["by_view"].setdefault(view, {"officers_with_one_same_name_officer": set(), "officers_with_several": set(),
+                                                  "of_the_one_full_name": {}, "of_the_one_linked_today": {}})
+            if same == 1:
+                v["officers_with_one_same_name_officer"].add(ref)
+                v["of_the_one_full_name"][full] = v["of_the_one_full_name"].get(full, 0) + 1
+                g = grades or "none"
+                v["of_the_one_linked_today"][g] = v["of_the_one_linked_today"].get(g, 0) + 1
+                pairs.append({"view": view, "charity_officer": name, "charity_number": cnum, "other_officer": oname, "body_nzbn": nzbn,
+                              "full_name": full, "linked_today": g, "rows": [ref, oref]})
+            else:
+                v["officers_with_several"].add(ref)
+    for v in out["by_view"].values():
+        v["officers_with_one_same_name_officer"] = len(v["officers_with_one_same_name_officer"])
+        v["officers_with_several"] = len(v["officers_with_several"])
+    import hashlib
+    pairs.sort(key=lambda p: hashlib.sha256((seed + p["rows"][0] + p["rows"][1]).encode()).hexdigest())
+    unlinked = [p for p in pairs if p["linked_today"] == "none" or p["linked_today"].startswith("near")]
+    out["unlinked_or_near_of_the_one"] = len(unlinked)
+    out["pairs"] = unlinked[:sample]
+    out["note"] = ("a charity is the company or society of the same business number (ruling 124); the all-zero number is no number "
+                   "(fix-links-6); same name: the first-and-last key of pub.names; a pair already confirmed is counted and not drawn")
+    return out
+
+
 MEASURES = (("1 name repeats", m1_name_repeats), ("2 shared addresses", m2_shared_addresses), ("3 rule error", m3_rule_error),
             ("4 rule reach", m4_rule_reach), ("5 company names", m5_company_names), ("6 group shape", m6_groups),
             ("7 ruling 106", m7_ruling_106), ("8 ruling 107", m8_ruling_107), ("9 ruling 109", m9_ruling_109),
-            ("10 ruling 114", m10_ruling_114), ("11 ruling 116", m11_ruling_116), ("12 ruling 125", m12_ruling_125))
+            ("10 ruling 114", m10_ruling_114), ("11 ruling 116", m11_ruling_116), ("12 ruling 125", m12_ruling_125),
+            ("13 declared bodies", m13_declared_bodies), ("14 charity officers", m14_charity_officers))
 
 
 def run(conn, s: str, log=print, only: str = None) -> dict:
