@@ -6,12 +6,18 @@
    the path of the file. That listing was exported once, on 22 October 2026
    (`export_listing`), landed by its hash and pinned here (`LISTING_SHA`). On
    22 October none of the 351 files is on node2: they sit on the old estate's
-   other box, out of service. So the capture never fetches a listed one again
-   (`held by the old estate`, with the listed hash), and `copy_all` lands each
-   whose file is present and hashes true (`support.docstore.landing.
-   copy_from_old`, read-only) once that box is back. The old estate's other
-   1,159 InfoCouncil minutes were kept as stripped text, not bytes: there is
-   no document to copy, so those are fetched.
+   other box, out of service (still so on 2 November: node1 does not answer).
+   The capture copies a listed one by hash whenever its file is on this box
+   and hashes true (`copy_all`, `support.docstore.landing.copy_from_old`,
+   read-only). Where the old copy's bytes are not here, the capture fetches
+   the council's own public copy once, like any other minutes PDF (politely,
+   off-peak, through the gate; a challenge is a failed read), lands it by its
+   own hash, and records whether those bytes are the old estate's (the listed
+   hash) or differ (2 November 2026: the 347 the old estate held and the new
+   estate did not read; before that they waited as `held by the old
+   estate`). The old database keeps their text only, never their bytes. The
+   old estate's other 1,159 InfoCouncil minutes were kept as stripped text,
+   not bytes: there is no document to copy, so those are fetched.
 
 2. **Captured once, politely** (case three), the job `qv4-council-minutes-
    capture`: each instance's listing (its default page: the year's meetings,
@@ -240,6 +246,11 @@ class Tables:
     def known(self) -> set:
         return {r[0] for r in self.conn.execute(f"SELECT url FROM {self.T('capture_documents')}")}
 
+    def old_waiting(self) -> set:
+        """The URLs recorded `held by the old estate`: copied or fetched at the next run."""
+        return {r[0] for r in self.conn.execute(f"SELECT url FROM {self.T('capture_documents')} "
+                                                "WHERE state = 'held by the old estate'")}
+
     def document(self, url, host, file, state, sha, listed_in, why=None, asked=True):
         self.conn.execute(
             f"INSERT INTO {self.T('capture_documents')} (url, host, file, state, sha256, listed_in, asked_at, why) "
@@ -257,8 +268,11 @@ class Tables:
 class Run:
     def __init__(self, tables, *, land_fn, old: dict, read_fn, opener=None, clock=None, sleep=None, now=None,
                  budget_s: float = DEFAULT_BUDGET_S, max_docs: int = 100000, anytime: bool = False,
-                 instances: dict = None, log=print):
+                 instances: dict = None, log=print, copy_old=None, fetch_old: bool = True):
         self.t, self.land_fn, self.old, self.read_fn, self.log = tables, land_fn, old, read_fn, log
+        #: copy_old(url, listed sha256) -> the landed DocumentRef, or None when the old estate's file is not on this box
+        #: (or does not hash true); fetch_old: then fetch the council's own copy, once
+        self.copy_old, self.fetch_old = copy_old or (lambda url, sha: None), fetch_old
         self.opener = opener or (lambda url, timeout: fg.open_url(url, timeout=timeout, positions_dir=POSITIONS))
         self.clock = clock or time.monotonic
         self.pacer = fg.Pacer(now=self.clock, sleep=sleep or time.sleep)
@@ -267,7 +281,7 @@ class Run:
         self.instances = instances if instances is not None else INSTANCES
         self.started = self.clock()
         self.counts = {"requests": 0, "listings": 0, "landed": 0, "already_held": 0, "old_estate": 0, "failed": 0,
-                       "held_hosts": 0, "set_aside": 0}
+                       "held_hosts": 0, "set_aside": 0, "old_copied": 0, "old_fetched": 0, "old_fetched_differs": 0}
         self.stopped = ""
 
     def time_left(self) -> bool:
@@ -327,7 +341,7 @@ class Run:
         """Every minutes PDF a held listing names and the capture has not met: [(url, host, file, listing sha)],
         newest listing first, in its row order."""
         from support.docstore.landing import read_bytes
-        known, out, seen = self.t.known(), [], set()
+        known, out, seen = self.t.known() - self.t.old_waiting(), [], set()
         for host, sha in self.t.held_listings():
             base = next((b for b in self.instances if b.endswith("//" + host)), f"https://{host}")
             for d in read.read_listing(read_bytes(sha), sha, base)["documents"]:
@@ -340,11 +354,19 @@ class Run:
     def documents(self, held: dict):
         asked = 0
         for url, host, file, listed_in in self.todo(held):
-            if old_key(url) in self.old:
-                self.t.document(url, host, file, "held by the old estate", self.old[old_key(url)], listed_in,
-                                "copied by hash from the old estate's file when its box is back", asked=False)
-                self.counts["old_estate"] += 1
-                continue
+            old_sha = self.old.get(old_key(url))
+            if old_sha:
+                ref = self.copy_old(url, old_sha)
+                if ref is not None:                          # the old estate's own bytes, by hash: no request
+                    self.t.document(url, host, file, "landed", ref.sha256, listed_in,
+                                    "copied by hash from the old estate's file", asked=False)
+                    self.counts["old_copied"] += 1
+                    continue
+                if not self.fetch_old:
+                    self.t.document(url, host, file, "held by the old estate", old_sha, listed_in,
+                                    "copied by hash from the old estate's file when its box is back", asked=False)
+                    self.counts["old_estate"] += 1
+                    continue
             if host in held or not self.time_left():
                 continue
             if asked >= self.max_docs:
@@ -353,7 +375,8 @@ class Run:
             asked += 1
             f, why = self.ask(url)
             if f is None:
-                self.t.document(url, host, file, "failed", None, listed_in, why)
+                self.t.document(url, host, file, "failed", None, listed_in,
+                                why + (f"; the old estate listed {old_sha}, its file not on this box" if old_sha else ""))
                 self.t.set_aside(url, "fetch", why)
                 self.counts["failed"] += 1
                 if not why.startswith(("HTTP 404", "transport")):
@@ -367,7 +390,14 @@ class Run:
                 self.counts["set_aside"] += 1
                 continue
             ref, new = self.land_fn(f.body, name=url, content_type="application/pdf")
-            self.t.document(url, host, file, "landed", ref.sha256, listed_in)
+            why = None
+            if old_sha:
+                same = ref.sha256 == old_sha
+                why = ("the old estate's file is not on this box: the council's copy fetched, "
+                       + ("the old estate's bytes (its listed hash)" if same else f"not the old estate's bytes (it listed {old_sha})"))
+                self.counts["old_fetched"] += 1
+                self.counts["old_fetched_differs"] += 0 if same else 1
+            self.t.document(url, host, file, "landed", ref.sha256, listed_in, why)
             self.counts["landed" if new else "already_held"] += 1
 
     def run(self) -> dict:
@@ -382,6 +412,16 @@ def outcome(out: dict):
     if out["requests"] and not (out["listings"] or out["landed"] or out["already_held"]):
         return False, (out["stopped"] or "done") + "; nothing landed"
     return True, out["stopped"] or "done"
+
+
+def copier(conn, entries: list):
+    """copy_old for a run: the old estate's file for (url, listed sha256), landed by hash when it is on this box and
+    hashes true (copy_all), else None."""
+    def copy_old(url, sha):
+        got, _aside = copy_all(conn, [e for e in entries if e.get("sha256") == sha and old_key(e["url"]) == old_key(url)],
+                               only={sha})
+        return got[0][1] if got else None
+    return copy_old
 
 
 def landing(conn):
@@ -467,10 +507,12 @@ def main(argv=None) -> int:
             print(f"{SOURCE}: {len(entries)} listed by the old estate, {len(got)} landed by hash, {len(aside)} not here")
             return 0
         out = Run(t, land_fn=landing(conn), old=old_held(entries), read_fn=read.recognise, anytime=a.anytime,
-                  budget_s=a.budget_s, max_docs=a.max_docs).run()
+                  budget_s=a.budget_s, max_docs=a.max_docs, copy_old=copier(conn, entries)).run()
     ok, last = outcome(out)
     detail = (f"{out['requests']} requests, {out['listings']} listings, {out['landed']} minutes landed, "
-              f"{out['already_held']} already held, {out['old_estate']} held by the old estate, {out['failed']} failed, "
+              f"{out['already_held']} already held, {out['old_copied']} copied from the old estate's files, "
+              f"{out['old_fetched']} of the old estate's fetched from the council ({out['old_fetched_differs']} not its "
+              f"bytes), {out['old_estate']} held by the old estate, {out['failed']} failed, "
               f"{out['held_hosts']} instances held, {out['set_aside']} set aside; {last}")
     print(f"{SOURCE}: {detail}")
     if a.database == "querynz_v4":

@@ -13,7 +13,14 @@ Two profiles, recognised by the text layer's own landmarks, measured on the 616 
   council-minutes-text       any other minutes with a text layer (Bay of Plenty Regional, Napier, Hastings, Palmerston
                              North ...): read by the text reader through model_read.py.
 
-A PDF with no usable text layer waits for the page reader and is counted; a mixed PDF's thin pages are named unread.
+A PDF with no usable text layer is recognised by its shape, never by a phrase (a scan has no text for a phrase to
+match): profile council-minutes-scanned (scan_shape: the bytes are a PDF, support.docread.pages.read_from says pixels,
+and at least half its pages carry an image as wide as half the page, by pdfimages; nothing is read to decide it). Its
+every page goes through the page reader (scans.py, qv4-council-minutes-pages, in the page reader's night window,
+ruling 129); the stored page texts, tidied by from_pages (the page reader's markup taken off, an item heading put back
+in the shape item_heading knows), are then recognised and read exactly as a text layer is: the same two skips first,
+then the standard template's reading or the text reader. A mixed PDF's thin pages are named unread (measured
+2 November 2026: 7 mixed PDFs of 616, 12 thin pages, none of them an image).
 
 Two parts of a minutes document are never read, by either profile (hard limit 16 and the public forum rule):
   - a public-excluded part: from an item, or a banner line, that excludes the public (a resolution to exclude the
@@ -32,6 +39,7 @@ from collections import Counter
 READER = "registers.council_minutes.minutes 1"
 STANDARD = "council-minutes-standard"
 TEXT = "council-minutes-text"
+SCANNED = "council-minutes-scanned"
 WAIT_PAGES = "waiting: page reader"
 NOT_MINUTES = "not minutes: its text has no attendance and no resolution or motion"
 
@@ -193,6 +201,77 @@ def recognise(texts: dict, read_from: str) -> tuple:
     if standard_resolutions(lines) >= 1 and any(_LABEL.match(l) for _p, l in lines[:400]):
         return STANDARD, ""
     return TEXT, ""
+
+
+# ── a scan: recognised by its shape; the page reader's text tidied for the same rules ───────────────────────────
+#: an image at least this share of the page's width makes a page a picture page (the disclosures lane's measure)
+PICTURE_SHARE = 0.5
+NOT_A_SCAN = "set aside: no text layer and no page image"
+
+
+def picture_pages(data: bytes) -> set:
+    """The pages carrying an image at least PICTURE_SHARE of the page's width (pdfinfo and pdfimages -list: the
+    file's structure, never its text)."""
+    import subprocess
+    try:
+        info = subprocess.run(["pdfinfo", "-"], input=data, capture_output=True, timeout=60).stdout.decode("utf-8", "replace")
+        listing = subprocess.run(["pdfimages", "-list", "-"], input=data, capture_output=True, timeout=120).stdout.decode(
+            "utf-8", "replace")
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    m = re.search(r"Page size:\s+([\d.]+) x ([\d.]+)", info)
+    width = float(m.group(1)) / 72 if m else 8.27
+    out = set()
+    for ln in listing.splitlines()[2:]:
+        f = ln.split()
+        try:
+            if f[2] == "image" and float(f[12]) > 0 and int(f[3]) / float(f[12]) >= PICTURE_SHARE * width:
+                out.add(int(f[0]))
+        except (IndexError, ValueError):
+            continue
+    return out
+
+
+def scan_shape(data: bytes, read_from: str, npages: int, pictures: set) -> tuple:
+    """(SCANNED, '') when the document is a scan by its shape alone: a PDF, no usable text layer (read_from is
+    pixels), and at least half its pages a picture page; ('', why) otherwise. No phrase is looked for."""
+    if not (data or b"")[:5].startswith(b"%PDF"):
+        return "", "not a PDF"
+    if read_from != "pixels":
+        return "", f"it has a text layer ({read_from})"
+    if not npages or not pictures or 2 * len(pictures) < npages:
+        return "", NOT_A_SCAN
+    return SCANNED, ""
+
+
+_TAG = re.compile(r"<[a-zA-Z/][^<>]{0,200}>")
+_MD_HEAD = re.compile(r"^\s{0,3}#{1,6}\s+")
+_NUMBERED = re.compile(r"^\s{0,14}(\d{1,3}(?:\.\d{1,3}){0,3})\.?\s+(\S.{2,}?)\s*$")
+
+
+def from_pages(text: str) -> str:
+    """The page reader's text of one page made the shape the rules read: its markup off (HTML table tags, markdown
+    headings, bold marks, table pipes), and a numbered heading mostly in capitals put back as `n  TITLE`, the shape
+    item_heading knows (the page reader prints one space where the text layer keeps the column). A numbered line that
+    names a public forum or a public-excluded part becomes a heading whatever its case, so neither skip is missed on a
+    scan; over-skipping only loses what is kept, never shows what is not."""
+    t = re.sub(r"</(?:tr|p|div|h\d|li|table)>|<br\s*/?>", "\n", text or "", flags=re.I)
+    t = re.sub(r"</t[dh]>", "   ", t, flags=re.I)
+    t = _TAG.sub("", t)
+    out = []
+    for line in t.splitlines():
+        line = _MD_HEAD.sub("", line).replace("**", "").replace("__", "")
+        if line.count("|") >= 2:
+            line = re.sub(r"\s*\|\s*", "   ", line.strip().strip("|"))
+        m = _NUMBERED.match(line)
+        if m and not _OUTCOME.match(line) and len(m.group(2)) <= 100:
+            num, title = m.group(1), m.group(2).strip()
+            if FORUM.search(title) or EXCLUDE.search(title) or EXCLUDED_ITEM.search(title):
+                title = title.upper()
+            if _caps(title):
+                line = f"{num}  {title}"
+        out.append(line.rstrip())
+    return "\n".join(out)
 
 
 # ── the deterministic reading ───────────────────────────────────────────────────────────────────────────────

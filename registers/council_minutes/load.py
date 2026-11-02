@@ -105,7 +105,7 @@ def read_minutes(meetings: dict, captured: dict, read_bytes=read_bytes, store=No
     shape replayed from the text reader's stored readings (model_read.replay: no call here). Returns the ledger and the
     rows of attendance, resolutions and declarations, each citing the PDF's sha256, its page and its place."""
     from support.docread import pages
-    from registers.council_minutes import minutes as M, model_read as MR
+    from registers.council_minutes import minutes as M, model_read as MR, scans as SC
     by_sha = {}
     for m in meetings.values():
         if m.get("minutes_sha256") and m.get("minutes_held") == "landed":
@@ -127,14 +127,30 @@ def read_minutes(meetings: dict, captured: dict, read_bytes=read_bytes, store=No
             continue
         texts = pages.text_pages(data)
         rf = pages.read_from(data, texts)
-        prof, why = M.recognise(texts, rf)
         line.update(read_from=rf, pages=len(texts))
+        source = None
+        if rf == "pixels":
+            # a scan, by its shape: read from the page reader's stored pages, then exactly as a text layer
+            scan, why = SC.recognise(data, texts)
+            if scan != SC.PROFILE:
+                out["minutes_read"].append({**line, "state": why})
+                continue
+            got_pages, unread = SC.texts(sha, data, store, layer=texts)
+            if got_pages is None:
+                out["minutes_read"].append({**line, "state": M.WAIT_PAGES, "profile": SC.PROFILE,
+                                            "profile_version": SC.profile_version(),
+                                            "unread_pages": ",".join(str(p) for p in unread)})
+                continue
+            texts, source = got_pages, SC.SOURCE
+            prof, why = M.recognise(texts, "text")
+        else:
+            prof, why = M.recognise(texts, rf)
         if prof == M.STANDARD:
             got = M.read_standard(texts)
-            got.update(state="read", unread=sorted(pages.thin_pages(texts)) if rf == "mixed" else [], model=None)
+            got.update(state="read", unread=sorted(pages.thin_pages(texts)) if rf != "text" else [], model=None)
             reader, version_of = M.READER, standard_version()
         elif prof == M.TEXT:
-            got = MR.replay(sha, data, store=store, version=version, texts=texts)
+            got = MR.replay(sha, data, store=store, version=version, texts=texts, source=source)
             reader, version_of = MR.READER, version or MR.profile_version()
         else:
             out["minutes_read"].append({**line, "state": why})
@@ -145,7 +161,8 @@ def read_minutes(meetings: dict, captured: dict, read_bytes=read_bytes, store=No
                     forum_items=sk.get("public forum items", 0), forum_lines=sk.get("public forum lines", 0),
                     unread_pages=",".join(str(p) for p in got.get("unread") or []) or None)
         cite = {"meeting_key": m.get("key"), "council": m.get("council"), "body": m.get("body"),
-                "meeting_date": m.get("meeting_date"), "document": sha, "read_from": "text", "reader": reader,
+                "meeting_date": m.get("meeting_date"), "document": sha, "read_from": "pixels" if source else "text",
+                "reader": reader,
                 "profile": prof, "profile_version": version_of, "model": got.get("model")}
         for n, a in enumerate(got["attendance"], 1):
             out["attendance"].append({**cite, **{k: a.get(k) for k in ("name", "role", "title", "attendance", "page")},
@@ -221,6 +238,7 @@ def build(conn, schema: str, listings: list, captured: dict, read_bytes=read_byt
     counts = {t: _copy(conn, T(t), COLUMNS[t], mins[t]) for t in ("minutes_read", "attendance", "resolutions",
                                                                     "declarations")}
     counts["minutes waiting"] = sum(1 for r in mins["minutes_read"] if str(r["state"]).startswith("waiting"))
+    counts["minutes waiting for the page reader"] = sum(1 for r in mins["minutes_read"] if r["state"] == "waiting: page reader")
     return {**counts, "meetings": _copy(conn, T("meetings"), COLUMNS["meetings"], meetings.values()),
             "documents": _copy(conn, T("documents"), COLUMNS["documents"], documents.values()),
             "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
@@ -282,7 +300,8 @@ def job(log=print) -> int:
             counts = build(conn, STAGING, listings, cap)
         problems = check.reading(conn, STAGING)
         detail = (f"{counts['meetings']} meetings, {counts['documents']} documents listed, {counts['set_aside']} set "
-                  f"aside; minutes {counts['minutes_read']} ({counts['minutes waiting']} waiting): "
+                  f"aside; minutes {counts['minutes_read']} ({counts['minutes waiting']} waiting, "
+                  f"{counts['minutes waiting for the page reader']} of them scans for the page reader): "
                   f"{counts['attendance']} attendees, {counts['resolutions']} resolutions, {counts['declarations']} "
                   "declarations; " + ("; ".join(problems) or "reconciles"))
         if problems:

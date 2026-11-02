@@ -1153,7 +1153,7 @@ nice = 10
 
 # ── step 6.3, the councils lanes (councils-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
 [jobs.qv4-council-minutes-capture]
-description = "Step 6.3: the InfoCouncil councils' meeting listings (each at most weekly) and every minutes PDF they name, once, 5 s apart, off-peak; the old estate's 347 held PDFs never fetched again. About 600 PDFs the first nights, then tens a week. Stops at 06:00 NZDT or its budget."
+description = "Step 6.3: the InfoCouncil councils' meeting listings (each at most weekly) and every minutes PDF they name, once, 5 s apart, off-peak; the old estate's 347 held PDFs copied by hash where its file is on this box, else the council's own copy fetched once (2 November 2026: none of the old files is here; about 30 minutes at 5 s apart on the next night). About 600 PDFs the first nights, then tens a week. Stops at 06:00 NZDT or its budget."
 needs = "processor"
 memory_gb = 0.3
 deadline_s = 10800
@@ -1213,6 +1213,23 @@ pieces = true
 pieces_command = ["python", "-m", "registers.council_minutes.model_read", "--pieces"]
 can_share = true
 concurrency = 4
+
+[jobs.qv4-council-minutes-pages]
+description = "Councils' minutes PDFs with no text layer (profile council-minutes-scanned, recognised by shape: no usable text layer and page-wide images, never a phrase): every page of one scan (piece key sha256) through the page-reader profile at 200 dpi, stored by hash and page; runs in the page reader's night window (ruling 129). Then qv4-council-minutes-read takes the scans whose pages are all read (the same two skips, then the standard template or the text reader) and the next qv4-council-minutes-load replays both. Queue a row only when the load's ledger shows scans waiting for the page reader (none on 2 November 2026): an empty row would still open the window."
+needs = "model-profile"
+profile = "page-reader"
+memory_gb = 1.5
+deadline_s = 1800
+query_timeout_s = 60
+class = "whenever"
+priority = 137   # unique; 136 to 140 free in every working copy on 2 November 2026 (141, 142 taken elsewhere)
+command = ["python", "-m", "registers.council_minutes.scans", "--piece"]
+pieces = true
+pieces_command = ["python", "-m", "registers.council_minutes.scans", "--pieces"]
+requires = ["pdftoppm"]   # poppler's pdfimages, which the shape check uses, comes with it
+can_share = false
+concurrency = 1
+then = ["qv4-council-minutes-read"]
 
 [jobs.qv4-councillor-interests-read]
 description = "Councils' registers of members' pecuniary interests held as PDFs: the text reader's reading of one register document (piece key sha256) through the text-reader profile, profile interests-register-pdf-text, whole pages in pieces of 12,000 characters (8,192 answer tokens): each member, role, every category as printed with its s 54E kind and its entries; real property, homes, addresses, roads, contacts and a spouse's or partner's interests never kept. Stored by hash and piece, replayed by the next qv4-councillor-interests-load (ruling 128 lifted ruling 79's hold for node2; Arthur, 2 November 2026: 'we want to gather and ingest all of this'). A PDF with no text layer waits for the page reader."

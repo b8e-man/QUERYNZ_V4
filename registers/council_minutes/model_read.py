@@ -6,7 +6,9 @@ What the model sees is the text left after minutes.sections' two skips: no publi
 item ever reaches it (hard limit 16). The text layer is `pdftotext -layout` (support.docread.pages); the text reader
 (profile `text-reader`, the standing server on this box, hard limit 10) reads it through the model client. One reading
 per document hash and piece, stamped with the reader's version, the served model and the prompt's hash, stored in the
-reader store and replayed by every load (ruling 50: the load calls no model).
+reader store and replayed by every load (ruling 50: the load calls no model). A scan (profile council-minutes-scanned)
+comes here once the page reader has read its every page (scans.py): its page texts take the text layer's place, go
+through the same two skips, and its pieces' settings name the page reader as their text's source.
 
 Whatever the model answers: an attendee whose name is shaped like an address, a phone number or an email, or who is a
 member of the public, is dropped; a resolution's text is kept whole with minutes.names_address beside it (ruling 102).
@@ -28,6 +30,7 @@ from support import profiles
 from support import reader as rd
 from support.docread import pages
 from registers.council_minutes import minutes as M
+from registers.council_minutes import scans as SC
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profiles-proposed.jsonl")
@@ -82,17 +85,41 @@ def profile_version(slug: str = PROFILE) -> int:
     return max(int(p["version"]) for p in held)
 
 
-def settings(prompt: str = PROMPT) -> dict:
-    return {"prompt_sha": hashlib.sha256(prompt.encode()).hexdigest()[:16], "budget_chars": BUDGET_CHARS, "split": SPLIT,
-            "temperature": 0.0, "max_tokens": MAX_TOKENS, "thinking": False, "attempts": ATTEMPTS, "skips": "minutes.sections 2 (running heads dropped)"}
+def settings(prompt: str = PROMPT, source: str = None) -> dict:
+    """The reading's settings; `source` names the page reader's text when the document is a scan (scans.SOURCE), so
+    a scan's pieces never share a key with a text layer's. A text layer's settings are as they were."""
+    out = {"prompt_sha": hashlib.sha256(prompt.encode()).hexdigest()[:16], "budget_chars": BUDGET_CHARS, "split": SPLIT,
+           "temperature": 0.0, "max_tokens": MAX_TOKENS, "thinking": False, "attempts": ATTEMPTS, "skips": "minutes.sections 2 (running heads dropped)"}
+    if source:
+        out["text"] = source
+    return out
 
 
-def key_for(sha256: str, piece: int, version: int, model: str = TEXT_MODEL) -> str:
-    return rd.reading_key(sha256, piece, model, settings(), PROFILE, version)
+def key_for(sha256: str, piece: int, version: int, model: str = TEXT_MODEL, source: str = None) -> str:
+    return rd.reading_key(sha256, piece, model, settings(source=source), PROFILE, version)
+
+
+def texts_for(sha256: str, data: bytes, store: rd.Store = None) -> tuple:
+    """(texts, source, why): a text layer's pages (source None); a scan's page-reader pages once every page is
+    stored (source scans.SOURCE); or (None, None, why) for a scan still waiting on the page reader, or a PDF with no
+    text layer that is no scan."""
+    if not data[:5].startswith(b"%PDF"):
+        return None, None, "not a PDF"
+    layer = pages.text_pages(data)
+    if pages.read_from(data, layer) != "pixels":
+        return layer, None, ""
+    prof, why = SC.recognise(data, layer)
+    if prof != SC.PROFILE:
+        return None, None, why
+    got, _unread = SC.texts(sha256, data, store, layer=layer)
+    if got is None:
+        return None, None, M.WAIT_PAGES
+    return got, SC.SOURCE, ""
 
 
 def prepare(data: bytes, texts: dict = None) -> tuple:
-    """(why, texts, kept lines, skipped): why is '' when the document is this profile's."""
+    """(why, texts, kept lines, skipped): why is '' when the document is this profile's. `texts` may be a scan's
+    page-reader pages (texts_for), recognised exactly as a text layer is."""
     if not data[:5].startswith(b"%PDF"):
         return "not a PDF", {}, [], {}
     texts = texts if texts is not None else pages.text_pages(data)
@@ -206,13 +233,15 @@ def read_document(sha256: str, data: bytes, *, version: int = None, url: str = N
     store = store or rd.Store()
     model = model or TEXT_MODEL
     version = version or profile_version()
-    why, texts, kept, skipped = prepare(data)
+    texts, source, why = texts_for(sha256, data, store)
+    if not why:
+        why, texts, kept, skipped = prepare(data, texts)
     if why:
         return {"state": why, "pieces": 0, "read": 0, "replayed": 0, "resolutions": 0}
     parts = pieces(kept, set(pages.thin_pages(texts)))
     out = {"state": "read", "pieces": len(parts), "read": 0, "replayed": 0, "resolutions": 0, "unusable": 0}
     for n, (first, last, text) in enumerate(parts, 1):
-        key = key_for(sha256, n, version, model)
+        key = key_for(sha256, n, version, model, source)
         if store.has(key):
             got = store.get(key)
             out["replayed"] += 1
@@ -221,12 +250,12 @@ def read_document(sha256: str, data: bytes, *, version: int = None, url: str = N
             parsed, served, attempts, chars = ask(text, url=url or URL, model=model, post=post, request=request)
             checks = {"pages": [first, last], "attempts": attempts, "answer_chars": chars, "pieces": len(parts)}
             if parsed is None:
-                got = rd.Reading(sha256, n, READER, served, settings(), PROFILE, version, "text", "", rows=[],
+                got = rd.Reading(sha256, n, READER, served, settings(source=source), PROFILE, version, "text", "", rows=[],
                                  checks={**checks, "usable": False,
                                          "reason": f"no usable JSON object in the answer after {attempts} attempt(s)"},
                                  made_at=now)
             else:
-                got = rd.Reading(sha256, n, READER, served, settings(), PROFILE, version, "text",
+                got = rd.Reading(sha256, n, READER, served, settings(source=source), PROFILE, version, "text",
                                  json.dumps(parsed, ensure_ascii=False, sort_keys=True), rows=[],
                                  checks={**checks, "usable": True, "resolutions": len(parsed["resolutions"])}, made_at=now)
             store.put(got)
@@ -239,8 +268,9 @@ def read_document(sha256: str, data: bytes, *, version: int = None, url: str = N
 
 
 def replay(sha256: str, data: bytes, *, version: int = None, store: rd.Store = None, model: str = TEXT_MODEL,
-           texts: dict = None) -> dict:
-    """The load's side, never a call: {'state', 'attendance', 'declarations', 'resolutions', 'skipped', 'unread', 'model'}."""
+           texts: dict = None, source: str = None) -> dict:
+    """The load's side, never a call: {'state', 'attendance', 'declarations', 'resolutions', 'skipped', 'unread', 'model'}.
+    `texts` and `source`: a scan's page-reader pages and scans.SOURCE (the load passes them); left out, the text layer's."""
     store = store or rd.Store()
     version = version or profile_version()
     why, texts, kept, skipped = prepare(data, texts)
@@ -251,7 +281,7 @@ def replay(sha256: str, data: bytes, *, version: int = None, store: rd.Store = N
     parts = pieces(kept, thin)
     att, dec, res, unusable, model_seen = [], [], [], [], None
     for n, (first, last, _t) in enumerate(parts, 1):
-        key = key_for(sha256, n, version, model)
+        key = key_for(sha256, n, version, model, source)
         if not store.has(key):
             return {**empty, "state": WAIT_TEXT}
         got = store.get(key)
@@ -280,7 +310,8 @@ def replay(sha256: str, data: bytes, *, version: int = None, store: rd.Store = N
 
 # ── the job ────────────────────────────────────────────────────────────────────────────────────────────────────
 def waiting(conn, store: rd.Store = None, version: int = None, read_bytes=None) -> list:
-    """The landed minutes PDFs of this profile with a piece not yet stored, smallest first (sha256)."""
+    """The landed minutes PDFs of this profile with a piece not yet stored, smallest first (sha256); a scan once the
+    page reader has read every page of it."""
     from support.docstore.landing import read_bytes as rb
     read_bytes = read_bytes or rb
     store = store or rd.Store()
@@ -289,11 +320,14 @@ def waiting(conn, store: rd.Store = None, version: int = None, read_bytes=None) 
     for (sha,) in conn.execute("SELECT DISTINCT sha256 FROM council_minutes.capture_documents WHERE state = 'landed' "
                                "AND sha256 IS NOT NULL ORDER BY sha256").fetchall():
         data = read_bytes(sha)
-        why, texts, kept, _sk = prepare(data)
+        texts, source, why = texts_for(sha, data, store)
+        if why:
+            continue
+        why, texts, kept, _sk = prepare(data, texts)
         if why:
             continue
         parts = pieces(kept, set(pages.thin_pages(texts)))
-        if any(not store.has(key_for(sha, n, version)) for n in range(1, len(parts) + 1)):
+        if any(not store.has(key_for(sha, n, version, source=source)) for n in range(1, len(parts) + 1)):
             out.append((sum(len(p[2]) for p in parts), sha))
     return [sha for _n, sha in sorted(out)]
 

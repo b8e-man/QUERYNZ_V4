@@ -123,8 +123,13 @@ class FakeTables:
     def known(self):
         return set(self.docs)
 
+    def old_waiting(self):
+        return {u for u, d in self.docs.items() if d[0] == "held by the old estate"}
+
     def document(self, url, host, file, state, sha, listed_in, why=None, asked=True):
         self.docs[url] = (state, sha, asked)
+        self.why = getattr(self, "why", {})
+        self.why[url] = why
 
     def set_aside(self, item, stage, reason):
         self.aside.append((item, stage, reason))
@@ -134,7 +139,7 @@ def _fetched(url, status=200, body=b"", blocked=""):
     return types.SimpleNamespace(url=url, status=status, body=body, final_url=url, blocked=blocked, location="")
 
 
-def _run(tables, answers, store, *, hour=23, old=None, instances=None):
+def _run(tables, answers, store, *, hour=23, old=None, instances=None, copy_old=None, fetch_old=False):
     asked = []
 
     def opener(url, timeout):
@@ -152,7 +157,8 @@ def _run(tables, answers, store, *, hour=23, old=None, instances=None):
     r = capture.Run(tables, land_fn=land_fn, old=old or {}, read_fn=read.recognise, opener=opener,
                     clock=lambda: clock[0], sleep=lambda s: clock.__setitem__(0, clock[0] + s),
                     now=lambda: dt.datetime(2026, 10, 22, hour, 30, tzinfo=capture.NZ),
-                    instances=instances or {BASE: "Invented District Council", "https://other.infocouncil.biz": "Other"})
+                    instances=instances or {BASE: "Invented District Council", "https://other.infocouncil.biz": "Other"},
+                    copy_old=copy_old, fetch_old=fetch_old)
     return r, asked, clock
 
 
@@ -175,6 +181,85 @@ def test_the_capture_lands_each_minutes_pdf_once_and_never_the_old_estate_s(monk
     assert len(asked) == 3 and clock[0] >= capture.FLOOR_S          # paced per host: the second ask of one host waited
     r2, asked2, _ = _run(t, answers, store, old=old)
     assert r2.run()["requests"] == 0 and asked2 == []          # listings under a week old; every minutes PDF met
+
+
+OLD_URL = "https://other.infocouncil.biz/RedirectToDoc.aspx?URL=Open/2026/10/OT_20261021_MIN_3600.PDF"
+
+
+def _other_answers(u):
+    other = PAGE.replace(b"CO_20261021", b"OT_20261021").replace(b"XC-C_", b"OX-C_")
+    return _fetched(u, body=(other if "other." in u else PAGE) if u.endswith("/") else b"%PDF-1.4 " + u.encode())
+
+
+def test_the_old_estate_s_file_is_copied_by_hash_when_it_is_here_and_never_fetched(monkeypatch):
+    import hashlib
+    store, t = {}, FakeTables()
+    _with_store(monkeypatch, store)
+    body = b"%PDF-1.4 the old estate's own bytes"
+    sha = hashlib.sha256(body).hexdigest()
+    copied = []
+
+    def copy_old(url, listed):
+        copied.append((url, listed))
+        store[listed] = body
+        return types.SimpleNamespace(sha256=listed)
+    r, asked, _ = _run(t, _other_answers, store, old={capture.old_key(OLD_URL): sha}, copy_old=copy_old, fetch_old=True)
+    out = r.run()
+    assert copied == [(OLD_URL, sha)] and OLD_URL not in asked and out["old_copied"] == 1 and out["old_fetched"] == 0
+    assert t.docs[OLD_URL] == ("landed", sha, False)
+
+
+def test_the_old_estate_s_documents_not_here_are_fetched_once_from_the_council(monkeypatch):
+    import hashlib
+    store, t = {}, FakeTables()
+    _with_store(monkeypatch, store)
+    same = hashlib.sha256(b"%PDF-1.4 " + OLD_URL.encode()).hexdigest()
+    # first, as the lane ran until 2 November: the old estate's document recorded and waiting, never asked
+    r0, asked0, _ = _run(t, _other_answers, store, old={capture.old_key(OLD_URL): same})
+    r0.run()
+    assert t.docs[OLD_URL][0] == "held by the old estate" and OLD_URL not in asked0
+    # then: its file is not on this box, so the council's copy is fetched once, politely, and landed by its own hash
+    r1, asked1, clock = _run(t, _other_answers, store, old={capture.old_key(OLD_URL): same}, fetch_old=True)
+    out = r1.run()
+    assert asked1.count(OLD_URL) == 1 and out["old_fetched"] == 1 and out["old_fetched_differs"] == 0
+    assert t.docs[OLD_URL] == ("landed", same, True) and "the old estate's bytes" in t.why[OLD_URL]
+    r2, asked2, _ = _run(t, _other_answers, store, old={capture.old_key(OLD_URL): same}, fetch_old=True)
+    assert r2.run()["requests"] == 0 and asked2 == [], "asked once ever"
+    # a council's copy that is not the old estate's bytes is landed by its own hash and says so
+    t2 = FakeTables()
+    r3, _a, _ = _run(t2, _other_answers, store, old={capture.old_key(OLD_URL): "f" * 64}, fetch_old=True)
+    assert r3.run()["old_fetched_differs"] == 1 and t2.docs[OLD_URL][1] == same and "f" * 64 in t2.why[OLD_URL]
+
+
+def test_an_old_estate_document_fetched_outside_off_peak_or_challenged_is_not_landed(monkeypatch):
+    store, t = {}, FakeTables()
+    _with_store(monkeypatch, store)
+    old = {capture.old_key(OLD_URL): "a" * 64}
+    r0, _a, _ = _run(t, _other_answers, store, old=old)
+    r0.run()
+    r1, asked1, _ = _run(t, _other_answers, store, old=old, fetch_old=True, hour=14)
+    assert r1.run()["requests"] == 0 and asked1 == [] and t.docs[OLD_URL][0] == "held by the old estate"
+
+    def challenged(u):
+        if u == OLD_URL:
+            return _fetched(u, 403, b"", "HTTP 403: a block or a challenge; a challenged read is a failed read (hard limit 6)")
+        return _other_answers(u)
+    r2, asked2, _ = _run(t, challenged, store, old=old, fetch_old=True)
+    out = r2.run()
+    assert out["failed"] == 1 and t.docs[OLD_URL][0] == "failed" and "other.infocouncil.biz" in t.held
+    assert "a" * 64 in t.why[OLD_URL], "the old estate's listed hash stays in the record"
+
+
+def test_the_old_estate_s_real_listing_names_only_the_councils_own_hosts():
+    from support.docstore.landing import path_for, read_bytes
+    if not os.path.exists(path_for(capture.LISTING_SHA)):
+        pytest.skip("the pinned listing is not in the document store here")
+    entries = capture.listing(read_bytes(capture.LISTING_SHA))
+    assert len(entries) == 351 and all(re.fullmatch(r"[0-9a-f]{64}", e["sha256"]) for e in entries)
+    hosts = {capture.fg.host_of(e["url"]) for e in entries}
+    assert hosts <= set(capture.COUNCIL_OF_HOST), sorted(hosts - set(capture.COUNCIL_OF_HOST))
+    keys = [capture.old_key(e["url"]) for e in entries]
+    assert len(set(keys)) == len(keys) and not any(e["old_suppressed"] for e in entries)
 
 
 def test_a_block_holds_that_instance_and_the_run_goes_on(monkeypatch):
