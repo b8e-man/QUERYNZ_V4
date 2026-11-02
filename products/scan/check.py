@@ -40,6 +40,8 @@ import sys
 
 from products.scan import db, out, plan, rules, run as R, settings as cfg, state, template as tpl, views as cat
 
+ADDRESS_FLAG = re.compile(r"_names_address\Z")
+
 CHUNK = 5000
 LEGAL = re.compile(r"\b(limited|ltd|incorporated|inc|tapui)\b")
 
@@ -102,7 +104,12 @@ def check_template(pub, t: tpl.Template, held: set) -> list:
             missing = sorted(need - cols)
             if missing:
                 out_.append(f"{t.name}: pub.{v} lacks {missing}")
-            shaped = sorted(c for c in need if cat.ADDRESS_COLUMN.search(c))
+            # a lane's address flag (ruling 102: `<column>_names_address`, a boolean beside the text) filtered to false is how
+            # hard limit 15 is applied, not a read of an address; read any other way, or filtered to true, it is a read
+            applied = {c for s in t.steps if s.view == v or v in s.views for c, val in s.where
+                       if ADDRESS_FLAG.search(c) and val is False}
+            applied -= {c for s in t.steps if s.view == v or v in s.views for c in s.columns}
+            shaped = sorted(c for c in need - applied if cat.ADDRESS_COLUMN.search(c))
             if shaped:
                 out_.append(f"{t.name}: reads address-shaped columns {shaped} of pub.{v} (hard limit 15)")
     out_ += [f"{t.name}: {p}" for p in rules.template_problems(t)]

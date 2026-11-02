@@ -12,7 +12,7 @@ limits = [
   "Every line is near: a name is not the organisation. A generic text a company happens to be registered under ('office staff', 'event organisers', 'private secretary') gives a line that is that company's namesake's, marked so; each company of the name is a line of its own.",
   "An entry whose meeting or attendees text the diaries lane flags as naming an address is never read (hard limit 15); the meeting's own text is not shown, only the minister, the day, the portfolio and the time.",
   "Each line is two facts of record side by side: a meeting in a minister's diary, and the company's entry in a register. Nothing on it says why the meeting was held or that anything followed from it.",
-  "The supplier step is optional: a company met that won no award is listed with 'none found in pub.award_suppliers'. The award notices are the ministry's GETS file (CC BY 3.0 NZ); awards under the thresholds, direct awards and most councils' are not in it.",
+  "The supplier step is optional: a company met is listed with 'none found in pub.award_suppliers' where the GETS file names it on none. The award notices are the ministry's GETS file (CC BY 3.0 NZ); awards under the thresholds, direct awards and most councils' are not in it.",
   "Licences: the ministers' releases as released; Companies Office bulk data, CC BY 4.0; GETS award notices, CC BY 3.0 NZ, attribution to the Ministry of Business, Innovation and Employment on every surface.",
 ]
 
