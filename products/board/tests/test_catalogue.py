@@ -19,6 +19,7 @@ PUBLISHED_AT_20_OCTOBER = {
     "iwi_directory_entities", "iwi_directory_relations", "iwi_directory_settlements",   # settlements-1 (22 October), catalogued at the procurement-1 merge
     "agency_contract_costs",   # procurement-1 (22 October), catalogued at its own merge: the view already stood on the live database
     "council_meetings", "councillor_interest_registers", "councillor_interests",   # councils-1 (23 October), catalogued at the local-elections-1 merge
+    "council_meeting_attendance", "council_resolutions", "council_meeting_declarations",   # the council minutes' reading (published 3 November 2026), catalogued at fix-products-board
     "local_election_returns", "local_election_returns_coverage",   # local-elections-1 (23 October), catalogued at the fetchgate fix merge after it
     "sanctions_lists", "sanctions_listings",   # sanctions-1 (21 October), catalogued once published
     "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "building_practitioners",   # sanctions-1 (21 October)
