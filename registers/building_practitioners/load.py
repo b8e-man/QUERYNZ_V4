@@ -11,6 +11,7 @@ superseded, not read twice. Items in equal decisions typed plus superseded
 plus set aside, page by page; the build raises if a page does not reconcile.
 
     python -m registers.building_practitioners.load [--schema scratch_…] [--database querynz_v4_sample]
+        [--register-database querynz_v4_sample --register-schema scratch_…]   # a session's register capture
     python -m registers.building_practitioners.load --job
 
 Every line printed is a count.
@@ -23,20 +24,24 @@ import time
 
 from support import jobrun
 from support.docstore.landing import read_bytes
-from registers.building_practitioners import capture, read
+from registers.building_practitioners import capture, read, register
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "building_practitioners"
 PRIVATE = "building_practitioners_private"
 JOB = "qv4-building-practitioners-load"
 STAGING = "staging_building_practitioners_load"
-TABLES = ("read_pages", "decisions", "practitioners", "read_set_aside")
+TABLES = ("read_pages", "decisions", "practitioners", "read_register", "read_set_aside")
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version")
 COLUMNS = {
     "read_pages": ("document", "pass_id", "stated", "items", "typed", "superseded", "set_aside"),
     "decisions": ("key", "complaint_number", "citation", "decision_kind", "name", "lbp_number", "suppressed", "region",
                   "licence_classes", "decided_on", "penalties", "grounds", "upheld", "decision_url", "pdf_url") + _CITE,
     "read_set_aside": ("document", "place", "stage", "reason"),
+    "practitioners": ("key", "licence_number", "name", "first_name", "middle_names", "last_name", "suppressed",
+                      "licence_classes", "status", "area", "area_names_address", "region", "first_granted_on",
+                      "register_url", "register_id") + _CITE,
+    "read_register": ("pass_id", "searches", "listed", "pages", "typed", "set_aside", "awaiting"),
 }
 
 
@@ -77,8 +82,43 @@ def _copy(conn, name: str, cols: tuple, rows) -> int:
     return n
 
 
-def build(conn, schema: str, pages: list, read_bytes=read_bytes, shared: bool = False, version: int = None) -> dict:
-    """`pages`: [(sha256, pass_id)] oldest landed first; read newest first."""
+def read_register(reg: dict, read_bytes=read_bytes, versions: dict = None) -> dict:
+    """The register's rows from `reg` ({'pass_id', 'lists': [sha256], 'details': [sha256]}): the pass's searches
+    give each listed practitioner's classes and areas; each practitioner's page (the newest held) gives a row.
+    Every page is a row, a duplicate number or a catch-log line; every listed practitioner is read or awaiting."""
+    versions = versions or register.versions()
+    listed, asides = {}, []
+    for sha in reg.get("lists", []):
+        out, why = register.read_list(read_bytes(sha))
+        if out is None:
+            asides.append({"document": sha, "place": "search", "stage": "recognise", "reason": why})
+        else:
+            listed[out["query"]] = out["rows"]
+    classes = register.classes_of(listed)
+    rows, numbers, read_ids = [], set(), set()
+    for sha in reg.get("details", []):
+        d, why = register.read_detail(read_bytes(sha))
+        if d is None:
+            asides.append({"document": sha, "place": "practitioner", "stage": "read", "reason": why})
+            continue
+        read_ids.add(d["guid"])
+        if d["number"] in numbers:
+            asides.append({"document": sha, "place": f"practitioner={d['number']}", "stage": "read",
+                           "reason": "a practitioner number already read from another page"})
+            continue
+        numbers.add(d["number"])
+        rows.append(register.row(d, sha, classes.get(d["guid"], []), d["guid"] in classes, versions))
+    ledger = {"pass_id": reg.get("pass_id"), "searches": len(listed), "listed": len(classes),
+              "pages": len(reg.get("details", [])), "typed": len(rows),
+              "set_aside": sum(1 for a in asides if a["place"].startswith("practitioner")),
+              "awaiting": len(set(classes) - read_ids)}
+    return {"rows": rows, "set_aside": asides, "ledger": ledger}
+
+
+def build(conn, schema: str, pages: list, read_bytes=read_bytes, shared: bool = False, version: int = None,
+          reg: dict = None) -> dict:
+    """`pages`: [(sha256, pass_id)] oldest landed first; read newest first. `reg`: the register's pages
+    (`register_listing`), or None to read none."""
     t0 = time.monotonic()
     version = version or read.profile_version()
     create_tables(conn, schema, shared)
@@ -100,10 +140,18 @@ def build(conn, schema: str, pages: list, read_bytes=read_bytes, shared: bool = 
             raise AssertionError(f"{SCHEMA}: page {sha[:12]} does not reconcile")
         ledger.append({"document": sha, "pass_id": pass_id, "stated": out["stated"][1] if out["stated"] else None,
                        "items": out["items"], "typed": typed, "superseded": superseded, "set_aside": item_asides})
+    practitioners = 0
+    if reg is not None:
+        from psycopg.types.json import Jsonb
+        r = read_register(reg, read_bytes)
+        asides += r["set_aside"]
+        practitioners = _copy(conn, T("practitioners"), COLUMNS["practitioners"],
+                              ({**x, "licence_classes": Jsonb(x["licence_classes"])} for x in r["rows"]))
+        _copy(conn, T("read_register"), COLUMNS["read_register"], [r["ledger"]])
     return {"decisions": _copy(conn, T("decisions"), COLUMNS["decisions"], rows),
             "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
             "pages": _copy(conn, T("read_pages"), COLUMNS["read_pages"], ledger),
-            "superseded": sum(l["superseded"] for l in ledger), "practitioners": 0,
+            "superseded": sum(l["superseded"] for l in ledger), "practitioners": practitioners,
             "seconds": round(time.monotonic() - t0, 1)}
 
 
@@ -115,14 +163,28 @@ def listing(conn, schema: str = SCHEMA) -> list:
         f"SELECT sha256, pass_id FROM {schema}.capture_pages WHERE pass_id >= %s ORDER BY pass_id, page_no", (since,))]
 
 
+def register_listing(conn, schema: str = SCHEMA) -> dict:
+    """The newest finished pass of the register's searches, and the newest page held of every practitioner."""
+    if conn.execute("SELECT to_regclass(%s)", (f"{schema}.capture_register_passes",)).fetchone()[0] is None:
+        return {"pass_id": None, "lists": [], "details": []}
+    r = conn.execute(f"SELECT max(pass_id) FROM {schema}.capture_register_passes WHERE finished_at IS NOT NULL").fetchone()
+    pass_id = r[0] if r else None
+    lists = [x[0] for x in conn.execute(f"SELECT sha256 FROM {schema}.capture_register_lists WHERE pass_id = %s "
+                                        "ORDER BY query_no", (pass_id,))] if pass_id is not None else []
+    details = [x[0] for x in conn.execute(f"SELECT DISTINCT ON (guid) sha256 FROM {schema}.capture_register_details "
+                                          "ORDER BY guid, fetched_at DESC, sha256")]
+    return {"pass_id": pass_id, "lists": lists, "details": details}
+
+
 def load(conn, schema: str, log=print) -> int:
     """The merge gate's staging step (support/staging): the newest pass's pages, read under `schema`.
     Problems the reading's check finds are logged, as the job logs them. Added by the integrator at the merge of sanctions-1."""
     from registers.building_practitioners import check
     listed = listing(conn)
-    counts = build(conn, schema, listed)
+    counts = build(conn, schema, listed, reg=register_listing(conn))
     problems = check.reading(conn, schema)
-    log(f"{SCHEMA}: {counts['decisions']} decisions, {counts['set_aside']} set aside into {schema}; " + ("; ".join(problems) or "reconciles"))
+    log(f"{SCHEMA}: {counts['decisions']} decisions, {counts['practitioners']} practitioners, {counts['set_aside']} set aside "
+        f"into {schema}; " + ("; ".join(problems) or "reconciles"))
     return counts["decisions"]
 
 
@@ -135,10 +197,17 @@ def publish(conn, staging: str, log=print) -> None:
     log(f"{SCHEMA}: published from {staging}")
 
 
-def unchanged(conn, listed: list) -> bool:
-    if conn.execute("SELECT to_regclass(%s)", (f"{SCHEMA}.read_pages",)).fetchone()[0] is None:
+def unchanged(conn, listed: list, reg: dict) -> bool:
+    for t in ("read_pages", "read_register"):
+        if conn.execute("SELECT to_regclass(%s)", (f"{SCHEMA}.{t}",)).fetchone()[0] is None:
+            return False
+    if {r[0] for r in conn.execute(f"SELECT document FROM {SCHEMA}.read_pages")} != {s for s, _ in listed}:
         return False
-    return {r[0] for r in conn.execute(f"SELECT document FROM {SCHEMA}.read_pages")} == {s for s, _ in listed}
+    held = {r[0] for r in conn.execute(f"SELECT document FROM {SCHEMA}.practitioners")}
+    gone = {r[0] for r in conn.execute(f"SELECT document FROM {SCHEMA}.read_set_aside WHERE stage = 'read' "
+                                       "AND place LIKE 'practitioner%%'")}
+    led = conn.execute(f"SELECT pass_id FROM {SCHEMA}.read_register").fetchone()
+    return held | gone == set(reg["details"]) and (led[0] if led else None) == reg["pass_id"]
 
 
 def job(log=print) -> int:
@@ -149,14 +218,16 @@ def job(log=print) -> int:
     with db.connect(db.OWNER_KEY, "querynz_v4") as conn:
         conn.execute("SET statement_timeout = '600s'")
         listed = listing(conn)
-        if unchanged(conn, listed):
+        reg = register_listing(conn)
+        if unchanged(conn, listed, reg):
             log(f"{SCHEMA}: the listing is the one published; nothing loaded")
             jobrun.record(JOB, True, "unchanged: the listing is the one published", started, {})
             return 0
         with conn.transaction():
-            counts = build(conn, STAGING, listed)
+            counts = build(conn, STAGING, listed, reg=reg)
         problems = check.reading(conn, STAGING)
-        detail = f"{counts['decisions']} decisions, {counts['set_aside']} set aside; " + ("; ".join(problems) or "reconciles")
+        detail = (f"{counts['decisions']} decisions, {counts['practitioners']} practitioners, {counts['set_aside']} set aside; "
+                  + ("; ".join(problems) or "reconciles"))
         if problems:
             log(f"{SCHEMA}: RED, nothing published: " + detail)
             jobrun.record(JOB, False, "nothing published: " + detail, started, {})
@@ -174,6 +245,8 @@ def main(argv=None) -> int:
     ap.add_argument("--database", default="querynz_v4_sample")
     ap.add_argument("--capture-database", default="querynz_v4")
     ap.add_argument("--capture-schema", default=SCHEMA)
+    ap.add_argument("--register-database", default=None, help="where the register's capture record is (default: --capture-database)")
+    ap.add_argument("--register-schema", default=None, help="its schema there (default: --capture-schema)")
     ap.add_argument("--job", action="store_true")
     a = ap.parse_args(argv)
     if a.job:
@@ -181,12 +254,15 @@ def main(argv=None) -> int:
     if not a.schema.startswith(("scratch_", "staging_")):
         print(f"{SCHEMA}: a session loads only a scratch or staging schema")
         return 2
-    key = db.READ_KEY if a.capture_database == "querynz_v4" else db.OWNER_KEY
-    with db.connect(key, a.capture_database) as src:
+    key = lambda d: db.READ_KEY if d == "querynz_v4" else db.OWNER_KEY
+    with db.connect(key(a.capture_database), a.capture_database) as src:
         listed = listing(src, a.capture_schema)
+    rdb = a.register_database or a.capture_database
+    with db.connect(key(rdb), rdb) as src:
+        reg = register_listing(src, a.register_schema or a.capture_schema)
     with db.connect(db.OWNER_KEY, a.database) as conn:
         with conn.transaction():
-            counts = build(conn, a.schema, listed)
+            counts = build(conn, a.schema, listed, reg=reg)
     for k, v in counts.items():
         print(f"{SCHEMA}: {k}: {v}")
     return 0

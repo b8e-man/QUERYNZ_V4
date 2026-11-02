@@ -2,8 +2,7 @@
 -- two parts. The capture's record (capture.py makes it; never wiped): no capture table holds a row of the source; the
 -- list pages stay in the document store verbatim by sha256. The reading's tables (load.py drops and makes them again
 -- at every load). No address of any kind is read: the decisions list publishes a region at most (hard limit 15). The
--- register of practitioners is held (Building Act 2004, s 307): its table exists so the view can say "not held", and
--- nothing fills it.
+-- register of practitioners is copied on ruling 132: its page's postcode, email and telephones are never read.
 
 -- ── the capture ──────────────────────────────────────────────────────────────
 
@@ -47,6 +46,39 @@ CREATE TABLE IF NOT EXISTS building_practitioners.capture_set_aside (
     at       timestamptz NOT NULL DEFAULT now()
 );
 
+-- the register of practitioners (register.py; ruling 132): one row per pass of its 26 searches (the seven licence
+-- classes, the nineteen areas of practice), one row per search page landed, and one row per practitioner's page
+-- landed (the register's own id, never a name). No row of the source: the pages stay in the document store.
+CREATE TABLE IF NOT EXISTS building_practitioners.capture_register_passes (
+    pass_id      bigserial PRIMARY KEY,
+    next_query   integer NOT NULL DEFAULT 0,
+    lists        integer NOT NULL DEFAULT 0,
+    rows         integer NOT NULL DEFAULT 0,
+    started_at   timestamptz NOT NULL DEFAULT now(),
+    finished_at  timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS building_practitioners.capture_register_lists (
+    pass_id   bigint NOT NULL REFERENCES building_practitioners.capture_register_passes (pass_id),
+    query_no  integer NOT NULL,
+    field     text NOT NULL,                        -- lclass or aop
+    value     text NOT NULL,
+    url       text NOT NULL,
+    sha256    text NOT NULL,
+    rows      integer NOT NULL,
+    new       boolean NOT NULL,
+    PRIMARY KEY (pass_id, query_no)
+);
+
+CREATE TABLE IF NOT EXISTS building_practitioners.capture_register_details (
+    guid        text NOT NULL,                      -- the register's own id for the practitioner
+    url         text NOT NULL,
+    sha256      text NOT NULL,
+    new         boolean NOT NULL,
+    fetched_at  timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (guid, sha256)
+);
+
 -- ── the reading
 -- load.py drops these and makes them again at every load. Each row cites the page's sha256, page 1, its place
 -- (`complaint=CB26816`), the reader and the profile.
@@ -83,19 +115,38 @@ CREATE TABLE IF NOT EXISTS building_practitioners.decisions (
     profile text NOT NULL, profile_version integer NOT NULL, loaded_at timestamptz NOT NULL DEFAULT now()
 );
 
--- the register of licensed building practitioners: HELD (Building Act 2004, s 307). Nothing fills this table until
--- Arthur's decision and a profile built from the first authorised page; the view over it says "not held" by being
--- empty, and its columns are the brief's (no address: hard limit 15).
+-- the register of licensed building practitioners (ruling 132): one row per practitioner whose page is held, keyed by
+-- the practitioner number; classes and areas from the newest pass's searches. The town is kept whole with a flag where
+-- its shape names an address (ruling 102); the page's postcode, email and telephones are never read.
 CREATE TABLE IF NOT EXISTS building_practitioners.practitioners (
-    key               text PRIMARY KEY,             -- building_practitioners/lbp/<licence number>
-    licence_number    text NOT NULL,
-    name              text,
-    suppressed        boolean NOT NULL,
-    licence_classes   jsonb,                        -- [{class, area of practice, licensed on, status, ended on}]
-    status            text,
-    area              text,                         -- the town or region the register publishes, nothing finer
+    key                 text PRIMARY KEY,           -- building_practitioners/lbp/<practitioner number>
+    licence_number      text NOT NULL,
+    name                text,
+    first_name          text,
+    middle_names        text,
+    last_name           text,
+    suppressed          boolean NOT NULL,
+    licence_classes     jsonb,                      -- [{class, areas}] from the newest pass's searches
+    status              text,                       -- licensed (on the newest pass's searches), or not on the current listing
+    area                text,                       -- the town the register publishes
+    area_names_address  boolean NOT NULL,           -- the town's shape names an address (ruling 102): a product withholds it
+    region              text,
+    first_granted_on    date,                       -- "Date Licensing Class First Granted", as a New Zealand day
+    register_url        text,
+    register_id         text NOT NULL,
     document text NOT NULL, page integer NOT NULL, place text NOT NULL, read_from text NOT NULL, reader text NOT NULL,
     profile text NOT NULL, profile_version integer NOT NULL, loaded_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- the register's ledger: one row per load, the newest pass's practitioners listed against those read
+CREATE TABLE IF NOT EXISTS building_practitioners.read_register (
+    pass_id        bigint,
+    searches       integer NOT NULL,
+    listed         integer NOT NULL,                -- distinct practitioners on the pass's searches
+    pages          integer NOT NULL,                -- practitioners' pages read (the newest of each)
+    typed          integer NOT NULL,
+    set_aside      integer NOT NULL,
+    awaiting       integer NOT NULL                 -- listed, page not yet fetched
 );
 
 CREATE TABLE IF NOT EXISTS building_practitioners.read_set_aside (
@@ -106,4 +157,4 @@ CREATE TABLE IF NOT EXISTS building_practitioners.read_set_aside (
 );
 
 -- the private twin holds nothing: a decision's summary is never kept (it can name a property or a complainant), and
--- the register's addresses are never read.
+-- the register's postcodes, emails and telephones are never read.

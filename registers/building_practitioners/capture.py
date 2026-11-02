@@ -15,15 +15,10 @@ Two sources under part 4 of the Building Act 2004, on two footings:
    (a card; the list carries every field the lane reads).
 
 2. The register of licensed building practitioners itself (the search at
-   `kete-lbp.mbie.govt.nz`): HELD. The Building Act 2004, s 307: "A search of
-   the register may be carried out only for a purpose referred to in
-   section 299", and s 308 makes any other search for personal information
-   an interference with privacy under the Privacy Act 2020. A copy of the
-   whole register for a product is not a purpose s 299 names. The capture
-   refuses to ask the register anything until the position page carries a
-   line `authorised: register <date> <how>` (Arthur's decision, the queue
-   item marked no default), and no reading of it is built: its shape has
-   not been seen, because seeing it would be such a search.
+   `kete-lbp.mbie.govt.nz`): copied on ruling 132 (Arthur, 2 November 2026),
+   recorded as the position's line `authorised: register <date> <how>`;
+   without that line it is asked nothing (`register()` raises Held). Its
+   capture and reading are `register.py`, run as `--register`.
 
 Politeness (hard limit 7): one request at a time, at least `FLOOR_S` apart
 (the robots file states no crawl delay for us; the gate's floor binds too),
@@ -34,7 +29,7 @@ the next run. Three transport failures in a row stop the run. Every line
 printed is a count.
 
     python -m registers.building_practitioners.capture [--anytime] [--max-pages N]
-    python -m registers.building_practitioners.capture --register   # refused while held
+    python -m registers.building_practitioners.capture --register [--anytime]   # the register (register.py)
 """
 import argparse
 import datetime as dt
@@ -207,14 +202,14 @@ class Run:
             return True
         return False
 
-    def get(self, url, pass_id=None):
+    def get(self, url, pass_id=None, timeout=60):
         if self.last_end is not None:
             gap = self.last_end + FLOOR_S - self.clock()
             if gap > 0:
                 self.sleep(gap)
         self.counts["requests"] += 1
         try:
-            f = self.opener(url, 60)
+            f = self.opener(url, timeout)
         except fg.Refused:
             raise
         except Exception as exc:  # noqa: BLE001
@@ -225,7 +220,13 @@ class Run:
                 raise Stop(f"{self.failures} transport failures in a row")
             return None
         self.last_end = self.clock()
-        self.failures = 0
+        if f.blocked and 500 <= f.status < 600 and not fg.looks_challenged(200, f.body, getattr(f, "headers", None)):
+            # the server's own error, not a block (the lesson on telling them apart): set aside, three in a row stop
+            self.failures += 1
+            self._aside(pass_id, url, "fetch", f"HTTP {f.status}: the server's own error")
+            if self.failures >= STOP_AFTER_FAILURES:
+                raise Stop(f"{self.failures} server errors in a row")
+            return None
         if f.blocked:
             self._aside(pass_id, url, "fetch", f.blocked)
             raise Stop(f.blocked)
@@ -233,6 +234,7 @@ class Run:
         if f.status in fg.REDIRECT_STATUSES and f.location and fg.host_of(f.location) != fg.host_of(url):
             self._aside(pass_id, url, "fetch", f"redirected to {fg.host_of(f.location)}")
             raise Stop("redirected to another host")
+        self.failures = 0
         if f.status != 200:
             self._aside(pass_id, url, "fetch", f"HTTP {f.status}")
             return None
@@ -293,15 +295,14 @@ class Run:
         return {**self.counts, "stopped": self.stopped}
 
 
-def register(positions_dir: str = None):
-    """The register of practitioners: refused while held (Building Act 2004, ss 307 and 308)."""
+def register(positions_dir: str = None) -> str:
+    """The position's authorisation to copy the register of practitioners (ruling 132, 2 November 2026); without
+    the `authorised: register` line, Held: nothing is asked of it (Building Act 2004, ss 307 and 308)."""
     auth = authorisation("register", positions_dir)
     if not auth:
-        raise Held("the register of licensed building practitioners is held: the Building Act 2004, s 307, limits a "
-                   "search to the purposes of s 299 and the position records no authorisation (queue, no default); "
-                   "nothing is asked for")
-    raise NotImplementedError("authorised, but no reading of the register is built: its shape has not been seen. "
-                              "Build its profile from the first authorised page, then its reader")
+        raise Held("the register of licensed building practitioners is held: the position records no "
+                   "`authorised: register` line; nothing is asked for")
+    return auth
 
 
 def landing(conn):
@@ -314,7 +315,7 @@ def landing(conn):
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="registers.building_practitioners.capture")
-    ap.add_argument("--register", action="store_true", help="the practitioner register (held)")
+    ap.add_argument("--register", action="store_true", help="the practitioner register (register.py)")
     ap.add_argument("--anytime", action="store_true", help="outside off-peak (by hand: a proof or a first night)")
     ap.add_argument("--max-pages", type=int, default=1000)
     ap.add_argument("--budget-s", type=float, default=DEFAULT_BUDGET_S)
@@ -322,11 +323,9 @@ def main(argv=None) -> int:
     ap.add_argument("--schema", default=SCHEMA)
     a = ap.parse_args(argv)
     if a.register:
-        try:
-            register()
-        except (Held, NotImplementedError) as exc:
-            print(f"{SOURCE}: {exc}")
-            return 0 if isinstance(exc, Held) else 1
+        from registers.building_practitioners import register as reg
+        return reg.main((["--anytime"] if a.anytime else []) + ["--budget-s", str(a.budget_s), "--database", a.database,
+                                                                "--schema", a.schema])
     from support import db, jobrun
     started = jobrun.now()
     with db.connect(db.OWNER_KEY, a.database, autocommit=True) as conn:

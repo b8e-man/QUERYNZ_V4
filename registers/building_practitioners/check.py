@@ -12,7 +12,12 @@ The source's own count is the Board's: the decisions list's heading,
      aside on a page), or a view shows a suppressed practitioner's name,
      number or decision address, or carries an address column
   4. the register of practitioners has rows while the position records no
-     authorisation (it is held: Building Act 2004, s 307)
+     `authorised: register` line
+  5. the register (ruling 132): no finished pass of its 26 searches; a
+     practitioner's page neither a row nor set aside; more than
+     `AWAITING_MAX` of the practitioners the newest pass lists without their
+     page read (the copy is not yet whole); a town whose shape names an
+     address without its flag
 
 Every line printed is a count.
 
@@ -26,7 +31,10 @@ from registers.building_practitioners import capture
 
 SCHEMA = "building_practitioners"
 SLACK = 2
+AWAITING_MAX = 0.02
 ADDRESSISH = ("address", "street", "postal", "residential", "home", "email", "phone", "suburb", "postcode")
+#: boolean flags that say a text names an address by its shape (ruling 102): a yes or no, never the address
+FLAGS = ("area_names_address",)
 
 
 def reading(conn, schema: str = SCHEMA, shared: bool = False) -> list:
@@ -43,8 +51,39 @@ def reading(conn, schema: str = SCHEMA, shared: bool = False) -> list:
         out.append(f"{typed} decision rows against {said} in the ledger")
     held = conn.execute(f"SELECT count(*) FROM {T('practitioners')}").fetchone()[0]
     if held and not capture.authorisation("register"):
-        out.append(f"{held} practitioner rows while the register is held (Building Act 2004, s 307)")
+        out.append(f"{held} practitioner rows while the position records no authorisation")
+    if conn.execute("SELECT to_regclass(%s)", (T("read_register"),)).fetchone()[0] is None:
+        out.append("no register ledger: the load predates the register's reading")
+        return out
+    led = conn.execute(f"SELECT pages, typed, set_aside, listed, awaiting FROM {T('read_register')}").fetchone()
+    if led is not None:
+        pages, typed, aside, listed, awaiting = led
+        if pages != typed + aside:
+            out.append(f"{pages} practitioner pages against {typed} rows and {aside} set aside")
+        if typed != held:
+            out.append(f"{held} practitioner rows against {typed} in the register's ledger")
+    from registers.building_practitioners import register
+    unflagged = [a for a, f in conn.execute(f"SELECT area, area_names_address FROM {T('practitioners')} "
+                                            "WHERE area IS NOT NULL") if register.names_address(a) and not f]
+    if unflagged:
+        out.append(f"{len(unflagged)} towns shaped as an address without their flag")
     return out
+
+
+def register_outside(conn, schema: str = SCHEMA, shared: bool = False) -> dict:
+    """The register's own count: the practitioners its newest finished pass of searches lists, against those read."""
+    from registers.building_practitioners import load
+    if not capture.authorisation("register"):
+        return {"ok": True, "detail": "not authorised: nothing asked"}
+    led = conn.execute(f"SELECT pass_id, searches, listed, pages, typed, set_aside, awaiting "
+                       f"FROM {load.table(schema, 'read_register', shared)}").fetchone()
+    if led is None or led[0] is None:
+        return {"ok": False, "detail": "no finished pass of the register's searches is read"}
+    pass_id, searches, listed, pages, typed, aside, awaiting = led
+    from registers.building_practitioners.register import QUERIES
+    ok = searches == len(QUERIES) and listed > 0 and awaiting <= AWAITING_MAX * listed
+    return {"ok": ok, "pass_id": pass_id, "searches": searches, "listed": listed, "pages": pages, "typed": typed,
+            "set_aside": aside, "awaiting": awaiting}
 
 
 def views(conn, prefix: str = "pub.") -> list:
@@ -58,7 +97,7 @@ def views(conn, prefix: str = "pub.") -> list:
     for v in ("building_practitioner_decisions", "building_practitioners"):
         cols = [r[0] for r in conn.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = %s "
                                            "AND table_name = %s", (schema or "pub", (stem + v) if stem else v))]
-        extra = [c for c in cols if any(w in c for w in ADDRESSISH)]
+        extra = [c for c in cols if any(w in c for w in ADDRESSISH) and c not in FLAGS]
         if extra:
             out.append(f"{v} carries {', '.join(extra)}")
     return out
@@ -95,9 +134,10 @@ def main(argv=None) -> int:
             print(f"{SCHEMA}: check: nothing published yet (no load has run)")
             return 1
         out = outside(conn)
+        out["register"] = register_outside(conn)
         out["problems"] = reading(conn) + views(conn)
     print(f"{SCHEMA}: check: " + json.dumps(out, default=str))
-    return 0 if out["ok"] and not out["problems"] else 1
+    return 0 if out["ok"] and out["register"]["ok"] and not out["problems"] else 1
 
 
 if __name__ == "__main__":

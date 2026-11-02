@@ -1121,7 +1121,7 @@ VIEWS: tuple[View, ...] = (
          dates=(("decided on", "decided_on"),),
          urls=("decision_url", "pdf_url"),
          names=("name",), suppressed="suppressed",
-         note="the Board's published decisions, shown for three years as the register itself shows them; the practitioner register is held (Building Act s 307)"),
+         note="the Board's published decisions, shown for three years as the register itself shows them; the practitioner register is copied beside them (ruling 132)"),
     # ── the Real Estate Authority's decisions (registers/real_estate_authority; published 2 November 2026): each decision's
     # abstract as the Authority's database prints it, and the licensees and agencies it names ──
     View("rea_decisions", "real_estate_authority", "document", ("citation", "decision"),
@@ -1168,7 +1168,7 @@ VIEWS: tuple[View, ...] = (
          fields=(("licence number", "licence_number"), ("licence classes", "licence_classes"), ("status", "status"),
                  ("area", "area")),
          names=("name",), suppressed="suppressed",
-         note="held: nothing is asked of the practitioner register (Building Act 2004 s 307, s 308); this view is empty until Arthur rules"),
+         note="the register of licensed building practitioners, copied through its own search (ruling 132); the town is shown whole and flagged where its shape names an address (ruling 102)"),
     # ── step 5.3, the held sanctions lists (sanctions-1; catalogued in the merge after their views were published) ──
     View("sanctions_lists", "sanctions", "document", ("name", "version"), key_col="list_id", default_order="list_id",
          search=("name", "publisher"),
@@ -1576,7 +1576,7 @@ REGISTERS = (
     ("tenders", "Government procurement award notices (GETS open data, CC BY 3.0 NZ)"),
     ("sanctions", "Sanctions lists (held on the publishers' terms)"),
     ("limited_partnerships", "Limited partnerships and their general partners"),
-    ("building_practitioners", "Licensed building practitioners: the Board's decisions (the register held)"),
+    ("building_practitioners", "Licensed building practitioners: the register and the Board's decisions"),
     ("linz", "LINZ: land titles, their owners as the owners list names them, and the official place names"),
     ("real_estate_authority", "Real Estate Authority: the decisions of its committees, its Tribunal and the courts on appeal, and the licensees they name"),
     ("courts", "Court judgments of the senior courts, by caption"),

@@ -894,11 +894,23 @@ command = ["python", "-m", "registers.building_practitioners.capture"]
 at_utc = "10:00"
 nice = 10
 
-[jobs.qv4-building-practitioners-load]
-description = "Step 5.3: the Board's decisions from the newest finished pass, built in staging, checked, published only on green. Nightly at 06:40 NZDT (the spec says Monday; see the capture)."
+[jobs.qv4-building-practitioners-register-capture]
+description = "Step 5.3, ruling 132: the register of licensed building practitioners through its own public search, the fetch gate 5 s apart, off-peak: its 26 searches (7 licence classes, 19 areas of practice) weekly, then each listed practitioner's page once and again after 90 days, up to about 4,000 a night until all are held. Stops at 06:00 NZDT (off-peak's end) or on a block."
 needs = "processor"
 memory_gb = 0.3
-deadline_s = 900
+deadline_s = 28800
+query_timeout_s = 60
+class = "due"
+priority = 151
+command = ["python", "-m", "registers.building_practitioners.register"]
+at_utc = "09:05"
+nice = 10
+
+[jobs.qv4-building-practitioners-load]
+description = "Step 5.3: the Board's decisions from the newest finished pass and the register's practitioners from its newest pass of searches and every practitioner's page held, built in staging, checked, published only on green. Nightly at 06:40 NZDT (the spec says Monday; see the capture)."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 1800
 query_timeout_s = 600
 class = "due"
 priority = 56
