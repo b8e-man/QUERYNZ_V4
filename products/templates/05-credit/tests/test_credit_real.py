@@ -46,6 +46,20 @@ def one(sql: str) -> str:
     return got[0]
 
 
+def one_row(sql: str) -> tuple:
+    with sdb.connect(sdb.READ_KEY, "querynz_v4", options="-c statement_timeout=60000", autocommit=True) as conn:
+        got = conn.execute(sql).fetchone()
+    assert got and got[0], sql
+    return tuple(got)
+
+
+def month(file: str) -> str:
+    """companies-2026-08 as the memo says it: the August 2026 file."""
+    import calendar
+    y, m = file.rsplit("-", 2)[1:]
+    return f"the {calendar.month_name[int(m)]} {y} file"
+
+
 def memo(ref: str) -> dict:
     out = subprocess.run([sys.executable, "-m", "products.report", "render", ref, "--template", "credit"], cwd=REPO,
                          capture_output=True, text=True, timeout=120)
@@ -119,9 +133,19 @@ TURNED = """
 def test_a_company_a_later_file_put_into_liquidation_is_a_red_status_change_on_the_real_rows():
     """Read on the real tables (1 November 2026): an earlier state in pub.company_states reaches the report, and a status that
     turned to liquidation between the files is red in status-name-changes and recent-adverse-change and listed in monthly-changes."""
-    m = memo(one(TURNED))
+    ref = one(TURNED)
+    # the earlier state is the one company_states holds for the file before the change, which moves as files load (the October
+    # file, loaded 2 November 2026, made it August's): the month is read from the row, never fixed, and the change is dated to
+    # the next file held
+    was, after = one_row(f"""
+        select s.file, (select min(x.first_file) from pub.companies x where x.first_file > s.file) from pub.company_states s
+        where s.entity_key = '{ref.split(":", 1)[1]}' and s.status ilike 'registered' order by s.file desc limit 1""")
+    m = memo(ref)
     f = m["flags"]
     assert f["status-name-changes"]["status"] == "fired" and f["status-name-changes"]["severity"] == "red", f["status-name-changes"]
-    assert "status changed: Registered in the July 2026 file" in f["status-name-changes"]["text"]
+    assert f"status changed: Registered in {month(was)}, In Liquidation in the latest file held" in f["status-name-changes"]["text"], \
+        f["status-name-changes"]["text"][:400]
+    if after:
+        assert f["status-name-changes"]["text"].split(": ", 1)[1].startswith(f"{month(after)}: "), f["status-name-changes"]["text"][:200]
     assert f["recent-adverse-change"]["status"] == "fired" and f["recent-adverse-change"]["severity"] == "red"
     assert "status changed" in f["monthly-changes"]["text"]

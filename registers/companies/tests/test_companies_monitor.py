@@ -466,21 +466,36 @@ def test_every_monitor_row_keeps_the_row_contract(filled):
 @pytest.mark.slow
 def test_the_real_answers_against_the_real_lane_give_the_sample_s_one_change():
     """The five proved company answers compared with the lane's real tables
-    (querynz_v4): the same one change the sample gives, and no difference
-    made by the monthly file's shape. The real ledger holds no proved
-    answer, so an empty temporary one stands in for it."""
+    (querynz_v4): no difference made by the monthly file's shape, and the
+    sample's one change (9429041764886, In Liquidation to Removed) found
+    against the August 2026 file, the latest file when the answers were
+    proved. The October 2026 file (loaded 2 November 2026) shows that
+    company Removed, as the answer of 21 October does, so the latest rows
+    agree with every answer; a company's status in the August file is its
+    earliest state in pub.company_states from that file on, else its
+    current one. The real ledger holds no proved answer, so an empty
+    temporary one stands in for it."""
+    from dataclasses import replace
     from support.docstore.landing import read_bytes
     if not os.path.exists(os.path.join(db.CRED_DIR, "v4-read.env")):
         pytest.skip("no real database here")
-    out = []
+    out, earlier = [], []
     with db.connect(db.READ_KEY, "querynz_v4") as conn:
         conn.execute("SET statement_timeout = '60s'")
         conn.execute("CREATE TEMP TABLE calls (id bigint, nzbn text, at timestamptz, status int, document text)")
         T = M.Tables("companies", override={"calls": "pg_temp.calls"})
         for n, sha, at in M.PROOF[:5]:
             r = M.read_answer(read_bytes(sha), sha, at)
-            out += [(n, c[0]) for c in M.diff(M.held_state(conn, n, T), M.state_of_answer(r, sha), r)]
-    assert out == [("9429041764886", "status")]
+            held = M.held_state(conn, n, T)
+            assert held is not None and held.source == "monthly", n
+            out += [(n, c[0]) for c in M.diff(held, M.state_of_answer(r, sha), r)]
+            was = conn.execute("SELECT file, status FROM pub.company_states WHERE entity_key = %s AND file >= 'companies-2026-08' "
+                               "ORDER BY file LIMIT 1", ("companies/" + n,)).fetchone()
+            if was:
+                before = replace(held, status=was[1], label=f"the monthly file {was[0]}")
+                earlier += [(n, c[0], c[2], c[3]) for c in M.diff(before, M.state_of_answer(r, sha), r)]
+    assert out == []
+    assert earlier == [("9429041764886", "status", "In Liquidation", "Removed")]
 
 
 # ── the history backfill (Arthur, 1 November 2026) ──────────────────────────────────────────────────────────────
