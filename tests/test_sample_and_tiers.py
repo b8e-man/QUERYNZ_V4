@@ -61,6 +61,13 @@ def test_lists_are_hashes_and_keys_only(tmp_path):
         sample.read_list(str(p))
 
 
+def test_every_sample_list_in_the_repository_has_its_loader_beside_it():
+    """A sample.list with no sample.py stops the shared sample fixture for every lane at once: 118 tests errored in the
+    05:00 full tier on 3 November 2026 (insolvency's and papers_past's key-only lists). Caught here, at the merge."""
+    missing = [m for m, _ in sample.lists(REPO) if not os.path.isfile(os.path.join(REPO, m, "sample.py"))]
+    assert missing == []
+
+
 def test_fill_schema_runs_every_modules_own_code(monkeypatch, tmp_path):
     d = toy_repo()
     monkeypatch.setattr(sample, "WORK", str(tmp_path))
