@@ -1,0 +1,9 @@
+[Unit]
+Description=QueryNZV4 model server watchdog — restarts qv4-radiance when it holds requests and makes no token for ten minutes (support/scheduler/watchdog.py)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/user/querynzv4-release
+ExecStart=/home/user/querynzv4-release/.venv/bin/python -m support.scheduler.watchdog
+Environment=PYTHONUNBUFFERED=1
+TimeoutStartSec=900

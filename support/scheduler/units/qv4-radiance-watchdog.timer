@@ -1,0 +1,10 @@
+[Unit]
+Description=QueryNZV4 model server watchdog, every two minutes
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=2min
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target
