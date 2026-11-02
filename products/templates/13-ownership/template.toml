@@ -6,9 +6,10 @@
 # rules are in rules.py; its known limits in limits.md.
 #
 # The domestic half: the companies register's holders of record and
-# directors, the Gazette, the House and political money. Sanctions lists,
-# limited partnerships, overseas registers, trusts and the securities
-# register are not held; every check that needs one is blocked, never clear.
+# directors, the Gazette, the House and political money. The sanctions lists
+# are copied (ruling 132) and not yet read by the report; a partnership's
+# limited partners, overseas registers, trusts and the securities register
+# are not held; every check that needs one is blocked, never clear.
 name = "ownership"
 title = "Beneficial ownership and AML checks, domestic half"
 version = "0.1"
@@ -30,7 +31,7 @@ limits = [
   "The chain is followed two companies up from the first hop: a company holder by its business number where the file carries one (confirmed), otherwise by a name only one company in the register carries (near). A holder whose name several companies carry, or none (an overseas company, a trust, a body of another kind), is named and not followed; past two up the chain says it goes on. Every check that needs the people above the chain the registers reach is blocked, never clear. The depth limit is four hops.",
   "On each company above in the chain its holders of record, its current directors and the Gazette notices on it are listed with that company's grade: they are the holder's, not the entity's, and no check counts them as the entity's own. A charitable trust board holding shares of record is followed as a company; its charity's trustees are read only from a report started from it.",
   "A holder of record is the name on the share register and nothing more. For whom a nominee, trustee or custodian holds the shares is in no register held, and New Zealand keeps no register of trusts, nor of the people shares are held for.",
-  "Sanctions lists (Foreign Affairs, the United Nations, the Police designations) are not held: the exposure check has no list to read and is blocked, never clear.",
+  "Sanctions lists (Foreign Affairs' Russia list, the United Nations consolidated list, the Police designations) are copied by ruling 132 (2 November 2026) into pub.sanctions_lists and pub.sanctions_listings, first loaded 4 November 2026. A listing reaches the report only where a name on it is put beside a listing, and is then the same name and nothing more. The exposure check is blocked, never clear: a list not yet loaded and a list with no name in common read the same.",
   "A limited partnership started from shows its general partners as the register states them; its limited partners are not public. A holder of record that is a limited partnership is named as filed and its partners are not followed from the chain. Overseas registers and the Personal Property Securities Register are not held: a holder that is an overseas company is named as filed and not followed.",
   "The shares on a holder's row are the shares filed for that holding. A parcel held jointly is filed once per holder with the same number of shares, and no row says which rows share a parcel or how many shares the company has issued, so no fraction is computed and none is carried up the chain.",
   "A holding is dated only by the monthly files it was seen in (from July 2026); the register's own allocation dates are not published.",
@@ -274,5 +275,5 @@ text = "A party to a judgment the courts corpus holds, as the judgment's heading
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["sanctions", "securities", "insolvency", "court_coverage", "fsp", "linz"]
-text = "Registers an anti-money-laundering check would read that no lane has published: the sanctions lists (the Russia Sanctions Act list kept by Foreign Affairs, the United Nations consolidated list, the Police designations under the Terrorism Suppression Act), a partnership's limited partners (the register publishes its general partners), overseas company registers and an overseas holder's own holders, trusts and their trustees, settlors and the people they hold for (New Zealand keeps no register of trusts, nor of the people shares are held for), the Personal Property Securities Register, the Insolvency Register, court judgments, financial service providers and land titles. Nothing in this report says anything about them; ask the source."
+not_held = ["securities", "insolvency", "court_coverage", "fsp", "linz"]
+text = "Registers an anti-money-laundering check would read that this report does not: the sanctions lists (the Russia Sanctions Act list kept by Foreign Affairs, the United Nations consolidated list, the Police designations under the Terrorism Suppression Act), copied by ruling 132 and not yet read here, and, published by no lane, a partnership's limited partners (the register publishes its general partners), overseas company registers and an overseas holder's own holders, trusts and their trustees, settlors and the people they hold for (New Zealand keeps no register of trusts, nor of the people shares are held for), the Personal Property Securities Register, the Insolvency Register, court judgments, financial service providers and land titles. Nothing in this report says anything about them; ask the source."

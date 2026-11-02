@@ -43,7 +43,7 @@ def memo(ref: str) -> dict:
             flags[m.group(3)] = {"status": m.group(1).lower(), "severity": m.group(2), "text": m.group(4)}
     for name in COMMON:
         assert len(re.findall(rf"^  (?:FIRED|CLEAR|BLOCKED)\s+\w+\s+{name}@", text, re.M)) == 1, name
-    assert flags["sanctions-lists"]["status"] == "blocked" and "not held: Sanctions lists" in text
+    assert flags["sanctions-lists"]["status"] == "blocked" and "not held: Sanctions lists" not in text and "ruling 132" in flags["sanctions-lists"]["text"]
     assert flags["ultimate-holders"]["status"] == "blocked"
     return {"text": text, "flags": flags}
 
