@@ -254,7 +254,9 @@ person's name (617036e). The board's outside check is green. The 1 November card
   row 1163). Two lobbying scans: meetings to GETS suppliers, 26,958 lines (run 570, 0 problems). Their first runs were
   red for applying hard limit 15: the outside check counted the address flags filtered to false as address reads; it no
   longer does, and a flag filtered to true or carried as a column is still refused (test, two mutants caught). The
-  donors scan (45 lines on its first run) now hits the 10-minute statement limit; being measured.
+  donors scan then hit the 10-minute statement limit: its named cursor planned for the first tenth of the rows and took a
+  fast-start plan; the reader now plans for the whole result (2eb3804), 45 lines in 18 s (run 577). products.scan check:
+  0 problems over 13 scans.
 - 8.6 (e641666, 453ff4c): the search-only rule live with its test; batch 1 9,031 of 10,000 landed in staging. Arthur
   (2 November): "use the 4tb HDD": the text goes as compressed files on /mnt/hdd2 with the catalogue only in the
   database (option 1); the 1-million sample spread over the dump comes first. In build.
