@@ -335,3 +335,5 @@ Tracks, each a fix session in its own worktree, merged and released by the integ
 
 The integrator's own: merges and releases; the alarm channel (ntfy.sh's free daily quota is spent, nothing has reached
 Arthur since 1 November 08:45: his decision); the owner login's 20-connection limit (a superuser's change).
+- Arthur, 3 November: the alarm channel is left for now. Alarms stay in `live/checks/alarms.jsonl`, and the morning
+  report lists the unsent ones.
