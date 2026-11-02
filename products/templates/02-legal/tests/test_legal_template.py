@@ -98,8 +98,9 @@ def test_it_names_each_view_once_with_its_licence_and_fewer_than_the_shape():
     assert set(views) < shape, "a use-case template names fewer views than the shape's"
     assert "gazette_practitioners" not in views, "no link reaches it: reading it would print a blank that is not a clear"
     # the Gazette's appointments are looked up by name since 2 November 2026 (walk.NAME_JOIN_TO): near, a namesake's until confirmed
-    from products.report import walk
-    assert "gazette_appointments" in views and "gazette_appointments" in {v for v, *_ in walk.NAME_JOIN_TO}
+    walk_src = open(os.path.join(REPO, "products", "report", "walk.py"), encoding="utf-8").read()   # read by path: imports run one way
+    join_to = walk_src[walk_src.index("NAME_JOIN_TO = "):].split("\n\n", 1)[0]
+    assert "gazette_appointments" in views and '"gazette_appointments"' in join_to
     assert "gazette_liquidators" in views, "a liquidator's row is joined to a director's by the link rules: a practitioner's own appointments"
 
 

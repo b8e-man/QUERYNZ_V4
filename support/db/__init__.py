@@ -79,6 +79,7 @@ LANES = (
     "beehive",   # ruling 96, the Beehive's releases from the ingest MCP and the old estate's pages (mcp-1, 27 October 2026)
     "ministers_diaries",   # step 6.2, the ministers' diaries from the MCP's parliament-diaries corpus (diaries-2, 27 October 2026)
     "parliament",   # ruling 96, the MCP's seven parliament corpora (parliament-1, 27 October 2026)
+    "insolvency",   # step 8.4, the Insolvency Register API, its terms held in code (insolvency fork, 2 November 2026)
 )
 PRODUCTS = ("ftm", "subject_report", "register_scan", "archive_search", "board")
 FIXED = ("pub", "links", "links_private", "docs", "sealed", "scheduler",

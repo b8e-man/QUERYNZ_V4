@@ -1,0 +1,3 @@
+# registers/insolvency/sample.list: hashes and key: lines only. The lane (2 November 2026) is tested on fakes built from the
+# API definition's own examples; hashes of real answers are added when a test needs the real bytes.
+key: insolvency fixtures-only
