@@ -167,3 +167,37 @@ def test_a_build_lands_a_catalogue_with_no_text_and_its_text_reads_back_from_the
     assert [store.text(sdir, p.file, p.frame_at, p.frame_bytes, p.at, p.bytes, p.sha256) for k, p in sorted(places.items())] \
         == ["first text", "third text"]
     assert r.finish().stages[-1] == ("landed", 2, 2, 0)
+
+
+def test_a_mapped_file_s_pages_are_file_pss_and_not_anon():
+    """The whole-archive index was stopped twice (rows 1208, 1209, 3 November 2026) on Pss grown from tantivy's mapped
+    segment files during merges, while its anonymous memory stayed under 2.8 GB: memory_mb must tell the two apart."""
+    import mmap
+    import tempfile
+
+    from registers.papers_past import index
+    if not os.path.exists("/proc/self/smaps_rollup") or not os.path.isdir(store.ROOT):
+        pytest.skip("no smaps_rollup or no index disk here (a tmpfs file's pages are shmem, not file)")
+    d = tempfile.mkdtemp(prefix="test-mapped-", dir=store.ROOT)
+    f = os.path.join(d, "segment")
+    try:
+        with open(f, "wb") as fh:
+            fh.write(b"x" * (64 << 20))
+        before = index.memory_mb()
+        with open(f, "rb") as fh, mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ) as m:
+            total = sum(m[i] for i in range(0, len(m), 4096))
+            during = index.memory_mb()
+    finally:
+        if os.path.exists(f):
+            os.remove(f)
+        os.rmdir(d)
+    assert total == ord("x") * (64 << 20) // 4096
+    assert during["Pss_File"] - before["Pss_File"] >= 48, (before, during)
+    assert during["Pss_Anon"] - before["Pss_Anon"] < 16, (before, during)
+
+
+def test_the_index_job_declares_at_least_its_measured_anonymous_peak():
+    import tomllib
+    with open(os.path.join(os.path.dirname(__file__), "..", "..", "..", "support", "scheduler", "jobs.toml"), "rb") as fh:
+        job = tomllib.load(fh)["jobs"]["qv4-papers-past-index"]
+    assert job["memory_gb"] * 1024 >= 2_788 * 1.25, "the 3 November 2026 measurement: Pss_Anon peaked at 2,788 MB"

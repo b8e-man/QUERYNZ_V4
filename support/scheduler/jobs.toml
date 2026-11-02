@@ -1849,7 +1849,7 @@ then = ["qv4-papers-past-index"]
 [jobs.qv4-papers-past-index]
 description = "The Papers Past keyword index (tantivy, Arthur 2 November 2026): every catalogued item of staging_papers_past streamed from the store's files, frame by frame, into a tantivy index in the store's index/ folder on /mnt/hdd2, built beside the old one and moved into place whole; tantivy's heap capped at 1.5 GB over 2 threads; fails unless the index holds every catalogued item. Queued by qv4-papers-past-ingest."
 needs = "processor"
-memory_gb = 3.0
+memory_gb = 4.0   # measured 3 November 2026: Pss_Anon peak 2,788 MB over 8.18M documents (st1m x 8, 1.5 GB heap, 2 threads); merges add up to 3 GB of clean Pss_File there and 6+ GB on the whole archive (mapped segment files, reclaimable), which this figure does not cover: it holds once the runner judges Pss minus Pss_File
 deadline_s = 43200   # 956,344 items in 142 s on 2 threads (sample, 2 November 2026): about 3.6 hours for the whole archive
 query_timeout_s = 3600
 class = "whenever"

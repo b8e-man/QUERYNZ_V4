@@ -106,6 +106,24 @@ def fts5(docs, path: str) -> dict:
             "items": n, "bytes": _size(path), "build seconds": built, "queries": queries}
 
 
+def memory_mb(pid: str = "self") -> dict:
+    """The process's memory in MB, split as /proc/<pid>/smaps_rollup splits it: Pss (what the scheduler's worker
+    reads), Pss_Anon (the heap: what the build holds) and Pss_File (pages of the index's own segment files that tantivy
+    maps to read them while it merges: clean page cache, given back to the kernel on demand). Measured 3 November 2026
+    on 8 passes of the 1M streamed catalogue: Pss_Anon stays at 1.1-2.5 GB with the 1.5 GB heap, while Pss_File rises
+    with every merge to the size of the segments merged; on the whole archive that is what grew to 9.6 GB."""
+    out = {}
+    try:
+        with open(f"/proc/{pid}/smaps_rollup", encoding="utf-8") as f:
+            for line in f:
+                k, _, v = line.partition(":")
+                if k in ("Pss", "Pss_Anon", "Pss_File", "Pss_Shmem"):
+                    out[k] = int(v.split()[0]) // 1024
+    except OSError:
+        pass
+    return out
+
+
 HEAP = 1_500_000_000        # tantivy's indexing memory, across its threads
 THREADS = 2
 COMMIT_EVERY = 5_000_000    # documents between commits: each commit closes segments and frees the heap
@@ -134,7 +152,9 @@ def tantivy_index(docs, path: str, threads: int = THREADS, heap: int = HEAP, com
         if n % commit_every == 0:
             w.commit()
             if log:
-                log(f"papers_past index: {n} documents committed, {round(time.monotonic() - t0)} s")
+                m = memory_mb()
+                log(f"papers_past index: {n} documents committed, {round(time.monotonic() - t0)} s, memory MB "
+                    f"pss {m.get('Pss')} anon {m.get('Pss_Anon')} file {m.get('Pss_File')}")
     w.commit()
     w.wait_merging_threads()
     built = round(time.monotonic() - t0)
