@@ -271,3 +271,20 @@ person's name (617036e). The board's outside check is green. The 1 November card
   reader. qv4-council-minutes-read queued as row 1170 (745 pieces, about 1.75 h).
 - The model server stalled at 15:48 in a driver wait (11 requests held, readers timing out at 900 s); restarted 16:21,
   answering again.
+
+## 26. Evening of 2 November: Arthur's answers, and the gaps
+
+- Rulings 132 to 135 (03592ab): the building practitioners register and the sanctions lists copied; HDC and OpenLaw
+  stay carded; GETS awards stay carded; the PPSR account requested; keys rotate once the lanes are set up.
+- Building practitioners (2d397c7, merged 790eeec): the hold lifted; the register enumerated by its own 26 option
+  searches (26,978 current practitioners); each practitioner's page once, then every 90 days, 5 s apart, off-peak:
+  qv4-building-practitioners-register-capture nightly from 22:05, about 4,000 pages a night, six nights. A new card: the
+  page's five sub-tables load by POST, which the fetch gate does not do, and lapsed practitioners are not listed.
+- Council minutes gaps (499ffaf, merged 05e9d73): no scans among the 616 minutes held; the page-reader route is built
+  for the first; the 347 the old estate read are fetched once from the councils at tonight's capture.
+- Diary attendees (bd982f9, merged eb712d7, published by row 1173): pub.minister_diary_attendees, 287,599 rows from
+  191,597 entries, 46 set aside for unbalanced brackets, every split rejoins its text. Two scans start from them:
+  lobbying-attendees-suppliers 31,969 lines and lobbying-attendees-donors 118 (5,631 entries reach a company that the
+  whole-text join does not). On the board (c549cb9). products.scan check: 0 problems over 15 scans.
+- The Papers Past ingest (row 1169) waited because the worker, started on 1 November, did not know `gzip` and `ionice`;
+  the worker was restarted after the diaries load and the ingest leased.

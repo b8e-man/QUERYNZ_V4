@@ -23,8 +23,9 @@ model reading on node2 alone (ruling 128). **Alarms:** the old ntfy address.
 
 ## Running
 
-- Step 8 (report §25): all seven parts merged. Papers Past ingest row
-  1169 (about 7.5 h, then tantivy); council minutes row 1170; LINZ 22:30.
+- Step 8 (report §25, §26): all merged. Papers Past ingest row 1169
+  running; council minutes row 1170; tonight LINZ 22:30, building
+  practitioners 22:05, minutes capture 22:15; sanctions in build.
 - The bulk ingest of the MCP (ruling 130): the beehive, hansard,
   parliament and courts readers; `qv4-councillor-interests-read`.
 
