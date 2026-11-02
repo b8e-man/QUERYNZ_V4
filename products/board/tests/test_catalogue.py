@@ -31,7 +31,7 @@ PUBLISHED_AT_20_OCTOBER = {
     "rea_decisions", "rea_parties",   # real-estate-authority (2 November 2026)
     "company_insolvencies", "retirement_villages", "gazette_board_interventions", "linz_titles", "linz_title_owners", "linz_place_names",   # the companies lane's October 2026 package (2 November 2026)
     "name_sightings",   # the links lane's deterministic name pass (31 October), on the board 2 November 2026 (Arthur: "put it on the board")
-    "minister_diary_releases", "minister_diary_entries",   # diaries-2 (27 October, rulings 96, 102), catalogued at fix-products-board-2, which carries it
+    "minister_diary_releases", "minister_diary_entries", "minister_diary_attendees",   # diaries-2 (27 October, rulings 96, 102), catalogued at fix-products-board-2, which carries it
     "parliament_written_questions", "parliament_api_items", "parliament_wayback_pages",   # parliament-1 (27 October, rulings 96, 101, 102), the same
     "candidate_return_totals", "candidate_return_donors",   # candidate-returns-1 (20 October)   # pub.* on 20 October 2026; the outside check compares with the live list
     "broadcasting_allocations", "candidates", "companies", "company_addresses", "company_states", "directors",

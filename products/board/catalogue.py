@@ -897,6 +897,23 @@ VIEWS: tuple[View, ...] = (
          no_url="file name only: no address served",
          note=DIARY_NOTE + ". A withheld field shows the release's own words. The board shows the meeting, attendees and "
               "location whole (ruling 102); a product keeps a flagged one off its own surface (hard limit 15)",
+         joins=(Join("Attendees", "minister_diary_attendees", "entry", order="position"),),
+         default_order="entry_on"),
+    # one row per attendee of an entry, split by rules (registers/ministers_diaries/attendees.py, 2 November 2026)
+    View("minister_diary_attendees", "ministers_diaries", "event", ("attendee", "entry_on"),
+         search=("attendee", "organisation", "minister"),
+         fields=(("position in the list", "position"), ("kind", "kind"), ("organisation part", "organisation"),
+                 ("the Crown's", "crown"), ("minister, as released", "minister"), ("portfolio, as released", "portfolio"),
+                 ("time, as released", "time")),
+         dates=(("day", "entry_on"),), urls=("citation_url",),
+         parent=("Entry", "minister_diary_entries", "entry"),
+         flags=(("attendee", "attendees_names_address", "street address in the attendees"),
+                ("attendee", "meeting_names_address", "street address in the meeting"),
+                ("attendee", "location_names_home", "the entry's location names a home"),
+                ("attendee", "location_street_only", "the entry's location is a street address, no place of business named")),
+         no_url="file name only: no address served",
+         note=DIARY_NOTE + ". One line per attendee, split from the entry's attendees by rules; the entry's address flags "
+              "are carried down, and a product keeps a flagged one off its own surface (hard limit 15)",
          default_order="entry_on"),
     # ── mp_interests (copied from published files; pane.md: mp_interests) ──
     View("mp_interest_returns", "mp_interests", "person", ("name", "as_at"),
