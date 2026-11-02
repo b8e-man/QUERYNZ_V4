@@ -5,6 +5,7 @@ A Papers Past item is its article: the id the URL carries (`/newspapers/EP190407
 whole text are kept as the dump holds them; nothing is read out of the text: no person, no claim, no name (hard limit 17).
 
     read(rows, batch, document, held=set())  -> Read(items, stages, catches)
+    Reading(batch, document).take(row) ... .finish()    the same, one row at a time
 
 Stages, in order: `in` (the rows the capture took), `article id` (the URL is a Papers Past article id), `text` (the dump
 holds text for it; the archive's own MIGRATION_ERROR rows hold none), `once` (one item per article id), `landed`.
@@ -38,55 +39,62 @@ def article_of(url: str):
     return f"{paper}{ymd}{rest}", paper, on
 
 
-def read(rows, batch: int, document: str, held=frozenset()) -> Read:
-    out = Read()
-    seen_reason = set()
+class Reading:
+    """The stages applied one row at a time, so a batch of a million is never held whole: `take(row)` returns the item
+    or None (set aside, with its catch); `finish()` closes the stage counts and checks the batch reconciles."""
 
-    def aside(stage, r, reason):
+    def __init__(self, batch: int, document: str, held=frozenset(), keep_text: bool = True):
+        self.batch, self.document, self.held, self.keep_text = batch, document, held, keep_text
+        self.out = Read()
+        self.n = {"in": 0, "article id": 0, "text": 0, "once": 0}
+        self.keys, self._seen = set(), set()
+
+    def _aside(self, stage, r, reason):
         example = None
-        if (stage, reason) not in seen_reason:      # the first failing example of each reason, kept whole
-            seen_reason.add((stage, reason))
+        if (stage, reason) not in self._seen:          # the first failing example of each reason, kept whole
+            self._seen.add((stage, reason))
             example = {k: v for k, v in r.items() if not k.startswith("_")}
-        out.catches.append((stage, str(r.get("id")), f"scraper_results line {r['_line']}", reason, example))
+        self.out.catches.append((stage, str(r.get("id")), f"scraper_results line {r['_line']}", reason, example))
 
-    rows = list(rows)
-    n_in = len(rows)
-    out.stages.append(("in", n_in, n_in, 0))
-
-    stage, keep = "article id", []
-    for r in rows:
+    def take(self, r):
+        self.n["in"] += 1
         a = article_of(r.get("news_url"))
         if a is None:
-            aside(stage, r, "the URL is not a Papers Past article id")
-        else:
-            keep.append((r, a))
-    out.stages.append((stage, n_in, len(keep), n_in - len(keep)))
-
-    stage, before, kept = "text", len(keep), []
-    for r, a in keep:
+            return self._aside("article id", r, "the URL is not a Papers Past article id")
+        self.n["article id"] += 1
         if not (r.get("text_content") or "").strip():
-            aside(stage, r, f"the archive holds no text for it ({r.get('pipeline_status') or 'no status'})")
-        else:
-            kept.append((r, a))
-    out.stages.append((stage, before, len(kept), before - len(kept)))
-
-    stage, before, once, keys = "once", len(kept), [], set()
-    for r, a in kept:
-        if a[0] in keys:
-            aside(stage, r, "a second row for an article already taken in this batch")
-        else:
-            keys.add(a[0])
-            once.append((r, a))
-    out.stages.append((stage, before, len(once), before - len(once)))
-
-    for r, (key, paper, on) in once:
+            return self._aside("text", r, f"the archive holds no text for it ({r.get('pipeline_status') or 'no status'})")
+        self.n["text"] += 1
+        key, paper, on = a
+        if key in self.keys:
+            return self._aside("once", r, "a second row for an article already taken in this batch")
+        self.keys.add(key)
+        self.n["once"] += 1
         text = r["text_content"]
-        out.items.append({"key": key, "paper": paper, "published_on": on, "title": r.get("title"), "text": text,
-                          "chars": len(text), "url": r["news_url"], "upstream_id": int(r["id"]),
-                          "held_in_old": int(r["id"]) in held, "batch": batch, "document": document,
-                          "place": f"scraper_results line {r['_line']}", "reader": READER})
-    out.stages.append(("landed", len(once), len(out.items), 0))
-    set_aside = sum(s[3] for s in out.stages)
-    if n_in != len(out.items) + set_aside:
-        raise RuntimeError(f"batch {batch} does not reconcile: {n_in} in, {len(out.items)} landed, {set_aside} set aside")
-    return out
+        it = {"key": key, "paper": paper, "published_on": on, "title": r.get("title"), "text": text,
+              "chars": len(text), "url": r["news_url"], "upstream_id": int(r["id"]),
+              "held_in_old": int(r["id"]) in self.held, "batch": self.batch, "document": self.document,
+              "place": f"scraper_results line {r['_line']}", "line": r["_line"], "reader": READER}
+        if self.keep_text:
+            self.out.items.append(it)
+        return it
+
+    def finish(self) -> Read:
+        n = self.n
+        self.out.stages = [("in", n["in"], n["in"], 0),
+                           ("article id", n["in"], n["article id"], n["in"] - n["article id"]),
+                           ("text", n["article id"], n["text"], n["article id"] - n["text"]),
+                           ("once", n["text"], n["once"], n["text"] - n["once"]),
+                           ("landed", n["once"], n["once"], 0)]
+        set_aside = sum(s[3] for s in self.out.stages)
+        if n["in"] != n["once"] + set_aside or len(self.out.catches) != set_aside:
+            raise RuntimeError(f"batch {self.batch} does not reconcile: {n['in']} in, {n['once']} landed, "
+                               f"{set_aside} set aside, {len(self.out.catches)} catches")
+        return self.out
+
+
+def read(rows, batch: int, document: str, held=frozenset()) -> Read:
+    r = Reading(batch, document, held)
+    for row in rows:
+        r.take(row)
+    return r.finish()
