@@ -1,0 +1,3 @@
+# registers/linz/sample.list: hashes and key: lines only. The reading is tested on fake WFS pages
+# (tests/test_linz.py); no owner's row goes into the sample.
+key: linz fakes-only
