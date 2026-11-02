@@ -262,5 +262,12 @@ person's name (617036e). The board's outside check is green. The 1 November card
   database (option 1); built (2af5315, merged 5b61ce7). The 1-million sample (every 90th row, 1840 to 2001, 188 papers):
   956,344 landed, 1,046 disk bytes and 255 catalogue bytes an item; 4.4% have no text, so about 86.7 M land: 91 GB of
   files on /mnt/hdd2 and 22 GB of catalogue. Keyword index sized on the sample: tantivy 92 GB, 0.03 to 4 ms warm;
-  SQLite FTS5 153 GB, 2 to 105 ms; equal hit counts. Full run and engine not yet started or chosen.
-- 8.7 council minutes: in build.
+  SQLite FTS5 153 GB, 2 to 105 ms; equal hit counts. Arthur: "for papers past use tantivity and go". The load now
+  streams, committing every 1 M rows with a resumable checkpoint (43d30c5; peak 0.95 GB, about 7.5 h for the dump, then
+  the tantivy index 1.7 to 3.5 h, about 95 GB). qv4-papers-past-ingest queued as row 1169, into staging; published after
+  the outside check on the whole.
+- 8.7 council minutes (b304e41, 80cf246, merged 8454484): two profiles (the standard template, 175 documents, read by
+  rules; other text layouts, 403, by the text reader); public-excluded sections and the public forum cut before any
+  reader. qv4-council-minutes-read queued as row 1170 (745 pieces, about 1.75 h).
+- The model server stalled at 15:48 in a driver wait (11 requests held, readers timing out at 900 s); restarted 16:21,
+  answering again.
