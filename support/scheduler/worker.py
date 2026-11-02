@@ -538,7 +538,7 @@ class Worker:
 
         res = runner.run(self._argv(jt.command, [piece["key"]] if piece else []), deadline_s=jt.needs.deadline_s,
                          ceiling_mb=runner.ceiling_for(r.memory_gb), query_timeout_s=jt.needs.query_timeout_s,
-                         env=self._env(r, run_id, piece, card), cwd=REPO, tick=tick, log=self.log, nice=jt.nice)
+                         env=self._env(r, run_id, piece, card), cwd=REPO, tick=tick, log=self.log, nice=jt.nice, memory_counts=jt.memory_counts)
         self._end_run(conn, r, res, run_id, working_mb)
         return res
 
@@ -610,7 +610,7 @@ class Worker:
         def go():
             res = runner.run(argv, deadline_s=jt.needs.deadline_s, ceiling_mb=runner.ceiling_for(r.memory_gb),
                              query_timeout_s=jt.needs.query_timeout_s, env=env, cwd=REPO,
-                             tick=lambda: not (self.stopping or r.lost), log=self.log, nice=jt.nice)
+                             tick=lambda: not (self.stopping or r.lost), log=self.log, nice=jt.nice, memory_counts=jt.memory_counts)
             if c is not None:
                 with self.lock:
                     self.card_pieces[c] = max(0, self.card_pieces.get(c, 0) - 1)

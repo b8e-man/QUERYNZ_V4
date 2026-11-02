@@ -37,6 +37,42 @@ def test_a_job_past_its_memory_ceiling_is_stopped_and_its_peak_kept():
     assert r.seconds < 10
 
 
+MAP = ("import mmap, time; f = open({path!r}, 'rb'); m = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ); "
+       "n = sum(m[i] for i in range(0, len(m), 4096)); time.sleep(6)")
+
+
+@pytest.fixture
+def disk_dir():
+    """A folder on a real disk: /tmp is tmpfs here, whose pages count as Pss_Shmem, not as a mapped file."""
+    import shutil, tempfile
+    d = tempfile.mkdtemp(dir="/var/tmp")
+    yield d
+    shutil.rmtree(d, ignore_errors=True)
+
+
+def _big_file(folder, mb=300):
+    p = f"{folder}/mapped.bin"
+    with open(p, "wb") as f:
+        f.write(b"\1" * (mb * 1024 * 1024))
+    return p
+
+
+def test_a_mapped_file_counts_under_pss_and_not_under_anon(disk_dir):
+    """3 November 2026: the Papers Past index was stopped for tantivy's mapped segment files, clean pages the kernel can
+    take back. A job declared memory_counts = "anon" is judged on its own memory; every other job as before."""
+    path = _big_file(disk_dir)
+    r = runner.run(py(MAP.format(path=path)), deadline_s=30, ceiling_mb=100, grace_s=2)
+    assert r.stopped_for == "memory"
+    r = runner.run(py(MAP.format(path=path)), deadline_s=30, ceiling_mb=100, grace_s=2, memory_counts="anon")
+    assert r.stopped_for is None and r.outcome == "ok" and r.peak_mb < 100
+
+
+def test_anon_still_stops_a_job_whose_own_memory_outgrows_its_ceiling():
+    r = runner.run(py("x = bytearray(300 * 1024 * 1024); x[::4096] = b'1' * len(x[::4096]); import time; time.sleep(10)"),
+                   deadline_s=30, ceiling_mb=100, grace_s=2, memory_counts="anon")
+    assert r.stopped_for == "memory"
+
+
 def test_a_job_past_its_deadline_is_stopped():
     r = runner.run(py("import time; time.sleep(30)"), deadline_s=1.0, ceiling_mb=None, grace_s=2)
     assert r.stopped_for == "deadline" and r.code == -15 and r.seconds < 5

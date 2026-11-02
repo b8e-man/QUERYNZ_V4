@@ -147,6 +147,11 @@ class JobType:
     pieces_command: tuple[str, ...] = ()
     then: tuple[str, ...] = ()
     threads: int = 1
+    # `memory_counts`: what the ceiling is judged on. "pss" (the default): every page, file-mapped included. "anon":
+    # Pss_Anon + Pss_Shmem only, for a job that maps big files it only reads (the Papers Past index's tantivy merges,
+    # 3 November 2026: 2.8 GB anonymous, up to 3 GB more of clean mapped index pages the kernel can take back). Never
+    # for a job that maps a model into host memory.
+    memory_counts: str = "pss"
 
     @property
     def name(self) -> str:
@@ -274,8 +279,15 @@ def load(path: pathlib.Path | None = None) -> dict[str, JobType]:
             item_seconds=None if b.get("item_seconds") is None else float(b["item_seconds"]),
             enabled=bool(b.get("enabled", True)),
             pieces_command=tuple([pcmd] if isinstance(pcmd, str) else pcmd),
-            then=tuple([then] if isinstance(then, str) else then), threads=int(b.get("threads", 1)))
+            then=tuple([then] if isinstance(then, str) else then), threads=int(b.get("threads", 1)),
+            memory_counts=_memory_counts(name, b.get("memory_counts", "pss")))
     return out
+
+
+def _memory_counts(name: str, v) -> str:
+    if v not in ("pss", "anon"):
+        raise ValueError(f"{name}: memory_counts is 'pss' or 'anon', not {v!r}")
+    return v
 
 
 def queueing(path: pathlib.Path | None = None) -> Queueing:

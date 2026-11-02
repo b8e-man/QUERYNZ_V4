@@ -47,16 +47,20 @@ class Result:
     run_id: str | None = None        # set by the worker once the run is recorded
 
 
-def pss_mb(pid: int) -> int:
-    """Proportional set size of one process in MB; 0 when it is gone."""
+def pss_mb(pid: int, counts: str = "pss") -> int:
+    """Proportional set size of one process in MB; 0 when it is gone. counts="anon": Pss_Anon + Pss_Shmem only, the
+    file-mapped pages left out (a job declared memory_counts = "anon" in jobs.toml)."""
+    keys = ("Pss",) if counts == "pss" else ("Pss_Anon", "Pss_Shmem")
+    kb = 0
     try:
         with open(f"/proc/{pid}/smaps_rollup", encoding="utf-8") as f:
             for line in f:
-                if line.startswith("Pss:"):
-                    return int(line.split()[1]) // 1024
-    except OSError:
+                k, _, v = line.partition(":")
+                if k in keys:
+                    kb += int(v.split()[0])
+    except (OSError, ValueError, IndexError):
         return 0
-    return 0
+    return kb // 1024
 
 
 def descendants(pid: int) -> list[int]:
@@ -79,8 +83,8 @@ def descendants(pid: int) -> list[int]:
     return out
 
 
-def tree_mb(pid: int) -> int:
-    return pss_mb(pid) + sum(pss_mb(k) for k in descendants(pid))
+def tree_mb(pid: int, counts: str = "pss") -> int:
+    return pss_mb(pid, counts) + sum(pss_mb(k, counts) for k in descendants(pid))
 
 
 def _stop(child: subprocess.Popen, grace: float = KILL_GRACE_S) -> None:
@@ -106,7 +110,7 @@ def _stop(child: subprocess.Popen, grace: float = KILL_GRACE_S) -> None:
 
 def run(argv: list[str], *, deadline_s: float, ceiling_mb: int | None, query_timeout_s: int | None = None,
         env: dict | None = None, cwd: str | None = None, tick=None, popen=None, poll_s: float = POLL_S,
-        grace_s: float = KILL_GRACE_S, log=None, nice: int = 0) -> Result:
+        grace_s: float = KILL_GRACE_S, log=None, nice: int = 0, memory_counts: str = "pss") -> Result:
     """Run `argv` under the limits. `tick()` is called every poll and may
     return False to stop the child (the lease was lost, the worker is
     stopping)."""
@@ -130,7 +134,7 @@ def run(argv: list[str], *, deadline_s: float, ceiling_mb: int | None, query_tim
             break
         except subprocess.TimeoutExpired:
             pass
-        now_mb = tree_mb(child.pid)
+        now_mb = tree_mb(child.pid, memory_counts)
         peak = max(peak, now_mb)
         elapsed = time.monotonic() - t0
         if ceiling_mb is not None and now_mb > ceiling_mb:

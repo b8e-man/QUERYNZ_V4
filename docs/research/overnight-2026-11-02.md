@@ -354,3 +354,10 @@ Arthur since 1 November 08:45: his decision); the owner login's 20-connection li
   2 s floor; a practitioner's pane opened in 2.06 s. Template 13's sanctions rule says which state applies and is never
   clear. Owed: products/report's catalogue does not know the two sanctions views, so the rule cannot read them yet;
   catalogued there after their first live load (4 November 06:35), with each view's row count passed on.
+- Track 1 merged: the Papers Past index has no leak. Over 8.18M documents its own memory (Pss_Anon) peaked at 2,788 MB
+  and fell back after each merge; the rest was tantivy's mapped segment files during merges, 0 MB dirty, clean pages the
+  kernel can take back, growing with the index (3 GB .pos files on the whole archive). The runner gains an opt-in
+  `memory_counts = "anon"` (Pss_Anon + Pss_Shmem); every other job is judged on Pss as before; a test maps a 300 MB
+  file on disk against a 100 MB ceiling, stopped under pss, left alone under anon, its mutant caught. The index is
+  declared 4 GB, anon. Expected: about 80 minutes of indexing at 19k documents a second, then the final merge on the
+  HDD, 2 to 3 hours in all; about 110 GB, 160 GB while merges hold old segments.
