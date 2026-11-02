@@ -8,7 +8,7 @@ register by the company's whole name, and the company's awards on the GETS file 
 ## Known limits
 
 The template's `limits` are the full list. In short: ministers only; a meeting joins a company only where the whole
-attendees text is the company's name (7,250 of 208,464 entries, measured 2 November 2026); every line is near and a
+attendees text is the company's name (13,207 of 208,464 entries on 2 November 2026's evening tables; lobbying-attendees-suppliers starts from each attendee instead); every line is near and a
 generic name gives a namesake's line; an address-flagged entry is never read; nothing says why a meeting was held.
 
 ## Part (c), not built

@@ -24,3 +24,20 @@ JOIN ministers_diaries.releases r ON r.key = e.release;
 
 COMMENT ON VIEW pub.minister_diary_entries IS
   'One meeting of a minister''s diary release, as released: names as printed and linked to nobody; the release''s withholdings kept as printed (`withheld`); the meeting, attendees and location whole, with the flags a product applies hard limit 15 by (ruling 102): location_names_home, location_street_only, meeting_names_address, attendees_names_address.';
+
+-- One row per attendee of a meeting, in the order the release prints them, split by rules (attendees.py, no model):
+-- the attendee as written, folded as the scans fold a name, its kind, and the organisation part where the text gives
+-- one ("Name (Organisation)", "Name, Organisation", "Fonterra staff", or a body named alone), with `crown` where that
+-- part is the Crown's own. The entry's four flags are carried down from the entry, so a product applies hard limit 15
+-- by them here as on the entry (ruling 102). Names as printed and linked to nobody.
+CREATE OR REPLACE VIEW pub.minister_diary_attendees AS
+SELECT a.key, a.entry, a.position, a.attendee, a.folded, a.kind, a.organisation, a.crown,
+       e.release, r.pdf_url AS citation_url, r.file_name, e.minister, e.portfolio, e.entry_on, e.time,
+       e.location_names_home, e.location_street_only, e.meeting_names_address, e.attendees_names_address,
+       a.document, a.page, a.place, a.read_from, a.reader, a.profile, a.profile_version, a.loaded_at
+FROM ministers_diaries.attendees a
+JOIN ministers_diaries.entries e ON e.key = a.entry
+JOIN ministers_diaries.releases r ON r.key = e.release;
+
+COMMENT ON VIEW pub.minister_diary_attendees IS
+  'One attendee of a minister''s diary meeting, split from the entry''s attendees text by rules: as written, folded, its kind (person, organisation, crown, group, role, withheld), the organisation part where the text gives one, and the entry''s four address flags carried down (hard limit 15 applied by them at a product''s surface, ruling 102).';

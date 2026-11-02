@@ -17,3 +17,11 @@ address, no place of business named", "street address in the meeting" or
 joined to a person's row (product (b), after links). Every pane notes that
 the estate did not fetch the PDF: the provider read it off-estate (ruling
 78). The provider's `text` is in no view.
+
+Each meeting's attendees, beneath it (`pub.minister_diary_attendees`): one
+line per attendee in the release's order, the attendee as written, its kind
+in the note style (person, organisation, the Crown's, a group, a role,
+withheld), and the organisation part where the split found one, marked
+"the Crown's" where `crown` is set. The entry's flags show on its attendees
+as on the entry. The 46 entries set aside from the split show their
+attendees text whole, with the reason ("a bracket left open").

@@ -75,6 +75,40 @@ CREATE TABLE IF NOT EXISTS ministers_diaries.entries (
 );
 CREATE INDEX IF NOT EXISTS ministers_diaries_entries_release ON ministers_diaries.entries (release);
 
+-- one row per attendee of an entry, in the order the release prints them (attendees.py: by rules, no model). The
+-- separators and the attendees joined in order are the entry's attendees text exactly; an entry whose text is not
+-- split (an unbalanced bracket) is in attendees_set_aside with the reason, and has no row here. The entry's flags are
+-- not copied: the published view joins them down from the entry.
+CREATE TABLE IF NOT EXISTS ministers_diaries.attendees (
+    key              text PRIMARY KEY,                      -- the entry's key, '/', the position
+    entry            text NOT NULL,                         -- entries.key
+    position         integer NOT NULL CHECK (position >= 1),
+    attendee         text NOT NULL,                         -- as written, whole (titles kept)
+    sep_before       text NOT NULL DEFAULT '',              -- the separator text before it ('' for the first)
+    sep_after        text NOT NULL DEFAULT '',              -- a separator left at the end (the last row only)
+    kind             text NOT NULL CHECK (kind IN ('person', 'organisation', 'crown', 'group', 'role', 'withheld')),
+    folded           text NOT NULL,                         -- titles off, folded as the scans fold a name
+    organisation     text,                                  -- the organisation part: "Name (Org)", "Name, Org", a
+                                                            -- group's body ("Fonterra staff"), a body's own name
+    crown            boolean NOT NULL DEFAULT false,        -- the organisation part is the Crown's own (a ministry,
+                                                            -- a department, a Crown agency, a Cabinet committee)
+    document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    page             integer NOT NULL DEFAULT 1,
+    place            text NOT NULL,
+    read_from        text NOT NULL CHECK (read_from IN ('text', 'pixels')),
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL,
+    UNIQUE (entry, position)
+);
+
+-- an entry whose attendees text was not split, and why
+CREATE TABLE IF NOT EXISTS ministers_diaries.attendees_set_aside (
+    entry   text PRIMARY KEY,
+    reason  text NOT NULL
+);
+
 -- every document read: each version of each record, and which one the entry is read from
 CREATE TABLE IF NOT EXISTS ministers_diaries.files (
     sha256      text PRIMARY KEY CHECK (sha256 ~ '^[0-9a-f]{64}$'),

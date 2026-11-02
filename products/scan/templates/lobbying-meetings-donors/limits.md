@@ -7,5 +7,5 @@ organisation-name rule joins 30 party-return donors to companies, none of them a
 ## Known limits
 
 The template's `limits` are the full list. In short: ministers only; a meeting joins a company only where the whole
-attendees text is the company's name; every line is near; the donor is the Commission's; nothing says why a meeting was
+attendees text is the company's name (lobbying-attendees-donors starts from each attendee instead); every line is near; the donor is the Commission's; nothing says why a meeting was
 held or that a donation and a meeting have anything to do with each other.

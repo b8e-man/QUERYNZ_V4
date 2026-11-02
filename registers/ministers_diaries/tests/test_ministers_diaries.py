@@ -142,13 +142,15 @@ def test_a_record_with_no_release_is_set_aside_and_an_unknown_field_listed():
 def test_the_published_views_never_carry_the_text_the_private_table_or_an_address_column_and_carry_the_flags():
     sql = open(os.path.join(LANE, "publish.sql"), encoding="utf-8").read().lower()
     views = sql.split("create or replace view")[1:]
-    assert len(views) == 2
+    assert len(views) == 3
     for v in views:
         assert "_private" not in v and " text," not in v and "e.text" not in v
         assert "citation_url" in v and "document" in v and "file_name" in v
         for col in rowcontract.FORBIDDEN_COLUMNS:
             assert f" {col}," not in v and f".{col}," not in v
     assert all(f"e.{f}" in views[1] for f in read.FLAGS) and "r.locations_flagged" in views[0]
+    assert all(f"e.{f}" in views[2] for f in read.FLAGS)                    # the attendees carry the entry's flags down
+    assert "e.attendees," not in views[2] and "e.meeting," not in views[2] and "sep_" not in views[2]
 
 
 # ── the outside check ────────────────────────────────────────────────────────
@@ -223,7 +225,9 @@ def filled():
                "files": q(f"SELECT * FROM {t}_files"), "set_aside": q(f"SELECT * FROM {t}_set_aside"),
                "private": q(f"SELECT * FROM {schema}_private.ministers_diaries_entries"),
                "pub_entries": q(f"SELECT * FROM {schema}.pub_minister_diary_entries"),
-               "pub_releases": q(f"SELECT * FROM {schema}.pub_minister_diary_releases")}
+               "pub_releases": q(f"SELECT * FROM {schema}.pub_minister_diary_releases"),
+               "attendees": q(f"SELECT * FROM {t}_attendees"), "attendees_set_aside": q(f"SELECT * FROM {t}_attendees_set_aside"),
+               "pub_attendees": q(f"SELECT * FROM {schema}.pub_minister_diary_attendees")}
 
 
 def test_every_sample_document_is_read_and_every_row_keeps_the_contract(filled):
@@ -277,3 +281,28 @@ def test_every_published_row_cites_its_document_and_the_pdf(filled):
     for e in filled["entries"]:
         n[e["release"]] = n.get(e["release"], 0) + 1
     assert all(by[k]["entries"] == v for k, v in n.items()) and set(n) == set(by)
+
+
+def test_every_sample_entry_s_attendees_reconcile_and_carry_the_entry_s_flags_down(filled):
+    from registers.ministers_diaries import attendees as A
+    lane = {e["key"]: e for e in filled["entries"]}
+    by = {}
+    for r in filled["attendees"]:
+        by.setdefault(r["entry"], []).append(r)
+    aside = {r["entry"] for r in filled["attendees_set_aside"]}
+    assert set(by).union(aside) == {k for k, e in lane.items() if e["attendees"]} and not set(by).intersection(aside)
+    for k, rs in by.items():
+        rs.sort(key=lambda r: r["position"])
+        assert [r["position"] for r in rs] == list(range(1, len(rs) + 1)), k
+        assert A.joined(rs) == lane[k]["attendees"], k
+    assert len(filled["pub_attendees"]) == len(filled["attendees"])
+    for r in filled["pub_attendees"]:
+        e = lane[r["entry"]]
+        assert all(r[f] == e[f] for f in read.FLAGS), r["key"]
+        assert (r["minister"], r["entry_on"], r["portfolio"]) == (e["minister"], e["entry_on"], e["portfolio"])
+        assert len(r["document"]) == 64 and r["document"] == e["document"]
+        assert not {"sep_before", "sep_after", "meeting", "attendees", "location", "text"}.intersection(r)
+    assert any(r["attendees_names_address"] for r in filled["pub_attendees"])    # a flagged entry's rows carried, flagged
+    today = dt.date.today()
+    for r in filled["attendees"]:
+        assert rowcontract.validate({**r, "loaded_at": r["loaded_at"].isoformat()}, today) == [], r["key"]

@@ -24,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "ministers_diaries"
 PRIVATE = "ministers_diaries_private"
 JOB = "qv4-ministers-diaries-load"
-TABLES = ("releases", "entries", "files", "set_aside")
+TABLES = ("releases", "entries", "files", "set_aside", "attendees", "attendees_set_aside")
 PRIVATE_TABLES = ("entries",)
 STAMP = ("document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at")
 COLUMNS = {
@@ -34,6 +34,8 @@ COLUMNS = {
     "entries": ("key", "release", "rowid", "minister", "portfolio", "entry_on", "date_as_released", "year", "time",
                 "meeting", "attendees", "location") + read.FLAGS + ("withheld", "collected_at",
                 "updated_at", "text_words", "fields_unread", "versions", "seq", "source_note") + STAMP,
+    "attendees": ("key", "entry", "position", "attendee", "sep_before", "sep_after", "kind", "folded", "organisation",
+                  "crown") + STAMP,
 }
 
 
@@ -77,11 +79,12 @@ def build(conn, schema: str, items: list, caught: list = (), shared: bool = Fals
     [(seq, stage, reason)]. Wipes and fills `schema`; returns the counts."""
     create_tables(conn, schema, shared)
     res = read.read(items, get_bytes)
-    for t, rows in (("releases", res.releases), ("entries", res.entries)):
+    for t, rows in (("releases", res.releases), ("entries", res.entries), ("attendees", res.attendees)):
         _copy(conn, table(schema, t, shared), COLUMNS[t], (tuple(r[c] for c in COLUMNS[t]) for r in rows))
     _copy(conn, table(schema, "files", shared), ("sha256", "record_id", "seq", "status"), res.files)
     _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason"),
           [(f"{capture.CORPUS} seq {s}", "pull", f"{st}: {why}") for s, st, why in caught] + list(res.set_aside))
+    _copy(conn, table(schema, "attendees_set_aside", shared), ("entry", "reason"), res.attendees_set_aside)
     _copy(conn, table(private_of(schema), "entries", shared), ("key", "text"), res.private)
     return {**res.counts, "pull caught": len(caught)}
 
