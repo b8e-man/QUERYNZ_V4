@@ -47,8 +47,23 @@ def reading(conn, schema: str = SCHEMA) -> list:
         (f"SELECT count(*) FROM {T('meetings')} WHERE minutes_held = 'landed' AND minutes_sha256 IS NULL",
          "minutes marked landed with no hash"),
         (f"SELECT count(*) FROM {T('meetings')} WHERE body ~ %s", "body names shaped like a street address"),
+        # the minutes' reading (2 November 2026): every landed minutes PDF has a ledger line; no row cites a PDF the
+        # ledger does not mark read; no attendee or declaring member is shaped like an address or a contact; no
+        # resolution has no text
+        (f"SELECT count(*) FROM {T('meetings')} m WHERE m.minutes_held = 'landed' AND m.minutes_sha256 IS NOT NULL "
+         f"AND NOT EXISTS (SELECT 1 FROM {T('minutes_read')} r "
+         "WHERE r.document = m.minutes_sha256)", "landed minutes with no line in the minutes ledger"),
+        (f"SELECT (SELECT count(*) FROM {T('attendance')} a WHERE NOT EXISTS (SELECT 1 FROM {T('minutes_read')} r "
+         f"WHERE r.document = a.document AND r.state = 'read')) + (SELECT count(*) FROM {T('resolutions')} x WHERE NOT "
+         f"EXISTS (SELECT 1 FROM {T('minutes_read')} r WHERE r.document = x.document AND r.state = 'read')) + "
+         f"(SELECT count(*) FROM {T('declarations')} d WHERE NOT EXISTS (SELECT 1 FROM {T('minutes_read')} r "
+         "WHERE r.document = d.document AND r.state = 'read'))", "minutes rows citing a PDF the ledger does not mark read"),
+        (f"SELECT (SELECT count(*) FROM {T('attendance')} WHERE name ~ %s OR name ~ '@|\\mPO Box\\M') + "
+         f"(SELECT count(*) FROM {T('declarations')} WHERE member ~ %s OR member ~ '@')",
+         "attendees or declaring members shaped like an address or a contact"),
+        (f"SELECT count(*) FROM {T('resolutions')} WHERE coalesce(btrim(text), '') = ''", "resolutions with no text"),
     ):
-        n = conn.execute(sql, (STREET,) if "%s" in sql else None).fetchone()[0]
+        n = conn.execute(sql, (STREET,) * sql.count("%s") or None).fetchone()[0]
         if n:
             out.append(f"{n} {what}")
     tables = [capture.table(schema, t).split(".", 1)[1] for t in ("meetings", "documents")]

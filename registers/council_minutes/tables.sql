@@ -111,3 +111,105 @@ CREATE TABLE IF NOT EXISTS council_minutes.read_set_aside (
     stage     text NOT NULL,
     reason    text NOT NULL
 );
+
+-- ── the minutes' reading (2 November 2026; minutes.py and model_read.py): every landed minutes PDF read under its
+-- profile, the standard template deterministically, any other shape by the text reader's stored readings (replayed,
+-- never called, here). A public-excluded part and a public forum item are never read (minutes.sections): counted only.
+
+-- the minutes ledger: one row per landed minutes PDF, what became of it; landed minutes = rows here (check.py)
+CREATE TABLE IF NOT EXISTS council_minutes.minutes_read (
+    document         text PRIMARY KEY,                -- the minutes PDF's sha256
+    meeting_key      text,                            -- the meeting whose listing links it
+    council          text,
+    state            text NOT NULL,                   -- read | waiting: text reader | waiting: page reader | set aside: ... | not minutes ...
+    profile          text,
+    profile_version  integer,
+    read_from        text,                            -- text | mixed | pixels
+    pages            integer,
+    attendance       integer NOT NULL DEFAULT 0,
+    resolutions      integer NOT NULL DEFAULT 0,
+    declarations     integer NOT NULL DEFAULT 0,
+    excluded_parts   integer NOT NULL DEFAULT 0,      -- public-excluded parts skipped, never read
+    excluded_lines   integer NOT NULL DEFAULT 0,
+    forum_items      integer NOT NULL DEFAULT 0,      -- public forum items skipped, never read
+    forum_lines      integer NOT NULL DEFAULT 0,
+    unread_pages     text,                            -- pages with no text layer, for the page reader
+    model            text
+);
+
+-- one row per person the minutes list as present, in attendance, apologising or absent
+CREATE TABLE IF NOT EXISTS council_minutes.attendance (
+    key              text PRIMARY KEY,                -- <minutes sha256>/a<n>
+    meeting_key      text,
+    council          text,
+    body             text,
+    meeting_date     date,
+    seq              integer NOT NULL,
+    name             text NOT NULL,
+    role             text,
+    title            text,
+    attendance       text NOT NULL CHECK (attendance IN ('present', 'in attendance', 'apology', 'absent')),
+    document         text NOT NULL,
+    page             integer,
+    place            text,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    model            text,
+    loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- one row per resolution, motion or recommendation the meeting decided, in the order printed
+CREATE TABLE IF NOT EXISTS council_minutes.resolutions (
+    key                 text PRIMARY KEY,             -- <minutes sha256>/r<n>
+    meeting_key         text,
+    council             text,
+    body                text,
+    meeting_date        date,
+    seq                 integer NOT NULL,
+    item                text,
+    item_title          text,
+    number              text,                         -- the council's own resolution number
+    mover               text,
+    seconder            text,
+    text                text NOT NULL,                -- as moved, whole
+    outcome             text,
+    votes_for           text,
+    votes_against       text,
+    abstained           text,
+    text_names_address  boolean NOT NULL DEFAULT false,   -- ruling 102: the text's shape names a street address
+    document            text NOT NULL,
+    page                integer,
+    place               text,
+    read_from           text NOT NULL,
+    reader              text NOT NULL,
+    profile             text NOT NULL,
+    profile_version     integer NOT NULL,
+    model               text,
+    loaded_at           timestamptz NOT NULL DEFAULT now()
+);
+
+-- one row per declaration of interest a member made at the meeting
+CREATE TABLE IF NOT EXISTS council_minutes.declarations (
+    key                 text PRIMARY KEY,             -- <minutes sha256>/d<n>
+    meeting_key         text,
+    council             text,
+    body                text,
+    meeting_date        date,
+    seq                 integer NOT NULL,
+    member              text NOT NULL,
+    role                text,
+    item                text,
+    text                text,
+    text_names_address  boolean NOT NULL DEFAULT false,
+    document            text NOT NULL,
+    page                integer,
+    place               text,
+    read_from           text NOT NULL,
+    reader              text NOT NULL,
+    profile             text NOT NULL,
+    profile_version     integer NOT NULL,
+    model               text,
+    loaded_at           timestamptz NOT NULL DEFAULT now()
+);

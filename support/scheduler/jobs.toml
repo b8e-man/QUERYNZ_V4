@@ -1164,15 +1164,15 @@ nice = 10
 priority = 77
 
 [jobs.qv4-council-minutes-load]
-description = "Step 6.3: the meeting list from every listing held, built in staging, checked against each grid's own row count, published only on green."
+description = "Step 6.3: the meeting list from every listing held, and every landed minutes PDF read (the standard template deterministically, any other shape replayed from qv4-council-minutes-read's stored readings): attendance, declarations, resolutions; built in staging, checked, published only on green."
 needs = "processor"
 memory_gb = 0.5
-deadline_s = 900
 query_timeout_s = 600
 class = "due"
 command = ["python", "-m", "registers.council_minutes.load", "--job"]
 at_utc = "17:45"
 priority = 78
+deadline_s = 2700   # 2 November 2026: the load reads every landed minutes PDF's text layer (616, about 10 minutes)
 
 [jobs.qv4-councillor-interests-capture]
 description = "Step 6.3: each council's register landing page monthly and every register document it links once, 5 s apart (or the site's crawl delay), off-peak; three councils held on their terms, blocked sites held. About 400 requests the first night, a few a night after."
@@ -1197,6 +1197,21 @@ command = ["python", "-m", "registers.councillor_interests.load", "--job"]
 at_utc = "17:50"
 priority = 80
 then = ["qv4-names-councillor-interests"]   # its names into pub.names (1 November)
+
+[jobs.qv4-council-minutes-read]
+description = "Councils' minutes PDFs in any shape but InfoCouncil's standard template: the text reader's reading of one minutes document (piece key sha256) through the text-reader profile, profile council-minutes-text, whole pages in pieces of 12,000 characters (8,192 answer tokens), after minutes.sections drops every public-excluded part and public forum item (hard limit 16): attendance, declarations of interest, every resolution with mover, seconder, text, outcome and votes. Stored by hash and piece, replayed by the next qv4-council-minutes-load (ruling 128 lifted ruling 79's hold for node2; Arthur, 2 November 2026: 'do it'). A PDF with no text layer waits for the page reader."
+needs = "model-profile"
+profile = "text-reader"
+memory_gb = 0.5
+deadline_s = 3600
+query_timeout_s = 60
+class = "whenever"
+priority = 133   # unique; after every reader of the bulk ingest (2 November 2026)
+command = ["python", "-m", "registers.council_minutes.model_read", "--piece"]
+pieces = true
+pieces_command = ["python", "-m", "registers.council_minutes.model_read", "--pieces"]
+can_share = true
+concurrency = 4
 
 [jobs.qv4-councillor-interests-read]
 description = "Councils' registers of members' pecuniary interests held as PDFs: the text reader's reading of one register document (piece key sha256) through the text-reader profile, profile interests-register-pdf-text, whole pages in pieces of 12,000 characters (8,192 answer tokens): each member, role, every category as printed with its s 54E kind and its entries; real property, homes, addresses, roads, contacts and a spouse's or partner's interests never kept. Stored by hash and piece, replayed by the next qv4-councillor-interests-load (ruling 128 lifted ruling 79's hold for node2; Arthur, 2 November 2026: 'we want to gather and ingest all of this'). A PDF with no text layer waits for the page reader."
