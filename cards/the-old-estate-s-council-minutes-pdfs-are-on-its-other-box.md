@@ -1,9 +1,10 @@
 # The old estate's 347 InfoCouncil minutes PDFs are on its other box, so they are listed by hash and not yet copied
 kind: finding
-state: open
+state: closed
 use-case: none (step 6.3, council minutes)
 session: councils-1
 opened: 2026-10-22
+closed: 2026-11-03
 
 The old estate lists 351 InfoCouncil minutes PDFs (`incoming_news.documents`, 14 instances, 26 July to 18 October
 2026), exported once and pinned (`registers/council_minutes/capture.py` `LISTING_SHA` 2264a857…). None of the files
@@ -15,3 +16,6 @@ InfoCouncil minutes were kept as stripped text, never bytes, so those are fetche
 When node1 is in service (ruling 57), run `python -m registers.council_minutes.capture --copy-old` on the box that
 holds the files (the integrator's hand, under the scheduler's mark); each file that hashes true is landed by its hash
 and the meeting rows say `landed` at the next load. Until then the rows carry the old hash and say so.
+
+Closed 3 November 2026: the 22:15 capture of 2 November fetched all 347 from the councils' own sites (347 landed, 0
+failed, 53 not the old estate's bytes), so none waits on node1.
