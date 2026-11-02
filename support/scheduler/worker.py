@@ -264,7 +264,7 @@ class Worker:
     def read_raises(self) -> None:
         """The working figures, from the table: a restart, or the other
         worker, places by the same raises."""
-        raised = q.working_figures(self.conn, self.schema)
+        raised = q.working_figures(self.conn, self.schema, self.registry)
         with self.lock:
             self.raised = raised
 
@@ -547,7 +547,8 @@ class Worker:
         budget and the two raises, queue the job again (ruling 115)."""
         rz = q.raise_memory(conn, self.schema, job=r.jt.name, run_id=res.run_id, qid=r.claim["id"], peak_mb=res.peak_mb,
                             ceiling_mb=runner.ceiling_for(r.memory_gb), held_gb=r.memory_gb,
-                            budget_gb=self.memory_budget_gb(), pieced=pieced, registry=self.registry)
+                            budget_gb=self.memory_budget_gb(), pieced=pieced, registry=self.registry,
+                            counts=r.jt.memory_counts)
         if rz["applied"]:
             with self.lock:
                 self.raised[r.jt.name] = max(self.raised.get(r.jt.name, 0.0), rz["raised_gb"])

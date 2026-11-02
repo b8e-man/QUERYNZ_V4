@@ -619,11 +619,19 @@ def raised_figure_gb(ceiling_mb: int) -> float:
     return math.ceil(2 * ceiling_mb / 512) * 0.5
 
 
-def working_figures(conn, schema: str) -> dict[str, float]:
-    """Per job, the figure of its latest applied raise."""
-    rows = conn.execute(f"SELECT DISTINCT ON (job) job, raised_gb FROM {schema}.memory_raises WHERE applied "
-                        f"ORDER BY job, id DESC").fetchall()
-    return {r[0]: float(r[1]) for r in rows}
+def _counts_of(registry: dict | None, job: str) -> str:
+    jt = (registry or {}).get(job)
+    return getattr(jt, "memory_counts", "pss") if jt else "pss"
+
+
+def working_figures(conn, schema: str, registry: dict = None) -> dict[str, float]:
+    """Per job, the figure of its latest applied raise measured the way the job is judged now (memory_counts)."""
+    rows = conn.execute(f"SELECT job, raised_gb, counts FROM {schema}.memory_raises WHERE applied ORDER BY job, id").fetchall()
+    out = {}
+    for job, gb, counts in rows:
+        if counts == _counts_of(registry, job):
+            out[job] = float(gb)
+    return out
 
 
 def raise_for_row(conn, schema: str, qid: int) -> dict | None:
@@ -634,7 +642,7 @@ def raise_for_row(conn, schema: str, qid: int) -> dict | None:
 
 
 def raise_memory(conn, schema: str, *, job: str, run_id: str, qid: int, peak_mb: int, ceiling_mb: int, held_gb: float,
-                 budget_gb: float | None, pieced: bool = False, registry: dict = None, now=None) -> dict:
+                 budget_gb: float | None, pieced: bool = False, registry: dict = None, now=None, counts: str = "pss") -> dict:
     """Record the raise for a run stopped at `ceiling_mb` on row `qid`, and
     queue the job again unless the raised figure is over `budget_gb` or the
     row's origin has had RAISES_PER_ORIGIN raises already. A pieced job's row
@@ -667,9 +675,9 @@ def raise_memory(conn, schema: str, *, job: str, run_id: str, qid: int, peak_mb:
             note = f"queued again as row {requeued} at {raised:g} GB"
         rid = conn.execute(
             f"INSERT INTO {schema}.memory_raises (at, job, run_id, queue_id, origin_queue_id, peak_mb, ceiling_mb, held_gb, "
-            f"raised_gb, budget_gb, applied, requeued_id, note) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            f"raised_gb, budget_gb, applied, requeued_id, note, counts) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             f"RETURNING id", (_now(now), job, run_id, qid, origin, peak_mb, ceiling_mb, held_gb, raised, budget_gb, applied,
-                              requeued, note)).fetchone()[0]
+                              requeued, note, counts)).fetchone()[0]
     return {"id": rid, "raised_gb": raised, "applied": applied, "requeued_id": requeued, "origin_queue_id": origin,
             "note": note}
 
@@ -682,13 +690,15 @@ def unfolded_raises(conn, schema: str, registry: dict = None) -> list[dict]:
     if conn.execute("SELECT to_regclass(%s)", (f"{schema}.memory_raises",)).fetchone()[0] is None:
         return []                                  # the table is not made yet (the worker makes it at start)
     rows = conn.execute(f"SELECT id, at, job, run_id, queue_id, peak_mb, ceiling_mb, held_gb, raised_gb, budget_gb, applied, "
-                        f"requeued_id, note FROM {schema}.memory_raises ORDER BY job, id").fetchall()
+                        f"requeued_id, note, counts FROM {schema}.memory_raises ORDER BY job, id").fetchall()
     keys = ("id", "at", "job", "run_id", "queue_id", "peak_mb", "ceiling_mb", "held_gb", "raised_gb", "budget_gb", "applied",
-            "requeued_id", "note")
+            "requeued_id", "note", "counts")
     out = []
     for r in rows:
         d = dict(zip(keys, r))
         jt = registry.get(d["job"])
+        if d["counts"] != _counts_of(registry, d["job"]):
+            continue                               # measured another way: the job is no longer judged on it
         d["declared_gb"] = jt.memory_gb if jt else None
         if d["declared_gb"] is None or d["declared_gb"] < float(d["raised_gb"]):
             out.append(d)

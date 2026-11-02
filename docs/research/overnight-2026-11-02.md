@@ -361,3 +361,10 @@ Arthur since 1 November 08:45: his decision); the owner login's 20-connection li
   file on disk against a 100 MB ceiling, stopped under pss, left alone under anon, its mutant caught. The index is
   declared 4 GB, anon. Expected: about 80 minutes of indexing at 19k documents a second, then the final merge on the
   HDD, 2 to 3 hours in all; about 110 GB, 160 GB while merges hold old segments.
+- The watchdog's first restart: 07:35, 15 requests in flight and no token for ten minutes, restarted in 35 s; the
+  display card logged "Failed to pin framebuffer ... -12" from 07:18 (its memory full). The courts load reran at 07:57
+  and published (green).
+- A raise now records the measure it was judged on (`memory_raises.counts`); it binds only while the job is judged that
+  way, so the index's two Pss raises (7.5 and 19 GB) no longer hold it at 19 GB. The chain tests' fake runner took the
+  old signature (four failed on 3bb271b); fixed, the pull's pin now says it queues the reader and never a load. Lesson
+  filed. Track 5 (the full tier's ten failures, run on code before the morning's merges) launched.

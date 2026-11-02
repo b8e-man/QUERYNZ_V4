@@ -154,6 +154,9 @@ CREATE TABLE IF NOT EXISTS {s}.memory_raises (
 );
 CREATE INDEX IF NOT EXISTS memory_raises_job ON {s}.memory_raises (job, id);
 CREATE INDEX IF NOT EXISTS memory_raises_requeued ON {s}.memory_raises (requeued_id);
+-- the measure the stopped run was judged on (jobs.toml memory_counts, 3 November 2026): a raise applies only while the
+-- job is still judged the same way; a raise measured on Pss says nothing of a job now judged on its anonymous memory
+ALTER TABLE {s}.memory_raises ADD COLUMN IF NOT EXISTS counts text NOT NULL DEFAULT 'pss';
 ALTER TABLE {s}.runs ADD COLUMN IF NOT EXISTS working_mb int;     -- the working figure the run was placed and capped under
 ALTER TABLE {s}.runs ADD COLUMN IF NOT EXISTS raise_id bigint;    -- a re-run: the raise that queued it
 

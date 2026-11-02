@@ -203,3 +203,23 @@ def test_the_working_figure_survives_a_worker_restart_and_places_the_job(conn, s
     assert BURN not in again.eligible()
     again.available_gb = lambda: 0.6
     assert BURN in again.eligible()
+
+
+def test_a_raise_measured_on_pss_does_not_bind_a_job_now_judged_on_anon(conn, s):
+    """3 November 2026: the Papers Past index's raises (7.5 and 19 GB) were measured on Pss, mapped index files
+    included; declared memory_counts = "anon" it ran held at 19 GB anyway. A raise binds only while the job is judged
+    the way it was measured."""
+    import dataclasses
+    w = worker(s, toy_registry(200))
+    q.enqueue(conn, s, BURN, registry=w.registry)
+    settle(w, conn, s)
+    w.stop()
+    w._finish_stop()
+    assert raises(conn, s) and conn.execute(f"SELECT DISTINCT counts FROM {s}.memory_raises").fetchall() == [("pss",)]
+    anon = toy_registry(200)
+    anon[BURN] = dataclasses.replace(anon[BURN], memory_counts="anon")
+    again = worker(s, anon)
+    assert again.raised == {} and again.working_gb(again.registry[BURN]) == anon[BURN].memory_gb
+    assert q.unfolded_raises(conn, s, anon) == []
+    same = worker(s, toy_registry(200))
+    assert same.raised == {BURN: 0.5}

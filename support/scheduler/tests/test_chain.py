@@ -156,7 +156,7 @@ class FakeQueue:
     def enqueue_standing(self, conn, schema, registry=None, **kw):
         return []
 
-    def working_figures(self, conn, schema):
+    def working_figures(self, conn, schema, registry=None):
         return {}
 
     def raise_for_row(self, conn, schema, qid):
@@ -338,7 +338,7 @@ class FakeRunner:
         self.in_flight = 0
         self.peak = 0
 
-    def __call__(self, argv, *, deadline_s, ceiling_mb, query_timeout_s=None, env=None, cwd=None, tick=None, log=None, nice=0):
+    def __call__(self, argv, *, deadline_s, ceiling_mb, query_timeout_s=None, env=None, cwd=None, tick=None, log=None, nice=0, memory_counts="pss"):
         key = argv[-1]
         with self.lock:
             self.in_flight += 1
@@ -728,7 +728,8 @@ def test_the_shipped_catalogue_wires_the_chain():
     for load in ("qv4-disclosures-load", "qv4-candidate-returns-load", "qv4-tenders-load", "qv4-iwi-directory-load", "qv4-charities-load"):
         assert jts[load].then[0] == "qv4-scan-rerun", load
     assert jts["qv4-scan-rerun"].cls == "whenever" and not jts["qv4-scan-rerun"].then
-    assert jts["qv4-mcp-pull"].then == (), "the loads stay on their nightly clock"
+    assert jts["qv4-mcp-pull"].then == ("qv4-courts-read",), "the loads stay on their nightly clock; the pull queues only the reader of what it lands (3 November 2026)"
+    assert not any(n.endswith("-load") for n in jts["qv4-mcp-pull"].then)
 
 
 def test_the_cli_enqueue_refuses_a_pieced_job_with_no_pieces_and_no_command(tmp_path, monkeypatch, capsys):
