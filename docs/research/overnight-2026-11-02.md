@@ -348,3 +348,9 @@ Arthur since 1 November 08:45: his decision); the owner login's 20-connection li
   tolerance stays at 2. The courts reader is now also queued by each MCP pull: it reads what the pull lands, and a red
   load had left 6,447 documents unread (row 1271 queued by hand at 07:2x). The MCP's courts corpus: 14,550, ours 14,528
   at the 07:00 pull.
+- Track 3 merged: the board shows council_meeting_attendance (13,012), council_resolutions (5,883; text flagged in 113)
+  and council_meeting_declarations (396; flagged in 11) under council_meetings, both person views in the name search;
+  building_practitioners gains region, first granted, register_url and its area flag. Search 1.3 to 1.5 s against the
+  2 s floor; a practitioner's pane opened in 2.06 s. Template 13's sanctions rule says which state applies and is never
+  clear. Owed: products/report's catalogue does not know the two sanctions views, so the rule cannot read them yet;
+  catalogued there after their first live load (4 November 06:35), with each view's row count passed on.
