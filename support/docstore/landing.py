@@ -178,6 +178,16 @@ def documents_of(shas, conn) -> dict:
     return {r[0]: {"kind": r[1], "source": r[2], "withdrawn": r[3]} for r in cur}
 
 
+def withdraw(shas, reason: str, conn) -> int:
+    """Mark documents withdrawn, never deleted: a source's own removal (the Insolvency Register's removals, 2 November
+    2026). One already withdrawn keeps its first reason. The number newly withdrawn."""
+    want = sorted({s for s in shas if s})
+    if not want or not reason:
+        return 0
+    return conn.execute("UPDATE docs.documents SET withdrawn = %s WHERE withdrawn IS NULL AND sha256 = ANY(%s)",
+                        (reason, want)).rowcount
+
+
 def find_by_name(name: str, conn) -> list:
     """Every document that has carried this name: the hashes."""
     return [r[0] for r in conn.execute("SELECT DISTINCT sha256 FROM docs.names WHERE name = %s", (name,))]

@@ -1692,3 +1692,42 @@ class = "whenever"
 priority = 123
 command = ["python", "-m", "links.rows", "--register", "candidate_returns"]
 nice = 10
+
+# ── step 8.4's lane, the Insolvency Register (the API product, subscribed 2 November 2026) ──
+# The removals first every night (the API's term for a holder of a copy: asked at least daily, each named estate out at
+# once), then the search and details on the same host one at a time, then the load. One chain, so never two calls at once.
+[jobs.qv4-insolvency-removals]
+description = "The Insolvency Register: the API's removals and corrections since the last run (GET /insolvencies/removalorcorrections), every estate it names deleted from insolvency.estates at once and its stored answers withdrawn, then each asked again (a correction comes back, a removal stays out). The API's own term for a holder of a copy: at least daily. Through the fetch gate, 5 s apart. Daily at 21:00 NZDT, never skipped for the hours."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 1800
+query_timeout_s = 300
+class = "due"
+priority = 181   # unique; the term job: before its capture
+command = ["python", "-m", "registers.insolvency.capture", "--removals"]
+at_utc = "08:00"
+nice = 10
+then = ["qv4-insolvency-capture"]
+
+[jobs.qv4-insolvency-capture]
+description = "The Insolvency Register: the API's search by adjudication date, a month at a time, both registers (Insolvency, DRO), walked back to 1990 over the first nights and the latest 60 days again every night; then each estate's detail where missing or older than 30 days. One gated call at least 5 s apart, 21:00 to 22:00 NZDT, never Wednesday (the interface's maintenance); every address field and birth month and year taken out before landing. Stops at a failed read. Queued by qv4-insolvency-removals."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 3900
+query_timeout_s = 300
+class = "due"
+priority = 182
+command = ["python", "-m", "registers.insolvency.capture", "--night", "--budget-s", "3300"]
+nice = 10
+then = ["qv4-insolvency-load"]
+
+[jobs.qv4-insolvency-load]
+description = "The Insolvency Register: the capture's ledger read into staging_insolvency_load, checked (removals asked within two days, nothing suppressed, annulled or past the API's display window, no address column, in equals out, the estates seen within 1% of the API's own totalItems), published (pub.insolvency_people, pub.insolvency_companies) only on green; an estate removed after the build is taken out again at publish. Queued by qv4-insolvency-capture."
+needs = "processor"
+memory_gb = 0.5
+deadline_s = 1200
+query_timeout_s = 600
+class = "due"
+priority = 183
+command = ["python", "-m", "registers.insolvency.load", "--job"]
+nice = 10
