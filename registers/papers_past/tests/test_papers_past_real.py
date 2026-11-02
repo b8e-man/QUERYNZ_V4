@@ -79,3 +79,22 @@ def test_the_spread_sample_spans_the_dump_and_reconciles(conn):
                                  f"FROM {SAMPLE}.items").fetchone()
     assert hi - lo > 50_000_000 and years > 80, "spread over the dump, not its first rows"
     assert load.read_back(conn, SAMPLE, sdir, 2_000) == []
+
+
+def test_the_streamed_run_s_chunks_join_end_to_end_and_its_files_are_the_committed_ones(conn):
+    """The 1,000,000-row streaming run resumed for 50,000 more (scratch_papers_past_st1m): the chunks follow one another
+    in the dump, their sums are the stages, the store holds exactly the committed bytes, and items read back."""
+    s = "scratch_papers_past_st1m"
+    if not conn.execute("SELECT 1 FROM pg_namespace WHERE nspname = %s", (s,)).fetchone():
+        pytest.skip(f"{s} not built here (python -m registers.papers_past.load --items 1000000, then --items 1050000)")
+    chunks = conn.execute(f"SELECT chunk, first_line, last_line, rows_in, no_article + no_text + twice, landed "
+                          f"FROM {s}.chunks ORDER BY chunk").fetchall()
+    assert len(chunks) >= 2 and [c[0] for c in chunks] == list(range(1, len(chunks) + 1))
+    assert all(b[1] > a[2] for a, b in zip(chunks, chunks[1:])), "a resumed chunk starts after the last committed line"
+    stages = {r[0]: r[1:] for r in conn.execute(f"SELECT stage, items_in, items_out, set_aside FROM {s}.stages")}
+    assert stages["in"][0] == sum(c[3] for c in chunks) == sum(c[4] + c[5] for c in chunks)
+    n = conn.execute(f"SELECT count(*) FROM {s}.items").fetchone()[0]
+    assert stages["landed"][1] == sum(c[5] for c in chunks) == n
+    sdir = conn.execute(f"SELECT store FROM {s}.batches").fetchone()[0]
+    assert store.sizes(sdir) == dict(conn.execute(f"SELECT path, bytes FROM {s}.files").fetchall())
+    assert load.read_back(conn, s, sdir, 500) == []

@@ -43,11 +43,15 @@ class Reading:
     """The stages applied one row at a time, so a batch of a million is never held whole: `take(row)` returns the item
     or None (set aside, with its catch); `finish()` closes the stage counts and checks the batch reconciles."""
 
-    def __init__(self, batch: int, document: str, held=frozenset(), keep_text: bool = True):
-        self.batch, self.document, self.held, self.keep_text = batch, document, held, keep_text
+    def __init__(self, batch: int, document: str, held=frozenset(), keep_text: bool = True, dedupe: bool = True,
+                 seen_reasons=()):
+        """dedupe=False leaves the `once` stage to the caller (the streaming load lets the catalogue's key refuse a
+        second row, so no set of every key is held); seen_reasons: the reasons whose first example is already kept."""
+        self.batch, self.document, self.held, self.keep_text, self.dedupe = batch, document, held, keep_text, dedupe
         self.out = Read()
         self.n = {"in": 0, "article id": 0, "text": 0, "once": 0}
-        self.keys, self._seen = set(), set()
+        self.n_catches = 0
+        self.keys, self._seen = set(), set(seen_reasons)
 
     def _aside(self, stage, r, reason):
         example = None
@@ -55,6 +59,7 @@ class Reading:
             self._seen.add((stage, reason))
             example = {k: v for k, v in r.items() if not k.startswith("_")}
         self.out.catches.append((stage, str(r.get("id")), f"scraper_results line {r['_line']}", reason, example))
+        self.n_catches += 1
 
     def take(self, r):
         self.n["in"] += 1
@@ -66,9 +71,10 @@ class Reading:
             return self._aside("text", r, f"the archive holds no text for it ({r.get('pipeline_status') or 'no status'})")
         self.n["text"] += 1
         key, paper, on = a
-        if key in self.keys:
-            return self._aside("once", r, "a second row for an article already taken in this batch")
-        self.keys.add(key)
+        if self.dedupe:
+            if key in self.keys:
+                return self._aside("once", r, "a second row for an article already taken in this batch")
+            self.keys.add(key)
         self.n["once"] += 1
         text = r["text_content"]
         it = {"key": key, "paper": paper, "published_on": on, "title": r.get("title"), "text": text,
@@ -79,6 +85,11 @@ class Reading:
             self.out.items.append(it)
         return it
 
+    def drain(self) -> list:
+        """The catches since the last drain, forgotten here (a chunk's, for its COPY)."""
+        out, self.out.catches = self.out.catches, []
+        return out
+
     def finish(self) -> Read:
         n = self.n
         self.out.stages = [("in", n["in"], n["in"], 0),
@@ -87,9 +98,9 @@ class Reading:
                            ("once", n["text"], n["once"], n["text"] - n["once"]),
                            ("landed", n["once"], n["once"], 0)]
         set_aside = sum(s[3] for s in self.out.stages)
-        if n["in"] != n["once"] + set_aside or len(self.out.catches) != set_aside:
+        if n["in"] != n["once"] + set_aside or self.n_catches != set_aside:
             raise RuntimeError(f"batch {self.batch} does not reconcile: {n['in']} in, {n['once']} landed, "
-                               f"{set_aside} set aside, {len(self.out.catches)} catches")
+                               f"{set_aside} set aside, {self.n_catches} catches")
         return self.out
 
 

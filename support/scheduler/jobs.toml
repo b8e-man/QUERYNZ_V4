@@ -1770,3 +1770,32 @@ class = "due"
 priority = 183
 command = ["python", "-m", "registers.insolvency.load", "--job"]
 nice = 10
+
+# ── step 8.6, the Papers Past archive (Arthur, 2 November 2026: "use the 4tb HDD"; "for papers past use tantivity and go") ──
+# Searched, never mined (hard limit 17): neither job feeds names or links (tests/test_papers_past_search_only.py).
+# No clock: the integrator queues the ingest once; the index follows it. Nothing is published: the integrator publishes
+# after registers.papers_past.check passes on the whole.
+[jobs.qv4-papers-past-ingest]
+description = "The Papers Past archive: one streaming pass of the old news-scraping dump (read only, where it sits), every Papers Past row read through the named stages, its text into compressed files on /mnt/hdd2/qv4-papers-past (never /mnt/hdd) and its catalogue row into staging_papers_past in querynz_v4, committed every 1,000,000 rows with a checkpoint; a run stopped at its deadline or killed resumes after its last committed chunk when queued again (the dump is re-streamed to the checkpoint undecoded). Ends with the whole batch reconciled and 2,000 items read back. Then qv4-papers-past-index."
+needs = "processor"
+memory_gb = 1.5   # measured 2 November 2026: 0.95 GB peak resident on a 1,000,000-row chunk (297 s)
+deadline_s = 43200   # the whole dump projected at about 7.5 hours (1,000,000 rows in 297 s); a stopped run resumes
+query_timeout_s = 3600
+class = "whenever"
+priority = 134   # unique (2 November 2026)
+command = ["python", "-m", "registers.papers_past.load", "--schema", "staging_papers_past", "--database", "querynz_v4", "--items", "0"]
+requires = ["gzip", "ionice"]
+nice = 15
+then = ["qv4-papers-past-index"]
+
+[jobs.qv4-papers-past-index]
+description = "The Papers Past keyword index (tantivy, Arthur 2 November 2026): every catalogued item of staging_papers_past streamed from the store's files, frame by frame, into a tantivy index in the store's index/ folder on /mnt/hdd2, built beside the old one and moved into place whole; tantivy's heap capped at 1.5 GB over 2 threads; fails unless the index holds every catalogued item. Queued by qv4-papers-past-ingest."
+needs = "processor"
+memory_gb = 3.0
+deadline_s = 43200   # 956,344 items in 142 s on 2 threads (sample, 2 November 2026): about 3.6 hours for the whole archive
+query_timeout_s = 3600
+class = "whenever"
+priority = 135   # unique (2 November 2026)
+command = ["python", "-m", "registers.papers_past.index", "--schema", "staging_papers_past", "--database", "querynz_v4", "--engine", "tantivy"]
+requires = ["ionice"]
+nice = 15

@@ -12,7 +12,9 @@ UTF-8 bytes then `\\n`, so a file read alone still says what it holds (`zstd -dc
 (file, frame_at, frame_bytes, at, bytes): the frame's offset and length in the file, the text's offset and length in the
 decompressed frame. `text(...)` reads one item back and checks its sha256.
 
-    w = Writer(root); w.add(key, paper, year, text) -> None; w.close() -> {key: Place}
+    w = Writer(root); w.add(key, paper, year, text) -> None; w.flush(); w.drain() -> {key: Place}; w.close()
+    sync(root)                  the store on the disk before its catalogue chunk commits
+    restore(root, committed)    each file cut back to its committed bytes, on a resume
 """
 import fcntl
 import hashlib
@@ -64,10 +66,10 @@ def group_file(paper: str, year) -> str:
 class Writer:
     """Buffers items per paper and year and appends them to that group's file in frames of about FRAME bytes."""
 
-    def __init__(self, path: str, frame: int = FRAME, level: int = LEVEL, buffered: int = BUFFERED):
+    def __init__(self, path: str, frame: int = None, level: int = LEVEL, buffered: int = BUFFERED):
         _check_root(path)
         os.makedirs(os.path.join(path, "text"), exist_ok=True)
-        self.path, self.frame, self.level, self.buffered = path, frame, level, buffered
+        self.path, self.frame, self.level, self.buffered = path, frame or FRAME, level, buffered
         self._lock = open(os.path.join(path, ".lock"), "w")
         fcntl.flock(self._lock, fcntl.LOCK_EX | fcntl.LOCK_NB)        # one writer at a time
         self._groups = {}       # file -> [bytearray, [(key, at, n, sha)]]
@@ -76,7 +78,9 @@ class Writer:
         self.frames = 0
         self.raw = 0
 
-    def add(self, key: str, paper: str, year, text: str) -> None:
+    def add(self, key: str, paper: str, year, text: str, ref=None) -> None:
+        """ref: what the place is filed under in `places` (default the key; the load files it under the dump row id, so
+        two rows of one article each keep their own)."""
         b = text.encode("utf-8")
         sha = hashlib.sha256(b).digest()
         f = group_file(paper, year)
@@ -84,7 +88,7 @@ class Writer:
         head = f"{key}\t{len(b)}\t{sha.hex()}\n".encode()
         at = len(buf) + len(head)
         buf += head + b + b"\n"
-        recs.append((key, at, len(b), sha))
+        recs.append((key if ref is None else ref, at, len(b), sha))
         self._held += len(head) + len(b) + 1
         if len(buf) >= self.frame:
             self._write(f)
@@ -102,20 +106,67 @@ class Writer:
         with open(full, "ab") as fh:
             frame_at = fh.tell()
             fh.write(data)
-            fh.flush()
-            os.fsync(fh.fileno())
         for key, at, n, sha in recs:
             self.places[key] = Place(f, frame_at, len(data), at, n, sha)
         self._held -= len(buf)
         self.frames += 1
         self.raw += len(buf)
 
-    def close(self) -> dict:
+    def flush(self) -> None:
+        """Every buffered group written out, so every item added so far has its place."""
         for f in list(self._groups):
             self._write(f)
+
+    def drain(self) -> dict:
+        """The places written since the last drain, {key: Place}, and forgotten here (a chunk's, for its COPY)."""
+        out, self.places = self.places, {}
+        return out
+
+    def close(self) -> dict:
+        self.flush()
         fcntl.flock(self._lock, fcntl.LOCK_UN)
         self._lock.close()
         return self.places
+
+
+def sync(path: str) -> None:
+    """Everything written to the store's filesystem on the disk (syncfs), before the catalogue that points at it commits."""
+    import ctypes
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        if ctypes.CDLL(None, use_errno=True).syncfs(fd) != 0:
+            raise OSError(ctypes.get_errno(), "syncfs failed")
+    finally:
+        os.close(fd)
+
+
+def sizes(path: str) -> dict:
+    """{file: bytes} of every text file in the store."""
+    out = {}
+    for dirpath, _, files in os.walk(os.path.join(path, "text")):
+        for f in files:
+            full = os.path.join(dirpath, f)
+            out[os.path.relpath(full, path)] = os.path.getsize(full)
+    return out
+
+
+def restore(path: str, committed: dict) -> dict:
+    """The store put back to its last committed state: each file cut to the bytes the catalogue committed for it, and a
+    file the catalogue never committed removed. Only uncommitted tails go (frames no catalogue row points at).
+    Returns {file: bytes cut}."""
+    _check_root(path)
+    cut = {}
+    for f, n in sizes(path).items():
+        keep = committed.get(f, 0)
+        if n < keep:
+            raise RuntimeError(f"{f} is {n} bytes, shorter than the {keep} committed: the store has lost text")
+        if n > keep:
+            cut[f] = n - keep
+            if keep:
+                os.truncate(os.path.join(path, f), keep)
+            else:
+                os.remove(os.path.join(path, f))
+    return cut
 
 
 def frame(path: str, file: str, frame_at: int, frame_bytes: int) -> bytes:

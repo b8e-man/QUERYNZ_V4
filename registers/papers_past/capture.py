@@ -14,6 +14,7 @@ other host is counted by its URL's host and never decoded (hard limit 8: no NZME
                               section's columns plus `_line` (its line in the dump) and `_bytes` (the line's bytes)
 """
 import os
+import re
 import subprocess
 from urllib.parse import urlsplit
 
@@ -24,6 +25,7 @@ HOST = "paperspast.natlib.govt.nz"
 #: the dump's size as read on 2 November 2026; its sha256 is read from its own dump.sha256 at run time, never copied here
 BYTES = 132_692_104_796
 
+_ESC_RE = re.compile(rb"\\(.)", re.S)
 _ESC = {0x74: b"\t", 0x6E: b"\n", 0x72: b"\r", 0x5C: b"\\", 0x62: b"\b", 0x66: b"\f", 0x76: b"\v"}
 
 
@@ -43,6 +45,15 @@ def source(folder: str = FOLDER) -> tuple:
 
 def unescape(f: bytes):
     """One field of a COPY text row, as PostgreSQL wrote it."""
+    if f == b"\\N":
+        return None
+    if 0x5C not in f:                               # most fields: nothing escaped
+        return f.decode("utf-8", "replace")
+    return _ESC_RE.sub(lambda m: _ESC.get(m.group(1)[0], m.group(1)), f).decode("utf-8", "replace")
+
+
+def unescape_slow(f: bytes):
+    """The same, a byte at a time (kept as the test's reference for the fast one)."""
     if f == b"\\N":
         return None
     out, i, n = bytearray(), 0, len(f)
@@ -75,11 +86,12 @@ def _field(line: bytes, i: int) -> bytes:
 PREFIX = b"https://" + HOST.encode() + b"/"
 
 
-def take(lines, n: int, after: int = 0, every: int = 1, counts: dict = None):
+def take(lines, n: int, after: int = 0, every: int = 1, counts: dict = None, seen: int = 0):
     """The Papers Past rows of the section from an iterator of the dump's raw lines (bytes): up to n, after line `after`,
     every `every`-th Papers Past row from the first (a sample spread over the dump). `counts`, if given, gets the Papers
-    Past rows passed over (`seen`) and the last line read (`line`)."""
-    section, cols, url_i, got, seen = False, None, None, 0, 0
+    Past rows passed over (`seen`) and the last line read (`line`). A resumed take passes `seen`, the Papers Past rows
+    counted up to `after`, so the stride keeps its phase; each row carries `_seen`, the count at it."""
+    section, cols, url_i, got = False, None, None, 0
     counts = counts if counts is not None else {}
     for line_no, line in enumerate(lines, start=1):
         if not section:
@@ -101,7 +113,7 @@ def take(lines, n: int, after: int = 0, every: int = 1, counts: dict = None):
             continue
         parts = line.rstrip(b"\n").split(b"\t")
         row = {c: unescape(v) for c, v in zip(cols, parts)}
-        row["_line"], row["_bytes"] = line_no, len(line)
+        row["_line"], row["_bytes"], row["_seen"] = line_no, len(line), seen
         yield row
         got += 1
         if got >= n:
@@ -110,13 +122,13 @@ def take(lines, n: int, after: int = 0, every: int = 1, counts: dict = None):
     counts.update(seen=seen, line=line_no if section else 0)
 
 
-def rows(n: int, after: int = 0, folder: str = FOLDER, every: int = 1, counts: dict = None):
+def rows(n: int, after: int = 0, folder: str = FOLDER, every: int = 1, counts: dict = None, seen: int = 0):
     """Stream the dump, read-only and at low priority, and yield its first n Papers Past rows after line `after`
     (every `every`-th of them)."""
     path = source(folder)[0]
     p = subprocess.Popen(["ionice", "-c3", "nice", "-n", "15", "zcat", path], stdout=subprocess.PIPE, bufsize=1 << 20)
     try:
-        yield from take(p.stdout, n, after, every, counts)
+        yield from take(p.stdout, n, after, every, counts, seen)
     finally:
         p.kill()
         p.wait()

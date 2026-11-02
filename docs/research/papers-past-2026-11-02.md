@@ -109,3 +109,29 @@ on `/mnt/hdd2`; tantivy 0.27's wheel installed to a scratch folder, not into the
 
 The two engines find the same number of hits on every query tried (`wellington` 178,497; `kauri` 7,840;
 `"bank of new zealand"` 9,041; `gold` and `otago` 4,237; `whare` 3,535). Files plus either index: 183 to 244 GB.
+
+## The full run made streaming and resumable; tantivy chosen (2 November 2026, evening)
+
+Arthur: "for papers past use tantivity and go". `registers.papers_past.load` now makes one pass of the dump in chunks of
+1,000,000 rows. At each chunk's end the store is flushed and synced, the catalogue rows are COPYed (the catalogue's key
+refuses a second row of an article, which is set aside at `once`; no set of every key is held), the catches, each file's
+committed length and the chunk's checkpoint (last dump line, the stride's count) are written, 200 items are read back,
+and the chunk commits. A stopped run resumes after its last committed chunk: files are cut back to their committed
+lengths, and the dump is gunzipped again up to the checkpoint without decoding (gzip cannot seek). The old copy's
+4,648,837 Papers Past ids are read once into a sorted array (about 37 MB).
+
+| Measure, 2 November 2026 | Figure |
+| --- | ---: |
+| 1,000,000 consecutive rows, one chunk: wall time | 297 s (CPU-bound in Python: 298 s user) |
+| Peak resident memory of the load | 0.95 GB |
+| Landed / set aside | 972,633 / 27,367; disk 1,000 bytes and catalogue 286 bytes an item (the upstream-id index included) |
+| Resume after that chunk, 50,000 rows more | 270 s, of which about 230 s gunzipping to the checkpoint (line 103.5 M) undecoded; peak 0.32 GB |
+| tantivy over the 1,022,377 items (1.5 GB heap, 2 threads) | 71 s; 1,095 bytes an item; peak resident 1.87 GB; warm queries 0.03 to 4.4 ms |
+
+**Projected for the whole dump** (90.65 M Papers Past rows at 297 s a million): about **7.5 hours** for the ingest, 88 to
+90 GB of files and about 25 GB of catalogue; then the index at 71 to 142 s a million (the consecutive run and the
+spread sample), **1.7 to 3.5 hours**, about 95 GB. A resume costs one chunk at most (about 5 minutes) plus the gunzip
+up to the checkpoint: up to one full pass, which took 28 minutes on the spread sample.
+
+Jobs: `qv4-papers-past-ingest` (priority 134) then `qv4-papers-past-index` (priority 135). Neither has a clock: the
+integrator queues the ingest. Nothing is published until `registers.papers_past.check` passes on the whole run.

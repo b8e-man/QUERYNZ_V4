@@ -41,33 +41,54 @@ def reconciles(stages: list) -> list:
     return out
 
 
+
+
+def merged(items, old):
+    """items: (upstream_id, title, url, held_in_old) ascending by id; old: (upstream_id, title, url) ascending by id.
+    Yields ({upstream_id, title, url, held_in_old}, (title, url) or None) for every item: a merge, nothing held whole."""
+    old = iter(old)
+    o = next(old, None)
+    for uid, title, url, held in items:
+        while o is not None and o[0] < uid:
+            o = next(old, None)
+        yield ({"upstream_id": uid, "title": title, "url": url, "held_in_old": held},
+               (o[1], o[2]) if o is not None and o[0] == uid else None)
+
+
 def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     schema = argv[argv.index("--schema") + 1] if "--schema" in argv else "papers_past"
     database = argv[argv.index("--database") + 1] if "--database" in argv else "querynz_v4"
     from support import db
-    why = []
     from registers.papers_past.load import URL, read_back
-    with db.connect(db.OWNER_KEY, database) as conn:
-        conn.execute("SET statement_timeout = '300s'")
-        items = [dict(zip(("upstream_id", "title", "url", "held_in_old"), r)) for r in
-                 conn.execute(f"SELECT upstream_id, title, coalesce(url, %s || key), held_in_old FROM {schema}.items",
-                              (URL,)).fetchall()]
+    why, n, n_old, n_marked = [], 0, 0, 0
+    with db.connect(db.OWNER_KEY, database) as conn, \
+            db.connect(db.OLD_READ_KEY, "incoming_news", connect_timeout=10) as c:
+        conn.execute("SET statement_timeout = '3600s'")
+        c.execute("SET statement_timeout = '3600s'")
+        c.execute("SET default_transaction_read_only = on")
         for (batch, sdir) in conn.execute(f"SELECT batch, store FROM {schema}.batches ORDER BY 1").fetchall():
-            why += [f"batch {batch}: {w}" for w in read_back(conn, schema, sdir, 200)]
+            why += [f"batch {batch}: {w}" for w in read_back(conn, schema, sdir, 2_000)]
         for (batch,) in conn.execute(f"SELECT DISTINCT batch FROM {schema}.stages ORDER BY 1").fetchall():
             why += [f"batch {batch}: {w}" for w in reconciles(conn.execute(
                 f"SELECT seq, stage, items_in, items_out, set_aside FROM {schema}.stages WHERE batch = %s ORDER BY seq",
                 (batch,)).fetchall())]
-    with db.connect(db.OLD_READ_KEY, "incoming_news", connect_timeout=10) as c:
-        c.execute("SET statement_timeout = '120s'")
-        c.execute("SET default_transaction_read_only = on")
-        ids, old = [it["upstream_id"] for it in items], {}
-        for i in range(0, len(ids), 100_000):
-            old.update({r[0]: (r[1], r[2]) for r in c.execute(
-                "SELECT upstream_id, title, news_url FROM articles WHERE upstream_id = ANY(%s)", (ids[i:i + 100_000],)).fetchall()})
-    why += against_old(items, old)
-    print(f"papers_past: {len(items)} items, {len(old)} held in the old estate, {sum(1 for it in items if it['held_in_old'])} marked so")
+        with conn.transaction(), c.transaction(), conn.cursor(name="pp_check_items") as ci, \
+                c.cursor(name="pp_check_old") as co:
+            ci.itersize = co.itersize = 100_000
+            ci.execute(f"SELECT upstream_id, title, coalesce(url, %s || key), held_in_old FROM {schema}.items "
+                       f"ORDER BY upstream_id", (URL,))
+            co.execute("SELECT upstream_id, title, news_url FROM articles WHERE upstream_id IS NOT NULL "
+                       "AND news_url LIKE 'https://paperspast.natlib.govt.nz/%' ORDER BY upstream_id")
+            for it, o in merged(ci, co):
+                n += 1
+                n_old += o is not None
+                n_marked += bool(it["held_in_old"])
+                if o is not None and not it["held_in_old"]:
+                    why.append(f"{it['upstream_id']} is held in the old estate but not marked so")
+                if len(why) < 1_000:
+                    why += against_old([it], {it["upstream_id"]: o} if o is not None else {})
+    print(f"papers_past: {n} items, {n_old} held in the old estate, {n_marked} marked so")
     for w in why[:50]:
         print("FAILS " + w)
     return 1 if why else 0

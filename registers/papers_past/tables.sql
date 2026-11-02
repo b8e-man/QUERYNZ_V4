@@ -17,7 +17,25 @@ CREATE TABLE IF NOT EXISTS papers_past.batches (
 );
 CREATE TABLE IF NOT EXISTS papers_past.files (
     file integer PRIMARY KEY,
-    path text NOT NULL UNIQUE         -- relative to the store: text/EP/1904.zst
+    path text NOT NULL UNIQUE,        -- relative to the store: text/EP/1904.zst
+    bytes bigint NOT NULL DEFAULT 0   -- its length when the last chunk committed: a resume cuts the file back to it
+);
+-- the streaming load's checkpoints: one row per committed chunk; a stopped run resumes after the last one's line
+CREATE TABLE IF NOT EXISTS papers_past.chunks (
+    batch integer NOT NULL,
+    chunk integer NOT NULL,
+    first_line bigint NOT NULL,       -- the dump lines of the chunk's first and last rows
+    last_line bigint NOT NULL,
+    seen bigint NOT NULL,             -- the Papers Past rows of the dump counted up to last_line (the stride's phase)
+    rows_in integer NOT NULL,
+    no_article integer NOT NULL,      -- set aside at `article id`
+    no_text integer NOT NULL,         -- set aside at `text`
+    twice integer NOT NULL,           -- set aside at `once`: the catalogue already held the article
+    landed integer NOT NULL,
+    store_bytes bigint NOT NULL,      -- the store's text files, all of them, at the commit
+    seconds integer NOT NULL,
+    committed_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (batch, chunk)
 );
 -- the catalogue: one row per article, about 0.3 KB; the text is in the store's files (store.py), found by its place
 CREATE TABLE IF NOT EXISTS papers_past.items (
@@ -27,7 +45,7 @@ CREATE TABLE IF NOT EXISTS papers_past.items (
     title text,
     chars integer NOT NULL,           -- the text's length in characters
     sha256 bytea NOT NULL,            -- of the text's UTF-8 bytes
-    upstream_id bigint NOT NULL,      -- the dump's scraper_results.id
+    upstream_id bigint NOT NULL UNIQUE, -- the dump's scraper_results.id; the keyword index's hit
     held_in_old boolean NOT NULL,     -- the old estate's incoming_news holds it by that id
     batch integer NOT NULL,
     line bigint NOT NULL,             -- its line in the dump: 'scraper_results line N'
