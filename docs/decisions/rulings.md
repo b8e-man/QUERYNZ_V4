@@ -1255,3 +1255,9 @@ repository as the record of what was built and why it was held.
 what they are giving us." The MCP's gets corpus (GETS tender notices) is
 pulled with the others; what it lacks against what GETS publishes is
 measured and reported.
+
+139. Arthur, 3 November: "let's just hold this as a paid lane for when
+necessary." The PPSR is a paid, on-demand lane, not built until a product
+needs it. The account and its production key (proven by two free calls)
+stay in place; no search is made, no direct debit is set up and no budget is
+set until then.

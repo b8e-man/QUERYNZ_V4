@@ -1,6 +1,6 @@
 # The PPSR is searched only from an account and for a fee, so no security interest is held
 kind: blocker
-state: open
+state: accepted
 use-case: 2 legal counterparty and conflict check; 5 business credit; 12 property; 13 ownership
 session: step-8-4
 opened: 2026-11-02
@@ -19,3 +19,7 @@ header `Ocp-Apim-Subscription-Key`). Base `https://api.business.govt.nz/gateway/
 `GET /user-current` answer 200: organisation active, its one user an admin. Operation paths are in the portal's PPSR API
 Business Rules (PPSR_02 search is `POST /financing-statements-search`). Still open: the direct debit authority a fee-bearing
 call needs, and the budget.
+
+Accepted by ruling 139 (Arthur, 3 November 2026): "let's just hold this as a paid lane for when necessary." No lane is built
+and nothing is searched; the account and its key stay in place. Built on demand when a product needs a search, with the
+direct debit and a budget set then.
