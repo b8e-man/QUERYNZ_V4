@@ -1,9 +1,10 @@
 # The OpenLaw lane is held: its API terms forbid copying case records without OpenLaw's written authorisation
 kind: blocker
-state: open
+state: dropped
 use-case: 2 legal counterparty and conflict check; step 5.4 item 1
 session: openlaw-1
 opened: 2026-10-21
+closed: 2026-11-03
 
 The OpenLaw NZ API terms (`apiterms.pdf`, sha256 `d327cea0…`, read 21 October
 2026 through the fetch gate) were accepted when the key was issued on 15 August.
@@ -23,3 +24,5 @@ is made. If OpenLaw authorises: add the `authorised:` line to the position, run
 cases), size the capture, fill sample.list, put the two jobs in the catalogue.
 If OpenLaw refuses or does not answer: drop the lane, and the courts lane
 carries the judgments.
+
+Dropped by ruling 137 (Arthur, 3 November 2026): "forget open law." The courts lane carries the judgments.

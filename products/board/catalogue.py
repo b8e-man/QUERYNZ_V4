@@ -1676,7 +1676,7 @@ FAMILY_OF = {r: name for name, _, regs in FAMILIES for r in regs}
 
 #: registers the plan names that no lane has published yet (plan step 4.1 and later steps)
 NOT_HELD = (
-    ("openlaw", "OpenLaw case law (held on its terms: queue, no default)"),
+    ("openlaw", "OpenLaw case law (dropped, ruling 137: the courts lane carries the judgments)"),
     ("hdc_decisions", "Health and Disability Commissioner decisions (held on the Commissioner's copyright terms: queue, no default)"),
     ("papers_past", "Papers Past"),
     ("tenancy_tribunal", "Tenancy Tribunal orders (held, nothing published: ruling 58)"),

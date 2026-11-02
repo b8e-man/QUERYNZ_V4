@@ -1365,10 +1365,9 @@ deadline_s = 14400
 query_timeout_s = 60
 class = "due"
 priority = 100
-# the corpora by name (3 November 2026): a corpus the MCP adds is pulled only once Arthur has said so. `gets` (GETS tender
-# notices, 870 on 3 November) waits: our own tenders lane is answered 403 by GETS, and taking the same notices through
-# another box is his decision (hard limit 6)
-command = ["python", "-m", "support.mcpsource", "--budget-s", "12600",
+# the corpora by name (3 November 2026): a corpus the MCP adds is pulled only once Arthur has said so; `gets` (GETS tender
+# notices) by ruling 138
+command = ["python", "-m", "support.mcpsource", "--budget-s", "12600", "--corpus", "gets",
            "--corpus", "beehive", "--corpus", "parliament-wayback", "--corpus", "parliament-written-questions",
            "--corpus", "parliament-bills", "--corpus", "parliament-diaries", "--corpus", "parliament-hansard-index",
            "--corpus", "parliament-hansard-debates", "--corpus", "parliament-bills-historical", "--corpus", "parliament-sops",

@@ -1243,3 +1243,15 @@ is sent and nothing is captured. What is known stays stored
 (registers/council_procurement/survey.md and its captured terms pages);
 qv4-council-procurement-watch is switched off. Lowest priority: taken up
 again only on Arthur's word. The councils' awards on GETS stay held.
+
+137. Arthur, 3 November: "forget open law." The OpenLaw lane is dropped: no
+case record is asked for, its letter is not followed up, and its question
+leaves the queue. The courts lane (the MCP's courts corpus, from the
+Ministry's and the courts' own sites) carries the judgments; citation and
+statute links, if built, are built from them. registers/openlaw stays in the
+repository as the record of what was built and why it was held.
+
+138. Arthur, 3 November: "Let's take gets from the mcp and identify gaps in
+what they are giving us." The MCP's gets corpus (GETS tender notices) is
+pulled with the others; what it lacks against what GETS publishes is
+measured and reported.
