@@ -337,3 +337,8 @@ The integrator's own: merges and releases; the alarm channel (ntfy.sh's free dai
 Arthur since 1 November 08:45: his decision); the owner login's 20-connection limit (a superuser's change).
 - Arthur, 3 November: the alarm channel is left for now. Alarms stay in `live/checks/alarms.jsonl`, and the morning
   report lists the unsent ones.
+- Track 4 merged: local elections read a listing's links against its own `<base href>` (Kaipara and six Hawke's Bay
+  pages: 242 file addresses corrected, one asked through the gate: 200, a PDF); the 17 wrong Kaipara rows are marked
+  "not linked". Dunedin and Gisborne alternate 200 and 403 on the same shapes: the source's. Tenancy Tribunal: every
+  order download reset since 24 October 00:24, after about 20,000 PDFs, while the listings answer 200: the host bars
+  the documents path; the lane stops after three resets a night, as it should. No change.
