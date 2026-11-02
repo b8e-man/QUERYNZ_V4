@@ -199,6 +199,20 @@ def test_a_removal_of_an_estate_never_held_is_not_asked_again(env):
     assert not any(u.endswith("/insolvencies/987654") for u in api.urls)
 
 
+def test_a_removals_re_ask_does_not_make_an_estate_held_the_next_day(env):
+    """3 November 2026: the old rule counted any earlier detail call as holding, and the removals' own re-asks are detail
+    calls, so the next day every estate the first run had asked was asked again."""
+    _night(env, FakeAPI())
+    call = env.conn.execute(f"INSERT INTO {L}.calls (at, day, why, asked, estate, status) VALUES "
+                            f"(now() - interval '1 day', %s, 'detail', '/insolvencies/987654', 987654, 404) RETURNING id",
+                            (TODAY,)).fetchone()[0]
+    env.conn.execute(f"INSERT INTO {L}.removals (estate, removed_on, call, seen_at) VALUES "
+                     f"(987654, %s, %s, now() - interval '2 days')", (TODAY, call))
+    api = FakeAPI(removed={987654})
+    capture.run_removals(env.conn, L, today=TODAY, log=lambda *a: None, **_gate(api))
+    assert not any(u.endswith("/insolvencies/987654") for u in api.urls)
+
+
 def test_the_removal_mutant_is_caught(env, monkeypatch):
     """apply_removal made a no-op: the row stays after its removal, and the check goes red."""
     _night(env, FakeAPI())

@@ -190,12 +190,14 @@ def run_removals(conn, schema: str = SCHEMA, *, today: dt.date = None, log=print
             page += 1
         start = end + dt.timedelta(days=1)
     # a correction: the estate asked again; a 200 is the corrected record (read by the next load), a 404 is gone. Only
-    # an estate we hold (a search named it, or we asked its detail before): one never seen comes in through the search
-    # like any other, and the first run's list (1,511 named, back to the API's start) would take two hours at 5 s a call
+    # an estate we hold (a search named it, or someone looked it up): one never seen comes in through the search like
+    # any other, and the first run's list (1,511 named, back to the API's start) would take two hours at 5 s a call. A
+    # detail call alone is not holding: the removals' own re-asks are detail calls, and counting them made every
+    # estate the first run re-asked "held" the next day (3 November 2026)
     for (estate,) in conn.execute(f"SELECT DISTINCT r.estate FROM {schema}.removals r WHERE NOT EXISTS (SELECT 1 FROM "
                                   f"{schema}.calls c WHERE c.estate = r.estate AND c.why = 'detail' AND c.at > r.seen_at) "
                                   f"AND (EXISTS (SELECT 1 FROM {schema}.search_seen s WHERE s.estate = r.estate) OR EXISTS "
-                                  f"(SELECT 1 FROM {schema}.calls c WHERE c.estate = r.estate AND c.why IN ('detail', 'lookup') "
+                                  f"(SELECT 1 FROM {schema}.calls c WHERE c.estate = r.estate AND c.why = 'lookup' "
                                   f"AND c.at <= r.seen_at))").fetchall():
         a = call(conn, f"/insolvencies/{estate}", {}, "detail", estate=estate, schema=schema, **gate)
         counts["calls"] += 1
