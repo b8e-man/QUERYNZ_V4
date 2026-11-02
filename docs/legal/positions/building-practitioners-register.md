@@ -1,18 +1,19 @@
 # Licensed building practitioners: the register and the Board's decisions (draft position, ruling 61)
 
 hosts: lbp.govt.nz, mbie.govt.nz, legislation.govt.nz
+authorised: register 2026-11-02 ruling 132 (Arthur: "copy: Building practitioners register"); copied whole, politely, through the register's own public search, no address kept
 
 Class: two publications under part 4 of the Building Act 2004, on two
 footings. (a) The Building Practitioners Board's published complaint
 decisions, the list on `www.lbp.govt.nz`. (b) The register of licensed
 building practitioners, searched at `kete-lbp.mbie.govt.nz`. Lane:
 `registers/building_practitioners`. `legislation.govt.nz` is named for the
-statute's text only. Draft, held in the lane's folder because the fence
-keeps a build session out of `docs/legal/positions/`; the integrator moves
-it there. Read 21 October 2026 by sanctions-1.
+statute's text only. Read 21 October 2026 by sanctions-1; the register's
+part revised 2 November 2026 on ruling 132.
 
-**Finding: the register (b) is held on its own statute; the decisions (a)
-are captured.**
+**Finding: both are copied. The decisions (a) are captured; the register (b)
+was held on its own statute until Arthur's ruling 132 (2 November 2026,
+"copy: Building practitioners register"), and is now copied whole.**
 
 1. **Is the page open?** Yes, both, with no login, lock or challenge. The
    decisions list answered 200 to four pages and three documents on 21
@@ -42,8 +43,8 @@ are captured.**
    it (`4c50071e…`). Copying the whole register into an estate that answers
    due-diligence questions about builders (use cases 6, 7, 12) is not a
    purpose s 299 names, and each search made to build it would be such an
-   interference. So nothing is asked of the register until Arthur decides
-   (queue item, no default); a lawyer should say whether a one-practitioner
+   interference. So nothing was asked of the register until Arthur
+   decided (ruling 132, 2 November 2026: copy); a lawyer should say whether a one-practitioner
    check made for a person choosing or checking that practitioner is within
    s 299(a)(i). The register also holds residential addresses, birth dates
    and contacts (s 301): none would ever be read (hard limit 15).
@@ -61,6 +62,18 @@ are captured.**
 
 Crawl delay: none stated for us. Floor: one request at a time, at least 5 s
 apart, off-peak, a full pass of the decisions list (about 80 pages) weekly;
-a 403, 429, 5xx or challenge stops the run. To unhold (b): a line
-`authorised: register <date> <how>` here, then a profile from the first
-authorised page, then its reader. Author: sanctions-1 (Opus), 21 October 2026.
+a 403, 429, 5xx or challenge stops the run. The register (b), from ruling 132: the hold is lifted by the
+`authorised: register` line at the head of this page, which the capture
+reads before it asks anything (without it, nothing is asked). Its own
+public search is used, as a member of the public uses it: GET only, no
+login, the 26 searches of its licence classes and areas of practice weekly
+(a search with no criterion did not answer in 60 s on 2 November and is
+never asked), then each listed practitioner's page once, again after 90
+days, one request at a time 5 s apart, off-peak. No robots file (404), so no
+crawl delay is stated; a 403, 429 or challenge stops the run (hard limit 6).
+Kept: the practitioner number, the names, the date a class was first
+granted, the region, the town (with `area_names_address` where its shape
+names an address, ruling 102), and the classes and areas from the searches.
+Never read: the postcode, email address and telephone numbers the page
+prints (s 301 contact details). Author: sanctions-1 (Opus), 21 October 2026; the
+register's part, the building-practitioners-register session (Opus), 2 November 2026.

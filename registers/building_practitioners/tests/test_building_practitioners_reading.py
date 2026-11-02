@@ -2,7 +2,9 @@
 invented), a mutant check of those rules, the register's hold, the capture's
 politeness on a fake transport, and the filled sample (real pages,
 sample.list) against the row contract, the ledger, suppression, the window
-and the views. No model is called and nothing is fetched."""
+and the views; the register's own pages are tested in
+test_building_practitioners_register.py. No model is called and nothing is
+fetched."""
 import datetime as dt
 import os
 import re
@@ -131,16 +133,15 @@ def test_each_mutant_is_caught(name):
     assert broken, f"the mutant '{name}' passes every rule"
 
 
-def test_the_register_is_held_and_asks_nothing(tmp_path):
+def test_the_register_is_asked_only_on_the_positions_authorisation(tmp_path):
     (tmp_path / "building-practitioners-register.md").write_text("hosts: lbp.govt.nz, mbie.govt.nz\n")
     with pytest.raises(capture.Held):
         capture.register(str(tmp_path))
     (tmp_path / "building-practitioners-register.md").write_text(
-        "hosts: lbp.govt.nz, mbie.govt.nz\nauthorised: register 2026-11-01 Arthur's ruling\n")
-    with pytest.raises(NotImplementedError):          # authorised, but no reading built until its shape is seen
-        capture.register(str(tmp_path))
-    real = os.path.join(LANE, "position")
-    assert capture.authorisation("register", real) is None
+        "hosts: lbp.govt.nz, mbie.govt.nz\nauthorised: register 2026-11-02 ruling 132\n")
+    assert capture.register(str(tmp_path)).startswith("2026-11-02 ruling 132")
+    # the position on file carries ruling 132's line (the hold lifted, 2 November 2026)
+    assert "ruling 132" in (capture.authorisation("register", fg.POSITIONS_DIR) or "")
 
 
 class PassTables:
