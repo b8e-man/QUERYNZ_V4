@@ -30,7 +30,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "council_minutes"
 JOB = "qv4-council-minutes-load"
 STAGING = "staging_council_minutes_load"
-TABLES = ("read_listings", "meetings", "documents", "read_set_aside")
+TABLES = ("read_listings", "meetings", "documents", "read_set_aside", "minutes_read", "attendance", "resolutions",
+          "declarations")
 _CITE = ("document", "page", "place")
 COLUMNS = {
     "read_listings": ("document", "host", "asked_at", "state", "year", "grid_rows", "meetings", "documents"),
@@ -39,6 +40,16 @@ COLUMNS = {
                 ("listing_url", "read_from", "reader", "profile", "profile_version"),
     "documents": ("key", "meeting_key", "kind", "format", "file", "url", "size_as_printed", "sha256", "held") + _CITE,
     "read_set_aside": ("document", "place", "stage", "reason"),
+    "minutes_read": ("document", "meeting_key", "council", "state", "profile", "profile_version", "read_from", "pages",
+                     "attendance", "resolutions", "declarations", "excluded_parts", "excluded_lines", "forum_items",
+                     "forum_lines", "unread_pages", "model"),
+    "attendance": ("key", "meeting_key", "council", "body", "meeting_date", "seq", "name", "role", "title", "attendance")
+                  + _CITE + ("read_from", "reader", "profile", "profile_version", "model"),
+    "resolutions": ("key", "meeting_key", "council", "body", "meeting_date", "seq", "item", "item_title", "number", "mover",
+                    "seconder", "text", "outcome", "votes_for", "votes_against", "abstained", "text_names_address")
+                   + _CITE + ("read_from", "reader", "profile", "profile_version", "model"),
+    "declarations": ("key", "meeting_key", "council", "body", "meeting_date", "seq", "member", "role", "item", "text",
+                     "text_names_address") + _CITE + ("read_from", "reader", "profile", "profile_version", "model"),
 }
 #: a meeting's kind, from the words of its listed name (first match wins)
 KINDS = (("supplementary", "supplementary"), ("extraordinary", "extraordinary"), ("workshop", "workshop"),
@@ -89,8 +100,87 @@ def minutes_of(docs: list, captured: dict):
     return pdf["file"], pdf["url"], sha, state
 
 
-def build(conn, schema: str, listings: list, captured: dict, read_bytes=read_bytes) -> dict:
-    """`listings`: [(host, sha256, asked_at)], newest first; `captured`: url → (state, sha256) from the capture."""
+def read_minutes(meetings: dict, captured: dict, read_bytes=read_bytes, store=None, version: int = None) -> dict:
+    """Every landed minutes PDF read under its profile: the standard template by minutes.read_standard, any other text
+    shape replayed from the text reader's stored readings (model_read.replay: no call here). Returns the ledger and the
+    rows of attendance, resolutions and declarations, each citing the PDF's sha256, its page and its place."""
+    from support.docread import pages
+    from registers.council_minutes import minutes as M, model_read as MR
+    by_sha = {}
+    for m in meetings.values():
+        if m.get("minutes_sha256") and m.get("minutes_held") == "landed":
+            by_sha.setdefault(m["minutes_sha256"], m)
+    landed = sorted({sha for st, sha in captured.values() if st == "landed" and sha})
+    out = {"minutes_read": [], "attendance": [], "resolutions": [], "declarations": []}
+    for sha in landed:
+        m = by_sha.get(sha, {})
+        line = {"document": sha, "meeting_key": m.get("key"), "council": m.get("council"), "attendance": 0,
+                "resolutions": 0, "declarations": 0, "excluded_parts": 0, "excluded_lines": 0, "forum_items": 0,
+                "forum_lines": 0}
+        try:
+            data = read_bytes(sha)
+        except Exception as exc:                                  # noqa: BLE001 — a document the store cannot give
+            out["minutes_read"].append({**line, "state": f"set aside: not in the store ({type(exc).__name__})"})
+            continue
+        if not data[:5].startswith(b"%PDF"):
+            out["minutes_read"].append({**line, "state": "set aside: not a PDF"})
+            continue
+        texts = pages.text_pages(data)
+        rf = pages.read_from(data, texts)
+        prof, why = M.recognise(texts, rf)
+        line.update(read_from=rf, pages=len(texts))
+        if prof == M.STANDARD:
+            got = M.read_standard(texts)
+            got.update(state="read", unread=sorted(pages.thin_pages(texts)) if rf == "mixed" else [], model=None)
+            reader, version_of = M.READER, standard_version()
+        elif prof == M.TEXT:
+            got = MR.replay(sha, data, store=store, version=version, texts=texts)
+            reader, version_of = MR.READER, version or MR.profile_version()
+        else:
+            out["minutes_read"].append({**line, "state": why})
+            continue
+        sk = got.get("skipped") or {}
+        line.update(state=got["state"], profile=prof, profile_version=version_of, model=got.get("model"),
+                    excluded_parts=sk.get("public excluded parts", 0), excluded_lines=sk.get("public excluded lines", 0),
+                    forum_items=sk.get("public forum items", 0), forum_lines=sk.get("public forum lines", 0),
+                    unread_pages=",".join(str(p) for p in got.get("unread") or []) or None)
+        cite = {"meeting_key": m.get("key"), "council": m.get("council"), "body": m.get("body"),
+                "meeting_date": m.get("meeting_date"), "document": sha, "read_from": "text", "reader": reader,
+                "profile": prof, "profile_version": version_of, "model": got.get("model")}
+        for n, a in enumerate(got["attendance"], 1):
+            out["attendance"].append({**cite, **{k: a.get(k) for k in ("name", "role", "title", "attendance", "page")},
+                                      "key": f"{sha}/a{n}", "seq": n, "place": a.get("place") or f"attendee {n}"})
+        for n, r in enumerate(got["resolutions"], 1):
+            out["resolutions"].append({**cite, **{k: r.get(k) for k in ("item", "item_title", "number", "mover", "seconder",
+                                                                         "text", "outcome", "votes_for", "votes_against",
+                                                                         "abstained", "page")},
+                                       "text_names_address": M.names_address(r.get("text")) or M.names_address(r.get("item_title")), "key": f"{sha}/r{n}",
+                                       "seq": n, "place": r.get("place") or f"resolution {n}"})
+        for n, d in enumerate(got["declarations"], 1):
+            out["declarations"].append({**cite, **{k: d.get(k) for k in ("member", "role", "item", "text", "page")},
+                                        "text_names_address": M.names_address(d.get("text")), "key": f"{sha}/d{n}",
+                                        "seq": n, "place": f"declaration {n}"})
+        line.update(attendance=len(got["attendance"]), resolutions=len(got["resolutions"]),
+                    declarations=len(got["declarations"]))
+        out["minutes_read"].append(line)
+    return out
+
+
+def standard_version() -> int:
+    """The standard profile's version: the ledger's, else the lane's proposed line."""
+    from support import profiles
+    from registers.council_minutes import minutes as M, model_read as MR
+    held = [p for p in (profiles.profile(M.STANDARD),
+                        profiles.profile(M.STANDARD, path=MR.PROPOSED) if os.path.exists(MR.PROPOSED) else None) if p]
+    if not held:
+        raise LookupError(f"no document profile {M.STANDARD}")
+    return max(int(p["version"]) for p in held)
+
+
+def build(conn, schema: str, listings: list, captured: dict, read_bytes=read_bytes, minutes: bool = True,
+          store=None) -> dict:
+    """`listings`: [(host, sha256, asked_at)], newest first; `captured`: url → (state, sha256) from the capture.
+    With `minutes`, every landed minutes PDF is read too (read_minutes)."""
     t0 = time.monotonic()
     create_tables(conn, schema)
     T = lambda t: table(schema, t)
@@ -126,7 +216,12 @@ def build(conn, schema: str, listings: list, captured: dict, read_bytes=read_byt
                        "documents": len(out["documents"])})
     if len(ledger) != len({s for _, s, _ in listings}):
         raise AssertionError(f"{SCHEMA}: {len(listings)} listings held, {len(ledger)} in the ledger")
-    return {"meetings": _copy(conn, T("meetings"), COLUMNS["meetings"], meetings.values()),
+    mins = (read_minutes(meetings, captured, read_bytes, store) if minutes
+            else {t: [] for t in ("minutes_read", "attendance", "resolutions", "declarations")})
+    counts = {t: _copy(conn, T(t), COLUMNS[t], mins[t]) for t in ("minutes_read", "attendance", "resolutions",
+                                                                    "declarations")}
+    counts["minutes waiting"] = sum(1 for r in mins["minutes_read"] if str(r["state"]).startswith("waiting"))
+    return {**counts, "meetings": _copy(conn, T("meetings"), COLUMNS["meetings"], meetings.values()),
             "documents": _copy(conn, T("documents"), COLUMNS["documents"], documents.values()),
             "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
             "listings": _copy(conn, T("read_listings"), COLUMNS["read_listings"], ledger),
@@ -187,7 +282,9 @@ def job(log=print) -> int:
             counts = build(conn, STAGING, listings, cap)
         problems = check.reading(conn, STAGING)
         detail = (f"{counts['meetings']} meetings, {counts['documents']} documents listed, {counts['set_aside']} set "
-                  "aside; " + ("; ".join(problems) or "reconciles"))
+                  f"aside; minutes {counts['minutes_read']} ({counts['minutes waiting']} waiting): "
+                  f"{counts['attendance']} attendees, {counts['resolutions']} resolutions, {counts['declarations']} "
+                  "declarations; " + ("; ".join(problems) or "reconciles"))
         if problems:
             log(f"{SCHEMA}: RED, nothing published: " + detail)
             jobrun.record(JOB, False, "nothing published: " + detail, started, {})
