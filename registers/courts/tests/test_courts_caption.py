@@ -118,6 +118,43 @@ HC_CIV_2 = page(
     "[1]    The plaintiffs claim.")
 
 
+#: the High Court's "… continued over" above the labels, page 2 running straight on with the last block's names and
+#: roles, no AND (two of the 3 November check's four; 27 judgments of the corpus)
+HC_OVER = page(
+    "IN THE HIGH COURT OF NEW ZEALAND",
+    "EXAMPLETOWN REGISTRY",
+    " " * 66 + "CIV-2098-404-1042",
+    " " * 66 + "[2099] NZHC 2280",
+    L + "BETWEEN" + " " * 24 + "SAMPLE ORCHARDS LIMITED",
+    N + "Plaintiff",
+    L + "AND" + " " * 28 + "DAN TEST",
+    N + "First Defendant",
+    N + "EVE TEST",
+    N + "Second Defendant",
+    " " * 70 + "… continued over",
+    "Hearing:              On the papers",
+    "Appearances:          D Eel for Plaintiff",
+    "                      F Gee for Third and Fourth Defendants",
+    "Judgment:             5 August 2099",
+    "                            JUDGMENT OF WHITE J")
+HC_OVER_2 = page(
+    "SAMPLE HOLDINGS LIMITED",
+    "Third Defendant",
+    "EXAMPLE TRUSTEE LIMITED",
+    "Fourth Defendant",
+    "[1]      The plaintiff applies.")
+
+
+def hc_two_sided(first, second, counsel):
+    """A High Court caption of two parties and its counsel lines."""
+    return page(
+        "IN THE HIGH COURT OF NEW ZEALAND", "EXAMPLETOWN REGISTRY", " " * 66 + "CIV-2098-404-1043", " " * 66 + "[2099] NZHC 2281",
+        L + "BETWEEN" + " " * 24 + "ANNA SAMPLE", N + first, L + "AND" + " " * 28 + "EXAMPLE DISTRICT COUNCIL", N + second,
+        "Hearing:              4 August 2098", "Appearances:          " + counsel[0],
+        *("                      " + c for c in counsel[1:]), "Judgment:             5 August 2099",
+        "                            JUDGMENT OF WHITE J")
+
+
 def parse(p1, p2="", name=""):
     return C.parse({1: p1, 2: p2} if p2 else {1: p1}, name)
 
@@ -233,6 +270,36 @@ def test_a_criminal_caption_s_counsel_lines_name_its_sides_by_the_stage():
     assert C.roles_unaccounted(j) == ["Intervener"]
 
 
+def test_a_caption_continued_over_runs_straight_on_at_the_top_of_page_2():
+    """2 of the 3 November four: "… continued over" on page 1, page 2 opening on the last block's next name and
+    role with no AND; the counsel line for Third and Fourth Defendants was reported as a role no party holds."""
+    j = parse(HC_OVER, HC_OVER_2)
+    assert [p.role for p in j.parties] == ["Plaintiff", "First Defendant", "Second Defendant", "Third Defendant", "Fourth Defendant"]
+    assert j.notes == ["caption continued on page 2"] and j.unrecognised == []
+    assert j.counsel_roles == ["Plaintiff", "Third And Fourth Defendants"] and C.roles_unaccounted(j) == []
+    assert C.roles_source_exception(j) is None
+    alone = parse(HC_OVER)
+    assert C.roles_unaccounted(alone) == ["Third And Fourth Defendants"], "without its page 2 the role is still short"
+    assert C.roles_source_exception(alone) is None, "a parse miss is never the source's own"
+
+
+def test_the_source_s_own_inconsistencies_are_named_and_a_parse_miss_is_not():
+    """The other two of the 3 November four: the court's own printing, counted apart with a reason."""
+    inter = parse(hc_two_sided("Applicant", "Respondent", ["Applicant in person", "G Hay for Respondent", "J Ivy for Intervener"]))
+    assert C.roles_unaccounted(inter) == ["Intervener"] and C.roles_source_exception(inter) == C.INTERVENER_UNLISTED
+    appeal = parse(hc_two_sided("Plaintiff", "Defendant", ["D Eel for the appellant", "F Gee for the respondent"]))
+    assert C.roles_unaccounted(appeal) == ["Appellant", "Respondent"]
+    assert C.roles_source_exception(appeal) == C.APPEAL_UNDER_FIRST_INSTANCE
+    # a role the grammar missed beside the intervener, or an ordinal on an appeal's line, stays a parse miss
+    mixed = parse(hc_two_sided("Applicant", "Respondent", ["G Hay for Second Respondent", "J Ivy for Intervener"]))
+    assert C.roles_unaccounted(mixed) == ["Intervener", "Second Respondent"] and C.roles_source_exception(mixed) is None
+    ordinal = parse(hc_two_sided("Plaintiff", "Defendant", ["D Eel for the appellant", "F Gee for the second respondent"]))
+    assert C.roles_source_exception(ordinal) is None
+    j = parse(HC_CIV, HC_CIV_2)
+    j.parties = [p for p in j.parties if p.role != "Third Respondent"]
+    assert C.roles_source_exception(j) is None
+
+
 # --- suppression, paragraphs, outcome -----------------------------------------------
 
 def test_a_banner_flags_suppression_and_its_kinds_are_a_closed_list():
@@ -332,6 +399,14 @@ def properties(c, r) -> list:
     check("suppression banner", lambda: P(SC).suppression and not P(CA).suppression)
     check("paragraphs", lambda: P(SC).paragraphs == [(1, 1), (2, 1)])
     check("counsel", lambda: c.roles_unaccounted(P(CA)) == [])
+    check("continued over", lambda: c.roles_unaccounted(P(HC_OVER, HC_OVER_2)) == [] and len(P(HC_OVER, HC_OVER_2).parties) == 5)
+    check("source's own", lambda: c.roles_source_exception(P(hc_two_sided("Applicant", "Respondent", ["J Ivy for Intervener"])))
+          == c.INTERVENER_UNLISTED and c.roles_source_exception(P(hc_two_sided("Plaintiff", "Defendant",
+          ["D Eel for the appellant", "F Gee for the respondent"]))) == c.APPEAL_UNDER_FIRST_INSTANCE)
+    check("a miss is no exception", lambda: c.roles_unaccounted(P(HC_OVER)) != []
+          and c.roles_source_exception(P(HC_OVER)) is None
+          and c.roles_source_exception(P(hc_two_sided("Applicant", "Respondent", ["G Hay for Second Respondent",
+                                                                                 "J Ivy for Intervener"]))) is None)
 
     def withheld():
         res = r.rows(r.Result(), [({"source": "x", "url": "x"}, "a" * 64, "s", 1,
@@ -362,6 +437,11 @@ MUTANTS = [
      'out.suppression_kinds = suppression_kinds("", body)'),
     ("caption", "paragraphs out of sequence kept", "            if m and int(m.group(2)) == want:", "            if m:"),
     ("caption", "an ampersand never splits defendants", 'm = re.search(r"\\s+(?:&|AND)$", l)', "m = None"),
+    ("caption", "continued over without an AND ignored", " or _marked_over(p1[cl.end():]))", ")"),
+    ("caption", "an ellipsis before continued over", r'OVER = re.compile(r"^\s*(?:…|\.{2,})?\s*', r'OVER = re.compile(r"^\s*'),
+    ("caption", "every short role the source's own", "        return None\n    held = set()",
+     "        return None\n    return INTERVENER_UNLISTED\n    held = set()"),
+    ("caption", "an intervener beside a miss excepted", "    if all(b and b <= {\"intervener\"", "    if any(b and b <= {\"intervener\""),
     ("read", "the suppression rule off", "            hide = bool(withheld) and not p.crown and not p.anonymised",
      "            hide = False"),
     ("read", "the Crown withheld too", "            hide = bool(withheld) and not p.crown and not p.anonymised",
