@@ -375,3 +375,8 @@ Arthur since 1 November 08:45: his decision); the owner login's 20-connection li
   detached snapshot of its checkout's HEAD, made fresh and removed after (three releases rewrote the checkout under the
   06:57 run), and records every FAILED and ERROR line and the commit, not the last 30 lines alone. Credit's text named
   two files and called status changes unreachable; it now says what is held.
+- Rebuildable schemas cleared (Arthur ran the list from his own terminal; the safety hook refuses a session's drop):
+  277 scratch and staging schemas no code names, none a lane's load area or its companion, none depended on by a
+  published view, none locked or written in the two days before; querynz_v4 134 GB to 84 GB, the sample 20 GB to
+  10 GB. Each drop is a line in live/checks/dropped-schemas.jsonl. The agent's 7.5 GB scratch index on /mnt/hdd2 removed.
+  Ruling 136: the councils' own award lists are stored, off every schedule.
