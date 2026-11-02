@@ -188,6 +188,17 @@ def test_a_correction_comes_back_and_stands(env):
     assert 1001 in rows
 
 
+def test_a_removal_of_an_estate_never_held_is_not_asked_again(env):
+    """The first run's list reaches back to the API's start; asking every estate on it again at 5 s a call ran the job
+    past its deadline (2 November 2026, 1,511 named). One we never held has nothing to correct."""
+    _night(env, FakeAPI())
+    api = FakeAPI(removed={1001, 987654})
+    out = capture.run_removals(env.conn, L, today=TODAY, log=lambda *a: None, **_gate(api))
+    assert out["ok"] and out["named"] == 2 and out["asked_again"] == 1
+    assert any(u.endswith("/insolvencies/1001") for u in api.urls)
+    assert not any(u.endswith("/insolvencies/987654") for u in api.urls)
+
+
 def test_the_removal_mutant_is_caught(env, monkeypatch):
     """apply_removal made a no-op: the row stays after its removal, and the check goes red."""
     _night(env, FakeAPI())
