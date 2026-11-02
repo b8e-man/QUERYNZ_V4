@@ -10,8 +10,8 @@ paperspast.natlib.govt.nz in the order the dump holds them, `after` the line the
 other host is counted by its URL's host and never decoded (hard limit 8: no NZME masthead is read).
 
     source()                  the dump: (path, sha256, bytes, verified)
-    rows(n, after=0)          up to n Papers Past rows after dump line `after`: dicts of the section's columns plus
-                              `_line` (its line in the dump) and `_bytes` (the line's bytes)
+    rows(n, after=0, every=1) up to n Papers Past rows after dump line `after`, every `every`-th: dicts of the
+                              section's columns plus `_line` (its line in the dump) and `_bytes` (the line's bytes)
 """
 import os
 import subprocess
@@ -61,9 +61,26 @@ def host_of(url: str) -> str:
     return (urlsplit(url or "").hostname or "").lower()
 
 
-def take(lines, n: int, after: int = 0):
-    """The Papers Past rows of the section from an iterator of the dump's raw lines (bytes): up to n, after line `after`."""
-    section, cols, url_i, got = False, None, None, 0
+def _field(line: bytes, i: int) -> bytes:
+    """The i-th tab-separated field of a COPY row, found without splitting the whole line."""
+    a = 0
+    for _ in range(i):
+        a = line.find(b"\t", a) + 1
+        if a == 0:
+            return b""
+    b = line.find(b"\t", a)
+    return line[a:b if b >= 0 else len(line)].rstrip(b"\n")
+
+
+PREFIX = b"https://" + HOST.encode() + b"/"
+
+
+def take(lines, n: int, after: int = 0, every: int = 1, counts: dict = None):
+    """The Papers Past rows of the section from an iterator of the dump's raw lines (bytes): up to n, after line `after`,
+    every `every`-th Papers Past row from the first (a sample spread over the dump). `counts`, if given, gets the Papers
+    Past rows passed over (`seen`) and the last line read (`line`)."""
+    section, cols, url_i, got, seen = False, None, None, 0, 0
+    counts = counts if counts is not None else {}
     for line_no, line in enumerate(lines, start=1):
         if not section:
             if line.startswith(b"COPY " + SECTION.encode() + b" "):
@@ -73,26 +90,33 @@ def take(lines, n: int, after: int = 0):
                 section = True
             continue
         if line == b"\\.\n":
-            return
+            break
         if line_no <= after:
             continue
-        parts = line.rstrip(b"\n").split(b"\t")
-        if url_i >= len(parts) or host_of(parts[url_i].decode("utf-8", "replace")) != HOST:
+        url = _field(line, url_i)
+        if not url.startswith(PREFIX) and host_of(url.decode("utf-8", "replace")) != HOST:
             continue
+        seen += 1
+        if (seen - 1) % every:
+            continue
+        parts = line.rstrip(b"\n").split(b"\t")
         row = {c: unescape(v) for c, v in zip(cols, parts)}
         row["_line"], row["_bytes"] = line_no, len(line)
         yield row
         got += 1
         if got >= n:
+            counts.update(seen=seen, line=line_no)
             return
+    counts.update(seen=seen, line=line_no if section else 0)
 
 
-def rows(n: int, after: int = 0, folder: str = FOLDER):
-    """Stream the dump, read-only and at low priority, and yield its first n Papers Past rows after line `after`."""
+def rows(n: int, after: int = 0, folder: str = FOLDER, every: int = 1, counts: dict = None):
+    """Stream the dump, read-only and at low priority, and yield its first n Papers Past rows after line `after`
+    (every `every`-th of them)."""
     path = source(folder)[0]
     p = subprocess.Popen(["ionice", "-c3", "nice", "-n", "15", "zcat", path], stdout=subprocess.PIPE, bufsize=1 << 20)
     try:
-        yield from take(p.stdout, n, after)
+        yield from take(p.stdout, n, after, every, counts)
     finally:
         p.kill()
         p.wait()

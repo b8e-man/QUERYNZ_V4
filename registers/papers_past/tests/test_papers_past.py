@@ -4,7 +4,9 @@ both ways; the outside check's two halves."""
 import os
 
 from support.lane import check_folder
-from registers.papers_past import capture, check, read
+import pytest
+
+from registers.papers_past import capture, check, read, store
 
 HEAD = (b"COPY public.scraper_results (id, link, post_date, scrape_date, title, news_url, author_id, raw_content, update_date, "
         b"text_content, error, airtable_record_id, airtable_sync_date, is_english, pipeline_source, pipeline_status) FROM stdin;\n")
@@ -88,3 +90,80 @@ def test_the_outside_check_compares_title_and_url_and_the_stages_must_join():
     assert check.against_old(items, {}) == ["1 is marked held in the old estate, which does not hold it"]
     assert check.reconciles([(1, "in", 3, 3, 0), (2, "text", 3, 2, 1), (3, "landed", 2, 2, 0)]) == []
     assert check.reconciles([(1, "in", 3, 3, 0), (2, "text", 3, 2, 1), (3, "landed", 2, 1, 0)])
+    assert check.reconciles([(1, "in", 3, 3, 0), (2, "text", 3, 2, 1), (3, "landed", 2, 2, 0),
+                             (4, "text files (measured)", 2, 2, 0)]) == []
+
+
+def test_the_store_appends_frames_and_every_item_reads_back_by_its_place(tmp_path):
+    sdir = str(tmp_path / "db.s")
+    w = store.Writer(sdir, frame=200)
+    texts = {f"EP19040730.2.{i}": ("word " * (i + 3)) + "tēnā\n\ttab" for i in range(40)}
+    for k, t in texts.items():
+        w.add(k, "EP", 1904, t)
+    w.add("TC19170911.2.1", "TC", 1917, "another paper")
+    places = w.close()
+    texts["TC19170911.2.1"] = "another paper"
+    assert set(places) == set(texts)
+    assert {p.file for p in places.values()} == {"text/EP/1904.zst", "text/TC/1917.zst"}
+    assert w.frames > 2, "a group past the frame size is written in more than one frame"
+    for k, p in places.items():
+        assert store.text(sdir, p.file, p.frame_at, p.frame_bytes, p.at, p.bytes, p.sha256) == texts[k]
+    p = places["EP19040730.2.5"]
+    with pytest.raises(RuntimeError):
+        store.text(sdir, p.file, p.frame_at, p.frame_bytes, p.at, p.bytes, b"\0" * 32)
+    keys = [r[0] for r in store.records(store.frame(sdir, p.file, p.frame_at, p.frame_bytes))]
+    assert "EP19040730.2.5" in keys, "a frame says what it holds without the catalogue"
+    size = os.path.getsize(os.path.join(sdir, "text/EP/1904.zst"))
+    w2 = store.Writer(sdir)
+    w2.add("EP19040801.2.1", "EP", 1904, "later")
+    q = w2.close()["EP19040801.2.1"]
+    assert q.frame_at == size, "append-only: a later batch's frame starts where the file ended"
+    assert store.text(sdir, p.file, p.frame_at, p.frame_bytes, p.at, p.bytes, p.sha256) == texts["EP19040730.2.5"]
+
+
+def test_the_store_refuses_the_old_estate_s_disk_and_wipes_only_its_own_folder(tmp_path):
+    with pytest.raises(RuntimeError):
+        store.Writer("/mnt/hdd/qv4-papers-past/x")
+    with pytest.raises(RuntimeError):
+        store.wipe(str(tmp_path / "a" / "b"), str(tmp_path))
+    (tmp_path / "s" / "text").mkdir(parents=True)
+    store.wipe(str(tmp_path / "s"), str(tmp_path))
+    assert not (tmp_path / "s" / "text").exists()
+
+
+def test_a_spread_sample_takes_every_kth_papers_past_row_and_counts_what_it_passed():
+    lines = dump(*[row(i, PP.format(i)) if i % 3 else row(i, "https://www.odt.co.nz/x") for i in range(1, 31)])
+    counts = {}
+    got = [r["id"] for r in capture.take(iter(lines), 100, every=4, counts=counts)]
+    pp = [str(i) for i in range(1, 31) if i % 3]
+    assert got == pp[::4] and counts["seen"] == len(pp)
+
+
+def test_the_streamed_reading_matches_the_whole_one():
+    rows = list(capture.take(iter(dump(row(1, PP.format(1)), row(2, PP.format(2), None, "MIGRATION_ERROR"),
+                                       row(3, PP.format(1)), row(4, "https://paperspast.natlib.govt.nz/newspapers/x"))), 10))
+    r = read.Reading(1, "a" * 64, keep_text=False)
+    got = [r.take(x) for x in rows]
+    res = r.finish()
+    whole = read.read(rows, 1, "a" * 64)
+    assert res.stages == whole.stages and res.items == []
+    assert [g["key"] for g in got if g] == [i["key"] for i in whole.items]
+
+
+def test_a_build_lands_a_catalogue_with_no_text_and_its_text_reads_back_from_the_files(tmp_path):
+    rows = list(capture.take(iter(dump(row(1, PP.format(1), "first text"), row(2, PP.format(2), None, "MIGRATION_ERROR"),
+                                       row(3, PP.format(3), "third text"))), 10))
+    from registers.papers_past import load
+    assert "text" not in load.ITEM_COLUMNS
+    sdir = store.store_dir("db", "s", str(tmp_path))
+    w = store.Writer(sdir)
+    r = read.Reading(1, "a" * 64, keep_text=False)
+    for x in rows:
+        it = r.take(x)
+        if it:
+            w.add(it["key"], it["paper"], load._year(it), it["text"])
+    places = w.close()
+    assert load._year({"key": "EP19040730.2.115.3", "paper": "EP"}) == 1904
+    assert [store.text(sdir, p.file, p.frame_at, p.frame_bytes, p.at, p.bytes, p.sha256) for k, p in sorted(places.items())] \
+        == ["first text", "third text"]
+    assert r.finish().stages[-1] == ("landed", 2, 2, 0)

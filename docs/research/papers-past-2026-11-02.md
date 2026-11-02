@@ -63,3 +63,49 @@ the line, for Arthur:
 
 The batch's ids span the dump's whole order, but the batch comes from its first rows only. A 1-million sample spread over
 the dump comes before any of these.
+
+## Option 1 built: the text on the 4 TB disk, the catalogue in the database (2 November 2026, later)
+
+Arthur: "use the 4tb HDD". Option 1, on `/mnt/hdd2` (ext4, 3,341 GB free), never `/mnt/hdd`, no tablespace.
+
+**Layout.** `/mnt/hdd2/qv4-papers-past/<database>.<schema>/text/<PAPER>/<YYYY>.zst`: zstd (Python 3.14's own
+`compression.zstd`, level 9) frames of about 256 KB of records, appended and never rewritten. A record is
+`key \t bytes \t sha256 \n`, the text, `\n`, so a file read alone says what it holds. The catalogue
+(`papers_past.items`) holds key, paper, date, title, length, sha256, dump line, and the file, frame offset and length,
+and the text's offset and length inside the frame; `papers_past.files` the file paths; `papers_past.batches` the dump's
+hash, the reader, the store folder and the stride. The keyword-index trials sit in the store's `index/`. The dump was
+only streamed, never moved, copied or changed. (Measured on batch 1: 256 KB frames at level 9 compress 2.47 to 1; 128 KB
+frames 2.31; one frame per item 1.85.)
+
+**Batch 1, re-landed this way** (sample database, `scratch_papers_past_b1`): 10,000 in = 9,031 landed + 969 set aside
+(952 `MIGRATION_ERROR`, 17 complete but empty); 1,995 held by the old estate, title and URL the same; 3,638 characters an
+item; every item read back from the files against its sha256. 303 catalogue bytes and 1,613 disk bytes an item (207
+small files, so block overhead counts).
+
+**The 1-million sample spread over the dump** (`scratch_papers_past_s1m`: every 90th Papers Past row, 99.3% of the
+section's rows passed, dump lines 99.2 M to 193.0 M, issues 1840 to 2001, 188 papers; 28 minutes at low priority):
+
+| Measure | Figure |
+| --- | ---: |
+| In / landed / set aside | 1,000,000 / 956,344 / 43,656 (38,459 `MIGRATION_ERROR`, 5,196 empty, 1 not an article id) |
+| Held by the old estate | 51,633, title and URL the same on every one |
+| Text an item | 2,302 characters, 2,325 bytes (median 1,411; 9.5% under 200) |
+| **Disk an item (files)** | **1,046 bytes** (5,390 files, 11,655 frames) |
+| **Catalogue an item** | **255 bytes** (table and its key index) |
+
+The batch-1 rate of rows with no text (9.6%) was the dump's first rows; spread over the dump it is 4.4%, so 86.7 M items
+land, not 81.9 M.
+
+**Projection for the whole archive (86.7 M items):** files 91 GB on `/mnt/hdd2`; catalogue 22 GB in the database
+(node2's system disk, 668 GB free). The stop line, half of `/mnt/hdd2`'s free space, is 1,670 GB: well under it.
+
+**The keyword index, sized on the sample** (whole text and title, positions kept so phrases work; text not stored; files
+on `/mnt/hdd2`; tantivy 0.27's wheel installed to a scratch folder, not into the venv; the full index not built):
+
+| Engine | Bytes an item | Whole archive | Build (956 k items) | Query, warm (first run) |
+| --- | ---: | ---: | ---: | --- |
+| SQLite FTS5 3.51 (contentless) | 1,761 | 153 GB | 259 s | 2 to 105 ms with an exact count of every hit (rare word 5, phrase 58, common word 105) |
+| tantivy 0.27 | 1,066 | 92 GB | 142 s, 2 threads | 0.03 to 4 ms for the top 20 and the count (first run off the disk 0.1 to 1,500 ms) |
+
+The two engines find the same number of hits on every query tried (`wellington` 178,497; `kauri` 7,840;
+`"bank of new zealand"` 9,041; `gold` and `otago` 4,237; `whare` 3,535). Files plus either index: 183 to 244 GB.

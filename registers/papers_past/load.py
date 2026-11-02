@@ -1,29 +1,36 @@
 """Loading a batch (step 7.2; step 8.6): `build(conn, schema, ...)` streams the batch from the dump, reads it through the named
-stages, lands it under `schema` with each stage's count and every catch, and measures what each stage's output takes on disk;
-`publish(conn, staging)` moves the tables into `papers_past` and makes the view, in one transaction.
+stages, writes each item's text to the store's compressed files on /mnt/hdd2 (store.py), lands the catalogue under `schema`
+(no text in the database) with each stage's count and every catch, reads a sample of the items back from the files against
+their sha256, and measures what the files and the catalogue take; `publish(conn, staging)` moves the tables into
+`papers_past` and makes the view, in one transaction.
 
-Rebuilt whole every load (regenerable). A batch that does not reconcile raises before anything lands.
+Rebuilt whole every load (regenerable): the schema's tables and the store's files together. A batch that does not
+reconcile, or whose text does not read back, raises before anything is committed.
 
-    python -m registers.papers_past.load --schema staging_papers_past [--batch 1] [--items 10000] [--after 0]
+    python -m registers.papers_past.load --schema staging_papers_past [--batch 1] [--items 10000] [--after 0] [--every 1]
+                                         [--database querynz_v4_sample]
 
+`--every k` takes every k-th Papers Past row of the dump: a sample spread over the whole dump, not its first rows.
 Every line printed is a count.
 """
 import argparse
 import json
 import os
+import random
 import sys
 import time
 
-from registers.papers_past import capture, read
+from registers.papers_past import capture, read, store
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "papers_past"
-TABLES = ("sources", "items", "stages", "catches")
-ITEM_COLUMNS = ("key", "paper", "published_on", "title", "text", "chars", "url", "upstream_id", "held_in_old", "batch",
-                "document", "place", "reader")
-#: the keyword index the batch is measured with (step 7.2's "Keyword index: needs sizing at this scale"): the whole text,
-#: not the old index's title and first 1,500 characters (7.3)
-KEYWORD_INDEX = "CREATE INDEX {name} ON {t} USING gin (to_tsvector('simple', coalesce(title, '') || ' ' || text))"
+TABLES = ("sources", "batches", "files", "items", "stages", "catches")
+ITEM_COLUMNS = ("key", "paper", "published_on", "title", "chars", "sha256", "upstream_id", "held_in_old", "batch", "line",
+                "file", "frame_at", "frame_bytes", "at", "bytes", "url")
+#: the dump's Papers Past rows, counted by one full pass (docs/research/papers-past-2026-11-02.md)
+DUMP_ROWS = 90_651_423
+URL = "https://paperspast.natlib.govt.nz/newspapers/"
+READ_BACK = 500             # items read back from the files and checked against their sha256, per batch
 
 
 def tables_sql(schema: str) -> str:
@@ -37,54 +44,98 @@ def create_tables(conn, schema: str) -> None:
     conn.execute(tables_sql(schema))
 
 
-def held_in_old(ids: list, connect=None) -> set:
-    """The upstream ids the old estate's incoming_news holds, read-only, one statement under a time limit."""
+def held_in_old(ids: list, connect=None, chunk: int = 100_000) -> set:
+    """The upstream ids the old estate's incoming_news holds, read-only, one statement per chunk under a time limit."""
     from support import db
     connect = connect or (lambda: db.connect(db.OLD_READ_KEY, "incoming_news", connect_timeout=10))
+    out = set()
     with connect() as c:
         c.execute("SET statement_timeout = '120s'")
         c.execute("SET default_transaction_read_only = on")
-        return {r[0] for r in c.execute("SELECT upstream_id FROM articles WHERE upstream_id = ANY(%s)", (ids,)).fetchall()}
+        for i in range(0, len(ids), chunk):
+            out |= {r[0] for r in c.execute("SELECT upstream_id FROM articles WHERE upstream_id = ANY(%s)",
+                                            (ids[i:i + chunk],)).fetchall()}
+    return out
 
 
 def _rel_bytes(conn, name: str) -> int:
     return conn.execute("SELECT pg_total_relation_size(%s::regclass)", (name,)).fetchone()[0]
 
 
-def build(conn, schema: str, batch: int = 1, items: int = 10_000, after: int = 0, rows=None, held=None, source=None,
-          log=print) -> dict:
+def _year(it: dict) -> int:
+    return int(it["key"][len(it["paper"]):len(it["paper"]) + 4])
+
+
+def build(conn, schema: str, batch: int = 1, items: int = 10_000, after: int = 0, every: int = 1, database: str = "querynz_v4",
+          rows=None, held=None, source=None, root: str = store.ROOT, log=print) -> dict:
     t0 = time.monotonic()
     path, sha, size, verified = source or capture.source()
-    rows = list(rows if rows is not None else capture.rows(items, after))
-    in_bytes = sum(r.get("_bytes", 0) for r in rows)
-    held = held if held is not None else held_in_old([int(r["id"]) for r in rows])
-    res = read.read(rows, batch, sha, held)
+    scan = {}
+    rows = rows if rows is not None else capture.rows(items, after, every=every, counts=scan)
+    sdir = store.store_dir(database, schema, root)
+    os.makedirs(root, exist_ok=True)
+    store.wipe(sdir, root)
+    writer = store.Writer(sdir)
+    reading = read.Reading(batch, sha, keep_text=False)
+    cat, n_rows, in_bytes, last_line = [], 0, 0, after
+    for r in rows:
+        n_rows += 1
+        in_bytes += r.get("_bytes", 0)
+        last_line = max(last_line, r["_line"])
+        it = reading.take(r)
+        if it is not None:
+            writer.add(it["key"], it["paper"], _year(it), it["text"])
+            cat.append({k: v for k, v in it.items() if k != "text"})
+    places = writer.close()
+    res = reading.finish()
+    held = held if held is not None else held_in_old([it["upstream_id"] for it in cat])
+    files = {f: i for i, f in enumerate(sorted({p.file for p in places.values()}), start=1)}
+    if len(places) != len(cat):
+        raise RuntimeError(f"batch {batch}: {len(cat)} items landed, {len(places)} placed in the store")
+
     create_tables(conn, schema)
     conn.execute(f"INSERT INTO {schema}.sources VALUES (%s, %s, %s, %s)", (sha, path, size, verified))
+    conn.execute(f"INSERT INTO {schema}.batches (batch, document, reader, store, every) VALUES (%s, %s, %s, %s, %s)",
+                 (batch, sha, read.READER, sdir, every))
+    with conn.cursor().copy(f"COPY {schema}.files (file, path) FROM STDIN") as cp:
+        for f, i in files.items():
+            cp.write_row((i, f))
     with conn.cursor().copy(f"COPY {schema}.items ({', '.join(ITEM_COLUMNS)}) FROM STDIN") as cp:
-        for it in res.items:
-            cp.write_row(tuple(it[c] for c in ITEM_COLUMNS))
+        for it in cat:
+            p = places[it["key"]]
+            cp.write_row((it["key"], it["paper"], it["published_on"], it["title"], it["chars"], p.sha256, it["upstream_id"],
+                          it["upstream_id"] in held, batch, it["line"], files[p.file], p.frame_at, p.frame_bytes, p.at,
+                          p.bytes, None if it["url"] == URL + it["key"] else it["url"]))
     with conn.cursor().copy(f"COPY {schema}.catches (batch, stage, item, place, reason, example) FROM STDIN") as cp:
         for stage, item, place, reason, example in res.catches:
             cp.write_row((batch, stage, item, place, reason, json.dumps(example, ensure_ascii=False) if example else None))
     conn.execute(f"ANALYZE {schema}.items")
-    table_bytes = _rel_bytes(conn, f"{schema}.items")
-    conn.execute(KEYWORD_INDEX.format(name=f"{schema}_items_words", t=f"{schema}.items"))
-    index_bytes = _rel_bytes(conn, f"{schema}.{schema}_items_words")
-    measured = {"in": in_bytes, "landed": table_bytes}
+    bad = read_back(conn, schema, sdir, READ_BACK)
+    if bad:
+        raise RuntimeError(f"batch {batch}: {len(bad)} items do not read back from the store: {bad[:3]}")
+    catalogue = sum(_rel_bytes(conn, f"{schema}.{t}") for t in ("items", "files", "batches"))
+    disk = store.disk_bytes(sdir)
+    measured = {"in": in_bytes, "landed": catalogue}
     for seq, (stage, n_in, n_out, aside) in enumerate(res.stages, start=1):
         conn.execute(f"INSERT INTO {schema}.stages VALUES (%s, %s, %s, %s, %s, %s, %s)",
                      (batch, seq, stage, n_in, n_out, aside, measured.get(stage)))
-    conn.execute(f"INSERT INTO {schema}.stages VALUES (%s, %s, 'keyword index (measured)', %s, %s, 0, %s)",
-                 (batch, len(res.stages) + 1, len(res.items), len(res.items), index_bytes))
-    n = len(res.items)
-    counts = {"batch": batch, "in": len(rows), "landed": n, "set aside": len(res.catches),
-              "held in the old estate": sum(1 for it in res.items if it["held_in_old"]),
-              "last dump line": max((r["_line"] for r in rows), default=after),
-              "dump bytes per item": round(in_bytes / len(rows)) if rows else 0,
-              "table bytes per item": round(table_bytes / n) if n else 0,
-              "keyword index bytes per item": round(index_bytes / n) if n else 0,
-              "text chars per item": round(sum(it["chars"] for it in res.items) / n) if n else 0,
+    conn.execute(f"INSERT INTO {schema}.stages VALUES (%s, %s, 'text files (measured)', %s, %s, 0, %s)",
+                 (batch, len(res.stages) + 1, len(cat), len(cat), disk))
+    n = len(cat)
+    rate = n / n_rows if n_rows else 0
+    counts = {"batch": batch, "every": every, "in": n_rows, "landed": n, "set aside": len(res.catches),
+              "held in the old estate": sum(1 for it in cat if it["upstream_id"] in held),
+              "last dump line": last_line, "papers past rows passed": scan.get("seen", n_rows),
+              "files": len(files), "frames": writer.frames, "read back": min(READ_BACK, n),
+              "dump bytes per item": round(in_bytes / n_rows) if n_rows else 0,
+              "text bytes per item": round(sum(p.bytes for p in places.values()) / n) if n else 0,
+              "text chars per item": round(sum(it["chars"] for it in cat) / n) if n else 0,
+              "disk bytes per item": round(disk / n) if n else 0,
+              "catalogue bytes per item": round(catalogue / n) if n else 0,
+              "projected items": round(DUMP_ROWS * rate),
+              "projected disk GB": round(DUMP_ROWS * rate * disk / n / 1e9, 1) if n else 0,
+              "projected catalogue GB": round(DUMP_ROWS * rate * catalogue / n / 1e9, 1) if n else 0,
+              "store free GB": round(os.statvfs(root).f_bavail * os.statvfs(root).f_frsize / 1e9, 1),
               "seconds": round(time.monotonic() - t0)}
     by = {}
     for stage, _, _, reason, _ in res.catches:
@@ -93,7 +144,25 @@ def build(conn, schema: str, batch: int = 1, items: int = 10_000, after: int = 0
         log(f"papers_past: {k} {v}")
     for k, v in sorted(by.items()):
         log(f"papers_past: set aside, {k}: {v}")
-    return {**counts, "reasons": by}
+    return {**counts, "reasons": by, "store": sdir}
+
+
+def read_back(conn, schema: str, sdir: str, n: int, seed: int = 8_6) -> list:
+    """n items (the first, the last and a random spread) read back from the store's files and checked against their
+    catalogued sha256 and length in characters. The problems, as plain lines."""
+    keys = [r[0] for r in conn.execute(f"SELECT key FROM {schema}.items ORDER BY key").fetchall()]
+    pick = sorted(set(keys[:1] + keys[-1:] + random.Random(seed).sample(keys, min(n, len(keys)))))
+    out = []
+    for key, path, frame_at, frame_bytes, at, nb, sha, chars in conn.execute(
+            f"SELECT i.key, f.path, i.frame_at, i.frame_bytes, i.at, i.bytes, i.sha256, i.chars FROM {schema}.items i "
+            f"JOIN {schema}.files f USING (file) WHERE i.key = ANY(%s)", (pick,)).fetchall():
+        try:
+            t = store.text(sdir, path, frame_at, frame_bytes, at, nb, sha)
+            if len(t) != chars:
+                out.append(f"{key}: {len(t)} characters read back, {chars} catalogued")
+        except Exception as exc:
+            out.append(f"{key}: {exc}")
+    return out
 
 
 def publish(conn, staging: str) -> None:
@@ -101,7 +170,6 @@ def publish(conn, staging: str) -> None:
     with conn.transaction():
         conn.execute(f"DROP SCHEMA IF EXISTS {SCHEMA} CASCADE")
         conn.execute(f"ALTER SCHEMA {staging} RENAME TO {SCHEMA}")
-        conn.execute(f"ALTER INDEX {SCHEMA}.{staging}_items_words RENAME TO {SCHEMA}_items_words")
         conn.execute(open(os.path.join(HERE, "publish.sql"), encoding="utf-8").read())
 
 
@@ -111,6 +179,7 @@ def main(argv=None) -> int:
     ap.add_argument("--batch", type=int, default=1)
     ap.add_argument("--items", type=int, default=10_000)
     ap.add_argument("--after", type=int, default=0)
+    ap.add_argument("--every", type=int, default=1)
     ap.add_argument("--database", default="querynz_v4")
     a = ap.parse_args(argv)
     if a.schema == SCHEMA:
@@ -119,7 +188,7 @@ def main(argv=None) -> int:
     from support import db
     with db.connect(db.OWNER_KEY, a.database) as conn:
         conn.execute("SET statement_timeout = '1800s'")
-        build(conn, a.schema, a.batch, a.items, a.after)
+        build(conn, a.schema, a.batch, a.items, a.after, a.every, a.database)
         conn.commit()
     return 0
 

@@ -4,6 +4,8 @@ The only reader of `pub.papers_past_items` and `papers_past.items` (tests/test_p
 module off them). It searches; it never mines: it builds no person, claim, link or name row, and nothing it computes is
 written into the estate (design, products rule 2). Nothing here is built yet beyond this page; step 8.6 lands the archive's
 first batch and measures it (docs/research/papers-past-2026-11-02.md), and steps 7.3 to 7.5 build the keyword index over
-whole documents, the meaning index and the search tools on that measurement.
+whole documents, the meaning index and the search tools on that measurement. The text is not in the database: an item's
+text is read from the lane's store on /mnt/hdd2 by its catalogue row (`registers.papers_past.store.text`), and the
+keyword index is a file beside it (`registers.papers_past.index`: FTS5 or tantivy, sized on a 1-million sample).
 
 Surface: a web app on its own port, local network only (hard limit 13), when built.
