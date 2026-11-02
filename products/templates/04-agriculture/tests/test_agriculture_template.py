@@ -78,7 +78,7 @@ def test_its_sections_run_in_the_credit_managers_order():
     assert not set(s["identity"]["views"]) & GAZETTE, "a near Gazette notice stays in the Gazette section"
     assert "roles" in s["officers"]["sources"], "from a company, its directors and holders are the walk's roles"
     assert "second" not in {x for sec in t["sections"] for x in sec.get("sources", [])}, "co-directors are not the counterparty's record"
-    assert set(s["gazette"]["views"]) == GAZETTE and "pointing" in s["gazette"]["sources"]
+    assert set(s["gazette"]["views"]) == GAZETTE | {"company_insolvencies"} and "pointing" in s["gazette"]["sources"]   # 2 November 2026
     assert {"insolvency", "court_coverage"} <= set(s["gazette"]["not_held"]) and {"charities", "charity_officers", "charity_returns"} <= set(s["societies"]["views"])
     assert "named" in s["societies"]["sources"] and not any("charities" in x.get("not_held", []) for x in t["sections"])
     assert {"securities", "linz"} <= set(s["not-held"]["not_held"]) and s["not-held"]["views"] == []

@@ -126,6 +126,23 @@ GRAIN = "the grain is the monthly file: a change is dated to the file that first
 
 flag, items, section, all_items = contract.flag, contract.items, contract.section, contract.all_items   # noqa: F821  (bound by the loader)
 
+#: the companies file's insolvency appointments (pub.company_insolvencies; the October 2026 package, read 2 November 2026) beside
+#: the Gazette's liquidation notices: a liquidator's, receiver's or administrator's appointment as the Companies Office lists it
+COMPANY_INSOLVENCY = "company_insolvencies"
+
+
+def _liq_view(it) -> bool:
+    """An insolvency practitioner's appointment: a Gazette liquidation notice, or an appointment the companies file lists that
+    follows no resolution of solvency (a solvent winding-up is no failure)."""
+    return it["view"] == "gazette_liquidations" or (it["view"] == COMPANY_INSOLVENCY and not (it.get("row") or {}).get("resolution_of_solvency"))
+
+
+def _liq_kind(it) -> str:
+    if it["view"] == COMPANY_INSOLVENCY:
+        return f"{((it.get('row') or {}).get('insolvency_type') or 'insolvency').lower()} (the companies file)"
+    return "liquidation"
+
+
 
 # ── reading the built report ────────────────────────────────────────────────
 
@@ -215,16 +232,16 @@ def _ending(it) -> str:
 
 
 def _notices(report, grades=("confirmed",)):
-    return list(items(report, ("gazette_liquidations", "gazette_company_notices"), grades))
+    return list(items(report, ("gazette_liquidations", "gazette_company_notices", "company_insolvencies"), grades))
 
 
 def _kind(it) -> str:
-    return "liquidation" if it["view"] == "gazette_liquidations" else (it["row"].get("kind") or "notice")
+    return _liq_kind(it) if _liq_view(it) else (it["row"].get("kind") or "notice")
 
 
 def _insolvency(it) -> bool:
     """A liquidator's appointment, or a company notice of an insolvency kind that is not a receiver ceasing to act."""
-    if it["view"] == "gazette_liquidations":
+    if _liq_view(it):
         return True
     r = it["row"]
     return it["view"] == "gazette_company_notices" and r.get("kind") in INSOLVENCY_KINDS and "ceas" not in (r.get("action") or "").lower()
@@ -605,7 +622,7 @@ def insolvency_notices(report):
             return flag("insolvency-notices", V, "fired", "red", f"{len(own)} Gazette insolvency notice(s) on the entity ({_counted(own, _kind)}), "
                         "newest first: " + "; ".join(f"{_kind(it)}, {it['dates']['text']}" for it in own[:EXAMPLES]),
                         citations=tuple(it["ref"] for it in own), sources_not_held=NOT_HELD_INSOLVENCY, scope="entity")
-        if set(section(report, "gazette").get("omitted_views") or ()) & {"gazette_liquidations", "gazette_company_notices"}:
+        if set(section(report, "gazette").get("omitted_views") or ()) & {"gazette_liquidations", "gazette_company_notices", "company_insolvencies"}:
             return flag("insolvency-notices", V, "blocked", "red", "the entity has more Gazette notices than the walk lists; an insolvency could "
                         "be among those left out", scope="entity")
         return flag("insolvency-notices", V, "clear", "red",

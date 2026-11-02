@@ -138,7 +138,8 @@ VIEWS: tuple = (
       hide_names=("withheld_by", "."), on="event_on", role="kind", statement="{title}: {kind} ({shape})",
       note="a person a later annulment names is withheld on every earlier row"),
     V("gazette_appointments", "gazette", "person", ("name", "role"), names=("name",), start="starts_on", end="ends_on",
-      role="role", statement="{title}, {body}", note="where an appointee lives is never kept"),
+      role="role", published="published_on", statement="{title}, {body} ({action})",
+      note="where an appointee lives is never kept; a Justice of the Peace's town is the list's, never an address"),
     # ── the House ───────────────────────────────────────────────────────────
     V("candidates", "house", "person", ("display_name", "election"), names=("display_name", "name"), year="election",
       statement="{title}: stood for {party} in {electorate}"),
@@ -236,6 +237,17 @@ VIEWS: tuple = (
       statement="{title}: {role} of {entity} ({role_status}), as the business-number register states it",
       note="a role the business-number register states and no monthly file held: a past director with the register's own dates, "
            "back to the company's registration; read company by company by the history backfill, so most companies are not yet asked"),
+    # ── the October 2026 package's two files the lane reads beside the four (published 2 November 2026) ──
+    V("company_insolvencies", "companies", "organisation", ("entity_name", "insolvency_type"), names=("entity_name",),
+      on="appointed_on", on_label="appointed", end="vacated_on", entity=("companies", "entity_key"), role="appointment_type",
+      statement="{title}: {appointee} appointed, as the companies file lists it",   # the appointment type ("239L - Court") reads as an address
+      note="an insolvency practitioner's appointment as the Companies Office's file lists it, with the day of appointment and the "
+           "day vacated where filed; a liquidation that follows a resolution of solvency is a solvent winding-up, never a failure"),
+    V("retirement_villages", "companies", "organisation", ("name",), names=("name",), entity=("companies", "operator_key"), on="supervisor_appointed_on",
+      on_label="supervisor appointed",
+      statement="{title}: a retirement village operated by {operator_name}; statutory supervisor {supervisor_name}",
+      note="the retirement villages file as the Companies Office publishes it: the operator and the statutory supervisor in office "
+           "and the day appointed; an earlier supervisor is not in the file"),
     V("company_lookup_holdings", "companies", "person", ("name",), names=("name",), suppressed="suppressed",
       start="started_on", end="ended_on", entity=("companies", "entity_key"), role="holder_type",
       statement="{title}: a past holder of record of {entity} ({role}), as the business-number register states it",
@@ -300,7 +312,7 @@ NOT_HELD = (
     ("disciplinary", "Disciplinary tribunals' findings (lawyers, conveyancers, the other professional bodies)"),
     ("disputes", "Disputes Tribunal decisions"),
     ("employment", "Employment Relations Authority determinations"),
-    ("insolvency", "The Insolvency Register"),
+    ("insolvency", "The Insolvency Register: personal bankruptcies and no-asset procedures (a company's insolvency appointments are read from the companies file)"),
     ("securities", "The Personal Property Securities Register"),
     ("fsp", "Financial service providers"),
     ("linz", "LINZ titles"),
@@ -316,7 +328,6 @@ NOT_HELD = (
     ("mpi", "Ministry for Primary Industries prosecutions and animal-tracing enforcement"),
     ("fire", "Fire and Emergency New Zealand notices"),
     # the registers a health regulator keeps (healthcare-1)
-    ("retirement_villages", "The retirement villages file: each village's operator and statutory supervisor"),
     ("hdc", "Health and Disability Commissioner decisions"),
     ("certification", "Certification audits of rest homes and hospitals"),
     ("health_providers", "The Ministry of Health's provider registers"),
@@ -327,7 +338,8 @@ NOT_HELD = (
 NOT_HELD_NAME = dict(NOT_HELD)
 #: not-held keys a template may still cite for a register a lane has since published: {old key: the register}. A template naming one
 #: loads, the key is dropped from its section's blank, and the report says the register is published and the template does not read it
-SUPERSEDED_NOT_HELD = {"charities": "charities", "rea": "rea"}   # rea: published 2 November 2026
+SUPERSEDED_NOT_HELD = {"charities": "charities", "rea": "rea",   # rea: published 2 November 2026
+                       "retirement_villages": "companies"}   # the October 2026 package's villages file (2 November 2026)
 
 #: what links/ publishes; read through walk, never as a register view
 LINKS_VIEWS = frozenset({"links", "groups", "decisions", "names", "old_decisions"})

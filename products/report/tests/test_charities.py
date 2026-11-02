@@ -26,7 +26,7 @@ def test_the_catalogue_knows_the_three_charities_views_and_no_longer_says_the_re
     assert rt.kind == "figure" and rt.on == "period_end" and rt.on_label == "period to" and rt.amount == "total_gross_income" and rt.entity == ("charities", "charity_key")
     assert {c for c in ("total_gross_income", "total_expenditure", "net_surplus", "total_assets", "total_liabilities", "total_equity")} <= rows.MONEY
     assert cat.REGISTER_NAME["charities"].startswith("Charities register") and "charities" not in cat.NOT_HELD_NAME
-    assert cat.SUPERSEDED_NOT_HELD == {"charities": "charities", "rea": "rea"}   # rea: held since 2 November 2026
+    assert cat.SUPERSEDED_NOT_HELD == {"charities": "charities", "rea": "rea", "retirement_villages": "companies"}   # rea, villages: 2 November 2026
     assert [c for c, *_ in walk.ROLES_ON["charities"]] == ["charity_officers", "charity_returns", "grants"]   # grants: 2 November 2026
     assert walk.NUMBER_JOINS["companies"][0] == ("charities", "nzbn", "nzbn") and walk.NAME_JOIN_TO[0][0] == "charity_officers"
     assert "charity_officers" in walk.OFFICER_VIEWS and "charity_officers" in walk.ROLE_VIEWS

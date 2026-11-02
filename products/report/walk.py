@@ -44,10 +44,11 @@ from products.report import db, rows
 from products.report import fold as kn
 
 LIMITS = {"members": 300, "links": 400, "star": 400, "related_people": 20, "roles": 200, "entities": 40, "second": 300, "expand": 12,
-          "officers": 12, "officer_rows": 40, "office": 20, "chain": 4, "chain_holders": 25, "chain_companies": 40}
+          "officers": 12, "officer_rows": 40, "office": 20, "chain": 4, "chain_holders": 25, "chain_companies": 40,
+          "beside": 12}   # the people beside a followed officer on each of the officer's other companies (2 November 2026)
 SETTINGS = {"hub_roles": 50, "hub_holdings": 50, "busy_address": 50, "thousand_address": 1000,
             "through_people": "near"}   # design: a connection through more than one person is near, never confirmed
-BUCKETS = ("members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain")
+BUCKETS = ("members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside")
 #: the third grade of `pub.links` (ruling 106 (2)): two entities and what the one is to the other. Never an identity and never
 #: near: the other company is listed as itself under its own heading (build.RELATED_SECTION), never walked, never an entity of the walk
 RELATED = "related"
@@ -65,6 +66,8 @@ NEAR_BY_NAME = "the release prints a name only, so these rows are matched to the
 NO_GROUP_FOR_FILED = "a filed row ({view}): no confirmed link names a person row, so there is no group to take; every same name elsewhere is a namesake, apart"
 ADOPTED_GROUP = "a filed row ({view}): the group shown is that of the person row a confirmed link names, {via}"
 NEAR_THROUGH_OFFICER = "reached through a person on the subject ({who}): an officer's other role is the officer's connection, not the subject's; near, never confirmed"
+NEAR_BESIDE = ("a director beside {who} on {company}, a company of the officer's: a connection through two people, the officer's and "
+               "then the company's; near, never confirmed")
 NEAR_OFFICER_LINK = "{officer}; and the officer's own link to this row is near: {link}"
 NEAR_OFFICER_NAMED = "{officer}; and the row only carries the officer's name: {reason}"
 NEAR_SHARED_OFFICE = "shares the registered office with the subject; an office is not a person, and a shared office is no connection on its own"
@@ -125,7 +128,9 @@ ROLES_ON = {
                   # the partnerships the company is a general partner of, by its business number; each row titled by its own partnership
                   ("limited_partnership_partners", "body_nzbn", "started_on", "nzbn", True),
                   # the grants a funder published to the company, by the business number the funder printed (2 November 2026)
-                  ("grants", "nzbn", "decided_on desc", "nzbn")),
+                  ("grants", "nzbn", "decided_on desc", "nzbn"),
+                  # the retirement villages the company operates, and a village's own row (the villages file, 2 November 2026)
+                  ("retirement_villages", "operator_key", "name"), ("retirement_villages", "entity_key", "name")),
     "societies": (("society_officers", "society_key", "started_on"), ("society_states", "society_key", "file")),
     "charities": (("charity_officers", "charity_key", "started_on"), ("charity_returns", "charity_key", "period_end desc"),
                   # the grants to the charity, by the registration number the funder printed (2 November 2026)
@@ -150,6 +155,7 @@ INSOLVENT_STATUS = re.compile(r"liquidation|receiv|administration|statutory mana
 EXPAND_ONLY_AS_START = frozenset({"party_return_totals", "candidate_return_totals", "disclosures", "mp_interest_returns"})
 #: rows of other views that point at a company by its register key (a possession points twice: as lender and as borrower)
 POINTING_AT = {"companies": (("gazette_liquidations", "register_key", "published_on"),
+                             ("company_insolvencies", "entity_key", "appointed_on"),   # the companies file's appointments (2 November 2026)
                              ("gazette_company_notices", "register_key", "published_on"),
                              ("gazette_possessions", "mortgagee_register_key", "published_on"),
                              ("gazette_possessions", "mortgagor_register_key", "published_on"))}
@@ -175,7 +181,10 @@ NAME_JOIN_TO = (("charity_officers", "full_name", "started_on", NEAR_CHARITY_OFF
                 ("rea_parties", "name", "decided_on",
                  NEAR_REGULATOR_BY_NAME.format(who="the Real Estate Authority's decisions (a licensee's name and licence number)")),
                 ("councillor_interests", "member", "as_at",
-                 NEAR_REGULATOR_BY_NAME.format(who="the councillors' registers of interests (a member's name)")))
+                 NEAR_REGULATOR_BY_NAME.format(who="the councillors' registers of interests (a member's name)")),
+                ("gazette_appointments", "name", "published_on",
+                 NEAR_REGULATOR_BY_NAME.format(who="the Gazette's appointments (a judge, a Justice of the Peace, a statutory "
+                                                   "manager, an office holder: a name and the office)")))
 #: an organisation start's own registered name looked for among rows that name a body by name only (2 November 2026): (view, name
 #: column, kind column, the kinds that are bodies, order, reason); folded, a trailing "limited" or "ltd" off both sides, whole name only
 ORG_NAME_JOIN = {"companies": (("rea_parties", "name", "kind", ("agency", "organisation"), "decided_on",
@@ -627,7 +636,7 @@ def name_joined(conn, people: list, allowed: set, skipped: list) -> tuple:
         for r in got:
             if ALREADY_LISTED.get(child) and r.get(ALREADY_LISTED[child]):
                 continue
-            refs = {ref for k in name_keys(r.get(col)) for ref in wanted.get(k, ())}
+            refs = {ref for k in name_keys(r.get(col)) for ref in wanted.get(k, ())} - {rows.ref_of(cv, str(r.get(cv.key_col)))}
             for ref in sorted(refs):
                 it = near(item(cv, r, titles.get(str(r.get(cv.entity[1]))) if cv.entity else None, via=ref), reason, "same-name")
                 if child in FAILURE_OF:
@@ -650,6 +659,16 @@ def company_failures(conn, keys: list) -> dict:
                            f"where register_key = any(%s) order by register_key, published_on", (keys,)):
         f = out.setdefault(str(n["register_key"]), {"status": None})
         f.update(notice=rows.ref_of(lv, str(n["key"])), on=str(n["published_on"]) if n.get("published_on") else None)
+    # the companies file's insolvency appointments (2 November 2026): its earliest that follows no resolution of solvency, where the
+    # Gazette gave none, or where the file's is earlier
+    iv = cat.BY_NAME["company_insolvencies"]
+    for n in db.rows(conn, f"select distinct on (entity_key) entity_key, {iv.key_col} as key, appointed_on from pub.company_insolvencies "
+                           f"where entity_key = any(%s) and not coalesce(resolution_of_solvency, false) order by entity_key, appointed_on",
+                     (keys,)):
+        f = out.setdefault(str(n["entity_key"]), {"status": None})
+        on = str(n["appointed_on"]) if n.get("appointed_on") else None
+        if not f.get("notice") or (on and f.get("on") and on < f["on"]):
+            f.update(notice=rows.ref_of(iv, str(n["key"])), on=on)
     return out
 
 
@@ -813,6 +832,36 @@ def follow_officers(conn, ref: str, officers: list, allowed: set, skipped: list,
             merged.append(it)
     merged += [{"omitted": n, "view": v, "via": via} for (v, via), n in counts.items()]
     return merged, len(followed), max(0, len([o for o in officers if not o["suppressed"]]) - len(followed)), links_omitted
+
+
+def beside_officers(conn, ref: str, officers: list, allowed: set, skipped: list) -> list:
+    """From an organisation start, the current directors of each company a followed officer sits on (the companies the walk reached
+    through an officer's own rows, never through a near link), to LIMITS["beside"] a company, the officer's own row there left out:
+    each near (NEAR_BESIDE), `through` the officer, `beside` set, `via` the company, depth 2 (2 November 2026: who sat beside the
+    officers elsewhere, for shared-boards). A company over the limit says how many more."""
+    if "directors" not in allowed:
+        skipped.append("directors")
+        return []
+    dv, out = cat.BY_NAME["directors"], []
+    titles = {it["ref"]: it["title"] for it in officers if "omitted" not in it}
+    cos = [it for it in officers if "omitted" not in it and it["view"] == "companies" and it.get("through") and not it.get("near_link")
+           and it["ref"] != ref]
+    for c in cos:
+        key = c["ref"].split(":", 1)[1]
+        own = sorted(it["ref"].split(":", 1)[1] for it in officers if "omitted" not in it and it.get("through") == c["through"]
+                     and it["view"] == "directors")
+        got = db.rows(conn, f"select *, {dv.key_col} as key, count(*) over () as total from pub.directors where entity_key = %s "
+                            f"and coalesce(in_latest, true) and ended_on is null and not ({dv.key_col} = any(%s)) "
+                            f"order by appointed_on, {dv.key_col} limit %s", (key, own, LIMITS["beside"]))
+        total = got[0]["total"] if got else 0
+        why = NEAR_BESIDE.format(who=titles.get(c["through"], "an officer"), company=c["title"])
+        for r in got:
+            r.pop("total", None)
+            out.append(near(item(dv, r, c["title"], via=c["ref"], through=c["through"], depth=2, beside=True), why, "beside-officer"))
+        more = total - len(got)
+        if more > 0:
+            out.append({"omitted": more, "view": "directors", "via": c["ref"]})
+    return out
 
 
 def org_fold(name: str) -> str:
@@ -1110,7 +1159,7 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
     sev, se = rows.entity_of(conn, sv, sr)
     out = {"found": True, "start": item(sv, sr, rows.title(sev, se) if se else None), "settings": dict(SETTINGS), "limits": dict(LIMITS), "skipped": skipped,
            "members": [], "confirmed": [], "near": [], "entities": [], "roles": [], "pointing": [], "second": [], "named": [], "hubs": [],
-           "officers": [], "office": [], "chain": [], "chain_stats": {}, "related": [],
+           "officers": [], "office": [], "chain": [], "beside": [], "chain_stats": {}, "related": [],
            "officers_followed": 0, "officers_omitted": 0, "officers_listed": None, "officers_suppressed": 0, "office_companies": 0, "office_listed": 0}
     if sv.name not in allowed:
         out["start_outside_template"] = True
@@ -1288,6 +1337,8 @@ def walk(conn, ref: str, allowed: set, depth: int = 2, buckets=None, chain_depth
         out["officers"], out["officers_followed"], out["officers_omitted"], more = follow_officers(conn, ref, officers, allowed, skipped, cache)
         out["links_omitted"] += more
         out["officers"] += officers_named(conn, officers, allowed, skipped)
+        if "beside" in wanted:
+            out["beside"] = beside_officers(conn, ref, out["officers"], allowed, skipped)
     if sv.name == "companies" and "office" in wanted and start_office is not None:
         out["office"], out["office_companies"], out["office_listed"] = office_companies(conn, ref, start_office, allowed, skipped)
     if sv.name == "companies" and "chain" in wanted and chain_depth:

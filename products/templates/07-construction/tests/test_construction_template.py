@@ -30,7 +30,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ORDER = ["identity", "officers", "phoenix", "office", "people-notices", "people", "gazette", "board", "past-roles", "contracts", "possessions", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"gazette_possessions", "award_notices", "award_suppliers", "grants", "court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "company_lookup_holdings", "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
+VIEWS = {"gazette_possessions", "award_notices", "award_suppliers", "grants", "court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "company_lookup_holdings", "limited_partnerships", "limited_partnership_partners", "building_practitioner_decisions", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "company_insolvencies", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
          "charities", "charity_officers", "charity_returns"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)

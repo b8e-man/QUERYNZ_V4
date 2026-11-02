@@ -39,12 +39,29 @@ from __future__ import annotations
 import datetime as dt
 import re
 
+#: the companies file's insolvency appointments (pub.company_insolvencies; the October 2026 package, read 2 November 2026) beside
+#: the Gazette's liquidation notices: a liquidator's, receiver's or administrator's appointment as the Companies Office lists it
+COMPANY_INSOLVENCY = "company_insolvencies"
+
+
+def _liq_view(it) -> bool:
+    """An insolvency practitioner's appointment: a Gazette liquidation notice, or an appointment the companies file lists that
+    follows no resolution of solvency (a solvent winding-up is no failure)."""
+    return it["view"] == "gazette_liquidations" or (it["view"] == COMPANY_INSOLVENCY and not (it.get("row") or {}).get("resolution_of_solvency"))
+
+
+def _liq_kind(it) -> str:
+    if it["view"] == COMPANY_INSOLVENCY:
+        return f"{((it.get('row') or {}).get('insolvency_type') or 'insolvency').lower()} (the companies file)"
+    return "liquidation"
+
+
 V = "0.1"
 YOUNG_DAYS = 730          # under 24 months registered: worth a question (the old young-entity rule)
 NAMESAKE_NOTE_AT = 5      # namesakes set apart at which the report's caveat fires
 EXAMPLES = 3              # dated examples a fired flag states in its text
 
-INSOLVENCY_VIEWS = ("gazette_liquidations", "gazette_company_notices")
+INSOLVENCY_VIEWS = ("gazette_liquidations", "gazette_company_notices", "company_insolvencies")
 #: the company notices that are insolvency; a removal (an intention to remove, a restoration) is not, and is its own flag
 INSOLVENCY_KINDS = ("winding-up application", "receivership", "administration", "notice to creditors")
 #: register statuses, as the companies file writes them (case folded)
@@ -207,7 +224,7 @@ def _side_by_side(report, notices: list) -> str:
 
 
 def _insolvency(it) -> bool:
-    return it["view"] == "gazette_liquidations" or (it["view"] == "gazette_company_notices" and it["row"].get("kind") in INSOLVENCY_KINDS)
+    return _liq_view(it) or (it["view"] == "gazette_company_notices" and it["row"].get("kind") in INSOLVENCY_KINDS)
 
 
 def _removal(it) -> bool:

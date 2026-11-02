@@ -10,14 +10,31 @@ no import of the shape, the same way a use-case template's rules.py is
 written."""
 flag, items = contract.flag, contract.items   # noqa: F821  (bound by the loader)
 
+#: the companies file's insolvency appointments (pub.company_insolvencies; the October 2026 package, read 2 November 2026) beside
+#: the Gazette's liquidation notices: a liquidator's, receiver's or administrator's appointment as the Companies Office lists it
+COMPANY_INSOLVENCY = "company_insolvencies"
+
+
+def _liq_view(it) -> bool:
+    """An insolvency practitioner's appointment: a Gazette liquidation notice, or an appointment the companies file lists that
+    follows no resolution of solvency (a solvent winding-up is no failure)."""
+    return it["view"] == "gazette_liquidations" or (it["view"] == COMPANY_INSOLVENCY and not (it.get("row") or {}).get("resolution_of_solvency"))
+
+
+def _liq_kind(it) -> str:
+    if it["view"] == COMPANY_INSOLVENCY:
+        return f"{((it.get('row') or {}).get('insolvency_type') or 'insolvency').lower()} (the companies file)"
+    return "liquidation"
+
+
 V = "0.3"
 GAZETTE = ("New Zealand Gazette notices: liquidations, receiverships, company notices, prohibitions, bankruptcies")
 NOT_HELD_FOR_INSOLVENCY = ("the Insolvency Register (interface awaited since 19 September 2026)", "court judgments (step 5.4)")
 
 
 def insolvency(report):
-    conf = [it for it in items(report, ("gazette_liquidations", "gazette_company_notices", "gazette_bankruptcies"), ("confirmed",))]
-    nearby = [it for it in items(report, ("gazette_liquidations", "gazette_company_notices", "gazette_bankruptcies"), ("near",))]
+    conf = [it for it in items(report, ("gazette_liquidations", "gazette_company_notices", "company_insolvencies", "gazette_bankruptcies"), ("confirmed",))]
+    nearby = [it for it in items(report, ("gazette_liquidations", "gazette_company_notices", "company_insolvencies", "gazette_bankruptcies"), ("near",))]
     if conf:
         return flag("insolvency", V, "fired", "red", f"{len(conf)} Gazette insolvency notice(s) on the subject or a company a confirmed row sits on",
                     citations=tuple(it["ref"] for it in conf), sources_not_held=NOT_HELD_FOR_INSOLVENCY)

@@ -129,6 +129,23 @@ def _general_partners(report, rule, severity):
 
 flag, items, section, all_items = contract.flag, contract.items, contract.section, contract.all_items   # noqa: F821  (bound by the loader)
 
+#: the companies file's insolvency appointments (pub.company_insolvencies; the October 2026 package, read 2 November 2026) beside
+#: the Gazette's liquidation notices: a liquidator's, receiver's or administrator's appointment as the Companies Office lists it
+COMPANY_INSOLVENCY = "company_insolvencies"
+
+
+def _liq_view(it) -> bool:
+    """An insolvency practitioner's appointment: a Gazette liquidation notice, or an appointment the companies file lists that
+    follows no resolution of solvency (a solvent winding-up is no failure)."""
+    return it["view"] == "gazette_liquidations" or (it["view"] == COMPANY_INSOLVENCY and not (it.get("row") or {}).get("resolution_of_solvency"))
+
+
+def _liq_kind(it) -> str:
+    if it["view"] == COMPANY_INSOLVENCY:
+        return f"{((it.get('row') or {}).get('insolvency_type') or 'insolvency').lower()} (the companies file)"
+    return "liquidation"
+
+
 
 # ── reading the built report ────────────────────────────────────────────────
 
@@ -212,17 +229,17 @@ def _ending(it) -> str:
 
 
 def _notices(report, grades=("confirmed",)):
-    return list(items(report, ("gazette_liquidations", "gazette_company_notices"), grades))
+    return list(items(report, ("gazette_liquidations", "gazette_company_notices", "company_insolvencies"), grades))
 
 
 def _kind(it) -> str:
-    return "liquidation" if it["view"] == "gazette_liquidations" else (it["row"].get("kind") or "notice")
+    return _liq_kind(it) if _liq_view(it) else (it["row"].get("kind") or "notice")
 
 
 def _insolvency(it) -> bool:
     """A notice that is an insolvency: a liquidator's appointment, or a company notice of an insolvency kind that is not a receiver
     ceasing to act."""
-    if it["view"] == "gazette_liquidations":
+    if _liq_view(it):
         return True
     r = it["row"]
     return it["view"] == "gazette_company_notices" and r.get("kind") in INSOLVENCY_KINDS and "ceas" not in (r.get("action") or "").lower()
@@ -244,7 +261,7 @@ def _failure_date(it):
     """The day a failure notice dates it from: a liquidator's or receiver's appointment where the Gazette states one, otherwise the
     day the notice was published (a winding-up application's own date is its hearing, and that is not the day the company failed)."""
     r = it["row"]
-    if it["view"] == "gazette_liquidations":
+    if _liq_view(it):
         return _date(r.get("appointed_on")) or _date(r.get("published_on"))
     if (r.get("event_basis") or "") == "appointment":
         return _date(r.get("event_on")) or _date(r.get("published_on"))
@@ -343,7 +360,7 @@ def _failures(report, companies: list) -> dict:
 
 def _appointment(n) -> bool:
     """A notice that dates an appointment: a liquidator's, or a receiver's or administrator's appointment."""
-    return n["view"] == "gazette_liquidations" or (n["row"].get("event_basis") or "") == "appointment"
+    return _liq_view(n) or (n["row"].get("event_basis") or "") == "appointment"
 
 
 def _how(f) -> str:
@@ -353,7 +370,7 @@ def _how(f) -> str:
     if n is None:
         return f"status {_status(f['company'])!r}, no dated Gazette notice reached"
     by = n["row"].get("appointed_by")
-    what = f"liquidation (liquidator appointed by the {by})" if n["view"] == "gazette_liquidations" and by else _kind(n)
+    what = f"liquidation (liquidator appointed by the {by})" if _liq_view(n) and by else _kind(n)
     return f"{what}, {n['dates']['text']}"
 
 
@@ -459,7 +476,7 @@ def insolvency_event(report):
                     "earliest first: " + "; ".join(f"{_kind(it)}, {it['dates']['text']}" for it in own[:EXAMPLES])
                     + (f"; and {len(own) - EXAMPLES} more" if len(own) > EXAMPLES else ""),
                     citations=tuple(it["ref"] for it in own), sources_not_held=NOT_HELD_INSOLVENCY + (SECURITIES, POSSESSIONS), scope="entity")
-    if set(section(report, "solvency").get("omitted_views") or ()) & {"gazette_liquidations", "gazette_company_notices"}:
+    if set(section(report, "solvency").get("omitted_views") or ()) & {"gazette_liquidations", "gazette_company_notices", "company_insolvencies"}:
         return flag("insolvency-event", V, "blocked", "red", "the entity has more Gazette notices than the walk lists; an insolvency could be "
                     "among those left out", scope="entity")
     if _ending(report["subject"]) == "insolvent":

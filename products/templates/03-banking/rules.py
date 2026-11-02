@@ -68,7 +68,7 @@ PAST_NOT_HELD = ("the companies file lists current roles only: a removed company
                  "filed end date, so a company the person left, or that was removed with them on it, is not seen")
 EXAMPLES = 3              # dated examples a fired flag states in its text
 
-INSOLVENCY_VIEWS = ("gazette_liquidations", "gazette_company_notices")
+INSOLVENCY_VIEWS = ("gazette_liquidations", "gazette_company_notices", "company_insolvencies")
 #: the company notices that are insolvency; a removal (an intention to remove, a restoration) is not, and is its own flag
 INSOLVENCY_KINDS = ("winding-up application", "receivership", "administration", "notice to creditors")
 #: register statuses, as the companies and societies files write them (case folded)
@@ -117,6 +117,23 @@ MONEY_VIEWS = ("party_return_donors", "party_return_loans", "disclosures", "disc
 
 
 flag, items, section, all_items = contract.flag, contract.items, contract.section, contract.all_items   # noqa: F821  (bound by the loader)
+
+#: the companies file's insolvency appointments (pub.company_insolvencies; the October 2026 package, read 2 November 2026) beside
+#: the Gazette's liquidation notices: a liquidator's, receiver's or administrator's appointment as the Companies Office lists it
+COMPANY_INSOLVENCY = "company_insolvencies"
+
+
+def _liq_view(it) -> bool:
+    """An insolvency practitioner's appointment: a Gazette liquidation notice, or an appointment the companies file lists that
+    follows no resolution of solvency (a solvent winding-up is no failure)."""
+    return it["view"] == "gazette_liquidations" or (it["view"] == COMPANY_INSOLVENCY and not (it.get("row") or {}).get("resolution_of_solvency"))
+
+
+def _liq_kind(it) -> str:
+    if it["view"] == COMPANY_INSOLVENCY:
+        return f"{((it.get('row') or {}).get('insolvency_type') or 'insolvency').lower()} (the companies file)"
+    return "liquidation"
+
 
 
 # ── reading the built report ────────────────────────────────────────────────
@@ -187,7 +204,7 @@ def _ending(it) -> str:
 
 
 def _insolvency(it) -> bool:
-    return it["view"] == "gazette_liquidations" or (it["view"] == "gazette_company_notices" and it["row"].get("kind") in INSOLVENCY_KINDS)
+    return _liq_view(it) or (it["view"] == "gazette_company_notices" and it["row"].get("kind") in INSOLVENCY_KINDS)
 
 
 def _removal(it) -> bool:
@@ -613,7 +630,7 @@ def shared_boards(report):
     person's companies. Two rows that share a name; no rule says they are
     one person, and nothing here says what the shared seats mean."""
     if _company_start(report):   # the officers the walk followed (2 November 2026)
-        return _of_beside("shared-boards", "info")
+        return _of_beside(report, "shared-boards", "info")
     if _other_start(report):
         return flag("shared-boards", V, "blocked", "info", _other_start(report), scope="officer-group")
     beside = [it for it in section(report, "beside")["items"] if not it.get("suppressed")]
@@ -1181,11 +1198,40 @@ def _of_companies(report, rule, severity="info", fire=None):
                     ("Companies Office companies file (pub.directors, pub.companies)",), report, apart, "company(ies)")
 
 
-def _of_beside(rule, severity):
-    """Who sat beside the officers on their other companies is a second step the walk does not take."""
-    return flag(rule, V, "blocked", severity, "the walk follows each officer of the company one step, to the officer's other companies, "
-                "and not on to the people on those: who sat beside the officers elsewhere is not read; start a report from an officer for it",
-                scope="officer-group")
+def _of_beside(report, rule, severity):
+    """Who sat beside the officers on their other companies (2 November 2026): the walk's `beside` reach lists the current
+    directors of each company a followed officer sits on, near, through the officer; a name on two or more of those companies is
+    two rows that share a name, beside the officers twice. Never confirmed one person, and nothing here says what the seats mean."""
+    w = _of_walk(report)
+    if "beside" not in (w.get("buckets") or ()):
+        return flag(rule, V, "blocked", severity, "the walk followed the officers one step and did not read who sat beside them on their other companies (the beside reach did not run)",
+                    scope="officer-group")
+    officers = _of_officers(report)
+    own = {_fold(o["title"]) for o in officers.values()}   # the company's own officers, beside each other elsewhere: counted already
+    beside = [it for it in items(report, ("directors",), ("confirmed", "near")) if it.get("beside") and not it.get("suppressed")
+              and _fold(it["title"]) not in own]
+    by = {}
+    for it in beside:
+        name = _fold(it["title"])
+        if name:
+            by.setdefault(name, {})[it.get("via")] = it
+    shared = sorted(((n, cos) for n, cos in by.items() if len(cos) > 1), key=lambda x: (-len(x[1]), x[0]))
+    gap = _of_short(report)
+    tail = f"; {gap}" if gap else ""
+    if shared:
+        bits = [f"{next(iter(cos.values()))['title']} on {len(cos)} of the officers' other companies ("
+                + ", ".join(sorted({it.get('entity_title') or c for c, it in cos.items()})[:EXAMPLES]) + ")"
+                for n, cos in shared[:EXAMPLES]]
+        return flag(rule, V, "fired", severity,
+                    f"of {len(by)} name(s) beside the {len(officers)} officer(s) on their other companies, {len(shared)} appear on two "
+                    f"or more of those companies: " + "; ".join(bits) + "; each is a set of rows that share a name, near, through the "
+                    "officer and then the company, never confirmed one person" + tail,
+                    citations=tuple(it["ref"] for _, cos in shared for it in cos.values()), scope="near")
+    if gap or _of_gap(report):
+        return flag(rule, V, "blocked", severity, (gap or _of_gap(report)) + f"; of {len(by)} name(s) read beside them, none on two "
+                    "of the officers' other companies", scope="officer-group")
+    return flag(rule, V, "clear", severity, f"of {len(by)} name(s) beside {_of_followed(report)} on their other companies, none appears "
+                "on more than one of those companies", sources_held=(COMPANIES_HELD,), scope="officer-group")
 
 
 RULES = (past_roles, company_endings, insolvency_notices, repeat_insolvency, left_before_notice, register_removals, prohibition, bankruptcy,

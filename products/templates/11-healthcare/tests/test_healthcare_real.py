@@ -24,7 +24,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.d
 FLAG = re.compile(r"^  (FIRED|CLEAR|BLOCKED)\s+(red|amber|info)\s+([a-z-]+)@[\d.]+: (.*)$")
 COMMON = ("group-standing", "hubs-met", "replaced-return")
 CARE = r"'(rest home|lifecare|healthcare|retirement|village)'"
-NOT_HELD = ("retirement-villages", "hdc-decisions", "certification-audits", "provider-registers", "aged-care-commissioner", "court-judgments",
+NOT_HELD = ("hdc-decisions", "certification-audits", "provider-registers", "aged-care-commissioner", "court-judgments",
             "past-roles", "charity-arm", "charity-returns", "charity-audit-opinion", "charity-return-filed")
 #: a care-named company with two to six current directors, one of whom has a confirmed row as director of another care-named company
 OVERLAP = f"""
@@ -67,7 +67,9 @@ def memo(ref: str) -> dict:
     assert "could not run" not in text, "a rule broke on real rows"
     for name in NOT_HELD:
         assert flags[name]["status"] == "blocked", name
-    line = [x for x in text.splitlines() if x.startswith("  not held: The retirement villages file") and "Court judgments" in x]
+    # the retirement villages file is read since 2 November 2026: from a company, fired or clear, never blocked
+    assert flags["retirement-villages"]["status"] in ("fired", "clear") and flags["retirement-villages"]["severity"] == "info"
+    line = [x for x in text.splitlines() if x.startswith("  not held: Health and Disability Commissioner decisions") and "Court judgments" in x]
     assert "WHAT IS NOT HELD" in text and line, "the not-held section's line names the health keys, then the courts"
     assert all(n in line[0] for n in ("Health and Disability Commissioner decisions", "Certification audits", "provider registers",
                                       "Aged Care Commissioner"))
@@ -94,3 +96,22 @@ def test_a_liquidated_care_company_is_red_on_its_own_record():
     assert m["flags"]["insolvency-notice"]["status"] == "fired" and m["flags"]["insolvency-notice"]["severity"] == "red"
     assert re.search(r"^\d+ Gazette insolvency notice\(s\) on the entity, earliest first: [a-z -]+, (appointed|to be heard|published) \d{1,2} \w+ \d{4}",
                      m["flags"]["insolvency-notice"]["text"])
+
+
+#: the operator the retirement villages file names for the most villages
+OPERATOR = "select 'companies:' || operator_key from pub.retirement_villages where operator_key is not null group by 1 order by count(*) desc, 1 limit 1"
+
+
+def test_a_village_operator_lists_its_villages_from_the_villages_file_confirmed():
+    """Step 8.1 (2 November 2026): an operator the villages file names fires retirement-villages at info, each village cited and
+    its statutory supervisor named; when a supervisor changed is said not to be in the file."""
+    ref = row(OPERATOR)[0]
+    with sdb.connect(sdb.READ_KEY, "querynz_v4", options="-c statement_timeout=60000", autocommit=True) as conn:
+        n = conn.execute("select count(*) from pub.retirement_villages where operator_key = %s", (ref.split(":", 1)[1],)).fetchone()[0]
+    out = subprocess.run([sys.executable, "-m", "products.report", "render", ref, "--template", "healthcare"], cwd=REPO,
+                         capture_output=True, text=True, timeout=120)
+    assert out.returncode == 0 and "REFUSED" not in out.stdout and "could not run" not in out.stdout, out.stderr[-500:]
+    got = [FLAG.match(x) for x in out.stdout.splitlines() if FLAG.match(x) and FLAG.match(x).group(3) == "retirement-villages"]
+    f = {"status": got[0].group(1).lower(), "severity": got[0].group(2), "text": got[0].group(4)}
+    assert f["status"] == "fired" and f["severity"] == "info", f
+    assert f"operator of {n} village(s)" in f["text"] and "supervisor" in f["text"] and "when a supervisor changed is not in the file" in f["text"]

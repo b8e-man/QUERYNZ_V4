@@ -41,6 +41,7 @@ limits = [
   "A Gazette bankruptcy notice is published but no link rule joins it to a person yet, so this report cannot see one: a blank there is not a clear.",
   "A company's registered office is listed and is flagged when fifty or more companies share it. No residential address is held in any view read.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+  "A company's insolvency appointments are read from the companies file beside the Gazette's notices (since 2 November 2026): each liquidator, receiver or administrator by name, dated by the day appointed; an appointment after a resolution of solvency (a solvent winding-up) is listed and never counted a failure.",
 ]
 
 # ── what it reads: each view with its licence ───────────────────────────────
@@ -89,6 +90,11 @@ view = "gazette_liquidations"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
 attribution = "New Zealand Gazette"
 refresh = "daily"
+[[reads]]
+view = "company_insolvencies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
 [[reads]]
 view = "gazette_company_notices"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person named in a rectification is held by initials and surname only"
@@ -223,7 +229,7 @@ text = "Every shareholder of record the companies file lists on the company, wit
 [[sections]]
 name = "chain"
 heading = "The holding chain above it: the companies that hold its shares of record, two up, with their holders, directors and notices"
-views = ["companies", "shareholders", "directors", "gazette_liquidations", "gazette_company_notices", "limited_partnership_partners"]
+views = ["companies", "shareholders", "directors", "gazette_liquidations", "company_insolvencies", "gazette_company_notices", "limited_partnership_partners"]
 sources = ["chain"]
 text = "Started from a company, each company holder of record followed to its own register row: by the business number the file carries for it, confirmed, or by a name only one company in the register carries, near, with its reason. Each company above is listed at its place up the chain with the shares of record it holds in the company below, as filed and never added or turned into a fraction, then its own holders of record, its current directors and the Gazette notices on it, each with that company's grade: the holder's rows, not the entity's. A company met twice is listed once; a holder whose name several companies carry, or none (an overseas company, a trust, a body of another kind), is named and not followed; at two up a company says the chain goes on. A holder of record is shown as the register states it; for whom it holds is in no register held. Started from a person, nothing is listed here: start a report from each company."
 
@@ -237,7 +243,7 @@ text = "Every director the companies file lists on the company, with the dates i
 [[sections]]
 name = "gazette"
 heading = "The Gazette on the companies and the people"
-views = ["gazette_liquidations", "gazette_company_notices", "gazette_prohibitions", "gazette_bankruptcies"]
+views = ["gazette_liquidations", "company_insolvencies", "gazette_company_notices", "gazette_prohibitions", "gazette_bankruptcies"]
 sources = ["members", "confirmed", "near", "pointing", "officers"]
 not_held = ["insolvency"]
 text = "Liquidations, receiverships, administrations, winding-up applications, creditors' notices, deeds of company arrangement, removals, restorations and amalgamations on the companies listed, each with its own date; then director prohibitions with their term on a person. A removal from the register is not an insolvency. Bankruptcy notices are published but no link rule joins one to a person yet. Started from a company, its people's notices are not read; the notices on a company holder further up are in the chain section. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."

@@ -103,9 +103,9 @@ def test_its_sections_run_in_the_credit_analysts_order():
     assert not set(s["identity"]["views"]) & (GAZETTE_CO | GAZETTE_PERSON), "a near Gazette notice stays in its own section"
     assert "roles" in s["roles"]["sources"] and "companies" not in s["roles"]["views"], \
         "a company heads the endings section, its notices beneath it"
-    assert s["endings"]["views"][0] == "companies" and set(s["endings"]["views"][1:]) == GAZETTE_CO and "pointing" in s["endings"]["sources"]
+    assert s["endings"]["views"][0] == "companies" and set(s["endings"]["views"][1:]) == GAZETTE_CO | {"company_insolvencies"} and "pointing" in s["endings"]["sources"]
     assert set(s["person-notices"]["views"]) == GAZETTE_PERSON
-    assert s["beside"]["sources"] == ["second"], "the people beside are the walk's second step and nothing else"
+    assert s["beside"]["sources"] == ["second", "beside"], "the people beside: the second step, and since 2 November 2026 the other officers of each followed officer's companies"
     assert "second" not in {x for sec in t["sections"] if sec["name"] != "beside" for x in sec.get("sources", [])}
     assert {"charities", "charity_officers", "charity_returns"} <= set(s["money"]["views"]) and "named" in s["money"]["sources"]
     assert not any("charities" in x.get("not_held", []) for x in t["sections"]), "the Charities Register is published and read"
@@ -527,3 +527,28 @@ def test_a_regulators_listing_naming_the_subject_fires_and_a_namesakes_is_amber_
     hidden = rule("comcom_coverage")(report(regulators=[dict(conf, suppressed=True)]))
     assert hidden["status"] != "fired" and "ACME" not in hidden["text"], "a name the regulator withheld is never shown or counted"
     assert rule("comcom_coverage")(report())["status"] == "clear"
+
+
+def test_from_a_company_shared_boards_reads_who_sat_beside_the_officers_on_their_other_companies():
+    """Step 8.1 (2 November 2026): the walk's beside step lists the current directors of each company a followed officer sits on, near;
+    a name on two of those companies fires info, near, never one person; one company each clears; without the step it is blocked."""
+    officer = dict(PERSON, via=ACME["ref"])
+    via = {"through": officer["ref"], "grade": "near", "reason": "reached through a person on the subject", "rule": "through-officer"}
+    cos = [dict(GAMMA, **via), dict(BETA, **via)]
+
+    def seat(name, co, letter):
+        return it(f"{co['ref']}/director/{letter}", "directors", grade="near", title=name, via=co["ref"], entity_title=co["title"],
+                  reason="a director beside Jane Mary DOE", row={"entity_key": co["ref"].split(":", 1)[1]}) | {"beside": True, **via}
+
+    def of(*xs, buckets=("officers", "beside")):
+        r = company(roles=[officer], endings=cos, beside=list(xs))
+        r["walk"].update(buckets=list(buckets), officers_followed=1, officers_omitted=0)
+        return r
+
+    smith = [seat("John SMITH", GAMMA, "z"), seat("John SMITH", BETA, "y")]
+    f = rule("shared_boards")(of(*smith, seat("Mere TAMA", GAMMA, "x")))
+    assert f["status"] == "fired" and f["severity"] == "info" and f["scope"] == "near" and "John SMITH on 2" in f["text"]
+    assert set(f["citations"]) == {x["ref"] for x in smith}
+    assert rule("shared_boards")(of(smith[0], seat("Mere TAMA", BETA, "x")))["status"] == "clear"
+    b = rule("shared_boards")(of(*smith, buckets=("officers",)))
+    assert b["status"] == "blocked" and "beside reach did not run" in b["text"]

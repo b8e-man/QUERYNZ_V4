@@ -32,7 +32,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ORDER = ["identity", "standing", "solvency", "people", "companies", "people-notices", "beside", "charities", "safety", "past-roles", "possessions", "courts"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"company_states", "gazette_possessions", "court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "company_lookup_holdings", "limited_partnerships", "limited_partnership_partners", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "gazette_liquidators", "gazette_company_notices",
+VIEWS = {"company_states", "gazette_possessions", "court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "company_lookup_holdings", "limited_partnerships", "limited_partnership_partners", "companies", "directors", "shareholders", "company_addresses", "gazette_liquidations", "company_insolvencies", "gazette_liquidators", "gazette_company_notices",
          "gazette_appointments", "gazette_prohibitions", "gazette_bankruptcies", "societies", "society_officers",
          "charities", "charity_officers", "charity_returns", "worksafe_parties", "commerce_commission_parties", "fma_parties"}
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -125,7 +125,7 @@ def test_its_sections_run_in_the_underwriters_order():
     assert s["identity"]["sources"] == ["near"] and "companies" not in s["identity"]["views"], \
         "an entity is filed in the first section naming its view: a confirmed company never lands with the namesakes"
     assert s["standing"]["views"] == ["company_addresses", "company_states"]
-    assert set(s["solvency"]["views"]) == {"gazette_liquidations", "gazette_company_notices"} and "pointing" in s["solvency"]["sources"]
+    assert set(s["solvency"]["views"]) == {"gazette_liquidations", "company_insolvencies", "gazette_company_notices"} and "pointing" in s["solvency"]["sources"]
     assert "pointing" not in {x for sec in t["sections"] if sec["name"] not in ("solvency", "possessions") for x in sec.get("sources", [])}
     assert s["people"]["views"] == ["directors", "shareholders", "limited_partnerships", "limited_partnership_partners", "company_lookup_roles", "company_lookup_holdings"] and "roles" in s["people"]["sources"]
     assert s["companies"]["views"] == ["companies"]

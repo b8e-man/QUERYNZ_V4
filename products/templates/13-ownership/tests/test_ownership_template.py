@@ -400,7 +400,8 @@ def test_the_chain_above_is_followed_two_up_with_its_holders_directors_and_notic
     assert t["chain_depth"] == 2
     s = {x["name"]: x for x in t["sections"]}
     assert s["chain"]["sources"] == ["chain"] and set(s["chain"]["views"]) == {"companies", "shareholders", "directors", "gazette_liquidations",
-                                                                              "gazette_company_notices", "limited_partnership_partners"}
+                                                                              "company_insolvencies", "gazette_company_notices",
+                                                                              "limited_partnership_partners"}
     assert not any("chain" in x.get("sources", []) for x in t["sections"] if x["name"] != "chain"), "a chain row is listed in one section"
     assert "never added or turned into a fraction" in s["chain"]["text"] and "the chain goes on" in s["chain"]["text"]
     assert not any("registers reach one" in x for x in t["limits"]) and "carries no business number in the file" not in s["holders"]["text"]

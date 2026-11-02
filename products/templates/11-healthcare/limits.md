@@ -10,17 +10,19 @@ accepted for now; the card that would lift it is named.
 
 ## What it cannot see
 
-- **The retirement villages file.** Which company operates a village, the
-  village's statutory supervisor and when the supervisor changed are in no
-  published register. The companies lane carries 512 village rows in
-  `pub.companies` (register `retirement_village`: name, number, status,
-  registration day, from the old estate's tables) and nothing joins a
-  village to an operator: no officer, holder or office sits on a village,
-  and the only links are 164 near `company-name@1` pairs. A village row
-  reached by a name it shares is listed with the namesakes; a report
-  started from a village row lists no officer and every officer check
-  blocks. The flag `retirement-villages` is **blocked, never clear**, red.
-  (`the-retirement-villages-file-holds-no-operator-or-supervisor`)
+- **The retirement villages file, read since 2 November 2026.**
+  `pub.retirement_villages` (the companies lane's October 2026 package)
+  holds 514 villages: 409 name their operator by company number (261
+  operators), 493 the statutory supervisor in office, 488 the day appointed.
+  A village joins its operator by `operator_key`, confirmed, and the flag
+  `retirement-villages` fires info listing them; an operator the file names
+  for none is clear; a person start is blocked (a village's operator is a
+  company). What the file cannot say: an earlier supervisor, and so when
+  the supervisor changed; the 105 villages that name no operator are
+  reached from no company. A village row of `pub.companies` (register
+  `retirement_village`) reached by a name it shares is still listed with
+  the namesakes, never the operator's. (Was blocked, never clear, red, under
+  `the-retirement-villages-file-holds-no-operator-or-supervisor`, now closed.)
 - **The Charities Register, by number and by name.** The template reads
   `pub.charities`, `pub.charity_officers` and `pub.charity_returns`. A
   company's charity is reached by its business number, confirmed, with

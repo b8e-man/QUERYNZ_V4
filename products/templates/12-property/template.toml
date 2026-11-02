@@ -65,6 +65,7 @@ limits = [
   "The entity is the row the report starts from and the rows a rule confirms are the same. A row that only shares the name is a namesake, set apart with its reason.",
   "A company's registered office is shown as the companies file states it. No residential address is held in any view read.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+  "A company's insolvency appointments are read from the companies file beside the Gazette's notices (since 2 November 2026): each liquidator, receiver or administrator by name, dated by the day appointed; an appointment after a resolution of solvency (a solvent winding-up) is listed and never counted a failure.",
 ]
 
 # ── the reader's settings ───────────────────────────────────────────────────
@@ -133,6 +134,11 @@ view = "gazette_liquidations"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
 attribution = "New Zealand Gazette"
 refresh = "daily"
+[[reads]]
+view = "company_insolvencies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
 [[reads]]
 view = "gazette_liquidators"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a practitioner's name and role only, never an address or telephone"
@@ -269,7 +275,7 @@ text = "Started from a company, each director's other current companies, one ste
 [[sections]]
 name = "serial"
 heading = "The serial pattern: the Gazette on the principals' other companies"
-views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators"]
+views = ["gazette_liquidations", "company_insolvencies", "gazette_company_notices", "gazette_liquidators"]
 sources = ["officers", "pointing"]
 own = false
 not_held = ["company_history"]
@@ -301,7 +307,7 @@ text = "A director prohibition or a bankruptcy notice the link rules join to the
 [[sections]]
 name = "gazette"
 heading = "The Gazette on the entity itself"
-views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_appointments"]
+views = ["gazette_liquidations", "company_insolvencies", "gazette_company_notices", "gazette_liquidators", "gazette_appointments"]
 sources = ["pointing", "members", "confirmed", "near", "roles", "chain"]
 not_held = ["insolvency"]
 text = "Liquidations, receiverships, administrations, winding-up applications, creditors' notices, removals and restorations, amalgamations and the other company notices on the entity, each with its own date and the practitioners the notice names; started from a person, also the person's own appointments as liquidator or to a public office. Then the notices on each company above in the holding chain, with that company's grade and its place up the chain: the holder's notices, not the entity's."

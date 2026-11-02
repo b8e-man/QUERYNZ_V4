@@ -72,7 +72,9 @@ def test_it_names_each_view_once_with_its_licence_and_fewer_than_the_shape():
     with open(os.path.join(REPO, "products", "report", "templates", "subject", "template.toml"), "rb") as f:
         shape = {r["view"] for r in tomllib.load(f)["reads"]}
     assert set(views) < shape, "a use-case template names fewer views than the shape's"
-    assert "gazette_appointments" not in views, "no link reaches an appointment yet: reading it would print a blank that is not a clear"
+    # the Gazette's appointments are looked up by name since 2 November 2026 (walk.NAME_JOIN_TO): near, a namesake's until confirmed
+    from products.report import walk
+    assert "gazette_appointments" in views and "gazette_appointments" in {v for v, *_ in walk.NAME_JOIN_TO}
 
 
 def test_its_sections_run_in_the_consultants_order():
@@ -343,3 +345,18 @@ def test_a_regulators_listing_naming_the_subject_fires_and_a_namesakes_is_amber_
     assert n["status"] == "fired" and n["severity"] == "amber" and "nothing in a namesake's listing is the entity's" in n["text"]
     hidden = rule("comcom_coverage")(report(regulators=[dict(conf, suppressed=True)]))
     assert hidden["status"] != "fired" and "ACME" not in hidden["text"], "a name the regulator withheld is never shown or counted"
+
+
+def test_public_life_lists_the_gazettes_appointments_under_the_subjects_name_near_and_never_an_officers():
+    """Step 8.1 (2 November 2026): a Gazette appointment that carries the subject's name is near by name; it raises public-life at info
+    and says it is not confirmed the subject's; a row reached through an officer, a body's or a suppressed one never counts; the town
+    a Justice of the Peace is listed under is never printed."""
+    jp = it("gazette:gazette/2025-vr1/appointment/3", "gazette_appointments", grade="near", title="Jane Mary DOE", kind="person",
+            dates="published 4 April 2025", row={"role": "Justice of the Peace", "action": "appointed", "locality": "Kowhai Bay",
+                                                 "appointee_kind": "person", "published_on": "2025-04-04"})
+    f = rule("public_life")(report(public=[jp]))
+    assert f["status"] == "fired" and f["severity"] == "info" and f["citations"] == (jp["ref"],)
+    assert "near by name and not confirmed the subject's" in f["text"] and "justice of the peace" in f["text"] and "Kowhai" not in f["text"]
+    assert rule("public_life")(report(public=[dict(jp, through="companies:companies/1/director/b")]))["status"] == "clear"
+    assert rule("public_life")(report(public=[dict(jp, row=dict(jp["row"], appointee_kind="body"))]))["status"] == "clear"
+    assert rule("public_life")(report(public=[dict(jp, suppressed=True)]))["status"] == "clear"

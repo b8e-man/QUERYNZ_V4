@@ -11,10 +11,16 @@ the card that would lift it is named.
   but no link rule joins one to a person yet. The bankruptcy check is
   always "blocked", never clear: a blank there is not a clear.
   (`bankruptcies-and-appointments-are-not-in-pub-names`)
-- **A public appointment in the Gazette, or a candidate's own return.** Not
-  joined to a person by any link rule, so the template does not read
-  appointments, and a candidate's return of donations received is not
-  listed. (same card)
+- **A public appointment in the Gazette is matched by name.** Read since 2
+  November 2026: a judge's, a Justice of the Peace's, a statutory
+  manager's or an office holder's appointment that carries the subject's
+  name is listed in the public-life section, near, and raises
+  `public-life` at info saying it is not confirmed the subject's. No link
+  rule joins the Gazette's appointments to a person yet; a row reached
+  through an officer or naming a body never counts; a Justice of the
+  Peace's town is the list's, never shown as an address.
+- **A candidate's own return.** Not joined to a person by any link rule, so
+  a candidate's return of donations received is not listed. (same card)
 - **A charity officer row is matched by name.** The Charities Register is
   read, but no link joins its officers to any other row yet, so a row
   carrying the subject's name is near, a namesake's until a rule confirms
