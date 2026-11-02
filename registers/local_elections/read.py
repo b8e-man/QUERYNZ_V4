@@ -242,9 +242,19 @@ def title_of(page: bytes) -> str:
     return _text(m.group(1)) if m else ""
 
 
+def base_of(page: bytes, url: str) -> str:
+    """The address a page's relative links are read against: its own `<base href>` where its head carries one
+    (Kaipara's does: `uploads/…` under it is the site root's, not the page's folder's), else the page's address."""
+    head = page[:65536].decode("utf-8", "replace")
+    head = head[:m.start()] if (m := re.search(r"<body\b", head, re.I)) else head
+    b = re.search(r"<base\b[^>]*\bhref\s*=\s*([\"'])(.*?)\1", head, re.I | re.S)
+    return urllib.parse.urljoin(url, html.unescape(b.group(2)).strip()) if b and b.group(2).strip() else url
+
+
 def read_listing(page: bytes, url: str, council: str, seed_year: int = None, council_words: tuple = ()) -> dict:
     """Rows, the files met that are not returns (by kind), and the listing pages it links (to follow)."""
     events = outline(page)
+    base = base_of(page, url)
     title = title_of(page)
     h1 = next((e[2] for e in events if e[0] == "context" and e[1] == "h1"), "")
     host = urllib.parse.urlsplit(url).hostname or ""
@@ -264,7 +274,7 @@ def read_listing(page: bytes, url: str, council: str, seed_year: int = None, cou
         href, words, before = ev[1], ev[2], ev[3]
         if href.startswith(("mailto:", "tel:", "javascript:", "#")):
             continue
-        absu = safe_url(urllib.parse.urljoin(url, href))
+        absu = safe_url(urllib.parse.urljoin(base, href))
         if not is_file(absu):
             if (urllib.parse.urlsplit(absu).hostname or "") == host and absu.split("#")[0] != url.split("#")[0]:
                 if re.search(r"donation|expense", words, re.I) or (

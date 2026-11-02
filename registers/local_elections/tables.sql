@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS local_elections.capture_files (
     sha256      text,
     kind        text,
     size        bigint,
-    state       text NOT NULL,                  -- 'wanted', 'landed', 'failed', 'blocked', 'refused', 'not found'
+    state       text NOT NULL,                  -- 'wanted', 'landed', 'failed', 'blocked', 'refused', 'not found', 'not linked'
     why         text,
     at          timestamptz NOT NULL DEFAULT now()
 );
