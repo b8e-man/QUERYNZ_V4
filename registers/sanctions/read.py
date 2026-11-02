@@ -64,10 +64,12 @@ _STATED_1373 = re.compile(rb"currently has\s+(\d+)\s+non-UN listed entities", re
 def profile_version(list_id: str) -> int:
     from support import profiles
     slug = PROFILES[list_id]
-    p = profiles.profile(slug) or profiles.profile(slug, path=PROPOSED)
-    if p is None:
+    # the newer of the registry's and the lane's proposal: a version proposed here is what this branch reads by,
+    # until the integrator appends it to the registry
+    got = [p for p in (profiles.profile(slug), profiles.profile(slug, path=PROPOSED)) if p]
+    if not got:
         raise LookupError(f"no profile {slug}: a reading is made from a profile (profiles before readers)")
-    return int(p["version"])
+    return max(int(p["version"]) for p in got)
 
 
 def text(v):
@@ -129,6 +131,26 @@ def cell_birth(v):
     return s
 
 
+#: a passport or identity-document phrase inside a published value (the lists put them in aliases, positions and
+#: birth notes: "… (Oman passport no. …)", found on the first real files, 2 November 2026). Never read.
+_DOC = re.compile(r"passport|national identi|identity (?:card|document|number)|\bid(?:entification)? ?(?:card|no\b|number)"
+                  r"|\bnic\b", re.I)
+_DOC_PAREN = re.compile(r"\s*[(\[][^()\[\]]*[)\]]")
+
+
+def no_documents(value):
+    """The value without any passport or identity-document phrase: a bracketed note naming one is cut out; a bare
+    one is cut from the phrase onward. None when nothing is left."""
+    if not isinstance(value, str) or not _DOC.search(value):
+        return value
+    value = _DOC_PAREN.sub(lambda m: "" if _DOC.search(m.group(0)) else m.group(0), value)
+    m = _DOC.search(value)
+    if m:
+        value = value[:m.start()]
+    value = re.sub(r"[\s,;:.(\[-]+$", "", value).strip()
+    return value or None
+
+
 def listing(list_id, ref, kind, status, name, *, sha, place, version, list_version, **kw) -> dict:
     row = {"key": f"sanctions/{list_id}/{ref}", "list_id": list_id, "list_ref": ref, "other_ref": None, "kind": kind,
            "status": status, "name": name, "aliases": [], "original_script": None, "titles": [], "positions": [],
@@ -138,7 +160,11 @@ def listing(list_id, ref, kind, status, name, *, sha, place, version, list_versi
            "document": sha, "page": 1, "place": place, "read_from": "text", "reader": READER,
            "profile": PROFILES[list_id], "profile_version": version}
     row.update(kw)
-    row["aliases"] = [a for a in once(row["aliases"]) if a != name]
+    for k in ("aliases", "titles", "positions", "nationalities", "birth_dates", "birth_countries", "countries"):
+        row[k] = [v for v in (no_documents(x) for x in row[k]) if v]
+    for k in ("name", "original_script"):
+        row[k] = no_documents(row[k])
+    row["aliases"] = [a for a in once(row["aliases"]) if a != row["name"]]
     return row
 
 
@@ -413,6 +439,8 @@ def read_mfat(body: bytes, sha: str, version: int, list_version: str = None) -> 
     seen = collections.Counter()
     for name, hr, cols, rows in found:
         col = lambda c, h: text(c.get(cols.get(h.lower())))
+        heads = {k: text(v) for k, v in rows[hr].items() if text(v)}
+        filled = collections.Counter()
         for r in sorted(rows):
             if r <= hr:
                 continue
@@ -425,10 +453,22 @@ def read_mfat(body: bytes, sha: str, version: int, list_version: str = None) -> 
             if typ in MFAT_COUNTED:
                 out["skipped"] += 1
                 if typ == "total":
-                    nums = [int(float(v)) for v in c.values() if re.fullmatch(r"\d+(\.0+)?", str(v).strip())]
-                    if nums and out["stated"] is None:
-                        out["stated"], out["stated_where"] = max(nums), f"the Total row ({place})"
+                    # profile v2 (the first real file, 2 November 2026): the Total row is a tally of the column each
+                    # figure sits under (170 under Associates/Relatives = the rows above with that cell filled), not
+                    # a count of listings. Each tally is reconciled here; the workbook states no listing count.
+                    for k, v in c.items():
+                        if k in heads and heads[k].lower() != "type" and re.fullmatch(r"\d+(\.0+)?", str(v).strip()):
+                            n, got = int(float(v)), filled[k]
+                            out["stated_where"] = ((out["stated_where"] + "; ") if out["stated_where"] else
+                                                   f"no listing count; the Total row ({place}) tallies ") + f"{heads[k]} {n}"
+                            if n != got:
+                                out["set_aside"].append(aside("mfat-russia", sha, "document", "total",
+                                                              f"the Total row tallies {heads[k]} as {n}; the rows above "
+                                                              f"hold {got}"))
                 continue
+            for k, v in c.items():
+                if text(v):
+                    filled[k] += 1
             kind = MFAT_KINDS.get(typ)
             if kind is None:
                 out["set_aside"].append(aside("mfat-russia", sha, place, "read", f"a Type the profile does not know: {typ[:40]!r}"))

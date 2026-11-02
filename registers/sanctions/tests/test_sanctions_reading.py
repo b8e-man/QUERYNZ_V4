@@ -73,8 +73,13 @@ def rules(mod) -> list:
         broken.append("police: an identifier listed twice is set aside")
     mf = mod.read_document("mfat-russia", F.mfat_xlsx(), C, 1, "2026-09-09")
     mk = {r["list_ref"]: r for r in mf["rows"]}
-    if mf["stated"] != 3 or len(mf["rows"]) != 3 or len(mf["set_aside"]) != 1 or mf["skipped"] != 2:
-        broken.append("mfat: listings, the Total row's figure, an Asset counted, an unknown Type set aside")
+    if mf["stated"] is not None or len(mf["rows"]) != 3 or len(mf["set_aside"]) != 1 or mf["skipped"] != 2:
+        broken.append("mfat: listings, an Asset and the Total row counted, an unknown Type set aside, no listing count")
+    if "First name 1" not in (mf["stated_where"] or ""):
+        broken.append("mfat: the Total row's tally named with its column")
+    off = mod.read_document("mfat-russia", F.mfat_xlsx(total=3), C, 1, "2026-09-09")
+    if not any(a["stage"] == "total" and a["place"] == "document" for a in off["set_aside"]):
+        broken.append("mfat: a Total row tally the rows do not hold is set aside against the document")
     iv = mk.get("RUS-0001")
     if not iv or iv["name"] != "Ivan Inventovich Examplov" or iv["aliases"] != ["Ivan Examplof", "I. Examplov"]:
         broken.append("mfat: names and aliases as published")
@@ -99,7 +104,7 @@ MUTANTS = {
                                        'countries=once((a.findtext("CITY") or "") + " " + (a.findtext("COUNTRY") or "") for a in e.findall(f"{tag}_ADDRESS"))'),
     "un: no reference kept": ('            if not ref:\n                out["set_aside"].append(aside("un-sc", sha, place, "key", "no REFERENCE_NUMBER"))\n                continue\n',
                               '            ref = ref or "none"\n'),
-    "un: aliases not deduplicated": ('row["aliases"] = [a for a in once(row["aliases"]) if a != name]',
+    "un: aliases not deduplicated": ('row["aliases"] = [a for a in once(row["aliases"]) if a != row["name"]]',
                                      'row["aliases"] = [text(a) for a in row["aliases"] if text(a)]'),
     "police: aliases as listings": ("return base, int(((d - base) * 100).quantize(Decimal(1)))", "return s, 0"),
     "police: the ID with a space dropped": ('s = re.sub(r"\\s+", "", str(v or ""))', 's = str(v or "").strip()'),
@@ -109,6 +114,9 @@ MUTANTS = {
                                        'add(listing("nz-police-tsa", f"{kind}/{base}", kind, "designated"'),
     "police: twice listed kept": ('        if row["key"] in seen:\n', '        if False:\n'),
     "mfat: the Total row as a listing": ('MFAT_COUNTED = ("asset", "total")', 'MFAT_COUNTED = ("asset",)'),
+    "mfat: a tally not reconciled": ("if n != got:", "if False:"),
+    "mfat: the Total row's figure taken as the listing count": ('n, got = int(float(v)), filled[k]',
+                                                               'n, got = int(float(v)), filled[k]; out["stated"] = n'),
     "mfat: unknown types read as entities": ("kind = MFAT_KINDS.get(typ)", 'kind = MFAT_KINDS.get(typ, "entity")'),
     "mfat: a repeated identifier overwritten": ('ref = uid if seen[uid] == 1 else', 'ref = uid if True else'),
 }
@@ -259,6 +267,16 @@ def test_the_un_xml_is_asked_with_one_redirect_hop_and_nothing_else_is(monkeypat
     assert seen == [(capture.UN_XML, 1), (capture.POLICE_UN_PAGE, 0)]
 
 
+def test_no_identity_document_survives_in_a_published_value():
+    assert read.no_documents("Abu Example (Exampleland passport no. X1234567, issued 1 May 2014)") == "Abu Example"
+    assert read.no_documents("Minister of Examples; passport X1234567") == "Minister of Examples"
+    assert read.no_documents("Passport X1234567") is None
+    assert read.no_documents("Invented Person (also Persson)") == "Invented Person (also Persson)"
+    row = read.listing("un-sc", "X", "individual", "designated", "A Name", sha=A, place="p", version=1, list_version=None,
+                       aliases=["B Name (national identity card 123)"], positions=["Passport 999"], birth_dates=["1960"])
+    assert row["aliases"] == ["B Name"] and row["positions"] == [] and "123" not in repr(row)
+
+
 def test_the_mfat_page_names_its_day():
     assert capture.mfat_day(b"<h2>Russia Sanctions Register</h2><p>Last updated: <b>9 September 2026</b></p>") == "2026-09-09"
     assert capture.mfat_day(b"<p>No date here 2026</p>") is None
@@ -329,6 +347,19 @@ def test_the_check_reads_each_list_against_its_own_figure(built):
     finally:
         conn.rollback()
     assert not check.outside(conn, SAMPLE_SCHEMA, today=dt.date(2026, 12, 1), shared=True)["lists"]["un-sc"]["ok"]
+    # MFAT: a Total row tally the rows do not hold, or a version that is not the page's day, is red
+    ra = load.table(SAMPLE_SCHEMA, "read_set_aside", True)
+    conn.execute(f"INSERT INTO {ra} (list_id, document, place, stage, reason) VALUES ('mfat-russia', %s, 'document', "
+                 "'total', 'a tally off')", (C,))
+    try:
+        assert not check.outside(conn, SAMPLE_SCHEMA, today=dt.date(2026, 10, 22), shared=True)["lists"]["mfat-russia"]["ok"]
+    finally:
+        conn.rollback()
+    conn.execute(f"UPDATE {t} SET version = NULL WHERE list_id = 'mfat-russia'")
+    try:
+        assert not check.outside(conn, SAMPLE_SCHEMA, today=dt.date(2026, 10, 22), shared=True)["lists"]["mfat-russia"]["ok"]
+    finally:
+        conn.rollback()
 
 
 # ── the real lists, as landed (ruling 132): the documents sample.list names, from the store (slow) ─────────
@@ -359,8 +390,8 @@ def test_the_real_list_as_landed_reconciles(list_id):
     assert len({r["key"] for r in out["rows"]}) == len(out["rows"])
     floor = {"un-sc": 900, "nz-police-tsa": 400, "mfat-russia": 500}[list_id]
     assert collections.Counter(r["status"] for r in out["rows"])["designated"] > floor
-    flat = repr(out["rows"]).lower()
-    assert "passport" not in flat
+    carrying = [r["key"] for r in out["rows"] if read._DOC.search(repr({k: v for k, v in r.items() if k not in ("basis", "regime")}))]
+    assert carrying == [], f"{len(carrying)} rows carry an identity-document phrase"
     if list_id == "nz-police-tsa":
         cur = sum(1 for r in out["rows"] if r["key"].startswith("sanctions/nz-police-tsa/1373/") and r["status"] == "designated")
         assert out["stated"] is not None and cur > 0

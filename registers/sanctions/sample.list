@@ -1,7 +1,8 @@
-# registers/sanctions/sample.list: hashes and key: lines only. EMPTY ON PURPOSE: every list is held on its
-# publisher's terms (position/sanctions-lists.md; the queue items), so no list document is landed to name here.
-# MFAT's terms bar automated access, the UN's allow only personal non-commercial copies with no compiling, and
-# Police's allow saving only for non-commercial private purposes. The lane's tests run on hand-made documents (every
-# name invented) and, when QV4_SANCTIONS_LIVE=1 and marked slow, on the UN's and Police's lists read in memory from the
-# publisher and kept nowhere. Once a list is authorised (or MFAT's workbook is landed by hand), this list names it,
-# with `key: list <list> <sha256> <version>` and, for Police, `key: page-1373 <sha256>`.
+# registers/sanctions/sample.list: hashes and key: lines only. The three lists as first landed under ruling 132
+# (2 November 2026, 22:01 NZDT, fetched through the gate): MFAT's workbook of 9 September 2026, the UN XML generated
+# 31 October 2026, the Police workbook of 21 October 2026 and its 1373 page. Each is a whole list; the tests read them
+# from the document store (marked slow), never from the publisher.
+key: list mfat-russia d5ae6f2c18163c8045689338fb961977c61e12a64dd97f60ae9c31d6b89057f0 2026-09-09
+key: list un-sc 9104cf8495637693c0c05ec203fa45c8a50340f7127a0c5bd1616db92ea127cd 2026-10-31T23:00:07.052Z
+key: list nz-police-tsa 864ab0777d26919a21316d46f393dc4c7c73e7c2ba5213a7695592618472a2b5 2026-10-21
+key: page-1373 9cd1c8ea7380bede13da851d3227b5f298a23872c814279632836fdc2c1a3db7

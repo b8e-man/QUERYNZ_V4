@@ -3,8 +3,13 @@
   nz-police-tsa  the current Resolution 1373 designations read from the
                  workbook against the count the Police's own 1373 page states
                  ("New Zealand currently has N non-UN listed entities")
-  mfat-russia    the current listings against the Total row's figure, where
-                 the workbook carries one
+  mfat-russia    the workbook states no listing count (its Total row tallies
+                 a column: 170 under Associates/Relatives on 9 September 2026);
+                 every tally is reconciled with the rows at the reading, so the
+                 check is: no tally set aside, and the version is the day the
+                 register page names (the workbook landed is the one MFAT
+                 says is current). A stated count, should one appear, is held
+                 to the listings
   un-sc          the XML states no total: every INDIVIDUAL and ENTITY is a
                  listing or a catch-log line, and the list's own
                  dateGenerated is within `FRESH_DAYS` of the load
@@ -19,6 +24,7 @@ Every line printed is a count.
 import argparse
 import datetime as dt
 import json
+import re
 import sys
 
 from registers.sanctions import capture
@@ -58,7 +64,11 @@ def outside(conn, schema: str = SCHEMA, today: dt.date = None, shared: bool = Fa
             per[list_id] = {"ok": stated is not None and cur == stated, "stated": stated, "where": where,
                             "current_1373": cur, "listings": n}
         elif list_id == "mfat-russia":
-            per[list_id] = {"ok": stated is not None and n == stated, "stated": stated, "where": where, "listings": n}
+            off = conn.execute(f"SELECT count(*) FROM {T('read_set_aside')} WHERE list_id = 'mfat-russia' "
+                               "AND stage = 'total'").fetchone()[0]
+            dated = bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", version or ""))
+            per[list_id] = {"ok": dated and not off and (stated is None or n == stated), "stated": stated,
+                            "where": where, "version": version, "tallies_off": off, "listings": n}
         else:
             day = None
             try:
