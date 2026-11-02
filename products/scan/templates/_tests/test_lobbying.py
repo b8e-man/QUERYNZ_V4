@@ -32,3 +32,9 @@ def test_an_address_flag_filtered_to_false_is_the_limit_applied_and_any_other_re
             for bad in (dataclasses.replace(first, where=(("attendees_names_address", True), ("meeting_names_address", False))),
                         dataclasses.replace(first, columns=first.columns + ("meeting_names_address",))):
                 assert shaped(dataclasses.replace(t, steps=(bad,) + tuple(t.steps[1:]))), name
+
+
+def test_the_scan_reader_plans_for_the_whole_result_as_a_cursor_reads_it_all():
+    from products.scan import db
+    with db.pub_connect() as pub:
+        assert pub.execute("show cursor_tuple_fraction").fetchone()[0] == "1"

@@ -25,8 +25,11 @@ def state_target() -> tuple:
 
 
 def pub_connect():
-    """The product reader: pub only, autocommit (a named cursor needs a transaction: the runner opens one)."""
-    return sdb.connect(sdb.PRODUCT_KEY, READ_DB, options=f"-c statement_timeout={STATEMENT_MS}")
+    """The product reader: pub only, autocommit (a named cursor needs a transaction: the runner opens one). A scan streams
+    its whole result through a named cursor, so the planner is told it reads every row (cursor_tuple_fraction 1): at the
+    default 0.1 it chose a fast-start plan for lobbying-meetings-donors that ran past the ten minutes, where the whole-result
+    plan takes 14 s (2 November 2026)."""
+    return sdb.connect(sdb.PRODUCT_KEY, READ_DB, options=f"-c statement_timeout={STATEMENT_MS} -c cursor_tuple_fraction=1")
 
 
 def state_connect():
