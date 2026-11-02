@@ -50,7 +50,7 @@ class FakeAPI:
         self.urls.append(url)
         u = urllib.parse.urlparse(url)
         q = dict(urllib.parse.parse_qsl(u.query))
-        path = u.path.split("/insolvency-trustee-services", 1)[1]
+        path = u.path.split("/insolvency-trustee-services/v5", 1)[1]   # the live API answers only under its version
         if path == "/insolvencies/removalorcorrections":
             rows = [{"estateNumber": n, "removedDate": TODAY.isoformat(), "addressAtAdjudication": "9 Invented Way"}
                     for n in sorted(self.removed)] if q["page"] == "1" and q["date-to"] == TODAY.isoformat() else []

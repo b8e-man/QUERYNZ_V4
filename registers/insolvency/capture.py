@@ -33,7 +33,7 @@ from registers.insolvency import read
 SOURCE = "insolvency"
 SCHEMA = "insolvency"
 NZ = ZoneInfo("Pacific/Auckland")
-BASE = os.environ.get("QV4_INSOLVENCY_API_BASE") or "https://api.business.govt.nz/gateway/insolvency-trustee-services"
+BASE = os.environ.get("QV4_INSOLVENCY_API_BASE") or "https://api.business.govt.nz/gateway/insolvency-trustee-services/v5"   # the version is in the path (as the NZBN API's); without it every call is a 404 (2 November 2026)
 KEY_FILE = "insolvency.env"
 KEY_NAME = "INSOLVENCY_API_KEY"
 KEY_HEADER = "Ocp-Apim-Subscription-Key"
