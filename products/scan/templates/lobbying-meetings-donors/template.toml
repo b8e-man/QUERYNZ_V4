@@ -3,12 +3,12 @@ name = "lobbying-meetings-donors"
 title = "Ministers' meetings with a company of the name a party's return files a donor under"
 question = "Which companies a minister's diary records a meeting with, by the company's whole registered name, are also donors in a party's return under the same name; each line a meeting and a donation side by side, and nothing more?"
 join = "A diary entry; the company whose registered name is the entry's whole attendees text once folded (near, each company of the name its own line, marked a namesake); a party-return donor row filed under the company's name once folded (near)."
-version = "1.0"
+version = "1.1"
 owner = "products/scan/templates, step 8.5 (use case 15)"
 
 limits = [
   "Ministers only: a backbench member publishes no diary, so a meeting of a member who is not a minister is never here; the diaries are each minister's own proactive release, as the source carries it, with the entries the office withheld left out by the office.",
-  "A meeting is joined to a company only where the whole of the diary's attendees text is the company's registered name once folded (lower case, macrons off, a legal ending such as Limited off, letters and digits only); an entry that lists several attendees, or names an organisation by another form of its name, gives no line. Measured 2 November 2026: 7,250 of 208,464 entries, to 1,362 companies; splitting the attendees into one row each would reach about 4,000 entries more, and is the diaries lane's to publish, not a scan's.",
+  "A meeting is joined to a company only where the whole of the diary's attendees text is the company's registered name once folded (lower case, macrons off, a legal ending such as Limited off, letters and digits only); an entry that lists several attendees, or names an organisation by another form of its name, gives no line. Measured again on 2 November 2026's evening tables: 13,207 of 208,464 entries, to 1,594 company names. The diaries lane publishes the attendees one row each (pub.minister_diary_attendees), and lobbying-attendees-donors starts from them: 11,864 entries reach a company by one attendee's organisation part, 5,631 of them past this whole-text join.",
   "Every line is near: a name is not the organisation. A generic text a company happens to be registered under ('office staff', 'event organisers', 'private secretary') gives a line that is that company's namesake's, marked so; each company of the name is a line of its own.",
   "An entry whose meeting or attendees text the diaries lane flags as naming an address is never read (hard limit 15); the meeting's own text is not shown, only the minister, the day, the portfolio and the time.",
   "Each line is two facts of record side by side: a meeting in a minister's diary, and the company's entry in a register. Nothing on it says why the meeting was held or that anything followed from it.",

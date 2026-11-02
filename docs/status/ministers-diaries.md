@@ -15,15 +15,20 @@ release's own withholdings stay as printed). Beside them four flags, set at the 
 only the provider's `text`. Tests 25, green; the sample tests proven to fail on a weakened flag.
 The queue item `may-a-diary-entry-show-a-bare-street-address` is closed (ruling 102).
 
-## The full build in scratch (from mcp-1's pull record `scratch_mcp_1_pull2`, 27 October)
+## The full build in scratch (27 October)
 
-Check green against the MCP: 208,464 records taken of 208,464; 230,554 documents = 208,464 entries +
-22,090 older versions; `measure` n_docs 208,464, words 4,764,189 = 4,764,189. 2,560 releases, 78
-minister names (one is "No Minister"). Withholdings kept: 2,126 entries, 6,824 fields. Flagged
-(entries, counted, never printed): location_names_home 115, location_street_only 3,096,
-meeting_names_address 32, attendees_names_address 11. 119 releases served a file name only; 52
-have no single month; 30,803 entries before 2019. Against `pub.members` by title words only: 67 of
-78 found. Full build 13 s.
+Check green against the MCP: 208,464 records, 2,560 releases, 78 minister names; flags counted, never printed.
+
+## Attendees, one row each (2 November 2026, worktree agent branch for the integrator)
+
+`attendees.py` splits each entry's attendees text by rules (no model) into `ministers_diaries.attendees`, published as
+`pub.minister_diary_attendees` (entry, position, attendee as written, folded, kind, organisation part, `crown`, the
+entry's four flags carried down). Full build in scratch (`querynz_v4_sample.scratch_diaries_attendees_build`, 36 s):
+191,643 entries with a text, 191,597 split into 287,599 rows, 46 set aside (unbalanced brackets); 0 not reconciled.
+Kinds: group 125,774, person 73,358, organisation 56,920, crown 22,593, role 7,055, withheld 1,899. Rows of
+address-flagged entries 63, carried flagged. `read.WITHHELD` now also reads `s9(2)(a)`: entries with a withholding
+2,126 → 2,166. Entries reaching a company's name: whole text 13,207; one attendee's organisation part 11,864, 5,631 of
+them new. Scans `lobbying-attendees-suppliers` (31,969 lines) and `lobbying-attendees-donors` (118) start from the rows.
 
 ## Next
 

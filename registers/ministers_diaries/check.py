@@ -12,8 +12,12 @@
   releases   every release's entries counted: each release's `entries` is the entries that name it, they sum
              to the entries, and each release names one minister
   clean      no pull catch line, no set-aside line, no entry with a field the lane has no column for
+  attendees  every entry with an attendees text is split into attendee rows or set aside from the split with a
+             reason, never both and never neither; every split entry's rows, with their separators, joined in
+             order are the entry's text once folded (as the scans fold a name); positions run 1, 2, … with no gap
 
-Stated, never a failure: the release's withholdings (entries and fields), the
+Stated, never a failure: the attendee rows by kind, the entries set aside from the split, the attendee
+rows of entries whose flags name an address (carried down; counted, never printed), the release's withholdings (entries and fields), the
 entries each flag marks (`location_names_home`, `location_street_only`,
 `meeting_names_address`, `attendees_names_address`: counted, never
 printed; a product applies hard limit 15 by them, ruling 102), the releases with no PDF
@@ -37,6 +41,7 @@ import sys
 
 from keys import names as N
 from support import mcpsource as M
+from registers.ministers_diaries.attendees import KINDS
 from registers.ministers_diaries.read import FLAGS
 
 CORPUS = "parliament-diaries"
@@ -74,6 +79,37 @@ def held(conn, schema: str, mcp_schema: str) -> dict:
         "releases with no PDF address": q(f"SELECT count(*) FROM {schema}.releases WHERE pdf_url IS NULL"),
         "releases with no month": q(f"SELECT count(*) FROM {schema}.releases WHERE month IS NULL"),
         "entries before 2019": q(f"SELECT count(*) FROM {schema}.entries WHERE entry_on < '2019-01-01'"),
+        **attendees_held(q, schema),
+    }
+
+
+#: the scans' fold (products/scan/plan.fold_sql), here for the reconciliation only
+FOLD = (r"regexp_replace(regexp_replace(translate(lower({x}), 'āēīōū', 'aeiou'), '\m(limited|ltd|incorporated|inc|tapui)\M', "
+        r"'', 'g'), '[^a-z0-9]', '', 'g')")
+
+
+def attendees_held(q, schema: str) -> dict:
+    joined = (f"(SELECT entry, string_agg(sep_before || attendee || sep_after, '' ORDER BY position) AS j, count(*) AS n, "
+              f"max(position) AS top, min(position) AS low FROM {schema}.attendees GROUP BY entry)")
+    return {
+        "entries with an attendees text": q(f"SELECT count(*) FROM {schema}.entries WHERE coalesce(btrim(attendees), '') <> ''"),
+        "entries split": q(f"SELECT count(DISTINCT entry) FROM {schema}.attendees"),
+        "attendee rows": q(f"SELECT count(*) FROM {schema}.attendees"),
+        "entries set aside from the split": q(f"SELECT count(*) FROM {schema}.attendees_set_aside"),
+        "entries split and set aside": q(f"SELECT count(*) FROM {schema}.attendees_set_aside s WHERE EXISTS "
+                                         f"(SELECT 1 FROM {schema}.attendees a WHERE a.entry = s.entry)"),
+        "attendee rows of no entry": q(f"SELECT count(*) FROM {schema}.attendees a WHERE NOT EXISTS "
+                                       f"(SELECT 1 FROM {schema}.entries e WHERE e.key = a.entry)"),
+        "entries not reconciled": q(f"SELECT count(*) FROM {joined} j JOIN {schema}.entries e ON e.key = j.entry "
+                                    f"WHERE {FOLD.format(x='j.j')} <> {FOLD.format(x='e.attendees')}"),
+        "entries not joined exactly": q(f"SELECT count(*) FROM {joined} j JOIN {schema}.entries e ON e.key = j.entry "
+                                        "WHERE j.j <> e.attendees"),
+        "entries with a gap in positions": q(f"SELECT count(*) FROM {joined} j WHERE j.low <> 1 OR j.top <> j.n"),
+        **{f"attendee rows, {k}": q(f"SELECT count(*) FROM {schema}.attendees WHERE kind = %s", k) for k in KINDS},
+        "attendee rows with an organisation part": q(f"SELECT count(*) FROM {schema}.attendees WHERE organisation IS NOT NULL"),
+        "attendee rows of an entry flagging an address": q(
+            f"SELECT count(*) FROM {schema}.attendees a JOIN {schema}.entries e ON e.key = a.entry "
+            "WHERE e.attendees_names_address OR e.meeting_names_address"),
     }
 
 
@@ -122,6 +158,14 @@ def judge(h: dict, o: dict) -> list:
     for k in ("caught", "set aside", "fields unread"):
         if h[k]:
             out.append(f"clean: {h[k]} {k}")
+    if "attendee rows" in h:
+        if h["entries split"] + h["entries set aside from the split"] != h["entries with an attendees text"]:
+            out.append(f"attendees: {h['entries with an attendees text']} entries with an attendees text, but "
+                       f"{h['entries split']} split and {h['entries set aside from the split']} set aside")
+        for k in ("entries split and set aside", "attendee rows of no entry", "entries not reconciled",
+                  "entries with a gap in positions"):
+            if h[k]:
+                out.append(f"attendees: {h[k]} {k}")
     return out
 
 

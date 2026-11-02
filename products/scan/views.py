@@ -80,6 +80,10 @@ VIEWS: tuple = (
     # the minister, the day and the portfolio, never the meeting's text, which can name a place (its flag filters every step)
     V("minister_diary_entries", "ministers_diaries", "event", ("minister", "entry_on", "portfolio"), names=("attendees",),
       on="entry_on", on_label="the meeting's day"),
+    # one attendee of a diary entry (the diaries lane's split, by rules): titled as the entry is, with the attendee's
+    # organisation part beside it, never the attendee's own text or the meeting's; the entry's flags are carried down
+    V("minister_diary_attendees", "ministers_diaries", "event", ("minister", "entry_on", "portfolio", "organisation"),
+      names=("attendee", "organisation"), on="entry_on", on_label="the meeting's day"),
     V("award_suppliers", "tenders", "organisation", ("business_name",), names=("business_name",), on="awarded_on", on_label="awarded"),
     # the iwi and hapū directory (registers/iwi_directory): organisations' own names and the directory's own words; no person, phone,
     # email or address is published, and a marae's location is never titled or dated by. The entry's "last updated" is the page's own

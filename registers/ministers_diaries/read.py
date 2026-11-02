@@ -57,7 +57,7 @@ MONTHS = ("january", "february", "march", "april", "may", "june", "july", "augus
           "november", "december")
 
 # A withholding the release prints in place of what it held back (Official Information Act 1982, ss 6, 9, 18)
-WITHHELD = re.compile(r"\bwithheld\b|\bredacted\b|\b9\s*\)?\s*\(\s*2\s*\)\s*\(\s*[a-k]\s*\)|"
+WITHHELD = re.compile(r"\bwithheld\b|\bredacted\b|(?:\b|(?<=[sS]))9\s*\)?\s*\(\s*2\s*\)\s*\(\s*[a-k]\s*\)|"
                       r"\b(?:s|section)\s*\.?\s*6\s*\(\s*[a-d]\s*\)", re.I)
 # A location that names a home, whatever else it says
 HOME = re.compile(r"\bhome\b|\bresidences?\b|\bhomestead\b|\bprivate\s+(?:address|property|dwelling)\b|"
@@ -83,6 +83,8 @@ class Result:
     private: list = field(default_factory=list)        # (key, text): the provider's text, private
     files: list = field(default_factory=list)          # (sha256, record id, seq, status)
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
+    attendees: list = field(default_factory=list)      # one per attendee of an entry (attendees.split)
+    attendees_set_aside: list = field(default_factory=list)  # (entry key, reason): an attendees text not split
     counts: dict = field(default_factory=dict)
 
 
@@ -200,6 +202,22 @@ def read_one(sha: str, rec: dict, seq, versions: int, out: Result, loaded_at: st
         "fields_unread": unread(rec), "versions": versions, "seq": seq, "source_note": SOURCE_NOTE,
         **_stamp(sha, "record", loaded_at)})
     out.private.append((key, rec.get("text") if isinstance(rec.get("text"), str) else None))
+    attendees_of(out.entries[-1], out)
+
+
+def attendees_of(e: dict, out: Result) -> None:
+    """The entry's attendees, one row each (attendees.split), cited to the entry's document; or the entry set aside
+    from the split, with the reason."""
+    from registers.ministers_diaries import attendees as A
+    rows, why = A.split(e["attendees"])
+    if why:
+        out.attendees_set_aside.append((e["key"], why))
+        return
+    for r in rows:
+        out.attendees.append({**r, "key": f"{e['key']}/{r['position']}", "entry": e["key"],
+                              **{k: e[k] for k in ("document", "page", "read_from", "profile", "profile_version",
+                                                   "loaded_at")},
+                              "place": f"record: attendees, attendee {r['position']}", "reader": A.READER})
 
 
 def releases_of(entries: list, loaded_at: str) -> list:
@@ -273,5 +291,6 @@ def read(items, get_bytes, loaded_at: str = None) -> Result:
                        "older versions": sum(len(v) - 1 for v in by_record.values()),
                        "ministers": len({e["minister"] for e in out.entries}),
                        "withheld fields": sum(len(e["withheld"]) for e in out.entries),
-                       "set aside": len(out.set_aside)})
+                       "set aside": len(out.set_aside), "attendee rows": len(out.attendees),
+                       "attendees set aside": len(out.attendees_set_aside)})
     return out
