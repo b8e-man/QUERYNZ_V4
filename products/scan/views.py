@@ -76,6 +76,10 @@ VIEWS: tuple = (
     # a notice is titled by its agency and GETS's RFx ID, never its own title: 754 of 29,874 titles are address-shaped (a
     # site's street address, which can be a home), and the presentation rules refuse an address in an event's row
     V("award_notices", "tenders", "event", ("posting_agency", "rfx_id"), on="awarded_on", on_label="awarded"),
+    # the ministers' diaries (ruling 78's third-party source; ministers only, backbench MPs publish no diary): an entry's title is
+    # the minister, the day and the portfolio, never the meeting's text, which can name a place (its flag filters every step)
+    V("minister_diary_entries", "ministers_diaries", "event", ("minister", "entry_on", "portfolio"), names=("attendees",),
+      on="entry_on", on_label="the meeting's day"),
     V("award_suppliers", "tenders", "organisation", ("business_name",), names=("business_name",), on="awarded_on", on_label="awarded"),
     # the iwi and hapū directory (registers/iwi_directory): organisations' own names and the directory's own words; no person, phone,
     # email or address is published, and a marae's location is never titled or dated by. The entry's "last updated" is the page's own
