@@ -25,5 +25,5 @@ The collected file for both awards questions is the GETS award notices, already 
 ## Waits on Arthur
 
 - Queue `whether-to-ask-the-ministry-to-read-the-gets-listing` (default: not captured).
-- Queue `whether-to-ask-councils-for-their-award-lists` (default: not captured; Dunedin first).
+- Ruling 136 (3 November 2026): the councils' own award lists are stored, not asked for, off every schedule; lowest priority.
 - The existing letter to the ministry (card `the-ministry-s-gets-files-answer-403`) is unchanged.

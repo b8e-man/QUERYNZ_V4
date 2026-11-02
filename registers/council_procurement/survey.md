@@ -26,4 +26,4 @@ Waimakariri (174) and Clutha (61) are in it; Tauranga is not.
 ## What would add rows
 
 Dunedin's quarterly PDFs are the largest own-site list, and its words invite a request; Clutha's 17 and Tauranga's
-current tenders are small. Each is a letter (queue `whether-to-ask-councils-for-their-award-lists`).
+current tenders are small. Each would be a letter; ruling 136 (3 November 2026): none is sent, the lists are stored and off every schedule.

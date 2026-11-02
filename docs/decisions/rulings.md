@@ -1234,3 +1234,12 @@ requested; the card stays open until it is in place.
 set up." A key supplied through chat is placed and used; its rotation
 waits for the one pass over every key once the lanes are built (with
 ruling 270 of the old estate), and is not raised as a task before then.
+
+136. Arthur, 3 November: "forget it. store these but take them off any work
+schedule they are lowest priority." The councils' own award lists off GETS
+(Dunedin's quarterly contract-award PDFs, Clutha's 17 awards, Tauranga's
+tenders, Queenstown Lakes' awarded contracts) are not asked for: no letter
+is sent and nothing is captured. What is known stays stored
+(registers/council_procurement/survey.md and its captured terms pages);
+qv4-council-procurement-watch is switched off. Lowest priority: taken up
+again only on Arthur's word. The councils' awards on GETS stay held.

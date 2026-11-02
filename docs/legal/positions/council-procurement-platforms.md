@@ -59,8 +59,8 @@ three councils' terms pages above and VendorPanel's sign-up page, lands
 each by hash, and goes red the day a page no longer says what bars us, so a
 session reads this page again. TenderLink and Queenstown Lakes are not
 asked again. What would change it: a council's written leave (Dunedin's
-own words invite the request), which is a letter and Arthur's (queue
-`whether-to-ask-councils-for-their-award-lists`).
+own words invite the request), which is a letter and Arthur's; ruling 136 (3 November 2026): none
+is sent, the watch is switched off, lowest priority.
 
 Crawl delays: Clutha 7 s, Tauranga 5 s, none elsewhere. Floor: 7 s, one
 request at a time, off-peak. Author: procurement-1 session (Opus),
