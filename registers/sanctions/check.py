@@ -9,8 +9,8 @@
                  listing or a catch-log line, and the list's own
                  dateGenerated is within `FRESH_DAYS` of the load
 
-Exit 1 on any difference, on a list not read (held on its terms, or never
-landed: a lane fed by nothing is not green), on a reading that does not
+Exit 1 on any difference, on a list not read (never landed, a failed read:
+a lane fed by nothing is not green), on a reading that does not
 reconcile, and on a view carrying an address-like or document-number column.
 Every line printed is a count.
 
@@ -48,7 +48,7 @@ def outside(conn, schema: str = SCHEMA, today: dt.date = None, shared: bool = Fa
     per, ok = {}, True
     for list_id in capture.LISTS:
         if list_id not in lists:
-            per[list_id] = {"ok": False, "detail": "not read: held on its publisher's terms, or never landed"}
+            per[list_id] = {"ok": False, "detail": "not read: never landed (a failed read)"}
             ok = False
             continue
         _, version, stated, n, where = lists[list_id]
@@ -91,7 +91,7 @@ def main(argv=None) -> int:
     with db.connect(db.READ_KEY, a.database) as conn:
         conn.execute("SET statement_timeout = '60s'")
         if conn.execute("SELECT to_regclass('sanctions.lists')").fetchone()[0] is None:
-            out = {"ok": False, "detail": "nothing published: every list is held or none is landed"}
+            out = {"ok": False, "detail": "nothing published: no list is landed"}
         else:
             out = outside(conn)
             out["problems"] = reading(conn) + views(conn)

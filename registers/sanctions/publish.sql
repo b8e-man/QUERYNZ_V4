@@ -4,7 +4,7 @@
 -- on a view beyond the country the list names (hard limit 15); passport numbers and the lists' narrative comments are
 -- not read. A listing is a government's or the Security Council's designation, not a finding of this estate: a name
 -- that matches is a name that matches, never the same person, until the dates of birth, nationality and the list's
--- own identifiers agree. While a list is held on its publisher's terms (queue, no default) it has no rows here and
+-- own identifiers agree. A list never landed (a failed read; ruling 132 copies all three) has no rows here and
 -- no line in pub.sanctions_lists. Run by a session only against its scratch schema (the tests rewrite `pub.`).
 CREATE OR REPLACE VIEW pub.sanctions_lists AS
 SELECT l.list_id, l.name, l.publisher, l.law, l.version, l.stated, l.stated_where, l.listings, l.ended, l.set_aside,

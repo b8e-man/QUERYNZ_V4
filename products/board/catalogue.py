@@ -1169,13 +1169,13 @@ VIEWS: tuple[View, ...] = (
                  ("area", "area")),
          names=("name",), suppressed="suppressed",
          note="held: nothing is asked of the practitioner register (Building Act 2004 s 307, s 308); this view is empty until Arthur rules"),
-    # ── step 5.3, the held sanctions lists (sanctions-1; catalogued in the merge after their views were published) ──
+    # ── step 5.3, the sanctions lists (sanctions-1; copied by ruling 132, 2 November 2026) ──
     View("sanctions_lists", "sanctions", "document", ("name", "version"), key_col="list_id", default_order="list_id",
          search=("name", "publisher"),
          fields=(("publisher", "publisher"), ("law", "law"), ("version", "version"), ("stated count", "stated"),
                  ("stated where", "stated_where"), ("listings", "listings"), ("ended", "ended"), ("set aside", "set_aside")),
          joins=(Join("Listings", "sanctions_listings", "list_id", key_column="list_id", order="name"),),
-         note="held on the publishers' terms (sanctions-1): empty until a list is landed by hand under its licence or the publisher authorises a copy"),
+         note="copied by ruling 132 (2 November 2026), each list weekly; a list met with a challenge or a bot wall is a failed read and has no line"),
     View("sanctions_listings", "sanctions", "person", ("name", "kind"),
          search=("name", "aliases"),
          fields=(("list", "list_id"), ("list reference", "list_ref"), ("other reference", "other_ref"), ("kind", "kind"),

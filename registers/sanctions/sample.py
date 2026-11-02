@@ -1,8 +1,8 @@
 """The sample filler (plan 1b.6): `fill(conn, schema, items)` reads the list
 documents sample.list names (`key: list <list> <sha256> <version>`, `key:
 page-1373 <sha256>`), from the document store, through this branch's own
-reading, into `schema` of the sample database. The list is empty while every
-list is held (sample.list says why), so a fill reads nothing. A document not
+reading, into `schema` of the sample database. A list never landed (a failed
+read) is not named, so a fill reads nothing of it. A document not
 in the store fails the fill, naming its hash. No model; nothing fetched."""
 import os
 import sys

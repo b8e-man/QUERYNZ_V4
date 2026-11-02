@@ -1,8 +1,8 @@
 # Sanctions lists, on the board
 
 - **Sanctions lists** (`pub.sanctions_lists`, one line per list read): `name`, `publisher`, `law`, `version`, `stated`
-  (the publisher's own count, `stated_where`), `listings` current, `ended`. A list held on its publisher's terms has no
-  line, and the pane says "not held: <list> is held on its publisher's terms".
+  (the publisher's own count, `stated_where`), `listings` current, `ended`. A list never landed (a failed read: a
+  challenge or a bot wall) has no line, and the pane says "not held: <list> has not been landed".
 - **Sanctions listings** (`pub.sanctions_listings`, kind person or organisation by `kind`, key `key`): title `name`,
   `list_id` and `list_ref` (the list's own identifier; `other_ref` is the UN's where Police give it), `status`
   (designated, revoked, expired) with `designated_on`, `renewed_on`, `expires_on`, `ended_on`, `updated_on`; `aliases`,

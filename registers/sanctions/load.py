@@ -9,8 +9,8 @@ newest landed (each is a whole list). Items in equal listings typed plus set
 aside plus rows counted and not read (an MFAT Asset or Total row, a Police
 row that is not an ID); the build raises if a list does not reconcile.
 
-While a list is held on its publisher's terms nothing of it is landed, so
-nothing of it is read: `pub.sanctions_lists` names only the lists read.
+A list never landed (a failed read) is not read: `pub.sanctions_lists` names
+only the lists read.
 
     python -m registers.sanctions.load [--schema scratch_…] [--database querynz_v4_sample]
     python -m registers.sanctions.load --job
@@ -127,7 +127,7 @@ def listing(conn, schema: str = SCHEMA) -> dict:
 
 def load(conn, schema: str, log=print) -> int:
     """The merge gate's staging step (support/staging): the newest landed list documents, read under `schema`
-    (none while the lists are held). Added by the integrator at the merge of sanctions-1."""
+    (a list never landed is not read). Added by the integrator at the merge of sanctions-1."""
     from registers.sanctions import check
     capture.Tables(conn).create()
     listed = listing(conn)
