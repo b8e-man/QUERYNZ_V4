@@ -17,7 +17,7 @@ depth = 2
 
 limits = [
   "The firm's own client and matter list is not an input: the report lists the names a conflict search would compare, and the comparison is the firm's. No flag here says there is no conflict.",
-  "Started from a company, the report follows each current officer one step: the officer's other companies, how those ended, the notices on the officer's own record and the officer's society and charity roles are read and listed beside the officer, the officer's and never the company's. A check clears only when every officer was followed; an officer whose name is suppressed or who is past the walk's limit is not followed, and the check is blocked, saying how many. Holders of record are listed and not followed. Who sat beside the officers on their other companies is not read: start a report from an officer for it.",
+  "Started from a company, the report follows each current officer one step: the officer's other companies, how those ended, the notices on the officer's own record and the officer's society and charity roles are read and listed beside the officer, the officer's and never the company's. A check clears only when every officer was followed; an officer whose name is suppressed or who is past the walk's limit is not followed, and the check is blocked, saying how many. Holders of record are listed and not followed. Who sat beside the officers on their other companies is read (2 November 2026): the current directors of each company an officer's own row reaches, to 12 a company with the rest counted, each near, through the officer and then the company; a name on two of those companies is two rows that share a name, never one person.",
   "Court judgments are read as far as the courts corpus holds them, a part of the courts' judgments, so none found is never a clear; the Real Estate Agents Disciplinary Tribunal's and other tribunals' decisions are read only where that corpus carries them. The professional bodies' disciplinary findings, the Insolvency Register and the Personal Property Securities Register are not held: what is not held is the last section, and nothing in this report says anything about it.",
   "A connection is as the register states it: a role, a holding of record, a donation filed under a name. Nothing here says who stands behind a holding or runs a company; a nominee or trustee holds for others.",
   "The party is the row the report starts from and the rows a rule confirms are the same person. A row that only shares the name is a namesake, listed apart, and is not the party until confirmed.",
@@ -29,6 +29,7 @@ limits = [
   "A charity officer row is matched to the party by name only: no link joins the Charities Register's officers to any other row yet, so each is a namesake's until a rule confirms it.",
   "A company's registered office is listed and is flagged when fifty or more companies share it; the companies sharing a smaller office are not listed. No residential address is held in any view read.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+  "A company's insolvency appointments are read from the companies file beside the Gazette's notices (since 2 November 2026): each liquidator, receiver or administrator by name, dated by the day appointed; an appointment after a resolution of solvency (a solvent winding-up) is listed and never counted a failure.",
 ]
 
 # ── what it reads: each view with its licence ───────────────────────────────
@@ -92,6 +93,16 @@ view = "gazette_liquidations"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
 attribution = "New Zealand Gazette"
 refresh = "daily"
+[[reads]]
+view = "gazette_appointments"
+licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
+attribution = "New Zealand Gazette"
+refresh = "daily"
+[[reads]]
+view = "company_insolvencies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
 [[reads]]
 view = "gazette_company_notices"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person named in a rectification is held by initials and surname only"
@@ -242,14 +253,14 @@ text = "Every director and shareholder the companies file lists on the company, 
 name = "web"
 heading = "The companies those people share, with dates: the conflict web"
 views = ["companies", "directors", "shareholders"]
-sources = ["members", "confirmed", "near", "second", "officers"]
-text = "Each company the person sits on, with its register status and dates, and beneath it the other directors and holders of record on it with their own dates, each near: a connection through another person is never confirmed. These are the names a conflict search compares with the firm's clients and opposing parties. A name on two companies is two rows that share a name. Started from a company, the report does not follow its people: start a report from each officer listed above. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
+sources = ["members", "confirmed", "near", "second", "officers", "beside"]
+text = "Each company the person sits on, with its register status and dates, and beneath it the other directors and holders of record on it with their own dates, each near: a connection through another person is never confirmed. These are the names a conflict search compares with the firm's clients and opposing parties. A name on two companies is two rows that share a name. Started from a company, the report does not follow its people: start a report from each officer listed above. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's; and beneath each of the officer's other companies its current directors, near: a connection through two people."
 
 [[sections]]
 name = "gazette"
 heading = "The Gazette on the company and its people"
-views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_prohibitions", "gazette_bankruptcies"]
-sources = ["members", "confirmed", "near", "pointing", "officers"]
+views = ["gazette_liquidations", "company_insolvencies", "gazette_company_notices", "gazette_liquidators", "gazette_prohibitions", "gazette_bankruptcies", "gazette_appointments"]
+sources = ["members", "confirmed", "near", "pointing", "officers", "named"]
 not_held = ["insolvency"]
 text = "Liquidations, receiverships, administrations, winding-up applications, creditors' notices, deeds of company arrangement, removals, dissolutions and restorations, amalgamations, the Registrar's rectifications and transfers out, each under the company's name with its own date; then on the people, director prohibitions with their term and the person's own insolvency appointments as a practitioner. A removal from the register is not an insolvency. Bankruptcy notices are published but no link rule joins them to a person yet, and a mortgagee's entry into possession is not reachable here: neither can show. Started from a company, its people's notices are not read. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
 

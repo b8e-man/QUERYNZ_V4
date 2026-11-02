@@ -96,8 +96,10 @@ def test_it_names_each_view_once_with_its_licence_and_fewer_than_the_shape():
     with open(os.path.join(REPO, "products", "report", "templates", "subject", "template.toml"), "rb") as f:
         shape = {r["view"] for r in tomllib.load(f)["reads"]}
     assert set(views) < shape, "a use-case template names fewer views than the shape's"
-    for unreached in ("gazette_appointments", "gazette_practitioners"):
-        assert unreached not in views, "no link reaches it: reading it would print a blank that is not a clear"
+    assert "gazette_practitioners" not in views, "no link reaches it: reading it would print a blank that is not a clear"
+    # the Gazette's appointments are looked up by name since 2 November 2026 (walk.NAME_JOIN_TO): near, a namesake's until confirmed
+    from products.report import walk
+    assert "gazette_appointments" in views and "gazette_appointments" in {v for v, *_ in walk.NAME_JOIN_TO}
     assert "gazette_liquidators" in views, "a liquidator's row is joined to a director's by the link rules: a practitioner's own appointments"
 
 
@@ -110,7 +112,9 @@ def test_its_sections_run_in_the_conflicts_clerks_order():
     assert "roles" in s["officers"]["sources"] and "companies" not in s["officers"]["views"], "the officers of record, then the companies"
     assert s["web"]["views"][0] == "companies" and "second" in s["web"]["sources"], "each company of the web heads the people on it"
     assert "second" not in {x for sec in t["sections"] if sec["name"] != "web" for x in sec.get("sources", [])}
-    assert set(s["gazette"]["views"]) == GAZETTE and "pointing" in s["gazette"]["sources"]
+    # the companies file's insolvency appointments and the Gazette's appointments by name read beside the Gazette's notices (2 November 2026)
+    assert set(s["gazette"]["views"]) == GAZETTE | {"company_insolvencies", "gazette_appointments"} and "pointing" in s["gazette"]["sources"]
+    assert "named" in s["gazette"]["sources"] and "beside" in s["web"]["sources"]
     for kind in ("liquidations", "receiverships", "administrations", "winding-up", "creditors' notices", "deeds of company arrangement", "removals",
                  "restorations", "amalgamations", "rectifications", "transfers out", "prohibitions"):
         assert kind in s["gazette"]["text"].lower(), kind
@@ -707,3 +711,46 @@ def test_court_judgments_reads_the_corpus_held_and_never_clears():
     for r in (report(courts=[judge, withheld, hidden]), person(), company()):
         g = rule("court_judgments")(r)
         assert g["status"] == "blocked" and "no clear is given" in g["text"] and g["sources_held"] and g["sources_not_held"]
+
+
+# ── step 8.1 (2 November 2026): the companies file's insolvency appointments, the beside step, the Gazette's appointments ──
+
+#: the companies file's appointments on DELTA: a liquidator after no resolution of solvency, and a solvent winding-up's
+FILE_LIQ = it("companies:company_insolvencies/4/1", "company_insolvencies", title="DELTA LIMITED", kind="organisation", via=GOING["ref"],
+              dates="appointed 2 March 2024", row={"entity_key": "companies/4", "insolvency_type": "Liquidation", "appointment_type": "Liquidator",
+                                                   "appointed_on": "2024-03-02", "resolution_of_solvency": False})
+FILE_SOLVENT = dict(FILE_LIQ, ref="companies:company_insolvencies/4/2", row=dict(FILE_LIQ["row"], resolution_of_solvency=True))
+
+
+def test_the_companies_files_insolvency_appointment_counts_and_a_solvent_winding_up_never_does():
+    assert R._liq_view(FILE_LIQ) and not R._liq_view(FILE_SOLVENT) and R._liq_view(LIQ)
+    assert R._liq_kind(FILE_LIQ) == "liquidation (the companies file)" and R._liq_kind(LIQ) == "liquidation"
+    f = rule("insolvency_notices")(report(web=[GOING], gazette=[FILE_LIQ]))
+    assert f["status"] == "fired" and f["citations"] == (FILE_LIQ["ref"],) and "appointed 2 March 2024" in f["text"]
+    assert rule("insolvency_notices")(report(web=[GOING], gazette=[FILE_SOLVENT]))["status"] != "fired", "a solvent winding-up is no failure"
+
+
+def beside(name, company, letter):
+    return it(f"{company['ref']}/director/{letter}", "directors", grade="near", title=name, via=company["ref"], entity_title=company["title"],
+              reason="a director beside Jane Mary DOE on a company of the officer's", row={"entity_key": company["ref"].split(":", 1)[1]})
+
+
+def test_from_a_company_shared_boards_reads_who_sat_beside_the_officers_on_their_other_companies():
+    two = [through(GAMMA, via=ON_GAMMA["ref"]), through(GOING, via=OFFICER["ref"])]
+    on_both = [dict(beside("John SMITH", GAMMA, "z"), beside=True), dict(beside("John SMITH", GOING, "y"), beside=True),
+               dict(beside("Mere TAMA", GAMMA, "x"), beside=True)]
+    f = rule("shared_boards")(followed(*two, *on_both, buckets=("officers", "beside")))
+    assert f["status"] == "fired" and f["scope"] == "near" and "John SMITH on 2 of the officers' other companies" in f["text"]
+    assert set(f["citations"]) == {on_both[0]["ref"], on_both[1]["ref"]} and "never confirmed one person" in f["text"]
+    c = rule("shared_boards")(followed(*two, on_both[0], on_both[2], buckets=("officers", "beside")))
+    assert c["status"] == "clear" and "of 2 name(s)" in c["text"]
+    hidden = [dict(x, suppressed=True) for x in on_both[:2]]
+    assert rule("shared_boards")(followed(*two, *hidden, buckets=("officers", "beside")))["status"] == "clear", "a suppressed name never counts"
+    plain = [dict(x, beside=False) for x in on_both[:2]]
+    assert rule("shared_boards")(followed(*two, *plain, buckets=("officers", "beside")))["status"] == "clear", "only the beside step's rows"
+    b = rule("shared_boards")(followed(*two, *on_both, omitted=2, buckets=("officers", "beside")))
+    assert b["status"] == "fired", "a name seen twice is seen, however many officers were left out"
+    assert rule("shared_boards")(followed(*two, on_both[0], omitted=2, buckets=("officers", "beside")))["status"] == "blocked"
+    selves = [dict(beside("Jane Mary DOE", GAMMA, "w"), beside=True), dict(beside("Jane Mary DOE", GOING, "v"), beside=True)]
+    assert rule("shared_boards")(followed(*two, *selves, buckets=("officers", "beside")))["status"] == "clear", \
+        "the company's own officer beside a co-officer elsewhere is the company's own, never a name beside them"

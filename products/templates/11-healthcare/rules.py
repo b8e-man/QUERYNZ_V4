@@ -104,6 +104,10 @@ CHARITIES = "the Charities Register (pub.charities, pub.charity_officers, pub.ch
 #: the key, so the flag and the memo's not-held line name the same register), then what the flag needs said
 VILLAGES = ("The retirement villages file: each village's operator and statutory supervisor (key retirement_villages; and when the "
             "supervisor changed; the companies lane carries the village's own row only)")
+#: read since 2 November 2026 (the October 2026 package): each village's operator by company number and its statutory supervisor in
+#: office with the day appointed; an earlier supervisor, and so when one changed, is not in the file
+VILLAGES_HELD = "the retirement villages file (pub.retirement_villages): each village's operator and its statutory supervisor in office"
+VILLAGE_SUPERVISOR_HISTORY = "an earlier statutory supervisor of a village: the file names the one in office and the day appointed"
 HDC = "Health and Disability Commissioner decisions (key hdc; and case notes; to acquire, plan 5.3)"
 CERTIFICATION = ("Certification audits of rest homes and hospitals (key certification; under the Health and Disability Services (Safety) "
                  "Act 2001)")
@@ -114,6 +118,23 @@ NOT_FOLLOWED = ("started from an organisation, the report follows its officers o
 
 
 flag, items, section, all_items = contract.flag, contract.items, contract.section, contract.all_items   # noqa: F821  (bound by the loader)
+
+#: the companies file's insolvency appointments (pub.company_insolvencies; the October 2026 package, read 2 November 2026) beside
+#: the Gazette's liquidation notices: a liquidator's, receiver's or administrator's appointment as the Companies Office lists it
+COMPANY_INSOLVENCY = "company_insolvencies"
+
+
+def _liq_view(it) -> bool:
+    """An insolvency practitioner's appointment: a Gazette liquidation notice, or an appointment the companies file lists that
+    follows no resolution of solvency (a solvent winding-up is no failure)."""
+    return it["view"] == "gazette_liquidations" or (it["view"] == COMPANY_INSOLVENCY and not (it.get("row") or {}).get("resolution_of_solvency"))
+
+
+def _liq_kind(it) -> str:
+    if it["view"] == COMPANY_INSOLVENCY:
+        return f"{((it.get('row') or {}).get('insolvency_type') or 'insolvency').lower()} (the companies file)"
+    return "liquidation"
+
 
 
 # ── reading the built report ────────────────────────────────────────────────
@@ -303,20 +324,20 @@ def _contested(it) -> bool:
 # ── the Gazette ─────────────────────────────────────────────────────────────
 
 def _insolvency(it) -> bool:
-    if it["view"] == "gazette_liquidations":
+    if _liq_view(it):
         return True
     r = it["row"]
     return it["view"] == "gazette_company_notices" and r.get("kind") in INSOLVENCY_KINDS and "ceas" not in (r.get("action") or "").lower()
 
 
 def _kind(it) -> str:
-    return "liquidation" if it["view"] == "gazette_liquidations" else (it["row"].get("kind") or "notice")
+    return _liq_kind(it) if _liq_view(it) else (it["row"].get("kind") or "notice")
 
 
 def _notice_date(it):
     """The day a notice dates: a liquidator's or receiver's appointment where the Gazette states one, otherwise its publication."""
     r = it["row"]
-    if it["view"] == "gazette_liquidations":
+    if _liq_view(it):
         return _date(r.get("appointed_on")) or _date(r.get("published_on"))
     if (r.get("event_basis") or "") == "appointment":
         return _date(r.get("event_on")) or _date(r.get("published_on"))
@@ -324,7 +345,7 @@ def _notice_date(it):
 
 
 def _notices(report, grades=("confirmed", "near")):
-    return [it for it in items(report, ("gazette_liquidations", "gazette_company_notices"), grades) if _insolvency(it)]
+    return [it for it in items(report, ("gazette_liquidations", "gazette_company_notices", "company_insolvencies"), grades) if _insolvency(it)]
 
 
 def _company_of(it) -> str:
@@ -503,7 +524,7 @@ def insolvency_notice(report):
                     "which the societies register's row does not join: start the report from the society's companies register row",
                     sources_not_held=(INSOLVENCY_REGISTER,), scope="entity")
     own = [it for it in _notices(report, ("confirmed",)) if _on_subject(report, it) and not it.get("above")]
-    up = [it for it in _above(report, ("gazette_liquidations", "gazette_company_notices")) if _insolvency(it)]
+    up = [it for it in _above(report, ("gazette_liquidations", "gazette_company_notices", "company_insolvencies")) if _insolvency(it)]
     beside = (f"; beside it, {len(up)} on a company above in the holding chain, the holder's and not the entity's: "
               + "; ".join(f"{_kind(it)} on {_entity_name(it)}, {it['dates']['text']} ({it.get('depth', '?')} up, {it['grade']})" for it in up[:EXAMPLES])
               ) if up else ""
@@ -513,7 +534,7 @@ def insolvency_notice(report):
                     + "; ".join(f"{_kind(it)}, {it['dates']['text']}" for it in own[:EXAMPLES])
                     + (f"; and {len(own) - EXAMPLES} more" if len(own) > EXAMPLES else "") + beside,
                     citations=tuple(it["ref"] for it in own + up), sources_not_held=(INSOLVENCY_REGISTER, COURTS), scope="entity")
-    if set(section(report, "gazette").get("omitted_views") or ()) & {"gazette_liquidations", "gazette_company_notices"}:
+    if set(section(report, "gazette").get("omitted_views") or ()) & {"gazette_liquidations", "gazette_company_notices", "company_insolvencies"}:
         return flag("insolvency-notice", V, "blocked", "red", "the entity has more Gazette notices than the walk lists; an insolvency could be "
                     "among those left out", scope="entity")
     if _ending(report["subject"]) == "insolvent":
@@ -984,16 +1005,36 @@ def past_roles(report):
 # ── what is not held ────────────────────────────────────────────────────────
 
 def retirement_villages(report):
-    """The villages the operator runs and their statutory supervisors: not held. A village's own row reached by a name it shares is
-    counted, near, and never said to be the operator's."""
-    villages = [it for it in items(report, ("companies",)) if "/retirement_village/" in it["ref"] and it["ref"] != report["subject"]["ref"]]
-    seen = (f"; {len(villages)} village row(s) of the companies register share a name with a row here and are listed near, not the "
-            "operator's until the file says so") if villages else ""
-    if _village(report):
-        seen = "; the start is a village's own register row, which names no operator and no supervisor" + seen
-    return flag("retirement-villages", V, "blocked", "red", "which villages the operator runs, each village's statutory supervisor, and when "
-                f"the supervisor changed, are in the retirement villages file, which is not held{seen}; this check cannot run",
-                citations=tuple(it["ref"] for it in villages), sources_not_held=(VILLAGES,))
+    """The villages the operator runs and their statutory supervisors, from the retirement villages file (2 November 2026): a village
+    whose operator number is the company's is the operator's, confirmed; started from a village's own row, its operator and its
+    supervisor. A village row reached by a name it shares is counted, near, and never said to be the operator's. When a supervisor
+    changed is not in the file: the one in office and the day appointed are."""
+    own = [it for it in items(report, ("retirement_villages",), ("confirmed",))]
+    near_named = [it for it in items(report, ("companies",)) if "/retirement_village/" in it["ref"] and it["ref"] != report["subject"]["ref"]]
+    seen = (f"; {len(near_named)} village row(s) of the companies register share a name with a row here and are listed near, not the "
+            "operator's") if near_named else ""
+    if own:
+        bits = [f"{it['title']} (supervisor {(it['row'].get('supervisor_name') or 'not stated')}"
+                + (f", appointed {it['row']['supervisor_appointed_on']}" if it["row"].get("supervisor_appointed_on") else "") + ")"
+                for it in own[:EXAMPLES]]
+        if _village(report):
+            v = own[0]["row"]
+            text = (f"the village's operator, as the retirement villages file names it: {v.get('operator_name') or 'not stated'}"
+                    f" (company number {v.get('operator_number') or 'not stated'}); statutory supervisor "
+                    f"{v.get('supervisor_name') or 'not stated'}")
+        else:
+            text = f"the retirement villages file names the company the operator of {len(own)} village(s): " + "; ".join(bits)
+        return flag("retirement-villages", V, "fired", "info", text + seen + "; when a supervisor changed is not in the file",
+                    citations=tuple(it["ref"] for it in own + near_named), sources_held=(VILLAGES_HELD,),
+                    sources_not_held=(VILLAGE_SUPERVISOR_HISTORY,))
+    if _company_start(report):
+        why = ("the start is a village's own register row and the villages file names no operator for it" if _village(report)
+               else "no village in the retirement villages file names the company its operator")
+        return flag("retirement-villages", V, "clear", "info", why + seen, citations=tuple(it["ref"] for it in near_named),
+                    sources_held=(VILLAGES_HELD,), sources_not_held=(VILLAGE_SUPERVISOR_HISTORY,))
+    return flag("retirement-villages", V, "blocked", "info", "a village's operator is a company: started from a person, the villages file "
+                f"is read from each company report, not here{seen}", citations=tuple(it["ref"] for it in near_named),
+                sources_held=(VILLAGES_HELD,))
 
 
 def hdc_decisions(report):

@@ -27,6 +27,7 @@ limits = [
   "A charity officer row is matched to the counterparty by name only: no link joins the Charities Register's officers to any other row yet, so each is a namesake's until a rule confirms it, and the register's disqualified mark on one is amber at most.",
   "A company's registered office is listed and is flagged when many companies share it. No residential address is held in any view read.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+  "A company's insolvency appointments are read from the companies file beside the Gazette's notices (since 2 November 2026): each liquidator, receiver or administrator by name, dated by the day appointed; an appointment after a resolution of solvency (a solvent winding-up) is listed and never counted a failure.",
 ]
 
 # ── what it reads: each view with its licence ───────────────────────────────
@@ -70,6 +71,11 @@ view = "gazette_liquidations"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
 attribution = "New Zealand Gazette"
 refresh = "daily"
+[[reads]]
+view = "company_insolvencies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
 [[reads]]
 view = "gazette_company_notices"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
@@ -203,7 +209,7 @@ text = "Every director and shareholder the register files on the company, curren
 [[sections]]
 name = "gazette"
 heading = "Gazette receiverships, liquidations, winding-up applications, administrations, creditors' notices and removals; bankruptcies and prohibitions"
-views = ["gazette_liquidations", "gazette_company_notices", "gazette_prohibitions", "gazette_bankruptcies"]
+views = ["gazette_liquidations", "company_insolvencies", "gazette_company_notices", "gazette_prohibitions", "gazette_bankruptcies"]
 sources = ["members", "confirmed", "near", "pointing", "officers"]
 not_held = ["insolvency", "court_coverage"]
 text = "A notice on a company is listed with that company's name and the notice's own date; the officers' dates are in the section above. The two sit side by side and nothing joins them. A removal from the register is not an insolvency. Bankruptcy notices are published but no link rule joins them to a person yet, so this section cannot show one; and started from a company, its people's prohibitions are not read. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."

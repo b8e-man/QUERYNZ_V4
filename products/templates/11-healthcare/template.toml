@@ -10,12 +10,14 @@
 # The use case runs on the retirement villages file and the charity returns,
 # with the Health and Disability Commissioner's decisions waiting (plan 5.2).
 # What the estate holds today:
-# - the retirement villages file is not held: the companies lane carries 512
-#   village rows in pub.companies (register retirement_village: the village's
-#   name, number, status and registration day, as the old estate's tables had
-#   them) and no operator, no statutory supervisor, no link from a village to
-#   the company that runs it; a village row is reached only by a name it
-#   shares, near;
+# - the retirement villages file is read since 2 November 2026
+#   (pub.retirement_villages, the companies lane's October 2026 package):
+#   514 villages, 409 naming their operator by company number (261
+#   operators), 493 naming the statutory supervisor in office, 488 with the
+#   day appointed. A village joins its operator by operator_key, confirmed;
+#   the village's own row among the 512 of pub.companies (its
+#   register retirement_village) is still reached by a name it shares, near. An earlier supervisor, and so
+#   when one changed, is not in the file;
 # - the Charities Register: pub.charities, pub.charity_officers and
 #   pub.charity_returns (the financial fields under the ruling of 14 August
 #   2026), read since fix-templates-1. A company's charity is reached by its
@@ -26,8 +28,8 @@
 # - the registers a health regulator keeps are not held, and since
 #   fix-report-2 the shape's not-held list has a key for each (card
 #   the-not-held-list-has-no-key-for-the-health-registers, closed): the
-#   retirement villages file (retirement_villages, on the standing section
-#   too), the Health and Disability Commissioner's decisions (hdc),
+#   retirement villages file (retirement_villages, read since 2 November
+#   2026), the Health and Disability Commissioner's decisions (hdc),
 #   certification audits (certification), the Ministry of Health's provider
 #   registers (health_providers) and the Aged Care Commissioner
 #   (aged_care_commissioner). The last section names them, so the memo's
@@ -46,7 +48,7 @@ depth = 2
 chain_depth = 2
 
 limits = [
-  "The retirement villages file is not held: which company operates a village, the village's statutory supervisor and when it changed are in no published register. The companies lane carries the village's own row (its name, number, status and registration day) and nothing joins it to an operator; a village row reached here shares a name and is near.",
+  "The retirement villages file is read: a village names its operator by company number, confirmed, and its statutory supervisor in office with the day appointed. 105 of 514 villages name no operator and are reached from no company. An earlier supervisor, and so when one changed, is not in the file. A village row of the companies register reached by a name it shares is near, never the operator's.",
   "The Charities Register is read: a company's charity by its business number, confirmed, with the officers and annual returns the register files on it (the figures as filed, never added across returns); a charity officer row that carries a person's name, near. No link joins the Charities Register's officers to any other row yet, so such a row is matched by name, a namesake's until a rule confirms it, and a rule over it is amber at most. A charitable trust board's trustees are read from its charity for the register's disqualified mark and are not followed to their other roles.",
   "The Health and Disability Commissioner's decisions, certification audits, the Ministry of Health's provider registers, the Aged Care Commissioner and the courts' judgments the courts corpus does not hold are not held. Nothing in this report says anything about care quality, a complaint, a breach finding or a certification: no such finding here is a finding of none.",
   "The registers carry no industry: a company is called care or retirement living here only because its registered name carries such a word, which is a sign to read, not a finding.",
@@ -57,6 +59,7 @@ limits = [
   "The entity is the row the report starts from and the rows a rule confirms are the same. A row that only shares the name is a namesake, set apart with its reason.",
   "A company's registered office is shown as the companies file states it. No residential address, and no officer's contact detail, is held in any view read.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+  "A company's insolvency appointments are read from the companies file beside the Gazette's notices (since 2 November 2026): each liquidator, receiver or administrator by name, dated by the day appointed; an appointment after a resolution of solvency (a solvent winding-up) is listed and never counted a failure.",
 ]
 
 # ── what it reads: each view with its licence ───────────────────────────────
@@ -141,6 +144,16 @@ licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.
 attribution = "New Zealand Gazette"
 refresh = "daily"
 [[reads]]
+view = "retirement_villages"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
+view = "company_insolvencies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
 view = "gazette_liquidators"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a practitioner's name and role only, never an address or telephone"
 attribution = "New Zealand Gazette"
@@ -212,9 +225,8 @@ text = "The entity is the row above: a company is its business number, a society
 [[sections]]
 name = "standing"
 heading = "Its standing and age"
-views = ["company_states", "company_addresses"]
+views = ["company_states", "company_addresses", "retirement_villages"]
 sources = ["roles", "members", "confirmed"]
-not_held = ["retirement_villages"]
 own = true
 text = "The entity's register status and the day it was registered are in the header above, as the latest file states them, and in the flags entity-status and young-entity. Below, an earlier state a later monthly file changed (dated as in the file that carried it), and each registered office as the companies file states it; a company's registered address is shown, and no residential address is held."
 
@@ -242,7 +254,7 @@ text = "Started from a company or a society, each officer's other current roles,
 [[sections]]
 name = "gazette"
 heading = "The Gazette on the entity, its people and its people's companies"
-views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_prohibitions", "gazette_bankruptcies", "gazette_appointments"]
+views = ["gazette_liquidations", "company_insolvencies", "gazette_company_notices", "gazette_liquidators", "gazette_prohibitions", "gazette_bankruptcies", "gazette_appointments"]
 sources = ["pointing", "members", "confirmed", "near", "roles", "officers", "chain"]
 not_held = ["insolvency", "court_coverage"]
 text = "Liquidations, winding-up applications, receiverships, administrations, creditors' notices, removals, restorations and the other company notices, each under its company's name with its own date, which says what it dates; then director prohibitions, bankruptcies and public appointments the link rules join to a person by name. A notice on an officer's other company, or on an officer, is the officer's and is listed near; one on a company an officer's near link reaches is a namesake's until a rule confirms it, and is counted apart. A notice on a company above in the holding chain is listed with that company's grade and its place up the chain: the holder's notice, not the entity's. A removal from the register is not an insolvency. A revoked prohibition and an annulled bankruptcy's name are never shown."
@@ -265,6 +277,6 @@ text = "A party to a judgment the courts corpus holds, as the judgment's heading
 name = "not-held"
 heading = "What is not held"
 views = []
-not_held = ["retirement_villages", "hdc", "certification", "health_providers", "aged_care_commissioner", "court_coverage", "tribunals", "disciplinary",
+not_held = ["hdc", "certification", "health_providers", "aged_care_commissioner", "court_coverage", "tribunals", "disciplinary",
             "employment", "company_history"]
-text = "Registers an operator's governance record would read that no lane has published: the retirement villages file (each village's operator and statutory supervisor, and when the supervisor changed), the Health and Disability Commissioner's decisions, certification audits of rest homes and hospitals, the Ministry of Health's provider registers, the Aged Care Commissioner's reports, court judgments, the tribunals and disciplinary bodies, the Employment Relations Authority, WorkSafe's prosecutions, the Commerce Commission's cases and the companies change history before 16 August 2026. Nothing in this report says anything about them: no decision, audit, complaint or judgment here is a finding of none. Ask the source."
+text = "Registers an operator's governance record would read that no lane has published: an earlier statutory supervisor of a village (the villages file names the one in office), the Health and Disability Commissioner's decisions, certification audits of rest homes and hospitals, the Ministry of Health's provider registers, the Aged Care Commissioner's reports, court judgments, the tribunals and disciplinary bodies, the Employment Relations Authority, WorkSafe's prosecutions, the Commerce Commission's cases and the companies change history before 16 August 2026. Nothing in this report says anything about them: no decision, audit, complaint or judgment here is a finding of none. Ask the source."

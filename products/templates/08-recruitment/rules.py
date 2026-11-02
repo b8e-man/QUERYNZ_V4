@@ -44,7 +44,7 @@ YOUNG_DAYS = 730          # under 24 months registered: worth a question (the ol
 NAMESAKE_NOTE_AT = 5      # namesakes set apart at which the screen's caveat fires (the old namesake-exposure rule)
 EXAMPLES = 3              # dated examples a fired flag states in its text
 
-INSOLVENCY_VIEWS = ("gazette_liquidations", "gazette_company_notices")
+INSOLVENCY_VIEWS = ("gazette_liquidations", "gazette_company_notices", "company_insolvencies")
 #: the company notices that are insolvency: a removal from the register (an intention to remove, a restoration) is not, and is its own flag
 INSOLVENCY_KINDS = ("winding-up application", "receivership", "administration", "notice to creditors")
 GAZETTE_HELD = ("New Zealand Gazette liquidation and company notices (pub.gazette_liquidations, pub.gazette_company_notices), "
@@ -61,6 +61,23 @@ MONEY_VIEWS = ("party_return_donors", "party_return_loans", "disclosures", "disc
 
 
 flag, items, section, all_items = contract.flag, contract.items, contract.section, contract.all_items   # noqa: F821  (bound by the loader)
+
+#: the companies file's insolvency appointments (pub.company_insolvencies; the October 2026 package, read 2 November 2026) beside
+#: the Gazette's liquidation notices: a liquidator's, receiver's or administrator's appointment as the Companies Office lists it
+COMPANY_INSOLVENCY = "company_insolvencies"
+
+
+def _liq_view(it) -> bool:
+    """An insolvency practitioner's appointment: a Gazette liquidation notice, or an appointment the companies file lists that
+    follows no resolution of solvency (a solvent winding-up is no failure)."""
+    return it["view"] == "gazette_liquidations" or (it["view"] == COMPANY_INSOLVENCY and not (it.get("row") or {}).get("resolution_of_solvency"))
+
+
+def _liq_kind(it) -> str:
+    if it["view"] == COMPANY_INSOLVENCY:
+        return f"{((it.get('row') or {}).get('insolvency_type') or 'insolvency').lower()} (the companies file)"
+    return "liquidation"
+
 
 
 def _as_of(report) -> dt.date:
@@ -129,7 +146,7 @@ def _side_by_side(report, notices: list) -> str:
 # ── the old seven, where the held registers support them ────────────────────
 
 def _insolvency(it) -> bool:
-    return it["view"] == "gazette_liquidations" or (it["view"] == "gazette_company_notices" and it["row"].get("kind") in INSOLVENCY_KINDS)
+    return _liq_view(it) or (it["view"] == "gazette_company_notices" and it["row"].get("kind") in INSOLVENCY_KINDS)
 
 
 def _removal(it) -> bool:
@@ -418,17 +435,29 @@ def bankruptcy(report):
                 sources_not_held=NOT_HELD_INSOLVENCY)
 
 
+def _appointments_by_name(report) -> list:
+    """The Gazette's appointments (a judge, a Justice of the Peace, a statutory manager, an office holder) that carry the subject's
+    own name, near by name (2 November 2026): no link rule joins them to a person yet; never an officer's, never through anyone."""
+    return [it for it in items(report, ("gazette_appointments",), ("near",)) if not it.get("through") and not it.get("suppressed")
+            and (it["row"].get("appointee_kind") or "person") == "person"]
+
+
 def public_life(report):
     office = list(items(report, PUBLIC_VIEWS, ("confirmed",)))
     money = list(items(report, MONEY_VIEWS, ("confirmed",)))
-    if office or money:
+    named = _appointments_by_name(report)
+    if office or money or named:
         bits = []
         if office:
             bits.append(f"{len(office)} row(s) of public office: seats, candidacies, declared interests")
         if money:
             bits.append(f"{len(money)} row(s) of political money or a promoter's role")
-        return flag("public-life", V, "fired", "info", "the subject has a public political record: " + "; ".join(bits)
-                    + "; each listed in its section with its date", citations=tuple(it["ref"] for it in office + money))
+        if named:
+            roles = sorted({(it["row"].get("role") or "an office").lower() for it in named})
+            bits.append(f"{len(named)} Gazette appointment(s) under the subject's name, near by name and not confirmed the subject's "
+                        f"({', '.join(roles[:EXAMPLES])})")
+        return flag("public-life", V, "fired", "info", "the subject has a public record: " + "; ".join(bits)
+                    + "; each listed in its section with its date", citations=tuple(it["ref"] for it in office + money + named))
     return flag("public-life", V, "clear", "info", "no seat, candidacy, declared interest, donation, loan or promoter's role confirmed to the subject",
                 sources_held=("Electoral Commission returns and disclosures", "Candidates and the House", "MPs' declared interests",
                               "Register of Promoters"),

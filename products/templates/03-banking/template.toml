@@ -19,7 +19,7 @@ limits = [
   "Only the registers the estate has published are read; what is not held is the last section, and nothing in this report says anything about it.",
   "A connection is as the register states it: a role, a holding of record, a donation filed under a name. Nothing here says who stands behind a holding or runs a company.",
   "The person is the row the report starts from and the rows a rule confirms are the same person. A row that only shares the name is a namesake, listed apart, and is not the person until confirmed.",
-  "Started from a company, the report follows each current officer one step: the officer's other companies, how those ended, the notices on the officer's own record and the officer's society and charity roles are read and listed beside the officer, the officer's and never the company's. A check clears only when every officer was followed; an officer whose name is suppressed or who is past the walk's limit is not followed, and the check is blocked, saying how many. Holders of record are listed and not followed. Who sat beside the officers on their other companies is not read: start a report from an officer for it.",
+  "Started from a company, the report follows each current officer one step: the officer's other companies, how those ended, the notices on the officer's own record and the officer's society and charity roles are read and listed beside the officer, the officer's and never the company's. A check clears only when every officer was followed; an officer whose name is suppressed or who is past the walk's limit is not followed, and the check is blocked, saying how many. Holders of record are listed and not followed. Who sat beside the officers on their other companies is read (2 November 2026): the current directors of each company an officer's own row reaches, to 12 a company with the rest counted, each near, through the officer and then the company; a name on two of those companies is two rows that share a name, never one person.",
   "Two facts are shown side by side with their dates. The report never says one followed from the other, and a role that ended before a notice is a date beside a date.",
   "The walk reads Gazette notices on the first twelve companies it reaches and lists up to forty; past those, a company's register status is shown but its notices are not read, and the checks that need them are blocked, never clear.",
   "A Gazette bankruptcy notice is published but no link rule joins it to a person yet, so this report cannot see one: a blank there is not a clear.",
@@ -28,6 +28,7 @@ limits = [
   "A charity officer row is matched to the person by name only: no link joins the Charities Register's officers to any other row yet, so each is a namesake's until a rule confirms it, and the register's disqualified mark on one is amber at most.",
   "A company's registered office is listed and is flagged when many companies share it. No residential address is held in any view read.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document. A role that has left the file carries no end date, because the file states none.",
+  "A company's insolvency appointments are read from the companies file beside the Gazette's notices (since 2 November 2026): each liquidator, receiver or administrator by name, dated by the day appointed; an appointment after a resolution of solvency (a solvent winding-up) is listed and never counted a failure.",
 ]
 
 # ── what it reads: each view with its licence ───────────────────────────────
@@ -71,6 +72,11 @@ view = "gazette_liquidations"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
 attribution = "New Zealand Gazette"
 refresh = "daily"
+[[reads]]
+view = "company_insolvencies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
 [[reads]]
 view = "gazette_company_notices"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
@@ -214,7 +220,7 @@ text = "Each role and holding the companies file records, with the dates it file
 [[sections]]
 name = "endings"
 heading = "How each company ended: register status and Gazette notices, dated"
-views = ["companies", "gazette_liquidations", "gazette_company_notices"]
+views = ["companies", "gazette_liquidations", "company_insolvencies", "gazette_company_notices"]
 sources = ["members", "confirmed", "near", "pointing", "officers"]
 not_held = ["insolvency", "court_coverage"]
 text = "Each company with its register status and the dates the register files, and beneath it the Gazette's notices on it: liquidations, receiverships, administrations, winding-up applications, creditors' notices, removals and restorations, an overseas company ceasing, a society dissolved, each with its own date. The person's dates on the company are in the section above; the two sit side by side and nothing joins them. A removal from the register is not an insolvency. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."
@@ -231,8 +237,8 @@ text = "A director prohibition the link rules join to the person by name, with i
 name = "beside"
 heading = "The people they sat beside, and the companies those people share with them"
 views = ["directors", "shareholders"]
-sources = ["second"]
-text = "The other directors and holders of record on the person's companies, each under its company and each near: a connection through another person is never confirmed. A name on two of the person's companies is two rows that share a name. Started from a company, the report does not follow its people: start a report from each officer listed above."
+sources = ["second", "beside"]
+text = "The other directors and holders of record on the person's companies, each under its company and each near: a connection through another person is never confirmed. A name on two of the person's companies is two rows that share a name. Started from a company, the current directors of each company an officer the walk followed sits on, near: a connection through two people."
 
 [[sections]]
 name = "money"

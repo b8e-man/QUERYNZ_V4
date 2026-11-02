@@ -77,7 +77,7 @@ PARTNERSHIP = re.compile(r"\b(limited partnership|l\.?p\.?)$|\blimited partnersh
 #: never "Inc", which NZ incorporated societies and Maori land incorporations also write (Gore District Memorial RSA Inc)
 OVERSEAS_FORM = re.compile(r"\b(pty\.? ?(ltd|limited)\.?|pte\.? ?(ltd|limited)\.?|llc|l\.l\.c\.|gmbh|ag|s\.a\.?|b\.?v\.?|n\.v\.?|nv|plc|"
                            r"sdn\.? bhd\.?|k\.k\.|co\.,? ltd\.?|s\.a\.r\.l\.?|sarl|oy|ab|a/s|aps|s\.p\.a\.?|spa)$", re.I)
-INSOLVENCY_VIEWS = ("gazette_liquidations", "gazette_company_notices")
+INSOLVENCY_VIEWS = ("gazette_liquidations", "gazette_company_notices", "company_insolvencies")
 INSOLVENCY_KINDS = ("winding-up application", "receivership", "administration", "notice to creditors", "deed of company arrangement")
 INSOLVENT_STATUS = re.compile(r"liquidation|receiv|administration|statutory management", re.I)
 ENDED_STATUS = re.compile(r"^(removed|deregistered|dissolved|closed|cancelled|inactive|suspended)$", re.I)
@@ -123,6 +123,23 @@ CHAIN_STOPS = (f"past the companies the chain reaches, and above a company holde
 
 
 flag, items, section, all_items = contract.flag, contract.items, contract.section, contract.all_items   # noqa: F821  (bound by the loader)
+
+#: the companies file's insolvency appointments (pub.company_insolvencies; the October 2026 package, read 2 November 2026) beside
+#: the Gazette's liquidation notices: a liquidator's, receiver's or administrator's appointment as the Companies Office lists it
+COMPANY_INSOLVENCY = "company_insolvencies"
+
+
+def _liq_view(it) -> bool:
+    """An insolvency practitioner's appointment: a Gazette liquidation notice, or an appointment the companies file lists that
+    follows no resolution of solvency (a solvent winding-up is no failure)."""
+    return it["view"] == "gazette_liquidations" or (it["view"] == COMPANY_INSOLVENCY and not (it.get("row") or {}).get("resolution_of_solvency"))
+
+
+def _liq_kind(it) -> str:
+    if it["view"] == COMPANY_INSOLVENCY:
+        return f"{((it.get('row') or {}).get('insolvency_type') or 'insolvency').lower()} (the companies file)"
+    return "liquidation"
+
 
 
 # ── reading the built report ────────────────────────────────────────────────
@@ -186,7 +203,7 @@ def _ending(it) -> str:
 
 
 def _insolvency(it) -> bool:
-    return it["view"] == "gazette_liquidations" or (it["view"] == "gazette_company_notices" and it["row"].get("kind") in INSOLVENCY_KINDS)
+    return _liq_view(it) or (it["view"] == "gazette_company_notices" and it["row"].get("kind") in INSOLVENCY_KINDS)
 
 
 def _on_subject(report, it) -> bool:

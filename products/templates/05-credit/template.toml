@@ -38,6 +38,7 @@ limits = [
   "The walk reads Gazette notices on the first twelve companies it reaches and lists up to forty; past those the checks that need them are blocked, never clear.",
   "A company's registered office is shown as the companies file states it. No residential address is held in any view read.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+  "A company's insolvency appointments are read from the companies file beside the Gazette's notices (since 2 November 2026): each liquidator, receiver or administrator by name, dated by the day appointed; an appointment after a resolution of solvency (a solvent winding-up) is listed and never counted a failure.",
 ]
 
 # ── what it reads: each view with its licence ───────────────────────────────
@@ -91,6 +92,11 @@ view = "gazette_liquidations"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
 attribution = "New Zealand Gazette"
 refresh = "daily"
+[[reads]]
+view = "company_insolvencies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
 [[reads]]
 view = "gazette_company_notices"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a person named in a rectification is held by initials and surname only"
@@ -188,7 +194,7 @@ text = "The grain is the companies register's monthly file, and two files are he
 [[sections]]
 name = "gazette"
 heading = "The Gazette on the entity: winding-up applications, liquidation, receivership, deeds, removals and restorations"
-views = ["gazette_liquidations", "gazette_company_notices", "gazette_liquidators", "gazette_appointments"]
+views = ["gazette_liquidations", "company_insolvencies", "gazette_company_notices", "gazette_liquidators", "gazette_appointments"]
 sources = ["pointing", "members", "confirmed", "near", "officers"]
 not_held = ["insolvency", "court_coverage"]
 text = "Each Gazette notice on the entity, or on the companies above, under its company's name with the day the notice dates, which says what it dates: a liquidator's appointment, a hearing day, a removal's last day for objections; the day it was filed and published beside. Started from a person, also the person's own appointments as liquidator or to a public office. A removal from the register is not an insolvency, and a restoration reverses a removal. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."

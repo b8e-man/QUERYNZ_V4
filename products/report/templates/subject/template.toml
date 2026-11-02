@@ -19,6 +19,11 @@ limits = [
 ]
 
 [[reads]]
+view = "retirement_villages"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
+[[reads]]
 view = "rea_decisions"
 licence = "the Real Estate Authority's decisions database, read and cited under the position real-estate-authority-decisions"
 attribution = "Te Mana Papawhenua, the Real Estate Authority"
@@ -145,6 +150,11 @@ view = "gazette_liquidations"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
 attribution = "New Zealand Gazette"
 refresh = "daily"
+[[reads]]
+view = "company_insolvencies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
 [[reads]]
 view = "gazette_company_notices"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
@@ -308,7 +318,7 @@ text = "A charity reached from a company by its business number is confirmed. No
 [[sections]]
 name = "insolvency"
 heading = "Insolvency, possessions, prohibitions and bankruptcies in the Gazette"
-views = ["gazette_liquidations", "gazette_company_notices", "gazette_possessions", "gazette_liquidators", "gazette_practitioners", "gazette_prohibitions", "gazette_bankruptcies"]
+views = ["gazette_liquidations", "company_insolvencies", "gazette_company_notices", "gazette_possessions", "gazette_liquidators", "gazette_practitioners", "gazette_prohibitions", "gazette_bankruptcies"]
 not_held = ["insolvency", "court_coverage"]
 
 [[sections]]

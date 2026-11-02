@@ -30,7 +30,9 @@ def test_the_not_held_list_carries_the_health_and_property_keys_and_keeps_the_re
     """healthcare-1's five and property-1's three, each with the key the
     template cites; the keys report-3 added stay; charities is no longer
     among them (it is held)."""
-    for key, word in (("retirement_villages", "statutory supervisor"), ("hdc", "Health and Disability Commissioner"), ("certification", "rest homes"),
+    assert "retirement_villages" not in cat.NOT_HELD_NAME and cat.SUPERSEDED_NOT_HELD["retirement_villages"] == "companies"   # read 2 November 2026
+    assert "personal bankruptcies" in cat.NOT_HELD_NAME["insolvency"] and "companies file" in cat.NOT_HELD_NAME["insolvency"]
+    for key, word in (("hdc", "Health and Disability Commissioner"), ("certification", "rest homes"),
                       ("health_providers", "Ministry of Health"), ("aged_care_commissioner", "Aged Care Commissioner"),
                       ("building_consents", "code compliance")):
         assert key in cat.NOT_HELD_NAME and word in cat.NOT_HELD_NAME[key], key

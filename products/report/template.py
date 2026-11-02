@@ -52,7 +52,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SHAPE_TEMPLATES = os.path.join(HERE, "templates")
 USE_CASE_TEMPLATES = os.path.join(os.path.dirname(HERE), "templates")   # products/templates/<nn>-<name>/ (step 5.2)
 STATUSES, SEVERITIES = contract.STATUSES, contract.SEVERITIES
-BUCKETS = ("members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain")   # walk.BUCKETS, held by a test
+BUCKETS = ("members", "confirmed", "near", "roles", "pointing", "second", "named", "officers", "office", "chain", "beside")   # walk.BUCKETS, held by a test
 CHAIN_MAX = 4   # walk.LIMITS["chain"], held by a test
 PARAM_KINDS = ("integer", "text", "date")   # what a declared parameter's value is read as
 #: names a parameter may not take: the report's own keys, and the page's and the command line's own arguments

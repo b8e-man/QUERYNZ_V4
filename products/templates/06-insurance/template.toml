@@ -35,6 +35,7 @@ limits = [
   "The walk reads Gazette notices on the first twelve companies it reaches and lists up to forty; past those the checks that need them are blocked, never clear.",
   "A company's registered office is shown as the companies file states it. No residential address is held in any view read.",
   "Companies register rows come from the old estate's tables; the original monthly file is not held, so those rows cite the row, not a document.",
+  "A company's insolvency appointments are read from the companies file beside the Gazette's notices (since 2 November 2026): each liquidator, receiver or administrator by name, dated by the day appointed; an appointment after a resolution of solvency (a solvent winding-up) is listed and never counted a failure.",
 ]
 
 # ── what it reads: each view with its licence ───────────────────────────────
@@ -90,6 +91,11 @@ view = "gazette_liquidations"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0"
 attribution = "New Zealand Gazette"
 refresh = "daily"
+[[reads]]
+view = "company_insolvencies"
+licence = "Companies Office bulk data, Creative Commons Attribution 4.0"
+attribution = "Companies Office"
+refresh = "monthly file"
 [[reads]]
 view = "gazette_liquidators"
 licence = "New Zealand Gazette, Crown copyright, Creative Commons Attribution 4.0; a practitioner's name and role only, never an address or telephone"
@@ -206,7 +212,7 @@ text = "The entity's register status and the day it was registered are in the he
 [[sections]]
 name = "solvency"
 heading = "The solvency record: the Gazette on the entity, and on its people's companies"
-views = ["gazette_liquidations", "gazette_company_notices"]
+views = ["gazette_liquidations", "company_insolvencies", "gazette_company_notices"]
 sources = ["pointing", "members", "confirmed", "near", "officers"]
 not_held = ["insolvency", "securities"]
 text = "Liquidations (appointed by the shareholders or the court), winding-up applications, receiverships, administrations, creditors' notices, deeds of company arrangement, removals and restorations, dissolutions, amalgamations and rectifications, each under its company's name with its own date, which says what it dates: a liquidator's appointment, a hearing day, a removal's last day for objections. Started from a person, the notices on each of the person's companies. A removal from the register is not an insolvency. A lender's entry into possession is published in the Gazette and not yet reachable by this report. Started from a company, the rows reached through each officer the walk followed one step are listed here too, near: the officer's, never the company's."

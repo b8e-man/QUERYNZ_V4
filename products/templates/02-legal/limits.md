@@ -24,8 +24,13 @@ that would lift it is named.
   every link read; an officer whose name is suppressed, or who is past the
   walk's limit, is not followed, and the check is blocked, saying how
   many, which is not a clear. Holders of record are listed and not
-  followed, and who sat beside the officers on their other companies is
-  not read. (`a-company-start-follows-its-officers-one-step`)
+  followed. Who sat beside the officers on their other companies is read
+  since 2 November 2026: the current directors of each company an
+  officer's own row reaches (never a company a near link reaches), to 12 a
+  company with the rest counted, each near, through the officer and then
+  the company; `shared-boards` fires info on a name seen on two of those
+  companies, two rows that share a name and never one person.
+  (`a-company-start-follows-its-officers-one-step`)
 - **Court judgments, tribunal decisions and disciplinary findings.** Court
   judgments are read as far as the courts corpus holds them, a part of the
   courts' judgments: `court-judgments` fires on a party a judgment names
@@ -51,8 +56,19 @@ that would lift it is named.
   (`bankruptcies-and-appointments-are-not-in-pub-names`)
 - **Which company a liquidator was appointed to.** A practitioner's own
   appointments are listed, each citing its notice, but the row does not
-  name the company. Receivers and administrators named in notices are not
-  reached at all. (`a-liquidator-row-does-not-name-its-company`)
+  name the company. (`a-liquidator-row-does-not-name-its-company`) A
+  company's own insolvency appointments are also read from the companies
+  file (`pub.company_insolvencies`, since 2 November 2026): each
+  liquidator, receiver or administrator by name with the day appointed,
+  dated by that day; an appointment after a resolution of solvency (a
+  solvent winding-up) is listed and never counted a failure. A flag still
+  words such an appointment as a "Gazette insolvency notice"; its citation
+  names the companies file.
+- **A judicial, JP or statutory-manager appointment.** The Gazette's
+  appointments are read by name since 2 November 2026: a row carrying the
+  party's name is listed in the Gazette section, near, a namesake's until a
+  link confirms it; a Justice of the Peace's town is the list's, never
+  shown as an address.
 - **Every company of a busy director.** The walk lists 40 companies and
   reads the notices and officers of 12; past those, `walk-coverage` fires
   and the clears that need them block.

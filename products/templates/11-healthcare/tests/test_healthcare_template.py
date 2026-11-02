@@ -34,8 +34,8 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 ORDER = ["identity", "standing", "governance", "charity-returns", "overlap", "gazette", "regulators", "courts", "not-held"]
 COMMON = ("group-standing", "hubs-met", "replaced-return")
-VIEWS = {"court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "company_lookup_holdings", "grants", "society_states", "companies", "company_states", "directors", "shareholders", "company_addresses", "societies", "society_officers",
-         "gazette_liquidations", "gazette_liquidators", "gazette_company_notices", "gazette_appointments", "gazette_prohibitions",
+VIEWS = {"court_judgments", "court_judgment_parties", "court_people", "company_lookup_roles", "company_lookup_holdings", "grants", "society_states", "companies", "company_states", "retirement_villages", "directors", "shareholders", "company_addresses", "societies", "society_officers",
+         "gazette_liquidations", "company_insolvencies", "gazette_liquidators", "gazette_company_notices", "gazette_appointments", "gazette_prohibitions",
          "gazette_bankruptcies", "worksafe_parties", "commerce_commission_parties", "fma_parties"}
 CHARITY_VIEWS = ("charities", "charity_officers", "charity_returns")
 #: words that would join two facts as cause or call a holder an owner (the shape's rules 3 and 4 hold the full list on every report)
@@ -43,7 +43,7 @@ CAUSE = re.compile(r"\b(because|therefore|due to|as a result|led to|linked to|co
                    r"beneficial)\b", re.I)
 OFFICER_CHECKS = ("disqualified_officer", "officer_bankruptcy", "officer_overlap", "officer_company_notices")
 CHARITY_CHECKS = ("charity_arm", "charity_returns_summary", "charity_audit_opinion", "charity_return_filed")
-ALWAYS_BLOCKED = ("retirement_villages", "hdc_decisions", "certification_audits", "provider_registers", "aged_care_commissioner",
+ALWAYS_BLOCKED = ("hdc_decisions", "certification_audits", "provider_registers", "aged_care_commissioner",
                   "court_judgments", "past_roles")
 
 
@@ -114,7 +114,7 @@ def test_its_sections_run_in_the_investors_order():
     assert [s["name"] for s in t["sections"]] == ORDER
     s = {x["name"]: x for x in t["sections"]}
     assert s["identity"]["sources"] == ["near"] and s["identity"]["own"] is False, "a namesake is never the entity's own row"
-    assert s["standing"]["own"] is True and set(s["standing"]["views"]) == {"company_states", "company_addresses"}
+    assert s["standing"]["own"] is True and set(s["standing"]["views"]) == {"company_states", "company_addresses", "retirement_villages"}
     assert "chain" in s["governance"]["sources"] and "charities" in s["governance"]["views"]
     assert s["charity-returns"]["views"] == ["charity_returns"]
     for named in ("period", "tier", "income", "expenditure", "surplus", "assets", "liabilities", "equity", "audited", "opinion", "newest first"):
@@ -123,7 +123,8 @@ def test_its_sections_run_in_the_investors_order():
     assert "officers" in s["gazette"]["sources"] and {"insolvency", "court_coverage"} <= set(s["gazette"]["not_held"])
     assert "officers" not in {b for x in t["sections"] if x["name"] not in ("overlap", "gazette") for b in x.get("sources", [])}
     assert s["not-held"]["views"] == [] and "court_coverage" in s["not-held"]["not_held"]
-    for named in ("retirement villages file", "statutory supervisor", "Health and Disability Commissioner", "certification audits",
+    assert "retirement villages file" not in s["not-held"]["text"], "read since 2 November 2026"
+    for named in ("Health and Disability Commissioner", "certification audits",
                   "Ministry of Health's provider registers", "Aged Care Commissioner", "court judgments"):
         assert named in s["not-held"]["text"], named
     views = {r["view"] for r in t["reads"]}
@@ -138,7 +139,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
     for want in ("namesake", "not a clear", "checkpoint", "retirement villages file", "never clear", "charit", "Health and Disability Commissioner"):
         assert want in page, want
     lim = toml()["limits"]
-    assert any("retirement villages file is not held" in x for x in lim) and any("Charities Register's officers" in x and "matched by name" in x for x in lim)
+    assert any("retirement villages file is read" in x and "town" not in x for x in lim) and any("Charities Register's officers" in x and "matched by name" in x for x in lim)
     with open(os.path.join(HERE, "checkpoint.list"), encoding="utf-8") as f:
         keys = [x.strip() for x in f if x.strip() and not x.startswith("#")]
     assert len(keys) == 12 and len(set(keys)) == 12 and all(re.match(r"^[a-z_]+:\S+$", k) for k in keys), "twelve register keys, one a line"
@@ -149,7 +150,7 @@ def test_the_known_limits_page_and_the_checkpoint_list_exist():
 KIND = {"directors": "person", "shareholders": "person", "society_officers": "person", "gazette_prohibitions": "person",
         "gazette_bankruptcies": "person", "gazette_liquidators": "person", "companies": "organisation", "societies": "organisation",
         "company_addresses": "place", "gazette_company_notices": "organisation", "gazette_liquidations": "organisation",
-        "charities": "organisation", "charity_officers": "person", "charity_returns": "figure"}
+        "charities": "organisation", "charity_officers": "person", "charity_returns": "figure", "retirement_villages": "organisation"}
 THROUGH = "reached through a person on the subject ({who}): an officer's other role is the officer's connection, not the subject's; near, never confirmed"
 CONTESTED = "the group this row belongs to is contested as a whole: the watch flagged it; "
 
@@ -178,6 +179,10 @@ OPERATOR = company(1, "KOWHAI LIVING GROUP LIMITED")
 TRUST_BOARD = company(9, "KOWHAI LIVING CHARITABLE TRUST", kind="Charitable Trust Boards", registered="2005-02-07")
 VILLAGE = it("companies:companies/retirement_village/77", "companies", title="KOWHAI GARDENS VILLAGE",
              row={"key": "companies/retirement_village/77", "status": "REGISTERED", "entity_type": None, "registered_on": "2007-10-19", "in_latest": True})
+#: the retirement villages file's row for that village: the operator by company number, the supervisor in office and the day appointed
+VILLAGE_FILE = it("companies:retirement_villages/77", "retirement_villages", title="KOWHAI GARDENS VILLAGE",
+                  row={"key": "retirement_villages/77", "operator_key": "companies/1", "operator_name": "KOWHAI LIVING GROUP LIMITED",
+                       "operator_number": "1", "supervisor_name": "Trustee Co Limited", "supervisor_appointed_on": "2019-04-01"})
 #: the entity's officers: Ann on its board since 2025, Bob since 2019
 ANN = director(1, "a", "Ann Mary ROE", "2025-02-01", OPERATOR["title"], via=OPERATOR["ref"])
 BOB = director(1, "b", "Bob James LEE", "2019-06-01", OPERATOR["title"], via=OPERATOR["ref"])
@@ -586,15 +591,14 @@ def test_the_charities_register_is_read_by_number_and_by_name():
 
 
 #: the catalogue's not-held keys for the health registers (products/report/catalogue.py, NOT_HELD) and the flag that blocks on each
-HEALTH_KEYS = {"retirement_villages": ("retirement_villages", "The retirement villages file: each village's operator and statutory supervisor"),
-               "hdc": ("hdc_decisions", "Health and Disability Commissioner decisions"),
+HEALTH_KEYS = {"hdc": ("hdc_decisions", "Health and Disability Commissioner decisions"),
                "certification": ("certification_audits", "Certification audits of rest homes and hospitals"),
                "health_providers": ("provider_registers", "The Ministry of Health's provider registers"),
                "aged_care_commissioner": ("aged_care_commissioner", "The Aged Care Commissioner's reports")}
 
 
 def test_the_reaches_name_the_health_keys_an_officers_near_links_and_the_companies_above():
-    """fix-products-templates-1: the five health keys in the not-held section (the villages file on standing too) and each blocked flag
+    """fix-products-templates-1: the health keys in the not-held section (the villages file read since 2 November 2026) and each blocked flag
     naming its register as the catalogue does; an officer's near links counted apart; the Gazette on the companies above listed."""
     s = {x["name"]: x for x in toml()["sections"]}
     with open(os.path.join(REPO, "products", "report", "catalogue.py"), encoding="utf-8") as f:
@@ -602,7 +606,7 @@ def test_the_reaches_name_the_health_keys_an_officers_near_links_and_the_compani
     for key, (fn, name) in HEALTH_KEYS.items():
         assert key in s["not-held"]["not_held"] and f'("{key}", "{name}' in cat, key
         assert rule(fn)(report())["sources_not_held"][0].startswith(name), fn
-    assert s["standing"]["not_held"] == ["retirement_villages"]
+    assert not s["standing"].get("not_held") and "retirement_villages" in s["standing"]["views"]
     assert "chain" in s["gazette"]["sources"] and "officers" in s["overlap"]["sources"] and "charity_officers" in s["governance"]["views"]
     assert "named" in s["governance"]["sources"]
     f = rule("officer_overlap")(operator(overlap=[ANN_RIMU, RIMU, ANN_SISTER, BOB_ACME, BOB_NAMESAKE]))
@@ -625,11 +629,20 @@ def test_every_register_not_held_blocks_and_a_village_row_is_named_as_such():
     for name in ALWAYS_BLOCKED:
         for r in (operator(), person(), report()):
             assert rule(name)(r)["status"] == "blocked", name
+    # the retirement villages file, read since 2 November 2026: the operator's villages fired info, none clear, a person blocked
     v = rule("retirement_villages")(report(subject=VILLAGE))
-    assert "a village's own register row, which names no operator and no supervisor" in v["text"]
+    assert v["status"] == "clear" and "names no operator for it" in v["text"]
+    own = rule("retirement_villages")(report(subject=VILLAGE, standing=[VILLAGE_FILE]))
+    assert own["status"] == "fired" and "KOWHAI LIVING GROUP LIMITED" in own["text"] and "Trustee Co" in own["text"]
     near_village = dict(VILLAGE, grade="near", reason="two companies under one name")
     n = rule("retirement_villages")(report(identity=[near_village]))
-    assert n["citations"] == (VILLAGE["ref"],) and "not the operator's until the file says so" in n["text"]
+    assert n["status"] == "clear" and n["citations"] == (VILLAGE["ref"],) and "not the operator's" in n["text"]
+    o = rule("retirement_villages")(operator(standing=[VILLAGE_FILE]))
+    assert o["status"] == "fired" and o["severity"] == "info" and "operator of 1 village(s)" in o["text"] and "appointed 2019-04-01" in o["text"]
+    assert o["citations"] == (VILLAGE_FILE["ref"],) and o["sources_not_held"] == (R.VILLAGE_SUPERVISOR_HISTORY,)
+    namesake = dict(VILLAGE_FILE, grade="near", reason="the two rows share a name")
+    assert rule("retirement_villages")(operator(standing=[namesake]))["status"] == "clear", "a namesake's village is never the operator's"
+    assert rule("retirement_villages")(person())["status"] == "blocked"
     assert "Code of Rights" in rule("hdc_decisions")(report())["text"]
     assert rule("entity_status")(report(subject=VILLAGE))["sources_not_held"]
 
