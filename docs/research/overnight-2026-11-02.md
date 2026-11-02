@@ -380,3 +380,12 @@ Arthur since 1 November 08:45: his decision); the owner login's 20-connection li
   published view, none locked or written in the two days before; querynz_v4 134 GB to 84 GB, the sample 20 GB to
   10 GB. Each drop is a line in live/checks/dropped-schemas.jsonl. The agent's 7.5 GB scratch index on /mnt/hdd2 removed.
   Ruling 136: the councils' own award lists are stored, off every schedule.
+- The model server's stall (07:24): the display card's "Failed to pin framebuffer ... -12" lines are not its cause. The
+  card holding the screen runs at 32,019 of 32,624 MB (Radiance takes all but its 500 MB headroom, Arthur's setting of 1
+  November), so the desktop sometimes cannot pin a frame; that happened 10:34 to 15:08 on 2 November and 09:30 to 10:17
+  on 3 November with no stall, and not in the 40 minutes before the 15:48 stall of 2 November. The headroom stays. The
+  stalls are the driver's wait (kfd_wait_on_events on 2 November); the watchdog restarts the server after ten minutes.
+- Rulings 136 to 138: council award lists stored and off every schedule; OpenLaw dropped; the MCP's gets corpus pulled.
+  The owner login's connection limit raised to 40 (Arthur, as the database superuser). The courts date fix (e856fd4):
+  a year before 1840 or after 2100 is never a date; the Environment Court's "17 October 3023" takes its file name's
+  2023-10-17.
