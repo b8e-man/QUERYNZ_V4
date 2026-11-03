@@ -30,9 +30,17 @@ Never read: the heading (it describes the consumer's care), any paragraph's
 words, the consumer, a family member, anyone the page anonymises (a letter
 label is never kept; an individual is kept as a role), an individual
 practitioner's name (a named practitioner is kept as a role and a naming
-ground), the Commissioner's staff and advisers. Every kept text value passes
-`consumer_detail`; a value that trips it is dropped and the catch log gets a
-line naming the field, never the value.
+ground), the Commissioner's staff and advisers. Every value kept on the lane's
+tables passes `consumer_detail`; a value that trips it is left off them and
+the catch log gets a line naming the field, never the value.
+
+Kept whole in the private twin (ruling 142; `hdc_decisions_private`, which
+the read login cannot see), one row per value in `page_fields`: the page's
+heading, each line of the parties block at the head (a role and a letter
+label as printed), each individual the Commissioner names (with the role
+kept on the lane's tables), and every value the guard left off the lane's
+tables, with the kind of detail it carries. A case study's own address stays
+in `page_addresses`.
 """
 import datetime as dt
 import hashlib
@@ -44,8 +52,8 @@ LISTING_PROFILE = "hdc-decisions-listing"
 DECISION_PROFILE = "hdc-decision-page"
 CASE_STUDIES_PROFILE = "hdc-case-studies-listing"
 CASE_STUDY_PROFILE = "hdc-case-study-page"
-PROFILE_VERSION = 1
-READER = "registers.hdc_decisions.read 1"
+PROFILE_VERSION = 2
+READER = "registers.hdc_decisions.read 2"
 KEY_PREFIX = "hdc_decisions"
 BASE = "https://www.hdc.org.nz"
 DECISIONS_PATH = "/decisions/search-decisions/"
@@ -68,6 +76,7 @@ _PODS = re.compile(r'class="c-listing-pods"')
 _DATE = re.compile(r'<span class="ss360-date">\s*([^<]*?)\s*</span>')
 _BODY = re.compile(r'class="t-link-parent c-rte__body-text">(.*)', re.S)
 _META = re.compile(r'<strong>([^<]*?)\s*:</strong>\s*<span class="ss360-category-[a-z-]+">(.*?)</span>', re.S)
+_PAGE_HEADING = re.compile(r'<h1 class="o-layout-header__heading">(.*?)</h1>', re.S)
 _WEB_ID = re.compile(r'<span class="u-hidden">\s*(CAS-[0-9A-Z-]+)\s*</span>')
 _CRUMB = re.compile(r'class="c-breadcrumb__link t-link">\s*<span itemprop="name">([^<]*)</span>')
 _FILE_NO = re.compile(r"\bC?(\d{2}HDC\d{5})\b")
@@ -480,13 +489,14 @@ def read_page(body: bytes, sha: str, slug: str, url: str = None, kind: str = "de
     aside = lambda place, stage, reason: {"document": sha, "place": place, "stage": stage, "reason": reason}
     if why:
         return {"decision": None, "providers": [], "set_aside": [aside(f"page={_place(slug)}", "recognise", why)],
-                "private": []}
+                "private": [], "fields": []}
     t = _text(body)
     main = (_MAIN.search(t) or re.search(r".*", t, re.S)).group(0)
     decided_on = date_of(_DATE.search(main).group(1))
     if decided_on is None:
         return {"decision": None, "providers": [], "set_aside": [aside(f"page={_place(slug)}", "recognise",
-                                                                        "the page's date is not a date")], "private": []}
+                                                                        "the page's date is not a date")], "private": [],
+                "fields": []}
     body_html = _BODY.search(main).group(1)
     blocks = _blocks(body_html)
     # a block's end is a boundary no name runs across ('… Dr Jane Inventa' + 'Findings' + 'Invented Care Homes Limited')
@@ -592,9 +602,22 @@ def read_page(body: bytes, sha: str, slug: str, url: str = None, kind: str = "de
         named_roles.append(role or "a practitioner")
         grounds.append(_naming_ground(reason) if reason else "not stated on the page")
 
+    # the key (a case study's address is its summary: kept in the private twin, the key made from its hash)
+    opaque = bool(OPAQUE.fullmatch(slug))
+    key = (f"{KEY_PREFIX}/{'decision' if kind == 'decision' else 'case-study'}/"
+           + (slug if opaque else hashlib.sha256(slug.encode()).hexdigest()[:16]))
+
     # what is kept, through the guard
     names = sorted({x for r in providers.rows if r["named"] for x in [r["name"], r["abbreviation"], *r["also_called"]] if x},
                    key=len, reverse=True)
+
+    fields = []
+
+    def field_row(field, value, note=None):
+        """One value kept whole in the private twin (ruling 142)."""
+        if value:
+            fields.append({"key": key, "ordinal": len(fields) + 1, "field": field, "value": value, "note": note,
+                           "document": sha})
 
     def keep(field, value):
         """The value, or None and a catch-log line. A provider's own name in a heading is the provider, not a place."""
@@ -603,7 +626,8 @@ def read_page(body: bytes, sha: str, slug: str, url: str = None, kind: str = "de
             bare = (bare or "").replace(n, "")
         why = consumer_detail(bare, field)
         if why:
-            asides.append(aside(f"page={_place(slug)}", "guard", f"{field}: {why}; the value is not kept"))
+            asides.append(aside(f"page={_place(slug)}", "guard", f"{field}: {why}; kept in the private twin only"))
+            field_row(field, value, why)
             return None
         return value
 
@@ -620,13 +644,17 @@ def read_page(body: bytes, sha: str, slug: str, url: str = None, kind: str = "de
     headings = [v for v in (keep("recommendation_heading", h) for h in headings) if v]
     to = [v for v in (keep("recommended_to", x) for x in dict.fromkeys(to)) if v]
     named_roles = [keep("named_role", r) or "a practitioner" for r in named_roles]
+    # the private twin's whole values: the heading, the parties block as printed, each individual named
+    h1 = _PAGE_HEADING.search(main)
+    field_row("heading", clean(h1.group(1)) if h1 else None)
+    for p in parties:
+        field_row("party_line", f"{p[1]}, {p[2]}" if p[0] == "individual" else p[1])
+    for person, role in zip(named_people, named_roles):
+        field_row("named_individual", person, role)
 
     # an address made of file numbers or the site's own id names nobody and describes nothing; any other (a case
     # study's is its summary) is kept in the private twin, and the key is made from its hash, stable across re-reads
-    opaque = bool(OPAQUE.fullmatch(slug))
     address = url or f"{BASE}{DECISIONS_PATH if kind == 'decision' else CASE_STUDIES_PATH}{slug}/"
-    key = (f"{KEY_PREFIX}/{'decision' if kind == 'decision' else 'case-study'}/"
-           + (slug if opaque else hashlib.sha256(slug.encode()).hexdigest()[:16]))
     cite = {"document": sha, "page": 1, "read_from": "text", "reader": READER, "profile": profile,
             "profile_version": PROFILE_VERSION}
     decision = {
@@ -668,4 +696,4 @@ def read_page(body: bytes, sha: str, slug: str, url: str = None, kind: str = "de
                      "decided_on": decided_on, "place": f"providers[{len(rows) + 1}]", **cite})
     decision["providers_named"] = len(rows)
     private = [] if opaque else [{"key": key, "slug": slug, "url": address, "document": sha}]
-    return {"decision": decision, "providers": rows, "set_aside": asides, "private": private}
+    return {"decision": decision, "providers": rows, "set_aside": asides, "private": private, "fields": fields}

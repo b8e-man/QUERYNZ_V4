@@ -17,6 +17,8 @@ on any of:
      (`read.consumer_detail`), a provider or a role shaped like a person's
      name, or a case study's own address (reported by key and field, never by
      value)
+  5. a value the consumer-detail guard left off the lane's tables is not
+     kept whole in the private twin (ruling 142)
 
 Every line printed is a count. Held: red while nothing is published (a lane
 fed by nothing is not green).
@@ -64,6 +66,18 @@ def reading(conn, schema: str = SCHEMA) -> list:
     old = conn.execute(f"SELECT count(*) FROM {T('decisions')} WHERE decided_on < %s", (read.SINCE,)).fetchone()[0]
     if old:
         out.append(f"{old} decisions dated before 2017 (ruling 71)")
+    # ruling 142: every value the guard leaves off the lane's tables is kept whole in the private twin (seen only by
+    # a login that may use the twin; the read login may not)
+    from registers.hdc_decisions import load
+    private = load.table(schema, "page_fields")
+    twin = private.split(".")[0]
+    if conn.execute("SELECT has_schema_privilege(current_user, %s, 'USAGE') AND to_regclass(%s) IS NOT NULL",
+                    (twin, private)).fetchone()[0]:
+        guarded = conn.execute(f"SELECT count(*) FROM {T('read_set_aside')} WHERE stage = 'guard'").fetchone()[0]
+        kept = conn.execute(f"SELECT count(*) FROM {private} WHERE field NOT IN ('heading', 'party_line', "
+                            "'named_individual')").fetchone()[0]
+        if guarded != kept:
+            out.append(f"{guarded} values guarded off the tables against {kept} kept in the private twin")
     return out
 
 

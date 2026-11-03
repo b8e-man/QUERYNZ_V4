@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS hdc_decisions.decisions (
     names_removed            boolean NOT NULL,      -- the page carries the Commissioner's notice that names are removed
     providers_named          integer NOT NULL,
     url                      text,                  -- the page's address; NULL where it describes the case (private twin)
+    taken_down_on            date,                  -- the Commissioner stopped listing it: the first finished pass without it (ruling 142)
     document                 text NOT NULL,
     page                     integer NOT NULL,
     place                    text NOT NULL,
@@ -153,4 +154,16 @@ CREATE TABLE IF NOT EXISTS hdc_decisions_private.page_addresses (
     slug      text NOT NULL,
     url       text NOT NULL,
     document  text NOT NULL
+);
+
+-- every value a page gives that the lane's tables leave off, kept whole (ruling 142): the heading, each line of the
+-- parties block, each individual the Commissioner names, and each value the consumer-detail guard left off
+CREATE TABLE IF NOT EXISTS hdc_decisions_private.page_fields (
+    key       text NOT NULL,                        -- the decision's key
+    ordinal   integer NOT NULL,
+    field     text NOT NULL,                        -- heading | party_line | named_individual | the guarded field's name
+    value     text NOT NULL,
+    note      text,                                 -- the role kept on the lane's tables, or the kind of detail guarded
+    document  text NOT NULL,
+    PRIMARY KEY (key, ordinal)
 );

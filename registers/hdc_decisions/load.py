@@ -35,17 +35,19 @@ SCHEMA = "hdc_decisions"
 JOB = "qv4-hdc-decisions-load"
 STAGING = "staging_hdc_decisions_load"
 TABLES = ("read_items", "decisions", "providers", "read_set_aside")
-PRIVATE_TABLES = ("page_addresses",)
+PRIVATE_TABLES = ("page_addresses", "page_fields")
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version")
 COLUMNS = {
     "read_items": ("list", "slug", "pass_id", "document", "state", "providers"),
     "decisions": ("key", "slug", "kind_of_page", "case_number", "case_numbers", "web_id", "decided_on", "kind", "findings",
                   "provider_kinds", "occupations", "rights_tagged", "rights_breached", "recommendation_headings",
-                  "recommended_to", "named_roles", "naming_grounds", "names_removed", "providers_named", "url") + _CITE,
+                  "recommended_to", "named_roles", "naming_grounds", "names_removed", "providers_named", "url",
+                  "taken_down_on") + _CITE,
     "providers": ("key", "decision_key", "ordinal", "name", "abbreviation", "also_called", "found_by", "findings",
                   "rights_breached", "recommended", "company_number", "charity_number", "decided_on") + _CITE,
     "read_set_aside": ("document", "place", "stage", "reason"),
     "page_addresses": ("key", "slug", "url", "document"),
+    "page_fields": ("key", "ordinal", "field", "value", "note", "document"),
 }
 _NAMES = re.compile(rf"(?<![A-Za-z0-9_]){SCHEMA}(_private)?\.")
 
@@ -90,12 +92,13 @@ def kind_of(lst: str) -> str:
 
 
 def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
-    """`entries`: [(list, slug, url, sha256 or None, pass_id)], one per listed entry dated from 2017."""
+    """`entries`: [(list, slug, url, sha256 or None, pass_id[, taken_down_on])], one per listed entry dated from 2017;
+    an entry the newest pass no longer lists carries the date the Commissioner took it down (ruling 142)."""
     t0 = time.monotonic()
     create_tables(conn, schema)
     T = lambda t: table(schema, t)
-    ledger, decisions, providers, asides, private = [], [], [], [], []
-    for lst, slug, url, sha, pass_id in entries:
+    ledger, decisions, providers, asides, private, fields = [], [], [], [], [], []
+    for lst, slug, url, sha, pass_id, *down in entries:
         if sha is None:
             ledger.append({"list": lst, "slug": slug, "pass_id": pass_id, "document": None, "state": "not captured",
                            "providers": 0})
@@ -109,9 +112,11 @@ def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
             ledger.append({"list": lst, "slug": slug, "pass_id": pass_id, "document": sha, "state": "set aside",
                            "providers": 0})
             continue
+        out["decision"]["taken_down_on"] = down[0] if down else None
         decisions.append(out["decision"])
         providers += out["providers"]
         private += out["private"]
+        fields += out["fields"]
         ledger.append({"list": lst, "slug": slug, "pass_id": pass_id, "document": sha, "state": "read",
                        "providers": len(out["providers"])})
     if len(ledger) != len({(e[0], e[1]) for e in entries}):
@@ -120,13 +125,17 @@ def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
             "providers": _copy(conn, T("providers"), COLUMNS["providers"], providers),
             "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
             "private": _copy(conn, T("page_addresses"), COLUMNS["page_addresses"], private),
+            "page_fields": _copy(conn, T("page_fields"), COLUMNS["page_fields"], fields),
+            "taken_down": sum(1 for d in decisions if d["taken_down_on"]),
             "listed": _copy(conn, T("read_items"), COLUMNS["read_items"], ledger),
             "not_captured": sum(1 for l in ledger if l["state"] == "not captured"),
             "seconds": round(time.monotonic() - t0, 1)}
 
 
 def listing(conn, schema: str = SCHEMA) -> list:
-    """Every entry the newest finished pass of each listing lists, dated from 2017, with the newest hash held for it."""
+    """Every entry the newest finished pass of each listing lists, dated from 2017, with the newest hash held for it;
+    then every entry an older finished pass listed and the newest does not, with the date it was taken down (the
+    finish of the first finished pass after its last listing; ruling 142)."""
     T = lambda t: capture.table(schema, t)
     if conn.execute("SELECT to_regclass(%s)", (T("capture_passes"),)).fetchone()[0] is None:
         return []
@@ -141,6 +150,15 @@ def listing(conn, schema: str = SCHEMA) -> list:
             f"SELECT l.list, l.slug, l.url, (SELECT i.sha256 FROM {T('capture_items')} i WHERE i.list = l.list "
             f"AND i.slug = l.slug ORDER BY i.at DESC LIMIT 1), l.pass_id FROM {T('capture_listed')} l "
             "WHERE l.pass_id = %s AND (l.listed_on IS NULL OR l.listed_on >= %s) ORDER BY l.ordinal", (r[0], read.SINCE))]
+        out += [tuple(x) for x in conn.execute(
+            f"SELECT DISTINCT ON (l.slug) l.list, l.slug, l.url, (SELECT i.sha256 FROM {T('capture_items')} i "
+            f"WHERE i.list = l.list AND i.slug = l.slug ORDER BY i.at DESC LIMIT 1), l.pass_id, "
+            f"(SELECT min(p.finished_at)::date FROM {T('capture_passes')} p WHERE p.list = l.list "
+            f"AND p.finished_at IS NOT NULL AND p.pass_id > l.pass_id) "
+            f"FROM {T('capture_listed')} l JOIN {T('capture_passes')} q ON q.pass_id = l.pass_id "
+            "AND q.finished_at IS NOT NULL WHERE l.list = %s AND (l.listed_on IS NULL OR l.listed_on >= %s) "
+            f"AND NOT EXISTS (SELECT 1 FROM {T('capture_listed')} n WHERE n.pass_id = %s AND n.slug = l.slug) "
+            "ORDER BY l.slug, l.pass_id DESC", (name, read.SINCE, r[0]))]
     return out
 
 
@@ -171,7 +189,8 @@ def unchanged(conn, listed: list) -> bool:
     if conn.execute("SELECT to_regclass(%s)", (f"{SCHEMA}.read_items",)).fetchone()[0] is None:
         return False
     held = {(r[0], r[1], r[2]) for r in conn.execute(f"SELECT list, slug, document FROM {SCHEMA}.read_items")}
-    return held == {(e[0], e[1], e[3]) for e in listed}
+    down = {r[0] for r in conn.execute(f"SELECT key FROM {SCHEMA}.decisions WHERE taken_down_on IS NOT NULL")}
+    return held == {(e[0], e[1], e[3]) for e in listed} and len(down) == sum(1 for e in listed if e[5:] and e[5])
 
 
 def job(log=print) -> int:

@@ -13,5 +13,5 @@
   a row; it shows on the decision as "an unnamed <kind>".
 - **Citation** on every row: the page's sha256 (`document`), `page`, `place`, `reader`, `profile`, `profile_version`.
 
-No heading, consumer, family member, letter label, age, condition, place beyond the provider, or practitioner's name.
+No heading, consumer, family member, letter label, age, condition, place beyond the provider, or practitioner's name on a view; those the page prints are kept whole in `hdc_decisions_private.page_fields` (ruling 142). `taken_down_on` marks a page the Commissioner stopped listing.
 Held until the Commissioner's written permission is on file: the views are empty until then.

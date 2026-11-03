@@ -88,7 +88,10 @@ def rules(mod) -> list:
 
     o = mod.read_page(OLD, SHA, "15hdc00001")
     d, ps = o["decision"], {p["name"]: p for p in o["providers"]}
-    text = _all_text({k: v for k, v in o.items() if k != "set_aside"})
+    text = _all_text({k: v for k, v in o.items() if k not in ("set_aside", "fields", "private")})
+    kept = {}
+    for f in o.get("fields") or []:
+        kept.setdefault(f["field"], []).append((f["value"], f["note"]))
     if not d or d["key"] != "hdc_decisions/decision/15hdc00001" or d["case_number"] != "15HDC00001":
         broken.append("the key is the address's slug; the file number from it")
     if d and d["decided_on"] != dt.date(2017, 9, 25):
@@ -109,11 +112,23 @@ def rules(mod) -> list:
     if d and (d["named_roles"] != ["General Practitioner"] or d["naming_grounds"] != ["public safety concerns"]):
         broken.append("a named practitioner is a role, with the naming policy's ground the page states")
     if "Inventa" in text or "Jane" in text:
-        broken.append("a named practitioner's name is never kept")
+        broken.append("a named practitioner's name is never on the lane's tables")
+    if kept.get("named_individual") != [("Dr Jane Inventa", "General Practitioner")]:
+        broken.append("a named practitioner's name is kept whole in the private twin, with the role (ruling 142)")
     if "RN B" in text or "Mrs A" in text or "Dr C" in text:
-        broken.append("a letter label is never kept")
+        broken.append("a letter label is never on the lane's tables")
+    if [v for v, _ in kept.get("party_line", [])] != ["Invented Care Homes Limited", "Rest Home", "Registered Nurse, RN B",
+                                                     "General Practitioner, Dr Jane Inventa"]:
+        broken.append("the parties block is kept whole in the private twin, line by line (ruling 142)")
     if "dementia" in text or "older woman" in text or "Further information" in text:
-        broken.append("the heading and the body's own headings are never kept")
+        broken.append("the heading and the body's own headings are never on the lane's tables")
+    if kept.get("heading") != [("Invented failings in the care of an older woman with dementia", None)]:
+        broken.append("the page's heading is kept whole in the private twin (ruling 142)")
+    guarded = sum(1 for x in o["set_aside"] if x["stage"] == "guard")
+    if not guarded or guarded != sum(len(v) for k, v in kept.items()
+                                     if k not in ("heading", "party_line", "named_individual")) \
+            or not any("Mrs A" in v for v, _ in kept.get("recommendation_heading", [])):
+        broken.append("every value the guard leaves off is kept whole in the private twin, with its kind (ruling 142)")
     if d and (d["recommendation_headings"] != ["Recommendations", "Follow-up actions"]
               or not any(s["stage"] == "guard" and s["reason"].startswith("recommendation_heading") for s in o["set_aside"])):
         broken.append("a recommendation heading carrying a consumer detail is refused and logged")
@@ -181,7 +196,10 @@ MUTANTS = {
     "the guard misses places": ('_PERSON_WORDS, _CONDITION, _PLACE)), re.I)', '_PERSON_WORDS, _CONDITION)), re.I)'),
     "names kept for a named practitioner": ('        named_roles.append(role or "a practitioner")', '        named_roles.append(person)'),
     "the guard not applied to headings": ('        why = consumer_detail(bare, field)', '        why = ""'),
-    "the catch log spells the value": ('f"{field}: {why}; the value is not kept"', 'f"{field}: {why}; {value}"'),
+    "the catch log spells the value": ('f"{field}: {why}; kept in the private twin only"', 'f"{field}: {why}; {value}"'),
+    "a guarded value dropped (ruling 142)": ('            field_row(field, value, why)\n', ''),
+    "the heading not kept (ruling 142)": ('    field_row("heading", clean(h1.group(1)) if h1 else None)', '    pass'),
+    "a named individual dropped (ruling 142)": ('        field_row("named_individual", person, role)', '        pass'),
     "an individual's label kept": ('        return x or "an issue heading"', '        return x or who'),
     "a generic kind made a row": ('        if not r["named"]:\n            continue', '        if False:\n            continue'),
     "negations read as breaches": ('        if _NEGATED.search(clause) or _QUESTION.search(clause):\n            continue',
@@ -226,8 +244,10 @@ def test_the_profiles_are_in_the_ledger_whole():
     assert slugs <= set(held)
     for slug in slugs:
         r = held[slug]
-        assert profiles.valid_slug(slug) and r["kind"] == profiles.KIND and int(r["version"]) >= read.PROFILE_VERSION
-        assert all(k in r for k in profiles.FIELDS) and r["by"] and r["at"]
+        assert profiles.valid_slug(slug) and r["kind"] == profiles.KIND
+        assert int(r["version"]) >= (read.PROFILE_VERSION if slug in (read.DECISION_PROFILE, read.CASE_STUDY_PROFILE)
+                                     else 1)
+        assert all(k in r for k in profiles.FIELDS if k not in ("extract", "iteration")) and r["by"] and r["at"]
         assert "Mrs" not in json.dumps(r) and "aged" not in json.dumps(r)
 
 
@@ -451,3 +471,38 @@ def test_the_listing_pages_read_their_own_count(filled):
     assert got[("decisions-2017", 5)]["stated"] == 5 and len(got[("decisions-2017", 5)]["items"]) == 1   # 4 × 12 + 1 = 49
     assert got[("all", 168)]["stated"] == 168 and len(got[("all", 168)]["items"]) == 6
     assert got[("case-studies", 1)]["stated"] == 1 and len(got[("case-studies", 1)]["items"]) == 20
+
+
+def test_a_page_the_commissioner_takes_down_stays_flagged_and_the_private_twin_keeps_its_values():
+    """Ruling 142: a page an older finished pass listed and the newest does not stays a row, with the date it was taken
+    down; its heading and guarded values are rows of the private twin. Invented pages, in a scratch schema the
+    transaction leaves behind nowhere."""
+    _db_or_skip()
+    schema = "scratch_test_hdc_takedown"
+    docs = {"a" * 64: OLD, "b" * 64: NEW}
+    T = lambda t: capture.table(schema, t)
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
+        with conn.transaction(force_rollback=True):
+            conn.execute(f"CREATE SCHEMA {schema}")
+            conn.execute(capture.capture_sql(schema))
+            for pid, at in ((1, "2026-10-01"), (2, "2026-10-20")):
+                conn.execute(f"INSERT INTO {T('capture_passes')} (pass_id, list, started_at, finished_at) "
+                             "VALUES (%s, 'decisions-2017', %s, %s)", (pid, at, at))
+            for pid, slug, sha in ((1, "15hdc00001", "a" * 64), (1, "cas-10000-a1b2c3", "b" * 64),
+                                   (2, "cas-10000-a1b2c3", "b" * 64)):
+                conn.execute(f"INSERT INTO {T('capture_listed')} (pass_id, list, slug, url, card, listed_on, ordinal) "
+                             "VALUES (%s, 'decisions-2017', %s, %s, 'c', '2017-11-01', 1)",
+                             (pid, slug, f"{read.BASE}{read.DECISIONS_PATH}{slug}/"))
+                conn.execute(f"INSERT INTO {T('capture_items')} (list, slug, url, card, sha256, at) VALUES "
+                             "('decisions-2017', %s, 'u', 'c', %s, now()) ON CONFLICT DO NOTHING", (slug, sha))
+            entries = load.listing(conn, schema)
+            assert sorted(e[1] for e in entries) == ["15hdc00001", "cas-10000-a1b2c3"]
+            counts = load.build(conn, schema, entries, read_bytes=lambda sha: docs[sha])
+            assert counts["decisions"] == 2 and counts["taken_down"] == 1
+            down = dict(conn.execute(f"SELECT key, taken_down_on FROM {T('decisions')}").fetchall())
+            assert down["hdc_decisions/decision/15hdc00001"] == dt.date(2026, 10, 20)
+            assert down["hdc_decisions/decision/cas-10000-a1b2c3"] is None
+            fields = conn.execute(f"SELECT field, count(*) FROM {load.table(schema, 'page_fields')} "
+                                  "WHERE key = 'hdc_decisions/decision/15hdc00001' GROUP BY field").fetchall()
+            assert {"heading", "party_line", "named_individual", "recommendation_heading"} <= {f for f, _ in fields}
+            assert check.reading(conn, schema) == []

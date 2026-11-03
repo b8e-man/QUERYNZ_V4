@@ -45,14 +45,19 @@ any product until that permission (or Arthur's ruling) is on file as an
    2019, s 36, bars publishing who administered assisted dying medication and
    their employer. The Privacy Act 2020 and the Health Information Privacy
    Code 2020: a de-identified consumer can be re-identified from a
-   description, a date and a provider. So the lane keeps no heading (it
-   describes the care), no paragraph, no consumer, family member or letter
-   label, no age, condition or place beyond the provider, no practitioner's
-   name (a named practitioner is kept as a role and the policy's ground), no
-   adviser or staff, and no case study's address (its slug is its summary).
-   Every kept text passes a guard that refuses a consumer detail. A finding is
-   the Commissioner's opinion, not a court's. A page the Commissioner takes
-   down leaves our views at the next load.
+   description, a date and a provider. So the lane's tables and views carry
+   no heading (it describes the care), no paragraph, no consumer, family
+   member or letter label, no age, condition or place beyond the provider, no
+   practitioner's name (a named practitioner is a role and the policy's
+   ground), no adviser or staff, and no case study's address (its slug is its
+   summary); every text on them passes a guard that refuses a consumer
+   detail. Since 4 November 2026 (ruling 142) the page's heading, its parties
+   block as printed, each individual it names, and every value the guard
+   refuses are kept whole in `hdc_decisions_private`, which the read login
+   cannot see; the hard limits bind the products, exports and sessions, not
+   what the database holds (ruling 143). A finding is the Commissioner's
+   opinion, not a court's. A page the Commissioner stops listing stays, with
+   the date it was taken down (`taken_down_on`).
 
 Crawl delay: none stated (no robots file). Floor: one request at a time, at
 least 5 s apart, off-peak (22:00 to 06:00 NZ time), each year's listing
