@@ -681,6 +681,8 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
                                 copy.write_row(part)
                                 parts += 1
             assert read == n + sum(catch.values()), (view, read, n, catch)
+            if reader is not conn:
+                reader.commit()     # the view's share locks released before the next is read (4 November 2026)
             conn.execute(f"""INSERT INTO {schema}.rows_catch (view, register, read, written, set_aside, reasons, gathered_at)
                              VALUES (%s, %s, %s, %s, %s, %s::jsonb, now())
                              ON CONFLICT (view) DO UPDATE SET register = EXCLUDED.register, read = EXCLUDED.read, written = EXCLUDED.written,

@@ -20,7 +20,12 @@ def run(conn, reader, s: str, log=print, oldconn=None) -> dict:
     """`oldconn`: the old database through its read-only login; without it
     the copy held is promoted as it stands (a session's scratch build)."""
     out = {"rows": rows.gather(conn, s, log, reader=reader)}
+    # the reader's transaction is ended between the stages, so its share locks on the registers' tables are not held
+    # through the whole build (4 November 2026: a lane's load waited on them for its DROP ... CASCADE, and every reader of
+    # the table queued behind the load)
+    reader.commit()
     out["links"] = build.build_links(conn, s, log, reader=reader)
+    reader.commit()
     if oldconn is not None:
         out["old_copy"] = old.copy_ledgers(oldconn, conn, s, log)
         out["old_map"] = old.map_all(oldconn, conn, s, log)

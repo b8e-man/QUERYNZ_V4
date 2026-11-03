@@ -128,8 +128,12 @@ def test_the_build_brings_the_copy_level_and_maps_it_before_promoting(monkeypatc
     class Conn:
         def execute(self, sql, params=None):
             return _Cur([(1,)])
+
+        def commit(self):
+            seen.append("reader commit")
     build_all.run(Conn(), Conn(), "s", log=lambda *a: None, oldconn=object())
     assert seen.index("gather") < seen.index("copy") < seen.index("map") < seen.index("promote")
+    assert seen.index("gather") < seen.index("reader commit") < seen.index("copy"), "the reader's locks end with the rows stage"
     assert seen.index("build_groups") < seen.index("build_entities") < seen.index("draw")   # the entities follow the groups (ruling 123)
     assert seen.index("build_entities") < seen.index("build_cases")      # ruling 4: a case is built beside the entities, never into them
 
