@@ -66,11 +66,13 @@ CASE_PAGE, RELEASE, TRANSCRIPT, SUBMISSION, SYNOPSIS, SCANNED = (
 #: (determinations.era.govt.nz), the Human Rights Review Tribunal's decisions, the other tribunals' and authorities'
 #: decisions and the District Court's judgments (justice.govt.nz/assets/Documents/Decisions)
 ERA, HRRT, TRIBUNAL, NZDC = "courts-era-determination", "courts-hrrt-decision", "courts-tribunal-decision", "courts-nzdc-judgment"
+#: the Māori Land Court's and the Māori Appellate Court's judgments (ruling 140's JDO walk; measured 3 November 2026)
+MAORI = "courts-maori-court-judgment"
 JUDGMENT_PROFILES = {"SUPREME COURT": "courts-nzsc-judgment", "COURT OF APPEAL": "courts-nzca-judgment",
                      "HIGH COURT": None, "DISTRICT COURT": NZDC, "OTHER": "courts-judgment"}
 NZHC = {"civil": "courts-nzhc-civil-judgment", "criminal": "courts-nzhc-criminal-judgment"}
 JUDGMENT_SLUGS = {"courts-nzsc-judgment", "courts-nzca-judgment", "courts-nzhc-civil-judgment",
-                  "courts-nzhc-criminal-judgment", "courts-judgment", ERA, HRRT, TRIBUNAL, NZDC}
+                  "courts-nzhc-criminal-judgment", "courts-judgment", ERA, HRRT, TRIBUNAL, NZDC, MAORI}
 KIND_OF = {CASE_PAGE: "case page", RELEASE: "media release", TRANSCRIPT: "hearing transcript",
            SUBMISSION: "counsel submission", SYNOPSIS: "case synopsis", SCANNED: "scanned document",
            **{s: "judgment" for s in JUDGMENT_SLUGS}, ERA: "determination", HRRT: "tribunal decision", TRIBUNAL: "tribunal decision"}
@@ -107,6 +109,18 @@ LABELS = re.compile(r"^\s*(Hearings?|Court|Counsel|Appearances|Judgments?|Appear
 COURT = re.compile(r"^\s*IN THE (SUPREME COURT|COURT OF APPEAL|HIGH COURT|DISTRICT COURT|EMPLOYMENT COURT|FAMILY COURT|"
                    r"ENVIRONMENT COURT|CORONERS COURT|CORONER'S COURT|MĀORI LAND COURT|MAORI LAND COURT|"
                    r"EMPLOYMENT RELATIONS AUTHORITY|HUMAN RIGHTS REVIEW TRIBUNAL|(?!MATTER\b)[A-ZĀĒĪŌŪ' ]+? (?:COURT|TRIBUNAL|AUTHORITY))\b", re.M)
+#: the Māori courts' title-case court line under the reo line ("Te Kooti Pīra Māori o Aotearoa", "Te Kooti Whenua Māori o
+#: Aotearoa"), their bilingual labels ("Nohoanga:" over Hearing, "Whakataunga:" over Judgment date) and their minute-book
+#: citation at every page's head: "2024 Māori Appellate Court MB 84", "[2025] Māori Appellate Court MB 167", "2025 Aotea MB
+#: 123", "2025 Chief Judge's MB 45" (measured 3 November 2026 on 8 Appellate and 50 Land Court files)
+MAORI_COURT = re.compile(r"^\s*In the\s*(M[āa]ori Appellate Court|M[āa]ori Land Court) of New Zealand\b", re.M)
+WHAKATAUNGA = re.compile(r"^\s*Whakataunga:\s+(\d{1,2} (?:January|February|March|April|May|June|July|August|September|October|"
+                         r"November|December) \d{4})", re.M)
+NOHOANGA = re.compile(r"^\s*Nohoanga:", re.M)
+#: the Land Court's reference is the book's number, the district and the page ("(2025) 519 Aotea MB 25 (519 AOT 25)"); the
+#: Appellate Court's since 2023 the year in the book's place ("2024 Māori Appellate Court MB 84")
+MINUTE_BOOK = re.compile(r"(?<![\w\]])(?:[\[(](\d{4})[\])]\s+)?(?:(\d{1,4})\s+)?(M[āa]ori Appellate Court|Chief Judge[’']s|"
+                         r"[A-ZĀĒĪŌŪ][a-zāēīōū]+(?: [A-ZĀĒĪŌŪ][a-zāēīōū]+){0,2})\s+MB\s+(\d{1,5})\b")
 #: a tribunal's opening with no court line: "BEFORE THE … TRIBUNAL|AUTHORITY", or "IN THE MATTER OF …" lines
 TRIBUNAL_OPEN = re.compile(r"^\s*(?:BEFORE THE (?!MATTER\b)[A-ZĀĒĪŌŪ' ]+?(?:TRIBUNAL|AUTHORITY|BOARD|COMMITTEE)\b|(?:AND )?IN THE MATTER\b)", re.M)
 #: the Human Rights Review Tribunal's and the tribunals' upper-case labels
@@ -252,6 +266,12 @@ def recognise(entry: dict, data: bytes, texts: dict = None) -> tuple:
     numbered = bool(_cite_line(head) or CASE_NUMBER.search(head) or (court_text and cite_codes))
     heading = bool(JUDGMENT_HEADING.search(head))
     labels = bool(LABELS.search(head))
+    # the Māori courts' judgments, by their title-case court line and their judgment-date label (or the hearing label
+    # with a minute-book citation): before fix 3 November 2026 none matched, 45 of 50 were set aside and 5 taken for
+    # counsel's submissions
+    if MAORI_COURT.search(p1) and (WHAKATAUNGA.search(head) or (NOHOANGA.search(head) and any(
+            m.group(1) or m.group(2) for m in MINUTE_BOOK.finditer(head)))):
+        return MAORI, "a Māori court's court line with its judgment-date label (Whakataunga) or its hearing label and minute-book citation"
     # the Employment Relations Authority and the Human Rights Review Tribunal, by their court lines (their labels and
     # 'Submissions received' took them for counsel's submissions before fix-2)
     if court_text == "EMPLOYMENT RELATIONS AUTHORITY" and ("NZERA" in cite_codes or heading or labels):
@@ -315,6 +335,22 @@ def _url_date(url: str):
         return dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
     except ValueError:
         return None
+
+
+def maori_citation(j, texts: dict) -> None:
+    """A Māori court judgment's citation is its minute-book reference and its date the Whakataunga line, where the
+    caption reader found no neutral citation or date of its own."""
+    head = (texts.get(1) or "") + "\n" + (texts.get(2) or "")
+    if not j.citation:
+        m = next((x for x in MINUTE_BOOK.finditer(head) if x.group(1) or x.group(2)), None)   # a year or a book number
+        if m:
+            book = "Chief Judge's" if m.group(3).startswith("Chief Judge") else m.group(3)
+            j.citation = (f"[{m.group(1)}] " if m.group(1) and not m.group(2) else f"({m.group(1)}) " if m.group(1) else "") \
+                + (f"{m.group(2)} " if m.group(2) else "") + f"{book} MB {m.group(4)}"
+    if j.judgment_date is None:
+        w = WHAKATAUNGA.search(head)
+        if w:
+            j.judgment_date = caption._date(w.group(1))
 
 
 # ── the deterministic readers of the smaller kinds────────────────────────────────────────────────────────────
@@ -453,6 +489,8 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
             if unread:
                 j.notes.append(f"{len(unread)} pages with no text layer not read")
             parsed.append((e, sha, slug, version, j, how))
+            if slug == MAORI:
+                maori_citation(j, texts)
             doc.update(citation=j.citation, case_numbers=j.case_numbers, dated=j.judgment_date)
         else:
             sh = sheet(texts, slug)

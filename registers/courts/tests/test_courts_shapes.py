@@ -12,7 +12,10 @@ import tempfile
 import pytest
 
 from support import reader as rd
+import datetime as dt
+
 from registers.courts import capture as C
+from registers.courts import caption
 from registers.courts import model_read as M
 from registers.courts import pieces as PC
 from registers.courts import read as R
@@ -422,3 +425,56 @@ def test_mutants_of_the_recognition_are_caught(monkeypatch):
     assert R.recognise(e, pdf, _texts(old))[0] == "courts-nzsc-judgment"
     # one that let a judgment heading pass as submissions
     assert R.recognise(e, pdf, _texts(JUDGMENT.replace("[1]  The first paragraph.", "SUBMISSIONS were heard.")))[0] == "courts-nzsc-judgment"
+
+
+# ── the Māori courts' judgments (ruling 140's JDO walk; measured 3 November 2026 on 58 files): every name invented ──
+MAORI_LAND = page("519 Aotea MB 25", "TE KOOTI WHENUA MĀORI O AOTEAROA", "I TE ROHE O AOTEA", "In the Māori Land Court of New Zealand",
+                  "Aotea District", "A20990012345", L + "Under" + " " * 20 + "Section 19, Te Ture Whenua Māori Act 1993",
+                  L + "In the matter of" + " " * 8 + "Example Block 1A", L + "Between" + " " * 18 + "SAMPLE PERSON", N + "Kaitono",
+                  N + "Applicant", "Nohoanga:          2 May 2099, 502 Aotea MB 236-252", "Hearing            (Heard at Whanganui)",
+                  "Kooti:             Judge A Able", "Court", "Kanohi kitea:      P Q Rowe for the Applicant", "Appearances",
+                  "Whakataunga:       24 June 2099", "Judgment date", "JUDGMENT OF JUDGE A ABLE",
+                  "Sample Person v Example Block 1A (2099) 519 Aotea MB 25 (519 AOT 25)")
+MAORI_APPELLATE = page("2099 Māori Appellate Court MB 84", "TE KOOTI PĪRA MĀORI O AOTEAROA", "In theMāori Appellate Court of New Zealand",
+                       "A20990007", "APPEAL 2098/7", L + "Under" + " " * 20 + "Section 58, Te Ture Whenua Māori Act 1993",
+                       L + "In the matter of" + " " * 8 + "Example 1B", L + "Between" + " " * 18 + "SAMPLE PERSON", N + "Te kaitono pīra",
+                       N + "Appellant", L + "And" + " " * 22 + "EXAMPLE TRUSTEES", N + "Ngā kaiurupare pīra", N + "Respondents",
+                       "Nohoanga:          13 March 2099, 2099 Māori Appellate Court MB 56-78", "Hearing",
+                       "Kooti:             Judge A Able (Presiding)", "Court", "Whakataunga:       22 May 2099", "Judgment date",
+                       "Reserved Judgment of the Court", "Sample Person v Example Trustees [2099] Māori Appellate Court MB 84 (2099 MB 84)")
+
+
+def test_the_maori_courts_judgments_are_their_own_profile_and_read_their_minute_book():
+    e = {"url": "https://www.justice.govt.nz/jdo_documents/workspace___opaque.pdf"}
+    for text, cite in ((MAORI_LAND, "519 Aotea MB 25"), (MAORI_APPELLATE, "2099 Māori Appellate Court MB 84")):
+        texts = _texts(text, "[1]  The first paragraph.")
+        assert R.recognise(e, b"%PDF", texts)[0] == R.MAORI
+        j = caption.parse(texts, "opaque.pdf")
+        R.maori_citation(j, texts)
+        assert j.citation == cite and j.judgment_date in (dt.date(2099, 6, 24), dt.date(2099, 5, 22)), (j.citation, j.judgment_date)
+    # a submission filed in the Land Court has its court line but no judgment-date label and no minute book: not a judgment
+    sub = page("In the Māori Land Court of New Zealand", "Aotea District", "SUBMISSIONS OF COUNSEL FOR THE APPLICANT",
+               "1. These submissions address the application.")
+    assert R.recognise(e, b"%PDF", _texts(sub))[0] != R.MAORI
+    # pinned the other way: no other court's shape is this profile
+    for other in (JUDGMENT, OLD_JUDGMENT, EMPC, ERA, HRRT, LCDT, SSAA, NZDC, SUBMISSION, TRANSCRIPT, RELEASE):
+        assert R.recognise(e, b"%PDF", _texts(other))[0] != R.MAORI
+
+
+def test_the_maori_profile_s_mutants_are_caught():
+    e = {"url": "x.pdf"}
+    texts = _texts(MAORI_LAND)
+    real = R.MAORI_COURT
+    try:
+        R.MAORI_COURT = re.compile(r"^\s*IN THE (MĀORI LAND COURT|MĀORI APPELLATE COURT)\b", re.M)   # the old upper-case-only reading
+        assert R.recognise(e, b"%PDF", texts)[0] != R.MAORI
+    finally:
+        R.MAORI_COURT = real
+    real_mb = R.MINUTE_BOOK
+    try:
+        R.MINUTE_BOOK = re.compile(r"(?<![\w\]])\[?(\d{4})\]?()\s+(M[āa]ori Appellate Court)\s+MB\s+(\d{1,5})\b")   # the year-only reading
+        j = caption.parse(texts, "x.pdf")
+        R.maori_citation(j, texts)
+        assert j.citation != "519 Aotea MB 25"
+    finally:
+        R.MINUTE_BOOK = real_mb

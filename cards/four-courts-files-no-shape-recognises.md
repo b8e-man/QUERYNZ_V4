@@ -24,3 +24,11 @@ trial: 3 own rows (2 taken for counsel's submissions, 1 set aside) and 5 the MCP
 submissions). A profile `courts-maori-court-judgment` with those markers and a caption reading of the minute-book
 citation is owed before JDO's walk reaches those courts (they come last: about 455 decisions) and before the decisions
 finder's 2,650 (tranche 2).
+
+3 November 2026, later: the profile `courts-maori-court-judgment` (version 1, in the ledger) recognises the Māori courts'
+judgments by the title-case court line with the Whakataunga: judgment-date label (or Nohoanga: with a minute-book
+reference) and reads their minute-book citation and date (`read.MAORI_COURT`, `read.MINUTE_BOOK`, `read.maori_citation`).
+Measured on 58 files (the 50 Land Court judgments JDO lists for 2025, all the MCP's, and the 8 Appellate files of the JDO
+trial): 58 recognised, 58 with a citation and a date; on 400 other courts PDFs, 391 keep their profile and 1 Land Court
+judgment the MCP served moves off counsel's submissions. The Māori part of this card is closed; the four original files
+stand.
