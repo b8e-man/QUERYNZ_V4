@@ -420,6 +420,33 @@ def check_views(conn) -> list:
              "problems": bad, "ok": not bad}]
 
 
+#: the keys a private-value link's evidence may carry (links.rules.judge_*): a level, a side, whether a name was shared, how
+#: the tie was made, a count; never the value, which is in `<schema>_private.identifier_links`
+IDENTIFIER_EVIDENCE = {"level", "side", "name_shared", "tie", "companies_at_address", "contact", "names_agree"}
+
+
+def check_identifier_links(conn, s: str) -> list:
+    """Ruling 142 (4 November 2026), counted apart from the build: every link of the five private-value rules has its
+    private record (`identifier_links`, the same pair, rule and grade), and none carries in its evidence a key outside
+    IDENTIFIER_EVIDENCE (so no address, email or phone is in links.links, which the session login reads)."""
+    from links import identifiers
+    p = identifiers.private_of(s)
+    rule_ids = [rules.RULE_ADDRESS_TITLE, rules.RULE_ADDRESS_JUDGMENT, rules.RULE_ADDRESS_INSOLVENCY,
+                rules.RULE_ADDRESS_OFFICE, rules.RULE_SHARED_CONTACT]
+    if conn.execute("SELECT to_regclass(%s) IS NULL", (f"{p}.identifier_links",)).fetchone()[0]:
+        made = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = ANY(%s)", (rule_ids,)).fetchone()[0]
+        return [{"check": "every private-value link has its private record", "links": int(made), "ok": made == 0}]
+    made, bare, other = conn.execute(f"""
+        SELECT count(*),
+               count(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM {p}.identifier_links i WHERE i.row_a = l.row_a
+                                                  AND i.row_b = l.row_b AND i.rule = l.rule)),
+               count(*) FILTER (WHERE EXISTS (SELECT 1 FROM jsonb_object_keys(l.evidence) k WHERE k <> ALL(%s)))
+        FROM {s}.links l WHERE l.rule = ANY(%s)""", (sorted(IDENTIFIER_EVIDENCE), rule_ids)).fetchone()
+    return [{"check": "every private-value link has its private record, and no value in its evidence",
+             "links": int(made), "without_record": int(bare), "evidence_outside_the_keys": int(other),
+             "ok": bare == 0 and other == 0}]
+
+
 def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out = []
     if oldconn is not None:
@@ -436,6 +463,7 @@ def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out += check_entities(conn, s, pub)
     out += check_model_tier(conn, s)
     out += check_numbers(conn, s)
+    out += check_identifier_links(conn, s)
     if pub == "pub":
         out += check_views(conn)
     return out

@@ -162,8 +162,10 @@ def test_every_published_view_the_rows_read_is_named_once_and_the_politician_vie
 def test_every_rule_named_in_rules_is_built_and_the_tables_carry_the_catch_log():
     import os
     import links
-    with open(os.path.join(links.HERE, "build.py"), encoding="utf-8") as f:
-        build = f.read()
+    build = ""
+    for piece in ("build.py", "identifiers.py"):      # ruling 142: the rules that read a private value are links.identifiers'
+        with open(os.path.join(links.HERE, piece), encoding="utf-8") as f:
+            build += f.read()
     for name in dir(rules):
         if name.startswith("RULE_") and getattr(rules, name) not in rules.RETIRED:
             assert f"rules.{name}" in build, name

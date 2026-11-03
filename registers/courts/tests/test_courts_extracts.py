@@ -33,11 +33,16 @@ def test_every_courts_profile_lists_what_it_extracts_and_keeps_its_reading_versi
             assert prof["iteration"] == 1 and set(items) == {"page_text"}
             continue
         ids = items["identifiers"]
-        # iteration 3 (ruling 1, 3 November 2026): the pattern pass as at 2, its NZBN and company number naming judgment-number@1
-        assert (ids["iteration"], ids["by"], ids["private"]) == (3, "pattern", True)
+        # iteration 3 (ruling 1, 3 November 2026): the pattern pass as at 2, its NZBN and company number naming judgment-number@1;
+        # iteration 4 (ruling 142, 4 November 2026): the same, its email, phone and address naming the links rules that read them
+        assert (ids["iteration"], ids["by"], ids["private"]) == (4, "pattern", True)
+        assert {ln["key"]: ln["rule"] for ln in ids["links"]}["email"] == "shared-contact@1"
+        assert {ln["rule"] for ln in ids["links"] if ln["key"] == "address"} >= {"judgment-address-office@1", "judgment-address-title@1"}
         assert {ln["key"]: ln["rule"] for ln in ids["links"]}["nzbn"] == "judgment-number@1"
         assert {ln["key"]: ln["rule"] for ln in ids["links"]}["company_number"] == "judgment-number@1"
         two = [it for it in prof["extract"] if it["field"] == "identifiers" and it["iteration"] == 2][0]
+        three = [it for it in prof["extract"] if it["field"] == "identifiers" and it["iteration"] == 3][0]
+        assert {k: v for k, v in three.items() if k not in ("iteration", "links")} == {k: v for k, v in ids.items() if k not in ("iteration", "links")}
         assert {k: v for k, v in two.items() if k not in ("iteration", "links")} == {k: v for k, v in ids.items() if k not in ("iteration", "links")}
         assert ids["kinds"] == list(identifiers.SHAPE_KINDS)
         assert all(c.startswith(L.PRIVATE + ".identifiers.") for c in ids["lands"])
@@ -58,17 +63,20 @@ def test_every_courts_profile_lists_what_it_extracts_and_keeps_its_reading_versi
         keep = 5 if slug in R.JUDGMENT_SLUGS else 4
         kept = {"people", "for_party", "suppression", "details"} | ({"parties"} if "parties" in items else set()) | \
             ({"case_name"} if "case_name" in items else set())
-        assert {f for f, it in items.items() if it["iteration"] == keep} == kept, slug
+        # the details at the iteration after (ruling 142, 4 November 2026): the same ask, its links naming the rules that read them
+        assert items["details"]["iteration"] == keep + 1, slug
+        assert {ln["key"]: ln["rule"] for ln in items["details"]["links"]}.get("email") == "shared-contact@1", slug
+        assert {f for f, it in items.items() if it["iteration"] == keep} - {"identifiers"} == kept - {"details"}, slug
         assert (items["details"]["by"], items["details"]["private"], items["details"]["kinds"]) == \
             ("model", True, list(model_read.DETAIL_KINDS)), slug
         assert all(c.startswith(L.PRIVATE + ".identifiers.") for c in items["details"]["lands"])
         assert "courts_private.withheld_names.suppression_words" in items["suppression"]["lands"], slug
         assert not any(w in it["ask"] for w in (" is withheld", "withheld under", "is published but", "never add")
                        for it in items.values() if it["iteration"] == keep), slug
-        assert {f for f, it in items.items() if it["iteration"] == 3} == (mcp - case - kept) | {"identifiers"}, slug
+        assert {f for f, it in items.items() if it["iteration"] == 3} == (mcp - case - kept), slug
         assert all(it["iteration"] == 1 and not it["private"] for f, it in items.items() if f not in mcp | case | kept | {"identifiers"}), slug
         assert all(items[f]["by"] == "rules" and not items[f]["private"] for f in mcp)
-        assert not any(it["iteration"] > keep for it in prof["extract"]), slug
+        assert not any(it["iteration"] > keep + 1 for it in prof["extract"]), slug
 
 
 def test_the_lane_and_its_profiles_are_aligned():
@@ -146,8 +154,8 @@ def test_a_document_records_the_fields_it_had_at_their_iterations():
     assert len(rows) == len(got)
     a_fields = {f for s, p, f, n, m in got if s == "a"}
     assert a_fields == set(caption.FIELDS) | set(model_read.FIELDS) | {"identifiers"}
-    assert ("a", "courts-nzsc-judgment", "identifiers", 3, None) in got and ("a", "courts-nzsc-judgment", "people", 5, "served-model") in got
-    assert ("a", "courts-nzsc-judgment", "details", 5, "served-model") in got
+    assert ("a", "courts-nzsc-judgment", "identifiers", 4, None) in got and ("a", "courts-nzsc-judgment", "people", 5, "served-model") in got
+    assert ("a", "courts-nzsc-judgment", "details", 6, "served-model") in got
     b_fields = {(p, f) for s, p, f, n, m in got if s == "b"}
     assert b_fields == {("courts-media-release", f) for f in R.sheet_fields()} | {("courts-media-release", "identifiers"),
                                                                                    (R.SCANNED, "page_text")}

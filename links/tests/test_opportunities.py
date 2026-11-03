@@ -89,5 +89,6 @@ def test_the_lane_reads_the_views_arthur_named_on_3_november():
         assert v in read, v
     for v in ("award_notices",):                 # suppliers_named is a count; the suppliers are pub.award_suppliers, read
         assert v not in O.EXCLUDED
-    assert O.EXCLUDED["linz_title_owners"].startswith("OWED")
+    # ruling 142 (4 November 2026): every LINZ owner is a row
+    assert "linz_title_owners" in read and "linz_title_owners" not in O.EXCLUDED
     assert set(read) & set(O.EXCLUDED) == set()

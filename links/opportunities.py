@@ -52,8 +52,6 @@ class Entry:
 #: pub.links 3 November 2026: links/measurements.md
 COURT_NAME_RULES = ("full-name@1", "name-only@1", "organisation-name@1", "organisation-sole-company@3",
                     "organisation-one-live-company@3")
-_PRIVATE = ("the details are private (courts_private.identifiers) and the lane reads pub.* only: whether links may read "
-            "them, and by which rule, is Arthur's, after the twenty pairs")
 #: the register. Courts (3 November 2026): the rules measured on pub.links, the measurements in links/measurements.md
 REGISTER: tuple = (
     Entry("courts-*", "parties", "name", "rule", COURT_NAME_RULES,
@@ -75,24 +73,49 @@ REGISTER: tuple = (
           "under another name near (links/measurements.md §16)"),
     Entry("courts-*", "identifiers", "company_number", "rule", ("judgment-number@1",),
           "ruling 1: as the NZBN, by the companies register's number"),
-    Entry("courts-*", "identifiers", "email", "measure owed", (), "measured: links/measurements.md",
-          "whether one email printed in two documents joins their names (near or confirming); " + _PRIVATE),
-    Entry("courts-*", "identifiers", "phone", "measure owed", (), "measured: links/measurements.md",
-          "whether one phone printed in two documents joins their names; " + _PRIVATE),
-    Entry("courts-*", "identifiers", "address", "measure owed", (), "measured: links/measurements.md",
-          "whether a street address a judgment prints is matched to a company's registered office (never a home "
-          "address shown, hard limit 15); " + _PRIVATE),
-    Entry("courts-*", "identifiers", "po_box", "measure owed", (), "measured: links/measurements.md",
-          "whether a PO Box a judgment prints is matched to a company's address; " + _PRIVATE),
-    # LINZ (3 November 2026): the lane's extract list declares two; no links rule reads a LINZ view yet
+    # ruling 142 (Arthur, 4 November 2026: "go ahead with your recommendations"): read through pub_private.court_identifiers
+    Entry("courts-*", "identifiers", "email", "rule", ("shared-contact@1",),
+          "ruling 2: one email printed in two documents, not an office's, tied to the row named nearest it; confirmed where "
+          "the names agree, near where they differ (links/measurements.md §19)"),
+    Entry("courts-*", "identifiers", "phone", "rule", ("shared-contact@1",), "ruling 2: as the email, by the phone's digits"),
+    Entry("courts-*", "identifiers", "address", "rule",
+          ("judgment-address-title@1", "judgment-address-judgment@1", "judgment-address-insolvency@1",
+           "judgment-address-office@1"),
+          "ruling 3 widened (§16): a judgment's street address, not a court's or a law firm's, against a LINZ title's, "
+          "another judgment's, an estate's and a registered office, by keys.addresses.meet (links/measurements.md §19)"),
+    # the text reader's details per person (registers/courts/model_read.py), the same private table, `person` set
+    Entry("courts-*", "details", "email", "rule", ("shared-contact@1",),
+          "ruling 2: as the identifiers' email, tied by the detail's own `person`"),
+    Entry("courts-*", "details", "phone", "rule", ("shared-contact@1",), "ruling 2: as the identifiers' phone"),
+    Entry("courts-*", "details", "address", "rule",
+          ("judgment-address-title@1", "judgment-address-judgment@1", "judgment-address-insolvency@1",
+           "judgment-address-office@1"),
+          "ruling 3 widened: as the identifiers' address, tied by the detail's own `person`"),
+    Entry("courts-*", "identifiers", "po_box", "measure owed", (), "measured: links/measurements.md §15",
+          "whether a PO Box a judgment prints is matched to a company's address (5 match an office's box number); "
+          "read privately through pub_private.court_identifiers"),
+    # councillors' registers of interests (709b1ef, 4 November 2026): the extract lists declare three; the rows read the
+    # member (pub.councillor_interests, a politician's stricter join) and no rule reads the entries yet
+    Entry("interests-register-*", "member", "name", "measure owed", (),
+          "pub.councillor_interests.member is a links row (links.rows, POLITICIAN_VIEWS): name-only near at most",
+          "whether a councillor's printed name is joined to the council's elected member (pub.members has MPs only; a "
+          "local election candidate by name and council)"),
+    Entry("interests-register-*", "entries", "name", "measure owed", (),
+          "the declared organisations are text in pub.councillor_interests; no row is made of them",
+          "whether a declared organisation is joined to the body of its name, as an MP's declared directorship is"),
+    Entry("interests-register-*", "private_entry", "address", "measure owed", (),
+          "address-shaped entries are kept in councillor_interests_private.entries; no pub_private view declares them",
+          "whether a declared property's address is matched to a LINZ title's (judgment-address-title@1's reading)"),
+    # LINZ (ruling 142): every owner is a row (links.rows), joined by the name rules, and each title's address is read
+    # through pub_private.linz_title_addresses by judgment-address-title@1; the profile names them at its next version
+    # (the lane's own version 3 is in flight, 4 November 2026)
     Entry("linz-*", "name", "name", "measure owed", (),
-          "pub.linz_title_owners (an owner's name as printed, corporate or individual): no links rule reads it",
-          "whether a title's corporate owner is joined to the company of that name, and an individual owner to a person "
-          "by name (near at most, as a name alone is)"),
+          "pub.linz_title_owners rows (links.rows): an individual from LINZ's name parts, a corporate owner by its name, "
+          "undated, joined by full-name@1, name-only@1 and the organisation rules (links/measurements.md §19)",
+          "none: built (ruling 142); the profile's next version names the rules"),
     Entry("linz-*", "full_address", "address", "measure owed", (),
-          "linz_private.title_addresses (each title's street address, the property spine): private, and the lane reads "
-          "pub.* only",
-          "whether a title's street address is matched to a company's registered office (never shown, hard limit 15)"),
+          "pub_private.linz_title_addresses, read by judgment-address-title@1 (links/measurements.md §19)",
+          "none: built (ruling 142); the profile's next version names judgment-address-title@1"),
 )
 
 
@@ -128,8 +151,6 @@ EXCLUDED = {
     # owed, each named in the report of 3 November 2026
     "parliament_api_items": "OWED: the member a bill or paper names (`member_name`, 783 rows) is a fifth member view for "
                             "member-on-the-day@1, whose four views ruling 116 fixed: Arthur's word first",
-    "linz_title_owners": "OWED: 5.7 million owners do not fit the links build's 7,200 s with the rest (measured 3 November "
-                         "2026, links/measurements.md §18): a later tranche, the build split by register first",
     "gazette_company_notices": "OWED: 1.55 million company notices (removals, mostly) with the linz tranche, the same budget: "
                                "the organisation rules hold every matched row in memory",
 }
@@ -140,9 +161,9 @@ def views_read() -> set:
     company names, any build step, or the lane's own publish.sql."""
     import inspect
     import links
-    from links import build, rows
+    from links import build, identifiers, rows
     text = "\n".join(sql for _, _, sql in rows.SOURCES) + "\n".join(sql for _, _, sql in rows.NUMBERS)
-    text += rows.BODY_SQL + rows.ADDRESS_SQL + rows.COMPANY_SQL + inspect.getsource(build) + links.publish_sql()
+    text += rows.BODY_SQL + rows.ADDRESS_SQL + rows.COMPANY_SQL + inspect.getsource(build) + inspect.getsource(identifiers) + links.publish_sql()
     return set(_re.findall(r"\bpub\.(\w+)", text))
 
 

@@ -218,6 +218,9 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     # ruling 1 (3 November 2026): a court party and the company whose number its judgment prints, tied by the party's name
     out[rules.RULE_JUDGMENT_NUMBER] = judgment_number_links(conn, s)
     log(f"links.build: {rules.RULE_JUDGMENT_NUMBER}: {out[rules.RULE_JUDGMENT_NUMBER]} ({time.monotonic() - t0:.0f} s)")
+    # ruling 142 (4 November 2026): the rules that read a private value, an address, an email or a phone (links.identifiers)
+    from links import identifiers
+    out["identifiers"] = identifiers.build(conn, s, log)
     # a name a text reader's model read is its own, lower tier (Arthur, 1 November 2026): whatever rule matched it, a link
     # that touches one is near, never confirmed, so a model's row never joins a group nor carries one entity to another
     out["model_rows_near_only"] = model_tier(conn, s)

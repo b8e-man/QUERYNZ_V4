@@ -325,6 +325,14 @@ SOURCES = (
     ("grants", "grant_publishers", """
         SELECT key, name, NULL, NULL::date, NULL::date, NULL, NULL, NULL, false, NULL, NULL, NULL
         FROM pub.grant_publishers WHERE name IS NOT NULL AND name <> ''"""),
+    # ruling 142 (Arthur, 4 November 2026: "Get LINZ and all available information"): every owner of every property title,
+    # an individual read from LINZ's own name parts (prime other names, prime surname), a corporate owner by its name;
+    # undated (an ownership's start is not in the owners table), under no entity. The name rules join them as any row
+    ("linz", "linz_title_owners", """
+        SELECT key, name, NULL, NULL::date, NULL::date, NULL, NULL, document, false,
+               CASE WHEN kind = 'individual' THEN prime_other_names END, NULL,
+               CASE WHEN kind = 'individual' THEN prime_surname END
+        FROM pub.linz_title_owners WHERE coalesce(name, '') <> ''"""),
 )
 #: the official numbers a row prints (3 November 2026): (register, view, sql yielding key, role or NULL, kind, value). A
 #: role names the row of a ROLE_VIEWS view that prints it. Only a row that is written carries its number (`row_numbers`

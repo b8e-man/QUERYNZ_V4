@@ -808,3 +808,115 @@ def judgment_numbers(candidates: list) -> tuple:
 RULE_LICENCE = "licence-number@1"
 NEAR_LICENCE_KINDS = "one licence number printed beside a person on one decision and an agency on another; the number is not one licensee's here"
 NEAR_LICENCE_NAMES = ("one licence number printed beside two names that do not agree (first and last name, or the agency's name); a number read from a decision's text is not trusted over the names")
+
+
+# --- ruling 142 (Arthur, 4 November 2026: "go ahead with your recommendations"): the rules that read a private value -----
+# measured at links/measurements.md §15 and §16 (rulings 2 and 3), built without the sample pairs. A judgment's street
+# address is read by keys.addresses.street_parts on every side and met by keys.addresses.meet; a level of "unit, number,
+# street and place" or "number, street and place" is a place level, "number and street" is street only. The value itself
+# is never in a link's evidence (links.links is read by the session login): it is in links_private.identifier_links.
+RULE_ADDRESS_TITLE = "judgment-address-title@1"           # a judgment's address and a LINZ title's, an owner of the title
+RULE_ADDRESS_JUDGMENT = "judgment-address-judgment@1"     # one address printed in two court documents
+RULE_ADDRESS_INSOLVENCY = "judgment-address-insolvency@1"   # a judgment's address and an estate's address at adjudication
+RULE_ADDRESS_OFFICE = "judgment-address-office@1"         # a judgment's address and a company's registered office
+RULE_SHARED_CONTACT = "shared-contact@1"                  # one email or phone printed in two court documents (ruling 2)
+PLACE_LEVELS = ("unit, number, street and place", "number, street and place")    # keys.addresses.MATCH_LEVELS[:2]
+OFFICE_BUSY = 5         # an office of more than this many companies is busy: near only, and only with a name
+NEAR_ADDR_STREET_ONLY = ("the two addresses agree on the number and street but no place is printed on both, so the street "
+                         "may be another town's; a name is shared")
+NEAR_ADDR_NO_NAME = ("the two addresses agree on the number, street and place (or unit), but no name is shared: the row is "
+                     "the name printed nearest the address on its page")
+NEAR_OFFICE_BUSY = "the company's name is among the document's parties, but its office is shared by more than five companies"
+NEAR_OFFICE_ONE = ("the address is one company's registered office (number, street and town) and the document names no party of "
+                   "the company's name: the row is the body printed nearest the address on its page")
+NEAR_CONTACT_DIFFERS = ("one email or phone printed in two documents beside two names that differ: one contact, the row on "
+                        "each side the name it is tied to")
+
+
+def _place(level: str) -> bool:
+    return level in PLACE_LEVELS
+
+
+def _aj(rule, grade, reason, ev):
+    return {"rule": rule, "grade": grade, "reason": reason, "evidence": ev}
+
+
+def judge_address_title(m: dict) -> list:
+    """`judgment-address-title@1`. `m`: level; named, [(party ref, owner ref)] where an owner of the title carries a party's
+    name; tie, the row printed nearest the address ({ref, kind}) or None; owners, [{ref, kind}] of the matched titles.
+    Confirmed: a name and a place level; near: a name at street only, or a place level and no name (the tie to each owner
+    of its kind). Returns [(a, b, judged)]."""
+    ev = {"level": m["level"], "side": "linz title"}
+    if m["named"]:
+        g, why = ("confirmed", None) if _place(m["level"]) else ("near", NEAR_ADDR_STREET_ONLY)
+        return [(a, b, _aj(RULE_ADDRESS_TITLE, g, why, {**ev, "name_shared": True})) for a, b in m["named"]]
+    if _place(m["level"]) and m.get("tie"):
+        return [(m["tie"]["ref"], o["ref"], _aj(RULE_ADDRESS_TITLE, "near", NEAR_ADDR_NO_NAME,
+                                              {**ev, "name_shared": False, "tie": m["tie"]["how"]}))
+                for o in m["owners"] if o["kind"] == m["tie"]["kind"]]
+    return []
+
+
+def judge_address_judgment(m: dict) -> list:
+    """`judgment-address-judgment@1`. `m`: level; shared, [(row ref, row ref)] of one name in both documents; tie_a, tie_b.
+    Confirmed: a place level and a person in both; near: a shared person at street only, or a place level alone (the two
+    ties, of one kind)."""
+    ev = {"level": m["level"], "side": "other judgment"}
+    if m["shared"]:
+        g, why = ("confirmed", None) if _place(m["level"]) else ("near", NEAR_ADDR_STREET_ONLY)
+        return [(a, b, _aj(RULE_ADDRESS_JUDGMENT, g, why, {**ev, "name_shared": True})) for a, b in m["shared"]]
+    a, b = m.get("tie_a"), m.get("tie_b")
+    if _place(m["level"]) and a and b and a["kind"] == b["kind"] and a["ref"] != b["ref"]:
+        return [(a["ref"], b["ref"], _aj(RULE_ADDRESS_JUDGMENT, "near", NEAR_ADDR_NO_NAME,
+                                         {**ev, "name_shared": False, "tie": [a["how"], b["how"]]}))]
+    return []
+
+
+def judge_address_insolvency(m: dict) -> list:
+    """`judgment-address-insolvency@1`. `m`: level; named, [(party ref, estate ref)] where the estate's name is a party's;
+    tie; estates, [{ref, kind}]. Place levels only: confirmed with the estate's name, near without (the tie to the estate)."""
+    if not _place(m["level"]):
+        return []
+    ev = {"level": m["level"], "side": "insolvency estate"}
+    if m["named"]:
+        return [(a, b, _aj(RULE_ADDRESS_INSOLVENCY, "confirmed", None, {**ev, "name_shared": True})) for a, b in m["named"]]
+    if m.get("tie"):
+        return [(m["tie"]["ref"], e["ref"], _aj(RULE_ADDRESS_INSOLVENCY, "near", NEAR_ADDR_NO_NAME,
+                                               {**ev, "name_shared": False, "tie": m["tie"]["how"]}))
+                for e in m["estates"] if e["kind"] == m["tie"]["kind"]]
+    return []
+
+
+def judge_address_office(m: dict) -> list:
+    """`judgment-address-office@1`. `m`: companies, {company ref: level} of every company whose office the address meets;
+    named, [(party ref, company ref)] where a party carries the company's name; tie, the body printed nearest (or None).
+    Confirmed: the company's name among the parties, the office not busy (OFFICE_BUSY); near: the name at a busy office,
+    or no name and exactly one company at the street and town (the tie to it)."""
+    cs = m["companies"]
+    busy = len(cs) > OFFICE_BUSY
+    ev = {"side": "company office", "companies_at_address": len(cs)}
+    if m["named"]:
+        g, why = ("near", NEAR_OFFICE_BUSY) if busy else ("confirmed", None)
+        return [(a, b, _aj(RULE_ADDRESS_OFFICE, g, why, {**ev, "level": cs[b], "name_shared": True})) for a, b in m["named"]]
+    at_place = [c for c, lv in cs.items() if _place(lv)]
+    if len(at_place) == 1 and len(cs) == 1 and m.get("tie") and m["tie"]["kind"] == "organisation":
+        return [(m["tie"]["ref"], at_place[0], _aj(RULE_ADDRESS_OFFICE, "near", NEAR_OFFICE_ONE,
+                                                  {**ev, "level": cs[at_place[0]], "name_shared": False, "tie": m["tie"]["how"]}))]
+    return []
+
+
+def judge_shared_contact(kind: str, ties: list) -> list:
+    """`shared-contact@1` (ruling 2). `ties`: one {document, ref, kind, name, how} per document printing the value (the row
+    it is tied to). Every pair across two documents: confirmed where the two rows are of one kind and name (the first and
+    last name, or the organisation's), near where they differ."""
+    out = []
+    ties = sorted(ties, key=lambda t: (t["document"], t["ref"]))
+    for i, a in enumerate(ties):
+        for b in ties[i + 1:]:
+            if a["document"] == b["document"] or a["ref"] == b["ref"]:
+                continue
+            same = a["kind"] == b["kind"] and a["name"] == b["name"]
+            out.append((a["ref"], b["ref"], _aj(RULE_SHARED_CONTACT, "confirmed" if same else "near",
+                                                None if same else NEAR_CONTACT_DIFFERS,
+                                                {"contact": kind, "names_agree": same, "tie": [a["how"], b["how"]]})))
+    return out
