@@ -1261,3 +1261,15 @@ necessary." The PPSR is a paid, on-demand lane, not built until a product
 needs it. The account and its production key (proven by two free calls)
 stay in place; no search is made, no direct debit is set up and no budget is
 set until then.
+
+140. Arthur, 3 November, asked for every court ruling and decision before the
+citation links are built: "you give a full outline of what the mcp is missing
+that i can pass to it and source everything we can ourselves". Ruling 127's
+"the lane fetches nothing from any court site" is lifted for what the MCP
+lacks: the estate captures, from the courts' and tribunals' own publications,
+every judgment and decision the MCP's courts corpus does not hold, under hard
+limits 4 to 7 (open pages only, a stated crawl delay honoured, stopping at any
+block or challenge, slow and off-peak), each class with its one-page position
+(ruling 61). The MCP stays the courts lane's first source; a file both hold is
+one document by its hash. The provider is sent a full outline of what its
+corpora lack. The citation links wait until the courts are complete.
