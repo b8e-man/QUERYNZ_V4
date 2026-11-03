@@ -853,3 +853,44 @@ above):
    confirms, keys/addresses.py): 170 values; confirmed only with a party of the judgment carrying the company's name
    by the organisation rules (5). Street-only matches (332 to one company) wait for a town. The 1,833 addresses that
    match no office are likely persons' and are never matched, shown or exported (hard limit 15).
+
+## 16. Ruling 3 widened: the judgment addresses matched privately on four sides, 4 November 2026 (integrator)
+
+Arthur, 4 November 2026: "match them. remember this is not a product yet." Counts only; no address or name is
+written here. In scope: the judgment addresses §15 sorted as neither a court's, a law firm's nor an office's, and
+those matching an office's street only: 2,763 identifier rows on 1,129 documents. Every side is read by the one
+reading, `keys.addresses.street_parts` (unit, number, street, type, the places after it) and `keys.addresses.meet`
+(the strongest level shared; never across two places none shared, nor two different units). A session measurement
+through the owner login (it reads four lanes' private schemas, which no module may); the script is
+`/home/user/querynzv4-work/scratch/integrator-9d788fb/address_matches.py`. The matches, refs only, are in
+`scratch_address_matches_private.matches` (side, identifier key, document, target ref, level, name shared, how), and
+twenty per side, those sharing a name first, in `scratch_address_matches_private.samples`; neither the reader nor the
+product login sees the schema. LINZ is read from the scratch build of the title addresses (`scratch_linz_addresses`).
+
+| Side | Judgment addresses matched | Documents | Targets | Matches | Of the addresses, best at unit / place / street only | Sharing a name: addresses / documents / targets | Sharing a name, at place or unit level |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| LINZ titles (owners' names) | 2,246 | 949 | 7,204 titles | 91,950 | 15 / 720 / 1,511 | 342 / 217 / 318 titles | 117 |
+| other judgments | 554 | 296 | 637 identifiers | 1,191 | 4 / 139 / 411 | 346 / 170 / 394 | 86 |
+| insolvency estates (address at adjudication) | 33 | 33 | 43 estates | 47 | 0 / 4 / 29 | 0 / 0 / 0 | 0 |
+| company registered offices | 557 | 352 | 4,325 companies | 4,880 | 0 / 13 / 544 | 28 / 26 / 32 | 0 |
+
+A name is shared when an owner of the title (person or corporate key), the estate's name, the company's name, or a
+person of the other judgment is among the judgment's parties, witnesses and others (judges and counsel apart). Most
+judgments print a street without its town, so most matches are at the number-and-street level, which names the same
+street in many towns: 2,246 addresses reach 7,204 titles.
+
+**The rules this would need** (Arthur's to rule after twenty pairs; the samples table holds them):
+
+| Rule (proposed) | Confirmed | Near | None |
+| --- | --- | --- | --- |
+| `judgment-address-title@1` | place or unit level and an owner's name among the parties (117) | place or unit level alone; street only with an owner's name (225) | street only, no name |
+| `judgment-address-judgment@1` | place or unit level and a shared person (86) | place or unit level alone; street only with a shared person (298) | street only, no name |
+| `judgment-address-insolvency@1` | place level and the estate's name (0) | place level alone (4) | street only |
+| `judgment-address-office@1` (§15) | the company's name among the parties | one company, street and town | a busy office; street only |
+
+**How it would run.** No module may read two lanes' private schemas (tests/test_imports_one_way.py), and the links
+lane reads `pub.*` only. The fit is a keyed hash: each lane's load writes a hash-only row per address and level
+(ref, level, HMAC of the `street_parts` key) into a `pub` view, and the links lane joins the hashes and writes the
+links into `links_private`. An unkeyed hash is no protection (NZ Addresses, layer 123113, is a public list to hash
+against), so the key is a secret Arthur places in the credentials folder; until then the matching stays this
+measurement.
