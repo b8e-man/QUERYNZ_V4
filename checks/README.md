@@ -28,6 +28,19 @@ and read published tables only.
   main) and the board's and the published site's, run as commands with a
   timeout the way `windowed.py` runs track E's two; red on exit 1, a crash
   or a timeout. `python -m checks.module_checks` runs them all and times each.
+- `source_lights.py`: a light for every register on the board's search pane (Arthur,
+  4 November 2026), written to `<live>/checks/source-lights.json` every 30 minutes
+  by `qv4-source-lights`: red when its updates are not working (the last run of a
+  job that keeps it current failed, no good run inside the job's cadence, its
+  deadline and six hours, a host it asks held by the fetch gate, or the MCP pull
+  caught a record or met new fields in its corpus), orange when they work but the
+  corpus is not whole (pieces to go, documents waiting on a reader, its own count
+  short of the source's, a gap declared in `source_gaps.toml`), green, or grey
+  with no update job on a clock. `LANES` maps each register to its jobs, corpora
+  and hosts; the registers are read from the board's catalogue as a file.
+  `--print` computes and prints, writing nothing.
+- `source_gaps.toml`: the declared gaps, one each with its register, reason,
+  date and source; a gap closed is a line deleted.
 - `release_compare.py`: two frozen versions file by file (plan 1.4).
 - `jobs/`: the `qv4-` unit files. Installed on node2 by hand in 1.6; step 2's
   installer takes over and puts the same files on node1.

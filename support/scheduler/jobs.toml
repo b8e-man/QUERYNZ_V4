@@ -173,6 +173,17 @@ priority = 10
 command = ["python", "-m", "support.scheduler", "report"]
 every_s = 3600
 
+[jobs.qv4-source-lights]
+description = "Writes <live>/checks/source-lights.json: a light for every register on the board's search pane (Arthur, 4 November 2026), red when its updates are not working (a failed or late run, a host the fetch gate holds), orange when they work but the corpus is not whole (pieces to go, documents waiting on a reader, a short count, a gap declared in checks/source_gaps.toml), green, or grey with no update job. Reads the queue and the timetable on the read login, the gate's refusals, the last pull's run record and two published counts. The board shows the file; older than two hours, every dot is grey."
+needs = "processor"
+memory_gb = 0.3
+deadline_s = 300
+query_timeout_s = 60
+class = "due"
+priority = 128   # unique (4 November 2026)
+command = ["python", "-m", "checks.source_lights"]
+every_s = 1800
+
 [jobs.qv4-reread]
 description = "Re-read a set of documents after a reader, a profile or a rule changes (step 2.14): one piece per document, each compared with the reading it would replace before it lands. Queued by a session or a lane, never fired by hand (ruling 45)."
 needs = "model-profile"

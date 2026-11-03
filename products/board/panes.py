@@ -16,6 +16,7 @@ import urllib.parse
 
 from products.board import catalogue as cat
 from products.board import document
+from products.board import lights as board_lights
 from products.board.search import COLLAPSE, FIELD_LABEL, FIELDS, HAND_FORM, MODES, TABS, TICKED, field_words, words_of
 from products.board.search import add_alternative as search_add, drop_alternative as search_drop
 from products.board.search import boxes_of, FIRST as FIRST_BOXES, TABLE_MAX as TABLE_MAX_N, TABLE_PAGE as TABLE_PAGE_N
@@ -75,6 +76,12 @@ code{font-size:12px;word-break:break-all;color:#e8eaed}
 ul.boxes{list-style:none;padding-left:0;font-size:13px}
 label.all{display:block;margin:.5rem 0;font-weight:600}
 .greyed{color:#aab1bc;font-style:italic}
+span.light{display:inline-block;width:0;height:0;border:5px solid;border-radius:50%;margin:0 .35rem 0 .1rem;vertical-align:middle;cursor:help}
+span.light.green{border-color:#3fbf5f}
+span.light.orange{border-color:#f0a030}
+span.light.red{border-color:#f05050}
+span.light.grey{border-color:#8a919c}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 mark{background:#4d3b00;color:#f3c969;padding:0}
 article.hit{border-top:1px solid #3a404c;padding:.4rem 0}
 .cite{font-size:12px;color:#aab1bc;margin-top:.2rem}
@@ -187,6 +194,10 @@ aside.chat form.ask button{align-self:flex-end}
 """
 TEXT_FLOOR = 4.5         # the common accessibility floor for text (WCAG 2 AA)
 EDGE_FLOOR = 3.0         # for a line or a mark that is not text (WCAG 2 non-text contrast)
+#: the source lights beside the registers (Arthur, 4 November 2026; products/board/lights.py): a mark, not text, so
+#: EDGE_FLOOR on the pane and EDGE_APART from each other, held by contrast_problems
+LIGHT_COLOURS = (("green", "#3fbf5f"), ("orange", "#f0a030"), ("red", "#f05050"), ("grey", "#8a919c"))
+LIGHT_SURFACE = "#161a20"
 EDGE_APART = 15.0        # every two edge colours of the key at least this far apart in OKLab (x100), the normal-vision floor
 
 
@@ -295,6 +306,16 @@ def contrast_problems(css: str = None, edges=None, nodes=None) -> list:
         for b in fills[i + 1:]:
             if apart(a, b) < EDGE_APART:
                 out.append(f"the node colours {a} and {b} are {apart(a, b):.1f} apart, under {EDGE_APART}")
+    sheet = CSS if css is None else css
+    for light, colour in LIGHT_COLOURS:
+        if f"span.light.{light}{{border-color:{colour}}}" not in sheet:
+            out.append(f"the {light} light's colour {colour} is not the stylesheet's")
+        if contrast(colour, LIGHT_SURFACE) < EDGE_FLOOR:
+            out.append(f"the {light} light {colour} on {LIGHT_SURFACE}: {contrast(colour, LIGHT_SURFACE):.2f}:1, under {EDGE_FLOOR}:1")
+    for i, (la, a) in enumerate(LIGHT_COLOURS):
+        for lb, b in LIGHT_COLOURS[i + 1:]:
+            if apart(a, b) < EDGE_APART:
+                out.append(f"the {la} and {lb} lights are {apart(a, b):.1f} apart, under {EDGE_APART}")
     return out
 
 
@@ -500,14 +521,26 @@ def fmt_marked(value, column: str, words) -> str:
     return fmt(value, column)
 
 
-def register_boxes(held_regs: list, boxes, q: str = None) -> str:
+def light_dot(lights, register: str) -> str:
+    """The source light beside a register: a dot, its reason on hover and in
+    words for a screen reader; "" where the page was given no lights."""
+    if lights is None:
+        return ""
+    light, reason = board_lights.light_for(lights, register)
+    words = f"{board_lights.WORDS[light]}: {reason}" if reason else board_lights.WORDS[light]
+    return (f'<span class="light {light}" title="{esc(words)}" data-light="{light}">'
+            f'<span class="sr">{esc(light)} light, {esc(words)}</span></span>')
+
+
+def register_boxes(held_regs: list, boxes, q: str = None, lights: dict = None) -> str:
     """"search all", then a check box per register in the catalogue's order;
     a register no lane has published is greyed, "not held", and cannot be
     checked. The two states are shown as they are (ruling 81): "search all"
     ticked leaves the register ticks as the user left them. The hidden
     `all=0` tells an unticked "search all" from an address that never had
     the form (search.boxes_of). With `q` (the search tab), each held
-    register's name is a link opening its table (ruling 92 (5))."""
+    register's name is a link opening its table (ruling 92 (5)). With
+    `lights` (lights.current()), each register carries its source light."""
     out = ['<input type="hidden" name="all" value="0">',
            f'<label class="all"><input type="checkbox" name="all" value="1"{" checked" if boxes.all else ""}> search all</label>',
            '<ul class="boxes">']
@@ -515,14 +548,14 @@ def register_boxes(held_regs: list, boxes, q: str = None) -> str:
         if register in held_regs:
             on = " checked" if register in boxes.ticked else ""
             if q is None:
-                out.append(f'<li><label><input type="checkbox" name="r" value="{esc(register)}"{on}> {esc(plain)}</label></li>')
+                out.append(f'<li><label><input type="checkbox" name="r" value="{esc(register)}"{on}> {light_dot(lights, register)}{esc(plain)}</label></li>')
             else:
                 out.append(f'<li><label><input type="checkbox" name="r" value="{esc(register)}"{on}></label> '
-                           f'<a class="row" href="{esc(table_href(q, boxes, register))}" title="open the register as a table">{esc(plain)}</a></li>')
+                           f'{light_dot(lights, register)}<a class="row" href="{esc(table_href(q, boxes, register))}" title="open the register as a table">{esc(plain)}</a></li>')
         else:
-            out.append(f'<li class="greyed"><label><input type="checkbox" disabled> {esc(plain)} <span class="meta">not held</span></label></li>')
+            out.append(f'<li class="greyed"><label><input type="checkbox" disabled> {light_dot(lights, register)}{esc(plain)} <span class="meta">not held</span></label></li>')
     for register, plain in cat.NOT_HELD:
-        out.append(f'<li class="greyed"><label><input type="checkbox" disabled> {esc(plain)} <span class="meta">not held</span></label></li>')
+        out.append(f'<li class="greyed"><label><input type="checkbox" disabled> {light_dot(lights, register)}{esc(plain)} <span class="meta">not held</span></label></li>')
     out.append("</ul>")
     return "".join(out)
 
@@ -563,7 +596,7 @@ def hidden_line(n: int) -> str:
     return f' <span class="note">{n:,} removed hidden</span>' if n else ""
 
 
-def left_pane(q: str, held_regs: list, boxes, action: str = "/", title: str = "Search the registers") -> str:
+def left_pane(q: str, held_regs: list, boxes, action: str = "/", title: str = "Search the registers", lights: dict = None) -> str:
     return "\n".join([
         '<section class="pane left" id="search">', '<div class="reg">search</div>', f"<h2>{esc(title)}</h2>",
         f'<form method="get" action="{esc(action)}">',
@@ -574,7 +607,7 @@ def left_pane(q: str, held_regs: list, boxes, action: str = "/", title: str = "S
         '<p class="note">Every word must appear, macrons folded; a number is matched exactly. '
         "A suppressed name is never found by name. Search all searches every held register, whatever is ticked; "
         "untick it to search the registers ticked alone.</p>",
-        register_boxes(held_regs, boxes, q if action == "/" else None),
+        register_boxes(held_regs, boxes, q if action == "/" else None, lights),
         removed_box(boxes),
         (f'<input type="hidden" name="t" value="{esc(boxes.table)}"><input type="hidden" name="o" value="{boxes.upto}">'
          if action == "/" and boxes is not None and boxes.table else ""),
