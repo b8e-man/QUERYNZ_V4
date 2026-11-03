@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS courts.documents (
     model_reader      text,                            -- the reader version that asked it
     mcp_citation      text,                            -- the MCP record's own `citation`, as it gives it (the provider's, 3 November 2026)
     mcp_doc_date      date,                            -- the MCP record's `doc_date`, the judgment's own date by the provider (its `date` is the arrival)
+    mcp_court         text,                            -- the MCP record's own `court`, as it gives it (the provider re-files records under another court)
+    mcp_court_reclassified_at timestamptz,             -- the MCP record's `court_reclassified_at`: when the provider re-filed it (4 November 2026)
     loaded_at         timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS documents_case_slug ON courts.documents (case_slug);

@@ -28,7 +28,8 @@ TABLES = {**dict(L.COLUMNS), "paragraphs": L.PARAGRAPH_COLUMNS, "set_aside": L.S
 HOUSEKEEPING = frozenset({
     "documents.record", "documents.seq", "documents.kind", "documents.case_slug", "documents.url", "documents.content_type",
     "documents.fetched_at", "documents.state", "documents.outcome", "documents.pages", "documents.text_chars",
-    "documents.pieces", "documents.mcp_citation", "documents.mcp_doc_date", "cases.case_slug", "cases.url", "case_links.case", "judgments.status", "judgments.missing",
+    "documents.pieces", "documents.mcp_citation", "documents.mcp_doc_date",
+    "documents.mcp_court", "documents.mcp_court_reclassified_at", "cases.case_slug", "cases.url", "case_links.case", "judgments.status", "judgments.missing",
     "judgments.unrecognised", "judgments.notes", "judgments.case_slug", "judgments.source", "judgments.source_url",
     "judgments.source_note", "judgment_parties.judgment", "paragraphs.judgment", "people.case_slug", "people.document_kind",
     "set_aside.item", "set_aside.stage", "set_aside.reason", f"{L.PRIVATE}.identifiers.person",

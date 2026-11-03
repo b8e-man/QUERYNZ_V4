@@ -12,6 +12,7 @@ import pytest
 from support import profiles as pr
 from support import reader as rd
 from registers.courts import capture, caption, check
+from registers.courts import load as L
 from registers.courts import model_read as M
 from registers.courts import pieces as PC
 from registers.courts import read as R
@@ -145,6 +146,22 @@ def test_the_entry_carries_the_mcp_record_s_citation_and_doc_date_never_its_arri
     assert (e["mcp_citation"], e["mcp_doc_date"]) == ("[2099] NZHC 12", "2099-03-10")
     e = capture.entry("courts/2", 1, "c" * 64, "u", "application/pdf", "d" * 64, "landed", 1, rec={"date": "2099-11-03"})
     assert (e["mcp_citation"], e["mcp_doc_date"]) == (None, None), "the record's `date` is the arrival, never the judgment's"
+
+
+def test_the_mcp_record_s_court_and_its_reclassification_stamp_reach_the_documents_table():
+    """The provider's `court_reclassified_at` (4 November 2026: it re-filed records under another court) and the
+    `court` it re-filed them under, each in a documents column (ruling 96: their fields in our registers)."""
+    rec = {"kind": "judgment_pdf", "court": "nzhc", "court_reclassified_at": "2026-11-03T21:14:05+00:00"}
+    e = capture.entry("courts/1", 1, "c" * 64, "u", "application/pdf", "d" * 64, "landed", 1, rec=rec)
+    assert (e["mcp_court"], e["mcp_court_reclassified_at"]) == ("nzhc", "2026-11-03T21:14:05+00:00")
+    e2 = capture.entry("courts/2", 1, "c" * 64, "u", "application/pdf", "d" * 64, "landed", 1,
+                       rec={"court_reclassified_at": "not a time"})
+    assert (e2["mcp_court"], e2["mcp_court_reclassified_at"]) == (None, None)
+    for col in ("mcp_court", "mcp_court_reclassified_at"):
+        assert col in L.COLUMNS["documents"]
+    res = R.read([e], data_of=lambda sha: None, store=None)
+    assert (res.documents[0]["mcp_court"], res.documents[0]["mcp_court_reclassified_at"]) == \
+        ("nzhc", "2026-11-03T21:14:05+00:00")
 
 
 def test_mcp_date_takes_an_iso_day_in_a_possible_year_and_nothing_else():

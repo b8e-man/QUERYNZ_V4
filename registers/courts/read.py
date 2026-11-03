@@ -488,7 +488,8 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
                "profile": None, "profile_version": None, "outcome": None, "pages": None, "read_from": None,
                "text_chars": None, "pieces": None, "citation": None, "case_numbers": [], "dated": None, "summary": None,
                "model": None, "model_reader": None, "mcp_citation": e.get("mcp_citation"),
-               "mcp_doc_date": mcp_date(e.get("mcp_doc_date")), "loaded_at": now}
+               "mcp_doc_date": mcp_date(e.get("mcp_doc_date")), "mcp_court": e.get("mcp_court"),
+               "mcp_court_reclassified_at": e.get("mcp_court_reclassified_at"), "loaded_at": now}
         res.documents.append(doc)
         sha = e.get("capture")
         if sha and primary[sha] is not e:

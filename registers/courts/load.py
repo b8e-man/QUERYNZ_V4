@@ -35,7 +35,8 @@ STAMP = ("document", "page", "place", "read_from", "reader", "profile", "profile
 COLUMNS = {
     "documents": ("key", "record", "seq", "kind", "case_slug", "url", "content_type", "fetched_at", "document", "state",
                   "profile", "profile_version", "outcome", "pages", "read_from", "text_chars", "pieces", "citation", "case_numbers",
-                  "dated", "summary", "model", "model_reader", "mcp_citation", "mcp_doc_date", "loaded_at"),
+                  "dated", "summary", "model", "model_reader", "mcp_citation", "mcp_doc_date", "mcp_court",
+                  "mcp_court_reclassified_at", "loaded_at"),
     "cases": ("key", "case_slug", "url", "case_name", "citation", "case_numbers", "court", "summary", "result", "judges",
               "date_of_judgment", "date_of_hearing", "suppression", "withheld", "links") + STAMP,
     "case_links": ("key", "case", "position", "section", "label", "href", "linked_document", "document", "page", "place"),

@@ -24,6 +24,7 @@ kept as a document in the store and is no longer a source: a document it
 names that the corpus lacks is a line in the catch log, stage `listing`,
 reported to the provider, never a row (ruling 127).
 """
+import datetime as dt
 import json
 import os
 
@@ -77,7 +78,20 @@ def entry(record_id: str, seq, record_sha: str, url: str, content_type, capture_
             "state": state or ("waiting" if cap.get("sha256") else "no file"), "bytes": nbytes or cap.get("bytes"),
             "mcp_citation": (str(rec["citation"]).strip() or None) if rec.get("citation") else None,
             "mcp_doc_date": rec.get("doc_date") or None,
+            "mcp_court": (str(rec["court"]).strip() or None) if rec.get("court") else None,
+            "mcp_court_reclassified_at": stamp(rec.get("court_reclassified_at")),
             "source": SOURCE, "note": SOURCE_NOTE}
+
+
+def stamp(value):
+    """An ISO time as the record gives it (the provider's `court_reclassified_at`, 4 November 2026); else None."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        dt.datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return value.strip()
 
 
 OWN_PREFIX = "own/"
@@ -101,7 +115,8 @@ def own_records(conn, schema: str = "courts", until=None) -> list:
     return [{"record_id": OWN_PREFIX + sha, "seq": None, "record": listing or sha, "url": url, "kind": "judgment_pdf",
              "case_slug": None, "court_hint": court, "fetched_at": fetched.isoformat() if fetched else None,
              "content_type": "application/pdf", "capture": sha, "state": "landed", "bytes": nbytes,
-             "mcp_citation": None, "mcp_doc_date": None, "source": source, "note": OWN_NOTE.get(source, f"a file the estate fetched itself ({source}, ruling 140)")}
+             "mcp_citation": None, "mcp_doc_date": None, "mcp_court": None, "mcp_court_reclassified_at": None,
+             "source": source, "note": OWN_NOTE.get(source, f"a file the estate fetched itself ({source}, ruling 140)")}
             for sha, url, source, court, listing, nbytes, fetched in rows]
 
 
