@@ -296,9 +296,10 @@ needs = "processor"
 memory_gb = 4
 deadline_s = 7200
 query_timeout_s = 3600
-class = "whenever"
+class = "due"
 priority = 36
 command = ["python", "-m", "links.build_all"]
+at_utc = "18:45"   # 07:45 NZDT, after the night's loads (courts 04:40, sanctions 06:35); it had no trigger and last ran 1 November (3 November 2026)
 nice = 10
 then = ["qv4-sightings-forms", "qv4-scan-rerun"]   # the forms follow pub.names (31 October 23:55); the stale scans re-run on the new links (2 November 2026: the procurement read-back red)
 
