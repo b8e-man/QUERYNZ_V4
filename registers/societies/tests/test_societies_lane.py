@@ -166,10 +166,15 @@ def test_an_ask_goes_through_the_gate_with_our_key_and_a_block_is_a_failed_read(
         return 429, b"", url
     got, ref = capture.fetch_entity(N1, None, key="SECRETKEY", fetch=fake, **_gate(monkeypatch, tmp_path))
     assert ref is None and "hard limit 6" in got.blocked and seen == [capture.entity_url(N1)]
+    # ruling 141: the 429 held the host, so nothing more is sent until a person clears it
+    with pytest.raises(fetchgate.Refused, match="refused or throttled"):
+        capture.fetch_entity(N1, None, key="SECRETKEY", fetch=fake, **_gate(monkeypatch, tmp_path))
+    assert len(seen) == 1
+    fetchgate.clear(fetchgate.host_of(capture.entity_url(N1)), by="test", ledger_dir=_gate(monkeypatch, tmp_path).get("ledger_dir"))
     got, ref = capture.fetch_entity(N1, None, key="SECRETKEY", fetch=lambda u, t: (200, b"<html>captcha</html>", u),
                                     **_gate(monkeypatch, tmp_path))
     assert ref is None and got.blocked
-    ledger = open(next(tmp_path.iterdir()), encoding="utf-8").read()
+    ledger = "".join(open(f, encoding="utf-8").read() for f in tmp_path.iterdir() if f.is_file())
     assert "SECRETKEY" not in ledger and "nzbn-register-entities" in ledger
 
 

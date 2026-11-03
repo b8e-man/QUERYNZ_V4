@@ -15,7 +15,16 @@ file is archived verbatim with its hash, as a record. What refuses:
   4. a challenge or a block met on the read (hard limit 6): a 403, 429 or
      5xx, or a challenge page, is a failed read. It is logged and the lane
      moves on; nothing is solved, logged in to, or got around
-  5. a redirect is not followed unasked: the gate judged the host asked,
+  5. a host that refused or throttled us (Arthur, 3 November 2026: "when our
+     connection starts getting refused or we are throttled like in the
+     tenancy tribunal, stop gathering. we should consider a new way
+     forward"): a 403, 429 or 503, or a challenge page, holds the host at
+     once; three transport failures in a row on it (a reset, a refusal, a
+     timeout, a 500, 502 or 504) hold it too. A held host is sent nothing
+     more by any lane until a person clears it (`python -m support.fetchgate
+     clear HOST --by NAME`); the hold and the clearing are lines in
+     `<live>/checks/fetch-gate/refusals.jsonl`, never edited
+  6. a redirect is not followed unasked: the gate judged the host asked,
      not the one pointed to. `open_url` returns the 3xx with its Location;
      a caller that wants it followed passes `follow=`, and every hop is
      judged, recorded and paced as a fresh request
@@ -34,6 +43,7 @@ with no network, no clock, no file. Stdlib only.
 """
 import datetime as dt
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -58,6 +68,11 @@ DEFAULT_FLOOR_S = 1.5
 POLITE_FLOOR_S = 5.0
 MAX_FLOOR_S = 120.0          # a crawl delay above this is honoured at this: the host is asking not to be crawled
 CHALLENGE_STATUSES = (403, 429, 503, 502, 500, 504)
+#: a refusal or a throttle: the host is held at the first one
+HOLD_STATUSES = (403, 429, 503)
+#: transport failures (and the other 5xx) in a row on one host that hold it
+HOLD_STRIKES = 3
+REFUSALS_FILE = "refusals.jsonl"
 CHALLENGE_MARKS = ("cf-chl", "challenge-platform", "just a moment", "attention required", "captcha",
                    "radware", "incapsula", "_incapsula_", "are you a human", "access denied",
                    "pardon our interruption")
@@ -396,11 +411,87 @@ def robots_for(host: str, fetch=None, refresh: bool = False) -> Robots:
     return _ROBOTS[host]
 
 
+# --- the hosts that refused or throttled us ------------------------------------------------------------------------
+
+_STRIKES = {}
+_LOCK = threading.Lock()
+
+
+def _refusals_path(ledger_dir: str = None) -> str:
+    return os.path.join(ledger_dir or LEDGER_DIR, REFUSALS_FILE)
+
+
+def refusals(ledger_dir: str = None) -> dict:
+    """host → the line that holds it, for every host whose last line is a hold."""
+    out = {}
+    try:
+        with open(_refusals_path(ledger_dir), encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    row = json.loads(line)
+                    if row.get("state") == "held":
+                        out[row["host"]] = row
+                    else:
+                        out.pop(row["host"], None)
+    except OSError:
+        pass
+    return out
+
+
+def refused_by(host: str, ledger_dir: str = None):
+    """Why the host is held, or None."""
+    row = refusals(ledger_dir).get((host or "").lower())
+    return None if row is None else f"held since {row['at']}: {row['why']}"
+
+
+def _line(host: str, state: str, why: str, by: str, ledger_dir: str = None) -> dict:
+    row = {"host": host.lower(), "state": state, "why": why, "by": by,
+           "at": dt.datetime.now().astimezone().isoformat(timespec="seconds")}
+    os.makedirs(ledger_dir or LEDGER_DIR, exist_ok=True)
+    with open(_refusals_path(ledger_dir), "a", encoding="utf-8") as f:
+        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    return row
+
+
+def hold(host: str, why: str, by: str = "fetch gate", ledger_dir: str = None) -> dict:
+    if refused_by(host, ledger_dir) is not None:
+        return refusals(ledger_dir)[host.lower()]
+    return _line(host, "held", why, by, ledger_dir)
+
+
+def clear(host: str, by: str, why: str = "cleared", ledger_dir: str = None) -> dict:
+    """A person's word: the host may be asked again."""
+    if not by:
+        raise ValueError("a clearing says who gave the word")
+    with _LOCK:
+        _STRIKES.pop(host.lower(), None)
+    return _line(host, "cleared", why, by, ledger_dir)
+
+
+def _strike(host: str, why: str, ledger_dir: str = None, persist: bool = True):
+    """One transport failure or a 5xx other than 503; HOLD_STRIKES in a row hold the host."""
+    with _LOCK:
+        n = _STRIKES[host] = _STRIKES.get(host, 0) + 1
+    if n >= HOLD_STRIKES and persist:
+        hold(host, f"{n} transport failures in a row, the last {why}", ledger_dir=ledger_dir)
+
+
+def _answered(host: str):
+    with _LOCK:
+        _STRIKES.pop(host, None)
+
+
 def check(url: str, *, fetch=None, positions_dir: str = None, ledger_dir: str = None) -> Decision:
     """Permission for one URL: decide, record, raise on a refusal. A held
     host is refused before its robots.txt is read: not capturing is not
     knocking."""
     host = host_of(url)
+    if (why := refused_by(host, ledger_dir)) is not None:
+        dec = Decision(url=url, host=host, allowed=False, floor=0.0, position="",
+                       reason=f"the host refused or throttled us and is held ({why}); nothing more is asked of it until a "
+                              f"person clears it: consider a new way forward (Arthur, 3 November 2026)")
+        record(dec, ledger_dir)
+        raise Refused(f"{url}: {dec.reason}")
     pos = position_for(host, positions_dir)
     if held_reason(host) is not None or stop_request(host) is not None or not pos:
         dec = decide(url, None, pos)
@@ -495,8 +586,21 @@ def open_url(url: str, *, timeout: int = 30, headers: dict = None, pacer: Pacer 
     while True:
         dec = check(url, positions_dir=positions_dir, ledger_dir=ledger_dir)
         (pacer or _PACER).wait(dec.host, dec.floor)
-        got = fetch(url, timeout) if fetch is not None else _go(url, timeout, headers, max_bytes)
+        # a hold is written for a real fetch, or where the caller named its own ledger (a test's tmp folder): an
+        # injected fetch with no ledger never holds a real host in the live file
+        persist = fetch is None or ledger_dir is not None
+        try:
+            got = fetch(url, timeout) if fetch is not None else _go(url, timeout, headers, max_bytes)
+        except (OSError, http.client.HTTPException) as exc:
+            _strike(dec.host, f"{type(exc).__name__}: {str(exc)[:160]}", ledger_dir, persist)
+            raise
         status, body, final = got[:3]
+        if status in HOLD_STATUSES and persist:
+            hold(dec.host, f"HTTP {status} on {url[:200]}", ledger_dir=ledger_dir)
+        elif status in CHALLENGE_STATUSES:
+            _strike(dec.host, f"HTTP {status}", ledger_dir, persist)
+        else:
+            _answered(dec.host)
         hdrs = got[3] if len(got) > 3 else {}
         loc = next((v for k, v in hdrs.items() if k.lower() == "location"), "") if status in REDIRECT_STATUSES else ""
         loc = urllib.parse.urljoin(url, loc) if loc else ""
@@ -506,7 +610,10 @@ def open_url(url: str, *, timeout: int = 30, headers: dict = None, pacer: Pacer 
             continue
         if status == 304:
             body = b""
-        return Fetched(asked, status, body, final, looks_challenged(status, body, hdrs), loc, dict(hdrs))
+        blocked = looks_challenged(status, body, hdrs)
+        if blocked and status not in CHALLENGE_STATUSES and persist:
+            hold(dec.host, f"{blocked[:200]} on {url[:200]}", ledger_dir=ledger_dir)
+        return Fetched(asked, status, body, final, blocked, loc, dict(hdrs))
 
 
 def pace(url_or_host: str, pacer: Pacer = None) -> float:
@@ -514,3 +621,27 @@ def pace(url_or_host: str, pacer: Pacer = None) -> float:
     HTTP but must not set its own speed."""
     host = host_of(url_or_host) or url_or_host.lower()
     return (pacer or _PACER).wait(host, floor_for(host, _ROBOTS.get(host)))
+
+
+def main(argv=None) -> int:
+    """python -m support.fetchgate held | clear HOST --by NAME [--why TEXT]"""
+    import argparse
+    ap = argparse.ArgumentParser(prog="python -m support.fetchgate")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("held")
+    c = sub.add_parser("clear")
+    c.add_argument("host")
+    c.add_argument("--by", required=True)
+    c.add_argument("--why", default="cleared")
+    a = ap.parse_args(argv)
+    if a.cmd == "held":
+        for host, row in sorted(refusals().items()):
+            print(f"{host}\theld since {row['at']}: {row['why']}")
+        return 0
+    if refused_by(a.host) is None:
+        print(f"{a.host} is not held")
+        return 1
+    clear(a.host, a.by, a.why)
+    print(f"{a.host} cleared by {a.by}")
+    return 0
+

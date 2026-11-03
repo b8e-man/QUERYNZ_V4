@@ -140,18 +140,75 @@ def test_one_user_agent():
 
 def test_a_challenge_or_block_is_a_failed_read_and_a_404_is_an_answer(positions, tmp_path):
     pacer = fg.Pacer(now=lambda: 0.0, sleep=lambda s: None)
-    kw = dict(positions_dir=positions, ledger_dir=str(tmp_path / "l"), pacer=pacer)
     fg._ROBOTS["www.elections.nz"] = robots("www.elections.nz")
-    got = fg.open_url("https://www.elections.nz/x", fetch=lambda u, t: (403, b"", u), **kw)
+    kw = lambda n: dict(positions_dir=positions, ledger_dir=str(tmp_path / n), pacer=pacer)   # noqa: E731
+    got = fg.open_url("https://www.elections.nz/x", fetch=lambda u, t: (403, b"", u), **kw("a"))
     assert got.blocked.startswith("HTTP 403")
-    got = fg.open_url("https://www.elections.nz/x", fetch=lambda u, t: (200, b"<html><title>Just a moment...</title>cf-chl", u), **kw)
+    got = fg.open_url("https://www.elections.nz/x", fetch=lambda u, t: (200, b"<html><title>Just a moment...</title>cf-chl", u), **kw("b"))
     assert "challenge page" in got.blocked
-    got = fg.open_url("https://www.elections.nz/gone", fetch=lambda u, t: (404, b"", u), **kw)
+    got = fg.open_url("https://www.elections.nz/gone", fetch=lambda u, t: (404, b"", u), **kw("c"))
     assert got.status == 404 and got.blocked == ""
-    got = fg.open_url("https://www.elections.nz/ok", fetch=lambda u, t: (200, b"<html>a page</html>", u), **kw)
+    got = fg.open_url("https://www.elections.nz/ok", fetch=lambda u, t: (200, b"<html>a page</html>", u), **kw("c"))
     assert got.status == 200 and got.body and got.blocked == ""
-    rows = [json.loads(l) for f in os.listdir(tmp_path / "l") for l in open(tmp_path / "l" / f)]
-    assert len(rows) == 4 and all(r["allowed"] and r["position"] == "electoral-commission" for r in rows)
+    d = tmp_path / "c"
+    rows = [json.loads(l) for f in os.listdir(d) if f != fg.REFUSALS_FILE for l in open(d / f)]
+    assert len(rows) == 2 and all(r["allowed"] and r["position"] == "electoral-commission" for r in rows)
+
+
+# ── a host that refused or throttled us is held (Arthur, 3 November 2026) ───
+
+def test_a_refusal_or_a_throttle_holds_the_host_until_a_person_clears_it(positions, tmp_path):
+    pacer = fg.Pacer(now=lambda: 0.0, sleep=lambda s: None)
+    fg._ROBOTS["www.elections.nz"] = robots("www.elections.nz")
+    for status in (403, 429, 503):
+        led = str(tmp_path / str(status))
+        kw = dict(positions_dir=positions, ledger_dir=led, pacer=pacer)
+        asked = []
+        fg.open_url("https://www.elections.nz/x", fetch=lambda u, t: (asked.append(u), (status, b"", u))[1], **kw)
+        with pytest.raises(fg.Refused, match="refused or throttled us"):
+            fg.open_url("https://www.elections.nz/y", fetch=lambda u, t: (asked.append(u), (200, b"ok", u))[1], **kw)
+        assert asked == ["https://www.elections.nz/x"], "a held host is sent nothing more"
+        fg.clear("www.elections.nz", by="Arthur", ledger_dir=led)
+        assert fg.open_url("https://www.elections.nz/y", fetch=lambda u, t: (200, b"<html>ok</html>", u), **kw).status == 200
+
+
+def test_a_challenge_page_holds_the_host(positions, tmp_path):
+    pacer = fg.Pacer(now=lambda: 0.0, sleep=lambda s: None)
+    fg._ROBOTS["www.elections.nz"] = robots("www.elections.nz")
+    kw = dict(positions_dir=positions, ledger_dir=str(tmp_path), pacer=pacer)
+    fg.open_url("https://www.elections.nz/x", fetch=lambda u, t: (200, b"<html><title>Just a moment...</title>", u), **kw)
+    assert fg.refused_by("www.elections.nz", str(tmp_path))
+
+
+def test_three_resets_in_a_row_hold_the_host_and_an_answer_between_resets_the_count(positions, tmp_path):
+    pacer = fg.Pacer(now=lambda: 0.0, sleep=lambda s: None)
+    fg._ROBOTS["www.elections.nz"] = robots("www.elections.nz")
+    fg._STRIKES.clear()
+    kw = dict(positions_dir=positions, ledger_dir=str(tmp_path), pacer=pacer)
+
+    def reset(u, t):
+        raise ConnectionResetError(104, "Connection reset by peer")
+    for _ in range(2):
+        with pytest.raises(ConnectionResetError):
+            fg.open_url("https://www.elections.nz/x", fetch=reset, **kw)
+    fg.open_url("https://www.elections.nz/ok", fetch=lambda u, t: (200, b"<html>a</html>", u), **kw)
+    for _ in range(2):
+        with pytest.raises(ConnectionResetError):
+            fg.open_url("https://www.elections.nz/x", fetch=reset, **kw)
+    assert fg.refused_by("www.elections.nz", str(tmp_path)) is None, "an answer between resets starts the count again"
+    with pytest.raises(ConnectionResetError):
+        fg.open_url("https://www.elections.nz/x", fetch=reset, **kw)
+    assert "3 transport failures" in fg.refused_by("www.elections.nz", str(tmp_path))
+    with pytest.raises(fg.Refused):
+        fg.open_url("https://www.elections.nz/ok", fetch=lambda u, t: (200, b"<html>a</html>", u), **kw)
+
+
+def test_an_injected_fetch_with_no_ledger_never_holds_a_live_host(positions, tmp_path, monkeypatch):
+    monkeypatch.setattr(fg, "LEDGER_DIR", str(tmp_path / "live"))
+    fg._ROBOTS["www.elections.nz"] = robots("www.elections.nz")
+    pacer = fg.Pacer(now=lambda: 0.0, sleep=lambda s: None)
+    fg.open_url("https://www.elections.nz/x", fetch=lambda u, t: (429, b"", u), positions_dir=positions, pacer=pacer)
+    assert fg.refusals() == {}
 
 
 def test_every_decision_carries_what_it_decided_and_why(tmp_path):

@@ -1273,3 +1273,15 @@ block or challenge, slow and off-peak), each class with its one-page position
 (ruling 61). The MCP stays the courts lane's first source; a file both hold is
 one document by its hash. The provider is sent a full outline of what its
 corpora lack. The citation links wait until the courts are complete.
+
+141. Arthur, 3 November: "when our connection starts getting refused or we
+are throttled like in the tenancy tribunal, stop gathering. we should
+consider a new way forward. I will ask the MCP if it holds them." The fetch
+gate holds a host the moment it answers a 403, 429 or 503 or a challenge
+page, and after three transport failures in a row on it (a reset, a refusal,
+a timeout, a 500, 502 or 504). A held host is sent nothing more by any lane
+until a person clears it (`python -m support.fetchgate clear HOST --by
+NAME`); the holds and clearings are lines in the gate's ledger, never
+edited. A hold is a prompt to find another way (the MCP, a bulk release, an
+arrangement with the publisher), not to retry. forms.justice.govt.nz is held
+from this date (the Tenancy Tribunal's order PDFs reset since 25 October).
