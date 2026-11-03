@@ -22,12 +22,14 @@ in the shape item_heading knows), are then recognised and read exactly as a text
 then the standard template's reading or the text reader. A mixed PDF's thin pages are named unread (measured
 2 November 2026: 7 mixed PDFs of 616, 12 thin pages, none of them an image).
 
-Two parts of a minutes document are never read, by either profile (hard limit 16 and the public forum rule):
+Two parts of a minutes document are flagged, never cut (ruling 142, 4 November 2026; they were skipped before):
   - a public-excluded part: from an item, or a banner line, that excludes the public (a resolution to exclude the
     public, an exclusion of the public, a public excluded section) to the line that readmits the public or the end; an
-    item whose heading names public-excluded minutes or business, to the next item. Skipped and counted.
-  - a public forum or deputation item: its speakers are members of the public. Skipped and counted, whatever it holds.
-Both rules run on the text before any reading, so the text reader never sees what they skip.
+    item whose heading names public-excluded minutes or business, to the next item.
+  - a public forum or deputation item: its speakers are members of the public.
+Every line of both is kept whole (`parts`; council_minutes_private.part_lines), and the standard template's reading
+reads their resolutions and declarations too, each row flagged with its `part`. The text reader reads the open
+meeting's lines (`sections`); its stored readings cover those only.
 
     recognise(texts) -> (profile or '', why)
     sections(texts) -> ([(page, line)], skipped counts)       the lines left after the two skips
@@ -130,11 +132,44 @@ def lines_of(texts: dict) -> list:
     return out
 
 
+#: the part a line sits in (parts): the open meeting, a public-excluded part, a public forum or deputation item
+OPEN, EXCLUDED, FORUM_PART = "open", "public excluded", "public forum"
+
+
+def parts(texts: dict) -> tuple:
+    """([(page, line, part, n)] every line of the minutes, each with the part it sits in and that part's number in the
+    document (0 for the open meeting), Counter of the lines and parts outside the open meeting). Every line is kept
+    (ruling 142, 4 November 2026): a part is a flag beside its lines, never a cut."""
+    out, skipped = [], Counter()
+    k = [0]
+
+    def opened(kind):
+        k[0] += 1
+        return kind
+
+    part = OPEN
+    for p, line, mode in _modes(texts, skipped):
+        if mode is None:
+            part = OPEN
+        elif part == OPEN or mode.startswith("new "):
+            part = opened(EXCLUDED if "excluded" in mode else FORUM_PART)
+        out.append((p, line, part, 0 if part == OPEN else k[0]))
+    return out, skipped
+
+
 def sections(texts: dict) -> tuple:
-    """([(page, line)] left after the two skips, Counter of what was skipped). A public-excluded part runs from an item
+    """([(page, line)] of the open meeting, Counter of what lies outside it). A public-excluded part runs from an item
     or banner that excludes the public to a readmission or the end; an item heading that names public-excluded
-    minutes runs to the next item; a public forum or deputation item runs to the next item. Nothing skipped is kept."""
-    kept, skipped = [], Counter()
+    minutes runs to the next item; a public forum or deputation item runs to the next item. The lines outside the
+    open meeting are kept too, by `parts` (ruling 142); the text reader reads the open meeting's."""
+    skipped = Counter()
+    kept = [(p, line) for p, line, mode in _modes(texts, skipped) if mode is None]
+    return kept, skipped
+
+
+def _modes(texts: dict, skipped: Counter):
+    """(page, line, mode) for every line: mode None in the open meeting, else the part it sits in ('new excluded',
+    'excluded', 'new excluded item', 'excluded item', 'new forum', 'forum'; 'new' on a part's first line)."""
     mode, depth = None, None                     # None | 'excluded' | 'excluded item' | 'forum'
     for p, line in lines_of(texts):
         head = item_heading(line)
@@ -144,9 +179,8 @@ def sections(texts: dict) -> tuple:
         if mode == "excluded":
             if READMIT.search(line):
                 mode = None
-                skipped["public excluded lines"] += 1
-                continue
             skipped["public excluded lines"] += 1
+            yield p, line, "excluded"
             continue
         if head and mode in ("excluded item", "forum"):
             mode = None
@@ -154,22 +188,25 @@ def sections(texts: dict) -> tuple:
             mode = "excluded"
             skipped["public excluded parts"] += 1
             skipped["public excluded lines"] += 1
+            yield p, line, "new excluded"
             continue
         if head and EXCLUDED_ITEM.search(title):
             mode = "excluded item"
             skipped["public excluded parts"] += 1
             skipped["public excluded lines"] += 1
+            yield p, line, "new excluded item"
             continue
         if head and FORUM.search(title):
             mode = "forum"
             skipped["public forum items"] += 1
             skipped["public forum lines"] += 1
+            yield p, line, "new forum"
             continue
         if mode:
             skipped["public excluded lines" if mode == "excluded item" else "public forum lines"] += 1
+            yield p, line, mode
             continue
-        kept.append((p, line))
-    return kept, skipped
+        yield p, line, None
 
 
 # ── recognition ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -520,9 +557,18 @@ def read_standard(texts: dict) -> dict:
             uniq.append(a)
     # a RESOLUTION line with its mover and seconder but no words before the next (Far North prints one so, then the
     # carried resolution under the next number): nothing as moved to publish, counted
-    res = resolutions(kept)
+    res = [dict(r, part=OPEN) for r in resolutions(kept)]
+    decl = [dict(d, part=OPEN) for d in declarations(kept)]
+    # the parts outside the open meeting, read the same way, each row flagged with its part (ruling 142)
+    groups = {}
+    for p, line, part, n in parts(texts)[0]:
+        if part != OPEN:
+            groups.setdefault((n, part), []).append((p, line))
+    for (_, part), lines in sorted(groups.items()):
+        res += [dict(r, part=part) for r in resolutions(lines)]
+        decl += [dict(d, part=part) for d in declarations(lines)]
     skipped["resolutions with no text"] = sum(1 for r in res if not r["text"])
-    return {"attendance": uniq, "declarations": declarations(kept), "resolutions": [r for r in res if r["text"]],
+    return {"attendance": uniq, "declarations": decl, "resolutions": [r for r in res if r["text"]],
             "skipped": dict(skipped)}
 
 

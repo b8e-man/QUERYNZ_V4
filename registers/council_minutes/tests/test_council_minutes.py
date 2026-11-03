@@ -65,9 +65,12 @@ def test_every_rule_holds():
 
 
 def test_no_venue_reaches_a_row():
+    """The venue is never in a column of the lane's tables; it is kept whole in `venue`, for the private twin
+    (ruling 142, 4 November 2026: the old reading did not keep it at all)."""
     out = read.read_listing(PAGE, "e" * 64, BASE)
-    blob = repr(out)
+    blob = repr([{k: v for k, v in m.items() if k != "venue"} for m in out["meetings"]] + out["documents"])
     assert "Pretend" not in blob and "Nowhere" not in blob
+    assert all(m["venue"] == "12 Pretend Street, Nowhere" for m in out["meetings"])
 
 
 def test_a_page_that_is_not_a_listing_is_refused():

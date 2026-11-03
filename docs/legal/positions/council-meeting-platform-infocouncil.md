@@ -35,11 +35,12 @@ councils-1 through the fetch gate: each instance's default page once, one minute
    sites answered the survey with a block, so their terms are unread and their instances stay asked only because the
    InfoCouncil host answered openly (to revisit when their sites answer).
 4. **What does privacy law limit?** The listing names bodies, dates and times and, after a line break in the body's
-   cell, the venue. The venue is never read or kept: a body can meet in a member's home (hard limit 15). The minutes
-   name members, officers and people who speak or submit at a meeting, and a hearing's minutes can name a submitter
-   and a property: they are held, never read (plan 6.3), and no name, attendance or resolution is put in a table. A
-   public-excluded item's minutes are not published by the council and so are not held. The view carries the meeting
-   and the minutes' hash only.
+   cell, the venue. The venue is kept whole in `council_minutes_private.venues` with a flag where its shape names a
+   street address (ruling 142, 4 November 2026). The minutes name members, officers and people who speak or submit at
+   a meeting, and a hearing's minutes can name a submitter and a property: they are read (ruling 128) into attendance,
+   declarations and resolutions; the lines of a public-excluded part or a public forum item the PDF prints are kept
+   whole in `council_minutes_private.part_lines`, and the standard template's resolutions and declarations from them
+   carry `part` (ruling 142). A public-excluded item's minutes the council does not publish are not held.
 
 Crawl delay: none stated. Floor: 5 s, one request at a time, off-peak (22:00 to 06:00 NZ); each listing at most
 weekly, each minutes PDF once; about 600 PDFs the first nights, then tens a week. A minutes PDF the old estate already

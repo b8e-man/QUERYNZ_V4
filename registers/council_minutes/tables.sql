@@ -2,7 +2,8 @@
 -- (capture.py makes it; never wiped): no capture table holds a row of the source; every listing page and every
 -- minutes document stays in the document store verbatim by sha256. The reading's tables (load.py drops and makes
 -- them again at every load) come from the listing pages only: the minutes are held and never read (plan 6.3; ruling
--- 79). No private twin: a meeting's venue is never read, and nothing else in a listing names a person's place.
+-- 79). The private twin `council_minutes_private` keeps a meeting's venue and every line of a public-excluded part or a
+-- public forum item whole (ruling 142, 4 November 2026).
 
 -- ── the capture ──────────────────────────────────────────────────────────────
 
@@ -114,7 +115,8 @@ CREATE TABLE IF NOT EXISTS council_minutes.read_set_aside (
 
 -- ── the minutes' reading (2 November 2026; minutes.py and model_read.py): every landed minutes PDF read under its
 -- profile, the standard template deterministically, any other shape by the text reader's stored readings (replayed,
--- never called, here). A public-excluded part and a public forum item are never read (minutes.sections): counted only.
+-- never called, here). A public-excluded part and a public forum item are flagged, never cut (ruling 142): their lines are kept whole in
+-- council_minutes_private.part_lines, and the standard template reads their resolutions and declarations, `part` beside.
 
 -- the minutes ledger: one row per landed minutes PDF, what became of it; landed minutes = rows here (check.py)
 CREATE TABLE IF NOT EXISTS council_minutes.minutes_read (
@@ -129,9 +131,9 @@ CREATE TABLE IF NOT EXISTS council_minutes.minutes_read (
     attendance       integer NOT NULL DEFAULT 0,
     resolutions      integer NOT NULL DEFAULT 0,
     declarations     integer NOT NULL DEFAULT 0,
-    excluded_parts   integer NOT NULL DEFAULT 0,      -- public-excluded parts skipped, never read
+    excluded_parts   integer NOT NULL DEFAULT 0,      -- public-excluded parts: lines kept in the private twin
     excluded_lines   integer NOT NULL DEFAULT 0,
-    forum_items      integer NOT NULL DEFAULT 0,      -- public forum items skipped, never read
+    forum_items      integer NOT NULL DEFAULT 0,      -- public forum items: lines kept in the private twin
     forum_lines      integer NOT NULL DEFAULT 0,
     unread_pages     text,                            -- pages with no text layer, for the page reader
     model            text
@@ -179,6 +181,7 @@ CREATE TABLE IF NOT EXISTS council_minutes.resolutions (
     votes_against       text,
     abstained           text,
     text_names_address  boolean NOT NULL DEFAULT false,   -- ruling 102: the text's shape names a street address
+    part                text NOT NULL DEFAULT 'open',    -- open | public excluded | public forum (ruling 142)
     document            text NOT NULL,
     page                integer,
     place               text,
@@ -203,6 +206,7 @@ CREATE TABLE IF NOT EXISTS council_minutes.declarations (
     item                text,
     text                text,
     text_names_address  boolean NOT NULL DEFAULT false,
+    part                text NOT NULL DEFAULT 'open',    -- open | public excluded | public forum (ruling 142)
     document            text NOT NULL,
     page                integer,
     place               text,
@@ -212,4 +216,26 @@ CREATE TABLE IF NOT EXISTS council_minutes.declarations (
     profile_version     integer NOT NULL,
     model               text,
     loaded_at           timestamptz NOT NULL DEFAULT now()
+);
+
+-- ── the private twin (ruling 142, 4 November 2026): never granted to the session or product logins
+
+-- a meeting's venue as its listing prints it (the committee cell after its first line break): it can be an address
+CREATE TABLE IF NOT EXISTS council_minutes_private.venues (
+    meeting_key          text PRIMARY KEY,
+    venue                text NOT NULL,
+    venue_names_address  boolean NOT NULL,          -- its shape names a street address (minutes.names_address)
+    document             text NOT NULL,             -- the listing page's sha256
+    place                text NOT NULL
+);
+
+-- every line of a public-excluded part or a public forum item, whole, in the order printed (minutes.parts)
+CREATE TABLE IF NOT EXISTS council_minutes_private.part_lines (
+    document   text NOT NULL,                       -- the minutes PDF's sha256
+    seq        integer NOT NULL,                    -- the line's order among the document's lines outside the open meeting
+    page       integer NOT NULL,
+    part       text NOT NULL,                       -- public excluded | public forum
+    part_n     integer NOT NULL,                    -- the part's number in the document
+    text       text NOT NULL,
+    PRIMARY KEY (document, seq)
 );

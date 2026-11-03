@@ -12,8 +12,9 @@ class="bpsGridMenuItem">` or `bpsGridMenuAltItem`, and in each row the cells
 most instances, `bpsGridMinutesAttachments`. A document is a link
 `RedirectToDoc.aspx?URL=Open/<yyyy>/<mm>/<CODE>_<date>_<TYPE>_<n>…<.htm|.PDF>`.
 Link ids differ by instance and three instances print none, so a link's kind
-is its cell and its format its extension. The venue is never kept: it is
-an address, and a body that meets in a member's home would print one there.
+is its cell and its format its extension. The venue (an address, and a body
+that meets in a member's home would print one there) is kept whole in the
+private twin, `council_minutes_private.venues` (ruling 142).
 
     recognise(body) -> 'listing'            raises NotTheShape
     read_listing(body, sha, base) -> {'year', 'meetings': [...], 'documents': [...]}
@@ -68,8 +69,15 @@ def meeting_date(cell: str):
 
 
 def body_name(cell: str) -> str:
-    """The committee cell's text before its first `<br`: the venue after it is never read."""
+    """The committee cell's text before its first `<br`: the venue after it is `venue_of`'s."""
     return text(re.split(r"<br\s*/?>", cell, maxsplit=1, flags=re.I)[0])
+
+
+def venue_of(cell: str):
+    """The committee cell's text after its first `<br` (the venue, as printed), or None. Kept whole in the private twin
+    (ruling 142, 4 November 2026)."""
+    parts = re.split(r"<br\s*/?>", cell, maxsplit=1, flags=re.I)
+    return text(parts[1]) if len(parts) > 1 else None
 
 
 def file_parts(name: str):
@@ -115,7 +123,8 @@ def read_listing(body: bytes, sha: str, base: str) -> dict:
         if not key or key in seen:
             key = f"{host}/{date}/{body_name(cells['bpsGridCommittee'])}/row {place}"
         seen.add(key)
-        meetings.append({"key": key, "host": host, "body": body_name(cells["bpsGridCommittee"]), "meeting_date": date,
+        meetings.append({"key": key, "host": host, "body": body_name(cells["bpsGridCommittee"]),
+                         "venue": venue_of(cells["bpsGridCommittee"]), "meeting_date": date,
                          "meeting_time": tm.group(1).lower() if tm else None, "code": first["code"] if first else None,
                          "documents": len(docs), "has_minutes": any(d["kind"] == "minutes" for d in docs),
                          "document": sha, "page": 1, "place": f"row {place}"})

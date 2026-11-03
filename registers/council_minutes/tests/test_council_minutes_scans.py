@@ -84,7 +84,9 @@ def test_the_page_reader_s_text_is_tidied_into_the_shape_the_rules_read():
     assert "Hemi Speaker" not in text and "Secret Person" not in text and "That the meeting be closed." in text
     assert skipped["public forum items"] == 1 and skipped["public excluded parts"] == 1
     assert M.recognise(t, "text") == (M.STANDARD, "")
-    assert [r["number"] for r in M.read_standard(t)["resolutions"]] == ["2026/3", "2026/5"]
+    res = M.read_standard(t)["resolutions"]
+    assert [r["number"] for r in res if r["part"] == M.OPEN] == ["2026/3", "2026/5"]
+    assert [r["part"] for r in res if r["part"] != M.OPEN] == [M.EXCLUDED], "the excluded part read, flagged (ruling 142)"
     # without the tidy the page reader's single-spaced headings are no items, and the forum would be read
     raw_kept, raw_skipped = M.sections(OCR)
     assert raw_skipped.get("public forum items", 0) == 0 and "Hemi Speaker" in "\n".join(l for _p, l in raw_kept)
@@ -135,9 +137,10 @@ def test_the_load_waits_for_a_scan_s_pages_then_reads_it_with_the_skips(scan, mo
     out = read()
     line = out["minutes_read"][0]
     assert line["state"] == "read" and line["profile"] == M.STANDARD and line["read_from"] == "pixels"
-    assert line["excluded_parts"] == 1 and line["forum_items"] == 1 and line["resolutions"] == 2
+    assert line["excluded_parts"] == 1 and line["forum_items"] == 1 and line["resolutions"] == 3
     assert {r["read_from"] for t in ("attendance", "resolutions") for r in out[t]} == {"pixels"}
-    assert not any("Secret Person" in (r["text"] or "") for r in out["resolutions"])
+    assert not any("Secret Person" in (r["text"] or "") for r in out["resolutions"] if r["part"] == M.OPEN)
+    assert any("Secret Person" in x["text"] for x in out["part_lines"] if x["part"] == M.EXCLUDED)
 
 
 def test_a_scan_s_text_reader_pieces_wait_for_its_pages_and_never_share_a_layer_s_key(scan):

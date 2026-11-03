@@ -148,7 +148,10 @@ def test_the_standard_template_reads_attendance_declarations_and_resolutions():
     assert [a["name"] for a in got["attendance"] if a["attendance"] == "apology"] == ["Gloria Absent"]
     assert [(d["member"], d["item"]) for d in got["declarations"]] == [("B Sample", "6.1")]
     res = got["resolutions"]
-    assert [r["number"] for r in res] == ["2026/1", "2026/3", "2026/4", "2026/7"], "nothing of the forum or the excluded part"
+    assert [r["number"] for r in res if r["part"] == M.OPEN] == ["2026/1", "2026/3", "2026/4", "2026/7"]
+    # ruling 142 (4 November 2026): the forum and the excluded part are read too, each row flagged; they were cut before
+    assert [(r["number"], r["part"]) for r in res if r["part"] != M.OPEN] == [
+        ("2026/2", M.FORUM_PART), ("2026/5", M.EXCLUDED), ("2026/6", M.EXCLUDED)]
     r3 = res[1]
     assert (r3["item"], r3["item_title"], r3["mover"], r3["seconder"], r3["outcome"]) == (
         "6.1", "SALE OF LAND AT 14 PRETEND STREET", "Deputy Mayor Madeup", "Cr Notreal", "CARRIED")
@@ -237,11 +240,14 @@ def test_the_load_reads_each_landed_minutes_pdf_into_the_ledger_and_its_rows(pdf
     out = load.read_minutes(meetings, captured, read_bytes=lambda s: blobs[s], store=rd.Store(tempfile.mkdtemp()))
     ledger = {r["document"]: r for r in out["minutes_read"]}
     assert set(ledger) == {SHA, "b2" * 32}, "every landed minutes PDF has a ledger line; the old estate's are not read"
-    assert ledger[SHA]["state"] == "read" and ledger[SHA]["resolutions"] == 4 and ledger[SHA]["excluded_parts"] == 1
+    assert ledger[SHA]["state"] == "read" and ledger[SHA]["resolutions"] == 7 and ledger[SHA]["excluded_parts"] == 1
     assert ledger["b2" * 32]["state"] == "set aside: not a PDF"
     r = [x for x in out["resolutions"] if x["number"] == "2026/3"][0]
     assert r["text_names_address"] and r["document"] == SHA and r["page"] == 2 and r["meeting_key"].endswith("_AGN")
     assert all(x["key"].startswith(SHA + "/") for t in ("attendance", "resolutions", "declarations") for x in out[t])
+    kept = [x for x in out["part_lines"] if x["document"] == SHA]
+    assert {x["part"] for x in kept} == {M.EXCLUDED, M.FORUM_PART} and [x["seq"] for x in kept] == list(range(1, len(kept) + 1))
+    assert any("Secret Person" in x["text"] for x in kept), "the excluded part's lines kept whole, privately"
 
 
 def test_a_running_head_is_dropped_but_never_a_line_a_skip_turns_on():

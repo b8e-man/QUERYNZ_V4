@@ -46,11 +46,26 @@ COLUMNS = {
     "attendance": ("key", "meeting_key", "council", "body", "meeting_date", "seq", "name", "role", "title", "attendance")
                   + _CITE + ("read_from", "reader", "profile", "profile_version", "model"),
     "resolutions": ("key", "meeting_key", "council", "body", "meeting_date", "seq", "item", "item_title", "number", "mover",
-                    "seconder", "text", "outcome", "votes_for", "votes_against", "abstained", "text_names_address")
+                    "seconder", "text", "outcome", "votes_for", "votes_against", "abstained", "text_names_address", "part")
                    + _CITE + ("read_from", "reader", "profile", "profile_version", "model"),
     "declarations": ("key", "meeting_key", "council", "body", "meeting_date", "seq", "member", "role", "item", "text",
-                     "text_names_address") + _CITE + ("read_from", "reader", "profile", "profile_version", "model"),
+                     "text_names_address", "part") + _CITE + ("read_from", "reader", "profile", "profile_version", "model"),
 }
+PRIVATE = "council_minutes_private"
+#: the private twin's tables (ruling 142): never granted to the session or product logins
+PRIVATE_COLUMNS = {"venues": ("meeting_key", "venue", "venue_names_address", "document", "place"),
+                   "part_lines": ("document", "seq", "page", "part", "part_n", "text")}
+
+
+def private_of(schema: str) -> str:
+    return PRIVATE if schema == SCHEMA else f"{schema}_private"
+
+
+def private_table(schema: str, t: str) -> str:
+    """A private twin's table: by its name beside the lane's own schema, with the lane's prefix beside any other."""
+    return f"{PRIVATE}.{t}" if schema == SCHEMA else f"{private_of(schema)}.{SCHEMA}_{t}"
+
+
 #: a meeting's kind, from the words of its listed name (first match wins)
 KINDS = (("supplementary", "supplementary"), ("extraordinary", "extraordinary"), ("workshop", "workshop"),
          ("hearing", "hearing"), ("briefing", "briefing"))
@@ -64,6 +79,7 @@ def sql(name: str, schema: str = SCHEMA) -> str:
     if name == "tables.sql":
         text = capture.READING + text.split(capture.READING, 1)[1]
     pre = "" if schema == SCHEMA else f"{SCHEMA}_"
+    text = text.replace(f"{PRIVATE}.", f"{private_of(schema)}.{pre}")
     return _NAMES.sub(f"{schema}.{pre}", text)
 
 
@@ -71,6 +87,9 @@ def create_tables(conn, schema: str) -> None:
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     for t in TABLES:
         conn.execute(f"DROP TABLE IF EXISTS {table(schema, t)} CASCADE")
+    conn.execute(f"CREATE SCHEMA IF NOT EXISTS {private_of(schema)}")
+    for t in PRIVATE_COLUMNS:
+        conn.execute(f"DROP TABLE IF EXISTS {private_table(schema, t)} CASCADE")
     conn.execute(sql("tables.sql", schema))
 
 
@@ -111,7 +130,7 @@ def read_minutes(meetings: dict, captured: dict, read_bytes=read_bytes, store=No
         if m.get("minutes_sha256") and m.get("minutes_held") == "landed":
             by_sha.setdefault(m["minutes_sha256"], m)
     landed = sorted({sha for st, sha in captured.values() if st == "landed" and sha})
-    out = {"minutes_read": [], "attendance": [], "resolutions": [], "declarations": []}
+    out = {"minutes_read": [], "attendance": [], "resolutions": [], "declarations": [], "part_lines": []}
     for sha in landed:
         m = by_sha.get(sha, {})
         line = {"document": sha, "meeting_key": m.get("key"), "council": m.get("council"), "attendance": 0,
@@ -155,6 +174,12 @@ def read_minutes(meetings: dict, captured: dict, read_bytes=read_bytes, store=No
         else:
             out["minutes_read"].append({**line, "state": why})
             continue
+        seq = 0
+        for p, text_, part, n in M.parts(texts)[0]:
+            if part != M.OPEN:
+                seq += 1
+                out["part_lines"].append({"document": sha, "seq": seq, "page": p, "part": part, "part_n": n,
+                                          "text": text_})
         sk = got.get("skipped") or {}
         line.update(state=got["state"], profile=prof, profile_version=version_of, model=got.get("model"),
                     excluded_parts=sk.get("public excluded parts", 0), excluded_lines=sk.get("public excluded lines", 0),
@@ -171,16 +196,23 @@ def read_minutes(meetings: dict, captured: dict, read_bytes=read_bytes, store=No
             out["resolutions"].append({**cite, **{k: r.get(k) for k in ("item", "item_title", "number", "mover", "seconder",
                                                                          "text", "outcome", "votes_for", "votes_against",
                                                                          "abstained", "page")},
+                                       "part": r.get("part") or M.OPEN,
                                        "text_names_address": M.names_address(r.get("text")) or M.names_address(r.get("item_title")), "key": f"{sha}/r{n}",
                                        "seq": n, "place": r.get("place") or f"resolution {n}"})
         for n, d in enumerate(got["declarations"], 1):
             out["declarations"].append({**cite, **{k: d.get(k) for k in ("member", "role", "item", "text", "page")},
+                                        "part": d.get("part") or M.OPEN,
                                         "text_names_address": M.names_address(d.get("text")), "key": f"{sha}/d{n}",
                                         "seq": n, "place": f"declaration {n}"})
         line.update(attendance=len(got["attendance"]), resolutions=len(got["resolutions"]),
                     declarations=len(got["declarations"]))
         out["minutes_read"].append(line)
     return out
+
+
+def read_names_address(text: str) -> bool:
+    from registers.council_minutes import minutes as M
+    return M.names_address(text)
 
 
 def standard_version() -> int:
@@ -234,9 +266,13 @@ def build(conn, schema: str, listings: list, captured: dict, read_bytes=read_byt
     if len(ledger) != len({s for _, s, _ in listings}):
         raise AssertionError(f"{SCHEMA}: {len(listings)} listings held, {len(ledger)} in the ledger")
     mins = (read_minutes(meetings, captured, read_bytes, store) if minutes
-            else {t: [] for t in ("minutes_read", "attendance", "resolutions", "declarations")})
+            else {t: [] for t in ("minutes_read", "attendance", "resolutions", "declarations", "part_lines")})
     counts = {t: _copy(conn, T(t), COLUMNS[t], mins[t]) for t in ("minutes_read", "attendance", "resolutions",
                                                                     "declarations")}
+    counts["part_lines"] = _copy(conn, private_table(schema, "part_lines"), PRIVATE_COLUMNS["part_lines"], mins["part_lines"])
+    counts["venues"] = _copy(conn, private_table(schema, "venues"), PRIVATE_COLUMNS["venues"],
+                             ({"meeting_key": m["key"], "venue": m["venue"], "venue_names_address": read_names_address(m["venue"]),
+                               "document": m["document"], "place": m["place"]} for m in meetings.values() if m.get("venue")))
     counts["minutes waiting"] = sum(1 for r in mins["minutes_read"] if str(r["state"]).startswith("waiting"))
     counts["minutes waiting for the page reader"] = sum(1 for r in mins["minutes_read"] if r["state"] == "waiting: page reader")
     return {**counts, "meetings": _copy(conn, T("meetings"), COLUMNS["meetings"], meetings.values()),
@@ -280,6 +316,9 @@ def publish(conn, staging: str, log=print) -> None:
         create_tables(conn, SCHEMA)
         for t in TABLES:
             conn.execute(f"INSERT INTO {table(SCHEMA, t)} SELECT * FROM {table(staging, t)}")
+        for t, cols in PRIVATE_COLUMNS.items():
+            cols = ", ".join(cols)
+            conn.execute(f"INSERT INTO {private_table(SCHEMA, t)} ({cols}) SELECT {cols} FROM {private_table(staging, t)}")
         conn.execute(sql("publish.sql"))
     log(f"{SCHEMA}: published from {staging}")
 
