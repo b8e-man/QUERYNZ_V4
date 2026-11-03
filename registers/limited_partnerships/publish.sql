@@ -2,9 +2,10 @@
 -- partnership the Companies Office's file names, as the NZBN register last answered for it, with its registered
 -- office (a partnership's office is shown, as a company's is); and its general partners, a person or a body as the
 -- register states it. No partner's address of any kind is on a view (hard limit 15): they stay in
--- limited_partnerships_private. A name the register withholds is blanked on every view; the row stays (hard limit
--- 16). A partner's start and end are the register's own; the interface states none, so `dates_stated` says so and
--- `asked_on` is only the day the register was asked. Limited partners are not public and are not here. Run by a
+-- limited_partnerships_private. A name the register withholds is kept in limited_partnerships_private.withheld_names
+-- and blanked on every view; the row stays with its flag (hard limit 16; ruling 142). Every role is a row, its
+-- `role_type` and `general` saying which. A partner's start and end are the register's own; the interface states none, so `dates_stated` says so and
+-- `asked_on` is only the day the register was asked. Limited partners are not public: the register answers none. Run by a
 -- session only against its scratch schema (the tests rewrite `pub.`).
 CREATE OR REPLACE VIEW pub.limited_partnerships AS
 SELECT p.key, p.nzbn, p.number, p.name, p.name_withheld, p.kind, p.type_description, p.status, p.registered_on,
@@ -13,7 +14,7 @@ SELECT p.key, p.nzbn, p.number, p.name, p.name_withheld, p.kind, p.type_descript
 FROM limited_partnerships.partnerships p;
 
 CREATE OR REPLACE VIEW pub.limited_partnership_partners AS
-SELECT g.key, g.partnership_key, g.nzbn, g.kind,
+SELECT g.key, g.partnership_key, g.nzbn, g.kind, g.role_type, g.general,
        CASE WHEN g.suppressed THEN 'name withheld by the register' ELSE g.full_name END AS full_name,
        CASE WHEN g.suppressed THEN NULL ELSE g.first_name END AS first_name,
        CASE WHEN g.suppressed THEN NULL ELSE g.middle_names END AS middle_names,

@@ -11,22 +11,26 @@ aside whole, with the reason, and nothing is read from it.
 
 Read from a recognised answer:
 
-  partnership  one row: NZBN, the register's number, name (withheld where
-               the register's privacy settings withhold it), kind, type,
+  partnership  one row: NZBN, the register's number, name (where the
+               register's privacy settings withhold it, the name is kept in
+               `limited_partnerships_private.withheld_names` and the row
+               carries `name_withheld`; ruling 142), kind, type,
                status, registration date, country of origin, and the
                CURRENT registered address (no end date) with its start date:
                a partnership's registered office is shown
-  partners     one row per role of type `Partner` (a general partner, a
-               person or a body as the register states it): the name, a
+  partners     one row per role (`role_type`: a general partner, `Partner`,
+               or another, such as a person authorised for service; every
+               role is read, ruling 142), a person or a body as the register
+               states it: the name (where the register suppresses it, kept
+               in `limited_partnerships_private.withheld_names`), a
                body's NZBN, Active or Inactive, the role's own dates where
                the answer states them (it states none in every answer read
                so far, and the row says so), the register's suppression
   addresses    every address a partner's role carries, to the private twin
                only (a person's may be a home; hard limit 15)
 
-A role of another type (a person authorised for service) is counted, not
-read. A role with no name is set aside. E-mail addresses, phone numbers and
-websites stay in the document and are never read.
+A role with no name is set aside. E-mail addresses, phone numbers and
+websites are read into `limited_partnerships_private.contacts` (ruling 142).
 
 Every line this module prints is a count.
 """
@@ -44,6 +48,8 @@ READER = "registers.limited_partnerships.read 1"
 KEY_PREFIX = "limited_partnerships"
 KINDS = {"Y": "nz", "Z": "overseas"}
 PARTNER_ROLE = "Partner"
+#: the answer's contact lists, read into the private twin (ruling 142)
+CONTACT_FIELDS = ("emailAddresses", "phoneNumbers", "websites")
 
 
 def profile_version() -> int:
@@ -114,7 +120,8 @@ def read_answer(body: bytes, sha: str, asked_on: dt.date, version: int) -> dict:
     """One answer: {'partnership', 'partners', 'addresses', 'set_aside',
     'roles', 'other_roles'}. A body that is not the profile's shape gives
     no partnership and one catch-log line."""
-    out = {"partnership": None, "partners": [], "addresses": [], "set_aside": [], "roles": 0, "other_roles": 0}
+    out = {"partnership": None, "partners": [], "addresses": [], "set_aside": [], "roles": 0, "other_roles": 0,
+           "withheld_names": [], "contacts": []}
     j, why = recognise(body)
     if j is None:
         out["set_aside"].append({"document": sha, "place": "answer", "stage": "recognise", "reason": why})
@@ -137,15 +144,24 @@ def read_answer(body: bytes, sha: str, asked_on: dt.date, version: int) -> dict:
         "status_code": text(j.get("entityStatusCode")), "registered_on": day(j.get("registrationDate")),
         "country_of_origin": text(ncd.get("countryOfOrigin")), "registered_office": office, "office_since": since,
         "asked_on": asked_on, **cite(sha, "entity", version)}
+    out.setdefault("withheld_names", [])
+    out.setdefault("contacts", [])
+    if withheld and text(j.get("entityName")):
+        out["withheld_names"].append({"key": pkey, "full_name": text(j.get("entityName")), "first_name": None,
+                                      "middle_names": None, "last_name": None, "why": "namePrivateInformation",
+                                      "document": sha, "place": "entityName"})
+    for f in CONTACT_FIELDS:
+        for k, v in enumerate(j.get(f) or []):
+            if v not in (None, "", {}, []):
+                out["contacts"].append({"key": pkey, "kind": f, "value": json.dumps(v, ensure_ascii=False, sort_keys=True)
+                                        if not isinstance(v, str) else v, "document": sha, "place": f"{f}[{k}]"})
     partners_private = bool(privacy.get("partnersPrivateInformation"))
     seen = set()
     for i, r in enumerate(j["roles"]):
         out["roles"] += 1
         place = f"roles[{i}]"
-        if (r or {}).get("roleType") != PARTNER_ROLE:
-            out["other_roles"] += 1
-            continue
-        person, body_ = r.get("rolePerson"), r.get("roleEntity")
+        role_type = text((r or {}).get("roleType"))
+        person, body_ = (r or {}).get("rolePerson"), (r or {}).get("roleEntity")
         if person:
             first, middle, last = text(person.get("firstName")), text(person.get("middleNames")), text(person.get("lastName"))
             full = " ".join(p for p in (first, middle, last) if p) or None
@@ -156,7 +172,9 @@ def read_answer(body: bytes, sha: str, asked_on: dt.date, version: int) -> dict:
         else:
             full = None
         if not full:
-            out["set_aside"].append({"document": sha, "place": place, "stage": "read", "reason": "a general partner with no name"})
+            out["set_aside"].append({"document": sha, "place": place, "stage": "read",
+                                     "reason": "a general partner with no name" if role_type == PARTNER_ROLE
+                                     else "a role with no name"})
             continue
         rid = text(r.get("uniqueIdentifier"))
         # the interface's identifier is not unique within an answer: two different bodies were answered under one
@@ -169,8 +187,20 @@ def read_answer(body: bytes, sha: str, asked_on: dt.date, version: int) -> dict:
         seen.add(key)
         started, ended = day(r.get("startDate")), day(r.get("endDate"))
         suppressed = bool(r.get("suppressed") or (person or {}).get("suppressed") or partners_private)
+        if suppressed:
+            # the name kept whole in the private twin, keyed by the row (ruling 142); the row carries the flag
+            out["withheld_names"].append({"key": key, "full_name": full, "first_name": first, "middle_names": middle,
+                                          "last_name": last, "why": "suppressed" if not partners_private
+                                          else "partnersPrivateInformation", "document": sha, "place": place})
+            full = first = middle = last = None
+        if role_type == PARTNER_ROLE:
+            general = True
+        else:
+            general = False
+            out["other_roles"] += 1
         out["partners"].append({
-            "key": key, "partnership_key": pkey, "nzbn": nzbn, "role_id": rid, "kind": kind, "full_name": full,
+            "key": key, "partnership_key": pkey, "nzbn": nzbn, "role_id": rid, "role_type": role_type,
+            "general": general, "kind": kind, "full_name": full,
             "first_name": first, "middle_names": middle, "last_name": last, "body_nzbn": body_nzbn,
             "suppressed": suppressed, "current": r.get("roleStatus") == "Active", "status": text(r.get("roleStatus")),
             "started_on": started, "ended_on": ended, "dates_stated": bool(started or ended), "asked_on": asked_on,

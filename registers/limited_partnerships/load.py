@@ -33,18 +33,20 @@ PRIVATE = "limited_partnerships_private"
 JOB = "qv4-limited-partnerships-load"
 STAGING = "staging_limited_partnerships_load"
 TABLES = ("read_answers", "partnerships", "partners", "read_set_aside")
-PRIVATE_TABLES = ("addresses",)
+PRIVATE_TABLES = ("addresses", "withheld_names", "contacts")
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version")
 COLUMNS = {
     "read_answers": ("document", "nzbn", "asked_at", "superseded", "recognised", "roles", "partners", "other_roles", "set_aside"),
     "partnerships": ("key", "nzbn", "number", "name", "name_withheld", "kind", "entity_type", "type_description",
                      "status", "status_code", "registered_on", "country_of_origin", "registered_office",
                      "office_since", "asked_on") + _CITE,
-    "partners": ("key", "partnership_key", "nzbn", "role_id", "kind", "full_name", "first_name", "middle_names",
+    "partners": ("key", "partnership_key", "nzbn", "role_id", "role_type", "general", "kind", "full_name", "first_name", "middle_names",
                  "last_name", "body_nzbn", "suppressed", "current", "status", "started_on", "ended_on",
                  "dates_stated", "asked_on") + _CITE,
     "read_set_aside": ("document", "place", "stage", "reason"),
     "addresses": ("key", "address_type", "address", "document", "place"),
+    "withheld_names": ("key", "full_name", "first_name", "middle_names", "last_name", "why", "document", "place"),
+    "contacts": ("key", "kind", "value", "document", "place"),
 }
 NZ = ZoneInfo("Pacific/Auckland")
 
@@ -111,20 +113,25 @@ def build(conn, schema: str, answers: list, read_bytes=read_bytes, shared: bool 
         out = read.read_answer(read_bytes(sha), sha, at.astimezone(NZ).date(), version)
         if out["partnership"] is not None and out["partnership"]["nzbn"] != nzbn:
             out = {**out, "partnership": None, "partners": [], "addresses": [], "roles": 0, "other_roles": 0,
+                   "withheld_names": [], "contacts": [],
                    "set_aside": [{"document": sha, "place": "answer", "stage": "key",
                                   "reason": "the answer is for another NZBN than the one asked"}]}
         if out["partnership"]:
             rows["partnerships"].append(out["partnership"])
         rows["partners"] += out["partners"]
         rows["addresses"] += out["addresses"]
+        rows["withheld_names"] += out["withheld_names"]
+        rows["contacts"] += out["contacts"]
         rows["read_set_aside"] += out["set_aside"]
         role_asides = sum(1 for a in out["set_aside"] if a["place"].startswith("roles["))
-        if out["roles"] != len(out["partners"]) + out["other_roles"] + role_asides:
+        general = sum(1 for p in out["partners"] if p["general"])
+        if out["roles"] != general + out["other_roles"] + role_asides or len(out["partners"]) != general + out["other_roles"]:
             raise AssertionError(f"{SCHEMA}: answer {sha[:12]} does not reconcile (roles in ≠ typed + other + set aside)")
         ledger.append({"document": sha, "nzbn": nzbn, "asked_at": at, "superseded": False,
                        "recognised": out["partnership"] is not None, "roles": out["roles"],
-                       "partners": len(out["partners"]), "other_roles": out["other_roles"], "set_aside": role_asides})
-    counts = {t: _copy(conn, T(t), COLUMNS[t], rows[t]) for t in ("partnerships", "partners", "read_set_aside", "addresses")}
+                       "partners": general, "other_roles": out["other_roles"], "set_aside": role_asides})
+    counts = {t: _copy(conn, T(t), COLUMNS[t], rows[t])
+              for t in ("partnerships", "partners", "read_set_aside", "addresses", "withheld_names", "contacts")}
     counts["answers"] = _copy(conn, T("read_answers"), COLUMNS["read_answers"], ledger)
     counts["superseded"] = sum(1 for l in ledger if l["superseded"])
     counts["seconds"] = round(time.monotonic() - t0, 1)

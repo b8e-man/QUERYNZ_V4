@@ -63,9 +63,10 @@ def rules(mod) -> list:
     p = out["partnership"]
     if not (p and p["registered_office"] and p["registered_office"].startswith("2 New Road") and p["office_since"] == dt.date(2021, 1, 2)):
         broken.append("the current registered office, not an ended one")
-    if [g["kind"] for g in out["partners"]] != ["body", "person"] or out["other_roles"] != 1 or out["roles"] != 3:
-        broken.append("only Partner roles are general partners; the others are counted")
-    if [g["current"] for g in out["partners"]] != [True, False]:
+    if [(g["kind"], g["general"]) for g in out["partners"]] != [("body", True), ("person", True), ("body", False)] \
+            or out["other_roles"] != 1 or out["roles"] != 3 or out["partners"][2]["role_type"] != "Person Authorised For Service":
+        broken.append("every role is read (ruling 142): Partner roles are general partners, the others rows too")
+    if [g["current"] for g in out["partners"] if g["general"]] != [True, False]:
         broken.append("Active is current, Inactive is past")
     if any(g["started_on"] or g["ended_on"] or g["dates_stated"] for g in out["partners"]):
         broken.append("no date is made up where the answer states none")
@@ -73,12 +74,21 @@ def rules(mod) -> list:
         broken.append("a partner's addresses go to the private twin only")
     if p and any("address" in k and k != "registered_office" for k in p):
         broken.append("the partnership row carries no address but the registered office")
-    w = _read(_answer(withheld=True), mod)["partnership"]
+    wo = _read(_answer(withheld=True), mod)
+    w = wo["partnership"]
     if not (w and w["name"] is None and w["name_withheld"]):
-        broken.append("a name the register withholds is not read")
-    sup = _read(_answer(privacySettings={"partnersPrivateInformation": True}), mod)["partners"]
-    if not sup or not all(g["suppressed"] for g in sup):
-        broken.append("partners the register withholds are suppressed")
+        broken.append("a name the register withholds is not on the row")
+    if [(n["key"], n["why"]) for n in wo["withheld_names"]] != [(w["key"], "namePrivateInformation")] or not wo["withheld_names"][0]["full_name"]:
+        broken.append("a name the register withholds is kept in the private twin (ruling 142)")
+    so = _read(_answer(privacySettings={"partnersPrivateInformation": True}), mod)
+    sup = so["partners"]
+    if not sup or not all(g["suppressed"] and g["full_name"] is None for g in sup):
+        broken.append("partners the register withholds are suppressed, their names off the row")
+    if sorted(n["key"] for n in so["withheld_names"]) != sorted(g["key"] for g in sup) or not all(n["full_name"] for n in so["withheld_names"]):
+        broken.append("a suppressed partner's name is kept in the private twin by the row's key (ruling 142)")
+    co = _read(_answer(emailAddresses=[{"emailAddress": "gp@invented.example"}], websites=[{"url": "https://invented.example"}]), mod)
+    if sorted(c["kind"] for c in co["contacts"]) != ["emailAddresses", "websites"]:
+        broken.append("the answer's e-mail addresses and websites are read into the private twin (ruling 142)")
     two = _read(_answer(roles=[_role(body={"entityName": "First GP Ltd", "nzbn": None}, uid="same"),
                                _role(body={"entityName": "Second GP Ltd", "nzbn": None}, uid="same")]), mod)
     if len({g["key"] for g in two["partners"]}) != 2:
@@ -104,7 +114,10 @@ def test_every_rule_holds():
 MUTANTS = {
     "an ended registered office": ('if a.get("addressType") == "REGISTERED" and not a.get("endDate")',
                                    'if a.get("addressType") == "REGISTERED"'),
-    "every role a partner": ('if (r or {}).get("roleType") != PARTNER_ROLE:', 'if False:'),
+    "every role a general partner": ('if role_type == PARTNER_ROLE:', 'if True:'),
+    "a withheld name dropped": ('if withheld and text(j.get("entityName")):', 'if False:'),
+    "a suppressed name dropped": ('            out["withheld_names"].append({"key": key,', '            None and out["withheld_names"].append({"key": key,'),
+    "contacts never read": ('for f in CONTACT_FIELDS:', 'for f in ():'),
     "Inactive read as current": ('"current": r.get("roleStatus") == "Active"', '"current": True'),
     "the ask day as a start date": ('started, ended = day(r.get("startDate")), day(r.get("endDate"))',
                                     'started, ended = day(r.get("startDate")) or asked_on, day(r.get("endDate"))'),
@@ -249,13 +262,13 @@ def test_the_ledger_reconciles_and_the_hard_cases_read_as_their_comments_say(fil
     assert all(a["roles"] == a["partners"] + a["other_roles"] + a["set_aside"] for a in filled["read_answers"])
     by = {p["nzbn"]: p for p in filled["partnerships"]}
     assert by["9429043245406"]["kind"] == "overseas" and by["9429053854551"]["kind"] == "nz"
-    gp = [g for g in filled["partners"] if g["nzbn"] == "9429043245406"]
+    gp = [g for g in filled["partners"] if g["nzbn"] == "9429043245406" and g["general"]]
     assert sorted((g["kind"], g["current"]) for g in gp) == [("person", False), ("person", True)]
     two = [g for g in filled["partners"] if g["nzbn"] == "9429043218851"]
     assert len(two) == 2 and len({g["role_id"] for g in two}) == 1 and len({g["key"] for g in two}) == 2
     assert all(p["registered_office"] for p in filled["partnerships"])
     assert not any(g["dates_stated"] for g in filled["partners"])          # the interface states none: none made up
-    assert len(filled["partners"]) == 18 and len(filled["partnerships"]) == 15
+    assert sum(g["general"] for g in filled["partners"]) == 18 and len(filled["partners"]) == 19 and len(filled["partnerships"]) == 15   # one role authorised for service, read since ruling 142
 
 
 def test_no_view_carries_a_partner_address_or_a_withheld_name(filled):

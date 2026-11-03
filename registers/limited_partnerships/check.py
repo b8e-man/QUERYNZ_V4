@@ -39,7 +39,7 @@ def reading(conn, schema: str = SCHEMA, shared: bool = False) -> list:
                        "roles <> partners + other_roles + set_aside").fetchone()[0]
     if bad:
         out.append(f"{bad} answers do not reconcile")
-    typed = conn.execute(f"SELECT count(*) FROM {T('partners')}").fetchone()[0]
+    typed = conn.execute(f"SELECT count(*) FROM {T('partners')} WHERE general").fetchone()[0]
     said = conn.execute(f"SELECT coalesce(sum(partners), 0) FROM {T('read_answers')}").fetchone()[0]
     if typed != said:
         out.append(f"{typed} partner rows against {said} in the ledger")

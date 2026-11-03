@@ -45,8 +45,12 @@ by sanctions-1.
    answer gives for a partner (postal, service, registered) goes to the
    lane's private twin and is never published (hard limit 15). Only the
    partnership's own registered office is shown, as a company's is. A name
-   the register withholds (`privacySettings`) is blanked on every surface,
-   the row kept (hard limit 16). E-mail, phone and website are never read.
+   the register withholds (`privacySettings`, a role's `suppressed`) is kept
+   in `limited_partnerships_private.withheld_names` by the row's key and is
+   off the row and every view, the row kept with its flag (hard limit 16;
+   ruling 142, 4 November 2026). Every role is read, a person authorised for
+   service included (`role_type`). E-mail, phone and website are read into
+   `limited_partnerships_private.contacts`.
    Privacy Act 2020, principles 8 and 11: rows are kept as the register
    stated them, with the day asked; the interface states no start or end
    date for a partner and none is made up.

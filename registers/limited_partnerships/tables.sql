@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS limited_partnerships.partnerships (
     key                text PRIMARY KEY,            -- limited_partnerships/<nzbn>
     nzbn               text NOT NULL,
     number             text,                        -- the register's own number (sourceRegisterUniqueIdentifier)
-    name               text,                        -- NULL where the register withholds it
+    name               text,                        -- NULL where the register withholds it: kept in the private twin
     name_withheld      boolean NOT NULL,
     kind               text NOT NULL CHECK (kind IN ('nz', 'overseas')),
     entity_type        text,                        -- as answered: Y (NZ) or Z (overseas)
@@ -85,13 +85,15 @@ CREATE TABLE IF NOT EXISTS limited_partnerships.partners (
     partnership_key    text NOT NULL,
     nzbn               text NOT NULL,               -- the partnership's
     role_id            text,                        -- the interface's own identifier for the role
+    role_type          text,                        -- as answered: Partner (a general partner), Person Authorised For Service, ...
+    general            boolean NOT NULL,            -- a general partner (role_type Partner)
     kind               text NOT NULL CHECK (kind IN ('person', 'body')),
-    full_name          text,
+    full_name          text,                        -- NULL where the register suppresses it: kept in the private twin
     first_name         text,
     middle_names       text,
     last_name          text,
     body_nzbn          text,                        -- a body's NZBN, where the register gives one
-    suppressed         boolean NOT NULL,            -- the register withholds the name: blanked on every view
+    suppressed         boolean NOT NULL,            -- the register withholds the name: the name in withheld_names
     current            boolean NOT NULL,
     status             text,                        -- as answered: Active, Inactive
     started_on         date,
@@ -115,6 +117,28 @@ CREATE TABLE IF NOT EXISTS limited_partnerships_private.addresses (
     key           text NOT NULL,                    -- the partner's key
     address_type  text,
     address       text NOT NULL,
+    document      text NOT NULL,
+    place         text NOT NULL
+);
+
+-- a name the register withholds (a partnership's under namePrivateInformation, a partner's suppressed or under
+-- partnersPrivateInformation), kept whole by the row's key (ruling 142); the row carries the flag
+CREATE TABLE IF NOT EXISTS limited_partnerships_private.withheld_names (
+    key           text NOT NULL,                    -- the partnership's or the partner's key
+    full_name     text NOT NULL,
+    first_name    text,
+    middle_names  text,
+    last_name     text,
+    why           text NOT NULL,                    -- the register's own setting: namePrivateInformation, suppressed, ...
+    document      text NOT NULL,
+    place         text NOT NULL
+);
+
+-- the answer's e-mail addresses, phone numbers and websites, as answered (ruling 142)
+CREATE TABLE IF NOT EXISTS limited_partnerships_private.contacts (
+    key           text NOT NULL,                    -- the partnership's key
+    kind          text NOT NULL,                    -- emailAddresses, phoneNumbers, websites
+    value         text NOT NULL,                    -- the item as answered (JSON where it is not text)
     document      text NOT NULL,
     place         text NOT NULL
 );
