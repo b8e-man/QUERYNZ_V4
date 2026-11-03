@@ -25,7 +25,10 @@ operative words say which of six things the notice is:
                     notice, named, and is substituted for it
   revocation        revokes a named notice, and names nobody to prohibit: a
                     notice revoked "as published in error" may name the
-                    person it wrongly identified, which is never read
+                    person it wrongly identified: `in_error` flags it, and
+                    the revocation's words are kept whole in `private` for
+                    gazette_private.kept_text (ruling 142); the revoked
+                    rows carry `superseded_in_error`
 
 A person's name is printed twice, in the `To:` field and in the operative
 sentence; `named_twice` says whether both agree. A field `Formerly of:` is
@@ -139,6 +142,9 @@ class Reading:
     acts_on: list = field(default_factory=list)     # notice numbers revoked, substituted or varied
     persons: list = field(default_factory=list)
     unread: list = field(default_factory=list)      # (place, why)
+    in_error: bool = False       # a revocation that says the notice was published in error
+    #: (place, kind, value): a revocation's words, whole, for gazette_private.kept_text (ruling 142)
+    private: list = field(default_factory=list)
 
 
 def _persons(text: str) -> tuple:
@@ -215,7 +221,10 @@ def _read_one(text: str) -> Reading:
     d = _DATED.search(text)
     r.dated_on = _date(f"{d.group('d')} {d.group('m')} {d.group('y')}") if d else None
     if r.action == "revocation":
-        return r                 # it prohibits nobody; a name in it is never read
+        # it prohibits nobody; its words, and any person it says was named in error, are kept privately
+        r.in_error = bool(re.search(r"\b(?:published|issued|made)\s+in\s+error\b|\bin\s+error\b", text, re.I))
+        r.private.append(("notice", "the revocation's words", _clean(text)))
+        return r
     r.permanent = bool(_PERMANENT.search(text))
     tail = text[_SET_ASIDE.search(text).end():] if r.action == "variation" else text
     p = _PERIOD.search(tail)

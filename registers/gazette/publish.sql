@@ -20,7 +20,8 @@ SELECT key, notice, published_on, action,
        CASE WHEN superseded_how IN ('revoked', 'revoked and replaced') THEN NULL ELSE name END AS name,
        CASE WHEN superseded_how IN ('revoked', 'revoked and replaced') THEN NULL ELSE also_known_as END AS also_known_as,
        named_twice, statute, months, permanent, starts_on, starts_basis, ends_on, dated_on, supersedes, superseded_by,
-       superseded_how, ordinal, document, page, place, read_from, reader, profile, profile_version, loaded_at
+       superseded_how, superseded_in_error, ordinal, document, page, place, read_from, reader, profile, profile_version,
+       loaded_at
 FROM gazette.prohibitions;
 
 CREATE OR REPLACE VIEW pub.gazette_liquidations AS

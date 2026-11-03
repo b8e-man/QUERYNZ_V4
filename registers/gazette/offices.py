@@ -6,12 +6,14 @@
                                  Appointment" (sections go, vr): each appointee by name, the role the notice gives
                                  ("to be an Acting District Court Judge"), the court from the title, statute, appointer,
                                  term. Who the appointee was before ("Barrister and Solicitor of Timaru", "retired
-                                 District Court Judge") is never kept: the role is the office given
+                                 District Court Judge") is kept privately (`private`, ruling 142): the role is the office given
   gazette-jp-list                "Justices of the Peace Appointed" (each "Surname, Given names, <address>, <town>."),
                                  "Justices of the Peace (Retired)" and "… Resignations" (each "Given names Surname, of
                                  <town>."): each name as printed and its town only. The rest of a JP's entry is their
-                                 home address and is never read into a row: the town is the last part of the entry, kept
-                                 only when it holds no digit, no street word and nothing the lane's address cut finds
+                                 home address and is never on a row: it is kept whole in `private` for
+                                 gazette_private.kept_text (ruling 142), as is an entry the reader cannot take; the
+                                 town is the last part of the entry, on the row only when it holds no digit, no street
+                                 word and nothing the lane's address cut finds
   gazette-mental-health-director  a Director of Area Mental Health Services named in an amending notice ("substituting
                                  the name and title “Name, title, of Place”", "Appoint Name as Director of Area Mental
                                  Health Services in respect of …"): the name and the area. A principal notice's schedule is
@@ -100,7 +102,9 @@ def judicial(title: str, text: str) -> AP.Reading:
     g = next((x for x in _GIVEN_ROLE.finditer(plain) if x.group(0).lower().startswith("to")), None) or _GIVEN_ROLE.search(plain)
     role = LQ._clean(g.group("role")) if g else None
     for p in r.people:
-        p.role = role                         # the office given, never who they were before
+        if p.role and p.role != role:
+            r.private.append((f"appointee {p.ordinal}", "described as", p.role))
+        p.role = role                         # the office given; who they were before is kept privately
     return r
 
 
@@ -114,6 +118,8 @@ class JpReading:
     statute: str = None
     people: list = field(default_factory=list)      # (ordinal, name as printed, town or None)
     unread: list = field(default_factory=list)
+    #: (place, kind, value): an entry's address and an entry not taken, whole, for gazette_private.kept_text (ruling 142)
+    private: list = field(default_factory=list)
 
 
 _JP_ROLE = {"appointed": "Justice of the Peace for New Zealand", "retired": "Justice of the Peace (retired)",
@@ -168,24 +174,30 @@ def jp_list(title: str, text: str) -> JpReading:
             em = _APPOINTED_ENTRY.match(LQ._clean(x))
             if not em or AP._NOT_PERSON.search(em.group("surname")):
                 r.unread.append((f"entry {i}", "an entry the reader cannot take as 'Surname, Given names'"))
+                r.private.append((f"entry {i}", "an entry not taken", LQ._clean(x)))
                 continue
             parts = [p for p in (em.group("rest") or "").split(",") if p.strip(" .")]
             r.people.append((len(r.people) + 1, f"{em.group('surname')}, {LQ._clean(em.group('given'))}",
                              town(parts[-1]) if parts else None))
+            if em.group("rest") and LQ._clean(em.group("rest")):
+                r.private.append((f"person {len(r.people)}", "the entry's address as printed", LQ._clean(em.group("rest"))))
     else:
         entries = [x for x in _OF_SPLIT.split(span) if x and x.strip(" .;")]
         for i, x in enumerate(entries, start=1):
             x = LQ._clean(x)
             if len(re.findall(r"(?:,\s*|\s)of\s+", x)) > 1:
                 r.unread.append((f"entry {i}", "names run together with no separator: which town is whose cannot be told"))
+                r.private.append((f"entry {i}", "an entry not taken", x))
                 continue
             em = _OF_ENTRY.match(x)
             bare = em and re.sub(rf"^(?:{AP._HONORIFIC}\s+)+", "", em.group("name"))
             if not em or AP._NOT_PERSON.search(bare) or not 2 <= len(bare.split()) <= 6:
                 r.unread.append((f"entry {i}", "an entry the reader cannot take as 'Name, of Town'"))
+                r.private.append((f"entry {i}", "an entry not taken", x))
                 continue
             parts = [p for p in em.group("rest").split(",") if p.strip(" .")]
             r.people.append((len(r.people) + 1, LQ._clean(em.group("name")), town(parts[-1]) if parts else None))
+            r.private.append((f"person {len(r.people)}", "the entry's address as printed", LQ._clean(em.group("rest"))))
     if not r.people and not r.unread:
         r.unread.append(("list", "the list names no one the reader can take"))
     return r

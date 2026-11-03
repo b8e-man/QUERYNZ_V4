@@ -12,7 +12,8 @@ Two shapes:
            company by special resolution of the shareholders on 9 May 2016 at
            10.30am, pursuant to section 241(2)(a)…"); a claims date; "Dated";
            the liquidators' signature ("X and Y, Joint Liquidators"); then
-           their business contact lines, which are never read
+           their business contact lines, kept whole in the Reading's
+           `private` for `gazette_private.kept_text` (ruling 142)
   list     the Official Assignee's "Liquidations": `NAME LIMITED | 9 May 2022`
            repeated; the Official Assignee is the liquidator
 
@@ -25,7 +26,7 @@ liquidators are read from the signature, each checked against the
 notice's text above it (`named_in_body`: the full name, only the surname,
 as when "J. Example" signs for "Jane Example", or no); a notice with no
 signature names them only in the operative sentence ("…, insolvency
-practitioner, was appointed liquidator"), and they are read from there; otherwise none is named. No address, telephone or email is read.
+practitioner, was appointed liquidator"), and they are read from there; otherwise none is named. No address, telephone or email is on a row: the lines after the signature are kept privately.
 
 The old reader (`data-layer/gazette_register/parse.py`, parse_insolvency)
 split titles on every "and", so `SMITH AND JONES LIMITED` became
@@ -105,6 +106,8 @@ class Reading:
     corrigendum: bool = False
     dates_per_company: bool = False
     unread: list = field(default_factory=list)      # (place, why)
+    #: (place, kind, value): the lines after the signature, whole, for gazette_private.kept_text (ruling 142)
+    private: list = field(default_factory=list)
 
 
 def _date(text):
@@ -309,4 +312,8 @@ def read(title: str, text: str) -> Reading:
         r.liquidators = _from_sentence(text)
     if bad:
         r.unread.append(bad)
+    sig = list(_SIGNED.finditer(text))
+    after = _clean(text[sig[-1].end():]) if sig else ""
+    if after:
+        r.private.append(("signature", "the lines after the signature", after))
     return r

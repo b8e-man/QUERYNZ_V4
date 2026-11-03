@@ -81,18 +81,22 @@ def test_a_judge_reads_the_office_given_and_never_who_they_were_before():
         "the office given, never 'as the Chief District Court Judge may fix'"
 
 
-def test_a_jp_list_keeps_each_name_and_its_town_and_never_the_rest_of_the_entry():
+def test_a_jp_list_puts_each_name_and_its_town_on_the_row_and_keeps_the_rest_of_the_entry_privately():
     r = O.jp_list("Justices of the Peace Appointed", JP_APPOINTED)
     assert r.kind == "appointed" and r.statute == "Justices of the Peace Act 1957 s 3(1)" and r.dated_on == "2009-05-01"
     assert r.people == [(1, "Example, Ann Bea", "Exampleton"), (2, "Sample, Bob", "Testburgh"), (3, "Dee, Cara Eve", "Gumtree")]
     shown = repr(r.people)
     for word in ("12", "Sample Street", "Exampleville", "Flat", "Test Road", "R.D.", "Wattle Bush", "Fern Road"):
         assert word not in shown, word
+    kept = {p: v for p, k, v in r.private if k == "the entry's address as printed"}
+    assert set(kept) == {"person 1", "person 2", "person 3"} and "12 Sample Street" in kept["person 1"] \
+        and "Wattle Bush" in kept["person 3"], "the rest of each entry is kept for the private twin (ruling 142)"
     t = O.jp_list("Justices of the Peace (Retired)", JP_RETIRED)
     assert t.kind == "retired" and t.people == [(1, "Ann Bea Example", "Exampleton"), (2, "Bob Sample", "Palmerston Test")]
     run = O.jp_list("Justices of the Peace Resignations", JP_RUN)
     assert run.kind == "resigned" and run.people == [] and \
         [w for _, w in run.unread] == ["names run together with no separator: which town is whose cannot be told"]
+    assert [k for _, k, _ in run.private] == ["an entry not taken"], "an entry not taken is kept whole"
 
 
 def test_a_town_is_kept_only_when_it_is_no_street():

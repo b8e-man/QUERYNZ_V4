@@ -32,7 +32,16 @@ capture, exported once (20 October 2026).
    the lane's private schema only and is never published (hard limit 15).
    A notice the Gazette has withdrawn from its site, or that its robots
    file disallows by notice number (a suppression request), is never
-   fetched: a publisher's request is honoured (hard limit 7).
+   fetched from the Gazette: a publisher's request is honoured (hard limit
+   7). Where DigitalNZ's records or the old export already hold such a
+   notice, its lines are kept whole in `gazette_private.suppressed_notices`
+   and its `notices` row carries status `suppressed` and no title; no row is
+   read from it and nothing of it is shown (ruling 142, 4 November 2026).
+   What a reader reads past for a row (an appointee's or a Justice of the
+   Peace's address, a plaintiff's address for service, a restoration's
+   applicant, a liquidator's contact lines, a record the reader could not
+   cut, a revocation's words) is kept in `gazette_private.kept_text`, never
+   published.
 
 Crawl delay: as robots.txt states it, if it states one. Floor: 5 s between
 requests (the polite floor). One request at a time, off-peak (22:00 to

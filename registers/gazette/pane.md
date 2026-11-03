@@ -48,9 +48,9 @@ its publication day alone (48,393 rows, 46,282 of them removals); a day whose ki
 as a bare "event on" (72 rows, administrations and notices to creditors). The row says which Companies Office entity
 it was joined to and how (by number and name, or by the one name alive on the notice's date), or "not held"; a
 society's or trust board's printed number is looked up among the societies and trust boards, never the companies. The
-receivers and administrators the notice names are listed under it. A plaintiff's address for service is never read,
-held or shown, and neither is the applicant a restoration names, nor the applicant's address: a restoration row is the
-company alone. A restoration given under `ds` is a removal row whose action is "restoration" (5,155 rows); one under
+receivers and administrators the notice names are listed under it. A plaintiff's address for service, and the applicant
+a restoration names with the applicant's address, are held in `gazette_private.kept_text` and never shown: a
+restoration row is the company alone. A restoration given under `ds` is a removal row whose action is "restoration" (5,155 rows); one under
 `ot` is the kind "restoration".
 
 Four more kinds come from the Registrar's other `ot` notices (gazette-5, measured on every notice 20 October 2026). A
@@ -85,7 +85,7 @@ anywhere else: two people of one name are two rows.
 An appointment row opens to its notice: the appointee as printed (with any honorific), the body and the role, the Act
 and section, who appointed (the Governor-General, a Minister, the Sovereign, a Chief Justice or Chief Judge), the
 term's start and end where printed, and whether the notice is a corrigendum. Where an appointee lives (", of <town>")
-is read past and never kept. A name on an appointment is not joined to a Member of Parliament or anyone else; the
+is held in `gazette_private.kept_text` and never shown. A name on an appointment is not joined to a Member of Parliament or anyone else; the
 check compares surnames only, as a measure of the reader.
 
 A possession row (`pub.gazette_possessions`, one per notice under `gn` of a mortgagee's entry into possession, 3,002

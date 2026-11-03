@@ -285,6 +285,9 @@ def test_a_revocation_names_nobody_and_the_revoked_notice_s_person_is_not_publis
     [p] = res.prohibitions
     assert (p["filed"]["superseded_by"], p["filed"]["superseded_how"]) == ("2026-ot144", "revoked")
     assert "Wrong" not in json.dumps(res.prohibitions) and res.prohibition_addresses[0][0] == p["key"]
+    assert r.in_error and p["filed"]["superseded_in_error"] is True, "the source's correction is a flag"
+    [k] = [k for k in res.kept if k["notice"] == "2026-ot144"]
+    assert k["kind"] == "the revocation's words" and "Wrong Person" in k["value"], "its words are kept privately (ruling 142)"
     assert {n["filed"]["status"] for n in res.notices} == {"read"}
     view = open(os.path.join(LANE, "publish.sql"), encoding="utf-8").read()
     assert "WHEN superseded_how IN ('revoked', 'revoked and replaced') THEN NULL ELSE name END" in view
@@ -319,14 +322,16 @@ LIQ = ("Notice of Appointment of Liquidator Company Number: 1234567 Notice is he
        "Phone: (09) 987 6543.")
 
 
-def test_a_liquidator_s_appointment_reads_company_appointer_date_and_signature_and_no_contact_line():
+def test_a_liquidator_s_appointment_reads_company_appointer_date_and_signature_and_keeps_the_contact_lines_privately():
     assert LQ.recognise("al", "x", "y") and not LQ.recognise("go", "Appointment of Liquidator", LIQ)
     r = LQ.read("SMITH AND JONES LIMITED (in liquidation)", LIQ)
     assert [(c.name, c.number, c.appointed_on, c.appointed_at) for c in r.companies] == [
         ("SMITH AND JONES LIMITED", "1234567", "2016-05-09", "10.30am")]
     assert (r.shape, r.appointed_by, r.statute, r.dated_on) == ("notice", "shareholders", "Companies Act 1993 s 241(2)(a)", "2016-05-10")
     assert [(x.name, x.role, x.named_in_body) for x in r.liquidators] == [("A. B. EXAMPLE", "Liquidator", "surname")]
-    assert "Box" not in repr(r) and "6543" not in repr(r)
+    assert "Box" not in repr((r.companies, r.liquidators)) and "6543" not in repr((r.companies, r.liquidators))
+    assert [(p, k) for p, k, _ in r.private] == [("signature", "the lines after the signature")]
+    assert "PO Box 1" in r.private[0][2] and "6543" in r.private[0][2], "the contact lines are kept whole (ruling 142)"
 
 
 def test_a_title_is_cut_only_where_every_part_ends_in_a_suffix():
@@ -460,7 +465,7 @@ def test_the_registrar_s_list_is_cut_at_each_suffix_and_one_bad_row_costs_only_i
     assert words.companies == [] and [w for p, w in words.unread] == ["the capture holds the notice's words and not its list"]
 
 
-def test_a_winding_up_application_reads_court_reference_hearing_and_plaintiff_and_never_its_address():
+def test_a_winding_up_application_reads_court_reference_hearing_and_plaintiff_and_keeps_its_address_privately():
     t = ("This document notifies you that: On 3 March 2014, an application for putting ABLE (2019) LIMITED into liquidation "
          "was filed in the High Court at Auckland. Its reference number is CIV-2014-404-123. The application is to be heard "
          "by the High Court at Auckland on Monday 21 April 2014 at 10.00am. The plaintiff is Commissioner of Inland "
@@ -469,7 +474,10 @@ def test_a_winding_up_application_reads_court_reference_hearing_and_plaintiff_an
     assert [c.name for c in r.companies] == ["ABLE (2019) LIMITED"] and r.action == "application to put into liquidation"
     assert (r.filed_on, r.court, r.reference) == ("2014-03-03", "High Court at Auckland", "CIV-2014-404-123")
     assert (r.event_on, r.event_at, r.event_basis, r.party) == ("2014-04-21", "10.00am", "hearing", "Commissioner of Inland Revenue")
-    assert "Sample" not in repr(r)
+    assert "Sample" not in repr(r.companies) and "Sample" not in (r.party or "")
+    assert r.private == [("plaintiff", "address for service", "whose address for service is 12 Sample Street, Exampletown")] \
+        or [k for _, k, v in r.private if "12 Sample Street, Exampletown" in v] == ["address for service"], \
+        "the address for service is kept for the private twin (ruling 142)"
     old = WU.read("Advertisement", "Take notice that on the 9th day of August 2004, an application for putting into "
                   "liquidation C.G.S Limited by the High Court was filed in the High Court at Auckland.")
     assert [c.name for c in old.companies] == ["C.G.S Limited"] and old.filed_on == "2004-08-09"
@@ -554,7 +562,7 @@ def test_an_overseas_notice_that_names_no_company_or_no_action_is_a_catch_log_li
 
 # --- restorations (ot; every name and address invented) ---------------------------------
 
-def test_a_restoration_list_takes_each_company_and_never_its_applicant_or_address():
+def test_a_restoration_list_takes_each_company_and_keeps_each_applicant_privately():
     text = ("Section 329 of the Companies Act 1993 Take notice that the Registrar of Companies proposes to restore the following "
             "companies to the Register, on the application of the persons named below, on the grounds that such companies were "
             "carrying on business at the time of removal:ABLE WIDGETS LIMITED. 1234567. Applicant: Ann Example, 1 Sample "
@@ -566,7 +574,12 @@ def test_a_restoration_list_takes_each_company_and_never_its_applicant_or_addres
                                                          ("Cobalt Company, Limited", "765432")]
     assert (r.action, r.by_whom, r.event_on, r.event_basis, r.unread) == (
         "intention to restore", "Registrar", "2003-06-20", "objections by", [])
-    assert not any(w in repr(r) for w in ("Example", "Sample", "Street", "Box", "Exampleton"))
+    assert not any(w in repr(r.companies) for w in ("Example", "Sample", "Street", "Box", "Exampleton"))
+    got = {p: v for p, k, v in r.private if k == "applicant as printed"}
+    assert set(got) == {"company 1", "company 2", "company 3"}, "each company's applicant is kept (ruling 142)"
+    assert "Ann Example" in got["company 1"] and "Baker" not in got["company 1"]
+    assert "Bob Sample" in got["company 2"] and "Cobalt" not in got["company 2"]
+    assert "Example Lawyers" in got["company 3"] and "object" not in got["company 3"]
 
 
 def test_a_one_company_restoration_with_no_colon_and_a_row_that_is_not_a_name():
@@ -784,6 +797,8 @@ def test_the_newer_lists_cut_between_endings_and_a_name_that_reads_as_an_address
         ("Example", "Ann", "Sample, Ann", "2012-05-09"), ("Sample", "Bob", None, "2012-05-10"), ("Lane", "Cara Dee", None, "2012-05-12")]
     assert r.persons[1].address == "3 Other Road, Town" and r.kind == "no asset procedure"
     assert [w for p, w in r.unread] == [BK.ADDRESSY]
+    assert [(p, k) for p, k, _ in r.private] == [("after person 2", "a record not cut")] and \
+        "Sample Street, Exampletown" in r.private[0][2], "the record set aside is kept whole privately (ruling 142)"
 
 
 def test_an_annulment_names_its_person_and_the_reading_withholds_them_on_every_earlier_row():
@@ -809,7 +824,7 @@ def test_an_annulment_names_its_person_and_the_reading_withholds_them_on_every_e
 
 # --- appointments (every name invented) -----------------------------------------------
 
-def test_an_appointment_reads_body_term_and_each_appointee_and_never_where_they_live():
+def test_an_appointment_reads_body_term_and_each_appointee_and_keeps_where_they_live_privately():
     t = ("Pursuant to section 28 of the Example Act 2004, Her Excellency the Governor-General, acting on the advice of the "
          "Minister, has been pleased to appoint Ann Bea Example, of Exampletown, as a member and Deputy Chairperson; Dr Bob "
          "Sample, of Town, as a member; and The Honourable Cara Dee Example as Chairperson, for a term commencing on 1 July "
@@ -821,6 +836,8 @@ def test_an_appointment_reads_body_term_and_each_appointee_and_never_where_they_
     assert [(p.name, p.role) for p in r.people] == [("Ann Bea Example", "a member and Deputy Chairperson"),
                                                     ("Dr Bob Sample", "a member"), ("The Honourable Cara Dee Example", "Chairperson")]
     assert "Exampletown" not in repr(r.people) and r.unread == []
+    assert r.private == [("appointee 1", "where the appointee lives", "of Exampletown"),
+                         ("appointee 2", "where the appointee lives", "of Town")], "kept for the private twin (ruling 142)"
     first = AP.read("Appointment to the Example Authority", "Pursuant to section 9 of the Example Act 2000, the Minister has "
                     "appointed to the Example Authority Board Ann Example and Bob Sample as members for a term of three years.")
     assert [p.name for p in first.people] == ["Ann Example", "Bob Sample"] and first.by_whom == "a Minister"

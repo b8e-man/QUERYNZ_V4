@@ -16,7 +16,8 @@ by that code and then by its operative words, three profiles. No model.
 
 Every person's address goes to the private schema and nowhere else (hard
 limit 15); the occupation is kept. A record the reader cannot cut into a
-name is a catch-log line, and its text is never kept. A person named in an
+name is a catch-log line, and its text is kept whole in the Reading's
+`private` for `gazette_private.kept_text` (ruling 142). A person named in an
 annulment is marked so the published view withholds the name (read.py), as
 a revoked prohibition's person is.
 
@@ -82,6 +83,8 @@ class Reading:
     court: str = None
     dated_on: str = None
     unread: list = field(default_factory=list)      # (place, why): never the text
+    #: (place, kind, value): a record the reader could not cut, whole, for gazette_private.kept_text (ruling 142)
+    private: list = field(default_factory=list)
 
 
 def kind_of(code: str, title: str, text: str):
@@ -152,16 +155,19 @@ def _old_list(text: str, r: Reading) -> None:
             last = _PERSON.match(people[-1])
             if not last or not last.group("rest"):
                 r.unread.append((f"after person {len(r.persons)}", "a record the reader cannot cut into a name"))
+                r.private.append((f"after person {len(r.persons)}", "a record not cut", rec))
                 continue
             occ, addr, formerly, at = _split_rest(last.group("rest"))
             heads = [_PERSON.match(p + ", x") for p in people[:-1]]
             if not all(heads):
                 r.unread.append((f"after person {len(r.persons)}", "a joint record the reader cannot cut into names"))
+                r.private.append((f"after person {len(r.persons)}", "a record not cut", rec))
                 continue
             people = [_person(len(r.persons) + 1 + i, h.group("sur"), h.group("given"), h.group("aka"))
                       for i, h in enumerate(heads + [last])]
             if not all(people):
                 r.unread.append((f"after person {len(r.persons)}", ADDRESSY))
+                r.private.append((f"after person {len(r.persons)}", "a record not cut", rec))
                 continue
             for p in people:
                 p.occupation, p.address, p.formerly, p.event_on, p.event_at = occ, addr, formerly, on, at
@@ -169,6 +175,7 @@ def _old_list(text: str, r: Reading) -> None:
         rest = _clean(chunk[pos:])
         if re.search(rf"{_NAME},\s*{_NAME}", rest) and not re.match(r"^OFFICIAL\s+ASSIGNEE", rest):
             r.unread.append((f"after person {len(r.persons)}", "the rest of a day's list the reader cannot cut"))
+            r.private.append((f"after person {len(r.persons)}", "a record not cut", rest))
 
 
 def _new_list(text: str, r: Reading) -> None:
@@ -184,10 +191,12 @@ def _new_list(text: str, r: Reading) -> None:
         p = _PERSON.match(rec)
         if not p:
             r.unread.append((f"after person {len(r.persons)}", "a record the reader cannot cut into a name"))
+            r.private.append((f"after person {len(r.persons)}", "a record not cut", rec))
             continue
         x = _person(len(r.persons) + 1, p.group("sur"), p.group("given"), p.group("aka"))
         if not x:
             r.unread.append((f"after person {len(r.persons)}", ADDRESSY))
+            r.private.append((f"after person {len(r.persons)}", "a record not cut", rec))
             continue
         x.address, x.event_on = _clean(p.group("rest")) or None, LQ._date(re.sub(r"^[–—-]\s*", "", end.group(0)))
         r.persons.append(x)

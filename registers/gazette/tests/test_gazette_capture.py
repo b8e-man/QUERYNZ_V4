@@ -1,5 +1,5 @@
 """The Gazette's notices after the export, from DigitalNZ (2 November 2026): the answers read into the export's shape,
-read by the same readers beside the export, the suppressed never read; the night's asking polite, stopped by a failed
+read by the same readers beside the export, the suppressed kept whole privately and flagged; the night's asking polite, stopped by a failed
 read, and the backwalk closing a short year."""
 import json
 import os
@@ -46,7 +46,14 @@ def test_the_readers_read_a_new_notice_from_its_answer_and_a_held_one_from_the_e
     later = _answer([_rec("2026-go6400", rid=2, day="2026-10-22")])
     res = read.read(export, EXPORT_SHA, pages=[(SHA, page), ("b" * 64, later)], suppressed={"2012-ba4936"})
     by = {r["filed"]["notice"]: r for r in res.notices}
-    assert set(by) == {"2026-go6000", "2026-go6400"}, "the suppressed notice is never read"
+    assert set(by) == {"2026-go6000", "2026-go6400", "2012-ba4936"}
+    hid = by["2012-ba4936"]["filed"]
+    assert hid["status"] == hid["format"] == "suppressed" and hid["title"] == "" and hid["records"] == 0, \
+        "a suppressed notice is a flagged row with no title"
+    assert [r["notice"] for r in res.suppressed] == ["2012-ba4936"] and res.suppressed[0]["title"] == "In Bankruptcy" \
+        and res.suppressed[0]["text"], "its line is kept whole for the private twin (ruling 142)"
+    assert not any(r["filed"].get("notice") == "2012-ba4936" for t in ("bankruptcies", "prohibitions", "appointments")
+                   for r in getattr(res, t)), "no typed row is read from it"
     assert by["2026-go6000"]["document"] == EXPORT_SHA and by["2026-go6000"]["filed"]["source_note"] == C.EXPORT_NOTE
     assert by["2026-go6400"]["document"] == "b" * 64, "the newest answer that carries the notice is read"
     assert by["2026-go6400"]["filed"]["source_note"] == C.DNZ_NOTE and by["2026-go6400"]["filed"]["published_on"] == "2026-10-22"
@@ -54,8 +61,8 @@ def test_the_readers_read_a_new_notice_from_its_answer_and_a_held_one_from_the_e
     assert new and all(a["document"] == "b" * 64 for a in new), "a row read from an answer cites that answer"
     why = [w for _, _, w in res.set_aside]
     assert sum("held in the export" in w for w in why) == 1 and sum("asked again" in w for w in why) == 1
-    assert sum("suppressed" in w for w in why) == 1
-    assert res.counts["lines"] == 5 and res.counts["suppressed"] == 1 and res.counts["from_digitalnz"] == 1
+    assert sum("suppressed" in w for w in why) == 0
+    assert res.counts["lines"] == 5 and res.counts["suppressed"] == 1 and res.counts["from_digitalnz"] == 2
     assert res.counts["pages"] == 2
 
 

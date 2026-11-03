@@ -9,7 +9,9 @@ of Companies proposes to restore the following companies to the Register,
 on the application of the persons named below …: ABLE LIMITED. Applicant:
 <a person or a firm>, <their address>. BAKER LIMITED (123456). Applicant:
 …". The applicant is often a person and the address often a home, so
-neither is read: each company is the text before an "Applicant:", less
+neither is on a row: each applicant's words, from "Applicant:" to the next
+company, are kept in the Reading's `private` for `gazette_private.kept_text`
+(ruling 142, place `company <n>`). Each company is the text before an "Applicant:", less
 everything up to the last comma (an address always has one, a company's
 name almost never) and the address's closing town or postcode. A row that
 does not then end in a legal suffix is a catch-log line, never a guess.
@@ -102,16 +104,28 @@ def read(title: str, text: str) -> Reading:
     pieces = _APPLICANT.split(text[a.start():])[1:]
     heads = [text[:a.start()]] + pieces[:-1]
     end = _LIST_END.search(pieces[-1])
-    rows = []
+    rows, taken = [], []
     for k, piece in enumerate(heads):
         got = _first(piece) if k == 0 else _row(piece)
         if got:
             rows.append(got)
+            taken.append(k)
         else:
             r.unread.append((f"row {k + 1}", "the text before an applicant does not end in a company's name"))
     if end is None:
         r.unread.append(("list", "the list's end is not where the reader expects it"))
     r.companies = [Entry(i, n, number=num) for i, (n, num) in enumerate(rows, 1)]
+    # each company's applicant: the piece after its "Applicant:", less the next company's name, the list's end
+    for i, k in enumerate(taken, 1):
+        piece = pieces[k] if k < len(pieces) else ""
+        if k == len(pieces) - 1:
+            piece = piece[:end.start()] if end else piece
+        elif k + 1 in taken:
+            nxt = rows[taken.index(k + 1)][0]
+            at = LQ._clean(piece).rfind(nxt[:24])
+            piece = LQ._clean(piece)[:at] if at > 0 else piece
+        if LQ._clean(piece):
+            r.private.append((f"company {i}", "applicant as printed", LQ._clean(piece)))
     if not r.companies:
         r.unread.append(("list", "a restoration list with no company the reader can take"))
     return r

@@ -25,7 +25,8 @@ SCHEMA = "gazette"
 PRIVATE = "gazette_private"
 TABLES = ("notices", "celebrants", "prohibitions", "liquidations", "liquidators", "company_notices", "practitioners",
           "bankruptcies", "appointments", "possessions", "board_interventions", "files", "set_aside")
-PRIVATE_TABLES = ("celebrant_addresses", "prohibition_addresses", "bankruptcy_addresses", "possession_details", "uncut")
+PRIVATE_TABLES = ("celebrant_addresses", "prohibition_addresses", "bankruptcy_addresses", "possession_details", "uncut",
+                  "suppressed_notices", "kept_text")
 COLUMNS = {
     "notices": ("key", "notice", "year", "section", "number", "family", "format", "status", "records", "supersedes", "title",
                 "published_on", "url", "old_type", "article", "source_note", "document", "page", "place",
@@ -35,7 +36,8 @@ COLUMNS = {
                    "read_from", "reader", "profile", "profile_version", "loaded_at"),
     "prohibitions": ("key", "notice", "published_on", "action", "name", "also_known_as", "named_twice", "statute",
                      "months", "permanent", "starts_on", "starts_basis", "ends_on", "dated_on", "supersedes",
-                     "superseded_by", "superseded_how", "ordinal", "document", "page", "place", "read_from", "reader",
+                     "superseded_by", "superseded_how", "superseded_in_error", "ordinal", "document", "page", "place",
+                     "read_from", "reader",
                      "profile", "profile_version", "loaded_at"),
     "liquidations": ("key", "notice", "published_on", "company", "company_number", "shape", "appointed_by", "statute",
                      "appointed_on", "appointed_at", "date_basis", "dated_on", "corrigendum", "liquidators", "register_key",
@@ -65,6 +67,8 @@ COLUMNS["possessions"] = ("key", "notice", "published_on", "action", "asset", "s
                           "mortgagor_kind", "mortgagor_number", "mortgagor_register_key", "mortgagor_register_match",
                           "entered_on", "entered_basis", "dated_on", "corrigendum", "property_held", "document", "page",
                           "place", "read_from", "reader", "profile", "profile_version", "loaded_at")
+KEPT_COLUMNS = ("key", "notice", "document", "place", "kind", "value")
+SUPPRESSED_COLUMNS = ("key", "notice", "document", "article", "title", "text", "published_on", "url")
 PRIVATE_COLUMNS = {"possession_details": ("key", "mortgagee", "mortgagor", "property", "registration")}
 
 
@@ -136,6 +140,10 @@ def build(conn, schema: str, export: tuple, aside: list, only=None, shared: bool
           res.bankruptcy_addresses)
     _copy(conn, table(private_of(schema), "possession_details", shared), PRIVATE_COLUMNS["possession_details"], details)
     _copy(conn, table(private_of(schema), "uncut", shared), ("key", "col", "value"), res.uncut)
+    _copy(conn, table(private_of(schema), "kept_text", shared), KEPT_COLUMNS,
+          [tuple(r[c] for c in KEPT_COLUMNS) for r in res.kept])
+    _copy(conn, table(private_of(schema), "suppressed_notices", shared), SUPPRESSED_COLUMNS,
+          [tuple(r[c] for c in SUPPRESSED_COLUMNS) for r in res.suppressed])
     conn.execute(f"INSERT INTO {table(schema, 'files', shared)} VALUES (%s, %s, 'notices', 'read')", export)
     for p in dict.fromkeys(pages):
         conn.execute(f"INSERT INTO {table(schema, 'files', shared)} VALUES (%s, %s, 'digitalnz', 'read') "

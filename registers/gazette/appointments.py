@@ -11,8 +11,9 @@ Act and section cited); who appointed (the Governor-General, a Minister,
 another, as the notice's words say); the term's start and end where
 printed. Then the operative clause: after "appoint", "appoints",
 "appointed" or "reappoint…", a list of appointees, each a name, perhaps
-", of <town>" or a description (a place, or anything holding a digit, read past
-and never kept: where an appointee lives is not part of the office), perhaps
+", of <town>" or a description (a place, or anything holding a digit: where an
+appointee lives is not part of the office, so it is kept in the Reading's
+`private` for `gazette_private.kept_text`, never on the row; ruling 142), perhaps
 "as", "to be", "be" or "to the" and a role, the list running to "for a term",
 "to take effect", "commencing" or the sentence's end, its people separated
 by ";", "and" or a bullet. An appointee whose name the reader cannot take
@@ -77,6 +78,8 @@ class Reading:
     corrigendum: bool = False
     people: list = field(default_factory=list)
     unread: list = field(default_factory=list)
+    #: (place, kind, value) read past for the row and kept privately (gazette_private.kept_text; ruling 142)
+    private: list = field(default_factory=list)
 
 
 def recognise(code: str, title: str, text: str) -> list:
@@ -102,11 +105,11 @@ def _person(item: str):
     bare = re.sub(rf"^(?:{_HONORIFIC}(?:\s+|$))+", "", name)
     if _NOT_PERSON.search(bare) or len(bare.split()) < 2 or len(re.sub(r"\s*\([^)]*\)", "", bare).split()) > 5 or re.search(r"\d", bare):
         return None
-    desc = LQ._clean(m.group("desc") or "")
+    desc, lives = LQ._clean(m.group("desc") or ""), None
     if re.match(r"(?:of|from)\b", desc) or re.search(r"\d", desc):
-        desc = ""                 # where the appointee lives is not part of the office, and is never kept
+        desc, lives = "", desc    # where the appointee lives is not part of the office: kept privately
     role = LQ._clean(" ".join(x for x in (desc, m.group("role") or "") if x)) or None
-    return name, (role[:160] if role else None)
+    return name, (role[:160] if role else None), lives
 
 
 def read(title: str, text: str) -> Reading:
@@ -135,9 +138,12 @@ def read(title: str, text: str) -> Reading:
             continue
         for i, g in enumerate(got):
             if g:
-                r.people.append(Appointee(len(r.people) + 1, *g))
+                r.people.append(Appointee(len(r.people) + 1, *g[:2]))
+                if g[2]:
+                    r.private.append((f"appointee {len(r.people)}", "where the appointee lives", g[2]))
             else:
                 r.unread.append((f"after appointee {len(r.people)}", "an appointee the reader cannot take as a name"))
+                r.private.append((f"after appointee {len(r.people)}", "an item not taken as a name", LQ._clean(items[i])))
         break
     if not r.people:
         r.unread.append(("appointees", "the notice names no appointee the reader can take"))

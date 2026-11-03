@@ -8,8 +8,10 @@ in the High Court at <place> on <date>; its reference number
 (CIV-2014-404-1234); it is to be heard at <place> on <date> at <time>; and
 "The plaintiff is <NAME>, whose address for service is …". A few apply to
 remove a liquidator, or are made by the Registrar or the Financial Markets
-Authority. The plaintiff is read up to "whose" or "of" and no further: its
-address for service is never read.
+Authority. The plaintiff is read up to "whose" or "of"; its address for
+service, to the sentence's end, is kept in the Reading's `private` for
+`gazette_private.kept_text` (ruling 142), as is a plaintiff whose name runs
+into an address.
 
     recognise(code, title, text)    the reasons, empty if not this profile
     read(title, text)               Reading(companies, action, court, reference, filed_on, event_on, party, …, unread)
@@ -34,6 +36,9 @@ _COURT = re.compile(r"\bfiled\s+(?:in|by|with)\s+the\s+(?P<c>High\s+Court(?:\s+a
 _REF = re.compile(r"\b(CIV[-\s]?\d{4}[-\s]?\d{3}[-\s]?\d{1,6}(?!\d)|M\.?\s*(?:No\.?\s*)?\d{1,5}(?:-[A-Z]{1,3})?/\d{2,4}(?!\d))")
 _HEARD = re.compile(rf"\bheard\b[^.]{{0,120}}?\bon\s+(?:[A-Z][a-z]+day,?\s+)?(?:the\s+)?(?P<d>{_DAY})(?:\s*,?\s*at\s*(?P<t>{LQ._TIME}))?")
 _PLAINTIFF = re.compile(r"\b[Tt]he\s+(?:plaintiffs?|applicants?)(?:['’]s?\s+names?)?\s+(?:is|are)\s+(?P<p>.{2,160}?)(?=\s*(?:,?\s*whose|,\s*of\s|,?\s*and\s+(?:its|their|his|her)\s+address|address|\(|$))")
+
+#: what follows the plaintiff's name: its address for service, to the sentence's end (kept privately)
+_SERVICE = re.compile(r"\s*,?\s*(?:whose|of|and\s+(?:its|their|his|her))?\s*(?P<a>(?:[^.]|\.(?=\S)|\.\s+(?=[a-z\d]))*)\.?")
 
 
 def recognise(code: str, title: str, text: str) -> list:
@@ -80,8 +85,12 @@ def read(title: str, text: str) -> Reading:
         party = LQ._clean(p.group("p"))
         if len(party) > 120 or re.search(r"\d{2,}|\b(?:Street|Road|Box|Level)\b", party):
             r.unread.append(("plaintiff", "the plaintiff's name runs into an address: not read"))
+            r.private.append(("plaintiff", "the plaintiff as printed", party))
         else:
             r.party = party
+        a = _SERVICE.match(text, p.end())
+        if a and LQ._clean(a.group("a")):
+            r.private.append(("plaintiff", "address for service", LQ._clean(a.group("a"))))
     sec = LQ._SECTION.search(text)
     r.statute = f"{sec.group('act')} s {re.sub(r'\s+', '', sec.group('s'))}" if sec else None
     d = LQ._DATED.search(text)

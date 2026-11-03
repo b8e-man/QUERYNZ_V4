@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS gazette.notices (
     section          text NOT NULL,                         -- the Gazette's section code (al, go, ba, …)
     number           integer NOT NULL,                      -- its place in the year's one sequence
     family           text NOT NULL,                         -- what the section holds (notices.FAMILY)
-    format           text NOT NULL,                         -- the profile a reader recognised, or 'not read'
-    status           text NOT NULL,                         -- read | read, part set aside | set aside | not read
+    format           text NOT NULL,                         -- the profile a reader recognised, 'not read', or 'suppressed'
+    status           text NOT NULL,                         -- read | read, part set aside | set aside | not read | suppressed (the Gazette suppresses it: kept whole in gazette_private.suppressed_notices, title '')
     records          integer NOT NULL DEFAULT 0,            -- rows read from it
     supersedes       text,                                  -- the notices it revokes, replaces or varies, by number
     title            text NOT NULL,
@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS gazette.prohibitions (
     supersedes       text,                                  -- the notice(s) this one revokes and replaces, or varies
     superseded_by    text,                                  -- a later notice that revokes, replaces or varies this one
     superseded_how   text CHECK (superseded_how IN ('revoked', 'revoked and replaced', 'varied')),
+    superseded_in_error boolean NOT NULL DEFAULT false,     -- the revocation says the notice was published in error (its words: gazette_private.kept_text)
     ordinal          integer NOT NULL,                      -- the person's place in the notice
     document         text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
     page             integer NOT NULL DEFAULT 1,
@@ -374,6 +375,31 @@ CREATE TABLE IF NOT EXISTS gazette_private.possession_details (
 
 -- a published text as the notice printed it, before cut.py cut it before the property it names (a title naming a
 -- street address, a company run on into one): never published, never granted to the session reader (hard limit 15)
+-- every line held of a notice the Gazette suppresses (its robots file disallows it by number), whole (ruling 142,
+-- 4 November 2026); its `notices` row carries status 'suppressed' and no title
+CREATE TABLE IF NOT EXISTS gazette_private.suppressed_notices (
+    key           text PRIMARY KEY,                         -- gazette/<notice>/suppressed/<n>
+    notice        text NOT NULL,
+    document      text NOT NULL,
+    article       text NOT NULL,
+    title         text,
+    text          text,
+    published_on  date,
+    url           text
+);
+
+-- what a reader read past for a row, whole (ruling 142, 4 November 2026): an appointee's or a JP's address, a
+-- judge's former description, a plaintiff's address for service, a restoration's applicant, a liquidator's contact
+-- lines, a record or entry the reader could not take, a revocation's words. Keyed to the notice and the row's place
+CREATE TABLE IF NOT EXISTS gazette_private.kept_text (
+    key       text PRIMARY KEY,                             -- gazette/<notice>/kept/<n>: the n-th the notice's reader kept
+    notice    text NOT NULL,
+    document  text NOT NULL,
+    place     text NOT NULL,                                -- appointee 2, person 3, entry 4, company 1, notice
+    kind      text NOT NULL,
+    value     text NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS gazette_private.uncut (
     key        text NOT NULL,                               -- the row's key in the lane's own table
     col        text NOT NULL,                               -- the column cut: title, company, party, …

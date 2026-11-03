@@ -27,7 +27,7 @@ class Reading:
     statute: str = None           # the first Act and section cited
     ground: str = None
     by_whom: str = None           # who gives notice or appointed: liquidator, Registrar, director, a creditor, …
-    party: str = None             # the plaintiff (aw), as printed, never its address
+    party: str = None             # the plaintiff (aw), as printed; its address for service in `private`
     event_on: str = None          # the notice's date that matters: objections by, the hearing, the appointment
     event_at: str = None
     event_basis: str = None       # what event_on is
@@ -38,3 +38,6 @@ class Reading:
     corrigendum: bool = False
     people: list = field(default_factory=list)      # receivers or administrators: liquidations.Liquidator
     unread: list = field(default_factory=list)      # (place, why)
+    #: (place, kind, value) read past for a row and kept privately: a plaintiff's address for service, a
+    #: restoration's applicant (gazette_private.kept_text; ruling 142)
+    private: list = field(default_factory=list)
