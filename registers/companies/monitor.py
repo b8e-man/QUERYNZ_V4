@@ -230,6 +230,8 @@ COMPANY_CODES = {"LTD", "ULTD", "COOP", "ASIC", "NON_ASIC", "BUSINESS_TRUST"}
 #: kinds whose registered office is shown (hard limit 15: a company's registered address is shown). Every
 #: address of any other kind may be a person's home, and goes to the private table
 OFFICE_SHOWN = {"company", "society"}
+#: the answer's contact lists, read into the private twin (ruling 142)
+CONTACT_FIELDS = ("emailAddresses", "phoneNumbers", "websites")
 
 
 def kind_of(type_code: str) -> str:
@@ -277,6 +279,9 @@ class Reading:
     holdings: list = field(default_factory=list)       # {place, org, name, holder_nzbn, shares, allocation, start, end, current}
     offices: list = field(default_factory=list)        # {place, uid, start, end, care_of, line_1..4, postcode, country}
     private: list = field(default_factory=list)        # (place, kind, address dict)
+    #: (place, kind, value): a name the register withholds, and the answer's e-mail, phone and website lists, for the
+    #: private twin (ruling 142, 4 November 2026)
+    withheld: list = field(default_factory=list)
     set_aside: list = field(default_factory=list)      # (place, reason)
     counts: dict = field(default_factory=dict)
 
@@ -288,8 +293,9 @@ def _addr(a: dict) -> dict:
 
 def read_answer(data: bytes, sha: str, asked_at: str) -> Reading:
     """One entity detail as the register answered it. Every role, holding and
-    address is a reading, a private line or a catch-log line; e-mail and
-    telephone details are left in the document and never read."""
+    address is a reading, a private line or a catch-log line; a name the
+    register withholds and the e-mail, telephone and website lists are
+    private lines (`withheld`; ruling 142)."""
     raw = json.loads(data)
     nzbn = str(raw.get("nzbn") or "")
     if nzbn_ok(nzbn) != nzbn:
@@ -304,6 +310,12 @@ def read_answer(data: bytes, sha: str, asked_at: str) -> Reading:
         "source_register": raw.get("sourceRegister"), "asked_at": asked_at,
         "trading_names": [t.get("name") for t in raw.get("tradingNames") or [] if t.get("name") and not t.get("endDate")],
     })
+    if privacy.get("namePrivateInformation") and raw.get("entityName"):
+        r.withheld.append(("entityName", "name withheld", raw["entityName"]))
+    for f in CONTACT_FIELDS:
+        for k, v in enumerate(raw.get(f) or []):
+            if v not in (None, "", {}, []):
+                r.withheld.append((f"{f}[{k}]", f, v))
     for i, role in enumerate(raw.get("roles") or []):
         place = f"roles[{i}]"
         p, e = role.get("rolePerson") or {}, role.get("roleEntity") or {}
@@ -339,7 +351,7 @@ def read_answer(data: bytes, sha: str, asked_at: str) -> Reading:
         else:
             r.private.append((place, (a.get("addressType") or "address").lower(), _addr(a)))
     r.counts = {"roles": len(raw.get("roles") or []), "holdings": len(r.holdings), "offices": len(r.offices),
-                "private": len(r.private), "set_aside": len(r.set_aside)}
+                "private": len(r.private), "withheld": len(r.withheld), "set_aside": len(r.set_aside)}
     if len(r.roles) + sum(1 for p, _ in r.set_aside if p.startswith("roles[")) != r.counts["roles"]:
         raise AssertionError(f"companies monitor {sha}: roles do not reconcile")
     return r
@@ -508,7 +520,13 @@ def diff(before: State, after: State, r: Reading) -> list:
 #: rebuilt from the ledger's answers by `rebuild`
 KEPT = ("requests", "watch", "calls")
 REBUILT = ("lookups", "lookup_roles", "lookup_holdings", "lookup_offices", "changes", "lookup_set_aside")
-PRIVATE_REBUILT = ("lookup_addresses",)
+PRIVATE_REBUILT = ("lookup_addresses", "lookup_withheld")
+
+
+def ensure_private(conn, T) -> None:
+    """The private twin's `lookup_withheld` (4 November 2026), made where a load has not made it yet."""
+    conn.execute(f"CREATE TABLE IF NOT EXISTS {T.lookup_withheld} (key text PRIMARY KEY, owner_key text NOT NULL, "
+                 f"kind text NOT NULL, value jsonb NOT NULL, document text NOT NULL)")
 
 
 def profile_version() -> int:
@@ -606,6 +624,11 @@ def apply_answer(conn, T: Tables, call_id: int, sha: str, at: dt.datetime, versi
     for place, kind, addr in r.private:
         conn.execute(f"INSERT INTO {T.lookup_addresses} (key, owner_key, kind, address, document) "
                      f"VALUES (%s, %s, %s, %s, %s)", (f"{akey}/{place}", akey, kind, json.dumps(addr), sha))
+    if r.withheld:
+        ensure_private(conn, T)
+    for place, kind, value in r.withheld:
+        conn.execute(f"INSERT INTO {T.lookup_withheld} (key, owner_key, kind, value, document) VALUES (%s, %s, %s, %s, %s) "
+                     f"ON CONFLICT (key) DO NOTHING", (f"{akey}/{place}", akey, kind, json.dumps(value), sha))
     for place, why in r.set_aside:
         conn.execute(f"INSERT INTO {T.lookup_set_aside} (item, stage, reason) VALUES (%s, 'monitor', %s)",
                      (f"{sha}/{place}", why))
@@ -633,6 +656,7 @@ def rebuild(conn, schema: str = "companies", shared: bool = False, log=print) ->
     T = Tables(schema, shared)
     version, n, c = profile_version(), 0, 0
     with conn.transaction():
+        ensure_private(conn, T)
         for t in REBUILT + PRIVATE_REBUILT:
             conn.execute(f"DELETE FROM {getattr(T, t)}")
         for cid, sha, at in conn.execute(f"SELECT id, document, at FROM {T.calls} WHERE status = 200 AND "

@@ -26,10 +26,12 @@ the same way:
                  read the same CSV, and a role it repeats keeps the export's
                  mark
   shareholders   one holding per company, holder's name, shares and status
-  addresses      a registered office by its body, start and lines; never a
-                 person's address: the shareholder and director CSVs' address
-                 columns, the statutory supervisor's and the operator's, are
-                 not read
+  addresses      a registered office by its body, start and lines. Every other
+                 address the package carries (a shareholder's, a retirement
+                 village's statutory supervisor's, registered office's,
+                 premises' and operator's) is read by `package_addresses` into
+                 `companies_private.package_addresses`, which no view reads
+                 (ruling 142, 4 November 2026)
 
 A role the package does not list keeps its files as they were: it left the
 register between its last file and the package, and no end date is written.
@@ -48,8 +50,8 @@ Two files the export never carried are read from the package alone (2 November
                  solvency. The file carries no address
   villages       retirement_villages_core_data.csv's operator (name and
                  company number) and statutory supervisor (name and day
-                 appointed). Never the supervisor's, the operator's or the
-                 premises' address
+                 appointed); their addresses go to the private twin
+                 (`package_addresses`)
 
     PACKAGES                          {label: (name, sha256, received at, cut)}
     package_lines(zip_bytes, part)    the package's lines in the export's shape, with their places
@@ -57,6 +59,7 @@ Two files the export never carried are read from the package alone (2 November
     insolvency_lines(zip_bytes, label, sha) / village_lines(...)    (line count, lines) of the two package-only files
 """
 import csv
+import json
 import datetime as dt
 import io
 import zipfile
@@ -165,7 +168,7 @@ def insolvency_lines(data: bytes, label: str, sha: str) -> list:
 
 
 def village_lines(data: bytes, label: str, sha: str) -> list:
-    """Each village's operator and statutory supervisor; the three address blocks are never read."""
+    """Each village's operator and statutory supervisor; the address blocks are read by `package_addresses`."""
     z = zipfile.ZipFile(io.BytesIO(data))
     out = []
     for n, r in csv_rows(z, VILLAGES_CSV):
@@ -176,6 +179,35 @@ def village_lines(data: bytes, label: str, sha: str) -> list:
                     "supervisor_appointed_on": day(r.get("STATUTORY_SUPERVISOR_DATE_APPOINTED")),
                     "last_file": label, "_doc": sha, "_place": f"{VILLAGES_CSV} line {n}", "_note": NOTE})
     return out
+
+
+SHAREHOLDER_CSV = "companies_shareholder.csv"
+#: the address blocks the package carries beyond a registered office: (csv, kind, the columns' prefix, its suffixes)
+PRIVATE_ADDRESSES = (
+    (SHAREHOLDER_CSV, "shareholder", "SH_ADDRESS_", ("PAF_ID", "CARE_OF", "1", "2", "3", "4", "POSTCODE", "COUNTRY")),
+    (VILLAGES_CSV, "statutory supervisor", "STATUTORY_SUPERVISOR_", ("ADDRESS_1", "ADDRESS_2", "ADDRESS_3", "ADDRESS_4", "POSTCODE")),
+    (VILLAGES_CSV, "village registered office", "REGISTERED_OFFICE_ADDRESS_", ("1", "2", "3", "4", "POSTCODE")),
+    (VILLAGES_CSV, "village premises", "ADDRESS_FOR_PREMISES_", ("1", "2", "3", "4", "POSTCODE")),
+    (VILLAGES_CSV, "operator", "OPERATOR_ADDRESS_", ("1", "2", "3", "4", "POSTCODE")),
+)
+
+
+def package_addresses(data: bytes, label: str, sha: str, only=None):
+    """Every address block of PRIVATE_ADDRESSES with a value, as filed: {document, place, nzbn, number, kind,
+    address (the columns as filed, JSON)}. For the private twin only (ruling 142): a shareholder's may be a home.
+    `only`: the NZBNs and village numbers to read (the sample's), None for all."""
+    z = zipfile.ZipFile(io.BytesIO(data))
+    for name in dict.fromkeys(n for n, *_ in PRIVATE_ADDRESSES):
+        blocks = [(kind, pre, suf) for n, kind, pre, suf in PRIVATE_ADDRESSES if n == name]
+        for n, r in csv_rows(z, name):
+            nzbn, number = _v(r.get("NZBN")), _v(r.get("ENTITY_NUMBER"))
+            if only is not None and nzbn not in only and number not in only:
+                continue
+            for kind, pre, suf in blocks:
+                a = {pre + x: _v(r.get(pre + x)) for x in suf if _v(r.get(pre + x))}
+                if a:
+                    yield {"document": sha, "place": f"{name} line {n}", "nzbn": nzbn, "number": number,
+                           "kind": kind, "address": json.dumps(a, ensure_ascii=False, sort_keys=True), "file": label}
 
 
 def csv_rows(z: zipfile.ZipFile, name: str):
@@ -226,7 +258,7 @@ def package_lines(data: bytes, part: str, label: str, sha: str):
                    "files": [label], "last_file": label, **here(name, n)}
     elif part == "shareholders":
         name = "companies_shareholder.csv"
-        for n, r in csv_rows(z, name):      # the holder's address columns are never read
+        for n, r in csv_rows(z, name):      # the holder's address columns: package_addresses
             kind = SH_TYPES.get((r["SH_TYPE"] or "").strip().lower(), "individual")
             holder = _v(r["SH_NAME"])
             yield {"t": "shareholder", "nzbn": _v(r["NZBN"]), "number": None, "shareholder_type": kind,

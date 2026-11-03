@@ -78,10 +78,12 @@ societies. The four answers, read 21 October 2026 and recorded in
    Wednesday 21:00 to 23:00; a 403, 429, 5xx or challenge stops the night.
 4. **Privacy and statute?** Directors' and shareholders' addresses are
    persons' and go to `companies_private` only; so does every address of a
-   sole trader, partnership or trust; e-mail and phone are never read. Only a
-   company's or society's registered office is shown (hard limit 15). A name
-   the register withholds (a sole trader's) stays withheld; a suppressed name
-   is suppressed on every surface (hard limit 16).
+   sole trader, partnership or trust, and the answer's e-mail, phone and
+   website lists (`companies_private.lookup_withheld`; ruling 142, 4 November
+   2026). Only a company's or society's registered office is shown (hard
+   limit 15). A name the register withholds (a sole trader's) is kept in
+   `companies_private.lookup_withheld` and is off every view; a suppressed
+   name is suppressed on every surface (hard limit 16).
 
 Profile `nzbn-entity-detail-any-kind` (version 1) names what is read from an
 answer; job `qv4-companies-monitor` runs it nightly at 23:30 NZDT.

@@ -219,3 +219,22 @@ def test_a_village_carries_its_operator_and_supervisor_and_no_address_is_read():
     text = json.dumps(r.rows, default=str)
     assert not any(w in text for w in ("Invented", "Premises", "Operator Road", "Office Road"))
 
+
+
+def test_every_address_block_the_package_carries_is_read_for_the_private_twin():
+    """Ruling 142: a shareholder's address and a village's supervisor's, office, premises and operator's addresses were
+    never read; now each is a private line keyed by the package's hash and the CSV line."""
+    z = _zip({"companies_shareholder.csv": [
+                  "9429000000001,X LTD,Ann Invented,Individual,2020-01-01,Active,1,1,10,N,,,"
+                  "9 Invented Lane,Nowhere,,,9999,NZ"],
+              "retirement_villages_core_data.csv": [
+                  "2000001,Invented Village,2010-01-01,Registered,Invented Trustee Ltd,2011-01-01,"
+                  "1 Trust Road,,,,1111,2 Office Road,,,,2222,3 Village Road,,,,3333,Op Ltd,123,4 Op Road,,,,4444"]})
+    got = list(monthly.package_addresses(z, OCT, PSHA))
+    assert sorted(a["kind"] for a in got) == ["operator", "shareholder", "statutory supervisor", "village premises",
+                                              "village registered office"]
+    sh = next(a for a in got if a["kind"] == "shareholder")
+    assert sh["place"] == "companies_shareholder.csv line 2" and sh["nzbn"] == "9429000000001" and sh["document"] == PSHA
+    assert json.loads(sh["address"]) == {"SH_ADDRESS_1": "9 Invented Lane", "SH_ADDRESS_2": "Nowhere",
+                                         "SH_ADDRESS_POSTCODE": "9999", "SH_ADDRESS_COUNTRY": "NZ"}
+    assert list(monthly.package_addresses(z, OCT, PSHA, only={"9429000000002"})) == []

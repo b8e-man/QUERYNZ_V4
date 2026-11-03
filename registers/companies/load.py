@@ -20,7 +20,7 @@ SCHEMA = "companies"
 PRIVATE = "companies_private"
 TABLES = ("entities", "entity_states", "directors", "shareholders", "registered_offices", "insolvencies", "villages",
           "files", "set_aside")
-PRIVATE_TABLES = ("residential_addresses",)
+PRIVATE_TABLES = ("residential_addresses", "package_addresses")
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at")
 COLUMNS = {
     "entities": ("key", "register", "nzbn", "number", "name", "entity_type", "status", "registered_on", "removed_on",
@@ -85,6 +85,9 @@ def _flat(cols: tuple, rows: list):
         yield tuple(flat.get(c) for c in cols)
 
 
+PACKAGE_ADDRESS_COLUMNS = ("document", "place", "nzbn", "number", "kind", "address", "file")
+
+
 def build(conn, schema: str, exports: list, aside: list, only=None, shared: bool = False, package=None) -> dict:
     """exports: [(part, sha256, name)]; aside: [(item, why)] from capture;
     only: the NZBNs and register numbers to read (the sample's), None for
@@ -125,6 +128,11 @@ def build(conn, schema: str, exports: list, aside: list, only=None, shared: bool
                      f"{table(schema, 'villages', shared)}) GROUP BY number HAVING count(*) = 1) o "
                      f"WHERE o.number = v.operator_number")
         counts.update(res.counts)
+        # every other address block the package carries, into the private twin (ruling 142)
+        counts["package_addresses"] = _copy(
+            conn, table(private_of(schema), "package_addresses", shared), PACKAGE_ADDRESS_COLUMNS,
+            (tuple(a[c] for c in PACKAGE_ADDRESS_COLUMNS)
+             for a in monthly.package_addresses(pkg[1], pkg[0], pkg[2], only=only)))
         counts["villages.operator_joined"] = conn.execute(
             f"SELECT count(*) FROM {table(schema, 'villages', shared)} WHERE operator_key IS NOT NULL").fetchone()[0]
     return counts

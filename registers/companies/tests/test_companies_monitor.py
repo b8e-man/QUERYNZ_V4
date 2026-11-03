@@ -581,3 +581,12 @@ def test_the_backfill_s_hours_add_six_to_seven_after_the_societies_asks_and_its_
     assert not M.history_off_peak(at(21, 22, 30)), "never the Wednesday maintenance window"
     assert M.HISTORY_FLOOR_S >= 1.0, "the approval's ceiling: one request a second at most"
     assert M.FLOOR_S == 5.0, "the monitor keeps its own floor"
+
+
+def test_a_withheld_name_and_the_contact_lists_are_kept_for_the_private_twin():
+    """Ruling 142: the name the register withholds and the e-mail and phone lists were left unread; now each is a
+    private line, and the entity row still carries no name."""
+    r, _ = _read(_answer(privacySettings={"namePrivateInformation": True}, websites=[{"url": "https://x.invalid"}]))
+    assert r.entity["name"] is None
+    assert sorted(k for _p, k, _v in r.withheld) == ["emailAddresses", "name withheld", "phoneNumbers", "websites"]
+    assert ("entityName", "name withheld", "Example Limited") in r.withheld

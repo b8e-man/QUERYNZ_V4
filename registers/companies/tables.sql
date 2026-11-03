@@ -217,6 +217,20 @@ CREATE TABLE IF NOT EXISTS companies_private.residential_addresses (
     address    text NOT NULL
 );
 
+-- every address block a monthly package carries beyond a registered office, as filed (ruling 142, 4 November 2026):
+-- a shareholder's (companies_shareholder.csv; may be a person's home), and a retirement village's statutory
+-- supervisor's, registered office, premises and operator's. Keyed to its row by the package's hash and the line:
+-- `pub.shareholders`' document and place, `companies.villages`' document and place
+CREATE TABLE IF NOT EXISTS companies_private.package_addresses (
+    document   text NOT NULL,                               -- the package's sha256
+    place      text NOT NULL,                               -- <csv> line <n>
+    nzbn       text,
+    number     text,                                        -- a village's register number
+    kind       text NOT NULL,                               -- shareholder | statutory supervisor | village registered office | village premises | operator
+    address    jsonb NOT NULL,                              -- the block's columns as filed
+    file       text NOT NULL                                -- the package's label
+);
+
 -- ── company monitoring (plan 5.5, ruling 19; monitor.py) ─────────────────────────────────────────────────────
 -- The queue and the ledger are KEPT: a load's wipe and the monitor's rebuild never touch them (`requests` and
 -- `watch` are what a product asked for; `calls` indexes the landed answers, which cannot be regenerated). The
@@ -420,6 +434,16 @@ CREATE TABLE IF NOT EXISTS companies.lookup_set_aside (
 
 -- every address an answer carries other than a company's or society's registered office: a role's, a holder's,
 -- and every address of a sole trader, partnership or trust. Never published (hard limit 15)
+-- a name the register withholds (namePrivateInformation) and the answer's e-mail, phone and website lists, as
+-- answered (ruling 142, 4 November 2026); monitor.ensure_private makes it too
+CREATE TABLE IF NOT EXISTS companies_private.lookup_withheld (
+    key        text PRIMARY KEY,                            -- <answer key>/<place in the answer>
+    owner_key  text NOT NULL,
+    kind       text NOT NULL,                               -- name withheld | emailAddresses | phoneNumbers | websites
+    value      jsonb NOT NULL,
+    document   text NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS companies_private.lookup_addresses (
     key        text PRIMARY KEY,                            -- <answer key>/<place in the answer>
     owner_key  text NOT NULL,
