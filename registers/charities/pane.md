@@ -10,7 +10,7 @@ to the catalogue (products/board), each field as the view names it:
   `annual_return_due_on`, `address_for_service`. An NZBN or incorporation number opens the company or society.
 - **Charity officers** (`pub.charity_officers`, kind person or body corporate by `kind`, joined on `charity_key`,
   names in `full_name`, `first_name`, `middle_name`, `last_name`, suppressed by `suppressed`): `role`, `started_on`,
-  `ended_on`, `status`, `disqualified` (only the register's own status says so), `name_note` (a name field withheld:
+  `ended_on`, `status`, `disqualified` (only the register's own status says so), `name_note` (a name field held privately:
   a date or an address typed into it). Past officers after current ones. No address of any kind, no birth date, no
   email or phone: the view has no such column. An officer opens the person's group.
 - **Charity returns** (`pub.charity_returns`, joined on `charity_key`, or `group_key` for a group's return): one line
@@ -20,6 +20,6 @@ to the catalogue (products/board), each field as the view names it:
 - **Citation** on every row: the feed page's sha256 (`document`), `page`, `place` (`OrganisationId=…`, `OfficerId=…`,
   `AnnualReturnId=…`), `reader`, `profile` and `profile_version`.
 
-The address for service is shown only for a body corporate (an incorporated society, a company, a trust board
-incorporated under the Charitable Trusts Act) and is empty for any other charity: the queue's default, which Arthur's
-ruling can flip in publish.sql.
+The address for service is on every charity's row, with `address_not_body_corporate` true where the charity is not an
+incorporated society, a company or a trust board incorporated under the Charitable Trusts Act (ruling 143). A row the
+register's newest full copy no longer holds carries `absent_since`.

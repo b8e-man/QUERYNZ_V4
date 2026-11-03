@@ -44,28 +44,31 @@ JOB = "qv4-charities-load"
 SCRATCH = "scratch_charities_full"
 STAGING = "staging_charities_load"
 TABLES = ("read_pages", "codes", "groups", "charities", "officers", "returns", "read_set_aside", "read_notes")
-PRIVATE_TABLES = ("addresses",)
+PRIVATE_TABLES = ("addresses", "address_parts", "officer_name_fields")
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version")
 COLUMNS = {
     "read_pages": ("document", "entity_set", "rows", "typed", "set_aside", "skipped"),
     "codes": ("code_list", "entity", "code", "name", "document"),
     "groups": ("key", "number", "group_id", "name", "status", "registered_on", "deregistered_on",
-               "source_modified_at") + _CITE,
+               "source_modified_at", "absent_since") + _CITE,
     "charities": ("key", "number", "organisation_id", "name", "other_names", "status", "registered_on",
                   "deregistered_on", "deregistration_reason", "legal_structure", "legal_structure_other",
                   "charitable_purpose", "main_sector_id", "main_sector", "main_activity_id", "main_activity",
                   "main_beneficiary_id", "main_beneficiary", "group_key", "group_number",
                   "group_name", "group_type", "nzbn", "incorporation_number", "year_end_month", "year_end_day",
-                  "annual_return_due_on", "source_modified_at") + _CITE,
+                  "annual_return_due_on", "source_modified_at", "absent_since") + _CITE,
     "officers": ("key", "officer_id", "charity_key", "organisation_id", "kind", "full_name", "first_name",
                  "middle_name", "last_name", "name_note", "suppressed", "role", "started_on", "ended_on", "ended_on_stated", "status",
-                 "disqualified", "declared_not_disqualified", "source_modified_at") + _CITE,
+                 "disqualified", "declared_not_disqualified", "source_modified_at", "absent_since") + _CITE,
     "returns": ("key", "return_id", "charity_key", "group_key", "organisation_id", "group_id", "period_end",
                 "months_covered", "began_on", "tier_id", "tier", "currency", "audited", "modified_opinion", "opinion",
-                "status_code") + tuple(read.HEADLINE) + ("figures", "material_expenses", "source_modified_at") + _CITE,
+                "status_code") + tuple(read.HEADLINE) + ("figures", "material_expenses", "source_modified_at",
+                                                         "absent_since") + _CITE,
     "read_set_aside": ("entity_set", "document", "place", "stage", "reason"),
     "read_notes": ("note", "count"),
     "addresses": ("key", "address_for_service", "document", "page", "place"),
+    "address_parts": ("key", "field", "value", "why", "document", "page", "place"),
+    "officer_name_fields": ("key", "field", "value", "why", "document", "page", "place"),
 }
 JSON_COLUMNS = ("figures", "material_expenses")
 
@@ -147,10 +150,14 @@ class Ledger:
         return list(self.pages.values())
 
 
-def build(conn, schema: str, pages: dict, read_bytes=read_bytes, only: dict = None, shared: bool = False) -> dict:
+def build(conn, schema: str, pages: dict, read_bytes=read_bytes, only: dict = None, shared: bool = False,
+          absent: dict = None) -> dict:
     """Read every listed page into the tables under `schema`. `pages`: feed
     set → [sha256], oldest first. `only`: feed set → the ids to read (the
-    sample's); None for all. Returns the counts."""
+    sample's); None for all. `absent`: sha256 → the day the newest full copy
+    finished, for pages landed before it (read.absent_since): a row read from
+    one carries that day as `absent_since`. Returns the counts."""
+    absent = absent or {}
     t0 = time.monotonic()
     create_tables(conn, schema, shared)
     T = lambda t: table(schema, t, shared)
@@ -188,6 +195,9 @@ def build(conn, schema: str, pages: dict, read_bytes=read_bytes, only: dict = No
                 if on_aside:
                     on_aside(row, why)
                 continue
+            out["absent_since"] = absent.get(sha)
+            if out["absent_since"]:
+                counts[f"{entity_set} absent from the newest full copy"] += 1
             sink(out)
             ledger.typed(sha)
 
@@ -213,6 +223,10 @@ def build(conn, schema: str, pages: dict, read_bytes=read_bytes, only: dict = No
     counts["charities"] = _copy(conn, T("charities"), COLUMNS["charities"], kept)
     counts["addresses"] = _copy(conn, T("addresses"), COLUMNS["addresses"],
                                 (o for o in kept if o["address_for_service"] is not None))
+    counts["address_parts"] = _copy(conn, T("address_parts"), COLUMNS["address_parts"],
+                                    ({**p, "key": o["key"], "document": o["document"], "page": o["page"],
+                                      "place": o["place"]} for o in kept for p in o["address_parts"]))
+    name_fields = []
     del orgs, kept
 
     for entity_set, t, reader in (
@@ -221,6 +235,8 @@ def build(conn, schema: str, pages: dict, read_bytes=read_bytes, only: dict = No
         batch = []
 
         def sink(out, t=t, batch=batch):
+            name_fields.extend({**p, "document": out["document"], "page": out["page"], "place": out["place"]}
+                               for p in out.get("private_name_fields") or ())
             batch.append(out)
             if len(batch) >= 5000:
                 counts[t] += _copy(conn, T(t), COLUMNS[t], batch)
@@ -229,6 +245,7 @@ def build(conn, schema: str, pages: dict, read_bytes=read_bytes, only: dict = No
         take(entity_set, reader, sink)
         counts[t] += _copy(conn, T(t), COLUMNS[t], batch)
 
+    counts["officer_name_fields"] = _copy(conn, T("officer_name_fields"), COLUMNS["officer_name_fields"], name_fields)
     ledger_rows = ledger.close()
     if only is None:
         bad = [p for p in ledger_rows if p["skipped"]]
@@ -250,11 +267,19 @@ def listings(conn) -> dict:
     return {s: [sha for sha, _ in read.pages(conn, s)] for s in tuple(read.SETS) + read.CODE_LISTS}
 
 
+def absences(conn) -> dict:
+    """sha256 → the day the set's newest full copy finished, for every page landed before it (read.absent_since)."""
+    out = {}
+    for s in read.SETS:
+        out.update(read.absent_since(conn, s))
+    return out
+
+
 def load(conn, schema: str, log=print) -> int:
     """Every listed page, read, under `schema` of the connection's database
     (the merge gate's staging step). Returns the rows typed."""
     started = jobrun.now()
-    counts = build(conn, schema, listings(conn))
+    counts = build(conn, schema, listings(conn), absent=absences(conn))
     rows = counts["charities"] + counts["officers"] + counts["returns"] + counts["groups"]
     detail = ", ".join(f"{k} {v}" for k, v in counts.items() if not k.startswith("aside")) + f", into {schema}"
     log("charities: " + detail)
@@ -299,7 +324,7 @@ def job(log=print) -> int:
             jobrun.record(JOB, True, "unchanged: the listing is the one published", started, {})
             return 0
         with conn.transaction():
-            counts = build(conn, STAGING, listed)
+            counts = build(conn, STAGING, listed, absent=absences(conn))
         f = check.reading(conn, STAGING, conn, read_bytes)
         detail = (f"{counts['charities']} charities, {counts['officers']} officers, {counts['returns']} returns, "
                   f"{counts['set_aside']} set aside; " + ("; ".join(f["problems"]) or "reconciles, the view agrees"))
@@ -330,9 +355,10 @@ def main(argv=None) -> int:
     with db.connect(db.READ_KEY, "querynz_v4") as src:
         src.execute("SET statement_timeout = '60s'")
         pages = listings(src)
+        absent = absences(src)
     with db.connect(db.OWNER_KEY, a.database) as conn:
         with conn.transaction():
-            counts = build(conn, a.schema, pages)
+            counts = build(conn, a.schema, pages, absent=absent)
     for k, v in counts.items():
         print(f"charities: {k}: {v}")
     jobrun.record(JOB, True, f"{counts['charities']} charities, {counts['officers']} officers, {counts['returns']} "

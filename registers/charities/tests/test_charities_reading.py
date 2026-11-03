@@ -118,12 +118,14 @@ def test_a_code_whose_name_the_code_list_does_not_hold_resolves_to_nothing_and_i
     assert notes["organisation MainSectorId not in its code list"] == 1
 
 
-def test_an_email_in_an_address_part_is_dropped_and_a_bad_nzbn_left_empty():
+def test_an_email_in_an_address_part_is_kept_apart_and_a_bad_nzbn_left_empty():
+    """Ruling 142: the email part was dropped; now it is kept whole for charities_private.address_parts."""
     notes = __import__("collections").Counter()
     r, _ = read.read_organisation(_org(StreetAddressLine2="someone@example.org", NZBNNumber="9429000000018"), SHA,
                                   _codes(), {}, notes)
     assert "@" not in r["address_for_service"] and r["nzbn"] is None
-    assert notes["address part holding an email address dropped"] == 1 and notes["NZBN failing its check digit, left empty"] == 1
+    assert r["address_parts"] == [{"field": "StreetAddressLine2", "value": "someone@example.org", "why": "holds an email address"}]
+    assert notes["address part holding an email address kept privately"] == 1 and notes["NZBN failing its check digit, left empty"] == 1
 
 
 def test_an_organisation_with_no_number_is_set_aside():
@@ -212,16 +214,19 @@ def test_the_published_views_name_no_contact_column():
     assert "declared_not_disqualified" not in selects and "organisation_id" not in selects
 
 
-def test_a_name_field_that_holds_a_date_or_an_address_is_withheld_and_the_row_stays():
+def test_a_name_field_that_holds_a_date_or_an_address_is_kept_privately_and_the_row_stays():
     ch, c = {101: ("charities/CC10001", None)}, _codes()
     n = __import__("collections").Counter()
     rd = lambda **kw: read.read_officer(_officer(**kw), SHA, c, ch, n)
     r, _ = rd(MiddleName="31/10/1965")
-    assert r["middle_name"] is None and r["full_name"] == "Ann Example" and r["name_note"] == "MiddleName withheld: holds a date"
+    assert r["middle_name"] is None and r["full_name"] == "Ann Example" and r["name_note"] == "MiddleName held privately: holds a date"
+    assert r["private_name_fields"] == [{"key": r["key"], "field": "MiddleName", "value": "31/10/1965", "why": "holds a date"}]
     r, _ = rd(FullName="12 Example Street", LastName="Street")
-    assert r["full_name"] == "Ann Street" and r["name_note"] == "FullName withheld: reads as an address"
+    assert r["full_name"] == "Ann Street" and r["name_note"] == "FullName held privately: reads as an address"
     r, _ = rd(FullName="Ann 1965-10-31", LastName="1965-10-31")
-    assert r["full_name"] == "Ann" and r["last_name"] is None and "1965" not in json.dumps(r, default=str)
+    assert r["full_name"] == "Ann" and r["last_name"] is None
+    assert "1965" not in json.dumps({k: v for k, v in r.items() if k != "private_name_fields"}, default=str)
+    assert {f["field"] for f in r["private_name_fields"]} == {"LastName", "FullName"}
     for kw in ({"LastName": "Grove", "FullName": "Ann Grove"}, {"LastName": "Example Terrace", "FullName": None},
                {"LastName": "Able02", "FullName": "Ann Able02"}):
         r, _ = rd(**kw)
@@ -229,10 +234,10 @@ def test_a_name_field_that_holds_a_date_or_an_address_is_withheld_and_the_row_st
     r, _ = rd(IsaBodyCorporate=True, BodyCorporateName="1234 Trustee Limited", FirstName=None, LastName=None, FullName=None)
     assert r["kind"] == "body corporate" and r["full_name"] == "1234 Trustee Limited" and r["name_note"] is None
     r, why = rd(FirstName="7 Example Road, Exampleton, 9302", FullName="7 Example Road, Exampleton, 9302", LastName=None)
-    assert r is None and why == "no publishable name" and read.stage_of(why) == "read"
+    assert why is None and r["full_name"] == "" and len(r["private_name_fields"]) == 2      # kept, its name held privately
     r, why = rd(FirstName=None, FullName="   ", LastName=None)
     assert r is None and why == "no name"
-    assert n["officer name field withheld: holds a date"] == 3 and n["officer name field withheld: reads as an address"] == 3
+    assert n["officer name field held privately: holds a date"] == 3 and n["officer name field held privately: reads as an address"] == 3
     assert read.name_fault("Ann (2014) Trust") is None and read.name_fault("Ann 3") is None
     assert read.name_fault("3/11/66") == "holds a date" and read.name_fault("PO Box 12") == "reads as an address"
     assert read.name_fault("Ann Peter Street") is None and read.name_fault("12a example street, exampleton")
@@ -249,16 +254,19 @@ def test_an_officer_s_name_is_never_suppressed_by_the_reading_and_the_view_blank
         assert f"CASE WHEN suppressed THEN NULL ELSE {c} END AS {c}" in text
 
 
-def test_the_address_for_service_is_published_for_a_body_corporate_only():
+def test_the_address_for_service_is_published_for_every_charity_with_its_flag():
+    """Ruling 143: it was shown for a body corporate only; now for every charity, flagged where it is not one."""
     text = open(os.path.join(LANE, "publish.sql"), encoding="utf-8").read()
-    rule = text[text.index("CASE WHEN c.legal_structure IN"):text.index("AS address_for_service")]
+    assert "CASE WHEN c.legal_structure IN" not in text and "a.address_for_service," in text
+    rule = text[text.index("a.address_for_service IS NOT NULL"):text.index("AS address_not_body_corporate")]
     named = set(__import__("re").findall(r"'([^']+)'", rule))
     assert named == {"Incorporated Society", "Company", "Charitable Trusts incorporated under the Charitable Trusts Act"}
     assert "charities_private.addresses" in text
     assert "address_for_service" not in load.COLUMNS["charities"] and "addresses" in load.PRIVATE_TABLES
     tables = open(os.path.join(LANE, "tables.sql"), encoding="utf-8").read()
     reading = tables.split(capture.READING)[1]
-    assert "CREATE TABLE IF NOT EXISTS charities_private.addresses" in reading
+    for t in ("addresses", "address_parts", "officer_name_fields"):
+        assert f"CREATE TABLE IF NOT EXISTS charities_private.{t}" in reading
     assert "address" not in reading[reading.index("charities.charities ("):reading.index("charities.officers (")].lower()
 
 
@@ -280,7 +288,7 @@ def test_publishing_moves_the_reading_into_the_lane_and_never_drops_the_capture_
     text = "\n".join(c.sql)
     assert "capture_" not in text.split("CREATE OR REPLACE VIEW")[0].replace("-- ── the reading", "")
     drops = [q for q in c.sql if q.startswith("DROP")]
-    assert {q.split()[4] for q in drops} == {f"charities.{t}" for t in load.TABLES} | {"charities_private.addresses"}
+    assert {q.split()[4] for q in drops} == {f"charities.{t}" for t in load.TABLES} | {f"charities_private.{t}" for t in load.PRIVATE_TABLES}
     assert ("INSERT INTO charities_private.addresses SELECT * FROM "
             "staging_session_charities_3_registers_charities_private.addresses") in c.sql
     assert "CREATE OR REPLACE VIEW pub.charities AS" in text and said
@@ -440,12 +448,13 @@ def _views(conn):
     conn.execute(load.sql("publish.sql", SAMPLE_SCHEMA, shared=True).replace("pub.", f"{SAMPLE_SCHEMA}.charities_pub_"))
 
 
-def test_the_address_for_service_is_shown_for_a_body_corporate_and_withheld_otherwise(filled):
+def test_the_address_for_service_is_shown_for_every_charity_and_flagged_where_not_a_body_corporate(filled):
     conn = filled["conn"]
     by = {c["organisation_id"]: c for c in filled["charities"]}
     private = {a["key"] for a in filled["addresses"]}
     _views(conn)
-    shown = dict(conn.execute(f"SELECT key, address_for_service IS NOT NULL FROM {SAMPLE_SCHEMA}.charities_pub_charities"))
+    shown = {k: (a, f) for k, a, f in conn.execute(f"SELECT key, address_for_service IS NOT NULL, address_not_body_corporate "
+                                                  f"FROM {SAMPLE_SCHEMA}.charities_pub_charities")}
     conn.rollback()
     for oid, structure, show in ((32589, "Incorporated Society", True), (32586, "Company", True),
                                  (32585, "Charitable Trusts incorporated under the Charitable Trusts Act", True),
@@ -453,16 +462,16 @@ def test_the_address_for_service_is_shown_for_a_body_corporate_and_withheld_othe
                                  (32601, "Other", False)):
         c = by[oid]
         assert c["legal_structure"] == structure and c["key"] in private, oid
-        assert shown[c["key"]] is show, (oid, structure)
+        assert shown[c["key"]] == (True, not show), (oid, structure)
     assert not [k for k in filled["charities"][0] if "address" in k]
 
 
 def test_the_name_field_cases_read_as_their_comments_say(filled):
     off = {o["officer_id"]: o for o in filled["officers"]}
-    assert off[1168142]["middle_name"] is None and off[1168142]["name_note"] == "MiddleName withheld: holds a date"
+    assert off[1168142]["middle_name"] is None and off[1168142]["name_note"] == "MiddleName held privately: holds a date"
     assert off[1211942]["last_name"] is None and off[1211942]["full_name"]
-    assert off[1211942]["name_note"] == "LastName withheld: holds a date; FullName withheld: holds a date"
-    assert off[1277974]["middle_name"] is None and off[1277974]["name_note"] == "MiddleName withheld: reads as an address"
+    assert off[1211942]["name_note"] == "LastName held privately: holds a date; FullName held privately: holds a date"
+    assert off[1277974]["middle_name"] is None and off[1277974]["name_note"] == "MiddleName held privately: reads as an address"
     assert off[1243695]["kind"] == "body corporate" and off[1243695]["name_note"] is None and off[1243695]["full_name"]
     for o in off.values():
         assert not [c for c in check.NAME_COLUMNS if read.name_fault(o[c])], o["key"]
@@ -539,8 +548,8 @@ def test_the_full_build_meets_the_register_s_counts_and_its_own_view(full):
     assert not {k: v for k, v in f["resolution"].items() if k.endswith("differs")}
     assert f["name_faults"] == {} and f["ok"], f["problems"]
     held = dict(full["conn"].execute(f"SELECT note, count FROM {FULL_SCHEMA}.read_notes").fetchall())
-    assert held.get("officer name field withheld: holds a date", 0) >= 15
-    assert held.get("officer name field withheld: reads as an address", 0) >= 4
+    assert held.get("officer name field held privately: holds a date", 0) >= 15
+    assert held.get("officer name field held privately: reads as an address", 0) >= 4
 
 
 @pytest.mark.slow
@@ -578,3 +587,22 @@ def test_the_rows_cite_the_profile_version_the_ledger_holds_or_the_proposed_one(
     else:
         assert shipped is not None and shipped["version"] == read.PROFILE_VERSION
         assert shipped["tooling"]["read"] == "registers/charities/read.py"
+
+
+def test_a_row_the_newest_full_copy_no_longer_holds_is_kept_and_flagged():
+    """Ruling 142: a build read only the newest full copy, so a row the register later removed or restricted left the
+    tables; now every full copy is read, and a row from a page landed before the newest full copy carries its day."""
+    _db_or_skip()
+    import datetime as dt
+    items = sample.read_list(os.path.join(LANE, "sample.list"))
+    pages = S.pages_of(items)
+    old = {sha: dt.date(2026, 11, 17) for sha in pages["Organisations"]}
+    schema = "scratch_charities_absent"
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
+        conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+        counts = load.build(conn, schema, pages, only=S.keys_of(items), shared=True, absent=old)
+        got = conn.execute(f"SELECT count(*), count(absent_since) FROM {load.table(schema, 'charities', True)}").fetchone()
+        officers = conn.execute(f"SELECT count(absent_since) FROM {load.table(schema, 'officers', True)}").fetchone()[0]
+        conn.rollback()
+    assert got[0] == got[1] > 0 and officers == 0
+    assert counts["Organisations absent from the newest full copy"] >= got[0]      # two later set aside on a shared number

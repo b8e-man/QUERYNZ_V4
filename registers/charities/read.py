@@ -16,12 +16,16 @@ per feed row or one catch-log line:
               sector, activity and beneficiary resolved as the register's own
               view names them, and its group. Its address for service (the
               street address the register publishes) goes to the private
-              twin; publish.sql shows it only for a body corporate
+              twin; publish.sql shows it for every charity, flagged where the
+              charity is not a body corporate (ruling 143); a part of it that
+              holds an email address is kept in `charities_private
+              .address_parts`
   officers    one per officer row, keyed by the source's `OfficerId`; role,
               window, status and one disqualification flag (the register's
               own status). No address, birth date, email or phone: the feed's
-              Officers carry none, and a name field holding a date or an
-              address is withheld with a note, the row kept
+              Officers carry none; a name field holding a date or an address
+              is kept in `charities_private.officer_name_fields` with a note
+              on the row (ruling 142), the row kept
   returns     one per annual return, keyed by `AnnualReturnId`; the period,
               tier, currency, audit opinion and every financial field (ruling
               of 14 August 2026: financial fields in scope, nothing else)
@@ -78,18 +82,36 @@ def held(conn, schema: str = SCHEMA) -> list:
     return out
 
 
-def pages(conn, entity_set: str, schema: str = SCHEMA) -> list:
-    """(sha256, url) of every page a build reads for a set, in order: the
+def pages(conn, entity_set: str, schema: str = SCHEMA, every: bool = True) -> list:
+    """(sha256, url) of every page a build reads for a set, in order: every
+    finished full pass and every finished changes pass after the first full
+    one, oldest first (ruling 142, 4 November 2026: a row a later full copy
+    no longer holds is kept, flagged by `absent_since`). `every=False`: the
     newest finished full pass, then each finished changes pass after it."""
-    full = conn.execute(f"SELECT pass_id, finished_at FROM {schema}.capture_passes WHERE entity_set = %s "
+    full = conn.execute(f"SELECT pass_id, finished_at, started_at FROM {schema}.capture_passes WHERE entity_set = %s "
                         "AND mode IN ('full', 'whole') AND finished_at IS NOT NULL AND pages > 0 "
-                        "ORDER BY finished_at DESC LIMIT 1", (entity_set,)).fetchone()
+                        f"ORDER BY finished_at {'ASC' if every else 'DESC'} LIMIT 1", (entity_set,)).fetchone()
     if full is None:
         return []
     return [(r[0], r[1]) for r in conn.execute(
         f"SELECT g.sha256, g.url FROM {schema}.capture_pages g JOIN {schema}.capture_passes p USING (pass_id) "
-        "WHERE p.pass_id = %s OR (p.entity_set = %s AND p.mode = 'changes' AND p.finished_at IS NOT NULL "
-        "AND p.started_at >= %s) ORDER BY p.pass_id, g.page_no", (full[0], entity_set, full[1]))]
+        "WHERE p.pass_id = %s OR (p.entity_set = %s AND p.finished_at IS NOT NULL AND p.started_at >= %s "
+        "AND (p.mode = 'changes' OR (%s AND p.mode IN ('full', 'whole') AND p.pages > 0))) "
+        "ORDER BY p.pass_id, g.page_no", (full[0], entity_set, full[2] if every else full[1], every))]
+
+
+def absent_since(conn, entity_set: str, schema: str = SCHEMA) -> dict:
+    """{sha256: the day the newest full copy finished} for every page landed before the newest full pass began: a
+    row read only from such a page is one the register's newest full copy no longer holds (removed, restricted or
+    withheld by the register since), kept with that day as its flag (ruling 142)."""
+    newest = conn.execute(f"SELECT started_at, finished_at FROM {schema}.capture_passes WHERE entity_set = %s "
+                          "AND mode IN ('full', 'whole') AND finished_at IS NOT NULL AND pages > 0 "
+                          "ORDER BY finished_at DESC LIMIT 1", (entity_set,)).fetchone()
+    if newest is None:
+        return {}
+    return {r[0]: newest[1].date() for r in conn.execute(
+        f"SELECT g.sha256 FROM {schema}.capture_pages g JOIN {schema}.capture_passes p USING (pass_id) "
+        "WHERE p.entity_set = %s AND p.finished_at IS NOT NULL AND p.started_at < %s", (entity_set, newest[0]))}
 
 
 def reconcile(conn, schema: str = SCHEMA) -> list:
@@ -323,22 +345,23 @@ def aside(entity_set: str, sha: str, row_id, stage: str, reason: str) -> dict:
 
 
 def address_for_service(row: dict):
-    """(the address as the register publishes it, or None; parts dropped).
+    """(the address as the register publishes it, or None; [(field, value)] the parts kept apart).
     The street address's parts, in order, joined; a part holding an email
-    address is no part of an address and is dropped (counted, never shown)."""
-    parts, dropped = [], 0
+    address is no part of an address and is kept apart, whole, for the private
+    twin (`address_parts`; ruling 142)."""
+    parts, apart = [], []
     for f in STREET:
         p = text(row.get(f))
         if not p:
             continue
         if "@" in p:
-            dropped += 1
+            apart.append((f, p))
             continue
         parts.append(p)
     if not parts:
-        return None, dropped
+        return None, apart
     a, _ = clean_address(", ".join(parts))
-    return a, dropped
+    return a, apart
 
 
 class Codes:
@@ -423,10 +446,11 @@ def read_organisation(row: dict, sha: str, codes: Codes, groups: dict, notes: co
         out[col + "_id"], out[col] = code, codes.name(lst, code)
         if code is not None and out[col] is None:
             notes[f"organisation {f} not in its code list"] += 1
-    addr, dropped = address_for_service(row)
-    if dropped:
-        notes["address part holding an email address dropped"] += dropped
+    addr, apart = address_for_service(row)
+    if apart:
+        notes["address part holding an email address kept privately"] += len(apart)
     out["address_for_service"] = addr
+    out["address_parts"] = [{"field": f, "value": v, "why": "holds an email address"} for f, v in apart]
     g = groups.get(row.get("GroupId")) if row.get("GroupId") is not None else None
     if row.get("GroupId") is not None and g is None:
         notes["organisation's group not held"] += 1
@@ -445,22 +469,24 @@ def read_organisation(row: dict, sha: str, codes: Codes, groups: dict, notes: co
 def read_officer(row: dict, sha: str, codes: Codes, charities: dict, notes: collections.Counter):
     """(typed row, None) or (None, why). `charities`: OrganisationId →
     (charity key, None) or (None, why it is set aside). A name field that
-    holds a date or an address is withheld (`name_note` says which and why,
-    never the value) and the full name is rebuilt from the parts left; the
-    row stays with its role and window. With no publishable name left it is
-    set aside."""
+    holds a date or an address is kept whole in `private_name_fields` (for
+    `charities_private.officer_name_fields`; `name_note` says which and why,
+    never the value) and the full name on the row is rebuilt from the parts
+    left; the row stays with its role and window, its name empty where no
+    other part is left (ruling 142)."""
     held = charities.get(row.get("OrganisationId"))
     if held is None:
         return None, "its organisation is not in the held pages"
     if held[0] is None:
         return None, f"its organisation is set aside ({held[1]})"
-    clean, withheld = {}, []
+    clean, withheld, private = {}, [], []
     for f in NAME_FIELDS:
         v = text(row.get(f))
         why = name_fault(v)
         if why:
-            withheld.append(f"{f} withheld: {why}")
-            notes[f"officer name field withheld: {why}"] += 1
+            withheld.append(f"{f} held privately: {why}")
+            notes[f"officer name field held privately: {why}"] += 1
+            private.append({"key": officer_key(row["OfficerId"]), "field": f, "value": v, "why": why})
             v = None
         clean[f] = v
     body_name = clean["BodyCorporateName"]
@@ -468,18 +494,20 @@ def read_officer(row: dict, sha: str, codes: Codes, charities: dict, notes: coll
     is_body = row.get("IsaBodyCorporate") is True or (text(row.get("BodyCorporateName")) is not None
                                                      and not text(row.get("LastName")))
     if (is_body and body_name is None) or (not is_body and person is None):
-        return None, "no publishable name" if withheld else "no name"
+        if not withheld:
+            return None, "no name"
+        notes["officer whose every name field is held privately"] += 1
     status = text(row.get("OfficerStatus"))
     if not codes.known("OfficerStatus", status):
         notes["officer status not in its code list"] += 1
     ended = feed_date(row.get("LastDateAsAnOfficer"))
     out = {"key": officer_key(row["OfficerId"]), "officer_id": row["OfficerId"], "charity_key": held[0],
            "organisation_id": row["OrganisationId"], "kind": "body corporate" if is_body else "person",
-           "full_name": body_name if is_body else person,
+           "full_name": (body_name if is_body else person) or "",
            "first_name": None if is_body else clean["FirstName"],
            "middle_name": None if is_body else clean["MiddleName"],
            "last_name": None if is_body else clean["LastName"],
-           "name_note": "; ".join(withheld) or None, "suppressed": False,
+           "name_note": "; ".join(withheld) or None, "suppressed": False, "private_name_fields": private,
            "role": text(row.get("PositioninOrganisation")), "started_on": feed_date(row.get("PositionAppointmentDate")),
            "ended_on": ended, "ended_on_stated": ended is not None, "status": status,
            "disqualified": status in DISQUALIFIED,

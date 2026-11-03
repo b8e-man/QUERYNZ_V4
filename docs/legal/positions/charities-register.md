@@ -48,10 +48,14 @@ gate; every page cited is held in the document store by its hash.
    publicly available publication; use must still be fair). Held apart or
    shown with care: an officer's disqualification flags (bankrupt, convicted,
    banned); a small charity's address for service, which may be a trustee's
-   home (hard limit 15: shown as the charity's address, like a company's
-   registered office, unless Arthur rules otherwise); emails and phone numbers
-   (not shown). A row later restricted or withdrawn leaves the feed; the
-   monthly full copy sees it gone, and the product stops showing it.
+   home: kept and published for every charity, `address_not_body_corporate`
+   true where the charity is not a body corporate (ruling 143, 4 November
+   2026); a product applies hard limit 15 by that flag. An email address
+   filed in an address part, and an officer's name field holding a date or
+   an address, are kept whole in `charities_private`. A row later restricted
+   or withdrawn leaves the feed; every full copy is read, and such a row is
+   kept with `absent_since`, the day the newer full copy finished (ruling
+   142).
 
 Crawl delay: none stated. Floor: 5 s of rest after each answer, one request
 at a time, off-peak (22:00 to 06:00 NZ). Author: charities-capture session

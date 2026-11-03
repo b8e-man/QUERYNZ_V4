@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS charities.groups (
     registered_on    date,
     deregistered_on  date,
     source_modified_at timestamptz,                 -- the register's own ModifiedOn; never a date of anything
+    absent_since       date,                        -- the register's newest full copy (finished this day) no longer holds the row
     document text NOT NULL, page integer NOT NULL, place text NOT NULL, read_from text NOT NULL,
     reader text NOT NULL, profile text NOT NULL, profile_version integer NOT NULL,
     loaded_at timestamptz NOT NULL DEFAULT now()
@@ -110,6 +111,7 @@ CREATE TABLE IF NOT EXISTS charities.charities (
     year_end_day           integer,
     annual_return_due_on   date,
     source_modified_at     timestamptz,
+    absent_since              date,                 -- the newest full copy (finished this day) no longer holds the row
     document text NOT NULL, page integer NOT NULL, place text NOT NULL, read_from text NOT NULL,
     reader text NOT NULL, profile text NOT NULL, profile_version integer NOT NULL,
     loaded_at timestamptz NOT NULL DEFAULT now()
@@ -135,6 +137,7 @@ CREATE TABLE IF NOT EXISTS charities.officers (
     disqualified              boolean NOT NULL,     -- the register's status says Disqualified or Removed as Disqualified
     declared_not_disqualified boolean,              -- the feed's IsNotDisqualified, as filed
     source_modified_at        timestamptz,
+    absent_since              date,                 -- the newest full copy (finished this day) no longer holds the row
     document text NOT NULL, page integer NOT NULL, place text NOT NULL, read_from text NOT NULL,
     reader text NOT NULL, profile text NOT NULL, profile_version integer NOT NULL,
     loaded_at timestamptz NOT NULL DEFAULT now()
@@ -163,6 +166,7 @@ CREATE TABLE IF NOT EXISTS charities.returns (
     figures            jsonb NOT NULL,              -- every financial field the return files: feed name → number
     material_expenses  jsonb,                       -- [{label, amount}]
     source_modified_at timestamptz,
+    absent_since              date,                 -- the newest full copy (finished this day) no longer holds the row
     document text NOT NULL, page integer NOT NULL, place text NOT NULL, read_from text NOT NULL,
     reader text NOT NULL, profile text NOT NULL, profile_version integer NOT NULL,
     loaded_at timestamptz NOT NULL DEFAULT now(),
@@ -185,12 +189,32 @@ CREATE TABLE IF NOT EXISTS charities.read_notes (
     count  integer NOT NULL
 );
 
--- a charity's address for service, as the register publishes it (its street address). Private because for a trust
--- or an unincorporated body it is often a trustee's home (queue: whether a charity's address for service is shown
--- when it may be a trustee's home); publish.sql shows it only for a body corporate, the rule Arthur's ruling flips
+-- a charity's address for service, as the register publishes it (its street address). publish.sql shows it for every
+-- charity, with `address_not_body_corporate` where the charity is not a body corporate (ruling 143, 4 November 2026)
 CREATE TABLE IF NOT EXISTS charities_private.addresses (
     key                  text PRIMARY KEY,           -- the charity's key (charities.charities.key)
     address_for_service  text NOT NULL,
+    document text NOT NULL, page integer NOT NULL, place text NOT NULL,
+    loaded_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- a part of a charity's street address that holds an email address, kept whole apart from the address (ruling 142)
+CREATE TABLE IF NOT EXISTS charities_private.address_parts (
+    key       text NOT NULL,                       -- the charity's key
+    field     text NOT NULL,                       -- the feed's field (StreetAddressLine2, ...)
+    value     text NOT NULL,
+    why       text NOT NULL,
+    document text NOT NULL, page integer NOT NULL, place text NOT NULL,
+    loaded_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- an officer's name field that holds a date or reads as an address, kept whole (ruling 142); the officer's row
+-- carries `name_note` saying which field and why
+CREATE TABLE IF NOT EXISTS charities_private.officer_name_fields (
+    key       text NOT NULL,                       -- the officer's key (charities.officers.key)
+    field     text NOT NULL,                       -- FirstName, MiddleName, LastName, FullName, BodyCorporateName
+    value     text NOT NULL,
+    why       text NOT NULL,
     document text NOT NULL, page integer NOT NULL, place text NOT NULL,
     loaded_at timestamptz NOT NULL DEFAULT now()
 );

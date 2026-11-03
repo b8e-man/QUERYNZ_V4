@@ -141,14 +141,14 @@ def counts(conn, schema: str, capture_conn, read_bytes, shared: bool = False) ->
         stated, landed, started, finished = st
         out["sets"][s] = {"stated_at_pass_start": stated, "landed": landed,
                           "pass": f"{started.isoformat(timespec='minutes')} to {finished.isoformat(timespec='minutes')}",
-                          "typed": conn.execute(f"SELECT count(*) FROM {T(TABLE_OF[s])}").fetchone()[0],
+                          "typed": conn.execute(f"SELECT count(*) FROM {T(TABLE_OF[s])} WHERE absent_since IS NULL").fetchone()[0],
                           "set_aside": conn.execute(f"SELECT count(*) FROM {T('read_set_aside')} WHERE entity_set = %s "
                                                     "AND stage <> 'supersede'", (s,)).fetchone()[0]}
     reg = register_count(capture_conn)
     at = reg["at"]
     typed_reg, typed_after = conn.execute(
         f"SELECT count(*) FILTER (WHERE status = 'Registered'), count(*) FILTER (WHERE source_modified_at >= %s) "
-        f"FROM {T('charities')}", (at,)).fetchone()
+        f"FROM {T('charities')} WHERE absent_since IS NULL", (at,)).fetchone()       # the register's count: rows it still holds
     aside_reg = aside_after = 0
     places = collections.defaultdict(set)
     for doc, place in conn.execute(f"SELECT document, place FROM {T('read_set_aside')} WHERE entity_set = 'Organisations' "
