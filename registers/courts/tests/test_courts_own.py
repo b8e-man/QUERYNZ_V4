@@ -338,3 +338,74 @@ def test_the_era_walk_lands_each_determination_once_and_skips_the_mcp_s(env):
 def test_an_era_page_that_is_not_its_results_stops_the_run(env):
     out = env.era_walk(FakeERA(not_results=True), years=[2026]).run()
     assert not out["ok"] and "not the Authority's results page" in out["stopped"]
+
+
+# ── tranche 2: the Ministry's decisions finder ────────────────────────────────────────────────────────────────────
+def finder_page(ids: list, count: int, extra: str = "") -> bytes:
+    """A finder page shaped like the landed one: the results header with its count, each result a link to its PDF and a
+    commented-out copy of the same link; every name invented."""
+    items = "".join(
+        f'<li><article class="odd"><a href="https://www.justice.govt.nz/assets/Documents/Decisions/2099-NZXX-{i}-Invented-v-'
+        f'Example.pdf"><header><span class="searchResultHeader">Invented v Example [2099] NZXX {i}</span></header></a>'
+        f'<!--<a href="https://www.justice.govt.nz/assets/Documents/Decisions/2099-NZXX-{i}-Invented-v-Example.pdf">'
+        f'<header>copy</header></a>--></article></li>' for i in ids)
+    return (f'<html><body><form>options</form><div class="resultsHeader"><span class="heading">Search results</span>'
+            f'<p><span>{count}</span> results found</p></div><ol id="SearchResults">{items}{extra}</ol></body></html>').encode()
+
+
+class FakeFinder:
+    """Employment Court (17): 60 decisions, newest first (ids 60 down to 1); decision 7 is the MCP's; 9 answers 404; a
+    Word file is listed on page one. Disputes Tribunal (26): 3. Every other jurisdiction: none."""
+
+    def __init__(self, newest=60):
+        self.urls = []
+        self.held = {17: list(range(newest, 0, -1)), 26: [503, 502, 501]}
+
+    def __call__(self, url, timeout):
+        self.urls.append(url)
+        u = urllib.parse.urlparse(url)
+        if u.path == own.FINDER_PATH:
+            q = dict(urllib.parse.parse_qsl(u.query))
+            ids = self.held.get(int(q["Filter_Jurisdiction"]), [])
+            start = int(q.get("start", "0"))
+            extra = ('<li><article><a href="https://www.justice.govt.nz/assets/Documents/Decisions/a-word-file.docx">x</a>'
+                     '</article></li>') if start == 0 and ids else ""
+            return 200, finder_page(ids[start: start + own.FINDER_PAGE], len(ids), extra), url
+        n = int(u.path.split("-NZXX-")[1].split("-")[0])
+        if n == 9:
+            return 404, b"", url
+        return 200, pdf(n), url
+
+
+def test_the_finder_listing_drops_the_commented_copies_and_reads_the_count():
+    count, pdfs, other = own.finder_listing(finder_page([3, 2, 1], 3, '<li><a href="https://x.nz/a.docx">x</a></li>').decode())
+    assert count == 3 and len(pdfs) == 3 and other == ["https://x.nz/a.docx"]
+    assert own.finder_listing('<div class="resultsHeader"></div><ol id="SearchResults"></ol>') == (0, [], [])
+    with pytest.raises(ValueError):
+        own.finder_listing("<html>a maintenance page</html>")
+
+
+def test_the_finder_walk_lands_each_decision_once_and_then_reads_only_the_newest(env):
+    env.conn.execute(f"INSERT INTO {M}.files VALUES ('courts', %s)",
+                     ("https://www.justice.govt.nz/assets/Documents/Decisions/2099-NZXX-7-Invented-v-Example.pdf",))
+    def walk(api, **kw):
+        w = env.walk(api, **kw)
+        f = own.FinderWalk.__new__(own.FinderWalk)
+        f.__dict__.update(w.__dict__)
+        f.counts = {**w.counts, "not_pdf": 0}
+        return f
+    api = FakeFinder()
+    out = walk(api).run()
+    assert out["ok"] and out["stopped"] == "end", out
+    assert out["landed"] == 60 - 2 + 3 and out["skipped_mcp"] == 1 and out["absent"] == 1 and out["not_pdf"] == 2
+    assert not any(u.endswith(".docx") for u in api.urls) and not any("-NZXX-7-" in u for u in api.urls)
+    assert len([u for u in api.urls if "Filter_Jurisdiction=17" in u]) == 3            # 60 at 25 a page
+    rows = dict(env.conn.execute(f"SELECT court, done FROM {S}.own_cursor WHERE source = %s", (own.FINDER_SOURCE,)).fetchall())
+    assert rows["Employment Court"] and rows["Disputes Tribunal"]
+    # the next night two new decisions sit at the top: page one is read, the two fetched, and the walk stops there
+    api2 = FakeFinder(newest=62)
+    out2 = walk(api2).run()
+    assert out2["ok"] and out2["landed"] == 2
+    assert len([u for u in api2.urls if "Filter_Jurisdiction=17" in u]) == 2           # page one, then page two holds nothing new
+    sources = {r[0] for r in env.conn.execute(f"SELECT DISTINCT source FROM {S}.own_files").fetchall()}
+    assert sources == {own.FINDER_SOURCE}

@@ -24,10 +24,14 @@ document's own caption is read by the load like any other file.
 
     python -m registers.courts.own --jdo [--budget-s N] [--max-requests N] [--anytime] [--court NAME] [--year Y]
     python -m registers.courts.own --era [--budget-s N] [--max-requests N] [--anytime] [--year Y]
+    python -m registers.courts.own --finder [--budget-s N] [--max-requests N] [--anytime] [--court NAME or ID]
 
 Tranche 3 (EraWalk): the Employment Relations Authority's determinations at determinations.era.govt.nz (position
 docs/legal/positions/specialist-court-and-authority-decisions.md), its search form a year at a time, 10 a page,
 newest first; the PDFs under /assets/elawpdf/. Its own host, so its own job (qv4-courts-era-capture) the same nights.
+
+Tranche 2 (FinderWalk): the Ministry's decisions finder on the same host as JDO (22 jurisdictions, 25 a page, each
+decision a file under /assets/Documents/Decisions/), run by the JDO job once JDO's walk is done for the night.
 """
 import argparse
 import datetime as dt
@@ -371,12 +375,118 @@ class EraWalk(Walk):
         return super().run(courts=[ERA_COURT], years=years or self.only_years or list(range(this, ERA_EARLIEST - 1, -1)))
 
 
+# ── tranche 2: the Ministry's decisions finder (www.justice.govt.nz, the tribunals' and courts' decision pages) ─────
+FINDER_SOURCE = "courts-finder"
+FINDER_PATH = "/tribunals/human-rights/hrrt-decisions/"     # one SilverStripe finder serves every jurisdiction (the position)
+FINDER_PAGE = 25
+#: (id, name) in the walk's order: the most the MCP lacks first (the survey's counts). Not walked: the Tenancy Tribunal
+#: (618, its own lane), and the five that answer none there (Taxation and Charities Review 902, Copyright 25, Victims'
+#: Special Claims 412, Waitangi 22, the Licensing Authority of Secondhand Dealers and Pawnbrokers 30, beside 777)
+FINDER_JURISDICTIONS = (
+    (17, "Employment Court"), (26, "Disputes Tribunal"), (24, "Māori Land Court"), (29, "Legal Complaints Review Officer"),
+    (795, "Accident Compensation Appeals District Court Registry"), (32, "Real Estate Agents Disciplinary Tribunal"),
+    (279, "Lawyers and Conveyancers Disciplinary Tribunal"), (27, "Human Rights Review Tribunal"),
+    (745, "Private Security Personnel Licensing Authority"), (275, "Social Security Appeal Authority"),
+    (468, "Māori Appellate Court"), (35, "Weathertight Homes Tribunal"), (636, "Land Valuation Tribunal"),
+    (19, "Environment Court"), (768, "Canterbury Earthquakes Insurance Tribunal"),
+    (23, "Accident Compensation Appeal Authority"), (277, "Review Authority"), (792, "Customs Appeal Authority"),
+    (28, "Immigration Advisers Complaints and Disciplinary Tribunal"), (33, "Student Allowance Appeal Authority"),
+    (777, "Secondhand Dealers and Pawnbrokers"), (18, "Coroners"))
+_FINDER_COUNT = re.compile(r'class="resultsHeader">.*?<p><span>([\d,]+)</span>', re.S)
+_FINDER_RESULTS = re.compile(r'<ol id="SearchResults">(.*?)</ol>', re.S)
+_FINDER_HREF = re.compile(r'<a href="([^"]+)"')
+
+
+def finder_url(jurisdiction: int, page: int) -> str:
+    q = [("Filter_Jurisdiction", str(jurisdiction))]
+    if page > 1:
+        q.append(("start", str((page - 1) * FINDER_PAGE)))
+    return BASE + FINDER_PATH + "?" + urllib.parse.urlencode(q)
+
+
+def finder_listing(html: str) -> tuple:
+    """(count, [pdf hrefs], [other hrefs]) from one finder page: the results list only, its commented-out copies of
+    each link dropped. A page with no results header is not the finder's: ValueError."""
+    m = _FINDER_COUNT.search(html)
+    if not m:
+        if "SearchResults" not in html and "resultsHeader" not in html:
+            raise ValueError("not the Ministry's decisions finder page")
+        return 0, [], []
+    count = int(m.group(1).replace(",", ""))
+    body = _FINDER_RESULTS.search(html)
+    links = []
+    for href in _FINDER_HREF.findall(re.sub(r"<!--.*?-->", "", body.group(1), flags=re.S) if body else ""):
+        if href not in links:
+            links.append(href)
+    pdfs = [h for h in links if h.lower().endswith(".pdf")]
+    return count, pdfs, [h for h in links if h not in pdfs]
+
+
+class FinderWalk(Walk):
+    """The finder's jurisdictions, each one listing newest first, 25 a page: the same floor, stops, skips, ledger and
+    cursor (a jurisdiction is one cursor row, its year 0). A jurisdiction walked to its last page is done; then each night
+    its first pages until a page holds nothing new. A listed file that is not a PDF is counted and passed, never asked."""
+    SOURCE, BASE, JOB, NAME = FINDER_SOURCE, BASE, "qv4-courts-jdo-capture", "finder"
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.counts["not_pdf"] = 0
+
+    def finder_page(self, jurisdiction: int, page: int):
+        url = finder_url(jurisdiction, page)
+        body = self.get(url, "text/html")
+        if body is None:
+            raise Stop("a finder page answered 404")
+        try:
+            count, pdfs, other = finder_listing(body.decode("utf-8", "replace"))
+        except ValueError:
+            raise Stop("a finder page that is not the Ministry's finder: a failed read") from None
+        sha = self.land(body, url, "text/html")
+        self.counts["listing_pages"] += 1
+        self.counts["not_pdf"] += len(other)
+        return count, pdfs, sha
+
+    def jurisdiction(self, jid: int, name: str) -> None:
+        total, pages_done, done = self.cursor(name, 0)
+        page = 1 if done else pages_done + 1
+        while True:
+            if self.spent():
+                raise Budget(self.spent())
+            count, pdfs, sha = self.finder_page(jid, page)
+            new = sum(self.file(name, 0, sha, h) for h in pdfs)
+            pages = max(1, -(-count // FINDER_PAGE))
+            last = page >= pages
+            self.advance(name, 0, count, page if not done else max(pages_done, page), last or done)
+            if last or (done and new == 0):
+                return
+            page += 1
+
+    def run(self, courts: list = None, years: list = None) -> dict:
+        stopped, ok = "end", True
+        wanted = set(courts or self.only_courts or [])
+        try:
+            if self.spent():
+                raise Budget(self.spent())
+            for jid, name in FINDER_JURISDICTIONS:
+                if not wanted or name in wanted or str(jid) in wanted:
+                    self.jurisdiction(jid, name)
+        except Budget as b:
+            stopped = str(b)
+        except Stop as e:
+            stopped, ok = f"a failed read: {e}", False
+            self.conn.rollback()
+        out = {**self.counts, "ok": ok, "stopped": stopped}
+        self.log(f"courts own capture ({self.NAME}): " + ", ".join(f"{k} {v}" for k, v in out.items()))
+        return out
+
+
 def job(argv=None, log=print) -> int:
     from support import db, jobrun
     ap = argparse.ArgumentParser(prog="python -m registers.courts.own")
     which = ap.add_mutually_exclusive_group(required=True)
     which.add_argument("--jdo", action="store_true")
     which.add_argument("--era", action="store_true", help="the Employment Relations Authority's determinations")
+    which.add_argument("--finder", action="store_true", help="the Ministry's decisions finder alone (a trial)")
     ap.add_argument("--budget-s", type=float, default=7.5 * 3600)
     ap.add_argument("--max-requests", type=int)
     ap.add_argument("--anytime", action="store_true", help="a supervised trial outside 22:00 to 06:00")
@@ -389,9 +499,18 @@ def job(argv=None, log=print) -> int:
     with db.connect(db.OWNER_KEY, a.database) as conn:
         conn.execute(L.capture_tables_sql(SCHEMA))
         conn.commit()
-        W = EraWalk if a.era else Walk
+        W = EraWalk if a.era else FinderWalk if a.finder else Walk
+        t0 = time.monotonic()
         out = W(conn, budget_s=a.budget_s, max_requests=a.max_requests, anytime=a.anytime, log=log).run(
             courts=a.court, years=a.year)
+        if W is Walk and out["ok"] and out["stopped"] == "end" and not a.court and not a.year:
+            # the finder shares JDO's host: it runs after JDO's walk is done for the night, one request at a time
+            left_s = a.budget_s - (time.monotonic() - t0)
+            left_n = None if a.max_requests is None else a.max_requests - out["requests"]
+            f = FinderWalk(conn, budget_s=max(0.0, left_s), max_requests=left_n, anytime=a.anytime, log=log).run()
+            out = {**{k: v for k, v in out.items() if k not in ("ok", "stopped")},
+                   **{f"finder_{k}": v for k, v in f.items() if k not in ("ok", "stopped")},
+                   "ok": f["ok"], "stopped": "JDO: end; finder: " + f["stopped"]}
     detail = ", ".join(f"{k} {v}" for k, v in out.items() if k != "ok")
     jobrun.record(W.JOB, out["ok"], detail[:2000], started,
                   {k: v for k, v in out.items() if isinstance(v, int) and not isinstance(v, bool)})
