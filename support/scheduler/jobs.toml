@@ -1869,7 +1869,7 @@ nice = 15
 [jobs.qv4-courts-jdo-capture]
 description = "Courts, the estate's own capture of what the MCP lacks (ruling 140, tranche 1): Judicial Decisions Online's JSON listing at www.justice.govt.nz, every court the taxonomy names, one year at a time (the listing's 10,000 cap), each decision's PDF landed by hash (source courts-jdo) unless the MCP already landed its address; the ledger courts.own_files and the cursor courts.own_cursor are never wiped. One gated request at least 5 s apart, 22:00 to 06:00 NZDT only; a 403, 429, 5xx, challenge, reset or a non-PDF stops the run, a 404 is recorded and passed. The back catalogue (about 47,000 decisions) takes about nine nights; then each night the current and last year's newest pages. The 04:40 courts load reads what has landed by then (a job with a clock of its own is not queued by another)."
 needs = "processor"
-memory_gb = 0.5   # unmeasured: one PDF in memory at a time and the MCP's courts addresses (about 16,000); measure on the first night
+memory_gb = 0.3   # measured 3 November 2026: 47 MB peak RSS on the daytime trial (10 requests; the MCP's courts addresses held in a set, one PDF at a time)
 deadline_s = 27900
 query_timeout_s = 300
 class = "due"
