@@ -19,6 +19,9 @@
    "fetched_at": [
     "str"
    ],
+   "file": [
+    "str"
+   ],
    "final_url": [
     "str"
    ],
@@ -163,6 +166,9 @@
    "case_slug": [
     "str"
    ],
+   "citation": [
+    "str"
+   ],
    "content_type": [
     "str"
    ],
@@ -173,6 +179,9 @@
     "str"
    ],
    "discovered_via": [
+    "str"
+   ],
+   "doc_date": [
     "str"
    ],
    "fetched_at": [
@@ -685,6 +694,9 @@
    "fetched_at": [
     "str"
    ],
+   "file": [
+    "str"
+   ],
    "http_status": [
     "int"
    ],
@@ -757,6 +769,9 @@
     "str"
    ],
    "fetched": [
+    "str"
+   ],
+   "file": [
     "str"
    ],
    "id": [
@@ -1226,6 +1241,9 @@
     "str"
    ],
    "fetched_at": [
+    "str"
+   ],
+   "file": [
     "str"
    ],
    "html_title": [
