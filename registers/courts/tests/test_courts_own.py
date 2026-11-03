@@ -119,7 +119,7 @@ def env(monkeypatch, tmp_path):
                            ledger_dir=str(tmp_path / "ledger"), now=lambda: NOW, log=lambda *a: None, land=land, **kw)
 
     try:
-        yield types.SimpleNamespace(conn=conn, walk=walk, era_walk=era_walk, store=store)
+        yield types.SimpleNamespace(conn=conn, walk=walk, era_walk=era_walk, store=store, ledger=str(tmp_path / "ledger"))
     finally:
         raw.rollback()
         raw.close()
@@ -177,6 +177,9 @@ def test_the_skip_if_the_mcp_holds_it_rule_and_its_mutant(env, monkeypatch):
 def test_a_challenge_stops_the_run_and_its_mutant(env, monkeypatch):
     assert _stops_at_the_challenge(env)
     _fresh(env)
+    # ruling 141: the challenge held the host in the gate; cleared, so the mutant is judged on the walk's own rule
+    for host in list(fetchgate.refusals(env.ledger)):
+        fetchgate.clear(host, by="test", ledger_dir=env.ledger)
     src = open(own.__file__, encoding="utf-8").read()
     rule = "        if got.blocked:\n            raise Stop(got.blocked)\n"
     assert rule in src

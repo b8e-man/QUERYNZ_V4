@@ -190,6 +190,9 @@
    "file": [
     "str"
    ],
+   "http_headers": [
+    "dict"
+   ],
    "http_status": [
     "int"
    ],
@@ -236,6 +239,20 @@
      "str"
     ],
     "url": [
+     "str"
+    ]
+   },
+   "http_headers": {
+    "Content-Length": [
+     "str"
+    ],
+    "Content-Type": [
+     "str"
+    ],
+    "Date": [
+     "str"
+    ],
+    "Last-Modified": [
      "str"
     ]
    }
@@ -375,7 +392,8 @@
     "dict"
    ],
    "date": [
-    "null"
+    "null",
+    "str"
    ],
    "documentType": [
     "str"
@@ -522,7 +540,8 @@
     "dict"
    ],
    "date": [
-    "null"
+    "null",
+    "str"
    ],
    "documentType": [
     "str"
@@ -605,6 +624,9 @@
    ],
    "titleUrl": [
     "null"
+   ],
+   "updated_at": [
+    "str"
    ],
    "url": [
     "null"
@@ -855,7 +877,8 @@
     "null"
    ],
    "date": [
-    "null"
+    "null",
+    "str"
    ],
    "documentType": [
     "str"
@@ -938,6 +961,9 @@
    "titleUrl": [
     "null"
    ],
+   "updated_at": [
+    "str"
+   ],
    "url": [
     "null"
    ]
@@ -989,7 +1015,8 @@
     "dict"
    ],
    "date": [
-    "null"
+    "null",
+    "str"
    ],
    "documentType": [
     "str"
@@ -1134,7 +1161,8 @@
     "null"
    ],
    "date": [
-    "null"
+    "null",
+    "str"
    ],
    "documentType": [
     "str"
@@ -1216,6 +1244,9 @@
    ],
    "titleUrl": [
     "null"
+   ],
+   "updated_at": [
+    "str"
    ],
    "url": [
     "null"
