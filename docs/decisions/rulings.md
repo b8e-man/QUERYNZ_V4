@@ -54,7 +54,6 @@ Each answer from Arthur, with the date and his words. Rulings 1 to 54 are from t
 39. The Follow the Money money and scope rules belong to that product only.
 40. The two confirming rules stay exact for Follow the Money. The wider estate starts with them; they are revisited only after measurement, by Arthur.
 41. Arthur is not in the review loop. A suspicious link is reviewed by an agent and split if not trusted. Reports list near connections.
-42. A company's registered address is shown. A person's home address is never shown or extractable, and is still used for matching.
 43. Papers Past gets a broad name index as a search aid: people, towns, roads, organisations. It never feeds the links.
 44. A graphics card runs one model on one kind of job at a time. The scheduler may swap it and records every swap.
 45. Re-reads no longer wait for Arthur. The scheduler runs them.
@@ -87,7 +86,7 @@ Each answer from Arthur, with the date and his words. Rulings 1 to 54 are from t
 
 **18 October.** 57. Arthur to the scheduler session, on its queue item about a second worker on node2: "card the node 1 setup". node1 is to be set up as the estate's second box (`cards/node1-setup-as-the-second-box.md`), each line that touches node1 itself on Arthur's word. This narrows ruling 55: node1 is not waited on by anything in step 1, and nothing in the plan is owed to it until the setup card is worked; the two-box proofs of step 2 are owed on it then, not on a second worker on node2.
 
-**19 October.** 58. Arthur to the windowed session, on both track E questions: "Decisions held - yes", the defaults are the rulings. Tenancy Tribunal orders are kept after the Ministry takes them down at three years and never shown: held in the document store by hash past their `unpublished_date`, the lane's tables carrying no name or address, nothing published; step 5's reading decides nothing about showing, and a ruling is owed before any product shows one. The lawyer reads the position before anything is sold.
+**19 October.**
 
 59. No letter to the Real Estate Authority yet. The lane captures and holds its decisions as in-house use, which the Authority's terms allow; nothing is published. Before any product shows them: the lawyer says whether a Complaints Assessment Committee decision is a tribunal judgment under section 27 of the Copyright Act 1994, and if not, one letter to the Authority. `decisions.dotnous.com/robots.txt` says `Disallow: /`; under ruling 10 that is recorded, not obeyed, and it is in the position for the lawyer to weigh.
 
@@ -99,17 +98,6 @@ Each answer from Arthur, with the date and his words. Rulings 1 to 54 are from t
 62. Arthur, 20 October, 14:30: "let's delay the document reading until everything is built. We need some sample data but not the full tranches." The page-reader jobs (`qv4-read-pages*`, the re-reads) are not queued in bulk until the plan's build is done; a lane that needs readings works from the sample the store already holds and sets the rest aside with hashes and pages, so the queue is one command when the time comes. `qv4-read-pages-candidates` (row 130, 713 pieces) was cancelled at 14:30 with 60 of its 713 returns read; those stay as the sample. Step 3's halt (ruling 60) stands with it.
 
 **21 October.** 63. Arthur, 21 October, 08:15: "let's hold 6 until the end", corrected at 08:30: "I miss typed. i meant step 7"; after step 6 was explained to him, "step 6 can go back as it was". Step 7 (archive search) is held until the end of the plan; step 6 (register scans) keeps its place after step 5. The briefs are ordered step 5 to its close, then step 6, then step 7.
-
-64. Arthur, 21 October, about 12:45, through the integrator's side chat, on
-the queue item `whether-a-charity-s-address-for-service-is-shown-when-it-may-be-a-trustee-s-home`:
-"1. keep. We will decide to withhold before we have customers." The default
-stands: a charity's address for service is shown where the charity is a
-body corporate (an incorporated society, a company, a trust board
-incorporated under the Charitable Trusts Act) and withheld for the rest
-(20,031 of 45,895 on the 21 October copy, 16,507 of them for filing no
-legal structure); the final withholding rule is decided before there are
-customers, with the legal review (ruling 61). Built so by `charities-3`;
-the queue item closes.
 
 65. Arthur, 21 October, about 12:50, on template 7's phoenix window (365
 days either side of the failure; the old estate used 90 days after): "2.
@@ -312,8 +300,7 @@ results a section "Near matches", closed until clicked, with two labelled
 classes, a person name whose given name and surname are reversed against
 the query, and an address that is a close but not exact match by the
 estate's own address fold; never mixed with or counted in the exact
-results; only addresses the published views already show, never a home
-address (hard limit 15); nothing written. Rulings 82 and 83 are built
+results; nothing written. Rulings 82 and 83 are built
 together by `board-3` in `products/board/` after `fix-products-board-1`
 (ruling 81) merges.
 
@@ -701,7 +688,7 @@ register with the label beneath, soft curved edges in the key's colours,
 tap a node to grow its one hop and tap again to fold it, drag, zoom and
 pan, the centre ringed; the rows and edges from a JSON answer built by the
 same `graph.build` (published tables only, every edge cited by its
-asserting row, never an address edge, suppression as before). The
+asserting row). The
 server-written SVG stays as the picture for a browser without script and
 the layered layout (ruling 92 (1)) gives every node its first position,
 with a control that lets the force layout spread it; the key and the
@@ -1023,8 +1010,7 @@ on Radiance (ruling 121), called by the board's server through
 and read back); the browser still talks to nothing but the board. The
 model reads the corpus only through the board's own search, row and
 dossier functions, offered to it as tools, on the product reader and the
-pub views alone, the same columns the field search reads, so a suppressed
-name never reaches it and ruling 102 applies as it does to the board. It
+pub views alone, the same columns the field search reads. It
 answers from what the tools return and cites each fact as a row of a
 view; a line it cannot cite it says is uncited. The thread lives in the
 browser for the sitting; the server keeps no table of questions and logs
@@ -1098,7 +1084,7 @@ Second, the courts lane's primary source is the MCP's `courts` corpus:
 the lane reads judgments, media releases and case pages from those
 documents by hash, and its own fetching from courtsofnz becomes the
 check, not the source. Ruling 131 (legal documents capture-and-hold)
-and the lane's suppression lever are unchanged. Built by a fix on
+is unchanged. Built by a fix on
 `support/mcpsource` (the download step, the corpus's shape), then
 `courts-2` once the files are landed. The queue item closes.
 
@@ -1139,9 +1125,7 @@ profile swap at a time, the daily release never waiting on a reading;
 the page reader (GLM-OCR) reads a page with no text layer, Flash-Next
 reads text. (4) Nothing built here is shown to anyone; the build is
 internal. Sessions stop raising "held", "not shown" or "legal review"
-as concerns in their reports and briefs: the hard limits on suppressed
-names and home addresses stand as rules of the build, applied without
-comment. Built by `courts-2`; the reading infrastructure (page reader
+as concerns in their reports and briefs. Built by `courts-2`; the reading infrastructure (page reader
 and text reader jobs on node2) is queued by the integrator.
 
 129. Arthur, 30 October, 11:41, on the queue item "where the page reader
@@ -1302,25 +1286,17 @@ measurements §15 and §16 are built as recommended, without the sample pairs.
 Rulings and lane rules that withheld, stripped or excluded for privacy or
 suppression give way to this one.
 
-143. Ruling 142's reach, read by the integrator on 4 November when Arthur
-asked for the conflicting rulings. These give way to 142 in what they
-withheld, stripped, deleted or left out; what else they say stands:
-42 ("never ... extractable": a home address is extracted and kept; it is
-still never shown by a product), 58 (the Tenancy Tribunal lane's tables
-carry names and addresses), 64 (a charity's address for service is kept
-and published for every charity, with a flag where the charity is not a
-body corporate), 83 (the near-match section may match any address the
-board's views hold), the board graph's "never an address edge,
-suppression as before" (address links are edges like any other), 122 (the
-chat pane reads what the board reads), 126's "the lane's suppression
-lever" and 128 (4)'s "rules of the build" (suppression is a flag; the
-hard limits bind products, exports and sessions). Six queue items are
-answered by 142 and closed: a councillor's spouse's or partner's
-interests are read and kept; the interests register's real-property
-declarations are kept whole; Building Practitioners Board decisions,
-regulators' actions and overseas investment rows naming a person stay
-after the publisher takes them down, flagged with the date it did; an
-overseas investment summary's land address is kept and published. Not
-touched: the hard limits in CLAUDE.md (they bind surfaces, exports and
-what a session prints, not what the database holds), and hard limit 17
-(Papers Past searched, not mined), which is not a privacy rule.
+143. Arthur, 4 November, told which rulings conflicted with 142: "delete
+all those rulings that were causing the issue". Deleted from this file
+(the old text is in the repository's history): 42, 58 and 64 whole, and
+the parts of 83 (near matches left out a home address), 100 (the graph's
+"never an address edge, suppression as before"), 122 (the chat pane kept
+from a suppressed name), 126 ("the lane's suppression lever") and 128 (4)
+(the suppression and home-address limits as rules of the build). Six
+queue items are answered by 142 and closed: a councillor's spouse's or
+partner's interests are read and kept; the interests register's
+real-property declarations are kept whole; Building Practitioners Board
+decisions, regulators' actions and overseas investment rows naming a
+person stay after the publisher takes them down, flagged with the date it
+did; an overseas investment summary's land address is kept and
+published.
