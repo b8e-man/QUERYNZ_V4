@@ -11,6 +11,10 @@
 - Own capture (ruling 140): JDO, the Ministry's decisions finder (22 bodies) and the ERA, nightly 22:00 NZDT, 5 s
   floor; the MCP's file wins by hash.
 - 3 November: the counsel-role check's two grammar misses mended; two court-printed exceptions counted apart.
+- 3 November (Arthur: any identifying information), tranche 1: `identifiers.py` finds the details with a fixed
+  shape (emails, phones, PO boxes, street addresses, ages, dates of birth, company numbers, NZBNs, IRD, licence and
+  plate numbers) in the text the lane holds, no model, into `courts_private.identifiers`; never published; the
+  check fails an identifier column in a view or reading table, or a view on the private schema.
 
 ## Waiting
 
@@ -20,5 +24,5 @@
 ## Next
 
 1. The Weathertight profile, then each finder body's as the backfill lands it.
-2. Identifying information in full (Arthur, 3 November): addresses, ages, dates of birth, emails, phones and firms
-   the documents print, gathered privately beside the names.
+2. Identifying information, the model's half (occupations, employers, firms, relationships, places of residence,
+   addresses printed without a fixed shape, per person): `docs/research/what-each-profile-extracts.md`.

@@ -351,3 +351,67 @@ def test_there_is_no_command_that_lifts_an_order_and_nothing_deletes_the_ledger(
             text = open(os.path.join(LANE, name), encoding="utf-8").read()
             assert not re.search(r"(DELETE\s+FROM|TRUNCATE|DROP\s+TABLE)[^;\n]*suppression_orders", text, re.I), name
     assert "suppression_orders" not in L.TABLES and "suppression_orders" in L.RECORDS
+
+
+def _ids(filled):
+    return filled["q"](f"SELECT * FROM {L.table(filled['schema'] + '_private', 'identifiers', True)} ORDER BY key")
+
+
+def test_the_identifying_details_are_gathered_privately_by_shape_on_the_real_sample(filled):
+    """Arthur, 3 November 2026: any identifying information, gathered beside the names. Counts only on failure."""
+    from registers.courts import identifiers as I
+    ids = _ids(filled)
+    kinds = {}
+    for r in ids:
+        kinds[r["kind"]] = kinds.get(r["kind"], 0) + 1
+    assert len(ids) >= 20 and {"email", "phone"} <= set(kinds), kinds
+    docs = {d["document"] for d in filled["documents"]}
+    assert all(r["document"] in docs and r["kind"] in I.KINDS and r["value"] and r["person"] is None for r in ids)
+    assert len({(r["document"], r["kind"], r["value"].upper()) for r in ids}) == len(ids), "a detail once per document"
+    # gathered under a suppression too: the private table is not thinned by the withholding
+    suppressed = {j["document"] for j in filled["judgments"] if j["suppression"]}
+    assert any(r["document"] in suppressed for r in ids), "a suppressed judgment's details are gathered privately"
+    out = check.account(filled["conn"], filled["schema"], shared=True)
+    assert out["failures"] == [] and out["identifiers"].get("email") == kinds["email"]
+
+
+def test_no_identifying_detail_reaches_a_table_a_published_view_reads(filled):
+    """Every text value of every reading table (the pub views select only from these) against the fixed-shape details."""
+    strong = {r["value"] for r in _ids(filled) if r["kind"] in ("email", "phone", "address", "po_box", "nzbn")}
+    assert strong
+    leaks = 0
+    for t in L.TABLES:
+        for row in filled["q"](f"SELECT * FROM {L.table(filled['schema'], t, True)}"):
+            for col, v in row.items():
+                if col in ("key", "url", "href", "label") or not isinstance(v, str):
+                    continue      # an address's key, a link's own url and label are the court's, not a detail
+                leaks += sum(1 for s in strong if s in v)
+    assert leaks == 0, f"{leaks} identifying detail(s) inside a reading table"
+
+
+def test_the_check_fails_an_identifier_column_or_a_published_view_on_the_private_schema(filled):
+    conn, schema = filled["conn"], filled["schema"]
+    conn.rollback()
+    try:
+        conn.execute(f"ALTER TABLE {L.table(schema, 'people', True)} ADD COLUMN email text")
+        assert any("has a column 'email'" in f for f in check.account(conn, schema, shared=True)["failures"])
+    finally:
+        conn.rollback()
+    try:
+        conn.execute("CREATE SCHEMA IF NOT EXISTS pub")
+        conn.execute(f"CREATE VIEW pub.court_leak_test AS SELECT kind FROM {L.table(schema + '_private', 'identifiers', True)}")
+        assert any("reads the private schema" in f for f in check.account(conn, schema, shared=True)["failures"])
+    finally:
+        conn.rollback()
+
+
+def test_the_lever_leaves_the_private_details_whole_and_publishes_none(filled):
+    conn, schema, q = filled["conn"], filled["schema"], filled["q"]
+    conn.rollback()
+    before = len(_ids(filled))
+    try:
+        suppress.run(conn, "[2026] NZSC 122", "test order", execute=True, schema=schema, shared=True, by_whom="test")
+        assert len(_ids(filled)) == before
+        assert check.account(conn, schema, shared=True)["failures"] == []
+    finally:
+        conn.rollback()

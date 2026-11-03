@@ -24,6 +24,10 @@ reason. The Crown's name and an initial the court printed stay. Every later buil
 after the swap, so an order made during a merge binds too. The published
 views read only these tables, so every product that reads them is bound.
 
+The identifying details a document prints (`courts_private.identifiers`)
+are gathered under a suppression as without one and are never published,
+so the lever has nothing to withhold there and does not touch them.
+
 There is no unsuppress command. A court lifting an order is a person's
 decision with a paper trail: the ledger row is withdrawn by hand, with a
 note, and the lane re-read.

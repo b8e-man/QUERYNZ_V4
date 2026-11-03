@@ -1,6 +1,7 @@
 -- registers/courts: the published views, the only thing a later module reads (contract: the lane).
 -- A withheld name is NULL in courts.judgment_parties, courts.people and courts.cases already; no view joins courts_private.
--- No address is read from a court document (hard limit 15); no suppressed name is published (hard limit 16).
+-- No view carries an address or any identifying detail a document prints: those are kept privately (identifiers.py,
+-- hard limit 15); no suppressed name is published (hard limit 16).
 
 CREATE OR REPLACE VIEW pub.court_judgments AS
 SELECT key, citation, court, court_name, registry, case_numbers, judgment_date, judges, heading, outcome,

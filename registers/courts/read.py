@@ -51,6 +51,7 @@ from support.docread import pages as P
 from support.docread.pagereader import page_total
 from registers.courts import caption
 from registers.courts import capture as CAP
+from registers.courts import identifiers
 from registers.courts import pieces as PC
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -154,6 +155,7 @@ class Result:
     paragraphs: list = field(default_factory=list)     # (judgment key, number, page, document)
     people: list = field(default_factory=list)
     withheld: list = field(default_factory=list)       # (key, name, capacity): the private table only
+    identifiers: list = field(default_factory=list)    # identifying details by shape (identifiers.py): the private table only
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
     counts: dict = field(default_factory=dict)
 
@@ -456,6 +458,7 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
             version = profile_version(slug)
             page = case_page(data, e["url"])
             text = _page_text_for_model(page)
+            res.identifiers += identifiers.rows(sha, text, slug, version, "text", now)
             doc.update(profile=slug, profile_version=version, pages=1, read_from="text", text_chars=sum(len(t) for t in text.values()))
             _case_rows(res, e, sha, page, slug, version, by_url, now)
             doc.update(citation=page["citation"], case_numbers=page["case_numbers"],
@@ -479,6 +482,7 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
             continue
         version = profile_version(slug)
         doc.update(profile=slug, profile_version=version)
+        res.identifiers += identifiers.rows(sha, texts, slug, version, "text" if how == "text" else "pixels", now)
         if how == "text":
             # the text-layer pages are stored under the reader contract (replayed by the check's counsel re-read)
             read_document(data, sha, profile=slug, profile_version=version, store=store, texts=texts)
@@ -546,7 +550,7 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
                                    for k in ("read", WAIT_PAGES, WAIT_TEXT, "set aside", "caught")},
                   "shared": len(shared),
                   "judgments": len(res.judgments), "parties": len(res.parties), "cases": len(res.cases),
-                  "people": len(res.people), "withheld": len(res.withheld), "set_aside": len(res.set_aside),
+                  "people": len(res.people), "withheld": len(res.withheld), "identifiers": len(res.identifiers), "set_aside": len(res.set_aside),
                   **{s: sum(1 for x in res.judgments if x["status"] == s) for s in ("parsed", "partial", "unparsed")}}
     return res
 
@@ -590,7 +594,7 @@ def _once(res: Result) -> None:
     """Every key once, asserted here rather than at the COPY: the merge gate
     of 30 October died on `cases_pkey` with three files under two records each."""
     import collections
-    for name in ("documents", "cases", "case_links", "judgments", "parties", "people"):
+    for name in ("documents", "cases", "case_links", "judgments", "parties", "people", "identifiers"):
         twice = [k for k, n in collections.Counter(r["key"] for r in getattr(res, name)).items() if n > 1]
         if twice:
             raise AssertionError(f"courts: {len(twice)} {name} key(s) emitted more than once ({twice[0][:12]}…): a file is read once")

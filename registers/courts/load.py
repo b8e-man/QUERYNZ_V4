@@ -20,7 +20,7 @@ import os
 import sys
 
 from support import jobrun
-from registers.courts import capture, read
+from registers.courts import capture, identifiers, read
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "courts"
@@ -28,7 +28,7 @@ PRIVATE = "courts_private"
 JOB = "qv4-courts-load"
 #: the reading's tables, rebuilt at every load
 TABLES = ("documents", "cases", "case_links", "judgments", "judgment_parties", "paragraphs", "people", "set_aside")
-PRIVATE_TABLES = ("withheld_names",)
+PRIVATE_TABLES = ("withheld_names", "identifiers")
 #: the lane's record, never wiped
 RECORDS = ("suppression_orders",)
 STAMP = ("document", "page", "place", "read_from", "reader", "profile", "profile_version", "loaded_at")
@@ -115,6 +115,8 @@ def build(conn, schema: str, entries: list, caught: list, ledger: list, shared: 
         _copy(conn, table(schema, t, shared), COLUMNS[t], (tuple(r.get(c) for c in COLUMNS[t]) for r in rows))
     _copy(conn, table(schema, "paragraphs", shared), ("judgment", "number", "page", "document"), res.paragraphs)
     _copy(conn, table(private_of(schema), "withheld_names", shared), ("key", "name", "capacity"), res.withheld)
+    _copy(conn, table(private_of(schema), "identifiers", shared), identifiers.COLUMNS,
+          (tuple(r.get(c) for c in identifiers.COLUMNS) for r in res.identifiers))
     return {**res.counts, "pull_caught": len(caught), "old_listing_gap": len(gap)}
 
 

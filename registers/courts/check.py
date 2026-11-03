@@ -22,6 +22,12 @@ account.
      intervener the caption does not list; an appeal captioned Plaintiff and
      Defendant) is counted apart with its reason
      (`caption.roles_source_exception`), never as short.
+  6. Identifying details (Arthur, 3 November 2026) are private: counted by
+     kind from `courts_private.identifiers` where the login can read it;
+     a published view or a reading table with a column named for a kind of
+     detail fails, so does a `pub.` view that reads any `_private` table, a
+     publish.sql that names the private schema or the table, and a detail
+     whose document is not a document of the reading.
   5. The profile check (ruling 130): every document read by the text reader,
      or waiting on it, has its piece count by its profile's reading rule; a
      document under a whole rule is within its budget; a document the rule
@@ -35,12 +41,19 @@ Read-only. Exit 1 on a failure.
 """
 import sys
 
+import os
+import re
+
 from registers.courts import capture
+from registers.courts import identifiers as IDS
 from registers.courts import load as L
 from registers.courts import model_read
 from registers.courts import pieces as PC
 from registers.courts import read as R
 
+#: a column of that name in a published view or a reading table would carry an identifying detail
+FORBIDDEN_COLUMNS = {k for k in IDS.KINDS if k != "other"} | {"identifier", "identifiers", "home_address",
+                                                               "residential_address", "street_address", "dob"}
 ROLES_TOLERATED = 2
 ROLES_SAMPLE = 200          # judgments re-read for the counsel-role check (lessons: a check scans a fixed sample)
 
@@ -146,6 +159,7 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
         out["failures"].append(f"{shown} withheld names still in a published table")
     orders = q(f"SELECT count(*) FROM {t('suppression_orders')}")[0][0] if _exists(conn, t("suppression_orders")) else 0
     out["suppression"]["orders in the ledger"] = orders
+    out["identifiers"] = _identifiers(conn, schema, shared, out["failures"])
     short, excepted = roles_review(conn, schema, shared)
     out["roles short"] = len(short)
     # the source's own printing (caption.roles_source_exception): each judgment counted with its reason, never tolerated
@@ -153,6 +167,44 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
     if len(short) > ROLES_TOLERATED:
         out["failures"].append(f"{len(short)} judgments whose counsel lines name a role no party holds (tolerated {ROLES_TOLERATED})")
     return out
+
+
+def publish_sql_names_private(text: str) -> bool:
+    """publish.sql, its comments apart, names the private schema or the identifiers table."""
+    body = "\n".join(ln.split("--", 1)[0] for ln in text.splitlines())
+    return bool(re.search(r"_private|\bidentifiers\b|withheld_names", body))
+
+
+def _identifiers(conn, schema: str, shared: bool, failures: list) -> dict:
+    """The private details counted by kind (never a value); the walls around them checked."""
+    reading = [L.table(schema, n, shared).split(".", 1)[1] for n in L.TABLES]
+    cols = conn.execute("SELECT table_schema, table_name, column_name FROM information_schema.columns WHERE "
+                        "(table_schema = 'pub' AND table_name LIKE 'court%%') OR (table_schema = %s AND table_name = ANY(%s))",
+                        (schema, reading)).fetchall()
+    for s, tname, col in cols:
+        if col.lower() in FORBIDDEN_COLUMNS:
+            failures.append(f"{s}.{tname} has a column {col!r}: an identifying detail in a published or reading table")
+    for view, src in conn.execute("SELECT DISTINCT view_name, table_schema FROM information_schema.view_table_usage WHERE "
+                                  "view_schema = 'pub' AND view_name LIKE 'court%%' AND right(table_schema, 8) = '_private'").fetchall():
+        failures.append(f"pub.{view} reads the private schema {src}")
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "publish.sql"), encoding="utf-8") as f:
+        if publish_sql_names_private(f.read()):
+            failures.append("publish.sql names the private schema or one of its tables")
+    priv = L.private_of(schema)
+    name = L.table(priv, "identifiers", shared)
+    if not conn.execute("SELECT 1 FROM pg_namespace WHERE nspname = %s", (priv,)).fetchone():
+        return {}
+    if not conn.execute("SELECT has_schema_privilege(%s, 'USAGE')", (priv,)).fetchone()[0]:
+        return {"not readable by this login": 0}
+    if not _exists(conn, name):
+        return {}
+    by = dict(conn.execute(f"SELECT kind, count(*) FROM {name} GROUP BY 1 ORDER BY 2 DESC").fetchall())
+    by["documents"] = conn.execute(f"SELECT count(DISTINCT document) FROM {name}").fetchone()[0]
+    stray = conn.execute(f"SELECT count(*) FROM {name} i WHERE NOT EXISTS (SELECT 1 FROM {L.table(schema, 'documents', shared)} d "
+                         "WHERE d.document = i.document)").fetchone()[0]
+    if stray:
+        failures.append(f"{stray} identifying detail(s) of a document the reading does not hold")
+    return by
 
 
 def _pieces(conn, t, docs: list, failures: list) -> tuple:
@@ -237,7 +289,7 @@ def main(argv=None) -> int:
         conn.execute("SET statement_timeout = '120s'")
         out = account(conn, schema, shared)
     print(f"corpus {capture.CORPUS}: {out['records']} records" + (f" ({out['taken by the pull']} taken by the pull)" if "taken by the pull" in out else ""))
-    for k in ("outcomes", "profiles", "pieces", "pieces by profile", "set aside", "status", "courts", "missing", "parties", "people", "cases", "suppression"):
+    for k in ("outcomes", "profiles", "pieces", "pieces by profile", "set aside", "status", "courts", "missing", "parties", "people", "cases", "suppression", "identifiers"):
         print(f"{k}: " + ", ".join(f"{a} {b}" for a, b in out[k].items()))
     print(f"sheets with a fact read: {out['sheets with a fact read']}; records sharing a file: {out['records sharing a file']}; "
           f"roles short: {out['roles short']} (tolerated {ROLES_TOLERATED})")

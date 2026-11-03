@@ -1,9 +1,10 @@
 -- registers/courts (step 5.4; rulings 126 to 128): the courts' documents from the MCP's courts corpus. Two kinds of table:
 --   the reading's (documents, cases, case_links, judgments, judgment_parties, paragraphs, people, set_aside, and
---     courts_private.withheld_names): rebuilt from the documents at every load, wiped and refilled in one transaction (load.py);
+--     courts_private.withheld_names and courts_private.identifiers): rebuilt from the documents at every load, wiped and refilled in one transaction (load.py);
 --   the lane's own record, never wiped: suppression_orders (a ledger a person writes through suppress.py; nothing deletes
 --     from it and there is no command that lifts an order).
--- No table here holds an address (hard limit 15). A name a suppression withholds is NULL in judgment_parties and people and
+-- No table of schema courts holds an address (hard limit 15): the identifying details a document prints are kept only
+-- in courts_private.identifiers, which no published view, export or session login reads. A name a suppression withholds is NULL in judgment_parties and people and
 -- kept only in courts_private.withheld_names, which no published view, export or session login reads (hard limit 16).
 
 -- one row per record of the corpus (the version the pull saw last): what became of its file
@@ -192,6 +193,29 @@ CREATE TABLE IF NOT EXISTS courts_private.withheld_names (
     name      text NOT NULL,
     capacity  text
 );
+
+-- an identifying detail a document prints (Arthur, 3 November 2026: gather any identifying information), once per
+-- document, kind and value, at the first page printing it: never published, never exported, never joined by a view.
+-- Gathered whether or not the document is under a suppression (the lever withholds names from the published tables; it
+-- has nothing to withhold here). `person` is the people row's key where a reader tied the detail to a person, else NULL
+CREATE TABLE IF NOT EXISTS courts_private.identifiers (
+    key               text PRIMARY KEY,                -- <document sha256>/identifier/<n>
+    person            text,                            -- people.key, or NULL (a detail found by its shape)
+    document          text NOT NULL CHECK (document ~ '^[0-9a-f]{64}$'),
+    kind              text NOT NULL CHECK (kind IN ('address', 'po_box', 'place_of_residence', 'age', 'date_of_birth',
+                          'occupation', 'employer', 'law_firm', 'email', 'phone', 'company_number', 'nzbn', 'ird_number',
+                          'driver_licence', 'vehicle_registration', 'file_number', 'relationship', 'other')),
+    value             text NOT NULL,                   -- as printed
+    page              integer NOT NULL,
+    place             text NOT NULL,
+    read_from         text NOT NULL,
+    reader            text NOT NULL,
+    model             text,                            -- NULL for a detail found by its shape
+    profile           text NOT NULL,
+    profile_version   integer NOT NULL,
+    loaded_at         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS courts_identifiers_document ON courts_private.identifiers (document);
 
 -- the ledger of suppression orders the lever records (suppress.py): never wiped, never deleted from
 CREATE TABLE IF NOT EXISTS courts.suppression_orders (
