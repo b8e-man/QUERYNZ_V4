@@ -57,6 +57,13 @@ def reading(conn, schema: str, held_schema: str = "real_estate_authority") -> li
     pen = one(f"SELECT count(*) FROM {schema}.decisions WHERE suppressed AND penalty IS NOT NULL")
     if pen:
         out.append(f"{pen} suppressed decisions carry penalty text")
+    # ruling 142: a suppressed decision's names are kept whole in the private twin, keyed by the party
+    see = one("SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = %s AND has_schema_privilege(current_user, oid, "
+              "'USAGE'))", f"{schema}_private")
+    lost = see and one(f"SELECT count(*) FROM {schema}.parties p WHERE p.suppressed AND NOT EXISTS (SELECT 1 FROM "
+                       f"{schema}_private.suppressed_parties s WHERE s.key = p.key)")
+    if lost:
+        out.append(f"{lost} parties of suppressed decisions with no name kept in the private twin")
     orphans = one(f"SELECT count(*) FROM {schema}.parties p WHERE NOT EXISTS "
                   f"(SELECT 1 FROM {schema}.decisions d WHERE d.key = p.decision_key)")
     if orphans:

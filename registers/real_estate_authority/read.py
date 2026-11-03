@@ -14,12 +14,15 @@ What is read, and what is not:
             number where printed; each DEFENDANT of a prosecution (its abstract prints the court's heading as its <h3>
             and no complaint number), a company by its legal ending an organisation. "Represented by:" (counsel) is not
             a party
-  never     the REASONING text (read for one thing, a suppression order, and never kept: no excerpts, ruling 130); the
-            COMPLAINANT (a member of the public is not the subject of a decision); any address
+  private   every field the lane's tables do not read, whole, as printed: the REASONING text (read too for a suppression
+            order) and the COMPLAINANT among them (`abstract_fields`, in real_estate_authority_private; ruling 142,
+            4 November 2026)
 
-Suppression (hard limit 16): where the decision orders a licensee's name suppressed, the database prints no AGENT field.
-Where it prints one and the text records a suppression order (not a request declined), every party's name and licence
-number is withheld and the row stays. A penalty that names a street address is flagged beside it (ruling 102).
+Suppression: where the decision orders a licensee's name suppressed, the database prints no AGENT field. Where it prints
+one and the text records a suppression order (not a request declined), the decision and its parties are flagged
+`suppressed`; their names, licence numbers and the penalty text are left off the lane's tables and kept whole in the
+private twin (`suppressed_parties`, `abstract_fields`; ruling 142). A penalty that names a street address is flagged
+beside it (ruling 102).
 
     read_abstract(page, sha, version, case)   {"decision": {...}, "parties": [...], "set_aside": [...]}
 """
@@ -27,7 +30,7 @@ import html as _html
 import re
 
 PROFILE = "rea-decision-abstract"
-READER = "registers.real_estate_authority.read 1"
+READER = "registers.real_estate_authority.read 2"
 SOURCE = "real_estate_authority"
 
 HEADING = re.compile(r"<h3>\s*Complaint Number:(.*?)</h3>", re.S)
@@ -57,6 +60,9 @@ STREET = re.compile(r"\b\d{1,5}[A-Za-z]?(?:\s*[-/]\s*\d{1,5}[A-Za-z]?)?,?\s+(?:[
                     r"Close|Court|Ct|Parade|Highway|Hwy|Boulevard|Rise|Heights)\b")
 MONTHS = {m: i for i, m in enumerate(("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov",
                                       "Dec"), start=1)}
+#: the abstract's fields the lane's own tables read; every other field is kept whole in the private twin (ruling 142)
+READ_LABELS = frozenset({"DECISION", "PENALTY", "SENTENCE", "COMPLAINT TYPE", "TRANSACTION TYPE", "CHAIRPERSON", "JUDGE",
+                         "CHARGE", "AGENT", "DEFENDANT", "COMPLAINT HISTORY"})
 NOT_A_PARTY = re.compile(r"^(?:Represented by:|Search the public register)", re.I)
 
 
@@ -185,4 +191,10 @@ def read_abstract(page: bytes, sha: str, version: int, case: dict) -> dict:
                      "kind": p["kind"], "role": p["role"], "suppressed": ordered,
                      "decided_on": decision["decided_on"], "decision": decision["decision"],
                      **stamp, "place": f"{'AGENT' if p['role'] == 'licensee' else 'DEFENDANT'}[{i}]"})
-    return {"decision": decision, "parties": rows, "set_aside": []}
+    private = [{"key": r["key"], "decision_key": key, "name": p["name"], "licence_number": p["licence_number"],
+                "document": sha, "place": r["place"]} for r, p in zip(rows, parties) if ordered]
+    read_labels = READ_LABELS - ({"PENALTY", "SENTENCE"} if ordered else set())
+    kept = [{"key": key, "label": lab, "text": text(val) or None, "document": sha}
+            for lab, val in fields.items() if lab not in read_labels and not lab.endswith("SECTIONS CITED")]
+    return {"decision": decision, "parties": rows, "set_aside": [], "suppressed_parties": private,
+            "abstract_fields": kept}

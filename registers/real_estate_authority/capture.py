@@ -158,7 +158,8 @@ def tables_sql(schema: str = SCHEMA) -> str:
 
 def reading_sql(schema: str = SCHEMA) -> str:
     with open(os.path.join(HERE, "tables.sql"), encoding="utf-8") as f:
-        return (READING + f.read().split(READING, 1)[1]).replace(f"{SCHEMA}.", f"{schema}.")
+        return (READING + f.read().split(READING, 1)[1]).replace(f"{SCHEMA}_private.", f"{schema}_private.").replace(
+            f"{SCHEMA}.", f"{schema}.")
 
 
 class Tables:

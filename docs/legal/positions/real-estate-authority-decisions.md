@@ -39,11 +39,17 @@ that host.
    property address, which may be a person's home. The Authority says
    decisions are published after the 20-working-day appeal period and
    "remain on the public register for 3 years"; the database itself
-   reaches back to 2010. So: the lane's tables hold the case number, the
-   complaint number, the decision date, the deciding body and the
-   document hashes, never a name or an address; nothing is published;
-   an address, if ever extracted, is held in
-   `real_estate_authority_private` and never shown (hard limit 15).
+   reaches back to 2010. What the estate holds (ruling 142, 4 November
+   2026): the lane's tables hold each decision as its abstract states it
+   and the licensees, agencies and defendants it names; every decision
+   held stays, the Committee's after the database drops them; where the
+   abstract records a suppression order the decision and its parties are
+   flagged `suppressed`, and their names, licence numbers and penalty
+   text are kept whole in `real_estate_authority_private`; every other
+   field of the abstract (the reasoning text, the complainant) is kept
+   whole there too. A penalty naming a street address carries
+   `penalty_names_address` (ruling 102). Privacy and suppression are
+   applied at a product's export.
 
 **Crawl delay:** none stated on either host. **Floor we use:** 5 seconds
 between requests to `decisions.dotnous.com`, one at a time, off-peak

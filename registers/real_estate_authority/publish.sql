@@ -2,10 +2,10 @@
 -- do it"). The Real Estate Authority's decisions database, one row per decision its abstract states, and one row per
 -- licensee, agency or defendant a decision names. Every decision the database lists and the lane holds is shown,
 -- including Complaints Assessment Committee decisions the database has since dropped after its three years.
--- A suppressed decision (a suppression order recorded on the abstract) keeps its row with the names, licence numbers
--- and penalty text withheld (hard limit 16). No address: a penalty that names a street address carries the flag
--- penalty_names_address beside it, and every product applies hard limit 15 by that flag (ruling 102). Never the
--- reasoning text, never the complainant.
+-- A suppressed decision (a suppression order recorded on the abstract) keeps its row flagged, the names, licence numbers
+-- and penalty text kept whole in real_estate_authority_private (ruling 142). A penalty that names a street address
+-- carries the flag penalty_names_address beside it, and every product applies hard limit 15 by that flag (ruling 102).
+-- The reasoning text and the complainant are in real_estate_authority_private.
 CREATE OR REPLACE VIEW pub.rea_decisions AS
 SELECT d.key, d.case_id, d.complaint_number, d.listed_body, d.decided_by, d.appeal, d.citation, d.decided_on, d.year,
        d.decision, d.decision_note,

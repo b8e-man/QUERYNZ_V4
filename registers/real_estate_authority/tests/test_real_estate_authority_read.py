@@ -43,7 +43,7 @@ ACT = pair("REAL ESTATE AGENTS ACT (2008) - SECTIONS CITED",
            '[<a href="http://x" title="Section text">s89(2)(b)</a>] a determination<br/>[<a href="y">s111</a>] &nbsp; Appeal')
 
 
-def test_a_decision_and_its_parties_are_read_counsel_is_not_a_party_and_reasoning_and_complainant_are_not_kept():
+def test_a_decision_and_its_parties_are_read_counsel_is_not_a_party_and_reasoning_and_complainant_kept_privately():
     out = R.read_abstract(abstract(AGENT, DECISION, PENALTY, REASONING, COMPLAINANT, ACT), SHA, 1, CASE)
     d = out["decision"]
     assert (d["complaint_number"], d["decided_by"], d["appeal"], d["citation"]) == (
@@ -56,8 +56,11 @@ def test_a_decision_and_its_parties_are_read_counsel_is_not_a_party_and_reasonin
     names = [(p["name"], p["kind"], p["licence_number"], p["role"]) for p in out["parties"]]
     assert names == [("Alex Example", "person", "10000001", "licensee"),
                      ("Sample Realty Limited", "agency", "20000002", "licensee")]
-    flat = json.dumps(out)
+    flat = json.dumps({"decision": d, "parties": out["parties"]}, default=str)
     assert "cottage meter" not in flat and "Pat Member" not in flat and "Counsel Person" not in flat
+    # ruling 142: the reasoning text and the complainant are kept whole in the private twin (they were never kept)
+    kept = {f["label"]: f["text"] for f in out["abstract_fields"]}
+    assert "cottage meter" in kept["REASONING"] and kept["COMPLAINANT"] == "Pat Member" and "PENALTY" not in kept
 
 
 def test_a_licence_number_printed_in_its_own_brackets_is_read():
@@ -72,6 +75,11 @@ def test_a_suppression_order_withholds_names_numbers_and_penalty_a_request_decli
     out = R.read_abstract(abstract(AGENT, DECISION, ordered), SHA, 1, CASE)
     assert out["decision"]["suppressed"] and out["decision"]["penalty"] is None
     assert all(p["name"] is None and p["licence_number"] is None and p["suppressed"] for p in out["parties"])
+    # ruling 142: the names, numbers and penalty the order covers are kept whole in the private twin, keyed by the rows
+    priv = {x["key"]: x for x in out["suppressed_parties"]}
+    assert [priv[p["key"]]["name"] for p in out["parties"]] == ["Alex Example", "Sample Realty Limited"]
+    assert priv[out["parties"][0]["key"]]["licence_number"] == "10000001"
+    assert "$1,500" in {f["label"]: f["text"] for f in out["abstract_fields"]}["PENALTY"]
     declined = pair("REASONING", "In relation to the Licensee’s request for suppression, the Committee considers that "
                                  "there is insufficient reason to grant it.")
     out = R.read_abstract(abstract(AGENT, DECISION, PENALTY, declined), SHA, 1, CASE)

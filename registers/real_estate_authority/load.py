@@ -32,7 +32,11 @@ COLUMNS = {
     "parties": ("key", "decision_key", "case_id", "seq", "name", "licence_number", "kind", "role", "suppressed",
                 "decided_on", "decision") + _CITE,
     "read_set_aside": ("document", "place", "stage", "reason"),
+    "suppressed_parties": ("key", "decision_key", "name", "licence_number", "document", "place"),
+    "abstract_fields": ("key", "label", "text", "document"),
 }
+#: in the schema's private twin (`<schema>_private`; ruling 142): what the lane's own tables leave out, kept whole
+PRIVATE_TABLES = ("suppressed_parties", "abstract_fields")
 
 
 def profile_version() -> int:
@@ -46,8 +50,11 @@ def profile_version() -> int:
 
 def create_tables(conn, schema: str) -> None:
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}_private")
     for t in TABLES:
         conn.execute(f"DROP TABLE IF EXISTS {schema}.{t} CASCADE")
+    for t in PRIVATE_TABLES:
+        conn.execute(f"DROP TABLE IF EXISTS {schema}_private.{t} CASCADE")
     conn.execute(capture.reading_sql(schema))
 
 
@@ -72,18 +79,22 @@ def build(conn, schema: str, cases: list, read_bytes=read_bytes, version: int = 
     version = version or profile_version()
     create_tables(conn, schema)
     decisions, parties, asides = [], [], []
+    private = {t: [] for t in PRIVATE_TABLES}
     for c in cases:
         out = read.read_abstract(read_bytes(c["abstract"]), c["abstract"], version, c)
         if out["decision"]:
             decisions.append(out["decision"])
         parties += out["parties"]
         asides += out["set_aside"]
+        for t in PRIVATE_TABLES:
+            private[t] += out.get(t) or []
     if len(cases) != len(decisions) + len(asides):
         raise AssertionError(f"{SCHEMA}: {len(cases)} abstracts in, {len(decisions)} read + {len(asides)} set aside")
     return {"abstracts": len(cases),
             "decisions": _copy(conn, f"{schema}.decisions", COLUMNS["decisions"], decisions),
             "parties": _copy(conn, f"{schema}.parties", COLUMNS["parties"], parties),
             "set_aside": _copy(conn, f"{schema}.read_set_aside", COLUMNS["read_set_aside"], asides),
+            **{t: _copy(conn, f"{schema}_private.{t}", COLUMNS[t], rows) for t, rows in private.items()},
             "suppressed": sum(d["suppressed"] for d in decisions),
             "seconds": round(time.monotonic() - t0, 1)}
 
@@ -103,6 +114,8 @@ def publish(conn, staging: str, log=print) -> None:
         create_tables(conn, SCHEMA)
         for t in TABLES:
             conn.execute(f"INSERT INTO {SCHEMA}.{t} SELECT * FROM {staging}.{t}")
+        for t in PRIVATE_TABLES:
+            conn.execute(f"INSERT INTO {SCHEMA}_private.{t} SELECT * FROM {staging}_private.{t}")
         with open(os.path.join(HERE, "publish.sql"), encoding="utf-8") as f:
             conn.execute(f.read())
     log(f"{SCHEMA}: published from {staging}")
