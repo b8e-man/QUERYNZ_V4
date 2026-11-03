@@ -21,8 +21,10 @@ OWNERS_WITHOUT_TITLE_SHARE = 0.01
 ADDRESSY = re.compile(r"address|street|geom|shape", re.I)
 #: title addresses whose title the titles layer does not carry (the property spine and the titles are cut on different days)
 TITLE_ADDRESS_ORPHAN_SHARE = 0.01
-#: the share of titles the property spine gives an address, below which the join is red (measured 3 November 2026)
-TITLE_ADDRESS_FLOOR = 0.80
+#: the share of titles the property spine gives an address, below which the join is red: 2,270,831 of 2,457,581
+#: (92.4%) on the first full build, 4 November 2026 (a scratch build of the pulls of 3 November); a broken join falls far
+#: below it, a week's drift does not
+TITLE_ADDRESS_FLOOR = 0.85
 PRIVATE_SOURCES = ("property_titles", "property_addresses", "addresses")
 
 

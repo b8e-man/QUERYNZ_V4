@@ -303,6 +303,9 @@ SPINE = [("titles", "p1", 100, 100, 100, 0)] + [(s, f"p{s}", 10, 10, 10, 0) for 
 def test_the_private_join_is_held_to_the_titles_and_the_private_schema_to_the_reader():
     assert check.reading(CheckConn(SPINE, titles=100, with_address=95), "s") == []
     assert any("the reader login can see" in p for p in check.reading(CheckConn([], seen=True), "s"))
+    assert check.reading(CheckConn(SPINE, titles=100, with_address=92), "s") == [], "the first build's 92.4%"
+    assert any("84 of 100" in p for p in check.reading(CheckConn(SPINE, titles=100, with_address=84), "s")), \
+        "the floor is 85%: under the measured share by a week's drift, far over a broken join"
     low = check.reading(CheckConn(SPINE, titles=100, with_address=50), "s")
     assert any("50 of 100 titles have a street address" in p for p in low)
     stray = check.reading(CheckConn(SPINE, titles=100, with_address=95, address_orphans=5), "s")
