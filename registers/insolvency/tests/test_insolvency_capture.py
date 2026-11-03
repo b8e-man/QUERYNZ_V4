@@ -303,3 +303,18 @@ def test_the_stripped_fields_are_kept_privately_and_cleared_by_a_removal(env):
     env.conn.execute(f"INSERT INTO {L}.identifiers VALUES (1001, 'monthOfBirth', '4', 1, now() - interval '1 day')")
     assert any("still hold identifying fields" in p for p in check.reading(env.conn, STAGE, L, TODAY))
 
+
+
+def test_a_search_answer_after_a_removal_is_an_answer_since(env, monkeypatch):
+    """3 November 2026: 982 estates the first removals run named came back in the night's search walk before any detail
+    was asked; the load read the search answer as the latest, the check counted details only, and the load went red."""
+    env.conn.execute(capture.ledger_sql(L))
+    cid = env.conn.execute(f"INSERT INTO {L}.calls (at, day, why, asked, status) VALUES (now() - interval '2 days', "
+                           f"current_date - 2, 'removals', 'x', 200) RETURNING id").fetchone()[0]
+    env.conn.execute(f"INSERT INTO {L}.removals (estate, removed_on, call, seen_at) VALUES (1001, 'x', %s, "
+                     f"now() - interval '2 days')", (cid,))
+    monkeypatch.setattr(capture, "details_wanted", lambda *a, **k: [])
+    _night(env, FakeAPI())
+    _, rows, _ = _load(env)
+    assert 1001 in rows, "the load reads the later search answer"
+    assert not any("the removals named with no answer since" in p for p in check.reading(env.conn, STAGE, L, TODAY))

@@ -27,3 +27,16 @@ def pytest_runtest_makereport(item, call):
         rep.outcome = "failed"
         rep.longrepr = (f"{item.nodeid} took {rep.duration:.1f} s and is not marked slow: the fast tier allows "
                         f"{FAST_LIMIT_S:.0f} s. Mark it @pytest.mark.slow (it then runs in the full tier) or make it quick.")
+
+
+@pytest.fixture(autouse=True)
+def _gate_holds_stay_in_the_test(tmp_path_factory, monkeypatch):
+    """Ruling 141's holds are lines in the fetch gate's ledger. A test that fakes a 429 one level down (a monkeypatched
+    `_go`) once wrote a real hold of api.business.govt.nz into the live ledger (4 November 2026, 01:12): every test's
+    default ledger is its own folder, so no test can hold a live host."""
+    try:
+        from support import fetchgate
+    except ImportError:
+        return
+    monkeypatch.setattr(fetchgate, "LEDGER_DIR", str(tmp_path_factory.mktemp("fetch-gate")))
+    fetchgate._STRIKES.clear()

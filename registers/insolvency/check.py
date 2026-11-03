@@ -41,7 +41,12 @@ def reading(conn, schema: str, ledger_schema: str = capture.SCHEMA, today: dt.da
     removed_after = conn.execute(
         f"SELECT count(*) FROM {schema}.estates e WHERE EXISTS (SELECT 1 FROM {ledger_schema}.removals r WHERE "
         f"r.estate = e.estate_number AND NOT EXISTS (SELECT 1 FROM {ledger_schema}.calls c WHERE c.estate = r.estate "
-        f"AND c.why IN ('detail', 'lookup') AND c.status = 200 AND c.at > r.seen_at))").fetchone()[0]
+        f"AND c.why IN ('detail', 'lookup') AND c.status = 200 AND c.at > r.seen_at) AND NOT EXISTS (SELECT 1 FROM "
+        f"{ledger_schema}.search_seen s JOIN {ledger_schema}.calls c ON c.id = s.call WHERE s.estate = r.estate AND "
+        f"c.status = 200 AND c.at > r.seen_at))").fetchone()[0]
+    # a search page naming the estate after the removal is the register's answer since, as the load reads it
+    # (load.build: the latest answer, detail or search, against read.removed); 3 November 2026: 982 estates the first
+    # removals run named came back in the night's search walk, and the check, counting details only, held the load
     if removed_after:
         out.append(f"{removed_after} staged row(s) the removals named with no answer since")
     stale = conn.execute(
