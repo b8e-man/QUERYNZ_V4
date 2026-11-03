@@ -1285,3 +1285,19 @@ NAME`); the holds and clearings are lines in the gate's ledger, never
 edited. A hold is a prompt to find another way (the MCP, a bulk release, an
 arrangement with the publisher), not to retry. forms.justice.govt.nz is held
 from this date (the Tenancy Tribunal's order PDFs reset since 25 October).
+
+142. Arthur, 4 November: "I'm not going to look at the pairs, just go ahead
+with your recommendations. Drop any and all record privacy rulings. we are
+not showing this to anyone ... Drop all suppression rulings and forget about
+all that. we will deal with it at product export time. Get LINZ and all
+available information and put it all in the database. Always do this. we
+want everything." Every lane captures and keeps everything its source gives,
+whole: no field stripped before landing, no row or name withheld, no value
+excluded from matching or linking for privacy or suppression. A suppression
+or removal a source states is recorded beside the row as a flag, never
+applied by deleting or withholding. The private schemas stay as plumbing for
+the session login only; the links lane reads them. Privacy and suppression
+are applied once, at a product's export. The address rules of links
+measurements §15 and §16 are built as recommended, without the sample pairs.
+Rulings and lane rules that withheld, stripped or excluded for privacy or
+suppression give way to this one.
