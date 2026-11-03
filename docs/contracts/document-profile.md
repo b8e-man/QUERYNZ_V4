@@ -56,4 +56,9 @@
    The stored readings are keyed by the profile's version, so a reader keys
    and stamps by `reading_version`: the current version, or the earliest of
    the newest versions that differ only in `extract` and `iteration`. What
-   a document has had extracted is in `docs.extractions` (item 8).
+   a document has had extracted is in `docs.extractions` (item 8). A
+   reading rule's `fallback` (the split used where the rule's own cannot
+   cut a document: `pages`, Arthur, 3 November 2026) is no new reading for
+   a document the rule's own split cuts: `reading_version` counts it only
+   with `fallback=True`, which keys and stamps a reading the fallback
+   made.

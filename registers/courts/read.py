@@ -170,14 +170,26 @@ def profile_of(slug: str) -> dict:
     return max(held, key=lambda p: int(p["version"]))
 
 
-def profile_version(slug: str) -> int:
+def profile_version(slug: str, fallback: bool = False) -> int:
     """The version a reading of `slug` is keyed and stamped by (support.profiles.reading_version): a ledger version
-    that only adds to the extract list leaves the stored readings standing; a proposed line is a new reading."""
+    that only adds to the extract list, or only a reading rule's fallback, leaves the stored readings standing; a
+    reading the fallback made (`fallback=True`) is stamped with the version that brought the fallback in; a proposed
+    line is a new reading."""
     p = profile_of(slug)
     held = profiles.profile(slug)
     if held is not None and int(held["version"]) == int(p["version"]):
-        return profiles.reading_version(slug)
+        return profiles.reading_version(slug, fallback=fallback)
     return int(p["version"])
+
+
+def text_reading(slug: str, texts: dict) -> tuple:
+    """(pieces or None, why, the version the text reader's reading is keyed by, the split that cut it): one rule for
+    the load and the reader's job. A document its profile's own split cuts is keyed as it always was; one only the
+    rule's fallback cuts, by the version that brought the fallback in."""
+    rule = PC.rule_of(slug)
+    parts, why, used = PC.plan_how(texts, rule)
+    fallback = used is not None and used != rule["split"]
+    return parts, why, profile_version(slug, fallback=fallback), used
 
 
 # ── the case page ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -361,6 +373,33 @@ def maori_citation(j, texts: dict) -> None:
             j.judgment_date = caption._date(w.group(1))
 
 
+#: the bases the load gives a judgment's date and citation where the document gave none and the MCP's record did
+MCP_DATE_BASIS = "mcp doc_date"
+MCP_CITATION_BASIS = "mcp citation"
+
+
+def mcp_date(value):
+    """The MCP record's `doc_date` as a date: an ISO day (a time after it is dropped), in a possible year; else None."""
+    m = re.match(r"^\s*(\d{4})-(\d{2})-(\d{2})", str(value or ""))
+    if not m or not caption.possible_year(int(m.group(1))):
+        return None
+    try:
+        return dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return None
+
+
+def from_mcp(j, mcp: dict) -> None:
+    """The judgment's date and citation from the MCP's record where the document gave none (Arthur, 3 November 2026:
+    the provider's `doc_date` is the judgment's own date, its `date` the arrival); the basis says so. Where both exist
+    the document's reading wins, and the check counts the agreements (check._mcp_dates)."""
+    j.citation_basis = "document" if j.citation else None
+    if j.judgment_date is None and mcp.get("mcp_doc_date"):
+        j.judgment_date, j.date_basis = mcp["mcp_doc_date"], MCP_DATE_BASIS
+    if not j.citation and mcp.get("mcp_citation"):
+        j.citation, j.citation_basis = mcp["mcp_citation"], MCP_CITATION_BASIS
+
+
 # ── the deterministic readers of the smaller kinds────────────────────────────────────────────────────────────
 def sheet(texts: dict, slug: str) -> dict:
     """What a release, transcript, submission or synopsis prints on its
@@ -434,13 +473,19 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
     by_url = {e["url"]: e for e in entries if e.get("url")}
     primary = _primary_entries(entries)     # a document is its bytes: one entry is read per file, however many records point at it
     primary_doc, shared = {}, []            # sha → the documents row of the entry read; the other records' rows, filled after
+    mcp_of = {}                             # sha → the MCP's citation and judgment date, from any record of the file
+    for e in entries:
+        got = mcp_of.setdefault(e.get("capture"), {"mcp_citation": None, "mcp_doc_date": None})
+        got["mcp_citation"] = got["mcp_citation"] or e.get("mcp_citation")
+        got["mcp_doc_date"] = got["mcp_doc_date"] or mcp_date(e.get("mcp_doc_date"))
     for e in entries:
         doc = {"key": e["record_id"], "record": e["record"], "seq": e.get("seq"), "kind": e.get("kind"),
                "case_slug": e.get("case_slug"), "url": e["url"], "content_type": e.get("content_type"),
                "fetched_at": e.get("fetched_at"), "document": e.get("capture"), "state": e.get("state"),
                "profile": None, "profile_version": None, "outcome": None, "pages": None, "read_from": None,
                "text_chars": None, "pieces": None, "citation": None, "case_numbers": [], "dated": None, "summary": None,
-               "model": None, "model_reader": None, "loaded_at": now}
+               "model": None, "model_reader": None, "mcp_citation": e.get("mcp_citation"),
+               "mcp_doc_date": mcp_date(e.get("mcp_doc_date")), "loaded_at": now}
         res.documents.append(doc)
         sha = e.get("capture")
         if sha and primary[sha] is not e:
@@ -469,9 +514,10 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
             _case_rows(res, e, sha, page, slug, version, by_url, now)
             doc.update(citation=page["citation"], case_numbers=page["case_numbers"],
                        dated=_case_date(page["sections"].get("Date of Judgment")))
-            if not _plan(res, doc, text, slug):
+            planned = _plan(res, doc, text, slug)
+            if planned is None:
                 continue
-            pages_read[sha] = (slug, version, text)
+            pages_read[sha] = (slug, planned[0], text, planned[1])
             doc["outcome"] = "read"
             continue
         texts, how, unread = _texts_of(data, sha, store, scanned_version)
@@ -501,6 +547,7 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
             parsed.append((e, sha, slug, version, j, how))
             if slug == MAORI:
                 maori_citation(j, texts)
+            from_mcp(j, mcp_of[sha])
             doc.update(citation=j.citation, case_numbers=j.case_numbers, dated=j.judgment_date)
         else:
             sh = sheet(texts, slug)
@@ -508,16 +555,17 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
             doc.update(citation=sh["citation"], case_numbers=sh["case_numbers"], dated=sh["dated"])
         if doc.get("dated") is None and _impossible_date(texts.get(1) or ""):
             doc["dated"] = _url_date(e.get("url") or "")       # the face's date is a slip; the address's date stands
-        if not _plan(res, doc, texts, slug):
+        planned = _plan(res, doc, texts, slug)
+        if planned is None:
             continue
-        pages_read[sha] = (slug, version, texts)
+        pages_read[sha] = (slug, planned[0], texts, planned[1])
         doc["outcome"] = "read"
     rows(res, parsed, orders, now)
     # the text reader's stored readings, replayed: people and the summary; a document without one waits
     suppressed = _suppressed(res, sheets, orders)
-    for sha, (slug, version, texts) in pages_read.items():
+    for sha, (slug, version, texts, used) in pages_read.items():
         doc = primary_doc[sha]
-        reading = model_read.stored(sha, slug, version, store)
+        reading = model_read.stored(sha, slug, version, store, used=used)
         if reading is None:
             doc["outcome"] = WAIT_TEXT
             continue
@@ -561,18 +609,20 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
     return res
 
 
-def _plan(res: Result, doc: dict, texts: dict, slug: str) -> bool:
+def _plan(res: Result, doc: dict, texts: dict, slug: str):
     """The text reader's pieces for the document by its profile's rule
-    (ruling 130): the count goes on the row; a document the rule cannot
-    split is set aside at stage read, named, and never waits on the reader.
-    The deterministic rows (the caption's, the case page's) stand."""
-    parts, why = PC.plan(texts, PC.rule_of(slug))
+    (ruling 130): the count goes on the row; a document neither the rule's
+    split nor its fallback can cut is set aside at stage read, named, and
+    never waits on the reader. The deterministic rows (the caption's, the
+    case page's) stand. (the version the reading is keyed by, the split
+    that cut it), or None when set aside."""
+    parts, why, version, used = text_reading(slug, texts)
     if parts is None:
         doc.update(pieces=None, outcome="set aside")
         res.set_aside.append((doc["key"], "read", f"the text reader cannot read it: {why}"))
-        return False
+        return None
     doc["pieces"] = len(parts)
-    return True
+    return version, used
 
 
 def _primary_entries(entries: list) -> dict:
@@ -717,6 +767,7 @@ def rows(res: Result, parsed: list, orders: list = (), now: str = "") -> Result:
         res.judgments.append({
             "key": key, "citation": j.citation, "court": court, "court_name": j.court_name, "registry": j.registry,
             "case_numbers": j.case_numbers, "judgment_date": j.judgment_date, "date_basis": j.date_basis,
+            "citation_basis": j.citation_basis,
             "hearing": j.hearing, "judges": j.judges, "heading": j.heading, "caption_shape": j.caption_shape,
             "outcome": j.outcome, "counsel_roles": list(j.counsel_roles), "paragraphs": len(j.paragraphs), "parties": len(j.parties),
             "suppression": bool(kinds), "suppression_kinds": kinds, "withheld": withheld, "status": j.status,

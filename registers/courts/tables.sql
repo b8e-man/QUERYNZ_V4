@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS courts.documents (
     summary           text,                            -- the one-line summary the text reader made; NULL until read
     model             text,                            -- the model that made the summary and the people rows
     model_reader      text,                            -- the reader version that asked it
+    mcp_citation      text,                            -- the MCP record's own `citation`, as it gives it (the provider's, 3 November 2026)
+    mcp_doc_date      date,                            -- the MCP record's `doc_date`, the judgment's own date by the provider (its `date` is the arrival)
     loaded_at         timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS documents_case_slug ON courts.documents (case_slug);
@@ -88,7 +90,8 @@ CREATE TABLE IF NOT EXISTS courts.judgments (
     registry          text,                            -- the High Court's registry
     case_numbers      text[] NOT NULL DEFAULT '{}',    -- SC 106/2022, CA274/2022, CIV-…, CRI-…: a consolidated appeal has several
     judgment_date     date,
-    date_basis        text,                            -- label | running head | delivered
+    date_basis        text,                            -- label | running head | delivered | mcp doc_date (the document gave none; the MCP's)
+    citation_basis    text,                            -- document | mcp citation (the document gave none; the MCP's)
     hearing           text,                            -- the Hearing: label as printed (dates)
     judges            text,                            -- the Court: label, else the heading's OF …
     heading           text,                            -- JUDGMENT, SENTENCING NOTES, …

@@ -17,6 +17,8 @@ READING_VERSIONS = {"courts-case-page": 2, "courts-case-synopsis": 2, "courts-co
                     "courts-nzca-judgment": 3, "courts-nzdc-judgment": 1, "courts-nzhc-civil-judgment": 3,
                     "courts-nzhc-criminal-judgment": 3, "courts-nzsc-judgment": 3, "courts-scanned-document": 1,
                     "courts-tribunal-decision": 1}
+#: the fields iteration 3 moved or added: read.from_mcp
+MCP_FIELDS = ("citation", "judgment_date", "date_basis", "citation_basis")
 
 
 def test_every_courts_profile_lists_what_it_extracts_and_keeps_its_reading_version():
@@ -30,14 +32,18 @@ def test_every_courts_profile_lists_what_it_extracts_and_keeps_its_reading_versi
         if slug == R.SCANNED:
             assert prof["iteration"] == 1 and set(items) == {"page_text"}
             continue
-        assert prof["iteration"] == 2, slug
         ids = items["identifiers"]
         assert (ids["iteration"], ids["by"], ids["private"]) == (2, "pattern", True)
         assert ids["kinds"] == list(identifiers.SHAPE_KINDS)
         assert all(c.startswith(L.PRIVATE + ".identifiers.") for c in ids["lands"])
-        assert all(it["iteration"] == 1 and not it["private"] for f, it in items.items() if f != "identifiers"), slug
-        # iteration 3, the text reader's identifiers, waits on Arthur's go after the cost measurement
-        assert not any(it["iteration"] >= 3 for it in prof["extract"]), slug
+        # iteration 3 (3 November 2026, the judgments only): the MCP's date and citation where the document gives none
+        mcp = set(MCP_FIELDS) if slug in R.JUDGMENT_SLUGS else set()
+        assert prof["iteration"] == (3 if mcp else 2), slug
+        assert {f for f, it in items.items() if it["iteration"] == 3} == mcp, slug
+        assert all(it["iteration"] == 1 and not it["private"] for f, it in items.items() if f not in mcp | {"identifiers"}), slug
+        assert all(items[f]["by"] == "rules" and not items[f]["private"] for f in mcp)
+        # the text reader's identifiers (now iteration 4) wait on Arthur's go after the cost measurement
+        assert not any(it["iteration"] >= 4 for it in prof["extract"]), slug
 
 
 def test_the_lane_and_its_profiles_are_aligned():

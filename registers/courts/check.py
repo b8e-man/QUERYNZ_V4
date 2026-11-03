@@ -40,6 +40,10 @@ account.
      every document read or waiting on the text reader recorded in
      docs.extractions for every field it has had (`extracts.expected`);
      `extraction.behind` printed per profile.
+  8. The MCP's own judgment date (`doc_date`) and citation beside the
+     document's reading (Arthur, 3 November 2026): agreements,
+     disagreements (a few record keys, never a name) and the judgments
+     the MCP's filled where the document gave none (`mcp_agreement`).
 
     account(conn, schema, shared=False)    dict
     python -m registers.courts.check [--schema courts] [--database querynz_v4] [--sample]
@@ -116,6 +120,8 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
     out["sheets with a fact read"] = len(sheets)
     # the profile check: pieces by the profile's reading rule (ruling 130)
     out["pieces"], out["pieces by profile"] = _pieces(conn, t, docs, out["failures"])
+    # the MCP's own date and citation beside the document's reading (Arthur, 3 November 2026): ours wins where both exist
+    out["mcp"], out["mcp disagreements"] = mcp_agreement(conn, t)
     # a document is its bytes: a file under several records is read once, each record's row carrying the reading
     out["records sharing a file"] = q(f"SELECT count(*) - count(DISTINCT document) FROM {t('documents')} WHERE document IS NOT NULL")[0][0]
     for sha, n in q(f"SELECT document, count(*) FROM {t('cases')} GROUP BY 1 HAVING count(*) > 1") + \
@@ -267,6 +273,52 @@ def _extractions(conn, t, failures: list, shared: bool = False) -> dict:
     return out
 
 
+#: the document keys a disagreement names, at most (keys only, never a name)
+MCP_KEYS_SHOWN = 5
+
+
+def mcp_agreement(conn, t) -> tuple:
+    """The MCP record's `doc_date` and `citation` against the judgment's own reading, per record of a judgment read:
+    ({count: n}, {"date"|"citation": [record keys]}). A date or citation the document gave none of and the MCP's
+    stands in (basis `mcp doc_date`, `mcp citation`) is counted as filled, never as an agreement."""
+    rows = conn.execute(
+        f"SELECT d.key, d.mcp_doc_date, d.mcp_citation, j.judgment_date, j.date_basis, j.citation, j.citation_basis "
+        f"FROM {t('documents')} d JOIN {t('judgments')} j ON j.document = d.document "
+        f"WHERE d.mcp_doc_date IS NOT NULL OR d.mcp_citation IS NOT NULL ORDER BY d.key").fetchall()
+    out = {k: 0 for k in ("records carrying doc_date", "date agrees", "date disagrees", "date filled from the MCP",
+                          "records carrying citation", "citation agrees", "citation disagrees", "citation filled from the MCP")}
+    out["records carrying doc_date"] = conn.execute(
+        f"SELECT count(*) FROM {t('documents')} WHERE mcp_doc_date IS NOT NULL").fetchone()[0]
+    out["records carrying citation"] = conn.execute(
+        f"SELECT count(*) FROM {t('documents')} WHERE mcp_citation IS NOT NULL").fetchone()[0]
+    keys = {"date": [], "citation": []}
+    norm = lambda c: re.sub(r"\s+", "", c or "").upper()  # noqa: E731
+    for key, mdate, mcite, jdate, dbasis, jcite, cbasis in rows:
+        if mdate is not None and jdate is not None:
+            if dbasis == R.MCP_DATE_BASIS:
+                out["date filled from the MCP"] += 1
+            elif jdate == mdate:
+                out["date agrees"] += 1
+            else:
+                out["date disagrees"] += 1
+                keys["date"].append(key)
+        if mcite and jcite:
+            if cbasis == R.MCP_CITATION_BASIS:
+                out["citation filled from the MCP"] += 1
+            elif norm(jcite) == norm(mcite):
+                out["citation agrees"] += 1
+            else:
+                out["citation disagrees"] += 1
+                keys["citation"].append(key)
+    return out, {k: v[:MCP_KEYS_SHOWN] for k, v in keys.items()}
+
+
+def mcp_line(out: dict) -> str:
+    """The check's line for the MCP's date and citation: counts, then the disagreeing record keys."""
+    return ("mcp: " + ", ".join(f"{a} {b}" for a, b in out["mcp"].items())
+            + "".join(f"; {k} disagrees at {', '.join(v)}" for k, v in out["mcp disagreements"].items() if v))
+
+
 def _pieces(conn, t, docs: list, failures: list) -> tuple:
     bands = {"1": 0, "2": 0, "3-5": 0, "6-10": 0, "over 10": 0}
     by_profile, total, over = {}, 0, 0
@@ -351,6 +403,7 @@ def main(argv=None) -> int:
     print(f"corpus {capture.CORPUS}: {out['records']} records" + (f" ({out['taken by the pull']} taken by the pull)" if "taken by the pull" in out else ""))
     for k in ("outcomes", "profiles", "pieces", "pieces by profile", "set aside", "status", "courts", "missing", "parties", "people", "cases", "suppression", "identifiers", "alignment"):
         print(f"{k}: " + ", ".join(f"{a} {b}" for a, b in out[k].items()))
+    print(mcp_line(out))
     print(f"sheets with a fact read: {out['sheets with a fact read']}; records sharing a file: {out['records sharing a file']}; "
           f"roles short: {out['roles short']} (tolerated {ROLES_TOLERATED})")
     print("extractions behind (documents still owed a field, by profile): " +

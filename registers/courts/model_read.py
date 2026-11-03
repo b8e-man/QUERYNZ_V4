@@ -92,24 +92,30 @@ SUMMARY_PROMPT = ("You are given the one-sentence summaries of the parts of one 
 _JSON = re.compile(r"\{.*\}", re.S)
 
 
-def settings(rule: dict, prompt: str = PROMPT) -> dict:
+def settings(rule: dict, prompt: str = PROMPT, used: str = None) -> dict:
     """What the reading was made under: the prompt, the profile's budget
-    and split rule, the context head, the decoding. Part of the key."""
-    return {"prompt_sha": hashlib.sha256(prompt.encode()).hexdigest()[:16],
-            "summary_prompt_sha": hashlib.sha256(SUMMARY_PROMPT.encode()).hexdigest()[:16],
-            "budget_chars": rule["budget_chars"], "split": rule["split"], "context_chars": PC.CONTEXT_CHARS,
-            "temperature": 0.0, "max_tokens": MAX_TOKENS, "thinking": False}
+    and split rule, the context head, the decoding. Part of the key. A
+    reading the rule's fallback cut (`used`, pieces.plan_how) says so; one
+    the rule's own split cut carries exactly the settings it always did,
+    so its key does not move."""
+    out = {"prompt_sha": hashlib.sha256(prompt.encode()).hexdigest()[:16],
+           "summary_prompt_sha": hashlib.sha256(SUMMARY_PROMPT.encode()).hexdigest()[:16],
+           "budget_chars": rule["budget_chars"], "split": rule["split"], "context_chars": PC.CONTEXT_CHARS,
+           "temperature": 0.0, "max_tokens": MAX_TOKENS, "thinking": False}
+    if used is not None and used != rule["split"]:
+        out["fallback"] = used
+    return out
 
 
-def key_for(sha256: str, profile: str, version: int, model: str = TEXT_MODEL, rule: dict = None) -> str:
+def key_for(sha256: str, profile: str, version: int, model: str = TEXT_MODEL, rule: dict = None, used: str = None) -> str:
     rule = rule or PC.rule_of(profile)
-    rd.supersede(settings(rule), settings(rule, PROMPT_WITH_SUMMARY))
-    return rd.reading_key(sha256, 1, model, settings(rule), profile, version)
+    rd.supersede(settings(rule, used=used), settings(rule, PROMPT_WITH_SUMMARY, used=used))
+    return rd.reading_key(sha256, 1, model, settings(rule, used=used), profile, version)
 
 
-def piece_key(sha256: str, profile: str, version: int, model: str, rule: dict, i: int, n: int) -> str:
+def piece_key(sha256: str, profile: str, version: int, model: str, rule: dict, i: int, n: int, used: str = None) -> str:
     """A piece's own reading: page = its number, the settings saying which of how many."""
-    return rd.reading_key(sha256, i, model, {**settings(rule), "piece": i, "of": n}, profile, version)
+    return rd.reading_key(sha256, i, model, {**settings(rule, used=used), "piece": i, "of": n}, profile, version)
 
 
 def parse_answer(text: str):
@@ -223,11 +229,11 @@ def summarise(summaries: list, *, url: str, model: str, post=None, request: dict
 
 
 def _read_piece(sha256: str, text: str, i: int, n: int, *, profile: str, version: int, rule: dict, url: str, model: str,
-                store: rd.Store, post, request) -> tuple:
+                store: rd.Store, post, request, used: str = None) -> tuple:
     """(parsed or None, served model, calls made: 0 for a replay). A piece's
     reading is stored under its own key and never remade; an unusable piece
     is stored too, so nothing asks it again."""
-    key = piece_key(sha256, profile, version, model, rule, i, n)
+    key = piece_key(sha256, profile, version, model, rule, i, n, used)
     if store.has(key):
         got = store.get(key)
         return (None if (got.checks or {}).get("unusable") else parse_answer(got.text)), got.model, 0
@@ -237,7 +243,7 @@ def _read_piece(sha256: str, text: str, i: int, n: int, *, profile: str, version
         if parsed is not None:
             break
     made = dt.datetime.now().astimezone().isoformat(timespec="seconds")
-    piece_settings = {**settings(rule), "piece": i, "of": n}
+    piece_settings = {**settings(rule, used=used), "piece": i, "of": n}
     if parsed is None:
         reading = rd.Reading(sha256, i, READER, served or model, piece_settings, profile, version, "text", "",
                              checks={"people": 0, "summary": False, "unusable": UNUSABLE % ATTEMPTS, "attempts": ATTEMPTS, "chars": len(text)}, made_at=made)
@@ -263,17 +269,17 @@ def read_one(sha256: str, texts: dict, *, profile: str, version: int, url: str =
     model = model or TEXT_MODEL
     url = url or URL
     rule = rule or PC.rule_of(profile)
-    key = key_for(sha256, profile, version, model, rule)
+    parts, why, used = PC.plan_how(texts, rule)     # pure and cheap: the key says which split cut the document
+    key = key_for(sha256, profile, version, model, rule, used)
     if store.has(key):
         return {**_unpack(store.get(key)), "replayed": True}
-    parts, why = PC.plan(texts, rule)
     if parts is None:
         raise ValueError(f"{sha256[:12]}: the text reader cannot read it: {why}")
     n = len(parts)
     answers, served, calls, replayed = [], None, 0, 0
     for i, text in enumerate(parts, 1):
         parsed, got_model, made = _read_piece(sha256, text, i, n, profile=profile, version=version, rule=rule, url=url,
-                                              model=model, store=store, post=post, request=request)
+                                              model=model, store=store, post=post, request=request, used=used)
         served = got_model or served
         replayed += made == 0
         calls += made
@@ -281,7 +287,7 @@ def read_one(sha256: str, texts: dict, *, profile: str, version: int, url: str =
     made = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     answered = [a for a in answers if a is not None]
     if not answered:
-        reading = rd.Reading(sha256, 1, READER, served or model, settings(rule), profile, version, "text", "",
+        reading = rd.Reading(sha256, 1, READER, served or model, settings(rule, used=used), profile, version, "text", "",
                              checks={"people": 0, "summary": False, "unusable": UNUSABLE % ATTEMPTS, "attempts": ATTEMPTS, "pieces": n}, made_at=made)
         store.put(reading)
         return {**_unpack(reading), "replayed": False, "pieces": n, "calls": calls}
@@ -301,7 +307,7 @@ def read_one(sha256: str, texts: dict, *, profile: str, version: int, url: str =
             summary = next((a["summary"] for a in answered if a["summary"]), None)
     joined = {"summary": summary, "people": people, "truncated": any(a.get("truncated") for a in answered), "parts": n,
               "parts_unusable": n - len(answered)}
-    reading = rd.Reading(sha256, 1, READER, served, settings(rule), profile, version, "text",
+    reading = rd.Reading(sha256, 1, READER, served, settings(rule, used=used), profile, version, "text",
                          json.dumps(joined, ensure_ascii=False, sort_keys=True), rows=people,
                          checks={"people": len(people), "summary": bool(summary), "truncated": joined["truncated"], "pieces": n,
                                  "parts_unusable": joined["parts_unusable"]}, made_at=made)
@@ -317,9 +323,11 @@ def _unpack(reading: rd.Reading) -> dict:
             "unusable": (reading.checks or {}).get("unusable")}
 
 
-def stored(sha256: str, profile: str, version: int, store: rd.Store, model: str = TEXT_MODEL, rule: dict = None):
-    """The stored reading, unpacked, or None: the load replays and never asks."""
-    key = key_for(sha256, profile, version, model, rule)
+def stored(sha256: str, profile: str, version: int, store: rd.Store, model: str = TEXT_MODEL, rule: dict = None,
+           used: str = None):
+    """The stored reading, unpacked, or None: the load replays and never asks. `used`: the split that cut the
+    document (read.text_reading), the rule's own by default."""
+    key = key_for(sha256, profile, version, model, rule, used)
     if not store.has(key):
         return None
     return _unpack(store.get(key))
@@ -398,7 +406,7 @@ def piece(sha256: str, *, url: str, model: str, store: rd.Store = None, conn=Non
         texts = R._page_text_for_model(page) if page else {}
     if slug is None or slug == R.SCANNED:
         raise RuntimeError(f"{sha256[:12]}: not readable by the text reader: {why}")
-    version = R.profile_version(slug)
+    _, _, version, _ = R.text_reading(slug, texts)     # a document only the rule's fallback cuts: the fallback's version
     rule = PC.rule_of(slug)
     deadline = time.monotonic() + wait_s
     while True:

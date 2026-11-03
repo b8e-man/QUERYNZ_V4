@@ -35,7 +35,8 @@ document has not had: `wanted(profile, done)`.
     history(slug)        every version, oldest first
     add_version(slug, fields, by)   append the next version; never edit
     reading_version(slug)  the version a reading of the kind is keyed and stamped by: a version that adds to the
-                           extract list and changes nothing else reads as the one before it
+                           extract list and changes nothing else reads as the one before it; so does one that adds
+                           only a reading rule's `fallback`, but for a reading the fallback made (`fallback=True`)
 """
 import datetime as dt
 import json
@@ -56,6 +57,10 @@ RULE_ID = re.compile(r"^[a-z][a-z-]*@\d+$")
 #: the fields of a version that say nothing about how a document is read: a version that changes only these leaves the
 #: stored readings standing (`reading_version`)
 NOT_READING = ("kind", "slug", "version", "at", "by", "extract", "iteration")
+#: a reading rule's split for the documents its own split cannot cut (`reading_version`)
+FALLBACK = "fallback"
+#: the fallback and what is said of it
+FALLBACK_KEYS = (FALLBACK, "fallback_note")
 KIND = "document-profile"
 
 
@@ -98,14 +103,30 @@ def valid_slug(slug: str) -> bool:
     return bool(slug) and all(ch.isalnum() or ch in "-_" for ch in slug) and slug == slug.lower()
 
 
-def reading_version(slug: str, path: str = None):
+def _without_fallback(r: dict) -> dict:
+    """The version with its reading rule's `fallback` taken out (`reading_version`)."""
+    rule = r.get("reading")
+    if not isinstance(rule, dict) or not any(k in rule for k in FALLBACK_KEYS):
+        return r
+    return {**r, "reading": {k: v for k, v in rule.items() if k not in FALLBACK_KEYS}}
+
+
+def reading_version(slug: str, path: str = None, fallback: bool = False):
     """The version a reading of `slug` is keyed and stamped by: the current version, or, where the newest versions
     differ only in what they list they extract (`NOT_READING`), the earliest of them. A reading is keyed by its
     profile's version (support.reader.reading_key), so a version that only adds to the extract list would otherwise
-    orphan every stored reading; what has been extracted is recorded per document in docs.extractions instead."""
+    orphan every stored reading; what has been extracted is recorded per document in docs.extractions instead.
+
+    A reading rule's `fallback` (`reading.fallback`, Arthur, 3 November 2026: a document no split rule fits is read
+    page by page) changes the reading of only the documents the rule's own split cannot cut: a version that adds or
+    changes nothing but the fallback leaves every other reading keyed as before. So the version of a reading made by
+    the rule's own split is counted with the fallback taken out, and `fallback=True` gives the version of a reading
+    made by the fallback, which counts it."""
     hist = history(slug, path)
     if not hist:
         return None
+    if not fallback:
+        hist = [_without_fallback(r) for r in hist]
     sig = lambda r: {k: v for k, v in r.items() if k not in NOT_READING and v is not None}  # noqa: E731
     cur, version = sig(hist[-1]), int(hist[-1]["version"])
     for r in reversed(hist[:-1]):

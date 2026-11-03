@@ -162,7 +162,8 @@ class Judgment:
     judges: str = None              # the Court: line, else the heading's "OF …"
     heading: str = None             # JUDGMENT OF THE COURT, SENTENCING NOTES, …
     judgment_date: dt.date = None
-    date_basis: str = None          # label | running head | delivered
+    date_basis: str = None          # label | running head | delivered; the load's: mcp doc_date (read.from_mcp)
+    citation_basis: str = None      # the load's (read.from_mcp): document | mcp citation
     suppression: bool = False
     suppression_kinds: list = field(default_factory=list)   # banner, order in the text, CPA s 203, Family Court Act, until, paragraphs
     paragraphs: list = field(default_factory=list)           # (number, page)

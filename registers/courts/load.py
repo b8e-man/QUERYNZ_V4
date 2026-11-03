@@ -35,11 +35,11 @@ STAMP = ("document", "page", "place", "read_from", "reader", "profile", "profile
 COLUMNS = {
     "documents": ("key", "record", "seq", "kind", "case_slug", "url", "content_type", "fetched_at", "document", "state",
                   "profile", "profile_version", "outcome", "pages", "read_from", "text_chars", "pieces", "citation", "case_numbers",
-                  "dated", "summary", "model", "model_reader", "loaded_at"),
+                  "dated", "summary", "model", "model_reader", "mcp_citation", "mcp_doc_date", "loaded_at"),
     "cases": ("key", "case_slug", "url", "case_name", "citation", "case_numbers", "court", "summary", "result", "judges",
               "date_of_judgment", "date_of_hearing", "suppression", "withheld", "links") + STAMP,
     "case_links": ("key", "case", "position", "section", "label", "href", "linked_document", "document", "page", "place"),
-    "judgments": ("key", "citation", "court", "court_name", "registry", "case_numbers", "judgment_date", "date_basis",
+    "judgments": ("key", "citation", "court", "court_name", "registry", "case_numbers", "judgment_date", "date_basis", "citation_basis",
                   "hearing", "judges", "heading", "caption_shape", "outcome", "counsel_roles", "paragraphs", "parties", "suppression",
                   "suppression_kinds", "withheld", "status", "missing", "unrecognised", "notes", "case_slug", "source",
                   "source_url", "source_note") + STAMP,
@@ -175,6 +175,7 @@ def main(argv=None) -> int:
         load(conn, a.schema, mcp_schema=a.mcp_schema)
         conn.commit()
         out = check.account(conn, a.schema)
+        print(check.mcp_line(out))
         for f in out["failures"]:
             print("FAIL " + f)
         if a.publish:

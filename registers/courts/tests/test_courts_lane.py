@@ -93,8 +93,8 @@ def test_every_record_of_the_sample_is_a_document_row_read_waiting_set_aside_or_
     by = {}
     for d in filled["documents"]:
         by[d["outcome"]] = by.get(d["outcome"], 0) + 1
-    assert by.get("caught") == 2 and by.get("set aside") == 2, by
-    assert by.get("read", 0) + by.get(R.WAIT_TEXT, 0) + by.get(R.WAIT_PAGES, 0) == len(listed) - 4
+    assert by.get("caught") == 2 and by.get("set aside") == 1, by
+    assert by.get("read", 0) + by.get(R.WAIT_TEXT, 0) + by.get(R.WAIT_PAGES, 0) == len(listed) - 3
     scanned = next(d for d in filled["documents"] if d["record"] == SCANNED_RECORD)
     assert scanned["read_from"] == "pixels" and scanned["outcome"] in (R.WAIT_PAGES, "read", R.WAIT_TEXT), scanned["outcome"]
     stages = {(a["item"], a["stage"]) for a in filled["aside"]}
@@ -102,10 +102,12 @@ def test_every_record_of_the_sample_is_a_document_row_read_waiting_set_aside_or_
         assert (caught["key"], "pull") in stages and caught["state"] == "caught", caught["key"][-30:]
     schedule = [d for d in filled["documents"] if d["outcome"] == "set aside" and d["profile"] is None][0]
     assert "scheduled" in schedule["url"] and (schedule["key"], "recognise") in stages
-    # the 16-page determination whose text layer numbers no paragraph: over the budget, the rule cannot split it; its sheet is still read
-    unsplit = [d for d in filled["documents"] if d["outcome"] == "set aside" and d["profile"] == R.ERA][0]
-    assert unsplit["pieces"] is None and unsplit["text_chars"] > 34000 and unsplit["dated"] and unsplit["citation"] and (unsplit["key"], "read") in stages
-    assert any(a["item"] == unsplit["key"] and a["reason"].startswith("the text reader cannot read it:") for a in filled["aside"])
+    # the 16-page determination whose text layer numbers no paragraph: over the budget, the paragraph rule cannot split
+    # it, so its profile's fallback reads it page by page (Arthur, 3 November 2026); it waits on the text reader, in pieces
+    unsplit = next(d for d in filled["documents"] if d["document"] and d["document"].startswith("b969c55c2414"))
+    assert unsplit["profile"] == R.ERA and unsplit["outcome"] == R.WAIT_TEXT and unsplit["pieces"] >= 2
+    assert unsplit["text_chars"] > 34000 and unsplit["dated"] and unsplit["citation"] and (unsplit["key"], "read") not in stages
+    assert not any(a["reason"].startswith("the text reader cannot read it:") for a in filled["aside"])
     # every document the text reader reads, or waits for, has its piece count by its profile's rule (the check holds it too)
     for d in filled["documents"]:
         if d["outcome"] in ("read", R.WAIT_TEXT):
@@ -216,9 +218,10 @@ def test_every_judgment_s_citation_agrees_with_its_file_name_and_its_date_is_a_r
         else:
             assert j["status"] == "parsed", j["document"][:12]
         if j["paragraphs"] == 0:
-            # its text layer numbers no paragraph: the paragraphs rule could not split it either, so it is set aside at read
+            # its text layer numbers no paragraph: the paragraphs rule could not split it either, so its profile's
+            # fallback cuts it at its pages and it waits on the text reader
             doc = _doc(filled, sha=j["document"])
-            assert doc["outcome"] == "set aside" and doc["pieces"] is None and doc["text_chars"] > 34000, j["document"][:12]
+            assert doc["outcome"] == R.WAIT_TEXT and doc["pieces"] >= 2 and doc["text_chars"] > 34000, j["document"][:12]
 
 
 def test_paragraphs_are_indexed_in_sequence_to_the_judgment_s_last(filled):
@@ -306,7 +309,7 @@ def test_the_lane_s_check_passes_on_the_sample(filled):
     assert out["status"].get("parsed") >= 15 and set(out["status"]) <= {"parsed", "partial"} and out["roles short"] <= 2
     assert set(out["roles the source's own"].values()) <= {caption.INTERVENER_UNLISTED, caption.APPEAL_UNDER_FIRST_INSTANCE}
     assert out["status"].get("partial", 0) <= 4 and all(j["profile"] in (R.TRIBUNAL, "courts-nzsc-judgment") for j in filled["judgments"] if j["status"] == "partial")
-    assert out["pieces"]["total pieces"] >= 60 and out["pieces"]["documents over the budget"] >= 12 and out["pieces"]["cannot split (set aside at read)"] == 1
+    assert out["pieces"]["total pieces"] >= 60 and out["pieces"]["documents over the budget"] >= 12 and out["pieces"]["cannot split (set aside at read)"] == 0
     assert out["pieces by profile"]["courts-hearing-transcript"] >= 10 and out["pieces by profile"]["courts-case-page"] == 3
     assert set(out["outcomes"]) <= {"read", R.WAIT_PAGES, R.WAIT_TEXT, "set aside", "caught"}
 

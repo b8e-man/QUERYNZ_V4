@@ -75,6 +75,8 @@ def entry(record_id: str, seq, record_sha: str, url: str, content_type, capture_
             "fetched_at": cap.get("fetched_at") or rec.get("fetched_at"),
             "content_type": content_type or rec.get("content_type"), "capture": capture_sha or cap.get("sha256"),
             "state": state or ("waiting" if cap.get("sha256") else "no file"), "bytes": nbytes or cap.get("bytes"),
+            "mcp_citation": (str(rec["citation"]).strip() or None) if rec.get("citation") else None,
+            "mcp_doc_date": rec.get("doc_date") or None,
             "source": SOURCE, "note": SOURCE_NOTE}
 
 
@@ -99,7 +101,7 @@ def own_records(conn, schema: str = "courts", until=None) -> list:
     return [{"record_id": OWN_PREFIX + sha, "seq": None, "record": listing or sha, "url": url, "kind": "judgment_pdf",
              "case_slug": None, "court_hint": court, "fetched_at": fetched.isoformat() if fetched else None,
              "content_type": "application/pdf", "capture": sha, "state": "landed", "bytes": nbytes,
-             "source": source, "note": OWN_NOTE.get(source, f"a file the estate fetched itself ({source}, ruling 140)")}
+             "mcp_citation": None, "mcp_doc_date": None, "source": source, "note": OWN_NOTE.get(source, f"a file the estate fetched itself ({source}, ruling 140)")}
             for sha, url, source, court, listing, nbytes, fetched in rows]
 
 

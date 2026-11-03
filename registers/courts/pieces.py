@@ -27,8 +27,19 @@ Rules:
 Every piece after the first opens with the document's first lines (its
 court line, citation and parties) for context, inside the budget.
 
-    rule_of(slug)                      the profile's reading rule {budget_chars, split}
+The fallback (Arthur, 3 November 2026: "read them page by page"): a rule may
+name `fallback: pages`. Where its own split cannot cut the document (no
+numbered paragraphs to split at, a page in a run too long), a page is a
+valid piece boundary: runs of whole pages within the budget, each a piece,
+the readings joined under the one hash as any pieces are. A page longer
+than the budget still cannot be split (no cut inside a page), and the
+document is set aside, named. A document the rule's own split cuts is
+planned exactly as before, so its reading's key does not move
+(support.profiles.reading_version keeps the version for it).
+
+    rule_of(slug)                      the profile's reading rule {budget_chars, split[, fallback]}
     plan(texts, rule)                  (pieces: [str], None) or (None, why)
+    plan_how(texts, rule)              (pieces, None, the split that cut it) or (None, why, None)
     count(texts, rule)                 the number of pieces, or None
 """
 import re
@@ -37,6 +48,9 @@ from registers.courts import caption
 
 CONTEXT_CHARS = 800          # the head of page 1 repeated at the top of every later piece
 SPLITS = ("whole", "paragraphs", "numbered", "pages")
+#: the splits a rule may fall back to where its own cannot cut the document, and the rules that may carry one
+FALLBACKS = ("pages",)
+FALLS_BACK = ("paragraphs", "numbered")
 NUMBERED = re.compile(r"^\s{0,40}(\d{1,3})(?:\.(?:\d{1,2}\.?)?\s+|\s{2,})\S")   # "1.", "1.1", or a bare "1  "; submissions indent theirs up to 32
 PAGE_MARK = "[page {p}]\n"
 
@@ -49,7 +63,12 @@ def rule_of(slug: str, profile_of=None) -> dict:
     rule = (p or {}).get("reading")
     if not rule or rule.get("split") not in SPLITS or not isinstance(rule.get("budget_chars"), int) or rule["budget_chars"] < 2000:
         raise LookupError(f"document profile {slug} carries no reading rule (budget_chars, split one of {SPLITS})")
-    return {"budget_chars": int(rule["budget_chars"]), "split": rule["split"]}
+    out = {"budget_chars": int(rule["budget_chars"]), "split": rule["split"]}
+    if rule.get("fallback") is not None:
+        if rule["fallback"] not in FALLBACKS or rule["split"] not in FALLS_BACK:
+            raise LookupError(f"document profile {slug}: a fallback is one of {FALLBACKS}, on a split of {FALLS_BACK}")
+        out["fallback"] = rule["fallback"]
+    return out
 
 
 def body_of(texts: dict) -> str:
@@ -142,7 +161,28 @@ def context_of(texts: dict, chars: int = CONTEXT_CHARS) -> str:
 def plan(texts: dict, rule: dict) -> tuple:
     """(the pieces as the model receives them, None) or (None, why the rule
     cannot split the document). One piece when the whole fits."""
-    budget, split = rule["budget_chars"], rule["split"]
+    got, why, _ = plan_how(texts, rule)
+    return got, why
+
+
+def plan_how(texts: dict, rule: dict) -> tuple:
+    """`plan`, and the split that cut the document: the rule's own, or its
+    fallback where the rule's own cannot (None when neither can)."""
+    got, why = _plan(texts, rule["budget_chars"], rule["split"])
+    if got is not None:
+        return got, None, rule["split"]
+    fallback = rule.get("fallback")
+    if not fallback:
+        return None, why, None
+    got, why2 = _plan(texts, rule["budget_chars"], fallback, finer=False)
+    if got is not None:
+        return got, None, fallback
+    return None, f"{why}; the fallback by {fallback}: {why2}", None
+
+
+def _plan(texts: dict, budget: int, split: str, finer: bool = True) -> tuple:
+    """One split's plan. `finer=False`: a block over the budget is not cut
+    finer (the fallback by pages never cuts inside a page)."""
     body = body_of(texts)
     if len(body) <= budget:
         return [body], None
@@ -151,7 +191,7 @@ def plan(texts: dict, rule: dict) -> tuple:
     lines = _lines(texts)
     if split == "pages":
         blocks = _by_pages(lines)
-        finer, finer_name = _by_speakers, "speaker turn"
+        finer, finer_name = (_by_speakers if finer else (lambda b: [b])), ("speaker turn" if finer else "page")
     else:
         blocks = _blocks(lines, _para_marker)
         if len(blocks) < 3:
