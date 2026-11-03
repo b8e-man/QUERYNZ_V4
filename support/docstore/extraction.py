@@ -59,3 +59,9 @@ def record_many(conn, rows) -> dict:
         "(docs.extractions.iteration, docs.extractions.reader, docs.extractions.model) IS DISTINCT FROM "
         "(EXCLUDED.iteration, EXCLUDED.reader, EXCLUDED.model)", [list(c) for c in cols]).rowcount
     return {"rows": len(best), "held": held[0], "not held": held[1], "written": written}
+
+
+def held(conn, documents: list) -> set:
+    """The documents of `documents` the store registers (docs.documents): only those can carry a ledger row."""
+    return {r[0] for r in conn.execute("SELECT sha256 FROM docs.documents WHERE sha256 = ANY(%s)",
+                                       (sorted(set(documents)),)).fetchall()}

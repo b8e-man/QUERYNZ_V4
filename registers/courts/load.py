@@ -40,7 +40,7 @@ COLUMNS = {
               "date_of_judgment", "date_of_hearing", "suppression", "withheld", "links") + STAMP,
     "case_links": ("key", "case", "position", "section", "label", "href", "linked_document", "document", "page", "place"),
     "judgments": ("key", "citation", "court", "court_name", "registry", "case_numbers", "judgment_date", "date_basis",
-                  "hearing", "judges", "heading", "caption_shape", "outcome", "paragraphs", "parties", "suppression",
+                  "hearing", "judges", "heading", "caption_shape", "outcome", "counsel_roles", "paragraphs", "parties", "suppression",
                   "suppression_kinds", "withheld", "status", "missing", "unrecognised", "notes", "case_slug", "source",
                   "source_url", "source_note") + STAMP,
     "judgment_parties": ("key", "judgment", "citation", "position", "block", "role", "name", "withheld", "anonymised",
@@ -49,6 +49,9 @@ COLUMNS = {
                "withheld", "document", "page", "place", "read_from", "reader", "model", "profile", "profile_version",
                "loaded_at"),
 }
+PARAGRAPH_COLUMNS = ("judgment", "number", "page", "document")
+SET_ASIDE_COLUMNS = ("item", "stage", "reason")
+WITHHELD_COLUMNS = ("key", "name", "capacity")
 
 
 def private_of(schema: str) -> str:
@@ -109,15 +112,21 @@ def build(conn, schema: str, entries: list, caught: list, ledger: list, shared: 
     gap = capture.old_listing_gap(old_listing if old_listing is not None else capture.old_listing(), entries)
     aside = list(res.set_aside) + [(rid, "pull", f"the pull's catch line at seq {seq}, stage {stage}: {reason}")
                                    for rid, seq, stage, reason in caught if rid] + list(gap)
-    _copy(conn, table(schema, "set_aside", shared), ("item", "stage", "reason"), aside)
+    _copy(conn, table(schema, "set_aside", shared), SET_ASIDE_COLUMNS, aside)
     for t, rows in (("documents", res.documents), ("cases", res.cases), ("case_links", res.case_links),
                     ("judgments", res.judgments), ("judgment_parties", res.parties), ("people", res.people)):
         _copy(conn, table(schema, t, shared), COLUMNS[t], (tuple(r.get(c) for c in COLUMNS[t]) for r in rows))
-    _copy(conn, table(schema, "paragraphs", shared), ("judgment", "number", "page", "document"), res.paragraphs)
-    _copy(conn, table(private_of(schema), "withheld_names", shared), ("key", "name", "capacity"), res.withheld)
+    _copy(conn, table(schema, "paragraphs", shared), PARAGRAPH_COLUMNS, res.paragraphs)
+    _copy(conn, table(private_of(schema), "withheld_names", shared), WITHHELD_COLUMNS, res.withheld)
     _copy(conn, table(private_of(schema), "identifiers", shared), identifiers.COLUMNS,
           (tuple(r.get(c) for c in identifiers.COLUMNS) for r in res.identifiers))
-    return {**res.counts, "pull_caught": len(caught), "old_listing_gap": len(gap)}
+    # what each document has had extracted, by profile and field (docs.extractions, a ledger: never wiped), in the
+    # load's own transaction
+    from support.docstore import extraction
+    from registers.courts import extracts
+    ledger = extraction.record_many(conn, extracts.extracted(res.documents))
+    return {**res.counts, "pull_caught": len(caught), "old_listing_gap": len(gap),
+            "extractions": ledger["rows"], "extractions written": ledger["written"], "extractions not held": ledger["not held"]}
 
 
 def load(conn, schema: str, log=print, mcp_schema: str = capture.MCP_SCHEMA) -> int:

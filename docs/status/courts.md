@@ -15,6 +15,11 @@
   shape (emails, phones, PO boxes, street addresses, ages, dates of birth, company numbers, NZBNs, IRD, licence and
   plate numbers) in the text the lane holds, no model, into `courts_private.identifiers`; never published; the
   check fails an identifier column in a view or reading table, or a view on the private schema.
+- 3 November, the extract lists: the 16 profiles carry theirs (iteration 1
+  today's reading, 2 the pattern pass), each field's columns and linking
+  opportunities; the reading version is unchanged, so no stored reading is
+  orphaned. `judgments.counsel_roles` added (read, never held). The load
+  records `docs.extractions`; the check holds the lane to its profiles.
 
 ## Waiting
 

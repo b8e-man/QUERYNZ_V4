@@ -35,6 +35,7 @@ block: one Party per party, each with its role.
 
     parse(pages: dict[int, str], file_name: str = "") -> Judgment
 """
+import dataclasses
 import datetime as dt
 import re
 from dataclasses import dataclass, field
@@ -176,6 +177,12 @@ class Judgment:
         if not self.missing:
             return "parsed"
         return "partial" if self.citation and self.court else "unparsed"
+
+
+#: what the caption records about its own reading, not about the document (the judgment row's housekeeping)
+DIAGNOSTIC = ("unrecognised", "notes", "missing")
+#: the fields the caption grammar reads from a judgment: the profiles' `by: rules` items (support/profiles/align.py)
+FIELDS = tuple(f.name for f in dataclasses.fields(Judgment) if f.name not in DIAGNOSTIC)
 
 
 #: the years a court document can be dated in: the colony's first courts to 2100. A date outside is the printer's slip,

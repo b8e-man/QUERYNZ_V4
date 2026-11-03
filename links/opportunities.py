@@ -44,8 +44,43 @@ class Entry:
         return self.profile.split("-", 1)[0]
 
 
-#: the register: one entry per (profile pattern, field, key) a profile declares
-REGISTER: tuple = ()
+#: the rules that join a court name row today (pub.court_judgment_parties and pub.court_people, links.rows), measured on
+#: pub.links 3 November 2026: links/measurements.md
+COURT_NAME_RULES = ("full-name@1", "name-only@1", "organisation-name@1", "organisation-sole-company@3",
+                    "organisation-one-live-company@3")
+_PRIVATE = ("the details are private (courts_private.identifiers) and the lane reads pub.* only: whether links may read "
+            "them, and by which rule, is Arthur's, after the twenty pairs")
+#: the register. Courts (3 November 2026): the rules measured on pub.links, the measurements in links/measurements.md
+REGISTER: tuple = (
+    Entry("courts-*", "parties", "name", "rule", COURT_NAME_RULES,
+          "pub.court_judgment_parties rows: confirmed by full-name@1 and the organisation rules @3, near by name-only@1 "
+          "and organisation-name@1"),
+    Entry("courts-*", "people", "name", "rule", COURT_NAME_RULES,
+          "pub.court_people rows: a text reader's names are their own tier (links.rows.MODEL_VIEWS), near only, never a "
+          "name form for the sightings"),
+    Entry("courts-*", "judges", "name", "sighting", (), "a judge's name is in the document's text, which the name sightings scan"),
+    Entry("courts-*", "for_party", "name", "sighting", (), "counsel's party is named in the text the sightings scan"),
+    Entry("courts-case-page", "case_name", "name", "sighting", (), "the case page's title is in the text the sightings scan"),
+    Entry("courts-*", "citation", "citation", "measure owed", (),
+          "the lane joins a case's documents itself (case_links, the suppression's reach); no links row carries a citation",
+          "whether the links lane gathers a case's documents by citation into one case entity, or the lane's own join stands"),
+    Entry("courts-*", "case_numbers", "case_number", "measure owed", (), "as the citation",
+          "whether one case number across documents is one case for the links lane"),
+    Entry("courts-*", "identifiers", "nzbn", "measure owed", (), "measured: links/measurements.md, courts identifiers",
+          "whether a party is confirmed to the company, society or charity whose NZBN its judgment prints (as "
+          "official-number@1 does between registers); " + _PRIVATE),
+    Entry("courts-*", "identifiers", "company_number", "measure owed", (), "measured: links/measurements.md",
+          "whether a party is confirmed to the company whose number its judgment prints; " + _PRIVATE),
+    Entry("courts-*", "identifiers", "email", "measure owed", (), "measured: links/measurements.md",
+          "whether one email printed in two documents joins their names (near or confirming); " + _PRIVATE),
+    Entry("courts-*", "identifiers", "phone", "measure owed", (), "measured: links/measurements.md",
+          "whether one phone printed in two documents joins their names; " + _PRIVATE),
+    Entry("courts-*", "identifiers", "address", "measure owed", (), "measured: links/measurements.md",
+          "whether a street address a judgment prints is matched to a company's registered office (never a home "
+          "address shown, hard limit 15); " + _PRIVATE),
+    Entry("courts-*", "identifiers", "po_box", "measure owed", (), "measured: links/measurements.md",
+          "whether a PO Box a judgment prints is matched to a company's address; " + _PRIVATE),
+)
 
 
 def rule_ids() -> set:

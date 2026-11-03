@@ -62,6 +62,9 @@ KINDS = ("person", "body")
 #: the roles a suppression never withholds: the court's officers and a public agency (the Crown is caption.CROWN)
 KEPT_ROLES = ("judge", "counsel", "agency")
 ATTEMPTS = 2
+#: what the text reader's answer gives, field by field (the profiles' `by: model` items): field → the answer's keys that
+#: carry it, a person's keys but `summary` (pinned to parse_answer by the lane's tests)
+FIELDS = {"people": ("name", "kind"), "role": ("role", "role_text"), "for_party": ("for",), "summary": ("summary",)}
 UNUSABLE = "the text reader answered with no usable JSON object in %d attempts"
 PROMPT_WITH_SUMMARY = (
     "You read one New Zealand court document: a judgment, a media release, a hearing transcript, counsel's submissions, "

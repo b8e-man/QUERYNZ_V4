@@ -79,6 +79,10 @@ The ✱ column marks what the profile's reader is today:
 
 ### Courts (16 profiles)
 
+**Adopted 3 November 2026:** the 16 courts profiles carry their extract lists (iteration 1 today's reading, iteration 2
+the pattern pass), each item with `lands` and `links`; the load records `docs.extractions`; the check holds the lane to
+its profiles (`support/profiles/align.py`). The model's identifiers below are iteration 3, after Arthur's go.
+
 | Profile | ✱ | Enrich | Correct |
 | --- | --- | --- | --- |
 | `courts-nzsc-judgment` v3, `courts-nzca-judgment` v3, `courts-nzhc-civil-judgment` v3, `courts-nzhc-criminal-judgment` v3, `courts-nzdc-judgment` v1, `courts-judgment` v2 | 2 | Identifiers for every party, witness and victim named. Charges and the statutes they fall under; sentence, damages, costs and orders, with amounts; the result for each party; the cases cited (held for citation links, ruling 140); the scope of each suppression order (whom it covers, kept privately) | Caption parties against the model's people; counsel's party; the judgment's own date; judges; outcome |

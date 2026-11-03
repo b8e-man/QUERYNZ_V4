@@ -34,6 +34,13 @@ account.
      cannot split is counted set aside at read, never waiting. The counts of
      documents by pieces needed, and the pieces by profile, are printed.
 
+  7. The extract lists (Arthur, 3 November 2026): the lane's code against
+     each profile's extract list (`extracts.problems`, support/profiles/
+     align.py), each `lands` column against the database's catalog, and
+     every document read or waiting on the text reader recorded in
+     docs.extractions for every field it has had (`extracts.expected`);
+     `extraction.behind` printed per profile.
+
     account(conn, schema, shared=False)    dict
     python -m registers.courts.check [--schema courts] [--database querynz_v4] [--sample]
 
@@ -160,6 +167,10 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
     orders = q(f"SELECT count(*) FROM {t('suppression_orders')}")[0][0] if _exists(conn, t("suppression_orders")) else 0
     out["suppression"]["orders in the ledger"] = orders
     out["identifiers"] = _identifiers(conn, schema, shared, out["failures"])
+    # the lane and its profiles aligned (support/profiles/align.py), every `lands` column in this database, and every
+    # document read recorded in docs.extractions at its profile's current fields
+    out["alignment"] = _alignment(conn, schema, shared, out["failures"])
+    out["extractions behind"] = _extractions(conn, t, out["failures"], shared)
     short, excepted = roles_review(conn, schema, shared)
     out["roles short"] = len(short)
     # the source's own printing (caption.roles_source_exception): each judgment counted with its reason, never tolerated
@@ -205,6 +216,55 @@ def _identifiers(conn, schema: str, shared: bool, failures: list) -> dict:
     if stray:
         failures.append(f"{stray} identifying detail(s) of a document the reading does not hold")
     return by
+
+
+def _alignment(conn, schema: str, shared: bool, failures: list) -> dict:
+    """What the lane's code produces against each profile's extract list, and each `lands` column against the database."""
+    from support.profiles import align
+    from registers.courts import extracts
+    code = extracts.problems()
+    live = align.live_problems(conn, extracts.LANE, extracts.where(schema, shared))
+    failures.extend(f"alignment: {p}" for p in code + live)
+    return {"profiles": len(extracts.SLUGS), "lands columns": len(align.lands_of(extracts.LANE)),
+            "problems": len(code), "columns missing": len(live)}
+
+
+def _extractions(conn, t, failures: list, shared: bool = False) -> dict:
+    """docs.extractions by profile: per field, the documents read that are still owed it (extraction.behind). A
+    document read (or waiting on the text reader) lacking a row for a field it has had by the lane's rule
+    (`extracts.expected`) fails: the load records them in its own transaction. Only a document the store registers
+    (docs.documents) can carry a row: live, one it does not register fails; the sample's store registers only some of
+    its files, so there they are counted, not failed."""
+    from support.docstore import extraction
+    from registers.courts import extracts
+    rows = conn.execute(f"SELECT DISTINCT document, profile, outcome, read_from FROM {t('documents')} "
+                        "WHERE document IS NOT NULL AND profile IS NOT NULL AND outcome IN ('read', %s)", (R.WAIT_TEXT,)).fetchall()
+    held = extraction.held(conn, [r[0] for r in rows])
+    unheld = len({r[0] for r in rows} - held)
+    if unheld and not shared:
+        failures.append(f"{unheld} documents read that the store does not register (docs.documents): no ledger row can be kept")
+    by_profile, pixels = {}, []
+    for sha, slug, outcome, how in rows:
+        if sha not in held:
+            continue
+        by_profile.setdefault(slug, {}).setdefault(outcome, []).append(sha)
+        if how in ("pixels", "mixed"):
+            pixels.append(sha)
+    if pixels:
+        by_profile.setdefault(R.SCANNED, {})["read"] = pixels
+    out = {"(read, not registered by the store)": {"documents": unheld}} if unheld else {}
+    for slug, groups in sorted(by_profile.items()):
+        for outcome, shas in sorted(groups.items()):
+            behind = extraction.behind(conn, slug, shas)
+            want = extracts.expected(slug, outcome) if slug != R.SCANNED else {extracts.PAGE_TEXT}
+            owed = {f: n for f, n in behind.items() if n}
+            if owed:
+                out[f"{slug} ({outcome}, {len(shas)})"] = owed
+            for f in sorted(want):
+                if behind.get(f, len(shas)):
+                    failures.append(f"{slug}: {behind.get(f, len(shas))} of {len(shas)} documents {outcome} have no "
+                                    f"docs.extractions row for {f} at its current iteration")
+    return out
 
 
 def _pieces(conn, t, docs: list, failures: list) -> tuple:
@@ -289,10 +349,12 @@ def main(argv=None) -> int:
         conn.execute("SET statement_timeout = '120s'")
         out = account(conn, schema, shared)
     print(f"corpus {capture.CORPUS}: {out['records']} records" + (f" ({out['taken by the pull']} taken by the pull)" if "taken by the pull" in out else ""))
-    for k in ("outcomes", "profiles", "pieces", "pieces by profile", "set aside", "status", "courts", "missing", "parties", "people", "cases", "suppression", "identifiers"):
+    for k in ("outcomes", "profiles", "pieces", "pieces by profile", "set aside", "status", "courts", "missing", "parties", "people", "cases", "suppression", "identifiers", "alignment"):
         print(f"{k}: " + ", ".join(f"{a} {b}" for a, b in out[k].items()))
     print(f"sheets with a fact read: {out['sheets with a fact read']}; records sharing a file: {out['records sharing a file']}; "
           f"roles short: {out['roles short']} (tolerated {ROLES_TOLERATED})")
+    print("extractions behind (documents still owed a field, by profile): " +
+          ("; ".join(f"{p}: " + ", ".join(f"{f} {n}" for f, n in owed.items()) for p, owed in out["extractions behind"].items()) or "none"))
     for k, reason in out["roles the source's own"].items():
         print(f"roles the source's own: {k}… {reason}")
     for f in out["failures"]:

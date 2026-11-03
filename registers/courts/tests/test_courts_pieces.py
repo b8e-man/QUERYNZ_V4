@@ -66,8 +66,10 @@ def test_the_proposed_lines_are_the_ledger_s_next_versions_and_say_who_and_when(
         assert "courts-scanned-document" not in cur, "the scanned profile keys the stored page readings: its version stands"
     else:     # after it: the integrator appended the lines to the ledger and removed the file (31 October)
         assert four <= set(ledger)
-        assert all(R.profile_version(slug) == int(ledger[slug]["version"]) for slug in four)
-        assert int(ledger["courts-scanned-document"]["version"]) == 1
+        # a reading is keyed by the version its reading last changed at: the extract lists of 3 November added versions
+        # that change nothing a reader does (support.profiles.reading_version)
+        assert all(R.profile_version(slug) == profiles.reading_version(slug) for slug in four)
+        assert profiles.reading_version("courts-scanned-document") == 1, "the scanned profile keys the stored page readings"
 
 
 def test_a_short_document_is_one_piece_whatever_the_rule():

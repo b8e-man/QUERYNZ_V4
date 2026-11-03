@@ -171,7 +171,13 @@ def profile_of(slug: str) -> dict:
 
 
 def profile_version(slug: str) -> int:
-    return int(profile_of(slug)["version"])
+    """The version a reading of `slug` is keyed and stamped by (support.profiles.reading_version): a ledger version
+    that only adds to the extract list leaves the stored readings standing; a proposed line is a new reading."""
+    p = profile_of(slug)
+    held = profiles.profile(slug)
+    if held is not None and int(held["version"]) == int(p["version"]):
+        return profiles.reading_version(slug)
+    return int(p["version"])
 
 
 # ── the case page ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -618,6 +624,17 @@ def _page_text_for_model(page: dict) -> dict:
     return {1: "\n".join(lines)}
 
 
+#: what the case page's grammar reads (`case_page`, `_case_rows`): the case page profile's `by: rules` items.
+#: `case_summary` is the page's own Summary (cases.summary), apart from the text reader's `summary` of the document
+CASE_FIELDS = ("case_name", "citation", "case_numbers", "court", "case_summary", "result", "judges", "date_of_judgment",
+               "date_of_hearing", "links", "suppression")
+
+
+def sheet_fields() -> tuple:
+    """What a release's, transcript's, submission's or synopsis's face is read for: `sheet`'s own keys."""
+    return tuple(sheet({}, RELEASE))
+
+
 def _case_rows(res: Result, e: dict, sha: str, page: dict, slug: str, version: int, by_url: dict, now: str) -> None:
     key = f"{sha}/case"
     secs = page["sections"]
@@ -701,7 +718,7 @@ def rows(res: Result, parsed: list, orders: list = (), now: str = "") -> Result:
             "key": key, "citation": j.citation, "court": court, "court_name": j.court_name, "registry": j.registry,
             "case_numbers": j.case_numbers, "judgment_date": j.judgment_date, "date_basis": j.date_basis,
             "hearing": j.hearing, "judges": j.judges, "heading": j.heading, "caption_shape": j.caption_shape,
-            "outcome": j.outcome, "paragraphs": len(j.paragraphs), "parties": len(j.parties),
+            "outcome": j.outcome, "counsel_roles": list(j.counsel_roles), "paragraphs": len(j.paragraphs), "parties": len(j.parties),
             "suppression": bool(kinds), "suppression_kinds": kinds, "withheld": withheld, "status": j.status,
             "missing": j.missing, "unrecognised": len(j.unrecognised), "notes": j.notes, "case_slug": entry.get("case_slug"),
             "source": entry.get("source") or CAP.SOURCE, "source_url": entry.get("url"),
