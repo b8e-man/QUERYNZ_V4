@@ -157,3 +157,25 @@ def test_the_sample_database_and_the_reader_logins_are_never_refused(tmp_path, m
     assert db.connect(db.READ_KEY) == "conn"
     assert db.connect(db.PRODUCT_KEY, "querynz_v4") == "conn"
     assert fake.calls == ["querynz_v4_sample", "querynz_v4", "querynz_v4", "querynz_v4"]
+
+
+def test_pub_private_is_fixed_private_and_granted_to_no_reader():
+    """Ruling 142: the lanes' private views for the links lane sit in one fixed private schema."""
+    assert db.PRIVATE_VIEWS in db.FIXED and db.is_private(db.PRIVATE_VIEWS)
+    sql = db.plan_sql()
+    assert f"REVOKE ALL ON SCHEMA {db.PRIVATE_VIEWS} FROM qv4_read, qv4_product;" in sql
+    assert f"GRANT USAGE ON SCHEMA {db.PRIVATE_VIEWS} TO" not in sql
+
+
+def test_every_lane_private_view_file_makes_views_in_pub_private_only():
+    files = db.private_view_files()
+    assert {"courts", "insolvency", "linz"} <= set(files)
+    for lane, path in files.items():
+        stmts = db.private_view_statements(open(path, encoding="utf-8").read())
+        assert stmts, lane
+        for s in stmts:
+            assert f"{lane}_private." in s, (lane, "a lane's private views read its own private schema")
+    with pytest.raises(ValueError):
+        db.private_view_statements("CREATE OR REPLACE VIEW pub.x AS SELECT 1;")
+    with pytest.raises(ValueError):
+        db.private_view_statements("CREATE OR REPLACE VIEW pub_private.x AS SELECT 1; GRANT SELECT ON pub_private.x TO qv4_read;")

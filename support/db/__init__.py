@@ -5,6 +5,9 @@ real one) and `querynz_v4_sample` (filled from each module's sample list;
 for building, never for measuring). Both have the same schemas:
 
   pub               published tables: the only thing a later module reads
+  pub_private       the lanes' private views for the links lane (ruling 142, 4 November 2026): each lane
+                    declares its own in `registers/<lane>/pub_private.sql`, made by `private_views`; private
+                    like a lane's twin, so neither reader login sees it
   links, links_private
   <lane>, <lane>_private        one pair per register lane
   <product>                     one per product shape, and the board
@@ -82,7 +85,7 @@ LANES = (
     "insolvency",   # step 8.4, the Insolvency Register API, its terms held in code (insolvency fork, 2 November 2026)
 )
 PRODUCTS = ("ftm", "subject_report", "register_scan", "archive_search", "board")
-FIXED = ("pub", "links", "links_private", "docs", "sealed", "scheduler",
+FIXED = ("pub", "pub_private", "links", "links_private", "docs", "sealed", "scheduler",
          "mcpsource")   # support/mcpsource: the ingest MCP's cursors, arrivals and stamps (ruling 96, mcp-1)
 PRIVATE_SUFFIX = "_private"
 SCRATCH_PREFIX = "scratch_"
@@ -129,6 +132,55 @@ def plan_sql(extra_schemas=()) -> str:
         else:
             lines.append(f"REVOKE ALL ON SCHEMA {s} FROM {product};")
     return "\n".join(lines) + "\n"
+
+
+#: ruling 142 (Arthur, 4 November 2026): the links lane reads the lanes' private values (an address, an email, a phone)
+#: through views each lane declares and owns, in `registers/<lane>/pub_private.sql`, into the one fixed private schema
+#: `pub_private` (private by its suffix: neither reader login is granted it). A lane's own tables are made again at its
+#: load (dropped with CASCADE), so the views are made again by `private_views` before each links build and at `apply`.
+PRIVATE_VIEWS = "pub_private"
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def private_view_files() -> dict:
+    """{lane: path} of every lane that declares private views (`registers/<lane>/pub_private.sql`)."""
+    out = {}
+    for lane in LANES:
+        p = os.path.join(_REPO, "registers", lane, "pub_private.sql")
+        if os.path.exists(p):
+            out[lane] = p
+    return out
+
+
+def private_view_statements(text: str) -> list:
+    """The statements of a pub_private.sql, comments off; each must make a view in `pub_private` and nothing else."""
+    body = "\n".join(l for l in text.splitlines() if not l.strip().startswith("--"))
+    out = [s.strip() for s in body.split(";") if s.strip()]
+    for s in out:
+        if not re.match(rf"^CREATE OR REPLACE VIEW {PRIVATE_VIEWS}\.[a-z][a-z0-9_]*\s+AS\s", s, re.I | re.S):
+            raise ValueError(f"a pub_private.sql statement makes a view in {PRIVATE_VIEWS} and nothing else: {s[:60]!r}")
+    return out
+
+
+def private_views(conn, log=print) -> dict:
+    """Make every lane's private views (`private_view_files`), each statement under its own savepoint: a view whose lane
+    tables are not there yet (the lane not loaded) is skipped and said so. Returns {view: "made" | "not made: <why>"}.
+    The caller commits."""
+    conn.execute(f"CREATE SCHEMA IF NOT EXISTS {PRIVATE_VIEWS}")
+    out = {}
+    for lane, path in sorted(private_view_files().items()):
+        with open(path, encoding="utf-8") as f:
+            stmts = private_view_statements(f.read())
+        for s in stmts:
+            view = re.match(rf"^CREATE OR REPLACE VIEW ({PRIVATE_VIEWS}\.[a-z0-9_]+)", s, re.I).group(1)
+            try:
+                with conn.transaction():
+                    conn.execute(s)
+                out[view] = "made"
+            except Exception as exc:     # the lane's table not there: the view waits for its load
+                out[view] = f"not made: {type(exc).__name__}"
+    log(f"support.db: private views: {out}")
+    return out
 
 
 def scratch_sql(session: str) -> str:
@@ -197,6 +249,8 @@ def connect(key: str = OWNER_KEY, database: str = None, **kw):
 def apply(database: str, extra_schemas=(), log=print) -> None:
     with connect(OWNER_KEY, database) as conn:
         conn.execute(plan_sql(extra_schemas))
+        conn.commit()
+        private_views(conn, log)
         conn.commit()
     log(f"support.db: {database}: {len(schemas()) + len(extra_schemas)} schemas and their grants applied")
 

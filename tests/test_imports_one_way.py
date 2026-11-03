@@ -103,7 +103,7 @@ def schema_owners() -> dict:
     may read (pub). A lane owns its schema and its private twin; links owns
     both of its; a product shape owns its own; the document store and the
     seal are support's."""
-    own = {"pub": None, "links": "links", "links_private": "links", "docs": "support.docstore", "sealed": "support.seal",
+    own = {"pub": None, "pub_private": None, "links": "links", "links_private": "links", "docs": "support.docstore", "sealed": "support.seal",
            "scheduler": "support.scheduler",
            "mcpsource": "support.mcpsource"}   # ruling 96: the ingest MCP's cursors, arrivals and stamps
     for lane in _db.LANES:
@@ -131,6 +131,23 @@ def test_no_query_crosses_a_lane():
                 for schema, who in SCHEMA_OWNER.items():
                     if who and who != owner and re.search(SQL_SHAPE.format(schema=schema), node.value, re.I):
                         bad.append(f"{os.path.relpath(path, REPO)} queries {schema}.* which belongs to {who}")
+    assert not bad, "\n".join(bad)
+
+
+#: ruling 142 (4 November 2026): the lanes declare their private views in `pub_private` (registers/<lane>/pub_private.sql,
+#: made by support.db.private_views) for the links lane alone; no product, check or other support piece names them
+PUB_PRIVATE_READERS = ("links", "support.db")
+
+
+def test_pub_private_is_read_by_the_links_lane_alone():
+    bad = []
+    for path in py_files():
+        root, owner = module_of(path)
+        if owner in PUB_PRIVATE_READERS or os.sep + "tests" + os.sep in path:
+            continue
+        for node in ast.walk(ast.parse(open(path, encoding="utf-8").read(), filename=path)):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and re.search(r"\bpub_private\.", node.value):
+                bad.append(f"{os.path.relpath(path, REPO)} names pub_private, which the links lane alone reads")
     assert not bad, "\n".join(bad)
 
 
