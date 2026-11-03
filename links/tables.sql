@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS links.rows (
     part_of      text                      -- a coupled donor row's part (ruling 73): the donor row's ref; NULL on every filed row
 );
 ALTER TABLE links.rows ADD COLUMN IF NOT EXISTS part_of text;
+ALTER TABLE links.rows ADD COLUMN IF NOT EXISTS suppressed boolean NOT NULL DEFAULT false;   -- ruling 142: a suppressed or withheld name is a row, its flag carried
 CREATE INDEX IF NOT EXISTS rows_fl ON links.rows (fl_key);
 CREATE INDEX IF NOT EXISTS rows_part_of ON links.rows (part_of) WHERE part_of IS NOT NULL;
 CREATE INDEX IF NOT EXISTS rows_full ON links.rows (full_key);
@@ -301,6 +302,7 @@ CREATE TABLE IF NOT EXISTS links.entities (
     politician   boolean NOT NULL DEFAULT false,
     built_at     timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE links.entities ADD COLUMN IF NOT EXISTS suppressed boolean NOT NULL DEFAULT false;   -- ruling 142: the display name is a suppressed one (every row's name is)
 ALTER TABLE links.entities SET (vacuum_truncate = off);   -- rebuilt whole, as links.links is (the deadlock of 20 October 2026)
 
 -- Ruling 4 (Arthur, 3 November 2026): a case's documents gathered into one case by citation and case number (judgments,

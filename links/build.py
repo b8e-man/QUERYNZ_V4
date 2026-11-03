@@ -100,6 +100,59 @@ def hub_table(conn, s: str) -> None:
     conn.execute(f"ANALYZE {s}.address_counts")
 
 
+def owner_full_name_links(conn, s: str) -> dict:
+    """`owner-full-name@1` (4 November 2026): a LINZ title owner's row and another row of its full name (a middle name
+    present, no politician). Confirmed where the name is corroborated: twice on one title, or on titles at one address
+    (`pub_private.linz_title_addresses`, an address of at most OWNER_ADDRESS_TITLES titles), each a star from the
+    smallest ref of the title or address. Every other owner row of a full name another row shares is near, to the
+    smallest ref outside LINZ where there is one, else to the smallest owner's. Returns the counts."""
+    out = {"confirmed_same_title": 0, "near": 0}
+    person = "kind = 'person' AND has_middle AND NOT politician"
+    if not conn.execute(f"SELECT EXISTS (SELECT 1 FROM {s}.rows WHERE register = 'linz')").fetchone()[0]:
+        return out      # no owner rows (a test's schema, or before the LINZ load)
+    conn.execute("CREATE TEMP TABLE IF NOT EXISTS owner_names (ref text, full_key text, name_filed text, title_no text)")
+    conn.execute("DELETE FROM owner_names")
+    conn.execute(f"""INSERT INTO owner_names
+        SELECT r.ref, r.full_key, r.name_filed, o.title_no FROM {s}.rows r JOIN pub.linz_title_owners o ON o.key = r.key
+        WHERE r.register = 'linz' AND r.{person}""")
+    conn.execute("ANALYZE owner_names")
+    corroborated = [("title", "SELECT ref, full_key, name_filed, title_no AS place FROM owner_names")]
+    if conn.execute("SELECT to_regclass('pub_private.linz_title_addresses') IS NOT NULL").fetchone()[0]:
+        corroborated.append(("address", f"""
+            SELECT DISTINCT n.ref, n.full_key, n.name_filed, a.address_id::text AS place FROM owner_names n
+            JOIN pub_private.linz_title_addresses a ON a.title_no = n.title_no
+            WHERE a.address_id IN (SELECT address_id FROM pub_private.linz_title_addresses GROUP BY 1
+                                   HAVING count(DISTINCT title_no) <= {rules.OWNER_ADDRESS_TITLES})"""))
+    for how, sql in corroborated:
+        out[f"confirmed_same_{how}"] = conn.execute(f"""
+            WITH p AS ({sql})
+            INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+            SELECT least(k.hub COLLATE "C", p.ref), greatest(k.hub COLLATE "C", p.ref), %(rule)s,
+                   jsonb_build_object('full_name', p.full_key, 'corroborated_by', %(how)s::text,
+                                      'as_filed', jsonb_build_array(h.name_filed, p.name_filed), 'registers', jsonb_build_array('linz', 'linz')),
+                   'confirmed', NULL
+            FROM p
+            JOIN (SELECT full_key, place, min(ref COLLATE "C") COLLATE "default" AS hub FROM p GROUP BY 1, 2
+                  HAVING count(DISTINCT ref) > 1) k ON k.full_key = p.full_key AND k.place = p.place
+            JOIN owner_names h ON h.ref = k.hub
+            WHERE p.ref <> k.hub
+            ON CONFLICT DO NOTHING""", {"rule": rules.RULE_OWNER_FULL, "how": how}).rowcount
+    out["near"] = conn.execute(f"""
+        WITH hubs AS (
+            SELECT full_key, coalesce(min(ref COLLATE "C") FILTER (WHERE register <> 'linz'), min(ref COLLATE "C")) COLLATE "default" AS hub
+            FROM {s}.rows WHERE {person} AND full_key IN (SELECT full_key FROM owner_names)
+            GROUP BY 1 HAVING count(*) > 1)
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT least(k.hub COLLATE "C", n.ref), greatest(k.hub COLLATE "C", n.ref), %(rule)s,
+               jsonb_build_object('full_name', n.full_key, 'as_filed', jsonb_build_array(h.name_filed, n.name_filed),
+                                  'registers', jsonb_build_array(h.register, 'linz')),
+               'near', %(reason)s
+        FROM owner_names n JOIN hubs k ON k.full_key = n.full_key JOIN {s}.rows h ON h.ref = k.hub
+        WHERE n.ref <> k.hub
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_OWNER_FULL, "reason": rules.NEAR_OWNER_NAME_ALONE}).rowcount
+    return out
+
+
 def build_links(conn, s: str, log=print, reader=None) -> dict:
     t0 = time.monotonic()
     out = {}
@@ -116,11 +169,14 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
                'confirmed', NULL
         FROM {s}.rows r
         JOIN (SELECT full_key, min(ref COLLATE "C") COLLATE "default" AS ref FROM {s}.rows
-              WHERE kind = 'person' AND has_middle AND NOT politician GROUP BY full_key HAVING count(*) > 1) k ON k.full_key = r.full_key
+              WHERE kind = 'person' AND has_middle AND NOT politician AND register <> 'linz' GROUP BY full_key HAVING count(*) > 1) k
+             ON k.full_key = r.full_key
         JOIN {s}.rows m ON m.ref = k.ref
-        WHERE r.kind = 'person' AND r.has_middle AND NOT r.politician AND r.ref <> k.ref""", {"rule": rules.RULE_FULL})
+        WHERE r.kind = 'person' AND r.has_middle AND NOT r.politician AND r.register <> 'linz' AND r.ref <> k.ref""", {"rule": rules.RULE_FULL})
     out[rules.RULE_FULL] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_FULL,)).fetchone()[0]
     log(f"links.build: {rules.RULE_FULL}: {out[rules.RULE_FULL]} ({time.monotonic() - t0:.0f} s)")
+    out[rules.RULE_OWNER_FULL] = owner_full_name_links(conn, s)
+    log(f"links.build: {rules.RULE_OWNER_FULL}: {out[rules.RULE_OWNER_FULL]} ({time.monotonic() - t0:.0f} s)")
     # rule 2: first and last name at the same quiet registered office; middle names must not differ
     conn.execute(f"DELETE FROM {s}.name_at_address")
     conn.execute(f"""
@@ -1020,7 +1076,8 @@ def build_entities(conn, s: str, log=print) -> dict:
     123): one row per entity, a group or a row in no group (never a lone row a text reader's model read: it is cited
     evidence of its own tier, not an entity, 1 November 2026). The display name
     is chosen by the one ordering every reader shares (pane.md): among the
-    entity's rows of `<schema>.rows`, the filed name with the most words,
+    entity's rows of `<schema>.rows`, an unsuppressed name before a suppressed
+    one (ruling 142: `suppressed` says the name shown is one), then the filed name with the most words,
     then the most characters (whitespace folded to one space), then the
     smallest ref by bytes; a group holding no such row (two bodies joined by
     their official number) takes its name from `<schema>.bodies` the same
@@ -1030,29 +1087,29 @@ def build_entities(conn, s: str, log=print) -> dict:
     t0 = time.monotonic()
     conn.execute(f"DELETE FROM {s}.entities")
     conn.execute(f"""
-        INSERT INTO {s}.entities (entity_id, kind, display_name, rows, registers, contested, politician, built_at)
+        INSERT INTO {s}.entities (entity_id, kind, display_name, rows, registers, contested, politician, built_at, suppressed)
         WITH member AS (
             SELECT g.group_id AS entity_id, g.row_key AS ref, g.contested FROM {s}.groups g
             UNION ALL
             SELECT r.ref, r.ref, false FROM {s}.rows r WHERE NOT EXISTS (SELECT 1 FROM {s}.groups g WHERE g.row_key = r.ref)
                                                           AND NOT (r.view = ANY(%(model_views)s))),
         named AS (
-            SELECT m.entity_id, m.ref, m.contested, r.kind, r.politician, r.ref IS NOT NULL AS filed,
+            SELECT m.entity_id, m.ref, m.contested, r.kind, r.politician, r.ref IS NOT NULL AS filed, coalesce(r.suppressed, false) AS suppressed,
                    btrim(regexp_replace(coalesce(r.name_filed, b.name, ''), '\\s+', ' ', 'g')) AS name,
                    split_part(m.ref, ':', 1) {links.ORDER} AS register
             FROM member m
             LEFT JOIN {s}.rows r ON r.ref = m.ref
             LEFT JOIN {s}.bodies b ON r.ref IS NULL AND b.entity_ref = m.ref),
         chosen AS (
-            SELECT DISTINCT ON (entity_id) entity_id, name, kind
+            SELECT DISTINCT ON (entity_id) entity_id, name, kind, suppressed
             FROM named
-            ORDER BY entity_id, filed DESC, array_length(string_to_array(name, ' '), 1) DESC NULLS LAST, length(name) DESC,
+            ORDER BY entity_id, filed DESC, suppressed, array_length(string_to_array(name, ' '), 1) DESC NULLS LAST, length(name) DESC,
                      ref {links.ORDER}),
         counted AS (
             SELECT entity_id, count(*) AS rows, array_agg(DISTINCT register ORDER BY register) AS registers,
                    bool_or(contested) AS contested, coalesce(bool_or(politician), false) AS politician
             FROM named GROUP BY entity_id)
-        SELECT c.entity_id, coalesce(ch.kind, 'organisation'), ch.name, c.rows, c.registers, c.contested, c.politician, now()
+        SELECT c.entity_id, coalesce(ch.kind, 'organisation'), ch.name, c.rows, c.registers, c.contested, c.politician, now(), ch.suppressed
         FROM counted c JOIN chosen ch USING (entity_id)""", {"model_views": sorted(lrows.MODEL_VIEWS)})
     conn.execute(f"ANALYZE {s}.entities")
     conn.commit()
@@ -1207,7 +1264,7 @@ def build_watch(conn, s: str, log=print) -> dict:
         LEFT JOIN {s}.row_regions ra ON ra.ref = l.row_a
         LEFT JOIN {s}.row_regions rb ON rb.ref = l.row_b
         LEFT JOIN {s}.name_counts nc ON nc.fl_key = a.fl_key
-        WHERE l.grade = 'confirmed' AND l.rule IN (%s, %s)""", (rules.RULE_FULL, rules.RULE_ADDRESS))
+        WHERE l.grade = 'confirmed' AND l.rule IN (%s, %s, %s)""", (rules.RULE_FULL, rules.RULE_ADDRESS, rules.RULE_OWNER_FULL))
     conn.commit()
     row = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE flags <> '[]'::jsonb),
                                   count(*) FILTER (WHERE flags::text LIKE '%%regions-apart%%'),

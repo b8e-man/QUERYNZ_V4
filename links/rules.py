@@ -102,6 +102,14 @@ RULE_ADDRESS = "name-and-address@1"
 RULE_NUMBER = "official-number@1"
 RULE_ORG_NAME = "organisation-name@1"
 RULE_NAME_ONLY = "name-only@1"      # the near grade for a shared name that neither rule confirms
+#: 4 November 2026 (the coordinator, on Arthur's word: correctness over coverage): a LINZ title owner's full name, which
+#: alone joins different people of a common name across 5.7 million owners. Near, unless corroborated: the same full name
+#: twice on one title, or on titles at one address (pub_private.linz_title_addresses, at most OWNER_ADDRESS_TITLES titles
+#: there). Any other register's identifier (an official number, a judgment's address matched to the title) confirms
+#: by its own rule. full-name@1 no longer reads a LINZ row
+RULE_OWNER_FULL = "owner-full-name@1"
+OWNER_ADDRESS_TITLES = 50
+NEAR_OWNER_NAME_ALONE = "a LINZ title owner's full name alone, not corroborated by the same title or titles at one address"
 
 NEAR_NO_MIDDLE = "the two rows share a first and last name but no middle name is filed to compare, and no shared address"
 NEAR_MIDDLE_DIFFERS = "the two rows share a first and last name but their middle names differ"
@@ -269,6 +277,10 @@ def judge(a: dict, b: dict, a_keys: set = (), b_keys: set = (), hub_sizes: dict 
         shared = shared_addresses(a_keys, b_keys)
         return {"rule": RULE_NAME_ONLY, "grade": "near", "reason": NEAR_POLITICIAN,
                 "evidence": {"name": a.get("full_key"), "other": b.get("full_key"), "shared_addresses": sorted(shared)[:6]}}
+    if same_full_name(a, b) and "linz" in (a.get("register"), b.get("register")):
+        # a title owner's full name alone (owner-full-name@1): its corroboration is the title or the address, judged in the build
+        return {"rule": RULE_OWNER_FULL, "grade": "near", "reason": NEAR_OWNER_NAME_ALONE,
+                "evidence": {"full_name": a["full_key"], "middle": a.get("middle"), "as_filed": [a.get("name_filed"), b.get("name_filed")]}}
     if same_full_name(a, b):
         return {"rule": RULE_FULL, "grade": "confirmed", "reason": None,
                 "evidence": {"full_name": a["full_key"], "middle": a.get("middle"), "as_filed": [a.get("name_filed"), b.get("name_filed")]}}

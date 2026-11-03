@@ -41,7 +41,7 @@ SELECT decision_id, row_a, row_b, verdict, made_by, made_on, made_at FROM links.
 -- `key`: a coupled donor's part, ref '<donor ref>#<n>', carries its donor
 -- row's view and key, and `part_of` names the donor row; ruling 73).
 CREATE OR REPLACE VIEW pub.names AS
-SELECT ref, register, view, key, kind, name_filed, name_key, fl_key, full_key, has_middle, entity_ref, politician, part_of
+SELECT ref, register, view, key, kind, name_filed, name_key, fl_key, full_key, has_middle, entity_ref, politician, part_of, suppressed
 FROM links.rows;
 
 -- The old estate's judgments, copied exactly and mapped beside (contract: links, 5).
@@ -56,7 +56,7 @@ SELECT old_id, source, verdict, row_a, row_b, mapped_how, copied, copied_at FROM
 -- group's; `politician` where any row is. A reader draws the entity from here
 -- and never re-derives its name. Built whole beside pub.groups.
 CREATE OR REPLACE VIEW pub.entities AS
-SELECT entity_id, kind, display_name, rows, registers, contested, politician, built_at FROM links.entities;
+SELECT entity_id, kind, display_name, rows, registers, contested, politician, built_at, suppressed FROM links.entities;
 
 -- Ruling 4 (3 November 2026): a court case's documents, gathered by citation and case number (links.cases). A case is
 -- not an entity: it joins documents, never people or companies. One row per document of a case of two or more.

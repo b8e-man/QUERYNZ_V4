@@ -237,13 +237,13 @@ def test_the_build_confirms_by_name_and_day_and_check_ten_goes_red_on_planted_fa
                     w.execute("INSERT INTO members_116 VALUES (%s, %s, %s, %s, %s, NULL)", (key, key.split("/")[0], name, f, t))
                     rec = _rec("house", "members", key, name, D.fromisoformat(f))
                     w.execute(f"INSERT INTO {s}.rows (ref, register, view, key, kind, name_filed, given, middle, family, name_key, fl_key, full_key, "
-                              f"has_middle, entity_ref, started_on, ended_on, election, electorate, politician, document, part_of) "
-                              f"VALUES ({', '.join(['%s'] * 21)})", rec)
+                              f"has_middle, entity_ref, started_on, ended_on, election, electorate, politician, document, part_of, suppressed) "
+                              f"VALUES ({', '.join(['%s'] * 22)})", rec)
                 for reg, view, key, name, day, role in view_rows:
                     rec = _rec(reg, view, key, name, D.fromisoformat(day), role)
                     w.execute(f"INSERT INTO {s}.rows (ref, register, view, key, kind, name_filed, given, middle, family, name_key, fl_key, full_key, "
-                              f"has_middle, entity_ref, started_on, ended_on, election, electorate, politician, document, part_of) "
-                              f"VALUES ({', '.join(['%s'] * 21)})", rec)
+                              f"has_middle, entity_ref, started_on, ended_on, election, electorate, politician, document, part_of, suppressed) "
+                              f"VALUES ({', '.join(['%s'] * 22)})", rec)
             got = build.member_day_links(conn, s, members="members_116")
             assert got["rows"] == {"hansard_speeches": {rules.DAY_ONE: 1}, "parliament_written_questions#asker": {rules.DAY_NONE: 1},
                                    "parliament_written_questions#minister": {rules.DAY_ONE: 1, rules.DAY_BEFORE: 1},
@@ -273,8 +273,8 @@ def test_the_build_confirms_by_name_and_day_and_check_ten_goes_red_on_planted_fa
             conn.execute("INSERT INTO members_116 VALUES ('ge-2023/seat/list/x/bishop-chris', 'ge-2023', 'BISHOP, Chris', '2023-10-14', NULL, NULL)")
             rec = _rec("house", "members", "ge-2023/seat/list/x/bishop-chris", "BISHOP, Chris", D(2023, 10, 14))
             conn.execute(f"INSERT INTO {s}.rows (ref, register, view, key, kind, name_filed, given, middle, family, name_key, fl_key, full_key, "
-                         f"has_middle, entity_ref, started_on, ended_on, election, electorate, politician, document, part_of) "
-                         f"VALUES ({', '.join(['%s'] * 21)})", rec)
+                         f"has_middle, entity_ref, started_on, ended_on, election, electorate, politician, document, part_of, suppressed) "
+                         f"VALUES ({', '.join(['%s'] * 22)})", rec)
             assert ok()["another_member_of_the_name_sitting"] == 3 and not ok()["ok"]
             conn.execute(f"DELETE FROM {s}.rows WHERE ref = %s", (rec[0],))
             conn.execute("DELETE FROM members_116 WHERE key = 'ge-2023/seat/list/x/bishop-chris'")

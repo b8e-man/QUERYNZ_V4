@@ -61,13 +61,16 @@ def test_a_local_candidate_as_the_council_lists_the_return():
     assert _rec("local_election_returns", "l2", "YUNG, Karen (Kaz) (Independent)")[10] == "karen yung"
 
 
-def test_a_suppressed_withheld_bracketed_or_bare_initial_name_gets_no_row():
+def test_a_suppressed_name_is_a_row_with_its_flag_a_bracketed_bare_initial_or_placeholder_gets_none():
+    # ruling 142 (4 November 2026): the flag is carried and a product applies it at its export; before, the row was set aside
     catch = {}
-    assert _rec("building_practitioner_decisions", "b1", "Smith", suppressed=True, catch=catch) is None
+    r = _rec("building_practitioner_decisions", "b1", "Smith", suppressed=True, catch=catch)
+    assert r is not None and r[9] == "smith" and r[21] is True
+    assert _rec("building_practitioner_decisions", "b0", "Smith", catch=catch)[21] is False
     assert _rec("local_election_returns", "l3", "(combined)", catch=catch) is None
     assert _rec("gazette_practitioners", "g1", "J.", catch=catch) is None
     assert _rec("charity_officers", "o1", "name suppressed", catch=catch) is None
-    assert catch == {"suppressed or withheld": 2, "no name": 1, "a bare initial": 1}
+    assert catch == {"a placeholder for a suppressed name": 1, "no name": 1, "a bare initial": 1}
     assert _rec("building_practitioner_decisions", "b2", "Smith")[9] == "smith"   # a surname alone is a name, keyed, never confirming
     assert _rec("gazette_practitioners", "g2", "JO")[9] == "jo"
 

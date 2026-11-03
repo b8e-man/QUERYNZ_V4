@@ -146,3 +146,22 @@ def test_the_linz_rows_are_kept_while_their_source_is_unchanged_and_read_again_w
     assert rows.steady_registers(Conn(t0, (t1, "other code", 5)), "s") == {}, "the reading's code changed"
     assert rows.steady_registers(Conn(t0, (t1, rows.fingerprint(sql), 0)), "s") == {}, "no rows written"
     assert rows.steady_registers(Conn(t0, None), "s") == {}, "never gathered"
+
+
+def test_a_title_owners_full_name_alone_is_near_and_corroborated_only_by_its_title_or_address():
+    """4 November 2026 (correctness over coverage): before, full-name@1 confirmed any two rows of a full name, a LINZ
+    owner's included."""
+    owner = {"ref": "linz:o1", "register": "linz", "full_key": "john fitzgerald smith", "fl_key": "john smith",
+             "middle": "fitzgerald", "has_middle": True, "name_filed": "John Fitzgerald SMITH"}
+    director = {**owner, "ref": "companies:d1", "register": "companies", "name_filed": "John Fitzgerald Smith"}
+    j = rules.judge(owner, director)
+    assert (j["rule"], j["grade"], j["reason"]) == (rules.RULE_OWNER_FULL, "near", rules.NEAR_OWNER_NAME_ALONE)
+    assert rules.judge(director, {**director, "ref": "companies:d2"})["rule"] == rules.RULE_FULL
+    import inspect
+    from links import build
+    src = inspect.getsource(build.build_links)
+    head = src[:src.index("out[rules.RULE_FULL]")]
+    assert head.count("register <> 'linz'") == 2, "full-name@1 reads no LINZ row"
+    own = inspect.getsource(build.owner_full_name_links)
+    assert "'confirmed'" in own and "title_no AS place" in own and "pub_private.linz_title_addresses" in own
+    assert own.index("'near'") > own.index("'confirmed'"), "the corroborated links first, the near star after"

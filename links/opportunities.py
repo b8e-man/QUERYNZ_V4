@@ -107,10 +107,10 @@ REGISTER: tuple = (
           "address-shaped entries are kept in councillor_interests_private.entries; no pub_private view declares them",
           "whether a declared property's address is matched to a LINZ title's (judgment-address-title@1's reading)"),
     # LINZ (ruling 142): every owner is a row, joined by the name rules; each title's address read through pub_private
-    Entry("linz-*", "name", "name", "rule", ("full-name@1", "name-only@1", "organisation-name@1",
+    Entry("linz-*", "name", "name", "rule", ("owner-full-name@1", "name-only@1", "organisation-name@1",
                                              "organisation-sole-company@3", "organisation-one-live-company@3"),
           "pub.linz_title_owners rows (links.rows): an individual from LINZ's name parts, a corporate owner by its name, "
-          "undated (links/measurements.md §19)"),
+          "undated (links/measurements.md §19); a full name alone is near, confirmed by the same title or address (§20)"),
     Entry("linz-*", "full_address", "address", "rule", ("judgment-address-title@1",),
           "pub_private.linz_title_addresses and linz_title_address_points (each title's street address, by the property "
           "spine and by geometry), read by judgment-address-title@1 against a judgment's street address"),

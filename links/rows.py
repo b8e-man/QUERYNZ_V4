@@ -35,7 +35,10 @@ read, and what each row's entity is:
 
 The last eight are ruling 114's (28 October 2026). A name that is nothing
 outside its brackets ("(combined)") or a bare initial ("J.") is set aside
-with its reason, as a suppressed or withheld name is.
+with its reason. A suppressed or withheld name is a row like any other, its
+flag carried in `suppressed` (ruling 142, 4 November 2026: privacy is applied
+at a product's export); only a placeholder printed for it ("name suppressed")
+is no name.
 
 An expense line is a figure under a member's name; it is a row here so a
 product can reach the register through the one reading of names.
@@ -514,8 +517,10 @@ def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple 
     ref = links.ref(register, key) + (f"#{r[12]}" if view in ROLE_VIEWS else "")
     if view in DECLARED_VIEWS:
         name = declared_name(name)
-    if suppressed or not name or name == "name suppressed":
-        reason = "suppressed or withheld" if suppressed or name == "name suppressed" else "no name"
+    suppressed = bool(suppressed)
+    if not name or name == "name suppressed":
+        # ruling 142: a suppressed name is a row with its flag; a placeholder printed in its place names nobody
+        reason = "a placeholder for a suppressed name" if name == "name suppressed" else "no name"
         if catch is not None:
             catch[reason] = catch.get(reason, 0) + 1
         return None
@@ -535,7 +540,7 @@ def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple 
             return None
         read = read_name(bare)
         return (ref, register, view, key, "person", name, read["given"], read["middle"], read["family"], read["name_key"], read["fl_key"],
-                read["full_key"], read["has_middle"], entity, started, ended, election, electorate, True, document, None)
+                read["full_key"], read["has_middle"], entity, started, ended, election, electorate, True, document, None, suppressed)
     kind = kn.name_kind(name)
     if kind == "person" and view in DONATION_VIEWS and kn.is_joint_name(name) is True:
         # one donor, two people: read as nobody alone; its part rows carry the people (part_records)
@@ -548,7 +553,7 @@ def row_record(register: str, view: str, r: tuple, catch: dict = None) -> tuple 
                 "fl_key": None, "full_key": None, "has_middle": False}
     return (ref, register, view, key, kind, name, read["given"], read["middle"], read["family"],
             read["name_key"], read["fl_key"], read["full_key"], read["has_middle"], entity, started, ended, election, electorate,
-            view in POLITICIAN_VIEWS, document, None)
+            view in POLITICIAN_VIEWS, document, None, suppressed)
 
 
 def part_records(rec: tuple) -> list:
@@ -563,7 +568,7 @@ def part_records(rec: tuple) -> list:
     for i, part in enumerate(kn.joint_parts(rec[5]), 1):
         r = read_name(part)
         out.append((f"{ref}#{i}", register, view, rec[3], "person", part, r["given"], r["middle"], r["family"], r["name_key"],
-                    r["fl_key"], r["full_key"], r["has_middle"]) + tuple(rec[13:20]) + (ref,))
+                    r["fl_key"], r["full_key"], r["has_middle"]) + tuple(rec[13:20]) + (ref, rec[21]))
     return out
 
 
@@ -704,7 +709,7 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
                 cur.itersize = 20000
                 cur.execute(sql)
                 with w.copy(f"COPY {schema}.rows (ref, register, view, key, kind, name_filed, given, middle, family, name_key, "
-                            f"fl_key, full_key, has_middle, entity_ref, started_on, ended_on, election, electorate, politician, document, part_of) "
+                            f"fl_key, full_key, has_middle, entity_ref, started_on, ended_on, election, electorate, politician, document, part_of, suppressed) "
                             f"FROM STDIN") as copy:
                     for r in cur:
                         read += 1

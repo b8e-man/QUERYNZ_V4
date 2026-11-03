@@ -26,7 +26,7 @@ is important"). The date is kept once per document, not on each of its sightings
 every row by the join on (document, lane, version), the done table's key.
 
 THE LIMITS. A sighting carries the name only, never the text around it, so an address in the text is never copied;
-a suppressed or withheld name is never a row of `pub.names` and so never a form. A name that only a document's
+a suppressed or withheld name is a row of `pub.names` with its flag (ruling 142) but never a form. A name that only a document's
 address shape carries is a form like any other: the pass records the name and its offsets, never the address.
 """
 from __future__ import annotations
@@ -176,8 +176,9 @@ def build_forms(conn, log=print) -> dict:
     t = time.monotonic()
     with conn.cursor(name="forms") as cur:
         cur.itersize = 50000
-        # a register's filing only: a name a model read is no form (links.rows.MODEL_VIEWS)
-        cur.execute("SELECT kind, name_filed, given, middle, family FROM links.rows WHERE NOT (view = ANY(%s))",
+        # a register's filing only: a name a model read is no form (links.rows.MODEL_VIEWS); a suppressed name is no form either
+        # (ruling 142 carries its flag on the row, and a sighting found by its form would carry none)
+        cur.execute("SELECT kind, name_filed, given, middle, family FROM links.rows WHERE NOT (view = ANY(%s)) AND NOT suppressed",
                     (sorted(MODEL_VIEWS),))
         for kind, filed, given, middle, family in cur:
             for f in forms_of(kind, filed, given, middle, family):

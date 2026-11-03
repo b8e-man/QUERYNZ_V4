@@ -32,12 +32,14 @@ alone.
 | `contested` | The group is contested (the watch flagged a link in it, or a `not the same` decision contradicts it); never for a lone row |
 | `politician` | Any row of the entity is a politician's (as `pub.names` marks it) |
 | `built_at` | When the build made it, the groups' own build |
+| `suppressed` | The display name is a suppressed or withheld one: every row of the entity carries the flag (ruling 142, 4 November 2026: the flag is carried, a product applies it at its export) |
 
 ## The display name: one ordering every reader shares
 
 Among the entity's rows of `pub.names`, the filed name (`name_filed`, its
 whitespace folded to one space and trimmed) is chosen by:
 
+0. **an unsuppressed name** before a suppressed one (ruling 142), then
 1. **the most words**, then
 2. **the most characters**, then
 3. **the earliest row by ref**, compared as bytes (`COLLATE "C"`, the
