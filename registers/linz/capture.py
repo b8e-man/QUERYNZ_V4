@@ -12,6 +12,19 @@ Three sources, each read whole and landed page by page, by its sha256:
   place_names  layer 51681, "NZ Place Names (NZGB)", without geometry: the gazetteer's name, its feature type, status,
                district. CC BY 4.0.
 
+And three private sources, the property spine that gives each title its street address (Arthur, 3 November 2026: "why
+no address on land ownership?"; "gather everything"), read into `linz_private` and never published (hard limit 15 binds
+a product's surface, ruling 102):
+
+  property_titles     table 113970, "NZ Properties: Property-Title Reference": a unit of property
+                      (a rating unit) and a title number on it. CC BY 4.0.
+  property_addresses  table 115638, "NZ Properties: Property-Address Reference": a unit of property and an address id
+                      on it. CC BY 4.0.
+  addresses           layer 123113, "NZ Addresses" (AIMS), without its geometry: an address id and the address as LINZ
+                      gives it. CC BY 4.0.
+
+A title's address is then a join on the two ids, no geometry (registers.linz.load).
+
 The key is ours (`~/.querynz/linz.env`, `LINZ_API_KEY`), read at the call and sent as an `Authorization: key …` header,
 never in a URL, a log, a landed document's name or a printed line.
 
@@ -26,7 +39,8 @@ landed is never asked again for that pull). A 401, 403, 429, a 5xx or a challeng
 logged, and the pull stops; the next run resumes from the last page landed.
 
     python -m registers.linz.capture --survey
-    python -m registers.linz.capture --pull owners|titles|place_names [--anytime] [--budget-s N] [--allow-large]
+    python -m registers.linz.capture --pull owners|titles|place_names|property_titles|property_addresses|addresses
+                                     [--anytime] [--budget-s N] [--allow-large]
 """
 import argparse
 import datetime as dt
@@ -58,7 +72,8 @@ LICENCE_PERSONAL = ("LINZ Licence for Personal Data (CC BY 4.0 + personal-data t
                     "engine; supplied onward only under the licence; refreshed regularly; amended or deleted within five "
                     "business days of LINZ's request")
 
-#: source → (typeName, id column to sort on, the attribute columns read: never a geometry, never an address, licence)
+#: source → (typeName, id column to sort on, the attribute columns read: never a geometry; an address only in a
+#: private source; licence)
 SOURCES = {
     "owners": ("table-51564", "id",
                ("id", "title_no", "status", "land_district", "estate_share", "owner_type", "prime_surname",
@@ -73,8 +88,15 @@ SOURCES = {
                      "territorial_authority", "region", "crd_latitude", "crd_longitude", "info_origin", "info_description",
                      "treaty_legislation", "nzgb_ref"),
                LICENCE_CC),
+    "property_titles": ("table-113970", "id", ("id", "title_no", "unit_of_property_id"), LICENCE_CC),
+    "property_addresses": ("table-115638", "id", ("id", "unit_of_property_id", "address_id"), LICENCE_CC),
+    "addresses": ("layer-123113", "address_id", ("address_id", "full_address", "address_lifecycle"), LICENCE_CC),
 }
-#: a column that would carry an address is never asked for, whatever a source's list says (hard limit 15)
+#: the sources read into `linz_private` only, never into a published table: the only ones an address column is read from
+PRIVATE_SOURCES = frozenset({"property_titles", "property_addresses", "addresses"})
+#: a geometry is never asked for, whatever a source's list says
+NEVER_GEOMETRY = re.compile(r"geom|shape", re.I)
+#: a column that would carry an address is never asked for of a public source (hard limit 15)
 NEVER = re.compile(r"address|street|road_name|postal|geom|shape", re.I)
 
 
@@ -82,9 +104,11 @@ NEVER = re.compile(r"address|street|road_name|postal|geom|shape", re.I)
 
 def columns(source: str) -> tuple:
     cols = SOURCES[source][2]
-    bad = [c for c in cols if NEVER.search(c)]
+    never = NEVER_GEOMETRY if source in PRIVATE_SOURCES else NEVER
+    bad = [c for c in cols if never.search(c)]
     if bad:
-        raise ValueError(f"{source}: a column that may carry an address or a geometry is never read: {bad}")
+        what = "a geometry" if source in PRIVATE_SOURCES else "an address or a geometry"
+        raise ValueError(f"{source}: a column that may carry {what} is never read: {bad}")
     return cols
 
 
@@ -262,7 +286,7 @@ class Puller:
 #: a source is pulled again when its newest finished pull is older than this (the personal-data licence's regular refresh)
 REFRESH_DAYS = 7
 #: the order a night takes the due sources in: the small first, so a night cut short still finishes something
-DUE_ORDER = ("place_names", "titles", "owners")
+DUE_ORDER = ("place_names", "property_titles", "addresses", "titles", "property_addresses", "owners")
 
 
 def due_sources(conn, now: dt.datetime = None) -> list:

@@ -47,6 +47,31 @@ def test_a_column_that_may_carry_an_address_or_a_geometry_is_never_read(monkeypa
         C.columns("owners")
 
 
+def test_only_a_private_source_asks_for_an_address_and_none_asks_for_a_geometry():
+    for s in C.SOURCES:
+        asked = C.wfs_url(s).split("propertyName=")[1].split("&")[0].lower()
+        assert "geom" not in asked and "shape" not in asked
+        assert ("address" in asked) == (s in {"property_addresses", "addresses"}), s
+    assert C.PRIVATE_SOURCES == {"property_titles", "property_addresses", "addresses"}
+    assert C.SOURCES["addresses"][0] == "layer-123113" and "full_address" in C.columns("addresses")
+    assert C.SOURCES["property_titles"][0] == "table-113970" and C.SOURCES["property_addresses"][0] == "table-115638"
+
+
+@pytest.mark.parametrize("col", ["shape", "geometry", "the_geom"])
+def test_a_private_source_never_reads_a_geometry_either(monkeypatch, col):
+    a = C.SOURCES["addresses"]
+    monkeypatch.setitem(C.SOURCES, "addresses", a[:2] + (a[2] + (col,),) + a[3:])
+    with pytest.raises(ValueError):
+        C.columns("addresses")
+
+
+def test_a_public_source_still_never_reads_an_address_column(monkeypatch):
+    t = C.SOURCES["titles"]
+    monkeypatch.setitem(C.SOURCES, "titles", t[:2] + (t[2] + ("full_address",),) + t[3:])
+    with pytest.raises(ValueError):
+        C.columns("titles")
+
+
 def test_the_stated_count_and_the_projection():
     assert C.number_matched(b'<wfs:FeatureCollection numberMatched="5745217" numberReturned="0">') == 5745217
     assert C.number_matched(b"<ExceptionReport/>") is None
@@ -248,7 +273,8 @@ def test_the_night_takes_unfinished_and_stale_sources_small_first():
             if "finished_at IS NULL" in sql:
                 return Rows([(1,)] if s == "owners" else [])
             return Rows([({"place_names": now - dt.timedelta(days=2), "titles": now - dt.timedelta(days=9)}.get(s),)])
-    assert C.due_sources(DueConn(), now) == ["titles", "owners"]
+    assert C.due_sources(DueConn(), now) == ["property_titles", "addresses", "titles", "property_addresses", "owners"], \
+        "a source never pulled is due; the private sources take their place by size"
 
 
 def test_the_lane_folder_has_the_shape():
