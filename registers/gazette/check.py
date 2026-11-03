@@ -58,6 +58,7 @@ from collections import defaultdict
 
 from registers.gazette import appointments, cut, dissolutions, notices, offices, possessions
 from registers.gazette import register as R
+from registers.gazette.read import SUPPRESSED
 
 CELEBRANT = "gazette-celebrant-list"
 PROHIBITION = "gazette-director-prohibition"
@@ -238,6 +239,10 @@ def figures(rows, acted=(), marked=(), joined=None, company_joined=None, annulle
                   "recognised": sum(1 for n, f in held.values() if f == CELEBRANT),
                   "not_recognised": sorted(n for n, f in held.values() if f != CELEBRANT)}
     fmt = {n: f for n, t, f in rows}
+    # a notice the Gazette suppresses is kept whole in gazette_private.suppressed_notices with its row flagged
+    # `suppressed` (ruling 142): it is taken, by that flag, and no profile reads it (4 November 2026: two `ba` notices
+    # held the load red as "not taken by a bankruptcy profile")
+    rows = [r for r in rows if r[2] != SUPPRESSED]
     titled = sorted(n for n, t, f in rows if PROHIBITION_TITLE.match(t or ""))
     named = {}
     for n, supersedes in acted:

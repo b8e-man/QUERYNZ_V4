@@ -1228,3 +1228,13 @@ def test_no_published_text_in_the_sample_names_a_property_and_the_cut_cases_read
     assert ("2026-ds85", "company") in uncut and ("2007-aw4110", "party") in uncut
     assert not {n for n, c in uncut} & {"2025-ln1660", "2026-ds4648"}
 
+
+
+def test_a_suppressed_notice_is_taken_by_its_flag_and_not_by_a_profile():
+    """4 November 2026: a notice the Gazette suppresses is kept whole privately with its row flagged `suppressed`
+    (ruling 142); two such `ba` notices held the load red as not taken by a bankruptcy profile."""
+    from registers.gazette.read import SUPPRESSED
+    good = _closed_years() + [("2016-go5", "Marriage Celebrants for 2016 Notice No. 2", check.CELEBRANT),
+                              ("2016-ot5", "Notice Prohibiting Person From Managing Companies", check.PROHIBITION)]
+    assert check.failed(check.figures(good + [("2012-ba4936", "", SUPPRESSED), ("2016-al9", "", SUPPRESSED)])) == []
+    assert any("2012-ba4936" in w for w in check.failed(check.figures(good + [("2012-ba4936", "", "not read")])))
