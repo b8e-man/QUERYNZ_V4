@@ -123,6 +123,16 @@ def names(v) -> list:
     return [t for t in (name_text(n) for n in (v or [])) if t] or None
 
 
+def kind(e: dict) -> str:
+    """A company or a person. A company's detail answer names it twice (estateName and organisationName) and a search
+    result carries neither organisationName, nzbn nor companyNumber, so the old rule ("an organisation name and no
+    estate name") filed every company a person (3 November 2026: 2,540 liquidations in insolvency_people). A
+    liquidation is a company's procedure; bankruptcy, the no asset procedure and the DRO are a person's."""
+    if e.get("organisationName") or e.get("nzbn") or e.get("companyNumber"):
+        return "company"
+    return "company" if "liquidation" in str(e.get("insolvencyTypeDescription") or "").lower() else "person"
+
+
 def estate_row(e: dict, *, register: str, read_from: str, document: str, version: int, place: str = None) -> dict:
     """One estate's row from a detail answer or one search result; no address column exists to fill."""
     org = e.get("organisationName")
@@ -130,7 +140,7 @@ def estate_row(e: dict, *, register: str, read_from: str, document: str, version
     until, _ = shown_until(e, register)
     return {
         "key": f"insolvency/{int(e['estateNumber'])}", "estate_number": int(e["estateNumber"]),
-        "kind": "company" if org and not e.get("estateName") else "person", "register": register,
+        "kind": kind(e), "register": register,
         "name": name.strip(), "alternate_names": names(e.get("alternateNames")),
         "trading_names": names(e.get("tradingNames")), "organisation_name": org,
         "nzbn": e.get("nzbn") or None, "company_number": e.get("companyNumber") or None,

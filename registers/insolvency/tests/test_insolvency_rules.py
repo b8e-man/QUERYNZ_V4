@@ -100,6 +100,19 @@ def test_an_alternate_name_answered_as_parts_is_read_as_text():
     assert all(isinstance(n, str) for n in row["alternate_names"])
 
 
+def test_a_liquidation_is_a_company_however_it_is_answered():
+    """3 November 2026: every company found by a search, and every detail naming it twice, was filed a person."""
+    def row(e):
+        return read.estate_row(e, register="Insolvency", read_from="search", document="d" * 64, version=1)
+    from_search = _estate(estateName="Invented Holdings Limited", insolvencyTypeDescription="Court Liquidation",
+                          insolvencyStatus="Currently In Liquidation")
+    from_detail = _estate(estateName="Invented Holdings Limited", organisationName="Invented Holdings Limited",
+                          companyNumber="1234567", insolvencyTypeDescription="Court Liquidation")
+    assert row(from_search)["kind"] == "company" and row(from_detail)["kind"] == "company"
+    assert row(_estate())["kind"] == "person"
+    assert row(_estate(insolvencyTypeDescription="No Asset Procedure"))["kind"] == "person"
+
+
 MUTANTS = {
     "removal": ("return any(seen >= answered_at for seen in removals.get(estate, ()))", "return False"),
     "window (discharge)": ('return _years_after(end, WINDOW_YEARS["discharge"]), "four years from discharge"',
