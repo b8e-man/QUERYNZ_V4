@@ -17,7 +17,8 @@ holds no current class is not reached (a card).
 
 Each practitioner's page gives the practitioner number, the names, the date
 a class was first granted, the region and the town. The page also prints a
-postcode, an email address and telephone numbers; none is read. Its five
+postcode, an email address and telephone numbers: read whole into the
+private twin (`contacts`, ruling 142), never onto the lane's table. Its five
 sub-tables (companies, qualifications, classes with dates, suspensions,
 discipline) load by a POST the fetch gate does not make, and are not read
 (a card); the classes come from the searches instead.
@@ -74,9 +75,12 @@ _HEADS = ("Full Name", "Town/City", "Region", "Licensed?")
 _SELECT = r'<select name="{}"[^>]*>(.*?)</select>'
 _SELECTED = re.compile(r'<option selected value="([^"]*)"')
 _ENTITY = re.compile(r'_EntityFormView_EntityID" value="(' + _GUID + r')"')
-#: the fields read from a practitioner's page; the postcode, email, phones, fax and website beside them never are
+#: the fields read from a practitioner's page onto the lane's table; the postcode, email, phones, fax and website beside
+#: them (`CONTACT_FIELDS`) are read into the private twin (ruling 142)
 FIELDS = {"first": "firstname", "middle": "middlename", "last": "lastname", "number": "olp_practitionerid",
           "first_granted": "olp_datefirstgranted", "region": "olp_address1_regionalcouncil", "town": "address1_city"}
+CONTACT_FIELDS = ("address1_postalcode", "olp_primaryemailpr", "olp_mobilenumberpr", "olp_daytimephonepr",
+                  "olp_eveningphonepr", "olp_faxpr", "websiteurl")
 _NUMBER = re.compile(r"[A-Z]{1,3}\d{4,8}")
 #: a town that names an address by its shape (ruling 102), measured on the register's 21,372 Carpentry towns
 #: (2 November 2026): a street address, a street word, a rural delivery number, a box or bag. Postcodes typed
@@ -194,6 +198,7 @@ def read_detail(body: bytes):
         return None, "a first-granted date that is not the register's instant"
     if not (out["first"] or out["last"]):
         return None, "no name"
+    out["contacts"] = [(f, v) for f, v in ((f, _value(t, f)[0]) for f in CONTACT_FIELDS) if v]
     return out, ""
 
 
@@ -219,7 +224,7 @@ def row(detail: dict, sha: str, classes: list, listed: bool, versions: dict) -> 
             "status": "licensed" if listed else "not on the current listing",
             "area": detail["town"], "area_names_address": names_address(detail["town"]), "region": detail["region"],
             "first_granted_on": detail["first_granted"], "register_url": detail_url(detail["guid"]),
-            "register_id": detail["guid"],
+            "register_id": detail["guid"], "contacts": detail.get("contacts") or [],
             "document": sha, "page": 1, "place": f"practitioner={detail['number']}", "read_from": "text",
             "reader": READER, "profile": PROFILE_DETAIL, "profile_version": versions[PROFILE_DETAIL]}
 

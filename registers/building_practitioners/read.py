@@ -16,17 +16,20 @@ One decision row per item:
                  from its title (`final`, `finalised-draft`, `not-upheld`, …),
                  never the practitioner's name
   practitioner   the name as the title publishes it and the LBP number, both
-                 withheld when the Board withholds them ("[OMITTED]") or the
-                 item's summary records a suppression or anonymisation
-                 direction (hard limit 16: the row stays)
+                 left off the lane's tables when the Board withholds them
+                 ("[OMITTED]") or the item's summary records a suppression or
+                 anonymisation direction: the row stays flagged `suppressed`,
+                 and the name, number and addresses as printed are kept whole
+                 in the private twin (`suppressed`, ruling 142)
   fields         region (the area the list publishes and nothing finer),
                  licence classes, decision date, penalties (s 318 orders),
                  disciplinary grounds (s 317), whether any ground was upheld,
                  the decision's page and PDF address (withheld with the name,
                  because both carry it)
 
-The summary is read for one thing, the suppression flag, and is never kept
-in a table: it can name a property or a complainant.
+The summary is read for the suppression flag, and kept whole in the private
+twin (`summaries`, keyed by the decision; ruling 142): it can name a
+property or a complainant.
 
 Every line this module prints is a count.
 """
@@ -39,7 +42,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
 PROFILE = "lbp-board-decisions-list-page"
-READER = "registers.building_practitioners.read 1"
+READER = "registers.building_practitioners.read 2"
 KEY_PREFIX = "building_practitioners/decision"
 BASE = "https://www.lbp.govt.nz"
 
@@ -152,7 +155,9 @@ def read_item(raw: bytes, sha: str, version: int):
         "upheld": any(not g.lower().endswith("not upheld") for g in grounds) if grounds else None,
         "decision_url": BASE + href if href else None, "pdf_url": (BASE + pdf.group(1)) if pdf else None,
         "document": sha, "page": 1, "place": f"complaint={number}", "read_from": "text", "reader": READER,
-        "profile": PROFILE, "profile_version": version}, ""
+        "profile": PROFILE, "profile_version": version,
+        "private": {"name": name, "lbp_number": lbp, "region": one("region"), "summary": summary or None,
+                    "decision_url": BASE + href if href else None, "pdf_url": (BASE + pdf.group(1)) if pdf else None}}, ""
 
 
 def read_page(body: bytes, sha: str, version: int) -> dict:

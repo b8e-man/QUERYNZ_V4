@@ -2,7 +2,7 @@
 -- two parts. The capture's record (capture.py makes it; never wiped): no capture table holds a row of the source; the
 -- list pages stay in the document store verbatim by sha256. The reading's tables (load.py drops and makes them again
 -- at every load). No address of any kind is read: the decisions list publishes a region at most (hard limit 15). The
--- register of practitioners is copied on ruling 132: its page's postcode, email and telephones are never read.
+-- register of practitioners is copied on ruling 132: its page's postcode, email and telephones are in the private twin.
 
 -- ── the capture ──────────────────────────────────────────────────────────────
 
@@ -111,13 +111,14 @@ CREATE TABLE IF NOT EXISTS building_practitioners.decisions (
     upheld            boolean,                      -- any ground upheld; NULL when the list gives no ground
     decision_url      text,                         -- carries the name: withheld on the view when suppressed
     pdf_url           text,
+    taken_down_on     date,                         -- the Board's list no longer lists it, by this date; NULL: listed
     document text NOT NULL, page integer NOT NULL, place text NOT NULL, read_from text NOT NULL, reader text NOT NULL,
     profile text NOT NULL, profile_version integer NOT NULL, loaded_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- the register of licensed building practitioners (ruling 132): one row per practitioner whose page is held, keyed by
 -- the practitioner number; classes and areas from the newest pass's searches. The town is kept whole with a flag where
--- its shape names an address (ruling 102); the page's postcode, email and telephones are never read.
+-- its shape names an address (ruling 102); the page's postcode, email and telephones are in the private twin.
 CREATE TABLE IF NOT EXISTS building_practitioners.practitioners (
     key                 text PRIMARY KEY,           -- building_practitioners/lbp/<practitioner number>
     licence_number      text NOT NULL,
@@ -156,5 +157,30 @@ CREATE TABLE IF NOT EXISTS building_practitioners.read_set_aside (
     reason    text NOT NULL
 );
 
--- the private twin holds nothing: a decision's summary is never kept (it can name a property or a complainant), and
--- the register's postcodes, emails and telephones are never read.
+-- the private twin (ruling 142, 4 November 2026): what the lane's own tables leave out, kept whole
+-- a suppressed decision as the list prints it: the name, LBP number, region and the addresses that carry the name
+CREATE TABLE IF NOT EXISTS building_practitioners_private.suppressed (
+    key               text PRIMARY KEY,             -- the decision's key
+    name              text,
+    lbp_number        text,
+    region            text,
+    decision_url      text,
+    pdf_url           text,
+    document text NOT NULL, place text NOT NULL, loaded_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- each decision's summary as listed (it can name a property or a complainant)
+CREATE TABLE IF NOT EXISTS building_practitioners_private.summaries (
+    key               text PRIMARY KEY,             -- the decision's key
+    summary           text NOT NULL,
+    document text NOT NULL, place text NOT NULL, loaded_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- a practitioner page's postcode, email, telephones, fax and website, as printed
+CREATE TABLE IF NOT EXISTS building_practitioners_private.contacts (
+    key               text NOT NULL,                -- the practitioner's key
+    field             text NOT NULL,                -- the page's own field name (olp_primaryemailpr, …)
+    value             text NOT NULL,
+    document text NOT NULL, loaded_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (key, field)
+);

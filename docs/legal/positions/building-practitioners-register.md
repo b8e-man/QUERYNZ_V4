@@ -47,18 +47,25 @@ was held on its own statute until Arthur's ruling 132 (2 November 2026,
    decided (ruling 132, 2 November 2026: copy); a lawyer should say whether a one-practitioner
    check made for a person choosing or checking that practitioner is within
    s 299(a)(i). The register also holds residential addresses, birth dates
-   and contacts (s 301): none would ever be read (hard limit 15).
+   and contacts (s 301); the practitioner's page prints a postcode, an
+   email and telephone numbers, which the estate keeps whole in
+   `building_practitioners_private` (ruling 142, 4 November 2026).
    For (a), the Board publishes its decisions itself, naming the
    practitioner unless it directs otherwise; these are not searches of the
    register and s 307 does not reach them. The Privacy Act 2020 still asks
    fair use: the register itself shows discipline for three years
-   (s 299(a)(iv), s 301(1)(l)(iii)), so the published view shows a decision
-   for three years from its date and holds the rest (queue default). A name
-   the Board withholds ("[OMITTED]") or a suppression direction in the
-   item's summary blanks the name, LBP number and decision addresses on
-   every surface (hard limit 16). The summary is never kept (it can name a
-   property or a complainant); no address is read; the region is the most
-   the list publishes.
+   (s 299(a)(iv), s 301(1)(l)(iii)). What the estate holds (rulings 142
+   and 143, 4 November 2026): every decision captured stays on the
+   published view, with `window_ends_on` (three years from its date),
+   `past_window`, and `taken_down_on` once the Board's list no longer
+   shows it. A name the Board withholds ("[OMITTED]") or a suppression
+   direction in the item's summary blanks the name, LBP number and
+   decision addresses on the lane's views, the row flagged `suppressed`,
+   and the name, number and addresses as listed are kept whole in
+   `building_practitioners_private`; each summary (it can name a property
+   or a complainant) is kept whole there too. The region is the most the
+   list publishes. Privacy, suppression and the window are applied at a
+   product's export.
 
 Crawl delay: none stated for us. Floor: one request at a time, at least 5 s
 apart, off-peak, a full pass of the decisions list (about 80 pages) weekly;

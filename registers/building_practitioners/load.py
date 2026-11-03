@@ -32,11 +32,17 @@ PRIVATE = "building_practitioners_private"
 JOB = "qv4-building-practitioners-load"
 STAGING = "staging_building_practitioners_load"
 TABLES = ("read_pages", "decisions", "practitioners", "read_register", "read_set_aside")
+#: in the private twin (ruling 142): what the lane's own tables leave out, kept whole
+PRIVATE_TABLES = ("suppressed", "summaries", "contacts")
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version")
 COLUMNS = {
     "read_pages": ("document", "pass_id", "stated", "items", "typed", "superseded", "set_aside"),
     "decisions": ("key", "complaint_number", "citation", "decision_kind", "name", "lbp_number", "suppressed", "region",
-                  "licence_classes", "decided_on", "penalties", "grounds", "upheld", "decision_url", "pdf_url") + _CITE,
+                  "licence_classes", "decided_on", "penalties", "grounds", "upheld", "decision_url", "pdf_url",
+                  "taken_down_on") + _CITE,
+    "suppressed": ("key", "name", "lbp_number", "region", "decision_url", "pdf_url", "document", "place"),
+    "summaries": ("key", "summary", "document", "place"),
+    "contacts": ("key", "field", "value", "document"),
     "read_set_aside": ("document", "place", "stage", "reason"),
     "practitioners": ("key", "licence_number", "name", "first_name", "middle_names", "last_name", "suppressed",
                       "licence_classes", "status", "area", "area_names_address", "region", "first_granted_on",
@@ -50,7 +56,8 @@ def private_of(schema: str) -> str:
 
 
 def table(schema: str, t: str, shared: bool = False) -> str:
-    return f"{schema}.{SCHEMA}_{t}" if shared else f"{schema}.{t}"
+    where = private_of(schema) if t in PRIVATE_TABLES else schema
+    return f"{where}.{SCHEMA}_{t}" if shared else f"{where}.{t}"
 
 
 _NAMES = re.compile(r"(?<![A-Za-z0-9_])building_practitioners(_private)?\.")
@@ -68,7 +75,7 @@ def sql(name: str, schema: str = SCHEMA, shared: bool = False) -> str:
 def create_tables(conn, schema: str, shared: bool = False) -> None:
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {private_of(schema)}")
-    for t in TABLES:
+    for t in TABLES + PRIVATE_TABLES:
         conn.execute(f"DROP TABLE IF EXISTS {table(schema, t, shared)} CASCADE")
     conn.execute(sql("tables.sql", schema, shared))
 
@@ -116,18 +123,22 @@ def read_register(reg: dict, read_bytes=read_bytes, versions: dict = None) -> di
 
 
 def build(conn, schema: str, pages: list, read_bytes=read_bytes, shared: bool = False, version: int = None,
-          reg: dict = None) -> dict:
+          reg: dict = None, finished: list = None) -> dict:
     """`pages`: [(sha256, pass_id)] oldest landed first; read newest first. `reg`: the register's pages
-    (`register_listing`), or None to read none."""
+    (`register_listing`), or None to read none. `finished`: [(pass_id, the day it finished)] of the decisions list's
+    finished passes: a decision no page of the newest finished pass lists is kept, flagged `taken_down_on` the day
+    the first finished pass after its last listing finished (ruling 142)."""
     t0 = time.monotonic()
     version = version or read.profile_version()
     create_tables(conn, schema, shared)
     T = lambda t: table(schema, t, shared)
     seen, rows, asides, ledger = set(), [], [], []
+    last = {}                                   # decision key → the newest pass that listed it
     for sha, pass_id in reversed(list(dict.fromkeys(pages))):
         out = read.read_page(read_bytes(sha), sha, version)
         typed = superseded = 0
         for r in out["rows"]:
+            last[r["key"]] = max(last.get(r["key"], pass_id or 0), pass_id or 0)
             if r["key"] in seen:
                 superseded += 1
                 continue
@@ -140,6 +151,16 @@ def build(conn, schema: str, pages: list, read_bytes=read_bytes, shared: bool = 
             raise AssertionError(f"{SCHEMA}: page {sha[:12]} does not reconcile")
         ledger.append({"document": sha, "pass_id": pass_id, "stated": out["stated"][1] if out["stated"] else None,
                        "items": out["items"], "typed": typed, "superseded": superseded, "set_aside": item_asides})
+    newest = max((p for p, _ in finished or []), default=None)
+    for r in rows:
+        later = [d for p, d in finished or [] if p > last.get(r["key"], 0)]
+        r["taken_down_on"] = min(later) if newest is not None and last.get(r["key"], 0) < newest and later else None
+    private = {"suppressed": [{"key": r["key"], **{k: r["private"][k] for k in ("name", "lbp_number", "region",
+                                                                                 "decision_url", "pdf_url")},
+                               "document": r["document"], "place": r["place"]} for r in rows if r["suppressed"]],
+               "summaries": [{"key": r["key"], "summary": r["private"]["summary"], "document": r["document"],
+                              "place": r["place"]} for r in rows if r["private"]["summary"]],
+               "contacts": []}
     practitioners = 0
     if reg is not None:
         from psycopg.types.json import Jsonb
@@ -147,20 +168,30 @@ def build(conn, schema: str, pages: list, read_bytes=read_bytes, shared: bool = 
         asides += r["set_aside"]
         practitioners = _copy(conn, T("practitioners"), COLUMNS["practitioners"],
                               ({**x, "licence_classes": Jsonb(x["licence_classes"])} for x in r["rows"]))
+        private["contacts"] = [{"key": x["key"], "field": f, "value": v, "document": x["document"]}
+                               for x in r["rows"] for f, v in x.get("contacts") or []]
         _copy(conn, T("read_register"), COLUMNS["read_register"], [r["ledger"]])
     return {"decisions": _copy(conn, T("decisions"), COLUMNS["decisions"], rows),
             "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
             "pages": _copy(conn, T("read_pages"), COLUMNS["read_pages"], ledger),
+            **{t: _copy(conn, T(t), COLUMNS[t], v) for t, v in private.items()},
+            "taken_down": sum(1 for r in rows if r["taken_down_on"]),
             "superseded": sum(l["superseded"] for l in ledger), "practitioners": practitioners,
             "seconds": round(time.monotonic() - t0, 1)}
 
 
 def listing(conn, schema: str = SCHEMA) -> list:
-    """The pages of the newest finished pass and of any pass begun after it, oldest landed first."""
-    r = conn.execute(f"SELECT max(pass_id) FROM {schema}.capture_passes WHERE finished_at IS NOT NULL").fetchone()
-    since = r[0] if r and r[0] is not None else 0
+    """The pages of every pass, oldest landed first: a decision the Board's list no longer shows is read from the
+    newest page that listed it and kept (ruling 142: a row the publisher takes down stays, flagged)."""
     return [tuple(x) for x in conn.execute(
-        f"SELECT sha256, pass_id FROM {schema}.capture_pages WHERE pass_id >= %s ORDER BY pass_id, page_no", (since,))]
+        f"SELECT sha256, pass_id FROM {schema}.capture_pages ORDER BY pass_id, page_no")]
+
+
+def finished_passes(conn, schema: str = SCHEMA) -> list:
+    """[(pass_id, the New Zealand day it finished)] of the decisions list's finished passes."""
+    return [tuple(x) for x in conn.execute(
+        f"SELECT pass_id, (finished_at AT TIME ZONE 'Pacific/Auckland')::date FROM {schema}.capture_passes "
+        "WHERE finished_at IS NOT NULL ORDER BY pass_id")]
 
 
 def register_listing(conn, schema: str = SCHEMA) -> dict:
@@ -181,7 +212,7 @@ def load(conn, schema: str, log=print) -> int:
     Problems the reading's check finds are logged, as the job logs them. Added by the integrator at the merge of sanctions-1."""
     from registers.building_practitioners import check
     listed = listing(conn)
-    counts = build(conn, schema, listed, reg=register_listing(conn))
+    counts = build(conn, schema, listed, reg=register_listing(conn), finished=finished_passes(conn))
     problems = check.reading(conn, schema)
     log(f"{SCHEMA}: {counts['decisions']} decisions, {counts['practitioners']} practitioners, {counts['set_aside']} set aside "
         f"into {schema}; " + ("; ".join(problems) or "reconciles"))
@@ -191,15 +222,15 @@ def load(conn, schema: str, log=print) -> int:
 def publish(conn, staging: str, log=print) -> None:
     with conn.transaction():
         create_tables(conn, SCHEMA)
-        for t in TABLES:
+        for t in TABLES + PRIVATE_TABLES:
             conn.execute(f"INSERT INTO {table(SCHEMA, t)} SELECT * FROM {table(staging, t)}")
         conn.execute(sql("publish.sql"))
     log(f"{SCHEMA}: published from {staging}")
 
 
 def unchanged(conn, listed: list, reg: dict) -> bool:
-    for t in ("read_pages", "read_register"):
-        if conn.execute("SELECT to_regclass(%s)", (f"{SCHEMA}.{t}",)).fetchone()[0] is None:
+    for t in ("read_pages", "read_register", "summaries"):
+        if conn.execute("SELECT to_regclass(%s)", (table(SCHEMA, t),)).fetchone()[0] is None:
             return False
     if {r[0] for r in conn.execute(f"SELECT document FROM {SCHEMA}.read_pages")} != {s for s, _ in listed}:
         return False
@@ -224,7 +255,7 @@ def job(log=print) -> int:
             jobrun.record(JOB, True, "unchanged: the listing is the one published", started, {})
             return 0
         with conn.transaction():
-            counts = build(conn, STAGING, listed, reg=reg)
+            counts = build(conn, STAGING, listed, reg=reg, finished=finished_passes(conn))
         problems = check.reading(conn, STAGING)
         detail = (f"{counts['decisions']} decisions, {counts['practitioners']} practitioners, {counts['set_aside']} set aside; "
                   + ("; ".join(problems) or "reconciles"))
@@ -257,12 +288,13 @@ def main(argv=None) -> int:
     key = lambda d: db.READ_KEY if d == "querynz_v4" else db.OWNER_KEY
     with db.connect(key(a.capture_database), a.capture_database) as src:
         listed = listing(src, a.capture_schema)
+        finished = finished_passes(src, a.capture_schema)
     rdb = a.register_database or a.capture_database
     with db.connect(key(rdb), rdb) as src:
         reg = register_listing(src, a.register_schema or a.capture_schema)
     with db.connect(db.OWNER_KEY, a.database) as conn:
         with conn.transaction():
-            counts = build(conn, a.schema, listed, reg=reg)
+            counts = build(conn, a.schema, listed, reg=reg, finished=finished)
     for k, v in counts.items():
         print(f"{SCHEMA}: {k}: {v}")
     return 0

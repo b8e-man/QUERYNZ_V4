@@ -64,8 +64,11 @@ def rules(mod) -> list:
     d, why = mod.read_detail(_detail())
     if not d or d["number"] != "BP100001" or d["first_granted"] != dt.date(2012, 3, 15) or d["guid"] != G1:
         broken.append("a practitioner's page gives the number, the New Zealand day first granted and the id")
-    if d and set(d) != {"guid", "number", "first", "middle", "last", "first_granted", "region", "town"}:
-        broken.append("the postcode, email and telephones are never read")
+    if d and set(d) != {"guid", "number", "first", "middle", "last", "first_granted", "region", "town", "contacts"}:
+        broken.append("the page's fields are read, the contact fields apart")
+    if d and dict(d["contacts"]) != {"address1_postalcode": "9999", "olp_primaryemailpr": "invented@example.invalid",
+                                     "olp_mobilenumberpr": "000 000 0000"}:
+        broken.append("the postcode, email and telephones are read whole for the private twin (ruling 142)")
     if mod.read_detail(_detail(number="not a number"))[0] is not None:
         broken.append("a page with no number of the register's shape is set aside")
     if mod.read_detail(_detail().replace(b"Practitioner Details", b"Sign in"))[0] is not None:

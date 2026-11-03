@@ -88,7 +88,12 @@ def rules(mod) -> list:
     if not all(r["decided_on"] for r in out["rows"]) or rows.get("CB10004/penalty decision", {}).get("decided_on") != dt.date(2025, 5, 5):
         broken.append("decision dates are days")
     if any("summary" in k for r in out["rows"] for k in r):
-        broken.append("the summary is never kept")
+        broken.append("the summary is never a column of the lane's own rows")
+    if not all((r["private"]["summary"] or "").startswith(("The Board", "The Respondent", "The ")) for r in out["rows"]
+               if r["private"]["summary"]) or not any(r["private"]["summary"] for r in out["rows"]):
+        broken.append("the summary is kept whole for the private twin (ruling 142)")
+    if not (s and s["private"]["name"] == "Second Invented" and s["private"]["decision_url"]):
+        broken.append("a suppressed name and its address are kept whole for the private twin (ruling 142)")
     bad = mod.read_page(_page([_item("Invented [2026] BPB 1")]).replace(b"Displaying", b"Showing"), SHA, 1)
     if bad["rows"] or len(bad["set_aside"]) != 1:
         broken.append("a page that is not the shape is set aside whole")
@@ -259,8 +264,10 @@ def test_the_view_withholds_and_keeps_to_the_window(filled):
     sup = [r for r in filled["view"] if r["suppressed"]]
     assert sup and all(r["name"] == "name withheld by the Board" and r["lbp_number"] is None and r["decision_url"] is None
                        and r["pdf_url"] is None for r in sup)
-    cutoff = dt.date.today() - dt.timedelta(days=3 * 366)
-    assert all(r["decided_on"] >= cutoff for r in filled["view"])
+    # ruling 143: every decision held is on the view, past its window or not, flagged
+    assert len(filled["view"]) == len(filled["decisions"])
+    assert all(r["past_window"] == (r["window_ends_on"] < dt.date.today()) for r in filled["view"]
+               if r["decided_on"] and abs((r["window_ends_on"] - dt.date.today()).days) > 1)
     assert check.views(filled["conn"], f"{SAMPLE_SCHEMA}.v_") == []
     assert check.reading(filled["conn"], SAMPLE_SCHEMA, shared=True) == []
 
@@ -280,3 +287,26 @@ def test_the_check_goes_red_on_a_name_shown_or_a_broken_ledger(filled):
     finally:
         conn.rollback()
     assert check.views(conn, f"{SAMPLE_SCHEMA}.v_") == []
+
+
+def test_a_decision_the_board_takes_down_stays_flagged_and_the_private_twin_keeps_the_rest():
+    """Rulings 142 and 143: a decision the newest finished pass no longer lists is read from the newest page that
+    listed it, flagged with the day the next pass finished (the old load read the newest pass alone); a suppressed
+    decision's name and the summaries land in the private twin. Built in a scratch schema, rolled back."""
+    _db_or_skip()
+    one = _page([_item("Invented Practitioner [2026] BPB 10001 – final decision"),
+                 _item("Second Invented [2025] BPB CB10003", number="CB10003", region="Auckland",
+                       summary="The Respondent's name must not be published.", slug="second-invented-2025-bpb-10003")])
+    two = _page([_item("Invented Practitioner [2026] BPB 10001 – final decision")])
+    pages = {"a" * 64: one, "b" * 64: two}
+    sch = "scratch_test_building_practitioners_down"
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
+        counts = load.build(conn, sch, [("a" * 64, 1), ("b" * 64, 2)], read_bytes=pages.__getitem__, shared=True,
+                            version=1, finished=[(1, dt.date(2026, 10, 1)), (2, dt.date(2026, 10, 8))])
+        T = lambda t: load.table(sch, t, True)
+        got = dict(conn.execute(f"SELECT complaint_number, taken_down_on FROM {T('decisions')}").fetchall())
+        kept = conn.execute(f"SELECT name FROM {T('suppressed')}").fetchall()
+        summaries = conn.execute(f"SELECT count(*) FROM {T('summaries')}").fetchone()[0]
+        conn.rollback()
+    assert got == {"CB10001": None, "CB10003": dt.date(2026, 10, 8)} and counts["taken_down"] == 1
+    assert kept == [("Second Invented",)] and summaries >= 1
