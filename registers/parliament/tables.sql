@@ -145,6 +145,7 @@ CREATE TABLE IF NOT EXISTS parliament.wayback_pages (
     capture_status           text,                       -- the provider's `status`
     provider_path            text,                       -- a name on the provider's box
     snapshots                integer,
+    provider_download        text,                       -- the provider's `file`, its downloadable copy (4 November 2026)
     provider_corpus          text,
     provider_fetched_at      text,
     provider_shard           text,

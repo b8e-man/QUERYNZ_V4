@@ -110,6 +110,7 @@ WAYBACK_FIELDS = {
     "html_title": ("html_title", T), "doc_type": ("doc_type", T), "kind": ("kind", T), "bytes": ("bytes", I),
     "content_encoding": ("content_encoding", T), "sha256": ("captured_sha256", T), "fetched_at": ("captured_at", T),
     "status": ("capture_status", T), "path": ("provider_path", T), "snapshots": ("snapshots", I),
+    "file": ("provider_download", T),
 }
 # fields every shape shares: the provider's bookkeeping and blocks, kept whole
 COMMON = {"_corpus": ("provider_corpus", T), "_fetched_at": ("provider_fetched_at", T),

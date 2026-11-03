@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS beehive.releases (
     captured_at      text,                                  -- when the provider fetched it, as served
     capture_status   text,
     provider_file    text,                                  -- the provider's `source_file`, a name on its box
+    provider_download text,                                 -- the provider's `file`, its downloadable copy (4 November 2026)
     provider_path    text,                                  -- the provider's `path`, a name on its box
     -- the provider's model (off-estate) and what it made
     model            text,
