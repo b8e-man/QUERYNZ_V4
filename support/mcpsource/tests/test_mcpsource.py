@@ -116,6 +116,26 @@ def test_each_corpus_s_recorded_shape_is_no_drift_and_a_new_field_is(corpus):
         assert M.drift_of({**rec, "word_count": "312"}, shape) == [("word_count", "str")]
 
 
+def test_an_open_block_takes_any_key_of_its_recorded_type_and_a_new_top_level_field_still_drifts():
+    """`open` (4 November: the gets pages' `page_fields`, whose keys include a "Regions: <the regions> Exemption
+    Reason" label for every set of regions): a key the shape never listed is no drift while its value is of the
+    block's recorded type; another type is, and so is a new top-level field or a new key of a closed block."""
+    shape = {"fields": {"id": ["str"], "page_fields": ["dict"], "http_headers": ["dict"]},
+             "items": {"page_fields": {"Overview": ["str"]}, "http_headers": {"Date": ["str"]}},
+             "open": {"page_fields": ["str"]}}
+    rec = {"id": "x", "page_fields": {"Overview": "o", "Regions: Auckland Nelson Exemption Reason": "None"},
+           "http_headers": {"Date": "d"}}
+    assert M.drift_of(rec, shape) == []
+    assert M.drift_of({**rec, "page_fields": {"Regions: Otago Exemption Reason": 3}}, shape) == \
+        [("page_fields.Regions: Otago Exemption Reason", "int")]
+    assert M.drift_of({**rec, "http_headers": {"ETag": "e"}}, shape) == [("http_headers.ETag", "str")]
+    assert M.drift_of({**rec, "page_count": 2}, shape) == [("page_count", "int")]
+    gets = M.shapes()["gets"]
+    assert M.drift_of({**made_record("gets", 3, gets), "page_fields": {"Regions: Gisborne Required Pre-qualifications": "x"}},
+                      gets) == []
+    assert M.drift_of({**made_record("gets", 3, gets), "award_value": "1"}, gets) == [("award_value", "str")]
+
+
 def test_a_record_points_at_a_file_only_with_a_capture_hash_a_content_type_and_a_url():
     rec = made_record("courts", 4, M.shapes()["courts"])
     url, ctype, sha, size = M.file_pointer(rec)

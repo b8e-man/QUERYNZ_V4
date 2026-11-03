@@ -175,6 +175,9 @@
    "court": [
     "str"
    ],
+   "court_reclassified_at": [
+    "str"
+   ],
    "date": [
     "str"
    ],
@@ -275,6 +278,9 @@
    "case_slug": [
     "str"
    ],
+   "categories": [
+    "str"
+   ],
    "close_date": [
     "str"
    ],
@@ -282,6 +288,9 @@
     "str"
    ],
    "court": [
+    "str"
+   ],
+   "coverage": [
     "str"
    ],
    "date": [
@@ -296,6 +305,9 @@
    "file": [
     "str"
    ],
+   "http_headers": [
+    "dict"
+   ],
    "http_status": [
     "int"
    ],
@@ -305,7 +317,16 @@
    "kind": [
     "str"
    ],
+   "open_date": [
+    "str"
+   ],
+   "page_fields": [
+    "dict"
+   ],
    "path": [
+    "str"
+   ],
+   "prequalifications": [
     "str"
    ],
    "reference_no": [
@@ -350,7 +371,85 @@
     "url": [
      "str"
     ]
+   },
+   "http_headers": {
+    "Cache-Control": [
+     "str"
+    ],
+    "Content-Type": [
+     "str"
+    ],
+    "Date": [
+     "str"
+    ]
+   },
+   "page_fields": {
+    "Agency Address": [
+     "str"
+    ],
+    "Alternate Physical Delivery Address": [
+     "str"
+    ],
+    "Alternate Physical Fax Number": [
+     "str"
+    ],
+    "Categories": [
+     "str"
+    ],
+    "Close Date": [
+     "str"
+    ],
+    "Contact": [
+     "str"
+    ],
+    "Department/Business Unit": [
+     "str"
+    ],
+    "Expected number of contracts offered": [
+     "str"
+    ],
+    "Indicative RFx Release Date": [
+     "str"
+    ],
+    "Indicative Total Value": [
+     "str"
+    ],
+    "Justification": [
+     "str"
+    ],
+    "Open Date": [
+     "str"
+    ],
+    "Overview": [
+     "str"
+    ],
+    "Project Status": [
+     "str"
+    ],
+    "RFx ID": [
+     "str"
+    ],
+    "Reference #": [
+     "str"
+    ],
+    "Required Pre-qualifications": [
+     "str"
+    ],
+    "Tender Coverage": [
+     "str"
+    ],
+    "Tender Name": [
+     "str"
+    ],
+    "Tender Type": [
+     "str"
+    ]
    }
+  },
+  "open": {
+   "page_fields": [
+    "str"
+   ]
   }
  },
  "parliament-bills": {
@@ -654,6 +753,9 @@
    "date": [
     "str"
    ],
+   "file": [
+    "str"
+   ],
    "id": [
     "str"
    ],
@@ -664,6 +766,9 @@
     "str"
    ],
    "minister": [
+    "str"
+   ],
+   "path": [
     "str"
    ],
    "portfolio": [
@@ -694,6 +799,9 @@
   "items": {
    "capture": {
     "_collected": [
+     "str"
+    ],
+    "path": [
      "str"
     ],
     "source_url": [

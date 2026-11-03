@@ -122,9 +122,12 @@ def drift_of(record: dict, shape: dict) -> list:
     """[(field, type)] the recorded shape does not hold: a new field, or a
     type other than null it was not seen with; a list's items field by
     field (`quotes.speaker`), and a block's fields too (`capture.status`). A field a record lacks is not drift: the
-    MCP's older records carry fewer fields."""
+    MCP's older records carry fewer fields. A block the shape names `open` (`"open": {"page_fields": ["str"]}`) has
+    open-ended keys: a key its `items` do not list is no drift while its value is of a type `open` records (the gets
+    pages' "Regions: <the regions> Exemption Reason" labels); a top-level field is never open."""
     out = []
-    fields, items = (shape or {}).get("fields", {}), (shape or {}).get("items", {})
+    shape = shape or {}
+    fields, items, opens = shape.get("fields", {}), shape.get("items", {}), shape.get("open", {})
     for k, v in record.items():
         t = _TYPES.get(type(v), type(v).__name__)
         if k not in fields or (t != "null" and t not in fields[k]):
@@ -135,6 +138,8 @@ def drift_of(record: dict, shape: dict) -> list:
                 for kk, vv in subs:
                     tt = _TYPES.get(type(vv), type(vv).__name__)
                     known = items.get(k, {}).get(kk)
+                    if known is None and isinstance(x, dict):
+                        known = opens.get(k)
                     if known is None or (tt != "null" and tt not in known):
                         out.append((f"{k}.{kk}", tt))
     return sorted(set(out))
