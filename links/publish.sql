@@ -57,3 +57,8 @@ SELECT old_id, source, verdict, row_a, row_b, mapped_how, copied, copied_at FROM
 -- and never re-derives its name. Built whole beside pub.groups.
 CREATE OR REPLACE VIEW pub.entities AS
 SELECT entity_id, kind, display_name, rows, registers, contested, politician, built_at FROM links.entities;
+
+-- Ruling 4 (3 November 2026): a court case's documents, gathered by citation and case number (links.cases). A case is
+-- not an entity: it joins documents, never people or companies. One row per document of a case of two or more.
+CREATE OR REPLACE VIEW pub.court_case_documents AS
+SELECT case_id, document, kinds, citations, case_numbers, case_slugs, documents, built_at FROM links.cases;

@@ -1,7 +1,7 @@
 -- registers/courts: the published views, the only thing a later module reads (contract: the lane).
--- A withheld name is NULL in courts.judgment_parties, courts.people and courts.cases already; no view joins courts_private.
--- No view carries an address or any identifying detail a document prints: those are kept privately (identifiers.py,
--- hard limit 15); no suppressed name is published (hard limit 16).
+-- A withheld name is NULL in courts.judgment_parties, courts.people and courts.cases already. No view carries an address
+-- or any identifying detail a document prints: those are kept privately (identifiers.py, hard limit 15); no suppressed
+-- name is published (hard limit 16). One view reads the private table, narrowly, by ruling (court_company_numbers, last).
 
 CREATE OR REPLACE VIEW pub.court_judgments AS
 SELECT key, citation, court, court_name, registry, case_numbers, judgment_date, judges, heading, outcome,
@@ -43,3 +43,10 @@ CREATE OR REPLACE VIEW pub.court_documents AS
 SELECT key, record, seq, kind, case_slug, url, content_type, fetched_at, document, state, profile, profile_version,
        outcome, pages, read_from, text_chars, citation, case_numbers, dated, summary, model, model_reader, loaded_at
   FROM courts.documents;
+
+-- Arthur, 3 November 2026 (ruling 1): a company's NZBN or company number a court document prints is not personal
+-- information, so the links lane may confirm a party to the company it names. Published for the links lane alone and
+-- narrow: the document, the kind, the value and the page, those two kinds only, nothing else of the private table.
+-- check.py holds this statement to its exact text (check.NUMBERS_VIEW_SQL): a widened view fails the lane's check.
+CREATE OR REPLACE VIEW pub.court_company_numbers AS
+SELECT document, kind, value, page FROM courts_private.identifiers WHERE kind IN ('nzbn', 'company_number');

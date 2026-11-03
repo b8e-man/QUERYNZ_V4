@@ -54,3 +54,40 @@ def test_a_well_kept_register_has_no_problem():
                 O.Entry("toy-b", "ids", "nzbn", "measure owed", decision="d"))
     assert O.problems(profiles, register, KNOWN) == []
     assert [r["status"] for r in O.listing(profiles, register)] == ["rule", "measure owed"]
+
+
+# --- every published view that names a person or a body (3 November 2026) ---
+
+CAT = {"toy_people": [("key", "text"), ("full_name", "text")], "toy_numbers": [("key", "text"), ("nzbn", "text")],
+       "toy_flags": [("key", "text"), ("area_names_address", "boolean")], "toy_figures": [("key", "text"), ("amount", "numeric")]}
+
+
+def test_a_view_naming_anybody_is_read_or_excluded_with_a_reason():
+    assert O.view_problems(CAT, read={"toy_people"}, excluded={"toy_numbers": "the register's own number"}) == []
+    got = O.view_problems(CAT, read={"toy_people"}, excluded={})
+    assert len(got) == 1 and got[0].startswith("pub.toy_numbers names a person or a body (nzbn)")
+    # a boolean flag column and a figures view name nobody
+    assert O.view_problems(CAT, read=set(), excluded={"toy_people": "x", "toy_numbers": "y"}) == []
+
+
+@pytest.mark.parametrize("read, excluded, why", [
+    ({"toy_people", "toy_numbers"}, {"toy_numbers": "y"}, "is read and also excluded"),
+    ({"toy_people"}, {"toy_numbers": " "}, "excluded with no reason"),
+    ({"toy_people", "toy_numbers"}, {"toy_gone": "z"}, "no published view of that name carries a name or number column"),
+    ({"toy_people", "toy_numbers"}, {"toy_figures": "z"}, "no published view of that name carries a name or number column"),
+])
+def test_an_exclusion_that_no_longer_holds_is_a_problem(read, excluded, why):
+    got = O.view_problems(CAT, read=read, excluded=excluded)
+    assert any(why in p for p in got), got
+
+
+def test_the_lane_reads_the_views_arthur_named_on_3_november():
+    read = O.views_read()
+    for v in ("insolvency_companies", "company_insolvencies", "retirement_villages", "gazette_liquidations", "grant_recipients",
+              "company_lookup_roles", "company_lookup_holdings", "insolvency_people", "rea_parties", "building_practitioners",
+              "council_meeting_attendance", "minister_diary_attendees", "court_company_numbers", "court_documents"):
+        assert v in read, v
+    for v in ("award_notices",):                 # suppliers_named is a count; the suppliers are pub.award_suppliers, read
+        assert v not in O.EXCLUDED
+    assert O.EXCLUDED["linz_title_owners"].startswith("OWED")
+    assert set(read) & set(O.EXCLUDED) == set()

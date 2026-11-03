@@ -64,6 +64,7 @@ PUB_STUBS = {
     "shareholders": "key text, holder_nzbn text, shareholder_type text, name text",
     "companies": "key text, nzbn text, number text, register text, name text",
     "gazette_liquidations": "key text, company_number text, notice text",
+    "company_lookup_roles": "key text, held_key text",
     "electorates": "key text, name text",
     "mp_interest_returns": "key text, electorate text",
     "mp_interests": "key text, text text",

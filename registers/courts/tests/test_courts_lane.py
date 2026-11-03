@@ -299,6 +299,9 @@ def test_the_text_reader_s_rows_where_a_reading_is_stored_and_waiting_where_not(
 def test_no_published_view_reads_the_private_table():
     text = open(os.path.join(LANE, "publish.sql"), encoding="utf-8").read()
     body = "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("--"))
+    # the one ruled view (ruling 1, 3 November 2026), by its exact text: a company's NZBN or company number for the links lane
+    assert body.count(check.NUMBERS_VIEW_SQL) == 1
+    body = body.replace(check.NUMBERS_VIEW_SQL, "")
     assert "courts_private" not in body and "withheld_names" not in body
     assert "pub.court_people" in body and "p.withheld AS suppressed" in body
 

@@ -61,6 +61,13 @@
    and every lone row's ref is an entity and nothing else is, the rows they
    count sum to the grouped rows plus the lone rows, every kind is person,
    organisation or estate, and no display name is blank.
+12. The printed numbers (3 November 2026), counted in SQL apart: every
+   `official-number@1` link a row's printed number made joins a row that
+   prints it to a body holding it, no number names two bodies, and no row
+   a number confirms to one body is confirmed by its name to another.
+13. Every published view with a name, NZBN, company number or charity
+   number column is read by the rows or excluded with its reason
+   (links.opportunities.EXCLUDED; 3 November 2026).
 """
 from __future__ import annotations
 
@@ -362,6 +369,57 @@ def check_model_tier(conn, s: str) -> list:
              "ok": confirmed == 0 and grouped == 0}]
 
 
+def check_numbers(conn, s: str) -> list:
+    """3 November 2026, counted in SQL apart from the build: every `official-number@1` link a printed number made (its
+    evidence names the view) joins a row that prints the number (`row_numbers`) to a body that holds it on `bodies`
+    (an NZBN on any register, a company number on the companies register, a charity number on the charities register);
+    no number names two bodies; and no row a number confirms to one body is confirmed by its name to another."""
+    kind = """CASE l.evidence->>'number' WHEN 'NZBN' THEN 'nzbn' WHEN 'company number' THEN 'company_number' ELSE 'charity_number' END"""
+    conn.execute(f"""
+        CREATE TEMP TABLE IF NOT EXISTS check_numbered ON COMMIT DROP AS
+        SELECT l.link_id, n.ref, l.row_b AS body, n.kind, n.value, l.grade FROM {s}.links l
+        JOIN {s}.row_numbers n ON n.ref = l.row_a AND n.value = l.evidence->>'value' AND n.kind = {kind}
+        WHERE l.rule = %(number)s AND l.evidence ? 'view'
+        UNION ALL
+        SELECT l.link_id, n.ref, l.row_a, n.kind, n.value, l.grade FROM {s}.links l
+        JOIN {s}.row_numbers n ON n.ref = l.row_b AND n.value = l.evidence->>'value' AND n.kind = {kind}
+        WHERE l.rule = %(number)s AND l.evidence ? 'view'""", {"number": rules.RULE_NUMBER})
+    row = conn.execute(f"""
+        SELECT (SELECT count(*) FROM {s}.links WHERE rule = %(number)s AND evidence ? 'view'),
+               (SELECT count(DISTINCT link_id) FROM check_numbered m WHERE EXISTS (
+                    SELECT 1 FROM {s}.bodies b WHERE b.body = m.body AND (
+                        (m.kind = 'nzbn' AND b.nzbn = m.value)
+                        OR (m.kind = 'company_number' AND b.register = 'companies' AND b.kind = 'companies' AND b.number = m.value)
+                        OR (m.kind = 'charity_number' AND b.register = 'charities' AND b.number = m.value)))),
+               (SELECT count(*) FROM (SELECT kind, value FROM check_numbered GROUP BY 1, 2 HAVING count(DISTINCT body) > 1) x)""",
+                       {"number": rules.RULE_NUMBER}).fetchone()
+    made, held, two = int(row[0]), int(row[1]), int(row[2])
+    names = [rules.RULE_SOLE_BODY_DATED, rules.RULE_ONE_LIVE_BODY_DATED]
+    both = conn.execute(f"""
+        WITH num AS (SELECT DISTINCT ref, body FROM check_numbered WHERE grade = 'confirmed'),
+             named AS (SELECT l.row_a AS ref, l.row_b AS body FROM {s}.links l JOIN (SELECT DISTINCT ref FROM num) r ON r.ref = l.row_a
+                       WHERE l.grade = 'confirmed' AND l.rule = ANY(%(names)s)
+                       UNION ALL
+                       SELECT l.row_b, l.row_a FROM {s}.links l JOIN (SELECT DISTINCT ref FROM num) r ON r.ref = l.row_b
+                       WHERE l.grade = 'confirmed' AND l.rule = ANY(%(names)s))
+        SELECT count(*) FROM named WHERE NOT EXISTS (SELECT 1 FROM num WHERE num.ref = named.ref AND num.body = named.body)""",
+                        {"names": names}).fetchone()[0]
+    conn.commit()
+    return [{"check": "every printed number's link joins a row printing it to the one body holding it",
+             "links": made, "to_a_body_holding_the_number": held, "numbers_naming_two_bodies": two, "ok": made == held and two == 0},
+            {"check": "no row a number confirms to one body is confirmed by its name to another",
+             "name_links_to_another_body": int(both), "ok": int(both) == 0}]
+
+
+def check_views(conn) -> list:
+    """3 November 2026: every published view that names a person or a body (a name, NZBN, company number or charity number
+    column) is read by the rows or excluded with a reason (links.opportunities.EXCLUDED)."""
+    from links import opportunities
+    bad = opportunities.view_problems(opportunities.catalog(conn))
+    return [{"check": "every published view naming a person or a body is read, or excluded with a reason",
+             "problems": bad, "ok": not bad}]
+
+
 def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out = []
     if oldconn is not None:
@@ -377,6 +435,9 @@ def run(conn, s: str, oldconn=None, pub: str = "pub") -> list:
     out += check_ruling_116(conn, s)
     out += check_entities(conn, s, pub)
     out += check_model_tier(conn, s)
+    out += check_numbers(conn, s)
+    if pub == "pub":
+        out += check_views(conn)
     return out
 
 

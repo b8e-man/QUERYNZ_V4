@@ -244,17 +244,125 @@ SOURCES = (
     ("iwi_directory", "iwi_directory_entities", """
         SELECT key, name, NULL, NULL::date, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
         FROM pub.iwi_directory_entities WHERE name IS NOT NULL AND name <> ''"""),
+    # 3 November 2026 (Arthur: "the views the links never read, yes"; "exact number joins come first"): the views that print a
+    # body's official number, each read with its number (NUMBERS), so `official-number@1` joins the row to the body that holds
+    # it. A Gazette liquidation notice names the company it winds up
+    ("gazette", "gazette_liquidations", """
+        SELECT key, company, NULL, published_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.gazette_liquidations WHERE company IS NOT NULL AND company <> ''"""),
+    # the Insolvency Register's companies, dated by the liquidation
+    ("insolvency", "insolvency_companies", """
+        SELECT key, name, NULL, liquidated_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.insolvency_companies WHERE name IS NOT NULL AND name <> ''"""),
+    # a company's insolvency appointment is two rows: the company in it (`#company`, its NZBN printed) and the appointee
+    # (`#appointee`, a person read from the name parts, on the company). The appointee's firm is text, not an entity
+    ("companies", "company_insolvencies", """
+        SELECT key, entity_name, 'companies:' || entity_key, started_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL,
+               'company' AS role
+        FROM pub.company_insolvencies WHERE coalesce(entity_name, '') <> ''
+        UNION ALL
+        SELECT key, appointee, 'companies:' || entity_key, appointed_on, vacated_on, NULL, NULL, document, false,
+               appointee_first_name, appointee_middle_names, appointee_last_name, 'appointee'
+        FROM pub.company_insolvencies WHERE coalesce(appointee_last_name, '') <> ''"""),
+    # a retirement village is itself a body on pub.companies (its key is the village's companies key); its operator
+    # (`#operator`, the operator's NZBN printed) and its statutory supervisor (`#supervisor`) are the rows, on the village
+    ("companies", "retirement_villages", """
+        SELECT key, operator_name, 'companies:' || key, NULL::date, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL,
+               'operator' AS role
+        FROM pub.retirement_villages WHERE coalesce(operator_name, '') <> ''
+        UNION ALL
+        SELECT key, supervisor_name, 'companies:' || key, supervisor_appointed_on, NULL::date, NULL, NULL, document, false,
+               NULL, NULL, NULL, 'supervisor'
+        FROM pub.retirement_villages WHERE coalesce(supervisor_name, '') <> ''"""),
+    # a grant recipient as its funder publishes it, dated by the first and last periods it was granted in (a year, or a
+    # period whose last date is read)
+    ("grants", "grant_recipients", """
+        SELECT key, name_as_published, NULL,
+               CASE WHEN first_period ~ '^[0-9]{4}' THEN make_date(left(first_period, 4)::int, 1, 1) END,
+               CASE WHEN last_period ~ '[0-9]{4}' THEN make_date(substring(last_period FROM '([0-9]{4})(?:-[0-9]{2}-[0-9]{2})?$')::int, 12, 31) END,
+               NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.grant_recipients WHERE coalesce(name_as_published, '') <> ''"""),
+    # the Companies Office's own lookups of a company: its roles, read from the name parts, and its holdings; a role row the
+    # register also files as a director names that director row (`held_key`, `source-identifier@1`)
+    ("companies", "company_lookup_roles", """
+        SELECT key, full_name, 'companies:' || entity_key, started_on, ended_on, NULL, NULL, document, suppressed,
+               first_name, middle_names, last_name
+        FROM pub.company_lookup_roles WHERE coalesce(full_name, '') <> '' OR coalesce(last_name, '') <> ''"""),
+    ("companies", "company_lookup_holdings", """
+        SELECT key, name, 'companies:' || entity_key, started_on, ended_on, NULL, NULL, document, suppressed, NULL, NULL, NULL
+        FROM pub.company_lookup_holdings WHERE coalesce(name, '') <> ''"""),
+    # the people- and body-bearing views the links never read (3 November 2026), by name. The Insolvency Register's
+    # bankrupts, dated by the adjudication
+    ("insolvency", "insolvency_people", """
+        SELECT key, name, NULL, adjudicated_on, discharged_on, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.insolvency_people WHERE name IS NOT NULL AND name <> ''"""),
+    # a Real Estate Authority decision's licensees and defendants, a person or an agency, dated by the decision; a licence
+    # number the decision prints joins its rows to one another (`licence-number@1`)
+    ("real_estate_authority", "rea_parties", """
+        SELECT key, name, NULL, decided_on, NULL::date, NULL, NULL, document, coalesce(suppressed, false), NULL, NULL, NULL
+        FROM pub.rea_parties WHERE name IS NOT NULL AND name <> ''"""),
+    # the licensed building practitioners register itself (the decisions are read above), from the name parts
+    ("building_practitioners", "building_practitioners", """
+        SELECT key, name, NULL, first_granted_on, NULL::date, NULL, NULL, document, coalesce(suppressed, false),
+               first_name, middle_names, last_name
+        FROM pub.building_practitioners WHERE coalesce(name, '') <> '' OR coalesce(last_name, '') <> ''"""),
+    # the members and officers a council's minutes list at a meeting, and the members who declare an interest at one, dated
+    # by the meeting; held to the stricter join as the councillors' interests are. Only the rows the minutes' grammar read:
+    # a model's reading of a page (`model` set) waits on the model check the text readers' names pass (links.model_check)
+    ("council_minutes", "council_meeting_attendance", """
+        SELECT key, name, NULL, meeting_date, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.council_meeting_attendance WHERE name IS NOT NULL AND name <> '' AND model IS NULL"""),
+    ("council_minutes", "council_meeting_declarations", """
+        SELECT key, member, NULL, meeting_date, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.council_meeting_declarations WHERE member IS NOT NULL AND member <> '' AND model IS NULL"""),
+    # a minister's diary entry's attendees that are a person or an organisation (a Crown official, a group, a role or a
+    # withheld name is none), dated by the entry; an entry whose attendees' text names an address is not read
+    ("ministers_diaries", "minister_diary_attendees", """
+        SELECT key, attendee, NULL, entry_on, NULL::date, NULL, NULL, document, false, NULL, NULL, NULL
+        FROM pub.minister_diary_attendees
+        WHERE kind IN ('person', 'organisation') AND attendee IS NOT NULL AND attendee <> '' AND NOT coalesce(attendees_names_address, false)"""),
+    # the funders that publish the grants files, undated (the view prints no date and cites no document)
+    ("grants", "grant_publishers", """
+        SELECT key, name, NULL, NULL::date, NULL::date, NULL, NULL, NULL, false, NULL, NULL, NULL
+        FROM pub.grant_publishers WHERE name IS NOT NULL AND name <> ''"""),
+)
+#: the official numbers a row prints (3 November 2026): (register, view, sql yielding key, role or NULL, kind, value). A
+#: role names the row of a ROLE_VIEWS view that prints it. Only a row that is written carries its number (`row_numbers`
+#: is read joined to the rows); blank and all-zero values are none (`nzbn_sql`)
+NUMBERS = (
+    ("gazette", "gazette_liquidations", "SELECT key, NULL, 'company_number', company_number FROM pub.gazette_liquidations"),
+    ("insolvency", "insolvency_companies", """SELECT key, NULL, 'nzbn', nzbn FROM pub.insolvency_companies
+        UNION ALL SELECT key, NULL, 'company_number', company_number FROM pub.insolvency_companies"""),
+    ("companies", "company_insolvencies", "SELECT key, 'company', 'nzbn', nzbn FROM pub.company_insolvencies"),
+    ("companies", "retirement_villages", "SELECT key, 'operator', 'nzbn', operator_nzbn FROM pub.retirement_villages"),
+    # a grant recipient by its charity number only: the NZBN the funders' files print names a body carrying the recipient's
+    # name on 179 of 30,414 rows (3 November 2026, links/measurements.md §15), so it is not read until the grants lane mends it
+    ("grants", "grant_recipients", "SELECT key, NULL, 'charity_number', charity_number FROM pub.grant_recipients"),
+    ("companies", "company_lookup_roles", "SELECT key, NULL, 'nzbn', body_nzbn FROM pub.company_lookup_roles WHERE is_body"),
+    ("companies", "company_lookup_holdings", "SELECT key, NULL, 'nzbn', holder_nzbn FROM pub.company_lookup_holdings"),
+    ("tenders", "award_suppliers", "SELECT key, NULL, 'nzbn', nzbn FROM pub.award_suppliers"),
+    ("iwi_directory", "iwi_directory_entities", """SELECT key, NULL, 'nzbn', nzbn FROM pub.iwi_directory_entities
+        UNION ALL SELECT key, NULL, 'charity_number', charity_number FROM pub.iwi_directory_entities"""),
+    ("commerce_commission", "commerce_commission_parties",
+     "SELECT key, NULL, 'company_number', company_number FROM pub.commerce_commission_parties"),
+    ("fma", "fma_parties", "SELECT key, NULL, 'company_number', company_number FROM pub.fma_parties"),
+    ("worksafe", "worksafe_parties", "SELECT key, NULL, 'company_number', company_number FROM pub.worksafe_parties"),
+    ("overseas_investment", "overseas_investment_parties",
+     "SELECT key, NULL, 'company_number', company_number FROM pub.overseas_investment_parties"),
 )
 #: the filing candidate is a politician; a declared interest is the member's own (a sole trade in the member's name is not a director row);
 #: a local candidate and a councillor are candidates and members of an elected body, held to the same stricter join (ruling 114)
 POLITICIAN_VIEWS = {"candidates", "members", "mp_interest_returns", "candidate_return_totals", "mp_expenses", "minister_expenses", "mp_interests",
-                    "local_election_returns", "councillor_interests"}
+                    "local_election_returns", "councillor_interests",
+                    "council_meeting_attendance", "council_meeting_declarations"}    # a council's members at its meetings (3 November 2026)
 DECLARED_VIEWS = {"mp_interests"}       # the name is read out of a declared entry's text
 #: ruling 116: the views whose printed name is a member of the House on the row's day (`member-on-the-day@1`). Each is a
 #: politician's row; its name is read with MEMBER_TITLES off, and it is joined by that rule alone, never the name-only star
 MEMBER_DAY_VIEWS = ("hansard_speeches", "parliament_written_questions", "beehive_release_ministers", "minister_diary_releases")
 POLITICIAN_VIEWS |= set(MEMBER_DAY_VIEWS)
-ROLE_VIEWS = {"parliament_written_questions"}     # one view row, two people: the asker and the minister
+ROLE_VIEWS = {"parliament_written_questions",      # one view row, two people: the asker and the minister
+              "company_insolvencies",              # the company and its appointee
+              "retirement_villages"}               # the operator and the supervisor
 #: The titles these views print before a member's name, before or after the comma ("Edmonds, Hon Barbara", "Hon Dr Ayesha
 #: Verrall", "Dr The Rt Hon Lockwood Smith"), and the post-nominals they print, with or without a comma ("Hon Judith Collins
 #: KC"). The one list (tests/test_member_day.py): `keys.names.strip_honorifics` takes a title off the front only, and no
@@ -481,6 +589,29 @@ def gather_bodies(conn, reader, w, schema: str) -> int:
     return n
 
 
+def gather_numbers(conn, schema: str, registers=None) -> dict:
+    """Empty and refill `<schema>.row_numbers` from NUMBERS for the registers
+    refilled (all when `registers` is None): each row's printed NZBN, company
+    number or charity number, trimmed, a blank or all-zero value none.
+    Returns the count by view."""
+    if registers is None:
+        conn.execute(f"DELETE FROM {schema}.row_numbers")
+    else:
+        conn.execute(f"DELETE FROM {schema}.row_numbers WHERE register = ANY(%s)", (sorted(registers),))
+    out = {}
+    for register, view, sql in NUMBERS:
+        if registers is not None and register not in registers:
+            continue
+        out[view] = conn.execute(f"""
+            INSERT INTO {schema}.row_numbers (ref, register, view, kind, value)
+            SELECT DISTINCT %(register)s || ':' || q.key || coalesce('#' || q.role, ''), %(register)s, %(view)s, q.kind, btrim(q.value)
+            FROM ({sql}) AS q (key, role, kind, value)
+            WHERE q.value IS NOT NULL AND btrim(q.value) !~ '^0*$'
+            ON CONFLICT DO NOTHING""", {"register": register, "view": view}).rowcount
+    conn.execute(f"ANALYZE {schema}.row_numbers")
+    return out
+
+
 def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
     """Wipe and refill `<schema>.rows`, `.entity_addresses`, `.org_names` from
     `pub`, in one transaction on `conn`. `reader` is a second connection the
@@ -551,6 +682,8 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
             if parts:
                 counts[f"{register}.{view}.parts"] = parts
             log(f"links.rows: {register}.{view}: {n} rows, {read - n} set aside {catch}, {parts} coupled-name parts ({time.monotonic() - t0:.0f} s)")
+        counts["row_numbers"] = gather_numbers(conn, schema, registers)
+        log(f"links.rows: row_numbers: {counts['row_numbers']} ({time.monotonic() - t0:.0f} s)")
         if bodies_too:
             counts["bodies"] = gather_bodies(conn, reader, w, schema)
             log(f"links.rows: bodies: {counts['bodies']} ({time.monotonic() - t0:.0f} s)")

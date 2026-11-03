@@ -586,6 +586,126 @@ and addresses are wide and mostly offices, to be measured by pair before any dec
 4. Citation and case number: whether the links lane gathers a case's documents into one case entity, or the lane's
    own join (`case_links`, the suppression's reach) stands.
 
+## 15. The views that print an official number, 3 November 2026 (integrator, the views the links never read)
+
+Counts only; no name, number or address is written here. A scratch gather and link build on live
+(`scratch_links_t1b`, 3 to 4 November, the code of this change) through the owner login. Arthur, 3 November 2026: "the
+views the links never read, yes ... exact number joins come first".
+
+Each view's printed number goes into `links.row_numbers` (ref, kind, value; `links.rows.NUMBERS`), and
+`official-number@1` joins the row to the one body of `links.bodies` that holds it: an NZBN on any register, a company
+number on the companies register's own companies, a charity number on the charities register. A number held by two
+bodies, or by none, makes no link.
+
+| View | Numbers printed | One body | Two or more | Held by none |
+| --- | --- | --- | --- | --- |
+| company_insolvencies (NZBN) | 109,586 | 109,586 | 0 | 0 |
+| grant_recipients (charity number) | 15,116 | 15,111 | 0 | 5 |
+| gazette_liquidations (company number) | 4,419 | 4,400 | 0 | 19 |
+| company_lookup_holdings (NZBN) | 2,748 | 2,748 | 0 | 0 |
+| retirement_villages (operator NZBN) | 409 | 409 | 0 | 0 |
+| insolvency_companies (NZBN, company number) | 8 | 8 | 0 | 0 |
+| overseas_investment_parties (company number) | 1 | 1 | 0 | 0 |
+| fma_parties (company number) | 3 | 0 | 0 | 3 |
+
+The verification that could fail: the body a number names carries the row's own name (organisation key) on 109,571
+of 109,586 insolvencies and 4,323 of 4,400 liquidation notices. **The grants lane's NZBN is not read:** on
+`pub.grant_recipients` the printed NZBN names a body of the row's name on 179 of 30,414 rows, while the charity number
+does on 13,280 of 15,111; the NZBN is the funder's, or misplaced, and is a fault of the grants lane, not a join.
+
+A row that a number confirms to one body is never confirmed by its name to another (`number_over_name`):
+`organisation-sole-company@3` and `organisation-one-live-company@3` links of such a row to another body turn near
+with `rules.NEAR_NUMBER_ELSEWHERE`; 110 did. `check.check_numbers` counts both in SQL apart from the build.
+
+The organisation rules on the new views (rows with a body of their name; confirmed sole; confirmed one live of
+several): company_insolvencies 109,556 / 99,828 / 9,155; grant_recipients 68,957 / 65,739 / 1,455;
+gazette_liquidations 59,642 / 52,822 / 5,064; company_lookup_holdings 2,854 / 2,687 / 116; insolvency_companies
+1,714 / 1,477 / 185; retirement_villages 973 / 319 / 0. Rows read: gazette_liquidations 61,017, insolvency_companies
+2,540, company_insolvencies 212,780 (the company and each appointee its own ref), retirement_villages 1,007 (operator
+and supervisor), grant_recipients 97,618, company_lookup_roles 12,652, company_lookup_holdings 18,487.
+
+## 16. Ruling 1, a court party and the number its judgment prints, 3 November 2026 (integrator)
+
+Arthur, 3 November 2026: confirm a court party to the company whose NZBN or company number its judgment prints. The
+courts lane publishes `pub.court_company_numbers` (document, kind, value, page; kinds `nzbn` and `company_number`
+only), the one view allowed to read `courts_private`, checked by the courts check to its exact statement.
+
+`judgment-number@1` (`rules.judgment_numbers`) ties the number to a party, never to the document alone. Per document,
+each number names its body through the same `number_target` as `official-number@1`; then:
+- a party row (`court_judgment_parties` or `court_people`) whose name key is one of the body's names is **confirmed**
+  to it; a row of the name of two numbered bodies is **near** to each (`NEAR_JN_TWO_BODIES`);
+- with no such row, one numbered body and exactly one judgment-party name, the party is **near**
+  (`NEAR_JN_OTHER_NAME`); a text reader's row alone never is;
+- anything else is untied and makes no link.
+
+Measured at §14 on a full-corpus scratch build of the courts lane: NZBN 11 distinct on 4 documents, 10 held on the
+companies register; company number 20 distinct on 11 documents, each naming one company. On live the private table
+fills at the courts load after this release; the links build that follows counts the outcomes (`numbers` in its
+output: confirmed, other name, two bodies, untied). On the full scratch build (§18) the view was not yet
+published, so the rule made no link (`{"view": "not published"}`); its first figures come from the links build after
+the courts load.
+
+## 17. Ruling 4, a case's documents gathered, 3 November 2026 (integrator)
+
+Arthur, 3 November 2026: gather a case's documents into one case by citation and case number. `links.cases` (one row
+per document of a case of two or more; published as `pub.court_case_documents`) is built from `pub.court_documents`
+by `case-documents@1`: two documents are one case when they share a citation, a case number (`case_number_key`: upper
+case, no spaces, leading zeros of a number part dropped) or a case page; a key shared by more than 60 documents
+(`CASE_KEY_CAP`) joins none. A case is its smallest document. It is not an entity: it touches no link, group or
+entity, so it never merges people or companies.
+
+Keys on live (values; shared by two or more documents; the largest): case numbers 5,915 / 1,666 / 23; case pages
+3,138 / - / 25; citations 10,024 / - / 6.
+
+On the full scratch build (§18): 15,487 documents read, 2,067 cases of two or more documents holding 7,042 of them;
+by kind, judgments 4,061, case pages 2,741, media releases 240 (a document counted once per case). Cases by size: the
+largest 39 documents, then 29, 26, 23, 22, 19, three of 18 and three of 17. The largest carries 13 case numbers and 7
+case pages: a judgment printing several proceedings' numbers (consolidated or related proceedings) joins their cases;
+under the cap of 60 that is kept, and a case never joins people. 0.3 s.
+
+## 18. The name views and the every-lane register, 3 November 2026 (integrator)
+
+A full scratch build on live, `python -m links.build_all` into `scratch_links_full` (4 November, 00:13 to 01:47,
+the code of this change, under `/usr/bin/time -v`): **5,636 s wall, 1,939,836 kB peak resident**, against the job's
+7,200 s and 4 GB. The run shared the database with two orphaned scratch queries and other sessions' loads: its rows
+stage took 3,606 s against 1,603 s for the same stage on 1 November, nearly all of it the model name checks of
+`parliament_people` (about 2,030 s) and `court_people`; the views this change adds took 36 s to read. The links stage
+took 541 s, name-only 190 s, watch 55 s, groups 90 s, entities 102 s, cases 0.3 s. The peak rose from 1,305 MB on
+1 November.
+
+Rows read, the new views: minister_diary_attendees 129,950 (298 set aside), building_practitioners 4,372,
+council_meeting_attendance 4,618 and council_meeting_declarations 165 (rows no model read; `POLITICIAN_VIEWS`, so
+full-name and name-and-address never confirm them), rea_parties 1,573, insolvency_people 17, grant_publishers 39, and
+§15's number views. All rows 7,473,991 (live 6,869,167); groups 829,900 holding 3,736,532 rows (live 732,489 and
+3,261,333); the largest group 32,157, unchanged; entities 3,360,336 (live 3,037,148).
+
+Links by rule and grade, the new rules: `official-number@1` 132,747 confirmed (132,739 from a printed number, all
+joining a body that holds it, no number naming two bodies: `check_numbers`); `licence-number@1` 210 confirmed, 31
+near (names differ, or a person and an agency); `source-identifier@1` 415 confirmed (the company lookup's director
+held key among them); name links turned near by a number 110. Link ends by view and grade, the new views (confirmed /
+near): company_insolvencies 335,542 / 74,998; grant_recipients 88,998 / 15,024; gazette_liquidations 62,286 / 8,789;
+company_lookup_holdings 24,526 / 11,207; minister_diary_attendees 15,482 / 78,805; company_lookup_roles 11,432 /
+5,021; building_practitioners 8,653 / 18,253; insolvency_companies 1,666 / 296; retirement_villages 796 / 776;
+rea_parties 584 / 996; insolvency_people 7 / 4; council_meeting_attendance 0 / 6,462; council_meeting_declarations
+0 / 118; grant_publishers 0 / 47. `pub.company_lookup_roles` holds no body role today, so it prints no NZBN.
+
+**The every-lane register.** `links.opportunities.view_problems` (run by `check.check_views`, `python -m
+links.opportunities --views`): a published view with a text column named name, names, surname, nzbn,
+company_number or charity_number (`VIEW_COLUMN`) that `links/rows.py`, the bodies, addresses and company names SQL,
+the build or the lane's publish.sql never reads must be in `opportunities.EXCLUDED` with its reason; a view both read
+and excluded, an exclusion with no reason, and an exclusion no longer naming anybody are problems too. On live: 0
+problems. Excluded with a reason (`opportunities.EXCLUDED`): company_changes, company_lookups, company_states, society_states
+(the same body as its pub.companies or pub.societies row, read as a body); court_cases (a case page's title: the
+name sightings scan it and the case grouping gathers its documents); court_judgments (the court's name, not a party);
+elections, linz_place_names, iwi_directory_settlements (an election's, a place's, a settlement's name); grants (each
+recipient is its pub.grant_recipients row, read with its number); iwi_directory_relations (the related entity is its
+own pub.iwi_directory_entities row); minister_diary_entries (the release's file name; the attendees are read);
+parties, party_events, party_labels, party_names (the party lane's own entity); sanctions_lists (a list's name; the
+listings are read). **Owed:** parliament_api_items (783 rows, a member's name: a fifth member-on-the-day view wants
+Arthur's word); gazette_company_notices (1.55M rows, measured before it is read); linz_title_owners (5.7M rows: at
+78 s a million to read and key, and 82% of owners individuals, it about doubles the rows and the union-find, which does
+not fit the 7,200 s and 4 GB beside the rest; deferred).
+
 ## Track C: the review agent scored on the test pairs, 20 October 2026
 
 Run `score-1` in `scratch_review` on the real published tables (`links.scores`,

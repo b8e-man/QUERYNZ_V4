@@ -99,7 +99,9 @@ def test_the_fallback_versions_leave_every_stored_reading_keyed_as_before(tmp_pa
 def test_the_ledger_s_courts_profiles_key_the_fallback_reading_by_its_own_version_and_the_rest_as_before():
     era = R.ERA
     assert R.profile_version(era) == 1, "every stored determination reading stands"
-    assert R.profile_version(era, fallback=True) == pr.profile(era)["version"] > 1
+    # the version that brought the fallback in (a later version that changes no reading, such as the extract list's
+    # next iteration, keeps it)
+    assert R.profile_version(era, fallback=True) == pr.reading_version(era, fallback=True) > R.profile_version(era)
     _, _, version, used = R.text_reading(era, _unnumbered())
     assert (version, used) == (R.profile_version(era, fallback=True), "pages")
     _, _, version, used = R.text_reading(era, _numbered())

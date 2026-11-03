@@ -15,8 +15,12 @@ pairs (a name carried by 300 rows would otherwise be 44,850 links).
 - `source-identifier@1`: a lane's own join between two of its rows (a seat
   and the candidacy that won it; the filing candidate on a candidate return
   and on the amendment that replaces it).
-- `official-number@1`: a company shareholder's NZBN to the company; a
-  liquidation notice's company number to the company.
+- `official-number@1`: a company shareholder's NZBN to the company; and
+  every number a row prints (`row_numbers`, 3 November 2026: a liquidation
+  notice's company number, an insolvency's, a retirement village
+  operator's, a grant recipient's, a lookup holder's NZBN or charity
+  number), to the one body holding it (`number_links`). The number names
+  the body; the evidence keeps the name each side files.
 - `organisation-sole-company@1` (ruling 106): a donation row's organisation
   name to the one company carrying it, live in the donation's year,
   confirmed; `organisation-name@1`, near, where several companies carry the
@@ -162,6 +166,18 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
         JOIN {s}.rows a ON a.ref = 'candidate_returns:' || o.key JOIN {s}.rows b ON b.ref = 'candidate_returns:' || n.key
         WHERE o.replaced_by IS NOT NULL
         ON CONFLICT DO NOTHING""", {"rule": RULE_SOURCE})
+    # the lane's own join: a Companies Office lookup's role row and the director row the register files it as (`held_key`)
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT least(a.ref COLLATE "C", b.ref), greatest(a.ref COLLATE "C", b.ref), %(rule)s,
+               jsonb_build_object('join', 'pub.company_lookup_roles.held_key', 'as_filed', jsonb_build_array(a.name_filed, b.name_filed),
+                                  'registers', jsonb_build_array('companies', 'companies')),
+               'confirmed', NULL
+        FROM pub.company_lookup_roles lr
+        JOIN {s}.rows a ON a.ref = 'companies:' || lr.key
+        JOIN {s}.rows b ON b.ref = 'companies:' || lr.held_key AND b.view = 'directors'
+        WHERE lr.held_key IS NOT NULL
+        ON CONFLICT DO NOTHING""", {"rule": RULE_SOURCE})
     out[RULE_SOURCE] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (RULE_SOURCE,)).fetchone()[0]
     # the number is the link
     conn.execute(f"""
@@ -171,13 +187,8 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
         FROM pub.shareholders sh JOIN pub.companies c ON c.nzbn = sh.holder_nzbn
         WHERE sh.shareholder_type = 'company' AND sh.holder_nzbn IS NOT NULL AND sh.holder_nzbn <> ''
         ON CONFLICT DO NOTHING""", {"rule": rules.RULE_NUMBER})
-    conn.execute(f"""
-        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
-        SELECT least(('gazette:' || l.key) COLLATE "C", 'companies:' || c.key), greatest(('gazette:' || l.key) COLLATE "C", 'companies:' || c.key), %(rule)s,
-               jsonb_build_object('number', 'company number', 'value', l.company_number, 'notice', l.notice, 'company', c.name), 'confirmed', NULL
-        FROM pub.gazette_liquidations l JOIN pub.companies c ON c.number = l.company_number AND c.register = 'companies'
-        WHERE l.company_number IS NOT NULL AND l.company_number <> ''
-        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_NUMBER})
+    # every other printed number (3 November 2026): a row's NZBN, company number or charity number to the one body holding it
+    out["numbers"] = number_links(conn, s)
     out[rules.RULE_NUMBER] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_NUMBER,)).fetchone()[0]
     log(f"links.build: {rules.RULE_NUMBER}: {out[rules.RULE_NUMBER]} ({time.monotonic() - t0:.0f} s)")
     # every organisation-named row (ruling 125: a donation row, a declared interest, a holding, a directorship, an officer, a Gazette
@@ -188,6 +199,9 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
         f"({time.monotonic() - t0:.0f} s)")
     out[rules.RULE_ORG_NAME] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_ORG_NAME,)).fetchone()[0]
     log(f"links.build: {rules.RULE_ORG_NAME}: {out[rules.RULE_ORG_NAME]} ({time.monotonic() - t0:.0f} s)")
+    # a name never outweighs a number: a row whose printed number names one body is not confirmed by its name to another
+    out["name_links_turned_near_by_a_number"] = number_over_name(conn, s)
+    log(f"links.build: name links turned near by a number: {out['name_links_turned_near_by_a_number']} ({time.monotonic() - t0:.0f} s)")
     conn.commit()
     # the rules of links-2: the House's own rows to their seats; declared interests to companies and the member's own directorships;
     # the donation registers' named circumstances; companies under one name; one candidate under two printings
@@ -198,6 +212,12 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
         out[name] = step(conn, s, reader=reader) if step is member_day_links else step(conn, s)
         log(f"links.build: {name}: {out[name]} ({time.monotonic() - t0:.0f} s)")
     out[rules.RULE_NUMBER] = conn.execute(f"SELECT count(*) FROM {s}.links WHERE rule = %s", (rules.RULE_NUMBER,)).fetchone()[0]
+    # a Real Estate Authority licence number printed on two decisions (3 November 2026)
+    out[rules.RULE_LICENCE] = licence_links(conn, s)
+    log(f"links.build: {rules.RULE_LICENCE}: {out[rules.RULE_LICENCE]} ({time.monotonic() - t0:.0f} s)")
+    # ruling 1 (3 November 2026): a court party and the company whose number its judgment prints, tied by the party's name
+    out[rules.RULE_JUDGMENT_NUMBER] = judgment_number_links(conn, s)
+    log(f"links.build: {rules.RULE_JUDGMENT_NUMBER}: {out[rules.RULE_JUDGMENT_NUMBER]} ({time.monotonic() - t0:.0f} s)")
     # a name a text reader's model read is its own, lower tier (Arthur, 1 November 2026): whatever rule matched it, a link
     # that touches one is near, never confirmed, so a model's row never joins a group nor carries one entity to another
     out["model_rows_near_only"] = model_tier(conn, s)
@@ -217,6 +237,147 @@ def build_links(conn, s: str, log=print, reader=None) -> dict:
     conn.commit()
     out["seconds"] = round(time.monotonic() - t0, 1)
     return out
+
+
+def number_target(conn, s: str) -> None:
+    """The temporary table `number_target` (gone at the commit): each NZBN, company number and charity number `bodies`
+    holds, with the body (`min` where several, `bodies` counting them) and the body's own row's name."""
+    conn.execute(f"""
+        CREATE TEMP TABLE IF NOT EXISTS number_target ON COMMIT DROP AS
+        SELECT kind, value, min(body COLLATE "C") COLLATE "default" AS body, count(DISTINCT body) AS bodies,
+               (array_agg(name ORDER BY (entity_ref = body) DESC, entity_ref {links.ORDER}))[1] AS name
+        FROM (SELECT 'nzbn' AS kind, nzbn AS value, body, entity_ref, name FROM {s}.bodies WHERE nzbn IS NOT NULL
+              UNION ALL
+              SELECT 'company_number', number, body, entity_ref, name FROM {s}.bodies WHERE register = 'companies' AND kind = 'companies'
+                                                                                     AND number IS NOT NULL
+              UNION ALL
+              SELECT 'charity_number', number, body, entity_ref, name FROM {s}.bodies WHERE register = 'charities' AND number IS NOT NULL) x
+        GROUP BY 1, 2""")
+
+
+def number_links(conn, s: str) -> dict:
+    """`official-number@1` from `row_numbers` (3 November 2026): a row that
+    prints an NZBN, a company number or a charity number, confirmed to the
+    one body of `bodies` holding it (an NZBN on any of the four registers; a
+    company number on the companies register itself; a charity number on
+    the charities register), the body being the entity (`bodies.body`: a
+    charity of a company's NZBN is that company). A number no body holds, or
+    more than one, makes no link. Returns the counts by view: printed,
+    joined, not held."""
+    number_target(conn, s)
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        SELECT DISTINCT ON (least(n.ref COLLATE "C", t.body), greatest(n.ref COLLATE "C", t.body))
+               least(n.ref COLLATE "C", t.body), greatest(n.ref COLLATE "C", t.body), %(rule)s,
+               jsonb_build_object('number', CASE n.kind WHEN 'nzbn' THEN 'NZBN' WHEN 'company_number' THEN 'company number'
+                                                   ELSE 'charity number' END,
+                                  'value', n.value, 'view', n.view, 'as_filed', r.name_filed, 'company', t.name,
+                                  'registers', jsonb_build_array(r.register, split_part(t.body, ':', 1))),
+               'confirmed', NULL
+        FROM {s}.row_numbers n
+        JOIN {s}.rows r ON r.ref = n.ref
+        JOIN number_target t ON t.kind = n.kind AND t.value = n.value AND t.bodies = 1
+        WHERE n.ref <> t.body
+        ORDER BY least(n.ref COLLATE "C", t.body), greatest(n.ref COLLATE "C", t.body), n.kind
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_NUMBER})
+    out = {}
+    for view, printed, joined, several, held_not in conn.execute(f"""
+            SELECT n.view, count(*), count(*) FILTER (WHERE t.bodies = 1), count(*) FILTER (WHERE t.bodies > 1),
+                   count(*) FILTER (WHERE t.value IS NULL)
+            FROM {s}.row_numbers n JOIN {s}.rows r ON r.ref = n.ref
+            LEFT JOIN number_target t ON t.kind = n.kind AND t.value = n.value
+            GROUP BY 1 ORDER BY 1""").fetchall():
+        out[view] = {"printed": int(printed), "one_body": int(joined), "several_bodies": int(several), "not_held": int(held_not)}
+    conn.commit()
+    return out
+
+
+def licence_links(conn, s: str) -> dict:
+    """`licence-number@1` (3 November 2026): the rows of pub.rea_parties that print one licence number, a star per number
+    from its smallest ref: confirmed where the two rows are of one kind (a person, or an agency) and their names agree,
+    near with `rules.NEAR_LICENCE_KINDS` where the kinds differ and `rules.NEAR_LICENCE_NAMES` where the names do. The evidence says whether the two names agree (the first and last name
+    key, or the organisation key). Returns the counts; the view not published makes no link."""
+    if conn.execute("SELECT to_regclass('pub.rea_parties')").fetchone()[0] is None:
+        return {"view": "not published"}
+    conn.execute(f"""
+        INSERT INTO {s}.links (row_a, row_b, rule, evidence, grade, reason)
+        WITH lic AS (SELECT r.ref, r.kind, r.name_key, coalesce(r.fl_key, r.name_key) AS nk, r.name_filed, upper(btrim(p.licence_number)) AS number
+                     FROM pub.rea_parties p JOIN {s}.rows r ON r.ref = 'real_estate_authority:' || p.key
+                     WHERE coalesce(btrim(p.licence_number), '') <> ''),
+             head AS (SELECT number, min(ref COLLATE "C") COLLATE "default" AS ref FROM lic GROUP BY 1 HAVING count(*) > 1)
+        SELECT least(h.ref COLLATE "C", l.ref), greatest(h.ref COLLATE "C", l.ref), %(rule)s,
+               jsonb_build_object('number', 'licence number', 'value', l.number, 'names_agree', m.nk = l.nk,
+                                  'as_filed', jsonb_build_array(m.name_filed, l.name_filed),
+                                  'registers', jsonb_build_array('real_estate_authority', 'real_estate_authority')),
+               CASE WHEN m.kind = l.kind AND m.nk = l.nk THEN 'confirmed' ELSE 'near' END,
+               CASE WHEN m.kind <> l.kind THEN %(near)s WHEN m.nk <> l.nk THEN %(names)s END
+        FROM lic l JOIN head h ON h.number = l.number JOIN lic m ON m.ref = h.ref
+        WHERE l.ref <> h.ref
+        ON CONFLICT DO NOTHING""", {"rule": rules.RULE_LICENCE, "near": rules.NEAR_LICENCE_KINDS,
+                                               "names": rules.NEAR_LICENCE_NAMES})
+    row = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE grade = 'confirmed'),
+                                  count(*) FILTER (WHERE NOT (evidence->>'names_agree')::boolean)
+                           FROM {s}.links WHERE rule = %s""", (rules.RULE_LICENCE,)).fetchone()
+    conn.commit()
+    return {"links": int(row[0]), "confirmed": int(row[1]), "names_differ": int(row[2])}
+
+
+def number_over_name(conn, s: str) -> int:
+    """A row `official-number@1` confirms to one body by the number it prints is never confirmed by its name to another
+    (3 November 2026: two confirmed links to two bodies would make the two one entity). Each such confirmed
+    `organisation-sole-company@3` or `organisation-one-live-company@3` link is turned near with `rules.NEAR_NUMBER_ELSEWHERE`.
+    Returns how many."""
+    conn.execute(f"""
+        CREATE TEMP TABLE IF NOT EXISTS numbered ON COMMIT DROP AS
+        SELECT l.row_a AS ref, l.row_b AS body FROM {s}.links l JOIN (SELECT DISTINCT ref FROM {s}.row_numbers) n ON n.ref = l.row_a
+        WHERE l.rule = %(number)s AND l.grade = 'confirmed'
+        UNION
+        SELECT l.row_b, l.row_a FROM {s}.links l JOIN (SELECT DISTINCT ref FROM {s}.row_numbers) n ON n.ref = l.row_b
+        WHERE l.rule = %(number)s AND l.grade = 'confirmed'""", {"number": rules.RULE_NUMBER})
+    n = 0
+    for mine, other in (("row_a", "row_b"), ("row_b", "row_a")):
+        n += conn.execute(f"""
+            UPDATE {s}.links l SET grade = 'near', reason = %(reason)s
+            FROM (SELECT DISTINCT ref FROM numbered) nr
+            WHERE l.grade = 'confirmed' AND l.rule = ANY(%(rules)s) AND l.{mine} = nr.ref
+              AND NOT EXISTS (SELECT 1 FROM numbered x WHERE x.ref = nr.ref AND x.body = l.{other})""",
+                          {"reason": rules.NEAR_NUMBER_ELSEWHERE,
+                           "rules": [rules.RULE_SOLE_BODY_DATED, rules.RULE_ONE_LIVE_BODY_DATED]}).rowcount
+    conn.commit()
+    return n
+
+
+#: the courts lane's ruled numbers view (registers/courts/check.py NUMBERS_VIEW): a company's NZBN or company number by document
+COURT_NUMBERS_VIEW = "pub.court_company_numbers"
+
+
+def judgment_number_links(conn, s: str) -> dict:
+    """`judgment-number@1` (ruling 1, 3 November 2026): each NZBN or company number a court document prints
+    (`COURT_NUMBERS_VIEW`) that names one body of `bodies`, against every body-named row of that document in the two court
+    views (`rules.JUDGMENT_NUMBER_VIEWS`), judged by `rules.judgment_numbers`: the row whose name key is one of the body's is
+    confirmed to it; one body party under another name is near. A text reader's row is turned near by the model tier after.
+    The view not yet published (the courts lane publishes it at its load) makes no link. Returns the counts."""
+    if conn.execute("SELECT to_regclass(%s)", (COURT_NUMBERS_VIEW,)).fetchone()[0] is None:
+        return {"view": "not published"}
+    number_target(conn, s)
+    printed = conn.execute(f"""SELECT count(*), count(*) FILTER (WHERE t.bodies = 1), count(DISTINCT p.document) FILTER (WHERE t.bodies = 1)
+                               FROM (SELECT DISTINCT document, kind, btrim(value) AS value FROM {COURT_NUMBERS_VIEW}) p
+                               LEFT JOIN number_target t ON t.kind = p.kind AND t.value = p.value""").fetchone()
+    cands = conn.execute(f"""
+        WITH printed AS (SELECT document, kind, btrim(value) AS value, min(page) AS page FROM {COURT_NUMBERS_VIEW} GROUP BY 1, 2, 3),
+             named AS (SELECT p.document, p.kind, p.value, p.page, t.body, t.name FROM printed p
+                       JOIN number_target t ON t.kind = p.kind AND t.value = p.value AND t.bodies = 1)
+        SELECT n.document, n.kind, n.value, n.page, n.body, n.name, r.ref, r.view, r.name_key, r.name_filed,
+               EXISTS (SELECT 1 FROM {s}.bodies b WHERE b.body = n.body AND b.org_key = r.name_key)
+        FROM named n JOIN {s}.rows r ON r.document = n.document AND r.view = ANY(%s) AND r.kind = 'organisation'""",
+                         (list(rules.JUDGMENT_NUMBER_VIEWS),)).fetchall()
+    keys = ("document", "kind", "value", "page", "body", "company", "ref", "view", "name_key", "name_filed", "name_matches")
+    counts, judged = rules.judgment_numbers([dict(zip(keys, c)) for c in cands])
+    _insert_judged(conn, s, [(ref, body, j) for ref, body, j in judged if ref != body])
+    conn.commit()
+    return {"printed": int(printed[0]), "naming_one_body": int(printed[1]), "documents": int(printed[2]),
+            "documents_with_a_body_party": len({c[0] for c in cands}), "by_outcome": counts,
+            "confirmed": sum(1 for *_, j in judged if j["grade"] == "confirmed"), "near": sum(1 for *_, j in judged if j["grade"] == "near")}
 
 
 MODEL_TIER = "a name a text reader's model read: near, never confirmed (its own tier, 1 November 2026)"
@@ -904,6 +1065,95 @@ def build_entities(conn, s: str, log=print) -> dict:
     return out
 
 
+RULE_CASE = "case-documents@1"     # ruling 4: a court case's documents gathered by citation, case number and the case page
+#: a key shared by more documents than this joins none of them (a key so common is no case's; measured max 25, 3 November 2026)
+CASE_KEY_CAP = 60
+
+
+def case_number_key(n: str) -> str:
+    """A case number as the courts print it, read for equality: capitals, spaces out ("SC 12/2020" = "SC12/2020"), and a
+    hyphenated number's last part without leading zeros ("CIV-2019-404-001234" = "CIV-2019-404-1234")."""
+    t = "".join((n or "").upper().split())
+    head, dash, last = t.rpartition("-")
+    if dash and last.isdigit():
+        t = f"{head}-{int(last)}"
+    return t
+
+
+def case_keys(citations, numbers, slugs) -> set:
+    """The keys a document is gathered by (ruling 4): its citations, its case numbers (`case_number_key`) and its case
+    page slugs."""
+    return ({("citation", c.strip()) for c in citations or () if c and c.strip()}
+            | {("case_number", case_number_key(n)) for n in numbers or () if case_number_key(n)}
+            | {("case_slug", sl) for sl in slugs or () if sl})
+
+
+def case_groups(doc_keys: dict, cap: int = CASE_KEY_CAP) -> dict:
+    """Ruling 4: document → case id (its component's smallest document, bytes) over the keys the documents share
+    (`doc_keys`: document → `case_keys`), each key shared by `cap` documents or fewer. A document sharing nothing is a
+    case of its own."""
+    holders: dict = {}
+    for doc, ks in doc_keys.items():
+        for k in ks:
+            holders.setdefault(k, set()).add(doc)
+    parent: dict = {d: d for d in doc_keys}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    for members in holders.values():
+        if len(members) < 2 or len(members) > cap:
+            continue
+        ms = sorted(members)
+        for m in ms[1:]:
+            a, b = find(ms[0]), find(m)
+            if a != b:
+                parent[max(a, b)] = min(a, b)
+    return {d: find(d) for d in parent}
+
+
+def build_cases(conn, s: str, log=print) -> dict:
+    """Rebuild `<schema>.cases` whole (ruling 4): every document of pub.court_documents gathered into its case by
+    `case_groups`; a case of one document is no row. Reads the published court views only; touches no link, group or
+    entity. Returns the counts."""
+    t0 = time.monotonic()
+    if conn.execute("SELECT to_regclass('pub.court_documents')").fetchone()[0] is None:
+        return {"view": "not published"}
+    recs = conn.execute("""SELECT document, kind, citation, case_numbers, case_slug FROM pub.court_documents
+                           WHERE document IS NOT NULL""").fetchall()
+    by_doc: dict = {}
+    for doc, kind, citation, numbers, slug in recs:
+        d = by_doc.setdefault(doc, {"kinds": set(), "citations": set(), "numbers": set(), "slugs": set()})
+        d["kinds"].add(kind)
+        if citation and citation.strip():
+            d["citations"].add(citation.strip())
+        d["numbers"] |= {case_number_key(n) for n in (numbers or ()) if case_number_key(n)}
+        if slug:
+            d["slugs"].add(slug)
+    case = case_groups({doc: case_keys(d["citations"], d["numbers"], d["slugs"]) for doc, d in by_doc.items()})
+    size: dict = {}
+    for c in case.values():
+        size[c] = size.get(c, 0) + 1
+    conn.execute(f"DELETE FROM {s}.cases")
+    with conn.cursor() as w:
+        with w.copy(f"COPY {s}.cases (case_id, document, kinds, citations, case_numbers, case_slugs, documents) FROM STDIN") as copy:
+            for doc in sorted(case):
+                c = case[doc]
+                if size[c] < 2:
+                    continue
+                d = by_doc[doc]
+                copy.write_row((c, doc, sorted(d["kinds"]), sorted(d["citations"]), sorted(d["numbers"]), sorted(d["slugs"]), size[c]))
+    conn.execute(f"ANALYZE {s}.cases")
+    conn.commit()
+    multi = [n for n in size.values() if n > 1]
+    out = {"documents": len(case), "cases_of_two_or_more": len(multi), "documents_in_them": sum(multi),
+           "largest": max(multi) if multi else 0, "seconds": round(time.monotonic() - t0, 1)}
+    log(f"links.build: {RULE_CASE}: {out}")
+    return out
+
+
 def build_watch(conn, s: str, log=print) -> dict:
     """The watch over every confirmed name link: regions apart (the current
     appointments' registered offices sit in different postcode regions), a
@@ -972,6 +1222,7 @@ def build_all(conn, s: str, log=print, reader=None) -> dict:
     out["watch"] = build_watch(conn, s, log)
     out["groups"] = build_groups(conn, s, log)
     out["entities"] = build_entities(conn, s, log)
+    out["cases"] = build_cases(conn, s, log)
     return out
 
 

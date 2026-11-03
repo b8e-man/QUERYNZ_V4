@@ -27,7 +27,10 @@ account.
      a published view or a reading table with a column named for a kind of
      detail fails, so does a `pub.` view that reads any `_private` table, a
      publish.sql that names the private schema or the table, and a detail
-     whose document is not a document of the reading.
+     whose document is not a document of the reading. One view is ruled
+     (ruling 1, 3 November 2026): `pub.court_company_numbers`, a company's
+     NZBN or company number by document, kind, value and page, for the
+     links lane, held to its exact text and its four columns.
   5. The profile check (ruling 130): every document read by the text reader,
      or waiting on it, has its piece count by its profile's reading rule; a
      document under a whole rule is within its budget; a document the rule
@@ -186,10 +189,38 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
     return out
 
 
+#: ruling 1 (Arthur, 3 November 2026): the one view that reads the private table, for the links lane, by its exact text:
+#: the document, kind, value and page of a company's NZBN or company number, nothing else
+NUMBERS_VIEW = "court_company_numbers"
+NUMBERS_KINDS = ("nzbn", "company_number")
+NUMBERS_COLUMNS = ("document", "kind", "value", "page")
+NUMBERS_VIEW_SQL = (f"CREATE OR REPLACE VIEW pub.{NUMBERS_VIEW} AS\n"
+                    f"SELECT {', '.join(NUMBERS_COLUMNS)} FROM {L.PRIVATE}.identifiers WHERE kind IN "
+                    f"({', '.join(repr(k) for k in NUMBERS_KINDS)});")
+
+
 def publish_sql_names_private(text: str) -> bool:
-    """publish.sql, its comments apart, names the private schema or the identifiers table."""
-    body = "\n".join(ln.split("--", 1)[0] for ln in text.splitlines())
+    """publish.sql, its comments apart and the ruled numbers view (`NUMBERS_VIEW_SQL`, byte for byte) apart, names the
+    private schema or the identifiers table."""
+    body = "\n".join(ln.split("--", 1)[0].rstrip() for ln in text.splitlines())
+    body = body.replace(NUMBERS_VIEW_SQL, "", 1)
     return bool(re.search(r"_private|\bidentifiers\b|withheld_names", body))
+
+
+def numbers_view_problems(conn) -> list:
+    """The ruled numbers view as the database holds it: its columns exactly `NUMBERS_COLUMNS`, the private table its only
+    source, and no row of a kind but `NUMBERS_KINDS`. Absent (not yet published) is no problem."""
+    cols = [r[0] for r in conn.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = 'pub' AND "
+                                       "table_name = %s ORDER BY ordinal_position", (NUMBERS_VIEW,)).fetchall()]
+    if not cols:
+        return []
+    out = []
+    if tuple(cols) != NUMBERS_COLUMNS:
+        out.append(f"pub.{NUMBERS_VIEW} carries {cols}, not {list(NUMBERS_COLUMNS)}")
+    other = conn.execute(f"SELECT count(*) FROM pub.{NUMBERS_VIEW} WHERE kind <> ALL(%s)", (list(NUMBERS_KINDS),)).fetchone()[0]
+    if other:
+        out.append(f"pub.{NUMBERS_VIEW} has {other} rows of a kind outside {list(NUMBERS_KINDS)}")
+    return out
 
 
 def _identifiers(conn, schema: str, shared: bool, failures: list) -> dict:
@@ -203,7 +234,9 @@ def _identifiers(conn, schema: str, shared: bool, failures: list) -> dict:
             failures.append(f"{s}.{tname} has a column {col!r}: an identifying detail in a published or reading table")
     for view, src in conn.execute("SELECT DISTINCT view_name, table_schema FROM information_schema.view_table_usage WHERE "
                                   "view_schema = 'pub' AND view_name LIKE 'court%%' AND right(table_schema, 8) = '_private'").fetchall():
-        failures.append(f"pub.{view} reads the private schema {src}")
+        if view != NUMBERS_VIEW:
+            failures.append(f"pub.{view} reads the private schema {src}")
+    failures.extend(numbers_view_problems(conn))
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "publish.sql"), encoding="utf-8") as f:
         if publish_sql_names_private(f.read()):
             failures.append("publish.sql names the private schema or one of its tables")

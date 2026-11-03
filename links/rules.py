@@ -209,6 +209,9 @@ NEAR_BODY_UNDATED_SEVERAL = BODY_TAILS["undated_several"].format(**WHEN_DONATION
 RULE_SOLE_BODY_DATED = "organisation-sole-company@3"      # one body of the name across the four registers, live on the row's own date
 RULE_ONE_LIVE_BODY_DATED = "organisation-one-live-company@3"   # several bodies of the name, exactly one live on the row's own date
 NEAR_BODY_UNDATED_ROW = "undated: the row carries no date of its own, so whether a body of the name was live on it is not judged"
+#: 3 November 2026: a name never outweighs a number (links.build.number_over_name)
+NEAR_NUMBER_ELSEWHERE = ("the row prints the official number of another body, which `official-number@1` confirms; a name match "
+                         "never outweighs a number")
 #: what a row's date is, by view, for the evidence (ruling 125's words); a view not named here is "the row's date"
 VIEW_DATE = {"party_return_donors": "the return's year", "candidate_return_donors": "the return's year",
              "disclosures": "the day the donation was given, else received", "disclosure_items": "the contribution's first date",
@@ -218,7 +221,14 @@ VIEW_DATE = {"party_return_donors": "the return's year", "candidate_return_donor
              "gazette_prohibitions": "the prohibition's start", "gazette_appointments": "the appointment's start",
              "gazette_liquidators": "the notice's date", "gazette_bankruptcies": "the event's date", "gazette_celebrants": "the period's start",
              "gazette_practitioners": "the notice's date", "local_election_returns": "the election year",
-             "building_practitioner_decisions": "the decision's date", "party_board_roles": "the capture"}
+             "building_practitioner_decisions": "the decision's date", "party_board_roles": "the capture",
+             "gazette_liquidations": "the notice's date", "insolvency_companies": "the liquidation's date",
+             "company_insolvencies": "the insolvency's start, or the appointment", "retirement_villages": "the supervisor's appointment",
+             "grant_recipients": "the first and last periods granted", "company_lookup_roles": "the appointment",
+             "company_lookup_holdings": "the holding's start", "insolvency_people": "the adjudication",
+             "rea_parties": "the decision's date", "building_practitioners": "the licence's first grant",
+             "council_meeting_attendance": "the meeting's date", "council_meeting_declarations": "the meeting's date",
+             "minister_diary_attendees": "the diary entry's date"}
 
 
 def same_full_name(a: dict, b: dict) -> bool:
@@ -723,3 +733,78 @@ def member_on_the_day(row: dict, members: list, held_from) -> tuple:
         else:
             out.append((m["ref"], {"rule": RULE_MEMBER_DAY, "grade": "near", "reason": NEAR_DAY_TWO if on else NEAR_DAY_NONE, "evidence": ev}))
     return (DAY_ONE if len(on) == 1 else DAY_TWO if on else DAY_NONE), out
+
+
+# Ruling 1 (Arthur, 3 November 2026): a court party confirmed to the company whose NZBN or company number its judgment
+# prints, `official-number@1`'s kind of join. The number alone names the document, not a party: it is tied to a party by the
+# party's name, the body-named row of the document whose name key is a name key of the body the number names.
+RULE_JUDGMENT_NUMBER = "judgment-number@1"
+JUDGMENT_NUMBER_VIEWS = ("court_judgment_parties", "court_people")
+NEAR_JN_OTHER_NAME = ("the document prints this body's number and names one body as a party, under a name the body's registers "
+                      "do not carry (a trading or former name, or another body)")
+NEAR_JN_TWO_BODIES = "two numbers the document prints name two bodies that carry this party's name, so the number does not say which"
+#: what a document's printed number came to, for the counts
+JN_CONFIRMED, JN_OTHER_NAME, JN_TWO, JN_UNTIED = ("a party of the body's name", "one body party, under another name",
+                                                  "two bodies of the party's name", "no party tied to the number")
+
+
+def _jn_evidence(c: dict, doc: str, bodies: int, matches: bool) -> dict:
+    return {"number": "NZBN" if c["kind"] == "nzbn" else "company number", "value": c["value"], "document": doc, "page": c.get("page"),
+            "company": c["company"], "as_filed": c["name_filed"], "row_view": c["view"], "name_matches": matches,
+            "bodies_named_in_document": bodies}
+
+
+def judgment_numbers(candidates: list) -> tuple:
+    """`judgment-number@1`. `candidates`: one dict per (printed number, body-named row of the same document) where the number
+    names exactly one body: document, kind ('nzbn' or 'company_number'), value, page, body, company (the body's name), ref,
+    view, name_key, name_filed, name_matches (the row's name key is one of the body's). Per document:
+      a row whose name matches exactly one body the document's numbers name: confirmed to that body;
+      a row whose name matches two or more of them: near to each (NEAR_JN_TWO_BODIES);
+      no row matching any, the numbers naming one body, and the document's judgment parties naming one body (one name key):
+      near between each such row and the body (NEAR_JN_OTHER_NAME);
+      anything else ties the number to no party and makes no link.
+    Returns ({outcome: printed numbers}, [(ref, body, {rule, grade, reason, evidence})]); each printed number is counted
+    once, by the best it came to (JN_CONFIRMED, JN_TWO, JN_OTHER_NAME, JN_UNTIED)."""
+    by_doc: dict = {}
+    for c in candidates:
+        by_doc.setdefault(c["document"], []).append(c)
+    counts, out = {}, []
+    for doc in sorted(by_doc):
+        cs = by_doc[doc]
+        bodies = {c["body"] for c in cs}
+        came: dict = {}                      # (kind, value) -> outcome
+        for ref in sorted({c["ref"] for c in cs}):
+            hits = sorted((c for c in cs if c["ref"] == ref and c["name_matches"]), key=lambda x: (x["kind"], x["value"]))
+            matched = sorted({c["body"] for c in hits})
+            for b in matched:
+                c = next(x for x in hits if x["body"] == b)
+                one = len(matched) == 1
+                out.append((ref, b, {"rule": RULE_JUDGMENT_NUMBER, "grade": "confirmed" if one else "near",
+                                     "reason": None if one else NEAR_JN_TWO_BODIES, "evidence": _jn_evidence(c, doc, len(bodies), True)}))
+                for x in hits:
+                    if x["body"] == b:
+                        k = (x["kind"], x["value"])
+                        came[k] = JN_CONFIRMED if one or came.get(k) == JN_CONFIRMED else JN_TWO
+        if not came and len(bodies) == 1:
+            parties = sorted((c for c in cs if c["view"] == "court_judgment_parties"), key=lambda x: (x["ref"], x["kind"], x["value"]))
+            if len({c["name_key"] for c in parties}) == 1:
+                seen = set()
+                for c in parties:
+                    if c["ref"] in seen:
+                        continue
+                    seen.add(c["ref"])
+                    out.append((c["ref"], c["body"], {"rule": RULE_JUDGMENT_NUMBER, "grade": "near", "reason": NEAR_JN_OTHER_NAME,
+                                                      "evidence": _jn_evidence(c, doc, 1, False)}))
+                for c in cs:
+                    came[(c["kind"], c["value"])] = JN_OTHER_NAME
+        for k in {(c["kind"], c["value"]) for c in cs}:
+            o = came.get(k, JN_UNTIED)
+            counts[o] = counts.get(o, 0) + 1
+    return counts, out
+
+
+# 3 November 2026 (Arthur: "rea_parties (agents, by licence number where a register carries it)"): the Real Estate
+# Authority's licence number, which its decisions print beside a licensee, names one licensee
+RULE_LICENCE = "licence-number@1"
+NEAR_LICENCE_KINDS = "one licence number printed beside a person on one decision and an agency on another; the number is not one licensee's here"
+NEAR_LICENCE_NAMES = ("one licence number printed beside two names that do not agree (first and last name, or the agency's name); a number read from a decision's text is not trusted over the names")

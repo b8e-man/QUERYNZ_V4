@@ -123,6 +123,21 @@ CREATE TABLE IF NOT EXISTS links.rows_catch (
     gathered_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- The official numbers a row prints (3 November 2026, Arthur: "the views the links never read, yes ... exact number
+-- joins come first"): an NZBN, a company number or a charity number, as its view publishes it, keyed by the row's ref.
+-- `official-number@1` joins a row to the one body on `bodies` that holds the number. Refilled with the rows, register
+-- by register (rule 10). Regenerable.
+CREATE TABLE IF NOT EXISTS links.row_numbers (
+    ref          text NOT NULL,            -- the row of links.rows that prints it
+    register     text NOT NULL,
+    view         text NOT NULL,
+    kind         text NOT NULL CHECK (kind IN ('nzbn', 'company_number', 'charity_number')),
+    value        text NOT NULL,
+    PRIMARY KEY (ref, kind, value)
+);
+CREATE INDEX IF NOT EXISTS row_numbers_value ON links.row_numbers (kind, value);
+CREATE INDEX IF NOT EXISTS row_numbers_register ON links.row_numbers (register);
+
 -- A company's registered office under the one reading of addresses (keys.addresses).
 -- No person's address: the address arm reads the office of the company a role sits on.
 CREATE TABLE IF NOT EXISTS links.entity_addresses (
@@ -284,3 +299,22 @@ CREATE TABLE IF NOT EXISTS links.entities (
     built_at     timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE links.entities SET (vacuum_truncate = off);   -- rebuilt whole, as links.links is (the deadlock of 20 October 2026)
+
+-- Ruling 4 (Arthur, 3 November 2026): a case's documents gathered into one case by citation and case number (judgments,
+-- case pages, media releases, transcripts, submissions): one row per (case, document). A case is not a person entity:
+-- it is its own table, the groups and entities never read it, and it merges no person or company. `case_id` is the
+-- case's smallest document hash (bytes); `citations`, `case_numbers` and `case_slugs` are what the document carries
+-- (a case number as the courts print it, spaces out and capitals, a last part's leading zeros off); `documents` is the
+-- case's count. Rebuilt whole at each build (`links.build.build_cases`); edited by nobody. Regenerable.
+CREATE TABLE IF NOT EXISTS links.cases (
+    case_id      text NOT NULL,
+    document     text NOT NULL,            -- the document's sha256 (pub.court_documents.document)
+    kinds        text[] NOT NULL,          -- the records' kinds of this document (judgment_pdf, case_page, media_release, ...)
+    citations    text[] NOT NULL,
+    case_numbers text[] NOT NULL,
+    case_slugs   text[] NOT NULL,
+    documents    integer NOT NULL,
+    built_at     timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (document)
+);
+CREATE INDEX IF NOT EXISTS cases_case ON links.cases (case_id);

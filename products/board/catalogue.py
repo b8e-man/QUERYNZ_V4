@@ -1751,6 +1751,9 @@ REFERENCE_REGISTERS = {
 LINKS_VIEWS = {"links": "pub.links", "groups": "pub.groups", "decisions": "pub.decisions"}
 #: every view the links module publishes: read through LINKS_VIEWS and the search table, never catalogued as a register view
 LINKS_PUBLISHED = frozenset({"links", "groups", "decisions", "names", "old_decisions", "entities"})   # entities: ruling 123 (links-4); the board reads it in the fix that follows
+#: 3 November 2026: views published for the links lane to read and not (yet) panes of the board: the courts lane's
+#: printed company numbers (ruling 1) and the links lane's court cases (ruling 4)
+LINKS_PUBLISHED = LINKS_PUBLISHED | {"court_company_numbers", "court_case_documents"}
 
 
 #: ruling 92 (2): shown columns holding another view's key that no parent tuple or Relation names, as data:

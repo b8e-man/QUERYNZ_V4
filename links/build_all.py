@@ -29,6 +29,7 @@ def run(conn, reader, s: str, log=print, oldconn=None) -> dict:
     out["watch"] = build.build_watch(conn, s, log)
     out["groups"] = build.build_groups(conn, s, log)
     out["entities"] = build.build_entities(conn, s, log)
+    out["cases"] = build.build_cases(conn, s, log)     # ruling 4: a court case's documents, never an entity
     out["pairs"] = pairs.draw(conn, s, log=log)
     out["measurements"] = {k: v.get("seconds") for k, v in measure.run(conn, s, log).items()}
     return out

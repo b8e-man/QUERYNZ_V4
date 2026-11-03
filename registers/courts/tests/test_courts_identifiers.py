@@ -68,6 +68,37 @@ def test_publish_sql_never_names_the_private_table_and_the_check_sees_it_if_it_d
     assert not check.publish_sql_names_private(text)
     assert check.publish_sql_names_private(text + "\nCREATE VIEW pub.court_x AS SELECT * FROM courts_private.identifiers;")
     assert check.publish_sql_names_private("CREATE VIEW pub.court_x AS SELECT i.kind FROM courts.people p JOIN identifiers i ON true;")
-    # no published view's column is named for a kind of detail
-    cols = re.findall(r"\b([a-z_]+)\b", "\n".join(ln.split("--", 1)[0] for ln in text.splitlines()))
+    # no published view's column is named for a kind of detail (the ruled numbers view's kinds are values, not columns)
+    body = "\n".join(ln.split("--", 1)[0].rstrip() for ln in text.splitlines()).replace(check.NUMBERS_VIEW_SQL, "")
+    cols = re.findall(r"\b([a-z_]+)\b", body)
     assert not set(cols) & check.FORBIDDEN_COLUMNS - {"age"}, sorted(set(cols) & check.FORBIDDEN_COLUMNS)
+
+
+def test_the_one_ruled_view_reads_the_private_table_narrowly_and_a_widened_one_is_caught():
+    """Ruling 1 (Arthur, 3 November 2026): a company's NZBN or company number, by document, kind, value and page, for
+    the links lane; the statement is held to its exact text, so another column, another kind or another table fails."""
+    text = open(os.path.join(LANE, "publish.sql"), encoding="utf-8").read()
+    assert check.NUMBERS_VIEW_SQL in text
+    assert "SELECT document, kind, value, page FROM courts_private.identifiers WHERE kind IN ('nzbn', 'company_number');" \
+        in check.NUMBERS_VIEW_SQL
+    for widened in (check.NUMBERS_VIEW_SQL.replace("page FROM", "page, person FROM"),
+                    check.NUMBERS_VIEW_SQL.replace("'company_number')", "'company_number', 'email')"),
+                    check.NUMBERS_VIEW_SQL.replace("WHERE kind IN ('nzbn', 'company_number')", "WHERE true")):
+        assert check.publish_sql_names_private(text.replace(check.NUMBERS_VIEW_SQL, widened)), widened
+    assert check.publish_sql_names_private(text + "\n" + check.NUMBERS_VIEW_SQL.replace("court_company_numbers", "court_more"))
+
+
+class _Conn:
+    def __init__(self, cols, other=0):
+        self.cols, self.other = cols, other
+
+    def execute(self, q, *a):
+        rows = [(c,) for c in self.cols] if "information_schema.columns" in q else [(self.other,)]
+        return type("R", (), {"fetchall": lambda _: rows, "fetchone": lambda _: rows[0]})()
+
+
+def test_the_live_numbers_view_is_checked_for_its_columns_and_its_kinds():
+    assert check.numbers_view_problems(_Conn([])) == []                       # not yet published
+    assert check.numbers_view_problems(_Conn(list(check.NUMBERS_COLUMNS))) == []
+    assert check.numbers_view_problems(_Conn(list(check.NUMBERS_COLUMNS) + ["person"]))
+    assert check.numbers_view_problems(_Conn(list(check.NUMBERS_COLUMNS), other=3))

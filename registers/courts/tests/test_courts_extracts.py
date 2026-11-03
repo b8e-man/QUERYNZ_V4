@@ -33,17 +33,31 @@ def test_every_courts_profile_lists_what_it_extracts_and_keeps_its_reading_versi
             assert prof["iteration"] == 1 and set(items) == {"page_text"}
             continue
         ids = items["identifiers"]
-        assert (ids["iteration"], ids["by"], ids["private"]) == (2, "pattern", True)
+        # iteration 3 (ruling 1, 3 November 2026): the pattern pass as at 2, its NZBN and company number naming judgment-number@1
+        assert (ids["iteration"], ids["by"], ids["private"]) == (3, "pattern", True)
+        assert {ln["key"]: ln["rule"] for ln in ids["links"]}["nzbn"] == "judgment-number@1"
+        assert {ln["key"]: ln["rule"] for ln in ids["links"]}["company_number"] == "judgment-number@1"
+        two = [it for it in prof["extract"] if it["field"] == "identifiers" and it["iteration"] == 2][0]
+        assert {k: v for k, v in two.items() if k not in ("iteration", "links")} == {k: v for k, v in ids.items() if k not in ("iteration", "links")}
         assert ids["kinds"] == list(identifiers.SHAPE_KINDS)
         assert all(c.startswith(L.PRIVATE + ".identifiers.") for c in ids["lands"])
         # iteration 3 (3 November 2026, the judgments only): the MCP's date and citation where the document gives none
         mcp = set(MCP_FIELDS) if slug in R.JUDGMENT_SLUGS else set()
-        assert prof["iteration"] == (3 if mcp else 2), slug
-        assert {f for f, it in items.items() if it["iteration"] == 3} == mcp, slug
-        assert all(it["iteration"] == 1 and not it["private"] for f, it in items.items() if f not in mcp | {"identifiers"}), slug
+        # the next iteration of the citation and the case numbers (ruling 4, 3 November 2026): case-documents@1
+        case = {f for f, key in (("citation", "citation"), ("case_numbers", "case_number"))
+                if f in items and any(ln["key"] == key for ln in items[f]["links"])}
+        for f in case:
+            key = "citation" if f == "citation" else "case_number"
+            base = 3 if f in mcp else 1
+            assert items[f]["iteration"] == base + 1, (slug, f)
+            assert {ln["key"]: ln["rule"] for ln in items[f]["links"]}[key] == "case-documents@1", (slug, f)
+        assert prof["iteration"] == max(it["iteration"] for it in items.values()), slug
+        assert {f for f, it in items.items() if it["iteration"] == 3} == (mcp - case) | {"identifiers"}, slug
+        assert all(it["iteration"] == 1 and not it["private"] for f, it in items.items() if f not in mcp | case | {"identifiers"}), slug
         assert all(items[f]["by"] == "rules" and not items[f]["private"] for f in mcp)
-        # the text reader's identifiers (now iteration 4) wait on Arthur's go after the cost measurement
-        assert not any(it["iteration"] >= 4 for it in prof["extract"]), slug
+        # the text reader's identifiers (the next iteration, 4) wait on Arthur's go after the cost measurement
+        assert not any(it["field"] == "identifiers" and it["iteration"] >= 4 for it in prof["extract"]), slug
+        assert not any(it["iteration"] >= 5 for it in prof["extract"]), slug
 
 
 def test_the_lane_and_its_profiles_are_aligned():
@@ -121,7 +135,7 @@ def test_a_document_records_the_fields_it_had_at_their_iterations():
     assert len(rows) == len(got)
     a_fields = {f for s, p, f, n, m in got if s == "a"}
     assert a_fields == set(caption.FIELDS) | set(model_read.FIELDS) | {"identifiers"}
-    assert ("a", "courts-nzsc-judgment", "identifiers", 2, None) in got and ("a", "courts-nzsc-judgment", "people", 1, "served-model") in got
+    assert ("a", "courts-nzsc-judgment", "identifiers", 3, None) in got and ("a", "courts-nzsc-judgment", "people", 1, "served-model") in got
     b_fields = {(p, f) for s, p, f, n, m in got if s == "b"}
     assert b_fields == {("courts-media-release", f) for f in R.sheet_fields()} | {("courts-media-release", "identifiers"),
                                                                                    (R.SCANNED, "page_text")}
