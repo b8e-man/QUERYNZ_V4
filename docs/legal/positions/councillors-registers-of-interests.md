@@ -38,12 +38,11 @@ in the lane folder; the integrator moves it. Surveyed 22 October 2026 by council
    other 44 bar nothing the lane does; for the remaining councils no terms page was found from the home page.
 4. **What does privacy law limit?** The Privacy Act 2020, and hard limit 15. A summary names each member (a public
    office-holder) and their interests; it also prints the location of real property (for some, where the member
-   lives), a spouse's or partner's interests (a private person), and sometimes a contact. A real-property category is
-   never read or put in a table (queue `may-the-interests-register-s-real-property-declarations-be-shown`: no). A
-   spouse's or partner's category is never read (queue `may-a-councillor-s-spouse-s-or-partner-s-declared-interests-
-   be-shown`, default no). A home address, phone or email is never kept or printed; an entry shaped like one is
-   dropped. PDF registers are held whole and never read (ruling 79); the survey's search flagged Waipā's and Wairoa's
-   as printing property where members live, so any later reader must withhold as the HTML reader does.
+   lives), a spouse's or partner's interests (a private person), and sometimes a contact. From 4 November 2026 (rulings
+   142 and 143) every category is read and kept whole: a real-property category flagged `real_property`, a spouse's or
+   partner's interests flagged `of_partner`. An entry shaped like a street address, a road, a title, an email or a
+   phone number is kept in `councillor_interests_private.entries`, which the session and product logins are not
+   granted; the published row counts it in `private_entries`. Privacy is applied at a product's export.
 
 Crawl delay: honoured as each site states it (Christchurch 10 s, Hamilton and Tauranga 5 s, Otorohanga 30 s, the
 Datascape councils 7 to 20 s). Floor: 5 s, one request at a time, off-peak (22:00 to 06:00 NZ); each landing page

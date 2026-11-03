@@ -1,8 +1,9 @@
 """The register PDF's text reader (profile interests-register-pdf-text v1), on invented text and a fake server: the
 profile recognises a register by its markers and turns away an appointments list, a scan and a non-PDF (pinned both
-ways); whole pages are packed into pieces under the budget; nothing the lane never reads (real property, a home, an
-address, a road, a contact, a spouse's or partner's interests) reaches a row or the stored reading, whatever the model
-answers; the reading is stored once per piece and replayed; a missing piece makes the document wait. Every name,
+ways); whole pages are packed into pieces under the budget; every category the model answers is a row with its
+flags, real property and a spouse's or partner's interests included, and an address, a road or a contact is kept in
+the row's private list only (ruling 142); the reading is stored whole once per piece and replayed; a document with
+no prompt-2 reading replays its prompt-1 reading; a missing piece makes the document wait. Every name,
 company and place is invented. No model, no database."""
 import json
 import tempfile
@@ -17,8 +18,11 @@ URL = "http://127.0.0.1:8060/v1/chat/completions"
 REGISTER = {1: "INVENTED DISTRICT COUNCIL\nRegister of Members' Pecuniary Interests\nAs at 1 February 2026\n" + "x" * 200,
             2: "Mayor Tama Invented\nEmployment, trade or profession   Invented Farms\n" + "y" * 200}
 APPOINTMENTS = {1: "Appointments made by Council to external organisations\nCr Example: Invented Trust Board\n" + "z" * 200}
-SECRETS = ("14 Pretend Street", "State Highway 99, Imaginary", "RD 7 Nowhere", "Lot 9 DP 123456", "hemi@invented.example",
-           "021 555 0199", "Valley View Road", "Aroha Madeup", "Spouse Employer Ltd", "Family home, Imaginary Valley")
+#: shaped like an address, a road, a title or a contact: kept in the private list, never in `entries`
+PRIVATE = ("14 Pretend Street", "State Highway 99, Imaginary", "RD 7 Nowhere", "Lot 9 DP 123456", "hemi@invented.example",
+           "021 555 0199", "Valley View Road")
+#: the old reader dropped these too; now they are in `entries`
+KEPT = ("Aroha Madeup", "Spouse Employer Ltd", "Family home, Imaginary Valley")
 ANSWER = json.dumps({"as_at": "1 February 2026", "members": [
     {"member": "Tama Invented", "role": "Mayor", "interests": [
         {"category": "Company directorships and controlling interests", "kind": "company",
@@ -58,8 +62,8 @@ def pdf(monkeypatch):
 
 def test_the_profile_is_proposed_with_its_reading_rule():
     from support import profiles
-    p = profiles.profile(M.PROFILE, path=M.PROPOSED)
-    assert p and p["version"] == M.profile_version() >= 1
+    p = profiles.profile(M.PROFILE)
+    assert p and p["version"] == M.profile_version() >= 2 and p.get("extract")
     assert p["reading"]["budget_chars"] == M.BUDGET_CHARS and p["reading"]["split"] == M.SPLIT == "pages, then lines"
     assert p["tooling"]["read"] == "registers/councillor_interests/model_read.py"
 
@@ -85,20 +89,25 @@ def test_whole_pages_are_packed_under_the_budget():
     assert all(len(t) <= 260 + 40 for _f, _l, t in parts) and "[page 4]" in parts[1][2]
 
 
-def test_nothing_the_lane_never_reads_reaches_a_row():
+def test_every_category_is_a_row_with_its_flags():
     parsed = M.parse_answer(ANSWER)
     assert [m["member"] for m in parsed["members"]] == ["Tama Invented", "Mere Madeup"]
-    rows, withheld = M.kept(parsed["members"])
-    assert [(r["member"], r["category"], r["kind"], r["entries"]) for r in rows] == [
-        ("Tama Invented", "Company directorships and controlling interests", "company", ["Invented Holdings Limited, Director"]),
-        ("Mere Madeup", "Trusts", "trust", ["Madeup Family Trust"]),
-        ("Mere Madeup", "Organisations", "organisation", ["Rotary Club of Nowhere"]),
-        ("Mere Madeup", "Employment", "other", [])]
-    blob = repr(rows)
-    assert not [s for s in SECRETS if s in blob]
-    whys = {w for (_c, w) in withheld}
+    rows, flagged = M.kept(parsed["members"])
+    assert [(r["category"], r["real_property"], r["of_partner"], r["private_entries"]) for r in rows] == [
+        ("Company directorships and controlling interests", False, False, 1),
+        ("Has a beneficial interest", True, False, 1),
+        ("Interest in land", True, False, 1),
+        ("Spouse or partner interests", False, True, 0),
+        ("Trusts", False, False, 2),
+        ("Organisations", False, True, 1),
+        ("Employment", False, False, 0)]
+    public = repr([r["entries"] for r in rows])
+    private = [e for r in rows for _i, e in r["private"]]
+    assert not [s for s in PRIVATE if s in public], "an address-shaped entry is in the private list only"
+    assert all(any(s in e for e in private) for s in PRIVATE)
+    assert all(s in public for s in KEPT), "real property and a spouse's interests are kept"
+    whys = {w for (_c, w) in flagged}
     assert any(w.startswith("real property") for w in whys) and any(w.startswith("a spouse") for w in whys)
-    assert sum(withheld.values()) == 8
 
 
 def test_read_once_per_piece_stored_clean_replayed_and_waiting(pdf):
@@ -108,11 +117,11 @@ def test_read_once_per_piece_stored_clean_replayed_and_waiting(pdf):
     assert got["state"] == "read" and got["pieces"] == 1 and got["read"] == 1 and len(calls) == 1
     assert calls[0]["model"] == "qwen4exp" and calls[0]["temperature"] == 0.0 and "Mayor Tama Invented" in calls[0]["messages"][1]["content"]
     stored = store.get(M.key_for(SHA, 1, 1, "qwen4exp"))
-    assert not [s for s in SECRETS if s in stored.text], "the stored reading holds nothing the lane never reads"
+    assert all(s in stored.text for s in PRIVATE + KEPT), "the stored reading is the whole answer"
     again = M.read_document(SHA, b"%PDF-1.7", version=1, url=URL, model="qwen4exp", store=store, post=_server([ANSWER], calls))
     assert again["replayed"] == 1 and len(calls) == 1
     out = M.replay(SHA, b"%PDF-1.7", version=1, store=store, model="qwen4exp")
-    assert out["state"] == "read" and out["as_at"] == "1 February 2026" and len(out["rows"]) == 4
+    assert out["state"] == "read" and out["as_at"] == "1 February 2026" and len(out["rows"]) == 7
     assert {r["pages"] for r in out["rows"]} == {"1-2"} and {r["model"] for r in out["rows"]} == {"qwen4exp"}
     assert M.replay("d2" * 32, b"%PDF-1.7", version=1, store=store, model="qwen4exp")["state"] == M.WAIT_TEXT
 
@@ -126,10 +135,22 @@ def test_a_useless_answer_is_asked_again_once_then_set_aside(pdf):
     assert M.replay(SHA, b"%PDF-1.7", version=1, store=store, model="qwen4exp")["state"].startswith("set aside")
 
 
+def test_a_document_not_yet_read_under_prompt_2_replays_its_prompt_1_reading(pdf):
+    store = rd.Store(tempfile.mkdtemp())
+    old = rd.Reading(SHA, 1, M.READER, "qwen4exp", M.settings(M.PROMPT_1), M.PROFILE, 1, "text",
+                     json.dumps({"as_at": None, "members": [{"member": "Tama Invented", "role": "Mayor", "interests": [
+                         {"category": "Employment", "kind": "employment", "entries": ["Invented Farms"]}]}]}),
+                     rows=[], checks={"usable": True})
+    store.put(old)
+    out = M.replay(SHA, b"%PDF-1.7", version=2, store=store, model="qwen4exp")
+    assert out["state"] == "read" and out["version"] == 1 and len(out["rows"]) == 1
+    assert M.PROMPT != M.PROMPT_1 and "Leave out" not in M.PROMPT and "spouse, partner or family, as printed" in M.PROMPT
+
+
 MUTANTS = {
-    "real property kept": ('if c["kind"] in NEVER_KEPT or read.WITHHELD.search(cat):', 'if read.WITHHELD.search(cat):'),
-    "roads kept": ("return read.withheld_entry(e) or bool(ROAD.search(e))", "return read.withheld_entry(e)"),
-    "spouse entries kept": ("elif read.PRIVATE_PERSON.search(e):", "elif False:"),
+    "real property not flagged": ('or row.get("kind") == "real property"', ""),
+    "roads left public": (" or ROAD.search(s))", ")"),
+    "spouse entries not flagged": ('or any(PRIVATE_PERSON.search(e) for e in row["entries"])', ""),
 }
 
 
@@ -137,15 +158,17 @@ MUTANTS = {
 def test_each_mutant_is_caught(name, monkeypatch):
     import inspect
     import types
+    from registers.councillor_interests import read as R
     a, b = MUTANTS[name]
-    src = inspect.getsource(M)
+    target = R if a in inspect.getsource(R) else M
+    src = inspect.getsource(target)
     assert src.count(a) == 1, name
-    mod = types.ModuleType("mutant_model_read")
-    mod.__dict__["__file__"] = M.__file__
-    exec(compile(src.replace(a, b), M.__file__, "exec"), mod.__dict__)
+    mod = types.ModuleType("mutant")
+    mod.__dict__["__file__"] = target.__file__
+    exec(compile(src.replace(a, b), target.__file__, "exec"), mod.__dict__)
+    monkeypatch.setattr(M, "read", mod) if target is R else monkeypatch.setattr(M, "private_entry", mod.private_entry)
     with pytest.raises(AssertionError):
-        rows, _w = mod.kept(mod.parse_answer(ANSWER)["members"])
-        assert not [s for s in SECRETS if s in repr(rows)]
+        test_every_category_is_a_row_with_its_flags()
 
 
 def test_the_page_profile_reads_a_printed_register_and_not_a_landing_page():

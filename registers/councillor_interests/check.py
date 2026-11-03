@@ -7,10 +7,12 @@ on any of:
   1. the registers table does not hold every one of the 78 councils
   2. a council whose register is a structured page has no member read, or
      a page read gives a member with no category
-  3. a published row carries a category that is real property, a home, an
-     address, a contact, or a spouse's or partner's; an entry shaped like a
-     street address, an email or a phone number; or a column named for an
-     address or a contact (reported by key, never by value: hard limit 15)
+  3. a published entry shaped like a street address, a road, an email or a
+     phone number (it belongs in councillor_interests_private.entries); a
+     row whose heading names real property, a home, an address or a contact,
+     or a spouse or partner, without its flag; a column named for an address
+     or a contact; or the session or product login able to see the private
+     twin (reported by count, never by value: hard limit 11)
 
 Reported, not red: councils by form (html register, pdf register,
 per-member files, not reached and why, not found).
@@ -33,8 +35,9 @@ PHONE = r"(\+64|\m0)\d{1,2}[ -]?\d{3}[ -]?\d{3,4}\M"
 #: model_read.ROAD in Postgres's words: a road or highway named, numbered or not; a rural delivery; a lot or a deposited plan
 ROAD = (r"\m(Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Place|Pl|Terrace|Tce|Crescent|Cres|Lane|Highway|Hwy|Parade|Quay|"
         r"Boulevard|Grove|Close|Rise|Esplanade)\M\.?(,|\s*$)|\mState\s+Highway\M|\mRD\s?\d|\mLot\s+\d|\m(DP|SO)\s?\d{3,}")
-CATEGORY = (r"real\s+property|\mland\M|\mproperty\M|\mhomes?\M|address|residen|contact|phone|e-?mail|\mspouse\M|"
-            r"\mpartner\M|\mwife\M|\mhusband\M|\mfamily members?\M")
+#: read.REAL_PROPERTY and read.PRIVATE_PERSON in Postgres's words: a heading that must carry its flag
+REAL_PROPERTY = r"real\s+property|\mland\M|\mproperty\M|\mhomes?\M|address|residen|contact|phone|e-?mail"
+PARTNER = r"\mspouse\M|\mpartner\M|\mwife\M|\mhusband\M|\mfamily members?\M"
 
 
 def reading(conn, schema: str = SCHEMA) -> list:
@@ -46,10 +49,14 @@ def reading(conn, schema: str = SCHEMA) -> list:
     for sql, what, args in (
         (f"SELECT count(*) FROM {T('registers')} WHERE form = 'html register' AND members_read = 0",
          "structured registers with no member read", None),
-        (f"SELECT count(*) FROM {T('interests')} WHERE category ~* %s", "rows whose category is never read", (CATEGORY,)),
+        (f"SELECT count(*) FROM {T('interests')} WHERE category ~* %s AND NOT real_property",
+         "rows whose heading names real property, a home, an address or a contact, not flagged", (REAL_PROPERTY,)),
+        (f"SELECT count(*) FROM {T('interests')} WHERE kind = 'real property' AND NOT real_property",
+         "rows the text reader typed real property, not flagged", None),
+        (f"SELECT count(*) FROM {T('interests')} WHERE category ~* %s AND NOT of_partner",
+         "rows whose heading names a spouse, partner or family member, not flagged", (PARTNER,)),
         (f"SELECT count(*) FROM {T('interests')} i, unnest(i.entries) e WHERE e ~ %s OR e ~ %s OR e ~ %s",
          "entries shaped like an address, an email or a phone number", (STREET, EMAIL, PHONE)),
-        (f"SELECT count(*) FROM {T('interests')} WHERE kind = 'real property'", "rows the text reader typed real property", None),
         (f"SELECT count(*) FROM {T('interests')} i, unnest(i.entries) e WHERE e ~* %s",
          "entries naming a road, a highway, a rural delivery or a title", (ROAD,)),
     ):
@@ -62,6 +69,11 @@ def reading(conn, schema: str = SCHEMA) -> list:
     bad = [f"{t}.{c}" for t, c in cols if any(w in c.lower() for w in CONTACTISH)]
     if bad:
         out.append(f"columns named for an address or a contact: {', '.join(sorted(bad))}")
+    for role in ("qv4_read", "qv4_product"):
+        if conn.execute("SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = %s) AND EXISTS (SELECT 1 FROM pg_namespace "
+                        "WHERE nspname = %s AND has_schema_privilege(%s, oid, 'USAGE'))",
+                        (role, f"{SCHEMA}_private", role)).fetchone()[0]:
+            out.append(f"{role} can see {SCHEMA}_private")
     return out
 
 

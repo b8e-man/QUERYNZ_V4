@@ -16,14 +16,18 @@ with the reader's version, the served model and the prompt's hash, stored
 in the reader store and replayed by every load (ruling 50: the load calls
 no model).
 
-What is never kept, whatever the model answers (hard limit 15; the queue's
-answer on real property): a category the model types `real property`, a
-category whose heading names real property, land, a home, an address or a
-contact (read.WITHHELD), a spouse's or partner's interests
-(read.PRIVATE_PERSON), and an entry shaped like a street address, a road or
-highway, an email or a phone number (`withheld_entry`). They are counted by
-heading only. The prompt asks the model to leave them out as well; the
-filter here does not rely on it.
+Everything the register prints is read and kept (ruling 142; ruling 143:
+real-property declarations kept whole, a spouse's or partner's interests
+read and kept). Each row carries its flags (read.flags): `real_property`
+(typed real property, or a heading naming real property, land, a home, an
+address or a contact), `of_partner` (a spouse's, partner's or family
+member's), and `private_entries`, the count of entries shaped like a street
+address, a road or highway, a rural delivery, a title, an email or a phone
+number (`private_entry`), which are kept in `councillor_interests_private
+.entries` by the row's key and the entry's ordinal. Prompt 2 (4 November
+2026) asks for every entry as printed; a document whose prompt-2 reading is
+not stored yet replays its prompt-1 reading (`PROMPT_1`, which left those
+out) until the text reader reaches it.
 
 Recognition (measured 2 November 2026 on the 370 held PDFs with a text
 layer: 359 name pecuniary interests, an interests register or a
@@ -75,15 +79,13 @@ WAIT_PAGES = "waiting: page reader"
 NOT_A_REGISTER = "not a register: its text names no pecuniary interests, interests register or declaration of interest"
 MARKERS = re.compile(r"pecuniar|pecuinar|register\s+of\s+(elected\s+)?(members[’'`]?\s*)?(pecuniary\s+(and\s+other\s+"
                      r"specified\s+)?)?interests?|interests?\s+register|declarations?\s+of\s+interests?|\b54\s*E\b", re.I)
-#: the statutory kinds a category is typed by (Local Government Act 2002, s 54E), and the two the lane never keeps
+#: the statutory kinds a category is typed by (Local Government Act 2002, s 54E)
 KINDS = ("company", "other business", "employment", "trust", "organisation", "real property", "superannuation",
          "debt", "gift", "travel", "other")
-NEVER_KEPT = ("real property",)
-#: an entry that names a road or a rural delivery, numbered or not ("State Highway 1, Kaiwaka"): a location, never kept
-ROAD = re.compile(r"\b(Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Place|Pl|Terrace|Tce|Crescent|Cres|Lane|Highway|Hwy|"
-                  r"Parade|Quay|Boulevard|Grove|Close|Rise|Esplanade)\b\.?(,|\s*$)|\bState\s+Highway\b|\bRD\s?\d|"
-                  r"\bLot\s+\d|\bSection\s+\d+\b.*\b(Block|DP|SO)\b|\b(DP|SO)\s?\d{3,}", re.I)
-PROMPT = (
+ROAD = read.ROAD
+#: prompt 1 (2 November 2026): left out real property's entries, addresses, contacts and a spouse's or partner's
+#: interests; its stored readings are replayed for a document not yet read under prompt 2
+PROMPT_1 = (
     "You read the text of one New Zealand council's register of its elected members' pecuniary interests (Local "
     "Government Act 2002, Part 4 subpart 3), or one member's return, or one piece of such a register. Answer with ONE "
     "JSON object and nothing else:\n"
@@ -107,6 +109,31 @@ PROMPT = (
     "spouse, partner or family. Keep spelling and macrons as printed. Never add anything the text does not print. The "
     "introduction, the statute's wording and the instructions to members are not entries: read only what each member "
     "declared.")
+#: prompt 2 (4 November 2026, ruling 142): every entry as printed
+PROMPT = (
+    "You read the text of one New Zealand council's register of its elected members' pecuniary interests (Local "
+    "Government Act 2002, Part 4 subpart 3), or one member's return, or one piece of such a register. Answer with ONE "
+    "JSON object and nothing else:\n"
+    '{"as_at": "<the date the register says it is at or covers, as printed, or null>",\n'
+    ' "members": [{"member": "<the member\'s name exactly as printed, without the title>", '
+    '"role": "<Mayor, Deputy Mayor, Councillor, Chair, Deputy Chair, Community Board member, ... as printed, or null>", '
+    '"interests": [{"category": "<the category heading as printed>", '
+    '"kind": "company" | "other business" | "employment" | "trust" | "organisation" | "real property" | '
+    '"superannuation" | "debt" | "gift" | "travel" | "other", '
+    '"entries": ["<one entry as printed: a company, a trust, an employer, an organisation and the position held, a property>"]}]}]}\n'
+    "Rules. One member per person the register covers, in the order printed, each once. Under each member every category "
+    "the register prints for them, with its entries as printed, one string per entry; a category answered nil, none, "
+    "not applicable or a dash has an empty entries list. Type each category by what it covers: directorships and "
+    "controlling interests in companies kind company; other business entities and partnerships kind other business; "
+    "employers kind employment; trusts kind trust; organisations, governing bodies, boards, clubs and societies kind "
+    "organisation; land, property, buildings or a home kind real property; retirement or superannuation schemes kind "
+    "superannuation; debts owed to or by the member kind debt; gifts kind gift; travel paid by others kind travel; "
+    "anything else kind other. Copy every entry of every category as printed, real property included: a property, a "
+    "location, a title, an address, a road, a rural delivery number, an email address or a telephone number is copied "
+    "as printed. Include every entry about a member's spouse, partner or family, as printed. Keep spelling and macrons "
+    "as printed. Never add anything the text does not print. The "
+    "introduction, the statute's wording and the instructions to members are not entries: read only what each member "
+    "declared.")
 NUDGE = "Your answer held no JSON object. Answer again with the ONE JSON object described, and nothing else."
 _JSON = re.compile(r"\{.*\}", re.S)
 
@@ -119,13 +146,19 @@ def profile_version(slug: str = PROFILE) -> int:
     return max(int(p["version"]) for p in held)
 
 
-def settings(prompt: str = PROMPT) -> dict:
+def settings(prompt: str = None) -> dict:
+    prompt = PROMPT if prompt is None else prompt
     return {"prompt_sha": hashlib.sha256(prompt.encode()).hexdigest()[:16], "budget_chars": BUDGET_CHARS, "split": SPLIT,
             "temperature": 0.0, "max_tokens": MAX_TOKENS, "thinking": False, "attempts": ATTEMPTS}
 
 
-def key_for(sha256: str, piece: int, version: int, model: str = TEXT_MODEL, profile: str = PROFILE) -> str:
-    return rd.reading_key(sha256, piece, model, settings(), profile, version)
+def key_for(sha256: str, piece: int, version: int, model: str = TEXT_MODEL, profile: str = PROFILE,
+            prompt: str = None) -> str:
+    return rd.reading_key(sha256, piece, model, settings(prompt), profile, version)
+
+
+#: the reading a load replays where prompt 2's is not stored yet: prompt 1, keyed under profile version 1
+EARLIER = ((PROMPT_1, 1),)
 
 
 # ── recognition and the reading rule ───────────────────────────────────────────────────────────────────────────
@@ -255,13 +288,12 @@ def _clean(v):
     return re.sub(r"\s+", " ", str(v)).strip() if v not in (None, "", "null") else None
 
 
-def withheld_entry(e: str) -> bool:
-    return read.withheld_entry(e) or bool(ROAD.search(e))
+def private_entry(e: str) -> bool:
+    return read.private_entry(e)
 
 
 def parse_answer(text: str):
-    """The JSON object in the model's answer, checked and normalised, or None. Nothing withheld survives it:
-    (members, withheld Counter of (category, why))."""
+    """The JSON object in the model's answer, checked and normalised, or None."""
     m = _JSON.search(text or "")
     if not m:
         return None
@@ -289,30 +321,19 @@ def parse_answer(text: str):
 
 
 def kept(members: list) -> tuple:
-    """(rows, withheld): one row per member and category the lane keeps; every never-kept category counted by
-    heading, every address-shaped entry dropped and counted, nothing of either kept."""
+    """(rows, flagged): one row per member and category, every one kept with its flags (read.flags); each flag
+    counted by heading."""
     from collections import Counter
-    rows, withheld = [], Counter()
+    rows, flagged = [], Counter()
     for mi, mem in enumerate(members, 1):
         for ci, c in enumerate(mem["interests"], 1):
-            cat = c["category"]
-            if c["kind"] in NEVER_KEPT or read.WITHHELD.search(cat):
-                withheld[(cat, "real property, a home, an address or a contact: never read")] += 1
-                continue
-            if read.PRIVATE_PERSON.search(cat):
-                withheld[(cat, "a spouse's or partner's interests: a private person, never read")] += 1
-                continue
-            entries = []
-            for e in c["entries"]:
-                if withheld_entry(e):
-                    withheld[(cat, "an entry shaped like an address, an email or a phone number: dropped")] += 1
-                elif read.PRIVATE_PERSON.search(e):
-                    withheld[(cat, "an entry about a spouse or partner: a private person, dropped")] += 1
-                else:
-                    entries.append(e)
-            rows.append({"member": mem["member"], "role": mem["role"], "category": cat, "kind": c["kind"],
-                         "entries": entries, "member_no": mi, "category_no": ci})
-    return rows, withheld
+            row = read.flags({"member": mem["member"], "role": mem["role"], "category": c["category"], "kind": c["kind"],
+                              "entries": list(c["entries"]), "member_no": mi, "category_no": ci}, private_entry)
+            for f, why in read.FLAG_WHY.items():
+                if row[f]:
+                    flagged[(c["category"], why)] += row[f] if f == "private_entries" else 1
+            rows.append(row)
+    return rows, flagged
 
 
 def ask(text: str, *, url: str, model: str, post=None, request: dict = None, timeout: float = 900.0) -> tuple:
@@ -335,17 +356,8 @@ def ask(text: str, *, url: str, model: str, post=None, request: dict = None, tim
 
 
 def _store_parsed(parsed: dict) -> dict:
-    """What the store keeps of an answer: the members with the never-kept categories' entries emptied and every
-    address-shaped entry gone, so no stored reading holds what the lane never reads."""
-    members = []
-    for mem in parsed["members"]:
-        cats = []
-        for c in mem["interests"]:
-            never = c["kind"] in NEVER_KEPT or read.WITHHELD.search(c["category"]) or read.PRIVATE_PERSON.search(c["category"])
-            cats.append({**c, "entries": [] if never else [e for e in c["entries"] if not withheld_entry(e)
-                                                            and not read.PRIVATE_PERSON.search(e)]})
-        members.append({**mem, "interests": cats})
-    return {"as_at": parsed["as_at"], "members": members}
+    """What the store keeps of an answer: the whole parsed answer (ruling 142)."""
+    return {"as_at": parsed["as_at"], "members": parsed["members"]}
 
 
 def read_document(sha256: str, data: bytes, *, version: int, url: str = None, model: str = None, store: rd.Store = None,
@@ -390,27 +402,35 @@ def read_document(sha256: str, data: bytes, *, version: int, url: str = None, mo
 
 
 def replay(sha256: str, data: bytes, *, version: int = None, store: rd.Store = None, model: str = TEXT_MODEL) -> dict:
-    """The load's side, never a call: {'state', 'as_at', 'rows', 'withheld', 'unread'} from the stored pieces.
+    """The load's side, never a call: {'state', 'as_at', 'rows', 'flagged', 'unread'} from the stored pieces.
     state: 'read', WAIT_TEXT (a piece not yet read), WAIT_PAGES, NOT_A_REGISTER, 'set aside: ...'."""
     from collections import Counter
     store = store or rd.Store()
     why, texts, profile = prepare(data)
     version = _version(profile, version)
     if why:
-        return {"state": why, "as_at": None, "rows": [], "withheld": Counter(), "unread": [], "profile": profile,
+        return {"state": why, "as_at": None, "rows": [], "flagged": Counter(), "unread": [], "profile": profile,
                 "version": version}
     parts, too_big, thin = pieces(texts)
     if not parts:
         return {"state": f"set aside: every page over the budget of {BUDGET_CHARS} characters ({too_big})",
-                "as_at": None, "rows": [], "withheld": Counter(), "unread": too_big, "profile": profile,
+                "as_at": None, "rows": [], "flagged": Counter(), "unread": too_big, "profile": profile,
                 "version": version}
     members, as_at, unusable = [], None, []
-    for n, (first, last, _t) in enumerate(parts, 1):
-        key = key_for(sha256, n, version, model, profile)
-        if not store.has(key):
-            return {"state": WAIT_TEXT, "as_at": None, "rows": [], "withheld": Counter(), "unread": [],
+    # one prompt for the whole document: prompt 2's reading where every piece is stored, else the earlier one's
+    used = version
+    keys = [key_for(sha256, n, version, model, profile) for n in range(1, len(parts) + 1)]
+    if not all(store.has(k) for k in keys):
+        for prompt, v in EARLIER:
+            old = [key_for(sha256, n, v, model, profile, prompt) for n in range(1, len(parts) + 1)]
+            if all(store.has(k) for k in old):
+                keys, used = old, v
+                break
+        else:
+            return {"state": WAIT_TEXT, "as_at": None, "rows": [], "flagged": Counter(), "unread": [],
                     "profile": profile, "version": version}
-        got = store.get(key)
+    for n, (first, last, _t) in enumerate(parts, 1):
+        got = store.get(keys[n - 1])
         if not (got.checks or {}).get("usable", True) or not got.text:
             unusable.append(n)
             continue
@@ -422,14 +442,14 @@ def replay(sha256: str, data: bytes, *, version: int = None, store: rd.Store = N
         members += body["members"]
     if len(unusable) == len(parts):
         return {"state": "set aside: the text reader gave no usable answer", "as_at": None, "rows": [],
-                "withheld": Counter(), "unread": [], "profile": profile, "version": version}
-    rows, withheld = kept(members)
+                "flagged": Counter(), "unread": [], "profile": profile, "version": version}
+    rows, flagged = kept(members)
     for r in rows:
         m = members[r["member_no"] - 1]
         r.update(pages=m["pages"], piece=m["piece"], model=got.model)
-    return {"state": "read", "as_at": as_at, "rows": rows, "withheld": withheld,
+    return {"state": "read", "as_at": as_at, "rows": rows, "flagged": flagged,
             "unread": sorted(set(too_big) | set(thin)), "unusable_pieces": unusable, "profile": profile,
-            "version": version}
+            "version": used}
 
 
 def _version(profile: str, version: int = None) -> int:

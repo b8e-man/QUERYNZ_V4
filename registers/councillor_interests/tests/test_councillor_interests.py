@@ -1,6 +1,7 @@
 """The register reader's rules on a page shaped like Invercargill's (every
-name, company, address and number invented), a mutant check of the withheld
-rules, the capture on a fake transport (a council whose terms bar automated
+name, company, address and number invented): every category kept with its
+flags, an address-shaped entry kept privately (ruling 142), a mutant check of
+those rules, the capture on a fake transport (a council whose terms bar automated
 access is never asked, a block holds the whole site, a document is asked
 once, a page not due still yields its documents), the filled sample (real
 pages, sample.list) against the row contract, DIA's 78 councils and the
@@ -20,8 +21,8 @@ from registers.councillor_interests import sample as S
 
 LANE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SAMPLE_SCHEMA = "scratch_test_councillor_interests"
-SECRETS = ("14 Pretend Street", "Nowhere Road", "hemi@invented.example", "021 555 0199", "Aroha Madeup",
-           "Spouse Employer Ltd", "Lot 9 Imaginary Block", "Imaginary Valley")
+#: shaped like an address, an email or a phone: kept, in the private twin only
+PRIVATE = ("14 Pretend Street", "Nowhere Road", "hemi@invented.example", "021 555 0199")
 
 
 def _member(role_name, rows):
@@ -46,19 +47,29 @@ def test_every_rule_holds():
     assert read.recognise(PAGE) == "register"
     out = read.read_register(PAGE, "e" * 64, "https://www.invented.govt.nz/register")
     assert [(m["role"], m["member"]) for m in out["members"]] == [("Mayor", "Tama Invented"), ("Cr", "Mere Madeup")]
-    cats = [(r["member"], r["category"], r["clause"], r["entries"]) for r in out["rows"]]
-    assert cats == [("Tama Invented", "Company Directorships and controlling interests", "a", ["Invented Holdings Limited"]),
-                    ("Tama Invented", "Employment", "c", []),
-                    ("Mere Madeup", "Beneficial interest in a Trust", "d", ["Madeup Family Trust"]),
-                    ("Mere Madeup", "Other interests", None, ["Rotary Club of Nowhere"])]
-    assert sum(out["withheld"].values()) == 4
+    cats = [(r["member"], r["category"], r["clause"], r["entries"], r["real_property"], r["of_partner"],
+             r["private_entries"]) for r in out["rows"]]
+    assert cats == [
+        ("Tama Invented", "Company Directorships and controlling interests", "a", ["Invented Holdings Limited"], False, False, 0),
+        ("Tama Invented", "Employment", "c", [], False, False, 0),
+        ("Tama Invented", "Interest in real property", "g", ["Family home (jointly owned), Imaginary Valley"], True, False, 1),
+        ("Tama Invented", "Spouse or partner interests", None, ["Aroha Madeup – Spouse Employer Ltd"], False, True, 0),
+        ("Mere Madeup", "Beneficial interest in a Trust", "d", ["Madeup Family Trust"], False, False, 0),
+        ("Mere Madeup", "Other interests", None, ["Rotary Club of Nowhere"], False, False, 1),
+        ("Mere Madeup", "Location of real property held by a Trust", None, [], True, False, 1)]
 
 
-def test_nothing_withheld_reaches_a_row():
+def test_nothing_is_dropped_and_addresses_are_kept_privately():
+    """Ruling 142: the old reader skipped real property, a spouse's interests and every address-shaped entry; now
+    every entry is in a row's `entries` or its `private` list, and an address-shaped one only in `private`."""
     out = read.read_register(PAGE, "e" * 64, "https://www.invented.govt.nz/register")
-    blob = repr(out["rows"]) + repr(out["members"])
-    assert not [s for s in SECRETS if s in blob]
-    assert all(not re.search(r"\d", k[0]) for k in out["withheld"])          # headings only, never a value
+    public = repr([r["entries"] for r in out["rows"]]) + repr(out["members"])
+    private = [e for r in out["rows"] for _i, e in r["private"]]
+    assert not [s for s in PRIVATE if s in public]
+    assert all(any(s in e for e in private) for s in PRIVATE)
+    assert "Aroha Madeup – Spouse Employer Ltd" in public and "Family home (jointly owned), Imaginary Valley" in public
+    assert sum(len(r["entries"]) + len(r["private"]) for r in out["rows"]) == 8          # every entry but the nil
+    assert all(not re.search(r"\d", k[0]) for k in out["flagged"])          # headings only, never a value
 
 
 def test_a_landing_page_is_a_page_and_its_register_links_are_found():
@@ -72,9 +83,9 @@ def test_a_landing_page_is_a_page_and_its_register_links_are_found():
 
 
 MUTANTS = {
-    "real property read": ("WITHHELD", re.compile(r"^$never")),
-    "a spouse's interests read": ("PRIVATE_PERSON", re.compile(r"^$never")),
-    "an address-shaped entry kept": ("withheld_entry", lambda s: False),
+    "real property not flagged": ("REAL_PROPERTY", re.compile(r"^$never")),
+    "a spouse's interests not flagged": ("PRIVATE_PERSON", re.compile(r"^$never")),
+    "an address-shaped entry left public": ("private_entry", lambda s: False),
 }
 
 
@@ -83,7 +94,8 @@ def test_each_mutant_is_caught(name, monkeypatch):
     attr, value = MUTANTS[name]
     monkeypatch.setattr(read, attr, value)
     with pytest.raises(AssertionError):
-        test_nothing_withheld_reaches_a_row()
+        test_every_rule_holds()
+        test_nothing_is_dropped_and_addresses_are_kept_privately()
 
 
 # ── the capture on a fake transport ───────────────────────────────────────────
@@ -248,11 +260,15 @@ def test_every_row_meets_the_row_contract(filled):
         assert rowcontract.validate({**r, "loaded_at": r["loaded_at"].isoformat()}) == [], r["key"]
 
 
-def test_real_property_and_spouses_are_withheld_on_the_real_page(filled):
-    whys = {w["why"].split(":")[0] for w in filled["read_withheld"]}
-    assert "real property, a home, an address or a contact" in whys and "a spouse's or partner's interests" in whys
-    assert not [r for r in filled["interests"] if read.WITHHELD.search(r["category"]) or read.PRIVATE_PERSON.search(r["category"])]
-    assert not [e for r in filled["interests"] for e in r["entries"] if read.withheld_entry(e)]
+def test_real_property_and_spouses_are_kept_and_flagged_on_the_real_page(filled):
+    """Ruling 142: the old load left these categories out of `interests`; now they are rows, flagged."""
+    whys = {w["why"].split(":")[0] for w in filled["read_flagged"]}
+    assert "real property, a home, an address or a contact" in whys and "a spouse's, partner's or family member's interests" in whys
+    assert [r for r in filled["interests"] if r["real_property"]] and [r for r in filled["interests"] if r["of_partner"]]
+    assert all(r["real_property"] for r in filled["interests"] if read.REAL_PROPERTY.search(r["category"]))
+    assert not [e for r in filled["interests"] for e in r["entries"] if read.private_entry(e)]
+    held = filled["conn"].execute(f"SELECT count(*) FROM {load.private_table(SAMPLE_SCHEMA, 'entries')}").fetchone()[0]
+    assert held == sum(r["private_entries"] for r in filled["interests"])
 
 
 def test_the_reading_is_clean_and_goes_red_when_broken(filled):

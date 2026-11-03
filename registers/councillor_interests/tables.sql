@@ -2,10 +2,10 @@
 -- record (capture.py makes it; never wiped): no capture table holds a row of the source; every page and document stays
 -- in the document store verbatim by sha256. The reading's tables (load.py drops and makes them again at every load)
 -- come from structured HTML registers (read.py) and, from 2 November 2026, register PDFs and pages read by the text
--- reader (model_read.py; ruling 128 lifted ruling 79 for node2). A real-property
--- declaration is never put in a table (queue: may-the-interests-register-s-real-property-declarations-be-shown, answer
--- no), and a member's home address, phone or email is never kept (hard limit 15): such a category is counted by its
--- heading and nothing under it is read. So no private twin.
+-- reader (model_read.py; ruling 128 lifted ruling 79 for node2). Every category is kept (ruling 142; ruling 143:
+-- real-property declarations whole, a spouse's or partner's interests read), flagged; an entry shaped like a street
+-- address, a road, an email or a phone number is kept in the private twin `councillor_interests_private.entries`,
+-- which the session and product logins are never granted.
 
 -- ── the capture ──────────────────────────────────────────────────────────────
 
@@ -66,15 +66,18 @@ CREATE TABLE IF NOT EXISTS councillor_interests.documents (
 );
 
 -- one row per member and published category, from a structured page (read.py) or a register PDF read by the text
--- reader (model_read.py, 2 November 2026): the category as published, and its entries' text only where the category
--- is not real property, a home address or a contact
+-- reader (model_read.py, 2 November 2026): the category as published and every entry as printed, an address-shaped
+-- entry in the private twin by this row's key and its ordinal
 CREATE TABLE IF NOT EXISTS councillor_interests.interests (
     key              text PRIMARY KEY,               -- <council>/<member>/<category ordinal>
     council          text NOT NULL,
     member           text NOT NULL,                  -- as the page prints the member's name
     role             text,                           -- Mayor, Councillor, …, as printed
     category         text NOT NULL,                  -- the heading as published
-    entries          text[] NOT NULL DEFAULT '{}',   -- the entries as printed; empty where the page says nil
+    entries          text[] NOT NULL DEFAULT '{}',   -- the entries as printed, the address-shaped ones apart; empty for nil
+    real_property    boolean NOT NULL DEFAULT false, -- typed real property, or the heading names land, a home, an address or a contact
+    of_partner       boolean NOT NULL DEFAULT false, -- the heading or an entry names a spouse, partner or family member
+    private_entries  integer NOT NULL DEFAULT 0,     -- entries shaped like an address, a road, an email or a phone: in the private twin
     kind             text,                           -- the s 54E kind the text reader typed the category by (a PDF's); NULL from a page
     as_at            text,                           -- the register's date as printed
     document         text NOT NULL,
@@ -89,8 +92,8 @@ CREATE TABLE IF NOT EXISTS councillor_interests.interests (
     loaded_at        timestamptz NOT NULL DEFAULT now()
 );
 
--- the categories a reading met and did not read, by heading and count only (never a value)
-CREATE TABLE IF NOT EXISTS councillor_interests.read_withheld (
+-- the flagged categories, by heading, flag and count (never a value)
+CREATE TABLE IF NOT EXISTS councillor_interests.read_flagged (
     council   text NOT NULL,
     category  text NOT NULL,
     why       text NOT NULL,
@@ -102,4 +105,13 @@ CREATE TABLE IF NOT EXISTS councillor_interests.read_set_aside (
     place     text,
     stage     text NOT NULL,
     reason    text NOT NULL
+);
+
+-- the private twin: an entry shaped like a street address, a road, a rural delivery, a title, an email or a phone
+-- number, by the interests row's key and the entry's ordinal as printed (ruling 142; never granted to a reader)
+CREATE TABLE IF NOT EXISTS councillor_interests_private.entries (
+    key       text NOT NULL,
+    ordinal   integer NOT NULL,
+    entry     text NOT NULL,
+    PRIMARY KEY (key, ordinal)
 );

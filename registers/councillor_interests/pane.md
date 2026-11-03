@@ -7,5 +7,5 @@
   `role` as printed, `category` as published, `entries` as printed, `as_at`.
 - **Citation** on every interests row: the page's sha256 (`document`), `place` (table and row), `reader`, `profile`.
 
-Say on the pane: "the council's own published summary; PDF registers are held, not read". Never real property, a home,
-an address, a contact, or a spouse's or partner's interests.
+Say on the pane: "the council's own published summary". Every category, with the flags `real_property`, `of_partner`
+and `private_entries` (address-shaped entries, held privately).

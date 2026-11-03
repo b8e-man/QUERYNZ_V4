@@ -7,9 +7,10 @@ Per council (all 78 of `capture.REGISTERS`): how it publishes its register
 and what the estate holds of it (`registers`); every register document held
 (`documents`: held, never read); and, from each page of the structured shape
 (read.py), one row per member and category (`interests`), the newest
-capture of each page only. A category that is real property, a home, an
-address, a contact, or a spouse's or partner's, is counted by its heading in
-`read_withheld` and nothing under it is kept.
+capture of each page only. Every category is kept with its flags
+(`real_property`, `of_partner`, `private_entries`), counted by heading in
+`read_flagged`; an address-shaped entry goes to the private twin
+`councillor_interests_private.entries` (ruling 142).
 
     python -m registers.councillor_interests.load [--schema scratch_…] [--database querynz_v4_sample]
     python -m registers.councillor_interests.load --job
@@ -28,18 +29,31 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "councillor_interests"
 JOB = "qv4-councillor-interests-load"
 STAGING = "staging_councillor_interests_load"
-TABLES = ("registers", "documents", "interests", "read_withheld", "read_set_aside")
+TABLES = ("registers", "documents", "interests", "read_flagged", "read_set_aside")
+PRIVATE_TABLES = ("entries",)
 COLUMNS = {
     "registers": ("council", "host", "form", "landing_url", "landing_sha256", "documents_held", "members_read", "why"),
     "documents": ("sha256", "council", "url", "found_on", "asked_at", "reading", "members", "unread_pages"),
-    "interests": ("key", "council", "member", "role", "category", "entries", "kind", "as_at", "document", "page", "place",
-                  "url", "read_from", "reader", "model", "profile", "profile_version"),
-    "read_withheld": ("council", "category", "why", "members"),
+    "interests": ("key", "council", "member", "role", "category", "entries", "real_property", "of_partner",
+                  "private_entries", "kind", "as_at", "document", "page", "place", "url", "read_from", "reader", "model",
+                  "profile", "profile_version"),
+    "read_flagged": ("council", "category", "why", "members"),
+    "entries": ("key", "ordinal", "entry"),
     "read_set_aside": ("document", "place", "stage", "reason"),
 }
 PER_MEMBER_FILES = 4          # a council with more register documents than this publishes one file per member
 table = capture.table
 _NAMES = re.compile(rf"(?<![A-Za-z0-9_]){SCHEMA}\.")
+_PRIVATE = re.compile(rf"(?<![A-Za-z0-9_]){SCHEMA}_private\.")
+
+
+def private_of(schema: str) -> str:
+    """The private twin of `schema`: `councillor_interests_private`, or `<staging>_private`."""
+    return f"{SCHEMA}_private" if schema == SCHEMA else f"{schema[:55]}_private"
+
+
+def private_table(schema: str, t: str) -> str:
+    return f"{SCHEMA}_private.{t}" if schema == SCHEMA else f"{private_of(schema)}.{SCHEMA}_{t}"
 
 
 def sql(name: str, schema: str = SCHEMA) -> str:
@@ -48,13 +62,17 @@ def sql(name: str, schema: str = SCHEMA) -> str:
     if name == "tables.sql":
         text = capture.READING + text.split(capture.READING, 1)[1]
     pre = "" if schema == SCHEMA else f"{SCHEMA}_"
+    text = _PRIVATE.sub(f"{private_of(schema)}.{pre}", text)
     return _NAMES.sub(f"{schema}.{pre}", text)
 
 
 def create_tables(conn, schema: str) -> None:
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-    for t in TABLES:
+    conn.execute(f"CREATE SCHEMA IF NOT EXISTS {private_of(schema)}")
+    for t in TABLES + ("read_withheld",):
         conn.execute(f"DROP TABLE IF EXISTS {table(schema, t)} CASCADE")
+    for t in PRIVATE_TABLES:
+        conn.execute(f"DROP TABLE IF EXISTS {private_table(schema, t)} CASCADE")
     conn.execute(sql("tables.sql", schema))
 
 
@@ -84,7 +102,7 @@ def build(conn, schema: str, items: list, held: dict, registers: dict = None, re
     for it in newest.values():
         if it["kind"] == "document" and it["sha256"] not in docs:
             docs[it["sha256"]] = dict(it, reading=None, members=0, unread_pages=[])
-    rows, withheld, asides, members_of = {}, {}, [], {}
+    rows, flagged, asides, members_of = {}, {}, [], {}
     model_pages = {}                    # a page that prints a register in another shape: the text reader's (2 November 2026)
     for it in sorted(newest.values(), key=lambda x: x["url"]):
         if it["kind"] != "page":
@@ -106,9 +124,9 @@ def build(conn, schema: str, items: list, held: dict, registers: dict = None, re
             key = f"{it['council']}/{r['member']}/{r['place']}"
             rows[key] = dict(r, key=key, council=it["council"], as_at=out["as_at"], read_from="text",
                              reader=read.READER, profile=read.PROFILE, profile_version=read.PROFILE_VERSION)
-        for (cat, why), n in out["withheld"].items():
+        for (cat, why), n in out["flagged"].items():
             k = (it["council"], cat, why)
-            withheld[k] = withheld.get(k, 0) + n
+            flagged[k] = flagged.get(k, 0) + n
     html_councils = set(members_of) | {it["council"] for it in model_pages.values()}
     states = {}
     todo = sorted(docs.items(), key=lambda kv: (kv[1]["council"], kv[0])) + sorted(
@@ -128,15 +146,17 @@ def build(conn, schema: str, items: list, held: dict, registers: dict = None, re
         for r in got["rows"]:
             key = f"{it['council']}/{r['member']}/{sha[:12]} member {r['member_no']} category {r['category_no']}"
             rows[key] = {"key": key, "council": it["council"], "member": r["member"], "role": r["role"],
-                         "category": r["category"], "entries": r["entries"], "kind": r["kind"], "as_at": got["as_at"],
+                         "category": r["category"], "entries": r["entries"], "real_property": r["real_property"],
+                         "of_partner": r["of_partner"], "private_entries": r["private_entries"],
+                         "private": r["private"], "kind": r["kind"], "as_at": got["as_at"],
                          "document": sha, "page": int(r["pages"].split("-")[0]),
                          "place": f"pages {r['pages']}, text reader piece {r['piece']}, member {r['member_no']}, "
                                   f"category {r['category_no']}",
                          "url": it["url"], "read_from": "text", "reader": model_read.READER, "model": r["model"],
                          "profile": got["profile"], "profile_version": got["version"]}
-        for (cat, why), n in got["withheld"].items():
+        for (cat, why), n in got["flagged"].items():
             k = (it["council"], cat, why)
-            withheld[k] = withheld.get(k, 0) + n
+            flagged[k] = flagged.get(k, 0) + n
     reg_rows = []
     for council, (host, page, pdf) in registers.items():
         why_failed = None
@@ -168,12 +188,14 @@ def build(conn, schema: str, items: list, held: dict, registers: dict = None, re
         reg_rows.append({"council": council, "host": host, "form": form, "landing_url": page,
                          "landing_sha256": landing["sha256"] if landing else None, "documents_held": nd,
                          "members_read": members_of.get(council, 0), "why": why})
+    private = [{"key": k, "ordinal": i, "entry": e} for k, r in rows.items() for i, e in r.get("private") or []]
     return {"registers": _copy(conn, T("registers"), COLUMNS["registers"], reg_rows),
             "documents": _copy(conn, T("documents"), COLUMNS["documents"], docs.values()),
             "interests": _copy(conn, T("interests"), COLUMNS["interests"], rows.values()),
-            "withheld": _copy(conn, T("read_withheld"), COLUMNS["read_withheld"],
-                              [{"council": c, "category": cat, "why": w, "members": n}
-                               for (c, cat, w), n in sorted(withheld.items())]),
+            "flagged": _copy(conn, T("read_flagged"), COLUMNS["read_flagged"],
+                             [{"council": c, "category": cat, "why": w, "members": n}
+                              for (c, cat, w), n in sorted(flagged.items())]),
+            "private_entries": _copy(conn, private_table(schema, "entries"), COLUMNS["entries"], private),
             "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
             "documents_by_reading": states,
             "seconds": round(time.monotonic() - t0, 1)}
@@ -198,7 +220,7 @@ def load(conn, schema: str, log=print) -> int:
     counts = build(conn, schema, items, held)
     problems = check.reading(conn, schema)
     log(f"{SCHEMA}: {counts['registers']} councils, {counts['documents']} documents held "
-        f"({counts['documents_by_reading']}), {counts['interests']} interests read, {counts['withheld']} categories withheld into {schema}; " + ("; ".join(problems) or "reconciles"))
+        f"({counts['documents_by_reading']}), {counts['interests']} interests read, {counts['flagged']} category flags, {counts['private_entries']} private entries into {schema}; " + ("; ".join(problems) or "reconciles"))
     return counts["registers"]
 
 
@@ -207,6 +229,8 @@ def publish(conn, staging: str, log=print) -> None:
         create_tables(conn, SCHEMA)
         for t in TABLES:
             conn.execute(f"INSERT INTO {table(SCHEMA, t)} SELECT * FROM {table(staging, t)}")
+        for t in PRIVATE_TABLES:
+            conn.execute(f"INSERT INTO {private_table(SCHEMA, t)} SELECT * FROM {private_table(staging, t)}")
         conn.execute(sql("publish.sql"))
     log(f"{SCHEMA}: published from {staging}")
 
@@ -223,7 +247,8 @@ def job(log=print) -> int:
         problems = check.reading(conn, STAGING)
         detail = (f"{counts['registers']} councils, {counts['documents']} documents held ("
                   + ", ".join(f"{k} {v}" for k, v in sorted(counts["documents_by_reading"].items())) + f"), "
-                  f"{counts['interests']} interests read, {counts['withheld']} categories withheld; "
+                  f"{counts['interests']} interests read, {counts['flagged']} category flags, "
+                  f"{counts['private_entries']} private entries; "
                   + ("; ".join(problems) or "reconciles"))
         if problems:
             log(f"{SCHEMA}: RED, nothing published: " + detail)
