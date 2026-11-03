@@ -1,6 +1,6 @@
 # links: where it stands
 
-**Date:** 2026-10-30. **Step:** 4.2 and 4.3, `links/`. **Merge requests:**
+**Date:** 2026-11-03. **Step:** 4.2 and 4.3, `links/`. **Merge requests:**
 `links-1`, `review-1`, `links-2`, `fixes-1`, `coupled-1`, `links-3`,
 `fix-links-1` to `-5`, `links-4`, `links-5` (merged), `fix-links-6` (raised
 30 October; detail in `docs/merges/` or `merge-requests/`).
@@ -26,6 +26,13 @@
   measurement 12). Measured on live (measurements.md §13): check item 9's
   second line goes 2 → 0; 2,023,825 bodies rows before and after, one body
   moved, no link touches it.
+- 3 November (Arthur: "the links lane is aware of the linking opportunities
+  and has rules"): `opportunities.py` registers every opportunity a profile's
+  extract items declare, by status (`rule`, `sighting`, `measure owed`);
+  the test fails one the register lacks or a rule id the lane does not
+  build. Courts first: names by five rules, three name fields by the
+  sightings, citation, case numbers and six identifier kinds measure owed
+  (measurements.md §14).
 - Track C (`review-1`): the agent scored, applies nothing; switch off.
 
 ## Carded / queued
@@ -41,5 +48,6 @@
 
 ## Next
 
+0. Arthur: one decision per courts identifier opportunity (§14).
 1. Integrator: merge `fix-links-6` (no DDL); queue `qv4-links-build`, then
    `python -m links.check` live: `nzbns_on_two_bodies` 0, every item green.

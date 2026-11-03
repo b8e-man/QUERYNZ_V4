@@ -529,6 +529,63 @@ either charity number or any of the 35 placeholder rows, so the confirmed,
 near and related counts do not move at the rebuild; check item 9's second
 line becomes 0 and every item is green.
 
+## 14. The courts lane's linking opportunities, 3 November 2026 (integrator, extract lists)
+
+Counts only; no name, number, email, phone or address is written here. Read-only on live: `pub.links` as the last
+build left it, and the courts identifiers of a full-corpus scratch build of the lane (3 November, 20:28 to 21:07, the
+code released as ffdbf25: 16,794 records, 8,621 details on 3,269 documents) through the owner login, in a read-only
+transaction. The register is `links/opportunities.py`.
+
+**Names: rules today.** A court row's ref is `courts:<key>`; `/party/` keys are `pub.court_judgment_parties`,
+`/person/` keys `pub.court_people`.
+
+| View | Rule | Grade | Link ends |
+| --- | --- | --- | --- |
+| court_judgment_parties | name-only@1 | near | 4,099 |
+| court_judgment_parties | full-name@1 | confirmed | 3,800 |
+| court_judgment_parties | organisation-sole-company@3 | confirmed | 1,511 |
+| court_judgment_parties | full-name@1 | near | 409 |
+| court_judgment_parties | organisation-name@1 | near | 371 |
+| court_judgment_parties | organisation-one-live-company@3 | confirmed | 81 |
+| court_people | name-only@1 | near | 684 |
+| court_people | full-name@1 | near | 184 |
+| court_people | organisation-sole-company@3 | near | 36 |
+| court_people | organisation-name@1 | near | 18 |
+| court_people | organisation-one-live-company@3 | near | 4 |
+
+The text reader's names confirm nothing (their own tier, `links.rows.MODEL_VIEWS`). **Sightings:** `pub.name_sightings`
+holds 572,359 sightings on 14,859 court documents, so a judge's name, counsel's party and a case page's title are
+covered wherever a register files the name.
+
+**Identifiers: measure owed.** The details by kind (rows, documents, distinct values): address 3,439 / 1,496 / 2,938;
+age 2,525 / 1,402 / 100; phone 1,130 / 698 / 329; email 800 / 449 / 463; PO Box 612 / 514 / 211; date of birth
+55 / 42 / 55; vehicle registration 27 / 19 / 26; company number 20 / 11 / 20; NZBN 11 / 4 / 11; driver licence 1;
+IRD number 1.
+
+| Opportunity | Measured |
+| --- | --- |
+| NZBN → a body on its register | 11 distinct; 10 on `pub.companies`, 0 on societies, 0 on charities; 4 documents |
+| company number → `pub.companies` | 20 distinct; 20 name exactly one company row; 0 more than one; 11 documents |
+| email across documents | 463 distinct; 138 printed in two or more documents; 283 documents share one |
+| phone across documents | 307 distinct (digits only); 123 in two or more; 585 documents share one |
+| address across documents | 2,934 distinct (letters and digits only); 263 in two or more; 505 documents share one |
+| PO Box across documents | 206 distinct; 76 in two or more; 429 documents share one |
+
+Not yet read: how many shared emails, phones and addresses are a court registry's, a law firm's or an agency's (a
+public office printed on every judgment of a registry) rather than a party's; the twenty pairs per opportunity come
+before any rule. The numbers are a small join (NZBN and company number on 14 documents together); the emails, phones
+and addresses are wide and mostly offices, to be measured by pair before any decision.
+
+**Decisions owed to Arthur, one per opportunity** (no rule built, no private schema opened to the links lane):
+1. NZBN and company number: confirm a judgment's party to the company whose number the judgment prints
+   (`official-number@1`'s kind), with the numbers published to links alone or read privately.
+2. Email and phone: whether one printed in two documents joins the names around them, near or confirming, once
+   the offices are set apart.
+3. Address and PO Box: whether one a judgment prints is matched to a company's registered office (a home address is
+   never shown, hard limit 15).
+4. Citation and case number: whether the links lane gathers a case's documents into one case entity, or the lane's
+   own join (`case_links`, the suppression's reach) stands.
+
 ## Track C: the review agent scored on the test pairs, 20 October 2026
 
 Run `score-1` in `scratch_review` on the real published tables (`links.scores`,
