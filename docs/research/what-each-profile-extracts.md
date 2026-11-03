@@ -148,4 +148,6 @@ workbooks, ICIJ, election results.
 Each step first writes the family's iteration 1 (today's reading) into its profiles and records every document
 already read at it, then adds iteration 2, measured on 20 documents and costed in reader nights. The courts lane's
 pattern pass for emails, phones and company numbers (being built now) becomes the courts profiles' first `pattern`
-items.
+items (aef538d: 7,881 details on 2,961 documents). Its model item adds what no pattern finds: occupation,
+employer, the firm of each counsel, relationships, place of residence, an address or birth date in prose, and which
+person each pattern-found detail belongs to (`courts_private.identifiers.person`, empty today).
