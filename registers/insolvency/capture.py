@@ -79,7 +79,13 @@ def off_peak(t: dt.datetime) -> bool:
 
 def tables_sql(schema: str = SCHEMA) -> str:
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "tables.sql"), encoding="utf-8") as f:
-        return f.read().replace("{s}", schema)
+        return f.read().replace("{p}", private_of(schema)).replace("{s}", schema)
+
+
+def private_of(schema: str = SCHEMA) -> str:
+    """The lane's private schema beside `schema` (`insolvency_private`): the identifying fields, never seen by the
+    session or product logins."""
+    return schema + "_private"
 
 
 def ledger_sql(schema: str = SCHEMA) -> str:
@@ -149,11 +155,11 @@ def keep_identifiers(conn, answer, call_id: int, at: dt.datetime, schema: str = 
     search page's results add or update theirs. Never landed, never published."""
     rows = read.identifiers(answer)
     if read.recognise(answer) == "estate" and answer.get("estateNumber") is not None:
-        conn.execute(f"DELETE FROM {schema}.identifiers WHERE estate = %s", (int(answer["estateNumber"]),))
+        conn.execute(f"DELETE FROM {private_of(schema)}.identifiers WHERE estate = %s", (int(answer["estateNumber"]),))
     for estate, field, value in rows:
-        conn.execute(f"INSERT INTO {schema}.identifiers (estate, field, value, call, at) VALUES (%s, %s, %s, %s, %s) "
+        conn.execute(f"INSERT INTO {private_of(schema)}.identifiers (estate, field, value, call, at) VALUES (%s, %s, %s, %s, %s) "
                      f"ON CONFLICT (estate, field) DO UPDATE SET value = EXCLUDED.value, call = EXCLUDED.call, "
-                     f"at = EXCLUDED.at WHERE {schema}.identifiers.at <= EXCLUDED.at", (estate, field, value, call_id, at))
+                     f"at = EXCLUDED.at WHERE {private_of(schema)}.identifiers.at <= EXCLUDED.at", (estate, field, value, call_id, at))
     return len(rows)
 
 
@@ -169,7 +175,7 @@ def apply_removal(conn, estate: int, schema: str = SCHEMA, at: dt.datetime = Non
     deleted: a captured document is withdrawn, hard rule of the store). Returns the rows taken out."""
     n = conn.execute(f"DELETE FROM {schema}.estates WHERE estate_number = %s", (estate,)).rowcount \
         if conn.execute("SELECT to_regclass(%s) IS NOT NULL", (f"{schema}.estates",)).fetchone()[0] else 0
-    conn.execute(f"DELETE FROM {schema}.identifiers WHERE estate = %s", (estate,))
+    conn.execute(f"DELETE FROM {private_of(schema)}.identifiers WHERE estate = %s", (estate,))
     why = f"insolvency register removal or correction named estate {estate} on {(at or now_nz()).date().isoformat()}"
     withdraw([r[0] for r in conn.execute(f"SELECT DISTINCT document FROM {schema}.calls WHERE estate = %s AND why IN "
                                          f"('detail', 'lookup') AND document IS NOT NULL", (estate,)).fetchall()], why, conn)

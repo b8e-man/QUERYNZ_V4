@@ -34,24 +34,26 @@ CREATE TABLE IF NOT EXISTS {s}.search_seen (
     call        bigint NOT NULL
 );
 
--- the identifying fields the landing strips (every address field, the month and year of birth), by estate and field,
+-- how far the removals have been asked: date_to of the last complete removals run
+CREATE TABLE IF NOT EXISTS {s}.cursor (
+    what        text PRIMARY KEY,
+    value       text NOT NULL,
+    at          timestamptz NOT NULL DEFAULT now()
+);
+
+-- the identifying fields the landing strips, in the lane's private schema `{p}` (a home address: the session and
+-- product logins never see it, hard limit 15; 4 November 2026, it had sat in `{s}` where the read login could) (every address field, the month and year of birth), by estate and field,
 -- from the latest answer that gave them: never in a landed document, never published, never read by the load. A detail
 -- answer replaces its estate's rows whole (a corrected address replaces the old one); the removals delete an estate's
 -- rows the moment they name it (the API's term: suppressed and corrected addresses removed at once)
-CREATE TABLE IF NOT EXISTS {s}.identifiers (
+CREATE SCHEMA IF NOT EXISTS {p};
+CREATE TABLE IF NOT EXISTS {p}.identifiers (
     estate      bigint NOT NULL,
     field       text NOT NULL,
     value       text NOT NULL,
     call        bigint NOT NULL,
     at          timestamptz NOT NULL,
     PRIMARY KEY (estate, field)
-);
-
--- how far the removals have been asked: date_to of the last complete removals run
-CREATE TABLE IF NOT EXISTS {s}.cursor (
-    what        text PRIMARY KEY,
-    value       text NOT NULL,
-    at          timestamptz NOT NULL DEFAULT now()
 );
 
 -- the reading: rebuilt whole by every load

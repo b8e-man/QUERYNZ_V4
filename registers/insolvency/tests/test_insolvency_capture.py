@@ -279,7 +279,7 @@ def test_the_window_and_suppression_mutants_are_caught_by_the_check(env, monkeyp
 
 
 def _identifiers(env):
-    return {(e, f): v for e, f, v in env.conn.execute(f"SELECT estate, field, value FROM {L}.identifiers").fetchall()}
+    return {(e, f): v for e, f, v in env.conn.execute(f"SELECT estate, field, value FROM {L}_private.identifiers").fetchall()}
 
 
 def test_the_stripped_fields_are_kept_privately_and_cleared_by_a_removal(env):
@@ -300,8 +300,23 @@ def test_the_stripped_fields_are_kept_privately_and_cleared_by_a_removal(env):
     assert not any(e == 9 or "Invented Way" in v for (e, _), v in left.items()), "a removals page gives no identifiers"
     _load(env)
     assert check.reading(env.conn, STAGE, L, TODAY) == []
-    env.conn.execute(f"INSERT INTO {L}.identifiers VALUES (1001, 'monthOfBirth', '4', 1, now() - interval '1 day')")
+    env.conn.execute(f"INSERT INTO {L}_private.identifiers VALUES (1001, 'monthOfBirth', '4', 1, now() - interval '1 day')")
     assert any("still hold identifying fields" in p for p in check.reading(env.conn, STAGE, L, TODAY))
+
+
+def test_the_identifying_fields_are_only_in_the_private_schema(env):
+    """4 November 2026: the identifiers table sat in the lane's own schema, which the session login reads; it belongs in
+    `<lane>_private`, and the check is red on a copy left in the lane's schema or on a login that can see the private one."""
+    _night(env, FakeAPI())
+    assert env.conn.execute(f"SELECT to_regclass('{L}.identifiers') IS NULL").fetchone()[0]
+    assert env.conn.execute(f"SELECT count(*) FROM {L}_private.identifiers").fetchone()[0] > 0
+    _load(env)
+    assert not any("private" in p or "can see" in p for p in check.reading(env.conn, STAGE, L, TODAY))
+    env.conn.execute(f"CREATE TABLE {L}.identifiers (estate bigint)")
+    assert any("outside the private schema" in p for p in check.reading(env.conn, STAGE, L, TODAY))
+    env.conn.execute(f"DROP TABLE {L}.identifiers")
+    env.conn.execute(f"GRANT USAGE ON SCHEMA {L}_private TO qv4_read")
+    assert any("qv4_read can see" in p for p in check.reading(env.conn, STAGE, L, TODAY))
 
 
 

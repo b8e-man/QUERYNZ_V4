@@ -32,7 +32,7 @@ header, read from the credential folder (support's loader pattern).
 How the lane runs (`registers/insolvency/spec.md`): the date-range search daily for new and changed estates, the removals-and-corrections
 call daily with each removal applied the same day, each answer landed by hash, the retention windows above as a rule in the
 publish, never an address. The addresses and the month and year of birth are held (3 November 2026) only in the capture's
-private ledger, never in a landed document or a published view, and an estate's are deleted the day the removals name it. Searching the public search page in bulk, or calling the search page's own back end in place of the
+private schema (`insolvency_private`, which no session or product login reads), never in a landed document or a published view, and an estate's are deleted the day the removals name it. Searching the public search page in bulk, or calling the search page's own back end in place of the
 API, would get around the subscription, and is not done.
 
 Floor: 5 s between requests, one at a time, off-peak.

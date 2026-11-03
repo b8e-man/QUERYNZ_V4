@@ -50,11 +50,21 @@ def reading(conn, schema: str, ledger_schema: str = capture.SCHEMA, today: dt.da
     if removed_after:
         out.append(f"{removed_after} staged row(s) the removals named with no answer since")
     stale = conn.execute(
-        f"SELECT count(DISTINCT i.estate) FROM {ledger_schema}.identifiers i JOIN {ledger_schema}.removals r ON "
+        f"SELECT count(DISTINCT i.estate) FROM {capture.private_of(ledger_schema)}.identifiers i JOIN {ledger_schema}.removals r ON "
         f"r.estate = i.estate WHERE i.at <= r.seen_at").fetchone()[0] \
-        if conn.execute("SELECT to_regclass(%s) IS NOT NULL", (f"{ledger_schema}.identifiers",)).fetchone()[0] else 0
+        if conn.execute("SELECT to_regclass(%s) IS NOT NULL", (f"{capture.private_of(ledger_schema)}.identifiers",)).fetchone()[0] else 0
     if stale:
         out.append(f"{stale} estate(s) the removals named still hold identifying fields from before")
+    # the identifying fields only in the private schema (4 November 2026: they had sat in the lane's own schema, which
+    # the session login reads), and that schema hidden from the session and product logins
+    for s in {schema, ledger_schema}:
+        if conn.execute("SELECT to_regclass(%s) IS NOT NULL", (f"{s}.identifiers",)).fetchone()[0]:
+            out.append(f"{s}.identifiers holds identifying fields outside the private schema")
+    for role in ("qv4_read", "qv4_product"):
+        if conn.execute("SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = %s) AND EXISTS (SELECT 1 FROM pg_namespace "
+                        "WHERE nspname = %s AND has_schema_privilege(%s, oid, 'USAGE'))",
+                        (role, capture.private_of(ledger_schema), role)).fetchone()[0]:
+            out.append(f"{role} can see {capture.private_of(ledger_schema)}")
     for (col,) in conn.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = %s AND "
                                "table_name IN ('estates', 'withheld', 'set_aside')", (schema,)).fetchall():
         if any(w in col.lower() for w in _FORBIDDEN):
