@@ -1,8 +1,10 @@
 -- registers/fma: every table this lane owns, in `fma` and its private twin, in two parts. The capture's record
 -- (capture.py makes it; never wiped): no capture table holds a row of the source; the listing pages and the warning
 -- and case pages stay in the document store verbatim by sha256. The reading's tables (load.py drops and makes them
--- again at every load). `fma_private` holds nothing: a warning's address, website, email, telephone and bank fields
--- are never read (hard limit 15).
+-- again at every load). `fma_private` holds what the lane's own tables leave out, kept whole (ruling 142, 4 November
+-- 2026): every labelled field a warning prints besides its party (address, website, email, telephone, bank), and what
+-- a suppression the page states covers (the name; the heading, summary, outcome, slug and address). An item the FMA
+-- takes down stays, flagged with the date of the first finished pass that no longer listed it.
 
 -- ── the capture ──────────────────────────────────────────────────────────────
 
@@ -79,6 +81,7 @@ CREATE TABLE IF NOT EXISTS fma.read_items (
     document   text,                                -- NULL: listed and not yet captured
     state      text NOT NULL CHECK (state IN ('read', 'set aside', 'not captured')),
     parties    integer NOT NULL DEFAULT 0,
+    taken_down_on date,                             -- the first finished pass that no longer listed it; NULL: listed now
     PRIMARY KEY (list, slug)
 );
 
@@ -97,6 +100,7 @@ CREATE TABLE IF NOT EXISTS fma.actions (
     outcome_on       date,                          -- the day, only where the entry gives one
     names_nobody     boolean NOT NULL,              -- a topic alert: no entity named in a field or the heading
     url              text,                          -- NULL where a suppression withholds a name (the address carries it)
+    taken_down_on    date,                          -- the FMA took the item down by this date
     document         text NOT NULL,
     page             integer NOT NULL,
     place            text NOT NULL,
@@ -126,6 +130,62 @@ CREATE TABLE IF NOT EXISTS fma.parties (
     profile          text NOT NULL,
     profile_version  integer NOT NULL,
     loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- a party a suppression the page states covers: its name as printed (ruling 142); the lane's own row carries the flag
+CREATE TABLE IF NOT EXISTS fma_private.suppressed_names (
+    key              text PRIMARY KEY,              -- the party's key in fma.parties
+    action_key       text NOT NULL,
+    ordinal          integer NOT NULL,
+    name             text NOT NULL,
+    company_number   text,
+    named_in         text NOT NULL,
+    suppressed_by    text NOT NULL,
+    document         text NOT NULL,
+    page             integer NOT NULL,
+    place            text NOT NULL,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- an action whose page states a suppression: what its lane row leaves out
+CREATE TABLE IF NOT EXISTS fma_private.suppressed_actions (
+    key              text PRIMARY KEY,              -- the action's key in fma.actions
+    slug             text NOT NULL,
+    title            text,
+    summary          text,
+    outcome          text,
+    url              text NOT NULL,
+    suppressed_by    text NOT NULL,
+    document         text NOT NULL,
+    page             integer NOT NULL,
+    place            text NOT NULL,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- every labelled field a warning prints besides its party, as printed: Address, Website, Email(s), Phone, Bank Name,
+-- Account Number and the rest
+CREATE TABLE IF NOT EXISTS fma_private.warning_fields (
+    key              text NOT NULL,                 -- the action's key
+    ordinal          integer NOT NULL,
+    label            text NOT NULL,
+    value            text NOT NULL,
+    document         text NOT NULL,
+    page             integer NOT NULL,
+    place            text NOT NULL,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (key, ordinal)
 );
 
 CREATE TABLE IF NOT EXISTS fma.read_set_aside (

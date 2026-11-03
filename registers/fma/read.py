@@ -33,9 +33,16 @@ legal ending. A company number only where the page prints one beside the
 name. A party is withheld (the row stays, the name is empty) where the FMA
 writes it withheld, or where the page states a suppression and the party
 carries no organisation word; then the heading, summary, outcome, address
-and slug are not kept either (hard limit 16).
+and slug are left off the lane's own tables too. Where the page states a
+suppression it prints the name all the same, and the name, and the heading,
+summary, outcome, slug and address, are kept whole in the private twin
+(`suppressed_names`, `suppressed_actions`, keyed by the rows' keys; ruling
+142, 4 November 2026).
 
-The address, website, email, telephone and bank fields are never read.
+Every other labelled field a warning prints (Address, Website, Email(s),
+Phone, Bank Name, Account Number and the rest) is kept whole in the private
+twin (`warning_fields`: the label and the value as printed, keyed by the
+action), never on the lane's own tables.
 """
 import datetime as dt
 import hashlib
@@ -51,8 +58,8 @@ from keys.names import is_organisation  # noqa: E402
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
 LISTING_PROFILE = "fma-listing-page"
 PAGE_PROFILE = {"warnings": "fma-warning-page", "enforcement": "fma-enforcement-case-page"}
-PROFILE_VERSION = 1
-READER = "registers.fma.read 1"
+PROFILE_VERSION = 2
+READER = "registers.fma.read 2"
 BASE = "https://www.fma.govt.nz"
 PATHS = {"warnings": "/library/warnings-and-alerts/", "enforcement": "/about-us/enforcement/cases/"}
 KINDS = {"warnings": "warning", "enforcement": "enforcement case"}
@@ -238,7 +245,7 @@ def read_page(body: bytes, sha: str, list_name: str, slug: str, url: str = None)
     cite = {"document": sha, "page": 1, "read_from": "text", "reader": READER, "profile": PAGE_PROFILE[list_name],
             "profile_version": PROFILE_VERSION}
     states_suppression = bool(SUPPRESSION.search(text))
-    parties = []
+    parties, private = [], []
     for i, (name, named_in, how) in enumerate(party_names(body_html, title, list_name), 1):
         printed = re.search(_NUMBER_BESIDE + r"\s*$", name)
         if printed:
@@ -248,6 +255,10 @@ def read_page(body: bytes, sha: str, list_name: str, slug: str, url: str = None)
                        else "the page states a suppression" if states_suppression and not (org and not _AND.search(name))
                        else None)
         number = (printed or re.search(re.escape(name) + _NUMBER_BESIDE, text)) if not withheld_by else None
+        if withheld_by == "the page states a suppression":
+            kept = printed or re.search(re.escape(name) + _NUMBER_BESIDE, text)
+            private.append({"ordinal": i, "name": name, "company_number": kept.group(1) if kept else None,
+                            "named_in": named_in, "suppressed_by": withheld_by, "place": f"parties[{i}]", **cite})
         parties.append({"ordinal": i, "name": None if withheld_by else name, "withheld": bool(withheld_by),
                         "withheld_by": withheld_by, "organisation": org and not withheld_by,
                         "company_number": number.group(1) if number else None, "named_in": named_in,
@@ -255,7 +266,7 @@ def read_page(body: bytes, sha: str, list_name: str, slug: str, url: str = None)
     suppressed = any(p["withheld_by"] == "the page states a suppression" for p in parties)
     key_slug = f"withheld-{hashlib.sha256(slug.encode()).hexdigest()[:16]}" if suppressed else slug
     key = f"fma/{KEY_PART[list_name]}/{key_slug}"
-    for p in parties:
+    for p in parties + private:
         p.update(key=f"{key}/party/{p['ordinal']}", action_key=key)
     outcome, outcome_when, outcome_on = timeline_latest(body_html)
     desc = _DESCRIPTION.search(t)
@@ -270,4 +281,13 @@ def read_page(body: bytes, sha: str, list_name: str, slug: str, url: str = None)
               "names_nobody": not parties,
               "url": None if suppressed else (url or BASE + PATHS[list_name] + slug + "/"),
               "place": "registry-item", **cite}
-    return {"action": action, "parties": parties, "set_aside": []}
+    kept_action = {"key": key, "slug": slug, "title": title,
+                   "summary": (html.unescape(desc.group(1)).strip() or None) if desc else None, "outcome": outcome,
+                   "url": url or BASE + PATHS[list_name] + slug + "/", "suppressed_by": "the page states a suppression",
+                   "place": "registry-item", **cite} if suppressed else None
+    fields = [] if list_name != "warnings" else [
+        {"key": key, "ordinal": n, "label": clean(label), "value": clean(value), "place": f"field[{n}]", **cite}
+        for n, (label, value) in enumerate(_FIELD.findall(body_html), 1)
+        if clean(label).lower() not in PARTY_FIELDS and clean(value)]
+    return {"action": action, "parties": parties, "set_aside": [], "suppressed_names": private,
+            "suppressed_action": kept_action, "warning_fields": fields}

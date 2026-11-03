@@ -4,9 +4,9 @@ moves them into `commerce_commission` and makes the views, in one
 transaction. sample.py uses the same `build`.
 
 What is read: every entry the newest finished pass of the listing lists, at
-the newest hash held for it. So a case the Commission takes off its register
-leaves the views at the next load: a case is shown while the Commission
-shows it. An entry listed and not yet captured is a ledger line ('not
+the newest hash held for it, and every entry an older finished pass listed
+and the newest does not, kept with `taken_down_on`, the date of the first
+finished pass that no longer listed it (ruling 142). An entry listed and not yet captured is a ledger line ('not
 captured'), never a row. Items in equal cases read plus set aside plus not
 captured; the build raises if they do not.
 

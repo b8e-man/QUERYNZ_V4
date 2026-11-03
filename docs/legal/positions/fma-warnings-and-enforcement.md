@@ -33,16 +33,18 @@ by regulators-1.
    never use. Nothing bars machine reading or reuse.
 4. **What does privacy law, or the statute, limit?** The warnings and cases
    name companies and individuals, and a warning's labelled fields can give
-   an address, telephone, email and bank account. None of those fields is
-   read; only the names the FMA gives as the warned entity, the heading and
-   the stated dates, Acts and sections (hard limit 15). A warning is the
-   FMA's caution, not a finding, and is shown as such. A name the FMA
-   withholds, or one a page says a court has suppressed, is withheld with
-   the heading, summary, outcome and page address (hard limit 16). An item
-   the FMA takes down leaves our views at the next load. The Privacy Act
-   2020 asks fair use: the queue item on how long a regulator action naming
-   an individual is shown carries the default "while the regulator shows
-   it".
+   an address, telephone, email and bank account. What the estate holds
+   (ruling 142, 4 November 2026): every labelled field is read and kept
+   whole, the warned entity's names on the lane's tables and every other
+   field (address, website, email, telephone, bank) in `fma_private`. A
+   warning is the FMA's caution, not a finding. Where the FMA writes a name
+   withheld it prints none, and the row carries that flag; where a page
+   says a court has suppressed a name and prints it, the name and the
+   heading, summary, outcome and page address are kept whole in
+   `fma_private` under the row's key, and the lane's own tables and views
+   carry the flag without them. An item the FMA takes down stays, flagged
+   with the date of the first finished pass that no longer listed it.
+   Privacy and suppression are applied at a product's export.
 
 Crawl delay: none stated (no robots file). Floor: one request at a time, at
 least 5 s apart, off-peak (22:00 to 06:00 NZ time), a full pass of both

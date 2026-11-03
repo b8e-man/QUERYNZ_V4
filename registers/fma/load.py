@@ -4,8 +4,9 @@ warnings and cases into the reading's tables under `schema`;
 transaction. sample.py uses the same `build`.
 
 What is read: every item the newest finished pass of each list lists, at the
-newest hash held for it. So an item the FMA takes down leaves the views at
-the next load: an action is shown while the FMA shows it. An item listed and
+newest hash held for it, and every item an older finished pass listed and
+the newest does not, kept with `taken_down_on`, the date of the first
+finished pass that no longer listed it (ruling 142). An item listed and
 not yet captured is a ledger line ('not captured'), never a row. Items in
 equal actions read plus set aside plus not captured; the build raises if
 they do not.
@@ -30,16 +31,26 @@ SCHEMA = "fma"
 JOB = "qv4-fma-load"
 STAGING = "staging_fma_load"
 TABLES = ("read_items", "actions", "parties", "read_set_aside")
+#: in the private twin (ruling 142): what the lane's own tables leave out, kept whole
+PRIVATE_TABLES = ("suppressed_names", "suppressed_actions", "warning_fields")
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version")
 COLUMNS = {
-    "read_items": ("list", "slug", "pass_id", "document", "state", "parties"),
+    "read_items": ("list", "slug", "pass_id", "document", "state", "parties", "taken_down_on"),
     "actions": ("key", "kind", "slug", "title", "title_withheld", "summary", "published_on", "acts", "sections", "outcome",
-                "outcome_when", "outcome_on", "names_nobody", "url") + _CITE,
+                "outcome_when", "outcome_on", "names_nobody", "url", "taken_down_on") + _CITE,
     "parties": ("key", "action_key", "ordinal", "name", "withheld", "withheld_by", "organisation", "company_number",
                 "named_in", "split_from") + _CITE,
     "read_set_aside": ("document", "place", "stage", "reason"),
+    "suppressed_names": ("key", "action_key", "ordinal", "name", "company_number", "named_in", "suppressed_by") + _CITE,
+    "suppressed_actions": ("key", "slug", "title", "summary", "outcome", "url", "suppressed_by") + _CITE,
+    "warning_fields": ("key", "ordinal", "label", "value") + _CITE,
 }
 table = capture.table
+
+
+def ptable(schema: str, t: str) -> str:
+    """A private table: in `fma_private` for the lane's own schema, beside the rest in any other."""
+    return f"{SCHEMA}_private.{t}" if schema == SCHEMA else table(schema, t)
 _NAMES = re.compile(rf"(?<![A-Za-z0-9_]){SCHEMA}(_private)?\.")
 
 
@@ -55,8 +66,11 @@ def sql(name: str, schema: str = SCHEMA) -> str:
 
 def create_tables(conn, schema: str) -> None:
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    conn.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}_private")
     for t in TABLES:
         conn.execute(f"DROP TABLE IF EXISTS {table(schema, t)} CASCADE")
+    for t in PRIVATE_TABLES:
+        conn.execute(f"DROP TABLE IF EXISTS {ptable(schema, t)} CASCADE")
     conn.execute(sql("tables.sql", schema))
 
 
@@ -70,38 +84,48 @@ def _copy(conn, name: str, cols: tuple, rows) -> int:
 
 
 def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
-    """`entries`: [(list, slug, url, sha256 or None, pass_id)], one per listed item."""
+    """`entries`: [(list, slug, url, sha256 or None, pass_id[, taken_down_on])], one per item ever listed: the newest
+    pass's, and one taken down since (kept, flagged with the date; ruling 142)."""
     t0 = time.monotonic()
     create_tables(conn, schema)
     T = lambda t: table(schema, t)
     ledger, actions, parties, asides = [], [], [], []
-    for lst, slug, url, sha, pass_id in entries:
+    private = {t: [] for t in PRIVATE_TABLES}
+    for lst, slug, url, sha, pass_id, *rest in entries:
+        down = rest[0] if rest else None
         if sha is None:
             ledger.append({"list": lst, "slug": slug, "pass_id": pass_id, "document": None, "state": "not captured",
-                           "parties": 0})
+                           "parties": 0, "taken_down_on": down})
             continue
         out = read.read_page(read_bytes(sha), sha, lst, slug, url)
         asides += out["set_aside"]
         if out["action"] is None:
             ledger.append({"list": lst, "slug": slug, "pass_id": pass_id, "document": sha, "state": "set aside",
-                           "parties": 0})
+                           "parties": 0, "taken_down_on": down})
             continue
-        actions.append(out["action"])
+        actions.append({**out["action"], "taken_down_on": down})
         parties += out["parties"]
+        private["suppressed_names"] += out.get("suppressed_names") or []
+        private["suppressed_actions"] += [out["suppressed_action"]] if out.get("suppressed_action") else []
+        private["warning_fields"] += out.get("warning_fields") or []
         ledger.append({"list": lst, "slug": slug, "pass_id": pass_id, "document": sha, "state": "read",
-                       "parties": len(out["parties"])})
+                       "parties": len(out["parties"]), "taken_down_on": down})
     if len(ledger) != len({(e[0], e[1]) for e in entries}):
         raise AssertionError(f"{SCHEMA}: {len(entries)} items listed, {len(ledger)} in the ledger")
     return {"actions": _copy(conn, T("actions"), COLUMNS["actions"], actions),
             "parties": _copy(conn, T("parties"), COLUMNS["parties"], parties),
             "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
             "listed": _copy(conn, T("read_items"), COLUMNS["read_items"], ledger),
+            **{t: _copy(conn, ptable(schema, t), COLUMNS[t], rows) for t, rows in private.items()},
+            "taken_down": sum(1 for l in ledger if l["taken_down_on"]),
             "not_captured": sum(1 for l in ledger if l["state"] == "not captured"),
             "seconds": round(time.monotonic() - t0, 1)}
 
 
 def listing(conn, schema: str = SCHEMA) -> list:
-    """Every entry the newest finished pass of each listing lists, with the newest hash held for it."""
+    """Every entry the newest finished pass of each listing lists, with the newest hash held for it, then every entry an
+    older finished pass listed and the newest does not: taken down, kept, with the date of the first finished pass
+    after its last listing (ruling 142: a row the publisher takes down stays, flagged)."""
     T = lambda t: table(schema, t)
     out = []
     for lst in capture.LISTS:
@@ -109,10 +133,18 @@ def listing(conn, schema: str = SCHEMA) -> list:
                          (lst.name,)).fetchone()
         if not r or r[0] is None:
             continue
-        out += [tuple(x) for x in conn.execute(
-            f"SELECT l.list, l.slug, l.url, (SELECT i.sha256 FROM {T('capture_items')} i WHERE i.list = l.list "
-            f"AND i.slug = l.slug ORDER BY i.at DESC LIMIT 1), l.pass_id FROM {T('capture_listed')} l "
+        latest = (f"(SELECT i.sha256 FROM {T('capture_items')} i WHERE i.list = l.list AND i.slug = l.slug "
+                  "ORDER BY i.at DESC LIMIT 1)")
+        out += [tuple(x) + (None,) for x in conn.execute(
+            f"SELECT l.list, l.slug, l.url, {latest}, l.pass_id FROM {T('capture_listed')} l "
             "WHERE l.pass_id = %s ORDER BY l.ordinal", (r[0],))]
+        out += [tuple(x) for x in conn.execute(
+            f"WITH fin AS (SELECT pass_id, finished_at FROM {T('capture_passes')} WHERE list = %s AND finished_at IS NOT "
+            f"NULL), last AS (SELECT l.slug, max(l.pass_id) AS pass_id FROM {T('capture_listed')} l JOIN fin "
+            "USING (pass_id) WHERE l.list = %s GROUP BY l.slug HAVING max(l.pass_id) < %s) "
+            f"SELECT l.list, l.slug, l.url, {latest}, l.pass_id, (SELECT min(f.finished_at) FROM fin f WHERE f.pass_id > "
+            f"last.pass_id)::date FROM last JOIN {T('capture_listed')} l ON l.pass_id = last.pass_id AND l.slug = last.slug "
+            "ORDER BY l.pass_id, l.ordinal", (lst.name, lst.name, r[0]))]
     return out
 
 
@@ -138,6 +170,8 @@ def publish(conn, staging: str, log=print) -> None:
         create_tables(conn, SCHEMA)
         for t in TABLES:
             conn.execute(f"INSERT INTO {table(SCHEMA, t)} SELECT * FROM {table(staging, t)}")
+        for t in PRIVATE_TABLES:
+            conn.execute(f"INSERT INTO {ptable(SCHEMA, t)} SELECT * FROM {ptable(staging, t)}")
         conn.execute(sql("publish.sql"))
     log(f"{SCHEMA}: published from {staging}")
 
@@ -145,8 +179,10 @@ def publish(conn, staging: str, log=print) -> None:
 def unchanged(conn, listed: list) -> bool:
     if conn.execute("SELECT to_regclass(%s)", (f"{SCHEMA}.read_items",)).fetchone()[0] is None:
         return False
-    held = {(r[0], r[1], r[2]) for r in conn.execute(f"SELECT list, slug, document FROM {SCHEMA}.read_items")}
-    return held == {(e[0], e[1], e[3]) for e in listed}
+    if conn.execute("SELECT to_regclass(%s)", (f"{SCHEMA}_private.warning_fields",)).fetchone()[0] is None:
+        return False
+    held = {tuple(r) for r in conn.execute(f"SELECT list, slug, document, taken_down_on FROM {SCHEMA}.read_items")}
+    return held == {(e[0], e[1], e[3], e[5] if len(e) > 5 else None) for e in listed}
 
 
 def job(log=print) -> int:

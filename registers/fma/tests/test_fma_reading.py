@@ -111,6 +111,19 @@ def rules(mod) -> list:
                           "enforcement", "invented-person")
     if again["action"]["key"] != sa["key"]:
         broken.append("the withheld key is the same across re-reads")
+    kept = {n["key"]: n for n in s.get("suppressed_names") or []}
+    if kept.get(f"{sa['key']}/party/1", {}).get("name") != "Invented Person and Lambda Limited":
+        broken.append("a suppressed name is kept whole in the private twin, keyed by its party (ruling 142)")
+    ka = s.get("suppressed_action") or {}
+    if not (ka.get("key") == sa["key"] and ka.get("slug") == "invented-person" and ka.get("title")
+            and ka.get("summary") and ka.get("outcome") and ka.get("url", "").endswith("/invented-person/")):
+        broken.append("a suppressed action's heading, summary, outcome, slug and address are kept privately (ruling 142)")
+    wf = mod.read_page(_page("Nu Limited – scam", "<p><strong>Entity Name:</strong> Nu Limited<br><strong>Address:</strong> "
+                             "1 Invented Road, Town<br><strong>Email:</strong> a@example.invalid</p>"), SHA, "warnings", "nu")
+    got = {(f["label"], f["value"]) for f in wf.get("warning_fields") or []}
+    if not ({("Address", "1 Invented Road, Town"), ("Email", "a@example.invalid")} <= got
+            and not any(f["label"] == "Entity Name" for f in wf.get("warning_fields") or [])):
+        broken.append("a warning's address, email and other fields are kept in the private twin (ruling 142)")
 
     for bad in (b"<html><title>Just a moment...</title></html>", b"<html><title>Page not found</title><h1>Gone</h1></html>"):
         if mod.read_page(bad, SHA, "warnings", "x")["action"] is not None:
@@ -140,6 +153,10 @@ MUTANTS = {
                                               "states_suppression"),
     "a joined name kept on a suppression": ("states_suppression and not (org and not _AND.search(name))",
                                             "states_suppression and not org"),
+    "a suppressed name dropped (ruling 142)": ('private.append({"ordinal": i, "name": name,',
+                                               'private.append({"ordinal": i, "name": None,'),
+    "a warning's other fields dropped (ruling 142)": ('if clean(label).lower() not in PARTY_FIELDS and clean(value)]',
+                                                      'if False]'),
     "the summary kept on a suppression": ('"summary": None if suppressed or not desc else', '"summary": None if not desc else'),
     "the outcome kept on a suppression": ('"outcome": None if suppressed else outcome', '"outcome": outcome'),
     "a month made a day": ('    for fmt in ("%d %B %Y", "%d %b %Y"):', '    for fmt in ("%d %B %Y", "%d %b %Y", "%B %Y"):'),
@@ -349,3 +366,27 @@ def test_the_listing_pages_read_their_own_counts(filled):
             out = read.read_listing(read_bytes(sha), name)
             got.setdefault(name, set()).add((out["stated"], len(out["items"])))
     assert got == {"warnings": {(726, 15), (726, 6)}, "enforcement": {(99, 15)}}
+
+
+def test_an_item_taken_down_stays_with_its_date():
+    """Ruling 142: an item an older finished pass listed and the newest does not is read, flagged with the date of
+    the first finished pass after its last listing (the old listing() read the newest pass alone). In one
+    transaction, rolled back."""
+    _db_or_skip()
+    sch = "scratch_test_fma_down"
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
+        conn.execute(f"CREATE SCHEMA {sch}")
+        conn.execute(capture.capture_sql(sch))
+        T = lambda t: capture.table(sch, t)
+        lst = capture.LISTS[0].name
+        for pid, day in ((1, "2026-10-01"), (2, "2026-10-08")):
+            conn.execute(f"INSERT INTO {T('capture_passes')} (pass_id, list, stated, finished_at) VALUES (%s, %s, 1, %s)",
+                         (pid, lst, day))
+        conn.execute(f"INSERT INTO {T('capture_listed')} VALUES (1, %s, 'gone', 'u1', 'c', 1), (1, %s, 'stays', 'u2', 'c', 2), "
+                     f"(2, %s, 'stays', 'u2', 'c', 1)", (lst, lst, lst))
+        conn.execute(f"INSERT INTO {T('capture_items')} (list, slug, url, card, sha256) VALUES (%s, 'gone', 'u1', 'c', %s)",
+                     (lst, "a" * 64))
+        got = {e[1]: e for e in load.listing(conn, sch)}
+        conn.rollback()
+    assert set(got) == {"gone", "stays"}
+    assert got["stays"][5] is None and got["gone"][5] == dt.date(2026, 10, 8) and got["gone"][3] == "a" * 64
