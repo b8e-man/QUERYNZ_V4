@@ -1,39 +1,47 @@
-# Model pass 2: a second reading to enrich and correct (3 November 2026)
+# What each profile extracts: the next iteration of every extract list (3 November 2026)
 
-Arthur, 3 November 2026: "wait on 2 and make a document called 'model pass 2'". The courts lane's tranche 2 (the
-text reader re-reading every court document for identifying information) waits for this plan. Nothing in this plan
-runs until Arthur says which profiles go first.
+Arthur, 3 November 2026: "we should have document profiles that list extraction information rather than a second
+pass list. we can add to the profiles and give them an iterator and store the profile id + iterator along with the
+document so we know what has been extracted"; and "gather everything".
 
-Pass 1 is what each lane's reader does today. Pass 2 is a second model reading of a document that pass 1 has already
-read. It reads the same text, along with pass 1's stored reading, and returns two things:
+## How it works (built: support/profiles, docs/contracts/document-profile.md items 7 and 8)
 
-- **Enrichments:** fields pass 1 was never asked for. First among them is every identifying detail the document
-  prints (Arthur, 3 November: "any identifying information").
-- **Corrections:** for each pass 1 value the text contradicts or leaves out, a proposed change, with the place in
-  the text that shows it.
+- **A profile lists what it extracts.** `extract` is a list of items: `field`, `iteration`, `by` (rules, pattern
+  or model), `ask` (the instruction), `private` (an identifier: held in the lane's `_private` schema, never
+  published) and `kinds`. The profile's `iteration` is its highest item's.
+- **A profile grows by iteration.** A new field, or a changed instruction for a field (a correction), is an item at
+  the next iteration in a new version of the profile. No field is dropped and none goes back an iteration;
+  `add_version` refuses either.
+- **A document records what it has had.** `docs.extractions` holds one row per document, profile and field, with
+  the iteration it was extracted at (`support.profiles.extraction`). A reader asks only for the items above that
+  (`support.profiles.wanted`): a new field is read on its own, and the document is not read again from the start.
+  `extraction.behind` counts, per field, the documents still owed it.
 
-## The rules every pass 2 reader follows
+## The rules every extraction follows
 
 1. **The model.** The local text reader (profile `text-reader`, the standing server on node2) through the model
    client. No text leaves the boxes. Temperature 0. Pieces are cut by the profile's own split rule (ruling 130),
    never as excerpts.
-2. **One reading, stored.** One pass 2 reading per document hash and settings, stamped with the reader, the model
-   and the prompt's hash, then replayed by every load (ruling 50). Pass 1's reading is never overwritten; both
-   stay.
-3. **Corrections are proposals.** A correction is applied only by a versioned rule for its profile, after it has
-   been measured. The measuring follows the links-rules method: count the corrections by kind, read 20 against
-   the document, then version the rule. Until then a correction is counted, not applied.
+2. **One reading, stored.** One reading per document hash, profile iteration and settings, stamped with the reader,
+   the model and the prompt's hash, then replayed by every load (ruling 50). An earlier iteration's reading is never
+   overwritten.
+3. **A correction is measured before it replaces.** A field's new iteration that corrects an old one is first run
+   on 20 documents and read against them; the counts of what changed, by kind, go with the profile version.
 4. **Identifiers are private.** Every identifier goes to the lane's `*_private` schema, beside the name it
    belongs to. It never appears in a `pub.` view, a landed document, a log, a card or a session's output. A
    register's removals clear a record's identifiers, and a suppression keeps them private, as it already does for
    names. The lane's check fails if any published column carries one.
-5. **Cost before running.** Each profile is measured on 20 documents first: extra tokens and seconds per call,
-   corrections and enrichments per document, and how many answers were unusable. The full run is costed in reader
-   nights and goes to Arthur before it is queued.
-6. **Small tranches.** One profile family at a time, each with tests that fail against the old reader and a load
-   on real data that can fail.
+5. **Cost before running.** Each profile's new iteration is measured on 20 documents first: extra tokens and seconds
+   per call, items per document, and how many answers were unusable. The full run is costed in reader nights and
+   goes to Arthur before it is queued.
+6. **Gather everything** the document prints: the public forum's speakers in council minutes, the categories the
+   councillors' registers hold (real property, addresses, a spouse's or partner's interests), donors' street
+   addresses. Only what is not in the published document (a council's public-excluded part) is not read.
+7. **Iteration 1 is today's reading.** As each lane adopts the extract list, its profile's first iteration states
+   what its reader takes now, and every document already read is recorded at iteration 1. The items below are each
+   family's iteration 2.
 
-## What pass 2 asks for, in every profile
+## What iteration 2 adds, in every profile
 
 **Identifiers**, per person or body named. Each is given as a kind from the list below, the value as printed and
 its place in the text:
@@ -49,13 +57,13 @@ its place in the text:
 | Anything else | other, with the text's own label |
 
 Emails, phones, company numbers and NZBNs have a fixed format. A pattern match finds them without a model (the
-courts lane's tranche 1, now being built), so pass 2 asks for them only where the pattern match finds none.
+courts lane's tranche 1, now being built), so those items are `by: pattern`, and the model's item asks only for the rest.
 
-**Corrections**, checked against the text in every profile:
+**Corrections**, a field's next iteration where the first is wrong, checked against the text in every profile:
 - a name spelt differently from the printed one;
 - an initial expanded, or a macron dropped or added;
 - a name the text does not contain (invented);
-- a name the text contains that pass 1 missed;
+- a name the text contains that the reading missed;
 - a person filed as a body or a body as a person;
 - a role or organisation the text contradicts;
 - a counsel's party wrong;
@@ -64,10 +72,10 @@ courts lane's tranche 1, now being built), so pass 2 asks for them only where th
 
 ## The profiles
 
-The ✱ column marks which pass this is for the profile:
-- **2**: pass 1 is a model reading, so pass 2 is a true second pass.
-- **P**: pass 1 is the page reader (OCR) only, so pass 2 is the first model reading of the OCR text.
-- **R**: pass 1 is rules only. These profiles carry free text worth a model reading.
+The ✱ column marks what the profile's reader is today:
+- **2**: a model reading; iteration 2 adds to it.
+- **P**: the page reader (OCR) only; iteration 2 is the first model reading of the OCR text.
+- **R**: rules only; these profiles carry free text worth a model reading.
 
 ### Courts (16 profiles)
 
@@ -101,9 +109,9 @@ The ✱ column marks which pass this is for the profile:
 
 | Profile | ✱ | Enrich | Correct |
 | --- | --- | --- | --- |
-| `council-minutes-text` v1, `council-minutes-scanned` v1 | 2 | Identifiers for attendees and for people a resolution names (applicants, submitters, property addresses), all privately; the mover and seconder; the vote, member by member; amounts; public forum speakers (pass 1 skips them; the public-excluded skip stays) | Attendance against the apologies; declared conflicts against the members present |
+| `council-minutes-text` v1, `council-minutes-scanned` v1 | 2 | Identifiers for attendees and for people a resolution names (applicants, submitters, property addresses), all privately; the mover and seconder; the vote, member by member; amounts; public forum speakers (today's reader skips them; the public-excluded skip stays) | Attendance against the apologies; declared conflicts against the members present |
 | `council-minutes-standard` v1 | P | As above, from the OCR text | As above |
-| `interests-register-pdf-text` v1, `interests-register-html-text` v1 (councillors' registers of interests) | 2 | What pass 1 never keeps: real property, addresses, a spouse's or partner's interests, emails and phones. Pass 1 counts these by heading only; pass 2 gathers them privately, with identifiers for each member and each entity they declare | The category typing |
+| `interests-register-pdf-text` v1, `interests-register-html-text` v1 (councillors' registers of interests) | 2 | What today's reader never keeps: real property, addresses, a spouse's or partner's interests, emails and phones. Today they are counted by heading only; iteration 2 gathers them privately, with identifiers for each member and each entity they declare | The category typing |
 
 ### Organisations' own pages (2 profiles)
 
@@ -113,8 +121,8 @@ The ✱ column marks which pass this is for the profile:
 
 ### Profiles read by rules today (R): the first model reading
 
-These are free-text documents that pass 1 reads with fixed rules for their structured fields. A model reading gives
-them the same identifiers and corrections as everything above.
+These are free-text documents read today with fixed rules for their structured fields. A model item gives them the
+same identifiers and corrections as everything above.
 
 | Family | Profiles | What the text holds |
 | --- | --- | --- |
@@ -125,7 +133,7 @@ them the same identifiers and corrections as everything above.
 | Parties | `party-constitution`, `party-website-document`, `party-website-board-page` | Officers, board members and their roles and contacts |
 | Te Kāhui Māngai | `tkm-iwi-page`, `tkm-authority-page`, `tkm-other-organisations-page`, `tkm-non-tribal-marae-page` | Contacts, trustees, addresses |
 
-These are not a second pass: their rows come from registers or spreadsheets with fixed columns. Companies, NZBN,
+No model item: their rows come from registers or spreadsheets with fixed columns. Companies, NZBN,
 charities, societies, the insolvency register (identifiers already kept, c0540f9), sanctions lists, expenses
 workbooks, ICIJ, election results.
 
@@ -137,4 +145,7 @@ workbooks, ICIJ, election results.
 4. Council minutes and councillor interests.
 5. Everything else.
 
-Each step starts with its 20-document measurement and its cost in reader nights.
+Each step first writes the family's iteration 1 (today's reading) into its profiles and records every document
+already read at it, then adds iteration 2, measured on 20 documents and costed in reader nights. The courts lane's
+pattern pass for emails, phones and company numbers (being built now) becomes the courts profiles' first `pattern`
+items.

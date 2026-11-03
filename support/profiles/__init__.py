@@ -14,6 +14,17 @@ config, process, gates, on_fail. `recognise` and `signals` are the
 recognition markers the plan asks for before a reader is built
 (memory: profiles before readers).
 
+What a profile extracts (Arthur, 3 November 2026): `extract` lists every
+field a reading of this kind takes, each item {field, iteration, by
+('rules', 'pattern' or 'model'), ask (the instruction), private (true for
+an identifier: held in a `*_private` schema, never published), kinds (a
+closed vocabulary, or null)}; `iteration` is the highest item's. A field
+added, or a field's instruction changed, is an item with the next
+iteration, in a new version; no field is ever dropped. A document records
+the iteration each field was extracted at (`docs.extractions`, see
+support/profiles/extraction.py), so a reader asks only for what a
+document has not had: `wanted(profile, done)`.
+
     current()            slug → the newest version of every profile
     profile(slug)        the newest version of one
     history(slug)        every version, oldest first
@@ -25,7 +36,8 @@ import os
 
 PROFILES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profiles.jsonl")
 FIELDS = ("title", "recognise", "signals", "signals_note", "ocr", "tables", "prompt", "notes", "role",
-          "applies_to", "tooling", "config", "process", "gates", "on_fail")
+          "applies_to", "tooling", "config", "process", "gates", "on_fail", "extract", "iteration")
+EXTRACT_BY = ("rules", "pattern", "model")
 KIND = "document-profile"
 
 
@@ -77,6 +89,9 @@ def add_version(slug: str, fields: dict, by: str, path: str = None, at: str = No
         raise ValueError("a version says who made it")
     path = path or PROFILES
     have = history(slug, path)
+    check_extract(fields.get("extract"), have[-1].get("extract") if have else None)
+    if fields.get("extract"):
+        fields = {**fields, "iteration": iteration({"extract": fields["extract"]})}
     rec = {"kind": KIND, "slug": slug, "version": (int(have[-1]["version"]) if have else 0) + 1,
            "at": at or dt.datetime.now().astimezone().isoformat(timespec="seconds"), "by": by}
     for k in FIELDS:
@@ -86,3 +101,57 @@ def add_version(slug: str, fields: dict, by: str, path: str = None, at: str = No
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     return rec
+
+
+# --- what a profile extracts ----------------------------------------------------------------------------------------
+
+def check_extract(items, before=None) -> None:
+    """ValueError unless `items` is a well-formed extract list that keeps every field `before` had, at the same or a
+    higher iteration, and moves no field's instruction without moving its iteration."""
+    if not items:
+        if before:
+            raise ValueError("a version drops the extract list its predecessor had")
+        return
+    seen = set()
+    for it in items:
+        f, n = it.get("field"), it.get("iteration")
+        if not f or not isinstance(n, int) or n < 1:
+            raise ValueError(f"an extract item needs a field and an iteration from 1: {it!r}")
+        if (f, n) in seen:
+            raise ValueError(f"the field {f} is listed twice at iteration {n}")
+        seen.add((f, n))
+        if it.get("by") not in EXTRACT_BY:
+            raise ValueError(f"the field {f}: `by` is one of {EXTRACT_BY}")
+        if not (it.get("ask") or "").strip():
+            raise ValueError(f"the field {f} has no instruction (`ask`)")
+        if not isinstance(it.get("private"), bool):
+            raise ValueError(f"the field {f}: `private` is true or false")
+    new = latest(items)
+    for f, old in latest(before or []).items():
+        if f not in new:
+            raise ValueError(f"the field {f} is dropped; a field is never dropped")
+        if new[f]["iteration"] < old["iteration"]:
+            raise ValueError(f"the field {f} goes back an iteration")
+        if new[f]["iteration"] == old["iteration"] and new[f] != old:
+            raise ValueError(f"the field {f} changed without a new iteration")
+
+
+def latest(items) -> dict:
+    """field → its newest item (the highest iteration)."""
+    out = {}
+    for it in items or []:
+        if it["field"] not in out or it["iteration"] > out[it["field"]]["iteration"]:
+            out[it["field"]] = it
+    return out
+
+
+def iteration(prof: dict) -> int:
+    """The profile's iteration: its highest extract item's, 0 for a profile with no extract list."""
+    return max((it["iteration"] for it in prof.get("extract") or []), default=0)
+
+
+def wanted(prof: dict, done: dict) -> list:
+    """The items a document still needs: each field's newest item whose iteration is above the one the document was
+    extracted at (`done`: field → iteration, from extraction.done)."""
+    return [it for f, it in sorted(latest(prof.get("extract")).items()) if it["iteration"] > done.get(f, 0)]
+

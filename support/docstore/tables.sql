@@ -22,6 +22,20 @@ CREATE TABLE IF NOT EXISTS docs.names (
 );
 CREATE INDEX IF NOT EXISTS docs_names_name ON docs.names (name);
 
+-- what each document has had extracted: per profile and field, the iteration of the profile's extract list it was
+-- extracted at (support/profiles/extraction.py; Arthur, 3 November 2026). A ledger: never wiped by a load
+CREATE TABLE IF NOT EXISTS docs.extractions (
+    sha256     text NOT NULL REFERENCES docs.documents (sha256),
+    profile    text NOT NULL,
+    field      text NOT NULL,
+    iteration  int NOT NULL CHECK (iteration >= 1),
+    reader     text NOT NULL,
+    model      text,
+    at         timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (sha256, profile, field)
+);
+CREATE INDEX IF NOT EXISTS docs_extractions_profile ON docs.extractions (profile, field, iteration);
+
 -- the landing log: every attempt, so a failed landing is retried and a
 -- document is never registered before it lands
 CREATE TABLE IF NOT EXISTS docs.landings (

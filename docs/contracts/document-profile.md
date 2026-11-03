@@ -22,3 +22,16 @@
    position in the file.
 6. **A profile never carries a person's address or a suppressed name** as
    an example; the copy brought across had one such example replaced.
+
+7. **A profile lists what it extracts** (Arthur, 3 November 2026). `extract` is
+   a list of items: `field`, `iteration`, `by` (rules, pattern or model),
+   `ask` (the instruction), `private` (an identifier, held in a `_private`
+   schema and never published) and `kinds`. The profile's `iteration` is
+   its highest item's. A new field, or a changed instruction for a field,
+   is an item at the next iteration in a new version; no field is dropped
+   and none goes back an iteration.
+8. **A document records what it has had extracted.** `docs.extractions`
+   holds one row per document, profile and field, with the iteration it
+   was extracted at. A reader asks only for the items above that
+   iteration (`support.profiles.wanted`), so an added field is read
+   without reading the document again from the start.
