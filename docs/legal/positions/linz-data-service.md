@@ -32,5 +32,18 @@ and 12). The old estate pulled the owners table (51564) from 16 September 2026 u
    carries an address column (the lane's check is red on one). Hard limit 15 applies at every product's surface (ruling
    102); nothing built here is shown outside the estate (hard limit 13; ruling 128).
 
+From 4 November 2026 (ruling 142: "Get LINZ and all available information and put it all in the database"), the
+class covers every layer and table of the same service that bears on land, titles, ownership, parcels, addresses,
+property, valuation or survey: 172 of them, listed with their licences in `registers/linz/catalogue.py` and
+docs/research/linz-everything-2026-11-04.md. The four answers are the same: (1) the same key, no challenge; (2) 162 are
+CC BY 4.0 and 10 are under the LINZ Licence for Personal Data 2.3 (the owners list, the title memorials and their
+additional text, and in the Full Landonline Dataset the proprietors, the nominal index, encumbrancees, estate shares,
+aliases, users and the memorial text), each listed in the service's capabilities for our key, which lists only what the key may
+read (the restricted national valuation roll, table 113969, is not listed and is not read); (3) the licences above, the
+personal-data terms applied to every personal-data source as to the owners table (refreshed at most monthly, rebuilt
+whole from the newest pull, so a correction or deletion LINZ makes reaches us at the next); (4) the personal data and
+every geometry are held in `linz_private` only, which no reader login sees; privacy and suppression are applied at a
+product's export (ruling 142), and hard limit 15 binds every product's surface.
+
 Read politely: one request at a time, the gate's floor or the stated crawl delay (whichever is slower), off-peak, each page
 landed once by its hash; a 401, 403, 429 or a challenge is a failed read and the run stops.

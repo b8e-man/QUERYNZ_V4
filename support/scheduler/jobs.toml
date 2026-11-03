@@ -1788,7 +1788,7 @@ nice = 10
 
 # ── step 8.3, LINZ (registers/linz; Arthur, 2 November 2026): the LINZ Data Service's titles, title owners and place names ──
 [jobs.qv4-linz-capture]
-description = "Step 8.3: the LINZ Data Service's WFS through the fetch gate with our key (linz.env, an Authorization header, never in a URL): each source whose newest pull is over seven days old or unfinished (place names, the private property spine (table 113970, layer 123113, table 115638), titles, owners: small first), 10,000 rows a page, one request at a time at the gate's floor, off-peak, each page landed once by hash; a failed read stops the night and the next resumes. Nightly 22:30 NZDT, at most 6 hours."
+description = "Step 8.3: the LINZ Data Service's WFS through the fetch gate with our key (linz.env, an Authorization header, never in a URL): each source whose newest pull is past its refresh or unfinished, first the five typed sources (place names, the private property spine (table 113970, layer 123113 read whole with its points, table 115638), titles, owners: small first, weekly), then every other land layer and table of the catalogue (ruling 142: registers/linz/catalogue.py, 166 read whole into linz_private, by tranche and size: parcels and the title-parcel association first; titles, memorials, properties, valuation weekly; the Full Landonline Dataset monthly; the survey's measurements quarterly), a source not yet surveyed surveyed first; 10,000 rows a page, one request at a time at the gate's floor, off-peak, each page landed once by hash, stopping when the document store has under 200 GB free; a failed read stops the night and holds the host (ruling 141) and the next resumes. Nightly 22:30 NZDT, at most 6 hours."
 needs = "processor"
 memory_gb = 0.5
 deadline_s = 22500
@@ -1801,10 +1801,10 @@ then = ["qv4-linz-load"]
 nice = 10
 
 [jobs.qv4-linz-load]
-description = "Step 8.3: each LINZ source's newest finished pull read into pub.linz_titles, pub.linz_title_owners and pub.linz_place_names, and the private property spine into linz_private with each title's street address joined on ids (linz_private.title_addresses, never published), built in staging, checked (rows read against the service's stated count within 0.1%, every row read or set aside, a title number once, owners' titles present, no address column in a pub.linz_* view, the titles with an address over the floor, the profile's extract list aligned), published only on green; a source with no new pull keeps what is published. After each night's capture."
+description = "Step 8.3: each LINZ source's newest finished pull read into pub.linz_titles, pub.linz_title_owners and pub.linz_place_names, and the private property spine into linz_private with each title's street address joined on ids (linz_private.title_addresses, never published); each catalogue source with a new pull read whole into its own linz_private table (not while the database's disk has under 150 GB free); then each title the spine gives no address joined by geometry, parcel polygon to address points in Python (linz_private.title_address_points); built in staging, checked (rows read against the service's stated count within 0.1%, every row read or set aside, a title number and a row id once, owners' titles present, no address column in a pub.linz_* view, the titles with an address over the floor, the geometry join's titles among the titles and off the spine, the profile's extract list aligned), published only on green, a private table moved in whole; a source with no new pull keeps what is published. After each night's capture."
 needs = "processor"
-memory_gb = 2.0
-deadline_s = 5400
+memory_gb = 6.0
+deadline_s = 14400
 query_timeout_s = 1800
 class = "due"
 priority = 176   # unique (2 November 2026)

@@ -4,7 +4,9 @@ through it). Inside: every landed row read or set aside, at most `SET_ASIDE_SHAR
 the titles, every owner's title present among the titles once titles are loaded, and no column of an address in the lane's public schema or in any published
 `pub.linz_*` view. Private (each title's street address, `linz_private`): the reader login cannot see the private
 schema; every title address joins a title the titles carry (`TITLE_ADDRESS_ORPHAN_SHARE`); at least
-`TITLE_ADDRESS_FLOOR` of the titles have one. Alignment: the lane's code and its profile's extract list agree
+`TITLE_ADDRESS_FLOOR` of the titles have one. By geometry (`title_address_points`, the titles the spine gives no
+address): not empty, its titles among the titles and none already on the spine. Each catalogue source staged: one row
+an id. Alignment: the lane's code and its profile's extract list agree
 (support/profiles/align.py), and every `lands` column exists.
 
     reading(conn, schema) -> [problems]       empty when green
@@ -57,6 +59,8 @@ def reading(conn, schema: str) -> list:
         out.append(f"columns that may carry an address or a geometry: {bad}")
     out += published_views(conn)
     out += private(conn, schema, sources)
+    out += geometry(conn, schema)
+    out += whole(conn, schema, sources)
     out += alignment(conn, schema)
     return out
 
@@ -97,6 +101,44 @@ def private(conn, schema: str, sources: set) -> list:
                        f"under {TITLE_ADDRESS_FLOOR:.0%}")
     elif not rows:
         out.append("title_addresses: the three spine sources are loaded and the join is empty")
+    return out
+
+
+def geometry(conn, schema: str) -> list:
+    """The geometry join, where this load made it (`<private>.title_address_points`): not empty, its titles among the
+    titles, and none of them a title the spine already gives an address (it reaches the rest only)."""
+    from registers.linz import load
+    priv = load.private_of(schema)
+    if not conn.execute("SELECT to_regclass(%s) IS NOT NULL", (f"{priv}.title_address_points",)).fetchone()[0]:
+        return []
+    one = lambda q: conn.execute(q).fetchone()[0]  # noqa: E731
+    reached = one(f"SELECT count(DISTINCT title_no) FROM {priv}.title_address_points")
+    if not reached:
+        return ["title_address_points: the geometry join ran and reached no title"]
+    out = []
+    titles = f"{schema}.titles" if one(f"SELECT to_regclass('{schema}.titles') IS NOT NULL") else "linz.titles"
+    orphans = one(f"SELECT count(DISTINCT g.title_no) FROM {priv}.title_address_points g WHERE NOT EXISTS "
+                  f"(SELECT 1 FROM {titles} t WHERE t.title_no = g.title_no)")
+    if orphans > TITLE_ADDRESS_ORPHAN_SHARE * reached:
+        out.append(f"title_address_points: {orphans:,} of {reached:,} titles reached by geometry are not among the titles")
+    spine = f"{priv}.title_addresses" if one(f"SELECT to_regclass('{priv}.title_addresses') IS NOT NULL") \
+        else "linz_private.title_addresses"
+    both = one(f"SELECT count(DISTINCT g.title_no) FROM {priv}.title_address_points g WHERE EXISTS "
+               f"(SELECT 1 FROM {spine} s WHERE s.title_no = g.title_no)")
+    if both:
+        out.append(f"title_address_points: {both:,} titles reached by geometry already have a spine address")
+    return out
+
+
+def whole(conn, schema: str, sources: set) -> list:
+    """Each catalogue source staged by this load: one row an id (the service's own row id or its single sort key)."""
+    from registers.linz import capture, load
+    out = []
+    for s in sorted(sources & set(capture.WHOLE)):
+        t = load.table_of(schema, s)
+        dup = conn.execute(f"SELECT count(*) FROM (SELECT fid FROM {t} GROUP BY fid HAVING count(*) > 1) d").fetchone()[0]
+        if dup:
+            out.append(f"{s}: {dup:,} row ids carried more than once")
     return out
 
 

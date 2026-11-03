@@ -25,6 +25,13 @@ a product's surface, ruling 102):
 
 A title's address is then a join on the two ids, no geometry (registers.linz.load).
 
+And everything else (Arthur, 4 November 2026, ruling 142: "Get LINZ and all available information and put it all in
+the database. Always do this. we want everything"): every layer and table of the service's catalogue that bears on land
+(`registers.linz.catalogue`, docs/research/linz-everything-2026-11-04.md), each read WHOLE (`WHOLE`): no `propertyName`,
+so every attribute and the geometry, into `linz_private` only. The addresses (layer 123113) are read whole too, so each
+address carries its point; the other five keep their typed columns. A geometry is now wanted (the rule "never read a
+geometry" is gone); a public source still never asks for an address or a geometry column (`NEVER`).
+
 The key is ours (`~/.querynz/linz.env`, `LINZ_API_KEY`), read at the call and sent as an `Authorization: key …` header,
 never in a URL, a log, a landed document's name or a printed line.
 
@@ -39,8 +46,10 @@ landed is never asked again for that pull). A 401, 403, 429, a 5xx or a challeng
 logged, and the pull stops; the next run resumes from the last page landed.
 
     python -m registers.linz.capture --survey
-    python -m registers.linz.capture --pull owners|titles|place_names|property_titles|property_addresses|addresses
-                                     [--anytime] [--budget-s N] [--allow-large]
+    python -m registers.linz.capture --pull owners|titles|place_names|property_titles|property_addresses|addresses|<a
+                                     WHOLE source> [--anytime] [--budget-s N] [--allow-large]
+    python -m registers.linz.capture --due      the night: every due source, the five typed first, then the catalogue by
+                                                tranche and size; a source not yet surveyed is surveyed first
 """
 import argparse
 import datetime as dt
@@ -53,6 +62,7 @@ import urllib.parse
 from zoneinfo import ZoneInfo
 
 import support.fetchgate as fg
+from registers.linz import catalogue as K
 
 SOURCE = SCHEMA = "linz"
 JOB = "qv4-linz-capture"
@@ -67,6 +77,8 @@ OFF_PEAK = (22, 6)
 MAX_PULL_BYTES = 5 * 1000 ** 3
 SAMPLE_ROWS = 100
 DEFAULT_BUDGET_S = 6 * 3600
+#: a pull stops when the document store's disk has less free than this (everything is a billion rows; the store is shared)
+STORE_FLOOR_BYTES = 200 * 1000 ** 3
 LICENCE_CC = "CC BY 4.0: sourced from the LINZ Data Service and licensed for reuse under CC BY 4.0"
 LICENCE_PERSONAL = ("LINZ Licence for Personal Data (CC BY 4.0 + personal-data terms): never indexed by a public search "
                     "engine; supplied onward only under the licence; refreshed regularly; amended or deleted within five "
@@ -90,11 +102,23 @@ SOURCES = {
                LICENCE_CC),
     "property_titles": ("table-113970", "id", ("id", "title_no", "unit_of_property_id"), LICENCE_CC),
     "property_addresses": ("table-115638", "id", ("id", "unit_of_property_id", "address_id"), LICENCE_CC),
-    "addresses": ("layer-123113", "address_id", ("address_id", "full_address", "address_lifecycle"), LICENCE_CC),
+    # asked whole since 4 November 2026 (ASKED_WHOLE): every column and the address's point
+    "addresses": ("layer-123113", "address_id", (), LICENCE_CC),
 }
-#: the sources read into `linz_private` only, never into a published table: the only ones an address column is read from
-PRIVATE_SOURCES = frozenset({"property_titles", "property_addresses", "addresses"})
-#: a geometry is never asked for, whatever a source's list says
+#: every other taken entry of the catalogue, read whole (every attribute and the geometry) into `linz_private`:
+#: name → (typeName, the columns its pages are sorted on, licence, its geometry column or None, its tranche)
+WHOLE = {e[1]: (e[0], e[6], LICENCE_PERSONAL if e[3] == "personal" else LICENCE_CC, e[5], e[7])
+         for e in K.ENTRIES if e[7] and e[1] not in SOURCES}
+for _name, (_type, _sort, _licence, _geom, _tranche) in WHOLE.items():
+    SOURCES[_name] = (_type, ",".join(_sort), (), _licence)
+#: the sources asked for every column the service has, the geometry with it (no propertyName)
+ASKED_WHOLE = frozenset(WHOLE) | {"addresses"}
+#: the property spine: a title → its unit of property → an address id → the address (load.join_sql)
+SPINE = frozenset({"property_titles", "property_addresses", "addresses"})
+#: the sources read into `linz_private` only, never into a published table: the only ones an address or a geometry is
+#: read from
+PRIVATE_SOURCES = SPINE | frozenset(WHOLE)
+#: a typed private source's list never names a geometry (it is asked whole, or not at all)
 NEVER_GEOMETRY = re.compile(r"geom|shape", re.I)
 #: a column that would carry an address is never asked for of a public source (hard limit 15)
 NEVER = re.compile(r"address|street|road_name|postal|geom|shape", re.I)
@@ -103,6 +127,11 @@ NEVER = re.compile(r"address|street|road_name|postal|geom|shape", re.I)
 # ── pure pieces ───────────────────────────────────────────────────────────────
 
 def columns(source: str) -> tuple:
+    """The columns asked of a source: () for a source asked whole (every column and its geometry)."""
+    if source in ASKED_WHOLE:
+        if source not in PRIVATE_SOURCES:
+            raise ValueError(f"{source}: only a private source is read whole")
+        return ()
     cols = SOURCES[source][2]
     never = NEVER_GEOMETRY if source in PRIVATE_SOURCES else NEVER
     bad = [c for c in cols if never.search(c)]
@@ -207,10 +236,17 @@ class Blocked(Exception):
     pass
 
 
+def store_free() -> int:
+    import shutil
+    from support.docstore import landing
+    return shutil.disk_usage(landing.ROOT).free
+
+
 class Puller:
-    def __init__(self, conn, *, key: str = None, opener=None, land_fn=None, pacer=None, now=None, log=print):
+    def __init__(self, conn, *, key: str = None, opener=None, land_fn=None, pacer=None, now=None, log=print, free_fn=None):
         from support.docstore.landing import land
         self.conn, self.key = conn, key
+        self.free_fn = free_fn or store_free
         self.opener = opener or fg.open_url
         self.land_fn = land_fn or land
         self.pacer = pacer or fg.Pacer()
@@ -264,6 +300,9 @@ class Puller:
             if time.monotonic() - t0 >= budget_s:
                 counts["stopped"] = "budget spent"
                 break
+            if self.free_fn() < STORE_FLOOR_BYTES:
+                counts["stopped"] = f"the document store has under {STORE_FLOOR_BYTES / 1e9:.0f} GB free"
+                break
             url = wfs_url(source, start, PAGE)
             f = self.get(url)
             rows = rows_of(f.body)
@@ -283,23 +322,39 @@ class Puller:
         return counts
 
 
-#: a source is pulled again when its newest finished pull is older than this (the personal-data licence's regular refresh)
+#: a source is pulled again when its newest finished pull is older than this (the personal-data licence's regular refresh);
+#: a catalogue source by its tranche's (catalogue.REFRESH_DAYS)
 REFRESH_DAYS = 7
-#: the order a night takes the due sources in: the small first, so a night cut short still finishes something
-DUE_ORDER = ("place_names", "property_titles", "addresses", "titles", "property_addresses", "owners")
+#: the order a night takes the due sources in: the five typed sources small first, so a night cut short still finishes
+#: something, then the catalogue's by tranche and, within one, by size
+TYPED_ORDER = ("place_names", "property_titles", "addresses", "titles", "property_addresses", "owners")
+_ROWS = {e[1]: e[4] for e in K.ENTRIES}
+DUE_ORDER = TYPED_ORDER + tuple(sorted(WHOLE, key=lambda n: (WHOLE[n][4], _ROWS[n], n)))
+#: a source whose asking changed: a pull finished before this is due at once (the addresses, asked whole from 4 November)
+WIDENED = {"addresses": dt.datetime(2026, 11, 4, tzinfo=dt.timezone.utc)}
+
+
+def refresh_days(source: str) -> int:
+    return K.REFRESH_DAYS[WHOLE[source][4]] if source in WHOLE else REFRESH_DAYS
 
 
 def due_sources(conn, now: dt.datetime = None) -> list:
-    """The sources a night should pull, in DUE_ORDER: one with an unfinished pull (to resume), or none finished within
-    REFRESH_DAYS."""
+    """The sources a night should pull, in DUE_ORDER: one with an unfinished pull (to resume), none finished within its
+    refresh, or none finished since it was widened."""
     now = now or dt.datetime.now(dt.timezone.utc)
     out = []
     for s in DUE_ORDER:
         open_ = conn.execute(f"SELECT 1 FROM {SCHEMA}.pulls WHERE source = %s AND finished_at IS NULL LIMIT 1", (s,)).fetchone()
         last = conn.execute(f"SELECT max(finished_at) FROM {SCHEMA}.pulls WHERE source = %s", (s,)).fetchone()[0]
-        if open_ or last is None or (now - last).days >= REFRESH_DAYS:
+        if open_ or last is None or (now - last).days >= refresh_days(s) or (s in WIDENED and last < WIDENED[s]):
             out.append(s)
     return out
+
+
+def reported(source: str) -> bool:
+    """A source the inventory reported, its rows counted (docs/research/linz-everything-2026-11-04.md): a pull over
+    MAX_PULL_BYTES is not refused for it (the brief: report a layer over 5 GB first; the inventory is that report)."""
+    return source in WHOLE
 
 
 def latest_pages(conn, source: str) -> list:
@@ -346,10 +401,14 @@ def main(argv=None) -> int:
                         break
                     last = conn.execute(f"SELECT projected FROM {SCHEMA}.surveys WHERE source = %s ORDER BY surveyed_at "
                                         f"DESC LIMIT 1", (s,)).fetchone()
-                    if not last or last[0] > MAX_PULL_BYTES:
-                        lines.append(f"{s}: not surveyed or projected over {MAX_PULL_BYTES / 1e9:.0f} GB; not pulled")
-                        continue
                     try:
+                        if not last and (a.anytime or off_peak(p.now())):
+                            # a catalogue source not yet surveyed: its count and a sample page first, then the pull
+                            last = (p.survey(s)["projected"],)
+                            conn.commit()
+                        if not last or (last[0] > MAX_PULL_BYTES and not reported(s)):
+                            lines.append(f"{s}: not surveyed or projected over {MAX_PULL_BYTES / 1e9:.0f} GB; not pulled")
+                            continue
                         out = p.pull(s, budget_s=left, anytime=a.anytime)
                     except Blocked as e:
                         conn.commit()
@@ -370,7 +429,7 @@ def main(argv=None) -> int:
                 if not last:
                     print(f"linz: {a.pull}: survey it first (--survey)")
                     return 2
-                if last[0] > MAX_PULL_BYTES and not a.allow_large:
+                if last[0] > MAX_PULL_BYTES and not (a.allow_large or reported(a.pull)):
                     print(f"linz: {a.pull}: projected {last[0] / 1e9:.1f} GB, over {MAX_PULL_BYTES / 1e9:.0f} GB: "
                           f"refused without --allow-large")
                     return 2

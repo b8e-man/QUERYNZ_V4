@@ -116,6 +116,18 @@ REGISTER: tuple = (
     Entry("linz-*", "full_address", "address", "measure owed", (),
           "pub_private.linz_title_addresses, read by judgment-address-title@1 (links/measurements.md §19)",
           "none: built (ruling 142); the profile's next version names judgment-address-title@1"),
+    # LINZ, everything the service gives (ruling 142, 4 November 2026): each catalogue source read whole into linz_private
+    Entry("linz-*", "props", "name", "measure owed", (),
+          "linz_private: the Full Landonline Dataset's proprietors, encumbrancees and nominal index, and the title "
+          "memorials' encumbrancees, every attribute whole in each source's props (registers/linz/catalogue.py); no "
+          "links row reads them",
+          "whether a proprietor's or an encumbrancee's name (a mortgagee, a lessee) is joined to the company or person of "
+          "that name, as a title owner's is (pub.linz_title_owners)"),
+    Entry("linz-*", "geom", "address", "measure owed", (),
+          "linz_private: every parcel's polygon (layer 51571) and every address's point (layer 123113), GeoJSON text with "
+          "its box; registers.linz.load.geometry_join reaches a title's address with them (title_address_points)",
+          "whether a place another register prints, read to a point (a registered office, a judgment's street address), "
+          "is joined to the parcel, title and property it falls in"),
 )
 
 

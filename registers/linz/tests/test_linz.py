@@ -33,8 +33,11 @@ def test_a_url_never_carries_the_key_nor_a_geometry_and_the_key_goes_in_a_header
     for s in C.SOURCES:
         u = C.wfs_url(s, 20_000, C.PAGE)
         assert KEY not in u and "key=" not in u and "services;key" not in u
-        assert "startIndex=20000" in u and "count=10000" in u and "propertyName=" in u
-        assert "geom" not in u.split("propertyName=")[1].lower()
+        assert "startIndex=20000" in u and "count=10000" in u
+        if s in C.ASKED_WHOLE:
+            assert "propertyName" not in u, "a source read whole is asked for every column"
+        else:
+            assert "propertyName=" in u and "geom" not in u.split("propertyName=")[1].lower()
         assert "resultType=hits" in C.wfs_url(s, hits=True)
     assert C.headers(KEY) == {"Authorization": f"key {KEY}", "Accept": "application/json"}
 
@@ -47,22 +50,32 @@ def test_a_column_that_may_carry_an_address_or_a_geometry_is_never_read(monkeypa
         C.columns("owners")
 
 
-def test_only_a_private_source_asks_for_an_address_and_none_asks_for_a_geometry():
+def test_a_public_source_never_asks_for_an_address_or_a_geometry_and_only_a_private_one_is_read_whole():
     for s in C.SOURCES:
+        if s in C.ASKED_WHOLE:
+            assert s in C.PRIVATE_SOURCES and C.columns(s) == ()
+            continue
         asked = C.wfs_url(s).split("propertyName=")[1].split("&")[0].lower()
         assert "geom" not in asked and "shape" not in asked
-        assert ("address" in asked) == (s in {"property_addresses", "addresses"}), s
-    assert C.PRIVATE_SOURCES == {"property_titles", "property_addresses", "addresses"}
-    assert C.SOURCES["addresses"][0] == "layer-123113" and "full_address" in C.columns("addresses")
+        assert ("address" in asked) == (s == "property_addresses"), s
+    assert C.SPINE == {"property_titles", "property_addresses", "addresses"} and C.SPINE <= C.PRIVATE_SOURCES
+    assert {"owners", "titles", "place_names"}.isdisjoint(C.PRIVATE_SOURCES)
+    assert C.SOURCES["addresses"][0] == "layer-123113" and "addresses" in C.ASKED_WHOLE, "each address with its point"
     assert C.SOURCES["property_titles"][0] == "table-113970" and C.SOURCES["property_addresses"][0] == "table-115638"
 
 
-@pytest.mark.parametrize("col", ["shape", "geometry", "the_geom"])
-def test_a_private_source_never_reads_a_geometry_either(monkeypatch, col):
-    a = C.SOURCES["addresses"]
-    monkeypatch.setitem(C.SOURCES, "addresses", a[:2] + (a[2] + (col,),) + a[3:])
+def test_a_public_source_is_never_read_whole(monkeypatch):
+    monkeypatch.setattr(C, "ASKED_WHOLE", C.ASKED_WHOLE | {"owners"})
     with pytest.raises(ValueError):
-        C.columns("addresses")
+        C.columns("owners")
+
+
+@pytest.mark.parametrize("col", ["shape", "geometry", "the_geom"])
+def test_a_typed_private_source_never_lists_a_geometry_either(monkeypatch, col):
+    a = C.SOURCES["property_titles"]
+    monkeypatch.setitem(C.SOURCES, "property_titles", a[:2] + (a[2] + (col,),) + a[3:])
+    with pytest.raises(ValueError):
+        C.columns("property_titles")
 
 
 def test_a_public_source_still_never_reads_an_address_column(monkeypatch):
@@ -225,10 +238,12 @@ class CheckConn:
     catalog holding every lands column unless `missing` names one."""
 
     def __init__(self, loaded, dup=0, owners=0, orphans=0, cols=("title_no",), pub_cols=(("linz_titles", "title_no"),),
-                 seen=False, titles=0, with_address=0, address_orphans=0, missing=()):
+                 seen=False, titles=0, with_address=0, address_orphans=0, missing=(), geometry=None, dup_fids=0):
         self.loaded, self.dup, self.owners, self.orphans, self.cols = loaded, dup, owners, orphans, cols
         self.pub_cols, self.seen, self.titles, self.with_address = pub_cols, seen, titles, with_address
         self.address_orphans, self.missing = address_orphans, missing
+        #: (titles reached, of them not among the titles, of them already on the spine), or None: no geometry join
+        self.geometry, self.dup_fids = geometry, dup_fids
 
     def execute(self, sql, params=()):
         from registers.linz import extracts
@@ -237,11 +252,21 @@ class CheckConn:
             return All(self.loaded)
         if "table_schema = 'pub'" in s:
             return All(list(self.pub_cols))
+        if s.startswith("SELECT to_regclass(%s) IS NOT NULL"):
+            return All([(params[0].endswith("title_address_points") and self.geometry is not None,)])
+        if self.geometry is not None and "FROM s_private.title_address_points" in s:
+            return All([({"reached": self.geometry[0], "orphans": self.geometry[1], "both": self.geometry[2]}[
+                "orphans" if "NOT EXISTS" in s else "both" if "EXISTS" in s else "reached"],)])
+        if s.startswith("SELECT to_regclass('s.titles')") or s.startswith("SELECT to_regclass('s_private.title_addresses')"):
+            return All([(True,)])
+        if "GROUP BY fid HAVING" in s:
+            return All([(self.dup_fids,)])
         if "has_schema_privilege" in s:
             assert params[1] == "s_private"
             return All([(self.seen,)])
         if "FROM pg_attribute" in s:
             schema, table = params
+            assert schema in ("s", "s_private", "linz_private"), schema
             lane_t = table if schema == "s" else f"linz_private.{table}"
             return All([(c,) for c in extracts.TABLES.get(lane_t, ()) if f"{lane_t}.{c}" not in self.missing])
         if s.startswith("SELECT count(*) FROM s_private.title_addresses"):
@@ -330,8 +355,11 @@ def test_the_night_takes_unfinished_and_stale_sources_small_first():
             if "finished_at IS NULL" in sql:
                 return Rows([(1,)] if s == "owners" else [])
             return Rows([({"place_names": now - dt.timedelta(days=2), "titles": now - dt.timedelta(days=9)}.get(s),)])
-    assert C.due_sources(DueConn(), now) == ["property_titles", "addresses", "titles", "property_addresses", "owners"], \
+    due = C.due_sources(DueConn(), now)
+    assert due[:5] == ["property_titles", "addresses", "titles", "property_addresses", "owners"], \
         "a source never pulled is due; the private sources take their place by size"
+    assert due[5:] == [s for s in C.DUE_ORDER if s in C.WHOLE], "then every catalogue source, never pulled"
+    assert due[5:7] == ["title_parcel_association_list", "parcels"], "the geometry join's two first"
 
 
 def test_the_lane_folder_has_the_shape():
@@ -374,5 +402,143 @@ def test_each_page_records_the_fields_its_source_yields():
     for sha, slug, f, it, reader, model in rows:
         assert slug == "linz-wfs-page" and reader == R.READER and model is None
         by.setdefault(sha, {})[f] = it
-    assert by["a" * 64] == {"address_id": 2, "full_address": 2, "address_lifecycle": 2}
+    assert by["a" * 64] == {"address_id": 3, "full_address": 3, "address_lifecycle": 3, "props": 3, "geom_type": 3,
+                            "geom": 3, "xmin": 3, "ymin": 3, "xmax": 3, "ymax": 3}
     assert "title_no" in by["b" * 64] and "full_address" not in by["b" * 64]
+
+
+# ── everything the service gives (ruling 142, 4 November 2026): the catalogue, read whole, and the geometry ──────────
+
+def test_the_catalogue_takes_every_land_layer_and_says_why_it_leaves_one():
+    from registers.linz import catalogue as K
+    names = [e[1] for e in K.ENTRIES]
+    assert len(names) == len(set(names)), "one name a source"
+    for type_name, name, title, licence, rows, geom, sort, tranche, why, cadence in K.ENTRIES:
+        assert type_name.startswith(("layer-", "table-")) and licence in ("cc", "personal") and rows >= 0
+        assert (tranche is None) == bool(why), name
+        assert tranche is None or tranche in K.REFRESH_DAYS
+        if tranche:
+            assert name in C.SOURCES and C.SOURCES[name][0] == type_name, name
+    taken = {e[0] for e in K.ENTRIES if e[7]}
+    for t in ("table-51569", "layer-51571", "table-51695", "table-114085", "table-52067", "layer-113968"):
+        assert t in taken, t
+    assert {"titles", "owners", "place_names", "property_titles", "property_addresses", "addresses"} <= set(names)
+
+
+def test_a_whole_source_is_asked_for_everything_sorted_on_its_key_and_lands_private():
+    u = C.wfs_url("parcels", 0, C.PAGE)
+    assert "typeNames=layer-51571" in u and "propertyName" not in u and "sortBy=id" in u
+    u = C.wfs_url("lol_title_memorial_text", 0, C.PAGE)
+    assert "sortBy=audit_id" in u, "a table with no id is paged on a column that is one a row"
+    assert "parcels" in C.PRIVATE_SOURCES and C.WHOLE["parcels"][3] == "shape"
+    assert C.refresh_days("parcels") == 7 and C.refresh_days("lol_setup") == 90 and C.refresh_days("owners") == 7
+    assert C.reported("lol_setup") and not C.reported("owners")
+
+
+def test_the_addresses_asked_whole_are_due_again_once_though_pulled_this_week():
+    now = dt.datetime(2026, 11, 5, tzinfo=dt.timezone.utc)
+
+    class DueConn:
+        def execute(self, sql, params=()):
+            if "finished_at IS NULL" in sql:
+                return Rows([])
+            return Rows([(now - dt.timedelta(days=1, hours=12),)])     # every source finished a day and a half ago
+    assert C.due_sources(DueConn(), now) == ["addresses"], "pulled before it was widened"
+
+
+def test_a_pull_stops_when_the_store_runs_low(monkeypatch):
+    monkeypatch.setattr(C, "PAGE", 4)
+    db, landed = FakeDB(), []
+    p = puller(db, FakeService(10), landed)
+    p.free_fn = lambda: C.STORE_FLOOR_BYTES - 1
+    out = p.pull("owners")
+    assert not landed and "free" in out["stopped"] and not out["finished"]
+
+
+def feature(fid, props, geometry=None):
+    return {"type": "Feature", "id": fid, "geometry": geometry, "properties": props}
+
+
+SQUARE = {"type": "Polygon", "coordinates": [[[170.0, -45.0], [170.1, -45.0], [170.1, -44.9], [170.0, -44.9], [170.0, -45.0]],
+                                             [[170.04, -44.96], [170.06, -44.96], [170.06, -44.94], [170.04, -44.94],
+                                              [170.04, -44.96]]]}
+
+
+def test_a_page_read_whole_keeps_every_attribute_and_the_geometry_with_its_box():
+    body = json.dumps({"type": "FeatureCollection", "features": [
+        feature("layer-51571.7", {"id": 7, "appellation": "Lot 1 DP 1", "titles": "T1, T2"}, SQUARE),
+        feature("layer-51571.8", {"id": 8, "appellation": "Lot 2 DP 1"}),
+        {"type": "Feature", "geometry": None, "properties": {"appellation": "no id at all"}}]}).encode()
+    rows, aside = R.read_page(body, "parcels", "f" * 64, 3, start_index=10)
+    assert [r["key"] for r in rows] == ["linz/parcels/7", "linz/parcels/8"]
+    r = rows[0]
+    assert json.loads(r["props"]) == {"id": 7, "appellation": "Lot 1 DP 1", "titles": "T1, T2"}, "nothing stripped"
+    assert r["geom_type"] == "Polygon" and json.loads(r["geom"]) == SQUARE
+    assert (r["xmin"], r["ymin"], r["xmax"], r["ymax"]) == (170.0, -45.0, 170.1, -44.9)
+    assert rows[1]["geom"] is None and rows[1]["xmin"] is None
+    assert aside == [{"document": "f" * 64, "place": "row 13", "stage": "read", "reason": "no id"}]
+    rows, _ = R.read_page(json.dumps({"type": "FeatureCollection", "features": [
+        feature("table-52007.99", {"ttm_id": 5, "sequence_no": 1, "std_text": "x"})]}).encode(),
+        "lol_title_memorial_text", "f" * 64, 3)
+    assert rows[0]["fid"] == "99", "a table sorted on a column that is not one a row is keyed by the service's own id"
+    assert R.read_page(b"<ows:ExceptionReport/>", "parcels", "f" * 64, 3)[1][0]["stage"] == "recognise"
+
+
+def test_an_address_read_whole_carries_its_point():
+    body = page("addresses", [{"address_id": 7, "full_address": "1 Invented Lane, Nowhere", "address_lifecycle": "Current",
+                               "suburb_locality": "Nowhere"}])
+    doc = json.loads(body)
+    doc["features"][0]["geometry"] = {"type": "Point", "coordinates": [170.05, -44.99]}
+    rows, _ = R.read_page(json.dumps(doc).encode(), "addresses", "e" * 64, 3)
+    assert rows[0]["full_address"] == "1 Invented Lane, Nowhere" and rows[0]["xmin"] == 170.05 and rows[0]["ymax"] == -44.99
+    assert json.loads(rows[0]["props"])["suburb_locality"] == "Nowhere"
+
+
+def test_a_point_is_inside_a_polygon_not_in_its_hole_and_the_grid_finds_it():
+    from registers.linz import geo
+    assert geo.contains(SQUARE, 170.01, -44.99) and not geo.contains(SQUARE, 170.05, -44.95), "the hole"
+    assert not geo.contains(SQUARE, 170.2, -44.95)
+    multi = {"type": "MultiPolygon", "coordinates": [SQUARE["coordinates"][:1],
+                                                     [[[171, -45], [171.1, -45], [171.1, -44.9], [171, -45]]]]}
+    assert geo.contains(multi, 171.08, -44.95) and geo.bbox(multi) == (170.0, -45.0, 171.1, -44.9)
+    assert not geo.contains({"type": "Point", "coordinates": [170.01, -44.99]}, 170.01, -44.99)
+    g = geo.Grid()
+    for k, x, y in ((1, 170.01, -44.99), (2, 170.05, -44.95), (3, 170.5, -44.5), (4, 171.08, -44.95)):
+        g.add(k, x, y)
+    assert sorted(g.within(SQUARE)) == [1] and sorted(g.within(multi)) == [1, 2, 4], "the multi's first has no hole"
+    huge = {"type": "Polygon", "coordinates": [[[160, -50], [180, -50], [180, -30], [160, -30], [160, -50]]]}
+    assert sorted(g.within(huge)) == [1, 2, 3, 4], "a box wider than the points walks the filled cells"
+
+
+def test_each_parcel_is_tested_once_and_a_parcel_without_a_polygon_reaches_nothing():
+    from registers.linz import geo, load as L
+    g = geo.Grid()
+    g.add(1, 170.01, -44.99)
+    got = L.match_parcels([("p1", json.dumps(SQUARE)), ("p1", json.dumps(SQUARE)), ("p2", None)], g)
+    assert got == {"p1": [1], "p2": []}
+
+
+def test_publishing_moves_a_private_table_whole_and_keeps_the_geometry_join_unless_it_ran():
+    from registers.linz import load as L
+    plan = L.publish_plan({"titles", "parcels", "property_titles", "property_addresses", "addresses"}, geometry=False)
+    assert ("copy", "titles") in plan and ("move", "parcels") in plan and ("move", "addresses") in plan
+    assert ("move", "title_addresses") in plan and ("move", "title_address_points") not in plan
+    assert ("move", "title_address_points") in L.publish_plan({"parcels"}, geometry=True)
+    assert ("move", "title_addresses") not in L.publish_plan({"parcels"}, geometry=False), "the spine not restaged"
+    assert L.geometry_inputs("staging_x", {"titles", "parcels"}) == {
+        "titles": "staging_x.titles", "spine": "linz_private.title_addresses",
+        "association": "linz_private.title_parcel_association_list", "parcels": "staging_x_private.parcels",
+        "addresses": "linz_private.addresses"}, "an input not staged now is read as published"
+    assert "CREATE TABLE linz_private.title_address_points" not in L.tables_sql("s"), \
+        "only the geometry join makes its table, so a load that could not join leaves the published one"
+    assert "CREATE TABLE s_private.title_address_points" in L.tables_sql("s", "geometry")
+
+
+def test_the_geometry_join_is_held_to_the_titles_and_the_spine():
+    assert check.reading(CheckConn([], geometry=(100, 0, 0)), "s") == []
+    assert any("reached no title" in p for p in check.reading(CheckConn([], geometry=(0, 0, 0)), "s"))
+    assert any("5 of 100 titles reached by geometry are not among" in p
+               for p in check.reading(CheckConn([], geometry=(100, 5, 0)), "s"))
+    assert any("already have a spine address" in p for p in check.reading(CheckConn([], geometry=(100, 0, 3)), "s"))
+    dup = check.reading(CheckConn([("parcels", "p", 10, 10, 10, 0)], dup_fids=2), "s")
+    assert any("parcels: 2 row ids carried more than once" in p for p in dup)

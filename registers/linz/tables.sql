@@ -79,7 +79,8 @@ CREATE TABLE linz.loaded_pulls (
 );
 
 -- ── linz_private: the property spine and each title's street address (Arthur, 3 November 2026: "gather everything") ──
--- Never published, never seen by a reader login (support.db: a `_private` schema). No geometry.
+-- Never published, never seen by a reader login (support.db: a `_private` schema). Every catalogue source read whole has
+-- its own table here too, made by load.whole_sql (every attribute as JSON, the geometry as GeoJSON text and its box).
 
 -- table 113970, NZ Properties: Property-Title Reference: a title on a unit of property (a rating unit)
 CREATE TABLE linz_private.property_titles (
@@ -101,12 +102,17 @@ CREATE TABLE linz_private.property_addresses (
     loaded_at timestamptz NOT NULL DEFAULT now()
 );
 
--- layer 123113, NZ Addresses (AIMS), without its geometry: the address as LINZ gives it
+-- layer 123113, NZ Addresses (AIMS), read whole from 4 November 2026: the address as LINZ gives it, every attribute,
+-- and its point (longitude xmin = xmax, latitude ymin = ymax, NZGD2000)
 CREATE TABLE linz_private.addresses (
     key                  text NOT NULL,             -- linz/addresses/<address_id>
     address_id           bigint NOT NULL,
     full_address         text NOT NULL,
     address_lifecycle    text,
+    props                jsonb,                     -- every attribute as LINZ gives it (a pull asked whole)
+    geom_type            text,
+    geom                 text,                      -- the GeoJSON geometry
+    xmin double precision, ymin double precision, xmax double precision, ymax double precision,
     document text NOT NULL, page integer, place text, read_from text, reader text, profile text, profile_version integer,
     loaded_at timestamptz NOT NULL DEFAULT now()
 );
@@ -128,6 +134,28 @@ CREATE TABLE linz_private.title_addresses (
     address_key                text NOT NULL,
     property_title_document    text NOT NULL,
     property_address_document  text NOT NULL,
+    address_document           text NOT NULL,
+    loaded_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- each title's street address by geometry (4 November 2026), for the titles the property spine gives none: the title's
+-- parcels (table 51569, the title-parcel association) → each parcel's polygon (layer 51571) → the address points
+-- (layer 123113) strictly inside it, tested in Python (registers.linz.geo; no PostGIS). One row per title and address. A
+-- parcel several titles share (a cross lease, a unit plan) gives each the same addresses: titles_on_parcel says so.
+CREATE TABLE linz_private.title_address_points (
+    title_no                   text NOT NULL,
+    address_id                 bigint NOT NULL,
+    full_address               text NOT NULL,
+    address_lifecycle          text,
+    par_id                     text NOT NULL,
+    joined_by                  text NOT NULL,     -- how it was joined: load.GEOMETRY_JOINED_BY
+    titles_on_parcel           integer NOT NULL,
+    addresses_in_parcel        integer NOT NULL,
+    association_key            text NOT NULL,
+    parcel_key                 text NOT NULL,
+    address_key                text NOT NULL,
+    association_document       text NOT NULL,
+    parcel_document            text NOT NULL,
     address_document           text NOT NULL,
     loaded_at timestamptz NOT NULL DEFAULT now()
 );

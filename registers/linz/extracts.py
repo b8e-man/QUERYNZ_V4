@@ -5,8 +5,9 @@ somethings are aligned").
 One profile, `linz-wfs-page`: a WFS page of any source. Its fields come from the code that makes them, never a second
 list: each source's columns as the load writes them (`load.COLUMNS`, the citation stamp and the key apart), a field
 named by its column and landing in every table that carries it; a private source's columns land in `linz_private`
-(capture.PRIVATE_SOURCES), and so does each title's street address (`load.TITLE_ADDRESS_COLUMNS`). All by rules, no
-model. `support/profiles/align.py` holds them to the profile's extract list.
+(capture.PRIVATE_SOURCES), and so does each title's street address (`load.TITLE_ADDRESS_COLUMNS`, and by geometry
+`load.GEOMETRY_COLUMNS`). A catalogue source read whole yields read.WHOLE_FIELDS (its row id, every attribute as JSON,
+its geometry and box), landing in its own table. All by rules, no model. `support/profiles/align.py` holds them to the profile's extract list.
 
     produces(slug)         {field: (by, kinds)}
     LANE                   the lane as align.py reads it
@@ -26,13 +27,21 @@ def _table(source: str) -> str:
     return f"{L.PRIVATE}.{source}" if source in capture.PRIVATE_SOURCES else source
 
 
-#: the lane's tables, in its own naming ("titles", "linz_private.addresses") → their columns
+#: the lane's tables, in its own naming ("titles", "linz_private.addresses") → their columns; every catalogue source read
+#: whole has its own (load.WHOLE_COLUMNS), and the geometry join its own (load.GEOMETRY_COLUMNS)
 TABLES = {**{_table(s): L.COLUMNS[s] for s in L.SOURCES},
-          f"{L.PRIVATE}.title_addresses": L.TITLE_ADDRESS_COLUMNS}
+          f"{L.PRIVATE}.title_addresses": L.TITLE_ADDRESS_COLUMNS,
+          f"{L.PRIVATE}.title_address_points": L.GEOMETRY_COLUMNS}
 #: what a row says about where it came from or how it was joined, never a field of the page
 HOUSEKEEPING = frozenset({"owners.title_key"} | {f"{L.PRIVATE}.title_addresses.{c}" for c in (
     "joined_by", "titles_on_property", "addresses_on_property", "property_title_key", "property_address_key",
-    "address_key", "property_title_document", "property_address_document", "address_document")})
+    "address_key", "property_title_document", "property_address_document", "address_document")}
+    | {f"{L.PRIVATE}.title_address_points.{c}" for c in (
+        "par_id", "joined_by", "titles_on_parcel", "addresses_in_parcel", "association_key", "parcel_key", "address_key",
+        "association_document", "parcel_document", "address_document")})
+#: tables the check finds in the published private schema whatever schema it checks (load.ensure_private makes them):
+#: a whole source is staged only on a new pull, and the geometry join's table only when it joins
+PUBLISHED_ONLY = frozenset({_table(w) for w in L.WHOLE} | {f"{L.PRIVATE}.title_address_points"})
 
 
 def fields_of(source: str) -> tuple:
@@ -66,6 +75,8 @@ def problems(profiles: dict = None) -> list:
 def where(schema: str = L.SCHEMA):
     """A lane table's name → (schema, table) in the database, `schema` the public one (a staging schema renames both)."""
     def at(t: str) -> tuple:
+        if t in PUBLISHED_ONLY:
+            return L.PRIVATE, t.split(".", 1)[1]
         if t.startswith(L.PRIVATE + "."):
             return L.private_of(schema), t.split(".", 1)[1]
         return schema, t
