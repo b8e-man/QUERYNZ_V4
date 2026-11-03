@@ -98,6 +98,19 @@ def test_without_a_role_default_a_name_with_no_role_is_set_aside_not_guessed():
     assert got.set_aside == [("line 3", "a name with no role beside it, and no role the heading declares")]
 
 
+def test_every_line_of_the_board_section_is_kept_whole_and_a_contact_line_flagged():
+    """Ruling 142 (4 November 2026): the old reading kept neither a contact line nor a set-aside line's text; every
+    line of the section is now in `Reading.section`, a contact line flagged, and none of it in a role row."""
+    html = (b"<h1>Our Board</h1><h3>Jane Example</h3><h4>Chair</h4><p>jane@example.nz</p><h3>Pat Example</h3>"
+            b"<h2>Our MPs</h2><h3>Kim Example</h3>")
+    shape = dict(id="s", url="example", opens="^Our Board$", closes=["^Our MPs$"], form="pair", name=["h3"], role=["h4"])
+    got = read.read(html, "a" * 64, CAP, prof=_prof(shape))
+    texts = {t: c for _, t, c in got.section}
+    assert texts == {"Our Board": False, "Jane Example": False, "Chair": False, "jane@example.nz": True,
+                     "Pat Example": False}
+    assert "@" not in repr(got.rows) and got.set_aside
+
+
 def test_cells_form_reads_role_and_name_cells_and_sets_a_vacancy_aside():
     html = (b"<p>BOARD</p><table><tr><td><strong>President</strong></td><td>Jane Example</td><td><a>j@x.nz</a></td></tr>"
             b"<tr><td><strong>South</strong></td><td>vacant</td></tr></table><p>MANAGEMENT</p>"

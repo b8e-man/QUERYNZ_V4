@@ -1,5 +1,6 @@
--- registers/party_boards: the tables this lane owns, in `party_boards`. No private twin is needed: the lane
--- reads only a page's board section, and a contact line or a promoter statement is never read into a row.
+-- registers/party_boards: the tables this lane owns, in `party_boards` and its private twin. The lane reads a page's
+-- board section; a contact line is never read into a role row, and every line of the section is kept whole in
+-- `party_boards_private.section_lines` (ruling 142, 4 November 2026).
 -- Loaded into a staging or scratch schema by replacing `party_boards.` with that schema's name (load.sql).
 -- Every row is read from a captured party page (capture.py) through the profile party-website-board-page (read.py).
 
@@ -52,10 +53,23 @@ CREATE TABLE IF NOT EXISTS party_boards.pages (
     PRIMARY KEY (document, ts, url)
 );
 
--- the catch log: one line for every name the lane could not take to a row (never the line's text)
+-- the catch log: one line for every name the lane could not take to a row (its text is in
+-- party_boards_private.section_lines, by the document and the line)
 CREATE TABLE IF NOT EXISTS party_boards.set_aside (
     item       text NOT NULL,                               -- <document>/<place>
     stage      text NOT NULL,                               -- capture | read
     reason     text NOT NULL,
     at         timestamptz NOT NULL DEFAULT now()
+);
+
+-- every line of a page's board section, whole, as page.py reads it (ruling 142, 4 November 2026): the names, the
+-- roles, the contact lines (email, telephone) and the lines set aside. The private twin: never granted to the session
+-- or product logins
+CREATE TABLE IF NOT EXISTS party_boards_private.section_lines (
+    document   text NOT NULL,
+    shape      text,
+    n          integer NOT NULL,                            -- the line's number on the page as read (`line <n>`)
+    text       text NOT NULL,
+    contact    boolean NOT NULL,                            -- an email, a telephone or a web address by its shape
+    PRIMARY KEY (document, n)
 );

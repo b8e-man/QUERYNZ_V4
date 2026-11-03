@@ -33,7 +33,10 @@ vacancy, a name that repeats its role, two names where the shape does not
 say how to split them. A page no shape recognises is a drop-note with its
 reason: no shape for the site, no board heading on the page, a theme's
 placeholder people, or bytes that are not a page. Contact lines (email,
-telephone) are never read into a row and never logged.
+telephone) are never read into a role row; every line of the board section,
+contact lines and set-aside lines among them, is kept whole in
+`Reading.section`, loaded into `party_boards_private.section_lines`
+(ruling 142, 4 November 2026).
 
     profile()                    the profile record this reading runs from
     read(data, capture, …)       Reading: rows, set_aside, status, shape
@@ -74,6 +77,7 @@ class Reading:
     reason: str = None                   # for a drop-note, why
     rows: list = field(default_factory=list)
     set_aside: list = field(default_factory=list)       # (place, reason)
+    section: list = field(default_factory=list)         # every line of the board section whole: (n, text, contact)
 
 
 def profile() -> dict:
@@ -222,9 +226,10 @@ def read(data: bytes, document: str, capture, loaded_at: str = None, prof: dict 
     if shape is None:
         return Reading("drop-note", reason=got)
     opener, sec = got
+    section = [(ln.n, ln.text, bool(_CONTACT.search(ln.text))) for ln in [opener] + list(sec)]
     if shape.get("drop"):
-        return Reading("drop-note", shape=shape["id"], reason=shape["drop"])
-    out = Reading("read", shape=shape["id"])
+        return Reading("drop-note", shape=shape["id"], reason=shape["drop"], section=section)
+    out = Reading("read", shape=shape["id"], section=section)
     seen = set()
     for n, name_text, role, basis in FORMS[shape["form"]](sec, shape):
         place = f"line {n}"

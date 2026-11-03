@@ -22,6 +22,9 @@ from registers.party_boards import capture, read
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "party_boards"
 TABLES = ("roles", "pages", "set_aside")
+PRIVATE = "party_boards_private"
+#: the private twin's table: every line of a board section whole (ruling 142)
+PRIVATE_COLUMNS = {"section_lines": ("document", "shape", "n", "text", "contact")}
 JOB = "qv4-party-boards-load"
 COLUMNS = {
     "roles": ("key", "document", "page", "place", "party", "url", "captured_on", "last_captured_on", "captures",
@@ -30,6 +33,10 @@ COLUMNS = {
     "pages": ("document", "ts", "url", "party", "captured_on", "capture_kind", "archive_url", "status", "shape",
               "reason", "rows", "set_aside", "reader", "profile", "profile_version", "loaded_at"),
 }
+
+
+def private_of(schema: str) -> str:
+    return PRIVATE if schema == SCHEMA else f"{schema[:55]}_private"
 
 
 def table(schema: str, t: str, shared: bool = False) -> str:
@@ -41,15 +48,20 @@ def table(schema: str, t: str, shared: bool = False) -> str:
 def sql(name: str, schema: str = SCHEMA, shared: bool = False) -> str:
     with open(os.path.join(HERE, name), encoding="utf-8") as f:
         text = f.read()
-    return text.replace(f"{SCHEMA}.", f"{schema}.{SCHEMA + '_' if shared else ''}")
+    pre = SCHEMA + "_" if shared else ""
+    text = text.replace(f"{PRIVATE}.", f"{private_of(schema)}.{pre}")
+    return text.replace(f"{SCHEMA}.", f"{schema}.{pre}")
 
 
 def create_tables(conn, schema: str, shared: bool = False) -> None:
     """The lane's tables as tables.sql has them now, made again on every
     build: every row is rebuilt from documents."""
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    conn.execute(f"CREATE SCHEMA IF NOT EXISTS {private_of(schema)}")
     for t in TABLES:
         conn.execute(f"DROP TABLE IF EXISTS {table(schema, t, shared)} CASCADE")
+    for t in PRIVATE_COLUMNS:
+        conn.execute(f"DROP TABLE IF EXISTS {table(private_of(schema), t, shared)} CASCADE")
     conn.execute(sql("tables.sql", schema, shared))
 
 
@@ -82,6 +94,10 @@ def build(conn, schema: str, landed: list, before: list, manifest_sha: str = Non
             _insert(conn, roles_t, COLUMNS["roles"], row)
         for place, why in got.set_aside:
             conn.execute(f"INSERT INTO {aside_t} (item, stage, reason) VALUES (%s, 'read', %s)", (f"{sha}/{place}", why))
+        for n, text, contact in got.section:
+            _insert(conn, table(private_of(schema), "section_lines", shared), PRIVATE_COLUMNS["section_lines"],
+                    {"document": sha, "shape": got.shape, "n": n, "text": text, "contact": contact})
+        counts["section_lines"] = counts.get("section_lines", 0) + len(got.section)
         counts["rows"] += len(got.rows)
         counts["set_aside"] += len(got.set_aside)
         by_party[first.party] = by_party.get(first.party, 0) + len(got.rows)
@@ -130,4 +146,7 @@ def publish(conn, staging: str) -> None:
         create_tables(conn, SCHEMA)
         for t in TABLES:
             conn.execute(f"INSERT INTO {SCHEMA}.{t} SELECT * FROM {staging}.{t}")
+        for t, cols in PRIVATE_COLUMNS.items():
+            cols = ", ".join(cols)
+            conn.execute(f"INSERT INTO {PRIVATE}.{t} ({cols}) SELECT {cols} FROM {private_of(staging)}.{t}")
         conn.execute(sql("publish.sql"))
