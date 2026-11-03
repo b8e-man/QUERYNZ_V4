@@ -64,3 +64,30 @@ def test_year_from_recovers_the_file_date():
     assert d.year_from("2025-06-26", "Warren-Lewis_26_June_2023.jpg", today) == (2023, "source_file (read year corrected)")
     assert d.year_from("2023-06-26", "Warren-Lewis_26_June_2023.jpg", today) == (2023, "date_received")
     assert d.year_from("2025-07-01", "Warren-Lewis_26_June_2023.jpg", today) == (2025, "date_received")
+
+
+# ── an address in parts, and where two meet (invented addresses) ─────────────
+
+def test_an_address_is_read_into_the_same_parts_from_every_side():
+    judgment = a.street_parts("Flat 2, 14A Invented Street, Someplace, Nowhere 1010")
+    linz = a.street_parts("2/14A Invented St, Someplace, Nowhere")
+    assert judgment == linz == {"unit": "2", "number": "14a", "street": "invented", "type": "st",
+                                "places": ("someplace", "nowhere")}
+    office = a.street_parts("Level 3, 100 Made Up Road, Nowhere, New Zealand")
+    assert office["unit"] == "" and office["number"] == "100" and office["places"] == ("nowhere",), "a level is no unit"
+    assert a.street_parts("Level 2, Flat 5, 9 Fake Lane, Town")["unit"] == "5"
+    assert a.street_parts("14-16 Pretend Avenue, Ville")["number"] == "14"
+    assert a.street_parts("PO Box 12, Nowhere") is None and a.street_parts("Invented Street") is None
+    assert a.street_key(judgment) == "14a|invented|st"
+
+
+def test_two_addresses_meet_at_the_strongest_level_and_never_across_a_difference():
+    x = a.street_parts("Flat 2, 14A Invented Street, Someplace, Nowhere 1010")
+    p = a.street_parts
+    assert a.meet(x, p("2/14A Invented St, Someplace")) == "unit, number, street and place"
+    assert a.meet(x, p("14A Invented Street, Nowhere")) == "number, street and place"
+    assert a.meet(x, p("14A Invented Street")) == "number and street"
+    assert a.meet(x, p("14A Invented Street, Elsewhere")) is None, "two places, none shared"
+    assert a.meet(x, p("3/14A Invented Street, Nowhere")) is None, "two units: two dwellings"
+    assert a.meet(x, p("14A Invented Road, Nowhere")) is None and a.meet(x, p("14 Invented Street, Nowhere")) is None
+    assert a.MATCH_LEVELS[0] == "unit, number, street and place"
