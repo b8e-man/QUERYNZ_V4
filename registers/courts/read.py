@@ -30,8 +30,11 @@ or an order in its text, or whose citation or document is in the lane's
 ledger of orders (suppress.py), has every party's name withheld except the
 Crown's and an initial the court itself printed; the same withholding
 reaches every model-read name on every document of the citation (and of
-the case page that links it), judges, counsel and the Crown apart. The row
-and its role stay; the name goes to the private table only.
+the case page that links it), judges, counsel and the Crown apart. Nothing
+is lost (ruling 142, 4 November 2026): the row, its role and the flag stay
+in the schema the session login reads; the name goes whole to the private
+table, keyed by its row, with where it belongs and the source's words
+(`_kept`), and the private views put it back in its row for the links.
 
     recognise(entry, data, texts)          (profile slug, why, document kind)
     read(entries, orders, store, …)        Result
@@ -154,7 +157,7 @@ class Result:
     parties: list = field(default_factory=list)
     paragraphs: list = field(default_factory=list)     # (judgment key, number, page, document)
     people: list = field(default_factory=list)
-    withheld: list = field(default_factory=list)       # (key, name, capacity): the private table only
+    withheld: list = field(default_factory=list)       # a suppressed name whole (load.WITHHELD_COLUMNS): the private table only
     identifiers: list = field(default_factory=list)    # identifying details by shape (identifiers.py): the private table only
     set_aside: list = field(default_factory=list)      # (item, stage, reason)
     counts: dict = field(default_factory=dict)
@@ -577,17 +580,22 @@ def read(entries: list, orders: list = (), store: rd.Store = None, data_of=None,
             continue
         doc.update(summary=reading["summary"], model=reading["model"], model_reader=reading["reader"])
         hide = _hidden_for(doc, suppressed, orders)
+        words = _words_for(doc, suppressed) if hide else None
         for row in model_read.people_rows(sha, reading, doc, slug, version, now):
             if hide and not model_read.kept_under_suppression(row):
-                res.withheld.append((row["key"], row["name"], None))
+                res.withheld.append(_kept(row["key"], row["name"], None, "people", sha, doc.get("citation"), words,
+                                          for_party=row.get("for_party")))
                 row["name"], row["withheld"] = None, True
             res.people.append(row)
+        # the text reader's identifying details per person (ruling 142): private, tied to the people row
+        res.identifiers += model_read.detail_rows(sha, reading, doc, slug, version, now)
     for c in res.cases:
         if c["citation"] in suppressed["citations"] or c["case_slug"] in suppressed["slugs"]:
             c["suppression"] = True
             c["withheld"] = c["withheld"] or WITHHELD_MARKER
             if c["case_name"] is not None:
-                res.withheld.append((c["key"], c["case_name"], None))
+                res.withheld.append(_kept(c["key"], c["case_name"], None, "cases", c.get("document"), c.get("citation"),
+                                          _words_for(c, suppressed)))
                 c["case_name"] = None
     # a record whose file another record was read for: its row carries that reading, and its own catch-log line where
     # the file was set aside or caught, so every record is accounted for once and the file's rows are emitted once
@@ -657,7 +665,7 @@ def _once(res: Result) -> None:
     twice = [k for k, n in collections.Counter((j, num) for j, num, _, _ in res.paragraphs).items() if n > 1]
     if twice:
         raise AssertionError(f"courts: paragraph {twice[0][1]} of {twice[0][0][:12]}… emitted more than once")
-    twice = [k for k, n in collections.Counter(k for k, _, _ in res.withheld).items() if n > 1]
+    twice = [k for k, n in collections.Counter(w["key"] for w in res.withheld).items() if n > 1]
     if twice:
         raise AssertionError(f"courts: withheld key {twice[0][:12]}… emitted more than once")
 
@@ -722,26 +730,59 @@ def _suppressed(res: Result, sheets: list, orders: list) -> dict:
     ledger. A case page's citation or slug carries it to every document of
     the case."""
     citations, slugs, documents = set(), set(), set()
+    words = {}                       # ("document" | "citation" | "slug", value) → the source's words that reach it
+
+    def say(kind, value, text):
+        if value and text and text not in words.setdefault((kind, value), []):
+            words[(kind, value)].append(text)
     for j in res.judgments:
         if j["suppression"]:
+            text = f"{j['withheld'] or WITHHELD_MARKER} ({', '.join(j['suppression_kinds'])}) on {j['citation'] or 'a judgment'}"
             documents.add(j["document"])
+            say("document", j["document"], text)
             if j["citation"]:
                 citations.add(j["citation"])
+                say("citation", j["citation"], text)
             if j.get("case_slug"):
                 slugs.add(j["case_slug"])
+                say("slug", j["case_slug"], text)
     for e, sha, slug, sh in sheets:
         if sh["suppression"]:
+            text = f"a suppression banner on {sh['citation'] or 'a document of the case'}"
             documents.add(sha)
+            say("document", sha, text)
             if sh["citation"]:
                 citations.add(sh["citation"])
+                say("citation", sh["citation"], text)
             if e.get("case_slug"):
                 slugs.add(e["case_slug"])
+                say("slug", e["case_slug"], text)
     for o in orders:
+        text = f"suppression order: {o.get('reason')}"
         if o.get("citation"):
             citations.add(o["citation"])
+            say("citation", o["citation"], text)
         if o.get("document"):
             documents.add(o["document"])
-    return {"citations": citations, "slugs": slugs, "documents": documents}
+            say("document", o["document"], text)
+    return {"citations": citations, "slugs": slugs, "documents": documents, "words": words}
+
+
+def _words_for(doc: dict, suppressed: dict) -> str:
+    """The source's words for the suppression that reaches a document: every banner, order or ledger reason that does."""
+    w = suppressed.get("words") or {}
+    out = []
+    for k in (("document", doc.get("document")), ("citation", doc.get("citation")), ("slug", doc.get("case_slug"))):
+        for text in w.get(k, ()):
+            if text not in out:
+                out.append(text)
+    return "; ".join(out) or WITHHELD_MARKER
+
+
+def _kept(key, name, capacity, held_in, document, citation, words, for_party=None) -> dict:
+    """A name a suppression covers, kept whole for the private table, flagged with the source's words (ruling 142)."""
+    return {"key": key, "name": name, "capacity": capacity, "held_in": held_in, "document": document,
+            "citation": citation, "for_party": for_party, "suppressed": True, "suppression_words": words or WITHHELD_MARKER}
 
 
 def _hidden_for(doc: dict, suppressed: dict, orders: list) -> bool:
@@ -778,7 +819,8 @@ def rows(res: Result, parsed: list, orders: list = (), now: str = "") -> Result:
             pkey = f"{sha}/party/{p.position}"
             hide = bool(withheld) and not p.crown and not p.anonymised
             if hide:
-                res.withheld.append((pkey, p.name, p.capacity))
+                res.withheld.append(_kept(pkey, p.name, p.capacity, "judgment_parties", sha, j.citation,
+                                          withheld + (f" ({', '.join(kinds)})" if kinds else "")))
             res.parties.append({
                 "key": pkey, "judgment": key, "citation": j.citation, "position": p.position, "block": p.block,
                 "role": p.role, "name": None if hide else p.name, "withheld": hide, "anonymised": p.anonymised,

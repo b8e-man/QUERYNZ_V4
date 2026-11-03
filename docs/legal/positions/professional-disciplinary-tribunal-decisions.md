@@ -28,9 +28,11 @@ courts-sources survey before the hosts were asked, then checked against the page
 4. **What does privacy law, or the statute, limit?** Both tribunals make non-publication orders
    (names of practitioners, complainants, patients, students) and publish redacted versions;
    decisions name the practitioner where no order is made, and the Teaching Council takes some
-   decisions down after a period. So: the published version only; any redaction or order is a
-   suppression marker (`registers/courts/suppress.py`); a decision the publisher withdraws is
-   withdrawn here too (never deleted, hard rule of the store); nothing is shown outside the local
+   decisions down after a period. The published version is captured and kept whole (ruling 142, 4
+   November 2026); a redaction or order is a suppression flag beside the rows it reaches with the
+   source's words, the names it covers kept in `courts_private` and never in a `pub.court_*` view
+   (hard limit 16); a decision the publisher takes down is kept and flagged withdrawn with the date
+   (never deleted, hard rule of the store); nothing is shown outside the local
    network (hard limit 13); no new connection about a named person without Arthur's word (hard
    limit 14).
 

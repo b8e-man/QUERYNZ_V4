@@ -37,10 +37,13 @@ checked against the few pages the survey read through the fetch gate
    restricted by the Coroners Act 2006, ss 71 to 76 (no detail of a self-inflicted death's method;
    a coroner's order may suppress a name or evidence); a finding is published as the coroner
    released it. Māori Land Court decisions concern whānau, land and succession and name living
-   people. So: the lane's suppression rule applies to every one (`registers/courts/suppress.py`:
-   any marker withholds the names), a party's address is a home address (hard limit 15), nothing is
-   shown outside the local network (hard limit 13), and a new connection about a named person waits
-   on Arthur's word (hard limit 14).
+   people. The lane keeps every name and detail each prints (ruling 142, 4 November 2026): any
+   marker is a flag beside the rows it reaches with the source's words, the names it covers kept
+   whole in `courts_private.withheld_names` and never in a `pub.court_*` view (hard limit 16); a
+   party's address, age, date of birth, email and phone are kept in `courts_private.identifiers`
+   only (hard limit 15); suppression is applied at a product's export. Nothing is shown outside the
+   local network (hard limit 13), and a new connection about a named person waits on Arthur's word
+   (hard limit 14).
 
 **Crawl delay:** each host's robots.txt is read for a stated delay only (hard limit 5).
 **Floor we use:** 5 seconds between requests to a host, one at a time, off-peak (22:00 to 06:00 NZ

@@ -51,7 +51,8 @@ COLUMNS = {
 }
 PARAGRAPH_COLUMNS = ("judgment", "number", "page", "document")
 SET_ASIDE_COLUMNS = ("item", "stage", "reason")
-WITHHELD_COLUMNS = ("key", "name", "capacity")
+WITHHELD_COLUMNS = ("key", "name", "capacity", "held_in", "document", "citation", "for_party", "suppressed",
+                    "suppression_words")
 
 
 def private_of(schema: str) -> str:
@@ -117,7 +118,8 @@ def build(conn, schema: str, entries: list, caught: list, ledger: list, shared: 
                     ("judgments", res.judgments), ("judgment_parties", res.parties), ("people", res.people)):
         _copy(conn, table(schema, t, shared), COLUMNS[t], (tuple(r.get(c) for c in COLUMNS[t]) for r in rows))
     _copy(conn, table(schema, "paragraphs", shared), PARAGRAPH_COLUMNS, res.paragraphs)
-    _copy(conn, table(private_of(schema), "withheld_names", shared), WITHHELD_COLUMNS, res.withheld)
+    _copy(conn, table(private_of(schema), "withheld_names", shared), WITHHELD_COLUMNS,
+          (tuple(w.get(c) for c in WITHHELD_COLUMNS) for w in res.withheld))
     _copy(conn, table(private_of(schema), "identifiers", shared), identifiers.COLUMNS,
           (tuple(r.get(c) for c in identifiers.COLUMNS) for r in res.identifiers))
     # what each document has had extracted, by profile and field (docs.extractions, a ledger: never wiped), in the
@@ -159,6 +161,8 @@ def publish(conn, staging: str) -> None:
         from registers.courts import suppress
         suppress.apply_all(conn, SCHEMA)
         conn.execute(sql("publish.sql"))
+        # the rows whole, the names a suppression covers in place, for the links (ruling 142): private, after the views
+        conn.execute(sql("private.sql"))
 
 
 def main(argv=None) -> int:

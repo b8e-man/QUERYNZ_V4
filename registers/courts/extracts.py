@@ -31,7 +31,8 @@ HOUSEKEEPING = frozenset({
     "documents.pieces", "documents.mcp_citation", "documents.mcp_doc_date", "cases.case_slug", "cases.url", "case_links.case", "judgments.status", "judgments.missing",
     "judgments.unrecognised", "judgments.notes", "judgments.case_slug", "judgments.source", "judgments.source_url",
     "judgments.source_note", "judgment_parties.judgment", "paragraphs.judgment", "people.case_slug", "people.document_kind",
-    "set_aside.item", "set_aside.stage", "set_aside.reason", f"{L.PRIVATE}.identifiers.person"})
+    "set_aside.item", "set_aside.stage", "set_aside.reason", f"{L.PRIVATE}.identifiers.person",
+    f"{L.PRIVATE}.withheld_names.held_in", f"{L.PRIVATE}.withheld_names.citation"})
 PAGE_TEXT = "page_text"
 
 
@@ -46,6 +47,7 @@ def produces(slug: str) -> dict:
     else:
         out = {f: ("rules", None) for f in R.sheet_fields()}
     out.update({f: ("model", None) for f in model_read.FIELDS})
+    out["details"] = ("model", tuple(model_read.DETAIL_KINDS))      # ruling 142: each person's details, private
     out["identifiers"] = ("pattern", tuple(identifiers.SHAPE_KINDS))
     return out
 

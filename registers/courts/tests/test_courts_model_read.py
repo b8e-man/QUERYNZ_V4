@@ -235,3 +235,38 @@ def test_the_keep_rule_is_one_rule_for_the_load_and_the_sql_of_the_check_and_the
     for escape in ("\\b", "\\d", "\\s", "\\w", "(?i)", "(?P<"):
         assert escape not in caption.CROWN.pattern, escape
     assert caption.CROWN.flags & ~re.U == 0
+
+
+def test_the_reader_asks_for_every_detail_and_keeps_them_privately_tied_to_the_person():
+    """Ruling 142 (Arthur, 4 November 2026: "we want everything"): the prompt no longer tells the reader to leave out an
+    address, an age or a date of birth; each person's details come back, are parsed into the closed kinds, and become
+    courts_private.identifiers rows keyed to the person's people row. Readings under the earlier prompts stand."""
+    from registers.courts import model_read as MR, identifiers
+    assert "never add an address" not in MR.PROMPT and '"details"' in MR.PROMPT
+    assert "never add an address" in MR.PROMPT_WITH_SUMMARY, "the earlier prompt is kept byte for byte: its readings stand"
+    answer = MR.parse_answer('{"summary": "s", "people": [{"name": "Ann Example", "kind": "person", "role": "party", '
+                             '"role_text": "appellant", "for": null, "details": [{"kind": "address", "value": "1 Invented Road, Testville"}, '
+                             '{"kind": "Date of birth", "value": "1 January 1970"}, {"kind": "age", "value": "56"}, '
+                             '{"kind": "age", "value": "56"}, {"kind": "shoe size", "value": "9"}, {"kind": "phone", "value": null}]}]}')
+    got = [(d["kind"], d["value"]) for d in answer["people"][0]["details"]]
+    assert got == [("address", "1 Invented Road, Testville"), ("date_of_birth", "1 January 1970"), ("age", "56"), ("other", "9")]
+    reading = {**answer, "reader": MR.READER, "model": "served-model"}
+    rows = MR.detail_rows("a" * 64, reading, {}, "courts-nzsc-judgment", 7, "2026-11-04T00:00:00+13:00")
+    assert [r["person"] for r in rows] == ["a" * 64 + "/person/1"] * 4
+    assert {r["kind"] for r in rows} <= set(identifiers.KINDS) and all(r["model"] == "served-model" for r in rows)
+    assert len({r["key"] for r in rows}) == 4
+    # the earlier prompts' readings stand under the new prompt's key
+    from support import reader as rd
+    from registers.courts import pieces as PC
+    rule = PC.rule_of("courts-nzsc-judgment")
+    MR.key_for("a" * 64, "courts-nzsc-judgment", 7, rule=rule)
+    new = rd.settings_hash(MR.settings(rule))
+    assert {rd.settings_hash(MR.settings(rule, MR.PROMPT_ROLE_WORDS)), rd.settings_hash(MR.settings(rule, MR.PROMPT_WITH_SUMMARY))} <= \
+        set(rd.SUCCESSORS[new])
+
+
+def test_a_person_in_two_parts_keeps_the_details_both_parts_print():
+    from registers.courts import model_read as MR
+    a = MR._details([{"kind": "age", "value": "40"}])
+    b = MR._details(a + [{"kind": "address", "value": "2 Invented Street"}, {"kind": "age", "value": "40"}])
+    assert [(d["kind"], d["value"]) for d in b] == [("age", "40"), ("address", "2 Invented Street")]

@@ -105,7 +105,7 @@ def test_every_record_of_the_sample_is_a_document_row_read_waiting_set_aside_or_
     # the 16-page determination whose text layer numbers no paragraph: over the budget, the paragraph rule cannot split
     # it, so its profile's fallback reads it page by page (Arthur, 3 November 2026); it waits on the text reader, in pieces
     unsplit = next(d for d in filled["documents"] if d["document"] and d["document"].startswith("b969c55c2414"))
-    assert unsplit["profile"] == R.ERA and unsplit["outcome"] == R.WAIT_TEXT and unsplit["pieces"] >= 2
+    assert unsplit["profile"] == R.ERA and unsplit["outcome"] in (R.WAIT_TEXT, "read") and unsplit["pieces"] >= 2   # read once qv4-courts-read has (4 November 2026)
     assert unsplit["text_chars"] > 34000 and unsplit["dated"] and unsplit["citation"] and (unsplit["key"], "read") not in stages
     assert not any(a["reason"].startswith("the text reader cannot read it:") for a in filled["aside"])
     # every document the text reader reads, or waits for, has its piece count by its profile's rule (the check holds it too)
@@ -221,7 +221,8 @@ def test_every_judgment_s_citation_agrees_with_its_file_name_and_its_date_is_a_r
             # its text layer numbers no paragraph: the paragraphs rule could not split it either, so its profile's
             # fallback cuts it at its pages and it waits on the text reader
             doc = _doc(filled, sha=j["document"])
-            assert doc["outcome"] == R.WAIT_TEXT and doc["pieces"] >= 2 and doc["text_chars"] > 34000, j["document"][:12]
+            # waiting, or read once qv4-courts-read has read it by the fallback (4 November 2026: b969c55c2414 was)
+            assert doc["outcome"] in (R.WAIT_TEXT, "read") and doc["pieces"] >= 2 and doc["text_chars"] > 34000, j["document"][:12]
 
 
 def test_paragraphs_are_indexed_in_sequence_to_the_judgment_s_last(filled):
@@ -338,6 +339,16 @@ def test_the_lever_dry_runs_by_default_and_withholds_on_execute_across_the_case(
         j = q(f"SELECT suppression, withheld, suppression_kinds FROM {t('judgments')} WHERE document = %s", NZSC_122)[0]
         assert j["suppression"] and j["withheld"].startswith("suppression order: test order") and "ledger" in j["suppression_kinds"]
         assert suppress.run(conn, "[2026] NZSC 122", "again", schema=schema, shared=True)["already withheld"] == len(rows)
+        # ruling 142: every name the order covers is kept whole beside its row with the order's words; a counsel's
+        # party acted for is never lost
+        W = L.table(schema + "_private", "withheld_names", True)
+        kept = q(f"SELECT w.held_in, w.suppressed, w.suppression_words, w.name <> '' AS named FROM {W} w JOIN "
+                 f"{t('judgment_parties')} p ON p.key = w.key WHERE p.key LIKE %s", NZSC_122 + "%")
+        assert len(kept) == len(rows) and all(k["named"] and k["suppressed"] and k["held_in"] == "judgment_parties"
+                                              for k in kept)
+        assert all(k["suppression_words"].startswith("suppression order: test order") for k in kept)
+        assert q(f"SELECT count(*) n FROM {t('people')} p WHERE p.withheld AND p.name IS NULL AND NOT EXISTS "
+                 f"(SELECT 1 FROM {W} w WHERE w.key = p.key AND w.held_in = 'people')")[0]["n"] == 0
         assert check.account(conn, schema, shared=True)["failures"] == []
     finally:
         conn.rollback()

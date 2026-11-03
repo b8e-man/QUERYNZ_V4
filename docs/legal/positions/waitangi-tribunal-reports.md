@@ -24,8 +24,9 @@ fetch gate (`docs/research/courts-sources-2026-11-03.md`).
    landed at the first capture run.
 4. **What does privacy law, or the statute, limit?** Reports name claimants, kaumātua and whānau, and
    discuss wāhi tapu; some evidence is held confidential by the Tribunal and never appears in the
-   published report. So: the published report only, as released; the lane's suppression rule
-   applies; nothing is shown outside the local network (hard limit 13); no new connection about a
+   published report. The published report is kept whole, as released (ruling 142, 4 November 2026); a
+   suppression it states is a flag beside the rows it reaches, the names it covers kept in
+   `courts_private` and never in a `pub.court_*` view (hard limit 16); nothing is shown outside the local network (hard limit 13); no new connection about a
    named person without Arthur's word (hard limit 14).
 
 **Crawl delay:** robots.txt read for a stated delay only (hard limit 5). **Floor we use:** 5 seconds

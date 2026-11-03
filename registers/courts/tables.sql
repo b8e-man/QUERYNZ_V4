@@ -3,9 +3,12 @@
 --     courts_private.withheld_names and courts_private.identifiers): rebuilt from the documents at every load, wiped and refilled in one transaction (load.py);
 --   the lane's own record, never wiped: suppression_orders (a ledger a person writes through suppress.py; nothing deletes
 --     from it and there is no command that lifts an order).
--- No table of schema courts holds an address (hard limit 15): the identifying details a document prints are kept only
--- in courts_private.identifiers, which no published view, export or session login reads. A name a suppression withholds is NULL in judgment_parties and people and
--- kept only in courts_private.withheld_names, which no published view, export or session login reads (hard limit 16).
+-- Everything a document prints is kept (ruling 142, 4 November 2026). The schema courts is read by the session login, so
+-- the identifying details a document prints (addresses, ages, dates of birth, emails, phones) are kept in
+-- courts_private.identifiers, and a name a suppression covers is kept in courts_private.withheld_names, whole, keyed by
+-- the row it belongs to, flagged suppressed with the source's words; the row in judgment_parties, people or cases carries
+-- the role, the place and the flag. courts_private (never granted to the session or product logins) also holds the
+-- rows whole with their names in place (private.sql: judgment_parties_whole, people_whole, cases_whole), for the links.
 
 -- one row per record of the corpus (the version the pull saw last): what became of its file
 CREATE TABLE IF NOT EXISTS courts.documents (
@@ -130,8 +133,8 @@ CREATE TABLE IF NOT EXISTS courts.judgment_parties (
     position          integer NOT NULL,
     block             integer NOT NULL,                -- BETWEEN = 1, each AND one more
     role              text NOT NULL,                   -- as printed: Appellant, First Respondents, Defendant, Prosecutor
-    name              text,                            -- as printed; NULL when withheld
-    withheld          boolean NOT NULL,                -- the name is withheld (a suppression); the row and its role stay
+    name              text,                            -- as printed; under a suppression in courts_private.withheld_names
+    withheld          boolean NOT NULL,                -- a suppression covers the name (the flag); the name is kept privately
     anonymised        boolean NOT NULL,                -- the court printed an initial (W, MR N): kept so, never expanded
     crown             boolean NOT NULL,                -- the Crown or a public prosecutor: no suppression covers it
     confidence        text NOT NULL,                   -- high | low (a wrapped list split or rejoined)
@@ -191,11 +194,18 @@ CREATE TABLE IF NOT EXISTS courts.set_aside (
     at       timestamptz NOT NULL DEFAULT now()
 );
 
--- a name a suppression withholds, and the capacity printed with it: never published, never exported
+-- a name a suppression covers, kept whole with everything printed beside it, keyed by the row it belongs to, flagged
+-- suppressed with the source's words (ruling 142: the suppression is a flag beside the row, applied at a product's export)
 CREATE TABLE IF NOT EXISTS courts_private.withheld_names (
-    key       text PRIMARY KEY,                        -- judgment_parties.key, people.key or cases.key
-    name      text NOT NULL,
-    capacity  text
+    key               text PRIMARY KEY,                -- judgment_parties.key, people.key or cases.key
+    name              text NOT NULL,
+    capacity          text,                            -- a party's capacity as printed
+    held_in           text NOT NULL CHECK (held_in IN ('judgment_parties', 'people', 'cases')),
+    document          text CHECK (document ~ '^[0-9a-f]{64}$'),
+    citation          text,
+    for_party         text,                            -- a model-read name's party acted for, as the text gives it
+    suppressed        boolean NOT NULL DEFAULT true,
+    suppression_words text NOT NULL                    -- the source's words: the kinds found (banner, order in the text, CPA s 203, ...) or the ledger order's reason
 );
 
 -- an identifying detail a document prints (Arthur, 3 November 2026: gather any identifying information), once per

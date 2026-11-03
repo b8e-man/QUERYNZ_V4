@@ -12,14 +12,17 @@ Dry run (the default): prints what the order would reach, as counts only
 withhold, the names already withheld); never a name.
 
 `--execute`: records the order in `courts.suppression_orders` (a ledger:
-nothing deletes from it), then, in one transaction, withholds every name
-the order reaches: a caption's party names, every name the text reader
+nothing deletes from it), then, in one transaction, flags every name the
+order reaches: a caption's party names, every name the text reader
 produced on every document of the citation (`courts.people`: judges,
 counsel, a public agency and the Crown apart), and the case page's case
-name; the name and its capacity move to `courts_private.withheld_names`,
-the published row keeps its role, its position and its citation with the
-name NULL, and the judgment row is marked `suppression` with the order's
-reason. The Crown's name and an initial the court printed stay. Every later build reads the ledger
+name. Nothing is lost (ruling 142, 4 November 2026): the name, its
+capacity and the party a counsel acts for are kept whole in
+`courts_private.withheld_names`, keyed by the row, flagged suppressed with
+the order's reason as the source's words (the session login reads the
+schema `courts`, so the name leaves that row); the row keeps its role, its
+position and its citation, and the judgment row is marked `suppression`
+with the order's reason. The Crown's name and an initial the court printed stay. Every later build reads the ledger
 (load.py), so the order outlives the rebuild; `publish` applies it again
 after the swap, so an order made during a merge binds too. The published
 views read only these tables, so every product that reads them is bound.
@@ -96,8 +99,10 @@ def withhold(conn, schema: str, t: dict, reason: str, shared: bool = False) -> i
     w, args = _where(t)
     reached = f"SELECT p.key FROM {P} p JOIN {J} j ON j.key = p.judgment WHERE {w} " \
               "AND NOT p.withheld AND NOT p.crown AND NOT p.anonymised AND p.name IS NOT NULL"
-    conn.execute(f"INSERT INTO {W} (key, name, capacity) SELECT key, name, capacity FROM {P} WHERE key IN ({reached}) "
-                 "ON CONFLICT (key) DO NOTHING", args)
+    words = f"suppression order: {reason}"
+    conn.execute(f"INSERT INTO {W} (key, name, capacity, held_in, document, citation, suppressed, suppression_words) "
+                 f"SELECT key, name, capacity, 'judgment_parties', document, citation, true, %s FROM {P} WHERE key IN ({reached}) "
+                 "ON CONFLICT (key) DO NOTHING", (words,) + args)
     n = conn.execute(f"UPDATE {P} SET name = NULL, capacity = NULL, withheld = true WHERE key IN ({reached})", args).rowcount
     conn.execute(f"UPDATE {J} j SET suppression = true, withheld = %s, "
                  "suppression_kinds = CASE WHEN 'ledger' = ANY(suppression_kinds) THEN suppression_kinds "
@@ -107,12 +112,15 @@ def withhold(conn, schema: str, t: dict, reason: str, shared: bool = False) -> i
     kept = model_read.kept_sql()                   # the load's own keep rule (hard limit 16), one rule for both
     named = f"SELECT key FROM {N} WHERE document IN ({rsql}) AND NOT withheld AND name IS NOT NULL AND NOT {kept}"
     nargs = rargs
-    conn.execute(f"INSERT INTO {W} (key, name, capacity) SELECT key, name, NULL FROM {N} WHERE key IN ({named}) "
-                 "ON CONFLICT (key) DO NOTHING", nargs)
-    n += conn.execute(f"UPDATE {N} SET name = NULL, for_party = NULL, withheld = true WHERE key IN ({named})", nargs).rowcount
+    conn.execute(f"INSERT INTO {W} (key, name, capacity, held_in, document, citation, for_party, suppressed, suppression_words) "
+                 f"SELECT key, name, NULL, 'people', document, citation, for_party, true, %s FROM {N} WHERE key IN ({named}) "
+                 "ON CONFLICT (key) DO NOTHING", (words,) + nargs)
+    # the party acted for stays in the row: the pub view shows it only where the name is not suppressed
+    n += conn.execute(f"UPDATE {N} SET name = NULL, withheld = true WHERE key IN ({named})", nargs).rowcount
     cases = f"SELECT key FROM {C} WHERE document IN ({rsql}) AND case_name IS NOT NULL"
-    conn.execute(f"INSERT INTO {W} (key, name, capacity) SELECT key, case_name, NULL FROM {C} WHERE key IN ({cases}) "
-                 "ON CONFLICT (key) DO NOTHING", rargs)
+    conn.execute(f"INSERT INTO {W} (key, name, capacity, held_in, document, citation, suppressed, suppression_words) "
+                 f"SELECT key, case_name, NULL, 'cases', document, citation, true, %s FROM {C} WHERE key IN ({cases}) "
+                 "ON CONFLICT (key) DO NOTHING", (words,) + rargs)
     n += conn.execute(f"UPDATE {C} SET case_name = NULL, suppression = true, withheld = %s WHERE key IN ({cases})",
                       (f"suppression order: {reason}",) + rargs).rowcount
     return n

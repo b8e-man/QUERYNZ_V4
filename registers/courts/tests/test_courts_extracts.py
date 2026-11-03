@@ -52,12 +52,23 @@ def test_every_courts_profile_lists_what_it_extracts_and_keeps_its_reading_versi
             assert items[f]["iteration"] == base + 1, (slug, f)
             assert {ln["key"]: ln["rule"] for ln in items[f]["links"]}[key] == "case-documents@1", (slug, f)
         assert prof["iteration"] == max(it["iteration"] for it in items.values()), slug
-        assert {f for f, it in items.items() if it["iteration"] == 3} == (mcp - case) | {"identifiers"}, slug
-        assert all(it["iteration"] == 1 and not it["private"] for f, it in items.items() if f not in mcp | case | {"identifiers"}), slug
+        # ruling 142 (Arthur, 4 November 2026: keep everything): the iteration after the last one that came before it
+        # asks the text reader for each person's details (private, by model) and moves the fields a suppression reaches
+        # from withholding to a flag with the name kept privately
+        keep = 5 if slug in R.JUDGMENT_SLUGS else 4
+        kept = {"people", "for_party", "suppression", "details"} | ({"parties"} if "parties" in items else set()) | \
+            ({"case_name"} if "case_name" in items else set())
+        assert {f for f, it in items.items() if it["iteration"] == keep} == kept, slug
+        assert (items["details"]["by"], items["details"]["private"], items["details"]["kinds"]) == \
+            ("model", True, list(model_read.DETAIL_KINDS)), slug
+        assert all(c.startswith(L.PRIVATE + ".identifiers.") for c in items["details"]["lands"])
+        assert "courts_private.withheld_names.suppression_words" in items["suppression"]["lands"], slug
+        assert not any(w in it["ask"] for w in (" is withheld", "withheld under", "is published but", "never add")
+                       for it in items.values() if it["iteration"] == keep), slug
+        assert {f for f, it in items.items() if it["iteration"] == 3} == (mcp - case - kept) | {"identifiers"}, slug
+        assert all(it["iteration"] == 1 and not it["private"] for f, it in items.items() if f not in mcp | case | kept | {"identifiers"}), slug
         assert all(items[f]["by"] == "rules" and not items[f]["private"] for f in mcp)
-        # the text reader's identifiers (the next iteration, 4) wait on Arthur's go after the cost measurement
-        assert not any(it["field"] == "identifiers" and it["iteration"] >= 4 for it in prof["extract"]), slug
-        assert not any(it["iteration"] >= 5 for it in prof["extract"]), slug
+        assert not any(it["iteration"] > keep for it in prof["extract"]), slug
 
 
 def test_the_lane_and_its_profiles_are_aligned():
@@ -135,7 +146,8 @@ def test_a_document_records_the_fields_it_had_at_their_iterations():
     assert len(rows) == len(got)
     a_fields = {f for s, p, f, n, m in got if s == "a"}
     assert a_fields == set(caption.FIELDS) | set(model_read.FIELDS) | {"identifiers"}
-    assert ("a", "courts-nzsc-judgment", "identifiers", 3, None) in got and ("a", "courts-nzsc-judgment", "people", 1, "served-model") in got
+    assert ("a", "courts-nzsc-judgment", "identifiers", 3, None) in got and ("a", "courts-nzsc-judgment", "people", 5, "served-model") in got
+    assert ("a", "courts-nzsc-judgment", "details", 5, "served-model") in got
     b_fields = {(p, f) for s, p, f, n, m in got if s == "b"}
     assert b_fields == {("courts-media-release", f) for f in R.sheet_fields()} | {("courts-media-release", "identifiers"),
                                                                                    (R.SCANNED, "page_text")}

@@ -52,7 +52,7 @@ from support import modelclient
 from support import reader as rd
 from registers.courts import pieces as PC
 
-READER = "registers.courts.model_read 2"
+READER = "registers.courts.model_read 3"
 LANE = "courts"
 TEXT_MODEL = os.environ.get("QV4_COURTS_TEXT_MODEL") or "qwen4exp"      # profiles.toml [profiles.text-reader] model
 URL = os.environ.get("QV4_MODEL_URL") or "http://127.0.0.1:8060/v1/chat/completions"
@@ -64,7 +64,11 @@ KEPT_ROLES = ("judge", "counsel", "agency")
 ATTEMPTS = 2
 #: what the text reader's answer gives, field by field (the profiles' `by: model` items): field → the answer's keys that
 #: carry it, a person's keys but `summary` (pinned to parse_answer by the lane's tests)
-FIELDS = {"people": ("name", "kind"), "role": ("role", "role_text"), "for_party": ("for",), "summary": ("summary",)}
+FIELDS = {"people": ("name", "kind"), "role": ("role", "role_text"), "for_party": ("for",), "summary": ("summary",),
+          "details": ("details",)}
+#: the kinds of detail the text reader is asked for per person (ruling 142); identifiers.KINDS is the closed vocabulary
+DETAIL_KINDS = ("address", "place_of_residence", "age", "date_of_birth", "occupation", "employer", "email", "phone",
+                "relationship", "other")
 UNUSABLE = "the text reader answered with no usable JSON object in %d attempts"
 PROMPT_WITH_SUMMARY = (
     "You read one New Zealand court document: a judgment, a media release, a hearing transcript, counsel's submissions, "
@@ -83,7 +87,16 @@ PROMPT_WITH_SUMMARY = (
 #: the prompt from 1 November 2026 (Arthur): as before, with a role that says what it refers to (rd.ROLE_WORDS). From
 #: 09:53 to the morning's release the summary was dropped and the name pass's names handed over; both were taken back
 #: (the handed-over names came back with no role). Readings under the earlier prompt stand (rd.supersede).
-PROMPT = PROMPT_WITH_SUMMARY + rd.ROLE_WORDS
+PROMPT_ROLE_WORDS = PROMPT_WITH_SUMMARY + rd.ROLE_WORDS
+#: the prompt from 4 November 2026 (ruling 142, Arthur: "we want everything"): the rule that left out an address, an age
+#: and a date of birth is gone, and each person's identifying details are asked for, as printed. They land in
+#: courts_private.identifiers only, tied to the person's people row. Readings under the two earlier prompts stand
+#: (rd.supersede, key_for): a document read before today has its names and no details until it is read again.
+DETAILS = (" For each person also give \"details\": every identifying detail the document prints about that person, each "
+           "{\"kind\": \"address\" | \"place_of_residence\" | \"age\" | \"date_of_birth\" | \"occupation\" | "
+           "\"employer\" | \"email\" | \"phone\" | \"relationship\" | \"other\", \"value\": \"<exactly as printed>\"}, "
+           "[] when it prints none; a body's details are its address, email and phone. Leave nothing out the text prints.")
+PROMPT = PROMPT_WITH_SUMMARY.replace("never add an address, an age or a date of birth; ", "") + rd.ROLE_WORDS + DETAILS
 PART = ("This is part {i} of {n} of one document (part 1 holds its caption; a later part opens with the document's first lines for "
         "context). List every person and body THIS PART names, each once, with the role the document gives it; the summary is of this part.")
 SUMMARY_PROMPT = ("You are given the one-sentence summaries of the parts of one New Zealand court document, in order. Answer with ONE JSON "
@@ -109,12 +122,15 @@ def settings(rule: dict, prompt: str = PROMPT, used: str = None) -> dict:
 
 def key_for(sha256: str, profile: str, version: int, model: str = TEXT_MODEL, rule: dict = None, used: str = None) -> str:
     rule = rule or PC.rule_of(profile)
-    rd.supersede(settings(rule, used=used), settings(rule, PROMPT_WITH_SUMMARY, used=used))
+    for earlier in (PROMPT_ROLE_WORDS, PROMPT_WITH_SUMMARY):
+        rd.supersede(settings(rule, used=used), settings(rule, earlier, used=used))
     return rd.reading_key(sha256, 1, model, settings(rule, used=used), profile, version)
 
 
 def piece_key(sha256: str, profile: str, version: int, model: str, rule: dict, i: int, n: int, used: str = None) -> str:
     """A piece's own reading: page = its number, the settings saying which of how many."""
+    for earlier in (PROMPT_ROLE_WORDS, PROMPT_WITH_SUMMARY):
+        rd.supersede({**settings(rule, used=used), "piece": i, "of": n}, {**settings(rule, earlier, used=used), "piece": i, "of": n})
     return rd.reading_key(sha256, i, model, {**settings(rule, used=used), "piece": i, "of": n}, profile, version)
 
 
@@ -145,12 +161,30 @@ def parse_answer(text: str):
         seen.add((name.upper(), role))
         entry = {"name": name, "kind": kind, "role": role,
                  "role_text": (re.sub(r"\s+", " ", str(item.get("role_text") or "")).strip() or None),
-                 "for": for_party}
+                 "for": for_party, "details": _details(item.get("details"))}
         if isinstance(item.get("part"), int):
             entry["part"] = item["part"]
         people.append(entry)
     summary = re.sub(r"\s+", " ", str(body.get("summary") or "")).strip() or None
     return {"summary": summary, "people": people, "truncated": truncated, "parts": body.get("parts") or 1}
+
+
+def _details(raw) -> list:
+    """A person's identifying details as the reader gave them: [{kind, value}], the kind in DETAIL_KINDS (else
+    `other`), the value as printed, each once."""
+    out, seen = [], set()
+    for d in raw if isinstance(raw, list) else []:
+        if not isinstance(d, dict):
+            continue
+        value = re.sub(r"\s+", " ", str(d.get("value") or "")).strip()
+        if not value or value.lower() in ("null", "none", "n/a"):
+            continue
+        kind = str(d.get("kind") or "").strip().lower().replace(" ", "_")
+        kind = kind if kind in DETAIL_KINDS else "other"
+        if (kind, value) not in seen:
+            seen.add((kind, value))
+            out.append({"kind": kind, "value": value})
+    return out
 
 
 def _object(text: str):
@@ -295,6 +329,9 @@ def read_one(sha256: str, texts: dict, *, profile: str, version: int, url: str =
     for i, a in enumerate(answers, 1):
         for p in (a or {"people": []})["people"]:
             if (p["name"].upper(), p["role"]) in seen:
+                # the same person in a later part: the name once, every detail any part printed kept
+                first = next(q for q in people if (q["name"].upper(), q["role"]) == (p["name"].upper(), p["role"]))
+                first["details"] = _details((first.get("details") or []) + (p.get("details") or []))
                 continue
             seen.add((p["name"].upper(), p["role"]))
             people.append({**p, "part": i})
@@ -347,6 +384,22 @@ def people_rows(sha256: str, reading: dict, doc: dict, profile: str, version: in
                     "dated": doc.get("dated"), "withheld": False, "document": sha256, "page": 1,
                     "place": place, "read_from": "text", "reader": reading["reader"],
                     "model": reading["model"], "profile": profile, "profile_version": version, "loaded_at": now})
+    return out
+
+
+def detail_rows(sha256: str, reading: dict, doc: dict, profile: str, version: int, now: str) -> list:
+    """courts_private.identifiers rows for the details the text reader gave per person (ruling 142), `person` the
+    people row's key (people_rows numbers the same way), keyed `<sha256>/person/<n>/detail/<m>`. A reading made
+    under an earlier prompt has none."""
+    out = []
+    parts = reading.get("parts") or 1
+    for n, p in enumerate(reading["people"], 1):
+        for m, d in enumerate(p.get("details") or [], 1):
+            out.append({"key": f"{sha256}/person/{n}/detail/{m}", "person": f"{sha256}/person/{n}", "document": sha256,
+                        "kind": d["kind"], "value": d["value"], "page": 1,
+                        "place": f"text reader, name {n}" if parts == 1 else f"text reader, part {p.get('part') or 1} of {parts}, name {n}",
+                        "read_from": "text", "reader": reading["reader"], "model": reading["model"], "profile": profile,
+                        "profile_version": version, "loaded_at": now})
     return out
 
 

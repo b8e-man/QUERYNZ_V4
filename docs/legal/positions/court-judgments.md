@@ -41,13 +41,19 @@ Justice's tribunal pages (item 5, their own position).
    for defendants and others), the Family Court Act 1980 (ss 11B to 11D) and
    other Acts, and mark a suppressed judgment with a banner above the court
    line; of the 148 held, 60 carry a banner or an order in the text. A
-   breach of a suppression order is an offence. So: a judgment with any
-   suppression marker publishes no party's name except the Crown's and an
-   initial the court printed; the name goes to `courts_private` only; one
-   command records a later order and withholds the names across the lane's
-   tables, and no command lifts one (hard limit 16). The lane reads no
-   address; a party's address, if a reader ever takes one, is a home address
-   and goes to the private schema only (hard limit 15). A judgment is a
+   breach of a suppression order is an offence. From 4 November 2026
+   (ruling 142) the lane keeps every name and detail a judgment prints: a
+   suppression marker or a recorded order is a flag beside each row it
+   reaches, with the source's words; the name it covers is kept whole in
+   `courts_private.withheld_names`, keyed by its row, and
+   `courts_private.*_whole` holds the rows with the names in place for the
+   links lane; no `pub.court_*` view carries a covered name (hard limit
+   16), and suppression is applied at a product's export. The text reader
+   is asked for each person's address, age, date of birth, occupation,
+   email and phone as printed, and those, with the details found by their
+   shape, are kept in `courts_private.identifiers` only (hard limit 15).
+   One command records a later order and flags the names it covers, and no
+   command lifts one. A judgment is a
    publicly available publication under the Privacy Act 2020, but its use
    must not be unfair or unreasonable; nothing is shown outside the local
    network until Arthur says so (hard limit 13), and a new connection about

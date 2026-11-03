@@ -339,8 +339,11 @@ def test_a_suppressed_judgment_withholds_every_name_but_the_crown_s_and_an_initi
     res = _rows(("a" * 64, parse(banner)))
     shown = {(p["role"], p["name"], p["withheld"]) for p in res.parties}
     assert shown == {("Appellant", None, True), ("First Respondent", None, True), ("Second Respondent", "ATTORNEY-GENERAL", False)}
-    assert {(k[65:], n) for k, n, _ in res.withheld} == {
+    assert {(w["key"][65:], w["name"]) for w in res.withheld} == {
         ("party/1", "NEW ZEALAND EXAMPLE WORKERS AND RELATED TRADES UNION INCORPORATED"), ("party/2", "ARO MERE PARATA")}
+    # ruling 142: each name kept whole, flagged, with the source's words and where it belongs
+    assert all(w["suppressed"] and w["held_in"] == "judgment_parties" and w["document"] == "a" * 64
+               and "banner" in w["suppression_words"] for w in res.withheld)
     assert res.judgments[0]["withheld"] == R.WITHHELD_MARKER and len(res.parties) == 3
     sc = _rows(("b" * 64, parse(SC)))
     assert {p["name"] for p in sc.parties} == {"A", "B", "C", None}
@@ -351,7 +354,7 @@ def test_capacity_is_withheld_with_the_name():
     j.suppression, j.suppression_kinds = True, ["banner"]
     res = _rows(("c" * 64, j))
     assert all(p["capacity"] is None for p in res.parties)
-    assert {c for _, _, c in res.withheld} == {None, "as trustees of THE TEST FAMILY TRUST"}
+    assert {w["capacity"] for w in res.withheld} == {None, "as trustees of THE TEST FAMILY TRUST"}
 
 
 def test_one_suppressed_document_of_a_citation_withholds_the_names_on_the_other():
@@ -495,3 +498,17 @@ def test_a_printers_slip_year_is_never_a_date_and_the_address_date_stands():
     assert read._url_date(url) == dt.date(2023, 10, 17)
     assert read._url_date("https://environmentcourt.govt.nz/2023-10-17/file.pdf") is None    # the file's own name only
     assert read._url_date("https://x.nz/3023-10-17-a.pdf") is None
+
+
+def test_a_suppressed_name_is_kept_whole_with_the_source_s_words_never_lost():
+    """Ruling 142 (4 November 2026): a suppression is a flag beside the row; the name, its capacity, where it belongs and
+    the source's words are all kept for the private table. Before, the private row held the name and capacity only."""
+    from registers.courts import load as courts_load
+    j = parse(HC_CIV, HC_CIV_2)
+    j.suppression, j.suppression_kinds = True, ["banner"]
+    res = _rows(("c" * 64, j))
+    hidden = [p for p in res.parties if p["withheld"]]
+    assert hidden and {w["key"] for w in res.withheld} == {p["key"] for p in hidden}
+    for w in res.withheld:
+        assert set(w) == set(courts_load.WITHHELD_COLUMNS) and w["name"] and w["suppressed"] is True
+        assert w["held_in"] == "judgment_parties" and w["document"] == "c" * 64 and "banner" in w["suppression_words"]

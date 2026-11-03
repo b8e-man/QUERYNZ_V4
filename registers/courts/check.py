@@ -14,7 +14,9 @@ account.
      published party name in a judgment under suppression (the Crown and a
      court-printed initial apart) fails; a model-read name on a document a
      suppression reaches (judges, counsel, agencies and the Crown apart)
-     fails; a withheld name present in a published table fails.
+     fails; a withheld name present in a published table fails; a row
+     flagged under a suppression whose name is not kept whole, with the
+     source's words, in courts_private.withheld_names fails (ruling 142).
   4. Every role a counsel line is "for" held by a party of the caption
      (`caption.roles_unaccounted`), re-read from the stored readings of a
      fixed sample of judgments: more than `ROLES_TOLERATED` short fails. A
@@ -173,6 +175,7 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
     shown += q(f"SELECT count(*) FROM {t('cases')} WHERE withheld IS NOT NULL AND case_name IS NOT NULL")[0][0]
     if shown:
         out["failures"].append(f"{shown} withheld names still in a published table")
+    out["suppression"]["names kept privately"] = _kept_privately(conn, schema, shared, t, out["failures"])
     orders = q(f"SELECT count(*) FROM {t('suppression_orders')}")[0][0] if _exists(conn, t("suppression_orders")) else 0
     out["suppression"]["orders in the ledger"] = orders
     out["identifiers"] = _identifiers(conn, schema, shared, out["failures"])
@@ -187,6 +190,27 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
     if len(short) > ROLES_TOLERATED:
         out["failures"].append(f"{len(short)} judgments whose counsel lines name a role no party holds (tolerated {ROLES_TOLERATED})")
     return out
+
+
+def _kept_privately(conn, schema: str, shared: bool, t, failures: list):
+    """Ruling 142 (4 November 2026): a suppression is a flag, never a loss. Every row flagged (a party, a model-read
+    name, a case) whose name left the row has it kept whole in the private table, with the source's words, keyed by
+    the row; a row flagged with no name kept fails. Counts only; a login that cannot read the private schema is told so."""
+    priv = L.private_of(schema)
+    W = L.table(priv, "withheld_names", shared)
+    if not conn.execute("SELECT 1 FROM pg_namespace WHERE nspname = %s", (priv,)).fetchone() or not _exists(conn, W):
+        return None
+    if not conn.execute("SELECT has_schema_privilege(%s, 'USAGE')", (priv,)).fetchone()[0]:
+        return "not readable by this login"
+    lost = 0
+    # a case page may print no case name at all, so only the parties and the model-read names are held to it
+    for tname in ("judgment_parties", "people"):
+        lost += conn.execute(f"SELECT count(*) FROM {t(tname)} r WHERE withheld AND r.name IS NULL AND NOT EXISTS "
+                             f"(SELECT 1 FROM {W} w WHERE w.key = r.key AND w.held_in = %s AND w.name <> '' "
+                             f"AND w.suppressed AND w.suppression_words <> '')", (tname,)).fetchone()[0]
+    if lost:
+        failures.append(f"{lost} row(s) flagged under a suppression whose name is not kept in {priv}.withheld_names")
+    return conn.execute(f"SELECT count(*) FROM {W}").fetchone()[0]
 
 
 #: ruling 1 (Arthur, 3 November 2026): the one view that reads the private table, for the links lane, by its exact text:

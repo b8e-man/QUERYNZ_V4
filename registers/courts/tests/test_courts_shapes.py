@@ -294,7 +294,10 @@ def test_a_suppressed_judgment_withholds_the_model_read_names_on_every_document_
     assert byname[("cd", "1")]["name"] is None, "the release of the same citation is reached"
     assert byname[("ef", "1")]["name"] is None, "the case page of the same case is reached"
     assert res.cases[0]["case_name"] is None and res.cases[0]["suppression"]
-    withheld = {k for k, _, _ in res.withheld}
+    withheld = {w["key"] for w in res.withheld}
+    # ruling 142: every name a suppression covers is kept whole beside its row, with the source's words
+    assert all(w["name"] and w["suppressed"] and w["suppression_words"] for w in res.withheld)
+    assert {w["held_in"] for w in res.withheld} == {"people", "judgment_parties", "cases"}
     assert withheld == {p["key"] for p in res.people if p["withheld"]} | {p["key"] for p in res.parties if p["withheld"]} | {res.cases[0]["key"]}
     doc = {d["document"]: d for d in res.documents}
     assert doc[SHA]["summary"] == "A judgment." and doc[SHA]["model"] == M.TEXT_MODEL and doc[SHA]["outcome"] == "read"
