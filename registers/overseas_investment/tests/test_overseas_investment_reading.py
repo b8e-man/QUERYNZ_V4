@@ -84,9 +84,9 @@ def rules(mod) -> list:
         broken.append("the outcome and its section as stated")
     if d and (d["decided_on"] != dt.date(2026, 8, 20) or d["pathway"] != "Sensitive land - Primary consent"):
         broken.append("the decision date and the pathway as stated")
-    if d and ("29 Invented" in d["investment"] or "DP 123456" in d["investment"] or d["addresses_withheld"] != 2
+    if d and ("29 Invented" not in d["investment"] or "DP 123456" not in d["investment"] or d["addresses_named"] != 2
               or "Inventa" not in d["investment"]):
-        broken.append("a street address and a legal description are withheld, the locality kept")
+        broken.append("a street address and a legal description are kept whole and counted by the flag (ruling 143)")
     if d and (d["area_ha"] != [4.5, 0.12] or d["areas_stated"][0] != "approximately 4.5 hectares"):
         broken.append("areas as stated and in hectares")
     if not a["private"] or "29 Invented Road" not in a["private"][0]["investment_stated"]:
@@ -103,7 +103,10 @@ def rules(mod) -> list:
     if len(ps) == 2 and (ps[0]["origins"] != ["British Virgin Islands"] or ps[0]["shares"] != [100.0]):
         broken.append("ownership origin and share as stated")
     if any("Agent" in str(v) or "15 Invented Street" in str(v) for v in list(d.values()) + [p for p in ps]):
-        broken.append("More information is never read")
+        broken.append("More information stays off the lane's own tables")
+    more = [x for x in a.get("page_rows") or [] if x["heading"].lower().startswith("more information")]
+    if not (more and "15 Invented Street" in (more[0]["text"] or "")):
+        broken.append("More information is kept whole in the private twin (ruling 142)")
 
     w = mod.read_summary(_summary([
         ("Decision", "<strong>Consent declined</strong><br>Section 12(a) Overseas Investment Act 2005"),
@@ -113,8 +116,12 @@ def rules(mod) -> list:
         ("Vendor", "<strong>Delta Limited</strong><br>New Zealand 100%")],
         applicant="Withheld under s9(2)(a) of the Official Information Act"), SHA, "202600009")
     wp = w["parties"]
-    if not (wp and wp[0]["withheld"] and wp[0]["name"] is None and wp[0]["origins"] is None):
-        broken.append("a withheld name is withheld, with its ownership origins")
+    if not (wp and wp[0]["withheld"] and wp[0]["name"] is None and wp[0]["origins"] == ["Invented Holder, Australia"]):
+        broken.append("a withheld name is flagged, its ownership origins kept (ruling 142)")
+    kept = {(x["key"], x["field"]): x["value"] for x in w.get("withheld_values") or []}
+    if not (wp and kept.get((wp[0]["key"], "name"), "").startswith("Withheld under s9(2)(a)")
+            and kept.get(("overseas_investment/decision/202600009", "applicant_listed"))):
+        broken.append("what the office prints in a withheld name's place is kept in the private twin (ruling 142)")
     if not (len(wp) == 2 and not wp[1]["withheld"] and wp[1]["name"] == "Delta Limited"):
         broken.append("a withholding binds only the name withheld")
     if w["decision"] and (w["decision"]["applicant_listed"] is not None or w["decision"]["granted"] is not False
@@ -148,8 +155,8 @@ def rules(mod) -> list:
         broken.append("'Date' is the decision date; the notification number as stated")
     if nd and (nd["consideration_heading"] != "Lease amount" or nd["consideration_nzd"] is not None):
         broken.append("a lease amount is never read as a price")
-    if nd and (nd["area_ha"] != [3.2] or "94 Invented" in nd["investment"]):
-        broken.append("'ha' is hectares; the address withheld")
+    if nd and (nd["area_ha"] != [3.2] or "94 Invented" not in nd["investment"] or not nd["addresses_named"]):
+        broken.append("'ha' is hectares; the address kept and flagged")
     if [p["role"] for p in n["parties"]] != ["applicant"]:
         broken.append("a consent holder is the applicant")
 
@@ -189,7 +196,11 @@ def test_the_withholding_of_addresses_keeps_business_words():
 
 MUTANTS = {
     "a withheld name kept": ('        withheld = bool(WITHHELD.search(name))\n', '        withheld = False\n'),
-    "origins kept under a withheld name": ('"origins": None if withheld else origins', '"origins": origins'),
+    "origins dropped under a withheld name": ('"origins": origins, "shares": shares,',
+                                              '"origins": None if withheld else origins, "shares": shares,'),
+    "a withheld name's cell dropped (ruling 142)": ('kept = [("name", name),', 'kept = [] and [("name", name),'),
+    "the land statement withheld (ruling 143)": ('"investment": inv_stated, "addresses_named"',
+                                                 '"investment": withhold_addresses(inv_stated)[0], "addresses_named"'),
     "the listed applicant kept on a withholding": ('if listed_applicant and (applicants_withheld or',
                                                    'if listed_applicant and False and (applicants_withheld or'),
     "street addresses kept": ("    out = STREET.sub(street, out)\n", ""),
@@ -386,8 +397,8 @@ def test_the_hard_cases_read_as_the_office_states_them(filled):
     parties = {}
     for p in filled["parties"]:
         parties.setdefault(p["document"], []).append(p)
-    assert by[D["five addresses"]]["addresses_withheld"] == 5 and by[D["five addresses"]]["consideration_withheld"]
-    assert by[D["no street word"]]["addresses_withheld"] == 1
+    assert by[D["five addresses"]]["addresses_named"] == 5 and by[D["five addresses"]]["consideration_withheld"]
+    assert by[D["no street word"]]["addresses_named"] == 1
     assert by[D["declined"]]["granted"] is False and by[D["declined"]]["attachments"] == 2
     assert by[D["asset value"]]["consideration_heading"] == "Asset Value" and by[D["asset value"]]["consideration_nzd"] is None
     assert len(by[D["two cases"]]["case_numbers"]) == 2 and len(by[D["seven cases"]]["case_numbers"]) == 7
@@ -402,16 +413,19 @@ def test_the_hard_cases_read_as_the_office_states_them(filled):
     assert by[D["trustees"]]["consideration_nzd"] == 8400000
 
 
-def test_the_private_statement_keeps_what_the_view_withholds(filled):
+def test_the_land_statement_is_published_whole_with_its_flag(filled):
+    """Ruling 143: the investment statement on the view is the statement as published (the old view carried it with
+    every street address replaced by a marker), and the flag counts what its shape names."""
     priv = {r["key"]: r["investment_stated"] for r in filled["investments"]}
-    for d in filled["decisions_view"]:
-        if d["addresses_withheld"]:
-            assert "[street address withheld]" in d["investment"] and priv[d["key"]] != d["investment"]
+    flagged = [d for d in filled["decisions_view"] if d["addresses_named"]]
+    assert flagged and all(priv[d["key"]] == d["investment"] and "[street address withheld]" not in d["investment"]
+                           for d in flagged)
 
 
 def test_the_views_withhold_and_the_check_is_clean(filled):
     held = [r for r in filled["parties_view"] if r["withheld"]]
-    assert held and all(r["name"] == "name withheld" and r["origins"] is None for r in held)
+    assert held and all(r["name"] == "name withheld" for r in held)
+    assert any(r["origins"] for r in held)
     assert check.views(filled["conn"], f"{SAMPLE_SCHEMA}.v_") == []
     assert check.reading(filled["conn"], SAMPLE_SCHEMA) == []
 
@@ -430,8 +444,7 @@ def test_the_check_goes_red_on_a_name_shown_an_address_or_a_broken_ledger(filled
         assert check.views(conn, f"{SAMPLE_SCHEMA}.v_") != []
     finally:
         conn.rollback()
-    conn.execute(f"UPDATE {T('decisions')} d SET investment = i.investment_stated FROM {T('investments')} i "
-                 "WHERE i.key = d.key AND d.document = %s", (D["no street word"],))
+    conn.execute(f"UPDATE {T('decisions')} d SET addresses_named = 0 WHERE d.document = %s", (D["no street word"],))
     conn.execute(v)
     try:
         assert any("street address" in p for p in check.views(conn, f"{SAMPLE_SCHEMA}.v_"))
@@ -494,3 +507,26 @@ def test_the_listing_pages_read_their_pager(filled):
     sha = next(i.split()[3] for i in filled["items"] if i.startswith("key: listing "))
     out = read.read_listing(read_bytes(sha))
     assert out["page"] == 0 and out["last_page"] == 1 and len(out["items"]) == 60
+
+
+def test_a_summary_taken_down_stays_with_its_date():
+    """Ruling 142: a row an older finished pass listed and the newest does not is read, flagged with the date of the
+    first finished pass after its last listing (the old listing() read the newest pass alone). Rolled back."""
+    _db_or_skip()
+    sch = "scratch_test_overseas_investment_down"
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
+        conn.execute(f"CREATE SCHEMA {sch}")
+        conn.execute(capture.capture_sql(sch))
+        T = lambda t: capture.table(sch, t)
+        lst = capture.lists()[0].name
+        for pid, day in ((1, "2026-10-01"), (2, "2026-10-08")):
+            conn.execute(f"INSERT INTO {T('capture_passes')} (pass_id, list, stated, finished_at) VALUES (%s, %s, 1, %s)",
+                         (pid, lst, day))
+        conn.execute(f"INSERT INTO {T('capture_listed')} (pass_id, list, slug, url, case_number, card, ordinal) VALUES "
+                     "(1, %s, 'gone', 'u1', '1', 'c', 1), (1, %s, 'stays', 'u2', '2', 'c', 2), (2, %s, 'stays', 'u2', '2', 'c', 1)",
+                     (lst, lst, lst))
+        conn.execute(f"INSERT INTO {T('capture_items')} (slug, url, card, sha256) VALUES ('gone', 'u1', 'c', %s)", ("a" * 64,))
+        got = {e[1]: e for e in load.listing(conn, sch)}
+        conn.rollback()
+    assert set(got) == {"gone", "stays"}
+    assert got["stays"][6] is None and got["gone"][6] == dt.date(2026, 10, 8) and got["gone"][4] == "a" * 64

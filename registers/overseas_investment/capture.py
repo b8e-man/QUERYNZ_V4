@@ -108,11 +108,15 @@ def private_of(schema: str) -> str:
     return f"{schema}_private"
 
 
+#: the tables in the schema's private twin (ruling 142: what the lane's own tables leave out, kept whole)
+PRIVATE_TABLES = ("investments", "withheld_values", "page_rows")
+
+
 def table(schema: str, t: str) -> str:
     """The lane's own schema holds its tables by their names; any other (a
     session's scratch schema, a staging schema) carries the lane's prefix.
     The private table lives in the schema's private twin."""
-    where = private_of(schema) if t in ("investments",) else schema
+    where = private_of(schema) if t in PRIVATE_TABLES else schema
     return f"{where}.{t}" if schema == SCHEMA else f"{where}.{SCHEMA}_{t}"
 
 

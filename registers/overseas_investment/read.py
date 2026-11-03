@@ -22,23 +22,29 @@ and the listing lists it once per number):
               consideration (or the asset value) and whether it is
               withheld, a retrospective penalty, the notification number
               and the parent case
-  the land    the investment statement with every street address and legal
-              description withheld (hard limit 15: a site bought or sold by
-              a person is often a home); the areas as stated, and in
-              hectares. The statement as published is kept in
-              `overseas_investment_private`, never on a view
+  the land    the investment statement as published, street addresses and
+              legal descriptions whole (ruling 143: a land address is kept
+              and published), with `addresses_named`, the count of street
+              addresses and legal descriptions its shape names, the flag a
+              product applies hard limit 15 by; the areas as stated, and in
+              hectares
   rationale   the Background's own list items and its sentences naming a
-              test or criterion, as stated, addresses withheld; the rest of
-              the Background is not read
+              test or criterion, as stated, whole, with
+              `rationale_names_address` where one names an address
 
 One party row per applicant (or consent holder) and vendor the summary
 names in bold: the name as published, a status the office prints beside it
 ("(in receivership)"), the trust a trustee acts for, a company number only
 where printed beside the name, and the ownership lines under the names
-(origin as stated, share as stated). A name the office withholds is
-withheld on every surface: the row stays, the name and its ownership
-origins do not (hard limit 16). "More information" (the applicant's agent,
-with an office address) and attachments' addresses are never read.
+(origin as stated, share as stated). A name the office withholds is flagged:
+the row and its ownership origins stay, and what the cell prints in the
+name's place, with any status, trust and company number beside it, is kept
+whole in the private twin (`withheld_values`, keyed by the party), as is the
+meta block's applicant where the office withholds it (keyed by the
+decision; ruling 142, 4 November 2026). Every headed row of the summary's
+table, "More information" (the applicant's agent, with an office address),
+the Background and the attachments' addresses among them, is kept whole in
+the private twin (`page_rows`).
 """
 import datetime as dt
 import html
@@ -54,8 +60,8 @@ PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
 LISTING_PROFILE = "oio-decisions-listing"
 DECISION_PROFILE = "oio-decision-summary"
 NOTIFICATION_PROFILE = "oio-standing-consent-notification"
-PROFILE_VERSION = 1
-READER = "registers.overseas_investment.read 1"
+PROFILE_VERSION = 2
+READER = "registers.overseas_investment.read 2"
 KEY_PREFIX = "overseas_investment/decision"
 BASE = "https://www.linz.govt.nz"
 PATH = "/our-work/overseas-investment-regulation/decisions"
@@ -307,12 +313,14 @@ def read_parties(cell: str, role: str, role_stated: str) -> list:
             name = clean(name[:number.start()] + name[number.end():])
         withheld = bool(WITHHELD.search(name))
         trust = _TRUST.search(name)
-        out.append({"role": role, "role_stated": role_stated, "name": None if withheld else name,
+        kept = [("name", name), ("status", p["status"]), ("trust", trust.group(1) if trust else None),
+                ("company_number", number.group(1) if number else None)] if withheld else []
+        out.append({"kept": [(f, v) for f, v in kept if v],"role": role, "role_stated": role_stated, "name": None if withheld else name,
                     "withheld": withheld, "withheld_by": "the office withholds the name" if withheld else None,
                     "status": None if withheld else p["status"], "trust": None if withheld or not trust else trust.group(1),
                     "organisation": (not withheld) and is_organisation(name),
                     "company_number": None if withheld or not number else number.group(1),
-                    "ownership_lines": len(lines_), "origins": None if withheld else origins, "shares": shares,
+                    "ownership_lines": len(lines_), "origins": origins, "shares": shares,
                     "ownership_scope": None if not lines_ else ("every party named in the cell" if shared
                                                                 else "this party")})
     return out
@@ -366,7 +374,7 @@ def read_summary(body: bytes, sha: str, slug: str, url: str = None) -> dict:
     """{'decision': row, 'parties': [rows], 'private': [rows], 'set_aside': [lines]} for one summary page."""
     why = recognise_summary(body)
     if why:
-        return {"decision": None, "parties": [], "private": [],
+        return {"decision": None, "parties": [], "private": [], "withheld_values": [], "page_rows": [],
                 "set_aside": [{"document": sha, "place": f"summary={slug}", "stage": "recognise", "reason": why}]}
     t = body.decode("utf-8", "replace")
     meta, rows = _meta(t), _rows(t)
@@ -393,12 +401,10 @@ def read_summary(body: bytes, sha: str, slug: str, url: str = None) -> dict:
     if cons_head and not PRICE_HEADINGS.match(cons_head):
         nzd = None
     inv_stated = statement(next((v for h, v in rows if h.lower().startswith("investment")), "")) or None
-    inv, n_addr = withhold_addresses(inv_stated)
+    _, n_addr = withhold_addresses(inv_stated)
     area_stated, area_ha = areas(inv_stated)
-    why_ = []
-    for item in rationale(by.get("background", "")):
-        w, _ = withhold_addresses(item)
-        why_.append(w)
+    why_ = rationale(by.get("background", ""))
+    why_addresses = sum(withhold_addresses(item)[1] for item in why_)
     pathway = "; ".join(x for x, _ in _lines(next((v for h, v in rows if h.lower().startswith("pathway")), ""))) or None
     cls = _CLASS.search(inv_stated or "")
     parties = []
@@ -408,9 +414,12 @@ def read_summary(body: bytes, sha: str, slug: str, url: str = None) -> dict:
             parties += read_parties(v, role, h)
     for i, p in enumerate(parties, 1):
         p.update(key=f"{key}/party/{i}", decision_key=key, ordinal=i, place=f"{p['role_stated']}[{i}]", **cite)
+    kept = [{"key": p["key"], "field": f, "value": v, "place": p["place"], **cite}
+            for p in parties for f, v in p.pop("kept")]
     applicants_withheld = any(p["withheld"] for p in parties if p["role"] == "applicant")
     listed_applicant = meta.get("applicant")
     if listed_applicant and (applicants_withheld or WITHHELD.search(listed_applicant)):
+        kept.append({"key": key, "field": "applicant_listed", "value": listed_applicant, "place": "meta", **cite})
         listed_applicant = None
     outcome_l = (outcome or "").lower()
     decision = {
@@ -420,12 +429,12 @@ def read_summary(body: bytes, sha: str, slug: str, url: str = None) -> dict:
         "granted": True if "granted" in outcome_l else False if "declined" in outcome_l else None,
         "section": section, "decision_maker": clean(by.get("decision maker", "")) or None,
         "decided_on": decided, "pathway": pathway, "investment_class": cls.group(1).lower() if cls else None,
-        "investment": inv, "addresses_withheld": n_addr, "areas_stated": area_stated, "area_ha": area_ha,
+        "investment": inv_stated, "addresses_named": n_addr, "areas_stated": area_stated, "area_ha": area_ha,
         "consideration_heading": cons_head, "consideration_stated": cons_stated, "consideration_nzd": nzd,
         "consideration_withheld": cons_withheld, "penalty_stated": clean(by.get("retrospective penalty", "")) or None,
         "notification_number": clean(by.get("notification number", "")) or None,
         "parent_case": meta.get("oi case number") or None, "applicant_listed": listed_applicant,
-        "rationale": why_, "headings": [h for h, _ in rows],
+        "rationale": why_, "rationale_names_address": why_addresses > 0, "headings": [h for h, _ in rows],
         "attachments": len(re.findall(r"<a\s", by.get("attachments", ""))),
         "place": "table", **cite}
     private = [{"key": key, "investment_stated": inv_stated, "document": sha}] if inv_stated else []
@@ -434,4 +443,8 @@ def read_summary(body: bytes, sha: str, slug: str, url: str = None) -> dict:
         asides.append({"document": sha, "place": f"summary={slug}", "stage": "parties", "reason": "no applicant read"})
     if decided is None:
         asides.append({"document": sha, "place": f"summary={slug}", "stage": "date", "reason": "no decision date read"})
-    return {"decision": decision, "parties": parties, "private": private, "set_aside": asides}
+    page_rows = [{"key": key, "ordinal": n, "heading": h, "text": clean(v) or None,
+                  "links": re.findall(r'<a\s[^>]*href="([^"]+)"', v) or None, "place": f"table[{n}]", **cite}
+                 for n, (h, v) in enumerate(rows, 1)]
+    return {"decision": decision, "parties": parties, "private": private, "set_aside": asides,
+            "withheld_values": kept, "page_rows": page_rows}

@@ -4,10 +4,11 @@ moves them into `overseas_investment` and its private twin and makes the
 views, in one transaction. sample.py uses the same `build`.
 
 What is read: every (summary page, case number) row the newest finished
-pass of each year's listing lists, at the newest hash held for the page. A
-page that carries two case numbers is read once; each of its rows is a
-ledger line, and the parties are counted on the first. So a summary the
-office takes down leaves the views at the next load. A row listed and not
+pass of each year's listing lists, at the newest hash held for the page, and
+every row an older finished pass listed and the newest does not, kept with
+`taken_down_on`, the date of the first finished pass that no longer listed
+it (ruling 142). A page that carries two case numbers is read once; each of
+its rows is a ledger line, and the parties are counted on the first. A row listed and not
 yet captured is a ledger line ('not captured'), never a decision. Rows in
 equal rows read plus set aside plus not captured; the build raises if they
 do not.
@@ -30,19 +31,22 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "overseas_investment"
 JOB = "qv4-overseas-investment-load"
 STAGING = "staging_overseas_investment_load"
-TABLES = ("read_items", "decisions", "parties", "investments", "read_statements", "read_set_aside")
+TABLES = ("read_items", "decisions", "parties", "investments", "withheld_values", "page_rows", "read_statements",
+          "read_set_aside")
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version")
 COLUMNS = {
-    "read_items": ("list", "slug", "case_number", "pass_id", "document", "state", "parties"),
-    "decisions": ("key", "slug", "url", "case_numbers", "case_number", "kind", "outcome", "granted", "section",
-                  "decision_maker", "decided_on", "pathway", "investment_class", "investment", "addresses_withheld",
+    "read_items": ("list", "slug", "case_number", "pass_id", "document", "state", "parties", "taken_down_on"),
+    "decisions": ("key", "slug", "url", "taken_down_on", "case_numbers", "case_number", "kind", "outcome", "granted", "section",
+                  "decision_maker", "decided_on", "pathway", "investment_class", "investment", "addresses_named",
                   "areas_stated", "area_ha", "consideration_heading", "consideration_stated", "consideration_nzd",
                   "consideration_withheld", "penalty_stated", "notification_number", "parent_case",
-                  "applicant_listed", "rationale", "headings", "attachments") + _CITE,
+                  "applicant_listed", "rationale", "rationale_names_address", "headings", "attachments") + _CITE,
     "parties": ("key", "decision_key", "ordinal", "role", "role_stated", "name", "withheld", "withheld_by", "status",
                 "trust", "organisation", "company_number", "ownership_lines", "origins", "shares", "ownership_scope")
                + _CITE,
     "investments": ("key", "investment_stated", "document"),
+    "withheld_values": ("key", "field", "value") + _CITE,
+    "page_rows": ("key", "ordinal", "heading", "text", "links") + _CITE,
     "read_set_aside": ("document", "place", "stage", "reason"),
 }
 table = capture.table
@@ -75,14 +79,19 @@ def _copy(conn, name: str, cols: tuple, rows) -> int:
 
 
 def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
-    """`entries`: [(list, slug, case_number, url, sha256 or None, pass_id)], one per listed row."""
+    """`entries`: [(list, slug, case_number, url, sha256 or None, pass_id[, taken_down_on])], one per row ever listed:
+    the newest passes', and one taken down since (kept, flagged with the date; ruling 142)."""
     t0 = time.monotonic()
     create_tables(conn, schema)
     T = lambda t: table(schema, t)
-    ledger, decisions, parties, private, asides = [], [], [], [], []
+    ledger, decisions, parties, private, asides, withheld, page_rows = [], [], [], [], [], [], []
+    downs = {}                                  # slug → the takedown date of each of its rows (None: listed now)
     done = {}                                   # slug → the page's reading, so a page with two case numbers is read once
-    for lst, slug, case, url, sha, pass_id in entries:
-        line = {"list": lst, "slug": slug, "case_number": case, "pass_id": pass_id, "document": sha, "parties": 0}
+    for lst, slug, case, url, sha, pass_id, *rest in entries:
+        down = rest[0] if rest else None
+        downs.setdefault(slug, []).append(down)
+        line = {"list": lst, "slug": slug, "case_number": case, "pass_id": pass_id, "document": sha, "parties": 0,
+                "taken_down_on": down}
         if sha is None:
             ledger.append({**line, "state": "not captured"})
             continue
@@ -94,6 +103,8 @@ def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
                 decisions.append(out["decision"])
                 parties += out["parties"]
                 private += out["private"]
+                withheld += out.get("withheld_values") or []
+                page_rows += out.get("page_rows") or []
                 line["parties"] = len(out["parties"])
         out = done[slug]
         if out["decision"] is None:
@@ -106,9 +117,15 @@ def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
             ledger.append({**line, "state": "read"})
     if len(ledger) != len({(e[0], e[1], e[2]) for e in entries}):
         raise AssertionError(f"{SCHEMA}: {len(entries)} rows listed, {len(ledger)} in the ledger")
+    for d in decisions:
+        days = downs.get(d["slug"]) or [None]
+        d["taken_down_on"] = None if None in days else max(days)
     counts = {"decisions": _copy(conn, T("decisions"), COLUMNS["decisions"], decisions),
               "parties": _copy(conn, T("parties"), COLUMNS["parties"], parties),
               "private": _copy(conn, T("investments"), COLUMNS["investments"], private),
+              "withheld_values": _copy(conn, T("withheld_values"), COLUMNS["withheld_values"], withheld),
+              "page_rows": _copy(conn, T("page_rows"), COLUMNS["page_rows"], page_rows),
+              "taken_down": sum(1 for l in ledger if l["taken_down_on"]),
               "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
               "listed": _copy(conn, T("read_items"), COLUMNS["read_items"], ledger),
               "not_captured": sum(1 for l in ledger if l["state"] == "not captured"),
@@ -127,7 +144,9 @@ def count_private(conn, schema: str) -> None:
 
 
 def listing(conn, schema: str = SCHEMA) -> list:
-    """Every row the newest finished pass of each year's listing lists, with the newest hash held for its page."""
+    """Every row the newest finished pass of each year's listing lists, with the newest hash held for its page, then
+    every row an older finished pass listed and the newest does not: taken down, kept, with the date of the first
+    finished pass after its last listing (ruling 142: a row the publisher takes down stays, flagged)."""
     T = lambda t: table(schema, t)
     out = []
     for lst in capture.lists():
@@ -135,10 +154,18 @@ def listing(conn, schema: str = SCHEMA) -> list:
                          (lst.name,)).fetchone()
         if not r or r[0] is None:
             continue
-        out += [tuple(x) for x in conn.execute(
-            f"SELECT l.list, l.slug, l.case_number, l.url, (SELECT i.sha256 FROM {T('capture_items')} i "
-            f"WHERE i.slug = l.slug ORDER BY i.at DESC LIMIT 1), l.pass_id FROM {T('capture_listed')} l "
+        latest = f"(SELECT i.sha256 FROM {T('capture_items')} i WHERE i.slug = l.slug ORDER BY i.at DESC LIMIT 1)"
+        out += [tuple(x) + (None,) for x in conn.execute(
+            f"SELECT l.list, l.slug, l.case_number, l.url, {latest}, l.pass_id FROM {T('capture_listed')} l "
             "WHERE l.pass_id = %s ORDER BY l.ordinal", (r[0],))]
+        out += [tuple(x) for x in conn.execute(
+            f"WITH fin AS (SELECT pass_id, finished_at FROM {T('capture_passes')} WHERE list = %s AND finished_at IS NOT "
+            f"NULL), last AS (SELECT l.slug, l.case_number, max(l.pass_id) AS pass_id FROM {T('capture_listed')} l "
+            "JOIN fin USING (pass_id) WHERE l.list = %s GROUP BY l.slug, l.case_number HAVING max(l.pass_id) < %s) "
+            f"SELECT l.list, l.slug, l.case_number, l.url, {latest}, l.pass_id, (SELECT min(f.finished_at) FROM fin f "
+            f"WHERE f.pass_id > last.pass_id)::date FROM last JOIN {T('capture_listed')} l ON l.pass_id = last.pass_id "
+            "AND l.slug = last.slug AND l.case_number = last.case_number ORDER BY l.pass_id, l.ordinal",
+            (lst.name, lst.name, r[0]))]
     return out
 
 
@@ -171,8 +198,11 @@ def publish(conn, staging: str, log=print) -> None:
 def unchanged(conn, listed: list) -> bool:
     if conn.execute("SELECT to_regclass(%s)", (f"{SCHEMA}.read_items",)).fetchone()[0] is None:
         return False
-    held = {tuple(r) for r in conn.execute(f"SELECT list, slug, case_number, document FROM {SCHEMA}.read_items")}
-    return held == {(e[0], e[1], e[2], e[4]) for e in listed}
+    if conn.execute("SELECT to_regclass(%s)", (f"{SCHEMA}_private.page_rows",)).fetchone()[0] is None:
+        return False
+    held = {tuple(r) for r in conn.execute(f"SELECT list, slug, case_number, document, taken_down_on FROM "
+                                           f"{SCHEMA}.read_items")}
+    return held == {(e[0], e[1], e[2], e[4], e[6] if len(e) > 6 else None) for e in listed}
 
 
 def job(log=print) -> int:

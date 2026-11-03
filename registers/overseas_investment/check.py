@@ -12,9 +12,11 @@ rows for that year. Exit 1 on any of:
   3. a row it listed is not read: not captured yet, or set aside
   4. the reading does not reconcile (a listed row with no ledger line, a
      decision with no ledger line, a party with no decision, a private row
-     with no decision, more private rows than decisions), or a view shows a withheld name or its origins,
-     carries an address column, or a text value shaped like a street
-     address (reported by key, never by value)
+     with no decision, more private rows than decisions), or a view shows a withheld name, carries an
+     address column, or a text value shaped like a street address outside
+     the land statement and the rationale; or the land statement or the
+     rationale names an address its flag does not count (ruling 143: kept
+     whole and published, flagged; reported by key, never by value)
 
 Every line printed is a count. Run bare it connects with the session reader,
 which has no grant on `overseas_investment_private` (by design): the private
@@ -37,6 +39,10 @@ VIEWS = ("overseas_investment_decisions", "overseas_investment_parties")
 #: columns read for a house number before a street: the land's statement and the rationale (never a party's name,
 #: where "VP 568 Limited" is a company)
 HOUSE_COLUMNS = ("investment", "rationale")
+#: the land statement and the rationale are published whole (ruling 143), each with its flag: a value the flag counts
+#: is kept on purpose; one shaped like an address that the flag misses is red
+FLAGGED = {"investment": "addresses_named > 0", "rationale": "rationale_names_address"}
+FLAGS = ("addresses_named", "rationale_names_address")
 SKIP = ("key", "decision_key", "document", "reader", "profile", "place", "url", "attribution")
 _NUM = r"\d{1,4}[A-Za-z]?(?:\s*[-/]\s*\d{1,4}[A-Za-z]?)?"
 _STREET = (r"(?:Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Place|Pl|Crescent|Cres|Terrace|Tce|Lane|Way|Parade|Highway|Hwy|"
@@ -85,19 +91,25 @@ def reading(conn, schema: str = SCHEMA, private: bool = True) -> list:
             if tuple(held) != (statements, stray):
                 out.append(f"the private statements' count says {statements} ({stray} stray); the private table holds "
                            f"{held[0]} ({held[1]} stray)")
-    leaked = conn.execute(f"SELECT count(*) FROM {T('parties')} WHERE withheld AND (name IS NOT NULL OR origins IS NOT NULL "
+    leaked = conn.execute(f"SELECT count(*) FROM {T('parties')} WHERE withheld AND (name IS NOT NULL "
                           "OR trust IS NOT NULL OR status IS NOT NULL)").fetchone()[0]
     if leaked:
-        out.append(f"{leaked} withheld parties keep a name or its origins in the table")
+        out.append(f"{leaked} withheld parties keep a name in the table")
+    if private:
+        # ruling 142: what the cell prints in a withheld name's place is kept whole in the private twin
+        lost = conn.execute(f"SELECT count(*) FROM {T('parties')} p WHERE p.withheld AND NOT EXISTS (SELECT 1 FROM "
+                            f"{T('withheld_values')} w WHERE w.key = p.key AND w.field = 'name')").fetchone()[0]
+        if lost:
+            out.append(f"{lost} withheld parties with nothing kept in the private twin")
     return out
 
 
 def views(conn, prefix: str = "pub.") -> list:
     out = []
     n = conn.execute(f"SELECT count(*) FROM {prefix}overseas_investment_parties WHERE withheld AND "
-                     "(name <> 'name withheld' OR origins IS NOT NULL OR trust IS NOT NULL)").fetchone()[0]
+                     "(name <> 'name withheld' OR trust IS NOT NULL)").fetchone()[0]
     if n:
-        out.append(f"{n} withheld parties show a name or its origins on the view")
+        out.append(f"{n} withheld parties show a name on the view")
     n = conn.execute(f"SELECT count(*) FROM {prefix}overseas_investment_decisions d WHERE d.applicant_listed IS NOT NULL "
                      f"AND EXISTS (SELECT 1 FROM {prefix}overseas_investment_parties p WHERE p.decision_key = d.key "
                      "AND p.role = 'applicant' AND p.withheld)").fetchone()[0]
@@ -112,7 +124,7 @@ def views(conn, prefix: str = "pub.") -> list:
         if not cols:
             out.append(f"{v} is not there")
             continue
-        extra = [c for c, _ in cols if any(w in c for w in ADDRESSISH) and c != "addresses_withheld"]
+        extra = [c for c, _ in cols if any(w in c for w in ADDRESSISH) and c not in FLAGS]
         if extra:
             out.append(f"{v} carries {', '.join(extra)}")
         for c, typ in cols:
@@ -120,8 +132,9 @@ def views(conn, prefix: str = "pub.") -> list:
                 continue
             expr = f"array_to_string({c}, ' ; ')" if typ == "ARRAY" else c
             keys = []
-            for k, val in conn.execute(f"SELECT key, {expr} FROM {schema}.{name}"):
-                if not val:
+            flag = FLAGGED.get(c) if v == "overseas_investment_decisions" else None
+            for k, val, flagged in conn.execute(f"SELECT key, {expr}, {flag or 'false'} FROM {schema}.{name}"):
+                if not val or flagged:
                     continue
                 if STREET.search(val) or (c in HOUSE_COLUMNS and (read.STREET.search(val) or read.LEGAL.search(val))):
                     keys.append(k)

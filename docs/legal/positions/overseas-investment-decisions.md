@@ -44,16 +44,18 @@ the integrator moves it there. Read 21 October 2026 by oio-1.
    with their country of origin and their share. They also give the
    land's street address, which for an individual buyer or seller is often
    a home, and a "More information" contact (the applicant's lawyer, with
-   an office address). So: names as the office publishes them; a name the
-   office withholds is withheld on every surface (hard limit 16); every
-   street address and legal description of land is withheld from the
-   views and held only in `overseas_investment_private` (hard limit 15),
-   the land shown by its area and its locality as stated; the contact
-   person and the Background's narrative are never read (only its list
-   items and its sentences naming a test); a summary the office takes down
-   leaves our views at the next load. The Privacy Act 2020 asks fair use
-   of what a person was named in; the queue item on how long a row naming
-   an individual is shown carries the default "while the office shows it".
+   an office address). What the estate holds (rulings 142 and 143, 4
+   November 2026): names as the office publishes them; where the office
+   withholds a name it prints none, the row carries that flag and its
+   ownership origins, and what the cell prints in the name's place is kept
+   in `overseas_investment_private`; the investment statement is kept and
+   published whole, the land's street address and legal description
+   included, with `addresses_named` beside it (the flag a product applies
+   hard limit 15 by); every headed row of the page, the "More information"
+   contact and the Background among them, is kept whole in
+   `overseas_investment_private`; a summary the office takes down stays,
+   flagged with the date of the first finished pass that no longer listed
+   it. Privacy is applied at a product's export.
 
 Crawl delay: none stated. Floor: one request at a time, at least 5 s
 apart, off-peak (22:00 to 06:00 NZ time), a pass of each year's listing
