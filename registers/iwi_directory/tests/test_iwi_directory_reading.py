@@ -116,10 +116,16 @@ def rules(r) -> list:
         broken.append("an organisation is listed under the heading above it")
     if ents.get("tkm/org/invented-hapu-group", {}).get("hapu_represented") != "Ngāti Tahi":
         broken.append("hapū represented is kept")
-    flat = repr(out)
+    rows = {k: v for k, v in out.items() if k != "entities"}
+    rows["entities"] = [{c: v for c, v in e.items() if c != "_private"} for e in out["entities"]]
+    flat = repr(rows)
     for s in SECRETS:
         if s in flat or s.replace(" ", "") in flat.replace(" ", ""):
-            broken.append(f"a contact value leaves the page: {s[:4]}…")
+            broken.append(f"a contact value reaches a row: {s[:4]}…")
+    held = repr([e.get("_private") for e in out["entities"]])
+    for s in SECRETS:
+        if s not in held and s.replace(" ", "") not in held.replace(" ", ""):
+            broken.append(f"a contact value the entry prints is not kept privately (ruling 142): {s[:4]}…")
     if "Chair" not in out["unread"] or "Email" not in out["unread"]:
         broken.append("the unread labels are counted by name")
     keys = [s["key"] for s in out["settlements"]]
@@ -202,8 +208,11 @@ def rules(r) -> list:
         broken.append("the RMA hapū groups' picture is not the iwi authority's")
     if any("phone" in f.lower() for f in got):
         broken.append("a contact icon is never a flag")
-    if SECRETS[2] in repr(out) or SECRETS[1] in repr(out):
-        broken.append("a contact value in a kept label (a website that is an email address) leaves the page")
+    rows = [{c: v for c, v in e.items() if c != "_private"} for e in out["entities"]]
+    if SECRETS[2] in repr(rows) or SECRETS[1] in repr(rows):
+        broken.append("a contact value in a kept label (a website that is an email address) reaches a row")
+    if SECRETS[2] not in repr([e.get("_private") for e in out["entities"]]):
+        broken.append("a contact value in a kept label is not kept privately")
     return broken
 
 
@@ -508,6 +517,23 @@ def test_no_contact_value_on_a_page_reaches_a_row(filled):
     assert len(found) > 20
     flat = repr(filled["entities"] + filled["relations"] + filled["settlements"])
     assert [v for v in found if v in flat] == []
+
+
+def test_what_an_entry_prints_beyond_its_row_is_kept_privately(filled):
+    """Ruling 142: the people, phones, emails and addresses an organisation's entry prints are kept whole in the
+    private twin, never on a row; before 4 November 2026 they were never read."""
+    from support.docstore.landing import read_bytes
+    conn = filled["conn"]
+    kept = [r[0] for r in conn.execute(f"SELECT value FROM {load.private_table(SAMPLE_SCHEMA)}")]
+    assert len(kept) > 100
+    held = "\n".join(kept)
+    found = set()
+    for url, sha in filled["entries"]:
+        page = read_bytes(sha).decode("utf-8", "replace")
+        found |= set(re.findall(check.EMAIL, page))
+    assert found and sum(1 for v in found if v in held) >= 0.8 * len(found), "the emails the pages print are kept"
+    keys = {e["key"] for e in filled["entities"]}
+    assert {r[0] for r in conn.execute(f"SELECT entity_key FROM {load.private_table(SAMPLE_SCHEMA)}")} <= keys
 
 
 def test_the_views_and_the_reading_are_clean(filled):

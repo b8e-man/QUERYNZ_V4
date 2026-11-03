@@ -34,8 +34,10 @@ integrator moves it. Read 22 October 2026 through the fetch gate by settlements-
    contact) with their phone, mobile, email, and the organisation's postal and physical address; a small
    hapū group's postal address may be a person's home. The page is captured whole; the reading reads an
    allowlist of fields only (legal entity, governance structure, hapū represented, area of interest, local
-   authorities, website) and the role flags; no name of a person, phone, email or postal or physical address is
-   read, kept or printed (hard limit 15). A marae's location is the marae's own and is kept as printed. The
+   authorities, website) and the role flags onto a row; every other label's value (a person's name, a phone,
+   an email, a postal or physical address) is kept whole in `iwi_directory_private.entry_fields`, which no view
+   reads and qv4_read is never granted, and is never shown or printed (ruling 142, 4 November 2026; hard limit
+   15). A marae's location is the marae's own and is kept as printed. The
    privacy statement (`74031896…`) covers visitors only.
 
 Crawl delay: none stated. Floor: 5 s, one request at a time, off-peak (22:00 to 06:00 NZ), each page once a

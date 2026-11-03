@@ -36,6 +36,22 @@ SCHEMA = "iwi_directory"
 JOB = "qv4-iwi-directory-load"
 STAGING = "staging_iwi_directory_load"
 TABLES = ("read_pages", "entities", "relations", "settlements", "read_unread_labels", "read_set_aside")
+#: what an organisation's entry prints beyond the labels read onto a row (people, phones, emails, addresses), whole:
+#: in the private twin only, which qv4_read and qv4_product are never granted (ruling 142, 4 November 2026)
+PRIVATE = f"{SCHEMA}_private"
+PRIVATE_COLUMNS = ("key", "entity_key", "label", "value", "document", "place")
+
+
+def private_table(schema: str) -> str:
+    return f"{PRIVATE}.entry_fields" if schema == SCHEMA else f"{schema}_private.{SCHEMA}_entry_fields"
+
+
+def create_private(conn, schema: str) -> None:
+    name = private_table(schema)
+    conn.execute(f"CREATE SCHEMA IF NOT EXISTS {name.split('.')[0]}")
+    conn.execute(f"DROP TABLE IF EXISTS {name}")
+    conn.execute(f"CREATE TABLE {name} (key text PRIMARY KEY, entity_key text NOT NULL, label text NOT NULL, "
+                 f"value text NOT NULL, document text NOT NULL, place text NOT NULL)")
 _CITE = ("document", "page", "place", "read_from", "reader", "profile", "profile_version")
 COLUMNS = {
     "read_pages": ("url", "document", "kind", "state", "entities", "relations", "iwi_links"),
@@ -67,6 +83,7 @@ def create_tables(conn, schema: str) -> None:
     for t in TABLES:
         conn.execute(f"DROP TABLE IF EXISTS {table(schema, t)} CASCADE")
     conn.execute(sql("tables.sql", schema))
+    create_private(conn, schema)
 
 
 def _copy(conn, name: str, cols: tuple, rows) -> int:
@@ -153,6 +170,12 @@ def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
             seen.add(k)
             rel_rows.append(dict(r, key="|".join((r["from_key"], r["relation"], r["to_key"] or r["to_name"] or ""))))
     set_rows = list({s["key"]: s for s in reversed(sets)}.values())
+    private = []
+    for e in ents:
+        for i, (label, value) in enumerate(e.pop("_private", None) or (), 1):
+            private.append({"key": f"{e['key']}|{e['document']}|{e['place']}|{i}", "entity_key": e["key"],
+                            "label": label, "value": value, "document": e["document"], "place": e["place"]})
+    private = list({r["key"]: r for r in private}.values())
     merged = merge(ents)
     return {"entities": _copy(conn, T("entities"), COLUMNS["entities"], merged),
             "relations": _copy(conn, T("relations"), COLUMNS["relations"], rel_rows),
@@ -161,6 +184,7 @@ def build(conn, schema: str, entries: list, read_bytes=read_bytes) -> dict:
                                    [{"label": k, "pages": v} for k, v in sorted(unread.items())]),
             "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], asides),
             "pages": _copy(conn, T("read_pages"), COLUMNS["read_pages"], ledger),
+            "private_fields": _copy(conn, private_table(schema), PRIVATE_COLUMNS, private),
             "organisation_keys_split": len(split),
             "seconds": round(time.monotonic() - t0, 1)}
 
@@ -199,6 +223,7 @@ def publish(conn, staging: str, log=print) -> None:
         create_tables(conn, SCHEMA)
         for t in TABLES:
             conn.execute(f"INSERT INTO {table(SCHEMA, t)} SELECT * FROM {table(staging, t)}")
+        conn.execute(f"INSERT INTO {private_table(SCHEMA)} SELECT * FROM {private_table(staging)}")
         conn.execute(sql("publish.sql"))
     log(f"{SCHEMA}: published from {staging}")
 

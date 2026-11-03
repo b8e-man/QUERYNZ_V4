@@ -1,7 +1,9 @@
 -- registers/iwi_directory: every table this lane owns, in `iwi_directory`, in two parts. The capture's record
 -- (capture.py makes it; never wiped): no capture table holds a row of the source; every page stays in the document
--- store verbatim by sha256. The reading's tables (load.py drops and makes them again at every load). No private
--- twin: an organisation's people, phones, emails and postal and physical addresses are never read (hard limit 15).
+-- store verbatim by sha256. The reading's tables (load.py drops and makes them again at every load). The private
+-- twin, `iwi_directory_private.entry_fields` (load.create_private): an organisation's people, phones, emails and
+-- postal and physical addresses, every label not read onto a row, whole (ruling 142, 4 November 2026); never on a
+-- row or a view (hard limit 15).
 
 -- ── the capture ──────────────────────────────────────────────────────────────
 

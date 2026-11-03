@@ -15,8 +15,11 @@ alone (profiles in `profiles-proposed.jsonl`):
 
 An organisation's entry names people (chair, chief executive, RMA contact)
 with their phone, mobile and email, and the organisation's postal and
-physical address. Only the labels in `KEEP` are read; every other label is
-counted by its name and its value never leaves the page (hard limit 15). A
+physical address. Only the labels in `KEEP` are read onto a row; every
+other label is counted by its name, and its value, a contact paragraph and
+a kept label holding a contact are kept whole in the entry's `private`, for
+`iwi_directory_private.entry_fields` only (ruling 142, 4 November 2026;
+hard limit 15 binds the surfaces). A
 marae's location is the marae's own, kept as printed.
 """
 import html
@@ -44,7 +47,7 @@ FLAG_BY_IMAGE = {"posttreaty": "post-settlement governance entity", "mfa": "Māo
                  "tuhono": "Tūhono organisation", "treaty": "mandate for settlement negotiations",
                  "tree": "collective settlement governance entity",
                  "maunga": "member of Ngā Iwi o Taranaki (Taranaki Maunga collective redress)"}
-#: a picture that stands for a contact (phone, email, address) is never a flag and never kept (hard limit 15)
+#: a picture that stands for a contact (phone, email, address) is never a flag; its paragraph is kept privately
 CONTACT_IMAGE = re.compile(r"phone|mobile|fax|mail|envelope|address|postal|contact|location", re.I)
 #: an email address or a phone number, wherever the site prints one: a kept label holding one is not kept (a
 #: website entry that is three email addresses behind `http://`, 23 October 2026)
@@ -189,13 +192,15 @@ def organisations(section: str) -> list:
         end = marks[i + 1].start() if i + 1 < len(marks) else len(section)
         block = section[m.end():end]
         entry = {"name": text(m.group(2)), "listed_as": listed_as, "last_updated": None, "flags": [],
-                 "fields": {}, "unread": []}
+                 "fields": {}, "unread": [], "private": []}
         lu = re.search(r"Last updated:\s*([0-9/]+)", block)
         if lu:
             entry["last_updated"] = lu.group(1)
         for p in re.findall(r"<p[^>]*>(.*?)</p>", block, re.S):
             img = re.search(r"<img[^>]*src=\"/images/([A-Za-z0-9_-]+)[^\"]*\"[^>]*alt=\"([^\"]*)\"[^>]*>", p)
             if img and contact_image(img.group(1)):
+                if text(p):
+                    entry["private"].append((img.group(1), text(p)))
                 continue
             if img:
                 after = text(p[img.end():])
@@ -209,6 +214,8 @@ def organisations(section: str) -> list:
                 col = KEEP.get(key)
                 if col is None:
                     entry["unread"].append(lab.rstrip(":").strip())
+                    if text(val.lstrip(":")):
+                        entry["private"].append((lab.rstrip(":").strip(), text(val.lstrip(":"))))
                     continue
                 if col == "website":
                     href = re.search(r"href=\"(https?://[^\"]+)\"", val)
@@ -216,6 +223,7 @@ def organisations(section: str) -> list:
                 else:
                     entry["fields"][col] = text(val.lstrip(":")) or None
                 if CONTACT_VALUE.search(entry["fields"][col] or ""):
+                    entry["private"].append((lab.rstrip(":").strip(), entry["fields"][col]))
                     entry["fields"][col] = None
                     entry["unread"].append(lab.rstrip(":").strip() + " (a contact printed in it)")
         out.append(entry)
@@ -285,7 +293,7 @@ def _org_rows(entries, sha, url, kind, iwi_key=None):
                             listed_as=e["listed_as"] or None, flags=[f"{f[0]}: {f[1]}" + (f" [{f[2]}]" if f[2] else "")
                                                                     for f in e["flags"]],
                             charity_number=cc.group(0) if cc else None, nzbn=bn.group(0) if bn else None,
-                            last_updated=e["last_updated"], **e["fields"]))
+                            last_updated=e["last_updated"], _private=list(e["private"]), **e["fields"]))
         if iwi_key:
             rels.append({"from_key": key, "relation": "organisation of iwi", "to_key": iwi_key, "to_name": None,
                          "section": e["listed_as"] or None, **cite})
