@@ -31,16 +31,18 @@ integrator moves it there. Read 21 October 2026 by regulators-1.
    statement (`259dceab…`); neither bars machine reading or reuse.
 4. **What does privacy law, or the statute, limit?** The duty holders are
    mostly companies; some are individuals. WorkSafe publishes a code in
-   place of a defendant it does not name ("2019-A"); that, a name written
-   withheld or suppressed, or a page that states a suppression (Criminal
-   Procedure Act 2011, ss 200 to 211) withholds the name with the heading
-   and page address (hard limit 16). The facts in brief, the incident and
-   the safety lessons describe the victim, the family and the place: they
-   are never read, and no address is (hard limit 15). An undertaking is
-   accepted in place of a prosecution and is not a conviction, and is shown
-   as such. An item WorkSafe takes down leaves our views at the next load.
-   The queue item on how long a regulator action naming an individual is
-   shown carries the default "while the regulator shows it".
+   place of a defendant it does not name ("2019-A"). What the estate holds
+   (ruling 142, 4 November 2026): that code, a name written withheld or
+   suppressed, or a name a page states a suppression over (Criminal
+   Procedure Act 2011, ss 200 to 211), is flagged on the lane's tables and
+   views, and what the page prints in its place, with the heading and page
+   address, is kept whole in `worksafe_private` under the row's key. The
+   facts in brief, the incident and the safety lessons describe the
+   victim, the family and the place: each headed section is kept whole in
+   `worksafe_private`. An undertaking is accepted in place of a prosecution
+   and is not a conviction. An item WorkSafe takes down stays, flagged with
+   the date of the first finished pass that no longer listed it. Privacy
+   and suppression are applied at a product's export.
 
 Crawl delay: none stated for us. Floor: one request at a time, at least 5 s
 apart, off-peak (22:00 to 06:00 NZ time), a full pass of both lists weekly

@@ -1,8 +1,10 @@
 -- registers/worksafe: every table this lane owns, in `worksafe` and its private twin, in two parts. The capture's
 -- record (capture.py makes it; never wiped): no capture table holds a row of the source; the listing pages, court
 -- summaries and undertakings stay in the document store verbatim by sha256. The reading's tables (load.py drops and
--- makes them again at every load). `worksafe_private` holds nothing: no address is read, and the facts in brief, the
--- incident and the lessons (which describe the victims and the place) are never read.
+-- makes them again at every load). `worksafe_private` holds what the lane's own tables leave out, kept whole (ruling
+-- 142, 4 November 2026): every headed section a page prints (the facts in brief, the incident, the lessons, which
+-- describe the victims and the place), and what the page prints in a withheld name's place with the heading, slug and
+-- address. An item WorkSafe takes down stays, flagged with the date of the first finished pass that no longer listed it.
 
 -- ── the capture ──────────────────────────────────────────────────────────────
 
@@ -79,6 +81,7 @@ CREATE TABLE IF NOT EXISTS worksafe.read_items (
     document   text,                                -- NULL: listed and not yet captured
     state      text NOT NULL CHECK (state IN ('read', 'set aside', 'not captured')),
     parties    integer NOT NULL DEFAULT 0,
+    taken_down_on date,                             -- the first finished pass that no longer listed it; NULL: listed now
     PRIMARY KEY (list, slug)
 );
 
@@ -108,6 +111,7 @@ CREATE TABLE IF NOT EXISTS worksafe.actions (
     accepted_on      date,                          -- an undertaking's date accepted
     action_on        date,                          -- decided, else accepted, else published
     url              text,                          -- NULL where a name is withheld (the address carries it)
+    taken_down_on    date,                          -- WorkSafe took the item down by this date
     document         text NOT NULL,
     page             integer NOT NULL,
     place            text NOT NULL,
@@ -137,6 +141,60 @@ CREATE TABLE IF NOT EXISTS worksafe.parties (
     profile          text NOT NULL,
     profile_version  integer NOT NULL,
     loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- a withheld party: what the page prints in its place (the name a stated suppression covers, the code, or the word),
+-- kept whole (ruling 142); the lane's own row carries the flag
+CREATE TABLE IF NOT EXISTS worksafe_private.suppressed_names (
+    key              text PRIMARY KEY,              -- the party's key in worksafe.parties
+    action_key       text NOT NULL,
+    ordinal          integer NOT NULL,
+    name             text NOT NULL,
+    company_number   text,
+    named_in         text NOT NULL,
+    suppressed_by    text NOT NULL,
+    document         text NOT NULL,
+    page             integer NOT NULL,
+    place            text NOT NULL,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- an action with a withheld name: the heading, slug and address its lane row leaves out
+CREATE TABLE IF NOT EXISTS worksafe_private.suppressed_actions (
+    key              text PRIMARY KEY,              -- the action's key in worksafe.actions
+    slug             text NOT NULL,
+    title            text,
+    url              text NOT NULL,
+    suppressed_by    text NOT NULL,
+    document         text NOT NULL,
+    page             integer NOT NULL,
+    place            text NOT NULL,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- every section a page prints under its own heading, as printed (facts in brief, the incident, lessons, highlights)
+CREATE TABLE IF NOT EXISTS worksafe_private.page_sections (
+    key              text NOT NULL,                 -- the action's key
+    ordinal          integer NOT NULL,
+    heading          text NOT NULL,
+    text             text NOT NULL,
+    document         text NOT NULL,
+    page             integer NOT NULL,
+    place            text NOT NULL,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (key, ordinal)
 );
 
 CREATE TABLE IF NOT EXISTS worksafe.read_set_aside (

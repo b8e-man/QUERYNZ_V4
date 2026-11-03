@@ -30,10 +30,17 @@ carry a legal ending. A party is withheld (the row stays, the name is
 empty) where WorkSafe writes the name withheld or suppressed, or publishes a
 code in its place ('2019-A'), or where the page states a suppression and
 the party is not one organisation alone; then the heading, slug and address
-are not kept either (hard limit 16).
+are left off the lane's own tables too. What the page prints in the name's
+place (the name a stated suppression covers, the code, or the word
+withheld) and the heading, slug and address are kept whole in the private
+twin (`suppressed_names`, `suppressed_actions`, keyed by the rows' keys;
+ruling 142, 4 November 2026).
 
-The facts in brief, the incident, the safety lessons and the highlights are
-never read: they describe the victims and the place.
+Every labelled row the lane's tables do not read and every section the page
+prints under its own heading (the facts in brief, the incident, the safety
+lessons, the highlights and the rest, which describe the victims and the
+place) is kept whole in the private twin (`page_sections`: heading and
+text, keyed by the action).
 """
 import datetime as dt
 import hashlib
@@ -49,8 +56,8 @@ from keys.names import is_organisation  # noqa: E402
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
 LISTING_PROFILE = "worksafe-listing-page"
 PAGE_PROFILE = {"prosecutions": "worksafe-court-summary", "undertakings": "worksafe-enforceable-undertaking"}
-PROFILE_VERSION = 1
-READER = "registers.worksafe.read 1"
+PROFILE_VERSION = 2
+READER = "registers.worksafe.read 2"
 BASE = "https://www.worksafe.govt.nz"
 PATHS = {"prosecutions": "/laws-and-regulations/prosecutions/court-summaries/",
          "undertakings": "/laws-and-regulations/enforceable-undertakings/accepted-enforceable-undertakings/"}
@@ -198,6 +205,11 @@ def split_and(name: str):
     return [(name.strip(), "as published")]
 
 
+#: the label/value rows the lane's own tables read; every other row is kept whole in the private twin (ruling 142)
+READ_LABELS = frozenset({"defendant name", "industry", "date of offence", "offence section", "date(s) charged", "court",
+                         "plea", "final decision date", "decision", "fine imposed", "reparation"})
+
+
 def fields(main_html: str) -> dict:
     """The label/value rows, lower-cased labels, first occurrence wins (the
     at-a-glance block repeats the long form's values)."""
@@ -237,7 +249,7 @@ def read_page(body: bytes, sha: str, list_name: str, slug: str, url: str = None)
     sec = h2_sections(main)
     states_suppression = bool(SUPPRESSION.search(clean(main)))
     named = clean(f.get("defendant name", ""))
-    parties = []
+    parties, private = [], []
     for i, (name, how) in enumerate(split_and(named or title), 1):
         printed = re.search(_NUMBER_BESIDE + r"\s*$", name)
         if printed:
@@ -248,6 +260,11 @@ def read_page(body: bytes, sha: str, list_name: str, slug: str, url: str = None)
                        else "the page states a suppression" if states_suppression and not (org and not _AND.search(name))
                        else None)
         number = (printed or re.search(re.escape(name) + _NUMBER_BESIDE, clean(main))) if not withheld_by else None
+        if withheld_by:
+            kept = printed or re.search(re.escape(name) + _NUMBER_BESIDE, clean(main))
+            private.append({"ordinal": i, "name": name, "company_number": kept.group(1) if kept else None,
+                            "named_in": "field: Defendant name" if named else "heading", "suppressed_by": withheld_by,
+                            "place": f"parties[{i}]", **cite})
         parties.append({"ordinal": i, "name": None if withheld_by else name, "withheld": bool(withheld_by),
                         "withheld_by": withheld_by, "organisation": org and not withheld_by,
                         "company_number": number.group(1) if number else None,
@@ -256,7 +273,7 @@ def read_page(body: bytes, sha: str, list_name: str, slug: str, url: str = None)
     suppressed = any(p["withheld"] for p in parties) or bool(WITHHELD.search(title) or CODE.match(title))
     key_slug = f"withheld-{hashlib.sha256(slug.encode()).hexdigest()[:16]}" if suppressed else slug
     key = f"worksafe/{KEY_PART[list_name]}/{key_slug}"
-    for p in parties:
+    for p in parties + private:
         p.update(key=f"{key}/party/{p['ordinal']}", action_key=key)
     offence_when = lines(f.get("date of offence", "")) or None
     charged = lines(f.get("date(s) charged", "")) or None
@@ -288,4 +305,12 @@ def read_page(body: bytes, sha: str, list_name: str, slug: str, url: str = None)
               "url": None if suppressed else (url or BASE + PATHS[list_name] + slug + "/"),
               "place": "court-summary" if list_name == "prosecutions" else "undertaking", **cite}
     action["action_on"] = action["decided_on"] or action["accepted_on"] or action["published_on"]
-    return {"action": action, "parties": parties, "set_aside": []}
+    kept_action = {"key": key, "slug": slug, "title": title, "url": url or BASE + PATHS[list_name] + slug + "/",
+                   "suppressed_by": "; ".join(sorted({p["suppressed_by"] for p in private})) or "WorkSafe withholds the heading",
+                   "place": action["place"], **cite} if suppressed else None
+    unread = [(k, v, "row") for k, v in f.items() if k not in READ_LABELS]
+    unread += [(h, b, "h2") for h, b in _SECTION_H2.findall(main)]
+    sections = [{"key": key, "ordinal": n, "heading": clean(h), "text": clean(b), "place": f"{where}[{n}]", **cite}
+                for n, (h, b, where) in enumerate(unread, 1) if clean(b)]
+    return {"action": action, "parties": parties, "set_aside": [], "suppressed_names": private,
+            "suppressed_action": kept_action, "page_sections": sections}
