@@ -1000,6 +1000,18 @@ at_utc = "17:30"
 then = ["qv4-scan-rerun", "qv4-names-tenders"]   # the stale scan lines re-run (31 October); its names into pub.names (1 November)
 nice = 10
 
+[jobs.qv4-tenders-listing-load]
+description = "The GETS listing as the ingest MCP serves it: every record of the gets corpus the pull holds read again into tenders.listing (every field and the page's stable labels in columns, the regions read from their label) and tenders_private.listing, in one transaction; red when a record carries a field the reading has no column for (rulings 96, 138, 142). Daily at 04:40 NZDT, after the 01:00 pull."
+needs = "processor"
+memory_gb = 1.0   # measured 200 MB peak on the 13,509 documents of 4 November
+deadline_s = 1800
+query_timeout_s = 600
+class = "due"
+priority = 129
+command = ["python", "-m", "registers.tenders.listing", "--job"]
+at_utc = "15:40"
+nice = 10
+
 # ── step 5.3, the regulator actions (regulators-1; card the-regulator-lanes-jobs-into-the-catalogue). The clock is NZDT (UTC+13) until 5 April 2027. ──
 
 [jobs.qv4-commerce-commission-capture]
