@@ -20,9 +20,10 @@ published only when the blocks add up to Part H on the declaration page
 and to `TOTAL FOR PART H` where that was read, or differ from each by less
 than $100 (ruling 66: each lender row carries the `issue`). The
 lender's name is cut from the address the way a donor's is
-(`donors.split`); the address goes only to `party_returns_private`, and so
-does a guarantor's name and address (a guarantor is a private person the
-form names in passing, not a party to the published row).
+(`donors.split`); the address goes only to `party_returns_private`; the whole block as read
+(the guarantor's name and address, the security and any terms among it)
+is kept in `party_returns_private.loan_blocks`, keyed by the loan (ruling
+142, 4 November 2026).
 
 Part I is an aggregate (a count and a total): it has no lender to name.
 
@@ -145,7 +146,7 @@ def _block_row(page: int, lines: list, src: str) -> dict:
     name, address = donors.split(" ".join(cell))
     return {"page": page, "cell": " ".join(cell), "name": name, "address": address,
             "amount": round(amounts[0], 2) if amounts else None, "dates": ", ".join(dates), "interest": rate,
-            "paired_by": "block", "read_from": src}
+            "paired_by": "block", "read_from": src, "block": "\n".join(lines)}
 
 
 def _block_row_text(page: int, lines: list) -> dict:
@@ -177,7 +178,7 @@ def _block_row_text(page: int, lines: list) -> dict:
     name, address = donors.split(" ".join(cell))
     return {"page": page, "cell": " ".join(cell), "name": name, "address": address,
             "amount": round(amount, 2) if amount else None, "dates": ", ".join(dates), "interest": rate,
-            "paired_by": "block", "read_from": "text"}
+            "paired_by": "block", "read_from": "text", "block": "\n".join(lines)}
 
 
 def read(texts: dict, src: dict, declared_h) -> donors.Part:

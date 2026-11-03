@@ -250,6 +250,9 @@ def test_a_lender_block_takes_its_loan_amount_never_the_balance_the_total_or_a_g
     assert [(r["name"], r["amount"], r["interest"]) for r in part.rows] == [("A. B. Example", 100000.0, "5%"),
                                                                           ("A. B. Example", 30000.0, "5%")]
     assert all("Guarantor" not in r["cell"] and "Model" not in r["cell"] for r in part.rows)
+    # ruling 142 (4 November 2026): the block whole, the guarantor among it, for party_returns_private.loan_blocks
+    # (the old reading kept the guarantor nowhere)
+    assert "Ann Guarantor, 9 Model Street" in part.rows[0]["block"] and all(r["block"].startswith("Lender") for r in part.rows)
     assert loans.read({13: LENDERS}, {13: "pixels"}, 129000.0).rows == []
     assert loans.read({13: "PART H: PARTY LOANS EXCEEDING $30,000\nLender's name and street address\nNIL\n"},
                       {13: "pixels"}, 0.0).check == "declared-nil"

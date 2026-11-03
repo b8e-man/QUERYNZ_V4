@@ -17,7 +17,7 @@ SELECT d.key, d.return_key, d.document, d.page, d.ordinal, d.n, r.party, r.party
 FROM party_returns.donors d JOIN party_returns.returns r ON r.key = d.return_key
 LEFT JOIN party_returns.amendments a ON a.document = d.document;
 
--- Part H's lenders: the name and the loan, never the address or a guarantor
+-- Part H's lenders: the name and the loan; the address and the whole block (the guarantor among it) are in the private twin
 CREATE OR REPLACE VIEW pub.party_return_loans AS
 SELECT l.key, l.return_key, l.document, l.page, l.ordinal, r.party, r.party_label, r.year, l.lender, l.amount,
        l.dates, l.interest, l.read_from, l.reader, l.profile, l.profile_version, l.loaded_at, a.replaced_by, r.party_key,

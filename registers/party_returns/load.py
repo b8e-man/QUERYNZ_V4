@@ -22,7 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = "party_returns"
 PRIVATE = "party_returns_private"
 TABLES = ("returns", "set_aside", "donors", "loans", "amendments")
-PRIVATE_TABLES = ("addresses",)
+PRIVATE_TABLES = ("addresses", "loan_blocks")
 COLUMNS = ("key", "document", "page", "place", "party", "party_label", "party_basis", "year", "year_from", "declared_total",
            "part_a", "part_c", "part_d", "part_f", "part_g", "declared_parts", "total_check", "read_from", "reader",
            "profile", "profile_version", "loaded_at", "loans_h", "loans_i", "loans_total", "donors_check", "loans_check",
@@ -33,7 +33,8 @@ LOAN_COLUMNS = ("key", "return_key", "document", "page", "ordinal", "lender", "a
                 "reader", "profile", "profile_version", "loaded_at", "issue")
 AMENDMENT_COLUMNS = ("document", "replaced_by", "party_label", "year", "stated", "listing")
 COLUMNS_OF = {"returns": COLUMNS, "donors": DONOR_COLUMNS, "loans": LOAN_COLUMNS, "amendments": AMENDMENT_COLUMNS,
-              "set_aside": ("document", "stage", "reason", "at"), "addresses": ("key", "document", "address", "cell")}
+              "set_aside": ("document", "stage", "reason", "at"), "addresses": ("key", "document", "address", "cell"),
+              "loan_blocks": ("key", "document", "page", "block")}
 
 
 def private_of(schema: str) -> str:
@@ -80,6 +81,8 @@ def insert(conn, schema: str, result: read.Result) -> int:
     for x in result.loans:
         _insert(conn, f"{schema}.loans", LOAN_COLUMNS, {**x, "return_key": r["key"], "lender": x["name"]})
         _insert(conn, f"{private_of(schema)}.addresses", COLUMNS_OF["addresses"], x)
+        if x.get("block"):
+            _insert(conn, f"{private_of(schema)}.loan_blocks", COLUMNS_OF["loan_blocks"], x)
     return 1
 
 
