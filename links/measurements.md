@@ -760,3 +760,96 @@ nothing that decides a verdict changed between them, and the fingerprint in
 `links.scores` is of the judgment as it stands. No web search: the gate has
 no search route (card `the-fetch-gate-has-no-search-route`). Nothing was
 applied: `links.SETTINGS["review_applies"]` is off and `check.py` holds it.
+
+## 15. Rulings 2 and 3 researched: a shared email or phone, and a judgment's address against a registered office, 4 November 2026 (integrator)
+
+Measurement only; no rule built, nothing applied. Counts only: no email, phone, address or name is written here.
+Read-only on live through the owner login (the private schema), in a read-only transaction: `courts_private.identifiers`
+as the 04:40 load left it (4 November, finished 05:31: 9,709 details; 6,531 of the four kinds below on 2,230
+documents), `pub.court_people` (who sits in each document), `pub.companies` and `pub.company_addresses` (892,803
+registered offices). The text around each detail is read on its own page only (2,230 known documents, none
+unreadable), never the store wholesale. The page: `docs/research/contact-details-2026-11-04.md`.
+
+**How a value is sorted.** An email by its domain: courts, tribunals and government (`govt.nz`, justice, police,
+crownlaw, `.ac.nz` and the like); a law firm (law, legal, lawyer, barrister, chambers in the domain, or the domain's
+stem in a counsel firm's name in the same document, or a webmail address whose local part carries counsel's surname);
+personal webmail (gmail, xtra and 40 more); a company (the domain's stem is a company's name key in `pub.companies`,
+suffixes off, four letters or more); other. A phone (digits, national form) and an address or PO Box by the 400
+characters before it on its page: a registry heading (registry, registrar, case manager, courthouse, DX, a named
+tribunal) or, printed in five or more distinct cases, the word court or tribunal; then a law firm's words
+(solicitors, barristers, counsel, for the applicant …); a toll-free phone; recurring with no heading; the rest.
+An address is matched to a registered office by its street (number after any unit's slash, street name, type, the
+lane's abbreviations) and, where the judgment prints one, its town agreeing with the office's lines.
+
+**Emails** (496 distinct; 142 in two or more documents):
+
+| Category | Distinct | In 2+ documents | Documents | Person names (parties, witnesses, others) | All person names |
+| --- | --- | --- | --- | --- | --- |
+| courts, tribunals, government | 99 | 26 | 133 | 1,158 | 1,752 |
+| law firms | 95 | 34 | 111 | 163 | 512 |
+| companies | 111 | 36 | 141 | 776 | 1,166 |
+| personal webmail | 48 | 2 | 41 | 765 | 1,025 |
+| other (no category matched) | 143 | 44 | 187 | 1,252 | 2,044 |
+
+**Phones** (304 distinct; 120 in two or more documents):
+
+| Category | Distinct | In 2+ documents | Documents | Person names | All person names |
+| --- | --- | --- | --- | --- | --- |
+| courts, tribunals, government (a registry heading, or recurring in 5+ cases beside court) | 69 | 42 | 509 | 1,518 | 2,415 |
+| government context (an agency's words) | 20 | 9 | 26 | 165 | 271 |
+| law firms | 136 | 59 | 121 | 363 | 856 |
+| toll-free | 7 | 2 | 9 | 28 | 63 |
+| other | 72 | 8 | 63 | 433 | 558 |
+
+**Addresses** (3,301 distinct by the lane's address key; 314 in two or more documents) **and PO Boxes** (206; 79):
+
+| Category | Addresses | In 2+ | Documents | Person names | PO Boxes | In 2+ | Documents | Person names |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| court or registry | 84 | 32 | 255 | 980 | 49 | 28 | 355 | 1,297 |
+| law firm context | 394 | 58 | 377 | 2,622 | 111 | 43 | 124 | 724 |
+| a registered office, street and town agree | 334 | 28 | 302 | 1,876 | 5 (box number) | 1 | 5 | 37 |
+| a registered office, street only | 653 | 60 | 430 | 3,070 | | | | |
+| recurring, no heading | 3 | 3 | 18 | 233 | 2 | 2 | 18 | 135 |
+| neither (likely a person's) | 1,833 | 133 | 887 | 5,739 | 39 | 5 | 42 | 335 |
+
+**What ruling 2's rule would yield** (the emails and phones not an office's: companies, webmail and other emails;
+other phones), printed in two or more documents:
+
+| | Values | Document pairs | Across different cases | Person names in them | Pairs sharing a person name | Pairs sharing none | Cross-document name pairs |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| email | 82 | 495 | 467 | 1,239 | 167 | 328 | 41,417 |
+| email, companies apart | 46 | 240 | 217 | 954 | 68 | 172 | 9,988 |
+| phone | 8 | 11 | 11 | 40 | 5 | 6 | 11 |
+
+Joining every name beside a shared email would join 41,417 pairs of names out of 495 document pairs: the value is not
+yet anyone's (`courts_private.identifiers.person` is empty until the model item). Personal webmail barely recurs (2
+of 48).
+
+**What ruling 3's rule would yield** (every address whose street is a registered office's, before the categories
+above):
+
+| Match | Values | Documents | Of them, a body of the document carries the company's name |
+| --- | --- | --- | --- |
+| street and town, one company | 170 | 167 | 5 |
+| street and town, 2 to 5 companies | 135 | 143 | 28 (of the 270 with several) |
+| street and town, over 5 companies (a busy office) | 135 | 165 | |
+| street only, one company | 332 | 248 | 7 |
+| street only, 2 to 5 / over 5 | 296 / 144 | 272 / 157 | 37 (of the 440 with several) |
+
+427 of the 440 street-and-town matches are a company's current office (`in_latest`).
+
+**The rule each ruling would need** (Arthur's to rule; ruling 106's method: these counts, then twenty pairs):
+
+1. **Ruling 2, a shared email or phone** (`shared-contact@1`, proposed). Two court person rows are joined when one
+   email (lower case) or phone (national digits) is printed in both documents, the value is not an office's (not a
+   court, tribunal, agency or law-firm domain or heading; not toll-free; not printed in five or more cases), and the
+   value is the person's: the model item's `person` on the identifier, never every name beside it. Confirmed only
+   where the two rows' names agree (email 167 pairs, phone 5: the value corroborates a name link); near where they
+   differ (email 328, phone 6: one contact, two names); a company's email joins the company, not its people. The
+   links lane reads `pub.*` only, so the rule reads the values privately (`links_private`) or by a keyed hash.
+2. **Ruling 3, a judgment's address to a registered office** (`judgment-address-office@1`, proposed). A street address
+   a judgment prints, not a court's, registry's or law firm's, is matched to `pub.company_addresses` by street core
+   and agreeing town, to one company only (a busy office, over five companies, never). Near alone (an address never
+   confirms, keys/addresses.py): 170 values; confirmed only with a party of the judgment carrying the company's name
+   by the organisation rules (5). Street-only matches (332 to one company) wait for a town. The 1,833 addresses that
+   match no office are likely persons' and are never matched, shown or exported (hard limit 15).
