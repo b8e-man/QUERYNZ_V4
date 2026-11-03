@@ -111,6 +111,18 @@ def removed(estate: int, answered_at, removals: dict) -> bool:
     return any(seen >= answered_at for seen in removals.get(estate, ()))
 
 
+def name_text(n) -> str:
+    """One name as text: the register answers an alternate name as {firstName, middleName, lastName} (seen 3 November
+    2026, 106 of them), a trading name as text; either is taken."""
+    if isinstance(n, dict):
+        return " ".join(str(n.get(k) or "").strip() for k in ("firstName", "middleName", "lastName") if n.get(k)).strip()
+    return str(n or "").strip()
+
+
+def names(v) -> list:
+    return [t for t in (name_text(n) for n in (v or [])) if t] or None
+
+
 def estate_row(e: dict, *, register: str, read_from: str, document: str, version: int, place: str = None) -> dict:
     """One estate's row from a detail answer or one search result; no address column exists to fill."""
     org = e.get("organisationName")
@@ -119,8 +131,8 @@ def estate_row(e: dict, *, register: str, read_from: str, document: str, version
     return {
         "key": f"insolvency/{int(e['estateNumber'])}", "estate_number": int(e["estateNumber"]),
         "kind": "company" if org and not e.get("estateName") else "person", "register": register,
-        "name": name.strip(), "alternate_names": list(e.get("alternateNames") or []) or None,
-        "trading_names": list(e.get("tradingNames") or []) or None, "organisation_name": org,
+        "name": name.strip(), "alternate_names": names(e.get("alternateNames")),
+        "trading_names": names(e.get("tradingNames")), "organisation_name": org,
         "nzbn": e.get("nzbn") or None, "company_number": e.get("companyNumber") or None,
         "insolvency_type": e.get("insolvencyTypeDescription"), "status": e.get("insolvencyStatus"),
         "adjudicated_on": _date(e.get("adjudicationOrLiquidationDate")),

@@ -89,6 +89,17 @@ def test_a_company_is_a_company_and_a_leap_day_has_an_end():
     assert read._years_after(dt.date(2024, 2, 29), 1) == dt.date(2025, 2, 28)
 
 
+def test_an_alternate_name_answered_as_parts_is_read_as_text():
+    """3 November 2026: the live register answers alternateNames as {firstName, middleName, lastName}; the load's COPY
+    could not write a dict into text[] and the first load failed."""
+    e = _estate(alternateNames=[{"firstName": "Invented", "middleName": None, "lastName": "Other"},
+                                {"firstName": "", "middleName": "", "lastName": ""}, "Plain Alias"],
+                tradingNames=["Invented Trading"])
+    row = read.estate_row(e, register="Insolvency", read_from="detail", document="d" * 64, version=1)
+    assert row["alternate_names"] == ["Invented Other", "Plain Alias"] and row["trading_names"] == ["Invented Trading"]
+    assert all(isinstance(n, str) for n in row["alternate_names"])
+
+
 MUTANTS = {
     "removal": ("return any(seen >= answered_at for seen in removals.get(estate, ()))", "return False"),
     "window (discharge)": ('return _years_after(end, WINDOW_YEARS["discharge"]), "four years from discharge"',
