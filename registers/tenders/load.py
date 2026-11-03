@@ -50,6 +50,8 @@ COLUMNS = {
     "read_notes": ("note", "count"),
 }
 JSON_COLUMNS = ("categories",)
+#: the private twin's table: every column a row does not carry, whole (ruling 142)
+PRIVATE_COLUMNS = {"fields": ("key", "set_name", "field", "value", "document", "place")}
 
 
 def private_of(schema: str) -> str:
@@ -81,6 +83,8 @@ def create_tables(conn, schema: str, shared: bool = False) -> None:
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {private_of(schema)}")
     for t in TABLES:
         conn.execute(f"DROP TABLE IF EXISTS {table(schema, t, shared)} CASCADE")
+    for t in PRIVATE_COLUMNS:
+        conn.execute(f"DROP TABLE IF EXISTS {table(private_of(schema), t, shared)} CASCADE")
     conn.execute(sql("tables.sql", schema, shared))
 
 
@@ -107,6 +111,7 @@ def build(conn, schema: str, listed: dict, read_bytes=read_bytes, only: dict = N
               "files": _copy(conn, T("read_files"), COLUMNS["read_files"], r.ledger),
               "set_aside": _copy(conn, T("read_set_aside"), COLUMNS["read_set_aside"], r.set_aside)}
     _copy(conn, T("read_notes"), COLUMNS["read_notes"], ({"note": k, "count": v} for k, v in sorted(r.notes.items())))
+    counts["fields"] = _copy(conn, table(private_of(schema), "fields", shared), PRIVATE_COLUMNS["fields"], r.fields)
     counts["records_in"] = sum(l["records"] for l in r.ledger)
     counts["seconds"] = round(time.monotonic() - t0, 1)
     return counts
@@ -153,6 +158,9 @@ def publish(conn, staging: str, log=print) -> None:
         create_tables(conn, SCHEMA)
         for t in TABLES:
             conn.execute(f"INSERT INTO {table(SCHEMA, t)} SELECT * FROM {table(staging, t)}")
+        for t, cols in PRIVATE_COLUMNS.items():
+            cols = ", ".join(cols)
+            conn.execute(f"INSERT INTO {table(PRIVATE, t)} ({cols}) SELECT {cols} FROM {table(private_of(staging), t)}")
         conn.execute(sql("publish.sql"))
     log(f"tenders: published from {staging}")
 

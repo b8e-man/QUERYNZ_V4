@@ -47,9 +47,10 @@ product, not before capture. Read 21 October 2026 through the fetch gate.
 4. **What does privacy law limit?** The files name agencies and suppliers.
    A supplier is mostly a company, sometimes a sole trader under their own
    name; the supplier file carries an address and a website for each. The
-   lane never reads the address column or the website (hard limit 15): a
-   sole trader's name is kept and nothing finer. The notices' free-text
-   overview and comments, which can name a contact person, are not read.
+   lane keeps every column whole (ruling 142, 4 November 2026): the
+   address, the website and the notices' free-text overview, comments and
+   tender-box address go to `tenders_private.fields`, keyed by the row; the
+   published views carry the name, the business number and the country.
    Privacy Act 2020: names published by a public agency for the purpose of
    showing who won public contracts; use must still be fair.
 

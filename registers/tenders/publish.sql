@@ -3,8 +3,8 @@
 -- notice, keyed by the notice and the supplier as published. Each row carries its citation (the file's sha256, the
 -- page and the record's place, the reader and the profile) and the licence and attribution the data is published
 -- under (CC BY 3.0 NZ: attribution to the ministry on every surface). No address of any kind is on any view here: the
--- supplier file's address and website columns are never read (hard limit 15), and the notices' free-text overview,
--- comments and tender-box address are not read. Run by a session only against its scratch schema (`pub.` rewritten).
+-- supplier file's address and website and the notices' free-text overview, comments and tender-box address are kept
+-- whole in tenders_private.fields (ruling 142), never on a view. Run by a session only against its scratch schema (`pub.` rewritten).
 
 CREATE OR REPLACE VIEW pub.award_notices AS
 SELECT n.key, n.rfx_id, n.era, n.posting_agency, n.department, n.rfx_type, n.competition_type, n.tender_coverage,

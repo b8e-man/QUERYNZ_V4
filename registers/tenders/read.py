@@ -14,8 +14,9 @@ UTF-8, else Windows-1252, else Latin-1, each fallback counted in the notes.
              historic file has no amount column)
   suppliers  one per record of a supplier file: the name and the business-
              number field as published, the NZBN only where that field is a
-             valid 13-digit one, the country. The address and website
-             columns are never read (hard limit 15)
+             valid 13-digit one, the country. Every other column
+             (the address and the website among them) is kept whole in
+             `fields`, loaded into the private twin (ruling 142)
 
 Items in equal items out plus items set aside, file by file: every record is
 a row, a counted note (an empty or NULL region), or a catch-log line. A
@@ -59,6 +60,24 @@ _EXPONENT = re.compile(r"^\d(?:\.\d+)?e\+?\d+$", re.I)
 _DIGITS = re.compile(r"^\d+$")
 _YMD = re.compile(r"^(\d{4})(\d{2})(\d{2})$")
 
+#: the columns a notice row or a supplier row carries; every other column of the record is kept whole in the private
+#: twin (`tenders_private.fields`, ruling 142, 4 November 2026): the supplier file's address and website, the notices'
+#: overview, comments and tender-box address among them
+CARRIED = {"notices": {"RFx ID", "Posting Agency", "Department", "RFx Type", "Competition Type", "Tender Coverage",
+                       "Prequalification Required?", "Title", "Reference Number", "Open Date", "Close Date",
+                       "Awarded Date ", "Award Type", "Awarded Amount", "Report Date"},
+           "suppliers": {"RFx ID", "Business Name", "Supplier NZBN", "Country", "Report Date"}}
+
+
+def keep_fields(out, key: str, set_name: str, col: dict, f: list, sha: str, n: int) -> None:
+    """Every column of record `n` the row does not carry, as published, into `out.fields` keyed by the row."""
+    for name, i in col.items():
+        if name not in CARRIED[set_name] and i < len(f):
+            v = text(f[i])
+            if v is not None:
+                out.fields.append({"key": key, "set_name": set_name, "field": name, "value": v, "document": sha,
+                                   "place": f"record {n}"})
+
 
 @dataclass
 class Result:
@@ -67,6 +86,7 @@ class Result:
     ledger: list = field(default_factory=list)       # one per file read
     set_aside: list = field(default_factory=list)
     notes: collections.Counter = field(default_factory=collections.Counter)
+    fields: list = field(default_factory=list)      # every column a row does not carry, whole (ruling 142): private
 
 
 def profile(slug: str) -> dict:
@@ -288,6 +308,7 @@ def read(files: dict, only: dict = None) -> Result:
                    "value_nzd": value, "value_note": note, "regions": [], "categories": [], "suppliers_named": 0,
                    "report_date": rd, **cite(sha, n, slug, ver)}
             out.notices.append(row)
+            keep_fields(out, row["key"], "notices", col, f, sha, n)
             by_key[row["key"]] = row
             led["typed"] += 1
         led["report_date"] = reports.most_common(1)[0][0] if reports else None
@@ -334,6 +355,7 @@ def read(files: dict, only: dict = None) -> Result:
                         "nzbn_form": form, "country": None if (text(g(f, "Country")) or "").lower() == "null"
                         else text(g(f, "Country")), "report_date": report_date(g(f, "Report Date")),
                         **cite(sha, n, slug, ver)})
+                    keep_fields(out, out.suppliers[-1]["key"], "suppliers", col, f, sha, n)
                     notice["suppliers_named"] += 1
                     if name is None:
                         out.notes["a supplier record with no business name: kept"] += 1

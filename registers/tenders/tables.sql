@@ -1,8 +1,8 @@
 -- registers/tenders: every table the lane owns (contract: the lane). Two parts. The capture's record comes first and
 -- is never wiped: the runs, the listing of every file held (`capture_files`) and its catch log. The reading's tables
 -- follow the marker line below; load.py drops and makes them again at every load, inside one transaction. No table
--- here, and none in `tenders_private`, holds an address: the supplier file's `Full Address` column is never read
--- (hard limit 15), so the private twin is empty and made only so the lane has the contract's shape.
+-- in `tenders` holds an address. Every column a row does not carry (the supplier file's `Full Address` and website,
+-- the notices' overview, comments and tender-box address) is kept whole in `tenders_private.fields` (ruling 142).
 
 CREATE SCHEMA IF NOT EXISTS tenders;
 CREATE SCHEMA IF NOT EXISTS tenders_private;
@@ -139,4 +139,17 @@ CREATE TABLE tenders.read_set_aside (
 CREATE TABLE tenders.read_notes (
     note   text NOT NULL,
     count  integer NOT NULL
+);
+
+-- every column of a notice's or a supplier's record its row does not carry, as published (ruling 142, 4 November
+-- 2026): the supplier file's address and website, the notices' overview, comments and tender-box address. The private
+-- twin: never granted to the session or product logins
+CREATE TABLE tenders_private.fields (
+    key        text NOT NULL,                  -- the notice's or the supplier's row key
+    set_name   text NOT NULL,                  -- notices | suppliers
+    field      text NOT NULL,                  -- the file's own column header
+    value      text NOT NULL,
+    document   text NOT NULL,
+    place      text NOT NULL,
+    PRIMARY KEY (key, field)
 );

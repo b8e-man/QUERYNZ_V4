@@ -13,7 +13,7 @@ files' own record counts and the old estate's 29,874. The licence (CC BY
 
 The supplier file's business-number column holds no valid NZBN (card
 `the-gets-supplier-file-loses-its-business-numbers`): it is kept as
-published with its shape named. No address, website or free text is read.
+published with its shape named. The address, website and free text are kept whole in `tenders_private.fields` (ruling 142), never on a view.
 
 Built by `tenders-1`: `spec.md` is the five lines; `position/` is the draft
 legal position the integrator moves.

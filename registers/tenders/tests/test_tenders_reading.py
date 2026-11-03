@@ -180,6 +180,19 @@ def test_the_views_carry_the_licence_and_no_address(filled):
     assert all("Ministry of Business, Innovation and Employment" in r["attribution"] for r in rows)
 
 
+def test_every_column_a_row_does_not_carry_is_kept_whole_privately(filled):
+    """Ruling 142 (4 November 2026): the old reading never read the supplier file's address and website or the
+    notices' overview; every column a row does not carry is now in the private twin, keyed by the row."""
+    conn = filled["conn"]
+    priv = load.table(load.private_of(SAMPLE_SCHEMA), "fields", True)
+    got = _rows(conn, f"SELECT set_name, field, key FROM {priv}")
+    sup = {r["key"] for r in filled["suppliers"]}
+    assert any(r["set_name"] == "suppliers" and "address" in r["field"].lower() and r["key"] in sup for r in got)
+    assert any(r["set_name"] == "notices" for r in got)
+    carried = {f for s in read.CARRIED.values() for f in s}
+    assert not any(r["field"] in carried for r in got)
+
+
 # ── the full build, marked slow ───────────────────────────────────────────────
 
 @pytest.fixture(scope="module")
