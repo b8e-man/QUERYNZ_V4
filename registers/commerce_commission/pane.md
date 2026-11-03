@@ -12,4 +12,4 @@
   party as published.
 - **Citation** on every row: the entry's sha256 (`document`), `page`, `place`, `reader`, `profile`, `profile_version`.
 
-A case the Commission takes off its register leaves the views at the next load. No address of any kind.
+A case the Commission takes off its register stays, with `taken_down_on` (ruling 142). The register prints no address.

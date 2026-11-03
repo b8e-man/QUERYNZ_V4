@@ -11,4 +11,4 @@
   false means "not shown to be an organisation", never "a person".
 - **Citation** on every row: the page's sha256 (`document`), `page`, `place`, `reader`, `profile`, `profile_version`.
 
-An item the FMA takes down leaves the views at the next load. No address of any kind.
+An item the FMA takes down stays, with `taken_down_on` (ruling 142). A warning's address and contact fields are in `fma_private`.
