@@ -64,3 +64,39 @@ A lawyer reviews this page before anything is sold. The permission letter
 to the Ministry of Justice (tribunals, Judicial Decisions Online, the
 employment determinations) is Arthur's to send and does not cover these
 hosts.
+
+## Added 3 November 2026 (ruling 140): Judicial Decisions Online and the Ministry's decisions finder
+
+Two more of the Ministry of Justice's own publications are in this class, both on `www.justice.govt.nz`
+(a host the gate already passes under `agency-contract-disclosures.md`, because the gate holds one class
+per host; the class for these paths is this page):
+
+- **Judicial Decisions Online (JDO)**: the page `/courts/decisions/jdo/` is a script over an open JSON
+  listing, `/jdo-search-api` (court, location, judge, counsel, case name, file number, citation, date range,
+  page of 50, sort) and `/jdo-taxonomy-api/courts`, with each decision a PDF under `/jdo_documents/`. Ten
+  courts: Supreme Court, Court of Appeal, High Court, Employment Court, Environment Court, District Court,
+  Family Court, Youth Court, Māori Appellate Court, Māori Land Court. A query answers at most 10,000 results
+  (page 201 is empty), so the listing is sliced by year.
+- **The decisions finder**: one SilverStripe finder shared by the Ministry's tribunal pages
+  (`/tribunals/human-rights/hrrt-decisions/?Filter_Jurisdiction=<id>`, and the same on
+  `/courts/decisions/`), 25 a page by `start=`, with each decision a file under
+  `/assets/Documents/Decisions/`; 26 jurisdictions.
+
+1. **Open?** Yes: read 3 November 2026 through the fetch gate (the listing, the court list, a year's page,
+   one PDF; the finder's page one for each of its 26 jurisdictions), with no login, key, challenge or
+   CAPTCHA. `www.justice.govt.nz/robots.txt` disallows `/*/jdo` and `/jdo_documents/` and states no crawl
+   delay; under hard limit 5 a robots file is not a permission decision, and these are the Ministry's
+   proactive publication of court decisions. The Ministry's pages say decisions go up no earlier than
+   three days after delivery and that restricted decisions are not published.
+2. **Lawful copying?** The Ministry's JDO introduction: "no copyright exists in respect of judgments or
+   decisions of any New Zealand Court or Tribunal. See Copyright Act 1994 s27(g)."
+3. **Terms?** None shown before a decision; the site's copyright and disclaimer pages are linked from every
+   page and are landed at the first capture run.
+4. **Privacy and statute:** as for the courts above. Family and Youth Court decisions are anonymised by
+   statute before publication (Family Court Act 1980 ss 11B to 11D; Oranga Tamariki Act 1989 s 438); a
+   file named `REDACTED` or carrying a suppression banner is a suppression marker.
+
+`forms.justice.govt.nz` (the Immigration and Protection Tribunal's three databases, the Alcohol Regulatory
+and Licensing Authority's search, and the Waitangi Tribunal's report PDFs under `/search/Documents/WT/`)
+reset the connection twice on 3 November 2026: a failed read under hard limit 6, nothing got around; it
+stays out until it answers.
