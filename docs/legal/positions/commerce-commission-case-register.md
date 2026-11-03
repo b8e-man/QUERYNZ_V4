@@ -37,16 +37,16 @@ by regulators-1.
    protecting, and in a criminal matter only for public safety, prior
    publicity or self-reporting; it writes "Withheld" otherwise. "The
    existence of an investigation does not mean that there has been a breach
-   of the law, as only a court can make that determination." So: a name the
-   Commission withholds stays withheld on every surface; a name a page says
-   is suppressed (Criminal Procedure Act 2011, ss 200 to 211) is withheld
-   with the heading and the page address that carry it (hard limit 16); an
-   open case is shown as an investigation, never as a finding; an entry the
-   Commission removes leaves our views at the next load. The Privacy Act
-   2020 asks fair use of what a person was named in: the queue item on how
-   long a regulator action naming an individual is shown carries the
-   default "while the regulator shows it". No address is read; the contact
-   person (Commission staff) is never read (hard limit 15).
+   of the law, as only a court can make that determination." What the
+   estate holds (ruling 142, 4 November 2026): where the Commission writes
+   "Withheld" it prints no name, and the row carries that flag; where a page
+   states a suppression (Criminal Procedure Act 2011, ss 200 to 211) and
+   prints the name all the same, the name, the heading and the page address
+   are kept whole in `commerce_commission_private` under the row's key, and
+   the lane's own tables and views carry the flag without them; an entry the
+   Commission takes off the register stays, flagged with the date of the
+   first finished pass that no longer listed it. The register prints no
+   address. Privacy and suppression are applied at a product's export.
 
 Crawl delay: none stated. Floor: one request at a time, at least 5 s apart,
 off-peak (22:00 to 06:00 NZ time), a full pass of the listing weekly

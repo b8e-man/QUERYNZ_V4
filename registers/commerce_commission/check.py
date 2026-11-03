@@ -61,6 +61,16 @@ def reading(conn, schema: str = SCHEMA) -> list:
                           ).fetchone()[0]
     if leaked:
         out.append(f"{leaked} withheld parties keep a name in the table")
+    # ruling 142: a name a suppression the page states covers is kept whole in the private twin, keyed by the row
+    P = (lambda t: f"{SCHEMA}_private.{t}") if schema == SCHEMA else T
+    see = schema != SCHEMA or conn.execute("SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = %s AND "
+                                           "has_schema_privilege(current_user, oid, 'USAGE'))",
+                                           (f"{SCHEMA}_private",)).fetchone()[0]
+    lost = see and conn.execute(f"SELECT count(*) FROM {T('parties')} p WHERE p.withheld_by = 'the page states a "
+                                f"suppression' AND NOT EXISTS (SELECT 1 FROM {P('suppressed_names')} s WHERE s.key = "
+                                "p.key)").fetchone()[0]
+    if lost:
+        out.append(f"{lost} suppressed parties with no name kept in the private twin")
     return out
 
 

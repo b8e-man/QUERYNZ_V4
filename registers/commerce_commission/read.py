@@ -22,12 +22,19 @@ One party row per party the Parties field names, as the Commission publishes
 it: split on '; ', and on ' and ' only between two names that each carry a
 legal ending; otherwise the field is one party. A trading name after 't/a'
 is kept beside its party; a company number only where the page prints one
-beside the name. A party is withheld (the row stays, the name is empty)
-where the Commission writes 'Withheld', or where the page states a
-suppression and the party carries no organisation word (hard limit 16).
+beside the name. A party is withheld on the lane's own tables (the row
+stays, the name is empty) where the Commission writes 'Withheld', or where
+the page states a suppression and the party carries no organisation word.
+Where the page states a suppression the name is printed all the same and is
+kept whole (ruling 142, 4 November 2026): the party's name, trading name and
+company number, and the case's slug, heading and page address, go to the
+lane's private twin (`suppressed_names`, `suppressed_cases`, keyed by the
+party's and the case's keys), flagged with what the page states. Where the
+Commission writes 'Withheld' it prints no name; the flag is what it gives.
 
-The summary, the timeline and the contact person (Commission staff) are
-never read.
+The contact person the entry prints (Commission staff: a name and an
+email) is kept whole in the private twin (`contacts`, keyed by the case).
+The summary paragraph and the timeline are not read.
 """
 import datetime as dt
 import hashlib
@@ -43,8 +50,8 @@ from keys.names import is_organisation  # noqa: E402
 PROPOSED = os.path.join(HERE, "profile-proposed.jsonl")
 LISTING_PROFILE = "comcom-case-register-listing"
 ENTRY_PROFILE = "comcom-case-register-entry"
-PROFILE_VERSION = 1
-READER = "registers.commerce_commission.read 1"
+PROFILE_VERSION = 2
+READER = "registers.commerce_commission.read 2"
 KEY_PREFIX = "commerce_commission/case"
 BASE = "https://www.comcom.govt.nz"
 ENTRY_PATH = "/case-register/case-register-entries/"
@@ -178,7 +185,7 @@ def read_entry(body: bytes, sha: str, slug: str, url: str = None) -> dict:
             "profile_version": PROFILE_VERSION}
     details = _DETAILS.search(t)
     states_suppression = bool(SUPPRESSION.search(clean(t[h1.start() if h1 else 0:details.end()])))
-    parties = []
+    parties, private = [], []
     for i, (name, how) in enumerate(split_parties(rec.get("parties", "")), 1):
         name, trading = (_TA.split(name, maxsplit=1) + [""])[:2]
         printed = re.search(_NUMBER_BESIDE + r"\s*$", name)
@@ -189,16 +196,22 @@ def read_entry(body: bytes, sha: str, slug: str, url: str = None) -> dict:
                        else "the page states a suppression" if states_suppression and not (org and not _AND.search(name))
                        else None)
         number = (printed or re.search(re.escape(name.strip()) + _NUMBER_BESIDE, t)) if not withheld_by else None
+        if withheld_by == "the page states a suppression":
+            kept = re.search(re.escape(name.strip()) + _NUMBER_BESIDE, t) if not printed else printed
+            private.append({"ordinal": i, "name": name.strip(), "trading_as": trading.strip() or None,
+                            "company_number": kept.group(1) if kept else None, "suppressed_by": withheld_by,
+                            "place": f"parties[{i}]", **cite})
         parties.append({"ordinal": i, "name": None if withheld_by else name.strip(),
                         "trading_as": None if withheld_by else (trading.strip() or None),
                         "withheld": bool(withheld_by), "withheld_by": withheld_by,
                         "organisation": org and not withheld_by, "company_number": number.group(1) if number else None,
                         "split_from": how, "place": f"parties[{i}]", **cite})
-    # a name withheld for a suppression is in the heading, the page address and the slug too: none of them is kept,
-    # and the key is made from the slug's hash, which is stable across re-reads and names nobody
+    # a name withheld for a suppression is in the heading, the page address and the slug too: on the lane's own tables
+    # none of them is shown, and the key is made from the slug's hash, which is stable across re-reads and names nobody;
+    # all three are kept in the private twin under that key (ruling 142)
     suppressed = any(p["withheld_by"] == "the page states a suppression" for p in parties)
     key = f"{KEY_PREFIX}/withheld-{hashlib.sha256(slug.encode()).hexdigest()[:16]}" if suppressed else f"{KEY_PREFIX}/{slug}"
-    for p in parties:
+    for p in parties + private:
         p.update(key=f"{key}/party/{p['ordinal']}", case_key=key)
     acts, sections = acts_and_sections(rec.get("act/section/part"))
     opened, closed = date_of(rec.get("date opened", "")), date_of(rec.get("date closed", ""))
@@ -213,4 +226,9 @@ def read_entry(body: bytes, sha: str, slug: str, url: str = None) -> dict:
             "place": "case-details", **cite}
     asides = [] if parties else [{"document": sha, "place": f"entry={case['slug'] or key}", "stage": "parties",
                                   "reason": "the Parties field is empty"}]
-    return {"case": case, "parties": parties, "set_aside": asides}
+    kept_case = {"key": key, "slug": slug, "title": title, "url": url or f"{BASE}{ENTRY_PATH}{slug}/",
+                 "suppressed_by": "the page states a suppression", "place": "case-details", **cite} if suppressed else None
+    contact = ({"key": key, "contact": rec["contact person"], "place": "case-details/contact person", **cite}
+               if rec.get("contact person") else None)
+    return {"case": case, "parties": parties, "set_aside": asides, "suppressed_names": private,
+            "suppressed_case": kept_case, "contact": contact}

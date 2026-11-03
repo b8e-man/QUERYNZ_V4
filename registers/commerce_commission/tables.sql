@@ -1,8 +1,10 @@
 -- registers/commerce_commission: every table this lane owns, in `commerce_commission` and its private twin, in two
 -- parts. The capture's record (capture.py makes it; never wiped): no capture table holds a row of the source; the
 -- listing pages and entries stay in the document store verbatim by sha256. The reading's tables (load.py drops and
--- makes them again at every load). No address of any kind is read, and `commerce_commission_private` holds nothing:
--- the register publishes no address, and the contact person (Commission staff) is never read.
+-- makes them again at every load). The register publishes no address. `commerce_commission_private` holds what a
+-- suppression the page states covers, kept whole (ruling 142, 4 November 2026): the party's name and the case's slug,
+-- heading and page address, keyed by the party's and the case's keys. An entry the Commission takes off the register
+-- stays, flagged with the date of the first finished pass that no longer listed it.
 
 -- ── the capture ──────────────────────────────────────────────────────────────
 
@@ -80,6 +82,7 @@ CREATE TABLE IF NOT EXISTS commerce_commission.read_items (
     document   text,                                -- NULL: listed and not yet captured
     state      text NOT NULL CHECK (state IN ('read', 'set aside', 'not captured')),
     parties    integer NOT NULL DEFAULT 0,
+    taken_down_on date,                             -- the first finished pass that no longer listed it; NULL: listed now
     PRIMARY KEY (list, slug)
 );
 
@@ -101,6 +104,7 @@ CREATE TABLE IF NOT EXISTS commerce_commission.cases (
     closed_on        date,
     action_on        date,                          -- closed, else opened
     url              text,                          -- NULL where a suppression withholds a name (the address carries it)
+    taken_down_on    date,                          -- the Commission took the entry off the register by this date
     document         text NOT NULL,
     page             integer NOT NULL,
     place            text NOT NULL,
@@ -122,6 +126,57 @@ CREATE TABLE IF NOT EXISTS commerce_commission.parties (
     organisation     boolean NOT NULL,              -- carries an organisation word; false is "not shown to be", never "a person"
     company_number   text,                          -- only where the page prints one beside the name
     split_from       text NOT NULL,                 -- 'semicolon', 'and between two legal names', 'as published'
+    document         text NOT NULL,
+    page             integer NOT NULL,
+    place            text NOT NULL,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- a party a suppression the page states covers: its name as printed, kept whole (ruling 142); the lane's own row carries
+-- the flag and no name
+CREATE TABLE IF NOT EXISTS commerce_commission_private.suppressed_names (
+    key              text PRIMARY KEY,              -- the party's key in commerce_commission.parties
+    case_key         text NOT NULL,
+    ordinal          integer NOT NULL,
+    name             text NOT NULL,
+    trading_as       text,
+    company_number   text,
+    suppressed_by    text NOT NULL,                 -- what the page states
+    document         text NOT NULL,
+    page             integer NOT NULL,
+    place            text NOT NULL,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- a case whose page states a suppression: the slug, heading and page address its lane row leaves out
+CREATE TABLE IF NOT EXISTS commerce_commission_private.suppressed_cases (
+    key              text PRIMARY KEY,              -- the case's key in commerce_commission.cases
+    slug             text NOT NULL,
+    title            text,
+    url              text NOT NULL,
+    suppressed_by    text NOT NULL,
+    document         text NOT NULL,
+    page             integer NOT NULL,
+    place            text NOT NULL,
+    read_from        text NOT NULL,
+    reader           text NOT NULL,
+    profile          text NOT NULL,
+    profile_version  integer NOT NULL,
+    loaded_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- the contact person an entry prints (Commission staff: a name and an email), kept whole
+CREATE TABLE IF NOT EXISTS commerce_commission_private.contacts (
+    key              text PRIMARY KEY,              -- the case's key
+    contact          text NOT NULL,                 -- as printed
     document         text NOT NULL,
     page             integer NOT NULL,
     place            text NOT NULL,

@@ -96,6 +96,18 @@ def rules(mod) -> list:
                            "epsilon-limited-and-invented-person")
     if sc and again["case"]["key"] != sc["key"]:
         broken.append("the withheld key is the same across re-reads")
+    kept = {n["key"]: n for n in s.get("suppressed_names") or []}
+    if not (sc and kept.get(f"{sc['key']}/party/2", {}).get("name") == "Invented Person"
+            and kept.get(f"{sc['key']}/party/3", {}).get("name") == "Omicron Limited and Invented Other"
+            and f"{sc['key']}/party/1" not in kept):
+        broken.append("a suppressed name is kept whole in the private twin, keyed by its party (ruling 142)")
+    pc = s.get("suppressed_case") or {}
+    if not (sc and pc.get("key") == sc["key"] and pc.get("slug") == "epsilon-limited-and-invented-person"
+            and pc.get("url", "").endswith("/epsilon-limited-and-invented-person/") and pc.get("title")):
+        broken.append("a suppressed case's slug, heading and address are kept in the private twin (ruling 142)")
+    cp = mod.read_entry(_entry("Alpha Traders Ltd"), SHA, "alpha").get("contact")
+    if not (cp and cp["contact"] and cp["key"].endswith("/alpha")):
+        broken.append("the contact person the entry prints is kept in the private twin (ruling 142)")
 
     bad = mod.read_entry(b"<html><title>Just a moment...</title></html>", SHA, "x")
     gone = mod.read_entry(b"<html><title>Page not found</title><h1>Page not found</h1></html>", SHA, "y")
@@ -123,6 +135,8 @@ MUTANTS = {
                                             "states_suppression and not org"),
     "' and ' split everywhere": ("if len(bits) == 2 and all(LEGAL_ENDING.search(b) for b in bits)", "if len(bits) == 2"),
     "'; ' not split": ('parts = [p.strip() for p in field.split(";") if p.strip()]', "parts = [field]"),
+    "a suppressed name dropped (ruling 142)": ('private.append({"ordinal": i, "name": name.strip(),',
+                                               'private.append({"ordinal": i, "name": None,'),
     "the heading kept on a suppression": ("title_withheld = bool(WITHHELD.match(title)) or suppressed",
                                           "title_withheld = bool(WITHHELD.match(title))"),
     "the address kept on a suppression": ('"url": None if suppressed else', '"url": None if False else'),
@@ -342,3 +356,27 @@ def test_the_listing_page_reads_its_own_total(filled):
     sha = next(i.split()[3] for i in filled["items"] if i.startswith("key: listing "))
     out = read.read_listing(read_bytes(sha))
     assert out["stated"] == 1727 and len(out["items"]) == 100 and len({i["slug"] for i in out["items"]}) == 100
+
+
+def test_an_entry_taken_off_the_register_stays_with_its_date():
+    """Ruling 142: an entry an older finished pass listed and the newest does not is read, flagged with the date of
+    the first finished pass after its last listing (the old listing() read the newest pass alone). In one
+    transaction, rolled back."""
+    _db_or_skip()
+    sch = "scratch_test_commerce_commission_down"
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
+        conn.execute(f"CREATE SCHEMA {sch}")
+        conn.execute(capture.capture_sql(sch))
+        T = lambda t: capture.table(sch, t)
+        lst = capture.LISTS[0].name
+        for pid, day in ((1, "2026-10-01"), (2, "2026-10-08")):
+            conn.execute(f"INSERT INTO {T('capture_passes')} (pass_id, list, stated, finished_at) VALUES (%s, %s, 1, %s)",
+                         (pid, lst, day))
+        conn.execute(f"INSERT INTO {T('capture_listed')} VALUES (1, %s, 'gone', 'u1', 'c', 1), (1, %s, 'stays', 'u2', 'c', 2), "
+                     f"(2, %s, 'stays', 'u2', 'c', 1)", (lst, lst, lst))
+        conn.execute(f"INSERT INTO {T('capture_items')} (list, slug, url, card, sha256) VALUES (%s, 'gone', 'u1', 'c', %s)",
+                     (lst, "a" * 64))
+        got = {e[1]: e for e in load.listing(conn, sch)}
+        conn.rollback()
+    assert set(got) == {"gone", "stays"}
+    assert got["stays"][5] is None and got["gone"][5] == dt.date(2026, 10, 8) and got["gone"][3] == "a" * 64
