@@ -77,7 +77,7 @@ REFUSAL_MARK = "Unauthorized Activity Detected"
 REFUSAL_MAX_WORDS = 60           # the refusal's text is 42 words; the shortest real page of the 4,839 has 81
 _HOST = re.compile(r"^https?://([a-z0-9-]+\.)*parliament\.nz(:\d+)?(/|$)", re.I)
 
-T, I, J = "text", "int", "json"
+T, I, J, B = "text", "int", "json", "bool"
 WQ_FIELDS = {
     "questionNumber": ("question_number", I), "questionYear": ("question_year", I),
     "parliamentNumber": ("parliament_number", I), "writtenQuestionsDocumentId": ("document_id", T),
@@ -104,6 +104,9 @@ API_FIELDS = {
     "orderNumber": ("order_number", I), "parliamentNumber": ("parliament_number", I), "sop": ("sop", I),
     "state": ("state", T), "status": ("status", T), "subject": ("subject", T), "shoulder": ("shoulder", T),
     "thumbnailUrl": ("thumbnail_url", T), "text": ("text", T), "_collected": ("provider_collected_at", T),
+    # the provider's fields of 4 November 2026 (first on the select committee reports)
+    "file": ("provider_download", T), "path": ("provider_path", T), "_linked": ("provider_linked", B),
+    "_linked_at": ("provider_linked_at", T),
 }
 WAYBACK_FIELDS = {
     "url": ("url", T), "snapshot_url": ("snapshot_url", T), "ts": ("ts", T), "date": ("dated", T),
@@ -195,6 +198,11 @@ def _value(v, kind: str, name: str, odd: list):
         return None
     if kind == I:
         if isinstance(v, int) and not isinstance(v, bool):
+            return v
+        odd.append(f"{name}:{type(v).__name__}")
+        return None
+    if kind == B:
+        if isinstance(v, bool):
             return v
         odd.append(f"{name}:{type(v).__name__}")
         return None

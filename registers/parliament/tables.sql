@@ -102,6 +102,10 @@ CREATE TABLE IF NOT EXISTS parliament.api_items (
     thumbnail_url            text,
     text                     text,                       -- the record's `text`: the provider's run of its fields, short
     provider_collected_at    text,                       -- the provider's `_collected`
+    provider_download        text,                       -- the provider's `file`, its downloadable copy (4 November 2026)
+    provider_path            text,                       -- the provider's `path` (4 November 2026)
+    provider_linked          boolean,                    -- the provider's `_linked` (4 November 2026)
+    provider_linked_at       text,                       -- the provider's `_linked_at`, as served
     provider_corpus          text,
     provider_fetched_at      text,
     provider_shard           text,
