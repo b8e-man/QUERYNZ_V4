@@ -1877,3 +1877,15 @@ priority = 143   # unique (3 November 2026)
 command = ["python", "-m", "registers.courts.own", "--jdo", "--budget-s", "27600"]
 at_utc = "09:00"
 nice = 10
+
+[jobs.qv4-courts-era-capture]
+description = "Courts, the estate's own capture of what the MCP lacks (ruling 140, tranche 3): the Employment Relations Authority's determinations at determinations.era.govt.nz, its own search form a year at a time (10 a page, newest first, 2000 to now), each determination's PDF landed by hash (source courts-era) unless the MCP already landed its address; the same ledger and cursor as the JDO capture, never wiped. Its own host, so it runs the same nights beside the JDO capture: one gated request at least 5 s apart, 22:00 to 06:00 NZDT only; a 403, 429, 5xx, challenge, reset, a page that is not the Authority's results, or a non-PDF stops the run, a 404 is recorded and passed. The back catalogue (about 21,700 determinations, about 23,000 requests) takes about four nights; then each night this year's and last year's newest pages. The 04:40 courts load reads what has landed by then."
+needs = "processor"
+memory_gb = 0.3   # unmeasured on its own: the JDO capture's figure (47 MB peak on its trial); measured on the trial below
+deadline_s = 27900
+query_timeout_s = 300
+class = "due"
+priority = 144   # unique (3 November 2026)
+command = ["python", "-m", "registers.courts.own", "--era", "--budget-s", "27600"]
+at_utc = "09:00"
+nice = 10

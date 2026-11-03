@@ -80,7 +80,9 @@ def entry(record_id: str, seq, record_sha: str, url: str, content_type, capture_
 
 OWN_PREFIX = "own/"
 OWN_NOTE = {"courts-jdo": ("a decision the estate fetched itself from Judicial Decisions Online (www.justice.govt.nz), "
-                          "the Ministry of Justice's own publication, because the MCP's corpus lacked it (ruling 140)")}
+                          "the Ministry of Justice's own publication, because the MCP's corpus lacked it (ruling 140)"),
+            "courts-era": ("a determination the estate fetched itself from the Employment Relations Authority's own site "
+                           "(determinations.era.govt.nz), because the MCP's corpus lacked it (ruling 140)")}
 
 
 def own_records(conn, schema: str = "courts", until=None) -> list:

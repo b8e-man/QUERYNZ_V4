@@ -23,10 +23,16 @@ No case name is written anywhere by this module: the listing's names stay in the
 document's own caption is read by the load like any other file.
 
     python -m registers.courts.own --jdo [--budget-s N] [--max-requests N] [--anytime] [--court NAME] [--year Y]
+    python -m registers.courts.own --era [--budget-s N] [--max-requests N] [--anytime] [--year Y]
+
+Tranche 3 (EraWalk): the Employment Relations Authority's determinations at determinations.era.govt.nz (position
+docs/legal/positions/specialist-court-and-authority-decisions.md), its search form a year at a time, 10 a page,
+newest first; the PDFs under /assets/elawpdf/. Its own host, so its own job (qv4-courts-era-capture) the same nights.
 """
 import argparse
 import datetime as dt
 import json
+import re
 import sys
 import time
 import urllib.parse
@@ -88,7 +94,9 @@ def courts_in_order(names: list) -> list:
 
 
 class Walk:
-    """One run's state: the connection, the gate's injectables, the budget and the counts."""
+    """One run's state: the connection, the gate's injectables, the budget and the counts. A subclass names its own
+    source, host, job and listing (EraWalk); the floor, the stops, the skips, the ledger and the cursor are shared."""
+    SOURCE, BASE, JOB, NAME = SOURCE, BASE, "qv4-courts-jdo-capture", "JDO"
 
     def __init__(self, conn, *, schema: str = SCHEMA, mcp_schema: str = "mcpsource", budget_s: float = 7 * 3600,
                  max_requests: int = None, anytime: bool = False, fetch=None, pacer=None, positions_dir: str = None,
@@ -151,7 +159,7 @@ class Walk:
         if self._land is not None:
             return self._land(data, url, content_type)
         from support.docstore.landing import land
-        ref, _ = land(data, name=url, source=SOURCE, conn=self.conn, name_kind="url", content_type=content_type,
+        ref, _ = land(data, name=url, source=self.SOURCE, conn=self.conn, name_kind="url", content_type=content_type,
                       fetched_at=self.now().isoformat(timespec="seconds"))
         return ref.sha256
 
@@ -183,7 +191,7 @@ class Walk:
 
     def file(self, court: str, year: int, listing_sha: str, href: str) -> bool:
         """One listed decision: skipped when held, else fetched and recorded. True when the file is new to us."""
-        url = urllib.parse.urljoin(BASE, href)
+        url = urllib.parse.urljoin(self.BASE, href)
         self.counts["listed"] += 1
         if url in self.mcp_urls:
             self.counts["skipped_mcp"] += 1
@@ -197,7 +205,7 @@ class Walk:
         if body is None:
             self.conn.execute(f"INSERT INTO {self.schema}.own_files (url, source, court, year, listing, status) "
                               f"VALUES (%s, %s, %s, %s, %s, 'absent') ON CONFLICT (url) DO NOTHING",
-                              (url, SOURCE, court, year, listing_sha))
+                              (url, self.SOURCE, court, year, listing_sha))
             self.counts["absent"] += 1
         else:
             if not body.startswith(b"%PDF"):
@@ -205,7 +213,7 @@ class Walk:
             sha = self.land(body, url, "application/pdf")
             self.conn.execute(f"INSERT INTO {self.schema}.own_files (url, source, court, year, listing, sha256, bytes, "
                               f"status) VALUES (%s, %s, %s, %s, %s, %s, %s, 'landed') ON CONFLICT (url) DO NOTHING",
-                              (url, SOURCE, court, year, listing_sha, sha, len(body)))
+                              (url, self.SOURCE, court, year, listing_sha, sha, len(body)))
             self.counts["landed"] += 1
         self.held.add(url)
         self.conn.commit()
@@ -214,14 +222,14 @@ class Walk:
 
     def cursor(self, court: str, year: int):
         r = self.conn.execute(f"SELECT total, pages_done, done FROM {self.schema}.own_cursor WHERE source = %s AND "
-                              f"court = %s AND year = %s", (SOURCE, court, year)).fetchone()
+                              f"court = %s AND year = %s", (self.SOURCE, court, year)).fetchone()
         return (r[0], r[1], r[2]) if r else (None, 0, False)
 
     def advance(self, court: str, year: int, total: int, pages_done: int, done: bool) -> None:
         self.conn.execute(f"INSERT INTO {self.schema}.own_cursor (source, court, year, total, pages_done, done, at) "
                           f"VALUES (%s, %s, %s, %s, %s, %s, now()) ON CONFLICT (source, court, year) DO UPDATE SET "
                           f"total = EXCLUDED.total, pages_done = EXCLUDED.pages_done, done = EXCLUDED.done, at = now()",
-                          (SOURCE, court, year, total, pages_done, done))
+                          (self.SOURCE, court, year, total, pages_done, done))
         self.conn.commit()
 
     def year(self, court: str, year: int, recent: bool) -> None:
@@ -280,7 +288,7 @@ class Walk:
             stopped, ok = f"a failed read: {s}", False
             self.conn.rollback()
         out = {**self.counts, "ok": ok, "stopped": stopped}
-        self.log("courts own capture (JDO): " + ", ".join(f"{k} {v}" for k, v in out.items()))
+        self.log(f"courts own capture ({self.NAME}): " + ", ".join(f"{k} {v}" for k, v in out.items()))
         return out
 
 
@@ -288,10 +296,87 @@ class Budget(Exception):
     """The run's budget or hours are spent: not a failure."""
 
 
+# ── tranche 3: the Employment Relations Authority's own determinations (determinations.era.govt.nz) ──────────────────
+ERA_SOURCE = "courts-era"
+ERA_BASE = "https://determinations.era.govt.nz"
+ERA_COURT = "EMPLOYMENT RELATIONS AUTHORITY"
+ERA_PAGE = 10
+ERA_EARLIEST = 2000          # the Authority was set up in October 2000
+_ERA_RECORD = re.compile(r'<li class="search-results__record">(.*?)</li>\s*(?=<li class="search-results__record">|</ul>)', re.S)
+_ERA_PDF = re.compile(r'href="(/assets/elawpdf/[^"]+\.pdf)"', re.I)
+_ERA_PAGES = re.compile(r'page-link disabled">\s*(\d+) of (\d+)\s*<')
+
+
+def era_search_url(year: int, page: int) -> str:
+    """The Authority's own search form for one year, as its own "next" link asks it (the survey's landed page)."""
+    q = [("Parties", ""), ("JurisdictionTitle", ""), ("Keywords", ""), ("JurisdictionIdentifier", ""),
+         ("DateFrom", f"{year}-01-01"), ("DateTo", f"{year}-12-31"), ("StatutoryOfficer", ""),
+         ("action_doSearch", "Search")]
+    if page > 1:
+        q.append(("start", str((page - 1) * ERA_PAGE)))
+    return ERA_BASE + "/determinations/DeterminationSearchForm?" + urllib.parse.urlencode(q)
+
+
+def era_listing(html: str) -> tuple:
+    """(pages, [pdf hrefs]) from one search page; a record with no PDF (a determination the Authority does not
+    publish whole) carries none. A page that is not the Authority's results page raises ValueError."""
+    if "search-results" not in html:
+        raise ValueError("not the Authority's search results page")
+    m = _ERA_PAGES.search(html)
+    blocks = _ERA_RECORD.findall(html)
+    hrefs = [p.group(1) for p in (_ERA_PDF.search(b) for b in blocks) if p]
+    pages = int(m.group(2)) if m else (1 if blocks else 0)
+    return pages, hrefs
+
+
+class EraWalk(Walk):
+    """The Authority's determinations, a year at a time, newest first, 10 a page: the same floor, stops, skips,
+    ledger and cursor as JDO's (the cursor's `total` is the year's page count here)."""
+    SOURCE, BASE, JOB, NAME = ERA_SOURCE, ERA_BASE, "qv4-courts-era-capture", "ERA"
+
+    def courts(self) -> list:
+        return [ERA_COURT]
+
+    def era_page(self, year: int, page: int):
+        url = era_search_url(year, page)
+        body = self.get(url, "text/html")
+        if body is None:
+            raise Stop("a search page answered 404")
+        try:
+            pages, hrefs = era_listing(body.decode("utf-8", "replace"))
+        except ValueError:
+            raise Stop("a search page that is not the Authority's results page: a failed read") from None
+        sha = self.land(body, url, "text/html")
+        self.counts["listing_pages"] += 1
+        return pages, hrefs, sha
+
+    def year(self, court: str, year: int, recent: bool) -> None:
+        total, pages_done, done = self.cursor(court, year)
+        if done and not recent:
+            return
+        page = 1 if recent else pages_done + 1
+        while True:
+            if self.spent():
+                raise Budget(self.spent())
+            pages, hrefs, sha = self.era_page(year, page)
+            new = sum(self.file(court, year, sha, h) for h in hrefs)
+            last = page >= pages
+            self.advance(court, year, pages, max(pages_done, page) if recent else page, last and not recent)
+            if last or (recent and new == 0):
+                return
+            page += 1
+
+    def run(self, courts: list = None, years: list = None) -> dict:
+        this = self.now().year
+        return super().run(courts=[ERA_COURT], years=years or self.only_years or list(range(this, ERA_EARLIEST - 1, -1)))
+
+
 def job(argv=None, log=print) -> int:
     from support import db, jobrun
     ap = argparse.ArgumentParser(prog="python -m registers.courts.own")
-    ap.add_argument("--jdo", action="store_true", required=True)
+    which = ap.add_mutually_exclusive_group(required=True)
+    which.add_argument("--jdo", action="store_true")
+    which.add_argument("--era", action="store_true", help="the Employment Relations Authority's determinations")
     ap.add_argument("--budget-s", type=float, default=7.5 * 3600)
     ap.add_argument("--max-requests", type=int)
     ap.add_argument("--anytime", action="store_true", help="a supervised trial outside 22:00 to 06:00")
@@ -304,10 +389,11 @@ def job(argv=None, log=print) -> int:
     with db.connect(db.OWNER_KEY, a.database) as conn:
         conn.execute(L.capture_tables_sql(SCHEMA))
         conn.commit()
-        out = Walk(conn, budget_s=a.budget_s, max_requests=a.max_requests, anytime=a.anytime, log=log).run(
+        W = EraWalk if a.era else Walk
+        out = W(conn, budget_s=a.budget_s, max_requests=a.max_requests, anytime=a.anytime, log=log).run(
             courts=a.court, years=a.year)
     detail = ", ".join(f"{k} {v}" for k, v in out.items() if k != "ok")
-    jobrun.record("qv4-courts-jdo-capture", out["ok"], detail[:2000], started,
+    jobrun.record(W.JOB, out["ok"], detail[:2000], started,
                   {k: v for k, v in out.items() if isinstance(v, int) and not isinstance(v, bool)})
     return 0 if out["ok"] else 1
 

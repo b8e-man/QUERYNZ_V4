@@ -394,7 +394,7 @@ def test_the_old_listing_s_judgments_the_corpus_lacks_are_catch_log_lines_not_ro
 
 def test_the_lane_opens_no_connection_to_a_court_site_but_through_the_own_capture_s_gate():
     """Ruling 127 kept the lane off every court site; ruling 140 lifts it for what the MCP lacks, in own.py alone, and
-    only through the fetch gate, to the Ministry's own host."""
+    only through the fetch gate, to the Ministry's own host and the Employment Relations Authority's (tranche 3)."""
     for name in os.listdir(HERE):
         if name.endswith(".py"):
             src = open(os.path.join(HERE, name), encoding="utf-8").read()
@@ -403,6 +403,9 @@ def test_the_lane_opens_no_connection_to_a_court_site_but_through_the_own_captur
                 assert not re.search(r"\bfetchgate\b", src), name
     import registers.courts.own as O
     assert O.BASE == "https://www.justice.govt.nz" and all(u.startswith(O.BASE + "/") for u in (O.TAXONOMY, O.SEARCH))
+    assert O.ERA_BASE == "https://determinations.era.govt.nz" and O.era_search_url(2015, 2).startswith(O.ERA_BASE + "/")
+    hosts = set(re.findall(r'"https://([a-z0-9.-]+)', open(os.path.join(HERE, "own.py"), encoding="utf-8").read()))
+    assert hosts == {"www.justice.govt.nz", "determinations.era.govt.nz"}, hosts
     spec = open(os.path.join(HERE, "spec.md"), encoding="utf-8").read()
     assert not hasattr(C, "fetch") and not hasattr(C, "case_links") and "qv4-courts-capture` (proposed" not in spec and "retired (ruling 127)" in spec
 

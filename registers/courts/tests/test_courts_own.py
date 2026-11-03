@@ -99,8 +99,10 @@ def env(monkeypatch, tmp_path):
     positions = tmp_path / "positions"
     positions.mkdir()
     (positions / "court-judgments.md").write_text("# test\n\nhosts: www.justice.govt.nz\n")
-    monkeypatch.setitem(fetchgate._ROBOTS, "www.justice.govt.nz",
-                        fetchgate.Robots("www.justice.govt.nz", "", 404, False, 0.0, "2026-11-03T00:00:00+13:00", ""))
+    (positions / "specialist.md").write_text("# test\n\nhosts: determinations.era.govt.nz\n")
+    for host in ("www.justice.govt.nz", "determinations.era.govt.nz"):
+        monkeypatch.setitem(fetchgate._ROBOTS, host,
+                            fetchgate.Robots(host, "", 404, False, 0.0, "2026-11-03T00:00:00+13:00", ""))
     store = {}
 
     def land(data, url, content_type):
@@ -112,8 +114,12 @@ def env(monkeypatch, tmp_path):
         return own.Walk(conn, schema=S, mcp_schema=M, fetch=api, pacer=Pacer(), positions_dir=str(positions),
                         ledger_dir=str(tmp_path / "ledger"), now=lambda: NOW, log=lambda *a: None, land=land, **kw)
 
+    def era_walk(api, **kw):
+        return own.EraWalk(conn, schema=S, mcp_schema=M, fetch=api, pacer=Pacer(), positions_dir=str(positions),
+                           ledger_dir=str(tmp_path / "ledger"), now=lambda: NOW, log=lambda *a: None, land=land, **kw)
+
     try:
-        yield types.SimpleNamespace(conn=conn, walk=walk, store=store)
+        yield types.SimpleNamespace(conn=conn, walk=walk, era_walk=era_walk, store=store)
     finally:
         raw.rollback()
         raw.close()
@@ -256,3 +262,79 @@ def test_an_own_entry_is_suppressed_exactly_as_the_mcp_s_entry_of_the_same_file(
     for p in b.parties:
         if p["judgment"] in suppressed and not p["crown"] and not p["anonymised"]:
             assert p["withheld"] and p["name"] is None
+
+
+# ── tranche 3: the Employment Relations Authority ─────────────────────────────────────────────────────────────────
+def era_page(year: int, ids: list, page: int, pages: int) -> bytes:
+    """A search page shaped like the Authority's (the survey's landed 2015 page): a record per determination with its
+    PDF link, date and citation; one record (id 0) with no PDF; the "1 of N" pager. Every name invented."""
+    recs = []
+    for i in ids:
+        pdf_li = ("" if i == 0 else f'<li class="p-0 m-0"><a target="_blank"  href="/assets/elawpdf/{year}/ab{i:04d}/'
+                  f'{year}_NZERA_Auckland_{i}.pdf">{year}_NZERA_Auckland_{i}.pdf [PDF 99 KB]</a></li>')
+        recs.append(f'<li class="search-results__record">\n<p class="search-results__record__title"><a href="/determination/'
+                    f'view/{i}">Invented Worker {i} v Invented Employer Limited</a></p>\n<ul class="search-results__record'
+                    f'__data m-0 p-0">\n{pdf_li}\n<li class="p-0 m-0"><p>1 March {year}</p></li>\n<li class="p-0 m-0">'
+                    f'<p>[{year}] NZERA Auckland {i}</p></li>\n</ul>\n</li>\n')
+    pager = f'<span class="page-link disabled">{page} of {pages}</span>' if pages else ""
+    return (f'<html><body><div class="search-results"><ul>{"".join(recs)}</ul>{pager}</div></body></html>').encode()
+
+
+class FakeERA:
+    """2026: 23 determinations over three pages (id 0 has no PDF); 2015: 4 on one page; 2014: none. Determination 7 is
+    the MCP's already; 9 answers 404."""
+
+    def __init__(self, not_results=False):
+        self.urls, self.not_results = [], not_results
+        self.held = {2026: [0] + list(range(1, 23)), 2015: [501, 502, 503, 504]}
+
+    def __call__(self, url, timeout):
+        self.urls.append(url)
+        u = urllib.parse.urlparse(url)
+        if u.path == "/determinations/DeterminationSearchForm":
+            if self.not_results:
+                return 200, b"<html><body>Service unavailable</body></html>", url
+            q = dict(urllib.parse.parse_qsl(u.query))
+            year = int(q["DateFrom"][:4])
+            ids = self.held.get(year, [])
+            page = int(q.get("start", "0")) // own.ERA_PAGE + 1
+            pages = -(-len(ids) // own.ERA_PAGE)
+            return 200, era_page(year, ids[(page - 1) * own.ERA_PAGE: page * own.ERA_PAGE], page, pages), url
+        n = int(u.path.rsplit("_", 1)[1].split(".")[0])
+        if n == 9:
+            return 404, b"", url
+        return 200, pdf(n), url
+
+
+def test_the_era_listing_reads_the_landed_page_shape():
+    pages, hrefs = own.era_listing(era_page(2015, [501, 0, 502], 1, 74).decode())
+    assert pages == 74 and hrefs == ["/assets/elawpdf/2015/ab0501/2015_NZERA_Auckland_501.pdf",
+                                     "/assets/elawpdf/2015/ab0502/2015_NZERA_Auckland_502.pdf"]
+    assert own.era_listing("<html><div class=\"search-results\"></div></html>") == (0, [])
+    with pytest.raises(ValueError):
+        own.era_listing("<html>no results here</html>")
+
+
+def test_the_era_walk_lands_each_determination_once_and_skips_the_mcp_s(env):
+    env.conn.execute(f"INSERT INTO {M}.files VALUES ('courts', %s)",
+                     (own.ERA_BASE + "/assets/elawpdf/2026/ab0007/2026_NZERA_Auckland_7.pdf",))
+    api = FakeERA()
+    out = env.era_walk(api, years=[2026, 2015, 2014]).run()
+    assert out["ok"] and out["stopped"] == "end", out
+    assert out["skipped_mcp"] == 1 and out["absent"] == 1 and out["landed"] == 22 - 2 + 4
+    assert not any(u.endswith("_7.pdf") for u in api.urls), "the MCP's file is never asked"
+    rows = env.conn.execute(f"SELECT DISTINCT source, court FROM {S}.own_files").fetchall()
+    assert rows == [(own.ERA_SOURCE, own.ERA_COURT)]
+    assert len([u for u in api.urls if "DateFrom=2026" in u]) == 3
+    api2 = FakeERA()
+    out2 = env.era_walk(api2, years=[2026, 2015, 2014]).run()
+    assert out2["ok"] and out2["landed"] == 0 and not any("/assets/elawpdf/" in u for u in api2.urls)
+    assert not any("DateFrom=2015" in u for u in api2.urls), "a past year walked to its end is not asked again"
+    entries = capture.own_records(env.conn, S)
+    assert len(entries) == 24 and all(e["court_hint"] == own.ERA_COURT and "Employment Relations Authority" in e["note"]
+                                      for e in entries)
+
+
+def test_an_era_page_that_is_not_its_results_stops_the_run(env):
+    out = env.era_walk(FakeERA(not_results=True), years=[2026]).run()
+    assert not out["ok"] and "not the Authority's results page" in out["stopped"]
