@@ -5,7 +5,9 @@ refresh the published views; `qv4-courts-load` runs the same nightly after
 the pull. `fill` in sample.py uses the same pieces.
 
 The listing is the MCP's courts corpus (capture.records: one entry per
-record, the version the pull saw last); every file is read from the store
+record, the version the pull saw last) and the estate's own capture of what
+the MCP lacks (capture.own_records, ruling 140; a file the MCP holds by hash
+is read once, as the MCP's: capture.for_load); every file is read from the store
 by hash (read.py); the stored model readings are replayed; the rows are
 copied in. The ledger of suppression orders is the lane's own record and is
 never wiped: a staging build reads the orders from the lane's real schema,
@@ -98,12 +100,12 @@ def orders(conn, schema: str = SCHEMA, shared: bool = False) -> list:
 
 
 def build(conn, schema: str, entries: list, caught: list, ledger: list, shared: bool = False, store=None,
-          old_listing: list = None) -> dict:
+          old_listing: list = None, now: str = None) -> dict:
     """entries: the corpus's records (capture.records); caught: the pull's
     catch lines; ledger: the orders. Wipes and fills `schema`; returns the
     counts."""
     create_tables(conn, schema, shared)
-    res = read.read(entries, ledger, store=store)
+    res = read.read(entries, ledger, store=store, now=now)
     gap = capture.old_listing_gap(old_listing if old_listing is not None else capture.old_listing(), entries)
     aside = list(res.set_aside) + [(rid, "pull", f"the pull's catch line at seq {seq}, stage {stage}: {reason}")
                                    for rid, seq, stage, reason in caught if rid] + list(gap)
@@ -121,8 +123,11 @@ def load(conn, schema: str, log=print, mcp_schema: str = capture.MCP_SCHEMA) -> 
     count of documents read."""
     started = jobrun.now()
     conn.execute(capture_tables_sql(SCHEMA))           # the record lives in the lane's own schema
-    entries = capture.records(conn, mcp_schema)
-    counts = build(conn, schema, entries, capture.caught(conn, mcp_schema), orders(conn))
+    # one stamp: the own capture may be landing while this reads, so it takes what landed by the stamp, and every row
+    # carries the stamp as loaded_at, which the check counts the ledger against
+    now = conn.execute("SELECT now()").fetchone()[0].isoformat()
+    entries = capture.for_load(capture.records(conn, mcp_schema), capture.own_records(conn, SCHEMA, until=now))
+    counts = build(conn, schema, entries, capture.caught(conn, mcp_schema), orders(conn), now=now)
     detail = ", ".join(f"{k} {v}" for k, v in counts.items()) + f", into {schema}"
     log("courts: " + detail)
     jobrun.record(JOB, True, detail, started, counts)

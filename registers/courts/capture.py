@@ -1,5 +1,5 @@
-"""How this lane's documents arrive (rulings 126 and 127, 30 October 2026).
-The estate fetches nothing from any court site. Arthur's provider captures
+"""How this lane's documents arrive (rulings 126, 127 and 140).
+Two sources. First the MCP (rulings 126, 127, 30 October 2026): Arthur's provider captures
 the courts' pages and files and serves them through the ingest MCP
 `query-nz-ingest`; the shared pull `support/mcpsource` (job `qv4-mcp-pull`)
 lands each record of the MCP's `courts` corpus as a document of source
@@ -7,9 +7,14 @@ lands each record of the MCP's `courts` corpus as a document of source
 page, a judgment PDF, a media release, a transcript, counsel's submissions)
 by hash under the record's url, with one `mcpsource.files` row per pointer.
 This lane's listing is the corpus's records; its documents are those files,
-read from the store by hash. Nothing here opens a connection.
+read from the store by hash. Then the estate's own capture (ruling 140, 3 November 2026): what the MCP lacks is
+fetched from the courts' own publications by `own.py` (Judicial Decisions Online first) and kept in the ledger
+`courts.own_files`; each landed file is an entry of the same shape, `record_id` `own/<sha256>`. A file the MCP holds
+by hash is read once, as the MCP's (`for_load`). Nothing here opens a connection.
 
     records(conn, mcp_schema)        the corpus's records, one per record id, the version the pull saw last
+    own_records(conn, schema)        the own capture's landed files, one entry per file (by hash)
+    for_load(mcp, own)               the entries a load reads: every MCP entry, and each own one the MCP does not hold
     caught(conn, mcp_schema)         the pull's unresolved catch lines for the corpus (records and files)
     old_listing(conn)                the old estate's once-only listing (courts-1), as held, or None
     old_listing_gap(entries, recs)   the held judgments of that listing the corpus does not carry: catch-log lines
@@ -71,6 +76,36 @@ def entry(record_id: str, seq, record_sha: str, url: str, content_type, capture_
             "content_type": content_type or rec.get("content_type"), "capture": capture_sha or cap.get("sha256"),
             "state": state or ("waiting" if cap.get("sha256") else "no file"), "bytes": nbytes or cap.get("bytes"),
             "source": SOURCE, "note": SOURCE_NOTE}
+
+
+OWN_PREFIX = "own/"
+OWN_NOTE = {"courts-jdo": ("a decision the estate fetched itself from Judicial Decisions Online (www.justice.govt.nz), "
+                          "the Ministry of Justice's own publication, because the MCP's corpus lacked it (ruling 140)")}
+
+
+def own_records(conn, schema: str = "courts", until=None) -> list:
+    """One entry per file the own capture landed (by hash; the first address it was landed under), in the shape
+    `entry` gives an MCP record; with `until`, only those landed by then (the load's stamp: the capture may still be
+    landing while the load reads). A schema without the ledger answers nothing."""
+    if not _has(conn, schema, "own_files"):
+        return []
+    rows = conn.execute(f"""
+        SELECT DISTINCT ON (sha256) sha256, url, source, court, listing, bytes, fetched_at
+          FROM {schema}.own_files WHERE status = 'landed' AND sha256 IS NOT NULL
+           AND (%s::timestamptz IS NULL OR fetched_at <= %s::timestamptz)
+         ORDER BY sha256, fetched_at, url""", (until, until)).fetchall()
+    return [{"record_id": OWN_PREFIX + sha, "seq": None, "record": listing or sha, "url": url, "kind": "judgment_pdf",
+             "case_slug": None, "court_hint": court, "fetched_at": fetched.isoformat() if fetched else None,
+             "content_type": "application/pdf", "capture": sha, "state": "landed", "bytes": nbytes,
+             "source": source, "note": OWN_NOTE.get(source, f"a file the estate fetched itself ({source}, ruling 140)")}
+            for sha, url, source, court, listing, nbytes, fetched in rows]
+
+
+def for_load(mcp: list, own: list) -> list:
+    """Every MCP entry, then each own entry whose file the MCP does not hold by hash: the MCP stays first (ruling 140),
+    and a document is its bytes, read once."""
+    held = {e["capture"] for e in mcp if e.get("capture")}
+    return list(mcp) + [o for o in own if o["capture"] not in held]
 
 
 def caught(conn, mcp_schema: str = MCP_SCHEMA) -> list:

@@ -203,3 +203,31 @@ CREATE TABLE IF NOT EXISTS courts.suppression_orders (
     ordered_at  timestamptz NOT NULL DEFAULT now(),
     CHECK (citation IS NOT NULL OR document IS NOT NULL)
 );
+
+-- the estate's own capture (ruling 140): every file the lane fetched itself from a court's own publication, by the address
+-- it was asked at; never wiped, never deleted from (a captured document is never deleted). A file the MCP also holds, by
+-- hash, is read once, as the MCP's (load.py). No case name is kept here: the document's own caption carries it.
+CREATE TABLE IF NOT EXISTS courts.own_files (
+    url         text PRIMARY KEY,                      -- the address asked, as the listing gave it, made absolute
+    source      text NOT NULL,                         -- courts-jdo (Judicial Decisions Online)
+    court       text NOT NULL,                         -- the court as the listing was asked for it
+    year        integer,                               -- the listing's judgment-date year
+    listing     text CHECK (listing IS NULL OR listing ~ '^[0-9a-f]{64}$'),   -- the listing page that named it, by hash
+    sha256      text CHECK (sha256 IS NULL OR sha256 ~ '^[0-9a-f]{64}$'),     -- the file, by hash; NULL when not landed
+    bytes       bigint,
+    status      text NOT NULL CHECK (status IN ('landed', 'absent')),         -- absent: the host answered 404
+    fetched_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS own_files_sha256 ON courts.own_files (sha256);
+
+-- where the own capture's listing walk is up to: one row per source, court and year
+CREATE TABLE IF NOT EXISTS courts.own_cursor (
+    source      text NOT NULL,
+    court       text NOT NULL,
+    year        integer NOT NULL,
+    total       integer,                               -- the listing's own count when last asked
+    pages_done  integer NOT NULL DEFAULT 0,            -- pages of the listing walked to the end
+    done        boolean NOT NULL DEFAULT false,        -- every page walked; a past year is not asked again
+    at          timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (source, court, year)
+);

@@ -64,8 +64,24 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
         if held:
             taken = q(f"SELECT count(DISTINCT record_id) FROM {ms}.arrivals WHERE corpus = %s", capture.CORPUS)[0][0]
             out["taken by the pull"] = taken
-            if taken != len(docs):
-                out["failures"].append(f"the pull took {taken} records, the lane has {len(docs)} document rows")
+            mcp_rows = sum(1 for d in docs if not d[0].startswith(capture.OWN_PREFIX))
+            if taken != mcp_rows:
+                out["failures"].append(f"the pull took {taken} records, the lane has {mcp_rows} document rows from it")
+    # each file the own capture landed (ruling 140) is one row, unless the MCP holds the same file by hash
+    own_rows = sum(1 for d in docs if d[0].startswith(capture.OWN_PREFIX))
+    if conn.execute("SELECT 1 FROM information_schema.tables WHERE table_schema = %s AND table_name = 'own_files'",
+                    (L.SCHEMA,)).fetchone():
+        mcp_docs = {d[1] for d in docs if d[1] and not d[0].startswith(capture.OWN_PREFIX)}
+        stamp = q(f"SELECT min(loaded_at) FROM {t('documents')}")[0][0]
+        landed = {r[0] for r in q(f"SELECT DISTINCT sha256 FROM {L.SCHEMA}.own_files WHERE status = 'landed' AND sha256 IS NOT NULL "
+                                  f"AND (%s::timestamptz IS NULL OR fetched_at <= %s::timestamptz)", stamp, stamp)}
+        out["landed by the own capture"] = len(landed)
+        expected = len(landed - mcp_docs)
+        if expected != own_rows:
+            out["failures"].append(f"the own capture landed {len(landed)} files, {len(landed) - expected} of them the MCP's "
+                                   f"by hash, so {expected} rows are owed; the lane has {own_rows}")
+    elif own_rows:
+        out["failures"].append(f"{own_rows} rows of the own capture with no ledger behind them")
     # a row read has its reading: a judgment, a case, or a sheet (citation, case numbers or a date read)
     judged = {r[0] for r in q(f"SELECT document FROM {t('judgments')}")}
     cased = {r[0] for r in q(f"SELECT document FROM {t('cases')}")}
