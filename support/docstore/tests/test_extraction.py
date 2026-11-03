@@ -7,7 +7,8 @@ import support.profiles as pr
 
 
 def _it(field, n, by="model", private=False, ask="read it"):
-    return {"field": field, "iteration": n, "by": by, "ask": ask, "private": private, "kinds": None}
+    return {"field": field, "iteration": n, "by": by, "ask": ask, "private": private, "kinds": None,
+            "lands": ["lane_private.details.value" if private else "people.name"], "links": []}
 
 
 def test_a_document_records_the_iteration_each_field_was_extracted_at(tmp_path, monkeypatch):

@@ -52,7 +52,8 @@ def test_refusals(tmp_path):
 # --- what a profile extracts (Arthur, 3 November 2026) ---------------------------------------------------------------
 
 def _it(field, n, by="model", private=False, ask="read it"):
-    return {"field": field, "iteration": n, "by": by, "ask": ask, "private": private, "kinds": None}
+    return {"field": field, "iteration": n, "by": by, "ask": ask, "private": private, "kinds": None,
+            "lands": ["lane_private.details.value" if private else "people.name"], "links": []}
 
 
 def test_an_extract_list_grows_by_iteration_and_a_document_is_asked_only_what_it_lacks(tmp_path):
@@ -86,3 +87,63 @@ def test_an_extract_list_never_loses_or_quietly_changes_a_field(tmp_path, bad, w
         pr.add_version("courts-test", {"title": "t", "extract": bad}, by="t", path=p)
     assert len(pr.history("courts-test", p)) == 1
 
+
+
+# --- where a field lands and what it can link (contract item 9) ---------------------------------------------------
+
+_LINK = {"key": "nzbn", "to": "a company on the register", "rule": None}
+
+
+@pytest.mark.parametrize("bad, why", [
+    ({"lands": []}, "`lands` lists"),
+    ({"lands": None}, "`lands` lists"),
+    ({"lands": ["name"]}, "table.column"),
+    ({"lands": ["People.name"]}, "table.column"),
+    ({"lands": ["people.name", "people.name"]}, "listed twice"),
+    ({"links": None}, "`links` is a list"),
+    ({"links": [{"key": "nzbn", "to": "x"}]}, "{key, to, rule}"),
+    ({"links": [{**_LINK, "key": "shoe size"}]}, "`links` key"),
+    ({"links": [{**_LINK, "to": " "}]}, "`to`"),
+    ({"links": [{**_LINK, "rule": "full name"}]}, "rule id"),
+    ({"links": [_LINK, dict(_LINK)]}, "listed twice"),
+])
+def test_an_extract_item_says_where_it_lands_and_what_it_links(tmp_path, bad, why):
+    p = str(tmp_path / "profiles.jsonl")
+    with pytest.raises(ValueError, match=re.escape(why)):
+        pr.add_version("courts-test", {"title": "t", "extract": [{**_it("people", 1), **bad}]}, by="t", path=p)
+    assert pr.history("courts-test", p) == []
+
+
+def test_a_private_field_lands_only_in_a_private_table(tmp_path):
+    p = str(tmp_path / "profiles.jsonl")
+    with pytest.raises(ValueError, match="is private"):
+        pr.add_version("courts-test", {"title": "t", "extract": [{**_it("ids", 1, private=True), "lands": ["people.value"]}]},
+                       by="t", path=p)
+    ok = {**_it("ids", 1, private=True), "links": [_LINK, {"key": "name", "to": "every row of pub.names", "rule": "full-name@1"}]}
+    assert pr.add_version("courts-test", {"title": "t", "extract": [ok]}, by="t", path=p)["iteration"] == 1
+
+
+def test_a_version_that_only_adds_to_the_extract_list_keeps_the_reading_version(tmp_path):
+    """The stored readings are keyed by the profile's version: a version adding only an extract list must not orphan them."""
+    p = str(tmp_path / "profiles.jsonl")
+    pr.add_version("courts-test", {"title": "t", "prompt": "a", "reading": {"split": "whole"}}, by="t", path=p)
+    pr.add_version("courts-test", {"title": "t", "prompt": "b", "reading": {"split": "whole"}}, by="t", path=p)
+    assert pr.reading_version("courts-test", p) == 2
+    pr.add_version("courts-test", {"title": "t", "prompt": "b", "reading": {"split": "whole"}, "extract": [_it("people", 1)]},
+                   by="u", path=p)
+    pr.add_version("courts-test", {"title": "t", "prompt": "b", "reading": {"split": "whole"},
+                                   "extract": [_it("people", 1), _it("ids", 2, private=True)]}, by="u", path=p)
+    assert pr.profile("courts-test", p)["version"] == 4 and pr.reading_version("courts-test", p) == 2
+    pr.add_version("courts-test", {"title": "t", "prompt": "c", "reading": {"split": "whole"},
+                                   "extract": [_it("people", 1), _it("ids", 2, private=True)]}, by="u", path=p)
+    assert pr.reading_version("courts-test", p) == 5, "a changed prompt is a new reading"
+    assert pr.reading_version("no-such", p) is None
+
+
+def test_every_extract_list_in_the_ledger_is_well_formed():
+    for slug, prof in pr.current().items():
+        if prof.get("extract"):
+            pr.check_extract(prof["extract"])
+            assert prof["iteration"] == pr.iteration(prof), slug
+            for older, newer in zip(pr.history(slug), pr.history(slug)[1:]):
+                pr.check_extract(newer.get("extract"), older.get("extract"))

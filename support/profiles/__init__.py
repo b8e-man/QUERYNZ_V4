@@ -18,7 +18,12 @@ What a profile extracts (Arthur, 3 November 2026): `extract` lists every
 field a reading of this kind takes, each item {field, iteration, by
 ('rules', 'pattern' or 'model'), ask (the instruction), private (true for
 an identifier: held in a `*_private` schema, never published), kinds (a
-closed vocabulary, or null)}; `iteration` is the highest item's. A field
+closed vocabulary, or null), lands (the columns the field is written to,
+"table.column" in the lane's own naming, a private table as
+"<lane>_private.table.column"), links (the linking opportunities it offers,
+each {key, to, rule}: what joins, what it could join, and the links rule id
+that joins it today or null; an empty list for a field with no linking
+value)}; `iteration` is the highest item's. A field
 added, or a field's instruction changed, is an item with the next
 iteration, in a new version; no field is ever dropped. A document records
 the iteration each field was extracted at (`docs.extractions`, see
@@ -29,15 +34,28 @@ document has not had: `wanted(profile, done)`.
     profile(slug)        the newest version of one
     history(slug)        every version, oldest first
     add_version(slug, fields, by)   append the next version; never edit
+    reading_version(slug)  the version a reading of the kind is keyed and stamped by: a version that adds to the
+                           extract list and changes nothing else reads as the one before it
 """
 import datetime as dt
 import json
 import os
+import re
 
 PROFILES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profiles.jsonl")
 FIELDS = ("title", "recognise", "signals", "signals_note", "ocr", "tables", "prompt", "notes", "role",
           "applies_to", "tooling", "config", "process", "gates", "on_fail", "extract", "iteration")
 EXTRACT_BY = ("rules", "pattern", "model")
+#: what a field can join on (an extract item's `links[].key`)
+LINK_KEYS = ("name", "nzbn", "company_number", "charity_number", "email", "phone", "address", "po_box", "citation",
+             "case_number", "url")
+#: a lands column: "table.column", or a private table's "<lane>_private.table.column"
+_LANDS = re.compile(r"^(?:[a-z][a-z0-9_]*_private\.)?[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$")
+#: a links rule id: "full-name@1"
+RULE_ID = re.compile(r"^[a-z][a-z-]*@\d+$")
+#: the fields of a version that say nothing about how a document is read: a version that changes only these leaves the
+#: stored readings standing (`reading_version`)
+NOT_READING = ("kind", "slug", "version", "at", "by", "extract", "iteration")
 KIND = "document-profile"
 
 
@@ -78,6 +96,23 @@ def profile(slug: str, path: str = None):
 
 def valid_slug(slug: str) -> bool:
     return bool(slug) and all(ch.isalnum() or ch in "-_" for ch in slug) and slug == slug.lower()
+
+
+def reading_version(slug: str, path: str = None):
+    """The version a reading of `slug` is keyed and stamped by: the current version, or, where the newest versions
+    differ only in what they list they extract (`NOT_READING`), the earliest of them. A reading is keyed by its
+    profile's version (support.reader.reading_key), so a version that only adds to the extract list would otherwise
+    orphan every stored reading; what has been extracted is recorded per document in docs.extractions instead."""
+    hist = history(slug, path)
+    if not hist:
+        return None
+    sig = lambda r: {k: v for k, v in r.items() if k not in NOT_READING and v is not None}  # noqa: E731
+    cur, version = sig(hist[-1]), int(hist[-1]["version"])
+    for r in reversed(hist[:-1]):
+        if sig(r) != cur:
+            break
+        version = int(r["version"])
+    return version
 
 
 def add_version(slug: str, fields: dict, by: str, path: str = None, at: str = None) -> dict:
@@ -126,6 +161,8 @@ def check_extract(items, before=None) -> None:
             raise ValueError(f"the field {f} has no instruction (`ask`)")
         if not isinstance(it.get("private"), bool):
             raise ValueError(f"the field {f}: `private` is true or false")
+        _check_lands(f, it)
+        _check_links(f, it.get("links"))
     new = latest(items)
     for f, old in latest(before or []).items():
         if f not in new:
@@ -134,6 +171,37 @@ def check_extract(items, before=None) -> None:
             raise ValueError(f"the field {f} goes back an iteration")
         if new[f]["iteration"] == old["iteration"] and new[f] != old:
             raise ValueError(f"the field {f} changed without a new iteration")
+
+
+def _check_lands(f: str, it: dict) -> None:
+    lands = it.get("lands")
+    if not isinstance(lands, list) or not lands:
+        raise ValueError(f"the field {f}: `lands` lists the columns it is written to")
+    for col in lands:
+        if not isinstance(col, str) or not _LANDS.match(col):
+            raise ValueError(f"the field {f}: a `lands` column is \"table.column\" or \"<lane>_private.table.column\": {col!r}")
+    if len(set(lands)) != len(lands):
+        raise ValueError(f"the field {f}: a `lands` column is listed twice")
+    if it["private"] and any(col.count(".") != 2 for col in lands):
+        raise ValueError(f"the field {f} is private: every column it lands in is a `_private` table's")
+
+
+def _check_links(f: str, links) -> None:
+    if not isinstance(links, list):
+        raise ValueError(f"the field {f}: `links` is a list (empty for a field with no linking value)")
+    seen = set()
+    for ln in links:
+        if not isinstance(ln, dict) or set(ln) != {"key", "to", "rule"}:
+            raise ValueError(f"the field {f}: a `links` entry is {{key, to, rule}}: {ln!r}")
+        if ln["key"] not in LINK_KEYS:
+            raise ValueError(f"the field {f}: a `links` key is one of {LINK_KEYS}: {ln['key']!r}")
+        if not (isinstance(ln["to"], str) and ln["to"].strip()):
+            raise ValueError(f"the field {f}: a `links` entry says what it could join (`to`)")
+        if ln["rule"] is not None and not (isinstance(ln["rule"], str) and RULE_ID.match(ln["rule"])):
+            raise ValueError(f"the field {f}: a `links` rule is a links rule id such as \"full-name@1\", or null: {ln['rule']!r}")
+        if (ln["key"], ln["to"]) in seen:
+            raise ValueError(f"the field {f}: the opportunity {ln['key']} → {ln['to']} is listed twice")
+        seen.add((ln["key"], ln["to"]))
 
 
 def latest(items) -> dict:
