@@ -894,3 +894,58 @@ lane reads `pub.*` only. The fit is a keyed hash: each lane's load writes a hash
 links into `links_private`. An unkeyed hash is no protection (NZ Addresses, layer 123113, is a public list to hash
 against), so the key is a secret Arthur places in the credentials folder; until then the matching stays this
 measurement.
+
+## 19. Ruling 142: the private-value rules and the LINZ owners built, 4 November 2026 (integrator)
+
+Ruling 142 (Arthur, 4 November 2026): no sample pairs, the §15 and §16 rules built now; privacy is applied at a
+product's export. The hash-key design of §16 is dropped.
+
+**How the links read a private value.** A fixed schema `pub_private` (support/db `FIXED`, private by its suffix, so
+neither `qv4_read` nor `qv4_product` is granted it) holds views each lane declares and owns in
+`registers/<lane>/pub_private.sql`: `court_identifiers` (courts_private.identifiers, the address, PO box, email and
+phone kinds), `insolvency_addresses` (the address at adjudication), `linz_title_addresses` and
+`linz_title_address_points`. `support.db.private_views` remakes them, one savepoint each, skipping a view whose lane
+table is missing (a lane's load drops its tables with CASCADE); it runs at `db apply` and at the head of the links'
+identifiers step. Only the links lane and support/db may name the schema (tests/test_imports_one_way.py). The links
+rows carry no value: their evidence keys are held to `check.IDENTIFIER_EVIDENCE`; the value, its kind, level and
+category go in `links_private.identifier_links`, one record per link end (`check_identifier_links`: every such link
+has its record).
+
+**The rules** (links/rules.py, links/identifiers.py), counts from the full scratch build into `scratch_links_priv`
+(code at 68c65cd), as judged and after the model tier turns to near every link touching a row a model read
+(`court_people`):
+
+| Rule | Judged confirmed | Judged near | After the model tier: confirmed / near |
+| --- | --- | --- | --- |
+| `judgment-address-title@1` | 0 | 0 | 0 / 0 (the LINZ title addresses are not yet loaded: linz_private empty) |
+| `judgment-address-judgment@1` | 271 | 982 | 74 / 1,179 |
+| `judgment-address-insolvency@1` | 2 | 1 | 1 / 2 |
+| `judgment-address-office@1` | 47 | 38 | 26 / 59 |
+| `shared-contact@1` | 53 | 26 | 0 / 79 |
+
+6,912 identifiers on 2,638 documents read; 3,052 private records. The courts' `person` field is empty on every
+identifier, so every tie is the party name printed nearest (within 1,000 characters); a judgment-party row is
+preferred to a `court_people` row, but most ties land on `court_people`, which is why the model tier turns all of
+`shared-contact@1` to near. Offices (courts, agencies, law firms, toll-free numbers, a value printed in 5 or more
+cases) make no link. The step took 151 s.
+
+**The LINZ owners as rows.** `pub.linz_title_owners` is read as a row source (5,745,217 rows, 4,946,519 people, none
+set aside), by the existing name rules. All rows 13,877,607 (live 7,382,205); links 11,130,011 (live 4,189,284).
+Links touching a LINZ row: `full-name@1` 2,445,149 confirmed (1,189,086 of them owner to owner) and 24,079 near;
+`name-only@1` 488,200 near (147,669 owner to owner). `full-name@1` in all is 4,369,493 (live 1,458,955) and
+`name-only@1` 3,488,243 (live 873,231). No organisation rule joined a LINZ corporate owner. Groups 1,470,665 holding
+6,836,020 rows (live 732,489 groups), the largest 32,157 unchanged, contested 42,997; entities 6,685,712 (live
+3,037,148), 40 politician entities holding a LINZ row. A full name confirming owner to owner across titles makes
+large groups of common names; the watch flags 117,999 of 5,024,168 watched.
+
+**Time.** The nightly of 4 November (queue row 1439, 07:45) was stopped at its 7,200 s deadline and published
+nothing: the rows stage reached `hansard_people` by 07:55, and `model_check` of `parliament_people` then read each of
+63,256 documents' text by its own query on `pub.parliament_written_questions` until 09:45. It now reads them in
+batches of 20,000 (`model_check.BULK`, e998079): about 40 s. The full scratch build, under the courts load's and the
+sightings' writes: **6,348 s wall, 5,668,740 kB peak resident**. Rows 3,247 s (the LINZ owners 1,740 s of it;
+directors 463 s against 211 s on live, the write contention); links 1,831 s (full-name 359 s, name-only 599 s, the
+model tier about 190 s); watch 82 s; groups 205 s; entities 199 s; the measurements 748 s. The LINZ owners are kept
+across a refill while `max(loaded_at)` is older than the last gather and the reading's code is unchanged
+(`rows.STEADY`, `rows_catch.fingerprint`), so only the first build after a LINZ load reads them. The reader ends its
+transaction after each view and each stage (68c65cd), so a lane's DROP ... CASCADE no longer waits on the build.
+qv4-links-build is set to `deadline_s = 10800` and `memory_gb = 6.5`.

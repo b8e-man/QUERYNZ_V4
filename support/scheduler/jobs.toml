@@ -304,8 +304,8 @@ nice = 10
 [jobs.qv4-links-build]
 description = "Step 4.2: rebuild the links from the published registers: rows under the shared reading, the two confirming rules, the number links, groups, the watch, the test pairs and the six measurements. After each lane load; register rule 10 (rebuild what changed) is the next tranche."
 needs = "processor"
-memory_gb = 4
-deadline_s = 7200
+memory_gb = 6.5   # measured 4 November 2026: 5,668,740 kB peak resident in the full scratch build with the LINZ owners and the ruling-142 rules (1,939,836 kB on 3 November without them)
+deadline_s = 10800   # measured 4 November 2026: 6,348 s wall for the full build under the courts load's and the sightings' writes (rows 3,247 s, of them the LINZ owners 1,740 s, read again only after a LINZ load; links 1,831 s; groups 205 s; entities 199 s; measurements 748 s). Row 1439 stopped at 7,200 s on 4 November in the model check of parliament_people, since bulk-read (e998079)
 query_timeout_s = 3600
 class = "due"
 priority = 36
