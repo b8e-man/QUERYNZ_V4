@@ -121,3 +121,28 @@ def test_every_judged_evidence_key_is_one_the_check_allows():
     assert len(outs) == 5
     for *_, j in outs:
         assert set(j["evidence"]) <= IDENTIFIER_EVIDENCE, j["evidence"]
+
+
+def test_the_linz_rows_are_kept_while_their_source_is_unchanged_and_read_again_when_it_or_the_code_changes():
+    import contextlib
+    import datetime as dt
+    from links import rows
+    sql = [q for r, v, q in rows.SOURCES if v == "linz_title_owners"][0]
+    t0, t1 = dt.datetime(2026, 11, 4, 5), dt.datetime(2026, 11, 4, 8)
+
+    class Conn:
+        def __init__(self, loaded, catch):
+            self.loaded, self.catch = loaded, catch
+
+        def transaction(self):
+            return contextlib.nullcontext()
+
+        def execute(self, q, args=()):
+            row = (self.loaded,) if "max(loaded_at)" in q else self.catch
+            return type("R", (), {"fetchone": lambda self: row})()
+
+    assert "linz" in rows.steady_registers(Conn(t0, (t1, rows.fingerprint(sql), 5)), "s")
+    assert rows.steady_registers(Conn(t1, (t0, rows.fingerprint(sql), 5)), "s") == {}, "loaded after it was gathered"
+    assert rows.steady_registers(Conn(t0, (t1, "other code", 5)), "s") == {}, "the reading's code changed"
+    assert rows.steady_registers(Conn(t0, (t1, rows.fingerprint(sql), 0)), "s") == {}, "no rows written"
+    assert rows.steady_registers(Conn(t0, None), "s") == {}, "never gathered"

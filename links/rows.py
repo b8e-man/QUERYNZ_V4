@@ -620,6 +620,41 @@ def gather_numbers(conn, schema: str, registers=None) -> dict:
     return out
 
 
+#: 4 November 2026 (the LINZ owners, 5.7 million rows, refreshed weekly): a register whose rows a whole refill keeps while
+#: its source is unchanged, by the query that dates its source's last load. Its rows are read again when the source was
+#: loaded after they were gathered, when the reading's code changed (`fingerprint`), or when it holds none
+STEADY = {"linz": "SELECT max(loaded_at) FROM pub.linz_title_owners"}
+
+
+def fingerprint(sql: str) -> str:
+    """The reading's code a row depends on: the source's query and the functions that read a name."""
+    import hashlib
+    import inspect
+    text = sql + inspect.getsource(row_record) + inspect.getsource(read_name) + inspect.getsource(kn)
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+
+def steady_registers(conn, schema: str) -> dict:
+    """{register: why} of the STEADY registers whose rows stand: every source view gathered after the source's last
+    load, under the same code, with rows written."""
+    out = {}
+    for reg, sql in STEADY.items():
+        views = [(v, q) for r, v, q in SOURCES if r == reg]
+        try:
+            with conn.transaction():
+                loaded = conn.execute(sql).fetchone()[0]
+        except Exception:      # the source not published
+            continue
+        ok = loaded is not None
+        for v, q in views:
+            row = conn.execute(f"SELECT gathered_at, fingerprint, written FROM {schema}.rows_catch WHERE view = %s",
+                               (v,)).fetchone()
+            ok = ok and row is not None and row[0] is not None and row[0] > loaded and row[1] == fingerprint(q) and row[2] > 0
+        if ok:
+            out[reg] = f"its source unchanged since it was gathered (last loaded {loaded:%Y-%m-%d %H:%M})"
+    return out
+
+
 def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
     """Wipe and refill `<schema>.rows`, `.entity_addresses`, `.org_names` from
     `pub`, in one transaction on `conn`. `reader` is a second connection the
@@ -642,16 +677,20 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
         raise ValueError(f"no such register in links.rows: {sorted(unknown)}")
     companies_too = registers is None or "companies" in registers
     bodies_too = registers is None or bool(registers & set(BODY_LANES))
+    kept = steady_registers(conn, schema) if registers is None else {}
+    for reg, why in kept.items():
+        counts[f"{reg} kept"] = why
+        log(f"links.rows: {reg}: rows kept, {why}")
     with conn.cursor() as w:
         if registers is None:
-            conn.execute(f"DELETE FROM {schema}.rows")
+            conn.execute(f"DELETE FROM {schema}.rows WHERE register <> ALL(%s)", (sorted(kept),))
         else:
             conn.execute(f"DELETE FROM {schema}.rows WHERE register = ANY(%s)", (sorted(registers),))
         if companies_too:
             for t in ("entity_addresses", "org_names"):
                 conn.execute(f"DELETE FROM {schema}.{t}")
         for register, view, sql in SOURCES:
-            if registers is not None and register not in registers:
+            if (registers is not None and register not in registers) or register in kept:
                 continue
             n = read = parts = 0
             catch: dict = {}
@@ -683,11 +722,12 @@ def gather(conn, schema: str, log=print, reader=None, registers=None) -> dict:
             assert read == n + sum(catch.values()), (view, read, n, catch)
             if reader is not conn:
                 reader.commit()     # the view's share locks released before the next is read (4 November 2026)
-            conn.execute(f"""INSERT INTO {schema}.rows_catch (view, register, read, written, set_aside, reasons, gathered_at)
-                             VALUES (%s, %s, %s, %s, %s, %s::jsonb, now())
+            conn.execute(f"""INSERT INTO {schema}.rows_catch (view, register, read, written, set_aside, reasons, gathered_at, fingerprint)
+                             VALUES (%s, %s, %s, %s, %s, %s::jsonb, now(), %s)
                              ON CONFLICT (view) DO UPDATE SET register = EXCLUDED.register, read = EXCLUDED.read, written = EXCLUDED.written,
-                                 set_aside = EXCLUDED.set_aside, reasons = EXCLUDED.reasons, gathered_at = now()""",
-                         (view, register, read, n, read - n, json.dumps(catch)))
+                                 set_aside = EXCLUDED.set_aside, reasons = EXCLUDED.reasons, gathered_at = now(),
+                                 fingerprint = EXCLUDED.fingerprint""",
+                         (view, register, read, n, read - n, json.dumps(catch), fingerprint(sql)))
             counts[f"{register}.{view}"] = n
             if parts:
                 counts[f"{register}.{view}.parts"] = parts

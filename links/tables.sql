@@ -122,6 +122,9 @@ CREATE TABLE IF NOT EXISTS links.rows_catch (
     reasons      jsonb NOT NULL,
     gathered_at  timestamptz NOT NULL DEFAULT now()
 );
+-- 4 November 2026: the reading's code a view's rows were gathered under (links.rows.fingerprint), so a steady register's
+-- rows (links.rows.STEADY, kept while their source is unchanged) are read again when the code changes
+ALTER TABLE links.rows_catch ADD COLUMN IF NOT EXISTS fingerprint text;
 
 -- The official numbers a row prints (3 November 2026, Arthur: "the views the links never read, yes ... exact number
 -- joins come first"): an NZBN, a company number or a charity number, as its view publishes it, keyed by the row's ref.
