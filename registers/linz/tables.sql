@@ -103,7 +103,7 @@ CREATE TABLE linz_private.property_addresses (
 );
 
 -- layer 123113, NZ Addresses (AIMS), read whole from 4 November 2026: the address as LINZ gives it, every attribute,
--- and its point (longitude xmin = xmax, latitude ymin = ymax, NZGD2000)
+-- and its point (longitude west = east, latitude south = north, NZGD2000)
 CREATE TABLE linz_private.addresses (
     key                  text NOT NULL,             -- linz/addresses/<address_id>
     address_id           bigint NOT NULL,
@@ -112,7 +112,7 @@ CREATE TABLE linz_private.addresses (
     props                jsonb,                     -- every attribute as LINZ gives it (a pull asked whole)
     geom_type            text,
     geom                 text,                      -- the GeoJSON geometry
-    xmin double precision, ymin double precision, xmax double precision, ymax double precision,
+    west double precision, south double precision, east double precision, north double precision,
     document text NOT NULL, page integer, place text, read_from text, reader text, profile text, profile_version integer,
     loaded_at timestamptz NOT NULL DEFAULT now()
 );

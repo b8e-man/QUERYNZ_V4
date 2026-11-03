@@ -39,7 +39,7 @@ quarterly), about 5 hours a week.
 
 Every taken source other than the five typed ones is read **whole**: no `propertyName`, so every attribute and its
 geometry (GeoJSON, longitude and latitude in NZGD2000, EPSG:4167), into its own table in `linz_private`
-(`load.whole_sql`: `fid`, `props` as JSON, `geom_type`, `geom`, `xmin` … `ymax`). The addresses (layer 123113) are read
+(`load.whole_sql`: `fid`, `props` as JSON, `geom_type`, `geom`, its box `west`, `south`, `east`, `north`). The addresses (layer 123113) are read
 whole from now, so each carries its point. Pages are sorted on the source's id, or for a table with none on its
 `audit_id` (unique a row in Landonline), and a row is keyed by that id or, failing one, the service's own feature id.
 

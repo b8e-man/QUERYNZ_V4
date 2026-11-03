@@ -403,7 +403,7 @@ def test_each_page_records_the_fields_its_source_yields():
         assert slug == "linz-wfs-page" and reader == R.READER and model is None
         by.setdefault(sha, {})[f] = it
     assert by["a" * 64] == {"address_id": 3, "full_address": 3, "address_lifecycle": 3, "props": 3, "geom_type": 3,
-                            "geom": 3, "xmin": 3, "ymin": 3, "xmax": 3, "ymax": 3}
+                            "geom": 3, "xmin": 4, "ymin": 4, "xmax": 4, "ymax": 4}
     assert "title_no" in by["b" * 64] and "full_address" not in by["b" * 64]
 
 
@@ -474,8 +474,8 @@ def test_a_page_read_whole_keeps_every_attribute_and_the_geometry_with_its_box()
     r = rows[0]
     assert json.loads(r["props"]) == {"id": 7, "appellation": "Lot 1 DP 1", "titles": "T1, T2"}, "nothing stripped"
     assert r["geom_type"] == "Polygon" and json.loads(r["geom"]) == SQUARE
-    assert (r["xmin"], r["ymin"], r["xmax"], r["ymax"]) == (170.0, -45.0, 170.1, -44.9)
-    assert rows[1]["geom"] is None and rows[1]["xmin"] is None
+    assert (r["west"], r["south"], r["east"], r["north"]) == (170.0, -45.0, 170.1, -44.9)
+    assert rows[1]["geom"] is None and rows[1]["west"] is None
     assert aside == [{"document": "f" * 64, "place": "row 13", "stage": "read", "reason": "no id"}]
     rows, _ = R.read_page(json.dumps({"type": "FeatureCollection", "features": [
         feature("table-52007.99", {"ttm_id": 5, "sequence_no": 1, "std_text": "x"})]}).encode(),
@@ -490,7 +490,7 @@ def test_an_address_read_whole_carries_its_point():
     doc = json.loads(body)
     doc["features"][0]["geometry"] = {"type": "Point", "coordinates": [170.05, -44.99]}
     rows, _ = R.read_page(json.dumps(doc).encode(), "addresses", "e" * 64, 3)
-    assert rows[0]["full_address"] == "1 Invented Lane, Nowhere" and rows[0]["xmin"] == 170.05 and rows[0]["ymax"] == -44.99
+    assert rows[0]["full_address"] == "1 Invented Lane, Nowhere" and rows[0]["west"] == 170.05 and rows[0]["north"] == -44.99
     assert json.loads(rows[0]["props"])["suburb_locality"] == "Nowhere"
 
 
@@ -542,3 +542,16 @@ def test_the_geometry_join_is_held_to_the_titles_and_the_spine():
     assert any("already have a spine address" in p for p in check.reading(CheckConn([], geometry=(100, 0, 3)), "s"))
     dup = check.reading(CheckConn([("parcels", "p", 10, 10, 10, 0)], dup_fids=2), "s")
     assert any("parcels: 2 row ids carried more than once" in p for p in dup)
+
+
+def test_no_lane_column_is_a_system_column_of_the_database():
+    """A column named xmin, xmax, cmin, cmax, ctid or tableoid cannot be made (4 November 2026: the box was xmin … ymax,
+    and the first real load refused its table)."""
+    from registers.linz import extracts, load as L
+    system = {"tableoid", "xmin", "cmin", "xmax", "cmax", "ctid", "oid"}
+    for t, cols in extracts.TABLES.items():
+        assert not system & set(cols), t
+    for sql in (L.tables_sql("s"), L.tables_sql("s", "geometry"), L.whole_sql("s_private.parcels")):
+        for line in sql.splitlines():
+            for c in system:
+                assert not line.strip().startswith(c + " ") and f", {c} " not in line, line

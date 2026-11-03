@@ -44,20 +44,27 @@ HOUSEKEEPING = frozenset({"owners.title_key"} | {f"{L.PRIVATE}.title_addresses.{
 PUBLISHED_ONLY = frozenset({_table(w) for w in L.WHOLE} | {f"{L.PRIVATE}.title_address_points"})
 
 
+#: a field named otherwise than its column: the box's four fields of profile version 3 (xmin, ymin, xmax, ymax) land in
+#: west, south, east and north, as the database keeps xmin and xmax for its own system columns (a field is never
+#: dropped from a profile, so the fields keep their names)
+FIELD_OF = {"west": "xmin", "south": "ymin", "east": "xmax", "north": "ymax"}
+
+
 def fields_of(source: str) -> tuple:
     """The fields a page of `source` yields: its table's columns, the stamp apart."""
-    return tuple(c for c in L.COLUMNS[source] if c not in _STAMP and f"{_table(source)}.{c}" not in HOUSEKEEPING)
+    return tuple(FIELD_OF.get(c, c) for c in L.COLUMNS[source]
+                 if c not in _STAMP and f"{_table(source)}.{c}" not in HOUSEKEEPING)
 
 
 def lands() -> dict:
-    """field → every lane column it is written to, from the tables (a field is named by its column)."""
+    """field → every lane column it is written to, from the tables (a field is named by its column, but FIELD_OF)."""
     out = {}
     for t, cols in TABLES.items():
         for c in cols:
             col = f"{t}.{c}"
             if c in _STAMP or col in HOUSEKEEPING:
                 continue
-            out.setdefault(c, []).append(col)
+            out.setdefault(FIELD_OF.get(c, c), []).append(col)
     return out
 
 

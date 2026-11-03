@@ -145,7 +145,7 @@ def whole_sql(table: str, if_not_exists: bool = False) -> str:
     ine = "IF NOT EXISTS " if if_not_exists else ""
     return f"""CREATE TABLE {ine}{table} (
     key text NOT NULL, fid text NOT NULL, props jsonb NOT NULL, geom_type text, geom text,
-    xmin double precision, ymin double precision, xmax double precision, ymax double precision,
+    west double precision, south double precision, east double precision, north double precision,
     document text NOT NULL, page integer, place text, read_from text, reader text, profile text, profile_version integer,
     loaded_at timestamptz NOT NULL DEFAULT now())"""
 
@@ -291,7 +291,7 @@ def geometry_join(conn, schema: str, staged: set, log=print) -> dict:
     grid = geo.Grid()
     with conn.cursor(name="linz_points") as cur:
         cur.itersize = 50_000
-        cur.execute(f"SELECT address_id, xmin, ymin FROM {src['addresses']} WHERE geom_type = 'Point'")
+        cur.execute(f"SELECT address_id, west, south FROM {src['addresses']} WHERE geom_type = 'Point'")
         for address_id, x, y in cur:
             grid.add(address_id, x, y)
     conn.execute("CREATE TEMP TABLE linz_geo_titles (title_no text PRIMARY KEY, gap boolean NOT NULL) ON COMMIT DROP")

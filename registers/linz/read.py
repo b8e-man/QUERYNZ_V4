@@ -20,7 +20,7 @@ READER = "registers.linz.read 1"
 #: what a page read whole yields for each row, beside its typed columns (a whole source has no typed columns): the row's
 #: own id (the service's feature id, or its sort key), every attribute as LINZ gives it (`props`, JSON), and its geometry
 #: as GeoJSON text with its type and box (longitude and latitude, NZGD2000)
-WHOLE_FIELDS = ("fid", "props", "geom_type", "geom", "xmin", "ymin", "xmax", "ymax")
+WHOLE_FIELDS = ("fid", "props", "geom_type", "geom", "west", "south", "east", "north")
 
 #: source → its key column and the columns kept (the order of the lane's table)
 KEEP = {
@@ -88,8 +88,8 @@ def whole_of(feature: dict, sort_cols: tuple = ()) -> dict:
     box = geo.bbox(g) if g else None
     return {"fid": fid, "props": json.dumps(p, ensure_ascii=False, sort_keys=True),
             "geom_type": (g or {}).get("type"), "geom": json.dumps(g, separators=(",", ":")) if g else None,
-            "xmin": box[0] if box else None, "ymin": box[1] if box else None,
-            "xmax": box[2] if box else None, "ymax": box[3] if box else None}
+            "west": box[0] if box else None, "south": box[1] if box else None,
+            "east": box[2] if box else None, "north": box[3] if box else None}
 
 
 def _feature_collection(body: bytes):
