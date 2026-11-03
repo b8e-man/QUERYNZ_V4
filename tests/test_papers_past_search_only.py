@@ -68,6 +68,20 @@ def test_only_the_archive_product_may_read_it():
     assert readers == [], readers
 
 
+def test_the_board_shows_it_only_as_its_pane_md_says():
+    """registers/papers_past/pane.md: one board pane row per article (title, paper, issue date, length, link), searched
+    by title; no person, no name, no link, never joined to another register. The catalogue entry is the board's only
+    hold on it, so it is held to that here: no names, no joins, no parent, no relations, nothing points at it, and it
+    stays out of the all-views search."""
+    from products.board import catalogue as cat
+    v = cat.BY_NAME["papers_past_items"]
+    assert v.names == () and v.joins == () and v.parent == () and v.relations == () and v.searched is False
+    assert v.search == ("title",) and cat.fields_of(v).names == () and not cat.fields_of(v).address
+    assert not any(r.view == "papers_past_items" for w in cat.VIEWS for r in w.relations)
+    assert not any(j.view == "papers_past_items" for w in cat.VIEWS for j in w.joins)
+    assert not any(w.parent and w.parent[1] == "papers_past_items" for w in cat.VIEWS)
+
+
 @pytest.mark.slow
 def test_the_live_names_and_links_hold_no_row_of_it():
     from support import db

@@ -31,6 +31,8 @@ PUBLISHED_AT_20_OCTOBER = {
     "beehive_people", "hansard_day_sections", "hansard_people", "parliament_people",   # the three names readers (31 October), catalogued at the merge after (ruling 123)
     "rea_decisions", "rea_parties",   # real-estate-authority (2 November 2026)
     "company_insolvencies", "retirement_villages", "gazette_board_interventions", "linz_titles", "linz_title_owners", "linz_place_names",   # the companies lane's October 2026 package (2 November 2026)
+    "insolvency_people", "insolvency_companies",   # step 8.4, the Insolvency Register (3 November 2026), catalogued once published
+    "papers_past_items",   # step 8.6, Papers Past (3 November 2026): out of the all-views search (searched=False)
     "name_sightings",   # the links lane's deterministic name pass (31 October), on the board 2 November 2026 (Arthur: "put it on the board")
     "minister_diary_releases", "minister_diary_entries", "minister_diary_attendees",   # diaries-2 (27 October, rulings 96, 102), catalogued at fix-products-board-2, which carries it
     "parliament_written_questions", "parliament_api_items", "parliament_wayback_pages",   # parliament-1 (27 October, rulings 96, 101, 102), the same

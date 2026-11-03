@@ -692,7 +692,7 @@ def search(conn, term: str, limit: int = LIMIT, views=None, exclude_key: str = N
     held = db.pub_views(conn)
     out = {}
     wanted = [v for v in (views or cat.VIEWS) if v.name in held and (words or number or fields)
-              and (registers is None or v.register in registers)]
+              and (registers is None or v.register in registers) and (views is not None or v.searched)]
     tm = tab_mode(term, fields, mode) if tabs else None
     longest = sorted(wanted, key=lambda v: -LAST_SCAN.get(v.name, 1.0))     # an unmeasured view first: it may be long
     futures = {v.name: _pool.submit(_scan, v, words, number, limit, exclude_key, whole, fields, mode, removed, tm) for v in longest}

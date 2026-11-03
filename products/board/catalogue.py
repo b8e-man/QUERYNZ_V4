@@ -238,8 +238,14 @@ class View:
     served: str = ""                # a column that, when false, strikes the row's title through: "withdrawn by the source"
     cite: tuple = ()                # (label, column): the source's own id for the row, shown in the citation beside the hash
     no_url: str = ""                # what the citation says where every one of `urls` is empty ("file name only: no address served")
+    searched: bool = True           # false: left out of the all-views search, which scans every view in the floor (search.search
+                                    # with no views named); its own table pane still pages it. papers_past_items alone (86.7M
+                                    # rows: a title scan 6.3 s, 3 November 2026)
 
 
+#: every Insolvency Register row's line (registers/insolvency/spec.md, docs/legal/positions/insolvency-register.md)
+INSOLVENCY_NOTE = ("the Insolvency Register's own answer, on its terms: shown only within the register's stated window and never "
+                   "once the removals name it; no address or birth date is held")
 #: every Hansard row's line (registers/hansard/pane.md, ruling 96)
 HANSARD_NOTE = "taken from the old estate's tables; original not held; held at 23 September 2026"
 
@@ -1450,6 +1456,40 @@ VIEWS: tuple[View, ...] = (
                  ("files held", "files_held"), ("files failed", "files_failed")),
          default_order="council", key_col="council",
          note="a council's election: what its electoral officer lists and what the estate holds"),
+    # ── step 8.4, the Insolvency Register (published 3 November 2026; registers/insolvency/spec.md) ──
+    View("insolvency_people", "insolvency", "person", ("name", "insolvency_type"),
+         search=("name", "occupation"), numbers=("estate_number",),
+         fields=(("estate number", "estate_number"), ("register", "register"), ("type", "insolvency_type"),
+                 ("status", "status"), ("discharge", "discharge_type"), ("discharge suspended", "discharge_suspended"),
+                 ("more than one insolvency", "multiple"), ("occupation", "occupation"), ("court", "court"),
+                 ("office", "office"), ("alternate names", "alternate_names"), ("partnered estates", "partnered_estates"),
+                 ("source", "source_note")),
+         dates=(("adjudicated on", "adjudicated_on"), ("discharged on", "discharged_on"), ("shown until", "shown_until")),
+         names=("name",),
+         default_order="adjudicated_on",
+         note=INSOLVENCY_NOTE),
+    View("insolvency_companies", "insolvency", "event", ("name", "insolvency_type"),
+         search=("name", "organisation_name", "trading_names"), numbers=("estate_number", "nzbn", "company_number"),
+         fields=(("estate number", "estate_number"), ("register", "register"), ("type", "insolvency_type"),
+                 ("status", "status"), ("organisation", "organisation_name"), ("trading names", "trading_names"),
+                 ("alternate names", "alternate_names"), ("NZBN", "nzbn"), ("company number", "company_number"),
+                 ("industry", "industry"), ("office", "office"), ("partnered estates", "partnered_estates"),
+                 ("source", "source_note")),
+         dates=(("liquidated on", "liquidated_on"), ("completed on", "completed_on")),
+         parent=("Company", "companies", "entity_key"),
+         default_order="liquidated_on",
+         note=INSOLVENCY_NOTE + "; a liquidation the Official Assignee administers, joined to its company where the NZBN is held"),
+    # ── step 8.6, Papers Past (published 3 November 2026; registers/papers_past/pane.md): searched, never mined (hard
+    # limit 17): no names, no joins, no relations; out of the all-views search (searched=False, 86.7M rows) ──
+    View("papers_past_items", "papers_past", "document", ("title",),
+         search=("title",),
+         fields=(("paper", "paper"), ("length in characters", "chars")),
+         dates=(("issue date", "published_on"),),
+         urls=("url",),
+         default_order="published_on",
+         searched=False,
+         note="an article's title, paper and issue date as Papers Past catalogues it; searched, never mined (hard limit 17): "
+              "no name in it is read or linked"),
 )
 
 BY_NAME = {v.name: v for v in VIEWS}
@@ -1646,6 +1686,8 @@ REGISTERS = (
     ("councillor_interests", "Councillors' registers of interests, council by council (off the public site: hard limit 14)"),
     ("local_elections", "Local election candidate returns (listed; held unread until ruling 79 lifts)"),
     ("links", "Names found in documents: a register's name sighted in a document's text (links/sightings.py; not a link to anyone)"),
+    ("insolvency", "The Insolvency Register: personal bankruptcies, no asset procedures and debt repayment orders, and the Official Assignee's liquidations"),
+    ("papers_past", "Papers Past: historic newspaper articles by title (searched, never mined: hard limit 17)"),
 )
 
 #: the graph canvas's node colours (ruling 100), by family of register: 32 registers cannot take 32 colours each 3:1
@@ -1666,8 +1708,8 @@ FAMILIES = (
     ("iwi", "#90f8d0", ("iwi_directory",)),
     ("public money", "#f8e000", ("grants", "tenders", "contract_disclosures")),
     ("regulators", "#c02090", ("commerce_commission", "fma", "worksafe", "building_practitioners", "real_estate_authority", "overseas_investment")),
-    ("courts and sanctions", "#b888a0", ("courts", "sanctions")),
-    ("notices and minutes", "#f878f8", ("gazette", "council_minutes", "links")),   # links: the names sighted in documents (2 November 2026)
+    ("courts and sanctions", "#b888a0", ("courts", "sanctions", "insolvency")),
+    ("notices and minutes", "#f878f8", ("gazette", "council_minutes", "links", "papers_past")),   # links: the names sighted in documents (2 November 2026)
 )
 #: (register, colour) for every register, in the catalogue's order
 REGISTER_COLOURS = tuple((r, c) for reg, _ in REGISTERS for _, c, regs in FAMILIES for r in regs if r == reg)
@@ -1678,7 +1720,6 @@ FAMILY_OF = {r: name for name, _, regs in FAMILIES for r in regs}
 NOT_HELD = (
     ("openlaw", "OpenLaw case law (dropped, ruling 137: the courts lane carries the judgments)"),
     ("hdc_decisions", "Health and Disability Commissioner decisions (held on the Commissioner's copyright terms: queue, no default)"),
-    ("papers_past", "Papers Past"),
     ("tenancy_tribunal", "Tenancy Tribunal orders (held, nothing published: ruling 58)"),
     ("settlement_commitments", "Treaty settlement commitments (Te Haeata: behind a login, hard limit 6; watched)"),
     ("council_procurement", "Council procurement off GETS (barred by the councils' terms or behind a login; watched)"),

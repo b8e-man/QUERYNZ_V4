@@ -60,11 +60,14 @@ def counting(monkeypatch):
     return conn
 
 
+SEARCHED = [v for v in cat.VIEWS if v.searched]       # a view too long for the floor stays out (papers_past_items)
+
+
 def test_a_search_is_one_statement_per_view_with_the_loose_test_before_the_fold(counting):
     search.search(counting, TWO_WORDS)
-    assert len(counting.sql) == 1 + len(cat.VIEWS)
+    assert len(counting.sql) == 1 + len(SEARCHED)
     scans = [(s, p) for s, p in zip(counting.sql, counting.params) if "information_schema" not in s]
-    assert len(scans) == len(cat.VIEWS)
+    assert len(scans) == len(SEARCHED) and not any("from pub.papers_past_items" in s for s, _ in scans)
     for sql, params in scans:
         v = V[re.search(r"from pub\.(\w+)", sql).group(1)]
         raw = "concat_ws(' ', " + ", ".join(v.search) + ")"
@@ -75,7 +78,7 @@ def test_a_search_is_one_statement_per_view_with_the_loose_test_before_the_fold(
     counting.sql.clear()
     regs = search.held_registers({v.name for v in cat.VIEWS})
     res = search.search(counting, TWO_WORDS, limit=search.RESULTS_LIMIT, registers=regs, tabs=True)
-    assert res["tabs"] == search.BOX and len(counting.sql) == 1 + len(cat.VIEWS)      # the results pane's tabs: still one per view
+    assert res["tabs"] == search.BOX and len(counting.sql) == 1 + len(SEARCHED)      # the results pane's tabs: still one per view
     counting.sql.clear()
     people.gather(counting, [], people.named_groups(counting, TWO_WORDS, registers=regs))
     assert len(counting.sql) == 1                                                     # the entity state on top: one on pub.names' keys
@@ -132,3 +135,9 @@ def test_a_many_rows_dossier_is_one_statement_for_the_group_one_per_view_and_non
     assert len(conn.sql) == 1 + 1 + 2 + 4, heads                                       # and nothing per row
     for s in pages:
         assert "pub.groups" not in s and "pub.names" not in s                           # the group's rows are never joined again
+
+
+def test_a_view_left_out_of_the_all_views_search_is_still_scanned_when_named(counting):
+    v = cat.BY_NAME["papers_past_items"]
+    search.search(counting, TWO_WORDS, views=[v])
+    assert [s for s in counting.sql if "from pub.papers_past_items" in s]
