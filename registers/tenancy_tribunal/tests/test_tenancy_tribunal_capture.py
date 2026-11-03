@@ -37,7 +37,7 @@ def listing_bytes(docs, num_found=None, start=0):
 
 class FakeTables:
     def __init__(self):
-        self.orders, self.listings, self.aside = {}, [], []
+        self.orders, self.listings, self.aside, self.rows = {}, [], [], []
 
     def create(self):
         pass
@@ -47,6 +47,9 @@ class FakeTables:
 
     def add_listing(self, month, num_found, rows_read, sha, url):
         self.listings.append((month, num_found, rows_read, sha, url))
+
+    def keep_rows(self, month, docs, sha):
+        self.rows += [(month, d, sha) for d in docs]
 
     def upsert_orders(self, rows):
         for r in rows:
@@ -118,14 +121,10 @@ def run(site, tables=None, store=None, now=NIGHT, **kw):
 
 # ── the listing asks for nothing personal ────────────────────────────────────
 
-def test_the_listing_asks_only_for_numbers_and_dates():
+def test_the_listing_asks_for_its_rows_whole():
+    """Ruling 143 supersedes ruling 58's field list: no `fl`, so the service gives every field of each row."""
     url = C.listing_url(dt.date(2024, 2, 1))
-    fl = dict(p.split("=", 1) for p in url.split("?", 1)[1].split("&"))["fl"]
-    asked = set(fl.replace("%2C", ",").split(","))
-    assert asked == set(C.FIELDS)
-    for personal in ("casePerOrg", "Name", "tenancyAddress", "tenancySuburb", "tenancyStreet", "tenancyCity",
-                     "document_text", "Applicant", "Respondent"):
-        assert not any(personal.lower() in f.lower() for f in asked), personal
+    assert "fl" not in dict(p.split("=", 1) for p in url.split("?", 1)[1].split("&"))
     assert "jurisdictionCode_s%3ATT" in url
     assert "2024-02-01T00%3A00%3A00Z+TO+2024-03-01T00%3A00%3A00Z%7D" in url     # the month, half-open
 
@@ -134,6 +133,24 @@ def test_no_table_has_a_column_for_a_name_or_an_address():
     sql = open(os.path.join(LANE, "tables.sql"), encoding="utf-8").read()
     cols = re.findall(r"^\s+([a-z_]+)\s+(?:text|date|integer|timestamptz|boolean)", sql, re.M)
     assert cols and not [c for c in cols if re.search(r"name|address|party|tenant|landlord|suburb|street", c)]
+    # the rows whole, names and address among them, go only to the private twin
+    assert "CREATE TABLE IF NOT EXISTS tenancy_tribunal_private.listing_rows" in sql
+    assert not re.search(r"CREATE TABLE IF NOT EXISTS tenancy_tribunal\.\w+ \([^;]*jsonb", sql)
+
+
+def test_each_listing_row_is_kept_whole_privately_and_a_field_list_month_is_listed_again():
+    """Ruling 143: the party names and the tenancy address the listing gives are kept (in the private twin), and a
+    month read with the old field list is not taken as listed."""
+    doc = {**solr_doc(["901"], published="2026-10-05"), "casePerOrg_txt": ["Invented Tenant"],
+           "tenancyAddress_s": ["1 Invented Street"]}
+    site = FakeSite({"2026-10": [doc]})
+    r, t, store = run(site, anytime=True)
+    r.run(dt.date(2026, 10, 18), list_only=True)
+    kept = [d for m, d, sha in t.rows if d["id"] == doc["id"]]
+    assert kept == [doc] and r.counts["rows_kept"] >= 1
+    assert all("Invented" not in json.dumps(o, default=str) for o in t.orders.values())
+    sql = open(os.path.join(LANE, "capture.py"), encoding="utf-8").read()
+    assert "FROM {self.s}.listings WHERE whole" in sql
 
 
 def test_an_order_row_carries_the_url_the_search_page_builds():

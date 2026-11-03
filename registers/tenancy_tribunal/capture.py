@@ -8,11 +8,13 @@ is `docs/legal/positions/tenancy-tribunal-decisions.md`.
 
 The search page at `forms.justice.govt.nz/search/TT/` is a script over a
 listing service, `/forms/publicSolrProxy/solr/TTV2/select`, which answers
-JSON. The lane asks it for one published month at a time, with a FIELD LIST
-(`FIELDS`): the order and application numbers and the dates only, never the
-party names, the tenancy address or the text, so no listing the lane holds
-carries a name or an address. Each order's PDF is then fetched from
-`/search/Documents/TTV2/` and landed by its sha256.
+JSON. The lane asks it for one published month at a time, each row whole
+(ruling 143 supersedes ruling 58's field list): the order rows read from it
+(`FIELDS`) carry the numbers and the dates only, and each row whole, the
+party names and the tenancy address among its fields, is kept in
+`tenancy_tribunal_private.listing_rows`. A month listed with the field list
+before 4 November 2026 is listed again, whole, once. Each order's PDF is then
+fetched from `/search/Documents/TTV2/` and landed by its sha256.
 
 A run, in order:
 
@@ -50,7 +52,7 @@ JOB = "qv4-tenancy-tribunal-capture"
 HOST = "forms.justice.govt.nz"
 LISTING = f"https://{HOST}/forms/publicSolrProxy/solr/TTV2/select"
 DOCUMENTS = f"https://{HOST}/search/Documents/TTV2/"
-#: the only fields the lane asks the listing for: no names, no address, no text
+#: the fields an order row is read from; the listing is asked for its rows whole
 FIELDS = ("id", "applicationNumber_s", "publishedDate_dt", "unpublishedDate_s", "decisionDateIndex_l",
           "orderDetailJson_s", "tenancyMBIEOrder_txt")
 ROWS = 1000                   # rows per listing request; a month is about 900
@@ -86,7 +88,7 @@ def window(today: dt.date, n: int = WINDOW_MONTHS) -> list:
 
 def listing_url(month: dt.date, start: int = 0, rows: int = ROWS) -> str:
     q = f"publishedDate_dt:[{month.isoformat()}T00:00:00Z TO {next_month(month).isoformat()}T00:00:00Z}}"
-    params = [("q", q), ("fq", "jurisdictionCode_s:TT"), ("fl", ",".join(FIELDS)),
+    params = [("q", q), ("fq", "jurisdictionCode_s:TT"),
               ("sort", "publishedDate_dt asc,id asc"), ("start", str(start)), ("rows", str(rows)), ("wt", "json")]
     return LISTING + "?" + urllib.parse.urlencode(params)
 
@@ -164,7 +166,7 @@ def months_to_list(today: dt.date, listed: set) -> list:
 
 def tables_sql(schema: str = SCHEMA) -> str:
     with open(os.path.join(HERE, "tables.sql"), encoding="utf-8") as f:
-        return f.read().replace(f"{SCHEMA}.", f"{schema}.")
+        return f.read().replace(f"{SCHEMA}_private", f"{schema}_private").replace(f"{SCHEMA}.", f"{schema}.")
 
 
 class Tables:
@@ -184,11 +186,19 @@ class Tables:
         return bool(self.conn.execute("SELECT pg_try_advisory_lock(hashtext(%s))", (JOB,)).fetchone()[0])
 
     def listed_months(self) -> set:
-        return {r[0] for r in self.conn.execute(f"SELECT DISTINCT month FROM {self.s}.listings")}
+        """Months listed whole; a month read with the old field list is listed again."""
+        return {r[0] for r in self.conn.execute(f"SELECT DISTINCT month FROM {self.s}.listings WHERE whole")}
 
     def add_listing(self, month, num_found, rows_read, sha, url):
-        self.conn.execute(f"INSERT INTO {self.s}.listings (month, num_found, rows_read, listing, url) "
-                          "VALUES (%s, %s, %s, %s, %s)", (month, num_found, rows_read, sha, url))
+        self.conn.execute(f"INSERT INTO {self.s}.listings (month, num_found, rows_read, listing, url, whole) "
+                          "VALUES (%s, %s, %s, %s, %s, true)", (month, num_found, rows_read, sha, url))
+
+    def keep_rows(self, month, docs, sha):
+        """Each listing row whole into the private twin (ruling 143)."""
+        for d in docs:
+            self.conn.execute(f"INSERT INTO {self.s}_private.listing_rows (case_id, listing, month, fields) "
+                              "VALUES (%s, %s, %s, %s) ON CONFLICT (case_id, listing) DO NOTHING",
+                              (str(d.get("id")), sha, month, json.dumps(d, ensure_ascii=False)))
 
     def upsert_orders(self, rows):
         for r in rows:
@@ -232,7 +242,8 @@ class Run:
         self.budget_s, self.max_items, self.anytime, self.log = budget_s, max_items, anytime, log
         self.started = self.clock()
         self.failures = 0
-        self.counts = {"requests": 0, "listings": 0, "listed": 0, "landed": 0, "already_held": 0, "set_aside": 0}
+        self.counts = {"requests": 0, "listings": 0, "listed": 0, "landed": 0, "already_held": 0, "set_aside": 0,
+                       "rows_kept": 0}
         self.stopped = ""
 
     def time_left(self) -> bool:
@@ -298,7 +309,9 @@ class Run:
             last_sha, first_url = ref.sha256, first_url or url
             rows = [r for d in docs for r in order_rows(d, ref.sha256)]
             self.t.upsert_orders(rows)
+            self.t.keep_rows(month, docs, ref.sha256)
             self.counts["listed"] += len(rows)
+            self.counts["rows_kept"] += len(docs)
             rows_read += len(docs)
             start += len(docs)
             if not docs or start >= num_found:
@@ -371,7 +384,8 @@ def main(argv=None) -> int:
         run = Run(t, land_fn=landing(conn), budget_s=a.budget_s, max_items=a.max_items, anytime=a.anytime)
         out = run.run(dt.date.today(), list_only=a.list_only)
     ok = not out["stopped"].startswith("stopped:")
-    detail = (f"{out['listings']} listings, {out['listed']} orders listed, {out['landed']} landed, "
+    detail = (f"{out['listings']} listings, {out['listed']} orders listed, {out['rows_kept']} listing rows kept whole, "
+              f"{out['landed']} landed, "
               f"{out['already_held']} already held, {out['set_aside']} set aside; {out['stopped'] or 'done'}")
     print(f"{SOURCE}: {detail}")
     jobrun.record(JOB, ok, detail, started, out)

@@ -37,11 +37,15 @@ covers only `/search/TT/`, its listing service
    three-year limit is the Ministry's own choice and protects tenants;
    holding orders past it is a privacy question (Privacy Act 2020: a
    publicly available publication, but use must not be unfair or
-   unreasonable). So: the lane's tables hold only the order and
-   application numbers, the dates and the document hash; no name and no
-   address leaves the document store; nothing is published or shown;
-   the tenancy address is a home address (hard limit 15) and if ever
-   extracted lives only in `tenancy_tribunal_private`. Whether orders are
+   unreasonable). So: the lane's tables in `tenancy_tribunal` hold only the
+   order and application numbers, the dates and the document hash; nothing
+   is published or shown. Since 4 November 2026 (ruling 143, superseding
+   ruling 58's "tables carry no name or address") the listing is asked for
+   its rows whole, and each row, the party names and the tenancy address
+   among its fields, is kept in `tenancy_tribunal_private.listing_rows`,
+   which the read login cannot see. The tenancy address is a home address
+   (hard limit 15): the limit binds the products, exports and sessions, not
+   what the database holds (ruling 143). Whether orders are
    kept past their three years is in the decision queue
    (`tenancy-orders-past-their-three-years.md`, default: hold, never show).
 

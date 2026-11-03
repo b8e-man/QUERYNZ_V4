@@ -1,7 +1,9 @@
--- registers/tenancy_tribunal (track E): what this lane captured, in its own schema. Capture and hold: the reading
--- comes in step 5. No table here holds a name or an address: the listing's party names and tenancy address are
--- never asked for (the listing is fetched with a field list), and the orders themselves stay in the document store.
--- tenancy_tribunal_private holds nothing yet; a tenancy address, if a reader ever extracts one, goes there (hard limit 15).
+-- registers/tenancy_tribunal (track E): what this lane captured. Capture and hold: the reading comes in step 5. The
+-- listing is asked for its rows whole (ruling 143 supersedes ruling 58's field list): each row as the listing service
+-- gives it, the party names and the tenancy address among its fields, is kept in tenancy_tribunal_private.listing_rows,
+-- which the read login cannot see. No table in `tenancy_tribunal` holds a name or an address; the orders themselves
+-- stay in the document store.
+CREATE SCHEMA IF NOT EXISTS tenancy_tribunal_private;
 
 -- one row per order PDF the Tribunal lists: what the listing said, and the document once it is landed
 CREATE TABLE IF NOT EXISTS tenancy_tribunal.orders (
@@ -29,6 +31,19 @@ CREATE TABLE IF NOT EXISTS tenancy_tribunal.listings (
     url         text NOT NULL,
     read_at     timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (month, read_at)
+);
+-- a month read with the field list (before 4 November 2026) is listed again, whole, once
+ALTER TABLE tenancy_tribunal.listings ADD COLUMN IF NOT EXISTS whole boolean NOT NULL DEFAULT false;
+
+-- every listing row whole, as the service gives it: the party names, the tenancy address and every other field
+-- (ruling 143); one row per listing row per listing document that carried it
+CREATE TABLE IF NOT EXISTS tenancy_tribunal_private.listing_rows (
+    case_id    text NOT NULL,                                 -- the listing's id
+    listing    text NOT NULL CHECK (listing ~ '^[0-9a-f]{64}$'),   -- the listing document it was read from
+    month      date NOT NULL,
+    fields     jsonb NOT NULL,                                -- the row whole
+    read_at    timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (case_id, listing)
 );
 
 -- the catch log: one line for every item the lane could not take, with the stage and the reason
