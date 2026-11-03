@@ -2,9 +2,10 @@
 reading's tables under `schema`; `publish(conn, staging)` moves them into `insolvency` and makes the views, in one
 transaction. Rebuilt whole every load (regenerable); the ledger is never touched by a load.
 
-Every estate any answer named is published, or withheld with its reason, or set aside: in equals out, or the build raises.
-The terms of holding a copy are applied here as read's rules: removed after our latest answer, suppressed, annulled, past
-its display window; the views apply the window again on the day they are read (`shown_until >= current_date`).
+Every estate any answer named is read into a row, or is unanswered (named, with no answer to read), or set aside: in
+equals out, or the build raises. Nothing is withheld (ruling 142, 4 November 2026): the terms of holding a copy are flags
+on the row (read.removed, read.suppressed, the annulment, read.shown_until; the views give `past_window` on the day they
+are read), and a suppressed estate's names are kept by key in `insolvency_private.suppressed_names`.
 
     python -m registers.insolvency.load [--schema staging_…]      build into a staging schema and check, no publish
     python -m registers.insolvency.load --job                     build, check, publish only on green
@@ -17,20 +18,24 @@ import sys
 import time
 
 from support import jobrun
-from support.docstore.landing import documents_of, read_bytes
+from support.docstore.landing import read_bytes
 from registers.insolvency import capture, read
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = capture.SCHEMA
 JOB = "qv4-insolvency-load"
 STAGING = "staging_insolvency_load"
-TABLES = ("estates", "withheld", "set_aside")
+TABLES = ("estates", "unanswered", "set_aside")
+PRIVATE_TABLES = ("suppressed_names",)
 COLUMNS = {
     "estates": ("key", "estate_number", "kind", "register", "name", "alternate_names", "trading_names", "organisation_name",
                 "nzbn", "company_number", "insolvency_type", "status", "adjudicated_on", "discharged_on", "discharge_type",
                 "discharge_suspended", "annulled_on", "multiple", "occupation", "court", "office", "partnered_estates",
-                "shown_until", "read_from", "document", "page", "place", "reader", "profile", "profile_version"),
-    "withheld": ("estate_number", "reason", "document"),
+                "shown_until", "window_unknown", "suppressed", "suppressed_said", "removed_on", "removal_seen_at",
+                "absent_since", "read_from", "document", "page", "place", "reader", "profile", "profile_version"),
+    "unanswered": ("estate_number", "reason", "document"),
+    "suppressed_names": ("key", "estate_number", "suppressed_said", "name", "alternate_names", "trading_names",
+                         "organisation_name"),
     "set_aside": ("document", "place", "stage", "reason"),
 }
 
@@ -60,32 +65,37 @@ def _copy(conn, name: str, cols: tuple, rows) -> int:
 
 def ledger(conn, schema: str = SCHEMA) -> dict:
     """What the capture holds: {estates: {estate: register}, details: {estate: (at, status, sha)} the latest detail call
-    each, search: {estate: (at, sha)} the latest search page naming each, removals: {estate: [seen_at]}}. A detail
-    answer withdrawn by a removal counts again only when it was asked after that removal (a correction the register
-    answers with the same bytes lands as the same document, already withdrawn)."""
+    each that gave an answer (a 200), or the latest 404 where none did, absent: {estate: at} a 404 after that answer,
+    search: {estate: (at, sha)} the latest search page naming each, removals: {estate: [(seen_at, removed_on)]}}. A
+    document withdrawn by the removals before 4 November 2026 is read like any other (ruling 142: a removal is a flag)."""
     conn.execute(capture.ledger_sql(schema))
     estates = dict(conn.execute(f"SELECT estate, register FROM {schema}.search_seen").fetchall())
     removals = {}
-    for e, seen in conn.execute(f"SELECT estate, seen_at FROM {schema}.removals").fetchall():
-        removals.setdefault(e, []).append(seen)
+    for e, seen, removed_on in conn.execute(f"SELECT estate, seen_at, removed_on FROM {schema}.removals "
+                                            f"ORDER BY seen_at").fetchall():
+        removals.setdefault(e, []).append((seen, removed_on))
     calls = conn.execute(f"SELECT estate, at, status, document FROM {schema}.calls WHERE why IN ('detail', 'lookup') "
                          f"AND estate IS NOT NULL AND status IN (200, 404) ORDER BY estate, at DESC").fetchall()
-    gone = {s for s, d in documents_of([c[3] for c in calls], conn).items() if d["withdrawn"]}
-    details = {}
+    details, absent = {}, {}
     for e, at, status, sha in calls:
         estates.setdefault(e, "Insolvency")
-        if e in details:
+        if status == 404:
+            if e not in details:
+                absent.setdefault(e, at)
             continue
-        if sha in gone and not at > max(removals.get(e) or [at]):
-            continue
-        details[e] = (at, status, sha)
+        if sha and e not in details:
+            details[e] = (at, status, sha)
+    for e, at in absent.items():
+        if e not in details:
+            details[e] = (at, 404, None)
+    absent = {e: at for e, at in absent.items() if details[e][1] == 200 and at > details[e][0]}
     for (e,) in conn.execute(f"SELECT DISTINCT estate FROM {schema}.calls WHERE why IN ('detail', 'lookup') "
                              f"AND estate IS NOT NULL").fetchall():
         estates.setdefault(e, "Insolvency")
     search = {e: (at, sha) for e, at, sha in conn.execute(
         f"SELECT s.estate, c.at, c.document FROM {schema}.search_seen s JOIN {schema}.calls c ON c.id = s.call "
         f"WHERE c.document IS NOT NULL").fetchall()}
-    return {"estates": estates, "details": details, "search": search, "removals": removals}
+    return {"estates": estates, "details": details, "absent": absent, "search": search, "removals": removals}
 
 
 def build(conn, schema: str, held: dict = None, read_bytes=read_bytes, today: dt.date = None, version: int = None,
@@ -95,13 +105,11 @@ def build(conn, schema: str, held: dict = None, read_bytes=read_bytes, today: dt
     held = held if held is not None else ledger(conn, ledger_schema)
     version = version or profile_version()
     conn.execute(reading_sql(schema))
-    rows, withheld, aside = [], [], []
+    rows, unanswered, aside, private = [], [], [], []
     pages = {}
     for estate, register in sorted(held["estates"].items()):
         det = held["details"].get(estate)
-        if det and det[1] == 404:
-            withheld.append({"estate_number": estate, "reason": "absent from the register when last asked", "document": None})
-            continue
+        e = None
         if det and det[2]:
             at, sha = det[0], det[2]
             e, read_from, place = json.loads(read_bytes(sha)), "detail", None
@@ -114,39 +122,61 @@ def build(conn, schema: str, held: dict = None, read_bytes=read_bytes, today: dt
                 aside.append({"document": sha, "place": place, "stage": "read",
                               "reason": "the search page the ledger names does not carry the estate"})
                 continue
+        elif det and det[1] == 404:
+            unanswered.append({"estate_number": estate, "reason": "absent from the register when asked; no answer held",
+                               "document": None})
+            continue
         elif estate in held["removals"]:
-            withheld.append({"estate_number": estate, "reason": "removed or corrected; nothing answered since", "document": None})
+            unanswered.append({"estate_number": estate, "reason": "named by the removals; no answer held",
+                               "document": None})
             continue
         else:
             aside.append({"document": None, "place": f"estate {estate}", "stage": "read", "reason": "no answer held"})
             continue
-        if read.removed(estate, at, held["removals"]):
-            withheld.append({"estate_number": estate, "reason": "removed or corrected after our latest answer", "document": sha})
-            continue
-        why = read.why_withheld(e, register, today)
-        if why:
-            withheld.append({"estate_number": estate, "reason": why, "document": sha})
-            continue
-        rows.append(read.estate_row(e, register=register, read_from=read_from, document=sha, version=version, place=place))
-    if len(held["estates"]) != len(rows) + len(withheld) + len(aside):
-        raise AssertionError(f"{SCHEMA}: {len(held['estates'])} estates in, {len(rows)} read + {len(withheld)} withheld + "
-                             f"{len(aside)} set aside")
+        row = read.estate_row(e, register=register, read_from=read_from, document=sha, version=version, place=place)
+        after = [(seen, on) for seen, on in held["removals"].get(estate, ()) if seen >= at]
+        if after and read.removed(estate, at, {estate: [seen for seen, _ in after]}):
+            row["removal_seen_at"], row["removed_on"] = after[-1]
+        row["absent_since"] = held.get("absent", {}).get(estate)
+        names = read.private_names(row)
+        if names:
+            private.append(names)
+        rows.append(row)
+    if len(held["estates"]) != len(rows) + len(unanswered) + len(aside):
+        raise AssertionError(f"{SCHEMA}: {len(held['estates'])} estates in, {len(rows)} read + {len(unanswered)} unanswered "
+                             f"+ {len(aside)} set aside")
     return {"estates": len(held["estates"]),
-            "published": _copy(conn, f"{schema}.estates", COLUMNS["estates"], rows),
-            "withheld": _copy(conn, f"{schema}.withheld", COLUMNS["withheld"], withheld),
+            "read": _copy(conn, f"{schema}.estates", COLUMNS["estates"], rows),
+            "suppressed": _copy(conn, f"{capture.private_of(schema)}.suppressed_names", COLUMNS["suppressed_names"], private),
+            "past_window": sum(1 for r in rows if r["window_unknown"] or (r["shown_until"] and r["shown_until"] < today)),
+            "removed": sum(1 for r in rows if r["removal_seen_at"]),
+            "unanswered": _copy(conn, f"{schema}.unanswered", COLUMNS["unanswered"], unanswered),
             "set_aside": _copy(conn, f"{schema}.set_aside", COLUMNS["set_aside"], aside),
             "seconds": round(time.monotonic() - t0, 1)}
 
 
+def flag_removals(conn, schema: str = SCHEMA) -> int:
+    """Every row the removals named at or after the answer it was read from, flagged with the latest such naming (the
+    removals job may run between a build and its publish). The rows flagged."""
+    return conn.execute(
+        f"UPDATE {schema}.estates e SET removal_seen_at = r.seen_at, removed_on = r.removed_on FROM (SELECT DISTINCT ON "
+        f"(r.estate) r.estate, r.seen_at, r.removed_on FROM {schema}.removals r JOIN {schema}.estates x ON x.estate_number "
+        f"= r.estate WHERE r.seen_at >= (SELECT max(c.at) FROM {schema}.calls c WHERE c.document = x.document) ORDER BY "
+        f"r.estate, r.seen_at DESC) r WHERE r.estate = e.estate_number AND e.removal_seen_at IS DISTINCT FROM r.seen_at"
+    ).rowcount
+
+
 def publish(conn, staging: str, log=print, schema: str = SCHEMA, views: bool = True) -> None:
-    """Into `schema` in one transaction; an estate the removals named after the answer its staged row was read from
-    (the removals job may run between the build and this) is taken out again before the views are made."""
+    """Into `schema` (and the suppressed names into its private schema) in one transaction; an estate the removals named
+    after the answer its staged row was read from (the removals job may run between the build and this) is flagged
+    before the views are made."""
     with conn.transaction():
         conn.execute(reading_sql(schema))
         for t in TABLES:
             conn.execute(f"INSERT INTO {schema}.{t} SELECT * FROM {staging}.{t}")
-        conn.execute(f"DELETE FROM {schema}.estates e USING {schema}.removals r WHERE r.estate = e.estate_number AND "
-                     f"r.seen_at >= (SELECT max(c.at) FROM {schema}.calls c WHERE c.document = e.document)")
+        for t in PRIVATE_TABLES:
+            conn.execute(f"INSERT INTO {capture.private_of(schema)}.{t} SELECT * FROM {capture.private_of(staging)}.{t}")
+        flag_removals(conn, schema)
         if views:
             with open(os.path.join(HERE, "publish.sql"), encoding="utf-8") as f:
                 conn.execute(f.read())
@@ -163,8 +193,9 @@ def job(log=print) -> int:
         with conn.transaction():
             counts = build(conn, STAGING)
         problems = check.reading(conn, STAGING)
-        detail = (f"{counts['estates']} estates: {counts['published']} published, {counts['withheld']} withheld, "
-                  f"{counts['set_aside']} set aside; " + ("; ".join(problems) or "reconciles"))
+        detail = (f"{counts['estates']} estates: {counts['read']} read ({counts['suppressed']} suppressed, "
+                  f"{counts['past_window']} past their window, {counts['removed']} named by the removals, all kept and "
+                  f"flagged), {counts['unanswered']} unanswered, {counts['set_aside']} set aside; " + ("; ".join(problems) or "reconciles"))
         if problems:
             log(f"{SCHEMA}: RED, nothing published: " + detail)
             jobrun.record(JOB, False, "nothing published: " + detail, started, {})

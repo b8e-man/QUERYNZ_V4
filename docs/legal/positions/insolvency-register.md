@@ -29,10 +29,14 @@ header, read from the credential folder (support's loader pattern).
    from a debt repayment order, except a person bankrupt two or more times, or bankrupt and discharged from a no asset
    procedure; suppressed estates and addresses are removed at once. A person's address is never published (hard limit 15).
 
-How the lane runs (`registers/insolvency/spec.md`): the date-range search daily for new and changed estates, the removals-and-corrections
-call daily with each removal applied the same day, each answer landed by hash, the retention windows above as a rule in the
-publish, never an address. The addresses and the month and year of birth are held (3 November 2026) only in the capture's
-private schema (`insolvency_private`, which no session or product login reads), never in a landed document or a published view, and an estate's are deleted the day the removals name it. Searching the public search page in bulk, or calling the search page's own back end in place of the
+How the lane runs (`registers/insolvency/spec.md`): the date-range search daily for new and changed estates, the
+removals-and-corrections call daily, each answer landed whole by hash. Ruling 142 (Arthur, 4 November 2026: keep
+everything the source gives; privacy and suppression applied at a product's export): every estate any answer names is
+kept and read, and the terms above are flags beside the row, not deletions: `removed_on` and `removal_seen_at` the day
+the removals name an estate (its row, its answers and its identifying fields kept), `past_window` once the display window
+ends, `suppressed` with the register's words (the estate's names kept by key in `insolvency_private.suppressed_names`),
+`annulled_on`. The addresses and the month and year of birth are in the landed answers and, by field, in the capture's
+private schema (`insolvency_private`, which no session or product login is granted), never in a published view. Searching the public search page in bulk, or calling the search page's own back end in place of the
 API, would get around the subscription, and is not done.
 
 Floor: 5 s between requests, one at a time, off-peak.

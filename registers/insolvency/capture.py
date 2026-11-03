@@ -9,8 +9,9 @@ in the estate's name, Arthur, 2 November 2026), through the fetch gate, one call
 The key is sent in the `Ocp-Apim-Subscription-Key` header the API's definition names (read 2 November 2026); it is read
 from ~/.querynz/insolvency.env (INSOLVENCY_API_KEY) at call time and is never printed, logged, landed or put in a URL.
 
-Every answer is landed with its address fields and month and year of birth taken out first (read.strip): the bytes as they
-arrived are hashed (`calls.received`) and never kept. The hours are 21:00 to 22:00 New Zealand time, before the companies
+Every answer is landed whole, as received (ruling 142, 4 November 2026; before that its address fields and month and year
+of birth were taken out first and the bytes as received only hashed, `calls.received`). The identifying fields are also
+kept by field in the private ledger, `insolvency_private.identifiers`. The hours are 21:00 to 22:00 New Zealand time, before the companies
 lane's 22:05 asks of the same host, and never on Wednesday (the interface's 21:00 to 23:00 maintenance); one call every
 FLOOR_S seconds (the position's floor). A failed read (a block, a challenge, a 401, 403, 429 or 5xx) stops the run.
 
@@ -27,7 +28,7 @@ import urllib.parse
 from zoneinfo import ZoneInfo
 
 from support import db
-from support.docstore.landing import land, withdraw
+from support.docstore.landing import land
 from registers.insolvency import read
 
 SOURCE = "insolvency"
@@ -107,8 +108,8 @@ class Answer:
 def call(conn, path: str, params: dict, why: str, *, estate: int = None, schema: str = SCHEMA, key: str = None,
          fetch=None, pacer=None, positions_dir: str = None, ledger_dir: str = None, sleep=time.sleep,
          clock=time.monotonic, now=now_nz) -> Answer:
-    """One gated call, never two at once, at least FLOOR_S apart; the answer landed stripped, the stripped fields kept in
-    the private ledger; the call recorded."""
+    """One gated call, never two at once, at least FLOOR_S apart; the answer landed whole, its identifying fields also
+    kept in the private ledger; the call recorded."""
     import hashlib
     from support import fetchgate
     url = url_for(path, params)
@@ -128,7 +129,7 @@ def call(conn, path: str, params: dict, why: str, *, estate: int = None, schema:
     body = b""
     if got.status == 200 and not blocked:
         try:
-            body = read.strip_bytes(got.body)
+            body = got.body
             kind = read.recognise(json.loads(body))
             if kind is None:
                 blocked = "HTTP 200 that is none of the three answers: a failed read"
@@ -151,15 +152,21 @@ def call(conn, path: str, params: dict, why: str, *, estate: int = None, schema:
 
 
 def keep_identifiers(conn, answer, call_id: int, at: dt.datetime, schema: str = SCHEMA) -> int:
-    """The fields the landing stripped, into the private ledger: a detail answer replaces its estate's rows whole, a
-    search page's results add or update theirs. Never landed, never published."""
+    """The identifying fields, into the private ledger, by estate and field: a search page's results add or update
+    theirs; a detail answer does too, and a field of that estate it no longer gives is marked `gone_at`, never deleted
+    (ruling 142). Never published."""
     rows = read.identifiers(answer)
+    p = private_of(schema)
     if read.recognise(answer) == "estate" and answer.get("estateNumber") is not None:
-        conn.execute(f"DELETE FROM {private_of(schema)}.identifiers WHERE estate = %s", (int(answer["estateNumber"]),))
+        conn.execute(f"UPDATE {p}.identifiers SET gone_at = %s WHERE estate = %s AND gone_at IS NULL AND at <= %s "
+                     f"AND NOT (field = ANY(%s))", (at, int(answer["estateNumber"]), at,
+                                                    [f for e, f, _ in rows if e == int(answer["estateNumber"])]))
     for estate, field, value in rows:
-        conn.execute(f"INSERT INTO {private_of(schema)}.identifiers (estate, field, value, call, at) VALUES (%s, %s, %s, %s, %s) "
+        conn.execute(f"INSERT INTO {p}.identifiers (estate, field, value, call, at) VALUES (%s, %s, %s, %s, %s) "
                      f"ON CONFLICT (estate, field) DO UPDATE SET value = EXCLUDED.value, call = EXCLUDED.call, "
-                     f"at = EXCLUDED.at WHERE {private_of(schema)}.identifiers.at <= EXCLUDED.at", (estate, field, value, call_id, at))
+                     f"at = EXCLUDED.at, gone_at = NULL, removed_at = NULL, removal_said = NULL "
+                     f"WHERE {p}.identifiers.at <= EXCLUDED.at",
+                     (estate, field, value, call_id, at))
     return len(rows)
 
 
@@ -168,28 +175,34 @@ def failed(a: Answer) -> bool:
     return bool(a.blocked) or a.status not in (200, 404)
 
 
-# --- the removals: the API's own term, applied the moment an estate is named ----------------------------------------
+# --- the removals: the API's own term, recorded as a flag the moment an estate is named -------------------------------
 
-def apply_removal(conn, estate: int, schema: str = SCHEMA, at: dt.datetime = None) -> int:
-    """The estate out of the lane's published tables at once, and every stored detail answer for it withdrawn (never
-    deleted: a captured document is withdrawn, hard rule of the store). Returns the rows taken out."""
-    n = conn.execute(f"DELETE FROM {schema}.estates WHERE estate_number = %s", (estate,)).rowcount \
+def removal_said(removed_on) -> str:
+    """The API's words for a removal, as the removals page gives them."""
+    return f"removedOrCorrectedInsolvencies, removedDate {removed_on}"
+
+
+def apply_removal(conn, estate: int, schema: str = SCHEMA, at: dt.datetime = None, removed_on=None) -> int:
+    """The estate flagged at once (ruling 142: a removal a source states is a flag beside the row, never a delete): its
+    row in the lane's tables gets `removed_on` and `removal_seen_at`, and its identifying fields from before the removal
+    `removed_at` and the API's words. Nothing is deleted and no document is withdrawn. Returns the rows flagged."""
+    at = at or now_nz()
+    n = conn.execute(f"UPDATE {schema}.estates SET removed_on = %s, removal_seen_at = %s WHERE estate_number = %s",
+                     (removed_on, at, estate)).rowcount \
         if conn.execute("SELECT to_regclass(%s) IS NOT NULL", (f"{schema}.estates",)).fetchone()[0] else 0
-    conn.execute(f"DELETE FROM {private_of(schema)}.identifiers WHERE estate = %s", (estate,))
-    why = f"insolvency register removal or correction named estate {estate} on {(at or now_nz()).date().isoformat()}"
-    withdraw([r[0] for r in conn.execute(f"SELECT DISTINCT document FROM {schema}.calls WHERE estate = %s AND why IN "
-                                         f"('detail', 'lookup') AND document IS NOT NULL", (estate,)).fetchall()], why, conn)
+    conn.execute(f"UPDATE {private_of(schema)}.identifiers SET removed_at = %s, removal_said = %s WHERE estate = %s "
+                 f"AND at <= %s", (at, removal_said(removed_on), estate, at))
     return n
 
 
 def run_removals(conn, schema: str = SCHEMA, *, today: dt.date = None, log=print, **gate) -> dict:
     """The daily job: every estate removed or corrected since the cursor, in spans of at most three months, every page;
-    each one taken out at once, then asked again (a correction comes back as a new detail; a removal stays out)."""
+    each one flagged at once, then asked again (a correction comes back as a new detail; a removal stays flagged)."""
     today = today or now_nz().date()
     conn.execute(ledger_sql(schema))
     row = conn.execute(f"SELECT value FROM {schema}.cursor WHERE what = 'removals'").fetchone()
     start = dt.date.fromisoformat(row[0]) if row else today - dt.timedelta(days=REMOVALS_MAX_SPAN_DAYS)
-    counts = {"calls": 0, "named": 0, "taken_out": 0, "asked_again": 0, "corrected": 0}
+    counts = {"calls": 0, "named": 0, "flagged": 0, "asked_again": 0, "corrected": 0}
     while start <= today:
         end = min(today, start + dt.timedelta(days=REMOVALS_MAX_SPAN_DAYS - 1))
         page = 1
@@ -205,7 +218,7 @@ def run_removals(conn, schema: str = SCHEMA, *, today: dt.date = None, log=print
             for estate, removed_on in named:
                 conn.execute(f"INSERT INTO {schema}.removals (estate, removed_on, call, seen_at) VALUES (%s, %s, %s, %s) "
                              f"ON CONFLICT DO NOTHING", (estate, removed_on, a.call, seen))
-                counts["taken_out"] += apply_removal(conn, estate, schema, seen)
+                counts["flagged"] += apply_removal(conn, estate, schema, seen, removed_on)
                 counts["named"] += 1
             conn.commit()
             if not named or page * REMOVALS_PAGE >= (total or 0):

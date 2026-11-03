@@ -129,20 +129,30 @@ def _night(env, api):
 def _load(env):
     counts = load.build(env.conn, STAGE, read_bytes=env.store.__getitem__, today=TODAY, version=1, ledger_schema=L)
     rows = {r[0]: r[1] for r in env.conn.execute(f"SELECT estate_number, kind FROM {STAGE}.estates").fetchall()}
-    withheld = dict(env.conn.execute(f"SELECT estate_number, reason FROM {STAGE}.withheld").fetchall())
-    return counts, rows, withheld
+    unanswered = dict(env.conn.execute(f"SELECT estate_number, reason FROM {STAGE}.unanswered").fetchall())
+    return counts, rows, unanswered
+
+
+def _flags(env, schema=STAGE):
+    return {r[0]: dict(zip(("suppressed", "past_window", "removal_seen_at", "absent_since", "name"), r[1:])) for r in
+            env.conn.execute(f"SELECT estate_number, suppressed, window_unknown OR shown_until < %s, removal_seen_at, "
+                             f"absent_since, name FROM {schema}.estates", (TODAY,)).fetchall()}
 
 
 def test_the_night_the_load_and_the_check(env):
     api = FakeAPI()
     out = _night(env, api)
     assert out["ok"] and out["details"] == 6 and out["stopped"] == "nothing wanted is left"
-    assert all("Invented Street" not in b.decode() and "Invented Road" not in b.decode() and "Birth" not in b.decode()
-               for b in env.store.values()), "an address or a birth field was landed"
-    counts, rows, withheld = _load(env)
-    assert set(rows) == {1001, 1004, 1005, 2001} and rows[1004] == "company"
-    assert withheld[1002].startswith("past its window") and withheld[1003].startswith("suppressed")
-    assert counts["estates"] == 6 and counts["set_aside"] == 0
+    assert any("1001 Invented Street" in b.decode() and "1001 Invented Road" in b.decode() and "yearOfBirth" in b.decode()
+               for b in env.store.values()), "the answers are landed whole (ruling 142), addresses and birth fields in them"
+    counts, rows, unanswered = _load(env)
+    assert set(rows) == {1001, 1002, 1003, 1004, 1005, 2001} and rows[1004] == "company" and not unanswered
+    f = _flags(env)
+    assert f[1002]["past_window"] and not f[1001]["past_window"] and not f[1005]["past_window"]
+    assert f[1003]["suppressed"] and f[1003]["name"] == "" and not f[1001]["suppressed"]
+    kept = env.conn.execute(f"SELECT key, name FROM {STAGE}_private.suppressed_names").fetchall()
+    assert kept == [("insolvency/1003", "Invented Person 1003")], "the suppressed estate's name is kept privately by key"
+    assert counts["estates"] == 6 and counts["set_aside"] == 0 and counts["suppressed"] == 1 and counts["past_window"] == 1
     problems = check.reading(env.conn, STAGE, L, TODAY)
     assert problems == ["estates are held and the removals-and-corrections operation has never been asked"]
     assert capture.run_removals(env.conn, L, today=TODAY, log=lambda *a: None, **_gate(api))["ok"]
@@ -160,21 +170,24 @@ def _published(env):
     return {r[0] for r in env.conn.execute(f"SELECT estate_number FROM {L}.estates").fetchall()}
 
 
-def test_a_removal_is_out_at_once_its_answers_withdrawn_and_asked_again(env):
+def test_a_removal_is_flagged_at_once_kept_and_asked_again(env):
+    """Ruling 142: the removals flag an estate, its row and its answers kept (before 4 November 2026 the row was deleted
+    and the answers withdrawn)."""
     _night(env, FakeAPI())
     _load(env)
     assert 1001 in _published(env)
     api = FakeAPI(removed={1001}, gone={1001})
     out = capture.run_removals(env.conn, L, today=TODAY, log=lambda *a: None, **_gate(api))
-    assert out["ok"] and out["named"] == 1 and out["taken_out"] == 1 and out["asked_again"] == 1 and out["corrected"] == 0
-    assert 1001 not in {r[0] for r in env.conn.execute(f"SELECT estate_number FROM {L}.estates").fetchall()}
-    shas = [r[0] for r in env.conn.execute(f"SELECT document FROM {L}.calls WHERE estate = 1001 AND why = 'detail'").fetchall()]
+    assert out["ok"] and out["named"] == 1 and out["flagged"] == 1 and out["asked_again"] == 1 and out["corrected"] == 0
+    assert _flags(env, L)[1001]["removal_seen_at"] is not None, "the row stays, flagged"
+    shas = [r[0] for r in env.conn.execute(f"SELECT document FROM {L}.calls WHERE estate = 1001 AND why = 'detail' "
+                                           f"AND document IS NOT NULL").fetchall()]
     w = landing.documents_of(shas, env.raw)
-    assert w and all(d["withdrawn"] and "removal or correction" in d["withdrawn"] for d in w.values()), \
-        "the removed estate's answers are withdrawn, never deleted"
+    assert w and not any(d["withdrawn"] for d in w.values()), "the removed estate's answers are not withdrawn"
     assert any(u.endswith("/insolvencies/1001") for u in api.urls)
-    _, rows, withheld = _load(env)
-    assert 1001 not in rows and withheld[1001] == "absent from the register when last asked"
+    _, rows, unanswered = _load(env)
+    f = _flags(env)[1001]
+    assert 1001 in rows and 1001 not in unanswered and f["removal_seen_at"] and f["absent_since"]
     assert check.reading(env.conn, STAGE, L, TODAY) == []
 
 
@@ -214,21 +227,23 @@ def test_a_removals_re_ask_does_not_make_an_estate_held_the_next_day(env):
 
 
 def test_the_removal_mutant_is_caught(env, monkeypatch):
-    """apply_removal made a no-op: the row stays after its removal, and the check goes red."""
+    """apply_removal made a no-op: the row is not flagged after its removal, and the check goes red."""
     _night(env, FakeAPI())
     _load(env)
     _published(env)
     monkeypatch.setattr(capture, "apply_removal", lambda *a, **k: 0)
     capture.run_removals(env.conn, L, today=TODAY, log=lambda *a: None, **_gate(FakeAPI(removed={1001}, gone={1001})))
     assert 1001 in {r[0] for r in env.conn.execute(f"SELECT estate_number FROM {L}.estates").fetchall()}
-    assert any("the removals named" in p for p in check.reading(env.conn, L, L, TODAY))
+    assert any("the removals named with no answer since, not flagged" in p for p in check.reading(env.conn, L, L, TODAY))
 
 
-def test_a_removal_between_build_and_publish_is_not_published(env):
+def test_a_removal_between_build_and_publish_is_flagged_at_publish(env):
     _night(env, FakeAPI())
     _load(env)
     capture.run_removals(env.conn, L, today=TODAY, log=lambda *a: None, **_gate(FakeAPI(removed={1001}, gone={1001})))
-    assert 1001 not in _published(env)          # staged before the removal; taken out again at publish
+    assert 1001 in _published(env)              # staged before the removal; kept, and flagged at publish
+    assert _flags(env, L)[1001]["removal_seen_at"] is not None
+    assert env.conn.execute(f"SELECT count(*) FROM {L}_private.suppressed_names").fetchone()[0] == 1
 
 
 def test_a_failed_read_stops_and_the_key_goes_in_the_header_only(env, monkeypatch):
@@ -266,42 +281,48 @@ def test_off_peak_and_the_lookup_limit(env):
         capture.lookup(env.conn, list(range(11)), L, **_gate(FakeAPI()))
 
 
-def test_the_window_and_suppression_mutants_are_caught_by_the_check(env, monkeypatch):
-    """The load's withholding made a no-op: the suppressed estate and the one past its window are staged, and the check
-    goes red on them."""
+def test_the_suppression_mutants_are_caught_by_the_check(env, monkeypatch):
+    """A suppressed estate whose names stay in its row, or whose flag is lost, is red."""
     from registers.insolvency import read
     _night(env, FakeAPI())
     capture.run_removals(env.conn, L, today=TODAY, log=lambda *a: None, **_gate(FakeAPI()))
-    monkeypatch.setattr(read, "why_withheld", lambda *a, **k: None)
-    _, rows, _ = _load(env)
-    assert {1002, 1003} <= set(rows)
-    assert any("suppressed, annulled or past their window" in p for p in check.reading(env.conn, STAGE, L, TODAY))
+    _load(env)
+    assert check.reading(env.conn, STAGE, L, TODAY) == []
+    monkeypatch.setattr(read, "private_names", lambda row: None)
+    _load(env)
+    assert any("with a name in the row" in p for p in check.reading(env.conn, STAGE, L, TODAY))
+    monkeypatch.setattr(read, "suppressed", lambda e: False)
+    _load(env)
+    assert any("suppression flag is not the register's words" in p for p in check.reading(env.conn, STAGE, L, TODAY))
 
 
 def _identifiers(env):
     return {(e, f): v for e, f, v in env.conn.execute(f"SELECT estate, field, value FROM {L}_private.identifiers").fetchall()}
 
 
-def test_the_stripped_fields_are_kept_privately_and_cleared_by_a_removal(env):
+def test_the_identifying_fields_are_kept_privately_and_flagged_by_a_removal(env):
     """3 November 2026 (Arthur: gather the identifying information too): the addresses and the month and year of birth
-    are in the private ledger, never in a landed document or a staged or published column; a removal clears them."""
+    are in the private ledger, never in a staged or published column; a removal flags them (ruling 142; it cleared
+    them before 4 November 2026)."""
     _night(env, FakeAPI())
     ids = _identifiers(env)
     assert ids[(1001, "addressAtAdjudication")] == "1001 Invented Street, Exampletown"
     assert ids[(1001, "monthOfBirth")] == "4" and ids[(1001, "yearOfBirth")] == "1971"
     assert "1001 Invented Road" in ids[(1001, "currentAddresses")]
-    assert all("Invented Street" not in b.decode() for b in env.store.values()), "an address was landed"
     _load(env)
     _published(env)
     api = FakeAPI(removed={1001}, gone={1001})
     assert capture.run_removals(env.conn, L, today=TODAY, log=lambda *a: None, **_gate(api))["ok"]
     left = _identifiers(env)
-    assert not any(e == 1001 for e, _ in left) and any(e == 1002 for e, _ in left)
+    assert left[(1001, "monthOfBirth")] == "4" and any(e == 1002 for e, _ in left), "kept through the removal"
+    flagged = {f for f, r in env.conn.execute(f"SELECT field, removed_at FROM {L}_private.identifiers WHERE estate = 1001")
+               .fetchall() if r is not None}
+    assert flagged >= {"monthOfBirth", "addressAtAdjudication"}
     assert not any(e == 9 or "Invented Way" in v for (e, _), v in left.items()), "a removals page gives no identifiers"
     _load(env)
     assert check.reading(env.conn, STAGE, L, TODAY) == []
-    env.conn.execute(f"INSERT INTO {L}_private.identifiers VALUES (1001, 'monthOfBirth', '4', 1, now() - interval '1 day')")
-    assert any("still hold identifying fields" in p for p in check.reading(env.conn, STAGE, L, TODAY))
+    env.conn.execute(f"UPDATE {L}_private.identifiers SET removed_at = NULL WHERE estate = 1001")
+    assert any("hold identifying fields from before, not flagged" in p for p in check.reading(env.conn, STAGE, L, TODAY))
 
 
 def test_the_identifying_fields_are_only_in_the_private_schema(env):

@@ -1,5 +1,5 @@
 """The terms of holding a copy, as read's rules, on answers shaped like the API definition's own examples (every name and
-number invented), and a mutant of each term rule (removal, window, suppression, and the address strip) caught. The mutants
+number invented), and a mutant of each term rule (removal, window, suppression, and the identifying fields) caught. The mutants
 are built in memory from read.py's source; no file is edited. Nothing is fetched."""
 import datetime as dt
 import json
@@ -25,44 +25,52 @@ def _estate(**kw):
 
 
 def rules(mod) -> list:
-    """Every term rule on invented answers; the names of those that do not hold."""
+    """Every term rule on invented answers; the names of those that do not hold. Ruling 142 (4 November 2026): every
+    rule is a flag beside the row, never a withholding."""
     broken = []
-    s = json.loads(mod.strip_bytes(json.dumps(_estate()).encode()))
-    if "Invented Street" in json.dumps(s) or "Invented Road" in json.dumps(s) or "Invented Lane" in json.dumps(s) \
-            or "monthOfBirth" in s or "yearOfBirth" in s or s.get("estateName") != "Invented Person Example":
-        broken.append("every address field and the month and year of birth are taken out before landing; the rest kept")
+    ids = {f for _, f, _ in mod.identifiers(_estate())}
+    if not {"addressAtAdjudication", "currentAddresses", "monthOfBirth", "yearOfBirth"} <= ids:
+        broken.append("every address field and the month and year of birth are gathered as identifying fields")
     if any("address" in k for k in mod.estate_row(_estate(), register="Insolvency", read_from="detail", document="d" * 64,
                                                     version=1)):
         broken.append("the row has no address column")
+
+    def past(e, register="Insolvency"):
+        return mod.flags(e, register, TODAY)["past_window"]
     # the window: four years from discharge
     old = _estate(insolvencyStatus="Discharged", dischargeOrCompletionDate="2020-01-01T00:00:00")
-    if mod.shown_until(old)[0] != dt.date(2024, 1, 1) or not (mod.why_withheld(old, "Insolvency", TODAY) or "").startswith("past"):
-        broken.append("a bankruptcy discharged more than four years ago is not shown")
-    recent = _estate(insolvencyStatus="Discharged", dischargeOrCompletionDate="2023-06-01")
-    if mod.why_withheld(recent, "Insolvency", TODAY) is not None:
-        broken.append("a bankruptcy discharged less than four years ago is shown")
-    if mod.why_withheld(_estate(insolvencyStatus="Discharged"), "Insolvency", TODAY) is None:
-        broken.append("a discharged estate with no discharge date is not shown")
+    if mod.shown_until(old)[0] != dt.date(2024, 1, 1) or not past(old):
+        broken.append("a bankruptcy discharged more than four years ago is flagged past its window")
+    if past(_estate(insolvencyStatus="Discharged", dischargeOrCompletionDate="2023-06-01")):
+        broken.append("a bankruptcy discharged less than four years ago is within its window")
+    if not past(_estate(insolvencyStatus="Discharged")):
+        broken.append("a discharged estate with no discharge date is flagged past its window")
     # five years from a debt repayment order
-    if mod.why_withheld(_estate(adjudicationOrLiquidationDate="2021-10-01"), "DRO", TODAY) is None:
-        broken.append("a debt repayment order more than five years old is not shown")
-    if mod.why_withheld(_estate(adjudicationOrLiquidationDate="2021-12-01"), "DRO", TODAY) is not None:
-        broken.append("a debt repayment order less than five years old is shown")
+    if not past(_estate(adjudicationOrLiquidationDate="2021-10-01"), "DRO"):
+        broken.append("a debt repayment order more than five years old is flagged past its window")
+    if past(_estate(adjudicationOrLiquidationDate="2021-12-01"), "DRO"):
+        broken.append("a debt repayment order less than five years old is within its window")
     # the stated exception, and a current estate
-    if mod.why_withheld(_estate(multipleInsolvencies=True, insolvencyStatus="Discharged",
-                                dischargeOrCompletionDate="2010-05-05"), "Insolvency", TODAY) is not None:
+    if past(_estate(multipleInsolvencies=True, insolvencyStatus="Discharged", dischargeOrCompletionDate="2010-05-05")):
         broken.append("a person bankrupt two or more times is the stated exception")
-    if mod.why_withheld(_estate(), "Insolvency", TODAY) is not None:
-        broken.append("a current bankruptcy is shown")
-    # suppression and annulment
+    if any(mod.flags(_estate(), "Insolvency", TODAY)[k] for k in ("suppressed", "annulled", "past_window")):
+        broken.append("a current bankruptcy carries no flag")
+    # suppression and annulment: flagged, the row kept, the names moved to the private schema by key
     for kw in ({"insolvencyStatus": "Suppressed"}, {"insolvencyTypeDescription": "Suppressed estate"}):
-        if not (mod.why_withheld(_estate(**kw), "Insolvency", TODAY) or "").startswith("suppressed"):
-            broken.append(f"a suppressed estate is never published ({kw})")
-    if mod.why_withheld(_estate(annulmentDate="2025-01-01"), "Insolvency", TODAY) is None:
-        broken.append("an annulled bankruptcy is not published")
+        row = mod.estate_row(_estate(**kw), register="Insolvency", read_from="detail", document="d" * 64, version=1)
+        names = mod.private_names(row)
+        if not (mod.flags(_estate(**kw), "Insolvency", TODAY)["suppressed"] and row["suppressed"]
+                and "uppress" in (row["suppressed_said"] or "") and names and names["name"] == "Invented Person Example"
+                and names["key"] == row["key"] and row["name"] == "" and row["court"] == "High Court"):
+            broken.append(f"a suppressed estate is kept and flagged, its names privately by key ({kw})")
+    plain = mod.estate_row(_estate(), register="Insolvency", read_from="detail", document="d" * 64, version=1)
+    if mod.private_names(plain) is not None or plain["name"] != "Invented Person Example":
+        broken.append("an estate not suppressed keeps its name in its row")
+    if not mod.flags(_estate(annulmentDate="2025-01-01"), "Insolvency", TODAY)["annulled"]:
+        broken.append("an annulled bankruptcy is flagged")
     # the removals
     if not mod.removed(1001, T0, {1001: [T0 + dt.timedelta(hours=1)]}) or not mod.removed(1001, T0, {1001: [T0]}):
-        broken.append("an estate the removals named at or after our latest answer is removed")
+        broken.append("an estate the removals named at or after our latest answer is flagged removed")
     if mod.removed(1001, T0, {1001: [T0 - dt.timedelta(days=1)]}) or mod.removed(1001, T0, {1002: [T0]}):
         broken.append("an answer after the removal (a correction) stands")
     return broken
@@ -113,7 +121,12 @@ def test_a_liquidation_is_a_company_however_it_is_answered():
     assert row(_estate(insolvencyTypeDescription="No Asset Procedure"))["kind"] == "person"
 
 
-def test_the_stripped_fields_are_gathered_by_estate_and_path():
+def test_nothing_is_stripped_from_an_answer():
+    """Ruling 142 (4 November 2026): the landing keeps the answer whole; the old `strip` and `_DROP` are gone."""
+    assert not hasattr(read, "strip") and not hasattr(read, "strip_bytes") and not hasattr(read, "why_withheld")
+
+
+def test_the_identifying_fields_are_gathered_by_estate_and_path():
     got = read.identifiers(_estate())
     assert (1001, "addressAtAdjudication.addressLine1", "1 Invented Street") not in got  # a dict is kept whole, as JSON
     assert dict(((f, v) for _, f, v in got))["monthOfBirth"] == "3"
@@ -132,9 +145,10 @@ MUTANTS = {
     "window (discharge)": ('return _years_after(end, WINDOW_YEARS["discharge"]), "four years from discharge"',
                            'return None, "four years from discharge"'),
     "window (debt repayment order)": ('WINDOW_YEARS = {"discharge": 4, "dro": 5}', 'WINDOW_YEARS = {"discharge": 4, "dro": 50}'),
-    "suppression": ('    if suppressed(e):\n        return "suppressed: never published"\n', ""),
-    "address strip": ('_DROP = re.compile(r"address|monthofbirth|yearofbirth", re.I)',
-                      '_DROP = re.compile(r"monthofbirth|yearofbirth", re.I)'),
+    "suppression": ('    return any("suppress" in str(e.get(k) or "").lower() for k in', '    return False and any(0 for k in'),
+    "suppressed names kept privately": ('    if not row.get("suppressed"):\n        return None\n', '    return None\n'),
+    "identifying fields": ('IDENTIFYING = re.compile(r"address|monthofbirth|yearofbirth", re.I)',
+                           'IDENTIFYING = re.compile(r"monthofbirth|yearofbirth", re.I)'),
 }
 
 

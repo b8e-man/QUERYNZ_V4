@@ -3,10 +3,11 @@
 reading(conn, schema) -> [problem]: the staged reading against the terms and against the API's own counts:
 
   - the removals are asked at least daily: once any estate is held, the removals cursor exists and is at most two days old
-  - no published row is suppressed, annulled, or past its window on the day of the check
-  - no published or staged column names an address or a birth date (the lane reads none)
-  - no estate the removals named holds identifying fields (addresses, month and year of birth) from before the removal
-  - in equals out: estates held = published + withheld + set aside (the build raises otherwise; repeated here on the tables)
+  - every estate is kept and flagged (ruling 142): a row whose status or type says suppressed carries `suppressed`, its
+    names in the private schema and none in the row; a row the removals named after its answer carries `removal_seen_at`
+  - no published or staged column names an address or a birth date (the identifying fields are in the private schema)
+  - every identifying field of an estate the removals named, from before the removal, is kept and flagged `removed_at`
+  - in equals out: estates held = read + unanswered + set aside (the build raises otherwise; repeated here on the tables)
   - against the API: for each register, the estates the latest walk saw are within 1% of the sum of `totalItems` the API
     reported on the first page of each month searched (a walk not finished says so and is not a failure)
 
@@ -34,27 +35,35 @@ def reading(conn, schema: str, ledger_schema: str = capture.SCHEMA, today: dt.da
         out.append("estates are held and the removals-and-corrections operation has never been asked")
     elif cur and (today - dt.date.fromisoformat(cur[0])).days > REMOVALS_MAX_AGE_DAYS:
         out.append(f"the removals were last asked to {cur[0]}: more than {REMOVALS_MAX_AGE_DAYS} days ago")
-    n = conn.execute(f"SELECT count(*) FROM {schema}.estates WHERE status ILIKE '%%suppress%%' OR insolvency_type ILIKE "
-                     f"'%%suppress%%' OR annulled_on IS NOT NULL OR shown_until < %s", (today,)).fetchone()[0]
+    p = capture.private_of(schema)
+    n = conn.execute(f"SELECT count(*) FROM {schema}.estates WHERE (status ILIKE '%%suppress%%' OR insolvency_type ILIKE "
+                     f"'%%suppress%%') IS DISTINCT FROM suppressed").fetchone()[0]
     if n:
-        out.append(f"{n} staged row(s) suppressed, annulled or past their window")
+        out.append(f"{n} staged row(s) whose suppression flag is not the register's words")
+    n = conn.execute(f"SELECT count(*) FROM {schema}.estates e WHERE e.suppressed AND (e.name <> '' OR e.alternate_names "
+                     f"IS NOT NULL OR e.trading_names IS NOT NULL OR e.organisation_name IS NOT NULL OR NOT EXISTS "
+                     f"(SELECT 1 FROM {p}.suppressed_names s WHERE s.key = e.key))").fetchone()[0] \
+        if conn.execute("SELECT to_regclass(%s) IS NOT NULL", (f"{p}.suppressed_names",)).fetchone()[0] else \
+        conn.execute(f"SELECT count(*) FROM {schema}.estates WHERE suppressed").fetchone()[0]
+    if n:
+        out.append(f"{n} suppressed row(s) with a name in the row or none kept privately")
     removed_after = conn.execute(
-        f"SELECT count(*) FROM {schema}.estates e WHERE EXISTS (SELECT 1 FROM {ledger_schema}.removals r WHERE "
-        f"r.estate = e.estate_number AND NOT EXISTS (SELECT 1 FROM {ledger_schema}.calls c WHERE c.estate = r.estate "
-        f"AND c.why IN ('detail', 'lookup') AND c.status = 200 AND c.at > r.seen_at) AND NOT EXISTS (SELECT 1 FROM "
-        f"{ledger_schema}.search_seen s JOIN {ledger_schema}.calls c ON c.id = s.call WHERE s.estate = r.estate AND "
-        f"c.status = 200 AND c.at > r.seen_at))").fetchone()[0]
+        f"SELECT count(*) FROM {schema}.estates e WHERE e.removal_seen_at IS NULL AND EXISTS (SELECT 1 FROM "
+        f"{ledger_schema}.removals r WHERE r.estate = e.estate_number AND NOT EXISTS (SELECT 1 FROM {ledger_schema}.calls c "
+        f"WHERE c.estate = r.estate AND c.why IN ('detail', 'lookup') AND c.status = 200 AND c.at > r.seen_at) AND NOT "
+        f"EXISTS (SELECT 1 FROM {ledger_schema}.search_seen s JOIN {ledger_schema}.calls c ON c.id = s.call WHERE "
+        f"s.estate = r.estate AND c.status = 200 AND c.at > r.seen_at))").fetchone()[0]
     # a search page naming the estate after the removal is the register's answer since, as the load reads it
     # (load.build: the latest answer, detail or search, against read.removed); 3 November 2026: 982 estates the first
     # removals run named came back in the night's search walk, and the check, counting details only, held the load
     if removed_after:
-        out.append(f"{removed_after} staged row(s) the removals named with no answer since")
+        out.append(f"{removed_after} staged row(s) the removals named with no answer since, not flagged")
     stale = conn.execute(
         f"SELECT count(DISTINCT i.estate) FROM {capture.private_of(ledger_schema)}.identifiers i JOIN {ledger_schema}.removals r ON "
-        f"r.estate = i.estate WHERE i.at <= r.seen_at").fetchone()[0] \
+        f"r.estate = i.estate WHERE i.at <= r.seen_at AND i.removed_at IS NULL").fetchone()[0] \
         if conn.execute("SELECT to_regclass(%s) IS NOT NULL", (f"{capture.private_of(ledger_schema)}.identifiers",)).fetchone()[0] else 0
     if stale:
-        out.append(f"{stale} estate(s) the removals named still hold identifying fields from before")
+        out.append(f"{stale} estate(s) the removals named hold identifying fields from before, not flagged")
     # the identifying fields only in the private schema (4 November 2026: they had sat in the lane's own schema, which
     # the session login reads), and that schema hidden from the session and product logins
     for s in {schema, ledger_schema}:
@@ -66,16 +75,16 @@ def reading(conn, schema: str, ledger_schema: str = capture.SCHEMA, today: dt.da
                         (role, capture.private_of(ledger_schema), role)).fetchone()[0]:
             out.append(f"{role} can see {capture.private_of(ledger_schema)}")
     for (col,) in conn.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = %s AND "
-                               "table_name IN ('estates', 'withheld', 'set_aside')", (schema,)).fetchall():
+                               "table_name IN ('estates', 'unanswered', 'set_aside')", (schema,)).fetchall():
         if any(w in col.lower() for w in _FORBIDDEN):
             out.append(f"a column {col} names an address or a birth date")
     for (col,) in conn.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = 'pub' AND "
                                "table_name IN ('insolvency_people', 'insolvency_companies')").fetchall():
         if any(w in col.lower() for w in _FORBIDDEN):
             out.append(f"a published column {col} names an address or a birth date")
-    pub_, wh, sa = (conn.execute(f"SELECT count(*) FROM {schema}.{t}").fetchone()[0] for t in ("estates", "withheld", "set_aside"))
+    pub_, wh, sa = (conn.execute(f"SELECT count(*) FROM {schema}.{t}").fetchone()[0] for t in ("estates", "unanswered", "set_aside"))
     if held != pub_ + wh + sa:
-        out.append(f"{held} estates held, {pub_} published + {wh} withheld + {sa} set aside")
+        out.append(f"{held} estates held, {pub_} read + {wh} unanswered + {sa} set aside")
     if held and sa > held * TOLERANCE:
         out.append(f"{sa} of {held} estates set aside: more than {TOLERANCE:.0%}")
     for register, said, seen in against_api(conn, ledger_schema):

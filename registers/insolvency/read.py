@@ -6,19 +6,22 @@ Three kinds of answer, each under its profile (profile-proposed.jsonl; recognise
   insolvency-register-search     GET /insolvencies: a page of search results (`searchResults`, `totalItems`)
   insolvency-register-removals   GET /insolvencies/removalorcorrections: a page of estates removed or corrected
 
-The terms the API's own page sets on holding a copy are rules here, each a function the load applies and a test pins:
+Every answer is landed whole, as received, and every estate any answer names is read into a row (ruling 142, 4 November
+2026: keep everything the source gives; privacy and suppression are applied at a product's export). The terms the
+API's own page sets are read as flags beside the row, each a function the load applies and a test pins:
 
-  removed(...)       an estate the removals operation named after our latest answer for it is not published, and the
-                     removals job deletes its rows from the lane's tables the moment it is named (capture.run_removals)
+  removed(...)       the removals operation named the estate at or after our latest answer for it: `removed_on`, the
+                     API's `removedDate`, and `removal_seen_at` on the row (capture.run_removals flags it at once)
   shown_until(...)   four years from discharge from bankruptcy or from a no asset procedure, five from a debt repayment
                      order; no limit for a person bankrupt two or more times (the register's `multipleInsolvencies`),
-                     the API's stated exception; a discharged estate with no discharge date is not shown
-  suppressed(...)    an estate whose status or type says suppressed is never published
+                     the API's stated exception; a discharged estate with no discharge date has no last day yet
+                     (`past_window` in the views: `shown_until < current_date`)
+  suppressed(...)    the estate's status or type says suppressed: `suppressed` and the register's words; the estate's
+                     names are kept in the lane's private schema (`insolvency_private.suppressed_names`, by key)
 
-No landed document and no published row holds a person's address: `strip(...)` takes every address field and the month
-and year of birth out of an answer before it is landed (the bytes as received are hashed, never kept), and the reader has
-no address column to fill. Those fields are gathered all the same (`identifiers(...)`, Arthur, 3 November 2026) into the
-capture's private ledger table, which the removals clear for an estate the moment they name it."""
+The identifying fields (every address field, the month and year of birth; `identifiers(...)`) are in the landed answer
+and are also kept by field in the capture's private ledger (`insolvency_private.identifiers`), the schema the session
+and product logins are never granted; the reader has no address column to fill."""
 import datetime as dt
 import json
 import re
@@ -27,35 +30,26 @@ READER = "registers.insolvency.read 1"
 PROFILES = {"estate": "insolvency-register-estate", "search": "insolvency-register-search",
             "removals": "insolvency-register-removals"}
 
-#: never landed, never read: any key naming an address, and the month and year of birth
-_DROP = re.compile(r"address|monthofbirth|yearofbirth", re.I)
+#: the identifying fields: any key naming an address, and the month and year of birth (kept in the private ledger)
+IDENTIFYING = re.compile(r"address|monthofbirth|yearofbirth", re.I)
 
 #: the display windows the API's page states, in years, by what the window runs from
 WINDOW_YEARS = {"discharge": 4, "dro": 5}
 
 
-def strip(obj):
-    """The answer without any address field or birth month and year, at any depth."""
-    if isinstance(obj, dict):
-        return {k: strip(v) for k, v in obj.items() if not _DROP.search(k)}
-    if isinstance(obj, list):
-        return [strip(v) for v in obj]
-    return obj
-
-
 def identifiers(obj) -> list:
-    """(estate number, field, value) for every field `strip` takes out of an estate's detail or a search page's results:
-    the addresses and the month and year of birth, kept by the capture in its private ledger (`identifiers`), never in a
-    landed document and never published (Arthur, 3 November 2026: gather the identifying information too). A field is
+    """(estate number, field, value) for every identifying field of an estate's detail or a search page's results: the
+    addresses and the month and year of birth, kept by the capture in its private ledger (`identifiers`; Arthur, 3
+    November 2026: gather the identifying information too). A field is
     its path from the estate ('addressAtAdjudication', 'partneredEstates[0].addressAtAdjudication'); a value that is not
-    text is written as compact JSON. A removals page gives none: what it names is what is taken out."""
+    text is written as compact JSON. A removals page gives none: it names estates only."""
     out = []
 
     def walk(estate, v, path):
         if isinstance(v, dict):
             for k, x in v.items():
                 p = f"{path}.{k}" if path else k
-                if _DROP.search(k):
+                if IDENTIFYING.search(k):
                     if x not in (None, "", [], {}):
                         out.append((estate, p, x if isinstance(x, str) else json.dumps(x, sort_keys=True,
                                     separators=(",", ":"), ensure_ascii=False)))
@@ -70,11 +64,6 @@ def identifiers(obj) -> list:
         if isinstance(e, dict) and e.get("estateNumber") is not None:
             walk(int(e["estateNumber"]), e, "")
     return out
-
-
-def strip_bytes(body: bytes) -> bytes:
-    """The bytes to land: the parsed answer stripped and written back canonically (sorted keys, no spaces)."""
-    return json.dumps(strip(json.loads(body)), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
 
 def recognise(obj) -> str | None:
@@ -107,8 +96,15 @@ def _years_after(d: dt.date, n: int) -> dt.date:
 
 
 def suppressed(e: dict) -> bool:
-    """The register marks an estate suppressed in its status or type; such an estate is never published."""
+    """The register marks an estate suppressed in its status or type: a flag on the row, its names kept privately."""
     return any("suppress" in str(e.get(k) or "").lower() for k in ("insolvencyStatus", "insolvencyTypeDescription", "status"))
+
+
+def suppressed_said(e: dict) -> str | None:
+    """The register's own words that mark the estate suppressed ('insolvencyStatus: Suppressed'), or None."""
+    said = [f"{k}: {e.get(k)}" for k in ("insolvencyStatus", "insolvencyTypeDescription", "status")
+            if "suppress" in str(e.get(k) or "").lower()]
+    return "; ".join(said) or None
 
 
 def discharged(e: dict) -> bool:
@@ -117,7 +113,8 @@ def discharged(e: dict) -> bool:
 
 
 def shown_until(e: dict, register: str = "Insolvency") -> tuple:
-    """(last day it may be shown or None for no limit, why). A company's liquidation by the Official Assignee carries no
+    """(the last day the API's terms let it be shown, or None for no limit, why); dt.date.min where the terms give no
+    day to count from. A flag only: every estate is read and kept whatever the window says. A company's liquidation by the Official Assignee carries no
     stated window and is shown while the register returns it."""
     if e.get("organisationName") and not e.get("estateName"):
         return None, "a company's estate: shown while the register returns it"
@@ -126,13 +123,13 @@ def shown_until(e: dict, register: str = "Insolvency") -> tuple:
     if register.upper() == "DRO":
         start = _date(e.get("adjudicationOrLiquidationDate"))
         if not start:
-            return dt.date.min, "a debt repayment order with no date: not shown"
+            return dt.date.min, "a debt repayment order with no date: no last day the API's terms give"
         return _years_after(start, WINDOW_YEARS["dro"]), "five years from the debt repayment order"
     if not discharged(e):
         return None, "current: shown while the register returns it"
     end = _date(e.get("dischargeOrCompletionDate"))
     if not end:
-        return dt.date.min, "discharged with no discharge date: not shown until a detail answer gives one"
+        return dt.date.min, "discharged with no discharge date: no last day until a detail answer gives one"
     return _years_after(end, WINDOW_YEARS["discharge"]), "four years from discharge"
 
 
@@ -164,7 +161,9 @@ def kind(e: dict) -> str:
 
 
 def estate_row(e: dict, *, register: str, read_from: str, document: str, version: int, place: str = None) -> dict:
-    """One estate's row from a detail answer or one search result; no address column exists to fill."""
+    """One estate's row from a detail answer or one search result, with its flags; no address column exists to fill. A
+    suppressed estate's names are not in this row (it lives in `insolvency`, which the session login reads) but in
+    `private_names(...)`, keyed by the same key."""
     org = e.get("organisationName")
     name = e.get("estateName") or org or ""
     until, _ = shown_until(e, register)
@@ -183,23 +182,33 @@ def estate_row(e: dict, *, register: str, read_from: str, document: str, version
         "office": e.get("officeForEnquiries") or e.get("officer"),
         "partnered_estates": [int(p["estateNumber"]) for p in (e.get("partneredEstates") or []) if p.get("estateNumber")] or None,
         "shown_until": None if until is None or until == dt.date.min else until,
+        "window_unknown": until == dt.date.min,
+        "suppressed": suppressed(e), "suppressed_said": suppressed_said(e),
+        "removed_on": None, "removal_seen_at": None, "absent_since": None,
         "read_from": read_from, "document": document, "page": None, "place": place, "reader": READER,
         "profile": PROFILES["estate" if read_from == "detail" else "search"], "profile_version": version,
     }
 
 
-def why_withheld(e: dict, register: str, today: dt.date) -> str | None:
-    """Why an estate is not published, or None: suppressed, annulled, past its window, or no name."""
-    if suppressed(e):
-        return "suppressed: never published"
-    if e.get("annulmentDate"):
-        return "annulled: the bankruptcy was set aside"
+NAME_COLUMNS = ("name", "alternate_names", "trading_names", "organisation_name")
+
+
+def private_names(row: dict) -> dict | None:
+    """A suppressed estate's names, out of its row and into the private schema's `suppressed_names` by key; the row keeps
+    the flag, the register's words and every other field. None for an estate that is not suppressed."""
+    if not row.get("suppressed"):
+        return None
+    out = {"key": row["key"], "estate_number": row["estate_number"], "suppressed_said": row.get("suppressed_said"),
+           **{c: row.get(c) for c in NAME_COLUMNS}}
+    row.update({"name": "", "alternate_names": None, "trading_names": None, "organisation_name": None})
+    return out
+
+
+def flags(e: dict, register: str, today: dt.date) -> dict:
+    """The terms' flags for one estate on `today`: suppressed, annulled, past its window. Nothing is withheld by them."""
     until, why = shown_until(e, register)
-    if until is not None and until < today:
-        return f"past its window ({why})"
-    if not (e.get("estateName") or e.get("organisationName")):
-        return "no name the register gives"
-    return None
+    return {"suppressed": suppressed(e), "annulled": bool(e.get("annulmentDate")),
+            "past_window": until is not None and until < today, "window": why}
 
 
 def search_results(body: bytes) -> tuple:
