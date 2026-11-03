@@ -276,3 +276,30 @@ def test_the_window_and_suppression_mutants_are_caught_by_the_check(env, monkeyp
     _, rows, _ = _load(env)
     assert {1002, 1003} <= set(rows)
     assert any("suppressed, annulled or past their window" in p for p in check.reading(env.conn, STAGE, L, TODAY))
+
+
+def _identifiers(env):
+    return {(e, f): v for e, f, v in env.conn.execute(f"SELECT estate, field, value FROM {L}.identifiers").fetchall()}
+
+
+def test_the_stripped_fields_are_kept_privately_and_cleared_by_a_removal(env):
+    """3 November 2026 (Arthur: gather the identifying information too): the addresses and the month and year of birth
+    are in the private ledger, never in a landed document or a staged or published column; a removal clears them."""
+    _night(env, FakeAPI())
+    ids = _identifiers(env)
+    assert ids[(1001, "addressAtAdjudication")] == "1001 Invented Street, Exampletown"
+    assert ids[(1001, "monthOfBirth")] == "4" and ids[(1001, "yearOfBirth")] == "1971"
+    assert "1001 Invented Road" in ids[(1001, "currentAddresses")]
+    assert all("Invented Street" not in b.decode() for b in env.store.values()), "an address was landed"
+    _load(env)
+    _published(env)
+    api = FakeAPI(removed={1001}, gone={1001})
+    assert capture.run_removals(env.conn, L, today=TODAY, log=lambda *a: None, **_gate(api))["ok"]
+    left = _identifiers(env)
+    assert not any(e == 1001 for e, _ in left) and any(e == 1002 for e, _ in left)
+    assert not any(e == 9 or "Invented Way" in v for (e, _), v in left.items()), "a removals page gives no identifiers"
+    _load(env)
+    assert check.reading(env.conn, STAGE, L, TODAY) == []
+    env.conn.execute(f"INSERT INTO {L}.identifiers VALUES (1001, 'monthOfBirth', '4', 1, now() - interval '1 day')")
+    assert any("still hold identifying fields" in p for p in check.reading(env.conn, STAGE, L, TODAY))
+

@@ -113,6 +113,20 @@ def test_a_liquidation_is_a_company_however_it_is_answered():
     assert row(_estate(insolvencyTypeDescription="No Asset Procedure"))["kind"] == "person"
 
 
+def test_the_stripped_fields_are_gathered_by_estate_and_path():
+    got = read.identifiers(_estate())
+    assert (1001, "addressAtAdjudication.addressLine1", "1 Invented Street") not in got  # a dict is kept whole, as JSON
+    assert dict(((f, v) for _, f, v in got))["monthOfBirth"] == "3"
+    fields = {f for _, f, _ in got}
+    assert fields == {"addressAtAdjudication", "currentAddresses", "monthOfBirth", "yearOfBirth",
+                      "partneredEstates[0].addressAtAdjudication"}
+    page = {"searchResults": [_estate(estateNumber=7), _estate(estateNumber=8, monthOfBirth=None)], "totalItems": 2, "page": 1}
+    assert {(e, f) for e, f, _ in read.identifiers(page)} >= {(7, "yearOfBirth"), (8, "yearOfBirth")}
+    assert (8, "monthOfBirth") not in {(e, f) for e, f, _ in read.identifiers(page)}
+    rem = {"removedOrCorrectedInsolvencies": [{"estateNumber": 5, "addressAtAdjudication": "x"}], "totalItems": 1}
+    assert read.identifiers(rem) == []
+
+
 MUTANTS = {
     "removal": ("return any(seen >= answered_at for seen in removals.get(estate, ()))", "return False"),
     "window (discharge)": ('return _years_after(end, WINDOW_YEARS["discharge"]), "four years from discharge"',

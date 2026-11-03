@@ -15,9 +15,10 @@ The terms the API's own page sets on holding a copy are rules here, each a funct
                      the API's stated exception; a discharged estate with no discharge date is not shown
   suppressed(...)    an estate whose status or type says suppressed is never published
 
-No address of a person is ever read: `strip(...)` takes every address field and the month and year of birth out of an
-answer before it is landed (the bytes as received are hashed, never kept), and the reader has no address column to fill.
-"""
+No landed document and no published row holds a person's address: `strip(...)` takes every address field and the month
+and year of birth out of an answer before it is landed (the bytes as received are hashed, never kept), and the reader has
+no address column to fill. Those fields are gathered all the same (`identifiers(...)`, Arthur, 3 November 2026) into the
+capture's private ledger table, which the removals clear for an estate the moment they name it."""
 import datetime as dt
 import json
 import re
@@ -40,6 +41,35 @@ def strip(obj):
     if isinstance(obj, list):
         return [strip(v) for v in obj]
     return obj
+
+
+def identifiers(obj) -> list:
+    """(estate number, field, value) for every field `strip` takes out of an estate's detail or a search page's results:
+    the addresses and the month and year of birth, kept by the capture in its private ledger (`identifiers`), never in a
+    landed document and never published (Arthur, 3 November 2026: gather the identifying information too). A field is
+    its path from the estate ('addressAtAdjudication', 'partneredEstates[0].addressAtAdjudication'); a value that is not
+    text is written as compact JSON. A removals page gives none: what it names is what is taken out."""
+    out = []
+
+    def walk(estate, v, path):
+        if isinstance(v, dict):
+            for k, x in v.items():
+                p = f"{path}.{k}" if path else k
+                if _DROP.search(k):
+                    if x not in (None, "", [], {}):
+                        out.append((estate, p, x if isinstance(x, str) else json.dumps(x, sort_keys=True,
+                                    separators=(",", ":"), ensure_ascii=False)))
+                else:
+                    walk(estate, x, p)
+        elif isinstance(v, list):
+            for i, x in enumerate(v):
+                walk(estate, x, f"{path}[{i}]")
+
+    kind = recognise(obj)
+    for e in ([obj] if kind == "estate" else obj.get("searchResults") or [] if kind == "search" else []):
+        if isinstance(e, dict) and e.get("estateNumber") is not None:
+            walk(int(e["estateNumber"]), e, "")
+    return out
 
 
 def strip_bytes(body: bytes) -> bytes:

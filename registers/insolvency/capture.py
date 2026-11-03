@@ -101,7 +101,8 @@ class Answer:
 def call(conn, path: str, params: dict, why: str, *, estate: int = None, schema: str = SCHEMA, key: str = None,
          fetch=None, pacer=None, positions_dir: str = None, ledger_dir: str = None, sleep=time.sleep,
          clock=time.monotonic, now=now_nz) -> Answer:
-    """One gated call, never two at once, at least FLOOR_S apart; the answer landed stripped; the call recorded."""
+    """One gated call, never two at once, at least FLOOR_S apart; the answer landed stripped, the stripped fields kept in
+    the private ledger; the call recorded."""
     import hashlib
     from support import fetchgate
     url = url_for(path, params)
@@ -138,7 +139,22 @@ def call(conn, path: str, params: dict, why: str, *, estate: int = None, schema:
                        f"blocked) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
                        (at, at.date(), why, f"{path}?{asked}" if asked else path, estate, got.status, sha, received,
                         total, blocked)).fetchone()[0]
+    if sha:
+        keep_identifiers(conn, json.loads(got.body), cid, at, schema)
     return Answer(got.status, body if sha else b"", sha, blocked, total, cid)
+
+
+def keep_identifiers(conn, answer, call_id: int, at: dt.datetime, schema: str = SCHEMA) -> int:
+    """The fields the landing stripped, into the private ledger: a detail answer replaces its estate's rows whole, a
+    search page's results add or update theirs. Never landed, never published."""
+    rows = read.identifiers(answer)
+    if read.recognise(answer) == "estate" and answer.get("estateNumber") is not None:
+        conn.execute(f"DELETE FROM {schema}.identifiers WHERE estate = %s", (int(answer["estateNumber"]),))
+    for estate, field, value in rows:
+        conn.execute(f"INSERT INTO {schema}.identifiers (estate, field, value, call, at) VALUES (%s, %s, %s, %s, %s) "
+                     f"ON CONFLICT (estate, field) DO UPDATE SET value = EXCLUDED.value, call = EXCLUDED.call, "
+                     f"at = EXCLUDED.at WHERE {schema}.identifiers.at <= EXCLUDED.at", (estate, field, value, call_id, at))
+    return len(rows)
 
 
 def failed(a: Answer) -> bool:
@@ -153,6 +169,7 @@ def apply_removal(conn, estate: int, schema: str = SCHEMA, at: dt.datetime = Non
     deleted: a captured document is withdrawn, hard rule of the store). Returns the rows taken out."""
     n = conn.execute(f"DELETE FROM {schema}.estates WHERE estate_number = %s", (estate,)).rowcount \
         if conn.execute("SELECT to_regclass(%s) IS NOT NULL", (f"{schema}.estates",)).fetchone()[0] else 0
+    conn.execute(f"DELETE FROM {schema}.identifiers WHERE estate = %s", (estate,))
     why = f"insolvency register removal or correction named estate {estate} on {(at or now_nz()).date().isoformat()}"
     withdraw([r[0] for r in conn.execute(f"SELECT DISTINCT document FROM {schema}.calls WHERE estate = %s AND why IN "
                                          f"('detail', 'lookup') AND document IS NOT NULL", (estate,)).fetchall()], why, conn)

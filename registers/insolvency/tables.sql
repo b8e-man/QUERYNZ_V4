@@ -34,6 +34,19 @@ CREATE TABLE IF NOT EXISTS {s}.search_seen (
     call        bigint NOT NULL
 );
 
+-- the identifying fields the landing strips (every address field, the month and year of birth), by estate and field,
+-- from the latest answer that gave them: never in a landed document, never published, never read by the load. A detail
+-- answer replaces its estate's rows whole (a corrected address replaces the old one); the removals delete an estate's
+-- rows the moment they name it (the API's term: suppressed and corrected addresses removed at once)
+CREATE TABLE IF NOT EXISTS {s}.identifiers (
+    estate      bigint NOT NULL,
+    field       text NOT NULL,
+    value       text NOT NULL,
+    call        bigint NOT NULL,
+    at          timestamptz NOT NULL,
+    PRIMARY KEY (estate, field)
+);
+
 -- how far the removals have been asked: date_to of the last complete removals run
 CREATE TABLE IF NOT EXISTS {s}.cursor (
     what        text PRIMARY KEY,

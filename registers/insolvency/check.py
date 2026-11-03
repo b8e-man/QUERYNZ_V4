@@ -5,6 +5,7 @@ reading(conn, schema) -> [problem]: the staged reading against the terms and aga
   - the removals are asked at least daily: once any estate is held, the removals cursor exists and is at most two days old
   - no published row is suppressed, annulled, or past its window on the day of the check
   - no published or staged column names an address or a birth date (the lane reads none)
+  - no estate the removals named holds identifying fields (addresses, month and year of birth) from before the removal
   - in equals out: estates held = published + withheld + set aside (the build raises otherwise; repeated here on the tables)
   - against the API: for each register, the estates the latest walk saw are within 1% of the sum of `totalItems` the API
     reported on the first page of each month searched (a walk not finished says so and is not a failure)
@@ -43,6 +44,12 @@ def reading(conn, schema: str, ledger_schema: str = capture.SCHEMA, today: dt.da
         f"AND c.why IN ('detail', 'lookup') AND c.status = 200 AND c.at > r.seen_at))").fetchone()[0]
     if removed_after:
         out.append(f"{removed_after} staged row(s) the removals named with no answer since")
+    stale = conn.execute(
+        f"SELECT count(DISTINCT i.estate) FROM {ledger_schema}.identifiers i JOIN {ledger_schema}.removals r ON "
+        f"r.estate = i.estate WHERE i.at <= r.seen_at").fetchone()[0] \
+        if conn.execute("SELECT to_regclass(%s) IS NOT NULL", (f"{ledger_schema}.identifiers",)).fetchone()[0] else 0
+    if stale:
+        out.append(f"{stale} estate(s) the removals named still hold identifying fields from before")
     for (col,) in conn.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = %s AND "
                                "table_name IN ('estates', 'withheld', 'set_aside')", (schema,)).fetchall():
         if any(w in col.lower() for w in _FORBIDDEN):
