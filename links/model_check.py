@@ -47,6 +47,29 @@ def text_for(conn, view: str, document: str) -> str:
     return t or S.text_of(conn, "parliament-wayback", document)
 
 
+#: the views whose document text is a column of a published view: fetched for many documents at once (4 November 2026: the
+#: one-document lookups of pub.parliament_written_questions, which has no index on `document`, each scanned the view's 1.35
+#: million rows, and 63,256 new parliament documents stopped the nightly build at its deadline)
+BULK = {"parliament_people": (
+    "SELECT document, concat_ws(E'\\n\\n', title, question_text, reply_text) FROM pub.parliament_written_questions "
+    "WHERE document = ANY(%s)",
+    "SELECT document, text FROM pub.parliament_wayback_pages WHERE document = ANY(%s) AND coalesce(text, '') <> ''")}
+BULK_BATCH = 20000
+
+
+def bulk_texts(conn, view: str, documents: list) -> dict:
+    """{document: text} for the documents of a BULK view, a batch of documents per query (the first view holding one
+    wins, as text_for reads them)."""
+    out = {}
+    for sql in BULK.get(view, ()):
+        want = [d for d in documents if d not in out]
+        for i in range(0, len(want), BULK_BATCH):
+            for d, t in conn.execute(sql, (want[i:i + BULK_BATCH],)).fetchall():
+                if t and d not in out:
+                    out[d] = t
+    return out
+
+
 def check_view(conn, reader, view: str, sql: str, schema: str = "links", log=print) -> dict:
     """Check every (document, name) of `view` (its links.rows source query `sql`) not checked before. Returns counts."""
     assert view in MODEL_VIEWS, view
@@ -63,9 +86,11 @@ def check_view(conn, reader, view: str, sql: str, schema: str = "links", log=pri
                 todo[document].add(name)
     out = {"documents": len(todo), "names": 0, "not_printed": 0, "not_opened": 0}
     rows = []
+    pre = bulk_texts(reader, view, sorted(todo)) if view in BULK else {}
     for document, names in todo.items():
         try:
-            text = f" {S.norm(text_for(reader, view, document))} "
+            # a BULK view's document found in neither view has no text: the bulk read looked in both
+            text = f" {S.norm(pre.get(document, '') if view in BULK else text_for(reader, view, document))} "
             ok = text.strip() != ""
         except Exception:  # noqa: BLE001 — a document that cannot be opened sets its names aside, never through
             ok = False

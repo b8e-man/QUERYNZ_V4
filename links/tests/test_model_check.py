@@ -28,3 +28,21 @@ def test_every_model_view_is_a_source_the_check_reads_with_name_and_document_whe
         if v in MODEL_VIEWS:
             cols = sql.split("FROM")[0]
             assert cols.split(",")[1].strip() == "name" and cols.split(",")[7].strip() == "document", v
+
+
+def test_parliament_texts_are_read_in_bulk_not_one_document_at_a_time():
+    """4 November 2026: one lookup per document scanned 1.35 million rows each, and the nightly build met its deadline."""
+    calls = []
+
+    class Conn:
+        def execute(self, sql, args=()):
+            calls.append(sql)
+            docs = args[0]
+            rows = [(d, f"text of {d}") for d in docs if "written_questions" in sql and d != "w"] + \
+                   [(d, "wayback text") for d in docs if "wayback" in sql and d == "w"]
+            return type("R", (), {"fetchall": lambda self: rows})()
+
+    got = M.bulk_texts(Conn(), "parliament_people", ["a", "b", "w"])
+    assert got == {"a": "text of a", "b": "text of b", "w": "wayback text"}
+    assert len(calls) == 2, "one query per view for every document, never one per document"
+    assert M.bulk_texts(Conn(), "court_people", ["a"]) == {}
