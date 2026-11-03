@@ -1301,3 +1301,26 @@ are applied once, at a product's export. The address rules of links
 measurements §15 and §16 are built as recommended, without the sample pairs.
 Rulings and lane rules that withheld, stripped or excluded for privacy or
 suppression give way to this one.
+
+143. Ruling 142's reach, read by the integrator on 4 November when Arthur
+asked for the conflicting rulings. These give way to 142 in what they
+withheld, stripped, deleted or left out; what else they say stands:
+42 ("never ... extractable": a home address is extracted and kept; it is
+still never shown by a product), 58 (the Tenancy Tribunal lane's tables
+carry names and addresses), 64 (a charity's address for service is kept
+and published for every charity, with a flag where the charity is not a
+body corporate), 83 (the near-match section may match any address the
+board's views hold), the board graph's "never an address edge,
+suppression as before" (address links are edges like any other), 122 (the
+chat pane reads what the board reads), 126's "the lane's suppression
+lever" and 128 (4)'s "rules of the build" (suppression is a flag; the
+hard limits bind products, exports and sessions). Six queue items are
+answered by 142 and closed: a councillor's spouse's or partner's
+interests are read and kept; the interests register's real-property
+declarations are kept whole; Building Practitioners Board decisions,
+regulators' actions and overseas investment rows naming a person stay
+after the publisher takes them down, flagged with the date it did; an
+overseas investment summary's land address is kept and published. Not
+touched: the hard limits in CLAUDE.md (they bind surfaces, exports and
+what a session prints, not what the database holds), and hard limit 17
+(Papers Past searched, not mined), which is not a privacy rule.
