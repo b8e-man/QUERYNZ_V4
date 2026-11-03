@@ -1,0 +1,53 @@
+# THE DECLARED GAPS (checks/source_lights.py): a register whose corpus is
+# known not to be whole while its updates work, so its light on the board
+# is orange. One [[gap]] each: the register (as the board's catalogue names
+# it), the reason in plain words, the date it was declared, and its source.
+# A gap closed is a line deleted, in the commit that closes it.
+
+[[gap]]
+register = "courts"
+reason = "the ingest MCP lacks most of the High Court and Court of Appeal back catalogue (31,554 and 10,326 decisions by its own gaps tool) and holds no Tenancy Tribunal, Waitangi Tribunal or Māori Land Court decisions"
+since = "2026-11-03"
+source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 1"
+
+[[gap]]
+register = "courts"
+reason = "the estate's own capture of Judicial Decisions Online, the decisions finder and the Employment Relations Authority is walking the back catalogue, about 10 to 12 nights from 3 November"
+since = "2026-11-04"
+source = "support/scheduler/jobs.toml, qv4-courts-jdo-capture and qv4-courts-era-capture (about nine, three and four nights); Arthur, 4 November 2026"
+
+[[gap]]
+register = "tenders"
+reason = "GETS is one day's crawl in the ingest MCP: closed tenders only from July 2014 to September 2015, 6 awards, no future or late lists"
+since = "2026-11-03"
+source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 2"
+
+[[gap]]
+register = "parliament"
+reason = "the ingest MCP lacks bill texts, SOPs before the 54th Parliament, select committee reports before 15 November 2024, the submissions themselves, and written questions before 2003 and their 44,584 attachments"
+since = "2026-11-03"
+source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 3"
+
+[[gap]]
+register = "hansard"
+reason = "the ingest MCP lacks everything before 11 February 2003, the corrected version of 35 days from 28 April 2026, and any sitting after 23 September 2026"
+since = "2026-11-03"
+source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 3"
+
+[[gap]]
+register = "ministers_diaries"
+reason = "the ingest MCP lacks the release PDFs, September and October 2026, and the PDF address of 119 releases"
+since = "2026-11-03"
+source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 3"
+
+[[gap]]
+register = "insolvency"
+reason = "the nightly search is still walking adjudication dates back a month at a time towards 1990"
+since = "2026-11-04"
+source = "registers/insolvency/capture.py, SEARCH_FROM; Arthur, 4 November 2026"
+
+[[gap]]
+register = "tenancy_tribunal"
+reason = "20,778 of the listing's 33,847 orders held; 13,069 wait while the host resets every PDF (since 25 October)"
+since = "2026-11-04"
+source = "commit 560df5c (13,069 orders wait); Arthur, 4 November 2026"

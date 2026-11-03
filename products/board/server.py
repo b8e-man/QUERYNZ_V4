@@ -52,7 +52,7 @@ import urllib.parse
 from support.docstore import landing as docstore
 from products.board import assets
 from products.board import catalogue as cat
-from products.board import chat, collapse, db, document, dossier, graph, lineage, links_view, near, panes, people, search, state, uses
+from products.board import chat, collapse, db, document, dossier, graph, lights, lineage, links_view, near, panes, people, search, state, uses
 
 PORT = int(os.environ.get("QV4_BOARD_PORT") or 8420)
 BIND = os.environ.get("QV4_BOARD_BIND") or "0.0.0.0"   # the local network; never a public address (hard limit 13)
@@ -250,7 +250,7 @@ def render(q: str, path: list, message: str = "", conn=None, boxes: search.Boxes
         for v, r in listed:
             if links_view.ref(v, r["key"]) in related:
                 r["_related"] = related[links_view.ref(v, r["key"])]
-        out = [panes.left_pane(q, search.held_registers(held), boxes)]
+        out = [panes.left_pane(q, search.held_registers(held), boxes, lights=lights.current())]
         if near_names:
             out.append(panes.near_names_pane(q, near.near_names(conn, q, asked, registers=regs, held=held), boxes))
         ents = None

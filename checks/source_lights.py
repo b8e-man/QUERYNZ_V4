@@ -1,0 +1,521 @@
+"""The source lights (Arthur, 4 November 2026): one light for every register
+on the board's search pane, with a one-line reason in plain words.
+
+  red     updates not working: the last run of a job that keeps the source
+          current failed; or no good run inside that job's cadence and a
+          grace; or a host the lane reads is held by the fetch gate (ruling
+          141); or, for a lane the ingest MCP feeds, the last pull caught a
+          record or met new fields in the lane's corpus
+  orange  updates working, the corpus not whole: a reader or backfill with
+          pieces outstanding, documents waiting on a reader in the lane's
+          published documents view, the lane's own count short of the
+          source's, or a declared gap (`checks/source_gaps.toml`)
+  green   updates working, nothing outstanding, no declared gap
+  grey    no update job on a clock (loaded by the merge gate's staging
+          step, or on demand)
+
+The registers are read from `products/board/catalogue.py` as a file (its
+REGISTERS and NOT_HELD tuples, by ast; checks may not import products), so
+a register the board adds shows grey until `LANES` names its jobs. The
+cadence of a job is its own (`every_s`, or a day for `at_utc`) or, for a job
+with no clock, the job that queues it (`then`): it is late when that job
+finished and it has not run since. A job new to its clock (the scheduler's
+timetable row says so) is judged from the slot it was put on the clock at.
+
+`compute()` is pure: it takes the facts and the clock. `gather()` reads
+them: the scheduler's queue and timetable (read login), the gate's refusals,
+the last pull's run record, and two published views.
+
+    python -m checks.source_lights            compute and write <live>/checks/source-lights.json
+    python -m checks.source_lights --print    compute and print, writing nothing
+
+The `qv4-source-lights` job runs it every 30 minutes. The board reads the
+file (products/board/lights.py). Tests: checks/tests/test_source_lights.py."""
+from __future__ import annotations
+
+import argparse
+import ast
+import dataclasses
+import datetime as dt
+import json
+import os
+import sys
+import tomllib
+import zoneinfo
+
+from support import fetchgate
+from support.scheduler import registry as reg
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HERE)
+LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
+LIGHTS_FILE = os.path.join(LIVE, "checks", "source-lights.json")
+GAPS_FILE = os.path.join(HERE, "source_gaps.toml")
+CATALOGUE = os.path.join(REPO, "products", "board", "catalogue.py")
+JOB = "qv4-source-lights"
+MCP_PULL = "qv4-mcp-pull"
+GRACE_S = 6 * 3600          # past a job's cadence and its own deadline, before it counts as late
+DAY_S = 86400
+ZONE = zoneinfo.ZoneInfo("Pacific/Auckland")
+RED, ORANGE, GREEN, GREY = "red", "orange", "green", "grey"
+LIGHTS = (RED, ORANGE, GREEN, GREY)
+
+
+@dataclasses.dataclass(frozen=True)
+class Lane:
+    update: tuple = ()      # the jobs that keep the source current: capture, pull, load, refresh, watch
+    read: tuple = ()        # its readers and backfills (pieced): outstanding pieces make it orange, a failed run red
+    corpora: tuple = ()     # the ingest MCP's corpora the lane reads (qv4-mcp-pull's run record, per corpus)
+    hosts: tuple = ()       # hosts its own capture asks (as the code names them; "www." is ignored)
+    positions: tuple = ()   # legal positions whose `hosts:` lines it reads under (docs/legal/positions/)
+    waiting: tuple = ()     # (pub view, SQL condition) counting its documents waiting on a reader
+    coverage: str = ""      # a key of COVERAGE: the lane's own count against the source's
+    note: str = ""          # why there is no update job
+
+
+MERGE_GATE = "loaded by the merge gate's staging step"
+#: register -> its lane, read from each lane's spec `jobs:` line and support/scheduler/jobs.toml (4 November 2026)
+LANES = {
+    "party_returns": Lane(read=("qv4-read-pages",), note=MERGE_GATE),
+    "disclosures": Lane(update=("qv4-disclosures-load",), read=("qv4-disclosures-read",)),
+    "parties": Lane(note=MERGE_GATE),
+    "party_finance": Lane(read=("qv4-read-pages-expenses",), note=MERGE_GATE),
+    "house": Lane(note=MERGE_GATE),
+    "mp_interests": Lane(note=MERGE_GATE),
+    "parliament": Lane(update=(MCP_PULL, "qv4-parliament-load"), read=("qv4-parliament-read",),
+                       corpora=("parliament-wayback", "parliament-written-questions", "parliament-bills",
+                                "parliament-bills-historical", "parliament-sops", "parliament-sc-reports",
+                                "parliament-sc-submissions")),
+    "hansard": Lane(update=(MCP_PULL, "qv4-hansard-load"), read=("qv4-hansard-read",),
+                    corpora=("parliament-hansard-debates", "parliament-hansard-index")),
+    "beehive": Lane(update=(MCP_PULL, "qv4-beehive-load"), read=("qv4-beehive-read",), corpora=("beehive",)),
+    "ministers_diaries": Lane(update=(MCP_PULL, "qv4-ministers-diaries-load"), corpora=("parliament-diaries",)),
+    "expenses": Lane(note=MERGE_GATE),
+    "companies": Lane(update=("qv4-companies-monitor", "qv4-companies-history"),
+                      hosts=("companiesoffice.govt.nz", "api.business.govt.nz"), positions=("nzbn-register-entities",)),
+    "societies": Lane(update=("qv4-societies-capture",), hosts=("api.business.govt.nz",)),
+    "charities": Lane(update=("qv4-charities-capture", "qv4-charities-load"), hosts=("charities.govt.nz",),
+                      positions=("charities-register",)),
+    "candidate_returns": Lane(update=("qv4-candidate-returns-load",), read=("qv4-read-pages-candidates",)),
+    "gazette": Lane(update=("qv4-gazette-capture", "qv4-gazette-load"), hosts=("gazette.govt.nz", "api.digitalnz.org"),
+                    positions=("new-zealand-gazette", "digitalnz-api")),
+    "party_boards": Lane(update=("qv4-party-boards-load",)),
+    "overseas_investment": Lane(update=("qv4-overseas-investment-capture", "qv4-overseas-investment-load"),
+                                hosts=("linz.govt.nz",), positions=("overseas-investment-decisions",)),
+    "grants": Lane(update=("qv4-grants-capture", "qv4-grants-load"),
+                   positions=("dia-gambling-and-lottery-grants", "class-4-society-grant-publications")),
+    "commerce_commission": Lane(update=("qv4-commerce-commission-capture", "qv4-commerce-commission-load"),
+                                hosts=("comcom.govt.nz",), positions=("commerce-commission-case-register",)),
+    "fma": Lane(update=("qv4-fma-capture", "qv4-fma-load"), hosts=("fma.govt.nz",),
+                positions=("fma-warnings-and-enforcement",)),
+    "worksafe": Lane(update=("qv4-worksafe-capture", "qv4-worksafe-load"), hosts=("worksafe.govt.nz",),
+                     positions=("worksafe-prosecutions-and-undertakings",)),
+    "tenders": Lane(update=("qv4-tenders-refresh", "qv4-tenders-load"),
+                    hosts=("mbie.govt.nz", "data.govt.nz", "catalogue.data.govt.nz"),
+                    positions=("government-procurement-award-notices",)),
+    "sanctions": Lane(update=("qv4-sanctions-capture", "qv4-sanctions-load"), positions=("sanctions-lists",),
+                      hosts=("scsanctions.un.org",)),
+    "limited_partnerships": Lane(update=("qv4-limited-partnerships-capture", "qv4-limited-partnerships-load"),
+                                 positions=("limited-partnerships-register",)),
+    "building_practitioners": Lane(update=("qv4-building-practitioners-capture",
+                                           "qv4-building-practitioners-register-capture", "qv4-building-practitioners-load"),
+                                   hosts=("kete-lbp.mbie.govt.nz",), positions=("building-practitioners-register",)),
+    "linz": Lane(update=("qv4-linz-capture", "qv4-linz-load"), positions=("linz-data-service",)),
+    "real_estate_authority": Lane(update=("qv4-real-estate-authority-capture", "qv4-real-estate-authority-load"),
+                                  hosts=("publicregister.rea.govt.nz",), positions=("real-estate-authority-decisions",)),
+    "courts": Lane(update=(MCP_PULL, "qv4-courts-load", "qv4-courts-jdo-capture", "qv4-courts-era-capture"),
+                   read=("qv4-courts-read", "qv4-courts-pages"), corpora=("courts",),
+                   hosts=("justice.govt.nz", "determinations.era.govt.nz"),
+                   positions=("court-judgments", "specialist-court-and-authority-decisions"),
+                   waiting=(("court_documents", "outcome LIKE 'waiting%'"),)),
+    "iwi_directory": Lane(update=("qv4-iwi-directory-capture", "qv4-iwi-directory-load"),
+                          positions=("iwi-and-hapu-directory",)),
+    "contract_disclosures": Lane(update=("qv4-contract-disclosures-refresh", "qv4-contract-disclosures-load"),
+                                 hosts=("catalogue.data.govt.nz", "acc.co.nz")),
+    "council_minutes": Lane(update=("qv4-council-minutes-capture", "qv4-council-minutes-load"),
+                            read=("qv4-council-minutes-read", "qv4-council-minutes-pages"),
+                            hosts=("*.infocouncil.biz",), positions=("council-meeting-platform-infocouncil",)),
+    "councillor_interests": Lane(update=("qv4-councillor-interests-capture", "qv4-councillor-interests-load"),
+                                 read=("qv4-councillor-interests-read",), positions=("councillors-registers-of-interests",)),
+    "local_elections": Lane(update=("qv4-local-elections-listings", "qv4-local-elections-files", "qv4-local-elections-load"),
+                            positions=("local-election-candidate-returns",), coverage="local_elections"),
+    "links": Lane(update=("qv4-links-build", "qv4-sightings-forms", "qv4-sightings-beehive", "qv4-sightings-hansard",
+                          "qv4-sightings-parliament", "qv4-sightings-courts")),
+    "insolvency": Lane(update=("qv4-insolvency-removals", "qv4-insolvency-capture", "qv4-insolvency-load"),
+                       positions=("insolvency-register",)),
+    "papers_past": Lane(update=("qv4-papers-past-ingest", "qv4-papers-past-index")),
+    # not held
+    "openlaw": Lane(note="no job installed (ruling 137 dropped it)"),
+    "hdc_decisions": Lane(note="no job installed (a ruling on the Commissioner's terms is owed)"),
+    "tenancy_tribunal": Lane(update=("qv4-tenancy-tribunal-capture",), hosts=("forms.justice.govt.nz",),
+                             positions=("tenancy-tribunal-decisions",)),
+    "settlement_commitments": Lane(update=("qv4-settlement-commitments-watch",), positions=("treaty-settlement-commitments",)),
+    "council_procurement": Lane(update=("qv4-council-procurement-watch",), hosts=("vendorpanel.nz",),
+                                positions=("council-procurement-platforms",)),
+}
+
+#: the lane's own count against the source's: key -> SQL returning (held, listed, failed) on pub
+COVERAGE = {
+    "local_elections": ("SELECT coalesce(sum(files_held), 0), coalesce(sum(returns_listed), 0), coalesce(sum(files_failed), 0) "
+                        "FROM pub.local_election_returns_coverage", "return files held"),
+}
+
+
+# ── the registers, read from the board's catalogue as a file ─────────────────
+
+def registers(path: str = None) -> list:
+    """[(register, plain name, held in the catalogue's REGISTERS)] in the
+    catalogue's order: REGISTERS, then NOT_HELD."""
+    tree = ast.parse(open(path or CATALOGUE, encoding="utf-8").read())
+    found = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) \
+                and node.targets[0].id in ("REGISTERS", "NOT_HELD"):
+            found[node.targets[0].id] = ast.literal_eval(node.value)
+    return [(r, plain, True) for r, plain in found.get("REGISTERS", ())] + \
+           [(r, plain, False) for r, plain in found.get("NOT_HELD", ())]
+
+
+# ── the declared gaps ────────────────────────────────────────────────────────
+
+def gaps(path: str = None) -> list:
+    """Every [[gap]] of the declaration file: register, reason, since, source."""
+    try:
+        with open(path or GAPS_FILE, "rb") as f:
+            raw = tomllib.load(f)
+    except OSError:
+        return []
+    out = []
+    for g in raw.get("gap") or []:
+        for k in ("register", "reason", "since", "source"):
+            if not g.get(k):
+                raise ValueError(f"a gap in {path or GAPS_FILE} names no {k}: {g}")
+        out.append({k: str(g[k]) for k in ("register", "reason", "since", "source")})
+    return out
+
+
+# ── hosts ────────────────────────────────────────────────────────────────────
+
+def position_hosts(folder: str = None) -> dict:
+    """position name -> its hosts, every one (fetchgate.positions keeps one class per host)."""
+    import re
+    folder = folder or fetchgate.POSITIONS_DIR
+    out = {}
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        return out
+    for n in names:
+        if n.endswith(".md"):
+            with open(os.path.join(folder, n), encoding="utf-8") as f:
+                m = re.search(r"^hosts:\s*(.+)$", f.read(), re.M)
+            if m:
+                out[n[:-3]] = tuple(h.strip().lower() for h in m.group(1).split(",") if h.strip())
+    return out
+
+
+def _bare(host: str) -> str:
+    host = (host or "").lower().strip().rstrip(".")
+    return host[4:] if host.startswith("www.") else host
+
+
+def lane_hosts(lane: Lane, positions: dict) -> set:
+    return {_bare(h) for h in lane.hosts} | {_bare(h) for p in lane.positions for h in positions.get(p, ())}
+
+
+def host_matches(held: str, hosts: set) -> bool:
+    """The gate holds a host exactly (refused_by), so a held host stops the
+    lane where the lane asks that host; `*.x` names every host under x."""
+    h = _bare(held)
+    return any(h == x or (x.startswith("*.") and h.endswith(x[1:])) for x in hosts)
+
+
+# ── the clock ────────────────────────────────────────────────────────────────
+
+def when(t) -> str:
+    """A time in plain words, NZ time: '4 Nov 00:30'."""
+    if t is None:
+        return "never"
+    if isinstance(t, str):
+        t = dt.datetime.fromisoformat(t)
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=dt.timezone.utc)
+    t = t.astimezone(ZONE)
+    return f"{t.day} {t:%b %H:%M}"
+
+
+def cadence_s(jt) -> int:
+    """A job's own cadence: every_s, or a day for at_utc (once or more a day); 0 for none."""
+    if jt.every_s:
+        return jt.every_s
+    return DAY_S if jt.at_utc else 0
+
+
+def parents(job: str, registry: dict) -> list:
+    """The jobs whose `then` queues this one."""
+    return [n for n, jt in registry.items() if job in jt.then and jt.enabled]
+
+
+def on_a_clock(job: str, registry: dict, seen=None) -> bool:
+    """A clock of its own, or a chain back to one."""
+    seen = seen or set()
+    if job in seen or job not in registry:
+        return False
+    seen.add(job)
+    if cadence_s(registry[job]):
+        return True
+    return any(on_a_clock(p, registry, seen) for p in parents(job, registry))
+
+
+def late(job: str, facts: dict, now: dt.datetime) -> str | None:
+    """Why the job is late, or None. A job with a clock: no good run inside
+    its cadence, its deadline and the grace (from the slot it went on the
+    clock at, if it is new to it). A job queued by another: that job finished
+    well and this one has not run since, past its deadline and the grace."""
+    registry = facts["registry"]
+    jt = registry[job]
+    grace = dt.timedelta(seconds=max(jt.needs.deadline_s, 3600) + GRACE_S)
+    open_rows = [r for r in facts["open"] if r["job"] == job]
+    every = cadence_s(jt)
+    if every:
+        # the MCP pull's queue row fails on a corpus's new field; that is judged per corpus, so any run counts here
+        ref = (facts["last_finished"] if job == MCP_PULL else facts["last_done"]).get(job)
+        ref = ref["finished_at"] if ref else None
+        tt = facts["timetable"].get(job)
+        if tt and tt.get("last_slot") and any(w in (tt.get("last_by") or "") for w in ("new to the clock", "timetable changed")):
+            ref = max(ref, tt["last_slot"]) if ref else tt["last_slot"]
+        if ref is None:
+            return f"{job} has had no good run on the scheduler"
+        if now - ref > dt.timedelta(seconds=every) + grace:
+            return f"{job} has not run well since {when(ref)} (it runs {every_words(jt)})"
+        return None
+    if open_rows:
+        return None
+    lasts = [facts["last_done"].get(p) for p in parents(job, registry)]
+    lasts = [x["finished_at"] for x in lasts if x]
+    if not lasts:
+        return None
+    parent_at = max(lasts)
+    mine = facts["last_finished"].get(job)
+    if (mine is None or mine["finished_at"] < parent_at) and now - parent_at > grace:
+        return f"{job} has not run since the job before it finished at {when(parent_at)}"
+    return None
+
+
+def every_words(jt) -> str:
+    if jt.every_s:
+        h = jt.every_s / 3600
+        return f"every {h:g} hours" if h < 48 else f"every {h / 24:g} days"
+    return "daily"
+
+
+# ── the lights ───────────────────────────────────────────────────────────────
+
+def corpus_reds(lane: Lane, facts: dict) -> list:
+    """For a lane the ingest MCP feeds: the last pull's record, per corpus."""
+    if not lane.corpora:
+        return []
+    rec = facts.get("mcp_run")
+    last = facts["last_finished"].get(MCP_PULL)
+    if rec is None:
+        return [f"{MCP_PULL}'s last run failed at {when(last['finished_at'])}"] if last and last["state"] == "failed" else []
+    out = []
+    at = when(rec.get("ended") or rec.get("started"))
+    for c in lane.corpora:
+        if f"{c}_to" not in rec:
+            if not rec.get("ok", True):
+                out.append(f"{MCP_PULL} failed before it reached the {c} corpus ({at})")
+            continue
+        if rec.get(f"{c}_caught"):
+            out.append(f"{MCP_PULL} caught {rec[f'{c}_caught']:,} {c} record(s) it could not land ({at})")
+        if rec.get(f"{c}_drift"):
+            out.append(f"{MCP_PULL} met {rec[f'{c}_drift']:,} new field(s) in the {c} corpus no register carries ({at})")
+    return out
+
+
+@dataclasses.dataclass(frozen=True)
+class Ctx:
+    register: str
+    lane: Lane
+    update: list            # its update jobs in the catalogue and switched on
+    read: list              # its readers, the same
+    clocked: list           # its update jobs on a clock, or chained to one
+    facts: dict
+    now: dt.datetime
+
+
+# each rule takes the context and returns its reasons; a light is the first colour with any (mutant-tested)
+
+def red_held_host(c: Ctx) -> list:
+    hosts = lane_hosts(c.lane, c.facts["positions"])
+    return [f"the fetch gate holds {host} since {when(row.get('at'))}: {row.get('why')}"
+            for host, row in sorted(c.facts["refusals"].items()) if host_matches(host, hosts)]
+
+
+def red_failed_run(c: Ctx) -> list:
+    out = []
+    for j in c.update + c.read:
+        last = c.facts["last_finished"].get(j)
+        if j != MCP_PULL and last and last["state"] == "failed":
+            out.append(f"{j}'s last run failed at {when(last['finished_at'])}")
+    return out
+
+
+def red_corpus(c: Ctx) -> list:
+    return corpus_reds(c.lane, c.facts)
+
+
+def red_late(c: Ctx) -> list:
+    return [w for w in (late(j, c.facts, c.now) for j in c.clocked) if w]
+
+
+def orange_pieces(c: Ctx) -> list:
+    return [f"{r['job']} has {r['pieces_total'] - r['pieces_done']:,} of {r['pieces_total']:,} pieces to go"
+            for r in c.facts["open"]
+            if r["job"] in c.update + c.read and (r["pieces_total"] or 0) > (r["pieces_done"] or 0)]
+
+
+def orange_waiting(c: Ctx) -> list:
+    n = c.facts["waiting"].get(c.register)
+    return [f"{n:,} document(s) waiting on a reader"] if n else []
+
+
+def orange_short_count(c: Ctx) -> list:
+    cov = c.facts["coverage"].get(c.register)
+    if not (cov and c.lane.coverage and cov[1] > cov[0]):
+        return []
+    return [f"{cov[0]:,} of {cov[1]:,} {COVERAGE[c.lane.coverage][1]}"
+            + (f" ({cov[2]:,} failed)" if len(cov) > 2 and cov[2] else "")]
+
+
+def orange_gap(c: Ctx) -> list:
+    return [f"{g['reason']} (declared {g['since']})" for g in c.facts["gaps"] if g["register"] == c.register]
+
+
+def green_up_to_date(c: Ctx) -> list:
+    last = max((c.facts["last_done"][j]["finished_at"] for j in c.update if j in c.facts["last_done"]), default=None)
+    return [f"up to date: last good update {when(last)}"]
+
+
+RED_RULES = [red_held_host, red_failed_run, red_corpus, red_late]
+ORANGE_RULES = [orange_pieces, orange_waiting, orange_short_count, orange_gap]
+GREEN_RULES = [green_up_to_date]
+
+
+def light_of(register: str, held: bool, facts: dict, now: dt.datetime) -> dict:
+    registry = facts["registry"]
+    lane = LANES.get(register)
+    if lane is None:
+        return _light(register, GREY, ["no update job: the lights do not know this register yet"])
+    update = [j for j in lane.update if j in registry and registry[j].enabled]
+    read = [j for j in lane.read if j in registry and registry[j].enabled]
+    c = Ctx(register, lane, update, read, [j for j in update if on_a_clock(j, registry)], facts, now)
+    reds = [w for rule in RED_RULES for w in rule(c)]
+    if reds:
+        return _light(register, RED, reds)
+    if not c.clocked:
+        off = [j for j in lane.update if j in registry and not registry[j].enabled]
+        why = lane.note or ("loaded on demand, no update job on a clock" if update
+                            else f"{', '.join(off)} switched off in the catalogue" if off else "none named")
+        return _light(register, GREY, [f"no update job: {why}"])
+    oranges = [w for rule in ORANGE_RULES for w in rule(c)]
+    if oranges:
+        return _light(register, ORANGE, oranges)
+    greens = [w for rule in GREEN_RULES for w in rule(c)]
+    if greens:
+        return _light(register, GREEN, greens)
+    return _light(register, GREY, ["no rule gave a light"])
+
+
+def _light(register: str, light: str, reasons: list) -> dict:
+    reason = reasons[0] + (f" (and {len(reasons) - 1} more)" if len(reasons) > 1 else "")
+    return {"register": register, "light": light, "reason": reason, "reasons": reasons}
+
+
+def compute(facts: dict, now: dt.datetime = None, regs: list = None) -> dict:
+    now = now or dt.datetime.now(dt.timezone.utc)
+    regs = regs if regs is not None else registers()
+    lights = [light_of(r, held, facts, now) for r, _, held in regs]
+    return {"computed_at": now.astimezone(dt.timezone.utc).isoformat(timespec="seconds"), "lights": lights}
+
+
+# ── the facts ────────────────────────────────────────────────────────────────
+
+def empty_facts(registry: dict = None) -> dict:
+    return {"registry": registry if registry is not None else reg.load(), "last_finished": {}, "last_done": {},
+            "open": [], "timetable": {}, "refusals": {}, "positions": {}, "mcp_run": None, "waiting": {},
+            "coverage": {}, "gaps": []}
+
+
+def gather(conn, schema: str = "scheduler") -> dict:
+    """Read every fact, on a read login. Each published count is one query."""
+    from support import jobrun
+    facts = empty_facts()
+
+    def last(states):
+        rows = conn.execute(f"SELECT DISTINCT ON (job) job, state, finished_at FROM {schema}.queue "
+                            f"WHERE state = ANY(%s) AND finished_at IS NOT NULL ORDER BY job, finished_at DESC",
+                            (list(states),)).fetchall()
+        return {j: {"state": s, "finished_at": f} for j, s, f in rows}
+
+    facts["last_finished"] = last(("done", "failed"))
+    facts["last_done"] = last(("done",))
+    facts["open"] = [{"job": j, "state": s, "pieces_done": d, "pieces_total": t} for j, s, d, t in conn.execute(
+        f"SELECT job, state, pieces_done, pieces_total FROM {schema}.queue WHERE state IN ('queued', 'leased')").fetchall()]
+    facts["timetable"] = {j: {"last_slot": s, "last_by": b} for j, s, b in conn.execute(
+        f"SELECT job, last_slot, last_by FROM {schema}.timetable").fetchall()}
+    facts["refusals"] = fetchgate.refusals()
+    facts["positions"] = position_hosts()
+    facts["mcp_run"] = jobrun.last_run(MCP_PULL)
+    for register, lane in LANES.items():
+        for view, cond in lane.waiting:
+            n = conn.execute(f"SELECT count(*) FROM pub.{view} WHERE {cond}").fetchone()[0]
+            facts["waiting"][register] = facts["waiting"].get(register, 0) + int(n)
+        if lane.coverage:
+            facts["coverage"][register] = tuple(int(x) for x in conn.execute(COVERAGE[lane.coverage][0]).fetchone())
+    facts["gaps"] = gaps()
+    return facts
+
+
+def write(result: dict, path: str = None) -> str:
+    path = path or LIGHTS_FILE
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, path)
+    return path
+
+
+def summary(result: dict) -> str:
+    counts = {k: sum(1 for x in result["lights"] if x["light"] == k) for k in LIGHTS}
+    lines = [f"source lights at {result['computed_at']}: " + ", ".join(f"{k} {v}" for k, v in counts.items())]
+    for k in (RED, ORANGE, GREY, GREEN):
+        for x in result["lights"]:
+            if x["light"] == k:
+                lines.append(f"  {k:<6} {x['register']:<24} {x['reason']}")
+    return "\n".join(lines)
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="the source lights on the board's search pane")
+    ap.add_argument("--print", action="store_true", help="print, write nothing")
+    ap.add_argument("--database", default="querynz_v4")
+    a = ap.parse_args(argv)
+    import support.db as db
+    from support import jobrun
+    started = dt.datetime.now().astimezone()
+    with db.connect(db.READ_KEY, a.database, autocommit=True) as conn:
+        conn.execute("SET statement_timeout = 60000")
+        result = compute(gather(conn))
+    print(summary(result))
+    if a.print:
+        return 0
+    write(result)
+    counts = {k: sum(1 for x in result["lights"] if x["light"] == k) for k in LIGHTS}
+    jobrun.record(JOB, True, ", ".join(f"{k} {v}" for k, v in counts.items()), started, counts)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
