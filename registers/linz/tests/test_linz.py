@@ -402,7 +402,8 @@ def test_each_page_records_the_fields_its_source_yields():
     for sha, slug, f, it, reader, model in rows:
         assert slug == "linz-wfs-page" and reader == R.READER and model is None
         by.setdefault(sha, {})[f] = it
-    assert by["a" * 64] == {"address_id": 3, "full_address": 3, "address_lifecycle": 3, "props": 3, "geom_type": 3,
+    assert by["a" * 64] == {"address_id": 3, "full_address": 4,   # 4: judgment-address-title@1 named (ruling 142)
+                             "address_lifecycle": 3, "props": 3, "geom_type": 3,
                             "geom": 3, "xmin": 4, "ymin": 4, "xmax": 4, "ymax": 4}
     assert "title_no" in by["b" * 64] and "full_address" not in by["b" * 64]
 

@@ -7,8 +7,8 @@ SELECT title_no, address_id, full_address, titles_on_property, addresses_on_prop
   FROM linz_private.title_addresses;
 
 -- Each title's street address by geometry, for the titles the spine gives none (`linz_private.title_address_points`,
--- load.geometry_join: the title's parcels → the parcel's polygon → the address points inside it). No links rule reads it
--- yet (links/opportunities.py: measure owed).
+-- load.geometry_join: the title's parcels → the parcel's polygon → the address points inside it). The links lane reads it
+-- with the spine's, by judgment-address-title@1 (links.identifiers).
 CREATE OR REPLACE VIEW pub_private.linz_title_address_points AS
 SELECT title_no, address_id, full_address, titles_on_parcel, addresses_in_parcel
   FROM linz_private.title_address_points;

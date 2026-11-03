@@ -9,7 +9,8 @@ ahead with your recommendations"): the rules of links/measurements.md ยง15 and ย
 
 What it reads. The lanes' private values through the views each lane declares in `pub_private`
 (registers/<lane>/pub_private.sql, made by support.db.private_views at the start of the step):
-`pub_private.court_identifiers`, `pub_private.insolvency_addresses`, `pub_private.linz_title_addresses`. A view not made
+`pub_private.court_identifiers`, `pub_private.insolvency_addresses`, `pub_private.linz_title_addresses` and
+`pub_private.linz_title_address_points` (a title's address by geometry). A view not made
 (its lane not loaded) makes no link and says so. The rows are the lane's own (`<schema>.rows`); a court document's page
 text is opened for the identifiers' own pages only (known documents, never the store wholesale).
 
@@ -47,6 +48,7 @@ from links import rules
 COURT_IDENTIFIERS = "pub_private.court_identifiers"
 INSOLVENCY_ADDRESSES = "pub_private.insolvency_addresses"
 LINZ_TITLE_ADDRESSES = "pub_private.linz_title_addresses"
+LINZ_TITLE_POINTS = "pub_private.linz_title_address_points"   # by geometry, for the titles the property spine gives none
 RECUR_CASES = 5           # a value printed in this many distinct cases or more is an office's
 WINDOW_BEFORE, WINDOW_AFTER = 400, 120
 TIE_WINDOW = 1000         # a name printed further than this from the value on its page is not its tie
@@ -471,13 +473,14 @@ def build(conn, s: str, log=print) -> dict:
         out["insolvency addresses"] = "view not made"
 
     # judgment-address-title@1: the title addresses of the street keys the judgments print, and the titles' owner rows
-    if _exists(conn, LINZ_TITLE_ADDRESSES):
+    linz_views = [v for v in (LINZ_TITLE_ADDRESSES, LINZ_TITLE_POINTS) if _exists(conn, v)]
+    if linz_views:
         want_mine = {ka.street_key(sp) for _, _, _, sp in mine}
         tb = collections.defaultdict(list)
         n_read = 0
         with conn.cursor(name="links_identifiers_linz") as cur:
             cur.itersize = 50000
-            cur.execute(f"SELECT title_no, full_address FROM {LINZ_TITLE_ADDRESSES}")
+            cur.execute(" UNION ".join(f"SELECT title_no, full_address FROM {v}" for v in linz_views))
             for title, full in cur:
                 n_read += 1
                 m = re.search(r"\d", full or "")
@@ -503,6 +506,7 @@ def build(conn, s: str, log=print) -> dict:
                 for x, y, j in rules.judge_address_title({"level": lv, "named": named, "tie": tie, "owners": owners[title]}):
                     judged.append((x, y, j, rec("address", key, d, v, title, full, lv, tie)))
         out["linz title addresses read"] = n_read
+        out["linz views"] = linz_views
         out["linz titles at a judgment's street"] = len(titles)
     else:
         out["linz title addresses read"] = "view not made"

@@ -106,16 +106,14 @@ REGISTER: tuple = (
     Entry("interests-register-*", "private_entry", "address", "measure owed", (),
           "address-shaped entries are kept in councillor_interests_private.entries; no pub_private view declares them",
           "whether a declared property's address is matched to a LINZ title's (judgment-address-title@1's reading)"),
-    # LINZ (ruling 142): every owner is a row (links.rows), joined by the name rules, and each title's address is read
-    # through pub_private.linz_title_addresses by judgment-address-title@1; the profile names them at its next version
-    # (the lane's own version 3 is in flight, 4 November 2026)
-    Entry("linz-*", "name", "name", "measure owed", (),
+    # LINZ (ruling 142): every owner is a row, joined by the name rules; each title's address read through pub_private
+    Entry("linz-*", "name", "name", "rule", ("full-name@1", "name-only@1", "organisation-name@1",
+                                             "organisation-sole-company@3", "organisation-one-live-company@3"),
           "pub.linz_title_owners rows (links.rows): an individual from LINZ's name parts, a corporate owner by its name, "
-          "undated, joined by full-name@1, name-only@1 and the organisation rules (links/measurements.md §19)",
-          "none: built (ruling 142); the profile's next version names the rules"),
-    Entry("linz-*", "full_address", "address", "measure owed", (),
-          "pub_private.linz_title_addresses, read by judgment-address-title@1 (links/measurements.md §19)",
-          "none: built (ruling 142); the profile's next version names judgment-address-title@1"),
+          "undated (links/measurements.md §19)"),
+    Entry("linz-*", "full_address", "address", "rule", ("judgment-address-title@1",),
+          "pub_private.linz_title_addresses and linz_title_address_points (each title's street address, by the property "
+          "spine and by geometry), read by judgment-address-title@1 against a judgment's street address"),
     # LINZ, everything the service gives (ruling 142, 4 November 2026): each catalogue source read whole into linz_private
     Entry("linz-*", "props", "name", "measure owed", (),
           "linz_private: the Full Landonline Dataset's proprietors, encumbrancees and nominal index, and the title "
