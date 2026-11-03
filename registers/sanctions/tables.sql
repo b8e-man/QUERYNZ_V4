@@ -1,8 +1,8 @@
 -- registers/sanctions: every table this lane owns, in `sanctions` and its private twin, in two parts. The capture's
 -- record (capture.py makes it; never wiped): the lists stay in the document store verbatim by sha256. The reading's
--- tables (load.py drops and makes them again at every load). An individual's address is never read beyond the
--- country the list names (hard limit 15); passport and identity numbers and the lists' narrative comments are not
--- read. The private twin holds nothing.
+-- tables (load.py drops and makes them again at every load). Every element or cell of a listed record is kept whole
+-- in the private twin (`sanctions_private.details`, ruling 142): addresses, passport and identity numbers and the
+-- lists' narrative comments among them. The published columns carry an address's country and nothing finer.
 
 -- ── the capture ──────────────────────────────────────────────────────────────
 
@@ -85,4 +85,17 @@ CREATE TABLE IF NOT EXISTS sanctions.read_set_aside (
     place     text NOT NULL,
     stage     text NOT NULL,
     reason    text NOT NULL
+);
+
+-- every element or cell of each listed record, whole, as the list prints it (ruling 142, 4 November 2026): the
+-- addresses, passport and identity numbers and narrative comments the published row does not carry are here, keyed by
+-- the row; the private twin, never granted to the session or product logins
+CREATE TABLE IF NOT EXISTS sanctions_private.details (
+    key       text NOT NULL,                       -- the listing's key
+    n         integer NOT NULL,                    -- the value's order in the record
+    field     text NOT NULL,                       -- its element path (`INDIVIDUAL_ADDRESS[1]/STREET`) or `row R header`
+    value     text NOT NULL,                       -- as printed
+    document  text NOT NULL,
+    place     text NOT NULL,
+    PRIMARY KEY (key, n)
 );

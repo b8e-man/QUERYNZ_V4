@@ -61,10 +61,11 @@ authorised: mfat-russia 2026-11-02 ruling 132 (Arthur): fetched by script throug
    because a government or the Security Council designated them; publishing
    that fact is the law's purpose. Read: names and aliases as published,
    titles, public positions, nationalities, birth dates and countries of
-   birth (how a listed person is told apart from a namesake). Never read: an
-   individual's address beyond the country the list names (hard limit 15),
-   passport and identity numbers, and the lists' narrative comments, which
-   name places and relatives. A listing is never joined to a register row by
+   birth (how a listed person is told apart from a namesake). Every element and cell of a listed record is kept whole
+   (ruling 142, 4 November 2026), in `sanctions_private.details`: the
+   addresses, passport and identity numbers and the lists' narrative
+   comments among them. The published views carry an address's country and
+   nothing finer. A listing is never joined to a register row by
    name alone (Privacy Act 2020, principle 8: accuracy). A revoked or expired
    listing is kept as such, with its date.
 

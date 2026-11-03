@@ -1,8 +1,8 @@
 -- registers/sanctions: what later modules read (plan 5.3, use case 13). One row per listed person or entity per
 -- list, as each publisher issues its list, with the list's own identifier, names and aliases as published, the
--- designation's date and basis and the list's version; and one row per list read. An individual's address is never
--- on a view beyond the country the list names (hard limit 15); passport numbers and the lists' narrative comments are
--- not read. A listing is a government's or the Security Council's designation, not a finding of this estate: a name
+-- designation's date and basis and the list's version; and one row per list read. A view carries an address's
+-- country and nothing finer; every element and cell of a record is kept whole in sanctions_private.details (ruling
+-- 142), addresses, passport numbers and the lists' narrative comments among them. A listing is a government's or the Security Council's designation, not a finding of this estate: a name
 -- that matches is a name that matches, never the same person, until the dates of birth, nationality and the list's
 -- own identifiers agree. A list never landed (a failed read; ruling 132 copies all three) has no rows here and
 -- no line in pub.sanctions_lists. Run by a session only against its scratch schema (the tests rewrite `pub.`).

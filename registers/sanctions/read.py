@@ -8,13 +8,18 @@ it. Then one row per listed person or entity per list (`Listing`), with the
 list's own identifier, names and aliases as published, the designation's
 date and basis, and the version of the list it came from.
 
-What is never read: an individual's address beyond the country the list
-names (the UN's `COUNTRY` element; Police's and MFAT's free-text addresses
-are not read at all), passport and identity numbers, and the lists'
-narrative comments. A list names people because a government or the
-Security Council designated them; birth dates, nationalities and countries
-of birth are read because they are how a reader tells a listed person from
-someone else with the same name.
+Every value of a listed record is kept whole (ruling 142, 4 November
+2026): beside each row, `details` holds every element (the UN's XML) or
+every cell (the workbooks) of the record as the list prints it, the
+addresses, passport and identity numbers and narrative comments among
+them, keyed by the row and loaded into `sanctions_private.details`. The
+published row's columns carry the countries the list names for its
+addresses and nothing finer, and its names and aliases with any passport
+or identity-document phrase cut out (`no_documents`); the whole values are
+in `details`. A list names people because a government or the Security
+Council designated them; birth dates, nationalities and countries of birth
+are read because they are how a reader tells a listed person from someone
+else with the same name.
 
   un-sc          profile `un-sc-consolidated-list-xml`: INDIVIDUALS and
                  ENTITIES, keyed by REFERENCE_NUMBER (QDi.001)
@@ -132,7 +137,8 @@ def cell_birth(v):
 
 
 #: a passport or identity-document phrase inside a published value (the lists put them in aliases, positions and
-#: birth notes: "… (Oman passport no. …)", found on the first real files, 2 November 2026). Never read.
+#: birth notes: "… (Oman passport no. …)", found on the first real files, 2 November 2026). Cut from the published
+#: columns; the whole value is kept in the row's `details` (ruling 142).
 _DOC = re.compile(r"passport|national identi|identity (?:card|document|number)|\bid(?:entification)? ?(?:card|no\b|number)"
                   r"|\bnic\b", re.I)
 _DOC_PAREN = re.compile(r"\s*[(\[][^()\[\]]*[)\]]")
@@ -151,7 +157,34 @@ def no_documents(value):
     return value or None
 
 
-def listing(list_id, ref, kind, status, name, *, sha, place, version, list_version, **kw) -> dict:
+def xml_details(el, prefix: str = "") -> list:
+    """[(path, text)] for every element under `el` that carries text, in document order, its attributes beside it
+    (`INDIVIDUAL_ADDRESS[1]/STREET`): the record whole."""
+    out, seen = [], collections.Counter()
+    for child in el:
+        seen[child.tag] += 1
+        path = f"{prefix}{child.tag}[{seen[child.tag]}]"
+        if child.text and child.text.strip():
+            out.append((path, child.text.strip()))
+        for k, v in sorted(child.attrib.items()):
+            out.append((f"{path}@{k}", v))
+        out += xml_details(child, path + "/")
+    return out
+
+
+def cell_details(members, header: dict) -> list:
+    """[(field, text)] for every filled cell of a workbook record's rows (the listing and its aliases), each named by
+    its row and its header (`row 7 Address_1`, or the column number where the header row has none): the record whole."""
+    out = []
+    for _, r, c in sorted(members, key=lambda m: m[1]):
+        for k, v in sorted(c.items()):
+            t = text(v)
+            if t is not None:
+                out.append((f"row {r} {text(header.get(k)) or f'column {k}'}", t))
+    return out
+
+
+def listing(list_id, ref, kind, status, name, *, sha, place, version, list_version, details=(), **kw) -> dict:
     row = {"key": f"sanctions/{list_id}/{ref}", "list_id": list_id, "list_ref": ref, "other_ref": None, "kind": kind,
            "status": status, "name": name, "aliases": [], "original_script": None, "titles": [], "positions": [],
            "nationalities": [], "birth_dates": [], "birth_countries": [], "countries": [], "regime": None,
@@ -165,6 +198,8 @@ def listing(list_id, ref, kind, status, name, *, sha, place, version, list_versi
     for k in ("name", "original_script"):
         row[k] = no_documents(row[k])
     row["aliases"] = [a for a in once(row["aliases"]) if a != row["name"]]
+    row["details"] = [{"key": row["key"], "n": i + 1, "field": f, "value": v, "document": sha, "place": row["place"]}
+                      for i, (f, v) in enumerate(details)]
     return row
 
 
@@ -228,7 +263,7 @@ def read_un(body: bytes, sha: str, version: int) -> dict:
             updated = sorted(d for d in (iso(v) for v in _vals(e, "LAST_DAY_UPDATED/VALUE")) if d)
             out["rows"].append(listing(
                 "un-sc", ref, kind, "designated", " ".join(names), sha=sha, place=f"REFERENCE_NUMBER={ref}",
-                version=version, list_version=lv,
+                version=version, list_version=lv, details=xml_details(e),
                 aliases=[a.findtext("ALIAS_NAME") for a in al], original_script=text(e.findtext("NAME_ORIGINAL_SCRIPT")),
                 titles=once(_vals(e, "TITLE/VALUE")), positions=once(_vals(e, "DESIGNATION/VALUE")),
                 nationalities=once(_vals(e, "NATIONALITY/VALUE")), birth_dates=once(births),
@@ -340,7 +375,7 @@ def read_police(body: bytes, sha: str, version: int, list_version: str = None, p
                 continue
             regime = POLICE_REGIME.get((ref or "")[:2].upper())
             add(listing("nz-police-tsa", f"{kind}/{base}", kind, "designated", nm, sha=sha, place=place, version=version,
-                        list_version=list_version, other_ref=ref, aliases=al, regime=regime or "UN-listed (resolutions 1267/1989/2253 and 1988)",
+                        list_version=list_version, details=cell_details(members, sheets[sheet].get(1, {})), other_ref=ref, aliases=al, regime=regime or "UN-listed (resolutions 1267/1989/2253 and 1988)",
                         basis="Terrorism Suppression Act 2002: a UN Security Council listing (resolutions "
                               "1267/1989/2253 and 1988) included as a designated terrorist entity", **extra))
     # New Zealand's own designations under resolution 1373: current, then expired
@@ -361,7 +396,7 @@ def read_police(body: bytes, sha: str, version: int, list_version: str = None, p
                 kind, nm, births = "individual", m.group("name").strip(), [m.group("dob").strip()]
             al = [text(x[2].get(2)) for x in members if x is not (sub, r, c)] + [text(c.get(3))]
             add(listing("nz-police-tsa", f"1373/{base}", kind, status, nm, sha=sha, place=place, version=version,
-                        list_version=list_version, aliases=[re.sub(r",\s*DOB\s+.+$", "", a or "") for a in al],
+                        list_version=list_version, details=cell_details(members, sheets[sheet].get(1, {})), aliases=[re.sub(r",\s*DOB\s+.+$", "", a or "") for a in al],
                         countries=once([c.get(4)]), birth_dates=births, regime="New Zealand designation (resolution 1373)",
                         basis="Terrorism Suppression Act 2002, s 22: designated by the Prime Minister (resolution 1373); "
                               "renewed under s 35", designated_on=cell_day(c.get(5)), renewed_on=all_dmy(c.get(6)),
@@ -398,7 +433,7 @@ def read_police(body: bytes, sha: str, version: int, list_version: str = None, p
         al = [(person_name(m[2]) if kind == "individual" else text(m[2].get(2))) for m in members if m is not (sub, r, c)]
         ref = text(c.get(22))
         add(listing("nz-police-tsa", f"{kind}/{base}", kind, "revoked", nm, sha=sha, place=place, version=version,
-                    list_version=list_version, other_ref=ref, aliases=al,
+                    list_version=list_version, details=cell_details(members, rv.get(1, {})), other_ref=ref, aliases=al,
                     regime=POLICE_REGIME.get((ref or "")[:2].upper()) or "UN-listed (resolutions 1267/1989/2253 and 1988)",
                     basis="Terrorism Suppression Act 2002: a UN Security Council listing, revoked by the UN or New Zealand",
                     designated_on=cell_day(c.get(19)), ended_on=cell_day(c.get(21)),
@@ -483,7 +518,7 @@ def read_mfat(body: bytes, sha: str, version: int, list_version: str = None) -> 
             status = (col(c, "Sanction Status") or "").lower()
             out["rows"].append(listing(
                 "mfat-russia", ref, kind, "revoked" if "revok" in status else "designated", nm, sha=sha, place=place,
-                version=version, list_version=list_version,
+                version=version, list_version=list_version, details=cell_details([(0, r, c)], rows[hr]),
                 aliases=[a for a in re.split(r";|,\s*(?=\S)", col(c, "Alias/Alternate Spellings") or "") if a.strip()],
                 titles=once([col(c, "Title")]),
                 nationalities=once(col(c, h) for h in ("Citizenship", "Citizenship 2", "Citizenship 3")),

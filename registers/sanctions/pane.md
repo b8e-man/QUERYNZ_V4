@@ -14,4 +14,4 @@
 - **Citation** on every row: the list document's sha256 (`document`), `page`, `place` (`REFERENCE_NUMBER=QDi.001`,
   `Individuals!row 7`), `reader`, `profile` and `profile_version`.
 
-No street, city or address of any kind, no passport or identity number, no narrative comment.
+No street, city or address finer than a country, no passport or identity number, no narrative comment on a view; each record is kept whole in `sanctions_private.details` (ruling 142).

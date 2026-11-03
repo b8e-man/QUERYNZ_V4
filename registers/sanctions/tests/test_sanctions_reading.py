@@ -32,9 +32,12 @@ def rules(mod) -> list:
         broken.append("un: names as published, aliases once")
     if p and (p["countries"] != ["Exampleland"] or p["birth_countries"] != ["Otherland"]):
         broken.append("un: a country and nothing finer")
-    flat = repr(un["rows"])
+    flat = repr([{k: v for k, v in r.items() if k != "details"} for r in un["rows"]])
     if any(s in flat for s in ("Secret Road", "Exampleville", "X1234567", "Birthtown", "Company Lane", "Port Example")):
-        broken.append("un: no street, city or document number is read")
+        broken.append("un: no street, city or document number in a published column")
+    kept = repr([r.get("details") for r in un["rows"]])
+    if not all(s in kept for s in ("Secret Road", "Exampleville", "X1234567", "Birthtown", "Company Lane", "Port Example")):
+        broken.append("un: the street, city and document number kept whole in the row's details (ruling 142)")
     if p and (p["birth_dates"] != ["1960-02-03", "1958-1961"] or p["designated_on"] != dt.date(2016, 3, 2)
               or p["updated_on"] != dt.date(2020, 5, 6) or p["positions"] != ["Minister of Examples"]):
         broken.append("un: birth dates, designation and update as listed")
@@ -53,8 +56,11 @@ def rules(mod) -> list:
         broken.append("police: dates from serials and text; the regime from the UN prefix")
     if "individual/3" not in pk:
         broken.append("police: an ID written '3. 00' is an ID")
-    if "Example Street" in repr(po["rows"]) or "P0000001" in repr(po["rows"]):
-        broken.append("police: addresses and passports are not read")
+    pub_ = lambda rows: repr([{k: v for k, v in r.items() if k != "details"} for r in rows])
+    if "Example Street" in pub_(po["rows"]) or "P0000001" in pub_(po["rows"]):
+        broken.append("police: no address or passport in a published column")
+    if "Example Street" not in repr([r["details"] for r in po["rows"]]):
+        broken.append("police: the address kept whole in the row's details (ruling 142)")
     if not any(a["reason"] == "no name" for a in po["set_aside"]):
         broken.append("police: a row with no name is set aside")
     f = pk.get("1373/1")
@@ -85,7 +91,7 @@ def rules(mod) -> list:
         broken.append("mfat: names and aliases as published")
     if iv and (iv["designated_on"] != dt.date(2022, 3, 3) or iv["birth_dates"] != ["1960-03-25"] or iv["regime"] != "Asset Freeze, Travel Ban"):
         broken.append("mfat: dates and sanction types")
-    if "Hidden Street" in repr(mf["rows"]) or "000000" in repr([r["aliases"] for r in mf["rows"]]):
+    if "Hidden Street" in pub_(mf["rows"]) or "000000" in repr([r["aliases"] for r in mf["rows"]]):
         broken.append("mfat: no address or passport")
     if len([r for r in mf["rows"] if r["list_ref"].startswith("RUS-0002")]) != 2 or len({r["key"] for r in mf["rows"]}) != len(mf["rows"]):
         broken.append("mfat: a repeated identifier keeps both listings, keyed apart")
@@ -334,6 +340,17 @@ def test_the_load_reconciles_and_every_row_meets_the_contract(built):
     assert check.views(conn, f"{SAMPLE_SCHEMA}.v_") == []
 
 
+def test_every_listed_record_is_kept_whole_privately(built):
+    """Ruling 142 (4 November 2026): the old reading kept no address, document number or comment anywhere; every
+    element and cell of each record is now in the private twin, keyed by the row."""
+    conn, counts = built
+    priv = load.table(load.private_of(SAMPLE_SCHEMA), "details", True)
+    keys = {r[0] for r in conn.execute(f"SELECT key FROM {load.table(SAMPLE_SCHEMA, 'listings', True)}")}
+    held = {r[0] for r in conn.execute(f"SELECT DISTINCT key FROM {priv}")}
+    assert counts["details"] > 0 and keys == held
+    assert conn.execute(f"SELECT count(*) FROM {priv} WHERE field LIKE '%%ADDRESS%%/STREET%%'").fetchone()[0] >= 2
+
+
 def test_the_check_reads_each_list_against_its_own_figure(built):
     conn, _ = built
     out = check.outside(conn, SAMPLE_SCHEMA, today=dt.date(2026, 10, 22), shared=True)
@@ -390,7 +407,7 @@ def test_the_real_list_as_landed_reconciles(list_id):
     assert len({r["key"] for r in out["rows"]}) == len(out["rows"])
     floor = {"un-sc": 900, "nz-police-tsa": 400, "mfat-russia": 500}[list_id]
     assert collections.Counter(r["status"] for r in out["rows"])["designated"] > floor
-    carrying = [r["key"] for r in out["rows"] if read._DOC.search(repr({k: v for k, v in r.items() if k not in ("basis", "regime")}))]
+    carrying = [r["key"] for r in out["rows"] if read._DOC.search(repr({k: v for k, v in r.items() if k not in ("basis", "regime", "details")}))]
     assert carrying == [], f"{len(carrying)} rows carry an identity-document phrase"
     if list_id == "nz-police-tsa":
         cur = sum(1 for r in out["rows"] if r["key"].startswith("sanctions/nz-police-tsa/1373/") and r["status"] == "designated")

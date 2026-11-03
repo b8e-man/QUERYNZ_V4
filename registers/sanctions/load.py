@@ -42,6 +42,9 @@ COLUMNS = {
                  "designated_on", "renewed_on", "expires_on", "ended_on", "updated_on", "list_version") + _CITE,
     "read_set_aside": ("list_id", "document", "place", "stage", "reason"),
 }
+#: the private twin's tables: each listed record whole (ruling 142), never granted to the session or product logins
+PRIVATE_TABLES = ("details",)
+PRIVATE_COLUMNS = {"details": ("key", "n", "field", "value", "document", "place")}
 
 
 def private_of(schema: str) -> str:
@@ -69,6 +72,8 @@ def create_tables(conn, schema: str, shared: bool = False) -> None:
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {private_of(schema)}")
     for t in TABLES:
         conn.execute(f"DROP TABLE IF EXISTS {table(schema, t, shared)} CASCADE")
+    for t in PRIVATE_TABLES:
+        conn.execute(f"DROP TABLE IF EXISTS {table(private_of(schema), t, shared)} CASCADE")
     conn.execute(sql("tables.sql", schema, shared))
 
 
@@ -110,6 +115,8 @@ def build(conn, schema: str, docs: dict, read_bytes=read_bytes, shared: bool = F
                       "set_aside": len(out["set_aside"]), "profile": read.PROFILES[list_id], "profile_version": version})
     counts = {t: _copy(conn, T(t), COLUMNS[t], src) for t, src in
               (("lists", lists), ("listings", rows), ("read_set_aside", asides))}
+    counts["details"] = _copy(conn, table(private_of(schema), "details", shared), PRIVATE_COLUMNS["details"],
+                              (d for r in rows for d in r.get("details") or ()))
     counts["seconds"] = round(time.monotonic() - t0, 1)
     return counts
 
@@ -142,6 +149,9 @@ def publish(conn, staging: str, log=print) -> None:
         create_tables(conn, SCHEMA)
         for t in TABLES:
             conn.execute(f"INSERT INTO {table(SCHEMA, t)} SELECT * FROM {table(staging, t)}")
+        for t in PRIVATE_TABLES:
+            cols = ", ".join(PRIVATE_COLUMNS[t])
+            conn.execute(f"INSERT INTO {table(PRIVATE, t)} ({cols}) SELECT {cols} FROM {table(private_of(staging), t)}")
         conn.execute(sql("publish.sql"))
     log(f"{SCHEMA}: published from {staging}")
 
