@@ -5,7 +5,9 @@ is never kept (capture never asks for it). Profile `linz-wfs-page` v1.
     read_page(body, source, document, version) -> (rows, set_aside)
 
 An owner's name is built from the row as LINZ prints it: a corporate owner's `corporate_name`; an individual's
-`prime_other_names prime_surname` and its suffix. Never an address: no column read carries one (capture.NEVER).
+`prime_other_names prime_surname` and its suffix. Never an address in a public source's rows (capture.NEVER); the
+private sources' rows (a title on a unit of property, an address on it, the address as LINZ gives it) go to the lane's
+private schema only.
 """
 import json
 
@@ -21,9 +23,15 @@ KEEP = {
     "place_names": ("name_id", ("name_id", "feat_id", "name", "status", "feat_type", "maori_name", "land_district",
                                 "territorial_authority", "region", "crd_latitude", "crd_longitude", "info_origin",
                                 "info_description", "treaty_legislation", "nzgb_ref")),
+    # the private sources (capture.PRIVATE_SOURCES): read into the lane's private schema only, never published
+    "property_titles": ("id", ("id", "title_no", "unit_of_property_id")),
+    "property_addresses": ("id", ("id", "unit_of_property_id", "address_id")),
+    "addresses": ("address_id", ("address_id", "full_address", "address_lifecycle")),
 }
-#: the column each source cannot do without
-REQUIRED = {"owners": "title_no", "titles": "title_no", "place_names": "name"}
+#: the columns each source cannot do without (a private source's row joins on two)
+REQUIRED = {"owners": ("title_no",), "titles": ("title_no",), "place_names": ("name",),
+            "property_titles": ("title_no", "unit_of_property_id"), "property_addresses": ("unit_of_property_id", "address_id"),
+            "addresses": ("full_address",)}
 
 
 def owner_name(r: dict):
@@ -55,7 +63,7 @@ def recognises(body: bytes, source: str) -> bool:
     if not isinstance(doc, dict) or doc.get("type") != "FeatureCollection" or not isinstance(doc.get("features"), list):
         return False
     key_col = KEEP[source][0]
-    return all(isinstance(f, dict) and key_col in (f.get("properties") or {}) and REQUIRED[source] in (f.get("properties") or {})
+    return all(isinstance(f, dict) and all(c in (f.get("properties") or {}) for c in (key_col,) + REQUIRED[source])
                for f in doc["features"][:5])
 
 
@@ -69,9 +77,9 @@ def read_page(body: bytes, source: str, document: str, version: int, start_index
     for i, f in enumerate(feats):
         p = f.get("properties") or {}
         place = f"row {start_index + i + 1}"
-        if p.get(REQUIRED[source]) in (None, "") or p.get(key_col) in (None, ""):
-            aside.append({"document": document, "place": place, "stage": "read",
-                          "reason": f"no {REQUIRED[source] if p.get(REQUIRED[source]) in (None, '') else key_col}"})
+        lacking = [c for c in REQUIRED[source] + (key_col,) if p.get(c) in (None, "")]
+        if lacking:
+            aside.append({"document": document, "place": place, "stage": "read", "reason": f"no {lacking[0]}"})
             continue
         row = {c: p.get(c) for c in cols}
         row["key"] = f"linz/{source}/{p[key_col]}"

@@ -1,17 +1,29 @@
 """The lane's checks (step 8.3). Outside: each source's rows read against the count the LINZ Data Service stated for
 the pull (WFS `numberMatched`, read at the pull's start), within `TOLERANCE` (the service changes while a pull pages
 through it). Inside: every landed row read or set aside, at most `SET_ASIDE_SHARE` set aside, a title number once in
-the titles, every owner's title present among the titles once titles are loaded, and no column of an address.
+the titles, every owner's title present among the titles once titles are loaded, and no column of an address in the lane's public schema or in any published
+`pub.linz_*` view. Private (each title's street address, `linz_private`): the reader login cannot see the private
+schema; every title address joins a title the titles carry (`TITLE_ADDRESS_ORPHAN_SHARE`); at least
+`TITLE_ADDRESS_FLOOR` of the titles have one. Alignment: the lane's code and its profile's extract list agree
+(support/profiles/align.py), and every `lands` column exists.
 
     reading(conn, schema) -> [problems]       empty when green
     python -m registers.linz.check [--schema linz]
 """
+import re
 import sys
 
 TOLERANCE = 0.001
 SET_ASIDE_SHARE = 0.001
 #: owners whose title the titles layer does not carry: LINZ's two products are cut on different days
 OWNERS_WITHOUT_TITLE_SHARE = 0.01
+#: a column name that may carry an address or a geometry: never in the public schema or a published view
+ADDRESSY = re.compile(r"address|street|geom|shape", re.I)
+#: title addresses whose title the titles layer does not carry (the property spine and the titles are cut on different days)
+TITLE_ADDRESS_ORPHAN_SHARE = 0.01
+#: the share of titles the property spine gives an address, below which the join is red (measured 3 November 2026)
+TITLE_ADDRESS_FLOOR = 0.80
+PRIVATE_SOURCES = ("property_titles", "property_addresses", "addresses")
 
 
 def reading(conn, schema: str) -> list:
@@ -38,10 +50,59 @@ def reading(conn, schema: str) -> list:
                 out.append(f"owners: {orphans:,} of {n:,} owners name a title the titles layer does not carry")
     cols = [r[0] for r in conn.execute(
         "SELECT column_name FROM information_schema.columns WHERE table_schema = %s", (schema,))]
-    bad = [c for c in cols if any(w in c for w in ("address", "street", "geom", "shape"))]
+    bad = [c for c in cols if ADDRESSY.search(c)]
     if bad:
         out.append(f"columns that may carry an address or a geometry: {bad}")
+    out += published_views(conn)
+    out += private(conn, schema, sources)
+    out += alignment(conn, schema)
     return out
+
+
+def published_views(conn) -> list:
+    """No `pub.linz_*` view carries a column that may hold an address or a geometry (hard limit 15 at a product's surface;
+    the street address of a title is in `linz_private` only)."""
+    rows = conn.execute("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'pub' "
+                        "AND table_name LIKE 'linz\\_%'").fetchall()
+    bad = sorted(f"pub.{t}.{c}" for t, c in rows if ADDRESSY.search(c))
+    return [f"published columns that may carry an address or a geometry: {bad}"] if bad else []
+
+
+def private(conn, schema: str, sources: set) -> list:
+    """The private schema is the reader login's blind spot; once all three spine sources are loaded the join is held to
+    the titles."""
+    from support import db
+    from registers.linz import load
+    priv = load.private_of(schema)
+    out = []
+    seen = conn.execute("SELECT has_schema_privilege(%s, n.nspname, 'USAGE') FROM pg_namespace n WHERE n.nspname = %s",
+                        (db.ROLES["read"], priv)).fetchone()
+    if seen and seen[0]:
+        out.append(f"{priv}: the reader login can see the private schema")
+    if not set(PRIVATE_SOURCES) <= sources:
+        return out
+    one = lambda q: conn.execute(q).fetchone()[0]  # noqa: E731
+    rows = one(f"SELECT count(*) FROM {priv}.title_addresses")
+    with_address = one(f"SELECT count(DISTINCT title_no) FROM {priv}.title_addresses")
+    if "titles" in sources:
+        titles = one(f"SELECT count(*) FROM {schema}.titles")
+        orphans = one(f"SELECT count(DISTINCT a.title_no) FROM {priv}.title_addresses a WHERE NOT EXISTS "
+                      f"(SELECT 1 FROM {schema}.titles t WHERE t.title_no = a.title_no)")
+        if with_address and orphans > TITLE_ADDRESS_ORPHAN_SHARE * with_address:
+            out.append(f"title_addresses: {orphans:,} of {with_address:,} titles with an address are not among the titles")
+        if titles and (with_address - orphans) < TITLE_ADDRESS_FLOOR * titles:
+            out.append(f"title_addresses: {with_address - orphans:,} of {titles:,} titles have a street address, "
+                       f"under {TITLE_ADDRESS_FLOOR:.0%}")
+    elif not rows:
+        out.append("title_addresses: the three spine sources are loaded and the join is empty")
+    return out
+
+
+def alignment(conn, schema: str) -> list:
+    """The lane's code and its profile's extract list agree, and every column a field lands in exists."""
+    from support.profiles import align
+    from registers.linz import extracts
+    return extracts.problems() + align.live_problems(conn, extracts.LANE, extracts.where(schema))
 
 
 def main(argv=None) -> int:

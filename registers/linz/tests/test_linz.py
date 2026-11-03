@@ -220,13 +220,38 @@ def test_off_peak_holds_a_pull_unless_anytime(monkeypatch):
 # ── the check and the night's order ──────────────────────────────────────────
 
 class CheckConn:
-    def __init__(self, loaded, dup=0, owners=0, orphans=0, cols=("title_no",)):
+    """The check's queries on a fake catalog: `pub_cols` the published linz views' columns, `seen` whether the reader
+    login can see the private schema, `titles`/`with_address`/`address_orphans` the private join's counts, and the
+    catalog holding every lands column unless `missing` names one."""
+
+    def __init__(self, loaded, dup=0, owners=0, orphans=0, cols=("title_no",), pub_cols=(("linz_titles", "title_no"),),
+                 seen=False, titles=0, with_address=0, address_orphans=0, missing=()):
         self.loaded, self.dup, self.owners, self.orphans, self.cols = loaded, dup, owners, orphans, cols
+        self.pub_cols, self.seen, self.titles, self.with_address = pub_cols, seen, titles, with_address
+        self.address_orphans, self.missing = address_orphans, missing
 
     def execute(self, sql, params=()):
+        from registers.linz import extracts
         s = " ".join(sql.split())
         if "FROM s.loaded_pulls" in s:
             return All(self.loaded)
+        if "table_schema = 'pub'" in s:
+            return All(list(self.pub_cols))
+        if "has_schema_privilege" in s:
+            assert params[1] == "s_private"
+            return All([(self.seen,)])
+        if "FROM pg_attribute" in s:
+            schema, table = params
+            lane_t = table if schema == "s" else f"linz_private.{table}"
+            return All([(c,) for c in extracts.TABLES.get(lane_t, ()) if f"{lane_t}.{c}" not in self.missing])
+        if s.startswith("SELECT count(*) FROM s_private.title_addresses"):
+            return All([(self.with_address * 2,)])
+        if s.startswith("SELECT count(DISTINCT title_no) FROM s_private.title_addresses"):
+            return All([(self.with_address,)])
+        if s.startswith("SELECT count(DISTINCT a.title_no) FROM s_private.title_addresses a WHERE NOT EXISTS"):
+            return All([(self.address_orphans,)])
+        if s.startswith("SELECT count(*) FROM s.titles"):
+            return All([(self.titles,)])
         if "HAVING count(*) > 1" in s:
             return All([(self.dup,)])
         if s.startswith("SELECT count(*) FROM s.owners o WHERE NOT EXISTS"):
@@ -264,6 +289,35 @@ def test_the_check_holds_rows_to_the_stated_count_and_refuses_an_address_column(
     assert any("more than once" in p for p in check.reading(CheckConn([("titles", "p", 5, 5, 5, 0)], dup=2), "s"))
 
 
+def test_an_address_column_in_a_published_linz_view_is_red():
+    assert check.reading(CheckConn([]), "s") == []
+    for col in ("full_address", "street_name", "shape", "geom"):
+        bad = check.reading(CheckConn([], pub_cols=(("linz_titles", "title_no"), ("linz_titles", col))), "s")
+        assert any(f"pub.linz_titles.{col}" in p for p in bad), col
+
+
+SPINE = [("titles", "p1", 100, 100, 100, 0)] + [(s, f"p{s}", 10, 10, 10, 0) for s in
+                                                 ("property_titles", "property_addresses", "addresses")]
+
+
+def test_the_private_join_is_held_to_the_titles_and_the_private_schema_to_the_reader():
+    assert check.reading(CheckConn(SPINE, titles=100, with_address=95), "s") == []
+    assert any("the reader login can see" in p for p in check.reading(CheckConn([], seen=True), "s"))
+    low = check.reading(CheckConn(SPINE, titles=100, with_address=50), "s")
+    assert any("50 of 100 titles have a street address" in p for p in low)
+    stray = check.reading(CheckConn(SPINE, titles=100, with_address=95, address_orphans=5), "s")
+    assert any("5 of 95 titles with an address are not among the titles" in p for p in stray)
+
+
+def test_the_lane_is_held_to_its_profile_and_its_lands_columns_to_the_catalog(monkeypatch):
+    from registers.linz import extracts
+    assert extracts.problems() == [], "the lane's code and linz-wfs-page's extract list agree"
+    gone = check.reading(CheckConn([], missing=("linz_private.title_addresses.full_address",)), "s")
+    assert any("s_private.title_addresses has no column full_address" in p for p in gone)
+    monkeypatch.setitem(extracts.LANE.produces, extracts.SLUG, {**extracts.produces(), "owner_address": ("rules", None)})
+    assert any("owner_address" in p for p in check.reading(CheckConn([]), "s"))
+
+
 def test_the_night_takes_unfinished_and_stale_sources_small_first():
     now = dt.datetime(2026, 11, 20, tzinfo=dt.timezone.utc)
 
@@ -279,3 +333,43 @@ def test_the_night_takes_unfinished_and_stale_sources_small_first():
 
 def test_the_lane_folder_has_the_shape():
     assert check_folder(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) == []
+
+
+# ── the private sources and each title's street address ──────────────────────
+
+def test_a_private_source_is_read_with_its_join_keys_and_a_row_without_one_is_set_aside():
+    body = page("property_titles", [{"id": 1, "title_no": "T1", "unit_of_property_id": "u-1"},
+                                    {"id": 2, "title_no": "T2", "unit_of_property_id": None}])
+    rows, aside = R.read_page(body, "property_titles", "d" * 64, 2)
+    assert [r["key"] for r in rows] == ["linz/property_titles/1"] and aside[0]["reason"] == "no unit_of_property_id"
+    a, _ = R.read_page(page("addresses", [{"address_id": 7, "full_address": "1 Invented Lane, Nowhere",
+                                           "address_lifecycle": "Current"}]), "addresses", "e" * 64, 2)
+    assert a[0]["key"] == "linz/addresses/7" and a[0]["full_address"] == "1 Invented Lane, Nowhere"
+    assert not R.recognises(page("addresses", [{"address_id": 7}]), "addresses"), "an address page without its address"
+
+
+def test_the_private_sources_and_the_join_land_in_the_private_schema_only():
+    from registers.linz import load as L
+    assert L.table_of("staging_x", "addresses") == "staging_x_private.addresses"
+    assert L.table_of("linz", "property_titles") == "linz_private.property_titles"
+    assert L.table_of("staging_x", "titles") == "staging_x.titles"
+    sql = L.join_sql("staging_x_private")
+    assert "INSERT INTO staging_x_private.title_addresses" in sql and " staging_x." not in sql
+    with open(os.path.join(os.path.dirname(L.__file__), "publish.sql"), encoding="utf-8") as f:
+        pub = f.read().lower()
+    assert "linz_private" not in pub and "full_address" not in pub and "address_id" not in pub
+    with open(os.path.join(os.path.dirname(L.__file__), "tables.sql"), encoding="utf-8") as f:
+        tables = f.read()
+    public_part = tables[:tables.index("CREATE TABLE linz_private.")]
+    assert "address" not in " ".join(l.split("--")[0] for l in public_part.splitlines()).lower()
+
+
+def test_each_page_records_the_fields_its_source_yields():
+    from registers.linz import extracts
+    rows = extracts.extracted([("a" * 64, "addresses"), ("a" * 64, "addresses"), ("b" * 64, "titles")])
+    by = {}
+    for sha, slug, f, it, reader, model in rows:
+        assert slug == "linz-wfs-page" and reader == R.READER and model is None
+        by.setdefault(sha, {})[f] = it
+    assert by["a" * 64] == {"address_id": 2, "full_address": 2, "address_lifecycle": 2}
+    assert "title_no" in by["b" * 64] and "full_address" not in by["b" * 64]

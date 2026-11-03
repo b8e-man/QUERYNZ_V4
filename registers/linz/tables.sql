@@ -1,6 +1,7 @@
 -- registers/linz (step 8.3): the reading's tables, rebuilt whole every load from each source's newest finished pull.
--- The capture's own tables (pulls, pages, surveys) are made by capture.capture_sql. No table holds an address or a
--- geometry (hard limit 15): a title's land district is a place, an owner is a name.
+-- The capture's own tables (pulls, pages, surveys) are made by capture.capture_sql. No table of `linz` holds an address
+-- or a geometry: a title's land district is a place, an owner is a name. Each title's street address is in
+-- `linz_private` only (the tables at the end), never published (hard limit 15 binds a product's surface, ruling 102).
 
 CREATE TABLE linz.titles (
     key                    text NOT NULL,           -- linz/titles/<title_no>
@@ -75,4 +76,58 @@ CREATE TABLE linz.loaded_pulls (
     landed  integer NOT NULL,
     read    integer NOT NULL,
     aside   integer NOT NULL
+);
+
+-- ── linz_private: the property spine and each title's street address (Arthur, 3 November 2026: "gather everything") ──
+-- Never published, never seen by a reader login (support.db: a `_private` schema). No geometry.
+
+-- table 113970, NZ Properties: Property-Title Reference: a title on a unit of property (a rating unit)
+CREATE TABLE linz_private.property_titles (
+    key                  text NOT NULL,             -- linz/property_titles/<id>
+    id                   bigint,
+    title_no             text NOT NULL,
+    unit_of_property_id  text NOT NULL,
+    document text NOT NULL, page integer, place text, read_from text, reader text, profile text, profile_version integer,
+    loaded_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- table 115638, NZ Properties: Property-Address Reference: an address on a unit of property
+CREATE TABLE linz_private.property_addresses (
+    key                  text NOT NULL,             -- linz/property_addresses/<id>
+    id                   bigint,
+    unit_of_property_id  text NOT NULL,
+    address_id           bigint NOT NULL,
+    document text NOT NULL, page integer, place text, read_from text, reader text, profile text, profile_version integer,
+    loaded_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- layer 123113, NZ Addresses (AIMS), without its geometry: the address as LINZ gives it
+CREATE TABLE linz_private.addresses (
+    key                  text NOT NULL,             -- linz/addresses/<address_id>
+    address_id           bigint NOT NULL,
+    full_address         text NOT NULL,
+    address_lifecycle    text,
+    document text NOT NULL, page integer, place text, read_from text, reader text, profile text, profile_version integer,
+    loaded_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- each title's street address: title → unit of property → address id → address, one row per title and address. A unit
+-- of property carrying several titles or several addresses says so (titles_on_property, addresses_on_property): the join
+-- is the property's, not the title's own. The source rows are named by their keys and their landed pages.
+CREATE TABLE linz_private.title_addresses (
+    title_no                   text NOT NULL,
+    address_id                 bigint NOT NULL,
+    full_address               text NOT NULL,
+    address_lifecycle          text,
+    unit_of_property_id        text NOT NULL,
+    joined_by                  text NOT NULL,     -- how it was joined: load.JOINED_BY
+    titles_on_property         integer NOT NULL,
+    addresses_on_property      integer NOT NULL,
+    property_title_key         text NOT NULL,
+    property_address_key       text NOT NULL,
+    address_key                text NOT NULL,
+    property_title_document    text NOT NULL,
+    property_address_document  text NOT NULL,
+    address_document           text NOT NULL,
+    loaded_at timestamptz NOT NULL DEFAULT now()
 );

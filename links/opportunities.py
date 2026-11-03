@@ -80,6 +80,15 @@ REGISTER: tuple = (
           "address shown, hard limit 15); " + _PRIVATE),
     Entry("courts-*", "identifiers", "po_box", "measure owed", (), "measured: links/measurements.md",
           "whether a PO Box a judgment prints is matched to a company's address; " + _PRIVATE),
+    # LINZ (3 November 2026): the lane's extract list declares two; no links rule reads a LINZ view yet
+    Entry("linz-*", "name", "name", "measure owed", (),
+          "pub.linz_title_owners (an owner's name as printed, corporate or individual): no links rule reads it",
+          "whether a title's corporate owner is joined to the company of that name, and an individual owner to a person "
+          "by name (near at most, as a name alone is)"),
+    Entry("linz-*", "full_address", "address", "measure owed", (),
+          "linz_private.title_addresses (each title's street address, the property spine): private, and the lane reads "
+          "pub.* only",
+          "whether a title's street address is matched to a company's registered office (never shown, hard limit 15)"),
 )
 
 
