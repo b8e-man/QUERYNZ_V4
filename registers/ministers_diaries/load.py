@@ -33,7 +33,7 @@ COLUMNS = {
                  "withheld_entries", "locations_flagged", "source_note") + STAMP,
     "entries": ("key", "release", "rowid", "minister", "portfolio", "entry_on", "date_as_released", "year", "time",
                 "meeting", "attendees", "location") + read.FLAGS + ("withheld", "collected_at",
-                "updated_at", "text_words", "fields_unread", "versions", "seq", "source_note") + STAMP,
+                "updated_at", "provider_file", "provider_path", "capture_path", "text_words", "fields_unread", "versions", "seq", "source_note") + STAMP,
     "attendees": ("key", "entry", "position", "attendee", "sep_before", "sep_after", "kind", "folded", "organisation",
                   "crown") + STAMP,
 }

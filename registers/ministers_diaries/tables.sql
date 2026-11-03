@@ -59,6 +59,9 @@ CREATE TABLE IF NOT EXISTS ministers_diaries.entries (
     withheld         text[] NOT NULL DEFAULT '{}',          -- the fields in which the release prints a withholding
     collected_at     text,                                  -- the provider's `_collected`, as served
     updated_at       text,                                  -- the MCP's
+    provider_file    text,                                  -- the provider's `file`: the release PDF as its box holds it (4 November 2026)
+    provider_path    text,                                  -- the provider's `path`: the same, relative to its store
+    capture_path     text,                                  -- the capture block's `path`, as served
     text_words       integer NOT NULL DEFAULT 0,            -- words in the record's `text` (what the MCP's `measure` counts)
     fields_unread    text[] NOT NULL DEFAULT '{}',          -- any field of the record this lane has no column for
     versions         integer NOT NULL DEFAULT 1,            -- documents held for this record

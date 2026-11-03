@@ -43,14 +43,14 @@ from dataclasses import dataclass, field
 
 READER = "registers.ministers_diaries.read"
 PROFILE = "mcp-diary-entry"
-PROFILE_VERSION = 1
+PROFILE_VERSION = 2       # v2, 4 November 2026: the provider's `file`, `path` and `capture.path`
 SOURCE_NOTE = ("one meeting of a minister's monthly diary release (a Beehive proactive release), read from the "
                "release PDF by Arthur's provider off-estate and served by the query-nz ingest MCP (ruling 78); the "
                "estate never fetched the PDF")
 PDF_HOST = "https://www.beehive.govt.nz/"
 KNOWN = ("id", "rowid", "minister", "portfolio", "date", "year", "time", "meeting", "location", "attendees",
-         "source_url", "_collected", "updated_at", "capture", "text")
-CAPTURE = ("_collected", "source_url")
+         "source_url", "_collected", "updated_at", "capture", "text", "file", "path")
+CAPTURE = ("_collected", "source_url", "path")
 FIELDS = ("portfolio", "time", "meeting", "location", "attendees")      # where a withholding is looked for
 FLAGS = ("location_names_home", "location_street_only", "meeting_names_address", "attendees_names_address")
 MONTHS = ("january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
@@ -189,6 +189,8 @@ def read_one(sha: str, rec: dict, seq, versions: int, out: Result, loaded_at: st
     cap = rec.get("capture") if isinstance(rec.get("capture"), dict) else {}
     if cap.get("source_url") is not None and cap.get("source_url") != rec["source_url"]:
         _bump(n, "capture blocks naming another source_url")
+    if cap.get("path") is not None and rec.get("path") is not None and cap["path"] != rec["path"]:
+        _bump(n, "capture blocks naming another path")
     out.entries.append({
         "key": key, "release": rec["source_url"].strip(), "rowid": rec.get("rowid") if isinstance(rec.get("rowid"), int) else None,
         "minister": _str(rec.get("minister")), "portfolio": _str(rec.get("portfolio")), "entry_on": on,
@@ -198,6 +200,8 @@ def read_one(sha: str, rec: dict, seq, versions: int, out: Result, loaded_at: st
         "meeting_names_address": in_meeting, "attendees_names_address": in_attendees, "withheld": w,
         "collected_at": _str(rec.get("_collected")) or _str(cap.get("_collected")),
         "updated_at": _str(rec.get("updated_at")),
+        "provider_file": _str(rec.get("file")), "provider_path": _str(rec.get("path")),
+        "capture_path": _str(cap.get("path")),
         "text_words": len(rec["text"].split()) if isinstance(rec.get("text"), str) else 0,
         "fields_unread": unread(rec), "versions": versions, "seq": seq, "source_note": SOURCE_NOTE,
         **_stamp(sha, "record", loaded_at)})

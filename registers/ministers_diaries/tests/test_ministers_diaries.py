@@ -26,7 +26,7 @@ def _rec(n, **kw):
     r.update({"id": str(n), "rowid": n, "minister": "Hon Minister A", "portfolio": "Transport", "date": "2025-03-04",
               "year": "2025", "time": "9:00 AM - 9:30 AM", "meeting": "Meeting with an association",
               "location": "Parliament Buildings", "attendees": "Chief Executive, an association", "source_url": PDF})
-    r["capture"] = {"_collected": "2026-10-17T06:35:49Z", "source_url": PDF}
+    r["capture"] = {"_collected": "2026-10-17T06:35:49Z", "source_url": PDF, "path": r["path"]}
     r.update(kw)
     r["text"] = " | ".join(str(r[f]) for f in ("date", "time", "minister", "portfolio", "meeting", "location", "attendees"))
     return r
@@ -53,6 +53,8 @@ def test_an_entry_is_read_as_released_and_its_release_counted():
     assert (e["minister"], e["portfolio"], e["entry_on"], e["time"], e["location"]) == \
         ("Hon Minister A", "Transport", "2025-03-04", "9:00 AM - 9:30 AM", "Parliament Buildings")
     assert e["fields_unread"] == [] and e["withheld"] == [] and "text" not in e
+    # the provider's fields of 4 November (ruling 96: their fields in our registers), each to a column
+    assert (e["provider_file"], e["provider_path"], e["capture_path"]) == ("file 1", "path 1", "path 1")
     r = res.releases[0]
     assert (r["entries"], r["minister"], r["ministers_named"], r["pdf_url"], r["upload_folder"], r["month_named"],
             r["entries_month"], r["month"], r["first_on"], r["last_on"]) == \
