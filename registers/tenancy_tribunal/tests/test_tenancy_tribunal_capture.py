@@ -325,3 +325,18 @@ def test_one_run_of_the_lane_at_a_time():
         conn = FakeConn(held)
         assert C.Tables(conn).try_lock() is (not held)
         assert conn.sql == [("SELECT pg_try_advisory_lock(hashtext(%s))", (C.JOB,))]
+
+
+def test_an_order_a_reset_stopped_is_asked_again_on_a_later_night():
+    """3 November 2026: a transport failure is set aside under the URL, never the order, so the order stays pending
+    (pinned: the host has reset every PDF since 25 October; the orders wait for it, none is lost)."""
+    def dead(url, timeout=60, **kw):
+        if url.endswith(".pdf"):
+            raise ConnectionResetError(104, "Connection reset by peer")
+        return FakeSite({"2023-10": [solr_doc(["1"]), solr_doc(["2"]), solr_doc(["3"])]})(url, timeout, **kw)
+    r, t, store = run(dead)
+    assert "3 transport failures" in r.run(dt.date(2026, 10, 18))["stopped"]
+    site = FakeSite({"2023-10": [solr_doc(["1"]), solr_doc(["2"]), solr_doc(["3"])]})
+    r2, _, _ = run(site, tables=t, store=store)
+    assert r2.run(dt.date(2026, 10, 18))["landed"] == 3
+
