@@ -13,7 +13,7 @@ document so we know what has been extracted"; and "gather everything".
   the next iteration in a new version of the profile. No field is dropped and none goes back an iteration;
   `add_version` refuses either.
 - **A document records what it has had.** `docs.extractions` holds one row per document, profile and field, with
-  the iteration it was extracted at (`support.profiles.extraction`). A reader asks only for the items above that
+  the iteration it was extracted at (`support.docstore.extraction`). A reader asks only for the items above that
   (`support.profiles.wanted`): a new field is read on its own, and the document is not read again from the start.
   `extraction.behind` counts, per field, the documents still owed it.
 

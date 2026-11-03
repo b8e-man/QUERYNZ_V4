@@ -22,7 +22,7 @@ closed vocabulary, or null)}; `iteration` is the highest item's. A field
 added, or a field's instruction changed, is an item with the next
 iteration, in a new version; no field is ever dropped. A document records
 the iteration each field was extracted at (`docs.extractions`, see
-support/profiles/extraction.py), so a reader asks only for what a
+support/docstore/extraction.py), so a reader asks only for what a
 document has not had: `wanted(profile, done)`.
 
     current()            slug → the newest version of every profile

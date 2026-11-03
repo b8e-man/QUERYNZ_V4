@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS docs.names (
 CREATE INDEX IF NOT EXISTS docs_names_name ON docs.names (name);
 
 -- what each document has had extracted: per profile and field, the iteration of the profile's extract list it was
--- extracted at (support/profiles/extraction.py; Arthur, 3 November 2026). A ledger: never wiped by a load
+-- extracted at (support/docstore/extraction.py; Arthur, 3 November 2026). A ledger: never wiped by a load
 CREATE TABLE IF NOT EXISTS docs.extractions (
     sha256     text NOT NULL REFERENCES docs.documents (sha256),
     profile    text NOT NULL,
