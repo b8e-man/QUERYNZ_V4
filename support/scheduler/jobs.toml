@@ -1285,7 +1285,7 @@ concurrency = 1
 then = ["qv4-council-minutes-read"]
 
 [jobs.qv4-councillor-interests-read]
-description = "Councils' registers of members' pecuniary interests held as PDFs: the text reader's reading of one register document (piece key sha256) through the text-reader profile, profile interests-register-pdf-text, whole pages in pieces of 12,000 characters (8,192 answer tokens): each member, role, every category as printed with its s 54E kind and its entries; real property, homes, addresses, roads, contacts and a spouse's or partner's interests never kept. Stored by hash and piece, replayed by the next qv4-councillor-interests-load (ruling 128 lifted ruling 79's hold for node2; Arthur, 2 November 2026: 'we want to gather and ingest all of this'). A PDF with no text layer waits for the page reader."
+description = "Councils' registers of members' pecuniary interests held as PDFs: the text reader's reading of one register document (piece key sha256) through the text-reader profile, profile interests-register-pdf-text, whole pages in pieces of 12,000 characters (8,192 answer tokens): each member, role, every category as printed with its s 54E kind and its entries; real property, homes, addresses, roads, contacts and a spouse's or partner's interests read and kept too (ruling 142), the contact-shaped entries in councillor_interests_private. Stored by hash and piece, replayed by the next qv4-councillor-interests-load (ruling 128 lifted ruling 79's hold for node2; Arthur, 2 November 2026: 'we want to gather and ingest all of this'). A PDF with no text layer waits for the page reader."
 needs = "model-profile"
 profile = "text-reader"
 memory_gb = 0.5

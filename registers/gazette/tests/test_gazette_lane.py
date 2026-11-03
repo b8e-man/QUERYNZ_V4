@@ -290,7 +290,7 @@ def test_a_revocation_names_nobody_and_the_revoked_notice_s_person_is_not_publis
     assert k["kind"] == "the revocation's words" and "Wrong Person" in k["value"], "its words are kept privately (ruling 142)"
     assert {n["filed"]["status"] for n in res.notices} == {"read"}
     view = open(os.path.join(LANE, "publish.sql"), encoding="utf-8").read()
-    assert "WHEN superseded_how IN ('revoked', 'revoked and replaced') THEN NULL ELSE name END" in view
+    assert "THEN NULL" not in view and "CASE WHEN withheld_by" not in view, "a revoked or annulled name is a flag (ruling 142)"
 
 
 def test_two_notices_captured_as_one_text_are_both_read():
@@ -991,10 +991,13 @@ def test_a_prohibited_person_s_address_is_private_and_a_revoked_person_is_not_pu
     from registers.gazette import load as L
     schema, conn = filled["schema"], filled["conn"]
     conn.execute(L.sql("publish.sql", schema, shared=True).replace("pub.", f"{schema}.gazette_pub_"))
-    shown = dict(conn.execute(f"SELECT notice, name FROM {schema}.gazette_pub_gazette_prohibitions "
-                              "WHERE notice IN ('2026-ot41', '2018-ot756', '2021-ot4635')").fetchall())
+    shown = {n: (name is not None, how) for n, name, how in conn.execute(
+        f"SELECT notice, name, superseded_how FROM {schema}.gazette_pub_gazette_prohibitions "
+        "WHERE notice IN ('2026-ot41', '2018-ot756', '2021-ot4635')").fetchall()}
     conn.rollback()
-    assert shown["2026-ot41"] is None and shown["2018-ot756"] is None and shown["2021-ot4635"]
+    # ruling 142: a revoked notice's person is shown with the revocation as the flag, never blanked
+    assert all(named for named, _ in shown.values()), "a revoked person's name is kept in the view"
+    assert shown["2026-ot41"][1] and shown["2018-ot756"][1] and shown["2021-ot4635"][1] not in ("revoked", "revoked and replaced")
 
 
 def test_the_outside_check_passes_on_the_sample_s_prohibitions(filled):
@@ -1103,8 +1106,9 @@ def test_each_bankruptcy_case_reads_as_its_comment_says_and_no_address_is_publis
     assert not set(filled["bankruptcies"][0]) & {"address", "formerly", "text"}
     with filled["conn"].cursor() as cur:
         cur.execute(f"CREATE TEMP VIEW pub_b AS {open(os.path.join(REPO, 'registers/gazette/publish.sql')).read().split('CREATE OR REPLACE VIEW pub.gazette_bankruptcies AS')[1].split(';')[0].replace('gazette.bankruptcies', filled['schema'] + '.gazette_bankruptcies')}")
-        cur.execute("SELECT surname, given_names FROM pub_b WHERE notice = '2002-ba3634'")
-        assert cur.fetchall() == [(None, None)]
+        cur.execute("SELECT surname IS NOT NULL, given_names IS NOT NULL, withheld_by IS NOT NULL FROM pub_b "
+                    "WHERE notice = '2002-ba3634'")
+        assert cur.fetchall() == [(True, True, True)], "an annulled bankrupt's name is kept, flagged (ruling 142)"
 
 
 def test_each_appointment_case_reads_as_its_comment_says(filled):
