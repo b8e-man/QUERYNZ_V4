@@ -65,8 +65,8 @@ HEADINGS = {
     "payments for activities": "payments-for-activities",
     "payment for activities": "payments-for-activities",
 }
-#: the categories whose declarations can place a member's home: held in the private schema, never published
-#: (hard limit 15; the decision queue asks Arthur whether the property kind may be shown)
+#: the categories whose declarations can place a member's home: kept whole and flagged `withheld`, the flag a
+#: product applies hard limit 15 by (rulings 142 and 143, 4 November 2026)
 PRIVATE_CATEGORIES = ("real-property",)
 
 #: a member's header; a nickname in brackets may sit inside the name ("Tutehounuku (Nuk) Korako (National, List)")

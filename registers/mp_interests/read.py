@@ -16,10 +16,10 @@ Two checks run on every edition before anything is published:
                  gives that number (`check.py`; the lane's outside check)
 
 A declaration filed under "Real property" can place a member's home (a
-suburb, a town): its text is held in the private schema, keyed by the row,
-and the published row carries the category and the fact it is withheld
-(hard limit 15; the decision queue asks whether the property's kind may be
-shown).
+suburb, a town): its text is kept whole in its row like every other
+declaration (rulings 142 and 143, 4 November 2026), with `withheld` beside
+it: the flag a product applies hard limit 15 by at its own surface. A copy
+of the text, keyed by the row, also sits in the private schema.
 
     profile(slug)                           the current version, shared ledger or proposed
     edition_rows(pages, sha, year, at)      -> {edition, members, declarations, private, numbering, set_aside}
@@ -97,7 +97,7 @@ def edition_rows(pages: dict, sha256: str, year_label: int = None, loaded_at: st
         out["declarations"].append({
             "key": key, "edition": sha256, "member": mkeys[d.member], "document": sha256, "page": d.page,
             "place": f"page {d.page}, line {d.line}", "as_at": out["edition"]["as_at"], "number_printed": d.number,
-            "heading": d.heading, "category": d.category, "text": None if private else d.text, "withheld": private,
+            "heading": d.heading, "category": d.category, "text": d.text, "withheld": private,
             **stamp})
         if private:
             out["private"].append({"key": key, "text": d.text})

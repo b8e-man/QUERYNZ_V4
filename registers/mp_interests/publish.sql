@@ -1,5 +1,6 @@
 -- registers/mp_interests: what later modules read. Every row carries its document's hash, page and place. A
--- declaration filed under real property carries no text here: it is held in the private twin (hard limit 15).
+-- declaration filed under real property carries its text whole, flagged `withheld`: the flag a product applies hard
+-- limit 15 by at its own surface (rulings 142 and 143, 4 November 2026).
 
 CREATE OR REPLACE VIEW pub.mp_interests AS
 SELECT d.key, d.document, d.page, d.place, d.as_at, m.member, m.name, m.party_label, m.party, m.party_basis,

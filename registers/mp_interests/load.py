@@ -6,8 +6,8 @@ for the sample, where every module shares one scratch schema, so there
 this lane's tables carry its name (`mp_interests_declarations`, …).
 
 Capture, read, insert. Every edition lands by hash and is read or is a
-catch-log line; every declaration parsed is published (its text withheld
-where it is real property) or is a catch-log line; every member's return
+catch-log line; every declaration parsed is published whole (real property
+flagged `withheld`) or is a catch-log line; every member's return
 carries declarations, a printed statement, or a catch-log line. `reconcile`
 states those sums, and the run record carries them.
 """

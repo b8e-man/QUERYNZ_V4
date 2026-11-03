@@ -215,11 +215,14 @@ def test_the_members_the_old_parser_missed_are_read(filled):
     assert sum(1 for x in filled["members"] if x["statement"] == "Return not received by due date") == 2
 
 
-def test_no_published_declaration_carries_a_real_property_text(filled):
+def test_a_real_property_declaration_is_kept_whole_and_flagged(filled):
+    """Rulings 142 and 143 (4 November 2026): the real-property text is kept whole in its row, flagged `withheld`
+    (the old reading left it NULL there)."""
     rp = [d for d in filled["declarations"] if d["category"] == "real-property"]
-    assert rp and all(d["text"] is None and d["withheld"] for d in rp)
-    assert {p["key"] for p in filled["private"]} == {d["key"] for d in rp}
-    assert all(d["text"] for d in filled["declarations"] if d["category"] != "real-property")
+    assert rp and all(d["text"] and d["withheld"] for d in rp)
+    priv = {p["key"]: p["text"] for p in filled["private"]}
+    assert all(priv[d["key"]] == d["text"] for d in rp)
+    assert all(d["text"] and not d["withheld"] for d in filled["declarations"] if d["category"] != "real-property")
 
 
 def test_a_rebuild_gives_every_row_the_same_key(filled):
@@ -236,7 +239,7 @@ def test_the_published_views_build_on_the_lane_s_tables(filled):
     conn, schema = filled["conn"], filled["schema"]
     conn.execute(L.sql("publish.sql", schema, shared=True).replace("pub.", f"{schema}.pub_mp_interests_"))
     n = conn.execute(f"SELECT count(*) FROM {schema}.pub_mp_interests_mp_interests WHERE text IS NOT NULL").fetchone()[0]
-    leak = conn.execute(f"SELECT count(*) FROM {schema}.pub_mp_interests_mp_interests "
-                        f"WHERE category = 'real-property' AND text IS NOT NULL").fetchone()[0]
-    assert n > 0 and leak == 0
+    kept = conn.execute(f"SELECT count(*) FROM {schema}.pub_mp_interests_mp_interests "
+                        f"WHERE category = 'real-property' AND text IS NOT NULL AND withheld").fetchone()[0]
+    assert n > 0 and kept > 0
     conn.rollback()

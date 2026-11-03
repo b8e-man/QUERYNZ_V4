@@ -75,8 +75,8 @@ CREATE TABLE IF NOT EXISTS mp_interests.declarations (
     number_printed   text NOT NULL,                  -- an attribute only: the register renumbered in 2018
     heading          text NOT NULL,                  -- as printed
     category         text NOT NULL,                  -- the slug for the heading (parse.HEADINGS)
-    text             text,                           -- verbatim; NULL where withheld
-    withheld         boolean NOT NULL,               -- the text is held in the private twin (real property)
+    text             text,                           -- verbatim, whole in every category (rulings 142, 143)
+    withheld         boolean NOT NULL,               -- real property: the text can place a home; a product withholds it
     reader           text NOT NULL,
     profile          text NOT NULL,
     profile_version  integer NOT NULL,
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS mp_interests.numbering (
     agrees          boolean NOT NULL
 );
 
--- the text of a declaration that can place a member's home: never published, never granted to a reader (hard limit 15)
+-- a copy of each real-property declaration's text, keyed by the row (the row carries it whole too, rulings 142, 143)
 CREATE TABLE IF NOT EXISTS mp_interests_private.declaration_text (
     key   text PRIMARY KEY,                          -- the declaration's key
     text  text NOT NULL
