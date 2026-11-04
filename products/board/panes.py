@@ -1749,8 +1749,9 @@ def chat_pane() -> str:
 
 
 def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: str = "search", db=None) -> str:
-    """The page: two tabs, search (`/`, as before, an href carrying the term
-    and the registers checked, ruling 80) and use cases (`/uses`, ruling 87);
+    """The page: three tabs, search (`/`, as before, an href carrying the term
+    and the registers checked, ruling 80), use cases (`/uses`, ruling 87) and
+    papers past (`/papers-past`, Arthur 5 November 2026: the archive's keyword index, papers_past.py);
     the graph tab left the bar (ruling 111), its graph lives beside the
     results; the database connection counter at the bar's end (ruling 90;
     `db`, db.connections' answer, None reads "db ?")."""
@@ -1762,7 +1763,8 @@ def page(q: str, path: list, panes: list, message: str = "", boxes=None, tab: st
                 f'<input name="name" placeholder="name this path" size="18"> <button>save path</button></form>')
     msg = f'<span class="note">{esc(message)}</span>' if message else ""
     tabs = (f'<nav class="tabs"><a class="{"on" if tab == "search" else ""}" href="{esc(href(q, [] if tab != "search" else path, boxes))}">search</a> '
-            f'<a class="{"on" if tab == "uses" else ""}" href="/uses">use cases</a></nav>')
+            f'<a class="{"on" if tab == "uses" else ""}" href="/uses">use cases</a> '
+            f'<a class="{"on" if tab == "papers past" else ""}" href="/papers-past">papers past</a></nav>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>QueryNZ board</title>"
             f"<style>{CSS}</style></head><body class=\"chat-on\"><header><h1>QueryNZ board</h1>{tabs}"
             f"{save}<a href=\"/pinned\">pinned</a><a href=\"/saved\">saved paths</a>{msg}{db_counter(db)}</header>"

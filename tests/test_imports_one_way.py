@@ -29,6 +29,11 @@ MAY_IMPORT = {
     "checks": {"support"},
 }
 STDLIB = set(sys.stdlib_module_names)
+#: the crossings allowed by name, each one file and one module: the board's Papers Past tab calls the lane's read-only
+#: keyword search (Arthur, 5 November 2026: "add a search interface tab in the querynz board"); the index and the text
+#: store are the lane's files, so the lane reads them and the board only renders what it returns (hard limit 17 holds it
+#: in tests/test_papers_past_search_only.py)
+CROSSINGS = {(os.path.join("products", "board", "papers_past.py"), "registers.papers_past.search")}
 
 
 def py_files():
@@ -69,6 +74,8 @@ def violations():
         root, owner = module_of(path)
         in_tests = os.sep + "tests" + os.sep in path or os.path.basename(path).startswith("test_")
         for name in imports_of(path):
+            if (os.path.relpath(path, REPO), name) in CROSSINGS:
+                continue
             top = name.split(".")[0]
             if top in STDLIB or top not in ROOTS:
                 continue   # the standard library and third-party packages are not modules of ours

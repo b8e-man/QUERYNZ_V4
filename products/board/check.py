@@ -362,7 +362,8 @@ def chat_problems(conn) -> list:
     out = []
     gid = db.rows(conn, "select group_id from pub.groups limit 1")
     pages = {"search": server.render(CHAT_TERM, [], conn=conn), "use cases": server.render_uses(),
-             "pinned": server.render_list("pinned"), "saved paths": server.render_list("saved")}
+             "pinned": server.render_list("pinned"), "saved paths": server.render_list("saved"),
+             "papers past": server.render_papers_past("")}
     if gid:
         pages["a dossier"] = server.render("", [], conn=conn, chosen=people.entity_id(gid[0]["group_id"]))
     for name, page in pages.items():

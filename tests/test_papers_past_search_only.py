@@ -55,12 +55,20 @@ def test_the_lane_publishes_no_person_name_or_claim():
         assert bad == [], f"{os.path.basename(path)} carries {bad}"
 
 
+#: the board's Papers Past tab (Arthur, 5 November 2026): the one board file that calls the lane, through its search alone
+BOARD_TAB = os.path.join("products", "board", "papers_past.py")
+
+
 def test_only_the_archive_product_may_read_it():
+    """The archive product and the board's one tab file, which reaches the lane only through its read-only search
+    (test_the_board_tab_reaches_the_lane_only_through_its_search)."""
     readers = []
     for root in ("links", "products", "registers"):
         for p in _files(os.path.join(REPO, root), (".py",)):
             rel = os.path.relpath(p, REPO)
             if rel.startswith(os.path.join("registers", "papers_past")) or rel.startswith(os.path.join("products", "archive")):
+                continue
+            if rel == BOARD_TAB:
                 continue
             src = open(p, encoding="utf-8").read()
             if re.search(r"registers\.papers_past|pub\.papers_past|papers_past\.items", src):
@@ -70,9 +78,9 @@ def test_only_the_archive_product_may_read_it():
 
 def test_the_board_shows_it_only_as_its_pane_md_says():
     """registers/papers_past/pane.md: one board pane row per article (title, paper, issue date, length, link), searched
-    by title; no person, no name, no link, never joined to another register. The catalogue entry is the board's only
-    hold on it, so it is held to that here: no names, no joins, no parent, no relations, nothing points at it, and it
-    stays out of the all-views search."""
+    by title; no person, no name, no link, never joined to another register. The catalogue entry is the board's one
+    pane of it, so it is held to that here: no names, no joins, no parent, no relations, nothing points at it, and it
+    stays out of the all-views search. Its other hold is the papers past tab, which only searches (below)."""
     from products.board import catalogue as cat
     v = cat.BY_NAME["papers_past_items"]
     assert v.names == () and v.joins == () and v.parent == () and v.relations == () and v.searched is False
@@ -80,6 +88,26 @@ def test_the_board_shows_it_only_as_its_pane_md_says():
     assert not any(r.view == "papers_past_items" for w in cat.VIEWS for r in w.relations)
     assert not any(j.view == "papers_past_items" for w in cat.VIEWS for j in w.joins)
     assert not any(w.parent and w.parent[1] == "papers_past_items" for w in cat.VIEWS)
+
+
+def test_the_board_tab_reaches_the_lane_only_through_its_search():
+    """The tab imports the lane's search and nothing else of it, names no other schema, and neither it nor the search
+    writes, finds a name or reaches links/ or the names."""
+    import ast
+    tab = os.path.join(REPO, BOARD_TAB)
+    lane = [n for n in ast.walk(ast.parse(open(tab, encoding="utf-8").read()))
+            if isinstance(n, (ast.Import, ast.ImportFrom))]
+    reached = {a.name for n in lane if isinstance(n, ast.Import) for a in n.names if a.name.startswith(("registers", "links"))}
+    reached |= {n.module for n in lane if isinstance(n, ast.ImportFrom) and (n.module or "").startswith(("registers", "links"))}
+    assert reached == {"registers.papers_past.search"}, reached
+    for path in (tab, os.path.join(LANE, "search.py")):
+        src = open(path, encoding="utf-8").read()
+        assert not re.search(r"\b(insert\s+into|update\s+\w+\s+set|delete\s+from|truncate|create\s+table|copy\s+[\w.]+\s*(\(|from\b|to\b))", src, re.I), path
+        assert not re.search(r"\bpub\.(names|links|groups|entities)\b|\blinks\.|\bnames_of\b|\bsightings\b", src), path
+    search_src = open(os.path.join(LANE, "search.py"), encoding="utf-8").read()
+    imports = {a.name for n in ast.walk(ast.parse(search_src)) if isinstance(n, ast.Import) for a in n.names}
+    imports |= {n.module for n in ast.walk(ast.parse(search_src)) if isinstance(n, ast.ImportFrom)}
+    assert not any(m and m.startswith(("links", "products", "support.modelclient")) for m in imports), imports
 
 
 @pytest.mark.slow
