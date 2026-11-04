@@ -949,3 +949,40 @@ across a refill while `max(loaded_at)` is older than the last gather and the rea
 (`rows.STEADY`, `rows_catch.fingerprint`), so only the first build after a LINZ load reads them. The reader ends its
 transaction after each view and each stage (68c65cd), so a lane's DROP ... CASCADE no longer waits on the build.
 qv4-links-build is set to `deadline_s = 10800` and `memory_gb = 6.5`.
+
+## 20. A LINZ owner's full name alone is near; a suppressed name is a row, 4 November 2026 (integrator)
+
+The coordinator, on Arthur's word (correctness over coverage): §19's `full-name@1` confirmed 1,189,086 owner-to-owner
+pairs and 1,256,063 owner-to-other pairs on a bare full name, merging different people of a common name.
+
+**`owner-full-name@1`** (links/build.py `owner_full_name_links`, links/rules.py). `full-name@1` reads no LINZ row. A
+LINZ owner's full name (a middle name present, no politician) is confirmed only when corroborated: the same full name
+twice on one title, or on titles at one address (`pub_private.linz_title_addresses`, an address of at most 50 titles;
+none until the LINZ title addresses load). Every other owner row of a full name another row shares is near, a star to
+the smallest ref outside LINZ where there is one. A second register's identifier confirms by its own rule
+(`official-number@1`, `judgment-address-title@1`). `rules.judge` gives the same near grade for an owner's full name.
+
+Re-run on §19's scratch rows (`scratch_links_priv`: full-name, the owner rule, the model tier, groups, entities):
+
+| | Live | §19 (old rule) | §20 |
+| --- | --- | --- | --- |
+| `full-name@1` | 1,458,955 | 4,369,493 | 1,589,552 confirmed, 311,425 near (the model tier) |
+| `owner-full-name@1` | - | - | 490,186 confirmed (same title), 2,247,472 near |
+| groups / rows in them | 732,489 / 3,261,333 | 1,470,665 / 6,836,020 | 1,287,604 / 4,698,637 |
+| largest group | 32,157 | 32,157 | 32,157 (no LINZ row in it) |
+| groups over 100 rows | 607 | 991 | 739 |
+| groups over 1,000 rows | 103 | 123 | 123 |
+| entities | 3,037,148 | 6,685,712 | 8,640,034 |
+
+Groups holding a LINZ row: 451,037, every one of LINZ rows only, the largest 23 rows, none over 100. The owner rule
+took about 400 s (full-name 326 s), so a full build is about 7,000 s against the deadline of 10,800 s. (The re-run's
+contested count is not comparable: the watch was not rebuilt.)
+
+**Ruling 142, the links' own set-aside withdrawn.** `rows.row_record` no longer sets aside a suppressed or withheld
+name: it is a row with `suppressed` true (`links.rows.suppressed`, carried into `pub.names`), joined by the rules like
+any other; only a placeholder printed in its place ("name suppressed") is no name. In §19's build 1,093 rows were set
+aside so (court_judgment_parties 953, commerce_commission_parties 82, worksafe_parties 24, overseas_investment_parties
+24, building_practitioner_decisions 7, fma_parties 3, placeholders among them). An entity's display name is an
+unsuppressed one where any row has it, and `entities.suppressed` (in `pub.entities`) says the name shown is a
+suppressed one. A suppressed name is no name form (`links.sightings`), since a sighting found by its form would carry
+no flag.
