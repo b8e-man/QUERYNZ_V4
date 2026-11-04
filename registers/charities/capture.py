@@ -42,7 +42,8 @@ is retried in the same run, solved or got around. A lone transport failure (a
 name lookup, a reset, a timeout) on a keyed set's page is a catch-log line: that
 set's pass stays open and resumes next run, and the run goes on to the next
 set. Three transport failures in a row stop the run. A gate refusal is never
-caught.
+caught, except on the documents about the feed, which are asked last, after
+the register: there it ends their part and the run's line says so.
 
 Every line printed is a count. No row, name or address is ever printed.
 
@@ -457,17 +458,25 @@ class Run:
         self.counts["passes_finished"] += 1
 
     def run(self) -> dict:
+        """The register first (the keyed sets, then the code lists, all on the odata host), the documents
+        about the feed last, so a block on, or a gate hold of, the documents' host can never stop the
+        register being captured (decided 5 November 2026). A gate refusal is caught on the documents only:
+        it ends their part, the register already landed, and the run's line says so."""
         now = self.now_local()
         try:
-            for name, url in DOCS.items():
-                if self.wanted(name):
-                    self.whole(name, url, now, False, CONTENT_TYPES[name])
-            for name in WHOLE:
-                if self.wanted(name):
-                    self.whole(name, whole_url(name), now, True, "application/json")
             for name, key, changes in KEYED:
                 if self.wanted(name) and self.time_left():
                     self.walk(name, key, now, changes)
+            for name in WHOLE:
+                if self.wanted(name):
+                    self.whole(name, whole_url(name), now, True, "application/json")
+            try:
+                for name, url in DOCS.items():
+                    if self.wanted(name):
+                        self.whole(name, url, now, False, CONTENT_TYPES[name])
+            except fg.Refused as exc:
+                raise Stop(f"the documents about the feed: the fetch gate refused {name} ({str(exc)[:200]}); "
+                           "the register was captured before them") from exc
         except Stop as exc:
             self.stopped = f"stopped: {exc}"
         if self.waiting and not self.stopped.startswith("stopped:"):

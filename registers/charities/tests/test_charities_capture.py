@@ -276,6 +276,21 @@ def test_the_rows_of_a_code_list_are_counted():
     assert out["pages"] == 2 and out["rows"] == 3
 
 
+def test_the_register_is_captured_before_the_documents_and_a_refusal_on_them_ends_only_their_part():
+    feed = FakeFeed({"Groups": [{"GroupId": 1}], "MainSector": [{"Id": 1}]})
+
+    def gate(url, timeout):
+        if fg.host_of(url) != C.HOST:
+            raise fg.Refused("the fetch gate holds www.charities.govt.nz")
+        return feed(url, timeout)
+    t, store = FakeTables(), FakeStore()
+    _, out = run(t, gate, store, sets=["Groups", "MainSector", "open-data-page", "erd"])
+    assert [p["entity_set"] for p in t.passes if p["finished_at"]] == ["Groups", "MainSector"]
+    assert out["stopped"].startswith("stopped: the documents about the feed: the fetch gate refused open-data-page")
+    assert "the register was captured before them" in out["stopped"]
+    assert not any("erd" in u.lower() or "Charities-OData-ERD" in u for u in feed.asked)
+
+
 def test_nothing_is_asked_outside_off_peak_unless_on_purpose():
     feed = FakeFeed({"Groups": [{"GroupId": 1}]})
     _, out = run(FakeTables(), feed, FakeStore(), now=NOON)
