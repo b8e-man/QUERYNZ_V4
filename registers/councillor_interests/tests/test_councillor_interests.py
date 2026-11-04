@@ -342,3 +342,17 @@ def test_a_redirect_to_the_council_s_own_document_store_is_followed_and_a_failed
     for i in t.items:
         i["at"] -= dt.timedelta(days=capture.EVERY_DAYS)
     assert r.due(r4, "document") and not r.due("https://docs.invented-store.example/f/r3", "document")
+
+
+def test_a_host_the_gate_holds_is_passed_over_with_nothing_written(monkeypatch):
+    """5 November 2026: the gate held www.kaipara.govt.nz (ruling 141). The monthly re-read took Kaipara's page to the
+    gate, recorded the refusal as an ask and held the host in the lane's own table too, a second hold no one clears
+    when Arthur clears the gate. A gate-held host is passed over and nothing is written."""
+    asked = []
+    monkeypatch.setattr(capture.fg, "refused_by", lambda host, *a, **k: "held" if host == "www.invented.govt.nz" else None)
+    monkeypatch.setattr(capture.fg, "open_url", lambda url, **kw: asked.append(url))
+    t = FakeTables()
+    r = capture.Run(t, land_fn=lambda *a, **k: None, registers={"Invented District Council": REGS["Invented District Council"]},
+                    clock=lambda: 0.0, sleep=lambda s: None, now=lambda: dt.datetime(2026, 10, 22, 23, 30, tzinfo=capture.NZ))
+    out = r.run()
+    assert asked == [] and out["requests"] == 0 and t.items == [] and t.held == {}

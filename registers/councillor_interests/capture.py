@@ -23,6 +23,8 @@ Off-peak (22:00 to 06:00 NZ time) unless `--anytime`, one request at a time,
 `FLOOR_S` apart, a budget per run. A 403, 429, 5xx, challenge page or gate
 refusal holds that council's host (`capture_held_hosts`, hard limit 6): not
 asked again until a session reads why; the run goes on to the next council.
+A host the gate itself holds (ruling 141) is passed over with nothing
+written, so a person's clearing of the gate is the one clearing it needs.
 A redirect off the host is not followed. A council whose website terms bar
 automated access (`TERMS_BAR`) is not asked. The position on file is
 `position/councillors-registers-of-interests.md` (the integrator moves it).
@@ -275,8 +277,10 @@ class Tables:
 
 class Run:
     def __init__(self, tables, *, land_fn, opener=None, clock=None, sleep=None, now=None, registers: dict = None,
-                 budget_s: float = DEFAULT_BUDGET_S, anytime: bool = False, log=print):
+                 budget_s: float = DEFAULT_BUDGET_S, anytime: bool = False, log=print, gate_held=None):
         self.t, self.land_fn, self.log = tables, land_fn, log
+        # the gate's hold on a host (ruling 141); an injected opener is a test's site, never the live ledger's host
+        self.gate_held = gate_held or (fg.refused_by if opener is None else (lambda host: None))
         self.opener = opener or (lambda url, timeout: fg.open_url(url, timeout=timeout, positions_dir=POSITIONS,
                                                                   max_bytes=50_000_000))
         self.clock = clock or time.monotonic
@@ -308,6 +312,10 @@ class Run:
     def ask(self, council, url, kind, found_on, held, hops=0):
         host = fg.host_of(url)
         if capture_site_held(url, held) or not self.due(url, kind):
+            return None
+        if self.gate_held(host) is not None:
+            # ruling 141: a host the gate holds is asked nothing and nothing is written: no ask is recorded (the page
+            # stays due) and the lane's own hold is not taken, so the person who clears the gate clears it for the lane
             return None
         self.pacer.wait(host, FLOOR_S)
         self.counts["requests"] += 1
