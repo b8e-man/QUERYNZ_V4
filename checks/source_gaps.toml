@@ -26,7 +26,7 @@ source = "tenders.listing by listed_as, 5 November 2026 (open 398, closed 6,101,
 
 [[gap]]
 register = "parliament"
-reason = "the ingest MCP lacks bill texts and bills before the 43rd Parliament; holds 2,500 of the 10,970 select committee reports the source lists and 16,931 of its 1.1 million evidence and submission rows; serves no file of an SOP, a submission or most tabled papers; and lacks written questions before 2003 or after 1 October 2026 and their 44,584 attachments"
+reason = "the ingest MCP lacks bill texts and bills before the 43rd Parliament; holds 2,500 of the 10,970 select committee reports the source lists and 16,931 of its 1.1 million evidence and submission rows; serves no SOP or submission file, and its report and paper files (about 4,800) without the hash it captured them by, so none is taken; and lacks written questions before 2003 or after 1 October 2026 and their 44,584 attachments"
 since = "2026-11-05"
 source = "the MCP's corpora and pipeline tools and the pulled records, 5 November 2026 (SOPs now from 1995, reports from 1995); was docs/research/mcp-gaps-for-provider-2026-11-03.md, section 3"
 
@@ -38,9 +38,9 @@ source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 3; re-measu
 
 [[gap]]
 register = "ministers_diaries"
-reason = "the ingest MCP lacks the release PDFs, September and October 2026, and the PDF address of 119 releases"
-since = "2026-11-03"
-source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 3; re-measured 5 November 2026, unchanged"
+reason = "the ingest MCP serves the release PDFs without the hash it captured them by, so none is taken; it lacks September and October 2026 and the PDF address of 119 releases"
+since = "2026-11-05"
+source = "the MCP's download of a release PDF (captured_sha256 null), 5 November 2026; pub.minister_diary_releases (119 with no address, months to 2026-08); was docs/research/mcp-gaps-for-provider-2026-11-03.md, section 3"
 
 [[gap]]
 register = "insolvency"
