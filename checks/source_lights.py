@@ -3,13 +3,19 @@ on the board's search pane, with a one-line reason in plain words.
 
   red     updates not working: the last run of a job that keeps the source
           current failed; or no good run inside that job's cadence and a
-          grace; or a host the lane reads is held by the fetch gate (ruling
-          141); or, for a lane the ingest MCP feeds, the last pull caught a
-          record or met new fields in the lane's corpus
-  orange  updates working, the corpus not whole: a reader or backfill with
+          grace; or the fetch gate holds (ruling 141) a host the lane names
+          as its own (`hosts`), or every host the lane reads; or, for a lane
+          the ingest MCP feeds, the last pull caught a record or met new
+          fields in the lane's corpus
+  orange  updates working, the corpus not whole: the gate holds some of the
+          many hosts the lane reads under its positions (a council of 78),
+          the rest still asked; a reader or backfill with
           pieces outstanding, documents waiting on a reader in the lane's
           published documents view, the lane's own count short of the
-          source's, or a declared gap (`checks/source_gaps.toml`)
+          source's, or a declared gap (`checks/source_gaps.toml`). A declared gap that names a held
+          host (`hosts`) says that hold in its own words: the gate's line for
+          it is not repeated, red or orange (a person declared what cannot be
+          read while the host is held; only a person clears the hold)
   green   updates working, nothing outstanding, no declared gap
   grey    no update job on a clock (loaded by the merge gate's staging
           step, or on demand)
@@ -190,7 +196,10 @@ def gaps(path: str = None) -> list:
         for k in ("register", "reason", "since", "source"):
             if not g.get(k):
                 raise ValueError(f"a gap in {path or GAPS_FILE} names no {k}: {g}")
-        out.append({k: str(g[k]) for k in ("register", "reason", "since", "source")})
+        hosts = g.get("hosts") or []
+        if isinstance(hosts, str) or not all(isinstance(h, str) and h for h in hosts):
+            raise ValueError(f"a gap's hosts in {path or GAPS_FILE} is a list of host names: {g}")
+        out.append({**{k: str(g[k]) for k in ("register", "reason", "since", "source")}, "hosts": tuple(hosts)})
     return out
 
 
@@ -346,10 +355,36 @@ class Ctx:
 
 # each rule takes the context and returns its reasons; a light is the first colour with any (mutant-tested)
 
-def red_held_host(c: Ctx) -> list:
+def held_hosts(c: Ctx) -> tuple:
+    """(the gate's holds that stop the lane, the holds that thin it), each [(host, row)]. Only for a lane with an
+    update job switched on (a lane that asks nothing is not stopped by a hold), and never a hold a declared gap of the
+    register names (its reason says it). A hold stops the lane when the host is one the lane names as its own, or when
+    every host the lane reads is held; a hold on one of the many hosts its positions name (a council's site among 78)
+    leaves the rest asked: the corpus is not whole, the updates still work."""
+    if not c.update:
+        return [], []
     hosts = lane_hosts(c.lane, c.facts["positions"])
-    return [f"the fetch gate holds {host} since {when(row.get('at'))}: {row.get('why')}"
-            for host, row in sorted(c.facts["refusals"].items()) if host_matches(host, hosts)]
+    own = {_bare(h) for h in c.lane.hosts}
+    declared = {_bare(h) for g in c.facts["gaps"] if g["register"] == c.register for h in g.get("hosts", ())}
+    held = [(h, row) for h, row in sorted(c.facts["refusals"].items())
+            if host_matches(h, hosts) and _bare(h) not in declared]
+    every = {x for x in hosts if not x.startswith("*.")} <= {_bare(h) for h, _ in held}
+    stop = [(h, row) for h, row in held if every or host_matches(h, own)]
+    return stop, [x for x in held if x not in stop]
+
+
+def _held_line(host, row) -> str:
+    return f"the fetch gate holds {host} since {when(row.get('at'))}: {row.get('why')}"
+
+
+def red_held_host(c: Ctx) -> list:
+    return [_held_line(h, row) for h, row in held_hosts(c)[0]]
+
+
+def orange_held_host(c: Ctx) -> list:
+    thin = held_hosts(c)[1]
+    n = len(lane_hosts(c.lane, c.facts["positions"]))
+    return [_held_line(h, row) + f" (one of the {n} hosts the lane reads; the rest are still asked)" for h, row in thin]
 
 
 def red_failed_run(c: Ctx) -> list:
@@ -398,7 +433,7 @@ def green_up_to_date(c: Ctx) -> list:
 
 
 RED_RULES = [red_held_host, red_failed_run, red_corpus, red_late]
-ORANGE_RULES = [orange_pieces, orange_waiting, orange_short_count, orange_gap]
+ORANGE_RULES = [orange_held_host, orange_pieces, orange_waiting, orange_short_count, orange_gap]
 GREEN_RULES = [green_up_to_date]
 
 

@@ -221,6 +221,42 @@ def test_a_held_host_from_a_legal_position(registry):
     assert light(f, "x") == "red"
 
 
+def test_a_held_host_among_many_a_position_names_is_orange_not_red(registry):
+    """5 November 2026: the gate held three councils' sites on local_elections' 403s; every lane whose position names
+    a council's site went red, though each of those lanes still asks the other councils (one of the disabled)."""
+    f = good_facts(registry)
+    sl.LANES = {**LANES, "x": sl.Lane(update=LANES["x"].update, positions=("councils",))}
+    f["positions"] = {"councils": ("dunedin.govt.nz", "gdc.govt.nz", "kaipara.govt.nz", "nelson.govt.nz")}
+    f["refusals"] = {h: {"host": h, "state": "held", "why": "HTTP 403", "at": "2026-11-04T22:20:11+13:00"}
+                     for h in ("www.dunedin.govt.nz", "www.gdc.govt.nz")}
+    L = lights(f)
+    assert L["x"]["light"] == "orange"
+    assert L["x"]["reason"] == ("the fetch gate holds www.dunedin.govt.nz since 4 Nov 22:20: HTTP 403 "
+                                "(one of the 4 hosts the lane reads; the rest are still asked) (and 1 more)")
+    f["refusals"].update({h: {"host": h, "state": "held", "why": "HTTP 403", "at": None}
+                          for h in ("www.kaipara.govt.nz", "www.nelson.govt.nz")})
+    assert light(f, "x") == "red"                                       # every host it reads is held: stopped
+
+
+def test_a_lane_that_asks_nothing_is_not_lit_by_a_hold(registry):
+    f = good_facts(registry)
+    sl.LANES = {**LANES, "z": sl.Lane(update=("qv4-z-watch",), hosts=("www.x.govt.nz",))}
+    f["refusals"] = {"www.x.govt.nz": {"host": "www.x.govt.nz", "state": "held", "why": "HTTP 403", "at": None}}
+    L = lights(f)
+    assert L["z"]["light"] == "grey" and "switched off" in L["z"]["reason"]   # its only job is off: it asks nothing
+
+
+def test_a_declared_gap_naming_the_held_host_says_the_gap(registry):
+    f = good_facts(registry)
+    f["refusals"] = {"x.govt.nz": {"host": "x.govt.nz", "state": "held", "why": "every PDF reset", "at": None}}
+    f["gaps"] = [{"register": "x", "reason": "the host is held; 13,069 orders wait", "since": "2026-11-05",
+                  "source": "s", "hosts": ("x.govt.nz",)}]
+    L = lights(f)
+    assert L["x"]["light"] == "orange" and L["x"]["reasons"] == ["the host is held; 13,069 orders wait (declared 2026-11-05)"]
+    f["gaps"][0]["hosts"] = ()                                          # a gap that does not name the host: still red
+    assert light(f, "x") == "red"
+
+
 def test_wildcard_hosts():
     assert sl.host_matches("waitaki.infocouncil.biz", {"*.infocouncil.biz"})
     assert not sl.host_matches("infocouncil.biz.evil.nz", {"*.infocouncil.biz"})
@@ -280,7 +316,8 @@ def test_two_reasons_say_how_many_more(registry):
 SCENARIOS = [test_everything_working_is_green, test_a_failed_last_run_is_red, test_a_failed_reader_is_red,
              test_a_failed_on_demand_load_is_red, test_no_good_run_inside_the_cadence_is_red,
              test_a_job_new_to_its_clock_is_judged_from_its_slot, test_a_chained_job_that_did_not_follow_its_parent_is_red,
-             test_the_mcp_pull_is_judged_per_corpus, test_a_held_host_is_red, test_pieces_to_go_is_orange,
+             test_the_mcp_pull_is_judged_per_corpus, test_a_held_host_is_red,
+             test_a_held_host_among_many_a_position_names_is_orange_not_red, test_pieces_to_go_is_orange,
              test_documents_waiting_is_orange, test_a_short_count_is_orange, test_a_declared_gap_is_orange]
 
 
@@ -348,6 +385,35 @@ def test_the_tenancy_tribunal_held_host_is_red_on_the_real_lanes(monkeypatch):
     assert x["light"] == "red" and x["reason"].startswith("the fetch gate holds forms.justice.govt.nz")
     for other in ("contract_disclosures", "courts"):                   # justice.govt.nz's other hosts are not held
         assert not any("forms.justice.govt.nz" in r for r in sl.light_of(other, True, f, NOW)["reasons"])
+
+
+def test_the_council_lanes_and_the_tenancy_tribunal_on_the_real_lanes_and_gaps(monkeypatch):
+    """The four lights of 5 November 2026, from the real lanes, positions and gaps file: the three councils' holds thin
+    local_elections and councillor_interests (orange), council_procurement asks nothing (grey), and the Tenancy
+    Tribunal's hold is said by its declared gap once its capture stops asking (orange)."""
+    monkeypatch.setattr(sl, "LANES", REAL_LANES)
+    real = reg.load()
+    f = sl.empty_facts(real)
+    f["positions"], f["gaps"] = sl.position_hosts(), sl.gaps()
+    for lane in REAL_LANES.values():
+        for j in lane.update + lane.read:
+            f["last_done"][j] = f["last_finished"][j] = done(2)
+    f["refusals"] = {h: {"host": h, "state": "held", "why": "HTTP 403", "at": "2026-11-04T22:20:11+13:00"}
+                     for h in ("www.dunedin.govt.nz", "www.gdc.govt.nz", "www.kaipara.govt.nz", "forms.justice.govt.nz")}
+    L = {r: sl.light_of(r, True, f, NOW) for r in ("local_elections", "councillor_interests", "council_procurement",
+                                                    "tenancy_tribunal")}
+    assert {r: x["light"] for r, x in L.items()} == {"local_elections": "orange", "councillor_interests": "orange",
+                                                     "council_procurement": "grey", "tenancy_tribunal": "orange"}
+    assert all(r.endswith("(declared 2026-11-05)") for r in L["tenancy_tribunal"]["reasons"])   # the gap, not the gate's line
+
+
+def test_a_gap_s_hosts_are_a_list(tmp_path):
+    p = tmp_path / "g.toml"
+    p.write_text('[[gap]]\nregister = "x"\nreason = "r"\nsince = "d"\nsource = "s"\nhosts = "a.govt.nz"\n')
+    with pytest.raises(ValueError):
+        sl.gaps(str(p))
+    p.write_text('[[gap]]\nregister = "x"\nreason = "r"\nsince = "d"\nsource = "s"\nhosts = ["a.govt.nz"]\n')
+    assert sl.gaps(str(p))[0]["hosts"] == ("a.govt.nz",)
 
 
 def test_write_is_whole(tmp_path):

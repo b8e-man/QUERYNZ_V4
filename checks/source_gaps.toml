@@ -2,7 +2,9 @@
 # known not to be whole while its updates work, so its light on the board
 # is orange. One [[gap]] each: the register (as the board's catalogue names
 # it), the reason in plain words, the date it was declared, and its source.
-# A gap closed is a line deleted, in the commit that closes it.
+# A gap closed is a line deleted, in the commit that closes it. A gap may
+# name `hosts` the fetch gate holds (ruling 141): its reason then says that
+# hold, and the gate's own line for it is not repeated on the light.
 
 [[gap]]
 register = "courts"
@@ -48,6 +50,21 @@ source = "registers/insolvency/capture.py, SEARCH_FROM; Arthur, 4 November 2026"
 
 [[gap]]
 register = "tenancy_tribunal"
-reason = "20,778 of the listing's 33,847 orders held; 13,069 wait while the host resets every PDF (since 25 October)"
-since = "2026-11-04"
-source = "commit 560df5c (13,069 orders wait); Arthur, 4 November 2026"
+reason = "the fetch gate holds forms.justice.govt.nz since 4 November (it reset every order PDF from 25 October), so the nightly capture asks it nothing until a person clears the hold: 20,778 of the listing's 33,847 orders held, 13,069 wait"
+since = "2026-11-05"
+source = "ruling 141; the gate's ledger, 4 November 00:24; commit 560df5c (13,069 orders wait); Arthur, 4 November 2026"
+hosts = ["forms.justice.govt.nz"]
+
+[[gap]]
+register = "local_elections"
+reason = "the Dunedin, Gisborne and Kaipara councils' sites answered 403 to return files from 23 October (Kaipara to every one, the other two often to the first request of a night), and the fetch gate holds them since 4 November: 97 of their returns wait (Dunedin 76, Gisborne 6, Kaipara 15) and 42 met a 403, until a person clears the hosts"
+since = "2026-11-05"
+source = "ruling 141; the gate's ledger, 4 November 22:20; local_elections.capture_files and capture_passes 1 to 16"
+hosts = ["www.dunedin.govt.nz", "www.gdc.govt.nz", "www.kaipara.govt.nz"]
+
+[[gap]]
+register = "councillor_interests"
+reason = "no register of the Dunedin or Gisborne councils is held (both sites answered the survey with 403 on 22 October), and the fetch gate holds both and Kaipara's since 4 November, so Kaipara's register, held from 22 October, is not re-read until a person clears the hosts"
+since = "2026-11-05"
+source = "ruling 141; the gate's ledger, 4 November 22:20; councillor_interests.capture_held_hosts and capture_items"
+hosts = ["www.dunedin.govt.nz", "www.gdc.govt.nz", "www.kaipara.govt.nz"]
