@@ -32,7 +32,9 @@ off-peak only unless `--anytime`, nothing fetched twice (an order already
 held is never asked for again). A 403, 429, 5xx or a challenge page is a
 failed read (hard limit 6): it is logged in the catch log and the run STOPS;
 nothing is retried, solved or got around. Three transport failures in a row
-stop the run too. A refusal from the gate is never caught.
+stop the run too. A refusal from the gate is never caught. While the gate
+holds the host (ruling 141) a run asks nothing at all and ends well, saying
+so: only a person clears the hold, and the next run after that goes on.
 
     python -m registers.tenancy_tribunal.capture [--budget-s N] [--max-items N] [--list-only] [--anytime]
 """
@@ -233,8 +235,11 @@ class Stop(RuntimeError):
 
 class Run:
     def __init__(self, tables, *, land_fn, opener=None, pacer=None, gate_pacer=None, clock=None, now_local=None,
-                 budget_s: float = DEFAULT_BUDGET_S, max_items: int = 100000, anytime: bool = False, log=print):
+                 budget_s: float = DEFAULT_BUDGET_S, max_items: int = 100000, anytime: bool = False, log=print,
+                 held=None):
         self.t, self.land_fn, self.opener = tables, land_fn, opener or fg.open_url
+        # the gate's hold on the host (ruling 141); an injected opener is a test's site, never the live ledger's host
+        self.held = held or ((lambda: fg.refused_by(HOST)) if opener is None else (lambda: None))
         self.pacer = pacer or fg.Pacer()
         self.gate_pacer = gate_pacer
         self.clock = clock or time.monotonic
@@ -341,6 +346,12 @@ class Run:
                 self.counts["landed" if new else "already_held"] += 1
 
     def run(self, today: dt.date, list_only: bool = False) -> dict:
+        if (why := self.held()) is not None:
+            # ruling 141: a held host is asked nothing, by no request of any kind, until a person clears it; the run
+            # is not a failure (it did what it must), and the light says the gap from its declaration
+            self.stopped = f"held: the fetch gate holds {HOST} ({why}); nothing asked until a person clears it"
+            self.log(f"{SOURCE}: {self.stopped}")
+            return {**self.counts, "stopped": self.stopped}
         try:
             if self.time_left():
                 for m in months_to_list(today, self.t.listed_months()):

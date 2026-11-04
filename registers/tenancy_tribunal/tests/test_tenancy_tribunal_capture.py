@@ -357,3 +357,23 @@ def test_an_order_a_reset_stopped_is_asked_again_on_a_later_night():
     r2, _, _ = run(site, tables=t, store=store)
     assert r2.run(dt.date(2026, 10, 18))["landed"] == 3
 
+
+
+def test_a_host_the_gate_holds_is_asked_nothing_and_the_run_is_not_a_failure(monkeypatch):
+    """5 November 2026: forms.justice.govt.nz held since 4 November 00:24 (ruling 141), and the nightly run still went
+    to the gate every night and failed on its Refused. While held, a run asks nothing and ends well, saying why."""
+    site = FakeSite({"2023-10": [solr_doc(["1"])]})
+    r, t, store = run(site, held=lambda: "held since 2026-11-04T00:24:31+13:00: every PDF reset")
+    out = r.run(dt.date(2026, 10, 18))
+    assert site.asked == [] and store.names == [] and out["requests"] == 0
+    assert out["stopped"].startswith("held: the fetch gate holds forms.justice.govt.nz")
+    assert not out["stopped"].startswith("stopped:")                # main() records it as a good run
+
+
+def test_the_live_run_reads_the_gate_s_hold_before_any_request(monkeypatch):
+    asked = []
+    monkeypatch.setattr(C.fg, "refused_by", lambda host, *a, **k: "held" if host == C.HOST else None)
+    monkeypatch.setattr(C.fg, "open_url", lambda url, **kw: asked.append(url))
+    r = C.Run(FakeTables(), land_fn=FakeStore(), pacer=NoWait(), clock=lambda: 0.0, now_local=lambda: NIGHT,
+              log=lambda *_: None)
+    assert r.run(dt.date(2026, 10, 18))["stopped"].startswith("held:") and asked == []
