@@ -13,13 +13,16 @@ Every answer is landed whole, as received (ruling 142, 4 November 2026; before t
 of birth were taken out first and the bytes as received only hashed, `calls.received`). The identifying fields are also
 kept by field in the private ledger, `insolvency_private.identifiers`. The hours are 21:00 to 22:00 New Zealand time, before the companies
 lane's 22:05 asks of the same host, and never on Wednesday (the interface's 21:00 to 23:00 maintenance); one call every
-FLOOR_S seconds (the position's floor). A failed read (a block, a challenge, a 401, 403, 429 or 5xx) stops the run.
+FLOOR_S seconds (the position's floor). A failed read (a block, a challenge, a 401, 403, 429 or 5xx) stops the run; a
+lone transport failure (no answer at all: a name lookup, a reset, an SSL EOF) in the removals job is a line and waits for
+the next run, three in a row stop it (as the charities lane, 1cd04be; the gate holds the host at three).
 
     python -m registers.insolvency.capture --removals        the daily removals-and-corrections job (qv4-insolvency-removals)
     python -m registers.insolvency.capture --night [--budget-s N] [--anytime]     the nightly search and details
     python -m registers.insolvency.capture --lookup ESTATE [ESTATE ...]          on demand, at most ten
 """
 import datetime as dt
+import http.client
 import json
 import os
 import sys
@@ -49,6 +52,11 @@ RECENT_DAYS = 60
 DETAIL_EVERY_DAYS = 30
 REMOVALS_MAX_SPAN_DAYS = 90         # the API: date-to "cannot be more than 3 months from date-from"
 LOOKUP_MAX = 10
+#: the removals' re-asks a run, in seconds: the rest wait in the ledger for the next run (5 November 2026: 330 re-asks
+#: at 5 s took 1,782 s of the job's 1,800 s, and 596 were still waiting)
+REASK_BUDGET_S = 1200
+#: transport failures in a row (no answer at all) that stop a run; the gate holds the host at the same count
+STOP_AFTER_FAILURES = 3
 JOB_REMOVALS = "qv4-insolvency-removals"
 JOB_NIGHT = "qv4-insolvency-capture"
 _LAST = {"at": 0.0}
@@ -119,7 +127,7 @@ def call(conn, path: str, params: dict, why: str, *, estate: int = None, schema:
     try:
         got = fetchgate.open_url(url, timeout=30, headers={KEY_HEADER: key or api_key(), "Accept": "application/json"},
                                  pacer=pacer, fetch=fetch, positions_dir=positions_dir, ledger_dir=ledger_dir)
-    except OSError as exc:
+    except (OSError, http.client.HTTPException) as exc:   # the gate re-raises both after counting the strike
         got = fetchgate.Fetched(url=url, status=0, body=b"", final_url=url,
                                 blocked=f"no answer: {type(exc).__name__}: {str(exc)[:200]}")
     _LAST["at"] = clock()
@@ -195,58 +203,141 @@ def apply_removal(conn, estate: int, schema: str = SCHEMA, at: dt.datetime = Non
     return n
 
 
-def run_removals(conn, schema: str = SCHEMA, *, today: dt.date = None, log=print, **gate) -> dict:
+def transport_failed(a: Answer) -> bool:
+    """No answer at all (a name lookup, a reset, an SSL EOF, a timeout): not a refusal, a block or a status. The gate
+    itself holds the host after three of these in a row (support/fetchgate)."""
+    return a.status == 0 and (a.blocked or "").startswith("no answer:")
+
+
+def maintenance(t: dt.datetime) -> bool:
+    """The interface's maintenance: Wednesday 21:00 to 23:00 New Zealand time."""
+    nz = t.astimezone(NZ)
+    return nz.weekday() == 2 and 21 <= nz.hour < 23
+
+
+def removals_items(body: bytes) -> dict:
+    """{estate: sha256 of its item, keys sorted} on a removals page: the same item named again is the same event."""
+    import hashlib
+    return {int(r["estateNumber"]): hashlib.sha256(json.dumps(r, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+            for r in (json.loads(body).get("removedOrCorrectedInsolvencies") or []) if r.get("estateNumber") is not None}
+
+
+def reasks_wanted(conn, schema: str = SCHEMA) -> list:
+    """Estates a removal or correction named that we hold (a search named it, or someone looked it up before the
+    naming) with no answered detail (200 or 404) since the naming, the longest waiting first. A detail call that got no
+    answer is not an answer (5 November 2026: the failed call would otherwise have counted as asked)."""
+    return [r[0] for r in conn.execute(
+        f"SELECT r.estate FROM {schema}.removals r WHERE NOT EXISTS (SELECT 1 FROM {schema}.calls c WHERE c.estate = "
+        f"r.estate AND c.why = 'detail' AND c.status IN (200, 404) AND c.at > r.seen_at) AND (EXISTS (SELECT 1 FROM "
+        f"{schema}.search_seen s WHERE s.estate = r.estate) OR EXISTS (SELECT 1 FROM {schema}.calls c WHERE c.estate = "
+        f"r.estate AND c.why = 'lookup' AND c.at <= r.seen_at)) GROUP BY r.estate ORDER BY min(r.seen_at), r.estate"
+    ).fetchall()]
+
+
+def run_removals(conn, schema: str = SCHEMA, *, today: dt.date = None, log=print, now=now_nz, clock=time.monotonic,
+                 budget_s: float = REASK_BUDGET_S, **gate) -> dict:
     """The daily job: every estate removed or corrected since the cursor, in spans of at most three months, every page;
-    each one flagged at once, then asked again (a correction comes back as a new detail; a removal stays flagged)."""
-    today = today or now_nz().date()
+    each one newly named flagged at once; the cursor moved to today once every page is read; then the estates named and
+    held asked again (a correction comes back as a new detail; a removal stays flagged), at most `budget_s` of them a
+    run, never in the Wednesday maintenance; what is left waits in the ledger for the next run.
+
+    The span starts on the cursor's day, so an estate named yesterday is on today's page again: an item the same as the
+    estate's latest naming is that naming, counted `repeated`, not recorded, flagged or asked again (5 November 2026:
+    each day re-recorded the last days' namings under a new time, and every one was asked again). A lone transport
+    failure (no answer at all) is a line: on a page, the pages stop there and the cursor stays for the next run; on a
+    re-ask, that estate waits for the next run. Three in a row stop the run, as any refusal, block or status does."""
+    today = today or now().date()
+    t0 = clock()
     conn.execute(ledger_sql(schema))
     row = conn.execute(f"SELECT value FROM {schema}.cursor WHERE what = 'removals'").fetchone()
     start = dt.date.fromisoformat(row[0]) if row else today - dt.timedelta(days=REMOVALS_MAX_SPAN_DAYS)
-    counts = {"calls": 0, "named": 0, "flagged": 0, "asked_again": 0, "corrected": 0}
-    while start <= today:
+    counts = {"calls": 0, "named": 0, "repeated": 0, "flagged": 0, "asked_again": 0, "corrected": 0, "no_answer": 0}
+    notes, in_a_row, missed = [], 0, 0
+
+    def give_up(a):
+        conn.commit()
+        why = (f"{in_a_row} transport failures in a row, the last {a.blocked}" if transport_failed(a)
+               else a.blocked or f"HTTP {a.status}")
+        return {**counts, "ok": False, "stopped": f"a failed read: {why}"}
+
+    pages_whole = True
+    while start <= today and pages_whole:
         end = min(today, start + dt.timedelta(days=REMOVALS_MAX_SPAN_DAYS - 1))
         page = 1
         while True:
             a = call(conn, "/insolvencies/removalorcorrections", {"date-from": start.isoformat(), "date-to": end.isoformat(),
                      "page": page, "page-size": REMOVALS_PAGE}, "removals", schema=schema, **gate)
             counts["calls"] += 1
-            if failed(a):
+            if transport_failed(a):
+                in_a_row += 1
+                counts["no_answer"] += 1
                 conn.commit()
-                return {**counts, "ok": False, "stopped": f"a failed read: {a.blocked or f'HTTP {a.status}'}"}
+                if in_a_row >= STOP_AFTER_FAILURES:
+                    return give_up(a)
+                log(f"insolvency removals: a removals page got no answer ({a.blocked[:120]}); asked again from "
+                    f"{start.isoformat()} next run")
+                notes.append(f"the removals page from {start.isoformat()} got no answer and is asked again next run")
+                pages_whole = False
+                break
+            if failed(a):
+                return give_up(a)
+            in_a_row = 0
             named, total = read.removals_named(a.body) if a.sha else ([], 0)
+            items = removals_items(a.body) if a.sha else {}
             seen = conn.execute(f"SELECT at FROM {schema}.calls WHERE id = %s", (a.call,)).fetchone()[0]
             for estate, removed_on in named:
-                conn.execute(f"INSERT INTO {schema}.removals (estate, removed_on, call, seen_at) VALUES (%s, %s, %s, %s) "
-                             f"ON CONFLICT DO NOTHING", (estate, removed_on, a.call, seen))
-                counts["flagged"] += apply_removal(conn, estate, schema, seen, removed_on)
                 counts["named"] += 1
+                last = conn.execute(f"SELECT item_sha FROM {schema}.removals WHERE estate = %s ORDER BY seen_at DESC, "
+                                    f"call DESC LIMIT 1", (estate,)).fetchone()
+                if last and last[0] is not None and last[0] == items.get(estate):
+                    counts["repeated"] += 1
+                    continue
+                conn.execute(f"INSERT INTO {schema}.removals (estate, removed_on, call, seen_at, item_sha) VALUES "
+                             f"(%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                             (estate, removed_on, a.call, seen, items.get(estate)))
+                counts["flagged"] += apply_removal(conn, estate, schema, seen, removed_on)
             conn.commit()
             if not named or page * REMOVALS_PAGE >= (total or 0):
                 break
             page += 1
         start = end + dt.timedelta(days=1)
+    if pages_whole:     # every page read: the namings are in the ledger and the re-asks below come from it
+        conn.execute(f"INSERT INTO {schema}.cursor (what, value, at) VALUES ('removals', %s, now()) "
+                     f"ON CONFLICT (what) DO UPDATE SET value = EXCLUDED.value, at = now()", (today.isoformat(),))
+        conn.commit()
     # a correction: the estate asked again; a 200 is the corrected record (read by the next load), a 404 is gone. Only
     # an estate we hold (a search named it, or someone looked it up): one never seen comes in through the search like
     # any other, and the first run's list (1,511 named, back to the API's start) would take two hours at 5 s a call. A
     # detail call alone is not holding: the removals' own re-asks are detail calls, and counting them made every
     # estate the first run re-asked "held" the next day (3 November 2026)
-    for (estate,) in conn.execute(f"SELECT DISTINCT r.estate FROM {schema}.removals r WHERE NOT EXISTS (SELECT 1 FROM "
-                                  f"{schema}.calls c WHERE c.estate = r.estate AND c.why = 'detail' AND c.at > r.seen_at) "
-                                  f"AND (EXISTS (SELECT 1 FROM {schema}.search_seen s WHERE s.estate = r.estate) OR EXISTS "
-                                  f"(SELECT 1 FROM {schema}.calls c WHERE c.estate = r.estate AND c.why = 'lookup' "
-                                  f"AND c.at <= r.seen_at))").fetchall():
+    wanted = reasks_wanted(conn, schema)
+    if wanted and maintenance(now()):
+        notes.append(f"{len(wanted)} re-asks wait for the next run (the interface's Wednesday maintenance)")
+        wanted = []
+    for i, estate in enumerate(wanted):
+        if clock() - t0 >= budget_s:
+            notes.append(f"{len(wanted) - i} re-asks wait for the next run (the run's {budget_s:.0f} s)")
+            break
         a = call(conn, f"/insolvencies/{estate}", {}, "detail", estate=estate, schema=schema, **gate)
         counts["calls"] += 1
+        conn.commit()
+        if transport_failed(a):
+            in_a_row += 1
+            counts["no_answer"] += 1
+            if in_a_row >= STOP_AFTER_FAILURES:
+                return give_up(a)
+            missed += 1
+            log(f"insolvency removals: estate {estate}'s re-ask got no answer ({a.blocked[:120]}); asked next run")
+            continue
+        if failed(a):
+            return give_up(a)
+        in_a_row = 0
         counts["asked_again"] += 1
         counts["corrected"] += 1 if a.sha else 0
-        conn.commit()
-        if failed(a):
-            return {**counts, "ok": False, "stopped": f"a failed read: {a.blocked or f'HTTP {a.status}'}"}
-    conn.execute(f"INSERT INTO {schema}.cursor (what, value, at) VALUES ('removals', %s, now()) "
-                 f"ON CONFLICT (what) DO UPDATE SET value = EXCLUDED.value, at = now()", (today.isoformat(),))
-    conn.commit()
-    log("insolvency removals: " + ", ".join(f"{k} {v}" for k, v in counts.items()))
-    return {**counts, "ok": True, "stopped": ""}
+    if missed:
+        notes.append(f"{missed} re-ask(s) got no answer and are asked next run")
+    log("insolvency removals: " + ", ".join(f"{k} {v}" for k, v in counts.items()) + "".join(f"; {n}" for n in notes))
+    return {**counts, "ok": True, "stopped": "; ".join(notes)}
 
 
 # --- the nightly capture: the search by adjudication date, then the details it needs -----------------------------------

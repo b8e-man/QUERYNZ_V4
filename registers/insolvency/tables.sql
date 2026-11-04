@@ -59,6 +59,9 @@ CREATE TABLE IF NOT EXISTS {p}.identifiers (
 ALTER TABLE {p}.identifiers ADD COLUMN IF NOT EXISTS gone_at timestamptz;        -- a later detail answer no longer gave it
 ALTER TABLE {p}.identifiers ADD COLUMN IF NOT EXISTS removed_at timestamptz;     -- the removals named the estate after it
 ALTER TABLE {p}.identifiers ADD COLUMN IF NOT EXISTS removal_said text;          -- the API's words, as the removals gave them
+-- the sha256 of the estate's item on the removals page (its keys sorted): the same item named again by the next run's
+-- overlapping span is the same removal or correction, not a new one (5 November 2026); null before then
+ALTER TABLE {s}.removals ADD COLUMN IF NOT EXISTS item_sha text;
 
 -- the reading: rebuilt whole by every load
 DROP TABLE IF EXISTS {s}.estates CASCADE;

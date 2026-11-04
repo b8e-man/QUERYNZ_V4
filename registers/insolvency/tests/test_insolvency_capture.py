@@ -53,7 +53,7 @@ class FakeAPI:
         path = u.path.split("/insolvency-trustee-services/v5", 1)[1]   # the live API answers only under its version
         if path == "/insolvencies/removalorcorrections":
             rows = [{"estateNumber": n, "removedDate": TODAY.isoformat(), "addressAtAdjudication": "9 Invented Way"}
-                    for n in sorted(self.removed)] if q["page"] == "1" and q["date-to"] == TODAY.isoformat() else []
+                    for n in sorted(self.removed)] if q["page"] == "1" and q["date-from"] <= TODAY.isoformat() <= q["date-to"] else []
             return 200, json.dumps({"removedOrCorrectedInsolvencies": rows, "totalItems": len(rows)}).encode(), url
         if path == "/insolvencies":
             f, t = dt.date.fromisoformat(q["date-from"]), dt.date.fromisoformat(q["date-to"])
@@ -354,3 +354,115 @@ def test_a_search_answer_after_a_removal_is_an_answer_since(env, monkeypatch):
     _, rows, _ = _load(env)
     assert 1001 in rows, "the load reads the later search answer"
     assert not any("the removals named with no answer since" in p for p in check.reading(env.conn, STAGE, L, TODAY))
+
+
+# --- 5 November 2026: the removals job re-asked every naming of the last days, and one lost answer failed the run ---
+
+def _removals(env, api, today=TODAY, **kw):
+    return capture.run_removals(env.conn, L, today=today, log=lambda *a: None, **kw, **_gate(api))
+
+
+def _detail_asks(api, n):
+    return sum(1 for u in api.urls if u.endswith(f"/insolvencies/{n}"))
+
+
+class Lost:
+    """The fake API, but the detail calls for `estates` get no answer at all (an exception, as a name lookup or an SSL
+    EOF gives)."""
+
+    def __init__(self, api, estates, exc=None):
+        self.api, self.estates, self.exc = api, set(estates), exc
+        self.urls = api.urls
+
+    def __call__(self, url, timeout):
+        if any(url.endswith(f"/insolvencies/{n}") for n in self.estates):
+            self.api.urls.append(url)
+            raise self.exc or OSError("[Errno -5] No address associated with hostname")
+        return self.api(url, timeout)
+
+
+def test_a_naming_repeated_by_the_next_days_span_is_not_asked_again(env):
+    """The span starts on the cursor's day, so yesterday's naming is on today's page again; 4 and 5 November recorded
+    it again under a new time and asked every one again (76 of the 78 items on 5 November were byte for byte 4
+    November's)."""
+    _night(env, FakeAPI())
+    api = FakeAPI(removed={1001})
+    assert _removals(env, api)["asked_again"] == 1
+    out = _removals(env, api, today=TODAY + dt.timedelta(days=1))
+    assert out["ok"] and out["named"] == 1 and out["repeated"] == 1 and out["asked_again"] == 0 and out["flagged"] == 0
+    assert _detail_asks(api, 1001) == 1, "the same item, named again, is the same removal: asked once"
+    assert env.conn.execute(f"SELECT count(*) FROM {L}.removals WHERE estate = 1001").fetchone()[0] == 1
+    assert env.conn.execute(f"SELECT value FROM {L}.cursor WHERE what = 'removals'").fetchone()[0] == \
+        (TODAY + dt.timedelta(days=1)).isoformat()
+
+
+def test_a_changed_item_is_a_new_correction_and_asked_again(env):
+    _night(env, FakeAPI())
+    api = FakeAPI(removed={1001})
+    _removals(env, api)
+    env.conn.execute(f"UPDATE {L}.removals SET item_sha = 'an earlier item' WHERE estate = 1001")
+    out = _removals(env, api, today=TODAY + dt.timedelta(days=1))
+    assert out["repeated"] == 0 and out["asked_again"] == 1 and _detail_asks(api, 1001) == 2
+
+
+def test_a_lone_transport_failure_is_a_line_and_waits_for_the_next_run(env):
+    """4 November 21:07 (a name lookup) and 5 November 05:54 (an SSL EOF): one lost answer after 72 and 330 good ones
+    failed the whole run. Now it is a line; that estate is asked next run, and a call with no answer is not an answer."""
+    _night(env, FakeAPI())
+    api = FakeAPI(removed={1001, 1002, 1004})
+    out = _removals(env, Lost(api, {1002}))
+    assert out["ok"] and out["asked_again"] == 2 and out["no_answer"] == 1 and "no answer" in out["stopped"]
+    assert env.conn.execute(f"SELECT value FROM {L}.cursor WHERE what = 'removals'").fetchone()[0] == TODAY.isoformat()
+    again = _removals(env, api, today=TODAY + dt.timedelta(days=1))
+    assert again["ok"] and again["asked_again"] == 1 and _detail_asks(api, 1002) == 2 and _detail_asks(api, 1001) == 1
+
+
+def test_an_incomplete_read_is_a_transport_failure_too(env):
+    import http.client
+    _night(env, FakeAPI())
+    api = FakeAPI(removed={1001, 1002})
+    out = _removals(env, Lost(api, {1001}, http.client.IncompleteRead(b"")))
+    assert out["ok"] and out["no_answer"] == 1 and out["asked_again"] == 1
+
+
+def test_three_transport_failures_in_a_row_stop_the_run(env):
+    _night(env, FakeAPI())
+    api = FakeAPI(removed={1001, 1002, 1004, 1005})
+    out = _removals(env, Lost(api, {1001, 1002, 1004}))
+    assert not out["ok"] and "3 transport failures in a row" in out["stopped"] and _detail_asks(api, 1005) == 0
+
+
+def test_a_lost_removals_page_keeps_the_cursor(env):
+    _night(env, FakeAPI())
+    api = FakeAPI(removed={1001})
+
+    def lost_page(url, timeout):
+        if "removalorcorrections" in url:
+            raise OSError("[SSL: UNEXPECTED_EOF_WHILE_READING]")
+        return api(url, timeout)
+    out = _removals(env, lost_page)
+    assert out["ok"] and out["no_answer"] == 1 and "asked again next run" in out["stopped"]
+    assert env.conn.execute(f"SELECT value FROM {L}.cursor WHERE what = 'removals'").fetchone() is None
+
+
+def test_the_re_asks_keep_to_the_run_s_budget_and_the_rest_wait(env):
+    """5 November 05:54: 330 re-asks at 5 s took 1,782 s of the job's 1,800 s deadline, and 596 more were waiting."""
+    _night(env, FakeAPI())
+    api = FakeAPI(removed={1001, 1002, 1004})
+    ticks = iter(range(0, 10_000, 10))
+    out = _removals(env, api, clock=lambda: next(ticks), budget_s=25)
+    assert out["ok"] and out["asked_again"] == 2 and "1 re-asks wait for the next run" in out["stopped"]
+    assert env.conn.execute(f"SELECT value FROM {L}.cursor WHERE what = 'removals'").fetchone()[0] == TODAY.isoformat()
+    again = _removals(env, api)
+    assert again["asked_again"] == 1 and again["repeated"] == 3
+
+
+def test_no_re_asks_in_the_wednesday_maintenance(env):
+    """4 November (a Wednesday) 21:07: the re-asks ran into the interface's 21:00 to 23:00 maintenance; three lost
+    answers in a row there would have the gate hold the host until a person clears it."""
+    _night(env, FakeAPI())
+    api = FakeAPI(removed={1001})
+    wed = dt.datetime(2026, 11, 4, 21, 0, tzinfo=capture.NZ)
+    out = _removals(env, api, now=lambda: wed)
+    assert out["ok"] and out["named"] == 1 and out["asked_again"] == 0 and "maintenance" in out["stopped"]
+    assert _detail_asks(api, 1001) == 0
