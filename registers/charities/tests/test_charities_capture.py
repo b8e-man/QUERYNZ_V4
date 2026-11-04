@@ -242,6 +242,40 @@ def test_three_transport_failures_in_a_row_stop_the_run():
     assert len(calls) == 3 and "transport failures" in out["stopped"]
 
 
+def test_a_lone_transport_failure_on_a_set_leaves_its_pass_open_and_the_run_goes_on():
+    # 4 November 2026: a name lookup failed once on the odata host on Groups' first page, between good answers,
+    # and stopped every set after it
+    feed = FakeFeed({"Groups": [{"GroupId": 1}], "Officers": [{"OfficerId": i} for i in range(1, 11)]})
+    once = []
+
+    def blip(url, timeout):
+        if "/Groups?" in url and not once:
+            once.append(url)
+            raise OSError("[Errno -5] No address associated with hostname")
+        return feed(url, timeout)
+    t, store = FakeTables(), FakeStore()
+    _, out = run(t, blip, store, sets=["Groups", "Officers"])
+    assert not out["stopped"].startswith("stopped:") and out["waiting"] == ["Groups"] and "Groups" in out["stopped"]
+    assert [a[2] for a in t.aside] == ["fetch"] and "transport" in t.aside[0][3]
+    groups, officers = t.passes
+    assert groups["finished_at"] is None and officers["finished_at"] is not None and officers["rows"] == 10
+    _, out2 = run(t, blip, store, now=NIGHT + dt.timedelta(days=1), sets=["Groups"])
+    assert out2["waiting"] == [] and groups["finished_at"] is not None and groups["rows"] == 1
+
+
+def test_a_page_answered_with_another_status_still_stops_the_run():
+    feed = FakeFeed({"Groups": [{"GroupId": 1}], "Officers": [{"OfficerId": 1}]}, statuses={"/Groups?": 404})
+    t = FakeTables()
+    _, out = run(t, feed, FakeStore(), sets=["Groups", "Officers"])
+    assert out["stopped"].startswith("stopped: Groups: a page failed") and not any("Officers" in u for u in feed.asked)
+
+
+def test_the_rows_of_a_code_list_are_counted():
+    feed = FakeFeed({"MainSector": [{"Id": 1}, {"Id": 2}, {"Id": 3}]})
+    _, out = run(FakeTables(), feed, FakeStore(), sets=["MainSector", "$metadata"])
+    assert out["pages"] == 2 and out["rows"] == 3
+
+
 def test_nothing_is_asked_outside_off_peak_unless_on_purpose():
     feed = FakeFeed({"Groups": [{"GroupId": 1}]})
     _, out = run(FakeTables(), feed, FakeStore(), now=NOON)

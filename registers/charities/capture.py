@@ -38,8 +38,11 @@ is never used); off-peak only unless `--anytime`; nothing fetched twice
 (a page whose bytes are already held adds a name, not a document; the code
 lists and documents are asked for weekly). A 403, 429, 5xx or a challenge page
 is a failed read (hard limit 6): a catch-log line, and the run STOPS. Nothing
-is retried in the same run, solved or got around. Three transport failures in
-a row stop the run too. A gate refusal is never caught.
+is retried in the same run, solved or got around. A lone transport failure (a
+name lookup, a reset, a timeout) on a keyed set's page is a catch-log line: that
+set's pass stays open and resumes next run, and the run goes on to the next
+set. Three transport failures in a row stop the run. A gate refusal is never
+caught.
 
 Every line printed is a count. No row, name or address is ever printed.
 
@@ -290,6 +293,8 @@ class Run:
         self.started = self.clock()
         self.last_end = None
         self.failures = 0
+        self.last_failure = None
+        self.waiting = []            # keyed sets whose page failed in transport this run; each resumes next run
         self.counts = {"requests": 0, "pages": 0, "rows": 0, "new": 0, "already_held": 0, "set_aside": 0,
                        "passes_finished": 0}
         self.stopped = ""
@@ -318,6 +323,7 @@ class Run:
             if gap > 0:
                 self.sleep(gap)
         self.counts["requests"] += 1
+        self.last_failure = None
         try:
             f = self.opener(url, 120)
         except fg.Refused:
@@ -325,6 +331,7 @@ class Run:
         except Exception as exc:  # noqa: BLE001 — a transport failure is a line, three in a row a stop
             self.last_end = self.clock()
             self.failures += 1
+            self.last_failure = "transport"
             self._aside(pass_id, url, "fetch", f"transport: {type(exc).__name__}: {str(exc)[:200]}")
             if self.failures >= STOP_AFTER_FAILURES:
                 raise Stop(f"{self.failures} transport failures in a row; the host may be in trouble")
@@ -340,6 +347,7 @@ class Run:
             self._aside(pass_id, url, "fetch", why)
             raise Stop(why)
         if f.status != 200:
+            self.last_failure = "status"
             self._aside(pass_id, url, "fetch", f"HTTP {f.status}")
             return None
         return f
@@ -366,6 +374,15 @@ class Run:
             first = p["pages"] == 0
             url = page_url(entity_set, key, p["next_key"], p["since"], first=first)
             f = self.get(url, p["pass_id"])
+            if f is None and self.last_failure == "transport":
+                # a lone transport failure (a name lookup, a reset) is a catch-log line, not a stop: this set's
+                # pass stays open and resumes from its last key next run, and the run moves to the next set;
+                # three in a row stop the run in get() (4 November 2026: a name lookup failed once on the
+                # odata host between two good answers, and stopped every set after Groups)
+                self.waiting.append(entity_set)
+                self.log(f"{SOURCE}: {entity_set}: a page failed in transport; the pass resumes from key "
+                         f"{p['next_key']} next run")
+                return
             if f is None:
                 raise Stop(f"{entity_set}: a page failed; the pass resumes from key {p['next_key']} next run")
             try:
@@ -436,6 +453,7 @@ class Run:
         self.t.add_page(p, name, url, ref.sha256, rows or 0, None, None, new, stated)
         self.t.finish(p)
         self.counts["pages"] += 1
+        self.counts["rows"] += rows or 0
         self.counts["passes_finished"] += 1
 
     def run(self) -> dict:
@@ -452,7 +470,10 @@ class Run:
                     self.walk(name, key, now, changes)
         except Stop as exc:
             self.stopped = f"stopped: {exc}"
-        return {**self.counts, "stopped": self.stopped}
+        if self.waiting and not self.stopped.startswith("stopped:"):
+            wait = f"{', '.join(self.waiting)} failed in transport and resume next run"
+            self.stopped = f"{self.stopped}; {wait}" if self.stopped else wait
+        return {**self.counts, "stopped": self.stopped, "waiting": list(self.waiting)}
 
 
 def landing(conn):
