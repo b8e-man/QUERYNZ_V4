@@ -78,6 +78,14 @@ def capture_tables_sql(schema: str = SCHEMA, shared: bool = False) -> str:
         sql("tables.sql", schema, shared)
 
 
+def ensure_record(conn, schema: str = SCHEMA, shared: bool = False) -> None:
+    """The lane's tables made where absent, committed at once. A CREATE INDEX IF NOT EXISTS takes a share lock on its
+    table even when the index is there, and the load's transaction holds it for the hour the load reads: on 5 November
+    2026 the JDO capture's insert into own_files waited on it from 05:24 and was cancelled at 05:29."""
+    conn.execute(capture_tables_sql(schema, shared))
+    conn.commit()
+
+
 def create_tables(conn, schema: str, shared: bool = False) -> None:
     """The reading's tables as tables.sql has them now, made again on every
     build (each dropped and created); the record is created if absent and
@@ -136,7 +144,7 @@ def load(conn, schema: str, log=print, mcp_schema: str = capture.MCP_SCHEMA) -> 
     """The corpus's records read from the store under `schema`. Returns the
     count of documents read."""
     started = jobrun.now()
-    conn.execute(capture_tables_sql(SCHEMA))           # the record lives in the lane's own schema
+    ensure_record(conn)                                # the record lives in the lane's own schema
     # one stamp: the pull and the own capture may be landing while this reads, so it takes what landed by the stamp, and every row
     # carries the stamp as loaded_at, which the check counts the ledger against
     now = conn.execute("SELECT now()").fetchone()[0].isoformat()

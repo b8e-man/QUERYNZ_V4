@@ -346,6 +346,18 @@ def test_a_record_the_pull_lands_after_the_load_s_stamp_is_the_next_load_s(fille
     conn.execute("DELETE FROM pg_temp.arrivals")
 
 
+def test_the_load_s_table_check_holds_no_lock_on_the_own_capture_s_ledger(filled):
+    """The load makes its tables where absent and commits, so the hour it reads holds no share lock that blocks the
+    own capture's insert into own_files (5 November 2026: the JDO capture cancelled at 05:29 behind the 05:24 load)."""
+    conn, schema = filled["conn"], filled["schema"]
+    conn.commit()
+    L.ensure_record(conn, schema, shared=True)
+    held = conn.execute("SELECT l.relation::regclass::text, l.mode FROM pg_locks l WHERE l.pid = pg_backend_pid() "
+                        "AND l.relation IS NOT NULL AND l.mode = 'ShareLock'").fetchall()
+    assert held == []
+    assert conn.execute("SELECT to_regclass(%s)", (L.table(schema, "own_files", True),)).fetchone()[0] is not None
+
+
 def test_the_lever_dry_runs_by_default_and_withholds_on_execute_across_the_case(filled):
     conn, schema, q = filled["conn"], filled["schema"], filled["q"]
     t = lambda n: L.table(schema, n, True)  # noqa: E731
