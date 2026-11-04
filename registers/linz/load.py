@@ -457,7 +457,8 @@ def job(log=print) -> int:
             counts = build(conn, STAGING, log=log)
         problems = check.reading(conn, STAGING)
         detail = ", ".join(f"{k} {v:,}" if isinstance(v, int) else f"{k} {v}" for k, v in counts.items()
-                           if k.endswith((".read", ".set_aside", ".stated")) or v == "none finished")
+                           if k.endswith((".read", ".set_aside", ".stated")) or k.startswith(("geometry.", "title_address"))
+                           or v == "none finished")
         detail += "; " + ("; ".join(problems) or "reconciles")
         if problems:
             log(f"{SCHEMA}: RED, nothing published: " + detail)

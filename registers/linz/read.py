@@ -76,14 +76,15 @@ def recognises(body: bytes, source: str) -> bool:
 
 
 def whole_of(feature: dict, sort_cols: tuple = ()) -> dict:
-    """A feature read whole: its id (the one sort column's value where there is one, else the service's feature id's
-    number), every attribute as JSON, and its geometry with its type and box; None for a row with no id at all."""
+    """A feature read whole: its id (the number of the service's feature id, else the one sort column's value), every attribute as JSON, and its geometry with its type and box; None for a row with no id at all."""
     p = feature.get("properties") or {}
+    # the service's own feature id first: its row key, one a row (for a layer with an `id` column it is that id); a
+    # sort column is not always one a row (the Tangata Whenua names are sorted on their map, 3 maps for 1,748 rows)
     fid = None
-    if len(sort_cols) == 1 and p.get(sort_cols[0]) not in (None, ""):
-        fid = str(p[sort_cols[0]])
-    elif feature.get("id") not in (None, ""):
+    if feature.get("id") not in (None, ""):
         fid = str(feature["id"]).rsplit(".", 1)[-1]
+    elif len(sort_cols) == 1 and p.get(sort_cols[0]) not in (None, ""):
+        fid = str(p[sort_cols[0]])
     g = feature.get("geometry")
     box = geo.bbox(g) if g else None
     return {"fid": fid, "props": json.dumps(p, ensure_ascii=False, sort_keys=True),

@@ -556,3 +556,14 @@ def test_no_lane_column_is_a_system_column_of_the_database():
         for line in sql.splitlines():
             for c in system:
                 assert not line.strip().startswith(c + " ") and f", {c} " not in line, line
+
+
+def test_a_row_is_keyed_by_the_service_s_own_id_where_its_sort_column_is_not_one_a_row():
+    """5 November 2026: the first night's load was red on the Tangata Whenua names, sorted on their map (3 maps for 1,748
+    rows) and keyed by it."""
+    body = json.dumps({"type": "FeatureCollection", "features": [
+        feature("layer-117263.1", {"map": "Te Tai Tokerau", "name": "a"}),
+        feature("layer-117263.2", {"map": "Te Tai Tokerau", "name": "b"})]}).encode()
+    rows, aside = R.read_page(body, "tangata_whenua_place_names", "f" * 64, 4)
+    assert [r["fid"] for r in rows] == ["1", "2"] and not aside
+    assert C.WHOLE["tangata_whenua_place_names"][1] == ("map",)
