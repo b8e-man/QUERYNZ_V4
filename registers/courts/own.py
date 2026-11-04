@@ -311,10 +311,13 @@ _ERA_PDF = re.compile(r'href="(/assets/elawpdf/[^"]+\.pdf)"', re.I)
 _ERA_PAGES = re.compile(r'page-link disabled">\s*(\d+) of (\d+)\s*<')
 
 
-def era_search_url(year: int, page: int) -> str:
-    """The Authority's own search form for one year, as its own "next" link asks it (the survey's landed page)."""
+def era_search_url(year: int, page: int, today: dt.date = None) -> str:
+    """The Authority's own search form for one year, as its own "next" link asks it (the survey's landed page). The
+    current year ends at `today`: the form refuses a date to come and redirects to its landing page (every night
+    from 3 November 2026 the 2026 search came back as /determinations, while 2014's answered its results)."""
+    end = dt.date(year, 12, 31) if today is None else min(dt.date(year, 12, 31), today)
     q = [("Parties", ""), ("JurisdictionTitle", ""), ("Keywords", ""), ("JurisdictionIdentifier", ""),
-         ("DateFrom", f"{year}-01-01"), ("DateTo", f"{year}-12-31"), ("StatutoryOfficer", ""),
+         ("DateFrom", f"{year}-01-01"), ("DateTo", end.isoformat()), ("StatutoryOfficer", ""),
          ("action_doSearch", "Search")]
     if page > 1:
         q.append(("start", str((page - 1) * ERA_PAGE)))
@@ -342,7 +345,7 @@ class EraWalk(Walk):
         return [ERA_COURT]
 
     def era_page(self, year: int, page: int):
-        url = era_search_url(year, page)
+        url = era_search_url(year, page, today=self.now().date())
         body = self.get(url, "text/html")
         if body is None:
             raise Stop("a search page answered 404")

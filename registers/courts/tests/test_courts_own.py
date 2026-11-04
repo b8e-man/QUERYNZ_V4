@@ -298,6 +298,9 @@ class FakeERA:
             if self.not_results:
                 return 200, b"<html><body>Service unavailable</body></html>", url
             q = dict(urllib.parse.parse_qsl(u.query))
+            if q["DateTo"] > NOW.date().isoformat():
+                # the form refuses a date to come and sends the reader back to its landing page (seen 3 to 5 November 2026)
+                return 200, b"<html><body><h1>Determinations</h1><form>search</form></body></html>", url
             year = int(q["DateFrom"][:4])
             ids = self.held.get(year, [])
             page = int(q.get("start", "0")) // own.ERA_PAGE + 1
