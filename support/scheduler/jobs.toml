@@ -1390,8 +1390,10 @@ query_timeout_s = 60
 class = "due"
 priority = 100
 # the corpora by name (3 November 2026): a corpus the MCP adds is pulled only once Arthur has said so; `gets` (GETS tender
-# notices) by ruling 138
+# notices) by ruling 138; `parliament-papers`, `parliament-sc-evidence` and `court-mlc-data` (4 November) by ruling 142
+# ("Get ... all available information ... Always do this")
 command = ["python", "-m", "support.mcpsource", "--budget-s", "12600", "--corpus", "gets",
+           "--corpus", "parliament-papers", "--corpus", "parliament-sc-evidence", "--corpus", "court-mlc-data",
            "--corpus", "beehive", "--corpus", "parliament-wayback", "--corpus", "parliament-written-questions",
            "--corpus", "parliament-bills", "--corpus", "parliament-diaries", "--corpus", "parliament-hansard-index",
            "--corpus", "parliament-hansard-debates", "--corpus", "parliament-bills-historical", "--corpus", "parliament-sops",

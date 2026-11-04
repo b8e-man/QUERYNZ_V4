@@ -20,7 +20,7 @@ from support.mcpsource.tests.fake import FakeServer, client_for, corpus_of, file
 CORPORA = ("beehive", "courts", "parliament-bills", "parliament-bills-historical", "parliament-diaries",
            "parliament-hansard-debates", "parliament-hansard-index", "parliament-sc-reports", "parliament-sc-submissions",
            "parliament-sops", "parliament-wayback",
-           "parliament-written-questions")
+           "parliament-written-questions", "parliament-papers", "parliament-sc-evidence", "court-mlc-data")
 TEST_SCHEMA = "scratch_test_mcpsource"
 
 
@@ -246,7 +246,7 @@ def _count(conn, t, where=""):
 
 
 def test_every_corpus_is_pulled_whole_and_a_second_run_lands_nothing(conn):
-    served = {c: corpus_of(c, n) for c, n in zip(CORPORA, (450, 5, 7, 6, 30, 5, 12, 4, 3, 2, 9, 401))}
+    served = {c: corpus_of(c, n) for c, n in zip(CORPORA, (450, 5, 7, 6, 30, 5, 12, 4, 3, 2, 9, 401, 3, 4, 2))}
     server, lands = FakeServer(served), Lands()
     res = M.pull_all(conn, client_for(server), TEST_SCHEMA, land=lands, sleep=no_sleep)
     assert M.outcome(res), M.summary(res)
