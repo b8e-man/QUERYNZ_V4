@@ -1498,7 +1498,7 @@ can_share = true
 concurrency = 4
 
 [jobs.qv4-parliament-load]
-description = "Parliament: rebuild the lane's tables from the MCP's seven parliament corpora, publish pub.parliament_written_questions, pub.parliament_api_items and pub.parliament_wayback_pages on green. Nightly at 04:30 NZDT, after the pull (ruling 96; parliament-1, 27 October 2026)."
+description = "Parliament: rebuild the lane's tables from the MCP's nine parliament corpora, publish pub.parliament_written_questions, pub.parliament_api_items and pub.parliament_wayback_pages on green. Nightly at 04:30 NZDT, after the pull (ruling 96; parliament-1, 27 October 2026)."
 needs = "processor"
 memory_gb = 3.0   # peak 2,393 MB on 31 October (run 27aa46b9) passed the 2 GB declared
 deadline_s = 3600

@@ -137,10 +137,10 @@ def load(conn, schema: str, log=print, mcp_schema: str = capture.MCP_SCHEMA) -> 
     count of documents read."""
     started = jobrun.now()
     conn.execute(capture_tables_sql(SCHEMA))           # the record lives in the lane's own schema
-    # one stamp: the own capture may be landing while this reads, so it takes what landed by the stamp, and every row
+    # one stamp: the pull and the own capture may be landing while this reads, so it takes what landed by the stamp, and every row
     # carries the stamp as loaded_at, which the check counts the ledger against
     now = conn.execute("SELECT now()").fetchone()[0].isoformat()
-    entries = capture.for_load(capture.records(conn, mcp_schema), capture.own_records(conn, SCHEMA, until=now))
+    entries = capture.for_load(capture.records(conn, mcp_schema, until=now), capture.own_records(conn, SCHEMA, until=now))
     counts = build(conn, schema, entries, capture.caught(conn, mcp_schema), orders(conn), now=now)
     detail = ", ".join(f"{k} {v}" for k, v in counts.items()) + f", into {schema}"
     log("courts: " + detail)

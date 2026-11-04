@@ -91,7 +91,10 @@ def account(conn, schema: str = L.SCHEMA, shared: bool = False, mcp_schema: str 
         ms = mcp_schema or capture.MCP_SCHEMA
         held = conn.execute("SELECT 1 FROM information_schema.tables WHERE table_schema = %s AND table_name = 'arrivals'", (ms,)).fetchone()
         if held:
-            taken = q(f"SELECT count(DISTINCT record_id) FROM {ms}.arrivals WHERE corpus = %s", capture.CORPUS)[0][0]
+            # by the load's stamp (every row's loaded_at): what the pull landed after the load read it is the next load's
+            stamp = q(f"SELECT min(loaded_at) FROM {t('documents')}")[0][0]
+            taken = q(f"SELECT count(DISTINCT record_id) FROM {ms}.arrivals WHERE corpus = %s "
+                      f"AND (%s::timestamptz IS NULL OR landed_at <= %s::timestamptz)", capture.CORPUS, stamp, stamp)[0][0]
             out["taken by the pull"] = taken
             mcp_rows = sum(1 for d in docs if not d[0].startswith(capture.OWN_PREFIX))
             if taken != mcp_rows:

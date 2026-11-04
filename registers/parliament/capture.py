@@ -19,7 +19,10 @@ holds no place any more was withdrawn by the source. Its row is kept (a
 captured document is never deleted) and marked.
 """
 CORPORA = ("parliament-written-questions", "parliament-bills", "parliament-bills-historical",
-           "parliament-sc-submissions", "parliament-sc-reports", "parliament-sops", "parliament-wayback")
+           "parliament-sc-submissions", "parliament-sc-reports", "parliament-sops", "parliament-wayback",
+           # pulled from 4 November 2026 (ruling 142): tabled papers, and the committees' evidence and advice
+           # (each submission's listing row and its page address; the documents themselves are not served)
+           "parliament-papers", "parliament-sc-evidence")
 WRITTEN_QUESTIONS = "parliament-written-questions"
 WAYBACK = "parliament-wayback"
 API_CORPORA = tuple(c for c in CORPORA if c not in (WRITTEN_QUESTIONS, WAYBACK))

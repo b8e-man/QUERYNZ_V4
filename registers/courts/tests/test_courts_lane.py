@@ -318,6 +318,34 @@ def test_the_lane_s_check_passes_on_the_sample(filled):
     assert set(out["outcomes"]) <= {"read", R.WAIT_PAGES, R.WAIT_TEXT, "set aside", "caught"}
 
 
+def test_a_record_the_pull_lands_after_the_load_s_stamp_is_the_next_load_s(filled):
+    """The pull may land records while a load runs (4 November 2026: the 19:00 pull landed 1,950 courts records
+    into the 18:14 load, and the check counted them against it). The check counts the pull's arrivals by the
+    load's stamp; one landed before the stamp with no row still fails. The arrivals are a temporary table."""
+    conn, schema = filled["conn"], filled["schema"]
+    t = lambda n: L.table(schema, n, True)  # noqa: E731
+    stamp = conn.execute(f"SELECT min(loaded_at) FROM {t('documents')}").fetchone()[0]
+    keys = [r[0] for r in conn.execute(f"SELECT key FROM {t('documents')}") if not r[0].startswith(check.capture.OWN_PREFIX)]
+    assert stamp is not None and keys
+    conn.execute("CREATE TEMP TABLE IF NOT EXISTS arrivals (corpus text, seq bigint, record_id text, url text, sha256 text, "
+                 "landed_at timestamptz)")
+    conn.execute("CREATE TEMP TABLE IF NOT EXISTS files (corpus text, record_sha256 text, content_type text, capture_sha256 text, "
+                 "state text, bytes bigint)")
+    temp = conn.execute("SELECT pg_my_temp_schema()::regnamespace::text").fetchone()[0]
+    def failures(late_at):
+        conn.execute("DELETE FROM pg_temp.arrivals")
+        rows = [(k, stamp - dt.timedelta(hours=1)) for k in keys] + [("a-record-landed-late", late_at)]
+        for i, (k, at) in enumerate(rows):
+            conn.execute("INSERT INTO pg_temp.arrivals VALUES (%s, %s, %s, NULL, %s, %s)", (check.capture.CORPUS, i, k, "0" * 64, at))
+        # the load reads by the same stamp: the late record is not among its entries
+        got = {e["record_id"] for e in check.capture.records(conn, temp, until=stamp)}
+        assert ("a-record-landed-late" in got) == (late_at <= stamp) and set(keys) <= got
+        return [f for f in check.account(conn, schema, shared=True, mcp_schema=temp)["failures"] if "the pull took" in f]
+    assert failures(stamp + dt.timedelta(minutes=1)) == []
+    assert failures(stamp - dt.timedelta(minutes=1)) == [f"the pull took {len(keys) + 1} records, the lane has {len(keys)} document rows from it"]
+    conn.execute("DELETE FROM pg_temp.arrivals")
+
+
 def test_the_lever_dry_runs_by_default_and_withholds_on_execute_across_the_case(filled):
     conn, schema, q = filled["conn"], filled["schema"], filled["q"]
     t = lambda n: L.table(schema, n, True)  # noqa: E731

@@ -16,6 +16,8 @@ a3b27b220d2c8c65f700e87b88ad360164fd7cf7367c40ce77ad35239f8e6357 a call for subm
 c90a270e810201d7f40e7f053b0146ab825d38c6df25f7f198afaee8f7f65db6 an archived page whose text holds a NUL
 ea90ebe9b3a61ae6fd8b9315299e52c85ef0e24eb2443955db6dd7290d5c81cf a historical bill whose number is empty
 4f88f1894fcd48181d46eb760e97c24185d8479e2235b3ac20e6ec07b22daa70 a call for submissions whose id ends in a space
+e5354bcff5bd4bc3f2e01c12c23c2b011c7f8dfd6ab13d3c3869e5dbe0408580 a tabled paper, an annual report (parliament-papers, pulled from 4 November 2026)
+bf20fd1e76938014391b1f079bf3649e3ee2e88d068752bbc82162ff28149dcc a council's evidence to a committee, with its page address (parliament-sc-evidence)
 # the text reader's fixed sample (parliament-2, 31 October 2026): read once through Flash-Next, replayed by the fast tier
 # (ruling 50). Archived pages of several sizes, the two largest among them (split into 29 pieces), and written questions
 # across the years, the longest among them (split into 2); the questions were read half alone and half in batches so

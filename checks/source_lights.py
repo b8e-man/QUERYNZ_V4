@@ -91,7 +91,7 @@ LANES = {
     "parliament": Lane(update=(MCP_PULL, "qv4-parliament-load"), read=("qv4-parliament-read",),
                        corpora=("parliament-wayback", "parliament-written-questions", "parliament-bills",
                                 "parliament-bills-historical", "parliament-sops", "parliament-sc-reports",
-                                "parliament-sc-submissions")),
+                                "parliament-sc-submissions", "parliament-papers", "parliament-sc-evidence")),
     "hansard": Lane(update=(MCP_PULL, "qv4-hansard-load"), read=("qv4-hansard-read",),
                     corpora=("parliament-hansard-debates", "parliament-hansard-index")),
     "beehive": Lane(update=(MCP_PULL, "qv4-beehive-load"), read=("qv4-beehive-read",), corpora=("beehive",)),

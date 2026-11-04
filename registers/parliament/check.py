@@ -3,7 +3,7 @@ corpus by corpus.
 
 `corpora` gives each corpus's record count (its `ingest_cursor`); `measure`
 gives, per corpus, `n_docs` and `corpus_words` (the whitespace words of
-every record's `text`). Against these, for each of the seven corpora:
+every record's `text`). Against these, for each of the nine corpora:
 
   taken      the pull's cursor (records taken, each an arrival or a catch line) at least 99% of the MCP's count
   read       every distinct document the pull landed is a record read, an older version or a set-aside line

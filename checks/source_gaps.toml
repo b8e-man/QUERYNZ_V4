@@ -20,27 +20,27 @@ source = "support/scheduler/jobs.toml, qv4-courts-jdo-capture and qv4-courts-era
 
 [[gap]]
 register = "tenders"
-reason = "GETS is one day's crawl in the ingest MCP: closed tenders only from July 2014 to September 2015, 6 awards, no future or late lists"
-since = "2026-11-03"
-source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 2"
+reason = "GETS in the ingest MCP holds the open and closed lists (closed tenders from July 2014 to November 2026) but awards only for 1,102 tenders closing August to November 2026, none with its supplier or award date, and no future or late lists"
+since = "2026-11-05"
+source = "tenders.listing by listed_as, 5 November 2026 (open 398, closed 6,101, awarded 1,102, web archive 4,007); was docs/research/mcp-gaps-for-provider-2026-11-03.md, section 2"
 
 [[gap]]
 register = "parliament"
-reason = "the ingest MCP lacks bill texts, SOPs before the 54th Parliament, select committee reports before 15 November 2024, the submissions themselves, and written questions before 2003 and their 44,584 attachments"
-since = "2026-11-03"
-source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 3"
+reason = "the ingest MCP lacks bill texts and bills before the 43rd Parliament; holds 2,500 of the 10,970 select committee reports the source lists and 16,931 of its 1.1 million evidence and submission rows; serves no file of an SOP, a submission or most tabled papers; and lacks written questions before 2003 or after 1 October 2026 and their 44,584 attachments"
+since = "2026-11-05"
+source = "the MCP's corpora and pipeline tools and the pulled records, 5 November 2026 (SOPs now from 1995, reports from 1995); was docs/research/mcp-gaps-for-provider-2026-11-03.md, section 3"
 
 [[gap]]
 register = "hansard"
 reason = "the ingest MCP lacks everything before 11 February 2003, the corrected version of 35 days from 28 April 2026, and any sitting after 23 September 2026"
 since = "2026-11-03"
-source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 3"
+source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 3; re-measured 5 November 2026, unchanged"
 
 [[gap]]
 register = "ministers_diaries"
 reason = "the ingest MCP lacks the release PDFs, September and October 2026, and the PDF address of 119 releases"
 since = "2026-11-03"
-source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 3"
+source = "docs/research/mcp-gaps-for-provider-2026-11-03.md, section 3; re-measured 5 November 2026, unchanged"
 
 [[gap]]
 register = "insolvency"

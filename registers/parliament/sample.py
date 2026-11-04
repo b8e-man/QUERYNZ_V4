@@ -20,6 +20,26 @@ from support.docstore.landing import path_for, read_bytes  # noqa: E402
 from registers.parliament import capture, load as L, model_read  # noqa: E402
 
 
+def corpus_of_record(rec) -> str:
+    """The corpus a record names by its own shape, for one landed after the sample database's copy of the
+    store's names: a question has questionNumber, an archived page snapshot_url (the text reader's profiles);
+    an API item names its corpus in the provider's `_corpus` ("papers", "SOPs", none on a current bill). '' when
+    neither says one of this lane's corpora."""
+    if not isinstance(rec, dict):
+        return ""
+    profile = model_read._profile_of_record(rec)
+    if profile == model_read.WQ:
+        return capture.WRITTEN_QUESTIONS
+    if profile == model_read.WAYBACK:
+        return capture.WAYBACK
+    named = rec.get("_corpus")
+    if isinstance(named, str) and named:
+        named = named.lower() if named.lower().startswith("parliament-") else f"parliament-{named.lower()}"
+        if named in capture.API_CORPORA:
+            return named
+    return ""
+
+
 def fill(conn, schema: str, items: list) -> int:
     shas = [i.split()[0] for i in items if not i.startswith("key:")]
     for sha in shas:
@@ -30,11 +50,10 @@ def fill(conn, schema: str, items: list) -> int:
     for sha in [s for s in shas if s not in corpus]:
         # landed after the sample database's copy of the store's names: the record's own shape says which corpus
         # of the two the text reader reads (a question has questionNumber; an archived page has snapshot_url)
-        profile = model_read._profile_of_record(json.loads(read_bytes(sha)))
-        if profile == model_read.WQ:
-            corpus[sha] = capture.WRITTEN_QUESTIONS
-        elif profile == model_read.WAYBACK:
-            corpus[sha] = capture.WAYBACK
+        rec = json.loads(read_bytes(sha))
+        corpus_of = corpus_of_record(rec)
+        if corpus_of:
+            corpus[sha] = corpus_of
     missing = [s for s in shas if s not in corpus]
     if missing:
         raise LookupError(f"parliament/sample.list names {missing[0]}, which has no `<corpus>/<id>` name in the store")

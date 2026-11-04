@@ -7,8 +7,8 @@ model, no inference, nothing fetched (ruling 96: "add their fields to our
 registers"). Three shapes:
 
   written_questions   `parliament-written-questions`, the Parliament API's written questions
-  api_items           `parliament-bills`, `-bills-historical`, `-sc-submissions`, `-sc-reports`, `-sops`:
-                      the API's one document shape, typed by corpus and `documentType`
+  api_items           `parliament-bills`, `-bills-historical`, `-sc-submissions`, `-sc-reports`, `-sops`,
+                      `-papers`, `-sc-evidence`: the API's one document shape, typed by corpus and `documentType`
   wayback_pages       `parliament-wayback`, parliament.nz pages the provider took from the Internet
                       Archive, the page's text whole
 

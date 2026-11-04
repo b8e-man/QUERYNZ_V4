@@ -51,18 +51,21 @@ def record_of(sha: str) -> dict:
     return json.loads(read_bytes(sha))
 
 
-def records(conn, mcp_schema: str = MCP_SCHEMA) -> list:
+def records(conn, mcp_schema: str = MCP_SCHEMA, until=None) -> list:
     """One entry per record id of the corpus: the version the pull saw last
     (by `landed_at`, never the highest `seq`), with its file pointer from
-    `mcpsource.files`. A schema with no pull record answers nothing."""
+    `mcpsource.files`; with `until`, only what had landed by then (the load's
+    stamp: the pull may be landing while the load reads, and the check counts
+    the pull's arrivals by the same stamp). A schema with no pull record
+    answers nothing."""
     if not _has(conn, mcp_schema, "arrivals") or not _has(conn, mcp_schema, "files"):
         return []
     rows = conn.execute(f"""
         SELECT DISTINCT ON (a.record_id) a.record_id, a.seq, a.sha256, a.url, f.content_type, f.capture_sha256, f.state, f.bytes
           FROM {mcp_schema}.arrivals a
           LEFT JOIN {mcp_schema}.files f ON f.corpus = a.corpus AND f.record_sha256 = a.sha256
-         WHERE a.corpus = %s
-         ORDER BY a.record_id, a.landed_at DESC, a.seq DESC""", (CORPUS,)).fetchall()
+         WHERE a.corpus = %s AND (%s::timestamptz IS NULL OR a.landed_at <= %s::timestamptz)
+         ORDER BY a.record_id, a.landed_at DESC, a.seq DESC""", (CORPUS, until, until)).fetchall()
     return [entry(*r) for r in rows]
 
 

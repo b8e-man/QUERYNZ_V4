@@ -24,6 +24,7 @@ GOOD_PAGE = "2b86adf70ab2e30c8b367845d1760d0466bddf69741f33cd1289a8f6d8866655"  
 NOT_PROSE = "c90a270e810201d7f40e7f053b0146ab825d38c6df25f7f198afaee8f7f65db6"       # sample.list: a WAV file served as a page
 LARGEST_PAGE = "bd8aa66a094898f9804bcbff0ded85b563a1a79453dbfe4a0d1421c99e5bd6c1"    # sample.list: 676,240 chars, 29 pieces
 LONGEST_QUESTION = "c312dd4a82f3b657f8f81494055de80305938f93cdd5017ce95110410c3de7b3"  # sample.list: 31,178 chars, 2 pieces
+SITE_URL = "https://www.parliament.nz"
 WQ, BILLS, SUBS, WAYBACK = ("parliament-written-questions", "parliament-bills", "parliament-sc-submissions",
                             "parliament-wayback")
 
@@ -96,6 +97,38 @@ def test_an_api_item_is_keyed_by_its_corpus_and_cites_its_own_address():
     assert read.citation_url({"url": "https://example.test/x"}) is None             # never another host
     for r in res.rows["api_items"]:
         assert rowcontract.validate(r) == []
+
+
+def test_every_parliament_corpus_the_pull_takes_is_read_by_a_lane():
+    """5 November 2026: `parliament-papers` and `parliament-sc-evidence` were pulled from 4 November (67a34b4) but
+    no lane read them. Every parliament corpus qv4-mcp-pull names is this lane's, or hansard's or the diaries'."""
+    import tomllib
+    with open(os.path.join(REPO, "support", "scheduler", "jobs.toml"), "rb") as f:
+        cmd = tomllib.load(f)["jobs"]["qv4-mcp-pull"]["command"]
+    pulled = {cmd[i + 1] for i, a in enumerate(cmd) if a == "--corpus"}
+    others = {"parliament-hansard-debates", "parliament-hansard-index", "parliament-diaries"}
+    assert {c for c in pulled if c.startswith("parliament-")} - others == set(capture.CORPORA)
+    assert {"parliament-papers", "parliament-sc-evidence"} <= set(capture.API_CORPORA)
+
+
+@pytest.mark.parametrize("corpus", ["parliament-papers", "parliament-sc-evidence"])
+def test_a_tabled_paper_and_a_committee_s_evidence_are_api_items(corpus):
+    url = "/en/pb/sc/submissions-and-advice/document/53SCGA_EVI_X/sample-council"
+    r = _rec(corpus, 4, url=url if corpus.endswith("evidence") else None)
+    res, _ = _read(corpus, r)
+    (row,) = res.rows["api_items"]
+    assert row["key"] == f"{corpus}/{r['id']}" and row["corpus"] == corpus and row["fields_unread"] == []
+    assert row["citation_url"] == (SITE_URL + url if corpus.endswith("evidence") else None)
+    assert rowcontract.validate(row) == []
+
+
+@pytest.mark.parametrize("named,want", [("papers", "parliament-papers"), ("sc-evidence", "parliament-sc-evidence"),
+                                        ("SOPs", "parliament-sops"), ("bills-historical", "parliament-bills-historical"),
+                                        ("hansard", ""), (None, "")])
+def test_the_sample_finds_an_api_item_s_corpus_by_the_provider_s_own_name(named, want):
+    """A record landed after the sample database's copy of the store's names (both new corpora, 4 November)."""
+    from registers.parliament import sample as S
+    assert S.corpus_of_record({"id": "x", "documentType": "Paper", "_corpus": named}) == want
 
 
 def test_a_wayback_page_carries_its_text_whole():

@@ -4,7 +4,7 @@ this lane's tables under a staging schema of the real database, and
 and refresh the published views; `qv4-parliament-load` runs the same after
 each night's pull. `fill` in sample.py uses the same pieces.
 
-Every record of the seven parliament corpora the pull has taken
+Every record of the nine parliament corpora the pull has taken
 (support/mcpsource's arrivals) is read by its hash from the document store;
 rows go to the tables in batches as they are read (683,524 written
 questions do not sit in memory). Items in (the documents) equal records

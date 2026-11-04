@@ -420,3 +420,16 @@ def test_write_is_whole(tmp_path):
     p = tmp_path / "checks" / "source-lights.json"
     sl.write({"computed_at": NOW.isoformat(), "lights": []}, str(p))
     assert json.loads(p.read_text())["lights"] == []
+
+
+def test_every_corpus_the_pull_takes_is_some_lane_s_light():
+    """5 November 2026: parliament-papers and parliament-sc-evidence were pulled from 4 November (67a34b4) and read
+    by the parliament lane, but no light named them, so a pull caught on them never turned a light red. Every
+    parliament, Hansard and diaries corpus qv4-mcp-pull takes is in a lane's `corpora`."""
+    import os
+    import tomllib
+    with open(os.path.join(sl.REPO, "support", "scheduler", "jobs.toml"), "rb") as f:
+        cmd = tomllib.load(f)["jobs"][sl.MCP_PULL]["command"]
+    pulled = {cmd[i + 1] for i, a in enumerate(cmd) if a == "--corpus" and cmd[i + 1].startswith("parliament-")}
+    named = {c for lane in REAL_LANES.values() for c in lane.corpora}
+    assert pulled - named == set()
