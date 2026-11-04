@@ -249,6 +249,14 @@ def test_the_counsel_roles_are_held_by_the_parties_or_reported():
     assert C.roles_unaccounted(j) == ["Third Respondent"]
 
 
+def test_a_plural_group_in_the_caption_holds_every_ordinal_of_its_role():
+    j = C.Judgment(counsel_roles=["Applicant", "First And Sixth Respondents", "Second Respondent"], caption_shape="between")
+    j.parties = [C.Party(name="", role=r, position=0, block=0) for r in ("Applicant", "Respondents")]
+    assert C.roles_unaccounted(j) == []
+    j.parties = [C.Party(name="", role=r, position=0, block=0) for r in ("Applicant", "Respondent")]
+    assert C.roles_unaccounted(j) == ["First And Sixth Respondents", "Second Respondent"], "a single Respondent holds no ordinal"
+
+
 def test_a_criminal_caption_s_counsel_lines_name_its_sides_by_the_stage():
     """A Supreme Court leave judgment of 2005 to 2012: "X v THE QUEEN", no printed role, and "for Applicant" and
     "for Crown" on the counsel lines (23 of the live check's 200 before this; a role no party holds is still reported)."""

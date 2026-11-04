@@ -676,11 +676,15 @@ def roles_unaccounted(j: Judgment) -> list:
             if not held or not bases <= CRIMINAL_SIDES or max((ORDINAL.get(o, 99) for o in ords), default=1) > max(defendants, 1):
                 out.append(r)
         return out
+    # a caption that prints its parties as one plural group with no ordinal ("... Respondents") holds every ordinal of
+    # that base: counsel "for First and Sixth Respondents" (4 November 2026, one of the three the load's check held)
+    grouped = {b for (o, bs), p in zip(held, j.parties) if not o and (p.role or "").strip().lower().endswith("s")
+               for b in bs}
     for r in j.counsel_roles:
         ords, bases = _role_key(r)
         for b in bases:
             with_base = [o for o, bs in held if b in bs]
-            if not with_base or (ords and not ords <= set().union(*with_base)):
+            if not with_base or (ords and b not in grouped and not ords <= set().union(*with_base)):
                 out.append(r)
                 break
     return out
