@@ -308,6 +308,49 @@ def test_the_source_s_own_inconsistencies_are_named_and_a_parse_miss_is_not():
     assert C.roles_source_exception(j) is None
 
 
+def _hc(caption_lines, counsel):
+    """A High Court page of the given caption lines and counsel lines (every name invented)."""
+    return page("IN THE HIGH COURT OF NEW ZEALAND", "EXAMPLETOWN REGISTRY", " " * 66 + "CIV-2098-404-1043",
+                " " * 66 + "[2099] NZHC 2281", *caption_lines, "Hearing:              4 August 2098",
+                "Appearances:          " + counsel[0], *("                      " + c for c in counsel[1:]),
+                "Judgment:             5 August 2099", "                            JUDGMENT OF WHITE J")
+
+
+def test_counterclaim_roles_and_ordinal_ranges_are_roles():
+    """Two of the 5 November four: "Plaintiff/First Counterclaim Defendant" and "Second Counterclaim Defendant" in a
+    claim with a counterclaim; "First to Fourth Plaintiffs" and "First to Fiftieth Third Parties" in a group action.
+    Neither caption gave a party before; the counsel lines were reported as roles no party holds."""
+    j = parse(_hc([L + "BETWEEN" + " " * 24 + "ANNA SAMPLE LIMITED", N + "Plaintiff/First Counterclaim Defendant",
+                   L + "AND" + " " * 28 + "EXAMPLE HOLDINGS LP", N + "Defendant/Counterclaim Plaintiff",
+                   L + "AND" + " " * 28 + "BEN SAMPLE", N + "Second Counterclaim Defendant"],
+                  ["H Able for the Plaintiff/First Counterclaim Defendant", "E Baker for the Defendant/Counterclaim Plaintiff",
+                   "S Cole for the Second Counterclaim Defendant"]))
+    assert [p.role for p in j.parties] == ["Plaintiff/First Counterclaim Defendant", "Defendant/Counterclaim Plaintiff",
+                                           "Second Counterclaim Defendant"] and j.unrecognised == []
+    assert j.counsel_roles == ["Defendant", "Plaintiff", "Second Counterclaim Defendant"] and C.roles_unaccounted(j) == []
+    g = parse(_hc([L + "BETWEEN" + " " * 24 + "OWNERS OF EXAMPLE TOWERS AND", N + "OTHERS", N + "First to Fourth Plaintiffs",
+                   L + "AND" + " " * 28 + "EXAMPLE BUILDERS LIMITED", N + "Defendant",
+                   L + "AND" + " " * 28 + "EXAMPLE CITY COUNCIL AND OTHERS", N + "First to Fiftieth Third Parties"],
+                  ["N Dee for plaintiffs", "D Eel for defendant"]))
+    assert list(dict.fromkeys(p.role for p in g.parties)) == ["First to Fourth Plaintiffs", "Defendant",
+                                                              "First to Fiftieth Third Parties"]
+    assert C.roles_unaccounted(g) == []
+    assert not C.ROLE.match("First to Fourth"), "an ordinal range is a role only with its base"
+
+
+def test_an_application_in_the_matter_with_no_parties_is_the_source_s_own_and_a_party_s_role_is_not():
+    """One of the 5 November four: "IN THE MATTER of an application by ..." and no BETWEEN; the counsel line is for
+    the Applicant, whom the matter's words name. Counted apart with its reason; any other role stays a parse miss."""
+    lines = [L + "IN THE MATTER" + " " * 18 + "of the Example Act 2007", L + "AND",
+             L + "IN THE MATTER" + " " * 18 + "of an application by ANNA SAMPLE for an order"]
+    j = parse(_hc(lines, ["T Able for Applicant"]))
+    assert j.caption_shape == "matter" and j.parties == []
+    assert C.roles_unaccounted(j) == ["Applicant"] and C.roles_source_exception(j) == C.MATTER_APPLICANT
+    assert C.roles_source_exception(parse(_hc(lines, ["T Able for Second Applicant"]))) is None, "an ordinal is a miss"
+    assert C.roles_source_exception(parse(_hc(lines, ["T Able for Applicant", "R Bee for Respondent"]))) is None
+    assert C.roles_source_exception(parse(hc_two_sided("Plaintiff", "Defendant", ["T Able for Applicant"]))) is None
+
+
 # --- suppression, paragraphs, outcome -----------------------------------------------
 
 def test_a_banner_flags_suppression_and_its_kinds_are_a_closed_list():

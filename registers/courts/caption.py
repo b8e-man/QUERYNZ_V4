@@ -84,11 +84,11 @@ LABEL = re.compile(r"^\s*(?:(?:Hearings?|Court|Counsel|Appearances|Judgments?|Se
                    r"|\s{0,6}[A-Z][a-z]+(?:[ /][a-z(][a-z)]+){0,3}\s*:(?:\s|$))")
 PARTY_LABEL = re.compile(r"^\s*(AND IN THE MATTER OF|IN THE MATTER OF|IN THE MATTER|AND BETWEEN|BETWEEN|UNDER|AND)\b(?:\s{2,}(.*\S))?\s*$")
 _ORD = r"(?:First|Second|Third|Fourth|Fifth|Sixth|Seventh|Eighth|Ninth|Tenth|Eleventh|Twelfth|Thirteenth|Fourteenth|Fifteenth)"
-_BASE = (r"(?:Cross[- ])?(?:Appellants?|Respondents?|Applicants?|Plaintiffs?|Defendants?|Interveners?|Intervenors?|"
+_BASE = (r"(?:Cross[- ]|Counter[- ]?claim )?(?:Appellants?|Respondents?|Applicants?|Plaintiffs?|Defendants?|Interveners?|Intervenors?|"
          r"Claimants?|Objectors?|Informants?|Prosecutors?|Referrers?|Judgment (?:Debtors?|Creditors?)|"
          r"(?:Third|Interested|Non)[- ]Part(?:y|ies))")
 ROLE = re.compile(rf"^(?:(?:Shareholder|Director|Trustee|Executor|Administrator|Guardian|Liquidator|Receiver)s? of (?:the )?)?"
-                  rf"(?:{_ORD}(?: and {_ORD})? )?(?:Intended |Proposed |Putative )?{_BASE}"
+                  rf"(?:{_ORD}(?: and {_ORD}| to (?:{_ORD}|\w+(?:ieth|th)))? )?(?:Intended |Proposed |Putative )?{_BASE}"
                   rf"(?:\s*(?:/|and)\s*(?:{_ORD} )?{_BASE})*"
                   r"(?:\s*\([^)]{1,80}\)|\s+in\s+(?:SC|CA)\s?\d{1,4}/\d{4}.{0,40}|\s+\(?[A-Z]{2,3}\s?\d{1,4}/\d{4}\)?)?\.?$", re.I)
 PLURAL = re.compile(r"(?:Appellants|Respondents|Applicants|Plaintiffs|Defendants|Interveners|Intervenors|Claimants|Objectors|"
@@ -695,15 +695,18 @@ def roles_unaccounted(j: Judgment) -> list:
 INTERVENER_UNLISTED = "counsel for an intervener the caption does not list (leave to intervene given after the caption was set)"
 APPEAL_UNDER_FIRST_INSTANCE = ("an appeal whose caption keeps the first instance's Plaintiff and Defendant while its counsel "
                                "lines name the appellant and the respondent")
+MATTER_APPLICANT = ("an application captioned IN THE MATTER only, its applicant named in the matter's words (\"of an "
+                    "application by ...\") and no BETWEEN, while its counsel line is for the Applicant")
 
 
 def roles_source_exception(j: Judgment, short: list = None) -> str:
     """The reason a judgment's unaccounted counsel roles are the source's own
-    printing, or None (then they are a parse miss). Two shapes only, each
+    printing, or None (then they are a parse miss). Three shapes only, each
     whole: every unaccounted role is an Intervener, in a caption that lists
-    none; or a BETWEEN caption of Plaintiff and Defendant only whose every
+    none; a BETWEEN caption of Plaintiff and Defendant only whose every
     counsel line is for the Appellant or the Respondent, with no ordinal,
-    and none of them held."""
+    and none of them held; or an IN THE MATTER caption with no party whose
+    every unaccounted role is the Applicant, with no ordinal."""
     short = roles_unaccounted(j) if short is None else short
     if not short:
         return None
@@ -713,4 +716,6 @@ def roles_source_exception(j: Judgment, short: list = None) -> str:
     if (j.caption_shape == "between" and held == {"plaintiff", "defendant"} and sorted(short) == sorted(j.counsel_roles)
             and all(not o and b and b <= {"appellant", "respondent"} for o, b in map(_role_key, j.counsel_roles))):
         return APPEAL_UNDER_FIRST_INSTANCE
+    if j.caption_shape == "matter" and not j.parties and all(not o and b == {"applicant"} for o, b in map(_role_key, short)):
+        return MATTER_APPLICANT
     return None
