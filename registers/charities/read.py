@@ -93,11 +93,22 @@ def pages(conn, entity_set: str, schema: str = SCHEMA, every: bool = True) -> li
                         f"ORDER BY finished_at {'ASC' if every else 'DESC'} LIMIT 1", (entity_set,)).fetchone()
     if full is None:
         return []
-    return [(r[0], r[1]) for r in conn.execute(
+    return once(conn.execute(
         f"SELECT g.sha256, g.url FROM {schema}.capture_pages g JOIN {schema}.capture_passes p USING (pass_id) "
         "WHERE p.pass_id = %s OR (p.entity_set = %s AND p.finished_at IS NOT NULL AND p.started_at >= %s "
         "AND (p.mode = 'changes' OR (%s AND p.mode IN ('full', 'whole') AND p.pages > 0))) "
-        "ORDER BY p.pass_id, g.page_no", (full[0], entity_set, full[2] if every else full[1], every))]
+        "ORDER BY p.pass_id, g.page_no", (full[0], entity_set, full[2] if every else full[1], every)))
+
+
+def once(listed) -> list:
+    """(sha256, url) each document once, at its newest place: a document is
+    its bytes, and a later pass that lands the same bytes again (a code list
+    asked weekly and unchanged, an empty changes page) lists the same
+    document, which read twice doubles its rows (5 November 2026: every code
+    list held twice its rows after the weekly re-ask of 4 November)."""
+    listed = [(r[0], r[1]) for r in listed]
+    last = {sha: i for i, (sha, _) in enumerate(listed)}
+    return [x for i, x in enumerate(listed) if last[x[0]] == i]
 
 
 def absent_since(conn, entity_set: str, schema: str = SCHEMA) -> dict:
@@ -109,9 +120,13 @@ def absent_since(conn, entity_set: str, schema: str = SCHEMA) -> dict:
                           "ORDER BY finished_at DESC LIMIT 1", (entity_set,)).fetchone()
     if newest is None:
         return {}
+    # a page whose bytes the newest full copy (or a pass after it) landed again is held by it: not absent
     return {r[0]: newest[1].date() for r in conn.execute(
         f"SELECT g.sha256 FROM {schema}.capture_pages g JOIN {schema}.capture_passes p USING (pass_id) "
-        "WHERE p.entity_set = %s AND p.finished_at IS NOT NULL AND p.started_at < %s", (entity_set, newest[0]))}
+        "WHERE p.entity_set = %s AND p.finished_at IS NOT NULL AND p.started_at < %s "
+        f"AND g.sha256 NOT IN (SELECT g2.sha256 FROM {schema}.capture_pages g2 JOIN {schema}.capture_passes p2 "
+        "USING (pass_id) WHERE p2.entity_set = %s AND p2.finished_at IS NOT NULL AND p2.started_at >= %s)",
+        (entity_set, newest[0], entity_set, newest[0]))}
 
 
 def reconcile(conn, schema: str = SCHEMA) -> list:

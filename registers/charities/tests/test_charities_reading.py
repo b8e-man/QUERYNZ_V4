@@ -606,3 +606,28 @@ def test_a_row_the_newest_full_copy_no_longer_holds_is_kept_and_flagged():
         conn.rollback()
     assert got[0] == got[1] > 0 and officers == 0
     assert counts["Organisations absent from the newest full copy"] >= got[0]      # two later set aside on a shared number
+
+
+def test_a_document_landed_again_is_listed_once_and_is_not_absent_from_the_copy_that_landed_it():
+    """5 November 2026: a code list asked weekly and unchanged lands the same bytes in a second whole pass;
+    the listing named the one document twice and the load read its rows twice (the ledger 9 typed, the table
+    18). A page a newer full copy landed again is also held by it, not absent from it."""
+    _db_or_skip()
+    from registers.charities import capture
+    schema = "scratch_charities_once"
+    a, b, c = "a" * 64, "b" * 64, "c" * 64
+    with db.connect(db.OWNER_KEY, "querynz_v4_sample") as conn:
+        with conn.transaction(force_rollback=True):
+            conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+            conn.execute(capture.tables_sql(schema))
+            for pid, s, mode, day, shas in ((1, "MainSector", "whole", 20, [a]), (2, "MainSector", "whole", 27, [a]),
+                                            (3, "Groups", "full", 20, [b, c]), (4, "Groups", "full", 27, [c])):
+                at = f"2026-10-{day} 23:30+13"
+                conn.execute(f"INSERT INTO {schema}.capture_passes (pass_id, entity_set, mode, pages, started_at, "
+                             "finished_at) VALUES (%s, %s, %s, %s, %s, %s)", (pid, s, mode, len(shas), at, at))
+                for i, sha in enumerate(shas, 1):
+                    conn.execute(f"INSERT INTO {schema}.capture_pages (pass_id, page_no, entity_set, url, sha256, "
+                                 "rows, new) VALUES (%s, %s, %s, 'u', %s, 1, true)", (pid, i, s, sha))
+            assert [sha for sha, _ in read.pages(conn, "MainSector", schema)] == [a]
+            assert [sha for sha, _ in read.pages(conn, "Groups", schema)] == [b, c]
+            assert set(read.absent_since(conn, "Groups", schema)) == {b}
