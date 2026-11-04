@@ -287,3 +287,26 @@ def test_a_wanted_file_its_page_no_longer_links_is_not_asked():
                 clock=NIGHT, log=lambda *a: None, anytime=True,
                 seed_list=[("Kaipara District Council", [2022], KU)]).listings()
     assert stale not in empty.files      # a page that reads to nothing retires nothing
+
+
+def test_a_host_the_gate_holds_is_asked_nothing_and_its_files_stay_wanted():
+    """5 November 2026: www.dunedin.govt.nz, www.gdc.govt.nz and www.kaipara.govt.nz held since 4 November 22:20
+    (ruling 141). Each night the files pass took the next wanted file of a held host to the gate, met its refusal and
+    spent the file as 'refused', asked once ever. A held host is skipped before the gate; its files stay wanted."""
+    asked = []
+    t = FakeTables([("https://held.govt.nz/a.pdf", "H", 2022), ("https://held.govt.nz/b.pdf", "H", 2022),
+                    ("https://open.govt.nz/c.pdf", "O", 2022)])
+    f = lambda u, m: (asked.append(u), (Got(), "landed", None))[1]
+    held = lambda host: "held since 2026-11-04T22:20:11+13:00: HTTP 403" if host == "held.govt.nz" else None
+    out = capture.Run(t, land_fn=lambda *a, **k: (Ref, True), fetch_fn=f, clock=NIGHT, log=lambda *a: None,
+                      held_fn=held).files()
+    assert asked == ["https://open.govt.nz/c.pdf"] and out["requests"] == 1 and out["failed"] == 0
+    assert [w[0] for w in t.wanted()] == ["https://held.govt.nz/a.pdf", "https://held.govt.nz/b.pdf"]
+
+
+def test_the_live_fetch_reads_the_gate_s_hold(monkeypatch):
+    monkeypatch.setattr(capture.fg, "refused_by", lambda host, *a, **k: "held" if host == "held.govt.nz" else None)
+    monkeypatch.setattr(capture.fg, "open_url", lambda *a, **k: pytest.fail("a held host was sent to the gate"))
+    t = FakeTables([("https://held.govt.nz/a.pdf", "H", 2022)])
+    capture.Run(t, land_fn=lambda *a, **k: (Ref, True), clock=NIGHT, log=lambda *a: None).files()
+    assert [w[0] for w in t.wanted()] == ["https://held.govt.nz/a.pdf"]

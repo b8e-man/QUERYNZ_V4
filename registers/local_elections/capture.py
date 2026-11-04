@@ -16,7 +16,9 @@ Politeness (hard limit 7): one request at a time, at least `FLOOR_S` apart
 to a host (the gate's own floor binds too), files only off-peak (22:00 to
 06:00 NZ time) unless `--anytime`, a time budget per run. A 403, 429, 5xx or
 challenge page is a failed read (hard limit 6): logged, never retried in
-the run, and the host is not asked again in the run. Two transport failures
+the run, and the host is not asked again in the run. A host the gate holds
+(ruling 141: a 403 holds it until a person clears it) is asked nothing, and
+the files wanted from it stay wanted rather than being spent as refused. Two transport failures
 in a row end the host's run. A gate refusal is recorded and the host
 skipped; it is never got around. A redirect to another host is not
 followed unless the position names it (the gate judges each hop).
@@ -177,8 +179,10 @@ def fetch(url: str, max_bytes: int = None):
 
 class Run:
     def __init__(self, tables: Tables, land_fn, anytime=False, budget_s=DEFAULT_BUDGET_S, max_files=None,
-                 fetch_fn=fetch, clock=None, log=print, seed_list=None):
+                 fetch_fn=fetch, clock=None, log=print, seed_list=None, held_fn=None):
         self.t, self.land, self.anytime, self.budget_s = tables, land_fn, anytime, budget_s
+        # the gate's hold on a host (ruling 141); an injected fetch is a test's site, never the live ledger's host
+        self.held = held_fn or (fg.refused_by if fetch_fn is fetch else (lambda host: None))
         self.max_files, self.fetch, self.log = max_files, fetch_fn, log
         self.clock = clock or (lambda: dt.datetime.now(NZ))
         self.seed_list = seed_list
@@ -193,6 +197,11 @@ class Run:
         host = fg.host_of(url)
         if host in self.bad_hosts:
             return None, "skipped", f"host not asked again this run: {self.bad_hosts[host]}"
+        if (held := self.held(host)) is not None:
+            # ruling 141: a host the gate holds is asked nothing, and what is wanted from it stays wanted (no request
+            # left the box; the gate's refusal is not an answer about the file), until a person clears the hold
+            self.bad_hosts[host] = f"the fetch gate holds the host ({held})"
+            return None, "skipped", self.bad_hosts[host]
         r, state, why = self.fetch(url, max_bytes)
         self.requests += 1
         if state in ("blocked", "refused"):
