@@ -86,6 +86,59 @@ def test_a_tool_error_and_an_http_error_keep_the_servers_words():
     assert e.value.transient
 
 
+class _Stalled:
+    """An answer whose body never ends: `read` blocks (a dead connection the socket's per-read timeout does not end,
+    13:28 to 13:56 on 4 November after the provider restarted) or trickles a keep-alive forever."""
+
+    def __init__(self, trickle: bool):
+        import email.message
+        import threading
+        self.trickle, self.closed = trickle, threading.Event()
+        self.headers = email.message.Message()
+        self.headers["Content-Type"] = "text/event-stream"
+
+    def read(self, *a):
+        if self.trickle:
+            while not self.closed.wait(0.01):
+                pass                                       # ": ping" after ": ping", never the answer
+        else:
+            self.closed.wait(30)
+        raise OSError("closed under the read")
+
+    def close(self):
+        self.closed.set()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        self.close()
+        return False
+
+
+@pytest.mark.parametrize("trickle", [False, True])
+def test_a_call_that_stalls_past_its_deadline_fails_as_transient_and_the_retry_reconnects(trickle):
+    import time
+    server = FakeServer({"beehive": corpus_of("beehive", 2)})
+    stalled = []
+
+    def opener(req, timeout=None):
+        if not stalled:
+            stalled.append(_Stalled(trickle))
+            return stalled[0]
+        return server(req, timeout)
+
+    c = C.Client(timeout=0.3, opener=opener)
+    c.session = "a-session-the-server-has-lost"
+    t0 = time.monotonic()
+    with pytest.raises(C.McpError) as e:
+        c.call("corpora", {})
+    assert time.monotonic() - t0 < 3 and e.value.transient and "deadline" in e.value.why
+    assert c.session is None, "a dead connection's session is shaken hands again"
+    assert stalled[0].closed.is_set(), "the stalled answer is closed, not left reading"
+    assert c.call_retrying("corpora", {}, sleep=no_sleep)["corpora"][0]["records"] == 2
+
+
 def test_a_slow_server_is_waited_for_and_asked_again():
     server = FakeServer({"beehive": corpus_of("beehive", 2)})
     c = client_for(server)

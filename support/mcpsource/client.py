@@ -23,6 +23,7 @@ import http.client
 import itertools
 import json
 import socket
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -103,9 +104,8 @@ class Client:
             headers["Mcp-Session-Id"] = self.session
         req = urllib.request.Request(self.url, data=json.dumps(message).encode("utf-8"), headers=headers, method="POST")
         try:
-            with self.open(req, timeout=self.timeout) as r:
-                body = r.read().decode("utf-8", errors="replace")
-                return r.headers, messages_of(body, r.headers.get("Content-Type", ""))
+            r, body = self._within_deadline(req)
+            return r.headers, messages_of(body, r.headers.get("Content-Type", ""))
         except urllib.error.HTTPError as e:
             text = e.read().decode("utf-8", errors="replace")[:500] if e.fp else ""
             if e.code == 404 and self.session:      # the server has forgotten the session: shake hands again
@@ -117,6 +117,39 @@ class Client:
             raise McpError(f"{type(e).__name__}: {reason}", transient=True)
         except ValueError as e:
             raise McpError(f"an answer that is not JSON-RPC: {e}", transient=True)
+
+    def _within_deadline(self, req):
+        """(response, body) for one request, the whole call under `self.timeout`: the socket's timeout bounds each
+        read only, so an answer that trickles keep-alives or a read that blocks on a dead connection (4 November
+        2026, 13:28 to 13:56, after the provider restarted) would hold the pull forever. The request runs on a
+        worker thread; past the deadline the answer is closed under it, the session is dropped (a fresh handshake
+        next) and the call fails as transient, so `call_retrying` reconnects."""
+        box, held = {}, {}
+
+        def work():
+            try:
+                with self.open(req, timeout=self.timeout) as r:
+                    held["r"] = r
+                    box["got"] = (r, r.read().decode("utf-8", errors="replace"))
+            except BaseException as e:      # handed to the caller as it is
+                box["error"] = e
+
+        t = threading.Thread(target=work, name="mcpsource-call", daemon=True)
+        t.start()
+        t.join(self.timeout)
+        if t.is_alive():
+            r = held.get("r")
+            try:
+                if r is not None:
+                    r.close()
+            except Exception:
+                pass
+            self.session = None
+            raise McpError(f"no answer within the call's deadline of {self.timeout:.0f} s "
+                           "(a stalled or dead connection)", transient=True)
+        if "error" in box:
+            raise box["error"]
+        return box["got"]
 
     def _request(self, method: str, params: dict):
         rid = next(self.ids)
