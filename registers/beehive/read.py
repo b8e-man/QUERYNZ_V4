@@ -29,7 +29,7 @@ SOURCE_NOTE = ("a record of the query-nz ingest MCP's beehive corpus: captured a
 MADE_BY = "the query-nz provider's model, on its own box outside the estate"
 HOST = "https://www.beehive.govt.nz/"
 KNOWN = ("id", "url", "final_url", "http_status", "type", "kind", "title", "published_at", "date", "word_count",
-         "ministers", "portfolios", "topics", "quotes", "body_text", "text", "sha256", "source_file", "file", "model",
+         "ministers", "portfolios", "topics", "quotes", "body_text", "text", "sha256", "source_file", "file", "file_uri", "model",
          "extracted_at", "updated_at", "capture", "annotation", "fetched_at", "status", "path")
 CAPTURE = ("url", "kind", "fetched_at", "status", "path", "sha256", "final_url", "http_status")
 ANNOTATION = ("fields", "generator", "created_at")
@@ -107,7 +107,7 @@ def provenance(rec: dict) -> dict:
             "captured_sha256": _str(cap.get("sha256")) or _str(rec.get("sha256")),
             "captured_at": _str(pick("fetched_at")), "capture_status": None if status is None else str(status),
             "provider_file": _str(rec.get("source_file")), "provider_download": _str(rec.get("file")),
-            "provider_path": _str(pick("path")),
+            "provider_file_uri": _str(rec.get("file_uri")), "provider_path": _str(pick("path")),
             "model": _str(rec.get("model")), "extracted_at": _str(rec.get("extracted_at")),
             "updated_at": _str(rec.get("updated_at")), "annotation_fields": fields,
             "annotation_generator": _str(ann.get("generator")), "annotation_created_at": _str(ann.get("created_at"))}
@@ -266,7 +266,7 @@ def read_old(data: bytes, sha: str, out: Result, loaded_at: str = None) -> None:
             "fields_unread": [], "versions": 1, "seq": None, "origin": "old estate", "source_note": OLD_NOTE,
             "final_url": None, "http_status": None, "kind": None, "captured_sha256": None,
             "captured_at": _str(row.get("fetched")) or _str(row.get("scraped")), "capture_status": None,
-            "provider_file": None, "provider_download": None, "provider_path": None, "model": None, "extracted_at": None, "annotation_fields": [],
+            "provider_file": None, "provider_download": None, "provider_file_uri": None, "provider_path": None, "model": None, "extracted_at": None, "annotation_fields": [],
             "annotation_generator": None, "annotation_created_at": None, "updated_at": None,
             "document": sha, "page": 1, "place": f"line {i}", "read_from": "text", "reader": READER,
             "profile": OLD_PROFILE, "profile_version": OLD_PROFILE_VERSION, "loaded_at": loaded_at,

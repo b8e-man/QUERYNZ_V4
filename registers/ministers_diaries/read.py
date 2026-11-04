@@ -49,7 +49,7 @@ SOURCE_NOTE = ("one meeting of a minister's monthly diary release (a Beehive pro
                "estate never fetched the PDF")
 PDF_HOST = "https://www.beehive.govt.nz/"
 KNOWN = ("id", "rowid", "minister", "portfolio", "date", "year", "time", "meeting", "location", "attendees",
-         "source_url", "_collected", "updated_at", "capture", "text", "file", "path")
+         "source_url", "_collected", "updated_at", "capture", "text", "file", "path", "file_uri")
 CAPTURE = ("_collected", "source_url", "path")
 FIELDS = ("portfolio", "time", "meeting", "location", "attendees")      # where a withholding is looked for
 FLAGS = ("location_names_home", "location_street_only", "meeting_names_address", "attendees_names_address")
@@ -201,6 +201,7 @@ def read_one(sha: str, rec: dict, seq, versions: int, out: Result, loaded_at: st
         "collected_at": _str(rec.get("_collected")) or _str(cap.get("_collected")),
         "updated_at": _str(rec.get("updated_at")),
         "provider_file": _str(rec.get("file")), "provider_path": _str(rec.get("path")),
+        "provider_file_uri": _str(rec.get("file_uri")),
         "capture_path": _str(cap.get("path")),
         "text_words": len(rec["text"].split()) if isinstance(rec.get("text"), str) else 0,
         "fields_unread": unread(rec), "versions": versions, "seq": seq, "source_note": SOURCE_NOTE,

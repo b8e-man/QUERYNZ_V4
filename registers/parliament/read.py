@@ -118,7 +118,9 @@ WAYBACK_FIELDS = {
 # fields every shape shares: the provider's bookkeeping and blocks, kept whole
 COMMON = {"_corpus": ("provider_corpus", T), "_fetched_at": ("provider_fetched_at", T),
           "_shard": ("provider_shard", T), "updated_at": ("updated_at", T), "capture": ("capture", J),
-          "annotation": ("annotation", J)}
+          "annotation": ("annotation", J),
+          # the MCP's resource address of the record's file, on every corpus from 5 November 2026 (null where none)
+          "file_uri": ("provider_file_uri", T)}
 SHAPE = {"wq": WQ_FIELDS, "api": API_FIELDS, "wayback": WAYBACK_FIELDS}
 OWN = {"wq": {"id", "text"}, "api": {"id"}, "wayback": {"id", "text"}}     # read by hand, not by the map
 TABLE = {"wq": "written_questions", "api": "api_items", "wayback": "wayback_pages"}

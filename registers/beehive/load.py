@@ -31,7 +31,7 @@ TABLES = ("releases", "release_ministers", "release_portfolios", "release_topics
 PRIVATE_TABLES = ("texts",)
 COLUMNS = {
     "releases": ("key", "url", "type", "final_url", "http_status", "kind", "captured_sha256", "captured_at",
-                 "capture_status", "provider_file", "provider_download", "provider_path", "model", "extracted_at", "annotation_fields",
+                 "capture_status", "provider_file", "provider_download", "provider_file_uri", "provider_path", "model", "extracted_at", "annotation_fields",
                  "annotation_generator", "annotation_created_at", "updated_at", "title", "published_at", "published_on",
                  "word_count", "text_words", "ministers", "portfolios", "topics", "quotes", "fields_unread", "versions", "seq",
                  "origin", "mcp_state", "mcp_document", "source_note", "reading", "summary", "names", "read_model",

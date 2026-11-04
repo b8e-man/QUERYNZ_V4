@@ -22,6 +22,9 @@
    "file": [
     "str"
    ],
+   "file_uri": [
+    "str"
+   ],
    "final_url": [
     "str"
    ],
@@ -169,6 +172,9 @@
    "file": [
     "str"
    ],
+   "file_uri": [
+    "str"
+   ],
    "id": [
     "str"
    ],
@@ -253,6 +259,9 @@
     "str"
    ],
    "file": [
+    "str"
+   ],
+   "file_uri": [
     "str"
    ],
    "http_headers": [
@@ -571,6 +580,9 @@
    "file": [
     "str"
    ],
+   "file_uri": [
+    "null"
+   ],
    "id": [
     "str"
    ],
@@ -734,6 +746,9 @@
    "file": [
     "str"
    ],
+   "file_uri": [
+    "null"
+   ],
    "id": [
     "str"
    ],
@@ -848,6 +863,9 @@
    "file": [
     "str"
    ],
+   "file_uri": [
+    "str"
+   ],
    "id": [
     "str"
    ],
@@ -917,6 +935,9 @@
     "str"
    ],
    "file": [
+    "str"
+   ],
+   "file_uri": [
     "str"
    ],
    "http_status": [
@@ -994,6 +1015,9 @@
     "str"
    ],
    "file": [
+    "str"
+   ],
+   "file_uri": [
     "str"
    ],
    "id": [
@@ -1102,6 +1126,10 @@
     "null"
    ],
    "file": [
+    "str"
+   ],
+   "file_uri": [
+    "null",
     "str"
    ],
    "id": [
@@ -1289,6 +1317,9 @@
    "file": [
     "str"
    ],
+   "file_uri": [
+    "null"
+   ],
    "id": [
     "str"
    ],
@@ -1467,6 +1498,10 @@
    "file": [
     "str"
    ],
+   "file_uri": [
+    "null",
+    "str"
+   ],
    "id": [
     "str"
    ],
@@ -1622,6 +1657,9 @@
    ],
    "file": [
     "str"
+   ],
+   "file_uri": [
+    "null"
    ],
    "id": [
     "str"
@@ -1787,6 +1825,9 @@
    "file": [
     "str"
    ],
+   "file_uri": [
+    "null"
+   ],
    "id": [
     "str"
    ],
@@ -1903,6 +1944,10 @@
    "file": [
     "str"
    ],
+   "file_uri": [
+    "null",
+    "str"
+   ],
    "html_title": [
     "str"
    ],
@@ -2009,6 +2054,9 @@
    ],
    "documentType": [
     "str"
+   ],
+   "file_uri": [
+    "null"
    ],
    "id": [
     "str"

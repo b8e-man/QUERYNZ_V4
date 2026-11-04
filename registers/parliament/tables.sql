@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS parliament.written_questions (
     updated_at               text,                       -- the MCP's: moves when the record changes
     capture                  jsonb,                      -- the provider's capture block, whole, where it gives one
     annotation               jsonb,                      -- the provider's annotation block, where it gives one
+    provider_file_uri        text,                       -- the provider's `file_uri`: the MCP's resource address of the record's file (5 November 2026)
     question_released_on     date,                       -- the day of `questionReleasedDate` (a midnight-UTC stamp)
     reply_present            boolean NOT NULL,           -- `replyText` holds more than whitespace
     question_text_names_address boolean NOT NULL,        -- the question's shape names an address (shapes.py; hard limit 15 by this flag)
@@ -112,6 +113,7 @@ CREATE TABLE IF NOT EXISTS parliament.api_items (
     updated_at               text,
     capture                  jsonb,                      -- the provider's capture block, whole: the record's citation
     annotation               jsonb,
+    provider_file_uri        text,                       -- the provider's `file_uri`: the MCP's resource address of the record's file (5 November 2026)
     publication_on           date,                       -- the day of `publicationDate` (a midnight-UTC stamp)
     citation_url             text,                       -- the page's own address where the record gives one; NULL where none
     text_names_address       boolean NOT NULL,           -- `text`'s shape names an address (shapes.py)
@@ -156,6 +158,7 @@ CREATE TABLE IF NOT EXISTS parliament.wayback_pages (
     updated_at               text,
     capture                  jsonb,
     annotation               jsonb,
+    provider_file_uri        text,                       -- the provider's `file_uri`: the MCP's resource address of the record's file (5 November 2026)
     archived_at              text,                       -- `ts` as an ISO stamp (UTC, as the archive keeps it)
     citation_url             text NOT NULL,              -- the page's own address
     text                     text,                       -- the page's text as served, whole
