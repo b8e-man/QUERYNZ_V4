@@ -30,8 +30,8 @@ asked again only on a person's word.
 
 Asked 5 November 2026, two queries: the property is P8108 ("Papers Past
 ID"), on 169 items; its value is Papers Past's title slug
-(`newspapers/otago-daily-times`), not the paper code the archive's catalogue
-keys by (`ODT`), so no item meets a catalogue paper without matching names,
+(`newspapers/evening-post`, say), not the paper code the archive's catalogue
+keys by (`EP`), so no item meets a catalogue paper without matching names,
 which is not done. 30 of the 169 carry a place of publication (P291) and
 none reached a region through P131 to a region of New Zealand. Too thin: no
 papers table was built, and the two answers were not kept.
