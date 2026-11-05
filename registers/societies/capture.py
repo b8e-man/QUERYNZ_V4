@@ -55,6 +55,7 @@ import re
 import sys
 
 from support.docstore.landing import land, path_for, read_bytes
+from support import appendline
 
 SOURCE = "societies"
 EXPORT_NOTE = "taken from the old estate's tables; original not held"
@@ -412,8 +413,7 @@ def night(conn, *, budget_s: float = DEFAULT_BUDGET_S, anytime: bool = False, ke
             in_a_row = 0
             counts["landed" if ref else "not_found" if got.status == 404 else "failed"] += 1
             line["blocked"] = got.blocked or None
-        with open(ledger, "a", encoding="utf-8") as f:
-            f.write(json.dumps(line) + "\n")
+        appendline.append_json(ledger, line)
         if not why and got.blocked:
             stopped, red = f"a failed read at {n}: {got.blocked}", True
             break

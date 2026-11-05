@@ -26,6 +26,7 @@ import re
 import sys
 import time
 import urllib.request
+from support import appendline
 
 UNIT = "qv4-radiance"
 METRICS = os.environ.get("QV4_RADIANCE_METRICS") or "http://127.0.0.1:8060/metrics"
@@ -120,9 +121,8 @@ def main(argv=None) -> int:
         alarm.send(f"qv4 {BOX}: model server stuck, watchdog stopped restarting it", reason)
     if action != "none":
         os.makedirs(os.path.dirname(LOG), exist_ok=True)
-        with open(LOG, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
-                                "action": action, "reason": reason}) + "\n")
+        appendline.append_json(LOG, {"at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
+                                     "action": action, "reason": reason})
     _save(STATE, new)
     print(f"radiance watchdog: {action}: {reason}")
     return 0

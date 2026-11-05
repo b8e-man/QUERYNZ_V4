@@ -54,6 +54,7 @@ import urllib.parse
 import urllib.request
 import urllib.robotparser
 from dataclasses import asdict, dataclass, field
+from support import appendline
 
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 LEDGER_DIR = os.path.join(LIVE, "checks", "fetch-gate")
@@ -341,8 +342,7 @@ def record(decision: Decision, ledger_dir: str = None) -> None:
     os.makedirs(ledger_dir, exist_ok=True)
     row = asdict(decision)
     row["at"] = dt.datetime.now().astimezone().isoformat(timespec="seconds")
-    with open(os.path.join(ledger_dir, dt.datetime.now().strftime("%Y-%m") + ".jsonl"), "a", encoding="utf-8") as f:
-        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    appendline.append_json(os.path.join(ledger_dir, dt.datetime.now().strftime("%Y-%m") + ".jsonl"), row, ensure_ascii=False)
 
 
 class Pacer:
@@ -448,8 +448,7 @@ def _line(host: str, state: str, why: str, by: str, ledger_dir: str = None) -> d
     row = {"host": host.lower(), "state": state, "why": why, "by": by,
            "at": dt.datetime.now().astimezone().isoformat(timespec="seconds")}
     os.makedirs(ledger_dir or LEDGER_DIR, exist_ok=True)
-    with open(_refusals_path(ledger_dir), "a", encoding="utf-8") as f:
-        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    appendline.append_json(_refusals_path(ledger_dir), row, ensure_ascii=False)
     return row
 
 

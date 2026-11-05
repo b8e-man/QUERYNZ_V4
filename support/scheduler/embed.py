@@ -18,13 +18,13 @@ the integrator lands it, the piece fails with that one line.
 from __future__ import annotations
 
 import datetime as dt
-import json
 import os
 
 from support import reader as rd
 from support.docread import pages
 from support.docstore import landing
 from support.scheduler import LIVE
+from support import appendline
 
 READER = "support.scheduler.embed 1"
 PROFILE = "embedding"
@@ -92,6 +92,5 @@ def piece(sha256: str, *, url: str, model: str, store: rd.Store = None, embed=No
             "model": model, "pages": len(texts), "embedded": made, "replayed": replayed, "thin": thin, "dims": dims}
     ledger = ledger or LEDGER
     os.makedirs(os.path.dirname(ledger), exist_ok=True)
-    with open(ledger, "a", encoding="utf-8") as f:
-        f.write(json.dumps(line) + "\n")
+    appendline.append_json(ledger, line)
     return line

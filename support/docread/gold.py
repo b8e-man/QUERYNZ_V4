@@ -42,6 +42,7 @@ import pathlib
 from .arbitrate import Arbitration
 from .invariants import Report
 from .rows import Document, NAMED_DONOR_PARTS, Row, donor_key, malformed
+from support import appendline
 
 AGREED, CONFIRMED = "agreed", "confirmed"
 
@@ -527,9 +528,7 @@ def stage(rows, path: pathlib.Path) -> int:
     fresh = [g for g in rows
              if g.id not in known or known[g.id].tier != g.tier]
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a") as fh:
-        for g in fresh:
-            fh.write(json.dumps(dataclasses.asdict(g), default=str) + "\n")
+    appendline.append(str(path), [json.dumps(dataclasses.asdict(g), default=str) for g in fresh])
     return len(fresh)
 
 
