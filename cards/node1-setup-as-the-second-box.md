@@ -114,6 +114,14 @@ Arthur's half, in order, at node1's console:
   just live: jobs also write `inbox/cards` and `scratch/<lane>`.
 - Overnight 5 to 6 November: node1 serves Flash-Next (qv4-radiance, 127.0.0.1:8060)
   with nothing calling it; no worker there; node2 runs exactly as before.
+- 6 November, 08:5x: the takeover regression was not tranche b. Unchanged main failed
+  the same test 4 of 16: node2's MemAvailable dips to 12 GB, under the 16 GB reserve,
+  and in those seconds no job is eligible. The worker tests now pin free memory (328d8fd;
+  12 of 12, suite green). Tranche b merged (1efcac9); both release copies moved to it.
+  node2's worker restart is owed (it still runs the old append code) and must happen
+  before qv4-worker@node1 starts. The work-folder scripts are in scratch node1/:
+  work-export.sh (node2), work-mount.sh (node1; moves node1's own folder aside).
+  The societies lane's tests error at setup on main too (a missing expenses sample).
 - Not done: qv4-worker@node1 (line 4: waits for node1's card reservation
   beside querynz-vision-ocr in jobs.toml, and the credential files). The
   installer's --box path is unproven and wrong for a second box: with
