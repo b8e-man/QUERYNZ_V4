@@ -96,6 +96,15 @@ Arthur's half, in order, at node1's console:
   copies the ten node1 lacks (it has 10 of node2's 20).
 - qv4-radiance, its watchdog service and timer placed in node1's user unit
   folder from the repository; qv4-radiance enabled and started.
+- 23:4x, Arthur ran the two scripts (scratch node1/exports.sh, mounts.sh):
+  node2 exports /mnt/hdd2/qv4-{docs,papers-past,dumps,offsite,restore} to
+  10.0.0.1 (nfs open in zone querynz-lan); node1 mounts each from 10.0.0.2
+  (node2's own address, not the VIP: the stores sit on node2's disk) at the
+  same path, nfs4, automount, nofail. A document read across matched its
+  hash. qv4-models stays node1's local copy. `live` is NOT shared: its
+  box-only files (watchdog state, night mark, server logs, scheduler.json)
+  and its appended ledgers need per-box names and locked appends first.
+- The worker's database access: decision queue, no default (hard limit 22).
 - Not done: qv4-worker@node1 (line 4: waits for node1's card reservation
   beside querynz-vision-ocr in jobs.toml, and the credential files). The
   installer's --box path is unproven and wrong for a second box: with
