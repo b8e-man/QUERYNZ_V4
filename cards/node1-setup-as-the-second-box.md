@@ -104,7 +104,16 @@ Arthur's half, in order, at node1's console:
   hash. qv4-models stays node1's local copy. `live` is NOT shared: its
   box-only files (watchdog state, night mark, server logs, scheduler.json)
   and its appended ledgers need per-box names and locked appends first.
-- The worker's database access: decision queue, no default (hard limit 22).
+- The worker's database access: ruling 144; the line is in (node2 pg_hba line 130,
+  reloaded); node1 logs in as qv4_read through 10.0.0.10.
+- Sharing `live`: tranche a on main (f5fd099, per-box watchdog and night-mark
+  names). Tranche b (support.appendline, every shared record's writer locked) is on
+  branch node1-live-tranche-b, NOT main: test_worker's takeover test failed 3 of 12
+  on node2 with it and 0 of 10 without; cause not found at 00:30 on 6 November.
+  The mount, by Arthur, is the whole work folder `/home/user/querynzv4-work`, not
+  just live: jobs also write `inbox/cards` and `scratch/<lane>`.
+- Overnight 5 to 6 November: node1 serves Flash-Next (qv4-radiance, 127.0.0.1:8060)
+  with nothing calling it; no worker there; node2 runs exactly as before.
 - Not done: qv4-worker@node1 (line 4: waits for node1's card reservation
   beside querynz-vision-ocr in jobs.toml, and the credential files). The
   installer's --box path is unproven and wrong for a second box: with
