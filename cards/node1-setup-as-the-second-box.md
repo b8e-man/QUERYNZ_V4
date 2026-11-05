@@ -122,7 +122,21 @@ Arthur's half, in order, at node1's console:
   before qv4-worker@node1 starts. The work-folder scripts are in scratch node1/:
   work-export.sh (node2), work-mount.sh (node1; moves node1's own folder aside).
   The societies lane's tests error at setup on main too (a missing expenses sample).
-- Not done: qv4-worker@node1 (line 4: waits for node1's card reservation
+- 6 November, 09:01: Arthur ran work-export.sh and work-mount.sh; the whole work folder is
+  node2's over NFS on node1 (automount; node1's own 8 KB folder kept as
+  querynzv4-work.node1-own-2026-11-06). Cross-box proof (scratch node1/appendline-proof.sh,
+  both boxes from one agreed second, 16,000 lines of 3 KB): unlocked 43 torn lines and
+  0 of 8 writers whole, or 7,199 lines lost with a held descriptor; locked 16,000 whole,
+  8 of 8, three runs, 227 to 335 box switches. A first version never overlapped the boxes
+  and passed unlocked too: the start had to be agreed.
+- 10:06: qv4-worker@node1 started (unit linked from node1's release copy, f33722c), reads
+  only: jobs.toml `[boxes.node1] only_profiles = text-reader, review`, and its night window
+  never opens. Reason: node1's old folder is a 17 October copy (44 GB against node2's 80),
+  so its loads would read stale input. node2's worker restarted on 34f717e at 09:58.
+- Open: a row's pieces run only on its lease holder, so the courts backlog (row 1687,
+  2,408 pieces) stays on node2 and node1 takes only new reading rows. Sharing one row's
+  pieces across boxes is a scheduler change, not made.
+- Not done (superseded above): qv4-worker@node1 (line 4: waits for node1's card reservation
   beside querynz-vision-ocr in jobs.toml, and the credential files). The
   installer's --box path is unproven and wrong for a second box: with
   --units it enables a worker named node1 on node2, and it never pulls code.
