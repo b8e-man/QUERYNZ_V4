@@ -1308,3 +1308,19 @@ client line in node2's pg_hba.conf for the new estate's four logins
 followed by a reload (not a restart), may go in before 7 November. It
 adds a client and changes no setting the old estate's jobs or the frozen
 site use. This narrows hard limit 22 for this line only.
+
+145. Arthur, 6 November, about 10:20: "we have some fundamental
+infrastructure goals: continuous uptime, fungibility, pooled capability.
+Forget about the election. Let's try to keep follow the money up but if we
+cant dont worry. Let's get to work on getting the failover and worksharing
+through the scheduler". Three goals for the two boxes: the estate stays up
+when either box goes down (continuous uptime); any job runs on either box
+(fungibility); a job's work is spread over both boxes' cards and cores
+(pooled capability). The election hold is lifted: hard limit 21's and hard
+limit 22's "not before the election" no longer apply, so the work on the
+live database server (node1's standby rebuilt by a base backup, the new
+slot, the lost slot dropped, the old node1-bound timers started again)
+and the failover machinery may go ahead now, each sitting still on
+Arthur's word where it needs his hands. Hard limit 20 (the daily release
+keeps running) becomes best effort: the frozen site is kept up where it
+can be, and a gap in it is not a reason to stop this work.
