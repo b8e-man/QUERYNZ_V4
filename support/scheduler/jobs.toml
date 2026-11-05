@@ -1888,7 +1888,8 @@ deadline_s = 43200   # 956,344 items in 142 s on 2 threads (sample, 2 November 2
 query_timeout_s = 3600
 class = "whenever"
 priority = 135   # unique (2 November 2026)
-command = ["python", "-m", "registers.papers_past.index", "--schema", "staging_papers_past", "--database", "querynz_v4", "--engine", "tantivy"]
+command = ["python", "-m", "registers.papers_past.index", "--schema", "papers_past", "--database", "querynz_v4", "--engine", "tantivy"]
+# 5 November 2026: the published catalogue (row 1701 failed on staging_papers_past, gone since the publish); search.py reads papers_past.items by the same ids
 requires = ["ionice"]
 nice = 15
 
