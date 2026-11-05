@@ -175,6 +175,8 @@ def main(argv=None) -> int:
     p.add_argument("--tick", type=float, default=5.0)
     p.add_argument("--hide-program", action="append", default=[], help="rehearsal: pretend this box lacks a program")
     p.add_argument("--no-cards", action="store_true", help="do not manage this box's cards")
+    p.add_argument("--only-profile", action="append", default=[],
+                   help="claim only jobs on this model profile (repeatable); a job with no profile is never claimed")
     sub.add_parser("hold-profile")
     p = sub.add_parser("night")
     p.add_argument("what", nargs="?", default="status", choices=("status", "open", "close"))
@@ -276,7 +278,7 @@ def main(argv=None) -> int:
             from support.scheduler.cards import Manager
             mgr = Manager()
         w = Worker(a.name, a.box, database=a.database, schema=a.schema, tick_s=a.tick, hide_programs=a.hide_program,
-                   cards_manager=mgr)
+                   cards_manager=mgr, only_profiles=a.only_profile)
         if a.once:
             w.start()
             w.tick()

@@ -148,7 +148,7 @@ class Worker:
     def __init__(self, name: str, box: str = None, *, database: str = "querynz_v4", schema: str = SCHEMA,
                  registry: dict = None, profiles: dict = None, rules: reg.Queueing = None, tick_s: float = 5.0,
                  probe_every_s: int = 600, alarm_after_s: int = 300, hide_programs=(), max_parallel: int = 8,
-                 log=None, connect=None, alarm=None, cards_manager=None):
+                 log=None, connect=None, alarm=None, cards_manager=None, only_profiles=()):
         self.name, self.box = name, box or pb.profile().get("host")
         self.database, self.schema = database, schema
         self._reload = registry is None and profiles is None     # a test's own catalogue is never replaced
@@ -161,6 +161,9 @@ class Worker:
         self.rules = rules or reg.queueing()
         self.tick_s, self.probe_every_s, self.alarm_after_s = tick_s, probe_every_s, alarm_after_s
         self.hide_programs = tuple(hide_programs)
+        # a box that takes only model work (6 November 2026: node1 reads with its own Flash-Next while node2 keeps
+        # every capture and load, whose inputs on node1 are a 17 October copy); empty = every job
+        self.only_profiles = frozenset(only_profiles)
         self.max_parallel = max_parallel
         self._connect = connect or (lambda: _connect(self.database))
         self.alarm = alarm or send_alarm
@@ -338,6 +341,8 @@ class Worker:
         for jt in self.registry.values():
             if not jt.enabled or pb.missing_programs(self.profile, jt.requires):
                 continue
+            if self.only_profiles and jt.profile not in self.only_profiles:
+                continue
             mem = self.working_gb(jt)
             fits = int(free // mem) if mem > 0 else jt.concurrency
             cap = jt.concurrency
@@ -364,6 +369,8 @@ class Worker:
         self.log(f"registered on {self.box}: {self.profile.get('cores')} cores, {self.profile.get('memory_total_gb')} GB, "
                  f"{len(self.profile.get('cards') or [])} card(s), programs missing: "
                  f"{[k for k, v in (self.profile.get('programs') or {}).items() if not v]}")
+        if self.only_profiles:
+            self.log(f"claims only jobs on the profile(s) {sorted(self.only_profiles)}")
         if self.cards_manager:
             self.cards_manager.start(self)
 

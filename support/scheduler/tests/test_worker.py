@@ -107,6 +107,23 @@ def test_a_job_needing_a_program_this_box_lacks_is_never_claimed(conn, s):
     assert wait_for(lambda: row(conn, s, qid)["state"] == "done", 30)
 
 
+def test_a_worker_given_only_profiles_never_claims_a_job_off_them(conn, s):
+    """node1 reads and nothing else (6 November 2026): a job with no model profile stays for the other worker."""
+    reader = worker("node2-b", s, only_profiles=["text-reader", "review"])
+    elig = reader.eligible()
+    assert "qv4-rehearsal-sleep" not in elig
+    assert all(reader.registry[n].profile in ("text-reader", "review") for n in elig)
+    qid = q.enqueue(conn, s, "qv4-rehearsal-sleep", registry=reader.registry)
+    for _ in range(3):
+        reader.tick()
+    assert row(conn, s, qid)["state"] == "queued"
+    everything = worker("node2", s)
+    assert "qv4-rehearsal-sleep" in everything.eligible()
+    everything.tick()
+    assert row(conn, s, qid)["lease_owner"] == "node2"
+    assert wait_for(lambda: row(conn, s, qid)["state"] == "done", 30)
+
+
 def test_a_job_past_its_ceiling_is_stopped_and_flagged_and_the_box_stays_up(conn, s):
     w = worker("node2", s)
     qid = q.enqueue(conn, s, "qv4-rehearsal-burn", registry=w.registry)
