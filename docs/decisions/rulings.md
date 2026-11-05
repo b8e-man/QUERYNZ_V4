@@ -1300,3 +1300,11 @@ decisions, regulators' actions and overseas investment rows naming a
 person stay after the publisher takes them down, flagged with the date it
 did; an overseas investment summary's land address is kept and
 published.
+
+144. Arthur, 5 November, about 23:50, on the queue item "node1's access
+line to the live database before the election": "it can go in now". One
+client line in node2's pg_hba.conf for the new estate's four logins
+(qv4_owner, qv4_read, qv4_product, qv4_oldread) from 10.0.0.1/32, scram,
+followed by a reload (not a restart), may go in before 7 November. It
+adds a client and changes no setting the old estate's jobs or the frozen
+site use. This narrows hard limit 22 for this line only.
