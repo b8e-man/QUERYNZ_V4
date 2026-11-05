@@ -140,3 +140,11 @@ Arthur's half, in order, at node1's console:
   beside querynz-vision-ocr in jobs.toml, and the credential files). The
   installer's --box path is unproven and wrong for a second box: with
   --units it enables a worker named node1 on node2, and it never pulls code.
+- Ruling 145 (6 November, about 10:20): continuous uptime, fungibility, pooled capability; the election hold lifted.
+- 10:27 to 10:41, node1 rebuilt as a streaming standby (scratch node1/standby-node1.sh, Arthur): postgresql 18.6,
+  the old data directory kept as data.before-2026-11-06, a base backup of 540 GB in 14 minutes, slot node1_standby made
+  again (the first run stopped at once: the lost slot was still there; the script now drops it over the replication
+  login itself), primary_conninfo pointed at 10.0.0.10. Slot active, 0 bytes behind. The address switcher stays off and
+  /etc/querynz/not-primary stays: node1 is the standby.
+- 10:48, helpers (fbcff15): a worker with nothing of its own joins another box's leased row and takes its pieces.
+  After both workers restarted, node1 owns the courts row 1687 and node2 helps; both read with their own Flash-Next.
