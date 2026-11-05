@@ -59,7 +59,10 @@ Measured from node2 at 22:4x:
   command once it answers.
 
 Arthur's half, in order, at node1's console:
-1. Power, the 10 GbE cable to node2; check `ip -br addr` shows 10.0.0.1.
-2. Fence before anything else: `sudo systemctl disable --now postgresql querynz-vip`
-   and `sudo touch /etc/querynz/not-primary`. It must never hold 10.0.0.10.
-3. Tell the session; it pings 10.0.0.1 (never the VIP) and starts line 2.
+1. Boot node1 with the 10 GbE cable to node2 UNPLUGGED: on boot its
+   postgresql and querynz-vip would start, and with the cable in it could
+   claim 10.0.0.10 while node2 holds it.
+2. Fence: `sudo systemctl disable --now postgresql querynz-vip` and
+   `sudo touch /etc/querynz/not-primary`. It must never hold 10.0.0.10.
+3. Plug the cable in; check `ip -br addr` shows 10.0.0.1.
+4. Tell the session; it pings 10.0.0.1 (never the VIP) and starts line 2.
