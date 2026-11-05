@@ -55,6 +55,10 @@ def worker(name, s, **kw):
     w = Worker(name, "node2", database=DB, schema=s, alarm=lambda t, b: alarms.append((t, b)), log=lambda m: None,
                connect=connect, **kw)
     w.alarms = alarms
+    # The box's free memory is pinned: these tests run on node2 beside the live estate, whose memory dips
+    # under the 16 GB reserve for seconds at a time, and in those seconds nothing is eligible (6 November
+    # 2026: the takeover test failed 4 of 16 on unchanged code). The gate itself is test_memory_raise_worker's.
+    w.available_gb = lambda: 50.0
     w.start()
     return w
 
