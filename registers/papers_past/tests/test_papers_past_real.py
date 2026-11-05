@@ -58,7 +58,7 @@ def test_the_keyword_index_finds_what_a_plain_scan_finds(batch1, conn, tmp_path)
     assert len(docs) == 9_031
     out = index.fts5(iter(docs), str(tmp_path / "fts5.sqlite"))
     word = re.compile(r"(?<![^\W_])kauri(?![^\W_])", re.I)
-    assert out["queries"]["a rarer word"]["hits"] == sum(1 for _, t, x in docs if word.search(t) or word.search(x))
+    assert out["queries"]["a rarer word"]["hits"] == sum(1 for _, t, x, *_ in docs if word.search(t) or word.search(x))
     try:
         import tantivy  # noqa: F401
     except ImportError:

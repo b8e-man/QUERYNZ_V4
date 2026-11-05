@@ -63,7 +63,7 @@ def served(monkeypatch):
     asked = []
     monkeypatch.setattr(db, "read_connect", lambda: contextlib.nullcontext(FakeConn()))
     monkeypatch.setattr(server, "counter", lambda conn=None: None)
-    monkeypatch.setattr(papers_past.pp, "search", lambda conn, q, limit, offset: asked.append((q, limit, offset)) or found(offset=offset))
+    monkeypatch.setattr(papers_past.pp, "search", lambda conn, q, limit, offset, **kw: asked.append((q, limit, offset, kw)) or found(offset=offset))
     monkeypatch.setattr(papers_past.pp, "article", lambda conn, key: dict(HIT, text="whole text") if key == HIT["key"] else None)
     httpd = server.Server(("127.0.0.1", 0), server.Handler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
@@ -82,9 +82,30 @@ def get(port, path):
 def test_the_routes_answer_and_page_by_offset(served):
     port, asked = served
     status, body = get(port, "/papers-past?q=gold+escort&o=20")
-    assert status == 200 and "21–40 of 45 articles" in body and asked == [("gold escort", 20, 20)]
+    assert status == 200 and "21–40 of 45 articles" in body
+    assert asked == [("gold escort", 20, 20, {"sort": "relevance", "paper": "", "year_from": None, "year_to": None, "min_chars": None})]
     status, body = get(port, "/papers-past")
     assert status == 200 and "Search Papers Past" in body and len(asked) == 1, "no query, no search"
     assert get(port, "/papers-past/text?k=OW18620801.2.5")[1].count("whole text") == 1
     assert "no article by that id" in get(port, "/papers-past/text?k=XX1")[1]
     assert get(port, "/papers-past/text")[0] == 404
+
+
+def test_the_order_and_the_filters_reach_the_search_and_are_kept_across_paging(served):
+    port, asked = served
+    status, body = get(port, "/papers-past?q=gold&s=newest&paper=OW&yf=1860&yt=1900&min=500&o=20")
+    assert status == 200 and asked[-1][3] == {"sort": "newest", "paper": "OW", "year_from": "1860", "year_to": "1900", "min_chars": "500"}
+    assert 'href="/papers-past?q=gold&amp;s=newest&amp;paper=OW&amp;yf=1860&amp;yt=1900&amp;min=500&amp;o=40">next 20' in body
+    assert 'href="/papers-past?q=gold&amp;s=newest&amp;paper=OW&amp;yf=1860&amp;yt=1900&amp;min=500">previous 20' in body
+    assert '<option value="newest" selected>' in body and 'name="paper" value="OW"' in body and 'name="min" value="500"' in body
+    get(port, "/papers-past?q=gold&s=sideways&paper=O%3CW&yf=x")
+    assert asked[-1][3] == {"sort": "relevance", "paper": "OW", "year_from": None, "year_to": None, "min_chars": None}
+
+
+def test_an_index_before_the_fields_is_said_and_the_hits_counted_by_paper_link_to_the_filter():
+    f = dict(found(), sort="relevance", unavailable=["newest first", "the paper filter"])
+    html = papers_past.search_pane("gold", f, asked={"s": "newest", "paper": "OW"})
+    assert "date order after the index rebuild; the paper filter after the index rebuild" in html
+    assert "by paper" not in html
+    html = papers_past.search_pane("gold", dict(found(), papers=[("OW", 30), ("EP", 15)]), asked={"s": "oldest"})
+    assert 'href="/papers-past?q=gold&amp;s=oldest&amp;paper=OW">OW</a> 30' in html and "after the index rebuild" not in html

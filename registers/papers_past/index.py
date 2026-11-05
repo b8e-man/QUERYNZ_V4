@@ -3,7 +3,7 @@ files on /mnt/hdd2 from a catalogue: the 1-million sample's, to size it, and the
 
 Arthur, 2 November 2026: tantivy is the engine ("for papers past use tantivity and go"); FTS5 stays as the measured
 alternative. tantivy (its Python wheel, pinned in requirements.txt; text not stored, so a hit is the item's upstream id,
-read back through the catalogue) and SQLite FTS5 (Python's own sqlite3, contentless). The documents stream from the store's
+read back through the catalogue; beside the words a fast `day`, `paper` and `chars` for order and filters, 5 November 2026) and SQLite FTS5 (Python's own sqlite3, contentless). The documents stream from the store's
 files in file and frame order, each frame decompressed once, nothing held; built at low priority into the store's folder:
 
     /mnt/hdd2/qv4-papers-past/<store>/index/fts5.sqlite
@@ -38,17 +38,24 @@ QUERIES = {
 }
 
 
+def day_of(published_on):
+    """The issue date as the index's `day`: yyyymmdd, an integer; None (no value written) for an undated item."""
+    return published_on.year * 10_000 + published_on.month * 100 + published_on.day if published_on else None
+
+
 def documents(conn, schema: str, sdir: str):
-    """(upstream id, title, text) of every catalogued item, each frame decompressed once."""
+    """(upstream id, title, text, paper, day, chars) of every catalogued item, each frame decompressed once; `day` is
+    day_of(published_on), the issue date publish.sql publishes."""
     with conn.cursor(name=f"pp_index_{time.monotonic_ns()}") as cur:
         cur.itersize = 20_000
-        cur.execute(f"SELECT i.upstream_id, i.title, f.path, i.frame_at, i.frame_bytes, i.at, i.bytes FROM {schema}.items i "
+        cur.execute(f"SELECT i.upstream_id, i.title, f.path, i.frame_at, i.frame_bytes, i.at, i.bytes, i.paper, "
+                    f"i.published_on, i.chars FROM {schema}.items i "
                     f"JOIN {schema}.files f USING (file) ORDER BY f.path, i.frame_at")
         last, raw = None, b""
-        for uid, title, path, frame_at, frame_bytes, at, n in cur:
+        for uid, title, path, frame_at, frame_bytes, at, n, paper, published_on, chars in cur:
             if (path, frame_at) != last:
                 raw, last = store.frame(sdir, path, frame_at, frame_bytes), (path, frame_at)
-            yield uid, title or "", raw[at:at + n].decode("utf-8")
+            yield uid, title or "", raw[at:at + n].decode("utf-8"), paper, day_of(published_on), chars
 
 
 def _size(path: str) -> int:
@@ -80,7 +87,7 @@ def fts5(docs, path: str) -> dict:
                "tokenize='unicode61 remove_diacritics 2')")
     n = 0
     batch = []
-    for uid, title, text in docs:
+    for uid, title, text, *_ in docs:
         batch.append((uid, title, text))
         n += 1
         if len(batch) >= 5_000:
@@ -133,7 +140,13 @@ def tantivy_index(docs, path: str, threads: int = THREADS, heap: int = HEAP, com
                   log=None) -> dict:
     """The tantivy index built from a stream of (upstream id, title, text), into `path` + '.new' and then moved into
     place whole (an index half built is never the one searched). Nothing of the stream is held: tantivy's heap is capped
-    at `heap` bytes over at most `threads` threads."""
+    at `heap` bytes over at most `threads` threads.
+
+    Beside the words, three fields for order and filters (Arthur, 5 November 2026: "sort by date"; a paper, a year range
+    and a minimum length): `day` (yyyymmdd, fast and indexed), `paper` (the paper's code, exact: the raw tokenizer, fast)
+    and `chars` (fast). An undated item gets no `day` at all: tantivy sorts a document with no value last in both orders
+    (tests/test_papers_past_search.py), so the absence is the sentinel, and a year range never matches it. A stream of
+    (upstream id, title, text) alone still builds, with no value in the three."""
     import tantivy
     work = path + ".new"
     shutil.rmtree(work, ignore_errors=True)
@@ -143,11 +156,22 @@ def tantivy_index(docs, path: str, threads: int = THREADS, heap: int = HEAP, com
     sb.add_integer_field("id", stored=True, indexed=True, fast=True)
     sb.add_text_field("title", stored=False, tokenizer_name="default", index_option="position")
     sb.add_text_field("text", stored=False, tokenizer_name="default", index_option="position")
+    sb.add_integer_field("day", stored=False, indexed=True, fast=True)
+    sb.add_text_field("paper", stored=False, fast=True, tokenizer_name="raw", index_option="basic")
+    sb.add_integer_field("chars", stored=False, indexed=False, fast=True)
     ix = tantivy.Index(sb.build(), path=work)
     w = ix.writer(heap_size=heap, num_threads=threads)
     n = 0
-    for uid, title, text in docs:
-        w.add_document(tantivy.Document(id=uid, title=title, text=text))
+    for uid, title, text, *more in docs:
+        paper, day, chars = (list(more) + [None, None, None])[:3]
+        doc = tantivy.Document(id=uid, title=title, text=text)
+        if paper:
+            doc.add_text("paper", paper)
+        if day is not None:
+            doc.add_integer("day", int(day))
+        if chars is not None:
+            doc.add_integer("chars", int(chars))
+        w.add_document(doc)
         n += 1
         if n % commit_every == 0:
             w.commit()

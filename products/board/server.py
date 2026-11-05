@@ -29,7 +29,7 @@ Routes:
                     whatever its source (document.py, rulings 86 (4) and 88); 404 for anything else
   GET  /uses        the use cases tab (ruling 87): the plan's table, read at render time, with what the data holds for each;
                     each name opens its interface on its own server in a new browser tab (ruling 89)
-  GET  /papers-past?q=&o=   the papers past tab (Arthur, 5 November 2026): the archive's keyword index searched
+  GET  /papers-past?q=&o=&s=&paper=&yf=&yt=&min=   the papers past tab (Arthur, 5 November 2026): the archive's keyword index searched
                     through the lane's read-only module, a page of hits by relevance with the count and the time taken;
                     searched, never mined (hard limit 17), nothing written (papers_past.py)
   GET  /papers-past/text?k=<article id>&q=   one article's text as the archive's store holds it
@@ -351,13 +351,13 @@ def render_uses(repo: str = uses.REPO, held: set = None, host: str = "", env=Non
     return panes.page("", [], [panes.uses_pane(rows, source=uses.TABLE)], tab="uses", db=answer)
 
 
-def render_papers_past(q: str, offset: int = 0, key: str = "") -> str:
+def render_papers_past(q: str, offset: int = 0, key: str = "", asked: dict = None) -> str:
     """The papers past tab, or one article's text with `key`. Not under RENDER_LOCK: a cold search reads the index from
     a spinning disk for seconds, and the lane's module takes one search at a time itself; one session-reader connection."""
     with db.read_connect() as conn:
         if key:
-            return papers_past.render_text(conn, key, q, db=counter())
-        return papers_past.render(conn, q, offset, db=counter())
+            return papers_past.render_text(conn, key, q, db=counter(), asked=asked)
+        return papers_past.render(conn, q, offset, db=counter(), asked=asked)
 
 
 def render_list(which: str) -> str:
@@ -435,7 +435,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if url.path == papers_past.TEXT and not key:
                     self.send_html("<p>not here</p>", 404)
                     return
-                self.send_html(render_papers_past(q, papers_past.offset_of(qs), key))
+                self.send_html(render_papers_past(q, papers_past.offset_of(qs), key, papers_past.asked_of(qs)))
                 return
             if url.path in ("/pinned", "/saved"):
                 self.send_html(render_list(url.path[1:]))
