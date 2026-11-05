@@ -772,3 +772,17 @@ def test_a_manager_built_without_paths_keeps_its_markers_out_of_the_live_folder(
     for path in (m.mark, m.word, m.inbox, cards.LOGS):
         assert path.startswith(str(tmp_path)), path
         assert not path.startswith(LIVE), path
+
+
+def test_a_box_whose_worker_never_takes_page_work_never_opens_the_window(kit):
+    """node1 (6 November 2026): its worker claims only text-reader and review, so pages queued at 22:00 stop nothing."""
+    m, w, box = kit
+    w.only_profiles = frozenset({"text-reader", "review"})
+    pages_queued(w, 50)
+    for when in (nz(30, 22, 0), nz(30, 23, 30), nz(31, 3, 0)):
+        m.tick(w, when)
+    assert box.calls == [] and box.procs == [] and m.night_state == "standing"
+    assert card(w, 0)["profile"] == card(w, 1)["profile"] == "flash-next"
+    w.only_profiles = frozenset()
+    m.tick(w, nz(31, 3, 5))
+    assert m.night_state == "page", "the same queue opens it on a box that takes every job"

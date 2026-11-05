@@ -662,6 +662,9 @@ class Manager:
         w, prof = self.window, self.night_profile(worker)
         if w is None or prof is None:
             return
+        only = getattr(worker, "only_profiles", None)
+        if only and w.profile not in only and self.night_state == "standing":
+            return    # this box never takes page work, so its standing server is never stopped for it (6 November 2026)
         now_s = now.timestamp()
         inside, word_line = self._inside(now)
         if self.night_state == "standing":

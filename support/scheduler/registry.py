@@ -300,6 +300,12 @@ def queueing(path: pathlib.Path | None = None) -> Queueing:
         policy=str(q.get("policy", "priority-ordered-round-robin")))
 
 
+def box_only_profiles(box: str, path: pathlib.Path | None = None) -> frozenset:
+    """`[boxes.<box>] only_profiles`: the model profiles a box's worker may claim jobs on; empty = every job
+    (6 November 2026: node1 reads with its own Flash-Next and leaves every capture and load to node2)."""
+    return frozenset(str(x) for x in (((_raw(path or JOBS).get("boxes") or {}).get(box) or {}).get("only_profiles") or []))
+
+
 def reservations(path: pathlib.Path | None = None) -> list[Reservation]:
     return [Reservation(box=str(r["box"]), card=int(r["card"]), holder=str(r.get("holder") or ""),
                         why=str(r.get("why") or "")) for r in (_raw(path or JOBS).get("reservations") or [])]

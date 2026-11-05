@@ -163,7 +163,8 @@ class Worker:
         self.hide_programs = tuple(hide_programs)
         # a box that takes only model work (6 November 2026: node1 reads with its own Flash-Next while node2 keeps
         # every capture and load, whose inputs on node1 are a 17 October copy); empty = every job
-        self.only_profiles = frozenset(only_profiles)
+        self._only_given = bool(only_profiles)
+        self.only_profiles = frozenset(only_profiles) or (reg.box_only_profiles(self.box) if self._reload else frozenset())
         self.max_parallel = max_parallel
         self._connect = connect or (lambda: _connect(self.database))
         self.alarm = alarm or send_alarm
@@ -263,6 +264,11 @@ class Worker:
         if set(registry) != set(self.registry) or any(registry[n] != self.registry.get(n) for n in registry):
             self.log(f"catalogue reloaded: {len(registry)} job types, {len(profiles)} profiles")
         self.registry, self.profiles, self.rules = registry, profiles, rules
+        if not self._only_given:
+            only = reg.box_only_profiles(self.box)
+            if only != self.only_profiles:
+                self.log(f"claims only jobs on the profile(s) {sorted(only)}" if only else "claims every job again")
+                self.only_profiles = only
 
     def read_raises(self) -> None:
         """The working figures, from the table: a restart, or the other
