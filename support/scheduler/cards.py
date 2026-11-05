@@ -105,7 +105,10 @@ STOP_TIMEOUT_S = 150          # the unit's TimeoutStopSec (60) and podman's own 
 START_TIMEOUT_S = 330         # the unit's TimeoutStartSec (300); Radiance answered in 21.6 s on 29 October
 RELEASE_SLACK_GB = 2.0        # a card has released the model when its used memory is within this of (total - the model)
 NIGHT_REST_S = 900            # after a start, no new stop for this long: a page row given back for two minutes is not a new night
-NIGHT_MARK = os.path.join(LIVE, "scheduler", "night-window.json")
+# one box's own (5 November 2026): the mark says THIS box's standing unit was stopped; with `live` shared over NFS
+# the other box must never start its own unit on it. A mark under the old shared name is still read (night_recover).
+NIGHT_MARK = os.path.join(LIVE, "scheduler", f"night-window-{os.uname().nodename}.json")
+NIGHT_MARK_BEFORE = os.path.join(LIVE, "scheduler", "night-window.json")
 NIGHT_WORD = os.path.join(LIVE, "scheduler", "night-word.json")    # Arthur's word: `night open` / `night close`
 BESIDE_HEADROOM_GB = 2.0      # a page profile loads beside another estate's server only with this much over its measured memory
 INBOX_CARDS = os.environ.get("QV4_INBOX_CARDS") or "/home/user/querynzv4-work/inbox/cards"
@@ -924,7 +927,12 @@ class Manager:
         held the cards when the last worker died. The unit is started again
         on the first tick, whatever the clock says."""
         if not os.path.exists(self.mark):
-            return
+            before = NIGHT_MARK_BEFORE if self.mark == NIGHT_MARK else None
+            if before and os.path.exists(before) and os.uname().nodename == "node2":
+                os.replace(before, self.mark)     # the only box that wrote the shared name
+                self.log(f"night window: {before} moved to {self.mark}")
+            else:
+                return
         try:
             with open(self.mark, encoding="utf-8") as f:
                 m = json.load(f)

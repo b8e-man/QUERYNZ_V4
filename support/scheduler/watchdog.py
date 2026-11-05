@@ -14,7 +14,7 @@ counters and restarts the unit when it is stuck:
   fault that comes back at once is a person's to look at, not a restart loop.
 
 Every restart and every refusal to restart is an alarm (support.alarm) and a line in
-`<live>/checks/radiance-watchdog.jsonl`. The decision is `decide()`, a pure function; tests in
+`<live>/checks/radiance-watchdog-<box>.jsonl`. The decision is `decide()`, a pure function; tests in
 support/scheduler/tests/test_watchdog.py.
 
     python -m support.scheduler.watchdog          one look (the timer's job)
@@ -30,8 +30,11 @@ import urllib.request
 UNIT = "qv4-radiance"
 METRICS = os.environ.get("QV4_RADIANCE_METRICS") or "http://127.0.0.1:8060/metrics"
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
-STATE = os.path.join(LIVE, "checks", "radiance-watchdog-state.json")
-LOG = os.path.join(LIVE, "checks", "radiance-watchdog.jsonl")
+BOX = os.uname().nodename
+# one box's own (5 November 2026): with `live` shared over NFS, a watchdog that read the other box's counters
+# would restart its own server for the other's stall. The ledger before that day is radiance-watchdog.jsonl (node2).
+STATE = os.path.join(LIVE, "checks", f"radiance-watchdog-state-{BOX}.json")
+LOG = os.path.join(LIVE, "checks", f"radiance-watchdog-{BOX}.jsonl")
 STALL_S = 600              # ten minutes with work in flight and no token made
 WARM_S = 900               # a server up for less than this is still loading its model
 MAX_RESTARTS = 3
@@ -112,9 +115,9 @@ def main(argv=None) -> int:
         t0 = time.monotonic()
         rc = cards.systemctl_user("restart", UNIT)
         reason += f"; restarted (exit {rc}, {time.monotonic() - t0:.0f} s)"
-        alarm.send("qv4 node2: model server restarted by its watchdog", reason)
+        alarm.send(f"qv4 {BOX}: model server restarted by its watchdog", reason)
     elif action == "alarm":
-        alarm.send("qv4 node2: model server stuck, watchdog stopped restarting it", reason)
+        alarm.send(f"qv4 {BOX}: model server stuck, watchdog stopped restarting it", reason)
     if action != "none":
         os.makedirs(os.path.dirname(LOG), exist_ok=True)
         with open(LOG, "a", encoding="utf-8") as f:

@@ -29,6 +29,7 @@ def _never_the_live_folder(tmp_path, monkeypatch) -> None:
     live-night-marker). A test that means to read the live folder says so
     by setting the path itself."""
     monkeypatch.setattr(cards, "NIGHT_MARK", str(tmp_path / "live-never" / "night-window.json"))
+    monkeypatch.setattr(cards, "NIGHT_MARK_BEFORE", str(tmp_path / "live-never" / "night-window-before.json"))
     monkeypatch.setattr(cards, "NIGHT_WORD", str(tmp_path / "live-never" / "night-word.json"))
     monkeypatch.setattr(cards, "INBOX_CARDS", str(tmp_path / "live-never" / "inbox"))
     monkeypatch.setattr(cards, "LOGS", str(tmp_path / "live-never" / "servers"))
