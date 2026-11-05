@@ -66,3 +66,37 @@ Arthur's half, in order, at node1's console:
    `sudo touch /etc/querynz/not-primary`. It must never hold 10.0.0.10.
 3. Plug the cable in; check `ip -br addr` shows 10.0.0.1.
 4. Tell the session; it pings 10.0.0.1 (never the VIP) and starts line 2.
+
+## Tonight, 5 November 2026 (integrator-9d788fb, on Arthur's "charge ahead")
+
+- 22:51 fenced at node1's console by Arthur (`/etc/querynz` had to be made
+  first); postgresql and querynz-vip inactive and disabled, checked from
+  node2 over ssh; only node2 holds 10.0.0.10.
+- Line 2, the baseline: 32 threads, 125 GB memory, two Radeon AI PRO R9700
+  (32 GB each), nvme 1.8 TB (1.2 TB free; the old data directory 365 GB),
+  sdb 3.6 TB at /mnt/hdd1 (the old estate's backups, 618 GB), sdc 3.6 TB at
+  /mnt/hdd2, an unused 447 GB SATA SSD (NTFS; node2's spare 512 GB nvme is
+  NTFS too). querynz-vision-ocr (carve-out) running, 8032 healthy, left as is.
+- 1.4 stops, node1's half of batch 2 on the stop list: `gazette-derive.timer`
+  and `feed-parties.timer` disabled at 23:00. Arthur approved
+  `querynz-embed-index.timer` too; it is not on the stop list (only a
+  founding session writes it), so the hook refused it: Arthur stops it at
+  the console. Proof: none of the three ran from 17 October to tonight, and
+  the site released green throughout.
+- Code: node1 has no GitHub key, so its checkout and release copy were
+  cloned by git from node2's main checkout (origin
+  `ssh://10.0.0.2/home/user/querynzv4`): main at b919605, release detached
+  at 8391be6, node2's release. Both venvs built (Python 3.14.7; node2 3.14.8).
+- Disks: the qv4- folders of node2's /mnt/hdd2 made on node1's /mnt/hdd2;
+  qv4-models copied whole. The stores (qv4-docs, qv4-papers-past, dumps,
+  offsite, restore) are not copied: how they stay in step is open.
+- Models: every weights file the profiles name, and the Radiance folder,
+  rsynced to the same paths (189 GB, 21 files, sizes match); image loaded.
+- Credential files: the safety hook refuses a session copying them; Arthur
+  copies the ten node1 lacks (it has 10 of node2's 20).
+- qv4-radiance, its watchdog service and timer placed in node1's user unit
+  folder from the repository; qv4-radiance enabled and started.
+- Not done: qv4-worker@node1 (line 4: waits for node1's card reservation
+  beside querynz-vision-ocr in jobs.toml, and the credential files). The
+  installer's --box path is unproven and wrong for a second box: with
+  --units it enables a worker named node1 on node2, and it never pulls code.
