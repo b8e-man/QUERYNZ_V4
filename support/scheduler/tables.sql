@@ -62,6 +62,17 @@ CREATE TABLE IF NOT EXISTS {s}.pieces (
 );
 CREATE INDEX IF NOT EXISTS pieces_todo ON {s}.pieces (queue_id, piece) WHERE state = 'todo';
 
+-- a worker helping another box's leased row with its pieces (pooled capability, ruling 145, 6 November 2026):
+-- the owner keeps the row (its lease, its completion, its then); a helper takes pieces under its own token
+CREATE TABLE IF NOT EXISTS {s}.helpers (
+    queue_id    bigint NOT NULL REFERENCES {s}.queue (id),
+    worker      text NOT NULL,
+    token       uuid NOT NULL,
+    joined_at   timestamptz NOT NULL,
+    lease_until timestamptz NOT NULL,
+    PRIMARY KEY (queue_id, worker)
+);
+
 CREATE TABLE IF NOT EXISTS {s}.cards (
     box               text NOT NULL,
     card              int NOT NULL,

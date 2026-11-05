@@ -148,7 +148,7 @@ class Worker:
     def __init__(self, name: str, box: str = None, *, database: str = "querynz_v4", schema: str = SCHEMA,
                  registry: dict = None, profiles: dict = None, rules: reg.Queueing = None, tick_s: float = 5.0,
                  probe_every_s: int = 600, alarm_after_s: int = 300, hide_programs=(), max_parallel: int = 8,
-                 log=None, connect=None, alarm=None, cards_manager=None, only_profiles=()):
+                 log=None, connect=None, alarm=None, cards_manager=None, only_profiles=(), helps: bool = True):
         self.name, self.box = name, box or pb.profile().get("host")
         self.database, self.schema = database, schema
         self._reload = registry is None and profiles is None     # a test's own catalogue is never replaced
@@ -166,6 +166,7 @@ class Worker:
         self._only_given = bool(only_profiles)
         self.only_profiles = frozenset(only_profiles) or (reg.box_only_profiles(self.box) if self._reload else frozenset())
         self.max_parallel = max_parallel
+        self.helps = helps      # join another box's leased row when nothing of its own is queued (ruling 145)
         self._connect = connect or (lambda: _connect(self.database))
         self.alarm = alarm or send_alarm
         self.cards_manager = cards_manager
@@ -413,6 +414,12 @@ class Worker:
             # tick's start had already lapsed when the 35B model took 124 s (card
             # the-lease-lapses-while-a-large-model-loads: the row was reaped by its own worker).
             claim = q.claim(self.conn, self.schema, self.name, elig, lease_s=self.rules.lease_seconds, now=q.utcnow())
+            if not claim and self.helps:
+                # nothing queued this box can run: help with a row another box holds (pooled capability, ruling 145)
+                with self.lock:
+                    mine = list(self.running)
+                claim = q.join(self.conn, self.schema, self.name, elig, lease_s=self.rules.lease_seconds, now=q.utcnow(),
+                               exclude_ids=mine)
             if claim:
                 self._launch(claim)
 
@@ -458,7 +465,8 @@ class Worker:
             self.running[claim["id"]] = r
         r.thread = threading.Thread(target=self._run_job, args=(r,), name=f"job-{claim['id']}", daemon=True)
         r.thread.start()
-        self.log(f"claimed row {claim['id']} ({jt.name}, {claim['cls']}, pieces {claim['pieces_done']}/{claim['pieces_total']})")
+        how = "joined, helping with the pieces of" if claim.get("helper") else "claimed"
+        self.log(f"{how} row {claim['id']} ({jt.name}, {claim['cls']}, pieces {claim['pieces_done']}/{claim['pieces_total']})")
 
     def _reap_threads(self) -> None:
         with self.lock:
@@ -527,7 +535,8 @@ class Worker:
             return False
         if time.monotonic() - r.last_renew >= self.rules.lease_seconds / 3:
             r.last_renew = time.monotonic()
-            if not q.renew(conn, self.schema, r.claim["id"], r.claim["token"], lease_s=self.rules.lease_seconds):
+            renew = q.renew_helper if r.claim.get("helper") else q.renew
+            if not renew(conn, self.schema, r.claim["id"], r.claim["token"], lease_s=self.rules.lease_seconds):
                 self.log(f"row {r.claim['id']}: lease lost; stopping the child(ren)")
                 r.lost = True
                 return False
@@ -646,6 +655,7 @@ class Worker:
         import queue as pyqueue
         jt, claim = r.jt, r.claim
         qid, token = claim["id"], claim["token"]
+        helper = bool(claim.get("helper"))
         results: pyqueue.Queue = pyqueue.Queue()
         stop: str | None = None
         detail, not_before = "", None
@@ -675,6 +685,14 @@ class Worker:
                     time.sleep(max(0.0, hold_until - time.monotonic()))
                     self._renew_if_due(conn, r)
                     continue
+                if stop is None and not helper:
+                    left = q.pieces_left(conn, self.schema, qid)
+                    if left["running"] or left["todo"]:
+                        # a helper on another box still has pieces in flight, or gave one back: the owner keeps the row
+                        # (and takes any piece that comes back) until they are done (ruling 145, 6 November 2026)
+                        time.sleep(1.0)
+                        self._renew_if_due(conn, r)
+                        continue
                 break
             due = self.rules.lease_seconds / 3 - (time.monotonic() - r.last_renew)
             try:
@@ -689,7 +707,10 @@ class Worker:
                            detail=res.error or "")
             if res.stopped_for == "lease" and stop is None:
                 stop, detail = "lease", "worker stopping" if self.stopping else "worker stopping or lease lost"
-            if res.stopped_for == "memory":
+            if res.stopped_for == "memory" and helper:
+                if stop is None:
+                    stop, detail = "memory", f"a piece passed its ceiling on {self.box}; the owner's box carries the row"
+            elif res.stopped_for == "memory":
                 rz = self._raise_memory(conn, r, res, pieced=True)
                 if rz["requeued_id"] and stop is None:
                     stop, detail = "memory", f"memory raise {rz['id']}: {rz['note']}"
@@ -705,6 +726,10 @@ class Worker:
             else:
                 in_a_row = 0
             self._renew_if_due(conn, r)
+        if helper:
+            back = q.leave(conn, self.schema, qid, token, self.name)
+            r.outcome = f"helped, left ({detail or 'no pieces left'}; {back} piece(s) given back)"
+            return
         q.set_in_flight(conn, self.schema, qid, None)
         if stop is not None:
             q.requeue(conn, self.schema, qid, token, detail=detail, not_before=not_before)
@@ -729,7 +754,9 @@ class Worker:
             conn = self._connect()
             jt, claim = r.jt, r.claim
             r.rerun = q.raise_for_row(conn, self.schema, claim["id"])
-            if jt.pieces:
+            if claim.get("helper"):
+                self._run_pieces(conn, r)
+            elif jt.pieces:
                 if not claim.get("pieces_total") and jt.pieces_command:
                     keys, error = self._pieces_command(conn, r)
                     if error:

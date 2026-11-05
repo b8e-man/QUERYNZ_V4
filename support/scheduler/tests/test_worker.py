@@ -258,3 +258,52 @@ def test_a_lease_taken_after_a_long_load_is_stamped_from_the_clock_at_the_claim(
     assert wait_for(lambda: row(conn, s, qid)["state"] == "done", 30)
     assert row(conn, s, qid)["detail"] in (None, "") or "lease lapsed" not in row(conn, s, qid)["detail"]
     assert conn.execute(f"SELECT attempts FROM {s}.queue WHERE id = %s", (qid,)).fetchone()[0] == 1
+
+
+def test_a_second_worker_helps_with_a_leased_row_and_the_owner_completes_it_after_the_last_piece(conn, s):
+    """Pooled capability (ruling 145, 6 November 2026): B joins the row A holds and takes pieces from the same
+    list; A keeps the row and completes it only when B's pieces are done."""
+    a = worker("node2", s)
+    b = worker("node2-b", s)
+    qid = q.enqueue(conn, s, "qv4-rehearsal-pieces", pieces=[f"p{i}" for i in range(1, 11)], registry=a.registry)
+    a.tick()
+    assert row(conn, s, qid)["lease_owner"] == "node2"
+    b.tick()
+    assert qid in b.running and b.running[qid].claim.get("helper"), "b joined the row a holds"
+    helped = b.running[qid]                    # the worker drops it from `running` once its thread ends
+    assert [h["worker"] for h in q.helpers(conn, s, qid)] == ["node2-b"]
+    assert row(conn, s, qid)["lease_owner"] == "node2", "the owner keeps the row"
+    for _ in range(80):
+        a.tick(); b.tick()
+        if row(conn, s, qid)["state"] == "done":
+            break
+        time.sleep(0.5)
+    r = row(conn, s, qid)
+    assert r["state"] == "done" and r["pieces_done"] == 10, r
+    by = dict(conn.execute(f"SELECT worker, count(*) FROM {s}.pieces WHERE queue_id = %s AND state = 'done' GROUP BY worker",
+                           (qid,)).fetchall())
+    assert by.get("node2", 0) >= 2 and by.get("node2-b", 0) >= 2 and sum(by.values()) == 10, by
+    assert wait_for(lambda: not helped.thread.is_alive(), 30)
+    assert helped.outcome.startswith("helped"), helped.outcome
+    assert q.helpers(conn, s, qid) == [] and a.alarms == [] and b.alarms == []
+    a.stop(); a._finish_stop(); b.stop(); b._finish_stop()
+
+
+def test_a_helper_that_dies_loses_only_its_running_piece_and_the_owner_finishes(conn, s):
+    a = worker("node2", s)
+    b = worker("node2-b", s)
+    qid = q.enqueue(conn, s, "qv4-rehearsal-pieces", pieces=[f"p{i}" for i in range(1, 11)], registry=a.registry)
+    a.tick()
+    b.tick()
+    assert wait_for(lambda: conn.execute(f"SELECT count(*) FROM {s}.pieces WHERE queue_id = %s AND state = 'running' "
+                                         f"AND worker = 'node2-b'", (qid,)).fetchone()[0] == 1, 10)
+    # b's box dies: its lease is never renewed again and its pieces' results never arrive
+    b.running[qid].lost = True
+    conn.execute(f"UPDATE {s}.helpers SET lease_until = now() - interval '1 second' WHERE worker = 'node2-b'")
+    a.tick()                                   # a's tick reaps the lapsed helper: b's running piece goes back to the list
+    assert q.helpers(conn, s, qid) == []
+    assert conn.execute(f"SELECT count(*) FROM {s}.pieces WHERE queue_id = %s AND state = 'running' AND worker = 'node2-b'",
+                        (qid,)).fetchone()[0] == 0
+    assert wait_for(lambda: row(conn, s, qid)["state"] == "done", 90)
+    assert row(conn, s, qid)["pieces_done"] == 10
+    a.stop(); a._finish_stop(); b.stop(); b._finish_stop()

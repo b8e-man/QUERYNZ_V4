@@ -122,6 +122,7 @@ def stop_worker(conn, schema: str, name: str, now=None) -> int:
             f"WHERE state = 'leased' AND lease_owner = %s", (name, name))
         n = cur.rowcount
         conn.execute(f"UPDATE {schema}.pieces SET state = 'todo', worker = NULL WHERE state = 'running' AND worker = %s", (name,))
+        conn.execute(f"DELETE FROM {schema}.helpers WHERE worker = %s", (name,))
         conn.execute(f"UPDATE {schema}.workers SET state = 'stopped', last_seen = %s WHERE name = %s", (_now(now), name))
     return n
 
@@ -259,7 +260,10 @@ def requeue(conn, schema: str, qid: int, token, *, detail: str = "", not_before=
             f"not_before = %s, detail = concat_ws(' | ', NULLIF(detail, ''), NULLIF(%s, '')) "
             f"WHERE id = %s AND lease_token = %s AND state = 'leased'",
             (not_before, detail[:2000], qid, token))
-        conn.execute(f"UPDATE {schema}.pieces SET state = 'todo' WHERE queue_id = %s AND state = 'running'", (qid,))
+        if cur.rowcount == 1:
+            conn.execute(f"UPDATE {schema}.pieces p SET state = 'todo' WHERE p.queue_id = %s AND p.state = 'running'"
+                         f" AND NOT EXISTS (SELECT 1 FROM {schema}.helpers h WHERE h.queue_id = p.queue_id AND h.worker = p.worker)",
+                         (qid,))
     return cur.rowcount == 1
 
 
@@ -280,14 +284,92 @@ def reap(conn, schema: str, now=None) -> list[dict]:
         rows = conn.execute(
             f"UPDATE {schema}.queue SET state = 'queued', lease_token = NULL, lease_owner = NULL, lease_until = NULL, "
             f"detail = 'lease lapsed from ' || COALESCE(lease_owner, '?') || ' at ' || %s "
-            f"WHERE state = 'leased' AND lease_until < %s RETURNING id, job, pieces_done, pieces_total",
+            f"WHERE state = 'leased' AND lease_until < %s RETURNING id, job, pieces_done, pieces_total, old.lease_owner",
             (t.isoformat(timespec="seconds"), t)).fetchall()
         out = []
-        for qid, job, done, total in rows:
-            lost = conn.execute(f"UPDATE {schema}.pieces SET state = 'todo', worker = NULL, attempts = attempts "
-                                f"WHERE queue_id = %s AND state = 'running' RETURNING piece", (qid,)).fetchall()
+        for qid, job, done, total, owner in rows:
+            # only the lapsed owner's pieces: a helper on another box that is still alive keeps its own (6 November 2026)
+            lost = conn.execute(f"UPDATE {schema}.pieces p SET state = 'todo', worker = NULL, attempts = attempts "
+                                f"WHERE p.queue_id = %s AND p.state = 'running' "
+                                f"AND NOT EXISTS (SELECT 1 FROM {schema}.helpers h WHERE h.queue_id = p.queue_id "
+                                f"AND h.worker = p.worker AND h.lease_until >= %s AND h.worker IS DISTINCT FROM %s) RETURNING p.piece",
+                                (qid, t, owner)).fetchall()
             out.append({"id": qid, "job": job, "pieces_done": done, "pieces_total": total, "pieces_lost": [r[0] for r in lost]})
+        for qid, worker in conn.execute(f"DELETE FROM {schema}.helpers WHERE lease_until < %s RETURNING queue_id, worker",
+                                        (t,)).fetchall():
+            lost = conn.execute(f"UPDATE {schema}.pieces SET state = 'todo', worker = NULL WHERE queue_id = %s "
+                                f"AND state = 'running' AND worker = %s RETURNING piece", (qid, worker)).fetchall()
+            out.append({"id": qid, "job": None, "helper": worker, "pieces_done": None, "pieces_total": None,
+                        "pieces_lost": [r[0] for r in lost]})
     return out
+
+
+# ── helpers (pooled capability, ruling 145) ────────────────────────────────────
+
+def _holds(conn, schema: str, qid: int, token, now=None) -> bool:
+    """The piece fence: the row is leased and `token` is its owner's, or a helper's whose lease runs."""
+    return conn.execute(
+        f"SELECT 1 FROM {schema}.queue q WHERE q.id = %s AND q.state = 'leased' AND (q.lease_token = %s OR EXISTS "
+        f"(SELECT 1 FROM {schema}.helpers h WHERE h.queue_id = q.id AND h.token = %s AND h.lease_until >= %s))",
+        (qid, token, token, _now(now))).fetchone() is not None
+
+
+def join(conn, schema: str, worker: str, eligible: list, *, lease_s: int, now=None, exclude_ids: list = None) -> dict | None:
+    """A row another worker holds, cut into pieces with some still to do, that `worker` may help with: it takes
+    pieces from the same list under its own token. The owner keeps the row: its lease, its completion, its `then`.
+    The same order as `claim`. None when there is nothing to help with."""
+    if not eligible:
+        return None
+    t = _now(now)
+    token = uuid.uuid4()
+    with conn.transaction():
+        row = conn.execute(
+            f"SELECT q.id, q.job, q.args, q.cls, q.priority, q.due_at, q.attempts, q.pieces_total, q.pieces_done, "
+            f"q.standing, q.timetable_slot, q.pieces_source FROM {schema}.queue q "
+            f"WHERE q.state = 'leased' AND q.pieces_total > 0 AND q.job = ANY(%s) AND q.lease_owner IS DISTINCT FROM %s "
+            f"  AND q.lease_until >= %s AND NOT (q.id = ANY(%s)) "
+            f"  AND EXISTS (SELECT 1 FROM {schema}.pieces p WHERE p.queue_id = q.id AND p.state = 'todo') "
+            f"  AND NOT EXISTS (SELECT 1 FROM {schema}.helpers h WHERE h.queue_id = q.id AND h.worker = %s) "
+            f"ORDER BY CASE q.cls WHEN 'waiting' THEN 0 WHEN 'due' THEN 1 ELSE 2 END, q.due_at NULLS LAST, q.priority, q.created_at "
+            f"LIMIT 1",
+            (list(eligible), worker, t, list(exclude_ids or []), worker)).fetchone()
+        if row is None:
+            return None
+        conn.execute(f"INSERT INTO {schema}.helpers (queue_id, worker, token, joined_at, lease_until) VALUES (%s, %s, %s, %s, %s) "
+                     f"ON CONFLICT DO NOTHING", (row[0], worker, token, t, t + dt.timedelta(seconds=lease_s)))
+    keys = ("id", "job", "args", "cls", "priority", "due_at", "attempts", "pieces_total", "pieces_done", "standing", "timetable_slot",
+            "pieces_source")
+    out = dict(zip(keys, row))
+    out["token"], out["helper"] = token, True
+    return out
+
+
+def renew_helper(conn, schema: str, qid: int, token, *, lease_s: int, now=None) -> bool:
+    """Extend a helper's lease. False when the row is no longer leased (its owner finished it or gave it back) or the
+    helper's lease was reaped: the helper stops starting pieces and leaves."""
+    t = _now(now)
+    with conn.transaction():
+        cur = conn.execute(
+            f"UPDATE {schema}.helpers h SET lease_until = %s WHERE h.queue_id = %s AND h.token = %s "
+            f"AND EXISTS (SELECT 1 FROM {schema}.queue q WHERE q.id = h.queue_id AND q.state = 'leased')",
+            (t + dt.timedelta(seconds=lease_s), qid, token))
+    return cur.rowcount == 1
+
+
+def leave(conn, schema: str, qid: int, token, worker: str) -> int:
+    """A helper is done with a row: its lease goes and any piece it still has running goes back to the list.
+    Returns how many pieces went back."""
+    with conn.transaction():
+        conn.execute(f"DELETE FROM {schema}.helpers WHERE queue_id = %s AND token = %s", (qid, token))
+        back = conn.execute(f"UPDATE {schema}.pieces SET state = 'todo', worker = NULL WHERE queue_id = %s "
+                            f"AND state = 'running' AND worker = %s RETURNING piece", (qid, worker)).fetchall()
+    return len(back)
+
+
+def helpers(conn, schema: str, qid: int, now=None) -> list[dict]:
+    rows = conn.execute(f"SELECT worker, joined_at, lease_until FROM {schema}.helpers WHERE queue_id = %s AND lease_until >= %s "
+                        f"ORDER BY worker", (qid, _now(now))).fetchall()
+    return [dict(zip(("worker", "joined_at", "lease_until"), r)) for r in rows]
 
 
 # ── pieces (rule 7) ──────────────────────────────────────────────────────────
@@ -296,9 +378,7 @@ def next_piece(conn, schema: str, qid: int, token, worker: str, now=None) -> dic
     """The next piece of a leased job, marked running. None when no piece is
     left, or when the lease is no longer this worker's (the fence)."""
     with conn.transaction():
-        owns = conn.execute(f"SELECT 1 FROM {schema}.queue WHERE id = %s AND lease_token = %s AND state = 'leased'",
-                            (qid, token)).fetchone()
-        if not owns:
+        if not _holds(conn, schema, qid, token, now):
             return None
         row = conn.execute(
             f"WITH pick AS (SELECT piece FROM {schema}.pieces WHERE queue_id = %s AND state = 'todo' "
@@ -314,9 +394,7 @@ def finish_piece(conn, schema: str, qid: int, token, piece: int, *, ok: bool, se
     """Record a piece's end under the job's lease. A failed piece goes back
     to `todo` for one more try; after three it stays failed."""
     with conn.transaction():
-        owns = conn.execute(f"SELECT 1 FROM {schema}.queue WHERE id = %s AND lease_token = %s AND state = 'leased'",
-                            (qid, token)).fetchone()
-        if not owns:
+        if not _holds(conn, schema, qid, token, now):
             return False
         if ok:
             conn.execute(f"UPDATE {schema}.pieces SET state = 'done', done_at = %s, seconds = %s, detail = %s "
