@@ -95,6 +95,7 @@ from support.scheduler import probe as pb
 from support.scheduler import queue as q
 from support.scheduler import registry as reg
 from support.scheduler import runs
+from support import appendline
 
 PORT_BASE = 8110
 LOAD_TIMEOUT_S = 900          # a 21 GB load from a cold page cache takes minutes
@@ -985,8 +986,7 @@ class Manager:
         text = "\n".join(lines)
         try:
             os.makedirs(self.inbox, exist_ok=True)
-            with open(path, "a", encoding="utf-8") as f:
-                f.write(text)
+            appendline.append(path, text)
         except OSError as e:
             self.log(f"night window: could not write the integrator's note {path}: {e}")
         return path

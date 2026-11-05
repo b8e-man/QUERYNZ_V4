@@ -37,6 +37,7 @@ from support import profiles as doc_profiles
 from support import reader as rd
 from support.docread import pagereader
 from support.trials import pageset, readers
+from support import appendline
 
 READER = "support.trials 1"
 LANE = "trial"
@@ -146,8 +147,7 @@ def _row(conn, line: dict) -> None:
 def _ledger(line: dict, ledger: str = None) -> None:
     ledger = ledger or LEDGER
     os.makedirs(os.path.dirname(ledger), exist_ok=True)
-    with open(ledger, "a", encoding="utf-8") as f:
-        f.write(json.dumps(line) + "\n")
+    appendline.append_json(ledger, line)
 
 
 def read_page(reader: readers.Reader, png: str, url: str, post=None, timeout: float = 900.0) -> tuple[str, str]:

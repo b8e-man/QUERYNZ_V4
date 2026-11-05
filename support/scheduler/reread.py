@@ -35,6 +35,7 @@ from support.docread import pagereader, pages
 from support.docread.read import read_document
 from support.docstore import landing
 from support.scheduler import LIVE
+from support import appendline
 
 READER = "support.scheduler.reread 1"
 LANE = "reread"
@@ -146,8 +147,7 @@ def piece(sha256: str, *, conn, url: str, model: str, profile: str = PROFILE, pi
             "equal": equal, "key": reading.key}
     ledger = ledger or LEDGER
     os.makedirs(os.path.dirname(ledger), exist_ok=True)
-    with open(ledger, "a", encoding="utf-8") as f:
-        f.write(json.dumps(line) + "\n")
+    appendline.append_json(ledger, line)
     return line
 
 
@@ -172,8 +172,7 @@ def read_pages(sha256: str, *, profile: str, url: str, model: str, store: rd.Sto
             "settings": {"dpi": dpi, "prompt": pagereader.PROMPT}}
     ledger = ledger or LEDGER
     os.makedirs(os.path.dirname(ledger), exist_ok=True)
-    with open(ledger, "a", encoding="utf-8") as f:
-        f.write(json.dumps(line) + "\n")
+    appendline.append_json(ledger, line)
     return line
 
 

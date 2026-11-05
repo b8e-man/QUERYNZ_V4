@@ -37,6 +37,7 @@ from .sources import find_document, is_raster
 
 import os
 from .sources import STAGING
+from support import appendline
 REPO = pathlib.Path(os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3")   # the old folder, read-only
 LIVE = pathlib.Path(os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live")
 PAGEREAD = STAGING / "pageread"
@@ -291,8 +292,7 @@ def run(ts: list[Target], *, out: pathlib.Path = OUT,
              "reconciling": 0, "with_stated": 0, "seconds": 0.0}
     t0 = time.time()
     ctx = multiprocessing.get_context(START_METHOD)
-    with out.open("a") as fh, cf.ProcessPoolExecutor(max_workers=workers,
-                                                     mp_context=ctx) as ex:
+    with cf.ProcessPoolExecutor(max_workers=workers, mp_context=ctx) as ex:
         # as_completed, not map: map yields IN ORDER, so one slow document
         # holds back every result behind it and the run looks stalled when it
         # is merely waiting. Results are written as they finish.
@@ -306,8 +306,7 @@ def run(ts: list[Target], *, out: pathlib.Path = OUT,
                        "error": f"worker died: {type(e).__name__}: {e}"}
             items = row.pop("_items", [])
             golds = row.pop("_gold", [])
-            fh.write(json.dumps(row, default=str) + "\n")
-            fh.flush()
+            appendline.append_json(str(out), row, default=str)
             stats["documents"] += 1
             stats["seconds"] = round(time.time() - t0, 1)
             if row.get("error"):

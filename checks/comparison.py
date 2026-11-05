@@ -40,6 +40,7 @@ from collections import Counter, defaultdict
 
 from checks import comparison_figures as F
 from checks.comparison_figures import ABSENT, NOT_HELD
+from support import appendline
 
 OLD_LIVE = os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3"
 FROZEN_VERSIONS = os.path.join(OLD_LIVE, "var", "pi-snapshot", "v")
@@ -1223,8 +1224,7 @@ def write_day(day: dict, state_dir: str) -> None:
             "differences": day.get("differences"), "uncarded": day.get("uncarded"), "new_wrong": day.get("new_wrong"),
             "clean": bool(day.get("clean")), "explained": bool(day.get("explained")),
             "by_cause": {k: v["n"] for k, v in (day.get("by_cause") or {}).items()}, "note": day.get("note")}
-    with open(os.path.join(state_dir, "ledger.jsonl"), "a", encoding="utf-8") as f:
-        f.write(json.dumps(line, ensure_ascii=False) + "\n")
+    appendline.append_json(os.path.join(state_dir, "ledger.jsonl"), line, ensure_ascii=False)
 
 
 def ledger(state_dir: str = None) -> list:

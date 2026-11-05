@@ -34,6 +34,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from support import appendline
 
 ROOT = os.environ.get("QV4_TRIAL_MODELS") or "/mnt/hdd2/qv4-models"
 HUB = "https://huggingface.co"
@@ -170,8 +171,7 @@ def plan(root: str = None, trees: dict = None) -> list[dict]:
 def _record(root: str, line: dict) -> None:
     os.makedirs(root, exist_ok=True)
     line = {"at": dt.datetime.now().astimezone().isoformat(timespec="seconds"), **line}
-    with open(ledger_path(root), "a", encoding="utf-8") as f:
-        f.write(json.dumps(line) + "\n")
+    appendline.append_json(ledger_path(root), line)
 
 
 def fetch_file(repo: str, hub_file: str, dest: str, *, size: int = None, sha256: str = None, root: str = None,

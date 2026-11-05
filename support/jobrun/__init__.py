@@ -10,6 +10,7 @@ import datetime as dt
 import json
 import os
 import socket
+from support import appendline
 
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 RUNS = os.path.join(LIVE, "checks", "runs.jsonl")
@@ -28,8 +29,7 @@ def record(job: str, ok: bool, detail: str, started: dt.datetime, extra: dict = 
         rec.update(extra)
     path = path or RUNS
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    appendline.append_json(path, rec, ensure_ascii=False)
     return rec
 
 

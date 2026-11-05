@@ -29,6 +29,7 @@ import pathlib
 import uuid
 
 from support.scheduler import LIVE
+from support import appendline
 
 log = logging.getLogger("scheduler.runs")
 
@@ -51,8 +52,7 @@ def _append(row: dict, ledger: pathlib.Path | None = None) -> None:
     p = _path(ledger)
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
-        with p.open("a") as f:
-            f.write(json.dumps(row, default=str) + "\n")
+        appendline.append_json(str(p), row, default=str)
     except OSError as e:                      # noqa: BLE001
         log.error("job-run ledger unwritable (%s); the run proceeds", e)
 

@@ -42,6 +42,7 @@ import time
 from .arbitrate import Arbitration, Dispute
 from .invariants import Finding, Report, threshold_for
 from .rows import Document
+from support import appendline
 
 #: Arthur's ruling of 2026-09-23. Older returns are still queued — they sort
 #: last, so a reviewer's day is spent where the register is most used.
@@ -192,9 +193,7 @@ def from_arbitration(arb: Arbitration, *, year: int | None = None,
 
 def append(path: pathlib.Path, rows: list[dict]) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a") as fh:
-        for r in rows:
-            fh.write(json.dumps(r, sort_keys=True, default=str) + "\n")
+    appendline.append(str(path), [json.dumps(r, sort_keys=True, default=str) for r in rows])
     return len(rows)
 
 

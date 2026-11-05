@@ -15,6 +15,7 @@ import json
 import os
 import re
 import shutil
+from support import appendline
 
 STAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{4}(?:-\d+)?")
 MANIFEST = "SNAPSHOT.json"
@@ -80,8 +81,7 @@ def record(out: str, stamp: str, ok: bool, note: str, gates: list) -> None:
     os.makedirs(out, exist_ok=True)
     row = {"at": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "action": "built" if ok else "refused",
            "version": stamp, "note": note, "gates": gates}
-    with open(os.path.join(out, "RELEASES.jsonl"), "a", encoding="utf-8") as f:
-        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    appendline.append_json(os.path.join(out, "RELEASES.jsonl"), row, ensure_ascii=False)
 
 
 def last_built(out: str):

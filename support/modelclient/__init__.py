@@ -32,6 +32,7 @@ import os
 import time
 import urllib.parse
 import urllib.request
+from support import appendline
 
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 LEDGER = os.path.join(LIVE, "checks", "model-calls.jsonl")
@@ -73,8 +74,7 @@ def _post(url: str, body: dict, timeout: float) -> dict:
 def _record(entry: dict, ledger: str = None) -> None:
     ledger = ledger or LEDGER
     os.makedirs(os.path.dirname(ledger), exist_ok=True)
-    with open(ledger, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    appendline.append_json(ledger, entry, ensure_ascii=False)
 
 
 def chat(url: str, *, lane: str, model: str, messages: list, extra: dict = None, timeout: float = 300.0,

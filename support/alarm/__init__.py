@@ -16,10 +16,10 @@ may carry a person's home address or a suppressed name (hard limits 11, 15,
 
 Stdlib only. Tests: support/alarm/tests/."""
 import datetime as dt
-import json
 import os
 import socket
 import urllib.request
+from support import appendline
 
 OLD_LIVE = os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3"
 CHANNEL_FILE = os.environ.get("QV4_ALARM_FILE") or os.path.join(OLD_LIVE, "ops", "config", "alert-channel.env")
@@ -77,6 +77,5 @@ def send(title: str, body: str, priority: str = "high", *, channel_file: str = N
            "priority": priority, "sent": sent, "why": why}
     ledger = ledger or LEDGER
     os.makedirs(os.path.dirname(ledger), exist_ok=True)
-    with open(ledger, "a", encoding="utf-8") as f:
-        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    appendline.append_json(ledger, rec, ensure_ascii=False)
     return sent

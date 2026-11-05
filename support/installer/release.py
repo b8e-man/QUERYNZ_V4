@@ -40,6 +40,7 @@ import json
 import os
 import subprocess
 import sys
+from support import appendline
 
 RELEASE = os.environ.get("QV4_RELEASE") or "/home/user/querynzv4-release"
 RECORD = "qv4-release.json"                 # under <copy>/.git/
@@ -202,12 +203,11 @@ def release(copy: str = RELEASE, commit: str = None, *, origin: str = None, repo
         json.dump(rec, f, indent=1)
     os.replace(tmp, os.path.join(copy, ".git", RECORD))
     verb = "created at" if created else "stays at" if prev == sha else "moved to"
-    line = (f"{rec['at']} release {copy} {verb} {sha[:12]}"
+    line = (f"{rec['at']} {os.uname().nodename} release {copy} {verb} {sha[:12]}"
             f"{f' (was {prev[:12]})' if verb == 'moved to' and prev else ''} by {rec['by']}; venv {env['action']}; "
             f"worker restart {rec['worker_restart']}")
     log_path = log_path or os.path.join(inst.LIVE, "installer", "release.log")
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    with open(log_path, "a", encoding="utf-8") as f:
-        f.write(line + "\n")
+    appendline.append(log_path, line)
     log(line)
     return {**rec, "copy": copy, "log": log_path}
