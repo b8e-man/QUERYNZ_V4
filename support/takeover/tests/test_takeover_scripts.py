@@ -15,8 +15,8 @@ echo "$(basename "$0") $*" >> "$S/calls"
 case "$(basename "$0")" in
   hostname) echo "${QV4_STUB_HOST:-node1}" ;;
   ip)
-    if [ "$2" = addr ] && [ "$3" = add ]; then touch "$S/vip"; exit 0; fi
-    if [ "$2" = addr ] && [ "$3" = del ]; then rm -f "$S/vip"; exit 0; fi
+    if [ "$1" = addr ] && [ "$2" = add ]; then touch "$S/vip"; exit 0; fi
+    if [ "$1" = addr ] && [ "$2" = del ]; then rm -f "$S/vip"; exit 0; fi
     [ -e "$S/vip" ] && echo "2: enp13s0    inet 10.0.0.10/24 scope global enp13s0"
     echo "2: enp13s0    inet 10.0.0.1/24 scope global enp13s0" ;;
   arping)
@@ -24,11 +24,10 @@ case "$(basename "$0")" in
   systemctl)
     case "$1" in
       is-active) [ -e "$S/pg_up" ]; exit $? ;;
-      stop) rm -f "$S/pg_up" ;;
-      enable)
-        if [ "$3" = postgresql ]; then touch "$S/pg_up"; [ -e "$S/streams_after_start" ] && echo streaming > "$S/receiver"; fi
-        [ "$3" = querynz-vip.service ] && touch "$S/vip" ;;
-      disable) for u in "$@"; do [ "$u" = querynz-vip.service ] && rm -f "$S/vip"; done ;;
+      stop) [ -e "$S/stop_hangs" ] || rm -f "$S/pg_up" ;;
+      kill) [ -e "$S/stop_hangs" ] || rm -f "$S/pg_up" ;;
+      start)
+        if [ "$2" = postgresql ]; then touch "$S/pg_up"; [ -e "$S/streams_after_start" ] && echo streaming > "$S/receiver"; fi ;;
     esac ;;
   runuser)
     shift 3   # -u postgres --
@@ -115,7 +114,7 @@ def test_takeover_promotes_reserves_the_peers_slot_and_takes_the_address(box):
     calls = box.calls()
     assert "pg_promote(true, 60)" in calls
     assert "pg_create_physical_replication_slot('node2_standby', true)" in calls
-    assert calls.index("pg_promote") < calls.index("enable --now querynz-vip.service")
+    assert calls.index("pg_promote") < calls.index("ip addr add 10.0.0.10/24")
     assert box.has("vip") and not box.marker.exists()
 
 
@@ -148,7 +147,7 @@ def test_rejoin_rewinds_and_follows_the_address_on_its_own_slot(box):
     assert box.run("rejoin.sh") == 0, box.out
     calls = box.calls()
     assert "pg_rewind --target-pgdata" in calls and "host=10.0.0.10 port=5432 user=replicator dbname=postgres" in calls
-    assert calls.index("stop postgresql") < calls.index("pg_rewind") < calls.index("enable --now postgresql")
+    assert calls.index("stop postgresql") < calls.index("pg_rewind") < calls.index("systemctl start postgresql")
     auto = (box.pgdata / "postgresql.auto.conf").read_text()
     assert "host=10.0.0.2" not in auto and "stale" not in auto and "max_connections = 400" in auto
     assert "primary_conninfo = 'host=10.0.0.10 port=5432 user=replicator" in auto
@@ -166,23 +165,46 @@ def test_rejoin_stops_at_a_refused_rewind_and_writes_nothing(box):
     box.set("pg_up", "wire_answers", "rewind_fails")
     assert box.run("rejoin.sh") == 1
     assert "full copy" in box.out
-    assert not (box.pgdata / "standby.signal").exists()
+    assert (box.pgdata / "standby.signal").exists(), "a refused rewind must leave the box unstartable as a primary"
     assert "host=10.0.0.2" in (box.pgdata / "postgresql.auto.conf").read_text()
 
 
-def test_role_guard_demotes_a_booting_box_whose_address_is_held_elsewhere(box):
+def test_fence_drops_the_address_before_it_stops_the_database_immediately(box):
+    box.set("pg_up", "vip")
+    assert box.run("fence.sh") == 0, box.out
+    calls = box.calls()
+    assert calls.index("ip addr del 10.0.0.10/24") < calls.index("kill -s SIGQUIT")
+    assert not box.has("vip") and not box.has("pg_up") and box.marker.exists()
+    assert "checkpoint" not in calls
+
+
+def test_fence_reports_failure_while_the_database_still_runs(box):
+    box.set("pg_up", "vip", "stop_hangs")
+    assert box.run("fence.sh") == 1
+    assert not box.has("vip")
+
+
+def test_start_primary_refuses_a_box_that_was_a_standby(box):
+    (box.pgdata / "standby.signal").touch()
+    assert box.run("start-primary.sh") == 1
+    assert "start postgresql" not in box.calls()
+
+
+def test_start_primary_refuses_while_the_address_answers_elsewhere(box):
     box.set("wire_answers")
-    assert box.run("role-guard.sh") == 0, box.out
-    assert box.marker.exists() and (box.pgdata / "standby.signal").exists()
+    assert box.run("start-primary.sh") == 1
+    assert "start postgresql" not in box.calls()
 
 
-def test_role_guard_keeps_the_role_when_the_address_is_free(box):
-    assert box.run("role-guard.sh") == 0, box.out
-    assert not box.marker.exists() and not (box.pgdata / "standby.signal").exists()
+def test_start_primary_starts_the_database_then_takes_the_address(box):
+    box.marker.parent.mkdir(); box.marker.touch()
+    assert box.run("start-primary.sh") == 0, box.out
+    calls = box.calls()
+    assert calls.index("systemctl start postgresql") < calls.index("ip addr add 10.0.0.10/24")
+    assert box.has("vip") and not box.marker.exists()
 
 
-def test_role_guard_keeps_the_role_on_a_dead_link(box):
-    box.set("wire_answers")
-    (pathlib.Path(box.env["QV4_SYSNET"]) / "enp13s0" / "carrier").write_text("0\n")
-    assert box.run("role-guard.sh") == 0, box.out
-    assert not box.marker.exists() and "arping" not in box.calls()
+def test_start_primary_refuses_a_database_that_comes_up_in_recovery(box):
+    box.set("recovery")
+    assert box.run("start-primary.sh") == 1
+    assert not box.has("vip")

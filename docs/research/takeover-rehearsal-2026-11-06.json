@@ -1,0 +1,121 @@
+[
+ {
+  "step": "1 steady",
+  "seconds": 20,
+  "ok": true,
+  "roles": {
+   "node1": "primary",
+   "node2": "standby"
+  },
+  "both_writable_samples": 0
+ },
+ {
+  "step": "2 the primary dies: node2 takes over (s)",
+  "seconds": 28.5,
+  "ok": true,
+  "roles": {
+   "node2": "primary"
+  },
+  "both_writable_samples": 0
+ },
+ {
+  "step": "3 node1 returns and rejoins as the standby (s)",
+  "seconds": 1.5,
+  "ok": true,
+  "roles": {
+   "node1": "standby",
+   "node2": "primary"
+  },
+  "both_writable_samples": 0
+ },
+ {
+  "step": "4 planned switchover to node1 (s)",
+  "seconds": 2.0,
+  "ok": true,
+  "roles": {
+   "node1": "primary",
+   "node2": "down"
+  },
+  "both_writable_samples": 0
+ },
+ {
+  "step": "4b node2 back as the standby; the writer's longest gap (s)",
+  "seconds": 1.9,
+  "ok": true,
+  "roles": {
+   "node1": "primary",
+   "node2": "standby"
+  },
+  "both_writable_samples": 0
+ },
+ {
+  "step": "5 cable pulled 70 s: nothing changes",
+  "seconds": 70,
+  "ok": true,
+  "roles": {
+   "node1": "primary",
+   "node2": "standby"
+  },
+  "both_writable_samples": 0
+ },
+ {
+  "step": "6 voter down 70 s: nothing changes",
+  "seconds": 70,
+  "ok": true,
+  "roles": {
+   "node1": "primary",
+   "node2": "standby"
+  },
+  "both_writable_samples": 0
+ },
+ {
+  "step": "7 node1 cut off from both: fenced after (s)",
+  "seconds": 21.5,
+  "ok": true,
+  "roles": {
+   "node1": "down",
+   "node2": "primary"
+  },
+  "both_writable_samples": 0
+ },
+ {
+  "step": "7b node2 took over after a further (s)",
+  "seconds": 9.5,
+  "ok": true,
+  "roles": {
+   "node1": "down",
+   "node2": "primary"
+  },
+  "both_writable_samples": 0
+ },
+ {
+  "step": "7c healed: node1 rejoined as the standby (s)",
+  "seconds": 0.5,
+  "ok": true,
+  "roles": {
+   "node1": "standby",
+   "node2": "primary"
+  },
+  "both_writable_samples": 0
+ },
+ {
+  "step": "8 acknowledged writes 879, missing on the final primary 0 []",
+  "seconds": null,
+  "ok": true,
+  "roles": {
+   "node1": "standby",
+   "node2": "primary"
+  },
+  "both_writable_samples": 0
+ },
+ {
+  "step": "9 moments both instances answered as primaries",
+  "seconds": 0,
+  "ok": true,
+  "roles": {
+   "node1": "standby",
+   "node2": "primary"
+  },
+  "both_writable_samples": 0
+ }
+]

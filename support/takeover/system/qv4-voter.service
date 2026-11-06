@@ -1,0 +1,14 @@
+[Unit]
+Description=QueryNZV4 voter: grants the primary role to one box at a time (support/takeover/voter.md)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Environment=PYTHONPATH=%h/qv4-takeover
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m support.takeover voter
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

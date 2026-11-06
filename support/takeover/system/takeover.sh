@@ -2,7 +2,8 @@
 # qv4-takeover: this box, a standby, becomes the primary. Refuses while anything on the wire answers for the
 # floating address (release it on the other box, or that box is off). Promotes with no password (the job runs
 # as root and calls the database as postgres: track A lesson 1), reserves the other box's slot AT promotion
-# (the 24 August drill's lesson), then takes the address and announces it.
+# (the 24 August drill's lesson), then takes the address and announces it. The agent (qv4-roled) runs it on the voter's grant; a person may
+# run it by hand (`systemctl start qv4-takeover`) only with the agent stopped.
 JOB=takeover; . "$(dirname "$0")/lib.sh"
 if has_vip && pg_up && ! in_recovery; then say "already the primary and holding $VIP"; exit 0; fi
 pg_up || die "the database is not running on this box"
@@ -20,7 +21,7 @@ say "promoting at replay $(sql 'select pg_last_wal_replay_lsn()') (received ${re
 if in_recovery; then die "still in recovery after the promote"; fi
 sql "select pg_create_physical_replication_slot('${PEER}_standby', true) where not exists (select 1 from pg_replication_slots where slot_name = '${PEER}_standby')" > /dev/null
 rm -f "$MARKER"
-systemctl enable --now querynz-vip.service
+# the address is this job's, not the old querynz-vip unit's (disabled on both boxes by install.sh)
 has_vip || ip addr add "$VIP/24" dev "$DEV"
 has_vip || die "promoted, but $VIP did not come up on $DEV"
 arping -U -q -I "$DEV" -c 3 "$VIP" || true

@@ -1,0 +1,22 @@
+[Unit]
+Description=QueryNZV4 role agent: holds the primary role only on the voter's or the standby's lease (support/takeover/voter.md)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+Environment=PYTHONPATH=/usr/local/lib/qv4-takeover
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m support.takeover agent --config /etc/qv4-takeover/agent.conf
+# a hung agent stops feeding systemd; systemd stops it, and stop-post fences a primary (or restarts the box)
+WatchdogSec=3
+ExecStopPost=/usr/local/libexec/qv4-takeover/stop-post.sh
+RuntimeDirectory=qv4-takeover
+RuntimeDirectoryPreserve=yes
+StateDirectory=qv4-takeover
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -1,7 +1,8 @@
 # The voter: automatic takeover by a quorum lease (design, 6 November 2026)
 
 Track A's build ("automatic promotion on the voter's word"), on the third machine `voter`
-(192.168.68.57, home Wi-Fi). Status: DESIGN, for Arthur. Nothing installed.
+(192.168.68.57, home Wi-Fi). Status: BUILT (quorum.py, wire.py, daemon.py, rehearse.py; system/), proven by the fault simulation and the
+scratch rehearsal; installed nowhere until Arthur's sitting.
 
 ## The one rule
 
@@ -21,15 +22,16 @@ primaries cannot both hold a majority. This is what the old estate could not do 
 - **What a lease is.** It is a promise for a duration: "I will not grant the role to anyone else for
   30 s from when I answered". Each machine counts durations on its own monotonic clock. No two clocks are
   compared, so their skew does not matter; only their rate (drift) does, and that is parts per million.
-- **How long the grantee may count on it.** From when it SENT the request, plus 30 s, less a 5 s safety
-  margin. The grantor counts from when it answered. So the grantee always believes the lease ends before the
+- **How long the grantee may count on it.** From when it SENT the request, plus 30 s, less an 8 s safety
+  margin (it covers a quarter-second lease check, a 4 s fence limit, and drift). The grantor counts from when it answered. So the grantee always believes the lease ends before the
   grantor does.
 
 | Setting | Value | Why |
 | --- | --- | --- |
 | Renew every | 2 s | many tries inside one lease |
 | Lease | 30 s | node2's Wi-Fi stalled 4.5 s and lost 3.8% in a 2-minute test (6 November); a lease must outlive a dozen lost renewals |
-| Primary fences at | 25 s without a lease from anyone | 5 s before any grantor could hand the role on |
+| Primary fences at | 22 s without a lease from anyone | 8 s before any grantor could hand the role on; the lease is checked every 0.25 s |
+| A fence must finish in | 4 s | else the agent stops feeding the watchdog and the box restarts |
 | Takeover after the primary dies | about 30 to 40 s | the lease runs out, then the promote, then the address |
 
 ## What each machine runs
@@ -48,7 +50,8 @@ one port on the home network.
 (takeover, release, rejoin), which stay the only code that promotes, moves the address or rewinds.
 - **As primary:**
   - every 2 s it renews with the voter and with the standby (over the cable and over Wi-Fi);
-  - at 25 s with neither renewed, it **fences**: the address off, the database stopped fast;
+  - at 22 s with neither renewed, it **fences**: the address off, then the database stopped IMMEDIATELY (no
+    shutdown checkpoint, which on a busy primary can outlast the 4 s fence limit; the rejoin's rewind recovers);
   - it then rejoins as a standby once a new primary exists.
 - **As standby:**
   - it answers the primary's renewals: "I will not take over for 30 s";
@@ -58,13 +61,20 @@ one port on the home network.
   - it asks the voter who holds the role;
   - if the other box holds it, the box comes up as the standby and runs `qv4-rejoin` itself;
   - if the voter is unreachable, and so is the other box, it waits: no role is taken on one vote.
-- **Watchdog.** The agent feeds the box's hardware watchdog (`/dev/watchdog`, present on both boxes). If the
-  agent hangs for 15 s while primary, the box restarts. A restart stops the database, so a hung agent can
-  never keep a primary running without a lease. This is what Patroni does.
+- **Watchdog.** The agent tells systemd it is alive every 0.25 s (`WatchdogSec=3`). A hung agent is stopped
+  by systemd, and `stop-post.sh` fences a box that was primary; a fence that does not finish in 4 s
+  restarts the box (`systemctl reboot --force --force`). An agent stopped for maintenance does not fence
+  if `hold on` was given first (the voter then grants no new holder).
+- **Epochs.** Every new holder raises the voter's epoch. A box that held the role and went down takes it
+  back only if the epoch is still its own (nobody has held it since); otherwise it would start a primary on
+  a history the other box moved past. A holder renews as a resume of its own epoch, so an agent restarted
+  while the voter's lease lapsed (maintenance) gets the role back.
+- **Activation order:** the primary's agent first, then the standby's (a standby's agent alone hears no
+  primary for 30 s and asks for the role).
 
-**Authentication.** Every message carries the box's name, the epoch and a nonce, signed with a key per
-box (HMAC-SHA256). The keys live in `~/.querynz/voter.env` on the box concerned and on the voter, and
-nowhere else (hard limit 1). The voter never trusts an address, so a box's Wi-Fi address may change.
+**Authentication.** Every datagram carries the sender's name, a boot nonce and a counter, signed with the
+estate's voter key (HMAC-SHA256); a replayed or unsigned datagram is dropped. The key lives in
+`~/.querynz/voter.env` on the three machines and nowhere else (hard limit 1). The voter never trusts an address, so a box's Wi-Fi address may change.
 
 ## What happens when
 
@@ -74,8 +84,8 @@ nowhere else (hard limit 1). The voter never trusts an address, so a box's Wi-Fi
 | The direct cable is pulled | The primary keeps the role on the voter's lease. The standby asks the voter and is refused (the lease is held). Replication stops until the cable is back; the board shows the lag |
 | The primary loses Wi-Fi only | The primary keeps the role on the standby's promise over the cable |
 | The voter is down | The primary keeps the role on the standby's promise. No automatic takeover until the voter is back; a person can still run `qv4-takeover` (the 11 October fallback) |
-| The primary is cut off from both | At 25 s it fences itself; at 30 s the voter can grant the standby. Never two primaries |
-| The agent on the primary hangs | The watchdog restarts the box within 15 s |
+| The primary is cut off from both | At 22 s it fences itself; at 30 s the voter can grant the standby. Never two primaries |
+| The agent on the primary hangs | systemd stops it within 3 s and the box is fenced; a fence that hangs restarts the box |
 | A planned switchover | The primary releases at the voter and stops cleanly; the standby is granted at once; the old primary rejoins. Seconds, not 30 |
 | A box returns | At boot it asks the voter, rejoins as the standby (rewind), and its worker starts pulling again |
 

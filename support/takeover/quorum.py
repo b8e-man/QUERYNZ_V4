@@ -55,14 +55,15 @@ class Voter:
             if self.holder == box and self.live(now):
                 self.until, reply["ok"] = now + TTL, True
         elif op == "acquire":
-            resume = msg.get("resume")
+            resume = bool(msg.get("resume"))
+            same = int(msg.get("held_epoch", -1)) == self.epoch
             if self.holder == box and self.live(now):
                 self.until, reply["ok"] = now + TTL, True
-            elif (not self.live(now) and not self.held
-                  and (not resume or int(msg.get("held_epoch", -1)) == self.epoch)):
-                if not (resume and self.holder == box):
-                    self.epoch += 1                       # a new holder; a resume by the last holder keeps its epoch
-                self.holder, self.until, reply["ok"] = box, now + TTL, True
+            elif not self.live(now) and resume and self.holder == box and same:
+                # the last holder taking back the role nobody has held since; allowed during maintenance
+                self.until, reply["ok"] = now + TTL, True
+            elif not self.live(now) and not resume and not self.held:
+                self.holder, self.epoch, self.until, reply["ok"] = box, self.epoch + 1, now + TTL, True
         elif op == "release":
             if self.holder == box:
                 self.until, reply["ok"] = now, True       # the epoch stays: the next grant raises it
@@ -110,6 +111,13 @@ class Agent:
             del self.sent[next(iter(self.sent))]
         return to, dict(id=rid, op=op, box=self.box, epoch=self.epoch, **extra)
 
+    def _renew_voter(self, now: float):
+        # a holder renews as a resume of its own epoch, so an agent restarted while the voter's lease lapsed
+        # (maintenance) gets the role back, and never one someone else has held since
+        if self.held_epoch is None:      # a primary activated with no epoch of its own yet: claim one
+            return self._req("voter", "acquire", now)
+        return self._req("voter", "acquire", now, resume=True, held_epoch=self.held_epoch)
+
     def _say(self, now: float, text: str) -> None:
         self.log.append(f"{now:.1f} {self.box} {text}")
 
@@ -138,12 +146,12 @@ class Agent:
             if now >= max(self.voter_ok, self.peer_ok):
                 acts += self._fence(now, f"no lease from the voter or {self.peer}")
             else:
-                out += [self._req("voter", "renew", now), self._req(self.peer, "renew", now)]
+                out += [self._renew_voter(now), self._req(self.peer, "renew", now)]
         elif self.role == "promoting":
             if now >= self.voter_ok:
                 acts += self._fence(now, "the grant ran out before the promotion finished")
             else:
-                out.append(self._req("voter", "renew", now))
+                out.append(self._renew_voter(now))
         elif self.role == "standby":
             if now - self.heard >= TTL and self.caught_up:
                 self.role = "acquiring"
@@ -172,6 +180,8 @@ class Agent:
             if op in ("renew", "acquire") and msg.get("ok") and now < until:
                 if self.role in ("primary", "promoting"):
                     self.voter_ok = max(self.voter_ok, until)
+                    if self.role == "primary" and self.held_epoch is None:
+                        self.held_epoch = self.epoch
                 elif self.role == "acquiring":
                     self.voter_ok, self.role, self.held_epoch = until, "promoting", self.epoch
                     self._say(now, f"granted, epoch {self.epoch}: promoting")

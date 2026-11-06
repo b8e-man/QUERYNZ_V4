@@ -4,9 +4,6 @@
 # over and this one can rejoin as the standby with no rewind needed.
 JOB=release; . "$(dirname "$0")/lib.sh"
 mkdir -p "$(dirname "$MARKER")"; touch "$MARKER"
-for u in querynz-vip-bridge.service querynz-vip.service; do
-  systemctl disable --now "$u" 2>/dev/null || true
-done
 if has_vip; then ip addr del "$VIP/24" dev "$DEV"; fi
 if has_vip; then die "the floating address $VIP is still on $DEV"; fi
 if pg_up && ! in_recovery; then
