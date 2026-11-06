@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-11-07, 09:20 NZDT. **Process:** ruling 131 (31 Oct) ended
+**Date:** 2026-11-07, 09:35 NZDT. **Process:** ruling 131 (31 Oct) ended
 the plan's gate process; work runs on Arthur's word. **Boxes:** two, both
 take every job (ruling 145); node1 primary on 10.0.0.10 since the drill,
 node2 its streaming standby; the voter on 192.168.68.57. **Alarms:** the
@@ -39,7 +39,7 @@ old ntfy address.
 
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
-  read timed out at 08:00 on 4 to 6 November (card, the 08:00 load); 7
+  read timed out at 08:00 on 4 to 6 November behind a lock; since 39f35e3 (both boxes) a lock wait is tried again and its holder named; 7
   November's pair missed by the release's 07:27 re-fire; 3 November's
   last real day: 2 uncarded, 4,978 new-wrong differences.
 - The inbox: all 177 merge requests are on main; nothing waits.
