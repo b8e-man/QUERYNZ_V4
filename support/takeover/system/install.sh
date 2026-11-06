@@ -40,6 +40,6 @@ if [ "$(runuser -u postgres -- psql -XAtq -c 'select pg_is_in_recovery()')" = f 
 fi
 echo "access lines in force (errors would show in the last column):"
 runuser -u postgres -- psql -XAtq -c "select line_number, type, database, user_name, address, error from pg_hba_file_rules
-  where user_name && array['replicator'] or address = 'samehost' or error is not null"
+  where user_name && array['replicator'] or address = 'samehost' or address like '10.0.0.%' or error is not null order by 1"
 echo "rewind grants: $(runuser -u postgres -- psql -XAtq -d postgres -c "select has_function_privilege('replicator', 'pg_read_binary_file(text, bigint, bigint, boolean)', 'execute')")"
 echo "$(hostname -s): takeover jobs installed; role guard $(systemctl is-enabled qv4-role-guard.service)"
