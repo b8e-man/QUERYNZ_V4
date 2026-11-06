@@ -27,6 +27,8 @@ old ntfy address.
   way: 16bedb9, 912ef49, 2a26561, 42e3626.
 - The frozen site's release, failed safe at 06:29 on the crash, fired
   again: 2026-11-07T0727 live 07:40, every check green.
+- node2's takeover scripts reinstalled at 42e3626 (7 November 09:18):
+  the box named by agent.conf on both boxes; qv4-roled active.
 
 ## Running
 
@@ -35,9 +37,6 @@ old ntfy address.
 
 ## Half-done
 
-- node2's takeover scripts at 2a26561: Arthur runs
-  `sudo bash /home/user/querynzv4-work/scratch/integrator-9d788fb/node1/node2-takeover-reinstall.sh`
-  on node2.
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
   read timed out at 08:00 on 4 to 6 November (card, the 08:00 load); 7
