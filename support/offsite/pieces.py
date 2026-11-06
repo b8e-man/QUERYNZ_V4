@@ -35,7 +35,7 @@ from support import db
 SEND, LOCAL, OUT = "send", "local", "out"
 FULL_WEEKDAY = 6          # Sunday (Monday is 0): the checkpoint lands before the working week
 REFRESH_DAYS = 28         # a frozen piece is sent again before the 45-day bucket rule removes it
-OLD_REPO = "/home/user/Git Repos/QueryNZ_V3"   # read only; never written
+OLD_REPO = os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3"   # read only; never written; node1 reads node2's over NFS
 
 # database -> the login that reads it, and whether it is frozen. The old
 # databases are read through the read-only old login (never the owner).

@@ -49,14 +49,13 @@ memory_reserve_gb = 16        # step 2.5: kept for the database and the standing
 lease_seconds = 90            # step 2.8: a running job renews its lease well inside this
 policy = "priority-ordered-round-robin"
 
-# WHAT EACH BOX TAKES (6 November 2026). A box named here claims only the jobs
-# on these model profiles, never a job with none, and its night window never
-# opens (the page profile is not among them). node1 reads with its own
-# Flash-Next (127.0.0.1:8060); every capture and load stays on node2, whose old
-# folder and disks are current (node1's copy of the old folder is from 17
-# October). A box not named takes every job.
-[boxes.node1]
-only_profiles = ["text-reader", "review"]
+# WHAT EACH BOX TAKES. A box named `[boxes.<box>] only_profiles = [...]` claims
+# only the jobs on those model profiles, never a job with none, and its night
+# window opens only if the page profile is among them. A box not named takes
+# every job. From 6 November 2026 node1 was limited to text-reader and review;
+# lifted the same day (ruling 145, pooled capability) once node1 read node2's
+# old folder read only over NFS (QV4_OLD_LIVE=/mnt/qv4-old-live) and its disks
+# (/mnt/hdd2/qv4-*). No box is limited now.
 
 # THE STANDING SERVER'S NIGHT WINDOW (ruling 129, 30 October 2026). Flash-Next
 # on Radiance holds both of node2's cards (56.0 GB over the two, measured 30

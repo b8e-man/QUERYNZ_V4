@@ -1,14 +1,11 @@
-"""`[boxes.<box>] only_profiles` in jobs.toml (6 November 2026): node1 reads with its own Flash-Next and nothing else."""
+"""`[boxes.<box>] only_profiles` in jobs.toml: node1 was limited to Flash-Next's views on 6 November 2026 and
+lifted the same day, once it read node2's old folder over NFS (ruling 145: both boxes take every job)."""
 from support.scheduler import registry as reg
 
 
-def test_the_shipped_catalogue_limits_node1_to_flash_next_views_and_leaves_node2_whole():
-    assert reg.box_only_profiles("node1") == {"text-reader", "review"}
+def test_the_shipped_catalogue_limits_no_box():
+    assert reg.box_only_profiles("node1") == frozenset()
     assert reg.box_only_profiles("node2") == frozenset()
-    profiles = reg.profiles()
-    assert all(p in profiles for p in reg.box_only_profiles("node1")), "every named profile exists"
-    standing = {reg.server_of(profiles, p).name for p in reg.box_only_profiles("node1")}
-    assert standing == {"flash-next"}, "node1's two profiles are views on its own standing server"
 
 
 def test_a_box_not_named_takes_every_job(tmp_path):
