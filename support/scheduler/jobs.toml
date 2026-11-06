@@ -1381,6 +1381,7 @@ nice = 10
 [jobs.qv4-mcp-adopt]
 description = "Once, before the first nightly pull: re-land mcp-1's pull (sample schema scratch_mcp_1_pull2) into the live docs from the store and copy the cursors, arrivals and stamps. No request to the MCP. Queued by the integrator (ruling 96)."
 needs = "processor"
+requires = ["qv4-mcp-tunnel"]   # the MCP is reached through node2's tunnel unit; a box without it gets "connection refused" (node1, 7 Nov 2026)
 memory_gb = 0.5        # measured 169 MB peak on the batch copy (fix-support-mcpsource-1, 27 October); the first one-at-a-time version needed 1,312 MB and ran at 21 documents a second
 deadline_s = 7200
 query_timeout_s = 3600
@@ -1392,6 +1393,7 @@ nice = 10
 [jobs.qv4-mcp-pull]
 description = "Every six hours (nightly 02:30 NZDT until 31 October): poll the ingest MCP's corpora through the tunnel and pull records from each cursor, 200 a page, one request at a time, then the change feed after the cursor; every record landed as a document by hash. Stops on its budget and resumes next night. Red on a failed corpus, a caught record, a new field or the MCP counting fewer records than taken (ruling 96)."
 needs = "processor"
+requires = ["qv4-mcp-tunnel"]   # the MCP is reached through node2's tunnel unit; a box without it gets "connection refused" (node1, 7 Nov 2026)
 memory_gb = 1.0   # measured 615 MB peak by hand, 28 October (killed at 549 MB the night before)
 deadline_s = 14400
 query_timeout_s = 60
@@ -1413,6 +1415,7 @@ nice = 10
 [jobs.qv4-mcp-rewalk]
 description = "Weekly: walk every corpus again from 0 to its cursor, landing records the MCP changed in place with their stamp unmoved (its change feed cannot show them). Resumes where the last stopped; also the fix when the pull reports the MCP counting fewer records than taken (ruling 96). The catalogue has no weekday, so every seven days from its first run."
 needs = "processor"
+requires = ["qv4-mcp-tunnel"]   # the MCP is reached through node2's tunnel unit; a box without it gets "connection refused" (node1, 7 Nov 2026)
 memory_gb = 1.0   # declared 0.3, killed at 622 MB on 29 October: the walk holds every corpus's page list
 deadline_s = 14400
 query_timeout_s = 60

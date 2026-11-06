@@ -34,7 +34,8 @@ import urllib.request
 # plus the new estate's own model server (installed beside the old one).
 PROGRAMS = ("pdftotext", "pdftoppm", "pdfinfo", "tesseract", "xvfb-run", "google-chrome", "psql", "pg_dump", "gpg",
             "pg_restore", "initdb", "zstd", "gzip", "ionice",
-            "rocm-smi", "llama-server", "qv4-llama-server", "qv4-llama-server-built", "qv4-llama-server-teleocr", "radiance")
+            "rocm-smi", "llama-server", "qv4-llama-server", "qv4-llama-server-built", "qv4-llama-server-teleocr", "radiance",
+            "qv4-mcp-tunnel")
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 QV4_LLAMA = os.environ.get("QV4_LLAMA_SERVER") or os.path.join(LIVE, "llama", "bin", "llama-server")
 QV4_LLAMA_BUILT = os.environ.get("QV4_LLAMA_SERVER_BUILT") or os.path.join(LIVE, "llama", "built", "bin", "llama-server")
@@ -46,6 +47,8 @@ FIXED = {"qv4-llama-server": QV4_LLAMA, "qv4-llama-server-built": QV4_LLAMA_BUIL
 # Radiance (ruling 121) runs in a container under its own unit: the box has it when the installer has placed the
 # unit and podman is there to run it. The path reported is the unit's.
 RADIANCE_UNIT = os.path.join(os.environ.get("QV4_UNIT_DIR") or os.path.expanduser("~/.config/systemd/user"), "qv4-radiance.service")
+# the ingest MCP is reached through an ssh tunnel unit (127.0.0.1:8646); a box has it when the unit is placed
+MCP_TUNNEL_UNIT = os.path.join(os.environ.get("QV4_UNIT_DIR") or os.path.expanduser("~/.config/systemd/user"), "qv4-mcp-tunnel.service")
 OLD_LLAMA = "/home/user/llama.cpp/build/bin/llama-server"      # the frozen product's build (baseline); never touched
 REAL_FS = {"ext4", "xfs", "btrfs", "ntfs3", "fuseblk", "vfat", "exfat", "f2fs"}
 # A DEVICE IS A CARD only when it is discrete: its product is not a processor and its memory is at or above the
@@ -180,6 +183,8 @@ def programs(names=PROGRAMS, which=None) -> dict:
     for n in names:
         if n in FIXED:
             out[n] = FIXED[n] if os.path.exists(FIXED[n]) else None
+        elif n == "qv4-mcp-tunnel":
+            out[n] = MCP_TUNNEL_UNIT if os.path.exists(MCP_TUNNEL_UNIT) else None
         elif n == "radiance":
             out[n] = RADIANCE_UNIT if os.path.exists(RADIANCE_UNIT) and which("podman") else None
         elif n == "llama-server":

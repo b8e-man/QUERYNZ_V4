@@ -158,3 +158,18 @@ def test_the_processors_own_graphics_is_not_a_card():
     assert probe.cards(small) == [], "a device under the floor is not a card, whatever its name"
     assert probe.cards(RYZEN.replace("card2", "card7")) == probe.cards(ROCM)
     assert probe.CARD_FLOOR_GB == 8.0
+
+
+def test_the_mcp_tunnel_is_had_only_where_its_unit_is_placed(tmp_path, monkeypatch):
+    """7 Nov 2026: node1 claimed qv4-mcp-pull once it took every job, and the MCP refused it: the tunnel is node2's."""
+    unit = tmp_path / "qv4-mcp-tunnel.service"
+    monkeypatch.setattr(probe, "MCP_TUNNEL_UNIT", str(unit))
+    assert probe.programs(names=("qv4-mcp-tunnel",)) == {"qv4-mcp-tunnel": None}
+    unit.write_text("[Service]\n")
+    assert probe.programs(names=("qv4-mcp-tunnel",)) == {"qv4-mcp-tunnel": str(unit)}
+
+
+def test_every_job_that_reaches_the_mcp_requires_the_tunnel():
+    from support.scheduler import registry as reg
+    mcp = {n: j for n, j in reg.load().items() if "support.mcpsource" in " ".join(j.command)}
+    assert mcp and all("qv4-mcp-tunnel" in j.requires for j in mcp.values()), sorted(mcp)
