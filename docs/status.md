@@ -2,7 +2,7 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-11-07, 09:35 NZDT. **Process:** ruling 131 (31 Oct) ended
+**Date:** 2026-11-07, 10:45 NZDT. **Process:** ruling 131 (31 Oct) ended
 the plan's gate process; work runs on Arthur's word. **Boxes:** two, both
 take every job (ruling 145); node1 primary on 10.0.0.10 since the drill,
 node2 its streaming standby; the voter on 192.168.68.57. **Alarms:** the
@@ -34,6 +34,16 @@ old ntfy address.
 
 - Both workers claim every job; the bulk ingest from the MCP; the nightly
   lanes on their timers.
+- The source board, 7 November 10:45: 9 reds to 8, disclosures green.
+  Fixed: node1 read the frozen site's `current` link as node2's path
+  (7d738fc); a NUL in a register answer stopped companies-history
+  (692b05c); the four sightings lanes deadlocked on their DDL (76ea8c0);
+  sightings-courts' deadline and memory (measured). 175 records the crash
+  caught re-landed. Clearing on their own: the 13:00 pull (parliament,
+  hansard, courts), tonight's captures (linz, insolvency, courts,
+  companies); courts-load and sightings-courts re-run now. Building
+  practitioners waits on Arthur clearing the gate's hold on
+  kete-lbp.mbie.govt.nz.
 
 ## Half-done
 
