@@ -24,6 +24,12 @@ from support.docstore import landing as docstore
 
 DATABASE = "querynz_v4"
 STATEMENT_MS = int(os.environ.get("QV4_SITE_STATEMENT_MS") or 120_000)
+#: a read that waits this long for a lock gives up and the build tries again (7 November 2026: on 4, 5 and 6 November the
+#: 08:00 build's read, normally 4 s, waited 120 s behind a lock while the links build and the bulk readers ran, and the day
+#: had no version)
+LOCK_MS = int(os.environ.get("QV4_SITE_LOCK_MS") or 60_000)
+#: how often the watcher asks who the build's read is waiting on
+WATCH_S = float(os.environ.get("QV4_SITE_WATCH_S") or 10)
 #: views read whole; the rest are read for the window and the registers this template shows
 ROSTER_VIEWS = {"pub.parties", "pub.party_names", "pub.elections", "pub.electorates", "pub.candidates",
                 "pub.members", "pub.broadcasting_allocations", "pub.party_expenses", "pub.party_expense_returns",
@@ -33,12 +39,66 @@ ROSTER_VIEWS = {"pub.parties", "pub.party_names", "pub.elections", "pub.electora
 REGISTERS = ("party_returns", "disclosures", "house", "party_finance", "mp_interests")
 
 
+def _options() -> str:
+    return f"-c statement_timeout={STATEMENT_MS} -c lock_timeout={LOCK_MS} -c application_name=qv4-site-build"
+
+
 def product_connect():
-    return sdb.connect(sdb.PRODUCT_KEY, DATABASE, options=f"-c statement_timeout={STATEMENT_MS}", autocommit=True)
+    return sdb.connect(sdb.PRODUCT_KEY, DATABASE, options=_options(), autocommit=True)
 
 
 def read_connect():
-    return sdb.connect(sdb.READ_KEY, DATABASE, options=f"-c statement_timeout={STATEMENT_MS}", autocommit=True)
+    return sdb.connect(sdb.READ_KEY, DATABASE, options=_options(), autocommit=True)
+
+
+#: who a waiting backend waits on: the chain's every blocker, with what it is running
+BLOCKERS_SQL = """
+select b.pid, coalesce(nullif(b.application_name, ''), b.usename::text) as who, b.state,
+       to_char(b.xact_start, 'HH24:MI:SS') as since, left(regexp_replace(b.query, '\\s+', ' ', 'g'), 160) as query,
+       l.mode, l.relation::regclass::text as relation
+  from pg_stat_activity b
+  left join lateral (select mode, relation from pg_locks where pid = b.pid and relation is not null and granted
+                      order by mode desc limit 1) l on true
+ where b.pid = any(pg_blocking_pids(%s))
+"""
+
+
+def blocker_line(r) -> str:
+    pid, who, state, since, query, mode, relation = r
+    return f"pid {pid} {who} ({state}, in a transaction since {since}; {mode or '?'} on {relation or '?'}): {query}"
+
+
+class WaitWatcher:
+    """Asks, every WATCH_S seconds while the build reads, which backends hold
+    the lock its read waits on, and keeps each distinct one as a line. The
+    lock that stalled the build is gone by the time a timeout is raised, so
+    it is caught while it is held or not at all."""
+
+    def __init__(self, pid: int, connect=None, every: float = None):
+        import threading
+        self.pid, self.connect, self.every = pid, connect or read_connect, every or WATCH_S
+        self.lines, self._stop = [], threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    def __enter__(self):
+        self._thread.start()
+        return self
+
+    def __exit__(self, *a):
+        self._stop.set()
+        self._thread.join(timeout=self.every + 5)
+        return False
+
+    def _run(self):
+        try:
+            with self.connect() as conn:
+                while not self._stop.wait(self.every):
+                    for r in conn.execute(BLOCKERS_SQL, (self.pid,)):
+                        line = blocker_line(r)
+                        if line not in self.lines:
+                            self.lines.append(line)
+        except Exception as exc:  # noqa: BLE001 — the watcher is a witness; the build goes on without it
+            self.lines.append(f"(the wait watcher stopped: {type(exc).__name__}: {exc})")
 
 
 def plain(v):

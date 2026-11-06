@@ -15,6 +15,7 @@ from __future__ import annotations
 import datetime as dt
 import os
 import sys
+import time
 
 from products.published_site import candidate_money as CM
 from products.published_site import figures as F
@@ -25,6 +26,12 @@ OUT = os.environ.get("QV4_SITE_OUT") or os.path.join(os.environ.get("QV4_LIVE") 
 #: the views whose rows carry the money: a row citing a document the listing does not hold is left out
 PINNED_VIEWS = ("pub.party_return_totals", "pub.party_return_donors", "pub.party_return_loans", "pub.disclosures",
                 "pub.candidate_return_totals", "pub.candidate_return_donors")
+#: a read stopped by a lock wait or the statement limit is tried again (7 November 2026: the 08:00 read, normally 4 s, waited
+#: 120 s behind a lock on 4, 5 and 6 November). Eight tries of at most 120 s each (the statement limit), a minute apart, sit inside the
+#: job's 1,800 s deadline (1,380 s at worst)
+WAITS = ("LockNotAvailable", "QueryCanceled")
+READ_TRIES = int(os.environ.get("QV4_SITE_READ_TRIES") or 8)
+READ_RETRY_S = float(os.environ.get("QV4_SITE_READ_RETRY_S") or 60)
 
 
 def pin_tables(tables: read.Tables, listing: pin.Listing) -> dict:
@@ -65,26 +72,52 @@ def build(listing_version: str = None, out: str = None, template_path: str = Non
     generated_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
 
     previous = version.last_built(out)
-    try:
-        conn = read.product_connect()
-    except Exception as exc:  # noqa: BLE001 — a plain line, then stop
-        say(f"fail  the published tables could not be read: {type(exc).__name__}: {exc}")
-        return False, None, lines
-    with conn:
+
+    def read_all(conn):
+        tables = read.Tables(t, conn, s["window_from"])
+        for r in t.reads:
+            if r.table in read.ROSTER_VIEWS or r.table in PINNED_VIEWS or r.table in ("pub.names",):
+                tables.get(r.table)
+        left = pin_tables(tables, listing)
+        idx = F.PartyIndex(tables.get("pub.parties"), tables.get("pub.party_names"))
+        series = F.party_series(tables, s, idx, years)
+        cm = CM.candidate_money(tables, idx, F.elections_in_window(tables, years), years)
+        donors = F.donors(tables, s, idx, series, years, cm)
+        forms = redact.load_forms(tables, s.get("suppressed_names_view"))
+        return tables, left, idx, series, cm, donors, forms
+
+    for attempt in range(1, READ_TRIES + 1):
         try:
-            tables = read.Tables(t, conn, s["window_from"])
-            for r in t.reads:
-                if r.table in read.ROSTER_VIEWS or r.table in PINNED_VIEWS or r.table in ("pub.names",):
-                    tables.get(r.table)
-            left = pin_tables(tables, listing)
-            idx = F.PartyIndex(tables.get("pub.parties"), tables.get("pub.party_names"))
-            series = F.party_series(tables, s, idx, years)
-            cm = CM.candidate_money(tables, idx, F.elections_in_window(tables, years), years)
-            donors = F.donors(tables, s, idx, series, years, cm)
-            forms = redact.load_forms(tables, s.get("suppressed_names_view"))
-        except Exception as exc:  # noqa: BLE001
+            conn = read.product_connect()
+        except Exception as exc:  # noqa: BLE001 — a plain line, then stop
             say(f"fail  the published tables could not be read: {type(exc).__name__}: {exc}")
             return False, None, lines
+        pid = getattr(getattr(conn, "info", None), "backend_pid", None)
+        watcher = read.WaitWatcher(pid) if pid else None
+        try:
+            if watcher:
+                with watcher:
+                    got = read_all(conn)
+            else:
+                got = read_all(conn)
+            break
+        except Exception as exc:  # noqa: BLE001
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+            waited = type(exc).__name__ in WAITS
+            for line in (watcher.lines if watcher else []):
+                say(f"  blocked by {line}")
+            if waited and attempt < READ_TRIES:
+                say(f"  wait  read {attempt} of {READ_TRIES} stopped ({type(exc).__name__}: {str(exc).strip()}); again in {READ_RETRY_S:g} s")
+                time.sleep(READ_RETRY_S)
+                continue
+            say(f"fail  the published tables could not be read: {type(exc).__name__}: {exc}"
+                + (f" (after {attempt} tries)" if waited else ""))
+            return False, None, lines
+    tables, left, idx, series, cm, donors, forms = got
+    with conn:
         say(f"  read {len(tables.counts)} published views; {len(series)} parties with figures, {len(donors)} folded donors, "
             f"{cm.joined} of {cm.returns} candidate returns joined to a candidate, window {years[0]}–{years[-1]}")
         for view, x in left.items():

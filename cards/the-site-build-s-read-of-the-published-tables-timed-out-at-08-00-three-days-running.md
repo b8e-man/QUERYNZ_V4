@@ -1,9 +1,10 @@
 # The site build's read of the published tables timed out at 08:00 three days running, so the comparison had no rebuilt side on 4, 5 and 6 November
 kind: finding
-state: open
+state: closed
 use-case: Follow the Money; step 4.4 (the build), 4.5 (the comparison's clean days)
 session: integrator
 opened: 2026-11-07
+closed: 2026-11-07
 
 Found 7 November 2026 reading the comparison ledger and node2's journal.
 `qv4-site-build` (08:00 daily, node2 each time) on 4, 5 and 6 November
@@ -34,3 +35,13 @@ Separately, on 7 November the build ran from yesterday's listing: the
 release failed safe at 06:29 on the drill's crash and fired again at
 07:27, and the 07:30 watcher still saw 2026-11-06T0616 as current. That
 is one day's timing, not this card.
+
+Closed 7 November 2026 by the integrator, on Arthur's word ("you do it"):
+the build's connections carry `lock_timeout` 60 s; a read stopped by a
+lock wait or the statement limit is tried again, up to eight tries a
+minute apart (1,380 s at worst, inside the 1,800 s deadline); a watcher
+asks every 10 s who holds the lock the read waits on and says each in
+the build's lines, so the next stall names its cause. Tested offline
+(tests/test_read_waits.py, mutation-checked) and live: a lock held on the
+sample database was named by the watcher and the waiter got
+`LockNotAvailable`, the name the build retries on.
