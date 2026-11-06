@@ -85,6 +85,31 @@ CREATE OR REPLACE VIEW pub.name_sightings AS
 """
 
 
+#: the DDL's own stamp, kept as the comment on links.sightings_done: a run whose DDL is the one applied last skips it.
+#: Every lane job ran the DDL at its start, and the four start together after the forms; one's CREATE INDEX held a share
+#: lock on links.sightings while it waited on sightings_done's ALTER, and another lane, mid-write, held sightings_done
+#: and waited on sightings: a deadlock (7 November 2026, qv4-sightings-parliament)
+DDL_STAMP = "sightings ddl " + hashlib.sha256(DDL.encode()).hexdigest()[:16]
+
+
+def ensure_tables(conn) -> bool:
+    """The tables and the view as DDL declares them; True when the DDL ran.
+    The stamp is read from the catalogue, which takes no lock on the tables;
+    the DDL itself runs one job at a time (an advisory lock), and checks the
+    stamp again once it holds it."""
+    def current():
+        row = conn.execute("SELECT obj_description(to_regclass('links.sightings_done'), 'pg_class')").fetchone()
+        return bool(row) and row[0] == DDL_STAMP
+    if current():
+        return False
+    conn.execute("SELECT pg_advisory_xact_lock(hashtext('links.sightings ddl'))")
+    if current():
+        return False
+    conn.execute(DDL)
+    conn.execute(f"COMMENT ON TABLE links.sightings_done IS '{DDL_STAMP}'")
+    return True
+
+
 # ── normalising ───────────────────────────────────────────────────────────────────────────────────────────────
 def norm(s: str) -> str:
     s = "".join(c for c in unicodedata.normalize("NFKD", s or "") if not unicodedata.combining(c)).lower()
@@ -171,7 +196,7 @@ def scan(text: str, forms) -> list:
 
 # ── the forms ─────────────────────────────────────────────────────────────────────────────────────────────────
 def build_forms(conn, log=print) -> dict:
-    conn.execute(DDL)
+    ensure_tables(conn)
     counts, kinds = {}, {}
     t = time.monotonic()
     with conn.cursor(name="forms") as cur:
@@ -297,7 +322,7 @@ def scan_streamed(lane: str, limit: int = None, log=print, batch: int = 500) -> 
     with db.connect(db.OWNER_KEY, "querynz_v4") as conn, db.connect(db.READ_KEY, "querynz_v4") as rconn:
         conn.execute("SET statement_timeout = 0")
         rconn.execute("SET statement_timeout = 0")
-        conn.execute(DDL)
+        ensure_tables(conn)
         conn.commit()
         forms, version = load_forms(conn)
         done = {d for (d,) in conn.execute("SELECT document FROM links.sightings_done WHERE lane = %s AND version = %s",
@@ -367,7 +392,7 @@ def scan_lane(lane: str, limit: int = None, log=print) -> dict:
         return scan_streamed(lane, limit, log)
     with db.connect(db.OWNER_KEY, "querynz_v4") as conn:
         conn.execute("SET statement_timeout = 0")
-        conn.execute(DDL)
+        ensure_tables(conn)
         conn.commit()
         forms, version = load_forms(conn)
         done = {d for (d,) in conn.execute("SELECT document FROM links.sightings_done WHERE lane = %s AND version = %s",
@@ -430,7 +455,7 @@ def main(argv=None) -> int:
     if argv[:1] == ["dates"]:
         with db.connect(db.OWNER_KEY, "querynz_v4") as conn:
             conn.execute("SET statement_timeout = 0")
-            conn.execute(DDL)
+            ensure_tables(conn)
             conn.commit()
             for lane in LANES:
                 date_done(conn, lane)

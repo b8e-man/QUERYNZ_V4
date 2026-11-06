@@ -58,3 +58,36 @@ def test_a_title_or_office_filed_in_front_of_the_given_names_is_no_part_of_a_per
 
 def test_a_hyphenated_given_name_keeps_its_whole_first_name_in_the_given_and_family_form():
     assert S.forms_of("person", "Aiden-Lee JOHNSON", "Aiden-Lee", "Mark", "Johnson") == {"aiden lee mark johnson", "aiden lee johnson"}
+
+
+class _Catalogue:
+    """Answers the stamp query with what the catalogue holds; records every statement."""
+
+    def __init__(self, comment):
+        self.comment, self.sql = comment, []
+
+    def execute(self, sql, params=()):
+        self.sql.append(sql)
+        if sql.startswith("COMMENT ON TABLE links.sightings_done"):
+            self.comment = sql.split("'")[1]
+
+        class R:
+            def __init__(s, row):
+                s.row = row
+
+            def fetchone(s):
+                return s.row
+        return R((self.comment,) if "obj_description" in sql else None)
+
+
+def test_the_ddl_runs_once_and_a_lane_whose_ddl_is_current_takes_no_lock():
+    # 7 November 2026: four lane jobs ran the DDL at their start together and two deadlocked
+    from links import sightings as S
+    fresh = _Catalogue(None)
+    assert S.ensure_tables(fresh) is True
+    assert S.DDL in fresh.sql and any("pg_advisory_xact_lock" in q for q in fresh.sql) and fresh.comment == S.DDL_STAMP
+    again = _Catalogue(S.DDL_STAMP)
+    assert S.ensure_tables(again) is False
+    assert again.sql and all("obj_description" in q for q in again.sql)
+    changed = _Catalogue("sightings ddl 0000000000000000")
+    assert S.ensure_tables(changed) is True and S.DDL in changed.sql
