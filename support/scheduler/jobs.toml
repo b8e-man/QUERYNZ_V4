@@ -1552,8 +1552,8 @@ nice = 10
 [jobs.qv4-sightings-courts]
 description = "The name pass over the courts documents not yet scanned under the current forms (links.sightings), then the courts reader."
 needs = "processor"
-memory_gb = 1.0   # 0.5 GB measured, 31 October
-deadline_s = 3600
+memory_gb = 2.5   # 2,302 MB peak measured 7 November 2026 (run fe52819f, a full rescan under new forms); 0.5 GB on 31 October
+deadline_s = 7200   # a full rescan of 37,374 documents took over 3,600 s (7 November: stopped at 37,000)
 query_timeout_s = 600
 class = "whenever"
 priority = 17
