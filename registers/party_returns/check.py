@@ -20,10 +20,12 @@ when one of them carries the figure, and the others are listed as
 """
 import json
 import os
+
+from support import frozen as frozen_site
 import sys
 
 OLD_LIVE = os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3"
-HOME_JSON = os.path.join(OLD_LIVE, "var", "pi-snapshot", "current", "data", "home.json")
+HOME_JSON = frozen_site.home_json(OLD_LIVE)   # current is an absolute link on node2; node1 reads the folder over NFS (support/frozen.py)
 TOLERANCE = 0.011
 
 

@@ -41,6 +41,8 @@ import json
 import os
 import subprocess
 
+from support import frozen as frozen_site
+
 OLD_LIVE = os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3"
 LIVE = os.environ.get("QV4_LIVE") or "/home/user/querynzv4-work/live"
 STATE_DIR = os.path.join(LIVE, "checks", "frozen-product")
@@ -204,11 +206,8 @@ def latest_publish(old_live: str, tz=None):
 
 
 def current_version(old_live: str):
-    link = os.path.join(old_live, "var", "pi-snapshot", "current")
-    try:
-        return os.path.basename(os.path.realpath(link)) if os.path.exists(link) else None
-    except OSError:
-        return None
+    # the link's own last part: its target is node2's absolute path, which node1 (reading over NFS) does not have
+    return frozen_site.current_version(old_live) if frozen_site.current_dir(old_live) else None
 
 
 def hours_ago(now: dt.datetime, then: dt.datetime) -> float:

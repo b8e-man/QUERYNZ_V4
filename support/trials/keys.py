@@ -34,6 +34,7 @@ import re
 import sys
 from collections import defaultdict
 
+from support import frozen as frozen_site
 from support.trials import pageset
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -41,7 +42,7 @@ KEYS = os.path.join(HERE, "keys.jsonl")
 OLD_LIVE = pageset.OLD_LIVE
 EC_BY_YEAR = os.path.join(OLD_LIVE, "var", "staging", "ec-donations", "index",
                           "live-mocracy-in-nz-political-parties-in-new-zealand-party-donations-and-loans-by-year.html")
-HOME_JSON = os.path.join(OLD_LIVE, "var", "pi-snapshot", "current", "data", "home.json")
+HOME_JSON = frozen_site.home_json(OLD_LIVE)   # current is an absolute link on node2; node1 reads the folder over NFS (support/frozen.py)
 PAGEREAD = os.path.join(OLD_LIVE, "var", "staging", "ec-donations", "pageread")
 GOLD = os.path.join(OLD_LIVE, "var", "audits", "docread-gold.jsonl")
 # the Commission's table is wrong here (Part A alone): never a key

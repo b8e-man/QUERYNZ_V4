@@ -31,10 +31,12 @@ Read-only.
 import glob
 import json
 import os
+
+from support import frozen as frozen_site
 import sys
 
 OLD_LIVE = os.environ.get("QV4_OLD_LIVE") or "/home/user/Git Repos/QueryNZ_V3"
-HOME_JSON = os.path.join(OLD_LIVE, "var", "pi-snapshot", "current", "data", "home.json")
+HOME_JSON = frozen_site.home_json(OLD_LIVE)   # current is an absolute link on node2; node1 reads the folder over NFS (support/frozen.py)
 CARDS = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "cards")
 COMPARED = "over-20000-from-2023"
 TOLERANCE = 0.005
