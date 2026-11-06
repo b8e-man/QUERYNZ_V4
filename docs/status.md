@@ -42,4 +42,5 @@ old ntfy address.
   election hold is lifted (145).
 - Waits on Arthur: the Insolvency Register API subscription and the PPSR
   account (8.4); letters (Dunedin, TPK, Police); rulings 69, 75; the 15
-  unsplittable courts documents; whether node2 takes the primary back.
+  unsplittable courts documents. Which box is primary does not matter
+  (Arthur, 7 November): no fail-back.
