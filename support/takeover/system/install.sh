@@ -8,7 +8,8 @@
 #  3. the polkit rule: the estate's account may start qv4-release, qv4-takeover, qv4-rejoin, nothing else
 #  4. the agents' port (8742/udp) open on the cable zone and the home network zone
 #  5. the same access lines on both boxes (replication and pg_rewind from either box; a box reaching itself
-#     through the floating address); a reload, never a restart. On the primary only, the four file functions
+#     through the floating address; every estate login from either box, so the clients on the box that is not
+#     primary still reach the floating address after a switchover); a reload, never a restart. On the primary only, the four file functions
 #     pg_rewind reads through (they reach the standby by replay)
 #  6. the old role guard, if an earlier install placed it, removed
 set -euo pipefail
@@ -63,6 +64,8 @@ host replication replicator 10.0.0.2/32 scram-sha-256
 host postgres replicator 10.0.0.1/32 scram-sha-256
 host postgres replicator 10.0.0.2/32 scram-sha-256
 host all all samehost scram-sha-256
+host all qv4_owner,qv4_read,qv4_product,qv4_oldread,querynz,querynz_serving 10.0.0.1/32 scram-sha-256
+host all qv4_owner,qv4_read,qv4_product,qv4_oldread,querynz,querynz_serving 10.0.0.2/32 scram-sha-256
 EOF
 if [ "$added" = 1 ]; then runuser -u postgres -- psql -XAtq -c 'select pg_reload_conf()' > /dev/null; fi
 if [ "$(runuser -u postgres -- psql -XAtq -c 'select pg_is_in_recovery()')" = f ]; then

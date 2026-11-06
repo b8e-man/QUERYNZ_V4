@@ -208,3 +208,15 @@ def test_start_primary_refuses_a_database_that_comes_up_in_recovery(box):
     box.set("recovery")
     assert box.run("start-primary.sh") == 1
     assert not box.has("vip")
+
+
+def test_install_admits_every_estate_login_from_both_boxes():
+    """6 Nov 2026: node1 refused qv4_owner/qv4_product from 10.0.0.2, so after a switchover node2's worker, board
+    and products would have lost the database. Each box's address must carry every login role, on both boxes."""
+    import pathlib
+    text = (pathlib.Path(__file__).parents[1] / "system" / "install.sh").read_text()
+    roles = {"qv4_owner", "qv4_read", "qv4_product", "qv4_oldread", "querynz", "querynz_serving"}
+    for ip in ("10.0.0.1", "10.0.0.2"):
+        lines = [l.split() for l in text.splitlines() if l.startswith("host all ") and f"{ip}/32" in l]
+        got = {r for l in lines for r in l[2].split(",")}
+        assert roles <= got, f"{ip}: missing {roles - got}"
