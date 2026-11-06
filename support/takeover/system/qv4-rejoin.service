@@ -1,0 +1,9 @@
+[Unit]
+Description=QueryNZV4 rejoin: this box rewinds and follows the holder of 10.0.0.10 as its standby (ruling 145; support/takeover/spec.md)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/qv4-takeover/rejoin.sh
+TimeoutStartSec=2h

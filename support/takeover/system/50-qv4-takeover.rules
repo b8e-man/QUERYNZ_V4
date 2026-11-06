@@ -1,0 +1,9 @@
+// QueryNZV4 (ruling 145): the estate's account may START the three takeover jobs, and nothing else, with no
+// password, so a takeover needs nobody typing privileged lines (track A lesson 1).
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" && subject.user == "user" &&
+        action.lookup("verb") == "start" &&
+        ["qv4-release.service", "qv4-takeover.service", "qv4-rejoin.service"].indexOf(action.lookup("unit")) >= 0) {
+        return polkit.Result.YES;
+    }
+});

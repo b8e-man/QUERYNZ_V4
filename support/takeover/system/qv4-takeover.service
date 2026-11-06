@@ -1,0 +1,9 @@
+[Unit]
+Description=QueryNZV4 takeover: this standby becomes the primary and takes 10.0.0.10 (ruling 145; support/takeover/spec.md)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/qv4-takeover/takeover.sh
+TimeoutStartSec=5min
