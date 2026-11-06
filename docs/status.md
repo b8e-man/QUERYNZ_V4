@@ -36,7 +36,7 @@ old ntfy address.
 ## Half-done
 
 - node2's takeover scripts at 2a26561: Arthur runs
-  `sudo bash .../scratch/integrator-9d788fb/node1/node2-takeover-reinstall.sh`
+  `sudo bash /home/user/querynzv4-work/scratch/integrator-9d788fb/node1/node2-takeover-reinstall.sh`
   on node2.
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
