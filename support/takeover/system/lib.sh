@@ -8,7 +8,11 @@ MARKER=${QV4_MARKER:-/etc/querynz/not-primary}
 CREDS=${QV4_REPLICATION_ENV:-/home/user/.querynz/replication.env}
 LOG=${QV4_TAKEOVER_LOG:-/var/log/qv4-takeover.log}
 SYSNET=${QV4_SYSNET:-/sys/class/net}
-ME=${QV4_BOX:-$(hostname -s)}
+# the box's name from the takeover's own config, never the hostname alone: a box with no static hostname takes
+# one from the floating address's /etc/hosts entry when it holds it (node1 became "db-primary", 6 November 2026)
+AGENT_CONF=${QV4_AGENT_CONF:-/etc/qv4-takeover/agent.conf}
+ME=${QV4_BOX:-$(sed -n 's/^box *= *//p' "$AGENT_CONF" 2>/dev/null || true)}
+ME=${ME:-$(hostname -s)}
 # the peer is named only to name its slot; no job here reaches the peer by its address (track A lesson 5)
 case "$ME" in node1) PEER=node2 ;; node2) PEER=node1 ;; *) PEER=${QV4_PEER:?unknown box $ME} ;; esac
 

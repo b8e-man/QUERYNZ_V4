@@ -69,7 +69,8 @@ def box(tmp_path):
     (sysnet / "carrier").write_text("1\n")
     env = dict(os.environ, PATH=f"{bin_}:/usr/bin:/bin", QV4_STATE=str(state), QV4_PGDATA=str(pgdata),
                QV4_MARKER=str(tmp_path / "etc" / "not-primary"), QV4_REPLICATION_ENV=str(creds),
-               QV4_TAKEOVER_LOG=str(tmp_path / "log"), QV4_SYSNET=str(tmp_path / "net"), QV4_LINK_WAIT="1")
+               QV4_TAKEOVER_LOG=str(tmp_path / "log"), QV4_SYSNET=str(tmp_path / "net"), QV4_LINK_WAIT="1",
+               QV4_AGENT_CONF=str(tmp_path / "agent.conf"))
 
     class Box:
         def __init__(self):
@@ -220,3 +221,15 @@ def test_install_admits_every_estate_login_from_both_boxes():
         lines = [l.split() for l in text.splitlines() if l.startswith("host all ") and f"{ip}/32" in l]
         got = {r for l in lines for r in l[2].split(",")}
         assert roles <= got, f"{ip}: missing {roles - got}"
+
+
+def test_the_box_is_named_by_the_agent_config_not_the_hostname(box, tmp_path):
+    """6 Nov 2026: node1, with no static hostname, was called "db-primary" while it held 10.0.0.10, and every
+    takeover script would have refused it as an unknown box: its own fence included."""
+    box.env["QV4_STUB_HOST"] = "db-primary"
+    box.set("pg_up", "vip")
+    assert box.run("fence.sh") == 1 and "unknown box db-primary" in box.out, "without the config: refused"
+    (tmp_path / "agent.conf").write_text("# written by install.sh\nbox = node1\npeer = node2\n")
+    box.set("pg_up", "vip")
+    assert box.run("fence.sh") == 0, box.out
+    assert not box.has("vip") and not box.has("pg_up")
