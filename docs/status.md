@@ -34,16 +34,10 @@ old ntfy address.
 
 - Both workers claim every job; the bulk ingest from the MCP; the nightly
   lanes on their timers.
-- The source board, 7 November 10:45: 9 reds to 8, disclosures green.
-  Fixed: node1 read the frozen site's `current` link as node2's path
-  (7d738fc); a NUL in a register answer stopped companies-history
-  (692b05c); the four sightings lanes deadlocked on their DDL (76ea8c0);
-  sightings-courts' deadline and memory (measured). 175 records the crash
-  caught re-landed. Clearing on their own: the 13:00 pull (parliament,
-  hansard, courts), tonight's captures (linz, insolvency, courts,
-  companies); courts-load and sightings-courts re-run now. Building
-  practitioners waits on Arthur clearing the gate's hold on
-  kete-lbp.mbie.govt.nz.
+- Source board 10:45: 8 red (disclosures green). Fixed 7d738fc, 692b05c,
+  76ea8c0; 175 caught records re-landed. The rest clear on their clocks
+  (13:00 pull; tonight's captures); building practitioners waits on
+  Arthur clearing kete-lbp.mbie.govt.nz.
 
 ## Half-done
 
