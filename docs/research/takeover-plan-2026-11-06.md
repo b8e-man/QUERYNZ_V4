@@ -52,7 +52,7 @@ The v4 build ports this and adds two things:
 | Rehearse on a scratch pair, then drill live both ways on Arthur's word | Not started (I proposed a live drill first: withdrawn) |
 | The primary normally on node1 | node2 is primary; the fail-back is owed |
 | The scheduler reserves memory for the primary role | Not built |
-| The survivor's set within 62 GB | Not met: Radiance alone holds 85 GB on each box (n-gram table 47.7 GiB in RAM, host pool 26 GiB) |
+| The survivor's set within 62 GB | Re-sized (Arthur, 6 Nov): the 62 GB dates from 64 GB boxes; both now have 125 GB. Radiance holds 85 GB on each box (n-gram table 47.7 GiB in RAM, host pool 26 GiB), leaving about 40 GB for the primary database, the standing services and the jobs; the survivor's set is measured against that in tranche 6 |
 | Two-way copy of the files | Not started; node2 serves the stores and the work folder over NFS |
 | Watchers ping a box's own address | Not built |
 | Third machine (step 0) | Arthur's; not set up |
@@ -98,14 +98,10 @@ The v4 build ports this and adds two things:
    - The primary role's memory reserve goes into the worker.
    - This needs the Radiance decision below.
 7. **The two-way file copy.** The stores and the work folder are held on both boxes, so the box that takes over has the documents as well as the database. This needs a design pass of its own (sizes, which disk on node1, how a writer on each side is fenced).
-8. **Automatic takeover.** Once the third machine is on the network, the voter's word triggers `qv4-takeover`. Until then takeover stays the single command a person (or a session) runs, as recorded 11 October.
+8. **Automatic takeover.** The third machine is in hand (6 Nov); once it is on the network, the voter's word triggers `qv4-takeover`. Until then takeover stays the single command a person (or a session) runs, as recorded 11 October.
 
 ## Decisions for Arthur
 
-1. **Radiance's memory on the box that holds the primary.** Track A sizes the survivor at 62 GB; Radiance alone is 85 GB. Choices:
-   - put the n-gram table back on disk on the primary box only (slower steps there);
-   - one Radiance per estate, not per box, placed by the scheduler;
-   - accept a survivor that drops Radiance until the other box returns.
-2. **The third machine.** Any always-on computer with its own path to each box. The home Wi-Fi network (both boxes are on it) is a path independent of the cable. The cloud server is reachable only through outbound tunnels, so it sees the internet link, not the boxes.
-3. **`archive_mode` on the primary** (the open card): a restart, and point-in-time recovery from then on.
-4. **The live drill's time**, when tranches 1 to 3 are done.
+1. **The third machine: in Arthur's hands (6 Nov).** It goes on the home network (both boxes are on it, a path independent of the cable), wired to the router if it can be, with a reserved address and ssh. Its work: vote on which box holds the database; it holds no data.
+2. **`archive_mode` on the primary** (the open card): a restart, and point-in-time recovery from then on.
+3. **The live drill's time**, when tranches 1 to 3 are done.
