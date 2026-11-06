@@ -120,12 +120,39 @@ def release_state(path) -> str | None:
     return None
 
 
+RENEW_RETRY_S = 5.0    # an unconfirmed renewal is tried again this soon
+
+
 def _connect(database: str):
     import support.db as db
     conn = db.connect(db.OWNER_KEY, database, autocommit=True)
     conn.execute("SET statement_timeout = 30000")
     conn.execute("SET application_name = 'qv4-worker'")
     return conn
+
+
+class Redial:
+    """A row thread's connection that can be dialled again. The database's address moves at a switchover or a
+    takeover (support/takeover), and every connection to the old primary drops; a row's thread dials again
+    instead of abandoning its child (6 November 2026: the first switchover drill orphaned qv4-offsite-copy)."""
+
+    def __init__(self, connect):
+        self._dial, self._lock = connect, threading.Lock()
+        self._c = connect()
+
+    def redial(self) -> None:
+        with self._lock:
+            try:
+                self._c.close()
+            except Exception:  # noqa: BLE001 — already broken
+                pass
+            self._c = self._dial()
+
+    def close(self) -> None:
+        self._c.close()
+
+    def __getattr__(self, name):
+        return getattr(self._c, name)
 
 
 class Running:
@@ -136,6 +163,7 @@ class Running:
         self.card: int | None = None              # the card the current piece runs against (pick_card)
         self.started = time.monotonic()
         self.last_renew = time.monotonic()    # across every piece of the claim, so short pieces still renew
+        self.renewed_ok = time.monotonic()    # the last renewal the database confirmed
         self.thread: threading.Thread | None = None
         self.outcome: str | None = None
         self.in_flight = 0                        # pieces (children) running now; 1 for a job not cut into pieces
@@ -536,10 +564,31 @@ class Worker:
         if time.monotonic() - r.last_renew >= self.rules.lease_seconds / 3:
             r.last_renew = time.monotonic()
             renew = q.renew_helper if r.claim.get("helper") else q.renew
-            if not renew(conn, self.schema, r.claim["id"], r.claim["token"], lease_s=self.rules.lease_seconds):
+            args = (conn, self.schema, r.claim["id"], r.claim["token"])
+            try:
+                ok = renew(*args, lease_s=self.rules.lease_seconds)
+            except Exception as e:  # noqa: BLE001 — the database went away (a switchover moves its address)
+                ok = None
+                self.log(f"row {r.claim['id']}: renewal failed ({type(e).__name__}); dialling the database again")
+                if hasattr(conn, "redial"):
+                    try:
+                        conn.redial()
+                        ok = renew(*args, lease_s=self.rules.lease_seconds)
+                    except Exception:  # noqa: BLE001
+                        ok = None
+            if ok is None:
+                # unconfirmed: keep the child while the lease the database granted can still be running (a
+                # takeover is 30 to 40 s), retrying every few seconds; once the row is reaped its token changes and
+                # the database refuses the renewal, so a child never runs beside another worker's claim
+                if time.monotonic() - r.renewed_ok < self.rules.lease_seconds - 2 * RENEW_RETRY_S:
+                    r.last_renew = time.monotonic() - self.rules.lease_seconds / 3 + RENEW_RETRY_S
+                    return True
+                ok = False
+            if not ok:
                 self.log(f"row {r.claim['id']}: lease lost; stopping the child(ren)")
                 r.lost = True
                 return False
+            r.renewed_ok = time.monotonic()
         return True
 
     def _run_one(self, conn, r: Running, piece: dict | None) -> runner.Result:
@@ -751,7 +800,7 @@ class Worker:
     def _run_job(self, r: Running) -> None:
         conn = None
         try:
-            conn = self._connect()
+            conn = Redial(self._connect)
             jt, claim = r.jt, r.claim
             r.rerun = q.raise_for_row(conn, self.schema, claim["id"])
             if claim.get("helper"):
@@ -800,6 +849,7 @@ class Worker:
             self.log(f"row {r.claim['id']} failed inside the worker:\n" + traceback.format_exc())
             try:
                 if conn:
+                    conn.redial()
                     q.complete(conn, self.schema, r.claim["id"], r.claim["token"], outcome="failed", detail="worker error")
             except Exception:  # noqa: BLE001
                 pass

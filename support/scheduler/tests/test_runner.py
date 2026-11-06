@@ -113,3 +113,28 @@ def test_a_job_runs_at_the_niceness_it_declares():
     assert res.code == min(19, base + 7), "19 is the floor (under the worker's own Nice=5 and a job's 10 it is reached)"
     res = runner.run([_sys.executable, "-c", "import os, sys; sys.exit(os.nice(0))"], deadline_s=20, ceiling_mb=None)
     assert res.code == base
+
+
+def test_a_tick_that_raises_stops_the_child_before_the_error_goes_on():
+    """6 Nov 2026, the first switchover drill: a renewal raised inside tick() and the child ran on, unsupervised,
+    while its row was claimed again."""
+    import os
+    import subprocess
+    kids = []
+
+    def popen(*a, **kw):
+        kids.append(subprocess.Popen(*a, **kw))
+        return kids[0]
+
+    calls = iter([True])
+
+    def tick():
+        if next(calls, None) is None:
+            raise RuntimeError("server closed the connection unexpectedly")
+        return True
+
+    with pytest.raises(RuntimeError):
+        runner.run(py("import time; time.sleep(30)"), deadline_s=30, ceiling_mb=None, tick=tick, popen=popen,
+                   poll_s=0.1, grace_s=2)
+    assert kids and kids[0].poll() is not None, "the child is stopped"
+    assert not os.path.exists(f"/proc/{kids[0].pid}") or kids[0].returncode is not None

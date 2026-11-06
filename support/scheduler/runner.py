@@ -128,27 +128,36 @@ def run(argv: list[str], *, deadline_s: float, ceiling_mb: int | None, query_tim
         return Result(None, 0.0, 0, "failed", f"{type(e).__name__}: {str(e)[:300]}", None)
 
     peak, stopped_for = 0, None
-    while True:
-        try:
-            code = child.wait(timeout=poll_s)
-            break
-        except subprocess.TimeoutExpired:
-            pass
-        now_mb = tree_mb(child.pid, memory_counts)
-        peak = max(peak, now_mb)
-        elapsed = time.monotonic() - t0
-        if ceiling_mb is not None and now_mb > ceiling_mb:
-            stopped_for = "memory"
-        elif elapsed >= deadline_s:
-            stopped_for = "deadline"
-        elif tick is not None and tick() is False:
-            stopped_for = "lease"
-        if stopped_for:
+    try:
+        while True:
+            try:
+                code = child.wait(timeout=poll_s)
+                break
+            except subprocess.TimeoutExpired:
+                pass
+            now_mb = tree_mb(child.pid, memory_counts)
+            peak = max(peak, now_mb)
+            elapsed = time.monotonic() - t0
+            if ceiling_mb is not None and now_mb > ceiling_mb:
+                stopped_for = "memory"
+            elif elapsed >= deadline_s:
+                stopped_for = "deadline"
+            elif tick is not None and tick() is False:
+                stopped_for = "lease"
+            if stopped_for:
+                if log:
+                    log(f"stopping the child: {stopped_for} ({now_mb} MB, {elapsed:.0f}s)")
+                _stop(child, grace_s)
+                code = child.returncode
+                break
+    except BaseException:
+        # whatever failed here (a tick that raised), the child never outlives its supervisor: an orphan runs
+        # without a lease while the row is claimed again (6 November 2026, the first switchover drill)
+        if child.poll() is None:
             if log:
-                log(f"stopping the child: {stopped_for} ({now_mb} MB, {elapsed:.0f}s)")
+                log("stopping the child: its supervisor failed")
             _stop(child, grace_s)
-            code = child.returncode
-            break
+        raise
 
     seconds = round(time.monotonic() - t0, 1)
     if stopped_for == "memory":
