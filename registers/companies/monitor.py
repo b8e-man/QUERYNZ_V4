@@ -291,12 +291,27 @@ def _addr(a: dict) -> dict:
                                   "countryCode", "addressType", "startDate", "endDate")}
 
 
+def no_nul(v):
+    """The value with every NUL character dropped from its strings. Postgres
+    stores no NUL in text or jsonb, and one in a single field stopped the
+    whole run (7 November 2026: an answer's address3 ended in \\u0000; the
+    history failed every day from 5 November). The answer's bytes stay whole
+    in the document store under its sha256; only the reading drops the NUL."""
+    if isinstance(v, str):
+        return v.replace("\x00", "")
+    if isinstance(v, list):
+        return [no_nul(x) for x in v]
+    if isinstance(v, dict):
+        return {no_nul(k): no_nul(x) for k, x in v.items()}
+    return v
+
+
 def read_answer(data: bytes, sha: str, asked_at: str) -> Reading:
     """One entity detail as the register answered it. Every role, holding and
     address is a reading, a private line or a catch-log line; a name the
     register withholds and the e-mail, telephone and website lists are
     private lines (`withheld`; ruling 142)."""
-    raw = json.loads(data)
+    raw = no_nul(json.loads(data))
     nzbn = str(raw.get("nzbn") or "")
     if nzbn_ok(nzbn) != nzbn:
         raise ValueError(f"{sha}: an entity detail with no NZBN")

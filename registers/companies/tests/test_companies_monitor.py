@@ -590,3 +590,14 @@ def test_a_withheld_name_and_the_contact_lists_are_kept_for_the_private_twin():
     assert r.entity["name"] is None
     assert sorted(k for _p, k, _v in r.withheld) == ["emailAddresses", "name withheld", "phoneNumbers", "websites"]
     assert ("entityName", "name withheld", "Example Limited") in r.withheld
+
+
+def test_a_nul_in_the_answer_is_dropped_so_the_run_goes_on():
+    # 7 November 2026: one address field ended in \u0000, Postgres refused it, and the history failed every day from 5 November
+    role = _role("Jane", "Doe", "2019-01-01")
+    role["roleAddress"] = [_addr("RESIDENTIAL", "9 Private Lane\x00")]
+    r, sha = _read(_answer(name="Example\x00 Limited", roles=[role]))
+    assert r.entity["name"] == "Example Limited"
+    stored = [json.dumps(a) for _, _, a in r.private]
+    assert stored and not any("\\u0000" in s for s in stored)
+    assert M.no_nul({"a\x00": ["x\x00y", 1, None]}) == {"a": ["xy", 1, None]}
