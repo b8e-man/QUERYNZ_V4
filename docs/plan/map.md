@@ -6,7 +6,7 @@ This plan was written from a read-only copy of the old repository at commit `2d3
 | --- | --- |
 | node1 | 10.0.0.1. Normally holds the primary database role and the floating database address 10.0.0.10 |
 | node2 | 10.0.0.2. Build sessions run here. Holds the standby database — **the PRIMARY since the 17 October failover; node1 is down and rejoins as the standby** — capture jobs, the Follow the Money app (port 8300) and its publisher (8301) |
-| Third machine | The voter for database takeover. Its address is not known yet; record it in the baseline when it exists |
+| Third machine | `voter`, 192.168.68.57 on the home Wi-Fi (6 November 2026): the voter for database takeover; holds no data. Fedora 44, 4 cores, 7 GB; sleep masked; account `arthur`, both boxes log in by key |
 | Old repository, live | `/home/user/Git Repos/QueryNZ_V3` on node2 (note the space in the path); node1 mirrors it every 15 minutes. **The frozen product runs from this folder.** Touch it only for the changes this plan names |
 | Old repository, reference copy | A second clone at the frozen tag, at a path with no space such as `/home/user/qnz3-ref`, made in step 1. Read old code, carry old tests and run comparisons from this copy, never from the live folder |
 | New repository | QueryNZV4 at `/home/user/querynzv4`. Working copies for sessions sit under `/home/user/querynzv4-work/` |

@@ -55,7 +55,7 @@ The v4 build ports this and adds two things:
 | The survivor's set within 62 GB | Re-sized (Arthur, 6 Nov): the 62 GB dates from 64 GB boxes; both now have 125 GB. Radiance holds 85 GB on each box (n-gram table 47.7 GiB in RAM, host pool 26 GiB), leaving about 40 GB for the primary database, the standing services and the jobs; the survivor's set is measured against that in tranche 6 |
 | Two-way copy of the files | Not started; node2 serves the stores and the work folder over NFS |
 | Watchers ping a box's own address | Not built |
-| Third machine (step 0) | Arthur's; not set up |
+| Third machine (step 0) | On the network 6 Nov: `voter`, 192.168.68.57 (Wi-Fi), Fedora 44, 7 GB, sleep masked, both boxes log in by key; the address to be reserved in the router |
 | Cable card: ignore-carrier and static hostname on both boxes, a board check | node2 done by hand 21 Oct; node1 unchecked; no board check |
 | Archive card: `archive_mode` is off on the primary | Open, Arthur's call |
 
