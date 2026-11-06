@@ -2,37 +2,44 @@
 
 Overwritten at every close; under 3 KB.
 
-**Date:** 2026-11-02, evening NZDT. **Step:** 4 built through 4.4 and 4.9;
-4.5 comparing daily; 5.1 to 5.5 done; 6.1 to 6.3 merged; step 8
-(docs/plan/step-8.md) planned 2 November, parts 8.1 to 8.7 running in
-parallel. **Boxes:** node2 is the estate; node1 offline (Arthur, 25 Oct);
-model reading on node2 alone (ruling 128). **Alarms:** the old ntfy address.
+**Date:** 2026-11-07, 09:00 NZDT. **Process:** ruling 131 (31 Oct) ended
+the plan's gate process; work runs on Arthur's word. **Boxes:** two, both
+take every job (ruling 145); node1 primary on 10.0.0.10 since the drill,
+node2 its streaming standby; the voter on 192.168.68.57. **Alarms:** the
+old ntfy address.
 
 ## Done
 
-- Steps 0 to 3 closed; 4.1 fifteen lanes; links 3.07 M confirmed (29 Oct);
-  board 92 views; the report shape and ten templates; rulings 64 to 130.
-- 2 November (report: docs/research/overnight-2026-11-02.md §24):
-  October companies package published, cut 30 September, with
-  pub.company_insolvencies and pub.retirement_villages (82bb7f2); past
-  roles at 14,000 a night (744298d); the Gazette from DigitalNZ nightly
-  and its office families (58e545e); the REA's decisions (95ec600); the
-  councils' register PDFs queued (row 1159); company starts follow their
-  officers in eight templates (2cc05c9); 8.4: the Insolvency Register and
-  the PPSR surveyed, no open bulk read (484f2d7, two blockers).
+- To 2 November: steps 0 to 3; 4.1 to 4.4, 4.9; 5.1 to 5.5; 6.1 to 6.3;
+  step 8's parts merged (docs/research/overnight-2026-11-02.md).
+- 3 to 5 November: rulings 132 to 144; keep everything, privacy at export
+  (142) swept through the lanes; LINZ whole; the ingest MCP's new fields
+  read (beehive, parliament, courts, diaries, GETS); a refused host stops
+  its lane (141); Papers Past tab on the board.
+- 5 and 6 November: node1 returned, rebuilt as a standby by base backup;
+  the shared work folder and stores over NFS; worker helpers (fbcff15);
+  the takeover machinery: voter, quorum lease, role agents
+  (support/takeover/voter.md).
+- The drill, 6 to 7 November, all three passed: switchover node2 to node1
+  (address gone 2.5 s); node1 crashed, node2 primary in 36 s; node2
+  crashed 07:22, node1 primary in about 38 s with nothing lost (promoted
+  at replay = received), node2 rewound and standby in 3.2 s. Fixes on the
+  way: 16bedb9, 912ef49, 2a26561, 42e3626.
+- The frozen site's release, failed safe at 06:29 on the crash, fired
+  again: 2026-11-07T0727 live 07:40, every check green.
 
 ## Running
 
-- Step 8 (report §25, §26): all merged. Papers Past ingest row 1169
-  running; council minutes row 1170; tonight LINZ 22:30, building
-  practitioners 22:05, minutes capture 22:15; sanctions in build.
-- The bulk ingest of the MCP (ruling 130): the beehive, hansard,
-  parliament and courts readers; `qv4-councillor-interests-read`.
+- Both workers claim every job; the bulk ingest from the MCP; the nightly
+  lanes on their timers.
 
 ## Half-done
 
-- 4.5: the comparison daily since 22 October; the switch after 7 November.
+- node2's takeover scripts at 2a26561: Arthur runs
+  `sudo bash .../scratch/integrator-9d788fb/node1/node2-takeover-reinstall.sh`
+  on node2.
+- 4.5: the comparison daily since 22 October; the switch is open now the
+  election hold is lifted (145).
 - Waits on Arthur: the Insolvency Register API subscription and the PPSR
-  account (8.4's cards); letters (Dunedin, TPK, Police); rulings 69, 75;
-  the 15 unsplittable courts documents; node1's return (fence first,
-  10.0.0.1, never the VIP).
+  account (8.4); letters (Dunedin, TPK, Police); rulings 69, 75; the 15
+  unsplittable courts documents; whether node2 takes the primary back.
