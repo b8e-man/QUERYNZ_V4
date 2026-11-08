@@ -409,6 +409,22 @@ def publish_plan(staged: set, geometry: bool) -> list:
     return out
 
 
+#: the views the publish makes again, the order a reader locks in (view, then table)
+VIEWS_SQL = ("SELECT format('%I.%I', n.nspname, c.relname) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+             "WHERE c.relkind = 'v' AND n.nspname IN ('pub', 'pub_private') AND c.relname LIKE 'linz\\_%' ORDER BY 1")
+
+
+def lock_views_first(conn) -> list:
+    """Lock the lane's published views before its tables. A reader of a view locks the view, then the table under it;
+    the publish emptied the table first and re-made the view last, so a reader caught between them held the one and
+    waited on the other (8 November 2026: qv4-linz-load died of the deadlock on pub.linz_titles and linz.titles).
+    Taken first, the reader waits on the view and the publish goes on."""
+    views = [r[0] for r in conn.execute(VIEWS_SQL)]
+    if views:
+        conn.execute(f"LOCK TABLE {', '.join(views)} IN ACCESS EXCLUSIVE MODE")
+    return views
+
+
 def publish(conn, staging: str, log=print) -> None:
     """The staged sources replace the lane's; a source the staging did not load keeps what is published, and so does
     the geometry join's table when this load could not join."""
@@ -417,6 +433,7 @@ def publish(conn, staging: str, log=print) -> None:
                             (f"{private_of(staging)}.title_address_points",)).fetchone()[0]
     plan = publish_plan(staged, geometry)
     with conn.transaction():
+        lock_views_first(conn)
         conn.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
         conn.execute(f"CREATE SCHEMA IF NOT EXISTS {PRIVATE}")
         exists = conn.execute("SELECT to_regclass('linz.loaded_pulls') IS NOT NULL").fetchone()[0]

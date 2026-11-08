@@ -567,3 +567,44 @@ def test_a_row_is_keyed_by_the_service_s_own_id_where_its_sort_column_is_not_one
     rows, aside = R.read_page(body, "tangata_whenua_place_names", "f" * 64, 4)
     assert [r["fid"] for r in rows] == ["1", "2"] and not aside
     assert C.WHOLE["tangata_whenua_place_names"][1] == ("map",)
+
+
+class _Recorder:
+    """Every statement the publish sends, in order; a catalogue the publish asks answers as a lane already loaded."""
+    def __init__(self):
+        self.sent = []
+
+    def transaction(self):
+        import contextlib
+        return contextlib.nullcontext()
+
+    def execute(self, sql, params=None):
+        from registers.linz import load
+        self.sent.append(sql)
+        rows = {load.VIEWS_SQL: [("pub.linz_titles",), ("pub_private.linz_title_addresses",)]}.get(sql)
+        if rows is None and "FROM " in sql and ".loaded_pulls" in sql and sql.lstrip().startswith("SELECT source"):
+            rows = [("titles",)]
+
+        class R:
+            def __iter__(s):
+                return iter(rows or [])
+
+            def fetchone(s):
+                return (rows or [(True,)])[0]
+
+            def fetchall(s):
+                return list(rows or [])
+        return R()
+
+
+def test_the_publish_locks_the_lane_s_views_before_it_empties_a_table(monkeypatch):
+    # 8 November 2026: a reader held pub.linz_titles and waited on linz.titles, which the publish had emptied while it
+    # waited to re-make the view; the deadlock killed qv4-linz-load
+    from registers.linz import load
+    monkeypatch.setattr(load, "private_views", lambda conn: [])
+    conn = _Recorder()
+    load.publish(conn, "linz_stage", log=lambda s: None)
+    lock = next(i for i, q in enumerate(conn.sent) if q.startswith("LOCK TABLE"))
+    assert "pub.linz_titles" in conn.sent[lock] and "ACCESS EXCLUSIVE" in conn.sent[lock]
+    first_write = next(i for i, q in enumerate(conn.sent) if q.split()[0] in ("TRUNCATE", "DROP", "ALTER", "DELETE"))
+    assert lock < first_write
