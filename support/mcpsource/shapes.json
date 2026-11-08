@@ -376,6 +376,9 @@
    "file": [
     "str"
    ],
+   "file_uri": [
+    "str"
+   ],
    "http_headers": [
     "dict"
    ],
@@ -407,6 +410,12 @@
     "int"
    ],
    "sha256": [
+    "str"
+   ],
+   "tender_id": [
+    "str"
+   ],
+   "tender_name": [
     "str"
    ],
    "tender_type": [

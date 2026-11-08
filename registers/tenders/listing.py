@@ -48,7 +48,8 @@ FIELDS = {
     "court": "provider_corpus", "kind": "kind", "url": "url", "content_type": "content_type", "bytes": "page_bytes",
     "sha256": "page_sha256", "path": "provider_path", "file": "provider_file", "http_status": "http_status",
     "fetched_at": "fetched_at", "date": "arrival_date", "updated_at": "updated_at", "http_headers": "http_headers",
-    "capture": "capture",
+    "capture": "capture", "file_uri": "provider_file_uri", "tender_id": "provider_tender_id",
+    "tender_name": "provider_tender_name",
 }
 #: kept in the private twin: the provider's text, the page's block whole
 PRIVATE_FIELDS = {"text": "text", "page_fields": "page_fields"}
@@ -133,7 +134,7 @@ def read_one(sha: str, rec: dict, seq, versions: int, out: Result, loaded_at: st
     for col in ("key", "rfx_id", "tender_name", "buyer", "tender_type", "reference_no", "close_date", "open_date",
                 "categories", "coverage", "prequalifications", "listed_as", "provider_corpus", "kind", "url",
                 "content_type", "page_sha256", "provider_path", "provider_file", "fetched_at", "arrival_date",
-                "updated_at"):
+                "updated_at", "provider_file_uri", "provider_tender_id", "provider_tender_name"):
         row[col] = _str(row[col]) if not isinstance(row[col], (int, float)) else str(row[col])
     for col in ("page_bytes", "http_status"):
         row[col] = _int(row[col])

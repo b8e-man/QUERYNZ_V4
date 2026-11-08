@@ -29,6 +29,9 @@ CREATE TABLE tenders.listing (
     fetched_at              text,
     arrival_date            text,                   -- `date`: the day the provider took it, not the notice's
     updated_at              text,
+    provider_file_uri       text,                   -- `file_uri`: the MCP's address of the record's file (from 5 November 2026)
+    provider_tender_id      text,                   -- `tender_id` (from 5 November 2026)
+    provider_tender_name    text,                   -- `tender_name` (from 5 November 2026; `case_name` stays in tender_name)
     http_headers            jsonb,                  -- the capture's headers, whole (from 4 November 2026)
     capture                 jsonb,                  -- the capture block, whole
     -- the page's own labels (`page_fields`, from 4 November 2026), each as printed
