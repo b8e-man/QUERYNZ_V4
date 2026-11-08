@@ -96,6 +96,19 @@ def record_name(corpus: str, record_id: str) -> str:
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 
 
+def record_url(record: dict):
+    """The record's page address: its `url`, else its capture block's, else the first of its `urls` (the shape of the
+    estate-* corpora, the sources handed over on 5 November 2026: `urls: [{url, via}]`); None where it has none."""
+    for u in (record.get("url"), (record.get("capture") or {}).get("url") if isinstance(record.get("capture"), dict) else None):
+        if isinstance(u, str) and u.startswith(("http://", "https://")):
+            return u
+    for x in record.get("urls") or []:
+        u = x.get("url") if isinstance(x, dict) else x
+        if isinstance(u, str) and u.startswith(("http://", "https://")):
+            return u
+    return None
+
+
 def file_pointer(record: dict):
     """(url, content_type, sha256, bytes) for the file a record points at:
     a `capture` block with a sha256, a content type (the record's or the
@@ -105,7 +118,7 @@ def file_pointer(record: dict):
         return None
     sha = cap.get("sha256")
     ctype = record.get("content_type") or cap.get("content_type")
-    url = record.get("url") or cap.get("url")
+    url = record_url(record)
     if not (isinstance(sha, str) and _SHA.match(sha) and isinstance(ctype, str) and ctype.strip()
             and isinstance(url, str) and url.startswith(("http://", "https://"))):
         return None
@@ -250,7 +263,7 @@ def land_record(conn, corpus: str, record: dict, fetched_at: str, root: str = No
     data = record_bytes(record)
     ref, new = land(data, name=record_name(corpus, str(record["id"])), source=SOURCE, conn=conn, name_kind="file",
                     content_type="application/json", fetched_at=fetched_at, root=root)
-    url = record.get("url")
+    url = record.get("url")      # an estate-* record's page address names its file, never the record's JSON
     if isinstance(url, str) and url.startswith(("http://", "https://")):
         land(data, name=url, source=SOURCE, conn=conn, name_kind="url", content_type="application/json",
              fetched_at=fetched_at, root=root)
@@ -284,7 +297,7 @@ def _land_page(conn, corpus: str, recs: list, shape: dict, root, land, log):
             if log:
                 log(f"mcpsource: {corpus} seq {r['seq']}: not landed ({why[:120]})")
             continue
-        url = r.get("url") if isinstance(r.get("url"), str) else None
+        url = record_url(r)
         arrivals.append((corpus, r["seq"], rid, url, sha, new))
         n["landed" if new else "held"] += 1
         fp = file_pointer(r)

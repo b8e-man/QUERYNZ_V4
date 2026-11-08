@@ -194,6 +194,10 @@ class Stop(RuntimeError):
     """The run stops here: a block, a challenge, the host not answering, or a page not to be trusted."""
 
 
+#: the ingest MCP's copy of this lane's crawl, which `--from-mcp` answers the walk from
+MCP_CORPORA = ("estate-fma",)
+
+
 class Run:
     def __init__(self, tables, *, land_fn, opener=None, clock=None, sleep=None, now=None,
                  budget_s: float = DEFAULT_BUDGET_S, max_items: int = 100000, max_pages: int = 1000,
@@ -372,6 +376,8 @@ def main(argv=None) -> int:
     ap.add_argument("--list", choices=[x.name for x in LISTS], help="walk and fetch this list only")
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", default=SCHEMA)
+    ap.add_argument("--from-mcp", action="store_true",
+                    help="answer the walk from the ingest MCP's copies (estate-fma), never the web (9 November 2026)")
     a = ap.parse_args(argv)
     from support import db, jobrun
     started = jobrun.now()
@@ -382,8 +388,13 @@ def main(argv=None) -> int:
         if not t.try_lock():
             print(f"{SOURCE}: another run holds the lane; this one asks for nothing")
             return 0
-        out = Run(t, land_fn=landing(conn), anytime=a.anytime, max_items=a.max_items, max_pages=a.max_pages,
-                  budget_s=a.budget_s, lists=[x for x in LISTS if a.list in (None, x.name)]).run()
+        mcp = {}
+        if a.from_mcp:      # the crawl is the MCP provider's (the 5 November split); no request leaves the boxes
+            from support.mcpsource import replay
+            mcp = {"opener": replay.opener(conn, MCP_CORPORA), "sleep": lambda s: None, "anytime": True}
+        out = Run(t, land_fn=landing(conn), anytime=mcp.pop("anytime", a.anytime), max_items=a.max_items,
+                  max_pages=a.max_pages, budget_s=a.budget_s, lists=[x for x in LISTS if a.list in (None, x.name)],
+                  **mcp).run()
     ok, last = outcome(out)
     detail = (f"{out['requests']} requests, {out['pages']} listing pages ({out['listed']} listed), "
               f"{out['passes_finished']} passes finished, {out['items']} items tried, {out['landed']} landed, "

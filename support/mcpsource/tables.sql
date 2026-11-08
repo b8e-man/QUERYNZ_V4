@@ -74,3 +74,5 @@ CREATE TABLE IF NOT EXISTS mcpsource.files (
 );
 CREATE INDEX IF NOT EXISTS mcpsource_files_waiting ON mcpsource.files (corpus, seq) WHERE state = 'waiting';
 CREATE INDEX IF NOT EXISTS mcpsource_files_hash ON mcpsource.files (capture_sha256);
+-- a page's copies by address, newest arrival first: what a lane replaying its walk from the MCP reads (replay.py)
+CREATE INDEX IF NOT EXISTS mcpsource_files_url ON mcpsource.files (url, seq DESC);
