@@ -1324,3 +1324,12 @@ and the failover machinery may go ahead now, each sitting still on
 Arthur's word where it needs his hands. Hard limit 20 (the daily release
 keeps running) becomes best effort: the frozen site is kept up where it
 can be, and a gap in it is not a reason to stop this work.
+
+146. Arthur, 9 November, at the planning session: "we should identify
+information of significance on a product by product basis. This means less
+information passed along and less chance of a accidental name link
+polluting a report". Each product's template names the information that is
+significant for its use: which registers, which of their fields, and which
+links may be followed. A report carries only those, and a link it does not
+name is never followed into it. The estate still keeps every source whole
+(ruling 142); the choice is made at the product, one product at a time.
