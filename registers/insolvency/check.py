@@ -36,8 +36,10 @@ def reading(conn, schema: str, ledger_schema: str = capture.SCHEMA, today: dt.da
     elif cur and (today - dt.date.fromisoformat(cur[0])).days > REMOVALS_MAX_AGE_DAYS:
         out.append(f"the removals were last asked to {cur[0]}: more than {REMOVALS_MAX_AGE_DAYS} days ago")
     p = capture.private_of(schema)
-    n = conn.execute(f"SELECT count(*) FROM {schema}.estates WHERE (status ILIKE '%%suppress%%' OR insolvency_type ILIKE "
-                     f"'%%suppress%%') IS DISTINCT FROM suppressed").fetchone()[0]
+    # an empty status or type says nothing (8 November 2026: 315 DRO estates known from the search answer alone carry no
+    # insolvencyStatus, the test was NULL, and NULL is distinct from false: the load was red on rows nothing suppressed)
+    n = conn.execute(f"SELECT count(*) FROM {schema}.estates WHERE (coalesce(status, '') ILIKE '%%suppress%%' OR "
+                     f"coalesce(insolvency_type, '') ILIKE '%%suppress%%') IS DISTINCT FROM suppressed").fetchone()[0]
     if n:
         out.append(f"{n} staged row(s) whose suppression flag is not the register's words")
     n = conn.execute(f"SELECT count(*) FROM {schema}.estates e WHERE e.suppressed AND (e.name <> '' OR e.alternate_names "

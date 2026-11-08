@@ -485,3 +485,15 @@ def test_the_ledger_ddl_runs_once_and_then_waits_on_no_reader(env, monkeypatch):
     ddl = capture.ledger_sql
     monkeypatch.setattr(capture, "ledger_sql", lambda schema=capture.SCHEMA: ddl(schema) + "\n-- changed")
     assert capture.ensure_ledger(Seen(), L) is True
+
+
+def test_an_estate_with_no_status_is_not_red_for_its_suppression_flag(env):
+    """8 November 2026: 315 DRO estates known from the search answer alone carry no insolvencyStatus; the check's test was
+    NULL, NULL is distinct from false, and the load was red on rows nothing suppressed."""
+    _night(env, FakeAPI())
+    capture.run_removals(env.conn, L, today=TODAY, log=lambda *a: None, **_gate(FakeAPI()))
+    _load(env)
+    env.conn.execute(f"UPDATE {STAGE}.estates SET status = NULL WHERE NOT suppressed")
+    assert not any("suppression flag" in p for p in check.reading(env.conn, STAGE, L, TODAY))
+    env.conn.execute(f"UPDATE {STAGE}.estates SET suppressed = true WHERE status IS NULL")
+    assert any("suppression flag" in p for p in check.reading(env.conn, STAGE, L, TODAY))
