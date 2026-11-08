@@ -58,6 +58,8 @@ def test_each_broken_reading_is_caught(name):
 CAPTURE_MUTANTS = {
     "a block not stopping the host": ("            self.blocked[host] = why\n            raise Blocked(why, status)",
                                       "            return None"),
+    "a block not holding the host": ('            fg.hold(host, f"{why} on {url}", by="qv4-grants-capture")\n', ""),
+    "a held host asked": ("        if (held := fg.refused_by(host)) is not None:", "        if False and (held := fg.refused_by(host)):"),
     # "the gate's marks only" left at the merge of fix-support-fetchgate-1 (22 October 2026): the gate now carries the
     # interstitial's marks itself, so a lane that drops MORE_CHALLENGE_MARKS is no longer broken; the lane's copy may go.
     "a blocked page left at the head of the frontier": ("                self.t.frontier_asked(host, url, exc.status)",

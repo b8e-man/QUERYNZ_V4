@@ -86,7 +86,10 @@ def _land(data, *, name, source, name_kind):
     return types.SimpleNamespace(sha256=hashlib.sha256(data).hexdigest()), True
 
 
-def _run(mod, pages, lists, **kw):
+def _run(mod, pages, lists, ledger=None, **kw):
+    import tempfile
+    # each run its own gate ledger: a block holds the host (ruling 141), and the properties below run one after another
+    mod.fg.LEDGER_DIR = ledger or tempfile.mkdtemp(prefix="grants-gate-")   # the root conftest's monkeypatch restores it
     t, clock = FakeTables(), Clock()
     fetch, asked = _site(pages)
     run = mod.Run(t, land_fn=_land, fetch=fetch, clock=clock.now, sleep=clock.sleep, now=lambda: NIGHT,
@@ -135,6 +138,16 @@ def run_properties(mod) -> list:
             broken.append("a challenged page is never landed")
         if not t.frontier.get(f"{CM}/a", {}).get("asked"):
             broken.append(f"a page that blocks ({status}) is marked asked, so the next run does not open on it")
+
+    import tempfile
+    ledger = tempfile.mkdtemp(prefix="grants-gate-")
+    _run(mod, {f"{CM}/": (200, home, ""), f"{CM}/a": (403, b"", "")}, ("lottery-page",), ledger=ledger)
+    if not mod.fg.refused_by(mod.CM_HOST, ledger):
+        broken.append("a block holds the host at the gate (ruling 141)")
+    mod.fg.hold(mod.CM_HOST, "a test's hold", ledger_dir=ledger)
+    out, t, asked, _ = _run(mod, {f"{CM}/": (200, home, "")}, ("lottery-page",), ledger=ledger)
+    if asked or not out["blocked_hosts"]:
+        broken.append("a held host is sent nothing, and the run says so")
 
     out, t, asked, _ = _run(mod, {f"{CM}/": (500, b"", ""), f"{CM}/x": (500, b"", "")}, ("lottery-page",))
     if out["set_aside"] != 1 or out["blocked_hosts"]:
@@ -245,3 +258,20 @@ def test_the_walk_keeps_one_address_per_page():
 def test_a_blocked_host_red_only_when_nothing_landed():
     assert capture.outcome({"blocked_hosts": ["h"], "landed": 0, "already_held": 0, "stopped": "x"})[0] is False
     assert capture.outcome({"blocked_hosts": ["h"], "landed": 1, "already_held": 0, "stopped": "x"})[0] is True
+
+
+def test_a_block_holds_the_host_for_the_next_run_and_the_other_lists_still_run(tmp_path):
+    """3 to 7 November 2026: www.communitymatters.govt.nz answered 403 and the lane asked it again every night; the
+    lane fetches on its own, so the gate never held it (ruling 141: a held host is sent nothing until a person clears)."""
+    ledger = str(tmp_path)
+    home = f'<html><a href="/a">a</a></html>'.encode()
+    out, t, asked, _ = _run(capture, {f"{CM}/": (200, home, ""), f"{CM}/a": (403, b"", "")}, ("lottery-page",),
+                            ledger=ledger)
+    assert out["blocked_hosts"] == [capture.CM_HOST]
+    assert capture.fg.refused_by(capture.CM_HOST, ledger)
+    out, t, asked, _ = _run(capture, {f"{CM}/": (200, home, "")}, ("lottery-page",), ledger=ledger)
+    assert asked == [] and out["blocked_hosts"] == [capture.CM_HOST] and "held by the fetch gate" in out["stopped"]
+    capture.fg.clear(capture.CM_HOST, by="a test", ledger_dir=ledger)
+    out, t, asked, _ = _run(capture, {f"{CM}/": (200, home, ""), f"{CM}/a": (200, _record("Alpha"), "")},
+                            ("lottery-page",), ledger=ledger)
+    assert f"{CM}/" in asked and not out["blocked_hosts"]

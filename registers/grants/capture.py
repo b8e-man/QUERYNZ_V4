@@ -367,6 +367,9 @@ class Run:
         failed read. Raises Blocked on a 403, 429 or challenge, or after three failed reads in a row."""
         if host in self.blocked:
             raise Blocked(self.blocked[host], asked=False)
+        if (held := fg.refused_by(host)) is not None:      # ruling 141: a held host is sent nothing until a person clears it
+            self.blocked[host] = f"held by the fetch gate: {held}"
+            raise Blocked(self.blocked[host], asked=False)
         dec = fg.check(url, positions_dir=POSITIONS)          # a refusal raises fg.Refused and is never caught
         self.pacer.wait(dec.host, max(dec.floor, REST_S if self.failures.get(host) else FLOOR_S))
         self.counts["requests"] += 1
@@ -380,6 +383,10 @@ class Run:
         why = challenged(status, body)
         if why:
             self.aside(url, "fetch", why)
+            # ruling 141 (3 November 2026): a block holds the host for every lane until a person clears it. The lane
+            # fetches on its own, so the gate never saw the 403: www.communitymatters.govt.nz was asked again every
+            # night it blocked (3 to 7 November 2026)
+            fg.hold(host, f"{why} on {url}", by="qv4-grants-capture")
             self.blocked[host] = why
             raise Blocked(why, status)
         return status, body, location
