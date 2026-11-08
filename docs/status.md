@@ -38,6 +38,9 @@ old ntfy address.
   waits on the walk (13,495 of 14,089). Linz: one 502, resumes tonight.
   Courts-load running. Grants: our capture takes the DIA file only
   (5 Nov split); the Lottery records are the MCP provider's to add.
+- 9 Nov: the boxes stopped gathering 9 sources the MCP now gathers itself
+  (3429166); our pull does not take the estate-* corpora yet, so those
+  registers stand as of 9 Nov. 5 more wait on the MCP (copies only).
 
 ## Half-done
 
