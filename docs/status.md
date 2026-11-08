@@ -34,18 +34,18 @@ old ntfy address.
 
 - Both workers claim every job; the bulk ingest from the MCP; the nightly
   lanes on their timers.
-- Source board 10:45: 8 red (disclosures green). Fixed 7d738fc, 692b05c,
-  76ea8c0; 175 caught records re-landed. The rest clear on their clocks
-  (13:00 pull; tonight's captures); building practitioners waits on
-  Arthur clearing kete-lbp.mbie.govt.nz.
+- Source board 8 Nov 15:15: 5 red, from 8. Fixed 437a98c (pull),
+  2ede69b (companies), 79ec372 (linz), 970ed4b (insolvency), 468bb11
+  (grants), 409815c (courts-load). Loads re-run now; captures tonight.
+  Grants waits on Arthur: communitymatters.govt.nz blocks (403), held.
 
 ## Half-done
 
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
-  read timed out at 08:00 on 4 to 6 November behind a lock; since 39f35e3 (both boxes) a lock wait is tried again and its holder named; 7
-  November's pair missed by the release's 07:27 re-fire; 3 November's
-  last real day: 2 uncarded, 4,978 new-wrong differences.
+  read timed out 4 to 6 November (fixed 39f35e3; 8 November read in
+  6 s). 8 November refused at the compare gate: a name fold moved
+  $100,000 between two pages of one donor; Arthur's word on --allow-drop.
 - The inbox: all 177 merge requests are on main; nothing waits.
 - Waits on Arthur: the Insolvency Register API subscription and the PPSR
   account (8.4); letters (Dunedin, TPK, Police); rulings 69, 75; the 15
