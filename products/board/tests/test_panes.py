@@ -238,3 +238,22 @@ def test_a_saved_path_and_an_old_address_open_as_the_first_view():
         assert "all=" not in link and "r=" not in link
         assert carried(link) == search.FIRST
     assert boxes_shown(panes.left_pane("doe", HELD, carried("/?q=doe"))) == (True, [])
+
+
+def test_the_sources_are_listed_under_where_they_are_held_and_none_is_dropped():
+    # Arthur, 9 November 2026: the first pane groups the sources by where they are held (the 5 November split)
+    import re
+    from products.board import catalogue as cat, panes, search
+    every = [r for r, _ in cat.REGISTERS + cat.NOT_HELD]
+    assert set(every) == set(cat.SOURCE_HOME)
+    assert {g for g, _, _ in cat.SOURCE_HOME.values()} <= {k for k, _ in cat.SOURCE_GROUPS}
+    html = panes.register_boxes([r for r, _ in cat.REGISTERS], search.FIRST, "q")
+    listed = re.findall(r'<li class="group">([^<]+)</li>|name="r" value="([^"]+)"|disabled> ([^<]+?) <span class="meta">not held', html)
+    shown = [r for _, r, _ in listed if r]
+    assert sorted(shown) == sorted(r for r, _ in cat.REGISTERS)                  # each held register once
+    groups = [g for g, _, _ in listed if g]
+    assert groups == [h for k, h in cat.SOURCE_GROUPS]
+    courts = html[html.index('value="courts"'):]
+    assert courts.index('class="home"') < courts.index("</li>") and "*" in courts[:courts.index("</li>")]
+    mcp_first = html.index(cat.SOURCE_GROUPS[0][1])
+    assert mcp_first < html.index('value="parliament"') < html.index(cat.SOURCE_GROUPS[3][1]) < html.index('value="companies"')

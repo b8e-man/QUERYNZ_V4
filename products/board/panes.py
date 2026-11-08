@@ -73,7 +73,7 @@ code{font-size:12px;word-break:break-all;color:#e8eaed}
 .pane.graph{flex:0 0 64rem;max-width:64rem}
 .pane.graph .picture{overflow-x:auto}
 .pane input[type=search]{width:12rem;padding:.3rem .4rem}
-ul.boxes{list-style:none;padding-left:0;font-size:13px}
+ul.boxes{list-style:none;padding-left:0;font-size:13px}ul.boxes li.group{margin:10px 0 3px;font-weight:600;color:#aab1bc}ul.boxes li.group:first-child{margin-top:4px}ul.boxes .home{font-weight:600}
 label.all{display:block;margin:.5rem 0;font-weight:600}
 .greyed{color:#aab1bc;font-style:italic}
 span.light{display:inline-block;width:0;height:0;border:5px solid;border-radius:50%;margin:0 .35rem 0 .1rem;vertical-align:middle;cursor:help}
@@ -521,6 +521,11 @@ def fmt_marked(value, column: str, words) -> str:
     return fmt(value, column)
 
 
+#: what the marks beside a source mean (catalogue.SOURCE_HOME)
+SIGNS = {"*": "gathered in both places today: the ingest MCP and the boxes",
+         "†": "handed over to the ingest MCP, which does not serve it yet; the boxes still gather it"}
+
+
 def light_dot(lights, register: str) -> str:
     """The source light beside a register: a dot, its reason on hover and in
     words for a screen reader; "" where the page was given no lights."""
@@ -544,19 +549,35 @@ def register_boxes(held_regs: list, boxes, q: str = None, lights: dict = None) -
     out = ['<input type="hidden" name="all" value="0">',
            f'<label class="all"><input type="checkbox" name="all" value="1"{" checked" if boxes.all else ""}> search all</label>',
            '<ul class="boxes">']
-    for register, plain in cat.REGISTERS:
-        if register in held_regs:
+    not_held = {r for r, _ in cat.NOT_HELD}
+
+    def item(register, plain):
+        _, sign, note = cat.SOURCE_HOME.get(register, ("", "", ""))
+        tail = (f' <span class="home" title="{esc(SIGNS[sign])}">{esc(sign)}</span>' if sign else "") + (
+            f' <span class="meta">{esc(note)}</span>' if note else "")
+        if register in held_regs and register not in not_held:
             on = " checked" if register in boxes.ticked else ""
             if q is None:
-                out.append(f'<li><label><input type="checkbox" name="r" value="{esc(register)}"{on}> {light_dot(lights, register)}{esc(plain)}</label></li>')
-            else:
-                out.append(f'<li><label><input type="checkbox" name="r" value="{esc(register)}"{on}></label> '
-                           f'{light_dot(lights, register)}<a class="row" href="{esc(table_href(q, boxes, register))}" title="open the register as a table">{esc(plain)}</a></li>')
-        else:
-            out.append(f'<li class="greyed"><label><input type="checkbox" disabled> {light_dot(lights, register)}{esc(plain)} <span class="meta">not held</span></label></li>')
-    for register, plain in cat.NOT_HELD:
-        out.append(f'<li class="greyed"><label><input type="checkbox" disabled> {light_dot(lights, register)}{esc(plain)} <span class="meta">not held</span></label></li>')
+                return (f'<li><label><input type="checkbox" name="r" value="{esc(register)}"{on}> '
+                        f'{light_dot(lights, register)}{esc(plain)}</label>{tail}</li>')
+            return (f'<li><label><input type="checkbox" name="r" value="{esc(register)}"{on}></label> '
+                    f'{light_dot(lights, register)}<a class="row" href="{esc(table_href(q, boxes, register))}" '
+                    f'title="open the register as a table">{esc(plain)}</a>{tail}</li>')
+        return (f'<li class="greyed"><label><input type="checkbox" disabled> {light_dot(lights, register)}{esc(plain)} '
+                f'<span class="meta">not held</span></label>{tail}</li>')
+
+    # the sources grouped by where they are held (Arthur, 9 November 2026; catalogue.SOURCE_GROUPS), the catalogue's
+    # order within each; a register the placement does not name is listed last, never dropped
+    every = list(cat.REGISTERS) + list(cat.NOT_HELD)
+    groups = list(cat.SOURCE_GROUPS) + [("", "Not placed")]
+    for key, heading in groups:
+        members = [(r, p) for r, p in every if cat.SOURCE_HOME.get(r, ("",))[0] == key]
+        if members:
+            out.append(f'<li class="group">{esc(heading)}</li>')
+            out.extend(item(r, p) for r, p in members)
     out.append("</ul>")
+    out.append('<p class="note">* gathered in both places today. † handed over to the MCP, which does not serve it yet; '
+               "the boxes still gather it.</p>")
     return "".join(out)
 
 

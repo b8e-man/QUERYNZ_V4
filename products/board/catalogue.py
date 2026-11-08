@@ -1725,6 +1725,44 @@ NOT_HELD = (
     ("council_procurement", "Council procurement off GETS (barred by the councils' terms or behind a login; watched)"),
 )
 
+
+#: Where each source is held (Arthur, 9 November 2026), by the split of 5 November 2026: every website crawl and
+#: document download is the ingest MCP provider's; the boxes keep the keyed APIs and the open-data files
+#: (docs/research/mcp-handover-inventory-2026-11-05.md). The first pane lists the registers under these groups, in the
+#: catalogue's order within each. `*`: gathered in both places today. `†`: handed over to the MCP, which does not
+#: serve it yet, so the boxes still gather it. The note says which part the boxes keep where a source is split.
+SOURCE_GROUPS = (
+    ("mcp", "Held through the MCP: served by it"),
+    ("mcp-pending", "Held through the MCP: handed over, the boxes still gather it (†)"),
+    ("mcp-none", "Held through the MCP: loaded once, nothing gathers it"),
+    ("node", "Held on the nodes: APIs and open data"),
+    ("built", "Built here from the others"),
+)
+SOURCE_HOME = {
+    "parliament": ("mcp", "", ""), "hansard": ("mcp", "", ""), "beehive": ("mcp", "", ""),
+    "ministers_diaries": ("mcp", "", ""),
+    "courts": ("mcp", "*", "the JDO and ERA captures still run on the boxes"),
+    "tenders": ("mcp", "*", "the award files from data.govt.nz stay on the boxes"),
+    "charities": ("mcp-pending", "†", ""), "commerce_commission": ("mcp-pending", "†", ""),
+    "fma": ("mcp-pending", "†", ""), "worksafe": ("mcp-pending", "†", ""),
+    "building_practitioners": ("mcp-pending", "†", ""), "real_estate_authority": ("mcp-pending", "†", ""),
+    "iwi_directory": ("mcp-pending", "†", ""), "settlement_commitments": ("mcp-pending", "†", ""),
+    "council_minutes": ("mcp-pending", "†", ""), "councillor_interests": ("mcp-pending", "†", ""),
+    "local_elections": ("mcp-pending", "†", ""), "tenancy_tribunal": ("mcp-pending", "†", ""),
+    "disclosures": ("mcp-pending", "†", "the old estate's capture feeds it"),
+    "candidate_returns": ("mcp-pending", "†", "the old estate's capture feeds it"),
+    "grants": ("mcp-pending", "†", "the Lottery records and society lists; the DIA file stays on the boxes"),
+    "council_procurement": ("mcp-pending", "†", "switched off"),
+    "party_returns": ("mcp-none", "", ""), "parties": ("mcp-none", "", ""), "party_finance": ("mcp-none", "", ""),
+    "house": ("mcp-none", "", ""), "mp_interests": ("mcp-none", "", ""), "expenses": ("mcp-none", "", ""),
+    "party_boards": ("mcp-none", "", ""), "openlaw": ("mcp-none", "", ""), "hdc_decisions": ("mcp-none", "", ""),
+    "companies": ("node", "", ""), "societies": ("node", "", ""), "limited_partnerships": ("node", "", ""),
+    "insolvency": ("node", "", ""), "linz": ("node", "", ""), "overseas_investment": ("node", "", ""),
+    "gazette": ("node", "", ""), "sanctions": ("node", "", ""), "contract_disclosures": ("node", "", ""),
+    "papers_past": ("node", "", "the dump held on node1, loaded on demand"),
+    "links": ("built", "", ""),
+}
+
 #: the plan's reference names registers by use case in one table only, "Not held" (docs/plan/reference/
 #: registers-and-use-cases/not-held.md, its "Serves use cases" column); each of its sources, by the words it
 #: begins with, and the board's registers that hold it, if any lane has built one (ruling 87). A source with
