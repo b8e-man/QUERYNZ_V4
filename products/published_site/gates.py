@@ -184,9 +184,13 @@ def commission(version_dir: str, ctx=None) -> tuple:
     years = (ctx or {}).get("years") or []
     if not years:
         return False, "the window's years are not known to the gate"
+    # a filing that an amended one on the same listing entry (the key without its `/2`) replaces is not money twice
     cur = conn.execute("select party, extract(year from coalesce(given_on, received_on))::int as y, sum(amount)::float, count(*) "
-                       "from pub.disclosures where withdrawn_on is null and coalesce(amendment, '') <> 'amendment withdrawn' "
-                       "and extract(year from coalesce(given_on, received_on)) >= %s group by 1, 2", (years[0],))
+                       "from pub.disclosures d where withdrawn_on is null and coalesce(amendment, '') <> 'amendment withdrawn' "
+                       "and extract(year from coalesce(given_on, received_on)) >= %s "
+                       "and (amendment = 'amended' or not exists (select 1 from pub.disclosures a where a.amendment = 'amended' "
+                       "and a.withdrawn_on is null and regexp_replace(a.key, '/[0-9]+$', '') = regexp_replace(d.key, '/[0-9]+$', ''))) "
+                       "group by 1, 2", (years[0],))
     table = {(r[0], r[1]): (r[2] or 0.0, r[3]) for r in cur}
     shown = {}
     for p in home.get("parties", []):
