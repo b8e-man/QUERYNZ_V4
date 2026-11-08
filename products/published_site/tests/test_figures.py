@@ -135,3 +135,15 @@ def test_one_display_name_is_one_donor_and_the_published_key_is_its_own_form():
     assert len({x.name_key for x in d.values()}) == len(d)
     for x in d.values():
         assert not (set(x.name_key.split()) - set(F.paths.name_key(x.name).split())), x.name_key
+
+
+def test_an_amended_filing_replaces_the_one_beside_it_on_its_listing_entry():
+    # 8 November 2026 (Arthur): one listing entry held a $75,000 form and an amended form whose $80,000 aggregates $5,000
+    # and that same $75,000; both were added and the donor showed $155,000
+    from products.published_site import figures as F
+    rows = [{"key": "ec-listing/2026-07-06/a525f0819b6e", "amount": 75000, "amendment": "none"},
+            {"key": "ec-listing/2026-07-06/a525f0819b6e/2", "amount": 80000, "amendment": "amended"},
+            {"key": "ec-listing/2026-06-18/b8cd9466b937", "amount": 25000, "amendment": "none"},
+            {"key": "ec-listing/2026-06-18/b8cd9466b937/2", "amount": 30000, "amendment": "none"},
+            {"key": "ec-listing/2026-05-01/0000000000aa", "amount": 1, "amendment": "none", "withdrawn_on": "2026-05-02"}]
+    assert [d["amount"] for d in F.live_disclosures(rows)] == [80000, 25000, 30000]

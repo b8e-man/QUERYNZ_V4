@@ -96,9 +96,19 @@ def disclosure_year_basis(d: dict) -> str:
     return "the year of the gift (given_on)" if d.get("given_on") else "the year the Commission received the declaration (no gift date printed)"
 
 
+def listing_entry(key: str) -> str:
+    """The Commission's listing entry a declaration hangs off: its key without the `/2`, `/3` a second document takes."""
+    return re.sub(r"/\d+$", "", key or "")
+
+
 def live_disclosures(rows: list) -> list:
-    """The Commission's declarations that stand: not withdrawn, not an amendment the Commission withdrew."""
-    return [d for d in rows if not d.get("withdrawn_on") and d.get("amendment") != "amendment withdrawn"]
+    """The Commission's declarations that stand: not withdrawn, not an amendment the Commission withdrew, and not a
+    filing that an amended one on the same listing entry replaces. 8 November 2026 (Arthur): an Opportunity Party donor
+    counted $155,000 where he gave $80,000; the entry listed his $75,000 form of 30 June beside the amended form of 29
+    June, whose $80,000 is $5,000 and that same $75,000 aggregated, and both were added."""
+    rows = [d for d in rows if not d.get("withdrawn_on") and d.get("amendment") != "amendment withdrawn"]
+    amended = {listing_entry(d.get("key")) for d in rows if d.get("amendment") == "amended"}
+    return [d for d in rows if d.get("amendment") == "amended" or listing_entry(d.get("key")) not in amended]
 
 
 class Series:
