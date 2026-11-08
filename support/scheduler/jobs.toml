@@ -833,8 +833,8 @@ then = ["qv4-names-party-boards"]   # its names into pub.names (1 November)
 [jobs.qv4-courts-load]
 description = "Courts: rebuild the lane's tables from the MCP's courts corpus (every record a documents row: read, waiting on a reader, set aside or caught), replay the stored text-reader readings, publish pub.court_people and the rest on a green check. Nightly at 04:40 NZDT, after the pull."
 needs = "processor"
-memory_gb = 4.0   # 5 Nov 2026: row 1668 peaked at 3,658 MB with 26,285 records (was 3.0, unmeasured)
-deadline_s = 10800   # 71 min on 4 November (22,402 records, 15:56 and 18:14); stopped at 5400 s on 5 November (row 1606, 26,285 records after the 01:00 pull); 29 min alone (3 November 07:57); a 50 min scratch build on 4 November (18,448 records, pdftotext the cost, load average 7-11); 30 min was overrun at 10:02 beside the Papers Past index
+memory_gb = 7.5   # 8 Nov 2026: row 2308 peaked at 6,734 MB with 49,575 records (5 Nov: 3,658 MB with 26,285; was 4.0)
+deadline_s = 16200   # 8 Nov 2026: stopped at 10,800 s (row 2308, beside the JDO capture landing 4,854 files); 7,779 s alone on 7 November (row 2203). Before: 71 min on 4 November (22,402 records, 15:56 and 18:14); stopped at 5400 s on 5 November (row 1606, 26,285 records after the 01:00 pull); 29 min alone (3 November 07:57); a 50 min scratch build on 4 November (18,448 records, pdftotext the cost, load average 7-11); 30 min was overrun at 10:02 beside the Papers Past index
 query_timeout_s = 600
 class = "due"
 priority = 32   # 85 was taken (integrator); the retired capture job's slot
