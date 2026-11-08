@@ -11,6 +11,7 @@ return's stage (recognise | read | declaration | join), never both, and
 name a Commission file or row the lane could not use or could not answer.
 
     statements(conn=None)     the listing rows and the newest spreadsheet per year, with their catch lines
+    statements_of(l, s)       the same from any files: {year: [(name, take)]}
     build(landed, store, ...) every reading, then the join (a path with no year takes the form's title's): a Build
     load(conn, schema)        all of it into `schema`
     publish(conn, staging)    the staged tables into the lane's own, in one transaction
@@ -68,18 +69,34 @@ def _sha(path: str, conn) -> str:
     return capture.copy_one(path, conn).sha256 if conn is not None else sha256_file(path)
 
 
+def _old_file(path: str, conn):
+    """(name, take) for a file of the old folder: `take()` lands it (when `conn` is given) and gives (sha256, bytes)."""
+    def take():
+        sha = _sha(path, conn)
+        with open(path, "rb") as f:
+            return sha, f.read()
+    return os.path.basename(path), take
+
+
 def statements(conn=None, folder: str = None) -> Statements:
+    """The Commission's listing rows and newest spreadsheets as the old folder holds them, each file landed by hash
+    when `conn` is given (`statements_of`)."""
+    return statements_of({y: [_old_file(p, conn) for p in ps] for y, ps in capture.listing_files(folder).items()},
+                         {y: [_old_file(p, conn) for p in ps] for y, ps in capture.spreadsheet_files(folder).items()})
+
+
+def statements_of(listings: dict, sheets: dict) -> Statements:
     """The Commission's listing rows (de-duplicated across pages kept on different days: rows shift between pages)
-    and, per election, its newest spreadsheet that is a table. Each file is landed by hash when `conn` is given."""
+    and, per election, its newest spreadsheet that is a table. `listings` and `sheets` are {year: [(name, take)]},
+    the sheets oldest version first; `take()` gives the file's (sha256, bytes)."""
     out = Statements()
-    for year, paths in capture.listing_files(folder).items():
+    for year, files in listings.items():
         seen = set()
-        for path in paths:
-            sha = _sha(path, conn)
-            with open(path, encoding="utf-8", errors="replace") as f:
-                rows = commission.listing_rows(f.read())
+        for name, take in files:
+            sha, data = take()
+            rows = commission.listing_rows(data.decode("utf-8", errors="replace"))
             if not rows:
-                out.catch.append((sha, f"{os.path.basename(path)}: a listing page with no table rows (a challenge page "
+                out.catch.append((sha, f"{name}: a listing page with no table rows (a challenge page "
                                        f"the browser kept?)"))
             for i, r in enumerate(rows, 1):
                 k = (r.href, commission.fold(r.surname), commission.fold(r.electorate))
@@ -87,17 +104,15 @@ def statements(conn=None, folder: str = None) -> Statements:
                     continue
                 seen.add(k)
                 out.listing.append((r, sha, f"{sha}/{i}"))
-    for year, paths in capture.spreadsheet_files(folder).items():
-        for path in reversed(paths):                                         # newest version first
-            sha = _sha(path, conn)
-            with open(path, "rb") as f:
-                data = f.read()
+    for year, files in sheets.items():
+        for name, take in reversed(files):                                   # newest version first
+            sha, data = take()
             try:
-                rows = commission.spreadsheet_rows(data, path, year)
+                rows = commission.spreadsheet_rows(data, name, year)
             except commission.NotATable as e:
-                out.catch.append((sha, f"{os.path.basename(path)}: refused: {e}"))
+                out.catch.append((sha, f"{name}: refused: {e}"))
                 continue
-            out.sheets[year] = (sha, os.path.basename(path), rows)
+            out.sheets[year] = (sha, name, rows)
             break
     return out
 
@@ -245,16 +260,23 @@ def insert(conn, schema: str, b: Build, shared: bool = False) -> None:
         conn.execute(f"INSERT INTO {t('set_aside')} (document, stage, reason) VALUES (%s, %s, %s)", (d, stage, reason))
 
 
-def load(conn, schema: str, log=print) -> int:
-    """Every in-window return of the old folder landed by hash, the Commission's statements landed beside them, and
-    the lane's tables built under `schema`. Returns the row count."""
+def load(conn, schema: str, log=print, from_mcp: bool = False) -> int:
+    """Every in-window return landed by hash, the Commission's statements beside them, and the lane's tables built
+    under `schema`. Returns the row count. The files come from the old folder, or with `from_mcp` from the ingest
+    MCP's copies already in our store (`from_mcp.py`; Arthur, 9 November 2026)."""
     started = jobrun.now()
     create_tables(conn, schema)
     wipe(conn, schema)
-    landed = {}
-    for ref, path, _ in capture.copy_all(conn):
-        landed.setdefault(ref.sha256, []).append(path)
-    st = statements(conn)
+    if from_mcp:
+        from registers.candidate_returns import from_mcp as mcp
+        held = mcp.rows(conn)
+        landed = mcp.returns(held)
+        st = statements_of(mcp.listings(held, read_bytes), mcp.sheets(held, read_bytes))
+    else:
+        landed = {}
+        for ref, path, _ in capture.copy_all(conn):
+            landed.setdefault(ref.sha256, []).append(path)
+        st = statements(conn)
     b = build(landed, st, rd.Store(), read_bytes)
     insert(conn, schema, b)
     c = counts(b)
@@ -291,17 +313,18 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="registers.candidate_returns.load")
     ap.add_argument("--database", default="querynz_v4")
     ap.add_argument("--schema", help="build here and stop (a scratch proof); default: stage and publish")
+    ap.add_argument("--from-mcp", action="store_true", help="the files from the ingest MCP's copies, not the old folder")
     a = ap.parse_args(argv)
     from support import db
     with db.connect(db.OWNER_KEY, a.database) as conn:
         conn.execute("SET statement_timeout = '600s'")
         if a.schema:
-            rows = load(conn, a.schema)
+            rows = load(conn, a.schema, from_mcp=a.from_mcp)
             conn.commit()
             print(f"candidate_returns: {rows} rows into {a.database}.{a.schema}")
             return 0
         staging = "staging_candidate_returns_load"
-        load(conn, staging)
+        load(conn, staging, from_mcp=a.from_mcp)
         conn.commit()
         publish(conn, staging)
         conn.commit()

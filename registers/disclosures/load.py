@@ -158,14 +158,28 @@ def load(conn, schema: str, log=print) -> int:
     return counts["rows"]
 
 
-def stage(conn, schema: str, shared: bool = False) -> tuple:
+def mcp_documents(conn, landed: list, aside: list) -> tuple:
+    """build's three arguments from the ingest MCP's copies first, the old folder filling its gaps (from_mcp.py)."""
+    from registers.disclosures import from_mcp
+
+    def fetched_at(sha):
+        row = conn.execute("SELECT to_char(fetched_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS') "
+                           "FROM docs.documents WHERE sha256 = %s", (sha,)).fetchone()
+        return row[0] if row else None
+    return from_mcp.documents(from_mcp.rows(conn), landed, aside, fetched_at)
+
+
+def stage(conn, schema: str, shared: bool = False, from_mcp: bool = False) -> tuple:
     """Capture, build `schema`, and hold it to the lane's check: (green,
     counts, the check's lines). Green is rows read and no difference from
-    the frozen site, nor any form, that a card does not name."""
+    the frozen site, nor any form, that a card does not name. With
+    `from_mcp` the files are the ingest MCP's, the old folder filling its
+    gaps (Arthur, 9 November 2026)."""
     from registers.disclosures import check
     landed, aside = capture.copy_all(conn)
+    docs = mcp_documents(conn, landed, aside) if from_mcp else documents(landed, aside)
     with conn.transaction():
-        counts = build(conn, schema, *documents(landed, aside), shared=shared)
+        counts = build(conn, schema, *docs, shared=shared)
     uncarded, lines = check.verdict(check.held(conn, table(schema, "declarations", shared)),
                                     *check.frozen(), check.carded())
     counts["uncarded"] = uncarded
@@ -180,7 +194,7 @@ def frozen_release() -> str:
     return os.path.basename(os.path.realpath(os.path.dirname(os.path.dirname(check.HOME_JSON))))
 
 
-def job(log=print) -> int:
+def job(log=print, from_mcp: bool = False) -> int:
     """qv4-disclosures-load: stage, check and publish into querynz_v4. A
     load that fails its check publishes nothing and the last published
     rows stay; the staged ones are kept for a look."""
@@ -188,7 +202,7 @@ def job(log=print) -> int:
     started = jobrun.now()
     with db.connect(db.OWNER_KEY, db.LIVE) as conn:
         conn.execute("SET statement_timeout = '600s'")
-        green, counts, lines = stage(conn, STAGING)
+        green, counts, lines = stage(conn, STAGING, from_mcp=from_mcp)
         detail = (f"{counts['rows']} declarations from {counts['listings']} listings, {counts['set_aside']} set aside, "
                   f"{counts['linked']} scans linked; against frozen release {frozen_release()}: {lines[0]}; "
                   f"{counts['uncarded']} differences with no card")
@@ -221,15 +235,16 @@ def main(argv=None) -> int:
     ap.add_argument("--schema")
     ap.add_argument("--database", default="querynz_v4_sample")
     ap.add_argument("--job", action="store_true", help=f"{JOB}: capture, build, check and publish into querynz_v4")
+    ap.add_argument("--from-mcp", action="store_true", help="the ingest MCP's files first, the old folder filling gaps")
     a = ap.parse_args(argv)
     if a.job:
-        return job()
+        return job(from_mcp=a.from_mcp)
     from support import db
     if not a.schema or not a.schema.startswith(("scratch_", "staging_")) or a.database == db.LIVE:
         print("disclosures: a session loads only a scratch or staging schema of the sample database")
         return 2
     with db.connect(db.OWNER_KEY, a.database) as conn:
-        green, counts, lines = stage(conn, a.schema, shared=a.schema.startswith("scratch_"))
+        green, counts, lines = stage(conn, a.schema, shared=a.schema.startswith("scratch_"), from_mcp=a.from_mcp)
     for line in lines:
         print("disclosures: " + line)
     print("disclosures: " + ", ".join(f"{k} {v}" for k, v in counts.items()) + f", into {a.database}.{a.schema}: "
