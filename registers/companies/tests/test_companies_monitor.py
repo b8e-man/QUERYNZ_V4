@@ -601,3 +601,12 @@ def test_a_nul_in_the_answer_is_dropped_so_the_run_goes_on():
     stored = [json.dumps(a) for _, _, a in r.private]
     assert stored and not any("\\u0000" in s for s in stored)
     assert M.no_nul({"a\x00": ["x\x00y", 1, None]}) == {"a": ["xy", 1, None]}
+
+
+def test_a_null_in_an_address_list_is_passed_over_so_the_run_goes_on():
+    # 8 November 2026: a role's roleAddress list held a null and qv4-companies-history stopped on it
+    role = _role("Jane", "Doe", "2019-01-01")
+    role["roleAddress"] = [None, _addr("RESIDENTIAL", "9 Private Lane")]
+    r, sha = _read(_answer(roles=[role], addresses=[None, _addr("REGISTERED")]))
+    assert [p for p, _, _ in r.private] == ["roles[0].roleAddress[1]"]
+    assert len(r.roles) == 1 and len(r.offices) == 1

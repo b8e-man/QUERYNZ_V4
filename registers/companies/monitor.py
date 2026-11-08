@@ -346,6 +346,8 @@ def read_answer(data: bytes, sha: str, asked_at: str) -> Reading:
                         "start": day_of(role.get("startDate")), "end": day_of(role.get("endDate")),
                         "suppressed": bool(role.get("suppressed") or p.get("suppressed"))})
         for j, a in enumerate(role.get("roleAddress") or []):
+            if not isinstance(a, dict):    # 8 Nov 2026: the register served a null in the list; it carries nothing
+                continue
             r.private.append((f"{place}.roleAddress[{j}]", "role", _addr(a)))
         if role.get("roleAsicAddress"):
             r.private.append((f"{place}.roleAsicAddress", "role", role["roleAsicAddress"]))
@@ -357,6 +359,8 @@ def read_answer(data: bytes, sha: str, asked_at: str) -> Reading:
         _holding(r, f"historicShareholder[{i}]", h, None, None, current=False)
     for i, a in enumerate((raw.get("addresses") or {}).get("addressList") or []):
         place = f"addresses[{i}]"
+        if not isinstance(a, dict):
+            continue
         if kind in OFFICE_SHOWN and a.get("addressType") == "REGISTERED":
             r.offices.append({"place": place, "uid": a.get("uniqueIdentifier"), "start": day_of(a.get("startDate")),
                               "end": day_of(a.get("endDate")), "care_of": a.get("careOf"),
