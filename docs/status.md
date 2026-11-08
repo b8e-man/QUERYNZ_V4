@@ -34,18 +34,19 @@ old ntfy address.
 
 - Both workers claim every job; the bulk ingest from the MCP; the nightly
   lanes on their timers.
-- Source board 9 Nov 06:45: 4 red. Companies green (2ede69b proven),
-  insolvency capture green (970ed4b); its load's NULL check fixed 5bfd50b,
+- Source board 9 Nov 09:10: 4 red. Insolvency check fixed 5bfd50b,
   waits on the walk (13,495 of 14,089). Linz: one 502, resumes tonight.
-  Courts-load running (4.5 h limit). Grants: host held, waits on Arthur.
+  Courts-load running. Grants: our capture takes the DIA file only
+  (5 Nov split); the Lottery records are the MCP provider's to add.
 
 ## Half-done
 
 - 4.5: the comparison daily since 22 October; the switch is open now the
   election hold is lifted (145). 0 clean days of 19: the site build's
   read timed out 4 to 6 November (fixed 39f35e3; 8 November read in
-  6 s). 8 November refused at the compare gate: a name fold moved
-  $100,000 between two pages of one donor; Arthur's word on --allow-drop.
+  6 s). 9 November 09:00 built, every gate green, --allow-drop on
+  Arthur's word: a name fold, and 5ac0ea5 (an amended EC form beside the
+  one it amends was added twice; one Opportunity donor, $75,000).
 - The inbox: all 177 merge requests are on main; nothing waits.
 - Waits on Arthur: the Insolvency Register API subscription and the PPSR
   account (8.4); letters (Dunedin, TPK, Police); rulings 69, 75; the 15
