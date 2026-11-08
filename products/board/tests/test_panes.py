@@ -253,7 +253,7 @@ def test_the_sources_are_listed_under_where_they_are_held_and_none_is_dropped():
     assert sorted(shown) == sorted(r for r, _ in cat.REGISTERS)                  # each held register once
     groups = [g for g, _, _ in listed if g]
     assert groups == [h for k, h in cat.SOURCE_GROUPS]
-    courts = html[html.index('value="courts"'):]
-    assert courts.index('class="home"') < courts.index("</li>") and "*" in courts[:courts.index("</li>")]
+    tenders = html[html.index('value="tenders"'):]
+    assert tenders.index('class="home"') < tenders.index("</li>") and "*" in tenders[:tenders.index("</li>")]
     mcp_first = html.index(cat.SOURCE_GROUPS[0][1])
     assert mcp_first < html.index('value="parliament"') < html.index(cat.SOURCE_GROUPS[3][1]) < html.index('value="companies"')

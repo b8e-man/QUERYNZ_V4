@@ -903,6 +903,7 @@ nice = 10
 then = ["qv4-names-limited-partnerships"]   # its names into pub.names (1 November)
 
 [jobs.qv4-building-practitioners-capture]
+enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-building_practitioners: 4,002 arrivals in the last 24 h, its newest 20 records fetched by the provider); the boxes stop (the 5 November split)
 description = "Step 5.3: the Building Practitioners Board's published decisions list (about 80 pages) and its documents, through the fetch gate 5 s apart, each fetched once. The spec asks for Sunday 23:00 NZDT weekly; the catalogue has no weekday, so it runs nightly at 23:00 NZDT (about 7 minutes) until the lane or the scheduler carries the day."
 needs = "processor"
 memory_gb = 0.2
@@ -915,6 +916,7 @@ at_utc = "10:00"
 nice = 10
 
 [jobs.qv4-building-practitioners-register-capture]
+enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-building_practitioners: 4,002 arrivals in the last 24 h, its newest 20 records fetched by the provider); the boxes stop (the 5 November split)
 description = "Step 5.3, ruling 132: the register of licensed building practitioners through its own public search, the fetch gate 5 s apart, off-peak: its 26 searches (7 licence classes, 19 areas of practice) weekly, then each listed practitioner's page once and again after 90 days, up to about 4,000 a night until all are held. Stops at 06:00 NZDT (off-peak's end) or on a block."
 needs = "processor"
 memory_gb = 0.3
@@ -1023,6 +1025,7 @@ nice = 10
 # ── step 5.3, the regulator actions (regulators-1; card the-regulator-lanes-jobs-into-the-catalogue). The clock is NZDT (UTC+13) until 5 April 2027. ──
 
 [jobs.qv4-commerce-commission-capture]
+enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-commerce_commission: 3,007 records, newest 8 Nov, its newest 20 fetched by the provider); the boxes stop (the 5 November split)
 description = "Step 5.3: the Commerce Commission's case register (listing and each case's details), through the fetch gate 5 s apart; a full pass of the listing weekly, then the changed items only. Nightly at 22:30 NZDT, at most 4 hours."
 needs = "processor"
 memory_gb = 0.3
@@ -1048,6 +1051,7 @@ nice = 10
 then = ["qv4-names-commerce-commission"]   # its names into pub.names (1 November)
 
 [jobs.qv4-fma-capture]
+enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-fma: 1,072 records (ours 969), 104 arrivals in the last 24 h, fetched by the provider); the boxes stop (the 5 November split)
 description = "Step 5.3: the Financial Markets Authority's warnings, alerts and enforcement cases, through the fetch gate 5 s apart; a full pass of the listing weekly, then the changed items only. Nightly at 23:00 NZDT, at most 4 hours."
 needs = "processor"
 memory_gb = 0.3
@@ -1073,6 +1077,7 @@ nice = 10
 then = ["qv4-names-fma"]   # its names into pub.names (1 November)
 
 [jobs.qv4-worksafe-capture]
+enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-worksafe: 1,439 records (ours 772), newest 8 Nov, fetched by the provider); the boxes stop (the 5 November split)
 description = "Step 5.3: WorkSafe New Zealand's court summaries and enforceable undertakings, through the fetch gate 5 s apart; a full pass of the listing weekly, then the changed items only. Nightly at 23:30 NZDT, at most 4 hours."
 needs = "processor"
 memory_gb = 0.3
@@ -1229,6 +1234,7 @@ enabled = false   # ruling 136 (3 November 2026): the councils' own award lists 
 
 # ── step 6.3, the councils lanes (councils-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
 [jobs.qv4-council-minutes-capture]
+enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-council_minutes: newest 8 Nov 22:49, 40 of its newest 40 fetched by the provider (19 we never held)); the boxes stop (the 5 November split)
 description = "Step 6.3: the InfoCouncil councils' meeting listings (each at most weekly) and every minutes PDF they name, once, 5 s apart, off-peak; the old estate's 347 held PDFs copied by hash where its file is on this box, else the council's own copy fetched once (2 November 2026: none of the old files is here; about 30 minutes at 5 s apart on the next night). About 600 PDFs the first nights, then tens a week. Stops at 06:00 NZDT or its budget."
 needs = "processor"
 memory_gb = 0.3
@@ -1252,6 +1258,7 @@ priority = 78
 deadline_s = 2700   # 2 November 2026: the load reads every landed minutes PDF's text layer (616, about 10 minutes)
 
 [jobs.qv4-councillor-interests-capture]
+enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-councillor_interests: 563 records (ours 447), newest 8 Nov, its newest 20 fetched by the provider); the boxes stop (the 5 November split)
 description = "Step 6.3: each council's register landing page monthly and every register document it links once, 5 s apart (or the site's crawl delay), off-peak; three councils held on their terms, blocked sites held. About 400 requests the first night, a few a night after."
 needs = "processor"
 memory_gb = 0.3
@@ -1324,6 +1331,7 @@ concurrency = 4
 
 # ── step 6.3, local election candidate returns (local-elections-1). The clock is NZDT (UTC+13) until 5 April 2027. ──
 [jobs.qv4-local-elections-listings]
+enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-local_elections: 4,680 records (ours 2,261), 78 arrivals in the last 24 h); the boxes stop (the 5 November split)
 description = "Step 6.3: every council returns page listings.tsv seeds (66 pages, 43 councils on 22 October 2026, and their sub-listings two deep), asked once each, 5 s apart or each robots file's crawl delay, landed by hash and read for the returns they link (each new one recorded as wanted). Due daily at 22:10 NZDT; the pass itself refuses to start under a week after the last finished one and outside 22:00 to 06:00, so it runs weekly, off-peak, and the other days cost no request. About 150 requests, about 20 minutes."
 needs = "processor"
 memory_gb = 0.3
@@ -1336,6 +1344,7 @@ at_utc = "09:10"
 nice = 10
 
 [jobs.qv4-local-elections-files]
+enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-local_elections: 4,680 records (ours 2,261), 78 arrivals in the last 24 h); the boxes stop (the 5 November split)
 description = "Step 6.3: each wanted return (a council's candidate return of electoral donations and expenses, PDF, Word or a scan) asked once ever, oldest election first, 5 s apart or the crawl delay, landed by hash and HELD, not read (ruling 79). Daily at 22:20 NZDT; it stops at 06:00 and resumes the next night; a host that blocks or challenges is not asked again that night. About 2,000 files at the first runs (about four nights), then only what the weekly listings add."
 needs = "processor"
 memory_gb = 0.5
@@ -1908,6 +1917,7 @@ requires = ["ionice"]
 nice = 15
 
 [jobs.qv4-courts-jdo-capture]
+enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-courts-jdo: 3,796 arrivals in the last 24 h, its newest 40 fetched by the provider at other times than ours); the boxes stop (the 5 November split)
 description = "Courts, the estate's own capture of what the MCP lacks (ruling 140, tranche 1): Judicial Decisions Online's JSON listing at www.justice.govt.nz, every court the taxonomy names, one year at a time (the listing's 10,000 cap), each decision's PDF landed by hash (source courts-jdo) unless the MCP already landed its address; the ledger courts.own_files and the cursor courts.own_cursor are never wiped. One gated request at least 5 s apart, 22:00 to 06:00 NZDT only; a 403, 429, 5xx, challenge, reset or a non-PDF stops the run, a 404 is recorded and passed. The back catalogue (about 47,000 decisions) takes about nine nights; then each night the current and last year's newest pages. Once JDO's walk reaches its end for the night, the same run walks the Ministry's decisions finder on the same host with what is left of the budget (tranche 2: 22 jurisdictions, 25 a page, source courts-finder, about 15,000 decisions over about three nights; then each night each jurisdiction's newest page). The 04:40 courts load reads what has landed by then (a job with a clock of its own is not queued by another)."
 needs = "processor"
 memory_gb = 0.3   # measured 3 November 2026: 47 MB peak RSS on the daytime trial (10 requests; the MCP's courts addresses held in a set, one PDF at a time)
@@ -1920,6 +1930,7 @@ at_utc = "09:00"
 nice = 10
 
 [jobs.qv4-courts-era-capture]
+enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-courts-era: 6,406 arrivals in the last 24 h (ours 4,141 documents), its newest 40 never held by us); the boxes stop (the 5 November split)
 description = "Courts, the estate's own capture of what the MCP lacks (ruling 140, tranche 3): the Employment Relations Authority's determinations at determinations.era.govt.nz, its own search form a year at a time (10 a page, newest first, 2000 to now), each determination's PDF landed by hash (source courts-era) unless the MCP already landed its address; the same ledger and cursor as the JDO capture, never wiped. Its own host, so it runs the same nights beside the JDO capture: one gated request at least 5 s apart, 22:00 to 06:00 NZDT only; a 403, 429, 5xx, challenge, reset, a page that is not the Authority's results, or a non-PDF stops the run, a 404 is recorded and passed. The back catalogue (about 21,700 determinations, about 23,000 requests) takes about four nights; then each night this year's and last year's newest pages. The 04:40 courts load reads what has landed by then."
 needs = "processor"
 memory_gb = 0.3   # unmeasured on its own: the JDO capture's figure (47 MB peak on its trial); measured on the trial below
