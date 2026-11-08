@@ -34,10 +34,10 @@ old ntfy address.
 
 - Both workers claim every job; the bulk ingest from the MCP; the nightly
   lanes on their timers.
-- Source board 8 Nov 15:15: 5 red, from 8. Fixed 437a98c (pull),
-  2ede69b (companies), 79ec372 (linz), 970ed4b (insolvency), 468bb11
-  (grants), 409815c (courts-load). Loads re-run now; captures tonight.
-  Grants waits on Arthur: communitymatters.govt.nz blocks (403), held.
+- Source board 9 Nov 06:45: 4 red. Companies green (2ede69b proven),
+  insolvency capture green (970ed4b); its load's NULL check fixed 5bfd50b,
+  waits on the walk (13,495 of 14,089). Linz: one 502, resumes tonight.
+  Courts-load running (4.5 h limit). Grants: host held, waits on Arthur.
 
 ## Half-done
 
