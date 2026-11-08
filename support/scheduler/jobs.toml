@@ -1051,15 +1051,14 @@ nice = 10
 then = ["qv4-names-commerce-commission"]   # its names into pub.names (1 November)
 
 [jobs.qv4-fma-capture]
-enabled = false   # 9 November 2026 (Arthur): the ingest MCP gathers this source itself, checked that day (estate-fma: 1,072 records (ours 969), 104 arrivals in the last 24 h, fetched by the provider); the boxes stop (the 5 November split)
-description = "Step 5.3: the Financial Markets Authority's warnings, alerts and enforcement cases, through the fetch gate 5 s apart; a full pass of the listing weekly, then the changed items only. Nightly at 23:00 NZDT, at most 4 hours."
+description = "Step 5.3: the Financial Markets Authority's warnings, alerts and enforcement cases. From 9 November 2026 the walk is answered from the ingest MCP's copy (estate-fma, taken by qv4-mcp-pull), never the web; a full pass of the listing weekly, then the changed items only. Nightly at 23:00 NZDT, at most 4 hours."
 needs = "processor"
 memory_gb = 0.3
 deadline_s = 18000
 query_timeout_s = 60
 class = "due"
 priority = 63
-command = ["python", "-m", "registers.fma.capture"]
+command = ["python", "-m", "registers.fma.capture", "--from-mcp"]   # 9 November 2026 (Arthur): the crawl is the MCP provider's; proven that day (857 addresses answered, 801 of 804 entries, the 3 its undownloadable files and a take-down history explain)
 at_utc = "10:00"
 nice = 10
 
@@ -1419,7 +1418,7 @@ command = ["python", "-m", "support.mcpsource", "--budget-s", "12600", "--corpus
            "--corpus", "beehive", "--corpus", "parliament-wayback", "--corpus", "parliament-written-questions",
            "--corpus", "parliament-bills", "--corpus", "parliament-diaries", "--corpus", "parliament-hansard-index",
            "--corpus", "parliament-hansard-debates", "--corpus", "parliament-bills-historical", "--corpus", "parliament-sops",
-           "--corpus", "parliament-sc-reports", "--corpus", "parliament-sc-submissions", "--corpus", "courts"]
+           "--corpus", "parliament-sc-reports", "--corpus", "parliament-sc-submissions", "--corpus", "courts", "--corpus", "estate-fma", "--corpus", "estate-worksafe", "--corpus", "estate-commerce_commission", "--corpus", "estate-councillor_interests", "--corpus", "estate-building_practitioners", "--corpus", "estate-local_elections", "--corpus", "estate-council_minutes", "--corpus", "estate-courts-jdo", "--corpus", "estate-courts-era"]
 then = ["qv4-courts-read"]   # the reader reads what the pull lands; it never waited on a green load (3 November: a red load left 6,447 unread)
 every_s = 21600   # every six hours from 31 October (Arthur: the MCP is gathered continuously); was nightly 02:30 NZDT
 nice = 10
