@@ -1132,7 +1132,10 @@ deadline_s = 18000
 query_timeout_s = 60
 class = "due"
 priority = 69
-command = ["python", "-m", "registers.grants.capture"]
+# 9 November 2026 (Arthur, the 5 November split: website crawls go to the ingest MCP, the boxes keep the APIs): the
+# national file from data.govt.nz only. The Lottery records of grants (Community Matters, which blocks us and is held)
+# and the societies' own lists are the MCP provider's, handed over in docs/research/mcp-handover-inventory-2026-11-05.md
+command = ["python", "-m", "registers.grants.capture", "--list", "dia-file"]
 at_utc = "09:45"
 nice = 10
 
