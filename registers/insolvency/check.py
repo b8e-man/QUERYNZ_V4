@@ -26,7 +26,7 @@ _FORBIDDEN = ("address", "birth", "street", "suburb", "postcode")
 def reading(conn, schema: str, ledger_schema: str = capture.SCHEMA, today: dt.date = None) -> list:
     today = today or capture.now_nz().date()
     out = []
-    conn.execute(capture.ledger_sql(ledger_schema))
+    capture.ensure_ledger(conn, ledger_schema)
     held = conn.execute(f"SELECT count(*) FROM {ledger_schema}.search_seen").fetchone()[0] + conn.execute(
         f"SELECT count(DISTINCT estate) FROM {ledger_schema}.calls WHERE why IN ('detail', 'lookup') AND estate NOT IN "
         f"(SELECT estate FROM {ledger_schema}.search_seen)").fetchone()[0]

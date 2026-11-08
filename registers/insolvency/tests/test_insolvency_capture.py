@@ -466,3 +466,22 @@ def test_no_re_asks_in_the_wednesday_maintenance(env):
     out = _removals(env, api, now=lambda: wed)
     assert out["ok"] and out["named"] == 1 and out["asked_again"] == 0 and "maintenance" in out["stopped"]
     assert _detail_asks(api, 1001) == 0
+
+
+def test_the_ledger_ddl_runs_once_and_then_waits_on_no_reader(env, monkeypatch):
+    """7 November 2026: the night's capture ran the ledger's DDL first, its ALTER ... ADD COLUMN IF NOT EXISTS waited
+    on the table's exclusive lock behind a reader, and the run was cancelled at its 300 s limit before its first call.
+    Once applied, only the catalogue is read (no lock on a table); a changed DDL is applied again."""
+    sent = []
+
+    class Seen:
+        def execute(self, sql, params=None):
+            sent.append(sql)
+            return env.conn.execute(sql, params)
+    assert capture.ensure_ledger(Seen(), L) is True
+    sent.clear()
+    assert capture.ensure_ledger(Seen(), L) is False
+    assert sent and all(q.lstrip().startswith("SELECT obj_description") for q in sent), sent
+    ddl = capture.ledger_sql
+    monkeypatch.setattr(capture, "ledger_sql", lambda schema=capture.SCHEMA: ddl(schema) + "\n-- changed")
+    assert capture.ensure_ledger(Seen(), L) is True

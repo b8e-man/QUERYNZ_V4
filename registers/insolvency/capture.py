@@ -103,6 +103,32 @@ def ledger_sql(schema: str = SCHEMA) -> str:
     return sql.split("-- the reading: rebuilt whole by every load")[0]
 
 
+def ledger_stamp(schema: str = SCHEMA) -> str:
+    import hashlib
+    return "insolvency ledger ddl " + hashlib.sha256(ledger_sql(schema).encode()).hexdigest()[:16]
+
+
+def ensure_ledger(conn, schema: str = SCHEMA) -> bool:
+    """The ledger's tables as ledger_sql declares them; True when the DDL ran. Its ALTER ... ADD COLUMN IF NOT EXISTS
+    takes the table's exclusive lock even where the column is there, so it waited behind any reader of the ledger
+    (7 November 2026: the night's capture cancelled at its 300 s statement limit on that line, before its first call).
+    The DDL runs only when it is not the one applied last: its stamp is the comment on the cursor table, read from the
+    catalogue with no lock on the tables; one job at a time under an advisory lock, the stamp read again once held."""
+    stamp = ledger_stamp(schema)
+
+    def current():
+        row = conn.execute("SELECT obj_description(to_regclass(%s), 'pg_class')", (f"{schema}.cursor",)).fetchone()
+        return bool(row) and row[0] == stamp
+    if current():
+        return False
+    conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"{schema} ledger ddl",))
+    if current():
+        return False
+    conn.execute(ledger_sql(schema))
+    conn.execute(f"COMMENT ON TABLE {schema}.cursor IS '{stamp}'")
+    return True
+
+
 def url_for(path: str, params: dict = None) -> str:
     q = urllib.parse.urlencode({k: v for k, v in (params or {}).items() if v is not None})
     return f"{BASE}{path}" + (f"?{q}" if q else "")
@@ -248,7 +274,7 @@ def run_removals(conn, schema: str = SCHEMA, *, today: dt.date = None, log=print
     re-ask, that estate waits for the next run. Three in a row stop the run, as any refusal, block or status does."""
     today = today or now().date()
     t0 = clock()
-    conn.execute(ledger_sql(schema))
+    ensure_ledger(conn, schema)
     row = conn.execute(f"SELECT value FROM {schema}.cursor WHERE what = 'removals'").fetchone()
     start = dt.date.fromisoformat(row[0]) if row else today - dt.timedelta(days=REMOVALS_MAX_SPAN_DAYS)
     counts = {"calls": 0, "named": 0, "repeated": 0, "flagged": 0, "asked_again": 0, "corrected": 0, "no_answer": 0}
@@ -366,7 +392,7 @@ def run_night(conn, schema: str = SCHEMA, *, budget_s: float = 3300, anytime: bo
     again, both registers; then the details wanted; until the hours, the budget, or a failed read."""
     t0 = time.monotonic()
     today = today or now().date()
-    conn.execute(ledger_sql(schema))
+    ensure_ledger(conn, schema)
     counts = {"calls": 0, "search_pages": 0, "estates_seen": 0, "details": 0, "absent": 0}
 
     def stop():
@@ -431,7 +457,7 @@ def lookup(conn, estates: list, schema: str = SCHEMA, **gate) -> list:
     """On demand: at most LOOKUP_MAX estates' details, now. [(estate, status, landed sha or None)]."""
     if len(estates) > LOOKUP_MAX:
         raise ValueError(f"at most {LOOKUP_MAX}: a lookup is on demand, not a copy")
-    conn.execute(ledger_sql(schema))
+    ensure_ledger(conn, schema)
     out = []
     for e in estates:
         a = call(conn, f"/insolvencies/{int(e)}", {}, "lookup", estate=int(e), schema=schema, **gate)

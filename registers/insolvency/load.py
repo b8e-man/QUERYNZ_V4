@@ -68,7 +68,7 @@ def ledger(conn, schema: str = SCHEMA) -> dict:
     each that gave an answer (a 200), or the latest 404 where none did, absent: {estate: at} a 404 after that answer,
     search: {estate: (at, sha)} the latest search page naming each, removals: {estate: [(seen_at, removed_on)]}}. A
     document withdrawn by the removals before 4 November 2026 is read like any other (ruling 142: a removal is a flag)."""
-    conn.execute(capture.ledger_sql(schema))
+    capture.ensure_ledger(conn, schema)
     estates = dict(conn.execute(f"SELECT estate, register FROM {schema}.search_seen").fetchall())
     removals = {}
     for e, seen, removed_on in conn.execute(f"SELECT estate, seen_at, removed_on FROM {schema}.removals "
