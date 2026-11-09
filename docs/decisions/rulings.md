@@ -1410,3 +1410,11 @@ report with dropdown filters and a base configuration (a party's top 10
 donors by size over the past three years; a liquidator's liquidations not
 followed; a trustee company's directorships wait for a measure of their
 significance); the session's notes stay out of that pane.
+
+159. Arthur, 10 November: the connections pane is on the board's report tab
+only. The councillors' interests lane takes the provider's copy of councils
+that blocked the boxes (mpdc, dunedin, gdc and the rest): the provider's copy
+has a different compliance relationship. The estate needs a system for
+knowing whether the ingest MCP is up to date: each corpus's freshness against
+its source's cadence, on the lights, with a list of stale corpora for the
+provider; this is how the stale copies are fixed.
