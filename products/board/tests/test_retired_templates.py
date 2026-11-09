@@ -9,7 +9,7 @@ import urllib.request
 import pytest
 
 from products.board import subject_report
-from products.report import template as tpl
+tpl = subject_report.template   # the board reaches the report only through its tab (tests/test_imports_one_way.py)
 
 RETIRED = ("02-legal", "03-banking", "04-agriculture", "05-credit", "06-insurance",
            "07-construction", "08-recruitment", "11-healthcare", "12-property", "13-ownership")
