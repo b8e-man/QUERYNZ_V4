@@ -1,7 +1,7 @@
 # Step 9: The one report
 
 Arthur, 9 November 2026 (rulings 150 to 153). This step is for an integrator
-session (`bin/start-session --main one-report`) to set up as one large build,
+session (`bin/start-session --main integrator`, run in `/home/user/querynzv4` on node2) to set up as one large build,
 in the tranches below. It is a plan: nothing in it has been started.
 
 ## What changes
