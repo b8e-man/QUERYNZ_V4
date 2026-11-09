@@ -1943,13 +1943,14 @@ at_utc = "15:20"
 nice = 10
 
 # ── ruling 160: the old estate's corpora copied in (support/oldcopy, stream J, 10 November 2026) ──
-# Both OFF: the integrator switches them on once stream I's inventory (docs/research/old-estate-inventory.json) is
-# reviewed and the disk is checked (the copies land in querynz_v4 and /mnt/hdd2/qv4-docs, and the off-site copy sends
-# every table of querynz_v4, so a copied table is sent a second time beside its old database).
+# Switched on 10 November 2026 by the integrator: stream I's inventory reviewed (e6b1fa1), the disk checked (about
+# 45 GB of tables into querynz_v4: node1 /home 59%, node2 75%; about 4 GB of files into /mnt/hdd2/qv4-docs). The
+# off-site copy sends the copies with every table of querynz_v4 (ruling 162); the old databases stay in it too until
+# the new estate is proven to hold everything in them.
 
 [jobs.qv4-old-copy-tables]
-enabled = false   # 10 November 2026: on after the inventory is reviewed and the disk checked (integrator)
-description = "Ruling 160: the old estate's database tables copied verbatim into querynz_v4, one piece per NEW or PARTLY table of stream I's inventory (HELD, DERIVED and OUT never; a PARTLY table only its missing key ranges), into old_<database>_private: the old columns and types, the rows unchanged, read through the read-only old login in read-only snapshots and never written there (hard limit 22). In batches of 5,000 rows by key range, each counted and md5-hashed at the source and again in the new table before it commits with its ledger line and cursor (oldcopy_private, never wiped); a disagreement rolls the batch back and fails the piece. A piece stops at 20 minutes or at 05:45 NZDT and the next night resumes from the cursor; a table with no usable key or an old type is refused and recorded. Nightly at 23:50 NZDT."
+enabled = true   # 10 November 2026, integrator: the inventory reviewed, the disk checked
+description = "Ruling 160: the old estate's database tables copied verbatim into querynz_v4, one piece per NEW or PARTLY table of stream I's inventory (HELD, DERIVED and OUT never; a PARTLY table only its missing key ranges), into old_<database>_private: the old columns and types, the rows unchanged, read through the read-only old login in read-only snapshots and never written there (hard limit 22). In batches of 5,000 rows by key range, each counted and md5-hashed at the source and again in the new table before it commits with its ledger line and cursor (oldcopy_private, never wiped); a disagreement rolls the batch back and fails the piece. A piece stops at 20 minutes or at 05:45 NZDT and the next night resumes from the cursor; a table with no usable key is copied whole in one checked batch when it is 1 GB or less, refused when bigger; an old type is refused and recorded. Nightly at 23:50 NZDT."
 needs = "processor"
 memory_gb = 0.3   # measured 10 November 2026 on the sample: 57 MB peak resident copying 100,000 rows of 9.6 kB (about 1 GB) in 20 batches, 8.7 s; COPY is streamed block by block, never held
 deadline_s = 1800   # a piece's own budget is 1,200 s (--budget-s), checked between batches
@@ -1965,7 +1966,7 @@ at_utc = "10:50"
 nice = 15
 
 [jobs.qv4-old-copy-files]
-enabled = false   # 10 November 2026: on after the inventory is reviewed and the disk checked (integrator)
+enabled = true   # 10 November 2026, integrator: the inventory reviewed, the disk checked
 description = "Ruling 160: the old file stores' PDFs and images (an HTML page only where the inventory says its source's rows lost the body) landed into the document store by their bytes, every NEW or PARTLY store of stream I's inventory walked in sorted order from its cursor: a file the store holds already adds a name and no bytes, one already landed under its old path is not read again. 200 files a batch, each file a ledger line (oldcopy_private.files, never wiped), read only from the old folders. Stops at 50 minutes or at 05:45 NZDT and resumes from the cursor the next night. Nightly at 00:50 NZDT."
 needs = "processor"
 memory_gb = 0.6   # not measured on the old stores yet: one file is read whole, and a file over 256 MB is recorded (too-big), never read
@@ -1975,4 +1976,17 @@ class = "whenever"
 priority = 202   # unique (10 November 2026)
 command = ["python", "-m", "support.oldcopy", "files"]
 at_utc = "11:50"
+nice = 15
+
+[jobs.qv4-mcp-gaps]
+description = "Ruling 160: what the old estate held that the ingest MCP lacks, source by source (support/mcpsource/gaps.py): every old document's address or sha256 looked for in our copy of the MCP and, past our pull's cursor, the MCP's `records` (metadata only); a register held as rows compared by count; stream I's inventory adds any source not measured as `unmeasured` and leaves out what it marks OUT. Rewrites /home/user/querynzv4-work/handover/mcp-gaps.md and mcp-gaps.json (schema 1) for the provider; a gap moves to `closed` only when a later run finds nothing missing. Reads only: the old databases through the read-only old login, querynz_v4 through the read login. Daily at 05:20 NZDT, before the old estate's morning."
+needs = "processor"
+memory_gb = 1.0   # 10 November 2026: a full run took 2 m 40 s by hand; the address sets of the largest sources are held in memory
+deadline_s = 1200
+query_timeout_s = 600
+class = "due"
+priority = 203   # unique (10 November 2026)
+command = ["python", "-m", "support.mcpsource.gaps"]
+requires = ["qv4-mcp-tunnel"]   # it reads the MCP's `corpora` and `records` through node2's tunnel
+at_utc = "16:20"
 nice = 15
