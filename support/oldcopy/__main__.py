@@ -29,6 +29,16 @@ def _inv(path):
     return inventory.load(path)
 
 
+def _any_hour(a) -> bool:
+    """--any-hour, or a queued row's args {"any_hour": true} (QV4_ARGS from the worker): a run asked for by day."""
+    import json
+    try:
+        queued = json.loads(os.environ.get("QV4_ARGS") or "{}").get("any_hour") is True
+    except (ValueError, AttributeError):
+        queued = False
+    return bool(a.any_hour) or queued
+
+
 def _stop(any_hour):
     return (lambda: False) if any_hour else (lambda: not off_peak())
 
@@ -64,14 +74,14 @@ def cmd_tables(a) -> int:
                 except T.Refused as exc:
                     print(f"support.oldcopy: {spec.piece} would be refused: {exc}")
             return 0
-        if not a.any_hour and not off_peak():
+        if not _any_hour(a) and not off_peak():
             print("support.oldcopy: outside the off-peak hours; nothing started")
             return 0
         with _new() as dst:
             ensure_ledger(dst)
             dst.commit()
             try:
-                out = T.copy_table(src, dst, spec, rows=a.rows, budget_s=a.budget_s, stop=_stop(a.any_hour))
+                out = T.copy_table(src, dst, spec, rows=a.rows, budget_s=a.budget_s, stop=_stop(_any_hour(a)))
             except T.Refused as exc:
                 print(f"support.oldcopy: {spec.piece} refused: {exc}")
                 return 0                       # recorded; a refusal is a report, not a failed night
@@ -89,10 +99,10 @@ def cmd_files(a) -> int:
         todo = [s for s in todo if s.name == a.store]
     for name, st, why in skipped:
         print(f"skipped store {name} [{st}]: {why}")
-    if not a.any_hour and not off_peak():
+    if not _any_hour(a) and not off_peak():
         print("support.oldcopy: outside the off-peak hours; nothing started")
         return 0
-    stop = _stop(a.any_hour)
+    stop = _stop(_any_hour(a))
     import time
     t0 = time.monotonic()
     with _new() as conn:

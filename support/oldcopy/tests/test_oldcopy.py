@@ -434,3 +434,17 @@ def test_the_consumed_check_blocks_on_everything_not_proven():
     assert C.judge_table("extractions", "v3", "claims", {"status": "DERIVED"}, None, None, None)[0] == "let go"   # 164
     names = {"/r": ["a", "b", "c"], "/r/b": []}
     assert C.uncovered("/r", ["/r/a", "/r/b/deep"], listdir=lambda p: names[p]) == ["b (partly: a store lies inside it)", "c"]
+
+
+def test_a_queued_row_may_ask_for_a_daytime_run(monkeypatch):
+    import argparse
+    from support.oldcopy import __main__ as M
+    a = argparse.Namespace(any_hour=False)
+    monkeypatch.delenv("QV4_ARGS", raising=False)
+    assert M._any_hour(a) is False
+    monkeypatch.setenv("QV4_ARGS", '{"any_hour": true}')
+    assert M._any_hour(a) is True
+    monkeypatch.setenv("QV4_ARGS", '{"any_hour": "yes"}')
+    assert M._any_hour(a) is False
+    monkeypatch.setenv("QV4_ARGS", "[]")
+    assert M._any_hour(a) is False
