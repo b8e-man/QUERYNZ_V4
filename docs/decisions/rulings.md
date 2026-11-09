@@ -1426,3 +1426,7 @@ not kept apart where its database row retains its metadata and body text (checke
 source; a source whose rows did not is kept whole). No second copy of the same content: a
 document is its bytes, and what the new estate holds is not copied again. The two news sources
 set aside by ruling 154 stay out until Arthur's look. Hard limits 18 and 22 hold.
+
+161. Arthur, 10 November, on the two news sources set aside by ruling 154: the NZME
+mastheads (the NZ Herald included) come into the copy of the old estate under ruling 160;
+the recovered news dump held on node1 is left out.
