@@ -497,3 +497,26 @@ def test_an_estate_with_no_status_is_not_red_for_its_suppression_flag(env):
     assert not any("suppression flag" in p for p in check.reading(env.conn, STAGE, L, TODAY))
     env.conn.execute(f"UPDATE {STAGE}.estates SET suppressed = true WHERE status IS NULL")
     assert any("suppression flag" in p for p in check.reading(env.conn, STAGE, L, TODAY))
+
+
+def test_the_api_count_takes_one_night_per_month_never_every_window_asked(env):
+    """9 November 2026: the capture splits a month where the recent window starts, and the split moves nightly; summing
+    every window ever asked read 14,089 said for 13,495 seen on a walk that was whole. One night's windows in a month
+    are summed, and the month takes its largest night; a real shortfall still shows."""
+    capture.ensure_ledger(env.conn, L)
+
+    def asked(day, f, t, total, register="Insolvency"):
+        env.conn.execute(f"INSERT INTO {L}.calls (at, day, why, asked, status, total_items) VALUES (%s, %s, 'search', %s, 200, %s)",
+                         (f"{day}T21:00:00+13:00", day, f"/insolvencies?date-from={f}&date-to={t}&register={register}&page=1&page-size=100", total))
+
+    asked("2026-11-07", "2026-09-01", "2026-09-07", 30)    # night 1: September split at the 8th
+    asked("2026-11-07", "2026-09-08", "2026-09-30", 132)
+    asked("2026-11-08", "2026-09-01", "2026-09-08", 46)    # night 2: split at the 9th, one estate more since
+    asked("2026-11-08", "2026-09-09", "2026-09-30", 117)
+    asked("2026-11-08", "2026-08-01", "2026-08-31", 10)
+    call = env.conn.execute(f"SELECT max(id) FROM {L}.calls").fetchone()[0]
+    for n in range(173):
+        env.conn.execute(f"INSERT INTO {L}.search_seen (estate, register, call) VALUES (%s, 'Insolvency', %s)", (900000 + n, call))
+    assert check.against_api(env.conn, L) == [("Insolvency", 173, 173)], "every window summed would say 335"
+    env.conn.execute(f"DELETE FROM {L}.search_seen WHERE estate >= 900150")
+    assert check.against_api(env.conn, L) == [("Insolvency", 173, 150)]

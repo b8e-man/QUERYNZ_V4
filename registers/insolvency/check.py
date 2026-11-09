@@ -96,13 +96,23 @@ def reading(conn, schema: str, ledger_schema: str = capture.SCHEMA, today: dt.da
 
 
 def against_api(conn, schema: str = capture.SCHEMA) -> list:
-    """[(register, the API's totalItems summed over the latest first page of each month searched, estates seen)]."""
+    """[(register, the API's totalItems for each calendar month searched, summed, estates seen)].
+
+    A month's figure is the largest sum of one night's windows in it. The capture splits a month where the recent
+    window starts (`run_night`: 1-8 September, then 9-30), and the split moves every night; one night's windows never
+    overlap, two nights' do. Before 9 November 2026 every window ever asked was summed (keyed by its date-from and
+    date-to), so September counted 46 + 116 + 140 + 132 + 132 + ... and the walk read 14,089 said for 13,495 seen, red
+    on a walk that was whole (13,498 said, 13,498 seen, counted this way)."""
     out = []
     for (register,) in conn.execute(f"SELECT DISTINCT register FROM {schema}.search_seen").fetchall():
         said = conn.execute(
-            f"SELECT coalesce(sum(t), 0) FROM (SELECT DISTINCT ON (split_part(asked, '&page=', 1)) total_items AS t "
-            f"FROM {schema}.calls WHERE why = 'search' AND status = 200 AND asked LIKE %s AND asked LIKE '%%&page=1&%%' "
-            f"ORDER BY split_part(asked, '&page=', 1), at DESC) x", (f"%register={register}%",)).fetchone()[0]
+            f"WITH win AS (SELECT DISTINCT ON (day, split_part(asked, '&page=', 1)) day, total_items AS t, "
+            f"substring(asked FROM 'date-from=([0-9]{{4}}-[0-9]{{2}})') AS mon FROM {schema}.calls "
+            f"WHERE why = 'search' AND status = 200 AND asked LIKE %s AND asked LIKE '%%&page=1&%%' "
+            f"ORDER BY day, split_part(asked, '&page=', 1), at DESC), "
+            f"night AS (SELECT mon, day, sum(t) AS s FROM win GROUP BY mon, day) "
+            f"SELECT coalesce(sum(m), 0) FROM (SELECT max(s) AS m FROM night GROUP BY mon) x",
+            (f"%register={register}&%",)).fetchone()[0]
         seen = conn.execute(f"SELECT count(*) FROM {schema}.search_seen WHERE register = %s", (register,)).fetchone()[0]
         out.append((register, int(said), seen))
     return out
