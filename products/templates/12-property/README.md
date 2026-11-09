@@ -1,5 +1,7 @@
 # Template 12: property developer due diligence
 
+**Retired (ruling 150, 9 November 2026).** Frozen, not removed: nothing new is built here; it still loads, runs and keeps its tests green. Its checks merge into the one report's combined set in step 9's tranche 6 (ruling 157); its code is deleted once that tranche passes on real data (docs/plan/step-9.md).
+
 Step 5.2, tenth in the plan's order. A subject report (the shape in
 `products/report/`) for an investor or an apartment buyer: who is really
 building this, and what happened to their last projects. Runs on the

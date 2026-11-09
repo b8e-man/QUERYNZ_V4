@@ -1,5 +1,7 @@
 # Template 06: insurance underwriting
 
+**Retired (ruling 150, 9 November 2026).** Frozen, not removed: nothing new is built here; it still loads, runs and keeps its tests green. Its checks merge into the one report's combined set in step 9's tranche 6 (ruling 157); its code is deleted once that tranche passes on real data (docs/plan/step-9.md).
+
 Step 5.2, eighth in the plan's order; runs on WorkSafe's releases and the
 regulators' actions, with the courts and tribunals waiting, and none of
 those is published yet. A subject report (the shape in `products/report/`)

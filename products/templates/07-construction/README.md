@@ -1,5 +1,7 @@
 # Template 07: construction subcontractor vetting and phoenix detection
 
+**Retired (ruling 150, 9 November 2026).** Frozen, not removed: nothing new is built here; it still loads, runs and keeps its tests green. Its checks merge into the one report's combined set in step 9's tranche 6 (ruling 157); its code is deleted once that tranche passes on real data (docs/plan/step-9.md).
+
 Step 5.2, sixth in the plan's order; runs on the Gazette's insolvency
 notices, prohibitions and bankruptcies and the companies register's roles,
 offices and states, with the building practitioners register waiting. A
